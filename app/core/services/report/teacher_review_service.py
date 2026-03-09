@@ -276,7 +276,9 @@ class TeacherReviewService:
             return Result.fail(Errors.not_found(f"Ku {report_uid} not found"))
 
         student_uid = records[0]["student_uid"] or ""
-        logger.info(f"Teacher {teacher_uid} submitted report {report_entity_uid} for Ku {report_uid}")
+        logger.info(
+            f"Teacher {teacher_uid} submitted report {report_entity_uid} for Ku {report_uid}"
+        )
 
         await publish_event(
             self.event_bus,
@@ -390,7 +392,9 @@ class TeacherReviewService:
             return Result.fail(Errors.not_found(f"Ku {report_uid} not found"))
 
         student_uid = records[0]["student_uid"] or ""
-        logger.info(f"Teacher {teacher_uid} requested revision {report_entity_uid} for Ku {report_uid}")
+        logger.info(
+            f"Teacher {teacher_uid} requested revision {report_entity_uid} for Ku {report_uid}"
+        )
 
         await publish_event(
             self.event_bus,

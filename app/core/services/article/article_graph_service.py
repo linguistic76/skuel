@@ -27,12 +27,12 @@ from core.utils.decorators import with_error_handling
 if TYPE_CHECKING:
     from core.models.context_types import ContextualKnowledge
     from core.services.user.unified_user_context import UserContext
-from core.models.curriculum_dto import CurriculumDTO
 from adapters.persistence.neo4j.query import (
     build_metadata_aware_path_query,
     build_relationship_traversal_query,
     build_simple_prerequisite_chain,
 )
+from core.models.curriculum_dto import CurriculumDTO
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_priority_score

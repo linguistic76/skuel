@@ -48,11 +48,11 @@ if TYPE_CHECKING:
     from core.services.analytics_relationship_service import AnalyticsRelationshipService
     from core.services.article.article_graph_service import ArticleGraphService
     from core.services.calendar_service import CalendarService
+    from core.services.relationships import UnifiedRelationshipService
 
     # LpRelationshipService deleted - LP now uses UnifiedRelationshipService
     # LsRelationshipService deleted - LS now uses UnifiedRelationshipService
     from core.services.report import ReportRelationshipService
-    from core.services.relationships import UnifiedRelationshipService
     from core.services.submissions import SubmissionsRelationshipService
     from core.services.user.unified_user_context import UserContext
 

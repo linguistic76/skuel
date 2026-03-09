@@ -11,11 +11,10 @@ Tests timing/scheduling learning and persisted difficulty:
 
 import json
 from datetime import datetime
-from unittest.mock import AsyncMock, MagicMock, PropertyMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from core.constants import LearningLoop
 from core.events.habit_events import HabitCompleted, HabitMissed, HabitStreakBroken
 from core.models.habit.habit import Habit
 from core.services.habits.habits_intelligence_service import HabitsIntelligenceService
@@ -333,9 +332,24 @@ class TestPerformanceAnalyticsLearnedInsights:
     async def test_includes_learned_insights(self):
         backend = _make_backend()
         habits = [
-            _make_habit(uid="h1", learned_difficulty_level="difficult", learned_preferred_hour=8, learned_on_time_rate=0.85),
-            _make_habit(uid="h2", learned_difficulty_level=None, learned_preferred_hour=14, learned_on_time_rate=0.92),
-            _make_habit(uid="h3", learned_difficulty_level=None, learned_preferred_hour=None, learned_on_time_rate=None),
+            _make_habit(
+                uid="h1",
+                learned_difficulty_level="difficult",
+                learned_preferred_hour=8,
+                learned_on_time_rate=0.85,
+            ),
+            _make_habit(
+                uid="h2",
+                learned_difficulty_level=None,
+                learned_preferred_hour=14,
+                learned_on_time_rate=0.92,
+            ),
+            _make_habit(
+                uid="h3",
+                learned_difficulty_level=None,
+                learned_preferred_hour=None,
+                learned_on_time_rate=None,
+            ),
         ]
         backend.find_by.return_value = Result.ok(habits)
 

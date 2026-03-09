@@ -501,7 +501,7 @@ def create_activity_review_ui_routes(
             )
 
         try:
-            result = await activity_report.submit_feedback(
+            result = await activity_report.submit_report(
                 admin_uid=admin_uid,
                 subject_uid=subject_uid,
                 feedback_text=feedback_text,

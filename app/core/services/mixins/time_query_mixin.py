@@ -24,8 +24,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from core.models.protocols import DomainModelProtocol, DTOProtocol
 from adapters.persistence.neo4j.query import build_user_activity_query
+from core.models.protocols import DomainModelProtocol, DTOProtocol
 from core.ports import BackendOperations
 from core.utils.result_simplified import Errors, Result
 

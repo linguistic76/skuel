@@ -520,6 +520,7 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
         )
         if error:
             return error
+        assert choice is not None  # guaranteed by require_owned_entity when no error
 
         options = getattr(choice, "options", []) or []
 
@@ -668,6 +669,7 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
         )
         if error:
             return error
+        assert choice is not None  # guaranteed by require_owned_entity when no error
 
         # Must match Domain enum values in core/models/enums/entity_enums.py
         domains = ["personal", "business", "health", "finance", "social"]

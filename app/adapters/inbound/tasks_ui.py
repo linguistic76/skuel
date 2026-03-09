@@ -578,6 +578,7 @@ def create_tasks_ui_routes(
             task, error = await require_owned_entity(tasks_service.core, uid, user_uid, "Task")
             if error:
                 return error
+            assert task is not None  # guaranteed by require_owned_entity when no error
 
             # Toggle status
             if task.status == EntityStatus.COMPLETED:

@@ -24,9 +24,9 @@ from datetime import UTC, datetime
 from typing import Any
 
 from core.models.askesis.askesis_dto import AskesisDTO
-from core.models.enums.askesis_enums import ConversationStyle, QueryComplexity
 from core.models.entity_dto import EntityDTO as KnowledgeUnitDTO
 from core.models.enums import GuidanceMode, Intent, Personality, ResponseTone
+from core.models.enums.askesis_enums import ConversationStyle, QueryComplexity
 from core.models.query_types import QueryIntent
 from core.models.search_models import FacetSetRequest as FacetSetSchema
 from core.models.search_models import SearchQueryRequest as SearchQuerySchema

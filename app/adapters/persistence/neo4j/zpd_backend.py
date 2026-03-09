@@ -13,9 +13,10 @@ See: docs/roadmap/zpd-service-deferred.md — design rationale
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from neo4j import AsyncDriver
+if TYPE_CHECKING:
+    from neo4j import AsyncDriver
 
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result

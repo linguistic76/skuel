@@ -231,7 +231,7 @@ def create_teaching_ui_routes(
 
         # Fetch feedback history
         feedback_history_section: Any = ""
-        history_result = await teacher_review_service.get_feedback_history(uid)
+        history_result = await teacher_review_service.get_report_history(uid)
         if not history_result.is_error and history_result.value:
             feedback_items = [render_report_item(fb) for fb in history_result.value]
             feedback_history_section = Div(

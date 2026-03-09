@@ -10,8 +10,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
-from core.models.enums.askesis_enums import ConversationStyle, QueryComplexity
 from core.models.enums import Priority
+from core.models.enums.askesis_enums import ConversationStyle, QueryComplexity
 
 
 @dataclass

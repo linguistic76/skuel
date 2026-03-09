@@ -18,7 +18,6 @@ from core.models.askesis.askesis_dto import (
     DomainInteractionDTO,
     GuidanceRecommendationDTO,
 )
-from core.models.enums.askesis_enums import ConversationStyle, QueryComplexity
 from core.models.askesis.askesis_request import (
     AskesisCreateRequest,
     AskesisResponse,
@@ -29,6 +28,7 @@ from core.models.askesis.askesis_request import (
     GuidanceRecommendationCreateRequest,
     GuidanceRecommendationResponse,
 )
+from core.models.enums.askesis_enums import ConversationStyle, QueryComplexity
 from core.models.user.conversation import ConversationSession
 
 # ==========================================================================

@@ -802,9 +802,8 @@ def build_relationship_weight_stats_query(
         ]
 
     # Build property analysis expressions
-    prop_stats = []
-    for prop in weight_properties:
-        prop_stats.append(f"""
+    prop_stats = [
+        f"""
             {{
                 property: '{prop}',
                 min_value: min(r.{prop}),
@@ -812,7 +811,9 @@ def build_relationship_weight_stats_query(
                 avg_value: avg(r.{prop}),
                 count_with_value: sum(CASE WHEN r.{prop} IS NOT NULL THEN 1 ELSE 0 END),
                 count_null: sum(CASE WHEN r.{prop} IS NULL THEN 1 ELSE 0 END)
-            }}""")
+            }}"""
+        for prop in weight_properties
+    ]
 
     prop_stats_str = ",\n            ".join(prop_stats)
 

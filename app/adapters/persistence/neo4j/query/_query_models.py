@@ -16,7 +16,6 @@ from typing import Any
 
 from core.models.query_types import IndexStrategy, QueryIntent
 
-
 # ============================================================================
 # QUERY BUILDING MODELS
 # ============================================================================

@@ -89,9 +89,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from adapters.persistence.neo4j.query import UnifiedQueryBuilder
 from core.models.enums.neo_labels import NeoLabel
 from core.models.protocols import DomainModelProtocol
-from adapters.persistence.neo4j.query import UnifiedQueryBuilder
 from core.models.query_types import QueryIntent
 from core.utils.error_boundary import safe_backend_operation
 from core.utils.logging import get_logger

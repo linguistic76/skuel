@@ -170,17 +170,6 @@ from .domain_protocols import (
     UserContextOperations,
 )
 
-# Report protocols — Report stage of the educational loop
-from .report_protocols import (
-    ActivityReportOperations,
-    ProgressReportOperations,
-    ProgressScheduleOperations,
-    ReportRelationshipOperations,
-    ReviewQueueOperations,
-    SubmissionReportOperations,
-    TeacherReviewOperations,
-)
-
 # Graph protocols - entity relationships (consolidated)
 from .graph_protocols import GraphEntity, GraphEntityBase
 
@@ -227,6 +216,16 @@ from .query_types import (
     ProgressResult,
     TaskUpdatePayload,
     WhereClauseSpec,
+)
+
+# Report protocols — Report stage of the educational loop
+from .report_protocols import (
+    ActivityReportOperations,
+    ProgressReportOperations,
+    ProgressScheduleOperations,
+    ReviewQueueOperations,
+    SubmissionReportOperations,
+    TeacherReviewOperations,
 )
 
 # Knowledge operation protocols

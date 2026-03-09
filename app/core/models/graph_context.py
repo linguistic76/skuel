@@ -17,8 +17,8 @@ from typing import TYPE_CHECKING, Any
 from core.models.enums import Domain
 
 if TYPE_CHECKING:
-    from core.infrastructure.database.schema import SchemaContext
     from adapters.persistence.neo4j.query.cypher_template import QueryOptimizationStrategy
+    from core.infrastructure.database.schema import SchemaContext
 
 
 class RelationshipStrength(str, Enum):

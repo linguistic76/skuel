@@ -25,8 +25,8 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from core.ports import QueryExecutor
     from core.services.ai_service import OpenAIService
-    from core.services.report.activity_report_service import ActivityReportService
     from core.services.insight.insight_store import InsightStore
+    from core.services.report.activity_report_service import ActivityReportService
     from core.services.user.unified_user_context import UserContext
     from core.services.user.user_context_builder import UserContextBuilder
 

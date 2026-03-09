@@ -53,8 +53,7 @@ async def handle_report_submitted(
 
     if result.is_error:
         logger.error(
-            f"Failed to create report notification for student {event.student_uid}: "
-            f"{result.error}"
+            f"Failed to create report notification for student {event.student_uid}: {result.error}"
         )
     else:
         logger.info(

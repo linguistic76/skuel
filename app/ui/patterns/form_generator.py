@@ -37,7 +37,7 @@ logger = get_logger("skuel.components.form_generator")
 
 def _is_union_type(origin: type | None) -> bool:
     """Check if origin is a Union type (handles both typing.Union and PEP 604 X | Y)."""
-    return origin is Union or origin is types.UnionType
+    return origin is Union or origin is types.UnionType  # type: ignore[comparison-overlap]
 
 
 def _unwrap_optional(annotation: type) -> type:

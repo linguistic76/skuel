@@ -30,8 +30,6 @@ Usage:
 """
 
 # Askesis enums - pedagogical companion interaction styles
-from .askesis_enums import ConversationStyle, IntegrationSuccess, QueryComplexity
-
 # Activity enums - priority, confidence, calendar types, and assessment levels
 from .activity_enums import (
     ActivityType,
@@ -43,15 +41,13 @@ from .activity_enums import (
     ProductivityLevel,
     ProgressLevel,
 )
+from .askesis_enums import ConversationStyle, IntegrationSuccess, QueryComplexity
 
 # Choice enums
 from .choice_enums import ChoiceType
 
 # Curriculum enums - learning path and step classification
 from .curriculum_enums import LpType, StepDifficulty
-
-# Finance enums (RecurrencePattern intentionally excluded — conflicts with scheduling_enums)
-from .finance_enums import BudgetPeriod, ExpenseCategory, ExpenseStatus, PaymentMethod
 
 # Entity enums - core identity, lifecycle, and domain classification
 from .entity_enums import (
@@ -67,14 +63,17 @@ from .entity_enums import (
     ProcessorType,
 )
 
+# Finance enums (RecurrencePattern intentionally excluded — conflicts with scheduling_enums)
+from .finance_enums import BudgetPeriod, ExpenseCategory, ExpenseStatus, PaymentMethod
+
 # Goal enums
 from .goal_enums import GoalTimeframe, GoalType, HabitEssentiality, MeasurementType
 
-# Ku enums
-from .ku_enums import KuCategory
-
 # Habit enums
 from .habit_enums import CompletionStatus, HabitCategory, HabitDifficulty, HabitPolarity
+
+# Ku enums
+from .ku_enums import KuCategory
 
 # Learning enums - education, knowledge, and mastery tracking
 from .learning_enums import (
@@ -129,9 +128,6 @@ from .scheduling_enums import (
     TimeOfDay,
 )
 
-# Transcription enums
-from .transcription_enums import TranscriptionStatus
-
 # Submissions enums - processing, scheduling, and assignment
 from .submissions_enums import (
     AnalysisDepth,
@@ -141,6 +137,9 @@ from .submissions_enums import (
     ProgressDepth,
     ScheduleType,
 )
+
+# Transcription enums
+from .transcription_enums import TranscriptionStatus
 
 # User enums - roles, health scoring, and account management
 from .user_enums import ContextHealthScore, UserRole

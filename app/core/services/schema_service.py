@@ -19,18 +19,18 @@ from dataclasses import asdict
 from datetime import datetime, timedelta
 from typing import Any
 
+from adapters.persistence.neo4j.query.schema_ddl import (
+    build_create_constraint_ddl,
+    build_create_index_ddl,
+    build_drop_constraint_ddl,
+    build_drop_index_ddl,
+)
 from core.infrastructure.database.schema import (
     Neo4jConstraint,
     Neo4jIndex,
     NodeLabelInfo,
     RelationshipTypeInfo,
     SchemaContext,
-)
-from adapters.persistence.neo4j.query.schema_ddl import (
-    build_create_constraint_ddl,
-    build_create_index_ddl,
-    build_drop_constraint_ddl,
-    build_drop_index_ddl,
 )
 
 # Import protocol interface

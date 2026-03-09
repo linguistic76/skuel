@@ -127,10 +127,6 @@ if TYPE_CHECKING:
     from core.services.context_aware_ai_service import ContextAwareAIService
     from core.services.cross_domain_queries import CrossDomainQueries
     from core.services.events_service import EventsService
-    from core.services.report.activity_report_service import ActivityReportService
-    from core.services.report.progress_report_generator import ProgressReportGenerator
-    from core.services.report.progress_schedule_service import ProgressScheduleService
-    from core.services.report.review_queue_service import ReviewQueueService
     from core.services.goals_service import GoalsService
     from core.services.habits_service import HabitsService
     from core.services.insight.insight_store import InsightStore
@@ -143,6 +139,10 @@ if TYPE_CHECKING:
     from core.services.notifications.notification_service import NotificationService
     from core.services.performance_optimization_service import PerformanceOptimizationService
     from core.services.principles_service import PrinciplesService
+    from core.services.report.activity_report_service import ActivityReportService
+    from core.services.report.progress_report_generator import ProgressReportGenerator
+    from core.services.report.progress_schedule_service import ProgressScheduleService
+    from core.services.report.review_queue_service import ReviewQueueService
     from core.services.submissions.journal_output_generator import JournalOutputGenerator
     from core.services.tasks_service import TasksService
     from core.services.transcription.transcription_service import TranscriptionService
@@ -162,8 +162,6 @@ from core.ports import (
     # Infrastructure
     EventBusOperations,
     ExerciseOperations,
-    # Submission + SubmissionReport protocols
-    SubmissionReportOperations,
     FinancesOperations,
     GoalTaskGeneratorOperations,
     GraphAuthOperations,
@@ -184,6 +182,8 @@ from core.ports import (
     SharingOperations,
     SubmissionOperations,
     SubmissionProcessingOperations,
+    # Submission + SubmissionReport protocols
+    SubmissionReportOperations,
     SubmissionSearchOperations,
     SystemServiceOperations,
     TeacherReviewOperations,
@@ -243,7 +243,9 @@ class Services:
     transcription: "TranscriptionService | None" = None
 
     # Report services (LLM-based processing)
-    submission_report: SubmissionReportOperations | None = None  # SubmissionReportService - LLM report on submission content
+    submission_report: SubmissionReportOperations | None = (
+        None  # SubmissionReportService - LLM report on submission content
+    )
     exercises: ExerciseOperations | None = (
         None  # ExerciseService - Reusable LLM instruction templates
     )

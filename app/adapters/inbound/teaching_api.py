@@ -74,7 +74,7 @@ def create_teaching_api_routes(
         if not feedback:
             return Result.fail(Errors.validation("Feedback text is required", field="feedback"))
 
-        return await teacher_review_service.submit_feedback(
+        return await teacher_review_service.submit_report(
             report_uid=uid,
             teacher_uid=current_user.uid,
             feedback=feedback,

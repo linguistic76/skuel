@@ -28,8 +28,8 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from core.models.protocols import DomainModelProtocol, DTOProtocol
 from adapters.persistence.neo4j.query.cypher.post_processors import apply_processor
+from core.models.protocols import DomainModelProtocol, DTOProtocol
 from core.models.relationship_names import RelationshipName
 from core.ports import BackendOperations
 from core.utils.decorators import with_error_handling

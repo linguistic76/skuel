@@ -303,7 +303,6 @@ _ENTITY_TYPE_ALIASES: dict[str, EntityType] = {
     "activity_report": EntityType.ACTIVITY_REPORT,
     "submission_feedback": EntityType.SUBMISSION_REPORT,  # backward compat (pre-rename)
     "submission_report": EntityType.SUBMISSION_REPORT,
-    "submission_report": EntityType.SUBMISSION_REPORT,
     "task": EntityType.TASK,
     "goal": EntityType.GOAL,
     "habit": EntityType.HABIT,

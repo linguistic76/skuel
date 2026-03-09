@@ -291,9 +291,7 @@ class RelationshipName(str, Enum):
     ASSESSMENT_OF = (
         "ASSESSMENT_OF"  # (Report)-[:ASSESSMENT_OF]->(User) - Teacher assessment targets student
     )
-    REPORT_FOR = (
-        "REPORT_FOR"  # (Entity)-[:REPORT_FOR]->(Entity) - Report targets submission
-    )
+    REPORT_FOR = "REPORT_FOR"  # (Entity)-[:REPORT_FOR]->(Entity) - Report targets submission
 
     # =========================================================================
     # EVIDENCE RELATIONSHIPS

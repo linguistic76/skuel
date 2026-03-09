@@ -882,7 +882,7 @@ def create_submissions_api_routes(
             if ownership.is_error:
                 return Result.fail(Errors.not_found("submission", uid))
 
-            result = await teacher_review_service.get_feedback_history(uid)
+            result = await teacher_review_service.get_report_history(uid)
             if result.is_error:
                 return Result.fail(result.expect_error())
 

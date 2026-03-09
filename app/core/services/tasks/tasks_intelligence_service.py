@@ -179,7 +179,9 @@ class TasksIntelligenceService(BaseAnalyticsService["TasksOperations", Task]):
 
             # 2. Calculate ratio, clamped to bounds
             ratio = actual / estimated
-            ratio = max(LearningLoop.MIN_DURATION_RATIO, min(LearningLoop.MAX_DURATION_RATIO, ratio))
+            ratio = max(
+                LearningLoop.MIN_DURATION_RATIO, min(LearningLoop.MAX_DURATION_RATIO, ratio)
+            )
 
             # 3. Get current EMA state from User node
             state_result = await self.backend.get_user_learning_state(event.user_uid)

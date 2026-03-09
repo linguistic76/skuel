@@ -361,8 +361,7 @@ class SubmissionReportService:
             )
             if mastery_result.is_error:
                 self.logger.warning(
-                    f"Mastery update failed for KU {ku_uid} after AI report: "
-                    f"{mastery_result.error}"
+                    f"Mastery update failed for KU {ku_uid} after AI report: {mastery_result.error}"
                 )
             else:
                 self.logger.info(

@@ -13,14 +13,13 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+# GuidanceType doesn't exist as an enum - guidance_type is just a string field
+from core.models.enums import Priority
 from core.models.enums.askesis_enums import (
     ConversationStyle,
     IntegrationSuccess,
     QueryComplexity,
 )
-
-# GuidanceType doesn't exist as an enum - guidance_type is just a string field
-from core.models.enums import Priority
 from core.models.validation_rules import validate_required_string
 
 

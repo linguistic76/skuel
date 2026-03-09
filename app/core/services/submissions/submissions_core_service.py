@@ -55,8 +55,8 @@ from core.events.submission_events import AssessmentCreated, SubmissionDeleted
 from core.models.entity import Entity
 from core.models.entity_types import SubmissionEntity
 from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
-from core.models.report.submission_report import SubmissionReport
 from core.models.relationship_names import RelationshipName
+from core.models.report.submission_report import SubmissionReport
 from core.models.submissions.journal import Journal
 from core.models.submissions.submission_dto import SubmissionDTO
 from core.ports import BackendOperations

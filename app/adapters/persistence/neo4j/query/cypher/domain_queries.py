@@ -613,9 +613,7 @@ def build_entity_with_context(
             parts.append(f"WHERE coalesce({rel_var}.confidence, 1.0) >= ${confidence_param}")
 
         # Build field collection
-        field_parts = []
-        for field in fields:
-            field_parts.append(f"{field}: {alias}_node.{field}")
+        field_parts = [f"{field}: {alias}_node.{field}" for field in fields]
 
         # Add confidence to fields if using confidence
         if use_confidence:
@@ -662,8 +660,8 @@ def build_task_with_context(
     include_knowledge: bool = True,
     include_goal: bool = True,
     include_habit: bool = True,
-    include_related: bool = True,
-    related_limit: int = 5,
+    _include_related: bool = True,
+    _related_limit: int = 5,
 ) -> tuple[str, dict[str, Any]]:
     """
     Build query for Task entity with full graph context.

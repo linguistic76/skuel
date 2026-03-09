@@ -21,8 +21,6 @@ from core.models.enums.entity_enums import EntityType
 from core.models.event.event import Event
 from core.models.exercises.exercise import Exercise
 from core.models.exercises.revised_exercise import RevisedExercise
-from core.models.report.activity_report import ActivityReport
-from core.models.report.submission_report import SubmissionReport
 from core.models.goal.goal import Goal
 from core.models.habit.habit import Habit
 from core.models.ku.ku import Ku
@@ -30,6 +28,8 @@ from core.models.life_path.life_path import LifePath
 from core.models.pathways.learning_path import LearningPath
 from core.models.pathways.learning_step import LearningStep
 from core.models.principle.principle import Principle
+from core.models.report.activity_report import ActivityReport
+from core.models.report.submission_report import SubmissionReport
 from core.models.resource.resource import Resource
 from core.models.submissions.journal import Journal
 from core.models.submissions.submission import Submission

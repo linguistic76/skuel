@@ -64,6 +64,9 @@ See Documentation:
 # Internal implementation modules (marked with underscore prefix)
 from core.constants import GraphDepth
 
+# Search boundary models — canonical location is core.models.search_models
+from core.models.search_models import FacetSetRequest, SearchQueryRequest, SearchResultDTO
+
 from ._progressive_learning_queries import ProgressiveLearningQueries
 from ._provenance_queries import ProvenanceQueries
 from ._query_models import (
@@ -194,9 +197,6 @@ from .schema_ddl import (
     build_drop_constraint_ddl,
     build_drop_index_ddl,
 )
-
-# Search boundary models — canonical location is core.models.search_models
-from core.models.search_models import FacetSetRequest, SearchQueryRequest, SearchResultDTO
 from .unified_query_builder import (
     # Individual builders (for advanced usage)
     ModelQueryBuilder,

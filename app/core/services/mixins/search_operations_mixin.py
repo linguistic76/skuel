@@ -60,11 +60,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from core.models.protocols import DomainModelProtocol, DTOProtocol
 from adapters.persistence.neo4j.query import (
     build_relationship_traversal_query,
     build_text_search_query,
 )
+from core.models.protocols import DomainModelProtocol, DTOProtocol
 from core.models.relationship_names import RelationshipName
 from core.ports import BackendOperations
 from core.utils.decorators import with_error_handling

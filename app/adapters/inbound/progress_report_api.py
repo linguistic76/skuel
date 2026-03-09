@@ -30,13 +30,13 @@ Privacy Audit Route (authenticated user):
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    from core.ports.infrastructure_protocols import UserOperations
     from core.ports.report_protocols import (
         ActivityReportOperations,
         ProgressReportOperations,
         ProgressScheduleOperations,
         ReviewQueueOperations,
     )
-    from core.ports.infrastructure_protocols import UserOperations
     from core.ports.submission_protocols import SubmissionOperations
     from core.services.user.user_context_builder import UserContextBuilder
 
@@ -302,7 +302,7 @@ def create_progress_report_api_routes(
                     Errors.validation("feedback_text is required", field="feedback_text")
                 )
 
-            result = await activity_report.submit_feedback(
+            result = await activity_report.submit_report(
                 admin_uid=admin_uid,
                 subject_uid=subject_uid,
                 feedback_text=feedback_text,

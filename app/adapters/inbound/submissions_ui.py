@@ -44,12 +44,6 @@ from ui.submissions.cards import (
     render_submissions_grid,
     render_upload_status,
 )
-from ui.submissions.report import (
-    render_activity_report_list,
-    render_progress_report_list,
-    render_received_report_list,
-    render_yours_list,
-)
 from ui.submissions.forms import (
     render_category_selector,
     render_filters_section,
@@ -58,6 +52,12 @@ from ui.submissions.forms import (
     render_upload_form,
     render_yours_list_container,
     upload_form_script,
+)
+from ui.submissions.report import (
+    render_activity_report_list,
+    render_progress_report_list,
+    render_received_report_list,
+    render_yours_list,
 )
 from ui.submissions.sharing import render_sharing_section
 
@@ -443,7 +443,7 @@ def create_submissions_ui_routes(
                     id="feedback-section",
                 )
 
-            history_result = await _teacher_review_service.get_feedback_history(uid)
+            history_result = await _teacher_review_service.get_report_history(uid)
             items = history_result.value if not history_result.is_error else []
 
             if not items:

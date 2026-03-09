@@ -75,9 +75,7 @@ class SubmissionReport(Submission):
         return SubmissionReportDTO(**kwargs)
 
     def __str__(self) -> str:
-        return (
-            f"SubmissionReport(uid={self.uid}, title='{self.title}', subject={self.subject_uid})"
-        )
+        return f"SubmissionReport(uid={self.uid}, title='{self.title}', subject={self.subject_uid})"
 
     def __repr__(self) -> str:
         return (

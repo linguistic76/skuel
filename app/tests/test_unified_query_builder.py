@@ -9,8 +9,8 @@ from datetime import date
 
 import pytest
 
-from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
 from adapters.persistence.neo4j.query import UnifiedQueryBuilder, query
+from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
 from core.models.task.task import Task as Task
 
 

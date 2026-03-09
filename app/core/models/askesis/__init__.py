@@ -12,6 +12,13 @@ Tier 3 (Core): Immutable domain models with business logic
 # GuidanceType doesn't exist - use GuidanceMode from shared_enums instead
 from core.models.enums import GuidanceMode as GuidanceType
 
+# Askesis enums (canonical location: core.models.enums.askesis_enums)
+from core.models.enums.askesis_enums import (
+    ConversationStyle,
+    IntegrationSuccess,
+    QueryComplexity,
+)
+
 # Import domain models that exist in other modules
 from core.models.user.conversation import ConversationSession
 
@@ -56,13 +63,6 @@ from .askesis_dto import (
 # They only exist as DTOs, so we'll import the DTOs and alias them for backward compatibility
 from .askesis_dto import DomainInteractionDTO as DomainInteraction
 from .askesis_dto import GuidanceRecommendationDTO as GuidanceRecommendation
-
-# Askesis enums (canonical location: core.models.enums.askesis_enums)
-from core.models.enums.askesis_enums import (
-    ConversationStyle,
-    IntegrationSuccess,
-    QueryComplexity,
-)
 from .askesis_request import (
     AskesisAnalyticsRequest,
     AskesisCreateRequest,

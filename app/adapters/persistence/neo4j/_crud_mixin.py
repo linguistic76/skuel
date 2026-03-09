@@ -36,8 +36,8 @@ if TYPE_CHECKING:
 
     from neo4j import AsyncDriver
 
-    from core.infrastructure.monitoring.prometheus_metrics import PrometheusMetrics
     from adapters.persistence.neo4j.query import UnifiedQueryBuilder
+    from core.infrastructure.monitoring.prometheus_metrics import PrometheusMetrics
 
 
 class _CrudMixin[T: DomainModelProtocol]:
