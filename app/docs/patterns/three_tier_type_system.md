@@ -174,7 +174,8 @@ Entity (~19 fields)
 ├── UserOwnedEntity(Entity) +2 fields (user_uid, priority)
 │   ├── Task, Goal, Habit, Event, Choice, Principle
 │   ├── ActivityReport                           (activity feedback — no file fields)
-│   ├── Submission → Journal, SubmissionReport
+│   ├── Submission → ExerciseSubmission, JournalSubmission
+│   ├── SubmissionReport → ExerciseReport, JournalReport  (NOT Submission — report fields only)
 │   └── LifePath
 ├── Curriculum(Entity) +21 fields → LearningStep, LearningPath, Exercise
 └── Resource(Entity) +7 fields
@@ -186,7 +187,8 @@ Entity (~19 fields)
 EntityDTO (~18 fields)
 ├── UserOwnedDTO(EntityDTO) +3 fields → TaskDTO, GoalDTO, HabitDTO, EventDTO, ChoiceDTO, PrincipleDTO, LifePathDTO
 ├── UserOwnedDTO → ActivityReportDTO              (activity feedback — no file fields)
-├── UserOwnedDTO → SubmissionDTO → JournalDTO, SubmissionReportDTO
+├── UserOwnedDTO → SubmissionDTO → ExerciseSubmissionDTO, JournalSubmissionDTO
+├── UserOwnedDTO → SubmissionReportDTO → ExerciseReportDTO, JournalReportDTO
 ├── CurriculumDTO(EntityDTO) → LearningStepDTO, LearningPathDTO, ExerciseDTO
 └── ResourceDTO(EntityDTO)
 ```

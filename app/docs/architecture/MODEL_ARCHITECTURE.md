@@ -69,8 +69,11 @@ Entity (~19 fields: uid, title, entity_type, status, visibility, tags, domain,
 │   ├── Principle ────── + principle_category, principle_source, strength, current_alignment
 │   │
 │   ├── Submission ───── + processor_type, file_path, file_type, processed_content
-│   │   ├── Journal              (forces entity_type=JOURNAL)
-│   │   └── SubmissionReport   (forces entity_type=SUBMISSION_REPORT, +subject_uid)
+│   │   ├── ExerciseSubmission   (forces entity_type=EXERCISE_SUBMISSION)
+│   │   └── JournalSubmission    (forces entity_type=JOURNAL_SUBMISSION)
+│   ├── SubmissionReport ── + report_content, subject_uid, report_file_path (NOT Submission)
+│   │   ├── ExerciseReport       (forces entity_type=EXERCISE_REPORT)
+│   │   └── JournalReport        (forces entity_type=JOURNAL_REPORT)
 │   ├── ActivityReport ─── (forces entity_type=ACTIVITY_REPORT, NO file fields)
 │   │
 │   └── LifePath ─────── + alignment_level, vision_statement, alignment_score

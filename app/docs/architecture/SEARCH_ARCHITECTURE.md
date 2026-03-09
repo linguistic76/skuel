@@ -79,7 +79,7 @@ _SEARCHABLE_DOMAINS: frozenset[EntityType] = frozenset({
     # Curriculum (3)
     EntityType.ARTICLE, EntityType.LEARNING_STEP, EntityType.LEARNING_PATH,
     # Learning Loop (3)
-    EntityType.EXERCISE, EntityType.REVISED_EXERCISE, EntityType.SUBMISSION,
+    EntityType.EXERCISE, EntityType.REVISED_EXERCISE, EntityType.EXERCISE_SUBMISSION,
 })
 ```
 

@@ -148,7 +148,7 @@ await lp_service.search.get_aligned_with_goal("goal:learn-python")
 
 | Aspect | Value |
 |--------|-------|
-| **Domains** | 12 (Task, Goal, Habit, Event, Choice, Principle, Article, LS, LP, Exercise, RevisedExercise, Submission) |
+| **Domains** | 12 (Task, Goal, Habit, Event, Choice, Principle, Article, LS, LP, Exercise, RevisedExercise, ExerciseSubmission) |
 | **User Ownership** | Activity domains use OWNS; Curriculum uses None (shared) |
 | **Result Type** | `UnifiedSearchResult` with `results_by_domain` + `top_results` |
 | **Dispatch** | EntityType/NonKuDomain enum (type-safe, no string checks) |
