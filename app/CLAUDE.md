@@ -29,7 +29,7 @@ When working in a file or area of the codebase, address problems you encounter �
 - **Article** (`EntityType.ARTICLE`, extends `Curriculum`) — essay-like teaching composition. Services in `core/services/article/`.
 - **Ku** (`EntityType.KU`, extends `Entity`) — atomic knowledge unit. Lightweight ontology/reference node. Services in `core/services/ku/`.
 - **Composition:** `(Article)-[:USES_KU]->(Ku)` — Articles compose atomic Kus into narrative.
-- **Learning loop:** Article -> Exercise -> Submission -> Feedback -> RevisedExercise -> ...
+- **Learning loop:** Article -> Exercise -> Submission -> Report -> RevisedExercise -> ...
 
 ## Naming Conventions
 
@@ -130,7 +130,7 @@ SKUEL separates runtime into two layers. The **Analog layer** (graph structure, 
 | RevisedExercise | Targeted revision instructions after feedback | `re_{slug}_{random}` | Teacher-owned |
 | Submission | Student-uploaded work | N/A | User-owned |
 | Journal | Reflective writing (voice/text) | N/A | User-owned |
-| ActivityReport | Feedback about activity patterns over time | N/A | User-owned |
+| ActivityReport | Report about activity patterns over time | N/A | User-owned |
 | SubmissionReport | Assessment tied to a specific submission | N/A | User-owned |
 | LifePath | The user's life direction | `lp_{random}` | User-owned |
 | Groups | Teacher-student class management | `group_{slug}_{random}` | Teacher-owned |
@@ -152,7 +152,7 @@ Entity types have behavioral traits — not category membership — that determi
 
 - **Activity (6):** Task, Goal, Habit, Event, Choice, Principle — facade pattern with `.core`, `.search`, `.intelligence` sub-services. Created via `create_common_sub_services()`. Events additionally has integration sub-services; **Calendar** cross-cutting system handles scheduling aggregation.
 - **Curriculum (5):** Article, Ku, LearningStep, LearningPath, Exercise — `ContentScope.SHARED`, admin creates, all users read.
-- **Submissions/Feedback (4):** Submission, Journal, SubmissionReport, ActivityReport — the learning loop. Services in `core/services/submissions/` + `core/services/report/`.
+- **Submissions/Reports (4):** Submission, Journal, SubmissionReport, ActivityReport — the learning loop. Services in `core/services/submissions/` + `core/services/report/`.
 - **Other:** Finance (admin-only), Resource (curated, not curriculum), Groups (ADR-040), RevisedExercise (teacher-owned hybrid), MOC (emergent via ORGANIZES), LifePath (the destination, alignment score 0.0-1.0).
 
 ### The 5 Cross-Cutting Systems
@@ -403,7 +403,7 @@ SKUEL measures knowledge by how it's LIVED. Substance tracking: Habits (0.10, ma
 | A | `CURATED` | Resource | Admin-curated content |
 | B | `CURRICULUM` | Curriculum, LS, LP | Curriculum structure |
 | C | `USER_CREATED` | Activities, Submission, Journal, Life Path | User-generated |
-| D | `REPORT` | ActivityReport, SubmissionReport | Analysis/feedback |
+| D | `REPORT` | ActivityReport, SubmissionReport | Analysis/reports |
 
 `ContentScope` controls access, `ContentOrigin` classifies purpose. Derived from `EntityType`.
 

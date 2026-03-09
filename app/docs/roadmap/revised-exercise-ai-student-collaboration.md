@@ -5,7 +5,7 @@ status: deferred
 priority: post-mvp
 related:
 - FOUR_PHASED_LEARNING_LOOP.md
-- FEEDBACK_ARCHITECTURE.md
+- REPORT_ARCHITECTURE.md
 ---
 
 # RevisedExercise: AI + Student Collaboration Mode

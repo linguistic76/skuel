@@ -26,8 +26,8 @@ Exercise, RevisedExercise, and Submission now use `graph_aware_faceted_search` v
 | Domain | Enrichment Patterns |
 |--------|-------------------|
 | Exercise | `REQUIRES_KNOWLEDGE` (outgoing), `FOR_GROUP` (outgoing), `FULFILLS_EXERCISE` (incoming) |
-| RevisedExercise | `RESPONDS_TO_FEEDBACK` (outgoing), `REVISES_EXERCISE` (outgoing), `FULFILLS_EXERCISE` (incoming) |
-| Submission | `FULFILLS_EXERCISE` (outgoing), `FEEDBACK_FOR` (incoming) |
+| RevisedExercise | `RESPONDS_TO_REPORT` (outgoing), `REVISES_EXERCISE` (outgoing), `FULFILLS_EXERCISE` (incoming) |
+| Submission | `FULFILLS_EXERCISE` (outgoing), `REPORT_FOR` (incoming) |
 
 ## Level 3b: Learning Loop Chain Traversal
 
@@ -39,8 +39,8 @@ Teacher/admin view: "show me everything related to this exercise."
 
 ```
 (Submission)-[:FULFILLS_EXERCISE]->(Exercise)
-(SubmissionReport)-[:FEEDBACK_FOR]->(Submission)
-(RevisedExercise)-[:RESPONDS_TO_FEEDBACK]->(SubmissionReport)
+(SubmissionReport)-[:REPORT_FOR]->(Submission)
+(RevisedExercise)-[:RESPONDS_TO_REPORT]->(SubmissionReport)
 ```
 
 Returns: `{exercise, submissions, feedback, revised_exercises}`
@@ -51,8 +51,8 @@ Student view: "what happened after I submitted?"
 
 ```
 (Submission)-[:FULFILLS_EXERCISE]->(Exercise)
-(SubmissionReport)-[:FEEDBACK_FOR]->(Submission)
-(RevisedExercise)-[:RESPONDS_TO_FEEDBACK]->(SubmissionReport)
+(SubmissionReport)-[:REPORT_FOR]->(Submission)
+(RevisedExercise)-[:RESPONDS_TO_REPORT]->(SubmissionReport)
 ```
 
 Returns: `{submission, exercise, feedback, revised_exercises}`
@@ -61,7 +61,7 @@ Returns: `{submission, exercise, feedback, revised_exercises}`
 
 `ReportRelationshipOperations` in `core/ports/report_protocols.py` covers all 5 methods (3 existing + 2 new).
 
-## Future: SubmissionFeedback and ActivityReport Search
+## Future: SubmissionReport and ActivityReport Search
 
 These entities currently lack BaseService-based search:
 - **SubmissionReport**: `SubmissionReportService` is an LLM generator, not a BaseService. Would need a `SubmissionReportSearchService` extending BaseService.

@@ -1052,7 +1052,7 @@ class SkuelLinter:
             "submission",
             "journal",
             "activity_report",
-            "submission_feedback",
+            "submission_report",
             # Destination
             "life_path",
             # NonKuDomain

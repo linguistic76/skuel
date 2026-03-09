@@ -48,12 +48,12 @@ async def handle_report_submitted(
         title="New feedback on your submission",
         message="Your teacher reviewed your submission and left feedback.",
         source_uid=event.report_uid,
-        source_type="submission_feedback",
+        source_type="submission_report",
     )
 
     if result.is_error:
         logger.error(
-            f"Failed to create feedback notification for student {event.student_uid}: "
+            f"Failed to create report notification for student {event.student_uid}: "
             f"{result.error}"
         )
     else:
@@ -143,7 +143,7 @@ async def handle_revision_requested(
         title="Revision requested on your submission",
         message="Your teacher has requested changes to your submission.",
         source_uid=source_uid,
-        source_type="submission_feedback",
+        source_type="submission_report",
     )
 
     if result.is_error:

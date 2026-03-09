@@ -16,7 +16,7 @@ UserContextIntelligence instances when given a UserContext.
 **Entity Types:**
 - Activity Domains (6): tasks, goals, habits, events, choices, principles
 - Curriculum Domains (3): ku, ls, lp
-- Processing Domains (3): submissions, feedback, analytics
+- Processing Domains (3): submissions, report, analytics
 - Temporal Domain (1): calendar
 
 **Usage:**
@@ -72,7 +72,7 @@ class UserContextIntelligenceFactory:
     **Entity Types:**
     - Activity Domains (6): tasks, goals, habits, events, choices, principles
     - Curriculum Domains (3): ku, ls, lp
-    - Processing Domains (3): submissions, feedback, analytics
+    - Processing Domains (3): submissions, report, analytics
     - Temporal Domain (1): calendar
 
     **Usage:**
@@ -107,7 +107,7 @@ class UserContextIntelligenceFactory:
         lp: UnifiedRelationshipService,  # January 2026: Unified
         # Processing Domains (3) - REQUIRED
         submissions: SubmissionsRelationshipService,
-        feedback: ReportRelationshipService,
+        report: ReportRelationshipService,
         analytics: AnalyticsRelationshipService,
         # Temporal Domain (1) - REQUIRED
         calendar: CalendarService,
@@ -135,7 +135,7 @@ class UserContextIntelligenceFactory:
 
             Processing Domains (3):
                 submissions: Submission relationship service (student work + journals)
-                feedback: Report relationship service (pending submissions, completion rate)
+                report: Report relationship service (pending submissions, completion rate)
                 analytics: Analytics relationship service (cross-domain)
 
             Temporal Domain (1):
@@ -162,7 +162,7 @@ class UserContextIntelligenceFactory:
             "lp": lp,
             # Processing Domains (3)
             "submissions": submissions,
-            "feedback": feedback,
+            "report": report,
             "analytics": analytics,
             # Temporal Domain (1)
             "calendar": calendar,
@@ -189,7 +189,7 @@ class UserContextIntelligenceFactory:
         self._lp = lp
         # Processing domains (3)
         self._submissions = submissions
-        self._feedback = feedback
+        self._report = report
         self._analytics = analytics
         # Temporal domain (1)
         self._calendar = calendar
@@ -223,7 +223,7 @@ class UserContextIntelligenceFactory:
             lp=self._lp,
             # Processing domains (3)
             submissions=self._submissions,
-            feedback=self._feedback,
+            report=self._report,
             analytics=self._analytics,
             # Temporal domain (1)
             calendar=self._calendar,

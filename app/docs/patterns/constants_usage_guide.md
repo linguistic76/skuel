@@ -256,9 +256,9 @@ relationships = await find_cross_domain(
 )
 ```
 
-### 6. Feedback Time Periods (`FeedbackTimePeriod`)
+### 6. Report Time Periods (`ReportTimePeriod`)
 
-Valid time period strings for activity feedback and review — shared vocabulary
+Valid time period strings for activity reports and review — shared vocabulary
 used by `ActivityReportService` and `ProgressReportGenerator`:
 
 | Constant | Value | Purpose |
@@ -275,9 +275,9 @@ used by `ActivityReportService` and `ProgressReportGenerator`:
 
 **Usage:**
 ```python
-from core.constants import FeedbackTimePeriod
+from core.constants import ReportTimePeriod
 
-days = FeedbackTimePeriod.DAYS.get(time_period, FeedbackTimePeriod.DEFAULT_DAYS)
+days = ReportTimePeriod.DAYS.get(time_period, ReportTimePeriod.DEFAULT_DAYS)
 end_date = datetime.now()
 start_date = end_date - timedelta(days=days)
 ```

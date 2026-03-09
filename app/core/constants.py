@@ -394,7 +394,7 @@ class RelationshipStrength:
 
 class ReportTimePeriod:
     """
-    Valid time period strings for activity feedback and review.
+    Valid time period strings for activity reports and review.
 
     Used by: ActivityReportService, ProgressReportGenerator, ProgressScheduleService
     Both services share the same API-facing period vocabulary ("7d", "14d", etc.)

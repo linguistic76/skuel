@@ -57,7 +57,7 @@ For each skill, this section shows all related documentation (architecture docs,
 
 **Architecture:**
 - [FOUR_PHASED_LEARNING_LOOP.md](/docs/architecture/FOUR_PHASED_LEARNING_LOOP.md)
-- [FEEDBACK_ARCHITECTURE.md](/docs/architecture/FEEDBACK_ARCHITECTURE.md)
+- [REPORT_ARCHITECTURE.md](/docs/architecture/REPORT_ARCHITECTURE.md)
 
 **ADRs:**
 - [ADR-038](/docs/decisions/ADR-038-content-sharing-model.md)
@@ -314,7 +314,7 @@ For each documentation category, this section shows which skills are relevant.
 - [ADMIN_DASHBOARD_ARCHITECTURE.md](/docs/architecture/ADMIN_DASHBOARD_ARCHITECTURE.md) → @chartjs
 - [ALPINE_JS_ARCHITECTURE.md](/docs/architecture/ALPINE_JS_ARCHITECTURE.md) → @ui-browser
 - [CURRICULUM_GROUPING_PATTERNS.md](/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md) → @neo4j-cypher-patterns
-- [FEEDBACK_ARCHITECTURE.md](/docs/architecture/FEEDBACK_ARCHITECTURE.md) → @learning-loop
+- [REPORT_ARCHITECTURE.md](/docs/architecture/REPORT_ARCHITECTURE.md) → @learning-loop
 - [FOUR_PHASED_LEARNING_LOOP.md](/docs/architecture/FOUR_PHASED_LEARNING_LOOP.md) → @learning-loop
 - [ENTITY_TYPE_ARCHITECTURE.md](/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md) → @python
 - [RELATIONSHIPS_ARCHITECTURE.md](/docs/architecture/RELATIONSHIPS_ARCHITECTURE.md) → @vis-network

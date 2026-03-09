@@ -25,7 +25,7 @@ class TestKuTypeEnum:
         assert EntityType.ACTIVITY_REPORT.value == "activity_report"
 
     def test_feedback_report_enum_exists(self):
-        assert EntityType.SUBMISSION_REPORT.value == "submission_feedback"
+        assert EntityType.SUBMISSION_REPORT.value == "submission_report"
 
     def test_ai_feedback_display_name(self):
         assert EntityType.ACTIVITY_REPORT.get_display_name() == "Activity Report"

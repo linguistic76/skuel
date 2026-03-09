@@ -38,7 +38,7 @@ tags: [documentation, index, hub, architecture, patterns]
 
 | Category | Description | Key Documents |
 |----------|-------------|---------------|
-| **[architecture/](architecture/)** | System design, domain structure | [Entity Type Architecture](architecture/ENTITY_TYPE_ARCHITECTURE.md), [Feedback Architecture](architecture/FEEDBACK_ARCHITECTURE.md) |
+| **[architecture/](architecture/)** | System design, domain structure | [Entity Type Architecture](architecture/ENTITY_TYPE_ARCHITECTURE.md), [Report Architecture](architecture/REPORT_ARCHITECTURE.md) |
 | **[patterns/](patterns/)** | Implementation patterns, coding standards | [Query Architecture](patterns/query_architecture.md), [Error Handling](patterns/ERROR_HANDLING.md) |
 | **[decisions/](decisions/)** | Architecture Decision Records (ADRs) | [ADR-015 MEGA-QUERY](decisions/ADR-015-mega-query-rich-queries-completion.md), [ADR-016 Context Builder](decisions/ADR-016-context-builder-decomposition.md) |
 | **[dsl/](dsl/)** | Activity DSL specification | [DSL Specification](dsl/DSL_SPECIFICATION.md), [DSL Usage Guide](dsl/DSL_USAGE_GUIDE.md) |

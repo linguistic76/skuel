@@ -30,7 +30,7 @@ All in `services_bootstrap.py`:
 
 1. **Embeddings** (`_create_learning_services`): `Neo4jGenAIEmbeddingsService` + `Neo4jVectorSearchService` — skipped in CORE
 2. **LLM** (`compose_services`): `LLMService` — skipped in CORE
-3. **OpenAI** (`compose_services`): `OpenAIService`, `FeedbackService`, `JournalOutputGenerator` — skipped in CORE
+3. **OpenAI** (`compose_services`): `OpenAIService`, `SubmissionReportService`, `JournalOutputGenerator` — skipped in CORE
 
 ### Downstream (No Changes Needed)
 
@@ -39,7 +39,7 @@ These blocks naturally skip when their dependencies are `None`:
 - `if embeddings_service:` — EmbeddingBackgroundWorker
 - `AskesisService` — degrades gracefully with `llm_service=None`
 - `LifePathService` — falls back to keyword extraction
-- `ProgressFeedbackGenerator` — falls back to AUTOMATIC processor type
+- `ProgressReportGenerator` — falls back to AUTOMATIC processor type
 - `ContentEnrichmentService` — returns `Result.fail()` on AI methods
 
 ### Per-User Tier Stub

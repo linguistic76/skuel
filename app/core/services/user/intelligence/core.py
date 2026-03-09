@@ -130,7 +130,7 @@ class UserContextIntelligence(
         lp: UnifiedRelationshipService,  # January 2026: Unified
         # Processing Domains (3) - REQUIRED
         submissions: SubmissionsRelationshipService,
-        feedback: ReportRelationshipService,
+        report: ReportRelationshipService,
         analytics: AnalyticsRelationshipService,
         # Temporal Domain (1) - REQUIRED
         calendar: CalendarService,
@@ -160,7 +160,7 @@ class UserContextIntelligence(
 
             Processing Domains (3):
                 submissions: Submission relationship service (student work + journals)
-                feedback: Report relationship service (pending submissions, completion rate)
+                report: Report relationship service (pending submissions, completion rate)
                 analytics: Analytics relationship service (cross-domain)
 
             Temporal Domain (1):
@@ -189,7 +189,7 @@ class UserContextIntelligence(
             "lp": lp,
             # Processing Domains (3)
             "submissions": submissions,
-            "feedback": feedback,
+            "report": report,
             "analytics": analytics,
             # Temporal Domain (1)
             "calendar": calendar,
@@ -220,7 +220,7 @@ class UserContextIntelligence(
 
         # Processing domains (3)
         self.submissions = submissions
-        self.feedback = feedback
+        self.report = report
         self.analytics = analytics
 
         # Temporal domain (1)

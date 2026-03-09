@@ -31,7 +31,7 @@ Understanding the loop is the prerequisite for all architectural decisions.
 ║                                                                          ║
 ║  CURRICULUM TRACK (artifact-based)                                       ║
 ║  ────────────────────────────────────────────────────────────────────    ║
-║  [Article] → [Exercise] → [Submission/Journal] → [Feedback]             ║
+║  [Article] → [Exercise] → [Submission/Journal] → [Report]               ║
 ║   ↑             ↓              ↑↓                     ↓                  ║
 ║  admin       teacher        student               teacher/AI             ║
 ║  creates     assigns     uploads/revises          assesses               ║
@@ -264,7 +264,7 @@ Without Submission, the loop has no student voice.
 
 ---
 
-## Phase 4: Feedback — The Response
+## Phase 4: Report — The Response
 
 **What it is:** The evaluation. Two structurally distinct entities cover two distinct
 entry points. Both close the loop — both say "here is what your work means."
@@ -416,7 +416,7 @@ services.revised_exercises              # RevisedExerciseService — CRUD + chai
 **Backend:**
 ```python
 # RevisedExerciseBackend — domain-specific relationship Cypher
-await backend.link_to_feedback(re_uid, report_uid)         # RESPONDS_TO_REPORT
+await backend.link_to_report(re_uid, report_uid)           # RESPONDS_TO_REPORT
 await backend.link_to_exercise(re_uid, exercise_uid)      # REVISES_EXERCISE
 await backend.get_revision_chain(exercise_uid)             # All revisions ordered
 ```
@@ -428,7 +428,7 @@ await backend.get_revision_chain(exercise_uid)             # All revisions order
     student_uid: '...',
     revision_number: 2
 })
-(re)-[:RESPONDS_TO_FEEDBACK]->(report:Entity:SubmissionReport)
+(re)-[:RESPONDS_TO_REPORT]->(report:Entity:SubmissionReport)
 (re)-[:REVISES_EXERCISE]->(exercise:Entity:Exercise)
 (submission:Entity:Submission)-[:FULFILLS_EXERCISE]->(re)  // reuses existing rel type
 ```
@@ -467,7 +467,7 @@ new exercise, closing the revision cycle explicitly rather than implicitly.
 | `SHARES_WITH` | `Submission` → `User` | Auto-share to teacher for ASSIGNED exercises |
 | `SHARES_WITH` | `User` → `RevisedExercise` | Auto-share revision to student on creation |
 | `FEEDBACK_FOR` | `SubmissionReport` → `Submission` | Report evaluates this specific artifact |
-| `RESPONDS_TO_FEEDBACK` | `RevisedExercise` → `SubmissionReport` | Revision addresses this report |
+| `RESPONDS_TO_REPORT` | `RevisedExercise` → `SubmissionReport` | Revision addresses this report |
 | `REVISES_EXERCISE` | `RevisedExercise` → `Exercise` | Revision of this original exercise |
 
 **RelationshipName enum locations:**
@@ -608,7 +608,7 @@ that never closes the loop.
 
 `ProcessorType` discriminates who produced a report entity.
 
-**See:** [FEEDBACK_ARCHITECTURE.md](/docs/architecture/FEEDBACK_ARCHITECTURE.md#processortype-taxonomy) for the canonical table.
+**See:** [REPORT_ARCHITECTURE.md](/docs/architecture/REPORT_ARCHITECTURE.md#processortype-taxonomy) for the canonical table.
 
 **Import:** `from core.models.enums.entity_enums import ProcessorType`
 
@@ -754,8 +754,8 @@ class AdminSummary(UserOwnedEntity):  # New entity for admin-written reports?
 ## Deep Dive Resources
 
 - [FOUR_PHASED_LEARNING_LOOP.md](/docs/architecture/FOUR_PHASED_LEARNING_LOOP.md) — entry-point overview: two tracks, five phases, how MEGA_QUERY feeds the loop
-- [FEEDBACK_ARCHITECTURE.md](/docs/architecture/FEEDBACK_ARCHITECTURE.md) — canonical feedback reference
-- [FEEDBACK_ARCHITECTURE.md](/docs/architecture/FEEDBACK_ARCHITECTURE.md) — canonical feedback reference — all services, APIs, graph patterns, ProcessorType taxonomy, Exercise pipeline
+- [REPORT_ARCHITECTURE.md](/docs/architecture/REPORT_ARCHITECTURE.md) — canonical report reference
+- [REPORT_ARCHITECTURE.md](/docs/architecture/REPORT_ARCHITECTURE.md) — canonical report reference — all services, APIs, graph patterns, ProcessorType taxonomy, Exercise pipeline
 - [ADR-038: Content Sharing Model](/docs/decisions/ADR-038-content-sharing-model.md)
 - [ADR-040: Teacher Assignment Workflow](/docs/decisions/ADR-040-teacher-assignment-workflow.md)
 - [SHARING_PATTERNS.md](/docs/patterns/SHARING_PATTERNS.md)

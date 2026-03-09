@@ -37,7 +37,7 @@ class SubmissionOperations(Protocol):
 
     Merges the former ReportsSubmissionOperations (CRUD/files) with the
     submission-side of the former ReportsContentOperations (tags, categories,
-    journals). Assessment methods belong to FeedbackOperations.
+    journals). Assessment methods belong to SubmissionReportOperations.
 
     Route consumers: submissions_api.py (primary), submissions_sharing_api.py
     Implementation: SubmissionsService (CRUD/files) + SubmissionsCoreService (content)

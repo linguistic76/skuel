@@ -4,7 +4,7 @@ updated: 2026-03-07
 status: current
 category: architecture
 related:
-- FEEDBACK_ARCHITECTURE.md
+- REPORT_ARCHITECTURE.md
 - ENTITY_TYPE_ARCHITECTURE.md
 ---
 
@@ -304,7 +304,7 @@ LLM prompt embedded for AI-assisted feedback. Two scopes: `PERSONAL` (self-direc
 field serves double duty: directive for the student AND prompt for the AI when generating
 `SUBMISSION_REPORT`.
 
-**See:** [FEEDBACK_ARCHITECTURE.md](/docs/architecture/FEEDBACK_ARCHITECTURE.md) —
+**See:** [REPORT_ARCHITECTURE.md](/docs/architecture/REPORT_ARCHITECTURE.md) —
 Exercise pipeline and teacher workflow.
 
 ---
@@ -319,7 +319,7 @@ uploads) and `JOURNAL` (admin uploads for AI-only processing).
 **Loop role:** The *evidence* — the student's demonstration of engagement with Article content.
 Without it, the Curriculum Track has no student voice.
 
-**See:** [FEEDBACK_ARCHITECTURE.md](/docs/architecture/FEEDBACK_ARCHITECTURE.md) —
+**See:** [REPORT_ARCHITECTURE.md](/docs/architecture/REPORT_ARCHITECTURE.md) —
 full pipeline from upload to sharing and teacher review queue.
 
 ---
@@ -350,7 +350,7 @@ on-demand AI (`LLM`), or admin-written (`HUMAN`).
 Reads across all 6 Activity Domains **and** the Curriculum track (KU mastery, LP progress,
 LS progress) in a single MEGA_QUERY round-trip.
 
-**See:** [FEEDBACK_ARCHITECTURE.md](/docs/architecture/FEEDBACK_ARCHITECTURE.md) —
+**See:** [REPORT_ARCHITECTURE.md](/docs/architecture/REPORT_ARCHITECTURE.md) —
 canonical taxonomy, all services, API routes, ProcessorType table, graph patterns.
 
 ---
@@ -390,7 +390,7 @@ revision cycle explicitly rather than implicitly.
     student_uid: '...',
     revision_number: 2
 })
-(re)-[:RESPONDS_TO_FEEDBACK]->(feedback:Entity:SubmissionReport)
+(re)-[:RESPONDS_TO_REPORT]->(feedback:Entity:SubmissionReport)
 (re)-[:REVISES_EXERCISE]->(exercise:Entity:Exercise)
 (student:User)-[:SHARES_WITH {role: 'student'}]->(re)     // auto-created on creation
 (submission:Entity:Submission)-[:FULFILLS_EXERCISE]->(re)  // reuses existing rel type
@@ -453,7 +453,7 @@ is no separate activity query layer. Both `ProgressReportGenerator` and
 `ProcessorType` distinguishes who produced a feedback entity — not a separate entity type.
 New feedback sources add `ProcessorType` values; they do not create new EntityTypes.
 
-**See:** [FEEDBACK_ARCHITECTURE.md](/docs/architecture/FEEDBACK_ARCHITECTURE.md#processortype-taxonomy) for the canonical ProcessorType table.
+**See:** [REPORT_ARCHITECTURE.md](/docs/architecture/REPORT_ARCHITECTURE.md#processortype-taxonomy) for the canonical ProcessorType table.
 
 **Import:** `from core.models.enums.entity_enums import ProcessorType`
 
@@ -485,8 +485,8 @@ New feedback sources add `ProcessorType` values; they do not create new EntityTy
 
 | Document | What It Covers |
 |----------|---------------|
-| [FEEDBACK_ARCHITECTURE.md](/docs/architecture/FEEDBACK_ARCHITECTURE.md) | Canonical feedback reference — all services, APIs, graph patterns, ProcessorType taxonomy |
-| [FEEDBACK_ARCHITECTURE.md](/docs/architecture/FEEDBACK_ARCHITECTURE.md) | Curriculum Track pipeline — Exercise, Submission, teacher review, visibility model, all APIs |
+| [REPORT_ARCHITECTURE.md](/docs/architecture/REPORT_ARCHITECTURE.md) | Canonical feedback reference — all services, APIs, graph patterns, ProcessorType taxonomy |
+| [REPORT_ARCHITECTURE.md](/docs/architecture/REPORT_ARCHITECTURE.md) | Curriculum Track pipeline — Exercise, Submission, teacher review, visibility model, all APIs |
 | [ENTITY_TYPE_ARCHITECTURE.md](/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md) | How the loop fits the Entity Type Architecture |
 | [ADR-038: Content Sharing](/docs/decisions/ADR-038-content-sharing-model.md) | Three-level visibility model for submissions |
 | [ADR-040: Teacher Assignment Workflow](/docs/decisions/ADR-040-teacher-assignment-workflow.md) | ASSIGNED exercise, auto-sharing, teacher review queue |

@@ -433,10 +433,10 @@ __all__ = [
     "SubmissionSearchOperations",
     # ========== SHARING PROTOCOL ==========
     "SharingOperations",
-    # ========== FEEDBACK PROTOCOLS (5) ==========
+    # ========== REPORT PROTOCOLS (5) ==========
     "ActivityReportOperations",
-    "FeedbackOperations",
-    "ProgressFeedbackOperations",
+    "SubmissionReportOperations",
+    "ProgressReportOperations",
     "ProgressScheduleOperations",
     "ReviewQueueOperations",
     # ========== EXERCISE PROTOCOLS ==========

@@ -318,11 +318,11 @@ Any entity type — `SUBMISSION`, `ACTIVITY_REPORT`, or future types — calls t
 - [ ] Create companion pattern guide: `/docs/patterns/PRIVACY_PATTERNS.md`
 - [ ] Add to `/docs/INDEX.md`
 - [ ] Update CLAUDE.md: add Privacy section with pointer to this ADR
-- [ ] Update `FEEDBACK_ARCHITECTURE.md`: reference this ADR for ACTIVITY_REPORT sharing model
+- [ ] Update `REPORT_ARCHITECTURE.md`: reference this ADR for ACTIVITY_REPORT sharing model
 
 ### Related Documentation
 - `docs/patterns/SHARING_PATTERNS.md` — update to reference UnifiedSharingService
-- `docs/architecture/FEEDBACK_ARCHITECTURE.md` — ACTIVITY_REPORT annotation model
+- `docs/architecture/REPORT_ARCHITECTURE.md` — ACTIVITY_REPORT annotation model
 - `ADR-038-content-sharing-model.md` — original sharing decision (SHARES_WITH relationship)
 
 ---

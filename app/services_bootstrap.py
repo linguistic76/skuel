@@ -1215,14 +1215,14 @@ async def compose_services(
         # NOTE: vectors_backend REMOVED (January 2026) - was unused dead code
         # submissions_backend uses :Entity label for cross-domain queries (submissions span 3 EntityTypes)
         # entity_class=Submission: base class for SUBMISSION, JOURNAL, FEEDBACK_REPORT
-        # AI_FEEDBACK excluded: uses dedicated ai_feedback_backend (ActivityReport inherits UserOwnedEntity)
+        # ACTIVITY_REPORT excluded: uses dedicated activity_report_backend (ActivityReport inherits UserOwnedEntity)
         submissions_backend = SubmissionsBackend(
             driver, NeoLabel.ENTITY, Submission, prometheus_metrics=prometheus_metrics
         )
         from core.models.report.activity_report import ActivityReport
 
-        # Dedicated backend for ActivityReport (activity-level feedback — no file fields)
-        ai_feedback_backend = UniversalNeo4jBackend[ActivityReport](
+        # Dedicated backend for ActivityReport (activity-level reports — no file fields)
+        activity_report_backend = UniversalNeo4jBackend[ActivityReport](
             driver,
             NeoLabel.ACTIVITY_REPORT,
             ActivityReport,
@@ -1876,7 +1876,7 @@ async def compose_services(
         from core.services.report.review_queue_service import ReviewQueueService
 
         activity_report_service = ActivityReportService(
-            backend=ai_feedback_backend,
+            backend=activity_report_backend,
             context_builder=context_builder,
             executor=query_executor,
         )
@@ -2675,7 +2675,7 @@ async def compose_services(
             ].relationships,  # Factory expects 'lp' parameter name
             # Processing Domains (3)
             submissions=submissions_relationship_service,  # SubmissionsRelationshipService
-            feedback=report_relationship_service,  # ReportRelationshipService
+            report=report_relationship_service,  # ReportRelationshipService
             analytics=analytics_relationship_service,  # AnalyticsRelationshipService
             # Temporal Domain (1)
             calendar=calendar_service,

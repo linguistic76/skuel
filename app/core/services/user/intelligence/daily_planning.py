@@ -41,7 +41,7 @@ class DailyPlanningMixin:
     - self.tasks, self.habits, self.goals, self.events
     - self.choices, self.principles
     - self.ku
-    - self.feedback  (ReportRelationshipService — for unsubmitted exercises)
+    - self.report  (ReportRelationshipService — for unsubmitted exercises)
     Optional: self.vector_search (Neo4jVectorSearchService) for semantic/learning-aware search.
     """
 

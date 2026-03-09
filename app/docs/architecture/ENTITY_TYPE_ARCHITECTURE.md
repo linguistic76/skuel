@@ -256,7 +256,7 @@ The educational loop: `Article -> Exercise -> Submission -> Report -> RevisedExe
 - `core/services/submissions/` — `ActivityReportService`, `ReviewQueueService`, student work pipeline
 - `core/services/report/` — `SubmissionReportService`, `ProgressReportGenerator`, `ProgressScheduleService`
 
-**See:** `/docs/architecture/FEEDBACK_ARCHITECTURE.md`
+**See:** `/docs/architecture/REPORT_ARCHITECTURE.md`
 
 ### RevisedExercise — Five-Phase Learning Loop
 
@@ -442,7 +442,7 @@ Full taxonomy: 70+ typed relationship names in `RelationshipName` enum (`core/mo
 | Document | What it covers |
 |----------|---------------|
 | [UNIFIED_USER_ARCHITECTURE.md](UNIFIED_USER_ARCHITECTURE.md) | User model, auth, roles, UserContext (~240 fields) |
-| [FEEDBACK_ARCHITECTURE.md](FEEDBACK_ARCHITECTURE.md) | ActivityReport, SubmissionReport, all report types |
+| [REPORT_ARCHITECTURE.md](REPORT_ARCHITECTURE.md) | ActivityReport, SubmissionReport, all report types |
 | [RELATIONSHIPS_ARCHITECTURE.md](RELATIONSHIPS_ARCHITECTURE.md) | UnifiedRelationshipService, relationship taxonomy |
 | [CURRICULUM_GROUPING_PATTERNS.md](CURRICULUM_GROUPING_PATTERNS.md) | KU/LS/LP/MOC patterns |
 | [ANALYTICS_ARCHITECTURE.md](ANALYTICS_ARCHITECTURE.md) | Analytics meta-service |

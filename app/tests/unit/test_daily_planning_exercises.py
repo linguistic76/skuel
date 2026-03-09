@@ -6,7 +6,7 @@ Tests for the Priority 2.5 block in DailyPlanningMixin that surfaces
 teacher-assigned exercises not yet submitted by the student.
 
 Exercises now come from UserContext.unsubmitted_exercises (populated by
-MEGA-QUERY) instead of a separate FeedbackRelationshipService call.
+MEGA-QUERY) instead of a separate ReportRelationshipService call.
 
 Covers:
 1. Happy path — exercises appear in plan with correct ContextualExercise fields
@@ -88,7 +88,7 @@ class MockDailyPlanningService(TemporalMomentumMixin, DailyPlanningMixin):
         choices: object,
         principles: object,
         ku: object,
-        feedback: object,
+        report: object,
     ) -> None:
         self.context = context
         self.tasks = tasks
@@ -98,7 +98,7 @@ class MockDailyPlanningService(TemporalMomentumMixin, DailyPlanningMixin):
         self.choices = choices
         self.principles = principles
         self.ku = ku
-        self.feedback = feedback
+        self.report = report
         self.vector_search = None
 
 
@@ -117,7 +117,7 @@ def build_service(
         choices=no_op,
         principles=no_op,
         ku=no_op,
-        feedback=no_op,
+        report=no_op,
     )
 
 
@@ -237,7 +237,7 @@ async def test_exercises_skipped_when_capacity_full() -> None:
         choices=no_op,
         principles=no_op,
         ku=no_op,
-        feedback=no_op,
+        report=no_op,
     )
 
     result = await service.get_ready_to_work_on_today(respect_capacity=True)
@@ -331,7 +331,7 @@ def test_rationale_includes_report_reference_when_present() -> None:
         choices=make_no_op_service(),
         principles=make_no_op_service(),
         ku=make_no_op_service(),
-        feedback=make_no_op_service(),
+        report=make_no_op_service(),
     )
 
     plan = DailyWorkPlan()

@@ -231,7 +231,7 @@ Teachers drive the loop from the other side:
 ## Reference Documentation
 
 - `/docs/architecture/FOUR_PHASED_LEARNING_LOOP.md` — Architecture overview
-- `/docs/architecture/FEEDBACK_ARCHITECTURE.md` — Feedback system design
+- `/docs/architecture/REPORT_ARCHITECTURE.md` — Report system design
 - `/docs/architecture/ASKESIS_PEDAGOGICAL_ARCHITECTURE.md` — Askesis vision and pedagogy
 - `/docs/decisions/ADR-038-content-sharing-model.md` — Content sharing model
 - `/docs/decisions/ADR-040-teacher-assignment-workflow.md` — Teacher assignment workflow

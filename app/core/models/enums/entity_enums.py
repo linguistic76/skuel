@@ -81,7 +81,7 @@ class EntityType(str, Enum):
     JOURNAL = "journal"
     SUBMISSION = "submission"
     ACTIVITY_REPORT = "activity_report"
-    SUBMISSION_REPORT = "submission_feedback"
+    SUBMISSION_REPORT = "submission_report"
 
     # Activity (user-owned)
     TASK = "task"
@@ -263,7 +263,7 @@ class ContentOrigin(str, Enum):
     CURATED = "curated"
     CURRICULUM = "curriculum"
     USER_CREATED = "user_created"
-    REPORT = "feedback"
+    REPORT = "report"
 
 
 _CONTENT_ORIGIN_BY_TYPE: dict[EntityType, ContentOrigin] = {
@@ -301,7 +301,8 @@ _ENTITY_TYPE_ALIASES: dict[str, EntityType] = {
     "journal": EntityType.JOURNAL,
     "submission": EntityType.SUBMISSION,
     "activity_report": EntityType.ACTIVITY_REPORT,
-    "submission_feedback": EntityType.SUBMISSION_REPORT,  # backward compat
+    "submission_feedback": EntityType.SUBMISSION_REPORT,  # backward compat (pre-rename)
+    "submission_report": EntityType.SUBMISSION_REPORT,
     "submission_report": EntityType.SUBMISSION_REPORT,
     "task": EntityType.TASK,
     "goal": EntityType.GOAL,

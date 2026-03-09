@@ -87,7 +87,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [Knowledge Substance Philosophy](architecture/knowledge_substance_philosophy.md) | 2025-10-17 | 371 |
 | **[Model Architecture](architecture/MODEL_ARCHITECTURE.md)** | **2026-02-23** | **290** |
 | **[Relationships Architecture](architecture/RELATIONSHIPS_ARCHITECTURE.md)** | **2026-03-03** | **—** |
-| **[Feedback Architecture](architecture/FEEDBACK_ARCHITECTURE.md)** | **2026-03-03** | **—** |
+| **[Report Architecture](architecture/REPORT_ARCHITECTURE.md)** | **2026-03-03** | **—** |
 | [SKUEL Entity Type Architecture](architecture/ENTITY_TYPE_ARCHITECTURE.md) | 2026-03-07 | — |
 | [SKUEL Routing Architecture: Routes, Services, and ...](architecture/ROUTING_ARCHITECTURE.md) | 2025-11-27 | 647 |
 | [Search Architecture - Unified Search System](architecture/SEARCH_ARCHITECTURE.md) | 2026-03-03 | — |
