@@ -1,6 +1,6 @@
 """
-Submission Report Assessment API Routes
-========================================
+Exercise Report Assessment API Routes
+======================================
 
 REST API for teacher assessments of students.
 
@@ -28,7 +28,7 @@ from core.utils.result_simplified import Result
 logger = get_logger("skuel.routes.submissions.assessment")
 
 
-def create_submission_report_api_routes(
+def create_exercise_report_api_routes(
     _app: Any,
     rt: Any,
     feedback_service: "SubmissionReportOperations",

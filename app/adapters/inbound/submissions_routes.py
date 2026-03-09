@@ -21,7 +21,7 @@ from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteLi
 from adapters.inbound.journals_ui import create_journals_ui_routes
 from adapters.inbound.progress_report_api import create_progress_report_api_routes
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
-from adapters.inbound.submission_report_api import create_submission_report_api_routes
+from adapters.inbound.exercise_report_api import create_exercise_report_api_routes
 from adapters.inbound.submissions_api import create_submissions_api_routes
 from adapters.inbound.submissions_sharing_api import create_submissions_sharing_api_routes
 from adapters.inbound.submissions_ui import create_submissions_ui_routes
@@ -145,14 +145,14 @@ def create_submissions_routes(
         def get_user_service():
             return services.user_service
 
-        assessment_routes = create_submission_report_api_routes(
+        assessment_routes = create_exercise_report_api_routes(
             app,
             rt,
             services.submissions_core,
             user_service_getter=get_user_service,
         )
         routes.extend(assessment_routes or [])
-        logger.info("Submission report assessment routes registered")
+        logger.info("Exercise report assessment routes registered")
 
     # Extension: journals UI routes (EntityType.JOURNAL is a Submission subtype)
     if getattr(services, "submissions_processor", None):

@@ -53,7 +53,7 @@ class SubmissionReportOperations(Protocol):
     Assessment methods and AI report generation are unified here because
     they represent the same concept: a response to student work.
 
-    Route consumers: submission_report_api.py (assessments), exercises_api.py (AI reports)
+    Route consumers: exercise_report_api.py (assessments), exercises_api.py (AI reports)
     Implementation: SubmissionsCoreService (assessments) + SubmissionReportService (AI)
     """
 

@@ -441,7 +441,7 @@ These protocols replace `Any` types on the `Services` dataclass fields, giving r
 |------|-----------|-----------------|
 | `submission_protocols.py` | 3 protocols | `submissions_api.py`, `progress_report_api.py` |
 | `sharing_protocols.py` | 1 protocol | `submissions_sharing_api.py` |
-| `report_protocols.py` | 5 protocols | `exercises_api.py`, `submission_report_api.py`, `progress_report_api.py`, `teaching_api.py` |
+| `report_protocols.py` | 5 protocols | `exercises_api.py`, `exercise_report_api.py`, `progress_report_api.py`, `teaching_api.py` |
 | `group_protocols.py` | 1 protocol | `groups_api.py` |
 | `service_protocols.py` | 10 protocols | `orchestration_routes.py`, `calendar_api.py`, `visualization_api.py`, `system_api.py`, `lifepath_api.py`, `auth_ui.py`, `admin_api.py`, `lateral_routes.py` |
 
@@ -453,7 +453,7 @@ Map to the **Submission** stage of the educational loop (`Ku → Exercise → Su
 
 | Protocol | Services Field | Methods | Route Consumer |
 |----------|---------------|---------|----------------|
-| `SubmissionOperations` | `submissions`, `submissions_core` | submit_file, list_submissions, get_file_content, get_processed_file_content, update_processed_content, categorize, tags, bulk ops | `submissions_api.py`, `submission_report_api.py` |
+| `SubmissionOperations` | `submissions`, `submissions_core` | submit_file, list_submissions, get_file_content, get_processed_file_content, update_processed_content, categorize, tags, bulk ops | `submissions_api.py`, `exercise_report_api.py` |
 | `SubmissionProcessingOperations` | `submissions_processor` | 2 (process_submission, reprocess_submission) | `submissions_api.py` |
 | `SubmissionSearchOperations` | `submissions_search` | 4 (search_submissions, get_submission_statistics, get_recent_submissions, get_journal_for_submission) | `submissions_api.py` |
 
@@ -471,7 +471,7 @@ Map to the **Report** stage of the educational loop. `processor_type` discrimina
 
 | Protocol | Services Field | Methods | Route Consumer |
 |----------|---------------|---------|----------------|
-| `SubmissionReportOperations` | `submission_report`, `submissions_core` | generate_report (→ `SUBMISSION_REPORT`, `LLM`), create_assessment (→ `SUBMISSION_REPORT`, `HUMAN`), get_assessments_for_student, get_assessments_by_teacher | `exercises_api.py`, `submission_report_api.py` |
+| `SubmissionReportOperations` | `submission_report`, `submissions_core` | generate_report (→ `SUBMISSION_REPORT`, `LLM`), create_assessment (→ `SUBMISSION_REPORT`, `HUMAN`), get_assessments_for_student, get_assessments_by_teacher | `exercises_api.py`, `exercise_report_api.py` |
 | `ProgressReportOperations` | `progress_report_generator` | 1 (generate → `ACTIVITY_REPORT` entity, `LLM` or `AUTOMATIC`) | `progress_report_api.py` |
 | `ProgressScheduleOperations` | `progress_schedule` | 4 (create_schedule, get_user_schedule, update_schedule, deactivate_schedule) | `progress_report_api.py` |
 | `ActivityReportOperations` | `activity_report` | 6 (create_snapshot, submit_report → `ACTIVITY_REPORT` `HUMAN`, get_history, annotate, get_annotation, get_privacy_summary) | `progress_report_api.py` |
