@@ -24,7 +24,13 @@ from enum import Enum
 from operator import itemgetter
 from typing import TYPE_CHECKING, Any
 
-from core.constants import ConfidenceLevel
+from core.constants import (
+    ConfidenceLevel,
+    CrossDomainImpactScore,
+    InsightThreshold,
+    KnowledgeEnhancementScore,
+    PriorityScoringWeight,
+)
 from core.models.enums import EntityStatus, EntityType
 from core.models.task.task import Task as Task
 from core.services.tasks.task_relationships import TaskRelationships
@@ -247,20 +253,12 @@ class AnalyticsEngine:
             )
 
             # Weighted final score
-            weights = {
-                "base": 0.3,
-                "knowledge": 0.25,
-                "learning": 0.2,
-                "mastery": 0.15,
-                "cross_domain": 0.1,
-            }
-
             final_score = (
-                base_priority * weights["base"]
-                + knowledge_enhancement * weights["knowledge"]
-                + learning_opportunity * weights["learning"]
-                + mastery_progression * weights["mastery"]
-                + cross_domain_impact * weights["cross_domain"]
+                base_priority * PriorityScoringWeight.BASE
+                + knowledge_enhancement * PriorityScoringWeight.KNOWLEDGE
+                + learning_opportunity * PriorityScoringWeight.LEARNING
+                + mastery_progression * PriorityScoringWeight.MASTERY
+                + cross_domain_impact * PriorityScoringWeight.CROSS_DOMAIN
             )
 
             # Generate scoring rationale
@@ -548,7 +546,7 @@ class AnalyticsEngine:
                                 task_rel_pairs[-1][0].created_at - task_rel_pairs[0][0].created_at
                             ).days,
                             frequency=len(task_rel_pairs),
-                            growth_indicator=0.5,  # Neutral growth for cross-domain
+                            growth_indicator=CrossDomainImpactScore.NEUTRAL_GROWTH,
                             metadata={"domains": list(domains)},
                         )
                     )
@@ -646,7 +644,7 @@ class AnalyticsEngine:
                             confidence=ConfidenceLevel.LOW,
                             timeframe_days=(timeline[-1][0] - timeline[0][0]).days,
                             frequency=len(gaps) + 1,  # Number of cycles
-                            growth_indicator=0.3,  # Positive for reinforcement
+                            growth_indicator=CrossDomainImpactScore.REINFORCEMENT_GROWTH,
                             metadata={"learning_cycles": len(gaps) + 1, "gaps_days": gaps},
                         )
                     )
@@ -680,7 +678,8 @@ class AnalyticsEngine:
             specialization_ratio = count / total_tasks if total_tasks > 0 else 0
 
             if (
-                specialization_ratio >= 0.3 and count >= 3
+                specialization_ratio >= CrossDomainImpactScore.SPECIALIZATION_RATIO_THRESHOLD
+                and count >= 3
             ):  # At least 30% of tasks and minimum 3 tasks
                 specialized_task_rels: list[tuple[Task, TaskRelationships]] = [
                     (task, rels)
@@ -702,7 +701,7 @@ class AnalyticsEngine:
                             specialized_tasks[-1].created_at - specialized_tasks[0].created_at
                         ).days,
                         frequency=count,
-                        growth_indicator=0.7,  # Specialization is generally positive
+                        growth_indicator=CrossDomainImpactScore.SPECIALIZATION_GROWTH,
                         metadata={
                             "specialization_ratio": specialization_ratio,
                             "focus_intensity": count,
@@ -761,7 +760,7 @@ class AnalyticsEngine:
                                 bridge_tasks[-1].created_at - bridge_tasks[0].created_at
                             ).days,
                             frequency=len(bridge_tasks),
-                            growth_indicator=0.6,  # Bridging is positive for learning
+                            growth_indicator=CrossDomainImpactScore.BRIDGING_GROWTH,
                             metadata={
                                 "prerequisite_knowledge": list(prereqs),
                                 "applied_knowledge": list(applies),
@@ -818,21 +817,23 @@ class AnalyticsEngine:
         gaps = []
         for i in range(1, len(timeline)):
             gap_days = (timeline[i][0] - timeline[i - 1][0]).days
-            if gap_days > 7:  # Gap of more than a week
+            if gap_days > InsightThreshold.LEARNING_GAP_DAYS:
                 gaps.append(gap_days)
         return gaps
 
     def _calculate_base_priority_score(self, task: Task) -> float:
         """Calculate base priority score from task priority."""
-        priority_map = {"LOW": 0.2, "MEDIUM": 0.5, "HIGH": 0.8, "CRITICAL": 1.0}
-        return priority_map.get(task.priority.upper() if task.priority else "MEDIUM", 0.5)
+        return PriorityScoringWeight.PRIORITY_LEVEL.get(
+            task.priority.upper() if task.priority else "MEDIUM",
+            PriorityScoringWeight.DEFAULT_PRIORITY,
+        )
 
     async def _calculate_knowledge_enhancement_score(
         self, task: Task, rels: TaskRelationships, progressions: dict[str, MasteryProgression]
     ) -> float:
         """Calculate knowledge enhancement potential score."""
         if not rels.applies_knowledge_uids:
-            return 0.1
+            return KnowledgeEnhancementScore.NO_KNOWLEDGE_BASELINE
 
         enhancement_scores = []
         for ku_uid in rels.applies_knowledge_uids:
@@ -843,16 +844,20 @@ class AnalyticsEngine:
                 enhancement_scores.append(enhancement_potential)
             else:
                 # New knowledge area has high enhancement potential
-                enhancement_scores.append(0.8)
+                enhancement_scores.append(KnowledgeEnhancementScore.NEW_KNOWLEDGE_POTENTIAL)
 
-        base_score = statistics.mean(enhancement_scores) if enhancement_scores else 0.5
+        base_score = (
+            statistics.mean(enhancement_scores)
+            if enhancement_scores
+            else KnowledgeEnhancementScore.DEFAULT_ENHANCEMENT
+        )
 
         # Boost score for high-priority tasks (priority indicates importance of knowledge gain)
         priority_boost = 0.0
         if task.priority == "critical":
-            priority_boost = 0.2
+            priority_boost = KnowledgeEnhancementScore.CRITICAL_PRIORITY_BOOST
         elif task.priority == "high":
-            priority_boost = 0.1
+            priority_boost = KnowledgeEnhancementScore.HIGH_PRIORITY_BOOST
 
         return min(1.0, base_score + priority_boost)
 
@@ -880,7 +885,7 @@ class AnalyticsEngine:
     ) -> float:
         """Calculate mastery progression impact score."""
         if not (rels.applies_knowledge_uids or rels.prerequisite_knowledge_uids):
-            return 0.1
+            return KnowledgeEnhancementScore.NO_KNOWLEDGE_BASELINE
 
         progression_scores = []
         all_knowledge = list(rels.applies_knowledge_uids) + list(rels.prerequisite_knowledge_uids)
@@ -891,22 +896,29 @@ class AnalyticsEngine:
                 # Higher score for knowledge with positive velocity and room for growth
                 velocity_factor = max(0, progression.progression_velocity)
                 mastery_factor = 1.0 - progression.current_mastery_level
-                score = velocity_factor * 0.6 + mastery_factor * 0.4
+                score = (
+                    velocity_factor * KnowledgeEnhancementScore.VELOCITY_WEIGHT
+                    + mastery_factor * KnowledgeEnhancementScore.MASTERY_ROOM_WEIGHT
+                )
                 progression_scores.append(score)
             else:
                 # New knowledge area has medium progression potential
-                progression_scores.append(0.6)
+                progression_scores.append(KnowledgeEnhancementScore.NEW_AREA_PROGRESSION)
 
-        base_score = statistics.mean(progression_scores) if progression_scores else 0.3
+        base_score = (
+            statistics.mean(progression_scores)
+            if progression_scores
+            else KnowledgeEnhancementScore.NO_PROGRESSION_FALLBACK
+        )
 
         # Boost score for tasks nearing deadline (urgency increases mastery value)
         urgency_boost = 0.0
         if task.due_date:
             days_until_due = (task.due_date - date.today()).days
             if days_until_due <= 3:
-                urgency_boost = 0.15  # Very urgent
+                urgency_boost = KnowledgeEnhancementScore.VERY_URGENT_BOOST
             elif days_until_due <= 7:
-                urgency_boost = 0.10  # Urgent
+                urgency_boost = KnowledgeEnhancementScore.URGENT_BOOST
 
         return min(1.0, base_score + urgency_boost)
 
@@ -918,7 +930,7 @@ class AnalyticsEngine:
         task_domains = set(self._extract_domains_from_knowledge_uids(all_knowledge_uids))
 
         if len(task_domains) <= 1:
-            return 0.2  # Low cross-domain impact
+            return CrossDomainImpactScore.SINGLE_DOMAIN_SCORE
 
         # Check alignment with cross-domain patterns
         cross_domain_patterns = [
@@ -930,20 +942,25 @@ class AnalyticsEngine:
             pattern_domains = set(self._extract_domains_from_knowledge_uids(pattern.knowledge_uids))
             overlap = task_domains.intersection(pattern_domains)
             if overlap:
-                alignment_score += 0.2 * len(overlap) * pattern.confidence
+                alignment_score += (
+                    CrossDomainImpactScore.ALIGNMENT_PER_OVERLAP * len(overlap) * pattern.confidence
+                )
 
-        base_score = min(0.8, len(task_domains) * 0.2)  # More domains = higher score
+        base_score = min(
+            CrossDomainImpactScore.MAX_DOMAIN_SCORE,
+            len(task_domains) * CrossDomainImpactScore.PER_DOMAIN_SCORE,
+        )
 
         # Boost score for high-priority cross-domain tasks (strategic importance)
         priority_boost = 0.0
         if task.priority in ["high", "critical"]:
-            priority_boost = 0.15  # Cross-domain learning in important tasks
+            priority_boost = CrossDomainImpactScore.CROSS_DOMAIN_PRIORITY_BOOST
 
         # Boost for tasks tagged with cross-domain indicators
         tag_boost = 0.0
         cross_domain_tags = {"integration", "synthesis", "multidisciplinary", "interdisciplinary"}
         if any(tag in cross_domain_tags for tag in task.tags):
-            tag_boost = 0.1
+            tag_boost = CrossDomainImpactScore.CROSS_DOMAIN_TAG_BOOST
 
         return min(1.0, base_score + alignment_score + priority_boost + tag_boost)
 
@@ -959,21 +976,21 @@ class AnalyticsEngine:
         """Generate human-readable rationale for priority scoring."""
         rationale = []
 
-        if base > 0.7:
+        if base > InsightThreshold.HIGH_SCORE:
             rationale.append(f"High base priority ({task.priority}) increases importance")
-        elif base < 0.3:
+        elif base < InsightThreshold.LOW_SCORE:
             rationale.append(f"Low base priority ({task.priority}) reduces urgency")
 
-        if knowledge > 0.7:
+        if knowledge > InsightThreshold.HIGH_SCORE:
             rationale.append("Strong knowledge enhancement potential detected")
 
-        if learning > 0.7:
+        if learning > InsightThreshold.HIGH_SCORE:
             rationale.append("High learning opportunity value identified")
 
-        if mastery > 0.7:
+        if mastery > InsightThreshold.HIGH_SCORE:
             rationale.append("Significant mastery progression impact expected")
 
-        if cross_domain > 0.7:
+        if cross_domain > InsightThreshold.HIGH_SCORE:
             rationale.append("Notable cross-domain knowledge application potential")
 
         if not rationale:
@@ -1051,7 +1068,11 @@ class AnalyticsEngine:
         confidence = min(1.0, len(completed_tasks) / 10.0)  # More tasks = higher confidence
 
         # Next recommended difficulty
-        next_difficulty = min(1.0, current_mastery + 0.2) if current_mastery > 0 else 0.3
+        next_difficulty = (
+            min(1.0, current_mastery + KnowledgeEnhancementScore.DIFFICULTY_STEP)
+            if current_mastery > 0
+            else KnowledgeEnhancementScore.INITIAL_DIFFICULTY
+        )
 
         return MasteryProgression(
             knowledge_uid=knowledge_uid,
@@ -1156,7 +1177,7 @@ class AnalyticsEngine:
         if building_patterns:
             avg_growth = statistics.mean([p.growth_indicator for p in building_patterns])
 
-            if avg_growth > 0.5:
+            if avg_growth > InsightThreshold.STRONG_GROWTH:
                 insights.append(
                     TaskInsight(
                         insight_type="learning_velocity",
@@ -1177,7 +1198,7 @@ class AnalyticsEngine:
                         impact_score=0.9,
                     )
                 )
-            elif avg_growth < -0.2:
+            elif avg_growth < InsightThreshold.NEGATIVE_GROWTH:
                 insights.append(
                     TaskInsight(
                         insight_type="learning_challenge",
@@ -1229,7 +1250,10 @@ class AnalyticsEngine:
             completion_rate = len(completed_tasks) / len(tasks)
             avg_complexity = statistics.mean(complexities)
 
-            if completion_rate > 0.8 and avg_complexity > 0.6:
+            if (
+                completion_rate > InsightThreshold.HIGH_COMPLETION_RATE
+                and avg_complexity > InsightThreshold.HIGH_COMPLEXITY
+            ):
                 insights.append(
                     TaskInsight(
                         insight_type="application_effectiveness",
@@ -1261,7 +1285,7 @@ class AnalyticsEngine:
         if validation_tasks:
             validation_rate = len(completed_validations) / len(validation_tasks)
 
-            if validation_rate > 0.8:
+            if validation_rate > InsightThreshold.STRONG_VALIDATION_RATE:
                 insights.append(
                     TaskInsight(
                         insight_type="mastery_validation",
@@ -1280,7 +1304,7 @@ class AnalyticsEngine:
                         impact_score=0.7,
                     )
                 )
-            elif validation_rate < 0.5:
+            elif validation_rate < InsightThreshold.WEAK_VALIDATION_RATE:
                 insights.append(
                     TaskInsight(
                         insight_type="mastery_challenge",

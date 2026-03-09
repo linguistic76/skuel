@@ -476,6 +476,189 @@ class LearningLoop:
     EMA_ALPHA_HABIT_TIMING: Final = 0.2
 
 
+# ============================================================================
+# PRIORITY SCORING WEIGHTS (analytics_engine.py)
+# ============================================================================
+
+
+class PriorityScoringWeight:
+    """
+    Component weights for knowledge-aware task priority scoring.
+
+    Used by: KnowledgeAnalyticsEngine.calculate_knowledge_aware_priority()
+
+    The five component weights must sum to 1.0:
+    BASE + KNOWLEDGE + LEARNING + MASTERY + CROSS_DOMAIN = 1.0
+    """
+
+    # Component weights (sum to 1.0)
+    BASE: Final = 0.3
+    KNOWLEDGE: Final = 0.25
+    LEARNING: Final = 0.2
+    MASTERY: Final = 0.15
+    CROSS_DOMAIN: Final = 0.1
+
+    # Priority label → numeric score
+    PRIORITY_LEVEL: Final[dict[str, float]] = {
+        "LOW": 0.2,
+        "MEDIUM": 0.5,
+        "HIGH": 0.8,
+        "CRITICAL": 1.0,
+    }
+    DEFAULT_PRIORITY: Final = 0.5
+
+
+# ============================================================================
+# KNOWLEDGE ENHANCEMENT SCORES (analytics_engine.py)
+# ============================================================================
+
+
+class KnowledgeEnhancementScore:
+    """
+    Scoring constants for knowledge enhancement, mastery progression,
+    and urgency calculations.
+
+    Used by: KnowledgeAnalyticsEngine priority sub-calculators
+    """
+
+    # Knowledge enhancement potential
+    NEW_KNOWLEDGE_POTENTIAL: Final = 0.8
+    DEFAULT_ENHANCEMENT: Final = 0.5
+    NO_KNOWLEDGE_BASELINE: Final = 0.1
+
+    # Priority boosts for knowledge enhancement
+    CRITICAL_PRIORITY_BOOST: Final = 0.2
+    HIGH_PRIORITY_BOOST: Final = 0.1
+
+    # Mastery progression weights
+    VELOCITY_WEIGHT: Final = 0.6
+    MASTERY_ROOM_WEIGHT: Final = 0.4
+    NEW_AREA_PROGRESSION: Final = 0.6
+    NO_PROGRESSION_FALLBACK: Final = 0.3
+
+    # Urgency boosts (due date proximity)
+    VERY_URGENT_BOOST: Final = 0.15
+    URGENT_BOOST: Final = 0.10
+
+    # Next difficulty calculation
+    DIFFICULTY_STEP: Final = 0.2
+    INITIAL_DIFFICULTY: Final = 0.3
+
+
+# ============================================================================
+# CROSS-DOMAIN IMPACT SCORES (analytics_engine.py)
+# ============================================================================
+
+
+class CrossDomainImpactScore:
+    """
+    Scoring constants for cross-domain knowledge impact assessment.
+
+    Used by: KnowledgeAnalyticsEngine._calculate_cross_domain_impact_score(),
+             learning pattern detection methods
+    """
+
+    # Domain count scoring
+    SINGLE_DOMAIN_SCORE: Final = 0.2
+    PER_DOMAIN_SCORE: Final = 0.2
+    MAX_DOMAIN_SCORE: Final = 0.8
+
+    # Pattern alignment
+    ALIGNMENT_PER_OVERLAP: Final = 0.2
+
+    # Cross-domain priority and tag boosts
+    CROSS_DOMAIN_PRIORITY_BOOST: Final = 0.15
+    CROSS_DOMAIN_TAG_BOOST: Final = 0.1
+
+    # Growth indicators for learning patterns
+    NEUTRAL_GROWTH: Final = 0.5
+    REINFORCEMENT_GROWTH: Final = 0.3
+    SPECIALIZATION_GROWTH: Final = 0.7
+    BRIDGING_GROWTH: Final = 0.6
+
+    # Specialization detection
+    SPECIALIZATION_RATIO_THRESHOLD: Final = 0.3
+
+
+# ============================================================================
+# INSIGHT THRESHOLDS (analytics_engine.py)
+# ============================================================================
+
+
+class InsightThreshold:
+    """
+    Threshold constants for generating learning insights and rationale.
+
+    Used by: KnowledgeAnalyticsEngine insight generators and priority rationale
+    """
+
+    # Learning velocity thresholds
+    STRONG_GROWTH: Final = 0.5
+    NEGATIVE_GROWTH: Final = -0.2
+
+    # Application effectiveness thresholds
+    HIGH_COMPLETION_RATE: Final = 0.8
+    HIGH_COMPLEXITY: Final = 0.6
+
+    # Mastery validation thresholds
+    STRONG_VALIDATION_RATE: Final = 0.8
+    WEAK_VALIDATION_RATE: Final = 0.5
+
+    # Priority rationale thresholds
+    HIGH_SCORE: Final = 0.7
+    LOW_SCORE: Final = 0.3
+
+    # Learning gap detection
+    LEARNING_GAP_DAYS: Final = 7
+
+
+# ============================================================================
+# INFERENCE CONFIDENCE (advanced_inference_engine.py)
+# ============================================================================
+
+
+class InferenceConfidence:
+    """
+    Confidence scoring constants for the advanced knowledge inference engine.
+
+    Used by: AdvancedInferenceEngine content analysis and scoring methods
+    """
+
+    # Keyword detection confidence tiers
+    DIRECT_KEYWORD: Final = 0.8
+    CONTEXTUAL_KEYWORD: Final = 0.6
+    ADVANCED_KEYWORD: Final = 0.9
+
+    # Multi-match boosting
+    MULTI_MATCH_BOOST_PER: Final = 0.1
+    MULTI_MATCH_CAP: Final = 0.95
+
+    # Phrase pattern confidence
+    PHRASE_BASE: Final = 0.7
+    PHRASE_PER_EVIDENCE: Final = 0.05
+    PHRASE_CAP: Final = 0.85
+
+    # Pattern merge boosting
+    MERGE_BOOST: Final = 0.05
+    MERGE_CAP: Final = 0.95
+
+    # Evidence quality scoring
+    EVIDENCE_QUALITY_PER_ITEM: Final = 0.05
+    EVIDENCE_QUALITY_CAP: Final = 0.25
+
+    # Domain expertise
+    DOMAIN_EXPERTISE_BOOST: Final = 0.1
+
+    # Pattern type reliability bonuses
+    PATTERN_RELIABILITY: Final[dict[str, float]] = {
+        "phrase_pattern": 0.1,
+        "keyword_enhanced": 0.05,
+        "contextual_integration": 0.08,
+        "complexity_based": 0.12,
+        "merged": 0.15,
+    }
+
+
 KU_NAMESPACES: Final[frozenset[str]] = frozenset(
     {
         "attention",

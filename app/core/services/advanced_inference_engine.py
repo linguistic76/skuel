@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from operator import attrgetter
 from typing import Any, TypedDict
 
-from core.constants import ConfidenceLevel
+from core.constants import ConfidenceLevel, InferenceConfidence
 from core.models.task.task_dto import TaskDTO
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -295,19 +295,19 @@ class AdvancedInferenceEngine:
             for keyword in keywords_dict.get("direct", []):
                 if keyword in content:
                     evidence.append(f"Direct keyword: '{keyword}'")
-                    confidence_factors.append(0.8)
+                    confidence_factors.append(InferenceConfidence.DIRECT_KEYWORD)
 
             # Check contextual keywords
             for keyword in keywords_dict.get("contextual", []):
                 if keyword in content:
                     evidence.append(f"Contextual keyword: '{keyword}'")
-                    confidence_factors.append(0.6)
+                    confidence_factors.append(InferenceConfidence.CONTEXTUAL_KEYWORD)
 
             # Check advanced keywords (higher confidence if found)
             for keyword in keywords_dict.get("advanced", []):
                 if keyword in content:
                     evidence.append(f"Advanced keyword: '{keyword}'")
-                    confidence_factors.append(0.9)
+                    confidence_factors.append(InferenceConfidence.ADVANCED_KEYWORD)
 
             # Calculate confidence based on multiple factors
             if confidence_factors:
@@ -315,7 +315,9 @@ class AdvancedInferenceEngine:
                 # Boost confidence for multiple matches
                 if len(confidence_factors) > 1:
                     base_confidence = min(
-                        0.95, base_confidence + 0.1 * (len(confidence_factors) - 1)
+                        InferenceConfidence.MULTI_MATCH_CAP,
+                        base_confidence
+                        + InferenceConfidence.MULTI_MATCH_BOOST_PER * (len(confidence_factors) - 1),
                     )
 
                 patterns.append(
@@ -345,7 +347,11 @@ class AdvancedInferenceEngine:
 
             if evidence:
                 # Higher confidence for phrase patterns as they're more specific
-                confidence = min(0.85, 0.7 + 0.05 * len(evidence))
+                confidence = min(
+                    InferenceConfidence.PHRASE_CAP,
+                    InferenceConfidence.PHRASE_BASE
+                    + InferenceConfidence.PHRASE_PER_EVIDENCE * len(evidence),
+                )
 
                 patterns.append(
                     KuPattern(
@@ -452,7 +458,10 @@ class AdvancedInferenceEngine:
             max_confidence = max(data["confidences"])
             # Slight boost for multiple detection methods
             if len(data["confidences"]) > 1:
-                max_confidence = min(0.95, max_confidence + 0.05)
+                max_confidence = min(
+                    InferenceConfidence.MERGE_CAP,
+                    max_confidence + InferenceConfidence.MERGE_BOOST,
+                )
 
             merged.append(
                 KuPattern(
@@ -550,24 +559,18 @@ class AdvancedInferenceEngine:
         base_confidence = pattern.confidence
 
         # Factor 1: Evidence quality
-        evidence_quality = len(pattern.evidence) * 0.05  # Up to 0.25 boost for 5+ evidence items
-        evidence_quality = min(0.25, evidence_quality)
+        evidence_quality = len(pattern.evidence) * InferenceConfidence.EVIDENCE_QUALITY_PER_ITEM
+        evidence_quality = min(InferenceConfidence.EVIDENCE_QUALITY_CAP, evidence_quality)
 
         # Factor 2: Pattern type reliability
-        type_reliability = {
-            "phrase_pattern": 0.1,  # Phrase patterns are more reliable
-            "keyword_enhanced": 0.05,  # Enhanced keywords are somewhat reliable
-            "contextual_integration": 0.08,
-            "complexity_based": 0.12,  # Complexity-based are highly reliable
-            "merged": 0.15,  # Merged patterns are most reliable
-        }.get(pattern.pattern_type, 0.0)
+        type_reliability = InferenceConfidence.PATTERN_RELIABILITY.get(pattern.pattern_type, 0.0)
 
         # Factor 3: Domain expertise (if available in context)
         domain_boost = 0.0
         if "user_expertise" in context:
             user_domains = context["user_expertise"].get("domains", [])
             if pattern.domain in user_domains:
-                domain_boost = 0.1
+                domain_boost = InferenceConfidence.DOMAIN_EXPERTISE_BOOST
 
         # Factor 4: Historical validation (if available)
         validation_boost = 0.0
