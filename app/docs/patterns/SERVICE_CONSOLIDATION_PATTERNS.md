@@ -111,8 +111,8 @@ from core.services.domain_config import create_curriculum_domain_config
 _config = create_curriculum_domain_config(
     dto_class=CurriculumDTO,
     model_class=Curriculum,
-    domain_name="ku",
-    search_fields=("title", "content", "description"),  # KU has more searchable fields
+    domain_name="article",
+    search_fields=("title", "content", "description"),  # Article has more searchable fields
     search_order_by="updated_at",   # Curriculum sorts by update time
     category_field="domain",        # Curriculum uses 'domain' not 'category'
     content_field="content",        # Field containing main content

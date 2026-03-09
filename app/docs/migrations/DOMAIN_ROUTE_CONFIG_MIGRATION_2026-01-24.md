@@ -46,11 +46,11 @@
 
 **Configuration:**
 ```python
-KU_CONFIG = DomainRouteConfig(
-    domain_name="ku",
-    primary_service_attr="ku",
-    api_factory=create_ku_api_routes,
-    ui_factory=create_ku_ui_routes,
+ARTICLE_CONFIG = DomainRouteConfig(
+    domain_name="article",
+    primary_service_attr="article",
+    api_factory=create_article_api_routes,
+    ui_factory=create_article_ui_routes,
     api_related_services={},
 )
 ```

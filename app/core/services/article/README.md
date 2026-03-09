@@ -82,7 +82,7 @@ This directory contains modular sub-services for Article (teaching composition) 
 
 **Methods:**
 - `find_prerequisites()`, `find_next_steps()`
-- `get_knowledge_with_context()`, `link_prerequisite()`
+- `get_article_with_context()`, `link_prerequisite()`
 - `link_parent_child()`, `get_prerequisite_chain()`
 - `analyze_knowledge_gaps()`, `get_learning_recommendations()`
 - `get_ready_to_learn_for_user()`, `get_learning_gaps_for_user()`

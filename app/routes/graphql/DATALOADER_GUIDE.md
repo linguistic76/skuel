@@ -62,7 +62,7 @@ Located in: `/routes/graphql/context.py`
 
 | DataLoader | Purpose | Batches |
 |------------|---------|---------|
-| `knowledge_loader` | Load knowledge units by UID | `get_knowledge_units_batch()` |
+| `knowledge_loader` | Load articles by UID | `get_articles_batch()` |
 | `task_loader` | Load tasks by UID | `get_tasks_batch()` |
 | `learning_path_loader` | Load learning paths by UID | `get_learning_paths_batch()` |
 | `learning_step_loader` | Load learning steps by UID | `get_learning_steps_batch()` |
@@ -400,7 +400,7 @@ query {
 
 3. **Implement batch methods in services**
    ```python
-   async def get_knowledge_units_batch(self, uids: list[str]) -> Result[list[Ku | None]]  # ✅
+   async def get_articles_batch(self, uids: list[str]) -> Result[list[Article | None]]  # ✅
    ```
 
 4. **Preserve order in batch results**
@@ -509,7 +509,7 @@ query TestBatching {
 ## Next Steps
 
 1. **Implement batch methods** in remaining services:
-   - ✅ KuService.get_knowledge_units_batch()
+   - ✅ ArticleService.get_articles_batch()
    - ✅ TasksService.get_tasks_batch()
    - ✅ LpService.get_learning_paths_batch()
    - ⏳ LsService.get_learning_steps_batch() (fallback exists)

@@ -113,11 +113,11 @@ crud_factory = CRUDRouteFactory(
 
 # Curriculum domains (shared) - no ownership verification
 crud_factory = CRUDRouteFactory(
-    service=ku_service,
-    domain_name="ku",
+    service=article_service,
+    domain_name="article",
     create_schema=ArticleCreateRequest,
     update_schema=EntityUpdateRequest,
-    scope=ContentScope.SHARED,  # KU is shared, not user-owned
+    scope=ContentScope.SHARED,  # Article is shared, not user-owned
 )
 ```
 

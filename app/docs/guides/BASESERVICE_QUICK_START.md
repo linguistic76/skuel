@@ -580,7 +580,7 @@ from core.services.domain_config import create_curriculum_domain_config
 _config = create_curriculum_domain_config(
     dto_class=CurriculumDTO,
     model_class=Curriculum,
-    domain_name="ku",
+    domain_name="article",
     search_fields=("title", "content", "description"),
 )
 ```

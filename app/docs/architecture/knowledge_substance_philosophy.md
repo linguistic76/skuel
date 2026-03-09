@@ -225,8 +225,8 @@ user_substance_score = task_score + habit_score + event_score + journal_score + 
 ### Implementation
 
 - **Service:** `ArticleIntelligenceService.calculate_user_substance(article_uid, user_context)`
-- **Facade:** `ArticleService.get_user_knowledge_context(article_uid, user_context)`
-- **Route:** `/adapters/inbound/article_api.py` (`get_knowledge_user_context_route`)
+- **Facade:** `ArticleService.get_user_article_context(article_uid, user_context)`
+- **Route:** `/adapters/inbound/article_api.py` (`get_article_user_context_route`)
 - **Wiring:** `user_service` passed through `services_bootstrap.py` → `ArticleService` → `ArticleIntelligenceService`
 
 ### Future: UserContext Extensions

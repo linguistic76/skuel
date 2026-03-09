@@ -181,7 +181,7 @@ async def compose_services(neo4j_driver, event_bus=None) -> Result[Services]:
         choices=choices_service.relationships,
         principles=principles_service.relationships,
         # Curriculum (3)
-        ku=ku_service.graph,           # KuGraphService
+        article=article_service.graph,  # ArticleGraphService
         ls=ls_service.relationships,   # UnifiedRelationshipService
         lp=lp_service.relationships,   # UnifiedRelationshipService
         # Processing (3)
