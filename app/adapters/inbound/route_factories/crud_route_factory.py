@@ -283,7 +283,7 @@ class CRUDRouteFactory[T]:
             return boundary_handler(success_status=success_status)(handler)
 
         # Apply combined instrumentation + boundary handling
-        from core.infrastructure.monitoring import instrument_with_boundary_handler
+        from adapters.inbound.boundary import instrument_with_boundary_handler
 
         return instrument_with_boundary_handler(
             self.prometheus_metrics, endpoint, success_status=success_status

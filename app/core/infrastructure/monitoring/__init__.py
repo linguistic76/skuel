@@ -14,7 +14,6 @@ Key Components:
 from core.infrastructure.monitoring.http_instrumentation import (
     create_instrumented_wrapper,
     instrument_handler,
-    instrument_with_boundary_handler,
 )
 
 # NOTE: MetricsEventHandler not imported here to avoid circular dependency
@@ -31,5 +30,4 @@ __all__ = [
     # HTTP instrumentation
     "create_instrumented_wrapper",
     "instrument_handler",
-    "instrument_with_boundary_handler",
 ]

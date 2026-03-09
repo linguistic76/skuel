@@ -14,6 +14,7 @@ See: /docs/patterns/ERROR_HANDLING.md
 """
 
 import logging
+import time
 from collections.abc import Awaitable, Callable, Coroutine
 from functools import wraps
 from typing import Any, ParamSpec
@@ -21,6 +22,7 @@ from typing import Any, ParamSpec
 from starlette.exceptions import HTTPException
 from starlette.responses import JSONResponse
 
+from core.utils.logging import get_logger
 from core.utils.result_simplified import ErrorCategory, ErrorContext, Result
 
 logger = logging.getLogger(__name__)
@@ -162,3 +164,102 @@ def _get_status_for_error(error: ErrorContext) -> int:
         ErrorCategory.SYSTEM: 500,
     }
     return status_map.get(error.category, 500)
+
+
+# ============================================================================
+# INSTRUMENTED BOUNDARY - Combines Prometheus metrics + Result[T] conversion
+# ============================================================================
+
+_boundary_logger = get_logger(__name__)
+
+
+def instrument_with_boundary_handler(
+    prometheus_metrics: Any,
+    endpoint: str,
+    success_status: int = 200,
+) -> Callable[[Callable], Callable]:
+    """
+    Combined decorator that instruments HTTP requests AND converts Result[T] to JSONResponse.
+
+    This integrates Prometheus instrumentation with SKUEL's boundary_handler pattern,
+    tracking metrics while properly handling Result[T] return types.
+
+    Args:
+        prometheus_metrics: PrometheusMetrics instance
+        endpoint: Endpoint path for metrics labels
+        success_status: HTTP status code for successful results
+
+    Returns:
+        Decorated handler that tracks metrics and converts Results
+
+    Example:
+        @instrument_with_boundary_handler(metrics, "/api/tasks/create", success_status=201)
+        async def create(request) -> Result[Task]:
+            return await service.create(...)
+    """
+
+    def decorator(handler: Callable) -> Callable:
+        @wraps(handler)
+        async def wrapper(request, *args: Any, **kwargs: Any) -> JSONResponse:
+            start_time = time.time()
+            method = request.method
+            status_code = success_status
+
+            try:
+                # Execute handler
+                result = await handler(request, *args, **kwargs)
+
+                # Convert Result[T] to JSONResponse
+                if isinstance(result, Result):
+                    response = result_to_response(result, success_status)
+                    status_code = response.status_code
+                else:
+                    # If not a Result, assume it's already a response
+                    response = result
+                    resp_status = getattr(response, "status_code", None)
+                    if resp_status is not None:
+                        status_code = resp_status
+
+                # Track successful request
+                if prometheus_metrics:
+                    prometheus_metrics.http.requests_total.labels(
+                        method=method, endpoint=endpoint, status=status_code
+                    ).inc()
+
+                return response
+
+            except Exception:
+                # Track failed request
+                status_code = 500
+                if prometheus_metrics:
+                    prometheus_metrics.http.requests_total.labels(
+                        method=method, endpoint=endpoint, status=status_code
+                    ).inc()
+
+                    prometheus_metrics.http.errors_total.labels(
+                        method=method, endpoint=endpoint, status=status_code
+                    ).inc()
+
+                _boundary_logger.error(
+                    f"Request failed: {method} {endpoint}",
+                    exc_info=True,
+                    extra={"endpoint": endpoint, "method": method},
+                )
+
+                # Re-raise exception
+                raise
+
+            finally:
+                # Always track latency
+                if prometheus_metrics:
+                    duration = time.time() - start_time
+                    prometheus_metrics.http.request_duration.labels(
+                        method=method, endpoint=endpoint
+                    ).observe(duration)
+
+        # Override return annotation to prevent FastHTML from trying to construct Result[T]
+        wrapper.__annotations__["return"] = JSONResponse
+
+        return wrapper
+
+    return decorator
