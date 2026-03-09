@@ -1142,7 +1142,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
                 print(f"Low-impact principle: {impact['adoption_level']}")
             ```
         """
-        from core.models.principle.principle_relationships import PrincipleRelationships
+        from core.services.principles.principle_relationships import PrincipleRelationships
 
         # ✅ Use fetch() for fast parallel UID fetching
         rels = await PrincipleRelationships.fetch(principle_uid, self.relationships)
@@ -1219,7 +1219,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
         """
         import asyncio
 
-        from core.models.principle.principle_relationships import PrincipleRelationships
+        from core.services.principles.principle_relationships import PrincipleRelationships
 
         # ✅ Fetch all relationships in parallel
         all_rels = await asyncio.gather(
