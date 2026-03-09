@@ -143,8 +143,8 @@ SKUEL has two query builders for domain services (SKUEL001: no APOC in domain se
 
 | Builder | Location | Use Case |
 |---------|----------|----------|
-| **UnifiedQueryBuilder** | `core/models/query/` | Generic CRUD (used by backends) |
-| **CypherGenerator** | `core/models/query/cypher/` | Pure Cypher, semantic traversal |
+| **UnifiedQueryBuilder** | `adapters/persistence/neo4j/query/` | Generic CRUD (used by backends) |
+| **CypherGenerator** | `adapters/persistence/neo4j/query/cypher/` | Pure Cypher, semantic traversal |
 
 **SKUEL001 linter rule:** APOC is scoped to `apoc.meta.*` (schema introspection only). Domain services use pure Cypher — never APOC in `core/services/`.
 
@@ -202,7 +202,7 @@ MATCH (t:Task {uid: '${uid}'})
 **Exception: labels and property names cannot be parameterized in Neo4j.** When you must interpolate them, use allowlist validation instead:
 
 ```python
-from core.models.query.cypher.crud_queries import _validate_label, _validate_identifier
+from adapters.persistence.neo4j.query.cypher.crud_queries import _validate_label, _validate_identifier
 
 # GOOD - validated before interpolation
 _validate_label(label)       # raises ValueError if not a known NeoLabel value

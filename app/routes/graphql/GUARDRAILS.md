@@ -46,7 +46,7 @@ async def knowledge_units(self, info: Info, limit: int | None = None) -> list[Kn
 
 **Location of Cypher Queries:**
 - ✅ `/adapters/persistence/neo4j/` - Backend implementations
-- ✅ `/core/models/query/cypher_generator.py` - Query builder
+- ✅ `/adapters/persistence/neo4j/query/` - Query builders
 - ❌ `/routes/graphql/` - GraphQL resolvers (NO Cypher here!)
 
 ---

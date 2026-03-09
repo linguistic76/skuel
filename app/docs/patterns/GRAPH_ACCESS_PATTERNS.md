@@ -31,7 +31,7 @@ SKUEL uses **two complementary graph access patterns** for optimal performance a
 
 **Both patterns are essential and should be used together based on the use case.**
 
-**Architectural Principle (February 2026):** Domain models express *intent* (what kind of query is appropriate), infrastructure builds *queries* (how to execute it). Models never generate Cypher strings — that knowledge lives in `core.models.query.graph_traversal` and the persistence adapter.
+**Architectural Principle (February 2026):** Domain models express *intent* (what kind of query is appropriate), infrastructure builds *queries* (how to execute it). Models never generate Cypher strings — that knowledge lives in `adapters.persistence.neo4j.query.graph_traversal` and the persistence adapter.
 
 ---
 
@@ -913,7 +913,7 @@ async def test_analyze_impact(mock_graph_intelligence):
 
 ## Related Documentation
 
-- **Query Infrastructure**: `/core/models/query/graph_traversal.py` (Pure Cypher query builder)
+- **Query Infrastructure**: `/adapters/persistence/neo4j/query/graph_traversal.py` (Pure Cypher query builder)
 - **Graph Intelligence**: `/core/services/intelligence/graph_context_orchestrator.py`
 - **Domain Models**: `/core/models/ku/ku.py` (Unified Ku model)
 - **CLAUDE.md**: Section on "Search & Query Architecture"

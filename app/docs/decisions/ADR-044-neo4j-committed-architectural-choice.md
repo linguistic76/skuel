@@ -112,7 +112,7 @@ The backend layer contains all Neo4j driver calls, all Cypher strings, all label
 
 | Risk | Likelihood | Impact | Mitigation |
 |------|------------|--------|------------|
-| Mixin layer accumulates raw Cypher strings | Medium | Medium | SKUEL001 linter rule prohibits direct Cypher in service layer; all Cypher lives in backend or `core/models/query/cypher/` |
+| Mixin layer accumulates raw Cypher strings | Medium | Medium | SKUEL001 linter rule prohibits direct Cypher in service layer; all Cypher lives in backend or `adapters/persistence/neo4j/query/cypher/` |
 | Graph semantics bleed past the mixin layer into routes | Low | Medium | Routes call service methods; service mixins call backend methods; Cypher never appears in route files |
 
 ---

@@ -1,8 +1,10 @@
-# Query Infrastructure - Universal Query Models
+# Query Infrastructure - Neo4j Query Builders
 
-**Infrastructure-level query models for ALL domains in SKUEL.**
+**Neo4j-specific query infrastructure for all domains in SKUEL.**
 
-Located at `/core/models/query/` as part of the Query Infrastructure.
+Located at `/adapters/persistence/neo4j/query/` — the adapter layer.
+Core-layer types (`QueryIntent`, `IndexStrategy`) live in `/core/models/query_types.py`.
+Search boundary models live in `/core/models/search_models.py`.
 
 ## Purpose
 
@@ -16,7 +18,7 @@ Provides Neo4j-first, pure Cypher query capabilities to all domains:
 
 ### Query Intent & Strategy
 ```python
-from core.models.query import QueryIntent, IndexStrategy
+from core.models.query_types import QueryIntent, IndexStrategy
 
 # Semantic query understanding
 intent = QueryIntent.HIERARCHICAL  # or PREREQUISITE, PRACTICE, etc.
@@ -27,7 +29,7 @@ strategy = IndexStrategy.UNIQUE_LOOKUP  # or FULLTEXT_SEARCH, VECTOR_SEARCH
 
 ### CypherGenerator (Pure Cypher)
 ```python
-from core.models.query.cypher import CypherGenerator
+from adapters.persistence.neo4j.query.cypher import CypherGenerator
 
 # Build graph-aware search queries
 query, params = CypherGenerator.build_graph_aware_search_query(
@@ -46,7 +48,7 @@ query, params = CypherGenerator.build_text_search_query(
 
 ### UnifiedQueryBuilder (Application Layer)
 ```python
-from core.models.query import UnifiedQueryBuilder
+from adapters.persistence.neo4j.query import UnifiedQueryBuilder
 
 # Fluent API for query construction
 builder = UnifiedQueryBuilder()
@@ -59,7 +61,7 @@ query = (
 
 ### Query Build Request
 ```python
-from core.models.query import QueryBuildRequest, create_search_request
+from adapters.persistence.neo4j.query import QueryBuildRequest, create_search_request
 
 # Declarative query construction
 request = QueryBuildRequest(
@@ -80,7 +82,7 @@ search_req = create_search_request(
 
 ### Query Validation
 ```python
-from core.models.query import ValidationResult, QueryElements
+from adapters.persistence.neo4j.query import ValidationResult, QueryElements
 
 # Schema-aware validation
 validation_result = validator.validate_query(cypher, schema_context)
@@ -101,7 +103,7 @@ if not validation_result.is_valid:
 
 ## Files
 
-- `_query_models.py` - Core query building models
+- `_query_models.py` - Query building models (imports enums from `core.models.query_types`)
 - `cypher/` - CypherGenerator and pure Cypher query builders
 - `cypher_template.py` - Query optimization strategies
 

@@ -26,14 +26,14 @@ Askesis uses **query infrastructure search models**:
 
 ```python
 # From /core/models/askesis/askesis.py:
-from core.models.query.search_models import FacetSetRequest as FacetSetSchema
-from core.models.query.search_models import SearchQueryRequest as SearchQuerySchema
-from core.models.query.search_models import SearchResultDTO as CrossDomainSearchResultsSchema
+from core.models.search_models import FacetSetRequest as FacetSetSchema
+from core.models.search_models import SearchQueryRequest as SearchQuerySchema
+from core.models.search_models import SearchResultDTO as CrossDomainSearchResultsSchema
 ```
 
 ### Search Boundary Models
 
-Located at `/core/models/query/search_models.py`:
+Located at `/core/models/search_models.py`:
 - `FacetSetRequest` - Pydantic request model for search facets
 - `SearchQueryRequest` - Pydantic request model for complete search queries
 - `SearchResultDTO` - Cross-domain search result DTO
@@ -149,7 +149,7 @@ detected_intent: Intent | None = None  # LEARN, PRACTICE, etc.
    - Personality
    - ResponseTone
 
-3. **Query Infrastructure** (/core/models/query/)
+3. **Query Infrastructure** (/adapters/persistence/neo4j/query/, /core/models/query_types.py)
    - QueryIntent
    - ApocQueryBuilder
 
@@ -314,5 +314,5 @@ But this is **not required** - Askesis is already clean and working well.
 - Askesis Models: `/core/models/askesis/`
 - Transcription Models: `/core/models/transcription/`
 - Simple Search: `/core/models/search_request.py`
-- Query Infrastructure: `/core/models/query/`
+- Query Infrastructure: `/adapters/persistence/neo4j/query/`
 - Deprecated Search: `/core/models/search/` (don't use)

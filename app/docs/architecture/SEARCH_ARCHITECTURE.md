@@ -633,7 +633,7 @@ Deadline proximity is one factor in `_calculate_priority_score()`. The full comp
 **Domains using base TimeQueryMixin (no override):** Tasks, Goals, Events, Choices
 **Domains with custom override:** Habits (frequency-based), Principles (strength-based)
 
-The base implementation delegates to `build_due_soon_query()` / `build_overdue_query()` in `core/models/query/cypher/domain_queries.py`, which generate Cypher filtered by `temporal_exclude_statuses` and sorted by the domain's `date_field` (+ `temporal_secondary_sort` when set).
+The base implementation delegates to `build_due_soon_query()` / `build_overdue_query()` in `adapters/persistence/neo4j/query/cypher/domain_queries.py`, which generate Cypher filtered by `temporal_exclude_statuses` and sorted by the domain's `date_field` (+ `temporal_secondary_sort` when set).
 
 ### Frequency Window Scoring (Habits)
 
@@ -676,7 +676,7 @@ Used by `_is_habit_due_in_window()`, `_is_habit_overdue()`, and `get_due_today()
 | `core/utils/timestamp_helpers.py` | `score_deadline_proximity()`, `get_frequency_window_days()`, `FREQUENCY_WINDOWS_DAYS` |
 | `core/services/domain_config.py` | `temporal_exclude_statuses`, `temporal_secondary_sort` config fields |
 | `core/services/mixins/time_query_mixin.py` | `get_due_soon()`, `get_overdue()` base implementations |
-| `core/models/query/cypher/domain_queries.py` | `build_due_soon_query()`, `build_overdue_query()` |
+| `adapters/persistence/neo4j/query/cypher/domain_queries.py` | `build_due_soon_query()`, `build_overdue_query()` |
 | `core/services/goals/goals_search_service.py` | `GoalsSearchService._PROXIMITY_BANDS` |
 | `core/services/events/events_search_service.py` | `EventsSearchService._PROXIMITY_BANDS`, `temporal_secondary_sort="start_time"` |
 | `core/services/choices/choices_search_service.py` | `ChoicesSearchService._PROXIMITY_BANDS` |

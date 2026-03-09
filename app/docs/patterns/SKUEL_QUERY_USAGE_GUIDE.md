@@ -18,7 +18,7 @@ related_docs: []
 **Skill:** [@neo4j-cypher-patterns](../../.claude/skills/neo4j-cypher-patterns/SKILL.md)
 
 ```python
-from core.models.query.skuel_query_templates import get_template
+from adapters.persistence.neo4j.query.skuel_query_templates import get_template
 
 # Get a template
 template = get_template("next_knowledge_in_path")
@@ -328,7 +328,7 @@ await session.run(template.cypher)
 ### Example 1: Learning Path Service
 
 ```python
-from core.models.query.skuel_query_templates import get_template
+from adapters.persistence.neo4j.query.skuel_query_templates import get_template
 
 class LearningPathService:
     def __init__(self, session):
@@ -364,7 +364,7 @@ class LearningPathService:
 ### Example 2: User Intelligence Service
 
 ```python
-from core.models.query.skuel_query_templates import get_template
+from adapters.persistence.neo4j.query.skuel_query_templates import get_template
 
 class UserIntelligenceService:
     def __init__(self, session):
@@ -421,7 +421,7 @@ class UserIntelligenceService:
 ### Example 3: Event-Driven Substance Updates
 
 ```python
-from core.models.query.skuel_query_templates import get_template
+from adapters.persistence.neo4j.query.skuel_query_templates import get_template
 from core.events.base import EventBus
 
 class KnowledgeSubstanceTracker:
@@ -572,7 +572,7 @@ async def get_user_progress(user_uid: str):
 
 ```python
 import pytest
-from core.models.query.skuel_query_templates import get_template
+from adapters.persistence.neo4j.query.skuel_query_templates import get_template
 
 def test_next_knowledge_template():
     """Test next knowledge template structure."""

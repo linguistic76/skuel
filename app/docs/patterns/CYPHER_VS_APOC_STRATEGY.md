@@ -219,7 +219,7 @@ Domain Models → Services → [Adapter Layer] → APOC
 
 ```
 /core/services/semantic_cypher_builder.py  ← Pure Cypher (domain logic)
-/core/models/query/query_models.py         ← ApocQueryBuilder (adapter layer)
+/adapters/persistence/neo4j/query/query_models.py  ← ApocQueryBuilder (adapter layer)
 /adapters/persistence/neo4j/                ← Backend implementations
 ```
 

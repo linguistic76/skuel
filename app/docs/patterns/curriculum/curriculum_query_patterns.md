@@ -700,7 +700,7 @@ RETURN
 
 **Next Steps:**
 
-1. Implement these patterns in `/core/models/query/skuel_query_templates.py`
+1. Implement these patterns in `/adapters/persistence/neo4j/query/skuel_query_templates.py`
 2. Create query template loader for common patterns
 3. Add query performance monitoring
 4. Document query usage in service layer

@@ -27,7 +27,7 @@ All 6 Activity Domains in SKUEL use intent-based graph traversal via `GraphIntel
 
 ## QueryIntent Enum
 
-**Location:** `/core/models/query/_query_models.py`
+**Location:** `/core/models/query_types.py`
 
 ### Generic Intents (Cross-Domain)
 
@@ -241,7 +241,7 @@ Each domain's analysis method returns a consistent structure:
 
 | Component | File |
 |-----------|------|
-| QueryIntent enum | `/core/models/query/_query_models.py` |
+| QueryIntent enum | `/core/models/query_types.py` |
 | GraphIntelligenceService | `/core/services/infrastructure/graph_intelligence_service.py` |
 | @requires_graph_intelligence | `/core/utils/decorators.py` |
 | **Tasks** | |

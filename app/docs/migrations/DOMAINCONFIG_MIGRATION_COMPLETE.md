@@ -426,7 +426,7 @@ After completing the DomainConfig migration, three additional optimization prior
 1. `/core/services/base_service.py` - Cached properties + tuple types
 2. `/core/services/domain_config.py` - Fail-fast validation
 3. `/core/services/mixins/search_operations_mixin.py` - Tuple type hints
-4. `/core/models/query/cypher/crud_queries.py` - Accept tuples
+4. `/adapters/persistence/neo4j/query/cypher/crud_queries.py` - Accept tuples
 
 ### Test Results
 

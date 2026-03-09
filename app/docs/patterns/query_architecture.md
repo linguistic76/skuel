@@ -32,12 +32,12 @@ SKUEL's query architecture uses a two-layer pattern with three specialized build
 
 ### Core Principle: "Query models are infrastructure, not domain-specific"
 
-**CRITICAL:** Query models were elevated from search domain to infrastructure level at `/core/models/query/`.
+**CRITICAL:** Query models were elevated from search domain to infrastructure level at `/adapters/persistence/neo4j/query/`. Boundary types (`QueryIntent`, `IndexStrategy`) live in `/core/models/query_types.py`; search boundary models (`FacetSetRequest`, `SearchQueryRequest`, `SearchResultDTO`) live in `/core/models/search_models.py`.
 
 ### Infrastructure Location
 
 ```
-/core/models/query/  # Infrastructure level, accessible to ALL domains
+/adapters/persistence/neo4j/query/  # Infrastructure level, accessible to ALL domains
 ├── _query_models.py       # Core query building, APOC operations
 ├── cypher_template.py     # Query optimization strategies
 ├── query_analysis.py      # Query parsing (legacy, consolidated)
@@ -50,9 +50,8 @@ SKUEL's query architecture uses a two-layer pattern with three specialized build
 
 ```python
 # ✅ CORRECT - Import from infrastructure
-from core.models.query import (
-    QueryIntent,           # Semantic query understanding
-    IndexStrategy,         # Neo4j index optimization
+from core.models.query_types import QueryIntent, IndexStrategy  # Boundary types
+from adapters.persistence.neo4j.query import (
     ApocQueryBuilder,      # APOC-powered queries (THE single source)
     QueryBuildRequest,     # Declarative query construction
     create_search_request, # Helper for common patterns
@@ -104,7 +103,8 @@ merge_query = ApocQueryBuilder.build_schema_aware_merge(node, schema)
 
 **Knowledge Domain:**
 ```python
-from core.models.query import create_search_request, QueryIntent
+from adapters.persistence.neo4j.query import create_search_request
+from core.models.query_types import QueryIntent
 
 request = create_search_request(
     labels=["Ku"],
@@ -115,7 +115,8 @@ request = create_search_request(
 
 **Tasks Domain:**
 ```python
-from core.models.query import ApocQueryBuilder, QueryIntent
+from adapters.persistence.neo4j.query import ApocQueryBuilder
+from core.models.query_types import QueryIntent
 
 context = ApocQueryBuilder.build_graph_context_query(
     node_uid=task.uid,
@@ -126,7 +127,7 @@ context = ApocQueryBuilder.build_graph_context_query(
 
 **Events Domain:**
 ```python
-from core.models.query import ApocQueryBuilder
+from adapters.persistence.neo4j.query import ApocQueryBuilder
 
 batch_query = ApocQueryBuilder.build_batch_merge_nodes(event_nodes)
 ```
@@ -147,12 +148,12 @@ batch_query = ApocQueryBuilder.build_batch_merge_nodes(event_nodes)
 
 ### Cypher Query Generators - Pure Cypher Queries
 
-**Location:** `/core/models/query/cypher/`
+**Location:** `/adapters/persistence/neo4j/query/cypher/`
 
 **Use for:** Model introspection queries, semantic relationship traversal, pure Cypher generation.
 
 ```python
-from core.models.query import CypherGenerator
+from adapters.persistence.neo4j.query import CypherGenerator
 from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
 
 # Dynamic query generation (auto-introspects model fields)
@@ -204,7 +205,7 @@ query, params = CypherGenerator.build_semantic_traversal(
 
 **Convenience Functions:**
 ```python
-from core.models.query import search, get_by, list_entities, count
+from adapters.persistence.neo4j.query import search, get_by, list_entities, count
 
 # Shorthand for common operations
 query, params = search(Task, priority='high', status='in_progress')
@@ -215,7 +216,7 @@ query, params = count(Task, priority='high')
 
 ### Phase 2 Infrastructure Functions (January 2026)
 
-**Location:** `/core/models/query/cypher/crud_queries.py`
+**Location:** `/adapters/persistence/neo4j/query/cypher/crud_queries.py`
 
 Five new infrastructure functions were added to support BaseService operations:
 
@@ -230,7 +231,7 @@ Five new infrastructure functions were added to support BaseService operations:
 **Usage Examples:**
 
 ```python
-from core.models.query.cypher import (
+from adapters.persistence.neo4j.query.cypher import (
     build_distinct_values_query,
     build_hierarchy_query,
     build_prerequisite_traversal_query,
@@ -272,12 +273,13 @@ BaseService provides `_records_to_domain_models()` helper for this pattern.
 
 ### ApocQueryBuilder - APOC Operations
 
-**Location:** `/core/models/query/_query_models.py`
+**Location:** `/adapters/persistence/neo4j/query/_query_models.py`
 
 **Use for:** Batch operations, schema-aware merges, complex graph operations requiring APOC.
 
 ```python
-from core.models.query import ApocQueryBuilder, QueryIntent
+from adapters.persistence.neo4j.query import ApocQueryBuilder
+from core.models.query_types import QueryIntent
 
 # Intent-based graph context
 apoc_query = ApocQueryBuilder.build_graph_context_query(
@@ -327,7 +329,7 @@ Use ONLY when:
 
 ```python
 # ✅ PREFERRED - Use UnifiedQueryBuilder (auto-initializes QueryBuilder)
-from core.models.query import UnifiedQueryBuilder
+from adapters.persistence.neo4j.query import UnifiedQueryBuilder
 
 templates = UnifiedQueryBuilder(driver).list_templates()
 result = await UnifiedQueryBuilder(driver).template("search").params(...).execute()
@@ -370,14 +372,14 @@ SKUEL uses a three-layer query architecture with distinct responsibilities:
 
 ### Layer 1: Application Layer → UnifiedQueryBuilder
 
-**Location:** `/core/models/query/unified_query_builder.py`
+**Location:** `/adapters/persistence/neo4j/query/unified_query_builder.py`
 
 **Purpose:** User-facing API with fluent interface (method chaining)
 
 **Used by:** All application code, domain services, route handlers
 
 ```python
-from core.models.query import UnifiedQueryBuilder
+from adapters.persistence.neo4j.query import UnifiedQueryBuilder
 
 # Fluent API for generic CRUD operations
 builder = UnifiedQueryBuilder(driver)
@@ -463,14 +465,14 @@ validation = await qb.validate_query(query_string)
 
 ### Layer 3: Infrastructure Layer → Cypher Query Generators
 
-**Location:** `/core/models/query/cypher/`
+**Location:** `/adapters/persistence/neo4j/query/cypher/`
 
 **Purpose:** Pure Cypher query utilities (no orchestration, no state)
 
 **Used by:** All layers (Application, Service, and direct usage)
 
 ```python
-from core.models.query import CypherGenerator
+from adapters.persistence.neo4j.query import CypherGenerator
 
 # Model introspection queries
 query, params = CypherGenerator.build_search_query(
@@ -511,7 +513,7 @@ qb = QueryBuilder(schema_service)
 result = await qb.search(labels=["Ku"], search_text="quantum")
 
 # ✅ NEW - UnifiedQueryBuilder
-from core.models.query import UnifiedQueryBuilder
+from adapters.persistence.neo4j.query import UnifiedQueryBuilder
 result = await UnifiedQueryBuilder(driver).template("search").params(
     labels=["Ku"],
     search_text="quantum"
@@ -609,7 +611,7 @@ from core.utils.dynamic_query_builder import DynamicQueryBuilder
 query, params = DynamicQueryBuilder.build_search_query(Task, filters)
 
 # ✅ NEW - CypherGenerator
-from core.models.query import CypherGenerator
+from adapters.persistence.neo4j.query import CypherGenerator
 query, params = CypherGenerator.build_search_query(Task, filters)
 ```
 
@@ -620,7 +622,7 @@ from core.services.semantic_cypher_builder import SemanticCypherBuilder
 query, params = SemanticCypherBuilder.build_knowledge_context(uid, types)
 
 # ✅ NEW - CypherGenerator (note method name change)
-from core.models.query import CypherGenerator
+from adapters.persistence.neo4j.query import CypherGenerator
 query, params = CypherGenerator.build_semantic_context(uid, types)
 ```
 
@@ -694,7 +696,7 @@ for processor in config.post_processors:
 
 ### Key Files
 
-- **Processor functions:** `/core/models/query/cypher/post_processors.py`
+- **Processor functions:** `/adapters/persistence/neo4j/query/cypher/post_processors.py`
 - **Registry config:** `/core/models/relationship_registry.py`
 - **BaseService integration:** `/core/services/base_service.py` (`_parse_context_result`)
 
@@ -798,7 +800,7 @@ elif intent_value == QueryIntent.GOAL_ACHIEVEMENT.value:
 
 | Component | File |
 |-----------|------|
-| QueryIntent enum | `/core/models/query/_query_models.py` |
+| QueryIntent enum | `/core/models/query_types.py` |
 | GraphIntelligenceService | `/core/services/infrastructure/graph_intelligence_service.py` |
 | Domain RelationshipServices | `/core/services/{domain}/{domain}_relationship_service.py` |
 | Domain Models | `/core/models/{domain}/{domain}.py` |
@@ -822,11 +824,11 @@ This is the **primary query architecture documentation**. Start here.
 
 | Component | Location |
 |-----------|----------|
-| Cypher Query Generators | `/core/models/query/cypher/` |
-| ApocQueryBuilder | `/core/models/query/_query_models.py` |
+| Cypher Query Generators | `/adapters/persistence/neo4j/query/cypher/` |
+| ApocQueryBuilder | `/adapters/persistence/neo4j/query/_query_models.py` |
 | QueryBuilder | `/core/services/query_builder.py` |
 | GraphIntelligenceService | `/core/services/infrastructure/graph_intelligence_service.py` |
-| QueryIntent enum | `/core/models/query/_query_models.py` |
+| QueryIntent enum | `/core/models/query_types.py` |
 
 ---
 

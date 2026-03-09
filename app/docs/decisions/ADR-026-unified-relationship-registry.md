@@ -273,7 +273,7 @@ TASK_CONFIG = generate_relationship_config(Domain.TASKS)
   - `/core/models/relationship_registry.py` (now facade)
   - `/core/services/relationships/domain_configs.py` (now facade)
   - `/core/models/relationship_names.py` (11 new values)
-  - `/core/models/query/cypher/post_processors.py` (Phase 3 - processor functions)
+  - `/adapters/persistence/neo4j/query/cypher/post_processors.py` (Phase 3 - processor functions)
   - `/core/services/base_service.py` (`_parse_context_result()` applies processors)
 - **Tests:** `/tests/test_relationship_registry.py`
 

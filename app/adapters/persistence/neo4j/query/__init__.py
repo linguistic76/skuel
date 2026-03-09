@@ -23,7 +23,7 @@ Key Components:
 Usage Examples:
 
     # QueryPatterns - Generic graph patterns
-    from core.models.query import QueryPatterns
+    from adapters.persistence.neo4j.query import QueryPatterns
 
     # Get user's mastered knowledge
     query, params = QueryPatterns.get_user_entities(
@@ -33,7 +33,7 @@ Usage Examples:
     )
 
     # Dynamic queries from model introspection
-    from core.models.query import build_search_query
+    from adapters.persistence.neo4j.query import build_search_query
 
     query, params = build_search_query(
         TaskPure,
@@ -41,7 +41,7 @@ Usage Examples:
     )
 
     # Semantic relationship traversal
-    from core.models.query import build_semantic_context
+    from adapters.persistence.neo4j.query import build_semantic_context
 
     query, params = build_semantic_context(
         node_uid="ku.python_basics",
@@ -50,8 +50,8 @@ Usage Examples:
     )
 
     # Graph context traversal (Pure Cypher variable-length patterns)
-    from core.models.query.graph_traversal import build_graph_context_query
-    from core.models.query import QueryIntent
+    from adapters.persistence.neo4j.query.graph_traversal import build_graph_context_query
+    from core.models.query_types import QueryIntent
 
     query = build_graph_context_query("task.123", QueryIntent.HIERARCHICAL, depth=GraphDepth.NEIGHBORHOOD)
 

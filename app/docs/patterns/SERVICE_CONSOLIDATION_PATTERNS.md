@@ -525,7 +525,7 @@ for processor in config.post_processors:
 
 ### Adding New Processors
 
-1. Add function to `/core/models/query/cypher/post_processors.py`
+1. Add function to `/adapters/persistence/neo4j/query/cypher/post_processors.py`
 2. Register in `PROCESSOR_REGISTRY`
 3. Add `PostProcessor` to domain config in `relationship_registry.py`
 
@@ -715,7 +715,7 @@ class LpSubServices:
 | BaseService Mixins | `/core/services/mixins/` | `from core.services.mixins import ConversionHelpersMixin, CrudOperationsMixin, ...` |
 | Explicit Delegation | `/core/services/tasks_service.py` | Explicit `async def` methods on facade class (no import needed) |
 | Relationship Registry | `/core/models/relationship_registry.py` | `from core.models.relationship_registry import generate_graph_enrichment` |
-| Post-Query Processors | `/core/models/query/cypher/post_processors.py` | `from core.models.query.cypher.post_processors import apply_processor, PROCESSOR_REGISTRY` |
+| Post-Query Processors | `/adapters/persistence/neo4j/query/cypher/post_processors.py` | `from adapters.persistence.neo4j.query.cypher.post_processors import apply_processor, PROCESSOR_REGISTRY` |
 | Article/LP Factories | `/core/utils/curriculum_domain_config.py` | `from core.utils.curriculum_domain_config import create_article_sub_services, create_lp_sub_services` |
 
 ---
