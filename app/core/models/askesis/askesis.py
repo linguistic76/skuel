@@ -23,12 +23,8 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
-# Import askesis-specific enums
 from core.models.askesis.askesis_dto import AskesisDTO
-from core.models.askesis.askesis_intelligence import (
-    ConversationStyle,
-    QueryComplexity,
-)
+from core.models.enums.askesis_enums import ConversationStyle, QueryComplexity
 from core.models.entity_dto import EntityDTO as KnowledgeUnitDTO
 from core.models.enums import GuidanceMode, Intent, Personality, ResponseTone
 from core.models.query_types import QueryIntent

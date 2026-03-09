@@ -18,10 +18,7 @@ from core.models.askesis.askesis_dto import (
     DomainInteractionDTO,
     GuidanceRecommendationDTO,
 )
-from core.models.askesis.askesis_intelligence import (
-    ConversationStyle,
-    QueryComplexity,
-)
+from core.models.enums.askesis_enums import ConversationStyle, QueryComplexity
 from core.models.askesis.askesis_request import (
     AskesisCreateRequest,
     AskesisResponse,

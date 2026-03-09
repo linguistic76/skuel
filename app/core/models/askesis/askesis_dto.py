@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
-from core.models.askesis.askesis_intelligence import ConversationStyle, QueryComplexity
+from core.models.enums.askesis_enums import ConversationStyle, QueryComplexity
 from core.models.enums import Priority
 
 

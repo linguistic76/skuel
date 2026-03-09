@@ -18,10 +18,7 @@ Test Coverage:
 import pytest
 
 from core.models.askesis.askesis import Askesis
-from core.models.askesis.askesis_intelligence import (
-    ConversationStyle,
-    QueryComplexity,
-)
+from core.models.enums.askesis_enums import ConversationStyle, QueryComplexity
 from core.models.askesis.askesis_request import (
     AskesisCreateRequest,
     AskesisUpdateRequest,

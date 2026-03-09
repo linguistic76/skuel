@@ -120,7 +120,6 @@ core/models/{domain}/
 ├── {domain}.py              # Frozen dataclass (Tier 3)
 ├── {domain}_dto.py          # Mutable DTO (Tier 2)
 ├── {domain}_request.py      # Pydantic request (Tier 1)
-├── {domain}_intelligence.py # Intelligence/analytics models (optional)
 └── __init__.py              # Re-exports
 ```
 
@@ -231,20 +230,13 @@ Sub-entities with Neo4j labels (HabitCompletion, Reflection) have their own DTOs
 
 ---
 
-## Intelligence Models
+## Intelligence Architecture
 
-Per-domain `*_intelligence.py` files contain persistent learning state and analytics types used by intelligence services:
+Intelligence logic lives in `*IntelligenceService` classes (extending `BaseAnalyticsService`), not in model files. These services use graph queries and shared utilities directly. Domain-specific enums live in `core/models/enums/`.
 
-| Domain | Intelligence Models | Purpose |
-|--------|-------------------|---------|
-| Task | TaskIntelligence, TaskCompletionContext | Energy levels, procrastination triggers |
-| Habit | HabitIntelligence, HabitCompletionContext | Failure reasons, completion context |
-| Principle | PrincipleIntelligence | Alignment tracking, reflection analysis |
-| Curriculum | Mastery, LearningRecommendation, LearningPreference | Mastery tracking, content recommendation |
-| Finance | FinanceIntelligence | Budget tracking, spending analysis |
-| User | UserLearningIntelligence | Cross-domain learning state |
+The one exception is `core/models/finance/finance_intelligence.py` which defines `FinancialHealthScore` and related enums used by `cross_domain_analytics_service.py`.
 
-These models are consumed by `BaseAnalyticsService` subclasses — they never touch Neo4j directly.
+**See:** [ADR-048 Adaptive Learning Loop](/docs/decisions/ADR-048-adaptive-learning-loop.md) for the architecture of learning from outcomes.
 
 ---
 

@@ -57,10 +57,8 @@ from .askesis_dto import (
 from .askesis_dto import DomainInteractionDTO as DomainInteraction
 from .askesis_dto import GuidanceRecommendationDTO as GuidanceRecommendation
 
-# Import enums from askesis_intelligence
-from .askesis_intelligence import (
-    AskesisApplicationIntelligence,
-    AskesisIntelligence,
+# Askesis enums (canonical location: core.models.enums.askesis_enums)
+from core.models.enums.askesis_enums import (
     ConversationStyle,
     IntegrationSuccess,
     QueryComplexity,
@@ -87,15 +85,12 @@ __all__ = [
     # Core domain models
     "Askesis",
     "AskesisAnalyticsRequest",
-    "AskesisApplicationIntelligence",
     "AskesisConfigurationDTO",
     "AskesisCreateDTO",
     # Request/Response models
     "AskesisCreateRequest",
     # DTOs
     "AskesisDTO",
-    # Intelligence models (backward compatibility)
-    "AskesisIntelligence",
     "AskesisResponse",
     "AskesisUpdateDTO",
     "AskesisUpdateRequest",

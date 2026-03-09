@@ -17,6 +17,7 @@ Every enum lives in exactly one file. The `__init__.py` re-exports all public en
 | `activity_enums.py` | Priority, Confidence, calendar types, dual-track assessment | Priority, Confidence, ActivityType, 5 assessment levels |
 | `goal_enums.py` | Goal classification | GoalType, GoalTimeframe, MeasurementType, HabitEssentiality |
 | `habit_enums.py` | Habit classification and completion | HabitPolarity, HabitCategory, HabitDifficulty, CompletionStatus |
+| `askesis_enums.py` | Askesis interaction styles | ConversationStyle, QueryComplexity, IntegrationSuccess |
 | `choice_enums.py` | Decision types | ChoiceType |
 | `principle_enums.py` | Principle classification and alignment | PrincipleCategory, PrincipleSource, PrincipleStrength, AlignmentLevel |
 | `submissions_enums.py` | Submissions + Feedback processing and scheduling | ExerciseScope, FormattingStyle, AnalysisDepth, ScheduleType, ProgressDepth |
@@ -159,7 +160,7 @@ This is why EntityType and EntityStatus live in the same file (`entity_enums.py`
 
 Enums wire into the model layer through a class hierarchy. Each level inherits enum fields and adds domain-specific ones. Every model forces its `entity_type` in `__post_init__()`, which drives status validation, default status, and Neo4j labels.
 
-**For the full picture** — class hierarchy, per-model enum fields, three-tier flow, directory layout, sub-entities, and intelligence models — see [Model Architecture](MODEL_ARCHITECTURE.md).
+**For the full picture** — class hierarchy, per-model enum fields, three-tier flow, directory layout, and sub-entities — see [Model Architecture](MODEL_ARCHITECTURE.md).
 
 **Quick reference — enum fields by model tier:**
 

@@ -1,5 +1,5 @@
 """
-Habit domain models — Habit, HabitDTO, requests, intelligence, completions.
+Habit domain models — Habit, HabitDTO, requests, completions.
 """
 
 from .completion import HabitCompletion
@@ -8,15 +8,6 @@ from .habit_completion_request import (
     HabitCompletionCreateRequest,
     HabitCompletionFilterRequest,
     HabitCompletionUpdateRequest,
-)
-
-# Intelligence models
-from .habit_intelligence import (
-    EnergyLevel,
-    FailureReason,
-    HabitCompletionContext,
-    HabitCompletionIntelligence,
-    HabitIntelligence,
 )
 from .habit_request import (
     HabitCompletionRequest,
@@ -28,24 +19,14 @@ from .habit_request import (
 )
 
 __all__ = [
-    "EnergyLevel",
-    "FailureReason",
-    # Domain Models
     "HabitCompletion",
-    "HabitCompletionContext",
-    # Request Models - Completion (Three-tier)
     "HabitCompletionCreateRequest",
     "HabitCompletionDTO",
     "HabitCompletionFilterRequest",
-    "HabitCompletionIntelligence",
-    # Request Models - Completion (Legacy)
     "HabitCompletionRequest",
     "HabitCompletionUpdateRequest",
-    # Request Models - Habit
     "HabitCreateRequest",
     "HabitFilterRequest",
-    # Intelligence Models
-    "HabitIntelligence",
     "HabitSkipRequest",
     "HabitStatsRequest",
     "HabitUpdateRequest",

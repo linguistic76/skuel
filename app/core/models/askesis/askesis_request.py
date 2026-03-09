@@ -13,7 +13,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from core.models.askesis.askesis_intelligence import (
+from core.models.enums.askesis_enums import (
     ConversationStyle,
     IntegrationSuccess,
     QueryComplexity,

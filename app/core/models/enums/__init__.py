@@ -20,6 +20,7 @@ Module Organization:
 - learning_enums: LearningLevel, EducationalLevel, MasteryStatus, KnowledgeStatus, etc.
 - metadata_enums: RelationshipType, Intent, Visibility, SystemConstants, etc.
 - ku_enums: KuCategory
+- askesis_enums: ConversationStyle, QueryComplexity, IntegrationSuccess
 - finance_enums: ExpenseStatus, PaymentMethod, ExpenseCategory, BudgetPeriod
 - transcription_enums: TranscriptionStatus
 
@@ -27,6 +28,9 @@ Usage:
     from core.models.enums import Priority, EntityStatus, EntityType
     from core.models.enums import EntityType, EntityStatus, ProcessorType, ExerciseScope
 """
+
+# Askesis enums - pedagogical companion interaction styles
+from .askesis_enums import ConversationStyle, IntegrationSuccess, QueryComplexity
 
 # Activity enums - priority, confidence, calendar types, and assessment levels
 from .activity_enums import (
@@ -154,6 +158,7 @@ __all__ = [
     "CompletionStatus",
     "Confidence",
     "ConsistencyLevel",
+    "ConversationStyle",
     "ContentOrigin",
     "ContentScope",
     "ContentType",
@@ -183,6 +188,7 @@ __all__ = [
     "HabitEssentiality",
     "HabitPolarity",
     "HealthStatus",
+    "IntegrationSuccess",
     "Intent",
     "KnowledgeStatus",
     "KnowledgeType",
@@ -204,6 +210,7 @@ __all__ = [
     "PrincipleStrength",
     "Priority",
     "ProcessorType",
+    "QueryComplexity",
     "ProductivityLevel",
     "ProgressDepth",
     "ProgressLevel",
