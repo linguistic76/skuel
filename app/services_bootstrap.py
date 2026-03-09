@@ -2400,10 +2400,27 @@ async def compose_services(
         # "Events enable cross-domain intelligence"
         # ========================================================================
 
+        # ---- Adaptive Learning Loop (ADR-048) ----
+
+        # Task intelligence - duration calibration from completions
+        from core.events.task_events import TaskCompleted
+
+        tasks_service = activity_services["tasks"]
+        event_bus.subscribe(TaskCompleted, tasks_service.intelligence.learn_from_completion)
+        logger.info("✅ TasksIntelligenceService subscribed to TaskCompleted (learning loop)")
+
+        # Habit intelligence - timing/scheduling learning from completions
+        from core.events.habit_events import HabitCompleted
+
+        habits_service = activity_services["habits"]
+        event_bus.subscribe(HabitCompleted, habits_service.intelligence.learn_from_completion)
+        logger.info("✅ HabitsIntelligenceService subscribed to HabitCompleted (learning loop)")
+
+        # ---- Existing event intelligence ----
+
         # Habit intelligence - recovery suggestions when streaks break
         from core.events.habit_events import HabitStreakBroken
 
-        habits_service = activity_services["habits"]
         event_bus.subscribe(
             HabitStreakBroken, habits_service.intelligence.handle_habit_streak_broken
         )

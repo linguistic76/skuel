@@ -12,9 +12,11 @@ Responsibilities:
 - Cross-domain graph intelligence
 """
 
+from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
-from core.events.habit_events import HabitMissed, HabitStreakBroken
+from core.constants import LearningLoop
+from core.events.habit_events import HabitCompleted, HabitMissed, HabitStreakBroken
 from core.models.enums import Domain
 from core.models.enums.activity_enums import ConsistencyLevel
 from core.models.graph_context import GraphContext
@@ -183,6 +185,20 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
         # Calculate at-risk habits (success_rate < 0.5)
         at_risk_habits = [h for h in active_habits if h.success_rate < 0.5]
 
+        # Learned insights (ADR-048)
+        habits_with_difficulty = [
+            h for h in habits if getattr(h, "learned_difficulty_level", None) is not None
+        ]
+        habits_with_timing = [
+            h for h in habits if getattr(h, "learned_preferred_hour", None) is not None
+        ]
+        on_time_rates = [
+            getattr(h, "learned_on_time_rate", None)
+            for h in habits
+            if getattr(h, "learned_on_time_rate", None) is not None
+        ]
+        avg_on_time = sum(on_time_rates) / len(on_time_rates) if on_time_rates else None
+
         return Result.ok(
             {
                 "user_uid": user_uid,
@@ -200,6 +216,11 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
                     "at_risk": len(at_risk_habits),
                     "avg_consistency_percentage": round(avg_consistency * 100, 1),
                     "total_current_streak_days": total_current_streak,
+                },
+                "learned_insights": {
+                    "habits_with_difficulty": len(habits_with_difficulty),
+                    "habits_with_timing_data": len(habits_with_timing),
+                    "avg_on_time_rate": round(avg_on_time, 4) if avg_on_time is not None else None,
                 },
             }
         )
@@ -757,6 +778,81 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
     # EVENT HANDLERS
     # ========================================================================
 
+    # ========================================================================
+    # ADAPTIVE LEARNING LOOP (ADR-048)
+    # ========================================================================
+
+    async def learn_from_completion(self, event: HabitCompleted) -> None:
+        """Learn scheduling and timing patterns from habit completions.
+
+        Tracks completion hour histogram and on-time rate via EMA,
+        persisted on the Habit node. Fire-and-forget: errors logged,
+        never propagated.
+
+        See: /docs/decisions/ADR-048
+        """
+        try:
+            import json
+
+            # 1. Get current habit to read existing learning state
+            habit_result = await self.backend.get(event.habit_uid)
+            if habit_result.is_error or not habit_result.value:
+                return
+
+            habit = habit_result.value
+
+            # 2. Update completion hour histogram
+            hour = event.occurred_at.hour
+            hours_json = getattr(habit, "completion_hours_json", None) or "{}"
+            try:
+                hours_hist: dict[str, int] = json.loads(hours_json)
+            except (json.JSONDecodeError, TypeError):
+                hours_hist = {}
+
+            hour_key = str(hour)
+            hours_hist[hour_key] = hours_hist.get(hour_key, 0) + 1
+
+            # 3. Calculate preferred hour (mode of histogram)
+            preferred_hour = int(max(hours_hist, key=hours_hist.get))  # type: ignore[arg-type]
+
+            # 4. EMA on-time rate
+            old_on_time_rate = getattr(habit, "learned_on_time_rate", None)
+            if old_on_time_rate is None:
+                old_on_time_rate = 1.0 if event.completed_on_time else 0.0
+            on_time_value = 1.0 if event.completed_on_time else 0.0
+            alpha = LearningLoop.EMA_ALPHA_HABIT_TIMING
+            new_on_time_rate = alpha * on_time_value + (1 - alpha) * old_on_time_rate
+
+            # 5. Increment completion count
+            old_count = getattr(habit, "learned_completion_count", None) or 0
+            new_count = old_count + 1
+
+            # 6. Persist to Habit node
+            await self.backend.update(
+                event.habit_uid,
+                {
+                    "completion_hours_json": json.dumps(hours_hist),
+                    "learned_preferred_hour": preferred_hour,
+                    "learned_on_time_rate": round(new_on_time_rate, 4),
+                    "learned_completion_count": new_count,
+                },
+            )
+
+            self.logger.info(
+                f"Habit timing learning: preferred_hour={preferred_hour}, "
+                f"on_time_rate={new_on_time_rate:.4f} (sample {new_count})",
+                extra={
+                    "habit_uid": event.habit_uid,
+                    "user_uid": event.user_uid,
+                    "preferred_hour": preferred_hour,
+                    "on_time_rate": round(new_on_time_rate, 4),
+                    "sample_count": new_count,
+                    "event_type": "habit.timing.learned",
+                },
+            )
+        except Exception as e:
+            self.logger.error(f"learn_from_completion failed (non-fatal): {e}")
+
     async def handle_habit_streak_broken(self, event: HabitStreakBroken) -> None:
         """Generate recovery insights when a habit streak breaks.
 
@@ -841,6 +937,16 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
                     "event_type": "habit.knowledge_impact",
                 },
             )
+
+        # Persist learning state (ADR-048)
+        await self.backend.update(
+            event.habit_uid,
+            {
+                "learned_recovery_difficulty": round(recovery_difficulty, 2),
+                "last_streak_length": streak_length,
+                "last_break_date": event.occurred_at.isoformat(),
+            },
+        )
 
     def _calculate_recovery_difficulty(
         self,
@@ -981,6 +1087,15 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
                     self.logger.warning(
                         f"Failed to persist difficulty insight: {create_result.error}"
                     )
+
+        # Persist learned difficulty to Habit node (ADR-048)
+        await self.backend.update(
+            event.habit_uid,
+            {
+                "learned_difficulty_level": difficulty_assessment,
+                "miss_pattern_updated_at": datetime.now().isoformat(),
+            },
+        )
 
     def _calculate_miss_severity(
         self,

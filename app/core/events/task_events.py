@@ -68,7 +68,7 @@ class TaskCompleted(BaseEvent):
     occurred_at: datetime
 
     # Optional context for analytics
-    completion_time_seconds: int | None = (None,)
+    completion_time_seconds: int | None = None
     was_overdue: bool = False
 
     @property

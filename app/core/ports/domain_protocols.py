@@ -243,6 +243,20 @@ class TasksOperations(BackendOperations["Task"], GraphRelationshipOperations, Pr
 
     # NOTE: get_related_uids() and count_related() inherited from GraphRelationshipOperations
 
+    # ========================================================================
+    # LEARNING LOOP METHODS (ADR-048)
+    # ========================================================================
+
+    async def get_user_learning_state(self, user_uid: str) -> Result[dict[str, Any]]:
+        """Get learning state properties from User node."""
+        ...
+
+    async def update_user_learning_state(
+        self, user_uid: str, properties: dict[str, Any]
+    ) -> Result[bool]:
+        """Update learning state properties on User node."""
+        ...
+
 
 @runtime_checkable
 class EventsOperations(BackendOperations["Event"], GraphRelationshipOperations, Protocol):

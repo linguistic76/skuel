@@ -33,7 +33,8 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-from core.constants import GraphDepth, QueryLimit
+from core.constants import GraphDepth, LearningLoop, QueryLimit
+from core.events.task_events import TaskCompleted
 from core.models.enums import CompletionStatus, Domain, EntityStatus, Priority
 from core.models.enums.activity_enums import ProductivityLevel
 from core.models.enums.neo_labels import NeoLabel
@@ -149,6 +150,80 @@ class TasksIntelligenceService(BaseAnalyticsService["TasksOperations", Task]):
                 model_class=Task,
                 domain=Domain.TASKS,
             )
+
+    # ========================================================================
+    # ADAPTIVE LEARNING LOOP (ADR-048)
+    # ========================================================================
+
+    async def learn_from_completion(self, event: TaskCompleted) -> None:
+        """Learn duration calibration from task completion.
+
+        Computes an exponential moving average (EMA) of estimated vs actual
+        duration ratios, persisted on the User node. Fire-and-forget: errors
+        are logged, never propagated.
+
+        See: /docs/decisions/ADR-048
+        """
+        try:
+            # 1. Get task to compare estimated vs actual duration
+            task_result = await self.backend.get(event.task_uid)
+            if task_result.is_error or not task_result.value:
+                return
+
+            task = task_result.value
+            estimated = getattr(task, "duration_minutes", None)
+            actual = getattr(task, "actual_minutes", None)
+
+            if not estimated or not actual:
+                return
+
+            # 2. Calculate ratio, clamped to bounds
+            ratio = actual / estimated
+            ratio = max(LearningLoop.MIN_DURATION_RATIO, min(LearningLoop.MAX_DURATION_RATIO, ratio))
+
+            # 3. Get current EMA state from User node
+            state_result = await self.backend.get_user_learning_state(event.user_uid)
+            if state_result.is_error:
+                self.logger.warning(f"Failed to read learning state for {event.user_uid}")
+                return
+
+            state = state_result.value
+            old_ratio = state.get("task_duration_ratio") or LearningLoop.DEFAULT_DURATION_RATIO
+            old_count = state.get("task_completion_count") or 0
+
+            # 4. EMA update
+            alpha = LearningLoop.EMA_ALPHA_TASK_DURATION
+            new_ratio = alpha * ratio + (1 - alpha) * old_ratio
+            new_count = old_count + 1
+
+            # 5. Persist updated learning state on User node
+            await self.backend.update_user_learning_state(
+                event.user_uid,
+                {
+                    "task_duration_ratio": round(new_ratio, 4),
+                    "task_completion_count": new_count,
+                    "task_duration_updated_at": datetime.now().isoformat(),
+                },
+            )
+
+            # 6. Write predicted duration back to the completed task
+            predicted = round(estimated * new_ratio)
+            await self.backend.update(event.task_uid, {"predicted_duration_minutes": predicted})
+
+            self.logger.info(
+                f"Task duration learning: ratio={ratio:.2f} -> EMA={new_ratio:.4f} "
+                f"(sample {new_count})",
+                extra={
+                    "user_uid": event.user_uid,
+                    "task_uid": event.task_uid,
+                    "raw_ratio": round(ratio, 4),
+                    "ema_ratio": round(new_ratio, 4),
+                    "sample_count": new_count,
+                    "event_type": "task.duration.learned",
+                },
+            )
+        except Exception as e:
+            self.logger.error(f"learn_from_completion failed (non-fatal): {e}")
 
     # ========================================================================
     # INTELLIGENCEOPERATIONS PROTOCOL METHODS (January 2026)
@@ -612,11 +687,25 @@ class TasksIntelligenceService(BaseAnalyticsService["TasksOperations", Task]):
         # Identify optimization opportunities
         optimizations = self._identify_optimization_opportunities(period_tasks, metrics)
 
+        # Include learned duration calibration (ADR-048)
+        learning_state = {}
+        state_result = await self.backend.get_user_learning_state(user_uid)
+        if state_result.is_ok:
+            state = state_result.value
+            ratio = state.get("task_duration_ratio")
+            count = state.get("task_completion_count") or 0
+            learning_state = {
+                "learned_duration_ratio": ratio,
+                "learning_sample_count": count,
+                "has_sufficient_learning_data": count >= LearningLoop.MIN_SAMPLES_TASK_DURATION,
+            }
+
         return Result.ok(
             {
                 "metrics": metrics,
                 "trends": trends,
                 "optimization_opportunities": optimizations,
+                "learning_state": learning_state,
                 "metadata": {
                     "generated_at": datetime.now().isoformat(),
                     "user_uid": user_uid,
@@ -1011,6 +1100,28 @@ class TasksIntelligenceService(BaseAnalyticsService["TasksOperations", Task]):
                     "tasks_needing_description": tasks_without_description,
                 }
                 opportunities.append(documentation_opportunity)
+
+        # Duration calibration insights (ADR-048)
+        learned_ratio = metrics.get("learned_duration_ratio")
+        if learned_ratio is not None:
+            if learned_ratio > 1.3:
+                opportunities.append(
+                    {
+                        "area": "duration_estimation",
+                        "suggestion": "Tasks consistently take longer than estimated — add buffer time",
+                        "potential_impact": "More realistic planning and less overcommitment",
+                        "learned_ratio": round(learned_ratio, 2),
+                    }
+                )
+            elif learned_ratio < 0.7:
+                opportunities.append(
+                    {
+                        "area": "duration_estimation",
+                        "suggestion": "Tasks consistently finish faster than estimated — take on more",
+                        "potential_impact": "Better use of available time",
+                        "learned_ratio": round(learned_ratio, 2),
+                    }
+                )
 
         return opportunities
 

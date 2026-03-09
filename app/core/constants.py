@@ -450,6 +450,32 @@ if __name__ == "__main__":
 # KU NAMESPACES — Controlled vocabulary for atomic Knowledge Unit grouping
 # ============================================================================
 
+# ============================================================================
+# LEARNING LOOP CONSTANTS (ADR-048)
+# ============================================================================
+
+
+class LearningLoop:
+    """
+    Constants for the adaptive learning loop (ADR-048).
+
+    Controls exponential moving average (EMA) rates, cold-start thresholds,
+    and clamping bounds for per-user learning state persisted on Neo4j nodes.
+    """
+
+    # Task duration calibration
+    MIN_SAMPLES_TASK_DURATION: Final = 5
+    EMA_ALPHA_TASK_DURATION: Final = 0.3
+    MAX_DURATION_RATIO: Final = 3.0
+    MIN_DURATION_RATIO: Final = 0.2
+    DEFAULT_DURATION_RATIO: Final = 1.0
+    DEFAULT_COMPLETION_RATE: Final = 0.5
+
+    # Habit scheduling learning
+    MIN_SAMPLES_HABIT_SCHEDULING: Final = 7
+    EMA_ALPHA_HABIT_TIMING: Final = 0.2
+
+
 KU_NAMESPACES: Final[frozenset[str]] = frozenset(
     {
         "attention",

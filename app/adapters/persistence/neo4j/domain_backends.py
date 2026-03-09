@@ -392,6 +392,56 @@ class TasksBackend(UniversalNeo4jBackend[Task]):
             return Result.fail(Errors.database(operation="link_task_to_goal", message=str(e)))
 
 
+    # ========================================================================
+    # LEARNING LOOP METHODS (ADR-048)
+    # ========================================================================
+
+    async def get_user_learning_state(self, user_uid: str) -> Result[dict[str, Any]]:
+        """Get learning state properties from User node for duration calibration."""
+        try:
+            query = """
+            MATCH (u:User {uid: $user_uid})
+            RETURN u.task_duration_ratio AS task_duration_ratio,
+                   u.task_completion_count AS task_completion_count,
+                   u.task_duration_updated_at AS task_duration_updated_at
+            """
+            async with self.driver.session() as session:
+                result = await session.run(query, {"user_uid": user_uid})
+                record = await result.single()
+                if not record:
+                    return Result.ok({})
+                return Result.ok(dict(record))
+        except Exception as e:
+            self.logger.error(f"Failed to get user learning state: {e}")
+            return Result.fail(
+                Errors.database(operation="get_user_learning_state", message=str(e))
+            )
+
+    async def update_user_learning_state(
+        self, user_uid: str, properties: dict[str, Any]
+    ) -> Result[bool]:
+        """Update learning state properties on User node."""
+        try:
+            query = """
+            MATCH (u:User {uid: $user_uid})
+            SET u += $properties
+            RETURN u.uid
+            """
+            async with self.driver.session() as session:
+                result = await session.run(
+                    query, {"user_uid": user_uid, "properties": properties}
+                )
+                record = await result.single()
+                if not record:
+                    return Result.fail(Errors.not_found(resource="User", identifier=user_uid))
+                return Result.ok(True)
+        except Exception as e:
+            self.logger.error(f"Failed to update user learning state: {e}")
+            return Result.fail(
+                Errors.database(operation="update_user_learning_state", message=str(e))
+            )
+
+
 class EventsBackend(UniversalNeo4jBackend[Event]):
     """
     Domain backend for Event entities.
