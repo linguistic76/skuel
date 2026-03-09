@@ -70,8 +70,6 @@ def build_head(
             rel="stylesheet",
             type="text/css",
         ),
-        # Tailwind CSS CDN
-        Script(src="https://cdn.tailwindcss.com"),
         # HTMX for hypermedia
         Script(src=f"https://unpkg.com/htmx.org@{HTMX_VERSION}"),
         # Alpine.js (self-hosted, version-pinned)
