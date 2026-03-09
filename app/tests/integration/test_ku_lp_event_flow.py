@@ -34,10 +34,10 @@ from core.events.learning_events import (
     LearningPathProgressUpdated,
 )
 from core.models.curriculum import Curriculum
-from core.models.pathways.learning_path import LearningPath
 from core.models.enums import Domain, SELCategory
 from core.models.enums.curriculum_enums import LpType
 from core.models.enums.neo_labels import NeoLabel
+from core.models.pathways.learning_path import LearningPath
 from core.services.lp.lp_progress_service import LpProgressService
 
 

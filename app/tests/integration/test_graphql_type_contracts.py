@@ -28,12 +28,12 @@ import pytest_asyncio
 
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-from core.models.pathways.learning_path import LearningPath
-from core.models.pathways.learning_step import LearningStep as LearningStepModel
 from core.models.entity import Entity
 from core.models.entity_dto import EntityDTO
 from core.models.enums.curriculum_enums import StepDifficulty
 from core.models.enums.neo_labels import NeoLabel
+from core.models.pathways.learning_path import LearningPath
+from core.models.pathways.learning_step import LearningStep as LearningStepModel
 from core.services.lp_service import LpService
 from core.services.ls_service import LsService
 from routes.graphql.types import LearningStep

@@ -22,10 +22,10 @@ from fasthtml.common import Request
 
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.route_factories import CRUDRouteFactory, IntelligenceRouteFactory
-from core.models.pathways.pathways_request import LearningStepCreateRequest
 from core.models.entity_requests import EntityUpdateRequest as KuStepUpdateRequest
 from core.models.enums import ContentScope
 from core.models.enums.user_enums import UserRole
+from core.models.pathways.pathways_request import LearningStepCreateRequest
 from core.services.ls_service import LsService
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result

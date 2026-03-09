@@ -34,6 +34,7 @@ from core.ports import get_enum_value
 from core.services.user.unified_user_context import UserContext
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+from ui.feedback import get_submission_status_badge_class
 from ui.layouts.base_page import BasePage
 from ui.profile.activity_views import (
     ChoicesDomainView,
@@ -67,7 +68,6 @@ from ui.profile.layout import (
     ProfileDomainItem,
     create_profile_page,
 )
-from ui.feedback import get_submission_status_badge_class
 from ui.profile.overview import OverviewView, render_domain_card_preview
 
 logger = get_logger("skuel.routes.user_profile")

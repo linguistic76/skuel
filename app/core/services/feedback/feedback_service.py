@@ -20,8 +20,8 @@ Following SKUEL principles:
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
-from core.models.exercises.exercise import Exercise
 from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
+from core.models.exercises.exercise import Exercise
 from core.models.feedback.submission_feedback import SubmissionFeedback
 from core.models.submissions.submission import Submission
 from core.services.ai_service import AnthropicService, OpenAIService

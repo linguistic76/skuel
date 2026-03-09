@@ -7,7 +7,7 @@ Submission content display and row components for detail views.
 
 from typing import Any
 
-from fasthtml.common import A, Div, H4, P, Span
+from fasthtml.common import H4, A, Div, P, Span
 
 from ui.teaching.badges import entity_type_badge, status_badge
 from ui.teaching.cards import get_display_title

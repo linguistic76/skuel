@@ -14,13 +14,13 @@ from fasthtml.common import Request
 from adapters.inbound.auth import require_authenticated_user, require_teacher
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.route_factories import CRUDRouteFactory
+from core.models.enums import ContentScope
+from core.models.enums.user_enums import UserRole
 from core.models.exercises.exercise_request import (
     ExerciseCreateRequest,
     ExerciseUpdateRequest,
     FeedbackGenerateRequest,
 )
-from core.models.enums import ContentScope
-from core.models.enums.user_enums import UserRole
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 

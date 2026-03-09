@@ -16,10 +16,10 @@ Part of the PrinciplesService decomposition.
 from operator import itemgetter
 from typing import Any
 
+from core.models.enums import Domain, EntityStatus
 from core.models.pathways.learning_path import LearningPath
 from core.models.pathways.learning_step import LearningStep
 from core.models.pathways.lp_position import LpPosition
-from core.models.enums import Domain, EntityStatus
 from core.models.principle.principle import Principle
 from core.models.principle.principle_dto import PrincipleDTO
 from core.models.principle.principle_request import PrincipleCreateRequest

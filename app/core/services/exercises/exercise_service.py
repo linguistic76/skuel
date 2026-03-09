@@ -22,12 +22,12 @@ import os
 from datetime import date, datetime
 from typing import Any, ClassVar
 
-from core.models.exercises.exercise import Exercise
-from core.models.exercises.exercise_dto import ExerciseDTO
 from core.models.enums import Domain
 from core.models.enums.entity_enums import EntityType, ProcessorType
 from core.models.enums.neo_labels import NeoLabel
 from core.models.enums.submissions_enums import ExerciseScope
+from core.models.exercises.exercise import Exercise
+from core.models.exercises.exercise_dto import ExerciseDTO
 from core.models.relationship_names import RelationshipName
 from core.ports import get_enum_value
 from core.services.base_service import BaseService

@@ -20,8 +20,8 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from core.models.pathways.learning_path_dto import LearningPathDTO
     from core.models.entity_dto import EntityDTO
+    from core.models.pathways.learning_path_dto import LearningPathDTO
 
 from core.models.curriculum import Curriculum
 from core.models.enums.curriculum_enums import LpType

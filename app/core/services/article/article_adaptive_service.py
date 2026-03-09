@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING
 
 from core.models.article.article import Article
 from core.models.curriculum import Curriculum
+from core.models.enums import Domain, LearningLevel, SELCategory
 from core.models.pathways.learning_path import LearningPath
 from core.models.pathways.learning_progress import CurriculumProgress, LearningJourney
 from core.models.pathways.mastery import (
@@ -31,7 +32,6 @@ from core.models.pathways.mastery import (
     Mastery,
     MasteryLevel,
 )
-from core.models.enums import Domain, LearningLevel, SELCategory
 from core.models.relationship_names import RelationshipName
 from core.models.user.user_intelligence import IntelligenceSource, UserLearningIntelligence
 from core.utils.decorators import with_error_handling

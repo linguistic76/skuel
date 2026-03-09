@@ -28,8 +28,8 @@ from core.models.enums.entity_enums import EntityType
 from core.models.user_owned_entity import UserOwnedEntity
 
 if TYPE_CHECKING:
-    from core.models.exercises.revised_exercise_dto import RevisedExerciseDTO
     from core.models.entity_dto import EntityDTO
+    from core.models.exercises.revised_exercise_dto import RevisedExerciseDTO
 
 
 @dataclass(frozen=True)

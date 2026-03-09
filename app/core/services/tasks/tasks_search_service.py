@@ -29,8 +29,8 @@ if TYPE_CHECKING:
     from core.ports.domain_protocols import TasksOperations
 
 from core.constants import QueryLimit
-from core.models.pathways.lp_position import LpPosition
 from core.models.enums import EntityStatus
+from core.models.pathways.lp_position import LpPosition
 from core.models.relationship_names import RelationshipName
 from core.models.search.query_parser import ParsedSearchQuery, SearchQueryParser
 from core.models.task.task import Task

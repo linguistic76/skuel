@@ -202,9 +202,8 @@ class HabitsViewComponents:
         frequency = habit.recurrence_pattern or "daily"
 
         # Status color
-        from ui.badge_classes import status_badge_class
-
         from core.utils.type_converters import normalize_enum_str
+        from ui.badge_classes import status_badge_class
 
         status_str = normalize_enum_str(status, "active")
         status_badge = status_badge_class(status_str)

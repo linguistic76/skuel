@@ -17,10 +17,10 @@ as regular Exercise submissions).
 from datetime import datetime
 from typing import Any, ClassVar
 
-from core.models.exercises.revised_exercise import RevisedExercise
-from core.models.exercises.revised_exercise_dto import RevisedExerciseDTO
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.neo_labels import NeoLabel
+from core.models.exercises.revised_exercise import RevisedExercise
+from core.models.exercises.revised_exercise_dto import RevisedExerciseDTO
 from core.models.relationship_names import RelationshipName
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig

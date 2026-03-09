@@ -28,7 +28,6 @@ from core.ports.domain_protocols import (
 )
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
-from core.utils.type_converters import normalize_enum_str
 
 # Import sub-services and their types
 from core.services.principles import (
@@ -45,6 +44,7 @@ from core.utils.activity_domain_config import CommonSubServices, create_common_s
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_created_at_attr, get_title_or_name_lower
+from core.utils.type_converters import normalize_enum_str
 
 if TYPE_CHECKING:
     from core.ports.query_types import ListContext

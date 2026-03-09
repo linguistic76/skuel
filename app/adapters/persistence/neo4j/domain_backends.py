@@ -39,15 +39,15 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-from core.models.choice.choice import Choice
 from core.models.article.article import Article
-from core.models.exercises.exercise import Exercise
-from core.models.pathways.learning_path import LearningPath
+from core.models.choice.choice import Choice
 from core.models.entity import Entity
 from core.models.event.event import Event
+from core.models.exercises.exercise import Exercise
 from core.models.goal.goal import Goal
 from core.models.habit.habit import Habit
 from core.models.ku.ku import Ku
+from core.models.pathways.learning_path import LearningPath
 from core.models.principle.principle import Principle
 from core.models.relationship_names import RelationshipName
 from core.models.submissions.submission import Submission

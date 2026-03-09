@@ -16,13 +16,13 @@ from datetime import datetime, timedelta
 
 from core.models.article.article import Article
 from core.models.curriculum import Curriculum
+from core.models.entity import Entity
+from core.models.enums import Domain, KuComplexity, LearningLevel, SELCategory
+from core.models.enums.entity_enums import EntityType
 from core.models.pathways.learning_path import LearningPath
 from core.models.pathways.learning_path_dto import LearningPathDTO
 from core.models.pathways.learning_step import LearningStep
 from core.models.pathways.learning_step_dto import LearningStepDTO
-from core.models.entity import Entity
-from core.models.enums import Domain, KuComplexity, LearningLevel, SELCategory
-from core.models.enums.entity_enums import EntityType
 
 # =========================================================================
 # Curriculum creation and field defaults

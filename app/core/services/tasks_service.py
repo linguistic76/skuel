@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from core.ports.search_protocols import TasksSearchOperations
 
 # Domain models
-from core.models.enums import EntityStatus, Priority
+from core.models.enums import EntityStatus
 from core.models.task.task import Task
 from core.models.task.task_dto import TaskDTO
 

@@ -222,9 +222,8 @@ class GoalsViewComponents:
         target_date = goal.target_date
 
         # Status color
-        from ui.badge_classes import priority_text_class, status_badge_class
-
         from core.utils.type_converters import normalize_enum_str
+        from ui.badge_classes import priority_text_class, status_badge_class
 
         status_str = normalize_enum_str(status, "active")
         status_badge = status_badge_class(status_str)

@@ -21,13 +21,13 @@ from starlette.responses import Response
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.route_factories import CRUDRouteFactory, IntelligenceRouteFactory
+from core.models.entity_requests import EntityUpdateRequest
+from core.models.enums import ContentScope
+from core.models.enums.user_enums import UserRole
 from core.models.pathways.pathways_request import (
     LearningPathCreateRequest,
     LearningPathProgressRequest,
 )
-from core.models.entity_requests import EntityUpdateRequest
-from core.models.enums import ContentScope
-from core.models.enums.user_enums import UserRole
 from core.services.lp_service import LpService
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result

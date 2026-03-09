@@ -7,7 +7,7 @@ Dashboard, stat, and summary card components for teaching views.
 
 from typing import Any
 
-from fasthtml.common import A, Div, H3, H4, P, Span
+from fasthtml.common import H3, H4, A, Div, P, Span
 
 from ui.teaching.badges import entity_type_badge, status_badge
 

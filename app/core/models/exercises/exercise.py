@@ -44,8 +44,8 @@ from core.models.enums.entity_enums import EntityType
 from core.models.enums.submissions_enums import ExerciseScope
 
 if TYPE_CHECKING:
-    from core.models.exercises.exercise_dto import ExerciseDTO
     from core.models.entity_dto import EntityDTO
+    from core.models.exercises.exercise_dto import ExerciseDTO
 
 
 @dataclass(frozen=True)

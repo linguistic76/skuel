@@ -10,9 +10,8 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from core.utils.frontmatter import parse_frontmatter
-
 from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
+from core.utils.frontmatter import parse_frontmatter
 
 # Load .env file from project root
 ENV_FILE = Path(__file__).parent.parent / ".env"

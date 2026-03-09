@@ -34,8 +34,8 @@ from adapters.inbound.ui_helpers import render_safe_error_response
 from core.ports.query_types import ActivityFilterSpec
 from core.services.choices_service import ChoicesService
 from core.utils.logging import get_logger
-from core.utils.type_converters import get_enum_attr_str
 from core.utils.result_simplified import Errors, Result
+from core.utils.type_converters import get_enum_attr_str
 from ui.buttons import Button, ButtonT
 from ui.cards import Card
 from ui.choices.layout import create_choices_page

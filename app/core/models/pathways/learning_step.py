@@ -21,8 +21,8 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from core.models.pathways.learning_step_dto import LearningStepDTO
     from core.models.entity_dto import EntityDTO
+    from core.models.pathways.learning_step_dto import LearningStepDTO
 
 from core.models.curriculum import Curriculum
 from core.models.enums.curriculum_enums import StepDifficulty

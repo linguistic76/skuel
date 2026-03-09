@@ -22,6 +22,7 @@ from enum import Enum
 from operator import itemgetter
 from typing import Any
 
+from core.models.enums import Domain
 from core.models.pathways.learning_path import LearningPath
 from core.models.pathways.mastery import (
     ContentPreference,
@@ -31,7 +32,6 @@ from core.models.pathways.mastery import (
 )
 from core.models.pathways.mastery import LearningRecommendation as KnowledgeRecommendation
 from core.models.pathways.mastery import Mastery as KnowledgeMastery
-from core.models.enums import Domain
 from core.services.user import UserContext
 
 # NOTE: SearchIntent and SearchQuery removed - deprecated search_archive dependency
