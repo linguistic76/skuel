@@ -663,5 +663,5 @@ assert service.relationships == relationships
 - `/docs/decisions/ADR-024-base-intelligence-service-migration.md` - BaseAnalyticsService pattern
 - `/core/services/base_intelligence_service.py` - Base implementation
 - `/core/services/events/events_service.py` - EventsService facade
-- `/core/models/event/event_relationships.py` - EventRelationships typed access
+- `/core/services/events/event_relationships.py` - EventRelationships typed access
 - `/docs/architecture/knowledge_substance_philosophy.md` - Applied knowledge measurement

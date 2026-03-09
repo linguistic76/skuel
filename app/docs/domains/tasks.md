@@ -32,7 +32,7 @@ Tasks represent work items with dependencies, deadlines, and knowledge requireme
 | Model | `/core/models/task/task.py` |
 | DTO | `/core/models/task/task_dto.py` |
 | Request Models | `/core/models/task/task_request.py` |
-| Relationships | `/core/models/task/task_relationships.py` |
+| Relationships | `/core/services/tasks/task_relationships.py` |
 | Core Service | `/core/services/tasks/tasks_core_service.py` |
 | Search Service | `/core/services/tasks/tasks_search_service.py` |
 | Progress Service | `/core/services/tasks/tasks_progress_service.py` |

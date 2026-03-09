@@ -32,7 +32,7 @@ Habits represent recurring behaviors with streak tracking. They form the "system
 | Model | `/core/models/habit/habit.py` |
 | DTO | `/core/models/habit/habit_dto.py` |
 | Request Models | `/core/models/habit/habit_request.py` |
-| Relationships | `/core/models/habit/habit_relationships.py` |
+| Relationships | `/core/services/habits/habit_relationships.py` |
 | **Backend** | `/adapters/persistence/neo4j/domain_backends.py` (`HabitsBackend`) |
 | Core Service | `/core/services/habits/habits_core_service.py` |
 | Search Service | `/core/services/habits/habit_search_service.py` |

@@ -25,7 +25,7 @@ Principles represent core values and guiding beliefs that inform goals, choices,
 | Model | `/core/models/principle/principle.py` |
 | DTO | `/core/models/principle/principle_dto.py` |
 | Request Models | `/core/models/principle/principle_request.py` |
-| Relationships | `/core/models/principle/principle_relationships.py` |
+| Relationships | `/core/services/principles/principle_relationships.py` |
 | Core Service | `/core/services/principles/principles_core_service.py` |
 | Search Service | `/core/services/principles/principles_search_service.py` |
 | Alignment Service | `/core/services/principles/principles_alignment_service.py` |

@@ -27,7 +27,7 @@ Events additionally has integration sub-services (`EventsHabitIntegrationService
 | Model | `/core/models/event/event.py` |
 | DTO | `/core/models/event/event_dto.py` |
 | Request Models | `/core/models/event/event_request.py` |
-| Relationships | `/core/models/event/event_relationships.py` |
+| Relationships | `/core/services/events/event_relationships.py` |
 | Core Service | `/core/services/events/events_core_service.py` |
 | Search Service | `/core/services/events/events_search_service.py` |
 | Habit Integration | `/core/services/events/events_habit_integration_service.py` |

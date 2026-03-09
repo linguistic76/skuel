@@ -95,7 +95,7 @@ await ku_service.semantic.get_semantic_neighborhood(ku_uid)
 | Interaction Service | `/core/services/ku/ku_interaction_service.py` |
 | Model | `/core/models/ku/ku.py` |
 | DTO | `/core/models/ku/ku_dto.py` |
-| Relationships Container | `/core/models/ku/ku_relationships.py` |
+| Relationships Container | `/core/services/ku/ku_relationships.py` |
 | Relationship Config | `KU_CONFIG` in `/core/models/relationship_registry.py` |
 
 ## Model Fields

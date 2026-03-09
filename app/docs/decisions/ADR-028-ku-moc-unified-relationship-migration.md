@@ -132,7 +132,7 @@ KU and MOC domains had specialized relationship services (MocRelationshipService
 **Primary files:**
 - `/core/services/ku_service.py` - Added UnifiedRelationshipService
 - `/core/services/moc_service.py` - Two relationship service instances
-- `/core/models/ku/ku_relationships.py` - fetch_via_unified() method
+- `/core/services/ku/ku_relationships.py` - fetch_via_unified() method
 
 **Deleted files:**
 - `/core/services/moc/moc_relationship_service.py` (~694 lines)

@@ -829,4 +829,4 @@ assert service.entity_label == "Principle"
 - `/core/services/base_intelligence_service.py` - Base implementation
 - `/core/services/principles/principles_service.py` - PrinciplesService facade
 - `/core/services/intelligence/cross_domain_context_service.py` - Phase 3 context retrieval
-- `/core/models/principle/principle_relationships.py` - PrincipleRelationships helper
+- `/core/services/principles/principle_relationships.py` - PrincipleRelationships helper

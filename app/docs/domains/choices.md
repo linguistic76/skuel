@@ -25,7 +25,7 @@ Choices represent decisions with outcome tracking. They connect knowledge, princ
 | Model | `/core/models/choice/choice.py` |
 | DTO | `/core/models/choice/choice_dto.py` |
 | Request Models | `/core/models/choice/choice_request.py` |
-| Relationships | `/core/models/choice/choice_relationships.py` |
+| Relationships | `/core/services/choices/choice_relationships.py` |
 | Core Service | `/core/services/choices/choices_core_service.py` |
 | Search Service | `/core/services/choices/choices_search_service.py` |
 | Intelligence Service | `/core/services/choices/choices_intelligence_service.py` |
