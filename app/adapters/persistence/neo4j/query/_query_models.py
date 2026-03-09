@@ -173,7 +173,7 @@ class QueryOptimizationResult:
         """Get all available plans sorted by estimated cost"""
         all_plans = [self.primary_plan, *self.alternative_plans]
 
-        def get_plan_cost(plan) -> float:
+        def get_plan_cost(plan: QueryPlan) -> float:
             return plan.estimated_cost
 
         return sorted(all_plans, key=get_plan_cost)
