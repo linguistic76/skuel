@@ -77,6 +77,32 @@ class UnshareFromGroupRequest(BaseModel):
 
 
 # ============================================================================
+# SERIALIZATION HELPERS
+# ============================================================================
+
+
+def serialize_submission(
+    submission: Any,  # boundary: duck-typed — works with Submission, SubmissionDTO, shared variants
+    include_sharing_metadata: bool = False,
+) -> dict[str, Any]:
+    """Serialize a submission to a JSON-safe dict for API responses."""
+    payload: dict[str, Any] = {
+        "uid": submission.uid,
+        "user_uid": submission.user_uid,
+        "original_filename": submission.original_filename,
+        "report_type": submission.report_type,
+        "status": submission.status,
+        "processed_content": submission.processed_content,
+        "created_at": submission.created_at.isoformat() if submission.created_at else None,
+        "visibility": submission.visibility,
+    }
+    if include_sharing_metadata:
+        payload["shared_role"] = getattr(submission, "shared_role", None)
+        payload["shared_at"] = getattr(submission, "shared_at", None)
+    return payload
+
+
+# ============================================================================
 # ROUTE CREATION
 # ============================================================================
 
@@ -99,25 +125,6 @@ def create_submissions_sharing_api_routes(
     Returns:
         List of route handlers
     """
-
-    def _serialize_submission(
-        submission: Any,  # boundary: duck-typed — works with Submission, SubmissionDTO, shared variants
-        include_sharing_metadata: bool = False,
-    ) -> dict[str, Any]:
-        payload: dict[str, Any] = {
-            "uid": submission.uid,
-            "user_uid": submission.user_uid,
-            "original_filename": submission.original_filename,
-            "report_type": submission.report_type,
-            "status": submission.status,
-            "processed_content": submission.processed_content,
-            "created_at": submission.created_at.isoformat() if submission.created_at else None,
-            "visibility": submission.visibility,
-        }
-        if include_sharing_metadata:
-            payload["shared_role"] = getattr(submission, "shared_role", None)
-            payload["shared_at"] = getattr(submission, "shared_at", None)
-        return payload
 
     @rt("/api/submissions/share", methods=["POST"])
     @boundary_handler(success_status=200)
@@ -282,7 +289,7 @@ def create_submissions_sharing_api_routes(
         return Result.ok(
             {
                 "submissions": [
-                    _serialize_submission(a, include_sharing_metadata=True) for a in submissions
+                    serialize_submission(a, include_sharing_metadata=True) for a in submissions
                 ],
                 "count": len(submissions),
             }
@@ -388,7 +395,7 @@ def create_submissions_sharing_api_routes(
 
         return Result.ok(
             {
-                "submissions": [_serialize_submission(a) for a in submissions],
+                "submissions": [serialize_submission(a) for a in submissions],
                 "count": len(submissions),
             }
         )

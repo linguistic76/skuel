@@ -50,6 +50,18 @@ class UserKnowledgeMastery:
     confidence_level: float
     retention_score: float
 
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to JSON-safe dictionary."""
+        return {
+            "knowledge_uid": self.knowledge_uid,
+            "mastery_score": self.mastery_score,
+            "achieved_at": self.achieved_at.isoformat() if self.achieved_at else None,
+            "practice_count": self.practice_count,
+            "last_practiced": self.last_practiced.isoformat() if self.last_practiced else None,
+            "confidence_level": self.confidence_level,
+            "retention_score": self.retention_score,
+        }
+
 
 @dataclass
 class UserLearningProgress:
@@ -62,6 +74,20 @@ class UserLearningProgress:
     time_invested_minutes: int
     difficulty_rating: float
     last_accessed: datetime
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to JSON-safe dictionary."""
+        return {
+            "knowledge_uid": self.knowledge_uid,
+            "progress": self.progress,
+            "started_at": self.started_at.isoformat() if self.started_at else None,
+            "estimated_completion": self.estimated_completion.isoformat()
+            if self.estimated_completion
+            else None,
+            "time_invested_minutes": self.time_invested_minutes,
+            "difficulty_rating": self.difficulty_rating,
+            "last_accessed": self.last_accessed.isoformat() if self.last_accessed else None,
+        }
 
 
 @dataclass
@@ -99,6 +125,25 @@ class UserKnowledgeProfile:
     # Struggle identification
     struggling_uids: set[str]
     needs_review_uids: set[str]
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to JSON-safe dictionary with datetime/set handling."""
+        return {
+            "user_uid": self.user_uid,
+            "username": self.username,
+            "mastered_knowledge": [m.to_dict() for m in self.mastered_knowledge],
+            "mastered_uids": sorted(self.mastered_uids),
+            "in_progress_knowledge": [p.to_dict() for p in self.in_progress_knowledge],
+            "in_progress_uids": sorted(self.in_progress_uids),
+            "completed_prerequisites": sorted(self.completed_prerequisites),
+            "prerequisite_map": self.prerequisite_map,
+            "active_learning_paths": self.active_learning_paths,
+            "completed_paths": sorted(self.completed_paths),
+            "interested_uids": sorted(self.interested_uids),
+            "bookmarked_uids": sorted(self.bookmarked_uids),
+            "struggling_uids": sorted(self.struggling_uids),
+            "needs_review_uids": sorted(self.needs_review_uids),
+        }
 
 
 # ============================================================================

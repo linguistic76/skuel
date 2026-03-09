@@ -115,6 +115,18 @@ class SearchResultItem:
         """Get combined relevance + priority score."""
         return (self.relevance_score * 0.6) + (self.priority_score * 0.4)
 
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "uid": self.uid,
+            "title": self.title,
+            "entity_type": self.entity_type.value,
+            "relevance_score": self.relevance_score,
+            "priority_score": self.priority_score,
+            "combined_score": self.combined_score,
+            "match_reason": self.match_reason,
+        }
+
 
 @dataclass(frozen=True)
 class UnifiedSearchResult:

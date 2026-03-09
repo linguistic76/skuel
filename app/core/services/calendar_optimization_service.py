@@ -91,6 +91,19 @@ class CognitiveLoadAnalysis:
         else:
             return "overload"
 
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for JSON serialization, including derived fields."""
+        return {
+            "intrinsic_load": self.intrinsic_load,
+            "extraneous_load": self.extraneous_load,
+            "germane_load": self.germane_load,
+            "total_load": self.total_load,
+            "domain_complexity": self.domain_complexity,
+            "prerequisite_load": self.prerequisite_load,
+            "is_overload_risk": self.is_overload_risk(),
+            "load_category": self.get_load_category(),
+        }
+
 
 @dataclass
 class EnergyProfile:

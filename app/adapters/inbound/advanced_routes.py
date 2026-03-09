@@ -150,9 +150,7 @@ def create_calendar_optimization_routes(
                 {
                     "task_uid": task.uid,
                     "task_title": task.title,
-                    "cognitive_load": analysis.__dict__,
-                    "is_overload_risk": analysis.is_overload_risk(),
-                    "load_category": analysis.get_load_category(),
+                    "cognitive_load": analysis.to_dict(),
                 }
             )
 

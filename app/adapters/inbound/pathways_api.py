@@ -11,8 +11,6 @@ This file uses:
 
 __version__ = "4.0"
 
-import dataclasses
-from datetime import datetime
 from typing import Any
 
 from fasthtml.common import Request
@@ -216,17 +214,7 @@ def create_pathways_api_routes(
 
         profile = profile_result.value
 
-        def serialize_profile(obj: Any) -> Any:
-            """Convert dataclass to JSON-safe dict."""
-            if dataclasses.is_dataclass(obj) and not isinstance(obj, type):
-                return {k: serialize_profile(v) for k, v in dataclasses.asdict(obj).items()}
-            if isinstance(obj, set):
-                return sorted(obj)
-            if isinstance(obj, datetime):
-                return obj.isoformat()
-            return obj
-
-        return Result.ok(serialize_profile(profile))
+        return Result.ok(profile.to_dict())
 
     # Path Recommendations
     # --------------------

@@ -373,18 +373,7 @@ def create_search_routes(
 
         # Convert results by domain
         for entity_type, items in unified_result.results_by_domain.items():
-            response["results_by_domain"][entity_type.value] = [
-                {
-                    "uid": item.uid,
-                    "title": item.title,
-                    "entity_type": item.entity_type.value,
-                    "relevance_score": item.relevance_score,
-                    "priority_score": item.priority_score,
-                    "combined_score": item.combined_score,
-                    "match_reason": item.match_reason,
-                }
-                for item in items
-            ]
+            response["results_by_domain"][entity_type.value] = [item.to_dict() for item in items]
 
         # Add top results (sorted by combined score) - property returns top 10
         response["top_results"] = unified_result.top_results
