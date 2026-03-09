@@ -32,16 +32,22 @@ Both paths produce report entities. The `EntityType` and `ProcessorType` fields 
 
 ---
 
-## The Four EntityTypes
+## The Six EntityTypes
 
 | EntityType | Who Creates | Purpose | ProcessorType |
 |------------|-------------|---------|---------------|
-| `SUBMISSION` | Student uploads file | Raw student work (audio, text, images) | `HUMAN` |
-| `JOURNAL` | Admin uploads file | AI-processed reflective writing | `LLM` |
-| `SUBMISSION_REPORT` | Teacher **or** AI | Assessment with `subject_uid` pointing to the submission | `HUMAN` (teacher) or `LLM` (AI) |
+| `EXERCISE_SUBMISSION` | Student uploads file | Raw student work (audio, text, images) | `HUMAN` |
+| `JOURNAL_SUBMISSION` | Student uploads file | AI-processed reflective writing | `LLM` |
+| `EXERCISE_REPORT` | Teacher **or** AI | Assessment with `subject_uid` pointing to a submission | `HUMAN` (teacher) or `LLM` (AI) |
+| `JOURNAL_REPORT` | AI | Assessment of journal content | `LLM` |
 | `ACTIVITY_REPORT` | System **or** Admin | Activity-level feedback (not tied to artifact) | `AUTOMATIC`, `LLM`, or `HUMAN` |
 
-**Note:** `ACTIVITY_REPORT` does **not** inherit from `Submission`. It has no file fields. It inherits `UserOwnedEntity` directly and responds to a user's aggregate activity patterns over a time window.
+**Hierarchy:**
+- `ExerciseSubmission` and `JournalSubmission` extend `Submission(UserOwnedEntity)` — file/processing fields
+- `ExerciseReport` and `JournalReport` extend `SubmissionReport(UserOwnedEntity)` — report fields only (NOT Submission)
+- `ActivityReport` extends `UserOwnedEntity` directly — no file fields, responds to aggregate activity patterns
+
+**Deprecated aliases:** `SUBMISSION` → `EXERCISE_SUBMISSION`, `JOURNAL` → `JOURNAL_SUBMISSION`, `SUBMISSION_REPORT` → `EXERCISE_REPORT`
 
 ---
 
@@ -109,14 +115,14 @@ Exercise (scope=ASSIGNED)
 (student:User)-[:MEMBER_OF]->(group)
 
 // The submission
-(student)-[:OWNS]->(submission:Entity {entity_type: "submission"})
+(student)-[:OWNS]->(submission:Entity {entity_type: "exercise_submission"})
 (submission)-[:FULFILLS_EXERCISE]->(exercise)
 
 // Sharing for review
 (student)-[:SHARES_WITH {role: "teacher"}]->(submission)
 
 // Teacher report
-(teacher)-[:OWNS]->(report:Entity {entity_type: "submission_report"})
+(teacher)-[:OWNS]->(report:Entity {entity_type: "exercise_report"})
 (report)-[:REPORT_FOR]->(submission)
 ```
 
@@ -128,30 +134,31 @@ Exercise (scope=ASSIGNED)
 Curriculum Work                 Activity Domains
      │                               │
      ▼                               ▼
- SUBMISSION                     (no artifact —
- JOURNAL                         aggregate over
+ EXERCISE_SUBMISSION            (no artifact —
+ JOURNAL_SUBMISSION              aggregate over
      │                            time window)
      │                               │
      └───────────┬───────────────────┘
                  │
                  ▼
            [REPORT]
-            ├── SUBMISSION_REPORT  (response to a specific submission)
+            ├── EXERCISE_REPORT    (response to exercise submission)
+            ├── JOURNAL_REPORT     (response to journal submission)
             └── ACTIVITY_REPORT    (response to activity patterns)
 ```
 
 ---
 
-## Three Report EntityTypes
+## Four Report EntityTypes
 
-### 1. `SUBMISSION_REPORT` — Response to a Specific Submission
+### 1. `EXERCISE_REPORT` — Response to an Exercise Submission
 
-`SUBMISSION_REPORT` is created in response to a **specific submitted artifact** (a `SUBMISSION` or `JOURNAL` entity).
+`EXERCISE_REPORT` is created in response to a **specific submitted artifact** (an `EXERCISE_SUBMISSION` entity).
 
 | Field | Value |
 |-------|-------|
-| `entity_type` | `"submission_report"` |
-| Inherits | `Submission(UserOwnedEntity)` |
+| `entity_type` | `"exercise_report"` |
+| Inherits | `SubmissionReport(UserOwnedEntity)` — NOT Submission |
 | `subject_uid` | UID of the submission being evaluated |
 | `processor_type` | `HUMAN` or `LLM` |
 
@@ -166,8 +173,8 @@ Both use atomic Cypher: create entity + `REPORT_FOR` relationship + denormalize 
 
 **Graph pattern:**
 ```cypher
-(teacher:User)-[:OWNS]->(report:Entity:SubmissionReport {entity_type: 'submission_report'})
-(report)-[:REPORT_FOR]->(submission:Entity {entity_type: 'submission'})
+(teacher:User)-[:OWNS]->(report:Entity:ExerciseReport {entity_type: 'exercise_report'})
+(report)-[:REPORT_FOR]->(submission:Entity {entity_type: 'exercise_submission'})
 ```
 
 ---

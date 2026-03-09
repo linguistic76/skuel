@@ -1559,7 +1559,7 @@ class ActivityEntityConverter:
             # ================================================================
             # CONTENT PROCESSING - EntityType
             # ================================================================
-            case EntityType.SUBMISSION:
+            case EntityType.EXERCISE_SUBMISSION:
                 return activity_to_report_dict(activity)
 
             # ================================================================

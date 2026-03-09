@@ -39,6 +39,10 @@ EMBEDDING_FIELD_MAPS: dict[EntityType, tuple[str, ...]] = {
     EntityType.EXERCISE: ("title", "instructions", "description"),
     EntityType.LEARNING_STEP: ("title", "intent", "description"),
     EntityType.LEARNING_PATH: ("title", "description", "outcomes"),
+    EntityType.EXERCISE_SUBMISSION: ("title", "original_filename", "processed_content"),
+    EntityType.JOURNAL_SUBMISSION: ("title", "original_filename", "processed_content"),
+    EntityType.EXERCISE_REPORT: ("title", "content", "summary"),
+    EntityType.JOURNAL_REPORT: ("title", "content", "summary"),
 }
 
 

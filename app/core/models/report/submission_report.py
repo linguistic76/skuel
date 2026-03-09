@@ -1,13 +1,16 @@
 """
-SubmissionReport - Submission Report Domain Model
-===================================================
+SubmissionReport - Base Report Domain Model
+=============================================
 
-Frozen dataclass for submission report entities (EntityType.SUBMISSION_REPORT).
+Frozen dataclass base for reports about submissions.
 
-Inherits all fields from Submission (Entity ~48 + 13 submission fields).
-Adds 2 report-specific fields:
-- report_content: str | None — the report text
-- report_generated_at: datetime | None — when report was generated
+Extends UserOwnedEntity directly (NOT Submission — reports don't have file fields).
+Report-specific fields: report_content, report_generated_at, subject_uid,
+processor_type, report_file_path.
+
+Leaf subclasses:
+    ExerciseReport(SubmissionReport)  → EXERCISE_REPORT — report on exercise submission
+    JournalReport(SubmissionReport)   → JOURNAL_REPORT — report on journal submission
 
 See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
@@ -20,23 +23,32 @@ if TYPE_CHECKING:
     from core.models.entity_dto import EntityDTO
     from core.models.report.submission_report_dto import SubmissionReportDTO
 
-from core.models.enums.entity_enums import EntityType
-from core.models.submissions.submission import Submission
+from core.models.enums.entity_enums import EntityType, ProcessorType
+from core.models.user_owned_entity import UserOwnedEntity
+
+_SUBMISSION_REPORT_TYPES = frozenset(
+    {
+        EntityType.EXERCISE_REPORT,
+        EntityType.JOURNAL_REPORT,
+        # Deprecated alias — kept during migration
+        EntityType.SUBMISSION_REPORT,
+    }
+)
 
 
 @dataclass(frozen=True)
-class SubmissionReport(Submission):
+class SubmissionReport(UserOwnedEntity):
     """
-    Immutable domain model for submission reports (EntityType.SUBMISSION_REPORT).
+    Immutable domain model base for submission reports.
 
-    Inherits all fields from Submission. Adds 2 report-specific fields.
-    Uses subject_uid (from Submission) for "who this report is about".
+    Extends UserOwnedEntity (NOT Submission — no file/processing fields).
+    Adds 5 report-specific fields.
     """
 
     def __post_init__(self) -> None:
-        """Force entity_type=SUBMISSION_REPORT, then delegate to Submission."""
-        if self.entity_type != EntityType.SUBMISSION_REPORT:
-            object.__setattr__(self, "entity_type", EntityType.SUBMISSION_REPORT)
+        """Validate entity_type is a report type, then delegate to UserOwnedEntity."""
+        if self.entity_type not in _SUBMISSION_REPORT_TYPES:
+            object.__setattr__(self, "entity_type", EntityType.EXERCISE_REPORT)
         super().__post_init__()
 
     # =========================================================================
@@ -44,6 +56,9 @@ class SubmissionReport(Submission):
     # =========================================================================
     report_content: str | None = None
     report_generated_at: datetime | None = None  # type: ignore[assignment]
+    subject_uid: str | None = None  # Who/what this report is about
+    processor_type: ProcessorType | None = None  # HUMAN/LLM/AUTOMATIC
+    report_file_path: str | None = None  # Generated output file path
 
     # =========================================================================
     # CONVERSION (generic — uses Entity._from_dto / to_dto)

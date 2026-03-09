@@ -66,11 +66,11 @@ property are both named **`entity_type`** (renamed from `ku_type` in March 2026)
 ```python
 # Python model field:
 ku = Ku(entity_type=EntityType.KU, ...)
-report = SubmissionReport(entity_type=EntityType.SUBMISSION_REPORT, ...)
+report = ExerciseReport(entity_type=EntityType.EXERCISE_REPORT, ...)
 activity_report = ActivityReport(entity_type=EntityType.ACTIVITY_REPORT, ...)
 
 # Neo4j property:
-MATCH (n:Entity {entity_type: 'submission_report'})
+MATCH (n:Entity {entity_type: 'exercise_report'})
 MATCH (n:Entity {entity_type: 'ku'})
 ```
 
@@ -187,10 +187,10 @@ the AI when generating feedback. This is the bridge between knowledge and evalua
 **What it is:** The student's artifact. An uploaded file (audio, text, image) that is
 processed and then evaluated. Two leaf types share the same base model.
 
-**EntityTypes:** `EntityType.SUBMISSION` and `EntityType.JOURNAL`
-**Model:** `core/models/submissions/submission.py` — `Submission(UserOwnedEntity)` frozen dataclass
-**DTO:** `core/models/submissions/submission_dto.py`
-**Neo4j label:** `:Entity:Submission` or `:Entity:Journal`
+**EntityTypes:** `EntityType.EXERCISE_SUBMISSION` and `EntityType.JOURNAL_SUBMISSION`
+**Models:** `ExerciseSubmission(Submission)` and `JournalSubmission(Submission)` — frozen dataclasses
+**Base:** `core/models/submissions/submission.py` — `Submission(UserOwnedEntity)`
+**Neo4j labels:** `:Entity:ExerciseSubmission:Submission` or `:Entity:JournalSubmission:Submission`
 
 **Key fields:**
 ```python

@@ -45,7 +45,11 @@ RENAMED: dict[str, str] = {
     # EntityType enum values (Feb–Mar 2026)
     "EntityType.CURRICULUM": "EntityType.ARTICLE",
     "EntityType.AI_FEEDBACK": "EntityType.ACTIVITY_REPORT",
-    "EntityType.FEEDBACK_REPORT": "EntityType.SUBMISSION_REPORT",
+    "EntityType.FEEDBACK_REPORT": "EntityType.EXERCISE_REPORT",
+    # Submission/Report hierarchy refactoring (Mar 2026)
+    "EntityType.SUBMISSION": "EntityType.EXERCISE_SUBMISSION",
+    "EntityType.JOURNAL": "EntityType.JOURNAL_SUBMISSION",
+    "EntityType.SUBMISSION_REPORT": "EntityType.EXERCISE_REPORT",
     # Class renames (Feb–Mar 2026)
     "AiFeedback": "ActivityReport",
     "KuTaskCreateRequest": "TaskCreateRequest",

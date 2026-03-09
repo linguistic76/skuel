@@ -2,7 +2,7 @@
 Entity Type Aliases and Class Dispatch Map
 ==========================================
 
-Type aliases and the EntityType→class map for all 18 entity types.
+Type aliases and the EntityType→class map for all 19 entity types.
 
 For construction: Use the specific subclass (Task, Ku, Goal, etc.)
 For dispatched deserialization: Use Entity.from_dto(dto)
@@ -29,9 +29,13 @@ from core.models.pathways.learning_path import LearningPath
 from core.models.pathways.learning_step import LearningStep
 from core.models.principle.principle import Principle
 from core.models.report.activity_report import ActivityReport
+from core.models.report.exercise_report import ExerciseReport
+from core.models.report.journal_report import JournalReport
 from core.models.report.submission_report import SubmissionReport
 from core.models.resource.resource import Resource
+from core.models.submissions.exercise_submission import ExerciseSubmission
 from core.models.submissions.journal import Journal
+from core.models.submissions.journal_submission import JournalSubmission
 from core.models.submissions.submission import Submission
 from core.models.task.task import Task
 
@@ -52,7 +56,10 @@ CurriculumEntity = Article | LearningStep | LearningPath | Exercise
 KuEntity = Ku
 
 # Submission entities — carry file_path, processed_content, file_type, etc.
-SubmissionEntity = Submission | Journal | ActivityReport | SubmissionReport
+SubmissionEntity = Submission | ExerciseSubmission | JournalSubmission | Journal
+
+# Report entities — report output (no file fields, report-specific fields)
+ReportEntity = ActivityReport | SubmissionReport | ExerciseReport | JournalReport
 
 # =============================================================================
 # TYPE CLASS MAP — dispatcher for entity deserialization
@@ -74,9 +81,14 @@ ENTITY_TYPE_CLASS_MAP: dict[EntityType, type[Entity]] = {
     EntityType.LEARNING_PATH: LearningPath,
     EntityType.EXERCISE: Exercise,
     EntityType.REVISED_EXERCISE: RevisedExercise,
+    EntityType.EXERCISE_SUBMISSION: ExerciseSubmission,
+    EntityType.JOURNAL_SUBMISSION: JournalSubmission,
+    EntityType.ACTIVITY_REPORT: ActivityReport,
+    EntityType.EXERCISE_REPORT: ExerciseReport,
+    EntityType.JOURNAL_REPORT: JournalReport,
+    EntityType.LIFE_PATH: LifePath,
+    # Deprecated aliases — kept for backward compat during migration
     EntityType.SUBMISSION: Submission,
     EntityType.JOURNAL: Journal,
-    EntityType.ACTIVITY_REPORT: ActivityReport,
     EntityType.SUBMISSION_REPORT: SubmissionReport,
-    EntityType.LIFE_PATH: LifePath,
 }

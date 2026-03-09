@@ -313,7 +313,7 @@ def create_submissions_ui_routes(
                 file_content=file_content,
                 original_filename=filename,
                 user_uid=user_uid,
-                entity_type=EntityType.SUBMISSION,
+                entity_type=EntityType.EXERCISE_SUBMISSION,
                 processor_type=ProcessorType.HUMAN,
                 metadata={"identifier": identifier},
                 fulfills_exercise_uid=fulfills_exercise_uid,

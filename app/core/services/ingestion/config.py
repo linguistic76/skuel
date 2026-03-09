@@ -220,7 +220,7 @@ ENTITY_CONFIGS: dict[EntityType | NonKuDomain, EntityIngestionConfig] = {
     # NOTE: Journal merged into Reports (February 2026).
     # Journal ingestion creates Entity nodes with entity_type="submission".
     # Kept as SUBMISSION entry — "journal" alias in TYPE_MAPPING resolves here.
-    EntityType.SUBMISSION: EntityIngestionConfig(
+    EntityType.EXERCISE_SUBMISSION: EntityIngestionConfig(
         entity_label="Report",
         uid_prefix="report",
         required_fields=("title",),

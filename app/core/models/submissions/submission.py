@@ -52,10 +52,15 @@ from core.models.user_owned_entity import UserOwnedEntity
 
 _SUBMISSION_KU_TYPES = frozenset(
     {
+        EntityType.EXERCISE_SUBMISSION,
+        EntityType.JOURNAL_SUBMISSION,
+        # Reports no longer extend Submission; ExerciseReport/JournalReport extend SubmissionReport
+        # Deprecated aliases — kept during migration
         EntityType.SUBMISSION,
         EntityType.JOURNAL,
         EntityType.SUBMISSION_REPORT,
-        # AI_FEEDBACK intentionally excluded: ActivityReport inherits UserOwnedEntity directly
+        EntityType.EXERCISE_REPORT,
+        EntityType.JOURNAL_REPORT,
     }
 )
 

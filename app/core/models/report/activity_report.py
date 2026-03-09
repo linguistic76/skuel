@@ -134,7 +134,7 @@ class ActivityReport(UserOwnedEntity):
         """
         from core.utils.uid_generator import UIDGenerator
 
-        uid = UIDGenerator.generate_uid("ku")
+        uid = UIDGenerator.generate_uid("ar")
         title = (
             f"Activity Report — {period_start.strftime('%b %d')} "
             f"to {period_end.strftime('%b %d, %Y')}"

@@ -208,7 +208,7 @@ class TeacherReviewService:
         if access_check.is_error:
             return Result.fail(access_check.expect_error())
 
-        report_entity_uid = UIDGenerator.generate_uid("ku")
+        report_entity_uid = UIDGenerator.generate_uid("sr")
         now = datetime.now().isoformat()
 
         # Create SUBMISSION_REPORT node, link via REPORT_FOR, share with student,
@@ -262,7 +262,7 @@ class TeacherReviewService:
                 "teacher_uid": teacher_uid,
                 "feedback": feedback,
                 "title": f"Feedback: {report_uid[:30]}",
-                "entity_type": EntityType.SUBMISSION_REPORT.value,
+                "entity_type": EntityType.EXERCISE_REPORT.value,
                 "completed_status": EntityStatus.COMPLETED.value,
                 "processor_type": ProcessorType.HUMAN.value,
                 "now": now,
@@ -325,7 +325,7 @@ class TeacherReviewService:
         if access_check.is_error:
             return Result.fail(access_check.expect_error())
 
-        report_entity_uid = UIDGenerator.generate_uid("ku")
+        report_entity_uid = UIDGenerator.generate_uid("sr")
         now = datetime.now().isoformat()
 
         query = """
@@ -377,7 +377,7 @@ class TeacherReviewService:
                 "teacher_uid": teacher_uid,
                 "notes": notes,
                 "title": f"Revision request: {report_uid[:30]}",
-                "entity_type": EntityType.SUBMISSION_REPORT.value,
+                "entity_type": EntityType.EXERCISE_REPORT.value,
                 "revision_status": EntityStatus.REVISION_REQUESTED.value,
                 "completed_status": EntityStatus.COMPLETED.value,
                 "processor_type": ProcessorType.HUMAN.value,

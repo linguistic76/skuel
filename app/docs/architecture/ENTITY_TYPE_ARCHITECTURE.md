@@ -1,6 +1,6 @@
 ---
-title: SKUEL Architecture — 17 Entity Types + 5 Cross-Cutting Systems
-updated: 2026-03-07
+title: SKUEL Architecture — 19 Entity Types + 5 Cross-Cutting Systems
+updated: 2026-03-09
 status: current
 category: architecture
 version: 6.0.0
@@ -19,7 +19,7 @@ related:
 
 SKUEL is a **knowledge-centric productivity platform** where every operation connects to and enriches understanding. **Knowledge is the fertile soil from which all activity grows.**
 
-### 17 Entity Types + 5 Cross-Cutting Systems
+### 19 Entity Types + 5 Cross-Cutting Systems
 
 | EntityType | What It Is | Ownership |
 |------------|-----------|-----------|
@@ -35,10 +35,12 @@ SKUEL is a **knowledge-centric productivity platform** where every operation con
 | LearningStep | Step in a learning path | Admin-created, shared |
 | LearningPath | Ordered sequence of steps | Admin-created, shared |
 | Exercise | Instruction template for practicing curriculum | Admin-created, shared |
-| Submission | Student-uploaded work | User-owned |
-| Journal | Reflective writing (voice/text) | User-owned |
+| ExerciseSubmission | Student-uploaded work against an exercise | User-owned |
+| JournalSubmission | Reflective writing (voice/text) | User-owned |
+| ExerciseReport | Assessment tied to a specific submission | User-owned |
+| JournalReport | Assessment of journal content | User-owned |
 | ActivityReport | Feedback about activity patterns over time | User-owned |
-| SubmissionReport | Assessment tied to a specific submission | User-owned |
+| RevisedExercise | Targeted revision after feedback | Teacher-owned |
 | LifePath | The user's life direction | User-owned |
 
 **Cross-Cutting Systems (5)**: UserContext, Search, Calendar, Askesis, Messaging (planned)
@@ -102,7 +104,13 @@ Entity (~18 fields: uid, entity_type, title, description, status, tags, ...)
 |   +-- Task, Goal, Habit, Event, Choice, Principle
 |   +-- LifePath
 |   +-- ActivityReport                           (no file fields)
-|   +-- Submission -> Journal, SubmissionReport
+|   +-- Submission(UserOwnedEntity) +13 file/processing fields
+|   |   +-- ExerciseSubmission(Submission)        EXERCISE_SUBMISSION
+|   |   +-- JournalSubmission(Submission)         JOURNAL_SUBMISSION
+|   +-- SubmissionReport(UserOwnedEntity) +5 report fields (NOT Submission)
+|   |   +-- ExerciseReport(SubmissionReport)      EXERCISE_REPORT
+|   |   +-- JournalReport(SubmissionReport)       JOURNAL_REPORT
+|   +-- RevisedExercise(UserOwnedEntity)          REVISED_EXERCISE
 +-- Curriculum(Entity) +21 fields (base class only)
 |   +-- Article(Curriculum), LearningStep, LearningPath, Exercise
 +-- Ku(Entity) — atomic knowledge unit
@@ -115,7 +123,8 @@ Entity (~18 fields: uid, entity_type, title, description, status, tags, ...)
 EntityDTO (~18 fields)
 +-- UserOwnedDTO(EntityDTO) +3 -> TaskDTO, GoalDTO, HabitDTO, EventDTO, ChoiceDTO, PrincipleDTO
 +-- UserOwnedDTO -> ActivityReportDTO              (no file fields)
-+-- UserOwnedDTO -> SubmissionDTO -> JournalDTO, SubmissionReportDTO
++-- UserOwnedDTO -> SubmissionDTO -> ExerciseSubmissionDTO, JournalSubmissionDTO
++-- UserOwnedDTO -> SubmissionReportDTO -> ExerciseReportDTO, JournalReportDTO  (NOT SubmissionDTO)
 +-- CurriculumDTO(EntityDTO) -> ArticleDTO, LearningStepDTO, LearningPathDTO, ExerciseDTO
 +-- KuDTO(EntityDTO)
 +-- ResourceDTO(EntityDTO)
@@ -134,7 +143,9 @@ Every entity node gets two labels: `:Entity` (universal) + type-specific (`:Task
 | `:Entity` (universal — all entity nodes) |
 | `:Task`, `:Goal`, `:Habit`, `:Event`, `:Choice`, `:Principle` |
 | `:Curriculum`, `:Resource`, `:LearningStep`, `:LearningPath` |
-| `:Submission`, `:Journal`, `:ActivityReport`, `:SubmissionReport` |
+| `:Submission`, `:ExerciseSubmission`, `:JournalSubmission` |
+| `:SubmissionReport`, `:ExerciseReport`, `:JournalReport` |
+| `:ActivityReport` |
 | `:Exercise` |
 | `:LifePath` |
 
@@ -147,7 +158,7 @@ CREATE (n:Entity:Goal {uid: $uid, ...})
 
 **Key files:**
 - `/core/models/entity.py` — `Entity` + `UserOwnedEntity` base classes
-- `/core/models/enums/entity_enums.py` — `EntityType` (18 values), `EntityStatus`
+- `/core/models/enums/entity_enums.py` — `EntityType` (19 canonical + 3 deprecated), `EntityStatus`
 
 ---
 
@@ -239,18 +250,23 @@ LpService (facade) — 5 sub-services via create_lp_sub_services()
 
 **See:** `/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md`
 
-### Submission, Journal, SubmissionReport, ActivityReport — Content Processing
+### Submissions, Reports, ActivityReport — Content Processing
 
-The educational loop: `Article -> Exercise -> Submission -> Report -> RevisedExercise -> ...`. Activity entity types are equal entry points via `ACTIVITY_REPORT`.
+The educational loop: `Article -> Exercise -> ExerciseSubmission -> ExerciseReport -> RevisedExercise -> ...`. Journals follow a parallel track: `JournalSubmission -> JournalReport`. Activity entity types are equal entry points via `ACTIVITY_REPORT`.
 
 | EntityType | Inherits | ProcessorType | Description |
 |------------|---------|---------------|-------------|
-| `SUBMISSION` | `Submission(UserOwnedEntity)` | `HUMAN` or `LLM` | Student work against an Exercise |
-| `JOURNAL` | `Submission(UserOwnedEntity)` | `LLM` | AI-processed reflective writing |
-| `SUBMISSION_REPORT` | `Submission(UserOwnedEntity)` | `HUMAN` or `LLM` | Assessment tied to a submission via `subject_uid` |
+| `EXERCISE_SUBMISSION` | `Submission(UserOwnedEntity)` | `HUMAN` or `LLM` | Student work against an Exercise |
+| `JOURNAL_SUBMISSION` | `Submission(UserOwnedEntity)` | `LLM` | AI-processed reflective writing |
+| `EXERCISE_REPORT` | `SubmissionReport(UserOwnedEntity)` | `HUMAN` or `LLM` | Assessment tied to a submission via `subject_uid` |
+| `JOURNAL_REPORT` | `SubmissionReport(UserOwnedEntity)` | `LLM` | Assessment of journal content |
 | `ACTIVITY_REPORT` | `UserOwnedEntity` **directly** | `AUTOMATIC`, `LLM`, or `HUMAN` | Activity-level feedback (no file fields; covers a time window) |
 
-`ACTIVITY_REPORT` does NOT inherit from `Submission` — no file fields. It responds to aggregate activity patterns over a time period, not to a specific artifact.
+**Key structural note:** `SubmissionReport` extends `UserOwnedEntity` directly — NOT `Submission`. It has 5 report-specific fields (`report_content`, `report_generated_at`, `subject_uid`, `processor_type`, `report_file_path`) but no file/processing fields.
+
+`ACTIVITY_REPORT` also inherits `UserOwnedEntity` directly — no file fields. It responds to aggregate activity patterns over a time period, not to a specific artifact.
+
+**Deprecated aliases:** `SUBMISSION` → `EXERCISE_SUBMISSION`, `JOURNAL` → `JOURNAL_SUBMISSION`, `SUBMISSION_REPORT` → `EXERCISE_REPORT` (kept in enum for migration compatibility).
 
 **Services split:**
 - `core/services/submissions/` — `ActivityReportService`, `ReviewQueueService`, student work pipeline

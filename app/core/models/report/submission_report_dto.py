@@ -1,15 +1,16 @@
 """
-SubmissionReportDTO - Submission Report-Specific DTO (Tier 2 - Transfer)
-=========================================================================
+SubmissionReportDTO - Submission Report DTO (Tier 2 - Transfer)
+================================================================
 
-Extends SubmissionDTO with 2 report-specific fields matching the
+Extends UserOwnedDTO with 5 report-specific fields matching the
 SubmissionReport frozen dataclass (Tier 3).
 
 Hierarchy:
     EntityDTO (~18 common fields)
     └── UserOwnedDTO(EntityDTO) +3 fields
-        └── SubmissionDTO(UserOwnedDTO) +13 fields
-            └── SubmissionReportDTO(SubmissionDTO) +2 fields
+        └── SubmissionReportDTO(UserOwnedDTO) +5 fields
+            ├── ExerciseReportDTO(SubmissionReportDTO) +0 fields
+            └── JournalReportDTO(SubmissionReportDTO) +0 fields
 
 See: /docs/patterns/three_tier_type_system.md
 """
@@ -25,17 +26,21 @@ if TYPE_CHECKING:
 from core.models.enums import Domain
 from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
 from core.models.enums.metadata_enums import Visibility
-from core.models.submissions.submission_dto import SubmissionDTO
+from core.models.user_owned_dto import UserOwnedDTO
+from core.ports import get_enum_value
 
 
 @dataclass
-class SubmissionReportDTO(SubmissionDTO):
+class SubmissionReportDTO(UserOwnedDTO):
     """
-    Mutable DTO for submission reports (EntityType.SUBMISSION_REPORT).
+    Mutable DTO for submission reports.
 
-    Extends SubmissionDTO with 2 report-specific fields:
+    Extends UserOwnedDTO with 5 report-specific fields:
     - report_content: str | None — the report text
     - report_generated_at: datetime | None — when report was generated
+    - subject_uid: str | None — who/what this report is about
+    - processor_type: ProcessorType | None — HUMAN/LLM/AUTOMATIC
+    - report_file_path: str | None — generated output file path
     """
 
     # =========================================================================
@@ -43,6 +48,9 @@ class SubmissionReportDTO(SubmissionDTO):
     # =========================================================================
     report_content: str | None = None
     report_generated_at: datetime | None = None
+    subject_uid: str | None = None
+    processor_type: ProcessorType | None = None
+    report_file_path: str | None = None
 
     # =========================================================================
     # SERIALIZATION
@@ -58,6 +66,9 @@ class SubmissionReportDTO(SubmissionDTO):
             {
                 "report_content": self.report_content,
                 "report_generated_at": self.report_generated_at,
+                "subject_uid": self.subject_uid,
+                "processor_type": get_enum_value(self.processor_type),
+                "report_file_path": self.report_file_path,
             }
         )
 
@@ -87,13 +98,28 @@ class SubmissionReportDTO(SubmissionDTO):
             datetime_fields=[
                 "created_at",
                 "updated_at",
-                "processing_started_at",
-                "processing_completed_at",
                 "report_generated_at",
             ],
             list_fields=["tags"],
             dict_fields=["metadata"],
-            deprecated_fields=["prerequisites", "enables", "related_to", "name"],
+            deprecated_fields=[
+                "prerequisites",
+                "enables",
+                "related_to",
+                "name",
+                # Deprecated Submission fields (SubmissionReport no longer extends Submission)
+                "original_filename",
+                "file_path",
+                "file_size",
+                "file_type",
+                "processing_started_at",
+                "processing_completed_at",
+                "processing_error",
+                "processed_content",
+                "processed_file_path",
+                "instructions",
+                "max_retention",
+            ],
         )
 
     # =========================================================================
@@ -121,23 +147,12 @@ class SubmissionReportDTO(SubmissionDTO):
                 # UserOwnedDTO fields
                 "priority",
                 "visibility",
-                # SubmissionDTO fields
-                "original_filename",
-                "file_path",
-                "file_size",
-                "file_type",
-                "processor_type",
-                "processing_started_at",
-                "processing_completed_at",
-                "processing_error",
-                "processed_content",
-                "processed_file_path",
-                "instructions",
-                "max_retention",
-                "subject_uid",
                 # Report-specific fields
                 "report_content",
                 "report_generated_at",
+                "subject_uid",
+                "processor_type",
+                "report_file_path",
             },
             enum_mappings={
                 "entity_type": EntityType,

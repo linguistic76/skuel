@@ -65,7 +65,7 @@ from core.utils.result_simplified import Errors, Result
 _DSL_CONTEXT_ALIASES: dict[str, EntityType | NonKuDomain] = {
     "learningstep": EntityType.LEARNING_STEP,
     "learningpath": EntityType.LEARNING_PATH,
-    "journal": EntityType.SUBMISSION,
+    "journal": EntityType.JOURNAL_SUBMISSION,
     "life_path": EntityType.LIFE_PATH,
 }
 
@@ -280,7 +280,7 @@ class ParsedActivityLine:
         Returns:
             True if EntityType.SUBMISSION is in contexts
         """
-        return EntityType.SUBMISSION in self.contexts
+        return EntityType.EXERCISE_SUBMISSION in self.contexts
 
     def is_calendar(self) -> bool:
         """

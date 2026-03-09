@@ -326,7 +326,7 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
         """
         Get a student's submissions enriched with teacher feedback status.
 
-        Returns each SUBMISSION entity alongside its FEEDBACK_FOR feedback count,
+        Returns each SUBMISSION entity alongside its REPORT_FOR report count,
         enabling the UI to show review badges without N+1 queries.
 
         Args:
@@ -339,8 +339,8 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
         """
         query = """
         MATCH (user:User {uid: $user_uid})-[:OWNS]->(s:Entity)
-        WHERE s.entity_type = 'submission'
-        OPTIONAL MATCH (fb:Entity {entity_type: 'submission_feedback'})-[:FEEDBACK_FOR]->(s)
+        WHERE s.entity_type = 'exercise_submission'
+        OPTIONAL MATCH (fb:Entity {entity_type: 'exercise_report'})-[:REPORT_FOR]->(s)
         WITH s, count(fb) AS feedback_count
         RETURN s.uid AS uid,
                s.title AS title,

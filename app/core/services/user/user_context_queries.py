@@ -868,14 +868,14 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      life_path_uid, life_path_designated_at, life_path_alignment_score,
      active_moc_uids, moc_metadata,
      latest_ar, active_insights_raw,
-     count(CASE WHEN sub.entity_type = 'submission' THEN 1 END) AS total_submission_count,
-     count(CASE WHEN sub.entity_type = 'journal' THEN 1 END) AS total_journal_count,
+     count(CASE WHEN sub.entity_type = 'exercise_submission' THEN 1 END) AS total_submission_count,
+     count(CASE WHEN sub.entity_type = 'journal_submission' THEN 1 END) AS total_journal_count,
      count(CASE WHEN sub.created_at >= datetime($window_start) THEN 1 END) AS submissions_in_window,
      max(sub.created_at) AS last_submission_date,
      collect(sub.uid) AS all_submission_uids
 
 // Feedback received for user's submissions
-OPTIONAL MATCH (user)-[:OWNS]->(owned_sub:Entity)<-[:FEEDBACK_FOR]-(fb:Entity)
+OPTIONAL MATCH (user)-[:OWNS]->(owned_sub:Entity)<-[:REPORT_FOR]-(fb:Entity)
 WHERE owned_sub.entity_type IN ['submission', 'journal']
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,

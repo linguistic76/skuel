@@ -24,12 +24,12 @@ When working in a file or area of the codebase, address problems you encounter �
 
 **Core Principle:** "Entity is the universal base. Ku is one type of Entity."
 
-`Entity` is the base frozen dataclass for all 18 domain types. The `entity_type` field discriminates which kind of entity it is. The `parent_entity_uid` field tracks derivation chains.
+`Entity` is the base frozen dataclass for all 19 domain types. The `entity_type` field discriminates which kind of entity it is. The `parent_entity_uid` field tracks derivation chains.
 
 - **Article** (`EntityType.ARTICLE`, extends `Curriculum`) — essay-like teaching composition. Services in `core/services/article/`.
 - **Ku** (`EntityType.KU`, extends `Entity`) — atomic knowledge unit. Lightweight ontology/reference node. Services in `core/services/ku/`.
 - **Composition:** `(Article)-[:USES_KU]->(Ku)` — Articles compose atomic Kus into narrative.
-- **Learning loop:** Article -> Exercise -> Submission -> Report -> RevisedExercise -> ...
+- **Learning loop:** Article -> Exercise -> ExerciseSubmission -> ExerciseReport -> RevisedExercise -> ...
 
 ## Naming Conventions
 
@@ -106,11 +106,11 @@ SKUEL separates runtime into two layers. The **Analog layer** (graph structure, 
 
 **See:** `/docs/architecture/ANALOG_DIGITAL_ARCHITECTURE.md`, `/docs/architecture/GRACEFUL_DEGRADATION_ARCHITECTURE.md`
 
-## SKUEL's 18 Entity Types + 5 Cross-Cutting Systems
+## SKUEL's 19 Entity Types + 5 Cross-Cutting Systems
 
 **Core Principle:** "Everything flows toward the life path"
 
-### The 18 Entity Types
+### The 19 Entity Types
 
 | EntityType | What It Is | UID Format | Ownership |
 |------------|-----------|-----------|-----------|
@@ -128,10 +128,11 @@ SKUEL separates runtime into two layers. The **Analog layer** (graph structure, 
 | LearningPath | Ordered sequence of steps | `lp:{random}` | Admin-created, shared |
 | Exercise | Instruction template for practicing curriculum | N/A | Admin-created, shared |
 | RevisedExercise | Targeted revision instructions after feedback | `re_{slug}_{random}` | Teacher-owned |
-| Submission | Student-uploaded work | N/A | User-owned |
-| Journal | Reflective writing (voice/text) | N/A | User-owned |
-| ActivityReport | Report about activity patterns over time | N/A | User-owned |
-| SubmissionReport | Assessment tied to a specific submission | N/A | User-owned |
+| ExerciseSubmission | Student work submitted against an Exercise | `es_{slug}_{random}` | User-owned |
+| JournalSubmission | Reflective writing (voice/text) | N/A | User-owned |
+| ActivityReport | Report about activity patterns over time | `ar_{random}` | User-owned |
+| ExerciseReport | Teacher or AI report on an exercise submission | `sr_{random}` | User-owned |
+| JournalReport | AI report on a journal submission | `sr_{random}` | User-owned |
 | LifePath | The user's life direction | `lp_{random}` | User-owned |
 | Groups | Teacher-student class management | `group_{slug}_{random}` | Teacher-owned |
 | MOC | Non-linear KU navigation | N/A (emergent — any Entity with ORGANIZES) | Emergent |
@@ -152,7 +153,7 @@ Entity types have behavioral traits — not category membership — that determi
 
 - **Activity (6):** Task, Goal, Habit, Event, Choice, Principle — facade pattern with `.core`, `.search`, `.intelligence` sub-services. Created via `create_common_sub_services()`. Events additionally has integration sub-services; **Calendar** cross-cutting system handles scheduling aggregation.
 - **Curriculum (5):** Article, Ku, LearningStep, LearningPath, Exercise — `ContentScope.SHARED`, admin creates, all users read.
-- **Submissions/Reports (4):** Submission, Journal, SubmissionReport, ActivityReport — the learning loop. Services in `core/services/submissions/` + `core/services/report/`.
+- **Submissions/Reports (5):** ExerciseSubmission, JournalSubmission, ExerciseReport, JournalReport, ActivityReport — the learning loop. Services in `core/services/submissions/` + `core/services/report/`.
 - **Other:** Finance (admin-only), Resource (curated, not curriculum), Groups (ADR-040), RevisedExercise (teacher-owned hybrid), MOC (emergent via ORGANIZES), LifePath (the destination, alignment score 0.0-1.0).
 
 ### The 5 Cross-Cutting Systems

@@ -1385,7 +1385,7 @@ Return ONLY Markdown in this structure:
             event = SubmissionDeleted(
                 submission_uid=uid,
                 user_uid=ku_user_uid,
-                entity_type="submission",
+                entity_type="exercise_submission",
                 occurred_at=datetime.now(),
             )
             await publish_event(self.event_bus, event, self.logger)
@@ -1444,9 +1444,9 @@ Return ONLY Markdown in this structure:
         from core.utils.uid_generator import UIDGenerator
 
         ku = Submission(
-            uid=UIDGenerator.generate_uid("ku"),
+            uid=UIDGenerator.generate_uid("sub"),
             user_uid=user_uid,
-            entity_type=EntityType.SUBMISSION,
+            entity_type=EntityType.EXERCISE_SUBMISSION,
             status=EntityStatus.PROCESSING,
             title=insights.title,
             content=insights.formatted_content,
@@ -1484,7 +1484,7 @@ Return ONLY Markdown in this structure:
             Tuple of (matching reports, total_count)
         """
         # Get journal-type reports
-        filters: dict[str, Any] = {"entity_type": EntityType.SUBMISSION.value}
+        filters: dict[str, Any] = {"entity_type": EntityType.EXERCISE_SUBMISSION.value}
         if user_uid:
             filters["user_uid"] = user_uid
 

@@ -24,29 +24,30 @@ from enum import Enum
 
 class EntityType(str, Enum):
     """
-    Type of Entity — 18 entity types in SKUEL.
+    Type of Entity — 19 entity types in SKUEL.
 
     Discriminator for the `entity_type` field on Entity.
 
     Entity types (alphabetical):
-        ACTIVITY_REPORT     → AI/human feedback about activity patterns
-        ARTICLE             → Teaching composition (essay-like narrative)
-        CHOICE              → Knowledge about decisions you make
-        EVENT               → Knowledge about what you attend
-        EXERCISE            → Instruction template for practicing curriculum
-        GOAL                → Knowledge about where you're heading
-        HABIT               → Knowledge about what you practice
-        JOURNAL             → Raw student submission (voice/text, informal)
-        KU                  → Atomic knowledge unit (concept, state, principle)
-        LEARNING_PATH       → Ordered sequence of steps
-        LEARNING_STEP       → Step in a learning path
-        LIFE_PATH           → Knowledge about your life direction
-        PRINCIPLE           → Knowledge about what you believe
-        RESOURCE            → Books, talks, films, music (admin-only)
-        REVISED_EXERCISE    → Targeted revision instructions after feedback
-        SUBMISSION          → Student-uploaded work (file submissions)
-        SUBMISSION_REPORT   → Teacher or AI report on a submission
-        TASK                → Knowledge about what needs doing
+        ACTIVITY_REPORT      → AI/human feedback about activity patterns
+        ARTICLE              → Teaching composition (essay-like narrative)
+        CHOICE               → Knowledge about decisions you make
+        EVENT                → Knowledge about what you attend
+        EXERCISE             → Instruction template for practicing curriculum
+        EXERCISE_REPORT      → Teacher or AI report on an exercise submission
+        EXERCISE_SUBMISSION  → Student-uploaded work against an Exercise
+        GOAL                 → Knowledge about where you're heading
+        HABIT                → Knowledge about what you practice
+        JOURNAL_REPORT       → AI-generated report on a journal submission
+        JOURNAL_SUBMISSION   → Voice or text journal entry (user's own reflections)
+        KU                   → Atomic knowledge unit (concept, state, principle)
+        LEARNING_PATH        → Ordered sequence of steps
+        LEARNING_STEP        → Step in a learning path
+        LIFE_PATH            → Knowledge about your life direction
+        PRINCIPLE            → Knowledge about what you believe
+        RESOURCE             → Books, talks, films, music (admin-only)
+        REVISED_EXERCISE     → Targeted revision instructions after feedback
+        TASK                 → Knowledge about what needs doing
 
     Any Article can organize other Articles via ORGANIZES relationships (emergent
     identity — no separate MOC type needed).
@@ -54,8 +55,8 @@ class EntityType(str, Enum):
     Content origin tiers (see ContentOrigin):
         A  CURATED      → RESOURCE
         B  CURRICULUM   → ARTICLE, KU, LEARNING_STEP, LEARNING_PATH, EXERCISE, REVISED_EXERCISE
-        C  USER_CREATED → Activities (6), SUBMISSION, JOURNAL, LIFE_PATH
-        D  REPORT       → ACTIVITY_REPORT, SUBMISSION_REPORT
+        C  USER_CREATED → Activities (6), EXERCISE_SUBMISSION, JOURNAL_SUBMISSION, LIFE_PATH
+        D  REPORT       → ACTIVITY_REPORT, EXERCISE_REPORT, JOURNAL_REPORT
 
     Ownership rules:
         Curriculum + Resource: user_uid = None (shared content, admin-created)
@@ -78,10 +79,16 @@ class EntityType(str, Enum):
     RESOURCE = "resource"
 
     # Content processing (user-owned, derivation chain)
-    JOURNAL = "journal"
-    SUBMISSION = "submission"
+    EXERCISE_SUBMISSION = "exercise_submission"
+    JOURNAL_SUBMISSION = "journal_submission"
     ACTIVITY_REPORT = "activity_report"
-    SUBMISSION_REPORT = "submission_report"
+    EXERCISE_REPORT = "exercise_report"
+    JOURNAL_REPORT = "journal_report"
+
+    # Deprecated aliases — use EXERCISE_SUBMISSION, JOURNAL_SUBMISSION, EXERCISE_REPORT
+    SUBMISSION = "submission"  # deprecated: use EXERCISE_SUBMISSION
+    JOURNAL = "journal"  # deprecated: use JOURNAL_SUBMISSION
+    SUBMISSION_REPORT = "submission_report"  # deprecated: use EXERCISE_REPORT
 
     # Activity (user-owned)
     TASK = "task"
@@ -149,16 +156,28 @@ class EntityType(str, Enum):
     def is_derived(self) -> bool:
         """Check if this EntityType is derived from another Entity (has parent)."""
         return self in {
-            EntityType.JOURNAL,
-            EntityType.SUBMISSION,
+            EntityType.EXERCISE_SUBMISSION,
+            EntityType.JOURNAL_SUBMISSION,
             EntityType.ACTIVITY_REPORT,
-            EntityType.SUBMISSION_REPORT,
+            EntityType.EXERCISE_REPORT,
+            EntityType.JOURNAL_REPORT,
             EntityType.REVISED_EXERCISE,
+            # Deprecated aliases
+            EntityType.SUBMISSION,
+            EntityType.JOURNAL,
+            EntityType.SUBMISSION_REPORT,
         }
 
     def is_processable(self) -> bool:
         """Check if this EntityType goes through a processing pipeline."""
-        return self in {EntityType.JOURNAL, EntityType.SUBMISSION, EntityType.ACTIVITY_REPORT}
+        return self in {
+            EntityType.EXERCISE_SUBMISSION,
+            EntityType.JOURNAL_SUBMISSION,
+            EntityType.ACTIVITY_REPORT,
+            # Deprecated aliases
+            EntityType.SUBMISSION,
+            EntityType.JOURNAL,
+        }
 
     # -------------------------------------------------------------------------
     # Status validation
@@ -199,10 +218,11 @@ _ENTITY_TYPE_DISPLAY_NAMES: dict[EntityType, str] = {
     EntityType.RESOURCE: "Resource",
     EntityType.LEARNING_STEP: "Learning Step",
     EntityType.LEARNING_PATH: "Learning Path",
-    EntityType.JOURNAL: "Journal",
-    EntityType.SUBMISSION: "Submission",
+    EntityType.EXERCISE_SUBMISSION: "Exercise Submission",
+    EntityType.JOURNAL_SUBMISSION: "Journal",
     EntityType.ACTIVITY_REPORT: "Activity Report",
-    EntityType.SUBMISSION_REPORT: "Submission Report",
+    EntityType.EXERCISE_REPORT: "Exercise Report",
+    EntityType.JOURNAL_REPORT: "Journal Report",
     EntityType.TASK: "Task",
     EntityType.GOAL: "Goal",
     EntityType.HABIT: "Habit",
@@ -212,6 +232,10 @@ _ENTITY_TYPE_DISPLAY_NAMES: dict[EntityType, str] = {
     EntityType.EXERCISE: "Exercise",
     EntityType.REVISED_EXERCISE: "Revised Exercise",
     EntityType.LIFE_PATH: "Life Path",
+    # Deprecated aliases
+    EntityType.SUBMISSION: "Submission",
+    EntityType.JOURNAL: "Journal",
+    EntityType.SUBMISSION_REPORT: "Submission Report",
 }
 
 _KNOWLEDGE_TYPES = frozenset({EntityType.ARTICLE, EntityType.KU})
@@ -220,9 +244,14 @@ _CURRICULUM_STRUCTURE_TYPES = frozenset(
 )
 _CONTENT_PROCESSING_TYPES = frozenset(
     {
-        EntityType.JOURNAL,
-        EntityType.SUBMISSION,
+        EntityType.EXERCISE_SUBMISSION,
+        EntityType.JOURNAL_SUBMISSION,
         EntityType.ACTIVITY_REPORT,
+        EntityType.EXERCISE_REPORT,
+        EntityType.JOURNAL_REPORT,
+        # Deprecated aliases
+        EntityType.SUBMISSION,
+        EntityType.JOURNAL,
         EntityType.SUBMISSION_REPORT,
     }
 )
@@ -283,11 +312,17 @@ _CONTENT_ORIGIN_BY_TYPE: dict[EntityType, ContentOrigin] = {
     EntityType.EVENT: ContentOrigin.USER_CREATED,
     EntityType.CHOICE: ContentOrigin.USER_CREATED,
     EntityType.PRINCIPLE: ContentOrigin.USER_CREATED,
+    EntityType.EXERCISE_SUBMISSION: ContentOrigin.USER_CREATED,
+    EntityType.JOURNAL_SUBMISSION: ContentOrigin.USER_CREATED,
+    EntityType.LIFE_PATH: ContentOrigin.USER_CREATED,
+    # Deprecated aliases
     EntityType.SUBMISSION: ContentOrigin.USER_CREATED,
     EntityType.JOURNAL: ContentOrigin.USER_CREATED,
-    EntityType.LIFE_PATH: ContentOrigin.USER_CREATED,
     # D — Reports that act on user content
     EntityType.ACTIVITY_REPORT: ContentOrigin.REPORT,
+    EntityType.EXERCISE_REPORT: ContentOrigin.REPORT,
+    EntityType.JOURNAL_REPORT: ContentOrigin.REPORT,
+    # Deprecated alias
     EntityType.SUBMISSION_REPORT: ContentOrigin.REPORT,
 }
 
@@ -298,11 +333,11 @@ _ENTITY_TYPE_ALIASES: dict[str, EntityType] = {
     "resource": EntityType.RESOURCE,
     "learning_step": EntityType.LEARNING_STEP,
     "learning_path": EntityType.LEARNING_PATH,
-    "journal": EntityType.JOURNAL,
-    "submission": EntityType.SUBMISSION,
+    "exercise_submission": EntityType.EXERCISE_SUBMISSION,
+    "journal_submission": EntityType.JOURNAL_SUBMISSION,
     "activity_report": EntityType.ACTIVITY_REPORT,
-    "submission_feedback": EntityType.SUBMISSION_REPORT,  # backward compat (pre-rename)
-    "submission_report": EntityType.SUBMISSION_REPORT,
+    "exercise_report": EntityType.EXERCISE_REPORT,
+    "journal_report": EntityType.JOURNAL_REPORT,
     "task": EntityType.TASK,
     "goal": EntityType.GOAL,
     "habit": EntityType.HABIT,
@@ -310,6 +345,11 @@ _ENTITY_TYPE_ALIASES: dict[str, EntityType] = {
     "choice": EntityType.CHOICE,
     "principle": EntityType.PRINCIPLE,
     "life_path": EntityType.LIFE_PATH,
+    # Backward-compat aliases (deprecated entity type values)
+    "submission": EntityType.EXERCISE_SUBMISSION,
+    "journal": EntityType.JOURNAL_SUBMISSION,
+    "submission_report": EntityType.EXERCISE_REPORT,
+    "submission_feedback": EntityType.EXERCISE_REPORT,  # pre-rename compat
     # Aliases
     "knowledge": EntityType.ARTICLE,
     "moc": EntityType.ARTICLE,
@@ -324,7 +364,7 @@ _ENTITY_TYPE_ALIASES: dict[str, EntityType] = {
     "exercise": EntityType.EXERCISE,
     "revised_exercise": EntityType.REVISED_EXERCISE,
     "assignment": EntityType.EXERCISE,
-    "feedback": EntityType.SUBMISSION_REPORT,
+    "feedback": EntityType.EXERCISE_REPORT,
     "revised_ex": EntityType.REVISED_EXERCISE,
     "lifepath": EntityType.LIFE_PATH,
 }
@@ -632,7 +672,7 @@ _VALID_STATUSES_BY_TYPE: dict[EntityType, frozenset[EntityStatus]] = {
             EntityStatus.ARCHIVED,
         }
     ),
-    EntityType.JOURNAL: frozenset(
+    EntityType.EXERCISE_SUBMISSION: frozenset(
         {
             EntityStatus.DRAFT,
             EntityStatus.SUBMITTED,
@@ -644,7 +684,7 @@ _VALID_STATUSES_BY_TYPE: dict[EntityType, frozenset[EntityStatus]] = {
             EntityStatus.ARCHIVED,
         }
     ),
-    EntityType.SUBMISSION: frozenset(
+    EntityType.JOURNAL_SUBMISSION: frozenset(
         {
             EntityStatus.DRAFT,
             EntityStatus.SUBMITTED,
@@ -662,6 +702,45 @@ _VALID_STATUSES_BY_TYPE: dict[EntityType, frozenset[EntityStatus]] = {
             EntityStatus.PROCESSING,
             EntityStatus.COMPLETED,
             EntityStatus.FAILED,
+            EntityStatus.ARCHIVED,
+        }
+    ),
+    EntityType.EXERCISE_REPORT: frozenset(
+        {
+            EntityStatus.DRAFT,
+            EntityStatus.COMPLETED,
+            EntityStatus.ARCHIVED,
+        }
+    ),
+    EntityType.JOURNAL_REPORT: frozenset(
+        {
+            EntityStatus.DRAFT,
+            EntityStatus.COMPLETED,
+            EntityStatus.ARCHIVED,
+        }
+    ),
+    # Deprecated aliases
+    EntityType.SUBMISSION: frozenset(
+        {
+            EntityStatus.DRAFT,
+            EntityStatus.SUBMITTED,
+            EntityStatus.QUEUED,
+            EntityStatus.PROCESSING,
+            EntityStatus.COMPLETED,
+            EntityStatus.FAILED,
+            EntityStatus.REVISION_REQUESTED,
+            EntityStatus.ARCHIVED,
+        }
+    ),
+    EntityType.JOURNAL: frozenset(
+        {
+            EntityStatus.DRAFT,
+            EntityStatus.SUBMITTED,
+            EntityStatus.QUEUED,
+            EntityStatus.PROCESSING,
+            EntityStatus.COMPLETED,
+            EntityStatus.FAILED,
+            EntityStatus.REVISION_REQUESTED,
             EntityStatus.ARCHIVED,
         }
     ),
@@ -760,9 +839,14 @@ _DEFAULT_STATUS_BY_TYPE: dict[EntityType, EntityStatus] = {
     EntityType.LEARNING_PATH: EntityStatus.DRAFT,
     EntityType.EXERCISE: EntityStatus.DRAFT,
     EntityType.REVISED_EXERCISE: EntityStatus.DRAFT,
-    EntityType.JOURNAL: EntityStatus.DRAFT,
-    EntityType.SUBMISSION: EntityStatus.DRAFT,
+    EntityType.EXERCISE_SUBMISSION: EntityStatus.DRAFT,
+    EntityType.JOURNAL_SUBMISSION: EntityStatus.DRAFT,
     EntityType.ACTIVITY_REPORT: EntityStatus.DRAFT,
+    EntityType.EXERCISE_REPORT: EntityStatus.DRAFT,
+    EntityType.JOURNAL_REPORT: EntityStatus.DRAFT,
+    # Deprecated aliases
+    EntityType.SUBMISSION: EntityStatus.DRAFT,
+    EntityType.JOURNAL: EntityStatus.DRAFT,
     EntityType.SUBMISSION_REPORT: EntityStatus.DRAFT,
     EntityType.TASK: EntityStatus.DRAFT,
     EntityType.GOAL: EntityStatus.DRAFT,

@@ -215,7 +215,7 @@ class SubmissionReportService:
             # Return a transient SubmissionReport object for graceful degradation
             return self._build_transient_report(submission, exercise, feedback_text, user_uid)
 
-        report_uid = UIDGenerator.generate_uid("ku")
+        report_uid = UIDGenerator.generate_uid("sr")
         now = datetime.now().isoformat()
         title = (
             f"AI Feedback: {exercise.title[:50]}"
@@ -266,7 +266,7 @@ class SubmissionReportService:
                     "user_uid": user_uid,
                     "feedback_text": feedback_text,
                     "title": title,
-                    "entity_type": EntityType.SUBMISSION_REPORT.value,
+                    "entity_type": EntityType.EXERCISE_REPORT.value,
                     "completed_status": EntityStatus.COMPLETED.value,
                     "processor_type": ProcessorType.LLM.value,
                     "now": now,
@@ -285,7 +285,7 @@ class SubmissionReportService:
 
             feedback_entity = SubmissionReport(
                 uid=report_uid,
-                entity_type=EntityType.SUBMISSION_REPORT,
+                entity_type=EntityType.EXERCISE_REPORT,
                 title=title,
                 user_uid=user_uid,
                 status=EntityStatus.COMPLETED,
@@ -383,7 +383,7 @@ class SubmissionReportService:
         )
         feedback_entity = SubmissionReport(
             uid=f"transient_{submission.uid}",
-            entity_type=EntityType.SUBMISSION_REPORT,
+            entity_type=EntityType.EXERCISE_REPORT,
             title=title,
             user_uid=user_uid,
             status=EntityStatus.COMPLETED,

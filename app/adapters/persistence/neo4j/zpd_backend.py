@@ -34,7 +34,7 @@ _ZONE_QUERY = """
 // ── Step 1: Current zone — KUs the user has meaningfully engaged ──────────
 MATCH (u:User {uid: $user_uid})
 OPTIONAL MATCH (u)-[:OWNS]->(t:Entity {entity_type: 'task'})-[:APPLIES_KNOWLEDGE]->(ku_t:Entity)
-OPTIONAL MATCH (u)-[:OWNS]->(j:Entity {entity_type: 'journal'})-[:APPLIES_KNOWLEDGE]->(ku_j:Entity)
+OPTIONAL MATCH (u)-[:OWNS]->(j:Entity {entity_type: 'journal_submission'})-[:APPLIES_KNOWLEDGE]->(ku_j:Entity)
 OPTIONAL MATCH (u)-[:OWNS]->(h:Entity {entity_type: 'habit'})-[:REINFORCES_KNOWLEDGE]->(ku_h:Entity)
 WITH u,
      collect(DISTINCT ku_t.uid) + collect(DISTINCT ku_j.uid) + collect(DISTINCT ku_h.uid)

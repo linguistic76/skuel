@@ -44,8 +44,8 @@ TYPE_MAPPING: dict[str, EntityType | NonKuDomain] = {
     "expense": NonKuDomain.FINANCE,
     "finance": NonKuDomain.FINANCE,
     # Content/Processing (journal maps to SUBMISSION since Feb 2026 merge)
-    "journal": EntityType.SUBMISSION,
-    "report": EntityType.SUBMISSION,
+    "journal": EntityType.JOURNAL_SUBMISSION,
+    "report": EntityType.EXERCISE_SUBMISSION,
     # Destination
     "lifepath": EntityType.LIFE_PATH,
 }

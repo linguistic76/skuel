@@ -229,7 +229,7 @@ class SearchRouter:
         # Learning Loop (3) - Exercise -> Submission -> RevisedExercise
         EntityType.EXERCISE: "exercises",
         EntityType.REVISED_EXERCISE: "revised_exercises",
-        EntityType.SUBMISSION: "submissions_search",
+        EntityType.EXERCISE_SUBMISSION: "submissions_search",
         # The Destination - LifePath
         # "Everything flows toward the life path"
         EntityType.LIFE_PATH: "lifepath",
@@ -254,7 +254,7 @@ class SearchRouter:
             # Learning Loop (3) - Exercise, RevisedExercise, Submission
             EntityType.EXERCISE,
             EntityType.REVISED_EXERCISE,
-            EntityType.SUBMISSION,
+            EntityType.EXERCISE_SUBMISSION,
         }
     )
 
@@ -607,7 +607,7 @@ class SearchRouter:
             "exercises": EntityType.EXERCISE,
             "exercise": EntityType.EXERCISE,
             "revised_exercises": EntityType.REVISED_EXERCISE,
-            "submissions": EntityType.SUBMISSION,
+            "submissions": EntityType.EXERCISE_SUBMISSION,
         }
 
         entity_type = domain_to_entity.get(domain_str.lower())

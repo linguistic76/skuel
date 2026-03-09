@@ -2,7 +2,7 @@
 Report Relationship Service
 =============================
 
-Pure-Cypher Level 1 queries against FEEDBACK_FOR relationships.
+Pure-Cypher Level 1 queries against REPORT_FOR relationships.
 
 Answers intelligence questions about the Report stage of the learning loop:
 - Which of the user's submissions are still awaiting a report?
@@ -12,10 +12,10 @@ No LLM dependencies — this is a Level 1 graph analytics service.
 The higher-level SubmissionReportService (LLM report generation) is a separate concern.
 
 Graph relationships queried:
-- FEEDBACK_FOR: (SubmissionReport)-[:FEEDBACK_FOR]->(Submission)
+- REPORT_FOR: (SubmissionReport)-[:REPORT_FOR]->(Submission)
 - OWNS: (User)-[:OWNS]->(Submission)
 
-See: /docs/architecture/FEEDBACK_ARCHITECTURE.md
+See: /docs/architecture/REPORT_ARCHITECTURE.md
 """
 
 from typing import TYPE_CHECKING, Any
@@ -32,14 +32,14 @@ class ReportRelationshipService:
     """
     Pure-Cypher relationship queries for the Report stage of the learning loop.
 
-    Provides the intelligence layer with graph-level questions about FEEDBACK_FOR
+    Provides the intelligence layer with graph-level questions about REPORT_FOR
     relationships — no LLM, no AI. Just graph queries.
 
     Used by UserContextIntelligence to answer:
     - "Does this user have submissions that haven't been reviewed yet?"
     - "What's the overall report completion rate for this user?"
 
-    See: /docs/architecture/FEEDBACK_ARCHITECTURE.md
+    See: /docs/architecture/REPORT_ARCHITECTURE.md
     """
 
     def __init__(self, backend: "BackendOperations[Any]") -> None:
@@ -52,23 +52,23 @@ class ReportRelationshipService:
 
     async def get_pending_submissions(self, user_uid: str) -> Result[list[str]]:
         """
-        Get UIDs of submissions that have not yet received feedback.
+        Get UIDs of submissions that have not yet received a report.
 
         A "pending" submission is one owned by the user that has no
-        FEEDBACK_FOR relationship pointing to it.
+        REPORT_FOR relationship pointing to it.
 
-        Graph: (User)-[:OWNS]->(submission:Entity) WHERE NOT ()-[:FEEDBACK_FOR]->(submission)
+        Graph: (User)-[:OWNS]->(submission:Entity) WHERE NOT ()-[:REPORT_FOR]->(submission)
 
         Args:
             user_uid: User identifier
 
         Returns:
-            Result containing list of submission UIDs awaiting feedback (most recent first)
+            Result containing list of submission UIDs awaiting report (most recent first)
         """
         cypher = """
         MATCH (u:User {uid: $user_uid})-[:OWNS]->(submission:Entity)
         WHERE submission.entity_type IN $submission_types
-          AND NOT ()-[:FEEDBACK_FOR]->(submission)
+          AND NOT ()-[:REPORT_FOR]->(submission)
         RETURN submission.uid AS uid
         ORDER BY submission.created_at DESC
         LIMIT 20
@@ -79,8 +79,8 @@ class ReportRelationshipService:
             {
                 "user_uid": user_uid,
                 "submission_types": [
-                    EntityType.SUBMISSION.value,
-                    EntityType.JOURNAL.value,
+                    EntityType.EXERCISE_SUBMISSION.value,
+                    EntityType.JOURNAL_SUBMISSION.value,
                 ],
             },
         )
@@ -147,20 +147,20 @@ class ReportRelationshipService:
         Returns:
             Result containing dict with keys:
                 - total_submissions: Total submission + journal count
-                - with_feedback: Count that have at least one FEEDBACK_FOR
-                - without_feedback: Count that have no FEEDBACK_FOR
-                - total_feedback: Total count of feedback entities received
+                - with_report: Count that have at least one REPORT_FOR
+                - without_report: Count that have no REPORT_FOR
+                - total_reports: Total count of report entities received
         """
         cypher = """
         MATCH (u:User {uid: $user_uid})-[:OWNS]->(submission:Entity)
         WHERE submission.entity_type IN $submission_types
-        OPTIONAL MATCH (fb:Entity)-[:FEEDBACK_FOR]->(submission)
-        WITH submission, count(fb) AS feedback_count
+        OPTIONAL MATCH (fb:Entity)-[:REPORT_FOR]->(submission)
+        WITH submission, count(fb) AS report_count
         RETURN
             count(submission) AS total_submissions,
-            count(CASE WHEN feedback_count > 0 THEN 1 END) AS with_feedback,
-            count(CASE WHEN feedback_count = 0 THEN 1 END) AS without_feedback,
-            sum(feedback_count) AS total_feedback
+            count(CASE WHEN report_count > 0 THEN 1 END) AS with_report,
+            count(CASE WHEN report_count = 0 THEN 1 END) AS without_report,
+            sum(report_count) AS total_reports
         """
 
         result = await self.backend.execute_query(
@@ -168,8 +168,8 @@ class ReportRelationshipService:
             {
                 "user_uid": user_uid,
                 "submission_types": [
-                    EntityType.SUBMISSION.value,
-                    EntityType.JOURNAL.value,
+                    EntityType.EXERCISE_SUBMISSION.value,
+                    EntityType.JOURNAL_SUBMISSION.value,
                 ],
             },
         )
@@ -181,9 +181,9 @@ class ReportRelationshipService:
             return Result.ok(
                 {
                     "total_submissions": 0,
-                    "with_feedback": 0,
-                    "without_feedback": 0,
-                    "total_feedback": 0,
+                    "with_report": 0,
+                    "without_report": 0,
+                    "total_reports": 0,
                 }
             )
 
@@ -191,9 +191,9 @@ class ReportRelationshipService:
         return Result.ok(
             {
                 "total_submissions": record["total_submissions"],
-                "with_feedback": record["with_feedback"],
-                "without_feedback": record["without_feedback"],
-                "total_feedback": record["total_feedback"],
+                "with_report": record["with_report"],
+                "without_report": record["without_report"],
+                "total_reports": record["total_reports"],
             }
         )
 
@@ -209,8 +209,8 @@ class ReportRelationshipService:
 
         Graph pattern (mixed directions):
             (Submission)-[:FULFILLS_EXERCISE]->(Exercise)
-            (SubmissionReport)-[:FEEDBACK_FOR]->(Submission)
-            (RevisedExercise)-[:RESPONDS_TO_FEEDBACK]->(SubmissionReport)
+            (SubmissionReport)-[:REPORT_FOR]->(Submission)
+            (RevisedExercise)-[:RESPONDS_TO_REPORT]->(SubmissionReport)
             (RevisedExercise)-[:REVISES_EXERCISE]->(Exercise)
 
         Args:
@@ -223,10 +223,10 @@ class ReportRelationshipService:
         MATCH (ex:Entity {uid: $exercise_uid})
         WHERE ex.entity_type IN ['exercise', 'revised_exercise']
         OPTIONAL MATCH (sub:Entity)-[:FULFILLS_EXERCISE]->(ex)
-          WHERE sub.entity_type = 'submission'
-        OPTIONAL MATCH (fb:Entity)-[:FEEDBACK_FOR]->(sub)
-          WHERE fb.entity_type = 'submission_feedback'
-        OPTIONAL MATCH (re:Entity)-[:RESPONDS_TO_FEEDBACK]->(fb)
+          WHERE sub.entity_type = 'exercise_submission'
+        OPTIONAL MATCH (fb:Entity)-[:REPORT_FOR]->(sub)
+          WHERE fb.entity_type = 'exercise_report'
+        OPTIONAL MATCH (re:Entity)-[:RESPONDS_TO_REPORT]->(fb)
           WHERE re.entity_type = 'revised_exercise'
         RETURN ex {.uid, .title, .entity_type, .status, .created_at} AS exercise,
                collect(DISTINCT sub {.uid, .title, .status, .created_at, .user_uid}) AS submissions,
@@ -261,8 +261,8 @@ class ReportRelationshipService:
 
         Graph pattern:
             (Submission)-[:FULFILLS_EXERCISE]->(Exercise)
-            (SubmissionReport)-[:FEEDBACK_FOR]->(Submission)
-            (RevisedExercise)-[:RESPONDS_TO_FEEDBACK]->(SubmissionReport)
+            (SubmissionReport)-[:REPORT_FOR]->(Submission)
+            (RevisedExercise)-[:RESPONDS_TO_REPORT]->(SubmissionReport)
 
         Args:
             submission_uid: UID of the submission
@@ -271,12 +271,12 @@ class ReportRelationshipService:
             Result[dict] with keys: submission, exercise, feedback, revised_exercises
         """
         cypher = """
-        MATCH (sub:Entity {uid: $submission_uid, entity_type: 'submission'})
+        MATCH (sub:Entity {uid: $submission_uid, entity_type: 'exercise_submission'})
         OPTIONAL MATCH (sub)-[:FULFILLS_EXERCISE]->(ex:Entity)
           WHERE ex.entity_type IN ['exercise', 'revised_exercise']
-        OPTIONAL MATCH (fb:Entity)-[:FEEDBACK_FOR]->(sub)
-          WHERE fb.entity_type = 'submission_feedback'
-        OPTIONAL MATCH (re:Entity)-[:RESPONDS_TO_FEEDBACK]->(fb)
+        OPTIONAL MATCH (fb:Entity)-[:REPORT_FOR]->(sub)
+          WHERE fb.entity_type = 'exercise_report'
+        OPTIONAL MATCH (re:Entity)-[:RESPONDS_TO_REPORT]->(fb)
           WHERE re.entity_type = 'revised_exercise'
         RETURN sub {.uid, .title, .status, .created_at, .user_uid} AS submission,
                ex {.uid, .title, .entity_type, .status} AS exercise,

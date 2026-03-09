@@ -872,7 +872,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
             entry_date.year, entry_date.month, entry_date.day, 23, 59, 59, tzinfo=UTC
         )
         query = """
-            MATCH (u:User {uid: $user_uid})-[:OWNS]->(j:Entity {entity_type: 'journal'})
+            MATCH (u:User {uid: $user_uid})-[:OWNS]->(j:Entity {entity_type: 'journal_submission'})
             WHERE j.created_at >= $day_start AND j.created_at <= $day_end
             RETURN count(j) AS total
         """
@@ -971,7 +971,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         journal = Journal(
             uid=uid,
             title=title,
-            entity_type=EntityType.JOURNAL,
+            entity_type=EntityType.JOURNAL_SUBMISSION,
             user_uid=user_uid,
             status=EntityStatus.DRAFT,
             content=content,
@@ -997,7 +997,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         """Get journals with FIFO retention (max_retention is set) for a user."""
         result = await self.backend.find_by(
             user_uid=user_uid,
-            entity_type=EntityType.JOURNAL.value,
+            entity_type=EntityType.JOURNAL_SUBMISSION.value,
         )
         if result.is_error:
             return Result.fail(result.expect_error())
@@ -1011,7 +1011,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         """Get permanent journals (no FIFO retention) for a user."""
         result = await self.backend.find_by(
             user_uid=user_uid,
-            entity_type=EntityType.JOURNAL.value,
+            entity_type=EntityType.JOURNAL_SUBMISSION.value,
         )
         if result.is_error:
             return Result.fail(result.expect_error())
@@ -1042,7 +1042,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         """
         result = await self.backend.find_by(
             user_uid=user_uid,
-            entity_type=EntityType.JOURNAL.value,
+            entity_type=EntityType.JOURNAL_SUBMISSION.value,
         )
         if result.is_error:
             return Result.fail(result.expect_error())
@@ -1100,7 +1100,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
             return Result.fail(result.expect_error())
 
         submission = result.value
-        if not submission or submission.entity_type != EntityType.JOURNAL:
+        if not submission or submission.entity_type != EntityType.JOURNAL_SUBMISSION:
             return Result.ok(None)
 
         return Result.ok(submission)
@@ -1333,7 +1333,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         """
         result = await self.backend.find_by(
             user_uid=user_uid,
-            entity_type=EntityType.JOURNAL.value,
+            entity_type=EntityType.JOURNAL_SUBMISSION.value,
         )
 
         if result.is_error:
@@ -1420,12 +1420,12 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
                 )
             )
 
-        uid = UIDGenerator.generate_uid("ku")
+        uid = UIDGenerator.generate_uid("sr")
 
         assessment = SubmissionReport(
             uid=uid,
             title=title,
-            entity_type=EntityType.SUBMISSION_REPORT,
+            entity_type=EntityType.EXERCISE_REPORT,
             user_uid=teacher_uid,
             status=EntityStatus.COMPLETED,
             processor_type=ProcessorType.HUMAN,
@@ -1512,12 +1512,12 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
             limit: Maximum number of assessments to return
 
         Returns:
-            Result containing list of SUBMISSION_REPORT entity entities
+            Result containing list of EXERCISE_REPORT entities
         """
         result = await self.backend.execute_query(
             """
             MATCH (k:Entity)-[:ASSESSMENT_OF]->(u:User {uid: $student_uid})
-            WHERE k.entity_type = 'submission_feedback'
+            WHERE k.entity_type = 'exercise_report'
             RETURN k
             ORDER BY k.created_at DESC
             LIMIT $limit
@@ -1547,11 +1547,11 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
             limit: Maximum number of assessments to return
 
         Returns:
-            Result containing list of SUBMISSION_REPORT entity entities
+            Result containing list of EXERCISE_REPORT entities
         """
         result = await self.backend.find_by(
             user_uid=teacher_uid,
-            entity_type=EntityType.SUBMISSION_REPORT.value,
+            entity_type=EntityType.EXERCISE_REPORT.value,
         )
         if result.is_error:
             return Result.fail(result.expect_error())

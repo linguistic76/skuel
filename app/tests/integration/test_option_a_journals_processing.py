@@ -5,7 +5,7 @@ Integration Test: Ku Processing Pipeline
 Tests the entity processing pipeline for file submissions.
 
 NOTE (February 2026): Tests updated for domain-first Entity model.
-Reports use EntityType.SUBMISSION discrimination.
+Reports use EntityType.EXERCISE_SUBMISSION discrimination.
 The SubmissionsProcessingService:
 - Routes files to appropriate processors based on file type
 - Audio files: transcribed via TranscriptionService
@@ -54,7 +54,7 @@ class TestOptionAJournalsProcessing:
             uid="report.test_transcript",
             title="Meeting Notes",
             user_uid="user.test",
-            entity_type=EntityType.SUBMISSION,
+            entity_type=EntityType.EXERCISE_SUBMISSION,
             status=EntityStatus.SUBMITTED,
             file_path="/tmp/test_audio.mp3",
             file_type="audio/mpeg",
@@ -240,7 +240,7 @@ class TestOptionAJournalsProcessing:
             uid="report.test_text",
             title="Notes",
             user_uid="user.test",
-            entity_type=EntityType.SUBMISSION,
+            entity_type=EntityType.EXERCISE_SUBMISSION,
             status=EntityStatus.SUBMITTED,
             file_path="/tmp/test_notes.txt",
             file_type="text/plain",
@@ -311,7 +311,7 @@ class TestOptionAJournalsProcessing:
             uid="report.processing",
             title="Processing",
             user_uid="user.test",
-            entity_type=EntityType.SUBMISSION,
+            entity_type=EntityType.EXERCISE_SUBMISSION,
             status=EntityStatus.PROCESSING,  # Already processing
             file_path="/tmp/test.mp3",
             file_type="audio/mpeg",
@@ -344,7 +344,7 @@ class TestOptionAJournalsProcessing:
             uid="report.pdf",
             title="PDF Report",
             user_uid="user.test",
-            entity_type=EntityType.SUBMISSION,
+            entity_type=EntityType.EXERCISE_SUBMISSION,
             status=EntityStatus.SUBMITTED,
             file_path="/tmp/test.pdf",
             file_type="application/pdf",  # Not yet supported
@@ -381,7 +381,7 @@ class TestOptionAJournalsProcessing:
             uid="report.transcript_type",
             title="Transcript",
             user_uid="user.test",
-            entity_type=EntityType.SUBMISSION,
+            entity_type=EntityType.EXERCISE_SUBMISSION,
             status=EntityStatus.SUBMITTED,
             file_path="/tmp/test.mp3",
             file_type="audio/mpeg",
@@ -393,7 +393,7 @@ class TestOptionAJournalsProcessing:
         )
 
         # Act & Assert
-        assert assignment_ku.entity_type == EntityType.SUBMISSION
+        assert assignment_ku.entity_type == EntityType.EXERCISE_SUBMISSION
 
         # Can differentiate from other entity types
         curriculum_ku = Curriculum(
@@ -401,7 +401,7 @@ class TestOptionAJournalsProcessing:
             title="Curriculum Content",
         )
 
-        assert curriculum_ku.entity_type != EntityType.SUBMISSION
+        assert curriculum_ku.entity_type != EntityType.EXERCISE_SUBMISSION
         assert (
             curriculum_ku.entity_type == EntityType.KU
         )  # Curriculum base class uses Entity default
@@ -441,7 +441,7 @@ class TestOptionAJournalsProcessing:
             uid="report.test_transcript",
             title="Meeting Notes",
             user_uid="user.test",
-            entity_type=EntityType.SUBMISSION,
+            entity_type=EntityType.EXERCISE_SUBMISSION,
             status=EntityStatus.COMPLETED,
             file_path="/tmp/test_audio.mp3",
             file_type="audio/mpeg",

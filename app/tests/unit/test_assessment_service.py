@@ -88,7 +88,7 @@ class TestCreateAssessment:
         assert mock_backend.create.call_count == 1
         created_ku = mock_backend.create.call_args[0][0]
         assert isinstance(created_ku, SubmissionReport)
-        assert created_ku.entity_type == EntityType.SUBMISSION_REPORT
+        assert created_ku.entity_type == EntityType.EXERCISE_REPORT
         assert created_ku.user_uid == "user_teacher"
         assert created_ku.subject_uid == "user_student"
         assert created_ku.title == "Midterm Assessment"

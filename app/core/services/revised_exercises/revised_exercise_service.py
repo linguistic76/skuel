@@ -94,13 +94,13 @@ class RevisedExerciseService(BaseService):
         """Verify the teacher has review authority over the feedback.
 
         Checks the graph path:
-        - (Feedback)-[:FEEDBACK_FOR]->(Submission) exists
+        - (SubmissionReport)-[:REPORT_FOR]->(Submission) exists
         - (Teacher)-[:SHARES_WITH {role:'teacher'}]->(Submission)
         - (Student)-[:OWNS]->(Submission)
         """
         result = await self.backend.execute_query(
             """
-            MATCH (fb:Entity {uid: $report_uid})-[:FEEDBACK_FOR]->(submission:Entity)
+            MATCH (fb:Entity {uid: $report_uid})-[:REPORT_FOR]->(submission:Entity)
             MATCH (teacher:User {uid: $teacher_uid})-[:SHARES_WITH {role: 'teacher'}]->(submission)
             MATCH (student:User {uid: $student_uid})-[:OWNS]->(submission)
             RETURN submission.uid AS submission_uid

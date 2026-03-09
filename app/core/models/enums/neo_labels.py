@@ -78,11 +78,15 @@ class NeoLabel(str, Enum):
     LEARNING_STEP = "LearningStep"
     LEARNING_PATH = "LearningPath"
 
-    # Content Processing (4) — user submissions and reports
-    SUBMISSION = "Submission"
-    JOURNAL = "Journal"
+    # Content Processing — user submissions and reports
+    SUBMISSION = "Submission"  # Base label for multi-label queries
+    EXERCISE_SUBMISSION = "ExerciseSubmission"
+    JOURNAL_SUBMISSION = "JournalSubmission"
+    JOURNAL = "Journal"  # Deprecated: use JOURNAL_SUBMISSION
     ACTIVITY_REPORT = "ActivityReport"
-    SUBMISSION_REPORT = "SubmissionReport"
+    SUBMISSION_REPORT = "SubmissionReport"  # Base label for multi-label queries
+    EXERCISE_REPORT = "ExerciseReport"
+    JOURNAL_REPORT = "JournalReport"
 
     # Instruction Templates (2)
     EXERCISE = "Exercise"  # Domain label for :Entity nodes with entity_type="exercise"
@@ -249,9 +253,14 @@ def _init_ku_type_mapping() -> None:
             EntityType.LEARNING_PATH: NeoLabel.LEARNING_PATH,
             EntityType.EXERCISE: NeoLabel.EXERCISE,
             EntityType.REVISED_EXERCISE: NeoLabel.REVISED_EXERCISE,
+            EntityType.EXERCISE_SUBMISSION: NeoLabel.EXERCISE_SUBMISSION,
+            EntityType.JOURNAL_SUBMISSION: NeoLabel.JOURNAL_SUBMISSION,
+            EntityType.ACTIVITY_REPORT: NeoLabel.ACTIVITY_REPORT,
+            EntityType.EXERCISE_REPORT: NeoLabel.EXERCISE_REPORT,
+            EntityType.JOURNAL_REPORT: NeoLabel.JOURNAL_REPORT,
+            # Deprecated aliases
             EntityType.SUBMISSION: NeoLabel.SUBMISSION,
             EntityType.JOURNAL: NeoLabel.JOURNAL,
-            EntityType.ACTIVITY_REPORT: NeoLabel.ACTIVITY_REPORT,
             EntityType.SUBMISSION_REPORT: NeoLabel.SUBMISSION_REPORT,
             EntityType.LIFE_PATH: NeoLabel.LIFE_PATH,
         }
