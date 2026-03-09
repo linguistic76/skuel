@@ -1,9 +1,9 @@
 """
-Ku Schedule Service
-====================
+Report Schedule Service
+========================
 
-CRUD and scheduling logic for KuSchedule entities.
-Manages recurring progress Ku generation schedules.
+CRUD and scheduling logic for ReportSchedule entities.
+Manages recurring progress report generation schedules.
 """
 
 from datetime import datetime, timedelta
@@ -11,10 +11,10 @@ from typing import TYPE_CHECKING, Any
 
 from core.constants import ReportTimePeriod
 from core.models.enums.submissions_enums import ScheduleType
-from core.models.submissions.ku_schedule import (
-    KuSchedule,
-    KuScheduleDTO,
-    ku_schedule_dto_to_domain,
+from core.models.submissions.report_schedule import (
+    ReportSchedule,
+    ReportScheduleDTO,
+    report_schedule_dto_to_domain,
 )
 
 if TYPE_CHECKING:
@@ -28,12 +28,12 @@ logger = get_logger("skuel.services.report.schedule")
 
 class ProgressScheduleService:
     """
-    CRUD and scheduling logic for Ku generation schedules.
+    CRUD and scheduling logic for report generation schedules.
     """
 
     def __init__(
         self,
-        backend: "BackendOperations[KuSchedule]",
+        backend: "BackendOperations[ReportSchedule]",
     ) -> None:
         self.backend = backend
 
@@ -44,7 +44,7 @@ class ProgressScheduleService:
         day_of_week: int = 0,
         domains: list[str] | None = None,
         depth: str = "standard",
-    ) -> Result[KuSchedule]:
+    ) -> Result[ReportSchedule]:
         """
         Create an entity generation schedule.
 
@@ -56,13 +56,13 @@ class ProgressScheduleService:
             depth: summary, standard, or detailed
 
         Returns:
-            Result containing the created KuSchedule
+            Result containing the created ReportSchedule
         """
         uid = UIDGenerator.generate_uid("schedule")
         stype = ScheduleType(schedule_type)
         next_due = self.compute_next_due_at(stype, day_of_week)
 
-        schedule = KuSchedule(
+        schedule = ReportSchedule(
             uid=uid,
             user_uid=user_uid,
             schedule_type=stype,
@@ -81,7 +81,7 @@ class ProgressScheduleService:
         rel_result = await self.backend.execute_query(
             """
             MATCH (u:User {uid: $user_uid})
-            MATCH (s:KuSchedule {uid: $schedule_uid})
+            MATCH (s:ReportSchedule {uid: $schedule_uid})
             MERGE (u)-[:HAS_SCHEDULE]->(s)
             """,
             {"user_uid": user_uid, "schedule_uid": uid},
@@ -89,10 +89,10 @@ class ProgressScheduleService:
         if rel_result.is_error:
             logger.warning(f"Failed to create HAS_SCHEDULE relationship: {rel_result.error}")
 
-        logger.info(f"Created Ku schedule {uid} for {user_uid}: {schedule_type}")
+        logger.info(f"Created report schedule {uid} for {user_uid}: {schedule_type}")
         return Result.ok(schedule)
 
-    async def get_user_schedule(self, user_uid: str) -> Result[KuSchedule | None]:
+    async def get_user_schedule(self, user_uid: str) -> Result[ReportSchedule | None]:
         """Get the user's active entity schedule (one per user)."""
         result = await self.backend.find_by(user_uid=user_uid, is_active=True)
         if result.is_error:
@@ -104,7 +104,7 @@ class ProgressScheduleService:
 
         return Result.ok(schedules[0])
 
-    async def update_schedule(self, uid: str, updates: dict[str, Any]) -> Result[KuSchedule]:
+    async def update_schedule(self, uid: str, updates: dict[str, Any]) -> Result[ReportSchedule]:
         """Update a schedule's configuration."""
         updates["updated_at"] = datetime.now()
         result = await self.backend.update(uid, updates)
@@ -124,7 +124,7 @@ class ProgressScheduleService:
 
         return Result.ok(True)
 
-    async def get_due_schedules(self) -> Result[list[KuSchedule]]:
+    async def get_due_schedules(self) -> Result[list[ReportSchedule]]:
         """Get all active schedules that are due for generation.
 
         Enforces a minimum interval (MIN_AUTO_REPORT_INTERVAL_HOURS) between
@@ -135,7 +135,7 @@ class ProgressScheduleService:
         try:
             result = await self.backend.execute_query(
                 """
-                MATCH (s:KuSchedule)
+                MATCH (s:ReportSchedule)
                 WHERE s.is_active = true
                   AND s.next_due_at <= datetime()
                   AND (
@@ -153,7 +153,7 @@ class ProgressScheduleService:
             schedules = []
             for record in result.value or []:
                 node = record["s"]
-                dto = KuScheduleDTO(
+                dto = ReportScheduleDTO(
                     uid=node["uid"],
                     user_uid=node.get("user_uid", ""),
                     schedule_type=node.get("schedule_type", "weekly"),
@@ -166,13 +166,13 @@ class ProgressScheduleService:
                     created_at=node.get("created_at"),
                     updated_at=node.get("updated_at"),
                 )
-                schedules.append(ku_schedule_dto_to_domain(dto))
+                schedules.append(report_schedule_dto_to_domain(dto))
             return Result.ok(schedules)
         except Exception as e:
             logger.error(f"Failed to query due schedules: {e}")
             return Result.fail(Errors.database("get_due_schedules", str(e)))
 
-    async def mark_generated(self, uid: str) -> Result[KuSchedule]:
+    async def mark_generated(self, uid: str) -> Result[ReportSchedule]:
         """
         Mark a schedule as generated: update last_generated_at and compute next_due_at.
         """

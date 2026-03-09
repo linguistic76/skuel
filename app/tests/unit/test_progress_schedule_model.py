@@ -1,6 +1,6 @@
 """
-Unit Tests for KuSchedule Model
-==================================
+Unit Tests for ReportSchedule Model
+=====================================
 
 Tests schedule creation, DTO conversions, enum values,
 and compute_next_due_at logic.
@@ -11,11 +11,11 @@ from datetime import datetime, timedelta
 import pytest
 
 from core.models.enums.submissions_enums import ProgressDepth, ScheduleType
-from core.models.submissions.ku_schedule import (
-    KuSchedule,
-    KuScheduleDTO,
-    ku_schedule_domain_to_dto,
-    ku_schedule_dto_to_domain,
+from core.models.submissions.report_schedule import (
+    ReportSchedule,
+    ReportScheduleDTO,
+    report_schedule_domain_to_dto,
+    report_schedule_dto_to_domain,
 )
 
 # ============================================================================
@@ -47,11 +47,11 @@ class TestScheduleEnums:
 # ============================================================================
 
 
-class TestKuScheduleModel:
-    """Test KuSchedule frozen dataclass."""
+class TestReportScheduleModel:
+    """Test ReportSchedule frozen dataclass."""
 
     def test_create_schedule(self):
-        schedule = KuSchedule(
+        schedule = ReportSchedule(
             uid="schedule_test_123",
             user_uid="user_alice",
             schedule_type=ScheduleType.WEEKLY,
@@ -66,7 +66,7 @@ class TestKuScheduleModel:
         assert schedule.domains == []
 
     def test_schedule_is_frozen(self):
-        schedule = KuSchedule(
+        schedule = ReportSchedule(
             uid="schedule_test_123",
             user_uid="user_alice",
             schedule_type=ScheduleType.WEEKLY,
@@ -75,7 +75,7 @@ class TestKuScheduleModel:
             schedule.day_of_week = 3  # type: ignore[misc]
 
     def test_schedule_with_domains(self):
-        schedule = KuSchedule(
+        schedule = ReportSchedule(
             uid="schedule_test_123",
             user_uid="user_alice",
             schedule_type=ScheduleType.BIWEEKLY,
@@ -86,7 +86,7 @@ class TestKuScheduleModel:
         assert schedule.depth == ProgressDepth.DETAILED
 
     def test_is_due_past_due(self):
-        schedule = KuSchedule(
+        schedule = ReportSchedule(
             uid="schedule_test_123",
             user_uid="user_alice",
             schedule_type=ScheduleType.WEEKLY,
@@ -96,7 +96,7 @@ class TestKuScheduleModel:
         assert schedule.is_due() is True
 
     def test_is_due_not_yet(self):
-        schedule = KuSchedule(
+        schedule = ReportSchedule(
             uid="schedule_test_123",
             user_uid="user_alice",
             schedule_type=ScheduleType.WEEKLY,
@@ -106,7 +106,7 @@ class TestKuScheduleModel:
         assert schedule.is_due() is False
 
     def test_is_due_inactive(self):
-        schedule = KuSchedule(
+        schedule = ReportSchedule(
             uid="schedule_test_123",
             user_uid="user_alice",
             schedule_type=ScheduleType.WEEKLY,
@@ -116,7 +116,7 @@ class TestKuScheduleModel:
         assert schedule.is_due() is False
 
     def test_get_summary(self):
-        schedule = KuSchedule(
+        schedule = ReportSchedule(
             uid="schedule_test_123",
             user_uid="user_alice",
             schedule_type=ScheduleType.WEEKLY,
@@ -135,7 +135,7 @@ class TestScheduleConversions:
     """Test DTO conversion functions."""
 
     def test_domain_to_dto(self):
-        schedule = KuSchedule(
+        schedule = ReportSchedule(
             uid="schedule_test_123",
             user_uid="user_alice",
             schedule_type=ScheduleType.WEEKLY,
@@ -143,8 +143,8 @@ class TestScheduleConversions:
             domains=["tasks"],
             depth=ProgressDepth.DETAILED,
         )
-        dto = ku_schedule_domain_to_dto(schedule)
-        assert isinstance(dto, KuScheduleDTO)
+        dto = report_schedule_domain_to_dto(schedule)
+        assert isinstance(dto, ReportScheduleDTO)
         assert dto.uid == "schedule_test_123"
         assert dto.schedule_type == "weekly"
         assert dto.day_of_week == 2
@@ -152,7 +152,7 @@ class TestScheduleConversions:
         assert dto.depth == "detailed"
 
     def test_dto_to_domain(self):
-        dto = KuScheduleDTO(
+        dto = ReportScheduleDTO(
             uid="schedule_test_123",
             user_uid="user_alice",
             schedule_type="biweekly",
@@ -161,15 +161,15 @@ class TestScheduleConversions:
             depth="summary",
             is_active=False,
         )
-        schedule = ku_schedule_dto_to_domain(dto)
-        assert isinstance(schedule, KuSchedule)
+        schedule = report_schedule_dto_to_domain(dto)
+        assert isinstance(schedule, ReportSchedule)
         assert schedule.schedule_type == ScheduleType.BIWEEKLY
         assert schedule.day_of_week == 4
         assert schedule.domains == ["goals", "habits"]
         assert schedule.is_active is False
 
     def test_roundtrip(self):
-        original = KuSchedule(
+        original = ReportSchedule(
             uid="schedule_test_123",
             user_uid="user_alice",
             schedule_type=ScheduleType.MONTHLY,
@@ -178,8 +178,8 @@ class TestScheduleConversions:
             depth=ProgressDepth.STANDARD,
             is_active=True,
         )
-        dto = ku_schedule_domain_to_dto(original)
-        restored = ku_schedule_dto_to_domain(dto)
+        dto = report_schedule_domain_to_dto(original)
+        restored = report_schedule_dto_to_domain(dto)
         assert restored.uid == original.uid
         assert restored.schedule_type == original.schedule_type
         assert restored.day_of_week == original.day_of_week

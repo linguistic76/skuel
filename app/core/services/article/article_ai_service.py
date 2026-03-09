@@ -97,43 +97,43 @@ class ArticleAIService(BaseAIService[ArticleOperations, Article]):
     # SEMANTIC SEARCH
     # ========================================================================
 
-    async def find_related_knowledge(
-        self, ku_uid: str, limit: int = 5
+    async def find_related_articles(
+        self, article_uid: str, limit: int = 5
     ) -> Result[list[tuple[str, float]]]:
         """
-        Find semantically related knowledge units using embeddings.
+        Find semantically related articles using embeddings.
 
-        Uses embeddings to find KUs with similar concepts/content,
+        Uses embeddings to find articles with similar concepts/content,
         beyond just explicit graph relationships.
 
         Args:
-            ku_uid: Knowledge unit to find related content for
-            limit: Maximum number of related KUs to return
+            article_uid: Article to find related content for
+            limit: Maximum number of related articles to return
 
         Returns:
-            Result containing list of (ku_uid, similarity_score) tuples
+            Result containing list of (article_uid, similarity_score) tuples
         """
-        ku_result = await self.backend.get(ku_uid)
-        if ku_result.is_error:
-            return Result.fail(ku_result.expect_error())
+        article_result = await self.backend.get(article_uid)
+        if article_result.is_error:
+            return Result.fail(article_result.expect_error())
 
-        ku = ku_result.value
-        if not ku:
-            return Result.fail(Errors.not_found(resource="KnowledgeUnit", identifier=ku_uid))
+        article = article_result.value
+        if not article:
+            return Result.fail(Errors.not_found(resource="Article", identifier=article_uid))
 
-        content = await self._fetch_content(ku_uid)
-        search_text = f"{ku.title} {ku.summary}"
+        content = await self._fetch_content(article_uid)
+        search_text = f"{article.title} {article.summary}"
         if content:
             # Use first 500 chars of content for embedding
             search_text += f" {content[:500]}"
 
-        # Get all KUs in the same domain for comparison
-        all_kus_result = await self.backend.find_by(domain=ku.domain)
-        if all_kus_result.is_error:
-            return Result.fail(all_kus_result.expect_error())
+        # Get all articles in the same domain for comparison
+        all_articles_result = await self.backend.find_by(domain=article.domain)
+        if all_articles_result.is_error:
+            return Result.fail(all_articles_result.expect_error())
 
-        all_kus = all_kus_result.value or []
-        candidates = [(k.uid, f"{k.title} {k.summary}") for k in all_kus if k.uid != ku_uid]
+        all_articles = all_articles_result.value or []
+        candidates = [(a.uid, f"{a.title} {a.summary}") for a in all_articles if a.uid != article_uid]
 
         if not candidates:
             return Result.ok([])

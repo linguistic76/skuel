@@ -50,7 +50,7 @@ if TYPE_CHECKING:
 from core.models.enums.entity_enums import EntityType, ProcessorType
 from core.models.user_owned_entity import UserOwnedEntity
 
-_SUBMISSION_KU_TYPES = frozenset(
+_SUBMISSION_ENTITY_TYPES = frozenset(
     {
         EntityType.EXERCISE_SUBMISSION,
         EntityType.JOURNAL_SUBMISSION,
@@ -70,7 +70,7 @@ class Submission(UserOwnedEntity):
     """
     Immutable domain model for content-processing entities.
 
-    Accepts 3 ku_types: SUBMISSION, JOURNAL, SUBMISSION_REPORT.
+    Accepts 3 entity_types: SUBMISSION, JOURNAL, SUBMISSION_REPORT.
     (ACTIVITY_REPORT uses ActivityReport(UserOwnedEntity) — no file fields.)
 
     Inherits common fields from UserOwnedEntity (identity, content, status,
@@ -82,7 +82,7 @@ class Submission(UserOwnedEntity):
 
     def __post_init__(self) -> None:
         """Validate entity_type is a submission type, then delegate to UserOwnedEntity."""
-        if self.entity_type not in _SUBMISSION_KU_TYPES:
+        if self.entity_type not in _SUBMISSION_ENTITY_TYPES:
             object.__setattr__(self, "entity_type", EntityType.SUBMISSION)
         super().__post_init__()
 

@@ -53,7 +53,7 @@ async def batch_load_knowledge_units(keys: list[str], context: GraphQLContext) -
         logger.warning("⚠️ Knowledge service not available for batch load")
         return [None] * len(keys)
 
-    result = await context.services.article.get_knowledge_units_batch(list(keys))  # type: ignore[attr-defined]
+    result = await context.services.article.get_articles_batch(list(keys))  # type: ignore[attr-defined]
 
     if result.is_error:
         logger.error(f"❌ Batch load failed: {result.error}")

@@ -1,8 +1,8 @@
 """
-Knowledge Service - Facade
-===========================
+Article Service - Facade
+========================
 
-Unified interface for all knowledge operations.
+Unified interface for all article operations.
 Delegates to specialized sub-services for focused responsibilities.
 
 Sub-Services:
@@ -48,7 +48,7 @@ from core.utils.sort_functions import get_second_item
 
 class ArticleService:
     """
-    Unified facade for knowledge operations.
+    Unified facade for article operations.
 
     Delegates to specialized sub-services (January 2026 - ADR-031):
     - ArticleCoreService: CRUD operations
@@ -59,13 +59,13 @@ class ArticleService:
     - ArticleMasteryService: Pedagogical tracking
     - UnifiedRelationshipService: Harmonious relationship operations
     - ArticleIntelligenceService: Intelligence and analytics
-    - ArticleOrganizationService: ORGANIZES relationships (any Ku can organize others)
+    - ArticleOrganizationService: ORGANIZES relationships (any article can organize others)
 
     Access relationship operations via self.relationships:
-    - get_related_entities("prerequisites", uid) - Get prerequisite KUs
-    - get_related_entities("enables_learning", uid) - Get enabled KUs
-    - get_related_entities("applied_in_tasks", uid) - Get tasks that apply this KU
-    - get_related_entities("reinforced_by_habits", uid) - Get habits that reinforce this KU
+    - get_related_entities("prerequisites", uid) - Get prerequisite articles
+    - get_related_entities("enables_learning", uid) - Get enabled articles
+    - get_related_entities("applied_in_tasks", uid) - Get tasks that apply this article
+    - get_related_entities("reinforced_by_habits", uid) - Get habits that reinforce this article
     """
 
     # ========================================================================
@@ -148,8 +148,8 @@ class ArticleService:
     async def find_next_steps(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.graph.find_next_steps(*args, **kwargs)
 
-    async def get_knowledge_with_context(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.graph.get_knowledge_with_context(*args, **kwargs)
+    async def get_article_with_context(self, *args: Any, **kwargs: Any) -> Result[Any]:
+        return await self.graph.get_article_with_context(*args, **kwargs)
 
     async def link_prerequisite(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.graph.link_prerequisite(*args, **kwargs)
@@ -378,14 +378,14 @@ class ArticleService:
     # Note: Simple delegations (create, get, update, delete, publish, archive,
     # get_user_mastery, get_chunks, analyze_content) delegated via explicit methods below.
 
-    async def get_knowledge_units_batch(self, uids: list[str]) -> Result[list[Any]]:
+    async def get_articles_batch(self, uids: list[str]) -> Result[list[Any]]:
         """
-        Get multiple knowledge units in one batched query.
+        Get multiple articles in one batched query.
 
         Critical for GraphQL DataLoader batching to prevent N+1 queries.
 
         Args:
-            uids: List of knowledge unit UIDs to fetch
+            uids: List of article UIDs to fetch
 
         Returns:
             Result containing list of CurriculumDTOs (None for missing UIDs)
@@ -394,7 +394,7 @@ class ArticleService:
         if not self.repo:
             return Result.fail(
                 Errors.system(
-                    "Knowledge repository not available", operation="get_knowledge_units_batch"
+                    "Article repository not available", operation="get_articles_batch"
                 )
             )
 
@@ -465,7 +465,7 @@ class ArticleService:
     # ========================================================================
     # GRAPH OPERATIONS - Delegated to ArticleGraphService
     # ========================================================================
-    # Note: Simple delegations (find_prerequisites, find_next_steps, get_knowledge_with_context,
+    # Note: Simple delegations (find_prerequisites, find_next_steps, get_article_with_context,
     # link_prerequisite, link_parent_child, get_prerequisite_chain, analyze_knowledge_gaps,
     # get_learning_recommendations, find_time_aware_learning_path, update_hub_scores,
     # get_foundational_knowledge) delegated via explicit methods below.
@@ -498,7 +498,7 @@ class ArticleService:
     # Note: Simple delegations (create_with_semantic_relationships, get_semantic_neighborhood)
     # delegated via explicit methods below.
 
-    async def create_knowledge_relationship(
+    async def create_article_relationship(
         self,
         source_uid: str,
         target_uid: str,
@@ -508,11 +508,11 @@ class ArticleService:
         notes: str | None = None,
     ) -> Result[bool]:
         """
-        Create a semantic relationship between two knowledge units.
+        Create a semantic relationship between two articles.
 
         Args:
-            source_uid: Source knowledge unit UID (subject)
-            target_uid: Target knowledge unit UID (object)
+            source_uid: Source article UID (subject)
+            target_uid: Target article UID (object)
             relationship_type: SemanticRelationshipType enum value
             confidence: Confidence score (0.0-1.0)
             strength: Strength of relationship (0.0-1.0)
@@ -530,11 +530,11 @@ class ArticleService:
             notes=notes,
         )
 
-    async def get_knowledge_relationships(
+    async def get_article_relationships(
         self, uid: str, relationship_type: str | None = None
     ) -> Result[list[dict[str, Any]]]:
         """
-        Get relationships for a knowledge unit.
+        Get relationships for an article.
 
         Args:
             uid: Knowledge unit UID
@@ -564,11 +564,11 @@ class ArticleService:
 
         return await self.semantic.get_relationships_by_type(uid=uid, predicate=predicate)
 
-    async def get_knowledge_dependencies(
+    async def get_article_dependencies(
         self, uid: str, limit: int = 10
     ) -> Result[list[CurriculumDTO]]:
         """
-        Get knowledge units that depend on this one.
+        Get articles that depend on this one.
 
         Args:
             uid: Knowledge unit UID
@@ -583,11 +583,11 @@ class ArticleService:
     # CONTENT AND TAG MANAGEMENT
     # ========================================================================
 
-    async def update_ku_content(
+    async def update_article_content(
         self, uid: str, content: str, title: str | None = None
     ) -> Result[CurriculumDTO]:
         """
-        Update a knowledge unit's content.
+        Update an article's content.
 
         Args:
             uid: Knowledge unit UID
@@ -602,9 +602,9 @@ class ArticleService:
             updates["title"] = title
         return await self.core.update(uid, updates)
 
-    async def add_knowledge_tags(self, uid: str, tags: list[str]) -> Result[CurriculumDTO]:
+    async def add_article_tags(self, uid: str, tags: list[str]) -> Result[CurriculumDTO]:
         """
-        Add tags to a knowledge unit.
+        Add tags to an article.
 
         Args:
             uid: Knowledge unit UID
@@ -628,9 +628,9 @@ class ArticleService:
 
         return await self.core.update(uid, {"tags": updated_tags})
 
-    async def remove_knowledge_tags(self, uid: str, tags: list[str]) -> Result[CurriculumDTO]:
+    async def remove_article_tags(self, uid: str, tags: list[str]) -> Result[CurriculumDTO]:
         """
-        Remove tags from a knowledge unit.
+        Remove tags from an article.
 
         Args:
             uid: Knowledge unit UID
@@ -658,11 +658,11 @@ class ArticleService:
     # SEARCH AND FILTERING
     # ========================================================================
 
-    async def search_knowledge_units(
+    async def search_articles(
         self, query: str, limit: int = 50
     ) -> Result[list[CurriculumDTO]]:
         """
-        Search knowledge units by text query.
+        Search articles by text query.
 
         Args:
             query: Search query string
@@ -673,9 +673,9 @@ class ArticleService:
         """
         return await self.search_service.search_by_title_template(query=query, limit=limit)
 
-    async def get_knowledge_by_domain(self, domain: str, limit: int = 100) -> Result[list[Any]]:
+    async def get_articles_by_domain(self, domain: str, limit: int = 100) -> Result[list[Any]]:
         """
-        Get knowledge units by domain.
+        Get articles by domain.
 
         Args:
             domain: Domain name (e.g., "TECH", "BUSINESS")
@@ -687,8 +687,8 @@ class ArticleService:
         if not self.repo:
             return Result.fail(
                 Errors.system(
-                    message="Knowledge repository not available",
-                    operation="get_knowledge_by_domain",
+                    message="Article repository not available",
+                    operation="get_articles_by_domain",
                 )
             )
 
@@ -989,23 +989,23 @@ class ArticleService:
     # ADDITIONAL API METHODS - Required by knowledge_api.py
     # ========================================================================
 
-    async def get_knowledge_prerequisites(self, uid: str) -> Result[list[CurriculumDTO]]:
+    async def get_article_prerequisites(self, uid: str) -> Result[list[CurriculumDTO]]:
         """
-        Get prerequisite knowledge units (API-compatible wrapper).
+        Get prerequisite articles (API-compatible wrapper).
 
         Args:
             uid: Knowledge unit UID
 
         Returns:
-            Result with list of prerequisite knowledge units
+            Result with list of prerequisite articles
         """
         return await self.get_prerequisites(uid)
 
-    async def find_related_knowledge(
+    async def find_related_articles(
         self, uid: str, similarity_threshold: float = 0.7, limit: int = 10
     ) -> Result[list[CurriculumDTO]]:
         """
-        Find knowledge units related to the given unit.
+        Find articles related to the given one.
 
         Args:
             uid: Knowledge unit UID
@@ -1046,14 +1046,14 @@ class ArticleService:
 
         return Result.ok(kus)
 
-    async def get_knowledge_recommendations(
+    async def get_article_recommendations(
         self,
         uid: str,
         user_uid: str | None = None,
         recommendation_type: str = "learning",
     ) -> Result[list[CurriculumDTO]]:
         """
-        Get personalized knowledge recommendations.
+        Get personalized article recommendations.
 
         Args:
             uid: Starting knowledge unit UID
@@ -1068,16 +1068,16 @@ class ArticleService:
             return await self.graph.find_next_steps(uid=uid, limit=5)
         elif recommendation_type == "related":
             # Get related knowledge
-            return await self.find_related_knowledge(uid, limit=10)
+            return await self.find_related_articles(uid, limit=10)
         else:
             # Default: learning recommendations starting from the given uid
             # Note: get_learning_recommendations is user-global, so for uid-specific
             # recommendations we use find_next_steps which traverses from the starting point
             return await self.graph.find_next_steps(uid=uid, limit=10)
 
-    async def list_knowledge_domains(self) -> Result[list[str]]:
+    async def list_article_domains(self) -> Result[list[str]]:
         """
-        List all knowledge domains.
+        List all article domains.
 
         Returns:
             Result with list of unique domain names
@@ -1088,9 +1088,9 @@ class ArticleService:
         domains = [d.value for d in Domain]
         return Result.ok(domains)
 
-    async def list_knowledge_categories(self) -> Result[list[str]]:
+    async def list_article_categories(self) -> Result[list[str]]:
         """
-        List all knowledge categories.
+        List all article categories.
 
         Returns:
             Result with list of unique categories
@@ -1098,8 +1098,8 @@ class ArticleService:
         if not self.repo:
             return Result.fail(
                 Errors.system(
-                    message="Knowledge repository not available",
-                    operation="list_knowledge_categories",
+                    message="Article repository not available",
+                    operation="list_article_categories",
                 )
             )
 
@@ -1118,9 +1118,9 @@ class ArticleService:
 
         return Result.ok(sorted(list(categories)))
 
-    async def list_knowledge_tags(self, min_usage: int = 1) -> Result[list[dict[str, Any]]]:
+    async def list_article_tags(self, min_usage: int = 1) -> Result[list[dict[str, Any]]]:
         """
-        List all knowledge tags with usage counts.
+        List all article tags with usage counts.
 
         Args:
             min_usage: Minimum usage count to include tag
@@ -1131,8 +1131,8 @@ class ArticleService:
         if not self.repo:
             return Result.fail(
                 Errors.system(
-                    message="Knowledge repository not available",
-                    operation="list_knowledge_tags",
+                    message="Article repository not available",
+                    operation="list_article_tags",
                 )
             )
 
@@ -1158,9 +1158,9 @@ class ArticleService:
 
         return Result.ok(tags_list)
 
-    async def get_knowledge_stats(self, uid: str) -> Result[dict[str, Any]]:
+    async def get_article_stats(self, uid: str) -> Result[dict[str, Any]]:
         """
-        Get statistics for a knowledge unit.
+        Get statistics for an article.
 
         Args:
             uid: Knowledge unit UID
@@ -1182,7 +1182,7 @@ class ArticleService:
         prereq_count = len(prereqs_result.value) if prereqs_result.is_ok else 0
 
         # Get dependents count
-        deps_result = await self.get_knowledge_dependencies(uid)
+        deps_result = await self.get_article_dependencies(uid)
         deps_count = len(deps_result.value) if deps_result.is_ok else 0
 
         stats = {
@@ -1203,11 +1203,11 @@ class ArticleService:
     # USER CONTEXT OPERATIONS - KU-Activity Integration (January 2026)
     # ========================================================================
 
-    async def get_user_knowledge_context(
+    async def get_user_article_context(
         self, ku_uid: str, user_context: "UserContext"
     ) -> Result[dict[str, Any]]:
         """
-        Get personalized KU context showing how a user applies this knowledge.
+        Get personalized article context showing how a user applies this knowledge.
 
         Calculates per-user substance score based on their activity domains
         (tasks, habits, events, journals, choices) that reference this KU.

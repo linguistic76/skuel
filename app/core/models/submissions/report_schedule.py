@@ -1,10 +1,8 @@
 """
-KuSchedule Models (Tier 2 + Tier 3)
-=====================================
+ReportSchedule Models (Tier 2 + Tier 3)
+========================================
 
-"Ku is the heartbeat of SKUEL."
-
-A KuSchedule defines recurring progress Ku generation:
+A ReportSchedule defines recurring progress report generation:
 - Schedule type (weekly, biweekly, monthly)
 - Which domains to include
 - Progress depth (summary, standard, detailed)
@@ -25,9 +23,9 @@ from core.models.enums.submissions_enums import ProgressDepth, ScheduleType
 
 
 @dataclass
-class KuScheduleDTO:
+class ReportScheduleDTO:
     """
-    Mutable data transfer object for Ku generation schedules.
+    Mutable data transfer object for report generation schedules.
 
     Used for moving data between service and persistence layers.
     """
@@ -71,11 +69,11 @@ class KuScheduleDTO:
 
 
 @dataclass(frozen=True)
-class KuSchedule:
+class ReportSchedule:
     """
-    Immutable domain model for Ku generation schedules.
+    Immutable domain model for report generation schedules.
 
-    A KuSchedule defines when and how progress Ku are
+    A ReportSchedule defines when and how progress reports are
     automatically generated for a user.
     """
 
@@ -117,9 +115,9 @@ class KuSchedule:
 # ============================================================================
 
 
-def ku_schedule_dto_to_domain(dto: KuScheduleDTO) -> KuSchedule:
-    """Convert KuScheduleDTO (Tier 2) to KuSchedule (Tier 3)."""
-    return KuSchedule(
+def report_schedule_dto_to_domain(dto: ReportScheduleDTO) -> ReportSchedule:
+    """Convert ReportScheduleDTO (Tier 2) to ReportSchedule (Tier 3)."""
+    return ReportSchedule(
         uid=dto.uid,
         user_uid=dto.user_uid,
         schedule_type=ScheduleType(dto.schedule_type) if dto.schedule_type else ScheduleType.WEEKLY,
@@ -135,9 +133,9 @@ def ku_schedule_dto_to_domain(dto: KuScheduleDTO) -> KuSchedule:
     )
 
 
-def ku_schedule_domain_to_dto(schedule: KuSchedule) -> KuScheduleDTO:
-    """Convert KuSchedule (Tier 3) to KuScheduleDTO (Tier 2)."""
-    return KuScheduleDTO(
+def report_schedule_domain_to_dto(schedule: ReportSchedule) -> ReportScheduleDTO:
+    """Convert ReportSchedule (Tier 3) to ReportScheduleDTO (Tier 2)."""
+    return ReportScheduleDTO(
         uid=schedule.uid,
         user_uid=schedule.user_uid,
         schedule_type=schedule.schedule_type.value

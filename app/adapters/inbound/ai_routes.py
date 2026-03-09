@@ -333,7 +333,7 @@ def create_ai_routes(app: Any, rt: Any, services: Any) -> list[Any]:
             services,
             "article",
             "Knowledge",
-            "find_related_knowledge",
+            "find_related_articles",
             (uid, limit),
             wrap_key="related_knowledge",
         )

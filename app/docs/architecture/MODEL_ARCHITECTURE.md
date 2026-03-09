@@ -142,7 +142,7 @@ core/models/{domain}/
 | `article_content/` | CurriculumContent, ContentChunk, ContentMetadata | Curriculum | Article body storage + RAG chunking |
 | `ku/` | Ku + KuDTO | Curriculum | Atomic knowledge units |
 | `resource/` | Resource + ResourceDTO | Shared | Curated content (books, talks) |
-| `submissions/` | Submission, Journal + DTOs | Submissions | + submission_requests.py, ku_schedule.py |
+| `submissions/` | Submission, Journal + DTOs | Submissions | + submission_requests.py, report_schedule.py |
 | `report/` | ActivityReport + ActivityReportDTO, SubmissionReport + SubmissionReportDTO | Report | ActivityReport: no file fields; SubmissionReport: tied to submission via subject_uid |
 | `life_path/` | LifePath + LifePathDTO | Destination | |
 | `group/` | Group + request | Organizational | Teacher-student classes (ADR-040) |

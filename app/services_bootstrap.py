@@ -1864,12 +1864,12 @@ async def compose_services(
         )
 
         # Create progress report generator and schedule service
-        from core.models.submissions.ku_schedule import KuSchedule
+        from core.models.submissions.report_schedule import ReportSchedule
         from core.services.report.progress_report_generator import ProgressReportGenerator
         from core.services.report.progress_schedule_service import ProgressScheduleService
 
-        progress_schedule_backend = UniversalNeo4jBackend[KuSchedule](
-            driver, NeoLabel.KU_SCHEDULE, KuSchedule, prometheus_metrics=prometheus_metrics
+        progress_schedule_backend = UniversalNeo4jBackend[ReportSchedule](
+            driver, NeoLabel.REPORT_SCHEDULE, ReportSchedule, prometheus_metrics=prometheus_metrics
         )
         progress_schedule_service = ProgressScheduleService(backend=progress_schedule_backend)
 

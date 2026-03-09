@@ -598,7 +598,7 @@ class ActivityReportService:
             # 3. Active report schedule + last generated report
             schedule_result = await self.executor.execute_query(
                 """
-                MATCH (u:User {uid: $user_uid})-[:HAS_SCHEDULE]->(s:KuSchedule)
+                MATCH (u:User {uid: $user_uid})-[:HAS_SCHEDULE]->(s:ReportSchedule)
                 WHERE s.is_active = true
                 RETURN s.schedule_type AS schedule_type,
                        s.day_of_week AS day_of_week,

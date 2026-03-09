@@ -1,6 +1,6 @@
 """
-KU API - Migrated to CRUDRouteFactory
-======================================
+Article API - Migrated to CRUDRouteFactory
+===========================================
 
 Sixth migration in CRUD API rollout.
 
@@ -33,10 +33,10 @@ from core.utils.result_simplified import Errors, Result
 
 
 def create_article_api_routes(
-    app: Any, rt: Any, ku_service: ArticleService, user_service: Any = None
+    app: Any, rt: Any, article_service: ArticleService, user_service: Any = None
 ) -> list[Any]:
     """
-    Create KU API routes using factory pattern.
+    Create Article API routes using factory pattern.
 
     SECURITY: CRUD write operations (create, update, delete) require ADMIN role.
     Read operations (get, list) are public.
@@ -44,7 +44,7 @@ def create_article_api_routes(
     Args:
         app: FastHTML application instance
         rt: Route decorator
-        ku_service: KU service instance
+        article_service: Article service instance
         user_service: User service for admin role verification
     """
 
@@ -56,22 +56,22 @@ def create_article_api_routes(
     # ========================================================================
 
     crud_factory = CRUDRouteFactory(
-        service=ku_service,
-        domain_name="ku",
+        service=article_service,
+        domain_name="article",
         create_schema=ArticleCreateRequest,
         update_schema=EntityUpdateRequest,
-        uid_prefix="ku",
+        uid_prefix="a",
         scope=ContentScope.SHARED,
         require_role=UserRole.ADMIN,
         user_service_getter=user_service_getter,
     )
 
     # Register all standard CRUD routes:
-    # - POST /api/ku (create)
+    # - POST /api/article (create)
     # - GET /api/article/{uid} (get)
     # - PUT /api/article/{uid} (update)
     # - DELETE /api/article/{uid} (delete)
-    # - GET /api/ku (list with pagination)
+    # - GET /api/article (list with pagination)
     crud_factory.register_routes(app, rt)
 
     # ========================================================================
@@ -79,8 +79,8 @@ def create_article_api_routes(
     # ========================================================================
 
     intelligence_factory = IntelligenceRouteFactory(
-        intelligence_service=ku_service.intelligence,
-        domain_name="ku",
+        intelligence_service=article_service.intelligence,
+        domain_name="article",
         scope=ContentScope.SHARED,  # Curriculum content is shared
     )
 
@@ -94,47 +94,47 @@ def create_article_api_routes(
     # DOMAIN-SPECIFIC ROUTES (Manual)
     # ========================================================================
 
-    # KU Relationships
-    # ----------------
+    # Article Relationships
+    # ---------------------
 
     @rt("/api/article/relationships", methods=["POST"])
     @require_admin(user_service_getter)
     @boundary_handler()
-    async def create_ku_relationship_route(
+    async def create_article_relationship_route(
         request: Request, current_user: Any, uid: str
     ) -> Result[Any]:
-        """Create a relationship between KUs. Requires ADMIN role."""
+        """Create a relationship between articles. Requires ADMIN role."""
         body = await request.json()
         target_uid = body.get("target_uid")
         relationship_type = body.get("type", "RELATED_TO")
         strength = body.get("strength", 1.0)
         description = body.get("description", "")
 
-        return await ku_service.create_knowledge_relationship(
+        return await article_service.create_article_relationship(
             uid, target_uid, relationship_type, strength, description
         )
 
     @rt("/api/article/relationships", methods=["GET"])
     @boundary_handler()
-    async def get_ku_relationships_route(request: Request, uid: str) -> Result[Any]:
-        """Get relationships for a KU."""
+    async def get_article_relationships_route(request: Request, uid: str) -> Result[Any]:
+        """Get relationships for an article."""
         params = dict(request.query_params)
         relationship_type = params.get("type")
         # Note: direction param not supported by ArticleService - ignoring for now
 
-        return await ku_service.get_knowledge_relationships(uid, relationship_type)
+        return await article_service.get_article_relationships(uid, relationship_type)
 
     @rt("/api/article/prerequisites")
     @boundary_handler()
-    async def get_ku_prerequisites_route(request: Request, uid: str) -> Result[Any]:
-        """Get prerequisites for a KU."""
-        return await ku_service.get_knowledge_prerequisites(uid)
+    async def get_article_prerequisites_route(request: Request, uid: str) -> Result[Any]:
+        """Get prerequisites for an article."""
+        return await article_service.get_article_prerequisites(uid)
 
     @rt("/api/article/dependencies")
     @boundary_handler()
-    async def get_ku_dependencies_route(request: Request, uid: str) -> Result[Any]:
-        """Get what depends on this KU."""
-        return await ku_service.get_knowledge_dependencies(uid)
+    async def get_article_dependencies_route(request: Request, uid: str) -> Result[Any]:
+        """Get what depends on this article."""
+        return await article_service.get_article_dependencies(uid)
 
     # Curriculum Content Operations
     # ---------------------
@@ -142,123 +142,123 @@ def create_article_api_routes(
     @rt("/api/article/content", methods=["POST"])
     @require_admin(user_service_getter)
     @boundary_handler()
-    async def update_ku_content_route(request: Request, current_user: Any, uid: str) -> Result[Any]:
-        """Update curriculum content. Requires ADMIN role."""
+    async def update_article_content_route(request: Request, current_user: Any, uid: str) -> Result[Any]:
+        """Update article content. Requires ADMIN role."""
         body = await request.json()
         content = body.get("content")
         title = body.get("title")  # Optional title update
         # Note: content_type and update_metadata params not supported by ArticleService
 
-        return await ku_service.update_ku_content(uid, content, title)
+        return await article_service.update_article_content(uid, content, title)
 
     @rt("/api/article/tags", methods=["POST"])
     @require_admin(user_service_getter)
     @boundary_handler()
-    async def add_ku_tags_route(request: Request, current_user: Any, uid: str) -> Result[Any]:
-        """Add tags to a KU. Requires ADMIN role."""
+    async def add_article_tags_route(request: Request, current_user: Any, uid: str) -> Result[Any]:
+        """Add tags to an article. Requires ADMIN role."""
         body = await request.json()
         tags = body.get("tags", [])
 
-        return await ku_service.add_knowledge_tags(uid, tags)
+        return await article_service.add_article_tags(uid, tags)
 
     @rt("/api/article/tags", methods=["DELETE"])
     @require_admin(user_service_getter)
     @boundary_handler()
-    async def remove_ku_tags_route(request: Request, current_user: Any, uid: str) -> Result[Any]:
-        """Remove tags from a KU. Requires ADMIN role."""
+    async def remove_article_tags_route(request: Request, current_user: Any, uid: str) -> Result[Any]:
+        """Remove tags from an article. Requires ADMIN role."""
         body = await request.json()
         tags = body.get("tags", [])
 
-        return await ku_service.remove_knowledge_tags(uid, tags)
+        return await article_service.remove_article_tags(uid, tags)
 
-    # KU Search and Discovery
-    # -----------------------
+    # Article Search and Discovery
+    # ----------------------------
 
     @rt("/api/article/search")
     @boundary_handler()
-    async def search_ku_route(request: Request) -> Result[Any]:
-        """Search KUs by content, title, or tags."""
+    async def search_article_route(request: Request) -> Result[Any]:
+        """Search articles by content, title, or tags."""
         params = dict(request.query_params)
         query = params.get("q", "")
         # Note: search_type param not supported by ArticleService - searches all by default
         limit = parse_int_query_param(params, "limit", 50, minimum=1, maximum=100)
 
-        return await ku_service.search_knowledge_units(query, limit)
+        return await article_service.search_articles(query, limit)
 
     @rt("/api/article/related")
     @boundary_handler()
-    async def find_related_ku_route(request: Request, uid: str) -> Result[Any]:
-        """Find KUs related to the given unit."""
+    async def find_related_article_route(request: Request, uid: str) -> Result[Any]:
+        """Find articles related to the given one."""
         params = dict(request.query_params)
         similarity_threshold = float(params.get("threshold", 0.7))
         limit = parse_int_query_param(params, "limit", 10, minimum=1, maximum=500)
 
-        return await ku_service.find_related_knowledge(uid, similarity_threshold, limit)
+        return await article_service.find_related_articles(uid, similarity_threshold, limit)
 
     @rt("/api/article/recommendations")
     @boundary_handler()
-    async def get_ku_recommendations_route(request: Request, uid: str) -> Result[Any]:
-        """Get personalized KU recommendations."""
+    async def get_article_recommendations_route(request: Request, uid: str) -> Result[Any]:
+        """Get personalized article recommendations."""
         params = dict(request.query_params)
         user_uid = params.get("user_uid")
         recommendation_type = params.get("type", "learning")
 
-        return await ku_service.get_knowledge_recommendations(uid, user_uid, recommendation_type)
+        return await article_service.get_article_recommendations(uid, user_uid, recommendation_type)
 
-    # KU Organization
-    # ---------------
+    # Article Organization
+    # --------------------
 
     @rt("/api/article/domains")
     @boundary_handler()
-    async def list_ku_domains_route(_request: Request) -> Result[Any]:
-        """List all KU domains."""
-        return await ku_service.list_knowledge_domains()
+    async def list_article_domains_route(_request: Request) -> Result[Any]:
+        """List all article domains."""
+        return await article_service.list_article_domains()
 
     @rt("/api/article/by-domain")
     @boundary_handler()
-    async def get_ku_by_domain_route(request: Request, domain: str) -> Result[Any]:
-        """Get KUs in a specific domain."""
+    async def get_article_by_domain_route(request: Request, domain: str) -> Result[Any]:
+        """Get articles in a specific domain."""
         params = dict(request.query_params)
         limit = parse_int_query_param(params, "limit", 100, minimum=1, maximum=500)
 
-        return await ku_service.get_knowledge_by_domain(domain, limit)
+        return await article_service.get_articles_by_domain(domain, limit)
 
     @rt("/api/article/categories")
     @boundary_handler()
-    async def list_ku_categories_route(_request: Request) -> Result[Any]:
-        """List all KU categories."""
-        return await ku_service.list_knowledge_categories()
+    async def list_article_categories_route(_request: Request) -> Result[Any]:
+        """List all article categories."""
+        return await article_service.list_article_categories()
 
     @rt("/api/article/tags")
     @boundary_handler()
-    async def list_ku_tags_route(request: Request) -> Result[Any]:
-        """List all KU tags with usage counts."""
+    async def list_article_tags_route(request: Request) -> Result[Any]:
+        """List all article tags with usage counts."""
         params = dict(request.query_params)
         min_usage = parse_int_query_param(params, "min_usage", 1, minimum=0)
 
-        return await ku_service.list_knowledge_tags(min_usage)
+        return await article_service.list_article_tags(min_usage)
 
-    # Curriculum Analytics
-    # --------------------
+    # Article Analytics
+    # -----------------
 
     @rt("/api/article/stats")
     @boundary_handler()
-    async def get_ku_stats_route(request: Request, uid: str) -> Result[Any]:
-        """Get statistics for a KU."""
-        return await ku_service.get_knowledge_stats(uid)
+    async def get_article_stats_route(request: Request, uid: str) -> Result[Any]:
+        """Get statistics for an article."""
+        return await article_service.get_article_stats(uid)
 
     # ========================================================================
-    # USER CONTEXT ROUTES - KU-Activity Integration (January 2026)
+    # USER CONTEXT ROUTES - Article-Activity Integration (January 2026)
     # ========================================================================
 
     @rt("/api/article/my-context")
     @boundary_handler()
-    async def get_ku_user_context_route(request: Request, uid: str) -> Result[Any]:
+    async def get_article_user_context_route(request: Request, uid: str) -> Result[Any]:
         """
-        Get personalized context for how the current user uses this KU.
+        Get personalized context for how the current user uses this article.
 
         Returns per-user substance score, activity breakdown, and recommendations
-        for deepening KU application.
+        for deepening article application.
 
         Requires authentication - returns 401 if not logged in.
 
@@ -279,20 +279,20 @@ def create_article_api_routes(
         user_uid = require_authenticated_user(request)
 
         # Get UserContext for this user
-        if not ku_service.user_service:
+        if not article_service.user_service:
             return Result.fail(
                 Errors.system(
                     message="User service not available",
-                    operation="get_ku_user_context",
+                    operation="get_article_user_context",
                 )
             )
 
-        context_result = await ku_service.user_service.get_user_context(user_uid)
+        context_result = await article_service.user_service.get_user_context(user_uid)
         if context_result.is_error:
             return Result.fail(context_result.expect_error())
 
         user_context = context_result.value
-        return await ku_service.get_user_knowledge_context(uid, user_context)
+        return await article_service.get_user_article_context(uid, user_context)
 
     # ========================================================================
     # ADAPTIVE CURRICULUM ROUTES (absorbed from SEL)
@@ -300,17 +300,17 @@ def create_article_api_routes(
 
     @rt("/api/article/journey")
     @boundary_handler()
-    async def get_ku_journey(request: Request) -> Result[Any]:
+    async def get_article_journey(request: Request) -> Result[Any]:
         """Get user's SEL learning journey — progress across all 5 categories."""
         user_uid = require_authenticated_user(request)
-        return await ku_service.get_sel_journey(user_uid)
+        return await article_service.get_sel_journey(user_uid)
 
     @rt("/api/article/curriculum/{category}")
     @boundary_handler()
     async def get_personalized_curriculum(
         request: Request, category: str, limit: int = 10
     ) -> Result[Any]:
-        """Get personalized KU curriculum for an SEL category."""
+        """Get personalized article curriculum for an SEL category."""
         from core.models.enums import SELCategory
 
         user_uid = require_authenticated_user(request)
@@ -318,17 +318,17 @@ def create_article_api_routes(
             sel_category = SELCategory(category)
         except ValueError:
             return Result.fail(Errors.validation(f"Invalid SEL category: {category}"))
-        return await ku_service.get_personalized_curriculum(
+        return await article_service.get_personalized_curriculum(
             user_uid=user_uid, sel_category=sel_category, limit=limit
         )
 
     @rt("/api/article/journey-html")
-    async def get_ku_journey_html(request: Request) -> Any:
+    async def get_article_journey_html(request: Request) -> Any:
         """HTMX: Render SEL journey as HTML fragment."""
         from fasthtml.common import Div, P
 
         user_uid = require_authenticated_user(request)
-        result = await ku_service.get_sel_journey(user_uid)
+        result = await article_service.get_sel_journey(user_uid)
 
         if result.is_error:
             return Div(
@@ -356,7 +356,7 @@ def create_article_api_routes(
                 P(f"Invalid category: {category}", cls="text-error"), cls="alert alert-error"
             )
 
-        result = await ku_service.get_personalized_curriculum(
+        result = await article_service.get_personalized_curriculum(
             user_uid=user_uid, sel_category=sel_category, limit=limit
         )
 
@@ -386,30 +386,30 @@ def create_article_api_routes(
 
     # Analytics handler functions
     async def handle_summary_analytics(service, params):
-        """Handle summary analytics for all KUs."""
+        """Handle summary analytics for all articles."""
         time_period = params.get("period", "month")
-        return await service.get_knowledge_summary_analytics(time_period)
+        return await service.get_article_summary_analytics(time_period)
 
     async def handle_graph_structure(service, params):
-        """Handle KU graph structure and metrics."""
+        """Handle article graph structure and metrics."""
         include_metrics = params.get("metrics", "true").lower() == "true"
-        return await service.get_knowledge_graph_structure(include_metrics)
+        return await service.get_article_graph_structure(include_metrics)
 
     # Create analytics factory
     analytics_factory = AnalyticsRouteFactory(
-        service=ku_service,
-        domain_name="ku",
+        service=article_service,
+        domain_name="article",
         analytics_config={
             "summary": {
                 "path": "/api/article/analytics/summary",
                 "handler": handle_summary_analytics,
-                "description": "Get summary analytics for all KUs",
+                "description": "Get summary analytics for all articles",
                 "methods": ["GET"],
             },
             "graph_structure": {
                 "path": "/api/article/graph/structure",
                 "handler": handle_graph_structure,
-                "description": "Get KU graph structure and metrics",
+                "description": "Get article graph structure and metrics",
                 "methods": ["GET"],
             },
         },

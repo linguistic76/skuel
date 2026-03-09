@@ -162,7 +162,7 @@ class TestGraphTraversal:
             return_value=Result.ok([make_ku_dto("ku.next.1", "Next")])
         )
 
-        result = await service.get_knowledge_with_context("ku.test.1", depth=2)
+        result = await service.get_article_with_context("ku.test.1", depth=2)
 
         assert result.is_ok
         context = result.value
@@ -673,7 +673,7 @@ class TestFacadeDelegation:
         # Verify all graph methods exist on facade
         assert callable(service.find_prerequisites)
         assert callable(service.find_next_steps)
-        assert callable(service.get_knowledge_with_context)
+        assert callable(service.get_article_with_context)
         assert callable(service.link_prerequisite)
         assert callable(service.link_parent_child)
         assert callable(service.get_prerequisite_chain)

@@ -567,7 +567,7 @@ class ArticleCoreService(BaseService[CurriculumOperations[Entity], Entity], Meta
 
         if self.chunking_service:
             # Re-process with chunking — pass body directly
-            chunking_result = await self.chunking_service.update_ku_content(
+            chunking_result = await self.chunking_service.update_article_content(
                 knowledge=None, new_content_body=new_body, parent_uid=uid
             )
 

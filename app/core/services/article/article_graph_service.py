@@ -217,10 +217,10 @@ class ArticleGraphService:
         self.logger.debug(f"Found {len(next_steps)} next steps for {uid}")
         return Result.ok(next_steps)
 
-    @with_error_handling("get_knowledge_with_context", error_type="database", uid_param="uid")
-    async def get_knowledge_with_context(self, uid: str, depth: int = 2) -> Result[dict[str, Any]]:
+    @with_error_handling("get_article_with_context", error_type="database", uid_param="uid")
+    async def get_article_with_context(self, uid: str, depth: int = 2) -> Result[dict[str, Any]]:
         """
-        Get knowledge unit with full graph context.
+        Get article with full graph context.
 
         Includes:
         - Prerequisites
@@ -1223,8 +1223,8 @@ class ArticleGraphService:
         )
         return Result.ok(contextual_kus)
 
-    @with_error_handling("get_knowledge_to_reinforce_for_user", error_type="database")
-    async def get_knowledge_to_reinforce_for_user(
+    @with_error_handling("get_articles_to_reinforce_for_user", error_type="database")
+    async def get_articles_to_reinforce_for_user(
         self,
         context: "UserContext",
         mastery_threshold: float = 0.7,

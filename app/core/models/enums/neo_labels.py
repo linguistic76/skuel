@@ -117,7 +117,7 @@ class NeoLabel(str, Enum):
     # =========================================================================
     CONTENT_CHUNK = "ContentChunk"  # RAG chunks for semantic retrieval
     ASSIGNMENT = "Assignment"  # Legacy — ReportProject/Assignment nodes
-    KU_SCHEDULE = "KuSchedule"
+    REPORT_SCHEDULE = "ReportSchedule"
     TRANSCRIPTION = "Transcription"
 
     # =========================================================================
