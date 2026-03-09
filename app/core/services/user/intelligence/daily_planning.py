@@ -41,7 +41,7 @@ class DailyPlanningMixin:
     - self.tasks, self.habits, self.goals, self.events
     - self.choices, self.principles
     - self.ku
-    - self.feedback  (FeedbackRelationshipService — for unsubmitted exercises)
+    - self.feedback  (ReportRelationshipService — for unsubmitted exercises)
     Optional: self.vector_search (Neo4jVectorSearchService) for semantic/learning-aware search.
     """
 
@@ -63,7 +63,7 @@ class DailyPlanningMixin:
 
         def _momentum_rationale(self, signals: dict[str, Any]) -> str | None: ...
 
-    feedback: Any  # FeedbackRelationshipService
+    feedback: Any  # ReportRelationshipService
     vector_search: Any = None  # Neo4jVectorSearchService (optional)
 
     # =========================================================================

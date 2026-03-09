@@ -170,13 +170,14 @@ from .domain_protocols import (
     UserContextOperations,
 )
 
-# Feedback protocols — Feedback stage of the educational loop
-from .feedback_protocols import (
+# Report protocols — Report stage of the educational loop
+from .report_protocols import (
     ActivityReportOperations,
-    FeedbackOperations,
-    ProgressFeedbackOperations,
+    ProgressReportOperations,
     ProgressScheduleOperations,
+    ReportRelationshipOperations,
     ReviewQueueOperations,
+    SubmissionReportOperations,
     TeacherReviewOperations,
 )
 

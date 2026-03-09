@@ -1,15 +1,15 @@
 """
-SubmissionFeedbackDTO - Submission Feedback-Specific DTO (Tier 2 - Transfer)
-=============================================================================
+SubmissionReportDTO - Submission Report-Specific DTO (Tier 2 - Transfer)
+=========================================================================
 
-Extends SubmissionDTO with 2 feedback-specific fields matching the
-SubmissionFeedback frozen dataclass (Tier 3).
+Extends SubmissionDTO with 2 report-specific fields matching the
+SubmissionReport frozen dataclass (Tier 3).
 
 Hierarchy:
     EntityDTO (~18 common fields)
     └── UserOwnedDTO(EntityDTO) +3 fields
         └── SubmissionDTO(UserOwnedDTO) +13 fields
-            └── SubmissionFeedbackDTO(SubmissionDTO) +2 fields
+            └── SubmissionReportDTO(SubmissionDTO) +2 fields
 
 See: /docs/patterns/three_tier_type_system.md
 """
@@ -29,39 +29,39 @@ from core.models.submissions.submission_dto import SubmissionDTO
 
 
 @dataclass
-class SubmissionFeedbackDTO(SubmissionDTO):
+class SubmissionReportDTO(SubmissionDTO):
     """
-    Mutable DTO for teacher feedback (EntityType.SUBMISSION_FEEDBACK).
+    Mutable DTO for submission reports (EntityType.SUBMISSION_REPORT).
 
-    Extends SubmissionDTO with 2 feedback-specific fields:
-    - feedback: str | None — the feedback text
-    - feedback_generated_at: datetime | None — when feedback was generated
+    Extends SubmissionDTO with 2 report-specific fields:
+    - report_content: str | None — the report text
+    - report_generated_at: datetime | None — when report was generated
     """
 
     # =========================================================================
-    # FEEDBACK-SPECIFIC FIELDS
+    # REPORT-SPECIFIC FIELDS
     # =========================================================================
-    feedback: str | None = None
-    feedback_generated_at: datetime | None = None
+    report_content: str | None = None
+    report_generated_at: datetime | None = None
 
     # =========================================================================
     # SERIALIZATION
     # =========================================================================
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary, including feedback-specific fields."""
+        """Convert to dictionary, including report-specific fields."""
         from core.models.dto_helpers import convert_datetimes_to_iso
 
         data = super().to_dict()
 
         data.update(
             {
-                "feedback": self.feedback,
-                "feedback_generated_at": self.feedback_generated_at,
+                "report_content": self.report_content,
+                "report_generated_at": self.report_generated_at,
             }
         )
 
-        convert_datetimes_to_iso(data, ["feedback_generated_at"])
+        convert_datetimes_to_iso(data, ["report_generated_at"])
 
         return data
 
@@ -70,8 +70,8 @@ class SubmissionFeedbackDTO(SubmissionDTO):
     # =========================================================================
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> SubmissionFeedbackDTO:
-        """Create SubmissionFeedbackDTO from dictionary (from database)."""
+    def from_dict(cls, data: dict[str, Any]) -> SubmissionReportDTO:
+        """Create SubmissionReportDTO from dictionary (from database)."""
         from core.models.dto_helpers import dto_from_dict
 
         return dto_from_dict(
@@ -89,7 +89,7 @@ class SubmissionFeedbackDTO(SubmissionDTO):
                 "updated_at",
                 "processing_started_at",
                 "processing_completed_at",
-                "feedback_generated_at",
+                "report_generated_at",
             ],
             list_fields=["tags"],
             dict_fields=["metadata"],
@@ -135,9 +135,9 @@ class SubmissionFeedbackDTO(SubmissionDTO):
                 "instructions",
                 "max_retention",
                 "subject_uid",
-                # Feedback-specific fields
-                "feedback",
-                "feedback_generated_at",
+                # Report-specific fields
+                "report_content",
+                "report_generated_at",
             },
             enum_mappings={
                 "entity_type": EntityType,
@@ -150,6 +150,6 @@ class SubmissionFeedbackDTO(SubmissionDTO):
 
     def __eq__(self, other: object) -> bool:
         """Equality based on UID."""
-        if not isinstance(other, SubmissionFeedbackDTO):
+        if not isinstance(other, SubmissionReportDTO):
             return False
         return self.uid == other.uid

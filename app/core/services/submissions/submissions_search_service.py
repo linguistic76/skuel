@@ -67,7 +67,7 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
     ] = (
         (RelationshipName.FULFILLS_EXERCISE.value, NeoLabel.ENTITY.value, "fulfills_exercise"),
         (
-            RelationshipName.FEEDBACK_FOR.value,
+            RelationshipName.REPORT_FOR.value,
             NeoLabel.ENTITY.value,
             "feedback_received",
             "incoming",

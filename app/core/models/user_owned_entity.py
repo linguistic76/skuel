@@ -5,7 +5,7 @@ UserOwnedEntity - Intermediate Base for User-Owned Domain Models
 Adds user ownership fields (user_uid, priority) to Entity for domains where
 entities belong to a specific user: Activity Domains (Task, Goal, Habit, Event,
 Choice, Principle), Submission types (Journal, ActivityReport,
-SubmissionFeedback), and LifePath.
+SubmissionReport), and LifePath.
 
 Shared/curriculum types (Curriculum, LearningStep, LearningPath, Exercise,
 Resource) inherit directly from Entity and do NOT have these fields.
@@ -14,7 +14,7 @@ Hierarchy:
     Entity (~19 fields: identity, content, status, visibility, meta, embedding)
     ├── UserOwnedEntity(Entity) +2 fields (user_uid, priority)
     │   ├── Task, Goal, Habit, Event, Choice, Principle
-    │   ├── Submission → Journal, SubmissionFeedback
+    │   ├── Submission → Journal, SubmissionReport
     │   ├── ActivityReport (activity-level feedback — no file fields)
     │   └── LifePath
     ├── Curriculum(Entity) → LearningStep, LearningPath, Exercise

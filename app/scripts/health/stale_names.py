@@ -45,7 +45,7 @@ RENAMED: dict[str, str] = {
     # EntityType enum values (Feb–Mar 2026)
     "EntityType.CURRICULUM": "EntityType.ARTICLE",
     "EntityType.AI_FEEDBACK": "EntityType.ACTIVITY_REPORT",
-    "EntityType.FEEDBACK_REPORT": "EntityType.SUBMISSION_FEEDBACK",
+    "EntityType.FEEDBACK_REPORT": "EntityType.SUBMISSION_REPORT",
     # Class renames (Feb–Mar 2026)
     "AiFeedback": "ActivityReport",
     "KuTaskCreateRequest": "TaskCreateRequest",
@@ -71,13 +71,13 @@ RENAMED: dict[str, str] = {
     "list_reports": "list_submissions",
     "get_recent_reports": "get_recent_submissions",
     # Old module-level class rename (Privacy refactor, Mar 2026)
-    "class Feedback(": "class SubmissionFeedback(",
+    "class Feedback(": "class SubmissionReport(",
     # Old import paths (post ku/ monolith dissolution, Feb 2026)
     "from core.models.ku.ku_enums import": "from core.models.enums.entity_enums import (or domain-specific enums file)",
     "from core.models.ku import": "from core.models.<domain> import  (ku/ monolith deleted)",
     # Old report domain imports (Reports→Submissions, Feb 2026)
-    "from core.services.reports": "from core.services.submissions or core.services.feedback",
-    "from core.models.reports": "from core.models.submissions or core.models.feedback",
+    "from core.services.reports": "from core.services.submissions or core.services.report",
+    "from core.models.reports": "from core.models.submissions or core.models.report",
     # Old ActivityDataReader (absorbed into UserContext, Mar 2026)
     "ActivityDataReader": "UserContextBuilder.build_rich() — ActivityDataReader absorbed",
     "ActivityData(": "ActivityData frozen dataclass deleted — data now in UserContext",
@@ -86,6 +86,14 @@ RENAMED: dict[str, str] = {
     "daisy_components": "focused ui/ modules (decomposed Feb 2026)",
     # Old component imports (components/ deleted Feb 2026)
     "from components.": "from ui.<domain>.views import  (components/ deleted)",
+    # Feedback→Report rename (Mar 2026)
+    "from core.services.feedback": "from core.services.report",
+    "FeedbackService": "SubmissionReportService",
+    "FeedbackRelationshipService": "ReportRelationshipService",
+    "ProgressFeedbackGenerator": "ProgressReportGenerator",
+    "ProgressFeedbackWorker": "ProgressReportWorker",
+    "progress_feedback_worker": "progress_report_worker",
+    "progress_feedback_generator": "progress_report_generator",
 }
 
 # ── Deleted identifiers ──────────────────────────────────────────────────────

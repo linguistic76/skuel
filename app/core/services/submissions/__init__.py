@@ -20,7 +20,7 @@ Sub-services:
 - SubmissionsRelationshipService: Graph relationship creation
 
 Sharing lives in core.services.sharing (cross-domain).
-Feedback services live in core.services.feedback.
+Report services live in core.services.report.
 """
 
 from core.services.submissions.journal_output_generator import JournalOutputGenerator

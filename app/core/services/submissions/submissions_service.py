@@ -7,7 +7,7 @@ Handles file uploads and submission record creation.
 Responsibilities:
 - Store uploaded files (local or cloud)
 - Create submission records in Neo4j
-- Basic CRUD for user-owned submissions (SUBMISSION, ACTIVITY_REPORT, SUBMISSION_FEEDBACK)
+- Basic CRUD for user-owned submissions (SUBMISSION, ACTIVITY_REPORT, SUBMISSION_REPORT)
 - Query by type, status, user
 
 Does NOT handle:
@@ -42,7 +42,7 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
     Service for file submission and submission management.
 
     Handles file upload, storage, and submission record creation for
-    user-owned submission types (SUBMISSION, ACTIVITY_REPORT, SUBMISSION_FEEDBACK).
+    user-owned submission types (SUBMISSION, ACTIVITY_REPORT, SUBMISSION_REPORT).
     """
 
     # =========================================================================

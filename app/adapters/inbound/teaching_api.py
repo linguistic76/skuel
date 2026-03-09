@@ -64,7 +64,7 @@ def create_teaching_api_routes(
             status_filter=status_filter,
         )
 
-    @rt("/api/teaching/review/{uid}/feedback", methods=["POST"])
+    @rt("/api/teaching/review/{uid}/report", methods=["POST"])
     @require_role(UserRole.TEACHER, get_user_service)
     @boundary_handler()
     async def submit_feedback(request: Request, uid: str, current_user: Any) -> Result[Any]:

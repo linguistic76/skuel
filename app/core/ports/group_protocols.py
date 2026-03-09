@@ -5,8 +5,8 @@ Group Domain Protocols
 Route-facing protocol for Group management (CRUD + membership).
 ISP-compliant: captures only the methods called from routes.
 
-TeacherReviewOperations lives in feedback_protocols.py — the teacher review
-workflow is Phase 4 of the learning loop (Feedback), not Group infrastructure.
+TeacherReviewOperations lives in report_protocols.py — the teacher review
+workflow is Phase 4 of the learning loop (Report), not Group infrastructure.
 
 See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
 """

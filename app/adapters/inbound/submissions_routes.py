@@ -18,9 +18,9 @@ See: /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
 from typing import Any
 
 from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
-from adapters.inbound.feedback_assessment_api import create_feedback_assessment_api_routes
+from adapters.inbound.submission_report_api import create_submission_report_api_routes
 from adapters.inbound.journals_ui import create_journals_ui_routes
-from adapters.inbound.progress_feedback_api import create_progress_feedback_api_routes
+from adapters.inbound.progress_report_api import create_progress_report_api_routes
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 from adapters.inbound.submissions_api import create_submissions_api_routes
 from adapters.inbound.submissions_sharing_api import create_submissions_sharing_api_routes
@@ -103,16 +103,16 @@ def create_submissions_routes(
         routes.extend(sharing_routes or [])
         logger.info("Submission sharing routes registered (Portfolio feature)")
 
-    # Extension: progress feedback generation routes
-    progress_feedback_generator = getattr(services, "progress_feedback_generator", None)
-    if progress_feedback_generator and services.submissions:
+    # Extension: progress report generation routes
+    progress_report_generator = getattr(services, "progress_report_generator", None)
+    if progress_report_generator and services.submissions:
         schedule_service = getattr(services, "progress_schedule", None)
         activity_report_svc = getattr(services, "activity_report", None)
         review_queue_svc = getattr(services, "review_queue", None)
-        progress_routes = create_progress_feedback_api_routes(
+        progress_routes = create_progress_report_api_routes(
             app,
             rt,
-            progress_feedback_generator,
+            progress_report_generator,
             services.submissions,
             schedule_service=schedule_service,
             activity_report=activity_report_svc,
@@ -121,7 +121,7 @@ def create_submissions_routes(
             context_builder=getattr(activity_report_svc, "context_builder", None),
         )
         routes.extend(progress_routes or [])
-        logger.info("Progress feedback + activity report routes registered")
+        logger.info("Progress report + activity report routes registered")
 
     # Extension: activity review UI routes (admin-only)
     activity_report_svc = getattr(services, "activity_report", None)
@@ -145,14 +145,14 @@ def create_submissions_routes(
         def get_user_service():
             return services.user_service
 
-        assessment_routes = create_feedback_assessment_api_routes(
+        assessment_routes = create_submission_report_api_routes(
             app,
             rt,
             services.submissions_core,
             user_service_getter=get_user_service,
         )
         routes.extend(assessment_routes or [])
-        logger.info("Feedback assessment routes registered")
+        logger.info("Submission report assessment routes registered")
 
     # Extension: journals UI routes (EntityType.JOURNAL is a Submission subtype)
     if getattr(services, "submissions_processor", None):

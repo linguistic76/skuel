@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from core.services.feedback.activity_report_service import ActivityReportService
+from core.services.report.activity_report_service import ActivityReportService
 from core.services.user.unified_user_context import UserContext
 from core.utils.result_simplified import Result
 
@@ -254,7 +254,7 @@ class TestPersist:
     async def test_persist_calls_backend_create(self, service, mock_backend):
         """persist() calls backend.create() with the given report."""
         from core.models.enums.entity_enums import ProcessorType
-        from core.models.feedback.activity_report import ActivityReport
+        from core.models.report.activity_report import ActivityReport
 
         mock_backend.create.return_value = Result.ok(MagicMock())
         report = ActivityReport.create(

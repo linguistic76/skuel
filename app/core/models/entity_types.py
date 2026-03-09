@@ -21,8 +21,8 @@ from core.models.enums.entity_enums import EntityType
 from core.models.event.event import Event
 from core.models.exercises.exercise import Exercise
 from core.models.exercises.revised_exercise import RevisedExercise
-from core.models.feedback.activity_report import ActivityReport
-from core.models.feedback.submission_feedback import SubmissionFeedback
+from core.models.report.activity_report import ActivityReport
+from core.models.report.submission_report import SubmissionReport
 from core.models.goal.goal import Goal
 from core.models.habit.habit import Habit
 from core.models.ku.ku import Ku
@@ -52,7 +52,7 @@ CurriculumEntity = Article | LearningStep | LearningPath | Exercise
 KuEntity = Ku
 
 # Submission entities — carry file_path, processed_content, file_type, etc.
-SubmissionEntity = Submission | Journal | ActivityReport | SubmissionFeedback
+SubmissionEntity = Submission | Journal | ActivityReport | SubmissionReport
 
 # =============================================================================
 # TYPE CLASS MAP — dispatcher for entity deserialization
@@ -77,6 +77,6 @@ ENTITY_TYPE_CLASS_MAP: dict[EntityType, type[Entity]] = {
     EntityType.SUBMISSION: Submission,
     EntityType.JOURNAL: Journal,
     EntityType.ACTIVITY_REPORT: ActivityReport,
-    EntityType.SUBMISSION_FEEDBACK: SubmissionFeedback,
+    EntityType.SUBMISSION_REPORT: SubmissionReport,
     EntityType.LIFE_PATH: LifePath,
 }

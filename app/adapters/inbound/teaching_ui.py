@@ -45,7 +45,7 @@ from ui.teaching.cards import (
 from ui.teaching.detail import (
     render_class_member_row,
     render_exercise_submission_row,
-    render_feedback_item,
+    render_report_item,
     render_student_submission_row,
     render_submission_content,
 )
@@ -233,7 +233,7 @@ def create_teaching_ui_routes(
         feedback_history_section: Any = ""
         history_result = await teacher_review_service.get_feedback_history(uid)
         if not history_result.is_error and history_result.value:
-            feedback_items = [render_feedback_item(fb) for fb in history_result.value]
+            feedback_items = [render_report_item(fb) for fb in history_result.value]
             feedback_history_section = Div(
                 H3("Feedback History", cls="text-lg font-semibold mb-3"),
                 Div(*feedback_items),
@@ -268,7 +268,7 @@ def create_teaching_ui_routes(
                             cls="mb-2",
                         ),
                         **{
-                            "hx-post": f"/api/teaching/review/{uid}/feedback",
+                            "hx-post": f"/api/teaching/review/{uid}/report",
                             "hx-target": "#review-result",
                             "hx-swap": "innerHTML",
                         },

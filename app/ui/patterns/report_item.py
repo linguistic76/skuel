@@ -1,4 +1,4 @@
-"""Shared feedback item rendering for submission feedback display.
+"""Shared report item rendering for submission report display.
 
 Used by both the teacher review UI and the student submission detail page.
 """
@@ -9,8 +9,8 @@ from typing import Any
 from fasthtml.common import Div, P, Span
 
 
-def render_feedback_item(fb: dict[str, Any]) -> Div:
-    """Render a single feedback history item."""
+def render_report_item(fb: dict[str, Any]) -> Div:
+    """Render a single report history item."""
     teacher_name = fb.get("teacher_name") or fb.get("teacher_uid") or "Teacher"
     content = fb.get("content") or ""
     created_at = fb.get("created_at", "")

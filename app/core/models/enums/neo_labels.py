@@ -82,7 +82,7 @@ class NeoLabel(str, Enum):
     SUBMISSION = "Submission"
     JOURNAL = "Journal"
     ACTIVITY_REPORT = "ActivityReport"
-    SUBMISSION_FEEDBACK = "SubmissionFeedback"
+    SUBMISSION_REPORT = "SubmissionReport"
 
     # Instruction Templates (2)
     EXERCISE = "Exercise"  # Domain label for :Entity nodes with entity_type="exercise"
@@ -252,7 +252,7 @@ def _init_ku_type_mapping() -> None:
             EntityType.SUBMISSION: NeoLabel.SUBMISSION,
             EntityType.JOURNAL: NeoLabel.JOURNAL,
             EntityType.ACTIVITY_REPORT: NeoLabel.ACTIVITY_REPORT,
-            EntityType.SUBMISSION_FEEDBACK: NeoLabel.SUBMISSION_FEEDBACK,
+            EntityType.SUBMISSION_REPORT: NeoLabel.SUBMISSION_REPORT,
             EntityType.LIFE_PATH: NeoLabel.LIFE_PATH,
         }
     )

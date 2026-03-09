@@ -22,7 +22,7 @@ See: /docs/architecture/FEEDBACK_ARCHITECTURE.md
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from core.ports.feedback_protocols import ActivityReportOperations, ReviewQueueOperations
+    from core.ports.report_protocols import ActivityReportOperations, ReviewQueueOperations
     from core.services.user.user_context_builder import UserContextBuilder
 
 from fasthtml.common import (
@@ -344,7 +344,7 @@ def create_activity_review_ui_routes(
                     type="hidden", name="time_period", id="feedback-time-period", value=time_period
                 ),
                 Div(
-                    Label("SubmissionFeedback", cls="label label-text"),
+                    Label("Feedback", cls="label label-text"),
                     Textarea(
                         name="feedback_text",
                         placeholder="Write your qualitative feedback here. What patterns do you notice? What recommendations do you have?",

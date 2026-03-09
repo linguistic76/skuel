@@ -17,9 +17,9 @@ UserContextIntelligence = UserContext + Domain Services
     Activity (6): Tasks, Goals, Habits, Events, Choices, Principles
     Curriculum: Article, Ku, LearningStep, LearningPath, Exercise
     Curated Content: Resource
-    Content processing: Submission, Journal, ActivityReport, SubmissionFeedback
+    Content processing: Submission, Journal, ActivityReport, SubmissionReport
     Destination: LifePath
-    Cross-cutting: Calendar, Analytics, Feedback
+    Cross-cutting: Calendar, Analytics, Report
 
 **The 8 Core Methods (via mixins):**
 1. get_optimal_next_learning_steps() - What should I learn next?
@@ -51,7 +51,7 @@ if TYPE_CHECKING:
 
     # LpRelationshipService deleted - LP now uses UnifiedRelationshipService
     # LsRelationshipService deleted - LS now uses UnifiedRelationshipService
-    from core.services.feedback import FeedbackRelationshipService
+    from core.services.report import ReportRelationshipService
     from core.services.relationships import UnifiedRelationshipService
     from core.services.submissions import SubmissionsRelationshipService
     from core.services.user.unified_user_context import UserContext
@@ -89,7 +89,7 @@ class UserContextIntelligence(
 
     Processing Domains (3):
     - submissions: SubmissionsRelationshipService - Student submissions + journals
-    - feedback: FeedbackRelationshipService - Feedback loop graph queries
+    - feedback: ReportRelationshipService - Report loop graph queries
     - analytics: AnalyticsRelationshipService - Cross-domain analytics
 
     Temporal Domain (1):
@@ -130,7 +130,7 @@ class UserContextIntelligence(
         lp: UnifiedRelationshipService,  # January 2026: Unified
         # Processing Domains (3) - REQUIRED
         submissions: SubmissionsRelationshipService,
-        feedback: FeedbackRelationshipService,
+        feedback: ReportRelationshipService,
         analytics: AnalyticsRelationshipService,
         # Temporal Domain (1) - REQUIRED
         calendar: CalendarService,
@@ -160,7 +160,7 @@ class UserContextIntelligence(
 
             Processing Domains (3):
                 submissions: Submission relationship service (student work + journals)
-                feedback: Feedback relationship service (pending submissions, completion rate)
+                feedback: Report relationship service (pending submissions, completion rate)
                 analytics: Analytics relationship service (cross-domain)
 
             Temporal Domain (1):

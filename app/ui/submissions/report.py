@@ -1,8 +1,8 @@
 """
-Submission Feedback & Progress UI Components
-=============================================
+Submission Report & Progress UI Components
+============================================
 
-Renderers for teacher assessments, activity feedback, and progress report cards.
+Renderers for teacher assessments, activity reports, and progress report cards.
 """
 
 from typing import Any
@@ -126,8 +126,8 @@ def render_yours_list(items: list[dict]) -> Any:
 # ============================================================================
 
 
-def render_feedback_card(assessment: Any) -> Any:
-    """Render a single received-feedback card (server-side, no inline JS)."""
+def render_report_card(assessment: Any) -> Any:
+    """Render a single received-report card (server-side, no inline JS)."""
     from fasthtml.common import A
 
     uid = getattr(assessment, "uid", "") or ""
@@ -165,11 +165,11 @@ def render_feedback_card(assessment: Any) -> Any:
     )
 
 
-def render_received_feedback_list(items: list[Any]) -> Any:
-    """Render the full list of received feedback (HTMX swap target)."""
+def render_received_report_list(items: list[Any]) -> Any:
+    """Render the full list of received reports (HTMX swap target)."""
     if not items:
         return Div(
-            P("No feedback yet.", cls="text-center text-base-content/60 py-6"),
+            P("No reports yet.", cls="text-center text-base-content/60 py-6"),
             P(
                 "Assessments from teachers will appear here once submitted.",
                 cls="text-sm text-center text-base-content/40",
@@ -177,7 +177,7 @@ def render_received_feedback_list(items: list[Any]) -> Any:
             id="feedback-list",
         )
     return Div(
-        *[render_feedback_card(a) for a in items],
+        *[render_report_card(a) for a in items],
         id="feedback-list",
     )
 
@@ -187,8 +187,8 @@ def render_received_feedback_list(items: list[Any]) -> Any:
 # ============================================================================
 
 
-def render_activity_feedback_card(report: Any) -> Any:
-    """Render a single activity feedback card (server-side)."""
+def render_activity_report_card(report: Any) -> Any:
+    """Render a single activity report card (server-side)."""
     title = getattr(report, "title", "") or "Activity Feedback"
     created_at = getattr(report, "created_at", None)
     time_period = getattr(report, "time_period", None)
@@ -219,18 +219,18 @@ def render_activity_feedback_card(report: Any) -> Any:
     )
 
 
-def render_activity_feedback_list(items: list[Any]) -> Any:
-    """Render the full list of activity feedback (HTMX swap target)."""
+def render_activity_report_list(items: list[Any]) -> Any:
+    """Render the full list of activity reports (HTMX swap target)."""
     if not items:
         return Div(
             P(
-                "No activity feedback yet.",
+                "No activity reports yet.",
                 cls="text-center text-base-content/60 py-4",
             ),
             id="activity-feedback-list",
         )
     return Div(
-        *[render_activity_feedback_card(r) for r in items],
+        *[render_activity_report_card(r) for r in items],
         id="activity-feedback-list",
     )
 

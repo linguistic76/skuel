@@ -32,7 +32,7 @@ class RevisedExerciseDTO(UserOwnedDTO):
     Extends UserOwnedDTO with 9 revised-exercise-specific fields:
     - revision_number: Which revision iteration
     - original_exercise_uid: UID of the original Exercise
-    - feedback_uid: UID of the SubmissionFeedback this addresses
+    - report_uid: UID of the SubmissionReport this addresses
     - student_uid: Target student
     - instructions: Revision instructions
     - model: Which LLM to use
@@ -46,7 +46,7 @@ class RevisedExerciseDTO(UserOwnedDTO):
     # =========================================================================
     revision_number: int = 1
     original_exercise_uid: str | None = None
-    feedback_uid: str | None = None
+    report_uid: str | None = None
     student_uid: str | None = None
     instructions: str | None = None
     model: str = "claude-sonnet-4-6"
@@ -65,7 +65,7 @@ class RevisedExerciseDTO(UserOwnedDTO):
             {
                 "revision_number": self.revision_number,
                 "original_exercise_uid": self.original_exercise_uid,
-                "feedback_uid": self.feedback_uid,
+                "report_uid": self.report_uid,
                 "student_uid": self.student_uid,
                 "instructions": self.instructions,
                 "model": self.model,

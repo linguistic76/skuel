@@ -16,7 +16,7 @@ Hierarchy:
     Entity (~19 fields)
     ├── UserOwnedEntity(Entity) +2 fields (user_uid, priority)
     │   ├── Task, Goal, Habit, Event, Choice, Principle
-    │   ├── Submission → Journal, ActivityReport, SubmissionFeedback
+    │   ├── Submission → Journal, ActivityReport, SubmissionReport
     │   └── LifePath
     ├── Curriculum(Entity) → LearningStep, LearningPath, Exercise
     └── Resource(Entity)

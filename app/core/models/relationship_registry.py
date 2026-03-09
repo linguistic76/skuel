@@ -2042,7 +2042,7 @@ EXERCISE_CONFIG = DomainRelationshipConfig(
 
 # -----------------------------------------------------------------------------
 # REVISED_EXERCISE (Five-Phase Learning Loop — teacher-owned, student-targeted)
-# RevisedExercise responds to SubmissionFeedback and revises an Exercise
+# RevisedExercise responds to SubmissionReport and revises an Exercise
 # -----------------------------------------------------------------------------
 REVISED_EXERCISE_CONFIG = DomainRelationshipConfig(
     domain=Domain.KNOWLEDGE,  # Curriculum tier
@@ -2053,9 +2053,9 @@ REVISED_EXERCISE_CONFIG = DomainRelationshipConfig(
     ownership_relationship=RelationshipName.OWNS,
     is_shared_content=False,  # Teacher-owned, student-targeted
     relationships=(
-        # Outgoing: RevisedExercise → SubmissionFeedback (what feedback it addresses)
+        # Outgoing: RevisedExercise → SubmissionReport (what feedback it addresses)
         UnifiedRelationshipDefinition(
-            RelationshipName.RESPONDS_TO_FEEDBACK,
+            RelationshipName.RESPONDS_TO_REPORT,
             "Entity",
             "outgoing",
             "source_feedback",

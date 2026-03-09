@@ -49,7 +49,7 @@ class Article(Curriculum):
 
     The 4-part educational loop:
         Article (teaching composition) → Exercise (instruction template)
-          → Submission (student work) → SubmissionFeedback (teacher/AI response)
+          → Submission (student work) → SubmissionReport (teacher/AI response)
 
     See: /docs/architecture/CURRICULUM_GROUPING_PATTERNS.md
     """

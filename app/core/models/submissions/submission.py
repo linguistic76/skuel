@@ -3,7 +3,7 @@ Submission - Content Processing Domain Model (Intermediate Base)
 ===================================================================
 
 Frozen dataclass base for content-processing entities with file/artifact semantics.
-Accepted entity types: SUBMISSION, JOURNAL, SUBMISSION_FEEDBACK.
+Accepted entity types: SUBMISSION, JOURNAL, SUBMISSION_REPORT.
 
 Note: ACTIVITY_REPORT (EntityType.ACTIVITY_REPORT) does NOT inherit from Submission.
 ActivityReport responds to aggregate activity patterns (no file fields), and inherits
@@ -24,7 +24,7 @@ access only via the SHARES_WITH relationship created at submission time.
 The three leaf types that share this base:
     SUBMISSION      → Student's file upload / text submitted against an Exercise
     JOURNAL         → Voice or text journal entry (user's own reflections)
-    SUBMISSION_FEEDBACK → Teacher's or AI's feedback on a Submission (teacher-owned)
+    SUBMISSION_REPORT → Teacher's or AI's feedback on a Submission (teacher-owned)
 
 Fields
 -------
@@ -33,8 +33,8 @@ Fields
                   instructions, max_retention
 - Subject (1): subject_uid — who this report is about (student, for feedback)
 
-Leaf subclasses (Journal, SubmissionFeedback) inherit from Submission and force their
-specific entity_type. SubmissionFeedback adds 2 extra fields.
+Leaf subclasses (Journal, SubmissionReport) inherit from Submission and force their
+specific entity_type. SubmissionReport adds 2 extra fields.
 
 See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
@@ -54,7 +54,7 @@ _SUBMISSION_KU_TYPES = frozenset(
     {
         EntityType.SUBMISSION,
         EntityType.JOURNAL,
-        EntityType.SUBMISSION_FEEDBACK,
+        EntityType.SUBMISSION_REPORT,
         # AI_FEEDBACK intentionally excluded: ActivityReport inherits UserOwnedEntity directly
     }
 )
@@ -65,7 +65,7 @@ class Submission(UserOwnedEntity):
     """
     Immutable domain model for content-processing entities.
 
-    Accepts 3 ku_types: SUBMISSION, JOURNAL, SUBMISSION_FEEDBACK.
+    Accepts 3 ku_types: SUBMISSION, JOURNAL, SUBMISSION_REPORT.
     (ACTIVITY_REPORT uses ActivityReport(UserOwnedEntity) — no file fields.)
 
     Inherits common fields from UserOwnedEntity (identity, content, status,

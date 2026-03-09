@@ -43,7 +43,7 @@ def create_exercises_api_routes(
         rt: Route decorator
         exercises_service: ExerciseService instance
         transcript_service: ContentEnrichmentService for entry lookup
-        report_feedback_service: FeedbackService for AI feedback
+        report_feedback_service: SubmissionReportService for AI reports
         user_service: UserService for role checks
     """
 
@@ -79,15 +79,15 @@ def create_exercises_api_routes(
     # DOMAIN-SPECIFIC ROUTES (Manual)
     # ========================================================================
 
-    @rt("/api/exercises/feedback", methods=["POST"])
+    @rt("/api/exercises/report", methods=["POST"])
     @require_teacher(get_user_service_instance)
     @boundary_handler()
     async def feedback(request: Request, current_user: Any = None) -> Result[Any]:
         """
         Generate AI feedback for an entry using an exercise.
 
-        Creates a SUBMISSION_FEEDBACK entity (processor_type=LLM) linked to the
-        submission via FEEDBACK_FOR — symmetric with human teacher feedback.
+        Creates a SUBMISSION_REPORT entity (processor_type=LLM) linked to the
+        submission via REPORT_FOR — symmetric with human teacher feedback.
 
         Body (JSON):
         - entry_uid: Entry UID (required)
@@ -96,14 +96,14 @@ def create_exercises_api_routes(
         - max_tokens: Max tokens to generate (optional, default 4000)
 
         Returns:
-        - 200: SubmissionFeedback entity created {feedback_uid, entry_uid, project_uid, feedback}
+        - 200: SubmissionReport entity created {report_uid, entry_uid, project_uid, report_content}
         - 400: Invalid input
         - 404: Entry or exercise not found
         - 503: Service not available
         """
         if not report_feedback_service:
             return Result.fail(
-                Errors.system("Feedback service not available", service="FeedbackService")
+                Errors.system("Report service not available", service="SubmissionReportService")
             )
 
         if not transcript_service:
@@ -135,7 +135,7 @@ def create_exercises_api_routes(
         entry = entry_result.value
         exercise = exercise_result.value
 
-        # Generate feedback — creates SUBMISSION_FEEDBACK entity + FEEDBACK_FOR relationship
+        # Generate feedback — creates SUBMISSION_REPORT entity + REPORT_FOR relationship
         feedback_result = await report_feedback_service.generate_feedback(
             entry=entry,
             exercise=exercise,
@@ -152,10 +152,10 @@ def create_exercises_api_routes(
 
         return Result.ok(
             {
-                "feedback_uid": feedback_entity.uid,
+                "report_uid": feedback_entity.uid,
                 "entry_uid": feedback_request.entry_uid,
                 "project_uid": feedback_request.project_uid,
-                "feedback": feedback_entity.feedback,
+                "report_content": feedback_entity.report_content,
             }
         )
 

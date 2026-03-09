@@ -44,10 +44,10 @@ from ui.submissions.cards import (
     render_submissions_grid,
     render_upload_status,
 )
-from ui.submissions.feedback import (
-    render_activity_feedback_list,
+from ui.submissions.report import (
+    render_activity_report_list,
     render_progress_report_list,
-    render_received_feedback_list,
+    render_received_report_list,
     render_yours_list,
 )
 from ui.submissions.forms import (
@@ -94,7 +94,7 @@ SUBMISSIONS_SIDEBAR_ITEMS = [
     SidebarItem("Submit", "/submissions/submit", "submit", icon="📤"),
     SidebarItem("Browse", "/submissions/browse", "browse", icon="📂"),
     SidebarItem("Your Submissions", "/submissions/yours", "yours", icon="📝"),
-    SidebarItem("Feedback", "/submissions/feedback", "feedback", icon="💬"),
+    SidebarItem("Reports", "/submissions/reports", "reports", icon="💬"),
     SidebarItem("Progress", "/submissions/progress", "progress", icon="📊"),
 ]
 
@@ -422,10 +422,10 @@ def create_submissions_ui_routes(
     # FEEDBACK & EXERCISE LINK HTMX ENDPOINTS
     # ========================================================================
 
-    @rt("/submissions/{uid}/feedback")
-    async def get_submission_feedback(request: Request, uid: str) -> Any:
-        """HTMX endpoint: feedback received on this submission."""
-        from ui.patterns.feedback_item import render_feedback_item
+    @rt("/submissions/{uid}/report")
+    async def get_submission_report(request: Request, uid: str) -> Any:
+        """HTMX endpoint: report received on this submission."""
+        from ui.patterns.report_item import render_report_item
 
         try:
             user_uid = require_authenticated_user(request)
@@ -455,7 +455,7 @@ def create_submissions_ui_routes(
 
             return Div(
                 H4("Feedback", cls="mb-4"),
-                *[render_feedback_item(fb) for fb in items],
+                *[render_report_item(fb) for fb in items],
                 id="feedback-section",
             )
         except Exception as e:
@@ -530,9 +530,9 @@ def create_submissions_ui_routes(
     # FEEDBACK PAGE (assessments received)
     # ========================================================================
 
-    @rt("/submissions/feedback")
-    async def submissions_feedback_page(request: Request) -> Any:
-        """Feedback page: assessments received from teachers + AI activity feedback."""
+    @rt("/submissions/reports")
+    async def submissions_reports_page(request: Request) -> Any:
+        """Reports page: assessments received from teachers + AI activity reports."""
         require_authenticated_user(request)
 
         teacher_section = Div(
@@ -542,7 +542,7 @@ def create_submissions_ui_routes(
                 id="feedback-list",
                 cls="mt-2",
                 **{
-                    "hx-get": "/submissions/feedback/list",
+                    "hx-get": "/submissions/reports/list",
                     "hx-trigger": "load",
                     "hx-swap": "outerHTML",
                 },
@@ -557,7 +557,7 @@ def create_submissions_ui_routes(
                 id="activity-feedback-list",
                 cls="mt-2",
                 **{
-                    "hx-get": "/submissions/feedback/activity-list",
+                    "hx-get": "/submissions/reports/activity-list",
                     "hx-trigger": "load",
                     "hx-swap": "outerHTML",
                 },
@@ -566,25 +566,25 @@ def create_submissions_ui_routes(
         )
 
         content = Div(
-            PageHeader("SubmissionFeedback", subtitle="Assessments and feedback from teachers"),
+            PageHeader("Submission Reports", subtitle="Assessments and feedback from teachers"),
             teacher_section,
             activity_feedback_section,
         )
         return await SidebarPage(
             content=content,
             items=SUBMISSIONS_SIDEBAR_ITEMS,
-            active="feedback",
+            active="reports",
             title="Submissions",
             subtitle="Submit and manage files",
             storage_key="submissions-sidebar",
-            page_title="SubmissionFeedback",
+            page_title="Submission Reports",
             request=request,
             active_page="submissions",
             title_href="/submissions",
         )
 
-    @rt("/submissions/feedback/list")
-    async def submissions_feedback_list(request: Request) -> Any:
+    @rt("/submissions/reports/list")
+    async def submissions_reports_list(request: Request) -> Any:
         """HTMX fragment: server-rendered list of teacher assessments received."""
         try:
             user_uid = require_authenticated_user(request)
@@ -597,7 +597,7 @@ def create_submissions_ui_routes(
                 student_uid=user_uid
             )
             items = result.value if not result.is_error else []
-            return render_received_feedback_list(items)
+            return render_received_report_list(items)
         except Exception as e:
             logger.error(f"Error loading feedback list: {e}", exc_info=True)
             return Div(
@@ -605,9 +605,9 @@ def create_submissions_ui_routes(
                 id="feedback-list",
             )
 
-    @rt("/submissions/feedback/activity-list")
-    async def submissions_activity_feedback_list(request: Request) -> Any:
-        """HTMX fragment: server-rendered list of activity feedback."""
+    @rt("/submissions/reports/activity-list")
+    async def submissions_activity_report_list(request: Request) -> Any:
+        """HTMX fragment: server-rendered list of activity reports."""
         try:
             user_uid = require_authenticated_user(request)
             if not _activity_report_service:
@@ -620,7 +620,7 @@ def create_submissions_ui_routes(
                 )
             result = await _activity_report_service.get_history(subject_uid=user_uid, limit=10)
             items = result.value if not result.is_error else []
-            return render_activity_feedback_list(items)
+            return render_activity_report_list(items)
         except Exception as e:
             logger.error(f"Error loading activity feedback list: {e}", exc_info=True)
             return Div(
@@ -674,7 +674,7 @@ def create_submissions_ui_routes(
                     ),
                     Div(id="generate-status", cls="mt-4"),
                     **{
-                        "hx-post": "/api/feedback/progress/generate",
+                        "hx-post": "/api/reports/progress/generate",
                         "hx-target": "#generate-status",
                         "hx-swap": "innerHTML",
                         "hx-vals": 'js:JSON.stringify({time_period: document.querySelector("[name=time_period]").value, depth: document.querySelector("[name=depth]").value, include_insights: true})',
@@ -824,7 +824,7 @@ def create_submissions_ui_routes(
                     id="feedback-section",
                     cls="mb-4",
                     **{
-                        "hx-get": f"/submissions/{uid}/feedback",
+                        "hx-get": f"/submissions/{uid}/report",
                         "hx-trigger": "load",
                         "hx-swap": "outerHTML",
                     },
@@ -873,15 +873,15 @@ def create_submissions_ui_routes(
         submissions_submit_page,  # /submissions/submit (specific)
         submissions_browse_page,  # /submissions/browse (specific)
         submissions_yours_page,  # /submissions/yours (specific)
-        submissions_feedback_page,  # /submissions/feedback (specific)
-        submissions_activity_feedback_list,  # /submissions/feedback/activity-list (HTMX fragment)
+        submissions_reports_page,  # /submissions/reports (specific)
+        submissions_activity_report_list,  # /submissions/reports/activity-list (HTMX fragment)
         submissions_progress_page,  # /submissions/progress (specific)
         submissions_progress_list,  # /submissions/progress/list (HTMX fragment)
         upload_submission,  # /reports/upload (specific, HTMX POST)
         get_submissions_grid,  # /reports/grid (specific, HTMX GET)
         get_submission_info,  # /submissions/{uid}/info (pattern + suffix)
         get_submission_content,  # /submissions/{uid}/content (pattern + suffix)
-        get_submission_feedback,  # /submissions/{uid}/feedback (pattern + suffix)
+        get_submission_report,  # /submissions/{uid}/report (pattern + suffix)
         get_submission_exercise,  # /submissions/{uid}/exercise (pattern + suffix)
         get_category_selector,  # /submissions/{uid}/category-selector (pattern + suffix)
         get_tags_manager,  # /submissions/{uid}/tags-manager (pattern + suffix)

@@ -91,9 +91,9 @@ def render_submission_content(detail: dict[str, Any]) -> Div:
     )
 
 
-def render_feedback_item(fb: dict[str, Any]) -> Div:
-    """Render a single feedback history item. Delegates to shared component."""
-    from ui.patterns.feedback_item import render_feedback_item as _shared_render
+def render_report_item(fb: dict[str, Any]) -> Div:
+    """Render a single report history item. Delegates to shared component."""
+    from ui.patterns.report_item import render_report_item as _shared_render
 
     return _shared_render(fb)
 

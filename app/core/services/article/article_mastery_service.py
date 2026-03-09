@@ -489,7 +489,7 @@ class ArticleMasteryService:
 
         Two callers in the educational loop:
         - TeacherReviewService.approve_report(): score=0.8, method="ku_approval"
-        - FeedbackService._update_mastery_for_linked_ku(): score=0.6, method="activity_report"
+        - SubmissionReportService._update_mastery_for_linked_ku(): score=0.6, method="activity_report"
           (used for PERSONAL scope exercises where no teacher approval step exists)
 
         Args:

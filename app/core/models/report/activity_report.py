@@ -5,7 +5,7 @@ ActivityReport - Activity Report Domain Model
 Frozen dataclass for AI-generated (or human-written) feedback about a user's
 activity patterns over a time period (EntityType.ACTIVITY_REPORT).
 
-Distinct from SUBMISSION_FEEDBACK — which responds to a specific submitted artifact.
+Distinct from SUBMISSION_REPORT — which responds to a specific submitted artifact.
 ActivityReport responds to a user's aggregate behavior over a time window.
 
 ProcessorType discriminates the source:
@@ -25,7 +25,7 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from core.models.entity_dto import EntityDTO
-    from core.models.feedback.activity_report_dto import ActivityReportDTO
+    from core.models.report.activity_report_dto import ActivityReportDTO
 
 from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
 from core.models.user_owned_entity import UserOwnedEntity
@@ -37,7 +37,7 @@ class ActivityReport(UserOwnedEntity):
     Immutable domain model for Activity Report entities (EntityType.ACTIVITY_REPORT).
 
     Represents feedback about a user's aggregate activity patterns over a time period.
-    Distinct from SUBMISSION_FEEDBACK (which responds to a specific submission artifact).
+    Distinct from SUBMISSION_REPORT (which responds to a specific submission artifact).
 
     Fields:
         processor_type: Source of the feedback (AUTOMATIC/LLM/HUMAN)
@@ -129,8 +129,8 @@ class ActivityReport(UserOwnedEntity):
         """
         Factory method — generates uid, formats title, constructs ActivityReport.
 
-        Called by both ProgressFeedbackGenerator (LLM/AUTOMATIC) and
-        ActivityReviewService (HUMAN). The processor_type discriminates the source.
+        Called by both ProgressReportGenerator (LLM/AUTOMATIC) and
+        ActivityReportService (HUMAN). The processor_type discriminates the source.
         """
         from core.utils.uid_generator import UIDGenerator
 
@@ -168,7 +168,7 @@ class ActivityReport(UserOwnedEntity):
         import dataclasses
         from typing import Any
 
-        from core.models.feedback.activity_report_dto import ActivityReportDTO
+        from core.models.report.activity_report_dto import ActivityReportDTO
 
         dto_field_names = {f.name for f in dataclasses.fields(ActivityReportDTO)}
         kwargs: dict[str, Any] = {}

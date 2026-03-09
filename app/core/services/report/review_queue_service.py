@@ -25,7 +25,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
 
-logger = get_logger("skuel.services.feedback.review_queue")
+logger = get_logger("skuel.services.report.review_queue")
 
 
 class ReviewQueueService:

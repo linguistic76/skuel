@@ -1,19 +1,19 @@
 """
-Feedback Assessment API Routes
-================================
+Submission Report Assessment API Routes
+========================================
 
 REST API for teacher assessments of students.
 
 Routes:
-- POST /api/feedback/assessments — create assessment (requires TEACHER role)
-- GET /api/feedback/assessments/given — teacher's authored assessments
-- GET /api/feedback/assessments/received — student's received assessments
+- POST /api/reports/assessments — create assessment (requires TEACHER role)
+- GET /api/reports/assessments/given — teacher's authored assessments
+- GET /api/reports/assessments/received — student's received assessments
 """
 
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from core.ports.feedback_protocols import FeedbackOperations
+    from core.ports.report_protocols import SubmissionReportOperations
 
 from starlette.requests import Request
 
@@ -21,17 +21,17 @@ from adapters.inbound.auth import require_authenticated_user, require_teacher
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.route_factories import parse_int_query_param
 from core.models.entity_converters import entity_to_response
-from core.models.feedback.feedback_requests import AssessmentCreateRequest
+from core.models.report.report_requests import AssessmentCreateRequest
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
 logger = get_logger("skuel.routes.submissions.assessment")
 
 
-def create_feedback_assessment_api_routes(
+def create_submission_report_api_routes(
     _app: Any,
     rt: Any,
-    feedback_service: "FeedbackOperations",
+    feedback_service: "SubmissionReportOperations",
     user_service_getter: Any,
 ) -> list[Any]:
     """
@@ -40,7 +40,7 @@ def create_feedback_assessment_api_routes(
     Args:
         _app: FastHTML application instance
         rt: Router instance
-        feedback_service: FeedbackOperations service for assessment CRUD
+        feedback_service: SubmissionReportOperations service for assessment CRUD
         user_service_getter: Named function returning user_service (for role checks)
     """
 
@@ -50,7 +50,7 @@ def create_feedback_assessment_api_routes(
     # ASSESSMENT CRUD
     # ========================================================================
 
-    @rt("/api/feedback/assessments")
+    @rt("/api/reports/assessments")
     @require_teacher(user_service_getter)
     @boundary_handler(success_status=201)
     async def create_assessment(request: Request, current_user: Any) -> Result[Any]:
@@ -77,7 +77,7 @@ def create_feedback_assessment_api_routes(
             }
         )
 
-    @rt("/api/feedback/assessments/given")
+    @rt("/api/reports/assessments/given")
     @boundary_handler()
     async def get_given_assessments(request: Request) -> Result[Any]:
         """Get assessments authored by the current teacher."""
@@ -100,7 +100,7 @@ def create_feedback_assessment_api_routes(
             }
         )
 
-    @rt("/api/feedback/assessments/received")
+    @rt("/api/reports/assessments/received")
     @boundary_handler()
     async def get_received_assessments(request: Request) -> Result[Any]:
         """Get assessments received by the current student."""

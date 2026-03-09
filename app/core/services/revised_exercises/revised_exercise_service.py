@@ -6,9 +6,9 @@ CRUD operations for RevisedExercises — targeted revision instructions that
 address specific feedback gaps in the five-phase learning loop.
 
 The flow:
-    Exercise → Submission → SubmissionFeedback → RevisedExercise → Submission v2 → ...
+    Exercise → Submission → SubmissionReport → RevisedExercise → Submission v2 → ...
 
-A teacher creates a RevisedExercise after reviewing SubmissionFeedback, providing
+A teacher creates a RevisedExercise after reviewing SubmissionReport, providing
 targeted instructions for the student to address specific gaps. The student
 submits against the RevisedExercise via FULFILLS_EXERCISE (same relationship
 as regular Exercise submissions).
@@ -54,7 +54,7 @@ class RevisedExerciseService(BaseService):
         tuple[tuple[str, str, str] | tuple[str, str, str, str], ...]
     ] = (
         (
-            RelationshipName.RESPONDS_TO_FEEDBACK.value,
+            RelationshipName.RESPONDS_TO_REPORT.value,
             NeoLabel.ENTITY.value,
             "responds_to_feedback",
         ),
@@ -88,7 +88,7 @@ class RevisedExerciseService(BaseService):
     async def _verify_teacher_authority(
         self,
         teacher_uid: str,
-        feedback_uid: str,
+        report_uid: str,
         student_uid: str,
     ) -> Result[bool]:
         """Verify the teacher has review authority over the feedback.
@@ -100,13 +100,13 @@ class RevisedExerciseService(BaseService):
         """
         result = await self.backend.execute_query(
             """
-            MATCH (fb:Entity {uid: $feedback_uid})-[:FEEDBACK_FOR]->(submission:Entity)
+            MATCH (fb:Entity {uid: $report_uid})-[:FEEDBACK_FOR]->(submission:Entity)
             MATCH (teacher:User {uid: $teacher_uid})-[:SHARES_WITH {role: 'teacher'}]->(submission)
             MATCH (student:User {uid: $student_uid})-[:OWNS]->(submission)
             RETURN submission.uid AS submission_uid
             """,
             {
-                "feedback_uid": feedback_uid,
+                "report_uid": report_uid,
                 "teacher_uid": teacher_uid,
                 "student_uid": student_uid,
             },
@@ -121,7 +121,7 @@ class RevisedExerciseService(BaseService):
                     "Teacher does not have review authority over this feedback. "
                     "The feedback must be linked to a submission that is shared "
                     "with the teacher and owned by the specified student.",
-                    field="feedback_uid",
+                    field="report_uid",
                 )
             )
         return Result.ok(True)
@@ -131,7 +131,7 @@ class RevisedExerciseService(BaseService):
         self,
         teacher_uid: str,
         original_exercise_uid: str,
-        feedback_uid: str,
+        report_uid: str,
         student_uid: str,
         instructions: str,
         title: str | None = None,
@@ -145,7 +145,7 @@ class RevisedExerciseService(BaseService):
 
         Creates the entity plus three relationships:
         - OWNS (teacher → revised_exercise)
-        - RESPONDS_TO_FEEDBACK (revised_exercise → feedback)
+        - RESPONDS_TO_REPORT (revised_exercise → feedback)
         - REVISES_EXERCISE (revised_exercise → original exercise)
 
         Access control: Verifies the teacher has SHARES_WITH {role:'teacher'}
@@ -155,7 +155,7 @@ class RevisedExerciseService(BaseService):
         Args:
             teacher_uid: Teacher who creates this revision
             original_exercise_uid: UID of the original Exercise
-            feedback_uid: UID of the SubmissionFeedback this addresses
+            report_uid: UID of the SubmissionReport this addresses
             student_uid: UID of the student this targets
             instructions: Revision instructions
             title: Display title (auto-generated if not provided)
@@ -168,7 +168,7 @@ class RevisedExerciseService(BaseService):
             Result[RevisedExercise] - The created revised exercise
         """
         # Verify teacher has review authority over this feedback/student
-        auth_result = await self._verify_teacher_authority(teacher_uid, feedback_uid, student_uid)
+        auth_result = await self._verify_teacher_authority(teacher_uid, report_uid, student_uid)
         if auth_result.is_error:
             return Result.fail(auth_result.expect_error())
 
@@ -188,7 +188,7 @@ class RevisedExerciseService(BaseService):
             user_uid=teacher_uid,
             revision_number=revision_number,
             original_exercise_uid=original_exercise_uid,
-            feedback_uid=feedback_uid,
+            report_uid=report_uid,
             student_uid=student_uid,
             instructions=instructions,
             model=model,
@@ -217,10 +217,10 @@ class RevisedExerciseService(BaseService):
         if owns_result.is_error:
             self.logger.warning(f"Failed to create OWNS relationship: {owns_result.error}")
 
-        # Create RESPONDS_TO_FEEDBACK relationship
-        feedback_result = await self.backend.link_to_feedback(uid, feedback_uid)
+        # Create RESPONDS_TO_REPORT relationship
+        feedback_result = await self.backend.link_to_report(uid, report_uid)
         if feedback_result.is_error:
-            self.logger.warning(f"Failed to create RESPONDS_TO_FEEDBACK: {feedback_result.error}")
+            self.logger.warning(f"Failed to create RESPONDS_TO_REPORT: {feedback_result.error}")
 
         # Create REVISES_EXERCISE relationship
         exercise_result = await self.backend.link_to_exercise(uid, original_exercise_uid)
@@ -263,7 +263,7 @@ class RevisedExerciseService(BaseService):
                 teacher_uid=teacher_uid,
                 student_uid=student_uid,
                 original_exercise_uid=original_exercise_uid,
-                feedback_uid=feedback_uid,
+                report_uid=report_uid,
                 revision_number=revision_number,
                 occurred_at=datetime.now(),
             ),

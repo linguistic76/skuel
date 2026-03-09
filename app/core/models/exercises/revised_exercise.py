@@ -5,7 +5,7 @@ RevisedExercise - Five-Phase Learning Loop Domain Model
 Frozen dataclass for teacher-created revised exercise instructions that
 address specific feedback gaps. Part of the five-phase learning loop:
 
-    Article → Exercise v1 → Submission v1 → SubmissionFeedback v1
+    Article → Exercise v1 → Submission v1 → SubmissionReport v1
                                                   ↓
                                             RevisedExercise v2 → Submission v2 → ...
 
@@ -38,14 +38,14 @@ class RevisedExercise(UserOwnedEntity):
     Immutable domain model for revised exercise instructions (EntityType.REVISED_EXERCISE).
 
     A RevisedExercise defines targeted revision instructions that address specific
-    feedback gaps from a SubmissionFeedback entity. It links back to:
+    feedback gaps from a SubmissionReport entity. It links back to:
     - The original Exercise it revises (via REVISES_EXERCISE)
-    - The SubmissionFeedback it responds to (via RESPONDS_TO_FEEDBACK)
+    - The SubmissionReport it responds to (via RESPONDS_TO_REPORT)
 
     Fields (9 exercise-specific):
     - revision_number: Which revision iteration (1, 2, 3, ...)
     - original_exercise_uid: UID of the original Exercise being revised
-    - feedback_uid: UID of the SubmissionFeedback this addresses
+    - report_uid: UID of the SubmissionReport this addresses
     - student_uid: UID of the student this revision targets
     - instructions: Plain text instructions for the revision
     - model: Which LLM to use for feedback generation
@@ -64,7 +64,7 @@ class RevisedExercise(UserOwnedEntity):
     # =========================================================================
     revision_number: int = 1
     original_exercise_uid: str | None = None
-    feedback_uid: str | None = None
+    report_uid: str | None = None
     student_uid: str | None = None
     instructions: str | None = None
     model: str = "claude-sonnet-4-6"
@@ -119,7 +119,7 @@ class RevisedExercise(UserOwnedEntity):
             self.title
             and self.instructions
             and self.original_exercise_uid
-            and self.feedback_uid
+            and self.report_uid
             and self.student_uid
         )
 

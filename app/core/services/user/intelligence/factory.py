@@ -47,7 +47,7 @@ if TYPE_CHECKING:
     from core.services.analytics_relationship_service import AnalyticsRelationshipService
     from core.services.article.article_graph_service import ArticleGraphService
     from core.services.calendar_service import CalendarService
-    from core.services.feedback import FeedbackRelationshipService
+    from core.services.report import ReportRelationshipService
 
     # LpRelationshipService deleted - LP now uses UnifiedRelationshipService
     # LsRelationshipService deleted - LS now uses UnifiedRelationshipService
@@ -107,7 +107,7 @@ class UserContextIntelligenceFactory:
         lp: UnifiedRelationshipService,  # January 2026: Unified
         # Processing Domains (3) - REQUIRED
         submissions: SubmissionsRelationshipService,
-        feedback: FeedbackRelationshipService,
+        feedback: ReportRelationshipService,
         analytics: AnalyticsRelationshipService,
         # Temporal Domain (1) - REQUIRED
         calendar: CalendarService,
@@ -135,7 +135,7 @@ class UserContextIntelligenceFactory:
 
             Processing Domains (3):
                 submissions: Submission relationship service (student work + journals)
-                feedback: Feedback relationship service (pending submissions, completion rate)
+                feedback: Report relationship service (pending submissions, completion rate)
                 analytics: Analytics relationship service (cross-domain)
 
             Temporal Domain (1):

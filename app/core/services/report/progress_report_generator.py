@@ -1,8 +1,8 @@
 """
-Progress Feedback Generator
-============================
+Progress Report Generator
+===========================
 
-Generates AI-powered activity feedback by querying historical completions
+Generates AI-powered activity reports by querying historical completions
 from Neo4j, then sending those stats as LLM context for qualitative analysis.
 
 Two-stage pipeline:
@@ -10,7 +10,7 @@ Two-stage pipeline:
     2. LLM call     → qualitative insights (interpreted data)
 
 Result stored as ActivityReport entity (EntityType.ACTIVITY_REPORT):
-    processed_content = LLM-generated qualitative feedback text
+    processed_content = LLM-generated qualitative report text
     metadata          = raw activity stats dict
 
 When no LLM is configured, falls back to programmatic markdown (AUTOMATIC).
@@ -25,28 +25,28 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from core.ports import QueryExecutor
     from core.services.ai_service import OpenAIService
-    from core.services.feedback.activity_report_service import ActivityReportService
+    from core.services.report.activity_report_service import ActivityReportService
     from core.services.insight.insight_store import InsightStore
     from core.services.user.unified_user_context import UserContext
     from core.services.user.user_context_builder import UserContextBuilder
 
-from core.constants import FeedbackTimePeriod  # also: MIN_REPORT_COOLDOWN_MINUTES
+from core.constants import ReportTimePeriod  # also: MIN_REPORT_COOLDOWN_MINUTES
 from core.events import publish_event
 from core.events.submission_events import SubmissionCreated
 from core.models.enums.entity_enums import EntityType, ProcessorType
 from core.models.enums.submissions_enums import ProgressDepth
-from core.models.feedback.activity_report import ActivityReport
+from core.models.report.activity_report import ActivityReport
 from core.ports.infrastructure_protocols import EventBusOperations
 from core.prompts import PROMPT_REGISTRY
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
-logger = get_logger("skuel.services.feedback.progress_generator")
+logger = get_logger("skuel.services.report.progress_generator")
 
 
-class ProgressFeedbackGenerator:
+class ProgressReportGenerator:
     """
-    Generates activity feedback for users by querying historical completions
+    Generates activity reports for users by querying historical completions
     and sending those stats as LLM context for qualitative analysis.
 
     Constructor dependencies:
@@ -99,7 +99,7 @@ class ProgressFeedbackGenerator:
             3. Create and persist ActivityReport entity
 
         Args:
-            user_uid: User to generate activity feedback for
+            user_uid: User to generate activity report for
             time_period: Time window (7d, 14d, 30d, 90d)
             domains: Domains to include (empty = all activity domains)
             depth: Detail level (summary, standard, detailed)
@@ -110,7 +110,7 @@ class ProgressFeedbackGenerator:
                 lookup for the previous annotation is skipped entirely.
 
         Returns:
-            Result[ActivityReport] — the created feedback entity
+            Result[ActivityReport] — the created report entity
         """
         # Rate-limit on-demand generation. Returns failure if a report was created
         # within MIN_REPORT_COOLDOWN_MINUTES. Prevents rapid-fire LLM calls.
@@ -118,13 +118,13 @@ class ProgressFeedbackGenerator:
         if cooldown_result.is_error:
             return Result.fail(cooldown_result.expect_error())
 
-        days = FeedbackTimePeriod.DAYS.get(time_period, FeedbackTimePeriod.DEFAULT_DAYS)
+        days = ReportTimePeriod.DAYS.get(time_period, ReportTimePeriod.DEFAULT_DAYS)
         end_date = datetime.now()
         start_date = end_date - timedelta(days=days)
         progress_depth = ProgressDepth(depth) if depth else ProgressDepth.STANDARD
 
         logger.info(
-            f"Generating activity feedback for {user_uid}: period={time_period}, depth={depth}"
+            f"Generating activity report for {user_uid}: period={time_period}, depth={depth}"
         )
 
         try:
@@ -156,13 +156,13 @@ class ProgressFeedbackGenerator:
             )
 
             if self.openai_service:
-                llm_result = await self._generate_llm_feedback(
+                llm_result = await self._generate_llm_report(
                     completions, insights, time_period, depth, effective_annotation
                 )
                 if llm_result.is_ok:
                     content = llm_result.value
                     processor_type = ProcessorType.LLM
-                    logger.info(f"LLM feedback generated for {user_uid}: {len(content)} chars")
+                    logger.info(f"LLM report generated for {user_uid}: {len(content)} chars")
                 else:
                     # LLM failed — fall back to programmatic, record the error
                     processing_error = f"LLM generation failed: {llm_result.expect_error()}"
@@ -234,7 +234,7 @@ class ProgressFeedbackGenerator:
     # LLM GENERATION
     # =========================================================================
 
-    async def _generate_llm_feedback(
+    async def _generate_llm_report(
         self,
         completions: dict[str, Any],
         insights: list[Any],
@@ -242,7 +242,7 @@ class ProgressFeedbackGenerator:
         depth: str,
         previous_annotation: str | None = None,
     ) -> Result[str]:
-        """Send activity stats to LLM and return qualitative feedback text.
+        """Send activity stats to LLM and return qualitative report text.
 
         Args:
             completions: Raw activity stats from _completions_from_context()
@@ -252,7 +252,7 @@ class ProgressFeedbackGenerator:
             previous_annotation: User's self-reflection from their most recent prior report
 
         Returns:
-            Result[str] — LLM-generated feedback text
+            Result[str] — LLM-generated report text
         """
         if not self.openai_service:
             return Result.fail(
@@ -774,7 +774,7 @@ class ProgressFeedbackGenerator:
             _query,
             {
                 "user_uid": user_uid,
-                "cooldown_minutes": FeedbackTimePeriod.MIN_REPORT_COOLDOWN_MINUTES,
+                "cooldown_minutes": ReportTimePeriod.MIN_REPORT_COOLDOWN_MINUTES,
             },
         )
         if result.is_error or not result.value:
@@ -786,7 +786,7 @@ class ProgressFeedbackGenerator:
                 Errors.business(
                     "report_cooldown",
                     f"A report was generated within the last "
-                    f"{FeedbackTimePeriod.MIN_REPORT_COOLDOWN_MINUTES} minutes. "
+                    f"{ReportTimePeriod.MIN_REPORT_COOLDOWN_MINUTES} minutes. "
                     f"Please wait before generating another.",
                 )
             )

@@ -988,7 +988,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
          title: coalesce(re.title, 'Revision'),
          instructions: re.instructions,
          original_exercise_uid: re.original_exercise_uid,
-         feedback_uid: re.feedback_uid,
+         report_uid: re.report_uid,
          revision_number: re.revision_number,
          created_at: re.created_at
      } END) WHERE x IS NOT NULL][0..5] AS pending_revised_exercises

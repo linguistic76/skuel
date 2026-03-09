@@ -8,9 +8,9 @@ Reuses SHARES_WITH infrastructure. When a student submits an entity against
 an ASSIGNED Exercise, the entity is auto-shared with the teacher.
 The teacher's review queue = Ku shared with them via role="teacher".
 
-When providing feedback or requesting revision, a SUBMISSION_FEEDBACK Entity nodes
-is created and linked to the submission via FEEDBACK_FOR. This makes every
-feedback round a first-class graph entity — searchable, queryable, and
+When providing a report or requesting revision, a SUBMISSION_REPORT Entity nodes
+is created and linked to the submission via REPORT_FOR. This makes every
+report round a first-class graph entity — searchable, queryable, and
 supporting revision cycles.
 
 See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.events import publish_event
 from core.events.submission_events import (
-    FeedbackSubmitted,
+    ReportSubmitted,
     SubmissionApproved,
     SubmissionRevisionRequested,
 )
@@ -97,7 +97,7 @@ class TeacherReviewService:
         {where_clause}
         OPTIONAL MATCH (student:User)-[:OWNS]->(ku)
         OPTIONAL MATCH (ku)-[:FULFILLS_EXERCISE]->(project:Entity:Exercise)
-        OPTIONAL MATCH (fb:Entity:SubmissionFeedback)-[:FEEDBACK_FOR]->(ku)
+        OPTIONAL MATCH (fb:Entity:SubmissionReport)-[:REPORT_FOR]->(ku)
         WITH ku, student, project, r, count(fb) as feedback_count
         RETURN ku.uid as ku_uid,
                ku.title as title,
@@ -138,21 +138,21 @@ class TeacherReviewService:
 
         return Result.ok(items)
 
-    async def get_feedback_history(
+    async def get_report_history(
         self,
         submission_uid: str,
     ) -> Result[list[dict[str, Any]]]:
         """
-        Get all SUBMISSION_FEEDBACK nodes linked to a submission via FEEDBACK_FOR.
+        Get all SUBMISSION_REPORT nodes linked to a submission via REPORT_FOR.
 
         Args:
             submission_uid: The submission Ku UID
 
         Returns:
-            Result containing list of feedback items ordered by creation date
+            Result containing list of report items ordered by creation date
         """
         query = """
-        MATCH (fb:Entity:SubmissionFeedback)-[:FEEDBACK_FOR]->(submission:Entity:Submission {uid: $submission_uid})
+        MATCH (fb:Entity:SubmissionReport)-[:REPORT_FOR]->(submission:Entity:Submission {uid: $submission_uid})
         OPTIONAL MATCH (teacher:User)-[:OWNS]->(fb)
         RETURN fb.uid as uid,
                fb.title as title,
@@ -183,49 +183,49 @@ class TeacherReviewService:
 
         return Result.ok(items)
 
-    async def submit_feedback(
+    async def submit_report(
         self,
         report_uid: str,
         teacher_uid: str,
         feedback: str,
     ) -> Result[dict[str, Any]]:
         """
-        Submit teacher feedback for an entity.
+        Submit teacher report for an entity.
 
-        Creates a SUBMISSION_FEEDBACK Entity nodes linked to the submission via FEEDBACK_FOR.
-        Also writes feedback to submission's feedback field (denormalized for quick access)
+        Creates a SUBMISSION_REPORT Entity nodes linked to the submission via REPORT_FOR.
+        Also writes report to submission's report field (denormalized for quick access)
         and sets submission status to COMPLETED.
 
         Args:
-            report_uid: Submission Ku UID to provide feedback for
-            teacher_uid: Teacher providing feedback
-            feedback: SubmissionFeedback text
+            report_uid: Submission Ku UID to provide report for
+            teacher_uid: Teacher providing report
+            feedback: SubmissionReport text
 
         Returns:
-            Result containing feedback Ku info
+            Result containing report Ku info
         """
         access_check = await self._verify_teacher_access(report_uid, teacher_uid)
         if access_check.is_error:
             return Result.fail(access_check.expect_error())
 
-        feedback_uid = UIDGenerator.generate_uid("ku")
+        report_entity_uid = UIDGenerator.generate_uid("ku")
         now = datetime.now().isoformat()
 
-        # Create SUBMISSION_FEEDBACK node, link via FEEDBACK_FOR, share with student,
+        # Create SUBMISSION_REPORT node, link via REPORT_FOR, share with student,
         # and update submission status — all in one transaction
         query = """
         MATCH (submission:Entity {uid: $report_uid})
         OPTIONAL MATCH (student:User)-[:OWNS]->(submission)
 
-        // Update submission with denormalized feedback
-        SET submission.feedback = $feedback,
-            submission.feedback_generated_at = datetime($now),
+        // Update submission with denormalized report content
+        SET submission.report_content = $feedback,
+            submission.report_generated_at = datetime($now),
             submission.status = $completed_status,
             submission.updated_at = datetime($now)
 
-        // Create SUBMISSION_FEEDBACK Entity nodes
+        // Create SUBMISSION_REPORT Entity nodes
         CREATE (fb:Entity {
-            uid: $feedback_uid,
+            uid: $report_entity_uid,
             title: $title,
             entity_type: $entity_type,
             user_uid: $teacher_uid,
@@ -241,7 +241,7 @@ class TeacherReviewService:
         WITH submission, student, fb
         MATCH (teacher:User {uid: $teacher_uid})
         CREATE (teacher)-[:OWNS]->(fb)
-        CREATE (fb)-[:FEEDBACK_FOR]->(submission)
+        CREATE (fb)-[:REPORT_FOR]->(submission)
 
         // Share feedback with student (if student exists)
         WITH submission, student, fb
@@ -251,18 +251,18 @@ class TeacherReviewService:
         RETURN submission.uid as uid,
                submission.status as status,
                student.uid as student_uid,
-               fb.uid as feedback_uid
+               fb.uid as report_entity_uid
         """
 
         result = await self.executor.execute_query(
             query,
             {
                 "report_uid": report_uid,
-                "feedback_uid": feedback_uid,
+                "report_entity_uid": report_entity_uid,
                 "teacher_uid": teacher_uid,
                 "feedback": feedback,
                 "title": f"Feedback: {report_uid[:30]}",
-                "entity_type": EntityType.SUBMISSION_FEEDBACK.value,
+                "entity_type": EntityType.SUBMISSION_REPORT.value,
                 "completed_status": EntityStatus.COMPLETED.value,
                 "processor_type": ProcessorType.HUMAN.value,
                 "now": now,
@@ -276,15 +276,15 @@ class TeacherReviewService:
             return Result.fail(Errors.not_found(f"Ku {report_uid} not found"))
 
         student_uid = records[0]["student_uid"] or ""
-        logger.info(f"Teacher {teacher_uid} submitted feedback {feedback_uid} for Ku {report_uid}")
+        logger.info(f"Teacher {teacher_uid} submitted report {report_entity_uid} for Ku {report_uid}")
 
         await publish_event(
             self.event_bus,
-            FeedbackSubmitted(
+            ReportSubmitted(
                 submission_uid=report_uid,
                 teacher_uid=teacher_uid,
                 student_uid=student_uid,
-                feedback_uid=feedback_uid,
+                report_uid=report_entity_uid,
                 occurred_at=datetime.now(),
             ),
             logger,
@@ -294,7 +294,7 @@ class TeacherReviewService:
             {
                 "ku_uid": records[0]["uid"],
                 "status": records[0]["status"],
-                "feedback_uid": feedback_uid,
+                "report_uid": report_entity_uid,
                 "feedback_submitted": True,
             }
         )
@@ -308,7 +308,7 @@ class TeacherReviewService:
         """
         Request revision for a student Ku.
 
-        Creates a SUBMISSION_FEEDBACK Entity nodes with revision notes, linked via FEEDBACK_FOR.
+        Creates a SUBMISSION_REPORT Entity nodes with revision notes, linked via REPORT_FOR.
         Sets submission status to REVISION_REQUESTED.
 
         Args:
@@ -323,7 +323,7 @@ class TeacherReviewService:
         if access_check.is_error:
             return Result.fail(access_check.expect_error())
 
-        feedback_uid = UIDGenerator.generate_uid("ku")
+        report_entity_uid = UIDGenerator.generate_uid("ku")
         now = datetime.now().isoformat()
 
         query = """
@@ -331,14 +331,14 @@ class TeacherReviewService:
         OPTIONAL MATCH (student:User)-[:OWNS]->(submission)
 
         // Update submission with revision status
-        SET submission.feedback = $notes,
-            submission.feedback_generated_at = datetime($now),
+        SET submission.report_content = $notes,
+            submission.report_generated_at = datetime($now),
             submission.status = $revision_status,
             submission.updated_at = datetime($now)
 
-        // Create SUBMISSION_FEEDBACK Entity nodes for revision request
+        // Create SUBMISSION_REPORT Entity nodes for revision request
         CREATE (fb:Entity {
-            uid: $feedback_uid,
+            uid: $report_entity_uid,
             title: $title,
             entity_type: $entity_type,
             user_uid: $teacher_uid,
@@ -354,7 +354,7 @@ class TeacherReviewService:
         WITH submission, student, fb
         MATCH (teacher:User {uid: $teacher_uid})
         CREATE (teacher)-[:OWNS]->(fb)
-        CREATE (fb)-[:FEEDBACK_FOR]->(submission)
+        CREATE (fb)-[:REPORT_FOR]->(submission)
 
         // Share feedback with student (if student exists)
         WITH submission, student, fb
@@ -364,18 +364,18 @@ class TeacherReviewService:
         RETURN submission.uid as uid,
                submission.status as status,
                student.uid as student_uid,
-               fb.uid as feedback_uid
+               fb.uid as report_entity_uid
         """
 
         result = await self.executor.execute_query(
             query,
             {
                 "report_uid": report_uid,
-                "feedback_uid": feedback_uid,
+                "report_entity_uid": report_entity_uid,
                 "teacher_uid": teacher_uid,
                 "notes": notes,
                 "title": f"Revision request: {report_uid[:30]}",
-                "entity_type": EntityType.SUBMISSION_FEEDBACK.value,
+                "entity_type": EntityType.SUBMISSION_REPORT.value,
                 "revision_status": EntityStatus.REVISION_REQUESTED.value,
                 "completed_status": EntityStatus.COMPLETED.value,
                 "processor_type": ProcessorType.HUMAN.value,
@@ -390,7 +390,7 @@ class TeacherReviewService:
             return Result.fail(Errors.not_found(f"Ku {report_uid} not found"))
 
         student_uid = records[0]["student_uid"] or ""
-        logger.info(f"Teacher {teacher_uid} requested revision {feedback_uid} for Ku {report_uid}")
+        logger.info(f"Teacher {teacher_uid} requested revision {report_entity_uid} for Ku {report_uid}")
 
         await publish_event(
             self.event_bus,
@@ -400,7 +400,7 @@ class TeacherReviewService:
                 student_uid=student_uid,
                 occurred_at=datetime.now(),
                 revision_notes=notes,
-                metadata={"feedback_uid": feedback_uid},
+                metadata={"report_uid": report_entity_uid},
             ),
             logger,
         )
@@ -409,7 +409,7 @@ class TeacherReviewService:
             {
                 "ku_uid": records[0]["uid"],
                 "status": records[0]["status"],
-                "feedback_uid": feedback_uid,
+                "report_uid": report_entity_uid,
                 "revision_requested": True,
             }
         )
@@ -573,7 +573,7 @@ class TeacherReviewService:
         query = """
         MATCH (s:Entity:Submission)-[:FULFILLS_EXERCISE]->(e:Entity:Exercise {uid: $exercise_uid})
         OPTIONAL MATCH (student:User)-[:OWNS]->(s)
-        OPTIONAL MATCH (fb:Entity:SubmissionFeedback)-[:FEEDBACK_FOR]->(s)
+        OPTIONAL MATCH (fb:Entity:SubmissionReport)-[:REPORT_FOR]->(s)
         WITH s, student, count(fb) AS feedback_count
         RETURN s.uid AS uid, s.title AS title,
                s.original_filename AS original_filename, s.status AS status,
@@ -664,7 +664,7 @@ class TeacherReviewService:
         query = """
         MATCH (teacher:User {uid: $teacher_uid})-[:SHARES_WITH {role: 'teacher'}]->(ku:Entity:Submission)
         MATCH (student:User {uid: $student_uid})-[:OWNS]->(ku)
-        OPTIONAL MATCH (fb:Entity:SubmissionFeedback)-[:FEEDBACK_FOR]->(ku)
+        OPTIONAL MATCH (fb:Entity:SubmissionReport)-[:REPORT_FOR]->(ku)
         OPTIONAL MATCH (ku)-[:FULFILLS_EXERCISE]->(ex:Entity:Exercise)
         WITH ku, count(fb) AS feedback_count, ex
         RETURN ku.uid AS uid, ku.title AS title,

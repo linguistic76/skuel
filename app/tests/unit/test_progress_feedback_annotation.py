@@ -1,8 +1,8 @@
 """
-Unit Tests — ProgressFeedbackGenerator annotation feedback loop
+Unit Tests — ProgressReportGenerator annotation feedback loop
 ================================================================
 
-Covers the previous-annotation feature in ProgressFeedbackGenerator:
+Covers the previous-annotation feature in ProgressReportGenerator:
 1. _build_llm_prompt with previous_annotation → appended to rendered prompt
 2. _build_llm_prompt with no annotation → prompt unchanged (no reflection section)
 3. _fetch_previous_annotation empty result → returns None without crashing
@@ -39,10 +39,10 @@ def _make_minimal_completions() -> dict:
 
 
 def _make_generator() -> object:
-    """ProgressFeedbackGenerator with minimal constructor args (no LLM/DB)."""
+    """ProgressReportGenerator with minimal constructor args (no LLM/DB)."""
     from unittest.mock import AsyncMock, MagicMock
 
-    from core.services.feedback.progress_feedback_generator import ProgressFeedbackGenerator
+    from core.services.report.progress_report_generator import ProgressReportGenerator
     from core.utils.result_simplified import Result
 
     executor = MagicMock()
@@ -54,7 +54,7 @@ def _make_generator() -> object:
     context_builder = MagicMock()
     context_builder.build_rich = AsyncMock(return_value=Result.ok(mock_context))
 
-    return ProgressFeedbackGenerator(
+    return ProgressReportGenerator(
         executor=executor,
         activity_report_service=activity_report_service,
         context_builder=context_builder,
@@ -111,7 +111,7 @@ async def test_fetch_previous_annotation_returns_none_on_empty() -> None:
     from datetime import datetime
     from unittest.mock import AsyncMock, MagicMock
 
-    from core.services.feedback.progress_feedback_generator import ProgressFeedbackGenerator
+    from core.services.report.progress_report_generator import ProgressReportGenerator
 
     executor = MagicMock()
     executor.execute_query = AsyncMock(return_value=Result.ok([]))
@@ -123,7 +123,7 @@ async def test_fetch_previous_annotation_returns_none_on_empty() -> None:
     context_builder = MagicMock()
     context_builder.build_rich = AsyncMock(return_value=Result.ok(mock_context))
 
-    generator = ProgressFeedbackGenerator(
+    generator = ProgressReportGenerator(
         executor=executor,
         activity_report_service=activity_report_service,
         context_builder=context_builder,

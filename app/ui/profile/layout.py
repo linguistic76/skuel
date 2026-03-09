@@ -136,7 +136,7 @@ def _profile_item_renderer(item: SidebarItem, is_active: bool) -> "FT":
             )
         )
 
-    # Simple item (Overview, SubmissionFeedback)
+    # Simple item (Overview, SubmissionReport)
     return Li(
         Anchor(
             Span(item.icon, cls="text-lg", aria_hidden="true") if item.icon else "",
@@ -199,10 +199,10 @@ def _build_profile_sidebar_items(
             ]
         )
 
-    # Curriculum section (includes Submissions and SubmissionFeedback)
-    submissions_item = SidebarItem("Submissions", "/submissions", "reports", icon="📄")
-    feedback_item = SidebarItem(
-        "SubmissionFeedback", "/submissions/feedback", "feedback", icon="💬"
+    # Curriculum section (includes Submissions and Reports)
+    submissions_item = SidebarItem("Submissions", "/submissions", "submissions", icon="📄")
+    reports_item = SidebarItem(
+        "Reports", "/submissions/reports", "submission-reports", icon="💬"
     )
 
     extra_sections.append(_section_header("Curriculum"))
@@ -233,8 +233,8 @@ def _build_profile_sidebar_items(
 
     extra_sections.extend(
         [
-            _profile_item_renderer(submissions_item, active_domain == "reports"),
-            _profile_item_renderer(feedback_item, active_domain == "feedback"),
+            _profile_item_renderer(submissions_item, active_domain == "submissions"),
+            _profile_item_renderer(reports_item, active_domain == "submission-reports"),
         ]
     )
 

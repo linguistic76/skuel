@@ -14,7 +14,7 @@ Usage:
     template = PROMPT_REGISTRY.get("activity_feedback")
 
 Available templates (core/prompts/templates/):
-    activity_feedback             — Activity coaching feedback for ProgressFeedbackGenerator
+    activity_feedback             — Activity coaching feedback for ProgressReportGenerator
     journal_activity              — Activity tracking formatter for JournalOutputGenerator
     journal_articulation          — Idea articulation formatter for JournalOutputGenerator
     journal_exploration           — Critical thinking formatter for JournalOutputGenerator

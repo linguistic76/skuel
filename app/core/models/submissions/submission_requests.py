@@ -6,7 +6,7 @@ Pydantic models for:
 - Submissions domain: file uploads, AI reports
 - LifePath domain: life path creation
 
-SubmissionFeedback request models live in core.models.feedback.feedback_requests.
+SubmissionReport request models live in core.models.report.report_requests.
 
 See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """

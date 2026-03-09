@@ -1,18 +1,18 @@
 """
-Feedback Relationship Service
-==============================
+Report Relationship Service
+=============================
 
 Pure-Cypher Level 1 queries against FEEDBACK_FOR relationships.
 
-Answers intelligence questions about the Feedback stage of the learning loop:
-- Which of the user's submissions are still awaiting feedback?
-- How many submissions have feedback vs. not?
+Answers intelligence questions about the Report stage of the learning loop:
+- Which of the user's submissions are still awaiting a report?
+- How many submissions have reports vs. not?
 
 No LLM dependencies — this is a Level 1 graph analytics service.
-The higher-level FeedbackService (LLM feedback generation) is a separate concern.
+The higher-level SubmissionReportService (LLM report generation) is a separate concern.
 
 Graph relationships queried:
-- FEEDBACK_FOR: (SubmissionFeedback)-[:FEEDBACK_FOR]->(Submission)
+- FEEDBACK_FOR: (SubmissionReport)-[:FEEDBACK_FOR]->(Submission)
 - OWNS: (User)-[:OWNS]->(Submission)
 
 See: /docs/architecture/FEEDBACK_ARCHITECTURE.md
@@ -28,23 +28,23 @@ if TYPE_CHECKING:
     from core.ports import BackendOperations
 
 
-class FeedbackRelationshipService:
+class ReportRelationshipService:
     """
-    Pure-Cypher relationship queries for the Feedback stage of the learning loop.
+    Pure-Cypher relationship queries for the Report stage of the learning loop.
 
     Provides the intelligence layer with graph-level questions about FEEDBACK_FOR
     relationships — no LLM, no AI. Just graph queries.
 
     Used by UserContextIntelligence to answer:
     - "Does this user have submissions that haven't been reviewed yet?"
-    - "What's the overall feedback completion rate for this user?"
+    - "What's the overall report completion rate for this user?"
 
     See: /docs/architecture/FEEDBACK_ARCHITECTURE.md
     """
 
     def __init__(self, backend: "BackendOperations[Any]") -> None:
         self.backend = backend
-        self.logger = get_logger("skuel.services.feedback_relationship")
+        self.logger = get_logger("skuel.services.report_relationship")
 
     # ========================================================================
     # INTELLIGENCE QUERIES
@@ -134,12 +134,12 @@ class FeedbackRelationshipService:
             ]
         )
 
-    async def get_feedback_summary(self, user_uid: str) -> Result[dict[str, int]]:
+    async def get_report_summary(self, user_uid: str) -> Result[dict[str, int]]:
         """
-        Get feedback completion summary for a user.
+        Get report completion summary for a user.
 
-        Returns counts of submissions with/without feedback and total
-        feedback items received.
+        Returns counts of submissions with/without reports and total
+        report items received.
 
         Args:
             user_uid: User identifier
@@ -209,8 +209,8 @@ class FeedbackRelationshipService:
 
         Graph pattern (mixed directions):
             (Submission)-[:FULFILLS_EXERCISE]->(Exercise)
-            (SubmissionFeedback)-[:FEEDBACK_FOR]->(Submission)
-            (RevisedExercise)-[:RESPONDS_TO_FEEDBACK]->(SubmissionFeedback)
+            (SubmissionReport)-[:FEEDBACK_FOR]->(Submission)
+            (RevisedExercise)-[:RESPONDS_TO_FEEDBACK]->(SubmissionReport)
             (RevisedExercise)-[:REVISES_EXERCISE]->(Exercise)
 
         Args:
@@ -261,8 +261,8 @@ class FeedbackRelationshipService:
 
         Graph pattern:
             (Submission)-[:FULFILLS_EXERCISE]->(Exercise)
-            (SubmissionFeedback)-[:FEEDBACK_FOR]->(Submission)
-            (RevisedExercise)-[:RESPONDS_TO_FEEDBACK]->(SubmissionFeedback)
+            (SubmissionReport)-[:FEEDBACK_FOR]->(Submission)
+            (RevisedExercise)-[:RESPONDS_TO_FEEDBACK]->(SubmissionReport)
 
         Args:
             submission_uid: UID of the submission
@@ -304,4 +304,4 @@ class FeedbackRelationshipService:
         )
 
 
-__all__ = ["FeedbackRelationshipService"]
+__all__ = ["ReportRelationshipService"]

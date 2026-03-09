@@ -1,32 +1,32 @@
 """
-Feedback Protocols
-==================
+Report Protocols
+================
 
-Route-facing protocols for the Feedback stage of SKUEL's core educational loop:
+Route-facing protocols for the Report stage of SKUEL's core educational loop:
 
-    Ku → Exercise → Submission → Feedback
-                                     ↑
-                           someone responds to the work
+    Ku → Exercise → Submission → Report
+                                   ↑
+                         someone responds to the work
 
-Feedback has two implementations — the mechanism differs, the concept is the same:
+Reports have two implementations — the mechanism differs, the concept is the same:
 
-    Human feedback  (teacher reviews and writes)  → processor_type = HUMAN
-    AI feedback     (LLM evaluates via Exercise)   → processor_type = LLM
+    Human report  (teacher reviews and writes)  → processor_type = HUMAN
+    AI report     (LLM evaluates via Exercise)   → processor_type = LLM
 
-Both create SUBMISSION_FEEDBACK entities (EntityType.SUBMISSION_FEEDBACK) linked to the
-submission via FEEDBACK_FOR. The processor_type field discriminates the source.
+Both create SUBMISSION_REPORT entities (EntityType.SUBMISSION_REPORT) linked to the
+submission via REPORT_FOR. The processor_type field discriminates the source.
 
-Progress feedback (EntityType.ACTIVITY_REPORT) is macro-level AI feedback — the system
-summarises cross-domain activity over a time window. Still feedback, broader scope.
+Progress reports (EntityType.ACTIVITY_REPORT) are macro-level AI reports — the system
+summarises cross-domain activity over a time window. Still a report, broader scope.
 
 Protocol Responsibilities
 --------------------------
-    FeedbackOperations           — Human + AI feedback CRUD (SUBMISSION_FEEDBACK entities)
-    ProgressFeedbackOperations   — Auto-generated progress reports (ACTIVITY_REPORT entities)
+    SubmissionReportOperations   — Human + AI report CRUD (SUBMISSION_REPORT entities)
+    ProgressReportOperations     — Auto-generated progress reports (ACTIVITY_REPORT entities)
     ProgressScheduleOperations   — Recurring progress report scheduling
     ActivityReportOperations     — Processor-neutral ActivityReport CRUD (snapshot, submit, history, annotate)
     ReviewQueueOperations        — ReviewRequest queue management (request_review, get_pending_reviews)
-    TeacherReviewOperations      — Teacher review queue, feedback, revision, approval
+    TeacherReviewOperations      — Teacher review queue, report, revision, approval
 
 ISP-compliant: each protocol captures only the methods called from routes.
 
@@ -43,19 +43,18 @@ if TYPE_CHECKING:
 
 
 @runtime_checkable
-class FeedbackOperations(Protocol):
-    """Human + AI feedback on submissions. Both create SUBMISSION_FEEDBACK entities.
+class SubmissionReportOperations(Protocol):
+    """Human + AI reports on submissions. Both create SUBMISSION_REPORT entities.
 
     processor_type discriminates the source:
-        ProcessorType.HUMAN — teacher writes feedback (create_assessment)
-        ProcessorType.LLM   — LLM generates feedback via Exercise (generate_feedback)
+        ProcessorType.HUMAN — teacher writes report (create_assessment)
+        ProcessorType.LLM   — LLM generates report via Exercise (generate_report)
 
-    Assessment methods (from the former ReportsContentOperations) and AI feedback
-    generation (from the former ReportsFeedbackOperations) are unified here because
+    Assessment methods and AI report generation are unified here because
     they represent the same concept: a response to student work.
 
-    Route consumers: feedback_assessment_api.py (assessments), exercises_api.py (AI feedback)
-    Implementation: SubmissionsCoreService (assessments) + FeedbackService (AI)
+    Route consumers: submission_report_api.py (assessments), exercises_api.py (AI reports)
+    Implementation: SubmissionsCoreService (assessments) + SubmissionReportService (AI)
     """
 
     # ------------------------------------------------------------------
@@ -70,12 +69,12 @@ class FeedbackOperations(Protocol):
         content: str,
         metadata: dict[str, Any] | None = None,
     ) -> Result[Any]:
-        """Create a teacher assessment (EntityType.SUBMISSION_FEEDBACK, processor_type=HUMAN).
+        """Create a teacher assessment (EntityType.SUBMISSION_REPORT, processor_type=HUMAN).
 
         Verifies teacher-student group membership before creating.
         Auto-shares with student via SHARES_WITH {role: 'student'}.
 
-        Returns Result[SubmissionFeedback].
+        Returns Result[SubmissionReport].
         """
         ...
 
@@ -84,7 +83,7 @@ class FeedbackOperations(Protocol):
         student_uid: str,
         limit: int = 50,
     ) -> Result[list[Any]]:
-        """Get feedback reports received by a student. Returns Result[list[SubmissionFeedback]]."""
+        """Get feedback reports received by a student. Returns Result[list[SubmissionReport]]."""
         ...
 
     async def get_assessments_by_teacher(
@@ -92,14 +91,14 @@ class FeedbackOperations(Protocol):
         teacher_uid: str,
         limit: int = 50,
     ) -> Result[list[Any]]:
-        """Get feedback reports authored by a teacher. Returns Result[list[SubmissionFeedback]]."""
+        """Get feedback reports authored by a teacher. Returns Result[list[SubmissionReport]]."""
         ...
 
     # ------------------------------------------------------------------
     # AI FEEDBACK — LLM-generated via Exercise instructions
     # ------------------------------------------------------------------
 
-    async def generate_feedback(
+    async def generate_report(
         self,
         entry: Any,
         exercise: Any,
@@ -107,29 +106,29 @@ class FeedbackOperations(Protocol):
         temperature: float = 0.7,
         max_tokens: int = 4000,
     ) -> Result[Any]:
-        """Generate AI feedback for a submission using exercise instructions.
+        """Generate AI report for a submission using exercise instructions.
 
-        Creates SUBMISSION_FEEDBACK entity (processor_type=LLM) in Neo4j, linked
-        to the submission via FEEDBACK_FOR. Also updates the submission's
-        denormalized feedback field for quick access.
+        Creates SUBMISSION_REPORT entity (processor_type=LLM) in Neo4j, linked
+        to the submission via REPORT_FOR. Also updates the submission's
+        denormalized report field for quick access.
 
         Args:
             entry: Submission to evaluate (uses content or processed_content)
             exercise: Exercise with instructions and model selection
-            user_uid: UID of user triggering feedback (owns the entity)
+            user_uid: UID of user triggering report (owns the entity)
             temperature: LLM sampling temperature (0-1)
             max_tokens: Maximum tokens to generate
 
-        Returns Result[SubmissionFeedback] — the created SUBMISSION_FEEDBACK entity.
+        Returns Result[SubmissionReport] — the created SUBMISSION_REPORT entity.
         """
         ...
 
 
 @runtime_checkable
-class ProgressFeedbackOperations(Protocol):
-    """Auto-generated activity feedback (EntityType.ACTIVITY_REPORT).
+class ProgressReportOperations(Protocol):
+    """Auto-generated activity reports (EntityType.ACTIVITY_REPORT).
 
-    Macro-level AI feedback — the system summarises a user's cross-domain activity
+    Macro-level AI reports — the system summarises a user's cross-domain activity
     over a time window. NOT tied to a specific submission artifact.
     ActivityReport inherits UserOwnedEntity directly (not Submission).
 
@@ -138,8 +137,8 @@ class ProgressFeedbackOperations(Protocol):
         ProcessorType.LLM       — on-demand AI generation
         ProcessorType.HUMAN     — admin-written activity review
 
-    Route consumer: progress_feedback_api.py
-    Implementation: ProgressFeedbackGenerator
+    Route consumer: progress_report_api.py
+    Implementation: ProgressReportGenerator
     """
 
     async def generate(
@@ -158,7 +157,7 @@ class ProgressFeedbackOperations(Protocol):
 class ProgressScheduleOperations(Protocol):
     """Recurring progress report scheduling operations.
 
-    Route consumer: progress_feedback_api.py
+    Route consumer: progress_report_api.py
     Implementation: ProgressScheduleService
     """
 
@@ -193,7 +192,7 @@ class ActivityReportOperations(Protocol):
     Owns all ActivityReport persistence regardless of processor_type (HUMAN, LLM,
     AUTOMATIC). The processor_type is data, not a service boundary.
 
-    Route consumer: progress_feedback_api.py, activity_review_ui.py
+    Route consumer: progress_report_api.py, activity_review_ui.py
     Implementation: ActivityReportService
     """
 
@@ -207,7 +206,7 @@ class ActivityReportOperations(Protocol):
         """Build activity snapshot from pre-built UserContext for admin review. Returns Result[dict]."""
         ...
 
-    async def submit_feedback(
+    async def submit_report(
         self,
         admin_uid: str,
         subject_uid: str,
@@ -258,7 +257,7 @@ class ReviewQueueOperations(Protocol):
     Manages the lightweight ReviewRequest nodes that let users signal they want
     an admin to review their Activity Domain data.
 
-    Route consumer: progress_feedback_api.py (activity-review/request + queue routes)
+    Route consumer: progress_report_api.py (activity-review/request + queue routes)
     Implementation: ReviewQueueService
     """
 
@@ -282,18 +281,18 @@ class ReviewQueueOperations(Protocol):
 
 
 @runtime_checkable
-class FeedbackRelationshipOperations(Protocol):
+class ReportRelationshipOperations(Protocol):
     """Pure-Cypher Level 1 queries for learning loop graph traversal.
 
     Route consumer: context intelligence, learning loop chain API
-    Implementation: FeedbackRelationshipService
+    Implementation: ReportRelationshipService
     """
 
     async def get_pending_submissions(self, user_uid: str) -> Result[list[str]]: ...
     async def get_unsubmitted_exercises(
         self, user_uid: str, limit: int = 5
     ) -> Result[list[dict[str, str | None]]]: ...
-    async def get_feedback_summary(self, user_uid: str) -> Result[dict[str, int]]: ...
+    async def get_report_summary(self, user_uid: str) -> Result[dict[str, int]]: ...
     async def get_learning_loop_chain(self, exercise_uid: str) -> Result[dict[str, Any]]: ...
     async def get_submission_chain(self, submission_uid: str) -> Result[dict[str, Any]]: ...
 
@@ -308,8 +307,8 @@ class TeacherReviewOperations(Protocol):
 
     Route consumer: teaching_api.py (primary), teaching_ui.py
     Implementation: TeacherReviewService
-    Protocol location: feedback_protocols.py (NOT group_protocols.py — this is
-    Phase 4 Feedback infrastructure, not Group management infrastructure)
+    Protocol location: report_protocols.py (NOT group_protocols.py — this is
+    Phase 4 Report infrastructure, not Group management infrastructure)
     """
 
     async def get_review_queue(
@@ -327,20 +326,20 @@ class TeacherReviewOperations(Protocol):
         """Get full submission detail for teacher review (access-checked). Returns Result[dict]."""
         ...
 
-    async def get_feedback_history(
+    async def get_report_history(
         self,
         submission_uid: str,
     ) -> Result[list[dict[str, Any]]]:
-        """Get SUBMISSION_FEEDBACK nodes linked to a submission. Returns Result[list[dict]]."""
+        """Get SUBMISSION_REPORT nodes linked to a submission. Returns Result[list[dict]]."""
         ...
 
-    async def submit_feedback(
+    async def submit_report(
         self,
         report_uid: str,
         teacher_uid: str,
         feedback: str,
     ) -> Result[dict[str, Any]]:
-        """Submit feedback for a student report. Returns Result[dict]."""
+        """Submit report for a student submission. Returns Result[dict]."""
         ...
 
     async def request_revision(

@@ -8,9 +8,9 @@ is_processable, subject_uid on submission subclasses, and converter logic.
 
 from core.models.curriculum import Curriculum
 from core.models.enums.entity_enums import EntityStatus, EntityType
-from core.models.feedback.activity_report import ActivityReport
-from core.models.feedback.submission_feedback import SubmissionFeedback
-from core.models.feedback.submission_feedback_dto import SubmissionFeedbackDTO
+from core.models.report.activity_report import ActivityReport
+from core.models.report.submission_report import SubmissionReport
+from core.models.report.submission_report_dto import SubmissionReportDTO
 from core.models.submissions.submission import Submission
 
 # ============================================================================
@@ -25,19 +25,19 @@ class TestKuTypeEnum:
         assert EntityType.ACTIVITY_REPORT.value == "activity_report"
 
     def test_feedback_report_enum_exists(self):
-        assert EntityType.SUBMISSION_FEEDBACK.value == "submission_feedback"
+        assert EntityType.SUBMISSION_REPORT.value == "submission_feedback"
 
     def test_ai_feedback_display_name(self):
         assert EntityType.ACTIVITY_REPORT.get_display_name() == "Activity Report"
 
     def test_feedback_report_display_name(self):
-        assert EntityType.SUBMISSION_FEEDBACK.get_display_name() == "Submission Feedback"
+        assert EntityType.SUBMISSION_REPORT.get_display_name() == "Submission Report"
 
     def test_ai_feedback_is_processable(self):
         assert EntityType.ACTIVITY_REPORT.is_processable() is True
 
     def test_feedback_report_not_processable(self):
-        assert EntityType.SUBMISSION_FEEDBACK.is_processable() is False
+        assert EntityType.SUBMISSION_REPORT.is_processable() is False
 
     def test_curriculum_not_processable(self):
         assert EntityType.KU.is_processable() is False
@@ -52,12 +52,12 @@ class TestKuTypeEnum:
         assert EntityType.SUBMISSION.is_user_owned() is True
 
     def test_feedback_report_is_user_owned(self):
-        assert EntityType.SUBMISSION_FEEDBACK.is_user_owned() is True
+        assert EntityType.SUBMISSION_REPORT.is_user_owned() is True
 
     def test_is_derived(self):
         assert EntityType.SUBMISSION.is_derived() is True
         assert EntityType.ACTIVITY_REPORT.is_derived() is True
-        assert EntityType.SUBMISSION_FEEDBACK.is_derived() is True
+        assert EntityType.SUBMISSION_REPORT.is_derived() is True
         assert EntityType.KU.is_derived() is False
 
 
@@ -80,10 +80,10 @@ class TestKuSubjectUid:
         assert ku.subject_uid is None
 
     def test_subject_uid_set_explicitly(self):
-        ku = SubmissionFeedback(
+        ku = SubmissionReport(
             uid="ku_test_123",
             title="Midterm Feedback",
-            entity_type=EntityType.SUBMISSION_FEEDBACK,
+            entity_type=EntityType.SUBMISSION_REPORT,
             user_uid="user_teacher",
             status=EntityStatus.COMPLETED,
             subject_uid="user_student",
@@ -101,15 +101,15 @@ class TestKuSubjectUid:
         assert ku.entity_type == EntityType.ACTIVITY_REPORT
 
     def test_is_feedback_report_by_type(self):
-        ku = SubmissionFeedback(
+        ku = SubmissionReport(
             uid="ku_test_123",
             title="Teacher Feedback",
-            entity_type=EntityType.SUBMISSION_FEEDBACK,
+            entity_type=EntityType.SUBMISSION_REPORT,
             user_uid="user_teacher",
             status=EntityStatus.COMPLETED,
             subject_uid="user_student",
         )
-        assert ku.entity_type == EntityType.SUBMISSION_FEEDBACK
+        assert ku.entity_type == EntityType.SUBMISSION_REPORT
 
     def test_is_user_owned(self):
         ku = Submission(
@@ -139,10 +139,10 @@ class TestKuConversions:
     """Test subject_uid roundtrips through DTO conversions."""
 
     def test_to_dto_preserves_subject_uid(self):
-        ku = SubmissionFeedback(
+        ku = SubmissionReport(
             uid="ku_test_123",
             title="Teacher Feedback",
-            entity_type=EntityType.SUBMISSION_FEEDBACK,
+            entity_type=EntityType.SUBMISSION_REPORT,
             user_uid="user_teacher",
             status=EntityStatus.COMPLETED,
             subject_uid="user_student",
@@ -151,15 +151,15 @@ class TestKuConversions:
         assert dto.subject_uid == "user_student"
 
     def test_from_dto_preserves_subject_uid(self):
-        dto = SubmissionFeedbackDTO(
+        dto = SubmissionReportDTO(
             uid="ku_test_123",
             title="Teacher Feedback",
-            entity_type=EntityType.SUBMISSION_FEEDBACK,
+            entity_type=EntityType.SUBMISSION_REPORT,
             user_uid="user_teacher",
             status=EntityStatus.COMPLETED,
             subject_uid="user_student",
         )
-        ku = SubmissionFeedback.from_dto(dto)
+        ku = SubmissionReport.from_dto(dto)
         assert ku.subject_uid == "user_student"
 
     def test_roundtrip_none_subject_uid(self):

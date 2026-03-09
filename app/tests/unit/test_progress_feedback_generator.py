@@ -1,5 +1,5 @@
 """
-Unit Tests for ProgressFeedbackGenerator
+Unit Tests for ProgressReportGenerator
 =====================================
 
 Tests generation flow, content building, time period parsing,
@@ -11,10 +11,10 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from core.constants import FeedbackTimePeriod
+from core.constants import ReportTimePeriod
 from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
-from core.models.feedback.activity_report import ActivityReport
-from core.services.feedback.progress_feedback_generator import ProgressFeedbackGenerator
+from core.models.report.activity_report import ActivityReport
+from core.services.report.progress_report_generator import ProgressReportGenerator
 from core.utils.result_simplified import Result
 
 
@@ -72,8 +72,8 @@ def generator(
     mock_insight_store,
     mock_event_bus,
 ):
-    """Create ProgressFeedbackGenerator with mocked deps."""
-    return ProgressFeedbackGenerator(
+    """Create ProgressReportGenerator with mocked deps."""
+    return ProgressReportGenerator(
         executor=mock_driver,
         activity_report_service=mock_activity_report_service,
         context_builder=mock_context_builder,
@@ -91,16 +91,16 @@ class TestTimePeriodMapping:
     """Test time period string to days mapping."""
 
     def test_7d(self):
-        assert FeedbackTimePeriod.DAYS["7d"] == 7
+        assert ReportTimePeriod.DAYS["7d"] == 7
 
     def test_14d(self):
-        assert FeedbackTimePeriod.DAYS["14d"] == 14
+        assert ReportTimePeriod.DAYS["14d"] == 14
 
     def test_30d(self):
-        assert FeedbackTimePeriod.DAYS["30d"] == 30
+        assert ReportTimePeriod.DAYS["30d"] == 30
 
     def test_90d(self):
-        assert FeedbackTimePeriod.DAYS["90d"] == 90
+        assert ReportTimePeriod.DAYS["90d"] == 90
 
 
 # ============================================================================

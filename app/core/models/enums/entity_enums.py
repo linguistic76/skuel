@@ -45,7 +45,7 @@ class EntityType(str, Enum):
         RESOURCE            → Books, talks, films, music (admin-only)
         REVISED_EXERCISE    → Targeted revision instructions after feedback
         SUBMISSION          → Student-uploaded work (file submissions)
-        SUBMISSION_FEEDBACK → Teacher or AI feedback on a submission
+        SUBMISSION_REPORT   → Teacher or AI report on a submission
         TASK                → Knowledge about what needs doing
 
     Any Article can organize other Articles via ORGANIZES relationships (emergent
@@ -55,7 +55,7 @@ class EntityType(str, Enum):
         A  CURATED      → RESOURCE
         B  CURRICULUM   → ARTICLE, KU, LEARNING_STEP, LEARNING_PATH, EXERCISE, REVISED_EXERCISE
         C  USER_CREATED → Activities (6), SUBMISSION, JOURNAL, LIFE_PATH
-        D  FEEDBACK     → ACTIVITY_REPORT, SUBMISSION_FEEDBACK
+        D  REPORT       → ACTIVITY_REPORT, SUBMISSION_REPORT
 
     Ownership rules:
         Curriculum + Resource: user_uid = None (shared content, admin-created)
@@ -81,7 +81,7 @@ class EntityType(str, Enum):
     JOURNAL = "journal"
     SUBMISSION = "submission"
     ACTIVITY_REPORT = "activity_report"
-    SUBMISSION_FEEDBACK = "submission_feedback"
+    SUBMISSION_REPORT = "submission_feedback"
 
     # Activity (user-owned)
     TASK = "task"
@@ -152,7 +152,7 @@ class EntityType(str, Enum):
             EntityType.JOURNAL,
             EntityType.SUBMISSION,
             EntityType.ACTIVITY_REPORT,
-            EntityType.SUBMISSION_FEEDBACK,
+            EntityType.SUBMISSION_REPORT,
             EntityType.REVISED_EXERCISE,
         }
 
@@ -186,7 +186,7 @@ class EntityType(str, Enum):
             "knowledge" -> KU
             "ls" -> LEARNING_STEP
             "lp" -> LEARNING_PATH
-            "report" -> ACTIVITY_REPORT
+            "submission_report" -> SUBMISSION_REPORT
         """
         normalized = text.strip().lower().replace("-", "_").replace(" ", "_")
         return _ENTITY_TYPE_ALIASES.get(normalized)
@@ -202,7 +202,7 @@ _ENTITY_TYPE_DISPLAY_NAMES: dict[EntityType, str] = {
     EntityType.JOURNAL: "Journal",
     EntityType.SUBMISSION: "Submission",
     EntityType.ACTIVITY_REPORT: "Activity Report",
-    EntityType.SUBMISSION_FEEDBACK: "Submission Feedback",
+    EntityType.SUBMISSION_REPORT: "Submission Report",
     EntityType.TASK: "Task",
     EntityType.GOAL: "Goal",
     EntityType.HABIT: "Habit",
@@ -223,7 +223,7 @@ _CONTENT_PROCESSING_TYPES = frozenset(
         EntityType.JOURNAL,
         EntityType.SUBMISSION,
         EntityType.ACTIVITY_REPORT,
-        EntityType.SUBMISSION_FEEDBACK,
+        EntityType.SUBMISSION_REPORT,
     }
 )
 _ACTIVITY_TYPES = frozenset(
@@ -257,13 +257,13 @@ class ContentOrigin(str, Enum):
         CURATED      (A) → Admin-curated resources, used by Askesis
         CURRICULUM   (B) → Curriculum structure and organization
         USER_CREATED (C) → User-generated content (activities, submissions, journals)
-        FEEDBACK     (D) → Analysis/feedback that acts on user content
+        REPORT       (D) → Reports/assessments that act on user content
     """
 
     CURATED = "curated"
     CURRICULUM = "curriculum"
     USER_CREATED = "user_created"
-    FEEDBACK = "feedback"
+    REPORT = "feedback"
 
 
 _CONTENT_ORIGIN_BY_TYPE: dict[EntityType, ContentOrigin] = {
@@ -286,9 +286,9 @@ _CONTENT_ORIGIN_BY_TYPE: dict[EntityType, ContentOrigin] = {
     EntityType.SUBMISSION: ContentOrigin.USER_CREATED,
     EntityType.JOURNAL: ContentOrigin.USER_CREATED,
     EntityType.LIFE_PATH: ContentOrigin.USER_CREATED,
-    # D — Feedback that acts on user content
-    EntityType.ACTIVITY_REPORT: ContentOrigin.FEEDBACK,
-    EntityType.SUBMISSION_FEEDBACK: ContentOrigin.FEEDBACK,
+    # D — Reports that act on user content
+    EntityType.ACTIVITY_REPORT: ContentOrigin.REPORT,
+    EntityType.SUBMISSION_REPORT: ContentOrigin.REPORT,
 }
 
 _ENTITY_TYPE_ALIASES: dict[str, EntityType] = {
@@ -301,7 +301,8 @@ _ENTITY_TYPE_ALIASES: dict[str, EntityType] = {
     "journal": EntityType.JOURNAL,
     "submission": EntityType.SUBMISSION,
     "activity_report": EntityType.ACTIVITY_REPORT,
-    "submission_feedback": EntityType.SUBMISSION_FEEDBACK,
+    "submission_feedback": EntityType.SUBMISSION_REPORT,  # backward compat
+    "submission_report": EntityType.SUBMISSION_REPORT,
     "task": EntityType.TASK,
     "goal": EntityType.GOAL,
     "habit": EntityType.HABIT,
@@ -320,11 +321,10 @@ _ENTITY_TYPE_ALIASES: dict[str, EntityType] = {
     "step": EntityType.LEARNING_STEP,
     "lp": EntityType.LEARNING_PATH,
     "path": EntityType.LEARNING_PATH,
-    "report": EntityType.ACTIVITY_REPORT,
     "exercise": EntityType.EXERCISE,
     "revised_exercise": EntityType.REVISED_EXERCISE,
     "assignment": EntityType.EXERCISE,
-    "feedback": EntityType.SUBMISSION_FEEDBACK,
+    "feedback": EntityType.SUBMISSION_REPORT,
     "revised_ex": EntityType.REVISED_EXERCISE,
     "lifepath": EntityType.LIFE_PATH,
 }
@@ -665,7 +665,7 @@ _VALID_STATUSES_BY_TYPE: dict[EntityType, frozenset[EntityStatus]] = {
             EntityStatus.ARCHIVED,
         }
     ),
-    EntityType.SUBMISSION_FEEDBACK: frozenset(
+    EntityType.SUBMISSION_REPORT: frozenset(
         {
             EntityStatus.DRAFT,
             EntityStatus.COMPLETED,
@@ -763,7 +763,7 @@ _DEFAULT_STATUS_BY_TYPE: dict[EntityType, EntityStatus] = {
     EntityType.JOURNAL: EntityStatus.DRAFT,
     EntityType.SUBMISSION: EntityStatus.DRAFT,
     EntityType.ACTIVITY_REPORT: EntityStatus.DRAFT,
-    EntityType.SUBMISSION_FEEDBACK: EntityStatus.DRAFT,
+    EntityType.SUBMISSION_REPORT: EntityStatus.DRAFT,
     EntityType.TASK: EntityStatus.DRAFT,
     EntityType.GOAL: EntityStatus.DRAFT,
     EntityType.HABIT: EntityStatus.ACTIVE,

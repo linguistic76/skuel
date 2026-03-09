@@ -2,7 +2,7 @@
 Unit Tests for Feedback Notification Handler
 ==============================================
 
-Tests that FeedbackSubmitted, SubmissionApproved, and SubmissionRevisionRequested
+Tests that ReportSubmitted, SubmissionApproved, and SubmissionRevisionRequested
 events create the correct notifications via NotificationService.
 """
 
@@ -11,13 +11,13 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from core.events.handlers.feedback_notification_handler import (
-    handle_feedback_submitted,
+from core.events.handlers.report_notification_handler import (
+    handle_report_submitted,
     handle_revision_requested,
     handle_submission_approved,
 )
 from core.events.submission_events import (
-    FeedbackSubmitted,
+    ReportSubmitted,
     SubmissionApproved,
     SubmissionRevisionRequested,
 )
@@ -38,17 +38,17 @@ def mock_notification_service():
 
 
 @pytest.mark.asyncio
-async def test_handle_feedback_submitted_creates_notification(mock_notification_service):
+async def test_handle_report_submitted_creates_notification(mock_notification_service):
     """Should create a feedback_received notification pointing to the feedback entity."""
-    event = FeedbackSubmitted(
+    event = ReportSubmitted(
         submission_uid="ku_submission_123",
         teacher_uid="user_teacher",
         student_uid="user_student",
-        feedback_uid="ku_feedback_456",
+        report_uid="ku_feedback_456",
         occurred_at=datetime.now(),
     )
 
-    await handle_feedback_submitted(event, notification_service=mock_notification_service)
+    await handle_report_submitted(event, notification_service=mock_notification_service)
 
     mock_notification_service.create_notification.assert_called_once_with(
         user_uid="user_student",
@@ -61,17 +61,17 @@ async def test_handle_feedback_submitted_creates_notification(mock_notification_
 
 
 @pytest.mark.asyncio
-async def test_handle_feedback_submitted_skips_when_no_student(mock_notification_service):
+async def test_handle_report_submitted_skips_when_no_student(mock_notification_service):
     """Should skip notification when student_uid is empty."""
-    event = FeedbackSubmitted(
+    event = ReportSubmitted(
         submission_uid="ku_submission_123",
         teacher_uid="user_teacher",
         student_uid="",
-        feedback_uid="ku_feedback_456",
+        report_uid="ku_feedback_456",
         occurred_at=datetime.now(),
     )
 
-    await handle_feedback_submitted(event, notification_service=mock_notification_service)
+    await handle_report_submitted(event, notification_service=mock_notification_service)
 
     mock_notification_service.create_notification.assert_not_called()
 
@@ -151,7 +151,7 @@ async def test_handle_revision_requested_creates_notification(mock_notification_
         student_uid="user_student",
         occurred_at=datetime.now(),
         revision_notes="Please add more detail to section 2.",
-        metadata={"feedback_uid": "ku_feedback_789"},
+        metadata={"report_uid": "ku_feedback_789"},
     )
 
     await handle_revision_requested(event, notification_service=mock_notification_service)

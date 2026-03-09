@@ -37,7 +37,7 @@ class TestVerifyTeacherAuthority:
 
         result = await service._verify_teacher_authority(
             teacher_uid="user_teacher",
-            feedback_uid="fb_123",
+            report_uid="fb_123",
             student_uid="user_student",
         )
 
@@ -52,7 +52,7 @@ class TestVerifyTeacherAuthority:
 
         result = await service._verify_teacher_authority(
             teacher_uid="user_teacher",
-            feedback_uid="fb_123",
+            report_uid="fb_123",
             student_uid="user_student",
         )
 
@@ -70,7 +70,7 @@ class TestVerifyTeacherAuthority:
 
         result = await service._verify_teacher_authority(
             teacher_uid="user_teacher",
-            feedback_uid="fb_123",
+            report_uid="fb_123",
             student_uid="user_student",
         )
 
@@ -89,7 +89,7 @@ class TestCreateRevisedExerciseAccessControl:
         result = await service.create_revised_exercise(
             teacher_uid="user_teacher",
             original_exercise_uid="ex_123",
-            feedback_uid="fb_123",
+            report_uid="fb_123",
             student_uid="user_student",
             instructions="Please revise section 2",
         )
@@ -120,7 +120,7 @@ class TestCreateRevisedExerciseAccessControl:
         result = await service.create_revised_exercise(
             teacher_uid="user_teacher",
             original_exercise_uid="ex_123",
-            feedback_uid="fb_123",
+            report_uid="fb_123",
             student_uid="user_student",
             instructions="Please revise section 2",
         )
@@ -144,7 +144,7 @@ class TestCreateRevisedExerciseAccessControl:
         await service.create_revised_exercise(
             teacher_uid="user_teacher",
             original_exercise_uid="ex_123",
-            feedback_uid="fb_123",
+            report_uid="fb_123",
             student_uid="user_student",
             instructions="Please revise section 2",
         )

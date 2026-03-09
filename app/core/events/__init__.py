@@ -183,7 +183,7 @@ from core.events.principle_events import (
 # Submission events
 from core.events.submission_events import (
     AssessmentCreated,
-    FeedbackSubmitted,
+    ReportSubmitted,
     RevisedExerciseCreated,
     SubmissionApproved,
     SubmissionCreated,
@@ -222,7 +222,7 @@ from core.events.user_events import (
 __all__ = [
     # Submission events
     "AssessmentCreated",
-    "FeedbackSubmitted",
+    "ReportSubmitted",
     "RevisedExerciseCreated",
     "SubmissionApproved",
     "SubmissionCreated",
@@ -346,7 +346,7 @@ EVENT_REGISTRY: dict[str, type[BaseEvent]] = {
     "submission.processing_completed": SubmissionProcessingCompleted,
     "submission.processing_failed": SubmissionProcessingFailed,
     "submission.deleted": SubmissionDeleted,
-    "submission.feedback_submitted": FeedbackSubmitted,
+    "submission.report_submitted": ReportSubmitted,
     "submission.approved": SubmissionApproved,
     "submission.assessment_created": AssessmentCreated,
     "submission.revision_requested": SubmissionRevisionRequested,
@@ -531,7 +531,7 @@ SUBMISSION_EVENTS = [
     SubmissionProcessingCompleted,
     SubmissionProcessingFailed,
     SubmissionDeleted,
-    FeedbackSubmitted,
+    ReportSubmitted,
     SubmissionApproved,
     AssessmentCreated,
     SubmissionRevisionRequested,

@@ -18,10 +18,10 @@ from typing import Any
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
-logger = get_logger("skuel.background.progress_feedback")
+logger = get_logger("skuel.background.progress_report")
 
 
-class ProgressFeedbackWorker:
+class ProgressReportWorker:
     """
     Background worker that checks for due report schedules and generates progress reports.
 
@@ -33,7 +33,7 @@ class ProgressFeedbackWorker:
     def __init__(
         self,
         schedule_service: Any,  # ReportScheduleService
-        progress_generator: Any,  # ProgressFeedbackGenerator
+        progress_generator: Any,  # ProgressReportGenerator
         check_interval_seconds: int = 3600,
     ) -> None:
         self.schedule_service = schedule_service

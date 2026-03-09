@@ -3,7 +3,7 @@ Revised Exercises API - Five-Phase Learning Loop
 ==================================================
 
 API routes for RevisedExercise CRUD operations. Teachers create revised
-exercises in response to SubmissionFeedback to guide student revisions.
+exercises in response to SubmissionReport to guide student revisions.
 """
 
 from typing import TYPE_CHECKING, Any
@@ -57,7 +57,7 @@ def create_revised_exercises_api_routes(
         return await revised_exercise_service.create_revised_exercise(
             teacher_uid=teacher_uid,
             original_exercise_uid=req.original_exercise_uid,
-            feedback_uid=req.feedback_uid,
+            report_uid=req.report_uid,
             student_uid=req.student_uid,
             instructions=req.instructions,
             title=req.title,

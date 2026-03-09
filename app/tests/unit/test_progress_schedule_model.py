@@ -195,7 +195,7 @@ class TestComputeNextDueAt:
     """Test schedule date computation logic."""
 
     def test_weekly_next_due(self):
-        from core.services.feedback.progress_schedule_service import ProgressScheduleService
+        from core.services.report.progress_schedule_service import ProgressScheduleService
 
         next_due = ProgressScheduleService.compute_next_due_at(ScheduleType.WEEKLY, day_of_week=0)
         # Should be within 7 days
@@ -204,7 +204,7 @@ class TestComputeNextDueAt:
         assert next_due.weekday() == 0  # Monday
 
     def test_biweekly_next_due(self):
-        from core.services.feedback.progress_schedule_service import ProgressScheduleService
+        from core.services.report.progress_schedule_service import ProgressScheduleService
 
         next_due = ProgressScheduleService.compute_next_due_at(ScheduleType.BIWEEKLY, day_of_week=3)
         # Should be within 14 days
@@ -213,7 +213,7 @@ class TestComputeNextDueAt:
         assert next_due.weekday() == 3  # Thursday
 
     def test_monthly_next_due(self):
-        from core.services.feedback.progress_schedule_service import ProgressScheduleService
+        from core.services.report.progress_schedule_service import ProgressScheduleService
 
         next_due = ProgressScheduleService.compute_next_due_at(ScheduleType.MONTHLY, day_of_week=5)
         # Should be at least 28 days away

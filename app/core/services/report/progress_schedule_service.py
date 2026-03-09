@@ -9,7 +9,7 @@ Manages recurring progress Ku generation schedules.
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
-from core.constants import FeedbackTimePeriod
+from core.constants import ReportTimePeriod
 from core.models.enums.submissions_enums import ScheduleType
 from core.models.submissions.ku_schedule import (
     KuSchedule,
@@ -145,7 +145,7 @@ class ProgressScheduleService:
                 RETURN s
                 ORDER BY s.next_due_at ASC
                 """,
-                {"min_interval_hours": FeedbackTimePeriod.MIN_AUTO_REPORT_INTERVAL_HOURS},
+                {"min_interval_hours": ReportTimePeriod.MIN_AUTO_REPORT_INTERVAL_HOURS},
             )
             if result.is_error:
                 return Result.fail(result.expect_error())

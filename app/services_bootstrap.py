@@ -118,7 +118,7 @@ if TYPE_CHECKING:
     from core.services.article_service import ArticleService
     from core.services.askesis_ai_service import AskesisAIService
     from core.services.background.embedding_worker import EmbeddingBackgroundWorker
-    from core.services.background.progress_feedback_worker import ProgressFeedbackWorker
+    from core.services.background.progress_report_worker import ProgressReportWorker
     from core.services.calendar_optimization_service import CalendarOptimizationService
 
     # Facade services — concrete class IS the contract (no parallel protocol needed)
@@ -127,10 +127,10 @@ if TYPE_CHECKING:
     from core.services.context_aware_ai_service import ContextAwareAIService
     from core.services.cross_domain_queries import CrossDomainQueries
     from core.services.events_service import EventsService
-    from core.services.feedback.activity_report_service import ActivityReportService
-    from core.services.feedback.progress_feedback_generator import ProgressFeedbackGenerator
-    from core.services.feedback.progress_schedule_service import ProgressScheduleService
-    from core.services.feedback.review_queue_service import ReviewQueueService
+    from core.services.report.activity_report_service import ActivityReportService
+    from core.services.report.progress_report_generator import ProgressReportGenerator
+    from core.services.report.progress_schedule_service import ProgressScheduleService
+    from core.services.report.review_queue_service import ReviewQueueService
     from core.services.goals_service import GoalsService
     from core.services.habits_service import HabitsService
     from core.services.insight.insight_store import InsightStore
@@ -162,8 +162,8 @@ from core.ports import (
     # Infrastructure
     EventBusOperations,
     ExerciseOperations,
-    # Submission + SubmissionFeedback protocols
-    FeedbackOperations,
+    # Submission + SubmissionReport protocols
+    SubmissionReportOperations,
     FinancesOperations,
     GoalTaskGeneratorOperations,
     GraphAuthOperations,
@@ -242,8 +242,8 @@ class Services:
     content_enrichment: "ContentEnrichmentService | None" = None
     transcription: "TranscriptionService | None" = None
 
-    # Reports feedback services (LLM-based processing)
-    feedback: FeedbackOperations | None = None  # FeedbackService - LLM feedback on report content
+    # Report services (LLM-based processing)
+    submission_report: SubmissionReportOperations | None = None  # SubmissionReportService - LLM report on submission content
     exercises: ExerciseOperations | None = (
         None  # ExerciseService - Reusable LLM instruction templates
     )
@@ -392,10 +392,10 @@ class Services:
 
     # Background workers (January 2026)
     embedding_worker: "EmbeddingBackgroundWorker | None" = None
-    progress_feedback_worker: "ProgressFeedbackWorker | None" = None
+    progress_report_worker: "ProgressReportWorker | None" = None
 
     # Progress report generation (February 2026)
-    progress_feedback_generator: "ProgressFeedbackGenerator | None" = None
+    progress_report_generator: "ProgressReportGenerator | None" = None
     progress_schedule: "ProgressScheduleService | None" = None
 
     # Activity report + review queue (March 2026 refactor: ActivityReviewService split)
@@ -1219,7 +1219,7 @@ async def compose_services(
         submissions_backend = SubmissionsBackend(
             driver, NeoLabel.ENTITY, Submission, prometheus_metrics=prometheus_metrics
         )
-        from core.models.feedback.activity_report import ActivityReport
+        from core.models.report.activity_report import ActivityReport
 
         # Dedicated backend for ActivityReport (activity-level feedback — no file fields)
         ai_feedback_backend = UniversalNeo4jBackend[ActivityReport](
@@ -1667,19 +1667,19 @@ async def compose_services(
         )
         logger.info("✅ Content enrichment service created")
 
-        # Create Reports feedback and exercise services
+        # Create report and exercise services
         from adapters.persistence.neo4j.domain_backends import ExerciseBackend
         from core.models.exercises.exercise import Exercise
         from core.services.exercises import ExerciseService
-        from core.services.feedback import FeedbackService
+        from core.services.report import SubmissionReportService
 
-        # FeedbackService: None in CORE tier — feedback generation requires AI
-        feedback_service = None
+        # SubmissionReportService: None in CORE tier — report generation requires AI
+        submission_report_service = None
         if ai_service:
-            feedback_service = FeedbackService(
+            submission_report_service = SubmissionReportService(
                 openai_service=ai_service,
                 anthropic_service=None,  # Only OpenAI configured for now
-                executor=query_executor,  # Creates SUBMISSION_FEEDBACK entity + FEEDBACK_FOR relationship
+                executor=query_executor,  # Creates SUBMISSION_REPORT entity + REPORT_FOR relationship
                 ku_interaction_service=learning_services[
                     "article_service"
                 ].mastery,  # Closes mastery loop
@@ -1694,7 +1694,7 @@ async def compose_services(
         )
 
         exercise_service = ExerciseService(backend=exercise_backend)
-        logger.info("✅ Reports feedback and exercise services created")
+        logger.info("✅ Report and exercise services created")
 
         # Create revised exercise service (five-phase learning loop)
         from adapters.persistence.neo4j.domain_backends import RevisedExerciseBackend
@@ -1728,7 +1728,7 @@ async def compose_services(
         logger.info("✅ GroupService created (ADR-040)")
 
         # Create teacher review service (ADR-040: Teacher Assignment Workflow)
-        from core.services.feedback.teacher_review_service import TeacherReviewService
+        from core.services.report.teacher_review_service import TeacherReviewService
 
         teacher_review_service = TeacherReviewService(
             executor=query_executor,
@@ -1863,8 +1863,8 @@ async def compose_services(
 
         # Create progress report generator and schedule service
         from core.models.submissions.ku_schedule import KuSchedule
-        from core.services.feedback.progress_feedback_generator import ProgressFeedbackGenerator
-        from core.services.feedback.progress_schedule_service import ProgressScheduleService
+        from core.services.report.progress_report_generator import ProgressReportGenerator
+        from core.services.report.progress_schedule_service import ProgressScheduleService
 
         progress_schedule_backend = UniversalNeo4jBackend[KuSchedule](
             driver, NeoLabel.KU_SCHEDULE, KuSchedule, prometheus_metrics=prometheus_metrics
@@ -1872,8 +1872,8 @@ async def compose_services(
         progress_schedule_service = ProgressScheduleService(backend=progress_schedule_backend)
 
         # Create ActivityReportService (processor-neutral ActivityReport CRUD)
-        from core.services.feedback.activity_report_service import ActivityReportService
-        from core.services.feedback.review_queue_service import ReviewQueueService
+        from core.services.report.activity_report_service import ActivityReportService
+        from core.services.report.review_queue_service import ReviewQueueService
 
         activity_report_service = ActivityReportService(
             backend=ai_feedback_backend,
@@ -1883,7 +1883,7 @@ async def compose_services(
         review_queue_service = ReviewQueueService(executor=query_executor)
         logger.info("✅ ActivityReportService + ReviewQueueService created")
 
-        progress_generator = ProgressFeedbackGenerator(
+        progress_generator = ProgressReportGenerator(
             executor=query_executor,
             activity_report_service=activity_report_service,
             context_builder=context_builder,
@@ -1893,10 +1893,10 @@ async def compose_services(
         )
 
         # Create progress report background worker (February 2026)
-        # Worker checks hourly for due schedules and generates AI_FEEDBACK Entity nodes
-        from core.services.background.progress_feedback_worker import ProgressFeedbackWorker
+        # Worker checks hourly for due schedules and generates ActivityReport Entity nodes
+        from core.services.background.progress_report_worker import ProgressReportWorker
 
-        progress_feedback_worker = ProgressFeedbackWorker(
+        progress_report_worker = ProgressReportWorker(
             schedule_service=progress_schedule_service,
             progress_generator=progress_generator,
             check_interval_seconds=3600,  # Hourly check
@@ -2182,20 +2182,20 @@ async def compose_services(
             "(automatic FULFILLS_EXERCISE + SHARES_WITH creation)"
         )
 
-        # Subscribe to feedback events for student notifications
-        from core.events.handlers.feedback_notification_handler import (
-            handle_feedback_submitted,
+        # Subscribe to report events for student notifications
+        from core.events.handlers.report_notification_handler import (
+            handle_report_submitted,
             handle_revision_requested,
             handle_submission_approved,
         )
         from core.events.submission_events import (
-            FeedbackSubmitted,
+            ReportSubmitted,
             SubmissionApproved,
             SubmissionRevisionRequested,
         )
 
-        feedback_submitted_handler = functools.partial(
-            handle_feedback_submitted,
+        report_submitted_handler = functools.partial(
+            handle_report_submitted,
             notification_service=notification_service,
         )
         submission_approved_handler = functools.partial(
@@ -2206,11 +2206,11 @@ async def compose_services(
             handle_revision_requested,
             notification_service=notification_service,
         )
-        event_bus.subscribe(FeedbackSubmitted, feedback_submitted_handler)
+        event_bus.subscribe(ReportSubmitted, report_submitted_handler)
         event_bus.subscribe(SubmissionApproved, submission_approved_handler)
         event_bus.subscribe(SubmissionRevisionRequested, revision_requested_handler)
         logger.info(
-            "✅ SubmissionFeedback notification handlers subscribed to FeedbackSubmitted + "
+            "SubmissionReport notification handlers subscribed to ReportSubmitted + "
             "SubmissionApproved + SubmissionRevisionRequested (student notifications)"
         )
 
@@ -2523,7 +2523,7 @@ async def compose_services(
             cross_domain=learning_services["cross_domain"],
             # Content
             content_enrichment=content_enrichment,
-            feedback=feedback_service,  # LLM feedback on submissions/journals
+            submission_report=submission_report_service,  # LLM report on submissions/journals
             exercises=exercise_service,  # Reusable LLM instruction templates
             revised_exercises=revised_exercise_service,  # Five-phase learning loop revisions
             journal_generator=journal_generator,  # je_output formatting and disk storage
@@ -2539,8 +2539,8 @@ async def compose_services(
             sharing=unified_sharing_service,  # Cross-domain sharing and visibility control
             submissions_processor=submissions_processor,
             submissions_search=submissions_search_service,  # Unified submission queries
-            # Progress feedback (February 2026)
-            progress_feedback_generator=progress_generator,
+            # Progress report (February 2026)
+            progress_report_generator=progress_generator,
             progress_schedule=progress_schedule_service,
             # Activity report + review queue (March 2026 refactor)
             activity_report=activity_report_service,
@@ -2580,7 +2580,7 @@ async def compose_services(
             vector_search_service=vector_search_service,
             # Background workers (January 2026)
             embedding_worker=embedding_worker,
-            progress_feedback_worker=progress_feedback_worker,
+            progress_report_worker=progress_report_worker,
             # Analytics
             analytics=analytics_service,
             cross_domain_analytics=advanced["cross_domain_analytics"],
@@ -2617,7 +2617,7 @@ async def compose_services(
         # - Temporal Domain (1): Calendar
 
         from core.services.analytics_relationship_service import AnalyticsRelationshipService
-        from core.services.feedback import FeedbackRelationshipService
+        from core.services.report import ReportRelationshipService
         from core.services.submissions import SubmissionsRelationshipService
         from core.services.user.intelligence import UserContextIntelligenceFactory
 
@@ -2627,10 +2627,10 @@ async def compose_services(
         submissions_relationship_service = SubmissionsRelationshipService(
             backend=submissions_backend
         )
-        feedback_relationship_service = FeedbackRelationshipService(backend=submissions_backend)
+        report_relationship_service = ReportRelationshipService(backend=submissions_backend)
         analytics_relationship_service = AnalyticsRelationshipService(driver)
         logger.info(
-            "✅ Processing domain relationship services created (Submissions, Feedback, Analytics)"
+            "✅ Processing domain relationship services created (Submissions, Report, Analytics)"
         )
 
         # ========================================================================
@@ -2675,7 +2675,7 @@ async def compose_services(
             ].relationships,  # Factory expects 'lp' parameter name
             # Processing Domains (3)
             submissions=submissions_relationship_service,  # SubmissionsRelationshipService
-            feedback=feedback_relationship_service,  # FeedbackRelationshipService
+            feedback=report_relationship_service,  # ReportRelationshipService
             analytics=analytics_relationship_service,  # AnalyticsRelationshipService
             # Temporal Domain (1)
             calendar=calendar_service,

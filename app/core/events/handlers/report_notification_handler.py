@@ -1,12 +1,12 @@
 """
-Feedback Notification Handler
+Report Notification Handler
 ==============================
 
 Creates Notification nodes when teachers provide feedback or request revisions.
 
 Two distinct teacher actions produce two distinct student notifications:
 
-  FeedbackSubmitted   → "New feedback on your submission"
+  ReportSubmitted     → "New feedback on your submission"
   SubmissionApproved  → "Your submission was approved"
                         + "You mastered N knowledge units!" when mastered_ku_count > 0
 
@@ -16,29 +16,29 @@ See: /docs/architecture/SUBMISSION_FEEDBACK_LOOP.md
 """
 
 from core.events.submission_events import (
-    FeedbackSubmitted,
+    ReportSubmitted,
     SubmissionApproved,
     SubmissionRevisionRequested,
 )
 from core.utils.logging import get_logger
 
-logger = get_logger("skuel.events.feedback_notification_handler")
+logger = get_logger("skuel.events.report_notification_handler")
 
 
-async def handle_feedback_submitted(
-    event: FeedbackSubmitted,
+async def handle_report_submitted(
+    event: ReportSubmitted,
     notification_service: object,
 ) -> None:
     """
     Create notification when teacher submits written feedback on a submission.
 
     Args:
-        event: FeedbackSubmitted event (submission_uid, teacher_uid, student_uid, feedback_uid)
+        event: ReportSubmitted event (submission_uid, teacher_uid, student_uid, report_uid)
         notification_service: NotificationService instance (injected via functools.partial)
     """
     if not event.student_uid:
         logger.debug(
-            f"No student_uid on FeedbackSubmitted for {event.submission_uid}, skipping notification"
+            f"No student_uid on ReportSubmitted for {event.submission_uid}, skipping notification"
         )
         return
 
@@ -47,7 +47,7 @@ async def handle_feedback_submitted(
         notification_type="feedback_received",
         title="New feedback on your submission",
         message="Your teacher reviewed your submission and left feedback.",
-        source_uid=event.feedback_uid,
+        source_uid=event.report_uid,
         source_type="submission_feedback",
     )
 
@@ -131,11 +131,11 @@ async def handle_revision_requested(
         )
         return
 
-    feedback_uid = ""
+    report_uid = ""
     if event.metadata:
-        feedback_uid = event.metadata.get("feedback_uid", "")
+        report_uid = event.metadata.get("report_uid", "")
 
-    source_uid = feedback_uid or event.submission_uid
+    source_uid = report_uid or event.submission_uid
 
     result = await notification_service.create_notification(  # type: ignore[attr-defined]
         user_uid=event.student_uid,

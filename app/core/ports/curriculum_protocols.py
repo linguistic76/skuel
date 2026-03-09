@@ -1101,7 +1101,7 @@ class RevisedExerciseOperations(Protocol):
     """Revised exercise operations for the five-phase learning loop.
 
     RevisedExercise is a UserOwnedEntity (teacher-owned, student-targeted)
-    that provides targeted revision instructions after SubmissionFeedback.
+    that provides targeted revision instructions after SubmissionReport.
 
     Route consumer: revised_exercises_api.py
     Implementation: RevisedExerciseService
@@ -1111,7 +1111,7 @@ class RevisedExerciseOperations(Protocol):
         self,
         teacher_uid: str,
         original_exercise_uid: str,
-        feedback_uid: str,
+        report_uid: str,
         student_uid: str,
         instructions: str,
         title: str | None = None,

@@ -277,8 +277,8 @@ class RelationshipName(str, Enum):
     # (Entity)-[:SHARED_WITH_GROUP {shared_at, share_version}]->(Group) - Group-level sharing
     SHARED_WITH_GROUP = "SHARED_WITH_GROUP"
     # Revision cycle (5-phase learning loop)
-    # (RevisedExercise)-[:RESPONDS_TO_FEEDBACK]->(SubmissionFeedback)
-    RESPONDS_TO_FEEDBACK = "RESPONDS_TO_FEEDBACK"
+    # (RevisedExercise)-[:RESPONDS_TO_REPORT]->(SubmissionReport)
+    RESPONDS_TO_REPORT = "RESPONDS_TO_FEEDBACK"
     # (RevisedExercise)-[:REVISES_EXERCISE]->(Exercise)
     REVISES_EXERCISE = "REVISES_EXERCISE"
 
@@ -291,8 +291,8 @@ class RelationshipName(str, Enum):
     ASSESSMENT_OF = (
         "ASSESSMENT_OF"  # (Report)-[:ASSESSMENT_OF]->(User) - Teacher assessment targets student
     )
-    FEEDBACK_FOR = (
-        "FEEDBACK_FOR"  # (Entity)-[:FEEDBACK_FOR]->(Entity) - Teacher feedback targets submission
+    REPORT_FOR = (
+        "FEEDBACK_FOR"  # (Entity)-[:REPORT_FOR]->(Entity) - Report targets submission
     )
 
     # =========================================================================

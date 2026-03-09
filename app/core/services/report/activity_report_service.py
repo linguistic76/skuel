@@ -6,9 +6,9 @@ Processor-neutral CRUD for ActivityReport entities. Owns all ActivityReport
 persistence regardless of who authored it — human admin or AI.
 
 Three creation paths all converge here:
-    Admin-written:   submit_feedback() → ProcessorType.HUMAN
-    AI-generated:    persist() called by ProgressFeedbackGenerator → ProcessorType.LLM / AUTOMATIC
-    Scheduled:       persist() called by ProgressFeedbackWorker → ProcessorType.AUTOMATIC
+    Admin-written:   submit_report() → ProcessorType.HUMAN
+    AI-generated:    persist() called by ProgressReportGenerator → ProcessorType.LLM / AUTOMATIC
+    Scheduled:       persist() called by ProgressReportWorker → ProcessorType.AUTOMATIC
 
 Review queue management (ReviewRequest nodes) lives in ReviewQueueService.
 
@@ -24,15 +24,15 @@ if TYPE_CHECKING:
     from core.services.user.unified_user_context import UserContext
     from core.services.user.user_context_builder import UserContextBuilder
 
-from core.constants import FeedbackTimePeriod
+from core.constants import ReportTimePeriod
 from core.events import publish_event
 from core.events.submission_events import ActivitySnapshotAccessed
 from core.models.enums.entity_enums import ProcessorType
-from core.models.feedback.activity_report import ActivityReport
+from core.models.report.activity_report import ActivityReport
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
-logger = get_logger("skuel.services.feedback.activity_report")
+logger = get_logger("skuel.services.report.activity_report")
 
 
 class ActivityReportService:
@@ -40,7 +40,7 @@ class ActivityReportService:
     Processor-neutral CRUD for ActivityReport entities.
 
     Owns all ActivityReport persistence — the processor_type field (HUMAN, LLM,
-    AUTOMATIC) is data, not a service boundary. Both admin-written feedback and
+    AUTOMATIC) is data, not a service boundary. Both admin-written reports and
     AI-generated reports are stored via this service.
 
     ReviewRequest queue management lives in ReviewQueueService.
@@ -62,7 +62,7 @@ class ActivityReportService:
         """
         Persist an already-constructed ActivityReport entity.
 
-        Called by ProgressFeedbackGenerator after report construction so that
+        Called by ProgressReportGenerator after report construction so that
         persistence is owned by this service, not the orchestration layer.
 
         Args:
@@ -100,7 +100,7 @@ class ActivityReportService:
             Result[dict] — snapshot data with per-domain activity summaries
         """
         subject_uid = context.user_uid
-        days = FeedbackTimePeriod.DAYS.get(time_period, FeedbackTimePeriod.DEFAULT_DAYS)
+        days = ReportTimePeriod.DAYS.get(time_period, ReportTimePeriod.DEFAULT_DAYS)
         end_date = datetime.now()
         start_date = end_date - timedelta(days=days)
 
@@ -272,7 +272,7 @@ class ActivityReportService:
 
         return Result.ok(snapshot)
 
-    async def submit_feedback(
+    async def submit_report(
         self,
         admin_uid: str,
         subject_uid: str,
@@ -292,17 +292,17 @@ class ActivityReportService:
         See ADR-042 (Privacy as First-Class Citizen).
 
         Args:
-            admin_uid: Admin user creating the feedback
+            admin_uid: Admin user creating the report
             subject_uid: User whose activity was reviewed
-            feedback_text: Admin's written assessment
+            feedback_text: Admin's written report
             time_period: Time window reviewed (7d, 14d, 30d, 90d)
             domains: Domains covered in the review
             snapshot_context: Optional snapshot data to store in metadata
 
         Returns:
-            Result[ActivityReport] — the created feedback entity
+            Result[ActivityReport] — the created report entity
         """
-        days = FeedbackTimePeriod.DAYS.get(time_period, FeedbackTimePeriod.DEFAULT_DAYS)
+        days = ReportTimePeriod.DAYS.get(time_period, ReportTimePeriod.DEFAULT_DAYS)
         end_date = datetime.now()
         start_date = end_date - timedelta(days=days)
 
@@ -335,8 +335,8 @@ class ActivityReportService:
             return Result.ok(feedback)
 
         except Exception as e:
-            logger.error(f"Failed to submit activity feedback: {e}")
-            return Result.fail(Errors.system(f"Failed to submit activity feedback: {e}"))
+            logger.error(f"Failed to submit activity report: {e}")
+            return Result.fail(Errors.system(f"Failed to submit activity report: {e}"))
 
     async def get_history(
         self,
@@ -350,7 +350,7 @@ class ActivityReportService:
         feedback for the given user.
 
         Args:
-            subject_uid: User to retrieve feedback for
+            subject_uid: User to retrieve reports for
             limit: Maximum number of results
 
         Returns:

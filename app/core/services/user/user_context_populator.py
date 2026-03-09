@@ -485,7 +485,7 @@ class UserContextPopulator:
                 "title": rev.get("title", "Revision"),
                 "instructions": rev.get("instructions"),
                 "original_exercise_uid": rev.get("original_exercise_uid"),
-                "feedback_uid": rev.get("feedback_uid"),
+                "report_uid": rev.get("report_uid"),
                 "revision_number": rev.get("revision_number", 1),
                 "created_at": str(rev["created_at"]) if rev.get("created_at") else None,
             }
