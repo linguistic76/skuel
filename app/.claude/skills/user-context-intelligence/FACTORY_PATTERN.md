@@ -79,7 +79,7 @@ class UserContextIntelligenceFactory:
         lp: UnifiedRelationshipService,
         # Processing (3)
         submissions: SubmissionsRelationshipService,
-        feedback: FeedbackRelationshipService,
+        report: ReportRelationshipService,
         analytics: AnalyticsRelationshipService,
         # Temporal Domain (1)
         calendar: CalendarService,
@@ -100,7 +100,7 @@ class UserContextIntelligenceFactory:
             "ls": ls,
             "lp": lp,
             "submissions": submissions,
-            "feedback": feedback,
+            "report": report,
             "analytics": analytics,
             "calendar": calendar,
         }
@@ -124,7 +124,7 @@ class UserContextIntelligenceFactory:
         self._lp = lp
         # Processing domains (3)
         self._submissions = submissions
-        self._feedback = feedback
+        self._report = report
         self._analytics = analytics
         # Temporal domain (1)
         self._calendar = calendar
@@ -149,7 +149,7 @@ class UserContextIntelligenceFactory:
             lp=self._lp,
             # Processing domains (3)
             submissions=self._submissions,
-            feedback=self._feedback,
+            report=self._report,
             analytics=self._analytics,
             # Temporal domain (1)
             calendar=self._calendar,
@@ -186,7 +186,7 @@ async def compose_services(neo4j_driver, event_bus=None) -> Result[Services]:
         lp=lp_service.relationships,   # UnifiedRelationshipService
         # Processing (3)
         submissions=submissions_relationship_service,
-        feedback=feedback_relationship_service,
+        report=report_relationship_service,
         analytics=analytics_relationship_service,
         # Temporal Domain (1)
         calendar=calendar_service,
@@ -293,7 +293,7 @@ def mock_factory():
         ls=MagicMock(),
         lp=MagicMock(),
         submissions=MagicMock(),
-        feedback=MagicMock(),
+        report=MagicMock(),
         analytics=MagicMock(),
         calendar=MagicMock(),
     )

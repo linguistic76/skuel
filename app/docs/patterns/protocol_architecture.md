@@ -82,7 +82,7 @@ core/ports/
 ├── curriculum_protocols.py            # KU, LS, LP operations (4 protocols)
 ├── domain_protocols.py                # Activity domain operations (9 protocols)
 ├── email_protocols.py                 # Email service protocol
-├── feedback_protocols.py              # Feedback stage (5 protocols)
+├── report_protocols.py                # Report stage (5 protocols)
 ├── graph_protocols.py                 # Graph entity protocols
 ├── group_protocols.py                 # Group & teaching (2 protocols)
 ├── infrastructure_protocols.py        # EventBus, User, Ingestion (6 protocols)
@@ -106,7 +106,7 @@ core/ports/
 | **Intelligence** | `intelligence_protocols.py` | Analytics and intelligence operations | 1 |
 | **Askesis** | `askesis_protocols.py` | Cross-cutting intelligence + CRUD | 6 |
 | **Submission** | `submission_protocols.py` | Submission CRUD, processing, sharing, search | 4 |
-| **Feedback** | `feedback_protocols.py` | Human + AI feedback, progress reports, scheduling | 3 |
+| **Report** | `report_protocols.py` | Human + AI reports, progress reports, scheduling | 3 |
 | **Groups** | `group_protocols.py` | Group CRUD, teacher review queue | 2 |
 | **Services** | `service_protocols.py` | Calendar, Viz, System, LifePath, Auth, Orchestration | 9 |
 | **Context Awareness** | `context_awareness_protocols.py` | ISP slices of UserContext — ZPD, Askesis, intelligence | 11 |
@@ -375,7 +375,7 @@ class Services:
 |------|-----------|---------|
 | `submission_protocols.py` | 3 | SubmissionOperations, SubmissionProcessingOperations, SubmissionSearchOperations |
 | `sharing_protocols.py` | 1 | SharingOperations — entity-agnostic SHARES_WITH + SHARED_WITH_GROUP management |
-| `feedback_protocols.py` | 5 | FeedbackOperations (human + AI unified), ProgressFeedbackOperations, ProgressScheduleOperations, ActivityReviewOperations, TeacherReviewOperations |
+| `report_protocols.py` | 5 | SubmissionReportOperations (human + AI unified), ProgressReportOperations, ProgressScheduleOperations, ActivityReviewOperations, TeacherReviewOperations |
 | `group_protocols.py` | 1 | GroupOperations (9 methods) |
 | `service_protocols.py` | 9 | CalendarService, Visualization, System, CrossDomainAnalytics, LifePath+Alignment, GraphAuth, GoalTaskGenerator, HabitEventScheduler |
 

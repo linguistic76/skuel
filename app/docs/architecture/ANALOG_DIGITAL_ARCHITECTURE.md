@@ -49,7 +49,7 @@ The test suite runs 1966 tests without any API mocking for AI services. Services
 | **Intelligence** | UserContextIntelligence — daily planning, life path alignment, schedule-aware recommendations |
 | **Relationships** | Lateral relationships, ORGANIZES hierarchy, SERVES_LIFE_PATH |
 | **Ingestion** | Markdown/YAML -> Neo4j pipeline with chunking (chunks stored, not embedded) |
-| **Learning Loop** | Article -> Exercise -> Submission -> Feedback -> RevisedExercise (manual feedback) |
+| **Learning Loop** | Article -> Exercise -> Submission -> Report -> RevisedExercise (manual feedback) |
 | **Calendar** | Schedule aggregation across Tasks, Events, Habits, Goals |
 
 ### Digital Layer (opt-in, requires `INTELLIGENCE_TIER=full`)
@@ -59,7 +59,7 @@ The test suite runs 1966 tests without any API mocking for AI services. Services
 | **Embeddings** | 1536-dim vectors on 13 entity types | Semantic representation of content |
 | **Vector Search** | Hybrid search (keyword + vector + RRF) | "Find similar" across domains |
 | **Askesis** | Socratic AI companion, ZPD-aware | Personalized learning dialogue |
-| **Feedback** | AI-generated SubmissionFeedback | Automated assessment |
+| **Reports** | AI-generated SubmissionReport | Automated assessment |
 | **Journals** | Voice transcription + AI analysis | Audio-to-text processing |
 | **Content Enrichment** | Quality analysis, complexity scoring | Automated content metadata |
 | **12 AI Services** | Domain-specific BaseAIService instances | Per-domain AI capabilities |

@@ -35,7 +35,7 @@ All domain entities use **multi-label architecture**: every entity gets `:Entity
 | Submissions | `Submission` | `ku_{slug}_{random}` | `ku_my-essay_abc123` |
 | Journals | `Journal` | `ku_{slug}_{random}` | |
 | Activity Reports | `ActivityReport` | `ku_{slug}_{random}` | |
-| Submission Feedback | `SubmissionFeedback` | `ku_{slug}_{random}` | |
+| Submission Report | `SubmissionReport` | `ku_{slug}_{random}` | |
 | **Destination** | | | |
 | Life Path | `LifePath` | `lp_{random}` | `lp_abc123` |
 | **Other** | | | |

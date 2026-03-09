@@ -259,7 +259,7 @@ relationships = await find_cross_domain(
 ### 6. Feedback Time Periods (`FeedbackTimePeriod`)
 
 Valid time period strings for activity feedback and review — shared vocabulary
-used by `ActivityReportService` and `ProgressFeedbackGenerator`:
+used by `ActivityReportService` and `ProgressReportGenerator`:
 
 | Constant | Value | Purpose |
 |----------|-------|---------|

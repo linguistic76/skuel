@@ -91,7 +91,7 @@ UserContextIntelligence = UserContext + 13 Domain Services
 | Service | Attribute | Purpose |
 |---------|-----------|---------|
 | Submissions | `self.submissions` | Student work relationship graph — FOLLOWS, RELATED_TO, SUPPORTS_GOAL (`SubmissionsRelationshipService`) |
-| Feedback | `self.feedback` | Feedback loop graph queries — pending submissions, completion rate (`FeedbackRelationshipService`) |
+| Report | `self.report` | Report loop graph queries — pending submissions, completion rate (`ReportRelationshipService`) |
 | Analytics | `self.analytics` | Cross-domain analytics (`AnalyticsRelationshipService`) |
 
 > **Processing Domain Status (March 2026)**
@@ -100,7 +100,7 @@ UserContextIntelligence = UserContext + 13 Domain Services
 > |---------|--------|
 > | `self.submissions` | Wired, not called (cross-domain submission state planned) |
 > | `self.analytics` | Wired, not called (cross-domain pattern queries planned) |
-> | `self.feedback` | Wired. Exercise data now flows via MEGA-QUERY → `context.unsubmitted_exercises` (Priority 2.5) and `context.pending_revised_exercises` (Priority 2.3). Daily planning reads both fields directly. |
+> | `self.report` | Wired. Exercise data now flows via MEGA-QUERY → `context.unsubmitted_exercises` (Priority 2.5) and `context.pending_revised_exercises` (Priority 2.3). Daily planning reads both fields directly. |
 
 ### Temporal Domain (1)
 
@@ -208,7 +208,7 @@ class DailyWorkPlan:
 **`build_rich()` optional `window` parameter:** Passing `window="7d"` (or `"14d"`,
 `"30d"`, `"90d"`) includes completed entities touched within the window in `context.entities_rich`
 alongside active entities. Used by **both** intelligence methods and feedback services
-(`ProgressFeedbackGenerator`, `ActivityReportService`). Default `window="30d"` always
+(`ProgressReportGenerator`, `ActivityReportService`). Default `window="30d"` always
 provides the standard 30-day window.
 
 **Submission & feedback stats (March 2026):** `build_rich()` now populates 11 fields via `populate_submission_stats()`: submission counts, feedback tracking, `unsubmitted_exercises`, and `pending_revised_exercises`. `DailyPlanningMixin` reads `context.pending_revised_exercises` at Priority 2.3 (teacher revision feedback) and `context.unsubmitted_exercises` at Priority 2.5 (assigned exercises).
@@ -226,7 +226,7 @@ context = await builder.build_rich(user_uid)
 intelligence = factory.create(context)
 plan = await intelligence.get_ready_to_work_on_today()
 
-# ✅ For feedback generation (ProgressFeedbackGenerator, ActivityReportService)
+# ✅ For report generation (ProgressReportGenerator, ActivityReportService)
 context = await builder.build_rich(user_uid, time_period="7d")
 # context.activity_rich populated; active_*_rich unchanged
 ```
@@ -252,7 +252,7 @@ UserContextIntelligence (Level 1)
 └── ScheduleIntelligenceMixin     → Pure Cypher: calendar + capacity scoring
 ```
 
-All 13 required services are Level 1. `SubmissionsRelationshipService`, `FeedbackRelationshipService`, and `AnalyticsRelationshipService` are pure Cypher — no LLM required.
+All 13 required services are Level 1. `SubmissionsRelationshipService`, `ReportRelationshipService`, and `AnalyticsRelationshipService` are pure Cypher — no LLM required.
 
 ### Level 2 — AI Enhancement (Optional)
 
@@ -267,7 +267,7 @@ tasks_ai_service.py            ← Level 2: BaseAIService (optional, requires LL
 
 ### Why the Processing Domains Are Wired But Not Called
 
-`self.submissions`, `self.feedback`, and `self.analytics` are Level 1 services stored on the instance. The mixin methods that CALL them have not been written yet — the architecture is established, the implementation is next.
+`self.submissions`, `self.report`, and `self.analytics` are Level 1 services stored on the instance. The mixin methods that CALL them have not been written yet — the architecture is established, the implementation is next.
 
 This is by design. The slot reservation ensures future implementation is a fill-in, not a redesign.
 
@@ -302,7 +302,7 @@ factory = UserContextIntelligenceFactory(
     lp=lp_service.relationships,
     # Processing Domains (3)
     submissions=submissions_relationship_service,
-    feedback=feedback_relationship_service,
+    report=report_relationship_service,
     analytics=analytics_relationship_service,
     # Temporal Domain (1)
     calendar=calendar_service,
@@ -343,7 +343,7 @@ async def get_ready_to_work_on_today(
     Currently synthesizes 10 of 13 wired domains:
     - Activity (6): tasks, habits, goals, events, choices, principles
     - Curriculum (3): ku, ls, lp
-    - Submissions Domain (1): self.feedback — Priority 2.5: unsubmitted exercises
+    - Submissions Domain (1): self.report — Priority 2.5: unsubmitted exercises
 
     Processing Domains (2): wired, not yet called
     - self.submissions: cross-domain submission state (planned)
@@ -681,7 +681,7 @@ intelligence = factory.create(context)
 | `/core/services/user/intelligence/synergy_intelligence.py` | Method 6 |
 | `/core/services/user/intelligence/schedule_intelligence.py` | Method 8 |
 | `/core/services/submissions/submissions_relationship_service.py` | Level 1 — submission graph queries |
-| `/core/services/feedback/feedback_relationship_service.py` | Level 1 — feedback loop graph queries |
+| `/core/services/report/report_relationship_service.py` | Level 1 — report loop graph queries |
 | `/core/services/analytics_relationship_service.py` | Level 1 — cross-domain analytics queries |
 | `/core/services/relationships/_domain_planning_mixin.py` | 6 domain-specific planning methods called by DailyPlanningMixin on URS instances |
 | `/docs/intelligence/USER_CONTEXT_INTELLIGENCE.md` | Documentation |

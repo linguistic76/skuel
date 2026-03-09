@@ -205,7 +205,7 @@ Teachers drive the loop from the other side:
 2. **Assign work** — Set an Exercise's scope to Assigned, choose a due date, and target a Group (classroom). Students see it automatically.
 
 3. **Review submissions** — Your review queue shows pending student work. For each submission, you can:
-   - Write feedback (creates a SubmissionFeedback record)
+   - Write feedback (creates a SubmissionReport record)
    - Request revision (student resubmits)
    - Approve (loop closes)
 

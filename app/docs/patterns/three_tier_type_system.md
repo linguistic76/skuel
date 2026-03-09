@@ -174,7 +174,7 @@ Entity (~19 fields)
 ├── UserOwnedEntity(Entity) +2 fields (user_uid, priority)
 │   ├── Task, Goal, Habit, Event, Choice, Principle
 │   ├── ActivityReport                           (activity feedback — no file fields)
-│   ├── Submission → Journal, SubmissionFeedback
+│   ├── Submission → Journal, SubmissionReport
 │   └── LifePath
 ├── Curriculum(Entity) +21 fields → LearningStep, LearningPath, Exercise
 └── Resource(Entity) +7 fields
@@ -186,7 +186,7 @@ Entity (~19 fields)
 EntityDTO (~18 fields)
 ├── UserOwnedDTO(EntityDTO) +3 fields → TaskDTO, GoalDTO, HabitDTO, EventDTO, ChoiceDTO, PrincipleDTO, LifePathDTO
 ├── UserOwnedDTO → ActivityReportDTO              (activity feedback — no file fields)
-├── UserOwnedDTO → SubmissionDTO → JournalDTO, SubmissionFeedbackDTO
+├── UserOwnedDTO → SubmissionDTO → JournalDTO, SubmissionReportDTO
 ├── CurriculumDTO(EntityDTO) → LearningStepDTO, LearningPathDTO, ExerciseDTO
 └── ResourceDTO(EntityDTO)
 ```
@@ -220,7 +220,7 @@ core/models/ku/                    # Domain models (Tier 3) + DTOs (Tier 2)
 ├── submission.py / submission_dto.py # Submission base
 ├── journal.py / journal_dto.py    # Journal(Submission)
 ├── activity_report.py / activity_report_dto.py # ActivityReport(UserOwnedEntity) — no file fields
-├── submission_feedback.py / submission_feedback_dto.py  # SubmissionFeedback(Submission)
+├── submission_report.py / submission_report_dto.py  # SubmissionReport(Submission)
 ├── curriculum.py / curriculum_dto.py # Curriculum base
 ├── learning_step.py / learning_step_dto.py # LearningStep(Curriculum)
 ├── learning_path.py / learning_path_dto.py # LearningPath(Curriculum)
@@ -567,7 +567,7 @@ As of February 2026 (domain-first architecture complete):
 - All 6 Activity domains: Task, Goal, Habit, Event, Choice, Principle (extend `UserOwnedEntity`)
 - All 3 Curriculum domains: LearningStep, LearningPath, Exercise (extend `Curriculum`)
 - Resource domain (extends `Entity`)
-- Submissions: Submission, Journal, SubmissionFeedback (extend `Submission(UserOwnedEntity)`)
+- Submissions: Submission, Journal, SubmissionReport (extend `Submission(UserOwnedEntity)`)
 - Feedback: ActivityReport (extends `UserOwnedEntity` directly — no file fields)
 - LifePath (extends `UserOwnedEntity`)
 - Each domain has a corresponding per-domain DTO (e.g., `TaskDTO`, `GoalDTO`)

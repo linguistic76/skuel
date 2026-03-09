@@ -84,7 +84,7 @@ Each item follows the proven pattern: add method to `*IntelligenceService`, subs
 
 1. **Mastery decay model (exponential + review reset)** — `UserKnowledgeMastery` has `retention_score` but nothing degrades it over time. Implement exponential decay: `retention = e^(-λt)` where `t` is time since last review and `λ` is the decay constant. Each successful review resets the clock and *decreases* `λ` (longer retention after repeated reviews — the core spaced repetition insight). Constants for `LearningLoop`: `MASTERY_DECAY_LAMBDA_INITIAL`, `MASTERY_DECAY_LAMBDA_MIN`, `MASTERY_DECAY_REVIEW_FACTOR`.
 
-2. **Submission-driven mastery updates** — When a submission receives feedback, update the mastery score on the related KU. Good feedback → mastery increases. Revision needed → mastery decreases. Wire: `SubmissionFeedback` creation → mastery adjustment.
+2. **Submission-driven mastery updates** — When a submission receives feedback, update the mastery score on the related KU. Good feedback → mastery increases. Revision needed → mastery decreases. Wire: `SubmissionReport` creation → mastery adjustment.
 
 3. **Exercise effectiveness tracking** — Aggregate submission outcomes per Exercise. Exercises where students consistently struggle → flag for curriculum review. Store `exercise_success_rate` on Exercise node.
 

@@ -56,7 +56,7 @@ Reports is the primary user-facing interface for all content submissions and sys
 
 | Component | Location |
 |-----------|----------|
-| **Service Package** | `/core/services/submissions/ + core/services/feedback/` |
+| **Service Package** | `/core/services/submissions/ + core/services/report/` |
 | Submission Service | `submissions_service.py` |
 | Processing Service | `submissions_processing_service.py` |
 | Core Service | `submissions_core_service.py` (includes assessment CRUD) |
@@ -80,7 +80,7 @@ Reports is the primary user-facing interface for all content submissions and sys
 | Assignments API | `assignments_api.py` |
 | Assignments Routes | `assignments_routes.py` |
 | Journals UI | `journals_ui.py` |
-| **Protocols** | `/core/ports/submission_protocols.py` (4 protocols), `/core/ports/feedback_protocols.py` (3 protocols) |
+| **Protocols** | `/core/ports/submission_protocols.py` (4 protocols), `/core/ports/report_protocols.py` (3 protocols) |
 
 ## Model Fields
 

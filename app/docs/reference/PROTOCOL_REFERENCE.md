@@ -37,7 +37,7 @@ related: [ADR-025, ADR-027]
 | **Curriculum Protocols** | `/core/ports/curriculum_protocols.py` | KU, LS, LP, MOC operations |
 | **Askesis Protocols** | `/core/ports/askesis_protocols.py` | Cross-cutting intelligence + CRUD |
 | **Submission Protocols** | `/core/ports/submission_protocols.py` | Submission CRUD, processing, sharing, search |
-| **Feedback Protocols** | `/core/ports/feedback_protocols.py` | Human + AI feedback, progress reports, scheduling, teacher review |
+| **Report Protocols** | `/core/ports/report_protocols.py` | Human + AI reports, progress reports, scheduling, teacher review |
 | **Group Protocols** | `/core/ports/group_protocols.py` | Group CRUD only |
 | **Service Protocols** | `/core/ports/service_protocols.py` | Calendar, Viz, System, LifePath, Auth, Orchestration |
 | **Search Protocols** | `/core/ports/search_protocols.py` | Search operations |
@@ -439,9 +439,9 @@ These protocols replace `Any` types on the `Services` dataclass fields, giving r
 
 | File | Protocols | Route Consumers |
 |------|-----------|-----------------|
-| `submission_protocols.py` | 3 protocols | `submissions_api.py`, `progress_feedback_api.py` |
+| `submission_protocols.py` | 3 protocols | `submissions_api.py`, `progress_report_api.py` |
 | `sharing_protocols.py` | 1 protocol | `submissions_sharing_api.py` |
-| `feedback_protocols.py` | 5 protocols | `exercises_api.py`, `feedback_assessment_api.py`, `progress_feedback_api.py`, `teaching_api.py` |
+| `report_protocols.py` | 5 protocols | `exercises_api.py`, `submission_report_api.py`, `progress_report_api.py`, `teaching_api.py` |
 | `group_protocols.py` | 1 protocol | `groups_api.py` |
 | `service_protocols.py` | 10 protocols | `orchestration_routes.py`, `calendar_api.py`, `visualization_api.py`, `system_api.py`, `lifepath_api.py`, `auth_ui.py`, `admin_api.py`, `lateral_routes.py` |
 
@@ -453,7 +453,7 @@ Map to the **Submission** stage of the educational loop (`Ku → Exercise → Su
 
 | Protocol | Services Field | Methods | Route Consumer |
 |----------|---------------|---------|----------------|
-| `SubmissionOperations` | `submissions`, `submissions_core` | submit_file, list_submissions, get_file_content, get_processed_file_content, update_processed_content, categorize, tags, bulk ops | `submissions_api.py`, `feedback_assessment_api.py` |
+| `SubmissionOperations` | `submissions`, `submissions_core` | submit_file, list_submissions, get_file_content, get_processed_file_content, update_processed_content, categorize, tags, bulk ops | `submissions_api.py`, `submission_report_api.py` |
 | `SubmissionProcessingOperations` | `submissions_processor` | 2 (process_submission, reprocess_submission) | `submissions_api.py` |
 | `SubmissionSearchOperations` | `submissions_search` | 4 (search_submissions, get_submission_statistics, get_recent_submissions, get_journal_for_submission) | `submissions_api.py` |
 
@@ -465,28 +465,28 @@ Entity-agnostic sharing. `UnifiedSharingService` implements this protocol and wo
 |----------|---------------|---------|----------------|
 | `SharingOperations` | `sharing` | share, unshare, get_shared_with, get_shared_with_me, set_visibility, check_access, verify_shareable, share_with_group, unshare_from_group, get_groups_shared_with, get_shared_with_me_via_groups (11 methods) | `submissions_sharing_api.py` |
 
-### Feedback Protocols (3) — `feedback_protocols.py`
+### Report Protocols (3) — `report_protocols.py`
 
-Map to the **Feedback** stage of the educational loop. `processor_type` discriminates source: `HUMAN` (teacher/admin), `LLM` (AI via Exercise or on-demand), `AUTOMATIC` (scheduled).
+Map to the **Report** stage of the educational loop. `processor_type` discriminates source: `HUMAN` (teacher/admin), `LLM` (AI via Exercise or on-demand), `AUTOMATIC` (scheduled).
 
 | Protocol | Services Field | Methods | Route Consumer |
 |----------|---------------|---------|----------------|
-| `FeedbackOperations` | `feedback`, `submissions_core` | generate_feedback (→ `SUBMISSION_FEEDBACK`, `LLM`), create_assessment (→ `SUBMISSION_FEEDBACK`, `HUMAN`), get_assessments_for_student, get_assessments_by_teacher | `exercises_api.py`, `feedback_assessment_api.py` |
-| `ProgressFeedbackOperations` | `progress_feedback_generator` | 1 (generate → `ACTIVITY_REPORT` entity, `LLM` or `AUTOMATIC`) | `progress_feedback_api.py` |
-| `ProgressScheduleOperations` | `progress_schedule` | 4 (create_schedule, get_user_schedule, update_schedule, deactivate_schedule) | `progress_feedback_api.py` |
-| `ActivityReportOperations` | `activity_report` | 6 (create_snapshot, submit_feedback → `ACTIVITY_REPORT` `HUMAN`, get_history, annotate, get_annotation, get_privacy_summary) | `progress_feedback_api.py` |
+| `SubmissionReportOperations` | `submission_report`, `submissions_core` | generate_report (→ `SUBMISSION_FEEDBACK`, `LLM`), create_assessment (→ `SUBMISSION_FEEDBACK`, `HUMAN`), get_assessments_for_student, get_assessments_by_teacher | `exercises_api.py`, `submission_report_api.py` |
+| `ProgressReportOperations` | `progress_report_generator` | 1 (generate → `ACTIVITY_REPORT` entity, `LLM` or `AUTOMATIC`) | `progress_report_api.py` |
+| `ProgressScheduleOperations` | `progress_schedule` | 4 (create_schedule, get_user_schedule, update_schedule, deactivate_schedule) | `progress_report_api.py` |
+| `ActivityReportOperations` | `activity_report` | 6 (create_snapshot, submit_report → `ACTIVITY_REPORT` `HUMAN`, get_history, annotate, get_annotation, get_privacy_summary) | `progress_report_api.py` |
 
-**Why `FeedbackOperations` unifies human + AI feedback:**
-`TeacherReviewService.create_assessment()` (processor_type=HUMAN) and `FeedbackService.generate_feedback()` (processor_type=LLM) both create `SUBMISSION_FEEDBACK` entities linked via `FEEDBACK_FOR`. The protocol captures what routes need regardless of which processor created it.
+**Why `SubmissionReportOperations` unifies human + AI reports:**
+`TeacherReviewService.create_assessment()` (processor_type=HUMAN) and `SubmissionReportService.generate_report()` (processor_type=LLM) both create `SUBMISSION_FEEDBACK` entities linked via `FEEDBACK_FOR`. The protocol captures what routes need regardless of which processor created it.
 
-**Note on `AssignmentOperations`:** `AssignmentOperations` remains in `curriculum_protocols.py` — Assignments are curriculum entities (Exercise scope=assigned), not feedback.
+**Note on `AssignmentOperations`:** `AssignmentOperations` remains in `curriculum_protocols.py` — Assignments are curriculum entities (Exercise scope=assigned), not reports.
 
 ### Group & Teaching Protocols (2)
 
 | Protocol | Services Field | Methods | Route Consumer |
 |----------|---------------|---------|----------------|
 | `GroupOperations` | `group_service` | 9 (create, get, list_teacher, list_user, update, delete, add/remove member, get_members) | `groups_api.py` |
-| `TeacherReviewOperations` | `teacher_review` | 13 (review queue, submission detail, feedback history, submit/request/approve, exercises, students, dashboard, classes) | `teaching_api.py` — in `feedback_protocols.py` |
+| `TeacherReviewOperations` | `teacher_review` | 13 (review queue, submission detail, feedback history, submit/request/approve, exercises, students, dashboard, classes) | `teaching_api.py` — in `report_protocols.py` |
 
 ### Cross-Cutting Service Protocols (9)
 
@@ -568,7 +568,7 @@ Every field on the `Services` dataclass is typed — zero `Any` fields remain. T
 class Services:
     # Route-facing: ISP protocols (19 fields)
     reports: SubmissionOperations | None = None          # was ReportsSubmissionOperations
-    report_feedback: FeedbackOperations | None = None    # was ReportsFeedbackOperations
+    report_feedback: SubmissionReportOperations | None = None    # was ReportsFeedbackOperations
     calendar: CalendarServiceOperations | None = None
     graph_auth: GraphAuthOperations | None = None
 

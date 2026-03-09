@@ -5,7 +5,7 @@ description: >
   Use when adding a new LLM prompt, editing existing templates, or understanding
   how PROMPT_REGISTRY connects services to templates.
   TRIGGER when: implementing any LLM-powered feature, working on Askesis prompts,
-  editing ProgressFeedbackGenerator, JournalOutputGenerator, LLMDSLBridgeService,
+  editing ProgressReportGenerator, JournalOutputGenerator, LLMDSLBridgeService,
   or when asked "where do prompts live?"
 allowed-tools: Read, Grep, Glob
 ---
@@ -33,7 +33,7 @@ template = PROMPT_REGISTRY.get("activity_feedback")
 
 Before `core/prompts/` (March 2026), prompts lived in three places:
 
-- **File-per-service** — `core/services/feedback/prompts/`, `core/services/submissions/journal_prompts/`
+- **File-per-service** — `core/services/report/prompts/`, `core/services/submissions/journal_prompts/`
 - **Inline string constants** — `DOMAIN_RECOGNITION_PROMPT` in `llm_dsl_bridge.py` (141 lines)
 - **Hardcoded system prompt bug** — `OpenAIService` always sent "formats journal transcripts"
 
@@ -73,7 +73,7 @@ programming error, not a domain failure.
 
 | Template ID | Consumers | Placeholders |
 |-------------|-----------|--------------|
-| `activity_feedback` | `ProgressFeedbackGenerator._build_llm_prompt()` | `{time_period}`, `{depth}`, `{stats_json}`, `{insights_section}` |
+| `activity_feedback` | `ProgressReportGenerator._build_llm_prompt()` | `{time_period}`, `{depth}`, `{stats_json}`, `{insights_section}` |
 | `journal_activity` | `JournalOutputGenerator._format_activity()` | `{content}` |
 | `journal_articulation` | `JournalOutputGenerator._format_articulation()` | `{content}` |
 | `journal_exploration` | `JournalOutputGenerator._format_exploration()` | `{content}` |

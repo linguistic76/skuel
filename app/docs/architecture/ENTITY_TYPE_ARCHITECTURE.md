@@ -38,7 +38,7 @@ SKUEL is a **knowledge-centric productivity platform** where every operation con
 | Submission | Student-uploaded work | User-owned |
 | Journal | Reflective writing (voice/text) | User-owned |
 | ActivityReport | Feedback about activity patterns over time | User-owned |
-| SubmissionFeedback | Assessment tied to a specific submission | User-owned |
+| SubmissionReport | Assessment tied to a specific submission | User-owned |
 | LifePath | The user's life direction | User-owned |
 
 **Cross-Cutting Systems (5)**: UserContext, Search, Calendar, Askesis, Messaging (planned)
@@ -102,7 +102,7 @@ Entity (~18 fields: uid, entity_type, title, description, status, tags, ...)
 |   +-- Task, Goal, Habit, Event, Choice, Principle
 |   +-- LifePath
 |   +-- ActivityReport                           (no file fields)
-|   +-- Submission -> Journal, SubmissionFeedback
+|   +-- Submission -> Journal, SubmissionReport
 +-- Curriculum(Entity) +21 fields (base class only)
 |   +-- Article(Curriculum), LearningStep, LearningPath, Exercise
 +-- Ku(Entity) — atomic knowledge unit
@@ -115,7 +115,7 @@ Entity (~18 fields: uid, entity_type, title, description, status, tags, ...)
 EntityDTO (~18 fields)
 +-- UserOwnedDTO(EntityDTO) +3 -> TaskDTO, GoalDTO, HabitDTO, EventDTO, ChoiceDTO, PrincipleDTO
 +-- UserOwnedDTO -> ActivityReportDTO              (no file fields)
-+-- UserOwnedDTO -> SubmissionDTO -> JournalDTO, SubmissionFeedbackDTO
++-- UserOwnedDTO -> SubmissionDTO -> JournalDTO, SubmissionReportDTO
 +-- CurriculumDTO(EntityDTO) -> ArticleDTO, LearningStepDTO, LearningPathDTO, ExerciseDTO
 +-- KuDTO(EntityDTO)
 +-- ResourceDTO(EntityDTO)
@@ -134,7 +134,7 @@ Every entity node gets two labels: `:Entity` (universal) + type-specific (`:Task
 | `:Entity` (universal — all entity nodes) |
 | `:Task`, `:Goal`, `:Habit`, `:Event`, `:Choice`, `:Principle` |
 | `:Curriculum`, `:Resource`, `:LearningStep`, `:LearningPath` |
-| `:Submission`, `:Journal`, `:ActivityReport`, `:SubmissionFeedback` |
+| `:Submission`, `:Journal`, `:ActivityReport`, `:SubmissionReport` |
 | `:Exercise` |
 | `:LifePath` |
 
@@ -160,7 +160,7 @@ Each entity type is a peer — no hierarchy of categories. Behavioral traits (no
 | Trait | Method | What It Determines |
 |-------|--------|--------------------|
 | **Ownership** | `requires_user_uid()` | User-owned vs shared (admin-created) |
-| **Content Origin** | `content_origin()` | Where content comes from (4 tiers: Curated, Curriculum, User-Created, Feedback) |
+| **Content Origin** | `content_origin()` | Where content comes from (4 tiers: Curated, Curriculum, User-Created, Report) |
 | **Processable** | `is_processable()` | Goes through a processing pipeline |
 | **Derived** | `is_derived()` | Has parent in derivation chain |
 | **Activity** | `is_activity()` | Shares Activity infrastructure (factory, facade, sub-services) |
@@ -199,7 +199,7 @@ Educational foundation. Article extends `Curriculum(Entity)`. Ku extends `Entity
 
 ### Resource — Curated External Content
 
-Pointers to external content (books, talks, films) that Askesis can recommend. Resource extends `Entity` directly (+7 fields). Admin-created, publicly readable via `ContentScope.SHARED`. Resource is NOT curriculum — it does not participate in the `Article → Exercise → Submission → Feedback → RevisedExercise` loop. Its `ContentOrigin` is `CURATED` (tier A), distinct from curriculum's `CURRICULUM` (tier B).
+Pointers to external content (books, talks, films) that Askesis can recommend. Resource extends `Entity` directly (+7 fields). Admin-created, publicly readable via `ContentScope.SHARED`. Resource is NOT curriculum — it does not participate in the `Article → Exercise → Submission → Report → RevisedExercise` loop. Its `ContentOrigin` is `CURATED` (tier A), distinct from curriculum's `CURRICULUM` (tier B).
 
 **Two paths to knowledge (Montessori-inspired):**
 - **LS Path**: Structured, linear, teacher-directed (Article -> LS -> LP)
@@ -239,35 +239,35 @@ LpService (facade) — 5 sub-services via create_lp_sub_services()
 
 **See:** `/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md`
 
-### Submission, Journal, SubmissionFeedback, ActivityReport — Content Processing
+### Submission, Journal, SubmissionReport, ActivityReport — Content Processing
 
-The educational loop: `Article -> Exercise -> Submission -> Feedback -> RevisedExercise -> ...`. Activity entity types are equal entry points via `ACTIVITY_REPORT`.
+The educational loop: `Article -> Exercise -> Submission -> Report -> RevisedExercise -> ...`. Activity entity types are equal entry points via `ACTIVITY_REPORT`.
 
 | EntityType | Inherits | ProcessorType | Description |
 |------------|---------|---------------|-------------|
 | `SUBMISSION` | `Submission(UserOwnedEntity)` | `HUMAN` or `LLM` | Student work against an Exercise |
 | `JOURNAL` | `Submission(UserOwnedEntity)` | `LLM` | AI-processed reflective writing |
-| `SUBMISSION_FEEDBACK` | `Submission(UserOwnedEntity)` | `HUMAN` or `LLM` | Assessment tied to a submission via `subject_uid` |
+| `SUBMISSION_REPORT` | `Submission(UserOwnedEntity)` | `HUMAN` or `LLM` | Assessment tied to a submission via `subject_uid` |
 | `ACTIVITY_REPORT` | `UserOwnedEntity` **directly** | `AUTOMATIC`, `LLM`, or `HUMAN` | Activity-level feedback (no file fields; covers a time window) |
 
 `ACTIVITY_REPORT` does NOT inherit from `Submission` — no file fields. It responds to aggregate activity patterns over a time period, not to a specific artifact.
 
 **Services split:**
 - `core/services/submissions/` — `ActivityReportService`, `ReviewQueueService`, student work pipeline
-- `core/services/feedback/` — `FeedbackService`, `ProgressFeedbackGenerator`, `ProgressScheduleService`
+- `core/services/report/` — `SubmissionReportService`, `ProgressReportGenerator`, `ProgressScheduleService`
 
 **See:** `/docs/architecture/FEEDBACK_ARCHITECTURE.md`
 
 ### RevisedExercise — Five-Phase Learning Loop
 
-Teacher-created revision of an Exercise that addresses specific `SubmissionFeedback` gaps. Extends `UserOwnedEntity` (NOT Curriculum — needs `user_uid` but not 21 Curriculum fields). First entity type combining `ContentOrigin.CURRICULUM` with `requires_user_uid()=True`.
+Teacher-created revision of an Exercise that addresses specific `SubmissionReport` gaps. Extends `UserOwnedEntity` (NOT Curriculum — needs `user_uid` but not 21 Curriculum fields). First entity type combining `ContentOrigin.CURRICULUM` with `requires_user_uid()=True`.
 
 | EntityType | Inherits | Description |
 |------------|---------|-------------|
 | `REVISED_EXERCISE` | `UserOwnedEntity` | Teacher's revised instructions targeting a specific student |
 
 **Graph relationships:**
-- `RESPONDS_TO_FEEDBACK` → SubmissionFeedback (what feedback this addresses)
+- `RESPONDS_TO_REPORT` → SubmissionReport (what report this addresses)
 - `REVISES_EXERCISE` → Exercise (what exercise this revises)
 - `FULFILLS_EXERCISE` ← Submission (student submits against this)
 
@@ -442,7 +442,7 @@ Full taxonomy: 70+ typed relationship names in `RelationshipName` enum (`core/mo
 | Document | What it covers |
 |----------|---------------|
 | [UNIFIED_USER_ARCHITECTURE.md](UNIFIED_USER_ARCHITECTURE.md) | User model, auth, roles, UserContext (~240 fields) |
-| [FEEDBACK_ARCHITECTURE.md](FEEDBACK_ARCHITECTURE.md) | ActivityReport, SubmissionFeedback, all feedback types |
+| [FEEDBACK_ARCHITECTURE.md](FEEDBACK_ARCHITECTURE.md) | ActivityReport, SubmissionReport, all report types |
 | [RELATIONSHIPS_ARCHITECTURE.md](RELATIONSHIPS_ARCHITECTURE.md) | UnifiedRelationshipService, relationship taxonomy |
 | [CURRICULUM_GROUPING_PATTERNS.md](CURRICULUM_GROUPING_PATTERNS.md) | KU/LS/LP/MOC patterns |
 | [ANALYTICS_ARCHITECTURE.md](ANALYTICS_ARCHITECTURE.md) | Analytics meta-service |

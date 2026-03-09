@@ -44,7 +44,7 @@ Everything in CORE, plus:
 
 | Feature | Service |
 |---------|---------|
-| LLM-powered feedback generation | FeedbackService |
+| LLM-powered report generation | SubmissionReportService |
 | AI content processing (journals, transcripts) | ContentEnrichmentService |
 | Embedding generation for semantic search | Neo4jGenAIEmbeddingsService |
 | Vector + hybrid search (70% vector, 30% keyword) | Neo4jVectorSearchService |
@@ -96,7 +96,7 @@ Three service groups are gated:
 
 1. **Embeddings** — `Neo4jGenAIEmbeddingsService` + `Neo4jVectorSearchService` — skipped in CORE
 2. **LLM** — `LLMService` — skipped in CORE
-3. **OpenAI** — `OpenAIService`, `FeedbackService`, `JournalOutputGenerator` — skipped in CORE
+3. **OpenAI** — `OpenAIService`, `SubmissionReportService`, `JournalOutputGenerator` — skipped in CORE
 
 Services that depend on these (12 AI intelligence services, embedding background worker, etc.) are automatically skipped when their dependencies are `None`.
 

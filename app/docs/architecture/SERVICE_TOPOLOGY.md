@@ -65,7 +65,7 @@ Infrastructure modules with no root-level facade.
 | `sharing/` | UnifiedSharingService (entity-agnostic sharing) |
 | `search/` | Unified search across all domains |
 | `submissions/` | Student work — CRUD, processing, search |
-| `feedback/` | Teacher/AI feedback, activity reports, review queue |
+| `report/` | Teacher/AI reports, activity reports, review queue |
 | `mixins/` | 7 BaseService mixin files |
 | `intelligence/` | GraphContextOrchestrator + analytics helpers |
 | `infrastructure/` | Cross-cutting helpers (PrerequisiteHelper, etc.) |
@@ -555,12 +555,12 @@ Routes / Application Code
 │   ├─ submissions_processing_service.py
 │   └─ submissions_relationship_service.py
 │
-└─ feedback/
-    ├─ feedback_service.py            (entry point)
+└─ report/
+    ├─ submission_report_service.py   (entry point)
     ├─ activity_report_service.py     (CRUD for ActivityReport)
     ├─ review_queue_service.py        (ReviewRequest node management)
     ├─ teacher_review_service.py
-    ├─ progress_feedback_generator.py (LLM → processed_content)
+    ├─ progress_report_generator.py   (LLM → processed_content)
     └─ progress_schedule_service.py
 ```
 

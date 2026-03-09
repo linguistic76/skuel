@@ -238,7 +238,7 @@ Analytics sits ABOVE the domain layer, reading across all of them:
 ```
 Activity Domains (tasks, habits, goals, events, finance, choices, principles)
 Curriculum Domains (ku, ls, lp)
-Submissions + Feedback
+Submissions + Reports
 
                     ↓ reads from all ↓
 
@@ -383,7 +383,7 @@ Analytics and `ActivityReport` are often confused — both aggregate activity da
 
 ## See Also
 
-- [FEEDBACK_ARCHITECTURE.md](FEEDBACK_ARCHITECTURE.md) — `ActivityReport` and `SubmissionFeedback` patterns
+- [FEEDBACK_ARCHITECTURE.md](FEEDBACK_ARCHITECTURE.md) — `ActivityReport` and `SubmissionReport` patterns
 - [FEEDBACK_ARCHITECTURE.md](FEEDBACK_ARCHITECTURE.md) — Submission pipeline, Exercise, visibility model
 - [INTELLIGENCE_SERVICES_INDEX.md](/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md) — Domain intelligence services (extend `BaseAnalyticsService`)
 - [Entity Type Architecture](ENTITY_TYPE_ARCHITECTURE.md)

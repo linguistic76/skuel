@@ -62,7 +62,7 @@ Every measurement flows from real user behaviour, not self-reported progress.
 
 | Track | Entry Point | Feedback Entity | Who Responds |
 |-------|------------|-----------------|--------------|
-| **Curriculum** | Student uploads a file against an Exercise | `SUBMISSION_FEEDBACK` | Teacher or AI (via Exercise instructions) |
+| **Curriculum** | Student uploads a file against an Exercise | `SUBMISSION_REPORT` | Teacher or AI (via Exercise instructions) |
 | **Activity** | User's lived practice over a time window | `ACTIVITY_REPORT` | AI (scheduled or on-demand) or Admin |
 
 Activity Domains are **equal** entry points — not secondary. A user's Tasks, Goals, Habits,
@@ -74,7 +74,7 @@ The mechanism differs, but the loop closes either way.
 > the user's lived practice across all six Activity Domains over a time window — it is
 > implicit, never uploaded, and produces an `ACTIVITY_REPORT`. The **structural Submission**
 > (`EntityType.SUBMISSION`) is a file a student explicitly uploads against an Exercise in the
-> Curriculum Track and produces a `SUBMISSION_FEEDBACK`. `ActivityReport` inherits
+> Curriculum Track and produces a `SUBMISSION_REPORT`. `ActivityReport` inherits
 > `UserOwnedEntity` directly — it has no file fields. `Submission` inherits a file-aware
 > base class. When reading code that touches both tracks, keep this distinction in mind:
 > the loop closes differently in each track even though the pedagogical concept is the same.
@@ -302,7 +302,7 @@ LLM prompt embedded for AI-assisted feedback. Two scopes: `PERSONAL` (self-direc
 **EntityType:** `EntityType.EXERCISE`
 **Loop role:** The *how* — operationalises Article content into a concrete task. The `instructions`
 field serves double duty: directive for the student AND prompt for the AI when generating
-`SUBMISSION_FEEDBACK`.
+`SUBMISSION_REPORT`.
 
 **See:** [FEEDBACK_ARCHITECTURE.md](/docs/architecture/FEEDBACK_ARCHITECTURE.md) —
 Exercise pipeline and teacher workflow.
@@ -329,15 +329,15 @@ full pipeline from upload to sharing and teacher review queue.
 **What:** The evaluation. Two structurally distinct entities cover the two tracks.
 Both say "here is what your work means."
 
-### 4a. SUBMISSION_FEEDBACK — Response to an Artifact
+### 4a. SUBMISSION_REPORT — Response to an Artifact
 
 **What:** Evaluation of a specific `SUBMISSION` or `JOURNAL`. One artifact in, one
-`SubmissionFeedback` node out. Two sources: teacher writes (`HUMAN`) or AI evaluates
+`SubmissionReport` node out. Two sources: teacher writes (`HUMAN`) or AI evaluates
 via the Exercise's `instructions` field (`LLM`).
 
-**EntityType:** `EntityType.SUBMISSION_FEEDBACK`
+**EntityType:** `EntityType.SUBMISSION_REPORT`
 **Structural position:** Leaf domain — fits the standard 4-layer architecture cleanly
-(`FeedbackOperations` protocol → `SubmissionsBackend` → `FeedbackService` / `SubmissionsCoreService`).
+(`SubmissionReportOperations` protocol → `SubmissionsBackend` → `SubmissionReportService` / `SubmissionsCoreService`).
 
 ### 4b. ACTIVITY_REPORT — Response to Activity Patterns
 
@@ -358,15 +358,15 @@ canonical taxonomy, all services, API routes, ProcessorType table, graph pattern
 ## Phase 5: RevisedExercise — The Targeted Revision
 
 **What:** A teacher-created revision of an Exercise that addresses specific gaps identified
-in `SubmissionFeedback`. The teacher creates targeted, revised instructions for a specific
+in `SubmissionReport`. The teacher creates targeted, revised instructions for a specific
 student. The student then submits against the RevisedExercise, receives new feedback, and the
 cycle continues indefinitely. This forces a **reflection step** between feedback and
 resubmission, making revision pedagogically explicit.
 
 ```
-Article → Exercise v1 → Submission v1 → SubmissionFeedback v1
+Article → Exercise v1 → Submission v1 → SubmissionReport v1
                                               ↓
-                                        RevisedExercise v2 → Submission v2 → SubmissionFeedback v2
+                                        RevisedExercise v2 → Submission v2 → SubmissionReport v2
                                               ↓
                                         RevisedExercise v3 → ...
 ```
@@ -390,7 +390,7 @@ revision cycle explicitly rather than implicitly.
     student_uid: '...',
     revision_number: 2
 })
-(re)-[:RESPONDS_TO_FEEDBACK]->(feedback:Entity:SubmissionFeedback)
+(re)-[:RESPONDS_TO_FEEDBACK]->(feedback:Entity:SubmissionReport)
 (re)-[:REVISES_EXERCISE]->(exercise:Entity:Exercise)
 (student:User)-[:SHARES_WITH {role: 'student'}]->(re)     // auto-created on creation
 (submission:Entity:Submission)-[:FULFILLS_EXERCISE]->(re)  // reuses existing rel type
@@ -437,13 +437,13 @@ with six activity-window CALL{} blocks (one per Activity Domain) plus curriculum
   (6 Activity Domains)     │    context.enrolled_paths_rich
                            │    context.active_learning_steps_rich
                            │
-              ProgressFeedbackGenerator.generate()
+              ProgressReportGenerator.generate()
                            │
                 ActivityReport (LLM or AUTOMATIC)
 ```
 
 **One Path Forward:** The loop's data layer is `UserContextBuilder.build_rich()`. There
-is no separate activity query layer. Both `ProgressFeedbackGenerator` and
+is no separate activity query layer. Both `ProgressReportGenerator` and
 `ActivityReportService` inject `context_builder: UserContextBuilder`.
 
 ---

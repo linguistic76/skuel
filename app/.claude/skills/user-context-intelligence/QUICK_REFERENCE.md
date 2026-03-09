@@ -107,7 +107,7 @@ from core.models.context_types import (
 | 9 | LP | `UnifiedRelationshipService` | `self.lp` |
 | **Processing (3)** |
 | 10 | Submissions | `SubmissionsRelationshipService` | `self.submissions` |
-| 11 | Feedback | `FeedbackRelationshipService` | `self.feedback` |
+| 11 | Report | `ReportRelationshipService` | `self.report` |
 | 12 | Analytics | `AnalyticsRelationshipService` | `self.analytics` |
 | **Temporal (1)** |
 | 13 | Calendar | `CalendarService` | `self.calendar` |
@@ -313,7 +313,7 @@ class UserContextIntelligenceFactory:
         lp: UnifiedRelationshipService,
         # Processing (3)
         submissions: SubmissionsRelationshipService,
-        feedback: FeedbackRelationshipService,
+        report: ReportRelationshipService,
         analytics: AnalyticsRelationshipService,
         # Temporal Domain (1)
         calendar: CalendarService,

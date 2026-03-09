@@ -9,7 +9,7 @@
 | 1 | Registry wiring (EntityType, NeoLabel, RelationshipName) | Complete |
 | 2 | Search config (SearchRouter domain dispatch, `_simple_domain_search`) | Complete |
 | 3a | Graph-aware search for Exercise, RevisedExercise, Submission | Complete |
-| 3b | Learning loop chain traversal on FeedbackRelationshipService | Complete |
+| 3b | Learning loop chain traversal on ReportRelationshipService | Complete |
 
 ## Level 3a: Graph-Aware Search
 
@@ -31,7 +31,7 @@ Exercise, RevisedExercise, and Submission now use `graph_aware_faceted_search` v
 
 ## Level 3b: Learning Loop Chain Traversal
 
-Two methods on `FeedbackRelationshipService` for multi-hop graph traversal:
+Two methods on `ReportRelationshipService` for multi-hop graph traversal:
 
 ### `get_learning_loop_chain(exercise_uid)`
 
@@ -39,8 +39,8 @@ Teacher/admin view: "show me everything related to this exercise."
 
 ```
 (Submission)-[:FULFILLS_EXERCISE]->(Exercise)
-(SubmissionFeedback)-[:FEEDBACK_FOR]->(Submission)
-(RevisedExercise)-[:RESPONDS_TO_FEEDBACK]->(SubmissionFeedback)
+(SubmissionReport)-[:FEEDBACK_FOR]->(Submission)
+(RevisedExercise)-[:RESPONDS_TO_FEEDBACK]->(SubmissionReport)
 ```
 
 Returns: `{exercise, submissions, feedback, revised_exercises}`
@@ -51,20 +51,20 @@ Student view: "what happened after I submitted?"
 
 ```
 (Submission)-[:FULFILLS_EXERCISE]->(Exercise)
-(SubmissionFeedback)-[:FEEDBACK_FOR]->(Submission)
-(RevisedExercise)-[:RESPONDS_TO_FEEDBACK]->(SubmissionFeedback)
+(SubmissionReport)-[:FEEDBACK_FOR]->(Submission)
+(RevisedExercise)-[:RESPONDS_TO_FEEDBACK]->(SubmissionReport)
 ```
 
 Returns: `{submission, exercise, feedback, revised_exercises}`
 
 ### Protocol
 
-`FeedbackRelationshipOperations` in `core/ports/feedback_protocols.py` covers all 5 methods (3 existing + 2 new).
+`ReportRelationshipOperations` in `core/ports/report_protocols.py` covers all 5 methods (3 existing + 2 new).
 
 ## Future: SubmissionFeedback and ActivityReport Search
 
 These entities currently lack BaseService-based search:
-- **SubmissionFeedback**: `FeedbackService` is an LLM generator, not a BaseService. Would need a `SubmissionFeedbackSearchService` extending BaseService.
+- **SubmissionReport**: `SubmissionReportService` is an LLM generator, not a BaseService. Would need a `SubmissionReportSearchService` extending BaseService.
 - **ActivityReport**: `ActivityReportService` is standalone. Would need search methods or a BaseService wrapper.
 
 Both are lower priority since teachers primarily search by Exercise or Submission, then navigate to feedback via relationships.

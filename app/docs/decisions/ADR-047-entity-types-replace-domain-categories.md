@@ -57,7 +57,7 @@ Each entity type is a peer. No hierarchy of categories.
 | Submission | Student-uploaded work |
 | Journal | Reflective writing (voice/text) |
 | ActivityReport | Feedback about activity patterns over time |
-| SubmissionFeedback | Assessment tied to a specific submission |
+| SubmissionReport | Assessment tied to a specific submission |
 | LifePath | The user's life direction |
 
 ### Behavioral Traits (not categories)

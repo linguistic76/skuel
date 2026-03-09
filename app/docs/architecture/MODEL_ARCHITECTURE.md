@@ -70,7 +70,7 @@ Entity (~19 fields: uid, title, entity_type, status, visibility, tags, domain,
 │   │
 │   ├── Submission ───── + processor_type, file_path, file_type, processed_content
 │   │   ├── Journal              (forces entity_type=JOURNAL)
-│   │   └── SubmissionFeedback   (forces entity_type=SUBMISSION_FEEDBACK, +subject_uid)
+│   │   └── SubmissionReport   (forces entity_type=SUBMISSION_REPORT, +subject_uid)
 │   ├── ActivityReport ─── (forces entity_type=ACTIVITY_REPORT, NO file fields)
 │   │
 │   └── LifePath ─────── + alignment_level, vision_statement, alignment_score
@@ -98,7 +98,7 @@ EntityDTO (~18 fields)
 ├── UserOwnedDTO (+user_uid, visibility, priority)
 │   ├── TaskDTO, GoalDTO, HabitDTO, EventDTO, ChoiceDTO, PrincipleDTO
 │   ├── ActivityReportDTO                      (no file fields — activity patterns)
-│   ├── SubmissionDTO → JournalDTO, SubmissionFeedbackDTO
+│   ├── SubmissionDTO → JournalDTO, SubmissionReportDTO
 │   └── LifePathDTO
 ├── CurriculumDTO (+complexity, learning_level, ...)
 │   ├── KuDTO, LearningStepDTO, LearningPathDTO, ExerciseDTO
@@ -140,7 +140,7 @@ core/models/{domain}/
 | `ku/` | Ku + KuDTO | Curriculum | Atomic knowledge units |
 | `resource/` | Resource + ResourceDTO | Shared | Curated content (books, talks) |
 | `submissions/` | Submission, Journal + DTOs | Submissions | + submission_requests.py, ku_schedule.py |
-| `feedback/` | ActivityReport + ActivityReportDTO, SubmissionFeedback + SubmissionFeedbackDTO | Feedback | ActivityReport: no file fields; SubmissionFeedback: tied to submission via subject_uid |
+| `report/` | ActivityReport + ActivityReportDTO, SubmissionReport + SubmissionReportDTO | Report | ActivityReport: no file fields; SubmissionReport: tied to submission via subject_uid |
 | `life_path/` | LifePath + LifePathDTO | Destination | |
 | `group/` | Group + request | Organizational | Teacher-student classes (ADR-040) |
 | `finance/` | Finance + FinanceDTO + requests | Finance | + Invoice, FinanceIntelligence |
@@ -202,7 +202,7 @@ ENTITY_TYPE_CLASS_MAP: dict[EntityType, type[Entity]] = {
 # Type aliases for services that handle subsets
 ActivityEntity = Task | Goal | Habit | Event | Choice | Principle
 CurriculumEntity = Ku | LearningStep | LearningPath | Exercise  # Ku is the atomic leaf
-SubmissionEntity = Submission | Journal | ActivityReport | SubmissionFeedback
+SubmissionEntity = Submission | Journal | ActivityReport | SubmissionReport
 ```
 
 **Note:** `Ku` is a leaf domain class (`Ku(Curriculum)`), not a union type alias. The old union `Ku = Task | Goal | ...` was dissolved when `core/models/ku/` was created as a dedicated directory for atomic knowledge units (February 2026).

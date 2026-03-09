@@ -254,7 +254,7 @@ class DailyPlanningMixin:
     choices: Any        # UnifiedRelationshipService
     principles: Any     # UnifiedRelationshipService
     ku: Any             # KuGraphService
-    feedback: Any       # FeedbackRelationshipService (exercises now via context.unsubmitted_exercises)
+    report: Any         # ReportRelationshipService (exercises now via context.unsubmitted_exercises)
 ```
 
 **Note:** The 6 domain-specific planning methods this mixin calls (`get_at_risk_habits_for_user`, `get_upcoming_events_for_user`, `get_actionable_tasks_for_user`, `get_advancing_goals_for_user`, `get_pending_decisions_for_user`, `get_aligned_principles_for_user`) are provided by `_domain_planning_mixin.py` via the `UnifiedRelationshipService` MRO — they are not on the `UnifiedRelationshipService` shell itself.
@@ -326,7 +326,7 @@ UserContextIntelligence.__init__()
 | `SynergyIntelligenceMixin` | context, habits, goals, tasks, ku |
 | `ScheduleIntelligenceMixin` | context, calendar, events, tasks, habits |
 | `TemporalMomentumMixin` | context (needs `entities_rich` — rich context only; returns empty signals otherwise) |
-| `DailyPlanningMixin` | context, tasks, habits, goals, events, choices, principles, ku, feedback |
+| `DailyPlanningMixin` | context, tasks, habits, goals, events, choices, principles, ku, report |
 
 ### All Services Required
 
@@ -350,7 +350,7 @@ class UserContextIntelligence(...):
         lp: UnifiedRelationshipService,
         # Processing (3)
         submissions: SubmissionsRelationshipService,
-        feedback: FeedbackRelationshipService,
+        report: ReportRelationshipService,
         analytics: AnalyticsRelationshipService,
         # Temporal Domain (1)
         calendar: CalendarService,

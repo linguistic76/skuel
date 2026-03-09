@@ -35,7 +35,7 @@ Activity (6)             Curriculum (5)      Content/Processing    Other
 ├── Tasks                ├── Article         ├── Submission        ├── Resource
 ├── Goals                ├── Ku              ├── Journal           ├── Finance
 ├── Habits               ├── LearningStep    ├── ActivityReport    ├── Groups
-├── Events               ├── LearningPath    └── SubmissionFeedback├── MOC (emergent)
+├── Events               ├── LearningPath    └── SubmissionReport  ├── MOC (emergent)
 ├── Choices              └── Exercise                              └── LifePath
 └── Principles
 ```

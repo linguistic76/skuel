@@ -2,8 +2,8 @@
 name: learning-loop
 description: >
   Expert guide for SKUEL's Five-Phased Learning Loop — the core purpose of the app.
-  Use when building or reviewing any feature involving Article, Exercise, Submission, Feedback,
-  or RevisedExercise. TRIGGER when: working on submissions, exercises, feedback generation,
+  Use when building or reviewing any feature involving Article, Exercise, Submission, Report,
+  or RevisedExercise. TRIGGER when: working on submissions, exercises, report generation,
   activity reports, revised exercises, teacher review, AI assessment, or when designing a new
   feature and asking "where does this fit?". This skill provides the development lens: every
   new feature must either strengthen a loop phase or improve the transition between phases.
@@ -53,7 +53,7 @@ Understanding the loop is the prerequisite for all architectural decisions.
 
 **Two tracks, one loop.** Activity Domains are equal entry points — a user's lived
 practice (Tasks, Goals, Habits) receives the same feedback infrastructure as curriculum
-work. The mechanism differs (`ACTIVITY_REPORT` vs `SUBMISSION_FEEDBACK`), but both
+work. The mechanism differs (`ACTIVITY_REPORT` vs `SUBMISSION_REPORT`), but both
 close the loop: student does work, system or teacher responds.
 
 ---
@@ -66,11 +66,11 @@ property are both named **`entity_type`** (renamed from `ku_type` in March 2026)
 ```python
 # Python model field:
 ku = Ku(entity_type=EntityType.KU, ...)
-feedback = SubmissionFeedback(entity_type=EntityType.SUBMISSION_FEEDBACK, ...)
-report = ActivityReport(entity_type=EntityType.ACTIVITY_REPORT, ...)
+report = SubmissionReport(entity_type=EntityType.SUBMISSION_REPORT, ...)
+activity_report = ActivityReport(entity_type=EntityType.ACTIVITY_REPORT, ...)
 
 # Neo4j property:
-MATCH (n:Entity {entity_type: 'submission_feedback'})
+MATCH (n:Entity {entity_type: 'submission_report'})
 MATCH (n:Entity {entity_type: 'ku'})
 ```
 
@@ -269,12 +269,12 @@ Without Submission, the loop has no student voice.
 **What it is:** The evaluation. Two structurally distinct entities cover two distinct
 entry points. Both close the loop — both say "here is what your work means."
 
-### 4a. SUBMISSION_FEEDBACK — Response to an Artifact
+### 4a. SUBMISSION_REPORT — Response to an Artifact
 
-**EntityType:** `EntityType.SUBMISSION_FEEDBACK`
-**Model:** `core/models/feedback/submission_feedback.py` — `SubmissionFeedback(Submission)` frozen dataclass
-**Neo4j label:** `:Entity:SubmissionFeedback`
-**Inherits:** Full `Submission` model (+2 feedback-specific fields)
+**EntityType:** `EntityType.SUBMISSION_REPORT`
+**Model:** `core/models/report/submission_report.py` — `SubmissionReport(Submission)` frozen dataclass
+**Neo4j label:** `:Entity:SubmissionReport`
+**Inherits:** Full `Submission` model (+2 report-specific fields)
 
 **Key fields:**
 ```python
@@ -289,37 +289,37 @@ feedback_generated_at: datetime | None
 | Source | Service | ProcessorType | Trigger |
 |--------|---------|---------------|---------|
 | Teacher | `SubmissionsCoreService.create_assessment()` | `HUMAN` | Teacher reviews in queue |
-| AI | `FeedbackService.generate_feedback()` | `LLM` | Exercise has `instructions` |
+| AI | `SubmissionReportService.generate_report()` | `LLM` | Exercise has `instructions` |
 
 **Graph pattern:**
 ```cypher
-(teacher:User)-[:OWNS]->(feedback:Entity:SubmissionFeedback {
+(teacher:User)-[:OWNS]->(report:Entity:SubmissionReport {
     subject_uid: 'submission_uid_being_evaluated',
     processor_type: 'human',     // or 'llm'
     feedback: 'Your analysis shows...'
 })
-(feedback)-[:FEEDBACK_FOR]->(submission:Entity:Submission)
+(report)-[:FEEDBACK_FOR]->(submission:Entity:Submission)
 ```
 
-**Structural position:** Leaf domain. One submission in, one feedback node out.
-Fits the standard 4-layer pattern: `FeedbackOperations` protocol → `SubmissionsBackend`
-→ `FeedbackService` / `SubmissionsCoreService` → sub-services.
+**Structural position:** Leaf domain. One submission in, one report node out.
+Fits the standard 4-layer pattern: `SubmissionReportOperations` protocol → `SubmissionsBackend`
+→ `SubmissionReportService` / `SubmissionsCoreService` → sub-services.
 
 **The Revision Cycle (Phase 4 → 3 → 4):**
 
 After reviewing a submission, the teacher has three outcomes via `TeacherReviewService`
-(`core/services/feedback/teacher_review_service.py`, protocol: `TeacherReviewOperations`
-in `core/ports/feedback_protocols.py`):
+(`core/services/report/teacher_review_service.py`, protocol: `TeacherReviewOperations`
+in `core/ports/report_protocols.py`):
 
 | Action | Method | Event Published | Result |
 |--------|--------|-----------------|--------|
-| Write feedback | `submit_feedback()` | `FeedbackSubmitted` | `SubmissionFeedback` created, loop continues |
+| Write report | `submit_report()` | `ReportSubmitted` | `SubmissionReport` created, loop continues |
 | Request revision | `request_revision()` | `SubmissionRevisionRequested` | Student notified, resubmit expected |
 | Approve | `approve_report()` | `SubmissionApproved` | Loop closes for this exercise |
 
-Each feedback round creates a new `SubmissionFeedback` entity via `FEEDBACK_FOR` —
+Each feedback round creates a new `SubmissionReport` entity via `FEEDBACK_FOR` —
 revision cycles are traceable as first-class graph entities. The loop publishes
-`FeedbackSubmitted`, `SubmissionRevisionRequested`, and `SubmissionApproved` events.
+`ReportSubmitted`, `SubmissionRevisionRequested`, and `SubmissionApproved` events.
 Student notification delivery is **planned** — see the Messaging system in
 `CLAUDE.md`. Students currently need to poll `/submissions/feedback` or the
 activity feed to discover new feedback.
@@ -329,7 +329,7 @@ activity feed to discover new feedback.
 ### 4b. ACTIVITY_REPORT — Response to Activity Patterns
 
 **EntityType:** `EntityType.ACTIVITY_REPORT`
-**Model:** `core/models/feedback/activity_report.py` — `ActivityReport(UserOwnedEntity)` frozen dataclass
+**Model:** `core/models/report/activity_report.py` — `ActivityReport(UserOwnedEntity)` frozen dataclass
 **Neo4j label:** `:Entity:ActivityReport`
 **Inherits:** `UserOwnedEntity` **directly** — NO file fields by design
 
@@ -356,13 +356,13 @@ annotation_updated_at: datetime | None
 
 | Source | Service | ProcessorType | Trigger |
 |--------|---------|---------------|---------|
-| Scheduled system | `ProgressFeedbackWorker` → `ProgressFeedbackGenerator` | `AUTOMATIC` | Cron schedule |
-| On-demand AI | `ProgressFeedbackGenerator.generate()` | `LLM` | User requests via API |
-| Admin writes | `ActivityReportService.submit_feedback()` | `HUMAN` | Admin reviews snapshot |
+| Scheduled system | `ProgressReportWorker` → `ProgressReportGenerator` | `AUTOMATIC` | Cron schedule |
+| On-demand AI | `ProgressReportGenerator.generate()` | `LLM` | User requests via API |
+| Admin writes | `ActivityReportService.submit_report()` | `HUMAN` | Admin reviews snapshot |
 
 **Structural position:** Cross-domain aggregator. Cannot fit the leaf domain model
 because it reads across all 6 Activity Domain backends **and** the Curriculum track
-(KU mastery, LP progress, active LS). `ProgressFeedbackGenerator` accepts a
+(KU mastery, LP progress, active LS). `ProgressReportGenerator` accepts a
 `UserContextBuilder` and calls `build_rich(user_uid, window=...)` — MEGA_QUERY
 with activity window CALL{} blocks. This gives the generator access to full graph
 neighbourhoods across both tracks. `ActivityReportService.create_snapshot()` uses
@@ -388,11 +388,11 @@ the same method.
 ## Phase 5: RevisedExercise — The Targeted Revision
 
 **What it is:** A teacher-created revision of an Exercise that addresses specific gaps
-identified in `SubmissionFeedback`. Forces a reflection step between feedback and
+identified in `SubmissionReport`. Forces a reflection step between feedback and
 resubmission.
 
 ```
-Article → Exercise v1 → Submission v1 → SubmissionFeedback v1
+Article → Exercise v1 → Submission v1 → SubmissionReport v1
                                               ↓
                                         RevisedExercise v2 → Submission v2 → ...
 ```
@@ -416,7 +416,7 @@ services.revised_exercises              # RevisedExerciseService — CRUD + chai
 **Backend:**
 ```python
 # RevisedExerciseBackend — domain-specific relationship Cypher
-await backend.link_to_feedback(re_uid, feedback_uid)      # RESPONDS_TO_FEEDBACK
+await backend.link_to_feedback(re_uid, report_uid)         # RESPONDS_TO_REPORT
 await backend.link_to_exercise(re_uid, exercise_uid)      # REVISES_EXERCISE
 await backend.get_revision_chain(exercise_uid)             # All revisions ordered
 ```
@@ -428,7 +428,7 @@ await backend.get_revision_chain(exercise_uid)             # All revisions order
     student_uid: '...',
     revision_number: 2
 })
-(re)-[:RESPONDS_TO_FEEDBACK]->(feedback:Entity:SubmissionFeedback)
+(re)-[:RESPONDS_TO_FEEDBACK]->(report:Entity:SubmissionReport)
 (re)-[:REVISES_EXERCISE]->(exercise:Entity:Exercise)
 (submission:Entity:Submission)-[:FULFILLS_EXERCISE]->(re)  // reuses existing rel type
 ```
@@ -438,8 +438,8 @@ enables student notification and learning loop progression tracking.
 
 **Access control:**
 - **Create:** `create_revised_exercise` verifies the teacher has `SHARES_WITH {role:'teacher'}`
-  on the submission linked to the feedback, and the `student_uid` owns that submission.
-  Graph path checked: `(Teacher)-[:SHARES_WITH]->(Submission)<-[:FEEDBACK_FOR]-(Feedback)` +
+  on the submission linked to the report, and the `student_uid` owns that submission.
+  Graph path checked: `(Teacher)-[:SHARES_WITH]->(Submission)<-[:FEEDBACK_FOR]-(Report)` +
   `(Student)-[:OWNS]->(Submission)`. Prevents teachers from creating revisions targeting
   arbitrary students' feedback.
 - **List for student (teacher route):** `list_for_student(student_uid, teacher_uid=)` scopes
@@ -466,8 +466,8 @@ new exercise, closing the revision cycle explicitly rather than implicitly.
 | `FULFILLS_EXERCISE` | `Submission` → `Exercise` or `RevisedExercise` | Student's work satisfies this exercise |
 | `SHARES_WITH` | `Submission` → `User` | Auto-share to teacher for ASSIGNED exercises |
 | `SHARES_WITH` | `User` → `RevisedExercise` | Auto-share revision to student on creation |
-| `FEEDBACK_FOR` | `SubmissionFeedback` → `Submission` | Feedback evaluates this specific artifact |
-| `RESPONDS_TO_FEEDBACK` | `RevisedExercise` → `SubmissionFeedback` | Revision addresses this feedback |
+| `FEEDBACK_FOR` | `SubmissionReport` → `Submission` | Report evaluates this specific artifact |
+| `RESPONDS_TO_FEEDBACK` | `RevisedExercise` → `SubmissionReport` | Revision addresses this report |
 | `REVISES_EXERCISE` | `RevisedExercise` → `Exercise` | Revision of this original exercise |
 
 **RelationshipName enum locations:**
@@ -478,9 +478,9 @@ RelationshipName.REQUIRES_KNOWLEDGE      # Exercise → Ku
 RelationshipName.FOR_GROUP               # Exercise → Group
 RelationshipName.FULFILLS_EXERCISE       # Submission → Exercise (or RevisedExercise)
 RelationshipName.SHARES_WITH             # Submission → User (also group sharing)
-RelationshipName.FEEDBACK_FOR            # SubmissionFeedback → Submission
+RelationshipName.REPORT_FOR              # SubmissionReport → Submission
 RelationshipName.SHARED_WITH_GROUP       # Submission → Group (group sharing)
-RelationshipName.RESPONDS_TO_FEEDBACK    # RevisedExercise → SubmissionFeedback
+RelationshipName.RESPONDS_TO_REPORT     # RevisedExercise → SubmissionReport
 RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
 ```
 
@@ -495,14 +495,14 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
 | **RevisedExercise** | `RevisedExerciseService` | `RevisedExerciseOperations` | `RevisedExerciseBackend` | CRUD, `list_for_teacher`, `list_for_student`, `get_revision_chain` |
 | **Submission** | `SubmissionsService` | `SubmissionOperations` | `SubmissionsBackend` | `submit_file`, `check_access`, share methods |
 | **Submission processing** | `SubmissionsProcessingService` | `SubmissionProcessingOperations` | `SubmissionsBackend` | Processing pipeline |
-| **Submission feedback** | `FeedbackService` + `SubmissionsCoreService` | `FeedbackOperations` | `SubmissionsBackend` | `generate_feedback`, `create_assessment` |
-| **Teacher review** | `TeacherReviewService` | `TeacherReviewOperations` | `QueryExecutor` | **Review actions:** `get_review_queue`, `get_submission_detail`, `get_feedback_history`, `submit_feedback`, `request_revision`, `approve_report` · **Exercise view:** `get_exercises_with_submission_counts`, `get_submissions_for_exercise` · **Student view:** `get_students_summary`, `get_student_submissions` · **Dashboard:** `get_dashboard_stats`, `get_teacher_groups_with_stats`, `get_group_detail` |
-| **Activity Report (auto/LLM)** | `ProgressFeedbackGenerator` | `ProgressFeedbackOperations` | `UserContextBuilder` | `generate`, `create_scheduled` |
-| **Activity Report (scheduled)** | `ProgressFeedbackWorker` | — | — | Background worker; calls `ProgressFeedbackGenerator` on schedule |
+| **Submission report** | `SubmissionReportService` + `SubmissionsCoreService` | `SubmissionReportOperations` | `SubmissionsBackend` | `generate_report`, `create_assessment` |
+| **Teacher review** | `TeacherReviewService` | `TeacherReviewOperations` | `QueryExecutor` | **Review actions:** `get_review_queue`, `get_submission_detail`, `get_report_history`, `submit_report`, `request_revision`, `approve_report` · **Exercise view:** `get_exercises_with_submission_counts`, `get_submissions_for_exercise` · **Student view:** `get_students_summary`, `get_student_submissions` · **Dashboard:** `get_dashboard_stats`, `get_teacher_groups_with_stats`, `get_group_detail` |
+| **Activity Report (auto/LLM)** | `ProgressReportGenerator` | `ProgressReportOperations` | `UserContextBuilder` | `generate`, `create_scheduled` |
+| **Activity Report (scheduled)** | `ProgressReportWorker` | — | — | Background worker; calls `ProgressReportGenerator` on schedule |
 | **Activity Report (schedule CRUD)** | `ProgressScheduleService` | `ProgressScheduleOps` | — | `get_schedules`, `create_schedule`, `delete_schedule` |
-| **Activity Report (human)** | `ActivityReportService` | `ActivityReportOperations` | `UserContextBuilder` | `create_snapshot`, `submit_feedback`, `persist`, `get_history`, `annotate` |
+| **Activity Report (human)** | `ActivityReportService` | `ActivityReportOperations` | `UserContextBuilder` | `create_snapshot`, `submit_report`, `persist`, `get_history`, `annotate` |
 
-**Protocols location:** `core/ports/feedback_protocols.py` (all feedback + teacher review), `core/ports/submission_protocols.py`, `core/ports/group_protocols.py` (group CRUD only)
+**Protocols location:** `core/ports/report_protocols.py` (all report + teacher review), `core/ports/submission_protocols.py`, `core/ports/group_protocols.py` (group CRUD only)
 
 ---
 
@@ -518,9 +518,9 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
 | **Submission** | `/api/submissions/...` | GET/POST | Student |
 | **Submission sharing** | `/api/share/group` | POST | Student |
 | **Submission sharing** | `/api/submissions/shared-with-me` | GET | Teacher |
-| **Submission feedback** | `/api/feedback/assessments` | POST | Teacher |
-| **Submission feedback** | `/api/feedback/assessments/given` | GET | Teacher |
-| **Submission feedback** | `/api/feedback/assessments/received` | GET | Student |
+| **Submission report** | `/api/reports/assessments` | POST | Teacher |
+| **Submission report** | `/api/reports/assessments/given` | GET | Teacher |
+| **Submission report** | `/api/reports/assessments/received` | GET | Student |
 | **Student feedback UI** | `/submissions/feedback` | GET | Student |
 | **Teacher review** | `/api/teaching/review-queue` | GET | Teacher |
 | **Teacher review** | `/api/teaching/review/{uid}` | GET | Teacher |
@@ -537,9 +537,9 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
 | **Teacher classes** | `/api/teaching/classes` | GET | Teacher |
 | **Teacher classes** | `/api/teaching/classes/{uid}` | GET | Teacher |
 | **Notifications** | `/notifications` | GET | Student — **planned, not yet implemented** |
-| **Activity report** | `/api/feedback/progress/generate` | POST | User |
-| **Activity report** | `/api/feedback/progress` | GET | User |
-| **Activity report** | `/api/feedback/schedule` | POST | User |
+| **Activity report** | `/api/reports/progress/generate` | POST | User |
+| **Activity report** | `/api/reports/progress` | GET | User |
+| **Activity report** | `/api/reports/schedule` | POST | User |
 | **Activity review (admin)** | `/api/activity-review/snapshot` | GET | Admin |
 | **Activity review (admin)** | `/api/activity-review/submit` | POST | Admin |
 | **Activity review (admin)** | `/api/activity-review/queue` | GET | Admin |
@@ -594,7 +594,7 @@ The Activity Track (Tasks/Goals/Habits/Events/Choices/Principles + KU mastery/LP
 progress/LS progress → ActivityReport) is as central as the Curriculum Track.
 When building Activity Domain or Curriculum features, ask:
 
-- Does this completion data flow into `ProgressFeedbackGenerator`?
+- Does this completion data flow into `ProgressReportGenerator`?
 - Does this activity pattern become visible in `ActivityReport`?
 - Can an admin see this behavior in the activity review snapshot?
 - Can the user annotate or reflect on the AI's synthesis of this data?
@@ -606,7 +606,7 @@ that never closes the loop.
 
 ## ProcessorType Taxonomy
 
-`ProcessorType` discriminates who produced a feedback entity.
+`ProcessorType` discriminates who produced a report entity.
 
 **See:** [FEEDBACK_ARCHITECTURE.md](/docs/architecture/FEEDBACK_ARCHITECTURE.md#processortype-taxonomy) for the canonical table.
 
@@ -625,16 +625,16 @@ that never closes the loop.
 | `adapters/inbound/revised_exercises_api.py` | 5 | RevisedExercise API routes (teacher + student-facing) |
 | `core/ports/curriculum_protocols.py` | 5 | `RevisedExerciseOperations` protocol |
 | `core/models/submissions/submission.py` | 3 | Submission base + JOURNAL |
-| `core/models/feedback/submission_feedback.py` | 4 | SubmissionFeedback model |
-| `core/models/feedback/activity_report.py` | 4 | ActivityReport model |
+| `core/models/report/submission_report.py` | 4 | SubmissionReport model |
+| `core/models/report/activity_report.py` | 4 | ActivityReport model |
 | `core/services/submissions/submissions_core_service.py` | 3+4 | CRUD + teacher assessment |
-| `core/services/feedback/feedback_service.py` | 4 | AI feedback generation |
-| `core/services/feedback/progress_feedback_generator.py` | 4 | ActivityReport generation |
-| `core/services/feedback/activity_report_service.py` | 4 | Admin human feedback; all write paths converge here |
-| `core/services/feedback/teacher_review_service.py` | 4 | Teacher review workflow (review queue, revision, approval) |
-| `core/services/background/progress_feedback_worker.py` | 4 | Scheduled activity report background worker |
+| `core/services/report/submission_report_service.py` | 4 | AI report generation |
+| `core/services/report/progress_report_generator.py` | 4 | ActivityReport generation |
+| `core/services/report/activity_report_service.py` | 4 | Admin human report; all write paths converge here |
+| `core/services/report/teacher_review_service.py` | 4 | Teacher review workflow (review queue, revision, approval) |
+| `core/services/background/progress_report_worker.py` | 4 | Scheduled activity report background worker |
 | `core/ports/submission_protocols.py` | 3 | Submission protocol interfaces |
-| `core/ports/feedback_protocols.py` | 4 | All feedback protocols incl. `TeacherReviewOperations`, `FeedbackRelationshipOperations` |
+| `core/ports/report_protocols.py` | 4 | All report protocols incl. `TeacherReviewOperations`, `ReportRelationshipOperations` |
 | `core/ports/group_protocols.py` | support | `GroupOperations` only (group CRUD + membership) |
 | `core/services/sharing/unified_sharing_service.py` | 3 | Entity-agnostic sharing |
 | `adapters/persistence/neo4j/domain_backends.py` | all | Domain-specific Cypher |
@@ -664,13 +664,13 @@ that never closes the loop.
 4. FULFILLS_EXERCISE relationship created
    Auto-sharing: SHARES_WITH (student → teacher)
        ↓
-5. TeacherReviewService.get_review_queue()          → core/services/feedback/teacher_review_service.py
+5. TeacherReviewService.get_review_queue()          → core/services/report/teacher_review_service.py
    Teacher sees pending submissions
        ↓
-6. TeacherReviewService.submit_feedback()           → core/services/feedback/teacher_review_service.py
-   Creates SubmissionFeedback with ProcessorType.HUMAN
-   OR FeedbackService.generate_feedback()           → core/services/feedback/feedback_service.py
-   Creates SubmissionFeedback with ProcessorType.LLM (via Exercise instructions)
+6. TeacherReviewService.submit_report()             → core/services/report/teacher_review_service.py
+   Creates SubmissionReport with ProcessorType.HUMAN
+   OR SubmissionReportService.generate_report()     → core/services/report/submission_report_service.py
+   Creates SubmissionReport with ProcessorType.LLM (via Exercise instructions)
        ↓
 7. Student sees feedback, optionally resubmits (revision cycle)
 ```
@@ -684,11 +684,11 @@ that never closes the loop.
 2. UserContextBuilder.build_rich()                  → core/services/user/user_context_builder.py
    MEGA-QUERY fetches all domain data including submission_stats
        ↓
-3. ProgressFeedbackGenerator.generate()             → core/services/feedback/progress_feedback_generator.py
+3. ProgressReportGenerator.generate()               → core/services/report/progress_report_generator.py
    Uses context.entities_rich + LLM (or programmatic fallback)
    Prompt template: core/prompts/templates/activity_feedback.md
        ↓
-4. ActivityReportService.persist()                  → core/services/feedback/activity_report_service.py
+4. ActivityReportService.persist()                  → core/services/report/activity_report_service.py
    All write paths converge here; creates ActivityReport node in Neo4j
        ↓
 5. Latest report flows back into UserContext via MEGA-QUERY
@@ -714,13 +714,13 @@ class ActivityReport(UserOwnedEntity):  # No file fields — it's about patterns
 ### Don't put cross-domain Cypher on a single domain backend
 
 ```python
-# WRONG — ProgressFeedbackGenerator needs Tasks + Goals + Habits + ...
-class FeedbackBackend(UniversalNeo4jBackend):
+# WRONG — ProgressReportGenerator needs Tasks + Goals + Habits + ...
+class ReportBackend(UniversalNeo4jBackend):
     async def get_all_activity_completions(self):
         # Can't do this from one domain backend
 
 # CORRECT — cross-domain aggregation uses UserContext.build_rich() (MEGA_QUERY)
-class ProgressFeedbackGenerator:
+class ProgressReportGenerator:
     def __init__(self, context_builder: UserContextBuilder, executor: QueryExecutor, ...):
         # context_builder.build_rich(user_uid, window=...) — MEGA_QUERY with 6-domain
         # activity window CALL{} blocks; entities_rich covers all Activity Domains
@@ -741,12 +741,12 @@ if exercise.scope == ExerciseScope.ASSIGNED:
 ### Don't let ProcessorType drift
 
 ```python
-# WRONG — new feedback source creates a new EntityType
-class AdminSummary(UserOwnedEntity):  # New entity for admin-written feedback?
+# WRONG — new report source creates a new EntityType
+class AdminSummary(UserOwnedEntity):  # New entity for admin-written reports?
     admin_notes: str
 
-# CORRECT — new feedback sources are new ProcessorType values on existing entities
-# ActivityReport with processor_type=HUMAN covers all admin-written activity feedback
+# CORRECT — new report sources are new ProcessorType values on existing entities
+# ActivityReport with processor_type=HUMAN covers all admin-written activity reports
 ```
 
 ---

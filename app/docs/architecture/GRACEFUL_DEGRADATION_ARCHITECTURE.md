@@ -143,7 +143,7 @@ All in `services_bootstrap.py`:
 |------|-----------------|---------------|
 | Embeddings block | `Neo4jGenAIEmbeddingsService`, `Neo4jVectorSearchService` | Skipped |
 | LLM block | `LLMService` | Skipped |
-| OpenAI block | `OpenAIService`, `FeedbackService`, `JournalOutputGenerator` | Skipped |
+| OpenAI block | `OpenAIService`, `SubmissionReportService`, `JournalOutputGenerator` | Skipped |
 
 Everything downstream of these three blocks naturally degrades via None-propagation.
 

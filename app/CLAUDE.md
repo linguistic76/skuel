@@ -131,7 +131,7 @@ SKUEL separates runtime into two layers. The **Analog layer** (graph structure, 
 | Submission | Student-uploaded work | N/A | User-owned |
 | Journal | Reflective writing (voice/text) | N/A | User-owned |
 | ActivityReport | Feedback about activity patterns over time | N/A | User-owned |
-| SubmissionFeedback | Assessment tied to a specific submission | N/A | User-owned |
+| SubmissionReport | Assessment tied to a specific submission | N/A | User-owned |
 | LifePath | The user's life direction | `lp_{random}` | User-owned |
 | Groups | Teacher-student class management | `group_{slug}_{random}` | Teacher-owned |
 | MOC | Non-linear KU navigation | N/A (emergent — any Entity with ORGANIZES) | Emergent |
@@ -143,7 +143,7 @@ Entity types have behavioral traits — not category membership — that determi
 | Trait | Method | What It Determines |
 |-------|--------|--------------------|
 | **Ownership** | `requires_user_uid()` | User-owned vs shared (admin-created) |
-| **Content Origin** | `content_origin()` | Where content comes from (Curated, Curriculum, User-Created, Feedback) |
+| **Content Origin** | `content_origin()` | Where content comes from (Curated, Curriculum, User-Created, Report) |
 | **Activity** | `is_activity()` | Shares Activity infrastructure (factory, facade, sub-services) |
 | **Processable** | `is_processable()` | Goes through a processing pipeline |
 | **Derived** | `is_derived()` | Has parent in derivation chain |
@@ -152,7 +152,7 @@ Entity types have behavioral traits — not category membership — that determi
 
 - **Activity (6):** Task, Goal, Habit, Event, Choice, Principle — facade pattern with `.core`, `.search`, `.intelligence` sub-services. Created via `create_common_sub_services()`. Events additionally has integration sub-services; **Calendar** cross-cutting system handles scheduling aggregation.
 - **Curriculum (5):** Article, Ku, LearningStep, LearningPath, Exercise — `ContentScope.SHARED`, admin creates, all users read.
-- **Submissions/Feedback (4):** Submission, Journal, SubmissionFeedback, ActivityReport — the learning loop. Services in `core/services/submissions/` + `core/services/feedback/`.
+- **Submissions/Feedback (4):** Submission, Journal, SubmissionReport, ActivityReport — the learning loop. Services in `core/services/submissions/` + `core/services/report/`.
 - **Other:** Finance (admin-only), Resource (curated, not curriculum), Groups (ADR-040), RevisedExercise (teacher-owned hybrid), MOC (emergent via ORGANIZES), LifePath (the destination, alignment score 0.0-1.0).
 
 ### The 5 Cross-Cutting Systems
@@ -211,7 +211,7 @@ UniversalNeo4jBackend[T]  <- ONE instance per domain, NO wrappers
 Entity (~18 fields: uid, entity_type, title, description, status, tags, ...)
 +-- UserOwnedEntity(Entity) +3 fields (user_uid, visibility, priority)
 |   +-- Task, Goal, Habit, Event, Choice, Principle  (Activity)
-|   +-- LifePath, ActivityReport, Submission -> Journal, SubmissionFeedback
+|   +-- LifePath, ActivityReport, Submission -> Journal, SubmissionReport
 +-- Ku(Entity) -- atomic knowledge unit (namespace, ku_category, aliases, source)
 +-- Curriculum(Entity) +21 fields -> Article, LearningStep, LearningPath, Exercise
 +-- Resource(Entity) +7 fields (Curated content)
@@ -403,7 +403,7 @@ SKUEL measures knowledge by how it's LIVED. Substance tracking: Habits (0.10, ma
 | A | `CURATED` | Resource | Admin-curated content |
 | B | `CURRICULUM` | Curriculum, LS, LP | Curriculum structure |
 | C | `USER_CREATED` | Activities, Submission, Journal, Life Path | User-generated |
-| D | `FEEDBACK` | ActivityReport, SubmissionFeedback | Analysis/feedback |
+| D | `REPORT` | ActivityReport, SubmissionReport | Analysis/feedback |
 
 `ContentScope` controls access, `ContentOrigin` classifies purpose. Derived from `EntityType`.
 
@@ -417,7 +417,7 @@ SKUEL measures knowledge by how it's LIVED. Substance tracking: Habits (0.10, ma
 
 **Service:** `from core.services.sharing import UnifiedSharingService` — entity-agnostic, methods: `share()`, `check_access()`, `set_visibility()`, group sharing.
 
-**Teacher Review:** `TeacherReviewService` — `get_review_queue()`, `submit_feedback()`, `request_revision()`, `approve_report()`
+**Teacher Review:** `TeacherReviewService` — `get_review_queue()`, `submit_report()`, `request_revision()`, `approve_report()`
 
 **Graph:** `(user)-[:SHARES_WITH {shared_at, role, share_version}]->(entity)`, `(entity)-[:SHARED_WITH_GROUP]->(group)`
 

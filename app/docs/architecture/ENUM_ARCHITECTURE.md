@@ -51,7 +51,7 @@ EntityType is the type discriminator for every entity in SKUEL. It lives on the 
 |-------|-------------|-----------|--------------|
 | **Knowledge** (atomic curriculum) | KU, RESOURCE | Admin-created, no user_uid | :Entity:Ku, :Entity:Resource |
 | **Curriculum Structure** | LEARNING_STEP, LEARNING_PATH, EXERCISE | Admin-created, no user_uid | :Entity:LearningStep, :Entity:LearningPath, :Entity:Exercise |
-| **Content Processing** | JOURNAL, SUBMISSION, SUBMISSION_FEEDBACK | User-owned | :Entity:Journal, :Entity:Submission, :Entity:SubmissionFeedback |
+| **Content Processing** | JOURNAL, SUBMISSION, SUBMISSION_REPORT | User-owned | :Entity:Journal, :Entity:Submission, :Entity:SubmissionReport |
 | **Activity Feedback** | ACTIVITY_REPORT | User-owned (no file fields) | :Entity:ActivityReport |
 | **Activity** (user-owned) | TASK, GOAL, HABIT, EVENT, CHOICE, PRINCIPLE | User-owned | :Entity:Task, :Entity:Goal, etc. |
 | **Destination** | LIFE_PATH | User-owned | :Entity:LifePath |
@@ -63,7 +63,7 @@ EntityType is the type discriminator for every entity in SKUEL. It lives on the 
 | A | CURATED | Resource |
 | B | CURRICULUM | KU, LearningStep, LearningPath, Exercise |
 | C | USER_CREATED | All 6 Activity types + Submission, Journal, LifePath |
-| D | FEEDBACK | ActivityReport, SubmissionFeedback |
+| D | REPORT | ActivityReport, SubmissionReport |
 
 **Key methods:**
 
@@ -112,7 +112,7 @@ Activity:
 
 | EntityType | Valid Statuses | Default |
 |------------|---------------|---------|
-| Ku, Resource, SubmissionFeedback | DRAFT, COMPLETED, ARCHIVED | COMPLETED |
+| Ku, Resource, SubmissionReport | DRAFT, COMPLETED, ARCHIVED | COMPLETED |
 | LearningStep, LearningPath, Exercise, Choice | DRAFT, ACTIVE, COMPLETED, ARCHIVED | DRAFT |
 | Journal, Submission | DRAFT, SUBMITTED, QUEUED, PROCESSING, COMPLETED, FAILED, REVISION_REQUESTED, ARCHIVED | DRAFT |
 | ActivityReport | COMPLETED (always — created already complete) | COMPLETED |
