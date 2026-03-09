@@ -10,6 +10,7 @@ Wired to real LpService and UserProgressService.
 from typing import Any
 
 from fasthtml.common import (
+    A,
     H1,
     H2,
     H3,
@@ -60,6 +61,36 @@ def _difficulty_label(rating: float) -> str:
     if rating <= 0.65:
         return "intermediate"
     return "advanced"
+
+
+def _render_step_browser_card(step: Any) -> Any:
+    """Render a learning step as a browseable card."""
+    difficulty = _difficulty_label(step.difficulty_rating) if step.difficulty_rating else ""
+    hours_text = f"{step.estimated_hours:.1f}h" if step.estimated_hours else ""
+
+    badges = []
+    if difficulty:
+        badges.append(Span(difficulty.title(), cls="badge badge-primary badge-sm"))
+    if hours_text:
+        badges.append(Span(hours_text, cls="badge badge-secondary badge-sm"))
+    if step.sequence:
+        badges.append(Span(f"Step {step.sequence}", cls="badge badge-info badge-sm"))
+
+    return Card(
+        H4(
+            A(
+                step.title or f"Step: {step.uid}",
+                href=f"/ls/{step.uid}",
+                cls="text-primary hover:underline",
+            ),
+            cls="text-lg font-semibold mb-2",
+        ),
+        P(
+            (step.description or step.intent or "")[:150],
+            cls="text-base-content/70 text-sm mb-3",
+        ),
+        Div(*badges, cls="flex flex-wrap gap-2") if badges else None,
+    )
 
 
 class PathwaysUIComponents:
@@ -154,14 +185,10 @@ class PathwaysUIComponents:
                     cls="space-y-1 mb-4",
                 ),
                 # Action Button
-                Button(
+                A(
                     "Continue Learning",
-                    variant=ButtonT.primary,
-                    cls="btn-sm w-full",
-                    **{
-                        "hx-get": f"/pathways/path/{path.uid}/continue",
-                        "hx-target": "#main-content",
-                    },
+                    href=f"/pathways/path/{path.uid}",
+                    cls="btn btn-primary btn-sm w-full",
                 ),
                 cls="p-4",
             ),
@@ -198,11 +225,10 @@ class PathwaysUIComponents:
                 ),
                 # Action Buttons
                 Div(
-                    Button(
+                    A(
                         "View Details",
-                        variant=ButtonT.outline,
-                        cls="btn-sm flex-1",
-                        **{"hx-get": f"/pathways/path/{path['uid']}", "hx-target": "#main-content"},
+                        href=f"/pathways/path/{path['uid']}",
+                        cls="btn btn-outline btn-sm flex-1",
                     ),
                     Button(
                         "Enroll",
@@ -262,7 +288,7 @@ class PathwaysUIComponents:
         )
 
 
-def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None):
+def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None, ls_service=None):
     """Create UI routes for pathway browsing and progress tracking."""
 
     routes: list[Any] = []
@@ -333,10 +359,18 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None):
                     "No active learning paths yet. Start exploring!",
                     cls="text-base-content/60 text-center py-8",
                 ),
-                Button(
-                    "Browse Learning Paths",
-                    variant=ButtonT.primary,
-                    **{"hx-get": "/pathways/browse", "hx-target": "#main-content"},
+                Div(
+                    A(
+                        "Browse Learning Paths",
+                        href="/pathways/browse",
+                        cls="btn btn-primary",
+                    ),
+                    A(
+                        "Browse Learning Steps",
+                        href="/pathways/steps",
+                        cls="btn btn-secondary",
+                    ),
+                    cls="flex flex-wrap gap-3 justify-center",
                 ),
                 cls="text-center",
             )
@@ -398,11 +432,18 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None):
             Card(
                 Div(
                     H2("Active Learning Paths", cls="text-xl font-semibold mb-4"),
-                    Button(
-                        "Browse Learning Paths",
-                        variant=ButtonT.primary,
-                        cls="btn-sm",
-                        **{"hx-get": "/pathways/browse", "hx-target": "#main-content"},
+                    Div(
+                        A(
+                            "Browse Learning Paths",
+                            href="/pathways/browse",
+                            cls="btn btn-primary btn-sm",
+                        ),
+                        A(
+                            "Browse Learning Steps",
+                            href="/pathways/steps",
+                            cls="btn btn-secondary btn-sm",
+                        ),
+                        cls="flex flex-wrap gap-2",
                     ),
                     cls="flex justify-between items-center mb-4",
                 ),
@@ -413,15 +454,20 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None):
             Card(
                 H2("Quick Actions", cls="text-xl font-semibold mb-4"),
                 Div(
-                    Button(
+                    A(
                         "View Analytics",
-                        variant=ButtonT.secondary,
-                        **{"hx-get": "/pathways/analytics", "hx-target": "#main-content"},
+                        href="/pathways/analytics",
+                        cls="btn btn-secondary",
                     ),
-                    Button(
+                    A(
                         "Browse Paths",
-                        variant=ButtonT.outline,
-                        **{"hx-get": "/pathways/browse", "hx-target": "#main-content"},
+                        href="/pathways/browse",
+                        cls="btn btn-outline",
+                    ),
+                    A(
+                        "Browse Steps",
+                        href="/pathways/steps",
+                        cls="btn btn-outline",
                     ),
                     cls="flex flex-wrap gap-3",
                 ),
@@ -500,6 +546,57 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None):
         )
 
     routes.append(browse_learning_paths)
+
+    @rt("/pathways/steps")
+    async def browse_learning_steps(request) -> Any:
+        """Browse available learning steps."""
+        require_authenticated_user(request)
+
+        steps: list[Any] = []
+        if ls_service:
+            steps_result = await ls_service.list_steps(limit=50)
+            if not steps_result.is_error and steps_result.value:
+                steps = steps_result.value
+
+        if steps:
+            grid_content = Div(
+                *[_render_step_browser_card(s) for s in steps],
+                cls="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6",
+            )
+        else:
+            grid_content = Div(
+                P(
+                    "No learning steps available yet.",
+                    cls="text-base-content/60 text-center py-8",
+                ),
+            )
+
+        content = Div(
+            Header(
+                H1("Browse Learning Steps", cls="text-3xl font-bold text-primary"),
+                P(
+                    "Explore individual learning steps across all paths",
+                    cls="text-lg text-base-content/70 mt-2",
+                ),
+                cls="mb-8",
+            ),
+            Div(
+                grid_content,
+                id="learning-steps-grid",
+                cls="mb-8",
+            ),
+            cls="container mx-auto px-4 py-6",
+        )
+
+        return await BasePage(
+            content=content,
+            title="Browse Learning Steps",
+            page_type=PageType.STANDARD,
+            request=request,
+            active_page="pathways",
+        )
+
+    routes.append(browse_learning_steps)
 
     @rt("/api/pathways/filter-paths", methods=["POST"])
     async def filter_learning_paths(request) -> Any:
@@ -804,22 +901,14 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None):
                     ),
                     cls="flex flex-wrap gap-2 mb-4",
                 ),
-                Button(
-                    "Back to Pathways",
-                    **{"hx-get": "/pathways", "hx-target": "body"},
-                    variant=ButtonT.ghost,
-                ),
+                A("← Back to Pathways", href="/pathways", cls="btn btn-ghost"),
                 cls="p-6 mb-4",
             )
         else:
             detail_content = Card(
                 H1(f"Learning Step: {uid}", cls="text-2xl font-bold mb-4"),
                 P("Learning step not found.", cls="text-base-content/70 mb-4"),
-                Button(
-                    "Back to Pathways",
-                    **{"hx-get": "/pathways", "hx-target": "body"},
-                    variant=ButtonT.ghost,
-                ),
+                A("← Back to Pathways", href="/pathways", cls="btn btn-ghost"),
                 cls="p-6 mb-4",
             )
 
@@ -874,22 +963,14 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None):
                 )
                 if outcomes
                 else None,
-                Button(
-                    "Back to Pathways",
-                    **{"hx-get": "/pathways", "hx-target": "body"},
-                    variant=ButtonT.ghost,
-                ),
+                A("← Back to Pathways", href="/pathways", cls="btn btn-ghost"),
                 cls="p-6 mb-4",
             )
         else:
             detail_content = Card(
                 H1(f"Learning Path: {uid}", cls="text-2xl font-bold mb-4"),
                 P("Learning path not found.", cls="text-base-content/70 mb-4"),
-                Button(
-                    "Back to Pathways",
-                    **{"hx-get": "/pathways", "hx-target": "body"},
-                    variant=ButtonT.ghost,
-                ),
+                A("← Back to Pathways", href="/pathways", cls="btn btn-ghost"),
                 cls="p-6 mb-4",
             )
 
