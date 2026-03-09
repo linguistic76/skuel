@@ -100,7 +100,6 @@ detected_intent: Intent | None = None  # LEARN, PRACTICE, etc.
 ├── askesis_dto.py           # No search imports
 ├── askesis_request.py       # No search imports
 ├── askesis_converters.py    # No search imports
-├── askesis_intelligence.py  # No search imports
 └── __init__.py              # Clean exports
 ```
 

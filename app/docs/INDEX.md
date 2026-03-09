@@ -220,6 +220,9 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | **[ADR-043: Intelligence Tier Toggle](decisions/ADR-043-intelligence-tier-toggle.md)** | **2026-03-04** | **—** |
 | **[ADR-044: Neo4j as Committed Architectural Choice](decisions/ADR-044-neo4j-committed-architectural-choice.md)** | **2026-03-05** | **—** |
 | **[ADR-045: Priority & Confidence as First-Class Customization Dials](decisions/ADR-045-priority-confidence-customization-dials.md)** | **2026-03-05** | **—** |
+| **[ADR-046: Activity Domains Connect to Ku via Graph Edges](decisions/ADR-046-activity-domains-not-ku-subtypes.md)** | **2026-03-06** | **—** |
+| **[ADR-047: Entity Types Replace Domain Categories](decisions/ADR-047-entity-types-replace-domain-categories.md)** | **2026-03-07** | **—** |
+| **[ADR-048: Adaptive Learning Loop Architecture](decisions/ADR-048-adaptive-learning-loop.md)** | **2026-03-09** | **—** |
 | [ADR-XXX: [Short Title of Decision]](decisions/ADR-TEMPLATE.md) | 2025-11-26 | 325 |
 
 ## Tools
@@ -382,4 +385,4 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 
 - **Total documents:** ~196 (core + migrations + roadmap + examples)
 - **Categories:** 13 (Domains, Architecture, Patterns, DSL, Decisions, Guides, Reference, Intelligence, Migrations, Roadmap, Examples, Technical Debt, Top-Level)
-- **ADRs:** 46 (ADR-001 through ADR-045, with template)
+- **ADRs:** 49 (ADR-001 through ADR-048, with template)

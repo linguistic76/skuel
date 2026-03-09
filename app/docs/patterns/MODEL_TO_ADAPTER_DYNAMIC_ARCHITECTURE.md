@@ -278,18 +278,7 @@ async def link_task_to_goal(self, task_uid: str, goal_uid: str):
 - RelationshipType enum is dynamic ✅
 - But creating new relationship methods requires manual backend code ❌
 
-### 4. **Intelligence Entities** (Manual Schema)
-
-**Current State:**
-```python
-# task_intelligence.py defines TaskIntelligence
-# tasks_enhanced_backend.py manually creates intelligence nodes
-
-# ❌ If you add a field to TaskIntelligence,
-#    enhanced backend doesn't automatically store it
-```
-
-### 5. **Search/Filter Query Generation** (Manual)
+### 4. **Search/Filter Query Generation** (Manual)
 
 **Current State:**
 ```python

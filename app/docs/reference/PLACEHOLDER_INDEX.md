@@ -133,27 +133,6 @@ habit nodes, these private methods can traverse the context rather than issuing 
 
 ---
 
-## Group H — Askesis Intelligence Private Methods
-
-Seven private methods in `core/services/askesis/askesis_intelligence.py` accept parameters
-that are currently unused. These are all internal computation helpers.
-
-| Line | Method | Unused Parameter |
-|------|--------|-----------------|
-| 351 | `_assess_integration_potential()` | `_context: dict[str, Any]` |
-| 375 | `_get_default_domain_suggestions()` | `_query: str` |
-| 389 | `_assess_query_complexity()` | `_context: dict[str, Any]` |
-| 449 | `_generate_followup_suggestions()` | `_query: str` |
-| 743 | `_assess_domain_activity()` | `_domain: str` |
-| 868 | `_optimize_guidance_timing()` | `_guidance_type: str` |
-| 945 | `_determine_adaptation_needs()` | `_new_value: Any` |
-
-**What full implementation requires:** These are all context-enrichment methods. Each parameter
-represents data the method should use but currently ignores in favour of hardcoded heuristics.
-Implementation is internal to the Askesis intelligence layer.
-
----
-
 ## Group I — Infrastructure / Miscellaneous
 
 | File | Line | Method | Parameter | Notes |
