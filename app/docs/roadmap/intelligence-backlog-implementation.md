@@ -204,7 +204,7 @@ specifically the `created_at` and `score` properties that are set when
    RETURN r.score as score, r.created_at as created_at
    ORDER BY r.created_at DESC
    ```
-   Use `self.backend.execute_query()` (or the driver directly if needed).
+   Use `self.backend.execute_query()`.
 
 2. **Bin by time window.** Partition results into `7d`, `30d`, and `90d` buckets:
    ```python

@@ -224,7 +224,7 @@ Teachers drive the loop from the other side:
 | **Revision chain** | The sequence Exercise → Submission → Feedback → Revised Exercise → Submission v2 → ... Each link is a traceable entity. |
 | **Activity Report** | A periodic synthesis of everything you've been doing, with AI-generated insights about your patterns. |
 | **Annotation** | Your voice alongside the system's analysis. Add your own reflections to Activity Reports — they inform the next one. |
-| **ZPD** | Zone of Proximal Development. Askesis reads the curriculum graph to know what you're ready to learn next — not too easy, not too hard. |
+| **ZPD** | Zone of Proximal Development. Askesis reads the curriculum graph to know what you're ready to learn next — not too easy, not too hard. See the [standalone ZPD guide](zpd.md). |
 
 ---
 

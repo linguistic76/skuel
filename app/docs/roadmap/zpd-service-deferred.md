@@ -1,23 +1,41 @@
-# ZPDService — Deferred Design
+# ZPDService — Design & Architecture
 
 > "The plant grows on the lattice — ZPDService reads the graph to know where the user is
 > and what they're ready for next."
 
-**Status:** Deferred — curriculum graph must have real data first (3+ KUs, 1+ APPLIES_KNOWLEDGE)
-**Owner when built:** `core/services/zpd/zpd_service.py` (new package, peer to `askesis/`)
+**Status:** Implemented (March 2026)
+**Service:** `core/services/zpd/zpd_service.py`
+**Backend:** `adapters/persistence/neo4j/zpd_backend.py`
+**Protocol:** `core/ports/zpd_protocols.py` — `ZPDOperations` (service), `ZPDBackendOperations` (backend)
 **See:** `docs/architecture/ASKESIS_PEDAGOGICAL_ARCHITECTURE.md` — full pedagogical vision
 
 ---
 
 ## What ZPDService Does
 
-`ZPDService` computes a user's Zone of Proximal Development by traversing the Neo4j
-curriculum graph. It answers: *what does this user know, and what are they structurally
-ready to learn next?*
+`ZPDService` computes a user's Zone of Proximal Development by delegating graph
+traversal to `ZPDBackend`. It answers: *what does this user know, and what are they
+structurally ready to learn next?*
 
 This is the service that gives Askesis its pedagogical edge. Without it, Askesis can
 only react to what the user says. With it, Askesis knows where the user is in the
 curriculum before the conversation starts.
+
+---
+
+## Architecture
+
+```
+ZPDBackend (adapters/persistence/neo4j/)
+    ↓  raw graph data (current_zone, proximal_zone, prereq_data, ...)
+ZPDService (core/services/zpd/)
+    ↓  readiness scoring + behavioral enrichment → ZPDAssessment
+UserContextIntelligence / AskesisService
+```
+
+- **ZPDBackend** owns all Cypher queries — zone traversal and KU count check
+- **ZPDService** owns business logic — readiness scoring, behavioral enrichment
+- **ZPDBackendOperations** protocol types the backend injection
 
 ---
 
@@ -31,6 +49,7 @@ class ZPDAssessment:
     engaged_paths: list[str]          # lp_uids partially traversed
     readiness_scores: dict[str, float] # ku_uid → 0.0-1.0 (how ready is the user for each proximal KU)
     blocking_gaps: list[str]          # ku_uids that block further progress (unmet prerequisites)
+    behavioral_readiness: float       # 0.0-1.0 aggregate from choices + habits signals
 
 async def assess_zone(self, user_uid: str) -> Result[ZPDAssessment]:
     """
@@ -45,77 +64,49 @@ async def assess_zone(self, user_uid: str) -> Result[ZPDAssessment]:
 
 ## Graph Query Approach
 
-ZPDService uses a 2-hop traversal from all engaged KUs:
+ZPDBackend uses a single 2-hop Cypher traversal per `get_zone_data()` call:
 
-```cypher
-// Step 1: Find current zone (all meaningfully engaged KUs)
-MATCH (u:User {uid: $user_uid})
-OPTIONAL MATCH (u)-[:OWNS]->(t:Task)-[:APPLIES_KNOWLEDGE]->(ku:Curriculum)
-OPTIONAL MATCH (u)-[:OWNS]->(j:Journal)-[:APPLIES_KNOWLEDGE]->(ku2:Curriculum)
-OPTIONAL MATCH (u)-[:OWNS]->(h:Habit)-[:REINFORCES_KNOWLEDGE]->(ku3:Curriculum)
-WITH u,
-     collect(DISTINCT ku.uid) + collect(DISTINCT ku2.uid) + collect(DISTINCT ku3.uid)
-     AS engaged_uids
+- **Step 1:** Find current zone — KUs via APPLIES_KNOWLEDGE (Tasks, Journals) + REINFORCES_KNOWLEDGE (Habits)
+- **Step 2:** Find proximal zone — adjacent via PREREQUISITE_FOR, COMPLEMENTARY_TO, LP ORGANIZES (same path, next step)
+- **Step 3:** Prerequisite graph for readiness scoring — count total vs met prerequisites per proximal KU
+- **Step 4:** Engaged Learning Paths — which LPs the user is actively on
+- **Step 5:** Blocking gaps — prerequisite KUs not yet met that block proximal KUs
 
-// Step 2: Find proximal zone (adjacent KUs, not already engaged)
-UNWIND engaged_uids AS engaged_uid
-MATCH (engaged:Curriculum {uid: engaged_uid})
-OPTIONAL MATCH (engaged)-[:PREREQUISITE_FOR]->(next:Curriculum)
-OPTIONAL MATCH (engaged)-[:COMPLEMENTARY_TO]->(adjacent:Curriculum)
-OPTIONAL MATCH (lp:Curriculum)-[:ORGANIZES]->(path_next:Curriculum)
-WHERE (lp)-[:ORGANIZES]->(:Curriculum {uid: engaged_uid})  // same LP, next step
-WITH engaged_uids,
-     collect(DISTINCT next.uid) + collect(DISTINCT adjacent.uid) + collect(DISTINCT path_next.uid)
-     AS candidate_uids
-// Filter out already-engaged KUs
-WITH [uid IN candidate_uids WHERE NOT uid IN engaged_uids] AS proximal_uids,
-     engaged_uids
-RETURN engaged_uids, proximal_uids
-```
-
-### Readiness Score Computation
-
-For each KU in the proximal zone, compute a 0.0–1.0 readiness score:
+### Readiness Score Computation (ZPDService)
 
 ```python
-def _compute_readiness(
-    self,
-    ku_uid: str,
-    current_zone: list[str],
-    prerequisite_graph: dict[str, list[str]],
-) -> float:
+def _compute_readiness_scores(self, prereq_data: list[dict[str, Any]]) -> dict[str, float]:
     """
     Score = fraction of the KU's prerequisites that are in the current zone.
     A KU with no prerequisites scores 1.0 (fully ready).
     A KU whose prerequisites are only partially met scores proportionally.
     """
-    prerequisites = prerequisite_graph.get(ku_uid, [])
-    if not prerequisites:
-        return 1.0
-    met = sum(1 for p in prerequisites if p in current_zone)
-    return met / len(prerequisites)
 ```
 
----
+### Behavioral Readiness (ZPDService)
 
-## Trigger Condition
-
-ZPDService is ready to build when:
-1. The curriculum graph has **3 or more KUs**
-2. At least **one user has an APPLIES_KNOWLEDGE relationship** to any KU
-
-Before this, `assess_zone()` would return empty lists — technically correct but useless.
-Build ZPDService when the curriculum is real enough to traverse.
+Enriches the assessment with signals from ChoicesIntelligenceService and HabitsIntelligenceService:
+- Principle adherence, decision consistency, quality rate (from choices)
+- Habit reinforcement strength, at-risk KU penalty (from habits)
+- Returns 0.5 (neutral) when intelligence services are unavailable
 
 ---
 
-## Protocol
+## Guard Condition
+
+ZPDService returns an empty ZPDAssessment (not an error) when the curriculum graph
+has fewer than 3 KUs. This is checked via `ZPDBackend.get_ku_count()`.
+
+---
+
+## Protocols
 
 ```python
 # core/ports/zpd_protocols.py
-from typing import Protocol
-from core.services.zpd.zpd_service import ZPDAssessment
-from core.utils.result import Result
+
+class ZPDBackendOperations(Protocol):
+    async def get_ku_count(self) -> int: ...
+    async def get_zone_data(self, user_uid: str) -> Result[tuple[...]]: ...
 
 class ZPDOperations(Protocol):
     async def assess_zone(self, user_uid: str) -> Result[ZPDAssessment]: ...
@@ -125,21 +116,21 @@ class ZPDOperations(Protocol):
 
 ---
 
-## Integration Path
+## Integration
 
-1. `core/services/zpd/zpd_service.py` — new package, `ZPDService` class
-2. `core/ports/zpd_protocols.py` — `ZPDOperations` protocol
-3. `services_bootstrap.py` — `services.zpd_service: ZPDOperations | None` (optional until trigger condition met)
-4. `UserContextIntelligence.get_optimal_next_learning_steps()` — calls `ZPDService` when not `None`
-5. `AskesisService.answer_user_question()` — reads `ZPDAssessment` to populate `askesis_scaffold_entry` placeholders
+1. `adapters/persistence/neo4j/zpd_backend.py` — `ZPDBackend` (Cypher queries)
+2. `core/services/zpd/zpd_service.py` — `ZPDService` (business logic)
+3. `core/ports/zpd_protocols.py` — `ZPDBackendOperations` + `ZPDOperations` protocols
+4. `services_bootstrap.py` — `services.zpd_service: ZPDOperations | None` (FULL tier only)
+5. `UserContextIntelligence.get_optimal_next_learning_steps()` — calls `ZPDService` when not `None`
+6. `AskesisService.analyze_user_state()` — reads `ZPDAssessment` in state snapshot
 
 ---
 
 ## Relationship to UserContextIntelligence
 
-`UserContextIntelligence.get_optimal_next_learning_steps()` currently returns items
-based on UserContext fields (due dates, momentum, goal alignment). When ZPDService exists,
-it becomes the primary signal for curriculum-aligned recommendations:
+`UserContextIntelligence.get_optimal_next_learning_steps()` uses ZPDService as its
+primary signal for curriculum-aligned recommendations:
 
 ```python
 async def get_optimal_next_learning_steps(self, context: UserContext) -> Result[list[dict]]:
@@ -157,11 +148,17 @@ async def get_optimal_next_learning_steps(self, context: UserContext) -> Result[
 ## Location in Architecture
 
 ```
+adapters/persistence/neo4j/
+├── zpd_backend.py            # Cypher queries + result parsing
+
 core/services/
-├── askesis/          # Conversation + recommendation
-├── zpd/              # (NEW) Zone of Proximal Development
+├── askesis/                   # Conversation + recommendation
+├── zpd/                       # Zone of Proximal Development
 │   ├── __init__.py
-│   └── zpd_service.py
+│   └── zpd_service.py        # Business logic (readiness scoring, behavioral enrichment)
+
+core/ports/
+├── zpd_protocols.py           # ZPDBackendOperations + ZPDOperations
 ```
 
 ZPDService is a peer of `askesis/`, not a sub-service. It serves Askesis but is
@@ -175,3 +172,4 @@ independently testable and could serve other intelligence services.
 - It does not recommend content (Askesis does that, using ZPDAssessment as input)
 - It does not track progress (that is `UserContextIntelligence`)
 - It does not replace `get_optimal_next_learning_steps()` — it enriches it
+- It does not contain Cypher queries (those live in ZPDBackend)
