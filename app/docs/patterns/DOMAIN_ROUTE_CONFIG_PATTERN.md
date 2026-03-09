@@ -708,6 +708,7 @@ PATHWAYS_CONFIG = DomainRouteConfig(
     },
     ui_related_services={
         "user_progress": "user_progress",
+        "ls_service": "ls",
     },
 )
 
