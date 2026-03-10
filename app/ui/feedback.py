@@ -24,8 +24,10 @@ __all__ = [
     "Alert",
     "Badge",
     "Loading",
+    "PriorityBadge",
     "Progress",
     "RadialProgress",
+    "StatusBadge",
     "get_submission_status_badge_class",
 ]
 
@@ -237,3 +239,76 @@ def RadialProgress(
         role="progressbar",
         **kwargs,
     )
+
+
+def StatusBadge(status: str | None, **kwargs: Any) -> Any:
+    """Status-aware badge that maps status values to DaisyUI badge variants.
+
+    Args:
+        status: The status string (case-insensitive). Supported values:
+            - "active" / "completed" / "done" -> success
+            - "pending" / "in_progress" / "waiting" -> warning
+            - "blocked" / "failed" / "overdue" -> error
+            - "cancelled" / "archived" / "draft" -> neutral
+        **kwargs: Additional attributes passed to Badge
+
+    Returns:
+        A DaisyUI Badge with appropriate variant, or None if status is None
+    """
+    if status is None:
+        return None
+
+    status_lower = status.lower().replace("-", "_")
+
+    status_map: dict[str, tuple[str, BadgeT]] = {
+        # Success states
+        "active": ("Active", BadgeT.success),
+        "completed": ("Completed", BadgeT.success),
+        "done": ("Done", BadgeT.success),
+        # Warning states
+        "pending": ("Pending", BadgeT.warning),
+        "in_progress": ("In Progress", BadgeT.warning),
+        "waiting": ("Waiting", BadgeT.warning),
+        # Error states
+        "blocked": ("Blocked", BadgeT.error),
+        "failed": ("Failed", BadgeT.error),
+        "overdue": ("Overdue", BadgeT.error),
+        # Neutral states
+        "cancelled": ("Cancelled", BadgeT.neutral),
+        "archived": ("Archived", BadgeT.neutral),
+        "draft": ("Draft", BadgeT.neutral),
+    }
+
+    text, variant = status_map.get(status_lower, (status.title(), BadgeT.neutral))
+    return Badge(text, variant=variant, **kwargs)
+
+
+def PriorityBadge(priority: str | None, **kwargs: Any) -> Any:
+    """Priority-aware badge that maps priority values to DaisyUI badge variants.
+
+    Args:
+        priority: The priority string (case-insensitive). Supported values:
+            - "critical" / "urgent" / "high" -> error
+            - "medium" / "normal" -> warning
+            - "low" -> success
+        **kwargs: Additional attributes passed to Badge
+
+    Returns:
+        A DaisyUI Badge with appropriate variant, or None if priority is None
+    """
+    if priority is None:
+        return None
+
+    priority_lower = priority.lower()
+
+    priority_map: dict[str, tuple[str, BadgeT]] = {
+        "critical": ("Critical", BadgeT.error),
+        "urgent": ("Urgent", BadgeT.error),
+        "high": ("High", BadgeT.error),
+        "medium": ("Medium", BadgeT.warning),
+        "normal": ("Normal", BadgeT.warning),
+        "low": ("Low", BadgeT.success),
+    }
+
+    text, variant = priority_map.get(priority_lower, (priority.title(), BadgeT.neutral))
+    return Badge(text, variant=variant, **kwargs)

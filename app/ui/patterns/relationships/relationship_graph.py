@@ -33,7 +33,7 @@ Color Scheme:
 
 from fasthtml.common import H3, Div, Option, Select
 
-from ui.primitives.card import Card
+from ui.cards import Card, CardBody
 
 
 def RelationshipGraphView(
@@ -52,55 +52,56 @@ def RelationshipGraphView(
         Div containing interactive Vis.js graph
     """
     return Card(
-        # Header with depth control
-        Div(
-            H3("Relationship Graph", cls="text-lg font-bold"),
-            Select(
-                Option("Depth 1", value="1"),
-                Option("Depth 2", value="2", selected=(depth == 2)),
-                Option("Depth 3", value="3"),
-                name="graph_depth",
-                cls="select select-sm select-bordered",
-                **{"x-on:change": "changeDepth($event.target.value)"},
+        CardBody(
+            # Header with depth control
+            Div(
+                H3("Relationship Graph", cls="text-lg font-bold"),
+                Select(
+                    Option("Depth 1", value="1"),
+                    Option("Depth 2", value="2", selected=(depth == 2)),
+                    Option("Depth 3", value="3"),
+                    name="graph_depth",
+                    cls="select select-sm select-bordered",
+                    **{"x-on:change": "changeDepth($event.target.value)"},
+                ),
+                cls="flex items-center justify-between mb-4",
             ),
-            cls="flex items-center justify-between mb-4",
+            # Canvas container
+            Div(
+                Div(
+                    id=f"network-{entity_uid}",
+                    cls="w-full h-96 border border-base-300 rounded",
+                ),
+                **{
+                    "x-data": f"relationshipGraph('{entity_uid}', '{entity_type}', {depth})",
+                    "x-init": "init()",
+                },
+            ),
+            # Legend
+            Div(
+                Div(
+                    Div(cls="w-3 h-3 rounded-full bg-error inline-block"),
+                    " Blocks",
+                    cls="text-sm mr-4",
+                ),
+                Div(
+                    Div(cls="w-3 h-3 rounded-full bg-warning inline-block"),
+                    " Prerequisites",
+                    cls="text-sm mr-4",
+                ),
+                Div(
+                    Div(cls="w-3 h-3 rounded-full bg-info inline-block"),
+                    " Alternatives",
+                    cls="text-sm mr-4",
+                ),
+                Div(
+                    Div(cls="w-3 h-3 rounded-full bg-success inline-block"),
+                    " Complementary",
+                    cls="text-sm",
+                ),
+                cls="flex items-center mt-4 pt-4 border-t border-base-200",
+            ),
         ),
-        # Canvas container
-        Div(
-            Div(
-                id=f"network-{entity_uid}",
-                cls="w-full h-96 border border-base-300 rounded",
-            ),
-            **{
-                "x-data": f"relationshipGraph('{entity_uid}', '{entity_type}', {depth})",
-                "x-init": "init()",
-            },
-        ),
-        # Legend
-        Div(
-            Div(
-                Div(cls="w-3 h-3 rounded-full bg-error inline-block"),
-                " Blocks",
-                cls="text-sm mr-4",
-            ),
-            Div(
-                Div(cls="w-3 h-3 rounded-full bg-warning inline-block"),
-                " Prerequisites",
-                cls="text-sm mr-4",
-            ),
-            Div(
-                Div(cls="w-3 h-3 rounded-full bg-info inline-block"),
-                " Alternatives",
-                cls="text-sm mr-4",
-            ),
-            Div(
-                Div(cls="w-3 h-3 rounded-full bg-success inline-block"),
-                " Complementary",
-                cls="text-sm",
-            ),
-            cls="flex items-center mt-4 pt-4 border-t border-base-200",
-        ),
-        cls="bg-base-100 shadow-sm p-4",
     )
 
 

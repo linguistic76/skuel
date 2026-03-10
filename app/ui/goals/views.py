@@ -606,8 +606,8 @@ class GoalsViewComponents:
 
         See: /docs/patterns/HIERARCHY_COMPONENTS_GUIDE.md
         """
+        from ui.layout import Row, Stack
         from ui.patterns.tree_view import TreeView
-        from ui.primitives.layout import Row, Stack
 
         return Stack(
             # Page header with controls

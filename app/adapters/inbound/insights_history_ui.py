@@ -14,12 +14,12 @@ from starlette.requests import Request
 
 from adapters.inbound.auth import require_authenticated_user
 from core.utils.logging import get_logger
+from ui.feedback import Badge, BadgeT
 from ui.insights.insight_card import InsightCard
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.page_header import PageHeader
-from ui.primitives.badge import Badge
 
 logger = get_logger("skuel.routes.insights.history")
 
@@ -124,7 +124,7 @@ def create_insights_history_routes(
                     Div(
                         Badge(
                             action_type,
-                            variant="ghost" if insight.dismissed else "success",
+                            variant=BadgeT.ghost if insight.dismissed else BadgeT.success,
                         ),
                         Span(
                             f" on {action_date.strftime('%b %d, %Y at %I:%M %p')}"

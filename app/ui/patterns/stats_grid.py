@@ -8,9 +8,9 @@ from typing import Any
 
 from fasthtml.common import Div, Span
 
-from ui.primitives.card import Card
-from ui.primitives.layout import Grid
-from ui.primitives.text import Caption
+from ui.cards import Card, CardBody, CardT
+from ui.layout import Grid
+from ui.text import Caption
 
 
 def StatCard(
@@ -59,7 +59,7 @@ def StatCard(
         trend_cls = trend_colors.get(trend, "text-base-content/60")
         content.append(Span(change, cls=f"text-sm {trend_cls} mt-1 block"))
 
-    return Card(*content, padding="p-4", **kwargs)
+    return Card(CardBody(*content), variant=CardT.compact, **kwargs)
 
 
 def StatsGrid(

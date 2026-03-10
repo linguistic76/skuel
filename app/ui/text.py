@@ -1,6 +1,6 @@
-"""Typography primitives with consistent styling.
+"""Typography components with consistent styling.
 
-This module provides the core typography components for the SKUEL design system.
+Provides core typography helpers for the SKUEL design system.
 All text rendering should use these components for consistent styling.
 
 Type Scale:

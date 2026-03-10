@@ -8,10 +8,10 @@ from typing import Any
 
 from fasthtml.common import Div
 
+from ui.buttons import ButtonLink, ButtonT
+from ui.layout import Container, Row, Size, Stack
 from ui.patterns.stats_grid import StatsGrid
-from ui.primitives.button import ButtonLink
-from ui.primitives.layout import Container, Row, Stack
-from ui.primitives.text import PageTitle
+from ui.text import PageTitle
 
 
 def DashboardLayout(
@@ -68,11 +68,12 @@ def DashboardLayout(
 
     # Header section: title + quick actions
     if quick_actions:
+        variant_map = {v.name: v for v in ButtonT}
         action_buttons = [
             ButtonLink(
                 a["label"],
-                a["href"],
-                variant=a.get("variant", "primary"),
+                href=a["href"],
+                variant=variant_map.get(a.get("variant", "primary"), ButtonT.primary),
             )
             for a in quick_actions
         ]
@@ -127,11 +128,12 @@ def DashboardSection(
             actions=[{"label": "View All", "href": "/tasks"}],
         )
     """
-    from ui.primitives.text import SectionTitle
+    from ui.text import SectionTitle
 
     if actions:
         action_links = [
-            ButtonLink(a["label"], a["href"], variant="ghost", size="sm") for a in actions
+            ButtonLink(a["label"], href=a["href"], variant=ButtonT.ghost, size=Size.sm)
+            for a in actions
         ]
         header = Row(
             Div(SectionTitle(title), cls="flex-1"),

@@ -18,11 +18,10 @@ from fasthtml.common import H1, H2, Div, P
 from core.models.entity_types import CurriculumEntity
 from core.models.enums import SELCategory
 from core.models.pathways.learning_progress import CurriculumProgress, LearningJourney
+from ui.buttons import ButtonLink, ButtonT
 from ui.enum_helpers import get_sel_icon
-from ui.feedback import Progress
+from ui.feedback import Badge, BadgeT, Progress
 from ui.patterns.entity_card import CardConfig, EntityCard
-from ui.primitives.badge import Badge
-from ui.primitives.button import ButtonLink
 
 
 def SELCategoryCard(category: SELCategory, progress: CurriculumProgress) -> Any:
@@ -44,8 +43,8 @@ def SELCategoryCard(category: SELCategory, progress: CurriculumProgress) -> Any:
         actions=ButtonLink(
             "Continue Learning →",
             href=f"/articles?sel={category.value}",
-            variant="primary",
-            full_width=True,
+            variant=ButtonT.primary,
+            cls="w-full",
         ),
         config=CardConfig.default(),
     )
@@ -80,12 +79,12 @@ def AdaptiveKUCard(ku: CurriculumEntity, prerequisites_met: bool = True) -> Any:
 
     learning_level = getattr(ku, "learning_level", None)
     if learning_level:
-        metadata.append(Badge(learning_level.value.title(), variant="default"))
+        metadata.append(Badge(learning_level.value.title(), variant=BadgeT.neutral))
 
     if prerequisites_met:
-        metadata.append(Badge("✓ Prerequisites met", variant="success"))
+        metadata.append(Badge("✓ Prerequisites met", variant=BadgeT.success))
     else:
-        metadata.append(Badge("Prerequisites needed", variant="warning"))
+        metadata.append(Badge("Prerequisites needed", variant=BadgeT.warning))
 
     description = ku.summary[:150] + "..." if len(ku.summary) > 150 else ku.summary
 
@@ -98,8 +97,8 @@ def AdaptiveKUCard(ku: CurriculumEntity, prerequisites_met: bool = True) -> Any:
         actions=ButtonLink(
             "Start Learning →",
             href=f"/ku/{ku.uid}",
-            variant="primary",
-            full_width=True,
+            variant=ButtonT.primary,
+            cls="w-full",
         ),
         config=CardConfig.default(),
     )

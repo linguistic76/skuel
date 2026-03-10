@@ -1,8 +1,7 @@
 # SKUEL UI Component Catalog
 
-**Last Updated:** 2026-03-03
-**Status:** Complete
-**Phase:** 3, Task 5 - Pattern Standardization
+**Last Updated:** 2026-03-10
+**Status:** Complete — DaisyUI consolidated (primitives layer removed)
 
 ---
 
@@ -10,11 +9,13 @@
 
 This catalog documents all UI components in SKUEL's design system, organized into three tiers:
 
-1. **Primitives** - Basic building blocks (buttons, cards, badges, inputs)
+1. **DaisyUI Wrappers** - Semantic component wrappers (buttons, cards, badges, forms, layout, text, feedback)
 2. **Patterns** - Composed reusable components (headers, cards, grids)
 3. **Layouts** - Page structures (BasePage, domain layouts)
 
 All components follow DaisyUI conventions and WCAG 2.1 Level AA accessibility standards.
+
+> **Note (2026-03-10):** The `ui/primitives/` layer was removed. All unique value was absorbed into the DaisyUI wrapper modules: typography helpers → `ui/text.py`, StatusBadge/PriorityBadge → `ui/feedback.py`, FlexItem/Row/Stack → `ui/layout.py`, CardLink → `ui/cards.py`, ButtonLink/IconButton → `ui/buttons.py`.
 
 ---
 
@@ -22,10 +23,14 @@ All components follow DaisyUI conventions and WCAG 2.1 Level AA accessibility st
 
 | Category | Components | Location |
 |----------|------------|----------|
-| **DaisyUI Wrappers** | Button, Card, Input, Modal, Alert, Badge, Navbar, Table, etc. | `ui/buttons.py`, `ui/cards.py`, `ui/forms.py`, … (8 modules) |
-| **Primitives** | Button, ButtonLink, Card, Badge, Input, Layout, Text | `/ui/primitives/*.py` |
-| **Patterns** | PageHeader, EntityCard, StatsGrid, EmptyState, ErrorBanner, etc. | `/ui/patterns/*.py` |
-| **Layouts** | BasePage, Navbar, Domain Layouts | `/ui/layouts/*.py` |
+| **Buttons** | Button, ButtonLink, IconButton, ButtonT | `ui/buttons.py` |
+| **Cards** | Card, CardBody, CardTitle, CardActions, CardFigure, CardLink, CardT | `ui/cards.py` |
+| **Forms** | Input, Select, Textarea, Checkbox, Radio, Toggle, Range, FormControl, Label | `ui/forms.py` |
+| **Feedback** | Alert, Badge, StatusBadge, PriorityBadge, Loading, Progress, RadialProgress | `ui/feedback.py` |
+| **Layout** | DivHStacked, DivVStacked, DivFullySpaced, DivCentered, Grid, Container, Row, Stack, FlexItem, Size | `ui/layout.py` |
+| **Typography** | PageTitle, SectionTitle, CardTitle, Subtitle, BodyText, SmallText, Caption, TruncatedText | `ui/text.py` |
+| **Patterns** | PageHeader, EntityCard, StatsGrid, EmptyState, ErrorBanner, etc. | `ui/patterns/*.py` |
+| **Layouts** | BasePage, Navbar, Domain Layouts | `ui/layouts/*.py` |
 
 ---
 
@@ -96,7 +101,7 @@ Primary action button.
 
 **Examples:**
 ```python
-from ui.primitives.button import Button
+from ui.buttons import Button
 
 # Primary action
 Button("Save Changes", variant="primary")
@@ -124,7 +129,7 @@ Button-styled link for navigation.
 
 **Examples:**
 ```python
-from ui.primitives.button import ButtonLink
+from ui.buttons import ButtonLink
 
 # Navigation button
 ButtonLink("View Details", href="/tasks/123", variant="primary")
@@ -152,8 +157,8 @@ Generic card container.
 
 **Examples:**
 ```python
-from ui.primitives.card import Card
-from ui.primitives.text import CardTitle
+from ui.cards import Card
+from ui.text import CardTitle
 from fasthtml.common import P
 
 # Simple card
@@ -220,7 +225,7 @@ Priority-specific badge with predefined styling.
 
 **Examples:**
 ```python
-from ui.primitives.badge import Badge, StatusBadge, PriorityBadge
+from ui.feedback import Badge, StatusBadge, PriorityBadge
 
 # Generic badge
 Badge("New", variant="primary")
@@ -281,7 +286,7 @@ Dropdown select input.
 
 **Examples:**
 ```python
-from ui.primitives.input import Input, TextArea, Select
+from ui.forms import Input, Textarea, Select
 
 # Text input
 Input(
@@ -358,7 +363,7 @@ Flexible item within Row/Column.
 
 **Examples:**
 ```python
-from ui.primitives.layout import Row, Column, FlexItem
+from ui.layout import Row, FlexItem
 
 # Horizontal row with gap
 Row(
@@ -419,7 +424,7 @@ Text truncated to specified number of lines.
 
 **Examples:**
 ```python
-from ui.primitives.text import CardTitle, SmallText, TruncatedText
+from ui.text import CardTitle, SmallText, TruncatedText
 
 # Card title
 CardTitle("Complete Quarterly Report")
@@ -468,7 +473,7 @@ Page header component.
 **Examples:**
 ```python
 from ui.patterns.page_header import PageHeader
-from ui.primitives.button import Button, ButtonLink
+from ui.buttons import Button, ButtonLink
 
 # Simple header
 PageHeader(title="Tasks")
@@ -735,7 +740,7 @@ Section header component.
 **Examples:**
 ```python
 from ui.patterns.section_header import SectionHeader
-from ui.primitives.button import ButtonLink
+from ui.buttons import ButtonLink
 
 # Simple section header
 SectionHeader(title="Recent Tasks")
@@ -1013,8 +1018,8 @@ Div(
 Standard form with validation:
 
 ```python
-from ui.primitives.input import Input, TextArea, Select
-from ui.primitives.button import Button
+from ui.forms import Input, Textarea, Select
+from ui.buttons import Button
 from ui.patterns.error_banner import render_inline_error
 from fasthtml.common import Form, Div
 

@@ -10,10 +10,10 @@ intelligence services based on user behavior patterns.
 from fasthtml.common import H3, Button, Div, Form, Li, NotStr, P, Span, Ul
 
 from core.models.insight.persisted_insight import PersistedInsight
-from ui.primitives.badge import Badge
-from ui.primitives.card import Card
-from ui.primitives.layout import FlexItem, Row
-from ui.primitives.text import CardTitle, SmallText, TruncatedText
+from ui.cards import Card, CardBody
+from ui.feedback import Badge, BadgeT
+from ui.layout import FlexItem, Row
+from ui.text import CardTitle, SmallText, TruncatedText
 
 
 def InsightCard(insight: PersistedInsight) -> Div:
@@ -49,23 +49,23 @@ def InsightCard(insight: PersistedInsight) -> Div:
     badges = []
 
     # Impact badge (uses priority badge styling)
-    impact_badge = Badge(
-        insight.impact.value.upper(),
-        variant="error"
+    impact_variant = (
+        BadgeT.error
         if insight.impact.value in ("critical", "high")
-        else "warning"
+        else BadgeT.warning
         if insight.impact.value == "medium"
-        else "success",
+        else BadgeT.success
     )
+    impact_badge = Badge(insight.impact.value.upper(), variant=impact_variant)
     badges.append(impact_badge)
 
     # Domain badge
-    domain_badge = Badge(insight.domain, variant="neutral")
+    domain_badge = Badge(insight.domain, variant=BadgeT.neutral)
     badges.append(domain_badge)
 
     # Confidence badge
     confidence_pct = int(insight.confidence * 100)
-    confidence_badge = Badge(f"{confidence_pct}% confident", variant="ghost")
+    confidence_badge = Badge(f"{confidence_pct}% confident", variant=BadgeT.ghost)
     badges.append(confidence_badge)
 
     badge_row = Row(*badges, gap=2)
@@ -178,7 +178,7 @@ def InsightCard(insight: PersistedInsight) -> Div:
     # Card with impact-based border
     # , Task 13: Wrap in Alpine component for modal
     card = Card(
-        *content,
+        CardBody(*content),
         cls=f"border-l-4 {border_cls}",
         id=f"insight-{insight.uid}",  # For HTMX targeting
     )
@@ -215,18 +215,18 @@ def InsightMiniCard(insight: PersistedInsight, show_domain: bool = False) -> Div
 
     # Build badge
     badges = []
-    impact_badge = Badge(
-        insight.impact.value.upper(),
-        variant="error"
+    impact_variant = (
+        BadgeT.error
         if insight.impact.value in ("critical", "high")
-        else "warning"
+        else BadgeT.warning
         if insight.impact.value == "medium"
-        else "success",
+        else BadgeT.success
     )
+    impact_badge = Badge(insight.impact.value.upper(), variant=impact_variant)
     badges.append(impact_badge)
 
     if show_domain:
-        domain_badge = Badge(insight.domain, variant="neutral")
+        domain_badge = Badge(insight.domain, variant=BadgeT.neutral)
         badges.append(domain_badge)
 
     # , Task 11: Deep linking - determine link URL based on entity_uid
@@ -386,13 +386,13 @@ def InsightDetailModal(insight: PersistedInsight) -> Div:
                     Div(
                         Badge(
                             insight.impact.value.upper(),
-                            variant="error"
+                            variant=BadgeT.error
                             if insight.impact.value in ("critical", "high")
-                            else "warning"
+                            else BadgeT.warning
                             if insight.impact.value == "medium"
-                            else "success",
+                            else BadgeT.success,
                         ),
-                        Badge(insight.domain, variant="neutral"),
+                        Badge(insight.domain, variant=BadgeT.neutral),
                         cls="flex gap-2 mt-2",
                     ),
                     cls="mb-6",

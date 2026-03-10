@@ -8,9 +8,9 @@ CardT enum and Card, CardBody, CardTitle, CardActions, CardFigure wrappers.
 from enum import Enum
 from typing import Any
 
-from fasthtml.common import Div
+from fasthtml.common import A, Div
 
-__all__ = ["CardT", "Card", "CardBody", "CardTitle", "CardActions", "CardFigure"]
+__all__ = ["CardT", "Card", "CardBody", "CardTitle", "CardActions", "CardFigure", "CardLink"]
 
 
 class CardT(str, Enum):
@@ -113,3 +113,19 @@ def CardFigure(*c: Any, cls: str = "", **kwargs: Any) -> Any:
     if cls:
         classes.append(cls)
     return Figure(*c, cls=" ".join(classes), **kwargs)
+
+
+def CardLink(*c: Any, href: str, cls: str = "", **kwargs: Any) -> Any:
+    """Clickable card that acts as a navigation link.
+
+    Args:
+        *c: Child elements
+        href: URL to navigate to when clicked
+        cls: Additional CSS classes
+        **kwargs: Additional attributes passed to the A element
+    """
+    base_cls = (
+        "block card bg-base-100 shadow-sm hover:border-primary hover:shadow-md transition-all"
+    )
+    full_cls = f"{base_cls} {cls}".strip() if cls else base_cls
+    return A(*c, href=href, cls=full_cls, **kwargs)

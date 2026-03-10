@@ -15,12 +15,13 @@ from starlette.requests import Request
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.route_factories import parse_int_query_param
 from core.utils.logging import get_logger
+from ui.buttons import Button, ButtonT
 from ui.insights.insight_card import InsightCard
+from ui.layout import Size
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.page_header import PageHeader
-from ui.primitives.button import Button
 
 logger = get_logger("skuel.routes.insights.ui")
 
@@ -220,7 +221,8 @@ def create_insights_ui_routes(
                 Button(
                     "Clear",
                     type="button",
-                    cls="btn btn-sm btn-ghost",
+                    variant=ButtonT.ghost,
+                    size=Size.sm,
                     **{"@click": "clearFilters()"},
                 ),
                 # Loading indicator (shown during debounce/navigation)
@@ -255,17 +257,20 @@ def create_insights_ui_routes(
                 Div(
                     Button(
                         "Dismiss Selected",
-                        cls="btn btn-sm btn-ghost",
+                        variant=ButtonT.ghost,
+                        size=Size.sm,
                         **{"@click": "bulkDismiss()"},
                     ),
                     Button(
                         "Mark as Actioned",
-                        cls="btn btn-sm btn-primary",
+                        variant=ButtonT.primary,
+                        size=Size.sm,
                         **{"@click": "bulkMarkActioned()"},
                     ),
                     Button(
                         "Deselect All",
-                        cls="btn btn-sm btn-ghost",
+                        variant=ButtonT.ghost,
+                        size=Size.sm,
                         **{"@click": "deselectAll()"},
                     ),
                     cls="flex gap-2",

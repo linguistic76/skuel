@@ -27,7 +27,7 @@ from typing import Any
 
 from fasthtml.common import H3, A, Div, Span
 
-from ui.primitives.card import Card
+from ui.cards import Card, CardBody
 
 
 def BlockingChainView(entity_uid: str, entity_type: str) -> Div:
@@ -41,27 +41,28 @@ def BlockingChainView(entity_uid: str, entity_type: str) -> Div:
         Div containing HTMX-loadable blocking chain view
     """
     return Card(
-        # Header
-        Div(
-            H3("Blocking Chain", cls="text-lg font-bold"),
-            Span(
-                **{"x-text": "`${chain_depth} levels deep`"},
-                cls="text-sm text-base-content/70",
+        CardBody(
+            # Header
+            Div(
+                H3("Blocking Chain", cls="text-lg font-bold"),
+                Span(
+                    **{"x-text": "`${chain_depth} levels deep`"},
+                    cls="text-sm text-base-content/70",
+                ),
+                cls="flex items-center justify-between mb-4",
             ),
-            cls="flex items-center justify-between mb-4",
-        ),
-        # Chain container (HTMX loads)
-        Div(
-            Div("Loading blocking chain...", cls="skeleton h-32"),
-            id=f"chain-{entity_uid}",
-            **{
-                "hx-get": f"/api/{entity_type}/{entity_uid}/lateral/chain",
-                "hx-trigger": "load",
-                "hx-swap": "innerHTML",
-            },
+            # Chain container (HTMX loads)
+            Div(
+                Div("Loading blocking chain...", cls="skeleton h-32"),
+                id=f"chain-{entity_uid}",
+                **{
+                    "hx-get": f"/api/{entity_type}/{entity_uid}/lateral/chain",
+                    "hx-trigger": "load",
+                    "hx-swap": "innerHTML",
+                },
+            ),
         ),
         **{"x-data": "{ chain_depth: 0 }"},
-        cls="bg-base-100 shadow-sm p-4",
     )
 
 

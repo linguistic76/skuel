@@ -8,14 +8,12 @@ from fasthtml.common import Div
 
 def test_input_with_aria_attributes():
     """Verify Input component includes ARIA attributes for accessibility."""
-    from ui.primitives.input import Input
+    from ui.forms import Input
 
-    # Test input with error
+    # Test input with error (DaisyUI API uses error_text=)
     input_with_error = Input(
         name="email",
-        label="Email",
-        error="Invalid email address",
-        required=True,
+        error_text="Invalid email address",
     )
 
     # Convert to string to check attributes
@@ -36,31 +34,27 @@ def test_input_with_aria_attributes():
 
 def test_input_without_error():
     """Verify Input component without error doesn't have aria-invalid."""
-    from ui.primitives.input import Input
+    from ui.forms import Input
 
     # Test input without error
     input_no_error = Input(
         name="username",
-        label="Username",
-        required=False,
     )
 
     html_str = str(input_no_error)
 
     # Should not show error message
-    assert 'role="alert"' not in html_str or 'style=""' not in html_str
+    assert 'role="alert"' not in html_str
 
 
 def test_textarea_with_aria_attributes():
     """Verify Textarea component includes ARIA attributes for accessibility."""
-    from ui.primitives.input import Textarea
+    from ui.forms import Textarea
 
-    # Test textarea with error
+    # Test textarea with error (DaisyUI API uses error_text=)
     textarea_with_error = Textarea(
         name="description",
-        label="Description",
-        error="Description is required",
-        required=True,
+        error_text="Description is required",
     )
 
     html_str = str(textarea_with_error)
@@ -76,16 +70,17 @@ def test_textarea_with_aria_attributes():
 
 
 def test_select_with_aria_attributes():
-    """Verify SelectInput component includes ARIA attributes for accessibility."""
-    from ui.primitives.input import SelectInput
+    """Verify Select component includes ARIA attributes for accessibility."""
+    from fasthtml.common import Option
 
-    # Test select with error
-    select_with_error = SelectInput(
+    from ui.forms import Select
+
+    # Test select with error (DaisyUI API uses error_text=, options as children)
+    select_with_error = Select(
+        Option("Work", value="work"),
+        Option("Personal", value="personal"),
         name="category",
-        options=[("work", "Work"), ("personal", "Personal")],
-        label="Category",
-        error="Please select a category",
-        required=True,
+        error_text="Please select a category",
     )
 
     html_str = str(select_with_error)
@@ -237,15 +232,17 @@ def test_all_skeleton_components_importable():
 
 def test_input_components_backward_compatible():
     """Verify Input components work without error parameter (backward compatible)."""
-    from ui.primitives.input import Input, SelectInput, Textarea
+    from fasthtml.common import Option
+
+    from ui.forms import Input, Select, Textarea
 
     # Should work without error parameter
-    input_basic = Input(name="test", label="Test")
-    textarea_basic = Textarea(name="test", label="Test")
-    select_basic = SelectInput(
+    input_basic = Input(name="test")
+    textarea_basic = Textarea(name="test")
+    select_basic = Select(
+        Option("A", value="a"),
+        Option("B", value="b"),
         name="test",
-        options=[("a", "A"), ("b", "B")],
-        label="Test",
     )
 
     # All should render without errors

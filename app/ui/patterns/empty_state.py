@@ -8,9 +8,9 @@ from typing import Any
 
 from fasthtml.common import Div
 
-from ui.primitives.button import ButtonLink
-from ui.primitives.layout import Stack
-from ui.primitives.text import BodyText
+from ui.buttons import ButtonLink
+from ui.layout import Stack
+from ui.text import BodyText
 
 
 def EmptyState(
@@ -57,7 +57,7 @@ def EmptyState(
         content.append(BodyText(description, muted=True))
 
     if action_text and action_href:
-        content.append(Div(ButtonLink(action_text, action_href), cls="mt-6"))
+        content.append(Div(ButtonLink(action_text, href=action_href), cls="mt-6"))
 
     # Merge with kwargs cls
     base_cls = "text-center py-12"

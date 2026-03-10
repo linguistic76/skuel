@@ -27,7 +27,7 @@ from typing import Any
 
 from fasthtml.common import H3, Div, Table, Tbody, Td, Th, Thead, Tr
 
-from ui.primitives.card import Card
+from ui.cards import Card, CardBody
 
 
 def AlternativesComparisonGrid(entity_uid: str, entity_type: str) -> Div:
@@ -41,18 +41,19 @@ def AlternativesComparisonGrid(entity_uid: str, entity_type: str) -> Div:
         Div containing HTMX-loadable comparison grid
     """
     return Card(
-        H3("Alternative Approaches", cls="text-lg font-bold mb-4"),
-        # Comparison grid (HTMX loads)
-        Div(
-            Div("Loading alternatives...", cls="skeleton h-48"),
-            id=f"alternatives-{entity_uid}",
-            **{
-                "hx-get": f"/api/{entity_type}/{entity_uid}/lateral/alternatives/compare",
-                "hx-trigger": "load delay:300ms",  # Staggered loading
-                "hx-swap": "innerHTML",
-            },
+        CardBody(
+            H3("Alternative Approaches", cls="text-lg font-bold mb-4"),
+            # Comparison grid (HTMX loads)
+            Div(
+                Div("Loading alternatives...", cls="skeleton h-48"),
+                id=f"alternatives-{entity_uid}",
+                **{
+                    "hx-get": f"/api/{entity_type}/{entity_uid}/lateral/alternatives/compare",
+                    "hx-trigger": "load delay:300ms",  # Staggered loading
+                    "hx-swap": "innerHTML",
+                },
+            ),
         ),
-        cls="bg-base-100 shadow-sm p-4",
     )
 
 

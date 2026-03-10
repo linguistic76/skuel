@@ -16,10 +16,10 @@ from typing import Any
 
 from fasthtml.common import Div
 
-from ui.primitives.badge import PriorityBadge, StatusBadge
-from ui.primitives.card import Card
-from ui.primitives.layout import FlexItem, Row
-from ui.primitives.text import CardTitle, SmallText, TruncatedText
+from ui.cards import Card, CardBody
+from ui.feedback import PriorityBadge, StatusBadge
+from ui.layout import FlexItem, Row
+from ui.text import CardTitle, SmallText, TruncatedText
 
 # ============================================================================
 # VARIANT SYSTEM
@@ -306,7 +306,7 @@ def EntityCard(
 
     card_cls = " ".join(card_cls_parts).strip()
 
-    return Card(*content, cls=card_cls, **kwargs)
+    return Card(CardBody(*content), cls=card_cls, **kwargs)
 
 
 __all__ = ["CardVariant", "CardConfig", "EntityCard"]
