@@ -163,6 +163,8 @@ from core.ports import (
     EventBusOperations,
     ExerciseOperations,
     FinancesOperations,
+    FormSubmissionOperations,
+    FormTemplateOperations,
     GoalTaskGeneratorOperations,
     GraphAuthOperations,
     GroupOperations,
@@ -252,6 +254,10 @@ class Services:
     revised_exercises: RevisedExerciseOperations | None = (
         None  # RevisedExerciseService - Five-phase learning loop revision cycle
     )
+
+    # General-purpose forms (March 2026)
+    form_templates: "FormTemplateOperations | None" = None
+    form_submissions: "FormSubmissionOperations | None" = None
 
     # Journal processing services
     journal_generator: "JournalOutputGenerator | None" = (
@@ -1715,6 +1721,39 @@ async def compose_services(
         )
         logger.info("✅ RevisedExerciseService created (five-phase learning loop)")
 
+        # Create form services (general-purpose form system)
+        from adapters.persistence.neo4j.domain_backends import (
+            FormSubmissionBackend,
+            FormTemplateBackend,
+        )
+        from core.models.forms.form_submission import FormSubmission
+        from core.models.forms.form_template import FormTemplate
+        from core.services.forms import FormSubmissionService, FormTemplateService
+
+        form_template_backend = FormTemplateBackend(
+            driver=driver,
+            label=NeoLabel.FORM_TEMPLATE,
+            entity_class=FormTemplate,
+            prometheus_metrics=prometheus_metrics,
+            base_label=NeoLabel.ENTITY,
+        )
+        form_template_service = FormTemplateService(
+            backend=form_template_backend, event_bus=event_bus
+        )
+
+        form_submission_backend = FormSubmissionBackend(
+            driver=driver,
+            label=NeoLabel.FORM_SUBMISSION,
+            entity_class=FormSubmission,
+            prometheus_metrics=prometheus_metrics,
+            base_label=NeoLabel.ENTITY,
+        )
+        form_submission_service = FormSubmissionService(
+            backend=form_submission_backend,
+            event_bus=event_bus,
+        )
+        logger.info("✅ Form services created (FormTemplate + FormSubmission)")
+
         # Create group service (ADR-040: Teacher Assignment Workflow)
         from core.models.group.group import Group
         from core.services.groups import GroupService
@@ -1776,6 +1815,9 @@ async def compose_services(
             driver, NeoLabel.ENTITY, Entity, prometheus_metrics=prometheus_metrics
         )
         unified_sharing_service = UnifiedSharingService(backend=sharing_backend)
+
+        # Wire sharing into form submission service (created earlier without sharing)
+        form_submission_service.sharing_service = unified_sharing_service
 
         # Create Submissions core service (content management: categories, tags, bulk operations)
         # February 2026: content_enrichment for handle_transcription_completed
@@ -2528,6 +2570,8 @@ async def compose_services(
             submission_report=submission_report_service,  # LLM report on submissions/journals
             exercises=exercise_service,  # Reusable LLM instruction templates
             revised_exercises=revised_exercise_service,  # Five-phase learning loop revisions
+            form_templates=form_template_service,  # General-purpose form templates
+            form_submissions=form_submission_service,  # User form submissions
             journal_generator=journal_generator,  # je_output formatting and disk storage
             # Group & Teaching (ADR-040: Teacher exercise workflow)
             group_service=group_service,

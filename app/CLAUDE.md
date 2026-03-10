@@ -106,11 +106,11 @@ SKUEL separates runtime into two layers. The **Analog layer** (graph structure, 
 
 **See:** `/docs/architecture/ANALOG_DIGITAL_ARCHITECTURE.md`, `/docs/architecture/GRACEFUL_DEGRADATION_ARCHITECTURE.md`
 
-## SKUEL's 19 Entity Types + 5 Cross-Cutting Systems
+## SKUEL's 21 Entity Types + 5 Cross-Cutting Systems
 
 **Core Principle:** "Everything flows toward the life path"
 
-### The 19 Entity Types
+### The 21 Entity Types
 
 | EntityType | What It Is | UID Format | Ownership |
 |------------|-----------|-----------|-----------|
@@ -120,6 +120,8 @@ SKUEL separates runtime into two layers. The **Analog layer** (graph structure, 
 | Choice | Decision to make | `choice_{slug}_{random}` | User-owned |
 | Principle | Value to embody | `principle_{slug}_{random}` | User-owned |
 | Event | Time commitment to keep | `event_{slug}_{random}` | User-owned |
+| FormTemplate | General-purpose form definition | `ft_{slug}_{random}` | Admin-created, shared |
+| FormSubmission | User response to a FormTemplate | `fs_{slug}_{random}` | User-owned |
 | Finance | Admin-only bookkeeping | `expense_{random}` | Admin-only |
 | Article | Teaching composition (essay-like) | `a_{slug}_{random}` | Admin-created, shared |
 | Ku | Atomic knowledge unit | `ku_{slug}_{random}` | Admin-created, shared |

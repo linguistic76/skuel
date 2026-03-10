@@ -56,6 +56,8 @@ from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from core.models.exercises.revised_exercise import RevisedExercise  # noqa: F401
+    from core.models.forms.form_submission import FormSubmission  # noqa: F401
+    from core.models.forms.form_template import FormTemplate  # noqa: F401
 
 
 class HabitsBackend(UniversalNeo4jBackend[Habit]):
@@ -1466,10 +1468,129 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
         return Result.ok(result.value or [])
 
 
+class FormTemplateBackend(UniversalNeo4jBackend["FormTemplate"]):
+    """
+    Domain backend for FormTemplate entities.
+
+    Provides:
+    - get_forms_for_article — Query FormTemplates linked to an article via EMBEDS_FORM
+    """
+
+    async def get_forms_for_article(
+        self, article_uid: str
+    ) -> Result[list[dict[str, Any]]]:
+        """Get all FormTemplates embedded in an article."""
+        result = await self.execute_query(
+            f"""
+            MATCH (a:Entity {{uid: $article_uid}})
+                  -[:{RelationshipName.EMBEDS_FORM}]->
+                  (ft:Entity {{entity_type: 'form_template'}})
+            RETURN ft
+            ORDER BY ft.title ASC
+            """,
+            {"article_uid": article_uid},
+        )
+        if result.is_error:
+            return Result.fail(result.expect_error())
+        return Result.ok([dict(record["ft"]) for record in (result.value or [])])
+
+    async def link_to_article(
+        self, form_template_uid: str, article_uid: str
+    ) -> Result[bool]:
+        """Create EMBEDS_FORM relationship from article to form template."""
+        result = await self.execute_query(
+            f"""
+            MATCH (a:Entity {{uid: $article_uid}})
+            WHERE a.entity_type IN ['article', 'ku']
+            MATCH (ft:Entity {{uid: $ft_uid, entity_type: 'form_template'}})
+            MERGE (a)-[r:{RelationshipName.EMBEDS_FORM}]->(ft)
+            ON CREATE SET r.created_at = datetime()
+            RETURN true as success
+            """,
+            {"article_uid": article_uid, "ft_uid": form_template_uid},
+        )
+        if result.is_error:
+            return Result.fail(result.expect_error())
+        records = result.value or []
+        if not records:
+            return Result.fail(
+                Errors.not_found(
+                    resource="Article or FormTemplate",
+                    identifier=f"{article_uid} -> {form_template_uid}",
+                )
+            )
+        return Result.ok(True)
+
+    async def unlink_from_article(
+        self, form_template_uid: str, article_uid: str
+    ) -> Result[bool]:
+        """Remove EMBEDS_FORM relationship."""
+        result = await self.execute_query(
+            f"""
+            MATCH (a:Entity {{uid: $article_uid}})
+                  -[r:{RelationshipName.EMBEDS_FORM}]->
+                  (ft:Entity {{uid: $ft_uid}})
+            DELETE r
+            RETURN true as success
+            """,
+            {"article_uid": article_uid, "ft_uid": form_template_uid},
+        )
+        if result.is_error:
+            return Result.fail(result.expect_error())
+        return Result.ok(True)
+
+
+class FormSubmissionBackend(UniversalNeo4jBackend["FormSubmission"]):
+    """
+    Domain backend for FormSubmission entities.
+
+    Provides:
+    - get_submissions_for_template — Query all submissions for a template
+    - list_by_user                 — Get user's form submissions
+    """
+
+    async def get_submissions_for_template(
+        self, form_template_uid: str
+    ) -> Result[list[dict[str, Any]]]:
+        """Get all submissions for a form template."""
+        result = await self.execute_query(
+            f"""
+            MATCH (fs:Entity {{entity_type: 'form_submission'}})
+                  -[:{RelationshipName.RESPONDS_TO_FORM}]->
+                  (ft:Entity {{uid: $ft_uid}})
+            RETURN fs
+            ORDER BY fs.created_at DESC
+            """,
+            {"ft_uid": form_template_uid},
+        )
+        if result.is_error:
+            return Result.fail(result.expect_error())
+        return Result.ok([dict(record["fs"]) for record in (result.value or [])])
+
+    async def list_by_user(
+        self, user_uid: str, limit: int = 50
+    ) -> Result[list[dict[str, Any]]]:
+        """Get a user's form submissions."""
+        result = await self.execute_query(
+            """
+            MATCH (fs:Entity {entity_type: 'form_submission', user_uid: $user_uid})
+            RETURN fs
+            ORDER BY fs.created_at DESC
+            LIMIT $limit
+            """,
+            {"user_uid": user_uid, "limit": limit},
+        )
+        if result.is_error:
+            return Result.fail(result.expect_error())
+        return Result.ok([dict(record["fs"]) for record in (result.value or [])])
+
+
 __all__ = [
     "ChoicesBackend",
     "EventsBackend",
     "ExerciseBackend",
+    "FormSubmissionBackend",
+    "FormTemplateBackend",
     "GoalsBackend",
     "HabitsBackend",
     "ArticleBackend",

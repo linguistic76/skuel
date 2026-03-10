@@ -25,6 +25,7 @@ from core.utils.logging import get_logger
 from core.utils.markdown_renderer import render_markdown_with_toc
 from ui.cards import Card, CardBody
 from ui.exercises.inline_form import render_inline_exercise_form
+from ui.forms.inline_form_template import render_inline_form_template
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
 from ui.patterns.breadcrumbs import Breadcrumbs
@@ -138,12 +139,41 @@ def _nav_button(ku: dict | None, direction: str) -> Any:
     )
 
 
+def _form_templates_section(form_templates: list[dict]) -> Any:
+    """Render embedded FormTemplates as inline forms."""
+    if not form_templates:
+        return Div()
+
+    rows = []
+    for ft in form_templates:
+        form_schema = _parse_form_schema(ft.get("form_schema"))
+        if form_schema:
+            rows.append(
+                render_inline_form_template(
+                    form_template_uid=ft.get("uid", ""),
+                    form_schema=form_schema,
+                    title=ft.get("title"),
+                    instructions=ft.get("instructions"),
+                )
+            )
+
+    if not rows:
+        return Div()
+
+    return Div(
+        H3("Forms", cls="text-base font-semibold mb-3"),
+        Div(*rows, cls="space-y-4"),
+        cls="border-t border-base-200 pt-6 mt-8",
+    )
+
+
 def create_article_reading_ui_routes(
     app: Any,
     rt: Any,
     ku_service: Any,
     ku_interaction_service: Any,
     exercises_service: Any,
+    form_template_service: Any = None,
 ) -> list[Any]:
     """
     Create KU reading UI routes.
@@ -154,6 +184,7 @@ def create_article_reading_ui_routes(
         ku_service: KU service facade (with organization methods for breadcrumbs/navigation)
         ku_interaction_service: Interaction tracking service
         exercises_service: Exercise service (for REQUIRES_KNOWLEDGE reverse lookup)
+        form_template_service: FormTemplate service (for EMBEDS_FORM reverse lookup)
 
     Returns:
         List of registered route functions
@@ -206,6 +237,12 @@ def create_article_reading_ui_routes(
         # Exercises that practice this knowledge (Ku → Exercise loop)
         exercises_result = await exercises_service.get_exercises_for_curriculum(uid)
         exercises_for_ku = exercises_result.value if exercises_result.is_ok else []
+
+        # FormTemplates embedded in this article (EMBEDS_FORM)
+        form_templates_for_article: list[dict] = []
+        if form_template_service:
+            ft_result = await form_template_service.get_for_article(uid)
+            form_templates_for_article = ft_result.value if ft_result.is_ok else []
 
         # Get organization context for breadcrumbs + navigation
         organizers_result = await ku_service.find_organizers(uid)
@@ -336,6 +373,7 @@ def create_article_reading_ui_routes(
             metadata_footer,
             nav_section,
             _exercises_for_ku_section(exercises_for_ku),
+            _form_templates_section(form_templates_for_article),
             Div(
                 EntityRelationshipsSection(
                     entity_uid=uid,

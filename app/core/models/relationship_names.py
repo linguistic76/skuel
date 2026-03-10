@@ -283,6 +283,15 @@ class RelationshipName(str, Enum):
     REVISES_EXERCISE = "REVISES_EXERCISE"
 
     # =========================================================================
+    # FORM RELATIONSHIPS
+    # General-purpose form system
+    # =========================================================================
+    # (Article)-[:EMBEDS_FORM]->(FormTemplate) — article contains inline form
+    EMBEDS_FORM = "EMBEDS_FORM"
+    # (FormSubmission)-[:RESPONDS_TO_FORM]->(FormTemplate) — submission answers template
+    RESPONDS_TO_FORM = "RESPONDS_TO_FORM"
+
+    # =========================================================================
     # CONTENT/PROCESSING RELATIONSHIPS
     # Transcription, journal processing, and content linking
     # =========================================================================

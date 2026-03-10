@@ -6,7 +6,7 @@ Core enums for entity type discrimination, processing lifecycle,
 content origin, and domain classification.
 
 Organized in 5 sections:
-1. Core Identity: EntityType (18 values), ContentOrigin (4 tiers)
+1. Core Identity: EntityType (21 values + 3 deprecated), ContentOrigin (4 tiers)
 2. Processing Lifecycle: EntityStatus (14 values), ProcessorType (4 values)
 3. Domain Classification: Domain, NonKuDomain, DomainIdentifier
 4. Analytics: AnalyticsDomain
@@ -24,7 +24,7 @@ from enum import Enum
 
 class EntityType(str, Enum):
     """
-    Type of Entity — 19 entity types in SKUEL.
+    Type of Entity — 21 entity types in SKUEL.
 
     Discriminator for the `entity_type` field on Entity.
 
@@ -36,6 +36,8 @@ class EntityType(str, Enum):
         EXERCISE             → Instruction template for practicing curriculum
         EXERCISE_REPORT      → Teacher or AI report on an exercise submission
         EXERCISE_SUBMISSION  → Student-uploaded work against an Exercise
+        FORM_SUBMISSION      → User response to a FormTemplate
+        FORM_TEMPLATE        → General-purpose form definition (admin-created)
         GOAL                 → Knowledge about where you're heading
         HABIT                → Knowledge about what you practice
         JOURNAL_REPORT       → AI-generated report on a journal submission
@@ -55,14 +57,16 @@ class EntityType(str, Enum):
     Content origin tiers (see ContentOrigin):
         A  CURATED      → RESOURCE
         B  CURRICULUM   → ARTICLE, KU, LEARNING_STEP, LEARNING_PATH, EXERCISE, REVISED_EXERCISE
-        C  USER_CREATED → Activities (6), EXERCISE_SUBMISSION, JOURNAL_SUBMISSION, LIFE_PATH
+        C  USER_CREATED → Activities (6), EXERCISE_SUBMISSION, JOURNAL_SUBMISSION, LIFE_PATH,
+                          FORM_SUBMISSION
         D  REPORT       → ACTIVITY_REPORT, EXERCISE_REPORT, JOURNAL_REPORT
 
     Ownership rules:
-        Curriculum + Resource: user_uid = None (shared content, admin-created)
+        Curriculum + Resource + FormTemplate: user_uid = None (shared content, admin-created)
         Content processing:    user_uid = student/teacher (user-owned)
         Activity (6):          user_uid = student (user-owned)
         Destination:           user_uid = student (user-owned)
+        FormSubmission:        user_uid = student (user-owned)
     """
 
     # Curriculum (admin-created, shared)
@@ -74,6 +78,10 @@ class EntityType(str, Enum):
 
     # Revision cycle (teacher-owned, student-targeted)
     REVISED_EXERCISE = "revised_exercise"
+
+    # General-purpose forms (admin-created template, user-owned submissions)
+    FORM_TEMPLATE = "form_template"
+    FORM_SUBMISSION = "form_submission"
 
     # Curated external content (admin-created, shared)
     RESOURCE = "resource"
@@ -158,6 +166,7 @@ class EntityType(str, Enum):
         return self in {
             EntityType.EXERCISE_SUBMISSION,
             EntityType.JOURNAL_SUBMISSION,
+            EntityType.FORM_SUBMISSION,
             EntityType.ACTIVITY_REPORT,
             EntityType.EXERCISE_REPORT,
             EntityType.JOURNAL_REPORT,
@@ -231,6 +240,8 @@ _ENTITY_TYPE_DISPLAY_NAMES: dict[EntityType, str] = {
     EntityType.PRINCIPLE: "Principle",
     EntityType.EXERCISE: "Exercise",
     EntityType.REVISED_EXERCISE: "Revised Exercise",
+    EntityType.FORM_TEMPLATE: "Form Template",
+    EntityType.FORM_SUBMISSION: "Form Submission",
     EntityType.LIFE_PATH: "Life Path",
     # Deprecated aliases
     EntityType.SUBMISSION: "Submission",
@@ -273,6 +284,7 @@ _SHARED_TYPES = frozenset(
         EntityType.LEARNING_STEP,
         EntityType.LEARNING_PATH,
         EntityType.EXERCISE,
+        EntityType.FORM_TEMPLATE,
     }
 )
 
@@ -298,6 +310,7 @@ class ContentOrigin(str, Enum):
 _CONTENT_ORIGIN_BY_TYPE: dict[EntityType, ContentOrigin] = {
     # A — Admin-curated resources
     EntityType.RESOURCE: ContentOrigin.CURATED,
+    EntityType.FORM_TEMPLATE: ContentOrigin.CURATED,
     # B — Curriculum structure and organization
     EntityType.ARTICLE: ContentOrigin.CURRICULUM,
     EntityType.KU: ContentOrigin.CURRICULUM,
@@ -314,6 +327,7 @@ _CONTENT_ORIGIN_BY_TYPE: dict[EntityType, ContentOrigin] = {
     EntityType.PRINCIPLE: ContentOrigin.USER_CREATED,
     EntityType.EXERCISE_SUBMISSION: ContentOrigin.USER_CREATED,
     EntityType.JOURNAL_SUBMISSION: ContentOrigin.USER_CREATED,
+    EntityType.FORM_SUBMISSION: ContentOrigin.USER_CREATED,
     EntityType.LIFE_PATH: ContentOrigin.USER_CREATED,
     # Deprecated aliases
     EntityType.SUBMISSION: ContentOrigin.USER_CREATED,
@@ -363,6 +377,9 @@ _ENTITY_TYPE_ALIASES: dict[str, EntityType] = {
     "path": EntityType.LEARNING_PATH,
     "exercise": EntityType.EXERCISE,
     "revised_exercise": EntityType.REVISED_EXERCISE,
+    "form_template": EntityType.FORM_TEMPLATE,
+    "form_submission": EntityType.FORM_SUBMISSION,
+    "form": EntityType.FORM_TEMPLATE,
     "assignment": EntityType.EXERCISE,
     "feedback": EntityType.EXERCISE_REPORT,
     "revised_ex": EntityType.REVISED_EXERCISE,
@@ -823,6 +840,21 @@ _VALID_STATUSES_BY_TYPE: dict[EntityType, frozenset[EntityStatus]] = {
             EntityStatus.ARCHIVED,
         }
     ),
+    EntityType.FORM_TEMPLATE: frozenset(
+        {
+            EntityStatus.DRAFT,
+            EntityStatus.ACTIVE,
+            EntityStatus.COMPLETED,
+            EntityStatus.ARCHIVED,
+        }
+    ),
+    EntityType.FORM_SUBMISSION: frozenset(
+        {
+            EntityStatus.DRAFT,
+            EntityStatus.COMPLETED,
+            EntityStatus.ARCHIVED,
+        }
+    ),
     EntityType.LIFE_PATH: frozenset(
         {
             EntityStatus.ACTIVE,
@@ -854,6 +886,8 @@ _DEFAULT_STATUS_BY_TYPE: dict[EntityType, EntityStatus] = {
     EntityType.EVENT: EntityStatus.SCHEDULED,
     EntityType.CHOICE: EntityStatus.DRAFT,
     EntityType.PRINCIPLE: EntityStatus.ACTIVE,
+    EntityType.FORM_TEMPLATE: EntityStatus.DRAFT,
+    EntityType.FORM_SUBMISSION: EntityStatus.COMPLETED,
     EntityType.LIFE_PATH: EntityStatus.ACTIVE,
 }
 

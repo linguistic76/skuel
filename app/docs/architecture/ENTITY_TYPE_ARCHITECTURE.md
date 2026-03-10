@@ -1,6 +1,6 @@
 ---
-title: SKUEL Architecture — 19 Entity Types + 5 Cross-Cutting Systems
-updated: 2026-03-09
+title: SKUEL Architecture — 21 Entity Types + 5 Cross-Cutting Systems
+updated: 2026-03-10
 status: current
 category: architecture
 version: 6.0.0
@@ -19,7 +19,7 @@ related:
 
 SKUEL is a **knowledge-centric productivity platform** where every operation connects to and enriches understanding. **Knowledge is the fertile soil from which all activity grows.**
 
-### 19 Entity Types + 5 Cross-Cutting Systems
+### 21 Entity Types + 5 Cross-Cutting Systems
 
 | EntityType | What It Is | Ownership |
 |------------|-----------|-----------|
@@ -35,6 +35,8 @@ SKUEL is a **knowledge-centric productivity platform** where every operation con
 | LearningStep | Step in a learning path | Admin-created, shared |
 | LearningPath | Ordered sequence of steps | Admin-created, shared |
 | Exercise | Instruction template for practicing curriculum | Admin-created, shared |
+| FormTemplate | Reusable form definition (embeddable in Articles) | Admin-created, shared |
+| FormSubmission | User response to a FormTemplate | User-owned |
 | ExerciseSubmission | Student-uploaded work against an exercise | User-owned |
 | JournalSubmission | Reflective writing (voice/text) | User-owned |
 | ExerciseReport | Assessment tied to a specific submission | User-owned |
@@ -104,6 +106,7 @@ Entity (~18 fields: uid, entity_type, title, description, status, tags, ...)
 |   +-- Task, Goal, Habit, Event, Choice, Principle
 |   +-- LifePath
 |   +-- ActivityReport                           (no file fields)
+|   +-- FormSubmission(UserOwnedEntity)          FORM_SUBMISSION (structured JSON)
 |   +-- Submission(UserOwnedEntity) +13 file/processing fields
 |   |   +-- ExerciseSubmission(Submission)        EXERCISE_SUBMISSION
 |   |   +-- JournalSubmission(Submission)         JOURNAL_SUBMISSION
@@ -111,6 +114,7 @@ Entity (~18 fields: uid, entity_type, title, description, status, tags, ...)
 |   |   +-- ExerciseReport(SubmissionReport)      EXERCISE_REPORT
 |   |   +-- JournalReport(SubmissionReport)       JOURNAL_REPORT
 |   +-- RevisedExercise(UserOwnedEntity)          REVISED_EXERCISE
++-- FormTemplate(Entity) — reusable form definition (shared, embeddable)
 +-- Curriculum(Entity) +21 fields (base class only)
 |   +-- Article(Curriculum), LearningStep, LearningPath, Exercise
 +-- Ku(Entity) — atomic knowledge unit
@@ -123,8 +127,10 @@ Entity (~18 fields: uid, entity_type, title, description, status, tags, ...)
 EntityDTO (~18 fields)
 +-- UserOwnedDTO(EntityDTO) +3 -> TaskDTO, GoalDTO, HabitDTO, EventDTO, ChoiceDTO, PrincipleDTO
 +-- UserOwnedDTO -> ActivityReportDTO              (no file fields)
++-- UserOwnedDTO -> FormSubmissionDTO              (structured JSON, no file fields)
 +-- UserOwnedDTO -> SubmissionDTO -> ExerciseSubmissionDTO, JournalSubmissionDTO
 +-- UserOwnedDTO -> SubmissionReportDTO -> ExerciseReportDTO, JournalReportDTO  (NOT SubmissionDTO)
++-- EntityDTO -> FormTemplateDTO                   (form_schema, instructions)
 +-- CurriculumDTO(EntityDTO) -> ArticleDTO, LearningStepDTO, LearningPathDTO, ExerciseDTO
 +-- KuDTO(EntityDTO)
 +-- ResourceDTO(EntityDTO)
@@ -143,6 +149,7 @@ Every entity node gets two labels: `:Entity` (universal) + type-specific (`:Task
 | `:Entity` (universal — all entity nodes) |
 | `:Task`, `:Goal`, `:Habit`, `:Event`, `:Choice`, `:Principle` |
 | `:Curriculum`, `:Resource`, `:LearningStep`, `:LearningPath` |
+| `:FormTemplate`, `:FormSubmission` |
 | `:Submission`, `:ExerciseSubmission`, `:JournalSubmission` |
 | `:SubmissionReport`, `:ExerciseReport`, `:JournalReport` |
 | `:ActivityReport` |
@@ -158,7 +165,7 @@ CREATE (n:Entity:Goal {uid: $uid, ...})
 
 **Key files:**
 - `/core/models/entity.py` — `Entity` + `UserOwnedEntity` base classes
-- `/core/models/enums/entity_enums.py` — `EntityType` (19 canonical + 3 deprecated), `EntityStatus`
+- `/core/models/enums/entity_enums.py` — `EntityType` (21 canonical + 3 deprecated), `EntityStatus`
 
 ---
 
@@ -249,6 +256,27 @@ LpService (facade) — 5 sub-services via create_lp_sub_services()
 | Tasks | 0.05 | 0.25 |
 
 **See:** `/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md`
+
+### FormTemplate + FormSubmission — General-Purpose Forms
+
+A general-purpose form system decoupled from the learning loop. Admin creates reusable form templates, embeds them in Articles via `EMBEDS_FORM` relationships, and users submit structured responses. Submissions flow through the existing sharing infrastructure (groups, direct sharing, admin).
+
+| EntityType | Inherits | Description |
+|------------|---------|-------------|
+| `FORM_TEMPLATE` | `Entity` directly | Reusable form definition with `form_schema` (field specs) |
+| `FORM_SUBMISSION` | `UserOwnedEntity` | User response storing structured JSON `form_data` |
+
+FormTemplate extends `Entity` (NOT Curriculum — doesn't need 21 Curriculum fields). `ContentOrigin.CURATED`, publicly readable via `ContentScope.SHARED`. FormSubmission extends `UserOwnedEntity` (NOT Submission — no file fields). `ContentOrigin.USER_CREATED`, `is_derived()=True`.
+
+**Graph relationships:**
+```cypher
+(article:Article)-[:EMBEDS_FORM]->(ft:FormTemplate)
+(fs:FormSubmission)-[:RESPONDS_TO_FORM]->(ft:FormTemplate)
+(user:User)-[:OWNS]->(fs:FormSubmission)
+```
+
+**Services:** `core/services/forms/form_template_service.py`, `core/services/forms/form_submission_service.py`
+**Protocols:** `FormTemplateOperations`, `FormSubmissionOperations` in `core/ports/form_protocols.py`
 
 ### Submissions, Reports, ActivityReport — Content Processing
 
@@ -417,6 +445,10 @@ Natural Text
 (student:User)-[:MEMBER_OF {joined_at, role}]->(group:Group)
 (exercise:Exercise)-[:FOR_GROUP]->(group:Group)
 (submission:Submission)-[:FULFILLS_EXERCISE]->(exercise:Exercise)
+
+// Forms
+(article:Article)-[:EMBEDS_FORM]->(ft:FormTemplate)
+(fs:FormSubmission)-[:RESPONDS_TO_FORM]->(ft:FormTemplate)
 
 // Sharing
 (user:User)-[:SHARES_WITH {role, shared_at}]->(entity:Entity)

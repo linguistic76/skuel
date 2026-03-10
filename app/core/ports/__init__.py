@@ -170,6 +170,9 @@ from .domain_protocols import (
     UserContextOperations,
 )
 
+# Form protocols
+from .form_protocols import FormSubmissionOperations, FormTemplateOperations
+
 # Graph protocols - entity relationships (consolidated)
 from .graph_protocols import GraphEntity, GraphEntityBase
 
@@ -441,6 +444,9 @@ __all__ = [
     # ========== EXERCISE PROTOCOLS ==========
     "ExerciseOperations",
     "RevisedExerciseOperations",
+    # ========== FORM PROTOCOLS ==========
+    "FormTemplateOperations",
+    "FormSubmissionOperations",
     "RelationshipCrudOperations",  # Edge CRUD (6 methods)
     "RelationshipMetadata",
     "RelationshipMetadataOperations",  # Edge properties (3 methods)

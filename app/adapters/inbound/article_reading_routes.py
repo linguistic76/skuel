@@ -43,6 +43,7 @@ def create_article_reading_routes(app, rt, services, _sync_service=None):
         ku_service=services.article,
         ku_interaction_service=services.article.mastery,
         exercises_service=services.exercises,
+        form_template_service=services.form_templates,
     )
     routes.extend(ui_routes)
 

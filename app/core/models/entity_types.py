@@ -2,7 +2,7 @@
 Entity Type Aliases and Class Dispatch Map
 ==========================================
 
-Type aliases and the EntityType→class map for all 19 entity types.
+Type aliases and the EntityType→class map for all 21 entity types.
 
 For construction: Use the specific subclass (Task, Ku, Goal, etc.)
 For dispatched deserialization: Use Entity.from_dto(dto)
@@ -21,6 +21,8 @@ from core.models.enums.entity_enums import EntityType
 from core.models.event.event import Event
 from core.models.exercises.exercise import Exercise
 from core.models.exercises.revised_exercise import RevisedExercise
+from core.models.forms.form_submission import FormSubmission
+from core.models.forms.form_template import FormTemplate
 from core.models.goal.goal import Goal
 from core.models.habit.habit import Habit
 from core.models.ku.ku import Ku
@@ -86,6 +88,8 @@ ENTITY_TYPE_CLASS_MAP: dict[EntityType, type[Entity]] = {
     EntityType.ACTIVITY_REPORT: ActivityReport,
     EntityType.EXERCISE_REPORT: ExerciseReport,
     EntityType.JOURNAL_REPORT: JournalReport,
+    EntityType.FORM_TEMPLATE: FormTemplate,
+    EntityType.FORM_SUBMISSION: FormSubmission,
     EntityType.LIFE_PATH: LifePath,
     # Deprecated aliases — kept for backward compat during migration
     EntityType.SUBMISSION: Submission,

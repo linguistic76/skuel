@@ -753,6 +753,20 @@ async def _wire_all_routes(
         create_revised_exercises_routes(app, rt, services)
         logger.info("✅ Revised Exercise routes registered (five-phase learning loop)")
 
+    # Form Template routes (general-purpose form system)
+    if services.form_templates:
+        from adapters.inbound.form_templates_routes import create_form_templates_routes
+
+        create_form_templates_routes(app, rt, services)
+        logger.info("✅ Form Template routes registered")
+
+    # Form Submission routes (general-purpose form system)
+    if services.form_submissions:
+        from adapters.inbound.form_submissions_routes import create_form_submissions_routes
+
+        create_form_submissions_routes(app, rt, services)
+        logger.info("✅ Form Submission routes registered")
+
     # Group routes (ADR-040: Teacher Assignment Workflow)
     if services.group_service:
         from adapters.inbound.groups_routes import create_groups_routes
