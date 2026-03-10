@@ -10,6 +10,29 @@ from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
+VALID_FIELD_TYPES = {"text", "textarea", "select", "checkbox", "number", "date"}
+
+
+def validate_form_field_specs(specs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Validate a list of form field specs have required keys and valid types."""
+    for i, field_spec in enumerate(specs):
+        if "name" not in field_spec:
+            msg = f"Field {i} missing required key 'name'"
+            raise ValueError(msg)
+        if "type" not in field_spec:
+            msg = f"Field {i} missing required key 'type'"
+            raise ValueError(msg)
+        if "label" not in field_spec:
+            msg = f"Field {i} missing required key 'label'"
+            raise ValueError(msg)
+        if field_spec["type"] not in VALID_FIELD_TYPES:
+            msg = f"Field {i} has invalid type '{field_spec['type']}'. Valid: {VALID_FIELD_TYPES}"
+            raise ValueError(msg)
+        if field_spec["type"] == "select" and not field_spec.get("options"):
+            msg = f"Field {i} with type 'select' requires 'options' list"
+            raise ValueError(msg)
+    return specs
+
 
 class FormTemplateCreateRequest(BaseModel):
     """Pydantic request model for creating a FormTemplate."""
@@ -28,24 +51,7 @@ class FormTemplateCreateRequest(BaseModel):
         cls, v: list[dict[str, Any]]
     ) -> list[dict[str, Any]]:
         """Validate each form field spec has required keys and valid type."""
-        valid_types = {"text", "textarea", "select", "checkbox", "number", "date"}
-        for i, field_spec in enumerate(v):
-            if "name" not in field_spec:
-                msg = f"Field {i} missing required key 'name'"
-                raise ValueError(msg)
-            if "type" not in field_spec:
-                msg = f"Field {i} missing required key 'type'"
-                raise ValueError(msg)
-            if "label" not in field_spec:
-                msg = f"Field {i} missing required key 'label'"
-                raise ValueError(msg)
-            if field_spec["type"] not in valid_types:
-                msg = f"Field {i} has invalid type '{field_spec['type']}'. Valid: {valid_types}"
-                raise ValueError(msg)
-            if field_spec["type"] == "select" and not field_spec.get("options"):
-                msg = f"Field {i} with type 'select' requires 'options' list"
-                raise ValueError(msg)
-        return v
+        return validate_form_field_specs(v)
 
 
 class FormTemplateUpdateRequest(BaseModel):
@@ -66,21 +72,4 @@ class FormTemplateUpdateRequest(BaseModel):
         """Validate form_schema if provided."""
         if v is None:
             return None
-        valid_types = {"text", "textarea", "select", "checkbox", "number", "date"}
-        for i, field_spec in enumerate(v):
-            if "name" not in field_spec:
-                msg = f"Field {i} missing required key 'name'"
-                raise ValueError(msg)
-            if "type" not in field_spec:
-                msg = f"Field {i} missing required key 'type'"
-                raise ValueError(msg)
-            if "label" not in field_spec:
-                msg = f"Field {i} missing required key 'label'"
-                raise ValueError(msg)
-            if field_spec["type"] not in valid_types:
-                msg = f"Field {i} has invalid type '{field_spec['type']}'. Valid: {valid_types}"
-                raise ValueError(msg)
-            if field_spec["type"] == "select" and not field_spec.get("options"):
-                msg = f"Field {i} with type 'select' requires 'options' list"
-                raise ValueError(msg)
-        return v
+        return validate_form_field_specs(v)

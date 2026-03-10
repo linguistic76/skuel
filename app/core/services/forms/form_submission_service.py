@@ -77,8 +77,23 @@ class FormSubmissionService(BaseService):
 
         Creates the FormSubmission entity, links it to the FormTemplate
         via RESPONDS_TO_FORM, creates OWNS relationship, and optionally
-        shares with groups/users/admin.
+        shares with groups/users.
+
+        Validates that the FormTemplate exists before creating anything.
         """
+        # Verify template exists before creating submission
+        template_check = await self.backend.execute_query(
+            """
+            MATCH (ft:Entity {uid: $ft_uid, entity_type: 'form_template'})
+            RETURN ft.uid as uid
+            """,
+            {"ft_uid": form_template_uid},
+        )
+        if template_check.is_error:
+            return Result.fail(Errors.database(operation="submit_form", message=str(template_check.error)))
+        if not template_check.value:
+            return Result.fail(Errors.not_found(resource="FormTemplate", identifier=form_template_uid))
+
         display_title = title or f"Form Response ({datetime.now().strftime('%Y-%m-%d %H:%M')})"
         uid = UIDGenerator.generate_uid("fs", display_title)
 
@@ -98,38 +113,29 @@ class FormSubmissionService(BaseService):
             status=EntityStatus.COMPLETED,
         )
 
-        # Create entity
+        # Create entity via backend (proper DTO serialization for all fields)
         result = await self.backend.create(submission)
         if result.is_error:
             self.logger.error(f"Failed to create form submission: {result.error}")
             return result
 
-        # Create OWNS relationship
-        owns_result = await self.backend.execute_query(
+        # Create OWNS + RESPONDS_TO_FORM relationships
+        # Template existence already verified above, so these should succeed
+        rel_result = await self.backend.execute_query(
             f"""
+            MATCH (fs:Entity {{uid: $fs_uid}})
             MATCH (u:User {{uid: $user_uid}})
-            MATCH (fs:Entity {{uid: $fs_uid}})
             MERGE (u)-[:{RelationshipName.OWNS.value}]->(fs)
-            RETURN true as success
-            """,
-            {"user_uid": user_uid, "fs_uid": uid},
-        )
-        if owns_result.is_error:
-            self.logger.warning(f"Failed to create OWNS relationship: {owns_result.error}")
-
-        # Create RESPONDS_TO_FORM relationship
-        link_result = await self.backend.execute_query(
-            f"""
-            MATCH (fs:Entity {{uid: $fs_uid}})
+            WITH fs
             MATCH (ft:Entity {{uid: $ft_uid, entity_type: 'form_template'}})
             MERGE (fs)-[r:{RelationshipName.RESPONDS_TO_FORM.value}]->(ft)
             ON CREATE SET r.created_at = datetime()
             RETURN true as success
             """,
-            {"fs_uid": uid, "ft_uid": form_template_uid},
+            {"fs_uid": uid, "user_uid": user_uid, "ft_uid": form_template_uid},
         )
-        if link_result.is_error:
-            self.logger.warning(f"Failed to create RESPONDS_TO_FORM: {link_result.error}")
+        if rel_result.is_error:
+            self.logger.error(f"Failed to create submission relationships: {rel_result.error}")
 
         # Handle sharing at submit time
         await self._share_on_submit(uid, user_uid, group_uid, recipient_uids, share_with_admin)
@@ -146,29 +152,49 @@ class FormSubmissionService(BaseService):
     ) -> None:
         """Handle optional sharing at submit time via UnifiedSharingService."""
         if not self.sharing_service:
+            if group_uid or recipient_uids or share_with_admin:
+                self.logger.warning("Sharing requested but no sharing_service configured")
             return
 
         if group_uid:
-            await self.sharing_service.share_with_group(
+            result = await self.sharing_service.share_with_group(
                 entity_uid=submission_uid,
+                owner_uid=user_uid,
                 group_uid=group_uid,
-                shared_by=user_uid,
             )
+            if result.is_error:
+                self.logger.warning(f"Failed to share with group {group_uid}: {result.error}")
 
         if recipient_uids:
             for recipient_uid in recipient_uids:
-                await self.sharing_service.share(
+                result = await self.sharing_service.share(
                     entity_uid=submission_uid,
                     owner_uid=user_uid,
                     target_uid=recipient_uid,
                 )
+                if result.is_error:
+                    self.logger.warning(f"Failed to share with {recipient_uid}: {result.error}")
 
         if share_with_admin:
-            # Share with admin role — uses the admin sharing pattern
-            await self.sharing_service.share_with_admin(
-                entity_uid=submission_uid,
-                shared_by=user_uid,
+            # Share with admin by looking up admin user and sharing directly
+            admin_result = await self.backend.execute_query(
+                """
+                MATCH (u:User) WHERE u.role = 'admin' OR u.role = 'ADMIN'
+                RETURN u.uid as uid LIMIT 1
+                """,
+                {},
             )
+            if admin_result.is_ok and admin_result.value:
+                admin_uid = admin_result.value[0]["uid"]
+                result = await self.sharing_service.share(
+                    entity_uid=submission_uid,
+                    owner_uid=user_uid,
+                    target_uid=admin_uid,
+                )
+                if result.is_error:
+                    self.logger.warning(f"Failed to share with admin: {result.error}")
+            else:
+                self.logger.warning("share_with_admin requested but no admin user found")
 
     # ========================================================================
     # READ
@@ -203,7 +229,8 @@ class FormSubmissionService(BaseService):
         if get_result.is_error:
             return Result.fail(get_result.expect_error())
 
-        result = await self.backend.delete(uid)
+        # cascade=True to remove OWNS + RESPONDS_TO_FORM relationships
+        result = await self.backend.delete(uid, cascade=True)
         if result.is_error:
             return Result.fail(result.expect_error())
         return Result.ok(True)

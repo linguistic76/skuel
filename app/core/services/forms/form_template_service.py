@@ -143,8 +143,9 @@ class FormTemplateService(BaseService):
     # ========================================================================
 
     async def delete_form_template(self, uid: str) -> Result[bool]:
-        """Delete a FormTemplate."""
-        result = await self.backend.delete(uid)
+        """Delete a FormTemplate and its EMBEDS_FORM relationships."""
+        # cascade=True to remove EMBEDS_FORM relationships
+        result = await self.backend.delete(uid, cascade=True)
         if result.is_error:
             return Result.fail(result.expect_error())
         return Result.ok(True)

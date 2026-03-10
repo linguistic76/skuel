@@ -87,9 +87,6 @@ def render_inline_form_template(
     """
     fields = [_build_field(spec) for spec in form_schema]
 
-    # Collect field names for the Alpine.js submit handler
-    field_names = [spec["name"] for spec in form_schema]
-
     header_parts: list[Any] = []
     if title:
         header_parts.append(H3(title, cls="text-base font-semibold mb-2"))
@@ -109,7 +106,7 @@ def render_inline_form_template(
             # Alpine.js handles JSON submission
             x_data=json.dumps({"submitting": False, "submitted": False}),
             **{
-                "@submit.prevent": _submit_handler(form_template_uid, field_names),
+                "@submit.prevent": _submit_handler(form_template_uid, form_schema),
             },
             cls="space-y-4",
         ),
@@ -117,12 +114,17 @@ def render_inline_form_template(
     )
 
 
-def _submit_handler(form_template_uid: str, field_names: list[str]) -> str:
+def _submit_handler(form_template_uid: str, field_specs: list[dict[str, Any]]) -> str:
     """Generate Alpine.js submit handler that posts JSON to the form submission API."""
-    # Build form_data object from named fields
-    field_extractions = ", ".join(
-        f"'{name}': $el.querySelector('[name={name}]')?.value || ''" for name in field_names
-    )
+    # Build form_data object from named fields (checkboxes use .checked, others use .value)
+    extractions = []
+    for spec in field_specs:
+        name = spec["name"]
+        if spec["type"] == "checkbox":
+            extractions.append(f"'{name}': $el.querySelector('[name={name}]')?.checked || false")
+        else:
+            extractions.append(f"'{name}': $el.querySelector('[name={name}]')?.value || ''")
+    field_extractions = ", ".join(extractions)
 
     return (
         f"if (submitting) return; "
