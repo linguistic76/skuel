@@ -140,7 +140,19 @@ due_date: date | None             # ASSIGNED only — when submission is due
 group_uid: str | None             # ASSIGNED only — which class receives this
 enrichment_mode: str | None       # Processing strategy for the submission
 context_notes: tuple[str, ...]    # Reference materials (immutable)
+form_schema: tuple[dict, ...] | None  # Inline form definition for structured submissions
 ```
+
+**Two submission modes:**
+
+| Mode | `form_schema` | Student action | Submission content |
+|------|--------------|----------------|-------------------|
+| **File upload** | `None` | Uploads file (audio, text, image) | `file_path`, `processed_content` |
+| **Inline form** | Present | Fills embedded form in article | `metadata["form_data"]`, `processed_content` (JSON) |
+
+When `form_schema` is set, the article reading page renders the form inline. Both modes
+create `ExerciseSubmission` and trigger the same event pipeline (`FULFILLS_EXERCISE`,
+auto-share with teacher).
 
 **Two scopes:**
 
@@ -219,24 +231,28 @@ subject_uid: str | None          # UID of the submission being evaluated
 | `SUBMISSION` | Student uploads | `HUMAN` (then LLM feedback) | Transcription if audio |
 | `JOURNAL` | Admin uploads | `LLM` | Auto-processed, AI uses Exercise instructions |
 
-**Processing pipeline:**
+**Processing pipeline (two entry points):**
 ```
-Student uploads file
-        ↓
-SubmissionsService.submit_file() → Entity with status: SUBMITTED
-        ↓
-Route by MIME type:
-  audio/* → TranscriptionService → processed_content (text)
-  text/*  → Read raw content
-        ↓
-Status: PROCESSING → COMPLETED
-        ↓
-process_exercise_submission() (if exercise_uid provided):
-  Auto-update title: "{Exercise Title} — {user_id}" (revision suffix on re-submission)
-  Auto-create relationships:
-    FULFILLS_EXERCISE (Submission → Exercise)
-    SHARES_WITH {role: 'teacher'} (if ASSIGNED exercise → teacher gets access)
+FILE UPLOAD PATH                          INLINE FORM PATH
+Student uploads file                      Student fills form in article page
+        ↓                                         ↓
+SubmissionsService.submit_file()          SubmissionsService.submit_form()
+ → file stored to disk                    → form_data in metadata + processed_content
+ → Entity with status: SUBMITTED          → Entity with status: SUBMITTED
+        ↓                                         ↓
+Route by MIME type:                       (no processing needed — data is structured)
+  audio/* → TranscriptionService                  ↓
+  text/*  → Read raw content              ┌───────┘
+        ↓                                 ↓
+Status: PROCESSING → COMPLETED      SubmissionCreated event fires:
+        ↓                             FULFILLS_EXERCISE (Submission → Exercise)
+SubmissionCreated event fires:        SHARES_WITH {role: 'teacher'} (if ASSIGNED)
+  Same as form path →
 ```
+
+**API routes:**
+- `POST /api/submissions/upload` — file upload (multipart form-data)
+- `POST /api/submissions/form` — structured form data (JSON: `{exercise_uid, form_data}`)
 
 **Services:**
 ```python

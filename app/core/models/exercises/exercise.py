@@ -30,7 +30,7 @@ Terminology
 Hierarchy:
     Entity (~29 fields)
     └── Curriculum(Entity) +21 fields
-        └── Exercise(Curriculum) +7 fields
+        └── Exercise(Curriculum) +8 fields
 
 See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
 """

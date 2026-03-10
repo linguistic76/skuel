@@ -24,7 +24,7 @@ Hierarchy:
         ├── Article(Curriculum)                         ← EntityType.ARTICLE
         ├── LearningStep(Curriculum) +9 fields
         ├── LearningPath(Curriculum) +4 fields
-        └── Exercise(Curriculum) +7 fields
+        └── Exercise(Curriculum) +8 fields
 
 Note: Ku(Entity) and Resource(Entity) are NOT Curriculum subclasses.
 
