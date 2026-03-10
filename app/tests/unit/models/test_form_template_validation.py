@@ -228,3 +228,120 @@ class TestValidateResponseEdgeCases:
         errors = ft.validate_response({"name": "Alice", "age": "not-a-number"})
         assert len(errors) == 1
         assert "must be a number" in errors[0]
+
+
+class TestValidateResponseTextConstraints:
+    """Test min_length, max_length, and pattern validation for text/textarea."""
+
+    def test_min_length_valid(self):
+        ft = _make_template(
+            form_schema=[
+                {"name": "bio", "type": "text", "label": "Bio", "min_length": 3},
+            ]
+        )
+        assert ft.validate_response({"bio": "abc"}) == []
+
+    def test_min_length_too_short(self):
+        ft = _make_template(
+            form_schema=[
+                {"name": "bio", "type": "text", "label": "Bio", "min_length": 5},
+            ]
+        )
+        errors = ft.validate_response({"bio": "ab"})
+        assert len(errors) == 1
+        assert "at least 5 characters" in errors[0]
+
+    def test_max_length_valid(self):
+        ft = _make_template(
+            form_schema=[
+                {"name": "code", "type": "text", "label": "Code", "max_length": 10},
+            ]
+        )
+        assert ft.validate_response({"code": "ABC123"}) == []
+
+    def test_max_length_too_long(self):
+        ft = _make_template(
+            form_schema=[
+                {"name": "code", "type": "text", "label": "Code", "max_length": 5},
+            ]
+        )
+        errors = ft.validate_response({"code": "ABCDEF"})
+        assert len(errors) == 1
+        assert "at most 5 characters" in errors[0]
+
+    def test_min_and_max_length_together(self):
+        ft = _make_template(
+            form_schema=[
+                {"name": "pin", "type": "text", "label": "PIN", "min_length": 4, "max_length": 6},
+            ]
+        )
+        assert ft.validate_response({"pin": "1234"}) == []
+        assert ft.validate_response({"pin": "123456"}) == []
+        assert ft.validate_response({"pin": "12"}) != []
+        assert ft.validate_response({"pin": "1234567"}) != []
+
+    def test_textarea_min_length(self):
+        ft = _make_template(
+            form_schema=[
+                {"name": "essay", "type": "textarea", "label": "Essay", "min_length": 10},
+            ]
+        )
+        errors = ft.validate_response({"essay": "short"})
+        assert len(errors) == 1
+        assert "at least 10 characters" in errors[0]
+
+    def test_textarea_max_length(self):
+        ft = _make_template(
+            form_schema=[
+                {"name": "note", "type": "textarea", "label": "Note", "max_length": 5},
+            ]
+        )
+        errors = ft.validate_response({"note": "toolong"})
+        assert len(errors) == 1
+        assert "at most 5 characters" in errors[0]
+
+    def test_pattern_valid(self):
+        ft = _make_template(
+            form_schema=[
+                {"name": "zip", "type": "text", "label": "ZIP", "pattern": r"\d{5}"},
+            ]
+        )
+        assert ft.validate_response({"zip": "12345"}) == []
+
+    def test_pattern_invalid(self):
+        ft = _make_template(
+            form_schema=[
+                {"name": "zip", "type": "text", "label": "ZIP", "pattern": r"\d{5}"},
+            ]
+        )
+        errors = ft.validate_response({"zip": "abcde"})
+        assert len(errors) == 1
+        assert "does not match required pattern" in errors[0]
+
+    def test_pattern_not_applied_to_textarea(self):
+        """Pattern is only for text fields, not textarea."""
+        ft = _make_template(
+            form_schema=[
+                {"name": "notes", "type": "textarea", "label": "Notes", "pattern": r"\d+"},
+            ]
+        )
+        assert ft.validate_response({"notes": "no digits here"}) == []
+
+    def test_pattern_with_invalid_regex_is_skipped(self):
+        """Invalid regex in schema should not crash validation."""
+        ft = _make_template(
+            form_schema=[
+                {"name": "q1", "type": "text", "label": "Q1", "pattern": "[invalid"},
+            ]
+        )
+        assert ft.validate_response({"q1": "anything"}) == []
+
+    def test_empty_optional_field_skips_length_checks(self):
+        """Empty optional fields should not trigger min_length errors."""
+        ft = _make_template(
+            form_schema=[
+                {"name": "bio", "type": "text", "label": "Bio", "min_length": 5},
+            ]
+        )
+        assert ft.validate_response({"bio": ""}) == []
+        assert ft.validate_response({}) == []

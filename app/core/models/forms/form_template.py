@@ -16,6 +16,7 @@ See: /docs/user-guides/form-submissions.md
 """
 
 import json
+import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Self
 
@@ -86,8 +87,10 @@ class FormTemplate(Entity):
         Checks:
         - Required fields are present and non-empty
         - Field names match schema (no unknown fields)
+        - Text/textarea min_length and max_length constraints
+        - Text field pattern (regex) constraints
         - Select field values are in allowed options
-        - Number fields contain numeric values
+        - Number fields contain numeric values and respect min/max
 
         Returns list of validation error messages (empty = valid).
         """
@@ -99,9 +102,11 @@ class FormTemplate(Entity):
         schema_names = {spec["name"] for spec in self.form_schema}
 
         # Check for unknown fields
-        for key in form_data:
-            if key not in schema_names:
-                errors.append(f"Unknown field '{key}' not in template schema")
+        errors.extend(
+            f"Unknown field '{key}' not in template schema"
+            for key in form_data
+            if key not in schema_names
+        )
 
         for spec in self.form_schema:
             name = spec["name"]
@@ -110,10 +115,9 @@ class FormTemplate(Entity):
             value = form_data.get(name)
 
             # Required field check
-            if required:
-                if value is None or (isinstance(value, str) and not value.strip()):
-                    errors.append(f"Required field '{name}' is missing or empty")
-                    continue
+            if required and (value is None or (isinstance(value, str) and not value.strip())):
+                errors.append(f"Required field '{name}' is missing or empty")
+                continue
 
             # Skip further validation if value is empty/missing and not required
             if value is None or (isinstance(value, str) and not value.strip()):
@@ -127,11 +131,35 @@ class FormTemplate(Entity):
                         f"Field '{name}' value '{value}' not in allowed options: {options}"
                     )
 
+            # Text/textarea: min_length, max_length, pattern
+            if field_type in ("text", "textarea") and isinstance(value, str):
+                min_length = spec.get("min_length")
+                max_length = spec.get("max_length")
+                if min_length is not None and len(value) < min_length:
+                    errors.append(
+                        f"Field '{name}' must be at least {min_length} characters"
+                    )
+                if max_length is not None and len(value) > max_length:
+                    errors.append(
+                        f"Field '{name}' must be at most {max_length} characters"
+                    )
+
+            if field_type == "text" and isinstance(value, str):
+                pattern = spec.get("pattern")
+                if pattern is not None:
+                    try:
+                        if not re.fullmatch(pattern, value):
+                            errors.append(
+                                f"Field '{name}' does not match required pattern"
+                            )
+                    except re.error:
+                        pass  # Invalid regex in schema — skip pattern check
+
             # Number field: value must be numeric
             if field_type == "number":
                 try:
                     num_val = float(value) if isinstance(value, str) else value
-                    if not isinstance(num_val, (int, float)):
+                    if not isinstance(num_val, int | float):
                         errors.append(f"Field '{name}' must be a number")
                     else:
                         min_val = spec.get("min")

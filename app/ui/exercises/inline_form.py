@@ -37,6 +37,15 @@ def _build_field(spec: dict[str, Any]) -> Div:
     if required:
         attrs["required"] = True
 
+    # Text-length and pattern constraints (text + textarea)
+    if field_type in ("text", "textarea"):
+        min_length = spec.get("min_length")
+        max_length = spec.get("max_length")
+        if min_length is not None:
+            attrs["minlength"] = min_length
+        if max_length is not None:
+            attrs["maxlength"] = max_length
+
     if field_type == "textarea":
         widget = Textarea(rows=4, placeholder=placeholder, **attrs)
     elif field_type == "select":
@@ -58,6 +67,9 @@ def _build_field(spec: dict[str, Any]) -> Div:
         widget = Input(type="date", **attrs)
     else:
         # Default: text input
+        pattern = spec.get("pattern")
+        if pattern is not None:
+            attrs["pattern"] = pattern
         widget = Input(type="text", placeholder=placeholder, **attrs)
 
     children: list[Any] = [
