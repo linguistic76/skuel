@@ -19,6 +19,19 @@ SKUEL renders server-side HTML with FastHTML. The browser gets complete HTML doc
 
 Every page is a Python function that returns HTML. There is no JSX, no template language, no build step for UI code.
 
+### Quick Decision Matrix
+
+| I need to... | Start here |
+|--------------|-----------|
+| Build a standard page with list/grid | [Building a Complete Page](#building-a-complete-page) — follow the 5-step pattern |
+| Add a form for creating/editing entities | [FormGenerator](#formgenerator--forms-from-pydantic-models) — auto-generates from Pydantic models |
+| Show loading states for HTMX content | [Skeleton Loaders](#skeleton-loaders) — `SkeletonList`, `SkeletonCard`, etc. |
+| Add a sidebar navigation page | [SidebarPage](#sidebarpage--pages-with-navigation-sidebar) — profile hub pattern |
+| Display status/priority with correct colors | [Badge Classes](#badge-classes-uibadge_classespy) or `StatusBadge`/`PriorityBadge` |
+| Add client-side interactivity (toggles, filters) | [Alpine.js Component Registry](#alpinejs-component-registry) — check if a component already exists |
+| Add server-triggered partial updates | [HTMX](#htmx--server-communication) — `hx_get`, `hx_post`, `hx_swap` |
+| Style with consistent spacing/containers | [Design Tokens](#design-tokens-uitokenspy) — `Spacing.SECTION`, `Container.STANDARD` |
+
 ---
 
 ## Component Layers
@@ -196,6 +209,13 @@ Loading(variant=LoadingT.dots, size=Size.sm)
 # Progress bars
 Progress(value=75, variant=ProgressT.success)
 Progress()  # indeterminate
+
+# Radial (circular) progress
+from ui.feedback import RadialProgress
+from ui.buttons import ButtonT
+RadialProgress(75, variant=ButtonT.success, size="5rem")
+# Note: uses ButtonT for color variants (not ProgressT) — the variant value
+# is transformed internally from "btn-success" to "text-success"
 ```
 
 ### Layout (`ui/layout.py`)
@@ -314,10 +334,12 @@ Tabs(
 )
 ```
 
+> **Note:** Navbar primitives (`Navbar`, `NavbarStart`, `NavbarCenter`, `NavbarEnd`) are internal to `BasePage` — don't compose them directly in route code.
+
 ### Data Display (`ui/data.py`)
 
 ```python
-from ui.data import Table, Stats, Stat, StatTitle, StatValue, StatDesc, Tooltip, Divider
+from ui.data import Table, Stats, Stat, StatTitle, StatValue, StatDesc, StatFigure, Tooltip, Divider
 
 # Table
 Table(
@@ -341,6 +363,13 @@ Stats(
         StatValue("87%"),
         StatDesc("Above target"),
     ),
+)
+
+# StatFigure — icon/image slot for a Stat
+Stat(
+    StatFigure(Span("📊", cls="text-2xl")),
+    StatTitle("Tasks"),
+    StatValue("42"),
 )
 
 # Tooltip
@@ -500,7 +529,7 @@ EmptyState(
 ### Error Handling
 
 ```python
-from ui.patterns.error_banner import render_error_banner, render_inline_error
+from ui.patterns.error_banner import render_error_banner, render_inline_error, render_empty_state_with_error
 
 # Full error banner (for page-level errors)
 render_error_banner(
@@ -511,12 +540,22 @@ render_error_banner(
 
 # Inline error (for form fields or sections)
 render_inline_error("This field is required")
+
+# Empty state with error context — when a load fails but you want the
+# empty-state layout (centered, with optional retry action) instead of a banner
+render_empty_state_with_error(
+    "No Tasks Found",
+    "Unable to load tasks. Please try again later.",
+    action_label="Refresh",
+    action_href="/tasks",
+)
 ```
 
 ### Skeleton Loaders
 
 ```python
 from ui.patterns.skeleton import SkeletonCard, SkeletonList, SkeletonStats, SkeletonTable
+from ui.patterns.skeleton import SkeletonSidebar, SkeletonIntelligence, SkeletonDomainView
 
 # Use with HTMX lazy loading
 Div(
@@ -525,6 +564,11 @@ Div(
     hx_trigger="load",
     hx_swap="innerHTML",
 )
+
+# Profile hub skeletons — used for HTMX lazy-loaded sidebar sections
+SkeletonSidebar(domain_count=7)   # Sidebar with domain item placeholders
+SkeletonIntelligence()             # Alignment + daily plan + synergies cards
+SkeletonDomainView()               # Stats summary + item list for a single domain
 ```
 
 ### FormGenerator — Forms from Pydantic Models
@@ -678,6 +722,53 @@ Div(
 
 All Alpine.js `x-data` component definitions live in `/static/js/skuel.js`.
 
+### Alpine.js Component Registry
+
+**Rule:** All `Alpine.data()` definitions must go in `/static/js/skuel.js` — never define components inline in Python templates.
+
+#### Tier 1 — Commonly Needed
+
+| Component | Usage | What it does |
+|-----------|-------|-------------|
+| `collapsibleSidebar` | `x-data="collapsibleSidebar('profile')"` | Sidebar collapse/expand with localStorage persistence. Pass a `storageKey` to remember state. |
+| `accessibleModal` | `x-data="accessibleModal({ isOpen: false })"` | WCAG-compliant modal with focus trapping, Escape to close, and backdrop click handling. |
+| `accessibleTabs` | `x-data="accessibleTabs({ defaultTab: 'overview' })"` | Keyboard-navigable tabs (Arrow keys, Home/End). Manages `aria-selected` and panel visibility. |
+| `searchFilters` | `x-data="searchFilters()"` | Search input + filter dropdowns with debounced HTMX requests. |
+| `loadingButton` | `x-data="loadingButton()"` | Disables button and shows spinner on click until HTMX response arrives. |
+| `formValidator` | `x-data="formValidator()"` | Client-side validation with per-field error display. Validates on blur and submit. |
+| `toastManager` | `x-data="toastManager()"` | Toast notification stack. Methods: `addToast(message, type, duration)`, auto-dismiss. |
+| `themeSwitcher` | `x-data="themeSwitcher()"` | DaisyUI theme toggle with localStorage persistence. |
+
+```python
+# Example: accessible modal in Python
+Modal(
+    "delete-confirm",
+    ModalBox(
+        H3("Delete?"),
+        P("This cannot be undone."),
+        ModalAction(Button("Cancel"), Button("Delete", variant=ButtonT.error)),
+    ),
+    ModalBackdrop(),
+    **{"x-data": "accessibleModal({ isOpen: false })"},
+)
+```
+
+#### Tier 2 — Domain-Specific
+
+These are purpose-built for specific features. Check `skuel.js` for their full API before using.
+
+| Component | Domain |
+|-----------|--------|
+| `calendarPage`, `calendarModal`, `calendarDrag` | Calendar views |
+| `hierarchyTree` | Goal/KU hierarchy tree views |
+| `relationshipGraph` | Vis.js lateral relationship graphs |
+| `choiceOptions` | Choice domain option management |
+| `insightSwipeActions`, `bulkInsightManager`, `insightDetailModal` | Insight cards |
+| `ingestionProgress` | Content ingestion WebSocket progress |
+| `chartVis`, `timelineVis`, `ganttVis` | Chart.js visualizations |
+| `profileFocusHandler` | Profile hub focus navigation |
+| `intelligenceCache` | Client-side caching for intelligence API responses |
+
 ---
 
 ## Building a Complete Page
@@ -710,70 +801,42 @@ def create_example_routes(app, rt, services):
     @rt("/example")
     async def example_page(request: Request):
         user_uid = require_authenticated_user(request)
-
-        # 1. Load data
         result = await services.example.get_all(user_uid)
 
-        # 2. Handle errors
         if result.is_error:
             return await BasePage(
                 render_error_banner("Unable to load data", result.error.message),
-                title="Example",
-                request=request,
-                active_page="example",
+                title="Example", request=request, active_page="example",
             )
 
         entities = result.value or []
-
-        # 3. Build empty state if needed
         if not entities:
             return await BasePage(
-                EmptyState(
-                    "No items yet",
-                    description="Create your first item to get started.",
-                    action_text="Create Item",
-                    action_href="/example?view=create",
-                ),
-                title="Example",
-                request=request,
-                active_page="example",
+                EmptyState("No items yet", description="Create your first item.",
+                           action_text="Create Item", action_href="/example?view=create"),
+                title="Example", request=request, active_page="example",
             )
 
-        # 4. Build page content
         stats = [
             {"label": "Total", "value": len(entities)},
             {"label": "Active", "value": sum(1 for e in entities if e.status == "active")},
         ]
-
         content = Stack(
-            PageHeader(
-                "Example",
-                subtitle="Your items",
-                actions=Button("New Item", variant=ButtonT.primary),
-            ),
+            PageHeader("Example", subtitle="Your items",
+                       actions=Button("New Item", variant=ButtonT.primary)),
             StatsGrid(stats),
             SectionTitle("All Items"),
-            Grid(
-                *[EntityCard(
-                    title=e.title,
-                    description=e.description,
-                    status=e.status,
-                    priority=e.priority,
-                    href=f"/example/detail?uid={e.uid}",
-                    config=CardConfig.default(),
-                ) for e in entities],
-                cols=3,
-            ),
+            Grid(*[EntityCard(title=e.title, description=e.description,
+                              status=e.status, priority=e.priority,
+                              href=f"/example/detail?uid={e.uid}",
+                              config=CardConfig.default()) for e in entities],
+                 cols=3),
             gap=6,
         )
 
-        # 5. Wrap in BasePage
         return await BasePage(
-            content,
-            title="Example",
-            page_type=PageType.STANDARD,
-            request=request,
-            active_page="example",
+            content, title="Example", page_type=PageType.STANDARD,
+            request=request, active_page="example",
         )
 ```
 
@@ -784,6 +847,20 @@ def create_example_routes(app, rt, services):
 3. **Handle errors** — Check `result.is_error`, show `render_error_banner()`
 4. **Build content** — Compose components: `PageHeader` + `StatsGrid` + `Grid(EntityCard...)` + etc.
 5. **Wrap in BasePage** — Set title, page type, active page for navbar highlighting
+
+---
+
+## Common Gotchas
+
+**1. `await BasePage()`** — BasePage is async. If you forget `await`, the page renders as `<coroutine object BasePage at 0x...>`. Every `BasePage(...)` call must be `await BasePage(...)`.
+
+**2. Don't collect `@rt()` routes into lists.** The `@rt()` decorator registers the route immediately with FastHTML. If you also append the function to a `routes = []` list and register that list, the route gets double-registered. Just use `@rt()` and let it handle registration.
+
+**3. `FlexItem` is required for text truncation in flex layouts.** CSS flex items default to `min-width: auto`, which prevents text from shrinking below its content width. Wrapping in `FlexItem(..., grow=True)` adds `min-w-0` + `overflow-hidden` so `TruncatedText` and `line-clamp` actually work.
+
+**4. HTMX screen reader announcements use path-based detection.** The live region in BasePage announces CRUD operations to screen readers by detecting `/create`, `/update`, `/delete` in the request path. If your route doesn't include these substrings, the announcement won't fire.
+
+**5. FormGenerator always wraps fields in `FormControl`.** For custom form layouts where you need direct control over field placement, use the primitives from `ui/forms.py` (`Input`, `Select`, `Label`, `FormControl`) directly instead of `FormGenerator.render()`.
 
 ---
 
@@ -798,6 +875,16 @@ def create_example_routes(app, rt, services):
 | `static/css/input.css` | Tailwind `@tailwind` directives | Never — this is the Tailwind entry point |
 
 **Rule:** Prefer DaisyUI component classes (`btn`, `card`, `badge`) and Tailwind utilities (`flex`, `gap-4`, `text-sm`) over custom CSS. Only add to `main.css` for things Tailwind/DaisyUI cannot express (animations, HTMX states, CSS custom properties).
+
+**Theme compatibility:** `main.css` contains some hardcoded `oklch()` values. When adding new styles, always use DaisyUI CSS variables (`var(--p)`, `var(--s)`, `var(--b1)`, etc.) so they adapt to theme switching.
+
+**Rebuilding CSS:** After changing Tailwind classes or `input.css`, regenerate `output.css`:
+
+```bash
+npm run css:build          # one-time build
+npm run css:watch          # watch mode during development
+npm run css:prod           # minified for production
+```
 
 ---
 
@@ -902,6 +989,7 @@ When building new components:
 | Skeleton loaders | `ui/patterns/skeleton.py` |
 | Error display | `ui/patterns/error_banner.py` |
 | Activity view tabs | `ui/patterns/activity_views_base.py` |
+| Alpine.js components | `static/js/skuel.js` |
 | Component catalog | `docs/ui/COMPONENT_CATALOG.md` |
 
 ---
