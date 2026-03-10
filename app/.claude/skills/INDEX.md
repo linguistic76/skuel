@@ -69,6 +69,13 @@ updated: 2026-02-01
 | [base-analytics-service](base-analytics-service/SKILL.md) | Domain analytics services (10 services, no AI) | python, result-pattern |
 | [base-ai-service](base-ai-service/SKILL.md) | AI-powered features (optional LLM/embeddings) | base-analytics-service |
 | [user-context-intelligence](user-context-intelligence/SKILL.md) | Central cross-domain intelligence hub (8 methods) | base-analytics-service, activity-domains, curriculum-domains |
+| [zpd](zpd/SKILL.md) | Pedagogical gravity well — readiness, blocking gaps, compound evidence | user-context-intelligence, neo4j-cypher-patterns |
+
+### Pedagogical Core
+
+| Skill | Purpose | Foundation |
+|-------|---------|------------|
+| [learning-loop](learning-loop/SKILL.md) | Five-Phased Learning Loop — base layer of the system | All architecture skills |
 
 ### Security
 
@@ -123,6 +130,8 @@ updated: 2026-02-01
 | tailwind-css | 5 | Tailwind CSS utilities |
 | ui-error-handling | 1 | Result[T] propagation to UI, error banners, pure computation helpers |
 | user-context-intelligence | 4 | Central cross-domain intelligence hub (8 flagship methods) |
+| vis-network | 1 | Vis.js Network for interactive graph visualization |
+| zpd | 1 | Zone of Proximal Development — pedagogical gravity well |
 
 ---
 
@@ -305,6 +314,10 @@ SKUEL Architecture (domains + intelligence):
   base-ai-service          user-context-
   (optional LLM/           intelligence
    embeddings)              (8 methods)
+                                  |
+                                  v
+                          zpd (pedagogical
+                           gravity well)
 
 Visualization:
     js-alpine ---> chartjs

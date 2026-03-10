@@ -153,9 +153,14 @@ class ZPDService:
             life_path_alignment = getattr(context, "life_path_alignment_score", 0.0) or 0.0
             life_path_uid = getattr(context, "life_path_uid", None)
 
-        # Build recommended actions from proximal zone
+        # Build recommended actions from proximal zone + current zone evidence
         recommended_actions = self._build_recommended_actions(
-            proximal_zone, readiness_scores, behavioral_readiness, life_path_alignment
+            proximal_zone,
+            readiness_scores,
+            behavioral_readiness,
+            life_path_alignment,
+            zone_evidence=zone_evidence,
+            blocking_gaps=blocking_gaps,
         )
 
         return Result.ok(
@@ -269,15 +274,41 @@ class ZPDService:
         readiness_scores: dict[str, float],
         behavioral_readiness: float,
         life_path_alignment: float,
+        zone_evidence: dict[str, ZoneEvidence] | None = None,
+        blocking_gaps: list[str] | None = None,
     ) -> list[ZPDAction]:
-        """Build recommended actions from proximal zone KUs.
+        """Build recommended actions from proximal zone and current zone signals.
 
-        Priority formula:
+        Three action types, reflecting the learning loop:
+        - **learn**: Proximal KUs the user is ready for (advances the zone)
+        - **reinforce**: Current-zone KUs with weak evidence (compounds mastery)
+        - **unblock**: Blocking-gap KUs that gate multiple proximal KUs (high leverage)
+
+        Priority formula (learn):
             readiness_score * 0.5 + life_path_alignment * 0.3 + behavioral_readiness * 0.2
 
-        Each proximal KU produces a "learn" action targeting that KU.
+        Priority formula (reinforce):
+            (1 - signal_strength) * 0.4 + life_path_alignment * 0.3 + behavioral_readiness * 0.3
+
+        Priority formula (unblock):
+            0.9 (blocking gaps are always high priority — they unlock territory)
         """
         actions: list[ZPDAction] = []
+
+        # ── Unblock actions — blocking gaps unlock the most territory ──────
+        for gap_uid in blocking_gaps or []:
+            actions.append(
+                ZPDAction(
+                    entity_uid=gap_uid,
+                    entity_type="article",
+                    action_type="unblock",
+                    priority=0.9,
+                    rationale="blocking gap — unlocks further progress",
+                    ku_uid=gap_uid,
+                )
+            )
+
+        # ── Learn actions — proximal KUs the user is ready for ─────────────
         for ku_uid in proximal_zone:
             readiness = readiness_scores.get(ku_uid, 0.0)
             priority = round(
@@ -299,10 +330,33 @@ class ZPDService:
                     entity_type="article",
                     action_type="learn",
                     priority=priority,
-                    rationale="; ".join(rationale_parts) if rationale_parts else "Ready to learn",
+                    rationale="; ".join(rationale_parts) if rationale_parts else "ready to learn",
                     ku_uid=ku_uid,
                 )
             )
+
+        # ── Reinforce actions — current-zone KUs with thin evidence ────────
+        if zone_evidence:
+            for ku_uid, evidence in zone_evidence.items():
+                if evidence.is_confirmed:
+                    continue  # Already compound-confirmed — no reinforcement needed
+                signal_strength = evidence.signal_count / 4.0  # 4 possible signal types
+                priority = round(
+                    (1.0 - signal_strength) * 0.4
+                    + life_path_alignment * 0.3
+                    + behavioral_readiness * 0.3,
+                    3,
+                )
+                actions.append(
+                    ZPDAction(
+                        entity_uid=ku_uid,
+                        entity_type="article",
+                        action_type="reinforce",
+                        priority=priority,
+                        rationale=f"{evidence.signal_count}/4 evidence types — needs compound mastery",
+                        ku_uid=ku_uid,
+                    )
+                )
 
         return actions
 

@@ -217,6 +217,16 @@ independently testable and could serve other intelligence services.
 
 ---
 
+## Three Action Types
+
+ZPDService generates three types of recommended actions:
+
+| Action | Priority | When | Loop Role |
+|--------|----------|------|-----------|
+| **unblock** | 0.9 (highest) | Prerequisite KU blocks proximal KUs | Removes structural barriers |
+| **learn** | readiness × 0.5 + alignment × 0.3 + behavior × 0.2 | Proximal KU ready for engagement | Advances the zone |
+| **reinforce** | (1 - signal_strength) × 0.4 + alignment × 0.3 + behavior × 0.3 | Current-zone KU has < 2 signal types | Compounds mastery |
+
 ## What ZPDService Does NOT Do
 
 - It does not recommend content directly (Askesis does that, using ZPDAssessment as input)

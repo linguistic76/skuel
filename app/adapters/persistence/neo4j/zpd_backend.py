@@ -42,13 +42,14 @@ WITH u,
      [uid IN collect(DISTINCT ku_j.uid) WHERE uid IS NOT NULL] AS journal_engaged_uids,
      [uid IN collect(DISTINCT ku_h.uid) WHERE uid IS NOT NULL] AS habit_engaged_uids
 
-// Combine all engaged UIDs (deduplicated)
-WITH u, task_engaged_uids, journal_engaged_uids, habit_engaged_uids,
-     apoc.coll.toSet(task_engaged_uids + journal_engaged_uids + habit_engaged_uids) AS engaged_uids_set
-
-// Flatten to simple list (apoc.coll.toSet returns list)
-WITH u, task_engaged_uids, journal_engaged_uids, habit_engaged_uids,
-     [uid IN engaged_uids_set WHERE uid IS NOT NULL] AS engaged_uids
+// Combine all engaged UIDs (deduplicated via UNWIND + DISTINCT, no APOC)
+CALL {
+    WITH task_engaged_uids, journal_engaged_uids, habit_engaged_uids
+    UNWIND (task_engaged_uids + journal_engaged_uids + habit_engaged_uids) AS uid
+    WITH DISTINCT uid WHERE uid IS NOT NULL
+    RETURN collect(uid) AS engaged_uids
+}
+WITH u, task_engaged_uids, journal_engaged_uids, habit_engaged_uids, engaged_uids
 
 // ── Step 2: Proximal zone — structurally adjacent, not yet engaged ─────────
 UNWIND CASE WHEN size(engaged_uids) = 0 THEN [null] ELSE engaged_uids END AS engaged_uid

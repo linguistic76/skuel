@@ -9,7 +9,7 @@ The Learning Loop is the core of SKUEL. Everything in the app — tasks, goals, 
 The loop has five phases:
 
 ```
-Article → Exercise → Submission → Feedback → Revised Exercise → ...
+Article → Exercise → Submission → Report → Revised Exercise → ...
 ```
 
 Each phase builds on the last. You never just consume content — you engage with it, get a response, and refine your understanding. The loop repeats until mastery emerges.
@@ -55,9 +55,9 @@ Your submission's status moves through: **Submitted → Processing → Completed
 
 **Journals** are a special kind of submission — reflective writing that gets AI-processed automatically. You can submit journals independently of any Exercise.
 
-### Phase 4: Feedback — The Response
+### Phase 4: Report — The Response
 
-After you submit, the system responds. Feedback can come from two sources:
+After you submit, the system responds. Reports can come from two sources:
 
 | Source | How it works |
 |--------|-------------|
@@ -66,7 +66,7 @@ After you submit, the system responds. Feedback can come from two sources:
 
 When your teacher reviews your work, they choose one of three outcomes:
 
-- **Feedback** — Written evaluation of your work. You reflect and learn.
+- **Report** — Written evaluation of your work. You reflect and learn.
 - **Revision requested** — Your work needs another pass. You'll get specific guidance on what to improve.
 - **Approved** — Your work meets the standard. The loop closes for this Exercise.
 
@@ -95,7 +95,7 @@ The Learning Loop operates on two parallel tracks:
 ### Curriculum Track (Artifact-Based)
 
 ```
-Article → Exercise → Submission → Feedback → Revised Exercise → ...
+Article → Exercise → Submission → Report → Revised Exercise → ...
 ```
 
 This is the explicit learning cycle. You engage with specific curriculum content, produce work, and receive targeted feedback on that work.
@@ -215,16 +215,65 @@ Teachers drive the loop from the other side:
 
 ---
 
+## The System Layers
+
+The learning loop is not the whole system — it's the *base*. SKUEL is a layered system where each layer depends on the ones below:
+
+```
+┌─────────────────────────────────────────┐
+│  5. Semantics (coherence)               │  Embeddings, vector search, meaning
+├─────────────────────────────────────────┤
+│  4. Knowledge Graph (structural memory) │  Neo4j relationships encode everything
+├─────────────────────────────────────────┤
+│  3. Saved Interactions (compounding)    │  Conversations, journals, annotations
+├─────────────────────────────────────────┤
+│  2. ZPD + UserContext (intelligence)    │  "Where are you?" + "What's next?"
+├─────────────────────────────────────────┤
+│  1. Learning Loop (base)                │  Article → Exercise → Submission → ...
+└─────────────────────────────────────────┘
+```
+
+### Layer 1: Learning Loop (this document)
+
+The base. Article → Exercise → Submission → Report → RevisedExercise. Without this, nothing else matters. The loop is the mechanism by which knowledge moves from the curriculum into the learner's life.
+
+### Layer 2: ZPD + UserContext (intelligence)
+
+The intelligence that makes the loop *adaptive*. ZPD reads the curriculum graph to know what you're ready for. UserContext aggregates ~250 fields of cross-domain state. Together, they answer: "Where is this learner right now, and what should happen next?" Without this layer, the loop still works — but it's mechanical, not personalized.
+
+See: [ZPD guide](zpd.md)
+
+### Layer 3: Saved Interactions (compounding)
+
+Every loop iteration creates artifacts — submissions, journal entries, activity reports, annotations, Askesis conversations. These don't just exist as records. They *compound*: your journal insight from last week feeds ZPD's assessment today. Your annotation on an activity report shapes the next report. Your conversation history with Askesis gives it memory of where you've been.
+
+The compounding layer is what separates SKUEL from a one-shot exercise platform. Each interaction makes the next one smarter.
+
+### Layer 4: Knowledge Graph (structural memory)
+
+Neo4j relationships encode the structure of knowledge: prerequisites, complements, learning path sequences, KU compositions. This is the lattice the learning grows on. The graph is permanent and shared — it represents the curriculum's structure, not any individual learner's state.
+
+### Layer 5: Semantics (coherence)
+
+Embeddings and vector search add meaning-awareness. When Askesis bridges from one KU to another, it's not just following graph edges — it understands *why* two concepts are related. Semantic search connects a learner's free-text journal to the specific KUs it references. This layer makes the other four coherent.
+
+### How the layers interact
+
+The loop (Layer 1) generates graph relationships (Layer 4) as the learner works. ZPD (Layer 2) reads the graph to assess readiness. Saved interactions (Layer 3) compound the signals ZPD reads. Semantics (Layer 5) connects everything by meaning. Each layer strengthens the others.
+
+---
+
 ## Key Concepts
 
 | Concept | What it means |
 |---------|--------------|
 | **Mastery** | Not "I read it" but "I live it." Measured through habits, choices, journals, tasks — not just submissions. |
 | **Substance** | Knowledge has weight when it changes behavior. Habits contribute more to substance than passive reading. |
+| **Compound evidence** | ZPD requires 2+ signal types (submission, habit, task, journal) to consider a KU confirmed in your zone. Single-signal KUs get reinforcement recommendations. |
 | **Revision chain** | The sequence Exercise → Submission → Feedback → Revised Exercise → Submission v2 → ... Each link is a traceable entity. |
 | **Activity Report** | A periodic synthesis of everything you've been doing, with AI-generated insights about your patterns. |
 | **Annotation** | Your voice alongside the system's analysis. Add your own reflections to Activity Reports — they inform the next one. |
-| **ZPD** | Zone of Proximal Development. Askesis reads the curriculum graph to know what you're ready to learn next — not too easy, not too hard. See the [standalone ZPD guide](zpd.md). |
+| **ZPD** | Zone of Proximal Development. The intelligence layer that reads the curriculum graph to know what you're ready for next — not too easy, not too hard. Generates three action types: unblock, learn, reinforce. See the [standalone ZPD guide](zpd.md). |
 
 ---
 

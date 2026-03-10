@@ -481,13 +481,29 @@ New feedback sources add `ProcessorType` values; they do not create new EntityTy
 
 ---
 
+## The System Layers
+
+The learning loop is Layer 1 of a 5-layer system. Each layer builds on the ones below:
+
+| Layer | Purpose | Relationship to Loop |
+|-------|---------|---------------------|
+| 5. Semantics | Embeddings, vector search, meaning | Connects concepts by meaning |
+| 4. Knowledge Graph | Neo4j relationships encode everything | The loop generates graph relationships |
+| 3. Saved Interactions | Conversations, journals, annotations | Each loop iteration compounds signals |
+| 2. ZPD + UserContext | "Where are you?" + "What's next?" | Intelligence makes the loop adaptive |
+| **1. Learning Loop** | **Article → Exercise → Submission → Report → RevisedExercise** | **The base — everything serves this** |
+
+See: `docs/user-guides/zpd.md`, `docs/user-guides/learning-loop.md`
+
+---
+
 ## See Also
 
 | Document | What It Covers |
 |----------|---------------|
-| [REPORT_ARCHITECTURE.md](/docs/architecture/REPORT_ARCHITECTURE.md) | Canonical feedback reference — all services, APIs, graph patterns, ProcessorType taxonomy |
-| [REPORT_ARCHITECTURE.md](/docs/architecture/REPORT_ARCHITECTURE.md) | Curriculum Track pipeline — Exercise, Submission, teacher review, visibility model, all APIs |
+| [REPORT_ARCHITECTURE.md](/docs/architecture/REPORT_ARCHITECTURE.md) | Canonical report reference — all services, APIs, graph patterns, ProcessorType taxonomy |
 | [ENTITY_TYPE_ARCHITECTURE.md](/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md) | How the loop fits the Entity Type Architecture |
 | [ADR-038: Content Sharing](/docs/decisions/ADR-038-content-sharing-model.md) | Three-level visibility model for submissions |
 | [ADR-040: Teacher Assignment Workflow](/docs/decisions/ADR-040-teacher-assignment-workflow.md) | ASSIGNED exercise, auto-sharing, teacher review queue |
 | `.claude/skills/learning-loop/SKILL.md` | Developer guide — implementation details, service architecture, anti-patterns |
+| `.claude/skills/zpd/SKILL.md` | ZPD intelligence layer — readiness scoring, compound evidence, recommended actions |

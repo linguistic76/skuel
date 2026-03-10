@@ -126,6 +126,38 @@ class TestBuildRecommendedActions:
         actions = service._build_recommended_actions([], {}, 0.5, 0.0)
         assert actions == []
 
+    def test_unblock_actions_from_blocking_gaps(self) -> None:
+        service = ZPDService(backend=_make_backend())
+        actions = service._build_recommended_actions(
+            proximal_zone=["ku_c"],
+            readiness_scores={"ku_c": 0.5},
+            behavioral_readiness=0.5,
+            life_path_alignment=0.0,
+            blocking_gaps=["ku_gap_1", "ku_gap_2"],
+        )
+        unblock = [a for a in actions if a.action_type == "unblock"]
+        assert len(unblock) == 2
+        assert all(a.priority == 0.9 for a in unblock)
+
+    def test_reinforce_actions_from_thin_evidence(self) -> None:
+        from core.models.zpd.zpd_assessment import ZoneEvidence
+
+        service = ZPDService(backend=_make_backend())
+        evidence = {
+            "ku_a": ZoneEvidence(ku_uid="ku_a", task_application=True, habit_reinforcement=True),  # confirmed
+            "ku_b": ZoneEvidence(ku_uid="ku_b", journal_application=True),  # thin — 1 signal
+        }
+        actions = service._build_recommended_actions(
+            proximal_zone=[],
+            readiness_scores={},
+            behavioral_readiness=0.5,
+            life_path_alignment=0.0,
+            zone_evidence=evidence,
+        )
+        reinforce = [a for a in actions if a.action_type == "reinforce"]
+        assert len(reinforce) == 1  # only ku_b (ku_a is confirmed)
+        assert reinforce[0].ku_uid == "ku_b"
+
 
 # ============================================================================
 # assess_zone with context
@@ -168,7 +200,12 @@ class TestAssessZoneWithContext:
         assert not result.is_error
         assessment = result.value
 
-        assert len(assessment.recommended_actions) == 2  # 2 proximal KUs
+        # 2 learn (proximal KUs) + 1 reinforce (ku_b has 1/4 evidence)
+        learn_actions = [a for a in assessment.recommended_actions if a.action_type == "learn"]
+        reinforce_actions = [a for a in assessment.recommended_actions if a.action_type == "reinforce"]
+        assert len(learn_actions) == 2
+        assert len(reinforce_actions) == 1
+        assert reinforce_actions[0].ku_uid == "ku_b"
 
     @pytest.mark.asyncio
     async def test_submission_scores_populated(self) -> None:

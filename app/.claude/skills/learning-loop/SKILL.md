@@ -763,12 +763,41 @@ class AdminSummary(UserOwnedEntity):  # New entity for admin-written reports?
 
 ---
 
+## The System Layers
+
+The learning loop is Layer 1 of a 5-layer system:
+
+```
+┌────────────────────────────────────────────┐
+│  5. Semantics (coherence)                  │
+├────────────────────────────────────────────┤
+│  4. Knowledge Graph (structural memory)    │
+├────────────────────────────────────────────┤
+│  3. Saved Interactions (compounding)       │
+├────────────────────────────────────────────┤
+│  2. ZPD + UserContext (intelligence)       │
+├────────────────────────────────────────────┤
+│  1. Learning Loop (base) ◄──── THIS SKILL  │
+└────────────────────────────────────────────┘
+```
+
+The loop generates graph relationships (Layer 4) as the learner works. ZPD (Layer 2) reads
+the graph to assess readiness and generates three action types: **unblock** (blocking gaps),
+**learn** (proximal zone), **reinforce** (thin evidence). Saved interactions (Layer 3) —
+journals, conversations, annotations — compound the signal quality over time. Each loop
+iteration makes the next one smarter.
+
+**See:** [zpd skill](../zpd/SKILL.md), [user-context-intelligence skill](../user-context-intelligence/SKILL.md)
+
+---
+
 ## Related Skills
 
+- **[zpd](../zpd/SKILL.md)** — Intelligence layer that makes the loop adaptive (Layer 2)
 - **[curriculum-domains](../curriculum-domains/SKILL.md)** — Ku, LS, LP architecture (Phase 1)
 - **[activity-domains](../activity-domains/SKILL.md)** — Activity Track entry points (Phase 4 via ActivityReport)
+- **[user-context-intelligence](../user-context-intelligence/SKILL.md)** — Cross-domain synthesis that feeds ActivityReport
 - **[result-pattern](../result-pattern/SKILL.md)** — All services return `Result[T]`
 - **[neo4j-cypher-patterns](../neo4j-cypher-patterns/SKILL.md)** — Graph query patterns
-- **[user-context-intelligence](../user-context-intelligence/SKILL.md)** — Cross-domain synthesis that feeds ActivityReport
 - **[pydantic](../pydantic/SKILL.md)** — Request models for submission and feedback routes
 - **[prompt-templates](../prompt-templates/SKILL.md)** — `activity_feedback.md` template and PROMPT_REGISTRY
