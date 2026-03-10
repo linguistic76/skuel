@@ -25,8 +25,6 @@ from collections.abc import Callable
 from functools import wraps
 from typing import Any
 
-from starlette.responses import JSONResponse
-
 from core.utils.logging import get_logger
 
 logger = get_logger(__name__)

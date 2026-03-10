@@ -133,7 +133,9 @@ class ArticleAIService(BaseAIService[ArticleOperations, Article]):
             return Result.fail(all_articles_result.expect_error())
 
         all_articles = all_articles_result.value or []
-        candidates = [(a.uid, f"{a.title} {a.summary}") for a in all_articles if a.uid != article_uid]
+        candidates = [
+            (a.uid, f"{a.title} {a.summary}") for a in all_articles if a.uid != article_uid
+        ]
 
         if not candidates:
             return Result.ok([])

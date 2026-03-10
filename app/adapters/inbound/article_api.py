@@ -142,7 +142,9 @@ def create_article_api_routes(
     @rt("/api/article/content", methods=["POST"])
     @require_admin(user_service_getter)
     @boundary_handler()
-    async def update_article_content_route(request: Request, current_user: Any, uid: str) -> Result[Any]:
+    async def update_article_content_route(
+        request: Request, current_user: Any, uid: str
+    ) -> Result[Any]:
         """Update article content. Requires ADMIN role."""
         body = await request.json()
         content = body.get("content")
@@ -164,7 +166,9 @@ def create_article_api_routes(
     @rt("/api/article/tags", methods=["DELETE"])
     @require_admin(user_service_getter)
     @boundary_handler()
-    async def remove_article_tags_route(request: Request, current_user: Any, uid: str) -> Result[Any]:
+    async def remove_article_tags_route(
+        request: Request, current_user: Any, uid: str
+    ) -> Result[Any]:
         """Remove tags from an article. Requires ADMIN role."""
         body = await request.json()
         tags = body.get("tags", [])

@@ -307,7 +307,11 @@
       "Bash(find /home/mike/skuel/app -name \"*.py\" -exec grep -l \"Activity.*Domain\\\\|Curriculum.*Domain\\\\|Finance.*Domain\\\\|Content.*Domain\\\\|Organizational.*Domain\" {} \\\\; 2>/dev/null | wc -l)",
       "Bash(grep -c '\"type\":\"result\"' /tmp/claude-1000/-home-mike-skuel-app/tasks/a3181ca7217c92ecb.output 2>/dev/null || echo \"not done\")",
       "Bash(sleep 30 && grep -c '\"type\":\"result\"' /tmp/claude-1000/-home-mike-skuel-app/tasks/a3181ca7217c92ecb.output 2>/dev/null || echo \"not done\")",
-      "Bash(sort -t'\\(' -k2 -rn)"
+      "Bash(sort -t'\\(' -k2 -rn)",
+      "Bash(git log --all --oneline --grep=\"graceful\\\\|degrad\\\\|fallback\\\\|error\" -i | head -20)",
+      "Bash(find /home/mike/skuel/app/core/services -name \"*learning*\" -o -name \"*lp*\" -o -name \"*ls*\" | grep -E \"\\\\.\\(py\\)$\" | sort)",
+      "Bash(/tmp/exploration_summary.txt:*)",
+      "Read(//tmp/**)"
     ]
   }
 }

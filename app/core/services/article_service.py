@@ -393,9 +393,7 @@ class ArticleService:
         """
         if not self.repo:
             return Result.fail(
-                Errors.system(
-                    "Article repository not available", operation="get_articles_batch"
-                )
+                Errors.system("Article repository not available", operation="get_articles_batch")
             )
 
         # Use UniversalNeo4jBackend's get_many() method
@@ -658,9 +656,7 @@ class ArticleService:
     # SEARCH AND FILTERING
     # ========================================================================
 
-    async def search_articles(
-        self, query: str, limit: int = 50
-    ) -> Result[list[CurriculumDTO]]:
+    async def search_articles(self, query: str, limit: int = 50) -> Result[list[CurriculumDTO]]:
         """
         Search articles by text query.
 
