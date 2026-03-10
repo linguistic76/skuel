@@ -311,7 +311,9 @@
       "Bash(git log --all --oneline --grep=\"graceful\\\\|degrad\\\\|fallback\\\\|error\" -i | head -20)",
       "Bash(find /home/mike/skuel/app/core/services -name \"*learning*\" -o -name \"*lp*\" -o -name \"*ls*\" | grep -E \"\\\\.\\(py\\)$\" | sort)",
       "Bash(/tmp/exploration_summary.txt:*)",
-      "Read(//tmp/**)"
+      "Read(//tmp/**)",
+      "Bash(git check-ignore:*)",
+      "Bash(git show:*)"
     ]
   }
 }
