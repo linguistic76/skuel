@@ -70,6 +70,12 @@ updated: 2026-02-01
 | [base-ai-service](base-ai-service/SKILL.md) | AI-powered features (optional LLM/embeddings) | base-analytics-service |
 | [user-context-intelligence](user-context-intelligence/SKILL.md) | Central cross-domain intelligence hub (8 methods) | base-analytics-service, activity-domains, curriculum-domains |
 
+### Security
+
+| Skill | Purpose | Foundation |
+|-------|---------|------------|
+| [security](security/SKILL.md) | Security posture, route checklist, code review checks | python |
+
 ### Observability
 
 | Skill | Purpose | Foundation |
@@ -110,6 +116,7 @@ updated: 2026-02-01
 | pytest | 4 | Testing patterns with Result[T] |
 | python | 4 | Python development patterns |
 | result-pattern | 2 | Result[T] error handling pattern |
+| security | 1 | Security posture, route checklist, code review checks |
 | skuel-component-composition | 1 | Reusable component composition (entity cards, stats grids, layouts) |
 | skuel-form-patterns | 1 | Three-tier validation, accessible forms, HTMX submission |
 | skuel-search-architecture | 1 | SearchRouter unified search |

@@ -62,9 +62,9 @@ async def get_learning_opportunities(
 
 See [CROSS_REFERENCE_INDEX.md](/docs/CROSS_REFERENCE_INDEX.md) for the complete skill-to-documentation mapping.
 
-**Key skill categories:** Foundation (python, pydantic, ui-css, chartjs), Web Framework (fasthtml, domain-route-config, ui-browser), UX (accessibility-guide, skuel-ui, ui-error-handling), Database (neo4j-cypher-patterns, neo4j-genai-plugin), Infrastructure (docker, prometheus-grafana), Architecture (result-pattern, base-analytics-service, base-ai-service, prompt-templates, learning-loop, skuel-search-architecture, user-context-intelligence), Testing (pytest), Mobile (hyperview), Meta (docs-skills-evolution).
+**Key skill categories:** Foundation (python, pydantic, ui-css, chartjs), Web Framework (fasthtml, domain-route-config, ui-browser), UX (accessibility-guide, skuel-ui, ui-error-handling), Database (neo4j-cypher-patterns, neo4j-genai-plugin), Infrastructure (docker, prometheus-grafana), Architecture (result-pattern, base-analytics-service, base-ai-service, prompt-templates, learning-loop, skuel-search-architecture, user-context-intelligence), Security (security), Testing (pytest), Mobile (hyperview), Meta (docs-skills-evolution).
 
-**Total:** 26 skills with comprehensive documentation mappings.
+**Total:** 27 skills with comprehensive documentation mappings.
 
 ## Documentation Architecture
 

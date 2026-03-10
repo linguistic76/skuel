@@ -237,6 +237,57 @@ poetry run cyclonedx-py poetry > sbom.json
 
 ---
 
+## 7. HTTP Security Headers Middleware
+
+**Why deferred**: SKUEL is not publicly deployed. Security headers protect browser-based users
+from clickjacking, MIME-sniffing, and XSS — risks that only apply once real users access the
+app over the internet.
+
+**The problem**: No HTTP security headers are set on responses. Missing headers:
+
+| Header | Purpose |
+|--------|---------|
+| `X-Frame-Options: DENY` | Prevents clickjacking via iframes |
+| `X-Content-Type-Options: nosniff` | Prevents MIME-type sniffing |
+| `Strict-Transport-Security` (HSTS) | Forces HTTPS after first visit |
+| `Referrer-Policy: strict-origin-when-cross-origin` | Limits referrer leakage |
+| `Permissions-Policy` | Disables unused browser APIs (camera, microphone, etc.) |
+| `Content-Security-Policy` (CSP) | Controls allowed script/style/font sources |
+
+**What to do**:
+
+### A. ASGI middleware (all headers except CSP)
+
+Follow the `RequestIDMiddleware` pattern in `core/utils/logging.py:259`. Create
+`SecurityHeadersMiddleware` as an ASGI middleware that injects headers on every response.
+
+Register in `scripts/dev/bootstrap.py:424` alongside existing middleware.
+
+### B. Content Security Policy (complex — separate step)
+
+CSP is the most impactful header but requires careful configuration for SKUEL's frontend:
+
+| Dependency | CSP Impact |
+|------------|-----------|
+| Alpine.js 3.14.8 (standard build) | Requires `'unsafe-eval'` |
+| Inline `<script>` tags | Requires `'unsafe-inline'` or nonce-based |
+| CDN origins (unpkg, jsdelivr, tailwindcss, googleapis, gstatic) | Must be whitelisted |
+
+**CSP tightening path** (incremental, each step removes a `'unsafe-*'` directive):
+
+1. Self-host CDN dependencies (removes external origin whitelist)
+2. Pre-build Tailwind CSS (removes CDN CSS dependency)
+3. Switch to Alpine.js CSP build (`alpine.csp.min.js` — removes `'unsafe-eval'`)
+4. Move inline scripts to external files with nonce-based CSP (removes `'unsafe-inline'`)
+
+Start with a permissive CSP in report-only mode (`Content-Security-Policy-Report-Only`) to
+identify violations without breaking the app, then tighten incrementally.
+
+**Enable when**: Before public deployment. Non-CSP headers are straightforward and can ship
+first; CSP requires the tightening path above.
+
+---
+
 ## Priority Order
 
 When production deployment approaches, implement in this order:
@@ -249,6 +300,7 @@ When production deployment approaches, implement in this order:
 | 4 | **Pre-commit secret scanning** | When second developer joins |
 | 5 | **Session rotation** | When multi-device sessions are tracked |
 | 6 | **CAPTCHA** | Only if automated sign-up abuse occurs |
+| 7 | **Security headers** | Before public deployment (non-CSP headers first) |
 
 ---
 

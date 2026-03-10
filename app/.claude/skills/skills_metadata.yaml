@@ -291,6 +291,27 @@ skills:
     keywords: [prometheus, grafana, metrics, observability, monitoring, alerts]
 
   # ============================================================================
+  # SECURITY LAYER
+  # ============================================================================
+
+  - name: security
+    description: Security posture, route checklist, and code review security checks
+    last_reviewed: "2026-03-10"
+    foundation: []
+    dependencies: [python]
+    library_package: null  # Cross-cutting concern, not a single library
+    library_version: null
+    primary_docs:
+      - /docs/patterns/AUTH_PATTERNS.md
+      - /docs/security/ROUTE_AUTH_REQUIREMENTS.md
+      - /docs/patterns/OWNERSHIP_VERIFICATION.md
+    related_adrs:
+      - ADR-022  # Graph-native authentication
+    patterns:
+      - /docs/patterns/ERROR_HANDLING.md
+    keywords: [security, authentication, authorization, ownership, session, csrf, xss, injection, headers, rbac]
+
+  # ============================================================================
   # SKUEL ARCHITECTURE LAYER
   # ============================================================================
 

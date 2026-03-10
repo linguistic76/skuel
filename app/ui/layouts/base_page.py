@@ -257,7 +257,11 @@ async def BasePage(
             ),
             cls="bg-base-100",
         ),
-        **{"data-theme": "light", "x-data": "", "x-init": "var t = localStorage.getItem('skuel-theme'); if (t) $el.setAttribute('data-theme', t)"},
+        **{
+            "data-theme": "light",
+            "x-data": "",
+            "x-init": "var t = localStorage.getItem('skuel-theme'); if (t) $el.setAttribute('data-theme', t)",
+        },
     )
 
 
