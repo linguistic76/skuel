@@ -39,6 +39,8 @@ from core.utils.uid_generator import UIDGenerator
 
 logger = get_logger(__name__)
 
+_UNSET: Any = object()  # Sentinel for "argument not provided"
+
 
 class ExerciseService(BaseService):
     """
@@ -105,6 +107,7 @@ class ExerciseService(BaseService):
         due_date: date | None = None,
         processor_type: ProcessorType = ProcessorType.LLM,
         group_uid: str | None = None,
+        form_schema: list[dict[str, Any]] | None = None,
     ) -> Result[Exercise]:
         """
         Create a new Exercise.
@@ -147,6 +150,7 @@ class ExerciseService(BaseService):
             due_date=due_date,
             group_uid=group_uid,
             enrichment_mode=None,
+            form_schema=tuple(form_schema) if form_schema else None,
         )
 
         result = await self.backend.create(exercise)
@@ -245,9 +249,13 @@ class ExerciseService(BaseService):
         domain: Domain | None = None,
         is_active: bool | None = None,
         metadata: dict[str, Any] | None = None,
+        form_schema: Any = _UNSET,
     ) -> Result[Exercise]:
         """
         Update an Exercise. Only provided fields will be updated.
+
+        form_schema uses _UNSET sentinel so None means "clear the schema"
+        while omitting the argument means "don't change it".
         """
         get_result = await self.backend.get(uid)
         if get_result.is_error:
@@ -268,6 +276,9 @@ class ExerciseService(BaseService):
             updates["domain"] = get_enum_value(domain)
         if metadata is not None:
             updates["metadata"] = json.dumps(metadata)
+        if form_schema is not _UNSET:
+            # None clears the schema, list sets it (serialized as JSON for Neo4j)
+            updates["form_schema"] = json.dumps(form_schema) if form_schema else None
 
         updates["updated_at"] = datetime.now().isoformat()
 
@@ -589,7 +600,8 @@ class ExerciseService(BaseService):
                    exercise.title as title,
                    exercise.scope as scope,
                    exercise.due_date as due_date,
-                   exercise.status as status
+                   exercise.status as status,
+                   exercise.form_schema as form_schema
             ORDER BY exercise.created_at DESC
             """,
             {"curriculum_uid": curriculum_uid},

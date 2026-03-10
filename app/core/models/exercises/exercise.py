@@ -35,9 +35,10 @@ Hierarchy:
 See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
 """
 
+import json
 from dataclasses import dataclass
 from datetime import date
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from core.models.curriculum import Curriculum
 from core.models.enums.entity_enums import EntityType
@@ -63,7 +64,7 @@ class Exercise(Curriculum):
     - User controls the model
     - SubmissionReport = instructions + entry content -> LLM -> response
 
-    Exercise-specific fields (7):
+    Exercise-specific fields (8):
     - instructions: LLM prompt for processing
     - model: Which LLM to use
     - scope: ExerciseScope.PERSONAL (user's own template) or ASSIGNED (teacher → group)
@@ -71,15 +72,23 @@ class Exercise(Curriculum):
     - group_uid: Target group for ASSIGNED scope
     - enrichment_mode: Processing strategy
     - context_notes: Reference materials
+    - form_schema: Optional inline form definition for structured submissions
     """
 
     def __post_init__(self) -> None:
-        """Force entity_type=EXERCISE (must run after super() so Curriculum's override doesn't win)."""
+        """Force entity_type=EXERCISE, parse JSON form_schema from Neo4j."""
         super().__post_init__()
         object.__setattr__(self, "entity_type", EntityType.EXERCISE)
+        # Neo4j stores form_schema as JSON string — parse on construction
+        if isinstance(self.form_schema, str):
+            try:
+                parsed = json.loads(self.form_schema)
+                object.__setattr__(self, "form_schema", tuple(parsed) if parsed else None)
+            except (json.JSONDecodeError, TypeError):
+                object.__setattr__(self, "form_schema", None)
 
     # =========================================================================
-    # EXERCISE-SPECIFIC FIELDS (7)
+    # EXERCISE-SPECIFIC FIELDS (8)
     # =========================================================================
     instructions: str | None = None  # LLM prompt for processing
     model: str = "claude-sonnet-4-6"  # Which LLM to use
@@ -88,6 +97,7 @@ class Exercise(Curriculum):
     group_uid: str | None = None  # Target group for ASSIGNED scope
     enrichment_mode: str | None = None  # activity_tracking, idea_articulation, etc.
     context_notes: tuple[str, ...] = ()  # Reference materials (tuple, not list — frozen)
+    form_schema: tuple[dict[str, Any], ...] | None = None  # Inline form definition
 
     # =========================================================================
     # EXERCISE-SPECIFIC METHODS
@@ -121,6 +131,10 @@ class Exercise(Curriculum):
         prompt_parts.append("")
 
         return "\n".join(prompt_parts)
+
+    def has_inline_form(self) -> bool:
+        """Check if this exercise defines an inline form for structured submissions."""
+        return bool(self.form_schema)
 
     def is_valid(self) -> bool:
         """Check if exercise has minimum required fields."""

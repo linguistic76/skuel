@@ -15,6 +15,7 @@ Routes:
 - GET /article/{uid} - KU detail page with reading interface
 """
 
+import json
 from typing import Any
 
 from fasthtml.common import H3, A, Button, Div, NotStr, P, Request, Small, Span
@@ -23,6 +24,7 @@ from adapters.inbound.auth import require_authenticated_user
 from core.utils.logging import get_logger
 from core.utils.markdown_renderer import render_markdown_with_toc
 from ui.cards import Card, CardBody
+from ui.exercises.inline_form import render_inline_exercise_form
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
 from ui.patterns.breadcrumbs import Breadcrumbs
@@ -40,24 +42,55 @@ def _metadata_badge(label: str, value: str, color: str = "badge-ghost") -> Span:
     )
 
 
+def _parse_form_schema(raw: Any) -> list[dict] | None:
+    """Parse form_schema from Neo4j (may be JSON string, list, or None)."""
+    if raw is None:
+        return None
+    if isinstance(raw, str):
+        try:
+            parsed = json.loads(raw)
+            return parsed if isinstance(parsed, list) and parsed else None
+        except (json.JSONDecodeError, TypeError):
+            return None
+    if isinstance(raw, list) and raw:
+        return raw
+    return None
+
+
 def _exercises_for_ku_section(exercises: list[dict]) -> Any:
-    """Exercises that practice this knowledge — Ku → Exercise loop entry point."""
+    """Exercises that practice this knowledge — Ku → Exercise loop entry point.
+
+    Exercises with form_schema render as inline forms. Others show as links.
+    """
     if not exercises:
         return Div()
 
     rows = []
     for e in exercises:
-        scope = e.get("scope", "personal")
-        scope_cls = "badge-secondary" if scope == "assigned" else "badge-ghost"
-        due = e.get("due_date")
-        due_span = Span(f" · due {due}", cls="text-xs text-base-content/50") if due else None
-        row_parts = [
-            Span(e.get("title", "Untitled Exercise"), cls="text-sm font-medium"),
-            Span(scope.title(), cls=f"badge badge-sm {scope_cls} ml-2"),
-        ]
-        if due_span:
-            row_parts.append(due_span)
-        rows.append(Div(*row_parts, cls="flex items-center py-1.5"))
+        form_schema = _parse_form_schema(e.get("form_schema"))
+
+        if form_schema:
+            # Inline form — embedded directly in the article
+            rows.append(
+                render_inline_exercise_form(
+                    exercise_uid=e.get("uid", ""),
+                    form_schema=form_schema,
+                    exercise_title=e.get("title"),
+                )
+            )
+        else:
+            # Standard exercise link
+            scope = e.get("scope", "personal")
+            scope_cls = "badge-secondary" if scope == "assigned" else "badge-ghost"
+            due = e.get("due_date")
+            due_span = Span(f" · due {due}", cls="text-xs text-base-content/50") if due else None
+            row_parts: list[Any] = [
+                Span(e.get("title", "Untitled Exercise"), cls="text-sm font-medium"),
+                Span(scope.title(), cls=f"badge badge-sm {scope_cls} ml-2"),
+            ]
+            if due_span:
+                row_parts.append(due_span)
+            rows.append(Div(*row_parts, cls="flex items-center py-1.5"))
 
     return Div(
         H3("Practice This Knowledge", cls="text-base font-semibold mb-3"),
@@ -65,7 +98,7 @@ def _exercises_for_ku_section(exercises: list[dict]) -> Any:
             "These exercises develop understanding of this knowledge unit.",
             cls="text-sm text-base-content/60 mb-3",
         ),
-        Div(*rows, cls="space-y-0.5"),
+        Div(*rows, cls="space-y-2"),
         cls="border-t border-base-200 pt-6 mt-8",
     )
 

@@ -62,6 +62,16 @@ class SubmissionOperations(Protocol):
         """Submit a file for processing. Returns Result[Submission]."""
         ...
 
+    async def submit_form(
+        self,
+        user_uid: str,
+        exercise_uid: str,
+        form_data: dict[str, Any],
+        title: str | None = None,
+    ) -> Result[Any]:
+        """Submit structured form responses (no file). Returns Result[Submission]."""
+        ...
+
     async def get_submission(self, uid: str) -> Result[Any | None]:
         """Get submission entity by UID. Returns Result[Submission | None]."""
         ...

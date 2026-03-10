@@ -293,6 +293,60 @@ def create_submissions_api_routes(
         )
 
     # ========================================================================
+    # FORM SUBMISSION (structured inline forms — no file upload)
+    # ========================================================================
+
+    @rt("/api/submissions/form")
+    @boundary_handler(success_status=201)
+    async def submit_form_route(request: Request) -> Result[Any]:
+        """
+        Submit structured form data against an exercise.
+
+        JSON body:
+        - exercise_uid: Exercise UID (required)
+        - form_data: dict of field name -> value (required)
+        - title: Optional submission title
+
+        Returns:
+        - 201 Created with submission details
+        """
+        user_uid = require_authenticated_user(request)
+
+        try:
+            body = await request.json()
+        except Exception:
+            return Result.fail(Errors.validation("Invalid JSON body"))
+
+        exercise_uid = body.get("exercise_uid")
+        if not exercise_uid:
+            return Result.fail(Errors.validation("exercise_uid is required", field="exercise_uid"))
+
+        form_data = body.get("form_data")
+        if not isinstance(form_data, dict) or not form_data:
+            return Result.fail(
+                Errors.validation("form_data must be a non-empty object", field="form_data")
+            )
+
+        title = body.get("title")
+
+        result = await submission_service.submit_form(
+            user_uid=user_uid,
+            exercise_uid=exercise_uid,
+            form_data=form_data,
+            title=title,
+        )
+
+        if result.is_error:
+            return Result.fail(result.expect_error())
+
+        return Result.ok(
+            {
+                "submission": entity_to_response(result.value),
+                "message": "Form submitted successfully",
+            }
+        )
+
+    # ========================================================================
     # LIST & QUERY
     # ========================================================================
 

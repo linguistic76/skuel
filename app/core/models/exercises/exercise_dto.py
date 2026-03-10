@@ -15,6 +15,7 @@ See: /docs/patterns/three_tier_type_system.md
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
@@ -33,7 +34,7 @@ class ExerciseDTO(CurriculumDTO):
     """
     Mutable DTO for exercises (EntityType.EXERCISE).
 
-    Extends CurriculumDTO with 7 exercise-specific fields:
+    Extends CurriculumDTO with 8 exercise-specific fields:
     - instructions: LLM prompt for processing
     - model: Which LLM to use
     - scope: PERSONAL or ASSIGNED
@@ -41,6 +42,7 @@ class ExerciseDTO(CurriculumDTO):
     - group_uid: Target group for ASSIGNED scope
     - enrichment_mode: Processing strategy
     - context_notes: Reference materials
+    - form_schema: Optional inline form definition
     """
 
     # =========================================================================
@@ -53,6 +55,7 @@ class ExerciseDTO(CurriculumDTO):
     group_uid: str | None = None
     enrichment_mode: str | None = None
     context_notes: list[str] = field(default_factory=list)
+    form_schema: list[dict[str, Any]] | None = None  # Inline form definition
 
     # =========================================================================
     # SERIALIZATION
@@ -73,6 +76,7 @@ class ExerciseDTO(CurriculumDTO):
                 "group_uid": self.group_uid,
                 "enrichment_mode": self.enrichment_mode,
                 "context_notes": list(self.context_notes) if self.context_notes else [],
+                "form_schema": self.form_schema,
             }
         )
 
@@ -88,6 +92,16 @@ class ExerciseDTO(CurriculumDTO):
     def from_dict(cls, data: dict[str, Any]) -> ExerciseDTO:
         """Create ExerciseDTO from dictionary (from database)."""
         from core.models.dto_helpers import dto_from_dict
+
+        # Neo4j stores form_schema as JSON string — parse before dto_from_dict
+        raw_schema = data.get("form_schema")
+        if isinstance(raw_schema, str):
+            try:
+                data = dict(data)  # Don't mutate caller's dict
+                data["form_schema"] = json.loads(raw_schema)
+            except (json.JSONDecodeError, TypeError):
+                data = dict(data)
+                data["form_schema"] = None
 
         return dto_from_dict(
             cls,
@@ -161,6 +175,7 @@ class ExerciseDTO(CurriculumDTO):
                 "group_uid",
                 "enrichment_mode",
                 "context_notes",
+                "form_schema",
             },
             enum_mappings={
                 "entity_type": EntityType,

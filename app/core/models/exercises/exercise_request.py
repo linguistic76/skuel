@@ -11,8 +11,9 @@ See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
 """
 
 from datetime import date
+from typing import Any
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class ExerciseCreateRequest(BaseModel):
@@ -63,6 +64,36 @@ class ExerciseCreateRequest(BaseModel):
         description="Target group UID (required for scope=assigned)",
     )
 
+    form_schema: list[dict[str, Any]] | None = Field(
+        default=None,
+        description="Inline form definition: list of field specs with name, type, label",
+    )
+
+    @field_validator("form_schema")
+    @classmethod
+    def validate_form_schema(cls, v: list[dict[str, Any]] | None) -> list[dict[str, Any]] | None:
+        """Validate each form field spec has required keys and valid type."""
+        if v is None:
+            return None
+        valid_types = {"text", "textarea", "select", "checkbox", "number", "date"}
+        for i, field_spec in enumerate(v):
+            if "name" not in field_spec:
+                msg = f"form_schema[{i}] missing required key 'name'"
+                raise ValueError(msg)
+            if "type" not in field_spec:
+                msg = f"form_schema[{i}] missing required key 'type'"
+                raise ValueError(msg)
+            if "label" not in field_spec:
+                msg = f"form_schema[{i}] missing required key 'label'"
+                raise ValueError(msg)
+            if field_spec["type"] not in valid_types:
+                msg = f"form_schema[{i}] invalid type '{field_spec['type']}', must be one of {valid_types}"
+                raise ValueError(msg)
+            if field_spec["type"] == "select" and "options" not in field_spec:
+                msg = f"form_schema[{i}] type 'select' requires 'options' list"
+                raise ValueError(msg)
+        return v
+
     @model_validator(mode="after")
     def validate_exercise_fields(self) -> "ExerciseCreateRequest":
         """If scope=assigned, group_uid is required."""
@@ -90,6 +121,17 @@ class ExerciseUpdateRequest(BaseModel):
     domain: str | None = Field(default=None, description="New domain categorization")
 
     is_active: bool | None = Field(default=None, description="Active status")
+
+    form_schema: list[dict[str, Any]] | None = Field(
+        default=None,
+        description="Inline form definition (replaces existing). Pass empty list to clear.",
+    )
+
+    @field_validator("form_schema")
+    @classmethod
+    def validate_form_schema(cls, v: list[dict[str, Any]] | None) -> list[dict[str, Any]] | None:
+        """Reuse same validation as create."""
+        return ExerciseCreateRequest.validate_form_schema(v)
 
 
 class FeedbackGenerateRequest(BaseModel):

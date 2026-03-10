@@ -215,6 +215,65 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
 
         return create_result
 
+    @with_error_handling("submit_form")
+    async def submit_form(
+        self,
+        user_uid: str,
+        exercise_uid: str,
+        form_data: dict[str, Any],
+        title: str | None = None,
+    ) -> Result[Entity]:
+        """
+        Submit structured form responses (no file storage).
+
+        Creates an ExerciseSubmission from inline form data, stores responses
+        in metadata + processed_content, and triggers the same event pipeline
+        as file submissions (FULFILLS_EXERCISE, auto-share with teacher).
+
+        Args:
+            user_uid: Student submitting the form
+            exercise_uid: Exercise UID this submission responds to
+            form_data: Form field values keyed by field name
+            title: Optional title (defaults to "Form response — {date}")
+
+        Returns:
+            Result containing created submission entity
+        """
+        uid = UIDGenerator.generate_random_uid("es")
+
+        submission = Submission(
+            uid=uid,
+            title=title or f"Form response — {datetime.now():%Y-%m-%d}",
+            entity_type=EntityType.EXERCISE_SUBMISSION,
+            user_uid=user_uid,
+            status=EntityStatus.SUBMITTED,
+            processed_content=json.dumps(form_data),
+            metadata={"submission_mode": "form", "form_data": form_data},
+            processor_type=ProcessorType.AUTOMATIC,
+        )
+
+        create_result = await self.backend.create(submission)
+        if create_result.is_error:
+            return create_result
+
+        self.logger.info(
+            f"Form submission created: {uid} (exercise={exercise_uid}, fields={len(form_data)})"
+        )
+
+        # Publish event — same pipeline as file submissions
+        event = SubmissionCreated(
+            submission_uid=uid,
+            user_uid=user_uid,
+            entity_type=EntityType.EXERCISE_SUBMISSION.value,
+            processor_type=ProcessorType.AUTOMATIC.value,
+            fulfills_exercise_uid=exercise_uid,
+            occurred_at=datetime.now(),
+            metadata={"submission_mode": "form"},
+        )
+        await publish_event(self.event_bus, event, self.logger)
+
+        return create_result
+
     async def _store_file(self, file_content: bytes, filename: str, ku_uid: str) -> Result[Path]:
         """
         Store file to disk.
