@@ -56,7 +56,7 @@ from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from core.models.exercises.revised_exercise import RevisedExercise  # noqa: F401
-    from core.models.forms.form_submission import FormSubmission  # noqa: F401
+    from core.models.forms.form_submission import FormSubmission
     from core.models.forms.form_template import FormTemplate  # noqa: F401
 
 
@@ -1560,6 +1560,41 @@ class FormSubmissionBackend(UniversalNeo4jBackend["FormSubmission"]):
         if result.is_error:
             return Result.fail(result.expect_error())
         return Result.ok([dict(record["fs"]) for record in (result.value or [])])
+
+    async def create_with_relationships(
+        self,
+        submission: FormSubmission,
+        user_uid: str,
+        form_template_uid: str,
+    ) -> Result[FormSubmission]:
+        """Atomically create node + OWNS + RESPONDS_TO_FORM in one transaction."""
+        from core.utils.neo4j_mapper import from_neo4j_node, to_neo4j_node
+
+        node_data = to_neo4j_node(submission)
+        node_data.update(self.default_filters)
+
+        query = f"""
+        MATCH (u:User {{uid: $user_uid}})
+        MATCH (ft:Entity {{uid: $ft_uid, entity_type: 'form_template'}})
+        CREATE (fs:{self._create_labels})
+        SET fs = $props
+        CREATE (u)-[:{RelationshipName.OWNS.value}]->(fs)
+        CREATE (fs)-[r:{RelationshipName.RESPONDS_TO_FORM.value}]->(ft)
+        SET r.created_at = datetime()
+        RETURN fs
+        """
+        result = await self.execute_query(
+            query,
+            {"props": node_data, "user_uid": user_uid, "ft_uid": form_template_uid},
+        )
+        if result.is_error:
+            return Result.fail(result.expect_error())
+        records = result.value or []
+        if not records:
+            return Result.fail(
+                Errors.database("create_with_relationships", "User or template not found")
+            )
+        return Result.ok(from_neo4j_node(dict(records[0]["fs"]), self.entity_class))
 
     async def list_by_user(self, user_uid: str, limit: int = 50) -> Result[list[dict[str, Any]]]:
         """Get a user's form submissions."""

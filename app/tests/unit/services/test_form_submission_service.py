@@ -1,11 +1,10 @@
 """Tests for FormSubmissionService."""
 
-from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from core.models.enums.entity_enums import EntityStatus, EntityType
+from core.models.enums.entity_enums import EntityStatus
 from core.models.forms.form_submission import FormSubmission
 from core.models.forms.form_template import FormTemplate
 from core.services.forms.form_submission_service import FormSubmissionService
@@ -55,9 +54,9 @@ class TestSubmitForm:
         template_service = MagicMock()
         template_service.get_form_template = AsyncMock(return_value=Result.ok(template))
 
+        submission = _make_submission()
         backend = MagicMock()
-        backend.create = AsyncMock(return_value=Result.ok(None))
-        backend.execute_query = AsyncMock(return_value=Result.ok([{"success": True}]))
+        backend.create_with_relationships = AsyncMock(return_value=Result.ok(submission))
 
         event_bus = MagicMock()
         event_bus.publish_async = AsyncMock()
@@ -75,10 +74,9 @@ class TestSubmitForm:
         )
 
         assert result.is_ok
-        assert result.value.uid.startswith("fs_")
         assert result.value.form_data == {"q1": "answer", "q2": "a"}
         assert result.value.status == EntityStatus.COMPLETED
-        backend.create.assert_awaited_once()
+        backend.create_with_relationships.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_submit_template_not_found(self):
@@ -156,9 +154,9 @@ class TestSubmitForm:
         template_service = MagicMock()
         template_service.get_form_template = AsyncMock(return_value=Result.ok(template))
 
+        submission = _make_submission()
         backend = MagicMock()
-        backend.create = AsyncMock(return_value=Result.ok(None))
-        backend.execute_query = AsyncMock(return_value=Result.ok([{"success": True}]))
+        backend.create_with_relationships = AsyncMock(return_value=Result.ok(submission))
 
         event_bus = MagicMock()
         event_bus.publish_async = AsyncMock()
@@ -187,9 +185,9 @@ class TestSubmitForm:
         template_service = MagicMock()
         template_service.get_form_template = AsyncMock(return_value=Result.ok(template))
 
+        submission = _make_submission(title="My Custom Title")
         backend = MagicMock()
-        backend.create = AsyncMock(return_value=Result.ok(None))
-        backend.execute_query = AsyncMock(return_value=Result.ok([{"success": True}]))
+        backend.create_with_relationships = AsyncMock(return_value=Result.ok(submission))
 
         service = _make_service(backend=backend, template_service=template_service)
 
@@ -202,6 +200,55 @@ class TestSubmitForm:
 
         assert result.is_ok
         assert result.value.title == "My Custom Title"
+
+    @pytest.mark.asyncio
+    async def test_submit_stores_schema_hash(self):
+        """Verify template_schema_hash is a 64-char hex string on the submission."""
+        template = _make_template()
+        template_service = MagicMock()
+        template_service.get_form_template = AsyncMock(return_value=Result.ok(template))
+
+        # Return the submission passed to create_with_relationships
+        async def capture_create(sub, _user_uid, _ft_uid):
+            return Result.ok(sub)
+
+        backend = MagicMock()
+        backend.create_with_relationships = AsyncMock(side_effect=capture_create)
+
+        service = _make_service(backend=backend, template_service=template_service)
+
+        result = await service.submit_form(
+            user_uid="user_1",
+            form_template_uid="ft_test_123",
+            form_data={"q1": "answer", "q2": "a"},
+        )
+
+        assert result.is_ok
+        assert result.value.template_schema_hash is not None
+        assert len(result.value.template_schema_hash) == 64
+        assert all(c in "0123456789abcdef" for c in result.value.template_schema_hash)
+
+    @pytest.mark.asyncio
+    async def test_atomic_create_failure_returns_error(self):
+        """When create_with_relationships fails, submit_form returns the error."""
+        template = _make_template()
+        template_service = MagicMock()
+        template_service.get_form_template = AsyncMock(return_value=Result.ok(template))
+
+        backend = MagicMock()
+        backend.create_with_relationships = AsyncMock(
+            return_value=Result.fail(Errors.database("create_with_relationships", "User not found"))
+        )
+
+        service = _make_service(backend=backend, template_service=template_service)
+
+        result = await service.submit_form(
+            user_uid="user_1",
+            form_template_uid="ft_test_123",
+            form_data={"q1": "answer", "q2": "a"},
+        )
+
+        assert result.is_error
 
 
 class TestGetSubmission:
@@ -360,28 +407,24 @@ class TestFallbackTemplateResolution:
     @pytest.mark.asyncio
     async def test_fallback_to_backend_query(self):
         """When template_service is None, service queries backend directly."""
+        submission = _make_submission(form_data={"q1": "answer"})
         backend = MagicMock()
-        # Mock the fallback query returning template properties
+        # First call: template lookup; create_with_relationships for atomic create
         backend.execute_query = AsyncMock(
-            side_effect=[
-                # First call: template lookup
-                Result.ok(
-                    [
-                        {
-                            "ft": {
-                                "uid": "ft_test_123",
-                                "title": "Test",
-                                "entity_type": "form_template",
-                                "form_schema": '[{"name": "q1", "type": "text", "label": "Q1"}]',
-                            }
+            return_value=Result.ok(
+                [
+                    {
+                        "ft": {
+                            "uid": "ft_test_123",
+                            "title": "Test",
+                            "entity_type": "form_template",
+                            "form_schema": '[{"name": "q1", "type": "text", "label": "Q1"}]',
                         }
-                    ]
-                ),
-                # Second call: relationship creation
-                Result.ok([{"success": True}]),
-            ]
+                    }
+                ]
+            ),
         )
-        backend.create = AsyncMock(return_value=Result.ok(None))
+        backend.create_with_relationships = AsyncMock(return_value=Result.ok(submission))
 
         service = _make_service(backend=backend)  # no template_service
 
@@ -392,3 +435,4 @@ class TestFallbackTemplateResolution:
         )
 
         assert result.is_ok
+        backend.create_with_relationships.assert_awaited_once()

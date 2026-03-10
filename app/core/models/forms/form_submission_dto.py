@@ -27,6 +27,7 @@ class FormSubmissionDTO(UserOwnedDTO):
     form_template_uid: str | None = None
     form_data: dict[str, Any] | None = field(default=None)
     processed_content: str | None = None
+    template_schema_hash: str | None = None
 
     # =========================================================================
     # SERIALIZATION
@@ -39,6 +40,7 @@ class FormSubmissionDTO(UserOwnedDTO):
         # Store form_data as JSON string in Neo4j
         data["form_data"] = json.dumps(self.form_data) if self.form_data else None
         data["processed_content"] = self.processed_content
+        data["template_schema_hash"] = self.template_schema_hash
         return data
 
     # =========================================================================
@@ -96,6 +98,7 @@ class FormSubmissionDTO(UserOwnedDTO):
                 # FormSubmission-specific
                 "form_data",
                 "processed_content",
+                "template_schema_hash",
             },
             enum_mappings={
                 "status": EntityStatus,

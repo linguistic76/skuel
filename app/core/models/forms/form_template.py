@@ -72,6 +72,20 @@ class FormTemplate(Entity):
     # QUERIES
     # =========================================================================
 
+    def schema_fingerprint(self) -> str:
+        """SHA-256 hash of normalized form_schema + instructions."""
+        import hashlib
+
+        canonical = json.dumps(
+            {
+                "form_schema": list(self.form_schema) if self.form_schema else [],
+                "instructions": self.instructions or "",
+            },
+            sort_keys=True,
+            ensure_ascii=True,
+        )
+        return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
     def has_form_schema(self) -> bool:
         """Check if this template has a valid form schema."""
         return self.form_schema is not None and len(self.form_schema) > 0
@@ -136,22 +150,16 @@ class FormTemplate(Entity):
                 min_length = spec.get("min_length")
                 max_length = spec.get("max_length")
                 if min_length is not None and len(value) < min_length:
-                    errors.append(
-                        f"Field '{name}' must be at least {min_length} characters"
-                    )
+                    errors.append(f"Field '{name}' must be at least {min_length} characters")
                 if max_length is not None and len(value) > max_length:
-                    errors.append(
-                        f"Field '{name}' must be at most {max_length} characters"
-                    )
+                    errors.append(f"Field '{name}' must be at most {max_length} characters")
 
             if field_type == "text" and isinstance(value, str):
                 pattern = spec.get("pattern")
                 if pattern is not None:
                     try:
                         if not re.fullmatch(pattern, value):
-                            errors.append(
-                                f"Field '{name}' does not match required pattern"
-                            )
+                            errors.append(f"Field '{name}' does not match required pattern")
                     except re.error:
                         pass  # Invalid regex in schema — skip pattern check
 

@@ -18,14 +18,12 @@ from core.models.forms.form_submission_dto import FormSubmissionDTO
 from core.models.relationship_names import RelationshipName
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
+from core.services.forms.form_content import build_form_processed_content
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
 
 logger = get_logger(__name__)
-
-# Maximum size for processed_content (prevent oversized strings)
-MAX_PROCESSED_CONTENT_LENGTH = 10_000
 
 
 class FormSubmissionService(BaseService):
@@ -110,10 +108,13 @@ class FormSubmissionService(BaseService):
         display_title = title or f"Form Response ({datetime.now().strftime('%Y-%m-%d %H:%M')})"
         uid = UIDGenerator.generate_uid("fs", display_title)
 
-        # Build processed_content for search/embedding (with size limit)
-        processed_content = "\n".join(f"{k}: {v}" for k, v in form_data.items() if v)
-        if len(processed_content) > MAX_PROCESSED_CONTENT_LENGTH:
-            processed_content = processed_content[:MAX_PROCESSED_CONTENT_LENGTH]
+        schema_hash = template.schema_fingerprint()
+        processed_content = build_form_processed_content(
+            template_title=template.title,
+            template_uid=form_template_uid,
+            schema=template.form_schema,
+            form_data=form_data,
+        )
 
         submission = FormSubmission(
             uid=uid,
@@ -123,31 +124,17 @@ class FormSubmissionService(BaseService):
             form_template_uid=form_template_uid,
             form_data=form_data,
             processed_content=processed_content,
+            template_schema_hash=schema_hash,
             status=EntityStatus.COMPLETED,
         )
 
-        # Create entity via backend (proper DTO serialization for all fields)
-        result = await self.backend.create(submission)
+        # Atomically create node + OWNS + RESPONDS_TO_FORM in one query
+        result = await self.backend.create_with_relationships(
+            submission, user_uid, form_template_uid
+        )
         if result.is_error:
             self.logger.error(f"Failed to create form submission: {result.error}")
             return result
-
-        # Create OWNS + RESPONDS_TO_FORM relationships
-        rel_result = await self.backend.execute_query(
-            f"""
-            MATCH (fs:Entity {{uid: $fs_uid}})
-            MATCH (u:User {{uid: $user_uid}})
-            MERGE (u)-[:{RelationshipName.OWNS.value}]->(fs)
-            WITH fs
-            MATCH (ft:Entity {{uid: $ft_uid, entity_type: 'form_template'}})
-            MERGE (fs)-[r:{RelationshipName.RESPONDS_TO_FORM.value}]->(ft)
-            ON CREATE SET r.created_at = datetime()
-            RETURN true as success
-            """,
-            {"fs_uid": uid, "user_uid": user_uid, "ft_uid": form_template_uid},
-        )
-        if rel_result.is_error:
-            self.logger.error(f"Failed to create submission relationships: {rel_result.error}")
 
         # Handle sharing at submit time
         await self._share_on_submit(uid, user_uid, group_uid, recipient_uids, share_with_admin)

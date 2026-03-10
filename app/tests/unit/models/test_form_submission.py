@@ -125,6 +125,36 @@ class TestFormSubmissionDTOSerialization:
         assert dto.form_data["q1"] == "answer"
 
 
+class TestFormSubmissionSchemaHash:
+    def test_schema_hash_roundtrip(self):
+        """template_schema_hash survives to_dto() / _from_dto() round-trip."""
+        fs = FormSubmission(
+            uid="fs_hash",
+            title="Test",
+            user_uid="user_1",
+            form_template_uid="ft_1",
+            form_data={"q1": "answer"},
+            template_schema_hash="a" * 64,
+        )
+        dto = fs.to_dto()
+        assert dto.template_schema_hash == "a" * 64
+        restored = FormSubmission._from_dto(dto)
+        assert restored.template_schema_hash == "a" * 64
+
+    def test_schema_hash_default_none(self):
+        fs = FormSubmission(uid="fs_no_hash", title="Test")
+        assert fs.template_schema_hash is None
+
+    def test_schema_hash_in_dto_to_dict(self):
+        dto = FormSubmissionDTO(
+            uid="fs_dict",
+            title="Test",
+            template_schema_hash="b" * 64,
+        )
+        d = dto.to_dict()
+        assert d["template_schema_hash"] == "b" * 64
+
+
 class TestFormSubmissionEntityType:
     """Test EntityType traits for FORM_SUBMISSION."""
 

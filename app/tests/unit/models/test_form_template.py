@@ -162,6 +162,55 @@ class TestFormTemplateDTOSerialization:
         assert dto.form_schema[0]["name"] == "q1"
 
 
+class TestFormTemplateSchemaFingerprint:
+    def test_deterministic(self):
+        """Same schema + instructions always produces the same hash."""
+        ft = FormTemplate(
+            uid="ft_1",
+            title="Test",
+            form_schema=[{"name": "q1", "type": "text", "label": "Q1"}],
+            instructions="Fill this out",
+        )
+        assert ft.schema_fingerprint() == ft.schema_fingerprint()
+        assert len(ft.schema_fingerprint()) == 64
+
+    def test_changes_with_schema(self):
+        """Different schemas produce different hashes."""
+        ft1 = FormTemplate(
+            uid="ft_1",
+            title="Test",
+            form_schema=[{"name": "q1", "type": "text"}],
+        )
+        ft2 = FormTemplate(
+            uid="ft_1",
+            title="Test",
+            form_schema=[{"name": "q1", "type": "textarea"}],
+        )
+        assert ft1.schema_fingerprint() != ft2.schema_fingerprint()
+
+    def test_changes_with_instructions(self):
+        """Different instructions produce different hashes."""
+        ft1 = FormTemplate(
+            uid="ft_1",
+            title="Test",
+            form_schema=[{"name": "q1", "type": "text"}],
+            instructions="Version 1",
+        )
+        ft2 = FormTemplate(
+            uid="ft_1",
+            title="Test",
+            form_schema=[{"name": "q1", "type": "text"}],
+            instructions="Version 2",
+        )
+        assert ft1.schema_fingerprint() != ft2.schema_fingerprint()
+
+    def test_none_schema(self):
+        """Works with None schema."""
+        ft = FormTemplate(uid="ft_1", title="Test")
+        h = ft.schema_fingerprint()
+        assert len(h) == 64
+
+
 class TestFormTemplateEntityType:
     """Test EntityType traits for FORM_TEMPLATE."""
 

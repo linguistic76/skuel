@@ -40,6 +40,7 @@ class FormSubmission(UserOwnedEntity):
     form_template_uid: str | None = None
     form_data: dict[str, Any] | None = None
     processed_content: str | None = None  # Flattened text for search/embedding
+    template_schema_hash: str | None = None  # SHA-256 of template schema at submit time
 
     # =========================================================================
     # INITIALIZATION
@@ -87,6 +88,7 @@ class FormSubmission(UserOwnedEntity):
             form_template_uid=dto.form_template_uid,
             form_data=dict(dto.form_data) if dto.form_data else None,
             processed_content=dto.processed_content,
+            template_schema_hash=dto.template_schema_hash,
         )
 
     def to_dto(self) -> "FormSubmissionDTO":
@@ -115,6 +117,7 @@ class FormSubmission(UserOwnedEntity):
             form_template_uid=self.form_template_uid,
             form_data=dict(self.form_data) if self.form_data else None,
             processed_content=self.processed_content,
+            template_schema_hash=self.template_schema_hash,
         )
 
     # =========================================================================
