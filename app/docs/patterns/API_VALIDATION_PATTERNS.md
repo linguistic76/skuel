@@ -408,7 +408,10 @@ core/models/{domain}/
 core/models/task/task_request.py      # ContextualTaskCompletionRequest
 core/models/goal/goal_request.py      # ContextualGoalTaskGenerationRequest
 core/models/habit/habit_request.py    # ContextualHabitCompletionRequest
+core/models/auth/auth_request.py      # RegistrationRequest, LoginRequest, ResetPasswordRequest
 ```
+
+**Note:** Auth request models validate HTML form data (not JSON bodies), but follow the same Pydantic pattern. Form data is extracted with `safe_form_string()` then passed to the model constructor.
 
 ### Route Files
 

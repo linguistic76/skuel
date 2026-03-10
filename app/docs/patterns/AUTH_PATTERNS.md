@@ -321,9 +321,11 @@ return create_docs_page(
 | File | Purpose |
 |------|---------|
 | `/adapters/inbound/auth/session.py` | Session helpers, `UserUID` type, decorators |
+| `/adapters/inbound/auth_ui.py` | Auth UI routes (register, login, password reset) |
 | `/core/auth/roles.py` | Role-based decorators, permission checking |
 | `/core/auth/graph_auth.py` | `GraphAuthService` for sign_in/sign_up |
 | `/core/auth/__init__.py` | Public API exports |
+| `/core/models/auth/auth_request.py` | Pydantic request models for auth forms |
 
 ## Graph-Native Session Model
 
@@ -443,6 +445,37 @@ result = await graph_auth.reset_password_with_token(
 - `POST /reset-password/submit` - Process password reset
 - `GET /admin/users/{uid}/reset-password` - Admin token form
 - `POST /admin/users/{uid}/reset-password` - Admin generate token
+
+## Auth Form Validation
+
+Auth forms (registration, login, password reset) use Pydantic request models for validation, following the same boundary-validation pattern as API routes.
+
+**Models** (`core/models/auth/auth_request.py`):
+
+| Model | Fields | Validators |
+|-------|--------|------------|
+| `RegistrationRequest` | username, email, display_name, password, confirm_password, accept_terms | Password match, terms acceptance |
+| `LoginRequest` | username (email or username), password | Required fields |
+| `ResetPasswordRequest` | token, password, confirm_password | Password match |
+| `ForgotPasswordRequest` | email | Required field |
+
+**Usage in route handlers:**
+
+```python
+from core.models.auth import RegistrationRequest
+
+form_data = await request.form()
+try:
+    reg = RegistrationRequest(
+        username=safe_form_string(form_data.get("username")),
+        email=safe_form_string(form_data.get("email")),
+        ...
+    )
+except ValidationError as e:
+    return render_error(first_validation_error(e))
+```
+
+Cross-field validation (password matching, terms acceptance) uses `@model_validator(mode="after")` — business rules live in the model, not the route handler.
 
 ---
 
