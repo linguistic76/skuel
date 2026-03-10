@@ -17,7 +17,7 @@ from typing import Any
 
 from fasthtml.common import H1, H2, H3, A, Code, Div, Form, Li, Option, P, Pre, Span, Ul
 
-from adapters.inbound.auth import require_teacher
+from adapters.inbound.auth import make_service_getter, require_teacher
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonT
 from ui.cards import Card
@@ -432,13 +432,10 @@ def create_exercises_ui_routes(
     AI feedback instruction templates.
     """
 
-    # Named function for role decorator (SKUEL012: no lambdas)
-    def get_user_service_instance():
-        """Get user service for teacher role checks."""
-        return user_service
+    get_user_service = make_service_getter(user_service)
 
     @app.get("/ui/exercises")
-    @require_teacher(get_user_service_instance)
+    @require_teacher(get_user_service)
     async def exercises_dashboard(request, current_user=None) -> Any:
         """Exercises dashboard."""
         try:
@@ -456,7 +453,7 @@ def create_exercises_ui_routes(
             return Div(P(f"Error loading exercises: {e}", cls="text-red-600"))
 
     @app.get("/ui/exercises/new")
-    @require_teacher(get_user_service_instance)
+    @require_teacher(get_user_service)
     async def new_exercise_form(request, current_user=None) -> Any:
         """New exercise form."""
         user_uid = current_user.uid if current_user else None
@@ -464,7 +461,7 @@ def create_exercises_ui_routes(
         return ExerciseUIComponents.render_exercise_editor(user_uid=user_uid, mode="create")
 
     @app.get("/ui/exercises/{uid}/edit")
-    @require_teacher(get_user_service_instance)
+    @require_teacher(get_user_service)
     async def edit_exercise_form(_request, uid: str, current_user=None) -> Any:
         """Edit exercise form."""
         try:
@@ -482,7 +479,7 @@ def create_exercises_ui_routes(
             return Div(P(f"Error: {e}", cls="text-red-600"))
 
     @app.get("/ui/exercises/{uid}/view")
-    @require_teacher(get_user_service_instance)
+    @require_teacher(get_user_service)
     async def view_exercise(_request, uid: str, current_user=None) -> Any:
         """View exercise with transparency and required Ku foundation."""
         try:

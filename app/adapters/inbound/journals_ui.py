@@ -32,7 +32,7 @@ from starlette.datastructures import UploadFile
 from starlette.requests import Request
 from starlette.responses import FileResponse
 
-from adapters.inbound.auth import require_admin, require_authenticated_user
+from adapters.inbound.auth import make_service_getter, require_admin, require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from core.models.enums.entity_enums import EntityType, ProcessorType
 from core.utils.logging import get_logger
@@ -601,9 +601,7 @@ def create_journals_ui_routes(
 
     logger.info("Creating Journals UI routes")
 
-    def get_user_service():
-        """Get user service for role checks."""
-        return user_service
+    get_user_service = make_service_getter(user_service)
 
     # ========================================================================
     # SIDEBAR PAGES

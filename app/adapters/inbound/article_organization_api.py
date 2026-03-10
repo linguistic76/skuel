@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import Request
 
-from adapters.inbound.auth import require_admin
+from adapters.inbound.auth import make_service_getter, require_admin
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.route_factories import parse_int_query_param
 from core.utils.result_simplified import Errors, Result
@@ -41,8 +41,7 @@ def create_article_organization_api_routes(
         user_service: User service for admin role verification
     """
 
-    def get_user_service():
-        return user_service
+    get_user_service = make_service_getter(user_service)
 
     # ========================================================================
     # IDENTITY OPERATIONS

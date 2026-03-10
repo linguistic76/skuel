@@ -44,7 +44,7 @@ from fasthtml.common import (
 from starlette.requests import Request
 from starlette.responses import RedirectResponse
 
-from adapters.inbound.auth import require_admin
+from adapters.inbound.auth import make_service_getter, require_admin
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonT
 from ui.patterns.page_header import PageHeader
@@ -178,9 +178,7 @@ def create_activity_review_ui_routes(
     """
     logger.info("Creating Activity Review UI routes")
 
-    def get_user_service():
-        """Get user service for role checks (SKUEL012: named function, not lambda)."""
-        return user_service
+    get_user_service = make_service_getter(user_service)
 
     # ========================================================================
     # REDIRECT

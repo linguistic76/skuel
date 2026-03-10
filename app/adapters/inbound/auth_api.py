@@ -21,7 +21,12 @@ from typing import Any
 from fasthtml.common import H1, H2, A, Div, P, Pre
 from starlette.requests import Request
 
-from adapters.inbound.auth import get_current_user, is_authenticated, require_admin
+from adapters.inbound.auth import (
+    get_current_user,
+    is_authenticated,
+    make_service_getter,
+    require_admin,
+)
 from core.utils.logging import get_logger
 from ui.cards import Card, CardBody
 
@@ -48,17 +53,14 @@ def create_auth_api_routes(
     """
     routes: list[Any] = []
 
-    # Named function for require_admin decorator (SKUEL012 compliance)
-    def get_user_service_instance():
-        """Get user service instance (deferred access for decorator)."""
-        return user_service
+    get_user_service = make_service_getter(user_service)
 
     # ========================================================================
     # DEBUG ENDPOINTS (ADMIN-ONLY)
     # ========================================================================
 
     @rt("/debug-session")
-    @require_admin(get_user_service_instance)
+    @require_admin(get_user_service)
     async def debug_session(request: Request, current_user: Any) -> Any:
         """
         Debug session state.
@@ -79,7 +81,7 @@ def create_auth_api_routes(
         )
 
     @rt("/whoami")
-    @require_admin(get_user_service_instance)
+    @require_admin(get_user_service)
     async def whoami(request: Request, current_user: Any) -> Any:
         """
         Show current user info.

@@ -15,7 +15,7 @@ from typing import Any
 from fasthtml.common import JSONResponse
 from starlette.requests import Request
 
-from adapters.inbound.auth import require_admin
+from adapters.inbound.auth import make_service_getter, require_admin
 from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
 from core.utils.logging import get_logger
 
@@ -50,8 +50,7 @@ def create_monitoring_routes(app: FastHTMLApp, rt: RouteDecorator, services: Any
             }
         )
 
-    def get_user_service():
-        return services.user_service
+    get_user_service = make_service_getter(services.user_service)
 
     @rt("/api/monitoring/embedding-worker")
     @require_admin(get_user_service)

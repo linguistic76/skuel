@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from core.ports import FinancesOperations
 
 # Pydantic schemas for boundary
-from adapters.inbound.auth import require_admin
+from adapters.inbound.auth import make_service_getter, require_admin
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.route_factories import parse_int_query_param
 from adapters.inbound.route_factories.analytics_route_factory import AnalyticsRouteFactory
@@ -62,9 +62,7 @@ def create_finance_api_routes(
 
     """
 
-    # User service getter for role checks
-    def user_service_getter():
-        return user_service
+    get_user_service = make_service_getter(user_service)
 
     # ========================================================================
     # EXPENSE CRUD ROUTES (Factory-Generated, Admin-Only)
@@ -77,7 +75,7 @@ def create_finance_api_routes(
         update_schema=ExpenseUpdateSchema,
         uid_prefix="expense",
         require_role=UserRole.ADMIN,  # Role-based access (overrides scope)
-        user_service_getter=user_service_getter,
+        user_service_getter=get_user_service,
     )
     expense_factory.register_routes(app, rt)
 
@@ -86,7 +84,7 @@ def create_finance_api_routes(
     # ========================================================================
 
     @rt("/api/expenses/date-range")
-    @require_admin(user_service_getter)
+    @require_admin(get_user_service)
     @boundary_handler()
     async def get_expenses_by_date_range_route(request, current_user) -> Result[Any]:
         """Get expenses within a date range (admin only)"""
@@ -128,7 +126,7 @@ def create_finance_api_routes(
             )
 
     @rt("/api/expenses/search")
-    @require_admin(user_service_getter)
+    @require_admin(get_user_service)
     @boundary_handler()
     async def search_expenses_route(request, current_user) -> Result[Any]:
         """Search expenses with text query (admin only)"""
@@ -178,7 +176,7 @@ def create_finance_api_routes(
     # SECURITY: Admin role required - no ownership checks (admin sees all)
 
     @rt("/api/expenses/clear")
-    @require_admin(user_service_getter)
+    @require_admin(get_user_service)
     @boundary_handler()
     async def clear_expense_route(request, current_user, uid: str) -> Result[Any]:
         """Mark expense as cleared (admin only)."""
@@ -196,7 +194,7 @@ def create_finance_api_routes(
             )
 
     @rt("/api/expenses/reconcile")
-    @require_admin(user_service_getter)
+    @require_admin(get_user_service)
     @boundary_handler()
     async def reconcile_expense_route(request, current_user, uid: str) -> Result[Any]:
         """Mark expense as reconciled (admin only)."""
@@ -214,7 +212,7 @@ def create_finance_api_routes(
             )
 
     @rt("/api/expenses/receipt")
-    @require_admin(user_service_getter)
+    @require_admin(get_user_service)
     @boundary_handler()
     async def attach_receipt_route(request, current_user, uid: str) -> Result[Any]:
         """Attach receipt to expense (admin only)."""
@@ -247,7 +245,7 @@ def create_finance_api_routes(
         update_schema=BudgetUpdateSchema,
         uid_prefix="budget",
         require_role=UserRole.ADMIN,  # Role-based access (overrides scope)
-        user_service_getter=user_service_getter,
+        user_service_getter=get_user_service,
     )
     budget_factory.register_routes(app, rt)
 
@@ -256,7 +254,7 @@ def create_finance_api_routes(
     # ========================================================================
 
     @rt("/api/budgets/active")
-    @require_admin(user_service_getter)
+    @require_admin(get_user_service)
     @boundary_handler()
     async def get_active_budgets_route(request, current_user) -> Result[Any]:
         """Get active budgets (admin only)"""
@@ -274,7 +272,7 @@ def create_finance_api_routes(
             )
 
     @rt("/api/budgets/recalculate")
-    @require_admin(user_service_getter)
+    @require_admin(get_user_service)
     @boundary_handler()
     async def recalculate_budget_route(request, current_user, uid: str) -> Result[Any]:
         """Recalculate budget spending from expenses (admin only)."""
@@ -369,7 +367,7 @@ def create_finance_api_routes(
             },
         },
         require_role=UserRole.ADMIN,
-        user_service_getter=user_service_getter,
+        user_service_getter=get_user_service,
     )
     analytics_factory.register_routes(app, rt)
 
@@ -378,7 +376,7 @@ def create_finance_api_routes(
     # ========================================================================
 
     @rt("/api/invoices")
-    @require_admin(user_service_getter)
+    @require_admin(get_user_service)
     @boundary_handler()
     async def list_invoices_route(request, current_user) -> Result[Any]:
         """List all invoices with optional filters (admin only)"""
@@ -404,7 +402,7 @@ def create_finance_api_routes(
         return result
 
     @rt("/api/invoices", methods=["POST"])
-    @require_admin(user_service_getter)
+    @require_admin(get_user_service)
     @boundary_handler()
     async def create_invoice_route(request, current_user) -> Result[Any]:
         """Create a new invoice (admin only)"""
@@ -439,7 +437,7 @@ def create_finance_api_routes(
 
     # IMPORTANT: Static routes (/stats) must come BEFORE parameterized routes (/{uid})
     @rt("/api/invoices/stats")
-    @require_admin(user_service_getter)
+    @require_admin(get_user_service)
     @boundary_handler()
     async def get_invoice_stats_route(request, current_user) -> Result[Any]:
         """Get invoice statistics (admin only)"""
@@ -450,7 +448,7 @@ def create_finance_api_routes(
         return result
 
     @rt("/api/invoices/get")
-    @require_admin(user_service_getter)
+    @require_admin(get_user_service)
     @boundary_handler()
     async def get_invoice_route(request, current_user, uid: str) -> Result[Any]:
         """Get a specific invoice by UID (admin only)"""
@@ -467,7 +465,7 @@ def create_finance_api_routes(
         return result
 
     @rt("/api/invoices/pdf")
-    @require_admin(user_service_getter)
+    @require_admin(get_user_service)
     async def download_invoice_pdf_route(request, current_user, uid: str):
         """Download invoice as PDF (admin only)"""
         from starlette.responses import Response
@@ -495,7 +493,7 @@ def create_finance_api_routes(
     # ========================================================================
 
     @rt("/api/expenses/bulk/categorize")
-    @require_admin(user_service_getter)
+    @require_admin(get_user_service)
     @boundary_handler()
     async def bulk_categorize_expenses_route(request, current_user) -> Result[Any]:
         """Bulk categorize multiple expenses (admin only)"""

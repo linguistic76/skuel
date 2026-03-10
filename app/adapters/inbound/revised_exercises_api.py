@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import Request
 
-from adapters.inbound.auth import require_authenticated_user, require_teacher
+from adapters.inbound.auth import make_service_getter, require_authenticated_user, require_teacher
 from adapters.inbound.boundary import boundary_handler
 from core.models.exercises.revised_exercise_request import (
     RevisedExerciseCreateRequest,
@@ -33,16 +33,14 @@ def create_revised_exercises_api_routes(
 ) -> list[Any]:
     """Create revised exercises API routes."""
 
-    def get_user_service_instance():
-        """Get user service for teacher role checks."""
-        return user_service
+    get_user_service = make_service_getter(user_service)
 
     # ========================================================================
     # CREATE
     # ========================================================================
 
     @rt("/api/revised-exercises/create", methods=["POST"])
-    @require_teacher(get_user_service_instance)
+    @require_teacher(get_user_service)
     @boundary_handler(success_status=201)
     async def create_revised_exercise(request: Request, current_user: Any = None) -> Result[Any]:
         """Create a new RevisedExercise."""
@@ -72,7 +70,7 @@ def create_revised_exercises_api_routes(
     # ========================================================================
 
     @rt("/api/revised-exercises/get", methods=["GET"])
-    @require_teacher(get_user_service_instance)
+    @require_teacher(get_user_service)
     @boundary_handler()
     async def get_revised_exercise(request: Request, current_user: Any = None) -> Result[Any]:
         """Get a RevisedExercise by UID."""
@@ -82,7 +80,7 @@ def create_revised_exercises_api_routes(
         return await revised_exercise_service.get_revised_exercise(uid)
 
     @rt("/api/revised-exercises/list", methods=["GET"])
-    @require_teacher(get_user_service_instance)
+    @require_teacher(get_user_service)
     @boundary_handler()
     async def list_revised_exercises(request: Request, current_user: Any = None) -> Result[Any]:
         """List revised exercises for the current teacher."""
@@ -90,7 +88,7 @@ def create_revised_exercises_api_routes(
         return await revised_exercise_service.list_for_teacher(teacher_uid)
 
     @rt("/api/revised-exercises/for-student", methods=["GET"])
-    @require_teacher(get_user_service_instance)
+    @require_teacher(get_user_service)
     @boundary_handler()
     async def list_for_student(request: Request, current_user: Any = None) -> Result[Any]:
         """List revised exercises targeting a specific student (scoped to requesting teacher)."""
@@ -101,7 +99,7 @@ def create_revised_exercises_api_routes(
         return await revised_exercise_service.list_for_student(student_uid, teacher_uid=teacher_uid)
 
     @rt("/api/revised-exercises/chain", methods=["GET"])
-    @require_teacher(get_user_service_instance)
+    @require_teacher(get_user_service)
     @boundary_handler()
     async def get_revision_chain(request: Request, current_user: Any = None) -> Result[Any]:
         """Get the revision chain for an original exercise."""
@@ -115,7 +113,7 @@ def create_revised_exercises_api_routes(
     # ========================================================================
 
     @rt("/api/revised-exercises/update", methods=["POST"])
-    @require_teacher(get_user_service_instance)
+    @require_teacher(get_user_service)
     @boundary_handler()
     async def update_revised_exercise(request: Request, current_user: Any = None) -> Result[Any]:
         """Update a RevisedExercise."""
@@ -172,7 +170,7 @@ def create_revised_exercises_api_routes(
     # ========================================================================
 
     @rt("/api/revised-exercises/delete", methods=["POST"])
-    @require_teacher(get_user_service_instance)
+    @require_teacher(get_user_service)
     @boundary_handler()
     async def delete_revised_exercise(request: Request, current_user: Any = None) -> Result[Any]:
         """Delete a RevisedExercise."""

@@ -60,13 +60,15 @@ See also: /docs/patterns/AUTH_PATTERNS.md for complete documentation.
 
 Usage:
     ```python
-    from adapters.inbound.auth import require_role, require_admin, require_teacher
+    from adapters.inbound.auth import (
+        make_service_getter,
+        require_role,
+        require_admin,
+        require_teacher,
+    )
     from core.models.enums import UserRole
 
-
-    # Define service getter (SKUEL012: no lambdas)
-    def get_user_service():
-        return services.user_service
+    get_user_service = make_service_getter(user_service)
 
 
     # Require specific role
@@ -102,6 +104,41 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 logger = get_logger("skuel.auth.roles")
+
+
+# ============================================================================
+# SERVICE GETTER FACTORY
+# ============================================================================
+
+
+def make_service_getter(service: Any) -> Callable[[], Any]:
+    """Create a named getter function for deferred service access (SKUEL012 compliance).
+
+    Eliminates the need for inline closure boilerplate in every route file.
+
+    Args:
+        service: The service instance to wrap
+
+    Returns:
+        A zero-argument callable that returns the service
+
+    Usage:
+        ```python
+        from adapters.inbound.auth import make_service_getter
+
+        get_user_service = make_service_getter(user_service)
+
+
+        @rt("/api/admin/users")
+        @require_admin(get_user_service)
+        async def list_users(request, current_user): ...
+        ```
+    """
+
+    def get_service() -> Any:
+        return service
+
+    return get_service
 
 
 # ============================================================================
@@ -203,8 +240,7 @@ def require_role(required_role: UserRole, user_service_getter: Callable[[], Any]
 
     Usage:
         ```python
-        def get_user_service():
-            return services.user_service
+        get_user_service = make_service_getter(user_service)
 
 
         @rt("/api/admin/users")
@@ -266,8 +302,7 @@ def require_member(user_service_getter: Callable[[], Any]):
 
     Usage:
         ```python
-        def get_user_service():
-            return services.user_service
+        get_user_service = make_service_getter(user_service)
 
 
         @rt("/api/premium/feature")
@@ -286,8 +321,7 @@ def require_teacher(user_service_getter: Callable[[], Any]):
 
     Usage:
         ```python
-        def get_user_service():
-            return services.user_service
+        get_user_service = make_service_getter(user_service)
 
 
         @rt("/api/ku")
@@ -306,8 +340,7 @@ def require_admin(user_service_getter: Callable[[], Any]):
 
     Usage:
         ```python
-        def get_user_service():
-            return services.user_service
+        get_user_service = make_service_getter(user_service)
 
 
         @rt("/api/admin/users")
@@ -323,6 +356,8 @@ def require_admin(user_service_getter: Callable[[], Any]):
 # ============================================================================
 
 __all__ = [
+    # Service getter factory
+    "make_service_getter",
     # Helpers
     "check_role_permission",
     "get_user_role",

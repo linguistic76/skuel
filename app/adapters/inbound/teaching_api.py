@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import Request
 
-from adapters.inbound.auth.roles import UserRole, require_role
+from adapters.inbound.auth.roles import UserRole, make_service_getter, require_role
 from adapters.inbound.boundary import boundary_handler
 from core.models.enums.entity_enums import ProcessorType
 from core.models.enums.submissions_enums import ExerciseScope
@@ -50,8 +50,7 @@ def create_teaching_api_routes(
         user_service: UserService for role checks
     """
 
-    def get_user_service() -> Any:
-        return user_service
+    get_user_service = make_service_getter(user_service)
 
     @rt("/api/teaching/review-queue", methods=["GET"])
     @require_role(UserRole.TEACHER, get_user_service)

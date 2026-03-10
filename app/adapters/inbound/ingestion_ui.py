@@ -11,7 +11,7 @@ Security:
 from fasthtml.common import Div, Form, NotStr, P, Pre
 from starlette.requests import Request
 
-from adapters.inbound.auth import require_admin
+from adapters.inbound.auth import make_service_getter, require_admin
 from core.utils.logging import get_logger
 from ui.buttons import Button
 from ui.cards import Card, CardBody
@@ -45,10 +45,7 @@ def create_ingestion_ui_routes(
     """
     routes = []
 
-    # Named function for require_admin decorator (SKUEL012 compliance)
-    def get_user_service():
-        """Get user service for admin role checks."""
-        return user_service
+    get_user_service = make_service_getter(user_service)
 
     def _form_group(
         label_text: str, input_id: str, placeholder: str, input_type: str = "text", value: str = ""

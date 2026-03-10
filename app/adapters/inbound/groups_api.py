@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Any
 from fasthtml.common import Request
 
 from adapters.inbound.auth import require_authenticated_user
-from adapters.inbound.auth.roles import UserRole, require_role
+from adapters.inbound.auth.roles import UserRole, make_service_getter, require_role
 from adapters.inbound.boundary import boundary_handler
 from core.models.group.group_request import (
     GroupCreateRequest,
@@ -47,8 +47,7 @@ def create_groups_api_routes(
         user_service: UserService for role checks
     """
 
-    def get_user_service() -> Any:
-        return user_service
+    get_user_service = make_service_getter(user_service)
 
     async def _require_group_owner(group_uid: str, owner_uid: str) -> Result[Any]:
         """Return group only when it exists and belongs to the requesting owner."""

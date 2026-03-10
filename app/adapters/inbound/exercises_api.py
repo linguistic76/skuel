@@ -11,7 +11,7 @@ from typing import Any, cast
 
 from fasthtml.common import Request
 
-from adapters.inbound.auth import require_authenticated_user, require_teacher
+from adapters.inbound.auth import make_service_getter, require_authenticated_user, require_teacher
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.route_factories import CRUDRouteFactory
 from core.models.enums import ContentScope
@@ -47,10 +47,7 @@ def create_exercises_api_routes(
         user_service: UserService for role checks
     """
 
-    # Named function for role decorator (SKUEL012: no lambdas)
-    def get_user_service_instance():
-        """Get user service for teacher role checks."""
-        return user_service
+    get_user_service = make_service_getter(user_service)
 
     # ========================================================================
     # STANDARD CRUD ROUTES (Factory-Generated)
@@ -64,7 +61,7 @@ def create_exercises_api_routes(
         uid_prefix="exercise",
         scope=ContentScope.USER_OWNED,
         require_role=UserRole.TEACHER,
-        user_service_getter=get_user_service_instance,
+        user_service_getter=get_user_service,
     )
 
     # Register all standard CRUD routes:
@@ -80,7 +77,7 @@ def create_exercises_api_routes(
     # ========================================================================
 
     @rt("/api/exercises/report", methods=["POST"])
-    @require_teacher(get_user_service_instance)
+    @require_teacher(get_user_service)
     @boundary_handler()
     async def feedback(request: Request, current_user: Any = None) -> Result[Any]:
         """
@@ -164,7 +161,7 @@ def create_exercises_api_routes(
     # ========================================================================
 
     @rt("/api/exercises/require-knowledge", methods=["POST"])
-    @require_teacher(get_user_service_instance)
+    @require_teacher(get_user_service)
     @boundary_handler()
     async def require_knowledge(request: Request, current_user: Any = None) -> Result[Any]:
         """
@@ -195,7 +192,7 @@ def create_exercises_api_routes(
         )
 
     @rt("/api/exercises/unrequire-knowledge", methods=["POST"])
-    @require_teacher(get_user_service_instance)
+    @require_teacher(get_user_service)
     @boundary_handler()
     async def unrequire_knowledge(request: Request, current_user: Any = None) -> Result[Any]:
         """
@@ -227,7 +224,7 @@ def create_exercises_api_routes(
         )
 
     @rt("/api/exercises/required-knowledge", methods=["GET"])
-    @require_teacher(get_user_service_instance)
+    @require_teacher(get_user_service)
     @boundary_handler()
     async def get_required_knowledge(request: Request, current_user: Any = None) -> Result[Any]:
         """
@@ -246,7 +243,7 @@ def create_exercises_api_routes(
         return cast("Result[Any]", await exercises_service.get_required_knowledge(uid))
 
     @rt("/api/exercises/for-curriculum", methods=["GET"])
-    @require_teacher(get_user_service_instance)
+    @require_teacher(get_user_service)
     @boundary_handler()
     async def get_exercises_for_curriculum(
         request: Request, current_user: Any = None

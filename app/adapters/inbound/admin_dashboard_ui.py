@@ -27,7 +27,7 @@ from typing import Any
 
 from fasthtml.common import H1, H2, H3, A, Div, P, Span
 
-from adapters.inbound.auth import require_admin
+from adapters.inbound.auth import make_service_getter, require_admin
 from core.utils.logging import get_logger
 from ui.admin.layout import create_admin_page
 from ui.admin.views import (
@@ -53,10 +53,7 @@ def create_admin_dashboard_routes(_app, rt, services):
         services: Service container with user_service, system_service
     """
 
-    # Named function to replace lambda (SKUEL012 compliance)
-    def get_user_service():
-        """Get user service from services container (deferred access)."""
-        return services.user_service
+    get_user_service = make_service_getter(services.user_service)
 
     # ========================================================================
     # OVERVIEW DASHBOARD

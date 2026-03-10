@@ -21,6 +21,7 @@ from adapters.inbound.exercise_report_api import create_exercise_report_api_rout
 from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
 from adapters.inbound.journals_ui import create_journals_ui_routes
 from adapters.inbound.progress_report_api import create_progress_report_api_routes
+from adapters.inbound.auth import make_service_getter
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 from adapters.inbound.submissions_api import create_submissions_api_routes
 from adapters.inbound.submissions_sharing_api import create_submissions_sharing_api_routes
@@ -141,9 +142,7 @@ def create_submissions_routes(
 
     # Extension: assessment routes (require TEACHER role)
     if services and services.submissions_core:
-
-        def get_user_service():
-            return services.user_service
+        get_user_service = make_service_getter(services.user_service)
 
         assessment_routes = create_exercise_report_api_routes(
             app,

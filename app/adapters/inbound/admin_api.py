@@ -26,7 +26,7 @@ from typing import TYPE_CHECKING, Any
 
 from starlette.requests import Request
 
-from adapters.inbound.auth import require_admin
+from adapters.inbound.auth import make_service_getter, require_admin
 from adapters.inbound.boundary import boundary_handler
 from core.models.enums import UserRole
 from core.utils.logging import get_logger
@@ -60,17 +60,14 @@ def create_admin_api_routes(
     """
     routes: list[Any] = []
 
-    # Named function to replace lambda (SKUEL012 compliance)
-    def get_user_service_instance():
-        """Get user service instance (deferred access for decorator)."""
-        return user_service
+    get_user_service = make_service_getter(user_service)
 
     # ========================================================================
     # LIST USERS
     # ========================================================================
 
     @rt("/api/admin/users")
-    @require_admin(get_user_service_instance)
+    @require_admin(get_user_service)
     @boundary_handler()
     async def list_users(
         request: Request,
@@ -130,7 +127,7 @@ def create_admin_api_routes(
     # ========================================================================
 
     @rt("/api/admin/users/get")
-    @require_admin(get_user_service_instance)
+    @require_admin(get_user_service)
     @boundary_handler()
     async def get_user_details(
         request: Request,
@@ -181,7 +178,7 @@ def create_admin_api_routes(
     # ========================================================================
 
     @rt("/api/admin/users/role")
-    @require_admin(get_user_service_instance)
+    @require_admin(get_user_service)
     @boundary_handler()
     async def change_user_role(
         request: Request,
@@ -244,7 +241,7 @@ def create_admin_api_routes(
     # ========================================================================
 
     @rt("/api/admin/users/deactivate")
-    @require_admin(get_user_service_instance)
+    @require_admin(get_user_service)
     @boundary_handler()
     async def deactivate_user(
         request: Request,
@@ -295,7 +292,7 @@ def create_admin_api_routes(
     # ========================================================================
 
     @rt("/api/admin/users/activate")
-    @require_admin(get_user_service_instance)
+    @require_admin(get_user_service)
     @boundary_handler()
     async def activate_user(
         request: Request,
@@ -334,7 +331,7 @@ def create_admin_api_routes(
     # ========================================================================
 
     @rt("/api/admin/users/reset-password")
-    @require_admin(get_user_service_instance)
+    @require_admin(get_user_service)
     @boundary_handler()
     async def generate_reset_token(
         request: Request,

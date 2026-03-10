@@ -22,7 +22,7 @@ from typing import Any
 from fasthtml.common import A, Div, Span
 from starlette.requests import Request
 
-from adapters.inbound.auth import require_admin
+from adapters.inbound.auth import make_service_getter, require_admin
 from core.constants import QueryLimit
 from core.models.finance.finance_request import BudgetCreateRequest, ExpenseCreateRequest
 from core.utils.logging import get_logger
@@ -205,9 +205,7 @@ def create_finance_ui_routes(_app, rt, finance_service, user_service: Any = None
 
     """
 
-    # Named function for user service getter (SKUEL012 compliance)
-    def get_user_service():
-        return user_service
+    get_user_service = make_service_getter(user_service)
 
     # =========================================================================
     # DASHBOARD ROUTE

@@ -28,7 +28,7 @@ from fasthtml.common import (
 )
 from starlette.requests import Request
 
-from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.auth import make_service_getter, require_authenticated_user
 from adapters.inbound.auth.roles import UserRole, require_role
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonT
@@ -102,8 +102,7 @@ def create_teaching_ui_routes(
         exercises_service: ExerciseService for create/edit forms
     """
 
-    def get_user_service() -> Any:
-        return user_service
+    get_user_service = make_service_getter(user_service)
 
     # ------------------------------------------------------------------
     # OVERVIEW / DASHBOARD
