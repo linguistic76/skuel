@@ -266,8 +266,7 @@ All methods use pure Cypher via `QueryExecutor` (no APOC — SKUEL001 compliant)
 All admin routes use `@require_admin` decorator:
 
 ```python
-def get_user_service():
-    return services.user_service
+get_user_service = make_service_getter(services.user_service)
 
 @rt("/admin/users")
 @require_admin(get_user_service)
@@ -437,14 +436,13 @@ AdminUIComponents.render_user_stats(stats)
 # Uses SharedUIComponents.render_stats_cards internally
 ```
 
-### 3. Named Function Pattern (SKUEL012)
+### 3. Service Getter Pattern (SKUEL012)
 
-No lambdas in route decorators:
+No lambdas in route decorators — use `make_service_getter`:
 
 ```python
 # ✅ Correct
-def get_user_service():
-    return services.user_service
+get_user_service = make_service_getter(services.user_service)
 
 @require_admin(get_user_service)
 

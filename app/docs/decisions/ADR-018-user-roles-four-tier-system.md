@@ -183,9 +183,8 @@ class UserRole(str, Enum):
 ```
 
 ```python
-# Decorator usage (SKUEL012: use named function, not lambda)
-def get_user_service():
-    return services.user_service
+# Decorator usage (SKUEL012: use make_service_getter, not lambda)
+get_user_service = make_service_getter(services.user_service)
 
 @rt("/api/admin/users")
 @require_admin(get_user_service)

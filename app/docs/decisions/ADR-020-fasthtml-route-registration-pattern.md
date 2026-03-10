@@ -72,8 +72,7 @@ The `@rt()` decorator registers routes immediately when applied. The additional 
 def create_domain_routes(_app, rt, service, user_service):
     """Create domain routes."""
 
-    def get_user_service():
-        return user_service
+    get_user_service = make_service_getter(user_service)
 
     @rt("/domain")
     @require_admin(get_user_service)

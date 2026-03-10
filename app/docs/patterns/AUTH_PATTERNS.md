@@ -98,11 +98,9 @@ async def tasks_page(request):
 **Use for:** Routes that require specific role permissions.
 
 ```python
-from adapters.inbound.auth import require_admin, require_teacher
+from adapters.inbound.auth import make_service_getter, require_admin, require_teacher
 
-# SKUEL012: Use named functions, not lambdas
-def get_user_service():
-    return services.user_service
+get_user_service = make_service_getter(services.user_service)
 
 
 @rt("/api/admin/users")

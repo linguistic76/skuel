@@ -42,7 +42,7 @@ FinanceService (Standalone Facade)
 ```python
 # API routes use @require_admin decorator
 @rt("/api/expenses")
-@require_admin(user_service_getter)
+@require_admin(get_user_service)
 async def list_expenses(request, current_user):
     # Admin sees ALL finance data (no ownership checks)
     ...

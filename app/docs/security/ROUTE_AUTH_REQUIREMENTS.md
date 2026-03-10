@@ -75,9 +75,7 @@ async def route(request, user_uid, entity):
 ### Admin Role Verification
 
 ```python
-def get_user_service():
-    """Named function per SKUEL012."""
-    return services.user_service
+get_user_service = make_service_getter(services.user_service)
 
 @rt("/api/admin/endpoint")
 @require_admin(get_user_service)
