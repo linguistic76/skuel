@@ -21,12 +21,22 @@ See Also:
 """
 
 from core.models.auth.auth_event import AuthEvent, AuthEventType
+from core.models.auth.auth_request import (
+    ForgotPasswordRequest,
+    LoginRequest,
+    RegistrationRequest,
+    ResetPasswordRequest,
+)
 from core.models.auth.password_reset_token import PasswordResetToken
 from core.models.auth.session import Session
 
 __all__ = [
     "AuthEvent",
     "AuthEventType",
+    "ForgotPasswordRequest",
+    "LoginRequest",
     "PasswordResetToken",
+    "RegistrationRequest",
+    "ResetPasswordRequest",
     "Session",
 ]
