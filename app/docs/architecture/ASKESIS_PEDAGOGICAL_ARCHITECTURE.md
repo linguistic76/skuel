@@ -68,7 +68,7 @@ A KU is in the **proximal zone** when:
 2. The user has not yet meaningfully engaged it, AND
 3. The user has engaged the prerequisite(s) for it (if any)
 
-This is the computation `ZPDService.assess_zone()` will perform (deferred — see
+This is the computation `ZPDService.assess_zone()` performs (see
 `docs/roadmap/zpd-service-deferred.md`).
 
 ### ZPD and Context Awareness Protocols
@@ -246,8 +246,8 @@ See `docs/roadmap/teacher-askesis-interface-deferred.md`.
 
 ### Implementation Location
 
-Detection logic belongs in `UserStateAnalyzer` (exists) or the future `ZPDService`.
-`GuidanceMode` enum: `core/models/enums/askesis_enums.py` (to be created in Phase 2).
+Detection logic belongs in `UserStateAnalyzer` (exists) or `ZPDService` (implemented).
+`GuidanceMode` enum: `core/models/enums/askesis_enums.py`.
 
 ---
 

@@ -55,7 +55,8 @@ class LearningIntelligenceMixin:
 ```
 
 **Key Logic:**
-- ZPD path (when `zpd_service` set): ranks by proximal zone readiness scores
+- ZPD path (when `zpd_service` set): uses `recommended_actions` when pre-computed on `UserContext.zpd_assessment`, otherwise ranks by proximal zone readiness. Uses `confirmed_zone_uids()` to boost KUs with compound evidence.
+- Priority formula: `readiness × 0.5 + life_path_alignment × 0.3 + behavioral_readiness × 0.2`
 - Fallback path: ranks by goal alignment, unblocking potential, life path alignment, capacity
 - Filters by user capacity (available time)
 - Finds application opportunities across tasks, habits, goals, events
@@ -69,7 +70,9 @@ async def get_optimal_next_learning_steps(
 ) -> Result[list[LearningStep]]:
     """
     Priority Path (when zpd_service is set — FULL tier):
-    - ZPD proximal zone ranking: priority_score = readiness_score × (0.7 + 0.3 × behavioral_readiness)
+    - Uses ZPDAssessment.recommended_actions when available on UserContext
+    - ZPD priority: readiness × 0.5 + life_path_alignment × 0.3 + behavioral_readiness × 0.2
+    - Compound evidence: confirmed_zone_uids() boost KUs whose prereqs have 2+ signal types
     - Graceful degradation: falls through to activity-based if ZPD assessment is empty
 
     Fallback Ranking Factors (activity-based — always available):
@@ -267,6 +270,8 @@ Each of these 6 methods:
 **Key Logic:**
 - Synthesizes 10 entity domains into one daily plan
 - Respects user capacity and energy
+- P5 (Learning) delegates to ZPD recommended actions when `context.zpd_assessment` is available
+- Falls back to vector search → KU service chain when ZPD unavailable (CORE tier or empty curriculum)
 - Generates warnings for overload or missed learning
 
 ```python
@@ -283,7 +288,7 @@ async def get_ready_to_work_on_today(
     2.5. Unsubmitted exercises (from context.unsubmitted_exercises — no extra query)
     3. Overdue and actionable tasks
     4. Daily habits (consistency)
-    5. Learning (if capacity allows)
+    5. Learning — ZPD-driven (context.zpd_assessment.top_recommended_actions) or fallback
     6. Advancing goals
     7. Pending decisions (high priority)
     8. Aligned principles (for focus)

@@ -381,6 +381,7 @@ plan = await intelligence.get_ready_to_work_on_today()
 | `completed_exercise_count` | `int` | Assigned exercises completed |
 | `unsubmitted_exercises` | `list[dict]` | Up to 5 pending exercises ({uid, title, due_date}) |
 | `pending_revised_exercises` | `list[dict]` | Up to 5 pending revisions ({uid, title, instructions, revision_number, ...}) |
+| `zpd_assessment` | `ZPDAssessment \| None` | ZPD capstone — zone evidence, recommended actions, life path alignment (FULL tier, rich context only) |
 
 ---
 

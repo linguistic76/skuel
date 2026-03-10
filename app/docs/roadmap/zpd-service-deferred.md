@@ -43,6 +43,31 @@ UserContextIntelligence / AskesisService
 
 ```python
 @dataclass(frozen=True)
+class ZoneEvidence:
+    """Compound evidence for why a KU is in current_zone."""
+    ku_uid: str
+    submission_count: int = 0
+    best_submission_score: float = 0.0
+    habit_reinforcement: bool = False
+    task_application: bool = False
+    journal_application: bool = False
+
+    @property
+    def signal_count(self) -> int: ...  # count of active signal types
+    @property
+    def is_confirmed(self) -> bool: ... # True when 2+ signal types (compound mastery)
+
+@dataclass(frozen=True)
+class ZPDAction:
+    """A concrete recommended action from ZPD assessment."""
+    entity_uid: str
+    entity_type: str       # "exercise", "article", "task", "habit"
+    action_type: str       # "learn", "submit", "reinforce", "practice"
+    priority: float        # 0.0-1.0
+    rationale: str
+    ku_uid: str | None = None
+
+@dataclass(frozen=True)
 class ZPDAssessment:
     current_zone: list[str]           # ku_uids user has meaningfully engaged
     proximal_zone: list[str]          # ku_uids structurally adjacent, not yet engaged
@@ -51,12 +76,32 @@ class ZPDAssessment:
     blocking_gaps: list[str]          # ku_uids that block further progress (unmet prerequisites)
     behavioral_readiness: float       # 0.0-1.0 aggregate from choices + habits signals
 
-async def assess_zone(self, user_uid: str) -> Result[ZPDAssessment]:
+    # Life path integration
+    life_path_alignment: float = 0.0
+    life_path_uid: str | None = None
+
+    # Recommended actions (ZPD-driven learning priorities)
+    recommended_actions: tuple[ZPDAction, ...] = ()
+
+    # Zone evidence tracking (compound mastery)
+    zone_evidence: dict[str, ZoneEvidence] = field(default_factory=dict)
+
+    # Submission-derived scores
+    submission_scores: dict[str, float] = field(default_factory=dict)
+
+    def top_recommended_actions(self, n: int = 5) -> list[ZPDAction]: ...
+    def confirmed_zone_uids(self) -> list[str]: ...
+    def top_proximal_ku_uids(self, n: int = 5) -> list[str]: ...
+
+async def assess_zone(self, user_uid: str, context: UserContext | None = None) -> Result[ZPDAssessment]:
     """
     Compute ZPD from the user's curriculum graph relationships.
 
     Current zone: KUs the user has applied, reflected on, or embodied.
     Proximal zone: KUs structurally adjacent to current zone, not yet engaged.
+
+    When context is provided (FULL tier build_rich), enriches with life_path_alignment,
+    zone_evidence (compound mastery), and recommended_actions.
     """
 ```
 
@@ -66,11 +111,12 @@ async def assess_zone(self, user_uid: str) -> Result[ZPDAssessment]:
 
 ZPDBackend uses a single 2-hop Cypher traversal per `get_zone_data()` call:
 
-- **Step 1:** Find current zone — KUs via APPLIES_KNOWLEDGE (Tasks, Journals) + REINFORCES_KNOWLEDGE (Habits)
+- **Step 1:** Find current zone — KUs via APPLIES_KNOWLEDGE (Tasks, Journals) + REINFORCES_KNOWLEDGE (Habits). Returns per-source lists: `task_engaged`, `journal_engaged`, `habit_engaged`
 - **Step 2:** Find proximal zone — adjacent via PREREQUISITE_FOR, COMPLEMENTARY_TO, LP ORGANIZES (same path, next step)
 - **Step 3:** Prerequisite graph for readiness scoring — count total vs met prerequisites per proximal KU
 - **Step 4:** Engaged Learning Paths — which LPs the user is actively on
 - **Step 5:** Blocking gaps — prerequisite KUs not yet met that block proximal KUs
+- **Step 6:** Submission scores per KU — via `FULFILLS_EXERCISE -> APPLIES_KNOWLEDGE` join, returns `{ku_uid, best_score, count}`
 
 ### Readiness Score Computation (ZPDService)
 
@@ -155,10 +201,15 @@ core/services/
 ├── askesis/                   # Conversation + recommendation
 ├── zpd/                       # Zone of Proximal Development
 │   ├── __init__.py
-│   └── zpd_service.py        # Business logic (readiness scoring, behavioral enrichment)
+│   ├── zpd_service.py        # Business logic (readiness scoring, behavioral enrichment)
+│   └── zpd_event_handler.py  # ZPDSnapshotHandler — event-driven snapshot persistence
 
 core/ports/
 ├── zpd_protocols.py           # ZPDBackendOperations + ZPDOperations
+
+adapters/persistence/neo4j/
+├── zpd_backend.py             # Cypher queries + result parsing (9-tuple return)
+├── zpd_snapshot_backend.py    # ZPDHistory node persistence (save_snapshot, get_latest)
 ```
 
 ZPDService is a peer of `askesis/`, not a sub-service. It serves Askesis but is
@@ -168,8 +219,28 @@ independently testable and could serve other intelligence services.
 
 ## What ZPDService Does NOT Do
 
-- It does not store ZPD state in Neo4j (stateless computation over the graph)
-- It does not recommend content (Askesis does that, using ZPDAssessment as input)
-- It does not track progress (that is `UserContextIntelligence`)
+- It does not recommend content directly (Askesis does that, using ZPDAssessment as input)
 - It does not replace `get_optimal_next_learning_steps()` — it enriches it
 - It does not contain Cypher queries (those live in ZPDBackend)
+
+## ZPD Snapshot Persistence
+
+ZPD snapshots are persisted via `ZPDSnapshotBackend` on pedagogically significant events.
+A single `:ZPDHistory` node per user stores the latest snapshot state (MVP — no history array yet).
+
+**Triggers** (wired via `ZPDSnapshotHandler` in `services_bootstrap.py`):
+- `SubmissionApproved` — student work validated
+- `ReportSubmitted` — teacher feedback delivered
+- `KnowledgeMastered` — KU mastery confirmed
+- `LearningStepCompleted` — curriculum progress
+- `LearningPathProgressUpdated` — LP advancement
+
+**Fields on `:ZPDHistory`:** `latest_assessed_at`, `latest_current_zone_count`, `latest_proximal_zone_count`, `latest_confirmed_count`, `latest_behavioral_readiness`, `latest_life_path_alignment`, `latest_trigger_event`, `snapshot_count`.
+
+## UserContext Integration
+
+`ZPDAssessment` is computed as the capstone step of `build_rich()` in `UserContextBuilder`.
+When `zpd_service` is wired (FULL tier), `assess_zone(user_uid, context=context)` is called
+after all other context fields are populated, making ZPD the synthesis of all prior signals.
+
+Field: `UserContext.zpd_assessment: ZPDAssessment | None` (None in standard `build()` or CORE tier).
