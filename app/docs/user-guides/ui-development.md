@@ -54,7 +54,7 @@ Components → Button, Card, Badge, Input, Select, Alert, Modal, Row, Stack
 
 ```
 Is it domain-agnostic styling (button, card, input)?
-├─ YES → ui/buttons.py, ui/cards.py, ui/forms.py, etc.
+├─ YES → ui/buttons.py, ui/cards.py, ui/forms/, etc.
 Is it reusable across multiple domains?
 ├─ YES → ui/patterns/
 Is it domain-specific but reusable within that domain?
@@ -132,7 +132,7 @@ CardLink(
 )
 ```
 
-### Forms (`ui/forms.py`)
+### Forms (`ui/forms/`)
 
 ```python
 from ui.forms import Input, Select, Textarea, FormControl, Label, Checkbox, InputT
@@ -860,7 +860,7 @@ def create_example_routes(app, rt, services):
 
 **4. HTMX screen reader announcements use path-based detection.** The live region in BasePage announces CRUD operations to screen readers by detecting `/create`, `/update`, `/delete` in the request path. If your route doesn't include these substrings, the announcement won't fire.
 
-**5. FormGenerator always wraps fields in `FormControl`.** For custom form layouts where you need direct control over field placement, use the primitives from `ui/forms.py` (`Input`, `Select`, `Label`, `FormControl`) directly instead of `FormGenerator.render()`.
+**5. FormGenerator always wraps fields in `FormControl`.** For custom form layouts where you need direct control over field placement, use the primitives from `ui/forms/` (`Input`, `Select`, `Label`, `FormControl`) directly instead of `FormGenerator.render()`.
 
 ---
 
@@ -970,7 +970,7 @@ When building new components:
 |---------|------|
 | Buttons | `ui/buttons.py` |
 | Cards | `ui/cards.py` |
-| Forms | `ui/forms.py` |
+| Forms | `ui/forms/` |
 | Badges, alerts, progress | `ui/feedback.py` |
 | Layout (flex, grid) | `ui/layout.py` |
 | Typography | `ui/text.py` |

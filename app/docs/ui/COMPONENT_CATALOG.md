@@ -25,7 +25,7 @@ All components follow DaisyUI conventions and WCAG 2.1 Level AA accessibility st
 |----------|------------|----------|
 | **Buttons** | Button, ButtonLink, IconButton, ButtonT | `ui/buttons.py` |
 | **Cards** | Card, CardBody, CardTitle, CardActions, CardFigure, CardLink, CardT | `ui/cards.py` |
-| **Forms** | Input, Select, Textarea, Checkbox, Radio, Toggle, Range, FormControl, Label | `ui/forms.py` |
+| **Forms** | Input, Select, Textarea, Checkbox, Radio, Toggle, Range, FormControl, Label | `ui/forms/` |
 | **Feedback** | Alert, Badge, StatusBadge, PriorityBadge, Loading, Progress, RadialProgress | `ui/feedback.py` |
 | **Layout** | DivHStacked, DivVStacked, DivFullySpaced, DivCentered, Grid, Container, Row, Stack, FlexItem, Size | `ui/layout.py` |
 | **Typography** | PageTitle, SectionTitle, CardTitle, Subtitle, BodyText, SmallText, Caption, TruncatedText | `ui/text.py` |
@@ -243,7 +243,7 @@ PriorityBadge("low")  # Green badge
 
 ## Input
 
-**Location:** `/ui/forms.py`
+**Location:** `/ui/forms/components.py`
 
 Form input components with consistent styling.
 

@@ -50,7 +50,7 @@ SKUEL uses a layered UI component architecture built on Tailwind CSS and DaisyUI
 - `/ui/layouts/base_page.py` - Unified page wrapper
 - `/ui/layouts/page_types.py` - Page type definitions (HUB vs STANDARD)
 - `/ui/tokens.py` - Spacing, container, and styling tokens
-- `/ui/buttons.py`, `/ui/cards.py`, `/ui/forms.py`, `/ui/modals.py`, `/ui/feedback.py`, `/ui/layout.py`, `/ui/navigation.py`, `/ui/data.py` - DaisyUI wrappers (8 focused modules, March 2026)
+- `/ui/buttons.py`, `/ui/cards.py`, `/ui/forms/`, `/ui/modals.py`, `/ui/feedback.py`, `/ui/layout.py`, `/ui/navigation.py`, `/ui/data.py` - DaisyUI wrappers (8 focused modules, March 2026)
 
 ---
 

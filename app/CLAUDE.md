@@ -529,7 +529,7 @@ from core.events.utils import publish_event
 await publish_event(self.event_bus, TaskCompleted(task_uid=uid, user_uid=user_uid), self.logger)
 ```
 
-**Location:** `/core/events/` — 60+ events across all domains
+**Location:** `/core/events/` — 65+ events across all domains
 
 ## 100% Dynamic Backend Pattern
 
@@ -537,7 +537,7 @@ await publish_event(self.event_bus, TaskCompleted(task_uid=uid, user_uid=user_ui
 
 **4-Layer Architecture:** `*Operations protocol -> *Backend subclass -> *Service facade -> sub-services`
 
-**Domain Backends** (all in `domain_backends.py`): TasksBackend, EventsBackend, GoalsBackend, HabitsBackend, ChoicesBackend, PrinciplesBackend, ArticleBackend, KuBackend, SubmissionsBackend, SharingBackend, LpBackend, ExerciseBackend, RevisedExerciseBackend.
+**Domain Backends** (all in `domain_backends.py`): TasksBackend, EventsBackend, GoalsBackend, HabitsBackend, ChoicesBackend, PrinciplesBackend, ArticleBackend, KuBackend, SubmissionsBackend, SharingBackend, LpBackend, ExerciseBackend, RevisedExerciseBackend, FormTemplateBackend, FormSubmissionBackend.
 
 Domain-specific relationship Cypher belongs on the domain backend. Cross-domain aggregation stays in services. Use `cascade=True` for Activity Domains.
 
@@ -553,7 +553,7 @@ Domain-specific relationship Cypher belongs on the domain backend. Cross-domain 
 
 **Three Query Systems:** UnifiedQueryBuilder (default), QueryBuilder (optimization), CypherGenerator (pure Cypher).
 
-**Searchable Domains:** All 12 — Task, Goal, Habit, Event, Choice, Principle, Article, LS, LP, Exercise, RevisedExercise, Submission.
+**Searchable Domains:** All 14 — Task, Goal, Habit, Event, Choice, Principle, Article, LS, LP, Exercise, RevisedExercise, Submission, FormTemplate, FormSubmission.
 
 **DomainConfig** is THE single source of truth for BaseService configuration: `dto_class`, `model_class`, `search_fields`, `search_order_by`, `category_field`, `temporal_exclude_statuses`, `supports_user_progress`, `user_ownership_relationship`, `graph_enrichment_patterns`, etc.
 

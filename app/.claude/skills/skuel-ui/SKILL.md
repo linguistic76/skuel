@@ -150,7 +150,7 @@ Layouts  (/ui/layouts/, /ui/{domain}/layout.py)
     ↓ compose
 Patterns (/ui/patterns/, /ui/{domain}/views.py)
     ↓ compose
-Components (/ui/buttons.py, /ui/cards.py, /ui/forms.py, /ui/feedback.py, /ui/layout.py, /ui/text.py, … — DaisyUI wrappers)
+Components (/ui/buttons.py, /ui/cards.py, /ui/forms/, /ui/feedback.py, /ui/layout.py, /ui/text.py, … — DaisyUI wrappers)
 ```
 
 Each layer has a single responsibility: components handle styling, patterns handle domain semantics, layouts handle page structure.
@@ -159,7 +159,7 @@ Each layer has a single responsibility: components handle styling, patterns hand
 
 ```
 Is it domain-agnostic styling (button, card, input)?
-├─ YES → /ui/buttons.py, /ui/cards.py, /ui/forms.py, etc. (Component — pick the right module)
+├─ YES → /ui/buttons.py, /ui/cards.py, /ui/forms/, etc. (Component — pick the right module)
 Is it reusable across multiple domains?
 ├─ YES → /ui/patterns/ (Pattern)
 Is it domain-specific but reusable within domain?
@@ -936,7 +936,7 @@ When building a new SKUEL page or feature, verify:
 | `/ui/patterns/__init__.py` | `PageHeader`, `SectionHeader`, `EmptyState`, `StatsGrid`, `FormGenerator` |
 | `/ui/patterns/form_generator.py` | `FormGenerator` — dynamic form generation from Pydantic models |
 | `/ui/tokens.py` | `Container`, `Spacing`, `Card` design tokens |
-| `ui/buttons.py`, `ui/cards.py`, `ui/forms.py`, `ui/modals.py`, `ui/feedback.py`, `ui/layout.py`, `ui/navigation.py`, `ui/data.py` | FastHTML DaisyUI wrappers — 8 focused modules (March 2026) |
+| `ui/buttons.py`, `ui/cards.py`, `ui/forms/`, `ui/modals.py`, `ui/feedback.py`, `ui/layout.py`, `ui/navigation.py`, `ui/data.py` | FastHTML DaisyUI wrappers — 8 focused modules (March 2026) |
 | `/static/js/skuel.js` | All Alpine.data() components |
 | `/ui/profile/_shared.py` | 5 shared profile primitives (`DomainFilterControls`, `DomainSummaryCard`, `DomainIntelligenceCard`, `_item_list`) |
 | `/ui/profile/activity_views.py` | `ActivityDomainViewConfig` + `ActivityDomainView` + 6 public wrappers (Tasks/Goals/Habits/Events/Choices/Principles) |
