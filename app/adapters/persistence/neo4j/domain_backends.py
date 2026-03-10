@@ -1476,9 +1476,7 @@ class FormTemplateBackend(UniversalNeo4jBackend["FormTemplate"]):
     - get_forms_for_article — Query FormTemplates linked to an article via EMBEDS_FORM
     """
 
-    async def get_forms_for_article(
-        self, article_uid: str
-    ) -> Result[list[dict[str, Any]]]:
+    async def get_forms_for_article(self, article_uid: str) -> Result[list[dict[str, Any]]]:
         """Get all FormTemplates embedded in an article."""
         result = await self.execute_query(
             f"""
@@ -1494,9 +1492,7 @@ class FormTemplateBackend(UniversalNeo4jBackend["FormTemplate"]):
             return Result.fail(result.expect_error())
         return Result.ok([dict(record["ft"]) for record in (result.value or [])])
 
-    async def link_to_article(
-        self, form_template_uid: str, article_uid: str
-    ) -> Result[bool]:
+    async def link_to_article(self, form_template_uid: str, article_uid: str) -> Result[bool]:
         """Create EMBEDS_FORM relationship from article to form template."""
         result = await self.execute_query(
             f"""
@@ -1521,9 +1517,7 @@ class FormTemplateBackend(UniversalNeo4jBackend["FormTemplate"]):
             )
         return Result.ok(True)
 
-    async def unlink_from_article(
-        self, form_template_uid: str, article_uid: str
-    ) -> Result[bool]:
+    async def unlink_from_article(self, form_template_uid: str, article_uid: str) -> Result[bool]:
         """Remove EMBEDS_FORM relationship."""
         result = await self.execute_query(
             f"""
@@ -1567,9 +1561,7 @@ class FormSubmissionBackend(UniversalNeo4jBackend["FormSubmission"]):
             return Result.fail(result.expect_error())
         return Result.ok([dict(record["fs"]) for record in (result.value or [])])
 
-    async def list_by_user(
-        self, user_uid: str, limit: int = 50
-    ) -> Result[list[dict[str, Any]]]:
+    async def list_by_user(self, user_uid: str, limit: int = 50) -> Result[list[dict[str, Any]]]:
         """Get a user's form submissions."""
         result = await self.execute_query(
             """

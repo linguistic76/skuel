@@ -6,11 +6,19 @@ CRUD + article linking for admin-created form templates.
 FormTemplates are shared content (no user_uid).
 """
 
+from datetime import datetime
 from typing import Any
 
+from core.events import publish_event
+from core.events.form_events import (
+    FormTemplateCreated,
+    FormTemplateDeleted,
+    FormTemplateUpdated,
+)
 from core.models.enums.entity_enums import EntityType
 from core.models.forms.form_template import FormTemplate
 from core.models.forms.form_template_dto import FormTemplateDTO
+from core.models.relationship_names import RelationshipName
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
 from core.utils.logging import get_logger
@@ -79,6 +87,17 @@ class FormTemplateService(BaseService):
             self.logger.error(f"Failed to create form template: {result.error}")
             return result
 
+        await publish_event(
+            self.event_bus,
+            FormTemplateCreated(
+                template_uid=uid,
+                title=title,
+                field_count=len(form_schema),
+                occurred_at=datetime.now(),
+            ),
+            self.logger,
+        )
+
         return Result.ok(form_template)
 
     # ========================================================================
@@ -136,6 +155,16 @@ class FormTemplateService(BaseService):
         result = await self.backend.update(uid, updates)
         if result.is_error:
             return Result.fail(result.expect_error())
+
+        await publish_event(
+            self.event_bus,
+            FormTemplateUpdated(
+                template_uid=uid,
+                occurred_at=datetime.now(),
+            ),
+            self.logger,
+        )
+
         return await self.get_form_template(uid)
 
     # ========================================================================
@@ -143,26 +172,63 @@ class FormTemplateService(BaseService):
     # ========================================================================
 
     async def delete_form_template(self, uid: str) -> Result[bool]:
-        """Delete a FormTemplate and its EMBEDS_FORM relationships."""
+        """
+        Delete a FormTemplate.
+
+        Guard: Cannot delete if submissions exist (RESPONDS_TO_FORM relationships).
+        Admins must delete submissions first, ensuring data integrity.
+        """
+        # Check for existing submissions
+        submission_count = await self._get_submission_count(uid)
+        if submission_count > 0:
+            return Result.fail(
+                Errors.business(
+                    rule="template_has_submissions",
+                    message=(
+                        f"Cannot delete template with {submission_count} existing submission(s). "
+                        "Delete submissions first."
+                    ),
+                )
+            )
+
         # cascade=True to remove EMBEDS_FORM relationships
         result = await self.backend.delete(uid, cascade=True)
         if result.is_error:
             return Result.fail(result.expect_error())
+
+        await publish_event(
+            self.event_bus,
+            FormTemplateDeleted(
+                template_uid=uid,
+                occurred_at=datetime.now(),
+            ),
+            self.logger,
+        )
+
         return Result.ok(True)
+
+    async def _get_submission_count(self, template_uid: str) -> int:
+        """Count submissions linked to a template via RESPONDS_TO_FORM."""
+        result = await self.backend.execute_query(
+            f"""
+            MATCH (fs:Entity)-[:{RelationshipName.RESPONDS_TO_FORM.value}]->(ft:Entity {{uid: $uid}})
+            RETURN count(fs) as count
+            """,
+            {"uid": template_uid},
+        )
+        if result.is_error or not result.value:
+            return 0
+        return result.value[0].get("count", 0)
 
     # ========================================================================
     # ARTICLE LINKING
     # ========================================================================
 
-    async def link_to_article(
-        self, form_template_uid: str, article_uid: str
-    ) -> Result[bool]:
+    async def link_to_article(self, form_template_uid: str, article_uid: str) -> Result[bool]:
         """Link a FormTemplate to an Article via EMBEDS_FORM."""
         return await self.backend.link_to_article(form_template_uid, article_uid)
 
-    async def unlink_from_article(
-        self, form_template_uid: str, article_uid: str
-    ) -> Result[bool]:
+    async def unlink_from_article(self, form_template_uid: str, article_uid: str) -> Result[bool]:
         """Remove EMBEDS_FORM link between FormTemplate and Article."""
         return await self.backend.unlink_from_article(form_template_uid, article_uid)
 

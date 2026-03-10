@@ -139,9 +139,7 @@ def create_form_templates_api_routes(
 
         if not form_template_uid or not article_uid:
             return Result.fail(
-                Errors.validation(
-                    "form_template_uid and article_uid are required", field="body"
-                )
+                Errors.validation("form_template_uid and article_uid are required", field="body")
             )
 
         return await form_template_service.link_to_article(form_template_uid, article_uid)
@@ -161,9 +159,7 @@ def create_form_templates_api_routes(
 
         if not form_template_uid or not article_uid:
             return Result.fail(
-                Errors.validation(
-                    "form_template_uid and article_uid are required", field="body"
-                )
+                Errors.validation("form_template_uid and article_uid are required", field="body")
             )
 
         return await form_template_service.unlink_from_article(form_template_uid, article_uid)

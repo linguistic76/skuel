@@ -61,7 +61,10 @@ def create_form_submissions_ui_routes(
                                 ),
                                 cls="flex items-center",
                             ),
-                            Span(str(created)[:10] if created else "", cls="text-xs text-base-content/50"),
+                            Span(
+                                str(created)[:10] if created else "",
+                                cls="text-xs text-base-content/50",
+                            ),
                             cls="flex justify-between items-center py-3 px-4 hover:bg-base-200 rounded-lg",
                         ),
                         href=f"/my-forms/detail?uid={uid}",

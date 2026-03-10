@@ -203,6 +203,21 @@ SEARCH_FIELD_CONFIG: dict[EntityType | NonKuDomain, SearchFieldConfig] = {
         order_by="created_at",
     ),
     # =========================================================================
+    # FORMS (2) - General-purpose form system
+    # =========================================================================
+    EntityType.FORM_TEMPLATE: SearchFieldConfig(
+        text_fields=("title", "description", "instructions"),
+        array_fields=("tags",),
+        filter_fields=("status",),
+        order_by="created_at",
+    ),
+    EntityType.FORM_SUBMISSION: SearchFieldConfig(
+        text_fields=("title", "processed_content"),
+        array_fields=("tags",),
+        filter_fields=("status",),
+        order_by="created_at",
+    ),
+    # =========================================================================
     # FINANCE DOMAIN (1) - Standalone financial tracking
     # =========================================================================
     NonKuDomain.FINANCE: SearchFieldConfig(

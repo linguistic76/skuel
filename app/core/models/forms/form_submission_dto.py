@@ -37,9 +37,7 @@ class FormSubmissionDTO(UserOwnedDTO):
         data = super().to_dict()
         data["form_template_uid"] = self.form_template_uid
         # Store form_data as JSON string in Neo4j
-        data["form_data"] = (
-            json.dumps(self.form_data) if self.form_data else None
-        )
+        data["form_data"] = json.dumps(self.form_data) if self.form_data else None
         data["processed_content"] = self.processed_content
         return data
 

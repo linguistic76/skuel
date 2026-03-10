@@ -47,9 +47,7 @@ class FormTemplateCreateRequest(BaseModel):
 
     @field_validator("form_schema")
     @classmethod
-    def validate_form_schema(
-        cls, v: list[dict[str, Any]]
-    ) -> list[dict[str, Any]]:
+    def validate_form_schema(cls, v: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Validate each form field spec has required keys and valid type."""
         return validate_form_field_specs(v)
 
@@ -66,9 +64,7 @@ class FormTemplateUpdateRequest(BaseModel):
 
     @field_validator("form_schema")
     @classmethod
-    def validate_form_schema(
-        cls, v: list[dict[str, Any]] | None
-    ) -> list[dict[str, Any]] | None:
+    def validate_form_schema(cls, v: list[dict[str, Any]] | None) -> list[dict[str, Any]] | None:
         """Validate form_schema if provided."""
         if v is None:
             return None

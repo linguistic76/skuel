@@ -1751,6 +1751,7 @@ async def compose_services(
         form_submission_service = FormSubmissionService(
             backend=form_submission_backend,
             event_bus=event_bus,
+            form_template_service=form_template_service,
         )
         logger.info("✅ Form services created (FormTemplate + FormSubmission)")
 

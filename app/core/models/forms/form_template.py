@@ -79,6 +79,72 @@ class FormTemplate(Entity):
         """Validate minimum required fields."""
         return bool(self.title) and self.has_form_schema()
 
+    def validate_response(self, form_data: dict[str, Any]) -> list[str]:
+        """
+        Validate form_data against this template's form_schema.
+
+        Checks:
+        - Required fields are present and non-empty
+        - Field names match schema (no unknown fields)
+        - Select field values are in allowed options
+        - Number fields contain numeric values
+
+        Returns list of validation error messages (empty = valid).
+        """
+        errors: list[str] = []
+        if not self.form_schema:
+            errors.append("Template has no form_schema defined")
+            return errors
+
+        schema_names = {spec["name"] for spec in self.form_schema}
+
+        # Check for unknown fields
+        for key in form_data:
+            if key not in schema_names:
+                errors.append(f"Unknown field '{key}' not in template schema")
+
+        for spec in self.form_schema:
+            name = spec["name"]
+            field_type = spec.get("type", "text")
+            required = spec.get("required", False)
+            value = form_data.get(name)
+
+            # Required field check
+            if required:
+                if value is None or (isinstance(value, str) and not value.strip()):
+                    errors.append(f"Required field '{name}' is missing or empty")
+                    continue
+
+            # Skip further validation if value is empty/missing and not required
+            if value is None or (isinstance(value, str) and not value.strip()):
+                continue
+
+            # Select field: value must be in options
+            if field_type == "select":
+                options = spec.get("options", [])
+                if options and value not in options:
+                    errors.append(
+                        f"Field '{name}' value '{value}' not in allowed options: {options}"
+                    )
+
+            # Number field: value must be numeric
+            if field_type == "number":
+                try:
+                    num_val = float(value) if isinstance(value, str) else value
+                    if not isinstance(num_val, (int, float)):
+                        errors.append(f"Field '{name}' must be a number")
+                    else:
+                        min_val = spec.get("min")
+                        max_val = spec.get("max")
+                        if min_val is not None and num_val < min_val:
+                            errors.append(f"Field '{name}' must be >= {min_val}")
+                        if max_val is not None and num_val > max_val:
+                            errors.append(f"Field '{name}' must be <= {max_val}")
+                except (ValueError, TypeError):
+                    errors.append(f"Field '{name}' must be a number, got '{value}'")
+
+        return errors
+
     # =========================================================================
     # CONVERSION
     # =========================================================================

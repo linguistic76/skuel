@@ -9,7 +9,10 @@ FormSubmissions are user-owned content linked to FormTemplates.
 from datetime import datetime
 from typing import Any
 
+from core.events import publish_event
+from core.events.form_events import FormSubmissionDeleted, FormSubmitted
 from core.models.enums.entity_enums import EntityStatus, EntityType
+from core.models.enums.user_enums import UserRole
 from core.models.forms.form_submission import FormSubmission
 from core.models.forms.form_submission_dto import FormSubmissionDTO
 from core.models.relationship_names import RelationshipName
@@ -20,6 +23,9 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
 
 logger = get_logger(__name__)
+
+# Maximum size for processed_content (prevent oversized strings)
+MAX_PROCESSED_CONTENT_LENGTH = 10_000
 
 
 class FormSubmissionService(BaseService):
@@ -44,12 +50,14 @@ class FormSubmissionService(BaseService):
         backend: Any,
         event_bus: Any | None = None,
         sharing_service: Any | None = None,
+        form_template_service: Any | None = None,
     ) -> None:
-        """Initialize with backend, optional event bus, and sharing service."""
+        """Initialize with backend, optional event bus, sharing, and template service."""
         super().__init__(backend, "form_submissions")
         self.backend = backend
         self.event_bus = event_bus
         self.sharing_service = sharing_service
+        self.form_template_service = form_template_service
         self.logger = logger
         logger.info("FormSubmissionService initialized")
 
@@ -79,28 +87,33 @@ class FormSubmissionService(BaseService):
         via RESPONDS_TO_FORM, creates OWNS relationship, and optionally
         shares with groups/users.
 
-        Validates that the FormTemplate exists before creating anything.
+        Validates that:
+        1. The FormTemplate exists
+        2. The form_data conforms to the template's form_schema
         """
-        # Verify template exists before creating submission
-        template_check = await self.backend.execute_query(
-            """
-            MATCH (ft:Entity {uid: $ft_uid, entity_type: 'form_template'})
-            RETURN ft.uid as uid
-            """,
-            {"ft_uid": form_template_uid},
-        )
-        if template_check.is_error:
-            return Result.fail(Errors.database(operation="submit_form", message=str(template_check.error)))
-        if not template_check.value:
-            return Result.fail(Errors.not_found(resource="FormTemplate", identifier=form_template_uid))
+        # Fetch full template for validation (not just existence check)
+        template_result = await self._get_template(form_template_uid)
+        if template_result.is_error:
+            return Result.fail(template_result.expect_error())
+        template = template_result.value
+
+        # Validate form_data against template schema
+        validation_errors = template.validate_response(form_data)
+        if validation_errors:
+            return Result.fail(
+                Errors.validation(
+                    f"Form response validation failed: {'; '.join(validation_errors)}",
+                    field="form_data",
+                )
+            )
 
         display_title = title or f"Form Response ({datetime.now().strftime('%Y-%m-%d %H:%M')})"
         uid = UIDGenerator.generate_uid("fs", display_title)
 
-        # Build processed_content for search/embedding
-        processed_content = "\n".join(
-            f"{k}: {v}" for k, v in form_data.items() if v
-        )
+        # Build processed_content for search/embedding (with size limit)
+        processed_content = "\n".join(f"{k}: {v}" for k, v in form_data.items() if v)
+        if len(processed_content) > MAX_PROCESSED_CONTENT_LENGTH:
+            processed_content = processed_content[:MAX_PROCESSED_CONTENT_LENGTH]
 
         submission = FormSubmission(
             uid=uid,
@@ -120,7 +133,6 @@ class FormSubmissionService(BaseService):
             return result
 
         # Create OWNS + RESPONDS_TO_FORM relationships
-        # Template existence already verified above, so these should succeed
         rel_result = await self.backend.execute_query(
             f"""
             MATCH (fs:Entity {{uid: $fs_uid}})
@@ -140,7 +152,49 @@ class FormSubmissionService(BaseService):
         # Handle sharing at submit time
         await self._share_on_submit(uid, user_uid, group_uid, recipient_uids, share_with_admin)
 
+        # Publish event
+        await publish_event(
+            self.event_bus,
+            FormSubmitted(
+                submission_uid=uid,
+                user_uid=user_uid,
+                template_uid=form_template_uid,
+                occurred_at=datetime.now(),
+            ),
+            self.logger,
+        )
+
         return Result.ok(submission)
+
+    async def _get_template(self, form_template_uid: str) -> Result[Any]:
+        """Fetch a FormTemplate, delegating to template service or falling back to backend."""
+        if self.form_template_service:
+            return await self.form_template_service.get_form_template(form_template_uid)
+
+        # Fallback: query backend directly (when template service not wired)
+        from core.models.forms.form_template import FormTemplate
+
+        result = await self.backend.execute_query(
+            """
+            MATCH (ft:Entity {uid: $ft_uid, entity_type: 'form_template'})
+            RETURN ft
+            """,
+            {"ft_uid": form_template_uid},
+        )
+        if result.is_error:
+            return Result.fail(Errors.database(operation="get_template", message=str(result.error)))
+        records = result.value or []
+        if not records:
+            return Result.fail(
+                Errors.not_found(resource="FormTemplate", identifier=form_template_uid)
+            )
+
+        # Reconstruct FormTemplate from Neo4j node properties
+        from core.models.forms.form_template_dto import FormTemplateDTO
+
+        props = dict(records[0]["ft"])
+        dto = FormTemplateDTO.from_dict(props)
+        return Result.ok(FormTemplate._from_dto(dto))
 
     async def _share_on_submit(
         self,
@@ -176,25 +230,28 @@ class FormSubmissionService(BaseService):
                     self.logger.warning(f"Failed to share with {recipient_uid}: {result.error}")
 
         if share_with_admin:
-            # Share with admin by looking up admin user and sharing directly
-            admin_result = await self.backend.execute_query(
-                """
-                MATCH (u:User) WHERE u.role = 'admin' OR u.role = 'ADMIN'
-                RETURN u.uid as uid LIMIT 1
-                """,
-                {},
+            await self._share_with_admin(submission_uid, user_uid)
+
+    async def _share_with_admin(self, submission_uid: str, user_uid: str) -> None:
+        """Share a submission with the admin user (using UserRole enum)."""
+        admin_result = await self.backend.execute_query(
+            """
+            MATCH (u:User) WHERE u.role = $admin_role
+            RETURN u.uid as uid LIMIT 1
+            """,
+            {"admin_role": UserRole.ADMIN.value},
+        )
+        if admin_result.is_ok and admin_result.value:
+            admin_uid = admin_result.value[0]["uid"]
+            result = await self.sharing_service.share(
+                entity_uid=submission_uid,
+                owner_uid=user_uid,
+                target_uid=admin_uid,
             )
-            if admin_result.is_ok and admin_result.value:
-                admin_uid = admin_result.value[0]["uid"]
-                result = await self.sharing_service.share(
-                    entity_uid=submission_uid,
-                    owner_uid=user_uid,
-                    target_uid=admin_uid,
-                )
-                if result.is_error:
-                    self.logger.warning(f"Failed to share with admin: {result.error}")
-            else:
-                self.logger.warning("share_with_admin requested but no admin user found")
+            if result.is_error:
+                self.logger.warning(f"Failed to share with admin: {result.error}")
+        else:
+            self.logger.warning("share_with_admin requested but no admin user found")
 
     # ========================================================================
     # READ
@@ -233,6 +290,18 @@ class FormSubmissionService(BaseService):
         result = await self.backend.delete(uid, cascade=True)
         if result.is_error:
             return Result.fail(result.expect_error())
+
+        # Publish event
+        await publish_event(
+            self.event_bus,
+            FormSubmissionDeleted(
+                submission_uid=uid,
+                user_uid=user_uid,
+                occurred_at=datetime.now(),
+            ),
+            self.logger,
+        )
+
         return Result.ok(True)
 
     # ========================================================================

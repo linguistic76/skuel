@@ -50,6 +50,9 @@ Choices:
 Calendar Events:
     CalendarEventCreated, CalendarEventUpdated, CalendarEventCompleted, CalendarEventDeleted, CalendarEventRescheduled
 
+Forms:
+    FormTemplateCreated, FormTemplateUpdated, FormTemplateDeleted, FormSubmitted, FormSubmissionDeleted
+
 Finance:
     ExpenseCreated, ExpenseUpdated, ExpenseDeleted, ExpensePaid,
 
@@ -131,6 +134,15 @@ from core.events.embedding_events import (
     ResourceEmbeddingRequested,
     RevisedExerciseEmbeddingRequested,
     TaskEmbeddingRequested,
+)
+
+# Form events
+from core.events.form_events import (
+    FormSubmissionDeleted,
+    FormSubmitted,
+    FormTemplateCreated,
+    FormTemplateDeleted,
+    FormTemplateUpdated,
 )
 
 # Finance events
@@ -271,6 +283,12 @@ __all__ = [
     "ExpenseDeleted",
     "ExpensePaid",
     "ExpenseUpdated",
+    # Forms
+    "FormSubmissionDeleted",
+    "FormSubmitted",
+    "FormTemplateCreated",
+    "FormTemplateDeleted",
+    "FormTemplateUpdated",
     "GoalAbandoned",
     "GoalAchieved",
     # Goals
@@ -435,6 +453,12 @@ EVENT_REGISTRY: dict[str, type[BaseEvent]] = {
     "calendar_event.completed": CalendarEventCompleted,
     "calendar_event.deleted": CalendarEventDeleted,
     "calendar_event.rescheduled": CalendarEventRescheduled,
+    # Forms
+    "form_template.created": FormTemplateCreated,
+    "form_template.updated": FormTemplateUpdated,
+    "form_template.deleted": FormTemplateDeleted,
+    "form.submitted": FormSubmitted,
+    "form_submission.deleted": FormSubmissionDeleted,
     # Finance
     "expense.created": ExpenseCreated,
     "expense.updated": ExpenseUpdated,
@@ -625,6 +649,14 @@ CALENDAR_EVENT_EVENTS = [
     CalendarEventRescheduled,
 ]
 
+FORM_EVENTS = [
+    FormTemplateCreated,
+    FormTemplateUpdated,
+    FormTemplateDeleted,
+    FormSubmitted,
+    FormSubmissionDeleted,
+]
+
 FINANCE_EVENTS = [
     ExpenseCreated,
     ExpenseUpdated,
@@ -654,6 +686,7 @@ ALL_EVENTS = (
     + PRINCIPLE_EVENTS
     + CHOICE_EVENTS
     + CALENDAR_EVENT_EVENTS
+    + FORM_EVENTS
     + FINANCE_EVENTS
     + JOURNAL_EVENTS
     + TRANSCRIPTION_EVENTS

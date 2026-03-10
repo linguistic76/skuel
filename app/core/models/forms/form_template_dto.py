@@ -35,9 +35,7 @@ class FormTemplateDTO(EntityDTO):
         """Convert to dictionary for database operations."""
         data = super().to_dict()
         # Store form_schema as JSON string in Neo4j
-        data["form_schema"] = (
-            json.dumps(self.form_schema) if self.form_schema else None
-        )
+        data["form_schema"] = json.dumps(self.form_schema) if self.form_schema else None
         data["instructions"] = self.instructions
         return data
 
