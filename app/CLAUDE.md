@@ -262,6 +262,8 @@ One object (~250 fields), built by one query (MEGA-QUERY), consumed by all intel
 | Standard | `build()` | API responses, ownership checks (~150 fields) |
 | Rich | `build_rich()` | Intelligence, daily planning (~250 fields) |
 
+**ZPD Capstone:** `build_rich()` computes `context.zpd_assessment` (ZPDAssessment) as its final step — the pedagogical gravity well that synthesizes curriculum graph, behavioral signals, life path alignment, and compound evidence into recommended learning actions. FULL tier only. See: `core/services/zpd/zpd_service.py`.
+
 **Canonical Location:** `/core/services/user/unified_user_context.py`
 
 **See:** `/docs/architecture/UNIFIED_USER_ARCHITECTURE.md`

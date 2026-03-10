@@ -5,7 +5,7 @@ ZPD Protocols
 Protocol interfaces for the Zone of Proximal Development subsystem.
 
 - ZPDBackendOperations: Persistence layer — Cypher queries against Neo4j.
-- ZPDOperations: Service layer — business logic consumed by Askesis.
+- ZPDOperations: Service layer — business logic consumed by Askesis + UserContext.
 
 See: core/services/zpd/zpd_service.py — service implementation
 See: adapters/persistence/neo4j/zpd_backend.py — backend implementation
@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
     from core.models.zpd.zpd_assessment import ZPDAssessment
+    from core.services.user.unified_user_context import UserContext
     from core.utils.result_simplified import Result
 
 
@@ -35,7 +36,19 @@ class ZPDBackendOperations(Protocol):
 
     async def get_zone_data(
         self, user_uid: str
-    ) -> Result[tuple[list[str], list[str], list[str], list[dict[str, Any]], list[str]]]:
+    ) -> Result[
+        tuple[
+            list[str],
+            list[str],
+            list[str],
+            list[dict[str, Any]],
+            list[str],
+            list[str],
+            list[str],
+            list[str],
+            list[dict[str, Any]],
+        ]
+    ]:
         """Execute the zone traversal query and return parsed results.
 
         Returns:
@@ -45,36 +58,53 @@ class ZPDBackendOperations(Protocol):
                 - engaged_paths: Learning Path UIDs the user is on
                 - prereq_data: Raw prerequisite counts per proximal KU
                 - blocking_gaps: Prerequisite KU UIDs not yet met
+                - task_engaged: KU UIDs engaged via tasks
+                - journal_engaged: KU UIDs engaged via journals
+                - habit_engaged: KU UIDs engaged via habits
+                - submission_data: Submission scores per KU
         """
         ...
 
 
 @runtime_checkable
 class ZPDOperations(Protocol):
-    """Pure graph computation protocol for Zone of Proximal Development.
+    """Pedagogical gravity well protocol for Zone of Proximal Development.
 
     ZPDService implements this protocol. It is stateless — every call
     traverses the live Neo4j curriculum graph. No ZPD state is stored.
 
+    When an optional UserContext is passed, ZPD enriches the assessment
+    with life path alignment, zone evidence, and recommended actions.
+
     Consumed by:
+    - UserContextBuilder.build_rich() — capstone computation
     - UserContextIntelligence.get_optimal_next_learning_steps()
     - AskesisService.analyze_user_state() — ZPDAssessment in state snapshot
     """
 
-    async def assess_zone(self, user_uid: str) -> Result[ZPDAssessment]:
+    async def assess_zone(
+        self, user_uid: str, context: UserContext | None = None
+    ) -> Result[ZPDAssessment]:
         """Compute the user's full ZPD from the curriculum graph.
 
         2-hop traversal: current zone → proximal zone → readiness scores.
         Returns an empty ZPDAssessment (not an error) when the curriculum
         graph has fewer than 3 KUs.
 
+        When context is provided, enriches the assessment with:
+        - life_path_alignment and life_path_uid
+        - zone_evidence (compound mastery tracking)
+        - recommended_actions (concrete next steps)
+        - submission_scores (from exercise submissions)
+
         Args:
             user_uid: User's unique identifier (e.g. "user_alice")
+            context: Optional UserContext for life path + evidence enrichment.
 
         Returns:
             Result[ZPDAssessment]: Full ZPD snapshot including current zone,
-                proximal zone, readiness scores, blocking gaps, and
-                behavioral readiness.
+                proximal zone, readiness scores, blocking gaps, behavioral
+                readiness, and (when context provided) life path integration.
         """
         ...
 

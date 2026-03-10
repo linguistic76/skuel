@@ -52,6 +52,11 @@ Navigation guide for this ~240-field read model:
    - Principle-choice integration tracking
    - Pending/resolved choices
 
+5.5. **ZPD Awareness** (after submissions, before progress)
+   - zpd_assessment: ZPDAssessment — capstone of build_rich()
+   - Computed last, reads all prior fields
+   - None in standard build() or INTELLIGENCE_TIER=core
+
 6. **Progress & Capacity** (lines ~242-301)
    - Overall progress, domain progress
    - Velocity, acceleration, consistency
@@ -74,10 +79,12 @@ Navigation guide for this ~240-field read model:
     - Per "One Path Forward": properties with 0-1 usages removed
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from operator import itemgetter
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from core.models.enums import (
     Domain,
@@ -88,6 +95,9 @@ from core.models.enums import (
     ResponseTone,
     TimeOfDay,
 )
+
+if TYPE_CHECKING:
+    from core.models.zpd.zpd_assessment import ZPDAssessment
 
 
 @dataclass
@@ -338,6 +348,14 @@ class UserContext:
     latest_activity_report_user_annotation: str | None = (
         None  # Owner's self-reflection (additive mode only)
     )
+
+    # =========================================================================
+    # ZPD AWARENESS — Zone of Proximal Development (capstone)
+    # =========================================================================
+    # Computed as final step of build_rich() — reads all prior fields.
+    # None in standard build() path. None when INTELLIGENCE_TIER=core.
+    # See: core/models/zpd/zpd_assessment.py, core/services/zpd/zpd_service.py
+    zpd_assessment: ZPDAssessment | None = None
 
     # =========================================================================
     # SUBMISSION & FEEDBACK AWARENESS - Learning loop engagement tracking
@@ -788,7 +806,7 @@ class UserContext:
         sorted_mocs = sorted(self.moc_view_counts.items(), key=get_result_score, reverse=True)
         return [moc_uid for moc_uid, _ in sorted_mocs[:limit]]
 
-    def has_moc_for_domain(self, domain: "Domain") -> bool:
+    def has_moc_for_domain(self, domain: Domain) -> bool:
         """Check if user has any MOC for a specific domain."""
         # This would require domain info from active_mocs_rich
         # For now, check if any MOCs exist

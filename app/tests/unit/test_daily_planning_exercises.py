@@ -59,6 +59,7 @@ def make_context(
     ctx.entities_rich = {}
     ctx.unsubmitted_exercises = unsubmitted_exercises or []
     ctx.pending_revised_exercises = []
+    ctx.zpd_assessment = None
     return ctx
 
 

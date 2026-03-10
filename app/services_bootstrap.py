@@ -2505,7 +2505,7 @@ async def compose_services(
             "Tier 2: PrincipleReflectionRecorded, PrincipleConflictRevealed"
         )
 
-        logger.info("✅ Event-driven architecture wired (40 event types subscribed)")
+        logger.info("✅ Event-driven architecture wired (40+ event types subscribed)")
         logger.info("✅ All services initialized")
 
         # Compose the services container
@@ -2654,7 +2654,40 @@ async def compose_services(
                 habits_intelligence=activity_services["habits"].intelligence,
             )
             services.zpd_service = zpd_service
-            logger.info("✅ ZPDService created (behavioral signals: choices + habits)")
+            context_builder.zpd_service = zpd_service
+            logger.info(
+                "✅ ZPDService created (behavioral signals: choices + habits, wired to context_builder)"
+            )
+
+            # ── ZPD snapshot event subscriptions ─────────────────────────
+            from adapters.persistence.neo4j.zpd_snapshot_backend import ZPDSnapshotBackend
+            from core.services.zpd.zpd_event_handler import ZPDSnapshotHandler
+
+            zpd_snapshot_backend = ZPDSnapshotBackend(driver)
+            zpd_handler = ZPDSnapshotHandler(zpd_service, zpd_snapshot_backend)
+
+            from core.events.curriculum_events import LearningStepCompleted as ZPDLSCompleted
+            from core.events.learning_events import KnowledgeMastered as ZPDKMastered
+            from core.events.learning_events import (
+                LearningPathProgressUpdated as ZPDLPProgress,
+            )
+            from core.events.submission_events import (
+                ReportSubmitted as ZPDReportSubmitted,
+            )
+            from core.events.submission_events import (
+                SubmissionApproved as ZPDSubApproved,
+            )
+
+            event_bus.subscribe(ZPDSubApproved, zpd_handler.handle_submission_approved)
+            event_bus.subscribe(ZPDReportSubmitted, zpd_handler.handle_report_submitted)
+            event_bus.subscribe(ZPDKMastered, zpd_handler.handle_knowledge_mastered)
+            event_bus.subscribe(ZPDLSCompleted, zpd_handler.handle_learning_step_completed)
+            event_bus.subscribe(ZPDLPProgress, zpd_handler.handle_learning_path_progress)
+            logger.info(
+                "✅ ZPD snapshot handler subscribed to 5 events "
+                "(SubmissionApproved, ReportSubmitted, KnowledgeMastered, "
+                "LearningStepCompleted, LearningPathProgressUpdated)"
+            )
         else:
             logger.info("⏭️  ZPDService skipped (intelligence tier: CORE)")
 

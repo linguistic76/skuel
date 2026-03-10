@@ -92,25 +92,73 @@ class LearningIntelligenceMixin:
         max_steps: int,
         consider_capacity: bool,
     ) -> Result[list[LearningStep]]:
-        """Rank learning steps using ZPD proximal zone and readiness scores.
+        """Rank learning steps using ZPD proximal zone, readiness scores, and evidence.
 
         Uses ZPDAssessment.top_proximal_ku_uids() to get candidates, then enriches
-        each with application opportunities, goal alignment, and unblocking counts.
+        each with application opportunities, goal alignment, unblocking counts,
+        life path alignment, and zone evidence confidence.
 
         See: core/models/zpd/zpd_assessment.py — ZPDAssessment
         """
+        # If recommended_actions are pre-computed, use them directly
+        if assessment.recommended_actions:
+            learn_actions = [a for a in assessment.recommended_actions if a.action_type == "learn"]
+            if learn_actions:
+                learning_steps = []
+                for action in learn_actions[: max_steps * 2]:
+                    ku_uid = action.entity_uid
+                    applications = await self._get_application_opportunities_for_ku(ku_uid)
+                    unlocks_count = self._count_items_unlocked_by(ku_uid)
+                    aligned_goals = self._find_aligned_goals(ku_uid)
+                    readiness_score = assessment.readiness_scores.get(ku_uid, 0.0)
+
+                    step = LearningStep(
+                        ku_uid=ku_uid,
+                        title=f"Knowledge Unit {ku_uid}",
+                        rationale=action.rationale,
+                        prerequisites_met=readiness_score >= 1.0,
+                        aligns_with_goals=tuple(aligned_goals),
+                        unlocks_count=unlocks_count,
+                        estimated_time_minutes=self.context.estimated_time_to_mastery.get(
+                            ku_uid, 60
+                        ),
+                        priority_score=action.priority,
+                        application_opportunities={k: tuple(v) for k, v in applications.items()},
+                    )
+                    learning_steps.append(step)
+
+                if consider_capacity:
+                    learning_steps = self._filter_by_capacity(learning_steps)
+                return Result.ok(learning_steps[:max_steps])
+
         proximal_uids = assessment.top_proximal_ku_uids(max_steps * 2)
         if not proximal_uids:
             # ZPD produced an assessment but proximal zone is empty — use activity path
             return await self._rank_by_activity(max_steps, True, consider_capacity)
 
+        # Confirmed KUs in current zone get higher confidence base
+        confirmed_uids = set(assessment.confirmed_zone_uids())
+
         learning_steps = []
         for ku_uid in proximal_uids:
             readiness_score = assessment.readiness_scores.get(ku_uid, 0.0)
-            # Incorporate behavioral readiness: scale base score by behavioral factor
+            # Priority formula: readiness * 0.5 + life_path * 0.3 + behavioral * 0.2
             priority_score = round(
-                readiness_score * (0.7 + 0.3 * assessment.behavioral_readiness), 3
+                readiness_score * 0.5
+                + assessment.life_path_alignment * 0.3
+                + assessment.behavioral_readiness * 0.2,
+                3,
             )
+
+            # Boost KUs whose prerequisites are confirmed (compound evidence)
+            evidence = assessment.zone_evidence.get(ku_uid)
+            if evidence and evidence.is_confirmed:
+                priority_score = min(1.0, priority_score + 0.05)
+
+            # Check if any prerequisite is confirmed — gives extra confidence
+            prereq_confirmed = any(uid in confirmed_uids for uid in proximal_uids)
+            if prereq_confirmed:
+                priority_score = min(1.0, priority_score + 0.02)
 
             applications = await self._get_application_opportunities_for_ku(ku_uid)
             unlocks_count = self._count_items_unlocked_by(ku_uid)

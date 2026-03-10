@@ -1,33 +1,37 @@
 """
-ZPDService — Zone of Proximal Development
-==========================================
+ZPDService — Zone of Proximal Development (Pedagogical Gravity Well)
+=====================================================================
 
-Computes a user's Zone of Proximal Development by delegating graph traversal
-to ZPDBackend. Answers: *what does this user know, and what are they
-structurally ready to learn next?*
+The capstone computation on UserContext — synthesizes curriculum graph
+traversal, behavioral signals, life path alignment, and compound evidence
+into "what's most important, what advances your life path most."
 
-This service is the pedagogical core of Askesis. Without it, Askesis can only
-react to what the user says. With it, Askesis knows where the user is in the
-curriculum before the conversation starts.
+Without ZPD, intelligence services can only react to isolated domain signals.
+With ZPD, the system knows where the user is in the curriculum, what they're
+ready for, and how it connects to their life direction.
 
 Architecture
 ------------
 - Delegates all Neo4j queries to ZPDBackend (adapters/persistence/neo4j/).
-- Owns business logic: readiness scoring, behavioral enrichment.
+- Owns business logic: readiness scoring, behavioral enrichment, compound
+  evidence tracking, recommended action generation.
 - Optional behavioral intelligence injection: ChoicesIntelligenceService and
   HabitsIntelligenceService enrich the assessment with behavioral readiness.
+- Accepts optional UserContext for life path integration and evidence enrichment.
 - Returns ZPDAssessment with empty lists (not a failure) when the curriculum
   graph has fewer than 3 KUs or no user engagement exists.
 
 Integration
 -----------
-  ZPDService (behavioral signals)
+  UserContextBuilder.build_rich()  ← capstone step
           ↓
-  UserContextIntelligence.get_optimal_next_learning_steps()
+  ZPDService.assess_zone(user_uid, context)
           ↓
-  AskesisService (scaffold_entry, ku_bridge prompts)
+  ZPDAssessment on UserContext.zpd_assessment
+          ↓
+  DailyPlanningMixin P5  |  LearningIntelligenceMixin  |  AskesisService
 
-See: core/models/zpd/zpd_assessment.py — ZPDAssessment model
+See: core/models/zpd/zpd_assessment.py — ZPDAssessment, ZoneEvidence, ZPDAction
 See: core/ports/zpd_protocols.py — ZPDOperations + ZPDBackendOperations protocols
 See: adapters/persistence/neo4j/zpd_backend.py — persistence layer
 See: docs/roadmap/zpd-service-deferred.md — full design rationale
@@ -38,7 +42,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
-from core.models.zpd.zpd_assessment import ZPDAssessment
+from core.models.zpd.zpd_assessment import ZoneEvidence, ZPDAction, ZPDAssessment
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -47,14 +51,16 @@ if TYPE_CHECKING:
     from core.ports.zpd_protocols import ZPDBackendOperations
     from core.services.choices.choices_intelligence_service import ChoicesIntelligenceService
     from core.services.habits.habits_intelligence_service import HabitsIntelligenceService
+    from core.services.user.unified_user_context import UserContext
 
 
 class ZPDService:
     """
-    Zone of Proximal Development service.
+    Zone of Proximal Development service — the pedagogical gravity well.
 
     Stateless business logic — delegates graph traversal to ZPDBackend,
-    then enriches results with readiness scoring and behavioral signals.
+    then enriches results with readiness scoring, behavioral signals,
+    compound evidence, life path alignment, and recommended actions.
 
     Args:
         backend: ZPDBackend instance for Neo4j queries.
@@ -83,14 +89,20 @@ class ZPDService:
     # PUBLIC API (ZPDOperations protocol)
     # =========================================================================
 
-    async def assess_zone(self, user_uid: str) -> Result[ZPDAssessment]:
+    async def assess_zone(
+        self, user_uid: str, context: UserContext | None = None
+    ) -> Result[ZPDAssessment]:
         """Compute the user's full ZPD from the curriculum graph.
+
+        When context is provided, enriches the assessment with life path
+        alignment, compound zone evidence, and recommended actions.
 
         Returns an empty ZPDAssessment (not an error) when the curriculum
         graph has fewer than 3 KUs.
 
         Args:
             user_uid: User's unique identifier (e.g. "user_alice")
+            context: Optional UserContext for life path + evidence enrichment.
 
         Returns:
             Result[ZPDAssessment]: Full ZPD snapshot.
@@ -108,13 +120,43 @@ class ZPDService:
         if graph_result.is_error:
             return Result.fail(graph_result.expect_error())
 
-        current_zone, proximal_zone, engaged_paths, prereq_data, blocking_gaps = graph_result.value
+        (
+            current_zone,
+            proximal_zone,
+            engaged_paths,
+            prereq_data,
+            blocking_gaps,
+            task_engaged,
+            journal_engaged,
+            habit_engaged,
+            submission_data,
+        ) = graph_result.value
 
         # Business logic: compute readiness scores from raw prereq data
         readiness_scores = self._compute_readiness_scores(prereq_data)
 
         # Behavioral readiness: enrich with choices + habits signals
         behavioral_readiness = await self._compute_behavioral_readiness(user_uid, current_zone)
+
+        # Build compound zone evidence from per-source engagement data
+        zone_evidence = self._build_zone_evidence(
+            current_zone, task_engaged, journal_engaged, habit_engaged, submission_data
+        )
+
+        # Parse submission scores
+        submission_scores = self._parse_submission_scores(submission_data)
+
+        # Life path integration (when context available)
+        life_path_alignment = 0.0
+        life_path_uid: str | None = None
+        if context is not None:
+            life_path_alignment = getattr(context, "life_path_alignment_score", 0.0) or 0.0
+            life_path_uid = getattr(context, "life_path_uid", None)
+
+        # Build recommended actions from proximal zone
+        recommended_actions = self._build_recommended_actions(
+            proximal_zone, readiness_scores, behavioral_readiness, life_path_alignment
+        )
 
         return Result.ok(
             ZPDAssessment(
@@ -124,6 +166,11 @@ class ZPDService:
                 readiness_scores=readiness_scores,
                 blocking_gaps=blocking_gaps,
                 behavioral_readiness=behavioral_readiness,
+                life_path_alignment=life_path_alignment,
+                life_path_uid=life_path_uid,
+                recommended_actions=tuple(recommended_actions),
+                zone_evidence=zone_evidence,
+                submission_scores=submission_scores,
             )
         )
 
@@ -169,6 +216,95 @@ class ZPDService:
             met = entry.get("met") or 0
             scores[ku_uid] = 1.0 if total == 0 else round(met / total, 3)
         return scores
+
+    def _build_zone_evidence(
+        self,
+        current_zone: list[str],
+        task_engaged: list[str],
+        journal_engaged: list[str],
+        habit_engaged: list[str],
+        submission_data: list[dict[str, Any]],
+    ) -> dict[str, ZoneEvidence]:
+        """Build compound evidence for each KU in the current zone.
+
+        Combines per-source engagement data with submission scores.
+        A KU needs 2+ signal types to be considered "confirmed".
+        """
+        # Build submission lookup
+        sub_lookup: dict[str, dict[str, Any]] = {}
+        for entry in submission_data:
+            ku_uid = entry.get("ku_uid")
+            if ku_uid:
+                sub_lookup[ku_uid] = entry
+
+        task_set = set(task_engaged)
+        journal_set = set(journal_engaged)
+        habit_set = set(habit_engaged)
+
+        evidence: dict[str, ZoneEvidence] = {}
+        for ku_uid in current_zone:
+            sub_entry = sub_lookup.get(ku_uid, {})
+            evidence[ku_uid] = ZoneEvidence(
+                ku_uid=ku_uid,
+                submission_count=sub_entry.get("count", 0),
+                best_submission_score=sub_entry.get("best_score", 0.0),
+                habit_reinforcement=ku_uid in habit_set,
+                task_application=ku_uid in task_set,
+                journal_application=ku_uid in journal_set,
+            )
+        return evidence
+
+    def _parse_submission_scores(self, submission_data: list[dict[str, Any]]) -> dict[str, float]:
+        """Extract best submission score per KU from raw submission data."""
+        scores: dict[str, float] = {}
+        for entry in submission_data:
+            ku_uid = entry.get("ku_uid")
+            if ku_uid:
+                scores[ku_uid] = entry.get("best_score", 0.0)
+        return scores
+
+    def _build_recommended_actions(
+        self,
+        proximal_zone: list[str],
+        readiness_scores: dict[str, float],
+        behavioral_readiness: float,
+        life_path_alignment: float,
+    ) -> list[ZPDAction]:
+        """Build recommended actions from proximal zone KUs.
+
+        Priority formula:
+            readiness_score * 0.5 + life_path_alignment * 0.3 + behavioral_readiness * 0.2
+
+        Each proximal KU produces a "learn" action targeting that KU.
+        """
+        actions: list[ZPDAction] = []
+        for ku_uid in proximal_zone:
+            readiness = readiness_scores.get(ku_uid, 0.0)
+            priority = round(
+                readiness * 0.5 + life_path_alignment * 0.3 + behavioral_readiness * 0.2,
+                3,
+            )
+
+            rationale_parts = []
+            if readiness >= 1.0:
+                rationale_parts.append("all prerequisites met")
+            elif readiness > 0.0:
+                rationale_parts.append(f"{readiness:.0%} prerequisites met")
+            if life_path_alignment > 0.5:
+                rationale_parts.append("aligns with life path")
+
+            actions.append(
+                ZPDAction(
+                    entity_uid=ku_uid,
+                    entity_type="article",
+                    action_type="learn",
+                    priority=priority,
+                    rationale="; ".join(rationale_parts) if rationale_parts else "Ready to learn",
+                    ku_uid=ku_uid,
+                )
+            )
+
+        return actions
 
     async def _compute_behavioral_readiness(self, user_uid: str, current_zone: list[str]) -> float:
         """Aggregate behavioral readiness from choices + habits signals.

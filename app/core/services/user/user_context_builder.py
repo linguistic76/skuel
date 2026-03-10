@@ -42,6 +42,7 @@ from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from core.services.user_service import UserService
+    from core.services.zpd.zpd_service import ZPDService
 
 logger = get_logger(__name__)
 
@@ -95,6 +96,7 @@ class UserContextBuilder:
 
         self.executor = executor
         self.user_service = user_service
+        self.zpd_service: ZPDService | None = None
 
         # Compose modules for separation of concerns
         self._query_executor = UserContextQueryExecutor(executor)
@@ -428,5 +430,11 @@ class UserContextBuilder:
 
         # Calculate derived fields and mark as rich context
         self._finalize_context(context, is_rich=True)
+
+        # ── ZPD capstone — reads all prior fields ────────────────────────
+        if self.zpd_service is not None:
+            zpd_result = await self.zpd_service.assess_zone(user_uid, context=context)
+            if not zpd_result.is_error:
+                context.zpd_assessment = zpd_result.value
 
         return Result.ok(context)

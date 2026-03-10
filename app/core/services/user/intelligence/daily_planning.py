@@ -232,11 +232,20 @@ class DailyPlanningMixin:
                 estimated_time += 15
 
         # =====================================================================
-        # PRIORITY 5: Learning (if capacity allows)
+        # PRIORITY 5: Learning — ZPD-driven when available
         # =====================================================================
         if not respect_capacity or estimated_time < available_time * 0.7:
-            # Try semantic-enhanced search first (if available)
-            if self.vector_search and getattr(self.vector_search, "learning_aware_search", None):
+            zpd = self.context.zpd_assessment
+            if zpd is not None and not zpd.is_empty():
+                # ZPD gravity well path: use recommended actions
+                for action in zpd.top_recommended_actions(3):
+                    if action.action_type == "learn":
+                        est_time = self.context.estimated_time_to_mastery.get(action.entity_uid, 30)
+                        if not respect_capacity or estimated_time + est_time <= available_time:
+                            learning_uids.append(action.entity_uid)
+                            estimated_time += est_time
+            elif self.vector_search and getattr(self.vector_search, "learning_aware_search", None):
+                # Fallback: semantic-enhanced search
                 search_query = self._generate_daily_learning_query(goals_uids, tasks_uids)
                 vector_result = await self.vector_search.learning_aware_search(
                     label="Entity",
