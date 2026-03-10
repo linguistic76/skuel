@@ -173,7 +173,7 @@ async def sel_category(request: Request) -> Any:
 - `EmptyState` - No curriculum available
 
 **Legacy Components (Replaced):**
-- ~~Custom Badge function~~ → `ui/primitives/badge.py`
+- ~~Custom Badge function~~ → `ui/feedback.py` (StatusBadge, PriorityBadge)
 - ~~Manual card layout~~ → `EntityCard` pattern
 - ~~Manual navbar creation~~ → `BasePage` wrapper
 

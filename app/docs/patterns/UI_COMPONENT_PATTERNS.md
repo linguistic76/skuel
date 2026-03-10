@@ -46,7 +46,7 @@ For hands-on implementation:
 SKUEL uses a layered UI component architecture built on Tailwind CSS and DaisyUI 5. This document explains the component system and how to use it.
 
 **Key Files:**
-- `/ui/` - SKUEL UI design system (primitives, patterns, layouts, tokens)
+- `/ui/` - SKUEL UI design system (components, patterns, layouts, tokens)
 - `/ui/layouts/base_page.py` - Unified page wrapper
 - `/ui/layouts/page_types.py` - Page type definitions (HUB vs STANDARD)
 - `/ui/tokens.py` - Spacing, container, and styling tokens

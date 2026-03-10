@@ -150,16 +150,16 @@ Layouts  (/ui/layouts/, /ui/{domain}/layout.py)
     ↓ compose
 Patterns (/ui/patterns/, /ui/{domain}/views.py)
     ↓ compose
-Primitives (/ui/buttons.py, /ui/cards.py, /ui/forms.py, … — 8 focused DaisyUI modules)
+Components (/ui/buttons.py, /ui/cards.py, /ui/forms.py, /ui/feedback.py, /ui/layout.py, /ui/text.py, … — DaisyUI wrappers)
 ```
 
-Each layer has a single responsibility: primitives handle styling, patterns handle domain semantics, layouts handle page structure.
+Each layer has a single responsibility: components handle styling, patterns handle domain semantics, layouts handle page structure.
 
 ### Decision: Where Does a New Component Go?
 
 ```
 Is it domain-agnostic styling (button, card, input)?
-├─ YES → /ui/buttons.py, /ui/cards.py, /ui/forms.py, etc. (Primitive — pick the right module)
+├─ YES → /ui/buttons.py, /ui/cards.py, /ui/forms.py, etc. (Component — pick the right module)
 Is it reusable across multiple domains?
 ├─ YES → /ui/patterns/ (Pattern)
 Is it domain-specific but reusable within domain?

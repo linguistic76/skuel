@@ -78,7 +78,7 @@ Basic building blocks for all SKUEL interfaces.
 
 ## Button
 
-**Location:** `/ui/primitives/button.py`
+**Location:** `/ui/buttons.py`
 
 Styled buttons for actions and navigation.
 
@@ -142,7 +142,7 @@ ButtonLink("Learn More", href="https://example.com", variant="secondary")
 
 ## Card
 
-**Location:** `/ui/primitives/card.py`
+**Location:** `/ui/cards.py`
 
 Container component for grouping related content.
 
@@ -180,7 +180,7 @@ Card(
 
 ## Badge
 
-**Location:** `/ui/primitives/badge.py`
+**Location:** `/ui/feedback.py`
 
 Small labels for status, priority, and categories.
 
@@ -243,7 +243,7 @@ PriorityBadge("low")  # Green badge
 
 ## Input
 
-**Location:** `/ui/primitives/input.py`
+**Location:** `/ui/forms.py`
 
 Form input components with consistent styling.
 
@@ -325,7 +325,7 @@ Select(
 
 ## Layout
 
-**Location:** `/ui/primitives/layout.py`
+**Location:** `/ui/layout.py`
 
 Flexible layout primitives for responsive design.
 
@@ -392,7 +392,7 @@ Row(
 
 ## Text
 
-**Location:** `/ui/primitives/text.py`
+**Location:** `/ui/text.py`
 
 Typography components for consistent text styling.
 
