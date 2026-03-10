@@ -144,7 +144,9 @@ class TestBuildRecommendedActions:
 
         service = ZPDService(backend=_make_backend())
         evidence = {
-            "ku_a": ZoneEvidence(ku_uid="ku_a", task_application=True, habit_reinforcement=True),  # confirmed
+            "ku_a": ZoneEvidence(
+                ku_uid="ku_a", task_application=True, habit_reinforcement=True
+            ),  # confirmed
             "ku_b": ZoneEvidence(ku_uid="ku_b", journal_application=True),  # thin — 1 signal
         }
         actions = service._build_recommended_actions(
@@ -202,7 +204,9 @@ class TestAssessZoneWithContext:
 
         # 2 learn (proximal KUs) + 1 reinforce (ku_b has 1/4 evidence)
         learn_actions = [a for a in assessment.recommended_actions if a.action_type == "learn"]
-        reinforce_actions = [a for a in assessment.recommended_actions if a.action_type == "reinforce"]
+        reinforce_actions = [
+            a for a in assessment.recommended_actions if a.action_type == "reinforce"
+        ]
         assert len(learn_actions) == 2
         assert len(reinforce_actions) == 1
         assert reinforce_actions[0].ku_uid == "ku_b"
