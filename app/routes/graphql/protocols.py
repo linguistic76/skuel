@@ -70,6 +70,64 @@ class CurriculumEntityLike(Protocol):
     metadata: dict[str, Any] | None
 
 
+class KnowledgeNodeLike(Protocol):
+    """
+    Structural contract for objects convertible to KnowledgeNode.
+
+    Captures the implicit contract that KnowledgeNode.from_dto() relied on
+    via ``Any``. Satisfied by Article, CurriculumDTO, EntityDTO, etc.
+    """
+
+    uid: str
+    title: str
+    summary: str | None
+    domain: Any  # Domain enum — has .value
+    tags: list[str] | None
+    quality_score: float
+
+
+class TaskLike(Protocol):
+    """
+    Structural contract for objects convertible to GraphQL Task.
+
+    Satisfied by the Task domain model and TaskDTO.
+    """
+
+    uid: str
+    title: str
+    description: str | None
+    status: Any  # EntityStatus enum — has .value
+    priority: str | None
+
+
+class LearningPathLike(Protocol):
+    """
+    Structural contract for objects convertible to GraphQL LearningPath.
+
+    Satisfied by LP domain model and LpDTO.
+    """
+
+    uid: str
+    title: str
+    description: str | None
+    estimated_hours: float | None
+
+
+class LearningStepMappable(Protocol):
+    """
+    Richer contract for converting an Ls domain model to GraphQL LearningStep.
+
+    Extends beyond LearningStepLike (uid/title only) with the additional
+    fields needed by the mapper.
+    """
+
+    uid: str
+    title: str
+    primary_knowledge_uids: tuple[str, ...] | list[str]
+    mastery_threshold: float
+    estimated_hours: float
+
+
 class PrerequisiteLike(Protocol):
     """
     Structural contract for prerequisite relationship data.

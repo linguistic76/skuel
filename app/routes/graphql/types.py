@@ -3,6 +3,9 @@ GraphQL Type Definitions
 ========================
 
 Strawberry type definitions for SKUEL GraphQL API.
+
+Conversion logic lives in ``routes.graphql.mappers`` — these types are
+purely schema definitions plus ``@strawberry.field`` resolvers.
 """
 
 from __future__ import annotations
@@ -21,10 +24,6 @@ if TYPE_CHECKING:
     from core.models.pathways.learning_step import LearningStep as LsModel
     from core.utils.result_simplified import Result
 
-# Protocol for objects with curriculum-like attributes (Article, CurriculumDTO, etc.)
-# Used by from_dto() classmethods to accept any object with the right fields.
-_KNOWLEDGE_NODE_DEFAULTS = {"summary": "", "tags": [], "quality_score": 0.0}
-
 
 @strawberry.type
 class KnowledgeNode:
@@ -36,33 +35,6 @@ class KnowledgeNode:
     domain: str
     tags: list[str]
     quality_score: float
-
-    @classmethod
-    def from_dto(cls, dto: Any) -> KnowledgeNode:
-        """Convert any curriculum-like object to KnowledgeNode.
-
-        Accepts Article, CurriculumDTO, or any object with uid/title/summary/domain/tags/quality_score.
-        """
-        return cls(
-            uid=dto.uid,
-            title=dto.title,
-            summary=dto.summary or "",
-            domain=dto.domain.value,
-            tags=dto.tags or [],
-            quality_score=getattr(dto, "quality_score", _KNOWLEDGE_NODE_DEFAULTS["quality_score"]),
-        )
-
-    @classmethod
-    def from_search_dict(cls, item: dict[str, Any]) -> KnowledgeNode:
-        """Convert a SearchRouter faceted_search result dict to KnowledgeNode."""
-        return cls(
-            uid=item.get("uid", ""),
-            title=item.get("title", ""),
-            summary=item.get("summary", ""),
-            domain=item.get("_domain", "knowledge"),
-            tags=item.get("tags", []),
-            quality_score=item.get("quality_score", 0.5),
-        )
 
     @strawberry.field
     async def prerequisites(self, info: Info[GraphQLContext, Any]) -> list[KnowledgeNode]:
@@ -98,17 +70,6 @@ class Task:
     status: str
     priority: str
 
-    @classmethod
-    def from_dto(cls, dto: Any) -> Task:
-        """Convert a Task domain model to GraphQL Task type."""
-        return cls(
-            uid=dto.uid,
-            title=dto.title,
-            description=dto.description or "",
-            status=dto.status.value,
-            priority=dto.priority or "medium",
-        )
-
     @strawberry.field
     async def knowledge(self, info: Info[GraphQLContext, Any]) -> KnowledgeNode | None:
         """
@@ -130,25 +91,16 @@ class LearningPath:
     total_steps: int
     estimated_hours: float
 
-    @classmethod
-    def from_dto(cls, dto: Any) -> LearningPath:
-        """Convert a LP domain model to GraphQL LearningPath type."""
-        return cls(
-            uid=dto.uid,
-            name=dto.title,
-            goal=dto.description or "",
-            total_steps=0,  # Steps loaded lazily via LearningPath.steps resolver
-            estimated_hours=dto.estimated_hours or 0.0,
-        )
-
     @strawberry.field
     async def steps(self, info: Info[GraphQLContext, Any]) -> list[LearningStep]:
         """
         Get learning path steps.
 
         Each step can nest its knowledge unit, solving N+1 problems.
-        Uses LearningStep.from_domain() for explicit DTO conversion.
+        Uses mapper for explicit DTO conversion.
         """
+        from routes.graphql.mappers import learning_step_from_domain
+
         context: GraphQLContext = info.context
 
         if not context.services.lp:
@@ -158,8 +110,7 @@ class LearningPath:
         result: Result[list[LsModel]] = await context.services.lp.get_path_steps(self.uid)
         steps: list[LsModel] = unwrap_list(result)
 
-        # Convert domain models to GraphQL DTOs using explicit from_domain()
-        return [LearningStep.from_domain(step, i + 1) for i, step in enumerate(steps)]
+        return [learning_step_from_domain(step, i + 1) for i, step in enumerate(steps)]
 
 
 @strawberry.type
@@ -169,7 +120,7 @@ class LearningStep:
 
     This is a flatter structure optimized for GraphQL queries,
     containing only the fields needed by the API layer.
-    Converted from Ls domain model via from_domain() method.
+    Converted from Ls domain model via ``learning_step_from_domain()`` in mappers.
     """
 
     step_number: int
@@ -179,32 +130,6 @@ class LearningStep:
     mastery_threshold: float
     estimated_time: float
 
-    @classmethod
-    def from_domain(cls, step: Any, step_number: int) -> LearningStep:
-        """
-        Convert Ku domain model to GraphQL DTO.
-
-        This explicit conversion layer:
-        - Catches type mismatches at conversion time
-        - Provides clear contract between service and API layers
-        - Eliminates need for defensive hasattr() checks
-
-        Args:
-            step: Ls domain model from service layer
-            step_number: Step position in learning path (1-indexed)
-
-        Returns:
-            LearningStep GraphQL DTO with only fields needed by API
-        """
-        return cls(
-            step_number=step_number,
-            uid=step.uid,
-            title=step.title,
-            knowledge_uid=step.primary_knowledge_uids[0] if step.primary_knowledge_uids else "",
-            mastery_threshold=step.mastery_threshold,
-            estimated_time=step.estimated_hours,
-        )
-
     @strawberry.field
     async def knowledge(self, info: Info[GraphQLContext, Any]) -> KnowledgeNode | None:
         """
@@ -212,6 +137,8 @@ class LearningStep:
 
         Uses DataLoader for batching when loading multiple steps.
         """
+        from routes.graphql.mappers import knowledge_node_from_dto
+
         context: GraphQLContext = info.context
 
         # Use DataLoader
@@ -220,7 +147,7 @@ class LearningStep:
         if not ku:
             return None
 
-        return KnowledgeNode.from_dto(ku)
+        return knowledge_node_from_dto(ku)  # boundary: DataLoader returns Any
 
 
 @strawberry.type

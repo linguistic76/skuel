@@ -22,6 +22,8 @@ if TYPE_CHECKING:
     from core.utils.result_simplified import Result
     from routes.graphql.types import KnowledgeNode
 
+from routes.graphql.mappers import knowledge_node_from_dto
+
 logger = get_logger("skuel.graphql.query_helpers")
 
 
@@ -65,14 +67,12 @@ class GraphQLQueryHelpers:
         Delegates to ArticleService.get_prerequisites() which returns
         Result[list[CurriculumDTO]].
         """
-        from routes.graphql.types import KnowledgeNode
-
         if not context.services.article:
             return []
 
         result = await context.services.article.get_prerequisites(ku_uid)
         dtos = unwrap_result(result, [])
-        prereqs = [KnowledgeNode.from_dto(dto) for dto in dtos]
+        prereqs = [knowledge_node_from_dto(dto) for dto in dtos]
         logger.debug(f"Loaded {len(prereqs)} prerequisites for {ku_uid}")
         return prereqs
 
@@ -84,14 +84,12 @@ class GraphQLQueryHelpers:
         Delegates to ArticleService.get_enables() which returns
         Result[list[CurriculumDTO]].
         """
-        from routes.graphql.types import KnowledgeNode
-
         if not context.services.article:
             return []
 
         result = await context.services.article.get_enables(ku_uid)
         dtos = unwrap_result(result, [])
-        enabled = [KnowledgeNode.from_dto(dto) for dto in dtos]
+        enabled = [knowledge_node_from_dto(dto) for dto in dtos]
         logger.debug(f"Loaded {len(enabled)} enabled knowledge units for {ku_uid}")
         return enabled
 

@@ -36,6 +36,7 @@ from core.models.pathways.learning_path import LearningPath
 from core.models.pathways.learning_step import LearningStep as LearningStepModel
 from core.services.lp_service import LpService
 from core.services.ls_service import LsService
+from routes.graphql.mappers import learning_step_from_domain
 from routes.graphql.types import LearningStep
 
 if TYPE_CHECKING:
@@ -437,7 +438,7 @@ async def test_learning_step_from_domain_conversion(lp_service, type_contract_te
     step_number = 1
 
     # Act - Convert using from_domain()
-    graphql_dto = LearningStep.from_domain(ls_domain_model, step_number)
+    graphql_dto = learning_step_from_domain(ls_domain_model, step_number)
 
     # Assert - DTO type
     assert isinstance(graphql_dto, LearningStep), "Should return LearningStep instance"
@@ -492,7 +493,7 @@ async def test_learning_step_from_domain_handles_empty_knowledge_uids(lp_service
     )
 
     # Act
-    graphql_dto = LearningStep.from_domain(ls_with_no_knowledge, 1)
+    graphql_dto = learning_step_from_domain(ls_with_no_knowledge, 1)
 
     # Assert - Should gracefully handle empty tuple
     assert graphql_dto.knowledge_uid == "", (
@@ -517,7 +518,7 @@ async def test_learning_step_from_domain_preserves_step_number(lp_service, type_
     assert len(steps) >= 3
 
     # Act - Convert all steps with enumerate
-    graphql_steps = [LearningStep.from_domain(step, i + 1) for i, step in enumerate(steps)]
+    graphql_steps = [learning_step_from_domain(step, i + 1) for i, step in enumerate(steps)]
 
     # Assert - Step numbers are 1-indexed and sequential
     for i, graphql_step in enumerate(graphql_steps, 1):

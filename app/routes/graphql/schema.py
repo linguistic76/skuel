@@ -34,6 +34,13 @@ if TYPE_CHECKING:
     from core.models.pathways.learning_step import LearningStep as LsModel
     from core.utils.result_simplified import Result
     from routes.graphql.protocols import CurriculumEntityLike, LearningStepLike
+from routes.graphql.mappers import (
+    knowledge_node_from_dto,
+    knowledge_node_from_search_dict,
+    learning_path_from_dto,
+    learning_step_from_domain,
+    task_from_dto,
+)
 from routes.graphql.query_helpers import unwrap_list, unwrap_result
 from routes.graphql.types import (
     Blocker,
@@ -43,7 +50,6 @@ from routes.graphql.types import (
     KnowledgeNode,
     LearningPath,
     LearningPathContext,
-    LearningStep,
     PrerequisiteGraph,
     SearchInput,
     SearchResult,
@@ -163,7 +169,7 @@ class Query:
         if not ku:
             return None
 
-        return KnowledgeNode.from_dto(ku)
+        return knowledge_node_from_dto(ku)  # boundary: DataLoader returns Any
 
     @strawberry.field
     async def knowledge_units(
@@ -204,7 +210,7 @@ class Query:
 
         entities, _count = unwrap_result(result, ([], 0))
 
-        return [KnowledgeNode.from_dto(ku) for ku in entities]
+        return [knowledge_node_from_dto(ku) for ku in entities]
 
     @strawberry.field
     async def search_knowledge(
@@ -247,7 +253,7 @@ class Query:
         # Convert SearchResponse results to GraphQL SearchResult format
         return [
             SearchResult(
-                knowledge=KnowledgeNode.from_search_dict(item),
+                knowledge=knowledge_node_from_search_dict(item),
                 relevance=item.get("_score", 1.0),
                 explanation=item.get("explanation", ""),
             )
@@ -269,7 +275,7 @@ class Query:
         if not task:
             return None
 
-        return Task.from_dto(task)
+        return task_from_dto(task)  # boundary: DataLoader returns Any
 
     @strawberry.field
     async def tasks(
@@ -303,7 +309,7 @@ class Query:
         )
         entities = unwrap_result(ctx_result, {"entities": [], "stats": {}})["entities"][:safe_limit]
 
-        return [Task.from_dto(t) for t in entities]
+        return [task_from_dto(t) for t in entities]
 
     @strawberry.field
     async def learning_path(self, info: Info[GraphQLContext, Any], uid: str) -> LearningPath | None:
@@ -320,7 +326,7 @@ class Query:
         if not path:
             return None
 
-        return LearningPath.from_dto(path)
+        return learning_path_from_dto(path)  # boundary: DataLoader returns Any
 
     @strawberry.field
     async def discover_cross_domain(
@@ -390,7 +396,9 @@ class Query:
             if opp.source_knowledge_uids:
                 source_ku = await context.knowledge_loader.load(opp.source_knowledge_uids[0])
                 if source_ku:
-                    source_node = KnowledgeNode.from_dto(source_ku)
+                    source_node = knowledge_node_from_dto(
+                        source_ku
+                    )  # boundary: DataLoader returns Any
 
             if not source_node:
                 source_node = KnowledgeNode(
@@ -407,7 +415,9 @@ class Query:
             if opp.target_knowledge_uids:
                 target_ku = await context.knowledge_loader.load(opp.target_knowledge_uids[0])
                 if target_ku:
-                    target_node = KnowledgeNode.from_dto(target_ku)
+                    target_node = knowledge_node_from_dto(
+                        target_ku
+                    )  # boundary: DataLoader returns Any
 
             if not target_node:
                 target_node = KnowledgeNode(
@@ -470,7 +480,7 @@ class Query:
             )
 
         paths = unwrap_list(result)
-        return [LearningPath.from_dto(p) for p in paths]
+        return [learning_path_from_dto(p) for p in paths]
 
     # ========================================================================
     # Complex Graph Queries (GraphQL's Strength)
@@ -594,12 +604,12 @@ class Query:
         # Use from_domain() for explicit DTO conversion
         next_steps = []
         for i, step in enumerate(steps[completed_steps : completed_steps + 3]):
-            next_steps.append(LearningStep.from_domain(step, completed_steps + i + 1))
+            next_steps.append(learning_step_from_domain(step, completed_steps + i + 1))
 
         # Check if prerequisites are met (simplified)
         prerequisites_met = len(blockers) == 0
 
-        lp = LearningPath.from_dto(path)
+        lp = learning_path_from_dto(path)
         lp.total_steps = total_steps  # Override lazy-load default with actual count
 
         return LearningPathContext(
@@ -715,7 +725,7 @@ class Query:
                 # Build node
                 prereq_nodes.append(
                     PrerequisiteNode(
-                        knowledge=KnowledgeNode.from_dto(prereq_ku),
+                        knowledge=knowledge_node_from_dto(prereq_ku),
                         depth=current_depth + 1,
                         is_mastered=is_mastered,
                         children=children,
@@ -746,7 +756,7 @@ class Query:
         prerequisites_mastered = count_mastered_in_tree(prerequisite_tree)
 
         return PrerequisiteGraph(
-            target=KnowledgeNode.from_dto(ku),
+            target=knowledge_node_from_dto(ku),
             prerequisite_tree=prerequisite_tree,
             total_prerequisites=total_prerequisites,
             prerequisites_mastered=prerequisites_mastered,
@@ -793,7 +803,7 @@ class Query:
         enables = unwrap_list(enables_result)
 
         # Build nodes list (center + prerequisites + enables)
-        center_node = KnowledgeNode.from_dto(ku)
+        center_node = knowledge_node_from_dto(ku)  # boundary: DataLoader returns Any
         nodes = [center_node]
 
         # Build edges list
@@ -801,7 +811,7 @@ class Query:
 
         # Add prerequisite edges
         for prereq in prerequisites:
-            prereq_node = KnowledgeNode.from_dto(prereq)
+            prereq_node = knowledge_node_from_dto(prereq)
             nodes.append(prereq_node)
             edges.append(
                 DependencyEdge(
@@ -814,7 +824,7 @@ class Query:
 
         # Add enables edges
         for enabled in enables:
-            enabled_node = KnowledgeNode.from_dto(enabled)
+            enabled_node = knowledge_node_from_dto(enabled)
             nodes.append(enabled_node)
             edges.append(
                 DependencyEdge(
