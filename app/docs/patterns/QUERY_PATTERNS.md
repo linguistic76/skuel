@@ -179,7 +179,7 @@ Uses `UniversalNeo4jBackend.search()` and `.find_by()` for fast property filteri
 
 ```python
 # Converts SearchRequest facets to WHERE clauses
-filters = request.to_neo4j_filters()
+filters = request.to_property_filters()
 # {"sel_category": "self_awareness", "learning_level": "beginner"}
 
 results = await backend.find_by(**filters)

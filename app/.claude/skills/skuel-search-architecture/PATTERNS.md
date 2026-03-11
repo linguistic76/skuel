@@ -88,7 +88,7 @@ result = await search_router.faceted_search(search_request, user_uid)
 
 **Trade-offs**:
 - Facets are first-class `SearchRequest` fields (not buried in dicts) — type-safe
-- `to_neo4j_filters()` converts enum values to strings for Cypher
+- `to_property_filters()` converts enum values to strings for Cypher
 - `to_graph_patterns()` generates EXISTS subqueries for graph pattern filters
 
 **Real-world usage**: `search_routes.py` → `SearchRouter.faceted_search()`

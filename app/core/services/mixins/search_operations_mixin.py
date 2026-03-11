@@ -468,7 +468,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
 
         Combines:
         1. User ownership filter (if _user_ownership_relationship is set)
-        2. Property filters from request.to_neo4j_filters()
+        2. Property filters from request.to_property_filters()
         3. Text search on _search_fields
         4. Graph pattern enrichment from _graph_enrichment_patterns
         5. Relationship filters from request.to_graph_patterns()
@@ -506,8 +506,8 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         where_clauses = ["1=1"]  # Base condition
 
         # Property filters from SearchRequest (always present - type-safe)
-        neo4j_filters = request.to_neo4j_filters()
-        for field, value in neo4j_filters.items():
+        property_filters = request.to_property_filters()
+        for field, value in property_filters.items():
             param_name = f"filter_{field}"
             where_clauses.append(f"entity.{field} = ${param_name}")
             params[param_name] = value

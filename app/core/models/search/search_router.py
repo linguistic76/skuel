@@ -503,7 +503,7 @@ class SearchRouter:
                     query_text=request.query_text,
                     domain=None,
                     facet_counts={},
-                    applied_filters=request.to_neo4j_filters(),
+                    applied_filters=request.to_property_filters(),
                     search_time_ms=search_time,
                 )
             )
@@ -594,7 +594,7 @@ class SearchRouter:
                 query_text=request.query_text,
                 domain=domain_str,
                 facet_counts={},
-                applied_filters=request.to_neo4j_filters(),
+                applied_filters=request.to_property_filters(),
                 search_time_ms=search_time,
             )
         )
@@ -658,7 +658,7 @@ class SearchRouter:
                 query_text=request.query_text,
                 domain=domain_str,
                 facet_counts={},
-                applied_filters=request.to_neo4j_filters(),
+                applied_filters=request.to_property_filters(),
                 search_time_ms=search_time,
             )
         )

@@ -386,8 +386,8 @@ class SearchRequest(BaseModel):
     supports_goals: bool = False
     builds_on_mastered: bool = False
 
-    def to_neo4j_filters(self) -> dict[str, Any]:
-        """Convert facets to Neo4j property filters"""
+    def to_property_filters(self) -> dict[str, Any]:
+        """Convert facets to property filters"""
         filters = {}
         if self.domain:
             filters["domain"] = self.domain.value

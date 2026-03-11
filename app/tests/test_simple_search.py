@@ -61,8 +61,8 @@ class TestSearchRequestModels:
         with pytest.raises(ValueError):
             SearchRequest(query_text="")
 
-    def test_search_request_to_neo4j_filters(self):
-        """Test conversion to Neo4j filters"""
+    def test_search_request_to_property_filters(self):
+        """Test conversion to property filters"""
         request = SearchRequest(
             query_text="test",
             sel_category=SELCategory.SELF_AWARENESS,
@@ -70,25 +70,25 @@ class TestSearchRequestModels:
             content_type=ContentType.PRACTICE,
         )
 
-        filters = request.to_neo4j_filters()
+        filters = request.to_property_filters()
 
         assert filters["sel_category"] == "self_awareness"
         assert filters["learning_level"] == "beginner"
         assert filters["content_type"] == "practice"
 
-    def test_search_request_get_neo4j_label(self):
-        """Test Neo4j label mapping"""
+    def test_search_request_get_graph_label(self):
+        """Test graph label mapping"""
         # Knowledge domain
         request = SearchRequest(query_text="test", domain=Domain.KNOWLEDGE)
-        assert request.get_neo4j_label() == "Entity"
+        assert request.get_graph_label() == "Entity"
 
         # Tasks domain
         request = SearchRequest(query_text="test", domain=Domain.TASKS)
-        assert request.get_neo4j_label() == "Task"
+        assert request.get_graph_label() == "Task"
 
         # No domain
         request = SearchRequest(query_text="test")
-        assert request.get_neo4j_label() is None
+        assert request.get_graph_label() is None
 
     def test_facet_count_model(self):
         """Test FacetCount model"""

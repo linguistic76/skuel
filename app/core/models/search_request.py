@@ -388,9 +388,9 @@ class SearchRequest(BaseModel):
 
         return v
 
-    def to_neo4j_filters(self) -> dict[str, Any]:
+    def to_property_filters(self) -> dict[str, Any]:
         """
-        Convert facets to Neo4j property filters.
+        Convert facets to property filters.
 
         Used by UniversalNeo4jBackend.find_by() for dynamic queries.
         All facets become WHERE clauses in Cypher.
@@ -439,11 +439,11 @@ class SearchRequest(BaseModel):
 
         return filters
 
-    def get_neo4j_label(self) -> str | None:
+    def get_graph_label(self) -> str | None:
         """
-        Get Neo4j label from domain.
+        Get graph label from domain.
 
-        Maps Domain enum/string to Neo4j node labels.
+        Maps Domain enum/string to graph node labels.
         """
         if not self.domain:
             return None

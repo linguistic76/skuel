@@ -522,7 +522,7 @@ Key design: **query text is OPTIONAL** — filter-only search is valid.
 | Pagination | `limit`, `offset` |
 
 **Key methods:**
-- `to_neo4j_filters()` — property → WHERE clauses
+- `to_property_filters()` — property → WHERE clauses
 - `to_graph_patterns()` — relationship → Cypher patterns
 - `has_relationship_filters()` — mode routing (Simple vs Graph-Aware)
 - `has_semantic_boost()` — semantic vector search routing
@@ -746,7 +746,7 @@ Graph Relationships:
 
 ### Extending Search
 
-1. **New property filter**: Add field to `SearchRequest`, update `to_neo4j_filters()`
+1. **New property filter**: Add field to `SearchRequest`, update `to_property_filters()`
 2. **New relationship filter**: Add bool field, update `has_relationship_filters()` and `to_graph_patterns()`
 3. **New searchable domain**: Add to `_SEARCHABLE_DOMAINS` and `_SERVICE_REGISTRY`, add `SearchFieldConfig` in `config.py`. For graph-aware search, also add `_GRAPH_AWARE_DOMAINS` entry and handler `_graph_aware_search_{domain}()`
 4. **New semantic relationship type**: Add to `relationship_type_weights` in `VectorSearchConfig`

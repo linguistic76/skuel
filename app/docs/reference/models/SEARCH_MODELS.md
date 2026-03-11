@@ -189,25 +189,25 @@ user_uid: str | None = None  # User ID for personalized results
 
 ### Key Methods
 
-#### to_neo4j_filters()
+#### to_property_filters()
 
-Convert facets to Neo4j property filters.
+Convert facets to property filters.
 
 ```python
-def to_neo4j_filters() -> dict[str, Any]:
-    """Convert facets to Neo4j WHERE clauses."""
+def to_property_filters() -> dict[str, Any]:
+    """Convert facets to WHERE clauses."""
     # Returns: {property_name: value}
     # Example: {"domain": "knowledge", "learning_level": "beginner"}
 ```
 
-#### get_neo4j_label()
+#### get_graph_label()
 
-Get Neo4j label from domain.
+Get graph label from domain.
 
 ```python
-def get_neo4j_label() -> str | None:
-    """Maps Domain enum to Neo4j node labels."""
-    # Example: "knowledge" → "Ku"
+def get_graph_label() -> str | None:
+    """Maps Domain enum to graph node labels."""
+    # Example: "knowledge" → "Entity"
     #          "tasks" → "Task"
 ```
 
