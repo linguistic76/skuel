@@ -24,14 +24,14 @@ import re
 import sys
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 from typing import Literal
 
 from core.utils.frontmatter import parse_frontmatter as _parse_frontmatter
 
 
-class TrackingType(str, Enum):
+class TrackingType(StrEnum):
     """Type of freshness tracking for a document."""
 
     CODE_BASED = "code"  # Default: tracks code file mtimes

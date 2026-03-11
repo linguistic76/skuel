@@ -8,10 +8,10 @@ and the unified alignment spectrum (principles + life path).
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 
-class PrincipleCategory(str, Enum):
+class PrincipleCategory(StrEnum):
     """Life domain classification for principles."""
 
     SPIRITUAL = "spiritual"
@@ -24,7 +24,7 @@ class PrincipleCategory(str, Enum):
     CREATIVE = "creative"
 
 
-class PrincipleSource(str, Enum):
+class PrincipleSource(StrEnum):
     """Origin/tradition of a principle."""
 
     PHILOSOPHICAL = "philosophical"
@@ -36,7 +36,7 @@ class PrincipleSource(str, Enum):
     LITERATURE = "literature"
 
 
-class PrincipleStrength(str, Enum):
+class PrincipleStrength(StrEnum):
     """How deeply held/practiced a principle is."""
 
     CORE = "core"
@@ -46,7 +46,7 @@ class PrincipleStrength(str, Enum):
     EXPLORING = "exploring"
 
 
-class AlignmentLevel(str, Enum):
+class AlignmentLevel(StrEnum):
     """
     Alignment measurement for principles and life path.
 

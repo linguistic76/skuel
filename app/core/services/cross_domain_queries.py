@@ -112,7 +112,7 @@ class CrossDomainQueries:
 
                 for ku_uid in direct_uids:
                     # Build prerequisite query using semantic types
-                    prereq_cypher, prereq_params = build_prerequisite_chain(
+                    _prereq_cypher, prereq_params = build_prerequisite_chain(
                         node_uid=ku_uid,
                         semantic_types=[
                             SemanticRelationshipType.REQUIRES_THEORETICAL_UNDERSTANDING,

@@ -609,7 +609,7 @@ async def test_full_flow_round_trip():
     # Create task
     task_data = {"uid": "task-123", "title": "Test Task", "priority": "high"}
     create_response = await create_task_route(task_data)
-    create_body, create_status = extract_response(create_response)
+    _create_body, create_status = extract_response(create_response)
     assert create_status == 201
 
     # Retrieve task

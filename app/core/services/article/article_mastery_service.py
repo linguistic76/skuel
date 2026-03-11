@@ -20,7 +20,7 @@ Architecture:
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from enum import Enum
+from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
 from core.utils.logging import get_logger
@@ -30,7 +30,7 @@ if TYPE_CHECKING:
     from core.ports import BackendOperations
 
 
-class LearningState(str, Enum):
+class LearningState(StrEnum):
     """User's learning state for a knowledge unit."""
 
     NONE = "none"  # User has never interacted with this KU

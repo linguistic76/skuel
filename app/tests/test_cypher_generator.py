@@ -297,7 +297,7 @@ class TestCypherGeneratorSemantic:
         mock_type = Mock()
         mock_type.to_neo4j_name.return_value = "ENABLES"
 
-        query, params = build_semantic_filter_query(
+        query, _params = build_semantic_filter_query(
             label="Task", semantic_type=mock_type, direction="incoming"
         )
 
@@ -310,7 +310,7 @@ class TestCypherGeneratorSemantic:
         mock_type = Mock()
         mock_type.to_neo4j_name.return_value = "RELATED_TO"
 
-        query, params = build_semantic_filter_query(
+        query, _params = build_semantic_filter_query(
             label="Topic", semantic_type=mock_type, direction="both"
         )
 
@@ -378,7 +378,7 @@ class TestEdgeCases:
 
     def test_unknown_operator_skips(self):
         """Test that unknown operators are skipped with warning."""
-        query, params = build_search_query(SampleTask, {"priority__unknown_op": "high"})
+        query, _params = build_search_query(SampleTask, {"priority__unknown_op": "high"})
 
         # Should generate query but skip the unknown operator
         assert "MATCH (n:SampleTask)" in query
@@ -387,14 +387,14 @@ class TestEdgeCases:
 
     def test_custom_label(self):
         """Test using custom label instead of class name."""
-        query, params = build_search_query(SampleTask, {"priority": "high"}, label="CustomTask")
+        query, _params = build_search_query(SampleTask, {"priority": "high"}, label="CustomTask")
 
         assert "MATCH (n:CustomTask)" in query
         assert "MATCH (n:SampleTask)" not in query
 
     def test_empty_filters_dict(self):
         """Test with empty filters dictionary."""
-        query, params = build_search_query(SampleTask, {})
+        query, _params = build_search_query(SampleTask, {})
 
         assert "MATCH (n:SampleTask)" in query
         assert "WHERE 1=1" in query or "WHERE" not in query
@@ -430,7 +430,7 @@ class TestEdgeCases:
         mock_type.to_neo4j_name.return_value = "REQUIRES"
 
         # Depth 0 should still work but match no paths
-        query, params = build_semantic_context(
+        query, _params = build_semantic_context(
             node_uid="ku.test", semantic_types=[mock_type], depth=0
         )
 
@@ -448,7 +448,7 @@ class TestEdgeCases:
             mock_type.to_neo4j_name.return_value = f"SEMANTIC_TYPE_{i}"
             semantic_types.append(mock_type)
 
-        query, params = build_semantic_context(
+        query, _params = build_semantic_context(
             node_uid="ku.test", semantic_types=semantic_types, depth=2
         )
 
@@ -498,7 +498,7 @@ class TestEdgeCases:
 
     def test_order_by_invalid_field(self):
         """Test list query with invalid order_by field."""
-        query, params = build_list_query(SampleTask, order_by="invalid_field", limit=50)
+        query, _params = build_list_query(SampleTask, order_by="invalid_field", limit=50)
 
         # Should skip invalid order_by and still generate valid query
         assert "MATCH (n:SampleTask)" in query
@@ -525,7 +525,7 @@ class TestEdgeCases:
         mock_type = Mock()
         mock_type.to_neo4j_name.return_value = "REQUIRES"
 
-        query, params = build_semantic_context(
+        _query, params = build_semantic_context(
             node_uid="ku.test", semantic_types=[mock_type], min_confidence=1.0
         )
 
@@ -538,7 +538,7 @@ class TestEdgeCases:
         mock_type = Mock()
         mock_type.to_neo4j_name.return_value = "LEADS_TO"
 
-        query, params = build_semantic_traversal(
+        query, _params = build_semantic_traversal(
             start_uid="ku.start", end_uid="ku.end", semantic_types=[mock_type], max_depth=100
         )
 

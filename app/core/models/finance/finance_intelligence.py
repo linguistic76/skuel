@@ -14,10 +14,10 @@ Following the Knowledge domain pattern:
 
 from dataclasses import dataclass
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 
 
-class SpendingVelocity(str, Enum):
+class SpendingVelocity(StrEnum):
     """Spending rate patterns."""
 
     VERY_CONSERVATIVE = "very_conservative"
@@ -27,7 +27,7 @@ class SpendingVelocity(str, Enum):
     VERY_LIBERAL = "very_liberal"
 
 
-class FinancialHealthTier(str, Enum):
+class FinancialHealthTier(StrEnum):
     """Overall financial health assessment."""
 
     CRITICAL = "critical"
@@ -37,7 +37,7 @@ class FinancialHealthTier(str, Enum):
     EXCELLENT = "excellent"
 
 
-class SpendingPattern(str, Enum):
+class SpendingPattern(StrEnum):
     """Common spending behavior patterns."""
 
     IMPULSE_BUYER = "impulse_buyer"

@@ -631,7 +631,7 @@ async def test_insights_route_ownership_denied(mock_router, mock_service, mock_o
 
     # Request unowned entity - should fail with 404
     json_response = await insights_handler(request, uid="goal:not-owned")
-    response, status_code = extract_response(json_response)
+    _response, status_code = extract_response(json_response)
 
     # Returns 404 (not 403) to prevent UID enumeration
     assert status_code == 404

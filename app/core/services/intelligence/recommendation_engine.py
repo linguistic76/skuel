@@ -26,14 +26,14 @@ Usage:
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
 
-class RecommendationLevel(str, Enum):
+class RecommendationLevel(StrEnum):
     """Severity level for recommendations."""
 
     CRITICAL = "critical"

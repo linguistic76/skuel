@@ -144,7 +144,7 @@ def get_mixin_methods() -> dict[str, list[str]]:
     for mixin_name, mixin_class in mixins.items():
         methods = []
         for name in dir(mixin_class):
-            if not name.startswith("_") or name in ["__init__"]:
+            if not name.startswith("_") or name == "__init__":
                 attr = getattr(mixin_class, name)
                 if callable(attr):
                     methods.append(name)

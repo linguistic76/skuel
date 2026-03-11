@@ -69,7 +69,7 @@ class TestUnifiedQueryPattern:
 
     def test_build_user_activity_query_no_date_filtering(self):
         """Test query without date filtering (all items)."""
-        query, params = build_user_activity_query(
+        query, _params = build_user_activity_query(
             user_uid="user.mike",
             node_label="Habit",
             date_field=None,  # No date filtering
@@ -140,7 +140,7 @@ class TestUnifiedQueryPattern:
         ]
 
         for node_label, date_field in domains:
-            query, params = build_user_activity_query(
+            query, _params = build_user_activity_query(
                 user_uid="user.mike",
                 node_label=node_label,
                 date_field=date_field,

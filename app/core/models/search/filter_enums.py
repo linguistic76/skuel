@@ -8,10 +8,10 @@ Version: 1.0.0
 Date: 2025-11-29
 """
 
-from enum import Enum
+from enum import StrEnum
 
 
-class FilterOperator(str, Enum):
+class FilterOperator(StrEnum):
     """
     Operators for numeric and date filtering.
 
@@ -54,7 +54,7 @@ class FilterOperator(str, Enum):
         return f"{field_name}__{self.value}"
 
 
-class SearchSortOrder(str, Enum):
+class SearchSortOrder(StrEnum):
     """
     Sort ordering for search results.
 

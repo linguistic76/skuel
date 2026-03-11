@@ -18,10 +18,10 @@ Design Principles:
 - Only ADMIN can promote to TEACHER or ADMIN
 """
 
-from enum import Enum
+from enum import StrEnum
 
 
-class UserRole(str, Enum):
+class UserRole(StrEnum):
     """
     Four-tier user role hierarchy for SKUEL.
 
@@ -103,7 +103,7 @@ class UserRole(str, Enum):
         return cls.REGISTERED
 
 
-class ContextHealthScore(str, Enum):
+class ContextHealthScore(StrEnum):
     """
     User context health scoring levels.
 

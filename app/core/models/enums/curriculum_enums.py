@@ -5,10 +5,10 @@ Curriculum Enums - Learning Path and Step Classification
 Enums for learning path types and step difficulty levels.
 """
 
-from enum import Enum
+from enum import StrEnum
 
 
-class LpType(str, Enum):
+class LpType(StrEnum):
     """
     Type of Learning Path.
 
@@ -22,7 +22,7 @@ class LpType(str, Enum):
     ACCELERATED = "accelerated"
 
 
-class StepDifficulty(str, Enum):
+class StepDifficulty(StrEnum):
     """Difficulty level of a learning step."""
 
     TRIVIAL = "trivial"

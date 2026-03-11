@@ -138,7 +138,7 @@ def test_init_with_backend(mock_backend):
 
 def test_init_without_backend():
     """Test service initialization fails without backend."""
-    with pytest.raises(ValueError, match="tasks.progress backend is REQUIRED"):
+    with pytest.raises(ValueError, match=r"tasks\.progress backend is REQUIRED"):
         TasksProgressService(backend=None)
 
 

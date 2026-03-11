@@ -8,7 +8,7 @@ Tests each mapper with minimal protocol-satisfying objects (no Neo4j needed).
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 
 from routes.graphql.mappers import (
     knowledge_node_from_dto,
@@ -24,11 +24,11 @@ from routes.graphql.types import KnowledgeNode, LearningPath, LearningStep, Task
 # --------------------------------------------------------------------------
 
 
-class FakeDomain(str, Enum):
+class FakeDomain(StrEnum):
     TECH = "tech"
 
 
-class FakeStatus(str, Enum):
+class FakeStatus(StrEnum):
     ACTIVE = "active"
 
 

@@ -36,10 +36,10 @@ See Also:
     - SemanticRelationshipType: RDF-inspired precision (maps from this enum)
 """
 
-from enum import Enum
+from enum import StrEnum
 
 
-class RelationshipName(str, Enum):
+class RelationshipName(StrEnum):
     """
     All valid Neo4j relationship type names.
 

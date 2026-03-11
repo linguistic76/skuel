@@ -101,7 +101,7 @@ def test_user_progress_validation():
     uid = generate_progress_uid("user_123", "task_456")
 
     # Invalid progress value
-    with pytest.raises(ValueError, match="progress_value must be 0.0-1.0"):
+    with pytest.raises(ValueError, match=r"progress_value must be 0\.0-1\.0"):
         UserProgress(
             uid=uid,
             user_uid="user_123",

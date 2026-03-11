@@ -20,7 +20,7 @@ __version__ = "1.0"
 import os
 from dataclasses import dataclass, field
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
@@ -55,7 +55,7 @@ def _get_neo4j_password() -> str:
 # ============================================================================
 
 
-class Environment(str, Enum):
+class Environment(StrEnum):
     """System environment definition"""
 
     LOCAL = "local"
@@ -65,7 +65,7 @@ class Environment(str, Enum):
     TEST = "test"
 
 
-class SchemaVersion(str, Enum):
+class SchemaVersion(StrEnum):
     """Schema versions for evolution tracking"""
 
     V3_0 = "3.0"  # Current clean architecture version

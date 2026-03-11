@@ -581,6 +581,10 @@ ignore = [
     "FURB110", # `if` statement can be replaced with `any()` - sometimes less readable
     "FURB113", # `try`-`except` can be replaced with `contextlib.suppress()` - explicit better
 
+    # Async rules (SKUEL uses asyncio, not trio/anyio)
+    "ASYNC240", # Blocking pathlib in async - trivial local FS ops, no anyio dependency
+    "ASYNC250", # Blocking input() in async - only in interactive scripts
+
     # SKUEL-specific ignores (January 2026)
     "RUF022",  # __all__ sorting - we use semantic grouping with comments
     "TC001",   # TYPE_CHECKING imports - false positives for runtime imports

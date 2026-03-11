@@ -11,7 +11,7 @@ context from Neo4j queries that span multiple domains.
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums import Domain
@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from core.infrastructure.database.schema import SchemaContext
 
 
-class RelationshipStrength(str, Enum):
+class RelationshipStrength(StrEnum):
     """Strength of relationships in graph context."""
 
     WEAK = "weak"  # Minimal connection
@@ -30,7 +30,7 @@ class RelationshipStrength(str, Enum):
     CRITICAL = "critical"  # Essential connection
 
 
-class ContextRelevance(str, Enum):
+class ContextRelevance(StrEnum):
     """Relevance of context to original query."""
 
     LOW = "low"  # Tangentially related

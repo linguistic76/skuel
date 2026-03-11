@@ -266,7 +266,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
         user_uid = require_authenticated_user(request)
 
         try:
-            user, context = await _get_user_and_context(user_uid)
+            user, _context = await _get_user_and_context(user_uid)
         except ValueError as e:
             logger.error("Failed to load user for settings", extra={"error": str(e)})
             return await error_page("User not found", 404)
@@ -1023,7 +1023,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
 
         # Get intelligence data for alignment scores
         try:
-            user, context = await _get_user_and_context(user_uid)
+            _user, context = await _get_user_and_context(user_uid)
         except ValueError as e:
             from starlette.responses import JSONResponse
 
@@ -1146,7 +1146,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
         user_uid = require_authenticated_user(request)
 
         try:
-            user, context = await _get_user_and_context(user_uid)
+            _user, context = await _get_user_and_context(user_uid)
         except ValueError as e:
             from starlette.responses import JSONResponse
 
@@ -1240,7 +1240,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
 
         # Get user and context
         try:
-            user, context = await _get_user_and_context(user_uid)
+            _user, context = await _get_user_and_context(user_uid)
         except ValueError as e:
             from ui.patterns.empty_state import EmptyState
 

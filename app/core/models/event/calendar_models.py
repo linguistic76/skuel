@@ -12,7 +12,7 @@ __version__ = "1.0"
 
 from dataclasses import dataclass, field
 from datetime import date, datetime
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 
@@ -21,7 +21,7 @@ def _default_all_item_types() -> Any:
     return list(CalendarItemType)
 
 
-class CalendarItemType(str, Enum):
+class CalendarItemType(StrEnum):
     """Type of item displayed on calendar"""
 
     EVENT = "event"  # Native event (meeting, appointment)
@@ -42,7 +42,7 @@ class CalendarItemType(str, Enum):
         return icons.get(self, "📅")
 
 
-class CalendarView(str, Enum):
+class CalendarView(StrEnum):
     """Calendar view modes"""
 
     DAY = "day"

@@ -7,10 +7,10 @@ Enums specific to the atomic Knowledge Unit (Ku) domain.
 See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
 
-from enum import Enum
+from enum import StrEnum
 
 
-class KuCategory(str, Enum):
+class KuCategory(StrEnum):
     """What kind of knowledge unit is this Ku?
 
     Categories classify the nature of the atomic knowledge:

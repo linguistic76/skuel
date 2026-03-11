@@ -15,14 +15,14 @@ Key Principles:
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from typing import Any, Optional
 
 from core.constants import ConfidenceLevel
 from core.models.enums import RelationshipType
 
 
-class RelationshipNamespace(str, Enum):
+class RelationshipNamespace(StrEnum):
     """
     RDF-inspired namespaces for organizing relationships by domain.
 
@@ -40,7 +40,7 @@ class RelationshipNamespace(str, Enum):
     MOC = "moc"  # Map of Content relationships
 
 
-class SemanticRelationshipType(str, Enum):
+class SemanticRelationshipType(StrEnum):
     """
     Semantically precise relationship types with namespace prefixes.
 

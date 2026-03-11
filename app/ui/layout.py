@@ -8,7 +8,7 @@ Size lives here because it is consumed by buttons, forms, badges, and loading
 components — a single canonical location avoids circular imports.
 """
 
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from fasthtml.common import Div
@@ -27,7 +27,7 @@ __all__ = [
 ]
 
 
-class Size(str, Enum):
+class Size(StrEnum):
     """Component size options."""
 
     xs = "xs"

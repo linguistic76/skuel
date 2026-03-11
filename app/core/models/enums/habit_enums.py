@@ -5,10 +5,10 @@ Habit Enums - Habit Classification and Completion Tracking
 Enums for habit polarity, category, difficulty, and completion status.
 """
 
-from enum import Enum
+from enum import StrEnum
 
 
-class HabitPolarity(str, Enum):
+class HabitPolarity(StrEnum):
     """
     Direction of habit change.
 
@@ -22,7 +22,7 @@ class HabitPolarity(str, Enum):
     NEUTRAL = "neutral"
 
 
-class HabitCategory(str, Enum):
+class HabitCategory(StrEnum):
     """Category classification for habits."""
 
     HEALTH = "health"
@@ -36,7 +36,7 @@ class HabitCategory(str, Enum):
     OTHER = "other"
 
 
-class HabitDifficulty(str, Enum):
+class HabitDifficulty(StrEnum):
     """Difficulty level of maintaining a habit."""
 
     TRIVIAL = "trivial"
@@ -46,7 +46,7 @@ class HabitDifficulty(str, Enum):
     HARD = "hard"
 
 
-class CompletionStatus(str, Enum):
+class CompletionStatus(StrEnum):
     """
     Status for tracking completion of activities, especially habits.
 

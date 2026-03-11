@@ -22,7 +22,7 @@ All badges include:
 
 from dataclasses import dataclass
 from datetime import date
-from enum import Enum
+from enum import StrEnum
 from typing import Any, ClassVar
 
 from fasthtml.common import H2, H3, Div, P, Span
@@ -33,7 +33,7 @@ from ui.feedback import Progress
 from ui.forms import Label
 
 
-class BadgeCategory(str, Enum):
+class BadgeCategory(StrEnum):
     """Badge categories for organization."""
 
     IDENTITY = "identity"

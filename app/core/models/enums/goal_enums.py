@@ -6,10 +6,10 @@ Enums for goal types, timeframes, measurement strategies,
 and habit essentiality to goal achievement.
 """
 
-from enum import Enum
+from enum import StrEnum
 
 
-class GoalType(str, Enum):
+class GoalType(StrEnum):
     """
     Classification of goal by nature.
 
@@ -24,7 +24,7 @@ class GoalType(str, Enum):
     MASTERY = "mastery"
 
 
-class GoalTimeframe(str, Enum):
+class GoalTimeframe(StrEnum):
     """
     Expected duration/timeframe for goal achievement.
 
@@ -39,7 +39,7 @@ class GoalTimeframe(str, Enum):
     MULTI_YEAR = "multi_year"
 
 
-class MeasurementType(str, Enum):
+class MeasurementType(StrEnum):
     """
     How goal progress is measured.
 
@@ -56,7 +56,7 @@ class MeasurementType(str, Enum):
     MIXED = "mixed"
 
 
-class HabitEssentiality(str, Enum):
+class HabitEssentiality(StrEnum):
     """
     Classification of habit importance to goal achievement.
 

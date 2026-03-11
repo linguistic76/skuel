@@ -6,10 +6,10 @@ Enums for report processing pipelines, LLM configuration,
 scheduling, and project/assignment scope.
 """
 
-from enum import Enum
+from enum import StrEnum
 
 
-class ExerciseScope(str, Enum):
+class ExerciseScope(StrEnum):
     """
     Scope of an exercise (instruction template).
 
@@ -21,7 +21,7 @@ class ExerciseScope(str, Enum):
     ASSIGNED = "assigned"
 
 
-class FormattingStyle(str, Enum):
+class FormattingStyle(StrEnum):
     """Style for formatting transcripts during LLM processing."""
 
     STRUCTURED = "structured"
@@ -31,7 +31,7 @@ class FormattingStyle(str, Enum):
     EXECUTIVE_SUMMARY = "executive_summary"
 
 
-class AnalysisDepth(str, Enum):
+class AnalysisDepth(StrEnum):
     """Depth of analysis for transcript processing."""
 
     BASIC = "basic"
@@ -39,7 +39,7 @@ class AnalysisDepth(str, Enum):
     COMPREHENSIVE = "comprehensive"
 
 
-class ContextEnrichmentLevel(str, Enum):
+class ContextEnrichmentLevel(StrEnum):
     """Level of SKUEL enterprise context integration."""
 
     NONE = "none"
@@ -48,7 +48,7 @@ class ContextEnrichmentLevel(str, Enum):
     DEEP = "deep"
 
 
-class ScheduleType(str, Enum):
+class ScheduleType(StrEnum):
     """Frequency of progress report generation."""
 
     WEEKLY = "weekly"
@@ -64,7 +64,7 @@ class ScheduleType(str, Enum):
         }[self]
 
 
-class ProgressDepth(str, Enum):
+class ProgressDepth(StrEnum):
     """Level of detail in generated progress reports."""
 
     SUMMARY = "summary"

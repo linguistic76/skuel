@@ -7,7 +7,7 @@ perfect for modeling learning paths, goal progress, and life strategies.
 
 from dataclasses import dataclass, field
 from datetime import date, datetime
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from core.utils.logging import get_logger
@@ -16,7 +16,7 @@ from core.utils.result_simplified import Errors, Result
 logger = get_logger(__name__)
 
 
-class VectorSpace(str, Enum):
+class VectorSpace(StrEnum):
     """Conceptual spaces where vectors operate."""
 
     LIFE_STRATEGY = "life-strategy"

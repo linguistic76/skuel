@@ -6,14 +6,14 @@ Enums for relationships, user interaction, search, caching, visibility,
 and system-wide configuration.
 """
 
-from enum import Enum
+from enum import StrEnum
 
 # ============================================================================
 # USER & INTERACTION
 # ============================================================================
 
 
-class ResponseTone(str, Enum):
+class ResponseTone(StrEnum):
     """Tone for system responses"""
 
     NEUTRAL = "neutral"
@@ -26,7 +26,7 @@ class ResponseTone(str, Enum):
     DETAILED = "detailed"
 
 
-class Personality(str, Enum):
+class Personality(StrEnum):
     """
     AI personality modes and user personality types.
     Shapes the overall character of responses and interactions.
@@ -49,7 +49,7 @@ class Personality(str, Enum):
     METHODICAL = "methodical"
 
 
-class GuidanceMode(str, Enum):
+class GuidanceMode(StrEnum):
     """Level of guidance in learning/tasks"""
 
     MINIMAL = "minimal"
@@ -58,7 +58,7 @@ class GuidanceMode(str, Enum):
     ADAPTIVE = "adaptive"
 
 
-class LearningModality(str, Enum):
+class LearningModality(StrEnum):
     """Preferred learning modalities"""
 
     VISUAL = "visual"
@@ -75,7 +75,7 @@ class LearningModality(str, Enum):
 # ============================================================================
 
 
-class RelationshipType(str, Enum):
+class RelationshipType(StrEnum):
     """
     Universal relationship types that can exist between any entities.
 
@@ -180,7 +180,7 @@ class RelationshipType(str, Enum):
 # ============================================================================
 
 
-class Intent(str, Enum):
+class Intent(StrEnum):
     """User intent detected from queries and conversations."""
 
     # Core intents
@@ -219,7 +219,7 @@ class Intent(str, Enum):
     ORGANIZE = "organize"
 
 
-class ExtractionMethod(str, Enum):
+class ExtractionMethod(StrEnum):
     """Method used for facet/intent extraction"""
 
     PATTERN = "pattern"  # Rule-based patterns
@@ -228,7 +228,7 @@ class ExtractionMethod(str, Enum):
     HYBRID = "hybrid"  # Combination of methods
 
 
-class SearchScope(str, Enum):
+class SearchScope(StrEnum):
     """Scope of search operations"""
 
     LOCAL = "local"  # Current domain only
@@ -237,7 +237,7 @@ class SearchScope(str, Enum):
     DEEP = "deep"  # Include prerequisites and dependencies
 
 
-class FacetType(str, Enum):
+class FacetType(StrEnum):
     """Types of facets for filtering and categorization"""
 
     DOMAIN = "domain"
@@ -254,7 +254,7 @@ class FacetType(str, Enum):
     LEVEL = "level"
 
 
-class MessageRole(str, Enum):
+class MessageRole(StrEnum):
     """Role of message sender"""
 
     USER = "user"
@@ -262,7 +262,7 @@ class MessageRole(str, Enum):
     SYSTEM = "system"
 
 
-class ConversationState(str, Enum):
+class ConversationState(StrEnum):
     """State of a conversation session"""
 
     IDLE = "idle"
@@ -279,7 +279,7 @@ class ConversationState(str, Enum):
 # ============================================================================
 
 
-class ErrorSeverity(str, Enum):
+class ErrorSeverity(StrEnum):
     """Severity of errors"""
 
     LOW = "low"
@@ -288,7 +288,7 @@ class ErrorSeverity(str, Enum):
     CRITICAL = "critical"
 
 
-class CacheStrategy(str, Enum):
+class CacheStrategy(StrEnum):
     """Caching strategies"""
 
     NO_CACHE = "no_cache"
@@ -303,7 +303,7 @@ class CacheStrategy(str, Enum):
 # ============================================================================
 
 
-class Visibility(str, Enum):
+class Visibility(StrEnum):
     """Visibility settings for any entity."""
 
     PRIVATE = "private"  # Only visible to owner
@@ -325,7 +325,7 @@ class Visibility(str, Enum):
 # ============================================================================
 
 
-class TrendDirection(str, Enum):
+class TrendDirection(StrEnum):
     """Direction of trends in analytics and dashboards"""
 
     INCREASING = "increasing"
@@ -351,7 +351,7 @@ class TrendDirection(str, Enum):
         return icons.get(self, "→")
 
 
-class HealthStatus(str, Enum):
+class HealthStatus(StrEnum):
     """System health status levels"""
 
     HEALTHY = "healthy"
@@ -380,7 +380,7 @@ class HealthStatus(str, Enum):
         return icons.get(self, "❔")
 
 
-class SeverityLevel(str, Enum):
+class SeverityLevel(StrEnum):
     """Severity levels for issues, gaps, and alerts"""
 
     HIGH = "high"
@@ -402,7 +402,7 @@ class SeverityLevel(str, Enum):
         return mapping.get(self, 2)
 
 
-class BridgeType(str, Enum):
+class BridgeType(StrEnum):
     """Types of knowledge bridges for cross-domain learning"""
 
     DIRECT = "direct"  # Direct transfer of concepts

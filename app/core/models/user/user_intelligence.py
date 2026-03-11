@@ -18,7 +18,7 @@ Key Revolutionary Features:
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from operator import itemgetter
 from typing import Any
 
@@ -38,7 +38,7 @@ from core.services.user import UserContext
 # Search intelligence now uses simple dict structures for flexibility
 
 
-class IntelligenceSource(str, Enum):
+class IntelligenceSource(StrEnum):
     """Sources of intelligence for UserContext enhancement."""
 
     KNOWLEDGE_MASTERY = "knowledge_mastery"

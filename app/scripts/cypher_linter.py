@@ -36,11 +36,11 @@ import argparse
 import re
 import sys
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 
 
-class Severity(str, Enum):
+class Severity(StrEnum):
     """Violation severity levels."""
 
     ERROR = "ERROR"

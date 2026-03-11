@@ -11,7 +11,7 @@ Variant System:
 """
 
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from fasthtml.common import Div
@@ -26,7 +26,7 @@ from ui.text import CardTitle, SmallText, TruncatedText
 # ============================================================================
 
 
-class CardVariant(str, Enum):
+class CardVariant(StrEnum):
     """Card display variants for different UI contexts.
 
     Variants provide consistent styling patterns across all entity cards:

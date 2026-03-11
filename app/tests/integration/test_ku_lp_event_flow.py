@@ -200,7 +200,7 @@ class TestKuLpEventFlow:
         test_user_uid,
     ):
         """Test that LP progress is calculated correctly (mastered_kus / total_kus)."""
-        lp, kus = python_basics_path
+        _lp, kus = python_basics_path
 
         event_bus.subscribe(KnowledgeMastered, lp_progress_service.handle_knowledge_mastered)
 
@@ -293,7 +293,7 @@ class TestKuLpEventFlow:
         test_user_uid,
     ):
         """Test that mastering an unrelated KU doesn't affect LP progress."""
-        lp, kus = python_basics_path
+        _lp, _kus = python_basics_path
 
         event_bus.subscribe(KnowledgeMastered, lp_progress_service.handle_knowledge_mastered)
 

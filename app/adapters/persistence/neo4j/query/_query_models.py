@@ -505,7 +505,7 @@ def _extract_property_references(query_text: str) -> list[PropertyReference]:
 
         if "return" in clause_ranges:
             return_start, return_end = clause_ranges["return"]
-            if return_start <= prop_position < return_end and usage not in ["aggregate"]:
+            if return_start <= prop_position < return_end and usage != "aggregate":
                 usage = "return"
 
         if "order" in clause_ranges:

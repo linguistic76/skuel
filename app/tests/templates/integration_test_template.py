@@ -26,6 +26,12 @@ from collections.abc import Generator
 from typing import Any
 
 import pytest
+
+# Import domain models
+from core.models.example.example import Example  # Replace with your domain model
+
+# Import services (if testing service layer)
+from core.services.example_service import ExampleService  # Replace with your service
 from testcontainers.neo4j import Neo4jContainer
 
 # Import backends (if testing backend layer)
@@ -33,12 +39,6 @@ from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 
 # Import shared enums/types
 from core.models.enums import Domain  # Import relevant enums
-
-# Import domain models
-from core.models.example.example import Example  # Replace with your domain model
-
-# Import services (if testing service layer)
-from core.services.example_service import ExampleService  # Replace with your service
 
 # ============================================================================
 # FIXTURES

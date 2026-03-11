@@ -139,7 +139,7 @@ async def test_event_relationship_auto_creation(events_backend, test_user_uid, c
     user_events = await events_backend.get_user_entities(user_uid=test_user_uid)
     assert user_events.is_ok
     # Unpack pagination tuple
-    entities, total_count = user_events.value
+    entities, _total_count = user_events.value
     assert len(entities) == 1
     assert entities[0].uid == "event_test_001"
 
@@ -171,7 +171,7 @@ async def test_habit_relationship_auto_creation(habits_backend, test_user_uid, c
     user_habits = await habits_backend.get_user_entities(user_uid=test_user_uid)
     assert user_habits.is_ok
     # Unpack pagination tuple
-    entities, total_count = user_habits.value
+    entities, _total_count = user_habits.value
     assert len(entities) == 1
 
     # Cleanup (cascade=True to remove auto-created HAS_HABIT relationship)
@@ -201,7 +201,7 @@ async def test_goal_relationship_auto_creation(goals_backend, test_user_uid, cre
     user_goals = await goals_backend.get_user_entities(user_uid=test_user_uid)
     assert user_goals.is_ok
     # Unpack pagination tuple
-    entities, total_count = user_goals.value
+    entities, _total_count = user_goals.value
     assert len(entities) == 1
 
     # Cleanup (cascade=True to remove auto-created HAS_GOAL relationship)
@@ -281,7 +281,7 @@ async def test_user_isolation_tasks(
     user1_tasks = await tasks_backend.get_user_entities(user_uid=test_user_uid)
     assert user1_tasks.is_ok
     # Unpack pagination tuple
-    entities, total_count = user1_tasks.value
+    entities, _total_count = user1_tasks.value
     assert len(entities) == 1
     assert entities[0].uid == "task_user1_001"
 
@@ -289,7 +289,7 @@ async def test_user_isolation_tasks(
     user2_tasks = await tasks_backend.get_user_entities(user_uid=test_user_uid_2)
     assert user2_tasks.is_ok
     # Unpack pagination tuple
-    entities, total_count = user2_tasks.value
+    entities, _total_count = user2_tasks.value
     assert len(entities) == 1
     assert entities[0].uid == "task_user2_001"
 
@@ -560,7 +560,7 @@ async def test_performance_large_dataset(tasks_backend, test_user_uid, create_te
     # Verify results
     assert result.is_ok
     # Unpack pagination tuple
-    entities, total_count = result.value
+    entities, _total_count = result.value
     assert len(entities) == 100
 
     # Performance assertion (should be < 1 second for 100 entities)
@@ -645,7 +645,7 @@ async def test_delete_user_relationship(tasks_backend, test_user_uid, create_tes
     # Verify relationship exists
     user_tasks = await tasks_backend.get_user_entities(user_uid=test_user_uid)
     # Unpack pagination tuple
-    entities, total_count = user_tasks.value
+    entities, _total_count = user_tasks.value
     assert len(entities) == 1
 
     # Delete relationship (not entity)
@@ -657,7 +657,7 @@ async def test_delete_user_relationship(tasks_backend, test_user_uid, create_tes
     # Verify relationship deleted
     user_tasks_after = await tasks_backend.get_user_entities(user_uid=test_user_uid)
     # Unpack pagination tuple
-    entities, total_count = user_tasks_after.value
+    entities, _total_count = user_tasks_after.value
     assert len(entities) == 0
 
     # Entity should still exist

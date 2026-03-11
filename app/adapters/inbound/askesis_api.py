@@ -311,7 +311,7 @@ def create_askesis_api_routes(
         if fetch_result.is_error:
             return Result.fail(fetch_result.expect_error())
 
-        askesis, user_uid, user_context = fetch_result.value
+        _askesis, _user_uid, user_context = fetch_result.value
 
         # Get next best action recommendation
         recommendation_result = await askesis_service.get_next_best_action(user_context)
@@ -338,7 +338,7 @@ def create_askesis_api_routes(
         if fetch_result.is_error:
             return Result.fail(fetch_result.expect_error())
 
-        askesis, user_uid, user_context = fetch_result.value
+        _askesis, _user_uid, user_context = fetch_result.value
 
         # Analyze user state
         analysis_result = await askesis_service.analyze_user_state(user_context)
@@ -374,7 +374,7 @@ def create_askesis_api_routes(
         if fetch_result.is_error:
             return Result.fail(fetch_result.expect_error())
 
-        askesis, user_uid, user_context = fetch_result.value
+        _askesis, _user_uid, user_context = fetch_result.value
 
         # Optimize workflow across domains
         optimization_result = await askesis_service.optimize_workflow(user_context)
@@ -405,7 +405,7 @@ def create_askesis_api_routes(
         if fetch_result.is_error:
             return Result.fail(fetch_result.expect_error())
 
-        askesis, user_uid, user_context = fetch_result.value
+        askesis, _user_uid, user_context = fetch_result.value
 
         # Calculate system health
         health = askesis_service.calculate_system_health(user_context)
@@ -578,7 +578,7 @@ def create_askesis_api_routes(
         if fetch_result.is_error:
             return Result.fail(fetch_result.expect_error())
 
-        askesis, user_uid, user_context = fetch_result.value
+        _askesis, user_uid, user_context = fetch_result.value
 
         # Get daily work plan using 13-domain intelligence
         plan_result = await askesis_service.get_daily_work_plan(
@@ -656,7 +656,7 @@ def create_askesis_api_routes(
         if fetch_result.is_error:
             return Result.fail(fetch_result.expect_error())
 
-        askesis, user_uid, user_context = fetch_result.value
+        _askesis, user_uid, user_context = fetch_result.value
 
         # Get optimal learning steps using 13-domain intelligence
         steps_result = await askesis_service.get_optimal_next_learning_steps(
@@ -713,7 +713,7 @@ def create_askesis_api_routes(
         if fetch_result.is_error:
             return Result.fail(fetch_result.expect_error())
 
-        askesis, user_uid, user_context = fetch_result.value
+        _askesis, user_uid, user_context = fetch_result.value
 
         # Get critical path using 13-domain intelligence
         path_result = await askesis_service.get_learning_path_critical_path(user_context)
@@ -751,7 +751,7 @@ def create_askesis_api_routes(
         if fetch_result.is_error:
             return Result.fail(fetch_result.expect_error())
 
-        askesis, user_uid, user_context = fetch_result.value
+        _askesis, user_uid, user_context = fetch_result.value
 
         # Get unblocking priority order using 13-domain intelligence
         order_result = await askesis_service.get_unblocking_priority_order(user_context)
@@ -809,7 +809,7 @@ def create_askesis_api_routes(
         if fetch_result.is_error:
             return Result.fail(fetch_result.expect_error())
 
-        askesis, user_uid, user_context = fetch_result.value
+        _askesis, user_uid, user_context = fetch_result.value
 
         # Get cross-domain synergies using 13-domain intelligence
         synergies_result = await askesis_service.get_cross_domain_synergies(
@@ -879,7 +879,7 @@ def create_askesis_api_routes(
         if fetch_result.is_error:
             return Result.fail(fetch_result.expect_error())
 
-        askesis, user_uid, user_context = fetch_result.value
+        _askesis, user_uid, user_context = fetch_result.value
 
         # Calculate life path alignment using 13-domain intelligence
         alignment_result = await askesis_service.calculate_life_path_alignment(
@@ -965,7 +965,7 @@ def create_askesis_api_routes(
         if fetch_result.is_error:
             return Result.fail(fetch_result.expect_error())
 
-        askesis, user_uid, user_context = fetch_result.value
+        _askesis, user_uid, user_context = fetch_result.value
 
         # Get schedule-aware recommendations using 13-domain intelligence
         recommendations_result = await askesis_service.get_schedule_aware_recommendations(

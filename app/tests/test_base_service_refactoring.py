@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, datetime
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 import pytest
@@ -41,7 +41,7 @@ from core.utils.validation_helpers import (
 # ============================================================================
 
 
-class MockStatus(str, Enum):
+class MockStatus(StrEnum):
     """Mock enum for validation tests."""
 
     ACTIVE = "active"

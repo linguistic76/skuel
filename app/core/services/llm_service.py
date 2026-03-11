@@ -12,7 +12,7 @@ __version__ = "1.0"
 import logging
 import os
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from core.config import get_openai_key
@@ -22,7 +22,7 @@ from core.ports.base_protocols import EnumLike
 logger = logging.getLogger(__name__)
 
 
-class LLMProvider(str, Enum):
+class LLMProvider(StrEnum):
     """Supported LLM providers"""
 
     OPENAI = "openai"

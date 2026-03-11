@@ -19,7 +19,7 @@ __version__ = "1.0"
 import uuid
 from dataclasses import dataclass, field
 from datetime import date, datetime
-from enum import Enum
+from enum import StrEnum
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
@@ -29,14 +29,14 @@ from pydantic import BaseModel, Field
 # ============================================================================
 
 
-class InvoiceType(str, Enum):
+class InvoiceType(StrEnum):
     """Invoice direction type."""
 
     OUTGOING = "outgoing"  # Sent to clients (income)
     INCOMING = "incoming"  # Received from vendors (bills)
 
 
-class InvoiceStatus(str, Enum):
+class InvoiceStatus(StrEnum):
     """Invoice lifecycle status."""
 
     DRAFT = "draft"

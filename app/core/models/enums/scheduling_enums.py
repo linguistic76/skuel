@@ -5,10 +5,10 @@ Scheduling Enums - Time, Recurrence, and Energy Management
 Enums for scheduling preferences, recurrence patterns, and energy levels.
 """
 
-from enum import Enum
+from enum import StrEnum
 
 
-class RecurrencePattern(str, Enum):
+class RecurrencePattern(StrEnum):
     """
     Universal recurrence patterns for any repeating activity.
 
@@ -55,7 +55,7 @@ class RecurrencePattern(str, Enum):
         return intervals.get(self, 1)
 
 
-class TimeOfDay(str, Enum):
+class TimeOfDay(StrEnum):
     """
     Preferred time of day for activities.
 
@@ -97,7 +97,7 @@ class TimeOfDay(str, Enum):
         return defaults.get(self, 9)
 
 
-class EnergyLevel(str, Enum):
+class EnergyLevel(StrEnum):
     """
     Energy level required or available for activities.
 

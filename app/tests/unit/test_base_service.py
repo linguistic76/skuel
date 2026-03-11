@@ -545,7 +545,7 @@ class TestListOperations:
         result = await service.list(limit=10, offset=0)
 
         assert result.is_ok
-        items, total = result.value
+        _items, total = result.value
         assert total == 1
 
     @pytest.mark.asyncio

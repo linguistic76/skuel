@@ -5,10 +5,10 @@ Choice Enums - Decision Type Classification
 Enums for choice/decision type classification.
 """
 
-from enum import Enum
+from enum import StrEnum
 
 
-class ChoiceType(str, Enum):
+class ChoiceType(StrEnum):
     """
     Type of decision being made.
 

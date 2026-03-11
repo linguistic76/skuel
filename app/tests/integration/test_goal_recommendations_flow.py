@@ -238,7 +238,7 @@ class TestGoalRecommendationsFlow:
         test_user_uid,
     ):
         """Test that achieving a goal triggers recommendation generation via events."""
-        goal, kus, habits, principles = achieved_goal_with_context
+        goal, _kus, _habits, _principles = achieved_goal_with_context
 
         # Subscribe to GoalAchieved event
         event_bus.subscribe(GoalAchieved, recommendation_service.handle_goal_achieved)
@@ -281,7 +281,7 @@ class TestGoalRecommendationsFlow:
         test_user_uid,
     ):
         """Test that multiple recommendation strategies are used."""
-        goal, kus, habits, principles = achieved_goal_with_context
+        goal, _kus, _habits, _principles = achieved_goal_with_context
 
         event_bus.subscribe(GoalAchieved, recommendation_service.handle_goal_achieved)
 
@@ -329,7 +329,7 @@ class TestGoalRecommendationsFlow:
         test_user_uid,
     ):
         """Test that domain progression recommendation is generated."""
-        goal, kus, habits, principles = achieved_goal_with_context
+        goal, _kus, _habits, _principles = achieved_goal_with_context
 
         event_bus.subscribe(GoalAchieved, recommendation_service.handle_goal_achieved)
 
@@ -368,7 +368,7 @@ class TestGoalRecommendationsFlow:
         test_user_uid,
     ):
         """Test that knowledge expansion recommendation is generated."""
-        goal, kus, habits, principles = achieved_goal_with_context
+        goal, kus, _habits, _principles = achieved_goal_with_context
 
         event_bus.subscribe(GoalAchieved, recommendation_service.handle_goal_achieved)
 
@@ -407,7 +407,7 @@ class TestGoalRecommendationsFlow:
         test_user_uid,
     ):
         """Test that habit reinforcement recommendation is generated."""
-        goal, kus, habits, principles = achieved_goal_with_context
+        goal, _kus, habits, _principles = achieved_goal_with_context
 
         event_bus.subscribe(GoalAchieved, recommendation_service.handle_goal_achieved)
 
@@ -446,7 +446,7 @@ class TestGoalRecommendationsFlow:
         test_user_uid,
     ):
         """Test that principle alignment recommendation is generated."""
-        goal, kus, habits, principles = achieved_goal_with_context
+        goal, _kus, _habits, principles = achieved_goal_with_context
 
         event_bus.subscribe(GoalAchieved, recommendation_service.handle_goal_achieved)
 

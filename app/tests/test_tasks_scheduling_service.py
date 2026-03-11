@@ -136,7 +136,7 @@ def test_init_with_backend(mock_backend):
 
 def test_init_without_backend():
     """Test service initialization fails without backend."""
-    with pytest.raises(ValueError, match="tasks.scheduling backend is REQUIRED"):
+    with pytest.raises(ValueError, match=r"tasks\.scheduling backend is REQUIRED"):
         TasksSchedulingService(backend=None)
 
 

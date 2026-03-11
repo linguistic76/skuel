@@ -434,7 +434,7 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
         if principles_result.is_error:
             return Result.fail(principles_result)
         # list() returns tuple[list[Principle], int]
-        principles, total = principles_result.value
+        principles, _total = principles_result.value
         return Result.ok(
             {
                 "user_uid": user_uid,

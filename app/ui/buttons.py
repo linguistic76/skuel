@@ -5,7 +5,7 @@ SKUEL DaisyUI Button Components
 ButtonT enum and Button wrapper.
 """
 
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from fasthtml.common import A
@@ -16,7 +16,7 @@ from ui.layout import Size
 __all__ = ["ButtonT", "Button", "ButtonLink", "IconButton"]
 
 
-class ButtonT(str, Enum):
+class ButtonT(StrEnum):
     """Button variant types - maps to DaisyUI btn-* classes."""
 
     primary = "btn-primary"

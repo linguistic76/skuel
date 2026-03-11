@@ -75,7 +75,7 @@ class TestModelQueryBuilder:
 
     def test_order_by_build(self):
         """Test building query with ordering."""
-        cypher, params = (
+        cypher, _params = (
             query().for_model(Task).filter(status="active").order_by("due_date", desc=True).build()
         )
 
@@ -165,7 +165,7 @@ class TestSemanticQueryBuilder:
 
     def test_semantic_type_conversion(self):
         """Test that semantic types are converted to Neo4j names."""
-        cypher, params = (
+        cypher, _params = (
             query()
             .semantic("test.uid")
             .traverse(types=[SemanticRelationshipType.REQUIRES_THEORETICAL_UNDERSTANDING])
@@ -268,7 +268,7 @@ class TestApiClarity:
     def test_fluent_api_readability(self):
         """Test that fluent chains are readable."""
         # The fluent API should read like natural language
-        cypher, params = (
+        cypher, _params = (
             query()
             .for_model(Task)
             .filter(priority="high")

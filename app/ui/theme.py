@@ -23,13 +23,13 @@ Design Principles:
 January 2026: Initial implementation for SKUEL PWA migration
 """
 
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from fasthtml.common import Link, Meta, Script
 
 
-class Theme(str, Enum):
+class Theme(StrEnum):
     """
     DaisyUI theme options.
 

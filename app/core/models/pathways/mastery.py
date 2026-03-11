@@ -11,13 +11,13 @@ See: /docs/architecture/FOUR_PHASED_LEARNING_LOOP.md
 
 from dataclasses import dataclass
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from core.models.enums import Domain
 
 
-class MasteryLevel(str, Enum):
+class MasteryLevel(StrEnum):
     """Knowledge mastery progression levels."""
 
     UNAWARE = "unaware"  # No exposure
@@ -29,7 +29,7 @@ class MasteryLevel(str, Enum):
     MASTERED = "mastered"  # Complete mastery
 
 
-class LearningVelocity(str, Enum):
+class LearningVelocity(StrEnum):
     """Learning speed patterns for different content types."""
 
     VERY_SLOW = "very_slow"  # Needs extra time and repetition
@@ -39,7 +39,7 @@ class LearningVelocity(str, Enum):
     VERY_FAST = "very_fast"  # Rapid comprehension and retention
 
 
-class ContentPreference(str, Enum):
+class ContentPreference(StrEnum):
     """Preferred content presentation types."""
 
     VISUAL = "visual"  # Diagrams, charts, images

@@ -5,14 +5,14 @@ Learning Enums - Education, Knowledge, and Mastery Tracking
 Enums for learning levels, knowledge types, mastery tracking, and SEL framework.
 """
 
-from enum import Enum
+from enum import StrEnum
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .entity_enums import EntityStatus
 
 
-class KuComplexity(str, Enum):
+class KuComplexity(StrEnum):
     """
     Complexity level of a Knowledge Unit.
 
@@ -24,7 +24,7 @@ class KuComplexity(str, Enum):
     ADVANCED = "advanced"
 
 
-class LearningLevel(str, Enum):
+class LearningLevel(StrEnum):
     """
     Learning proficiency levels for users and content.
 
@@ -89,7 +89,7 @@ class LearningLevel(str, Enum):
         ]
 
 
-class EducationalLevel(str, Enum):
+class EducationalLevel(StrEnum):
     """
     Educational levels for content targeting and user classification.
 
@@ -152,7 +152,7 @@ class EducationalLevel(str, Enum):
         return mapping.get(self, 4)
 
 
-class MasteryStatus(str, Enum):
+class MasteryStatus(StrEnum):
     """Mastery status for knowledge/skills"""
 
     NOT_STARTED = "not_started"
@@ -164,7 +164,7 @@ class MasteryStatus(str, Enum):
     REVIEWING = "reviewing"
 
 
-class KnowledgeStatus(str, Enum):
+class KnowledgeStatus(StrEnum):
     """
     Domain-specific status for knowledge units.
     Maps to EntityStatus where applicable for consistency.
@@ -189,7 +189,7 @@ class KnowledgeStatus(str, Enum):
         return mapping.get(self, EntityStatus.DRAFT)
 
 
-class ContentType(str, Enum):
+class ContentType(StrEnum):
     """
     Types of knowledge content for faceted search.
 
@@ -292,7 +292,7 @@ class ContentType(str, Enum):
         ]
 
 
-class PracticeLevel(str, Enum):
+class PracticeLevel(StrEnum):
     """Difficulty/expertise levels"""
 
     BEGINNER = "beginner"
@@ -305,7 +305,7 @@ class PracticeLevel(str, Enum):
         return LearningLevel(self.value)
 
 
-class KnowledgeType(str, Enum):
+class KnowledgeType(StrEnum):
     """Types of knowledge for classification"""
 
     DECLARATIVE = "declarative"  # What is...
@@ -314,7 +314,7 @@ class KnowledgeType(str, Enum):
     METACOGNITIVE = "metacognitive"  # When to...
 
 
-class SELCategory(str, Enum):
+class SELCategory(StrEnum):
     """
     Social Emotional Learning (SEL) framework categories.
 

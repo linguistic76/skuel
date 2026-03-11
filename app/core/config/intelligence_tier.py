@@ -22,10 +22,10 @@ See: /docs/decisions/ADR-043-intelligence-tier-toggle.md
 """
 
 import os
-from enum import Enum
+from enum import StrEnum
 
 
-class IntelligenceTier(str, Enum):
+class IntelligenceTier(StrEnum):
     """System-level intelligence tier controlling AI service availability."""
 
     CORE = "core"  # Analytics only — no API costs

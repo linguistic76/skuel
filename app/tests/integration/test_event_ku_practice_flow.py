@@ -239,7 +239,7 @@ class TestEventKuPracticeFlow:
         test_user_uid,
     ):
         """Test that KnowledgePracticed event is published when practice occurs."""
-        event, kus = meditation_event_with_kus
+        event, _kus = meditation_event_with_kus
 
         event_bus.subscribe(CalendarEventCompleted, ku_practice_service.handle_event_completed)
 

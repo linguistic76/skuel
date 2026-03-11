@@ -24,7 +24,7 @@ Architecture:
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from enum import Enum
+from enum import StrEnum
 from operator import attrgetter
 from typing import Any
 
@@ -38,7 +38,7 @@ from core.utils.result_simplified import Result
 from core.utils.uid_generator import UIDGenerator
 
 
-class PatternType(str, Enum):
+class PatternType(StrEnum):
     """Types of patterns that can be extracted from task completion."""
 
     BEST_PRACTICE = "best_practice"
@@ -50,7 +50,7 @@ class PatternType(str, Enum):
     PROBLEM_SOLVING = "problem_solving"
 
 
-class InsightCategory(str, Enum):
+class InsightCategory(StrEnum):
     """Categories of insights generated from task patterns."""
 
     EFFICIENCY = "efficiency"

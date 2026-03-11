@@ -18,7 +18,7 @@ __version__ = "1.0"
 
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
-from enum import Enum
+from enum import StrEnum
 from typing import Any, Protocol, runtime_checkable
 
 from core.models.enums import (
@@ -34,7 +34,7 @@ from core.models.enums import (
 # ============================================================================
 
 
-class WindowKind(str, Enum):
+class WindowKind(StrEnum):
     """Explicit semantics for time window types"""
 
     WORK = "work"  # Scheduled work block

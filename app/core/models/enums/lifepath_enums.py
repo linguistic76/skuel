@@ -5,10 +5,10 @@ Life Path Enums - Vision Theme Classification
 Enums for life path vision capture and theme categorization.
 """
 
-from enum import Enum
+from enum import StrEnum
 
 
-class ThemeCategory(str, Enum):
+class ThemeCategory(StrEnum):
     """
     Categories for extracted vision themes.
 

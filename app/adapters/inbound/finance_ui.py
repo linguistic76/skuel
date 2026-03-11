@@ -558,7 +558,7 @@ def create_finance_ui_routes(_app, rt, finance_service, user_service: Any = None
             # Determine spending pattern (simplified)
             expenses_result = await finance_service.list_expenses(limit=QueryLimit.DEFAULT)
             if expenses_result and expenses_result.is_ok and expenses_result.value:
-                expenses_list, expense_count = expenses_result.value
+                _expenses_list, expense_count = expenses_result.value
                 if expense_count > 50:
                     spending_pattern = "Habitual"
                 elif expense_count > 20:

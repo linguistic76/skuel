@@ -445,7 +445,7 @@ class UnifiedIngestionService:
                         f"{chunk_result.expect_error().message}"
                     )
                 else:
-                    content, metadata = chunk_result.value
+                    content, _metadata = chunk_result.value
                     chunks_generated = True
                     self.logger.info(
                         f"Generated {content.chunk_count} chunks for {entity_data['uid']} "

@@ -4,7 +4,7 @@ Tests for FormGenerator — pre-fill, sections, help text, hidden fields, fragme
 
 from dataclasses import dataclass
 from datetime import date
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
@@ -15,7 +15,7 @@ from ui.patterns.form_generator import FormGenerator
 # ============================================================================
 
 
-class Priority(str, Enum):
+class Priority(StrEnum):
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"

@@ -15,14 +15,14 @@ Organized in 5 sections:
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 # =============================================================================
 # 1. CORE IDENTITY
 # =============================================================================
 
 
-class EntityType(str, Enum):
+class EntityType(StrEnum):
     """
     Type of Entity — 21 entity types in SKUEL.
 
@@ -289,7 +289,7 @@ _SHARED_TYPES = frozenset(
 )
 
 
-class ContentOrigin(str, Enum):
+class ContentOrigin(StrEnum):
     """
     Content origin tier — classifies KuTypes by where content comes from
     and what role it plays in the system.
@@ -392,7 +392,7 @@ _ENTITY_TYPE_ALIASES: dict[str, EntityType] = {
 # =============================================================================
 
 
-class EntityStatus(str, Enum):
+class EntityStatus(StrEnum):
     """
     Processing lifecycle status for an Entity.
 
@@ -892,7 +892,7 @@ _DEFAULT_STATUS_BY_TYPE: dict[EntityType, EntityStatus] = {
 }
 
 
-class ProcessorType(str, Enum):
+class ProcessorType(StrEnum):
     """
     Type of processor used for content processing.
 
@@ -923,7 +923,7 @@ class ProcessorType(str, Enum):
 # =============================================================================
 
 
-class Domain(str, Enum):
+class Domain(StrEnum):
     """
     Core domains in the SKUEL system.
     Each domain represents a distinct area of functionality.
@@ -991,7 +991,7 @@ class Domain(str, Enum):
         ]
 
 
-class NonKuDomain(str, Enum):
+class NonKuDomain(StrEnum):
     """
     Non-knowledge-unit domains outside the Entity model hierarchy.
 
@@ -1027,7 +1027,7 @@ DomainIdentifier = EntityType | NonKuDomain
 # =============================================================================
 
 
-class AnalyticsDomain(str, Enum):
+class AnalyticsDomain(StrEnum):
     """
     Core system domains that can generate statistical analytics.
 
@@ -1101,7 +1101,7 @@ class AnalyticsDomain(str, Enum):
 # =============================================================================
 
 
-class ContentScope(str, Enum):
+class ContentScope(StrEnum):
     """
     Defines content ownership/sharing model for domain entities.
 
@@ -1141,7 +1141,7 @@ class ContentScope(str, Enum):
     SHARED = "shared"  # Public/shared, no ownership required
 
 
-class Context(str, Enum):
+class Context(StrEnum):
     """Context where activity can be performed"""
 
     HOME = "home"

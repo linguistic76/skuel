@@ -1136,7 +1136,7 @@ class _BehavioralSignalsMixin:
         # Decision consistency via dual-track system score
         # Use _calculate_system_decision_quality_for_dual_track directly (no user input needed)
         (
-            system_level,
+            _system_level,
             consistency_score,
             _,
         ) = await self._calculate_system_decision_quality_for_dual_track(user_uid, period_days=30)

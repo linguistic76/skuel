@@ -41,7 +41,7 @@ Date: 2025-11-29
 
 from dataclasses import dataclass
 from datetime import date
-from enum import Enum
+from enum import StrEnum
 from typing import TYPE_CHECKING, Any, Protocol
 
 if TYPE_CHECKING:
@@ -60,7 +60,7 @@ if TYPE_CHECKING:
 # =============================================================================
 
 
-class ScoringComponent(str, Enum):
+class ScoringComponent(StrEnum):
     """
     Named scoring factors used across activity domains.
 

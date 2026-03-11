@@ -501,7 +501,7 @@ class EntityChunkingService:
             )
 
             if result.is_ok:
-                content, metadata = result.value
+                content, _metadata = result.value
                 processed += 1
                 total_chunks += content.chunk_count
                 total_words += content.word_count

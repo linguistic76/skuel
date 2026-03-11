@@ -9,10 +9,10 @@ TranscriptionService, LanguageCode) that were only consumed by the deleted
 three-tier transcription models.
 """
 
-from enum import Enum
+from enum import StrEnum
 
 
-class TranscriptionStatus(str, Enum):
+class TranscriptionStatus(StrEnum):
     """Processing status for transcription."""
 
     PENDING = "pending"

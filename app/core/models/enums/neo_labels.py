@@ -36,14 +36,14 @@ See Also:
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from core.models.enums.entity_enums import EntityType, NonKuDomain
 
 
-class NeoLabel(str, Enum):
+class NeoLabel(StrEnum):
     """
     All valid Neo4j node labels in SKUEL.
 

@@ -446,7 +446,7 @@ class AskesisResponse:
         # NOTE: Uses getattr for optional should_user_proceed() on SearchResultDTO
         should_proceed_fn = getattr(self.search_results, "should_user_proceed", None)
         if callable(should_proceed_fn):
-            should_proceed, reason = should_proceed_fn()
+            should_proceed, _reason = should_proceed_fn()
             return not should_proceed
         return False  # Default: don't show prerequisites
 

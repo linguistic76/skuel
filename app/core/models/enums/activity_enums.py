@@ -8,10 +8,10 @@ Status enums (EntityStatus) live in entity_enums.py — THE unified status enum.
 CompletionStatus (habit completion tracking) lives in habit_enums.py.
 """
 
-from enum import Enum
+from enum import StrEnum
 
 
-class Priority(str, Enum):
+class Priority(StrEnum):
     """
     Universal priority levels used across all entities.
 
@@ -93,7 +93,7 @@ class Priority(str, Enum):
         ]
 
 
-class Confidence(str, Enum):
+class Confidence(StrEnum):
     """
     User-assessed certainty about an entity.
 
@@ -170,7 +170,7 @@ class Confidence(str, Enum):
         ]
 
 
-class ActivityType(str, Enum):
+class ActivityType(StrEnum):
     """
     Types of activities that can appear on a calendar or be tracked.
 
@@ -239,7 +239,7 @@ class ActivityType(str, Enum):
 # user self-assessment (vision) with system measurement (action).
 
 
-class ProductivityLevel(str, Enum):
+class ProductivityLevel(StrEnum):
     """
     Self-assessment level for task productivity.
 
@@ -278,7 +278,7 @@ class ProductivityLevel(str, Enum):
             return cls.OVERWHELMED
 
 
-class ProgressLevel(str, Enum):
+class ProgressLevel(StrEnum):
     """
     Self-assessment level for goal progress.
 
@@ -317,7 +317,7 @@ class ProgressLevel(str, Enum):
             return cls.REGRESSING
 
 
-class ConsistencyLevel(str, Enum):
+class ConsistencyLevel(StrEnum):
     """
     Self-assessment level for habit consistency.
 
@@ -356,7 +356,7 @@ class ConsistencyLevel(str, Enum):
             return cls.STRUGGLING
 
 
-class EngagementLevel(str, Enum):
+class EngagementLevel(StrEnum):
     """
     Self-assessment level for event engagement.
 
@@ -395,7 +395,7 @@ class EngagementLevel(str, Enum):
             return cls.ABSENT
 
 
-class DecisionQualityLevel(str, Enum):
+class DecisionQualityLevel(StrEnum):
     """
     Self-assessment level for choice/decision quality.
 

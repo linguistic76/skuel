@@ -11,11 +11,11 @@ Usage:
     container_cls = config["container"]  # "max-w-6xl mx-auto"
 """
 
-from enum import Enum
+from enum import StrEnum
 from typing import TypedDict
 
 
-class PageType(str, Enum):
+class PageType(StrEnum):
     """Page layout types for consistent UX."""
 
     HUB = "hub"  # Sidebar + multi-domain navigation (Profile Hub)

@@ -6,7 +6,7 @@ AlertT, BadgeT, ProgressT, LoadingT enums and Alert, Badge, Loading,
 Progress, RadialProgress wrappers.
 """
 
-from enum import Enum
+from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import Div, Span
@@ -43,7 +43,7 @@ def get_submission_status_badge_class(status: str) -> str:
     return submission_status_badge_class(status)
 
 
-class AlertT(str, Enum):
+class AlertT(StrEnum):
     """Alert variant types - maps to DaisyUI alert-* classes."""
 
     info = "alert-info"
@@ -52,7 +52,7 @@ class AlertT(str, Enum):
     error = "alert-error"
 
 
-class BadgeT(str, Enum):
+class BadgeT(StrEnum):
     """Badge variant types - maps to DaisyUI badge-* classes."""
 
     primary = "badge-primary"
@@ -67,7 +67,7 @@ class BadgeT(str, Enum):
     outline = "badge-outline"
 
 
-class ProgressT(str, Enum):
+class ProgressT(StrEnum):
     """Progress variant types - maps to DaisyUI progress-* classes."""
 
     primary = "progress-primary"
@@ -79,7 +79,7 @@ class ProgressT(str, Enum):
     error = "progress-error"
 
 
-class LoadingT(str, Enum):
+class LoadingT(StrEnum):
     """Loading spinner variant types."""
 
     spinner = "loading-spinner"

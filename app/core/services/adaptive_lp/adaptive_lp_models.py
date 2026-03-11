@@ -14,13 +14,13 @@ These models are used across all adaptive_lp sub-services:
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from core.models.enums import Domain
 
 
-class LpType(str, Enum):
+class LpType(StrEnum):
     """Types of learning paths that can be generated."""
 
     GOAL_DRIVEN = "goal_driven"  # Based on specific user goals
@@ -31,7 +31,7 @@ class LpType(str, Enum):
     PROJECT_BASED = "project_based"  # Organized around practical projects
 
 
-class RecommendationType(str, Enum):
+class RecommendationType(StrEnum):
     """Types of adaptive recommendations."""
 
     NEXT_STEP = "next_step"  # Logical next learning step
@@ -42,7 +42,7 @@ class RecommendationType(str, Enum):
     STRETCH = "stretch"  # Advanced/challenging content
 
 
-class LearningStyle(str, Enum):
+class LearningStyle(StrEnum):
     """Detected user learning styles."""
 
     SEQUENTIAL = "sequential"  # Step-by-step, linear progression

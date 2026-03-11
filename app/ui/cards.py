@@ -5,7 +5,7 @@ SKUEL DaisyUI Card Components
 CardT enum and Card, CardBody, CardTitle, CardActions, CardFigure wrappers.
 """
 
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from fasthtml.common import A, Div
@@ -13,7 +13,7 @@ from fasthtml.common import A, Div
 __all__ = ["CardT", "Card", "CardBody", "CardTitle", "CardActions", "CardFigure", "CardLink"]
 
 
-class CardT(str, Enum):
+class CardT(StrEnum):
     """Card variant types - maps to DaisyUI styling."""
 
     default = ""

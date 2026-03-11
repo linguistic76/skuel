@@ -6,7 +6,7 @@ InputT enum and Input, Select, Textarea, FormControl, Label, LabelText,
 Checkbox, Radio, Toggle, Range wrappers.
 """
 
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from fasthtml.common import Div, Span
@@ -32,7 +32,7 @@ __all__ = [
 ]
 
 
-class InputT(str, Enum):
+class InputT(StrEnum):
     """Input variant types - maps to DaisyUI input-* classes."""
 
     bordered = "input-bordered"

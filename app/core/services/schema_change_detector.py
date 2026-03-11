@@ -18,7 +18,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from core.infrastructure.database.schema import SchemaContext
 from core.models.schema_change import (  # type: ignore[import-not-found]
     ChangeImpact,
     SchemaChange,
@@ -29,6 +28,8 @@ from core.models.schema_change import (  # type: ignore[import-not-found]
     SchemaFingerprint,
     SchemaMigrationHistory,
 )
+
+from core.infrastructure.database.schema import SchemaContext
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
