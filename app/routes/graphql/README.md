@@ -480,8 +480,8 @@ GraphQL routes are registered in [bootstrap.py:/home/mike/skuel/app/scripts/dev/
 
 ```python
 # GraphQL API routes (Complex nested queries + real-time subscriptions)
-from adapters.inbound.graphql_routes import create_graphql_routes_manual
-create_graphql_routes_manual(app, rt, services, services.search_router)
+from adapters.inbound.graphql_routes import create_graphql_routes
+create_graphql_routes(app, rt, services)
 logger.info("✅ GraphQL API registered at /graphql (via SearchRouter)")
 ```
 

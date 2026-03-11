@@ -23,7 +23,7 @@ For implementation guidance, see:
 
 **Impact:** Reduces route file complexity from ~80 lines to ~15 lines per domain (83% reduction).
 
-**Adoption:** Currently used by 28 of 35 route files (80%), with 7 files remaining as justified exceptions.
+**Adoption:** Currently used by 38 of 41 route files (93%), with 3 files remaining as justified exceptions.
 
 ## The Pattern
 
@@ -1036,19 +1036,13 @@ DomainRouteConfig operates at the **Adapter Layer** - it wires API/UI to the app
 **Phase 7 Migration (1):** *(Migrated 2026-02-04)*
 27. `/adapters/inbound/assignments_routes.py` (76 lines) - File submission pipeline (Multi-factory, sharing extension uses separate primary service)
 
-### Justified Exceptions (7 files)
+### Justified Exceptions (3 files)
 
 Files with legitimate complexity warranting custom patterns:
 
-**Complex/Specialized (5):**
+**Complex/Specialized (2):**
 - `ai_routes.py` - AI service integration
-- `graphql_routes.py` - GraphQL schema with explicit multi-dependency injection
-- `search_routes.py` - Unified search orchestration (uses SearchRouter DI pattern)
-- `lateral_routes.py` - Uses specialized LateralRouteFactory
-- `hierarchy_routes.py` - Uses specialized HierarchyRouteFactory
-
-**Specialized UI (1):**
-- `timeline_routes.py` - Export functionality
+- `graphql_routes.py` - Needs full `services` container for cross-domain GraphQL context (signature normalized)
 
 **Minimal Overhead (1):**
 - `metrics_routes.py` - Single endpoint, minimal overhead
@@ -1264,10 +1258,13 @@ Zero runtime overhead - routes are registered once at application startup.
 - 16 comprehensive tests added
 - Zero regressions detected
 
-**Phase 9 (No Migration Planned):** Justified exceptions (7/7)
-- Complex/specialized route files remain manual (complexity warranted)
+**Phase 9 (Complete - 2026-03-11):** Non-Activity domain migrations (6 files)
+- ✅ monitoring_routes.py, article_reading_routes.py, learn_routes.py (simple migrations)
+- ✅ search_routes.py (service-extraction, SearchRouter as primary)
+- ✅ hierarchy_routes.py, lateral_routes.py (loop-pattern, multi-service via kwargs)
+- graphql_routes.py: signature normalized only (needs full services container)
 
-**Summary:** 28/35 files using DomainRouteConfig (80% adoption) - **pattern complete** for all feasible migrations.
+**Summary:** 38/41 files using DomainRouteConfig (93% adoption). 3 justified exceptions: ai_routes.py, graphql_routes.py, metrics_routes.py.
 
 **Key Achievements:**
 - All 4 patterns proven: Standard, API-only, UI-only, Multi-factory
