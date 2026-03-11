@@ -1,6 +1,6 @@
 ---
 title: API Validation Patterns
-updated: 2026-01-24
+updated: 2026-03-11
 category: patterns
 related_skills:
 - pydantic
@@ -13,7 +13,7 @@ related_docs:
 
 # API Validation Patterns
 
-*Created: 2026-01-24*
+*Created: 2026-01-24 | Updated: 2026-03-11*
 
 ## Quick Start
 
@@ -139,36 +139,34 @@ class ContextualTaskCompletionRequest(BaseModel):
 
 **Usage in Routes:**
 ```python
+from pydantic import ValidationError
+
 @rt("/api/context/task/complete", methods=["POST"])
 @boundary_handler(success_status=200)
-async def complete_task(
-    request: Request,
-    task_uid: str,
-    body: TaskCompletionRequest  # FastHTML auto-parses & validates
-) -> Result[Any]:
-    """
-    Complete task with context awareness.
+async def complete_task(request: Request, task_uid: str) -> Result[Any]:
+    """Complete task with context awareness."""
+    try:
+        body = await request.json()
+        req = ContextualTaskCompletionRequest(**body)
+    except ValidationError as e:
+        return Result.fail(Errors.validation(str(e), field="body"))
+    except Exception:
+        return Result.fail(Errors.validation(message="Invalid JSON body", field="body"))
 
-    Pydantic automatically validates:
-    - JSON structure (dict vs string)
-    - Field types (str, int, etc.)
-    - Field constraints (max_length, etc.)
-    - Returns 422 on validation failure
-    """
     return await service.complete_task_with_context(
         task_uid=task_uid,
-        completion_context=body.context,  # Type-safe access
-        reflection_notes=body.reflection,
+        completion_context=req.context,  # Type-safe access
+        reflection_notes=req.reflection,
     )
 ```
 
 **Benefits:**
-- ✅ Automatic structure validation
-- ✅ Type-safe field access (`body.field` vs `body["field"]`)
+- ✅ Automatic structure + type validation via Pydantic
+- ✅ Type-safe field access (`req.field` vs `body["field"]`)
 - ✅ MyPy catches errors at dev time
 - ✅ Self-documenting (model shows expected structure)
-- ✅ Clear 422 errors with field-level details
-- ✅ No manual JSON parsing boilerplate
+- ✅ Clear validation errors with field-level details
+- ✅ Consistent error handling via `Result.fail()`
 
 ---
 
@@ -368,15 +366,17 @@ API Request → Pydantic Model → DTO → Domain Model → Core Logic
 ```python
 # Tier 1: External (API boundary)
 class TaskCompletionRequest(BaseModel):  # Validates structure
-    context: dict[str, Any]
-    reflection: str
+    context: dict[str, Any] = Field(default_factory=dict)
+    reflection: str = Field(default="")
 
-# Route converts to service call
+# Route parses JSON → constructs model → calls service
 @rt("/api/context/task/complete", methods=["POST"])
-async def complete_task(body: TaskCompletionRequest) -> Result[Any]:
+async def complete_task(request: Request) -> Result[Any]:
+    body = await request.json()
+    req = TaskCompletionRequest(**body)  # Pydantic validates here
     return await service.complete_task_with_context(
-        completion_context=body.context,  # Extract data
-        reflection_notes=body.reflection,
+        completion_context=req.context,  # Type-safe access
+        reflection_notes=req.reflection,
     )
 
 # Service layer uses DTOs (Tier 2)
@@ -572,34 +572,46 @@ async def complete_task(request: Request, task_uid: str) -> Result[Any]:
 
     # No validation!
     # Malformed JSON → 500
-    # Wrong types → 500
+    # Wrong types → silent data loss
 ```
 
 **After (Pydantic):**
 ```python
+from pydantic import ValidationError
+
 @rt("/api/context/task/complete", methods=["POST"])
-async def complete_task(
-    request: Request,
-    task_uid: str,
-    body: TaskCompletionRequest  # Auto-validates
-) -> Result[Any]:
-    # Validation automatic!
-    # Malformed JSON → 422
-    # Wrong types → 422 with field details
+async def complete_task(request: Request, task_uid: str) -> Result[Any]:
+    try:
+        body = await request.json()
+        req = TaskCompletionRequest(**body)
+    except ValidationError as e:
+        return Result.fail(Errors.validation(str(e), field="body"))
+    except Exception:
+        return Result.fail(Errors.validation(message="Invalid JSON body", field="body"))
 
     return await service.complete_task_with_context(
         task_uid=task_uid,
-        completion_context=body.context,
-        reflection_notes=body.reflection,
+        completion_context=req.context,
+        reflection_notes=req.reflection,
     )
+```
+
+**For ownership-verified routes** (entity UID comes from `@require_ownership_query`):
+```python
+async def track_habit_route(request: Request, entity: Any, ...) -> Result[Any]:
+    try:
+        body = await request.json()
+        req = TrackHabitRequest(**{**body, "habit_uid": entity.uid})
+    except ValidationError as e:
+        return Result.fail(Errors.validation(str(e), field="body"))
+    ...
 ```
 
 **Steps:**
 1. Create Pydantic model in `core/models/{domain}/{domain}_request.py`
-2. Add model to route signature
-3. Remove manual `await request.json()`
-4. Access fields via `body.field` instead of `body["field"]`
-5. Remove manual validation code
+2. Parse JSON and construct model with `try/except ValidationError`
+3. Access fields via `req.field` instead of `body["field"]`
+4. Remove manual validation code (required checks, type coercion)
 
 ---
 
