@@ -37,124 +37,45 @@ class GraphQLContext:
     knowledge_loader: DataLoader[str, Any]
     task_loader: DataLoader[str, Any]
     learning_path_loader: DataLoader[str, Any]
-    learning_step_loader: DataLoader[str, Any]  # NEW:
+    learning_step_loader: DataLoader[str, Any]
 
     # Request metadata
     user_uid: str | None = None
 
 
-async def batch_load_knowledge_units(keys: list[str], context: GraphQLContext) -> list[Any]:
+async def _batch_load(
+    keys: list[str],
+    service: Any | None,
+    method_name: str,
+    domain: str,
+) -> list[Any]:
     """
-    Batch load knowledge units by UIDs with metrics logging.
-    """
-    logger.info(f"📊 DataLoader batching {len(keys)} knowledge units")
+    Shared batch loading logic for all DataLoaders.
 
-    if not context.services.article:
-        logger.warning("⚠️ Knowledge service not available for batch load")
-        return [None] * len(keys)
-
-    result = await context.services.article.get_articles_batch(list(keys))  # type: ignore[attr-defined]
-
-    if result.is_error:
-        logger.error(f"❌ Batch load failed: {result.error}")
-        return [None] * len(keys)
-
-    logger.info(f"✅ Batch loaded {len(result.value)} knowledge units in 1 query")
-    return result.value
-
-
-async def batch_load_tasks(keys: list[str], context: GraphQLContext) -> list[Any]:
-    """
-    Batch load tasks by UIDs with metrics logging.
-    """
-    logger.info(f"📊 DataLoader batching {len(keys)} tasks")
-
-    if not context.services.tasks:
-        logger.warning("⚠️ Tasks service not available for batch load")
-        return [None] * len(keys)
-
-    result = await context.services.tasks.get_tasks_batch(list(keys))
-
-    if result.is_error:
-        logger.error(f"❌ Batch load failed: {result.error}")
-        return [None] * len(keys)
-
-    logger.info(f"✅ Batch loaded {len(result.value)} tasks in 1 query")
-    return result.value
-
-
-async def batch_load_learning_paths(keys: list[str], context: GraphQLContext) -> list[Any]:
-    """
-    Batch load learning paths by UIDs with metrics logging.
-    """
-    logger.info(f"📊 DataLoader batching {len(keys)} learning paths")
-
-    if not context.services.lp:
-        logger.warning("⚠️ Learning paths service not available for batch load")
-        return [None] * len(keys)
-
-    result = await context.services.lp.get_learning_paths_batch(list(keys))
-
-    if result.is_error:
-        logger.error(f"❌ Batch load failed: {result.error}")
-        return [None] * len(keys)
-
-    logger.info(f"✅ Batch loaded {len(result.value)} learning paths in 1 query")
-    return result.value
-
-
-async def batch_load_learning_steps(keys: list[str], context: GraphQLContext) -> list[Any]:
-    """
-    Batch load learning steps by UIDs with metrics logging.
-
-    Prevents N+1 queries when loading steps for multiple paths.
+    Handles service availability checks, Result unwrapping, and error logging
+    so individual loaders don't repeat this boilerplate.
 
     Args:
-        keys: List of learning step UIDs to batch load
-        context: GraphQL context with services
-
-    Returns:
-        List of LearningStep objects or None for missing steps
+        keys: UIDs to batch load
+        service: The domain service (None if unavailable)
+        method_name: Name of the batch method on the service
+        domain: Domain name for log messages
     """
-    logger.info(f"📊 DataLoader batching {len(keys)} learning steps")
+    logger.info(f"DataLoader batching {len(keys)} {domain}")
 
-    if not context.services.ls:
-        logger.warning("⚠️ Learning steps service not available for batch load")
+    if service is None:
+        logger.warning(f"{domain} service not available for batch load")
         return [None] * len(keys)
 
-    # Try to batch load if service supports it
-    # If not, fall back to individual loads
-    batch_method = getattr(context.services.ls, "get_learning_steps_batch", None)
-    try:
-        if batch_method is None:
-            raise AttributeError("batch method not available")
-        result = await batch_method(list(keys))
+    batch_method = getattr(service, method_name)
+    result = await batch_method(list(keys))
 
-        if result.is_error:
-            logger.error(f"❌ Batch load failed: {result.error}")
-            return [None] * len(keys)
-
-        logger.info(f"✅ Batch loaded {len(result.value)} learning steps in 1 query")
-        return result.value
-
-    except AttributeError:
-        # Fallback: Load individually (batch method not available)
-        logger.warning("⚠️ Batch method not available, loading steps individually")
-        steps = []
-        for key in keys:
-            result = await context.services.ls.get(key)
-            # Type-safe value extraction
-            if result.is_ok:
-                steps.append(result.value)
-            else:
-                steps.append(None)
-
-        logger.info(f"✅ Loaded {len([s for s in steps if s])} learning steps individually")
-        return steps
-
-    except Exception as e:
-        logger.error(f"❌ Error loading learning steps: {e}")
+    if result.is_error:
+        logger.error(f"Batch load {domain} failed: {result.error}")
         return [None] * len(keys)
+
+    logger.info(f"Batch loaded {len(result.value)} {domain} in 1 query")
+    return result.value
 
 
 def create_graphql_context(
@@ -184,19 +105,24 @@ def create_graphql_context(
         user_uid=user_uid,
     )
 
-    # Helper functions to bind context to batch loaders
-    # This pattern avoids lambda expressions while preserving functionality
+    # Helper functions to bind context to batch loaders (SKUEL012: no lambdas)
     async def load_knowledge_units(keys: list[str]) -> list[Any]:
-        return await batch_load_knowledge_units(keys, context)
+        return await _batch_load(
+            keys, context.services.article, "get_articles_batch", "knowledge units"
+        )
 
     async def load_tasks(keys: list[str]) -> list[Any]:
-        return await batch_load_tasks(keys, context)
+        return await _batch_load(keys, context.services.tasks, "get_tasks_batch", "tasks")
 
     async def load_learning_paths(keys: list[str]) -> list[Any]:
-        return await batch_load_learning_paths(keys, context)
+        return await _batch_load(
+            keys, context.services.lp, "get_learning_paths_batch", "learning paths"
+        )
 
     async def load_learning_steps(keys: list[str]) -> list[Any]:
-        return await batch_load_learning_steps(keys, context)
+        return await _batch_load(
+            keys, context.services.ls, "get_learning_steps_batch", "learning steps"
+        )
 
     # Create DataLoaders with named functions instead of lambdas
     context.knowledge_loader = DataLoader(load_fn=load_knowledge_units)

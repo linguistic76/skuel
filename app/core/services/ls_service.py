@@ -266,6 +266,23 @@ class LsService:
             to_uid=path_uid,
         )
 
+    async def get_learning_steps_batch(
+        self, uids: builtins.list[str]
+    ) -> Result[builtins.list[LearningStep | None]]:
+        """
+        Get multiple learning steps in one batched query.
+
+        Critical for GraphQL DataLoader batching to prevent N+1 queries.
+
+        Args:
+            uids: List of learning step UIDs to fetch
+
+        Returns:
+            Result containing list of LearningSteps (None for missing UIDs)
+            Entities returned in same order as input UIDs
+        """
+        return await self.core.backend.get_many(uids)
+
     async def get_step_paths(self, step_uid: str, limit: int = 100) -> Result[builtins.list[str]]:
         """
         Get all learning paths that contain a specific step.
