@@ -25,7 +25,7 @@ SKUEL uses a **separated infrastructure pattern** where infrastructure services 
 
 ## Prerequisites
 
-1. **Python 3.11+** with Poetry installed
+1. **Python 3.11+** with uv installed
 2. **Docker** and Docker Compose
 3. **Git** (for cloning/version control)
 

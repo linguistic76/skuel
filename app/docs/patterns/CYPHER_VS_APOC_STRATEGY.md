@@ -502,7 +502,7 @@ Add note about pure Cypher benefits:
 
 ```toml
 # pyproject.toml - Pin Neo4j + APOC versions together
-[tool.poetry.dependencies]
+[project.dependencies]
 neo4j = "5.15.0"  # Specific version
 # APOC must match Neo4j version
 

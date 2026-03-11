@@ -76,11 +76,11 @@ If you start everything at once with a single `docker compose up -d` in the app 
 
 ```dockerfile
 FROM python:3.12-slim as builder   # Must match pyproject.toml python = ">=3.12"
-# ... installs Poetry, runs `uv sync --only=main`
+# ... installs uv, runs `uv sync --only=main`
 
 FROM python:3.12-slim as production
 # Non-root user (skuel:skuel) for security
-# Copies .venv from builder stage — no Poetry in the final image
+# Copies .venv from builder stage — no uv in the final image
 # Health check: curl http://localhost:5001/health
 # EXPOSE 5001
 # CMD ["python", "main.py"]        # Entry point is main.py
@@ -90,7 +90,7 @@ Key rules when modifying this file:
 - **Python version must match `pyproject.toml`.** `pyproject.toml` declares `python = ">=3.12,<4.0"`. The Dockerfile base image must be `3.12` or later.
 - **The entry point is `main.py`.** Not `skuel.py`. There is no `skuel.py`.
 - **The container always listens on port 5001.** The `APP_PORT` in `.env` (currently 8000) is for `uv run` local dev. Inside the container, the port is 5001. See TROUBLESHOOTING.md if you get confused here.
-- **Poetry is a build-time dependency only.** The production stage copies the `.venv` directory. Do not add Poetry to the production stage.
+- **uv is a build-time dependency only.** The production stage copies the `.venv` directory. Do not add uv to the production stage.
 - **`uv.lock` must be committed.** The builder stage copies `pyproject.toml` and `uv.lock` before installing. If `uv.lock` is missing or stale, the build will fail or produce an unpredictable environment.
 
 ---

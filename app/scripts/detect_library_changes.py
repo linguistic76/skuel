@@ -60,9 +60,9 @@ def build_package_to_skills_map(skills_data: dict[str, Any]) -> dict[str, list[s
     return package_map
 
 
-def parse_poetry_lock_packages(lock_file_path: Path) -> dict[str, str]:
+def parse_uv_lock_packages(lock_file_path: Path) -> dict[str, str]:
     """
-    Parse poetry.lock to extract package versions.
+    Parse uv.lock to extract package versions.
 
     Returns: {package_name: version}
     """
@@ -73,8 +73,7 @@ def parse_poetry_lock_packages(lock_file_path: Path) -> dict[str, str]:
 
     content = lock_file_path.read_text()
 
-    # Parse [[package]] blocks
-    # Format:
+    # Parse [[package]] blocks — same TOML format as poetry.lock:
     # [[package]]
     # name = "pydantic"
     # version = "2.12.5"
@@ -112,10 +111,10 @@ def get_git_diff_packages(
         # from_ref doesn't exist (likely first clone)
         return {}
 
-    # Get diff of poetry.lock
+    # Get diff of uv.lock
     try:
         result = subprocess.run(
-            ["git", "diff", from_ref, "HEAD", "poetry.lock"],
+            ["git", "diff", from_ref, "HEAD", "uv.lock"],
             cwd=base_path,
             capture_output=True,
             text=True,

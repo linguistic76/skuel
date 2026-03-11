@@ -55,6 +55,7 @@ The unified linter enforces SKUEL architectural patterns with three severity lev
 | **SKUEL013** | RelationshipName strings | Use `RelationshipName` enum |
 | **SKUEL014** | EntityType/NonKuDomain strings | Use `EntityType` or `NonKuDomain` enum |
 | **SKUEL015** | Print in production code | Use `logger.*()` instead |
+| **SKUEL016** | Stale Poetry references | SKUEL uses uv, not Poetry |
 
 ## Rule: SKUEL003 - Deprecated .is_err
 

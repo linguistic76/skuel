@@ -73,15 +73,15 @@ uv run python scripts/docs_review_scheduler.py
 ### Configuration
 
 **Python Version**: 3.12
-**Poetry Version**: 1.7.1
+**Package Manager**: uv
 **Caching**:
-- Poetry venv cached based on `uv.lock` hash
+- uv venv cached based on `uv.lock` hash
 - Pip cache enabled for faster setup-python
 
 ### Troubleshooting
 
 **"No module named 'yaml'"**:
-- Poetry dependencies not installed
+- uv dependencies not installed
 - Check `pyproject.toml` includes `pyyaml`
 
 **"docs directory not found"**:

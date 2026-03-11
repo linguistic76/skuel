@@ -56,7 +56,7 @@ This script will:
 
 This script validates:
 - ✅ Environment variables configured
-- ✅ Poetry and dependencies installed
+- ✅ uv and dependencies installed
 - ✅ Neo4j GenAI plugin enabled
 - ✅ Application startup successful
 - ✅ Monitoring endpoints working
@@ -278,7 +278,7 @@ Manual verification after deployment:
 - [ ] Environment variables configured (.env file)
 - [ ] AuraDB instance accessible
 - [ ] OpenAI API key valid
-- [ ] Poetry installed
+- [ ] uv installed
 - [ ] Dependencies installed (`uv sync --no-dev`)
 
 ### GenAI Plugin

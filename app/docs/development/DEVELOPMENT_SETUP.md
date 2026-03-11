@@ -5,7 +5,7 @@ This guide covers setting up SKUEL for local development.
 ## Prerequisites
 
 - Python 3.11+
-- Poetry (package manager)
+- uv (package manager)
 - Neo4j database running locally
 - OpenAI API key
 - Deepgram API key

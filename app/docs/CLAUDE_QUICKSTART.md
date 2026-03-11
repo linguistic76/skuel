@@ -22,7 +22,7 @@ related: [README.md, INDEX.md]
 2. **18 entity types + 5 systems** - All flow toward LifePath
 3. **6 Activity Domains** use `UnifiedRelationshipService` - Tasks, Goals, Habits, Events, Choices, Principles
 4. **Result[T] everywhere** - Use `.is_error` not `.is_err`
-5. **Poetry for everything** - `uv run python`, `uv run pytest`
+5. **uv for everything** - `uv run python`, `uv run pytest`
 
 ---
 

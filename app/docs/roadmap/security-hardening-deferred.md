@@ -229,7 +229,7 @@ against their issuing service (e.g., an AWS key that actually authenticates).
 
 Generate a Software Bill of Materials for supply chain visibility:
 ```bash
-uv run cyclonedx-py poetry > sbom.json
+uv run cyclonedx-py environment > sbom.json
 ```
 
 **Enable when**: First CI pipeline is created. The dependency audit job is the highest priority

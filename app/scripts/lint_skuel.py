@@ -24,6 +24,7 @@ WARNING (reported, doesn't block):
   SKUEL013: RelationshipName enum usage (not magic strings)
   SKUEL014: EntityType/NonKuDomain enum usage (not magic strings)
   SKUEL015: print() in production code - use logger instead
+  SKUEL016: Stale Poetry references - SKUEL uses uv
 
 INFO (informational, visibility only):
   SKUEL006: TODO/FIXME comments - track technical debt
@@ -292,6 +293,31 @@ def validate_config():
         print(f"Missing: {missing}")  # Bypasses logging
         return False""",
     },
+    "SKUEL016": {
+        "title": "No Stale Poetry References",
+        "severity": "WARNING",
+        "description": """SKUEL migrated from Poetry to uv. References to poetry commands,
+poetry.lock, or [tool.poetry] sections should be updated to their uv equivalents.
+
+Common replacements:
+  poetry install → uv sync
+  poetry add → uv add
+  poetry run → uv run
+  poetry.lock → uv.lock
+  [tool.poetry] → [project]""",
+        "good": """# Install dependencies
+uv sync
+
+# Add a package
+uv add weasyprint
+
+# Run a script
+uv run python scripts/my_script.py""",
+        "bad": """# Stale Poetry references
+poetry install
+poetry add weasyprint
+poetry run python scripts/my_script.py""",
+    },
 }
 
 
@@ -500,6 +526,8 @@ class SkuelLinter:
                 self._check_lambda_usage(file_path, rel_path, content, lines)
             if self._should_run_rule("SKUEL015") and not is_test:
                 self._check_print_statements(file_path, rel_path, content, lines)
+            if self._should_run_rule("SKUEL016"):
+                self._check_poetry_references(file_path, rel_path, content, lines)
 
             # INFO rules (always run for visibility)
             if self._should_run_rule("SKUEL006"):
@@ -1185,6 +1213,65 @@ class SkuelLinter:
                         line_content=line.strip(),
                     )
                 )
+
+    def _check_poetry_references(
+        self, file_path: Path, rel_path: Path, content: str, lines: list[str]
+    ) -> None:
+        """
+        SKUEL016 [WARNING]: No stale Poetry references — SKUEL uses uv.
+
+        Catches: poetry install, poetry add, poetry run, poetry.lock,
+        [tool.poetry], pyproject.toml poetry sections.
+
+        Exceptions: Migration scripts, ADR docs (historical), this linter's rule docs.
+        """
+        file_str = str(file_path)
+
+        # Skip files where poetry references are historical/expected
+        if any(
+            skip in file_str
+            for skip in [
+                "/migrations/",
+                "lint_skuel.py",  # This linter documents the pattern
+                "detect_library_changes.py",  # May reference lock file names
+            ]
+        ):
+            return
+
+        poetry_patterns = [
+            (r"\bpoetry\s+install\b", "poetry install", "uv sync"),
+            (r"\bpoetry\s+add\b", "poetry add", "uv add"),
+            (r"\bpoetry\s+remove\b", "poetry remove", "uv remove"),
+            (r"\bpoetry\s+run\b", "poetry run", "uv run"),
+            (r"\bpoetry\s+lock\b", "poetry lock", "uv lock"),
+            (r"\bpoetry\s+update\b", "poetry update", "uv lock --upgrade"),
+            (r"\bpoetry\.lock\b", "poetry.lock", "uv.lock"),
+            (r"\[tool\.poetry\b", "[tool.poetry]", "[project]"),
+        ]
+
+        for line_num, line in enumerate(lines, start=1):
+            stripped = line.strip()
+
+            # Skip comments that explain the migration itself
+            if stripped.startswith("#") and ("migrat" in stripped.lower() or "was" in stripped.lower()):
+                continue
+
+            for pattern, match_text, replacement in poetry_patterns:
+                match = re.search(pattern, line, re.IGNORECASE)
+                if match:
+                    self.result.violations.append(
+                        Violation(
+                            file_path=rel_path,
+                            line_number=line_num,
+                            column=match.start(),
+                            severity=Severity.WARNING,
+                            rule_id="SKUEL016",
+                            message=f"Stale Poetry reference '{match_text}' — SKUEL uses uv",
+                            suggestion=f"Replace with: {replacement}",
+                            line_content=line.strip(),
+                        )
+                    )
+                    break  # Only report once per line
 
     # =========================================================================
     # INFO RULES (visibility only)

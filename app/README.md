@@ -13,7 +13,7 @@ SKUEL is a knowledge graph-based productivity system built on the principle that
 ### Prerequisites
 
 - Python 3.12+
-- Poetry (package manager)
+- uv (package manager)
 - Neo4j 5.26.0+ (running separately)
 - Node.js (for frontend assets)
 
@@ -173,7 +173,7 @@ skuel/app/
 │   ├── integration/           # Integration tests (100% passing)
 │   └── unit/                  # Unit tests
 ├── main.py                    # Application entry point
-├── pyproject.toml             # Poetry dependencies
+├── pyproject.toml             # uv dependencies
 └── CLAUDE.md                  # Quick reference guide
 ```
 
@@ -322,7 +322,7 @@ uv run ruff format .
 - **Language**: Python 3.12+
 - **Web Framework**: FastHTML
 - **Database**: Neo4j 5.26.0 (Graph Database)
-- **Package Manager**: Poetry
+- **Package Manager**: uv
 - **Type Checking**: MyPy + Pyright
 - **Testing**: pytest
 

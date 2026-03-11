@@ -622,6 +622,7 @@ Use for consistent timestamp/metadata handling: `timestamp_properties()`, `updat
 - SKUEL013: Use `RelationshipName` enum
 - SKUEL014: Use `EntityType`/`NonKuDomain` enum
 - SKUEL015: No `print()` in production
+- SKUEL016: No stale Poetry references — SKUEL uses uv
 
 **MyPy:** Strict where it matters, gradual everywhere else. Per-module overrides in `pyproject.toml`. Three globally-disabled codes: `type-var`, `assignment`, `arg-type`. Every new `Any` needs a `# boundary:` comment or should use a specific type.
 
