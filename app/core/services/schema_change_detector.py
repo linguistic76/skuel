@@ -18,7 +18,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from core.models.schema_change import (  # type: ignore[import-not-found]
+from core.models.schema_change import (  # type: ignore[import-untyped]
     ChangeImpact,
     SchemaChange,
     SchemaChangeEvent,

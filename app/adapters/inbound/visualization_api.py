@@ -162,7 +162,7 @@ def create_visualization_api_routes(
             )
 
             if streak_result.is_error:
-                return streak_result
+                return Result.fail(streak_result)
 
             streaks = streak_result.value
         else:
@@ -306,7 +306,7 @@ def create_visualization_api_routes(
         today = date.today()
 
         if tasks_service:
-            result = await tasks_service.get_user_items_in_range(
+            result: Result[Any] = await tasks_service.get_user_items_in_range(
                 user_uid=user_uid,
                 start_date=today - timedelta(days=30),
                 end_date=today + timedelta(days=60),
@@ -314,7 +314,7 @@ def create_visualization_api_routes(
             )
 
             if result.is_error:
-                return result
+                return Result.fail(result)
 
             tasks = result.value or []
 
@@ -365,7 +365,7 @@ def create_visualization_api_routes(
         dependencies: dict[str, list[str]] = {}
 
         if tasks_service:
-            result = await tasks_service.get_user_items_in_range(
+            result: Result[Any] = await tasks_service.get_user_items_in_range(
                 user_uid=user_uid,
                 start_date=today - timedelta(days=7),
                 end_date=today + timedelta(days=60),
@@ -373,7 +373,7 @@ def create_visualization_api_routes(
             )
 
             if result.is_error:
-                return result
+                return Result.fail(result)
 
             tasks = result.value or []
 
@@ -437,10 +437,10 @@ def create_visualization_api_routes(
 
         if goals_service:
             # Get goal
-            goal_result = await goals_service.get_for_user(goal_uid, user_uid)
+            goal_result: Result[Any] = await goals_service.get_for_user(goal_uid, user_uid)
 
             if goal_result.is_error:
-                return goal_result
+                return Result.fail(goal_result)
 
             goal = goal_result.value
 
