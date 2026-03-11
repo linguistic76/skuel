@@ -277,16 +277,40 @@ class UserPreferencesComponents:
             action="/profile/settings/save",
         )
 
+    # All DaisyUI built-in themes
+    DAISYUI_THEMES = [
+        "light", "dark", "cupcake", "bumblebee", "emerald", "corporate",
+        "synthwave", "retro", "cyberpunk", "valentine", "halloween", "garden",
+        "forest", "aqua", "lofi", "pastel", "fantasy", "wireframe", "black",
+        "luxury", "dracula", "cmyk", "autumn", "business", "acid", "lemonade",
+        "night", "coffee", "winter", "dim", "nord", "sunset",
+    ]
+
     @staticmethod
     def _render_display_prefs_form(prefs: dict) -> Any:
         """Render display preferences section"""
+        current_theme = prefs.get("theme", "light")
+        theme_options = [
+            Option(
+                theme.capitalize(),
+                value=theme,
+                selected=current_theme == theme,
+            )
+            for theme in UserPreferencesComponents.DAISYUI_THEMES
+        ]
+
         return Form(
             Div(
                 Label("Theme", cls="label font-semibold"),
-                Select(name="theme", cls="select select-bordered w-full")(
-                    Option("Light", value="light", selected=prefs.get("theme") == "light"),
-                    Option("Dark", value="dark", selected=prefs.get("theme") == "dark"),
-                    Option("Auto", value="auto", selected=prefs.get("theme") == "auto"),
+                Select(
+                    *theme_options,
+                    name="theme",
+                    cls="select select-bordered w-full",
+                    onchange="document.documentElement.setAttribute('data-theme', this.value)",
+                ),
+                P(
+                    "Theme changes preview instantly. Save to persist.",
+                    cls="text-sm text-base-content/60 mt-1",
                 ),
                 cls="form-control mb-4",
             ),

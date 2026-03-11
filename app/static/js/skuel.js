@@ -3105,42 +3105,6 @@
 
     });
 
-        // ---------------------------------------------------------------------
-        // Theme Switcher Component
-        // ---------------------------------------------------------------------
-        // Lets users browse all DaisyUI themes with localStorage persistence.
-        // Usage: x-data="themeSwitcher"
-        Alpine.data('themeSwitcher', function() {
-            var THEME_KEY = 'skuel-theme';
-            var themes = [
-                'light', 'dark', 'cupcake', 'bumblebee', 'emerald', 'corporate',
-                'synthwave', 'retro', 'cyberpunk', 'valentine', 'halloween', 'garden',
-                'forest', 'aqua', 'lofi', 'pastel', 'fantasy', 'wireframe', 'black',
-                'luxury', 'dracula', 'cmyk', 'autumn', 'business', 'acid', 'lemonade',
-                'night', 'coffee', 'winter', 'dim', 'nord', 'sunset'
-            ];
-
-            return {
-                open: false,
-                themes: themes,
-                current: localStorage.getItem(THEME_KEY) || 'light',
-
-                setTheme: function(theme) {
-                    this.current = theme;
-                    document.documentElement.setAttribute('data-theme', theme);
-                    localStorage.setItem(THEME_KEY, theme);
-                },
-
-                toggle: function() {
-                    this.open = !this.open;
-                },
-
-                close: function() {
-                    this.open = false;
-                }
-            };
-        });
-
     });
 
 })();

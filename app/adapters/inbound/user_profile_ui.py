@@ -372,9 +372,21 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
                 cls="p-4",
             )
 
+        from fasthtml.common import Script
+
         from ui.profile.preferences import UserPreferencesComponents
 
-        return UserPreferencesComponents.render_preferences_saved_message()
+        # Persist theme to localStorage so it applies on all pages
+        saved_theme = preferences_update.get("theme", "light")
+        theme_script = Script(
+            f"localStorage.setItem('skuel-theme', '{saved_theme}');"
+            f"document.documentElement.setAttribute('data-theme', '{saved_theme}');"
+        )
+
+        return Div(
+            UserPreferencesComponents.render_preferences_saved_message(),
+            theme_script,
+        )
 
     # ========================================================================
     # PROFILE HUB ROUTES - Sidebar Navigation with Domain Views
