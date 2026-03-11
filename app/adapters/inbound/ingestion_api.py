@@ -463,11 +463,10 @@ def create_ingestion_api_routes(
         }
         """
         # Auth check before accepting — ingestion is admin-only
-        from adapters.inbound.auth.session import get_current_user, get_is_admin
+        from adapters.inbound.auth import require_websocket_admin
 
-        user_uid = get_current_user(ws)
-        if not user_uid or not get_is_admin(ws):
-            await ws.close(code=4003, reason="Admin access required")
+        user_uid = await require_websocket_admin(ws)
+        if not user_uid:
             return
 
         await ws.accept()

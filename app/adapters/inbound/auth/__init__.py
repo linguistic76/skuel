@@ -10,6 +10,9 @@ Framework-free auth utilities (password hashing, graph auth) remain in core/auth
 Quick Start:
     ```python
     from adapters.inbound.auth import get_current_user, require_auth, require_admin
+
+    # WebSocket routes (decorators can't run before ws.accept()):
+    from adapters.inbound.auth import require_websocket_admin
     ```
 """
 
@@ -38,6 +41,7 @@ from adapters.inbound.auth.session import (
     require_auth,
     require_authenticated_user,
     require_ownership_query,
+    require_websocket_admin,
     set_current_user,
     set_session_data,
     with_ownership,
@@ -61,6 +65,7 @@ __all__ = [
     "require_auth",
     "require_authenticated_user",
     "require_ownership_query",
+    "require_websocket_admin",
     "set_current_user",
     "set_session_data",
     "with_ownership",

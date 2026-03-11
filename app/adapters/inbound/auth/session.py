@@ -391,6 +391,41 @@ def require_authenticated_user(request: Request) -> UserUID:
 # ============================================================================
 
 
+async def require_websocket_admin(ws: Any) -> UserUID | None:
+    """
+    Require admin authentication for WebSocket connections.
+
+    Standard decorators like @require_admin don't work for WebSocket handlers
+    because auth must be checked before ws.accept(). This helper encapsulates
+    the WebSocket-specific auth pattern.
+
+    Args:
+        ws: Starlette WebSocket object (has .session like Request)
+
+    Returns:
+        UserUID if authenticated admin, None if unauthorized (WS closed with 4003)
+
+    Usage:
+        ```python
+        from adapters.inbound.auth import require_websocket_admin
+
+        @rt("/ws/progress/{operation_id}")
+        async def websocket_handler(ws, operation_id: str):
+            user_uid = await require_websocket_admin(ws)
+            if not user_uid:
+                return
+
+            await ws.accept()
+            ...
+        ```
+    """
+    user_uid = get_current_user(ws)
+    if not user_uid or not get_is_admin(ws):
+        await ws.close(code=4003, reason="Admin access required")
+        return None
+    return UserUID(user_uid)
+
+
 def require_auth(redirect_to: str = "/login"):
     """
     Decorator to require authentication for a route.
@@ -727,6 +762,7 @@ __all__ = [
     # Decorators
     "require_auth",
     "require_authenticated_user",
+    "require_websocket_admin",
     "set_current_user",
     "set_session_data",
     # Ownership verification (December 2025)
