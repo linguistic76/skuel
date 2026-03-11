@@ -415,8 +415,6 @@ class SkuelLinter:
         "lint_skuel.py",  # Linter itself uses print for output
         "dev",  # dev script
         "debug_",  # Debug scripts
-        "version_manager.py",  # CLI utility
-        "github_manager.py",  # CLI utility
         "config/validation.py",  # Has print_validation_report() for CLI output
     ]
 
