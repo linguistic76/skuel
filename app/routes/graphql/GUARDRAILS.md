@@ -178,13 +178,16 @@ async def knowledge_unit(
         # Not found
         return None
 
-    # Success - convert domain model to GraphQL type
+    # Success - convert domain model to GraphQL type via from_dto()
     ku = result.value
-    return KnowledgeNode(
-        uid=ku.uid,
-        title=ku.title,
-        # ... map other fields
-    )
+    return KnowledgeNode.from_dto(ku)
+
+# ✅ EVEN BETTER - Use unwrap_result() helper for list queries
+from routes.graphql.query_helpers import unwrap_result
+
+result = await context.services.article.core.list(limit=safe_limit, filters=filters)
+entities, _count = unwrap_result(result, ([], 0))
+return [KnowledgeNode.from_dto(ku) for ku in entities]
 
 # ❌ WRONG - Direct exception handling
 @strawberry.field
@@ -192,7 +195,7 @@ async def knowledge_unit(self, uid: str) -> KnowledgeNode:
     try:
         # Calling service that might raise exceptions
         ku = await service.get_knowledge_unit_direct(uid)
-        return KnowledgeNode(...)
+        return KnowledgeNode(...)  # Also wrong: use from_dto()
     except Exception as e:
         # Inconsistent error handling
         raise  # Leaks exception into GraphQL response

@@ -180,14 +180,7 @@ class LearningStep:
         if not ku:
             return None
 
-        return KnowledgeNode(
-            uid=ku.uid,
-            title=ku.title,
-            summary=ku.summary or "",
-            domain=ku.domain.value,
-            tags=ku.tags or [],
-            quality_score=ku.quality_score,
-        )
+        return KnowledgeNode.from_dto(ku)
 ```
 
 **What Happens Behind the Scenes:**
