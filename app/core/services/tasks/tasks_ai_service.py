@@ -25,8 +25,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from core.models.enums.entity_enums import EntityType
 from core.models.task.task import Task
 from core.services.base_ai_service import BaseAIService
+from core.utils.embedding_text_builder import build_embedding_text
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
@@ -113,10 +115,7 @@ class TasksAIService(BaseAIService["TasksOperations", Task]):
         if not task:
             return Result.fail(Errors.not_found(resource="Task", identifier=task_uid))
 
-        # Build search text from task
-        search_text = f"{task.title}"
-        if task.description:
-            search_text += f" {task.description}"
+        search_text = build_embedding_text(EntityType.TASK, task)
 
         # TODO(blocked:embeddings): Use vector similarity or limit query instead of fetching all tasks
         all_tasks_result = await self.backend.find_by(user_uid=task.user_uid)
@@ -125,7 +124,7 @@ class TasksAIService(BaseAIService["TasksOperations", Task]):
 
         all_tasks = all_tasks_result.value or []
         candidates = [
-            (t.uid, f"{t.title} {t.description or ''}") for t in all_tasks if t.uid != task_uid
+            (t.uid, build_embedding_text(EntityType.TASK, t)) for t in all_tasks if t.uid != task_uid
         ]
 
         if not candidates:
