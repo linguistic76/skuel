@@ -71,18 +71,18 @@ def _checkbox_to_bool(value: str | None) -> bool:
 
 
 def create_search_api_routes(
-    app: Any, rt: RouteDecorator, search_router: Any, **_kwargs: Any
+    app: FastHTMLApp, rt: RouteDecorator, search_router: Any, **_kwargs: Any
 ) -> RouteList:
     """Create search routes with SearchRouter dependency."""
 
-    @app.get("/search")
+    @rt("/search")
     async def search_page(request: Request) -> Any:
         """Main search page with unified BasePage layout."""
         require_authenticated_user(request)
 
         return await render_search_page_with_navbar(request)
 
-    @app.get("/search/results")
+    @rt("/search/results")
     @boundary_handler()
     async def search_results(
         request: Request,
@@ -257,7 +257,7 @@ def create_search_api_routes(
     # UNIFIED SEARCH API ENDPOINT
     # ========================================================================
 
-    @app.post("/api/search/unified")
+    @rt("/api/search/unified", methods=["POST"])
     @boundary_handler()
     async def unified_search_api(
         request: Request,
