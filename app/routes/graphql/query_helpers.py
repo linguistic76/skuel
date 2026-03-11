@@ -13,7 +13,7 @@ These helpers are specifically designed for GraphQL resolvers:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from core.utils.logging import get_logger
 from routes.graphql.context import GraphQLContext
@@ -117,64 +117,6 @@ class GraphQLQueryHelpers:
         # GraphQL context lacks tasks_backend — relationship data lives in Neo4j graph,
         # queried via TasksService, not exposed here.
         return None
-
-    # ========================================================================
-    # LEARNING PATH QUERIES
-    # ========================================================================
-
-    @staticmethod
-    async def get_learning_path_steps(
-        context: GraphQLContext, path_uid: str
-    ) -> list[dict[str, Any]]:
-        """
-        Get learning path steps with knowledge units.
-
-        Returns steps with embedded knowledge data for efficient GraphQL resolution.
-
-        Args:
-            context: GraphQL execution context
-            path_uid: Learning path UID
-
-        Returns:
-            List of step dictionaries with knowledge data
-        """
-        # Get learning path
-        path = await context.learning_path_loader.load(path_uid)
-        if not path or not path.steps:
-            return []
-
-        # DataLoader automatically batches individual load() calls
-        steps_data = []
-        for i, step in enumerate(path.steps):
-            # GRAPH-NATIVE: Use primary_knowledge_uids (plural) instead of knowledge_uid
-            primary_ku = step.primary_knowledge_uids[0] if step.primary_knowledge_uids else None
-            step_data = {
-                "step_number": i + 1,
-                "knowledge_uid": primary_ku,
-                "mastery_threshold": step.mastery_threshold or 0.7,
-                "estimated_time": step.estimated_time or 1.0,
-            }
-
-            # Load knowledge via DataLoader
-            if primary_ku:
-                ku = await context.knowledge_loader.load(primary_ku)
-                if ku:
-                    from routes.graphql.types import KnowledgeNode
-
-                    node = KnowledgeNode.from_dto(ku)
-                    step_data["knowledge"] = {
-                        "uid": node.uid,
-                        "title": node.title,
-                        "summary": node.summary,
-                        "domain": node.domain,
-                        "tags": node.tags,
-                        "quality_score": node.quality_score,
-                    }
-
-            steps_data.append(step_data)
-
-        logger.debug(f"Loaded {len(steps_data)} steps for learning path {path_uid}")
-        return steps_data
 
 
 # ============================================================================
