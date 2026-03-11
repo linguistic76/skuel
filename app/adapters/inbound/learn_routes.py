@@ -1,4 +1,4 @@
-"""Learn UI Routes — Learning hub with Study/Practice/Pathways.
+"""Learn UI Routes — Configuration-Driven Registration
 
 Routes:
 - GET /learn — Dashboard landing (no sidebar)
@@ -15,6 +15,8 @@ if TYPE_CHECKING:
     from services_bootstrap import Services
 
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
+from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 from core.utils.logging import get_logger
 from ui.layouts.base_page import BasePage
 from ui.learn.layout import create_learn_page
@@ -22,16 +24,16 @@ from ui.learn.layout import create_learn_page
 logger = get_logger("skuel.routes.learn")
 
 
-def setup_learn_routes(rt: Any, services: "Services") -> None:
-    """Register /learn routes.
+def create_learn_ui_routes(
+    app: FastHTMLApp, rt: RouteDecorator, user_service: Any, **_kwargs: Any
+) -> RouteList:
+    """Create /learn UI routes.
 
     Args:
+        app: FastHTML app instance
         rt: FastHTML route decorator
-        services: Services container
+        user_service: UserService for context loading
     """
-    if services.user_service is None:
-        raise RuntimeError("UserService is required for learn routes")
-    user_service = services.user_service
 
     async def _get_context(user_uid: str) -> Any:
         """Get UserContext or raise ValueError."""
@@ -165,3 +167,18 @@ def setup_learn_routes(rt: Any, services: "Services") -> None:
         )
 
     logger.info("Learn routes registered (/learn, /learn/study, /learn/practice, /learn/pathways)")
+    return [learn_landing, learn_study, learn_practice, learn_pathways]
+
+
+LEARN_CONFIG = DomainRouteConfig(
+    domain_name="learn",
+    primary_service_attr="user_service",
+    api_factory=create_learn_ui_routes,
+)
+
+
+def create_learn_routes(
+    app: FastHTMLApp, rt: RouteDecorator, services: "Services", _sync_service: Any = None
+) -> RouteList:
+    """Wire learn routes via DomainRouteConfig."""
+    return register_domain_routes(app, rt, services, LEARN_CONFIG)

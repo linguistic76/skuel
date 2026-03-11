@@ -29,6 +29,7 @@ from fasthtml.common import (
 )
 
 from adapters.inbound.auth.session import require_authenticated_user
+from adapters.inbound.fasthtml_types import RouteList
 from core.utils.logging import get_logger
 from routes.graphql import create_graphql_context, create_graphql_schema
 from services_bootstrap import Services
@@ -36,22 +37,22 @@ from services_bootstrap import Services
 logger = get_logger(__name__)
 
 
-# Manual implementation using FastHTML routes (not FastAPI mounting)
-
-
-def create_graphql_routes_manual(app: Any, rt: Any, services: Services, search_router: Any) -> None:
+def create_graphql_routes(
+    app: Any, rt: Any, services: Services, _sync_service: Any = None
+) -> RouteList:
     """
-    Wire GraphQL routes manually (if mounting doesn't work with FastHTML).
+    Wire GraphQL routes manually (FastHTML does not support schema mounting).
 
     Args:
         app: FastHTML app
         rt: FastHTML router
-        services: Business services
-        search_router: SearchRouter for search functionality (One Path Forward)
+        services: Business services (full container — GraphQL needs cross-domain access)
 
-    This creates routes directly without mounting.
+    Returns:
+        List of registered route functions
     """
     schema = create_graphql_schema()
+    search_router = services.search_router
 
     @rt("/graphql")
     async def graphql_handler(request) -> Any:
@@ -201,7 +202,9 @@ def create_graphql_routes_manual(app: Any, rt: Any, services: Services, search_r
         else:
             return Div(Pre(formatted_json, cls="text-green-600"), cls="p-4 bg-green-50 rounded")
 
-    logger.info("✅ GraphQL routes registered manually:")
-    logger.info("  - GET  /graphql         → FastHTML playground (no React!)")
-    logger.info("  - POST /graphql         → JSON API for tests/clients")
-    logger.info("  - POST /graphql/execute → Playground form submission")
+    logger.info("GraphQL routes registered:")
+    logger.info("  - GET  /graphql         -> FastHTML playground")
+    logger.info("  - POST /graphql         -> JSON API for tests/clients")
+    logger.info("  - POST /graphql/execute -> Playground form submission")
+
+    return [graphql_handler, graphql_execute]

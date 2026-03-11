@@ -1,6 +1,6 @@
 """
-Search Routes - Calm Design with Sidebar Layout
-================================================
+Search Routes — Configuration-Driven Registration
+===================================================
 
 FastHTML routes for the search page with calm sidebar design.
 
@@ -14,8 +14,6 @@ Architecture:
     - JavaScript: /static/js/search_sidebar.js
 
 Philosophy: "Users can handle complexity, but they need visual calm to process it."
-
-Version: 3.1-security-hardened
 """
 
 from typing import TYPE_CHECKING, Any
@@ -23,6 +21,9 @@ from typing import TYPE_CHECKING, Any
 from starlette.requests import Request
 
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
+from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 from core.models.enums import (
     ContentType,
     EducationalLevel,
@@ -33,7 +34,6 @@ from core.models.enums import (
 )
 from core.models.enums.entity_enums import EntityType, NonKuDomain
 from core.models.relationship_names import RelationshipName
-from core.models.search import SearchRouter
 from core.models.search_request import SearchRequest
 from ui.search.components import (
     render_empty_search_prompt,
@@ -44,7 +44,7 @@ from ui.search.components import (
 
 if TYPE_CHECKING:
     from services_bootstrap import Services
-from adapters.inbound.boundary import boundary_handler
+
 from core.utils.logging import get_logger
 
 logger = get_logger("skuel.routes.search")
@@ -66,22 +66,19 @@ def _checkbox_to_bool(value: str | None) -> bool:
 
 
 # ============================================================================
-# ROUTES
+# API FACTORY
 # ============================================================================
 
 
-def create_search_routes(
-    app: Any,
-    rt: Any,
-    services: "Services",
-    search_router: SearchRouter,
-) -> None:
-    """Wire search routes with explicit SearchRouter dependency."""
+def create_search_api_routes(
+    app: Any, rt: RouteDecorator, search_router: Any, **_kwargs: Any
+) -> RouteList:
+    """Create search routes with SearchRouter dependency."""
 
     @app.get("/search")
     async def search_page(request: Request) -> Any:
         """Main search page with unified BasePage layout."""
-        require_authenticated_user(request)  # Enforce authentication
+        require_authenticated_user(request)
 
         return await render_search_page_with_navbar(request)
 
@@ -372,13 +369,29 @@ def create_search_routes(
         }
 
         # Convert results by domain
-        for entity_type, items in unified_result.results_by_domain.items():
-            response["results_by_domain"][entity_type.value] = [item.to_dict() for item in items]
+        for et, items in unified_result.results_by_domain.items():
+            response["results_by_domain"][et.value] = [item.to_dict() for item in items]
 
         # Add top results (sorted by combined score) - property returns top 10
         response["top_results"] = unified_result.top_results
 
         return response
+
+    return [search_page, search_results, unified_search_api]
+
+
+SEARCH_CONFIG = DomainRouteConfig(
+    domain_name="search",
+    primary_service_attr="search_router",
+    api_factory=create_search_api_routes,
+)
+
+
+def create_search_routes(
+    app: FastHTMLApp, rt: RouteDecorator, services: "Services", _sync_service: Any = None
+) -> RouteList:
+    """Wire search routes via DomainRouteConfig."""
+    return register_domain_routes(app, rt, services, SEARCH_CONFIG)
 
 
 __all__ = ["create_search_routes"]

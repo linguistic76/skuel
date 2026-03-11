@@ -1,6 +1,6 @@
 """
-Monitoring Routes
-=================
+Monitoring Routes — Configuration-Driven Registration
+======================================================
 
 System health and metrics endpoints for monitoring SKUEL infrastructure.
 
@@ -17,23 +17,32 @@ from starlette.requests import Request
 
 from adapters.inbound.auth import make_service_getter, require_admin
 from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
+from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 from core.utils.logging import get_logger
 
 logger = get_logger("skuel.routes.monitoring")
 
 
-def create_monitoring_routes(app: FastHTMLApp, rt: RouteDecorator, services: Any) -> RouteList:
+def create_monitoring_api_routes(
+    app: FastHTMLApp, rt: RouteDecorator, user_service: Any, **kwargs: Any
+) -> RouteList:
     """
-    Create monitoring routes for system health and metrics.
+    Create monitoring API routes.
 
     Args:
         app: FastHTML app instance
         rt: FastHTML router
-        services: Services container
+        user_service: UserService for admin checks
+        **kwargs: Related services (embedding_worker, embeddings_service,
+                  vector_search_service, neo4j_driver)
 
     Returns:
         List of routes created
     """
+    embedding_worker = kwargs.get("embedding_worker")
+    embeddings_service = kwargs.get("embeddings_service")
+    vector_search_service = kwargs.get("vector_search_service")
+    neo4j_driver = kwargs.get("neo4j_driver")
 
     @rt("/api/monitoring/health")
     async def health_check(request: Request):
@@ -50,7 +59,7 @@ def create_monitoring_routes(app: FastHTMLApp, rt: RouteDecorator, services: Any
             }
         )
 
-    get_user_service = make_service_getter(services.user_service)
+    get_user_service = make_service_getter(user_service)
 
     @rt("/api/monitoring/embedding-worker")
     @require_admin(get_user_service)
@@ -68,7 +77,7 @@ def create_monitoring_routes(app: FastHTMLApp, rt: RouteDecorator, services: Any
             200: Worker metrics (JSON)
             503: Worker not available
         """
-        if not services.embedding_worker:
+        if not embedding_worker:
             return JSONResponse(
                 {
                     "status": "unavailable",
@@ -78,7 +87,7 @@ def create_monitoring_routes(app: FastHTMLApp, rt: RouteDecorator, services: Any
             )
 
         try:
-            metrics = services.embedding_worker.get_metrics()
+            metrics = embedding_worker.get_metrics()
 
             return JSONResponse(
                 {
@@ -109,18 +118,18 @@ def create_monitoring_routes(app: FastHTMLApp, rt: RouteDecorator, services: Any
         try:
             metrics = {
                 "services": {
-                    "embedding_worker": services.embedding_worker is not None,
-                    "embeddings_service": services.embeddings_service is not None,
-                    "vector_search": services.vector_search_service is not None,
+                    "embedding_worker": embedding_worker is not None,
+                    "embeddings_service": embeddings_service is not None,
+                    "vector_search": vector_search_service is not None,
                 },
                 "database": {
-                    "neo4j_connected": services.neo4j_driver is not None,
+                    "neo4j_connected": neo4j_driver is not None,
                 },
             }
 
             # Add worker metrics if available
-            if services.embedding_worker:
-                worker_metrics = services.embedding_worker.get_metrics()
+            if embedding_worker:
+                worker_metrics = embedding_worker.get_metrics()
                 metrics["embedding_worker"] = worker_metrics
 
             return JSONResponse(
@@ -140,5 +149,25 @@ def create_monitoring_routes(app: FastHTMLApp, rt: RouteDecorator, services: Any
                 status_code=500,
             )
 
-    logger.info("✅ Monitoring routes created (3 endpoints)")
+    logger.info("Monitoring routes created (3 endpoints)")
     return [health_check, embedding_worker_metrics, system_metrics]
+
+
+MONITORING_CONFIG = DomainRouteConfig(
+    domain_name="monitoring",
+    primary_service_attr="user_service",
+    api_factory=create_monitoring_api_routes,
+    api_related_services={
+        "embedding_worker": "embedding_worker",
+        "embeddings_service": "embeddings_service",
+        "vector_search_service": "vector_search_service",
+        "neo4j_driver": "neo4j_driver",
+    },
+)
+
+
+def create_monitoring_routes(
+    app: FastHTMLApp, rt: RouteDecorator, services: Any, _sync_service: Any = None
+) -> RouteList:
+    """Wire monitoring routes via DomainRouteConfig."""
+    return register_domain_routes(app, rt, services, MONITORING_CONFIG)

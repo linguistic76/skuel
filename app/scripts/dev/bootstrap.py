@@ -476,7 +476,7 @@ async def _wire_all_routes(
     from adapters.inbound.search_routes import create_search_routes
 
     # SearchRouter is THE path for all search (One Path Forward)
-    create_search_routes(app, rt, services, services.search_router)
+    create_search_routes(app, rt, services)
     logger.info("✅ Search routes registered at /search (via SearchRouter)")
 
     # Authentication routes (login, logout, user switching)
@@ -712,9 +712,9 @@ async def _wire_all_routes(
     logger.info("✅ Activities routes registered (/activities)")
 
     # Learn Hub
-    from adapters.inbound.learn_routes import setup_learn_routes
+    from adapters.inbound.learn_routes import create_learn_routes
 
-    setup_learn_routes(rt, services)
+    create_learn_routes(app, rt, services)
     logger.info("✅ Learn routes registered (/learn)")
 
     # User Profile Hub
@@ -802,10 +802,10 @@ async def _wire_all_routes(
 
     # GraphQL API routes (REQUIRED - fail-fast)
     # One Path Forward: GraphQL uses SearchRouter (January 2026)
-    from adapters.inbound.graphql_routes import create_graphql_routes_manual
+    from adapters.inbound.graphql_routes import create_graphql_routes
 
     # SearchRouter is THE path for all search (One Path Forward)
-    create_graphql_routes_manual(app, rt, services, services.search_router)
+    create_graphql_routes(app, rt, services)
     logger.info("✅ GraphQL API registered at /graphql (via SearchRouter)")
 
 
