@@ -24,11 +24,11 @@ from datetime import date, timedelta
 from typing import TYPE_CHECKING, Any
 
 from starlette.requests import Request
-from starlette.responses import JSONResponse
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from core.utils.logging import get_logger
+from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from core.ports import CalendarServiceOperations, VisualizationOperations
@@ -69,7 +69,7 @@ def create_visualization_api_routes(
 
     @rt("/api/visualizations/completion")
     @boundary_handler()
-    async def get_completion_chart(request: Request) -> JSONResponse:
+    async def get_completion_chart(request: Request) -> Result[dict[str, Any]]:
         """
         Get task completion rate data for Chart.js.
 
@@ -90,7 +90,7 @@ def create_visualization_api_routes(
             )
 
             if data_result.is_error:
-                return JSONResponse({"error": str(data_result.error)}, status_code=400)
+                return data_result
 
             data = data_result.value
             completed = data["completed"]
@@ -103,16 +103,11 @@ def create_visualization_api_routes(
             labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
         # Format for Chart.js
-        chart_result = vis_service.format_completion_chart(completed, total, labels)
-
-        if chart_result.is_error:
-            return JSONResponse({"error": str(chart_result.error)}, status_code=400)
-
-        return JSONResponse(chart_result.value)
+        return vis_service.format_completion_chart(completed, total, labels)
 
     @rt("/api/visualizations/priority-distribution")
     @boundary_handler()
-    async def get_priority_distribution(request: Request) -> JSONResponse:
+    async def get_priority_distribution(request: Request) -> Result[dict[str, Any]]:
         """
         Get task priority distribution for Chart.js pie/doughnut.
 
@@ -128,7 +123,7 @@ def create_visualization_api_routes(
             )
 
             if dist_result.is_error:
-                return JSONResponse({"error": str(dist_result.error)}, status_code=400)
+                return dist_result
 
             distribution = dist_result.value
         else:
@@ -145,18 +140,13 @@ def create_visualization_api_routes(
             }
 
         # Format for Chart.js
-        chart_result = vis_service.format_distribution_chart(
+        return vis_service.format_distribution_chart(
             distribution, "Task Priority Distribution", "doughnut"
         )
 
-        if chart_result.is_error:
-            return JSONResponse({"error": str(chart_result.error)}, status_code=400)
-
-        return JSONResponse(chart_result.value)
-
     @rt("/api/visualizations/streaks")
     @boundary_handler()
-    async def get_streak_chart(request: Request) -> JSONResponse:
+    async def get_streak_chart(request: Request) -> Result[dict[str, Any]]:
         """
         Get habit streak data for Chart.js horizontal bar.
 
@@ -172,7 +162,7 @@ def create_visualization_api_routes(
             )
 
             if streak_result.is_error:
-                return JSONResponse({"error": str(streak_result.error)}, status_code=400)
+                return streak_result
 
             streaks = streak_result.value
         else:
@@ -188,16 +178,11 @@ def create_visualization_api_routes(
             ]
 
         # Format for Chart.js
-        chart_result = vis_service.format_streak_chart(streaks)
-
-        if chart_result.is_error:
-            return JSONResponse({"error": str(chart_result.error)}, status_code=400)
-
-        return JSONResponse(chart_result.value)
+        return vis_service.format_streak_chart(streaks)
 
     @rt("/api/visualizations/status-distribution")
     @boundary_handler()
-    async def get_status_distribution(request: Request) -> JSONResponse:
+    async def get_status_distribution(request: Request) -> Result[dict[str, Any]]:
         """
         Get task status distribution for Chart.js.
 
@@ -214,7 +199,7 @@ def create_visualization_api_routes(
             )
 
             if dist_result.is_error:
-                return JSONResponse({"error": str(dist_result.error)}, status_code=400)
+                return dist_result
 
             distribution = dist_result.value
         else:
@@ -230,14 +215,9 @@ def create_visualization_api_routes(
             }
 
         # Format for Chart.js
-        chart_result = vis_service.format_distribution_chart(
+        return vis_service.format_distribution_chart(
             distribution, "Task Status Distribution", "pie"
         )
-
-        if chart_result.is_error:
-            return JSONResponse({"error": str(chart_result.error)}, status_code=400)
-
-        return JSONResponse(chart_result.value)
 
     # =========================================================================
     # Vis.js Timeline Endpoints
@@ -245,7 +225,7 @@ def create_visualization_api_routes(
 
     @rt("/api/visualizations/timeline")
     @boundary_handler()
-    async def get_timeline_data(request: Request) -> JSONResponse:
+    async def get_timeline_data(request: Request) -> Result[dict[str, Any]]:
         """
         Get calendar timeline data for Vis.js.
 
@@ -277,18 +257,13 @@ def create_visualization_api_routes(
             )
 
             if result.is_error:
-                return JSONResponse({"error": result.error}, status_code=500)
+                return result
 
             calendar_data = result.value
-            timeline_result = vis_service.format_for_visjs(calendar_data, group_by)
-
-            if timeline_result.is_error:
-                return JSONResponse({"error": timeline_result.error}, status_code=400)
-
-            return JSONResponse(timeline_result.value)
+            return vis_service.format_for_visjs(calendar_data, group_by)
 
         # Demo data if no service
-        demo_data = {
+        demo_data: dict[str, Any] = {
             "items": [
                 {
                     "id": "demo-1",
@@ -311,11 +286,11 @@ def create_visualization_api_routes(
             ],
             "options": {"showCurrentTime": True},
         }
-        return JSONResponse(demo_data)
+        return Result.ok(demo_data)
 
     @rt("/api/visualizations/tasks-timeline")
     @boundary_handler()
-    async def get_tasks_timeline(request: Request) -> JSONResponse:
+    async def get_tasks_timeline(request: Request) -> Result[dict[str, Any]]:
         """
         Get tasks-only timeline data for Vis.js.
 
@@ -339,7 +314,7 @@ def create_visualization_api_routes(
             )
 
             if result.is_error:
-                return JSONResponse({"error": result.error}, status_code=500)
+                return result
 
             tasks = result.value or []
 
@@ -347,15 +322,10 @@ def create_visualization_api_routes(
             if project:
                 tasks = [t for t in tasks if getattr(t, "project", None) == project]
 
-            timeline_result = vis_service.format_tasks_for_visjs(tasks)
-
-            if timeline_result.is_error:
-                return JSONResponse({"error": timeline_result.error}, status_code=400)
-
-            return JSONResponse(timeline_result.value)
+            return vis_service.format_tasks_for_visjs(tasks)
 
         # Demo data
-        demo_data = {
+        demo_data: dict[str, Any] = {
             "items": [
                 {
                     "id": "task-1_work",
@@ -370,7 +340,7 @@ def create_visualization_api_routes(
                 {"id": "deadlines", "content": "Deadlines"},
             ],
         }
-        return JSONResponse(demo_data)
+        return Result.ok(demo_data)
 
     # =========================================================================
     # Frappe Gantt Endpoints
@@ -378,7 +348,7 @@ def create_visualization_api_routes(
 
     @rt("/api/visualizations/gantt/tasks")
     @boundary_handler()
-    async def get_tasks_gantt(request: Request) -> JSONResponse:
+    async def get_tasks_gantt(request: Request) -> Result[dict[str, Any]]:
         """
         Get tasks Gantt data for Frappe Gantt.
 
@@ -403,7 +373,7 @@ def create_visualization_api_routes(
             )
 
             if result.is_error:
-                return JSONResponse({"error": result.error}, status_code=500)
+                return result
 
             tasks = result.value or []
 
@@ -420,15 +390,10 @@ def create_visualization_api_routes(
                 except Exception:
                     pass  # Dependencies are optional
 
-            gantt_result = vis_service.format_for_gantt(tasks, dependencies)
-
-            if gantt_result.is_error:
-                return JSONResponse({"error": gantt_result.error}, status_code=400)
-
-            return JSONResponse(gantt_result.value)
+            return vis_service.format_for_gantt(tasks, dependencies)
 
         # Demo data
-        demo_data = {
+        demo_data: dict[str, Any] = {
             "tasks": [
                 {
                     "id": "task-1",
@@ -457,11 +422,11 @@ def create_visualization_api_routes(
             ],
             "options": {"view_mode": "Week"},
         }
-        return JSONResponse(demo_data)
+        return Result.ok(demo_data)
 
     @rt("/api/visualizations/gantt/goal/{goal_uid}")
     @boundary_handler()
-    async def get_goal_gantt(request: Request, goal_uid: str) -> JSONResponse:
+    async def get_goal_gantt(request: Request, goal_uid: str) -> Result[dict[str, Any]]:
         """
         Get goal with tasks as Gantt data.
 
@@ -475,7 +440,7 @@ def create_visualization_api_routes(
             goal_result = await goals_service.get_for_user(goal_uid, user_uid)
 
             if goal_result.is_error:
-                return JSONResponse({"error": goal_result.error}, status_code=404)
+                return goal_result
 
             goal = goal_result.value
 
@@ -485,16 +450,11 @@ def create_visualization_api_routes(
             if tasks_result.is_ok:
                 tasks = tasks_result.value or []
 
-            gantt_result = vis_service.format_goal_gantt(goal, tasks)
-
-            if gantt_result.is_error:
-                return JSONResponse({"error": gantt_result.error}, status_code=400)
-
-            return JSONResponse(gantt_result.value)
+            return vis_service.format_goal_gantt(goal, tasks)
 
         # Demo data
         today = date.today()
-        demo_data = {
+        demo_data: dict[str, Any] = {
             "tasks": [
                 {
                     "id": goal_uid,
@@ -507,7 +467,7 @@ def create_visualization_api_routes(
             ],
             "options": {"view_mode": "Month"},
         }
-        return JSONResponse(demo_data)
+        return Result.ok(demo_data)
 
     # Collect all routes
     routes.extend(
