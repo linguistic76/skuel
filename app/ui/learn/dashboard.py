@@ -49,7 +49,9 @@ def _study_card(context: UserContext) -> Div:
             cls="flex items-center gap-2 mb-3",
         ),
         P(
-            f"{total} articles explored" if total > 0 else "Start exploring articles and knowledge units.",
+            f"{total} articles explored"
+            if total > 0
+            else "Start exploring articles and knowledge units.",
             cls="text-sm text-base-content/60 mb-2",
         ),
         P(

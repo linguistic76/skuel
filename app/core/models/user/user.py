@@ -42,6 +42,7 @@ def _default_energy_pattern() -> dict[TimeOfDay, EnergyLevel]:
         TimeOfDay.EVENING: EnergyLevel.LOW,
     }
 
+
 # ============================================================================
 # USER PREFERENCES
 # ============================================================================
@@ -63,9 +64,7 @@ class UserPreferences:
     # Scheduling preferences
     preferred_time_of_day: TimeOfDay = TimeOfDay.ANYTIME
     available_minutes_daily: int = 60
-    energy_pattern: dict[TimeOfDay, EnergyLevel] = field(
-        default_factory=_default_energy_pattern
-    )
+    energy_pattern: dict[TimeOfDay, EnergyLevel] = field(default_factory=_default_energy_pattern)
 
     # Notification preferences
     enable_reminders: bool = True

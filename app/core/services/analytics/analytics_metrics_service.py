@@ -116,7 +116,6 @@ class AnalyticsMetricsService:
         self.ku_service = ku_service
         self.lp_service = lp_service
 
-
     # ========================================================================
     # TASKS METRICS
     # ========================================================================

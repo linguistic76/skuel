@@ -124,7 +124,9 @@ class TasksAIService(BaseAIService["TasksOperations", Task]):
 
         all_tasks = all_tasks_result.value or []
         candidates = [
-            (t.uid, build_embedding_text(EntityType.TASK, t)) for t in all_tasks if t.uid != task_uid
+            (t.uid, build_embedding_text(EntityType.TASK, t))
+            for t in all_tasks
+            if t.uid != task_uid
         ]
 
         if not candidates:

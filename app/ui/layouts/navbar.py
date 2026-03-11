@@ -259,7 +259,6 @@ def _admin_profile_section(current_user: str) -> Div:
     )
 
 
-
 def _auth_buttons() -> Div:
     """Create login/signup buttons for unauthenticated users."""
     return Div(

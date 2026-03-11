@@ -91,9 +91,7 @@ class ResponseGenerator:
         """Initialize response generator."""
         logger.info("ResponseGenerator initialized")
 
-    def build_llm_context(
-        self, user_context: UserContext, query: str, intent: QueryIntent
-    ) -> str:
+    def build_llm_context(self, user_context: UserContext, query: str, intent: QueryIntent) -> str:
         """
         Convert UserContext into LLM-friendly natural language.
 
@@ -108,7 +106,9 @@ class ResponseGenerator:
         Returns:
             Natural language context string for LLM consumption
         """
-        sections = INTENT_CONTEXT_SECTIONS.get(intent, INTENT_CONTEXT_SECTIONS[QueryIntent.SPECIFIC])
+        sections = INTENT_CONTEXT_SECTIONS.get(
+            intent, INTENT_CONTEXT_SECTIONS[QueryIntent.SPECIFIC]
+        )
         context_parts: list[str] = []
 
         # Always include user identity

@@ -190,4 +190,6 @@ def setup_activities_routes(rt: Any, services: "Services") -> None:
 
         return render_activity_card_preview(preview_items, slug)
 
-    logger.info("Activities routes registered (/activities, /activities/{domain}, /api/activities/{slug}/preview)")
+    logger.info(
+        "Activities routes registered (/activities, /activities/{domain}, /api/activities/{slug}/preview)"
+    )
