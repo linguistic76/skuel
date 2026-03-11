@@ -137,25 +137,16 @@ app.mount("/graphql-ws", graphql_app)
 
 ---
 
-## P3: Cross-Domain Discovery (Nice to Have)
+## P3: Cross-Domain Discovery (Complete)
 
 ### Current State
 
-Placeholder exists:
+Wired to `AdaptiveLpCrossDomainService`. The `discoverCrossDomain` resolver builds a `KnowledgeState` from client-provided KU UIDs, discovers opportunities via the service, and loads real KnowledgeNodes via DataLoader for source/target representation. Falls back to domain-level placeholder nodes when no real KU is available.
 
-```python
-@strawberry.field
-async def cross_domain_opportunities(
-    self,
-    user_uid: str
-) -> list[CrossDomainOpportunity]:
-    # TODO: Implement with semantic search
-    return []
-```
+### Remaining Enhancements
 
-### Implementation
-
-Requires wiring to semantic search service and knowledge graph traversal.
+- Enrich `KnowledgeState` with real mastery data from `UserContext.zpd_assessment` instead of treating applied = mastered
+- Consider `source_knowledge: [KnowledgeNode]` (list) instead of single representative node
 
 ---
 

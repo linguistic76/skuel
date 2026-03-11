@@ -289,11 +289,11 @@ query {
 
 **Why GraphQL shines:** This would require 3+ REST calls.
 
-### Cross-Domain Discovery (Future)
+### Cross-Domain Discovery
 
 #### `discoverCrossDomain(userKnowledge: [String!]!, targetDomains: [String!], maxOpportunities: Int): [CrossDomainOpportunity!]!`
 
-Discover cross-domain learning opportunities.
+Discover cross-domain learning opportunities. Wired to `AdaptiveLpCrossDomainService`.
 
 ```graphql
 query {
@@ -314,11 +314,14 @@ query {
     transferability
     effortRequired
     reasoning
+    practicalProjects
+    successPatterns
+    supportingExamples
   }
 }
 ```
 
-**Status:** Placeholder - returns empty list with TODO for service integration.
+**Status:** Implemented. Source/target nodes are loaded as real KnowledgeNodes via DataLoader when `source_knowledge_uids`/`target_knowledge_uids` are available on the opportunity. Falls back to domain-level placeholder nodes when no real KU exists.
 
 ---
 
