@@ -5,6 +5,7 @@ GraphQL Context and DataLoader
 Provides context management and DataLoader for N+1 query prevention.
 """
 
+from collections.abc import Callable, Coroutine
 from dataclasses import dataclass
 from typing import Any
 
@@ -14,6 +15,9 @@ from core.utils.logging import get_logger
 from services_bootstrap import Services
 
 logger = get_logger(__name__)
+
+# Type alias for batch load functions: (list[str]) -> Result[list[T | None]]
+type BatchLoadFn = Callable[[list[str]], Coroutine[Any, Any, Any]]
 
 
 @dataclass
@@ -45,30 +49,23 @@ class GraphQLContext:
 
 async def _batch_load(
     keys: list[str],
-    service: Any | None,
-    method_name: str,
+    batch_fn: BatchLoadFn,
     domain: str,
 ) -> list[Any]:
     """
     Shared batch loading logic for all DataLoaders.
 
-    Handles service availability checks, Result unwrapping, and error logging
-    so individual loaders don't repeat this boilerplate.
+    Handles Result unwrapping and error logging so individual loaders
+    don't repeat this boilerplate.
 
     Args:
         keys: UIDs to batch load
-        service: The domain service (None if unavailable)
-        method_name: Name of the batch method on the service
+        batch_fn: Bound batch method on the domain service
         domain: Domain name for log messages
     """
     logger.info(f"DataLoader batching {len(keys)} {domain}")
 
-    if service is None:
-        logger.warning(f"{domain} service not available for batch load")
-        return [None] * len(keys)
-
-    batch_method = getattr(service, method_name)
-    result = await batch_method(list(keys))
+    result = await batch_fn(list(keys))
 
     if result.is_error:
         logger.error(f"Batch load {domain} failed: {result.error}")
@@ -108,20 +105,20 @@ def create_graphql_context(
     # Helper functions to bind context to batch loaders (SKUEL012: no lambdas)
     async def load_knowledge_units(keys: list[str]) -> list[Any]:
         return await _batch_load(
-            keys, context.services.article, "get_articles_batch", "knowledge units"
+            keys, context.services.article.get_articles_batch, "knowledge units"
         )
 
     async def load_tasks(keys: list[str]) -> list[Any]:
-        return await _batch_load(keys, context.services.tasks, "get_tasks_batch", "tasks")
+        return await _batch_load(keys, context.services.tasks.get_tasks_batch, "tasks")
 
     async def load_learning_paths(keys: list[str]) -> list[Any]:
         return await _batch_load(
-            keys, context.services.lp, "get_learning_paths_batch", "learning paths"
+            keys, context.services.lp.get_learning_paths_batch, "learning paths"
         )
 
     async def load_learning_steps(keys: list[str]) -> list[Any]:
         return await _batch_load(
-            keys, context.services.ls, "get_learning_steps_batch", "learning steps"
+            keys, context.services.ls.get_learning_steps_batch, "learning steps"
         )
 
     # Create DataLoaders with named functions instead of lambdas

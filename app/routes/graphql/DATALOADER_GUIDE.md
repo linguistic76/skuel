@@ -83,11 +83,11 @@ def create_graphql_context(services, search_router, user_uid=None):
     # Named functions bind context to the shared _batch_load helper (SKUEL012: no lambdas)
     async def load_knowledge_units(keys: list[str]) -> list[Any]:
         return await _batch_load(
-            keys, context.services.article, "get_articles_batch", "knowledge units"
+            keys, context.services.article.get_articles_batch, "knowledge units"
         )
 
     async def load_tasks(keys: list[str]) -> list[Any]:
-        return await _batch_load(keys, context.services.tasks, "get_tasks_batch", "tasks")
+        return await _batch_load(keys, context.services.tasks.get_tasks_batch, "tasks")
 
     # ... similar for learning_paths, learning_steps
 
@@ -112,24 +112,18 @@ def create_graphql_context(services, search_router, user_uid=None):
 
 async def _batch_load(
     keys: list[str],
-    service: Any | None,
-    method_name: str,
+    batch_fn: BatchLoadFn,
     domain: str,
 ) -> list[Any]:
     """
     Shared batch loading logic for all DataLoaders.
 
-    Handles service availability checks, Result unwrapping, and error logging
-    so individual loaders don't repeat this boilerplate.
+    Handles Result unwrapping and error logging so individual loaders
+    don't repeat this boilerplate.
     """
     logger.info(f"DataLoader batching {len(keys)} {domain}")
 
-    if service is None:
-        logger.warning(f"{domain} service not available for batch load")
-        return [None] * len(keys)
-
-    batch_method = getattr(service, method_name)
-    result = await batch_method(list(keys))
+    result = await batch_fn(list(keys))
 
     if result.is_error:
         logger.error(f"Batch load {domain} failed: {result.error}")
@@ -141,7 +135,7 @@ async def _batch_load(
 
 **Key Features:**
 - **Single helper** - All 4 DataLoaders use `_batch_load()` instead of duplicating logic
-- **Service-null safety** - Checks service availability before accessing batch method
+- **Direct method binding** - Bound methods passed directly, no `getattr` indirection
 - **Logging** - Tracks batch sizes for performance monitoring
 - **Error handling** - Returns None for failed loads
 
@@ -301,7 +295,7 @@ DataLoader expects results in the **same order** as input keys:
 
 ## Service Unavailability
 
-If a service is `None` (not bootstrapped), `_batch_load` returns `[None] * len(keys)` with a warning log. All 4 batch methods are now implemented, so the previous `getattr`/individual-fallback pattern has been removed.
+All 4 batch methods are implemented. `_batch_load` accepts a bound method directly — no `getattr` indirection. Callers pass `service.get_articles_batch` etc. as `batch_fn`.
 
 ---
 
