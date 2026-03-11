@@ -116,8 +116,6 @@ class AnalyticsMetricsService:
         self.ku_service = ku_service
         self.lp_service = lp_service
 
-        self.logger = logger
-        logger.info("AnalyticsMetricsService initialized with 7 domain + 3 layer services")
 
     # ========================================================================
     # TASKS METRICS
@@ -819,7 +817,7 @@ class AnalyticsMetricsService:
             )
 
         except Exception as e:
-            self.logger.error(f"Failed to calculate knowledge metrics: {e}")
+            logger.error(f"Failed to calculate knowledge metrics: {e}")
             return Result.fail(
                 Errors.system(
                     message="Knowledge metrics calculation failed",
@@ -934,7 +932,7 @@ class AnalyticsMetricsService:
             )
 
         except Exception as e:
-            self.logger.error(f"Failed to calculate curriculum metrics: {e}")
+            logger.error(f"Failed to calculate curriculum metrics: {e}")
             return Result.fail(
                 Errors.system(message="Curriculum metrics calculation failed", exception=e)
             )
@@ -1047,7 +1045,7 @@ class AnalyticsMetricsService:
             )
 
         except Exception as e:
-            self.logger.error(f"Failed to calculate journal metrics: {e}")
+            logger.error(f"Failed to calculate journal metrics: {e}")
             return Result.fail(
                 Errors.system(
                     message="Journal metrics calculation failed",
@@ -1104,7 +1102,7 @@ class AnalyticsMetricsService:
                 },
             )
             if result.is_error:
-                self.logger.warning(f"Failed to query journal assignments: {result.error}")
+                logger.warning(f"Failed to query journal assignments: {result.error}")
                 return []
 
             import json
@@ -1130,7 +1128,7 @@ class AnalyticsMetricsService:
             return journals
 
         except Exception as e:
-            self.logger.warning(f"Failed to query journal assignments: {e}")
+            logger.warning(f"Failed to query journal assignments: {e}")
             return []
 
     # ========================================================================

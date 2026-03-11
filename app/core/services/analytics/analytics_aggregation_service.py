@@ -65,8 +65,6 @@ class AnalyticsAggregationService:
             metrics_service: AnalyticsMetricsService for domain statistics
         """
         self.metrics = metrics_service
-        self.logger = logger
-        logger.info("AnalyticsAggregationService initialized")
 
     # ========================================================================
     # LIFE SUMMARIES (ALL 7 DOMAINS)
@@ -87,7 +85,7 @@ class AnalyticsAggregationService:
         - Layer 2: Journal reflections and themes
         - Cross-layer: Knowledge-activity correlations, reflection impact
         """
-        self.logger.info(f"Generating weekly life summary (ALL layers) for user {user_uid}")
+        logger.info(f"Generating weekly life summary (ALL layers) for user {user_uid}")
 
         # Layer 1: Collect metrics from all 7 activity domains
         tasks_metrics = await self.metrics.calculate_task_metrics(user_uid, start_date, end_date)
@@ -170,7 +168,7 @@ class AnalyticsAggregationService:
         Deeper analysis than weekly summary, includes trends and
         monthly patterns.
         """
-        self.logger.info(f"Generating monthly life review for user {user_uid}")
+        logger.info(f"Generating monthly life review for user {user_uid}")
 
         # Reuse weekly aggregation logic
         weekly_data = await self.aggregate_weekly_life_summary(user_uid, start_date, end_date)
@@ -196,7 +194,7 @@ class AnalyticsAggregationService:
 
         Long-term trends and strategic assessment.
         """
-        self.logger.info(f"Generating quarterly progress for user {user_uid}")
+        logger.info(f"Generating quarterly progress for user {user_uid}")
 
         # Collect domain metrics
         monthly_data = await self.aggregate_monthly_life_review(user_uid, start_date, end_date)
@@ -220,7 +218,7 @@ class AnalyticsAggregationService:
 
         Annual retrospective and forward-looking assessment.
         """
-        self.logger.info(f"Generating yearly review for user {user_uid}")
+        logger.info(f"Generating yearly review for user {user_uid}")
 
         # Collect domain metrics
         quarterly_data = await self.aggregate_quarterly_progress(user_uid, start_date, end_date)
@@ -253,7 +251,7 @@ class AnalyticsAggregationService:
         - Are choices aligned with principles?
         - Do goals have supporting habits?
         """
-        self.logger.info(f"Detecting cross-domain patterns for user {user_uid}")
+        logger.info(f"Detecting cross-domain patterns for user {user_uid}")
 
         # Collect all domain metrics
         tasks_metrics = await self.metrics.calculate_task_metrics(user_uid, start_date, end_date)

@@ -52,7 +52,7 @@ class AnalyticsLifePathService:
     Substance tracking measures whether knowledge is LIVED, not just learned.
     """
 
-    def __init__(self, user_service=None, ku_service=None, lp_service=None) -> None:
+    def __init__(self, user_service: Any, ku_service: Any, lp_service: Any) -> None:
         """
         Initialize Life Path analytics service.
 
@@ -64,8 +64,6 @@ class AnalyticsLifePathService:
         self.user_service = user_service
         self.ku_service = ku_service
         self.lp_service = lp_service
-        self.logger = logger
-        logger.info("AnalyticsLifePathService initialized")
 
     async def calculate_life_path_alignment(self, user_uid: str) -> Result[dict[str, Any]]:
         """
@@ -103,17 +101,9 @@ class AnalyticsLifePathService:
             }
         """
         try:
-            self.logger.info(f"Calculating Life Path alignment for user {user_uid}")
+            logger.info(f"Calculating Life Path alignment for user {user_uid}")
 
             # Step 1: Get user's Life Path from UserContext
-            if not self.user_service:
-                return Result.fail(
-                    Errors.system(
-                        "UserService not available - cannot get Life Path",
-                        operation="calculate_life_path_alignment",
-                    )
-                )
-
             context_result = await self.user_service.get_user_context(user_uid)
             if context_result.is_error:
                 return Result.fail(context_result)
@@ -140,14 +130,6 @@ class AnalyticsLifePathService:
                 )
 
             # Step 2: Get Life Path details
-            if not self.lp_service:
-                return Result.fail(
-                    Errors.system(
-                        "LpService not available - cannot get Life Path details",
-                        operation="calculate_life_path_alignment",
-                    )
-                )
-
             lp_result = await self.lp_service.get(life_path_uid)
             if lp_result.is_error:
                 return Result.fail(lp_result)
@@ -159,14 +141,6 @@ class AnalyticsLifePathService:
             life_path_title = life_path.title
 
             # Step 3: Get all Knowledge Units in Life Path
-            if not self.ku_service:
-                return Result.fail(
-                    Errors.system(
-                        "ArticleService not available - cannot get knowledge units",
-                        operation="calculate_life_path_alignment",
-                    )
-                )
-
             # Get knowledge units for this learning path
             # Note: This assumes LpService can provide knowledge UIDs
             # In practice, may need to query through learning steps
