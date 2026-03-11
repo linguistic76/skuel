@@ -705,6 +705,18 @@ async def _wire_all_routes(
         "✅ KU reading routes registered (4 endpoints: read page, mark-read, bookmark, navigation)"
     )
 
+    # Activities Hub
+    from adapters.inbound.activities_ui import setup_activities_routes
+
+    setup_activities_routes(rt, services)
+    logger.info("✅ Activities routes registered (/activities)")
+
+    # Learn Hub
+    from adapters.inbound.learn_routes import setup_learn_routes
+
+    setup_learn_routes(rt, services)
+    logger.info("✅ Learn routes registered (/learn)")
+
     # User Profile Hub
     from adapters.inbound.user_profile_ui import setup_user_profile_routes
 

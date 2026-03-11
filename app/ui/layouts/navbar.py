@@ -18,9 +18,30 @@ from starlette.requests import Request
 
 from ui.layouts.nav_config import (
     ADMIN_NAV_ITEM,
+    ICON_NAV_ITEMS,
     MAIN_NAV_ITEMS,
+    IconNavItem,
     NavItem,
 )
+
+
+def _icon_nav_link(item: IconNavItem, active_page: str) -> A:
+    """Create a circular letter icon link for the navbar (e.g., 'A' for Activities)."""
+    is_active = item.page_key == active_page
+    active_cls = "bg-primary/20 text-primary ring-1 ring-primary/30"
+    inactive_cls = "bg-base-200 text-base-content/70 hover:bg-base-300 hover:text-base-content"
+
+    return A(
+        Span(item.label, cls="sr-only"),
+        Div(
+            item.letter,
+            cls=f"size-8 rounded-full flex items-center justify-center font-semibold text-sm "
+            f"{active_cls if is_active else inactive_cls}",
+            aria_hidden="true",
+        ),
+        href=item.href,
+        cls="btn btn-ghost btn-circle",
+    )
 
 
 def _nav_link(item: NavItem, active_page: str, mobile: bool = False) -> A:
@@ -283,6 +304,11 @@ def create_navbar(
     if is_admin:
         nav_items.insert(0, ADMIN_NAV_ITEM)
 
+    # Icon navigation links (Activities, Learn) — shown for authenticated non-admin users
+    icon_links: list[A] = []
+    if is_authenticated and not is_admin:
+        icon_links = [_icon_nav_link(item, active_page) for item in ICON_NAV_ITEMS]
+
     # Desktop navigation links
     desktop_links = Div(
         *[_nav_link(item, active_page) for item in nav_items],
@@ -290,9 +316,23 @@ def create_navbar(
     )
 
     # Mobile navigation links (shown when mobileMenuOpen)
+    mobile_nav_items = list(nav_items)
     mobile_links = Div(
         Div(
-            *[_nav_link(item, active_page, mobile=True) for item in nav_items],
+            # Icon nav items as mobile links
+            *(
+                [
+                    _nav_link(
+                        NavItem(item.label, item.href, item.page_key),
+                        active_page,
+                        mobile=True,
+                    )
+                    for item in ICON_NAV_ITEMS
+                ]
+                if is_authenticated and not is_admin
+                else []
+            ),
+            *[_nav_link(item, active_page, mobile=True) for item in mobile_nav_items],
             cls="space-y-1 px-2 pt-2 pb-3",
             role="menu",
             **{"aria-orientation": "vertical"},
@@ -319,7 +359,7 @@ def create_navbar(
     return Nav(
         # Main navbar container — 3-column layout: Logo+Profile | Centered Nav | Balance
         Div(
-            # Left column: Mobile menu button + Logo + Profile + Notifications
+            # Left column: Mobile menu button + Logo + Icon Nav + Profile + Notifications
             Div(
                 _mobile_menu_button(),
                 A(
@@ -327,6 +367,7 @@ def create_navbar(
                     href="/",
                     cls="text-xl font-bold text-primary flex-shrink-0",
                 ),
+                *icon_links,
                 profile_section,
                 cls="flex items-center gap-2 flex-1",
             ),

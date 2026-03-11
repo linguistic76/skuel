@@ -38,8 +38,27 @@ class NavItem:
 # Main navigation items - order determines display order
 MAIN_NAV_ITEMS: tuple[NavItem, ...] = (
     NavItem("Teaching", "/teaching", "teaching", requires_teacher=True),
-    NavItem("Knowledge", "/profile/knowledge", "knowledge", hide_for_admin=True),
-    NavItem("Pathways", "/pathways", "pathways", hide_for_admin=True),
+)
+
+
+@dataclass(frozen=True)
+class IconNavItem:
+    """Immutable icon-only navigation item for the navbar left section.
+
+    Renders as a circular button with a single letter (e.g., "A" for Activities).
+    """
+
+    label: str
+    letter: str
+    href: str
+    page_key: str
+    requires_auth: bool = True
+
+
+# Icon navigation items — rendered as circular letter buttons in the left navbar section
+ICON_NAV_ITEMS: tuple[IconNavItem, ...] = (
+    IconNavItem("Activities", "A", "/activities", "activities"),
+    IconNavItem("Learn", "L", "/learn", "learn"),
 )
 
 # Admin-only navigation item - prepended to nav when user is admin
@@ -51,6 +70,8 @@ ADMIN_NAV_ITEM = NavItem(
 )
 
 __all__ = [
+    "IconNavItem",
+    "ICON_NAV_ITEMS",
     "NavItem",
     "MAIN_NAV_ITEMS",
     "ADMIN_NAV_ITEM",

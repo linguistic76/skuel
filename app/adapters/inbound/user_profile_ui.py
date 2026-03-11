@@ -295,18 +295,12 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
         from ui.profile.preferences import UserPreferencesComponents
 
         content = UserPreferencesComponents.render_preferences_editor(prefs_dict)
-        domains = _build_domain_items(context)
-        curriculum_domains = _build_curriculum_items(context)
-        display_name = user.display_name if user.display_name else user.username
 
-        return await create_profile_page(
-            content=content,
-            domains=domains,
-            active_domain="settings",
-            curriculum_domains=curriculum_domains,
-            user_display_name=display_name,
-            title="Settings - Profile Hub",
+        return await BasePage(
+            content,
+            title="Settings",
             request=request,
+            active_page="profile/hub",
         )
 
     @rt("/profile/settings/save")
@@ -650,20 +644,12 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
 
     @rt("/profile")
     async def profile_page(request: Request) -> Any:
-        """
-        Tracking overview page with sidebar navigation.
+        """Lean profile page — Focus + Steady measurements + Settings link.
 
-        Operates in two modes:
-        - Basic mode: Core profile data (always works)
-        - Full mode: Intelligence features when properly configured
-
-        Requires authentication.
-        Fail-fast: Actual errors propagate to HTTP boundary.
-        One path forward: Service succeeds or fails with clear error.
+        Activity domains live at /activities. Learning content lives at /learn.
         """
         user_uid = require_authenticated_user(request)
 
-        # Get user and context - ONE PATH (no fallback)
         try:
             _user, context = await _get_user_and_context(user_uid)
         except ValueError as e:
@@ -673,41 +659,15 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
             )
             return await error_page(str(e), 500)
 
-        # Get intelligence data - may return None for basic mode
-        intel_result = await _get_intelligence_data(context)
-        if intel_result.is_error:
-            from starlette.responses import JSONResponse
+        from ui.profile.lean_profile import LeanProfileView
 
-            return JSONResponse(
-                {"error": str(intel_result.error)},
-                status_code=500,
-            )
+        content = LeanProfileView(context)
 
-        intel_data = intel_result.value  # May be None (basic mode) or dict (full mode)
-
-        # Create OverviewView - passes None for intelligence data in basic mode
-        if intel_data is not None:
-            content = OverviewView(
-                context,
-                daily_plan=intel_data["daily_plan"],
-                alignment=intel_data["alignment"],
-                synergies=intel_data["synergies"],
-                learning_steps=intel_data["learning_steps"],
-            )
-        else:
-            content = OverviewView(context)
-
-        # Build domain items for sidebar (same as domain-specific pages)
-        domains = _build_domain_items(context)
-        curriculum_domains = _build_curriculum_items(context)
-
-        return await create_profile_page(
-            content=content,
-            domains=domains,
-            active_domain="",  # Empty = Overview item is active
-            curriculum_domains=curriculum_domains,
+        return await BasePage(
+            content,
+            title="Profile",
             request=request,
-            title="Tracking",
+            active_page="profile/hub",
         )
 
     @rt("/api/profile/{slug}/preview")
@@ -783,89 +743,28 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
 
     @rt("/profile/{domain}")
     async def profile_domain(request: Request, domain: str) -> Any:
+        """Redirect legacy profile domain URLs.
+
+        Activity domains redirect to /activities/{domain}.
+        Curriculum domains redirect to /learn (future: /learn/study, /learn/pathways).
         """
-        Domain-specific profile view with sidebar.
+        from starlette.responses import RedirectResponse
 
-        Shows combined stats + item list for the selected domain.
-        Valid domains: tasks, events, goals, habits, principles, choices, knowledge, learning-steps, learning-paths
+        activity_domains = {"tasks", "events", "goals", "habits", "principles", "choices"}
+        if domain in activity_domains:
+            focus = request.query_params.get("focus", "")
+            suffix = f"?focus={focus}" if focus else ""
+            return RedirectResponse(f"/activities/{domain}{suffix}", status_code=302)
 
-        , Task 11: Supports ?focus={entity_uid} query param for deep linking from insights.
-
-        Requires authentication.
-        One path forward: Service succeeds or fails with clear error.
-        """
-        # Activity Domains + Curriculum Domains
-        valid_domains = {
-            "tasks",
-            "events",
-            "goals",
-            "habits",
-            "principles",
-            "choices",
-            "knowledge",
-            "learning-steps",
-            "learning-paths",
+        curriculum_redirects = {
+            "knowledge": "/learn/study",
+            "learning-steps": "/learn/pathways",
+            "learning-paths": "/learn/pathways",
         }
-        if domain not in valid_domains:
-            from starlette.responses import RedirectResponse
+        if domain in curriculum_redirects:
+            return RedirectResponse(curriculum_redirects[domain], status_code=302)
 
-            return RedirectResponse("/profile", status_code=302)
-
-        user_uid = require_authenticated_user(request)
-
-        # Parse typed parameters for deep linking
-        params = parse_profile_params(request)
-        focus_uid = params.focus
-
-        # Get user and context - ONE PATH (no fallback)
-        try:
-            user, context = await _get_user_and_context(user_uid)
-        except ValueError as e:
-            logger.error(
-                "Failed to load user or context for domain view",
-                extra={"user_uid": user_uid, "domain": domain, "error": str(e)},
-            )
-            return await error_page(str(e), 500)
-
-        content = await _get_domain_view(domain, context, user_uid, focus_uid)
-
-        # Knowledge uses BasePage (navbar page, no sidebar)
-        if domain == "knowledge":
-            return await BasePage(
-                content,
-                title="Knowledge",
-                request=request,
-                active_page="knowledge",
-            )
-
-        # All other domains use profile sidebar
-        insight_counts: dict[str, int] = {}
-        total_unread_insights = 0
-        if services.insight_store:
-            counts_result = await services.insight_store.get_insight_counts_by_domain(user_uid)
-            if not counts_result.is_error:
-                insight_counts = counts_result.value
-                total_unread_insights = sum(insight_counts.values())
-            else:
-                logger.warning(f"Failed to fetch insight counts: {counts_result.error}")
-
-        domain_items = _build_domain_items(context, insight_counts)
-        curriculum_items = _build_curriculum_items(context)
-        display_name = user.display_name if user.display_name else user.username
-        domain_title = DEFAULT_DOMAIN_NAMES.get(domain, domain.title())
-        is_admin = user.can_manage_users()
-
-        return await create_profile_page(
-            content=content,
-            domains=domain_items,
-            active_domain=domain,
-            user_display_name=display_name,
-            title=f"{domain_title} - Profile Hub",
-            is_admin=is_admin,
-            curriculum_domains=curriculum_items,
-            unread_insights=total_unread_insights,
-            request=request,
-        )
+        return RedirectResponse("/profile", status_code=302)
 
     @rt("/profile/shared")
     async def profile_shared(request: Request) -> Any:
