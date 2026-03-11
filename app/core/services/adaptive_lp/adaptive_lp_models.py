@@ -150,6 +150,8 @@ class CrossDomainOpportunity:
 
     # Requirements
     prerequisite_knowledge: list[str]
+    source_knowledge_uids: list[str]  # KU UIDs from source domain
+    target_knowledge_uids: list[str]  # KU UIDs from target domain
     estimated_difficulty: float  # 0-10 scale
     estimated_value: float  # Expected learning value
 

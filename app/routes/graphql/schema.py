@@ -26,6 +26,7 @@ from strawberry.types import (
 
 from core.constants import ConfidenceLevel, QueryLimit
 from core.models.enums import Domain
+from core.services.adaptive_lp_types import KnowledgeState
 from routes.graphql.config import get_graphql_config, validate_list_limit
 from routes.graphql.context import GraphQLContext
 
@@ -361,14 +362,18 @@ class Query:
                     continue
 
         # Build knowledge state from user knowledge
-        knowledge_state = {
-            "applied_knowledge": set(user_knowledge),
-            "mastered_concepts": set(user_knowledge),  # Simplification for now
-        }
+        knowledge_uids = set(user_knowledge)
+        knowledge_state = KnowledgeState(
+            applied_knowledge=knowledge_uids,
+            mastered_knowledge=knowledge_uids,
+        )
+
+        if not context.user_uid:
+            return []
 
         # Get cross-domain opportunities
         result = await cross_domain_service.discover_cross_domain_opportunities(
-            user_uid=context.user_uid or "anonymous",
+            user_uid=context.user_uid,
             knowledge_state=knowledge_state,
             min_confidence=ConfidenceLevel.LOW,
         )
@@ -379,25 +384,39 @@ class Query:
         # Convert to GraphQL types
         opportunities = []
         for opp in result.value[:safe_max]:
-            # Create placeholder KnowledgeNodes from opportunity data
-            # Note: In production, we would fetch actual KU data via DataLoader
-            source_node = KnowledgeNode(
-                uid=f"ku.{opp.source_domain.value}",
-                title=f"{opp.source_domain.value} Knowledge",
-                summary=f"Knowledge from {opp.source_domain.value} domain",
-                domain=opp.source_domain.value,
-                tags=[],
-                quality_score=1.0,
-            )
+            # Load representative KU for source domain via DataLoader
+            source_node = None
+            if opp.source_knowledge_uids:
+                source_ku = await context.knowledge_loader.load(opp.source_knowledge_uids[0])
+                if source_ku:
+                    source_node = KnowledgeNode.from_dto(source_ku)
 
-            target_node = KnowledgeNode(
-                uid=f"ku.{opp.target_domain.value}",
-                title=f"{opp.target_domain.value} Opportunity",
-                summary=f"Opportunity in {opp.target_domain.value} domain",
-                domain=opp.target_domain.value,
-                tags=[],
-                quality_score=1.0,
-            )
+            if not source_node:
+                source_node = KnowledgeNode(
+                    uid=f"domain.{opp.source_domain.value}",
+                    title=f"{opp.source_domain.value} Knowledge",
+                    summary=f"Knowledge from {opp.source_domain.value} domain",
+                    domain=opp.source_domain.value,
+                    tags=[],
+                    quality_score=1.0,
+                )
+
+            # Load representative KU for target domain via DataLoader
+            target_node = None
+            if opp.target_knowledge_uids:
+                target_ku = await context.knowledge_loader.load(opp.target_knowledge_uids[0])
+                if target_ku:
+                    target_node = KnowledgeNode.from_dto(target_ku)
+
+            if not target_node:
+                target_node = KnowledgeNode(
+                    uid=f"domain.{opp.target_domain.value}",
+                    title=f"{opp.target_domain.value} Opportunity",
+                    summary=f"Opportunity in {opp.target_domain.value} domain",
+                    domain=opp.target_domain.value,
+                    tags=[],
+                    quality_score=1.0,
+                )
 
             opportunities.append(
                 CrossDomainOpportunity(

@@ -210,7 +210,7 @@ class TestScoringAndFiltering:
         for opp in opportunities:
             if isinstance(opp, CrossDomainOpportunity):
                 assert hasattr(opp, "skill_transfer_potential")
-                assert hasattr(opp, "value_estimation")
+                assert hasattr(opp, "estimated_value")
 
     @pytest.mark.asyncio
     async def test_confidence_threshold_filtering(self, cross_domain_service, two_domain_state):

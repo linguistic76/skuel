@@ -196,6 +196,8 @@ class TestCrossDomainOpportunityModel:
             skill_transfer_potential=0.85,
             innovation_potential=0.8,
             prerequisite_knowledge=["ku.python-basics"],
+            source_knowledge_uids=["ku.python-basics"],
+            target_knowledge_uids=["ku.data-ml"],
             estimated_difficulty=6.0,
             estimated_value=0.9,
             supporting_examples=["Data engineering roles"],

@@ -249,6 +249,8 @@ class AdaptiveLpCrossDomainService:
                 skill_transfer_potential=synergy["skill_transfer"],
                 innovation_potential=synergy["innovation_potential"],
                 prerequisite_knowledge=source_knowledge + target_knowledge,
+                source_knowledge_uids=source_knowledge,
+                target_knowledge_uids=target_knowledge,
                 estimated_difficulty=5.0 + (min_depth * 0.5),  # Base difficulty + complexity
                 estimated_value=float(synergy["skill_transfer"])
                 * float(synergy["innovation_potential"]),
@@ -330,6 +332,8 @@ class AdaptiveLpCrossDomainService:
                     skill_transfer_potential=0.8,
                     innovation_potential=float(pattern["innovation_potential"]),
                     prerequisite_knowledge=[],  # User already has the knowledge
+                    source_knowledge_uids=[],
+                    target_knowledge_uids=[],
                     estimated_difficulty=7.0,  # High difficulty for innovation
                     estimated_value=float(pattern["innovation_potential"]),
                     supporting_examples=[
