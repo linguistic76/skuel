@@ -78,24 +78,22 @@ Located in: `/routes/graphql/context.py`
 
 def create_graphql_context(services, search_router, user_uid=None):
     """Create GraphQL context with fresh DataLoaders for each request."""
+    context = GraphQLContext(...)
 
-    # Create DataLoaders (one per request - important for cache isolation)
-    knowledge_loader = DataLoader(
-        load_fn=lambda keys: batch_load_knowledge_units(keys, context)
-    )
+    # Named functions bind context to the shared _batch_load helper (SKUEL012: no lambdas)
+    async def load_knowledge_units(keys: list[str]) -> list[Any]:
+        return await _batch_load(
+            keys, context.services.article, "get_articles_batch", "knowledge units"
+        )
 
-    learning_step_loader = DataLoader(
-        load_fn=lambda keys: batch_load_learning_steps(keys, context)
-    )
+    async def load_tasks(keys: list[str]) -> list[Any]:
+        return await _batch_load(keys, context.services.tasks, "get_tasks_batch", "tasks")
 
-    context = GraphQLContext(
-        services=services,
-        search_router=search_router,  # One Path Forward (January 2026)
-        knowledge_loader=knowledge_loader,
-        learning_step_loader=learning_step_loader,
-        # ... other loaders
-    )
+    # ... similar for learning_paths, learning_steps
 
+    context.knowledge_loader = DataLoader(load_fn=load_knowledge_units)
+    context.task_loader = DataLoader(load_fn=load_tasks)
+    # ...
     return context
 ```
 
@@ -103,50 +101,47 @@ def create_graphql_context(services, search_router, user_uid=None):
 - **Fresh per request** - Each GraphQL request gets new DataLoaders
 - **Cache isolation** - Data from one request doesn't leak to another
 - **Automatic batching** - Strawberry DataLoader handles the batching logic
+- **Shared helper** - `_batch_load()` handles service-null checks, Result unwrapping, and logging for all loaders
 
 ---
 
-### 2. Batch Loading Functions
+### 2. Shared Batch Loading Helper
 
 ```python
 # routes/graphql/context.py
 
-async def batch_load_learning_steps(keys: list[str], context: GraphQLContext) -> list[Any]:
+async def _batch_load(
+    keys: list[str],
+    service: Any | None,
+    method_name: str,
+    domain: str,
+) -> list[Any]:
     """
-    Batch load learning steps by UIDs.
+    Shared batch loading logic for all DataLoaders.
 
-    This function receives ALL accumulated step UIDs from the request
-    and loads them in a single database query.
+    Handles service availability checks, Result unwrapping, and error logging
+    so individual loaders don't repeat this boilerplate.
     """
-    logger.info(f"📊 DataLoader batching {len(keys)} learning steps")
+    logger.info(f"DataLoader batching {len(keys)} {domain}")
 
-    if not context.services.learning_steps:
+    if service is None:
+        logger.warning(f"{domain} service not available for batch load")
         return [None] * len(keys)
 
-    # Check if batch method exists
-    if hasattr(context.services.learning_steps, 'get_learning_steps_batch'):
-        # Batch load all steps in ONE query
-        result = await context.services.learning_steps.get_learning_steps_batch(list(keys))
+    batch_method = getattr(service, method_name)
+    result = await batch_method(list(keys))
 
-        if result.is_ok:
-            logger.info(f"✅ Batch loaded {len(result.value)} learning steps in 1 query")
-            return result.value
-        else:
-            logger.error(f"❌ Batch load failed: {result.error}")
-            return [None] * len(keys)
-    else:
-        # Fallback: Load individually (still better than N+1 at resolver level)
-        logger.warning("⚠️ Batch method not available, loading individually")
-        steps = []
-        for key in keys:
-            result = await context.services.learning_steps.get(key)
-            steps.append(result.value if result.is_ok else None)
-        return steps
+    if result.is_error:
+        logger.error(f"Batch load {domain} failed: {result.error}")
+        return [None] * len(keys)
+
+    logger.info(f"Batch loaded {len(result.value)} {domain} in 1 query")
+    return result.value
 ```
 
 **Key Features:**
-- **Batching** - All keys loaded in ONE service call
-- **Fallback** - Gracefully degrades if batch method doesn't exist
+- **Single helper** - All 4 DataLoaders use `_batch_load()` instead of duplicating logic
+- **Service-null safety** - Checks service availability before accessing batch method
 - **Logging** - Tracks batch sizes for performance monitoring
 - **Error handling** - Returns None for failed loads
 
@@ -256,20 +251,19 @@ TOTAL: 3 database queries
 SKUEL logs DataLoader activity for performance monitoring:
 
 ```
-📊 DataLoader batching 80 knowledge units
-✅ Batch loaded 80 knowledge units in 1 query
+DataLoader batching 80 knowledge units
+Batch loaded 80 knowledge units in 1 query
 
-📊 DataLoader batching 10 learning paths
-✅ Batch loaded 10 learning paths in 1 query
+DataLoader batching 10 learning paths
+Batch loaded 10 learning paths in 1 query
 
-📊 DataLoader batching 5 learning steps
-⚠️ Batch method not available, loading steps individually
-✅ Loaded 5 learning steps individually
+DataLoader batching 5 learning steps
+Batch loaded 5 learning steps in 1 query
 ```
 
 **Benefits:**
 - **Visibility** into batching effectiveness
-- **Warning alerts** when batch methods missing
+- **Warning alerts** when a service is unavailable
 - **Performance tracking** (batch sizes, query counts)
 
 ---
@@ -280,31 +274,20 @@ For DataLoaders to work optimally, services must implement batch methods:
 
 ### Required Signature
 
+All batch methods follow the same pattern — delegate to `backend.get_many()`:
+
 ```python
 # In LsService (Learning Steps Service)
 
-async def get_learning_steps_batch(self, uids: list[str]) -> Result[list[Ls | None]]:
+async def get_learning_steps_batch(
+    self, uids: list[str]
+) -> Result[list[LearningStep | None]]:
     """
-    Batch load learning steps by UIDs.
+    Get multiple learning steps in one batched query.
 
-    Args:
-        uids: List of learning step UIDs to load
-
-    Returns:
-        Result containing list of Ls objects (or None for missing UIDs)
-        List MUST be in same order as input UIDs!
+    Critical for GraphQL DataLoader batching to prevent N+1 queries.
     """
-    # Use backend's find_by with uid__in operator
-    result = await self.backend.find_by(uid__in=uids)
-
-    if result.is_error:
-        return result
-
-    # Create ordered list matching input UIDs
-    steps_dict = {step.uid: step for step in result.value}
-    ordered_steps = [steps_dict.get(uid) for uid in uids]
-
-    return Result.ok(ordered_steps)
+    return await self.core.backend.get_many(uids)
 ```
 
 **Critical Requirement: Order Preservation**
@@ -316,31 +299,9 @@ DataLoader expects results in the **same order** as input keys:
 
 ---
 
-## Fallback Behavior
+## Service Unavailability
 
-If a service doesn't have a batch method, DataLoaders gracefully degrade:
-
-```python
-if hasattr(context.services.learning_steps, 'get_learning_steps_batch'):
-    # Use batch method (optimal)
-    result = await context.services.learning_steps.get_learning_steps_batch(keys)
-else:
-    # Fallback: Load individually (still better than resolver-level N+1)
-    logger.warning("⚠️ Batch method not available, loading individually")
-    steps = []
-    for key in keys:
-        result = await context.services.learning_steps.get(key)
-        steps.append(result.value if result.is_ok else None)
-```
-
-**Fallback prevents:**
-- Application crashes (no batch method → error)
-- Silent failures (returns None for all)
-
-**Fallback still provides:**
-- Request-level batching (all loads collected)
-- Caching (duplicate UIDs only loaded once)
-- Better than resolver-level queries
+If a service is `None` (not bootstrapped), `_batch_load` returns `[None] * len(keys)` with a warning log. All 4 batch methods are now implemented, so the previous `getattr`/individual-fallback pattern has been removed.
 
 ---
 
@@ -442,11 +403,11 @@ Watch for batch sizes in logs:
 tail -f logs/skuel.log | grep DataLoader
 
 # Expected output for good batching:
-📊 DataLoader batching 50 knowledge units
-✅ Batch loaded 50 knowledge units in 1 query
+DataLoader batching 50 knowledge units
+Batch loaded 50 knowledge units in 1 query
 
-# Warning if batch method missing:
-⚠️ Batch method not available, loading individually
+# Warning if service unavailable:
+knowledge units service not available for batch load
 ```
 
 ### Database Query Monitoring
@@ -501,11 +462,11 @@ query TestBatching {
 
 ## Next Steps
 
-1. **Implement batch methods** in remaining services:
+1. **All batch methods implemented:**
    - ✅ ArticleService.get_articles_batch()
    - ✅ TasksService.get_tasks_batch()
    - ✅ LpService.get_learning_paths_batch()
-   - ⏳ LsService.get_learning_steps_batch() (fallback exists)
+   - ✅ LsService.get_learning_steps_batch()
 
 2. **Monitor performance** in production:
    - Track batch sizes (should be 10-100+)
@@ -533,8 +494,8 @@ query TestBatching {
 
 **SKUEL's implementation provides:**
 - **4 DataLoaders** (knowledge, tasks, paths, steps)
-- **Batch methods** with fallback support
-- **Logging** for performance monitoring
+- **Shared `_batch_load()` helper** for consistent service-check/Result-unwrap/logging
+- **All batch methods implemented** across all 4 services
 - **30-183x** query reduction in real scenarios
 
 **Result:** GraphQL queries that scale efficiently, handling complex nested data without performance degradation.
