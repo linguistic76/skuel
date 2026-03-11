@@ -175,7 +175,7 @@ class LearningStep:
         if not ku:
             return None
 
-        return KnowledgeNode.from_dto(ku)
+        return knowledge_node_from_dto(ku)
 ```
 
 **What Happens Behind the Scenes:**
