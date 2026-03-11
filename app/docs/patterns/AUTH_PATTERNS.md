@@ -19,6 +19,7 @@ SKUEL uses **graph-native authentication** (sessions stored in Neo4j) with cooki
 | **Strict** | `require_authenticated_user(request)` | `UserUID` | API routes requiring auth |
 | **Lenient** | `get_current_user_or_default(request)` | `UserUID` | UI routes (dev-friendly) |
 | **Role-Based** | `@require_admin(service_getter)` | `current_user: User` | Protected admin/teacher routes |
+| **WebSocket** | `await require_websocket_admin(ws)` | `UserUID \| None` | WebSocket routes (admin-only) |
 
 ## The UserUID Type
 
@@ -137,15 +138,41 @@ Role checking requires fetching the user from the database anyway, so the decora
 - `@require_teacher(getter)` - Shortcut for TEACHER
 - `@require_member(getter)` - Shortcut for MEMBER (paid subscription)
 
+## Pattern 4: WebSocket Authentication
+
+**Use for:** WebSocket routes that require admin access. Standard decorators like `@require_admin` can't work because auth must be checked *before* `ws.accept()`.
+
+```python
+from adapters.inbound.auth import require_websocket_admin
+
+@rt("/ws/progress/{operation_id}")
+async def websocket_handler(ws, operation_id: str):
+    user_uid = await require_websocket_admin(ws)
+    if not user_uid:
+        return  # WS already closed with code 4003
+
+    await ws.accept()
+    # ... handle WebSocket connection
+```
+
+**Behavior:**
+- Checks both authentication and admin role from session
+- If unauthorized, closes the WebSocket with code `4003` and reason `"Admin access required"`
+- Returns `UserUID` on success, `None` on failure (caller should `return` immediately)
+- No DB fetch — reads from session like `get_current_user()` + `get_is_admin()`
+
+**Why a separate helper?**
+WebSocket handlers need auth checked before `ws.accept()`. HTTP decorators like `@require_admin` expect a `Request` and return HTTP responses (401/403), which don't apply to WebSocket connections. The WebSocket pattern instead closes the connection with an application-level error code.
+
 ## Pattern Comparison
 
-| Aspect | `require_authenticated_user` | `get_current_user_or_default` | `@require_admin` |
-|--------|------------------------------|-------------------------------|------------------|
-| **Returns** | `UserUID` (string) | `UserUID` (string) | `current_user: User` |
-| **On no auth** | Raises 401 | Returns default | Raises 401 |
-| **On wrong role** | N/A | N/A | Raises 403 |
-| **DB fetch** | No | No | Yes (required for role check) |
-| **Best for** | API routes | UI development | Protected routes |
+| Aspect | `require_authenticated_user` | `get_current_user_or_default` | `@require_admin` | `require_websocket_admin` |
+|--------|------------------------------|-------------------------------|------------------|---------------------------|
+| **Returns** | `UserUID` (string) | `UserUID` (string) | `current_user: User` | `UserUID \| None` |
+| **On no auth** | Raises 401 | Returns default | Raises 401 | Closes WS (code 4003) |
+| **On wrong role** | N/A | N/A | Raises 403 | Closes WS (code 4003) |
+| **DB fetch** | No | No | Yes (required for role check) | No |
+| **Best for** | API routes | UI development | Protected routes | WebSocket routes |
 
 ## Common Patterns
 
@@ -320,7 +347,7 @@ return create_docs_page(
 
 | File | Purpose |
 |------|---------|
-| `/adapters/inbound/auth/session.py` | Session helpers, `UserUID` type, decorators |
+| `/adapters/inbound/auth/session.py` | Session helpers, `UserUID` type, decorators, WebSocket auth |
 | `/adapters/inbound/auth_ui.py` | Auth UI routes (register, login, password reset) |
 | `/core/auth/roles.py` | Role-based decorators, permission checking |
 | `/core/auth/graph_auth.py` | `GraphAuthService` for sign_in/sign_up |
