@@ -815,7 +815,7 @@ This is the **primary query architecture documentation**. Start here.
 | Document | Purpose | When to Use |
 |----------|---------|-------------|
 | [curriculum_query_patterns.md](curriculum/curriculum_query_patterns.md) | Curriculum-specific patterns (LP, KU, substance) | Learning path queries, life alignment |
-| [SKUEL_QUERY_USAGE_GUIDE.md](SKUEL_QUERY_USAGE_GUIDE.md) | 10 SKUEL query templates with examples | Service integration, template usage |
+| [PEDAGOGICAL_QUESTIONS.md](../intelligence/PEDAGOGICAL_QUESTIONS.md) | 7 core pedagogical questions and their production service cross-references | Understanding what the intelligence layer answers |
 
 ### Archived
 - [QUERY_DECISION_MATRIX.md](../archive/patterns/QUERY_DECISION_MATRIX.md) - Phase 5/7 decision matrix (October 2025, superseded by this doc)

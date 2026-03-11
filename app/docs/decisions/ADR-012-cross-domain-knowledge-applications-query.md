@@ -81,7 +81,7 @@ We will use a **single complex Cypher query** with multiple OPTIONAL MATCH claus
 - Calculate estimated substance score from domain counts
 - Return comprehensive cross-domain view
 
-**File:** `/adapters/persistence/neo4j/query/skuel_query_templates.py:208`
+**File:** `skuel_query_templates.py` (deleted March 2026 — intent preserved in `/docs/intelligence/PEDAGOGICAL_QUESTIONS.md`)
 
 **Complexity Breakdown:**
 - 7 OPTIONAL MATCH clauses (14 pts)
@@ -275,9 +275,9 @@ Doesn't reduce complexity or improve performance. OPTIONAL MATCH is more straigh
 
 ### Code Location
 **Where is this decision implemented?**
-- Primary file: `/adapters/persistence/neo4j/query/skuel_query_templates.py:208-258`
-- Template name: `CROSS_DOMAIN_APPLICATIONS`
-- Called from: Knowledge intelligence services, substance score calculators
+- Original file: `skuel_query_templates.py` (deleted March 2026 — zero callers, wrong graph structure)
+- Production implementation: `LearningIntelligence.get_knowledge_application_opportunities()` in `core/services/user/intelligence/learning_intelligence.py`
+- Pedagogical intent preserved in: `/docs/intelligence/PEDAGOGICAL_QUESTIONS.md`
 - Related files:
   - `/docs/architecture/knowledge_substance_philosophy.md` (formula definition)
   - `/core/services/ku/ku_analytics_service.py` (primary consumer)

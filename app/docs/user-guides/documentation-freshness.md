@@ -103,7 +103,7 @@ Finds Python files with zero importers — orphaned after refactors.
 
 ```
 Dead Modules — 23 files with zero importers:
-  ● adapters/persistence/neo4j/query/skuel_query_templates.py  (644 lines)
+  ● (example removed — skuel_query_templates.py deleted March 2026)
 ```
 
 **When to run:** After monolith dissolution, service splits, major refactors.

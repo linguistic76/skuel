@@ -133,7 +133,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [Intent-Based Graph Traversal](patterns/INTENT_BASED_TRAVERSAL.md) | 2025-12-03 | 350 |
 | [Query Architecture](patterns/query_architecture.md) | 2025-12-07 | 520 |
 | [Curriculum Query Patterns](patterns/curriculum/curriculum_query_patterns.md) | 2025-11-27 | 707 |
-| [SKUEL Query Template Usage Guide](patterns/SKUEL_QUERY_USAGE_GUIDE.md) | 2025-11-26 | 620 |
+| [Pedagogical Questions](intelligence/PEDAGOGICAL_QUESTIONS.md) | 2026-03-12 | 80 |
 | [Return Type Error Propagation Pattern](patterns/RETURN_TYPE_ERROR_PROPAGATION.md) | 2025-11-08 | 255 |
 | [SearchService Pattern for Activity Domains](patterns/search_service_pattern.md) | 2025-11-28 | 268 |
 | **[Three-Tier Type System](patterns/three_tier_type_system.md)** | **2026-01-24** | **468** |

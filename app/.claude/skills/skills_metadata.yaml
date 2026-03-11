@@ -251,7 +251,6 @@ skills:
       - /docs/patterns/CONTEXT_FIRST_RELATIONSHIP_PATTERN.md
       - /docs/patterns/LATERAL_RELATIONSHIPS_VISUALIZATION.md
       - /docs/patterns/QUERY_PATTERNS.md
-      - /docs/patterns/SKUEL_QUERY_USAGE_GUIDE.md
       - /docs/patterns/UNIFIED_RELATIONSHIP_SERVICE.md
     keywords: [neo4j, cypher, graph, relationships, traversal]
 

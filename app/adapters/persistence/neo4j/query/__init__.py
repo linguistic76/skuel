@@ -10,7 +10,6 @@ All domains consume these infrastructure components.
 
 Key Components:
 - cypher package: Modular Cypher query building (crud, semantic, domain, relationship, intelligence)
-- SKUEL Query Templates: Curriculum-aware Pure Cypher patterns
 - QueryPatterns: Generic graph traversal patterns for all services
 - QueryIntent: Semantic query understanding
 - IndexStrategy: Neo4j index optimization strategies
@@ -57,8 +56,8 @@ Usage Examples:
 
 See Documentation:
 - /docs/SKUEL_QUERY_DESIGN.md - Pure Cypher query design
-- /docs/SKUEL_QUERY_USAGE_GUIDE.md - Template usage guide
 - /docs/PURE_CYPHER_MIGRATION_SUMMARY.md - Migration summary
+- /docs/intelligence/PEDAGOGICAL_QUESTIONS.md - Pedagogical questions reference
 """
 
 # Internal implementation modules (marked with underscore prefix)

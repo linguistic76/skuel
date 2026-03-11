@@ -149,7 +149,6 @@ For each skill, this section shows all related documentation (architecture docs,
 - [CONTEXT_FIRST_RELATIONSHIP_PATTERN.md](/docs/patterns/CONTEXT_FIRST_RELATIONSHIP_PATTERN.md)
 - [LATERAL_RELATIONSHIPS_VISUALIZATION.md](/docs/patterns/LATERAL_RELATIONSHIPS_VISUALIZATION.md)
 - [QUERY_PATTERNS.md](/docs/patterns/QUERY_PATTERNS.md)
-- [SKUEL_QUERY_USAGE_GUIDE.md](/docs/patterns/SKUEL_QUERY_USAGE_GUIDE.md)
 - [UNIFIED_RELATIONSHIP_SERVICE.md](/docs/patterns/UNIFIED_RELATIONSHIP_SERVICE.md)
 
 **ADRs:**
@@ -355,7 +354,6 @@ For each documentation category, this section shows which skills are relevant.
 - [ROUTE_NAMING_CONVENTION.md](/docs/patterns/ROUTE_NAMING_CONVENTION.md) → @fasthtml
 - [SERVICE_CONSOLIDATION_PATTERNS.md](/docs/patterns/SERVICE_CONSOLIDATION_PATTERNS.md) → @base-analytics-service, @python
 - [SHARING_PATTERNS.md](/docs/patterns/SHARING_PATTERNS.md) → @pytest
-- [SKUEL_QUERY_USAGE_GUIDE.md](/docs/patterns/SKUEL_QUERY_USAGE_GUIDE.md) → @neo4j-cypher-patterns
 - [STANDALONE_SERVICE_PATTERN.md](/docs/patterns/STANDALONE_SERVICE_PATTERN.md) → @base-analytics-service
 - [TESTING_PATTERNS.md](/docs/patterns/TESTING_PATTERNS.md) → @pytest
 - [UI_COMPONENT_PATTERNS.md](/docs/patterns/UI_COMPONENT_PATTERNS.md) → @accessibility-guide, @ui-browser, @ui-css

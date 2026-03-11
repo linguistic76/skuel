@@ -44,9 +44,7 @@ Dead Modules — 23 files with zero importers:
 These are not imported anywhere in production code.
 Review before deleting — some may be loaded by convention.
 
-  ● adapters/persistence/neo4j/query/skuel_query_templates.py  (644 lines)
-      module: adapters.persistence.neo4j.query.skuel_query_templates
-      hint:   SKUEL-Specific Query Templates - Pure Cypher patterns
+  (example removed — skuel_query_templates.py deleted March 2026)
 ```
 
 **What it scans:** All `.py` files outside `tests/`, `scripts/`, `__pycache__`, `node_modules`.

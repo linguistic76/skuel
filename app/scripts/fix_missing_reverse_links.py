@@ -30,7 +30,6 @@ MISSING_REVERSE_LINKS: dict[str, list[str]] = {
     "/docs/guides/HTMX_VERSION_STANDARDIZATION.md": ["html-htmx"],
     "/docs/patterns/HIERARCHY_COMPONENTS_GUIDE.md": ["skuel-component-composition"],
     "/docs/architecture/NEO4J_DATABASE_ARCHITECTURE.md": ["neo4j-cypher-patterns"],
-    "/docs/patterns/SKUEL_QUERY_USAGE_GUIDE.md": ["neo4j-cypher-patterns"],
     "/docs/deployment/AURADB_MIGRATION_GUIDE.md": ["neo4j-genai-plugin"],
     "/docs/development/GENAI_SETUP.md": ["neo4j-genai-plugin"],
     "/monitoring/README.md": ["prometheus-grafana"],

@@ -87,7 +87,7 @@ We will use a **single complex Cypher query** with multiple OPTIONAL MATCH claus
 - Second WITH to aggregate life alignment
 - Return comprehensive alignment data with categorization
 
-**File:** `/adapters/persistence/neo4j/query/skuel_query_templates.py:118`
+**File:** `skuel_query_templates.py` (deleted March 2026 — intent preserved in `/docs/intelligence/PEDAGOGICAL_QUESTIONS.md`)
 
 **Complexity Breakdown:**
 - 6 MATCH/OPTIONAL MATCH clauses (12 pts)
@@ -295,9 +295,9 @@ The Knowledge Substance Philosophy's weighted formula is CORE to SKUEL's approac
 
 ### Code Location
 **Where is this decision implemented?**
-- Primary file: `/adapters/persistence/neo4j/query/skuel_query_templates.py:118-172`
-- Template name: `LIFE_PATH_ALIGNMENT`
-- Called from: User dashboard, progress analytics, life path tracking
+- Original file: `skuel_query_templates.py` (deleted March 2026 — zero callers, wrong graph structure)
+- Production implementation: `LifePathIntelligence.calculate_life_path_alignment()` in `core/services/user/intelligence/life_path_intelligence.py`
+- Pedagogical intent preserved in: `/docs/intelligence/PEDAGOGICAL_QUESTIONS.md`
 - Related files:
   - `/docs/architecture/knowledge_substance_philosophy.md` (formula definition)
   - `/core/services/lp/lp_analytics_service.py` (primary consumer)
