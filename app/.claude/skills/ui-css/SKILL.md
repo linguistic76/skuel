@@ -451,19 +451,9 @@ Card.PADDING        # "p-6"
 
 ## Theming (DaisyUI 5)
 
-DaisyUI 5 themes configured in CSS:
+All 31 DaisyUI built-in themes are enabled in `tailwind.config.js` (`themes: true`).
 
-```css
-@import "tailwindcss";
-@plugin "daisyui" {
-  themes: light --default, dark --prefersdark;
-}
-```
-
-**SKUEL uses light theme only** — all surfaces are `bg-white`, sections separated by borders not color contrast:
-- Navbar: `bg-white border-b border-gray-200`
-- HUB sidebar: `bg-white border-r border-gray-200`
-- Content areas: `bg-white`
+Users select their theme on `/profile/settings` (Display & Appearance section). The selected theme is saved to Neo4j preferences and localStorage. On page load, `base_page.py` reads from localStorage via `x-init` and sets `data-theme` on the `<html>` element. Default: `light`.
 
 ---
 

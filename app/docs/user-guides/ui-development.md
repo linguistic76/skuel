@@ -737,7 +737,6 @@ All Alpine.js `x-data` component definitions live in `/static/js/skuel.js`.
 | `loadingButton` | `x-data="loadingButton()"` | Disables button and shows spinner on click until HTMX response arrives. |
 | `formValidator` | `x-data="formValidator()"` | Client-side validation with per-field error display. Validates on blur and submit. |
 | `toastManager` | `x-data="toastManager()"` | Toast notification stack. Methods: `addToast(message, type, duration)`, auto-dismiss. |
-| `themeSwitcher` | `x-data="themeSwitcher()"` | DaisyUI theme toggle with localStorage persistence. |
 
 ```python
 # Example: accessible modal in Python
