@@ -476,8 +476,9 @@ type Scorer[T] = Callable[[T], Score]
 | CUSTOM | STANDARD + custom | Profile Hub |
 
 - Routes in `/adapters/inbound/*_routes.py`, UI in `/ui/`, Static in `/static/`
-- Navbar avatar dropdown contains all 6 Activity Domains (Tasks, Goals, Habits, Events, Choices, Principles)
-- All 5 sidebars unified into `SidebarPage` from `ui/patterns/sidebar.py`
+- Navbar has icon links: **A** (Activities, `/activities`) and **L** (Learn, `/learn`) + avatar **U** (Profile, `/profile`)
+- `/profile` is lean (Focus + Steady + Settings). Activity domains at `/activities/{domain}` with sidebar. Learning at `/learn` with Study/Practice/Pathways sidebar.
+- All sidebars unified into `SidebarPage` from `ui/patterns/sidebar.py`
 
 **Key Files:** `/ui/layouts/base_page.py`, `/ui/layouts/navbar.py`, `/ui/patterns/sidebar.py`, `/ui/patterns/` (PageHeader, form_generator, card_generator, etc.)
 

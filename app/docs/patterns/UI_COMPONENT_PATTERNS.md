@@ -37,7 +37,8 @@ For hands-on implementation:
 8. Continue below for complete component architecture
 
 **Related Documentation:**
-- [/ui/profile/layout.py](/ui/profile/layout.py) - Profile Hub custom sidebar example
+- [/ui/activities/layout.py](/ui/activities/layout.py) - Activities sidebar example
+- [/ui/learn/layout.py](/ui/learn/layout.py) - Learn sidebar example
 
 ---
 
@@ -68,9 +69,11 @@ SKUEL uses a layered UI component architecture built on Tailwind CSS and DaisyUI
 
 **Evolution (2026-02-01):** Profile Hub migrated from legacy `ProfileLayout` to `STANDARD` page type with custom sidebar implementation.
 
-**Evolution (2026-02-06):** Activity Domains (Tasks, Goals, Habits, Choices, Principles) moved from profile sidebar to navbar avatar dropdown. Profile sidebar now contains: Overview, Shared With Me, Curriculum, Account.
+**Evolution (2026-02-06):** Activity Domains moved from profile sidebar to navbar avatar dropdown.
 
-**Evolution (2026-02-16):** Events moved from main navbar to profile dropdown — all 6 Activity Domains now live in the avatar menu.
+**Evolution (2026-02-16):** Events moved from main navbar to avatar dropdown — all 6 Activity Domains in one place.
+
+**Evolution (2026-03-11):** Major restructure into three focused areas. Navbar gains icon links: **A** (`/activities`) and **L** (`/learn`). Profile stripped to lean (Focus + Steady + Settings). Activity domains at `/activities/{domain}` with Activity sidebar. Learning at `/learn` with Study/Practice/Pathways sidebar reflecting the learning loop. Avatar dropdown removed — avatar is a direct link to `/profile`.
 
 **Evolution (2026-02-09):** All 5 sidebars (Profile, KU, Reports, Journals, Askesis) unified into single Tailwind + Alpine.js component (`SidebarPage`). Custom CSS/JS files (`profile_sidebar.css`, `profile_sidebar.js`) deleted. Mobile uses horizontal DaisyUI tabs instead of drawer/overlay.
 
@@ -99,18 +102,21 @@ return BasePage(
     request=request,
 )
 
-# Sidebar page (Profile, KU, Reports, Journals, Askesis)
+# Sidebar page (Activities, Learn, KU, Reports, Journals, Askesis)
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 
-items = [SidebarItem("Overview", "/profile", "overview", icon="📊")]
+items = [
+    SidebarItem("Tasks", "/activities/tasks", "tasks", icon="✅"),
+    SidebarItem("Goals", "/activities/goals", "goals", icon="🎯"),
+]
 return await SidebarPage(
     content=my_content,
     items=items,
-    active="overview",
-    title="Profile",
-    storage_key="profile-sidebar",
+    active="tasks",
+    title="Activities",
+    storage_key="activities-sidebar",
     request=request,
-    active_page="profile/hub",
+    active_page="activities",
 )
 ```
 
@@ -118,7 +124,7 @@ return await SidebarPage(
 
 **Added:** 2026-02-09 (unified from 3 implementations)
 
-All sidebar pages (Profile, KU, Reports, Journals, Askesis) use a single `SidebarPage()` component from `ui/patterns/sidebar.py`.
+All sidebar pages (Activities, Learn, KU, Reports, Journals, Askesis) use a single `SidebarPage()` component from `ui/patterns/sidebar.py`.
 
 **Key Features:**
 - One component for all 5 sidebar pages
@@ -133,18 +139,19 @@ All sidebar pages (Profile, KU, Reports, Journals, Askesis) use a single `Sideba
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 
 items = [
-    SidebarItem("Overview", "/profile", "overview", icon="📊"),
-    SidebarItem("Shared", "/profile/shared", "shared", icon="📬"),
+    SidebarItem("Study", "/learn/study", "study", icon="📖"),
+    SidebarItem("Practice", "/learn/practice", "practice", icon="✏️"),
+    SidebarItem("Pathways", "/learn/pathways", "pathways", icon="🗺️"),
 ]
 
 return await SidebarPage(
     content=main_content,
     items=items,
-    active="overview",
-    title="Profile",
-    storage_key="profile-sidebar",
+    active="study",
+    title="Learn",
+    storage_key="learn-sidebar",
     request=request,
-    active_page="profile/hub",
+    active_page="learn",
 )
 ```
 

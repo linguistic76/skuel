@@ -781,9 +781,9 @@ tablist.addEventListener('keydown', (e) => {
 
 ## Real-World Examples
 
-### Example 1: SKUEL Profile Hub Sidebar (Accessible Navigation)
+### Example 1: SKUEL Sidebar Navigation (Accessible Navigation)
 
-**File:** `/home/mike/skuel/app/ui/profile/layout.py`
+**File:** `/home/mike/skuel/app/ui/patterns/sidebar.py` (unified sidebar), `/home/mike/skuel/app/ui/activities/sidebar.py` (Activities), `/home/mike/skuel/app/ui/learn/sidebar.py` (Learn)
 
 **Accessible features:**
 
@@ -1011,7 +1011,7 @@ Use axe DevTools extension:
 
 - `/docs/patterns/UI_COMPONENT_PATTERNS.md` - Semantic component patterns
 - `/ui/layouts/base_page.py` - Accessible page structure
-- `/ui/profile/layout.py` - Accessible sidebar navigation
+- `/ui/patterns/sidebar.py` - Accessible sidebar navigation (unified component)
 
 ### External Resources
 

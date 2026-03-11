@@ -323,7 +323,7 @@ When a journal is processed, these fields are stored in `report.metadata`:
 ### Workflow 1: Submit and Process
 
 ```
-1. User → /journals/submit (or via "New Entry" in profile sidebar)
+1. User → /journals/submit (or via Journals card on /activities)
 2. Select instructions mode (default, or upload custom instruction file)
 3. Optionally enter a custom title (auto-generated if blank: "Journal — {user_id} — {Mar 02, 2026} — #1")
 4. Upload file (audio, text, PDF, images, video)

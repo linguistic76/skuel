@@ -312,27 +312,31 @@ MAIN_NAV_ITEMS: tuple[NavItem, ...] = (
 )
 ```
 
-### Profile Dropdown (Avatar Menu)
+### Navbar Icon Links
 
-Activity Domains (Tasks, Goals, Habits, Choices, Principles, Events) live in the navbar avatar dropdown, not the main nav. See `/ui/layouts/nav_config.py` for `PROFILE_DROPDOWN_ITEMS`.
+The navbar has three icon links in the left section (after the SKUEL logo):
+- **A** (Activities) → `/activities` — 6 Activity Domain cards + Journal + Knowledge
+- **L** (Learn) → `/learn` — Study/Practice/Pathways (the learning loop)
+- **U** (Avatar) → `/profile` — Lean profile (Focus + Steady + Settings)
+
+See `/ui/layouts/nav_config.py` for `ICON_NAV_ITEMS` and `IconNavItem`.
 
 ```python
-# Rendering pattern (from navbar.py)
-def _profile_dropdown(current_user: str) -> Div:
-    return Div(
-        Button(
-            Div(current_user[0].upper(), cls="size-8 rounded-full bg-primary flex items-center justify-center"),
-            cls="btn btn-ghost btn-circle",
-            **{"@click": "toggleProfile()", "data-profile-trigger": "true"},
-        ),
+# Icon nav rendering (from navbar.py)
+def _icon_nav_link(item: IconNavItem, active_page: str) -> A:
+    is_active = item.page_key == active_page
+    active_cls = "bg-primary/20 text-primary ring-1 ring-primary/30"
+    inactive_cls = "bg-base-200 text-base-content/70 hover:bg-base-300 hover:text-base-content"
+
+    return A(
+        Span(item.label, cls="sr-only"),
         Div(
-            A("Your profile", href="/profile", cls="block px-4 py-2"),
-            *profile_dropdown_links,
-            id="profile-dropdown",
-            cls="absolute right-0 z-50 mt-2 w-48 rounded-lg bg-base-100 shadow-lg",
-            **{"x-show": "profileMenuOpen", "x-transition": "", "x-cloak": ""},
+            item.letter,
+            cls=f"size-8 rounded-full flex items-center justify-center font-semibold text-sm "
+            f"{active_cls if is_active else inactive_cls}",
         ),
-        cls="relative",
+        href=item.href,
+        cls="btn btn-ghost btn-circle",
     )
 ```
 
