@@ -73,8 +73,10 @@ def create_form_submissions_ui_routes(
             content = Div(*rows, cls="space-y-1")
 
         return BasePage(
-            H2("My Form Submissions", cls="text-2xl font-bold mb-6"),
-            content,
+            Div(
+                H2("My Form Submissions", cls="text-2xl font-bold mb-6"),
+                content,
+            ),
             title="My Form Submissions",
             page_type=PageType.STANDARD,
             request=request,
@@ -127,14 +129,16 @@ def create_form_submissions_ui_routes(
         )
 
         return BasePage(
-            H2(submission.title or "Form Submission", cls="text-2xl font-bold mb-2"),
-            P(
-                f"Submitted: {str(submission.created_at)[:19]}",
-                cls="text-sm text-base-content/60 mb-6",
+            Div(
+                H2(submission.title or "Form Submission", cls="text-2xl font-bold mb-2"),
+                P(
+                    f"Submitted: {str(submission.created_at)[:19]}",
+                    cls="text-sm text-base-content/60 mb-6",
+                ),
+                Div(*data_rows) if data_rows else P("No form data.", cls="text-base-content/60"),
+                delete_btn,
+                A("Back to My Forms", href="/my-forms", cls="btn btn-ghost btn-sm mt-4 ml-2"),
             ),
-            Div(*data_rows) if data_rows else P("No form data.", cls="text-base-content/60"),
-            delete_btn,
-            A("Back to My Forms", href="/my-forms", cls="btn btn-ghost btn-sm mt-4 ml-2"),
             title=submission.title or "Form Submission",
             page_type=PageType.STANDARD,
             request=request,

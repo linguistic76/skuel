@@ -14,7 +14,7 @@ See: /docs/user-guides/form-submissions.md
 """
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Self
+from typing import TYPE_CHECKING, Any
 
 from core.models.enums.entity_enums import EntityType
 from core.models.user_owned_entity import UserOwnedEntity
@@ -62,34 +62,6 @@ class FormSubmission(UserOwnedEntity):
     # =========================================================================
     # CONVERSION
     # =========================================================================
-
-    @classmethod
-    def _from_dto(cls, dto: "FormSubmissionDTO") -> Self:
-        """Create FormSubmission from DTO."""
-        return cls(
-            uid=dto.uid,
-            title=dto.title,
-            entity_type=EntityType.FORM_SUBMISSION,
-            parent_entity_uid=dto.parent_entity_uid,
-            domain=dto.domain,
-            created_by=dto.created_by,
-            content=dto.content,
-            summary=dto.summary,
-            description=dto.description,
-            word_count=dto.word_count,
-            status=dto.status,
-            tags=tuple(dto.tags) if dto.tags else (),
-            created_at=dto.created_at,
-            updated_at=dto.updated_at,
-            metadata=dto.metadata or {},
-            user_uid=dto.user_uid,
-            priority=dto.priority,
-            visibility=dto.visibility,
-            form_template_uid=dto.form_template_uid,
-            form_data=dict(dto.form_data) if dto.form_data else None,
-            processed_content=dto.processed_content,
-            template_schema_hash=dto.template_schema_hash,
-        )
 
     def to_dto(self) -> "FormSubmissionDTO":
         """Convert to FormSubmissionDTO."""

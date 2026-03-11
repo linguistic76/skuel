@@ -4,14 +4,14 @@ Learning Paths + Steps for guided curriculum navigation.
 Links into existing pathways routes for detailed views.
 """
 
-from fasthtml.common import A, Div, H2, P, Span
+from fasthtml.common import H2, A, Div, P, Span
 
 from core.services.user.unified_user_context import UserContext
 
 
 def PathwaysView(context: UserContext) -> Div:
     """Pathways page content — learning paths and steps."""
-    enrolled = len(context.enrolled_learning_paths) if context.enrolled_learning_paths else 0
+    enrolled = len(context.enrolled_path_uids) if context.enrolled_path_uids else 0
 
     return Div(
         Div(

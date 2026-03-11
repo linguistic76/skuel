@@ -221,6 +221,10 @@ class FormSubmissionService(BaseService):
 
     async def _share_with_admin(self, submission_uid: str, user_uid: str) -> None:
         """Share a submission with the admin user (using UserRole enum)."""
+        if not self.sharing_service:
+            self.logger.warning("share_with_admin called but no sharing_service configured")
+            return
+
         admin_result = await self.backend.execute_query(
             """
             MATCH (u:User) WHERE u.role = $admin_role

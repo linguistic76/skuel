@@ -4,7 +4,7 @@ Shows learning status at a glance: what to study, what to practice, pending feed
 No sidebar on the landing page.
 """
 
-from fasthtml.common import A, Div, H2, H3, P, Span
+from fasthtml.common import H2, H3, A, Div, P, Span
 
 from core.services.user.unified_user_context import UserContext
 
@@ -90,7 +90,7 @@ def _practice_card(context: UserContext) -> Div:
 
 def _pathways_card(context: UserContext) -> Div:
     """Pathways card — structured learning progression."""
-    enrolled = len(context.enrolled_learning_paths) if context.enrolled_learning_paths else 0
+    enrolled = len(context.enrolled_path_uids) if context.enrolled_path_uids else 0
 
     return Div(
         Div(

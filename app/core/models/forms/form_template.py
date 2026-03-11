@@ -18,7 +18,7 @@ See: /docs/user-guides/form-submissions.md
 import json
 import re
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Self
+from typing import TYPE_CHECKING, Any
 
 from core.models.entity import Entity
 from core.models.enums.entity_enums import EntityType
@@ -184,29 +184,6 @@ class FormTemplate(Entity):
     # =========================================================================
     # CONVERSION
     # =========================================================================
-
-    @classmethod
-    def _from_dto(cls, dto: "FormTemplateDTO") -> Self:
-        """Create FormTemplate from DTO."""
-        return cls(
-            uid=dto.uid,
-            title=dto.title,
-            entity_type=EntityType.FORM_TEMPLATE,
-            parent_entity_uid=dto.parent_entity_uid,
-            domain=dto.domain,
-            created_by=dto.created_by,
-            content=dto.content,
-            summary=dto.summary,
-            description=dto.description,
-            word_count=dto.word_count,
-            status=dto.status,
-            tags=tuple(dto.tags) if dto.tags else (),
-            created_at=dto.created_at,
-            updated_at=dto.updated_at,
-            metadata=dto.metadata or {},
-            form_schema=tuple(dto.form_schema) if dto.form_schema else None,
-            instructions=dto.instructions,
-        )
 
     def to_dto(self) -> "FormTemplateDTO":
         """Convert to FormTemplateDTO."""
