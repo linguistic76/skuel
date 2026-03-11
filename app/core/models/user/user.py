@@ -29,10 +29,18 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
-from core.infrastructure.utils.factory_functions import create_default_energy_pattern
 from core.models.base_models_consolidated import BaseEntity
 from core.models.enums import EnergyLevel, LearningLevel, TimeOfDay, UserRole
 from core.models.query_types import QueryIntent
+
+
+def _default_energy_pattern() -> dict[TimeOfDay, EnergyLevel]:
+    """Create default energy pattern for user preferences."""
+    return {
+        TimeOfDay.MORNING: EnergyLevel.MEDIUM,
+        TimeOfDay.AFTERNOON: EnergyLevel.HIGH,
+        TimeOfDay.EVENING: EnergyLevel.LOW,
+    }
 
 # ============================================================================
 # USER PREFERENCES
@@ -56,7 +64,7 @@ class UserPreferences:
     preferred_time_of_day: TimeOfDay = TimeOfDay.ANYTIME
     available_minutes_daily: int = 60
     energy_pattern: dict[TimeOfDay, EnergyLevel] = field(
-        default_factory=create_default_energy_pattern
+        default_factory=_default_energy_pattern
     )
 
     # Notification preferences
