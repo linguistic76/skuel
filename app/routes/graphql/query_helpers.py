@@ -11,15 +11,25 @@ These helpers are specifically designed for GraphQL resolvers:
 - Optimize for nested resolver patterns
 """
 
+from __future__ import annotations
+
 from typing import TYPE_CHECKING, Any
 
 from core.utils.logging import get_logger
 from routes.graphql.context import GraphQLContext
 
 if TYPE_CHECKING:
+    from core.utils.result_simplified import Result
     from routes.graphql.types import KnowledgeNode
 
 logger = get_logger("skuel.graphql.query_helpers")
+
+
+def unwrap_result[T](result: Result[T], fallback: T) -> T:
+    """Return result value, or fallback on error/None."""
+    if result.is_error or not result.value:
+        return fallback
+    return result.value
 
 
 class GraphQLQueryHelpers:
@@ -34,7 +44,7 @@ class GraphQLQueryHelpers:
     # ========================================================================
 
     @staticmethod
-    async def get_prerequisites(context: GraphQLContext, ku_uid: str) -> list["KnowledgeNode"]:
+    async def get_prerequisites(context: GraphQLContext, ku_uid: str) -> list[KnowledgeNode]:
         """
         Get prerequisite knowledge units for GraphQL resolver.
 
@@ -47,26 +57,13 @@ class GraphQLQueryHelpers:
             return []
 
         result = await context.services.article.get_prerequisites(ku_uid)
-        if result.is_error or not result.value:
-            return []
-
-        prereqs = [
-            KnowledgeNode(
-                uid=dto.uid,
-                title=dto.title,
-                summary=dto.summary or "",
-                domain=dto.domain.value,
-                tags=dto.tags or [],
-                quality_score=dto.quality_score,
-            )
-            for dto in result.value
-        ]
-
+        dtos = unwrap_result(result, [])
+        prereqs = [KnowledgeNode.from_dto(dto) for dto in dtos]
         logger.debug(f"Loaded {len(prereqs)} prerequisites for {ku_uid}")
         return prereqs
 
     @staticmethod
-    async def get_enables(context: GraphQLContext, ku_uid: str) -> list["KnowledgeNode"]:
+    async def get_enables(context: GraphQLContext, ku_uid: str) -> list[KnowledgeNode]:
         """
         Get knowledge units enabled by this one (reverse prerequisites).
 
@@ -79,21 +76,8 @@ class GraphQLQueryHelpers:
             return []
 
         result = await context.services.article.get_enables(ku_uid)
-        if result.is_error or not result.value:
-            return []
-
-        enabled = [
-            KnowledgeNode(
-                uid=dto.uid,
-                title=dto.title,
-                summary=dto.summary or "",
-                domain=dto.domain.value,
-                tags=dto.tags or [],
-                quality_score=dto.quality_score,
-            )
-            for dto in result.value
-        ]
-
+        dtos = unwrap_result(result, [])
+        enabled = [KnowledgeNode.from_dto(dto) for dto in dtos]
         logger.debug(f"Loaded {len(enabled)} enabled knowledge units for {ku_uid}")
         return enabled
 
@@ -102,7 +86,7 @@ class GraphQLQueryHelpers:
     # ========================================================================
 
     @staticmethod
-    async def get_task_knowledge(context: GraphQLContext, task_uid: str) -> "KnowledgeNode | None":
+    async def get_task_knowledge(context: GraphQLContext, task_uid: str) -> KnowledgeNode | None:
         """
         Get knowledge unit associated with a task.
 
@@ -161,13 +145,16 @@ class GraphQLQueryHelpers:
             if primary_ku:
                 ku = await context.knowledge_loader.load(primary_ku)
                 if ku:
+                    from routes.graphql.types import KnowledgeNode
+
+                    node = KnowledgeNode.from_dto(ku)
                     step_data["knowledge"] = {
-                        "uid": ku.uid,
-                        "title": ku.title,
-                        "summary": ku.summary or "",
-                        "domain": ku.domain.value,
-                        "tags": ku.tags or [],
-                        "quality_score": ku.quality_score,
+                        "uid": node.uid,
+                        "title": node.title,
+                        "summary": node.summary,
+                        "domain": node.domain,
+                        "tags": node.tags,
+                        "quality_score": node.quality_score,
                     }
 
             steps_data.append(step_data)
@@ -182,4 +169,5 @@ class GraphQLQueryHelpers:
 
 __all__ = [
     "GraphQLQueryHelpers",
+    "unwrap_result",
 ]

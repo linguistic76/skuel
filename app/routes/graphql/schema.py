@@ -33,6 +33,7 @@ if TYPE_CHECKING:
     from core.models.pathways.learning_step import LearningStep as LsModel
     from core.utils.result_simplified import Result
     from routes.graphql.protocols import CurriculumEntityLike, LearningStepLike
+from routes.graphql.query_helpers import unwrap_result
 from routes.graphql.types import (
     Blocker,
     CrossDomainOpportunity,
@@ -161,14 +162,7 @@ class Query:
         if not ku:
             return None
 
-        return KnowledgeNode(
-            uid=ku.uid,
-            title=ku.title,
-            summary=ku.summary or "",
-            domain=ku.domain.value,
-            tags=ku.tags or [],
-            quality_score=ku.quality_score,
-        )
+        return KnowledgeNode.from_dto(ku)
 
     @strawberry.field
     async def knowledge_units(
@@ -207,23 +201,9 @@ class Query:
         # Delegate to service layer (guardrail #1: no Cypher in resolvers)
         result = await context.services.article.core.list(limit=safe_limit, filters=filters)
 
-        if result.is_error or not result.value:
-            return []
+        entities, _count = unwrap_result(result, ([], 0))
 
-        entities, _count = result.value
-
-        # Convert to GraphQL types
-        return [
-            KnowledgeNode(
-                uid=ku.uid,
-                title=ku.title,
-                summary=ku.summary or "",
-                domain=ku.domain.value,
-                tags=ku.tags or [],
-                quality_score=ku.quality_score,  # type: ignore[attr-defined]  # boundary: Entity→Article at runtime
-            )
-            for ku in entities
-        ]
+        return [KnowledgeNode.from_dto(ku) for ku in entities]
 
     @strawberry.field
     async def search_knowledge(
@@ -266,14 +246,7 @@ class Query:
         # Convert SearchResponse results to GraphQL SearchResult format
         return [
             SearchResult(
-                knowledge=KnowledgeNode(
-                    uid=item.get("uid", ""),
-                    title=item.get("title", ""),
-                    summary=item.get("summary", ""),
-                    domain=item.get("_domain", "knowledge"),
-                    tags=item.get("tags", []),
-                    quality_score=item.get("quality_score", 0.5),
-                ),
+                knowledge=KnowledgeNode.from_search_dict(item),
                 relevance=item.get("_score", 1.0),
                 explanation=item.get("explanation", ""),
             )
@@ -295,13 +268,7 @@ class Query:
         if not task:
             return None
 
-        return Task(
-            uid=task.uid,
-            title=task.title,
-            description=task.description or "",
-            status=task.status.value,
-            priority=task.priority or "medium",
-        )
+        return Task.from_dto(task)
 
     @strawberry.field
     async def tasks(
@@ -321,42 +288,21 @@ class Query:
         """
         context: GraphQLContext = info.context
 
-        # AUTHENTICATION: Require authenticated user
-        if not context.user_uid:
-            raise Exception("Authentication required. Please log in to view tasks.")
-
         if not context.services.tasks:
             return []
 
         safe_limit = validate_list_limit(limit)
 
-        # Get tasks
-        result = await context.services.tasks.get_user_tasks(user_uid=context.user_uid)
+        # Push filtering to service layer (Cypher WHERE)
+        status_filter = "all" if include_completed else "active"
+        ctx_result = await context.services.tasks.get_filtered_context(
+            user_uid=context.user_uid,
+            status_filter=status_filter,
+            sort_by="created_at",
+        )
+        entities = unwrap_result(ctx_result, {"entities": [], "stats": {}})["entities"][:safe_limit]
 
-        if result.is_error or not result.value:
-            return []
-
-        # Filter and limit tasks
-        filtered_tasks = result.value
-        if not include_completed:
-            from core.models.enums import EntityStatus
-
-            filtered_tasks = [t for t in filtered_tasks if t.status != EntityStatus.COMPLETED]
-        filtered_tasks = filtered_tasks[:safe_limit]
-
-        # Convert to GraphQL types
-        # GRAPH-NATIVE: knowledge_uid removed from Task type
-        # Use the knowledge() resolver instead to get related KUs
-        return [
-            Task(
-                uid=task.uid,
-                title=task.title,
-                description=task.description or "",
-                status=task.status.value,
-                priority=task.priority or "medium",
-            )
-            for task in filtered_tasks
-        ]
+        return [Task.from_dto(t) for t in entities]
 
     @strawberry.field
     async def learning_path(self, info: Info[GraphQLContext, Any], uid: str) -> LearningPath | None:
@@ -373,13 +319,7 @@ class Query:
         if not path:
             return None
 
-        return LearningPath(
-            uid=path.uid,
-            name=path.title,
-            goal=path.description or "",
-            total_steps=0,  # Steps loaded lazily via LearningPath.steps resolver
-            estimated_hours=path.estimated_hours or 0.0,
-        )
+        return LearningPath.from_dto(path)
 
     @strawberry.field
     async def discover_cross_domain(
@@ -504,30 +444,13 @@ class Query:
             # Discovery mode - list all paths
             result = await context.services.lp.list_all_paths(limit=safe_limit)
         else:
-            # User mode - require authentication
-            if not context.user_uid:
-                raise Exception(
-                    "Authentication required. Please log in to view your learning paths."
-                )
-
+            # User mode - auth already enforced at HTTP level
             result = await context.services.lp.list_user_paths(
                 user_uid=context.user_uid, limit=safe_limit
             )
 
-        if result.is_error or not result.value:
-            return []
-
-        # Convert to GraphQL types
-        return [
-            LearningPath(
-                uid=path.uid,
-                name=path.title,
-                goal=path.description or "",
-                total_steps=0,  # Steps loaded lazily via LearningPath.steps resolver
-                estimated_hours=path.estimated_hours or 0.0,
-            )
-            for path in result.value
-        ]
+        paths = unwrap_result(result, [])
+        return [LearningPath.from_dto(p) for p in paths]
 
     # ========================================================================
     # Complex Graph Queries (GraphQL's Strength)
@@ -579,11 +502,8 @@ class Query:
                 mastered_uids = profile_result.value.mastered_uids
                 for step in steps:
                     # Step is completed if user mastered associated KUs
-                    if (
-                        hasattr(step, "knowledge_uids")
-                        and step.knowledge_uids
-                        and all(uid in mastered_uids for uid in step.knowledge_uids)
-                    ):
+                    _ku_uids = getattr(step, "primary_knowledge_uids", None)
+                    if _ku_uids and all(uid in mastered_uids for uid in _ku_uids):
                         completed_steps += 1
 
         current_step_number = completed_steps + 1 if completed_steps < total_steps else total_steps
@@ -659,14 +579,11 @@ class Query:
         # Check if prerequisites are met (simplified)
         prerequisites_met = len(blockers) == 0
 
+        lp = LearningPath.from_dto(path)
+        lp.total_steps = total_steps  # Override lazy-load default with actual count
+
         return LearningPathContext(
-            path=LearningPath(
-                uid=path.uid,
-                name=path.title,
-                goal=path.description or "",
-                total_steps=total_steps,
-                estimated_hours=path.estimated_hours or 0.0,
-            ),
+            path=lp,
             current_step_number=current_step_number,
             completed_steps=completed_steps,
             completion_percentage=completion_percentage,
@@ -777,14 +694,7 @@ class Query:
                 # Build node
                 prereq_nodes.append(
                     PrerequisiteNode(
-                        knowledge=KnowledgeNode(
-                            uid=prereq_ku.uid,
-                            title=prereq_ku.title,
-                            summary=prereq_ku.summary or "",
-                            domain=prereq_ku.domain.value,
-                            tags=prereq_ku.tags or [],
-                            quality_score=getattr(prereq_ku, "quality_score", 0.0),
-                        ),
+                        knowledge=KnowledgeNode.from_dto(prereq_ku),
                         depth=current_depth + 1,
                         is_mastered=is_mastered,
                         children=children,
@@ -815,14 +725,7 @@ class Query:
         prerequisites_mastered = count_mastered_in_tree(prerequisite_tree)
 
         return PrerequisiteGraph(
-            target=KnowledgeNode(
-                uid=ku.uid,
-                title=ku.title,
-                summary=ku.summary or "",
-                domain=ku.domain.value,
-                tags=ku.tags or [],
-                quality_score=ku.quality_score,
-            ),
+            target=KnowledgeNode.from_dto(ku),
             prerequisite_tree=prerequisite_tree,
             total_prerequisites=total_prerequisites,
             prerequisites_mastered=prerequisites_mastered,
@@ -869,36 +772,20 @@ class Query:
         enables = enables_result.value if enables_result.is_ok else []
 
         # Build nodes list (center + prerequisites + enables)
-        nodes = [
-            KnowledgeNode(
-                uid=ku.uid,
-                title=ku.title,
-                summary=ku.summary or "",
-                domain=ku.domain.value,
-                tags=ku.tags or [],
-                quality_score=ku.quality_score,
-            )
-        ]
+        center_node = KnowledgeNode.from_dto(ku)
+        nodes = [center_node]
 
         # Build edges list
         edges = []
 
         # Add prerequisite edges
         for prereq in prerequisites:
-            nodes.append(
-                KnowledgeNode(
-                    uid=prereq.uid,
-                    title=prereq.title,
-                    summary=prereq.summary or "",
-                    domain=prereq.domain.value,
-                    tags=prereq.tags or [],
-                    quality_score=getattr(prereq, "quality_score", 0.0),
-                )
-            )
+            prereq_node = KnowledgeNode.from_dto(prereq)
+            nodes.append(prereq_node)
             edges.append(
                 DependencyEdge(
-                    from_knowledge=nodes[-1],
-                    to_knowledge=nodes[0],
+                    from_knowledge=prereq_node,
+                    to_knowledge=center_node,
                     relationship_type="REQUIRES",
                     strength=1.0,
                 )
@@ -906,20 +793,12 @@ class Query:
 
         # Add enables edges
         for enabled in enables:
-            nodes.append(
-                KnowledgeNode(
-                    uid=enabled.uid,
-                    title=enabled.title,
-                    summary=enabled.summary or "",
-                    domain=enabled.domain.value,
-                    tags=enabled.tags or [],
-                    quality_score=getattr(enabled, "quality_score", 0.0),
-                )
-            )
+            enabled_node = KnowledgeNode.from_dto(enabled)
+            nodes.append(enabled_node)
             edges.append(
                 DependencyEdge(
-                    from_knowledge=nodes[0],
-                    to_knowledge=nodes[-1],
+                    from_knowledge=center_node,
+                    to_knowledge=enabled_node,
                     relationship_type="ENABLES",
                     strength=1.0,
                 )
@@ -1123,11 +1002,6 @@ class Query:
         - Recent activity
         """
         context: GraphQLContext = info.context
-
-        # AUTHENTICATION: Require authenticated user
-        if not context.user_uid:
-            raise Exception("Authentication required. Please log in to view your dashboard.")
-
         target_user_uid = context.user_uid
 
         # Fetch all user data in parallel using DataLoaders

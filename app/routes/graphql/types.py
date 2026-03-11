@@ -21,6 +21,10 @@ if TYPE_CHECKING:
     from core.models.pathways.learning_step import LearningStep as LsModel
     from core.utils.result_simplified import Result
 
+# Protocol for objects with curriculum-like attributes (Article, CurriculumDTO, etc.)
+# Used by from_dto() classmethods to accept any object with the right fields.
+_KNOWLEDGE_NODE_DEFAULTS = {"summary": "", "tags": [], "quality_score": 0.0}
+
 
 @strawberry.type
 class KnowledgeNode:
@@ -32,6 +36,33 @@ class KnowledgeNode:
     domain: str
     tags: list[str]
     quality_score: float
+
+    @classmethod
+    def from_dto(cls, dto: Any) -> KnowledgeNode:
+        """Convert any curriculum-like object to KnowledgeNode.
+
+        Accepts Article, CurriculumDTO, or any object with uid/title/summary/domain/tags/quality_score.
+        """
+        return cls(
+            uid=dto.uid,
+            title=dto.title,
+            summary=dto.summary or "",
+            domain=dto.domain.value,
+            tags=dto.tags or [],
+            quality_score=getattr(dto, "quality_score", _KNOWLEDGE_NODE_DEFAULTS["quality_score"]),
+        )
+
+    @classmethod
+    def from_search_dict(cls, item: dict[str, Any]) -> KnowledgeNode:
+        """Convert a SearchRouter faceted_search result dict to KnowledgeNode."""
+        return cls(
+            uid=item.get("uid", ""),
+            title=item.get("title", ""),
+            summary=item.get("summary", ""),
+            domain=item.get("_domain", "knowledge"),
+            tags=item.get("tags", []),
+            quality_score=item.get("quality_score", 0.5),
+        )
 
     @strawberry.field
     async def prerequisites(self, info: Info[GraphQLContext, Any]) -> list[KnowledgeNode]:
@@ -67,6 +98,17 @@ class Task:
     status: str
     priority: str
 
+    @classmethod
+    def from_dto(cls, dto: Any) -> Task:
+        """Convert a Task domain model to GraphQL Task type."""
+        return cls(
+            uid=dto.uid,
+            title=dto.title,
+            description=dto.description or "",
+            status=dto.status.value,
+            priority=dto.priority or "medium",
+        )
+
     @strawberry.field
     async def knowledge(self, info: Info[GraphQLContext, Any]) -> KnowledgeNode | None:
         """
@@ -87,6 +129,17 @@ class LearningPath:
     goal: str
     total_steps: int
     estimated_hours: float
+
+    @classmethod
+    def from_dto(cls, dto: Any) -> LearningPath:
+        """Convert a LP domain model to GraphQL LearningPath type."""
+        return cls(
+            uid=dto.uid,
+            name=dto.title,
+            goal=dto.description or "",
+            total_steps=0,  # Steps loaded lazily via LearningPath.steps resolver
+            estimated_hours=dto.estimated_hours or 0.0,
+        )
 
     @strawberry.field
     async def steps(self, info: Info[GraphQLContext, Any]) -> list[LearningStep]:
@@ -171,14 +224,7 @@ class LearningStep:
         if not ku:
             return None
 
-        return KnowledgeNode(
-            uid=ku.uid,
-            title=ku.title,
-            summary=ku.summary or "",
-            domain=ku.domain.value,
-            tags=ku.tags or [],
-            quality_score=ku.quality_score,
-        )
+        return KnowledgeNode.from_dto(ku)
 
 
 @strawberry.type
