@@ -10,6 +10,7 @@ Provides:
 from typing import Any, cast
 
 from fasthtml.common import Request
+from pydantic import ValidationError
 
 from adapters.inbound.auth import make_service_getter, require_authenticated_user, require_teacher
 from adapters.inbound.boundary import boundary_handler
@@ -18,6 +19,7 @@ from core.models.enums import ContentScope
 from core.models.enums.user_enums import UserRole
 from core.models.exercises.exercise_request import (
     ExerciseCreateRequest,
+    ExerciseKnowledgeRequest,
     ExerciseUpdateRequest,
     FeedbackGenerateRequest,
 )
@@ -176,19 +178,14 @@ def create_exercises_api_routes(
         - 404: Exercise or curriculum KU not found
         """
         body = await request.json()
-        exercise_uid = body.get("exercise_uid")
-        curriculum_uid = body.get("curriculum_uid")
-
-        if not exercise_uid or not curriculum_uid:
-            return Result.fail(
-                Errors.validation(
-                    "exercise_uid and curriculum_uid are required",
-                    field="body",
-                )
-            )
+        try:
+            req = ExerciseKnowledgeRequest(**body)
+        except ValidationError as e:
+            return Result.fail(Errors.validation(str(e), field="body"))
 
         return cast(
-            "Result[Any]", await exercises_service.link_to_curriculum(exercise_uid, curriculum_uid)
+            "Result[Any]",
+            await exercises_service.link_to_curriculum(req.exercise_uid, req.curriculum_uid),
         )
 
     @rt("/api/exercises/unrequire-knowledge", methods=["POST"])
@@ -207,20 +204,14 @@ def create_exercises_api_routes(
         - 404: Relationship not found
         """
         body = await request.json()
-        exercise_uid = body.get("exercise_uid")
-        curriculum_uid = body.get("curriculum_uid")
-
-        if not exercise_uid or not curriculum_uid:
-            return Result.fail(
-                Errors.validation(
-                    "exercise_uid and curriculum_uid are required",
-                    field="body",
-                )
-            )
+        try:
+            req = ExerciseKnowledgeRequest(**body)
+        except ValidationError as e:
+            return Result.fail(Errors.validation(str(e), field="body"))
 
         return cast(
             "Result[Any]",
-            await exercises_service.unlink_from_curriculum(exercise_uid, curriculum_uid),
+            await exercises_service.unlink_from_curriculum(req.exercise_uid, req.curriculum_uid),
         )
 
     @rt("/api/exercises/required-knowledge", methods=["GET"])

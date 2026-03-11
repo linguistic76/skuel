@@ -24,10 +24,12 @@ Date: 2025-12-06
 
 from typing import TYPE_CHECKING, Any
 
+from pydantic import ValidationError
 from starlette.requests import Request
 
 from adapters.inbound.auth import make_service_getter, require_admin
 from adapters.inbound.boundary import boundary_handler
+from core.models.entity_requests import ChangeUserRoleRequest
 from core.models.enums import UserRole
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -199,12 +201,13 @@ def create_admin_api_routes(
         """
         try:
             body = await request.json()
+            role_req = ChangeUserRoleRequest(**body)
+        except ValidationError as e:
+            return Result.fail(Errors.validation(str(e), field="body"))
         except Exception:
             return Result.fail(Errors.validation(message="Invalid JSON body", field="body"))
 
-        new_role_str = body.get("role")
-        if not new_role_str:
-            return Result.fail(Errors.validation(message="Missing 'role' field", field="role"))
+        new_role_str = role_req.role
 
         new_role = UserRole.from_string(new_role_str)
         if not new_role:

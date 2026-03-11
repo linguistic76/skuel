@@ -11,7 +11,9 @@ SubmissionReport request models live in core.models.report.report_requests.
 See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
 
-from pydantic import Field
+from typing import Any
+
+from pydantic import BaseModel, Field
 
 from core.models.enums import Domain
 from core.models.enums.entity_enums import ProcessorType
@@ -82,3 +84,16 @@ class LifePathCreateRequest(CreateRequestBase):
     vision_statement: str = Field(min_length=10, max_length=2000, description="Vision statement")
     domain: Domain = Field(default=Domain.PERSONAL, description="Domain")
     tags: list[str] = Field(default_factory=list, description="Tags")
+
+
+# =============================================================================
+# FORM SUBMISSION REQUEST
+# =============================================================================
+
+
+class FormSubmitRequest(BaseModel):
+    """Request to submit structured form data against an exercise."""
+
+    exercise_uid: str = Field(..., description="Exercise UID")
+    form_data: dict[str, Any] = Field(..., description="Form field responses")
+    title: str | None = Field(None, max_length=200, description="Optional submission title")

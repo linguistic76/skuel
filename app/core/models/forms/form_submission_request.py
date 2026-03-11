@@ -20,3 +20,12 @@ class FormSubmissionCreateRequest(BaseModel):
     group_uid: str | None = Field(None, description="Share with this group on submit")
     recipient_uids: list[str] | None = Field(None, description="Share with these users on submit")
     share_with_admin: bool = Field(False, description="Send to admin on submit")
+
+
+class FormSubmissionShareRequest(BaseModel):
+    """Request to share an existing form submission."""
+
+    uid: str = Field(..., description="FormSubmission UID to share")
+    group_uid: str | None = Field(None, description="Share with this group")
+    recipient_uids: list[str] | None = Field(None, description="Share with these users")
+    share_with_admin: bool = Field(False, description="Share with admin")

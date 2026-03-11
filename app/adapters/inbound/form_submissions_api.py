@@ -8,10 +8,14 @@ User-facing routes for submitting, viewing, and sharing form responses.
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import Request
+from pydantic import ValidationError
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
-from core.models.forms.form_submission_request import FormSubmissionCreateRequest
+from core.models.forms.form_submission_request import (
+    FormSubmissionCreateRequest,
+    FormSubmissionShareRequest,
+)
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -103,19 +107,18 @@ def create_form_submissions_api_routes(
 
         try:
             body = await request.json()
+            req = FormSubmissionShareRequest(**body)
+        except ValidationError as e:
+            return Result.fail(Errors.validation(str(e), field="body"))
         except Exception as e:
             return Result.fail(Errors.validation(f"Invalid request body: {e}", field="body"))
 
-        uid = body.get("uid")
-        if not uid:
-            return Result.fail(Errors.validation("uid is required", field="uid"))
-
         return await form_submission_service.share_submission(
-            uid=uid,
+            uid=req.uid,
             user_uid=user_uid,
-            group_uid=body.get("group_uid"),
-            recipient_uids=body.get("recipient_uids"),
-            share_with_admin=body.get("share_with_admin", False),
+            group_uid=req.group_uid,
+            recipient_uids=req.recipient_uids,
+            share_with_admin=req.share_with_admin,
         )
 
     return []

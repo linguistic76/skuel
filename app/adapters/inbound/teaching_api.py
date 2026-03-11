@@ -19,11 +19,13 @@ from datetime import date
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import Request
+from pydantic import ValidationError
 
 from adapters.inbound.auth.roles import UserRole, make_service_getter, require_role
 from adapters.inbound.boundary import boundary_handler
 from core.models.enums.entity_enums import ProcessorType
 from core.models.enums.submissions_enums import ExerciseScope
+from core.models.teaching.teaching_request import RequestRevisionRequest, SubmitReportRequest
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -69,14 +71,15 @@ def create_teaching_api_routes(
     async def submit_feedback(request: Request, uid: str, current_user: Any) -> Result[Any]:
         """Submit feedback for a student report."""
         body = await request.json()
-        feedback = body.get("feedback", "")
-        if not feedback:
-            return Result.fail(Errors.validation("Feedback text is required", field="feedback"))
+        try:
+            req = SubmitReportRequest(**body)
+        except ValidationError as e:
+            return Result.fail(Errors.validation(str(e), field="body"))
 
         return await teacher_review_service.submit_report(
             report_uid=uid,
             teacher_uid=current_user.uid,
-            feedback=feedback,
+            feedback=req.feedback,
         )
 
     @rt("/api/teaching/review/{uid}/revision", methods=["POST"])
@@ -85,14 +88,15 @@ def create_teaching_api_routes(
     async def request_revision(request: Request, uid: str, current_user: Any) -> Result[Any]:
         """Request revision for a student report."""
         body = await request.json()
-        notes = body.get("notes", "")
-        if not notes:
-            return Result.fail(Errors.validation("Revision notes are required", field="notes"))
+        try:
+            req = RequestRevisionRequest(**body)
+        except ValidationError as e:
+            return Result.fail(Errors.validation(str(e), field="body"))
 
         return await teacher_review_service.request_revision(
             report_uid=uid,
             teacher_uid=current_user.uid,
-            notes=notes,
+            notes=req.notes,
         )
 
     @rt("/api/teaching/review/{uid}/approve", methods=["POST"])

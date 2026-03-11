@@ -3,7 +3,7 @@
 See: /docs/architecture/CURRICULUM_GROUPING_PATTERNS.md
 """
 
-from pydantic import Field
+from pydantic import BaseModel, Field
 
 from core.models.enums import (
     Confidence,
@@ -37,3 +37,40 @@ class ArticleCreateRequest(CreateRequestBase):
     confidence: Confidence | None = Field(
         None, description="Admin-assessed certainty about this knowledge"
     )
+
+
+# =============================================================================
+# DOMAIN-SPECIFIC REQUEST MODELS
+# =============================================================================
+
+
+class ArticleRelationshipCreateRequest(BaseModel):
+    """Request to create a relationship between articles."""
+
+    target_uid: str = Field(..., description="Target article UID")
+    type: str = Field(default="RELATED_TO", description="Relationship type")
+    strength: float = Field(default=1.0, ge=0.0, le=1.0, description="Relationship strength")
+    description: str = Field(default="", max_length=500, description="Relationship description")
+
+
+class ArticleContentUpdateRequest(BaseModel):
+    """Request to update article content."""
+
+    content: str = Field(..., min_length=1, description="Article content")
+    title: str | None = Field(None, min_length=1, max_length=200, description="Optional title update")
+
+
+class ArticleOrganizeRequest(BaseModel):
+    """Request to organize an article under another (create ORGANIZES relationship)."""
+
+    parent_uid: str = Field(..., description="Parent article UID")
+    child_uid: str = Field(..., description="Child article UID")
+    order: int = Field(default=0, ge=0, description="Sort order within parent")
+
+
+class ArticleReorderRequest(BaseModel):
+    """Request to change the order of a child article within its parent."""
+
+    parent_uid: str = Field(..., description="Parent article UID")
+    child_uid: str = Field(..., description="Child article UID")
+    new_order: int = Field(..., ge=0, description="New sort order")

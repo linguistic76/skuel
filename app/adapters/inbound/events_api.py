@@ -13,6 +13,7 @@ runtime closures or domain-specific handler logic:
 from typing import Any
 
 from fasthtml.common import Request
+from pydantic import ValidationError
 
 from adapters.inbound.auth import require_authenticated_user, require_ownership_query
 from adapters.inbound.boundary import boundary_handler
@@ -32,7 +33,7 @@ from core.models.event.event_request import (
     RemoveAttendeeRequest,
 )
 from core.services.events_service import EventsService
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 
 
 def create_events_api_routes(
@@ -74,13 +75,11 @@ def create_events_api_routes(
     ) -> Result[Any]:
         """Update event status (requires ownership)."""
         body = await request.json()
-        typed_request = EventStatusUpdateRequest(
-            event_uid=entity.uid,
-            status=body.get("status"),
-            notes=body.get("notes"),
-            cancellation_reason=body.get("cancellation_reason"),
-        )
-        return await events_service.update_event_status(typed_request)
+        try:
+            req = EventStatusUpdateRequest(**{**body, "event_uid": entity.uid})
+        except ValidationError as e:
+            return Result.fail(Errors.validation(str(e), field="body"))
+        return await events_service.update_event_status(req)
 
     # ========================================================================
     # STATUS ROUTES (Factory-Generated)

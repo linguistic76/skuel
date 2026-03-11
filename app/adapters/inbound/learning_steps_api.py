@@ -19,16 +19,17 @@ __version__ = "2.0"  # Updated to use LsService directly
 from typing import Any
 
 from fasthtml.common import Request
+from pydantic import ValidationError
 
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.route_factories import CRUDRouteFactory, IntelligenceRouteFactory
 from core.models.entity_requests import EntityUpdateRequest as KuStepUpdateRequest
 from core.models.enums import ContentScope
 from core.models.enums.user_enums import UserRole
-from core.models.pathways.pathways_request import LearningStepCreateRequest
+from core.models.pathways.pathways_request import LearningStepCreateRequest, LearningStepPathRequest
 from core.services.ls_service import LsService
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 
 logger = get_logger("skuel.routes.learning_steps.api")
 
@@ -103,31 +104,24 @@ def create_learning_steps_api_routes(
     async def attach_step_to_path_route(request: Request, step_uid: str) -> Result[Any]:
         """Attach a learning step to a learning path."""
         body = await request.json()
-        path_uid = body.get("path_uid")
-        sequence = body.get("sequence")  # Optional
+        try:
+            req = LearningStepPathRequest(**body)
+        except ValidationError as e:
+            return Result.fail(Errors.validation(str(e), field="body"))
 
-        if not path_uid:
-            from core.utils.result_simplified import Errors
-
-            return Result.fail(Errors.validation(message="path_uid is required", field="path_uid"))
-
-        # Call LsService.attach_step_to_path (exists in relationship sub-service)
-        return await ls_service.attach_step_to_path(step_uid, path_uid, sequence)
+        return await ls_service.attach_step_to_path(step_uid, req.path_uid, req.sequence)
 
     @rt("/api/learning-steps/detach-from-path", methods=["POST"])
     @boundary_handler()
     async def detach_step_from_path_route(request: Request, step_uid: str) -> Result[Any]:
         """Detach a learning step from a learning path."""
         body = await request.json()
-        path_uid = body.get("path_uid")
+        try:
+            req = LearningStepPathRequest(**body)
+        except ValidationError as e:
+            return Result.fail(Errors.validation(str(e), field="body"))
 
-        if not path_uid:
-            from core.utils.result_simplified import Errors
-
-            return Result.fail(Errors.validation(message="path_uid is required", field="path_uid"))
-
-        # Call LsService.detach_step_from_path (exists in relationship sub-service)
-        return await ls_service.detach_step_from_path(step_uid, path_uid)
+        return await ls_service.detach_step_from_path(step_uid, req.path_uid)
 
     # Step Prerequisites
     # ------------------

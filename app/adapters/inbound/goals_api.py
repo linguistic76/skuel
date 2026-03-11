@@ -12,6 +12,7 @@ runtime closures or domain-specific handler logic:
 from typing import Any
 
 from fasthtml.common import Request
+from pydantic import ValidationError
 
 from adapters.inbound.auth import require_authenticated_user, require_ownership_query
 from adapters.inbound.boundary import boundary_handler
@@ -22,8 +23,13 @@ from adapters.inbound.route_factories import (
 )
 from core.models.enums import ContentScope
 from core.models.goal.goal import Goal
+from core.models.goal.goal_request import (
+    GoalHabitLinkRequest,
+    GoalProgressUpdateRequest,
+    MilestoneCreateRequest,
+)
 from core.services.goals_service import GoalsService
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 
 
 def create_goals_api_routes(
@@ -65,12 +71,13 @@ def create_goals_api_routes(
     ) -> Result[dict[str, Any]]:
         """Update goal progress (requires ownership)."""
         body = await request.json()
-        progress_value = body.get("progress", 0)
-        notes = body.get("notes", "")
-        update_date = body.get("date")
+        try:
+            req = GoalProgressUpdateRequest.model_validate(body)
+        except ValidationError as e:
+            return Result.fail(Errors.validation(str(e), field="body"))
 
         result = await goals_service.update_goal_progress(
-            entity.uid, progress_value, notes, update_date
+            entity.uid, req.new_value, req.notes, req.update_date
         )
         # ProgressResult is a TypedDict, convert to dict[str, Any] for type compatibility
         if result.is_error:
@@ -101,12 +108,13 @@ def create_goals_api_routes(
     ) -> Result[dict[str, Any]]:
         """Create a milestone for a goal (requires ownership)."""
         body = await request.json()
-        milestone_title = body.get("title")
-        target_date = body.get("target_date")
-        description = body.get("description", "")
+        try:
+            req = MilestoneCreateRequest(**body)
+        except ValidationError as e:
+            return Result.fail(Errors.validation(str(e), field="body"))
 
         return await goals_service.create_goal_milestone(
-            entity.uid, milestone_title, target_date, description
+            entity.uid, req.title, req.target_date, req.description or ""
         )
 
     @rt("/api/goals/milestones", methods=["GET"])
@@ -130,10 +138,12 @@ def create_goals_api_routes(
     ) -> Result[bool]:
         """Link a habit to a goal (requires ownership)."""
         body = await request.json()
-        habit_uid = body.get("habit_uid")
-        contribution_weight = body.get("weight", 1.0)
+        try:
+            req = GoalHabitLinkRequest(**body)
+        except ValidationError as e:
+            return Result.fail(Errors.validation(str(e), field="body"))
 
-        return await goals_service.link_goal_to_habit(entity.uid, habit_uid, contribution_weight)
+        return await goals_service.link_goal_to_habit(entity.uid, req.habit_uid, req.weight)
 
     @rt("/api/goals/habits", methods=["GET"])
     @require_ownership_query(get_goals_service)

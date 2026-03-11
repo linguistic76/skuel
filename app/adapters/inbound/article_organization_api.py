@@ -18,10 +18,12 @@ Routes follow SKUEL's established patterns:
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import Request
+from pydantic import ValidationError
 
 from adapters.inbound.auth import make_service_getter, require_admin
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.route_factories import parse_int_query_param
+from core.models.article.article_request import ArticleOrganizeRequest, ArticleReorderRequest
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
@@ -75,22 +77,16 @@ def create_article_organization_api_routes(
     async def organize_route(request, current_user) -> Result[dict[str, Any]]:
         """Organize a Ku under another Ku (create ORGANIZES relationship)."""
         body = await request.json()
-        parent_uid = body.get("parent_uid")
-        child_uid = body.get("child_uid")
-        order = body.get("order", 0)
+        try:
+            req = ArticleOrganizeRequest(**body)
+        except ValidationError as e:
+            return Result.fail(Errors.validation(str(e), field="body"))
 
-        if not parent_uid or not child_uid:
-            return Result.fail(
-                Errors.validation(
-                    message="parent_uid and child_uid are required", field="request_body"
-                )
-            )
-
-        result = await ku_service.organize(parent_uid, child_uid, order)
+        result = await ku_service.organize(req.parent_uid, req.child_uid, req.order)
         if result.is_error:
             return Result.fail(result.expect_error())
         return Result.ok(
-            {"success": result.value, "parent_uid": parent_uid, "child_uid": child_uid}
+            {"success": result.value, "parent_uid": req.parent_uid, "child_uid": req.child_uid}
         )
 
     @rt("/api/article/unorganize", methods=["POST"])
@@ -99,17 +95,12 @@ def create_article_organization_api_routes(
     async def unorganize_route(request, current_user) -> Result[dict[str, Any]]:
         """Remove organization relationship between Kus."""
         body = await request.json()
-        parent_uid = body.get("parent_uid")
-        child_uid = body.get("child_uid")
+        try:
+            req = ArticleOrganizeRequest(**body)
+        except ValidationError as e:
+            return Result.fail(Errors.validation(str(e), field="body"))
 
-        if not parent_uid or not child_uid:
-            return Result.fail(
-                Errors.validation(
-                    message="parent_uid and child_uid are required", field="request_body"
-                )
-            )
-
-        result = await ku_service.unorganize(parent_uid, child_uid)
+        result = await ku_service.unorganize(req.parent_uid, req.child_uid)
         if result.is_error:
             return Result.fail(result.expect_error())
         return Result.ok({"success": result.value})
@@ -120,19 +111,12 @@ def create_article_organization_api_routes(
     async def reorder_route(request, current_user) -> Result[dict[str, Any]]:
         """Change the order of a child Ku within its parent."""
         body = await request.json()
-        parent_uid = body.get("parent_uid")
-        child_uid = body.get("child_uid")
-        new_order = body.get("new_order")
+        try:
+            req = ArticleReorderRequest(**body)
+        except ValidationError as e:
+            return Result.fail(Errors.validation(str(e), field="body"))
 
-        if not parent_uid or not child_uid or new_order is None:
-            return Result.fail(
-                Errors.validation(
-                    message="parent_uid, child_uid, and new_order are required",
-                    field="request_body",
-                )
-            )
-
-        result = await ku_service.reorder(parent_uid, child_uid, new_order)
+        result = await ku_service.reorder(req.parent_uid, req.child_uid, req.new_order)
         if result.is_error:
             return Result.fail(result.expect_error())
         return Result.ok({"success": result.value})

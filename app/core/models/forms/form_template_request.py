@@ -69,3 +69,10 @@ class FormTemplateUpdateRequest(BaseModel):
         if v is None:
             return None
         return validate_form_field_specs(v)
+
+
+class FormArticleLinkRequest(BaseModel):
+    """Request to link/unlink a FormTemplate to/from an Article."""
+
+    form_template_uid: str = Field(..., description="FormTemplate UID")
+    article_uid: str = Field(..., description="Article UID")

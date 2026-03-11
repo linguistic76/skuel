@@ -183,8 +183,9 @@ class GoalProgressUpdateRequest(BaseModel):
     Request to update goal progress.
     """
 
-    new_value: float = Field(..., description="New progress value")
-    notes: str | None = Field(None, max_length=500, description="Progress notes")
+    new_value: float = Field(..., validation_alias="progress", description="New progress value")
+    notes: str = Field(default="", max_length=500, description="Progress notes")
+    update_date: str | None = Field(None, validation_alias="date", description="Progress date")
 
     @field_validator("new_value")
     @classmethod
@@ -195,7 +196,8 @@ class GoalProgressUpdateRequest(BaseModel):
         return v
 
     model_config = ConfigDict(
-        json_schema_extra={"example": {"new_value": 75.5, "notes": "Completed 3 more chapters"}}
+        populate_by_name=True,
+        json_schema_extra={"example": {"progress": 75.5, "notes": "Completed 3 more chapters"}},
     )
 
 
@@ -494,3 +496,10 @@ class ContextualGoalTaskGenerationRequest(BaseModel):
             }
         }
     )
+
+
+class GoalHabitLinkRequest(BaseModel):
+    """Request to link a habit to a goal."""
+
+    habit_uid: str = Field(..., description="UID of the habit to link")
+    weight: float = Field(default=1.0, gt=0, description="Contribution weight")

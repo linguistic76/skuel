@@ -40,6 +40,7 @@ if TYPE_CHECKING:
     from core.ports.submission_protocols import SubmissionOperations
     from core.services.user.user_context_builder import UserContextBuilder
 
+from pydantic import ValidationError
 from starlette.requests import Request
 
 from adapters.inbound.auth import make_service_getter, require_admin, require_authenticated_user
@@ -47,6 +48,9 @@ from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.route_factories import parse_int_query_param
 from core.models.entity_converters import entity_to_response
 from core.models.entity_requests import (
+    ActivityFeedbackSubmitRequest,
+    ActivityReviewRequest,
+    AnnotationSaveRequest,
     ProgressReportGenerateRequest,
     ScheduleCreateRequest,
     ScheduleUpdateRequest,
@@ -283,29 +287,18 @@ def create_progress_report_api_routes(
             """
             admin_uid = current_user.uid
             body = await request.json()
-
-            subject_uid = body.get("subject_uid")
-            feedback_text = body.get("feedback_text", "").strip()
-            time_period = body.get("time_period", "7d")
-            domains = body.get("domains") or None
-            snapshot_context = body.get("snapshot_context")
-
-            if not subject_uid:
-                return Result.fail(
-                    Errors.validation("subject_uid is required", field="subject_uid")
-                )
-            if not feedback_text:
-                return Result.fail(
-                    Errors.validation("feedback_text is required", field="feedback_text")
-                )
+            try:
+                req = ActivityFeedbackSubmitRequest(**body)
+            except ValidationError as e:
+                return Result.fail(Errors.validation(str(e), field="body"))
 
             result = await activity_report.submit_report(
                 admin_uid=admin_uid,
-                subject_uid=subject_uid,
-                feedback_text=feedback_text,
-                time_period=time_period,
-                domains=domains,
-                snapshot_context=snapshot_context,
+                subject_uid=req.subject_uid,
+                feedback_text=req.feedback_text,
+                time_period=req.time_period,
+                domains=req.domains,
+                snapshot_context=req.snapshot_context,
             )
             if result.is_error:
                 return Result.fail(result.expect_error())
@@ -356,21 +349,17 @@ def create_progress_report_api_routes(
             """
             user_uid = require_authenticated_user(request)
             body = await request.json()
-
-            uid = body.get("uid", "").strip()
-            if not uid:
-                return Result.fail(Errors.validation("uid is required", field="uid"))
-
-            annotation_mode = body.get("annotation_mode", "").strip()
-            user_annotation = body.get("user_annotation")
-            user_revision = body.get("user_revision")
+            try:
+                req = AnnotationSaveRequest(**body)
+            except ValidationError as e:
+                return Result.fail(Errors.validation(str(e), field="body"))
 
             result = await activity_report.annotate(
-                uid=uid,
+                uid=req.uid,
                 user_uid=user_uid,
-                annotation_mode=annotation_mode,
-                user_annotation=user_annotation,
-                user_revision=user_revision,
+                annotation_mode=req.annotation_mode,
+                user_annotation=req.user_annotation,
+                user_revision=req.user_revision,
             )
             if result.is_error:
                 return Result.fail(result.expect_error())
@@ -436,16 +425,16 @@ def create_progress_report_api_routes(
             """User requests an activity review from an admin."""
             user_uid = require_authenticated_user(request)
             body = await request.json()
-
-            time_period = body.get("time_period", "7d")
-            domains = body.get("domains") or None
-            message = body.get("message")
+            try:
+                req = ActivityReviewRequest(**body)
+            except ValidationError as e:
+                return Result.fail(Errors.validation(str(e), field="body"))
 
             result = await review_queue.request_review(
                 user_uid=user_uid,
-                time_period=time_period,
-                domains=domains,
-                message=message,
+                time_period=req.time_period,
+                domains=req.domains,
+                message=req.message,
             )
             if result.is_error:
                 return Result.fail(result.expect_error())

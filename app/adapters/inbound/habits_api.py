@@ -13,6 +13,7 @@ runtime closures or domain-specific handler logic:
 from typing import Any
 
 from fasthtml.common import Request
+from pydantic import ValidationError
 
 from adapters.inbound.auth import require_authenticated_user, require_ownership_query
 from adapters.inbound.boundary import boundary_handler
@@ -33,7 +34,7 @@ from core.models.habit.habit_request import (
     UntrackHabitRequest,
 )
 from core.services.habits_service import HabitsService
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 
 # ============================================================================
 # REQUEST BUILDERS (SKUEL012 compliance - no lambda expressions)
@@ -99,13 +100,11 @@ def create_habits_api_routes(
     async def track_habit_route(request: Request, user_uid: str, entity: Any) -> Result[Any]:
         """Track a habit completion (requires ownership)."""
         body = await request.json()
-        typed_request = TrackHabitRequest(
-            habit_uid=entity.uid,
-            completion_date=body.get("date"),
-            value=body.get("value", 1),
-            notes=body.get("notes", ""),
-        )
-        return await habits_service.track_habit(typed_request)
+        try:
+            req = TrackHabitRequest(**{**body, "habit_uid": entity.uid})
+        except ValidationError as e:
+            return Result.fail(Errors.validation(str(e), field="body"))
+        return await habits_service.track_habit(req)
 
     @rt("/api/habits/untrack")
     @require_ownership_query(get_habits_service)
@@ -113,11 +112,11 @@ def create_habits_api_routes(
     async def untrack_habit_route(request: Request, user_uid: str, entity: Any) -> Result[Any]:
         """Remove a habit tracking entry (requires ownership)."""
         body = await request.json()
-        typed_request = UntrackHabitRequest(
-            habit_uid=entity.uid,
-            completion_date=body.get("date"),
-        )
-        return await habits_service.untrack_habit(typed_request)
+        try:
+            req = UntrackHabitRequest(**{**body, "habit_uid": entity.uid})
+        except ValidationError as e:
+            return Result.fail(Errors.validation(str(e), field="body"))
+        return await habits_service.untrack_habit(req)
 
     @rt("/api/habits/streak")
     @require_ownership_query(get_habits_service)

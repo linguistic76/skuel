@@ -85,6 +85,7 @@ class ChoiceDecisionRequest(BaseModel):
     decision_rationale: str | None = Field(
         None, max_length=1000, description="Rationale for decision"
     )
+    confidence: float = Field(default=0.8, ge=0.0, le=1.0, description="Confidence level")
     decided_at: datetime | None = Field(None, description="Decision timestamp")
 
 

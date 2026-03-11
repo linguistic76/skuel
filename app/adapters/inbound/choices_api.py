@@ -13,12 +13,14 @@ __version__ = "2.0"
 from typing import Any
 
 from fasthtml.common import Request
+from pydantic import ValidationError
 
 from adapters.inbound.auth import require_ownership_query
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.route_factories import parse_int_query_param
+from core.models.choice.choice_request import ChoiceDecisionRequest
 from core.services.choices_service import ChoicesService
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 
 
 def create_choices_api_routes(
@@ -57,23 +59,16 @@ def create_choices_api_routes(
     async def make_decision_route(request: Request, user_uid: str, entity: Any) -> Result[Any]:
         """Make a decision on a choice (requires ownership)."""
         body = await request.json()
-        selected_option_uid = body.get("selected_option_uid")
-        decision_rationale = body.get("decision_rationale")
-        confidence_level = body.get("confidence_level", 0.8)
+        try:
+            req = ChoiceDecisionRequest(**body)
+        except ValidationError as e:
+            return Result.fail(Errors.validation(str(e), field="body"))
 
-        # Validate request
-        from core.models.choice.choice_request import ChoiceDecisionRequest
-
-        ChoiceDecisionRequest.model_validate(
-            {"selected_option_uid": selected_option_uid, "decision_rationale": decision_rationale}
-        )
-
-        # Use domain-specific make_decision method
         return await choice_service.make_decision(
             choice_uid=entity.uid,
-            selected_option_uid=selected_option_uid,
-            decision_rationale=decision_rationale,
-            confidence=confidence_level,
+            selected_option_uid=req.selected_option_uid,
+            decision_rationale=req.decision_rationale,
+            confidence=req.confidence,
         )
 
     @rt("/api/choices/options", methods=["POST"])

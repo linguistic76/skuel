@@ -556,3 +556,59 @@ class ScheduleUpdateRequest(BaseModel):
         pattern=r"^(summary|standard|detailed)$",
     )
     is_active: bool | None = Field(None, description="Enable/disable schedule")
+
+
+# =============================================================================
+# ACTIVITY FEEDBACK / REVIEW REQUEST MODELS
+# =============================================================================
+
+
+class ActivityFeedbackSubmitRequest(BaseModel):
+    """Admin submits written activity feedback for a user."""
+
+    subject_uid: str = Field(..., description="UID of the user being reviewed")
+    feedback_text: str = Field(..., min_length=1, description="Feedback text")
+    time_period: str = Field(default="7d", description="Time period covered")
+    domains: list[str] | None = Field(None, description="Activity domains to cover")
+    snapshot_context: dict[str, Any] | None = Field(
+        None, description="Snapshot context from prior review"
+    )
+
+
+class AnnotationSaveRequest(BaseModel):
+    """Save user annotation or revision to an owned ActivityReport."""
+
+    uid: str = Field(..., min_length=1, description="ActivityReport UID")
+    annotation_mode: str = Field(default="", description="additive or revision")
+    user_annotation: str | None = Field(None, description="Commentary text")
+    user_revision: str | None = Field(None, description="Replacement text")
+
+
+class ActivityReviewRequest(BaseModel):
+    """User requests an activity review from an admin."""
+
+    time_period: str = Field(default="7d", description="Time period to review")
+    domains: list[str] | None = Field(None, description="Domains to review")
+    message: str | None = Field(None, max_length=1000, description="Optional message")
+
+
+class CalendarQuickCreateRequest(BaseModel):
+    """Quick create a calendar item."""
+
+    type: str = Field(..., description="Calendar item type")
+    title: str = Field(..., min_length=1, description="Item title")
+    start_time: str = Field(..., description="Start time (ISO format)")
+    extras: dict[str, Any] = Field(default_factory=dict, description="Additional fields")
+
+
+class ChangeUserRoleRequest(BaseModel):
+    """Request to change a user's role."""
+
+    role: str = Field(..., min_length=1, description="New role name")
+
+
+class SmartDismissRequest(BaseModel):
+    """Request to smart-dismiss insights matching a filter."""
+
+    filter_type: str = Field(..., description="Filter type: impact, domain, or type")
+    filter_value: str = Field(..., description="Filter value to match")

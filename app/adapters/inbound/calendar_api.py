@@ -14,9 +14,11 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import Div, P
+from pydantic import ValidationError
 from starlette.requests import Request
 
 from adapters.inbound.boundary import boundary_handler
+from core.models.entity_requests import CalendarQuickCreateRequest
 from core.utils.result_simplified import Errors, Result
 from ui.calendar.components import calendar_item_to_dict
 
@@ -34,12 +36,16 @@ def create_calendar_api_routes(
     async def quick_create(request: Request) -> Result[dict[str, Any]]:
         """Quick create a calendar item."""
         data = await request.json()
+        try:
+            req = CalendarQuickCreateRequest(**data)
+        except ValidationError as e:
+            return Result.fail(Errors.validation(str(e), field="body"))
 
         result = await calendar_service.quick_create(
-            item_type=data.get("type"),
-            title=data.get("title"),
-            start_time=datetime.fromisoformat(data.get("start_time")),
-            **data.get("extras", {}),
+            item_type=req.type,
+            title=req.title,
+            start_time=datetime.fromisoformat(req.start_time),
+            **req.extras,
         )
 
         if result.is_error:

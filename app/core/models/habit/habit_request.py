@@ -275,9 +275,11 @@ class HabitStatsRequest(BaseModel):
 class TrackHabitRequest(BaseModel):
     """Request for tracking/recording a habit completion."""
 
+    model_config = ConfigDict(populate_by_name=True)
+
     habit_uid: str = Field(description="UID of the habit to track")
     completion_date: str | None = Field(
-        None, description="Date of completion (ISO format, default: today)"
+        None, validation_alias="date", description="Date of completion (ISO format, default: today)"
     )
     value: int = Field(default=1, ge=1, le=5, description="Quality/value rating (1-5)")
     notes: str | None = Field(None, max_length=500, description="Optional completion notes")
@@ -286,9 +288,11 @@ class TrackHabitRequest(BaseModel):
 class UntrackHabitRequest(BaseModel):
     """Request for removing a habit tracking entry."""
 
+    model_config = ConfigDict(populate_by_name=True)
+
     habit_uid: str = Field(description="UID of the habit")
     completion_date: str | None = Field(
-        None, description="Date to untrack (ISO format, default: today)"
+        None, validation_alias="date", description="Date to untrack (ISO format, default: today)"
     )
 
 

@@ -15,6 +15,7 @@ This file uses:
 from typing import Any
 
 from fasthtml.common import Request
+from pydantic import ValidationError
 
 from adapters.inbound.auth import require_admin, require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
@@ -24,8 +25,12 @@ from adapters.inbound.route_factories import (
     parse_int_query_param,
 )
 from adapters.inbound.route_factories.analytics_route_factory import AnalyticsRouteFactory
-from core.models.article.article_request import ArticleCreateRequest
-from core.models.entity_requests import EntityUpdateRequest
+from core.models.article.article_request import (
+    ArticleContentUpdateRequest,
+    ArticleCreateRequest,
+    ArticleRelationshipCreateRequest,
+)
+from core.models.entity_requests import AddTagsRequest, EntityUpdateRequest, RemoveTagsRequest
 from core.models.enums import ContentScope
 from core.models.enums.user_enums import UserRole
 from core.services.article_service import ArticleService
@@ -105,13 +110,13 @@ def create_article_api_routes(
     ) -> Result[Any]:
         """Create a relationship between articles. Requires ADMIN role."""
         body = await request.json()
-        target_uid = body.get("target_uid")
-        relationship_type = body.get("type", "RELATED_TO")
-        strength = body.get("strength", 1.0)
-        description = body.get("description", "")
+        try:
+            req = ArticleRelationshipCreateRequest(**body)
+        except ValidationError as e:
+            return Result.fail(Errors.validation(str(e), field="body"))
 
         return await article_service.create_article_relationship(
-            uid, target_uid, relationship_type, strength, description
+            uid, req.target_uid, req.type, req.strength, req.description
         )
 
     @rt("/api/article/relationships", methods=["GET"])
@@ -147,11 +152,12 @@ def create_article_api_routes(
     ) -> Result[Any]:
         """Update article content. Requires ADMIN role."""
         body = await request.json()
-        content = body.get("content")
-        title = body.get("title")  # Optional title update
-        # Note: content_type and update_metadata params not supported by ArticleService
+        try:
+            req = ArticleContentUpdateRequest(**body)
+        except ValidationError as e:
+            return Result.fail(Errors.validation(str(e), field="body"))
 
-        return await article_service.update_article_content(uid, content, title)
+        return await article_service.update_article_content(uid, req.content, req.title)
 
     @rt("/api/article/tags", methods=["POST"])
     @require_admin(user_service_getter)
@@ -159,9 +165,12 @@ def create_article_api_routes(
     async def add_article_tags_route(request: Request, current_user: Any, uid: str) -> Result[Any]:
         """Add tags to an article. Requires ADMIN role."""
         body = await request.json()
-        tags = body.get("tags", [])
+        try:
+            req = AddTagsRequest(**body)
+        except ValidationError as e:
+            return Result.fail(Errors.validation(str(e), field="body"))
 
-        return await article_service.add_article_tags(uid, tags)
+        return await article_service.add_article_tags(uid, req.tags)
 
     @rt("/api/article/tags", methods=["DELETE"])
     @require_admin(user_service_getter)
@@ -171,9 +180,12 @@ def create_article_api_routes(
     ) -> Result[Any]:
         """Remove tags from an article. Requires ADMIN role."""
         body = await request.json()
-        tags = body.get("tags", [])
+        try:
+            req = RemoveTagsRequest(**body)
+        except ValidationError as e:
+            return Result.fail(Errors.validation(str(e), field="body"))
 
-        return await article_service.remove_article_tags(uid, tags)
+        return await article_service.remove_article_tags(uid, req.tags)
 
     # Article Search and Discovery
     # ----------------------------

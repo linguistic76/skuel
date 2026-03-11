@@ -10,9 +10,11 @@ from operator import itemgetter
 from typing import Any
 
 from fasthtml.common import Request
+from pydantic import ValidationError
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
+from core.models.entity_requests import SmartDismissRequest
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from ui.insights.insight_card import DismissedInsightMessage
@@ -238,14 +240,15 @@ def create_insights_api_routes(
         # Parse request body
         try:
             body = await request.json()
-            filter_type = body.get("filter_type")  # "impact", "domain", "type"
-            filter_value = body.get("filter_value")  # "low", "tasks", "difficulty_pattern"
+            req = SmartDismissRequest(**body)
+        except ValidationError as e:
+            return Result.fail(Errors.validation(str(e), field="body"))
         except Exception as e:
             logger.error(f"Failed to parse smart dismiss request: {e}")
             return Result.fail(Errors.validation(f"Invalid request body: {e}"))
 
-        if not filter_type or not filter_value:
-            return Result.fail(Errors.validation("filter_type and filter_value are required"))
+        filter_type = req.filter_type
+        filter_value = req.filter_value
 
         # Get all active insights
         result = await insight_store.get_active_insights(user_uid=user_uid, limit=200)

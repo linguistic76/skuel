@@ -33,6 +33,7 @@ if TYPE_CHECKING:
         SubmissionSearchOperations,
     )
 
+from pydantic import ValidationError
 from starlette.background import BackgroundTask
 from starlette.datastructures import UploadFile
 from starlette.requests import Request
@@ -50,6 +51,7 @@ from core.models.entity_requests import (
     RemoveTagsRequest,
 )
 from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
+from core.models.submissions.submission_requests import FormSubmitRequest
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -317,23 +319,21 @@ def create_submissions_api_routes(
         except Exception:
             return Result.fail(Errors.validation("Invalid JSON body"))
 
-        exercise_uid = body.get("exercise_uid")
-        if not exercise_uid:
-            return Result.fail(Errors.validation("exercise_uid is required", field="exercise_uid"))
+        try:
+            req = FormSubmitRequest(**body)
+        except ValidationError as e:
+            return Result.fail(Errors.validation(str(e), field="body"))
 
-        form_data = body.get("form_data")
-        if not isinstance(form_data, dict) or not form_data:
+        if not req.form_data:
             return Result.fail(
                 Errors.validation("form_data must be a non-empty object", field="form_data")
             )
 
-        title = body.get("title")
-
         result = await submission_service.submit_form(
             user_uid=user_uid,
-            exercise_uid=exercise_uid,
-            form_data=form_data,
-            title=title,
+            exercise_uid=req.exercise_uid,
+            form_data=req.form_data,
+            title=req.title,
         )
 
         if result.is_error:

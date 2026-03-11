@@ -151,3 +151,10 @@ class FeedbackGenerateRequest(BaseModel):
     max_tokens: int | None = Field(
         default=4000, ge=100, le=8000, description="Maximum tokens to generate"
     )
+
+
+class ExerciseKnowledgeRequest(BaseModel):
+    """Request to link/unlink an exercise to a curriculum KU via REQUIRES_KNOWLEDGE."""
+
+    exercise_uid: str = Field(..., description="Exercise UID")
+    curriculum_uid: str = Field(..., description="Curriculum KU UID")

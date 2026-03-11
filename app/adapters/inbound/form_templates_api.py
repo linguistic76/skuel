@@ -8,10 +8,12 @@ Admin-only routes for managing FormTemplate entities.
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import Request
+from pydantic import ValidationError
 
 from adapters.inbound.auth import make_service_getter, require_admin
 from adapters.inbound.boundary import boundary_handler
 from core.models.forms.form_template_request import (
+    FormArticleLinkRequest,
     FormTemplateCreateRequest,
     FormTemplateUpdateRequest,
 )
@@ -131,18 +133,13 @@ def create_form_templates_api_routes(
         """Link a FormTemplate to an Article via EMBEDS_FORM."""
         try:
             body = await request.json()
+            req = FormArticleLinkRequest(**body)
+        except ValidationError as e:
+            return Result.fail(Errors.validation(str(e), field="body"))
         except Exception as e:
             return Result.fail(Errors.validation(f"Invalid request body: {e}", field="body"))
 
-        form_template_uid = body.get("form_template_uid")
-        article_uid = body.get("article_uid")
-
-        if not form_template_uid or not article_uid:
-            return Result.fail(
-                Errors.validation("form_template_uid and article_uid are required", field="body")
-            )
-
-        return await form_template_service.link_to_article(form_template_uid, article_uid)
+        return await form_template_service.link_to_article(req.form_template_uid, req.article_uid)
 
     @rt("/api/form-templates/unlink-article", methods=["POST"])
     @require_admin(get_user_service)
@@ -151,17 +148,14 @@ def create_form_templates_api_routes(
         """Remove EMBEDS_FORM link between FormTemplate and Article."""
         try:
             body = await request.json()
+            req = FormArticleLinkRequest(**body)
+        except ValidationError as e:
+            return Result.fail(Errors.validation(str(e), field="body"))
         except Exception as e:
             return Result.fail(Errors.validation(f"Invalid request body: {e}", field="body"))
 
-        form_template_uid = body.get("form_template_uid")
-        article_uid = body.get("article_uid")
-
-        if not form_template_uid or not article_uid:
-            return Result.fail(
-                Errors.validation("form_template_uid and article_uid are required", field="body")
-            )
-
-        return await form_template_service.unlink_from_article(form_template_uid, article_uid)
+        return await form_template_service.unlink_from_article(
+            req.form_template_uid, req.article_uid
+        )
 
     return []

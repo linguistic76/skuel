@@ -94,3 +94,10 @@ class LearningPathProgressRequest(BaseModel):
     mastery_level: float = Field(..., ge=0.0, le=1.0)
     completed: bool | None = None
     notes: str | None = None
+
+
+class LearningStepPathRequest(BaseModel):
+    """Request to attach/detach a learning step to/from a learning path."""
+
+    path_uid: str = Field(..., description="Learning path UID")
+    sequence: int | None = Field(None, ge=0, description="Position in path (for attach)")
