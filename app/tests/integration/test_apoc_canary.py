@@ -367,6 +367,5 @@ class TestNeo4jVersionCanary:
         driver_version = neo4j.__version__
 
         assert driver_version.startswith("5.26"), (
-            f"Expected driver 5.26.x, got {driver_version}. "
-            "Run 'uv sync' to use pinned version."
+            f"Expected driver 5.26.x, got {driver_version}. Run 'uv sync' to use pinned version."
         )

@@ -27,6 +27,7 @@ from strawberry.types import (
 from core.constants import ConfidenceLevel, QueryLimit
 from core.models.enums import Domain
 from core.services.adaptive_lp_types import KnowledgeState
+from routes.graphql.auth import require_user_uid, resolve_target_user
 from routes.graphql.config import get_graphql_config, validate_list_limit
 from routes.graphql.context import GraphQLContext
 
@@ -245,7 +246,8 @@ class Query:
         )
 
         # Perform search using SearchRouter (One Path Forward)
-        result = await context.search_router.faceted_search(search_request, context.user_uid)
+        user_uid = require_user_uid(info)
+        result = await context.search_router.faceted_search(search_request, user_uid)
 
         if result.is_error or not result.value.results:
             return []
@@ -294,6 +296,7 @@ class Query:
         Clients can nest knowledge units to avoid N+1 queries.
         """
         context: GraphQLContext = info.context
+        user_uid = require_user_uid(info)
 
         if not context.services.tasks:
             return []
@@ -303,7 +306,7 @@ class Query:
         # Push filtering to service layer (Cypher WHERE)
         status_filter = "all" if include_completed else "active"
         ctx_result = await context.services.tasks.get_filtered_context(
-            user_uid=context.user_uid,
+            user_uid=user_uid,
             status_filter=status_filter,
             sort_by="created_at",
         )
@@ -347,6 +350,7 @@ class Query:
         - Logic is in service layer (not here)
         """
         context: GraphQLContext = info.context
+        user_uid = require_user_uid(info)
 
         # Get cross-domain service from bootstrap (circular import resolved)
         cross_domain_service = context.services.cross_domain
@@ -374,12 +378,9 @@ class Query:
             mastered_knowledge=knowledge_uids,
         )
 
-        if not context.user_uid:
-            return []
-
         # Get cross-domain opportunities
         result = await cross_domain_service.discover_cross_domain_opportunities(
-            user_uid=context.user_uid,
+            user_uid=user_uid,
             knowledge_state=knowledge_state,
             min_confidence=ConfidenceLevel.LOW,
         )
@@ -475,9 +476,8 @@ class Query:
             result = await context.services.lp.list_all_paths(limit=safe_limit)
         else:
             # User mode - auth already enforced at HTTP level
-            result = await context.services.lp.list_user_paths(
-                user_uid=context.user_uid, limit=safe_limit
-            )
+            user_uid = require_user_uid(info)
+            result = await context.services.lp.list_user_paths(user_uid=user_uid, limit=safe_limit)
 
         paths = unwrap_list(result)
         return [learning_path_from_dto(p) for p in paths]
@@ -500,11 +500,7 @@ class Query:
             Complete learning path context with progress tracking
         """
         context: GraphQLContext = info.context
-
-        # Use authenticated user or provided user_uid
-        target_user_uid = user_uid or context.user_uid
-        if not target_user_uid:
-            return None
+        target_user_uid = resolve_target_user(info, user_uid)
 
         if not context.services.lp:
             return None
@@ -659,11 +655,11 @@ class Query:
         if not ku:
             return None
 
-        # Get user's mastery profile if user_uid provided
-        target_user_uid = user_uid or context.user_uid
+        # Get user's mastery profile
+        target_user_uid = resolve_target_user(info, user_uid)
         mastered_uids: set[str] = set()
 
-        if target_user_uid and context.services.user_progress:
+        if context.services.user_progress:
             profile_result = await context.services.user_progress.build_user_knowledge_profile(
                 target_user_uid
             )
@@ -866,9 +862,7 @@ class Query:
             List of blockers with severity and recommended actions
         """
         context: GraphQLContext = info.context
-
-        # Use authenticated user or provided user_uid
-        target_user_uid = user_uid or context.user_uid
+        target_user_uid = resolve_target_user(info, user_uid)
 
         if not context.services.lp or not context.services.article:
             return []
@@ -918,8 +912,8 @@ class Query:
                 for prereq_ku in prereqs_result.value:
                     is_mastered = False
 
-                    # Check mastery if user_uid is provided and user_service is available
-                    if target_user_uid and context.services.user_service:
+                    # Check mastery if user_service is available
+                    if context.services.user_service:
                         mastery_result = await context.services.user_service.get_user_mastery(
                             user_uid=target_user_uid, concept_uid=prereq_ku.uid
                         )
@@ -1032,7 +1026,7 @@ class Query:
         - Recent activity
         """
         context: GraphQLContext = info.context
-        target_user_uid = context.user_uid
+        target_user_uid = require_user_uid(info)
 
         # Fetch all user data in parallel using DataLoaders
         tasks_count = 0

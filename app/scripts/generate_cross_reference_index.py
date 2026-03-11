@@ -62,9 +62,7 @@ def generate_index_content(base_path: Path) -> str:
     content.append(
         "**Generated:** This file is auto-generated from `skills_metadata.yaml` and pattern doc frontmatter."
     )
-    content.append(
-        "**Regenerate:** Run `uv run python scripts/generate_cross_reference_index.py`"
-    )
+    content.append("**Regenerate:** Run `uv run python scripts/generate_cross_reference_index.py`")
     content.append("")
     content.append("---")
     content.append("")

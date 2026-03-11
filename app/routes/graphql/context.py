@@ -39,8 +39,8 @@ class GraphQLContext:
     learning_path_loader: DataLoader[str, Any]
     learning_step_loader: DataLoader[str, Any]
 
-    # Request metadata
-    user_uid: str | None = None
+    # Request metadata (always set — auth enforced at HTTP layer)
+    user_uid: str = ""
 
 
 async def _batch_load(
@@ -81,7 +81,7 @@ async def _batch_load(
 def create_graphql_context(
     services: Services,
     search_router: Any,
-    user_uid: str | None = None,
+    user_uid: str = "",
 ) -> GraphQLContext:
     """
     Create GraphQL context with DataLoaders for a request.
@@ -89,7 +89,7 @@ def create_graphql_context(
     Args:
         services: Bootstrapped SKUEL services
         search_router: SearchRouter for search functionality (One Path Forward)
-        user_uid: Optional user ID for personalized queries
+        user_uid: Authenticated user UID (required — auth enforced at HTTP layer)
 
     Returns:
         GraphQLContext with DataLoaders configured

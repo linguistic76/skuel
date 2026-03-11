@@ -271,11 +271,11 @@ async def test_get_tasks_applying_knowledge_success(search_service, mock_backend
 
     # Mock backend.get to return the tasks (service uses self.backend.get(uid))
     mock_backend.get = AsyncMock(
-        side_effect=lambda uid: Result.ok(
-            next(t.to_dto().to_dict() for t in sample_tasks if t.uid == uid)
+        side_effect=lambda uid: (
+            Result.ok(next(t.to_dto().to_dict() for t in sample_tasks if t.uid == uid))
+            if any(t.uid == uid for t in sample_tasks)
+            else Result.fail(Errors.not_found("Task", uid))
         )
-        if any(t.uid == uid for t in sample_tasks)
-        else Result.fail(Errors.not_found("Task", uid))
     )
 
     # Execute

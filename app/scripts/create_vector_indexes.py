@@ -146,9 +146,7 @@ async def create_vector_indexes(
         # Next steps
         logger.info("Next steps:")
         logger.info("  1. Verify indexes exist: SHOW INDEXES")
-        logger.info(
-            "  2. Generate embeddings: uv run python scripts/generate_embeddings_batch.py"
-        )
+        logger.info("  2. Generate embeddings: uv run python scripts/generate_embeddings_batch.py")
         logger.info("  3. Test vector search via API: POST /api/search/unified")
         logger.info("")
 
