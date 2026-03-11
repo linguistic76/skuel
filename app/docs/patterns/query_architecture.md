@@ -24,9 +24,29 @@ For hands-on implementation:
 
 ---
 
-## Quick Reference
+## Architecture — Intentional Layering, Not Fragmentation
 
-SKUEL's query architecture uses a two-layer pattern with three specialized builders for optimal separation of concerns.
+SKUEL's query infrastructure is a **single facade with specialized backends**, not competing approaches:
+
+```
+UnifiedQueryBuilder  ← THE single entry point (fluent API)
+├── ModelQueryBuilder      → CypherGenerator functions (CRUD/search)
+├── SemanticQueryBuilder   → semantic_queries.py (graph traversal)
+└── TemplateQueryBuilder   → QueryBuilder service (optimization/templates)
+```
+
+These aren't three ways to do the same thing — they're three categories of query (data access, graph traversal, optimized templates) behind one discoverable API. `UnifiedQueryBuilder` IS the consolidation.
+
+### Supporting Infrastructure (Leaf-Level Utilities)
+
+These are consumed by the query builders above, not alternative query paths:
+
+| Utility | Purpose | Why It Exists Separately |
+|---------|---------|--------------------------|
+| `confidence_filter.py` | Cypher clause fragments for confidence filtering | Standardizes `coalesce()` patterns across all builders |
+| `convert_value_for_neo4j()` | Python→Neo4j type conversion (enums, datetimes) | Neo4j driver doesn't auto-serialize; complements Pydantic (HTTP boundary) |
+| `validate_dataclass()` | Guard clause (12 lines) before field introspection | Prevents cryptic errors when CypherGenerator receives non-dataclass types |
+| `QueryConstraint.to_cypher()` | WHERE clause fragment generation | Adapter-layer model in `adapters/persistence/` — persistence models doing persistence work |
 
 ## Query Infrastructure (October 3, 2025)
 
@@ -38,10 +58,12 @@ SKUEL's query architecture uses a two-layer pattern with three specialized build
 
 ```
 /adapters/persistence/neo4j/query/  # Infrastructure level, accessible to ALL domains
-├── _query_models.py       # Core query building, APOC operations
+├── _query_models.py       # Adapter-layer query building models (QueryConstraint, QuerySort, etc.)
+├── confidence_filter.py   # Cypher clause helpers for confidence-based filtering
 ├── cypher_template.py     # Query optimization strategies
-├── query_analysis.py      # Query parsing (legacy, consolidated)
-├── cypher/                # Cypher query generators (domain, intelligence, etc.)
+├── cypher/                # Cypher query generators (crud, semantic, domain, relationship, intelligence)
+│   └── _helpers.py        # Shared utilities (convert_value_for_neo4j, validate_dataclass)
+├── unified_query_builder.py  # UnifiedQueryBuilder — THE single entry point
 ├── __init__.py            # Clean public API
 └── README.md              # Usage documentation
 ```
@@ -52,7 +74,7 @@ SKUEL's query architecture uses a two-layer pattern with three specialized build
 # ✅ CORRECT - Import from infrastructure
 from core.models.query_types import QueryIntent, IndexStrategy  # Boundary types
 from adapters.persistence.neo4j.query import (
-    ApocQueryBuilder,      # APOC-powered queries (THE single source)
+    UnifiedQueryBuilder,   # THE single entry point
     QueryBuildRequest,     # Declarative query construction
     create_search_request, # Helper for common patterns
 )
@@ -81,24 +103,6 @@ QueryIntent.SCHEDULED_ACTION      # Event as scheduled task execution
 
 See [Intent-Based Traversal Pattern](#intent-based-traversal-pattern-december-2025) below for complete architecture.
 
-### ApocQueryBuilder - THE Single Source for APOC
-
-```python
-# Intent-based graph context queries
-apoc_query = ApocQueryBuilder.build_graph_context_query(
-    node_uid="task.123",
-    intent=QueryIntent.HIERARCHICAL,
-    depth=2
-)
-
-# Batch operations (10x faster than individual MERGE)
-batch_query = ApocQueryBuilder.build_batch_merge_nodes(nodes)
-batch_edges = ApocQueryBuilder.build_batch_merge_edges(edges)
-
-# Schema-aware operations
-merge_query = ApocQueryBuilder.build_schema_aware_merge(node, schema)
-```
-
 ### Domain Usage Examples
 
 **Knowledge Domain:**
@@ -115,36 +119,27 @@ request = create_search_request(
 
 **Tasks Domain:**
 ```python
-from adapters.persistence.neo4j.query import ApocQueryBuilder
+from adapters.persistence.neo4j.query import build_graph_context_query
 from core.models.query_types import QueryIntent
 
-context = ApocQueryBuilder.build_graph_context_query(
+context = build_graph_context_query(
     node_uid=task.uid,
     intent=QueryIntent.HIERARCHICAL,
     depth=3
 )
 ```
 
-**Events Domain:**
-```python
-from adapters.persistence.neo4j.query import ApocQueryBuilder
-
-batch_query = ApocQueryBuilder.build_batch_merge_nodes(event_nodes)
-```
-
 ## Query Building - Single Source of Truth (October 8, 2025)
 
-### Core Principle: "One builder per query type, consolidated architecture"
+### Core Principle: "One facade, specialized backends"
 
-**CRITICAL:** SKUEL has consolidated from 4 query builders to 3 specialized builders with clear responsibilities.
+UnifiedQueryBuilder is THE single entry point. It routes internally to three specialized backends:
 
-### The Three Query Builders
-
-| Builder | Purpose | When to Use |
-|---------|---------|-------------|
-| **CypherGenerator** | Pure Cypher query generation | Dynamic queries, semantic graph traversal |
-| **ApocQueryBuilder** | APOC-powered operations | Batch operations, schema-aware merges |
-| **QueryBuilder** | Index-aware optimization | Performance-critical queries, search |
+| Backend | Accessed Via | Purpose | When to Use |
+|---------|-------------|---------|-------------|
+| **ModelQueryBuilder** | `.for_model()` | CypherGenerator functions (CRUD/search) | Dynamic queries from dataclass introspection |
+| **SemanticQueryBuilder** | `.semantic()` | semantic_queries.py (graph traversal) | Prerequisite chains, semantic context |
+| **TemplateQueryBuilder** | `.template()` | QueryBuilder service (optimization) | Registered templates, performance-critical queries |
 
 ### Cypher Query Generators - Pure Cypher Queries
 
@@ -270,33 +265,6 @@ entities = [from_neo4j_node(record["n"], EntityClass) for record in result.value
 ```
 
 BaseService provides `_records_to_domain_models()` helper for this pattern.
-
-### ApocQueryBuilder - APOC Operations
-
-**Location:** `/adapters/persistence/neo4j/query/_query_models.py`
-
-**Use for:** Batch operations, schema-aware merges, complex graph operations requiring APOC.
-
-```python
-from adapters.persistence.neo4j.query import ApocQueryBuilder
-from core.models.query_types import QueryIntent
-
-# Intent-based graph context
-apoc_query = ApocQueryBuilder.build_graph_context_query(
-    node_uid="task.123",
-    intent=QueryIntent.HIERARCHICAL,
-    depth=2
-)
-
-# Batch merge nodes (10x faster than individual MERGE)
-batch_query = ApocQueryBuilder.build_batch_merge_nodes(nodes)
-
-# Batch merge edges
-batch_edges = ApocQueryBuilder.build_batch_merge_edges(edges)
-
-# Schema-aware merge
-merge_query = ApocQueryBuilder.build_schema_aware_merge(node, schema)
-```
 
 ### QueryBuilder - Service Layer Facade (Legacy)
 
@@ -531,7 +499,6 @@ result = await UnifiedQueryBuilder(driver).template("search").params(
 | Template-based search | Application | UnifiedQueryBuilder | `builder.template("search").params(...)` |
 | Get semantic prerequisites | Infrastructure | CypherGenerator | `CypherGenerator.build_prerequisite_chain(uid, types)` |
 | Cross-domain bridges | Infrastructure | CypherGenerator | `CypherGenerator.build_cross_domain_bridges()` |
-| Batch import 1000 KUs | Infrastructure | ApocQueryBuilder | `ApocQueryBuilder.build_batch_merge_nodes()` |
 | Template internals | Service | QueryBuilder | `qb.get_template_library()` (legacy) |
 | Index optimization | Service | QueryBuilder | `qb.build_optimized_query()` (legacy) |
 
@@ -824,13 +791,14 @@ This is the **primary query architecture documentation**. Start here.
 
 | Component | Location |
 |-----------|----------|
+| UnifiedQueryBuilder (facade) | `/adapters/persistence/neo4j/query/unified_query_builder.py` |
 | Cypher Query Generators | `/adapters/persistence/neo4j/query/cypher/` |
-| ApocQueryBuilder | `/adapters/persistence/neo4j/query/_query_models.py` |
-| QueryBuilder | `/core/services/query_builder.py` |
+| Query Models (adapter-layer) | `/adapters/persistence/neo4j/query/_query_models.py` |
+| QueryBuilder (legacy service) | `/core/services/query_builder.py` |
 | GraphIntelligenceService | `/core/services/infrastructure/graph_intelligence_service.py` |
 | QueryIntent enum | `/core/models/query_types.py` |
 
 ---
 
-**Last Updated:** January 24, 2026
+**Last Updated:** March 12, 2026
 **Status:** Active - Core pattern for all query operations in SKUEL

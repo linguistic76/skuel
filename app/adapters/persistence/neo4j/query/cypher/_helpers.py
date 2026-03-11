@@ -14,7 +14,11 @@ T = TypeVar("T")
 
 def convert_value_for_neo4j(value: Any) -> Any:
     """
-    Convert Python value to Neo4j-compatible value.
+    Convert Python value to Neo4j-compatible value during query parameter binding.
+
+    This handles the persistence boundary (Python→Neo4j driver), which is distinct
+    from the HTTP boundary (Pydantic validates incoming JSON). The Neo4j driver does
+    NOT auto-serialize Python enums or date objects, so this conversion is required.
 
     Handles:
     - Enum → .value
@@ -76,7 +80,13 @@ def get_supported_operators() -> list[str]:
 
 def validate_dataclass[T](entity_class: type[T], operation: str = "operation") -> None:
     """
-    Validate that an entity class is a dataclass.
+    Guard clause: verify entity_class is a dataclass before field introspection.
+
+    CypherGenerator uses ``dataclasses.fields()`` to auto-generate Cypher from model
+    structure. Passing a non-dataclass (e.g., a Pydantic model or plain class) would
+    produce a cryptic TypeError deep in field introspection. This check fails fast
+    with a clear message instead. It is NOT schema validation — it's a precondition
+    for the code that follows.
 
     Args:
         entity_class: Class to validate

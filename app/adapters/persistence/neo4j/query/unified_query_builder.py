@@ -2,23 +2,29 @@
 Unified Query Builder - THE Single Entry Point
 ==============================================
 
-Fluent API facade that eliminates query builder confusion.
+Fluent API facade over three specialized query backends. This is the
+**consolidation layer** — not one of many query approaches, but the single
+entry point that routes to the right backend internally.
 
-**Problem Solved:**
-Before: 3 query builders (CypherGenerator, QueryBuilder, SemanticQueryBuilder)
-        + Decision matrix needed to know which one to use
-After: Single fluent API that routes internally
+**Architecture (intentional layering, not fragmentation):**
 
-**Architecture:**
-- Public: Fluent API methods (for_model, semantic, template)
-- Internal: Routes to CypherGenerator or templates
-- Automatic: Index optimization, query planning, execution strategy
-- Pure Cypher: No APOC dependencies - maximum portability
+::
+
+    UnifiedQueryBuilder  ← YOU ARE HERE (single entry point)
+    ├── ModelQueryBuilder      → CypherGenerator functions (CRUD/search)
+    ├── SemanticQueryBuilder   → semantic_queries.py (graph traversal)
+    └── TemplateQueryBuilder   → QueryBuilder service (optimization/templates)
+
+Each backend handles a different *category* of query:
+
+- ``.for_model(Task)`` — data access (list, search, count, get-by-field)
+- ``.semantic("ku.python_basics")`` — graph traversal (prerequisites, context)
+- ``.template("faceted_search")`` — pre-optimized query templates
 
 **Usage Examples:**
 
 ```python
-from core.models.query import UnifiedQueryBuilder
+from adapters.persistence.neo4j.query import UnifiedQueryBuilder
 from core.constants import GraphDepth, QueryLimit
 
 # Simple model queries (routes to CypherGenerator)
@@ -53,12 +59,6 @@ results = await (
 3. Discoverable - .for_model(), .semantic(), .template() are obvious
 4. Pure Cypher - works on ALL Neo4j installations (Desktop, Aura, Docker)
 5. Internal routing - automatically picks best strategy
-
-**Migration Status:**
-
-
-
-
 
 """
 

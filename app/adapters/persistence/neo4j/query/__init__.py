@@ -8,6 +8,28 @@ Provides Neo4j-first query capabilities with Pure Cypher as default.
 This is THE single source of truth for query operations across SKUEL.
 All domains consume these infrastructure components.
 
+Architecture — Intentional Layering, Not Fragmentation
+-------------------------------------------------------
+
+The query system is a **single facade with specialized backends**, not competing approaches::
+
+    UnifiedQueryBuilder  ← THE single entry point (fluent API)
+    ├── ModelQueryBuilder      → CypherGenerator functions (CRUD/search)
+    ├── SemanticQueryBuilder   → semantic_queries.py (graph traversal)
+    └── TemplateQueryBuilder   → QueryBuilder service (optimization/templates)
+
+Supporting infrastructure (leaf-level utilities, NOT alternative query paths):
+
+- ``confidence_filter.py`` — Cypher clause fragments for confidence filtering.
+  Consumed by query builders, not by services directly.
+- ``convert_value_for_neo4j()`` — Python→Neo4j type boundary (enums, datetimes).
+  Complements Pydantic (HTTP boundary), does NOT duplicate it.
+- ``validate_dataclass()`` — Guard clause (12 lines) preventing misuse of
+  CypherGenerator with non-dataclass types. Not schema validation.
+- ``QueryConstraint.to_cypher()`` — Adapter-layer model that generates Cypher
+  fragments. Lives in ``_query_models.py`` inside ``adapters/persistence/``,
+  not in the domain layer.
+
 Key Components:
 - cypher package: Modular Cypher query building (crud, semantic, domain, relationship, intelligence)
 - QueryPatterns: Generic graph traversal patterns for all services

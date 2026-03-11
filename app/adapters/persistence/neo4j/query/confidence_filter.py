@@ -2,15 +2,21 @@
 Confidence Filter Utilities
 ===========================
 
-Standardized confidence filtering for relationship queries.
+Leaf-level infrastructure helper that generates Cypher clause fragments for
+confidence-based filtering. Consumed by the query builders (CypherGenerator,
+SemanticQueryBuilder) — not by services directly.
+
+Returns raw Cypher strings by design: its job is to standardize the ``coalesce()``
+patterns so that every query builder uses the same confidence semantics. It does
+not need a "unified query AST" — it's a string-building utility at the bottom of
+the query infrastructure stack, like ``convert_value_for_neo4j()``.
 
 *Last updated: 2025-12-05*
 
-Problem: Confidence filtering was implemented inconsistently across the codebase:
-- Some queries use `coalesce(r.confidence, 1.0)` (assume full confidence)
-- Some use `coalesce(r.confidence, 0.8)` (conservative default)
-- Some use `coalesce(r.confidence, 0.0)` (strict, require explicit confidence)
-- Some use complex multi-field fallbacks
+Problem solved: Confidence filtering was implemented inconsistently across the codebase:
+- Some queries used ``coalesce(r.confidence, 1.0)`` (assume full confidence)
+- Some used ``coalesce(r.confidence, 0.8)`` (conservative default)
+- Some used ``coalesce(r.confidence, 0.0)`` (strict, require explicit confidence)
 
 This module provides standardized helpers for consistency.
 

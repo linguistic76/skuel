@@ -3,9 +3,13 @@ Consolidated Query Models
 =========================
 
 Single source of truth for all query-related data models.
-Combines query building, analysis, validation, and APOC operations.
+Adapter-layer infrastructure for Cypher query construction.
 
-This is THE way forward for query operations in SKUEL.
+These models live in ``adapters/persistence/neo4j/query/`` — firmly in the
+persistence adapter layer. Methods like ``QueryConstraint.to_cypher()`` and
+``QuerySort.to_cypher()`` generate Cypher clause fragments, which is the
+*purpose* of this adapter layer. This is not domain models leaking persistence
+concerns; it is persistence models doing persistence work.
 
 Infrastructure-level query models accessible to ALL domains.
 """
@@ -23,7 +27,12 @@ from core.models.query_types import IndexStrategy, QueryIntent
 
 @dataclass
 class QueryConstraint:
-    """Represents a constraint in a query (WHERE clause condition)"""
+    """
+    Adapter-layer model: a single WHERE clause condition for Cypher queries.
+
+    Lives in ``adapters/persistence/neo4j/query/`` — this IS the persistence layer.
+    ``to_cypher()`` is its primary job, not a domain model leaking serialization.
+    """
 
     property_name: str
     operator: str  # "=", "<", ">", "<=", ">=", "CONTAINS", "STARTS WITH", "IN", etc.
@@ -31,7 +40,7 @@ class QueryConstraint:
     label: str | None = None  # Optional label context
 
     def to_cypher(self) -> str:
-        """Convert to Cypher WHERE clause fragment"""
+        """Generate a Cypher WHERE clause fragment (e.g., ``n.priority = $priority``)."""
         label_prefix = f"{self.label}." if self.label else "n."
 
         # Handle different operators
