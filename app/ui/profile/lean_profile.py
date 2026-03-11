@@ -4,7 +4,7 @@ This is the stripped-down /profile page. Activity domains live at /activities.
 Learning content lives at /learn.
 """
 
-from fasthtml.common import A, Div, H2, P, Span
+from fasthtml.common import H2, A, Div, Span
 
 from core.services.user.unified_user_context import UserContext
 

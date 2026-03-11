@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 from adapters.inbound.auth import require_authenticated_user
 from core.models.enums import Priority
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import Result
 from ui.activities.landing import ActivitiesLandingView, render_activity_card_preview
 from ui.activities.layout import create_activities_page
 from ui.layouts.base_page import BasePage

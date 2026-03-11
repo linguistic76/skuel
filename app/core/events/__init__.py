@@ -136,6 +136,14 @@ from core.events.embedding_events import (
     TaskEmbeddingRequested,
 )
 
+# Finance events
+from core.events.finance_events import (
+    ExpenseCreated,
+    ExpenseDeleted,
+    ExpensePaid,
+    ExpenseUpdated,
+)
+
 # Form events
 from core.events.form_events import (
     FormSubmissionDeleted,
@@ -143,14 +151,6 @@ from core.events.form_events import (
     FormTemplateCreated,
     FormTemplateDeleted,
     FormTemplateUpdated,
-)
-
-# Finance events
-from core.events.finance_events import (
-    ExpenseCreated,
-    ExpenseDeleted,
-    ExpensePaid,
-    ExpenseUpdated,
 )
 
 # Goal events

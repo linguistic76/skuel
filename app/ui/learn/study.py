@@ -4,7 +4,7 @@ This is the content discovery page under /learn/study.
 Links into existing Article and KU routes for detailed views.
 """
 
-from fasthtml.common import A, Div, H2, P, Span
+from fasthtml.common import H2, A, Div, P, Span
 
 from core.services.user.unified_user_context import UserContext
 

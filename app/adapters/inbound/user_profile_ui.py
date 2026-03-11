@@ -68,7 +68,7 @@ from ui.profile.layout import (
     ProfileDomainItem,
     create_profile_page,
 )
-from ui.profile.overview import OverviewView, render_domain_card_preview
+from ui.profile.overview import render_domain_card_preview
 
 logger = get_logger("skuel.routes.user_profile")
 

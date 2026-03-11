@@ -3,11 +3,11 @@
 import pytest
 from pydantic import ValidationError
 
+from core.models.forms.form_submission_request import FormSubmissionCreateRequest
 from core.models.forms.form_template_request import (
     FormTemplateCreateRequest,
     FormTemplateUpdateRequest,
 )
-from core.models.forms.form_submission_request import FormSubmissionCreateRequest
 
 
 class TestFormTemplateCreateRequest:

@@ -6,7 +6,7 @@ Each card links into /activities/{domain} for the full domain view.
 
 from typing import Any
 
-from fasthtml.common import A, Div, H2, Li, P, Span, Ul
+from fasthtml.common import H2, A, Div, Li, P, Span, Ul
 
 from core.models.enums import Priority
 from core.services.user.unified_user_context import UserContext

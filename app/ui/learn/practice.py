@@ -9,7 +9,7 @@ This page surfaces whichever phase the learner is in:
 - Revised exercises (practice again)
 """
 
-from fasthtml.common import A, Div, H2, H3, P, Span
+from fasthtml.common import H2, H3, A, Div, P, Span
 
 from core.services.user.unified_user_context import UserContext
 
