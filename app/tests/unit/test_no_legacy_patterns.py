@@ -7,7 +7,7 @@ Automated guardrail that fails CI if legacy code patterns re-appear.
 SKUEL follows "One Path Forward" — no backward compatibility, no legacy wrappers.
 This test suite catches legacy drift before it accumulates.
 
-Run: poetry run pytest tests/unit/test_no_legacy_patterns.py -v
+Run: uv run pytest tests/unit/test_no_legacy_patterns.py -v
 
 See: /docs/patterns/linter_rules.md
 """

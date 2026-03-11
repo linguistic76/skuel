@@ -10,9 +10,9 @@ Only checks fenced ``` code blocks and inline `backtick` spans — not prose —
 to avoid flagging legitimate historical descriptions.
 
 Usage:
-    poetry run python scripts/health/stale_names.py
-    poetry run python scripts/health/stale_names.py --verbose
-    poetry run python scripts/health/stale_names.py --list   # Print the full RENAMED/DELETED tables
+    uv run python scripts/health/stale_names.py
+    uv run python scripts/health/stale_names.py --verbose
+    uv run python scripts/health/stale_names.py --list   # Print the full RENAMED/DELETED tables
 """
 
 import re

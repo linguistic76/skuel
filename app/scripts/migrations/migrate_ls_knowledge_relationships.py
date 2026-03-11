@@ -10,8 +10,8 @@ Universal Hierarchical Pattern: Move from property-based storage to
 graph-native relationship storage for consistency.
 
 Usage:
-    poetry run python scripts/migrations/migrate_ls_knowledge_relationships.py --dry-run
-    poetry run python scripts/migrations/migrate_ls_knowledge_relationships.py --execute
+    uv run python scripts/migrations/migrate_ls_knowledge_relationships.py --dry-run
+    uv run python scripts/migrations/migrate_ls_knowledge_relationships.py --execute
 
 See: /docs/migrations/UNIVERSAL_HIERARCHICAL_IMPLEMENTATION_2026-01-30.md
 """

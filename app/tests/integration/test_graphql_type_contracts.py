@@ -15,7 +15,7 @@ Test Coverage:
 - DTO conversion (from_domain() methods)
 
 Run with:
-    poetry run pytest tests/integration/test_graphql_type_contracts.py -v
+    uv run pytest tests/integration/test_graphql_type_contracts.py -v
 """
 
 from __future__ import annotations

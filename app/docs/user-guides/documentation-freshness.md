@@ -159,7 +159,7 @@ Validates bidirectional consistency between skills and documentation, and detect
 2. Make any needed changes to the skill content
 3. Bump `last_reviewed` in `.claude/skills/skills_metadata.yaml`
 
-**More detail:** `poetry run python scripts/validate_cross_references.py --verbose`
+**More detail:** `uv run python scripts/validate_cross_references.py --verbose`
 
 ---
 
@@ -182,7 +182,7 @@ Detects newly added `.md` files and prompts for INDEX updates. Separate from the
 
 **Script:** `scripts/hooks/post-merge`
 
-After `git pull` or merge, detects when `poetry.lock` changed and reports affected skills.
+After `git pull` or merge, detects when `uv.lock` changed and reports affected skills.
 
 ```
 📦 python-fasthtml: 0.12.21 → 0.12.39
@@ -216,7 +216,7 @@ Both hooks fire automatically. Claude evaluates staleness from the Claude Code h
 
 ```bash
 ./dev health                # full sweep
-poetry run python scripts/docs_freshness.py --stale   # mtime-based staleness
+uv run python scripts/docs_freshness.py --stale   # mtime-based staleness
 ```
 
 ### After Renaming or Deleting

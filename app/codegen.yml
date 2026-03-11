@@ -4,7 +4,7 @@
 # Generates TypeScript types from SKUEL GraphQL schema.
 #
 # Usage:
-#   1. Export schema: poetry run python scripts/export_graphql_schema.py
+#   1. Export schema: uv run python scripts/export_graphql_schema.py
 #   2. Install dependencies: npm install --save-dev @graphql-codegen/cli @graphql-codegen/typescript @graphql-codegen/typescript-operations
 #   3. Generate types: npm run codegen
 #

@@ -196,10 +196,10 @@ unified_ingestion = UnifiedIngestionService(
 **To Run Tests**:
 ```bash
 # All chunking integration tests
-poetry run pytest tests/integration/test_ingestion_chunking.py -v
+uv run pytest tests/integration/test_ingestion_chunking.py -v
 
 # Specific test
-poetry run pytest tests/integration/test_ingestion_chunking.py::test_ingest_file_creates_chunks -v
+uv run pytest tests/integration/test_ingestion_chunking.py::test_ingest_file_creates_chunks -v
 ```
 
 ### Manual Verification Steps

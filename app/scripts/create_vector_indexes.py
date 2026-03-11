@@ -12,13 +12,13 @@ Prerequisites:
 
 Usage:
     # Create indexes for all priority entities
-    poetry run python scripts/create_vector_indexes.py
+    uv run python scripts/create_vector_indexes.py
 
     # Create indexes for specific entities only
-    poetry run python scripts/create_vector_indexes.py --labels Ku Task Goal
+    uv run python scripts/create_vector_indexes.py --labels Ku Task Goal
 
     # Use different embedding dimensions
-    poetry run python scripts/create_vector_indexes.py --dimension 3072
+    uv run python scripts/create_vector_indexes.py --dimension 3072
 
 See also:
 - /docs/development/GENAI_SETUP.md - Docker GenAI setup guide
@@ -147,7 +147,7 @@ async def create_vector_indexes(
         logger.info("Next steps:")
         logger.info("  1. Verify indexes exist: SHOW INDEXES")
         logger.info(
-            "  2. Generate embeddings: poetry run python scripts/generate_embeddings_batch.py"
+            "  2. Generate embeddings: uv run python scripts/generate_embeddings_batch.py"
         )
         logger.info("  3. Test vector search via API: POST /api/search/unified")
         logger.info("")
@@ -185,7 +185,7 @@ async def verify_vector_indexes() -> None:
 
             if not vector_indexes:
                 logger.warning("⚠️ No vector indexes found")
-                logger.warning("   Run: poetry run python scripts/create_vector_indexes.py")
+                logger.warning("   Run: uv run python scripts/create_vector_indexes.py")
                 return
 
             logger.info(f"✅ Found {len(vector_indexes)} vector indexes")
@@ -218,16 +218,16 @@ def main() -> None:
         epilog="""
 Examples:
   # Create indexes for all priority entities (Curriculum, Task, Goal, LpStep)
-  poetry run python scripts/create_vector_indexes.py
+  uv run python scripts/create_vector_indexes.py
 
   # Create indexes for specific entities only
-  poetry run python scripts/create_vector_indexes.py --labels Curriculum Task
+  uv run python scripts/create_vector_indexes.py --labels Curriculum Task
 
   # Use different embedding dimensions (for text-embedding-3-large)
-  poetry run python scripts/create_vector_indexes.py --dimension 3072
+  uv run python scripts/create_vector_indexes.py --dimension 3072
 
   # Verify existing indexes
-  poetry run python scripts/create_vector_indexes.py --verify
+  uv run python scripts/create_vector_indexes.py --verify
 
 For more information:
   - Setup guide: /docs/development/GENAI_SETUP.md

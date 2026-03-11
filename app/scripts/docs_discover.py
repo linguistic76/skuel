@@ -6,10 +6,10 @@ Helps developers find relevant documentation by keyword, topic, or task.
 Searches across titles, frontmatter, and content with intelligent ranking.
 
 Usage:
-    poetry run python scripts/docs_discover.py "error handling"
-    poetry run python scripts/docs_discover.py --task "add domain service"
-    poetry run python scripts/docs_discover.py --keywords result,validation
-    poetry run python scripts/docs_discover.py "cypher" --limit 5
+    uv run python scripts/docs_discover.py "error handling"
+    uv run python scripts/docs_discover.py --task "add domain service"
+    uv run python scripts/docs_discover.py --keywords result,validation
+    uv run python scripts/docs_discover.py "cypher" --limit 5
 """
 
 import re
@@ -541,7 +541,7 @@ def main() -> None:
 
     if not query_parts:
         print("Error: No search query provided", file=sys.stderr)
-        print("Usage: poetry run python scripts/docs_discover.py <query>", file=sys.stderr)
+        print("Usage: uv run python scripts/docs_discover.py <query>", file=sys.stderr)
         sys.exit(1)
 
     query = " ".join(query_parts)

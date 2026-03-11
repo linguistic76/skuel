@@ -5,7 +5,7 @@ Library Change Detection Script
 Detects PyPI package version changes and suggests which skills may need review.
 
 Usage:
-    poetry run python scripts/detect_library_changes.py [--from-ref HEAD@{1}]
+    uv run python scripts/detect_library_changes.py [--from-ref HEAD@{1}]
 
 Called automatically by post-merge hook.
 

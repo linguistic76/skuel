@@ -709,5 +709,5 @@ async def test_multi_domain_coverage():
 
 
 if __name__ == "__main__":
-    # Run with: poetry run pytest tests/test_adapter_less_crud_routes.py -v
+    # Run with: uv run pytest tests/test_adapter_less_crud_routes.py -v
     pytest.main([__file__, "-v"])

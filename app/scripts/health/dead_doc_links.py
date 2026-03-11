@@ -15,8 +15,8 @@ For every .md file in docs/ and .claude/skills/:
 Also confirms that all files referenced in docs/INDEX.md exist.
 
 Usage:
-    poetry run python scripts/health/dead_doc_links.py
-    poetry run python scripts/health/dead_doc_links.py --verbose
+    uv run python scripts/health/dead_doc_links.py
+    uv run python scripts/health/dead_doc_links.py --verbose
 """
 
 import re

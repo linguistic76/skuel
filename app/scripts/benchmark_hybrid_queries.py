@@ -9,7 +9,7 @@ This script benchmarks the performance of different query patterns:
 4. Hybrid queries (inefficient - traverse first, filter second)
 
 **Usage:**
-    poetry run python scripts/benchmark_hybrid_queries.py
+    uv run python scripts/benchmark_hybrid_queries.py
 
 **Requirements:**
     - Neo4j running with populated knowledge graph

@@ -8,7 +8,7 @@ Creates example Social Emotional Learning knowledge units following Option B pat
 - Prerequisites define dependencies
 
 Usage:
-    poetry run python scripts/seed_sel_content.py
+    uv run python scripts/seed_sel_content.py
 """
 
 import asyncio

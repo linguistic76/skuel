@@ -144,7 +144,7 @@ VECTOR_SEARCH_HYBRID_WEIGHT=0.7  # 70% vector, 30% fulltext
 
 **Verification Command:**
 ```bash
-poetry run python scripts/verify_genai_setup.py
+uv run python scripts/verify_genai_setup.py
 ```
 
 Expected output:

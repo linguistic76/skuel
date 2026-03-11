@@ -152,13 +152,13 @@ Tests that verify:
 Run tests to verify:
 ```bash
 # Specific test
-poetry run pytest tests/unit/test_dto_from_dict_embedding_filter.py -v
+uv run pytest tests/unit/test_dto_from_dict_embedding_filter.py -v
 
 # All DTO tests
-poetry run pytest tests/unit/ -k "dto" -v
+uv run pytest tests/unit/ -k "dto" -v
 
 # Full test suite
-poetry run pytest
+uv run pytest
 ```
 
 ## Impact

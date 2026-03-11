@@ -6,7 +6,7 @@ Simple script to check what KU UIDs exist and which ones are hierarchical.
 Uses encrypted credential store for Neo4j password.
 
 Usage:
-    poetry run python scripts/migrations/analyze_ku_uids.py
+    uv run python scripts/migrations/analyze_ku_uids.py
 """
 
 import asyncio
@@ -148,7 +148,7 @@ async def analyze():
             print("Next Steps:")
             print("  1. Review migration plan in /docs/migrations/")
             print("  2. Backup database")
-            print("  3. Run: poetry run python scripts/migrations/flatten_ku_uids.py --dry-run")
+            print("  3. Run: uv run python scripts/migrations/flatten_ku_uids.py --dry-run")
             print("  4. If plan looks good: --execute")
 
     except Exception as e:

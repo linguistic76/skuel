@@ -20,7 +20,7 @@ Fast lookup guide for common operations, methods, and configuration.
 | **Check embedding exists** | `RETURN EXISTS(ku.embedding) AS has_embedding` | Boolean check |
 | **Count embeddings** | `MATCH (ku:KnowledgeUnit) WHERE ku.embedding IS NOT NULL RETURN count(ku)` | Stats |
 | **Estimate cost** | `len(text) // 4 * 0.02 / 1_000_000` | ~$0.02 per 1M tokens |
-| **Verify setup** | `poetry run python scripts/verify_genai_setup.py` | Check plugin availability |
+| **Verify setup** | `uv run python scripts/verify_genai_setup.py` | Check plugin availability |
 
 ## Python Methods Reference
 
@@ -335,7 +335,7 @@ def estimate_embedding_cost(num_texts: int, avg_tokens: int = 500) -> dict[str, 
 
 ✅ **Setup verified:**
 ```bash
-poetry run python scripts/verify_genai_setup.py
+uv run python scripts/verify_genai_setup.py
 ```
 
 ✅ **Indexes exist:**

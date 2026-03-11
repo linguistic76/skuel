@@ -497,7 +497,7 @@ REGISTER routes (side effect), not BUILD route objects (return value).
 
 ```bash
 # Start application and verify routes are registered
-poetry run python main.py
+uv run python main.py
 
 # Check logs for registration message
 grep "Registered tasks routes" logs/skuel.log

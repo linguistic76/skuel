@@ -24,7 +24,7 @@ This directory contains scripts for managing Neo4j GenAI plugin integration:
 
 ```bash
 # Create indexes for all priority entities (Ku, Task, Goal, LpStep)
-poetry run python scripts/create_vector_indexes.py
+uv run python scripts/create_vector_indexes.py
 
 # Expected output:
 # ✅ Vector index creation complete
@@ -41,20 +41,20 @@ poetry run python scripts/create_vector_indexes.py
 
 ```bash
 # Create indexes for specific entities only
-poetry run python scripts/create_vector_indexes.py --labels Ku Task
+uv run python scripts/create_vector_indexes.py --labels Ku Task
 
 # Use different embedding dimensions (for text-embedding-3-large)
-poetry run python scripts/create_vector_indexes.py --dimension 3072
+uv run python scripts/create_vector_indexes.py --dimension 3072
 
 # Use different similarity function
-poetry run python scripts/create_vector_indexes.py --similarity euclidean
+uv run python scripts/create_vector_indexes.py --similarity euclidean
 ```
 
 ### Verify Indexes
 
 ```bash
 # Verify existing vector indexes
-poetry run python scripts/create_vector_indexes.py --verify
+uv run python scripts/create_vector_indexes.py --verify
 
 # Expected output:
 # ✅ Found 4 vector indexes
@@ -94,7 +94,7 @@ poetry run python scripts/create_vector_indexes.py --verify
 
 ```bash
 # Generate embeddings for all Knowledge Units
-poetry run python scripts/generate_embeddings_batch.py --label Ku
+uv run python scripts/generate_embeddings_batch.py --label Ku
 
 # Expected output:
 # Processing batch 1/10...
@@ -110,13 +110,13 @@ poetry run python scripts/generate_embeddings_batch.py --label Ku
 
 ```bash
 # Test with limited batches (dry run)
-poetry run python scripts/generate_embeddings_batch.py --label Ku --max-batches 2
+uv run python scripts/generate_embeddings_batch.py --label Ku --max-batches 2
 
 # Process all priority entities
-poetry run python scripts/generate_embeddings_batch.py --label Ku
-poetry run python scripts/generate_embeddings_batch.py --label Task
-poetry run python scripts/generate_embeddings_batch.py --label Goal
-poetry run python scripts/generate_embeddings_batch.py --label LpStep
+uv run python scripts/generate_embeddings_batch.py --label Ku
+uv run python scripts/generate_embeddings_batch.py --label Task
+uv run python scripts/generate_embeddings_batch.py --label Goal
+uv run python scripts/generate_embeddings_batch.py --label LpStep
 ```
 
 ### Options
@@ -157,16 +157,16 @@ Cost: $0.60 (one-time)
 
 ```bash
 # 1. Create vector indexes
-poetry run python scripts/create_vector_indexes.py
+uv run python scripts/create_vector_indexes.py
 
 # 2. Verify indexes created
-poetry run python scripts/create_vector_indexes.py --verify
+uv run python scripts/create_vector_indexes.py --verify
 
 # 3. Generate embeddings for existing content
-poetry run python scripts/generate_embeddings_batch.py --label Ku
-poetry run python scripts/generate_embeddings_batch.py --label Task
-poetry run python scripts/generate_embeddings_batch.py --label Goal
-poetry run python scripts/generate_embeddings_batch.py --label LpStep
+uv run python scripts/generate_embeddings_batch.py --label Ku
+uv run python scripts/generate_embeddings_batch.py --label Task
+uv run python scripts/generate_embeddings_batch.py --label Goal
+uv run python scripts/generate_embeddings_batch.py --label LpStep
 
 # 4. Test vector search via API
 # POST /api/search/unified with use_vector_search=true
@@ -179,10 +179,10 @@ poetry run python scripts/generate_embeddings_batch.py --label LpStep
 
 ```bash
 # 1. Create indexes
-poetry run python scripts/create_vector_indexes.py
+uv run python scripts/create_vector_indexes.py
 
 # 2. Test with limited batches (5 batches = 125 items)
-poetry run python scripts/generate_embeddings_batch.py --label Curriculum --max-batches 5
+uv run python scripts/generate_embeddings_batch.py --label Curriculum --max-batches 5
 
 # 3. Verify embeddings created
 # In Neo4j Browser:
@@ -203,10 +203,10 @@ poetry run python scripts/generate_embeddings_batch.py --label Curriculum --max-
 # MATCH (ku:Curriculum) WHERE ku.embedding IS NULL RETURN count(ku)
 
 # 2. Regenerate for new/modified content
-poetry run python scripts/generate_embeddings_batch.py --label Curriculum
+uv run python scripts/generate_embeddings_batch.py --label Curriculum
 
 # 3. Verify all have embeddings
-poetry run python scripts/create_vector_indexes.py --verify
+uv run python scripts/create_vector_indexes.py --verify
 ```
 
 ---
@@ -219,7 +219,7 @@ poetry run python scripts/create_vector_indexes.py --verify
 
 **Solution:**
 ```bash
-poetry run python scripts/create_vector_indexes.py
+uv run python scripts/create_vector_indexes.py
 ```
 
 ### "GenAI plugin is disabled"
@@ -270,7 +270,7 @@ OPENAI_API_KEY=sk-your-actual-key-here
 **Solution:**
 ```bash
 # Test with limited batches first
-poetry run python scripts/generate_embeddings_batch.py --label Ku --max-batches 5
+uv run python scripts/generate_embeddings_batch.py --label Ku --max-batches 5
 
 # Calculate full cost before running:
 # nodes * avg_tokens * $0.00002 / 1000
@@ -284,10 +284,10 @@ poetry run python scripts/generate_embeddings_batch.py --label Ku --max-batches 
 ### Optimize Batch Size
 ```bash
 # Smaller batches (faster feedback, more API calls)
-poetry run python scripts/generate_embeddings_batch.py --label Ku --batch-size 10
+uv run python scripts/generate_embeddings_batch.py --label Ku --batch-size 10
 
 # Larger batches (fewer API calls, longer wait)
-poetry run python scripts/generate_embeddings_batch.py --label Ku --batch-size 50
+uv run python scripts/generate_embeddings_batch.py --label Ku --batch-size 50
 ```
 
 **Recommendation:** Use default (25) for best balance
@@ -296,13 +296,13 @@ poetry run python scripts/generate_embeddings_batch.py --label Ku --batch-size 5
 ```bash
 # Schedule for overnight processing
 # Use cron or systemd timer
-0 2 * * * cd /path/to/skuel && poetry run python scripts/generate_embeddings_batch.py --label Ku
+0 2 * * * cd /path/to/skuel && uv run python scripts/generate_embeddings_batch.py --label Ku
 ```
 
 ### Monitor Progress
 ```bash
 # Run with verbose logging
-SKUEL_LOG_LEVEL=DEBUG poetry run python scripts/generate_embeddings_batch.py --label Ku
+SKUEL_LOG_LEVEL=DEBUG uv run python scripts/generate_embeddings_batch.py --label Ku
 ```
 
 ---
@@ -328,8 +328,8 @@ jobs:
           python-version: '3.11'
       - name: Install dependencies
         run: |
-          pip install poetry
-          poetry install
+          pip install uv
+          uv sync
       - name: Generate embeddings
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -337,7 +337,7 @@ jobs:
           NEO4J_USERNAME: ${{ secrets.NEO4J_USERNAME }}
           NEO4J_PASSWORD: ${{ secrets.NEO4J_PASSWORD }}
         run: |
-          poetry run python scripts/generate_embeddings_batch.py --label Ku
+          uv run python scripts/generate_embeddings_batch.py --label Ku
 ```
 
 ---
@@ -354,14 +354,14 @@ jobs:
 
 ```bash
 # CREATE VECTOR INDEXES
-poetry run python scripts/create_vector_indexes.py                    # All priority entities
-poetry run python scripts/create_vector_indexes.py --verify           # Verify existing
-poetry run python scripts/create_vector_indexes.py --labels Ku Task   # Specific entities
+uv run python scripts/create_vector_indexes.py                    # All priority entities
+uv run python scripts/create_vector_indexes.py --verify           # Verify existing
+uv run python scripts/create_vector_indexes.py --labels Ku Task   # Specific entities
 
 # GENERATE EMBEDDINGS
-poetry run python scripts/generate_embeddings_batch.py --label Ku              # All KUs
-poetry run python scripts/generate_embeddings_batch.py --label Curriculum --max-batches 5  # Test (125 items)
-poetry run python scripts/generate_embeddings_batch.py --label Task            # All Tasks
+uv run python scripts/generate_embeddings_batch.py --label Ku              # All KUs
+uv run python scripts/generate_embeddings_batch.py --label Curriculum --max-batches 5  # Test (125 items)
+uv run python scripts/generate_embeddings_batch.py --label Task            # All Tasks
 
 # VERIFY IN NEO4J
 SHOW INDEXES                                           # Show all indexes

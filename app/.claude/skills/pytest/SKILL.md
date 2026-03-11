@@ -34,15 +34,15 @@ tests/
 
 | Command | Purpose |
 |---------|---------|
-| `poetry run pytest` | Run all tests |
-| `poetry run pytest tests/unit/` | Unit tests only (fast) |
-| `poetry run pytest tests/integration/` | Integration tests (needs Docker) |
-| `poetry run pytest tests/unit/test_tasks_service.py` | Single file |
-| `poetry run pytest -k "test_create"` | Tests matching pattern |
-| `poetry run pytest -x` | Stop on first failure |
-| `poetry run pytest -v` | Verbose output |
-| `poetry run pytest --tb=short` | Short tracebacks |
-| `poetry run pytest --cov=core` | With coverage |
+| `uv run pytest` | Run all tests |
+| `uv run pytest tests/unit/` | Unit tests only (fast) |
+| `uv run pytest tests/integration/` | Integration tests (needs Docker) |
+| `uv run pytest tests/unit/test_tasks_service.py` | Single file |
+| `uv run pytest -k "test_create"` | Tests matching pattern |
+| `uv run pytest -x` | Stop on first failure |
+| `uv run pytest -v` | Verbose output |
+| `uv run pytest --tb=short` | Short tracebacks |
+| `uv run pytest --cov=core` | With coverage |
 
 ## Result[T] Testing Patterns
 

@@ -543,14 +543,14 @@ class TestApocCanary:
 **Run before/after upgrades:**
 ```bash
 # Before upgrading Neo4j/APOC
-poetry run pytest tests/integration/test_apoc_canary.py -v
+uv run pytest tests/integration/test_apoc_canary.py -v
 
 # Upgrade
 docker pull neo4j:5.16.0
 # Update apoc plugin to 5.16.0
 
 # After upgrading
-poetry run pytest tests/integration/test_apoc_canary.py -v
+uv run pytest tests/integration/test_apoc_canary.py -v
 ```
 
 ### 2. Lock Down apoc.conf

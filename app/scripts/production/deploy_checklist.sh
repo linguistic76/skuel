@@ -64,18 +64,18 @@ fi
 
 step "Checking Python environment"
 
-if ! command -v poetry &> /dev/null; then
-    check_fail "Poetry not installed"
-    echo "Install: curl -sSL https://install.python-poetry.org | python3 -"
+if ! command -v uv &> /dev/null; then
+    check_fail "uv not installed"
+    echo "Install: curl -LsSf https://astral.sh/uv/install.sh | sh"
     exit 1
 else
-    check_pass "Poetry installed"
-    poetry --version
+    check_pass "uv installed"
+    uv --version
 fi
 
 step "Checking dependencies"
 
-poetry install --without dev &> /dev/null
+uv sync --no-dev &> /dev/null
 check_pass "Dependencies installed"
 
 # ==========================================
@@ -84,7 +84,7 @@ check_pass "Dependencies installed"
 
 step "Validating Neo4j GenAI plugin"
 
-PLUGIN_CHECK=$(poetry run python -c "
+PLUGIN_CHECK=$(uv run python -c "
 import asyncio
 from neo4j import AsyncGraphDatabase
 import os
@@ -136,7 +136,7 @@ fi
 step "Testing application startup"
 
 echo "Starting SKUEL application..."
-poetry run python main.py &
+uv run python main.py &
 APP_PID=$!
 
 # Wait for startup
@@ -199,7 +199,7 @@ if [ "$TASK_UID" != "NONE" ]; then
     sleep 35
 
     # Check if embedding was generated
-    EMBEDDING_CHECK=$(poetry run python -c "
+    EMBEDDING_CHECK=$(uv run python -c "
 import asyncio
 from neo4j import AsyncGraphDatabase
 import os

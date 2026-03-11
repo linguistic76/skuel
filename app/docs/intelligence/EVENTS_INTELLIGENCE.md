@@ -617,16 +617,16 @@ Events support recurring patterns for sustained practice:
 
 ### Unit Tests
 ```bash
-poetry run python -m pytest tests/unit/services/test_events_intelligence_service.py -v
+uv run python -m pytest tests/unit/services/test_events_intelligence_service.py -v
 ```
 
 ### Integration Tests
 ```bash
 # Test with real backend
-poetry run python -m pytest tests/integration/intelligence/test_events_intelligence.py -v
+uv run python -m pytest tests/integration/intelligence/test_events_intelligence.py -v
 
 # Test specific method
-poetry run python -m pytest tests/integration/intelligence/ -k "test_analyze_upcoming_events" -v
+uv run python -m pytest tests/integration/intelligence/ -k "test_analyze_upcoming_events" -v
 ```
 
 ### Example Test

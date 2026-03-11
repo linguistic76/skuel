@@ -621,11 +621,11 @@ if TYPE_CHECKING:
 
 ```bash
 # Run protocol compliance tests
-poetry run pytest tests/unit/test_protocol_mixin_compliance.py -v
+uv run pytest tests/unit/test_protocol_mixin_compliance.py -v
 # Expected: 29 passed
 
 # Verify with MyPy
-poetry run mypy core/services/mixins/*.py
+uv run mypy core/services/mixins/*.py
 ```
 
 **Result:** No manual synchronization needed - the system enforces correctness automatically.

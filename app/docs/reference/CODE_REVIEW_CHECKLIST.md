@@ -333,17 +333,17 @@ async def test_get_task_with_semantic_context():
 
 - [ ] **Code compiles cleanly**
   ```bash
-  poetry run python -m py_compile path/to/file.py
+  uv run python -m py_compile path/to/file.py
   ```
 
 - [ ] **Type hints are correct**
   ```bash
-  poetry run mypy path/to/file.py
+  uv run mypy path/to/file.py
   ```
 
 - [ ] **No unused imports**
   ```bash
-  poetry run ruff check path/to/file.py
+  uv run ruff check path/to/file.py
   ```
 
 ---
@@ -543,7 +543,7 @@ grep -r "apoc.path" core/services/ --include="*.py"
 # Expected: No results
 
 # 2. Verify syntax
-poetry run python -m py_compile path/to/your/file.py
+uv run python -m py_compile path/to/your/file.py
 # Expected: No errors
 
 # 3. Check for magic strings
@@ -551,15 +551,15 @@ grep -r '":' core/services/your_service.py | grep -E "(APPLIES|REQUIRES|HAS_)"
 # Review: Should be in Cypher with metadata, not bare
 
 # 4. Run tests
-poetry run pytest tests/unit/test_your_service.py -v
+uv run pytest tests/unit/test_your_service.py -v
 # Expected: All pass
 
 # 5. Type check
-poetry run mypy core/services/your_service.py
+uv run mypy core/services/your_service.py
 # Expected: No errors
 
 # 6. Lint check
-poetry run ruff check core/services/your_service.py
+uv run ruff check core/services/your_service.py
 # Expected: No violations
 ```
 

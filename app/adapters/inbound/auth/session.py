@@ -409,6 +409,7 @@ async def require_websocket_admin(ws: Any) -> UserUID | None:
         ```python
         from adapters.inbound.auth import require_websocket_admin
 
+
         @rt("/ws/progress/{operation_id}")
         async def websocket_handler(ws, operation_id: str):
             user_uid = await require_websocket_admin(ws)

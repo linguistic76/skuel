@@ -61,10 +61,10 @@ docker compose up -d skuel-app
 docker compose build --no-cache skuel-app
 ```
 
-**Missing dependency.** If `poetry.lock` is out of date or not committed, `poetry install` in the builder stage installs different versions than expected. Regenerate:
+**Missing dependency.** If `uv.lock` is out of date or not committed, `uv sync` in the builder stage installs different versions than expected. Regenerate:
 ```bash
-poetry lock
-git add poetry.lock
+uv lock
+git add uv.lock
 docker compose build --no-cache skuel-app
 ```
 
@@ -81,7 +81,7 @@ The health check in `Dockerfile.production` and `docker-compose.production.yml` 
 Fix: either remove `APP_PORT` from `.env` (it defaults to 5001 in compose), or set it explicitly to 5001 in the compose `environment` block:
 ```yaml
 environment:
-  APP_PORT: "5001"   # Hardcoded for container. .env APP_PORT is for poetry run only.
+  APP_PORT: "5001"   # Hardcoded for container. .env APP_PORT is for uv run only.
 ```
 
 **The `/health` endpoint does not exist or returns non-200.** Check:
@@ -112,7 +112,7 @@ If it is empty, the data was never persisted to the host. On a Droplet, make sur
 
 **Symptom:** `docker compose build` takes 5+ minutes even when only code changed.
 
-Docker layers cache by file hash. The Dockerfile copies `pyproject.toml` and `poetry.lock` first, then runs `poetry install`. If either file changed, the entire install layer is invalidated.
+Docker layers cache by file hash. The Dockerfile copies `pyproject.toml` and `uv.lock` first, then runs `uv sync`. If either file changed, the entire install layer is invalidated.
 
 If you changed only application code (not dependencies), the install layer should be cached and the build should be fast. If it is not:
 
@@ -124,7 +124,7 @@ docker compose build skuel-app --progress=plain 2>&1 | grep -i "cache"
 docker compose build --no-cache skuel-app
 ```
 
-If `poetry.lock` keeps changing between builds (e.g., CI regenerates it), pin it in version control and do not regenerate unless dependencies actually changed.
+If `uv.lock` keeps changing between builds (e.g., CI regenerates it), pin it in version control and do not regenerate unless dependencies actually changed.
 
 ---
 
@@ -134,7 +134,7 @@ If `poetry.lock` keeps changing between builds (e.g., CI regenerates it), pin it
 
 Prometheus in `app/docker-compose.yml` scrapes `http://host.docker.internal:5001/metrics` (or `172.17.0.1:5001` on Linux, configured via `extra_hosts`). This only works if the app is reachable on that address.
 
-If the app is running via `poetry run` (not in Docker), it is on port 8000, not 5001. Either:
+If the app is running via `uv run` (not in Docker), it is on port 8000, not 5001. Either:
 - Run the app in Docker (`docker compose up skuel-app`) so it is on 5001, or
 - Update `monitoring/prometheus/prometheus.yml` to scrape port 8000 for local dev.
 

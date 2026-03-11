@@ -524,19 +524,19 @@ Intelligence services depend on shared infrastructure:
 ### Unit Tests
 ```bash
 # Test specific intelligence service
-poetry run python -m pytest tests/unit/services/test_{domain}_intelligence_service.py -v
+uv run python -m pytest tests/unit/services/test_{domain}_intelligence_service.py -v
 
 # Test all intelligence services
-poetry run python -m pytest tests/unit/services/ -k "intelligence" -v
+uv run python -m pytest tests/unit/services/ -k "intelligence" -v
 ```
 
 ### Integration Tests
 ```bash
 # Test with real backends
-poetry run python -m pytest tests/integration/intelligence/ -v
+uv run python -m pytest tests/integration/intelligence/ -v
 
 # Test specific method
-poetry run python -m pytest tests/integration/intelligence/ -k "test_predict_goal_success" -v
+uv run python -m pytest tests/integration/intelligence/ -k "test_predict_goal_success" -v
 ```
 
 ---

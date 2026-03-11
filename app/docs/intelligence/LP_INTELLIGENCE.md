@@ -930,19 +930,19 @@ This allows any content type (KU, LS, LP, MOC, even external content) to be anal
 ### Unit Tests
 ```bash
 # Test facade
-poetry run python -m pytest tests/unit/services/test_lp_intelligence_service.py -v
+uv run python -m pytest tests/unit/services/test_lp_intelligence_service.py -v
 
 # Test sub-services
-poetry run python -m pytest tests/unit/services/lp_intelligence/ -v
+uv run python -m pytest tests/unit/services/lp_intelligence/ -v
 ```
 
 ### Integration Tests
 ```bash
 # Test with real backends
-poetry run python -m pytest tests/integration/intelligence/test_lp_intelligence.py -v
+uv run python -m pytest tests/integration/intelligence/test_lp_intelligence.py -v
 
 # Test specific method
-poetry run python -m pytest tests/integration/intelligence/ -k "test_analyze_learning_state" -v
+uv run python -m pytest tests/integration/intelligence/ -k "test_analyze_learning_state" -v
 ```
 
 ### Example Test

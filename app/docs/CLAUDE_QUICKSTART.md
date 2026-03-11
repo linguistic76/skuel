@@ -22,7 +22,7 @@ related: [README.md, INDEX.md]
 2. **18 entity types + 5 systems** - All flow toward LifePath
 3. **6 Activity Domains** use `UnifiedRelationshipService` - Tasks, Goals, Habits, Events, Choices, Principles
 4. **Result[T] everywhere** - Use `.is_error` not `.is_err`
-5. **Poetry for everything** - `poetry run python`, `poetry run pytest`
+5. **Poetry for everything** - `uv run python`, `uv run pytest`
 
 ---
 
@@ -158,8 +158,8 @@ RelationshipName.FULFILLS_GOAL
 ### Run Tests
 
 ```bash
-poetry run pytest tests/integration/test_*.py -v
-poetry run pytest -k "test_task" -v  # Filter by name
+uv run pytest tests/integration/test_*.py -v
+uv run pytest -k "test_task" -v  # Filter by name
 ```
 
 ---
@@ -185,14 +185,14 @@ See `docs/decisions/` for all 16 ADRs.
 
 ```bash
 # Check if file compiles
-poetry run python -m py_compile core/services/tasks/tasks_core_service.py
+uv run python -m py_compile core/services/tasks/tasks_core_service.py
 ```
 
 ### Type Errors
 
 ```bash
 # Run mypy on specific file
-poetry run mypy core/services/tasks/tasks_core_service.py
+uv run mypy core/services/tasks/tasks_core_service.py
 ```
 
 ### Linter Issues

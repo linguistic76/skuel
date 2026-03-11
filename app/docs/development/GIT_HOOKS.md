@@ -45,7 +45,7 @@ git config skuel.docs-check true    # re-enable
 
 **Script:** `scripts/hooks/post-merge`
 
-Runs after `git pull` or merge. Detects when `poetry.lock` changed and reports
+Runs after `git pull` or merge. Detects when `uv.lock` changed and reports
 which library versions changed and which skills may be affected.
 
 ```
@@ -64,13 +64,13 @@ Run at any time, especially after major changes:
 
 ```bash
 # Full report (broken links + missing reverse links + stale skills)
-poetry run python scripts/validate_cross_references.py
+uv run python scripts/validate_cross_references.py
 
 # Verbose (includes orphaned docs)
-poetry run python scripts/validate_cross_references.py --verbose
+uv run python scripts/validate_cross_references.py --verbose
 
 # Errors only (zero exit if clean)
-poetry run python scripts/validate_cross_references.py --errors-only
+uv run python scripts/validate_cross_references.py --errors-only
 ```
 
 ### What the Validator Checks

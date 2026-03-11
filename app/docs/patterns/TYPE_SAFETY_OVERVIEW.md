@@ -84,7 +84,7 @@ def create_tasks_api_routes(
 **Key numbers (February 2026):**
 - 517 `@runtime_checkable` Protocol definitions across 11 files in `core/ports/`
 - 100% protocol compliance — all 7 `BaseService` mixins verified by TYPE_CHECKING blocks
-- 29 automated compliance tests (run: `poetry run pytest tests/unit/test_protocol_mixin_compliance.py`)
+- 29 automated compliance tests (run: `uv run pytest tests/unit/test_protocol_mixin_compliance.py`)
 - Zero `Any` fields in the `Services` dataclass — all 72 fields typed
 
 **BackendOperations[T] hierarchy** — the foundational generic protocol:

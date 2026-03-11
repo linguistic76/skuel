@@ -239,11 +239,11 @@ GOALS_CONFIG = create_activity_domain_config(
 
 ```bash
 # BaseService tests
-poetry run pytest tests/unit/test_base_service.py tests/test_base_service_refactoring.py
+uv run pytest tests/unit/test_base_service.py tests/test_base_service_refactoring.py
 # Result: 98 tests PASSED
 
 # Tasks services tests
-poetry run pytest tests/test_tasks_search_service.py tests/test_tasks_progress_service.py tests/test_tasks_core_service.py
+uv run pytest tests/test_tasks_search_service.py tests/test_tasks_progress_service.py tests/test_tasks_core_service.py
 # Result: 52 tests PASSED
 
 # Total: 150+ tests PASSED

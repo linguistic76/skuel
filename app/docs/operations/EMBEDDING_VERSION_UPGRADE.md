@@ -104,7 +104,7 @@ The embedding worker will automatically use the new version for new embeddings. 
 
 ```bash
 # Publish EmbeddingRequested events for all old-version entities
-poetry run python scripts/migrations/reembed_activity_domains.py \
+uv run python scripts/migrations/reembed_activity_domains.py \
     --from-version v1 \
     --to-version v2 \
     --batch-size 100

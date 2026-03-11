@@ -54,7 +54,7 @@ This guide covers migrating existing SKUEL instances to use the Neo4j GenAI plug
 
 ```bash
 # Verify tools available
-poetry --version  # Should be 1.7+
+uv --version  # Should be 1.7+
 python --version  # Should be 3.12+
 neo4j --version   # Should be 5.26+ (if using local)
 ```
@@ -94,7 +94,7 @@ neo4j start
 
 ```bash
 # Export entity counts for verification
-poetry run python scripts/export_entity_counts.py \
+uv run python scripts/export_entity_counts.py \
   --output=pre_migration_counts_$(date +%Y%m%d).json
 
 # Example output:
@@ -110,7 +110,7 @@ poetry run python scripts/export_entity_counts.py \
 
 ```bash
 # Check current search functionality
-poetry run python scripts/test_current_search.py
+uv run python scripts/test_current_search.py
 
 # Should output:
 # ✅ Keyword search: Working
@@ -154,7 +154,7 @@ GENAI_MAX_DAILY_EMBEDDINGS=10000  # Prevent runaway costs
 **Option A: Use Credential Store (Recommended)**
 
 ```bash
-poetry run python -m core.config.credential_setup
+uv run python -m core.config.credential_setup
 
 # Interactive prompts:
 # [1] Initialize credential store
@@ -188,10 +188,10 @@ poetry run python -m core.config.credential_setup
 
 ```bash
 # Install/update dependencies
-poetry install
+uv sync
 
 # Verify neo4j driver version
-poetry show neo4j | grep version
+uv pip show neo4j | grep version
 # Should be: neo4j 5.26.0 or higher
 ```
 
@@ -199,7 +199,7 @@ poetry show neo4j | grep version
 
 ```bash
 # Test configuration
-poetry run python scripts/verify_genai_setup.py
+uv run python scripts/verify_genai_setup.py
 
 # Expected output:
 # ✅ Neo4j connection successful
@@ -218,7 +218,7 @@ poetry run python scripts/verify_genai_setup.py
 
 ```bash
 # Check if vector indexes already exist
-poetry run python scripts/check_vector_indexes.py
+uv run python scripts/check_vector_indexes.py
 
 # Output:
 # Checking vector indexes...
@@ -231,7 +231,7 @@ poetry run python scripts/check_vector_indexes.py
 
 ```bash
 # Create vector indexes for all supported entities
-poetry run python scripts/create_vector_indexes.py
+uv run python scripts/create_vector_indexes.py
 
 # Progress output:
 # Creating vector indexes...
@@ -247,7 +247,7 @@ poetry run python scripts/create_vector_indexes.py
 
 ```bash
 # Verify indexes exist
-poetry run python scripts/verify_indexes.py
+uv run python scripts/verify_indexes.py
 
 # Expected output:
 # Verifying vector indexes...
@@ -279,7 +279,7 @@ RETURN name, labelsOrTypes, properties, options
 
 ```bash
 # Count entities needing embeddings
-poetry run python scripts/count_entities_without_embeddings.py
+uv run python scripts/count_entities_without_embeddings.py
 
 # Example output:
 # Scanning entities...
@@ -303,7 +303,7 @@ poetry run python scripts/count_entities_without_embeddings.py
 
 ```bash
 # Generate embeddings for all supported entities
-poetry run python scripts/generate_embeddings_batch.py
+uv run python scripts/generate_embeddings_batch.py
 
 # Progress output:
 # ========================================
@@ -333,13 +333,13 @@ poetry run python scripts/generate_embeddings_batch.py
 
 ```bash
 # Process one entity type at a time
-poetry run python scripts/generate_embeddings_batch.py --label Ku
+uv run python scripts/generate_embeddings_batch.py --label Ku
 # Wait for completion...
 
-poetry run python scripts/generate_embeddings_batch.py --label Task
+uv run python scripts/generate_embeddings_batch.py --label Task
 # Wait for completion...
 
-poetry run python scripts/generate_embeddings_batch.py --label Goal
+uv run python scripts/generate_embeddings_batch.py --label Goal
 # Wait for completion...
 ```
 
@@ -347,7 +347,7 @@ poetry run python scripts/generate_embeddings_batch.py --label Goal
 
 ```bash
 # Process first 2 batches only
-poetry run python scripts/generate_embeddings_batch.py \
+uv run python scripts/generate_embeddings_batch.py \
   --label Ku \
   --batch-size 25 \
   --max-batches 2
@@ -361,7 +361,7 @@ poetry run python scripts/generate_embeddings_batch.py \
 
 ```bash
 # Watch progress in real-time
-poetry run python scripts/check_embeddings_coverage.py --watch
+uv run python scripts/check_embeddings_coverage.py --watch
 
 # Output updates every 10 seconds:
 # Embeddings Coverage:
@@ -378,7 +378,7 @@ If you encounter OpenAI rate limits:
 
 ```bash
 # Reduce batch size
-poetry run python scripts/generate_embeddings_batch.py --batch-size 10
+uv run python scripts/generate_embeddings_batch.py --batch-size 10
 
 # Add delays between batches (modify script if needed)
 # Or upgrade OpenAI tier: https://platform.openai.com/settings/organization/billing
@@ -388,7 +388,7 @@ poetry run python scripts/generate_embeddings_batch.py --batch-size 10
 
 ```bash
 # Check final coverage
-poetry run python scripts/verify_embeddings.py
+uv run python scripts/verify_embeddings.py
 
 # Expected output:
 # Embeddings Verification:
@@ -412,7 +412,7 @@ poetry run python scripts/verify_embeddings.py
 
 ```bash
 # Run verification script
-poetry run python scripts/verify_embeddings.py
+uv run python scripts/verify_embeddings.py
 
 # Should show 100% coverage for all entity types
 ```
@@ -421,7 +421,7 @@ poetry run python scripts/verify_embeddings.py
 
 ```bash
 # Run integration tests
-poetry run pytest tests/integration/test_vector_search.py -v
+uv run pytest tests/integration/test_vector_search.py -v
 
 # Expected: 17/17 tests passing
 ```
@@ -430,7 +430,7 @@ poetry run pytest tests/integration/test_vector_search.py -v
 
 ```bash
 # Run E2E tests
-poetry run pytest tests/e2e/test_semantic_search_flow.py -v
+uv run pytest tests/e2e/test_semantic_search_flow.py -v
 
 # Expected: 7/7 tests passing
 ```
@@ -439,7 +439,7 @@ poetry run pytest tests/e2e/test_semantic_search_flow.py -v
 
 ```bash
 # Start application
-poetry run python main.py
+uv run python main.py
 
 # Open browser: http://localhost:8000
 
@@ -460,11 +460,11 @@ poetry run python main.py
 
 ```bash
 # Export post-migration counts
-poetry run python scripts/export_entity_counts.py \
+uv run python scripts/export_entity_counts.py \
   --output=post_migration_counts_$(date +%Y%m%d).json
 
 # Compare counts (should be identical)
-poetry run python scripts/compare_counts.py \
+uv run python scripts/compare_counts.py \
   --before=pre_migration_counts_20260128.json \
   --after=post_migration_counts_20260128.json
 
@@ -547,7 +547,7 @@ systemctl restart skuel  # Or your deployment method
 
 ```bash
 # Run smoke tests in production
-poetry run python scripts/smoke_test_semantic_search.py
+uv run python scripts/smoke_test_semantic_search.py
 
 # Expected output:
 # ✅ Application started successfully
@@ -589,7 +589,7 @@ GENAI_VECTOR_SEARCH_ENABLED=false
 systemctl restart skuel
 
 # 3. Verify fallback works
-poetry run python scripts/verify_keyword_search.py
+uv run python scripts/verify_keyword_search.py
 
 # Expected output:
 # ✅ Keyword search working
@@ -617,7 +617,7 @@ neo4j-admin database restore neo4j \
 systemctl start neo4j
 
 # 4. Verify restoration
-poetry run python scripts/verify_entity_counts.py
+uv run python scripts/verify_entity_counts.py
 
 # 5. Update .env (disable GenAI)
 GENAI_ENABLED=false
@@ -630,7 +630,7 @@ systemctl restart skuel
 
 ```bash
 # Test basic functionality
-poetry run pytest tests/integration/ -k "not vector" -v
+uv run pytest tests/integration/ -k "not vector" -v
 
 # Should pass: All non-vector tests
 ```
@@ -651,10 +651,10 @@ Vector search failing
 
 ```bash
 # Recreate vector indexes
-poetry run python scripts/create_vector_indexes.py
+uv run python scripts/create_vector_indexes.py
 
 # Verify creation
-poetry run python scripts/verify_indexes.py
+uv run python scripts/verify_indexes.py
 ```
 
 ### Issue: "Embeddings taking too long"
@@ -668,21 +668,21 @@ poetry run python scripts/verify_indexes.py
 
 1. **Reduce batch size:**
    ```bash
-   poetry run python scripts/generate_embeddings_batch.py --batch-size 10
+   uv run python scripts/generate_embeddings_batch.py --batch-size 10
    ```
 
 2. **Process in stages:**
    ```bash
    # Process one entity type per day
-   poetry run python scripts/generate_embeddings_batch.py --label Ku
+   uv run python scripts/generate_embeddings_batch.py --label Ku
    # Next day:
-   poetry run python scripts/generate_embeddings_batch.py --label Task
+   uv run python scripts/generate_embeddings_batch.py --label Task
    ```
 
 3. **Run overnight:**
    ```bash
    # Schedule for off-peak hours
-   nohup poetry run python scripts/generate_embeddings_batch.py > embeddings.log 2>&1 &
+   nohup uv run python scripts/generate_embeddings_batch.py > embeddings.log 2>&1 &
    ```
 
 ### Issue: "OpenAI rate limit exceeded"
@@ -703,7 +703,7 @@ Status: 429 Too Many Requests
 
 2. **Reduce batch size:**
    ```bash
-   poetry run python scripts/generate_embeddings_batch.py --batch-size 5
+   uv run python scripts/generate_embeddings_batch.py --batch-size 5
    ```
 
 3. **Upgrade OpenAI tier:**
@@ -713,7 +713,7 @@ Status: 429 Too Many Requests
 4. **Process incrementally:**
    ```bash
    # Limit number of batches
-   poetry run python scripts/generate_embeddings_batch.py --max-batches 10
+   uv run python scripts/generate_embeddings_batch.py --max-batches 10
    # Run multiple times throughout the day
    ```
 
@@ -772,7 +772,7 @@ REMOVE n.embedding, n.embedding_model, n.embedding_updated_at
 
 ```bash
 # 3. Regenerate with correct model
-poetry run python scripts/generate_embeddings_batch.py
+uv run python scripts/generate_embeddings_batch.py
 ```
 
 ---
@@ -808,7 +808,7 @@ Expected improvements after migration:
 
 ```bash
 # Run coverage script
-poetry run python scripts/check_embeddings_coverage.py
+uv run python scripts/check_embeddings_coverage.py
 
 # Example output:
 # Embeddings Coverage Report
@@ -847,7 +847,7 @@ Daily checks:
 
 ```bash
 # Check search performance metrics
-poetry run python scripts/monitor_search_performance.py
+uv run python scripts/monitor_search_performance.py
 
 # Output:
 # Search Performance Metrics
@@ -908,7 +908,7 @@ Cost: 100k × $0.02 / 1M = $0.002 USD/month
 # Test different batch sizes for your workload
 for size in 10 25 50 100; do
   echo "Testing batch size: $size"
-  time poetry run python scripts/generate_embeddings_batch.py \
+  time uv run python scripts/generate_embeddings_batch.py \
     --label Ku \
     --batch-size $size \
     --max-batches 4

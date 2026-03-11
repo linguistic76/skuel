@@ -10,7 +10,7 @@ This test suite ensures that:
 3. TYPE_CHECKING verification blocks are present in all mixins
 
 When a test fails, it means the mixin and protocol are out of sync.
-Run MyPy to get detailed type errors: `poetry run mypy core/services/mixins/<mixin>.py`
+Run MyPy to get detailed type errors: `uv run mypy core/services/mixins/<mixin>.py`
 
 See: /docs/investigations/PROTOCOL_MIXIN_ALIGNMENT_SOLUTIONS.md
 """
@@ -334,7 +334,7 @@ class TestProtocolComplianceExamples:
         5. Zero runtime cost - code is never executed
 
         To verify manually:
-            poetry run mypy core/services/mixins/conversion_helpers_mixin.py
+            uv run mypy core/services/mixins/conversion_helpers_mixin.py
         """
         # This test just documents the behavior
         pass
@@ -391,9 +391,9 @@ def test_protocol_compliance_summary():
     4. All expected files exist ✓
 
     How to use:
-    - Run full suite: `poetry run pytest tests/unit/test_protocol_mixin_compliance.py`
-    - Run specific test: `poetry run pytest tests/unit/test_protocol_mixin_compliance.py -k signatures`
-    - Run with verbose: `poetry run pytest tests/unit/test_protocol_mixin_compliance.py -v`
+    - Run full suite: `uv run pytest tests/unit/test_protocol_mixin_compliance.py`
+    - Run specific test: `uv run pytest tests/unit/test_protocol_mixin_compliance.py -k signatures`
+    - Run with verbose: `uv run pytest tests/unit/test_protocol_mixin_compliance.py -v`
 
     When a test fails:
     1. Read the assertion message - it tells you exactly what's wrong

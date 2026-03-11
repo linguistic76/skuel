@@ -10,10 +10,10 @@ Systematically finds unused code in the SKUEL codebase:
 - Dead event subscribers (subscribed but event never published)
 
 Usage:
-    poetry run python scripts/detect_bloat.py
-    poetry run python scripts/detect_bloat.py --events-only
-    poetry run python scripts/detect_bloat.py --methods-only
-    poetry run python scripts/detect_bloat.py --verbose
+    uv run python scripts/detect_bloat.py
+    uv run python scripts/detect_bloat.py --events-only
+    uv run python scripts/detect_bloat.py --methods-only
+    uv run python scripts/detect_bloat.py --verbose
 """
 
 import argparse

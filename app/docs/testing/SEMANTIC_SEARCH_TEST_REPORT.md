@@ -214,7 +214,7 @@ Tests for error handling and fallback scenarios:
 
 **Usage:**
 ```bash
-poetry run python tests/benchmarks/benchmark_semantic_search.py
+uv run python tests/benchmarks/benchmark_semantic_search.py
 ```
 
 ---
@@ -225,30 +225,30 @@ poetry run python tests/benchmarks/benchmark_semantic_search.py
 
 ```bash
 # All unit tests
-poetry run pytest tests/unit/test_semantic_enhanced_search.py -v
+uv run pytest tests/unit/test_semantic_enhanced_search.py -v
 
 # Specific test class
-poetry run pytest tests/unit/test_semantic_enhanced_search.py::TestSemanticEnhancedSearch -v
+uv run pytest tests/unit/test_semantic_enhanced_search.py::TestSemanticEnhancedSearch -v
 
 # With coverage
-poetry run pytest tests/unit/test_semantic_enhanced_search.py --cov=core.services.neo4j_vector_search_service
+uv run pytest tests/unit/test_semantic_enhanced_search.py --cov=core.services.neo4j_vector_search_service
 ```
 
 ### Run Integration Tests
 
 ```bash
 # Requires Neo4j test container (Docker must be running)
-poetry run pytest tests/integration/test_semantic_enhanced_search_integration.py -v --tb=short
+uv run pytest tests/integration/test_semantic_enhanced_search_integration.py -v --tb=short
 
 # Run specific integration test
-poetry run pytest tests/integration/test_semantic_enhanced_search_integration.py::test_semantic_enhanced_search_with_relationships -v
+uv run pytest tests/integration/test_semantic_enhanced_search_integration.py::test_semantic_enhanced_search_with_relationships -v
 ```
 
 ### Run Performance Benchmarks
 
 ```bash
 # Requires local Neo4j instance
-poetry run python tests/benchmarks/benchmark_semantic_search.py
+uv run python tests/benchmarks/benchmark_semantic_search.py
 ```
 
 ---

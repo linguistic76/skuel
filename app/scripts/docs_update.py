@@ -17,10 +17,10 @@ Workflow:
 3. Update doc mtime on completion
 
 Usage:
-    poetry run python scripts/docs_update.py --doc docs/patterns/metadata_manager_mixin.md
-    poetry run python scripts/docs_update.py --all
-    poetry run python scripts/docs_update.py --all --dry-run
-    poetry run python scripts/docs_update.py --all --yes
+    uv run python scripts/docs_update.py --doc docs/patterns/metadata_manager_mixin.md
+    uv run python scripts/docs_update.py --all
+    uv run python scripts/docs_update.py --all --dry-run
+    uv run python scripts/docs_update.py --all --yes
 """
 
 import argparse
@@ -318,16 +318,16 @@ def main() -> None:
         epilog="""
 Examples:
     # Update a specific doc (interactive)
-    poetry run python scripts/docs_update.py --doc docs/patterns/metadata_manager_mixin.md
+    uv run python scripts/docs_update.py --doc docs/patterns/metadata_manager_mixin.md
 
     # Update all stale docs (interactive, one at a time)
-    poetry run python scripts/docs_update.py --all
+    uv run python scripts/docs_update.py --all
 
     # Preview what would change (no writes)
-    poetry run python scripts/docs_update.py --all --dry-run
+    uv run python scripts/docs_update.py --all --dry-run
 
     # Auto-approve all updates (for CI/batch)
-    poetry run python scripts/docs_update.py --all --yes
+    uv run python scripts/docs_update.py --all --yes
 """,
     )
 

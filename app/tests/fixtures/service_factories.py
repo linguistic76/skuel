@@ -457,19 +457,19 @@ MOC — DELETED (February 2026). MOC is no longer a separate service.
 UserContext (6 failures)
 - [x] Create create_unified_user_context_for_testing()
 - [ ] Update tests/test_type_system.py
-- [ ] Run tests: poetry run pytest tests/test_type_system.py -v
+- [ ] Run tests: uv run pytest tests/test_type_system.py -v
 - [ ] Validate: 6 failures → 0 failures
 
 Finance (multiple failures)
 - [x] Create create_finance_service_for_testing()
 - [ ] Update tests/test_finance_service.py
-- [ ] Run tests: poetry run pytest tests/test_finance_service.py -v
+- [ ] Run tests: uv run pytest tests/test_finance_service.py -v
 - [ ] Validate failures resolved
 
 Tasks (assertion failures)
 - [x] Create create_tasks_service_for_testing()
 - [ ] Update tests/test_tasks_service.py
-- [ ] Run tests: poetry run pytest tests/test_tasks_service.py -v
+- [ ] Run tests: uv run pytest tests/test_tasks_service.py -v
 - [ ] Validate failures resolved
 
 Other services (as needed)

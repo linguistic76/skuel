@@ -16,9 +16,9 @@ Metrics:
 - Cost savings estimate
 
 Usage:
-    poetry run python scripts/benchmark_embedding_cache.py --sample 100
-    poetry run python scripts/benchmark_embedding_cache.py --label Ku
-    poetry run python scripts/benchmark_embedding_cache.py --verbose
+    uv run python scripts/benchmark_embedding_cache.py --sample 100
+    uv run python scripts/benchmark_embedding_cache.py --label Ku
+    uv run python scripts/benchmark_embedding_cache.py --verbose
 
 Created: January 2026
 See: /docs/architecture/SEARCH_ARCHITECTURE.md
@@ -393,13 +393,13 @@ async def main():
         epilog="""
 Examples:
   # Benchmark 100 random nodes
-  poetry run python scripts/benchmark_embedding_cache.py --sample 100
+  uv run python scripts/benchmark_embedding_cache.py --sample 100
 
   # Benchmark specific entity type
-  poetry run python scripts/benchmark_embedding_cache.py --label Ku --sample 50
+  uv run python scripts/benchmark_embedding_cache.py --label Ku --sample 50
 
   # Verbose output
-  poetry run python scripts/benchmark_embedding_cache.py --verbose
+  uv run python scripts/benchmark_embedding_cache.py --verbose
 
 Note: Always-generate test is limited to 10 nodes to avoid excessive API costs.
         """,

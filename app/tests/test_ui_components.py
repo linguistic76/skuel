@@ -11,7 +11,7 @@ Focus areas:
 - Edge cases and defaults
 
 Run with:
-    poetry run pytest tests/test_ui_components.py -v
+    uv run pytest tests/test_ui_components.py -v
 """
 
 from ui.enum_helpers import (

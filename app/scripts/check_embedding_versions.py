@@ -12,9 +12,9 @@ Reports:
 - Coverage by entity type
 
 Usage:
-    poetry run python scripts/check_embedding_versions.py
-    poetry run python scripts/check_embedding_versions.py --label Ku
-    poetry run python scripts/check_embedding_versions.py --verbose
+    uv run python scripts/check_embedding_versions.py
+    uv run python scripts/check_embedding_versions.py --label Ku
+    uv run python scripts/check_embedding_versions.py --verbose
 
 Created: January 2026
 See: /docs/architecture/SEARCH_ARCHITECTURE.md
@@ -181,7 +181,7 @@ def print_report(analysis: dict, verbose: bool = False):
 
         print()
         print(f"⚠️  Run migration script to update {len(needs_update)} stale embeddings")
-        print("    poetry run python scripts/migrate_embeddings_version.py")
+        print("    uv run python scripts/migrate_embeddings_version.py")
 
     else:
         print("-" * 80)
@@ -200,13 +200,13 @@ async def main():
         epilog="""
 Examples:
   # Check all embeddings
-  poetry run python scripts/check_embedding_versions.py
+  uv run python scripts/check_embedding_versions.py
 
   # Check specific entity type
-  poetry run python scripts/check_embedding_versions.py --label Ku
+  uv run python scripts/check_embedding_versions.py --label Ku
 
   # Verbose output (show individual nodes)
-  poetry run python scripts/check_embedding_versions.py --verbose
+  uv run python scripts/check_embedding_versions.py --verbose
         """,
     )
 

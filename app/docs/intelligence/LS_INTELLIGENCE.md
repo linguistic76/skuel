@@ -508,16 +508,16 @@ return await self.executor.execute(
 
 ### Unit Tests
 ```bash
-poetry run python -m pytest tests/unit/services/test_ls_intelligence_service.py -v
+uv run python -m pytest tests/unit/services/test_ls_intelligence_service.py -v
 ```
 
 ### Integration Tests
 ```bash
 # Test with real backend
-poetry run python -m pytest tests/integration/intelligence/test_ls_intelligence.py -v
+uv run python -m pytest tests/integration/intelligence/test_ls_intelligence.py -v
 
 # Test specific method
-poetry run python -m pytest tests/integration/intelligence/ -k "test_is_ready" -v
+uv run python -m pytest tests/integration/intelligence/ -k "test_is_ready" -v
 ```
 
 ### Example Test

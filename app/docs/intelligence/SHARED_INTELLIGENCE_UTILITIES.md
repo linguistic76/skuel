@@ -621,14 +621,14 @@ New intelligence services inherit proven patterns without reimplementing.
 
 ```bash
 # Test shared utilities
-poetry run pytest tests/unit/services/intelligence/ -v
+uv run pytest tests/unit/services/intelligence/ -v
 
 # Test intelligence services (verify behavior unchanged)
-poetry run pytest tests/test_goals_intelligence.py -v
-poetry run pytest tests/test_habits_intelligence.py -v
-poetry run pytest tests/test_events_intelligence.py -v
-poetry run pytest tests/test_principles_alignment_tracking.py -v
-poetry run pytest tests/test_tasks_intelligence.py -v
+uv run pytest tests/test_goals_intelligence.py -v
+uv run pytest tests/test_habits_intelligence.py -v
+uv run pytest tests/test_events_intelligence.py -v
+uv run pytest tests/test_principles_alignment_tracking.py -v
+uv run pytest tests/test_tasks_intelligence.py -v
 ```
 
 ---

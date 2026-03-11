@@ -52,7 +52,7 @@ fi
 echo "Checking $(echo "$STAGED_DOCS" | wc -l) staged document(s)..."
 
 # Run validation in errors-only mode
-if poetry run python scripts/validate_cross_references.py --errors-only; then
+if uv run python scripts/validate_cross_references.py --errors-only; then
     echo -e "${GREEN}✅ Cross-reference validation passed${NC}"
     exit 0
 else
@@ -61,7 +61,7 @@ else
     echo "Your commit contains broken cross-references that must be fixed."
     echo ""
     echo "To see details:"
-    echo "  poetry run python scripts/validate_cross_references.py"
+    echo "  uv run python scripts/validate_cross_references.py"
     echo ""
     echo "To bypass this check (not recommended):"
     echo "  git commit --no-verify"

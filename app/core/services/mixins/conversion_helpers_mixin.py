@@ -246,7 +246,7 @@ class ConversionHelpersMixin[B: BackendOperations, T: DomainModelProtocol]:
 # type error during MyPy static analysis (zero runtime cost).
 #
 # To verify compliance:
-# poetry run mypy core/services/mixins/conversion_helpers_mixin.py
+# uv run mypy core/services/mixins/conversion_helpers_mixin.py
 #
 # See: /docs/investigations/PROTOCOL_MIXIN_ALIGNMENT_SOLUTIONS.md
 # ============================================================================

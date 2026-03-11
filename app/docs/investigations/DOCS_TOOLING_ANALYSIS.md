@@ -17,7 +17,7 @@
 **What happened:**
 1. Code changes committed: 9 services migrated to DomainConfig
 2. Documentation updated: 3 files needed updates to reflect completion
-3. Script result: `poetry run python scripts/docs_freshness.py --stale` → **"No stale documentation found!"**
+3. Script result: `uv run python scripts/docs_freshness.py --stale` → **"No stale documentation found!"**
 
 **Why it failed:**
 
@@ -177,7 +177,7 @@ def find_referencing_docs(doc_path):
 #!/bin/bash
 # After every commit, check if docs need updating
 
-poetry run python scripts/docs_contextual_check.py \
+uv run python scripts/docs_contextual_check.py \
     --changed-files "$(git diff-tree --no-commit-id --name-only -r HEAD)"
 ```
 
@@ -238,13 +238,13 @@ code changes, even without explicit file references.
 
 Usage:
     # Check based on recent commits
-    poetry run python scripts/docs_contextual_check.py --since HEAD~3
+    uv run python scripts/docs_contextual_check.py --since HEAD~3
 
     # Check specific files
-    poetry run python scripts/docs_contextual_check.py --files core/services/ls/*.py
+    uv run python scripts/docs_contextual_check.py --files core/services/ls/*.py
 
     # Check after git commit (via hook)
-    poetry run python scripts/docs_contextual_check.py --changed-files "$(git diff-tree ...)"
+    uv run python scripts/docs_contextual_check.py --changed-files "$(git diff-tree ...)"
 """
 
 def analyze_changes(changed_files: list[str], docs_dir: Path) -> list[str]:
@@ -275,7 +275,7 @@ git add core/services/ls/ls_core_service.py
 git commit -m "Add DomainConfig to LsCoreService"
 
 # 2. Git hook runs contextual check
-poetry run python scripts/docs_contextual_check.py --changed-files "core/services/ls/ls_core_service.py"
+uv run python scripts/docs_contextual_check.py --changed-files "core/services/ls/ls_core_service.py"
 
 # 3. Output:
 # "🔍 Checking for related documentation...
@@ -287,7 +287,7 @@ poetry run python scripts/docs_contextual_check.py --changed-files "core/service
 #    Reason: References DomainConfig migration status
 #
 #  Run updates?
-#  poetry run python scripts/docs_update.py --doc docs/migrations/DOMAINCONFIG_MIGRATION_COMPLETE.md"
+#  uv run python scripts/docs_update.py --doc docs/migrations/DOMAINCONFIG_MIGRATION_COMPLETE.md"
 
 # 4. Developer reviews and runs update command
 ```
@@ -465,7 +465,7 @@ def main():
     # 5. Offer to run updates
     print("\nRun updates with:")
     for doc_path, _ in suggestions:
-        print(f"  poetry run python scripts/docs_update.py --doc {doc_path}")
+        print(f"  uv run python scripts/docs_update.py --doc {doc_path}")
 
 if __name__ == "__main__":
     main()

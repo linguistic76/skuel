@@ -10,7 +10,7 @@ Validates bidirectional consistency between skills and documentation:
 5. Detects stale skills (primary docs updated after last_reviewed date)
 
 Usage:
-    poetry run python scripts/validate_cross_references.py [--fix-suggestions]
+    uv run python scripts/validate_cross_references.py [--fix-suggestions]
 """
 
 import argparse

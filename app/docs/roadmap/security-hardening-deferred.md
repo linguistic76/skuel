@@ -20,7 +20,7 @@ vector search, or AI feedback — failures that are hard to detect without a ful
 
 **What to do**:
 
-1. Run `poetry show --tree | grep langchain` to capture current resolved versions.
+1. Run `uv pip show --tree | grep langchain` to capture current resolved versions.
 2. Pin each `langchain-*` package to the currently-resolved version:
    ```toml
    langchain-core = "^0.3.x"
@@ -97,7 +97,7 @@ history` is permanent — rotating the key is not enough; the commit remains.
 
 1. Install `pre-commit` and `detect-secrets`:
    ```bash
-   poetry add --group dev pre-commit detect-secrets
+   uv add --group dev pre-commit detect-secrets
    ```
 
 2. Create `.pre-commit-config.yaml` at the repo root:
@@ -201,13 +201,13 @@ When a CI pipeline (GitHub Actions, GitLab CI, etc.) is created, add these jobs:
 ```yaml
 # .github/workflows/security.yml
 - name: Audit Python dependencies
-  run: poetry run pip-audit --requirement <(poetry export -f requirements.txt)
+  run: uv run pip-audit --requirement <(uv export -f requirements.txt)
 ```
 
 `pip-audit` queries the OSV database (Google's open-source vulnerability database) and fails
 if any dependency has a known CVE. Add `pip-audit` to dev dependencies:
 ```bash
-poetry add --group dev pip-audit
+uv add --group dev pip-audit
 ```
 
 ### B. Secret scanning in history (runs on PR targeting main)
@@ -229,7 +229,7 @@ against their issuing service (e.g., an AWS key that actually authenticates).
 
 Generate a Software Bill of Materials for supply chain visibility:
 ```bash
-poetry run cyclonedx-py poetry > sbom.json
+uv run cyclonedx-py poetry > sbom.json
 ```
 
 **Enable when**: First CI pipeline is created. The dependency audit job is the highest priority

@@ -142,13 +142,13 @@ warn_unreachable = false
 
 ```bash
 # Check only files you're working on
-poetry run mypy core/services/my_new_service.py
+uv run mypy core/services/my_new_service.py
 
 # Check specific module
-poetry run mypy core/services/
+uv run mypy core/services/
 
 # Full check (for reference only)
-poetry run mypy core  # 2247 errors is EXPECTED
+uv run mypy core  # 2247 errors is EXPECTED
 ```
 
 ### When to Fix MyPy Errors
@@ -355,26 +355,26 @@ if include_predictions and self.intelligence_factory:
 
 ```bash
 # Full check (2247 errors expected)
-poetry run mypy core
+uv run mypy core
 
 # Check specific file
-poetry run mypy core/services/my_service.py
+uv run mypy core/services/my_service.py
 
 # Check with error codes
-poetry run mypy --show-error-codes core
+uv run mypy --show-error-codes core
 
 # Check with color output
-poetry run mypy --pretty core
+uv run mypy --pretty core
 ```
 
 ### Fixing Real Bugs
 
 ```bash
 # Run automated fix for trailing commas
-poetry run python scripts/fix_dataclass_trailing_commas.py
+uv run python scripts/fix_dataclass_trailing_commas.py
 
 # Verify fixes
-poetry run mypy core | tail -5
+uv run mypy core | tail -5
 ```
 
 ### Configuration

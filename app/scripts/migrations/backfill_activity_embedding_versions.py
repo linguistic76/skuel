@@ -6,8 +6,8 @@ This migration adds the embedding_version field to all existing Activity domain
 entities that have embeddings but are missing version tracking.
 
 Usage:
-    poetry run python scripts/migrations/backfill_activity_embedding_versions.py --dry-run
-    poetry run python scripts/migrations/backfill_activity_embedding_versions.py
+    uv run python scripts/migrations/backfill_activity_embedding_versions.py --dry-run
+    uv run python scripts/migrations/backfill_activity_embedding_versions.py
 
 Context:
     - Activity domains (Tasks, Goals, Habits, Events, Choices, Principles) now track embedding versions

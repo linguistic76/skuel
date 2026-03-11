@@ -305,16 +305,16 @@ else:
 
 ```bash
 # 1. Type checking
-poetry run mypy ui/profile/domain_stats_config.py adapters/inbound/user_profile_ui.py
+uv run mypy ui/profile/domain_stats_config.py adapters/inbound/user_profile_ui.py
 
 # 2. Linting
-poetry run ruff check ui/profile/domain_stats_config.py adapters/inbound/user_profile_ui.py
+uv run ruff check ui/profile/domain_stats_config.py adapters/inbound/user_profile_ui.py
 
 # 3. Tests
-poetry run pytest tests/unit/ui/test_domain_stats_config.py -v
+uv run pytest tests/unit/ui/test_domain_stats_config.py -v
 
 # 4. Server start
-poetry run python main.py
+uv run python main.py
 # Expected: Server starts without errors
 
 # 5. Manual testing

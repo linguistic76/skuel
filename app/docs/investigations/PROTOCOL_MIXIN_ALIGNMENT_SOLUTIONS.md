@@ -349,8 +349,8 @@ Add to CI pipeline:
 # .github/workflows/ci.yml
 - name: Type Check Mixin-Protocol Compliance
   run: |
-    poetry run mypy core/services/mixins/*.py --strict
-    poetry run pytest tests/unit/test_mixin_protocol_compliance.py
+    uv run mypy core/services/mixins/*.py --strict
+    uv run pytest tests/unit/test_mixin_protocol_compliance.py
 ```
 
 ### Step 4: Documentation
@@ -365,7 +365,7 @@ When you modify a mixin method signature:
 
 1. Update the mixin implementation
 2. Update the corresponding protocol
-3. Run `poetry run mypy core/services/mixins/<mixin>.py`
+3. Run `uv run mypy core/services/mixins/<mixin>.py`
 4. Verify tests pass: `pytest tests/unit/test_mixin_protocol_compliance.py`
 
 The type checker will catch any mismatches immediately.
@@ -528,7 +528,7 @@ class ConversionHelpersMixin[B: BackendOperations, T: DomainModelProtocol]:
 # ConversionOperations protocol. Any signature mismatch will cause
 # a type error during MyPy check.
 #
-# To verify: poetry run mypy core/services/mixins/conversion_helpers_mixin.py
+# To verify: uv run mypy core/services/mixins/conversion_helpers_mixin.py
 # =====================================================================
 if TYPE_CHECKING:
     from core.ports.base_service_interface import ConversionOperations

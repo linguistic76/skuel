@@ -8,7 +8,7 @@
 
 ```bash
 # 1. Start the development server
-poetry run python main.py
+uv run python main.py
 
 # 2. Navigate to Profile Hub
 # Open: http://localhost:8000/profile

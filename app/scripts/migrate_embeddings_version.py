@@ -14,9 +14,9 @@ CAUTION: This script makes API calls to regenerate embeddings.
 Costs apply based on the number of nodes needing updates.
 
 Usage:
-    poetry run python scripts/migrate_embeddings_version.py --dry-run
-    poetry run python scripts/migrate_embeddings_version.py --label Ku
-    poetry run python scripts/migrate_embeddings_version.py --limit 100
+    uv run python scripts/migrate_embeddings_version.py --dry-run
+    uv run python scripts/migrate_embeddings_version.py --label Ku
+    uv run python scripts/migrate_embeddings_version.py --limit 100
 
 Created: January 2026
 See: /docs/architecture/SEARCH_ARCHITECTURE.md
@@ -298,16 +298,16 @@ async def main():
         epilog="""
 Examples:
   # Dry run to see what would be updated
-  poetry run python scripts/migrate_embeddings_version.py --dry-run
+  uv run python scripts/migrate_embeddings_version.py --dry-run
 
   # Migrate specific entity type
-  poetry run python scripts/migrate_embeddings_version.py --label Ku
+  uv run python scripts/migrate_embeddings_version.py --label Ku
 
   # Limit number of migrations (for testing)
-  poetry run python scripts/migrate_embeddings_version.py --limit 10
+  uv run python scripts/migrate_embeddings_version.py --limit 10
 
   # Migrate with smaller batches (if hitting rate limits)
-  poetry run python scripts/migrate_embeddings_version.py --batch-size 5
+  uv run python scripts/migrate_embeddings_version.py --batch-size 5
 
 CAUTION: This makes API calls to regenerate embeddings. Costs apply.
         """,

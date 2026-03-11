@@ -171,7 +171,7 @@ grep -r "_UNIFIED\|UNIFIED_REGISTRY" --include="*.py" --include="*.md" | \
 # Expected: 0
 
 # All tests passing
-poetry run pytest tests/test_relationship_registry.py \
+uv run pytest tests/test_relationship_registry.py \
   tests/unit/test_ingestion_relationship_config.py -v
 # Expected: 36 passed
 ```

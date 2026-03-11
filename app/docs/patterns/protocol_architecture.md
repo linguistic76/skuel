@@ -576,13 +576,13 @@ if TYPE_CHECKING:
 
 ```bash
 # Run all compliance tests
-poetry run pytest tests/unit/test_protocol_mixin_compliance.py -v
+uv run pytest tests/unit/test_protocol_mixin_compliance.py -v
 
 # Check specific protocol-mixin pair
-poetry run pytest tests/unit/test_protocol_mixin_compliance.py -k "Conversion" -v
+uv run pytest tests/unit/test_protocol_mixin_compliance.py -k "Conversion" -v
 
 # Verify with MyPy
-poetry run mypy core/services/mixins/*.py
+uv run mypy core/services/mixins/*.py
 ```
 
 **Test Coverage:**

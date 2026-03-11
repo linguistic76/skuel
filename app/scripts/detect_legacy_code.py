@@ -7,7 +7,7 @@ Scans codebase for common legacy patterns and missing attributes.
 Uses MyPy output to identify attr-defined errors and categorize them.
 
 Usage:
-    poetry run python scripts/detect_legacy_code.py
+    uv run python scripts/detect_legacy_code.py
 
 Output:
     - Summary of legacy patterns found
@@ -50,7 +50,7 @@ class LegacyCodeDetector:
     def run_mypy(self) -> str:
         """Run MyPy and return output."""
         result = subprocess.run(
-            ["poetry", "run", "mypy", "core/", "adapters/", "--show-error-codes"],
+            ["uv", "run", "mypy", "core/", "adapters/", "--show-error-codes"],
             cwd=self.root_path,
             capture_output=True,
             text=True,

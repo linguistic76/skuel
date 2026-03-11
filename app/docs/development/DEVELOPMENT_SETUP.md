@@ -38,7 +38,7 @@ Development and production use the same authentication code path. The difference
 Run the seed script to create test users in your development database:
 
 ```bash
-poetry run python scripts/seed_dev_users.py
+uv run python scripts/seed_dev_users.py
 ```
 
 This creates three test users:
@@ -86,13 +86,13 @@ export ENV="development"
 
 ```bash
 # Install dependencies
-poetry install
+uv sync
 
 # Seed development users (first time only)
-poetry run python scripts/seed_dev_users.py
+uv run python scripts/seed_dev_users.py
 
 # Start the application
-poetry run python main.py
+uv run python main.py
 ```
 
 The application will fail to start if required dependencies are not available. This is intentional - SKUEL does not support graceful degradation.
@@ -122,13 +122,13 @@ Run formatting and linting before committing:
 
 ```bash
 # Run all tests
-poetry run pytest
+uv run pytest
 
 # Run specific test file
-poetry run pytest app/tests/unit/test_something.py
+uv run pytest app/tests/unit/test_something.py
 
 # Run with coverage
-poetry run pytest --cov=app
+uv run pytest --cov=app
 ```
 
 ## Common Issues
@@ -139,7 +139,7 @@ poetry run pytest --cov=app
 
 **Solution:** Run the seed script to create development users:
 ```bash
-poetry run python scripts/seed_dev_users.py
+uv run python scripts/seed_dev_users.py
 ```
 
 ### "Failed to load context" errors

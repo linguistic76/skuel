@@ -1,4 +1,4 @@
-- We use poetry for package management and for running files.
+- We use uv for package management and for running files.
 
 ## Code Responsibility Philosophy
 *Last updated: 2026-03-03*

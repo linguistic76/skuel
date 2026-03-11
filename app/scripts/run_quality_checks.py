@@ -11,9 +11,9 @@ Runs all code quality checks in sequence:
 5. MyPy type checking (optional)
 
 Usage:
-    poetry run python scripts/run_quality_checks.py
-    poetry run python scripts/run_quality_checks.py --fix  # Auto-fix issues
-    poetry run python scripts/run_quality_checks.py --fast  # Skip slow checks
+    uv run python scripts/run_quality_checks.py
+    uv run python scripts/run_quality_checks.py --fix  # Auto-fix issues
+    uv run python scripts/run_quality_checks.py --fast  # Skip slow checks
 """
 
 import subprocess
@@ -68,7 +68,7 @@ def main():
     if args.fix:
         # Auto-format
         if not run_command(
-            ["poetry", "run", "ruff", "format"],
+            ["uv", "run", "ruff", "format"],
             "Ruff Format (Auto-fix)",
             check=False,
         ):
@@ -76,12 +76,12 @@ def main():
     else:
         # Check only
         if not run_command(
-            ["poetry", "run", "ruff", "format", "--check"],
+            ["uv", "run", "ruff", "format", "--check"],
             "Ruff Format Check",
             check=False,
         ):
             print(
-                "\n💡 Run with --fix to auto-format: poetry run python scripts/run_quality_checks.py --fix"
+                "\n💡 Run with --fix to auto-format: uv run python scripts/run_quality_checks.py --fix"
             )
             all_passed = False
 
@@ -91,14 +91,14 @@ def main():
     # 2. Ruff Linting
     if args.fix:
         if not run_command(
-            ["poetry", "run", "ruff", "check", "--fix"],
+            ["uv", "run", "ruff", "check", "--fix"],
             "Ruff Lint (Auto-fix)",
             check=False,
         ):
             all_passed = False
     else:
         if not run_command(
-            ["poetry", "run", "ruff", "check"],
+            ["uv", "run", "ruff", "check"],
             "Ruff Lint Check",
             check=False,
         ):
@@ -106,7 +106,7 @@ def main():
 
     # 3. SKUEL Linting (consolidated architecture + patterns)
     if not run_command(
-        ["poetry", "run", "python", "scripts/lint_skuel.py"],
+        ["uv", "run", "python", "scripts/lint_skuel.py"],
         "SKUEL Linting",
         check=False,
     ):
@@ -114,7 +114,7 @@ def main():
 
     # 4. Cypher Query Validation (STRICT MODE - blocks on errors)
     if not run_command(
-        ["poetry", "run", "python", "scripts/cypher_linter.py", "--errors-only", "--strict"],
+        ["uv", "run", "python", "scripts/cypher_linter.py", "--errors-only", "--strict"],
         "Cypher Query Validation (Strict Mode)",
         check=False,
     ):
@@ -126,7 +126,7 @@ def main():
 
         # MyPy
         if not run_command(
-            ["poetry", "run", "mypy", "."],
+            ["uv", "run", "mypy", "."],
             "MyPy Type Checking",
             check=False,
         ):
@@ -144,7 +144,7 @@ def main():
     else:
         print("❌ Some quality checks FAILED")
         print("\n💡 Run with --fix to auto-fix issues:")
-        print("   poetry run python scripts/run_quality_checks.py --fix")
+        print("   uv run python scripts/run_quality_checks.py --fix")
         return 1
 
 

@@ -10,9 +10,9 @@ Validates the skills metadata registry and skill directory structure:
 5. Documentation has backlinks (related_skills field)
 
 Usage:
-    poetry run python scripts/skills_validator.py           # Full validation
-    poetry run python scripts/skills_validator.py --json    # JSON output
-    poetry run python scripts/skills_validator.py --fix     # Auto-fix backlinks (future)
+    uv run python scripts/skills_validator.py           # Full validation
+    uv run python scripts/skills_validator.py --json    # JSON output
+    uv run python scripts/skills_validator.py --fix     # Auto-fix backlinks (future)
 """
 
 import sys

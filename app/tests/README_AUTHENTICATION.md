@@ -63,7 +63,7 @@ def test_user_uid():
 
 1. **SKUEL application running** at `http://localhost:8000`
    ```bash
-   poetry run python main.py
+   uv run python main.py
    ```
 
 2. **All required services available:**
@@ -75,13 +75,13 @@ def test_user_uid():
 
 ```bash
 # Run all GraphQL tests
-poetry run pytest tests/test_graphql_queries.py -v
+uv run pytest tests/test_graphql_queries.py -v
 
 # Run specific test
-poetry run pytest tests/test_graphql_queries.py::test_learning_path_query -v
+uv run pytest tests/test_graphql_queries.py::test_learning_path_query -v
 
 # Run with output
-poetry run pytest tests/test_graphql_queries.py -v -s
+uv run pytest tests/test_graphql_queries.py -v -s
 ```
 
 ## Test Structure

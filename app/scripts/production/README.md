@@ -17,7 +17,7 @@ Automated scripts for deploying and validating the async embedding system in pro
 
 2. **AuraDB Instance**: Running and accessible
 
-3. **Poetry**: Installed (`curl -sSL https://install.python-poetry.org | python3 -`)
+3. **uv**: Installed (`curl -LsSf https://astral.sh/uv/install.sh | sh`)
 
 ---
 
@@ -85,7 +85,7 @@ PRODUCTION DEPLOYMENT READY!
 
 **Test Embedding System Only**:
 ```bash
-poetry run python scripts/production/validate_embeddings.py
+uv run python scripts/production/validate_embeddings.py
 ```
 
 This script:
@@ -178,7 +178,7 @@ Set up monitoring alerts for:
 **Symptom**: `validate_embeddings.py` shows no embedding after 35 seconds
 
 **Checks**:
-1. Application running: `poetry run python main.py`
+1. Application running: `uv run python main.py`
 2. Worker started: Check logs for "✅ Embedding background worker started"
 3. Events published: Check logs for "TaskEmbeddingRequested"
 4. Worker metrics: `curl http://localhost:8000/api/monitoring/embedding-worker`
@@ -279,7 +279,7 @@ Manual verification after deployment:
 - [ ] AuraDB instance accessible
 - [ ] OpenAI API key valid
 - [ ] Poetry installed
-- [ ] Dependencies installed (`poetry install --without dev`)
+- [ ] Dependencies installed (`uv sync --no-dev`)
 
 ### GenAI Plugin
 - [ ] Plugin enabled in AuraDB console

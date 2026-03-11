@@ -314,13 +314,13 @@ Use the migration script to identify and replace hardcoded values:
 
 ```bash
 # Analyze codebase (report only)
-poetry run python scripts/migrate_to_constants.py --analyze
+uv run python scripts/migrate_to_constants.py --analyze
 
 # Dry run (show proposed changes)
-poetry run python scripts/migrate_to_constants.py --dry-run
+uv run python scripts/migrate_to_constants.py --dry-run
 
 # Apply changes
-poetry run python scripts/migrate_to_constants.py --apply
+uv run python scripts/migrate_to_constants.py --apply
 ```
 
 ### Manual Migration

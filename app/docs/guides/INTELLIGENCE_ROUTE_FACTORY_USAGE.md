@@ -462,7 +462,7 @@ def create_habits_intelligence_routes(app, rt, habits_intelligence_service):
 ### Unit Tests (16/16 Passing)
 
 ```bash
-poetry run pytest tests/infrastructure/test_intelligence_route_factory.py -v
+uv run pytest tests/infrastructure/test_intelligence_route_factory.py -v
 ```
 
 **Test Coverage:**

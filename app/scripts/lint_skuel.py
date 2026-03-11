@@ -34,15 +34,15 @@ AUTO-FIXABLE:
   SKUEL010: Nested empty tuple defaults (((),) → ())
 
 Usage:
-    poetry run python scripts/lint_skuel.py           # Report violations
-    poetry run python scripts/lint_skuel.py --fix    # Auto-fix where possible
-    poetry run python scripts/lint_skuel.py --check  # Exit 1 if violations (for CI)
-    poetry run python scripts/lint_skuel.py --strict # Treat warnings as errors
-    poetry run python scripts/lint_skuel.py --file core/services/  # Lint specific path
-    poetry run python scripts/lint_skuel.py --rule SKUEL003  # Run specific rule only
-    poetry run python scripts/lint_skuel.py --explain SKUEL003  # Show rule documentation
-    poetry run python scripts/lint_skuel.py --quiet  # Minimal output for CI
-    poetry run python scripts/lint_skuel.py --context  # Show code context around violations
+    uv run python scripts/lint_skuel.py           # Report violations
+    uv run python scripts/lint_skuel.py --fix    # Auto-fix where possible
+    uv run python scripts/lint_skuel.py --check  # Exit 1 if violations (for CI)
+    uv run python scripts/lint_skuel.py --strict # Treat warnings as errors
+    uv run python scripts/lint_skuel.py --file core/services/  # Lint specific path
+    uv run python scripts/lint_skuel.py --rule SKUEL003  # Run specific rule only
+    uv run python scripts/lint_skuel.py --explain SKUEL003  # Show rule documentation
+    uv run python scripts/lint_skuel.py --quiet  # Minimal output for CI
+    uv run python scripts/lint_skuel.py --context  # Show code context around violations
 
 Last Updated: January 2026
 """

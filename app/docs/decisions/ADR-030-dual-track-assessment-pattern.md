@@ -216,7 +216,7 @@ async def assess_alignment_dual_track(
 1. **Unit tests**: Test `_dual_track_assessment()` with mock calculators
 2. **Integration**: Verify Principles endpoint returns dual-track response
 3. **MyPy**: Ensure generic `DualTrackResult[L]` type-checks correctly
-4. **Linter**: Run `poetry run python scripts/lint_skuel.py`
+4. **Linter**: Run `uv run python scripts/lint_skuel.py`
 
 ## Consequences
 

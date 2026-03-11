@@ -58,16 +58,16 @@ Before pushing, run the same checks locally:
 
 ```bash
 # Check critical freshness issues
-poetry run python scripts/docs_freshness.py --critical-only
+uv run python scripts/docs_freshness.py --critical-only
 
 # Validate skills
-poetry run python scripts/skills_validator.py
+uv run python scripts/skills_validator.py
 
 # Full freshness report
-poetry run python scripts/docs_freshness.py
+uv run python scripts/docs_freshness.py
 
 # Review schedule
-poetry run python scripts/docs_review_scheduler.py
+uv run python scripts/docs_review_scheduler.py
 ```
 
 ### Configuration
@@ -75,7 +75,7 @@ poetry run python scripts/docs_review_scheduler.py
 **Python Version**: 3.12
 **Poetry Version**: 1.7.1
 **Caching**:
-- Poetry venv cached based on `poetry.lock` hash
+- Poetry venv cached based on `uv.lock` hash
 - Pip cache enabled for faster setup-python
 
 ### Troubleshooting

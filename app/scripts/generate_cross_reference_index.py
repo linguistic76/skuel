@@ -63,7 +63,7 @@ def generate_index_content(base_path: Path) -> str:
         "**Generated:** This file is auto-generated from `skills_metadata.yaml` and pattern doc frontmatter."
     )
     content.append(
-        "**Regenerate:** Run `poetry run python scripts/generate_cross_reference_index.py`"
+        "**Regenerate:** Run `uv run python scripts/generate_cross_reference_index.py`"
     )
     content.append("")
     content.append("---")
@@ -290,7 +290,7 @@ def generate_index_content(base_path: Path) -> str:
     content.append("- After updating skills_metadata.yaml")
     content.append("")
     content.append("**How to Update:**")
-    content.append("```bash\npoetry run python scripts/generate_cross_reference_index.py\n```")
+    content.append("```bash\nuv run python scripts/generate_cross_reference_index.py\n```")
     content.append("")
     content.append("**Related Files:**")
     content.append("- `.claude/skills/skills_metadata.yaml` - Machine-readable metadata")

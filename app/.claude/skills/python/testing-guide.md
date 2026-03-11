@@ -17,13 +17,13 @@ The pytest skill provides comprehensive SKUEL testing documentation:
 
 ```bash
 # Run all tests
-poetry run pytest
+uv run pytest
 
 # Unit tests only (fast)
-poetry run pytest tests/unit/
+uv run pytest tests/unit/
 
 # Integration tests (requires Docker)
-poetry run pytest tests/integration/
+uv run pytest tests/integration/
 ```
 
 ## Key Pattern: Result[T] Testing

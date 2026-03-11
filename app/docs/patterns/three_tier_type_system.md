@@ -393,7 +393,7 @@ created_at: datetime = None  # type: ignore[assignment]
 
 ```bash
 # Apply type ignore comments to all affected fields
-poetry run python scripts/add_frozen_dataclass_type_ignores.py
+uv run python scripts/add_frozen_dataclass_type_ignores.py
 ```
 
 ### Statistics

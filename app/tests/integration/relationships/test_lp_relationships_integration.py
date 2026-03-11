@@ -345,5 +345,5 @@ Architectural Note (January 2026):
 - Generic API: has_relationship(alias, uid), get_related_uids(alias, uid)
 - Unified with Activity Domains - same service, domain-specific config
 
-Run: poetry run pytest tests/integration/relationships/test_lp_relationships_integration.py -v
+Run: uv run pytest tests/integration/relationships/test_lp_relationships_integration.py -v
 """

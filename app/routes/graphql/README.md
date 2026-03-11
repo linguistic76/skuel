@@ -431,7 +431,7 @@ config.max_list_size = 50  # Reduce maximum
 ### Run Integration Tests
 
 ```bash
-poetry run python test_graphql.py
+uv run python test_graphql.py
 ```
 
 Tests:
@@ -441,7 +441,7 @@ Tests:
 
 ### Manual Testing with GraphiQL
 
-1. Start the app: `poetry run python main.py`
+1. Start the app: `uv run python main.py`
 2. Open http://localhost:8000/graphql
 3. Try example queries from this README
 

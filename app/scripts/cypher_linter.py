@@ -19,10 +19,10 @@ before they reach runtime.
 - CYP010: Missing index hint for large dataset (INFO)
 
 **Usage:**
-    poetry run python scripts/cypher_linter.py                    # Lint all files (warnings-only mode)
-    poetry run python scripts/cypher_linter.py path/to/file.py   # Lint specific file
-    poetry run python scripts/cypher_linter.py --errors-only     # Show only errors
-    poetry run python scripts/cypher_linter.py --strict          # Fail on errors (exit code 1)
+    uv run python scripts/cypher_linter.py                    # Lint all files (warnings-only mode)
+    uv run python scripts/cypher_linter.py path/to/file.py   # Lint specific file
+    uv run python scripts/cypher_linter.py --errors-only     # Show only errors
+    uv run python scripts/cypher_linter.py --strict          # Fail on errors (exit code 1)
 
 **Modes:**
     - Default (warnings-only): Reports violations but always exits 0 (success)

@@ -238,7 +238,7 @@ def main():
 
     if not password:
         print("Error: NEO4J_PASSWORD not found in credential store or environment", file=sys.stderr)
-        print("  Set with: poetry run python scripts/set_neo4j_password.py", file=sys.stderr)
+        print("  Set with: uv run python scripts/set_neo4j_password.py", file=sys.stderr)
         sys.exit(1)
 
     driver = GraphDatabase.driver(uri, auth=(username, password))

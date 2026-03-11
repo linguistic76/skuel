@@ -4,7 +4,7 @@
 #
 # For local development, use docker-compose.yml instead:
 #   docker compose up          # Full stack (Neo4j + App + Prometheus + Grafana)
-#   docker compose up neo4j    # Neo4j only, then: poetry run python main.py
+#   docker compose up neo4j    # Neo4j only, then: uv run python main.py
 #
 # This file contains pre-wired future services (Redis, Ollama, Nginx, etc.)
 # See FUTURE_SERVICES.md for details on enabling them.

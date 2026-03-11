@@ -57,7 +57,9 @@ class ArticleContentUpdateRequest(BaseModel):
     """Request to update article content."""
 
     content: str = Field(..., min_length=1, description="Article content")
-    title: str | None = Field(None, min_length=1, max_length=200, description="Optional title update")
+    title: str | None = Field(
+        None, min_length=1, max_length=200, description="Optional title update"
+    )
 
 
 class ArticleOrganizeRequest(BaseModel):

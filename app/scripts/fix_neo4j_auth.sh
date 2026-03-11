@@ -122,5 +122,5 @@ fi
 echo ""
 echo "==============================="
 echo "Done! Try starting SKUEL again:"
-echo "  poetry run python main.py"
+echo "  uv run python main.py"
 echo "==============================="

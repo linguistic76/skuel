@@ -8,8 +8,8 @@ to flat format (ku_meditation-basics_a1b2c3d4).
 CRITICAL: Backup database before running!
 
 Usage:
-    poetry run python scripts/migrations/flatten_ku_uids.py --dry-run
-    poetry run python scripts/migrations/flatten_ku_uids.py --execute
+    uv run python scripts/migrations/flatten_ku_uids.py --dry-run
+    uv run python scripts/migrations/flatten_ku_uids.py --execute
 
 See: /docs/migrations/UNIVERSAL_HIERARCHICAL_IMPLEMENTATION_2026-01-30.md
 """

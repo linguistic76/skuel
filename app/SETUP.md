@@ -80,7 +80,7 @@ LOG_LEVEL=INFO
 
 ```bash
 cd ~/skuel/app
-poetry install
+uv sync
 ```
 
 ### 4. Run Application
@@ -88,7 +88,7 @@ poetry install
 **Option A: Local Python (Recommended for development)**
 ```bash
 cd ~/skuel/app
-poetry run python main.py
+uv run python main.py
 ```
 
 **Option B: Dockerized Application**
@@ -155,7 +155,7 @@ See `/home/mike/skuel/infrastructure/README.md` for complete configuration refer
 cd ~/skuel/infrastructure && docker compose up -d
 
 # Terminal 2: Application (restart as needed)
-cd ~/skuel/app && poetry run python main.py
+cd ~/skuel/app && uv run python main.py
 ```
 
 **Benefits:**
@@ -265,7 +265,7 @@ docker compose start neo4j
 
 ```bash
 cd ~/skuel/app
-poetry run python scripts/clear_neo4j.py reset
+uv run python scripts/clear_neo4j.py reset
 # Type: DELETE EVERYTHING
 ```
 
@@ -299,7 +299,7 @@ docker ps | grep neo4j
 **Test connection:**
 ```bash
 cd ~/skuel/app
-poetry run python -c "
+uv run python -c "
 from neo4j import GraphDatabase
 driver = GraphDatabase.driver('neo4j://localhost:7687', auth=('neo4j', 'password'))
 driver.verify_connectivity()
@@ -419,8 +419,8 @@ See `/home/mike/skuel/app/FUTURE_SERVICES.md` for detailed activation instructio
 
 1. ✅ Infrastructure running (`cd ~/skuel/infrastructure && docker compose ps`)
 2. ✅ Application configured (`.env` file created)
-3. ✅ Dependencies installed (`poetry install`)
-4. ✅ Application running (`poetry run python main.py`)
+3. ✅ Dependencies installed (`uv sync`)
+4. ✅ Application running (`uv run python main.py`)
 5. 📚 Read `/home/mike/skuel/app/CLAUDE.md` for development patterns
 6. 📚 Explore `/home/mike/skuel/app/docs/` for architecture documentation
 
@@ -437,8 +437,8 @@ cd ~/skuel/infrastructure && docker compose restart neo4j      # Restart Neo4j
 cd ~/skuel/infrastructure && docker compose down               # Stop (preserves data)
 
 # Application (Local)
-cd ~/skuel/app && poetry install                  # Install dependencies
-cd ~/skuel/app && poetry run python main.py       # Start app
+cd ~/skuel/app && uv sync                  # Install dependencies
+cd ~/skuel/app && uv run python main.py       # Start app
 cd ~/skuel/app && ./restart_server.sh             # Restart app (if script exists)
 
 # Application (Docker)

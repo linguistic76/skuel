@@ -391,13 +391,13 @@ If needed, rollback is straightforward:
 git checkout HEAD -- adapters/inbound/sel_routes.py
 rm adapters/inbound/sel_api.py
 rm adapters/inbound/sel_ui.py
-poetry run python main.py
+uv run python main.py
 
 # Backup rollback (alternative)
 cp adapters/inbound/sel_routes.py.backup adapters/inbound/sel_routes.py
 rm adapters/inbound/sel_api.py
 rm adapters/inbound/sel_ui.py
-poetry run python main.py
+uv run python main.py
 ```
 
 ---

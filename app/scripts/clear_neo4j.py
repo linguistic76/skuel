@@ -361,7 +361,7 @@ if __name__ == "__main__":
     else:
         print("""
 Usage:
-    poetry run python scripts/clear_neo4j.py [mode] [bundle_name]
+    uv run python scripts/clear_neo4j.py [mode] [bundle_name]
 
 Modes:
     clear      Remove all data (keep constraints/indexes) [DEFAULT]
@@ -369,9 +369,9 @@ Modes:
     bundle     Remove only specific bundle entities
 
 Examples:
-    poetry run python scripts/clear_neo4j.py                    # Clear all data
-    poetry run python scripts/clear_neo4j.py reset              # Complete reset
-    poetry run python scripts/clear_neo4j.py bundle mindfulness_101  # Clear bundle only
+    uv run python scripts/clear_neo4j.py                    # Clear all data
+    uv run python scripts/clear_neo4j.py reset              # Complete reset
+    uv run python scripts/clear_neo4j.py bundle mindfulness_101  # Clear bundle only
 
 Safety:
     All modes require explicit confirmation before deletion.

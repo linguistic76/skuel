@@ -212,7 +212,7 @@ class SomeOperations(BackendOperations, Protocol):
 
 **Before fix:**
 ```bash
-$ poetry run mypy core/ports/moc_protocols.py
+$ uv run mypy core/ports/moc_protocols.py
 error: Argument 2 of "update" is incompatible with supertype
 error: Signature of "delete" incompatible with supertype
 Found 2 errors
@@ -220,7 +220,7 @@ Found 2 errors
 
 **After fix:**
 ```bash
-$ poetry run mypy core/ports/moc_protocols.py
+$ uv run mypy core/ports/moc_protocols.py
 ✅ No override violations found!
 ```
 

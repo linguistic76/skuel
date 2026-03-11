@@ -399,7 +399,7 @@ RETURN length(path)
 
 ```bash
 # Run analysis
-poetry run python scripts/migrations/analyze_ku_uids.py
+uv run python scripts/migrations/analyze_ku_uids.py
 
 # Expected output:
 # - Flat UIDs (underscore): X KUs
@@ -417,21 +417,21 @@ neo4j-admin dump --database=neo4j --to=/backups/pre-universal-hierarchical.dump
 
 ```bash
 # See what would change
-poetry run python scripts/migrations/flatten_ku_uids.py --dry-run
+uv run python scripts/migrations/flatten_ku_uids.py --dry-run
 ```
 
 ### Step 4: Execute (if needed)
 
 ```bash
 # Only if hierarchical KUs exist
-poetry run python scripts/migrations/flatten_ku_uids.py --execute
+uv run python scripts/migrations/flatten_ku_uids.py --execute
 ```
 
 ### Step 5: Verify
 
 ```bash
 # Check results
-poetry run python scripts/migrations/analyze_ku_uids.py
+uv run python scripts/migrations/analyze_ku_uids.py
 # Should show: 0 hierarchical UIDs
 ```
 

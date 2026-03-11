@@ -151,7 +151,7 @@ skuel_event_handler_duration_seconds{quantile="0.95"} > 0.1
 
 Run tests:
 ```bash
-poetry run pytest tests/test_metrics_cache.py -v
+uv run pytest tests/test_metrics_cache.py -v
 ```
 
 ### Documentation

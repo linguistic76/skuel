@@ -127,7 +127,7 @@ async def search_results(request: Request, query: str) -> Any:
 Use the analyzer script to compare results:
 
 ```bash
-poetry run python scripts/analyze_ab_test_results.py semantic_search_v1 --days 7
+uv run python scripts/analyze_ab_test_results.py semantic_search_v1 --days 7
 ```
 
 **Output:**

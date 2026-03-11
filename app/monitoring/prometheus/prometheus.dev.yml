@@ -1,6 +1,6 @@
 # Prometheus Configuration for SKUEL (Local Development)
 # ========================================================
-# Use this config when running the app OUTSIDE Docker (poetry run python main.py)
+# Use this config when running the app OUTSIDE Docker (uv run python main.py)
 # while Prometheus runs INSIDE Docker.
 #
 # Usage:

@@ -12,7 +12,7 @@ Focus areas:
 - Error handling and edge cases
 
 Run with:
-    poetry run pytest tests/integration/test_graphql_complex_queries.py -v
+    uv run pytest tests/integration/test_graphql_complex_queries.py -v
 """
 
 import pytest

@@ -209,7 +209,7 @@ For each domain after refactoring:
 - [ ] No `.is_ok` references (should be `.is_error`)
 - [ ] All helpers return `Result[T]`
 - [ ] All routes check `.is_error` before using `.value`
-- [ ] Python syntax validates: `poetry run python -m py_compile adapters/inbound/{domain}_ui.py`
+- [ ] Python syntax validates: `uv run python -m py_compile adapters/inbound/{domain}_ui.py`
 
 ## Files Modified
 

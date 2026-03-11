@@ -9,11 +9,11 @@ Generates review schedule based on frontmatter tracking fields:
 Identifies docs that are overdue for review and provides a prioritized list.
 
 Usage:
-    poetry run python scripts/docs_review_scheduler.py              # All overdue docs
-    poetry run python scripts/docs_review_scheduler.py --upcoming   # Due within 30 days
-    poetry run python scripts/docs_review_scheduler.py --all        # All tracked docs
-    poetry run python scripts/docs_review_scheduler.py --category patterns  # By category
-    poetry run python scripts/docs_review_scheduler.py --json       # JSON output
+    uv run python scripts/docs_review_scheduler.py              # All overdue docs
+    uv run python scripts/docs_review_scheduler.py --upcoming   # Due within 30 days
+    uv run python scripts/docs_review_scheduler.py --all        # All tracked docs
+    uv run python scripts/docs_review_scheduler.py --category patterns  # By category
+    uv run python scripts/docs_review_scheduler.py --json       # JSON output
 """
 
 import json

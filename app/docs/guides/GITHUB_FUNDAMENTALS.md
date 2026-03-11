@@ -571,7 +571,7 @@ git commit -m "..."
 
 ```bash
 # Run tests before pushing
-poetry run pytest
+uv run pytest
 
 # If tests pass, then push
 git push

@@ -304,7 +304,7 @@ Query patterns:
 
 Run complexity tests:
 ```bash
-poetry run python test_graphql_complexity.py
+uv run python test_graphql_complexity.py
 ```
 
 **Test coverage:**
@@ -581,7 +581,7 @@ Benefits:
 ### Test Results
 
 ```bash
-poetry run python test_graphql_complexity.py
+uv run python test_graphql_complexity.py
 ```
 
 **Output:**

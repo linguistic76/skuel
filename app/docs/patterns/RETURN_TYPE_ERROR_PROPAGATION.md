@@ -260,13 +260,13 @@ if result.is_error:
 
 **MyPy Verification:**
 ```bash
-$ poetry run mypy core/services/base_service.py
+$ uv run mypy core/services/base_service.py
 # No errors on lines 373, 407 ✅
 
-$ poetry run mypy core/services/user_progress_service.py
+$ uv run mypy core/services/user_progress_service.py
 # No error on line 273 ✅
 
-$ poetry run mypy core/services/lp/lp_core_service.py
+$ uv run mypy core/services/lp/lp_core_service.py
 # No error on line 204 ✅
 ```
 

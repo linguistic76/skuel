@@ -608,10 +608,10 @@ assert result.is_ok
 
 ```bash
 # Run relationship tests
-poetry run pytest tests/integration/test_relationships.py -v
+uv run pytest tests/integration/test_relationships.py -v
 
 # Validate configs
-poetry run python -c "from core.models.relationship_registry import DOMAIN_CONFIGS; print(len(DOMAIN_CONFIGS))"
+uv run python -c "from core.models.relationship_registry import DOMAIN_CONFIGS; print(len(DOMAIN_CONFIGS))"
 ```
 
 ---

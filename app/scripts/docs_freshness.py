@@ -11,12 +11,12 @@ Supports two tracking modes:
 2. Conceptual: Tracks manual review schedules via frontmatter
 
 Usage:
-    poetry run python scripts/docs_freshness.py                    # Full report
-    poetry run python scripts/docs_freshness.py --json             # JSON output
-    poetry run python scripts/docs_freshness.py --stale            # Only stale docs
-    poetry run python scripts/docs_freshness.py --threshold=7      # Only show 7+ days
-    poetry run python scripts/docs_freshness.py --critical-only    # Only 30+ days
-    poetry run python scripts/docs_freshness.py --warnings         # Only 7-29 days
+    uv run python scripts/docs_freshness.py                    # Full report
+    uv run python scripts/docs_freshness.py --json             # JSON output
+    uv run python scripts/docs_freshness.py --stale            # Only stale docs
+    uv run python scripts/docs_freshness.py --threshold=7      # Only show 7+ days
+    uv run python scripts/docs_freshness.py --critical-only    # Only 30+ days
+    uv run python scripts/docs_freshness.py --warnings         # Only 7-29 days
 """
 
 import json

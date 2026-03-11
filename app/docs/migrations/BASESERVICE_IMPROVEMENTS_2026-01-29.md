@@ -217,7 +217,7 @@ Implemented critical improvements to BaseService architecture to reduce configur
 
 All existing tests pass:
 ```bash
-poetry run pytest tests/unit/test_base_service.py tests/test_base_service_refactoring.py -v
+uv run pytest tests/unit/test_base_service.py tests/test_base_service_refactoring.py -v
 # 79 tests PASSED
 ```
 

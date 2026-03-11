@@ -12,16 +12,16 @@ Features:
 
 Usage:
     # Dry run (no changes)
-    poetry run python scripts/sync_cross_references.py --dry-run
+    uv run python scripts/sync_cross_references.py --dry-run
 
     # Apply to specific file
-    poetry run python scripts/sync_cross_references.py docs/patterns/ERROR_HANDLING.md
+    uv run python scripts/sync_cross_references.py docs/patterns/ERROR_HANDLING.md
 
     # Apply to all pattern docs
-    poetry run python scripts/sync_cross_references.py --category patterns
+    uv run python scripts/sync_cross_references.py --category patterns
 
     # Apply to all docs (patterns + architecture + ADRs)
-    poetry run python scripts/sync_cross_references.py --all
+    uv run python scripts/sync_cross_references.py --all
 """
 
 import argparse

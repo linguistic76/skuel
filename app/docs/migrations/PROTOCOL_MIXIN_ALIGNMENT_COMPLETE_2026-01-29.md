@@ -156,16 +156,16 @@ if TYPE_CHECKING:
 **Usage:**
 ```bash
 # Run all tests
-poetry run pytest tests/unit/test_protocol_mixin_compliance.py -v
+uv run pytest tests/unit/test_protocol_mixin_compliance.py -v
 
 # Run specific category
-poetry run pytest tests/unit/test_protocol_mixin_compliance.py -k "signatures"
+uv run pytest tests/unit/test_protocol_mixin_compliance.py -k "signatures"
 
 # Run for specific mixin
-poetry run pytest tests/unit/test_protocol_mixin_compliance.py -k "Conversion"
+uv run pytest tests/unit/test_protocol_mixin_compliance.py -k "Conversion"
 
 # Verify with MyPy
-poetry run mypy core/services/mixins/*.py
+uv run mypy core/services/mixins/*.py
 ```
 
 ---
@@ -198,23 +198,23 @@ poetry run mypy core/services/mixins/*.py
 
 ### Run All Compliance Tests
 ```bash
-poetry run pytest tests/unit/test_protocol_mixin_compliance.py -v
+uv run pytest tests/unit/test_protocol_mixin_compliance.py -v
 # Expected: 29 passed
 ```
 
 ### Verify TYPE_CHECKING with MyPy
 ```bash
 # Check all mixins
-poetry run mypy core/services/mixins/*.py
+uv run mypy core/services/mixins/*.py
 
 # Check specific mixin
-poetry run mypy core/services/mixins/conversion_helpers_mixin.py
+uv run mypy core/services/mixins/conversion_helpers_mixin.py
 ```
 
 ### Check Specific Protocol-Mixin Pair
 ```bash
 # Example: Check ConversionOperations
-poetry run pytest tests/unit/test_protocol_mixin_compliance.py -k "Conversion" -v
+uv run pytest tests/unit/test_protocol_mixin_compliance.py -k "Conversion" -v
 ```
 
 ---

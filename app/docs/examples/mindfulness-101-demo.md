@@ -7,7 +7,7 @@
 **Remove EVERYTHING (data + constraints + indexes):**
 
 ```bash
-poetry run python scripts/clear_neo4j.py reset
+uv run python scripts/clear_neo4j.py reset
 ```
 
 **When prompted, type:** `DELETE EVERYTHING`
@@ -19,7 +19,7 @@ This gives you a completely clean Neo4j database - like a fresh install.
 **Load the complete curriculum bundle:**
 
 ```bash
-poetry run python scripts/fresh_start_mindfulness.py
+uv run python scripts/fresh_start_mindfulness.py
 ```
 
 **When prompted, type:** `FRESH START`
@@ -183,8 +183,8 @@ Should show 19 YAML files + manifest.yaml + README.md
 ## Summary
 
 **Your workflow:**
-1. `poetry run python scripts/clear_neo4j.py reset` → Type `DELETE EVERYTHING`
-2. `poetry run python scripts/fresh_start_mindfulness.py` → Type `FRESH START`
+1. `uv run python scripts/clear_neo4j.py reset` → Type `DELETE EVERYTHING`
+2. `uv run python scripts/fresh_start_mindfulness.py` → Type `FRESH START`
 3. Open http://localhost:7474 and explore!
 
 **You'll get:**

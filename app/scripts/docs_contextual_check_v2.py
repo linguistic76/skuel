@@ -10,9 +10,9 @@ doc mentioning a changed filename regardless of whether the API changed).
 Semantic doc-update awareness is handled by the Claude Code PostToolUse hook.
 
 Usage:
-    poetry run python scripts/docs_contextual_check_v2.py
-    poetry run python scripts/docs_contextual_check_v2.py --since HEAD~3
-    poetry run python scripts/docs_contextual_check_v2.py --since HEAD --json
+    uv run python scripts/docs_contextual_check_v2.py
+    uv run python scripts/docs_contextual_check_v2.py --since HEAD~3
+    uv run python scripts/docs_contextual_check_v2.py --since HEAD --json
 """
 
 import argparse

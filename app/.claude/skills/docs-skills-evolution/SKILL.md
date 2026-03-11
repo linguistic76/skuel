@@ -85,7 +85,7 @@ Doc evolution has two equally important triggers:
 
 **Automatic Detection** (post-merge hook):
 ```bash
-# After git pull, if poetry.lock changed:
+# After git pull, if uv.lock changed:
 ⚠️  Library versions changed. Consider reviewing:
 
 📦 python-fasthtml: 0.12.21 → 0.12.39
@@ -115,10 +115,10 @@ Do current examples still work?
 
 ```bash
 # Run affected tests
-poetry run pytest tests/unit/test_fasthtml*.py
+uv run pytest tests/unit/test_fasthtml*.py
 
 # Check for deprecation warnings
-poetry run python -W all start_server.py
+uv run python -W all start_server.py
 ```
 
 #### 3. Research Evolution
@@ -198,13 +198,13 @@ vim CLAUDE.md
 
 ```bash
 # Run cross-reference validator
-poetry run python scripts/validate_cross_references.py
+uv run python scripts/validate_cross_references.py
 
 # Check for orphaned references
 rg "old_pattern" docs/
 
 # Run full test suite
-poetry run pytest
+uv run pytest
 
 # Commit with library upgrade context
 git commit -m "Upgrade FastHTML to 1.5, adopt decorator routes
@@ -325,10 +325,10 @@ rg "@old-pattern" docs/ | # Find all references
 
 ```bash
 # Run cross-reference validator manually
-poetry run python scripts/validate_cross_references.py
+uv run python scripts/validate_cross_references.py
 
 # Run tests
-poetry run pytest
+uv run pytest
 
 # Check for old pattern usage
 rg "old_pattern" . --type py  # Should return nothing
@@ -382,7 +382,7 @@ For auto-generated reference docs (method indexes, catalogs), run the generator 
 
 ```bash
 # Stale method index → regenerate from live code
-poetry run python scripts/generate_method_index.py
+uv run python scripts/generate_method_index.py
 
 # Don't manually patch 50 method signatures — regenerate always wins
 ```
@@ -547,7 +547,7 @@ Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>"
 
 ```bash
 # Auto-generated on next commit, or manual:
-poetry run python scripts/generate_cross_reference_index.py
+uv run python scripts/generate_cross_reference_index.py
 ```
 
 ---
@@ -579,12 +579,12 @@ See: @fasthtml for route registration patterns
 - Maps skills → docs
 - Maps docs → skills
 - Shows bidirectional links
-- Regenerate: `poetry run python scripts/generate_cross_reference_index.py`
+- Regenerate: `uv run python scripts/generate_cross_reference_index.py`
 
 ### Coverage Metrics
 
 ```bash
-poetry run python scripts/validate_cross_references.py
+uv run python scripts/validate_cross_references.py
 
 # Output:
 📊 Statistics:
@@ -671,23 +671,23 @@ Three automated scripts in `scripts/health/` that prevent drift between refactor
 
 ```bash
 # Full validation with warnings
-poetry run python scripts/validate_cross_references.py
+uv run python scripts/validate_cross_references.py
 
 # Errors only
-poetry run python scripts/validate_cross_references.py --errors-only
+uv run python scripts/validate_cross_references.py --errors-only
 
 # Verbose (show all issues including info)
-poetry run python scripts/validate_cross_references.py --verbose
+uv run python scripts/validate_cross_references.py --verbose
 ```
 
 ### Detection Script
 
 ```bash
 # Detect library changes manually
-poetry run python scripts/detect_library_changes.py
+uv run python scripts/detect_library_changes.py
 
 # Compare with specific ref
-poetry run python scripts/detect_library_changes.py --from-ref HEAD~5
+uv run python scripts/detect_library_changes.py --from-ref HEAD~5
 ```
 
 ---
@@ -715,18 +715,18 @@ poetry run python scripts/detect_library_changes.py --from-ref HEAD~5
   ```
 - After library upgrade:
   ```bash
-  poetry run python scripts/validate_cross_references.py
+  uv run python scripts/validate_cross_references.py
   ```
 - After pattern deprecation:
   ```bash
   ./dev health-names && \
-  poetry run pytest && \
-  poetry run python scripts/validate_cross_references.py
+  uv run pytest && \
+  uv run python scripts/validate_cross_references.py
   ```
 - **Monthly audit** - Full sweep:
   ```bash
   ./dev health
-  poetry run python scripts/validate_cross_references.py --verbose
+  uv run python scripts/validate_cross_references.py --verbose
   ```
 
 ### What Validators Check
@@ -879,14 +879,14 @@ Does the pattern exist in the library's official docs?
 ./dev health-names --list # print full RENAMED/DELETED tables
 
 # Cross-reference validation
-poetry run python scripts/validate_cross_references.py
-poetry run python scripts/validate_cross_references.py --verbose
+uv run python scripts/validate_cross_references.py
+uv run python scripts/validate_cross_references.py --verbose
 
 # Detect library changes
-poetry run python scripts/detect_library_changes.py
+uv run python scripts/detect_library_changes.py
 
 # Regenerate cross-reference index
-poetry run python scripts/generate_cross_reference_index.py
+uv run python scripts/generate_cross_reference_index.py
 ```
 
 ### Evolution Philosophy Summary

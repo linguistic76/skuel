@@ -6,8 +6,8 @@ Creates missing QUICK_REFERENCE.md and PATTERNS.md files for all skills
 using the templates in .claude/skills/_templates/
 
 Usage:
-    poetry run python scripts/generate_skill_stubs.py          # Dry run
-    poetry run python scripts/generate_skill_stubs.py --apply  # Actually create files
+    uv run python scripts/generate_skill_stubs.py          # Dry run
+    uv run python scripts/generate_skill_stubs.py --apply  # Actually create files
 """
 
 import sys

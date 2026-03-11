@@ -872,16 +872,16 @@ Uses typed context retrieval with:
 
 ### Unit Tests
 ```bash
-poetry run python -m pytest tests/unit/services/test_choices_intelligence_service.py -v
+uv run python -m pytest tests/unit/services/test_choices_intelligence_service.py -v
 ```
 
 ### Integration Tests
 ```bash
 # Test with real backend
-poetry run python -m pytest tests/integration/intelligence/test_choices_intelligence.py -v
+uv run python -m pytest tests/integration/intelligence/test_choices_intelligence.py -v
 
 # Test specific method
-poetry run python -m pytest tests/integration/intelligence/ -k "test_get_decision_intelligence" -v
+uv run python -m pytest tests/integration/intelligence/ -k "test_get_decision_intelligence" -v
 ```
 
 ### Example Test

@@ -3,7 +3,7 @@
 SKUEL Test Runner - Comprehensive test suite execution with multiple modes.
 
 Usage:
-    poetry run python scripts/run_tests.py [mode] [options]
+    uv run python scripts/run_tests.py [mode] [options]
 
 Modes:
     all           - Run complete test suite (1,349 tests, ~73s)
@@ -43,7 +43,7 @@ class TestRunner:
         print("   Expected: 1,124 passing, 183 failed, 35 errors")
         print("   Runtime: ~73 seconds\n")
 
-        cmd = ["poetry", "run", "pytest", "tests/", "-v", *extra_args]
+        cmd = ["uv", "run", "pytest", "tests/", "-v", *extra_args]
         return subprocess.run(cmd, cwd=self.project_root).returncode
 
     def run_comprehensive(self, extra_args: list[str]) -> int:
@@ -55,7 +55,7 @@ class TestRunner:
         print("   Excludes: 164 broken unit tests\n")
 
         cmd = [
-            "poetry",
+            "uv",
             "run",
             "pytest",
             "tests/",
@@ -78,7 +78,7 @@ class TestRunner:
         # Coverage percentage is misleading for integration tests because they test
         # specific functionality (CRUD, relationships) not broad coverage
         cmd = [
-            "poetry",
+            "uv",
             "run",
             "pytest",
             "tests/integration/",
@@ -97,7 +97,7 @@ class TestRunner:
 
         # Run root-level test files (exclude integration/ and unit/)
         cmd = [
-            "poetry",
+            "uv",
             "run",
             "pytest",
             "tests/",
@@ -117,7 +117,7 @@ class TestRunner:
         print("   Expected: 0 passing (known issue)")
         print("   Runtime: ~10 seconds\n")
 
-        cmd = ["poetry", "run", "pytest", "tests/unit/", "-v", *extra_args]
+        cmd = ["uv", "run", "pytest", "tests/unit/", "-v", *extra_args]
         return subprocess.run(cmd, cwd=self.project_root).returncode
 
     def run_quick(self, extra_args: list[str]) -> int:
@@ -128,7 +128,7 @@ class TestRunner:
         print("   Runtime: ~30 seconds\n")
 
         cmd = [
-            "poetry",
+            "uv",
             "run",
             "pytest",
             "tests/integration/",
@@ -143,7 +143,7 @@ class TestRunner:
 
     def show_markers(self) -> int:
         """Show available pytest markers."""
-        cmd = ["poetry", "run", "pytest", "--markers"]
+        cmd = ["uv", "run", "pytest", "--markers"]
         return subprocess.run(cmd, cwd=self.project_root).returncode
 
 

@@ -6,9 +6,9 @@ Track progress on semantic relationship activation initiative.
 Shows which relationships are active, usage counts, and activation percentage.
 
 Usage:
-    poetry run python scripts/semantic_relationship_metrics.py
-    poetry run python scripts/semantic_relationship_metrics.py --detailed
-    poetry run python scripts/semantic_relationship_metrics.py --export metrics.json
+    uv run python scripts/semantic_relationship_metrics.py
+    uv run python scripts/semantic_relationship_metrics.py --detailed
+    uv run python scripts/semantic_relationship_metrics.py --export metrics.json
 """
 
 import asyncio

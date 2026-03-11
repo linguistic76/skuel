@@ -186,9 +186,9 @@ Cross-Reference Validation Report
 | Missing reverse link | ⚠️ Warning | Unidirectional reference (A→B but not B→A) |
 | Stale skill | 🔵 Info | Primary docs have git commits after `last_reviewed` |
 
-**Verbose mode:** `poetry run python scripts/validate_cross_references.py --verbose` includes orphaned docs and info-level issues.
+**Verbose mode:** `uv run python scripts/validate_cross_references.py --verbose` includes orphaned docs and info-level issues.
 
-**Errors-only mode:** `poetry run python scripts/validate_cross_references.py --errors-only` for CI (exit 1 if errors).
+**Errors-only mode:** `uv run python scripts/validate_cross_references.py --errors-only` for CI (exit 1 if errors).
 
 ---
 

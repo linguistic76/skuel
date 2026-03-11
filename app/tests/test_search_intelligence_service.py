@@ -491,5 +491,5 @@ def test_search_refinement_with_current_facets():
 
 
 if __name__ == "__main__":
-    # Run with: poetry run pytest tests/test_search_intelligence_service.py -v
+    # Run with: uv run pytest tests/test_search_intelligence_service.py -v
     pytest.main([__file__, "-v"])

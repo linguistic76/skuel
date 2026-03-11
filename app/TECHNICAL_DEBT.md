@@ -93,7 +93,7 @@ These are architectural choices that depend on business decisions, not code qual
 |--------|----------|----------|
 | Total errors | 241 | **0** |
 
-Run: `poetry run ruff check core/ adapters/ ui/`
+Run: `uv run ruff check core/ adapters/ ui/`
 
 ---
 

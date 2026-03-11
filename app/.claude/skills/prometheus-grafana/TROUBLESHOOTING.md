@@ -129,7 +129,7 @@ docker exec -it skuel-prometheus-1 wget -O- http://host.docker.internal:5001/met
 
 1. **App not running**: Start the SKUEL app
    ```bash
-   poetry run python main.py
+   uv run python main.py
    ```
 
 2. **Wrong port**: Check app is running on port 5001

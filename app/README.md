@@ -20,7 +20,7 @@ SKUEL is a knowledge graph-based productivity system built on the principle that
 ### 1. Install Dependencies
 
 ```bash
-poetry install
+uv sync
 npm install
 ```
 
@@ -71,7 +71,7 @@ Choose one of the following:
 
 **Option A: Local Development (Recommended)**
 ```bash
-poetry run python main.py
+uv run python main.py
 ```
 
 **Option B: Docker**
@@ -212,31 +212,31 @@ Development mirrors analog note-taking: think deeply, plan on paper, then implem
 
 **Integration Tests**
 ```bash
-poetry run pytest tests/integration/
+uv run pytest tests/integration/
 ```
 
 **Unit Tests**
 ```bash
-poetry run pytest tests/unit/
+uv run pytest tests/unit/
 ```
 
 **All Tests**
 ```bash
-poetry run pytest
+uv run pytest
 ```
 
 ### Code Quality
 
 **Type Checking**
 ```bash
-poetry run mypy core/
-poetry run pyright core/
+uv run mypy core/
+uv run pyright core/
 ```
 
 **Linting**
 ```bash
-poetry run ruff check .
-poetry run ruff format .
+uv run ruff check .
+uv run ruff format .
 ```
 
 ### Development Workflow
@@ -369,11 +369,11 @@ Try SKUEL with a complete curriculum bundle:
 
 ```bash
 # 1. Complete database reset
-poetry run python scripts/clear_neo4j.py reset
+uv run python scripts/clear_neo4j.py reset
 # Type: DELETE EVERYTHING
 
 # 2. Load curriculum bundle
-poetry run python scripts/fresh_start_mindfulness.py
+uv run python scripts/fresh_start_mindfulness.py
 # Type: FRESH START
 
 # 3. Explore in Neo4j Browser

@@ -666,5 +666,5 @@ async def test_boundary_handler_strips_internal_details():
 
 
 if __name__ == "__main__":
-    # Run with: poetry run pytest tests/test_error_boundary.py -v
+    # Run with: uv run pytest tests/test_error_boundary.py -v
     pytest.main([__file__, "-v"])

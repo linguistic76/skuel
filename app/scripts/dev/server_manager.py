@@ -147,9 +147,9 @@ def start_server():
             # Set up environment variables securely
             env_vars = {"PYTHONPATH": "/home/mike/skuel/app"}
 
-            # Execute via poetry
+            # Execute via uv
             result = executor.execute_safe_command(
-                "poetry",
+                "uv",
                 ["run", "python", "main.py"],
                 working_dir="/home/mike/skuel/app",
                 timeout=10,  # Short timeout just to start the process
@@ -167,7 +167,7 @@ def start_server():
             env["PYTHONPATH"] = "/home/mike/skuel/app"
 
             subprocess.Popen(
-                ["poetry", "run", "python", "main.py"],
+                ["uv", "run", "python", "main.py"],
                 cwd="/home/mike/skuel/app",
                 env=env,
                 stdout=subprocess.PIPE,

@@ -1,6 +1,6 @@
 """
 Quick test to verify the new type system is working correctly.
-Run with: poetry run pytest tests/test_type_system.py -v
+Run with: uv run pytest tests/test_type_system.py -v
 """
 
 __version__ = "1.0"

@@ -418,7 +418,7 @@ When you get `attr-defined` errors:
 
 ```bash
 # 1. Find the error
-poetry run mypy adapters/inbound/principles_api.py 2>&1 | grep "has no attribute"
+uv run mypy adapters/inbound/principles_api.py 2>&1 | grep "has no attribute"
 # Output: "PrinciplesService" has no attribute "create_principle_expression"
 
 # 2. Find the implementation
@@ -632,7 +632,7 @@ In SKUEL's codebase:
 
 ```bash
 # Get error type breakdown
-poetry run mypy . 2>&1 | grep -oP '\[.*?\]' | sort | uniq -c | sort -rn
+uv run mypy . 2>&1 | grep -oP '\[.*?\]' | sort | uniq -c | sort -rn
 
 # Focus on high-count error types first
 ```
@@ -655,10 +655,10 @@ Use the appropriate pattern from this guide - fix root cause, not individual err
 
 ```bash
 # Check total error count
-poetry run mypy . 2>&1 | tail -1
+uv run mypy . 2>&1 | tail -1
 
 # Check specific error type count
-poetry run mypy . 2>&1 | grep "no-any-return" | wc -l
+uv run mypy . 2>&1 | grep "no-any-return" | wc -l
 ```
 
 ### Step 5: Commit with Context

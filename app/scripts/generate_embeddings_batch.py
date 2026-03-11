@@ -6,13 +6,13 @@ Generates embeddings for existing entities that don't have them.
 
 Usage:
     # Generate embeddings for all entity types
-    poetry run python scripts/generate_embeddings_batch.py
+    uv run python scripts/generate_embeddings_batch.py
 
     # Generate for specific entity type
-    poetry run python scripts/generate_embeddings_batch.py --label Curriculum
+    uv run python scripts/generate_embeddings_batch.py --label Curriculum
 
     # Limit batches (for testing)
-    poetry run python scripts/generate_embeddings_batch.py --label Ku --max-batches 2
+    uv run python scripts/generate_embeddings_batch.py --label Ku --max-batches 2
 
 ARCHITECTURE:
 - Uses Neo4jGenAIEmbeddingsService for embedding generation

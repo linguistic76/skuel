@@ -396,18 +396,18 @@ Created comprehensive test suite with 16 tests across 5 groups:
 
 ```bash
 # Compilation
-poetry run python -m py_compile adapters/inbound/{tasks,goals,habits,events,choices,principles}_{api,routes}.py
+uv run python -m py_compile adapters/inbound/{tasks,goals,habits,events,choices,principles}_{api,routes}.py
 # ✅ All files compiled successfully
 
 # Linting
-poetry run ruff check adapters/inbound/route_factories/ adapters/inbound/{tasks,goals,habits,events,choices,principles}_{routes,api}.py
+uv run ruff check adapters/inbound/route_factories/ adapters/inbound/{tasks,goals,habits,events,choices,principles}_{routes,api}.py
 # ✅ All checks passed
 
 # Tests
-poetry run pytest tests/infrastructure/test_domain_route_factory.py -v
+uv run pytest tests/infrastructure/test_domain_route_factory.py -v
 # ✅ 16 passed in 5.59s
 
-poetry run pytest tests/test_adapter_less_crud_routes.py tests/infrastructure/test_intelligence_route_factory.py -v
+uv run pytest tests/test_adapter_less_crud_routes.py tests/infrastructure/test_intelligence_route_factory.py -v
 # ✅ 35 passed in 6.06s
 ```
 

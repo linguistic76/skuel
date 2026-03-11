@@ -107,7 +107,7 @@ if curl -sf http://localhost:5001/metrics > /dev/null; then
 else
     echo -e "${YELLOW}⚠️  SKUEL app is not running (this is OK for setup verification)${NC}"
     echo "   To complete verification, start SKUEL app:"
-    echo "   poetry run python main.py"
+    echo "   uv run python main.py"
 fi
 echo ""
 

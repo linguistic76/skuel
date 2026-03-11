@@ -783,16 +783,16 @@ The service discovers where principles can be applied:
 
 ### Unit Tests
 ```bash
-poetry run python -m pytest tests/unit/services/test_principles_intelligence_service.py -v
+uv run python -m pytest tests/unit/services/test_principles_intelligence_service.py -v
 ```
 
 ### Integration Tests
 ```bash
 # Test with real backend
-poetry run python -m pytest tests/integration/intelligence/test_principles_intelligence.py -v
+uv run python -m pytest tests/integration/intelligence/test_principles_intelligence.py -v
 
 # Test specific method
-poetry run python -m pytest tests/integration/intelligence/ -k "test_assess_principle_alignment" -v
+uv run python -m pytest tests/integration/intelligence/ -k "test_assess_principle_alignment" -v
 ```
 
 ### Example Test

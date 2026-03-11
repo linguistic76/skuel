@@ -53,10 +53,10 @@ SET n.embedding = $embedding,
 **Usage:**
 ```bash
 # Preview changes
-poetry run python scripts/migrations/backfill_activity_embedding_versions.py --dry-run
+uv run python scripts/migrations/backfill_activity_embedding_versions.py --dry-run
 
 # Apply migration
-poetry run python scripts/migrations/backfill_activity_embedding_versions.py
+uv run python scripts/migrations/backfill_activity_embedding_versions.py
 ```
 
 ### Phase 3: Upgrade Workflow Documentation ✅
@@ -145,7 +145,7 @@ n.embedding_updated_at // datetime - Last update timestamp (existing)
 
 **Step 2:** Run backfill migration
 ```bash
-poetry run python scripts/migrations/backfill_activity_embedding_versions.py
+uv run python scripts/migrations/backfill_activity_embedding_versions.py
 ```
 
 **Step 3:** Verify version tracking
@@ -181,7 +181,7 @@ RETURN labels(n)[0] as type, count(n) as count
 
 **Step 3:** Run re-embedding (future script)
 ```bash
-poetry run python scripts/migrations/reembed_activity_domains.py \
+uv run python scripts/migrations/reembed_activity_domains.py \
     --from-version v1 \
     --to-version v2
 ```
@@ -194,7 +194,7 @@ poetry run python scripts/migrations/reembed_activity_domains.py \
 
 ### 1. Config Loads Correctly
 ```bash
-poetry run python -c "from core.config.unified_config import GenAIConfig; \
+uv run python -c "from core.config.unified_config import GenAIConfig; \
     c = GenAIConfig.from_env(); \
     print(f'Version: {c.embedding_version}')"
 ```

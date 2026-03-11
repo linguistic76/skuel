@@ -6,8 +6,8 @@ Automatically adds 'related_skills' field to documentation frontmatter
 based on the skills_metadata.yaml registry.
 
 Usage:
-    poetry run python scripts/add_skill_backlinks.py           # Dry run
-    poetry run python scripts/add_skill_backlinks.py --apply   # Apply changes
+    uv run python scripts/add_skill_backlinks.py           # Dry run
+    uv run python scripts/add_skill_backlinks.py --apply   # Apply changes
 """
 
 import sys

@@ -14,7 +14,7 @@ Creates sample data across all domains:
 - Principles
 
 Run with:
-    poetry run python scripts/seed_search_test_data.py
+    uv run python scripts/seed_search_test_data.py
 """
 
 import asyncio

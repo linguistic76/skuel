@@ -182,7 +182,7 @@ To verify the refactoring maintains functionality:
 
 ```bash
 # Start the server
-poetry run python main.py
+uv run python main.py
 
 # Test the endpoints
 curl http://localhost:8000/api/visualizations/completion?period=week

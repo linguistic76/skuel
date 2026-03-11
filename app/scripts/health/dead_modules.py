@@ -11,8 +11,8 @@ For every .py file in the project (excluding tests, __init__.py, scripts/):
   - Output: file path, line count, and a hint from the first comment/docstring
 
 Usage:
-    poetry run python scripts/health/dead_modules.py
-    poetry run python scripts/health/dead_modules.py --verbose
+    uv run python scripts/health/dead_modules.py
+    uv run python scripts/health/dead_modules.py --verbose
 """
 
 import re

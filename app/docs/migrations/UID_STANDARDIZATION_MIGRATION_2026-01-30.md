@@ -416,18 +416,18 @@ async def validate_complete():
 
 4. **Run Migration Script**
    ```bash
-   poetry run python scripts/migrations/migrate_uids_to_underscore.py
+   uv run python scripts/migrations/migrate_uids_to_underscore.py
    ```
 
 5. **Validate Migration**
    ```bash
-   poetry run python scripts/migrations/validate_uid_migration_complete.py
+   uv run python scripts/migrations/validate_uid_migration_complete.py
    ```
 
 6. **Deploy New Code** (Phase 1 changes)
    ```bash
    git pull origin main
-   poetry install
+   uv sync
    ```
 
 7. **Start Application**
@@ -457,7 +457,7 @@ If migration fails or issues arise:
 3. **Revert Code**
    ```bash
    git checkout <previous-commit>
-   poetry install
+   uv sync
    ```
 
 4. **Start Application**

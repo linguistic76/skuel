@@ -24,7 +24,7 @@ Runs Neo4j in detached Docker container (`docker compose up neo4j -d`). Ready in
 ```bash
 ./dev serve
 ```
-Equivalent to `poetry run python main.py`. App starts on `http://localhost:8000`.
+Equivalent to `uv run python main.py`. App starts on `http://localhost:8000`.
 
 ---
 
@@ -59,11 +59,11 @@ Starts Neo4j + App + Prometheus + Grafana together:
 | Command                        | What it does                              |
 |--------------------------------|-------------------------------------------|
 | `./dev up-neo4j`               | Start Neo4j only (Docker, detached)       |
-| `./dev serve`                  | Start app (`poetry run python main.py`)   |
+| `./dev serve`                  | Start app (`uv run python main.py`)   |
 | `./dev up`                     | Start full stack (Docker)                 |
 | `./dev up -d`                  | Start full stack (Docker, detached)       |
 | `./dev down`                   | Stop all Docker services                  |
-| `poetry run python main.py`    | Start app directly (same as `./dev serve`)|
+| `uv run python main.py`    | Start app directly (same as `./dev serve`)|
 
 ---
 
@@ -75,7 +75,7 @@ Neo4j isn't running. Start it first: `./dev up-neo4j`
 **"User not found: user.dev"**
 Dev users not seeded. Run once:
 ```bash
-poetry run python scripts/seed_dev_users.py
+uv run python scripts/seed_dev_users.py
 ```
 
 **Port 8000 already in use**

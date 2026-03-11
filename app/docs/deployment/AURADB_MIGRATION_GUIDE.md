@@ -114,7 +114,7 @@ This guide covers migrating from Docker-based Neo4j to Neo4j AuraDB (production 
 
 ```bash
 # Verify tools available
-poetry --version  # Should be 1.7+
+uv --version  # Should be 1.7+
 python --version  # Should be 3.12+
 neo4j-admin --version  # For data export (if using Docker data)
 ```
@@ -132,7 +132,7 @@ neo4j-admin --version  # For data export (if using Docker data)
 ```bash
 # Export current entity counts for verification
 cd /home/mike/skuel/app
-poetry run python scripts/export_entity_counts.py \
+uv run python scripts/export_entity_counts.py \
   --output=pre_migration_counts_$(date +%Y%m%d).json
 
 # Example output:
@@ -172,7 +172,7 @@ docker cp skuel-neo4j:/backups/backup_*.dump ./neo4j/backups/
 grep NEO4J /home/mike/skuel/app/.env > neo4j_config_backup.txt
 
 # Document current schema
-poetry run python scripts/export_schema.py > schema_backup.cypher
+uv run python scripts/export_schema.py > schema_backup.cypher
 ```
 
 ---
@@ -238,7 +238,7 @@ NEO4J_DATABASE=neo4j
 
 ```bash
 # Test connection from application server
-poetry run python -c "
+uv run python -c "
 import asyncio
 import os
 from neo4j import AsyncGraphDatabase
@@ -331,7 +331,7 @@ RETURN genai.vector.encode("Hello world", "OpenAI", {
 **Via Command Line:**
 
 ```bash
-poetry run python -c "
+uv run python -c "
 import asyncio
 import os
 from neo4j import AsyncGraphDatabase
@@ -411,11 +411,11 @@ aws s3 cp ./neo4j/backups/backup_*.dump s3://your-bucket/
 
 ```bash
 # Check entity counts match
-poetry run python scripts/export_entity_counts.py \
+uv run python scripts/export_entity_counts.py \
   --output=post_migration_counts_$(date +%Y%m%d).json
 
 # Compare counts
-poetry run python scripts/compare_counts.py \
+uv run python scripts/compare_counts.py \
   --before=pre_migration_counts_*.json \
   --after=post_migration_counts_*.json
 ```
@@ -471,7 +471,7 @@ For new deployments without existing data:
 
 ```bash
 # Create all constraints
-poetry run python scripts/create_constraints.py
+uv run python scripts/create_constraints.py
 ```
 
 **Or manually via Neo4j Browser:**
@@ -507,7 +507,7 @@ CREATE CONSTRAINT lifepath_uid_unique IF NOT EXISTS FOR (lp:LifePath) REQUIRE lp
 
 ```bash
 # Create vector indexes for embeddings
-poetry run python scripts/create_vector_indexes.py
+uv run python scripts/create_vector_indexes.py
 ```
 
 **Or manually:**
@@ -562,7 +562,7 @@ OPTIONS {
 
 ```bash
 # Verify constraints and indexes
-poetry run python scripts/verify_schema.py
+uv run python scripts/verify_schema.py
 ```
 
 **Expected Output:**
@@ -652,7 +652,7 @@ If your application code has Docker-specific comments, update them:
 
 ```bash
 # Count entities needing embeddings
-poetry run python scripts/count_entities_without_embeddings.py
+uv run python scripts/count_entities_without_embeddings.py
 
 # Example output:
 # Ku: 1,234 entities
@@ -667,7 +667,7 @@ poetry run python scripts/count_entities_without_embeddings.py
 
 ```bash
 # Generate embeddings for all entities
-poetry run python scripts/generate_embeddings_batch.py
+uv run python scripts/generate_embeddings_batch.py
 
 # Progress output shows real-time status
 ```
@@ -676,7 +676,7 @@ poetry run python scripts/generate_embeddings_batch.py
 
 ```bash
 # Check coverage
-poetry run python scripts/verify_embeddings.py
+uv run python scripts/verify_embeddings.py
 
 # Expected: 100% coverage for all entity types
 ```
@@ -691,13 +691,13 @@ poetry run python scripts/verify_embeddings.py
 
 ```bash
 # Test database connectivity
-poetry run pytest tests/integration/test_neo4j_connection.py -v
+uv run pytest tests/integration/test_neo4j_connection.py -v
 
 # Test GenAI plugin
-poetry run pytest tests/integration/test_vector_search.py -v
+uv run pytest tests/integration/test_vector_search.py -v
 
 # Test semantic search
-poetry run pytest tests/e2e/test_semantic_search_flow.py -v
+uv run pytest tests/e2e/test_semantic_search_flow.py -v
 ```
 
 **Expected:** All tests passing
@@ -706,7 +706,7 @@ poetry run pytest tests/e2e/test_semantic_search_flow.py -v
 
 ```bash
 # Start application
-poetry run python main.py
+uv run python main.py
 
 # Should start without errors
 ```
@@ -743,7 +743,7 @@ poetry run python main.py
 
 ```bash
 # Run performance tests
-poetry run python scripts/benchmark_queries.py
+uv run python scripts/benchmark_queries.py
 
 # Compare with Docker baseline
 ```
@@ -789,7 +789,7 @@ systemctl restart skuel  # Or your deployment method
 
 ```bash
 # Run smoke tests in production
-poetry run python scripts/smoke_test_production.py
+uv run python scripts/smoke_test_production.py
 
 # Expected output:
 # ✅ Application started successfully
@@ -918,7 +918,7 @@ Embeddings unavailable
    - Consider tier upgrade
 
 **Solution:**
-- Create missing indexes: `poetry run python scripts/create_constraints.py`
+- Create missing indexes: `uv run python scripts/create_constraints.py`
 - Optimize queries (add WHERE clauses, use parameters)
 - Upgrade AuraDB tier if consistently overloaded
 
@@ -937,7 +937,7 @@ Embeddings unavailable
 2. **Check embedding generation rate:**
    ```bash
    # Count entities with embeddings
-   poetry run python scripts/check_embeddings_coverage.py
+   uv run python scripts/check_embeddings_coverage.py
    ```
 
 3. **Review batch settings:**
@@ -985,7 +985,7 @@ systemctl restart skuel
 
 ```bash
 # Test Docker connection
-poetry run python -c "
+uv run python -c "
 import asyncio, os
 from neo4j import AsyncGraphDatabase
 async def test():
@@ -1012,7 +1012,7 @@ If AuraDB data is corrupted but you want to stay on AuraDB:
 2. **Verify restoration:**
    ```bash
    # Check entity counts
-   poetry run python scripts/verify_entity_counts.py
+   uv run python scripts/verify_entity_counts.py
    ```
 
 ---
@@ -1091,7 +1091,7 @@ AuraDB automates daily backups, but verify:
 
 ```bash
 # Weekly backup verification script
-poetry run python scripts/verify_auradb_backups.py
+uv run python scripts/verify_auradb_backups.py
 
 # Should confirm:
 # ✅ Daily backups exist

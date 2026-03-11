@@ -10,7 +10,7 @@ Creates Neo4j full-text indexes to support hybrid search combining:
 Indexes are created for all searchable entity types with appropriate fields.
 
 Usage:
-    poetry run python scripts/create_fulltext_indexes.py
+    uv run python scripts/create_fulltext_indexes.py
 
 Created: January 2026
 See: /docs/architecture/SEARCH_ARCHITECTURE.md
@@ -249,16 +249,16 @@ async def main():
         epilog="""
 Examples:
   # Create all indexes (skip existing)
-  poetry run python scripts/create_fulltext_indexes.py
+  uv run python scripts/create_fulltext_indexes.py
 
   # Recreate all indexes (drop and recreate)
-  poetry run python scripts/create_fulltext_indexes.py --recreate
+  uv run python scripts/create_fulltext_indexes.py --recreate
 
   # Verify indexes exist
-  poetry run python scripts/create_fulltext_indexes.py --verify
+  uv run python scripts/create_fulltext_indexes.py --verify
 
   # Drop all indexes
-  poetry run python scripts/create_fulltext_indexes.py --drop
+  uv run python scripts/create_fulltext_indexes.py --drop
         """,
     )
 

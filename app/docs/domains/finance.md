@@ -240,7 +240,7 @@ Finance is intentionally **standalone** and **simple**:
 
 Run tests:
 ```bash
-poetry run pytest tests/integration/test_finance_core_operations.py -v
+uv run pytest tests/integration/test_finance_core_operations.py -v
 ```
 
 ## See Also

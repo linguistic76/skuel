@@ -180,7 +180,7 @@ class MocIntelligenceService(BaseAnalyticsService[...]):
 
 ## Verification
 
-1. **Type check:** `poetry run mypy core/services/ls_service.py core/services/lp_service.py core/services/ku_service.py core/services/moc_service.py`
+1. **Type check:** `uv run mypy core/services/ls_service.py core/services/lp_service.py core/services/ku_service.py core/services/moc_service.py`
 2. **Unit tests:** Verify all 4 curriculum services have `.intelligence` attribute
 3. **Integration:** Verify LS and MOC can now access graph queries
 

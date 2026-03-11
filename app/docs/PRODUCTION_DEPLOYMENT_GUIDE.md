@@ -11,7 +11,7 @@ This guide covers deploying the async embedding background worker to production 
 ### Required Services
 - ✅ **Neo4j AuraDB** (with GenAI plugin enabled)
 - ✅ **OpenAI API Key** (for embeddings generation)
-- ✅ **Python 3.11+** with poetry
+- ✅ **Python 3.11+** with uv
 
 ### Optional (For Monitoring)
 - Monitoring dashboard (Grafana/Prometheus)
@@ -54,23 +54,23 @@ EMBEDDING_BATCH_INTERVAL=30
 ### 1. Install Dependencies
 
 ```bash
-poetry install --without dev
+uv sync --no-dev
 ```
 
 ### 2. Verify Configuration
 
 ```bash
 # Test Neo4j connection
-poetry run python -c "from adapters.persistence.neo4j_adapter import Neo4jAdapter; import asyncio; asyncio.run(Neo4jAdapter().connect())"
+uv run python -c "from adapters.persistence.neo4j_adapter import Neo4jAdapter; import asyncio; asyncio.run(Neo4jAdapter().connect())"
 
 # Test embeddings service
-poetry run python -c "from core.services.neo4j_genai_embeddings_service import Neo4jGenAIEmbeddingsService; print('OK')"
+uv run python -c "from core.services.neo4j_genai_embeddings_service import Neo4jGenAIEmbeddingsService; print('OK')"
 ```
 
 ### 3. Start Application
 
 ```bash
-poetry run python main.py --host 0.0.0.0 --port 8000
+uv run python main.py --host 0.0.0.0 --port 8000
 ```
 
 **Expected Startup Logs**:

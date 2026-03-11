@@ -8,7 +8,7 @@ Measures latency and throughput for:
 4. Hybrid search
 
 Usage:
-    poetry run python tests/benchmarks/benchmark_semantic_search.py
+    uv run python tests/benchmarks/benchmark_semantic_search.py
 
 Output:
     - Latency statistics (mean, p50, p95, p99)

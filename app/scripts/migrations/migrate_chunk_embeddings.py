@@ -18,16 +18,16 @@ Prerequisites:
 
 Usage:
     # Dry run (no changes, shows what would be done)
-    poetry run python scripts/migrations/migrate_chunk_embeddings.py --dry-run
+    uv run python scripts/migrations/migrate_chunk_embeddings.py --dry-run
 
     # Production run with default batch size (100)
-    poetry run python scripts/migrations/migrate_chunk_embeddings.py
+    uv run python scripts/migrations/migrate_chunk_embeddings.py
 
     # Custom batch size
-    poetry run python scripts/migrations/migrate_chunk_embeddings.py --batch-size 50
+    uv run python scripts/migrations/migrate_chunk_embeddings.py --batch-size 50
 
     # Limit number of chunks to process (for testing)
-    poetry run python scripts/migrations/migrate_chunk_embeddings.py --limit 1000
+    uv run python scripts/migrations/migrate_chunk_embeddings.py --limit 1000
 
 See also:
 - /docs/migrations/CHUNK_EMBEDDINGS_MIGRATION.md - Migration guide
@@ -319,7 +319,7 @@ async def migrate_chunk_embeddings(
         # Next steps
         logger.info("Next steps:")
         logger.info("  1. Verify embeddings: MATCH (c:ContentChunk) WHERE c.embedding IS NOT NULL RETURN count(c)")
-        logger.info("  2. Test semantic search: poetry run python -m pytest tests/integration/test_chunk_semantic_search.py")
+        logger.info("  2. Test semantic search: uv run python -m pytest tests/integration/test_chunk_semantic_search.py")
         logger.info("  3. Monitor query performance in production")
         logger.info("")
 
@@ -364,7 +364,7 @@ async def verify_vector_index() -> bool:
                     return True
 
         logger.warning("⚠️ Vector index 'contentchunk_embedding_idx' not found")
-        logger.warning("   Run: poetry run python scripts/create_vector_indexes.py")
+        logger.warning("   Run: uv run python scripts/create_vector_indexes.py")
         return False
 
     finally:
@@ -381,16 +381,16 @@ def main() -> None:
         epilog="""
 Examples:
   # Dry run to see what would be processed
-  poetry run python scripts/migrations/migrate_chunk_embeddings.py --dry-run
+  uv run python scripts/migrations/migrate_chunk_embeddings.py --dry-run
 
   # Process all chunks with default batch size (100)
-  poetry run python scripts/migrations/migrate_chunk_embeddings.py
+  uv run python scripts/migrations/migrate_chunk_embeddings.py
 
   # Process with custom batch size
-  poetry run python scripts/migrations/migrate_chunk_embeddings.py --batch-size 50
+  uv run python scripts/migrations/migrate_chunk_embeddings.py --batch-size 50
 
   # Process limited number of chunks (for testing)
-  poetry run python scripts/migrations/migrate_chunk_embeddings.py --limit 1000 --dry-run
+  uv run python scripts/migrations/migrate_chunk_embeddings.py --limit 1000 --dry-run
 
 Performance:
   - Batch size 100: ~10-15s per batch (OpenAI API limits)
@@ -402,7 +402,7 @@ Cost estimate:
   - 10,000 chunks = ~$1.00
 
 Prerequisites:
-  1. Vector index created: poetry run python scripts/create_vector_indexes.py
+  1. Vector index created: uv run python scripts/create_vector_indexes.py
   2. GenAI enabled in config (GENAI_ENABLED=True)
   3. Embeddings enabled (GENAI_EMBEDDINGS_ENABLED=True)
   4. OpenAI API key configured

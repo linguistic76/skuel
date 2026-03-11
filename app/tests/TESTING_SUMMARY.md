@@ -37,7 +37,7 @@ export DEEPGRAM_API_KEY="your-key"
 # Neo4j already running
 
 # 2. Clean test database before running
-poetry run python -c "
+uv run python -c "
 from neo4j import GraphDatabase
 driver = GraphDatabase.driver('neo4j://localhost:7687', auth=('neo4j', 'password'))
 with driver.session() as session:
@@ -46,7 +46,7 @@ driver.close()
 "
 
 # 3. Run tests
-poetry run pytest tests/test_graphql_queries.py -v
+uv run pytest tests/test_graphql_queries.py -v
 ```
 
 **Benefits**:

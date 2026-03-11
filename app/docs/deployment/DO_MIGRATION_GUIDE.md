@@ -20,7 +20,7 @@ SKUEL's infrastructure evolves in three stages. This guide covers Stage 2.
 Stage 1 (Current)          Stage 2 (This Guide)           Stage 3 (End Goal)
 ─────────────────          ────────────────────           ──────────────────
 Local Docker Neo4j    →    DO Droplet Neo4j          →    AuraDB
-Local app (poetry)         DO App Platform (app)          DO App Platform (app)
+Local app (uv)         DO App Platform (app)          DO App Platform (app)
                                                           See: AURADB_MIGRATION_GUIDE.md
 ```
 
@@ -319,7 +319,7 @@ The GenAI plugin on the Droplet uses per-query token passing (same as local Dock
 # SSH tunnel to the Droplet, then run from your local machine:
 ssh -L 7687:localhost:7687 root@<droplet-ip> &
 
-poetry run python -c "
+uv run python -c "
 import asyncio, os
 from neo4j import AsyncGraphDatabase
 
@@ -459,7 +459,7 @@ The GenAI plugin takes 60-90 seconds to initialize on first container start. If 
 
 Check the deploy logs. Common causes:
 - `Dockerfile.production` Python version mismatch with `pyproject.toml`
-- Missing `poetry.lock` in the build context (ensure it is committed to git)
+- Missing `uv.lock` in the build context (ensure it is committed to git)
 - Health check failing: `/health` endpoint must return 200 within the configured timeout
 
 ### Data loss after Droplet restart

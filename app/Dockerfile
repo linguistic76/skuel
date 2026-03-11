@@ -13,19 +13,15 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Poetry
-ENV POETRY_HOME="/opt/poetry"
-ENV POETRY_VENV_IN_PROJECT=1
-ENV POETRY_NO_INTERACTION=1
-ENV POETRY_CACHE_DIR=/opt/poetry/.cache
-RUN pip install poetry==1.8.5
+# Install uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
+ENV UV_LINK_MODE=copy
 
 WORKDIR /app
 
 # Copy dependency files and install (cached layer)
-COPY pyproject.toml poetry.lock ./
-RUN poetry install --no-root && \
-    poetry cache clear --all pypi
+COPY pyproject.toml uv.lock ./
+RUN uv sync --no-root
 
 # App code is bind-mounted via docker-compose volumes
 # No COPY of application code here
@@ -33,4 +29,4 @@ RUN poetry install --no-root && \
 ARG APP_PORT=8000
 EXPOSE $APP_PORT
 
-CMD ["poetry", "run", "python", "main.py"]
+CMD ["uv", "run", "python", "main.py"]

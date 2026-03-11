@@ -408,7 +408,7 @@ schema = strawberry.Schema(
 **Test authenticated queries:**
 ```bash
 # 1. Start the server
-poetry run python main.py
+uv run python main.py
 
 # 2. Log in via browser
 # Navigate to http://localhost:8000/login

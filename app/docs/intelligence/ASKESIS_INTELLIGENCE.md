@@ -385,13 +385,13 @@ def process_user(askesis: AskesisOperations) -> Result[...]:
 
 ```bash
 # Unit tests
-poetry run pytest tests/unit/services/test_askesis_service.py -v
+uv run pytest tests/unit/services/test_askesis_service.py -v
 
 # Integration tests
-poetry run pytest tests/integration/askesis/ -v
+uv run pytest tests/integration/askesis/ -v
 
 # Protocol compliance
-poetry run python -c "
+uv run python -c "
 from core.ports import AskesisOperations
 from core.services.askesis_service import AskesisService
 print('Protocol defined correctly')

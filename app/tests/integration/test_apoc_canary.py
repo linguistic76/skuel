@@ -368,5 +368,5 @@ class TestNeo4jVersionCanary:
 
         assert driver_version.startswith("5.26"), (
             f"Expected driver 5.26.x, got {driver_version}. "
-            "Run 'poetry install' to use pinned version."
+            "Run 'uv sync' to use pinned version."
         )

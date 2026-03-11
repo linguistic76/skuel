@@ -310,8 +310,8 @@ All files pass:
 
 ```bash
 # Unit tests (service layer)
-poetry run pytest tests/test_user_context_service.py -v
-poetry run pytest tests/test_visualization_service.py -v
+uv run pytest tests/test_user_context_service.py -v
+uv run pytest tests/test_visualization_service.py -v
 
 # Integration tests (API layer)
 curl http://localhost:8000/api/context/health?user_uid=user.demo

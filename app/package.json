@@ -6,7 +6,7 @@
   "scripts": {
     "codegen": "graphql-codegen --config codegen.yml",
     "codegen:watch": "graphql-codegen --config codegen.yml --watch",
-    "export-schema": "poetry run python scripts/export_graphql_schema.py",
+    "export-schema": "uv run python scripts/export_graphql_schema.py",
     "generate": "npm run export-schema && npm run codegen",
     "css:build": "npx tailwindcss -i ./static/css/input.css -o ./static/css/output.css",
     "css:watch": "npx tailwindcss -i ./static/css/input.css -o ./static/css/output.css --watch",

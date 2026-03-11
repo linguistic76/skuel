@@ -3,7 +3,7 @@
 **Purpose:** Single source of truth for bidirectional skill-documentation mapping.
 
 **Generated:** This file is auto-generated from `skills_metadata.yaml` and pattern doc frontmatter.
-**Regenerate:** Run `poetry run python scripts/generate_cross_reference_index.py`
+**Regenerate:** Run `uv run python scripts/generate_cross_reference_index.py`
 
 ---
 
@@ -408,7 +408,7 @@ For each documentation category, this section shows which skills are relevant.
 
 **How to Update:**
 ```bash
-poetry run python scripts/generate_cross_reference_index.py
+uv run python scripts/generate_cross_reference_index.py
 ```
 
 **Related Files:**

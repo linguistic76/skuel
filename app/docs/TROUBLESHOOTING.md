@@ -345,7 +345,7 @@ If issues persist:
 
 1. **Check logs**: Look for ERROR or WARNING messages in server output
 2. **Verify environment**: Ensure `.env` file has required variables
-3. **Test services**: Use `poetry run pytest tests/integration/ -v` to verify core functionality
+3. **Test services**: Use `uv run pytest tests/integration/ -v` to verify core functionality
 4. **Consult docs**: Check `/docs/` for architecture and pattern guides
 5. **Search issues**: Look in `/docs/migrations/` and completion documents for similar problems
 

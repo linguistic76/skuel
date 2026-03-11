@@ -7,9 +7,9 @@ Parses a hierarchical markdown file (e.g., a Map of Content) and generates
 KU markdown files in the Obsidian vault for each heading (H3-H6).
 
 Usage:
-    poetry run python scripts/generate_kus_from_moc.py
-    poetry run python scripts/generate_kus_from_moc.py --dry-run
-    poetry run python scripts/generate_kus_from_moc.py --section stories
+    uv run python scripts/generate_kus_from_moc.py
+    uv run python scripts/generate_kus_from_moc.py --dry-run
+    uv run python scripts/generate_kus_from_moc.py --section stories
 """
 
 import argparse

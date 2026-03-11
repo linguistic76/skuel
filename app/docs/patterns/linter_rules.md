@@ -264,49 +264,49 @@ def validate_config():
 **Run all linters:**
 ```bash
 # Ruff - fast Python linter
-poetry run ruff check .
+uv run ruff check .
 
 # MyPy - type checking
-poetry run mypy core/ adapters/ routes/
+uv run mypy core/ adapters/ routes/
 
 # SKUEL pattern linter (all rules)
-poetry run python scripts/lint_skuel.py
+uv run python scripts/lint_skuel.py
 
 # With error exit for CI
-poetry run python scripts/lint_skuel.py --check
+uv run python scripts/lint_skuel.py --check
 ```
 
 **New CLI options (December 2025):**
 ```bash
 # Lint specific file or directory
-poetry run python scripts/lint_skuel.py --file core/services/
+uv run python scripts/lint_skuel.py --file core/services/
 
 # Run only specific rules
-poetry run python scripts/lint_skuel.py --rule SKUEL011 --rule SKUEL012
+uv run python scripts/lint_skuel.py --rule SKUEL011 --rule SKUEL012
 
 # Show rule documentation
-poetry run python scripts/lint_skuel.py --explain SKUEL011
+uv run python scripts/lint_skuel.py --explain SKUEL011
 
 # List all available rules
-poetry run python scripts/lint_skuel.py --list-rules
+uv run python scripts/lint_skuel.py --list-rules
 
 # Show code context around violations
-poetry run python scripts/lint_skuel.py --context
+uv run python scripts/lint_skuel.py --context
 
 # Quiet mode for CI (minimal output)
-poetry run python scripts/lint_skuel.py --quiet --check
+uv run python scripts/lint_skuel.py --quiet --check
 
 # JSON output for tooling integration
-poetry run python scripts/lint_skuel.py --json
+uv run python scripts/lint_skuel.py --json
 
 # Treat warnings as errors
-poetry run python scripts/lint_skuel.py --strict
+uv run python scripts/lint_skuel.py --strict
 ```
 
 **Auto-fix violations (where possible):**
 ```bash
-poetry run ruff check --fix .
-poetry run python scripts/lint_skuel.py --fix
+uv run ruff check --fix .
+uv run python scripts/lint_skuel.py --fix
 ```
 
 ## CI/CD Integration
@@ -316,7 +316,7 @@ Add to pre-commit hooks or CI pipeline:
 ```yaml
 # .github/workflows/ci.yml
 - name: Lint SKUEL patterns
-  run: poetry run python scripts/lint_skuel.py --check
+  run: uv run python scripts/lint_skuel.py --check
 ```
 
 ## Linter Configuration Files

@@ -8,7 +8,7 @@
 #   Full stack (Docker):     docker compose up
 #   Full stack (detached):   docker compose up -d
 #   Neo4j only (local dev):  docker compose up neo4j -d
-#                            poetry run python main.py
+#                            uv run python main.py
 #
 # Neo4j data is stored at ${NEO4J_DATA_DIR:-../infrastructure/neo4j}/
 # so both this compose and infrastructure/docker-compose.yml share

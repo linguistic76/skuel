@@ -42,14 +42,14 @@ User Query → Neo4j GenAI Plugin → OpenAI API → Embeddings
 
 - **Docker & Docker Compose** (20.10+ and 2.0+)
 - **OpenAI API Key** for embedding generation
-- **Poetry** (for dependency management)
+- **uv** (for dependency management)
 
 ### Verify Prerequisites
 
 ```bash
 docker --version       # Should be 20.10+
 docker compose version # Should be 2.0+
-poetry --version       # Should be 1.7+
+uv --version       # Should be 1.7+
 python --version       # Should be 3.12+
 ```
 
@@ -115,7 +115,7 @@ OPENAI_API_KEY=sk-proj-...  # Your OpenAI API key
 cd /home/mike/skuel/app
 
 # Run verification script
-poetry run python scripts/verify_genai_setup.py
+uv run python scripts/verify_genai_setup.py
 ```
 
 **Expected Output:**
@@ -133,7 +133,7 @@ Setup complete! GenAI features ready to use.
 
 ```bash
 # Create vector indexes for all supported entities
-poetry run python scripts/create_vector_indexes.py
+uv run python scripts/create_vector_indexes.py
 ```
 
 **Expected Output:**
@@ -151,7 +151,7 @@ Total: 4 indexes created
 
 ```bash
 # Run integration tests
-poetry run pytest tests/integration/test_vector_search.py -v
+uv run pytest tests/integration/test_vector_search.py -v
 ```
 
 **Expected:** All tests passing
@@ -281,7 +281,7 @@ When embeddings are unavailable:
 
 ```bash
 # Disable GenAI to test fallback behavior
-GENAI_ENABLED=false poetry run python main.py
+GENAI_ENABLED=false uv run python main.py
 
 # Verify keyword search works
 curl http://localhost:8000/api/ku/search?q=python
@@ -379,7 +379,7 @@ Vector indexes are created automatically on first use, but you can create them m
 
 ```bash
 # Create missing indexes
-poetry run python scripts/create_vector_indexes.py
+uv run python scripts/create_vector_indexes.py
 ```
 
 **Manual Index Creation (if needed):**
@@ -409,7 +409,7 @@ OPTIONS {
 
 1. **Reduce batch size:**
    ```bash
-   poetry run python scripts/generate_embeddings_batch.py --batch-size 10
+   uv run python scripts/generate_embeddings_batch.py --batch-size 10
    ```
 
 2. **Add delays between batches:**
@@ -425,7 +425,7 @@ OPTIONS {
 4. **Process incrementally:**
    ```bash
    # Process one entity type at a time
-   poetry run python scripts/generate_embeddings_batch.py --label Ku --max-batches 10
+   uv run python scripts/generate_embeddings_batch.py --label Ku --max-batches 10
    ```
 
 ### "Embedding dimension mismatch"
@@ -551,7 +551,7 @@ docker compose restart neo4j   # Restart
 **How:**
 ```bash
 # Generate embeddings in batches of 25-50
-poetry run python scripts/generate_embeddings_batch.py --batch-size 25
+uv run python scripts/generate_embeddings_batch.py --batch-size 25
 ```
 
 **Optimal Batch Sizes:**
@@ -588,7 +588,7 @@ else:
 **How:**
 ```bash
 # Use mock fixtures
-poetry run pytest tests/ -v
+uv run pytest tests/ -v
 
 # All tests use mock embeddings - no API calls
 ```
@@ -622,13 +622,13 @@ docker cp skuel-neo4j:/backups/backup_*.dump \
 
 ```bash
 # Small batches (safer, slower)
-time poetry run python scripts/generate_embeddings_batch.py --batch-size 10
+time uv run python scripts/generate_embeddings_batch.py --batch-size 10
 
 # Medium batches (recommended)
-time poetry run python scripts/generate_embeddings_batch.py --batch-size 25
+time uv run python scripts/generate_embeddings_batch.py --batch-size 25
 
 # Large batches (faster, riskier)
-time poetry run python scripts/generate_embeddings_batch.py --batch-size 50
+time uv run python scripts/generate_embeddings_batch.py --batch-size 50
 ```
 
 **Recommended:**

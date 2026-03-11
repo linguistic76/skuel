@@ -736,16 +736,16 @@ Uses typed context retrieval with:
 
 ### Unit Tests
 ```bash
-poetry run python -m pytest tests/unit/services/test_goals_intelligence_service.py -v
+uv run python -m pytest tests/unit/services/test_goals_intelligence_service.py -v
 ```
 
 ### Integration Tests
 ```bash
 # Test with real backend
-poetry run python -m pytest tests/integration/intelligence/test_goals_intelligence.py -v
+uv run python -m pytest tests/integration/intelligence/test_goals_intelligence.py -v
 
 # Test specific method
-poetry run python -m pytest tests/integration/intelligence/ -k "test_predict_goal_success" -v
+uv run python -m pytest tests/integration/intelligence/ -k "test_predict_goal_success" -v
 ```
 
 ### Example Test

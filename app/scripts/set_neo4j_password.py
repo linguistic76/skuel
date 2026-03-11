@@ -69,7 +69,7 @@ def main():
         print(f"  {store.store_path}")
         print()
         print("You can now start SKUEL:")
-        print("  poetry run python main.py")
+        print("  uv run python main.py")
         print()
 
     except ValueError as e:

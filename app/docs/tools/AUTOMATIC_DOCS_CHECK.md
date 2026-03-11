@@ -26,7 +26,7 @@ git commit -m "Add DomainConfig to LsCoreService"
      Tracks DomainConfig migration progress, currently shows 33/34
 
 Update docs with:
-  poetry run python scripts/docs_update.py --doc docs/migrations/DOMAINCONFIG_MIGRATION_COMPLETE.md
+  uv run python scripts/docs_update.py --doc docs/migrations/DOMAINCONFIG_MIGRATION_COMPLETE.md
 
 To disable this check: git config skuel.docs-check false
 ```
@@ -74,7 +74,7 @@ Run the check manually anytime:
 ./dev docs-check-fast
 
 # Check specific commit range
-poetry run python scripts/docs_contextual_check.py --since HEAD~3
+uv run python scripts/docs_contextual_check.py --since HEAD~3
 ```
 
 ### Disable the Hook
@@ -136,7 +136,7 @@ $ git commit -m "Add DomainConfig to 3 services"
      Tracks migration progress - 3 new services migrated
 
 Update docs with:
-  poetry run python scripts/docs_update.py --doc docs/migrations/DOMAINCONFIG_MIGRATION_COMPLETE.md
+  uv run python scripts/docs_update.py --doc docs/migrations/DOMAINCONFIG_MIGRATION_COMPLETE.md
 ```
 
 ### Example 2: BaseService Changes
@@ -155,8 +155,8 @@ $ git commit -m "Add new mixin to BaseService"
      Quick start guide references BaseService structure
 
 Update docs with:
-  poetry run python scripts/docs_update.py --doc docs/patterns/SERVICE_CONSOLIDATION_PATTERNS.md
-  poetry run python scripts/docs_update.py --doc docs/guides/BASESERVICE_QUICK_START.md
+  uv run python scripts/docs_update.py --doc docs/patterns/SERVICE_CONSOLIDATION_PATTERNS.md
+  uv run python scripts/docs_update.py --doc docs/guides/BASESERVICE_QUICK_START.md
 ```
 
 ### Example 3: No Updates Needed
@@ -335,7 +335,7 @@ If docs need updating but weren't detected:
 
 1. Check if the doc uses standard reference patterns
 2. Run `./dev docs-check --since HEAD~5` to check more commits
-3. Manually run: `poetry run python scripts/docs_update.py --all`
+3. Manually run: `uv run python scripts/docs_update.py --all`
 
 ---
 
@@ -415,6 +415,6 @@ git config skuel.docs-check false
 git config skuel.docs-check true
 
 # Update suggested docs
-poetry run python scripts/docs_update.py --doc <path>
-poetry run python scripts/docs_update.py --all
+uv run python scripts/docs_update.py --doc <path>
+uv run python scripts/docs_update.py --all
 ```

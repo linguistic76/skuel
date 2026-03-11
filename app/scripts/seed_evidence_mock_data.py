@@ -10,8 +10,8 @@ Creates a knowledge graph with evidence-backed relationships from:
 This demonstrates 's evidence infrastructure with real book citations.
 
 Usage:
-    poetry run python scripts/seed_evidence_mock_data.py --dry-run # Preview
-    poetry run python scripts/seed_evidence_mock_data.py --apply # Create data
+    uv run python scripts/seed_evidence_mock_data.py --dry-run # Preview
+    uv run python scripts/seed_evidence_mock_data.py --apply # Create data
 """
 
 import asyncio

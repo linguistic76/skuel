@@ -16,20 +16,20 @@ NC='\033[0m' # No Color
 case "$1" in
   format)
     echo -e "${GREEN}Formatting code...${NC}"
-    poetry run ruff format
+    uv run ruff format
     echo -e "${GREEN}✓ Formatting complete${NC}"
     ;;
 
   format-check)
     echo -e "${YELLOW}Checking formatting...${NC}"
-    poetry run ruff format --check
+    uv run ruff format --check
     ;;
 
   lint)
     echo -e "${YELLOW}Running linters...${NC}"
     failed=0
-    poetry run ruff check || failed=1
-    poetry run python scripts/lint_skuel.py || failed=1
+    uv run ruff check || failed=1
+    uv run python scripts/lint_skuel.py || failed=1
     if [ $failed -eq 1 ]; then
       echo -e "${RED}✗ Lint checks found issues${NC}"
       exit 1
@@ -38,67 +38,67 @@ case "$1" in
 
   lint-fix)
     echo -e "${GREEN}Auto-fixing lint issues...${NC}"
-    poetry run ruff check --fix
+    uv run ruff check --fix
     ;;
 
   quality)
     echo -e "${YELLOW}Running all quality checks...${NC}"
-    poetry run python scripts/run_quality_checks.py
+    uv run python scripts/run_quality_checks.py
     ;;
 
   quality-fix)
     echo -e "${GREEN}Running quality checks with auto-fix...${NC}"
-    poetry run python scripts/run_quality_checks.py --fix
+    uv run python scripts/run_quality_checks.py --fix
     ;;
 
   bloat)
     echo -e "${YELLOW}Detecting bloat (unused code)...${NC}"
-    poetry run python scripts/detect_bloat.py
+    uv run python scripts/detect_bloat.py
     ;;
 
   bloat-events)
     echo -e "${YELLOW}Detecting unused events...${NC}"
-    poetry run python scripts/detect_bloat.py --events-only
+    uv run python scripts/detect_bloat.py --events-only
     ;;
 
   bloat-methods)
     echo -e "${YELLOW}Detecting unused service methods...${NC}"
-    poetry run python scripts/detect_bloat.py --methods-only
+    uv run python scripts/detect_bloat.py --methods-only
     ;;
 
   test)
     echo -e "${GREEN}Running COMPREHENSIVE test suite (recommended)${NC}"
-    poetry run python scripts/run_tests.py comprehensive
+    uv run python scripts/run_tests.py comprehensive
     ;;
 
   test-all)
     echo -e "${YELLOW}Running COMPLETE test suite (all 1,349 tests)${NC}"
-    poetry run python scripts/run_tests.py all
+    uv run python scripts/run_tests.py all
     ;;
 
   test-integration)
     echo -e "${GREEN}Running integration tests (fast)${NC}"
-    poetry run python scripts/run_tests.py integration
+    uv run python scripts/run_tests.py integration
     ;;
 
   test-service)
     echo -e "${YELLOW}Running service tests only${NC}"
-    poetry run python scripts/run_tests.py service
+    uv run python scripts/run_tests.py service
     ;;
 
   test-unit)
     echo -e "${YELLOW}Running unit tests (many need Phase 2 migration updates)${NC}"
-    poetry run python scripts/run_tests.py unit
+    uv run python scripts/run_tests.py unit
     ;;
 
   test-quick)
     echo -e "${GREEN}Running quick smoke test${NC}"
-    poetry run python scripts/run_tests.py quick
+    uv run python scripts/run_tests.py quick
     ;;
 
   serve)
     echo -e "${GREEN}Starting SKUEL server...${NC}"
-    poetry run python main.py
+    uv run python main.py
     ;;
 
   css)
@@ -120,13 +120,13 @@ case "$1" in
     echo -e "${YELLOW}Running codebase health checks...${NC}"
     echo ""
     failed=0
-    poetry run python scripts/health/dead_modules.py || failed=1
+    uv run python scripts/health/dead_modules.py || failed=1
     echo ""
-    poetry run python scripts/health/dead_doc_links.py || failed=1
+    uv run python scripts/health/dead_doc_links.py || failed=1
     echo ""
-    poetry run python scripts/health/stale_names.py || failed=1
+    uv run python scripts/health/stale_names.py || failed=1
     echo ""
-    poetry run python scripts/validate_cross_references.py || failed=1
+    uv run python scripts/validate_cross_references.py || failed=1
     echo ""
     if [ $failed -eq 1 ]; then
       echo -e "${RED}✗ Health check found issues — review output above${NC}"
@@ -138,32 +138,32 @@ case "$1" in
 
   health-modules)
     echo -e "${YELLOW}Checking for dead Python modules...${NC}"
-    poetry run python scripts/health/dead_modules.py
+    uv run python scripts/health/dead_modules.py
     ;;
 
   health-links)
     echo -e "${YELLOW}Checking for broken documentation links...${NC}"
-    poetry run python scripts/health/dead_doc_links.py
+    uv run python scripts/health/dead_doc_links.py
     ;;
 
   health-names)
     echo -e "${YELLOW}Checking for stale/deprecated names in docs...${NC}"
-    poetry run python scripts/health/stale_names.py
+    uv run python scripts/health/stale_names.py
     ;;
 
   health-xref)
     echo -e "${YELLOW}Validating skill↔doc cross-references...${NC}"
-    poetry run python scripts/validate_cross_references.py
+    uv run python scripts/validate_cross_references.py
     ;;
 
   docs-check)
     echo -e "${YELLOW}Checking for documentation updates needed...${NC}"
-    poetry run python scripts/docs_contextual_check.py
+    uv run python scripts/docs_contextual_check.py
     ;;
 
   docs-check-fast)
     echo -e "${YELLOW}Checking for documentation updates (fast mode, no LLM)...${NC}"
-    poetry run python scripts/docs_contextual_check.py --fast
+    uv run python scripts/docs_contextual_check.py --fast
     ;;
 
   up)
@@ -173,7 +173,7 @@ case "$1" in
     ;;
 
   up-neo4j)
-    echo -e "${GREEN}Starting Neo4j only (for local dev with poetry run python main.py)...${NC}"
+    echo -e "${GREEN}Starting Neo4j only (for local dev with uv run python main.py)...${NC}"
     docker compose up neo4j -d
     ;;
 
@@ -221,7 +221,7 @@ case "$1" in
     echo ""
     echo "Docker:"
     echo "  ./dev up             - Start full stack (Neo4j + App + Prometheus + Grafana)"
-    echo "  ./dev up-neo4j       - Start Neo4j only (then: poetry run python main.py)"
+    echo "  ./dev up-neo4j       - Start Neo4j only (then: uv run python main.py)"
     echo "  ./dev down           - Stop all Docker services"
     echo ""
     echo "Development:"
@@ -238,6 +238,6 @@ case "$1" in
     echo "  ./dev bloat-events      # Find unused events"
     echo ""
     echo "Advanced Test Options:"
-    echo "  poetry run python scripts/run_tests.py --help  # See all test runner options"
+    echo "  uv run python scripts/run_tests.py --help  # See all test runner options"
     ;;
 esac

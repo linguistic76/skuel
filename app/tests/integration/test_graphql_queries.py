@@ -10,7 +10,7 @@ NOTE: These tests require:
 3. GraphQL routes registered
 
 Run with integration tests:
-    poetry run pytest tests/integration/test_graphql_queries.py -v
+    uv run pytest tests/integration/test_graphql_queries.py -v
 """
 
 import os

@@ -346,7 +346,7 @@ RETURN k.sel_category, count(m) as completions
 ### Unit Tests
 
 ```bash
-$ poetry run pytest tests/test_adaptive_sel_service.py -v
+$ uv run pytest tests/test_adaptive_sel_service.py -v
 
 ===== test session starts =====
 collected 14 items
@@ -369,15 +369,15 @@ test_get_sel_journey_all_categories .................... PASSED
 
 ```bash
 # Formatting
-$ poetry run ruff format adapters/inbound/sel_* core/services/adaptive_sel_service.py
+$ uv run ruff format adapters/inbound/sel_* core/services/adaptive_sel_service.py
 1 file reformatted, 3 files left unchanged
 
 # Linting
-$ poetry run ruff check adapters/inbound/sel_* core/services/adaptive_sel_service.py --fix
+$ uv run ruff check adapters/inbound/sel_* core/services/adaptive_sel_service.py --fix
 Found 10 errors (10 fixed, 0 remaining).
 
 # Imports
-$ poetry run python -c "from adapters.inbound.sel_routes import create_sel_routes; print('✓')"
+$ uv run python -c "from adapters.inbound.sel_routes import create_sel_routes; print('✓')"
 ✓ SEL routes import successfully
 ```
 

@@ -148,7 +148,7 @@ The path from local development to production is now a three-stage roadmap:
 Stage 1 (Current)          Stage 2 (Intermediate)         Stage 3 (End Goal)
 ─────────────────          ──────────────────────         ──────────────────
 Local Docker Neo4j    →    DO Droplet Neo4j          →    AuraDB
-Local app (poetry)         DO App Platform (app)          DO App Platform (app)
+Local app (uv)         DO App Platform (app)          DO App Platform (app)
 ```
 
 - **Stage 2** validates cloud deployment, establishes backup/monitoring habits, and reduces risk for Stage 3. See [DO Migration Guide](./DO_MIGRATION_GUIDE.md).

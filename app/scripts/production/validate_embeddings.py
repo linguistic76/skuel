@@ -157,7 +157,7 @@ async def main():
             else:
                 print("  ❌ Embedding was NOT generated")
                 print("\n  Troubleshooting:")
-                print("    1. Check app is running: poetry run python main.py")
+                print("    1. Check app is running: uv run python main.py")
                 print(
                     "    2. Check worker metrics: curl http://localhost:8000/api/monitoring/embedding-worker"
                 )

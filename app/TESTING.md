@@ -18,11 +18,11 @@ related_skills:
 ./dev test-unit
 
 # Run specific test files
-poetry run pytest tests/test_tasks_service.py -v
-poetry run pytest tests/test_tasks_scheduling_service.py -v
+uv run pytest tests/test_tasks_service.py -v
+uv run pytest tests/test_tasks_scheduling_service.py -v
 
 # Run with coverage
-poetry run pytest tests/integration/ --cov=core --cov-report=term-missing
+uv run pytest tests/integration/ --cov=core --cov-report=term-missing
 ```
 
 ## Test Suite Status
@@ -38,7 +38,7 @@ poetry run pytest tests/integration/ --cov=core --cov-report=term-missing
 ./dev test-unit
 
 # Direct command
-poetry run pytest tests/ --ignore=tests/integration/ -v
+uv run pytest tests/ --ignore=tests/integration/ -v
 ```
 
 ### ✅ Integration Tests - 100% Passing (in isolation)
@@ -52,7 +52,7 @@ poetry run pytest tests/ --ignore=tests/integration/ -v
 ./dev test-integration
 
 # Direct command
-poetry run pytest tests/integration/ -v
+uv run pytest tests/integration/ -v
 ```
 
 **Why Integration Tests Pass:**
@@ -69,7 +69,7 @@ poetry run pytest tests/integration/ -v
 
 ```bash
 # Full suite now passes
-poetry run pytest tests/ -v  # ✅ 1863 passed, 19 skipped, 0 failed
+uv run pytest tests/ -v  # ✅ 1863 passed, 19 skipped, 0 failed
 ```
 
 **Files Fixed (91 failures resolved):**
@@ -130,19 +130,19 @@ poetry run pytest tests/ -v  # ✅ 1863 passed, 19 skipped, 0 failed
 
 ```bash
 # Tasks domain
-poetry run pytest tests/test_tasks*.py -v
-poetry run pytest tests/integration/test_tasks*.py -v
+uv run pytest tests/test_tasks*.py -v
+uv run pytest tests/integration/test_tasks*.py -v
 
 # Habits domain
-poetry run pytest tests/test_habits*.py -v
-poetry run pytest tests/integration/test_habits*.py -v
+uv run pytest tests/test_habits*.py -v
+uv run pytest tests/integration/test_habits*.py -v
 
 # Goals domain
-poetry run pytest tests/test_goals*.py -v
-poetry run pytest tests/integration/test_goals*.py -v
+uv run pytest tests/test_goals*.py -v
+uv run pytest tests/integration/test_goals*.py -v
 
 # All services
-poetry run pytest tests/test_*_service.py -v
+uv run pytest tests/test_*_service.py -v
 ```
 
 ## Understanding Test Failures
@@ -380,26 +380,26 @@ mock_context_service.invalidate_context.assert_called_once_with(user_uid)
 
 ```bash
 # Run specific test file with verbose output
-poetry run pytest tests/test_tasks_service.py -v
+uv run pytest tests/test_tasks_service.py -v
 
 # Run specific test function
-poetry run pytest tests/test_tasks_service.py::test_create_task_succeeds -v
+uv run pytest tests/test_tasks_service.py::test_create_task_succeeds -v
 
 # Show short traceback for failures
-poetry run pytest tests/test_tasks_service.py --tb=short
+uv run pytest tests/test_tasks_service.py --tb=short
 
 # Run with print output visible
-poetry run pytest tests/test_tasks_service.py -v -s
+uv run pytest tests/test_tasks_service.py -v -s
 ```
 
 ### Coverage Analysis
 
 ```bash
 # Integration tests coverage
-poetry run pytest tests/integration/ --cov=core/services --cov-report=term-missing
+uv run pytest tests/integration/ --cov=core/services --cov-report=term-missing
 
 # Specific service coverage
-poetry run pytest tests/integration/test_tasks*.py --cov=core/services/tasks --cov-report=html
+uv run pytest tests/integration/test_tasks*.py --cov=core/services/tasks --cov-report=html
 
 # Open HTML coverage report
 xdg-open htmlcov/index.html
@@ -409,23 +409,23 @@ xdg-open htmlcov/index.html
 
 ```bash
 # Run only tests matching pattern
-poetry run pytest tests/ -k "task" -v
+uv run pytest tests/ -k "task" -v
 
 # Run only integration tests for tasks
-poetry run pytest tests/integration/ -k "task" -v
+uv run pytest tests/integration/ -k "task" -v
 
 # Exclude specific tests
-poetry run pytest tests/ --ignore=tests/test_broken_service.py
+uv run pytest tests/ --ignore=tests/test_broken_service.py
 ```
 
 ### Parallel Execution
 
 ```bash
 # Run tests in parallel (requires pytest-xdist)
-poetry run pytest tests/integration/ -n auto
+uv run pytest tests/integration/ -n auto
 
 # Limit parallel workers
-poetry run pytest tests/integration/ -n 4
+uv run pytest tests/integration/ -n 4
 ```
 
 ## Test Philosophy
@@ -538,7 +538,7 @@ neo4j status
 neo4j restart
 
 # Verify connection
-poetry run python -c "from neo4j import GraphDatabase; driver = GraphDatabase.driver('bolt://localhost:7687', auth=('neo4j', 'password')); driver.verify_connectivity(); print('Connected!')"
+uv run python -c "from neo4j import GraphDatabase; driver = GraphDatabase.driver('bolt://localhost:7687', auth=('neo4j', 'password')); driver.verify_connectivity(); print('Connected!')"
 ```
 
 ### Import Errors
@@ -546,7 +546,7 @@ poetry run python -c "from neo4j import GraphDatabase; driver = GraphDatabase.dr
 **Cause:** Missing test dependencies
 **Fix:**
 ```bash
-poetry install --with dev
+uv sync --with dev
 ```
 
 ### Fixture Errors
@@ -585,7 +585,7 @@ async def cleanup():
 
 **For Specific Features:**
 ```bash
-poetry run pytest tests/test_<feature>*.py -v
+uv run pytest tests/test_<feature>*.py -v
 ```
 
 **Current Status:**

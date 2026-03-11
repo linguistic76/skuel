@@ -10,7 +10,7 @@ Outputs:
     - /home/mike/0bsidian/skuel/docs/ui_component_gallery.html
 
 Usage:
-    poetry run python scripts/generate_ui_component_gallery.py
+    uv run python scripts/generate_ui_component_gallery.py
 """
 
 from datetime import datetime

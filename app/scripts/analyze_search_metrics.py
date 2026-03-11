@@ -12,10 +12,10 @@ Generates reports on:
 - Entity type distribution
 
 Usage:
-    poetry run python scripts/analyze_search_metrics.py logs/skuel.log
-    poetry run python scripts/analyze_search_metrics.py logs/skuel.log --top 20
-    poetry run python scripts/analyze_search_metrics.py logs/skuel.log --type hybrid
-    poetry run python scripts/analyze_search_metrics.py logs/skuel.log --label Ku
+    uv run python scripts/analyze_search_metrics.py logs/skuel.log
+    uv run python scripts/analyze_search_metrics.py logs/skuel.log --top 20
+    uv run python scripts/analyze_search_metrics.py logs/skuel.log --type hybrid
+    uv run python scripts/analyze_search_metrics.py logs/skuel.log --label Ku
 
 Created: January 2026
 See: /docs/architecture/SEARCH_ARCHITECTURE.md
@@ -283,19 +283,19 @@ def main():
         epilog="""
 Examples:
   # Analyze all metrics in log file
-  poetry run python scripts/analyze_search_metrics.py logs/skuel.log
+  uv run python scripts/analyze_search_metrics.py logs/skuel.log
 
   # Show top 20 queries
-  poetry run python scripts/analyze_search_metrics.py logs/skuel.log --top 20
+  uv run python scripts/analyze_search_metrics.py logs/skuel.log --top 20
 
   # Filter by search type
-  poetry run python scripts/analyze_search_metrics.py logs/skuel.log --type hybrid
+  uv run python scripts/analyze_search_metrics.py logs/skuel.log --type hybrid
 
   # Filter by entity label
-  poetry run python scripts/analyze_search_metrics.py logs/skuel.log --label Ku
+  uv run python scripts/analyze_search_metrics.py logs/skuel.log --label Ku
 
   # Set slow query threshold
-  poetry run python scripts/analyze_search_metrics.py logs/skuel.log --slow 100
+  uv run python scripts/analyze_search_metrics.py logs/skuel.log --slow 100
         """,
     )
 

@@ -3,7 +3,7 @@
 Quick test script to verify /metrics endpoint is working.
 
 Usage (from /home/mike/skuel/app):
-    poetry run python scripts/test_metrics_endpoint.py
+    uv run python scripts/test_metrics_endpoint.py
 
 Expected output:
     - Prometheus exposition format metrics

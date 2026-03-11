@@ -22,7 +22,7 @@ echo ""
 
 # Check if already enabled
 echo "Checking current status..."
-PLUGIN_STATUS=$(poetry run python -c "
+PLUGIN_STATUS=$(uv run python -c "
 import asyncio
 from neo4j import AsyncGraphDatabase
 import os
@@ -119,7 +119,7 @@ sleep 30
 echo ""
 echo "Verifying plugin is working..."
 
-VERIFICATION=$(poetry run python -c "
+VERIFICATION=$(uv run python -c "
 import asyncio
 from neo4j import AsyncGraphDatabase
 import os
@@ -157,7 +157,7 @@ if echo "$VERIFICATION" | grep -q "SUCCESS"; then
     echo "     ./scripts/production/deploy_checklist.sh"
     echo ""
     echo "  2. Start the application:"
-    echo "     poetry run python main.py"
+    echo "     uv run python main.py"
     echo ""
     echo "  3. Monitor worker metrics:"
     echo "     curl http://localhost:8000/api/monitoring/embedding-worker"

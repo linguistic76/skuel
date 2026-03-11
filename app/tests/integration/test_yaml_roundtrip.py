@@ -9,7 +9,7 @@ Requires:
 - Neo4j testcontainer
 - Real file I/O
 
-Run with: poetry run pytest tests/integration/test_yaml_roundtrip.py -v
+Run with: uv run pytest tests/integration/test_yaml_roundtrip.py -v
 """
 
 import pytest

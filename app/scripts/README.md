@@ -9,7 +9,7 @@ Scripts for managing Neo4j database and curriculum ingestion.
 **One command to clear database and load curriculum:**
 
 ```bash
-poetry run python scripts/fresh_start_mindfulness.py
+uv run python scripts/fresh_start_mindfulness.py
 ```
 
 This will:
@@ -23,7 +23,7 @@ This will:
 **Remove all data (keep constraints/indexes):**
 
 ```bash
-poetry run python scripts/clear_neo4j.py
+uv run python scripts/clear_neo4j.py
 ```
 
 Prompts: Type `DELETE ALL` to confirm
@@ -31,7 +31,7 @@ Prompts: Type `DELETE ALL` to confirm
 **Complete reset (remove data + constraints + indexes):**
 
 ```bash
-poetry run python scripts/clear_neo4j.py reset
+uv run python scripts/clear_neo4j.py reset
 ```
 
 Prompts: Type `DELETE EVERYTHING` to confirm
@@ -39,7 +39,7 @@ Prompts: Type `DELETE EVERYTHING` to confirm
 **Clear specific bundle only:**
 
 ```bash
-poetry run python scripts/clear_neo4j.py bundle mindfulness_101
+uv run python scripts/clear_neo4j.py bundle mindfulness_101
 ```
 
 ## Available Scripts
@@ -50,12 +50,12 @@ Combined script for clean slate ingestion.
 
 **Default Usage:**
 ```bash
-poetry run python scripts/fresh_start_mindfulness.py
+uv run python scripts/fresh_start_mindfulness.py
 ```
 
 **Custom Bundle:**
 ```bash
-poetry run python scripts/fresh_start_mindfulness.py yaml_templates/domains/study_skills_101
+uv run python scripts/fresh_start_mindfulness.py yaml_templates/domains/study_skills_101
 ```
 
 **What it does:**
@@ -122,9 +122,9 @@ Flexible database clearing with multiple modes.
 
 **Mode 1: Clear Data (Default)**
 ```bash
-poetry run python scripts/clear_neo4j.py
+uv run python scripts/clear_neo4j.py
 # or
-poetry run python scripts/clear_neo4j.py clear
+uv run python scripts/clear_neo4j.py clear
 ```
 
 - Deletes: All nodes and relationships
@@ -133,7 +133,7 @@ poetry run python scripts/clear_neo4j.py clear
 
 **Mode 2: Complete Reset**
 ```bash
-poetry run python scripts/clear_neo4j.py reset
+uv run python scripts/clear_neo4j.py reset
 ```
 
 - Deletes: All nodes, relationships, constraints, indexes
@@ -142,7 +142,7 @@ poetry run python scripts/clear_neo4j.py reset
 
 **Mode 3: Bundle-Specific Clear**
 ```bash
-poetry run python scripts/clear_neo4j.py bundle mindfulness_101
+uv run python scripts/clear_neo4j.py bundle mindfulness_101
 ```
 
 - Deletes: Only entities with UIDs matching bundle
@@ -205,37 +205,37 @@ Scripts show:
 
 ```bash
 # One command!
-poetry run python scripts/fresh_start_mindfulness.py
+uv run python scripts/fresh_start_mindfulness.py
 ```
 
 ### 2. Clear and Load Different Bundle
 
 ```bash
 # Clear database
-poetry run python scripts/clear_neo4j.py
+uv run python scripts/clear_neo4j.py
 
 # Then use ingestion example
-poetry run python examples/yaml_ingestion_example.py
+uv run python examples/yaml_ingestion_example.py
 ```
 
 ### 3. Replace One Bundle with Another
 
 ```bash
 # Clear specific bundle
-poetry run python scripts/clear_neo4j.py bundle mindfulness_101
+uv run python scripts/clear_neo4j.py bundle mindfulness_101
 
 # Ingest new bundle
-poetry run python examples/yaml_ingestion_example.py
+uv run python examples/yaml_ingestion_example.py
 ```
 
 ### 4. Complete Database Reset
 
 ```bash
 # Nuclear option - removes everything
-poetry run python scripts/clear_neo4j.py reset
+uv run python scripts/clear_neo4j.py reset
 
 # Then recreate constraints and ingest
-poetry run python scripts/fresh_start_mindfulness.py
+uv run python scripts/fresh_start_mindfulness.py
 ```
 
 ### 5. Verify What's in Database
@@ -280,7 +280,7 @@ Error: Invalid username or password
 
 **Solution:**
 1. Check Neo4j credentials in `.env` or environment
-2. Set password via credential store: `poetry run python scripts/set_neo4j_password.py`
+2. Set password via credential store: `uv run python scripts/set_neo4j_password.py`
 3. Or reset Neo4j password
 
 ### Partial Ingestion
@@ -304,7 +304,7 @@ Error: Node(123) already exists with uid 'ku:example'
 ```
 
 **Solution:**
-1. Clear database first: `poetry run python scripts/clear_neo4j.py`
+1. Clear database first: `uv run python scripts/clear_neo4j.py`
 2. Then re-ingest bundle
 
 ## Next Steps

@@ -273,7 +273,7 @@ During decomposition, fallback patterns were removed:
 
 **Verification:**
 ```bash
-poetry run pytest tests/unit/test_protocol_mixin_compliance.py -v
+uv run pytest tests/unit/test_protocol_mixin_compliance.py -v
 # Expected: 29 passed
 ```
 
