@@ -184,7 +184,7 @@ class QueryProcessor:
             relevant_context["mentioned_entities"] = extracted_entities
 
         # Step 5: Build LLM-friendly context and generate answer
-        llm_context = self.response_generator.build_llm_context(user_context, question)
+        llm_context = self.response_generator.build_llm_context(user_context, question, intent)
 
         # Step 6: Generate natural language answer using LLM
         answer = await self.llm_service.generate_context_aware_answer(

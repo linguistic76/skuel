@@ -32,6 +32,45 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
+# Maps QueryIntent → which context sections to include in the LLM prompt.
+# Sections not listed here ("workload", "alerts") are always included.
+# "activity_report" uses query-text matching (broad keyword set doesn't map to one intent).
+INTENT_CONTEXT_SECTIONS: dict[QueryIntent, frozenset[str]] = {
+    QueryIntent.HIERARCHICAL: frozenset({"knowledge", "goals", "life_path"}),
+    QueryIntent.PREREQUISITE: frozenset({"knowledge"}),
+    QueryIntent.PRACTICE: frozenset({"tasks", "knowledge"}),
+    QueryIntent.EXPLORATORY: frozenset(
+        {"tasks", "knowledge", "goals", "habits", "events", "life_path"}
+    ),
+    QueryIntent.RELATIONSHIP: frozenset({"knowledge"}),
+    QueryIntent.AGGREGATION: frozenset(
+        {"tasks", "knowledge", "goals", "habits", "events", "life_path"}
+    ),
+    QueryIntent.SPECIFIC: frozenset(
+        {"tasks", "knowledge", "goals", "habits", "events", "life_path"}
+    ),
+}
+
+# Keywords that trigger including the activity report section.
+# This set is broad and doesn't map to a single QueryIntent.
+_ACTIVITY_REPORT_KEYWORDS: frozenset[str] = frozenset(
+    {
+        "feedback",
+        "pattern",
+        "review",
+        "reflect",
+        "report",
+        "progress",
+        "trend",
+        "doing",
+        "going",
+        "focus",
+        "week",
+        "lately",
+        "recently",
+    }
+)
+
 
 class ResponseGenerator:
     """
@@ -52,107 +91,53 @@ class ResponseGenerator:
         """Initialize response generator."""
         logger.info("ResponseGenerator initialized")
 
-    def build_llm_context(self, user_context: UserContext, query: str) -> str:
+    def build_llm_context(
+        self, user_context: UserContext, query: str, intent: QueryIntent
+    ) -> str:
         """
         Convert UserContext into LLM-friendly natural language.
 
-        Intelligently selects relevant fields based on query keywords,
-        building a rich context for the LLM to understand user's current state.
+        Uses the classified QueryIntent to select which context sections to include,
+        rather than re-detecting intent via keyword heuristics.
 
         Args:
             user_context: Complete user context with 240+ fields
-            query: User's question (used for intelligent field selection)
+            query: User's question (used only for activity report keyword matching)
+            intent: Classified query intent from IntentClassifier
 
         Returns:
             Natural language context string for LLM consumption
         """
-        context_parts = []
+        sections = INTENT_CONTEXT_SECTIONS.get(intent, INTENT_CONTEXT_SECTIONS[QueryIntent.SPECIFIC])
+        context_parts: list[str] = []
 
         # Always include user identity
         context_parts.append(f"User: {user_context.username}")
 
-        query_lower = query.lower()
+        # --- Domain sections driven by intent ---
 
-        # Task context (if query mentions tasks/work)
-        if any(word in query_lower for word in ["task", "work", "do", "complete", "todo"]):
-            context_parts.append("\n--- Tasks ---")
-            context_parts.append(f"Active Tasks: {len(user_context.active_task_uids)}")
-            if user_context.overdue_task_uids:
-                context_parts.append(f"Overdue: {len(user_context.overdue_task_uids)} tasks")
-            if user_context.blocked_task_uids:
-                context_parts.append(f"Blocked: {len(user_context.blocked_task_uids)} tasks")
-            if user_context.today_task_uids:
-                context_parts.append(f"Due Today: {len(user_context.today_task_uids)} tasks")
+        if "tasks" in sections:
+            self._append_tasks_section(context_parts, user_context)
 
-        # Knowledge context (if query mentions learning/knowledge)
-        if any(word in query_lower for word in ["learn", "know", "study", "understand", "master"]):
-            context_parts.append("\n--- Knowledge & Learning ---")
-            mastery_avg = user_context.mastery_average
-            context_parts.append(f"Average Mastery: {mastery_avg:.0%}")
-            context_parts.append(
-                f"Mastered: {len(user_context.mastered_knowledge_uids)} knowledge units"
-            )
-            context_parts.append(
-                f"In Progress: {len(user_context.in_progress_knowledge_uids)} knowledge units"
-            )
+        if "knowledge" in sections:
+            self._append_knowledge_section(context_parts, user_context)
 
-            if user_context.current_learning_path_uid:
-                context_parts.append(
-                    f"Current Learning Path: {user_context.current_learning_path_uid}"
-                )
+        if "goals" in sections:
+            self._append_goals_section(context_parts, user_context)
 
-            if user_context.next_recommended_knowledge:
-                context_parts.append(
-                    f"Ready to Learn: {len(user_context.next_recommended_knowledge)} topics"
-                )
+        if "habits" in sections:
+            self._append_habits_section(context_parts, user_context)
 
-        # Goal context (if query mentions goals/progress/achieve)
-        if any(word in query_lower for word in ["goal", "achieve", "progress", "target"]):
-            context_parts.append("\n--- Goals ---")
-            context_parts.append(f"Active Goals: {len(user_context.active_goal_uids)}")
-            if user_context.goal_progress:
-                avg_progress = sum(user_context.goal_progress.values()) / len(
-                    user_context.goal_progress
-                )
-                context_parts.append(f"Average Progress: {avg_progress:.0%}")
+        if "events" in sections:
+            self._append_events_section(context_parts, user_context)
 
-            # Goals nearing deadline
-            near_deadline = user_context.get_goals_nearing_deadline(days=30)
-            if near_deadline:
-                context_parts.append(f"Goals with deadlines in 30 days: {len(near_deadline)}")
+        # --- Always-included sections ---
 
-        # Habit context (if query mentions habits/routine/streak)
-        if any(
-            word in query_lower for word in ["habit", "routine", "daily", "streak", "consistency"]
-        ):
-            context_parts.append("\n--- Habits ---")
-            context_parts.append(f"Active Habits: {len(user_context.active_habit_uids)}")
-            if user_context.habit_streaks:
-                max_streak = max(user_context.habit_streaks.values())
-                avg_streak = sum(user_context.habit_streaks.values()) / len(
-                    user_context.habit_streaks
-                )
-                context_parts.append(f"Longest Streak: {max_streak} days")
-                context_parts.append(f"Average Streak: {avg_streak:.1f} days")
-            if user_context.at_risk_habits:
-                context_parts.append(
-                    f"At Risk: {len(user_context.at_risk_habits)} habits need attention"
-                )
-
-        # Event context (if query mentions events/schedule/calendar)
-        if any(word in query_lower for word in ["event", "schedule", "calendar", "meeting"]):
-            context_parts.append("\n--- Events ---")
-            context_parts.append(f"Upcoming Events: {len(user_context.upcoming_event_uids)}")
-            if user_context.today_event_uids:
-                context_parts.append(f"Today: {len(user_context.today_event_uids)} events")
-
-        # Always include workload and capacity
         context_parts.append("\n--- Workload & Capacity ---")
         context_parts.append(f"Current Workload: {user_context.current_workload_score:.0%}")
         capacity_available = 100 - (user_context.current_workload_score * 100)
         context_parts.append(f"Capacity Available: {capacity_available:.0f}%")
 
-        # State flags (always relevant)
         if user_context.is_blocked or user_context.is_overwhelmed:
             context_parts.append("\n--- Alerts ---")
             if user_context.is_blocked:
@@ -160,77 +145,117 @@ class ResponseGenerator:
             if user_context.is_overwhelmed:
                 context_parts.append("Workload overwhelming")
 
-        # Life path alignment (if query mentions life/align/purpose)
-        if (
-            any(word in query_lower for word in ["life", "align", "purpose", "direction"])
-            and user_context.life_path_uid
-        ):
-            context_parts.append("\n--- Life Path ---")
-            context_parts.append(
-                f"Life Path Alignment: {user_context.life_path_alignment_score:.0%}"
-            )
-            aligned = user_context.is_life_aligned(MasteryLevel.DEFAULT)
-            context_parts.append(f"Status: {'Aligned' if aligned else 'Needs attention'}")
+        # --- Conditionally-included sections ---
 
-        # Activity report context (if query mentions feedback/patterns/reflection)
+        if "life_path" in sections and user_context.life_path_uid:
+            self._append_life_path_section(context_parts, user_context)
+
+        # Activity report: uses query-text matching (broad keyword set doesn't map to one intent)
+        query_lower = query.lower()
         if (
-            any(
-                word in query_lower
-                for word in [
-                    "feedback",
-                    "pattern",
-                    "review",
-                    "reflect",
-                    "report",
-                    "progress",
-                    "trend",
-                    "doing",
-                    "going",
-                    "focus",
-                    "week",
-                    "lately",
-                    "recently",
-                ]
-            )
+            any(word in query_lower for word in _ACTIVITY_REPORT_KEYWORDS)
             and user_context.latest_activity_report_uid
         ):
-            report_age_days: int | None = None
-            generated_at = user_context.latest_activity_report_generated_at
-            if generated_at is not None:
-                now = datetime.now(tz=UTC)
-                aware_generated_at = (
-                    generated_at.replace(tzinfo=UTC)
-                    if generated_at.tzinfo is None
-                    else generated_at
-                )
-                report_age_days = (now - aware_generated_at).days
-            age_label = (
-                f" (from {report_age_days} days ago — may not reflect current activity)"
-                if report_age_days is not None and report_age_days > 30
-                else ""
-            )
-            context_parts.append(f"\n--- Recent Activity Analysis{age_label} ---")
-            if user_context.latest_activity_report_period:
-                context_parts.append(f"Period: last {user_context.latest_activity_report_period}")
-            if user_context.latest_activity_report_content:
-                content = user_context.latest_activity_report_content
-                _max = 500
-                if len(content) <= _max:
-                    snippet = content
-                else:
-                    boundary = max(
-                        content.rfind(". ", 0, _max),
-                        content.rfind("\n", 0, _max),
-                    )
-                    snippet = content[: boundary + 1] if boundary != -1 else content[:_max]
-                trailing = "..." if len(content) > len(snippet) else ""
-                context_parts.append(f"AI synthesis: {snippet}{trailing}")
-            if user_context.latest_activity_report_user_annotation:
-                context_parts.append(
-                    f"Your reflection: {user_context.latest_activity_report_user_annotation}"
-                )
+            self._append_activity_report_section(context_parts, user_context)
 
         return "\n".join(context_parts)
+
+    # ========================================================================
+    # PRIVATE - CONTEXT SECTION RENDERERS
+    # ========================================================================
+
+    @staticmethod
+    def _append_tasks_section(parts: list[str], ctx: UserContext) -> None:
+        parts.append("\n--- Tasks ---")
+        parts.append(f"Active Tasks: {len(ctx.active_task_uids)}")
+        if ctx.overdue_task_uids:
+            parts.append(f"Overdue: {len(ctx.overdue_task_uids)} tasks")
+        if ctx.blocked_task_uids:
+            parts.append(f"Blocked: {len(ctx.blocked_task_uids)} tasks")
+        if ctx.today_task_uids:
+            parts.append(f"Due Today: {len(ctx.today_task_uids)} tasks")
+
+    @staticmethod
+    def _append_knowledge_section(parts: list[str], ctx: UserContext) -> None:
+        parts.append("\n--- Knowledge & Learning ---")
+        parts.append(f"Average Mastery: {ctx.mastery_average:.0%}")
+        parts.append(f"Mastered: {len(ctx.mastered_knowledge_uids)} knowledge units")
+        parts.append(f"In Progress: {len(ctx.in_progress_knowledge_uids)} knowledge units")
+        if ctx.current_learning_path_uid:
+            parts.append(f"Current Learning Path: {ctx.current_learning_path_uid}")
+        if ctx.next_recommended_knowledge:
+            parts.append(f"Ready to Learn: {len(ctx.next_recommended_knowledge)} topics")
+
+    @staticmethod
+    def _append_goals_section(parts: list[str], ctx: UserContext) -> None:
+        parts.append("\n--- Goals ---")
+        parts.append(f"Active Goals: {len(ctx.active_goal_uids)}")
+        if ctx.goal_progress:
+            avg_progress = sum(ctx.goal_progress.values()) / len(ctx.goal_progress)
+            parts.append(f"Average Progress: {avg_progress:.0%}")
+        near_deadline = ctx.get_goals_nearing_deadline(days=30)
+        if near_deadline:
+            parts.append(f"Goals with deadlines in 30 days: {len(near_deadline)}")
+
+    @staticmethod
+    def _append_habits_section(parts: list[str], ctx: UserContext) -> None:
+        parts.append("\n--- Habits ---")
+        parts.append(f"Active Habits: {len(ctx.active_habit_uids)}")
+        if ctx.habit_streaks:
+            max_streak = max(ctx.habit_streaks.values())
+            avg_streak = sum(ctx.habit_streaks.values()) / len(ctx.habit_streaks)
+            parts.append(f"Longest Streak: {max_streak} days")
+            parts.append(f"Average Streak: {avg_streak:.1f} days")
+        if ctx.at_risk_habits:
+            parts.append(f"At Risk: {len(ctx.at_risk_habits)} habits need attention")
+
+    @staticmethod
+    def _append_events_section(parts: list[str], ctx: UserContext) -> None:
+        parts.append("\n--- Events ---")
+        parts.append(f"Upcoming Events: {len(ctx.upcoming_event_uids)}")
+        if ctx.today_event_uids:
+            parts.append(f"Today: {len(ctx.today_event_uids)} events")
+
+    @staticmethod
+    def _append_life_path_section(parts: list[str], ctx: UserContext) -> None:
+        parts.append("\n--- Life Path ---")
+        parts.append(f"Life Path Alignment: {ctx.life_path_alignment_score:.0%}")
+        aligned = ctx.is_life_aligned(MasteryLevel.DEFAULT)
+        parts.append(f"Status: {'Aligned' if aligned else 'Needs attention'}")
+
+    @staticmethod
+    def _append_activity_report_section(parts: list[str], ctx: UserContext) -> None:
+        report_age_days: int | None = None
+        generated_at = ctx.latest_activity_report_generated_at
+        if generated_at is not None:
+            now = datetime.now(tz=UTC)
+            aware_generated_at = (
+                generated_at.replace(tzinfo=UTC) if generated_at.tzinfo is None else generated_at
+            )
+            report_age_days = (now - aware_generated_at).days
+        age_label = (
+            f" (from {report_age_days} days ago — may not reflect current activity)"
+            if report_age_days is not None and report_age_days > 30
+            else ""
+        )
+        parts.append(f"\n--- Recent Activity Analysis{age_label} ---")
+        if ctx.latest_activity_report_period:
+            parts.append(f"Period: last {ctx.latest_activity_report_period}")
+        if ctx.latest_activity_report_content:
+            content = ctx.latest_activity_report_content
+            _max = 500
+            if len(content) <= _max:
+                snippet = content
+            else:
+                boundary = max(
+                    content.rfind(". ", 0, _max),
+                    content.rfind("\n", 0, _max),
+                )
+                snippet = content[: boundary + 1] if boundary != -1 else content[:_max]
+            trailing = "..." if len(content) > len(snippet) else ""
+            parts.append(f"AI synthesis: {snippet}{trailing}")
+        if ctx.latest_activity_report_user_annotation:
+            parts.append(f"Your reflection: {ctx.latest_activity_report_user_annotation}")
 
     def generate_actions(
         self,
