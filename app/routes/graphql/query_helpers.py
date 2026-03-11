@@ -32,6 +32,20 @@ def unwrap_result[T](result: Result[T], fallback: T) -> T:
     return result.value
 
 
+def unwrap_list[T](result: Result[list[T]]) -> list[T]:
+    """Unwrap a Result containing a list. Returns [] on error or None."""
+    if result.is_error or not result.value:
+        return []
+    return result.value
+
+
+def unwrap_optional[T](result: Result[T]) -> T | None:
+    """Unwrap a Result to its value or None."""
+    if result.is_error:
+        return None
+    return result.value
+
+
 class GraphQLQueryHelpers:
     """
     Query helpers optimized for GraphQL patterns.
@@ -169,5 +183,7 @@ class GraphQLQueryHelpers:
 
 __all__ = [
     "GraphQLQueryHelpers",
+    "unwrap_list",
+    "unwrap_optional",
     "unwrap_result",
 ]

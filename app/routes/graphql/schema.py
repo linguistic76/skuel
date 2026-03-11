@@ -34,7 +34,7 @@ if TYPE_CHECKING:
     from core.models.pathways.learning_step import LearningStep as LsModel
     from core.utils.result_simplified import Result
     from routes.graphql.protocols import CurriculumEntityLike, LearningStepLike
-from routes.graphql.query_helpers import unwrap_result
+from routes.graphql.query_helpers import unwrap_list, unwrap_result
 from routes.graphql.types import (
     Blocker,
     CrossDomainOpportunity,
@@ -345,7 +345,7 @@ class Query:
         # Get cross-domain service from bootstrap (circular import resolved)
         cross_domain_service = context.services.cross_domain
         if not cross_domain_service:
-            raise ValueError("Cross-domain service not available")
+            return []
 
         # GUARDRAIL: Validate max opportunities limit
         safe_max = validate_list_limit(max_opportunities, default=10)
@@ -378,12 +378,13 @@ class Query:
             min_confidence=ConfidenceLevel.LOW,
         )
 
-        if result.is_error or not result.value:
+        opps = unwrap_list(result)
+        if not opps:
             return []
 
         # Convert to GraphQL types
         opportunities = []
-        for opp in result.value[:safe_max]:
+        for opp in opps[:safe_max]:
             # Load representative KU for source domain via DataLoader
             source_node = None
             if opp.source_knowledge_uids:
@@ -468,7 +469,7 @@ class Query:
                 user_uid=context.user_uid, limit=safe_limit
             )
 
-        paths = unwrap_result(result, [])
+        paths = unwrap_list(result)
         return [LearningPath.from_dto(p) for p in paths]
 
     # ========================================================================
@@ -493,7 +494,7 @@ class Query:
         # Use authenticated user or provided user_uid
         target_user_uid = user_uid or context.user_uid
         if not target_user_uid:
-            raise Exception("Authentication required or user_uid parameter needed")
+            return None
 
         if not context.services.lp:
             return None
@@ -505,7 +506,7 @@ class Query:
 
         # Get path steps with type safety
         steps_result: Result[list[LsModel]] = await context.services.lp.get_path_steps(path_uid)
-        steps: list[LsModel] = steps_result.value if steps_result.is_ok else []
+        steps: list[LsModel] = unwrap_list(steps_result)
 
         # Calculate progress from steps
         # Note: unified_progress DELETED (January 2026) - steps_completed now derived from user mastery
@@ -685,14 +686,15 @@ class Query:
                 return ([], 0, 0.0)
 
             prereqs_result = await context.services.article.get_prerequisites(ku_uid)
-            if prereqs_result.is_error or not prereqs_result.value:
+            prereqs = unwrap_list(prereqs_result)
+            if not prereqs:
                 return ([], 0, 0.0)
 
             prereq_nodes = []
             total_count = 0
             total_hours = 0.0
 
-            for prereq_ku in prereqs_result.value:
+            for prereq_ku in prereqs:
                 # Check mastery status using user's knowledge profile
                 is_mastered = prereq_ku.uid in mastered_uids
 
@@ -787,8 +789,8 @@ class Query:
         prerequisites_result = await context.services.article.get_prerequisites(knowledge_uid)
         enables_result = await context.services.article.get_enables(knowledge_uid)
 
-        prerequisites = prerequisites_result.value if prerequisites_result.is_ok else []
-        enables = enables_result.value if enables_result.is_ok else []
+        prerequisites = unwrap_list(prerequisites_result)
+        enables = unwrap_list(enables_result)
 
         # Build nodes list (center + prerequisites + enables)
         center_node = KnowledgeNode.from_dto(ku)
@@ -868,10 +870,9 @@ class Query:
 
         # Get path steps
         steps_result = await context.services.lp.get_path_steps(path_uid)
-        if steps_result.is_error:
+        steps = unwrap_list(steps_result)
+        if not steps:
             return []
-
-        steps = steps_result.value
 
         # Analyze each step for blockers
         blockers = []
@@ -1031,24 +1032,19 @@ class Query:
         # Get tasks (limit 10 recent)
         if context.services.tasks:
             tasks_result = await context.services.tasks.get_user_tasks(target_user_uid)
-            if tasks_result.is_ok:
-                # Limit to 10 most recent
-                tasks = tasks_result.value[:10] if tasks_result.value else []
-                tasks_count = len(tasks)
+            tasks_count = len(unwrap_list(tasks_result)[:10])
 
         # Get learning paths (limit 5)
         if context.services.lp:
             paths_result = await context.services.lp.list_user_paths(
                 user_uid=target_user_uid, limit=QueryLimit.PREVIEW
             )
-            if paths_result.is_ok:
-                paths_count = len(paths_result.value) if paths_result.value else 0
+            paths_count = len(unwrap_list(paths_result))
 
         # Get habits count
         if context.services.habits:
             habits_result = await context.services.habits.get_user_habits(target_user_uid)
-            if habits_result.is_ok:
-                habits_count = len(habits_result.value) if habits_result.value else 0
+            habits_count = len(unwrap_list(habits_result))
 
         return DashboardData(
             tasks_count=tasks_count, paths_count=paths_count, habits_count=habits_count

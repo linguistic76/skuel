@@ -15,7 +15,7 @@ from strawberry.types import (
 )
 
 from routes.graphql.context import GraphQLContext
-from routes.graphql.query_helpers import GraphQLQueryHelpers
+from routes.graphql.query_helpers import GraphQLQueryHelpers, unwrap_list
 
 if TYPE_CHECKING:
     from core.models.pathways.learning_step import LearningStep as LsModel
@@ -156,11 +156,7 @@ class LearningPath:
 
         # Get steps with type safety
         result: Result[list[LsModel]] = await context.services.lp.get_path_steps(self.uid)
-
-        if result.is_error or not result.value:
-            return []
-
-        steps: list[LsModel] = result.value
+        steps: list[LsModel] = unwrap_list(result)
 
         # Convert domain models to GraphQL DTOs using explicit from_domain()
         return [LearningStep.from_domain(step, i + 1) for i, step in enumerate(steps)]
