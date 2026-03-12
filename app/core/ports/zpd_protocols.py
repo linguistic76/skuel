@@ -17,7 +17,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
-    from core.models.zpd.zpd_assessment import ZPDAssessment
+    from core.models.zpd.zpd_assessment import ZoneEvidence, ZPDAssessment
     from core.services.user.unified_user_context import UserContext
     from core.utils.result_simplified import Result
 
@@ -32,6 +32,22 @@ class ZPDBackendOperations(Protocol):
 
     async def get_ku_count(self) -> int:
         """Count total KUs in the curriculum graph."""
+        ...
+
+    async def get_targeted_ku_engagement(
+        self, user_uid: str, ku_uids: list[str]
+    ) -> Result[tuple[list[str], list[str], list[str], list[dict[str, Any]]]]:
+        """Fetch engagement data for specific KU UIDs only.
+
+        Lightweight alternative to get_zone_data() for query-time ZPD.
+
+        Returns:
+            Result containing a tuple of:
+                - task_engaged: KU UIDs engaged via tasks
+                - journal_engaged: KU UIDs engaged via journals
+                - habit_engaged: KU UIDs engaged via habits
+                - submission_data: Submission scores per KU
+        """
         ...
 
     async def get_zone_data(
@@ -137,5 +153,27 @@ class ZPDOperations(Protocol):
         Returns:
             Result[float]: Readiness score 0.0-1.0. 1.0 means all
                 prerequisites are met; 0.0 means none are.
+        """
+        ...
+
+    async def assess_ku_readiness(
+        self, user_uid: str, ku_uids: list[str]
+    ) -> Result[dict[str, ZoneEvidence]]:
+        """Get targeted ZPD evidence for specific KUs.
+
+        Lightweight alternative to assess_zone() — queries engagement data
+        for just the specified KUs. Returns ZoneEvidence per KU. Same data
+        shape as zone_evidence in ZPDAssessment, narrower query.
+
+        Used by the Socratic pipeline to assess readiness for KUs mentioned
+        in a question without computing the full ZPD assessment.
+
+        Args:
+            user_uid: User's unique identifier
+            ku_uids: KU UIDs to assess
+
+        Returns:
+            Result[dict[str, ZoneEvidence]]: Per-KU engagement evidence.
+                KUs with no engagement get a default ZoneEvidence (all zeros).
         """
         ...

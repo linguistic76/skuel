@@ -191,6 +191,57 @@ class ZPDService:
         assessment = assessment_result.value
         return Result.ok(assessment.top_proximal_ku_uids())
 
+    async def assess_ku_readiness(
+        self, user_uid: str, ku_uids: list[str]
+    ) -> Result[dict[str, ZoneEvidence]]:
+        """Get targeted ZPD evidence for specific KUs.
+
+        Lightweight alternative to assess_zone() — queries engagement data
+        for just the specified KUs without traversing the full curriculum graph.
+        Used by the Socratic pipeline for query-time ZPD assessment.
+
+        Args:
+            user_uid: User's unique identifier
+            ku_uids: KU UIDs to assess
+
+        Returns:
+            Result[dict[str, ZoneEvidence]]: Per-KU engagement evidence.
+                KUs with no engagement get a default ZoneEvidence (all zeros).
+        """
+        if not ku_uids:
+            return Result.ok({})
+
+        engagement_result = await self._backend.get_targeted_ku_engagement(user_uid, ku_uids)
+        if engagement_result.is_error:
+            return Result.fail(engagement_result.expect_error())
+
+        task_engaged, journal_engaged, habit_engaged, submission_data = engagement_result.value
+
+        # Build ZoneEvidence for each requested KU
+        sub_lookup: dict[str, dict[str, Any]] = {}
+        for entry in submission_data:
+            ku_uid = entry.get("ku_uid")
+            if ku_uid:
+                sub_lookup[ku_uid] = entry
+
+        task_set = set(task_engaged)
+        journal_set = set(journal_engaged)
+        habit_set = set(habit_engaged)
+
+        evidence: dict[str, ZoneEvidence] = {}
+        for ku_uid in ku_uids:
+            sub_entry = sub_lookup.get(ku_uid, {})
+            evidence[ku_uid] = ZoneEvidence(
+                ku_uid=ku_uid,
+                submission_count=sub_entry.get("count", 0),
+                best_submission_score=sub_entry.get("best_score", 0.0),
+                habit_reinforcement=ku_uid in habit_set,
+                task_application=ku_uid in task_set,
+                journal_application=ku_uid in journal_set,
+            )
+
+        return Result.ok(evidence)
+
     async def get_readiness_score(self, user_uid: str, ku_uid: str) -> Result[float]:
         """Get the readiness score for a specific KU (0.0-1.0).
 

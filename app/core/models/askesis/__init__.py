@@ -81,15 +81,17 @@ from .askesis_request import (
     IntelligenceUpdateRequest,
 )
 
-# Socratic tutoring models (Phase 1-2 of Askesis RAG pipeline refactor)
+# Socratic tutoring models (Askesis RAG pipeline refactor)
 from .ls_bundle import LSBundle
 from .pedagogical_intent import PedagogicalIntent
+from .socratic_move import SocraticMove
 
 __all__ = [
     # Core domain models
     "Askesis",
     "LSBundle",
     "PedagogicalIntent",
+    "SocraticMove",
     "AskesisAnalyticsRequest",
     "AskesisConfigurationDTO",
     "AskesisCreateDTO",

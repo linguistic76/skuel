@@ -65,9 +65,7 @@ class LSContextLoader:
         self.lp_service = lp_service
         logger.info("LSContextLoader initialized")
 
-    async def load_bundle(
-        self, user_uid: str, user_context: UserContext
-    ) -> Result[LSBundle]:
+    async def load_bundle(self, user_uid: str, user_context: UserContext) -> Result[LSBundle]:
         """Load the complete LS bundle from UserContext + service lookups.
 
         Steps:
@@ -88,9 +86,7 @@ class LSContextLoader:
         # Step 1: Find active LS from rich context
         ls_rich = self._find_active_ls(user_context)
         if ls_rich is None:
-            return Result.fail(
-                Errors.not_found("learning_step", "no_active_ls")
-            )
+            return Result.fail(Errors.not_found("learning_step", "no_active_ls"))
 
         step_data = ls_rich.get("entity", ls_rich.get("step", {}))
         graph_context = ls_rich.get("graph_context", {})
@@ -98,9 +94,7 @@ class LSContextLoader:
         # Step 2: Build the LearningStep domain model
         learning_step = self._build_learning_step(step_data)
         if learning_step is None:
-            return Result.fail(
-                Errors.not_found("learning_step", "malformed_ls_data")
-            )
+            return Result.fail(Errors.not_found("learning_step", "malformed_ls_data"))
 
         # Step 3: Fetch full entities in parallel-ready fashion
         # (Could use asyncio.gather, but sequential is simpler and sufficient
@@ -243,7 +237,7 @@ class LSContextLoader:
         for uid in learning_step.supporting_knowledge_uids:
             if uid.startswith("ku_"):
                 ku_uids.add(uid)
-        for uid in (learning_step.semantic_links or ()):
+        for uid in learning_step.semantic_links or ():
             if uid.startswith("ku_"):
                 ku_uids.add(uid)
 
@@ -257,9 +251,7 @@ class LSContextLoader:
 
         return kus
 
-    async def _fetch_learning_path(
-        self, graph_context: dict[str, Any]
-    ) -> LearningPath | None:
+    async def _fetch_learning_path(self, graph_context: dict[str, Any]) -> LearningPath | None:
         """Fetch the parent LearningPath from graph_context."""
         if not self.lp_service:
             return None

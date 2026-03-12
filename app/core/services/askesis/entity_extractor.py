@@ -186,9 +186,8 @@ class EntityExtractor:
         if not matched_uids and ls_bundle.kus:
             ls_title = ls_bundle.learning_step.title or ""
             ls_intent = ls_bundle.learning_step.intent or ""
-            if (
-                self._fuzzy_match(ls_title, question_lower)
-                or self._fuzzy_match(ls_intent, question_lower)
+            if self._fuzzy_match(ls_title, question_lower) or self._fuzzy_match(
+                ls_intent, question_lower
             ):
                 matched_uids = [ku.uid for ku in ls_bundle.kus]
 

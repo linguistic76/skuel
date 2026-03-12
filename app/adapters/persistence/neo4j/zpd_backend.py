@@ -128,6 +128,44 @@ RETURN
 LIMIT 1
 """
 
+# Targeted KU engagement query — fetch evidence for specific KU UIDs only
+# Used by assess_ku_readiness() for query-time ZPD (Socratic pipeline)
+_TARGETED_KU_ENGAGEMENT_QUERY = """
+// ── Targeted engagement data for specific KUs ──────────────────────────
+MATCH (u:User {uid: $user_uid})
+
+// Task engagement: which of the target KUs have tasks that APPLIES_KNOWLEDGE?
+OPTIONAL MATCH (u)-[:OWNS]->(t:Entity {entity_type: 'task'})-[:APPLIES_KNOWLEDGE]->(ku_t:Entity)
+WHERE ku_t.uid IN $ku_uids
+WITH u, collect(DISTINCT ku_t.uid) AS task_engaged_uids
+
+// Journal engagement
+OPTIONAL MATCH (u)-[:OWNS]->(j:Entity {entity_type: 'journal_submission'})-[:APPLIES_KNOWLEDGE]->(ku_j:Entity)
+WHERE ku_j.uid IN $ku_uids
+WITH u, task_engaged_uids, collect(DISTINCT ku_j.uid) AS journal_engaged_uids
+
+// Habit engagement
+OPTIONAL MATCH (u)-[:OWNS]->(h:Entity {entity_type: 'habit'})-[:REINFORCES_KNOWLEDGE]->(ku_h:Entity)
+WHERE ku_h.uid IN $ku_uids
+WITH u, task_engaged_uids, journal_engaged_uids, collect(DISTINCT ku_h.uid) AS habit_engaged_uids
+
+// Submission scores for target KUs
+CALL {
+    WITH u
+    MATCH (es:Entity {entity_type: 'exercise_submission'})-[:FULFILLS_EXERCISE]->(ex:Entity)-[:APPLIES_KNOWLEDGE]->(ku_sub:Entity)
+    WHERE ku_sub.uid IN $ku_uids AND es.status IN ['completed', 'approved']
+    WITH ku_sub.uid AS sub_ku_uid, max(coalesce(es.score, 0.0)) AS best_score, count(es) AS sub_count
+    RETURN collect({ku_uid: sub_ku_uid, best_score: best_score, count: sub_count}) AS submission_data
+}
+
+RETURN
+    task_engaged_uids    AS task_engaged,
+    journal_engaged_uids AS journal_engaged,
+    habit_engaged_uids   AS habit_engaged,
+    submission_data      AS submission_data
+LIMIT 1
+"""
+
 # Minimum KU count to consider the curriculum graph "ready"
 _MIN_KU_COUNT_QUERY = """
 MATCH (ku:Entity {entity_type: 'ku'})
@@ -160,6 +198,50 @@ class ZPDBackend:
         except Exception as exc:
             self._logger.warning("ZPD: failed to count KUs — %s", exc)
             return 0
+
+    async def get_targeted_ku_engagement(
+        self, user_uid: str, ku_uids: list[str]
+    ) -> Result[tuple[list[str], list[str], list[str], list[dict[str, Any]]]]:
+        """Fetch engagement data for specific KU UIDs only.
+
+        Lightweight alternative to get_zone_data() — queries only the target
+        KUs instead of traversing the full curriculum graph. Used by
+        ZPDService.assess_ku_readiness() for query-time ZPD in the Socratic pipeline.
+
+        Returns:
+            Result containing a tuple of:
+                - task_engaged: KU UIDs engaged via tasks
+                - journal_engaged: KU UIDs engaged via journals
+                - habit_engaged: KU UIDs engaged via habits
+                - submission_data: Submission scores per KU
+        """
+        if not ku_uids:
+            return Result.ok(([], [], [], []))
+
+        try:
+            records, _, _ = await self._driver.execute_query(
+                _TARGETED_KU_ENGAGEMENT_QUERY,
+                {"user_uid": user_uid, "ku_uids": ku_uids},
+            )
+        except Exception as exc:
+            self._logger.error("ZPD targeted KU query failed for %s: %s", user_uid, exc)
+            return Result.fail(
+                Errors.database(
+                    operation="ZPDBackend.get_targeted_ku_engagement",
+                    message=f"Targeted KU engagement query failed: {exc}",
+                )
+            )
+
+        if not records:
+            return Result.ok(([], [], [], []))
+
+        row = records[0]
+        task_engaged: list[str] = list(row.get("task_engaged") or [])
+        journal_engaged: list[str] = list(row.get("journal_engaged") or [])
+        habit_engaged: list[str] = list(row.get("habit_engaged") or [])
+        submission_data: list[dict[str, Any]] = list(row.get("submission_data") or [])
+
+        return Result.ok((task_engaged, journal_engaged, habit_engaged, submission_data))
 
     async def get_zone_data(
         self, user_uid: str
