@@ -111,7 +111,7 @@ LSBundle (frozen, loaded once per question)
 
 The bundle is the **scope window**. Every pedagogical decision operates within it. If the question falls outside the bundle, Askesis redirects gently.
 
-**Partial failure tolerance:** The bundle fetches Articles, KUs, Habits, Tasks, and LP in parallel. If any fetch fails (e.g., a service timeout), that collection defaults to empty — the bundle is built from whatever succeeds. A minimal bundle (just the LearningStep) still enables GuidanceMode decisions like OUT_OF_SCOPE and REDIRECT_TO_CURRICULUM.
+**Partial failure tolerance:** All 7 entity services (articles, KUs, habits, tasks, events, principles, LP) are required at construction — missing services cause a clear construction-time error rather than silent empty bundles at query time. At runtime, the bundle fetches entities in parallel via `asyncio.gather(return_exceptions=True)`. If any individual fetch fails (e.g., a network timeout), that collection defaults to empty — the bundle is built from whatever succeeds. A minimal bundle (just the LearningStep) still enables GuidanceMode decisions like OUT_OF_SCOPE and REDIRECT_TO_CURRICULUM.
 
 **Token truncation:** `curriculum_context_text` (concatenated Article content) is truncated to `AskesisTokenBudget.MAX_CURRICULUM_CHARS` (~2500 tokens) to prevent exceeding LLM context windows when the bundle has many Articles.
 
@@ -155,6 +155,8 @@ The LLM receives:
 - **Parameters:** temperature 0.7, max 500 tokens
 
 Without a bundle, Askesis uses `generate_context_aware_answer()` with the full UserContext summary instead.
+
+**Pipeline timeout:** The entire pipeline (Steps 1–10) runs under `asyncio.wait_for()` with a 30-second timeout (`AskesisPipelineTimeout.ANSWER_QUESTION_SECONDS`). If the pipeline exceeds this — due to a slow Neo4j query, unresponsive LLM, or network issue — it returns `Result.fail()` with a user-friendly message rather than hanging indefinitely. Both `answer_user_question()` and `process_query_with_context()` have independent timeouts.
 
 ### Step 10: Assemble Response
 

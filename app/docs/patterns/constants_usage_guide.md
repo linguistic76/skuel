@@ -245,7 +245,29 @@ truncated = truncate_to_budget(raw_context, AskesisTokenBudget.MAX_LLM_CONTEXT_C
 
 Truncation uses `core/utils/text_truncation.py` which cuts at sentence/paragraph boundaries and appends "...".
 
-### 6. Query Processor Confidence (`QueryProcessorConfidence`)
+### 6. Askesis Pipeline Timeouts (`AskesisPipelineTimeout`)
+
+Timeout limits (in seconds) for the Askesis RAG pipeline. Prevents unbounded hangs from slow Neo4j queries or unresponsive LLM APIs. Added March 2026.
+
+| Constant | Value | Purpose |
+|----------|-------|---------|
+| `ANSWER_QUESTION_SECONDS` | 30 | Timeout for `answer_user_question()` pipeline |
+| `PROCESS_QUERY_SECONDS` | 30 | Timeout for `process_query_with_context()` pipeline |
+
+**Usage:**
+```python
+import asyncio
+from core.constants import AskesisPipelineTimeout
+
+result = await asyncio.wait_for(
+    self._answer_user_question_pipeline(user_uid, question),
+    timeout=AskesisPipelineTimeout.ANSWER_QUESTION_SECONDS,
+)
+```
+
+On timeout, `TimeoutError` is caught and converted to `Result.fail(Errors.system(...))` with a user-friendly message.
+
+### 7. Query Processor Confidence (`QueryProcessorConfidence`)
 
 Dynamic confidence scoring for RAG pipeline responses:
 
@@ -266,7 +288,7 @@ confidence = QueryProcessorConfidence.calculate(
 )  # → 0.85
 ```
 
-### 7. Intelligence Thresholds (`IntelligenceThreshold`)
+### 8. Intelligence Thresholds (`IntelligenceThreshold`)
 
 AI/ML confidence thresholds:
 
@@ -297,7 +319,7 @@ relationships = await find_cross_domain(
 )
 ```
 
-### 8. Report Time Periods (`ReportTimePeriod`)
+### 9. Report Time Periods (`ReportTimePeriod`)
 
 Valid time period strings for activity reports and review — shared vocabulary
 used by `ActivityReportService` and `ProgressReportGenerator`:
@@ -323,7 +345,7 @@ end_date = datetime.now()
 start_date = end_date - timedelta(days=days)
 ```
 
-### 9. Relationship Strength (`RelationshipStrength`)
+### 10. Relationship Strength (`RelationshipStrength`)
 
 Default confidence for relationship types:
 
