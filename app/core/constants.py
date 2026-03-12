@@ -273,6 +273,35 @@ class IntelligenceThreshold:
     MIN_RECOMMENDATION: Final = 0.7
 
 
+class AskesisTokenBudget:
+    """
+    Character budgets for Askesis LLM context construction.
+
+    Askesis builds context from multiple sources (UserContext, curriculum content,
+    activity reports) before sending to the LLM. Without truncation, a rich
+    UserContext or a bundle with many Articles can exceed the LLM context window
+    or waste tokens on low-value content.
+
+    These budgets use characters (~4 chars ≈ 1 token) as a practical proxy.
+    Truncation preserves sentence boundaries where possible.
+
+    March 2026: Added to prevent unbounded context growth in RAG pipeline.
+    """
+
+    # Maximum characters for curriculum content injected from LSBundle.
+    # ~2500 tokens — enough for 2-3 Articles' worth of teaching content.
+    MAX_CURRICULUM_CHARS: Final = 10000
+
+    # Maximum characters for the full LLM context built by ResponseGenerator.
+    # ~3000 tokens — covers UserContext summary + curriculum + activity report.
+    MAX_LLM_CONTEXT_CHARS: Final = 12000
+
+    # Maximum characters for the user prompt (curriculum context + question)
+    # sent to the LLM in the guided pipeline.
+    # ~2500 tokens — curriculum is reference material, not the focus.
+    MAX_USER_PROMPT_CURRICULUM_CHARS: Final = 10000
+
+
 class QueryProcessorConfidence:
     """
     Confidence scoring for QueryProcessor RAG pipeline responses.

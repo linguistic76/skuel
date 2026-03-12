@@ -179,7 +179,12 @@ class ResponseGenerator:
             context_parts.append("\n--- Curriculum Context ---")
             context_parts.append(ls_bundle.curriculum_context_text)
 
-        return "\n".join(context_parts)
+        from core.constants import AskesisTokenBudget
+        from core.utils.text_truncation import truncate_to_budget
+
+        return truncate_to_budget(
+            "\n".join(context_parts), AskesisTokenBudget.MAX_LLM_CONTEXT_CHARS
+        )
 
     # ========================================================================
     # GUIDED SYSTEM PROMPT GENERATION (absorbed from SocraticEngine)

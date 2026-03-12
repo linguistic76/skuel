@@ -180,7 +180,15 @@ class IntentClassifier:
         Returns:
             Result[QueryIntent] - Classified intent or error if classification fails
         """
-        intent = await self._classify_via_embeddings(query)
+        try:
+            intent = await self._classify_via_embeddings(query)
+        except Exception:
+            logger.warning(
+                "Embedding-based classification failed — defaulting to SPECIFIC",
+                exc_info=True,
+            )
+            return Result.ok(QueryIntent.SPECIFIC)
+
         if intent:
             logger.debug("Intent classified via embeddings: %s", intent.value)
             return Result.ok(intent)
@@ -353,7 +361,8 @@ class IntentClassifier:
         # Create query embedding (returns Result[list[float]])
         query_result = await self.embeddings_service.create_embedding(query)
         if query_result.is_error:
-            raise ValueError("Failed to create query embedding - OpenAI API may be unavailable")
+            logger.warning("Failed to create query embedding — cannot classify intent")
+            return None
         query_embedding = query_result.value
 
         # Compare to each intent's exemplar embeddings
@@ -388,10 +397,9 @@ class IntentClassifier:
         Lazy-load intent exemplar embeddings on first use.
 
         Generates embeddings for all INTENT_EXEMPLARS and caches them
-        for efficient intent classification.
-
-        Raises:
-            ValueError: If exemplar embedding generation fails
+        for efficient intent classification. Individual exemplar failures
+        are logged and skipped — classification still works with fewer
+        exemplars per intent (lower precision, not a crash).
         """
         if self._intent_exemplar_embeddings is not None:
             return  # Already loaded
@@ -399,6 +407,7 @@ class IntentClassifier:
         logger.info("Loading intent exemplar embeddings (one-time initialization)...")
 
         exemplar_embeddings: dict[QueryIntent, list[list[float]]] = {}
+        failed_count = 0
 
         for intent, exemplar_queries in INTENT_EXEMPLARS.items():
             embeddings_for_intent = []
@@ -408,16 +417,35 @@ class IntentClassifier:
                 if embedding_result.is_ok:
                     embeddings_for_intent.append(embedding_result.value)
                 else:
-                    raise ValueError(
-                        f"Failed to create embedding for intent exemplar "
-                        f"'{exemplar_query}' ({intent.value}): {embedding_result.error}"
+                    failed_count += 1
+                    logger.warning(
+                        "Failed to embed exemplar '%s' (%s): %s",
+                        exemplar_query,
+                        intent.value,
+                        embedding_result.error,
                     )
 
-            exemplar_embeddings[intent] = embeddings_for_intent
-            logger.debug("Loaded %d exemplars for %s", len(embeddings_for_intent), intent.value)
+            if embeddings_for_intent:
+                exemplar_embeddings[intent] = embeddings_for_intent
+                logger.debug(
+                    "Loaded %d/%d exemplars for %s",
+                    len(embeddings_for_intent),
+                    len(exemplar_queries),
+                    intent.value,
+                )
+            else:
+                logger.warning("No exemplars loaded for intent %s — will not match", intent.value)
 
         self._intent_exemplar_embeddings = exemplar_embeddings
-        logger.info("Intent exemplar embeddings loaded (%d intents)", len(exemplar_embeddings))
+
+        if failed_count:
+            logger.warning(
+                "Intent exemplar embeddings loaded with %d failures (%d intents)",
+                failed_count,
+                len(exemplar_embeddings),
+            )
+        else:
+            logger.info("Intent exemplar embeddings loaded (%d intents)", len(exemplar_embeddings))
 
     @staticmethod
     def _cosine_similarity(vec1: list[float], vec2: list[float]) -> float:

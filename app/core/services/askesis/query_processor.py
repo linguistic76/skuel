@@ -194,9 +194,16 @@ class QueryProcessor:
         intent = intent_result.value
 
         # Step 4: Extract entities mentioned in query
-        extracted_entities = await self.entity_extractor.extract_entities_from_query(
-            question, user_context
-        )
+        try:
+            extracted_entities = await self.entity_extractor.extract_entities_from_query(
+                question, user_context
+            )
+        except Exception:
+            logger.warning("Entity extraction failed — continuing without entity matches", exc_info=True)
+            extracted_entities = {
+                "knowledge": [], "tasks": [], "goals": [],
+                "habits": [], "events": [], "principles": [], "choices": [],
+            }
 
         # Step 5: Retrieve relevant entities based on intent
         relevant_context = await self.context_retriever.retrieve_relevant_context(
@@ -248,9 +255,16 @@ class QueryProcessor:
             # Use guided pipeline with Socratic system prompt
             user_prompt = question
             if ls_bundle and ls_bundle.curriculum_context_text:
+                from core.constants import AskesisTokenBudget
+                from core.utils.text_truncation import truncate_to_budget
+
+                curriculum_text = truncate_to_budget(
+                    ls_bundle.curriculum_context_text,
+                    AskesisTokenBudget.MAX_USER_PROMPT_CURRICULUM_CHARS,
+                )
                 user_prompt = (
                     f"=== CURRICULUM CONTEXT (for your reference, do NOT share directly) ===\n"
-                    f"{ls_bundle.curriculum_context_text}\n\n"
+                    f"{curriculum_text}\n\n"
                     f"=== LEARNER'S MESSAGE ===\n{question}"
                 )
 
@@ -416,9 +430,16 @@ class QueryProcessor:
             ls_bundle = bundle_result.value
             user_prompt = query_message
             if ls_bundle.curriculum_context_text:
+                from core.constants import AskesisTokenBudget
+                from core.utils.text_truncation import truncate_to_budget
+
+                curriculum_text = truncate_to_budget(
+                    ls_bundle.curriculum_context_text,
+                    AskesisTokenBudget.MAX_USER_PROMPT_CURRICULUM_CHARS,
+                )
                 user_prompt = (
                     f"=== CURRICULUM CONTEXT (for your reference, do NOT share directly) ===\n"
-                    f"{ls_bundle.curriculum_context_text}\n\n"
+                    f"{curriculum_text}\n\n"
                     f"=== LEARNER'S MESSAGE ===\n{query_message}"
                 )
 

@@ -374,7 +374,12 @@ class ContextRetriever:
         if learning_step is None:
             return Result.fail(Errors.not_found("learning_step", "malformed_ls_data"))
 
-        # Step 3: Fetch full entities in parallel
+        # Step 3: Fetch full entities in parallel (partial failure tolerant)
+        #
+        # Each fetch can fail independently (network errors, malformed data).
+        # We use return_exceptions=True so a single failure doesn't cancel
+        # the others — a partial bundle (LS + whatever succeeded) is more
+        # useful than no bundle at all.
         articles_coro = self._fetch_articles(learning_step, graph_context)
         kus_coro = self._fetch_kus(learning_step)
         lp_coro = self._fetch_learning_path(graph_context)
@@ -385,9 +390,25 @@ class ContextRetriever:
             graph_context.get("practice_tasks", []), self.tasks_service
         )
 
-        articles, kus, learning_path, habits, tasks = await asyncio.gather(
-            articles_coro, kus_coro, lp_coro, habits_coro, tasks_coro
+        raw_results = await asyncio.gather(
+            articles_coro, kus_coro, lp_coro, habits_coro, tasks_coro,
+            return_exceptions=True,
         )
+
+        fetch_labels = ("articles", "kus", "learning_path", "habits", "tasks")
+        defaults: tuple[Any, ...] = ([], [], None, [], [])
+
+        resolved: list[Any] = []
+        for label, raw, default in zip(fetch_labels, raw_results, defaults, strict=True):
+            if isinstance(raw, BaseException):
+                logger.warning(
+                    "LS bundle fetch failed for %s (user %s): %s", label, user_uid, raw
+                )
+                resolved.append(default)
+            else:
+                resolved.append(raw)
+
+        articles, kus, learning_path, habits, tasks = resolved
         events: list[Any] = []  # Event templates not yet in graph_context
         principles: list[Any] = []  # Principles not yet in graph_context
 

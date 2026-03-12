@@ -127,13 +127,20 @@ class LSBundle:
 
         Used by ResponseGenerator when the pedagogical move needs the curriculum
         as reference (e.g., SCAFFOLD, REDIRECT_TO_CURRICULUM).
+
+        Truncated to AskesisTokenBudget.MAX_CURRICULUM_CHARS to prevent
+        exceeding LLM context windows when the bundle has many Articles.
         """
+        from core.constants import AskesisTokenBudget
+        from core.utils.text_truncation import truncate_to_budget
+
         parts = [
             f"## {article.title}\n\n{article.content}"
             for article in self.articles
             if article.content
         ]
-        return "\n\n---\n\n".join(parts)
+        raw = "\n\n---\n\n".join(parts)
+        return truncate_to_budget(raw, AskesisTokenBudget.MAX_CURRICULUM_CHARS)
 
     def __str__(self) -> str:
         return (
