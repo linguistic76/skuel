@@ -22,6 +22,7 @@ MIGRATION (March 2026):
 See: /docs/decisions/ADR-049-huggingface-embeddings-migration.md
 """
 
+import asyncio
 import math
 import os
 import time
@@ -204,15 +205,18 @@ class HuggingFaceEmbeddingsService:
             return Result.ok([])
 
         start_time = time.time()
-        embeddings: list[list[float]] = []
 
-        for text in texts:
-            result = await self.create_embedding(text)
+        # Fire all requests concurrently
+        tasks = [self.create_embedding(text) for text in texts]
+        results = await asyncio.gather(*tasks)
+
+        embeddings: list[list[float]] = []
+        for i, result in enumerate(results):
             if result.is_error:
                 return Result.fail(
                     Errors.integration(
                         service="HuggingFace",
-                        message=f"Batch embedding failed at index {len(embeddings)}: {result.error}",
+                        message=f"Batch embedding failed at index {i}: {result.error}",
                     )
                 )
             embeddings.append(result.value)
