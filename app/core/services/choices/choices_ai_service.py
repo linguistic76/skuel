@@ -19,8 +19,8 @@ from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from core.ports.domain_protocols import ChoicesOperations
-    from core.services.llm_service import LLMService
     from core.services.embeddings_service import HuggingFaceEmbeddingsService
+    from core.services.llm_service import LLMService
 
 
 class ChoicesAIService(BaseAIService["ChoicesOperations", Choice]):

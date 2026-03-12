@@ -36,16 +36,21 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from core.constants import QueryProcessorConfidence
+from core.models.enums import MessageRole
 from core.models.query_types import QueryIntent
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
+    from core.models.user.conversation import ConversationContext
+    from core.ports.zpd_protocols import ZPDOperations
     from core.services.askesis.context_retriever import ContextRetriever
     from core.services.askesis.entity_extractor import EntityExtractor
     from core.services.askesis.intent_classifier import IntentClassifier
+    from core.services.askesis.ls_context_loader import LSContextLoader
     from core.services.askesis.response_generator import ResponseGenerator
+    from core.services.askesis.socratic_engine import SocraticEngine
     from core.services.askesis_citation_service import AskesisCitationService
     from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
     from core.services.llm_service import LLMService
@@ -87,6 +92,11 @@ class QueryProcessor:
         llm_service: LLMService,
         graph_intelligence_service: GraphIntelligenceService,
         citation_service: AskesisCitationService | None = None,
+        # Socratic pipeline dependencies (Phase 5)
+        ls_context_loader: LSContextLoader | None = None,
+        socratic_engine: SocraticEngine | None = None,
+        zpd_service: ZPDOperations | None = None,
+        conversation_context: ConversationContext | None = None,
     ) -> None:
         """
         Initialize query processor.
@@ -100,6 +110,10 @@ class QueryProcessor:
             llm_service: LLMService for natural language generation
             graph_intelligence_service: GraphIntelligenceService for graph intelligence queries
             citation_service: AskesisCitationService for source and evidence transparency (optional)
+            ls_context_loader: LSContextLoader for loading LS bundles (Socratic pipeline)
+            socratic_engine: SocraticEngine for generating pedagogical moves (Socratic pipeline)
+            zpd_service: ZPDService for targeted KU readiness assessment (Socratic pipeline)
+            conversation_context: ConversationContext for session management (Socratic pipeline)
         """
         self.intent_classifier = intent_classifier
         self.response_generator = response_generator
@@ -109,6 +123,12 @@ class QueryProcessor:
         self.llm_service = llm_service
         self.graph_intel = graph_intelligence_service
         self.citation_service = citation_service
+
+        # Socratic pipeline
+        self.ls_context_loader = ls_context_loader
+        self.socratic_engine = socratic_engine
+        self.zpd_service = zpd_service
+        self.conversation_context = conversation_context
 
         logger.info("QueryProcessor initialized (orchestration layer)")
 
@@ -234,6 +254,165 @@ class QueryProcessor:
         )
 
         return Result.ok(response)
+
+    # ========================================================================
+    # PUBLIC API - SOCRATIC PIPELINE
+    # ========================================================================
+
+    @with_error_handling("process_socratic_turn", error_type="system", uid_param="user_uid")
+    async def process_socratic_turn(
+        self, user_uid: str, question: str, session_id: str | None = None
+    ) -> Result[dict[str, Any]]:
+        """LS-scoped Socratic tutoring pipeline.
+
+        Replaces the global RAG pipeline with a pedagogically intentional
+        pipeline scoped to the user's active Learning Step.
+
+        Pipeline steps:
+        1. Load UserContext (rich) for active LS
+        2. Load LS bundle via LSContextLoader
+        3. Get/create conversation session
+        4. Extract target KUs from question (scoped to bundle)
+        5. Get targeted ZPD evidence for those KUs
+        6. Classify pedagogical intent
+        7. Generate SocraticMove (system prompt + curriculum context)
+        8. Call LLM with the move
+        9. Record turns in conversation session
+        10. Return response with pedagogical metadata
+
+        Args:
+            user_uid: User's unique identifier
+            question: User's natural language question
+            session_id: Optional session ID for multi-turn conversations
+
+        Returns:
+            Result containing:
+            - answer: Socratic response (question, not explanation)
+            - move_type: PedagogicalIntent that drove the response
+            - target_kus: KU UIDs the question targeted
+            - ls_uid: Active Learning Step UID
+            - session_id: Session ID for continuing the conversation
+        """
+        # Verify Socratic pipeline dependencies are wired
+        if not self.ls_context_loader or not self.socratic_engine:
+            return Result.fail(
+                Errors.system(
+                    message="Socratic pipeline not configured — missing LSContextLoader or SocraticEngine",
+                    operation="process_socratic_turn",
+                    user_message="Socratic tutoring is not available. Please check your configuration.",
+                )
+            )
+
+        # Step 1: Get rich user context (includes active_learning_steps_rich)
+        user_context_result = await self.user_service.get_rich_unified_context(user_uid)
+        if user_context_result.is_error:
+            error = user_context_result.expect_error()
+            return Result.fail(
+                Errors.system(
+                    message=f"User context retrieval failed: {error.message}",
+                    operation="process_socratic_turn",
+                    user_message="Unable to load your learning data. Please try again shortly.",
+                )
+            )
+        user_context = user_context_result.value
+
+        # Step 2: Load LS bundle
+        bundle_result = await self.ls_context_loader.load_bundle(user_uid, user_context)
+        if bundle_result.is_error:
+            return Result.ok(
+                {
+                    "answer": (
+                        "You don't have an active learning step right now. "
+                        "Enroll in a learning path to start Socratic tutoring."
+                    ),
+                    "move_type": "no_active_ls",
+                    "target_kus": [],
+                    "ls_uid": None,
+                    "session_id": session_id,
+                }
+            )
+        ls_bundle = bundle_result.value
+
+        # Step 3: Get or create conversation session
+        effective_session_id = session_id or f"socratic_{user_uid}_{ls_bundle.learning_step.uid}"
+        conversation = None
+        if self.conversation_context:
+            conversation = self.conversation_context.get_or_create_session(
+                effective_session_id, user_uid
+            )
+            # Add user's question as a turn
+            conversation.add_turn(role=MessageRole.USER, content=question)
+
+        # Step 4: Extract target KUs from question (scoped to bundle)
+        target_ku_uids = self.entity_extractor.extract_from_bundle(question, ls_bundle)
+
+        # Step 5: Get targeted ZPD evidence
+        zone_evidence: dict[str, Any] = {}
+        if self.zpd_service and target_ku_uids:
+            zpd_result = await self.zpd_service.assess_ku_readiness(user_uid, target_ku_uids)
+            if not zpd_result.is_error:
+                zone_evidence = zpd_result.value
+
+        # Step 6: Classify pedagogical intent
+        intent = self.intent_classifier.classify_pedagogical_intent(
+            question, ls_bundle, zone_evidence, target_ku_uids
+        )
+
+        # Step 7: Generate Socratic move
+        move = self.socratic_engine.generate_move(
+            intent=intent,
+            ls_bundle=ls_bundle,
+            zone_evidence=zone_evidence,
+            conversation=conversation,
+            target_ku_uids=target_ku_uids,
+        )
+
+        # Step 8: Call LLM with the move's system prompt and curriculum context
+        user_prompt = question
+        if move.curriculum_context:
+            user_prompt = (
+                f"=== CURRICULUM CONTEXT (for your reference, do NOT share directly) ===\n"
+                f"{move.curriculum_context}\n\n"
+                f"=== LEARNER'S MESSAGE ===\n{question}"
+            )
+
+        llm_response = await self.llm_service.generate(
+            prompt=user_prompt,
+            system_prompt=move.system_prompt,
+            temperature=0.7,
+            max_tokens=500,
+        )
+
+        answer = llm_response.content or (
+            "I'd like to explore this with you, but I'm having trouble "
+            "formulating my response. Could you rephrase your question?"
+        )
+
+        # Step 9: Record assistant turn
+        if conversation:
+            conversation.add_turn(role=MessageRole.ASSISTANT, content=answer)
+            conversation.update_topic(ls_bundle.learning_step.title or "Learning")
+            for ku_uid in target_ku_uids:
+                conversation.add_entity(ku_uid)
+
+        # Step 10: Package response
+        logger.info(
+            "Socratic turn for user %s: intent=%s, target_kus=%d, ls=%s",
+            user_uid,
+            intent.value,
+            len(target_ku_uids),
+            ls_bundle.learning_step.uid,
+        )
+
+        return Result.ok(
+            {
+                "answer": answer,
+                "move_type": intent.value,
+                "target_kus": target_ku_uids,
+                "ls_uid": ls_bundle.learning_step.uid,
+                "session_id": effective_session_id,
+            }
+        )
 
     @with_error_handling("process_query_with_context", error_type="system", uid_param="user_uid")
     async def process_query_with_context(

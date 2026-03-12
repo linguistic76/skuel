@@ -33,8 +33,8 @@ from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from core.ports.domain_protocols import TasksOperations
-    from core.services.llm_service import LLMService
     from core.services.embeddings_service import HuggingFaceEmbeddingsService
+    from core.services.llm_service import LLMService
 
 
 class TasksAIService(BaseAIService["TasksOperations", Task]):

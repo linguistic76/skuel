@@ -82,6 +82,7 @@ from .askesis_request import (
 )
 
 # Socratic tutoring models (Askesis RAG pipeline refactor)
+from .learning_objective import StructuredLearningObjective
 from .ls_bundle import LSBundle
 from .pedagogical_intent import PedagogicalIntent
 from .socratic_move import SocraticMove
@@ -92,6 +93,7 @@ __all__ = [
     "LSBundle",
     "PedagogicalIntent",
     "SocraticMove",
+    "StructuredLearningObjective",
     "AskesisAnalyticsRequest",
     "AskesisConfigurationDTO",
     "AskesisCreateDTO",

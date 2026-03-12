@@ -29,8 +29,8 @@ import re
 from collections import Counter
 
 from core.ports.content_protocols import ContentAdapter
-from core.services.lp_intelligence.types import ContentMetadata
 from core.services.embeddings_service import HuggingFaceEmbeddingsService
+from core.services.lp_intelligence.types import ContentMetadata
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result

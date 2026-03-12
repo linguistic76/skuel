@@ -30,12 +30,15 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from core.models.relationship_names import RelationshipName
+from core.models.user.conversation import ConversationContext
 from core.services.askesis.action_recommendation_engine import ActionRecommendationEngine
 from core.services.askesis.context_retriever import ContextRetriever
 from core.services.askesis.entity_extractor import EntityExtractor
 from core.services.askesis.intent_classifier import IntentClassifier
+from core.services.askesis.ls_context_loader import LSContextLoader
 from core.services.askesis.query_processor import QueryProcessor
 from core.services.askesis.response_generator import ResponseGenerator
+from core.services.askesis.socratic_engine import SocraticEngine
 from core.services.askesis.user_state_analyzer import UserStateAnalyzer
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -87,6 +90,11 @@ class AskesisDeps:
     # None when curriculum graph has < 3 KUs (data condition, not degradation).
     # See: core/services/zpd/zpd_service.py
     zpd_service: ZPDOperations | None = None
+    # Socratic pipeline dependencies (Phase 5)
+    # Optional services for LSContextLoader — None is valid when not needed
+    ku_service: Any | None = None
+    lp_service: Any | None = None
+    principles_service: Any | None = None
 
 
 class AskesisService:
@@ -177,6 +185,19 @@ class AskesisService:
         self.intent_classifier = IntentClassifier(embeddings_service=deps.embeddings_service)
         self.response_generator = ResponseGenerator()
 
+        # Socratic pipeline sub-services (Phase 5)
+        self.socratic_engine = SocraticEngine()
+        self.conversation_context = ConversationContext()
+        self.ls_context_loader = LSContextLoader(
+            article_service=deps.knowledge_service,
+            ku_service=deps.ku_service,
+            habits_service=deps.habits_service,
+            tasks_service=deps.tasks_service,
+            events_service=deps.events_service,
+            principles_service=deps.principles_service,
+            lp_service=deps.lp_service,
+        )
+
         self.query_processor = QueryProcessor(
             intent_classifier=self.intent_classifier,
             response_generator=self.response_generator,
@@ -186,9 +207,16 @@ class AskesisService:
             llm_service=deps.llm_service,
             graph_intelligence_service=deps.graph_intelligence_service,
             citation_service=deps.citation_service,
+            # Socratic pipeline
+            ls_context_loader=self.ls_context_loader,
+            socratic_engine=self.socratic_engine,
+            zpd_service=deps.zpd_service,
+            conversation_context=self.conversation_context,
         )
 
-        logger.info("AskesisService initialized with 7 specialized sub-services (facade pattern)")
+        logger.info(
+            "AskesisService initialized with 7 specialized sub-services + Socratic pipeline"
+        )
 
     # ========================================================================
     # EXPLICIT DELEGATIONS
@@ -203,8 +231,9 @@ class AskesisService:
     # - optimize_workflow(user_context) → list[dict]
     # - predict_future_state(user_context, days_ahead) → dict
     #
-    # QUERY PROCESSING (2 methods → query_processor):
+    # QUERY PROCESSING (3 methods → query_processor):
     # - answer_user_question(user_uid, question) → dict
+    # - ask_socratic(user_uid, question, session_id) → dict
     # - process_query_with_context(user_uid, query_message, depth) → dict
     #
     # CONTEXT RETRIEVAL (2 methods → context_retriever):
@@ -240,6 +269,12 @@ class AskesisService:
     async def answer_user_question(self, user_uid: str, question: str) -> Result[dict[str, Any]]:
         """Answer user question via RAG pipeline. Delegated to query_processor."""
         return await self.query_processor.answer_user_question(user_uid, question)
+
+    async def ask_socratic(
+        self, user_uid: str, question: str, session_id: str | None = None
+    ) -> Result[dict[str, Any]]:
+        """LS-scoped Socratic tutoring. Delegated to query_processor."""
+        return await self.query_processor.process_socratic_turn(user_uid, question, session_id)
 
     async def process_query_with_context(
         self, user_uid: str, query_message: str, depth: int = 2

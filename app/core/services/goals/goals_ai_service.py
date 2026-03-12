@@ -29,8 +29,8 @@ from core.services.base_ai_service import BaseAIService
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.services.llm_service import LLMService
     from core.services.embeddings_service import HuggingFaceEmbeddingsService
+    from core.services.llm_service import LLMService
 
 
 class GoalsAIService(BaseAIService[GoalsOperations, Goal]):

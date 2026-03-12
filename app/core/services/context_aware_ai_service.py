@@ -29,11 +29,11 @@ from core.services.base_ai_service import BaseAIService
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
+    from core.services.embeddings_service import HuggingFaceEmbeddingsService
     from core.services.infrastructure.graph_intelligence_service import (
         GraphIntelligenceService,
     )
     from core.services.llm_service import LLMService
-    from core.services.embeddings_service import HuggingFaceEmbeddingsService
 
 
 class ContextAwareAIService(BaseAIService[Any, Any]):

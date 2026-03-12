@@ -27,8 +27,8 @@ from datetime import datetime
 from typing import Any
 
 from core.models.enums import GuidanceMode
-from core.services.lp_intelligence.types import LearningAnalysis, LearningReadiness, ProgressSummary
 from core.services.embeddings_service import HuggingFaceEmbeddingsService
+from core.services.lp_intelligence.types import LearningAnalysis, LearningReadiness, ProgressSummary
 from core.services.user import UserContext
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger

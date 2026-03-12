@@ -50,5 +50,9 @@ def create_askesis_service(
         habits_service=activity_services["habits"],
         events_service=activity_services["events"],
         zpd_service=zpd_service,
+        # Socratic pipeline: LSContextLoader needs these for full bundle loading
+        ku_service=learning_services.get("atomic_ku_service"),
+        lp_service=learning_services.get("learning_paths"),
+        principles_service=activity_services.get("principles"),
     )
     return AskesisService(deps)

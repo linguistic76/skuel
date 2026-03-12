@@ -53,6 +53,7 @@ class CurriculumDTO(EntityDTO):
     semantic_links: list[str] = field(default_factory=list)
     target_age_range: list[int] | None = None
     learning_objectives: list[str] = field(default_factory=list)
+    structured_learning_objectives: list[Any] = field(default_factory=list)
 
     # =========================================================================
     # SUBSTANCE TRACKING
@@ -92,6 +93,9 @@ class CurriculumDTO(EntityDTO):
                 "target_age_range": list(self.target_age_range) if self.target_age_range else None,
                 "learning_objectives": list(self.learning_objectives)
                 if self.learning_objectives
+                else [],
+                "structured_learning_objectives": list(self.structured_learning_objectives)
+                if self.structured_learning_objectives
                 else [],
                 # Substance tracking
                 "times_applied_in_tasks": self.times_applied_in_tasks,
@@ -153,6 +157,7 @@ class CurriculumDTO(EntityDTO):
                 "tags",
                 "semantic_links",
                 "learning_objectives",
+                "structured_learning_objectives",
             ],
             dict_fields=["metadata"],
             deprecated_fields=["prerequisites", "enables", "related_to", "name"],
@@ -190,6 +195,7 @@ class CurriculumDTO(EntityDTO):
                 "semantic_links",
                 "target_age_range",
                 "learning_objectives",
+                "structured_learning_objectives",
                 "times_applied_in_tasks",
                 "times_practiced_in_events",
                 "times_built_into_habits",
