@@ -127,6 +127,7 @@ class LLMService:
         system_prompt: str | None = None,
         temperature: float | None = None,
         max_tokens: int | None = None,
+        conversation_history: list[dict[str, str]] | None = None,
     ) -> LLMResponse:
         """
         Generate text using the LLM.
@@ -153,10 +154,12 @@ class LLMService:
 
         # Generate based on provider
         if self.config.provider == LLMProvider.OPENAI:
-            return await self._generate_openai(full_prompt, system_prompt, temperature, max_tokens)
+            return await self._generate_openai(
+                full_prompt, system_prompt, temperature, max_tokens, conversation_history
+            )
         elif self.config.provider == LLMProvider.ANTHROPIC:
             return await self._generate_anthropic(
-                full_prompt, system_prompt, temperature, max_tokens
+                full_prompt, system_prompt, temperature, max_tokens, conversation_history
             )
         elif self.config.provider == LLMProvider.LOCAL:
             return await self._generate_local(full_prompt, system_prompt, temperature, max_tokens)
@@ -164,13 +167,20 @@ class LLMService:
             return await self._generate_mock(full_prompt, system_prompt)
 
     async def _generate_openai(
-        self, prompt: str, system_prompt: str | None, temperature: float, max_tokens: int
+        self,
+        prompt: str,
+        system_prompt: str | None,
+        temperature: float,
+        max_tokens: int,
+        conversation_history: list[dict[str, str]] | None = None,
     ) -> LLMResponse:
         """Generate using OpenAI API (modern v1.x+ syntax)."""
         try:
             messages = []
             if system_prompt:
                 messages.append({"role": "system", "content": system_prompt})
+            if conversation_history:
+                messages.extend(conversation_history)
             messages.append({"role": "user", "content": prompt})
 
             # Modern OpenAI API (v1.x+)
@@ -194,16 +204,26 @@ class LLMService:
             )
 
     async def _generate_anthropic(
-        self, prompt: str, system_prompt: str | None, temperature: float, max_tokens: int
+        self,
+        prompt: str,
+        system_prompt: str | None,
+        temperature: float,
+        max_tokens: int,
+        conversation_history: list[dict[str, str]] | None = None,
     ) -> LLMResponse:
         """Generate using Anthropic API."""
         try:
+            all_messages: list[dict[str, str]] = (
+                list(conversation_history) if conversation_history else []
+            )
+            all_messages.append({"role": "user", "content": prompt})
+
             message = self.client.messages.create(
                 model=self.config.model_name,
                 max_tokens=max_tokens,
                 temperature=temperature,
                 system=system_prompt or "",
-                messages=[{"role": "user", "content": prompt}],
+                messages=all_messages,
             )
 
             return LLMResponse(
@@ -321,6 +341,7 @@ class LLMService:
         user_context: str,
         additional_context: dict | None = None,
         intent: Any | None = None,
+        conversation_history: list[dict[str, str]] | None = None,
     ) -> str:
         """
         Generate context-aware answer using full user state.
@@ -348,6 +369,7 @@ class LLMService:
             system_prompt=system_prompt,
             temperature=0.7,
             max_tokens=500,
+            conversation_history=conversation_history,
         )
 
         if response.error:

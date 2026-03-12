@@ -30,6 +30,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from core.models.relationship_names import RelationshipName
+from core.models.user.conversation import ConversationContext
 from core.services.askesis.action_recommendation_engine import ActionRecommendationEngine
 from core.services.askesis.context_retriever import ContextRetriever
 from core.services.askesis.entity_extractor import EntityExtractor
@@ -190,6 +191,9 @@ class AskesisService:
         self.intent_classifier = IntentClassifier(embeddings_service=deps.embeddings_service)
         self.response_generator = ResponseGenerator()
 
+        # Conversation session manager — in-memory, shared across all queries
+        self.conversation_context = ConversationContext()
+
         self.query_processor = QueryProcessor(
             intent_classifier=self.intent_classifier,
             response_generator=self.response_generator,
@@ -200,6 +204,7 @@ class AskesisService:
             graph_intelligence_service=deps.graph_intelligence_service,
             zpd_service=deps.zpd_service,
             citation_service=deps.citation_service,
+            conversation_context=self.conversation_context,
         )
 
         logger.info("AskesisService initialized with 7 specialized sub-services")
@@ -218,7 +223,7 @@ class AskesisService:
     # - predict_future_state(user_context, days_ahead) → dict
     #
     # QUERY PROCESSING (2 methods → query_processor):
-    # - answer_user_question(user_uid, question) → dict
+    # - answer_user_question(user_uid, question, session_id=None) → dict
     # - process_query_with_context(user_uid, query_message, depth) → dict
     #
     # CONTEXT RETRIEVAL (2 methods → context_retriever):
@@ -251,9 +256,11 @@ class AskesisService:
         """Predict future state. Delegated to recommendation_engine."""
         return await self.recommendation_engine.predict_future_state(user_context, days_ahead)
 
-    async def answer_user_question(self, user_uid: str, question: str) -> Result[dict[str, Any]]:
+    async def answer_user_question(
+        self, user_uid: str, question: str, session_id: str | None = None
+    ) -> Result[dict[str, Any]]:
         """Answer user question via RAG pipeline. Delegated to query_processor."""
-        return await self.query_processor.answer_user_question(user_uid, question)
+        return await self.query_processor.answer_user_question(user_uid, question, session_id)
 
     async def process_query_with_context(
         self, user_uid: str, query_message: str, depth: int = 2

@@ -132,6 +132,7 @@ def create_askesis_api_routes(
         """
         user_uid = require_authenticated_user(request)
         question = request.query_params.get("question")
+        session_id = request.query_params.get("session_id")
 
         if not question:
             return Result.fail(
@@ -144,7 +145,9 @@ def create_askesis_api_routes(
 
         # Call RAG pipeline
         logger.info(f"RAG question from {user_uid}: {question}")
-        result = await askesis_service.answer_user_question(user_uid, question)
+        result = await askesis_service.answer_user_question(
+            user_uid, question, session_id=session_id
+        )
 
         if result.is_ok:
             logger.info(f"RAG answer generated for {user_uid}")

@@ -190,7 +190,9 @@ class AskesisQueryOperations(Protocol):
     and context-aware response generation.
     """
 
-    async def answer_user_question(self, user_uid: str, question: str) -> Result[dict[str, Any]]:
+    async def answer_user_question(
+        self, user_uid: str, question: str, session_id: str | None = None
+    ) -> Result[dict[str, Any]]:
         """Answer a natural language question about user's state.
 
         Full RAG pipeline:

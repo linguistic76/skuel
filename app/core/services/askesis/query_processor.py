@@ -40,7 +40,9 @@ import asyncio
 from typing import TYPE_CHECKING, Any
 
 from core.constants import AskesisPipelineTimeout, QueryProcessorConfidence
+from core.models.enums import MessageRole
 from core.models.query_types import QueryIntent
+from core.models.user.conversation import ConversationContext
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -108,6 +110,7 @@ class QueryProcessor:
         graph_intelligence_service: GraphIntelligenceService,
         zpd_service: ZPDOperations,
         citation_service: AskesisCitationService | None = None,
+        conversation_context: ConversationContext | None = None,
     ) -> None:
         """
         Initialize query processor.
@@ -132,6 +135,7 @@ class QueryProcessor:
         self.graph_intel = graph_intelligence_service
         self.zpd_service = zpd_service
         self.citation_service = citation_service
+        self.conversation_context = conversation_context or ConversationContext()
 
         logger.info("QueryProcessor initialized (orchestration layer)")
 
@@ -140,7 +144,9 @@ class QueryProcessor:
     # ========================================================================
 
     @with_error_handling("answer_user_question", error_type="system", uid_param="user_uid")
-    async def answer_user_question(self, user_uid: str, question: str) -> Result[dict[str, Any]]:
+    async def answer_user_question(
+        self, user_uid: str, question: str, session_id: str | None = None
+    ) -> Result[dict[str, Any]]:
         """
         Complete RAG pipeline - retrieval + generation.
 
@@ -167,7 +173,7 @@ class QueryProcessor:
         """
         try:
             return await asyncio.wait_for(
-                self._answer_user_question_pipeline(user_uid, question),
+                self._answer_user_question_pipeline(user_uid, question, session_id),
                 timeout=AskesisPipelineTimeout.ANSWER_QUESTION_SECONDS,
             )
         except TimeoutError:
@@ -185,7 +191,7 @@ class QueryProcessor:
             )
 
     async def _answer_user_question_pipeline(
-        self, user_uid: str, question: str
+        self, user_uid: str, question: str, session_id: str | None = None
     ) -> Result[dict[str, Any]]:
         """Inner pipeline for answer_user_question, wrapped with timeout."""
         # Step 1: Get full user context
@@ -207,6 +213,13 @@ class QueryProcessor:
         if not user_context.enrolled_path_uids:
             return Result.ok(_ENROLLMENT_GATE_RESPONSE)
 
+        # Step 2.5: Load conversation history if session_id provided
+        conversation_history: list[dict[str, str]] | None = None
+        session = None
+        if session_id:
+            session = self.conversation_context.get_or_create_session(session_id, user_uid)
+            conversation_history = session.to_llm_messages(max_tokens=2000) or None
+
         # Step 3: Classify query intent
         intent_result = await self.intent_classifier.classify_intent(question)
         if intent_result.is_error:
@@ -225,10 +238,17 @@ class QueryProcessor:
                 question, user_context
             )
         except Exception:
-            logger.warning("Entity extraction failed — continuing without entity matches", exc_info=True)
+            logger.warning(
+                "Entity extraction failed — continuing without entity matches", exc_info=True
+            )
             extracted_entities = {
-                "knowledge": [], "tasks": [], "goals": [],
-                "habits": [], "events": [], "principles": [], "choices": [],
+                "knowledge": [],
+                "tasks": [],
+                "goals": [],
+                "habits": [],
+                "events": [],
+                "principles": [],
+                "choices": [],
             }
 
         # Step 5: Retrieve relevant entities based on intent
@@ -299,6 +319,7 @@ class QueryProcessor:
                 system_prompt=guided_system_prompt,
                 temperature=0.7,
                 max_tokens=500,
+                conversation_history=conversation_history,
             )
             answer = llm_response.content or (
                 "I'd like to explore this with you, but I'm having trouble "
@@ -310,7 +331,13 @@ class QueryProcessor:
                 user_context=llm_context,
                 additional_context=relevant_context,
                 intent=intent,
+                conversation_history=conversation_history,
             )
+
+        # Step 8.5: Record turns on session if active
+        if session:
+            session.add_turn(MessageRole.USER, question)
+            session.add_turn(MessageRole.ASSISTANT, answer)
 
         # Step 9: Generate suggested actions
         suggested_actions = self.response_generator.generate_actions(
@@ -345,6 +372,9 @@ class QueryProcessor:
 
         if guidance_mode:
             response["guidance_mode"] = guidance_mode
+
+        if session_id:
+            response["session_id"] = session_id
 
         logger.info(
             "Generated answer for user %s question: %s (intent: %s, citations: %s, guidance: %s)",
