@@ -29,6 +29,7 @@ import time
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
+from tenacity import retry, stop_after_attempt, wait_exponential
 
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -87,6 +88,31 @@ class HuggingFaceEmbeddingsService:
             self._client = AsyncInferenceClient(model=self.model, token=hf_token)
             self.logger.info(f"HuggingFace embeddings client initialized (model={self.model})")
 
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
+    async def _call_hf_api(self, text: str) -> list[float]:
+        """
+        Raw HuggingFace API call with automatic retry on transient failures.
+
+        Retries up to 3 times with exponential backoff (2s, 4s, 8s) for
+        network errors, 503 cold starts, and 429 rate limits.
+
+        Raises on failure so tenacity can retry.
+        """
+        assert self._client is not None  # caller checks
+        raw = await self._client.feature_extraction(text)
+
+        # Extract the embedding vector from the response
+        # feature_extraction returns a numpy array or nested list
+        if isinstance(raw, np.ndarray):
+            # Shape could be (1, dim) or (dim,) depending on API response
+            return raw[0].tolist() if raw.ndim == 2 else raw.tolist()
+        elif isinstance(raw, list):
+            # May be nested [[float, ...]] or flat [float, ...]
+            return raw[0] if raw and isinstance(raw[0], list) else raw
+        else:
+            msg = f"Unexpected response type: {type(raw).__name__}"
+            raise TypeError(msg)
+
     async def create_embedding(
         self, text: str, metadata: dict[str, Any] | None = None
     ) -> Result[list[float]]:
@@ -120,26 +146,8 @@ class HuggingFaceEmbeddingsService:
         start_time = time.time()
 
         try:
-            # HuggingFace Inference API call (async — non-blocking)
-            # feature_extraction returns nested list: [[float, ...]]
-            raw = await self._client.feature_extraction(text)
+            embedding = await self._call_hf_api(text)
             duration = time.time() - start_time
-
-            # Extract the embedding vector from the response
-            # feature_extraction returns a numpy array or nested list
-            if isinstance(raw, np.ndarray):
-                # Shape could be (1, dim) or (dim,) depending on API response
-                embedding = raw[0].tolist() if raw.ndim == 2 else raw.tolist()
-            elif isinstance(raw, list):
-                # May be nested [[float, ...]] or flat [float, ...]
-                embedding = raw[0] if raw and isinstance(raw[0], list) else raw
-            else:
-                return Result.fail(
-                    Errors.integration(
-                        service="HuggingFace",
-                        message=f"Unexpected response type: {type(raw).__name__}",
-                    )
-                )
 
             # Track metrics
             if self.prometheus_metrics:
