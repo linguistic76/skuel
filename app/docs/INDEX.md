@@ -354,6 +354,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [Conversation Neo4j Persistence — Deferred](roadmap/conversation-neo4j-persistence-deferred.md) | 2026-03-05 | Neo4j schema for persisted conversation sessions and turns; cross-session continuity design |
 | [Teacher-Askesis Interface — Deferred](roadmap/teacher-askesis-interface-deferred.md) | 2026-03-05 | Teacher view/adjust/annotate interface; requires ZPDService + Neo4j persistence first |
 | [Learning Loop Cross-Domain Search](roadmap/learning-loop-cross-domain-search.md) | 2026-03-07 | Level 3 roadmap: cross-loop graph traversal search, SubmissionReport/ActivityReport search |
+| [Askesis Semantic Intelligence](roadmap/askesis-semantic-intelligence.md) | 2026-03-12 | Deferred enhancements: learning-aware search, LS bundle semantic enrichment, conversation persistence, gap analysis fallback |
 
 ## Examples
 

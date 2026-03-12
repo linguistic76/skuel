@@ -191,36 +191,26 @@ Askesis already follows the patterns we're moving toward:
 - ✅ Uses domain-specific models (transcription)
 - ✅ Doesn't mix concerns (no deprecated search imports)
 
-## Semantic Search Implementation (January 2026)
+## Semantic Search Implementation (March 2026)
 
-### New Capabilities
+### Architecture
 
-Askesis now includes fully implemented semantic search via `ContextRetriever`:
+Askesis semantic search uses `Neo4jVectorSearchService` with native vector indexes
+(`db.index.vector.queryNodes()`). The service is wired through `AskesisDeps.vector_search_service`
+into `ContextRetriever`.
 
 ```python
 # ContextRetriever._find_similar_knowledge()
 async def _find_similar_knowledge(self, query: str, _user_uid: str) -> list[tuple[str, float, str]]:
-    """
-    Find semantically similar knowledge units.
-
-    Returns: list of (uid, similarity_score, title) tuples
-    """
-    # 1. Create query embedding
-    query_embedding = await self.embeddings_service.create_embedding(query)
-
-    # 2. Fetch KUs with stored embeddings
-    ku_query = """
-    MATCH (ku:Curriculum) WHERE ku.embedding IS NOT NULL
-    RETURN ku.uid, ku.title, ku.embedding LIMIT 100
-    """
-
-    # 3. Cosine similarity matching (threshold 0.6, top_k=5)
-    similar = self.embeddings_service.find_similar(
-        query_embedding=query_embedding,
-        embeddings=embeddings_list,
-        threshold=0.6, top_k=5
+    # Single call handles embedding creation + native vector index search
+    result = await self.vector_search_service.find_similar_by_text(
+        "Entity", query, limit=5, min_score=0.6
     )
+    # Returns list of (uid, score, title) tuples
 ```
+
+Semantic search runs for **all queries** when `vector_search_service` is available — no keyword
+gate. The `min_score=0.6` threshold handles relevance filtering.
 
 ### Knowledge Gap Analysis
 
@@ -243,19 +233,19 @@ async def _find_similar_knowledge(self, query: str, _user_uid: str) -> list[tupl
    - **Quick wins**: Items with 0-1 prerequisites (easy to start)
    - **High impact**: Items that unlock many dependents
 
-### Integration with EmbeddingsService
+### Integration with Neo4jVectorSearchService
 
 ```python
-# EmbeddingsService API used by Askesis:
-create_embedding(text: str) -> list[float]           # Create vector embedding
-find_similar(query_embedding, embeddings, threshold, top_k)  # Cosine similarity search
+# Neo4jVectorSearchService API used by Askesis:
+find_similar_by_text(label, text, limit, min_score)  # Embed text + native vector index search
 ```
 
 ### Prerequisites for Semantic Search
 
-- KUs must have `embedding` field populated (via ingestion or batch job)
-- `EmbeddingsService` must be available (requires OPENAI_API_KEY)
-- `GraphIntelligenceService` for query execution
+- Entities must have `embedding` field populated (via ingestion or batch job)
+- Neo4j vector index `entity_embedding_idx` must exist
+- `Neo4jVectorSearchService` available (requires `INTELLIGENCE_TIER=full`)
+- `HuggingFaceEmbeddingsService` for embedding generation (used internally by vector search)
 
 ---
 
