@@ -10,8 +10,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
-from core.models.enums import Priority
-from core.models.enums.askesis_enums import ConversationStyle, QueryComplexity
+from core.models.enums import GuidanceMode, Priority
+from core.models.enums.askesis_enums import QueryComplexity
 
 
 @dataclass
@@ -27,7 +27,7 @@ class ConversationSessionDTO:
     primary_intent: str | None = None
     domains_discussed: list[str] = field(default_factory=list)
     complexity_level: str = QueryComplexity.SIMPLE.value
-    conversation_style: str = ConversationStyle.DIRECT.value
+    guidance_mode: str = GuidanceMode.DIRECT.value
 
     # Session outcomes
     user_satisfaction: int | None = None  # 1-5 scale,
@@ -109,7 +109,7 @@ class AskesisDTO:
     proactive_guidance_success_rate: float = 0.0
 
     # User Preferences (learned)
-    preferred_conversation_style: str = ConversationStyle.DIRECT.value
+    preferred_guidance_mode: str = GuidanceMode.DIRECT.value
     preferred_complexity_level: str = QueryComplexity.MODERATE.value
     response_preferences: dict[str, float] = field(default_factory=dict)
 
@@ -142,7 +142,7 @@ class AskesisCreateDTO:
     user_uid: str
     name: str = "Askesis"
     version: str = "1.0"
-    preferred_conversation_style: str = ConversationStyle.DIRECT.value
+    preferred_guidance_mode: str = GuidanceMode.DIRECT.value
     preferred_complexity_level: str = QueryComplexity.MODERATE.value
 
 
@@ -158,7 +158,7 @@ class AskesisUpdateDTO:
     version: str | None = None
     intelligence_confidence: float | None = None
 
-    preferred_conversation_style: str | None = None
+    preferred_guidance_mode: str | None = None
     preferred_complexity_level: str | None = None
 
     # Intelligence metrics updates
@@ -192,7 +192,7 @@ class ConversationAnalyticsDTO:
     average_session_duration: float = 0.0  # minutes,
     average_satisfaction: float = 0.0
     most_discussed_domains: list[str] = field(default_factory=list)
-    preferred_conversation_style: str = ConversationStyle.DIRECT.value
+    preferred_guidance_mode: str = GuidanceMode.DIRECT.value
     integration_success_rate: float = 0.0
     total_insights_generated: int = 0
 
@@ -282,7 +282,7 @@ class AskesisConfigurationDTO:
     user_uid: str
 
     # Conversation preferences
-    preferred_conversation_style: str = ConversationStyle.DIRECT.value
+    preferred_guidance_mode: str = GuidanceMode.DIRECT.value
     preferred_complexity_level: str = QueryComplexity.MODERATE.value
     proactive_guidance_enabled: bool = True
 

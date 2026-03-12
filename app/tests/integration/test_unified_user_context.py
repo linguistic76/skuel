@@ -84,7 +84,7 @@ class TestUnifiedUserContextBasics:
             current_energy_level=EnergyLevel.HIGH,
             preferred_personality=Personality.TUTOR,
             preferred_tone=ResponseTone.ENCOURAGING,
-            preferred_guidance=GuidanceMode.DETAILED,
+            preferred_guidance=GuidanceMode.EXPLORATORY,
         )
 
         # Verify all fields set correctly

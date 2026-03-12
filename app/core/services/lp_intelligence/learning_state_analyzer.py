@@ -275,13 +275,13 @@ class LearningStateAnalyzer:
         Returns:
             GuidanceMode enum value
         """
-        # High understanding + high engagement = minimal guidance (exploration)
+        # High understanding + high engagement = exploratory (self-directed discovery)
         if understanding > 0.7 and engagement > 0.7:
-            return GuidanceMode.MINIMAL
+            return GuidanceMode.EXPLORATORY
 
-        # Low understanding = balanced/guided
+        # Low understanding = direct (clear, informational guidance)
         if understanding < 0.4:
-            return GuidanceMode.BALANCED
+            return GuidanceMode.DIRECT
 
         # Medium understanding + preferences (uses conversation_preferences.preferred_guidance_mode)
         if 0.4 <= understanding <= 0.7:
@@ -292,7 +292,7 @@ class LearningStateAnalyzer:
                 if guidance:
                     return guidance
 
-        return GuidanceMode.BALANCED
+        return GuidanceMode.DIRECT
 
     def _recommend_actions(
         self, readiness: LearningReadiness, needs: dict[str, bool], progress: ProgressSummary | None

@@ -159,7 +159,7 @@ class AskesisCoreService:
             user_uid=user_uid,
             name=create_request.name,
             version=create_request.version,
-            preferred_conversation_style=create_request.preferred_conversation_style,
+            preferred_guidance_mode=create_request.preferred_guidance_mode,
             preferred_complexity_level=create_request.preferred_complexity_level,
             created_at=datetime.now(),
         )
@@ -238,8 +238,8 @@ class AskesisCoreService:
             dto.name = update_request.name
         if update_request.version is not None:
             dto.version = update_request.version
-        if update_request.preferred_conversation_style is not None:
-            dto.preferred_conversation_style = update_request.preferred_conversation_style
+        if update_request.preferred_guidance_mode is not None:
+            dto.preferred_guidance_mode = update_request.preferred_guidance_mode
         if update_request.preferred_complexity_level is not None:
             dto.preferred_complexity_level = update_request.preferred_complexity_level
 

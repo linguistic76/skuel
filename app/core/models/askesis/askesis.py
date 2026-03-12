@@ -26,7 +26,7 @@ from typing import Any
 from core.models.askesis.askesis_dto import AskesisDTO
 from core.models.entity_dto import EntityDTO as KnowledgeUnitDTO
 from core.models.enums import GuidanceMode, Intent, Personality, ResponseTone
-from core.models.enums.askesis_enums import ConversationStyle, QueryComplexity
+from core.models.enums.askesis_enums import QueryComplexity
 from core.models.query_types import QueryIntent
 from core.models.search_models import FacetSetRequest as FacetSetSchema
 from core.models.search_models import SearchQueryRequest as SearchQuerySchema
@@ -74,8 +74,8 @@ class Askesis:
     proactive_guidance_success_rate: float = 0.0
 
     # User Preferences (learned)
-    preferred_conversation_style: ConversationStyle = (
-        ConversationStyle.DIRECT
+    preferred_guidance_mode: GuidanceMode = (
+        GuidanceMode.DIRECT
     )  # Fixed: enum value, not tuple
     preferred_complexity_level: QueryComplexity = (
         QueryComplexity.MODERATE
@@ -158,10 +158,10 @@ class Askesis:
             integration_success_rate=dto.integration_success_rate,
             pattern_recognition_accuracy=dto.pattern_recognition_accuracy,
             proactive_guidance_success_rate=dto.proactive_guidance_success_rate,
-            preferred_conversation_style=(
-                ConversationStyle(dto.preferred_conversation_style)
-                if isinstance(dto.preferred_conversation_style, str)
-                else dto.preferred_conversation_style
+            preferred_guidance_mode=(
+                GuidanceMode(dto.preferred_guidance_mode)
+                if isinstance(dto.preferred_guidance_mode, str)
+                else dto.preferred_guidance_mode
             ),
             preferred_complexity_level=(
                 QueryComplexity(dto.preferred_complexity_level)
@@ -205,7 +205,7 @@ class Askesis:
             integration_success_rate=self.integration_success_rate,
             pattern_recognition_accuracy=self.pattern_recognition_accuracy,
             proactive_guidance_success_rate=self.proactive_guidance_success_rate,
-            preferred_conversation_style=self.preferred_conversation_style.value,
+            preferred_guidance_mode=self.preferred_guidance_mode.value,
             preferred_complexity_level=self.preferred_complexity_level.value,
             response_preferences=dict(self.response_preferences),
             domain_expertise_levels=dict(self.domain_expertise_levels),
@@ -296,7 +296,7 @@ class AskesisRequest:
         if self.guidance_mode:
             return self.guidance_mode
         pref_guidance: GuidanceMode = getattr(
-            self.user.preferences, "preferred_guidance_mode", GuidanceMode.BALANCED
+            self.user.preferences, "preferred_guidance_mode", GuidanceMode.DIRECT
         )
         return pref_guidance
 
@@ -408,7 +408,7 @@ class AskesisResponse:
     # Response metadata
     personality_used: Personality = Personality.KNOWLEDGEABLE_FRIEND
     tone_used: ResponseTone = ResponseTone.FRIENDLY
-    guidance_used: GuidanceMode = GuidanceMode.BALANCED
+    guidance_used: GuidanceMode = GuidanceMode.DIRECT
 
     # Performance metrics
     response_time_ms: float = 0.0

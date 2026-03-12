@@ -50,12 +50,18 @@ class Personality(StrEnum):
 
 
 class GuidanceMode(StrEnum):
-    """Level of guidance in learning/tasks"""
+    """How Askesis responds — default register is DIRECT.
 
-    MINIMAL = "minimal"
-    BALANCED = "balanced"
-    DETAILED = "detailed"
-    ADAPTIVE = "adaptive"
+    DIRECT: Concise, informational responses using curriculum context.
+    SOCRATIC: Probes understanding via questions, does not give answers.
+    EXPLORATORY: Guided discovery through scaffolding and connections.
+    ENCOURAGING: Warm, practice-focused, connects understanding to activity.
+    """
+
+    DIRECT = "direct"
+    SOCRATIC = "socratic"
+    EXPLORATORY = "exploratory"
+    ENCOURAGING = "encouraging"
 
 
 class LearningModality(StrEnum):

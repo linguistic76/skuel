@@ -14,7 +14,6 @@ from core.models.enums import GuidanceMode as GuidanceType
 
 # Askesis enums (canonical location: core.models.enums.askesis_enums)
 from core.models.enums.askesis_enums import (
-    ConversationStyle,
     IntegrationSuccess,
     QueryComplexity,
 )
@@ -85,14 +84,12 @@ from .askesis_request import (
 from .learning_objective import StructuredLearningObjective
 from .ls_bundle import LSBundle
 from .pedagogical_intent import PedagogicalIntent
-from .socratic_move import SocraticMove
 
 __all__ = [
     # Core domain models
     "Askesis",
     "LSBundle",
     "PedagogicalIntent",
-    "SocraticMove",
     "StructuredLearningObjective",
     "AskesisAnalyticsRequest",
     "AskesisConfigurationDTO",
@@ -110,7 +107,6 @@ __all__ = [
     "ConversationSessionDTO",
     "ConversationSessionResponse",
     "ConversationSessionUpdateRequest",
-    "ConversationStyle",
     "CrossDomainInsightDTO",
     "DomainInteraction",
     "DomainInteractionDTO",

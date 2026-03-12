@@ -28,7 +28,8 @@ from core.models.askesis.askesis_request import (
     GuidanceRecommendationCreateRequest,
     GuidanceRecommendationResponse,
 )
-from core.models.enums.askesis_enums import ConversationStyle, QueryComplexity
+from core.models.enums import GuidanceMode
+from core.models.enums.askesis_enums import QueryComplexity
 from core.models.user.conversation import ConversationSession
 
 # ==========================================================================
@@ -42,7 +43,7 @@ def askesis_create_request_to_dto(request: AskesisCreateRequest, user_uid: str) 
         user_uid=user_uid,
         name=request.name,
         version=request.version,
-        preferred_conversation_style=request.preferred_conversation_style.value,
+        preferred_guidance_mode=request.preferred_guidance_mode.value,
         preferred_complexity_level=request.preferred_complexity_level.value,
     )
 
@@ -55,8 +56,8 @@ def askesis_update_request_to_dto(
         uid=askesis_uid,
         name=request.name,
         version=request.version,
-        preferred_conversation_style=request.preferred_conversation_style.value
-        if request.preferred_conversation_style
+        preferred_guidance_mode=request.preferred_guidance_mode.value
+        if request.preferred_guidance_mode
         else None,
         preferred_complexity_level=request.preferred_complexity_level.value
         if request.preferred_complexity_level
@@ -75,7 +76,7 @@ def conversation_session_create_request_to_dto(
         started_at=datetime.now(),
         primary_intent=request.primary_intent,
         complexity_level=request.expected_complexity.value,
-        conversation_style=request.preferred_style.value,
+        guidance_mode=request.preferred_guidance_mode.value,
     )
 
 
@@ -133,7 +134,7 @@ def askesis_dto_to_domain(dto: AskesisDTO) -> Askesis:
         integration_success_rate=dto.integration_success_rate,
         pattern_recognition_accuracy=dto.pattern_recognition_accuracy,
         proactive_guidance_success_rate=dto.proactive_guidance_success_rate,
-        preferred_conversation_style=ConversationStyle(dto.preferred_conversation_style),
+        preferred_guidance_mode=GuidanceMode(dto.preferred_guidance_mode),
         preferred_complexity_level=QueryComplexity(dto.preferred_complexity_level),
         response_preferences=dto.response_preferences,
         domain_expertise_levels=dto.domain_expertise_levels,
@@ -198,7 +199,7 @@ def askesis_domain_to_dto(domain: Askesis) -> AskesisDTO:
         integration_success_rate=domain.integration_success_rate,
         pattern_recognition_accuracy=domain.pattern_recognition_accuracy,
         proactive_guidance_success_rate=domain.proactive_guidance_success_rate,
-        preferred_conversation_style=domain.preferred_conversation_style.value,
+        preferred_guidance_mode=domain.preferred_guidance_mode.value,
         preferred_complexity_level=domain.preferred_complexity_level.value,
         response_preferences=dict(domain.response_preferences),
         domain_expertise_levels=dict(domain.domain_expertise_levels),
@@ -227,7 +228,7 @@ def conversation_session_domain_to_dto(domain: ConversationSession) -> Conversat
         primary_intent=None,  # Not tracked in ConversationSession
         domains_discussed=domain.topics_discussed.copy() if domain.topics_discussed else [],
         complexity_level=QueryComplexity.SIMPLE.value,  # Default - not tracked in ConversationSession
-        conversation_style=ConversationStyle.DIRECT.value,  # Default - GuidanceMode is different concept
+        guidance_mode=GuidanceMode.DIRECT.value,
         user_satisfaction=None,  # Not tracked in active session
         goals_achieved=False,  # Not determined until session ends
         integration_success=None,  # Not determined until session ends
@@ -263,7 +264,7 @@ def askesis_dto_to_response(dto: AskesisDTO) -> AskesisResponse:
         integration_success_rate=dto.integration_success_rate,
         pattern_recognition_accuracy=dto.pattern_recognition_accuracy,
         proactive_guidance_success_rate=dto.proactive_guidance_success_rate,
-        preferred_conversation_style=dto.preferred_conversation_style,
+        preferred_guidance_mode=dto.preferred_guidance_mode,
         preferred_complexity_level=dto.preferred_complexity_level,
         active_learning_areas=dto.active_learning_areas,
         knowledge_gaps=dto.knowledge_gaps,
@@ -297,7 +298,7 @@ def conversation_session_dto_to_response(
         primary_intent=dto.primary_intent,
         domains_discussed=dto.domains_discussed,
         complexity_level=dto.complexity_level,
-        conversation_style=dto.conversation_style,
+        guidance_mode=dto.guidance_mode,
         user_satisfaction=dto.user_satisfaction,
         goals_achieved=dto.goals_achieved,
         integration_success=dto.integration_success,
@@ -357,8 +358,8 @@ def apply_askesis_update_to_dto(dto: AskesisDTO, update_dto: AskesisUpdateDTO) -
         dto.version = update_dto.version
     if update_dto.intelligence_confidence is not None:
         dto.intelligence_confidence = update_dto.intelligence_confidence
-    if update_dto.preferred_conversation_style is not None:
-        dto.preferred_conversation_style = update_dto.preferred_conversation_style
+    if update_dto.preferred_guidance_mode is not None:
+        dto.preferred_guidance_mode = update_dto.preferred_guidance_mode
     if update_dto.preferred_complexity_level is not None:
         dto.preferred_complexity_level = update_dto.preferred_complexity_level
     if update_dto.total_conversations is not None:
@@ -397,7 +398,7 @@ def create_askesis_dto_from_create_dto(create_dto: AskesisCreateDTO) -> AskesisD
         user_uid=create_dto.user_uid,
         name=create_dto.name,
         version=create_dto.version,
-        preferred_conversation_style=create_dto.preferred_conversation_style,
+        preferred_guidance_mode=create_dto.preferred_guidance_mode,
         preferred_complexity_level=create_dto.preferred_complexity_level,
         created_at=datetime.now(),
     )

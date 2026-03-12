@@ -423,7 +423,7 @@ class UserContext:
     # Interaction preferences
     preferred_personality: Personality = Personality.KNOWLEDGEABLE_FRIEND
     preferred_tone: ResponseTone = ResponseTone.FRIENDLY
-    preferred_guidance: GuidanceMode = GuidanceMode.BALANCED
+    preferred_guidance: GuidanceMode = GuidanceMode.DIRECT
 
     # Current state
     is_overwhelmed: bool = False  # Too many active items

@@ -1,21 +1,24 @@
 """
-Response Generator - Action and Response Generation
-====================================================
+Response Generator - Action, Response, and Guided Prompt Generation
+=====================================================================
 
-Generates suggested actions and responses based on context and intent.
-Extracted from QueryProcessor for single responsibility.
+Generates suggested actions, responses, and guided system prompts based on
+context, intent, and pedagogical guidance mode.
 
 Responsibilities:
 - Build LLM-friendly context from UserContext
 - Generate suggested actions based on intent and context
 - Generate context-aware responses
+- Build guided system prompts for Socratic tutoring (absorbed from SocraticEngine)
 
 Architecture:
 - Uses UserContext as primary input
 - Uses QueryIntent for intent-specific logic
+- Uses GuidanceDetermination for pedagogical prompt generation
 - Returns structured data for API responses
 
 January 2026: Extracted from QueryProcessor as part of Askesis design improvement.
+March 2026: Absorbed SocraticEngine prompt builders — single response service.
 """
 
 from __future__ import annotations
@@ -24,15 +27,18 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 from core.constants import MasteryLevel
+from core.models.askesis.pedagogical_intent import PedagogicalIntent
 from core.models.query_types import QueryIntent
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
+    from core.models.askesis.ls_bundle import LSBundle
+    from core.services.askesis.intent_classifier import GuidanceDetermination
     from core.services.user import UserContext
 
 logger = get_logger(__name__)
 
-# Maps QueryIntent → which context sections to include in the LLM prompt.
+# Maps QueryIntent -> which context sections to include in the LLM prompt.
 # Sections not listed here ("workload", "alerts") are always included.
 # "activity_report" uses query-text matching (broad keyword set doesn't map to one intent).
 INTENT_CONTEXT_SECTIONS: dict[QueryIntent, frozenset[str]] = {
@@ -74,16 +80,18 @@ _ACTIVITY_REPORT_KEYWORDS: frozenset[str] = frozenset(
 
 class ResponseGenerator:
     """
-    Generate actions and responses based on context and intent.
+    Generate actions, responses, and guided prompts based on context and intent.
 
     This service handles response generation:
     - Build LLM-friendly context from UserContext
     - Generate suggested next actions
     - Generate context-aware responses
+    - Build guided system prompts for Socratic tutoring
 
     Architecture:
     - Uses UserContext (~240 fields) as input
     - Uses QueryIntent for intent-specific logic
+    - Uses GuidanceDetermination for pedagogical prompt generation
     - Returns structured dicts for API responses
     """
 
@@ -91,17 +99,25 @@ class ResponseGenerator:
         """Initialize response generator."""
         logger.info("ResponseGenerator initialized")
 
-    def build_llm_context(self, user_context: UserContext, query: str, intent: QueryIntent) -> str:
+    def build_llm_context(
+        self,
+        user_context: UserContext,
+        query: str,
+        intent: QueryIntent,
+        ls_bundle: LSBundle | None = None,
+    ) -> str:
         """
         Convert UserContext into LLM-friendly natural language.
 
         Uses the classified QueryIntent to select which context sections to include,
-        rather than re-detecting intent via keyword heuristics.
+        rather than re-detecting intent via keyword heuristics. When an LSBundle is
+        available, appends curriculum content for grounded responses.
 
         Args:
             user_context: Complete user context with 240+ fields
             query: User's question (used only for activity report keyword matching)
             intent: Classified query intent from IntentClassifier
+            ls_bundle: Optional LS bundle with curriculum content
 
         Returns:
             Natural language context string for LLM consumption
@@ -158,7 +174,215 @@ class ResponseGenerator:
         ):
             self._append_activity_report_section(context_parts, user_context)
 
+        # --- LS Bundle curriculum content ---
+        if ls_bundle and ls_bundle.curriculum_context_text:
+            context_parts.append("\n--- Curriculum Context ---")
+            context_parts.append(ls_bundle.curriculum_context_text)
+
         return "\n".join(context_parts)
+
+    # ========================================================================
+    # GUIDED SYSTEM PROMPT GENERATION (absorbed from SocraticEngine)
+    # ========================================================================
+
+    def build_guided_system_prompt(
+        self,
+        guidance: GuidanceDetermination,
+        ls_bundle: LSBundle,
+        user_context: UserContext,
+    ) -> str:
+        """Build a system prompt based on the guidance determination.
+
+        Dispatches to mode-specific builders that construct system prompts
+        tailored to the pedagogical intent. Each mode has fine-grained
+        variation based on guidance.pedagogical_detail.
+
+        Args:
+            guidance: GuidanceDetermination with mode and pedagogical detail
+            ls_bundle: Complete LS bundle (scoped context)
+            user_context: User context for personalization
+
+        Returns:
+            System prompt string for the LLM call
+        """
+        from core.models.enums import GuidanceMode
+
+        builders = {
+            GuidanceMode.DIRECT: self._build_direct_prompt,
+            GuidanceMode.SOCRATIC: self._build_socratic_prompt,
+            GuidanceMode.EXPLORATORY: self._build_exploratory_prompt,
+            GuidanceMode.ENCOURAGING: self._build_encouraging_prompt,
+        }
+        builder = builders.get(guidance.mode, self._build_direct_prompt)
+        return builder(guidance, ls_bundle)
+
+    def _build_direct_prompt(
+        self,
+        guidance: GuidanceDetermination,
+        ls_bundle: LSBundle,
+    ) -> str:
+        """DIRECT mode: redirect or out-of-scope responses.
+
+        Covers REDIRECT_TO_CURRICULUM and OUT_OF_SCOPE pedagogical intents.
+        """
+        if guidance.pedagogical_detail == PedagogicalIntent.REDIRECT_TO_CURRICULUM:
+            # Find Articles linked to the target KUs
+            article_refs = []
+            for ku_uid in guidance.target_ku_uids:
+                article = ls_bundle.get_article_for_ku(ku_uid)
+                if article:
+                    article_refs.append(article.title or "Untitled Article")
+
+            if not article_refs:
+                article_refs = [a.title or "Untitled Article" for a in ls_bundle.articles]
+
+            articles_text = ", ".join(dict.fromkeys(article_refs))
+
+            return (
+                "You are a Socratic tutor. The learner is asking about "
+                "concepts they haven't engaged with yet and there is "
+                "curriculum content available for them to study. Gently "
+                "redirect them to read the relevant material first. Be "
+                "encouraging, not dismissive. Give a brief orientation of "
+                "what they'll find in the material.\n\n"
+                f"Recommended reading: {articles_text}"
+            )
+
+        # OUT_OF_SCOPE
+        ls_title = ls_bundle.learning_step.title or "your current step"
+        ls_intent = ls_bundle.learning_step.intent or ""
+
+        return (
+            "You are a Socratic tutor. The learner asked about something "
+            "outside the scope of their current learning step. Acknowledge "
+            "their curiosity, but gently redirect them to their current "
+            "focus. Be warm, not dismissive.\n\n"
+            f"Current learning step: {ls_title}\n"
+            f"Step intent: {ls_intent}"
+        )
+
+    def _build_socratic_prompt(
+        self,
+        guidance: GuidanceDetermination,
+        ls_bundle: LSBundle,
+    ) -> str:
+        """SOCRATIC mode: assess understanding or probe deeper.
+
+        Covers ASSESS_UNDERSTANDING and PROBE_DEEPER pedagogical intents.
+        """
+        ku_names = self._get_ku_names(ls_bundle, guidance.target_ku_uids)
+
+        if guidance.pedagogical_detail == PedagogicalIntent.ASSESS_UNDERSTANDING:
+            return (
+                "You are a Socratic tutor. The learner has engaged with the "
+                "following concepts and you need to assess their understanding. "
+                "Do NOT give answers or explain the concepts. Instead, ask the "
+                "learner to explain what they know in their own words. Use "
+                "open-ended questions like 'Tell me what you understand about...' "
+                "or 'How would you explain... to someone new to this?'\n\n"
+                f"Concepts to assess: {', '.join(ku_names)}"
+            )
+
+        # PROBE_DEEPER
+        return (
+            "You are a Socratic tutor. The learner has some familiarity "
+            "with these concepts but hasn't demonstrated deep understanding. "
+            "Ask a follow-up question that tests understanding beyond "
+            "surface-level recognition. Probe for application, nuance, or "
+            "connections. Do NOT give the answer.\n\n"
+            f"Concepts to probe: {', '.join(ku_names)}"
+        )
+
+    def _build_exploratory_prompt(
+        self,
+        guidance: GuidanceDetermination,
+        ls_bundle: LSBundle,
+    ) -> str:
+        """EXPLORATORY mode: scaffold or surface connections.
+
+        Covers SCAFFOLD and SURFACE_CONNECTION pedagogical intents.
+        """
+        if guidance.pedagogical_detail == PedagogicalIntent.SCAFFOLD:
+            ku_names = self._get_ku_names(ls_bundle, guidance.target_ku_uids)
+            return (
+                "You are a Socratic tutor. The learner is approaching new "
+                "concepts they haven't engaged with yet. Guide them toward "
+                "understanding through questions, analogies, and step-by-step "
+                "reasoning. Do NOT give direct explanations. Ask questions "
+                "that lead them to discover the insight themselves.\n\n"
+                f"Concepts to scaffold: {', '.join(ku_names)}\n\n"
+                "Use the curriculum context below to know what you're "
+                "scaffolding toward, but do not simply restate it."
+            )
+
+        # SURFACE_CONNECTION
+        target_set = set(guidance.target_ku_uids)
+        relevant_edges: list[dict] = []
+        for edge in ls_bundle.edges:
+            if isinstance(edge, dict):
+                source = edge.get("source_uid", "")
+                target = edge.get("target_uid", "")
+                if source in target_set or target in target_set:
+                    relevant_edges.append(edge)
+
+        edges_text = ""
+        for edge in relevant_edges:
+            rel_type = edge.get("relationship_type", "related to")
+            evidence = edge.get("evidence", "")
+            edges_text += f"- {rel_type}: {evidence}\n"
+
+        return (
+            "You are a Socratic tutor. The learner's question touches "
+            "concepts that are connected in the curriculum. Surface this "
+            "connection and ask the learner to reflect on how the concepts "
+            "relate. Use the relationship evidence to guide the question.\n\n"
+            f"Relationship evidence:\n{edges_text or 'No specific evidence available.'}"
+        )
+
+    def _build_encouraging_prompt(
+        self,
+        guidance: GuidanceDetermination,
+        ls_bundle: LSBundle,
+    ) -> str:
+        """ENCOURAGING mode: connect understanding to practice.
+
+        Covers ENCOURAGE_PRACTICE pedagogical intent.
+        """
+        practice_items = []
+        for habit in ls_bundle.habits:
+            practice_items.append(f"Habit: {habit.title}")
+        for task in ls_bundle.tasks:
+            practice_items.append(f"Task: {task.title}")
+        for event in ls_bundle.events:
+            practice_items.append(f"Event: {event.title}")
+
+        practice_text = (
+            "\n".join(practice_items)
+            if practice_items
+            else "No specific practice activities linked."
+        )
+
+        return (
+            "You are a Socratic tutor. The learner has conceptual "
+            "understanding but needs to deepen it through practice. "
+            "Acknowledge their understanding, then encourage them to "
+            "engage with the practice activities linked to their current "
+            "learning step. Explain how practice compounds knowledge.\n\n"
+            f"Available practice activities:\n{practice_text}"
+        )
+
+    # ========================================================================
+    # PRIVATE - GUIDED PROMPT HELPERS
+    # ========================================================================
+
+    def _get_ku_names(self, ls_bundle: LSBundle, ku_uids: list[str]) -> list[str]:
+        """Get KU titles for the given UIDs from the bundle."""
+        names = []
+        uid_set = set(ku_uids)
+        for ku in ls_bundle.kus:
+            if ku.uid in uid_set:
+                names.append(ku.title or ku.uid)
+        return names or ["(unknown concepts)"]
 
     # ========================================================================
     # PRIVATE - CONTEXT SECTION RENDERERS

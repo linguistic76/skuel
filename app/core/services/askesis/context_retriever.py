@@ -11,6 +11,7 @@ Responsibilities:
 - Identify quick wins and high-impact gaps
 - Generate gap recommendations
 - Find semantically similar knowledge
+- Load LS bundles for Socratic tutoring (absorbed from LSContextLoader)
 
 This service is part of the refactored EnhancedAskesisService architecture:
 - UserStateAnalyzer: Analyze current user state and patterns
@@ -24,6 +25,9 @@ Architecture:
 - Requires GraphIntelligenceService for graph intelligence queries (optional)
 - Requires EmbeddingsService for semantic search (optional)
 - Uses UserContext for user state
+- Loads LS bundles for the Socratic pipeline (absorbed from LSContextLoader)
+
+March 2026: Absorbed LSContextLoader into ContextRetriever — single retrieval service.
 """
 
 from __future__ import annotations
@@ -31,21 +35,28 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from core.constants import GraphDepth
+from core.models.askesis.ls_bundle import LSBundle
 from core.models.enums import Domain
 from core.models.query_types import QueryIntent
 from core.utils.decorators import requires_graph_intelligence, with_error_handling
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
+    from core.models.article.article import Article
+    from core.models.ku.ku import Ku
+    from core.models.pathways.learning_path import LearningPath
+    from core.models.pathways.learning_step import LearningStep
     from core.services.user import UserContext
 
 logger = get_logger(__name__)
 
+_SENTINEL = object()
+
 
 class ContextRetriever:
     """
-    Retrieve domain-specific context.
+    Retrieve domain-specific context and LS bundles.
 
     This service handles context retrieval:
     - Retrieve relevant context based on intent
@@ -53,6 +64,7 @@ class ContextRetriever:
     - Analyze knowledge gaps with prerequisite chains
     - Find semantically similar knowledge
     - Identify quick wins and high-impact gaps
+    - Load LS bundles for Socratic tutoring
 
     Architecture:
     - Requires GraphIntelligenceService for graph queries
@@ -60,12 +72,21 @@ class ContextRetriever:
     - Returns frozen dataclasses (LearningContext)
 
     March 2026: Both services required — no graceful degradation.
+    March 2026: Absorbed LSContextLoader — all retrieval in one service.
     """
 
     def __init__(
         self,
         graph_intelligence_service: Any,
         embeddings_service: Any,
+        # LS bundle dependencies (absorbed from LSContextLoader)
+        article_service: Any = None,
+        ku_service: Any = None,
+        habits_service: Any = None,
+        tasks_service: Any = None,
+        events_service: Any = None,
+        principles_service: Any = None,
+        lp_service: Any = None,
     ) -> None:
         """
         Initialize context retriever.
@@ -73,9 +94,25 @@ class ContextRetriever:
         Args:
             graph_intelligence_service: GraphIntelligenceService for graph intelligence queries
             embeddings_service: EmbeddingsService for semantic search
+            article_service: For fetching full Article content (LS bundle)
+            ku_service: For fetching full Ku objects from trains_ku_uids (LS bundle)
+            habits_service: For fetching full Habit objects from graph_context (LS bundle)
+            tasks_service: For fetching full Task objects from graph_context (LS bundle)
+            events_service: For fetching full Event objects from graph_context (LS bundle)
+            principles_service: For fetching full Principle objects from graph_context (LS bundle)
+            lp_service: For fetching full LearningPath from graph_context (LS bundle)
         """
         self.graph_intel = graph_intelligence_service
         self.embeddings_service = embeddings_service
+
+        # LS bundle dependencies
+        self.article_service = article_service
+        self.ku_service = ku_service
+        self.habits_service = habits_service
+        self.tasks_service = tasks_service
+        self.events_service = events_service
+        self.principles_service = principles_service
+        self.lp_service = lp_service
 
         logger.info("ContextRetriever initialized")
 
@@ -100,7 +137,7 @@ class ContextRetriever:
         Returns:
             Dict of relevant entities and metadata
         """
-        context = {}
+        context: dict[str, Any] = {}
 
         # PHASE 1: Graph-based retrieval
 
@@ -189,7 +226,7 @@ class ContextRetriever:
         Returns:
             Result containing complete learning context
 
-        Performance: 150ms → 18ms (8x faster)
+        Performance: 150ms -> 18ms (8x faster)
         """
         # Build user learning context query using CypherGenerator helper
         query, params = self._build_user_learning_context_query(user_uid, depth)
@@ -257,7 +294,7 @@ class ContextRetriever:
         Returns:
             Result containing gap analysis with actionable insights
 
-        Performance: 200ms → 25ms (8x faster)
+        Performance: 200ms -> 25ms (8x faster)
         """
         # Step 1: Get learning context
         context_result = await self.get_learning_context(user_uid, GraphDepth.DEFAULT)
@@ -288,6 +325,252 @@ class ContextRetriever:
                 "recommendations": self._generate_gap_recommendations(quick_wins, high_impact),
             }
         )
+
+    # ========================================================================
+    # PUBLIC API - LS BUNDLE LOADING (absorbed from LSContextLoader)
+    # ========================================================================
+
+    async def load_ls_bundle(self, user_uid: str, user_context: UserContext) -> Result[LSBundle]:
+        """Load the complete LS bundle from UserContext + service lookups.
+
+        Steps:
+        1. Find the active LS from user_context.active_learning_steps_rich
+        2. Extract graph_context (habits, tasks, knowledge UIDs)
+        3. Fetch full Article content for primary + supporting knowledge UIDs
+        4. Fetch full Ku objects for trains_ku_uids
+        5. Fetch full activity entities from graph_context UIDs
+        6. Assemble into frozen LSBundle
+
+        Args:
+            user_uid: User's unique identifier
+            user_context: Rich UserContext (must be build_rich() output)
+
+        Returns:
+            Result[LSBundle] — the complete bundle, or not_found error
+        """
+        # Step 1: Find active LS from rich context
+        ls_rich = self._find_active_ls(user_context)
+        if ls_rich is None:
+            return Result.fail(Errors.not_found("learning_step", "no_active_ls"))
+
+        step_data = ls_rich.get("entity", ls_rich.get("step", {}))
+        graph_context = ls_rich.get("graph_context", {})
+
+        # Step 2: Build the LearningStep domain model
+        learning_step = self._build_learning_step(step_data)
+        if learning_step is None:
+            return Result.fail(Errors.not_found("learning_step", "malformed_ls_data"))
+
+        # Step 3: Fetch full entities in parallel-ready fashion
+        articles = await self._fetch_articles(learning_step, graph_context)
+        kus = await self._fetch_kus(learning_step)
+        learning_path = await self._fetch_learning_path(graph_context)
+        habits = await self._fetch_entities_by_uid(
+            graph_context.get("practice_habits", []), self.habits_service
+        )
+        tasks = await self._fetch_entities_by_uid(
+            graph_context.get("practice_tasks", []), self.tasks_service
+        )
+        events: list[Any] = []  # Event templates not yet in graph_context
+        principles: list[Any] = []  # Principles not yet in graph_context
+
+        # Step 4: Collect learning objectives from articles
+        learning_objectives: list[str] = []
+        for article in articles:
+            if article.learning_objectives:
+                learning_objectives.extend(article.learning_objectives)
+
+        # Step 5: Collect edges between bundle entities
+        edges = self._extract_edges(graph_context)
+
+        bundle = LSBundle(
+            learning_step=learning_step,
+            learning_path=learning_path,
+            articles=tuple(articles),
+            kus=tuple(kus),
+            principles=tuple(principles),
+            habits=tuple(habits),
+            tasks=tuple(tasks),
+            events=tuple(events),
+            edges=tuple(edges),
+            learning_objectives=tuple(learning_objectives),
+        )
+
+        logger.info(
+            "Loaded LS bundle for user %s: %s",
+            user_uid,
+            bundle,
+        )
+        return Result.ok(bundle)
+
+    # ========================================================================
+    # PRIVATE - LS BUNDLE HELPERS (absorbed from LSContextLoader)
+    # ========================================================================
+
+    def _find_active_ls(self, user_context: UserContext) -> dict[str, Any] | None:
+        """Find the first active (non-mastered) LS from rich context.
+
+        UserContext.active_learning_steps_rich contains LS items with:
+        - entity/step: Full LS properties
+        - graph_context: {prerequisite_steps, practice_habits, practice_tasks,
+                          knowledge_relationships, learning_path}
+        """
+        for ls_item in user_context.active_learning_steps_rich:
+            step_data = ls_item.get("entity", ls_item.get("step", {}))
+            if not step_data:
+                continue
+
+            # Check the LS is not already mastered
+            current_mastery = step_data.get("current_mastery", 0.0) or 0.0
+            mastery_threshold = step_data.get("mastery_threshold", 0.7) or 0.7
+            if current_mastery < mastery_threshold:
+                return ls_item
+
+        # All steps mastered or no steps available
+        return None
+
+    def _build_learning_step(self, step_data: dict[str, Any]) -> LearningStep | None:
+        """Build a LearningStep from MEGA-QUERY properties dict."""
+        from core.models.pathways.learning_step import LearningStep
+        from core.models.pathways.learning_step_dto import LearningStepDTO
+
+        uid = step_data.get("uid")
+        if not uid:
+            return None
+
+        try:
+            dto = LearningStepDTO()
+            for key, value in step_data.items():
+                if getattr(dto, key, _SENTINEL) is not _SENTINEL:
+                    setattr(dto, key, value)
+            return LearningStep.from_dto(dto)
+        except Exception:
+            logger.warning("Failed to build LearningStep from data: %s", uid)
+            return None
+
+    async def _fetch_articles(
+        self, learning_step: LearningStep, graph_context: dict[str, Any]
+    ) -> list[Article]:
+        """Fetch full Articles for primary + supporting knowledge UIDs.
+
+        The LS has primary_knowledge_uids and supporting_knowledge_uids pointing
+        to Articles. The graph_context also has knowledge_relationships with UIDs.
+        We fetch full content so the Socratic engine can use it as curriculum context.
+        """
+        if not self.article_service:
+            return []
+
+        article_uids: set[str] = set()
+        if learning_step.primary_knowledge_uids:
+            article_uids.update(learning_step.primary_knowledge_uids)
+        if learning_step.supporting_knowledge_uids:
+            article_uids.update(learning_step.supporting_knowledge_uids)
+
+        # Also check graph_context knowledge_relationships for additional UIDs
+        for kr in graph_context.get("knowledge_relationships", []):
+            if isinstance(kr, dict) and kr.get("uid"):
+                article_uids.add(kr["uid"])
+
+        articles: list[Article] = []
+        for uid in article_uids:
+            result = await self.article_service.get(uid)
+            if result.is_ok and result.value:
+                articles.append(result.value)
+            else:
+                logger.debug("Could not fetch article %s for LS bundle", uid)
+
+        return articles
+
+    async def _fetch_kus(self, learning_step: LearningStep) -> list[Ku]:
+        """Fetch full Ku objects for trains_ku_uids on the LS.
+
+        Note: trains_ku_uids is not a field on LearningStep model directly;
+        it's derived from TRAINS_KU relationships. We check the LS's
+        semantic_links and primary/supporting knowledge UIDs for KU-prefixed UIDs.
+        """
+        if not self.ku_service:
+            return []
+
+        ku_uids: set[str] = set()
+        # KU UIDs start with "ku_"
+        for uid in learning_step.primary_knowledge_uids:
+            if uid.startswith("ku_"):
+                ku_uids.add(uid)
+        for uid in learning_step.supporting_knowledge_uids:
+            if uid.startswith("ku_"):
+                ku_uids.add(uid)
+        for uid in learning_step.semantic_links or ():
+            if uid.startswith("ku_"):
+                ku_uids.add(uid)
+
+        kus: list[Ku] = []
+        for uid in ku_uids:
+            result = await self.ku_service.get(uid)
+            if result.is_ok and result.value:
+                kus.append(result.value)
+            else:
+                logger.debug("Could not fetch KU %s for LS bundle", uid)
+
+        return kus
+
+    async def _fetch_learning_path(self, graph_context: dict[str, Any]) -> LearningPath | None:
+        """Fetch the parent LearningPath from graph_context."""
+        if not self.lp_service:
+            return None
+
+        lp_data = graph_context.get("learning_path")
+        if not lp_data or not isinstance(lp_data, dict):
+            return None
+
+        lp_uid = lp_data.get("uid")
+        if not lp_uid:
+            return None
+
+        result = await self.lp_service.get(lp_uid)
+        if result.is_ok and result.value:
+            return result.value
+        return None
+
+    async def _fetch_entities_by_uid(
+        self,
+        uid_dicts: list[dict[str, Any]],
+        service: Any,
+    ) -> list[Any]:
+        """Fetch full entities from a list of {uid, title, ...} dicts.
+
+        Used for habits, tasks, events, principles from graph_context.
+        """
+        if not service or not uid_dicts:
+            return []
+
+        entities: list[Any] = []
+        for item in uid_dicts:
+            uid = item.get("uid") if isinstance(item, dict) else None
+            if not uid:
+                continue
+            result = await service.get(uid)
+            if result.is_ok and result.value:
+                entities.append(result.value)
+
+        return entities
+
+    def _extract_edges(self, graph_context: dict[str, Any]) -> list[dict[str, Any]]:
+        """Extract semantic relationship edges from graph_context.
+
+        The knowledge_relationships list contains UIDs of related entities.
+        We convert these to edge dicts for the pipeline to surface.
+        """
+        edges: list[dict[str, Any]] = []
+        for kr in graph_context.get("knowledge_relationships", []):
+            if isinstance(kr, dict) and kr.get("uid"):
+                edges.append(
+                    {
+                        "target_uid": kr["uid"],
+                        "target_title": kr.get("title", ""),
+                        "domain": kr.get("domain", ""),
+                    }
+                )
+        return edges
 
     # ========================================================================
     # PRIVATE - HELPER METHODS

@@ -83,8 +83,8 @@ class Curriculum(Entity):
     semantic_links: tuple[str, ...] = ()
     target_age_range: tuple[int, int] | None = None  # e.g. (8, 12) for ages 8-12
     learning_objectives: tuple[str, ...] = ()  # What the learner should gain
-    # Structured objectives for Socratic evaluation (Phase 6 progressive enhancement).
-    # When populated, SocraticEngine uses these for assessment rubrics.
+    # Structured objectives with assessment metadata.
+    # When populated, used for guided assessment rubrics.
     # When empty, falls back to string learning_objectives above.
     structured_learning_objectives: tuple[Any, ...] = ()  # tuple[StructuredLearningObjective, ...]
 

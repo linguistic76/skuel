@@ -22,9 +22,11 @@ March 2026: Added classify_pedagogical_intent() for LS-scoped Socratic pipeline.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from core.models.askesis.pedagogical_intent import PedagogicalIntent
+from core.models.enums import GuidanceMode
 from core.models.query_types import QueryIntent
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
@@ -32,6 +34,22 @@ from core.utils.result_simplified import Result
 if TYPE_CHECKING:
     from core.models.askesis.ls_bundle import LSBundle
     from core.models.zpd.zpd_assessment import ZoneEvidence
+
+
+@dataclass(frozen=True)
+class GuidanceDetermination:
+    """Result of determining the guidance mode for a Socratic turn.
+
+    Combines the high-level GuidanceMode (4 modes) with the fine-grained
+    PedagogicalIntent (7 intents) and the ZPD evidence that drove the decision.
+
+    Consumed by: ResponseGenerator.build_guided_system_prompt()
+    """
+
+    mode: GuidanceMode
+    pedagogical_detail: PedagogicalIntent
+    target_ku_uids: list[str]
+    zone_evidence: dict[str, Any]
 
 logger = get_logger(__name__)
 
@@ -101,6 +119,17 @@ INTENT_EXEMPLARS: dict[QueryIntent, list[str]] = {
         "Give me an overview",
         "What's my status?",
     ],
+}
+
+
+_INTENT_TO_GUIDANCE_MODE: dict[PedagogicalIntent, GuidanceMode] = {
+    PedagogicalIntent.ASSESS_UNDERSTANDING: GuidanceMode.SOCRATIC,
+    PedagogicalIntent.PROBE_DEEPER: GuidanceMode.SOCRATIC,
+    PedagogicalIntent.SCAFFOLD: GuidanceMode.EXPLORATORY,
+    PedagogicalIntent.SURFACE_CONNECTION: GuidanceMode.EXPLORATORY,
+    PedagogicalIntent.REDIRECT_TO_CURRICULUM: GuidanceMode.DIRECT,
+    PedagogicalIntent.OUT_OF_SCOPE: GuidanceMode.DIRECT,
+    PedagogicalIntent.ENCOURAGE_PRACTICE: GuidanceMode.ENCOURAGING,
 }
 
 
@@ -190,7 +219,7 @@ class IntentClassifier:
             target_ku_uids: KU UIDs extracted from question (scoped to bundle)
 
         Returns:
-            PedagogicalIntent for the SocraticEngine
+            PedagogicalIntent for the ResponseGenerator
         """
         # No matching KUs in bundle → OUT_OF_SCOPE
         if not target_ku_uids:
@@ -251,6 +280,47 @@ class IntentClassifier:
                 if len(word) > 3 and word in question_lower:
                     return True
         return False
+
+    # ========================================================================
+    # GUIDANCE MODE DETERMINATION
+    # ========================================================================
+
+    def determine_guidance_mode(
+        self,
+        question: str,
+        ls_bundle: LSBundle,
+        zone_evidence: dict[str, Any],
+        target_ku_uids: list[str],
+    ) -> GuidanceDetermination:
+        """Determine the guidance mode for a Socratic turn.
+
+        Combines pedagogical intent classification with GuidanceMode mapping:
+        - ASSESS_UNDERSTANDING / PROBE_DEEPER -> SOCRATIC
+        - SCAFFOLD / SURFACE_CONNECTION -> EXPLORATORY
+        - REDIRECT_TO_CURRICULUM / OUT_OF_SCOPE -> DIRECT
+        - ENCOURAGE_PRACTICE -> ENCOURAGING
+
+        Args:
+            question: User's question text
+            ls_bundle: Complete LS bundle (scoped context)
+            zone_evidence: Per-KU engagement evidence from ZPD
+            target_ku_uids: KU UIDs extracted from question
+
+        Returns:
+            GuidanceDetermination with mode, pedagogical detail, and evidence
+        """
+        intent = self.classify_pedagogical_intent(
+            question, ls_bundle, zone_evidence, target_ku_uids
+        )
+
+        mode = _INTENT_TO_GUIDANCE_MODE[intent]
+
+        return GuidanceDetermination(
+            mode=mode,
+            pedagogical_detail=intent,
+            target_ku_uids=target_ku_uids,
+            zone_evidence=zone_evidence,
+        )
 
     # ========================================================================
     # LEGACY PIPELINE — EMBEDDING-BASED INTENT CLASSIFICATION

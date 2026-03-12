@@ -15,8 +15,8 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 # GuidanceType doesn't exist as an enum - guidance_type is just a string field
 from core.models.enums import Priority
+from core.models.enums import GuidanceMode
 from core.models.enums.askesis_enums import (
-    ConversationStyle,
     IntegrationSuccess,
     QueryComplexity,
 )
@@ -28,8 +28,8 @@ class AskesisCreateRequest(BaseModel):
 
     name: str = Field("Askesis", min_length=1, max_length=100, description="Askesis instance name")
     version: str = Field("1.0", description="Version identifier")
-    preferred_conversation_style: ConversationStyle = Field(
-        ConversationStyle.DIRECT, description="Preferred conversation style"
+    preferred_guidance_mode: GuidanceMode = Field(
+        GuidanceMode.DIRECT, description="Preferred guidance mode"
     )
     preferred_complexity_level: QueryComplexity = Field(
         QueryComplexity.MODERATE, description="Preferred query complexity level"
@@ -46,7 +46,7 @@ class AskesisUpdateRequest(BaseModel):
 
     name: str | None = Field(None, min_length=1, max_length=100)
     version: str | None = None
-    preferred_conversation_style: ConversationStyle | None = None
+    preferred_guidance_mode: GuidanceMode | None = None
     preferred_complexity_level: QueryComplexity | None = None
 
     # Intelligence settings
@@ -66,8 +66,8 @@ class ConversationSessionCreateRequest(BaseModel):
     expected_complexity: QueryComplexity = Field(
         QueryComplexity.MODERATE, description="Expected complexity level"
     )
-    preferred_style: ConversationStyle = Field(
-        ConversationStyle.DIRECT, description="Preferred conversation style"
+    preferred_guidance_mode: GuidanceMode = Field(
+        GuidanceMode.DIRECT, description="Preferred guidance mode"
     )
     context: dict[str, Any] | None = Field(None, description="Additional context")
 
@@ -305,7 +305,7 @@ class AskesisResponse(BaseModel):
     proactive_guidance_success_rate: float
 
     # User preferences
-    preferred_conversation_style: str
+    preferred_guidance_mode: str
     preferred_complexity_level: str
 
     # Learning state
@@ -345,7 +345,7 @@ class ConversationSessionResponse(BaseModel):
     primary_intent: str | None
     domains_discussed: list[str]
     complexity_level: str
-    conversation_style: str
+    guidance_mode: str
 
     # Session outcomes
     user_satisfaction: int | None

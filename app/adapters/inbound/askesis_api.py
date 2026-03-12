@@ -30,7 +30,6 @@ from core.models.askesis.askesis_request import (
     AskesisAnalyticsRequest,
     AskesisCreateRequest,
     AskesisUpdateRequest,
-    ConversationSessionCreateRequest,
     DomainInteractionRequest,
     DomainSuggestionRequest,
     GuidanceRecommendationCreateRequest,
@@ -209,87 +208,6 @@ def create_askesis_api_routes(
 
         # Update Askesis settings
         return await askesis_core_service.update_askesis(askesis_uid, askesis_update)
-
-    # ========================================================================
-    # CONVERSATION MANAGEMENT
-    # ========================================================================
-    #
-    # FUTURE ENHANCEMENT: Conversation management routes
-    #
-    # Note: The /api/askesis/ask route already provides Q&A functionality
-    # using the RAG pipeline. Full conversation session management with
-    # state tracking and multi-turn dialogue is planned for a future release.
-    #
-    # Planned features:
-    # - Conversation session creation and tracking
-    # - Multi-turn dialogue with context preservation
-    # - Conversation history and retrieval
-    # - Session analytics and insights
-    #
-    # For now, use /api/askesis/ask for single-turn Q&A interactions.
-    # ========================================================================
-
-    @rt("/api/askesis/conversations", methods=["POST"])
-    @boundary_handler(success_status=201)
-    async def create_conversation_route(request: Request, askesis_uid: str) -> Result[Any]:
-        """
-        Start new conversation session.
-
-        FUTURE ENHANCEMENT: Full conversation session management coming soon.
-        Use /api/askesis/ask for Q&A interactions.
-        """
-        body = await request.json()
-
-        ConversationSessionCreateRequest.model_validate(body)
-
-        return Result.fail(
-            Errors.system(
-                message="Conversation sessions are a future enhancement. Use /api/askesis/ask for Q&A.",
-                operation="create_conversation",
-            )
-        )
-
-    @rt("/api/askesis/conversations/messages", methods=["POST"])
-    @boundary_handler(success_status=201)
-    async def send_message_route(request: Request, conversation_uid: str) -> Result[Any]:
-        """
-        Send message in conversation.
-
-        FUTURE ENHANCEMENT: Multi-turn dialogue coming soon.
-        Use /api/askesis/ask for Q&A interactions.
-        """
-        body = await request.json()
-
-        # Simple validation - message content required
-        user_message = body.get("message")
-        if not user_message:
-            return Result.fail(
-                Errors.validation(message="Message content is required", field="message")
-            )
-
-        return Result.fail(
-            Errors.system(
-                message="Multi-turn dialogue is a future enhancement. Use /api/askesis/ask for Q&A.",
-                operation="send_message",
-            )
-        )
-
-    @rt("/api/askesis/conversations/get")
-    @boundary_handler()
-    async def get_conversation_route(request: Request, conversation_uid: str) -> Result[Any]:
-        """
-        Get conversation details and history.
-
-        FUTURE ENHANCEMENT: Conversation history coming soon.
-        Use /api/askesis/ask for Q&A interactions.
-        """
-
-        return Result.fail(
-            Errors.system(
-                message="Conversation history is a future enhancement. Use /api/askesis/ask for Q&A.",
-                operation="get_conversation",
-            )
-        )
 
     # ========================================================================
     # GUIDANCE AND RECOMMENDATIONS

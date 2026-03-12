@@ -35,7 +35,7 @@ def create_askesis_service(
         activity_services: Dict from _create_activity_services() — keys: tasks, goals,
             habits, events.
         user_service: UserOperations instance.
-        zpd_service: Optional ZPDService — enriches analyze_user_state() with ZPDAssessment.
+        zpd_service: Optional ZPDService — enriches analysis with ZPDAssessment.
             None when curriculum graph has < 3 KUs (data condition, not degradation).
     """
     deps = AskesisDeps(
@@ -50,7 +50,7 @@ def create_askesis_service(
         habits_service=activity_services["habits"],
         events_service=activity_services["events"],
         zpd_service=zpd_service,
-        # Socratic pipeline: LSContextLoader needs these for full bundle loading
+        # LS bundle dependencies for ContextRetriever
         ku_service=learning_services.get("atomic_ku_service"),
         lp_service=learning_services.get("learning_paths"),
         principles_service=activity_services.get("principles"),

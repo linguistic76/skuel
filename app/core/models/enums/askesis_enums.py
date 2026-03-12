@@ -3,17 +3,6 @@
 from enum import StrEnum
 
 
-class ConversationStyle(StrEnum):
-    """Communication styles for Askesis interactions."""
-
-    DIRECT = "direct"  # Concise, to-the-point responses
-    EXPLORATORY = "exploratory"  # Deep-dive, questioning approach
-    SUPPORTIVE = "supportive"  # Encouraging, empathetic tone
-    ANALYTICAL = "analytical"  # Data-driven, logical responses
-    CREATIVE = "creative"  # Brainstorming, ideation focus
-    COACHING = "coaching"  # Guiding questions, self-discovery
-
-
 class QueryComplexity(StrEnum):
     """Complexity levels of user queries."""
 

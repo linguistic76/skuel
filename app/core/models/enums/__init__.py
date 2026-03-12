@@ -20,7 +20,7 @@ Module Organization:
 - learning_enums: LearningLevel, EducationalLevel, MasteryStatus, KnowledgeStatus, etc.
 - metadata_enums: RelationshipType, Intent, Visibility, SystemConstants, etc.
 - ku_enums: KuCategory
-- askesis_enums: ConversationStyle, QueryComplexity, IntegrationSuccess
+- askesis_enums: QueryComplexity, IntegrationSuccess
 - finance_enums: ExpenseStatus, PaymentMethod, ExpenseCategory, BudgetPeriod
 - transcription_enums: TranscriptionStatus
 
@@ -41,7 +41,7 @@ from .activity_enums import (
     ProductivityLevel,
     ProgressLevel,
 )
-from .askesis_enums import ConversationStyle, IntegrationSuccess, QueryComplexity
+from .askesis_enums import IntegrationSuccess, QueryComplexity
 
 # Choice enums
 from .choice_enums import ChoiceType
@@ -157,7 +157,6 @@ __all__ = [
     "CompletionStatus",
     "Confidence",
     "ConsistencyLevel",
-    "ConversationStyle",
     "ContentOrigin",
     "ContentScope",
     "ContentType",

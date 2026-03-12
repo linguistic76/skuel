@@ -4,7 +4,7 @@ Pedagogical Intent - Socratic Move Classification
 
 Replaces retrieval-oriented intent ("what to fetch") with pedagogical intent
 ("what Socratic move to make"). Each intent maps to a specific tutoring
-strategy in the SocraticEngine.
+strategy via GuidanceMode in the ResponseGenerator.
 
 The existing QueryIntent enum (in core/models/query_types.py) remains for
 the legacy RAG pipeline. PedagogicalIntent is used exclusively by the new
@@ -19,7 +19,7 @@ from enum import StrEnum
 class PedagogicalIntent(StrEnum):
     """Classification of pedagogical move for Socratic tutoring.
 
-    Each value maps to a distinct tutoring strategy in the SocraticEngine:
+    Each value maps to a distinct tutoring strategy in the ResponseGenerator:
 
     ASSESS_UNDERSTANDING — Ask user to produce knowledge. Does NOT give answers.
         System prompt: "Ask the user to explain [X] in their own words."

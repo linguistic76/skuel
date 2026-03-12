@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 class StructuredLearningObjective:
     """A single learning objective with assessment metadata.
 
-    Used by the EvaluationEngine to assess learner responses against
+    Used by the guided pipeline to assess learner responses against
     specific, measurable criteria rather than comparing free text.
 
     Fields:

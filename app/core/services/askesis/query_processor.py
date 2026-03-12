@@ -9,6 +9,7 @@ Responsibilities:
 - Coordinate EntityExtractor, ContextRetriever, IntentClassifier, ResponseGenerator
 - Answer user questions with retrieval + generation
 - Process queries with full context
+- LP enrollment gate — Askesis works within enrolled Learning Paths
 
 This service is part of the refactored AskesisService architecture:
 - UserStateAnalyzer: Analyze current user state and patterns
@@ -27,8 +28,10 @@ Architecture:
 - All dependencies required — no fallbacks or degraded modes
 
 January 2026: Refactored to use IntentClassifier and ResponseGenerator
-for single responsibility and reduced file size (962 → ~500 lines).
+for single responsibility and reduced file size (962 -> ~500 lines).
 March 2026: Removed all fallback/template paths — works or fails.
+March 2026: Absorbed Socratic pipeline into main RAG pipeline.
+LP enrollment gate. ZPD + GuidanceMode wired into answer flow.
 """
 
 from __future__ import annotations
@@ -36,27 +39,35 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from core.constants import QueryProcessorConfidence
-from core.models.enums import MessageRole
 from core.models.query_types import QueryIntent
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.models.user.conversation import ConversationContext
     from core.ports.zpd_protocols import ZPDOperations
     from core.services.askesis.context_retriever import ContextRetriever
     from core.services.askesis.entity_extractor import EntityExtractor
     from core.services.askesis.intent_classifier import IntentClassifier
-    from core.services.askesis.ls_context_loader import LSContextLoader
     from core.services.askesis.response_generator import ResponseGenerator
-    from core.services.askesis.socratic_engine import SocraticEngine
     from core.services.askesis_citation_service import AskesisCitationService
     from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
     from core.services.llm_service import LLMService
     from core.services.user_service import UserService
 
 logger = get_logger(__name__)
+
+
+# Enrollment gate response — returned when user has no enrolled Learning Paths.
+_ENROLLMENT_GATE_RESPONSE: dict[str, Any] = {
+    "answer": "Askesis works within your Learning Path. Enroll in a Learning Path to begin.",
+    "context_used": {},
+    "suggested_actions": [
+        {"action": "enroll_learning_path", "description": "Browse available Learning Paths"}
+    ],
+    "confidence": 1.0,
+    "mode": "enrollment_gate",
+}
 
 
 class QueryProcessor:
@@ -69,6 +80,7 @@ class QueryProcessor:
     - Answer user questions (complete RAG pipeline)
     - Process queries with context
     - Coordinate sub-services for intent, entities, context, response
+    - LP enrollment gate — requires enrolled Learning Paths
 
     Architecture:
     - Orchestrates IntentClassifier for intent classification
@@ -77,9 +89,11 @@ class QueryProcessor:
     - Orchestrates ContextRetriever for context retrieval
     - Requires LLMService for natural language generation
     - Uses QueryProcessorConfidence for dynamic confidence scoring
+    - Uses ZPDService for targeted KU readiness assessment
 
     January 2026: Refactored to use IntentClassifier and ResponseGenerator
     for single responsibility and reduced complexity.
+    March 2026: Absorbed Socratic pipeline. LP enrollment gate.
     """
 
     def __init__(
@@ -91,29 +105,22 @@ class QueryProcessor:
         user_service: UserService,
         llm_service: LLMService,
         graph_intelligence_service: GraphIntelligenceService,
-        citation_service: AskesisCitationService | None = None,
-        # Socratic pipeline dependencies (Phase 5)
-        ls_context_loader: LSContextLoader | None = None,
-        socratic_engine: SocraticEngine | None = None,
         zpd_service: ZPDOperations | None = None,
-        conversation_context: ConversationContext | None = None,
+        citation_service: AskesisCitationService | None = None,
     ) -> None:
         """
         Initialize query processor.
 
         Args:
             intent_classifier: IntentClassifier for query intent classification
-            response_generator: ResponseGenerator for action/context generation
+            response_generator: ResponseGenerator for action/context/prompt generation
             entity_extractor: EntityExtractor for entity extraction
-            context_retriever: ContextRetriever for context retrieval
+            context_retriever: ContextRetriever for context retrieval and LS bundle loading
             user_service: UserService for accessing UserContext
             llm_service: LLMService for natural language generation
             graph_intelligence_service: GraphIntelligenceService for graph intelligence queries
+            zpd_service: ZPDService for targeted KU readiness assessment (optional)
             citation_service: AskesisCitationService for source and evidence transparency (optional)
-            ls_context_loader: LSContextLoader for loading LS bundles (Socratic pipeline)
-            socratic_engine: SocraticEngine for generating pedagogical moves (Socratic pipeline)
-            zpd_service: ZPDService for targeted KU readiness assessment (Socratic pipeline)
-            conversation_context: ConversationContext for session management (Socratic pipeline)
         """
         self.intent_classifier = intent_classifier
         self.response_generator = response_generator
@@ -122,13 +129,8 @@ class QueryProcessor:
         self.user_service = user_service
         self.llm_service = llm_service
         self.graph_intel = graph_intelligence_service
-        self.citation_service = citation_service
-
-        # Socratic pipeline
-        self.ls_context_loader = ls_context_loader
-        self.socratic_engine = socratic_engine
         self.zpd_service = zpd_service
-        self.conversation_context = conversation_context
+        self.citation_service = citation_service
 
         logger.info("QueryProcessor initialized (orchestration layer)")
 
@@ -145,6 +147,9 @@ class QueryProcessor:
         Combines UserContext (retrieval) with LLM (generation) to produce
         natural language answers based on user's actual state.
 
+        When an LS bundle is available, the pipeline uses ZPD evidence and
+        GuidanceMode to produce a pedagogically appropriate response.
+
         Args:
             user_uid: User's unique identifier
             question: Natural language question from user
@@ -155,12 +160,7 @@ class QueryProcessor:
             - context_used: Relevant entities from user's data
             - suggested_actions: Next steps user can take
             - confidence: Confidence score (0.0-1.0)
-
-        Examples:
-            - "What should I work on next?"
-            - "Why am I stuck on my goals?"
-            - "What do I need to learn before async programming?"
-            - "Show me my progress in Python"
+            - guidance_mode: GuidanceMode if Socratic pipeline was used
         """
         # Step 1: Get full user context
         user_context_result = await self.user_service.get_rich_unified_context(user_uid)
@@ -177,7 +177,11 @@ class QueryProcessor:
 
         user_context = user_context_result.value
 
-        # Step 2: Classify query intent
+        # Step 2: LP enrollment gate
+        if not user_context.enrolled_path_uids:
+            return Result.ok(_ENROLLMENT_GATE_RESPONSE)
+
+        # Step 3: Classify query intent
         intent_result = await self.intent_classifier.classify_intent(question)
         if intent_result.is_error:
             return Result.fail(
@@ -189,12 +193,12 @@ class QueryProcessor:
             )
         intent = intent_result.value
 
-        # Step 3: Extract entities mentioned in query
+        # Step 4: Extract entities mentioned in query
         extracted_entities = await self.entity_extractor.extract_entities_from_query(
             question, user_context
         )
 
-        # Step 4: Retrieve relevant entities based on intent
+        # Step 5: Retrieve relevant entities based on intent
         relevant_context = await self.context_retriever.retrieve_relevant_context(
             user_context, question, intent
         )
@@ -203,23 +207,79 @@ class QueryProcessor:
         if any(extracted_entities.values()):
             relevant_context["mentioned_entities"] = extracted_entities
 
-        # Step 5: Build LLM-friendly context and generate answer
-        llm_context = self.response_generator.build_llm_context(user_context, question, intent)
+        # Step 6: Check for LS bundle and apply guided pipeline if available
+        guided_system_prompt: str | None = None
+        guidance_mode: str | None = None
+        ls_bundle = None
 
-        # Step 6: Generate natural language answer using LLM
-        answer = await self.llm_service.generate_context_aware_answer(
-            query=question,
-            user_context=llm_context,
-            additional_context=relevant_context,
-            intent=intent,
+        bundle_result = await self.context_retriever.load_ls_bundle(user_uid, user_context)
+        if not bundle_result.is_error:
+            ls_bundle = bundle_result.value
+
+            # Get target KU UIDs from question (scoped to bundle)
+            target_ku_uids = self.entity_extractor.extract_from_bundle(question, ls_bundle)
+
+            if target_ku_uids:
+                # Get ZPD evidence for target KUs
+                zone_evidence: dict[str, Any] = {}
+                if self.zpd_service:
+                    zpd_result = await self.zpd_service.assess_ku_readiness(
+                        user_uid, target_ku_uids
+                    )
+                    if not zpd_result.is_error:
+                        zone_evidence = zpd_result.value
+
+                # Determine guidance mode
+                guidance = self.intent_classifier.determine_guidance_mode(
+                    question, ls_bundle, zone_evidence, target_ku_uids
+                )
+
+                # Build guided system prompt
+                guided_system_prompt = self.response_generator.build_guided_system_prompt(
+                    guidance, ls_bundle, user_context
+                )
+                guidance_mode = guidance.mode.value
+
+        # Step 7: Build LLM-friendly context and generate answer
+        llm_context = self.response_generator.build_llm_context(
+            user_context, question, intent, ls_bundle=ls_bundle
         )
 
-        # Step 7: Generate suggested actions
+        # Step 8: Generate natural language answer using LLM
+        if guided_system_prompt:
+            # Use guided pipeline with Socratic system prompt
+            user_prompt = question
+            if ls_bundle and ls_bundle.curriculum_context_text:
+                user_prompt = (
+                    f"=== CURRICULUM CONTEXT (for your reference, do NOT share directly) ===\n"
+                    f"{ls_bundle.curriculum_context_text}\n\n"
+                    f"=== LEARNER'S MESSAGE ===\n{question}"
+                )
+
+            llm_response = await self.llm_service.generate(
+                prompt=user_prompt,
+                system_prompt=guided_system_prompt,
+                temperature=0.7,
+                max_tokens=500,
+            )
+            answer = llm_response.content or (
+                "I'd like to explore this with you, but I'm having trouble "
+                "formulating my response. Could you rephrase your question?"
+            )
+        else:
+            answer = await self.llm_service.generate_context_aware_answer(
+                query=question,
+                user_context=llm_context,
+                additional_context=relevant_context,
+                intent=intent,
+            )
+
+        # Step 9: Generate suggested actions
         suggested_actions = self.response_generator.generate_actions(
             user_context, intent, relevant_context
         )
 
-        # Step 8: Add citations for knowledge units
+        # Step 10: Add citations for knowledge units
         citations_text = ""
         if intent in (QueryIntent.PREREQUISITE, QueryIntent.HIERARCHICAL):
             knowledge_entities = extracted_entities.get("knowledge", [])
@@ -229,190 +289,35 @@ class QueryProcessor:
                     knowledge_uids, min_evidence_count=1
                 )
 
-        # Step 9: Package response with calculated confidence
+        # Step 11: Package response with calculated confidence
         final_answer = answer + citations_text if citations_text else answer
         confidence = QueryProcessorConfidence.calculate(
             has_context=bool(relevant_context),
             has_citations=bool(citations_text),
             has_entities=any(extracted_entities.values()),
         )
-        response = {
+        response: dict[str, Any] = {
             "answer": final_answer,
             "context_used": relevant_context,
             "suggested_actions": suggested_actions,
             "confidence": confidence,
-            "mode": "llm_generated",
+            "mode": "guided" if guided_system_prompt else "llm_generated",
             "has_citations": bool(citations_text),
         }
 
+        if guidance_mode:
+            response["guidance_mode"] = guidance_mode
+
         logger.info(
-            "Generated answer for user %s question: %s (intent: %s, citations: %s)",
+            "Generated answer for user %s question: %s (intent: %s, citations: %s, guidance: %s)",
             user_uid,
             question[:50],
             intent.value,
             "yes" if citations_text else "no",
+            guidance_mode or "none",
         )
 
         return Result.ok(response)
-
-    # ========================================================================
-    # PUBLIC API - SOCRATIC PIPELINE
-    # ========================================================================
-
-    @with_error_handling("process_socratic_turn", error_type="system", uid_param="user_uid")
-    async def process_socratic_turn(
-        self, user_uid: str, question: str, session_id: str | None = None
-    ) -> Result[dict[str, Any]]:
-        """LS-scoped Socratic tutoring pipeline.
-
-        Replaces the global RAG pipeline with a pedagogically intentional
-        pipeline scoped to the user's active Learning Step.
-
-        Pipeline steps:
-        1. Load UserContext (rich) for active LS
-        2. Load LS bundle via LSContextLoader
-        3. Get/create conversation session
-        4. Extract target KUs from question (scoped to bundle)
-        5. Get targeted ZPD evidence for those KUs
-        6. Classify pedagogical intent
-        7. Generate SocraticMove (system prompt + curriculum context)
-        8. Call LLM with the move
-        9. Record turns in conversation session
-        10. Return response with pedagogical metadata
-
-        Args:
-            user_uid: User's unique identifier
-            question: User's natural language question
-            session_id: Optional session ID for multi-turn conversations
-
-        Returns:
-            Result containing:
-            - answer: Socratic response (question, not explanation)
-            - move_type: PedagogicalIntent that drove the response
-            - target_kus: KU UIDs the question targeted
-            - ls_uid: Active Learning Step UID
-            - session_id: Session ID for continuing the conversation
-        """
-        # Verify Socratic pipeline dependencies are wired
-        if not self.ls_context_loader or not self.socratic_engine:
-            return Result.fail(
-                Errors.system(
-                    message="Socratic pipeline not configured — missing LSContextLoader or SocraticEngine",
-                    operation="process_socratic_turn",
-                    user_message="Socratic tutoring is not available. Please check your configuration.",
-                )
-            )
-
-        # Step 1: Get rich user context (includes active_learning_steps_rich)
-        user_context_result = await self.user_service.get_rich_unified_context(user_uid)
-        if user_context_result.is_error:
-            error = user_context_result.expect_error()
-            return Result.fail(
-                Errors.system(
-                    message=f"User context retrieval failed: {error.message}",
-                    operation="process_socratic_turn",
-                    user_message="Unable to load your learning data. Please try again shortly.",
-                )
-            )
-        user_context = user_context_result.value
-
-        # Step 2: Load LS bundle
-        bundle_result = await self.ls_context_loader.load_bundle(user_uid, user_context)
-        if bundle_result.is_error:
-            return Result.ok(
-                {
-                    "answer": (
-                        "You don't have an active learning step right now. "
-                        "Enroll in a learning path to start Socratic tutoring."
-                    ),
-                    "move_type": "no_active_ls",
-                    "target_kus": [],
-                    "ls_uid": None,
-                    "session_id": session_id,
-                }
-            )
-        ls_bundle = bundle_result.value
-
-        # Step 3: Get or create conversation session
-        effective_session_id = session_id or f"socratic_{user_uid}_{ls_bundle.learning_step.uid}"
-        conversation = None
-        if self.conversation_context:
-            conversation = self.conversation_context.get_or_create_session(
-                effective_session_id, user_uid
-            )
-            # Add user's question as a turn
-            conversation.add_turn(role=MessageRole.USER, content=question)
-
-        # Step 4: Extract target KUs from question (scoped to bundle)
-        target_ku_uids = self.entity_extractor.extract_from_bundle(question, ls_bundle)
-
-        # Step 5: Get targeted ZPD evidence
-        zone_evidence: dict[str, Any] = {}
-        if self.zpd_service and target_ku_uids:
-            zpd_result = await self.zpd_service.assess_ku_readiness(user_uid, target_ku_uids)
-            if not zpd_result.is_error:
-                zone_evidence = zpd_result.value
-
-        # Step 6: Classify pedagogical intent
-        intent = self.intent_classifier.classify_pedagogical_intent(
-            question, ls_bundle, zone_evidence, target_ku_uids
-        )
-
-        # Step 7: Generate Socratic move
-        move = self.socratic_engine.generate_move(
-            intent=intent,
-            ls_bundle=ls_bundle,
-            zone_evidence=zone_evidence,
-            conversation=conversation,
-            target_ku_uids=target_ku_uids,
-        )
-
-        # Step 8: Call LLM with the move's system prompt and curriculum context
-        user_prompt = question
-        if move.curriculum_context:
-            user_prompt = (
-                f"=== CURRICULUM CONTEXT (for your reference, do NOT share directly) ===\n"
-                f"{move.curriculum_context}\n\n"
-                f"=== LEARNER'S MESSAGE ===\n{question}"
-            )
-
-        llm_response = await self.llm_service.generate(
-            prompt=user_prompt,
-            system_prompt=move.system_prompt,
-            temperature=0.7,
-            max_tokens=500,
-        )
-
-        answer = llm_response.content or (
-            "I'd like to explore this with you, but I'm having trouble "
-            "formulating my response. Could you rephrase your question?"
-        )
-
-        # Step 9: Record assistant turn
-        if conversation:
-            conversation.add_turn(role=MessageRole.ASSISTANT, content=answer)
-            conversation.update_topic(ls_bundle.learning_step.title or "Learning")
-            for ku_uid in target_ku_uids:
-                conversation.add_entity(ku_uid)
-
-        # Step 10: Package response
-        logger.info(
-            "Socratic turn for user %s: intent=%s, target_kus=%d, ls=%s",
-            user_uid,
-            intent.value,
-            len(target_ku_uids),
-            ls_bundle.learning_step.uid,
-        )
-
-        return Result.ok(
-            {
-                "answer": answer,
-                "move_type": intent.value,
-                "target_kus": target_ku_uids,
-                "ls_uid": ls_bundle.learning_step.uid,
-                "session_id": effective_session_id,
-            }
-        )
 
     @with_error_handling("process_query_with_context", error_type="system", uid_param="user_uid")
     async def process_query_with_context(
@@ -444,8 +349,24 @@ class QueryProcessor:
                 "suggested_actions": List[Dict[str, Any]]
             }
 
-        Performance: 180ms → 22ms (8x faster)
+        Performance: 180ms -> 22ms (8x faster)
         """
+        # LP enrollment gate: load user context to check enrollment
+        user_context_result = await self.user_service.get_rich_unified_context(user_uid)
+        if user_context_result.is_error:
+            error = user_context_result.expect_error()
+            return Result.fail(
+                Errors.system(
+                    message=f"User context retrieval failed: {error.message}",
+                    operation="process_query_with_context",
+                    user_message="Unable to load your learning data. Please try again shortly.",
+                )
+            )
+
+        user_context = user_context_result.value
+        if not user_context.enrolled_path_uids:
+            return Result.ok(_ENROLLMENT_GATE_RESPONSE)
+
         # Step 1: Get complete learning context in single query
         context_result = await self.context_retriever.get_learning_context(user_uid, depth)
 
@@ -611,22 +532,12 @@ class QueryProcessor:
         """
         Retrieve and format citations for knowledge units mentioned in response.
 
-        Citations as First-Class Citizen
-        This method ensures ALL Askesis responses include source and evidence
-        when discussing knowledge units.
-
         Args:
             knowledge_uids: List of knowledge unit UIDs mentioned in response
             min_evidence_count: Minimum evidence items to include (default: 1)
 
         Returns:
             Formatted citation text ready for appending to response
-
-        Philosophy:
-            🌳 Tree metaphor - Source and evidence ground the knowledge graph
-            - 🌱 Roots = Evidence (grounding in reality)
-            - 🌳 Trunk = Source (provenance)
-            - 🍃 Branches = Knowledge relationships
         """
         if not self.citation_service or not knowledge_uids:
             return ""

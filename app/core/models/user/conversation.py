@@ -135,7 +135,7 @@ class ConversationSession:
     turn_count: int = 0
 
     # Pedagogical state
-    guidance_mode: GuidanceMode = GuidanceMode.BALANCED
+    guidance_mode: GuidanceMode = GuidanceMode.DIRECT
     current_topic: str | None = (None,)
     topics_discussed: list[str] = (field(default_factory=list),)
     learning_objectives: list[str] = field(default_factory=list)
@@ -421,7 +421,7 @@ class PedagogicalContext:
     asks_many_questions: bool = False
 
     # Recommended approach
-    recommended_guidance: GuidanceMode = GuidanceMode.BALANCED
+    recommended_guidance: GuidanceMode = GuidanceMode.DIRECT
     recommended_difficulty: str = "intermediate"
     recommended_pace: str = "moderate"  # slow, moderate, fast
 

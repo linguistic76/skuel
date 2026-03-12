@@ -6,9 +6,9 @@ Frozen dataclass containing all entities referenced by the user's current
 Learning Step. This is the scoped context window for the Socratic pipeline —
 every retrieval and pedagogical decision operates within the bundle.
 
-The bundle is loaded once per Socratic turn by LSContextLoader and consumed by:
+The bundle is loaded once per Socratic turn by ContextRetriever and consumed by:
 - IntentClassifier.classify_pedagogical_intent() — scoped question matching
-- SocraticEngine.generate_move() — curriculum context for LLM prompts
+- ResponseGenerator.build_guided_system_prompt() — curriculum context for LLM prompts
 - EntityExtractor.extract_from_bundle() — scoped entity linking
 
 See: /docs/architecture/ASKESIS_SOCRATIC_ARCHITECTURE.md
@@ -125,7 +125,7 @@ class LSBundle:
     def curriculum_context_text(self) -> str:
         """Concatenated Article content for LLM context injection.
 
-        Used by SocraticEngine when the pedagogical move needs the curriculum
+        Used by ResponseGenerator when the pedagogical move needs the curriculum
         as reference (e.g., SCAFFOLD, REDIRECT_TO_CURRICULUM).
         """
         parts = [

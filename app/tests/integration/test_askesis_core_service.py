@@ -22,7 +22,8 @@ from core.models.askesis.askesis_request import (
     AskesisCreateRequest,
     AskesisUpdateRequest,
 )
-from core.models.enums.askesis_enums import ConversationStyle, QueryComplexity
+from core.models.enums import GuidanceMode
+from core.models.enums.askesis_enums import QueryComplexity
 from core.services.askesis.askesis_core_service import AskesisCoreService
 from core.utils.uid_generator import UIDGenerator
 
@@ -83,7 +84,7 @@ async def test_create_askesis_with_custom_settings(core_service, test_user_uid):
     create_request = AskesisCreateRequest(
         name="My AI Assistant",
         version="2.0",
-        preferred_conversation_style=ConversationStyle.ANALYTICAL,
+        preferred_guidance_mode=GuidanceMode.SOCRATIC,
         preferred_complexity_level=QueryComplexity.COMPLEX,
     )
 
@@ -95,7 +96,7 @@ async def test_create_askesis_with_custom_settings(core_service, test_user_uid):
     askesis = result.value
     assert askesis.name == "My AI Assistant"
     assert askesis.version == "2.0"
-    assert askesis.preferred_conversation_style == ConversationStyle.ANALYTICAL.value
+    assert askesis.preferred_guidance_mode == GuidanceMode.SOCRATIC.value
     assert askesis.preferred_complexity_level == QueryComplexity.COMPLEX.value
 
 
@@ -155,7 +156,7 @@ async def test_update_askesis_settings(core_service, test_user_uid):
 
     update_request = AskesisUpdateRequest(
         name="Updated Assistant",
-        preferred_conversation_style=ConversationStyle.DIRECT,
+        preferred_guidance_mode=GuidanceMode.DIRECT,
         preferred_complexity_level=QueryComplexity.SIMPLE,
     )
 
@@ -166,7 +167,7 @@ async def test_update_askesis_settings(core_service, test_user_uid):
     assert result.is_ok
     updated = result.value
     assert updated.name == "Updated Assistant"
-    assert updated.preferred_conversation_style == ConversationStyle.DIRECT.value
+    assert updated.preferred_guidance_mode == GuidanceMode.DIRECT.value
     assert updated.preferred_complexity_level == QueryComplexity.SIMPLE.value
 
 
