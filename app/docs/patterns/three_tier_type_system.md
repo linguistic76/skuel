@@ -90,8 +90,8 @@ User Client (receives JSON)
 Neo4j nodes contain infrastructure fields (`embedding`, `embedding_version`, etc.) that are automatically filtered when converting to DTOs. Embeddings are search infrastructure, not domain data.
 
 **Filtered fields:**
-- `embedding` - 1536-dimensional vector for semantic search
-- `embedding_version` - OpenAI model version
+- `embedding` - 1024-dimensional vector for semantic search (BAAI/bge-large-en-v1.5)
+- `embedding_version` - Embedding model version (e.g., "v2")
 - `embedding_model` - Model name
 - `embedding_updated_at` - Generation timestamp
 

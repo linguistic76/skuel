@@ -36,14 +36,14 @@ GoalDTO.__init__() got an unexpected keyword argument 'embedding'
 ### Rationale
 
 1. **Embeddings are search infrastructure** - like database indexes
-   - 1536-dimensional vectors used for semantic search
+   - 1024-dimensional vectors used for semantic search
    - Generated asynchronously by background worker
    - Not part of business logic or domain model
 
 2. **Application code doesn't need raw embeddings**
    - Users interact with search results, not vectors
    - Embeddings are consumed by Neo4j vector search, not application
-   - Loading 1536 floats into memory is wasteful when not needed
+   - Loading 1024 floats into memory is wasteful when not needed
 
 3. **Consistent with Three-Tier Type System**
    - **External (Pydantic):** API validation/serialization
@@ -69,8 +69,8 @@ if is_dataclass(cls):
 ```
 
 **Automatically filters:**
-- `embedding` - 1536-dimensional vector
-- `embedding_version` - Model version (e.g., "text-embedding-3-small")
+- `embedding` - 1024-dimensional vector (BAAI/bge-large-en-v1.5)
+- `embedding_version` - Model version (e.g., "v2")
 - `embedding_model` - Model name
 - `embedding_updated_at` - Generation timestamp
 - Any other Neo4j-specific infrastructure fields
@@ -149,7 +149,7 @@ return dto_from_dict(
 
 **Rejected because:**
 - Embeddings are infrastructure, not domain data
-- 1536 floats wasteful to load when not needed
+- 1024 floats wasteful to load when not needed
 - Would expose implementation details to application layer
 
 ### Alternative 2: Remove embeddings from Neo4j

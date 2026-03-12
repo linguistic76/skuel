@@ -5,10 +5,12 @@ HuggingFace Embeddings Service
 Generates embeddings via HuggingFace Inference API using BAAI/bge-large-en-v1.5.
 
 ARCHITECTURE:
-- Python-side embedding generation (no Neo4j plugin dependency)
-- HuggingFace Inference API (serverless, pay-per-request)
-- 1024-dimensional embeddings (bge-large-en-v1.5)
-- Stores embeddings in Neo4j via QueryExecutor (same as before)
+- Model: BAAI/bge-large-en-v1.5 (1024 dims) — sentence-transformers-compatible,
+  hosted on HuggingFace. Top-tier retrieval quality on MTEB benchmarks.
+- Client: huggingface_hub.InferenceClient (NOT sentence-transformers package —
+  that's for local inference. We use the API for serverless, no-GPU deployment.)
+- API key: HF_API_TOKEN environment variable
+- Stores embeddings in Neo4j via QueryExecutor
 - Graceful degradation when HF_API_TOKEN not set
 
 MIGRATION (March 2026):
@@ -17,7 +19,7 @@ MIGRATION (March 2026):
 - EMBEDDING_VERSION incremented: v1 → v2
 - All existing embeddings must be regenerated
 
-See: /docs/decisions/ADR-048-huggingface-embeddings-migration.md
+See: /docs/decisions/ADR-049-huggingface-embeddings-migration.md
 """
 
 import math

@@ -19,13 +19,20 @@ Problems with the GenAI plugin approach:
 
 Replace the Neo4j GenAI plugin + OpenAI embeddings with HuggingFace Inference API using `BAAI/bge-large-en-v1.5`.
 
+### Why This Model
+
+The classic `sentence-transformers/all-mpnet-base-v2` (768 dims) is solid but not top-tier on modern retrieval benchmarks. `BAAI/bge-large-en-v1.5` (1024 dims) is the strongest well-established choice for retrieval quality — and it's available on HuggingFace Inference API.
+
+It's a sentence-transformers-compatible model, but we use `huggingface_hub.InferenceClient` (not the `sentence-transformers` package) because we want API-hosted inference, not local model loading. This keeps the deployment lightweight — no torch, no GPU, just HTTP calls.
+
 ### New Stack
 
 | Component | Before | After |
 |-----------|--------|-------|
-| Embedding provider | OpenAI (text-embedding-3-small) | HuggingFace (BAAI/bge-large-en-v1.5) |
+| Embedding model | OpenAI text-embedding-3-small | BAAI/bge-large-en-v1.5 (sentence-transformers-compatible) |
 | Dimensions | 1536 | 1024 |
-| API call location | Inside Neo4j (Cypher) | Python-side (InferenceClient) |
+| Client | Neo4j GenAI plugin (Cypher-side) | `huggingface_hub.InferenceClient` (Python-side) |
+| Inference | OpenAI API | HuggingFace Inference API (serverless) |
 | Plugin dependency | GenAI plugin required | No plugin needed |
 | API key | OPENAI_API_KEY (in Neo4j container) | HF_API_TOKEN (in app container) |
 | Version | v1 | v2 |
@@ -54,8 +61,8 @@ Replace the Neo4j GenAI plugin + OpenAI embeddings with HuggingFace Inference AP
 - Removes OpenAI dependency for embeddings (LLM calls still use OpenAI via LLMService)
 - Simplifies Docker config (no GenAI plugin, no OPENAI_API_KEY in Neo4j container)
 - Simplifies AuraDB migration path (no plugin to configure)
-- Open-weight model — can move to local inference later
-- Top-tier retrieval quality on MTEB benchmarks
+- Open-weight, sentence-transformers-compatible model — can move to local inference via `sentence-transformers` package later if needed (same model, different client)
+- Top-tier retrieval quality on MTEB benchmarks (bge-large-en-v1.5 outperforms all-mpnet-base-v2)
 
 ### Negative
 - One-time migration: must recreate vector indexes and re-embed all entities

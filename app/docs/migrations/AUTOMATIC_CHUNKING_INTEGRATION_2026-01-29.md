@@ -363,13 +363,13 @@ User Question
 - Returns chunks with context windows
 - Used by LLM for answer generation
 
-### Neo4j GenAI Plugin Integration
+### Embeddings Integration
 
-**Embeddings** (automatic, January 2026):
-- Chunks stored → Neo4j GenAI plugin generates embeddings
-- Uses `ai.text.embed()` with `text-embedding-3-small` model
-- 1536-dimensional vectors for semantic search
-- API key configured at AuraDB database level (not per-query)
+**Embeddings** (updated March 2026 — ADR-049):
+- Chunks stored → Python-side `HuggingFaceEmbeddingsService` generates embeddings
+- Uses `BAAI/bge-large-en-v1.5` via `huggingface_hub.InferenceClient`
+- 1024-dimensional vectors for semantic search
+- API key: `HF_API_TOKEN` environment variable
 
 **Vector Search** (`db.index.vector.queryNodes()`):
 - Semantic similarity queries across chunks

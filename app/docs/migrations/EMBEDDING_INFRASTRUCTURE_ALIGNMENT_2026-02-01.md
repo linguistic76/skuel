@@ -22,7 +22,7 @@ GoalDTO.__init__() got an unexpected keyword argument 'embedding'
 **Embeddings are search infrastructure, not domain data.**
 
 - Stored in Neo4j for vector search
-- 1536-dimensional vectors not needed in application memory
+- 1024-dimensional vectors not needed in application memory
 - Automatically filtered out when converting to DTOs
 - Consistent across all domains using `dto_from_dict`
 
@@ -71,7 +71,7 @@ if is_dataclass(cls):
 ```
 
 **Infrastructure fields automatically filtered:**
-- `embedding` - 1536-dimensional vector
+- `embedding` - 1024-dimensional vector (BAAI/bge-large-en-v1.5)
 - `embedding_version` - Model version
 - `embedding_model` - Model name
 - `embedding_updated_at` - Generation timestamp

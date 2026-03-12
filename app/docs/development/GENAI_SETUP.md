@@ -14,21 +14,31 @@ SKUEL generates embeddings via HuggingFace Inference API using `BAAI/bge-large-e
 
 **See:** [ADR-049: HuggingFace Embeddings Migration](/docs/decisions/ADR-049-huggingface-embeddings-migration.md)
 
-### Key Features
-
-- **Python-Side Generation:** `HuggingFaceEmbeddingsService` calls HF Inference API directly
-- **No Plugin Dependency:** No Neo4j GenAI plugin needed
-- **Vector Similarity Search:** Find semantically similar content across domains
-- **Graceful Degradation:** Application works without embeddings (`INTELLIGENCE_TIER=core`)
-- **Version Tracking:** `EMBEDDING_VERSION=v2` on every node, stale embeddings auto-regenerated
-
 ### Architecture
+
+| Component | Choice | Why |
+|-----------|--------|-----|
+| **Model** | `BAAI/bge-large-en-v1.5` (1024 dims) | Top-tier retrieval quality on MTEB benchmarks. Sentence-transformers-compatible. |
+| **Client** | `huggingface_hub.InferenceClient` | API-hosted inference — no torch, no GPU, no local model loading. NOT `sentence-transformers` (that's for local inference). |
+| **API key** | `HF_API_TOKEN` env var | Free tier available at huggingface.co |
+
+**Why not `all-mpnet-base-v2`?** The classic sentence-transformers default (768 dims) is solid but not top-tier on modern retrieval benchmarks. `bge-large-en-v1.5` is the strongest well-established choice — and it's available on HuggingFace Inference API.
+
+**Future flexibility:** Since `bge-large-en-v1.5` is sentence-transformers-compatible, we can move to local inference later by swapping `InferenceClient` for the `sentence-transformers` package (same model, different client).
 
 ```
 User Query → Python (HuggingFaceEmbeddingsService) → HF Inference API → Embedding
                 ↓
           Neo4j Node (n.embedding) → Vector Index → Similarity Search → Results
 ```
+
+### Key Features
+
+- **Serverless Inference:** No GPU, no model loading — just HTTP calls to HuggingFace
+- **No Plugin Dependency:** No Neo4j GenAI plugin needed
+- **Vector Similarity Search:** Find semantically similar content across domains
+- **Graceful Degradation:** Application works without embeddings (`INTELLIGENCE_TIER=core`)
+- **Version Tracking:** `EMBEDDING_VERSION=v2` on every node, stale embeddings auto-regenerated
 
 ---
 
