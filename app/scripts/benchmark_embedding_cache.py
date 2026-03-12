@@ -427,7 +427,9 @@ Note: Always-generate test is limited to 10 nodes to avoid excessive API costs.
         plugin_available = await service._check_plugin_availability()
         if not plugin_available:
             logger.error("❌ Embeddings service not available")
-            logger.error("   Set HF_API_TOKEN and INTELLIGENCE_TIER=full in .env to run this benchmark")
+            logger.error(
+                "   Set HF_API_TOKEN and INTELLIGENCE_TIER=full in .env to run this benchmark"
+            )
             return 1
 
         # Get sample nodes

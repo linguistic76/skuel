@@ -141,18 +141,18 @@ skuel_dependency_chain_max_length > 10
 
 | Alert | Severity | Threshold | Duration | Trigger Condition |
 |-------|----------|-----------|----------|-------------------|
-| **HighOpenAIErrorRate** | warning | >20% | 5m | OpenAI API error rate exceeds 20% |
+| **HighAIErrorRate** | warning | >20% | 5m | AI API error rate exceeds 20% |
 | **EmbeddingQueueBacklog** | warning | >500 | 15m | Embedding queue has >500 pending items |
 | **HighEmbeddingFailureRate** | warning | >20% | 5m | Embedding generation failures exceed 20% |
-| **SlowOpenAICalls** | warning | >30s | 5m | p95 OpenAI API latency exceeds 30 seconds |
+| **SlowAICalls** | warning | >30s | 5m | p95 AI API latency exceeds 30 seconds |
 
 **Example PromQL**:
 ```promql
-# HighOpenAIErrorRate
+# HighAIErrorRate
 (
-  sum(rate(skuel_openai_errors_total[5m]))
+  sum(rate(skuel_ai_errors_total[5m]))
   /
-  sum(rate(skuel_openai_requests_total[5m]))
+  sum(rate(skuel_ai_requests_total[5m]))
 ) > 0.20
 
 # EmbeddingQueueBacklog (simple gauge)
@@ -160,8 +160,8 @@ skuel_embedding_queue_size > 500
 ```
 
 **Runbook**:
-- **HighOpenAIErrorRate**: Check API key validity, verify rate limits, check OpenAI status page
-- **EmbeddingQueueBacklog**: Check worker logs, verify OpenAI availability, consider increasing batch size
+- **HighAIErrorRate**: Check API keys (HF_API_TOKEN, OPENAI_API_KEY), verify rate limits, check provider status pages
+- **EmbeddingQueueBacklog**: Check worker logs, verify HuggingFace API availability, consider increasing batch size
 - **HighEmbeddingFailureRate**: Check OpenAI status, review error logs, verify text preprocessing
 - **SlowOpenAICalls**: Check OpenAI service status, review batch sizes, verify network latency
 

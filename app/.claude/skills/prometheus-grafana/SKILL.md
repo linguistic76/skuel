@@ -32,7 +32,7 @@ SKUEL tracks 47 metrics across 9 categories:
 | **Relationships** (14) | Graph density, layers, dependencies | Graph health | `skuel_graph_density`, `skuel_blocking_relationships_count` |
 | **Search** (3) | Searches, duration, similarity | Search performance | `skuel_searches_total`, `skuel_search_similarity_score` |
 | **Queries** (3) | Operations, duration, errors | Granular performance | `skuel_operation_calls_total`, `skuel_operation_duration_seconds` |
-| **AI Services** (9) | OpenAI calls, embeddings, transcription | AI cost & performance | `skuel_openai_requests_total`, `skuel_embedding_queue_size` |
+| **AI Services** (9) | AI API calls, embeddings, transcription | AI cost & performance | `skuel_ai_requests_total`, `skuel_embedding_queue_size` |
 
 ### The 4 Grafana Dashboards
 
@@ -287,37 +287,37 @@ More granular than DatabaseMetrics - tracks individual operation performance.
 
 **Class**: `AiMetrics`
 
-Tracks OpenAI API calls, embedding generation, and Deepgram transcription. Critical for monitoring expensive AI operations and enabling cost optimization.
+Tracks AI API calls (OpenAI LLM, HuggingFace embeddings), and Deepgram transcription. Critical for monitoring expensive AI operations and enabling cost optimization.
 
-#### OpenAI API Metrics (4 metrics)
+#### AI API Metrics (4 metrics)
 
 | Metric | Type | Labels | Purpose |
 |--------|------|--------|---------|
-| `skuel_openai_requests_total` | Counter | `operation`, `model` | Total OpenAI API requests |
-| `skuel_openai_duration_seconds` | Histogram | `operation`, `model` | OpenAI API call duration |
-| `skuel_openai_tokens_total` | Counter | `operation`, `model`, `token_type` | Token consumption |
-| `skuel_openai_errors_total` | Counter | `operation`, `error_type` | OpenAI API errors |
+| `skuel_ai_requests_total` | Counter | `operation`, `model` | Total AI API requests |
+| `skuel_ai_duration_seconds` | Histogram | `operation`, `model` | AI API call duration |
+| `skuel_ai_tokens_total` | Counter | `operation`, `model`, `token_type` | Token consumption |
+| `skuel_ai_errors_total` | Counter | `operation`, `error_type` | AI API errors |
 
 **Operations**: `embeddings`, `chat`, `completion`
-**Models**: `text-embedding-3-small`, `gpt-4`, etc.
+**Models**: `BAAI/bge-large-en-v1.5`, `gpt-4`, etc.
 **Token Types**: `prompt`, `completion`
 **Error Types**: `rate_limit`, `timeout`, `auth`, `unknown`
 **Duration Buckets**: `(0.1, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0)`
 
 **Example Queries**:
 ```promql
-# OpenAI request rate by model
-sum by (model) (rate(skuel_openai_requests_total[5m]))
+# AI request rate by model
+sum by (model) (rate(skuel_ai_requests_total[5m]))
 
-# Average OpenAI latency
-histogram_quantile(0.50, rate(skuel_openai_duration_seconds_bucket[5m]))
+# Average AI latency
+histogram_quantile(0.50, rate(skuel_ai_duration_seconds_bucket[5m]))
 
 # Token usage by operation (cost tracking)
-sum by (operation) (rate(skuel_openai_tokens_total[1h]))
+sum by (operation) (rate(skuel_ai_tokens_total[1h]))
 
-# OpenAI error rate
-sum(rate(skuel_openai_errors_total[5m]))
-/ sum(rate(skuel_openai_requests_total[5m]))
+# AI error rate
+sum(rate(skuel_ai_errors_total[5m]))
+/ sum(rate(skuel_ai_requests_total[5m]))
 ```
 
 #### Embedding Worker Metrics (3 metrics)

@@ -71,10 +71,10 @@ async def test_cache_hit_avoids_api_call(embeddings_service, mock_driver):
     mock_driver.execute_query = track_calls
 
     # Ensure HF client was NOT called (cache hit should skip API)
-    def fail_if_called(_text):
+    async def fail_if_called(_text):
         raise AssertionError("HF API should not be called on cache hit")
 
-    embeddings_service._client.feature_extraction = MagicMock(side_effect=fail_if_called)
+    embeddings_service._client.feature_extraction = AsyncMock(side_effect=fail_if_called)
 
     result = await embeddings_service.get_or_create_embedding(
         uid="ku.python", label="Entity", text="Python programming"
@@ -110,7 +110,7 @@ async def test_cache_miss_makes_api_call(embeddings_service, mock_driver):
     mock_driver.execute_query = track_calls
 
     # Mock HF client to return embedding
-    embeddings_service._client.feature_extraction = MagicMock(
+    embeddings_service._client.feature_extraction = AsyncMock(
         return_value=_hf_embedding([0.5] * DIM)
     )
 
@@ -150,7 +150,7 @@ async def test_cache_miss_no_embedding(embeddings_service, mock_driver):
     mock_driver.execute_query = track_calls
 
     # Mock HF client
-    embeddings_service._client.feature_extraction = MagicMock(
+    embeddings_service._client.feature_extraction = AsyncMock(
         return_value=_hf_embedding([0.3] * DIM)
     )
 
@@ -174,7 +174,7 @@ async def test_cache_stores_metadata_on_miss(embeddings_service, mock_driver):
     ]
 
     # Mock HF client
-    embeddings_service._client.feature_extraction = MagicMock(
+    embeddings_service._client.feature_extraction = AsyncMock(
         return_value=_hf_embedding([0.4] * DIM)
     )
 
@@ -255,7 +255,7 @@ async def test_different_nodes_independent_cache(embeddings_service, mock_driver
     mock_driver.execute_query = track_calls
 
     # Mock HF client
-    embeddings_service._client.feature_extraction = MagicMock(
+    embeddings_service._client.feature_extraction = AsyncMock(
         return_value=_hf_embedding([0.7] * DIM)
     )
 
@@ -293,7 +293,7 @@ async def test_cache_failure_returns_embedding_anyway(embeddings_service, mock_d
     mock_driver.execute_query = track_calls
 
     # Mock HF client
-    embeddings_service._client.feature_extraction = MagicMock(
+    embeddings_service._client.feature_extraction = AsyncMock(
         return_value=_hf_embedding([0.8] * DIM)
     )
 
@@ -330,7 +330,7 @@ async def test_stale_version_regenerates(embeddings_service, mock_driver):
     mock_driver.execute_query = track_calls
 
     # Mock HF client
-    embeddings_service._client.feature_extraction = MagicMock(
+    embeddings_service._client.feature_extraction = AsyncMock(
         return_value=_hf_embedding([0.9] * DIM)
     )
 

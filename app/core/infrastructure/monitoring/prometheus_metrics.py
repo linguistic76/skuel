@@ -294,34 +294,34 @@ class AiMetrics:
     """
     AI service operation metrics.
 
-    Tracks OpenAI API calls, embedding generation, and Deepgram transcription.
+    Tracks AI API calls (OpenAI LLM, HuggingFace embeddings), and Deepgram transcription.
     Critical for monitoring expensive AI operations and enabling cost optimization.
     """
 
     def __init__(self) -> None:
-        # OpenAI API calls
-        self.openai_requests_total = Counter(
-            "skuel_openai_requests_total",
-            "Total OpenAI API requests",
+        # AI API calls (provider-agnostic: OpenAI LLM, HuggingFace embeddings, etc.)
+        self.ai_requests_total = Counter(
+            "skuel_ai_requests_total",
+            "Total AI API requests",
             ["operation", "model"],  # operation: embeddings/chat/completion
         )
 
-        self.openai_duration_seconds = Histogram(
-            "skuel_openai_duration_seconds",
-            "OpenAI API call duration",
+        self.ai_duration_seconds = Histogram(
+            "skuel_ai_duration_seconds",
+            "AI API call duration",
             ["operation", "model"],
             buckets=(0.1, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0),
         )
 
-        self.openai_tokens_used = Counter(
-            "skuel_openai_tokens_total",
-            "Total OpenAI tokens consumed",
+        self.ai_tokens_used = Counter(
+            "skuel_ai_tokens_total",
+            "Total AI tokens consumed",
             ["operation", "model", "token_type"],  # token_type: prompt/completion
         )
 
-        self.openai_errors_total = Counter(
-            "skuel_openai_errors_total",
-            "Total OpenAI API errors",
+        self.ai_errors_total = Counter(
+            "skuel_ai_errors_total",
+            "Total AI API errors",
             ["operation", "error_type"],  # error_type: rate_limit/timeout/auth
         )
 
@@ -380,8 +380,8 @@ class PrometheusMetrics:
         ).inc()
 
         # In AI services
-        prometheus_metrics.ai.openai_requests_total.labels(
-            operation="embeddings", model="text-embedding-3-small"
+        prometheus_metrics.ai.ai_requests_total.labels(
+            operation="embeddings", model="BAAI/bge-large-en-v1.5"
         ).inc()
     """
 

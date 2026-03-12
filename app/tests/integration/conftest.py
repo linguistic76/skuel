@@ -854,7 +854,6 @@ def embeddings_service():
     mock_driver = MagicMock()
     mock_driver.execute_query = AsyncMock()
     service = HuggingFaceEmbeddingsService(mock_driver)
-    service._plugin_available = True
     return service
 
 

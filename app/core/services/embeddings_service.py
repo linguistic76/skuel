@@ -7,8 +7,8 @@ Generates embeddings via HuggingFace Inference API using BAAI/bge-large-en-v1.5.
 ARCHITECTURE:
 - Model: BAAI/bge-large-en-v1.5 (1024 dims) — sentence-transformers-compatible,
   hosted on HuggingFace. Top-tier retrieval quality on MTEB benchmarks.
-- Client: huggingface_hub.InferenceClient (NOT sentence-transformers package —
-  that's for local inference. We use the API for serverless, no-GPU deployment.)
+- Client: huggingface_hub.AsyncInferenceClient (NOT sentence-transformers package —
+  that's for local inference. We use the async API for serverless, no-GPU deployment.)
 - API key: HF_API_TOKEN environment variable
 - Stores embeddings in Neo4j via QueryExecutor
 - Graceful degradation when HF_API_TOKEN not set
@@ -26,6 +26,8 @@ import math
 import os
 import time
 from typing import TYPE_CHECKING, Any
+
+import numpy as np
 
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -57,7 +59,7 @@ class HuggingFaceEmbeddingsService:
     - No Neo4j plugin dependency (pure Python-side embedding generation)
     - Stores embeddings in Neo4j via QueryExecutor
 
-    See: /docs/decisions/ADR-048-huggingface-embeddings-migration.md
+    See: /docs/decisions/ADR-049-huggingface-embeddings-migration.md
     """
 
     def __init__(
@@ -73,15 +75,15 @@ class HuggingFaceEmbeddingsService:
         self.logger = logger
         self.prometheus_metrics = prometheus_metrics
 
-        # Initialize HuggingFace client
+        # Initialize async HuggingFace client (non-blocking I/O)
         hf_token = os.getenv("HF_API_TOKEN", "")
         if not hf_token:
             self.logger.warning("HF_API_TOKEN not set - embeddings will fail")
             self._client = None
         else:
-            from huggingface_hub import InferenceClient
+            from huggingface_hub import AsyncInferenceClient
 
-            self._client = InferenceClient(model=self.model, token=hf_token)
+            self._client = AsyncInferenceClient(model=self.model, token=hf_token)
             self.logger.info(f"HuggingFace embeddings client initialized (model={self.model})")
 
     async def create_embedding(
@@ -117,15 +119,13 @@ class HuggingFaceEmbeddingsService:
         start_time = time.time()
 
         try:
-            # HuggingFace Inference API call (synchronous — runs in event loop)
+            # HuggingFace Inference API call (async — non-blocking)
             # feature_extraction returns nested list: [[float, ...]]
-            raw = self._client.feature_extraction(text)
+            raw = await self._client.feature_extraction(text)
             duration = time.time() - start_time
 
             # Extract the embedding vector from the response
             # feature_extraction returns a numpy array or nested list
-            import numpy as np
-
             if isinstance(raw, np.ndarray):
                 # Shape could be (1, dim) or (dim,) depending on API response
                 embedding = raw[0].tolist() if raw.ndim == 2 else raw.tolist()
@@ -142,10 +142,10 @@ class HuggingFaceEmbeddingsService:
 
             # Track metrics
             if self.prometheus_metrics:
-                self.prometheus_metrics.ai.openai_requests_total.labels(
+                self.prometheus_metrics.ai.ai_requests_total.labels(
                     operation="embeddings", model=self.model
                 ).inc()
-                self.prometheus_metrics.ai.openai_duration_seconds.labels(
+                self.prometheus_metrics.ai.ai_duration_seconds.labels(
                     operation="embeddings", model=self.model
                 ).observe(duration)
 
@@ -164,7 +164,7 @@ class HuggingFaceEmbeddingsService:
             duration = time.time() - start_time
 
             if self.prometheus_metrics:
-                self.prometheus_metrics.ai.openai_errors_total.labels(
+                self.prometheus_metrics.ai.ai_errors_total.labels(
                     operation="embeddings", error_type=type(e).__name__
                 ).inc()
 
@@ -220,7 +220,7 @@ class HuggingFaceEmbeddingsService:
         duration = time.time() - start_time
 
         if self.prometheus_metrics:
-            self.prometheus_metrics.ai.openai_duration_seconds.labels(
+            self.prometheus_metrics.ai.ai_duration_seconds.labels(
                 operation="embeddings_batch", model=self.model
             ).observe(duration)
 
@@ -436,7 +436,3 @@ class HuggingFaceEmbeddingsService:
             self.logger.warning(f"Failed to store embedding metadata: {store_result.error}")
 
         return Result.ok(embedding)
-
-
-# Backward compatibility alias
-Neo4jGenAIEmbeddingsService = HuggingFaceEmbeddingsService

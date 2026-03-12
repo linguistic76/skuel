@@ -150,20 +150,20 @@ groups:
       # AI Services (Phase 1 - January 2026)
       # ==================================================================
 
-      - alert: HighOpenAIErrorRate
+      - alert: HighAIErrorRate
         expr: |
           (
-            sum(rate(skuel_openai_errors_total[5m]))
+            sum(rate(skuel_ai_errors_total[5m]))
             /
-            sum(rate(skuel_openai_requests_total[5m]))
+            sum(rate(skuel_ai_requests_total[5m]))
           ) > 0.20
         for: 5m
         labels:
           severity: warning
         annotations:
-          summary: "OpenAI error rate >20%"
-          description: "{{ $value | humanizePercentage }} of OpenAI API calls failing"
-          runbook: "Check API key validity, verify rate limits, check OpenAI status page"
+          summary: "AI API error rate >20%"
+          description: "{{ $value | humanizePercentage }} of AI API calls failing"
+          runbook: "Check API keys (HF_API_TOKEN, OPENAI_API_KEY), verify rate limits, check provider status pages"
 
       - alert: EmbeddingQueueBacklog
         expr: skuel_embedding_queue_size > 500
@@ -173,7 +173,7 @@ groups:
         annotations:
           summary: "Embedding queue has {{ $value }} pending items"
           description: "Background worker may be falling behind or stalled"
-          runbook: "Check embedding worker logs, verify OpenAI API availability, consider increasing batch size"
+          runbook: "Check embedding worker logs, verify HuggingFace API availability, consider increasing batch size"
 
       - alert: HighEmbeddingFailureRate
         expr: |
@@ -188,20 +188,20 @@ groups:
         annotations:
           summary: "Embedding failure rate >20%"
           description: "{{ $value | humanizePercentage }} of embeddings failing to generate"
-          runbook: "Check OpenAI API status, review error logs, verify text preprocessing"
+          runbook: "Check HuggingFace API status, review error logs, verify text preprocessing"
 
-      - alert: SlowOpenAICalls
+      - alert: SlowAICalls
         expr: |
           histogram_quantile(0.95,
-            rate(skuel_openai_duration_seconds_bucket[5m])
+            rate(skuel_ai_duration_seconds_bucket[5m])
           ) > 30.0
         for: 5m
         labels:
           severity: warning
         annotations:
-          summary: "OpenAI API calls p95 latency >30s"
-          description: "OpenAI responses taking {{ $value }}s at p95"
-          runbook: "Check OpenAI service status, review batch sizes, verify network latency"
+          summary: "AI API calls p95 latency >30s"
+          description: "AI API responses taking {{ $value }}s at p95"
+          runbook: "Check provider status pages, review batch sizes, verify network latency"
 
   # ==================================================================
   # Service Level Objectives (SLOs)

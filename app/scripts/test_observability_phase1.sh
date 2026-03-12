@@ -80,17 +80,17 @@ echo "----------------------------------"
 test_step "SKUEL /metrics endpoint accessible" \
     "curl -sf http://localhost:5001/metrics"
 
-test_step "OpenAI request metric exists" \
-    "curl -sf http://localhost:5001/metrics | grep -q 'skuel_openai_requests_total'"
+test_step "AI request metric exists" \
+    "curl -sf http://localhost:5001/metrics | grep -q 'skuel_ai_requests_total'"
 
-test_step "OpenAI duration metric exists" \
-    "curl -sf http://localhost:5001/metrics | grep -q 'skuel_openai_duration_seconds'"
+test_step "AI duration metric exists" \
+    "curl -sf http://localhost:5001/metrics | grep -q 'skuel_ai_duration_seconds'"
 
-test_step "OpenAI tokens metric exists" \
-    "curl -sf http://localhost:5001/metrics | grep -q 'skuel_openai_tokens_total'"
+test_step "AI tokens metric exists" \
+    "curl -sf http://localhost:5001/metrics | grep -q 'skuel_ai_tokens_total'"
 
-test_step "OpenAI errors metric exists" \
-    "curl -sf http://localhost:5001/metrics | grep -q 'skuel_openai_errors_total'"
+test_step "AI errors metric exists" \
+    "curl -sf http://localhost:5001/metrics | grep -q 'skuel_ai_errors_total'"
 
 test_step "Embedding queue size metric exists" \
     "curl -sf http://localhost:5001/metrics | grep -q 'skuel_embedding_queue_size'"

@@ -1253,7 +1253,9 @@ class SkuelLinter:
             stripped = line.strip()
 
             # Skip comments that explain the migration itself
-            if stripped.startswith("#") and ("migrat" in stripped.lower() or "was" in stripped.lower()):
+            if stripped.startswith("#") and (
+                "migrat" in stripped.lower() or "was" in stripped.lower()
+            ):
                 continue
 
             for pattern, match_text, replacement in poetry_patterns:

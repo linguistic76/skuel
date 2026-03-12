@@ -54,7 +54,7 @@ Design Principles:
 
 Production Philosophy:
     - Core services (Neo4j, Deepgram) are REQUIRED - fail fast if missing
-    - AI services (OpenAI) are OPTIONAL - app works with basic features only
+    - AI services (HuggingFace, OpenAI) are OPTIONAL - app works with basic features only
     - Clear error messages for missing configuration
     - Services warn when AI unavailable but continue functioning
 
@@ -631,7 +631,7 @@ def _create_learning_services(
 
     # Create embedding + vector search services (March 2026 - HuggingFace Migration)
     # Uses HuggingFace Inference API with BAAI/bge-large-en-v1.5 (1024 dims)
-    # Replaces Neo4j GenAI plugin + OpenAI text-embedding-3-small (ADR-048)
+    # Replaces Neo4j GenAI plugin + OpenAI text-embedding-3-small (ADR-049)
     # Gated by intelligence tier (ADR-043): CORE skips entirely, FULL creates normally
     embeddings_service = None
     vector_search_service = None

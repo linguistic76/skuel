@@ -54,7 +54,9 @@ async def main():
             print(f"  ⚠️  INTELLIGENCE_TIER={intelligence_tier} (embeddings may be disabled)")
             print("    Set INTELLIGENCE_TIER=full in .env to enable vector search")
         else:
-            print(f"  ✅ Embeddings service configured (HF_API_TOKEN present, INTELLIGENCE_TIER=full)")
+            print(
+                f"  ✅ Embeddings service configured (HF_API_TOKEN present, INTELLIGENCE_TIER=full)"
+            )
 
         # Step 2: Create test task
         print("\n[2/5] Creating test task...")
