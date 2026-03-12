@@ -612,10 +612,11 @@ class ContextRetriever:
             return []
         query_embedding = query_result.value
 
-        # Step 2: Get KUs with embeddings from graph
+        # Step 2: Get knowledge entities (Articles + KUs) with embeddings from graph
         ku_query = """
         MATCH (ku:Entity)
         WHERE ku.embedding IS NOT NULL
+          AND ku.entity_type IN ['article', 'ku']
         RETURN ku.uid AS uid, ku.title AS title, ku.embedding AS embedding
         LIMIT 100
         """

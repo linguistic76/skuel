@@ -94,6 +94,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [Service Architecture: File Organization & Topology](architecture/SERVICE_TOPOLOGY.md) | 2026-03-03 | — |
 | [User Architecture — Model, Auth, Roles, UserContext](architecture/UNIFIED_USER_ARCHITECTURE.md) | 2026-03-03 | — |
 | **[Hyperview Mobile Strategy](architecture/HYPERVIEW_STRATEGY.md)** | **2026-02-06** | **90** |
+| **[How Askesis Works](architecture/ASKESIS_HOW_IT_WORKS.md)** | **2026-03-12** | **Plain-English explanation of both halves: intelligence synthesis + guided RAG pipeline** |
 | [Askesis Architecture](architecture/ASKESIS_ARCHITECTURE.md) | 2025-11-27 | — |
 | [Askesis Pedagogical Architecture](architecture/ASKESIS_PEDAGOGICAL_ARCHITECTURE.md) | 2026-03-05 | ZPD-aware Socratic companion vision — how Askesis teaches, not how it is built |
 | [Askesis Socratic Architecture](architecture/ASKESIS_SOCRATIC_ARCHITECTURE.md) | 2026-03-12 | LS-scoped Socratic pipeline — LSBundle, PedagogicalIntent, SocraticEngine, ZPD integration |

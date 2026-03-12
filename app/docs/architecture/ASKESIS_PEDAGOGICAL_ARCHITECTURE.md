@@ -255,12 +255,16 @@ curriculum of the conversation — it constrains what Askesis can do.
 | `askesis_ku_bridge` | Introduce adjacent KU as natural next step | ZPD traversal |
 | `askesis_journal_reflection` | Respond to journal open questions | Journal-triggered session |
 
-**Current state:** Templates are defined and loadable. Wiring to `QueryProcessor` is
-Phase 2 (after ZPDService). Askesis currently uses programmatic string assembly in
-`ResponseGenerator.build_llm_context()`.
+**Current state (March 2026):** Templates are defined as pedagogical design artifacts.
+The guided pipeline uses programmatic prompt builders in `ResponseGenerator`:
+`_build_direct_prompt()`, `_build_socratic_prompt()`, `_build_exploratory_prompt()`,
+`_build_encouraging_prompt()`. These are wired to `QueryProcessor` via
+`build_guided_system_prompt()` and selected by `GuidanceDetermination`.
 
-**Migration path:** Each `generate_context_aware_answer()` call becomes one template.
-The programmatic context becomes placeholders. Service logic shrinks.
+**Migration path (deferred):** Each `_build_*_prompt()` method could be replaced by
+`PROMPT_REGISTRY.render()` calls using the template files. This becomes valuable when
+journal signals (Phase 2) provide template variables like `{journal_open_questions}` and
+`{user_momentum}` that the current programmatic builders don't yet populate.
 
 ---
 
@@ -295,7 +299,7 @@ assistant cannot do this. Askesis can.
 
 ## Cross-References
 
-- [FOUR_PHASED_LEARNING_LOOP.md](/docs/architecture/FOUR_PHASED_LEARNING_LOOP.md) — Askesis scaffolds Phase 1 (Ku discovery) of the learning loop
+- [FOUR_PHASED_LEARNING_LOOP.md](/docs/architecture/FOUR_PHASED_LEARNING_LOOP.md) — Askesis scaffolds the learning loop (Article → Exercise → Submission → Report → RevisedExercise)
 - `docs/architecture/ASKESIS_ARCHITECTURE.md` — service structure (pre-refactor, 2025-11-27)
 - `docs/roadmap/zpd-service-deferred.md` — ZPDService design
 - `docs/roadmap/conversation-neo4j-persistence-deferred.md` — Neo4j conversation schema

@@ -10,13 +10,13 @@ Responsibilities:
 - Extract KU UIDs from LS bundle (scoped, Socratic pipeline)
 - Fuzzy match entity titles against query text
 
-This service is part of the refactored EnhancedAskesisService architecture:
+This service is part of the refactored AskesisService architecture:
 - UserStateAnalyzer: Analyze current user state and patterns
 - ActionRecommendationEngine: Generate personalized action recommendations
 - QueryProcessor: Process and answer natural language queries
 - EntityExtractor: Extract entities from natural language (THIS FILE)
 - ContextRetriever: Retrieve domain-specific context
-- EnhancedAskesisService: Facade coordinating all sub-services
+- AskesisService: Facade coordinating all sub-services
 
 Architecture:
 - Requires domain services (knowledge, tasks, goals, habits, events) for entity lookup
@@ -335,7 +335,7 @@ class EntityExtractor:
                     habit = result.value
                     # Check if habit title appears in query
                     if self._fuzzy_match(habit.title, query_lower):
-                        matched.append({"uid": habit_uid, "name": habit.title})
+                        matched.append({"uid": habit_uid, "title": habit.title})
             except Exception:
                 continue
 

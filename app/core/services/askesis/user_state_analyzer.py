@@ -12,13 +12,13 @@ Responsibilities:
 - Assess risks
 - Detect correlations
 
-This service is part of the refactored EnhancedAskesisService architecture:
+This service is part of the refactored AskesisService architecture:
 - UserStateAnalyzer: Analyze current user state and patterns (THIS FILE)
 - ActionRecommendationEngine: Generate personalized action recommendations
 - QueryProcessor: Process and answer natural language queries
 - EntityExtractor: Extract entities from natural language
 - ContextRetriever: Retrieve domain-specific context
-- EnhancedAskesisService: Facade coordinating all sub-services
+- AskesisService: Facade coordinating all sub-services
 
 Architecture:
 - Depends on ActionRecommendationEngine for recommendations (injected)

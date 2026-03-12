@@ -12,13 +12,13 @@ Responsibilities:
 - Predict future state
 - Sort and prioritize recommendations
 
-This service is part of the refactored EnhancedAskesisService architecture:
+This service is part of the refactored AskesisService architecture:
 - UserStateAnalyzer: Analyze current user state and patterns
 - ActionRecommendationEngine: Generate personalized action recommendations (THIS FILE)
 - QueryProcessor: Process and answer natural language queries
 - EntityExtractor: Extract entities from natural language
 - ContextRetriever: Retrieve domain-specific context
-- EnhancedAskesisService: Facade coordinating all sub-services
+- AskesisService: Facade coordinating all sub-services
 
 Architecture:
 - Depends on UserStateAnalyzer for state scoring and blockers (injected)
