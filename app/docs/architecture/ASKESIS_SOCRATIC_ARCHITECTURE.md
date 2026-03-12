@@ -108,6 +108,7 @@ The LSBundle is a frozen dataclass containing the complete context for a Learnin
 - `learning_path: LearningPath | None` — parent path
 - `articles: tuple[Article, ...]` — primary + supporting content
 - `kus: tuple[Ku, ...]` — atomic knowledge units trained by this step
+- `resources: tuple[Resource, ...]` — reference material cited by Articles/KUs via CITES_RESOURCE
 - `habits, tasks, events, principles` — practice activities linked to the step
 - `edges: tuple[dict, ...]` — semantic relationships between bundle entities
 - `learning_objectives: tuple[str, ...]` — from Articles in the bundle
@@ -180,8 +181,8 @@ Currently ZPD assesses per-KU. Expanding to per-Article and per-LS would enable 
 ### Multi-LP Users
 Users enrolled in multiple Learning Paths need a way to select which LP's LS drives the session. Current implementation uses the first active (non-mastered) LS. Future: explicit session binding to a specific LP.
 
-### Resource Connectivity (Phase 8)
-Wire Resource entities into curriculum graph for Askesis to surface. Articles and Kus connect to Resources via REFERENCES edges.
+### Resource Connectivity (Phase 8) — ✅ Done (March 2026)
+Resources are wired into the Askesis pipeline via `CITES_RESOURCE` relationships. `(Article/Ku)-[:CITES_RESOURCE {context}]->(Resource)` connects curriculum to reference material. ContextRetriever loads cited Resources into the LSBundle, ResponseGenerator references them in guided prompts, and semantic search includes Resources alongside Articles and KUs.
 
 ---
 

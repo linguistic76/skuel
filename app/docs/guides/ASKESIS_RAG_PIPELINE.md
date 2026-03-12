@@ -171,7 +171,7 @@ Traverses the Neo4j graph for structured context — prerequisites, learning pat
 `ContextRetriever._find_similar_knowledge()` performs a focused search:
 
 1. Embed the user's question
-2. Fetch knowledge entities (Articles + KUs) with embeddings from Neo4j (`WHERE ku.entity_type IN ['article', 'ku']`)
+2. Fetch knowledge entities (Articles, KUs, Resources) with embeddings from Neo4j (`WHERE ku.entity_type IN ['article', 'ku', 'resource']`)
 3. Calculate cosine similarity in Python
 4. Return top-5 above 0.6 threshold
 

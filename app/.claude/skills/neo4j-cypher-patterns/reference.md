@@ -182,6 +182,21 @@ Observable connections between knowledge units.
 
 Evidence edges carry properties: `confidence` (0.0–1.0), `polarity` (-1/0/1), `temporality` (minutes/hours/days/chronic), `source` (self_observation/research/teacher/clinical), `evidence` (text), `observed_at`.
 
+### Resource Relationships
+
+Curriculum-to-Resource citations — connects teaching content to reference material.
+
+| Relationship | From | To | Properties | Purpose |
+|--------------|------|-----|------------|---------|
+| `CITES_RESOURCE` | Article / Ku | Resource | `context` | Curriculum cites reference material (books, talks, films) |
+
+```cypher
+-- Find all Resources cited by Articles in a Learning Step
+MATCH (ls:LearningStep)-[:HAS_STEP]-(lp:LearningPath)
+MATCH (ls)-[:CONTAINS_KNOWLEDGE]->(a:Article)-[:CITES_RESOURCE]->(r:Resource)
+RETURN a.title AS article, r.title AS resource, r.author, r.media_type
+```
+
 ### Content/Processing Relationships
 
 Transcription, journal processing, and content linking.

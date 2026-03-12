@@ -69,6 +69,10 @@ All domain entities use **multi-label architecture**: every entity gets `:Entity
 // MOC organization — any Ku can organize other Kus (emergent identity)
 (moc:Ku)-[:ORGANIZES {order: 1}]->(child:Ku)
 
+// Resource citations — curriculum cites reference material
+(article:Article)-[:CITES_RESOURCE]->(r:Resource)
+(ku:Ku)-[:CITES_RESOURCE]->(r:Resource)
+
 // Principles guidance
 (goal:Goal)-[:GUIDED_BY_PRINCIPLE]->(principle:Principle)
 (choice:Choice)-[:ALIGNED_WITH_PRINCIPLE]->(principle:Principle)

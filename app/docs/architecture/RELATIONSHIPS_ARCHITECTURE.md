@@ -165,6 +165,7 @@ class DomainRelationshipConfig:
 | Curriculum | 5 | `ORGANIZES`, `REQUIRES_PREREQUISITE`, `HAS_NARROWER`, `HAS_BROADER` |
 | Life Path | 2 | `SERVES_LIFE_PATH`, `ULTIMATE_PATH` |
 | Exercise / Group | 3 | `FOR_GROUP`, `FULFILLS_EXERCISE`, `ASSIGNED_TO` |
+| Resource | 1 | `CITES_RESOURCE` — `(Article/Ku)-[:CITES_RESOURCE {context}]->(Resource)` |
 | Content / Processing | 4 | `REPORT_FOR`, `FULFILLS_PROJECT`, `PROCESSED_BY` |
 | Lateral | 13 | `BLOCKS`, `BLOCKED_BY`, `PREREQUISITE_FOR`, `DEPENDS_ON`, `ALTERNATIVE_TO`, `COMPLEMENTARY_TO`, `SIBLING`, `RELATED_TO` |
 

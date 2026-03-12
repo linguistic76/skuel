@@ -248,8 +248,8 @@ The `UserContextIntelligenceFactory` requires all domain relationship services. 
                                        │                │
                                        ▼                ▼
                                 EmbeddingsService  Domain Services
-                                                   (Article, KU, LP,
-                                                    Habits, Tasks, etc.)
+                                                   (Article, KU, Resource,
+                                                    LP, Habits, Tasks, etc.)
                                                         │
                                                GraphIntelligence
                                                    Service
@@ -466,11 +466,11 @@ async def _find_similar_knowledge(self, query: str, _user_uid: str) -> list[tupl
     # 1. Create query embedding via EmbeddingsService
     query_embedding = await self.embeddings_service.create_embedding(query)
 
-    # 2. Fetch knowledge entities (Articles + KUs) with embeddings from Neo4j
+    # 2. Fetch knowledge entities (Articles, KUs, Resources) with embeddings from Neo4j
     ku_query = """
     MATCH (ku:Entity)
     WHERE ku.embedding IS NOT NULL
-      AND ku.entity_type IN ['article', 'ku']
+      AND ku.entity_type IN ['article', 'ku', 'resource']
     RETURN ku.uid, ku.title, ku.embedding LIMIT 100
     """
 
