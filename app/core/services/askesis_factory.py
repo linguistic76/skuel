@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from core.services.askesis_citation_service import AskesisCitationService
 from core.services.askesis_service import AskesisDeps, AskesisService
 
 if TYPE_CHECKING:
@@ -22,6 +23,7 @@ def create_askesis_service(
     activity_services: dict[str, Any],
     user_service: Any,
     zpd_service: ZPDOperations,
+    citation_service: AskesisCitationService,
 ) -> AskesisService:
     """Build AskesisService from bootstrap-level service dicts.
 
@@ -37,6 +39,7 @@ def create_askesis_service(
         user_service: UserOperations instance.
         zpd_service: ZPDService — required for guided pipeline (ZPD readiness assessment).
             LP enrollment gate ensures curriculum data exists.
+        citation_service: AskesisCitationService — formats graph citations for responses.
     """
     deps = AskesisDeps(
         intelligence_factory=intelligence_factory,
@@ -50,6 +53,7 @@ def create_askesis_service(
         habits_service=activity_services["habits"],
         events_service=activity_services["events"],
         zpd_service=zpd_service,
+        citation_service=citation_service,
         # LS bundle dependencies for ContextRetriever
         ku_service=learning_services.get("atomic_ku_service"),
         lp_service=learning_services.get("learning_paths"),

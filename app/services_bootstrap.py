@@ -2777,7 +2777,12 @@ async def compose_services(
         # Create Askesis service — FULL tier only (no degraded mode)
         # March 2026: Gated behind tier.ai_enabled — Askesis requires all AI deps
         if tier.ai_enabled:
+            from core.services.askesis_citation_service import AskesisCitationService
             from core.services.askesis_factory import create_askesis_service
+
+            citation_service = AskesisCitationService(
+                backend=learning_services["article_service"].core.backend,
+            )
 
             services.askesis = create_askesis_service(
                 intelligence_factory=context_intelligence_factory,
@@ -2785,6 +2790,7 @@ async def compose_services(
                 activity_services=activity_services,
                 user_service=user_service,
                 zpd_service=zpd_service,
+                citation_service=citation_service,
             )
             logger.info(
                 "✅ Askesis service created with intelligence_factory (13-domain synthesis + ZPD)"

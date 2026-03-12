@@ -161,15 +161,21 @@ Without a bundle, Askesis uses `generate_context_aware_answer()` with the full U
 
 **Pipeline timeout:** The entire pipeline (Steps 1–10) runs under `asyncio.wait_for()` with a 30-second timeout (`AskesisPipelineTimeout.ANSWER_QUESTION_SECONDS`). If the pipeline exceeds this — due to a slow Neo4j query, unresponsive LLM, or network issue — it returns `Result.fail()` with a user-friendly message rather than hanging indefinitely. Both `answer_user_question()` and `process_query_with_context()` have independent timeouts.
 
+### Step 9b: Format Citations
+
+After LLM generation, `QueryProcessor._format_citations_for_askesis()` calls `AskesisCitationService.format_citations_for_askesis()` for each matched knowledge UID (up to 3). The citation service traverses `REQUIRES_KNOWLEDGE` chains up to 3 levels deep via `ProvenanceQueries.build_citation_export_query()`, returning `RelationshipCitation` objects with evidence counts. Citations are appended to the answer text.
+
+The citation service is wired at bootstrap: `AskesisCitationService(backend=article_service.core.backend)` → passed through `create_askesis_service()` → `AskesisDeps.citation_service` → `QueryProcessor`. Without the service (if `citation_service` is `None`), citation formatting returns an empty string — the answer is still generated, just without source references.
+
 ### Step 10: Assemble Response
 
 The final response includes:
-- **answer:** the LLM-generated text
+- **answer:** the LLM-generated text (with citations appended when available)
 - **context_used:** which entities and data informed the answer
 - **suggested_actions:** next steps (at-risk habits, overdue tasks, learning path continuation)
 - **confidence:** calculated from context availability, citations, and entity matches
 - **guidance_mode:** which pedagogical mode was used (if guided)
-- **citations:** for prerequisite/hierarchical queries, source references
+- **citations:** prerequisite chain source references from `AskesisCitationService`
 
 ---
 
@@ -286,6 +292,7 @@ On timeout: `Result.fail()` with user message *"Your question is taking too long
 | **LS bundle fetch** | All fetches fail | Minimal bundle (just the LearningStep) — still enables GuidanceMode |
 | **LS bundle fetch** | No active Learning Step | Falls back to context-aware generation without Socratic layer |
 | **ZPD assessment** | ZPD service fails | Continues with empty evidence — GuidanceMode still determined (less informed) |
+| **Citation formatting** | Citation service `None` or graph query fails | Citations omitted — answer still returned without source references |
 | **LLM generation** | LLM API error or timeout | `Result.fail()` — no fallback (this is the terminal step) |
 | **Token overflow** | Bundle has too many Articles | `truncate_to_budget()` truncates to `MAX_CURRICULUM_CHARS` (~2500 tokens) |
 
@@ -353,6 +360,8 @@ Three things distinguish Askesis from a generic AI assistant:
 | State analysis | `core/services/askesis/user_state_analyzer.py` |
 | Recommendations | `core/services/askesis/action_recommendation_engine.py` |
 | Pure scoring functions | `core/services/askesis/state_scoring.py` |
+| Citation formatting | `core/services/askesis_citation_service.py` |
+| Citation Cypher queries | `adapters/persistence/neo4j/query/_provenance_queries.py` |
 | Types/dataclasses | `core/services/askesis/types.py` |
 | LS Bundle model | `core/models/askesis/ls_bundle.py` |
 | GuidanceMode enum | `core/models/enums/metadata_enums.py` |

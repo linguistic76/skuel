@@ -86,7 +86,7 @@ class AskesisDeps:
     # LP enrollment gate ensures curriculum data exists; ZPD assesses readiness.
     # See: core/services/zpd/zpd_service.py
     zpd_service: ZPDOperations
-    # Citation service — optional until wired in bootstrap
+    # Citation service — formats graph citations for Askesis responses
     citation_service: Any | None = None
     # LS bundle dependencies for ContextRetriever — None is valid when not available
     ku_service: Any | None = None
