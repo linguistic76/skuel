@@ -1,11 +1,9 @@
 ---
 title: Auradb Migration Guide
-related_skills:
-  - neo4j-genai-plugin
 ---
 # AuraDB Production Migration Guide
 
-**Last Updated:** 2026-02-01
+**Last Updated:** 2026-03-12
 **Migration Type:** Infrastructure Change (Docker → AuraDB)
 **Estimated Time:** 4-6 hours
 
@@ -13,16 +11,16 @@ related_skills:
 
 ## Overview
 
-**Skill:** [@neo4j-genai-plugin](../../.claude/skills/neo4j-genai-plugin/SKILL.md)
-
 This guide covers migrating from Docker-based Neo4j to Neo4j AuraDB (production deployment). It assumes the app is already deployed on DigitalOcean App Platform (see [DO Migration Guide](./DO_MIGRATION_GUIDE.md) if you have not done that yet). The migration here is primarily a Neo4j swap: the app deployment itself does not change.
+
+**Note:** Embeddings are generated Python-side via HuggingFace Inference API (see [ADR-049](/docs/decisions/ADR-049-huggingface-embeddings-migration.md)). No Neo4j GenAI plugin is required. This simplifies the AuraDB migration — no plugin configuration needed.
 
 ### Current Setup (Development)
 
 - **Environment:** Docker-based Neo4j 2025.12.1
 - **Connection:** `bolt://localhost:7687`
-- **GenAI Plugin:** Enabled via `NEO4J_PLUGINS='["genai"]'`
-- **API Keys:** Per-query token passing via environment variables
+- **Plugins:** APOC (meta only) — no GenAI plugin needed
+- **Embeddings:** Python-side via HuggingFace Inference API (`HF_API_TOKEN`)
 - **Management:** Manual via docker-compose
 - **Backup:** Manual via Neo4j CLI
 
@@ -30,8 +28,8 @@ This guide covers migrating from Docker-based Neo4j to Neo4j AuraDB (production 
 
 - **Environment:** Neo4j AuraDB Professional/Enterprise
 - **Connection:** `neo4j+s://xxx.databases.neo4j.io`
-- **GenAI Plugin:** Enabled via console (pre-installed)
-- **API Keys:** Database-level configuration (centralized)
+- **Plugins:** None required (APOC may be available natively)
+- **Embeddings:** Same Python-side HuggingFace Inference API (no change)
 - **Management:** Automated via AuraDB console
 - **Backup:** Automated daily snapshots
 
@@ -70,14 +68,14 @@ This guide covers migrating from Docker-based Neo4j to Neo4j AuraDB (production 
 | **Authentication** | Username/password | Username/password (no change) |
 | **Environment Variable** | `NEO4J_URI=bolt://localhost:7687` | `NEO4J_URI=neo4j+s://xxx.databases.neo4j.io` |
 
-### GenAI Plugin Setup
+### Embeddings
 
 | Aspect | Docker (Current) | AuraDB (Production) |
 |--------|------------------|---------------------|
-| **Installation** | `NEO4J_PLUGINS='["genai"]'` in docker-compose | Pre-installed, enable via console |
-| **API Key Method** | Per-query token parameter | Database-level configuration |
-| **Cypher Syntax** | `genai.vector.encode($text, "OpenAI", {token: $key, ...})` | `genai.vector.encode($text, "OpenAI", {model: "...", dimensions: 1536})` |
-| **Configuration** | Environment variables | AuraDB console → Settings → GenAI Integration |
+| **Generation** | Python-side (HuggingFace Inference API) | Same — no change |
+| **API Key** | `HF_API_TOKEN` in app container | `HF_API_TOKEN` in app container |
+| **Neo4j Plugin** | None needed | None needed |
+| **Vector Indexes** | 1024-dim cosine | 1024-dim cosine (recreate after migration) |
 
 ### Management & Maintenance
 
@@ -105,7 +103,7 @@ This guide covers migrating from Docker-based Neo4j to Neo4j AuraDB (production 
 
 - [ ] **Backup:** Export current Neo4j database from Docker
 - [ ] **Credentials:** Neo4j Aura account (create at https://console.neo4j.io/)
-- [ ] **API Keys:** OpenAI API key for GenAI plugin
+- [ ] **API Keys:** HuggingFace API token for embeddings (`HF_API_TOKEN`)
 - [ ] **Time:** 4-6 hours for full migration
 - [ ] **Testing:** Staging environment for validation
 - [ ] **Access:** Admin access to AuraDB console
@@ -263,100 +261,29 @@ asyncio.run(test())
 
 ---
 
-## Phase 3: Enable GenAI Plugin in AuraDB
+## Phase 3: Verify Embeddings Work
 
-**Time: 10 minutes**
+**Time: 5 minutes**
 
-### 3.1 Enable Plugin via Console
+Embeddings are generated Python-side via HuggingFace Inference API. No Neo4j plugin setup is needed. Just ensure `HF_API_TOKEN` is set in your production environment.
 
-**In AuraDB Console:**
+### 3.1 Verify HF Token
 
-1. Select your database instance (`skuel-production`)
-2. Click **"Plugins"** tab in left sidebar
-3. Find **"GenAI"** in plugin list
-4. Click **"Enable"** button
-5. Wait 2-3 minutes for installation (status: "Installing" → "Active")
-
-### 3.2 Configure OpenAI API Key (Database-Level)
-
-**Option A: Via AuraDB Console (Recommended)**
-
-1. In GenAI plugin settings, find **"API Keys"** section
-2. Click **"Add API Key"**
-3. Configure:
-   - **Provider:** `OpenAI`
-   - **API Key:** `sk-proj-...` (your OpenAI API key)
-4. Click **"Save"**
-
-**Option B: Via Cypher Query**
-
-If console configuration isn't available:
-
-```cypher
-CALL genai.config.set('openai.apiKey', 'sk-proj-...');
+```bash
+# Ensure HF_API_TOKEN is in production .env
+grep HF_API_TOKEN /home/mike/skuel/app/.env
 ```
 
-**Get OpenAI API Key:**
-
-1. Visit https://platform.openai.com/api-keys
-2. Click **"Create new secret key"**
-3. Name: `SKUEL Production`
-4. Copy key immediately (shown only once)
-
-### 3.3 Configure Embedding Model
-
-Set default model to `text-embedding-3-small`:
-
-```cypher
-CALL genai.config.set('openai.embedding.model', 'text-embedding-3-small');
-CALL genai.config.set('openai.embedding.dimension', 1536);
-```
-
-### 3.4 Verify Plugin Working
-
-**Via Neo4j Browser:**
-
-1. Open Neo4j Browser from AuraDB console
-2. Run test query:
-
-```cypher
-RETURN genai.vector.encode("Hello world", "OpenAI", {
-  model: "text-embedding-3-small",
-  dimensions: 1536
-}) AS embedding;
-```
-
-**Expected Result:** Array of 1536 floats
-
-**Via Command Line:**
+### 3.2 Test Embedding Generation
 
 ```bash
 uv run python -c "
-import asyncio
+from huggingface_hub import InferenceClient
 import os
-from neo4j import AsyncGraphDatabase
-
-async def test():
-    driver = AsyncGraphDatabase.driver(
-        os.getenv('NEO4J_URI'),
-        auth=('neo4j', os.getenv('NEO4J_PASSWORD'))
-    )
-    result = await driver.execute_query('''
-        RETURN genai.vector.encode(\$text, \"OpenAI\", {
-            model: \"text-embedding-3-small\",
-            dimensions: 1536
-        }) AS embedding
-    ''', {'text': 'test'})
-    print(f'✅ GenAI plugin working! Embedding dimension: {len(result[0][0][\"embedding\"])}')
-    await driver.close()
-
-asyncio.run(test())
+client = InferenceClient(model='BAAI/bge-large-en-v1.5', token=os.getenv('HF_API_TOKEN'))
+result = client.feature_extraction('test')
+print(f'✅ HuggingFace embeddings working! Dimension: {len(result[0]) if hasattr(result, \"__len__\") else \"unknown\"}')
 "
-```
-
-**Expected Output:**
-```
-✅ GenAI plugin working! Embedding dimension: 1536
 ```
 
 ---
@@ -519,7 +446,7 @@ FOR (n:Entity)
 ON n.embedding
 OPTIONS {
   indexConfig: {
-    `vector.dimensions`: 1536,
+    `vector.dimensions`: 1024,
     `vector.similarity_function`: 'cosine'
   }
 };
@@ -530,7 +457,7 @@ FOR (n:Task)
 ON n.embedding
 OPTIONS {
   indexConfig: {
-    `vector.dimensions`: 1536,
+    `vector.dimensions`: 1024,
     `vector.similarity_function`: 'cosine'
   }
 };
@@ -541,7 +468,7 @@ FOR (n:Goal)
 ON n.embedding
 OPTIONS {
   indexConfig: {
-    `vector.dimensions`: 1536,
+    `vector.dimensions`: 1024,
     `vector.similarity_function`: 'cosine'
   }
 };
@@ -552,7 +479,7 @@ FOR (n:Habit)
 ON n.embedding
 OPTIONS {
   indexConfig: {
-    `vector.dimensions`: 1536,
+    `vector.dimensions`: 1024,
     `vector.similarity_function`: 'cosine'
   }
 };
@@ -592,22 +519,16 @@ NEO4J_PASSWORD=<auradb-password>
 NEO4J_DATABASE=neo4j
 
 # ============================================================================
-# GenAI Configuration (Production)
+# Embeddings (HuggingFace Inference API)
 # ============================================================================
-# Enable GenAI features
-GENAI_ENABLED=true
-GENAI_VECTOR_SEARCH_ENABLED=true
+HF_API_TOKEN=hf_your-token
 
-# Embedding configuration
-GENAI_EMBEDDING_MODEL=text-embedding-3-small
-GENAI_EMBEDDING_DIMENSION=1536
+# Optional overrides (defaults shown)
+EMBEDDING_MODEL=BAAI/bge-large-en-v1.5
+EMBEDDING_DIMENSION=1024
 
-# Performance tuning
-GENAI_BATCH_SIZE=50  # Higher for production
-GENAI_SIMILARITY_THRESHOLD=0.7
-
-# Cost controls
-GENAI_MAX_DAILY_EMBEDDINGS=50000
+# Intelligence tier
+INTELLIGENCE_TIER=full
 ```
 
 ### 6.2 Remove Docker-Specific Configuration
@@ -616,7 +537,6 @@ GENAI_MAX_DAILY_EMBEDDINGS=50000
 
 ```bash
 # ❌ REMOVE - Docker-specific (not needed for AuraDB)
-# NEO4J_OPENAI_API_KEY=sk-proj-...  # Now configured at database level
 # NEO4J_HEAP_INIT=512m              # AuraDB manages memory
 # NEO4J_HEAP_MAX=2G                 # AuraDB manages memory
 # NEO4J_PAGECACHE=1G                # AuraDB manages memory
@@ -626,19 +546,7 @@ GENAI_MAX_DAILY_EMBEDDINGS=50000
 
 If your application code has Docker-specific comments, update them:
 
-**Example:** In `/core/services/neo4j_genai_embeddings_service.py`
-
-```python
-# BEFORE (Docker-focused):
-# API keys via environment variables (OPENAI_API_KEY)
-# Per-query token passing to GenAI plugin
-
-# AFTER (AuraDB-focused):
-# API keys configured at AuraDB database level
-# No per-query credential passing needed
-```
-
-**Note:** Most SKUEL code is already abstract and doesn't need changes.
+**Note:** Embeddings are Python-side (`HuggingFaceEmbeddingsService`), so no Neo4j-specific embedding config changes are needed for AuraDB. Just ensure `HF_API_TOKEN` is set in the production app environment.
 
 ---
 
@@ -766,7 +674,7 @@ uv run python scripts/benchmark_queries.py
 
 - [ ] All tests passing in staging
 - [ ] AuraDB connection verified
-- [ ] GenAI plugin active and tested
+- [ ] Embeddings service verified
 - [ ] Embeddings generated (if needed)
 - [ ] Vector indexes active
 - [ ] Entity counts verified
@@ -863,34 +771,17 @@ Connection timeout after 30s
 - Ensure application server can reach AuraDB (check firewall)
 - Reset password in AuraDB console if needed
 
-### Issue: "GenAI plugin not available"
+### Issue: "Embeddings unavailable"
 
 **Symptoms:**
 ```
-Warning: Neo4j GenAI plugin not available
-Embeddings unavailable
+Warning: HF_API_TOKEN not set - embeddings will fail
 ```
 
-**Check:**
-
-1. **Verify plugin enabled:**
-   - AuraDB Console → Plugins → GenAI status should be "Active"
-
-2. **Check API key configured:**
-   ```cypher
-   CALL genai.config.list() YIELD key, value
-   WHERE key CONTAINS 'openai'
-   RETURN key, value;
-   ```
-
-3. **Verify tier:**
-   - GenAI plugin requires Professional tier or higher
-   - Free tier does NOT support GenAI
-
 **Solution:**
-- Enable GenAI plugin in AuraDB console
-- Configure OpenAI API key (see Phase 3.2)
-- Upgrade to Professional tier if on Free tier
+- Ensure `HF_API_TOKEN` is set in production app environment
+- Get a token at https://huggingface.co/settings/tokens
+- Restart the application after setting the token
 
 ### Issue: "Slow query performance"
 
@@ -922,35 +813,9 @@ Embeddings unavailable
 - Optimize queries (add WHERE clauses, use parameters)
 - Upgrade AuraDB tier if consistently overloaded
 
-### Issue: "High OpenAI costs"
+### Issue: "High embedding costs"
 
-**Symptoms:**
-- Unexpected high bills from OpenAI
-- Embedding costs exceeding estimates
-
-**Check:**
-
-1. **View OpenAI usage:**
-   - https://platform.openai.com/usage
-   - Check tokens consumed per day
-
-2. **Check embedding generation rate:**
-   ```bash
-   # Count entities with embeddings
-   uv run python scripts/check_embeddings_coverage.py
-   ```
-
-3. **Review batch settings:**
-   ```bash
-   grep GENAI_BATCH_SIZE .env
-   grep GENAI_MAX_DAILY_EMBEDDINGS .env
-   ```
-
-**Solution:**
-- Set `GENAI_MAX_DAILY_EMBEDDINGS` to limit costs
-- Reduce embedding generation frequency
-- Review which entities actually need embeddings
-- Set up OpenAI billing alerts
+**Note:** HuggingFace Inference API is pay-per-request (serverless). Monitor usage at https://huggingface.co/settings/billing. Embedding costs are typically minimal compared to LLM costs.
 
 ---
 
@@ -1024,7 +889,7 @@ If AuraDB data is corrupted but you want to stay on AuraDB:
 | Item | Estimated Cost | Notes |
 |------|----------------|-------|
 | AuraDB setup | $0 | No setup fees |
-| Initial embeddings | $0.02-0.20 | 10,000 entities × $0.02/1M tokens |
+| Initial embeddings | Minimal | HuggingFace Inference API (serverless) |
 | Developer time | 4-6 hours | Configuration + testing |
 | **Total** | **<$1** | Primarily time investment |
 
@@ -1033,7 +898,7 @@ If AuraDB data is corrupted but you want to stay on AuraDB:
 | Item | Monthly Cost | Notes |
 |------|--------------|-------|
 | AuraDB Professional | ~$65 | Fixed monthly subscription |
-| Ongoing embeddings | $0.01-0.10 | New entities only |
+| Ongoing embeddings | Minimal | HuggingFace Inference API (new entities only) |
 | Backup storage | Included | Automated daily backups |
 | **Total** | **~$65** | Embeddings cost negligible |
 
@@ -1061,7 +926,7 @@ If AuraDB data is corrupted but you want to stay on AuraDB:
 - Query latency trends
 - Connection pool usage
 - Embedding generation rate
-- OpenAI API costs
+- HuggingFace API costs
 
 **Weekly Checks (ongoing):**
 - Backup verification
@@ -1079,11 +944,10 @@ GENAI_MAX_DAILY_EMBEDDINGS=10000
 # Skip temporary/draft entities
 ```
 
-**OpenAI Best Practices:**
-- Set billing alerts at $50/month
-- Review usage weekly
-- Optimize batch sizes (50-100 for production)
-- Cache embeddings for unchanged content
+**Embedding Cost Best Practices:**
+- Monitor HuggingFace usage at https://huggingface.co/settings/billing
+- Cache embeddings for unchanged content (version tracking handles this)
+- Only embed entities that need search
 
 ### 3. Automate Backups
 
@@ -1105,8 +969,8 @@ uv run python scripts/verify_auradb_backups.py
 # Rotate AuraDB password quarterly
 # Via AuraDB Console → Settings → Security
 
-# Rotate OpenAI API key quarterly
-# Via OpenAI Dashboard → API Keys
+# Rotate HuggingFace API token quarterly
+# Via https://huggingface.co/settings/tokens
 
 # Audit access logs monthly
 # Via AuraDB Console → Audit Logs
@@ -1146,7 +1010,7 @@ uv run python scripts/verify_auradb_backups.py
 ### Related Documentation
 
 - [DigitalOcean Migration Guide](./DO_MIGRATION_GUIDE.md) - Stage 2: App Platform + Droplet (prerequisite for this guide)
-- [Docker GenAI Setup](../development/GENAI_SETUP.md) - Current Docker setup (development)
+- [Embeddings Setup](../development/GENAI_SETUP.md) - HuggingFace embeddings setup
 - [Vector Search Architecture](../architecture/SEARCH_ARCHITECTURE.md) - Technical details
 - [Testing Guide](../development/TESTING.md) - Running tests
 - [Production Deployment Guide](./PRODUCTION_DEPLOYMENT_GUIDE.md) - Full deployment checklist
@@ -1154,7 +1018,7 @@ uv run python scripts/verify_auradb_backups.py
 ### External Resources
 
 - [Neo4j AuraDB Documentation](https://neo4j.com/docs/aura/)
-- [Neo4j GenAI Plugin Docs](https://neo4j.com/docs/genai/plugin/current/)
+- [ADR-049: HuggingFace Embeddings Migration](/docs/decisions/ADR-049-huggingface-embeddings-migration.md)
 - [OpenAI Embeddings Guide](https://platform.openai.com/docs/guides/embeddings)
 - [Vector Indexes in Neo4j](https://neo4j.com/docs/cypher-manual/current/indexes/semantic-indexes/vector-indexes/)
 
@@ -1174,9 +1038,8 @@ uv run python scripts/verify_auradb_backups.py
 
 - [ ] AuraDB instance created (Professional tier)
 - [ ] Connection verified from application
-- [ ] GenAI plugin enabled
-- [ ] OpenAI API key configured at database level
-- [ ] Embedding model configured (text-embedding-3-small)
+- [ ] HF_API_TOKEN configured in app environment
+- [ ] Embeddings generation verified (Python-side, no plugin needed)
 
 ### Data Migration
 
@@ -1197,7 +1060,7 @@ uv run python scripts/verify_auradb_backups.py
 
 - [ ] Production `.env` updated (neo4j+s:// URI)
 - [ ] Docker-specific config removed
-- [ ] GenAI settings configured
+- [ ] HF_API_TOKEN set in production environment
 - [ ] Application code reviewed (no changes needed)
 
 ### Testing
@@ -1219,7 +1082,7 @@ uv run python scripts/verify_auradb_backups.py
 ### Post-Migration
 
 - [ ] Performance monitored (48 hours)
-- [ ] Costs monitored (OpenAI + AuraDB)
+- [ ] Costs monitored (HuggingFace + AuraDB)
 - [ ] Backups verified
 - [ ] Team trained on AuraDB console
 - [ ] Documentation updated
@@ -1245,7 +1108,7 @@ NEO4J_URI=bolt://localhost:7687
 
 ### Q: What about embeddings cost?
 
-**A:** Minimal - ~$0.02 per 1M tokens. For 10,000 entities, expect <$0.10/month ongoing.
+**A:** Minimal. HuggingFace Inference API is serverless pay-per-request. Embedding costs are typically negligible.
 
 ### Q: Can I downgrade from AuraDB back to Docker?
 

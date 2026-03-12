@@ -285,7 +285,7 @@ class Neo4jSchemaManager:
         self,
         label: str,
         field_name: str = "embedding",
-        dimension: int = 1536,
+        dimension: int = 1024,
         similarity: str = "cosine",
     ) -> Result[str]:
         """
@@ -297,7 +297,7 @@ class Neo4jSchemaManager:
         Args:
             label: Neo4j label (e.g., "Entity", "Task", "Goal", "ContentChunk")
             field_name: Field containing embedding vector (default: "embedding")
-            dimension: Vector dimension (default 1536 for text-embedding-3-small)
+            dimension: Vector dimension (default 1024 for bge-large-en-v1.5)
             similarity: Similarity function - "cosine" (default), "euclidean", or "dot"
 
         Returns:
@@ -305,10 +305,10 @@ class Neo4jSchemaManager:
 
         Example:
             # Create vector index for Knowledge Units
-            await schema_manager.create_vector_index("Entity", dimension=1536)
+            await schema_manager.create_vector_index("Entity", dimension=1024)
 
             # Create vector index for ContentChunk nodes
-            await schema_manager.create_vector_index("ContentChunk", dimension=1536)
+            await schema_manager.create_vector_index("ContentChunk", dimension=1024)
 
             # Creates index: ku_embedding_idx or contentchunk_embedding_idx
             # For query: db.index.vector.queryNodes('ku_embedding_idx', k, embedding)
@@ -474,7 +474,7 @@ class Neo4jSchemaManager:
     async def sync_vector_indexes(
         self,
         entity_labels: list[str],
-        dimension: int = 1536,
+        dimension: int = 1024,
         similarity: str = "cosine",
     ) -> Result[dict[str, Any]]:
         """
@@ -485,7 +485,7 @@ class Neo4jSchemaManager:
 
         Args:
             entity_labels: List of Neo4j labels with embedding fields (e.g., ["Entity", "Task", "Goal"])
-            dimension: Vector dimension (default 1536 for text-embedding-3-small)
+            dimension: Vector dimension (default 1024 for bge-large-en-v1.5)
             similarity: Similarity function (default "cosine")
 
         Returns:
@@ -495,7 +495,7 @@ class Neo4jSchemaManager:
             # Create vector indexes for all priority entities
             await schema_manager.sync_vector_indexes(
                 entity_labels=["Entity", "Task", "Goal", "LpStep"],
-                dimension=1536,
+                dimension=1024,
                 similarity="cosine"
             )
         """

@@ -1,13 +1,15 @@
 """
-Create Vector Indexes for Neo4j GenAI Plugin
-=============================================
+Create Vector Indexes for Semantic Search
+==========================================
 
 This script creates vector indexes for all embedding-enabled entities in SKUEL.
-Run this after starting Neo4j with GenAI plugin enabled (via docker-compose).
+Embeddings are generated Python-side via HuggingFaceEmbeddingsService using the
+HuggingFace Inference API. No Neo4j plugin is required.
 
 Prerequisites:
-- Docker Neo4j running with GenAI plugin enabled (NEO4J_PLUGINS='["genai"]')
-- OPENAI_API_KEY environment variable set
+- Neo4j running (Docker or AuraDB)
+- HF_API_TOKEN environment variable set
+- INTELLIGENCE_TIER=full in .env
 - Connection to Neo4j (bolt://localhost:7687)
 
 Usage:
@@ -18,10 +20,10 @@ Usage:
     uv run python scripts/create_vector_indexes.py --labels Ku Task Goal
 
     # Use different embedding dimensions
-    uv run python scripts/create_vector_indexes.py --dimension 3072
+    uv run python scripts/create_vector_indexes.py --dimension 1024
 
 See also:
-- /docs/development/GENAI_SETUP.md - Docker GenAI setup guide
+- /docs/development/GENAI_SETUP.md - Embeddings setup guide
 - /docs/deployment/AURADB_MIGRATION_GUIDE.md - AuraDB production migration
 """
 
@@ -67,16 +69,16 @@ async def create_vector_indexes(
 
     Args:
         entity_labels: List of entity labels (defaults to PRIORITY_ENTITIES)
-        dimension: Vector dimension (default 1536 for text-embedding-3-small)
+        dimension: Vector dimension (default 1536; use 1024 for BAAI/bge-large-en-v1.5)
         similarity: Similarity function (default "cosine")
     """
     config = create_config()
 
-    # Check if GenAI is enabled
+    # Check if embeddings service is enabled
     if not config.genai.enabled:
-        logger.warning("⚠️ GenAI plugin is disabled in config (GENAI_ENABLED=False)")
+        logger.warning("⚠️ Embeddings service is disabled (INTELLIGENCE_TIER is not full)")
         logger.warning("   Vector indexes will be created, but search will not work")
-        logger.warning("   Enable GenAI in config and restart app to use vector search")
+        logger.warning("   Set INTELLIGENCE_TIER=full in .env and restart app to use vector search")
         logger.warning("")
 
     # Check if vector search is enabled
@@ -211,7 +213,7 @@ def main() -> None:
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="Create vector indexes for Neo4j GenAI plugin",
+        description="Create vector indexes for semantic search (HuggingFace embeddings)",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -221,15 +223,15 @@ Examples:
   # Create indexes for specific entities only
   uv run python scripts/create_vector_indexes.py --labels Curriculum Task
 
-  # Use different embedding dimensions (for text-embedding-3-large)
-  uv run python scripts/create_vector_indexes.py --dimension 3072
+  # Use different embedding dimensions
+  uv run python scripts/create_vector_indexes.py --dimension 1024
 
   # Verify existing indexes
   uv run python scripts/create_vector_indexes.py --verify
 
 For more information:
   - Setup guide: /docs/development/GENAI_SETUP.md
-  - Migration guide: /docs/migrations/NEO4J_GENAI_MIGRATION.md
+  - Search architecture: /docs/architecture/SEARCH_ARCHITECTURE.md
         """,
     )
 
@@ -243,7 +245,7 @@ For more information:
         "--dimension",
         type=int,
         default=1536,
-        help="Vector dimension (default: 1536 for text-embedding-3-small)",
+        help="Vector dimension (default: 1536; use 1024 for BAAI/bge-large-en-v1.5)",
     )
 
     parser.add_argument(

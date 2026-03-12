@@ -12,7 +12,7 @@ The app is architecturally split into two layers. The foundational layer — CRU
 
 ## Why This Matters
 
-1. **Development velocity.** Working on ingestion YAML, file uploads, curriculum structure, or any "analog" workflow should never require an OpenAI API key or a running GenAI plugin. You iterate on fundamentals without paying API costs or waiting for embedding generation.
+1. **Development velocity.** Working on ingestion YAML, file uploads, curriculum structure, or any "analog" workflow should never require a HuggingFace API token. You iterate on fundamentals without paying API costs or waiting for embedding generation.
 
 2. **Cost control.** `INTELLIGENCE_TIER=core` costs $0. No API calls are made. No background workers spin up. This is the right mode for content authoring, schema changes, and structural work.
 
@@ -41,7 +41,7 @@ The app is architecturally split into two layers. The foundational layer — CRU
 
 | Capability | What It Does | Dependencies |
 |-----------|-------------|--------------|
-| Embeddings | 1536-dim vectors on 13 entity types | OpenAI API via GenAI plugin |
+| Embeddings | 1024-dim vectors on 13 entity types | HuggingFace Inference API (Python-side) |
 | Vector Search | Semantic similarity, hybrid search, RRF | Embeddings + Neo4j vector indexes |
 | Askesis | Socratic AI companion, ZPD-aware | LLM (OpenAI) |
 | Feedback Generation | AI assessment of submissions | LLM |
@@ -59,7 +59,7 @@ INTELLIGENCE_TIER=core
 ```
 
 **What happens:**
-- `Neo4jGenAIEmbeddingsService` — not created
+- `HuggingFaceEmbeddingsService` — not created
 - `Neo4jVectorSearchService` — not created
 - `EmbeddingBackgroundWorker` — not started
 - `LLMService` — not created
@@ -76,7 +76,7 @@ INTELLIGENCE_TIER=core
 INTELLIGENCE_TIER=full
 ```
 
-Requires `OPENAI_API_KEY` and `GENAI_ENABLED=true`. The embedding background worker starts automatically and processes entity embeddings in batches every 30 seconds.
+Requires `HF_API_TOKEN` (for embeddings) and optionally `OPENAI_API_KEY` (for LLM features). The embedding background worker starts automatically and processes entity embeddings in batches every 30 seconds.
 
 ## How Graceful Degradation Works
 
@@ -88,7 +88,8 @@ The bootstrap creates AI services conditionally. When `INTELLIGENCE_TIER=core`, 
 # Bootstrap (services_bootstrap.py)
 embeddings_service = None
 if tier.ai_enabled:
-    embeddings_service = Neo4jGenAIEmbeddingsService(...)
+    from core.services.embeddings_service import HuggingFaceEmbeddingsService
+    embeddings_service = HuggingFaceEmbeddingsService(executor=query_executor)
 
 # Downstream — worker only starts if service exists
 if embeddings_service:
@@ -141,7 +142,7 @@ All in `services_bootstrap.py`:
 
 | Gate | What It Controls | Core Behavior |
 |------|-----------------|---------------|
-| Embeddings block | `Neo4jGenAIEmbeddingsService`, `Neo4jVectorSearchService` | Skipped |
+| Embeddings block | `HuggingFaceEmbeddingsService`, `Neo4jVectorSearchService` | Skipped |
 | LLM block | `LLMService` | Skipped |
 | OpenAI block | `OpenAIService`, `SubmissionReportService`, `JournalOutputGenerator` | Skipped |
 
@@ -151,7 +152,7 @@ Everything downstream of these three blocks naturally degrades via None-propagat
 
 Switching from CORE → FULL:
 1. Set `INTELLIGENCE_TIER=full` in `.env`
-2. Ensure `OPENAI_API_KEY` is set
+2. Ensure `HF_API_TOKEN` is set (and `OPENAI_API_KEY` for LLM features)
 3. Restart the app
 4. Existing entities without embeddings will get them as they're updated, or run `scripts/generate_embeddings_batch.py` for bulk backfill
 

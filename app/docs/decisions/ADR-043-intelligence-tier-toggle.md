@@ -9,7 +9,7 @@
 SKUEL has an implicit two-layer intelligence split enforced architecturally:
 
 - **Analytics layer** (`BaseAnalyticsService`): 13 intelligence services + `UserContextIntelligence` + `GraphIntelligenceService`. Pure Python + Cypher. No API costs. Structurally prevented from having LLM attributes.
-- **AI layer** (`BaseAIService` + `OpenAIService` + `Neo4jGenAIEmbeddingsService`): 12 AI services, embeddings, LLM chat, content processing. Costs money per API call.
+- **AI layer** (`BaseAIService` + `OpenAIService` + `HuggingFaceEmbeddingsService`): 12 AI services, embeddings, LLM chat, content processing. Costs money per API call.
 
 The split was implicit — controlled by whether `OPENAI_API_KEY` existed. `OpenAIService` was always created even with an invalid key. There was no deliberate system-level control and no per-user tier concept.
 
@@ -22,13 +22,13 @@ Make the implicit explicit with a single environment variable `INTELLIGENCE_TIER
 | Tier | Value | What's Enabled | Cost |
 |------|-------|----------------|------|
 | **CORE** | `core` | BaseAnalyticsService (13 services), UserContextIntelligence, GraphIntelligenceService, all CRUD, keyword search, UserContext, daily planning | $0 |
-| **FULL** | `full` | Everything in CORE + 12 BaseAIService instances, OpenAIService, Neo4jGenAIEmbeddingsService, vector search, content processing, feedback generation | API costs |
+| **FULL** | `full` | Everything in CORE + 12 BaseAIService instances, OpenAIService, HuggingFaceEmbeddingsService, vector search, content processing, feedback generation | API costs |
 
 ### Gating Points (3)
 
 All in `services_bootstrap.py`:
 
-1. **Embeddings** (`_create_learning_services`): `Neo4jGenAIEmbeddingsService` + `Neo4jVectorSearchService` — skipped in CORE
+1. **Embeddings** (`_create_learning_services`): `HuggingFaceEmbeddingsService` + `Neo4jVectorSearchService` — skipped in CORE
 2. **LLM** (`compose_services`): `LLMService` — skipped in CORE
 3. **OpenAI** (`compose_services`): `OpenAIService`, `SubmissionReportService`, `JournalOutputGenerator` — skipped in CORE
 

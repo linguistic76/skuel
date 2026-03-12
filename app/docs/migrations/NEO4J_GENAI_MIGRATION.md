@@ -1,5 +1,7 @@
 # Neo4j GenAI Plugin Migration Guide
 
+> **Historical Note:** This document records the initial embeddings migration (2026-01-28). The embeddings service has since been replaced: `Neo4jGenAIEmbeddingsService` → `HuggingFaceEmbeddingsService`, model `text-embedding-3-small` (1536d) → `BAAI/bge-large-en-v1.5` (1024d), provider OpenAI → HuggingFace Inference API. Class names and config values below have been updated to reflect current names.
+
 **Last Updated:** 2026-01-28
 **Migration Type:** Feature Addition (Non-Breaking)
 **Estimated Time:** 2-4 hours
@@ -8,7 +10,7 @@
 
 ## Overview
 
-This guide covers migrating existing SKUEL instances to use the Neo4j GenAI plugin for embeddings and vector similarity search.
+This guide covers migrating existing SKUEL instances to use the HuggingFace Inference API for embeddings and vector similarity search.
 
 ### What's Changing
 
@@ -138,8 +140,8 @@ GENAI_ENABLED=true
 GENAI_VECTOR_SEARCH_ENABLED=true
 
 # Embedding configuration
-GENAI_EMBEDDING_MODEL=text-embedding-3-small
-GENAI_EMBEDDING_DIMENSION=1536
+GENAI_EMBEDDING_MODEL=BAAI/bge-large-en-v1.5
+GENAI_EMBEDDING_DIMENSION=1024
 
 # Performance tuning (optional)
 GENAI_BATCH_SIZE=25
@@ -149,7 +151,7 @@ GENAI_SIMILARITY_THRESHOLD=0.7
 GENAI_MAX_DAILY_EMBEDDINGS=10000  # Prevent runaway costs
 ```
 
-#### 2.2 Configure OpenAI API Key
+#### 2.2 Configure HuggingFace API Key
 
 **Option A: Use Credential Store (Recommended)**
 
@@ -161,25 +163,21 @@ uv run python -m core.config.credential_setup
 # [2] Set up single credential
 # Select: 2
 #
-# Credential key: OPENAI_API_KEY
-# Credential value: sk-proj-... (paste your key)
+# Credential key: HUGGINGFACE_API_KEY
+# Credential value: hf-... (paste your key)
 # Confirm: yes
 ```
 
-**Option B: AuraDB Database-Level Configuration (Production)**
+**Option B: Environment Variable**
 
-1. Log in to [Neo4j Aura Console](https://console.neo4j.io/)
-2. Select your database
-3. Navigate to **Settings** → **GenAI Integration**
-4. Click **Add API Key**
-5. Select **OpenAI** as provider
-6. Enter your OpenAI API key
-7. Click **Save**
-
-**Get OpenAI API Key:**
 ```bash
-# Visit: https://platform.openai.com/api-keys
-# Click: "Create new secret key"
+export HUGGINGFACE_API_KEY=hf-...
+```
+
+**Get HuggingFace API Key:**
+```bash
+# Visit: https://huggingface.co/settings/tokens
+# Click: "New token"
 # Name: "SKUEL Production" (or similar)
 # Copy key immediately (shown only once)
 ```
@@ -203,8 +201,8 @@ uv run python scripts/verify_genai_setup.py
 
 # Expected output:
 # ✅ Neo4j connection successful
-# ✅ GenAI plugin available
-# ✅ OpenAI API key configured
+# ✅ HuggingFace Inference API available
+# ✅ HuggingFace API key configured
 # ✅ Configuration valid
 ```
 
@@ -235,10 +233,10 @@ uv run python scripts/create_vector_indexes.py
 
 # Progress output:
 # Creating vector indexes...
-# ✅ Created: ku_embedding_idx (1536d, cosine)
-# ✅ Created: task_embedding_idx (1536d, cosine)
-# ✅ Created: goal_embedding_idx (1536d, cosine)
-# ✅ Created: habit_embedding_idx (1536d, cosine)
+# ✅ Created: ku_embedding_idx (1024d, cosine)
+# ✅ Created: task_embedding_idx (1024d, cosine)
+# ✅ Created: goal_embedding_idx (1024d, cosine)
+# ✅ Created: habit_embedding_idx (1024d, cosine)
 #
 # Total: 4 indexes created
 ```
@@ -251,10 +249,10 @@ uv run python scripts/verify_indexes.py
 
 # Expected output:
 # Verifying vector indexes...
-# ✅ ku_embedding_idx: Active (dimensions: 1536, similarity: cosine)
-# ✅ task_embedding_idx: Active (dimensions: 1536, similarity: cosine)
-# ✅ goal_embedding_idx: Active (dimensions: 1536, similarity: cosine)
-# ✅ habit_embedding_idx: Active (dimensions: 1536, similarity: cosine)
+# ✅ ku_embedding_idx: Active (dimensions: 1024, similarity: cosine)
+# ✅ task_embedding_idx: Active (dimensions: 1024, similarity: cosine)
+# ✅ goal_embedding_idx: Active (dimensions: 1024, similarity: cosine)
+# ✅ habit_embedding_idx: Active (dimensions: 1024, similarity: cosine)
 #
 # All indexes ready!
 ```
@@ -489,8 +487,8 @@ from core.utils.services_bootstrap import bootstrap
 
 services = await bootstrap()
 
-# GenAI services automatically available if configured
-embeddings = services.get("embeddings")  # Neo4jGenAIEmbeddingsService
+# Embeddings services automatically available if configured
+embeddings = services.get("embeddings")  # HuggingFaceEmbeddingsService
 vector_search = services.get("vector_search")  # Neo4jVectorSearchService
 
 if embeddings:
@@ -685,11 +683,11 @@ uv run python scripts/verify_indexes.py
    nohup uv run python scripts/generate_embeddings_batch.py > embeddings.log 2>&1 &
    ```
 
-### Issue: "OpenAI rate limit exceeded"
+### Issue: "HuggingFace rate limit exceeded"
 
 **Symptoms:**
 ```
-Error: Rate limit reached for text-embedding-3-small
+Error: Rate limit reached for BAAI/bge-large-en-v1.5
 Status: 429 Too Many Requests
 ```
 
@@ -706,9 +704,9 @@ Status: 429 Too Many Requests
    uv run python scripts/generate_embeddings_batch.py --batch-size 5
    ```
 
-3. **Upgrade OpenAI tier:**
-   - Visit: https://platform.openai.com/settings/organization/billing
-   - Upgrade to higher tier with increased limits
+3. **Upgrade HuggingFace tier:**
+   - Visit: https://huggingface.co/pricing
+   - Upgrade to PRO or Inference Endpoints for higher limits
 
 4. **Process incrementally:**
    ```bash
@@ -717,35 +715,34 @@ Status: 429 Too Many Requests
    # Run multiple times throughout the day
    ```
 
-### Issue: "GenAI plugin not available"
+### Issue: "HuggingFace Inference API not available"
 
 **Symptoms:**
 ```
-Warning: Neo4j GenAI plugin not available
+Warning: HuggingFace Inference API not available
 Embeddings unavailable
 ```
 
 **Check:**
 
-1. **Verify AuraDB tier:**
-   - Log in to Aura console
-   - Professional tier or higher required
+1. **Verify API key:**
+   - Confirm `HUGGINGFACE_API_KEY` is set in `.env`
+   - Visit https://huggingface.co/settings/tokens to verify key is active
 
-2. **Check plugin enabled:**
-   - Aura Console → Settings → GenAI Integration
-   - Verify API key configured
+2. **Check model access:**
+   - Confirm access to `BAAI/bge-large-en-v1.5` on HuggingFace
 
 3. **Verify connection:**
    ```bash
-   echo $NEO4J_URI
-   # Should be: neo4j+s://...databases.neo4j.io
+   echo $HUGGINGFACE_API_KEY
+   # Should be: hf-...
    ```
 
 ### Issue: "Embedding dimension mismatch"
 
 **Symptoms:**
 ```
-Error: Expected 1536 dimensions, got 768
+Error: Expected 1024 dimensions, got 1536
 Vector index incompatible
 ```
 
@@ -755,8 +752,8 @@ Vector index incompatible
 # 1. Verify configuration
 grep GENAI_EMBEDDING .env
 # Should be:
-# GENAI_EMBEDDING_MODEL=text-embedding-3-small
-# GENAI_EMBEDDING_DIMENSION=1536
+# GENAI_EMBEDDING_MODEL=BAAI/bge-large-en-v1.5
+# GENAI_EMBEDDING_DIMENSION=1024
 
 # 2. Remove old embeddings
 # (If you previously used different model)
@@ -766,7 +763,7 @@ grep GENAI_EMBEDDING .env
 // Remove embeddings with wrong dimensions
 MATCH (n)
 WHERE n.embedding IS NOT NULL
-  AND size(n.embedding) <> 1536
+  AND size(n.embedding) <> 1024
 REMOVE n.embedding, n.embedding_model, n.embedding_updated_at
 ```
 
@@ -1038,7 +1035,7 @@ async def search_with_cache(query: str):
 
 **Migration Complete!**
 
-Your SKUEL instance now has semantic search capabilities powered by Neo4j GenAI plugin and OpenAI embeddings.
+Your SKUEL instance now has semantic search capabilities powered by `HuggingFaceEmbeddingsService` and the `BAAI/bge-large-en-v1.5` model via HuggingFace Inference API.
 
 **Next Steps:**
 - Monitor usage for 48 hours
@@ -1051,3 +1048,5 @@ Your SKUEL instance now has semantic search capabilities powered by Neo4j GenAI 
 **Last Updated:** 2026-01-28
 **Maintained By:** SKUEL Core Team
 **Questions?** Contact team lead or check [GenAI Setup Guide](../development/GENAI_SETUP.md)
+
+> **Note:** Original migration used OpenAI `text-embedding-3-small` (1536d) via Neo4j GenAI plugin. Service is now `HuggingFaceEmbeddingsService` with `BAAI/bge-large-en-v1.5` (1024d) via HuggingFace Inference API.

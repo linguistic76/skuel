@@ -46,7 +46,7 @@ Everything in CORE, plus:
 |---------|---------|
 | LLM-powered report generation | SubmissionReportService |
 | AI content processing (journals, transcripts) | ContentEnrichmentService |
-| Embedding generation for semantic search | Neo4jGenAIEmbeddingsService |
+| Embedding generation for semantic search | HuggingFaceEmbeddingsService |
 | Vector + hybrid search (70% vector, 30% keyword) | Neo4jVectorSearchService |
 | Askesis RAG (question answering + suggestions) | AskesisService (LLM mode) |
 | 12 AI intelligence services (BaseAIService) | Various |
@@ -94,7 +94,7 @@ Intelligence tier: FULL (analytics + AI services)
 
 Three service groups are gated:
 
-1. **Embeddings** — `Neo4jGenAIEmbeddingsService` + `Neo4jVectorSearchService` — skipped in CORE
+1. **Embeddings** — `HuggingFaceEmbeddingsService` + `Neo4jVectorSearchService` — skipped in CORE
 2. **LLM** — `LLMService` — skipped in CORE
 3. **OpenAI** — `OpenAIService`, `SubmissionReportService`, `JournalOutputGenerator` — skipped in CORE
 

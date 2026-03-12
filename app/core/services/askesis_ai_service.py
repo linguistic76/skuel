@@ -34,7 +34,7 @@ if TYPE_CHECKING:
         GraphIntelligenceService,
     )
     from core.services.llm_service import LLMService
-    from core.services.neo4j_genai_embeddings_service import Neo4jGenAIEmbeddingsService
+    from core.services.embeddings_service import HuggingFaceEmbeddingsService
 
 
 class AskesisAIService(BaseAIService[Any, Any]):
@@ -59,7 +59,7 @@ class AskesisAIService(BaseAIService[Any, Any]):
         self,
         backend: Any,  # No AskesisOperations protocol yet
         llm_service: "LLMService",
-        embeddings_service: "Neo4jGenAIEmbeddingsService",
+        embeddings_service: "HuggingFaceEmbeddingsService",
         graph_intelligence_service: "GraphIntelligenceService | None" = None,
         relationship_service: Any | None = None,
         event_bus: Any | None = None,

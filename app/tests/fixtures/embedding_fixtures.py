@@ -1,7 +1,7 @@
 """
 Test fixtures for embeddings and vector search.
 
-Provides mock embeddings to avoid OpenAI API calls during testing.
+Provides mock embeddings to avoid HuggingFace API calls during testing.
 
 These fixtures enable testing of semantic search and vector operations
 without requiring actual API keys or making external calls.
@@ -35,25 +35,25 @@ from core.utils.result_simplified import Result
 @pytest.fixture
 def mock_embedding_vector():
     """
-    Generate consistent mock embedding vector (1536 dimensions).
+    Generate consistent mock embedding vector (1024 dimensions).
 
     Uses deterministic values for reproducible tests.
-    Standard dimension for text-embedding-3-small model.
+    Standard dimension for BAAI/bge-large-en-v1.5 model.
 
     Returns:
-        List of 1536 floats representing an embedding vector
+        List of 1024 floats representing an embedding vector
     """
-    # Simple pattern: [0.001, 0.002, ..., 1.536]
-    return [0.001 * i for i in range(1, 1537)]
+    # Simple pattern: [0.001, 0.002, ..., 1.024]
+    return [0.001 * i for i in range(1, 1025)]
 
 
 @pytest.fixture
 def mock_embeddings_service(mock_embedding_vector):
     """
-    Mock Neo4j GenAI embeddings service.
+    Mock HuggingFace embeddings service.
 
     Returns deterministic embeddings without API calls.
-    Mimics Neo4jGenAIEmbeddingsService interface.
+    Mimics HuggingFaceEmbeddingsService interface.
 
     Returns:
         Mock embeddings service with create_embedding and create_batch_embeddings methods
@@ -104,9 +104,9 @@ def mock_embeddings_service(mock_embedding_vector):
     service.calculate_similarity = calculate_similarity
 
     # Service attributes
-    service.model = "text-embedding-3-small"
-    service.dimension = 1536
-    service._plugin_available = True
+    service.model = "BAAI/bge-large-en-v1.5"
+    service.dimension = 1024
+    service._client = True  # Simulate client available
 
     return service
 
@@ -217,7 +217,7 @@ def services_with_embeddings(mock_embeddings_service, mock_vector_search_service
 @pytest.fixture
 def mock_embeddings_unavailable():
     """
-    Mock embeddings service that simulates plugin unavailable.
+    Mock embeddings service that simulates service unavailable.
 
     Use this to test graceful degradation when embeddings are not available.
 
@@ -232,7 +232,7 @@ def mock_embeddings_unavailable():
             {
                 "error": "unavailable",
                 "feature": "embeddings",
-                "reason": "Neo4j GenAI plugin not available",
+                "reason": "HF_API_TOKEN not configured",
             }
         )
 
@@ -241,15 +241,15 @@ def mock_embeddings_unavailable():
             {
                 "error": "unavailable",
                 "feature": "embeddings",
-                "reason": "Neo4j GenAI plugin not available",
+                "reason": "HF_API_TOKEN not configured",
             }
         )
 
     service.create_embedding = create_embedding
     service.create_batch_embeddings = create_batch_embeddings
-    service.model = "text-embedding-3-small"
-    service.dimension = 1536
-    service._plugin_available = False
+    service.model = "BAAI/bge-large-en-v1.5"
+    service.dimension = 1024
+    service._client = None
 
     return service
 

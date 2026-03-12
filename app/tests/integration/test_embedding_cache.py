@@ -4,17 +4,21 @@ Integration tests for embedding cache optimization.
 Tests the cache-first strategy of get_or_create_embedding.
 
 Created: January 2026
+Updated: March 2026 — HuggingFace migration (1536→1024 dims, v1→v2)
 """
 
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from core.services.neo4j_genai_embeddings_service import (
+from core.services.embeddings_service import (
     EMBEDDING_VERSION,
-    Neo4jGenAIEmbeddingsService,
+    HuggingFaceEmbeddingsService,
 )
 from core.utils.result_simplified import Result
+
+# Dimension for bge-large-en-v1.5
+DIM = 1024
 
 
 @pytest.fixture
@@ -27,49 +31,50 @@ def mock_driver():
 
 @pytest.fixture
 def embeddings_service(mock_driver):
-    """Create embeddings service with mock driver."""
-    service = Neo4jGenAIEmbeddingsService(mock_driver)
-    service._plugin_available = True  # Mock plugin as available
+    """Create embeddings service with mock driver and mock HF client."""
+    service = HuggingFaceEmbeddingsService(mock_driver)
+    # Patch a mock client so create_embedding works without HF_API_TOKEN
+    mock_client = MagicMock()
+    service._client = mock_client
     return service
 
 
-def _genai_result(embedding):
-    """Create a Result matching QueryExecutor.execute_query() for GenAI calls.
+def _hf_embedding(embedding):
+    """Configure mock HF client to return a specific embedding."""
+    import numpy as np
 
-    Production create_embedding() uses: result = await self.executor.execute_query(...)
-    then accesses result.value[0]["embedding"].
-    """
-    return Result.ok([{"embedding": embedding}])
+    return np.array(embedding)
 
 
 @pytest.mark.asyncio
 async def test_cache_hit_avoids_api_call(embeddings_service, mock_driver):
-    """Test that cache hit doesn't make API call to GenAI."""
-    api_calls = []
+    """Test that cache hit doesn't make API call to HuggingFace."""
 
     async def track_calls(query, params=None):
-        # Track which queries are called
-        if "genai.vector.encode" in query:
-            api_calls.append("genai_api")
-            return _genai_result([0.5] * 1536)
-        elif "embedding_version" in query:
+        if "embedding_version" in query:
             # Return current version (cache hit)
             return Result.ok(
                 [
                     {
-                        "embedding": [0.1] * 1536,
+                        "embedding": [0.1] * DIM,
                         "version": EMBEDDING_VERSION,
-                        "model": "text-embedding-3-small",
-                        "updated_at": "2026-01-29T12:00:00Z",
+                        "model": "BAAI/bge-large-en-v1.5",
+                        "updated_at": "2026-03-12T12:00:00Z",
                     }
                 ]
             )
         elif "RETURN n.embedding" in query:
             # Return cached embedding
-            return Result.ok([{"embedding": [0.1] * 1536}])
+            return Result.ok([{"embedding": [0.1] * DIM}])
         return Result.ok([])
 
     mock_driver.execute_query = track_calls
+
+    # Ensure HF client was NOT called (cache hit should skip API)
+    def fail_if_called(_text):
+        raise AssertionError("HF API should not be called on cache hit")
+
+    embeddings_service._client.feature_extraction = MagicMock(side_effect=fail_if_called)
 
     result = await embeddings_service.get_or_create_embedding(
         uid="ku.python", label="Entity", text="Python programming"
@@ -77,29 +82,22 @@ async def test_cache_hit_avoids_api_call(embeddings_service, mock_driver):
 
     # Should succeed
     assert result.is_ok
-    assert len(result.value) == 1536
-
-    # Should NOT have called GenAI API (cache hit)
-    assert "genai_api" not in api_calls
+    assert len(result.value) == DIM
 
 
 @pytest.mark.asyncio
 async def test_cache_miss_makes_api_call(embeddings_service, mock_driver):
     """Test that cache miss generates new embedding."""
-    api_calls = []
 
     async def track_calls(query, params=None):
-        if "genai.vector.encode" in query:
-            api_calls.append("genai_api")
-            return _genai_result([0.5] * 1536)
-        elif "embedding_version" in query:
+        if "embedding_version" in query:
             # Return stale version (cache miss)
             return Result.ok(
                 [
                     {
-                        "embedding": [0.1] * 1536,
-                        "version": "v0",  # Old version
-                        "model": "old-model",
+                        "embedding": [0.1] * DIM,
+                        "version": "v1",  # Old version
+                        "model": "text-embedding-3-small",
                         "updated_at": "2025-01-01T12:00:00Z",
                     }
                 ]
@@ -111,28 +109,29 @@ async def test_cache_miss_makes_api_call(embeddings_service, mock_driver):
 
     mock_driver.execute_query = track_calls
 
+    # Mock HF client to return embedding
+    embeddings_service._client.feature_extraction = MagicMock(
+        return_value=_hf_embedding([0.5] * DIM)
+    )
+
     result = await embeddings_service.get_or_create_embedding(
         uid="ku.python", label="Entity", text="Python programming"
     )
 
     # Should succeed
     assert result.is_ok
-    assert len(result.value) == 1536
+    assert len(result.value) == DIM
 
-    # SHOULD have called GenAI API (cache miss)
-    assert "genai_api" in api_calls
+    # SHOULD have called HF API (cache miss)
+    embeddings_service._client.feature_extraction.assert_called_once()
 
 
 @pytest.mark.asyncio
 async def test_cache_miss_no_embedding(embeddings_service, mock_driver):
     """Test cache miss when node has no embedding."""
-    api_calls = []
 
     async def track_calls(query, params=None):
-        if "genai.vector.encode" in query:
-            api_calls.append("genai_api")
-            return _genai_result([0.3] * 1536)
-        elif "embedding_version" in query:
+        if "embedding_version" in query:
             # No embedding on node
             return Result.ok(
                 [
@@ -150,12 +149,17 @@ async def test_cache_miss_no_embedding(embeddings_service, mock_driver):
 
     mock_driver.execute_query = track_calls
 
+    # Mock HF client
+    embeddings_service._client.feature_extraction = MagicMock(
+        return_value=_hf_embedding([0.3] * DIM)
+    )
+
     result = await embeddings_service.get_or_create_embedding(
         uid="ku.new", label="Entity", text="New knowledge unit"
     )
 
     assert result.is_ok
-    assert "genai_api" in api_calls
+    embeddings_service._client.feature_extraction.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -165,11 +169,14 @@ async def test_cache_stores_metadata_on_miss(embeddings_service, mock_driver):
     mock_driver.execute_query.side_effect = [
         # First: check version - no embedding (get_embedding_metadata)
         Result.ok([{"embedding": None, "version": None, "model": None, "updated_at": None}]),
-        # Second: generate embedding via GenAI (create_embedding uses result.value)
-        _genai_result([0.4] * 1536),
-        # Third: store with metadata (store_embedding_with_metadata)
+        # Second: store with metadata (store_embedding_with_metadata)
         Result.ok([{"uid": "ku.test"}]),
     ]
+
+    # Mock HF client
+    embeddings_service._client.feature_extraction = MagicMock(
+        return_value=_hf_embedding([0.4] * DIM)
+    )
 
     result = await embeddings_service.get_or_create_embedding(
         uid="ku.test", label="Entity", text="Test content"
@@ -177,35 +184,31 @@ async def test_cache_stores_metadata_on_miss(embeddings_service, mock_driver):
 
     # Should succeed
     assert result.is_ok
-    assert len(result.value) == 1536
+    assert len(result.value) == DIM
 
-    # Should have made 3 calls
-    assert mock_driver.execute_query.call_count == 3
+    # Should have made 2 DB calls (check version + store)
+    assert mock_driver.execute_query.call_count == 2
 
 
 @pytest.mark.asyncio
 async def test_multiple_calls_use_cache(embeddings_service, mock_driver):
     """Test that multiple calls to same node use cache."""
-    api_calls = []
 
     async def track_calls(query, params=None):
-        if "genai.vector.encode" in query:
-            api_calls.append("genai_api")
-            return _genai_result([0.6] * 1536)
-        elif "embedding_version" in query:
+        if "embedding_version" in query:
             # Current version
             return Result.ok(
                 [
                     {
-                        "embedding": [0.2] * 1536,
+                        "embedding": [0.2] * DIM,
                         "version": EMBEDDING_VERSION,
-                        "model": "text-embedding-3-small",
-                        "updated_at": "2026-01-29T12:00:00Z",
+                        "model": "BAAI/bge-large-en-v1.5",
+                        "updated_at": "2026-03-12T12:00:00Z",
                     }
                 ]
             )
         elif "RETURN n.embedding" in query:
-            return Result.ok([{"embedding": [0.2] * 1536}])
+            return Result.ok([{"embedding": [0.2] * DIM}])
         return Result.ok([])
 
     mock_driver.execute_query = track_calls
@@ -217,30 +220,25 @@ async def test_multiple_calls_use_cache(embeddings_service, mock_driver):
         )
         assert result.is_ok
 
-    # Should have made 0 API calls (all cache hits)
-    assert len(api_calls) == 0
+    # Should have made 0 HF API calls (all cache hits)
+    embeddings_service._client.feature_extraction.assert_not_called()
 
 
 @pytest.mark.asyncio
 async def test_different_nodes_independent_cache(embeddings_service, mock_driver):
     """Test that different nodes have independent cache entries."""
-    call_count = [0]
 
     async def track_calls(query, params=None):
-        call_count[0] += 1
-
-        if "genai.vector.encode" in query:
-            return _genai_result([0.7] * 1536)
-        elif "embedding_version" in query:
+        if "embedding_version" in query:
             # First node: cached, Second node: not cached
             if "python" in str(params.get("uid", "")):
                 return Result.ok(
                     [
                         {
-                            "embedding": [0.1] * 1536,
+                            "embedding": [0.1] * DIM,
                             "version": EMBEDDING_VERSION,
-                            "model": "text-embedding-3-small",
-                            "updated_at": "2026-01-29T12:00:00Z",
+                            "model": "BAAI/bge-large-en-v1.5",
+                            "updated_at": "2026-03-12T12:00:00Z",
                         }
                     ]
                 )
@@ -249,12 +247,17 @@ async def test_different_nodes_independent_cache(embeddings_service, mock_driver
                     [{"embedding": None, "version": None, "model": None, "updated_at": None}]
                 )
         elif "RETURN n.embedding" in query:
-            return Result.ok([{"embedding": [0.1] * 1536}])
+            return Result.ok([{"embedding": [0.1] * DIM}])
         elif "SET n.embedding" in query:
             return Result.ok([{"uid": params.get("uid")}])
         return Result.ok([])
 
     mock_driver.execute_query = track_calls
+
+    # Mock HF client
+    embeddings_service._client.feature_extraction = MagicMock(
+        return_value=_hf_embedding([0.7] * DIM)
+    )
 
     # First node: cache hit
     result1 = await embeddings_service.get_or_create_embedding(
@@ -274,9 +277,7 @@ async def test_cache_failure_returns_embedding_anyway(embeddings_service, mock_d
     """Test that if storing to cache fails, we still return the embedding."""
 
     async def track_calls(query, params=None):
-        if "genai.vector.encode" in query:
-            return _genai_result([0.8] * 1536)
-        elif "embedding_version" in query:
+        if "embedding_version" in query:
             return Result.ok(
                 [{"embedding": None, "version": None, "model": None, "updated_at": None}]
             )
@@ -291,32 +292,33 @@ async def test_cache_failure_returns_embedding_anyway(embeddings_service, mock_d
 
     mock_driver.execute_query = track_calls
 
+    # Mock HF client
+    embeddings_service._client.feature_extraction = MagicMock(
+        return_value=_hf_embedding([0.8] * DIM)
+    )
+
     result = await embeddings_service.get_or_create_embedding(
         uid="ku.test", label="Entity", text="Test"
     )
 
     # Should still return the embedding even though storage failed
     assert result.is_ok
-    assert len(result.value) == 1536
+    assert len(result.value) == DIM
 
 
 @pytest.mark.asyncio
 async def test_stale_version_regenerates(embeddings_service, mock_driver):
     """Test that stale versions trigger regeneration."""
-    api_calls = []
 
     async def track_calls(query, params=None):
-        if "genai.vector.encode" in query:
-            api_calls.append("regenerate")
-            return _genai_result([0.9] * 1536)
-        elif "embedding_version" in query:
+        if "embedding_version" in query:
             # Return old version
             return Result.ok(
                 [
                     {
-                        "embedding": [0.1] * 1536,
-                        "version": "v0",  # Stale
-                        "model": "old-model",
+                        "embedding": [0.1] * DIM,
+                        "version": "v1",  # Stale
+                        "model": "text-embedding-3-small",
                         "updated_at": "2025-01-01T12:00:00Z",
                     }
                 ]
@@ -327,10 +329,15 @@ async def test_stale_version_regenerates(embeddings_service, mock_driver):
 
     mock_driver.execute_query = track_calls
 
+    # Mock HF client
+    embeddings_service._client.feature_extraction = MagicMock(
+        return_value=_hf_embedding([0.9] * DIM)
+    )
+
     result = await embeddings_service.get_or_create_embedding(
         uid="ku.stale", label="Entity", text="Stale content"
     )
 
     assert result.is_ok
     # Should have regenerated
-    assert "regenerate" in api_calls
+    embeddings_service._client.feature_extraction.assert_called_once()

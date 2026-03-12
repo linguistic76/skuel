@@ -303,7 +303,7 @@ class ArticleService:
             user_service: UserService for UserContext access (January 2026 - KU-Activity Integration)
             ai_service: Optional ArticleAIService for AI features (ADR-030 separation)
             vector_search_service: Optional Neo4jVectorSearchService for semantic search (January 2026 - GenAI)
-            embeddings_service: Optional Neo4jGenAIEmbeddingsService for embedding generation (January 2026 - GenAI)
+            embeddings_service: Optional HuggingFaceEmbeddingsService for embedding generation (January 2026 - GenAI)
         """
         # FAIL-FAST: Backend is REQUIRED
         if not repo:

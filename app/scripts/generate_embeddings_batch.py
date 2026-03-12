@@ -15,15 +15,15 @@ Usage:
     uv run python scripts/generate_embeddings_batch.py --label Ku --max-batches 2
 
 ARCHITECTURE:
-- Uses Neo4jGenAIEmbeddingsService for embedding generation
+- Uses HuggingFaceEmbeddingsService for embedding generation
 - Processes in batches of 25 (Neo4j optimal batch size)
 - Updates nodes with embedding, embedding_model, and embedding_updated_at
 - Graceful error handling - logs failures but continues processing
 
 COST ESTIMATION:
-- OpenAI text-embedding-3-small: $0.02 per 1M tokens
+- HuggingFace Inference API (BAAI/bge-large-en-v1.5): see HuggingFace pricing
 - Typical entity: ~200 tokens
-- 1000 entities: ~$0.004
+- 1000 entities: estimated cost depends on HuggingFace tier
 
 See: /docs/migrations/NEO4J_GENAI_MIGRATION.md
 """
@@ -31,7 +31,7 @@ See: /docs/migrations/NEO4J_GENAI_MIGRATION.md
 import argparse
 import asyncio
 
-from core.services.neo4j_genai_embeddings_service import Neo4jGenAIEmbeddingsService
+from core.services.embeddings_service import HuggingFaceEmbeddingsService
 from core.utils.logging import get_logger
 
 logger = get_logger("skuel.batch_embeddings")
@@ -39,7 +39,7 @@ logger = get_logger("skuel.batch_embeddings")
 
 async def generate_embeddings_batch(
     driver: any,
-    embeddings_service: Neo4jGenAIEmbeddingsService,
+    embeddings_service: HuggingFaceEmbeddingsService,
     label: str,
     batch_size: int = 25,
     max_batches: int | None = None,
@@ -49,7 +49,7 @@ async def generate_embeddings_batch(
 
     Args:
         driver: Neo4j driver instance
-        embeddings_service: Neo4jGenAIEmbeddingsService instance
+        embeddings_service: HuggingFaceEmbeddingsService instance
         label: Node label (e.g., "Curriculum", "Task", "Goal")
         batch_size: Number of nodes per batch (default: 25)
         max_batches: Limit number of batches for testing (default: None = all)
@@ -173,12 +173,12 @@ async def main():
     driver = await get_driver()
 
     # Create embeddings service
-    embeddings_service = Neo4jGenAIEmbeddingsService(driver)
+    embeddings_service = HuggingFaceEmbeddingsService(driver)
 
-    # Check if plugin available
+    # Check if HuggingFace Inference API is available
     if not await embeddings_service._check_plugin_availability():
-        logger.error("❌ Neo4j GenAI plugin not available - cannot generate embeddings")
-        logger.error("   Configure GenAI plugin in AuraDB console with OpenAI API key")
+        logger.error("❌ HuggingFace Inference API not available - cannot generate embeddings")
+        logger.error("   Configure HuggingFace API key in .env (HUGGINGFACE_API_KEY)")
         return
 
     # Priority entity labels

@@ -272,7 +272,8 @@ learning_state_boost_not_started: float = 0.15
 ## Implementation
 
 **Related Skills:**
-- [@neo4j-genai-plugin](../../.claude/skills/neo4j-genai-plugin/SKILL.md) - Vector search and semantic relationship integration
+- [@skuel-search-architecture](../../.claude/skills/skuel-search-architecture/SKILL.md) - Unified search architecture and SearchRouter
+- [@neo4j-cypher-patterns](../../.claude/skills/neo4j-cypher-patterns/SKILL.md) - Graph queries and semantic relationship traversal
 
 **Architecture:**
 - [SEARCH_ARCHITECTURE.md](/docs/architecture/SEARCH_ARCHITECTURE.md) - Unified search architecture

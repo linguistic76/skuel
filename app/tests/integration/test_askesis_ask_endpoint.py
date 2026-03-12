@@ -6,8 +6,9 @@ Tests the complete RAG pipeline:
 - RAG pipeline success, entity extraction, semantic search (async — direct service calls)
 
 NOTE: These tests require:
-1. Running Neo4j instance with GenAI plugin
+1. Running Neo4j instance
 2. OPENAI_API_KEY environment variable (for full app bootstrap)
+3. HF_API_TOKEN environment variable (for embeddings)
 """
 
 import os
@@ -26,12 +27,10 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-async def _genai_plugin_available(skuel_app) -> bool:
-    """Check if Neo4j GenAI plugin is available in the test environment."""
+async def _embeddings_available(skuel_app) -> bool:
+    """Check if embeddings service is available in the test environment."""
     embeddings = getattr(skuel_app.state.services, "embeddings_service", None)
-    if not embeddings:
-        return False
-    return await embeddings._check_plugin_availability()
+    return embeddings is not None and embeddings._client is not None
 
 
 def test_ask_endpoint_validation(skuel_app):
@@ -53,8 +52,8 @@ def test_ask_endpoint_validation(skuel_app):
 @pytest.mark.asyncio
 async def test_ask_endpoint_success(skuel_app, populated_test_data):
     """Test successful RAG question answering with populated data."""
-    if not await _genai_plugin_available(skuel_app):
-        pytest.skip("Requires Neo4j GenAI plugin for intent classification")
+    if not await _embeddings_available(skuel_app):
+        pytest.skip("Requires embeddings service for intent classification")
     askesis = skuel_app.state.services.askesis
     user_uid = populated_test_data["user_uid"]
 
@@ -83,8 +82,8 @@ async def test_ask_endpoint_success(skuel_app, populated_test_data):
 @pytest.mark.asyncio
 async def test_ask_endpoint_entity_extraction(skuel_app, populated_test_data):
     """Test that entity extraction works with populated knowledge units."""
-    if not await _genai_plugin_available(skuel_app):
-        pytest.skip("Requires Neo4j GenAI plugin for intent classification")
+    if not await _embeddings_available(skuel_app):
+        pytest.skip("Requires embeddings service for intent classification")
     askesis = skuel_app.state.services.askesis
     user_uid = populated_test_data["user_uid"]
 
@@ -111,8 +110,8 @@ async def test_ask_endpoint_entity_extraction(skuel_app, populated_test_data):
 @pytest.mark.asyncio
 async def test_ask_endpoint_semantic_search(skuel_app, populated_test_data):
     """Test that semantic search pathway works (question without exact keyword match)."""
-    if not await _genai_plugin_available(skuel_app):
-        pytest.skip("Requires Neo4j GenAI plugin for intent classification")
+    if not await _embeddings_available(skuel_app):
+        pytest.skip("Requires embeddings service for intent classification")
     askesis = skuel_app.state.services.askesis
     user_uid = populated_test_data["user_uid"]
 

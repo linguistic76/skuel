@@ -32,7 +32,7 @@ from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from core.services.llm_service import LLMService
-    from core.services.neo4j_genai_embeddings_service import Neo4jGenAIEmbeddingsService
+    from core.services.embeddings_service import HuggingFaceEmbeddingsService
 
 
 class ArticleAIService(BaseAIService[ArticleOperations, Article]):
@@ -59,7 +59,7 @@ class ArticleAIService(BaseAIService[ArticleOperations, Article]):
         self,
         backend: ArticleOperations,
         llm_service: "LLMService",
-        embeddings_service: "Neo4jGenAIEmbeddingsService",
+        embeddings_service: "HuggingFaceEmbeddingsService",
         content_repo: Any | None = None,
         event_bus: Any | None = None,
     ) -> None:

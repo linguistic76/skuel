@@ -76,7 +76,7 @@ result = await ku_service.intelligence.get_knowledge_suggestions(
 
 **Dependencies:**
 - GraphIntelligenceService (REQUIRED - uses `_require_graph_intelligence()`)
-- Neo4jGenAIEmbeddingsService (optional - enhanced semantic analysis if available)
+- HuggingFaceEmbeddingsService (optional - enhanced semantic analysis if available)
 
 **Graph Intelligence Usage:**
 Uses `graph_intel.get_entity_context()` to retrieve semantic neighborhood:
@@ -406,7 +406,7 @@ user_substance_score = task_score + habit_score + event_score + journal_score + 
 - `self.backend` - KuOperations (REQUIRED)
 - `self.graph_intel` - GraphIntelligenceService (optional, validated on use)
 - `self.relationships` - UnifiedRelationshipService (optional)
-- `self.embeddings` - Neo4jGenAIEmbeddingsService (optional - enhanced semantic analysis)
+- `self.embeddings` - HuggingFaceEmbeddingsService (optional - enhanced semantic analysis)
 - `self.llm` - LLMService (optional - not currently used)
 
 **Logging:**
@@ -521,7 +521,7 @@ Knowledge substance contributes 25% to life path alignment score, measuring whet
 
 ### Enhanced Semantic Analysis
 
-When `Neo4jGenAIEmbeddingsService` is available, the service provides:
+When `HuggingFaceEmbeddingsService` is available, the service provides:
 - **Vector similarity** for knowledge recommendations
 - **Semantic clustering** for concept grouping
 - **Context-aware relevance** scoring

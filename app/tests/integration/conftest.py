@@ -41,9 +41,9 @@ def neo4j_container():
     container = Neo4jContainer("neo4j:5.26.0")
     # Disable auth completely for testing
     container.with_env("NEO4J_dbms_security_auth__enabled", "false")
-    container.with_env("NEO4J_PLUGINS", '["apoc", "genai"]')
-    # Allow genai procedures without role checks (no allowlist — keeps all APOC available for tests)
-    container.with_env("NEO4J_dbms_security_procedures_unrestricted", "genai.*,apoc.*")
+    container.with_env("NEO4J_PLUGINS", '["apoc"]')
+    # Allow APOC procedures without role checks
+    container.with_env("NEO4J_dbms_security_procedures_unrestricted", "apoc.*")
 
     # Start container
     container.start()
@@ -849,11 +849,11 @@ def embeddings_service():
     """
     from unittest.mock import MagicMock
 
-    from core.services.neo4j_genai_embeddings_service import Neo4jGenAIEmbeddingsService
+    from core.services.embeddings_service import HuggingFaceEmbeddingsService
 
     mock_driver = MagicMock()
     mock_driver.execute_query = AsyncMock()
-    service = Neo4jGenAIEmbeddingsService(mock_driver)
+    service = HuggingFaceEmbeddingsService(mock_driver)
     service._plugin_available = True
     return service
 

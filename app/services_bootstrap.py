@@ -66,7 +66,8 @@ INFRASTRUCTURE SERVICES
     - Deepgram API ✅ Audio transcription - REQUIRED
 
 **Optional AI Services:**
-    - OpenAI API 🟡 AI/LLM features and embeddings - OPTIONAL (graceful degradation)
+    - HuggingFace Inference API 🟡 Embeddings (bge-large-en-v1.5) - OPTIONAL (graceful degradation)
+    - OpenAI API 🟡 LLM features - OPTIONAL (graceful degradation)
 
 **Future Services (Pre-wired but Disabled):**
     - Redis 🟡 Distributed caching (in-memory cache currently used)
@@ -126,6 +127,7 @@ if TYPE_CHECKING:
     from core.services.content_enrichment_service import ContentEnrichmentService
     from core.services.context_aware_ai_service import ContextAwareAIService
     from core.services.cross_domain_queries import CrossDomainQueries
+    from core.services.embeddings_service import HuggingFaceEmbeddingsService
     from core.services.events_service import EventsService
     from core.services.goals_service import GoalsService
     from core.services.habits_service import HabitsService
@@ -134,7 +136,6 @@ if TYPE_CHECKING:
     from core.services.ku_service import KuService
     from core.services.lp_service import LpService
     from core.services.ls_service import LsService
-    from core.services.neo4j_genai_embeddings_service import Neo4jGenAIEmbeddingsService
     from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
     from core.services.notifications.notification_service import NotificationService
     from core.services.performance_optimization_service import PerformanceOptimizationService
@@ -394,8 +395,8 @@ class Services:
     neo4j_driver: "AsyncDriver | None" = None
     query_executor: "QueryExecutor | None" = None
 
-    # GenAI services (Neo4j native embeddings and vector search - January 2026)
-    embeddings_service: "Neo4jGenAIEmbeddingsService | None" = None
+    # Embedding + vector search services (March 2026 - HuggingFace)
+    embeddings_service: "HuggingFaceEmbeddingsService | None" = None
     vector_search_service: "Neo4jVectorSearchService | None" = None
 
     # Background workers (January 2026)
@@ -628,10 +629,9 @@ def _create_learning_services(
     # Note: UnifiedProgressService DELETED (January 2026) - violates fail-fast
     from core.services.user_progress_service import UserProgressService
 
-    # Create Neo4j GenAI services (January 2026 - Neo4j GenAI Plugin Integration)
-    # These services use Neo4j's native GenAI plugin for embeddings and vector search
-    # API keys configured at database level (AuraDB console)
-    # This is THE ONLY embeddings service - OpenAIEmbeddingsService removed (January 2026)
+    # Create embedding + vector search services (March 2026 - HuggingFace Migration)
+    # Uses HuggingFace Inference API with BAAI/bge-large-en-v1.5 (1024 dims)
+    # Replaces Neo4j GenAI plugin + OpenAI text-embedding-3-small (ADR-048)
     # Gated by intelligence tier (ADR-043): CORE skips entirely, FULL creates normally
     embeddings_service = None
     vector_search_service = None
@@ -641,27 +641,25 @@ def _create_learning_services(
     tier = IntelligenceTier.from_env()
 
     if not tier.ai_enabled:
-        logger.info("⏭️  GenAI services skipped (intelligence tier: CORE)")
+        logger.info("⏭️  Embedding services skipped (intelligence tier: CORE)")
     else:
         try:
-            from core.services.neo4j_genai_embeddings_service import Neo4jGenAIEmbeddingsService
+            from core.services.embeddings_service import HuggingFaceEmbeddingsService
             from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
 
-            # Create GenAI embeddings service (uses ai.text.embed())
-            embeddings_service = Neo4jGenAIEmbeddingsService(
+            # Create HuggingFace embeddings service
+            embeddings_service = HuggingFaceEmbeddingsService(
                 executor=query_executor,
-                prometheus_metrics=prometheus_metrics,  # Track OpenAI calls
+                prometheus_metrics=prometheus_metrics,
             )
-            logger.info(
-                "✅ Neo4j GenAI embeddings service created (with Prometheus instrumentation)"
-            )
+            logger.info("✅ HuggingFace embeddings service created (BAAI/bge-large-en-v1.5)")
 
-            # Create vector search service (uses db.index.vector.queryNodes())
+            # Create vector search service (uses db.index.vector.queryNodes() — native Neo4j)
             vector_search_service = Neo4jVectorSearchService(query_executor, embeddings_service)
             logger.info("✅ Neo4j vector search service created")
 
         except Exception as e:
-            logger.warning(f"Failed to initialize Neo4j GenAI services: {e}")
+            logger.warning(f"Failed to initialize embedding services: {e}")
             logger.warning("   Vector search will not be available - using keyword search fallback")
             embeddings_service = None
             vector_search_service = None
@@ -687,7 +685,7 @@ def _create_learning_services(
         # executor removed: ArticleOrganizationService now uses backend directly
         user_service=user_service,  # January 2026: KU-Activity Integration
         vector_search_service=vector_search_service,  # January 2026: GenAI vector search
-        embeddings_service=embeddings_service,  # January 2026: GenAI embeddings (THE ONLY service)
+        embeddings_service=embeddings_service,  # March 2026: HuggingFace embeddings (bge-large-en-v1.5)
     )
 
     # Create atomic Ku service (lightweight ontology/reference nodes)

@@ -26,7 +26,7 @@ import sys
 from collections import Counter, defaultdict
 
 from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
-from core.services.neo4j_genai_embeddings_service import EMBEDDING_VERSION
+from core.services.embeddings_service import EMBEDDING_VERSION
 from core.utils.logging import get_logger
 
 logger = get_logger("skuel.scripts.embedding_versions")

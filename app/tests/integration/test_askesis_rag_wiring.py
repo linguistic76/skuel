@@ -107,8 +107,8 @@ async def test_askesis_answer_method_signature(skuel_app):
 async def test_askesis_rag_pipeline_end_to_end(skuel_app, populated_test_data):
     """End-to-end test of RAG pipeline with populated data."""
     embeddings = getattr(skuel_app.state.services, "embeddings_service", None)
-    if not embeddings or not await embeddings._check_plugin_availability():
-        pytest.skip("Requires Neo4j GenAI plugin for intent classification")
+    if not embeddings or embeddings._client is None:
+        pytest.skip("Requires embeddings service for intent classification")
     services = skuel_app.state.services
     askesis = services.askesis
 

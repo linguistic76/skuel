@@ -65,7 +65,7 @@ class EmbeddingBackgroundWorker:
     def __init__(
         self,
         event_bus: EventBusOperations,
-        embeddings_service: Any,  # Neo4jGenAIEmbeddingsService
+        embeddings_service: Any,  # HuggingFaceEmbeddingsService
         executor: Any,  # QueryExecutor
         config: Any,  # UnifiedConfig for embedding version
         content_adapter: Any | None = None,  # Neo4jContentAdapter for chunk storage
@@ -78,7 +78,7 @@ class EmbeddingBackgroundWorker:
 
         Args:
             event_bus: Event bus for subscribing to embedding requests
-            embeddings_service: Neo4jGenAIEmbeddingsService for generating embeddings
+            embeddings_service: HuggingFaceEmbeddingsService for generating embeddings
             executor: Query executor for updating nodes
             config: UnifiedConfig for accessing embedding version
             content_adapter: Neo4jContentAdapter for chunk embedding storage (optional)

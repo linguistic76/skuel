@@ -10,8 +10,8 @@ Use this script when:
 - Changing embedding parameters
 - Fixing corrupted embeddings
 
-CAUTION: This script makes API calls to regenerate embeddings.
-Costs apply based on the number of nodes needing updates.
+CAUTION: This script makes API calls to the HuggingFace Inference API to regenerate
+embeddings. Rate limits apply based on your HuggingFace plan.
 
 Usage:
     uv run python scripts/migrate_embeddings_version.py --dry-run
@@ -27,9 +27,9 @@ import asyncio
 import sys
 
 from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
-from core.services.neo4j_genai_embeddings_service import (
+from core.services.embeddings_service import (
     EMBEDDING_VERSION,
-    Neo4jGenAIEmbeddingsService,
+    HuggingFaceEmbeddingsService,
 )
 from core.utils.logging import get_logger
 
@@ -104,7 +104,7 @@ def get_text_for_embedding(node: dict) -> str:
 
 
 async def migrate_node(
-    service: Neo4jGenAIEmbeddingsService,
+    service: HuggingFaceEmbeddingsService,
     node: dict,
     dry_run: bool = False,
 ) -> dict:
@@ -181,7 +181,7 @@ async def migrate_node(
 
 async def migrate_embeddings(
     driver,
-    service: Neo4jGenAIEmbeddingsService,
+    service: HuggingFaceEmbeddingsService,
     label: str | None = None,
     limit: int | None = None,
     dry_run: bool = False,
@@ -309,7 +309,7 @@ Examples:
   # Migrate with smaller batches (if hitting rate limits)
   uv run python scripts/migrate_embeddings_version.py --batch-size 5
 
-CAUTION: This makes API calls to regenerate embeddings. Costs apply.
+CAUTION: This makes API calls to the HuggingFace Inference API. Rate limits apply.
         """,
     )
 
@@ -336,13 +336,13 @@ CAUTION: This makes API calls to regenerate embeddings. Costs apply.
         logger.info("✅ Connected to Neo4j")
 
         # Create embeddings service
-        service = Neo4jGenAIEmbeddingsService(driver)
+        service = HuggingFaceEmbeddingsService(driver)
 
-        # Check plugin availability
+        # Check embeddings service availability
         plugin_available = await service._check_plugin_availability()
         if not plugin_available and not args.dry_run:
-            logger.error("❌ Neo4j GenAI plugin not available")
-            logger.error("   Configure plugin in AuraDB console")
+            logger.error("❌ Embeddings service not available")
+            logger.error("   Set HF_API_TOKEN and INTELLIGENCE_TIER=full in .env")
             return 1
 
         # Run migration

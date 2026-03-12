@@ -10,7 +10,7 @@ PERFORMANCE:
 - Supports top-K retrieval with similarity scores
 
 ARCHITECTURE:
-- Works with Neo4jGenAIEmbeddingsService for embedding generation
+- Works with HuggingFaceEmbeddingsService for embedding generation
 - Requires vector indexes created on embedding fields
 - Returns nodes with similarity scores sorted by relevance
 

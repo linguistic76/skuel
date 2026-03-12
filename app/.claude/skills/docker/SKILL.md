@@ -55,7 +55,7 @@ Order matters. Neo4j must be healthy before the app starts, because the app conn
 cd ~/skuel/infrastructure
 docker compose up -d
 
-# 2. Wait for Neo4j to be ready (GenAI plugin takes 60-90s on first start)
+# 2. Wait for Neo4j to be ready (can take 60-90s on first start)
 docker compose logs -f neo4j | grep -m1 "Neo4j started"
 
 # 3. Start the app
@@ -146,6 +146,6 @@ On a Droplet or App Platform, this is not relevant — Neo4j is on a different m
 
 - `docs/deployment/DO_MIGRATION_GUIDE.md` — Droplet Neo4j + App Platform app deployment
 - `docs/deployment/AURADB_MIGRATION_GUIDE.md` — Stage 3: replacing Droplet Neo4j with AuraDB
-- `.claude/skills/neo4j-genai-plugin/` — GenAI plugin config inside the Neo4j container
+- `docs/development/GENAI_SETUP.md` — GenAI/embeddings setup (HuggingFace Inference API, Python-side)
 - `.claude/skills/prometheus-grafana/` — Monitoring stack (runs in app compose)
 - See TROUBLESHOOTING.md in this directory for container-specific failure modes

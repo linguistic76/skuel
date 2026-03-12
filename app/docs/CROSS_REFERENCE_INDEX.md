@@ -154,20 +154,6 @@ For each skill, this section shows all related documentation (architecture docs,
 **ADRs:**
 - [ADR-037](/docs/decisions/ADR-037.md)
 
-### @neo4j-genai-plugin
-
-**Description:** Neo4j GenAI plugin integration for AI-powered graph features
-
-**Other:**
-- [GENAI_SETUP.md](/docs/development/GENAI_SETUP.md)
-- [AURADB_MIGRATION_GUIDE.md](/docs/deployment/AURADB_MIGRATION_GUIDE.md)
-
-**Patterns (Additional):**
-- [search_service_pattern.md](/docs/patterns/search_service_pattern.md)
-
-**ADRs:**
-- [ADR-034](/docs/decisions/ADR-034.md)
-
 ### @prometheus-grafana
 
 **Description:** Prometheus metrics and Grafana dashboards in SKUEL
@@ -363,7 +349,7 @@ For each documentation category, this section shows which skills are relevant.
 - [linter_rules.md](/docs/patterns/linter_rules.md) → @python
 - [protocol_architecture.md](/docs/patterns/protocol_architecture.md) → @python
 - [query_architecture.md](/docs/patterns/query_architecture.md) → @neo4j-cypher-patterns, @skuel-search-architecture
-- [search_service_pattern.md](/docs/patterns/search_service_pattern.md) → @base-analytics-service, @neo4j-genai-plugin, @skuel-search-architecture
+- [search_service_pattern.md](/docs/patterns/search_service_pattern.md) → @base-analytics-service, @skuel-search-architecture
 - [three_tier_type_system.md](/docs/patterns/three_tier_type_system.md) → @pydantic, @python
 
 ### ADRs (Architecture Decision Records)
@@ -374,7 +360,7 @@ For each documentation category, this section shows which skills are relevant.
 - [ADR-024](/docs/decisions/ADR-024-base-intelligence-service-migration.md) → @base-analytics-service
 - [ADR-030](/docs/decisions/ADR-030-usercontext-file-consolidation.md) → @user-context-intelligence
 - [ADR-031](/docs/decisions/ADR-031-baseservice-mixin-decomposition.md) → @base-analytics-service
-- [ADR-034](/docs/decisions/ADR-034-semantic-search-phase1-enhancement.md) → @neo4j-genai-plugin
+- [ADR-034](/docs/decisions/ADR-034-semantic-search-phase1-enhancement.md) → @skuel-search-architecture
 - [ADR-035](/docs/decisions/ADR-035-tier-selection-guidelines.md) → @pydantic, @python
 - [ADR-036](/docs/decisions/ADR-036-prometheus-primary-cache-pattern.md) → @prometheus-grafana
 - [ADR-037](/docs/decisions/ADR-037-lateral-relationships-visualization-phase5.md) → @neo4j-cypher-patterns, @vis-network
@@ -388,7 +374,7 @@ For each documentation category, this section shows which skills are relevant.
 
 ## Statistics
 
-- **Total skills:** 22
+- **Total skills:** 21
 - **Architecture docs:** 9 docs linked to skills
 - **Intelligence docs:** 2 docs linked to skills
 - **Pattern docs:** 45 docs linked to skills

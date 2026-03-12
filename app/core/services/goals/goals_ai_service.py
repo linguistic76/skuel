@@ -30,7 +30,7 @@ from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from core.services.llm_service import LLMService
-    from core.services.neo4j_genai_embeddings_service import Neo4jGenAIEmbeddingsService
+    from core.services.embeddings_service import HuggingFaceEmbeddingsService
 
 
 class GoalsAIService(BaseAIService[GoalsOperations, Goal]):
@@ -57,7 +57,7 @@ class GoalsAIService(BaseAIService[GoalsOperations, Goal]):
         self,
         backend: GoalsOperations,
         llm_service: "LLMService",
-        embeddings_service: "Neo4jGenAIEmbeddingsService",
+        embeddings_service: "HuggingFaceEmbeddingsService",
         event_bus: Any | None = None,
     ) -> None:
         """

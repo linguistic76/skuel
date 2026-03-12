@@ -14,7 +14,7 @@ Architecture:
 - Extends BaseIntelligenceService (January 2026 - Unified Pattern)
 - Uses shared intelligence utilities (NO cross-service dependencies)
 - Uses GraphIntelligenceService for semantic graph analysis
-- Uses Neo4jGenAIEmbeddingsService for semantic similarity
+- Uses HuggingFaceEmbeddingsService for semantic similarity
 """
 
 from datetime import datetime

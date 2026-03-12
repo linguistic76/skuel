@@ -31,9 +31,9 @@ import time
 from collections import defaultdict
 
 from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
-from core.services.neo4j_genai_embeddings_service import (
+from core.services.embeddings_service import (
     EMBEDDING_VERSION,
-    Neo4jGenAIEmbeddingsService,
+    HuggingFaceEmbeddingsService,
 )
 from core.utils.logging import get_logger
 
@@ -91,7 +91,7 @@ def get_text_from_node(node: dict) -> str:
 
 
 async def benchmark_cache_first(
-    service: Neo4jGenAIEmbeddingsService,
+    service: HuggingFaceEmbeddingsService,
     nodes: list[dict],
     verbose: bool = False,
 ) -> dict:
@@ -180,7 +180,7 @@ async def benchmark_cache_first(
 
 
 async def benchmark_always_generate(
-    service: Neo4jGenAIEmbeddingsService,
+    service: HuggingFaceEmbeddingsService,
     nodes: list[dict],
     verbose: bool = False,
 ) -> dict:
@@ -238,9 +238,8 @@ def calculate_cost_savings(cache_results: dict, always_results: dict) -> dict:
     """
     Calculate cost savings from caching.
 
-    Assumes OpenAI pricing:
-    - text-embedding-3-small: $0.02 per 1M tokens
-    - Average text: ~500 tokens
+    Estimates API call volume saved by caching.
+    HuggingFace Inference API pricing varies by plan; cost figures are illustrative.
 
     Args:
         cache_results: Cache-first benchmark results
@@ -266,7 +265,7 @@ def calculate_cost_savings(cache_results: dict, always_results: dict) -> dict:
     )
 
     # Cost calculation (assuming 500 tokens per embedding)
-    cost_per_1m_tokens = 0.02  # text-embedding-3-small
+    cost_per_1m_tokens = 0.02  # illustrative; HuggingFace pricing varies by plan
     tokens_per_embedding = 500
 
     cost_without_cache = (
@@ -422,13 +421,13 @@ Note: Always-generate test is limited to 10 nodes to avoid excessive API costs.
         logger.info("✅ Connected to Neo4j")
 
         # Create embeddings service
-        service = Neo4jGenAIEmbeddingsService(driver)
+        service = HuggingFaceEmbeddingsService(driver)
 
-        # Check plugin availability
+        # Check embeddings service availability
         plugin_available = await service._check_plugin_availability()
         if not plugin_available:
-            logger.error("❌ Neo4j GenAI plugin not available")
-            logger.error("   This benchmark requires the GenAI plugin")
+            logger.error("❌ Embeddings service not available")
+            logger.error("   Set HF_API_TOKEN and INTELLIGENCE_TIER=full in .env to run this benchmark")
             return 1
 
         # Get sample nodes

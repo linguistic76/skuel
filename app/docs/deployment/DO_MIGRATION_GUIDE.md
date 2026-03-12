@@ -2,7 +2,6 @@
 title: DigitalOcean Migration Guide
 related_skills:
   - neo4j-cypher-patterns
-  - neo4j-genai-plugin
 ---
 # DigitalOcean Migration Guide
 
@@ -77,7 +76,7 @@ If the outbound IPs change or are not stable, an alternative is to place both th
 - [ ] SSH key added to your DO account
 - [ ] Current Neo4j data backed up (see Phase 1)
 - [ ] `Dockerfile.production` reviewed (note: currently targets Python 3.11; align with `pyproject.toml` if it requires 3.12+)
-- [ ] OpenAI API key available (for GenAI plugin)
+- [ ] HuggingFace API key available (for embeddings, Python-side)
 - [ ] Domain name (optional for this stage, required for TLS in production)
 
 ---
@@ -135,7 +134,7 @@ Create a firewall rule set for the Droplet. Start locked down, then open only wh
 |------|----------|------|--------|---------|
 | Inbound | TCP | 22 | Your IP only | SSH management |
 | Inbound | TCP | 7687 | App Platform outbound CIDRs | Bolt (application traffic) |
-| Outbound | TCP | All | All | Allows Neo4j to reach OpenAI for GenAI |
+| Outbound | TCP | All | All | Standard outbound (Docker pulls, etc.) |
 
 Do **not** open port 7474 (Neo4j Browser HTTP). If you need to inspect the database during setup, SSH-tunnel it locally:
 
@@ -176,9 +175,8 @@ services:
       - "0.0.0.0:7687:7687"       # Bolt — open for App Platform
       - "127.0.0.1:7474:7474"     # HTTP — localhost only (SSH tunnel)
     environment:
-      NEO4J_PLUGINS: '["apoc", "genai"]'
+      NEO4J_PLUGINS: '["apoc"]'
       NEO4J_AUTH: "${NEO4J_AUTH}"
-      OPENAI_API_KEY: "${NEO4J_OPENAI_API_KEY}"
       NEO4J_server_memory_heap_initial__size: "${NEO4J_HEAP_INIT}"
       NEO4J_server_memory_heap_max__size: "${NEO4J_HEAP_MAX}"
       NEO4J_server_memory_pagecache_size: "${NEO4J_PAGECACHE}"
@@ -188,8 +186,8 @@ services:
       NEO4J_db_logs_query_enabled: INFO
       NEO4J_db_logs_query_threshold: 1s
       NEO4J_db_logs_query_parameter__logging__enabled: "true"
-      NEO4J_dbms_security_procedures_unrestricted: "genai.*,apoc.meta.*"
-      NEO4J_dbms_security_procedures_allowlist: "genai.*,apoc.meta.*"
+      NEO4J_dbms_security_procedures_unrestricted: "apoc.meta.*"
+      NEO4J_dbms_security_procedures_allowlist: "apoc.meta.*"
       NEO4J_server_bolt_enabled: "true"
       NEO4J_server_bolt_listen__address: 0.0.0.0:7687
       NEO4J_server_http_enabled: "true"
@@ -212,7 +210,6 @@ EOF
 # Create .env with your actual values
 cat > .env << 'EOF'
 NEO4J_AUTH=neo4j/<your-password>
-NEO4J_OPENAI_API_KEY=sk-proj-...
 NEO4J_HEAP_INIT=1G
 NEO4J_HEAP_MAX=1500M
 NEO4J_PAGECACHE=2G
@@ -290,12 +287,11 @@ These are the secrets and config the app needs. Set them in the App Platform UI 
 | `NEO4J_USERNAME` | `neo4j` | No |
 | `NEO4J_PASSWORD` | `<your-neo4j-password>` | Yes |
 | `OPENAI_API_KEY` | `sk-proj-...` | Yes |
+| `HUGGINGFACE_API_KEY` | `hf-...` | Yes |
 | `DEEPGRAM_API_KEY` | `<your-key>` | Yes |
 | `APP_HOST` | `0.0.0.0` | No |
 | `APP_PORT` | `5001` | No |
-| `GENAI_ENABLED` | `true` | No |
-| `GENAI_EMBEDDING_MODEL` | `text-embedding-3-small` | No |
-| `GENAI_EMBEDDING_DIMENSION` | `1536` | No |
+| `INTELLIGENCE_TIER` | `full` | No |
 | `LOG_LEVEL` | `INFO` | No |
 
 App Platform encrypts Secret-typed variables. They are not visible in plaintext after initial entry.
@@ -311,38 +307,20 @@ App Platform auto-deploys on push to the configured branch. After the first depl
 
 ---
 
-## Phase 4: Verify GenAI and Embeddings
+## Phase 4: Verify Embeddings
 
-The GenAI plugin on the Droplet uses per-query token passing (same as local Docker). The app code already handles this — it is environment-agnostic. Verify:
+Embeddings are computed Python-side via the HuggingFace Inference API — no Neo4j GenAI plugin required. The app connects to the Droplet Neo4j for storage/retrieval only. Verify the embedding service is reachable from the deployed app:
 
 ```bash
-# SSH tunnel to the Droplet, then run from your local machine:
-ssh -L 7687:localhost:7687 root@<droplet-ip> &
+# Test that the app's embedding service can reach HuggingFace
+# Check the App Platform deploy logs for embedding service initialization:
+# "Embedding service initialized" or similar startup message
 
-uv run python -c "
-import asyncio, os
-from neo4j import AsyncGraphDatabase
-
-async def test():
-    driver = AsyncGraphDatabase.driver(
-        'bolt://localhost:7687',
-        auth=('neo4j', os.getenv('NEO4J_PASSWORD'))
-    )
-    result = await driver.execute_query('''
-        RETURN genai.vector.encode(\$text, \"OpenAI\", {
-            token: \$key,
-            model: \"text-embedding-3-small\",
-            dimensions: 1536
-        }) AS embedding
-    ''', {'text': 'test', 'key': os.getenv('OPENAI_API_KEY')})
-    print(f'GenAI working. Embedding dimensions: {len(result[0][0][\"embedding\"])}')
-    await driver.close()
-
-asyncio.run(test())
-"
+# From the App Platform console, confirm the HUGGINGFACE_API_KEY env var is set.
+# The app will log a warning on startup if embeddings are unavailable.
 ```
 
-Expected output: `GenAI working. Embedding dimensions: 1536`
+If embeddings fail, the app falls back to keyword search (INTELLIGENCE_TIER=core behavior). Check `INTELLIGENCE_TIER` is set to `full` in App Platform environment variables to enable the full embedding pipeline.
 
 ---
 
@@ -451,9 +429,9 @@ This layout still validates cloud deployment and prepares for AuraDB. The AuraDB
 3. Confirm Bolt is bound to `0.0.0.0:7687`, not `127.0.0.1:7687`.
 4. Test from outside: `nc -zv <droplet-ip> 7687` from any machine that is not the Droplet.
 
-### "GenAI plugin not available" on the Droplet
+### Embeddings not working on the Droplet deployment
 
-The GenAI plugin takes 60-90 seconds to initialize on first container start. If the app starts before the plugin is ready, embeddings will fail silently and fall back to keyword search. Wait for the Neo4j health check to pass, then restart the app deployment in App Platform.
+Embeddings are generated Python-side via HuggingFace — no Neo4j plugin is involved. If embeddings fail, check that `HUGGINGFACE_API_KEY` is set correctly in App Platform environment variables and that `INTELLIGENCE_TIER=full`. The app falls back to keyword search automatically when embeddings are unavailable.
 
 ### App Platform deploy fails
 

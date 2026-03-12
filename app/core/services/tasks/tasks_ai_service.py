@@ -34,7 +34,7 @@ from core.utils.result_simplified import Errors, Result
 if TYPE_CHECKING:
     from core.ports.domain_protocols import TasksOperations
     from core.services.llm_service import LLMService
-    from core.services.neo4j_genai_embeddings_service import Neo4jGenAIEmbeddingsService
+    from core.services.embeddings_service import HuggingFaceEmbeddingsService
 
 
 class TasksAIService(BaseAIService["TasksOperations", Task]):
@@ -64,7 +64,7 @@ class TasksAIService(BaseAIService["TasksOperations", Task]):
         self,
         backend: TasksOperations,
         llm_service: LLMService,
-        embeddings_service: Neo4jGenAIEmbeddingsService,
+        embeddings_service: HuggingFaceEmbeddingsService,
         event_bus: Any | None = None,
     ) -> None:
         """

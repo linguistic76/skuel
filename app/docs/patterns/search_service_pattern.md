@@ -5,7 +5,6 @@ category: patterns
 related_skills:
 - base-analytics-service
 - skuel-search-architecture
-- neo4j-genai-plugin
 related_docs:
 - /docs/decisions/ADR-025-service-consolidation-patterns.md
 ---
@@ -17,7 +16,6 @@ related_docs:
 
 For implementation guidance, see:
 - [@base-analytics-service](../../.claude/skills/base-analytics-service/SKILL.md)
-- [@neo4j-genai-plugin](../../.claude/skills/neo4j-genai-plugin/SKILL.md)
 - [@skuel-search-architecture](../../.claude/skills/skuel-search-architecture/SKILL.md)
 
 

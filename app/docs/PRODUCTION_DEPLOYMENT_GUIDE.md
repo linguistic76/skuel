@@ -10,7 +10,7 @@ This guide covers deploying the async embedding background worker to production 
 
 ### Required Services
 - ✅ **Neo4j AuraDB** (with GenAI plugin enabled)
-- ✅ **OpenAI API Key** (for embeddings generation)
+- ✅ **HuggingFace API Key** (for embeddings generation via `BAAI/bge-large-en-v1.5`)
 - ✅ **Python 3.11+** with uv
 
 ### Optional (For Monitoring)
@@ -29,7 +29,7 @@ This guide covers deploying the async embedding background worker to production 
 NEO4J_URI=neo4j+s://xxxxx.databases.neo4j.io
 NEO4J_USER=neo4j
 NEO4J_PASSWORD=your_password
-OPEN AI_API_KEY=sk-xxxxx
+HUGGINGFACE_API_KEY=hf-xxxxx
 
 # Optional (Recommended for Production)
 DEEPGRAM_API_KEY=your_key  # For audio transcription
@@ -64,7 +64,7 @@ uv sync --no-dev
 uv run python -c "from adapters.persistence.neo4j_adapter import Neo4jAdapter; import asyncio; asyncio.run(Neo4jAdapter().connect())"
 
 # Test embeddings service
-uv run python -c "from core.services.neo4j_genai_embeddings_service import Neo4jGenAIEmbeddingsService; print('OK')"
+uv run python -c "from core.services.embeddings_service import HuggingFaceEmbeddingsService; print('OK')"
 ```
 
 ### 3. Start Application
@@ -76,7 +76,7 @@ uv run python main.py --host 0.0.0.0 --port 8000
 **Expected Startup Logs**:
 ```
 ✅ Neo4j driver validated
-✅ Neo4j GenAI embeddings service created
+✅ HuggingFace embeddings service created (BAAI/bge-large-en-v1.5, 1024d)
 ✅ Embedding background worker created (batch_size=25, interval=30s)
    Worker will process embeddings for: Tasks, Goals, Habits, Events, Choices, Principles
 🌟 SKUEL Application started on http://0.0.0.0:8000
@@ -180,12 +180,12 @@ embedding_worker = EmbeddingBackgroundWorker(
 ⏭️  Embedding background worker skipped (embeddings_service not available)
 ```
 
-**Cause**: OpenAI API key not configured or Neo4j GenAI plugin disabled
+**Cause**: HuggingFace API key not configured or HuggingFace Inference API unavailable
 
 **Fix**:
-1. Verify `OPENAI_API_KEY` environment variable
-2. Check Neo4j GenAI plugin status in AuraDB console
-3. Test manually: `RETURN ai.text.embed('test')` in Neo4j Browser
+1. Verify `HUGGINGFACE_API_KEY` environment variable
+2. Check HuggingFace API key is active at https://huggingface.co/settings/tokens
+3. Verify model access: `BAAI/bge-large-en-v1.5`
 
 ### High Failure Rate
 
@@ -232,12 +232,12 @@ embedding_worker = EmbeddingBackgroundWorker(
 
 ## Cost Optimization
 
-### OpenAI API Usage
+### HuggingFace Inference API Usage
 
 **Estimate**:
 - Average entity text: ~200 characters
 - Batch size: 25 entities
-- Cost per 1M tokens: ~$0.02 (text-embedding-ada-002)
+- Cost: see HuggingFace Inference API pricing for `BAAI/bge-large-en-v1.5`
 
 **Monthly Cost Example**:
 - 1,000 entities/day = 30,000 entities/month

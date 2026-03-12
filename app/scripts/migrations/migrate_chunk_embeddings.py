@@ -12,9 +12,9 @@ This migration script:
 5. Tracks progress and handles errors gracefully
 
 Prerequisites:
-- Neo4j GenAI plugin enabled and configured
+- HF_API_TOKEN environment variable set
+- INTELLIGENCE_TIER=full in .env
 - Vector index created: contentchunk_embedding_idx
-- OpenAI API key configured
 
 Usage:
     # Dry run (no changes, shows what would be done)
@@ -48,7 +48,7 @@ from neo4j import AsyncGraphDatabase
 from adapters.persistence.neo4j.neo4j_content_adapter import Neo4jContentAdapter
 from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
 from core.config import create_config
-from core.services.neo4j_genai_embeddings_service import Neo4jGenAIEmbeddingsService
+from core.services.embeddings_service import HuggingFaceEmbeddingsService
 from core.utils.logging import get_logger
 
 logger = get_logger("skuel.migrations.chunk_embeddings")
@@ -143,8 +143,8 @@ async def migrate_chunk_embeddings(
 
     # Validate prerequisites
     if not config.genai.enabled:
-        logger.error("❌ GenAI plugin is disabled (GENAI_ENABLED=False)")
-        logger.error("   Enable GenAI in config before running migration")
+        logger.error("❌ Embeddings service is disabled (INTELLIGENCE_TIER is not full)")
+        logger.error("   Set INTELLIGENCE_TIER=full in .env before running migration")
         return {"total": 0, "processed": 0, "successful": 0, "failed": 0, "skipped": 0}
 
     if not config.genai.embeddings_enabled:
@@ -174,7 +174,7 @@ async def migrate_chunk_embeddings(
     )
     await neo4j_connection.connect()
 
-    embeddings_service = Neo4jGenAIEmbeddingsService(
+    embeddings_service = HuggingFaceEmbeddingsService(
         driver=driver,
         model=config.genai.embedding_model,
     )
@@ -393,19 +393,17 @@ Examples:
   uv run python scripts/migrations/migrate_chunk_embeddings.py --limit 1000 --dry-run
 
 Performance:
-  - Batch size 100: ~10-15s per batch (OpenAI API limits)
+  - Batch size 100: ~10-15s per batch (HuggingFace Inference API rate limits)
   - Expected: ~100 chunks/minute
   - For 10,000 chunks: ~1.5-2 hours
 
-Cost estimate:
-  - ~$0.0001 per chunk (text-embedding-3-small)
-  - 10,000 chunks = ~$1.00
+Cost:
+  - HuggingFace Inference API (free tier available; paid plans for higher throughput)
 
 Prerequisites:
   1. Vector index created: uv run python scripts/create_vector_indexes.py
-  2. GenAI enabled in config (GENAI_ENABLED=True)
-  3. Embeddings enabled (GENAI_EMBEDDINGS_ENABLED=True)
-  4. OpenAI API key configured
+  2. HF_API_TOKEN set in .env
+  3. INTELLIGENCE_TIER=full in .env
         """,
     )
 

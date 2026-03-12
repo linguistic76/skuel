@@ -112,7 +112,7 @@ class UnifiedIngestionService:
                               If not provided, uses SKUEL_DEFAULT_USER_UID env var or "user:system".
             max_file_size_bytes: Maximum file size in bytes (default: 10 MB).
                                  Files larger than this will be rejected to prevent OOM.
-            embeddings_service: Optional Neo4jGenAIEmbeddingsService for embedding generation.
+            embeddings_service: Optional HuggingFaceEmbeddingsService for embedding generation.
                                 If not provided, ingestion works without embeddings (graceful degradation).
             chunking_service: Optional EntityChunkingService for automatic chunk generation.
                               If not provided, ingestion works without chunking (graceful degradation).

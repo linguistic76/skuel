@@ -301,7 +301,7 @@ def create_article_sub_services(
         driver: Neo4j async driver for event-driven operations (optional)
         user_service: UserService for UserContext access (January 2026 - KU-Activity Integration)
         vector_search_service: Optional Neo4jVectorSearchService for semantic search (January 2026 - GenAI)
-        embeddings_service: Optional Neo4jGenAIEmbeddingsService for embedding generation (January 2026 - GenAI)
+        embeddings_service: Optional HuggingFaceEmbeddingsService for embedding generation (January 2026 - GenAI)
 
     Returns:
         ArticleSubServices dataclass with all 8 sub-services

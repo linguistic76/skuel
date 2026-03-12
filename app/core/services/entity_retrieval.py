@@ -32,7 +32,7 @@ from core.models.query_types import IndexStrategy, QueryIntent
 
 # Use protocol interfaces instead of ports
 from core.ports.curriculum_protocols import ArticleOperations
-from core.services.neo4j_genai_embeddings_service import Neo4jGenAIEmbeddingsService
+from core.services.embeddings_service import HuggingFaceEmbeddingsService
 from core.services.user import UserContext
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -101,7 +101,7 @@ class EntityRetrieval:
     def __init__(
         self,
         knowledge_repo: ArticleOperations,
-        embeddings_service: Neo4jGenAIEmbeddingsService | None = None,
+        embeddings_service: HuggingFaceEmbeddingsService | None = None,
         unified_query_builder=None,  # Use the unified query builder service
         user_progress_service=None,  # Optional progress service for intelligent ranking
         chunking_service=None,  # Optional chunking service for RAG

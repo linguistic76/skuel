@@ -40,6 +40,7 @@ services:
 
       # AI Services
       OPENAI_API_KEY: ${OPENAI_API_KEY}
+      HF_API_TOKEN: ${HF_API_TOKEN}
       DEEPGRAM_API_KEY: ${DEEPGRAM_API_KEY}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       OLLAMA_URL: ${OLLAMA_URL:-http://localhost:11434}  # If Ollama enabled

@@ -46,7 +46,7 @@ async def get_learning_opportunities(
 
 **Core Principle:** "One Path Forward - Docker -> DigitalOcean -> AuraDB"
 
-**Stage 1 (Current):** Docker-based Neo4j (`bolt://localhost:7687`). Plugins: GenAI + APOC (meta only). APOC scoped to `apoc.meta.*` — domain services use pure Cypher (SKUEL001).
+**Stage 1 (Current):** Docker-based Neo4j (`bolt://localhost:7687`). Plugin: APOC (meta only). APOC scoped to `apoc.meta.*` — domain services use pure Cypher (SKUEL001). Embeddings via HuggingFace Inference API (Python-side, no Neo4j plugin).
 
 **Stage 2:** Droplet (Neo4j) + App Platform (app). Same config as local Docker.
 
@@ -54,7 +54,7 @@ async def get_learning_opportunities(
 
 **Code is environment-agnostic** — only `.env` configuration changes across stages.
 
-**See:** `/docs/deployment/DO_MIGRATION_GUIDE.md`, `/docs/deployment/AURADB_MIGRATION_GUIDE.md`, `/docs/development/GENAI_SETUP.md`
+**See:** `/docs/deployment/DO_MIGRATION_GUIDE.md`, `/docs/deployment/AURADB_MIGRATION_GUIDE.md`, `/docs/decisions/ADR-049-huggingface-embeddings-migration.md`
 
 ## Skills & Documentation Cross-Reference
 
@@ -62,9 +62,9 @@ async def get_learning_opportunities(
 
 See [CROSS_REFERENCE_INDEX.md](/docs/CROSS_REFERENCE_INDEX.md) for the complete skill-to-documentation mapping.
 
-**Key skill categories:** Foundation (python, pydantic, ui-css, chartjs), Web Framework (fasthtml, domain-route-config, ui-browser), UX (accessibility-guide, skuel-ui, ui-error-handling), Database (neo4j-cypher-patterns, neo4j-genai-plugin), Infrastructure (docker, prometheus-grafana), Architecture (result-pattern, base-analytics-service, base-ai-service, prompt-templates, learning-loop, skuel-search-architecture, user-context-intelligence), Security (security), Testing (pytest), Mobile (hyperview), Meta (docs-skills-evolution).
+**Key skill categories:** Foundation (python, pydantic, ui-css, chartjs), Web Framework (fasthtml, domain-route-config, ui-browser), UX (accessibility-guide, skuel-ui, ui-error-handling), Database (neo4j-cypher-patterns), Infrastructure (docker, prometheus-grafana), Architecture (result-pattern, base-analytics-service, base-ai-service, prompt-templates, learning-loop, skuel-search-architecture, user-context-intelligence), Security (security), Testing (pytest), Mobile (hyperview), Meta (docs-skills-evolution).
 
-**Total:** 27 skills with comprehensive documentation mappings.
+**Total:** 26 skills with comprehensive documentation mappings.
 
 ## Documentation Architecture
 

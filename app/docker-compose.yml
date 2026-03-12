@@ -33,13 +33,10 @@ services:
       - "127.0.0.1:7687:7687"  # Bolt (Application connection)
     environment:
       # Plugins
-      NEO4J_PLUGINS: '["apoc", "genai"]'
+      NEO4J_PLUGINS: '["apoc"]'
 
       # Authentication
       NEO4J_AUTH: "${NEO4J_AUTH}"
-
-      # GenAI plugin
-      OPENAI_API_KEY: "${NEO4J_OPENAI_API_KEY}"
 
       # Memory (Phase 6.3 tuned)
       NEO4J_server_memory_heap_initial__size: "${NEO4J_HEAP_INIT:-1G}"
@@ -58,9 +55,9 @@ services:
       NEO4J_db_logs_query_threshold: 1s
       NEO4J_db_logs_query_parameter__logging__enabled: "true"
 
-      # Security — allow GenAI + APOC meta procedures
-      NEO4J_dbms_security_procedures_unrestricted: "genai.*,apoc.meta.*"
-      NEO4J_dbms_security_procedures_allowlist: "genai.*,apoc.meta.*"
+      # Security — allow APOC meta procedures
+      NEO4J_dbms_security_procedures_unrestricted: "apoc.meta.*"
+      NEO4J_dbms_security_procedures_allowlist: "apoc.meta.*"
 
       # Network
       NEO4J_server_bolt_enabled: "true"
@@ -102,6 +99,7 @@ services:
 
       # AI Services
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      HF_API_TOKEN: ${HF_API_TOKEN:-}
       DEEPGRAM_API_KEY: ${DEEPGRAM_API_KEY:-}
 
       # Paths

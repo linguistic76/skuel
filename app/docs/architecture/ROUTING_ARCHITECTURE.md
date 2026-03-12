@@ -763,8 +763,8 @@ class TasksService:
 
 **Philosophy Change (January 2026):**
 - **REQUIRED**: Neo4j (graph database), Deepgram (audio transcription) - fail fast if missing
-- **OPTIONAL**: OpenAI API (AI features) - graceful degradation with basic features if missing
-- Neo4j GenAI embeddings and vector search services enabled via Neo4j GenAI Plugin (Docker/AuraDB)
+- **OPTIONAL**: HuggingFace API (AI features) - graceful degradation with basic features if missing
+- Embeddings via `HuggingFaceEmbeddingsService` (`BAAI/bge-large-en-v1.5`, 1024d) + vector search via `Neo4jVectorSearchService`
 
 ```python
 # File: /services_bootstrap.py
@@ -810,18 +810,17 @@ async def compose_services(neo4j_adapter, event_bus=None) -> Result[Services]:
         embeddings_service = None
         logger.warning("⚠️ Embeddings service disabled - continuing with basic features")
 
-    # 4. Create Neo4j GenAI services (January 2026 - Vector Search Integration)
-    # Uses Neo4j's native GenAI plugin for embeddings and vector search
-    # Docker: API key via environment variable (per-query token)
-    # AuraDB: API key at database level (see /docs/deployment/AURADB_MIGRATION_GUIDE.md)
+    # 4. Create HuggingFace embeddings services (January 2026 - Vector Search Integration)
+    # Uses HuggingFace Inference API for embeddings (BAAI/bge-large-en-v1.5, 1024d)
+    # Requires HUGGINGFACE_API_KEY in environment
     try:
-        genai_embeddings_service = Neo4jGenAIEmbeddingsService(driver)
+        genai_embeddings_service = HuggingFaceEmbeddingsService(driver)
         vector_search_service = Neo4jVectorSearchService(driver, genai_embeddings_service)
-        logger.info("✅ Neo4j GenAI services created (vector search enabled)")
+        logger.info("✅ HuggingFace embeddings services created (vector search enabled)")
     except Exception as e:
         genai_embeddings_service = None
         vector_search_service = None
-        logger.warning("⚠️ Neo4j GenAI services unavailable - using keyword search fallback")
+        logger.warning("⚠️ Embeddings services unavailable - using keyword search fallback")
 
     # 5. Create domain backends (implement protocols)
     tasks_backend = TasksBackend(driver, NeoLabel.TASK, Task, base_label=NeoLabel.ENTITY)
@@ -1100,4 +1099,4 @@ This architecture ensures:
 *Pattern: Protocol-Based Dependency Injection*
 *Security: Content Scope (USER_OWNED / SHARED / ADMIN_ONLY) on All Routes*
 *Philosophy: Clean Architecture, One Path Forward, Graceful Degradation for AI Features*
-*AI Services: OpenAI (optional), Neo4j GenAI Vector Search (optional)*
+*AI Services: HuggingFace Inference API (optional, BAAI/bge-large-en-v1.5), Neo4j Vector Search (optional)*

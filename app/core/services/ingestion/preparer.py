@@ -9,7 +9,7 @@ Extracted from unified_ingestion_service.py for separation of concerns.
 
 NEO4J GENAI INTEGRATION (January 2026):
 - Automatically generates embeddings for priority entities (Ku, Task, Goal, LpStep)
-- Uses Neo4jGenAIEmbeddingsService if available
+- Uses HuggingFaceEmbeddingsService if available
 - Graceful degradation - ingestion works without embeddings
 """
 
@@ -218,7 +218,7 @@ async def prepare_entity_data_async(
         body: Body content (for markdown) or None
         file_path: Source file path
         default_user_uid: Default user UID for multi-tenant entities
-        embeddings_service: Optional Neo4jGenAIEmbeddingsService for embedding generation
+        embeddings_service: Optional HuggingFaceEmbeddingsService for embedding generation
 
     Returns:
         Prepared entity data dict

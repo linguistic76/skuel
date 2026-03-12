@@ -53,13 +53,21 @@ else
     echo "  URI: $NEO4J_URI"
 fi
 
-if [ -z "$OPENAI_API_KEY" ]; then
-    check_fail "OPENAI_API_KEY not set"
-    echo "Embeddings worker requires OpenAI API key"
+if [ -z "$HF_API_TOKEN" ]; then
+    check_fail "HF_API_TOKEN not set"
+    echo "Embeddings worker requires HuggingFace Inference API token"
+    echo "Set HF_API_TOKEN=hf_your_token_here in .env"
     exit 1
 else
-    check_pass "OPENAI_API_KEY configured"
-    echo "  Key: ${OPENAI_API_KEY:0:10}..."
+    check_pass "HF_API_TOKEN configured"
+    echo "  Token: ${HF_API_TOKEN:0:10}..."
+fi
+
+if [ "${INTELLIGENCE_TIER}" != "full" ]; then
+    check_warn "INTELLIGENCE_TIER is not 'full' (embeddings may be disabled)"
+    echo "  Set INTELLIGENCE_TIER=full in .env to enable vector search"
+else
+    check_pass "INTELLIGENCE_TIER=full (embeddings enabled)"
 fi
 
 step "Checking Python environment"
@@ -79,53 +87,49 @@ uv sync --no-dev &> /dev/null
 check_pass "Dependencies installed"
 
 # ==========================================
-# NEO4J GENAI PLUGIN VALIDATION
+# HUGGINGFACE EMBEDDINGS SERVICE VALIDATION
 # ==========================================
 
-step "Validating Neo4j GenAI plugin"
+step "Validating HuggingFace embeddings service"
 
-PLUGIN_CHECK=$(uv run python -c "
+HF_CHECK=$(uv run python -c "
 import asyncio
-from neo4j import AsyncGraphDatabase
 import os
+from core.services.embeddings_service import HuggingFaceEmbeddingsService
 
 async def check():
-    driver = AsyncGraphDatabase.driver(
-        os.getenv('NEO4J_URI'),
-        auth=('neo4j', os.getenv('NEO4J_PASSWORD'))
-    )
+    token = os.getenv('HF_API_TOKEN')
+    if not token:
+        return 'NO_TOKEN'
     try:
-        async with driver.session() as session:
-            result = await session.run('RETURN ai.text.embed(\"test\") AS e')
-            await result.single()
-            return 'ENABLED'
+        # Instantiate service and attempt a test embedding
+        service = HuggingFaceEmbeddingsService.__new__(HuggingFaceEmbeddingsService)
+        available = await service._check_plugin_availability()
+        return 'ENABLED' if available else 'UNAVAILABLE'
     except Exception as e:
-        if 'Unknown function' in str(e) or 'ProcedureNotFound' in str(e):
-            return 'NOT_ENABLED'
         return f'ERROR: {e}'
-    finally:
-        await driver.close()
 
 print(asyncio.run(check()))
 " 2>&1)
 
-if [ "$PLUGIN_CHECK" == "ENABLED" ]; then
-    check_pass "Neo4j GenAI plugin is enabled and working"
-elif [ "$PLUGIN_CHECK" == "NOT_ENABLED" ]; then
-    check_fail "Neo4j GenAI plugin is NOT enabled"
+if [ "$HF_CHECK" == "ENABLED" ]; then
+    check_pass "HuggingFace embeddings service is available"
+elif [ "$HF_CHECK" == "NO_TOKEN" ]; then
+    check_fail "HF_API_TOKEN not set"
     echo ""
-    echo "TO ENABLE THE GENAI PLUGIN:"
-    echo "1. Log in to AuraDB console: https://console.neo4j.io"
-    echo "2. Select your database instance"
-    echo "3. Go to 'Plugins' tab"
-    echo "4. Enable 'GenAI' plugin"
-    echo "5. Configure OpenAI credentials at database level"
-    echo "6. Wait 2-3 minutes for plugin activation"
-    echo "7. Re-run this script to verify"
+    echo "TO CONFIGURE EMBEDDINGS:"
+    echo "1. Obtain a HuggingFace Inference API token at https://huggingface.co/settings/tokens"
+    echo "2. Add to .env: HF_API_TOKEN=hf_your_token_here"
+    echo "3. Add to .env: INTELLIGENCE_TIER=full"
+    echo "4. Re-run this script to verify"
     echo ""
     exit 1
+elif [ "$HF_CHECK" == "UNAVAILABLE" ]; then
+    check_fail "HuggingFace embeddings service returned unavailable"
+    echo "Check HF_API_TOKEN validity and https://status.huggingface.co"
+    exit 1
 else
-    check_fail "Error checking GenAI plugin: $PLUGIN_CHECK"
+    check_fail "Error checking embeddings service: $HF_CHECK"
     exit 1
 fi
 
@@ -278,7 +282,7 @@ echo "DEPLOYMENT VALIDATION COMPLETE"
 echo "=========================================="
 echo ""
 echo "✅ Environment configured"
-echo "✅ Neo4j GenAI plugin enabled"
+echo "✅ HuggingFace embeddings service available"
 echo "✅ Application startup successful"
 echo "✅ Monitoring endpoints working"
 echo "✅ Embedding generation validated"

@@ -322,7 +322,10 @@
       "Bash(which uv:*)",
       "Bash(curl -LsSf https://astral.sh/uv/install.sh | sh)",
       "Bash(export PATH=\"$HOME/.local/bin:$PATH\" && uv --version)",
-      "Bash(export PATH=\"$HOME/.local/bin:/usr/bin:/bin:$PATH\" && find /home/mike/skuel/app -name \"*.py\" -not -path \"*/.venv/*\" -not -path \"*/__pycache__/*\" -exec grep -l \"poetry\" {} \\\\; | head -5)"
+      "Bash(export PATH=\"$HOME/.local/bin:/usr/bin:/bin:$PATH\" && find /home/mike/skuel/app -name \"*.py\" -not -path \"*/.venv/*\" -not -path \"*/__pycache__/*\" -exec grep -l \"poetry\" {} \\\\; | head -5)",
+      "Bash(grep -r \"QueryBuilder\\(\" /home/mike/skuel/app --include=\"*.py\" ! -path \"*/.venv/*\" | head -20)",
+      "Bash(uv add:*)",
+      "Bash(find core/ tests/ -name \"*.py\" -not -path \"*__pycache__*\" -not -name \"neo4j_genai_embeddings_service.py\" -exec grep -l \"from core\\\\.services\\\\.neo4j_genai_embeddings_service import Neo4jGenAIEmbeddingsService\" {} \\\\; | while read f; do\n  sed -i 's|from core\\\\.services\\\\.neo4j_genai_embeddings_service import Neo4jGenAIEmbeddingsService|from core.services.embeddings_service import HuggingFaceEmbeddingsService|g' \"$f\"\n  echo \"Updated: $f\"\ndone)"
     ]
   }
 }

@@ -28,7 +28,7 @@ from typing import Any
 
 from core.models.enums import GuidanceMode
 from core.services.lp_intelligence.types import LearningAnalysis, LearningReadiness, ProgressSummary
-from core.services.neo4j_genai_embeddings_service import Neo4jGenAIEmbeddingsService
+from core.services.embeddings_service import HuggingFaceEmbeddingsService
 from core.services.user import UserContext
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
@@ -59,7 +59,7 @@ class LearningStateAnalyzer:
     def __init__(
         self,
         progress_backend: Any | None = None,
-        embeddings_service: Neo4jGenAIEmbeddingsService | None = None,
+        embeddings_service: HuggingFaceEmbeddingsService | None = None,
     ) -> None:
         """
         Initialize learning state analyzer.

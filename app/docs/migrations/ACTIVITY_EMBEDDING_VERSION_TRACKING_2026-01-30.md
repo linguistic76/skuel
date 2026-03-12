@@ -8,7 +8,7 @@
 
 ## Executive Summary
 
-Successfully implemented embedding version tracking for all 6 Activity domains (Tasks, Goals, Habits, Events, Choices, Principles). This brings Activity domains to parity with KUs, which already had comprehensive version tracking via `Neo4jGenAIEmbeddingsService`.
+Successfully implemented embedding version tracking for all 6 Activity domains (Tasks, Goals, Habits, Events, Choices, Principles). This brings Activity domains to parity with KUs, which already had comprehensive version tracking via `HuggingFaceEmbeddingsService`.
 
 **Key Achievement:** Activity embeddings can now be systematically identified and re-embedded when models upgrade.
 
@@ -125,9 +125,9 @@ worker = EmbeddingBackgroundWorker(
 
 ```cypher
 // All 6 Activity domain nodes now have:
-n.embedding           // list<float> - 1536-dimensional vector (existing)
+n.embedding           // list<float> - 1024-dimensional vector (existing)
 n.embedding_version   // string - "v1", "v2", etc. (NEW)
-n.embedding_model     // string - "text-embedding-3-small" (existing)
+n.embedding_model     // string - "BAAI/bge-large-en-v1.5" (existing)
 n.embedding_updated_at // datetime - Last update timestamp (existing)
 ```
 
@@ -168,7 +168,7 @@ When OpenAI (or other provider) releases new embedding models:
 **Step 1:** Update configuration
 ```bash
 export GENAI_EMBEDDING_VERSION="v2"
-export GENAI_EMBEDDING_MODEL="text-embedding-3-small-v2"
+export GENAI_EMBEDDING_MODEL="BAAI/bge-large-en-v1.5"  # or updated model name
 ```
 
 **Step 2:** Identify entities needing upgrade

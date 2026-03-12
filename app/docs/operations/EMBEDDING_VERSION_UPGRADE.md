@@ -2,10 +2,10 @@
 
 ## Overview
 
-When upgrading embedding models (e.g., OpenAI releases text-embedding-3-small-v2), follow this systematic workflow to re-embed all Activity domain entities with version tracking.
+When upgrading embedding models (e.g., HuggingFace releases a new version of `BAAI/bge-large-en-v1.5`), follow this systematic workflow to re-embed all Activity domain entities with version tracking.
 
 **Applies to:** Tasks, Goals, Habits, Events, Choices, Principles
-**KUs:** Already have version tracking via `Neo4jGenAIEmbeddingsService`
+**KUs:** Already have version tracking via `HuggingFaceEmbeddingsService`
 
 ---
 
@@ -27,7 +27,7 @@ Update the embedding version and model in your environment:
 export GENAI_EMBEDDING_VERSION="v2"
 
 # Set new model (if model name changed)
-export GENAI_EMBEDDING_MODEL="text-embedding-3-small-v2"
+export GENAI_EMBEDDING_MODEL="BAAI/bge-large-en-v1.5-v2"  # or updated model name
 
 # Restart application for changes to take effect
 ```
@@ -38,7 +38,7 @@ export GENAI_EMBEDDING_MODEL="text-embedding-3-small-v2"
 @dataclass
 class GenAIConfig:
     embedding_version: str = field(default="v1")  # Increment for upgrades
-    embedding_model: str = field(default="text-embedding-3-small")
+    embedding_model: str = field(default="BAAI/bge-large-en-v1.5")
 ```
 
 ---
@@ -83,15 +83,15 @@ LIMIT 100
 
 ## Step 3: Cost Estimation
 
-**OpenAI Pricing (as of 2026):**
-- text-embedding-3-small: $0.00002 per 1,000 tokens
+**HuggingFace Inference API Pricing (as of 2026):**
+- `BAAI/bge-large-en-v1.5`: see https://huggingface.co/pricing
 - Average entity: ~500 tokens
-- Formula: `(entity_count * 500 * 0.00002) / 1000`
+- Formula: `entity_count * tokens_per_entity * rate`
 
 **Example:**
 ```
 2,455 entities * 500 tokens = 1,227,500 tokens
-1,227,500 * $0.00002 / 1000 = $0.0245 (~2.5 cents)
+Cost depends on HuggingFace tier — check current pricing
 ```
 
 ---
@@ -216,7 +216,7 @@ export GENAI_ENABLED="false"
 ```bash
 # Roll back to previous version
 export GENAI_EMBEDDING_VERSION="v1"
-export GENAI_EMBEDDING_MODEL="text-embedding-3-small"
+export GENAI_EMBEDDING_MODEL="BAAI/bge-large-en-v1.5"
 ```
 
 ### 3. Restore from Backup (if needed)
@@ -266,5 +266,5 @@ def _detect_version_mismatch(self) -> bool:
 
 | Version | Date       | Change |
 |---------|------------|--------|
-| v1      | 2026-01-29 | Initial Activity domain embeddings |
+| v1      | 2026-01-29 | Initial Activity domain embeddings (BAAI/bge-large-en-v1.5, 1024d) |
 | v2      | TBD        | Model upgrade (when implemented) |

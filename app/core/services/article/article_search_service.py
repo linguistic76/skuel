@@ -138,7 +138,7 @@ class ArticleSearchService(BaseService[ArticleOperations, Entity]):
         intelligence: IntelligenceOperations | None = None,
         query_builder: QueryBuilderOperations | None = None,
         vector_search_service: Any | None = None,  # NEW: Neo4jVectorSearchService
-        embeddings_service: Any | None = None,  # NEW: Neo4jGenAIEmbeddingsService
+        embeddings_service: Any | None = None,  # NEW: HuggingFaceEmbeddingsService
     ) -> None:
         """
         Initialize KU search service.
@@ -154,7 +154,7 @@ class ArticleSearchService(BaseService[ArticleOperations, Entity]):
             intelligence: Optional intelligence service for similarity search
             query_builder: Optional query builder for optimized queries
             vector_search_service: Optional Neo4jVectorSearchService for semantic search
-            embeddings_service: Optional Neo4jGenAIEmbeddingsService for embedding generation
+            embeddings_service: Optional HuggingFaceEmbeddingsService for embedding generation
         """
         super().__init__(backend)  # Uses _service_name class attribute
         self.content_repo = content_repo

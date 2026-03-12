@@ -2,7 +2,7 @@
 
 ## Overview
 
-The embedding fixtures provide mock implementations of the Neo4j GenAI embeddings and vector search services. These fixtures enable testing of semantic search functionality without making actual API calls to OpenAI or requiring the Neo4j GenAI plugin.
+The embedding fixtures provide mock implementations of the `HuggingFaceEmbeddingsService` and vector search services. These fixtures enable testing of semantic search functionality without making actual API calls to the HuggingFace Inference API.
 
 **Location:** `tests/fixtures/embedding_fixtures.py`
 
@@ -10,17 +10,17 @@ The embedding fixtures provide mock implementations of the Neo4j GenAI embedding
 
 ### `mock_embedding_vector`
 
-Generates a consistent 1536-dimensional embedding vector for testing.
+Generates a consistent 1024-dimensional embedding vector for testing.
 
 ```python
 def test_something(mock_embedding_vector):
-    assert len(mock_embedding_vector) == 1536
+    assert len(mock_embedding_vector) == 1024
     assert all(isinstance(x, float) for x in mock_embedding_vector)
 ```
 
 ### `mock_embeddings_service`
 
-Mock implementation of `Neo4jGenAIEmbeddingsService` that returns deterministic embeddings without API calls.
+Mock implementation of `HuggingFaceEmbeddingsService` that returns deterministic embeddings without API calls.
 
 **Methods:**
 - `create_embedding(text, metadata=None)` - Generate single embedding
@@ -28,8 +28,8 @@ Mock implementation of `Neo4jGenAIEmbeddingsService` that returns deterministic 
 - `calculate_similarity(embedding1, embedding2)` - Calculate cosine similarity
 
 **Attributes:**
-- `model` - "text-embedding-3-small"
-- `dimension` - 1536
+- `model` - "BAAI/bge-large-en-v1.5"
+- `dimension` - 1024
 - `_plugin_available` - True
 
 **Example:**
@@ -40,7 +40,7 @@ async def test_semantic_search(mock_embeddings_service):
 
     assert result.is_ok
     embedding = result.value
-    assert len(embedding) == 1536
+    assert len(embedding) == 1024
 ```
 
 ### `mock_vector_search_service`
@@ -59,7 +59,7 @@ Mock implementation of `Neo4jVectorSearchService` that returns predefined simila
 async def test_vector_search(mock_vector_search_service):
     result = await mock_vector_search_service.find_similar_by_vector(
         label="Ku",
-        embedding=[0.1] * 1536,
+        embedding=[0.1] * 1024,
         limit=5
     )
 
@@ -90,7 +90,7 @@ async def test_ku_search(services_with_embeddings):
 
 ### `mock_embeddings_unavailable`
 
-Mock embeddings service that simulates the GenAI plugin being unavailable. Use this to test graceful degradation.
+Mock embeddings service that simulates the HuggingFace Inference API being unavailable. Use this to test graceful degradation.
 
 **Example:**
 ```python
@@ -113,7 +113,7 @@ Mock vector search service that simulates vector indexes being unavailable. Use 
 async def test_fallback_when_vector_search_unavailable(mock_vector_search_unavailable):
     result = await mock_vector_search_unavailable.find_similar_by_vector(
         label="Ku",
-        embedding=[0.1] * 1536,
+        embedding=[0.1] * 1024,
         limit=5
     )
 
@@ -233,7 +233,7 @@ The mock vector search returns up to 3 results with descending similarity scores
 ```python
 result = await mock_vector_search_service.find_similar_by_vector(
     label="Ku",
-    embedding=[0.1] * 1536,
+    embedding=[0.1] * 1024,
     limit=5,
     min_score=0.8  # Only returns first 2 results (0.9, 0.8)
 )
@@ -295,7 +295,7 @@ Potential improvements for future iterations:
 
 ## Related Files
 
-- `app/core/services/neo4j_genai_embeddings_service.py` - Real embeddings service
+- `app/core/services/embeddings_service.py` - Real embeddings service (`HuggingFaceEmbeddingsService`)
 - `app/core/services/neo4j_vector_search_service.py` - Real vector search service
 - `tests/conftest.py` - Fixture auto-discovery configuration
 - `tests/integration/test_embedding_fixtures_usage.py` - Usage examples

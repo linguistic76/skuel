@@ -227,7 +227,7 @@ class BaseAIService(Generic[B, T]):
             )
 
         try:
-            # Neo4jGenAIEmbeddingsService.create_embedding returns Result[list[float]]
+            # HuggingFaceEmbeddingsService.create_embedding returns Result[list[float]]
             result = await self.embeddings.create_embedding(text)
             if result.is_error:
                 self.logger.error(f"Embedding generation failed: {result.error}")

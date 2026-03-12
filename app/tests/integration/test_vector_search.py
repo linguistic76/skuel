@@ -2,20 +2,25 @@
 Integration tests for Neo4j vector search.
 
 Tests vector index creation, embedding generation, and similarity search.
-Uses mock services for testing without requiring actual OpenAI API or Neo4j GenAI plugin.
+Uses mock services for testing without requiring actual HuggingFace API or embeddings.
 
 These tests verify:
 1. Vector index creation and verification
 2. Embedding generation and storage in Neo4j
 3. Vector similarity search across Entity nodes
 4. Graceful degradation when embeddings unavailable
+
+Updated: March 2026 — HuggingFace migration (1536→1024 dims)
 """
 
 import pytest
 
-from core.services.neo4j_genai_embeddings_service import Neo4jGenAIEmbeddingsService
+from core.services.embeddings_service import HuggingFaceEmbeddingsService
 from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
 from core.utils.result_simplified import Result
+
+# Dimension for bge-large-en-v1.5
+DIM = 1024
 
 
 @pytest.mark.integration
@@ -57,7 +62,7 @@ async def test_create_vector_index_manually(neo4j_driver, clean_neo4j):
     FOR (n:Entity)
     ON n.embedding
     OPTIONS {indexConfig: {
-        `vector.dimensions`: 1536,
+        `vector.dimensions`: 1024,
         `vector.similarity_function`: 'cosine'
     }}
     """
@@ -123,7 +128,7 @@ async def test_embedding_generation_and_storage(neo4j_driver, clean_neo4j, mock_
     assert embedding_result.is_ok
 
     embedding = embedding_result.value
-    assert len(embedding) == 1536
+    assert len(embedding) == DIM
     assert all(isinstance(x, float) for x in embedding)
 
     # Store embedding in Neo4j
@@ -138,7 +143,7 @@ async def test_embedding_generation_and_storage(neo4j_driver, clean_neo4j, mock_
     async with neo4j_driver.session() as session:
         await session.run(
             update_query,
-            {"uid": uid, "embedding": embedding, "model": "text-embedding-3-small"},
+            {"uid": uid, "embedding": embedding, "model": "BAAI/bge-large-en-v1.5"},
         )
 
     # Verify stored embedding
@@ -153,8 +158,8 @@ async def test_embedding_generation_and_storage(neo4j_driver, clean_neo4j, mock_
         result = await session.run(verify_query, {"uid": uid})
         record = await result.single()
 
-    assert record["dimension"] == 1536
-    assert record["model"] == "text-embedding-3-small"
+    assert record["dimension"] == DIM
+    assert record["model"] == "BAAI/bge-large-en-v1.5"
     assert record["embedding"] == embedding
 
 
@@ -195,7 +200,7 @@ async def test_batch_embedding_generation(neo4j_driver, clean_neo4j, mock_embedd
 
     embeddings = batch_result.value
     assert len(embeddings) == 3
-    assert all(len(emb) == 1536 for emb in embeddings)
+    assert all(len(emb) == DIM for emb in embeddings)
 
     # Store embeddings
     for ku, embedding in zip(kus, embeddings, strict=False):
@@ -208,7 +213,7 @@ async def test_batch_embedding_generation(neo4j_driver, clean_neo4j, mock_embedd
         async with neo4j_driver.session() as session:
             await session.run(
                 update_query,
-                {"uid": ku["uid"], "embedding": embedding, "model": "text-embedding-3-small"},
+                {"uid": ku["uid"], "embedding": embedding, "model": "BAAI/bge-large-en-v1.5"},
             )
 
     # Verify all stored
@@ -247,7 +252,7 @@ async def test_vector_search_by_text_mock(neo4j_driver, clean_neo4j, services_wi
     """Test vector search by text using mock services."""
 
     # Create test KUs with embeddings
-    base_embedding = [0.001 * i for i in range(1, 1537)]
+    base_embedding = [0.001 * i for i in range(1, DIM + 1)]
 
     kus = [
         {
@@ -314,7 +319,7 @@ async def test_vector_search_by_vector_mock(neo4j_driver, clean_neo4j, mock_vect
     """Test vector search by embedding vector using mock service."""
 
     # Create query embedding
-    query_embedding = [0.001 * i for i in range(1, 1537)]
+    query_embedding = [0.001 * i for i in range(1, DIM + 1)]
 
     # Search using mock service
     result = await mock_vector_search_service.find_similar_by_vector(
@@ -341,9 +346,9 @@ async def test_vector_search_find_similar_to_node_mock(
 
     # Create test KUs
     kus = [
-        {"uid": "ku.source", "title": "Source KU", "embedding": [0.1] * 1536},
-        {"uid": "ku.similar_1", "title": "Similar KU 1", "embedding": [0.11] * 1536},
-        {"uid": "ku.similar_2", "title": "Similar KU 2", "embedding": [0.12] * 1536},
+        {"uid": "ku.source", "title": "Source KU", "embedding": [0.1] * DIM},
+        {"uid": "ku.similar_1", "title": "Similar KU 1", "embedding": [0.11] * DIM},
+        {"uid": "ku.similar_2", "title": "Similar KU 2", "embedding": [0.12] * DIM},
     ]
 
     for ku in kus:
@@ -375,7 +380,7 @@ async def test_vector_search_find_similar_to_node_mock(
 async def test_cross_domain_search_mock(neo4j_driver, clean_neo4j, mock_vector_search_service):
     """Test cross-domain similarity search using mock service."""
 
-    query_embedding = [0.001 * i for i in range(1, 1537)]
+    query_embedding = [0.001 * i for i in range(1, DIM + 1)]
 
     # Search across multiple domains
     result = await mock_vector_search_service.find_cross_domain_similar(
@@ -416,18 +421,13 @@ async def test_graceful_degradation_no_embeddings_service(ku_backend):
     assert embeddings_service is None
     assert vector_search_service is None
 
-    # When trying to use semantic search, it should fail gracefully
-    # (Services should check for None and fall back to keyword search)
-
-    # This is a pattern test - actual search services implement this
-
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_graceful_degradation_unavailable_plugin(
+async def test_graceful_degradation_unavailable_service(
     neo4j_driver, clean_neo4j, mock_embeddings_unavailable
 ):
-    """Test graceful degradation when GenAI plugin is unavailable."""
+    """Test graceful degradation when embeddings service is unavailable."""
 
     # Try to create embedding with unavailable service
     result = await mock_embeddings_unavailable.create_embedding("Test content")
@@ -441,50 +441,46 @@ async def test_graceful_degradation_unavailable_plugin(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_embedding_service_plugin_check(neo4j_driver):
-    """Test Neo4j GenAI embeddings service plugin availability check."""
+async def test_embedding_service_initialization(neo4j_driver):
+    """Test HuggingFace embeddings service initialization."""
 
-    # Create real embeddings service (will check for plugin)
-    embeddings_service = Neo4jGenAIEmbeddingsService(
-        executor=neo4j_driver, model="text-embedding-3-small", dimension=1536
+    # Create real embeddings service (will check for HF_API_TOKEN)
+    embeddings_service = HuggingFaceEmbeddingsService(
+        executor=neo4j_driver, model="BAAI/bge-large-en-v1.5", dimension=DIM
     )
 
-    # Check if plugin is available
-    # This will likely return False since testcontainer doesn't have GenAI plugin
-    plugin_available = await embeddings_service._check_plugin_availability()
+    # Should have correct model and dimension
+    assert embeddings_service.model == "BAAI/bge-large-en-v1.5"
+    assert embeddings_service.dimension == DIM
 
-    # Should return boolean (True or False, not None)
-    assert isinstance(plugin_available, bool)
-
-    # Should cache the result
-    assert embeddings_service._plugin_available is not None
+    # Client may or may not be available depending on HF_API_TOKEN
+    # (test environment likely won't have it)
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_embeddings_service_graceful_failure(neo4j_driver):
-    """Test that embeddings service fails gracefully when plugin unavailable."""
+    """Test that embeddings service fails gracefully when token not set."""
 
-    embeddings_service = Neo4jGenAIEmbeddingsService(
-        executor=neo4j_driver, model="text-embedding-3-small", dimension=1536
+    embeddings_service = HuggingFaceEmbeddingsService(
+        executor=neo4j_driver, model="BAAI/bge-large-en-v1.5", dimension=DIM
     )
 
-    # Try to create embedding (will fail if plugin not available)
+    # Try to create embedding (will fail if HF_API_TOKEN not set)
     result = await embeddings_service.create_embedding("Test content for embedding")
 
     # Should return a Result (not crash)
     assert isinstance(result, Result)
 
-    # If plugin unavailable, should fail with clear error message
+    # If token not configured, should fail with clear error message
     if result.is_error:
         error = result.expect_error()
         error_str = str(error).lower()
-        # Error should mention plugin, unavailable, or unknown function (when plugin missing)
         assert (
-            "plugin" in error_str
+            "hf_api_token" in error_str
             or "unavailable" in error_str
-            or "unknown function" in error_str
-            or "ai.text.embed" in error_str
+            or "huggingface" in error_str
+            or "configured" in error_str
         )
 
 
@@ -493,7 +489,7 @@ async def test_embeddings_service_graceful_failure(neo4j_driver):
 async def test_vector_search_empty_results(mock_vector_search_service):
     """Test vector search with high min_score threshold (no results)."""
 
-    query_embedding = [0.001 * i for i in range(1, 1537)]
+    query_embedding = [0.001 * i for i in range(1, DIM + 1)]
 
     # Search with very high min_score (no results should match)
     result = await mock_vector_search_service.find_similar_by_vector(
@@ -550,8 +546,8 @@ async def test_embeddings_dimension_validation(mock_embeddings_service):
     assert result.is_ok
     embedding = result.value
 
-    # Should be 1536 dimensions (text-embedding-3-small)
-    assert len(embedding) == 1536
+    # Should be 1024 dimensions (bge-large-en-v1.5)
+    assert len(embedding) == DIM
     assert len(embedding) == mock_embeddings_service.dimension
 
 

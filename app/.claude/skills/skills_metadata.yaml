@@ -254,22 +254,6 @@ skills:
       - /docs/patterns/UNIFIED_RELATIONSHIP_SERVICE.md
     keywords: [neo4j, cypher, graph, relationships, traversal]
 
-  - name: neo4j-genai-plugin
-    description: Neo4j GenAI plugin integration for AI-powered graph features
-    last_reviewed: "2026-03-01"
-    foundation: [neo4j-cypher-patterns]
-    dependencies: [neo4j-cypher-patterns]
-    library_package: null  # Neo4j plugin, not PyPI package
-    library_version: null
-    primary_docs:
-      - /docs/development/GENAI_SETUP.md
-      - /docs/deployment/AURADB_MIGRATION_GUIDE.md
-    related_adrs:
-      - ADR-034  # Semantic search phase 1 enhancement
-    patterns:
-      - /docs/patterns/search_service_pattern.md
-    keywords: [genai, embeddings, vector-search, rag, semantic, llm-integration]
-
   # ============================================================================
   # MONITORING & OBSERVABILITY LAYER
   # ============================================================================
@@ -470,9 +454,6 @@ skills:
 #   skuel-ui (depends on fasthtml, ui-css, ui-browser, pydantic)
 #   ui-error-handling (depends on result-pattern, ui-css)
 #
-# Database:
-#   neo4j-genai-plugin (depends on neo4j-cypher-patterns)
-#
 # SKUEL Architecture:
 #   result-pattern (depends on python)
 #   base-analytics-service (depends on python, result-pattern, neo4j-cypher-patterns)
@@ -485,5 +466,5 @@ skills:
 # Testing:
 #   pytest (depends on python, result-pattern)
 #
-# Total skills: 23
+# Total skills: 22
 # No cycles detected - graph is valid ✓

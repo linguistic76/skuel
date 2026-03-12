@@ -1,5 +1,14 @@
 #!/bin/bash
-# Interactive guide to enable Neo4j GenAI plugin
+# DEPRECATED: This script enabled the Neo4j GenAI plugin in AuraDB for database-level
+# embedding generation via `ai.text.embed()`. That approach has been replaced by
+# Python-side embedding generation using HuggingFaceEmbeddingsService and the
+# HuggingFace Inference API (BAAI/bge-large-en-v1.5, 1024 dims).
+#
+# No AuraDB plugin is needed. Configure embeddings via:
+#   HF_API_TOKEN=hf_your_token_here
+#   INTELLIGENCE_TIER=full
+#
+# This script is kept for historical reference only. Do not run it.
 
 set -e
 
