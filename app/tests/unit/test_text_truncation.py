@@ -77,8 +77,7 @@ class TestTruncateToBudget:
     def test_realistic_article_content(self) -> None:
         """Simulates real Article content truncation."""
         articles = [
-            f"## Article {i}\n\n{'This is the content of article. ' * 100}"
-            for i in range(10)
+            f"## Article {i}\n\n{'This is the content of article. ' * 100}" for i in range(10)
         ]
         text = "\n\n---\n\n".join(articles)
         assert len(text) > 10000

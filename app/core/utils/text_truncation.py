@@ -37,7 +37,7 @@ def truncate_to_budget(text: str, max_chars: int) -> str:
     # Reserve space for the ellipsis
     cutoff = max_chars - 3
     if cutoff < _MIN_TRUNCATION_LENGTH:
-        return text[:max_chars - 3] + "..."
+        return text[: max_chars - 3] + "..."
 
     # Try paragraph boundary first (\n\n), then sentence (. ), then newline
     for delimiter in ("\n\n", ". ", "\n"):

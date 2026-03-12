@@ -27,6 +27,7 @@ if TYPE_CHECKING:
     from core.models.pathways.learning_path import LearningPath
     from core.models.pathways.learning_step import LearningStep
     from core.models.principle.principle import Principle
+    from core.models.resource.resource import Resource
     from core.models.task.task import Task
 
 
@@ -48,6 +49,9 @@ class LSBundle:
     # Curriculum content
     articles: tuple[Article, ...] = ()  # primary + supporting knowledge
     kus: tuple[Ku, ...] = ()  # via trains_ku_uids on LS
+
+    # Reference material cited by curriculum in this LS
+    resources: tuple[Resource, ...] = ()  # via CITES_RESOURCE on Articles/KUs
 
     # Activity entities linked to this LS
     principles: tuple[Principle, ...] = ()  # via EMBODIES_PRINCIPLE
@@ -86,6 +90,7 @@ class LSBundle:
         for collection in (
             self.articles,
             self.kus,
+            self.resources,
             self.principles,
             self.habits,
             self.tasks,
@@ -104,6 +109,7 @@ class LSBundle:
         for collection in (
             self.articles,
             self.kus,
+            self.resources,
             self.principles,
             self.habits,
             self.tasks,
@@ -123,10 +129,13 @@ class LSBundle:
 
     @property
     def curriculum_context_text(self) -> str:
-        """Concatenated Article content for LLM context injection.
+        """Concatenated Article content + Resource references for LLM context.
 
         Used by ResponseGenerator when the pedagogical move needs the curriculum
         as reference (e.g., SCAFFOLD, REDIRECT_TO_CURRICULUM).
+
+        Includes resource summaries after article content so Askesis can
+        reference cited material (books, talks, films) in conversations.
 
         Truncated to AskesisTokenBudget.MAX_CURRICULUM_CHARS to prevent
         exceeding LLM context windows when the bundle has many Articles.
@@ -139,6 +148,19 @@ class LSBundle:
             for article in self.articles
             if article.content
         ]
+
+        # Append resource references — compact summaries, not full content
+        if self.resources:
+            resource_parts = []
+            for resource in self.resources:
+                entry = resource.explain_existence()
+                if resource.description:
+                    entry += f" — {resource.get_summary(150)}"
+                resource_parts.append(f"- {entry}")
+            parts.append(
+                "## Referenced Resources\n\n" + "\n".join(resource_parts)
+            )
+
         raw = "\n\n---\n\n".join(parts)
         return truncate_to_budget(raw, AskesisTokenBudget.MAX_CURRICULUM_CHARS)
 
@@ -146,5 +168,6 @@ class LSBundle:
         return (
             f"LSBundle(ls={self.learning_step.uid}, "
             f"articles={len(self.articles)}, kus={len(self.kus)}, "
+            f"resources={len(self.resources)}, "
             f"habits={len(self.habits)}, tasks={len(self.tasks)})"
         )

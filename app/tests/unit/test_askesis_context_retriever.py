@@ -13,6 +13,16 @@ from core.services.askesis.context_retriever import ContextRetriever
 from core.utils.result_simplified import Errors, Result
 
 
+def _make_graph_intel(resource_records: list[dict[str, Any]] | None = None) -> MagicMock:
+    """Build a mock graph_intelligence_service.
+
+    By default, execute_query returns empty results (no cited resources).
+    """
+    gi = MagicMock()
+    gi.execute_query = AsyncMock(return_value=Result.ok(resource_records or []))
+    return gi
+
+
 def _make_user_context(
     active_ls_data: dict[str, Any] | None = None,
 ) -> MagicMock:
@@ -87,7 +97,7 @@ class TestLoadLsBundlePartialFailure:
         lp = _make_entity("lp:test", "Test LP")
 
         retriever = ContextRetriever(
-            graph_intelligence_service=MagicMock(),
+            graph_intelligence_service=_make_graph_intel(),
             embeddings_service=MagicMock(),
             article_service=_ok_service(article),
             ku_service=MagicMock(get=AsyncMock()),  # no KU UIDs to fetch
@@ -117,7 +127,7 @@ class TestLoadLsBundlePartialFailure:
         lp = _make_entity("lp:test", "Test LP")
 
         retriever = ContextRetriever(
-            graph_intelligence_service=MagicMock(),
+            graph_intelligence_service=_make_graph_intel(),
             embeddings_service=MagicMock(),
             article_service=_failing_service("article service down"),
             ku_service=MagicMock(get=AsyncMock()),
@@ -146,7 +156,7 @@ class TestLoadLsBundlePartialFailure:
         task = _make_entity("task_1", "Test Task")
 
         retriever = ContextRetriever(
-            graph_intelligence_service=MagicMock(),
+            graph_intelligence_service=_make_graph_intel(),
             embeddings_service=MagicMock(),
             article_service=_ok_service(article),
             ku_service=MagicMock(get=AsyncMock()),
@@ -170,7 +180,7 @@ class TestLoadLsBundlePartialFailure:
     async def test_all_fetches_raise_minimal_bundle(self) -> None:
         """Every fetch crashes — bundle contains only the LS itself."""
         retriever = ContextRetriever(
-            graph_intelligence_service=MagicMock(),
+            graph_intelligence_service=_make_graph_intel(),
             embeddings_service=MagicMock(),
             article_service=_failing_service("articles down"),
             ku_service=_failing_service("kus down"),
@@ -197,7 +207,7 @@ class TestLoadLsBundlePartialFailure:
     async def test_no_active_ls_returns_not_found(self) -> None:
         """No active LS in context → Result.fail(not_found)."""
         retriever = ContextRetriever(
-            graph_intelligence_service=MagicMock(),
+            graph_intelligence_service=_make_graph_intel(),
             embeddings_service=MagicMock(),
             article_service=MagicMock(),
             ku_service=MagicMock(),
@@ -222,7 +232,7 @@ class TestLoadLsBundlePartialFailure:
         lp = _make_entity("lp:test", "Test LP")
 
         retriever = ContextRetriever(
-            graph_intelligence_service=MagicMock(),
+            graph_intelligence_service=_make_graph_intel(),
             embeddings_service=MagicMock(),
             article_service=_ok_service(article),
             ku_service=MagicMock(get=AsyncMock()),
@@ -241,3 +251,81 @@ class TestLoadLsBundlePartialFailure:
         assert len(bundle.habits) == 0  # Failed
         assert len(bundle.tasks) == 1  # Succeeded independently
         assert len(bundle.articles) == 1
+
+    @pytest.mark.anyio
+    async def test_resources_fetched_via_cites_resource(self) -> None:
+        """Resources cited by articles are included in the bundle."""
+        article = _make_entity("a_article_1", "Test Article")
+        lp = _make_entity("lp:test", "Test LP")
+
+        # graph_intel returns a Resource record from CITES_RESOURCE query
+        resource_record = {
+            "resource": {
+                "uid": "resource_book_1",
+                "title": "Deep Work",
+                "entity_type": "resource",
+                "author": "Cal Newport",
+                "media_type": "book",
+            }
+        }
+        gi = _make_graph_intel([resource_record])
+
+        retriever = ContextRetriever(
+            graph_intelligence_service=gi,
+            embeddings_service=MagicMock(),
+            article_service=_ok_service(article),
+            ku_service=MagicMock(get=AsyncMock()),
+            habits_service=MagicMock(get=AsyncMock()),
+            tasks_service=MagicMock(get=AsyncMock()),
+            events_service=MagicMock(),
+            principles_service=MagicMock(),
+            lp_service=_ok_service(lp),
+        )
+
+        ctx = _make_user_context()
+        result = await retriever.load_ls_bundle("user_1", ctx)
+
+        assert result.is_ok
+        bundle = result.value
+        assert len(bundle.resources) == 1
+        assert bundle.resources[0].uid == "resource_book_1"
+        assert bundle.resources[0].author == "Cal Newport"
+
+    @pytest.mark.anyio
+    async def test_resource_fetch_failure_does_not_break_bundle(self) -> None:
+        """Resource fetch crash → bundle built with empty resources."""
+        article = _make_entity("a_article_1", "Test Article")
+        lp = _make_entity("lp:test", "Test LP")
+
+        gi = MagicMock()
+        gi.execute_query = AsyncMock(side_effect=RuntimeError("graph down"))
+
+        retriever = ContextRetriever(
+            graph_intelligence_service=gi,
+            embeddings_service=MagicMock(),
+            article_service=_ok_service(article),
+            ku_service=MagicMock(get=AsyncMock()),
+            habits_service=MagicMock(get=AsyncMock()),
+            tasks_service=MagicMock(get=AsyncMock()),
+            events_service=MagicMock(),
+            principles_service=MagicMock(),
+            lp_service=_ok_service(lp),
+        )
+
+        ctx = _make_user_context()
+        result = await retriever.load_ls_bundle("user_1", ctx)
+
+        assert result.is_ok
+        bundle = result.value
+        assert len(bundle.resources) == 0  # Graceful degradation
+        assert len(bundle.articles) == 1  # Other fetches unaffected
+
+
+class TestRelationshipNameCitesResource:
+    """CITES_RESOURCE exists in RelationshipName enum."""
+
+    def test_cites_resource_enum_exists(self) -> None:
+        from core.models.relationship_names import RelationshipName
+
+        assert RelationshipName.CITES_RESOURCE == "CITES_RESOURCE"
+        assert RelationshipName.is_valid("CITES_RESOURCE")

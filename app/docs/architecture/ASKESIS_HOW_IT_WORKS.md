@@ -101,6 +101,7 @@ LSBundle (frozen, loaded once per question)
 ├── LearningPath        — the parent path
 ├── Articles            — teaching compositions linked to this step
 ├── KUs                 — atomic knowledge units trained by this step
+├── Resources           — reference material (books, talks, films) cited by Articles/KUs
 ├── Habits              — practice habits linked to this step
 ├── Tasks               — practice tasks linked to this step
 ├── Events              — (planned)
@@ -111,9 +112,11 @@ LSBundle (frozen, loaded once per question)
 
 The bundle is the **scope window**. Every pedagogical decision operates within it. If the question falls outside the bundle, Askesis redirects gently.
 
-**Partial failure tolerance:** All 7 entity services (articles, KUs, habits, tasks, events, principles, LP) are required at construction — missing services cause a clear construction-time error rather than silent empty bundles at query time. At runtime, the bundle fetches entities in parallel via `asyncio.gather(return_exceptions=True)`. If any individual fetch fails (e.g., a network timeout), that collection defaults to empty — the bundle is built from whatever succeeds. A minimal bundle (just the LearningStep) still enables GuidanceMode decisions like OUT_OF_SCOPE and REDIRECT_TO_CURRICULUM.
+**Resource integration (March 2026):** After Articles and KUs are fetched, ContextRetriever traverses `(Article/Ku)-[:CITES_RESOURCE]->(Resource)` to load cited reference material. Resources appear in `curriculum_context_text` as compact summaries and are referenced in guided prompts (SCAFFOLD, REDIRECT_TO_CURRICULUM, ENCOURAGING modes). This gives Askesis access to the full intellectual context — not just the teaching narrative, but the sources it draws from. Resources are also included in semantic search (embedding similarity).
 
-**Token truncation:** `curriculum_context_text` (concatenated Article content) is truncated to `AskesisTokenBudget.MAX_CURRICULUM_CHARS` (~2500 tokens) to prevent exceeding LLM context windows when the bundle has many Articles.
+**Partial failure tolerance:** All 7 entity services (articles, KUs, habits, tasks, events, principles, LP) are required at construction — missing services cause a clear construction-time error rather than silent empty bundles at query time. At runtime, the bundle fetches entities in parallel via `asyncio.gather(return_exceptions=True)`. If any individual fetch fails (e.g., a network timeout), that collection defaults to empty — the bundle is built from whatever succeeds. Resource fetching also degrades gracefully — a graph query failure yields an empty resource list. A minimal bundle (just the LearningStep) still enables GuidanceMode decisions like OUT_OF_SCOPE and REDIRECT_TO_CURRICULUM.
+
+**Token truncation:** `curriculum_context_text` (concatenated Article content + Resource references) is truncated to `AskesisTokenBudget.MAX_CURRICULUM_CHARS` (~2500 tokens) to prevent exceeding LLM context windows when the bundle has many Articles.
 
 If no bundle is available (no active LS), Askesis falls back to context-aware LLM generation without the Socratic layer.
 
@@ -172,21 +175,141 @@ The final response includes:
 
 ## State Analysis & Recommendations
 
-Beyond the conversational pipeline, Askesis provides state analysis through two sub-services:
+Beyond the conversational pipeline, Askesis provides state analysis through two sub-services and a shared pure-function module.
 
-**UserStateAnalyzer** reads UserContext and produces:
-- Health metrics (consistency, progress, balance, momentum, sustainability — 0.0-1.0 each)
-- Risk assessment (habit risk, goal risk, overload risk, stagnation risk)
-- Pattern detection (habit-goal correlation, learning velocity, high workload)
-- Insights (critical issues, opportunities, blocked states)
+### The Circular Dependency Problem (and How state_scoring.py Solves It)
 
-**ActionRecommendationEngine** generates the single next best action, following a strict priority:
-1. **Critical:** Prevent habit streak loss (14+ day streaks at risk)
-2. **High:** Unblock if stuck (key prerequisite identification)
-3. **Medium:** Advance goals (closest to completion first)
-4. **Low:** Build foundation (establish learning habits)
+UserStateAnalyzer needs recommendation data to produce a complete analysis. ActionRecommendationEngine needs state scores to prioritize actions. This is a textbook circular dependency — each service needs the other's output.
 
-Both services use **pure functions** from `state_scoring.py` for shared calculations (score, momentum, balance, blocker identification), which eliminates circular dependencies.
+The solution: extract the shared math into **pure functions** in `state_scoring.py`. Both services import these functions; neither imports the other.
+
+| Function | Input | Output | What It Computes |
+|----------|-------|--------|-----------------|
+| `score_current_state()` | UserContext | float (0.0-1.0) | Baseline quality from 5 binary factors: not blocked (+0.1), workload <70% (+0.1), no at-risk habits (+0.2), overdue items (-0.2), >5 blocked tasks (-0.1) |
+| `find_key_blocker()` | UserContext | str \| None | The prerequisite blocking the most downstream items (counts across `prerequisites_needed` dict) |
+| `calculate_momentum()` | UserContext | float (0.0-1.0) | 3-factor weighted average: task completion rate (10/10 = 1.0), habit streak average (14-day benchmark = 1.0), learning velocity |
+| `calculate_domain_balance()` | UserContext | float (0.0-1.0) | Inverse of standard deviation across domain progress — lower variance = better balance |
+
+These functions have **zero side effects** and **zero service dependencies**. They take a UserContext, return a number. This pattern could be applied anywhere two services share scoring logic.
+
+### UserStateAnalyzer
+
+Reads UserContext and produces an `AskesisAnalysis` — a frozen dataclass containing:
+
+**Health metrics** (each 0.0-1.0, combined into weighted `overall`):
+- `consistency` — habit streak average / 30-day benchmark (weight: 30%)
+- `progress` — goal advancement percentage (20%)
+- `balance` — domain distribution via `calculate_domain_balance()` (15%)
+- `momentum` — learning velocity via `calculate_momentum()` (15%)
+- `sustainability` — 1.0 minus workload score (20%)
+
+**Risk assessment:** habit risk (streaks at danger), goal risk (stalled goals), overload risk (too many active items), stagnation risk (no recent progress).
+
+**Pattern detection:** habit-goal correlation, learning velocity acceleration/deceleration, high workload warnings.
+
+**Insights** — typed `AskesisInsight` objects at three severity levels:
+- **RISK:** at-risk habits, blocked progress, high workload
+- **OPPORTUNITY:** multiple ready-to-learn KUs, high-momentum domains
+- **PATTERN:** habit-goal correlations, learning velocity trends
+
+The analyzer does NOT generate recommendations — it receives them. The `AskesisService` facade orchestrates: get insights first, pass them to the recommendation engine, then pass recommendations back into the final analysis assembly.
+
+### ActionRecommendationEngine
+
+Three responsibilities:
+
+**1. Next best action** (`get_next_best_action()`) — a strict priority cascade:
+
+| Priority | Trigger | Action |
+|----------|---------|--------|
+| **CRITICAL** | Habit with 14+ day streak at risk of breaking | "Complete [habit] to protect your streak" |
+| **HIGH** | Key blocker identified by `find_key_blocker()` | "Unblock [prerequisite] — it's holding back N items" |
+| **MEDIUM** | Goal between 50-100% completion | "Advance [goal] — you're X% there" |
+| **LOW** | No urgent actions | "Establish a daily learning habit" |
+
+Each level checks and falls through to the next if no match. The cascade always produces an action.
+
+**2. Workflow optimizations** (`optimize_workflow()`) — structural suggestions: consolidate habits (when >10 active), align goals with life path, optimize knowledge paths, suggest MOC creation.
+
+**3. Future state prediction** (`predict_future_state(days_ahead=7)`) — projects at-risk habits, goal completion likelihood, and knowledge readiness based on current trajectory.
+
+### Orchestration Flow
+
+The `AskesisService` facade eliminates the circular dependency at the orchestration level:
+
+```
+AskesisService.analyze_user_state(user_context)
+  1. state_analyzer.identify_patterns()     → insights (or [] on failure)
+  2. recommendation_engine.generate_recommendations(insights)  → recommendations (or [])
+  3. recommendation_engine.optimize_workflow()  → optimizations (or [])
+  4. zpd_service.assess_zone()              → zpd_assessment (or None)
+  5. state_analyzer.analyze_user_state(     → AskesisAnalysis
+       recommendations=recommendations,
+       optimizations=optimizations,
+       zpd_assessment=zpd_assessment,
+     )
+```
+
+Each step uses whatever the previous steps produced. If any step fails, its output defaults to empty — the final analysis is assembled from whatever succeeded.
+
+---
+
+## Error Boundaries
+
+Askesis requires `INTELLIGENCE_TIER=full` — it depends on Neo4j, an LLM, and an embeddings service. All three can fail. Here's what happens when they do.
+
+### Construction vs. Runtime Failures
+
+Askesis draws a hard line between **missing dependencies** (construction) and **failing operations** (runtime):
+
+- **Construction (fail-fast):** All 7 entity services, the intelligence factory, LLM service, and embeddings service are required at `__init__`. A missing dependency raises immediately — no silent `None` defaults, no empty stubs. You find out at startup, not at query time.
+- **Runtime (partial tolerance):** Once constructed, individual operations can fail without killing the pipeline. The pattern: `asyncio.gather(return_exceptions=True)` + default to empty on failure.
+
+### Pipeline Timeout
+
+The entire RAG pipeline (Steps 1–10) runs under `asyncio.wait_for()` with a **30-second timeout** (`AskesisPipelineTimeout.ANSWER_QUESTION_SECONDS`). This catches:
+- Slow Neo4j MEGA-QUERY (cold cache, large graph)
+- Unresponsive LLM API (rate limit, network partition)
+- Cascading slowness from multiple partial failures
+
+On timeout: `Result.fail()` with user message *"Your question is taking too long. Please try again."* Both `answer_user_question()` and `process_query_with_context()` have independent timeouts — a slow query processor doesn't block the outer pipeline indefinitely.
+
+### What Fails and What Happens
+
+| Component | Failure Mode | Pipeline Response |
+|-----------|-------------|-------------------|
+| **UserContext load** | Neo4j down or MEGA-QUERY fails | Pipeline cannot proceed — returns `Result.fail()` |
+| **Intent classification** | Embeddings API unavailable | Defaults to `SPECIFIC` intent (lower precision, not a crash) |
+| **Intent classification** | Individual exemplar embedding fails | Skipped — classification works with fewer exemplars |
+| **Entity extraction** | Domain service unavailable | Continues with empty matches — LLM still answers using other context |
+| **LS bundle fetch** | One of 7 entity fetches times out | That collection defaults to empty; bundle built from what succeeds |
+| **LS bundle fetch** | All fetches fail | Minimal bundle (just the LearningStep) — still enables GuidanceMode |
+| **LS bundle fetch** | No active Learning Step | Falls back to context-aware generation without Socratic layer |
+| **ZPD assessment** | ZPD service fails | Continues with empty evidence — GuidanceMode still determined (less informed) |
+| **LLM generation** | LLM API error or timeout | `Result.fail()` — no fallback (this is the terminal step) |
+| **Token overflow** | Bundle has too many Articles | `truncate_to_budget()` truncates to `MAX_CURRICULUM_CHARS` (~2500 tokens) |
+
+### The Degradation Ladder
+
+The pipeline degrades in stages, not all-or-nothing:
+
+1. **Full pipeline** — all services respond, bundle complete, ZPD evidence available → Socratic guidance with rich context
+2. **Partial bundle** — some entity fetches failed → guided response with narrower scope
+3. **No ZPD evidence** — ZPD service failed → GuidanceMode defaults to EXPLORATORY (scaffold)
+4. **No entity matches** — extraction failed → LLM answers from UserContext summary alone
+5. **No bundle** — no active LS or bundle load failed → context-aware answer without Socratic layer
+6. **No enrollment** — user has no Learning Path → immediate redirect (no computation wasted)
+7. **Pipeline timeout** — 30s exceeded → clean failure with retry message
+
+Stages 1–5 return a response (degraded but functional). Stages 6–7 return a failure.
+
+### Error Handling Patterns Used
+
+**`@with_error_handling` decorator** — wraps async methods with try/except, categorizes exceptions into 6 error types (validation, database, integration, business, not_found, system), and returns `Result.fail()` with rich `ErrorContext`. Used on all public methods in UserStateAnalyzer and ActionRecommendationEngine.
+
+**`asyncio.gather(return_exceptions=True)`** — used in LS bundle loading. Each entity fetch runs in parallel; if one raises, the others continue. Failed fetches are logged and defaulted to empty.
+
+**Result cascade** — the facade orchestration (state analysis) checks `result.is_error` at each step and substitutes empty defaults rather than propagating failures upward. The final assembly always runs.
 
 ---
 
@@ -211,6 +334,7 @@ Three things distinguish Askesis from a generic AI assistant:
 | Teacher interface | Deferred | Teachers shaping what Askesis says to their students |
 | Prompt template migration | Deferred | Moving inline prompt strings to editable PROMPT_REGISTRY templates |
 | Events + Principles in LS bundle | Planned | Currently empty tuples — will populate from graph_context |
+| Resource access expansion | Planned | Broader resource discovery beyond CITES_RESOURCE — semantic search across all Resources |
 | Fine-tuned model | Deferred | Training on conversation data once volume exists |
 
 ---

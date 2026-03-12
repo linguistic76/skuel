@@ -48,6 +48,7 @@ if TYPE_CHECKING:
     from core.models.ku.ku import Ku
     from core.models.pathways.learning_path import LearningPath
     from core.models.pathways.learning_step import LearningStep
+    from core.models.resource.resource import Resource
     from core.services.user import UserContext
 
 
@@ -396,7 +397,11 @@ class ContextRetriever:
         )
 
         raw_results = await asyncio.gather(
-            articles_coro, kus_coro, lp_coro, habits_coro, tasks_coro,
+            articles_coro,
+            kus_coro,
+            lp_coro,
+            habits_coro,
+            tasks_coro,
             return_exceptions=True,
         )
 
@@ -406,9 +411,7 @@ class ContextRetriever:
         resolved: list[Any] = []
         for label, raw, default in zip(fetch_labels, raw_results, defaults, strict=True):
             if isinstance(raw, BaseException):
-                logger.warning(
-                    "LS bundle fetch failed for %s (user %s): %s", label, user_uid, raw
-                )
+                logger.warning("LS bundle fetch failed for %s (user %s): %s", label, user_uid, raw)
                 resolved.append(default)
             else:
                 resolved.append(raw)
@@ -416,6 +419,16 @@ class ContextRetriever:
         articles, kus, learning_path, habits, tasks = resolved
         events: list[Any] = []  # Event templates not yet in graph_context
         principles: list[Any] = []  # Principles not yet in graph_context
+
+        # Step 3b: Fetch Resources cited by bundle Articles/KUs (Ring 2 context)
+        # Done after articles/kus resolve so we know which UIDs to traverse from.
+        article_uids = [a.uid for a in articles]
+        ku_uids_list = [k.uid for k in kus]
+        try:
+            resources = await self._fetch_cited_resources(article_uids + ku_uids_list)
+        except Exception as exc:
+            logger.warning("LS bundle fetch failed for resources (user %s): %s", user_uid, exc)
+            resources = []
 
         # Step 4: Collect learning objectives from articles
         learning_objectives: list[str] = []
@@ -431,6 +444,7 @@ class ContextRetriever:
             learning_path=learning_path,
             articles=tuple(articles),
             kus=tuple(kus),
+            resources=tuple(resources),
             principles=tuple(principles),
             habits=tuple(habits),
             tasks=tuple(tasks),
@@ -596,6 +610,52 @@ class ContextRetriever:
 
         return [result.value for result in results if result.is_ok and result.value]
 
+    async def _fetch_cited_resources(self, source_uids: list[str]) -> list[Resource]:
+        """Fetch Resources cited by Articles/KUs via CITES_RESOURCE relationships.
+
+        Traverses (Article/Ku)-[:CITES_RESOURCE]->(Resource) for the given
+        source UIDs and builds Resource domain models from the results.
+
+        Args:
+            source_uids: UIDs of Articles/KUs to traverse from.
+
+        Returns:
+            List of Resource domain models (may be empty).
+        """
+        if not source_uids or not self.graph_intel:
+            return []
+
+        from core.models.resource.resource import Resource
+        from core.models.resource.resource_dto import ResourceDTO
+
+        query = """
+        MATCH (source:Entity)-[:CITES_RESOURCE]->(r:Resource)
+        WHERE source.uid IN $source_uids
+        RETURN DISTINCT r {.*} AS resource
+        LIMIT 20
+        """
+        result = await self.graph_intel.execute_query(
+            query, parameters={"source_uids": source_uids}
+        )
+        if result.is_error or not result.value:
+            return []
+
+        resources: list[Resource] = []
+        for record in result.value:
+            props = record.get("resource")
+            if not props or not isinstance(props, dict) or not props.get("uid"):
+                continue
+            try:
+                dto = ResourceDTO()
+                for key, value in props.items():
+                    if getattr(dto, key, _SENTINEL) is not _SENTINEL:
+                        setattr(dto, key, value)
+                resources.append(Resource.from_dto(dto))
+            except Exception:
+                logger.debug("Could not build Resource from graph data: %s", props.get("uid"))
+
+        return resources
+
     def _extract_edges(self, graph_context: dict[str, Any]) -> list[dict[str, Any]]:
         """Extract semantic relationship edges from graph_context.
 
@@ -638,11 +698,11 @@ class ContextRetriever:
             return []
         query_embedding = query_result.value
 
-        # Step 2: Get knowledge entities (Articles + KUs) with embeddings from graph
+        # Step 2: Get knowledge entities (Articles + KUs + Resources) with embeddings
         ku_query = """
         MATCH (ku:Entity)
         WHERE ku.embedding IS NOT NULL
-          AND ku.entity_type IN ['article', 'ku']
+          AND ku.entity_type IN ['article', 'ku', 'resource']
         RETURN ku.uid AS uid, ku.title AS title, ku.embedding AS embedding
         LIMIT 100
         """

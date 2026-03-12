@@ -283,6 +283,13 @@ class RelationshipName(StrEnum):
     REVISES_EXERCISE = "REVISES_EXERCISE"
 
     # =========================================================================
+    # RESOURCE RELATIONSHIPS
+    # Curriculum-to-Resource citations
+    # =========================================================================
+    # (Article/Ku)-[:CITES_RESOURCE {context}]->(Resource) — curriculum cites reference material
+    CITES_RESOURCE = "CITES_RESOURCE"
+
+    # =========================================================================
     # FORM RELATIONSHIPS
     # General-purpose form system
     # =========================================================================

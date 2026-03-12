@@ -243,14 +243,19 @@ class ResponseGenerator:
 
             articles_text = ", ".join(dict.fromkeys(article_refs))
 
+            resource_refs = self._get_resource_references(ls_bundle)
+
             return (
                 "You are a Socratic tutor. The learner is asking about "
                 "concepts they haven't engaged with yet and there is "
                 "curriculum content available for them to study. Gently "
                 "redirect them to read the relevant material first. Be "
                 "encouraging, not dismissive. Give a brief orientation of "
-                "what they'll find in the material.\n\n"
+                "what they'll find in the material. If there are referenced "
+                "resources (books, talks, etc.), mention them as additional "
+                "reading.\n\n"
                 f"Recommended reading: {articles_text}"
+                f"{resource_refs}"
             )
 
         # OUT_OF_SCOPE
@@ -309,13 +314,17 @@ class ResponseGenerator:
         """
         if guidance.pedagogical_detail == PedagogicalIntent.SCAFFOLD:
             ku_names = self._get_ku_names(ls_bundle, guidance.target_ku_uids)
+            resource_refs = self._get_resource_references(ls_bundle)
             return (
                 "You are a Socratic tutor. The learner is approaching new "
                 "concepts they haven't engaged with yet. Guide them toward "
                 "understanding through questions, analogies, and step-by-step "
                 "reasoning. Do NOT give direct explanations. Ask questions "
-                "that lead them to discover the insight themselves.\n\n"
-                f"Concepts to scaffold: {', '.join(ku_names)}\n\n"
+                "that lead them to discover the insight themselves. If there "
+                "are referenced resources, you may draw on them as examples "
+                "or suggest them for deeper exploration.\n\n"
+                f"Concepts to scaffold: {', '.join(ku_names)}"
+                f"{resource_refs}\n\n"
                 "Use the curriculum context below to know what you're "
                 "scaffolding toward, but do not simply restate it."
             )
@@ -366,14 +375,18 @@ class ResponseGenerator:
             if practice_items
             else "No specific practice activities linked."
         )
+        resource_refs = self._get_resource_references(ls_bundle)
 
         return (
             "You are a Socratic tutor. The learner has conceptual "
             "understanding but needs to deepen it through practice. "
             "Acknowledge their understanding, then encourage them to "
             "engage with the practice activities linked to their current "
-            "learning step. Explain how practice compounds knowledge.\n\n"
+            "learning step. Explain how practice compounds knowledge. "
+            "If there are referenced resources, suggest them as companions "
+            "to practice.\n\n"
             f"Available practice activities:\n{practice_text}"
+            f"{resource_refs}"
         )
 
     # ========================================================================
@@ -388,6 +401,17 @@ class ResponseGenerator:
             if ku.uid in uid_set:
                 names.append(ku.title or ku.uid)
         return names or ["(unknown concepts)"]
+
+    @staticmethod
+    def _get_resource_references(ls_bundle: LSBundle) -> str:
+        """Format resource references for inclusion in guided prompts.
+
+        Returns a compact summary of cited resources, or empty string if none.
+        """
+        if not ls_bundle.resources:
+            return ""
+        refs = [r.explain_existence() for r in ls_bundle.resources]
+        return "\nReferenced resources: " + "; ".join(refs)
 
     # ========================================================================
     # PRIVATE - CONTEXT SECTION RENDERERS
