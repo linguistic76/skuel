@@ -150,13 +150,17 @@ Conversation state lives in `core/models/user/conversation.py`:
 
 - `ConversationSession` — mutable model; fields: `session_id`, `user_uid`, `state`,
   `guidance_mode`, `current_topic` (ku_uid), `turns: list[ConversationTurn]`, timestamps
-- `ConversationContext` — in-memory dict keyed by `session_id`; lives in the process
+- `ConversationContext` — in-memory session manager keyed by `session_id`; instantiated in
+  `AskesisService.__init__` and passed to `QueryProcessor`. When `answer_user_question(session_id=...)`
+  is called, the pipeline calls `get_or_create_session()` to load prior turns as LLM conversation
+  history and records new user + assistant turns after generation.
 
 **What this means:**
 - Sessions survive within a single process run only
 - No cross-device continuity — a session started on desktop is not visible on mobile
 - No cross-session memory — Askesis cannot say "last week we talked about X"
-- `to_llm_messages()` provides context window trimming for multi-turn LLM calls
+- `to_llm_messages(max_tokens=2000)` provides context window trimming for multi-turn LLM calls
+- Omitting `session_id` from the API call keeps fully stateless behavior (backward-compatible)
 
 This is sufficient for the current phase. Cross-session continuity becomes valuable
 when the curriculum graph has real data and users have consistent conversation histories.

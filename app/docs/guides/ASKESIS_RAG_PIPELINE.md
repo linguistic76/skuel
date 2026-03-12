@@ -183,7 +183,9 @@ This is separate from `Neo4jVectorSearchService` — it's a simpler, direct comp
 
 **Service:** `QueryProcessor` (`core/services/askesis/query_processor.py`)
 
-**Entry points:** `answer_user_question(user_uid, question)` and `process_query_with_context(user_uid, query, depth)` — both run the same LP-scoped, GuidanceMode-aware pipeline. Each entry point wraps its pipeline body with `asyncio.wait_for()` (30-second timeout via `AskesisPipelineTimeout`). On timeout, the method returns `Result.fail()` rather than hanging. The pipeline logic lives in `_answer_user_question_pipeline()` and `_process_query_with_context_pipeline()` inner methods.
+**Entry points:** `answer_user_question(user_uid, question, session_id=None)` and `process_query_with_context(user_uid, query, depth)` — both run the same LP-scoped, GuidanceMode-aware pipeline. Each entry point wraps its pipeline body with `asyncio.wait_for()` (30-second timeout via `AskesisPipelineTimeout`). On timeout, the method returns `Result.fail()` rather than hanging. The pipeline logic lives in `_answer_user_question_pipeline()` and `_process_query_with_context_pipeline()` inner methods.
+
+When `session_id` is provided, `answer_user_question` retrieves or creates a `ConversationSession` via `ConversationContext`, loads prior turns as conversation history (`session.to_llm_messages(max_tokens=2000)`), passes them to the LLM, and records the new user + assistant turns on the session. Omitting `session_id` keeps fully stateless behavior.
 
 The orchestrator runs 7 steps in sequence:
 
