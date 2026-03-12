@@ -466,9 +466,11 @@ async def _find_similar_knowledge(self, query: str, _user_uid: str) -> list[tupl
     # 1. Create query embedding via EmbeddingsService
     query_embedding = await self.embeddings_service.create_embedding(query)
 
-    # 2. Fetch KUs with embeddings from Neo4j
+    # 2. Fetch knowledge entities (Articles + KUs) with embeddings from Neo4j
     ku_query = """
-    MATCH (ku:Curriculum) WHERE ku.embedding IS NOT NULL
+    MATCH (ku:Entity)
+    WHERE ku.embedding IS NOT NULL
+      AND ku.entity_type IN ['article', 'ku']
     RETURN ku.uid, ku.title, ku.embedding LIMIT 100
     """
 
@@ -582,6 +584,7 @@ For Q&A and planning responses, edit `ResponseGenerator.build_llm_context()` and
 
 ## Related Documentation
 
+- **How Askesis Works:** [ASKESIS_HOW_IT_WORKS.md](./ASKESIS_HOW_IT_WORKS.md) — plain-English explanation of both halves (start here)
 - **Pedagogical Architecture:** [ASKESIS_PEDAGOGICAL_ARCHITECTURE.md](./ASKESIS_PEDAGOGICAL_ARCHITECTURE.md) — GuidanceMode, ZPD, Socratic companion design
 - **Intelligence Guide:** [ASKESIS_INTELLIGENCE.md](../intelligence/ASKESIS_INTELLIGENCE.md)
 - **Search Integration:** [ASKESIS_SEARCH_ARCHITECTURE.md](../guides/ASKESIS_SEARCH_ARCHITECTURE.md)

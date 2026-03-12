@@ -171,7 +171,7 @@ Traverses the Neo4j graph for structured context — prerequisites, learning pat
 `ContextRetriever._find_similar_knowledge()` performs a focused search:
 
 1. Embed the user's question
-2. Fetch entities with embeddings from Neo4j (`WHERE ku.embedding IS NOT NULL`)
+2. Fetch knowledge entities (Articles + KUs) with embeddings from Neo4j (`WHERE ku.entity_type IN ['article', 'ku']`)
 3. Calculate cosine similarity in Python
 4. Return top-5 above 0.6 threshold
 
@@ -457,6 +457,7 @@ Single-word titles under 4 characters won't match via partial word. Titles not i
 
 ## Related Documentation
 
+- **How Askesis Works:** `/docs/architecture/ASKESIS_HOW_IT_WORKS.md` — plain-English explanation of both halves
 - **Askesis Architecture:** `/docs/architecture/ASKESIS_ARCHITECTURE.md` — facade pattern, sub-services, dependency graph
 - **Askesis Guided Pipeline:** `/docs/architecture/ASKESIS_SOCRATIC_ARCHITECTURE.md` — LS-scoped, ZPD-centered, GuidanceMode-aware pipeline
 - **Askesis Pedagogy:** `/docs/architecture/ASKESIS_PEDAGOGICAL_ARCHITECTURE.md` — Socratic companion design, GuidanceMode detection
