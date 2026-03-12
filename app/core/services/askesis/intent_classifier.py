@@ -7,24 +7,31 @@ Extracted from QueryProcessor for single responsibility.
 
 Responsibilities:
 - Classify query intent using embeddings-based semantic classification
+- Classify pedagogical intent for LS-scoped Socratic tutoring
 - Manage lazy-loaded intent exemplar embeddings
 
 Architecture:
 - Requires EmbeddingsService for semantic classification (fail-fast if unavailable)
 - Uses INTENT_EXEMPLARS for semantic similarity matching
-- Returns QueryIntent enum values
+- Returns QueryIntent enum values (legacy) or PedagogicalIntent (Socratic)
 
 January 2026: Extracted from QueryProcessor as part of Askesis design improvement.
 March 2026: Removed keyword fallback — embeddings required, no degraded mode.
+March 2026: Added classify_pedagogical_intent() for LS-scoped Socratic pipeline.
 """
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
+from core.models.askesis.pedagogical_intent import PedagogicalIntent
 from core.models.query_types import QueryIntent
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
+
+if TYPE_CHECKING:
+    from core.models.askesis.ls_bundle import LSBundle
+    from core.models.zpd.zpd_assessment import ZoneEvidence
 
 logger = get_logger(__name__)
 
@@ -150,6 +157,104 @@ class IntentClassifier:
         # Low confidence — default to SPECIFIC (this is a classification result, not a fallback)
         logger.debug("Low confidence embedding match — defaulting to SPECIFIC")
         return Result.ok(QueryIntent.SPECIFIC)
+
+    # ========================================================================
+    # SOCRATIC PIPELINE — PEDAGOGICAL INTENT CLASSIFICATION
+    # ========================================================================
+
+    def classify_pedagogical_intent(
+        self,
+        question: str,
+        ls_bundle: LSBundle,
+        zone_evidence: dict[str, ZoneEvidence],
+        target_ku_uids: list[str],
+    ) -> PedagogicalIntent:
+        """Classify the pedagogical move for a Socratic tutoring turn.
+
+        This is a structured decision tree — no embeddings, no LLM. The logic
+        is deterministic based on bundle membership and ZPD evidence:
+
+        1. Is the question about content in the bundle? → OUT_OF_SCOPE if no
+        2. Which KUs does it touch? (from target_ku_uids, scoped to bundle)
+        3. Check ZoneEvidence for those KUs:
+           - Confirmed (2+ signals) → ASSESS_UNDERSTANDING
+           - 1 signal → PROBE_DEEPER or ENCOURAGE_PRACTICE
+           - Proximal (0 signals, but in bundle) → SCAFFOLD
+           - Not engaged → REDIRECT_TO_CURRICULUM
+        4. If question touches edge-connected concepts → SURFACE_CONNECTION
+
+        Args:
+            question: User's question text
+            ls_bundle: Complete LS bundle (scoped context)
+            zone_evidence: Per-KU engagement evidence from ZPD
+            target_ku_uids: KU UIDs extracted from question (scoped to bundle)
+
+        Returns:
+            PedagogicalIntent for the SocraticEngine
+        """
+        # No matching KUs in bundle → OUT_OF_SCOPE
+        if not target_ku_uids:
+            # Check if the question matches any bundle entity titles at all
+            if self._question_matches_bundle(question, ls_bundle):
+                # Matches non-KU entities (habits, tasks, articles)
+                return PedagogicalIntent.ENCOURAGE_PRACTICE
+            return PedagogicalIntent.OUT_OF_SCOPE
+
+        # Check if question touches edge-connected concepts
+        if len(target_ku_uids) >= 2 and ls_bundle.edges:
+            edge_uids = {e.get("target_uid") for e in ls_bundle.edges if isinstance(e, dict)}
+            if any(uid in edge_uids for uid in target_ku_uids):
+                return PedagogicalIntent.SURFACE_CONNECTION
+
+        # Classify based on ZPD evidence for the target KUs
+        # Use the "weakest" KU's evidence to determine the move
+        # (tutor to the learner's actual level, not their strongest point)
+        weakest_signal_count = float("inf")
+        has_missing_practice = False
+
+        for ku_uid in target_ku_uids:
+            evidence = zone_evidence.get(ku_uid)
+            if evidence is None:
+                # No evidence at all — redirect to curriculum
+                return PedagogicalIntent.REDIRECT_TO_CURRICULUM
+
+            if evidence.signal_count < weakest_signal_count:
+                weakest_signal_count = evidence.signal_count
+
+            # Check for missing practice signals specifically
+            if evidence.signal_count == 1 and not (
+                evidence.habit_reinforcement or evidence.task_application
+            ):
+                has_missing_practice = True
+
+        # Decision based on weakest signal
+        if weakest_signal_count >= 2:
+            return PedagogicalIntent.ASSESS_UNDERSTANDING
+        if weakest_signal_count == 1:
+            if has_missing_practice:
+                return PedagogicalIntent.ENCOURAGE_PRACTICE
+            return PedagogicalIntent.PROBE_DEEPER
+        # signal_count == 0 but evidence exists (empty ZoneEvidence)
+        return PedagogicalIntent.SCAFFOLD
+
+    def _question_matches_bundle(self, question: str, ls_bundle: LSBundle) -> bool:
+        """Check if question text matches any bundle entity title."""
+        question_lower = question.lower()
+        for title in ls_bundle.get_all_titles().values():
+            if not title:
+                continue
+            title_lower = title.lower()
+            if title_lower in question_lower:
+                return True
+            # Check significant words (>3 chars)
+            for word in title_lower.split():
+                if len(word) > 3 and word in question_lower:
+                    return True
+        return False
+
+    # ========================================================================
+    # LEGACY PIPELINE — EMBEDDING-BASED INTENT CLASSIFICATION
+    # ========================================================================
 
     async def _classify_via_embeddings(self, query: str) -> QueryIntent | None:
         """

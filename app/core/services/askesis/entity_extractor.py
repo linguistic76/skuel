@@ -5,11 +5,9 @@ Entity Extractor - Entity Extraction from Natural Language
 Focused service for extracting entities mentioned in natural language queries.
 
 Responsibilities:
-- Extract knowledge entities from queries
-- Extract task entities from queries
-- Extract goal entities from queries
-- Extract habit entities from queries
-- Extract event entities from queries
+- Extract knowledge entities from queries (global, legacy pipeline)
+- Extract activity entities from queries (global, legacy pipeline)
+- Extract KU UIDs from LS bundle (scoped, Socratic pipeline)
 - Fuzzy match entity titles against query text
 
 This service is part of the refactored EnhancedAskesisService architecture:
@@ -25,6 +23,7 @@ Architecture:
 - Uses fuzzy matching for flexible entity recognition
 
 March 2026: All domain services required — no graceful degradation.
+March 2026: Added extract_from_bundle() for LS-scoped Socratic pipeline.
 """
 
 from __future__ import annotations
@@ -34,6 +33,7 @@ from typing import TYPE_CHECKING
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
+    from core.models.askesis.ls_bundle import LSBundle
     from core.ports import (
         ArticleOperations,
         EventsOperations,
@@ -134,6 +134,65 @@ class EntityExtractor:
         logger.info(f"Extracted {total_matches} entities from query: {query[:50]}")
 
         return entities
+
+    # ========================================================================
+    # SOCRATIC PIPELINE — BUNDLE-SCOPED EXTRACTION
+    # ========================================================================
+
+    def extract_from_bundle(self, question: str, ls_bundle: LSBundle) -> list[str]:
+        """Extract KU UIDs from the bundle that the question references.
+
+        Uses fuzzy matching against bundle KU titles and aliases. Returns
+        only UIDs that are part of the LS bundle — no global search.
+
+        This is the scoped equivalent of extract_entities_from_query() for
+        the Socratic pipeline. It's synchronous because it doesn't need
+        to fetch entities — the bundle already has them.
+
+        Args:
+            question: User's natural language question
+            ls_bundle: Complete LS bundle with all entities
+
+        Returns:
+            List of KU UIDs from the bundle that match the question
+        """
+        question_lower = question.lower()
+        matched_uids: list[str] = []
+
+        for ku in ls_bundle.kus:
+            if self._fuzzy_match(ku.title, question_lower):
+                matched_uids.append(ku.uid)
+                continue
+
+            # Check KU aliases
+            for alias in getattr(ku, "aliases", ()):
+                if self._fuzzy_match(alias, question_lower):
+                    matched_uids.append(ku.uid)
+                    break
+
+        # Also check Article titles — if a question references an Article,
+        # match it to the KUs that Article teaches
+        for article in ls_bundle.articles:
+            if self._fuzzy_match(article.title, question_lower):
+                # Find KUs linked to this Article
+                for ku in ls_bundle.kus:
+                    if ku.uid not in matched_uids:
+                        # If the Article's semantic_links reference this KU
+                        if ku.uid in (article.semantic_links or ()):
+                            matched_uids.append(ku.uid)
+
+        # If no specific KU matched but the question is clearly about the LS topic,
+        # return all KUs in the bundle (the question is about the LS as a whole)
+        if not matched_uids and ls_bundle.kus:
+            ls_title = ls_bundle.learning_step.title or ""
+            ls_intent = ls_bundle.learning_step.intent or ""
+            if (
+                self._fuzzy_match(ls_title, question_lower)
+                or self._fuzzy_match(ls_intent, question_lower)
+            ):
+                matched_uids = [ku.uid for ku in ls_bundle.kus]
+
+        return matched_uids
 
     # ========================================================================
     # PRIVATE - ENTITY TYPE EXTRACTION
