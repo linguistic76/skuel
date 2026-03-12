@@ -21,7 +21,7 @@ def create_askesis_service(
     learning_services: dict[str, Any],
     activity_services: dict[str, Any],
     user_service: Any,
-    zpd_service: ZPDOperations | None = None,
+    zpd_service: ZPDOperations,
 ) -> AskesisService:
     """Build AskesisService from bootstrap-level service dicts.
 
@@ -35,8 +35,8 @@ def create_askesis_service(
         activity_services: Dict from _create_activity_services() — keys: tasks, goals,
             habits, events.
         user_service: UserOperations instance.
-        zpd_service: Optional ZPDService — enriches analysis with ZPDAssessment.
-            None when curriculum graph has < 3 KUs (data condition, not degradation).
+        zpd_service: ZPDService — required for guided pipeline (ZPD readiness assessment).
+            LP enrollment gate ensures curriculum data exists.
     """
     deps = AskesisDeps(
         intelligence_factory=intelligence_factory,

@@ -13,13 +13,13 @@ Responsibilities:
 - Find semantically similar knowledge
 - Load LS bundles for Socratic tutoring (absorbed from LSContextLoader)
 
-This service is part of the refactored EnhancedAskesisService architecture:
+This service is part of the refactored AskesisService architecture:
 - UserStateAnalyzer: Analyze current user state and patterns
 - ActionRecommendationEngine: Generate personalized action recommendations
 - QueryProcessor: Process and answer natural language queries
 - EntityExtractor: Extract entities from natural language
 - ContextRetriever: Retrieve domain-specific context (THIS FILE)
-- EnhancedAskesisService: Facade coordinating all sub-services
+- AskesisService: Facade coordinating all sub-services
 
 Architecture:
 - Requires GraphIntelligenceService for graph intelligence queries (optional)
@@ -32,7 +32,8 @@ March 2026: Absorbed LSContextLoader into ContextRetriever — single retrieval 
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+import asyncio
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from core.constants import GraphDepth
 from core.models.askesis.ls_bundle import LSBundle
@@ -48,6 +49,18 @@ if TYPE_CHECKING:
     from core.models.pathways.learning_path import LearningPath
     from core.models.pathways.learning_step import LearningStep
     from core.services.user import UserContext
+
+
+@runtime_checkable
+class EntityLookup(Protocol):
+    """Minimal protocol for services used in LS bundle loading.
+
+    Only requires async get(uid) -> Result[Any]. All BaseService subclasses
+    satisfy this via CrudOperationsMixin.
+    """
+
+    async def get(self, uid: str) -> Result[Any]: ...
+
 
 logger = get_logger(__name__)
 
@@ -77,16 +90,16 @@ class ContextRetriever:
 
     def __init__(
         self,
-        graph_intelligence_service: Any,
-        embeddings_service: Any,
+        graph_intelligence_service: Any,  # boundary: GraphIntelligenceService protocol not yet extracted
+        embeddings_service: Any,  # boundary: EmbeddingsService protocol not yet extracted
         # LS bundle dependencies (absorbed from LSContextLoader)
-        article_service: Any = None,
-        ku_service: Any = None,
-        habits_service: Any = None,
-        tasks_service: Any = None,
-        events_service: Any = None,
-        principles_service: Any = None,
-        lp_service: Any = None,
+        article_service: EntityLookup | None = None,
+        ku_service: EntityLookup | None = None,
+        habits_service: EntityLookup | None = None,
+        tasks_service: EntityLookup | None = None,
+        events_service: EntityLookup | None = None,
+        principles_service: EntityLookup | None = None,
+        lp_service: EntityLookup | None = None,
     ) -> None:
         """
         Initialize context retriever.
@@ -361,15 +374,19 @@ class ContextRetriever:
         if learning_step is None:
             return Result.fail(Errors.not_found("learning_step", "malformed_ls_data"))
 
-        # Step 3: Fetch full entities in parallel-ready fashion
-        articles = await self._fetch_articles(learning_step, graph_context)
-        kus = await self._fetch_kus(learning_step)
-        learning_path = await self._fetch_learning_path(graph_context)
-        habits = await self._fetch_entities_by_uid(
+        # Step 3: Fetch full entities in parallel
+        articles_coro = self._fetch_articles(learning_step, graph_context)
+        kus_coro = self._fetch_kus(learning_step)
+        lp_coro = self._fetch_learning_path(graph_context)
+        habits_coro = self._fetch_entities_by_uid(
             graph_context.get("practice_habits", []), self.habits_service
         )
-        tasks = await self._fetch_entities_by_uid(
+        tasks_coro = self._fetch_entities_by_uid(
             graph_context.get("practice_tasks", []), self.tasks_service
+        )
+
+        articles, kus, learning_path, habits, tasks = await asyncio.gather(
+            articles_coro, kus_coro, lp_coro, habits_coro, tasks_coro
         )
         events: list[Any] = []  # Event templates not yet in graph_context
         principles: list[Any] = []  # Principles not yet in graph_context
@@ -471,9 +488,10 @@ class ContextRetriever:
             if isinstance(kr, dict) and kr.get("uid"):
                 article_uids.add(kr["uid"])
 
+        results = await asyncio.gather(*(self.article_service.get(uid) for uid in article_uids))
+
         articles: list[Article] = []
-        for uid in article_uids:
-            result = await self.article_service.get(uid)
+        for uid, result in zip(article_uids, results, strict=False):
             if result.is_ok and result.value:
                 articles.append(result.value)
             else:
@@ -503,9 +521,10 @@ class ContextRetriever:
             if uid.startswith("ku_"):
                 ku_uids.add(uid)
 
+        results = await asyncio.gather(*(self.ku_service.get(uid) for uid in ku_uids))
+
         kus: list[Ku] = []
-        for uid in ku_uids:
-            result = await self.ku_service.get(uid)
+        for uid, result in zip(ku_uids, results, strict=False):
             if result.is_ok and result.value:
                 kus.append(result.value)
             else:
@@ -534,7 +553,7 @@ class ContextRetriever:
     async def _fetch_entities_by_uid(
         self,
         uid_dicts: list[dict[str, Any]],
-        service: Any,
+        service: EntityLookup | None,
     ) -> list[Any]:
         """Fetch full entities from a list of {uid, title, ...} dicts.
 
@@ -543,16 +562,13 @@ class ContextRetriever:
         if not service or not uid_dicts:
             return []
 
-        entities: list[Any] = []
-        for item in uid_dicts:
-            uid = item.get("uid") if isinstance(item, dict) else None
-            if not uid:
-                continue
-            result = await service.get(uid)
-            if result.is_ok and result.value:
-                entities.append(result.value)
+        uids = [item.get("uid") for item in uid_dicts if isinstance(item, dict) and item.get("uid")]
+        if not uids:
+            return []
 
-        return entities
+        results = await asyncio.gather(*(service.get(uid) for uid in uids))
+
+        return [result.value for result in results if result.is_ok and result.value]
 
     def _extract_edges(self, graph_context: dict[str, Any]) -> list[dict[str, Any]]:
         """Extract semantic relationship edges from graph_context.

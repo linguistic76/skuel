@@ -105,7 +105,7 @@ class QueryProcessor:
         user_service: UserService,
         llm_service: LLMService,
         graph_intelligence_service: GraphIntelligenceService,
-        zpd_service: ZPDOperations | None = None,
+        zpd_service: ZPDOperations,
         citation_service: AskesisCitationService | None = None,
     ) -> None:
         """
@@ -119,7 +119,7 @@ class QueryProcessor:
             user_service: UserService for accessing UserContext
             llm_service: LLMService for natural language generation
             graph_intelligence_service: GraphIntelligenceService for graph intelligence queries
-            zpd_service: ZPDService for targeted KU readiness assessment (optional)
+            zpd_service: ZPDService for targeted KU readiness assessment
             citation_service: AskesisCitationService for source and evidence transparency (optional)
         """
         self.intent_classifier = intent_classifier
@@ -160,7 +160,7 @@ class QueryProcessor:
             - context_used: Relevant entities from user's data
             - suggested_actions: Next steps user can take
             - confidence: Confidence score (0.0-1.0)
-            - guidance_mode: GuidanceMode if Socratic pipeline was used
+            - guidance_mode: GuidanceMode used for guided response (if LS bundle available)
         """
         # Step 1: Get full user context
         user_context_result = await self.user_service.get_rich_unified_context(user_uid)
@@ -219,26 +219,24 @@ class QueryProcessor:
             # Get target KU UIDs from question (scoped to bundle)
             target_ku_uids = self.entity_extractor.extract_from_bundle(question, ls_bundle)
 
+            # Get ZPD evidence for target KUs (empty dict if no KUs matched)
+            zone_evidence: dict[str, Any] = {}
             if target_ku_uids:
-                # Get ZPD evidence for target KUs
-                zone_evidence: dict[str, Any] = {}
-                if self.zpd_service:
-                    zpd_result = await self.zpd_service.assess_ku_readiness(
-                        user_uid, target_ku_uids
-                    )
-                    if not zpd_result.is_error:
-                        zone_evidence = zpd_result.value
+                zpd_result = await self.zpd_service.assess_ku_readiness(user_uid, target_ku_uids)
+                if not zpd_result.is_error:
+                    zone_evidence = zpd_result.value
 
-                # Determine guidance mode
-                guidance = self.intent_classifier.determine_guidance_mode(
-                    question, ls_bundle, zone_evidence, target_ku_uids
-                )
+            # Determine guidance mode — works even when target_ku_uids is empty
+            # (classify_pedagogical_intent returns OUT_OF_SCOPE or ENCOURAGE_PRACTICE)
+            guidance = self.intent_classifier.determine_guidance_mode(
+                question, ls_bundle, zone_evidence, target_ku_uids
+            )
 
-                # Build guided system prompt
-                guided_system_prompt = self.response_generator.build_guided_system_prompt(
-                    guidance, ls_bundle, user_context
-                )
-                guidance_mode = guidance.mode.value
+            # Build guided system prompt
+            guided_system_prompt = self.response_generator.build_guided_system_prompt(
+                guidance, ls_bundle, user_context
+            )
+            guidance_mode = guidance.mode.value
 
         # Step 7: Build LLM-friendly context and generate answer
         llm_context = self.response_generator.build_llm_context(
@@ -324,15 +322,11 @@ class QueryProcessor:
         self, user_uid: str, query_message: str, depth: int = 2
     ) -> Result[dict[str, Any]]:
         """
-        Process Askesis query with full user context
+        Process Askesis query with full user context.
 
-        This is the primary method for context-aware AI responses. It retrieves
-        complete user learning context in a single Pure Cypher query and
-        generates personalized responses based on:
-        - Current knowledge state
-        - Active learning paths
-        - Related tasks and goals
-        - Knowledge gaps and blockers
+        LP-scoped, ZPD-informed pipeline. Retrieves complete user learning
+        context in a single Pure Cypher query and generates personalized,
+        GuidanceMode-aware responses.
 
         Args:
             user_uid: Unique identifier of the user
@@ -346,10 +340,9 @@ class QueryProcessor:
                 "context_used": {...},
                 "intent": QueryIntent,
                 "confidence": float,
-                "suggested_actions": List[Dict[str, Any]]
+                "suggested_actions": list[dict[str, Any]],
+                "guidance_mode": str | None
             }
-
-        Performance: 180ms -> 22ms (8x faster)
         """
         # LP enrollment gate: load user context to check enrollment
         user_context_result = await self.user_service.get_rich_unified_context(user_uid)
@@ -393,22 +386,68 @@ class QueryProcessor:
         active_tasks = context_data["related_tasks"]
         related_goals = context_data.get("related_goals", [])
 
-        # Step 3: Generate AI response with full context
-        response = await self._generate_context_aware_response(
-            query_message=query_message,
-            current_knowledge=current_knowledge,
-            active_learning=active_learning,
-            active_tasks=active_tasks,
-            related_goals=related_goals,
-            intent=intent,
-        )
+        # Step 3: Load LS bundle and apply guided pipeline if available
+        guided_system_prompt: str | None = None
+        guidance_mode: str | None = None
 
-        # Step 4: Generate suggested actions
+        bundle_result = await self.context_retriever.load_ls_bundle(user_uid, user_context)
+        if not bundle_result.is_error:
+            ls_bundle = bundle_result.value
+            target_ku_uids = self.entity_extractor.extract_from_bundle(query_message, ls_bundle)
+
+            # Get ZPD evidence for target KUs (empty dict if no KUs matched)
+            zone_evidence: dict[str, Any] = {}
+            if target_ku_uids:
+                zpd_result = await self.zpd_service.assess_ku_readiness(user_uid, target_ku_uids)
+                if not zpd_result.is_error:
+                    zone_evidence = zpd_result.value
+
+            # Determine guidance mode — works even when target_ku_uids is empty
+            guidance = self.intent_classifier.determine_guidance_mode(
+                query_message, ls_bundle, zone_evidence, target_ku_uids
+            )
+            guided_system_prompt = self.response_generator.build_guided_system_prompt(
+                guidance, ls_bundle, user_context
+            )
+            guidance_mode = guidance.mode.value
+
+        # Step 4: Generate AI response
+        if guided_system_prompt:
+            ls_bundle = bundle_result.value
+            user_prompt = query_message
+            if ls_bundle.curriculum_context_text:
+                user_prompt = (
+                    f"=== CURRICULUM CONTEXT (for your reference, do NOT share directly) ===\n"
+                    f"{ls_bundle.curriculum_context_text}\n\n"
+                    f"=== LEARNER'S MESSAGE ===\n{query_message}"
+                )
+
+            llm_response = await self.llm_service.generate(
+                prompt=user_prompt,
+                system_prompt=guided_system_prompt,
+                temperature=0.7,
+                max_tokens=500,
+            )
+            response = llm_response.content or (
+                "I'd like to explore this with you, but I'm having trouble "
+                "formulating my response. Could you rephrase your question?"
+            )
+        else:
+            response = await self._generate_context_aware_response(
+                query_message=query_message,
+                current_knowledge=current_knowledge,
+                active_learning=active_learning,
+                active_tasks=active_tasks,
+                related_goals=related_goals,
+                intent=intent,
+            )
+
+        # Step 5: Generate suggested actions
         suggested_actions = self.response_generator.generate_suggested_actions(
             query_message, context_data, intent
         )
 
-        # Step 5: Build and return result
+        # Step 6: Build and return result
         result_dict = self._build_query_response_result(
             response,
             current_knowledge,
@@ -418,6 +457,9 @@ class QueryProcessor:
             intent,
             suggested_actions,
         )
+
+        if guidance_mode:
+            result_dict["guidance_mode"] = guidance_mode
 
         return Result.ok(result_dict)
 

@@ -81,11 +81,12 @@ class AskesisDeps:
     goals_service: Any
     habits_service: Any
     events_service: Any
+    # ZPD service — required for Askesis guided pipeline.
+    # LP enrollment gate ensures curriculum data exists; ZPD assesses readiness.
+    # See: core/services/zpd/zpd_service.py
+    zpd_service: ZPDOperations
     # Citation service — optional until wired in bootstrap
     citation_service: Any | None = None
-    # ZPD service — required for Askesis guided pipeline.
-    # See: core/services/zpd/zpd_service.py
-    zpd_service: ZPDOperations | None = None
     # LS bundle dependencies for ContextRetriever — None is valid when not available
     ku_service: Any | None = None
     lp_service: Any | None = None
@@ -153,7 +154,7 @@ class AskesisService:
         self.habits_service = deps.habits_service
         self.events_service = deps.events_service
         self.citation_service = deps.citation_service
-        # ZPD service — enriches analyze_user_state() with curriculum graph assessment.
+        # ZPD service — required for guided pipeline (readiness assessment).
         self.zpd_service = deps.zpd_service
 
         # 13-domain intelligence factory for comprehensive daily planning

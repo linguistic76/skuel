@@ -13,7 +13,7 @@ Responsibilities:
 Architecture:
 - Requires EmbeddingsService for semantic classification (fail-fast if unavailable)
 - Uses INTENT_EXEMPLARS for semantic similarity matching
-- Returns QueryIntent enum values (legacy) or PedagogicalIntent (Socratic)
+- Returns QueryIntent enum values or PedagogicalIntent (for guided pipeline)
 
 January 2026: Extracted from QueryProcessor as part of Askesis design improvement.
 March 2026: Removed keyword fallback — embeddings required, no degraded mode.
@@ -50,6 +50,7 @@ class GuidanceDetermination:
     pedagogical_detail: PedagogicalIntent
     target_ku_uids: list[str]
     zone_evidence: dict[str, Any]
+
 
 logger = get_logger(__name__)
 
@@ -139,7 +140,8 @@ class IntentClassifier:
 
     This service handles intent classification:
     - Embedding-based semantic classification (primary)
-    - Keyword-based fallback classification
+    - Deterministic pedagogical intent classification (Socratic pipeline)
+    - GuidanceMode determination from PedagogicalIntent
     - Lazy-loaded intent exemplar embeddings
 
     Architecture:
@@ -323,7 +325,7 @@ class IntentClassifier:
         )
 
     # ========================================================================
-    # LEGACY PIPELINE — EMBEDDING-BASED INTENT CLASSIFICATION
+    # PRIVATE — EMBEDDING-BASED INTENT CLASSIFICATION
     # ========================================================================
 
     async def _classify_via_embeddings(self, query: str) -> QueryIntent | None:
@@ -345,7 +347,7 @@ class IntentClassifier:
         await self._ensure_exemplars_loaded()
 
         if not self._intent_exemplar_embeddings:
-            logger.warning("No intent exemplar embeddings available — falling back to keywords")
+            logger.warning("No intent exemplar embeddings available — cannot classify")
             return None
 
         # Create query embedding (returns Result[list[float]])

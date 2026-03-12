@@ -74,9 +74,7 @@ class Askesis:
     proactive_guidance_success_rate: float = 0.0
 
     # User Preferences (learned)
-    preferred_guidance_mode: GuidanceMode = (
-        GuidanceMode.DIRECT
-    )  # Fixed: enum value, not tuple
+    preferred_guidance_mode: GuidanceMode = GuidanceMode.DIRECT  # Fixed: enum value, not tuple
     preferred_complexity_level: QueryComplexity = (
         QueryComplexity.MODERATE
     )  # Fixed: enum value, not tuple
