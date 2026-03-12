@@ -225,7 +225,48 @@ description = QueryLimit.get_description(QueryLimit.PREVIEW)
 # → "Preview (quick glance)"
 ```
 
-### 5. Intelligence Thresholds (`IntelligenceThreshold`)
+### 5. Askesis Token Budgets (`AskesisTokenBudget`)
+
+Character budgets for Askesis LLM context construction (~4 chars ≈ 1 token). Prevents unbounded context growth in the RAG pipeline:
+
+| Constant | Value | Purpose |
+|----------|-------|---------|
+| `MAX_CURRICULUM_CHARS` | 10000 | Cap for `LSBundle.curriculum_context_text` |
+| `MAX_LLM_CONTEXT_CHARS` | 12000 | Cap for `ResponseGenerator.build_llm_context()` output |
+| `MAX_USER_PROMPT_CURRICULUM_CHARS` | 10000 | Cap for curriculum injected into guided pipeline user prompt |
+
+**Usage:**
+```python
+from core.constants import AskesisTokenBudget
+from core.utils.text_truncation import truncate_to_budget
+
+truncated = truncate_to_budget(raw_context, AskesisTokenBudget.MAX_LLM_CONTEXT_CHARS)
+```
+
+Truncation uses `core/utils/text_truncation.py` which cuts at sentence/paragraph boundaries and appends "...".
+
+### 6. Query Processor Confidence (`QueryProcessorConfidence`)
+
+Dynamic confidence scoring for RAG pipeline responses:
+
+| Constant | Value | Purpose |
+|----------|-------|---------|
+| `BASE` | 0.70 | Starting confidence |
+| `CONTEXT_BONUS` | 0.10 | Bonus when context was retrieved |
+| `CITATION_BONUS` | 0.05 | Bonus when citations are included |
+| `ENTITY_BONUS` | 0.05 | Bonus when entities were extracted |
+| `MAX` | 0.95 | Maximum confidence cap |
+
+**Usage:**
+```python
+from core.constants import QueryProcessorConfidence
+
+confidence = QueryProcessorConfidence.calculate(
+    has_context=True, has_citations=False, has_entities=True
+)  # → 0.85
+```
+
+### 7. Intelligence Thresholds (`IntelligenceThreshold`)
 
 AI/ML confidence thresholds:
 
@@ -256,7 +297,7 @@ relationships = await find_cross_domain(
 )
 ```
 
-### 6. Report Time Periods (`ReportTimePeriod`)
+### 8. Report Time Periods (`ReportTimePeriod`)
 
 Valid time period strings for activity reports and review — shared vocabulary
 used by `ActivityReportService` and `ProgressReportGenerator`:
@@ -282,7 +323,7 @@ end_date = datetime.now()
 start_date = end_date - timedelta(days=days)
 ```
 
-### 7. Relationship Strength (`RelationshipStrength`)
+### 9. Relationship Strength (`RelationshipStrength`)
 
 Default confidence for relationship types:
 

@@ -227,6 +227,8 @@ intent = await intent_classifier.classify_intent(question)
 
 Each intent has 8 exemplar sentences. Exemplar embeddings are lazily computed on first classification and cached.
 
+**Error tolerance:** If the embeddings API is unavailable, intent classification defaults to `SPECIFIC` rather than crashing. Individual exemplar embedding failures are skipped — classification works with fewer exemplars per intent.
+
 ### Step 5c: Extract Entities
 
 **Service:** `EntityExtractor` (`core/services/askesis/entity_extractor.py`)
@@ -241,6 +243,8 @@ Finds entities mentioned in the question using fuzzy matching:
 3. **Acronym match** — "REST API" matches "rest"
 
 Returns: `{"knowledge": [...], "tasks": [...], "goals": [...], "habits": [...], "events": [...]}`
+
+**Error tolerance:** If entity extraction fails, the pipeline continues with empty matches. The LLM can still answer using context from other stages.
 
 ### Step 5d: Retrieve Context
 
@@ -283,6 +287,8 @@ INTENT_CONTEXT_SECTIONS = {
 
 Always includes: user identity, workload/capacity, and alerts.
 
+**Token truncation:** The output of `build_llm_context()` is truncated to `AskesisTokenBudget.MAX_LLM_CONTEXT_CHARS` (~3000 tokens). When an LSBundle is present, its `curriculum_context_text` is separately truncated to `AskesisTokenBudget.MAX_CURRICULUM_CHARS` (~2500 tokens). Constants in `core/constants.py`.
+
 ### Step 5f: Generate Answer via LLM
 
 ```python
@@ -321,10 +327,12 @@ Returns 3-5 prioritized next steps:
 }
 ```
 
-**Confidence calculation:**
+**Confidence calculation** (`QueryProcessorConfidence` in `core/constants.py`):
 - Base: 0.70
 - +0.10 if context was retrieved
 - +0.05 if citations are included
+- +0.05 if entities were extracted from query
+- Maximum: 0.95
 
 ---
 
@@ -446,6 +454,8 @@ Single-word titles under 4 characters won't match via partial word. Titles not i
 | `core/models/askesis/learning_objective.py` | StructuredLearningObjective |
 | `core/services/askesis/types.py` | Data classes (AskesisInsight, AskesisRecommendation, AskesisAnalysis) |
 | `core/services/askesis/state_scoring.py` | Pure functions for state scoring |
+| `core/utils/text_truncation.py` | Sentence-boundary-aware token truncation |
+| `core/constants.py` (`AskesisTokenBudget`) | Token budget constants for LLM context |
 | `core/services/embeddings_service.py` | HuggingFace embedding generation |
 | `core/services/neo4j_vector_search_service.py` | Vector search (4 modes) |
 | `core/utils/embedding_text_builder.py` | Text extraction per entity type |

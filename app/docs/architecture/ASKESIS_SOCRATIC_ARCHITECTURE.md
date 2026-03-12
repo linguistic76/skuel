@@ -114,7 +114,9 @@ The LSBundle is a frozen dataclass containing the complete context for a Learnin
 
 **Immutability:** Built once per question, passed through the pipeline, never mutated.
 
-**Construction:** `ContextRetriever.load_ls_bundle()` builds the bundle from `UserContext.active_learning_steps_rich` (already loaded by the MEGA-QUERY) plus full entity fetches for content fields.
+**Construction:** `ContextRetriever.load_ls_bundle()` builds the bundle from `UserContext.active_learning_steps_rich` (already loaded by the MEGA-QUERY) plus full entity fetches for content fields. Entity fetches run in parallel with `return_exceptions=True` — individual failures produce empty defaults, so a partial bundle (just the LS) is always built.
+
+**Token truncation:** `curriculum_context_text` is truncated to `AskesisTokenBudget.MAX_CURRICULUM_CHARS` to prevent exceeding LLM context windows.
 
 ---
 

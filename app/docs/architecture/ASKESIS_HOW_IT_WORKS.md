@@ -77,9 +77,13 @@ When a user asks Askesis a question, here's exactly what happens:
 
 This classification determines which context sections get included in the LLM prompt and which suggested actions get generated.
 
+**Error tolerance:** If the embeddings API is unavailable or exemplar loading fails, the classifier defaults to `SPECIFIC` intent rather than crashing the pipeline. Individual exemplar embedding failures are skipped — classification works with fewer exemplars (lower precision, not a crash).
+
 ### Step 4: Extract Entities
 
 `EntityExtractor.extract_entities_from_query(question, user_context)` uses fuzzy matching to find which specific entities (tasks, goals, habits, knowledge units, events) the user is referring to. For example, "How's my REST API goal going?" matches a goal titled "Build REST API."
+
+**Error tolerance:** If entity extraction fails (e.g., a domain service is unavailable), the pipeline continues with empty matches rather than crashing. The LLM can still answer the question using context from other pipeline stages.
 
 ### Step 5: Retrieve Relevant Context
 
@@ -106,6 +110,10 @@ LSBundle (frozen, loaded once per question)
 ```
 
 The bundle is the **scope window**. Every pedagogical decision operates within it. If the question falls outside the bundle, Askesis redirects gently.
+
+**Partial failure tolerance:** The bundle fetches Articles, KUs, Habits, Tasks, and LP in parallel. If any fetch fails (e.g., a service timeout), that collection defaults to empty — the bundle is built from whatever succeeds. A minimal bundle (just the LearningStep) still enables GuidanceMode decisions like OUT_OF_SCOPE and REDIRECT_TO_CURRICULUM.
+
+**Token truncation:** `curriculum_context_text` (concatenated Article content) is truncated to `AskesisTokenBudget.MAX_CURRICULUM_CHARS` (~2500 tokens) to prevent exceeding LLM context windows when the bundle has many Articles.
 
 If no bundle is available (no active LS), Askesis falls back to context-aware LLM generation without the Socratic layer.
 
@@ -223,6 +231,8 @@ Three things distinguish Askesis from a generic AI assistant:
 | LS Bundle model | `core/models/askesis/ls_bundle.py` |
 | GuidanceMode enum | `core/models/enums/metadata_enums.py` |
 | PedagogicalIntent enum | `core/models/askesis/pedagogical_intent.py` |
+| Token truncation | `core/utils/text_truncation.py` |
+| Token budget constants | `core/constants.py` (`AskesisTokenBudget`) |
 | Protocols (16 methods) | `core/ports/askesis_protocols.py` |
 | API routes (20 endpoints) | `adapters/inbound/askesis_api.py` |
 | UI routes | `adapters/inbound/askesis_ui.py` |
