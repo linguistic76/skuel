@@ -1,6 +1,6 @@
 # Askesis Intelligence - Cross-Cutting Life Context Synthesis
 
-**Last Updated:** March 4, 2026
+**Last Updated:** March 12, 2026
 
 ## Overview
 
@@ -108,7 +108,7 @@ When generating recommendations, Askesis follows this priority order:
 
 ## Dependencies
 
-### Required at Construction (January 2026)
+### Required at Construction (March 2026)
 
 | Dependency | Purpose |
 |------------|---------|
@@ -122,12 +122,16 @@ When generating recommendations, Askesis follows this priority order:
 | `goals_service` | Goal entity extraction |
 | `habits_service` | Habit entity extraction |
 | `events_service` | Event entity extraction |
+| `zpd_service` | Targeted KU readiness assessment (required for guided pipeline — LP gate ensures curriculum exists) |
 
 ### Optional
 
 | Dependency | Purpose |
 |------------|---------|
 | `citation_service` | Evidence transparency (Phase 4C) |
+| `ku_service` | LS bundle KU fetching (for ContextRetriever) |
+| `lp_service` | LS bundle LP fetching (for ContextRetriever) |
+| `principles_service` | LS bundle principle fetching (for ContextRetriever) |
 
 **Note (January 2026):** `learning_orchestrator` and `cascade_manager` were removed per One Path Forward philosophy - unused dependencies eliminated.
 
@@ -232,52 +236,52 @@ if result.is_ok:
 
 **Design:** Eliminates circular dependency between UserStateAnalyzer and ActionRecommendationEngine
 
-### QueryProcessor (January 2026 - Refactored with LLM Integration)
+### QueryProcessor (March 2026 - LP-Scoped, GuidanceMode-Aware)
 
-**Purpose:** RAG pipeline orchestration (reduced from 962 to ~500 lines)
+**Purpose:** RAG pipeline orchestration (~500 lines)
 
 **Key Methods:**
-- `answer_user_question()` - Full RAG with entity extraction
-- `process_query_with_context()` - Context-enriched processing
+- `answer_user_question()` - Full RAG with guided pipeline
+- `process_query_with_context()` - Context-enriched processing with guided pipeline
 
-**Internal Methods (January 2026 - Implemented):**
-- `_generate_context_aware_response()` - LLM integration with graceful fallback:
-  1. Builds context from current knowledge, active learning, tasks, goals
-  2. Calls `llm_service.generate_context_aware_answer()` with intent
-  3. Falls back to template-based response if LLM unavailable
+Both methods run the same LP-scoped pipeline: LP enrollment gate → intent classification → LS bundle loading → ZPD evidence → GuidanceMode determination → guided system prompt → LLM generation. Falls back to standard global RAG when no LS bundle is available.
 
 **January 2026 Decomposition:** Intent classification and response generation extracted to separate services.
 
-**Pipeline:** IntentClassifier → EntityExtractor → ContextRetriever → ResponseGenerator → LLM (with fallback)
+**Pipeline:** IntentClassifier → EntityExtractor → ContextRetriever → ZPDService → ResponseGenerator → LLM
 
-**March 2026:** Uses `get_rich_unified_context()` for full `entities_rich` population.
+**March 2026:** Uses `get_rich_unified_context()` for full `entities_rich` population. `zpd_service` required (not optional).
 
-### IntentClassifier (January 2026 - New)
+### IntentClassifier (March 2026 - Embeddings + Pedagogical)
 
-**Purpose:** Embeddings-based semantic intent classification
+**Purpose:** Embeddings-based intent classification + deterministic pedagogical intent
 
 **Key Methods:**
-- `classify_intent()` - Primary classification via embeddings
-- `classify_via_keywords()` - Keyword-based fallback
+- `classify_intent()` - Query intent classification via embeddings
+- `classify_pedagogical_intent()` - Deterministic decision tree for Socratic tutoring
+- `determine_guidance_mode()` - Maps PedagogicalIntent → GuidanceMode (returns `GuidanceDetermination`)
 
-**Strategy:**
+**Intent Classification Strategy:**
 1. Create query embedding
 2. Compare to INTENT_EXEMPLARS (pre-computed exemplar embeddings)
 3. Return intent with highest similarity (≥0.65 threshold)
-4. Fall back to keyword matching if low confidence
+4. Default to `QueryIntent.SPECIFIC` if low confidence (no keyword fallback — embeddings required)
+
+**Guidance Determination:** PedagogicalIntent → GuidanceMode mapping: ASSESS_UNDERSTANDING/PROBE_DEEPER → SOCRATIC, SCAFFOLD/SURFACE_CONNECTION → EXPLORATORY, REDIRECT_TO_CURRICULUM/OUT_OF_SCOPE → DIRECT, ENCOURAGE_PRACTICE → ENCOURAGING.
 
 **Intent Types:** HIERARCHICAL, PREREQUISITE, PRACTICE, EXPLORATORY, RELATIONSHIP, AGGREGATION, SPECIFIC
 
-### ResponseGenerator (January 2026 - New)
+### ResponseGenerator (March 2026 - Actions + Guided Prompts)
 
-**Purpose:** Generate actions and LLM-friendly context
+**Purpose:** Generate actions, LLM-friendly context, and GuidanceMode-aware system prompts
 
 **Key Methods:**
 - `build_llm_context()` - Convert UserContext to natural language for LLM
+- `build_guided_system_prompt()` - Build mode-specific system prompt from GuidanceDetermination (4 builders: DIRECT, SOCRATIC, EXPLORATORY, ENCOURAGING)
 - `generate_actions()` - Generate suggested actions from user context
 - `generate_suggested_actions()` - Generate actions from query context
 
-**Context Selection:** Intelligently selects relevant UserContext fields based on query keywords
+**Context Selection:** Selects relevant UserContext sections based on classified intent (not keyword heuristics)
 
 ### EntityExtractor
 
@@ -291,22 +295,26 @@ if result.is_ok:
 
 **Strategies:** Exact match, partial word match, acronym match
 
-### ContextRetriever (January 2026 - Fully Implemented)
+### ContextRetriever (March 2026 - Retrieval + LS Bundle Loading)
 
-**Purpose:** Retrieve domain-specific context for queries with semantic search
+**Purpose:** Retrieve domain-specific context and load LS bundles for guided pipeline
 
 **Key Methods:**
 - `get_learning_context()` - Learning-focused context
 - `analyze_knowledge_gaps()` - Gap identification with prerequisite analysis
 - `retrieve_relevant_context()` - Multi-domain context
+- `load_ls_bundle()` - Load complete LS bundle from UserContext + service lookups (absorbed from LSContextLoader, March 2026)
 
-**Internal Methods (January 2026 - Implemented):**
+**Internal Methods:**
 - `_find_similar_knowledge()` - Semantic search via EmbeddingsService (cosine similarity ≥0.6)
 - `_build_user_learning_context_query()` - Comprehensive Cypher with 5 OPTIONAL MATCH clauses
 - `_analyze_blocked_knowledge_prerequisites()` - Gap analysis identifying missing prerequisites
 - `_identify_quick_wins_and_high_impact()` - Classification by prerequisite count:
   - **Quick wins**: 0-1 prerequisites (easy to start)
   - **High impact**: Many dependents (unblocks the most)
+- `_fetch_articles()`, `_fetch_kus()`, `_fetch_entities_by_uid()` - Parallel entity fetching via `asyncio.gather()`
+
+**LS bundle deps** use `EntityLookup` protocol (async `get(uid) -> Result[Any]`): article_service, ku_service, habits_service, tasks_service, events_service, principles_service, lp_service.
 
 **Graph Integration:** Uses GraphIntelligenceService for semantic analysis and EmbeddingsService for vector similarity
 
@@ -428,11 +436,11 @@ print('Protocol defined correctly')
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| **IntentClassifier** | 100% | 7 intent types, 48 exemplars |
-| **EntityExtractor** | 100% | Multi-domain extraction |
-| **ContextRetriever** | ~95% | Semantic search, gap analysis implemented |
-| **QueryProcessor** | ~95% | LLM integration with fallback; uses `get_rich_unified_context()` |
-| **ResponseGenerator** | 100% | Action generation, context building |
+| **IntentClassifier** | 100% | 7 intent types, 48 exemplars + GuidanceDetermination |
+| **EntityExtractor** | 100% | Multi-domain extraction + bundle-scoped extraction |
+| **ContextRetriever** | 100% | Semantic search, gap analysis, LS bundle loading (parallel fetching) |
+| **QueryProcessor** | 100% | LP-scoped, GuidanceMode-aware pipeline in both entry points |
+| **ResponseGenerator** | 100% | Action generation, context building, 4 guided system prompt builders |
 | **UserStateAnalyzer** | 100% | State scoring via pure functions |
 | **ActionRecommendationEngine** | 100% | Priority-based recommendations |
 | **Facade (AskesisService)** | ~95% | Prerequisite ordering implemented |

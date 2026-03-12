@@ -59,8 +59,8 @@ class AskesisDeps:
     goals_service: Any
     habits_service: Any
     events_service: Any
+    zpd_service: ZPDOperations            # Required for guided pipeline (LP gate ensures curriculum exists)
     citation_service: Any | None = None   # Not yet wired in bootstrap
-    zpd_service: Any | None = None        # Optional: requires curriculum graph ≥ 3 KUs
     # LS bundle dependencies for ContextRetriever
     ku_service: Any | None = None         # For LS bundle KU fetching
     lp_service: Any | None = None         # For LS bundle LP fetching

@@ -183,7 +183,7 @@ This is separate from `Neo4jVectorSearchService` — it's a simpler, direct comp
 
 **Service:** `QueryProcessor` (`core/services/askesis/query_processor.py`)
 
-**Entry point:** `answer_user_question(user_uid, question)`
+**Entry points:** `answer_user_question(user_uid, question)` and `process_query_with_context(user_uid, query, depth)` — both run the same LP-scoped, GuidanceMode-aware pipeline.
 
 The orchestrator runs 7 steps in sequence:
 
@@ -356,7 +356,7 @@ AskesisService (Facade — zero business logic)
 
 ### One Pipeline — LP-Scoped, GuidanceMode-Aware
 
-`answer_user_question()` runs a single pipeline that is LP-scoped (enrollment gate), ZPD-informed (targeted KU readiness), and GuidanceMode-aware (DIRECT/SOCRATIC/EXPLORATORY/ENCOURAGING). When an LS bundle is available, the pipeline loads ZPD evidence for target KUs, determines the GuidanceMode via `IntentClassifier.determine_guidance_mode()`, and builds a guided system prompt via `ResponseGenerator.build_guided_system_prompt()`. When no LS bundle is available (no active learning step), it falls back to standard global RAG.
+Both `answer_user_question()` and `process_query_with_context()` run the same LP-scoped, ZPD-informed, GuidanceMode-aware pipeline. When an LS bundle is available, the pipeline loads ZPD evidence for target KUs, determines the GuidanceMode via `IntentClassifier.determine_guidance_mode()`, and builds a guided system prompt via `ResponseGenerator.build_guided_system_prompt()`. The guided pipeline activates even when no specific KUs are extracted from the question — `classify_pedagogical_intent()` handles this (returning OUT_OF_SCOPE or ENCOURAGE_PRACTICE). When no LS bundle is available (no active learning step), both methods fall back to standard global RAG.
 
 See: `/docs/architecture/ASKESIS_SOCRATIC_ARCHITECTURE.md`
 
