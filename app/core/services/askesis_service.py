@@ -88,6 +88,8 @@ class AskesisDeps:
     zpd_service: ZPDOperations
     # Citation service — formats graph citations for Askesis responses
     citation_service: Any | None = None
+    # Vector search service — Neo4j native vector indexes for semantic search
+    vector_search_service: Any | None = None  # boundary: Neo4jVectorSearchService
     # LS bundle dependencies for ContextRetriever — None is valid when not available
     ku_service: Any | None = None
     lp_service: Any | None = None
@@ -177,6 +179,7 @@ class AskesisService:
         self.context_retriever = ContextRetriever(
             graph_intelligence_service=deps.graph_intelligence_service,
             embeddings_service=deps.embeddings_service,
+            vector_search_service=deps.vector_search_service,
             # LS bundle dependencies (absorbed from LSContextLoader)
             article_service=deps.knowledge_service,
             ku_service=deps.ku_service,

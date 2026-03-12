@@ -157,9 +157,7 @@ class LSBundle:
                 if resource.description:
                     entry += f" — {resource.get_summary(150)}"
                 resource_parts.append(f"- {entry}")
-            parts.append(
-                "## Referenced Resources\n\n" + "\n".join(resource_parts)
-            )
+            parts.append("## Referenced Resources\n\n" + "\n".join(resource_parts))
 
         raw = "\n\n---\n\n".join(parts)
         return truncate_to_budget(raw, AskesisTokenBudget.MAX_CURRICULUM_CHARS)

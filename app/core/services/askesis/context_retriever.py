@@ -93,14 +93,15 @@ class ContextRetriever:
         self,
         graph_intelligence_service: Any,  # boundary: GraphIntelligenceService protocol not yet extracted
         embeddings_service: Any,  # boundary: EmbeddingsService protocol not yet extracted
+        vector_search_service: Any | None = None,  # boundary: Neo4jVectorSearchService
         # LS bundle dependencies — all required (fail-fast per SKUEL philosophy)
-        article_service: EntityLookup,
-        ku_service: EntityLookup,
-        habits_service: EntityLookup,
-        tasks_service: EntityLookup,
-        events_service: EntityLookup,
-        principles_service: EntityLookup,
-        lp_service: EntityLookup,
+        article_service: EntityLookup | None = None,
+        ku_service: EntityLookup | None = None,
+        habits_service: EntityLookup | None = None,
+        tasks_service: EntityLookup | None = None,
+        events_service: EntityLookup | None = None,
+        principles_service: EntityLookup | None = None,
+        lp_service: EntityLookup | None = None,
     ) -> None:
         """
         Initialize context retriever.
@@ -113,6 +114,7 @@ class ContextRetriever:
         Args:
             graph_intelligence_service: GraphIntelligenceService for graph intelligence queries
             embeddings_service: EmbeddingsService for semantic search
+            vector_search_service: Neo4jVectorSearchService for native vector index search
             article_service: For fetching full Article content (LS bundle)
             ku_service: For fetching full Ku objects from trains_ku_uids (LS bundle)
             habits_service: For fetching full Habit objects from graph_context (LS bundle)
@@ -123,6 +125,7 @@ class ContextRetriever:
         """
         self.graph_intel = graph_intelligence_service
         self.embeddings_service = embeddings_service
+        self.vector_search_service = vector_search_service
 
         # LS bundle dependencies
         self.article_service = article_service
@@ -206,12 +209,10 @@ class ContextRetriever:
                 "overdue_tasks": len(user_context.overdue_task_uids),
             }
 
-        # PHASE 2: Semantic search enrichment
-
-        # Add semantic search for knowledge-related queries
-        if self.embeddings_service and any(
-            word in query.lower() for word in ["learn", "know", "study", "understand", "master"]
-        ):
+        # PHASE 2: Semantic search enrichment via Neo4j native vector indexes
+        # Always attempt when vector_search_service is available — the min_score
+        # threshold (0.6) already filters irrelevant results without a keyword gate.
+        if self.vector_search_service:
             similar_knowledge = await self._find_similar_knowledge(query, user_context.user_uid)
             if similar_knowledge:
                 context["semantically_similar_knowledge"] = [
@@ -682,7 +683,10 @@ class ContextRetriever:
         self, query: str, _user_uid: str
     ) -> list[tuple[str, float, str]]:
         """
-        Find semantically similar knowledge using embeddings.
+        Find semantically similar knowledge using Neo4j native vector indexes.
+
+        Uses Neo4jVectorSearchService.find_similar_by_text() which handles
+        embedding creation + db.index.vector.queryNodes() in one call.
 
         Args:
             query: User's question
@@ -691,47 +695,22 @@ class ContextRetriever:
         Returns:
             List of (uid, similarity_score, title) tuples
         """
-        # Step 1: Embed the query (returns Result[list[float]])
-        query_result = await self.embeddings_service.create_embedding(query)
-        if query_result.is_error:
-            logger.warning("Failed to create query embedding for semantic search")
-            return []
-        query_embedding = query_result.value
-
-        # Step 2: Get knowledge entities (Articles + KUs + Resources) with embeddings
-        ku_query = """
-        MATCH (ku:Entity)
-        WHERE ku.embedding IS NOT NULL
-          AND ku.entity_type IN ['article', 'ku', 'resource']
-        RETURN ku.uid AS uid, ku.title AS title, ku.embedding AS embedding
-        LIMIT 100
-        """
-        result = await self.graph_intel.execute_query(ku_query)
-        if result.is_error or not result.value:
-            logger.debug("No KUs with embeddings found for semantic search")
+        if not self.vector_search_service:
             return []
 
-        # Step 3: Build embeddings list
-        embeddings_list = [
-            (record["uid"], record["embedding"])
-            for record in result.value
-            if record.get("embedding")
-        ]
-
-        if not embeddings_list:
-            return []
-
-        # Step 4: Find similar using EmbeddingsService
-        similar = self.embeddings_service.find_similar(
-            query_embedding=query_embedding,
-            embeddings=embeddings_list,
-            threshold=0.6,
-            top_k=5,
+        result = await self.vector_search_service.find_similar_by_text(
+            "Entity", query, limit=5, min_score=0.6
         )
 
-        # Step 5: Map back to (uid, score, title)
-        title_map = {r["uid"]: r["title"] for r in result.value}
-        return [(uid, score, title_map.get(uid, "Unknown")) for uid, score in similar]
+        if result.is_error:
+            logger.warning("Semantic search failed: %s", result.expect_error())
+            return []
+
+        return [
+            (item["node"].get("uid", ""), item["score"], item["node"].get("title", "Unknown"))
+            for item in result.value
+            if item.get("node", {}).get("uid")
+        ]
 
     def _build_user_learning_context_query(
         self, user_uid: str, depth: int

@@ -54,6 +54,7 @@ def create_askesis_service(
         events_service=activity_services["events"],
         zpd_service=zpd_service,
         citation_service=citation_service,
+        vector_search_service=learning_services.get("vector_search_service"),
         # LS bundle dependencies for ContextRetriever
         ku_service=learning_services.get("atomic_ku_service"),
         lp_service=learning_services.get("learning_paths"),
