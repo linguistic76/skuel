@@ -35,7 +35,7 @@ class TestSemanticEnhancedSearch:
     def mock_embeddings_service(self):
         """Create mock embeddings service."""
         service = MagicMock()
-        service.create_embedding = AsyncMock(return_value=Result.ok([0.1] * 1536))
+        service.create_embedding = AsyncMock(return_value=Result.ok([0.1] * 1024))
         return service
 
     @pytest.fixture
@@ -217,7 +217,7 @@ class TestLearningAwareSearch:
     def mock_embeddings_service(self):
         """Create mock embeddings service."""
         service = MagicMock()
-        service.create_embedding = AsyncMock(return_value=Result.ok([0.1] * 1536))
+        service.create_embedding = AsyncMock(return_value=Result.ok([0.1] * 1024))
         return service
 
     @pytest.fixture
@@ -456,7 +456,7 @@ class TestGracefulDegradation:
     def mock_embeddings_service(self):
         """Create mock embeddings service."""
         service = MagicMock()
-        service.create_embedding = AsyncMock(return_value=Result.ok([0.1] * 1536))
+        service.create_embedding = AsyncMock(return_value=Result.ok([0.1] * 1024))
         return service
 
     @pytest.mark.asyncio

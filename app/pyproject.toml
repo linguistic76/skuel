@@ -40,7 +40,7 @@ dependencies = [
     "anthropic>=0.57.1",
     "rdflib>=7.1.4",
     "psutil>=7.0.0",
-    "deepgram-sdk>=4.8.1",
+    "deepgram-sdk>=4.8.1,<5.0.0",
     # Security Dependencies
     "cryptography>=44.0.0",
     "python-slugify>=8.0.4",
@@ -427,6 +427,8 @@ markers = [
 
 # Async test configuration
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
 
 # Warning filters - suppress third-party deprecation warnings
 filterwarnings = [

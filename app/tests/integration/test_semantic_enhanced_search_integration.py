@@ -40,7 +40,7 @@ async def test_semantic_enhanced_search_with_relationships(
                 created_at: datetime()
             })
         """,
-            embedding=[0.1] * 1536,
+            embedding=[0.1] * 1024,
         )
         await result.consume()
 
@@ -55,7 +55,7 @@ async def test_semantic_enhanced_search_with_relationships(
                 created_at: datetime()
             })
         """,
-            embedding=[0.15] * 1536,
+            embedding=[0.15] * 1024,
         )
         await result.consume()
 
@@ -140,7 +140,7 @@ async def test_learning_aware_search_with_states(
                 created_at: datetime()
             })
         """,
-            embedding=[0.2] * 1536,
+            embedding=[0.2] * 1024,
         )
         await result.consume()
 
@@ -155,7 +155,7 @@ async def test_learning_aware_search_with_states(
                 created_at: datetime()
             })
         """,
-            embedding=[0.25] * 1536,
+            embedding=[0.25] * 1024,
         )
         await result.consume()
 
@@ -224,7 +224,7 @@ async def test_semantic_boost_multiple_relationships(
                 embedding: $embedding
             })
         """,
-            embedding=[0.1] * 1536,
+            embedding=[0.1] * 1024,
         )
         await result.consume()
 
@@ -236,7 +236,7 @@ async def test_semantic_boost_multiple_relationships(
                 embedding: $embedding
             })
         """,
-            embedding=[0.12] * 1536,
+            embedding=[0.12] * 1024,
         )
         await result.consume()
 
@@ -250,7 +250,7 @@ async def test_semantic_boost_multiple_relationships(
                 embedding: $embedding
             })
         """,
-            embedding=[0.15] * 1536,
+            embedding=[0.15] * 1024,
         )
         await result.consume()
 
@@ -316,7 +316,7 @@ async def test_performance_semantic_enhanced_search(
                     embedding: $embedding
                 }})
             """,
-                embedding=[0.1 + i * 0.01] * 1536,
+                embedding=[0.1 + i * 0.01] * 1024,
             )
             await result.consume()
 
@@ -380,7 +380,7 @@ async def test_performance_learning_aware_search(
                     embedding: $embedding
                 }})
             """,
-                embedding=[0.1 + i * 0.01] * 1536,
+                embedding=[0.1 + i * 0.01] * 1024,
             )
             await result.consume()
 
@@ -495,9 +495,9 @@ async def test_end_to_end_semantic_discovery_workflow(
                 embedding: $emb3
             })
         """,
-            emb1=[0.1] * 1536,
-            emb2=[0.15] * 1536,
-            emb3=[0.2] * 1536,
+            emb1=[0.1] * 1024,
+            emb2=[0.15] * 1024,
+            emb3=[0.2] * 1024,
         )
         await result.consume()
 

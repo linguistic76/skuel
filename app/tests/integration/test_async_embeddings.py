@@ -102,7 +102,7 @@ class TestEmbeddingBackgroundWorker:
         """
         # Mock embeddings service
         embeddings_service.create_batch_embeddings = AsyncMock(
-            return_value=Mock(is_ok=True, is_error=False, value=[[0.1] * 1536 for _ in range(10)])
+            return_value=Mock(is_ok=True, is_error=False, value=[[0.1] * 1024 for _ in range(10)])
         )
 
         # Mock config for embedding version

@@ -27,7 +27,7 @@ def create_mock_embeddings_service() -> Mock:
     embeddings = Mock()
 
     # Production code calls .is_ok/.is_error/.value on the result
-    embeddings.create_embedding = AsyncMock(return_value=Result.ok([0.1] * 1536))
+    embeddings.create_embedding = AsyncMock(return_value=Result.ok([0.1] * 1024))
 
     return embeddings
 

@@ -60,7 +60,7 @@ def neo4j_uri(neo4j_container):
     return neo4j_container.get_connection_url()
 
 
-@pytest_asyncio.fixture(scope="session")
+@pytest_asyncio.fixture(scope="session", loop_scope="session")
 async def neo4j_driver(neo4j_uri):
     """Create Neo4j driver connected to test container."""
     driver = AsyncGraphDatabase.driver(neo4j_uri, auth=("neo4j", "testpassword"))
@@ -77,7 +77,7 @@ async def neo4j_driver(neo4j_uri):
     await driver.close()
 
 
-@pytest_asyncio.fixture(scope="session")
+@pytest_asyncio.fixture(scope="session", loop_scope="session")
 async def ensure_test_users(neo4j_driver):
     """
     Ensure all test user UIDs have User nodes in the database.
@@ -165,7 +165,7 @@ async def clean_neo4j(neo4j_driver, create_moc_test_user, ensure_test_users):
                 ON (n.embedding)
                 OPTIONS {
                     indexConfig: {
-                        `vector.dimensions`: 1536,
+                        `vector.dimensions`: 1024,
                         `vector.similarity_function`: 'cosine'
                     }
                 }
@@ -368,7 +368,7 @@ async def create_test_users(neo4j_driver):
         )
 
 
-@pytest_asyncio.fixture(scope="session")
+@pytest_asyncio.fixture(scope="session", loop_scope="session")
 async def create_moc_test_user(neo4j_driver):
     """Create test user node for MOC integration tests."""
     from datetime import datetime

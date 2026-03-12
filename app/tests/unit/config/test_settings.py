@@ -57,7 +57,7 @@ def mock_unified_config():
         redis_db=0,
         redis_password=None,
     )
-    mock_config.genai = GenAIConfig(embedding_dimension=1536)
+    mock_config.genai = GenAIConfig(embedding_dimension=1024)
     mock_config.message_queue = MessageQueueConfig()
     mock_config.search = SearchConfig() if hasattr(SearchConfig, "__init__") else MagicMock()
     mock_config.askesis = AskesisConfig() if hasattr(AskesisConfig, "__init__") else MagicMock()
@@ -320,13 +320,13 @@ class TestQuickAccessHelpers:
                 assert url == "redis://:secret@localhost:6379/0"
 
     def test_embedding_dimension_default(self, mock_unified_config):
-        """Test embedding_dimension returns OpenAI default."""
+        """Test embedding_dimension returns HuggingFace default."""
         with patch("core.config.settings.create_config", return_value=mock_unified_config):
             with patch("core.config.settings.validate_config", return_value=[]):
                 from core.config.settings import embedding_dimension
 
-                # Default for text-embedding-3-small
-                assert embedding_dimension() == 1536
+                # Default for BAAI/bge-large-en-v1.5
+                assert embedding_dimension() == 1024
 
 
 class TestReloadConfig:

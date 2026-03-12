@@ -20,7 +20,7 @@ async def test_embedding_generation_with_mock(mock_embeddings_service):
     assert result.is_ok
     embedding = result.value
     assert isinstance(embedding, list)
-    assert len(embedding) == 1536  # Standard dimension
+    assert len(embedding) == 1024  # Standard dimension
     assert all(isinstance(x, float) for x in embedding)
 
 
@@ -35,7 +35,7 @@ async def test_batch_embedding_generation_with_mock(mock_embeddings_service):
     assert result.is_ok
     embeddings = result.value
     assert len(embeddings) == 3
-    assert all(len(emb) == 1536 for emb in embeddings)
+    assert all(len(emb) == 1024 for emb in embeddings)
 
     # Each embedding should be different (based on text length + index)
     assert embeddings[0] != embeddings[1]
@@ -80,7 +80,7 @@ async def test_vector_search_by_vector_with_mock(mock_vector_search_service):
     """Test vector similarity search using mock service."""
 
     # Mock embedding
-    query_embedding = [0.001 * i for i in range(1, 1537)]
+    query_embedding = [0.001 * i for i in range(1, 1025)]
 
     result = await mock_vector_search_service.find_similar_by_vector(
         label="Entity", embedding=query_embedding, limit=5, min_score=0.7
@@ -135,7 +135,7 @@ async def test_vector_search_to_node_with_mock(mock_vector_search_service):
 async def test_cross_domain_search_with_mock(mock_vector_search_service):
     """Test cross-domain similarity search using mock service."""
 
-    query_embedding = [0.001 * i for i in range(1, 1537)]
+    query_embedding = [0.001 * i for i in range(1, 1025)]
 
     result = await mock_vector_search_service.find_cross_domain_similar(
         embedding=query_embedding,
@@ -190,7 +190,7 @@ async def test_embeddings_unavailable_scenario(mock_embeddings_unavailable):
     assert result.is_error
     error = result.expect_error()
     assert "unavailable" in str(error).lower()
-    assert "plugin" in str(error).lower()
+    assert "hf_api_token" in str(error).lower()
 
 
 @pytest.mark.asyncio
@@ -198,7 +198,7 @@ async def test_vector_search_unavailable_scenario(mock_vector_search_unavailable
     """Test graceful degradation when vector search unavailable."""
 
     result = await mock_vector_search_unavailable.find_similar_by_vector(
-        label="Entity", embedding=[0.1] * 1536, limit=5
+        label="Entity", embedding=[0.1] * 1024, limit=5
     )
 
     assert result.is_error

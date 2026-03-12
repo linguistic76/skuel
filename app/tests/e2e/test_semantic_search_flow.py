@@ -65,8 +65,8 @@ async def test_complete_semantic_search_flow(
     # Verify embedding was generated
     assert isinstance(prepared, dict)
     assert "embedding" in prepared
-    assert len(prepared["embedding"]) == 1536
-    assert prepared["embedding_model"] == "text-embedding-3-small"
+    assert len(prepared["embedding"]) == 1024
+    assert prepared["embedding_model"] == "BAAI/bge-large-en-v1.5"
     assert prepared["embedding_updated_at"] is not None
 
     # 2. Store in Neo4j
@@ -99,8 +99,8 @@ async def test_complete_semantic_search_flow(
 
     assert record["uid"] == created_uid
     assert record["title"] == "Python List Comprehensions"
-    assert record["embedding_dim"] == 1536
-    assert record["model"] == "text-embedding-3-small"
+    assert record["embedding_dim"] == 1024
+    assert record["model"] == "BAAI/bge-large-en-v1.5"
 
     # 4. Search for similar content using mock vector search
     vector_search = services_with_embeddings["vector_search"]
@@ -229,7 +229,7 @@ async def test_batch_embedding_generation_e2e(neo4j_driver, clean_neo4j, mock_em
         record = await result.single()
 
     assert record["count"] == 10
-    assert record["first_dim"] == 1536  # All embeddings 1536 dimensions
+    assert record["first_dim"] == 1024  # All embeddings 1536 dimensions
 
 
 @pytest.mark.e2e
@@ -468,7 +468,7 @@ async def test_cross_domain_semantic_search(neo4j_driver, clean_neo4j, services_
     vector_search = services_with_embeddings["vector_search"]
 
     cross_domain_result = await vector_search.find_cross_domain_similar(
-        embedding=[0.001 * i for i in range(1, 1537)],  # Query embedding
+        embedding=[0.001 * i for i in range(1, 1025)],  # Query embedding
         labels=["Entity", "Task", "Goal"],
         limit_per_label=5,
         min_score=0.5,
@@ -561,7 +561,7 @@ async def test_embedding_update_workflow(neo4j_driver, clean_neo4j, services_wit
         record = await result.single()
 
     assert record["content"] == text_v2
-    assert record["embedding_dim"] == 1536
+    assert record["embedding_dim"] == 1024
 
 
 @pytest.mark.e2e

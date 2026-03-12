@@ -56,10 +56,10 @@ async def embeddings_service():
     from core.utils.result_simplified import Result
 
     mock = Mock()
-    mock.model = "text-embedding-3-small"
+    mock.model = "BAAI/bge-large-en-v1.5"
 
     async def fake_batch_embeddings(texts: list[str]) -> Result:
-        fake_vector = [0.1] * 1536
+        fake_vector = [0.1] * 1024
         return Result.ok([fake_vector for _ in texts])
 
     mock.create_batch_embeddings = fake_batch_embeddings

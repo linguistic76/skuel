@@ -202,7 +202,7 @@ class TestCurriculumDTOFromDict:
             "uid": "ku_embed",
             "title": "With Embedding",
             "domain": "knowledge",
-            "embedding": [0.1] * 1536,
+            "embedding": [0.1] * 1024,
             "embedding_model": "text-embedding-3-small",
             "embedding_updated_at": datetime.now().isoformat(),
         }

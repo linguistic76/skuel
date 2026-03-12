@@ -120,7 +120,7 @@ async def setup_benchmark_data(driver):
                 uid=f"ku.bench-{i}",
                 title=f"Benchmark KU {i}",
                 description=f"Test knowledge unit {i} for benchmarking",
-                embedding=[0.01 * i] * 1536,
+                embedding=[0.01 * i] * 1024,
             )
 
         # Create semantic relationships (20% of KUs have relationships)
@@ -200,7 +200,7 @@ async def run_benchmarks():
         async def create_embedding(self, text):
             from core.utils.result_simplified import Result
 
-            return Result.ok([0.1] * 1536)
+            return Result.ok([0.1] * 1024)
 
     embeddings_service = MockEmbeddingsService()
     config = VectorSearchConfig(ku_min_score=0.0)
