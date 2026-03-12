@@ -92,17 +92,22 @@ class ContextRetriever:
         self,
         graph_intelligence_service: Any,  # boundary: GraphIntelligenceService protocol not yet extracted
         embeddings_service: Any,  # boundary: EmbeddingsService protocol not yet extracted
-        # LS bundle dependencies (absorbed from LSContextLoader)
-        article_service: EntityLookup | None = None,
-        ku_service: EntityLookup | None = None,
-        habits_service: EntityLookup | None = None,
-        tasks_service: EntityLookup | None = None,
-        events_service: EntityLookup | None = None,
-        principles_service: EntityLookup | None = None,
-        lp_service: EntityLookup | None = None,
+        # LS bundle dependencies — all required (fail-fast per SKUEL philosophy)
+        article_service: EntityLookup,
+        ku_service: EntityLookup,
+        habits_service: EntityLookup,
+        tasks_service: EntityLookup,
+        events_service: EntityLookup,
+        principles_service: EntityLookup,
+        lp_service: EntityLookup,
     ) -> None:
         """
         Initialize context retriever.
+
+        All entity services are required. ContextRetriever loads LS bundles
+        that need full entity content — constructing without services would
+        silently produce empty bundles at query time, which is harder to
+        debug than a clear construction-time error.
 
         Args:
             graph_intelligence_service: GraphIntelligenceService for graph intelligence queries

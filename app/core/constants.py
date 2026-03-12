@@ -302,6 +302,24 @@ class AskesisTokenBudget:
     MAX_USER_PROMPT_CURRICULUM_CHARS: Final = 10000
 
 
+class AskesisPipelineTimeout:
+    """
+    Timeout limits for the Askesis RAG pipeline.
+
+    A typical pipeline (MEGA-QUERY + intent + extraction + bundle + LLM)
+    completes in 5-7 seconds. The timeout prevents infinite hangs from
+    slow Neo4j queries, unresponsive LLM APIs, or network issues.
+
+    March 2026: Added to prevent unbounded pipeline execution.
+    """
+
+    # Maximum seconds for the complete answer_user_question() pipeline.
+    ANSWER_QUESTION_SECONDS: Final = 30
+
+    # Maximum seconds for the complete process_query_with_context() pipeline.
+    PROCESS_QUERY_SECONDS: Final = 30
+
+
 class QueryProcessorConfidence:
     """
     Confidence scoring for QueryProcessor RAG pipeline responses.

@@ -471,18 +471,10 @@ class ResponseGenerator:
         if ctx.latest_activity_report_period:
             parts.append(f"Period: last {ctx.latest_activity_report_period}")
         if ctx.latest_activity_report_content:
-            content = ctx.latest_activity_report_content
-            _max = 500
-            if len(content) <= _max:
-                snippet = content
-            else:
-                boundary = max(
-                    content.rfind(". ", 0, _max),
-                    content.rfind("\n", 0, _max),
-                )
-                snippet = content[: boundary + 1] if boundary != -1 else content[:_max]
-            trailing = "..." if len(content) > len(snippet) else ""
-            parts.append(f"AI synthesis: {snippet}{trailing}")
+            from core.utils.text_truncation import truncate_to_budget
+
+            snippet = truncate_to_budget(ctx.latest_activity_report_content, 500)
+            parts.append(f"AI synthesis: {snippet}")
         if ctx.latest_activity_report_user_annotation:
             parts.append(f"Your reflection: {ctx.latest_activity_report_user_annotation}")
 

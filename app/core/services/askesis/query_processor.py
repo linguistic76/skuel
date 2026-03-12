@@ -36,9 +36,10 @@ LP enrollment gate. ZPD + GuidanceMode wired into answer flow.
 
 from __future__ import annotations
 
+import asyncio
 from typing import TYPE_CHECKING, Any
 
-from core.constants import QueryProcessorConfidence
+from core.constants import AskesisPipelineTimeout, QueryProcessorConfidence
 from core.models.query_types import QueryIntent
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
@@ -150,6 +151,8 @@ class QueryProcessor:
         When an LS bundle is available, the pipeline uses ZPD evidence and
         GuidanceMode to produce a pedagogically appropriate response.
 
+        Timeout: AskesisPipelineTimeout.ANSWER_QUESTION_SECONDS (default 30s).
+
         Args:
             user_uid: User's unique identifier
             question: Natural language question from user
@@ -162,6 +165,29 @@ class QueryProcessor:
             - confidence: Confidence score (0.0-1.0)
             - guidance_mode: GuidanceMode used for guided response (if LS bundle available)
         """
+        try:
+            return await asyncio.wait_for(
+                self._answer_user_question_pipeline(user_uid, question),
+                timeout=AskesisPipelineTimeout.ANSWER_QUESTION_SECONDS,
+            )
+        except TimeoutError:
+            logger.error(
+                "answer_user_question timed out after %ds for user %s",
+                AskesisPipelineTimeout.ANSWER_QUESTION_SECONDS,
+                user_uid,
+            )
+            return Result.fail(
+                Errors.system(
+                    message=f"Pipeline timed out after {AskesisPipelineTimeout.ANSWER_QUESTION_SECONDS}s",
+                    operation="answer_user_question",
+                    user_message="Your question is taking too long to process. Please try again.",
+                )
+            )
+
+    async def _answer_user_question_pipeline(
+        self, user_uid: str, question: str
+    ) -> Result[dict[str, Any]]:
+        """Inner pipeline for answer_user_question, wrapped with timeout."""
         # Step 1: Get full user context
         user_context_result = await self.user_service.get_rich_unified_context(user_uid)
         if user_context_result.is_error:
@@ -342,6 +368,8 @@ class QueryProcessor:
         context in a single Pure Cypher query and generates personalized,
         GuidanceMode-aware responses.
 
+        Timeout: AskesisPipelineTimeout.PROCESS_QUERY_SECONDS (default 30s).
+
         Args:
             user_uid: Unique identifier of the user
             query_message: User's query or request
@@ -358,6 +386,29 @@ class QueryProcessor:
                 "guidance_mode": str | None
             }
         """
+        try:
+            return await asyncio.wait_for(
+                self._process_query_with_context_pipeline(user_uid, query_message, depth),
+                timeout=AskesisPipelineTimeout.PROCESS_QUERY_SECONDS,
+            )
+        except TimeoutError:
+            logger.error(
+                "process_query_with_context timed out after %ds for user %s",
+                AskesisPipelineTimeout.PROCESS_QUERY_SECONDS,
+                user_uid,
+            )
+            return Result.fail(
+                Errors.system(
+                    message=f"Pipeline timed out after {AskesisPipelineTimeout.PROCESS_QUERY_SECONDS}s",
+                    operation="process_query_with_context",
+                    user_message="Your question is taking too long to process. Please try again.",
+                )
+            )
+
+    async def _process_query_with_context_pipeline(
+        self, user_uid: str, query_message: str, depth: int = 2
+    ) -> Result[dict[str, Any]]:
+        """Inner pipeline for process_query_with_context, wrapped with timeout."""
         # LP enrollment gate: load user context to check enrollment
         user_context_result = await self.user_service.get_rich_unified_context(user_uid)
         if user_context_result.is_error:

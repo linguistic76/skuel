@@ -199,6 +199,13 @@ class TestLoadLsBundlePartialFailure:
         retriever = ContextRetriever(
             graph_intelligence_service=MagicMock(),
             embeddings_service=MagicMock(),
+            article_service=MagicMock(),
+            ku_service=MagicMock(),
+            habits_service=MagicMock(),
+            tasks_service=MagicMock(),
+            events_service=MagicMock(),
+            principles_service=MagicMock(),
+            lp_service=MagicMock(),
         )
 
         ctx = MagicMock()
