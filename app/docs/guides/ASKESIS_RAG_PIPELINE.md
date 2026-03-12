@@ -333,15 +333,13 @@ Returns 3-5 prioritized next steps:
 ```
 AskesisService (Facade — zero business logic)
 │
-├── QueryProcessor (RAG orchestrator — THIS GUIDE)
+├── QueryProcessor (LP-scoped RAG orchestrator — THIS GUIDE)
 │   ├── IntentClassifier      ← embeds question, matches to intent exemplars
-│   │                           + classify_pedagogical_intent() for Socratic pipeline
+│   │                           + determine_guidance_mode() for GuidanceMode selection
 │   ├── EntityExtractor       ← fuzzy-matches entities in the question
 │   │                           + extract_from_bundle() for LS-scoped extraction
-│   ├── ContextRetriever      ← graph traversal + semantic search (legacy pipeline)
-│   ├── ResponseGenerator     ← builds LLM context, generates actions (legacy pipeline)
-│   ├── LSContextLoader       ← loads LS bundle for Socratic pipeline
-│   └── SocraticEngine        ← generates pedagogical moves (pure logic, no I/O)
+│   ├── ContextRetriever      ← graph traversal + semantic search + LS bundle loading
+│   └── ResponseGenerator     ← builds LLM context, guided system prompts, actions
 │
 ├── UserStateAnalyzer         ← comprehensive state analysis
 ├── ActionRecommendationEngine ← "what should I do next?"
@@ -351,16 +349,14 @@ AskesisService (Facade — zero business logic)
     ├── LLMService             ← generates natural language answers
     ├── HuggingFaceEmbeddingsService ← creates embeddings
     ├── GraphIntelligenceService ← executes graph queries
-    ├── ZPDService             ← targeted KU readiness assessment (Socratic pipeline)
+    ├── ZPDService             ← targeted KU readiness assessment
     ├── Neo4jVectorSearchService ← vector similarity search
     └── Domain services (articles, tasks, goals, habits, events, kus, lps, principles)
 ```
 
-### Two Pipelines
+### One Pipeline — LP-Scoped, GuidanceMode-Aware
 
-**Legacy pipeline** (`answer_user_question()`): Global retrieval + LLM generation. Uses embedding-based intent classification, global entity extraction, graph+semantic context retrieval, and ResponseGenerator for LLM context building.
-
-**Socratic pipeline** (`ask_socratic()` / `process_socratic_turn()`): LS-scoped tutoring. Uses LSContextLoader to load the active Learning Step bundle, deterministic pedagogical intent classification, targeted ZPD assessment, SocraticEngine for move generation, and direct LLM call with pedagogical system prompts. Does not give answers — asks the user to produce knowledge.
+`answer_user_question()` runs a single pipeline that is LP-scoped (enrollment gate), ZPD-informed (targeted KU readiness), and GuidanceMode-aware (DIRECT/SOCRATIC/EXPLORATORY/ENCOURAGING). When an LS bundle is available, the pipeline loads ZPD evidence for target KUs, determines the GuidanceMode via `IntentClassifier.determine_guidance_mode()`, and builds a guided system prompt via `ResponseGenerator.build_guided_system_prompt()`. When no LS bundle is available (no active learning step), it falls back to standard global RAG.
 
 See: `/docs/architecture/ASKESIS_SOCRATIC_ARCHITECTURE.md`
 
@@ -443,15 +439,11 @@ Single-word titles under 4 characters won't match via partial word. Titles not i
 | `core/services/askesis/query_processor.py` | RAG orchestrator |
 | `core/services/askesis/intent_classifier.py` | Intent classification via embeddings |
 | `core/services/askesis/entity_extractor.py` | Entity extraction via fuzzy matching |
-| `core/services/askesis/context_retriever.py` | Graph + semantic retrieval |
-| `core/services/askesis/response_generator.py` | LLM context building + action generation (legacy) |
-| `core/services/askesis/ls_context_loader.py` | LS bundle loading (Socratic pipeline) |
-| `core/services/askesis/socratic_engine.py` | Pedagogical move generation (Socratic pipeline) |
-| `core/services/askesis/evaluation_engine.py` | Response evaluation skeleton (Socratic pipeline) |
+| `core/services/askesis/context_retriever.py` | Graph + semantic retrieval + LS bundle loading |
+| `core/services/askesis/response_generator.py` | LLM context, guided system prompts (4 modes), action generation |
 | `core/models/askesis/ls_bundle.py` | LSBundle frozen dataclass |
 | `core/models/askesis/pedagogical_intent.py` | PedagogicalIntent enum (7 move types) |
-| `core/models/askesis/socratic_move.py` | SocraticMove frozen dataclass |
-| `core/models/askesis/learning_objective.py` | StructuredLearningObjective (Phase 6) |
+| `core/models/askesis/learning_objective.py` | StructuredLearningObjective |
 | `core/services/askesis/types.py` | Data classes (AskesisInsight, AskesisRecommendation, AskesisAnalysis) |
 | `core/services/askesis/state_scoring.py` | Pure functions for state scoring |
 | `core/services/embeddings_service.py` | HuggingFace embedding generation |
@@ -466,8 +458,8 @@ Single-word titles under 4 characters won't match via partial word. Titles not i
 ## Related Documentation
 
 - **Askesis Architecture:** `/docs/architecture/ASKESIS_ARCHITECTURE.md` — facade pattern, sub-services, dependency graph
-- **Askesis Socratic Architecture:** `/docs/architecture/ASKESIS_SOCRATIC_ARCHITECTURE.md` — LS-scoped Socratic pipeline design
-- **Askesis Pedagogy:** `/docs/architecture/ASKESIS_PEDAGOGICAL_ARCHITECTURE.md` — Socratic companion design
+- **Askesis Guided Pipeline:** `/docs/architecture/ASKESIS_SOCRATIC_ARCHITECTURE.md` — LS-scoped, ZPD-centered, GuidanceMode-aware pipeline
+- **Askesis Pedagogy:** `/docs/architecture/ASKESIS_PEDAGOGICAL_ARCHITECTURE.md` — Socratic companion design, GuidanceMode detection
 - **Search Architecture:** `/docs/architecture/SEARCH_ARCHITECTURE.md` — SearchRouter, domain search
 - **UserContext:** `/docs/architecture/UNIFIED_USER_ARCHITECTURE.md` — the MEGA-QUERY and ~250 fields
 - **Embeddings ADR:** `/docs/decisions/ADR-049-huggingface-embeddings-migration.md` — why HuggingFace, why 1024 dims

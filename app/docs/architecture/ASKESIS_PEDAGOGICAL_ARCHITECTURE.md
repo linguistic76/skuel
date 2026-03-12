@@ -203,51 +203,43 @@ proposes it as a soft anchor. The user can redirect.
 
 ---
 
-## 7. GuidanceMode Detection
+## 7. GuidanceMode — How Askesis Responds
 
-Askesis detects the appropriate guidance mode from `UserContext` signals and adapts
-its conversational register accordingly. **Implementation is deferred** — the modes and
-their detection logic are documented here as the target design.
+Askesis determines the appropriate guidance mode via `IntentClassifier.determine_guidance_mode()`.
+This is a deterministic decision tree driven by ZPD evidence, not UserContext heuristics.
 
 ### Modes
 
-| Mode | When | Askesis Register |
-|------|------|-----------------|
-| `SOCRATIC` | Consistent engagement with anchor KU | Questions that reveal thinking |
-| `EXPLORATORY` | Journal with many open questions | Curiosity, "let's find out together" |
-| `ENCOURAGING` | Low momentum (`momentum_score < 0.3`) | Warm, present, low-pressure |
-| `DIRECT` | First encounter with KU | Orient clearly, then shift to SOCRATIC |
+| Mode | PedagogicalIntent | Askesis Register |
+|------|-------------------|-----------------|
+| `DIRECT` | REDIRECT_TO_CURRICULUM, OUT_OF_SCOPE | Concise, informational, redirects to curriculum |
+| `SOCRATIC` | ASSESS_UNDERSTANDING, PROBE_DEEPER | Probes understanding via questions, does not give answers |
+| `EXPLORATORY` | SCAFFOLD, SURFACE_CONNECTION | Guided discovery through scaffolding and connections |
+| `ENCOURAGING` | ENCOURAGE_PRACTICE | Warm, practice-focused, connects understanding to activity |
 
-### Detection Signals (from UserContext)
+### Detection (Implemented — March 2026)
 
-```python
-# Low momentum → encouraging mode
-if context.momentum_score < 0.3:
-    return GuidanceMode.ENCOURAGING
+GuidanceMode is determined per-question by `IntentClassifier.determine_guidance_mode()`:
 
-# Many open journal questions → exploratory
-if len(context.journal_insights) > 0 and sum(
-    len(i.open_questions) for i in context.journal_insights
-) > 3:
-    return GuidanceMode.EXPLORATORY
+1. `classify_pedagogical_intent()` — deterministic decision tree using ZoneEvidence
+2. Map PedagogicalIntent → GuidanceMode via `_INTENT_TO_GUIDANCE_MODE`
+3. Return `GuidanceDetermination(mode, pedagogical_detail, target_ku_uids, zone_evidence)`
 
-# First encounter with anchor KU → orient first
-if anchor_ku_uid not in context.engaged_ku_uids:
-    return GuidanceMode.DIRECT
-
-# Default: Socratic
-return GuidanceMode.SOCRATIC
-```
+The decision tree uses `ZPDService.assess_ku_readiness()` evidence (submission count,
+habit reinforcement, task application, journal application) — not UserContext momentum
+or journal heuristics. This is intentional: GuidanceMode should reflect the learner's
+relationship to specific KUs, not their overall activity level.
 
 ### Teacher Override (Deferred)
 
-Teachers can set `preferred_guidance_mode` per student. This overrides detection.
+Teachers can set `preferred_guidance_mode` per student via the Askesis domain model.
 See `docs/roadmap/teacher-askesis-interface-deferred.md`.
 
 ### Implementation Location
 
-Detection logic belongs in `UserStateAnalyzer` (exists) or `ZPDService` (implemented).
-`GuidanceMode` enum: `core/models/enums/askesis_enums.py`.
+`GuidanceMode` enum: `core/models/enums/metadata_enums.py`.
+`GuidanceDetermination` dataclass: `core/services/askesis/intent_classifier.py`.
+Prompt builders: `core/services/askesis/response_generator.py`.
 
 ---
 

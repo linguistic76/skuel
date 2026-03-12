@@ -1,6 +1,6 @@
 # Askesis Architecture - Cross-Cutting Intelligence System
 
-**Last Updated:** March 8, 2026
+**Last Updated:** March 12, 2026
 
 ## Overview
 
@@ -61,50 +61,44 @@ class AskesisDeps:
     events_service: Any
     citation_service: Any | None = None   # Not yet wired in bootstrap
     zpd_service: Any | None = None        # Optional: requires curriculum graph ≥ 3 KUs
-    # Socratic pipeline (March 2026)
-    ku_service: Any | None = None         # For LSContextLoader KU fetching
-    lp_service: Any | None = None         # For LSContextLoader LP fetching
-    principles_service: Any | None = None # For LSContextLoader principle fetching
+    # LS bundle dependencies for ContextRetriever
+    ku_service: Any | None = None         # For LS bundle KU fetching
+    lp_service: Any | None = None         # For LS bundle LP fetching
+    principles_service: Any | None = None # For LS bundle principle fetching
 
 
 class AskesisService:
-    """Facade coordinating 7 specialized sub-services + Socratic pipeline. Zero business logic."""
+    """Facade coordinating 7 specialized sub-services. Zero business logic."""
 
     def __init__(self, deps: AskesisDeps) -> None:
         # Sub-service creation (no circular dependencies - uses pure functions)
         self.state_analyzer = UserStateAnalyzer()
         self.recommendation_engine = ActionRecommendationEngine()
         self.entity_extractor = EntityExtractor(...)
-        self.context_retriever = ContextRetriever(...)
+
+        # ContextRetriever handles graph retrieval + LS bundle loading
+        self.context_retriever = ContextRetriever(
+            graph_intelligence_service=deps.graph_intelligence_service,
+            embeddings_service=deps.embeddings_service,
+            article_service=deps.knowledge_service,
+            ku_service=deps.ku_service, ...
+        )
 
         # January 2026: QueryProcessor decomposition
         self.intent_classifier = IntentClassifier(embeddings_service=deps.embeddings_service)
         self.response_generator = ResponseGenerator()
 
-        # March 2026: Socratic pipeline sub-services
-        self.socratic_engine = SocraticEngine()
-        self.conversation_context = ConversationContext()
-        self.ls_context_loader = LSContextLoader(
-            article_service=deps.knowledge_service,
-            ku_service=deps.ku_service, ...
-        )
-
         self.query_processor = QueryProcessor(
             intent_classifier=self.intent_classifier,
             response_generator=self.response_generator,
-            ls_context_loader=self.ls_context_loader,
-            socratic_engine=self.socratic_engine,
+            entity_extractor=self.entity_extractor,
+            context_retriever=self.context_retriever,
             zpd_service=deps.zpd_service,
-            conversation_context=self.conversation_context,
             ...
         )
 
         # Required: 13-domain synthesis capability
         self.intelligence_factory = deps.intelligence_factory
-
-    # All methods delegate to sub-services
-    async def ask_socratic(self, user_uid, question, session_id=None):
-        return await self.query_processor.process_socratic_turn(user_uid, question, session_id)
 ```
 
 ### Sub-Service Responsibilities
@@ -119,27 +113,26 @@ AskesisService (Facade)
 │   ├── get_next_best_action()
 │   ├── optimize_workflow()
 │   └── predict_future_state()
-├── QueryProcessor (orchestration — legacy RAG + Socratic pipeline)
-│   ├── answer_user_question()        ← legacy RAG pipeline
-│   ├── process_socratic_turn()       ← LS-scoped Socratic pipeline (March 2026)
+├── QueryProcessor (LP-scoped RAG orchestrator + GuidanceMode-aware pipeline)
+│   ├── answer_user_question()        ← main RAG pipeline (LP gate + ZPD + GuidanceMode)
 │   └── process_query_with_context()
 ├── IntentClassifier (January 2026 - extracted from QueryProcessor)
-│   ├── classify_intent()             ← embeddings-based (legacy)
-│   └── classify_pedagogical_intent() ← deterministic decision tree (Socratic)
+│   ├── classify_intent()             ← embeddings-based QueryIntent (WHAT)
+│   ├── classify_pedagogical_intent() ← deterministic decision tree
+│   └── determine_guidance_mode()     ← maps PedagogicalIntent → GuidanceMode (HOW)
 ├── ResponseGenerator (January 2026 - extracted from QueryProcessor)
 │   ├── build_llm_context()
+│   ├── build_guided_system_prompt()  ← 4 mode builders (DIRECT/SOCRATIC/EXPLORATORY/ENCOURAGING)
 │   ├── generate_actions()
 │   └── generate_suggested_actions()
 ├── EntityExtractor
-│   ├── extract_entities_from_query() ← global (legacy)
-│   └── extract_from_bundle()         ← LS-scoped (Socratic)
-├── ContextRetriever (legacy pipeline)
+│   ├── extract_entities_from_query() ← global extraction
+│   └── extract_from_bundle()         ← LS-scoped extraction
+├── ContextRetriever
+│   ├── retrieve_relevant_context()   ← graph + semantic retrieval
+│   ├── load_ls_bundle()              ← loads LSBundle from UserContext
 │   ├── get_learning_context()
 │   └── analyze_knowledge_gaps()
-├── LSContextLoader (Socratic pipeline — March 2026)
-│   └── load_bundle()                 ← loads LSBundle from UserContext
-└── SocraticEngine (Socratic pipeline — March 2026, pure logic, no I/O)
-    └── generate_move()               ← produces SocraticMove for LLM
 ```
 
 ### State Scoring Pure Functions (January 2026)
@@ -243,27 +236,25 @@ The `UserContextIntelligenceFactory` requires all domain relationship services. 
    │                            │                            │
 ┌──▼──────────────┐  ┌──────────▼──────────┐  ┌──────────────▼───────────────┐
 │ UserStateAnalyzer│  │ActionRecommendation│  │      QueryProcessor          │
-└────────┬────────┘  │      Engine        │  │  (Legacy RAG + Socratic)     │
+└────────┬────────┘  │      Engine        │  │  (LP-scoped RAG pipeline)    │
          │           └──────────┬─────────┘  └───────────┬───────────────────┘
          │                      │                        │
-         └──────────┬───────────┘          ┌─────────────┼──────────────────────┐
-                    │                      │             │                      │
-           ┌────────▼────────┐   ┌─────────▼───┐ ┌──────▼──────┐ ┌────────────▼──────┐
-           │ state_scoring.py│   │IntentClassi-│ │LSContext-   │ │SocraticEngine     │
-           │ (pure functions)│   │    fier     │ │   Loader    │ │(pure logic)       │
-           └─────────────────┘   └─────────────┘ └──────┬──────┘ └───────────────────┘
+         └──────────┬───────────┘          ┌─────────────┼──────────────┐
+                    │                      │             │              │
+           ┌────────▼────────┐   ┌─────────▼───┐ ┌──────▼──────┐ ┌────▼────────────┐
+           │ state_scoring.py│   │IntentClassi-│ │Context-     │ │ResponseGenerator│
+           │ (pure functions)│   │    fier     │ │  Retriever  │ │(prompts+actions)│
+           └─────────────────┘   └─────────────┘ └──────┬──────┘ └─────────────────┘
                                        │                │
                                        ▼                ▼
                                 EmbeddingsService  Domain Services
                                                    (Article, KU, LP,
                                                     Habits, Tasks, etc.)
-                                       │
-                              ┌────────▼────────┐
-                              │ContextRetriever │ (legacy pipeline)
-                              └────────┬────────┘
-                                       ▼
-                               GraphIntelligence    ZPDService
-                                   Service          (Socratic pipeline)
+                                                        │
+                                               GraphIntelligence
+                                                   Service
+                                                        │
+                                                   ZPDService
 ```
 
 ---
@@ -278,14 +269,11 @@ The `UserContextIntelligenceFactory` requires all domain relationship services. 
 | `/core/services/askesis/user_state_analyzer.py` | State assessment |
 | `/core/services/askesis/action_recommendation_engine.py` | Recommendations |
 | `/core/services/askesis/state_scoring.py` | Pure functions for state scoring (January 2026) |
-| `/core/services/askesis/query_processor.py` | RAG pipeline orchestration (legacy + Socratic) |
-| `/core/services/askesis/intent_classifier.py` | Intent classification: embeddings (legacy) + decision tree (Socratic) |
-| `/core/services/askesis/response_generator.py` | Action and context generation (legacy pipeline) |
-| `/core/services/askesis/entity_extractor.py` | Entity extraction: global (legacy) + bundle-scoped (Socratic) |
-| `/core/services/askesis/context_retriever.py` | Context retrieval (legacy pipeline) |
-| `/core/services/askesis/ls_context_loader.py` | LS bundle loading (Socratic pipeline, March 2026) |
-| `/core/services/askesis/socratic_engine.py` | Pedagogical move generation (Socratic pipeline, March 2026) |
-| `/core/services/askesis/evaluation_engine.py` | Structured evaluation skeleton (Socratic pipeline) |
+| `/core/services/askesis/query_processor.py` | LP-scoped RAG pipeline orchestration (LP gate + ZPD + GuidanceMode) |
+| `/core/services/askesis/intent_classifier.py` | Intent classification: embeddings (QueryIntent) + decision tree (GuidanceDetermination) |
+| `/core/services/askesis/response_generator.py` | LLM context, guided system prompts (4 modes), action generation |
+| `/core/services/askesis/entity_extractor.py` | Entity extraction: global + bundle-scoped |
+| `/core/services/askesis/context_retriever.py` | Graph + semantic retrieval + LS bundle loading |
 | `/core/services/askesis/askesis_core_service.py` | CRUD + `build_user_context()` (owns Neo4j driver) |
 | `/core/services/askesis/types.py` | Shared data classes |
 | `/core/ports/askesis_protocols.py` | Protocol definitions |
@@ -450,7 +438,7 @@ principles_rich = entities_rich.get("principles", [])
 | **March 2026** | `JournalInsight` frozen dataclass added — ZPD signal extraction point from processed journals (Phase 2 stub) |
 | **March 2026** | 4 pedagogical prompt templates added: `askesis_scaffold_entry`, `askesis_socratic_turn`, `askesis_ku_bridge`, `askesis_journal_reflection` |
 | **March 2026** | Backwards compatibility removed: all `AskesisDeps` fields required (except `citation_service`, `zpd_service`), keyword fallback deleted from IntentClassifier, template fallback deleted from QueryProcessor, Askesis creation gated behind `INTELLIGENCE_TIER=full` |
-| **March 2026** | Socratic pipeline: LSContextLoader, SocraticEngine, ConversationContext wired into QueryProcessor. `ask_socratic()` facade method added. AskesisDeps extended with `ku_service`, `lp_service`, `principles_service`. See: `ASKESIS_SOCRATIC_ARCHITECTURE.md` |
+| **March 2026** | Socratic pipeline added (LSContextLoader, SocraticEngine) then absorbed into existing services: LSContextLoader → ContextRetriever.load_ls_bundle(), SocraticEngine → ResponseGenerator.build_guided_system_prompt(), GuidanceDetermination added to IntentClassifier. LP enrollment gate. GuidanceMode enum: DIRECT/SOCRATIC/EXPLORATORY/ENCOURAGING. ConversationStyle deleted. One pipeline. |
 
 ---
 
@@ -594,7 +582,7 @@ For Q&A and planning responses, edit `ResponseGenerator.build_llm_context()` and
 
 ## Related Documentation
 
-- **Socratic Architecture:** [ASKESIS_SOCRATIC_ARCHITECTURE.md](./ASKESIS_SOCRATIC_ARCHITECTURE.md) — LS-scoped Socratic pipeline design
+- **Pedagogical Architecture:** [ASKESIS_PEDAGOGICAL_ARCHITECTURE.md](./ASKESIS_PEDAGOGICAL_ARCHITECTURE.md) — GuidanceMode, ZPD, Socratic companion design
 - **Intelligence Guide:** [ASKESIS_INTELLIGENCE.md](../intelligence/ASKESIS_INTELLIGENCE.md)
 - **Search Integration:** [ASKESIS_SEARCH_ARCHITECTURE.md](../guides/ASKESIS_SEARCH_ARCHITECTURE.md)
 - **UserContext Architecture:** [UNIFIED_USER_ARCHITECTURE.md](./UNIFIED_USER_ARCHITECTURE.md)

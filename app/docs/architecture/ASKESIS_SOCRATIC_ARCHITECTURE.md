@@ -1,17 +1,17 @@
-# Askesis Socratic Architecture — LS-Scoped, ZPD-Centered Tutoring
+# Askesis Guided Pipeline — LS-Scoped, ZPD-Centered, GuidanceMode-Aware
 
-**Last Updated:** March 2026
+**Last Updated:** March 12, 2026
 
 ---
 
 ## Design Rationale
 
-Askesis is not a chatbot. It is a Socratic tutor whose value comes from going deep on what the learner is currently studying. The legacy pipeline retrieves globally and generates answers. The Socratic pipeline loads the learner's active Learning Step, classifies the pedagogical move, and responds with questions — it does not give answers.
+Askesis is a curriculum-focused chatbot scoped to the user's active Learning Path. No LP enrollment = no Askesis. It uses all curriculum content (Articles, Kus, Resources) linked to the LP/LS graph. Default register is DIRECT, with SOCRATIC, EXPLORATORY, and ENCOURAGING as situational modes.
 
 **Three principles:**
-1. **LS-scoped:** Every retrieval is bound to the active Learning Step's bundle
-2. **ZPD-centered:** Pedagogical moves are driven by measured engagement evidence
-3. **Socratic:** The system asks the learner to produce knowledge, not consume explanations
+1. **LP-scoped:** No LP enrollment = no Askesis. LP gate at top of pipeline.
+2. **ZPD-centered:** GuidanceMode is driven by measured engagement evidence per KU.
+3. **One pipeline:** The guided pipeline is integrated into `answer_user_question()` — no parallel pipeline.
 
 ---
 
@@ -20,9 +20,17 @@ Askesis is not a chatbot. It is a Socratic tutor whose value comes from going de
 ```
 USER ASKS QUESTION
         |
-LSContextLoader.load_bundle(user_uid, user_context)
+LP Enrollment Gate (user_context.enrolled_path_uids)
         |
-LSBundle (frozen, scoped to 1 Learning Step)
+IntentClassifier.classify_intent(question)  ← QueryIntent (WHAT)
+        |
+EntityExtractor.extract_entities_from_query(question, user_context)
+        |
+ContextRetriever.retrieve_relevant_context(user_context, question, intent)
+        |
+ContextRetriever.load_ls_bundle(user_uid, user_context)
+        |
+LSBundle (frozen, scoped to 1 Learning Step) — or None
         |
 EntityExtractor.extract_from_bundle(question, ls_bundle)
         |
@@ -30,29 +38,40 @@ Target KU UIDs (scoped to bundle)
         |
 ZPDService.assess_ku_readiness(user_uid, ku_uids)
         |
-zone_evidence: dict[str, ZoneEvidence] (per-KU engagement)
+IntentClassifier.determine_guidance_mode(question, ls_bundle, zone_evidence, ku_uids)
         |
-IntentClassifier.classify_pedagogical_intent(question, ls_bundle, zone_evidence, ku_uids)
+GuidanceDetermination (mode + pedagogical_detail + evidence)
         |
-PedagogicalIntent (ASSESS | PROBE | SCAFFOLD | REDIRECT | ENCOURAGE | SURFACE | OUT_OF_SCOPE)
+ResponseGenerator.build_guided_system_prompt(guidance, ls_bundle, user_context)
         |
-SocraticEngine.generate_move(intent, ls_bundle, zone_evidence, conversation, target_ku_uids)
+LLMService.generate(prompt=question, system_prompt=guided_prompt)
         |
-SocraticMove (system_prompt + curriculum_context + evaluation_rubric)
-        |
-LLMService.generate(prompt=question, system_prompt=move.system_prompt)
-        |
-TUTOR RESPONSE (question, not explanation)
+RESPONSE (GuidanceMode-tagged)
 ```
 
-**Orchestration:** `QueryProcessor.process_socratic_turn()` runs this pipeline. `AskesisService.ask_socratic()` is the facade entry point.
+**Orchestration:** `QueryProcessor.answer_user_question()` runs this pipeline. When no LS bundle is available, it falls back to the standard RAG pipeline (global retrieval + LLM generation).
+
+---
+
+## GuidanceMode — How Askesis Responds
+
+| Mode | PedagogicalIntent | Askesis Register |
+|------|-------------------|-----------------|
+| `DIRECT` | REDIRECT_TO_CURRICULUM, OUT_OF_SCOPE | Concise, informational, redirects to curriculum |
+| `SOCRATIC` | ASSESS_UNDERSTANDING, PROBE_DEEPER | Probes understanding via questions, does not give answers |
+| `EXPLORATORY` | SCAFFOLD, SURFACE_CONNECTION | Guided discovery through scaffolding and connections |
+| `ENCOURAGING` | ENCOURAGE_PRACTICE | Warm, practice-focused, connects understanding to activity |
+
+**Enum location:** `core/models/enums/metadata_enums.py` — `GuidanceMode` (DIRECT is default).
+
+**Mapping:** `IntentClassifier.determine_guidance_mode()` wraps `classify_pedagogical_intent()` and maps PedagogicalIntent → GuidanceMode via `_INTENT_TO_GUIDANCE_MODE` dict.
 
 ---
 
 ## Pedagogical Intent Taxonomy
 
-| Intent | When | Socratic Strategy |
-|--------|------|-------------------|
+| Intent | When | Strategy |
+|--------|------|----------|
 | `ASSESS_UNDERSTANDING` | 2+ ZPD signals (confirmed) | Ask user to explain in own words |
 | `PROBE_DEEPER` | 1 signal, practice present | Follow-up testing deeper understanding |
 | `SCAFFOLD` | 0 signals, KU in bundle | Leading questions toward insight |
@@ -62,6 +81,22 @@ TUTOR RESPONSE (question, not explanation)
 | `OUT_OF_SCOPE` | Question not in LS bundle | Redirect to current learning focus |
 
 **Key design decision:** Intent classification is deterministic (decision tree), not LLM-based. It uses ZoneEvidence boolean flags and runs in ~1ms with no network I/O.
+
+---
+
+## GuidanceDetermination
+
+```python
+@dataclass(frozen=True)
+class GuidanceDetermination:
+    mode: GuidanceMode                    # DIRECT, SOCRATIC, EXPLORATORY, ENCOURAGING
+    pedagogical_detail: PedagogicalIntent # fine-grained intent within the mode
+    target_ku_uids: list[str]
+    zone_evidence: dict[str, Any]
+```
+
+**Produced by:** `IntentClassifier.determine_guidance_mode()`
+**Consumed by:** `ResponseGenerator.build_guided_system_prompt()`
 
 ---
 
@@ -77,9 +112,9 @@ The LSBundle is a frozen dataclass containing the complete context for a Learnin
 - `edges: tuple[dict, ...]` — semantic relationships between bundle entities
 - `learning_objectives: tuple[str, ...]` — from Articles in the bundle
 
-**Immutability:** Built once per Socratic turn, passed through the pipeline, never mutated.
+**Immutability:** Built once per question, passed through the pipeline, never mutated.
 
-**Construction:** `LSContextLoader` builds the bundle from `UserContext.active_learning_steps_rich` (already loaded by the MEGA-QUERY) plus full entity fetches for content fields.
+**Construction:** `ContextRetriever.load_ls_bundle()` builds the bundle from `UserContext.active_learning_steps_rich` (already loaded by the MEGA-QUERY) plus full entity fetches for content fields.
 
 ---
 
@@ -99,20 +134,22 @@ The LSBundle is a frozen dataclass containing the complete context for a Learnin
 
 ---
 
-## Socratic Engine — Move Generation
+## Guided System Prompts
 
-The SocraticEngine is pure logic (no I/O). Given the classified intent, it constructs a `SocraticMove` with:
+`ResponseGenerator.build_guided_system_prompt()` dispatches to 4 mode-specific builders:
 
-- `system_prompt` — instructs the LLM how to respond (Socratically)
-- `curriculum_context` — Article content for the LLM's reference (withheld from user in ASSESS moves)
-- `evaluation_rubric` — learning objectives to check against (for future evaluation)
-- `conversation_history` — recent turns for multi-turn context
+- `_build_direct_prompt()` — redirect to curriculum or out-of-scope responses
+- `_build_socratic_prompt()` — assess understanding or probe deeper (does NOT give answers)
+- `_build_exploratory_prompt()` — scaffold toward insight or surface connections
+- `_build_encouraging_prompt()` — connect understanding to practice activities
+
+Each builder uses `guidance.pedagogical_detail` for fine-grained variation within the mode.
 
 **ASSESS does not give answers.** The system prompt tells the LLM to ask "Tell me what you know about [X]" and the curriculum content is only for the LLM to evaluate, not to share.
 
 ---
 
-## Structured Learning Objectives (Phase 6)
+## Structured Learning Objectives
 
 Progressive enhancement on string-based `learning_objectives`:
 
@@ -126,19 +163,7 @@ class StructuredLearningObjective:
     ku_uid: str | None = None                   # KU this objective targets
 ```
 
-When populated on Curriculum entities, the EvaluationEngine can assess learner responses against specific, measurable criteria. When empty, falls back to string objectives.
-
----
-
-## Conversation Persistence (Skeleton)
-
-`ConversationContext` manages in-memory sessions during the current process lifetime. `AskesisConversation(UserOwnedEntity)` is defined for future graph persistence:
-
-- Session resumption across page reloads
-- Conversation analytics (topics explored, depth achieved)
-- ZPD signal generation from conversation patterns (future)
-
-UID prefix: `conv_`. Implementation deferred until the Socratic pipeline demonstrates value.
+When populated on Curriculum entities, the guided pipeline can assess learner responses against specific, measurable criteria. When empty, falls back to string objectives.
 
 ---
 
@@ -151,13 +176,10 @@ Socratic conversations can generate ZPD signals: if the user explains a concept 
 Currently ZPD assesses per-KU. Expanding to per-Article and per-LS would enable "Have you understood this entire Learning Step?" assessment. Interfaces are ready; implementation waits for curriculum content to reveal what's needed.
 
 ### Multi-LP Users
-Users enrolled in multiple Learning Paths need a way to select which LP's LS drives the Socratic session. Current implementation uses the first active (non-mastered) LS. Future: explicit session binding to a specific LP.
+Users enrolled in multiple Learning Paths need a way to select which LP's LS drives the session. Current implementation uses the first active (non-mastered) LS. Future: explicit session binding to a specific LP.
 
-### Curriculum Developer Guidance
-How to write objectives the system can evaluate against:
-- Include `evidence_markers` for keyword matching
-- Use `depth_levels` to distinguish surface recall from functional understanding
-- One objective per KU for precise assessment
+### Resource Connectivity (Phase 8)
+Wire Resource entities into curriculum graph for Askesis to surface. Articles and Kus connect to Resources via REFERENCES edges.
 
 ---
 
@@ -165,17 +187,14 @@ How to write objectives the system can evaluate against:
 
 | File | Role |
 |------|------|
-| `core/services/askesis/query_processor.py` | `process_socratic_turn()` — pipeline orchestration |
-| `core/services/askesis_service.py` | `ask_socratic()` — facade entry point |
-| `core/services/askesis/ls_context_loader.py` | LSBundle loading from UserContext |
-| `core/services/askesis/intent_classifier.py` | `classify_pedagogical_intent()` — decision tree |
+| `core/services/askesis/query_processor.py` | `answer_user_question()` — LP-scoped pipeline orchestration |
+| `core/services/askesis/intent_classifier.py` | `classify_pedagogical_intent()` + `determine_guidance_mode()` |
 | `core/services/askesis/entity_extractor.py` | `extract_from_bundle()` — scoped entity matching |
-| `core/services/askesis/socratic_engine.py` | SocraticMove generation (pure logic) |
-| `core/services/askesis/evaluation_engine.py` | EvaluationResult skeleton |
+| `core/services/askesis/context_retriever.py` | `load_ls_bundle()` — LS bundle loading |
+| `core/services/askesis/response_generator.py` | `build_guided_system_prompt()` — 4 mode builders |
 | `core/services/zpd/zpd_service.py` | `assess_ku_readiness()` — targeted ZPD |
 | `adapters/persistence/neo4j/zpd_backend.py` | `get_targeted_ku_engagement()` — Cypher query |
 | `core/models/askesis/ls_bundle.py` | LSBundle frozen dataclass |
-| `core/models/askesis/pedagogical_intent.py` | PedagogicalIntent enum |
-| `core/models/askesis/socratic_move.py` | SocraticMove frozen dataclass |
+| `core/models/askesis/pedagogical_intent.py` | PedagogicalIntent enum (7 move types) |
 | `core/models/askesis/learning_objective.py` | StructuredLearningObjective |
-| `core/models/askesis/conversation_entity.py` | AskesisConversation (persistence skeleton) |
+| `core/models/enums/metadata_enums.py` | GuidanceMode enum (DIRECT, SOCRATIC, EXPLORATORY, ENCOURAGING) |

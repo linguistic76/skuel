@@ -17,7 +17,7 @@ Every enum lives in exactly one file. The `__init__.py` re-exports all public en
 | `activity_enums.py` | Priority, Confidence, calendar types, dual-track assessment | Priority, Confidence, ActivityType, 5 assessment levels |
 | `goal_enums.py` | Goal classification | GoalType, GoalTimeframe, MeasurementType, HabitEssentiality |
 | `habit_enums.py` | Habit classification and completion | HabitPolarity, HabitCategory, HabitDifficulty, CompletionStatus |
-| `askesis_enums.py` | Askesis interaction styles | ConversationStyle, QueryComplexity, IntegrationSuccess |
+| `askesis_enums.py` | Askesis query complexity and integration | QueryComplexity, IntegrationSuccess |
 | `choice_enums.py` | Decision types | ChoiceType |
 | `principle_enums.py` | Principle classification and alignment | PrincipleCategory, PrincipleSource, PrincipleStrength, AlignmentLevel |
 | `submissions_enums.py` | Submissions + Feedback processing and scheduling | ExerciseScope, FormattingStyle, AnalysisDepth, ScheduleType, ProgressDepth |
