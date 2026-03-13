@@ -84,7 +84,7 @@ def _exercises_for_ku_section(exercises: list[dict]) -> Any:
             scope = e.get("scope", "personal")
             scope_cls = "badge-secondary" if scope == "assigned" else "badge-ghost"
             due = e.get("due_date")
-            due_span = Span(f" · due {due}", cls="text-xs text-base-content/50") if due else None
+            due_span = Span(f" · due {due}", cls="text-xs text-muted-foreground") if due else None
             row_parts: list[Any] = [
                 Span(e.get("title", "Untitled Exercise"), cls="text-sm font-medium"),
                 Span(scope.title(), cls=f"badge badge-sm {scope_cls} ml-2"),
@@ -97,10 +97,10 @@ def _exercises_for_ku_section(exercises: list[dict]) -> Any:
         H3("Practice This Knowledge", cls="text-base font-semibold mb-3"),
         P(
             "These exercises develop understanding of this knowledge unit.",
-            cls="text-sm text-base-content/60 mb-3",
+            cls="text-sm text-muted-foreground mb-3",
         ),
         Div(*rows, cls="space-y-2"),
-        cls="border-t border-base-200 pt-6 mt-8",
+        cls="border-t border-border pt-6 mt-8",
     )
 
 
@@ -121,7 +121,7 @@ def _nav_button(ku: dict | None, direction: str) -> Any:
     if direction == "prev":
         return A(
             Div(
-                Small("Previous", cls="text-xs text-base-content/50"),
+                Small("Previous", cls="text-xs text-muted-foreground"),
                 Div(f"← {label}", cls="text-sm"),
                 cls="text-left",
             ),
@@ -130,7 +130,7 @@ def _nav_button(ku: dict | None, direction: str) -> Any:
         )
     return A(
         Div(
-            Small("Next", cls="text-xs text-base-content/50"),
+            Small("Next", cls="text-xs text-muted-foreground"),
             Div(f"{label} →", cls="text-sm"),
             cls="text-right",
         ),
@@ -163,7 +163,7 @@ def _form_templates_section(form_templates: list[dict]) -> Any:
     return Div(
         H3("Forms", cls="text-base font-semibold mb-3"),
         Div(*rows, cls="space-y-4"),
-        cls="border-t border-base-200 pt-6 mt-8",
+        cls="border-t border-border pt-6 mt-8",
     )
 
 
@@ -213,7 +213,7 @@ def create_article_reading_ui_routes(
                     Card(
                         CardBody(
                             H3("Knowledge Unit Not Found", cls="text-lg font-bold"),
-                            P(f"No KU with identifier: {uid}", cls="text-base-content/70 mt-2"),
+                            P(f"No KU with identifier: {uid}", cls="text-muted-foreground mt-2"),
                             A("← Back to Knowledge", href="/sel", cls="btn btn-ghost btn-sm mt-4"),
                         ),
                     ),
@@ -344,7 +344,7 @@ def create_article_reading_ui_routes(
                 _nav_button(next_ku, "next"),
                 cls="flex justify-between",
             ),
-            cls="border-t border-base-200 pt-6 mt-8",
+            cls="border-t border-border pt-6 mt-8",
         )
 
         # Build metadata footer (below content, not competing with reading)
@@ -355,7 +355,7 @@ def create_article_reading_ui_routes(
             metadata_footer_items.append(tags_section)
 
         metadata_footer = (
-            Div(*metadata_footer_items, cls="border-t border-base-200 pt-6 mt-8")
+            Div(*metadata_footer_items, cls="border-t border-border pt-6 mt-8")
             if metadata_footer_items
             else Div()
         )
@@ -368,7 +368,7 @@ def create_article_reading_ui_routes(
             Div(
                 mark_read_btn,
                 bookmark_btn,
-                cls="flex gap-2 border-t border-base-200 pt-6 mt-8",
+                cls="flex gap-2 border-t border-border pt-6 mt-8",
             ),
             metadata_footer,
             nav_section,
@@ -395,7 +395,7 @@ def create_article_reading_ui_routes(
                     ),
                     cls="sticky top-20 p-5 max-h-[calc(100vh-6rem)] overflow-y-auto",
                 ),
-                cls="hidden lg:block w-56 shrink-0 border-r border-base-200",
+                cls="hidden lg:block w-56 shrink-0 border-r border-border",
             )
             content = Div(toc_sidebar, main_column, cls="flex")
         else:

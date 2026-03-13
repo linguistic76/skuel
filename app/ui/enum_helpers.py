@@ -81,7 +81,7 @@ def get_trend_color(trend: str) -> str:
         trend_enum = TrendDirection(trend)
         return trend_enum.get_color()
     except ValueError:
-        return "text-base-content/70"  # Default for unknown trends
+        return "text-muted-foreground"  # Default for unknown trends
 
 
 def get_trend_icon(trend: str) -> str:
@@ -599,7 +599,7 @@ def get_priority_border_class(priority: str | Priority) -> str:
         try:
             priority = Priority(priority)
         except ValueError:
-            return "border-base-300"
+            return "border-border"
 
     color = priority.get_color()
     color_to_class = {
@@ -608,7 +608,7 @@ def get_priority_border_class(priority: str | Priority) -> str:
         "#F59E0B": "border-yellow-500",  # High
         "#DC2626": "border-red-500",  # Critical
     }
-    return color_to_class.get(color, "border-base-300")
+    return color_to_class.get(color, "border-border")
 
 
 def get_priority_badge_class(priority: str | Priority) -> str:
@@ -659,7 +659,7 @@ def get_status_text_color(status: str | EntityStatus) -> str:
         try:
             status = EntityStatus(status)
         except ValueError:
-            return "text-base-content/70"
+            return "text-muted-foreground"
 
     color = status.get_color()
     color_to_class = {
@@ -669,10 +669,10 @@ def get_status_text_color(status: str | EntityStatus) -> str:
         "#DC2626": "text-red-600",  # Blocked
         "#EF4444": "text-red-600",  # Failed
         "#3B82F6": "text-blue-600",  # Scheduled
-        "#6B7280": "text-base-content/70",  # Cancelled
-        "#9CA3AF": "text-base-content/50",  # Draft/Archived
+        "#6B7280": "text-muted-foreground",  # Cancelled
+        "#9CA3AF": "text-muted-foreground",  # Draft/Archived
     }
-    return color_to_class.get(color, "text-base-content/70")
+    return color_to_class.get(color, "text-muted-foreground")
 
 
 # ============================================================================
@@ -854,13 +854,13 @@ def render_entity_metadata(
         <Div cls="flex items-center gap-2 flex-wrap">
             <Badge>High</Badge>
             <Span>● In Progress</Span>
-            <Span cls="text-sm text-base-content/60">📅 2025-10-20</Span>
+            <Span cls="text-sm text-muted-foreground">📅 2025-10-20</Span>
         </Div>
     """
     components = [render_priority_badge(priority), render_status_chip(status)]
 
     if due_date:
-        components.append(Span(f"📅 {due_date}", cls="text-sm text-base-content/60"))
+        components.append(Span(f"📅 {due_date}", cls="text-sm text-muted-foreground"))
 
     return Div(*components, cls="flex items-center gap-2 flex-wrap")
 
@@ -888,7 +888,7 @@ def render_due_date_display(due_date: str | None, overdue: bool = False) -> Span
     if not due_date:
         return ""
 
-    color_class = "text-red-600 font-semibold" if overdue else "text-base-content/60"
+    color_class = "text-red-600 font-semibold" if overdue else "text-muted-foreground"
     return Span(f"📅 {due_date}", cls=f"text-sm {color_class}")
 
 
@@ -904,7 +904,7 @@ def render_duration_display(duration_minutes: int | None) -> Span | str:
 
     Example:
         >>> render_duration_display(90)
-        <Span cls="text-sm text-base-content/60">⏱ 1h 30m</Span>
+        <Span cls="text-sm text-muted-foreground">⏱ 1h 30m</Span>
     """
     if not duration_minutes:
         return ""
@@ -919,7 +919,7 @@ def render_duration_display(duration_minutes: int | None) -> Span | str:
     else:
         duration_str = f"{minutes}m"
 
-    return Span(f"⏱ {duration_str}", cls="text-sm text-base-content/60")
+    return Span(f"⏱ {duration_str}", cls="text-sm text-muted-foreground")
 
 
 def render_tag_list(tags: list[str] | None) -> Div | str:
@@ -959,11 +959,11 @@ def render_activity_type_label(activity_type: str) -> Span:
 
     Example:
         >>> render_activity_type_label("task")
-        <Span cls="text-sm text-base-content/70">📝 Task</Span>
+        <Span cls="text-sm text-muted-foreground">📝 Task</Span>
     """
     icon = get_activity_icon(activity_type)
     label = activity_type.replace("_", " ").title()
-    return Span(f"{icon} {label}", cls="text-sm text-base-content/70")
+    return Span(f"{icon} {label}", cls="text-sm text-muted-foreground")
 
 
 def render_recurrence_display(pattern: str | None) -> Span | str:
@@ -978,13 +978,13 @@ def render_recurrence_display(pattern: str | None) -> Span | str:
 
     Example:
         >>> render_recurrence_display("daily")
-        <Span cls="text-sm text-base-content/70">🔄 Every day</Span>
+        <Span cls="text-sm text-muted-foreground">🔄 Every day</Span>
     """
     if not pattern or pattern == "none":
         return ""
 
     label = get_recurrence_label(pattern)
-    return Span(f"🔄 {label}", cls="text-sm text-base-content/70")
+    return Span(f"🔄 {label}", cls="text-sm text-muted-foreground")
 
 
 def render_time_of_day_display(time_of_day: str | None) -> Span | str:
@@ -999,14 +999,14 @@ def render_time_of_day_display(time_of_day: str | None) -> Span | str:
 
     Example:
         >>> render_time_of_day_display("morning")
-        <Span cls="text-sm text-base-content/70">☀️ 7:00 - 12:00</Span>
+        <Span cls="text-sm text-muted-foreground">☀️ 7:00 - 12:00</Span>
     """
     if not time_of_day:
         return ""
 
     icon = get_time_icon(time_of_day)
     label = get_time_label(time_of_day)
-    return Span(f"{icon} {label}", cls="text-sm text-base-content/70")
+    return Span(f"{icon} {label}", cls="text-sm text-muted-foreground")
 
 
 # ============================================================================
@@ -1061,7 +1061,7 @@ def render_entity_card(
         ... )
     """
     # Border styling based on priority
-    border_class = get_priority_border_class(priority) if priority else "border-base-300"
+    border_class = get_priority_border_class(priority) if priority else "border-border"
 
     # Card header with title and status
     header_components = [
@@ -1074,7 +1074,7 @@ def render_entity_card(
 
     # Description
     description_elem = (
-        P(description, cls="text-sm text-base-content/70 mb-3") if description else ""
+        P(description, cls="text-sm text-muted-foreground mb-3") if description else ""
     )
 
     # Metadata row
@@ -1185,7 +1185,7 @@ def render_task_card(
     """
     custom_metadata = []
     if project:
-        custom_metadata.append(Span(f"📁 {project}", cls="text-sm text-base-content/70"))
+        custom_metadata.append(Span(f"📁 {project}", cls="text-sm text-muted-foreground"))
 
     return render_entity_card(
         entity_type="task",
@@ -1296,11 +1296,11 @@ def render_event_card(
         custom_metadata.append(
             Span(
                 f"{icon} {calendar_type.replace('_', ' ').title()}",
-                cls="text-sm text-base-content/70",
+                cls="text-sm text-muted-foreground",
             )
         )
     if location:
-        custom_metadata.append(Span(f"📍 {location}", cls="text-sm text-base-content/70"))
+        custom_metadata.append(Span(f"📍 {location}", cls="text-sm text-muted-foreground"))
 
     return render_entity_card(
         entity_type="event",
@@ -1357,7 +1357,7 @@ def render_goal_card(
             )
         )
     if domain:
-        custom_metadata.append(Span(f"🎯 {domain.title()}", cls="text-sm text-base-content/70"))
+        custom_metadata.append(Span(f"🎯 {domain.title()}", cls="text-sm text-muted-foreground"))
 
     return render_entity_card(
         entity_type="goal",

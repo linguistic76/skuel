@@ -79,7 +79,7 @@ def _build_field(spec: dict[str, Any]) -> Div:
 
     help_text = spec.get("help_text")
     if help_text:
-        children.append(P(help_text, cls="text-sm text-base-content/70 mt-1"))
+        children.append(P(help_text, cls="text-sm text-muted-foreground mt-1"))
 
     return Div(*children, cls="form-control")
 
@@ -126,7 +126,7 @@ def render_inline_exercise_form(
             },
             cls="space-y-4",
         ),
-        cls="exercise-form-container border border-base-200 rounded-lg p-6 my-6",
+        cls="exercise-form-container border border-border rounded-lg p-6 my-6",
     )
 
 

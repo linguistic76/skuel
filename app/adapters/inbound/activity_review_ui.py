@@ -31,15 +31,12 @@ from fasthtml.common import (
     A,
     Div,
     Form,
-    Input,
     Label,
     NotStr,
     Option,
     P,
     Script,
-    Select,
     Span,
-    Textarea,
 )
 from starlette.requests import Request
 from starlette.responses import RedirectResponse
@@ -47,6 +44,7 @@ from starlette.responses import RedirectResponse
 from adapters.inbound.auth import make_service_getter, require_admin
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonT
+from ui.forms import Input, Select, Textarea
 from ui.patterns.page_header import PageHeader
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 
@@ -105,10 +103,10 @@ def _render_queue_item(item: dict[str, Any]) -> Any:
                 H4(subject_uid, cls="font-semibold mb-1"),
                 P(
                     f"{date_str} · {time_period}",
-                    cls="text-xs text-base-content/60 mb-2",
+                    cls="text-xs text-muted-foreground mb-2",
                 ),
                 Div(*domain_badges, cls="flex flex-wrap gap-1 mb-2") if domain_badges else None,
-                P(message, cls="text-sm text-base-content/70 mb-3") if message else None,
+                P(message, cls="text-sm text-muted-foreground mb-3") if message else None,
                 A(
                     "Start Review",
                     href=review_href,
@@ -116,7 +114,7 @@ def _render_queue_item(item: dict[str, Any]) -> Any:
                 ),
                 cls="card-body p-4",
             ),
-            cls="card bg-base-100 shadow-sm mb-3",
+            cls="card bg-background shadow-sm mb-3",
         ),
     )
 
@@ -126,8 +124,8 @@ def _render_snapshot_domain_card(domain_name: str, items: list[Any]) -> Any:
     if not items:
         return Div(
             H4(domain_name.title(), cls="font-semibold mb-1"),
-            P("No recent activity.", cls="text-sm text-base-content/50"),
-            cls="card bg-base-200 p-4 mb-3",
+            P("No recent activity.", cls="text-sm text-muted-foreground"),
+            cls="card bg-muted p-4 mb-3",
         )
 
     item_rows = []
@@ -138,14 +136,14 @@ def _render_snapshot_domain_card(domain_name: str, items: list[Any]) -> Any:
             Div(
                 Span(title, cls="text-sm flex-1"),
                 Span(status, cls="badge badge-ghost badge-xs") if status else None,
-                cls="flex items-center gap-2 py-1 border-b border-base-300 last:border-0",
+                cls="flex items-center gap-2 py-1 border-b border-border last:border-0",
             )
         )
 
     return Div(
         H4(f"{domain_name.title()} ({len(items)})", cls="font-semibold mb-3"),
         Div(*item_rows),
-        cls="card bg-base-200 p-4 mb-3",
+        cls="card bg-muted p-4 mb-3",
     )
 
 
@@ -214,10 +212,10 @@ def create_activity_review_ui_routes(
             queue_content: Any = Div(*[_render_queue_item(item) for item in pending])
         else:
             queue_content = Div(
-                P("No pending review requests.", cls="text-center text-base-content/60 py-8"),
+                P("No pending review requests.", cls="text-center text-muted-foreground py-8"),
                 P(
                     "Users can request an activity review from their feedback page.",
-                    cls="text-sm text-center text-base-content/40",
+                    cls="text-sm text-center text-foreground/40",
                 ),
             )
 
@@ -226,7 +224,7 @@ def create_activity_review_ui_routes(
             Div(
                 H3("Pending Requests", cls="font-semibold mb-4"),
                 queue_content,
-                cls="card bg-base-100 shadow-sm p-4",
+                cls="card bg-background shadow-sm p-4",
             ),
         )
 
@@ -283,7 +281,6 @@ def create_activity_review_ui_routes(
                         name="subject_uid",
                         value=subject_uid,
                         placeholder="user_name",
-                        cls="input input-bordered w-full",
                         id="snapshot-subject-uid",
                     ),
                     cls="mb-3",
@@ -296,7 +293,6 @@ def create_activity_review_ui_routes(
                         Option("Last 30 days", value="30d", selected=(time_period == "30d")),
                         Option("Last 90 days", value="90d", selected=(time_period == "90d")),
                         name="time_period",
-                        cls="select select-bordered w-full",
                         id="snapshot-time-period",
                     ),
                     cls="mb-3",
@@ -321,13 +317,13 @@ def create_activity_review_ui_routes(
                     "hx-include": "[name='subject_uid'],[name='time_period'],[name='domains']",
                 },
             ),
-            cls="card bg-base-100 shadow-sm p-4 mb-4",
+            cls="card bg-background shadow-sm p-4 mb-4",
         )
 
         snapshot_display = Div(
             P(
                 'Enter a user UID and click "Load Snapshot" to preview their activity data.',
-                cls="text-center text-base-content/50 py-6",
+                cls="text-center text-muted-foreground py-6",
             ),
             id="snapshot-display",
         )
@@ -346,7 +342,7 @@ def create_activity_review_ui_routes(
                     Textarea(
                         name="feedback_text",
                         placeholder="Write your qualitative feedback here. What patterns do you notice? What recommendations do you have?",
-                        cls="textarea textarea-bordered w-full h-40",
+                        cls="h-40",
                     ),
                     cls="mb-4",
                 ),
@@ -381,7 +377,7 @@ def create_activity_review_ui_routes(
                 });
                 """)
             ),
-            cls="card bg-base-100 shadow-sm p-4 mt-4",
+            cls="card bg-background shadow-sm p-4 mt-4",
         )
 
         content = Div(

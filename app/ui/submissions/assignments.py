@@ -42,12 +42,12 @@ def render_assignment_card(ex: dict[str, Any]) -> Any:
     instructions_preview = ""
     if instructions:
         preview_text = instructions[:200] + ("..." if len(instructions) > 200 else "")
-        instructions_preview = P(preview_text, cls="text-sm text-base-content/70 mt-2")
+        instructions_preview = P(preview_text, cls="text-sm text-muted-foreground mt-2")
 
     group_tag = Span(group_name, cls="badge badge-outline badge-sm") if group_name else ""
     due_display = ""
     if due_date_str:
-        due_display = Span(f"Due: {due_date_str}", cls="text-sm text-base-content/60")
+        due_display = Span(f"Due: {due_date_str}", cls="text-sm text-muted-foreground")
 
     if has_submission:
         action = Span("Already submitted", cls="text-sm text-success")
@@ -73,7 +73,7 @@ def render_assignment_card(ex: dict[str, Any]) -> Any:
             Div(action, cls="flex items-center"),
             cls="flex justify-between gap-4",
         ),
-        cls="card bg-base-100 shadow-sm p-4",
+        cls="card bg-background shadow-sm p-4",
     )
 
 
@@ -83,9 +83,9 @@ def render_assignments_list(exercises: list[dict[str, Any]]) -> Any:
         return Div(
             P(
                 "No exercises assigned yet. You'll see exercises here when a teacher assigns them to your group.",
-                cls="text-center text-base-content/60 py-8",
+                cls="text-center text-muted-foreground py-8",
             ),
-            cls="card bg-base-100 shadow-sm p-6",
+            cls="card bg-background shadow-sm p-6",
         )
 
     cards = [render_assignment_card(ex) for ex in exercises]

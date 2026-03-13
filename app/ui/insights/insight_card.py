@@ -86,7 +86,7 @@ def InsightCard(insight: PersistedInsight) -> Div:
             TruncatedText(
                 insight.description,
                 lines=3,
-                cls="text-sm text-base-content/70 mt-2 block",
+                cls="text-sm text-muted-foreground mt-2 block",
             )
         )
 
@@ -103,7 +103,7 @@ def InsightCard(insight: PersistedInsight) -> Div:
                 action_items.append(
                     Div(
                         NotStr(
-                            f'<span class="text-xs text-base-content/80">• {action_html}</span>'
+                            f'<span class="text-xs text-foreground/80">• {action_html}</span>'
                         ),
                         cls="mt-1",
                     )
@@ -114,7 +114,7 @@ def InsightCard(insight: PersistedInsight) -> Div:
                 Div(
                     SmallText("Recommended Actions:", cls="font-semibold mb-1"),
                     *action_items,
-                    cls="mt-3 p-3 bg-base-200 rounded-md",
+                    cls="mt-3 p-3 bg-muted rounded-md",
                 )
             )
 
@@ -173,7 +173,7 @@ def InsightCard(insight: PersistedInsight) -> Div:
         cls="flex flex-col md:flex-row gap-2",  # Stack vertically on mobile, horizontal on desktop
     )
 
-    content.append(Div(action_buttons, cls="mt-4 pt-3 border-t border-base-200"))
+    content.append(Div(action_buttons, cls="mt-4 pt-3 border-t border-border"))
 
     # Card with impact-based border
     # , Task 13: Wrap in Alpine component for modal
@@ -248,7 +248,7 @@ def InsightMiniCard(insight: PersistedInsight, show_domain: bool = False) -> Div
             TruncatedText(
                 insight.title,
                 lines=1,
-                cls="text-sm font-medium text-base-content flex-grow",
+                cls="text-sm font-medium text-foreground flex-grow",
             ),
             # Badges
             Row(*badges, gap=1),
@@ -258,7 +258,7 @@ def InsightMiniCard(insight: PersistedInsight, show_domain: bool = False) -> Div
         TruncatedText(
             insight.description or "",
             lines=1,
-            cls="text-xs text-base-content/60 mt-1 block",
+            cls="text-xs text-muted-foreground mt-1 block",
         ),
         # Link button
         Div(
@@ -269,7 +269,7 @@ def InsightMiniCard(insight: PersistedInsight, show_domain: bool = False) -> Div
             ),
             cls="mt-2",
         ),
-        cls="p-3 bg-base-200 rounded-lg border-l-2 border-l-warning cursor-pointer hover:bg-base-300 transition-colors",
+        cls="p-3 bg-muted rounded-lg border-l-2 border-l-warning cursor-pointer hover:bg-secondary transition-colors",
         hx_get=link_url,
     )
 
@@ -324,7 +324,7 @@ def InsightDetailModal(insight: PersistedInsight) -> Div:
                 supporting_data_items.append(
                     Li(
                         Span(f"{key.replace('_', ' ').title()}: ", cls="font-semibold"),
-                        Span(str(value), cls="text-base-content/70"),
+                        Span(str(value), cls="text-muted-foreground"),
                         cls="py-1",
                     )
                 )
@@ -332,7 +332,7 @@ def InsightDetailModal(insight: PersistedInsight) -> Div:
     supporting_section = Div()
     if supporting_data_items:
         supporting_section = Div(
-            H3("Supporting Data", cls="text-lg font-semibold text-base-content mb-3"),
+            H3("Supporting Data", cls="text-lg font-semibold text-foreground mb-3"),
             Ul(*supporting_data_items, cls="space-y-1"),
             cls="mb-6",
         )
@@ -348,11 +348,11 @@ def InsightDetailModal(insight: PersistedInsight) -> Div:
                 action_items.append(
                     Li(
                         Div(
-                            Span(action_text, cls="font-semibold text-base-content"),
+                            Span(action_text, cls="font-semibold text-foreground"),
                             cls="mb-1",
                         ),
                         Div(
-                            Span(rationale, cls="text-sm text-base-content/70"),
+                            Span(rationale, cls="text-sm text-muted-foreground"),
                             cls="ml-4",
                         )
                         if rationale
@@ -363,7 +363,7 @@ def InsightDetailModal(insight: PersistedInsight) -> Div:
 
         if action_items:
             actions_section = Div(
-                H3("Recommended Actions", cls="text-lg font-semibold text-base-content mb-3"),
+                H3("Recommended Actions", cls="text-lg font-semibold text-foreground mb-3"),
                 Ul(*action_items, cls="space-y-2"),
                 cls="mb-6",
             )
@@ -382,7 +382,7 @@ def InsightDetailModal(insight: PersistedInsight) -> Div:
                 ),
                 # Modal header
                 Div(
-                    H3(insight.title, cls="text-2xl font-bold text-base-content"),
+                    H3(insight.title, cls="text-2xl font-bold text-foreground"),
                     Div(
                         Badge(
                             insight.impact.value.upper(),
@@ -399,17 +399,17 @@ def InsightDetailModal(insight: PersistedInsight) -> Div:
                 ),
                 # Confidence indicator
                 Div(
-                    Span("Confidence: ", cls="font-semibold text-base-content"),
+                    Span("Confidence: ", cls="font-semibold text-foreground"),
                     Span(f"{confidence_pct}%", cls=f"font-bold {confidence_color}"),
-                    Span(f" ({confidence_label})", cls="text-sm text-base-content/60 ml-2"),
-                    cls="mb-4 p-3 bg-base-200 rounded-lg",
+                    Span(f" ({confidence_label})", cls="text-sm text-muted-foreground ml-2"),
+                    cls="mb-4 p-3 bg-muted rounded-lg",
                 ),
                 # Full description
                 Div(
-                    H3("Details", cls="text-lg font-semibold text-base-content mb-3"),
+                    H3("Details", cls="text-lg font-semibold text-foreground mb-3"),
                     P(
                         insight.description or "No additional details available.",
-                        cls="text-base-content/80",
+                        cls="text-foreground/80",
                     ),
                     cls="mb-6",
                 ),
@@ -419,9 +419,9 @@ def InsightDetailModal(insight: PersistedInsight) -> Div:
                 actions_section,
                 # Entity info
                 Div(
-                    Span("Related Entity: ", cls="font-semibold text-base-content"),
+                    Span("Related Entity: ", cls="font-semibold text-foreground"),
                     Span(
-                        insight.entity_uid or "None", cls="text-sm text-base-content/60 font-mono"
+                        insight.entity_uid or "None", cls="text-sm text-muted-foreground font-mono"
                     ),
                     cls="mb-6 text-sm",
                 )
@@ -431,7 +431,7 @@ def InsightDetailModal(insight: PersistedInsight) -> Div:
                 Div(
                     # Snooze options
                     Div(
-                        Span("Snooze for:", cls="text-sm font-medium text-base-content mr-3"),
+                        Span("Snooze for:", cls="text-sm font-medium text-foreground mr-3"),
                         Button("1 Day", cls="btn btn-sm btn-ghost", x_on_click="snooze(1)"),
                         Button("3 Days", cls="btn btn-sm btn-ghost", x_on_click="snooze(3)"),
                         Button("1 Week", cls="btn btn-sm btn-ghost", x_on_click="snooze(7)"),
@@ -443,7 +443,7 @@ def InsightDetailModal(insight: PersistedInsight) -> Div:
                         cls="btn btn-primary",
                         x_on_click="close()",
                     ),
-                    cls="flex items-center justify-between pt-4 border-t border-base-200",
+                    cls="flex items-center justify-between pt-4 border-t border-border",
                 ),
                 cls="modal-box max-w-2xl max-h-[80vh] overflow-y-auto",
             ),

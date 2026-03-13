@@ -24,6 +24,7 @@ from fasthtml.common import H2, H3, A, Div, Form, Option, P, Span
 from core.utils.logging import get_logger
 from ui.buttons import Button
 from ui.forms import Input, Label, Select, Textarea
+from ui.layout import Size
 from ui.patterns.activity_views_base import ActivityViewTabs
 
 logger = get_logger("skuel.components.principles_views")
@@ -95,17 +96,17 @@ class PrinciplesViewComponents:
         # Stats bar
         stats_bar = Div(
             Div(
-                Span("Total: ", cls="text-base-content/60"),
+                Span("Total: ", cls="text-muted-foreground"),
                 Span(str(stats.get("total", 0)), cls="font-bold"),
                 cls="mr-4",
             ),
             Div(
-                Span("Core: ", cls="text-base-content/60"),
+                Span("Core: ", cls="text-muted-foreground"),
                 Span(str(stats.get("core", 0)), cls="font-bold text-purple-600"),
                 cls="mr-4",
             ),
             Div(
-                Span("Active: ", cls="text-base-content/60"),
+                Span("Active: ", cls="text-muted-foreground"),
                 Span(str(stats.get("active", 0)), cls="font-bold text-green-600"),
             ),
             cls="flex items-center mb-4 text-sm",
@@ -122,7 +123,8 @@ class PrinciplesViewComponents:
                         for c in categories
                     ],
                     name="filter_category",
-                    cls="select select-bordered select-sm",
+                    size=Size.sm,
+                    full_width=False,
                     **{
                         "hx-get": "/principles/list-fragment",
                         "hx-target": "#principle-list",
@@ -148,7 +150,8 @@ class PrinciplesViewComponents:
                         selected=filters.get("strength") == "aspirational",
                     ),
                     name="filter_strength",
-                    cls="select select-bordered select-sm",
+                    size=Size.sm,
+                    full_width=False,
                     **{
                         "hx-get": "/principles/list-fragment",
                         "hx-target": "#principle-list",
@@ -172,7 +175,8 @@ class PrinciplesViewComponents:
                         selected=filters.get("sort_by") == "created_at",
                     ),
                     name="sort_by",
-                    cls="select select-bordered select-sm",
+                    size=Size.sm,
+                    full_width=False,
                     **{
                         "hx-get": "/principles/list-fragment",
                         "hx-target": "#principle-list",
@@ -194,7 +198,7 @@ class PrinciplesViewComponents:
             else [
                 P(
                     "No principles found. Create one to get started!",
-                    cls="text-base-content/60 text-center py-8",
+                    cls="text-muted-foreground text-center py-8",
                 )
             ],
             id="principle-list",
@@ -250,7 +254,7 @@ class PrinciplesViewComponents:
             "health": "text-red-600",
             "creative": "text-yellow-600",
         }
-        category_color = category_colors.get(category_str, "text-base-content/70")
+        category_color = category_colors.get(category_str, "text-muted-foreground")
 
         return Div(
             Div(
@@ -268,14 +272,14 @@ class PrinciplesViewComponents:
                     description[:100] + "..."
                     if description and len(description) > 100
                     else description,
-                    cls="text-base-content/70 text-sm mt-1",
+                    cls="text-muted-foreground text-sm mt-1",
                 )
                 if description
                 else "",
                 # Meta row
                 Div(
                     Span(f"Category: {category_str.title()}", cls=f"text-xs {category_color} mr-4"),
-                    Span(f"Strength: {strength_label}", cls="text-xs text-base-content/60"),
+                    Span(f"Strength: {strength_label}", cls="text-xs text-muted-foreground"),
                     cls="flex items-center mt-2",
                 ),
                 # Actions
@@ -310,7 +314,7 @@ class PrinciplesViewComponents:
                 cls="p-4",
             ),
             id=f"principle-{uid}",
-            cls="card bg-base-100 shadow-sm border border-base-200 hover:shadow-md transition-shadow",
+            cls="card bg-background shadow-sm border border-border hover:shadow-md transition-shadow",
         )
 
     # ========================================================================
@@ -350,7 +354,6 @@ class PrinciplesViewComponents:
                     type="text",
                     name="title",
                     placeholder="What principle guides you?",
-                    cls="input input-bordered w-full",
                     required=True,
                     autofocus=True,
                 ),
@@ -364,7 +367,6 @@ class PrinciplesViewComponents:
                     name="description",
                     placeholder="Describe this principle and why it matters to you...",
                     rows="4",
-                    cls="textarea textarea-bordered w-full",
                     required=True,
                 ),
                 cls="mb-4",
@@ -376,11 +378,10 @@ class PrinciplesViewComponents:
                     type="text",
                     name="statement",
                     placeholder="A short, memorable statement (e.g., 'Act with integrity')",
-                    cls="input input-bordered w-full",
                 ),
                 P(
                     "A concise statement you can recall easily",
-                    cls="text-xs text-base-content/60 mt-1",
+                    cls="text-xs text-muted-foreground mt-1",
                 ),
                 cls="mb-4",
             ),
@@ -395,7 +396,6 @@ class PrinciplesViewComponents:
                 Select(
                     *[Option(c.title(), value=c) for c in categories],
                     name="category",
-                    cls="select select-bordered w-full",
                 ),
                 cls="mb-4",
             ),
@@ -408,11 +408,10 @@ class PrinciplesViewComponents:
                     Option("Strong (well-established)", value="0.75"),
                     Option("Core (fundamental to who I am)", value="0.95"),
                     name="strength",
-                    cls="select select-bordered w-full",
                 ),
                 P(
                     "How established is this principle in your life?",
-                    cls="text-xs text-base-content/60 mt-1",
+                    cls="text-xs text-muted-foreground mt-1",
                 ),
                 cls="mb-4",
             ),
@@ -432,7 +431,7 @@ class PrinciplesViewComponents:
                 ),
                 P(
                     "Active principles guide your daily decisions",
-                    cls="text-xs text-base-content/60 mt-1",
+                    cls="text-xs text-muted-foreground mt-1",
                 ),
                 cls="mb-4",
             ),
@@ -458,7 +457,7 @@ class PrinciplesViewComponents:
                 value="true",
                 cls="btn btn-outline btn-lg",
             ),
-            cls="flex justify-end gap-2 pt-6 border-t border-base-200",
+            cls="flex justify-end gap-2 pt-6 border-t border-border",
         )
 
         return Div(
@@ -475,7 +474,7 @@ class PrinciplesViewComponents:
                     "hx-target": "#view-content",
                     "hx-swap": "innerHTML",
                 },
-                cls="card bg-base-100 shadow-lg p-6",
+                cls="card bg-background shadow-lg p-6",
             ),
             id="create-view",
         )
@@ -505,34 +504,34 @@ class PrinciplesViewComponents:
             Div(
                 # Overall adherence
                 Div(
-                    P("Overall Adherence", cls="text-sm text-base-content/60"),
+                    P("Overall Adherence", cls="text-sm text-muted-foreground"),
                     P(
                         f"{analytics_data.get('overall_adherence', 0):.0%}",
                         cls="text-3xl font-bold text-green-600",
                     ),
-                    cls="text-center p-4 bg-base-200 rounded-lg",
+                    cls="text-center p-4 bg-muted rounded-lg",
                 ),
                 # Core principles
                 Div(
-                    P("Core Principles", cls="text-sm text-base-content/60"),
+                    P("Core Principles", cls="text-sm text-muted-foreground"),
                     P(
                         str(analytics_data.get("core_count", 0)),
                         cls="text-3xl font-bold text-purple-600",
                     ),
-                    cls="text-center p-4 bg-base-200 rounded-lg",
+                    cls="text-center p-4 bg-muted rounded-lg",
                 ),
                 # Active principles
                 Div(
-                    P("Active Principles", cls="text-sm text-base-content/60"),
+                    P("Active Principles", cls="text-sm text-muted-foreground"),
                     P(
                         str(analytics_data.get("active_count", 0)),
                         cls="text-3xl font-bold text-blue-600",
                     ),
-                    cls="text-center p-4 bg-base-200 rounded-lg",
+                    cls="text-center p-4 bg-muted rounded-lg",
                 ),
                 cls="grid grid-cols-3 gap-4 mb-6",
             ),
-            cls="card bg-base-100 shadow-lg p-6 mb-6",
+            cls="card bg-background shadow-lg p-6 mb-6",
         )
 
         # Impact analysis
@@ -541,25 +540,25 @@ class PrinciplesViewComponents:
             Div(
                 P(
                     "Track how your principles influence your goals and choices.",
-                    cls="text-base-content/60 mb-4",
+                    cls="text-muted-foreground mb-4",
                 ),
                 # Placeholder for charts
                 Div(
                     P(
                         "Impact charts will be displayed here",
-                        cls="text-base-content/50 text-center py-12 border border-dashed border-base-300 rounded-lg",
+                        cls="text-muted-foreground text-center py-12 border border-dashed border-border rounded-lg",
                     ),
                     cls="mb-4",
                 ),
             ),
-            cls="card bg-base-100 shadow-lg p-6 mb-6",
+            cls="card bg-background shadow-lg p-6 mb-6",
         )
 
         # Reflection history
         reflections = analytics_data.get("reflections", [])
         if reflections:
             reflection_content = Div(
-                P("Your recent principle reflections:", cls="text-base-content/60 mb-4"),
+                P("Your recent principle reflections:", cls="text-muted-foreground mb-4"),
                 Div(
                     *[PrinciplesViewComponents._render_reflection_card(r) for r in reflections[:5]],
                     cls="space-y-3",
@@ -567,14 +566,14 @@ class PrinciplesViewComponents:
             )
         else:
             reflection_content = Div(
-                P("Track your principle reflections and growth.", cls="text-base-content/60 mb-4"),
-                P("No reflections recorded yet.", cls="text-base-content/50 text-center py-8"),
+                P("Track your principle reflections and growth.", cls="text-muted-foreground mb-4"),
+                P("No reflections recorded yet.", cls="text-muted-foreground text-center py-8"),
             )
 
         reflection_section = Div(
             H3("Recent Reflections", cls="text-lg font-semibold mb-4"),
             reflection_content,
-            cls="card bg-base-100 shadow-lg p-6",
+            cls="card bg-background shadow-lg p-6",
         )
 
         return Div(
@@ -637,7 +636,6 @@ class PrinciplesViewComponents:
                             type="text",
                             name="name",
                             value=name,
-                            cls="input input-bordered w-full",
                             required=True,
                         ),
                         cls="mb-4",
@@ -650,7 +648,6 @@ class PrinciplesViewComponents:
                             name="statement",
                             value=statement,
                             placeholder="A short, memorable statement",
-                            cls="input input-bordered w-full",
                         ),
                         cls="mb-4",
                     ),
@@ -661,7 +658,6 @@ class PrinciplesViewComponents:
                             description or "",
                             name="description",
                             rows="3",
-                            cls="textarea textarea-bordered w-full",
                         ),
                         cls="mb-4",
                     ),
@@ -674,7 +670,6 @@ class PrinciplesViewComponents:
                                 for c in categories
                             ],
                             name="category",
-                            cls="select select-bordered w-full",
                         ),
                         cls="mb-4",
                     ),
@@ -711,7 +706,7 @@ class PrinciplesViewComponents:
                         "hx-on::after-request": "document.getElementById('modal').innerHTML = ''",
                     },
                 ),
-                cls="card bg-base-100 shadow-xl p-6 max-w-lg mx-auto mt-20",
+                cls="card bg-background shadow-xl p-6 max-w-lg mx-auto mt-20",
             ),
             cls="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center z-50",
             id="edit-modal",
@@ -740,7 +735,7 @@ class PrinciplesViewComponents:
                 H2(f"Reflect on: {name}", cls="text-xl font-bold mb-4"),
                 P(
                     "How well did you align with this principle today?",
-                    cls="text-base-content/70 mb-4",
+                    cls="text-muted-foreground mb-4",
                 ),
                 Form(
                     # Alignment level
@@ -755,7 +750,6 @@ class PrinciplesViewComponents:
                             ),
                             Option("Unknown - Unsure how to assess", value="unknown"),
                             name="alignment_level",
-                            cls="select select-bordered w-full",
                         ),
                         cls="mb-4",
                     ),
@@ -767,13 +761,12 @@ class PrinciplesViewComponents:
                             name="evidence",
                             placeholder="What specifically did you observe? What actions did you take? (Required - at least 5 characters)",
                             rows="3",
-                            cls="textarea textarea-bordered w-full",
                             required=True,
                             minlength="5",
                         ),
                         P(
                             "Describe what happened that relates to this principle.",
-                            cls="text-xs text-base-content/60 mt-1",
+                            cls="text-xs text-muted-foreground mt-1",
                         ),
                         cls="mb-4",
                     ),
@@ -785,7 +778,6 @@ class PrinciplesViewComponents:
                             name="reflection",
                             placeholder="What did you learn? Any insights? (Optional)",
                             rows="3",
-                            cls="textarea textarea-bordered w-full",
                         ),
                         cls="mb-4",
                     ),
@@ -794,9 +786,9 @@ class PrinciplesViewComponents:
                         Div(
                             Span(
                                 "What triggered this reflection?",
-                                cls="font-semibold text-base-content/70",
+                                cls="font-semibold text-muted-foreground",
                             ),
-                            Span("(Optional)", cls="text-xs text-base-content/50 ml-2"),
+                            Span("(Optional)", cls="text-xs text-muted-foreground ml-2"),
                             cls="mb-2",
                         ),
                         # Trigger type selector
@@ -809,7 +801,7 @@ class PrinciplesViewComponents:
                                 Option("Event occurred", value="event"),
                                 Option("Choice/Decision", value="choice"),
                                 name="trigger_type",
-                                cls="select select-bordered select-sm w-full",
+                                size=Size.sm,
                                 id="trigger-type-select",
                                 **{
                                     "x-data": "{ showTriggerUid: false }",
@@ -825,11 +817,11 @@ class PrinciplesViewComponents:
                                 type="text",
                                 name="trigger_uid",
                                 placeholder="e.g., goal.fitness, habit.meditation",
-                                cls="input input-bordered input-sm w-full",
+                                size=Size.sm,
                             ),
                             P(
                                 "UID of the goal, habit, event, or choice that prompted this reflection",
-                                cls="text-xs text-base-content/50 mt-1",
+                                cls="text-xs text-muted-foreground mt-1",
                             ),
                             cls="mb-2",
                             id="trigger-uid-container",
@@ -842,11 +834,11 @@ class PrinciplesViewComponents:
                                 name="trigger_context",
                                 placeholder="Describe the situation that prompted this reflection...",
                                 rows="2",
-                                cls="textarea textarea-bordered textarea-sm w-full",
+                                size=Size.sm,
                             ),
                             cls="mb-2",
                         ),
-                        cls="bg-base-200 rounded-lg p-3 mb-4",
+                        cls="bg-muted rounded-lg p-3 mb-4",
                     ),
                     # Buttons
                     Div(
@@ -866,7 +858,7 @@ class PrinciplesViewComponents:
                         "hx-on::after-request": "document.getElementById('modal').innerHTML = ''",
                     },
                 ),
-                cls="card bg-base-100 shadow-xl p-6 max-w-lg mx-auto mt-20",
+                cls="card bg-background shadow-xl p-6 max-w-lg mx-auto mt-20",
             ),
             cls="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center z-50 overflow-y-auto",
             id="reflect-modal",
@@ -931,7 +923,7 @@ class PrinciplesViewComponents:
             reflection_cards = [
                 P(
                     "No reflections yet. Click 'Reflect' on the principle to record your first reflection.",
-                    cls="text-base-content/60 text-center py-8",
+                    cls="text-muted-foreground text-center py-8",
                 )
             ]
 
@@ -972,7 +964,7 @@ class PrinciplesViewComponents:
             Div(
                 # Date and alignment
                 Div(
-                    Span(str(reflection_date), cls="text-sm text-base-content/60"),
+                    Span(str(reflection_date), cls="text-sm text-muted-foreground"),
                     Span(alignment_text, cls=f"badge {color_cls} ml-2"),
                     Span(
                         quality_label,
@@ -981,19 +973,19 @@ class PrinciplesViewComponents:
                     cls="flex items-center gap-2 mb-2",
                 ),
                 # Evidence
-                P(evidence, cls="text-base-content/70 mb-2") if evidence else None,
+                P(evidence, cls="text-muted-foreground mb-2") if evidence else None,
                 # Notes (if present)
-                P(notes, cls="text-base-content/70 text-sm italic") if notes else None,
+                P(notes, cls="text-muted-foreground text-sm italic") if notes else None,
                 # Trigger info
                 Span(
                     f"Triggered by: {trigger_type}",
-                    cls="text-xs text-base-content/50 mt-2 block",
+                    cls="text-xs text-muted-foreground mt-2 block",
                 )
                 if trigger_type != "manual"
                 else None,
                 cls="p-4",
             ),
-            cls="card bg-base-100 shadow border border-base-200",
+            cls="card bg-background shadow border border-border",
         )
 
     # ========================================================================
@@ -1024,10 +1016,10 @@ class PrinciplesViewComponents:
         trend_styles = {
             "improving": ("text-green-600", "↑ Improving"),
             "declining": ("text-red-600", "↓ Declining"),
-            "stable": ("text-base-content/70", "→ Stable"),
+            "stable": ("text-muted-foreground", "→ Stable"),
         }
         trend_cls, trend_text = trend_styles.get(
-            trend_direction, ("text-base-content/70", "→ Stable")
+            trend_direction, ("text-muted-foreground", "→ Stable")
         )
 
         # Header with back button
@@ -1041,7 +1033,7 @@ class PrinciplesViewComponents:
                 },
             ),
             H2("Alignment Trend", cls="text-xl font-bold mt-4 mb-4"),
-            P(f"Period: {period_start} to {period_end}", cls="text-base-content/60 mb-4"),
+            P(f"Period: {period_start} to {period_end}", cls="text-muted-foreground mb-4"),
             cls="mb-4",
         )
 
@@ -1049,27 +1041,27 @@ class PrinciplesViewComponents:
         stats_row = Div(
             # Reflection count
             Div(
-                Span("Reflections", cls="text-sm text-base-content/60 block"),
+                Span("Reflections", cls="text-sm text-muted-foreground block"),
                 Span(str(reflection_count), cls="text-2xl font-bold"),
-                cls="card bg-base-100 shadow p-4 text-center",
+                cls="card bg-background shadow p-4 text-center",
             ),
             # Average alignment
             Div(
-                Span("Avg Alignment", cls="text-sm text-base-content/60 block"),
+                Span("Avg Alignment", cls="text-sm text-muted-foreground block"),
                 Span(f"{avg_alignment:.1f}/4", cls="text-2xl font-bold"),
-                cls="card bg-base-100 shadow p-4 text-center",
+                cls="card bg-background shadow p-4 text-center",
             ),
             # Trend direction
             Div(
-                Span("Trend", cls="text-sm text-base-content/60 block"),
+                Span("Trend", cls="text-sm text-muted-foreground block"),
                 Span(trend_text, cls=f"text-2xl font-bold {trend_cls}"),
-                cls="card bg-base-100 shadow p-4 text-center",
+                cls="card bg-background shadow p-4 text-center",
             ),
             # Quality average
             Div(
-                Span("Quality", cls="text-sm text-base-content/60 block"),
+                Span("Quality", cls="text-sm text-muted-foreground block"),
                 Span(f"{quality_avg:.0%}", cls="text-2xl font-bold"),
-                cls="card bg-base-100 shadow p-4 text-center",
+                cls="card bg-background shadow p-4 text-center",
             ),
             cls="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6",
         )
@@ -1079,7 +1071,7 @@ class PrinciplesViewComponents:
         for trigger_type, count in trigger_dist.items():
             trigger_items.append(
                 Div(
-                    Span(trigger_type.title(), cls="text-base-content/70"),
+                    Span(trigger_type.title(), cls="text-muted-foreground"),
                     Span(str(count), cls="font-bold ml-auto"),
                     cls="flex justify-between py-2 border-b",
                 )
@@ -1090,8 +1082,8 @@ class PrinciplesViewComponents:
                 H3("Reflection Triggers", cls="text-lg font-semibold mb-3"),
                 *trigger_items
                 if trigger_items
-                else [P("No trigger data", cls="text-base-content/60")],
-                cls="card bg-base-100 shadow p-4",
+                else [P("No trigger data", cls="text-muted-foreground")],
+                cls="card bg-background shadow p-4",
             )
             if trigger_dist
             else None

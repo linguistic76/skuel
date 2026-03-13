@@ -64,12 +64,12 @@ class AtomicHabitsComponents:
         return Card(
             CardBody(
                 # Progress indicator
-                Div(Span("Step 1 of 4", cls="text-sm text-base-content/60"), cls="mb-4 text-right"),
+                Div(Span("Step 1 of 4", cls="text-sm text-muted-foreground"), cls="mb-4 text-right"),
                 # Header
                 H2("Create New Habit", cls="text-2xl font-bold mb-2"),
                 P(
                     "Every habit is a vote for the type of person you wish to become",
-                    cls="text-base-content/70 italic mb-6",
+                    cls="text-muted-foreground italic mb-6",
                 ),
                 # Form
                 Form(
@@ -83,7 +83,6 @@ class AtomicHabitsComponents:
                             placeholder="Write 500 words daily",
                             value=form_data.get("name", ""),
                             required=True,
-                            cls="input input-bordered w-full",
                         ),
                         cls="mb-4",
                     ),
@@ -98,7 +97,6 @@ class AtomicHabitsComponents:
                             name="reinforces_identity",
                             placeholder="I am a writer",
                             value=form_data.get("reinforces_identity", ""),
-                            cls="input input-bordered w-full",
                         ),
                         P(
                             "✨ Every completion is a vote for this identity",
@@ -114,7 +112,6 @@ class AtomicHabitsComponents:
                             name="description",
                             placeholder="What will you do, when, and why?",
                             rows="3",
-                            cls="textarea textarea-bordered w-full",
                             children=form_data.get("description", ""),
                         ),
                         cls="mb-4",
@@ -141,7 +138,6 @@ class AtomicHabitsComponents:
                                 ),
                                 id="recurrence",
                                 name="recurrence_pattern",
-                                cls="select select-bordered w-full",
                             ),
                             cls="flex-1",
                         ),
@@ -153,7 +149,6 @@ class AtomicHabitsComponents:
                                 name="duration_minutes",
                                 value=form_data.get("duration_minutes", 15),
                                 min="1",
-                                cls="input input-bordered w-full",
                             ),
                             cls="flex-1",
                         ),
@@ -188,11 +183,11 @@ class AtomicHabitsComponents:
         return Card(
             CardBody(
                 # Progress
-                Div(Span("Step 2 of 4", cls="text-sm text-base-content/60"), cls="mb-4 text-right"),
+                Div(Span("Step 2 of 4", cls="text-sm text-muted-foreground"), cls="mb-4 text-right"),
                 H2("⚙️ Behavior Design", cls="text-2xl font-bold mb-2"),
                 P(
                     "Design your habit using the Atomic Habits framework",
-                    cls="text-base-content/70 mb-6",
+                    cls="text-muted-foreground mb-6",
                 ),
                 Form(
                     # Cue
@@ -202,7 +197,7 @@ class AtomicHabitsComponents:
                         ),
                         P(
                             "The time, location, or event that starts your habit",
-                            cls="text-sm text-base-content/60 mb-2",
+                            cls="text-sm text-muted-foreground mb-2",
                         ),
                         Input(
                             type="text",
@@ -210,7 +205,6 @@ class AtomicHabitsComponents:
                             name="cue",
                             placeholder="After morning coffee",
                             value=form_data.get("cue", ""),
-                            cls="input input-bordered w-full",
                         ),
                         cls="mb-4 p-4 bg-blue-50 rounded-lg",
                     ),
@@ -223,7 +217,7 @@ class AtomicHabitsComponents:
                         ),
                         P(
                             "The specific behavior you'll perform",
-                            cls="text-sm text-base-content/60 mb-2",
+                            cls="text-sm text-muted-foreground mb-2",
                         ),
                         Input(
                             type="text",
@@ -231,7 +225,6 @@ class AtomicHabitsComponents:
                             name="routine",
                             placeholder="Open laptop, write in daily journal",
                             value=form_data.get("routine", ""),
-                            cls="input input-bordered w-full",
                         ),
                         cls="mb-4 p-4 bg-green-50 rounded-lg",
                     ),
@@ -244,7 +237,7 @@ class AtomicHabitsComponents:
                         ),
                         P(
                             "The immediate satisfaction you feel",
-                            cls="text-sm text-base-content/60 mb-2",
+                            cls="text-sm text-muted-foreground mb-2",
                         ),
                         Input(
                             type="text",
@@ -252,7 +245,6 @@ class AtomicHabitsComponents:
                             name="reward",
                             placeholder="Cross off day on calendar, feel accomplished",
                             value=form_data.get("reward", ""),
-                            cls="input input-bordered w-full",
                         ),
                         cls="mb-6 p-4 bg-purple-50 rounded-lg",
                     ),
@@ -300,9 +292,9 @@ class AtomicHabitsComponents:
         return Card(
             CardBody(
                 # Progress
-                Div(Span("Step 3 of 4", cls="text-sm text-base-content/60"), cls="mb-4 text-right"),
+                Div(Span("Step 3 of 4", cls="text-sm text-muted-foreground"), cls="mb-4 text-right"),
                 H2("📘 Link to Goals", cls="text-2xl font-bold mb-2"),
-                P("How essential is this habit for each goal?", cls="text-base-content/70 mb-6"),
+                P("How essential is this habit for each goal?", cls="text-muted-foreground mb-6"),
                 Form(
                     # Goal essentiality selectors
                     Div(
@@ -319,7 +311,7 @@ class AtomicHabitsComponents:
                         P("💡 Tip:", cls="font-semibold mb-2"),
                         P(
                             "Reserve ESSENTIAL for the 1-3 habits you absolutely cannot achieve this goal without. Most habits are SUPPORTING.",
-                            cls="text-sm text-base-content/70",
+                            cls="text-sm text-muted-foreground",
                         ),
                         cls="bg-yellow-50 p-4 rounded-lg mb-6",
                     ),
@@ -359,7 +351,7 @@ class AtomicHabitsComponents:
         return Card(
             CardBody(
                 H3(f"📘 {goal['title']}", cls="text-lg font-semibold mb-2"),
-                P(f"Timeframe: {goal['timeframe']}", cls="text-sm text-base-content/60 mb-3"),
+                P(f"Timeframe: {goal['timeframe']}", cls="text-sm text-muted-foreground mb-3"),
                 Div(
                     Label("This habit is:", cls="label mb-2"),
                     Div(
@@ -376,7 +368,7 @@ class AtomicHabitsComponents:
                         ),
                         P(
                             "🔴 Goal is IMPOSSIBLE without this habit",
-                            cls="text-xs text-base-content/70 ml-6 mb-2",
+                            cls="text-xs text-muted-foreground ml-6 mb-2",
                         ),
                         # Critical
                         Label(
@@ -391,7 +383,7 @@ class AtomicHabitsComponents:
                         ),
                         P(
                             "🟠 Goal is VERY DIFFICULT without this habit",
-                            cls="text-xs text-base-content/70 ml-6 mb-2",
+                            cls="text-xs text-muted-foreground ml-6 mb-2",
                         ),
                         # Supporting
                         Label(
@@ -407,7 +399,7 @@ class AtomicHabitsComponents:
                         ),
                         P(
                             "🟡 Goal is EASIER with this habit",
-                            cls="text-xs text-base-content/70 ml-6 mb-2",
+                            cls="text-xs text-muted-foreground ml-6 mb-2",
                         ),
                         # Optional
                         Label(
@@ -422,14 +414,14 @@ class AtomicHabitsComponents:
                         ),
                         P(
                             "🟢 Habit is TANGENTIALLY helpful",
-                            cls="text-xs text-base-content/70 ml-6",
+                            cls="text-xs text-muted-foreground ml-6",
                         ),
                         cls="space-y-2",
                     ),
                     cls="mb-3",
                 ),
             ),
-            cls="bg-base-200",
+            cls="bg-muted",
         )
 
     @staticmethod
@@ -438,7 +430,7 @@ class AtomicHabitsComponents:
         return Card(
             CardBody(
                 # Progress
-                Div(Span("Step 4 of 4", cls="text-sm text-base-content/60"), cls="mb-4 text-right"),
+                Div(Span("Step 4 of 4", cls="text-sm text-muted-foreground"), cls="mb-4 text-right"),
                 H2("✅ Review & Create", cls="text-2xl font-bold mb-6"),
                 # Review summary
                 Div(
@@ -484,11 +476,11 @@ class AtomicHabitsComponents:
                             P(
                                 '"You do not rise to the level of your goals. '
                                 'You fall to the level of your systems."',
-                                cls="italic text-base-content/70 mb-2",
+                                cls="italic text-muted-foreground mb-2",
                             ),
                             P(
                                 "— James Clear, Atomic Habits",
-                                cls="text-sm text-base-content/60 text-right",
+                                cls="text-sm text-muted-foreground text-right",
                             ),
                         ),
                         cls="bg-yellow-50 mb-6",
@@ -567,7 +559,7 @@ class AtomicHabitsComponents:
             status_text = "Halfway!"
         else:
             bar_color = "bg-gradient-to-r from-gray-400 to-gray-600"
-            text_color = "text-base-content/70"
+            text_color = "text-muted-foreground"
             status_icon = "🌱"
             status_text = "Building"
 
@@ -590,14 +582,14 @@ class AtomicHabitsComponents:
                     cls=f"{bar_color} h-full rounded-full {animation_class} flex items-center justify-end pr-2",
                     **{"data-percentage": str(percentage)},
                 ),
-                cls="w-full bg-base-300 rounded-full h-6 mb-2 overflow-hidden",
+                cls="w-full bg-secondary rounded-full h-6 mb-2 overflow-hidden",
             ),
             # Stats
             Div(
                 Span(f"{votes_cast}/{votes_required} votes", cls="text-sm font-medium"),
                 Span(
                     f"{status_text}" if is_established else f"{votes_remaining} more to establish",
-                    cls="text-sm text-base-content/70",
+                    cls="text-sm text-muted-foreground",
                 ),
                 cls="flex justify-between items-center",
             ),
@@ -681,7 +673,7 @@ class AtomicHabitsComponents:
                 # Header
                 Div(
                     H3(f"🎯 {goal_title}", cls="text-lg font-semibold mb-2"),
-                    P("Habit System Strength", cls="text-sm text-base-content/70 mb-4"),
+                    P("Habit System Strength", cls="text-sm text-muted-foreground mb-4"),
                     cls="mb-4",
                 ),
                 # Strength meter
@@ -697,10 +689,10 @@ class AtomicHabitsComponents:
                             style=f"width: {percentage}%",
                             cls=f"{bar_color} h-4 rounded-full {'meter-animated' if animate else 'transition-all duration-500'}",
                         ),
-                        cls="w-full bg-base-300 rounded-full h-4 mb-3",
+                        cls="w-full bg-secondary rounded-full h-4 mb-3",
                     ),
                     # Diagnosis
-                    P(diagnosis, cls="text-sm text-base-content/70 italic mb-4"),
+                    P(diagnosis, cls="text-sm text-muted-foreground italic mb-4"),
                     cls=f"p-4 {bg_color} rounded-lg mb-4",
                 ),
                 # Habit breakdown
@@ -736,11 +728,11 @@ class AtomicHabitsComponents:
                             Div(
                                 Span("TOTAL", cls="text-sm font-bold"),
                                 Span(str(total_habits), cls="text-sm font-bold"),
-                                cls="flex justify-between pt-2 border-t border-base-300",
+                                cls="flex justify-between pt-2 border-t border-border",
                             ),
                             cls="space-y-1",
                         ),
-                        cls="bg-base-100 p-4 rounded-lg",
+                        cls="bg-background p-4 rounded-lg",
                     )
                     if show_breakdown
                     else None
@@ -792,7 +784,7 @@ class AtomicHabitsComponents:
                             "✅ Completed!",
                             cls="text-3xl font-bold text-green-700 mb-2 card-fade-in",
                         ),
-                        P(habit_name, cls="text-xl text-base-content/70"),
+                        P(habit_name, cls="text-xl text-muted-foreground"),
                         cls="text-center mb-6",
                     ),
                     # Identity vote (if applicable)
@@ -805,7 +797,7 @@ class AtomicHabitsComponents:
                                 ),
                                 P(
                                     f'You are becoming "{identity}"',
-                                    cls="text-lg text-center text-base-content/70 mb-4",
+                                    cls="text-lg text-center text-muted-foreground mb-4",
                                 ),
                                 # Animated progress bar
                                 Div(
@@ -813,11 +805,11 @@ class AtomicHabitsComponents:
                                         style=f"width: {percentage}%",
                                         cls="bg-gradient-to-r from-purple-500 to-pink-600 h-3 rounded-full progress-animated",
                                     ),
-                                    cls="w-full bg-base-300 rounded-full h-3 mb-2",
+                                    cls="w-full bg-secondary rounded-full h-3 mb-2",
                                 ),
                                 P(
                                     f"{votes_cast}/{votes_required} votes ({int(percentage)}% established)",
-                                    cls="text-sm text-center text-base-content/70",
+                                    cls="text-sm text-center text-muted-foreground",
                                 ),
                                 # Just established?
                                 (
@@ -829,7 +821,7 @@ class AtomicHabitsComponents:
                                         P(
                                             "After 50 repetitions, your brain has formed new neural pathways. "
                                             "This is no longer an aspiration - it's who you are.",
-                                            cls="text-sm text-base-content/70",
+                                            cls="text-sm text-muted-foreground",
                                         ),
                                         cls="mt-4 p-4 bg-green-50 rounded-lg text-center",
                                     )
@@ -862,10 +854,10 @@ class AtomicHabitsComponents:
                     Div(
                         P(
                             '"Every action you take is a vote for the type of person you wish to become."',
-                            cls="italic text-base-content/70 mb-2",
+                            cls="italic text-muted-foreground mb-2",
                         ),
-                        P("— James Clear", cls="text-sm text-base-content/60 text-right"),
-                        cls="p-4 bg-base-200 rounded-lg mb-6",
+                        P("— James Clear", cls="text-sm text-muted-foreground text-right"),
+                        cls="p-4 bg-muted rounded-lg mb-6",
                     ),
                     # Actions
                     Div(

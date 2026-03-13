@@ -86,7 +86,7 @@ def render_submission_history_row(item: dict) -> Any:
         Div(
             Div(
                 P(filename, cls="font-semibold mb-0"),
-                P(created_str, cls="text-xs text-base-content/50 mb-0"),
+                P(created_str, cls="text-xs text-muted-foreground mb-0"),
                 cls="flex-1",
             ),
             Div(
@@ -101,7 +101,7 @@ def render_submission_history_row(item: dict) -> Any:
             ),
             cls="flex items-center gap-4",
         ),
-        cls="card bg-base-100 shadow-sm mb-2",
+        cls="card bg-background shadow-sm mb-2",
     )
 
 
@@ -111,7 +111,7 @@ def render_yours_list(items: list[dict]) -> Any:
         return Div(
             P(
                 "No submissions yet.",
-                cls="text-center text-base-content/60 py-8",
+                cls="text-center text-muted-foreground py-8",
             ),
             id="submissions-yours-list",
         )
@@ -154,13 +154,13 @@ def render_report_card(assessment: Any) -> Any:
                 H4(title, cls="font-semibold mb-1"),
                 P(
                     f"From: {user_uid} \u00b7 {date_str} \u00b7 {source_label}",
-                    cls="text-sm text-base-content/60 mb-2",
+                    cls="text-sm text-muted-foreground mb-2",
                 ),
                 P(preview, cls="text-sm"),
                 A("View Full", href=f"/submissions/{uid}", cls="btn btn-sm btn-ghost mt-2"),
                 cls="card-body p-4",
             ),
-            cls="card bg-base-100 shadow-sm mb-3",
+            cls="card bg-background shadow-sm mb-3",
         ),
     )
 
@@ -169,10 +169,10 @@ def render_received_report_list(items: list[Any]) -> Any:
     """Render the full list of received reports (HTMX swap target)."""
     if not items:
         return Div(
-            P("No reports yet.", cls="text-center text-base-content/60 py-6"),
+            P("No reports yet.", cls="text-center text-muted-foreground py-6"),
             P(
                 "Assessments from teachers will appear here once submitted.",
-                cls="text-sm text-center text-base-content/40",
+                cls="text-sm text-center text-foreground/40",
             ),
             id="feedback-list",
         )
@@ -207,15 +207,15 @@ def render_activity_report_card(report: Any) -> Any:
             Div(
                 Div(
                     P(title, cls="font-semibold mb-0 text-sm"),
-                    P(subtitle, cls="text-xs text-base-content/50 mb-1") if subtitle else None,
+                    P(subtitle, cls="text-xs text-muted-foreground mb-1") if subtitle else None,
                 ),
                 render_processor_badge(ptype_str),
                 cls="flex items-start justify-between gap-2",
             ),
-            P(truncated, cls="text-xs text-base-content/70 mt-1") if truncated else None,
+            P(truncated, cls="text-xs text-muted-foreground mt-1") if truncated else None,
             cls="card-body p-3",
         ),
-        cls="card bg-base-100 border border-base-200 mb-2",
+        cls="card bg-background border border-border mb-2",
     )
 
 
@@ -225,7 +225,7 @@ def render_activity_report_list(items: list[Any]) -> Any:
         return Div(
             P(
                 "No activity reports yet.",
-                cls="text-center text-base-content/60 py-4",
+                cls="text-center text-muted-foreground py-4",
             ),
             id="activity-feedback-list",
         )
@@ -264,7 +264,7 @@ def render_progress_report_card(report: Any) -> Any:
         content_section = Div(
             NotStr(
                 "<details class='mt-2'>"
-                "<summary class='cursor-pointer text-sm text-base-content/70 select-none'>"
+                "<summary class='cursor-pointer text-sm text-muted-foreground select-none'>"
                 "Read insights</summary>"
             ),
             P(content, cls="text-sm mt-2 whitespace-pre-wrap"),
@@ -273,7 +273,7 @@ def render_progress_report_card(report: Any) -> Any:
     else:
         content_section = P(
             "No insights generated yet.",
-            cls="text-sm text-base-content/40 mt-1",
+            cls="text-sm text-foreground/40 mt-1",
         )
 
     return Div(
@@ -281,7 +281,7 @@ def render_progress_report_card(report: Any) -> Any:
             Div(
                 Div(
                     H4(title, cls="font-semibold mb-0"),
-                    P(date_str, cls="text-xs text-base-content/60 mb-0") if date_str else None,
+                    P(date_str, cls="text-xs text-muted-foreground mb-0") if date_str else None,
                 ),
                 cls="flex items-start justify-between gap-4 mb-2",
             ),
@@ -290,7 +290,7 @@ def render_progress_report_card(report: Any) -> Any:
             content_section,
             cls="card-body p-4",
         ),
-        cls="card bg-base-100 shadow-sm mb-3",
+        cls="card bg-background shadow-sm mb-3",
     )
 
 
@@ -300,7 +300,7 @@ def render_progress_report_list(items: list[Any]) -> Any:
         return Div(
             P(
                 "No activity feedback yet. Generate your first one above!",
-                cls="text-center text-base-content/60 py-4",
+                cls="text-center text-muted-foreground py-4",
             ),
             id="progress-list",
         )

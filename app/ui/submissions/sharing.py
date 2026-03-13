@@ -12,15 +12,13 @@ from fasthtml.common import (
     H4,
     Div,
     Form,
-    Input,
-    Label,
     Option,
     P,
-    Select,
     Span,
 )
 
 from ui.buttons import Button
+from ui.forms import Input, Label, Select
 
 
 def render_visibility_dropdown(submission: Any) -> Any:
@@ -33,7 +31,7 @@ def render_visibility_dropdown(submission: Any) -> Any:
             Span("Private", cls="badge badge-ghost"),
             P(
                 "Only completed reports can be shared",
-                cls="text-xs text-base-content/60 mt-1 mb-0",
+                cls="text-xs text-muted-foreground mt-1 mb-0",
             ),
             cls="mb-4",
         )
@@ -56,7 +54,6 @@ def render_visibility_dropdown(submission: Any) -> Any:
                 for val, label, _desc in visibility_options
             ],
             name="visibility",
-            cls="select select-bordered w-full",
             hx_post="/api/submissions/set-visibility",
             hx_trigger="change",
             hx_vals=f"js:{{report_uid: '{submission.uid}', visibility: event.target.value}}",
@@ -69,7 +66,7 @@ def render_visibility_dropdown(submission: Any) -> Any:
                     (desc for val, _lbl, desc in visibility_options if val == current_visibility),
                     "",
                 ),
-                cls="text-xs text-base-content/60 mb-0",
+                cls="text-xs text-muted-foreground mb-0",
             ),
             id="visibility-status",
             cls="mt-1",
@@ -100,7 +97,6 @@ def render_share_modal(report_uid: str) -> Any:
                                 type="text",
                                 name="recipient_uid",
                                 placeholder="user_teacher",
-                                cls="input input-bordered w-full",
                                 required=True,
                             ),
                             cls="form-control mb-3",
@@ -113,7 +109,6 @@ def render_share_modal(report_uid: str) -> Any:
                                 Option("Peer", value="peer"),
                                 Option("Mentor", value="mentor"),
                                 name="role",
-                                cls="select select-bordered w-full",
                             ),
                             cls="form-control mb-4",
                         ),
@@ -160,7 +155,7 @@ def render_shared_users_list(report_uid: str) -> Any:
     return Div(
         H4("Shared With", cls="font-bold mb-2"),
         Div(
-            P("Loading shared users...", cls="text-base-content/60 text-sm"),
+            P("Loading shared users...", cls="text-muted-foreground text-sm"),
             id="shared-users-list",
             hx_get=f"/submissions/{report_uid}/shared-users",
             hx_trigger="load",
@@ -184,7 +179,7 @@ def render_sharing_section(submission: Any) -> Any:
             cls="space-y-2",
         ),
         id="sharing-section",
-        cls="card bg-base-200 p-4 rounded-lg mt-6",
+        cls="card bg-muted p-4 rounded-lg mt-6",
         **{
             "x-data": "{ shareModal: false }",
         },

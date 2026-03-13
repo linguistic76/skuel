@@ -183,7 +183,7 @@ async def error_page(message: str, status_code: int, user_display_name: str = "U
 
     content = Div(
         H1(f"Error {status_code}", cls="text-3xl font-bold text-error mb-4"),
-        P(message, cls="text-lg text-base-content/70"),
+        P(message, cls="text-lg text-muted-foreground"),
         cls="flex flex-col items-center justify-center min-h-[400px] p-8",
     )
 
@@ -353,7 +353,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
                 P("Failed to save preferences. Please try again.", cls="text-error"),
                 P(
                     "If this problem persists, contact support.",
-                    cls="text-sm text-base-content/60 mt-2",
+                    cls="text-sm text-muted-foreground mt-2",
                 ),
                 cls="p-4",
             )
@@ -675,7 +675,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
                 "Failed to load domain card preview",
                 extra={"slug": slug, "user_uid": user_uid, "error": str(result.error)},
             )
-            return Para("Unable to load items", cls="text-sm text-base-content/50 py-2")
+            return Para("Unable to load items", cls="text-sm text-muted-foreground py-2")
 
         # Filter terminal statuses (completed, failed, cancelled, archived).
         # Guard against string status values returned by some service backends.
@@ -769,11 +769,11 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
                     Div(
                         P(
                             f"Shared by: {report.user_uid}",
-                            cls="text-xs text-base-content/60 mb-1",
+                            cls="text-xs text-muted-foreground mb-1",
                         ),
                         P(
                             f"Type: {report.report_type}",
-                            cls="text-xs text-base-content/60 mb-0",
+                            cls="text-xs text-muted-foreground mb-0",
                         ),
                         cls="mt-2",
                     ),
@@ -788,7 +788,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
                     ),
                     cls="card-body p-4",
                 ),
-                cls="card bg-base-200 shadow-sm hover:shadow-md transition-shadow",
+                cls="card bg-muted shadow-sm hover:shadow-md transition-shadow",
             )
 
         # Content view
@@ -796,7 +796,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
             H2("📥 Shared With Me", cls="text-2xl font-bold mb-4"),
             P(
                 "Reports and events shared with you by teachers, peers, and mentors.",
-                cls="text-base-content/70 mb-6",
+                cls="text-muted-foreground mb-6",
             ),
             # Filter tabs
             Div(
@@ -815,9 +815,9 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
                 else Div(
                     P(
                         "No content shared with you yet.",
-                        cls="text-center text-base-content/60 py-12",
+                        cls="text-center text-muted-foreground py-12",
                     ),
-                    cls="card bg-base-200 p-8",
+                    cls="card bg-muted p-8",
                 )
             ),
         )
@@ -886,14 +886,14 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
                     Div(
                         H4(ku_title, cls="card-title text-sm"),
                         (
-                            P(ku_domain, cls="text-xs text-base-content/60 mt-1")
+                            P(ku_domain, cls="text-xs text-muted-foreground mt-1")
                             if ku_domain
                             else None
                         ),
                         Div(*badges, cls="flex gap-1 mt-2") if badges else None,
                         cls="card-body p-4",
                     ),
-                    cls="card bg-base-200 shadow-sm hover:shadow-md transition-shadow",
+                    cls="card bg-muted shadow-sm hover:shadow-md transition-shadow",
                 ),
                 href=f"/article/{ku['uid']}",
             )
@@ -913,9 +913,9 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
             else Div(
                 P(
                     "No knowledge units available yet.",
-                    cls="text-center text-base-content/60 py-12",
+                    cls="text-center text-muted-foreground py-12",
                 ),
-                cls="card bg-base-200 p-8",
+                cls="card bg-muted p-8",
             )
         )
 
@@ -923,7 +923,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
             H2("Knowledge Units", cls="text-2xl font-bold mb-2"),
             P(
                 "All knowledge units in the curriculum. Track your learning progress.",
-                cls="text-base-content/70 mb-6",
+                cls="text-muted-foreground mb-6",
             ),
             # Quick stats row
             Div(
@@ -932,7 +932,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
                         str(len(context.mastered_knowledge_uids)),
                         cls="text-xl font-bold text-success",
                     ),
-                    Span(" mastered", cls="text-sm text-base-content/60"),
+                    Span(" mastered", cls="text-sm text-muted-foreground"),
                     cls="flex items-baseline gap-1",
                 ),
                 Div(
@@ -940,12 +940,12 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
                         str(len(context.in_progress_knowledge_uids)),
                         cls="text-xl font-bold text-warning",
                     ),
-                    Span(" in progress", cls="text-sm text-base-content/60"),
+                    Span(" in progress", cls="text-sm text-muted-foreground"),
                     cls="flex items-baseline gap-1",
                 ),
                 Div(
                     Span(str(len(context.ready_to_learn_uids)), cls="text-xl font-bold text-info"),
-                    Span(" ready", cls="text-sm text-base-content/60"),
+                    Span(" ready", cls="text-sm text-muted-foreground"),
                     cls="flex items-baseline gap-1",
                 ),
                 cls="flex gap-6 mb-6",

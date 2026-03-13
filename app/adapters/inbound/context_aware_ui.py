@@ -61,7 +61,7 @@ class ContextAwareUIComponents:
             H1("🧠 Context Intelligence", cls="text-3xl font-bold mb-6"),
             P(
                 "AI-powered insights from your unified context",
-                cls="text-lg text-base-content/70 mb-8",
+                cls="text-lg text-muted-foreground mb-8",
             ),
             # Context overview cards
             ContextAwareUIComponents.render_context_overview(context_data),
@@ -109,7 +109,7 @@ class ContextAwareUIComponents:
 
         return Card(
             H3("🔍 AI Insights", cls="text-xl font-semibold mb-4"),
-            P("Intelligent analysis of your patterns and context", cls="text-base-content/70 mb-4"),
+            P("Intelligent analysis of your patterns and context", cls="text-muted-foreground mb-4"),
             Div(
                 [
                     InsightCard(
@@ -124,7 +124,7 @@ class ContextAwareUIComponents:
                 else [
                     P(
                         "Gathering insights from your context...",
-                        cls="text-base-content/50 text-center py-8",
+                        cls="text-muted-foreground text-center py-8",
                     )
                 ],
                 cls="space-y-3",
@@ -140,7 +140,7 @@ class ContextAwareUIComponents:
 
         return Card(
             H3("🎯 Smart Recommendations", cls="text-xl font-semibold mb-4"),
-            P("Context-aware suggestions for optimization", cls="text-base-content/70 mb-4"),
+            P("Context-aware suggestions for optimization", cls="text-muted-foreground mb-4"),
             Div(
                 [
                     RecommendationCard(
@@ -155,7 +155,7 @@ class ContextAwareUIComponents:
                 ]
                 if recommendations
                 else [
-                    P("No recommendations available", cls="text-base-content/50 text-center py-8")
+                    P("No recommendations available", cls="text-muted-foreground text-center py-8")
                 ],
                 cls="space-y-4",
             ),
@@ -169,7 +169,7 @@ class ContextAwareUIComponents:
             H3("⚡ Context System Health", cls="text-xl font-semibold mb-4"),
             P(
                 "Real-time health of your context intelligence system",
-                cls="text-base-content/70 mb-4",
+                cls="text-muted-foreground mb-4",
             ),
             Div(
                 ProgressMetric("Data Quality", health_data.get("data_quality", 0.8)),
@@ -188,7 +188,7 @@ class ContextAwareUIComponents:
             H1("📊 Context Analytics", cls="text-3xl font-bold mb-6"),
             P(
                 "Deep insights into your context patterns and intelligence",
-                cls="text-lg text-base-content/70 mb-8",
+                cls="text-lg text-muted-foreground mb-8",
             ),
             Card(
                 H3("Intelligence Metrics", cls="text-xl font-semibold mb-4"),
@@ -205,7 +205,7 @@ class ContextAwareUIComponents:
                 H3("Usage Patterns", cls="text-xl font-semibold mb-4"),
                 P(
                     "Coming soon: Detailed analytics on context usage, effectiveness, and optimization opportunities.",
-                    cls="text-base-content/70",
+                    cls="text-muted-foreground",
                 ),
                 cls="p-6",
             ),
@@ -219,7 +219,7 @@ class ContextAwareUIComponents:
             H1("⚙️ Intelligence Settings", cls="text-3xl font-bold mb-6"),
             P(
                 "Configure your context intelligence preferences",
-                cls="text-lg text-base-content/70 mb-8",
+                cls="text-lg text-muted-foreground mb-8",
             ),
             Card(
                 H3("Automation Preferences", cls="text-xl font-semibold mb-4"),
@@ -453,13 +453,13 @@ def create_context_aware_ui_routes(
             H1("🧠 Context Insights", cls="text-3xl font-bold mb-6"),
             P(
                 "Deep dive into your context intelligence patterns",
-                cls="text-lg text-base-content/70 mb-8",
+                cls="text-lg text-muted-foreground mb-8",
             ),
             Card(
                 H3("Learning Patterns", cls="text-xl font-semibold mb-4"),
                 P(
                     "Your learning effectiveness varies throughout the day:",
-                    cls="text-base-content/70 mb-4",
+                    cls="text-muted-foreground mb-4",
                 ),
                 Div(
                     P("🌅 Morning (9-11am): Peak comprehension and retention", cls="mb-2"),
@@ -473,7 +473,7 @@ def create_context_aware_ui_routes(
                 H3("Productivity Insights", cls="text-xl font-semibold mb-4"),
                 P(
                     "Your productivity patterns show clear optimization opportunities:",
-                    cls="text-base-content/70 mb-4",
+                    cls="text-muted-foreground mb-4",
                 ),
                 Div(
                     P(

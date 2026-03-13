@@ -56,7 +56,7 @@ def test_get_trend_color_valid_values():
 def test_get_trend_color_invalid():
     """Test trend color fallback for invalid input."""
     color = get_trend_color("invalid_trend")
-    assert color == "text-base-content/70"  # DaisyUI semantic fallback
+    assert color == "text-muted-foreground"  # DaisyUI semantic fallback
 
 
 def test_get_trend_icon_valid_values():

@@ -60,10 +60,10 @@ class Card:
     """Card styling constants for consistent cards."""
 
     # Base card styling
-    BASE = "bg-base-100 border border-base-200 rounded-lg"
+    BASE = "bg-background border border-border rounded-lg"
 
     # Card with hover effect
-    INTERACTIVE = "bg-base-100 border border-base-200 rounded-lg hover:shadow-md transition-shadow"
+    INTERACTIVE = "bg-background border border-border rounded-lg hover:shadow-md transition-shadow"
 
     # Padding variants
     PADDING = "p-6"  # Standard (24px)
@@ -81,9 +81,9 @@ class Text:
     H4 = "text-base font-semibold"
 
     # Body text
-    BODY = "text-base text-base-content"
-    SECONDARY = "text-sm text-base-content/70"
-    MUTED = "text-sm text-base-content/60"
+    BODY = "text-base text-foreground"
+    SECONDARY = "text-sm text-muted-foreground"
+    MUTED = "text-sm text-muted-foreground"
 
     # Labels
     LABEL = "text-sm font-medium"

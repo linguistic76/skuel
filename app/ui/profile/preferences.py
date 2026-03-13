@@ -38,36 +38,36 @@ class UserPreferencesComponents:
 
         return Div(
             H1("User Settings & Preferences", cls="text-3xl font-bold mb-6"),
-            P("Customize your SKUEL experience", cls="text-lg text-base-content/70 mb-8"),
+            P("Customize your SKUEL experience", cls="text-lg text-muted-foreground mb-8"),
             # Learning Preferences Section
             Div(
                 H2("🎓 Learning Preferences", cls="text-2xl font-semibold mb-4"),
                 UserPreferencesComponents._render_learning_prefs_form(user_preferences),
-                cls="card bg-base-100 shadow-sm p-6 mb-6",
+                cls="card bg-background shadow-sm p-6 mb-6",
             ),
             # Scheduling Preferences Section
             Div(
                 H2("📅 Scheduling & Time", cls="text-2xl font-semibold mb-4"),
                 UserPreferencesComponents._render_scheduling_prefs_form(user_preferences),
-                cls="card bg-base-100 shadow-sm p-6 mb-6",
+                cls="card bg-background shadow-sm p-6 mb-6",
             ),
             # Notification Preferences Section
             Div(
                 H2("🔔 Notifications", cls="text-2xl font-semibold mb-4"),
                 UserPreferencesComponents._render_notification_prefs_form(user_preferences),
-                cls="card bg-base-100 shadow-sm p-6 mb-6",
+                cls="card bg-background shadow-sm p-6 mb-6",
             ),
             # Display Preferences Section
             Div(
                 H2("🎨 Display & Appearance", cls="text-2xl font-semibold mb-4"),
                 UserPreferencesComponents._render_display_prefs_form(user_preferences),
-                cls="card bg-base-100 shadow-sm p-6 mb-6",
+                cls="card bg-background shadow-sm p-6 mb-6",
             ),
             # Goal Preferences Section
             Div(
                 H2("🎯 Goals & Targets", cls="text-2xl font-semibold mb-4"),
                 UserPreferencesComponents._render_goal_prefs_form(user_preferences),
-                cls="card bg-base-100 shadow-sm p-6 mb-6",
+                cls="card bg-background shadow-sm p-6 mb-6",
             ),
             # Save button
             Div(
@@ -94,7 +94,7 @@ class UserPreferencesComponents:
         return Form(
             Div(
                 Label("Learning Level", cls="label font-semibold"),
-                Select(name="learning_level", cls="select select-bordered w-full")(
+                Select(name="learning_level")(
                     Option(
                         "Beginner",
                         value="beginner",
@@ -116,7 +116,7 @@ class UserPreferencesComponents:
                 ),
                 P(
                     "Your current skill level helps us recommend appropriate content",
-                    cls="text-sm text-base-content/60 mt-1",
+                    cls="text-sm text-muted-foreground mt-1",
                 ),
                 cls="form-control mb-4",
             ),
@@ -182,7 +182,7 @@ class UserPreferencesComponents:
         return Form(
             Div(
                 Label("Preferred Time of Day", cls="label font-semibold"),
-                Select(name="preferred_time_of_day", cls="select select-bordered w-full")(
+                Select(name="preferred_time_of_day")(
                     Option(
                         "Anytime",
                         value="anytime",
@@ -219,11 +219,12 @@ class UserPreferencesComponents:
                     value=prefs.get("available_minutes_daily", 60),
                     min=0,
                     max=1440,
-                    cls="input input-bordered w-full",
+
+
                 ),
                 P(
                     f"{prefs.get('available_minutes_daily', 60)} minutes = {prefs.get('available_minutes_daily', 60) / 60:.1f} hours",
-                    cls="text-sm text-base-content/60 mt-1",
+                    cls="text-sm text-muted-foreground mt-1",
                 ),
                 cls="form-control mb-4",
             ),
@@ -256,7 +257,8 @@ class UserPreferencesComponents:
                         value=prefs.get("reminder_minutes_before", 15),
                         min=0,
                         max=1440,
-                        cls="input input-bordered w-full",
+    
+
                     ),
                     cls="form-control mb-4",
                 ),
@@ -266,7 +268,8 @@ class UserPreferencesComponents:
                         type="time",
                         name="daily_summary_time",
                         value=prefs.get("daily_summary_time", "09:00"),
-                        cls="input input-bordered w-full",
+    
+
                     ),
                     cls="form-control mb-4",
                 ),
@@ -332,18 +335,17 @@ class UserPreferencesComponents:
                 Select(
                     *theme_options,
                     name="theme",
-                    cls="select select-bordered w-full",
                     onchange="document.documentElement.setAttribute('data-theme', this.value)",
                 ),
                 P(
                     "Theme changes preview instantly. Save to persist.",
-                    cls="text-sm text-base-content/60 mt-1",
+                    cls="text-sm text-muted-foreground mt-1",
                 ),
                 cls="form-control mb-4",
             ),
             Div(
                 Label("Language", cls="label font-semibold"),
-                Select(name="language", cls="select select-bordered w-full")(
+                Select(name="language")(
                     Option("English", value="en", selected=prefs.get("language") == "en"),
                     Option("Spanish", value="es", selected=prefs.get("language") == "es"),
                     Option("French", value="fr", selected=prefs.get("language") == "fr"),
@@ -357,11 +359,12 @@ class UserPreferencesComponents:
                     type="text",
                     name="timezone",
                     value=prefs.get("timezone", "UTC"),
-                    cls="input input-bordered w-full",
+
+
                 ),
                 P(
                     "e.g., America/New_York, Europe/London, Asia/Tokyo",
-                    cls="text-sm text-base-content/60 mt-1",
+                    cls="text-sm text-muted-foreground mt-1",
                 ),
                 cls="form-control mb-4",
             ),
@@ -382,11 +385,12 @@ class UserPreferencesComponents:
                     value=prefs.get("weekly_task_goal", 10),
                     min=0,
                     max=100,
-                    cls="input input-bordered w-full",
+
+
                 ),
                 P(
                     "Target number of tasks to complete each week",
-                    cls="text-sm text-base-content/60 mt-1",
+                    cls="text-sm text-muted-foreground mt-1",
                 ),
                 cls="form-control mb-4",
             ),
@@ -398,11 +402,12 @@ class UserPreferencesComponents:
                     value=prefs.get("daily_habit_goal", 3),
                     min=0,
                     max=20,
-                    cls="input input-bordered w-full",
+
+
                 ),
                 P(
                     "Target number of habits to complete each day",
-                    cls="text-sm text-base-content/60 mt-1",
+                    cls="text-sm text-muted-foreground mt-1",
                 ),
                 cls="form-control mb-4",
             ),
@@ -414,9 +419,10 @@ class UserPreferencesComponents:
                     value=prefs.get("monthly_learning_hours", 20),
                     min=0,
                     max=500,
-                    cls="input input-bordered w-full",
+
+
                 ),
-                P("Target learning hours per month", cls="text-sm text-base-content/60 mt-1"),
+                P("Target learning hours per month", cls="text-sm text-muted-foreground mt-1"),
                 cls="form-control mb-4",
             ),
             id="goal-prefs-form",

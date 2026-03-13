@@ -47,7 +47,7 @@ def BlockingChainView(entity_uid: str, entity_type: str) -> Div:
                 H3("Blocking Chain", cls="text-lg font-bold"),
                 Span(
                     **{"x-text": "`${chain_depth} levels deep`"},
-                    cls="text-sm text-base-content/70",
+                    cls="text-sm text-muted-foreground",
                 ),
                 cls="flex items-center justify-between mb-4",
             ),
@@ -78,14 +78,14 @@ def render_chain_fragment(chain_data: dict[str, Any]) -> Div:
     if chain_data["total_blockers"] == 0:
         return Div(
             "No blockers found. This entity is ready to work on!",
-            cls="text-base-content/70 text-sm",
+            cls="text-muted-foreground text-sm",
         )
 
     levels_html = []
     for level in chain_data["levels"]:
         depth_label = Div(
             f"Depth {level['depth']}",
-            cls="text-xs font-semibold text-base-content/60 mb-2",
+            cls="text-xs font-semibold text-muted-foreground mb-2",
         )
 
         entity_cards = []
@@ -99,7 +99,7 @@ def render_chain_fragment(chain_data: dict[str, Any]) -> Div:
                 status_color = "text-info"
                 status_icon = "○"
             else:
-                status_color = "text-base-content/60"
+                status_color = "text-muted-foreground"
                 status_icon = "•"
 
             entity_card = Div(
@@ -111,10 +111,10 @@ def render_chain_fragment(chain_data: dict[str, Any]) -> Div:
                     ),
                     Div(
                         f"Blocks {entity['blocks_count']} entities",
-                        cls="text-xs text-base-content/60 ml-6",
+                        cls="text-xs text-muted-foreground ml-6",
                     ),
                     href=f"/{entity['entity_type']}/{entity['uid']}",
-                    cls="hover:bg-base-200 p-2 rounded transition-colors block",
+                    cls="hover:bg-muted p-2 rounded transition-colors block",
                 ),
                 cls="mb-2",
             )

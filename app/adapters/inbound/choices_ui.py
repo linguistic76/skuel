@@ -399,7 +399,7 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
         return Div(
             *choice_items
             if choice_items
-            else [P("No decisions found.", cls="text-base-content/60 text-center py-8")],
+            else [P("No decisions found.", cls="text-muted-foreground text-center py-8")],
             id="choice-list",
             cls="space-y-3",
         )
@@ -529,7 +529,7 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
                 Div(
                     P(
                         "You need at least 2 options to make a decision.",
-                        cls="text-base-content/70 mb-4",
+                        cls="text-muted-foreground mb-4",
                     ),
                     Button(
                         "Add Options",
@@ -575,11 +575,11 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
                             opt_desc[:100] + "..."
                             if opt_desc and len(opt_desc) > 100
                             else opt_desc,
-                            cls="text-sm text-base-content/60",
+                            cls="text-sm text-muted-foreground",
                         ),
                         cls="ml-3",
                     ),
-                    cls="flex items-start p-3 bg-base-200 rounded-lg mb-2 cursor-pointer hover:bg-base-300",
+                    cls="flex items-start p-3 bg-muted rounded-lg mb-2 cursor-pointer hover:bg-secondary",
                 )
             )
 
@@ -587,7 +587,7 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
             Div(
                 H3(f"Decide: {choice.title}", cls="text-lg font-bold mb-4"),
                 Form(
-                    P("Select the option you've decided on:", cls="text-base-content/70 mb-4"),
+                    P("Select the option you've decided on:", cls="text-muted-foreground mb-4"),
                     Div(*option_buttons, cls="mb-4"),
                     Div(
                         Label("Rationale (optional)", cls="label"),
@@ -595,7 +595,6 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
                             name="decision_rationale",
                             placeholder="Why did you choose this option?",
                             rows="3",
-                            cls="textarea textarea-bordered w-full",
                         ),
                         cls="mb-4",
                     ),
@@ -686,7 +685,6 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
                             type="text",
                             name="title",
                             value=choice.title,
-                            cls="input input-bordered w-full",
                             required=True,
                         ),
                         cls="mb-4",
@@ -698,7 +696,6 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
                             choice.description or "",
                             name="description",
                             rows="3",
-                            cls="textarea textarea-bordered w-full",
                         ),
                         cls="mb-4",
                     ),
@@ -715,7 +712,6 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
                                 for p in priorities
                             ],
                             name="priority",
-                            cls="select select-bordered w-full",
                         ),
                         cls="mb-4",
                     ),
@@ -732,7 +728,6 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
                                 for d in domains
                             ],
                             name="domain",
-                            cls="select select-bordered w-full",
                         ),
                         cls="mb-4",
                     ),
@@ -831,7 +826,6 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
                             type="text",
                             name="title",
                             placeholder="What is this option?",
-                            cls="input input-bordered w-full",
                             required=True,
                         ),
                         cls="mb-4",
@@ -843,7 +837,6 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
                             name="description",
                             placeholder="Describe this option...",
                             rows="3",
-                            cls="textarea textarea-bordered w-full",
                             required=True,
                         ),
                         cls="mb-4",
@@ -928,7 +921,7 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
             return await BasePage(
                 content=Card(
                     H2("Choice Not Found", cls="text-xl font-bold text-error mb-4"),
-                    P(f"Could not find choice: {uid}", cls="text-base-content/70"),
+                    P(f"Could not find choice: {uid}", cls="text-muted-foreground"),
                     Button(
                         "← Back to Choices",
                         **{"hx-get": "/choices", "hx-target": "body"},
@@ -957,7 +950,7 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
             # Header Card
             Card(
                 H1(f"🤔 {choice.title}", cls="text-2xl font-bold mb-2"),
-                P(choice.description or "No description provided", cls="text-base-content/70 mb-4"),
+                P(choice.description or "No description provided", cls="text-muted-foreground mb-4"),
                 # Status and Urgency badges
                 Div(
                     Span(f"Status: {choice.status.value}", cls="badge badge-info mr-2"),
@@ -977,13 +970,13 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
                         Div(
                             P(
                                 "Decision Deadline:",
-                                cls="text-sm font-semibold text-base-content/70 mb-1",
+                                cls="text-sm font-semibold text-muted-foreground mb-1",
                             ),
                             P(
                                 str(getattr(choice, "decision_deadline", None))
                                 if getattr(choice, "decision_deadline", None)
                                 else "Not set",
-                                cls="text-base-content mb-3",
+                                cls="text-foreground mb-3",
                             ),
                             cls="mb-4",
                         )
@@ -992,8 +985,8 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
                     ),
                     # Created Date
                     Div(
-                        P("Created:", cls="text-sm font-semibold text-base-content/70 mb-1"),
-                        P(str(choice.created_at)[:10], cls="text-base-content/60 text-sm"),
+                        P("Created:", cls="text-sm font-semibold text-muted-foreground mb-1"),
+                        P(str(choice.created_at)[:10], cls="text-muted-foreground text-sm"),
                     ),
                     cls="space-y-2",
                 ),
@@ -1012,9 +1005,9 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
                                 ),
                                 P(
                                     getattr(opt, "description", ""),
-                                    cls="text-sm text-base-content/60",
+                                    cls="text-sm text-muted-foreground",
                                 ),
-                                cls="p-3 bg-base-200 rounded-lg mb-2",
+                                cls="p-3 bg-muted rounded-lg mb-2",
                             )
                             for opt in options
                         ]
@@ -1022,7 +1015,7 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
                         else [
                             P(
                                 "No options defined yet. Add options to make a decision.",
-                                cls="text-base-content/60",
+                                cls="text-muted-foreground",
                             )
                         ],
                     ),

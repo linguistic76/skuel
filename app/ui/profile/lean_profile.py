@@ -26,7 +26,7 @@ def LeanProfileView(context: UserContext) -> Div:
 
 def _header() -> Div:
     return Div(
-        H2("Your Profile", cls="text-xl font-semibold text-base-content"),
+        H2("Your Profile", cls="text-xl font-semibold text-foreground"),
         cls="mb-6",
     )
 
@@ -38,7 +38,7 @@ def _current_focus_card(context: UserContext) -> Div:
             Span("🎯", cls="text-lg mr-2"),
             Span(
                 "No current focus set",
-                cls="text-sm text-base-content/50 group-hover:text-primary transition-colors",
+                cls="text-sm text-muted-foreground group-hover:text-primary transition-colors",
             ),
             href="/tasks",
             cls="flex items-center mb-4 group",
@@ -53,7 +53,7 @@ def _current_focus_card(context: UserContext) -> Div:
 
     return Div(
         Span("🎯", cls="text-lg mr-2"),
-        Span("Focus: ", cls="text-sm font-medium text-base-content/50"),
+        Span("Focus: ", cls="text-sm font-medium text-muted-foreground"),
         A(
             task_title,
             href=f"/tasks/get?uid={context.current_task_focus}",
@@ -73,7 +73,7 @@ def _velocity_summary(context: UserContext) -> Div:
     elif total_velocity > 0:
         momentum = ("📈", "Building", "text-primary")
     elif total_velocity > -0.3:
-        momentum = ("➡️", "Steady", "text-base-content/60")
+        momentum = ("➡️", "Steady", "text-muted-foreground")
     else:
         momentum = ("📉", "Slowing", "text-warning")
 
@@ -82,8 +82,8 @@ def _velocity_summary(context: UserContext) -> Div:
     return Div(
         Span(icon, cls="text-lg mr-2"),
         Span(label, cls=f"text-sm font-medium {color}"),
-        Span(" · ", cls="text-base-content/30 mx-2"),
-        Span(f"{total_time:.1f}h invested", cls="text-sm text-base-content/50"),
+        Span(" · ", cls="text-foreground/30 mx-2"),
+        Span(f"{total_time:.1f}h invested", cls="text-sm text-muted-foreground"),
         cls="flex items-center mb-6",
     )
 
@@ -94,7 +94,7 @@ def _settings_link() -> Div:
             Span("⚙️", cls="mr-2"),
             "Settings",
             href="/profile/settings",
-            cls="btn btn-ghost btn-sm text-base-content/70 hover:text-base-content",
+            cls="btn btn-ghost btn-sm text-muted-foreground hover:text-foreground",
         ),
-        cls="mt-8 pt-6 border-t border-base-200",
+        cls="mt-8 pt-6 border-t border-border",
     )

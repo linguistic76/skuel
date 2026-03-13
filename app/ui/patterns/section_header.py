@@ -32,13 +32,13 @@ def SectionHeader(
     """
     if action:
         return Div(
-            H2(title, cls="text-xl font-semibold text-base-content"),
+            H2(title, cls="text-xl font-semibold text-foreground"),
             action,
             cls=f"flex justify-between items-center mb-6 {cls}".strip(),
         )
 
     return Div(
-        H2(title, cls="text-xl font-semibold text-base-content"),
+        H2(title, cls="text-xl font-semibold text-foreground"),
         cls=f"mb-6 {cls}".strip(),
     )
 

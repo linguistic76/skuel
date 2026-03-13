@@ -88,10 +88,10 @@ def PageLayout(
 
     body_content = []
     if sidebar:
-        body_content.append(Div(sidebar, cls="w-64 flex-shrink-0 border-r border-base-300"))
+        body_content.append(Div(sidebar, cls="w-64 flex-shrink-0 border-r border-border"))
     body_content.append(Main(*children, cls=f"p-6 lg:p-8 {main_cls}".strip()))
 
-    body_cls = "bg-base-100 text-base-content"
+    body_cls = "bg-background text-foreground"
     if dark_mode:
         body_cls += " dark"
 

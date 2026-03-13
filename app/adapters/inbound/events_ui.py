@@ -111,7 +111,7 @@ class EventUIComponents:
             if events
             else P(
                 "No events yet. Create one to get started!",
-                cls="text-base-content/60 text-center py-8",
+                cls="text-muted-foreground text-center py-8",
             ),
         )
 
@@ -143,25 +143,25 @@ class EventUIComponents:
                 ),
                 P(
                     description[:100] + "..." if len(description) > 100 else description,
-                    cls="text-base-content/70 mb-2",
+                    cls="text-muted-foreground mb-2",
                 )
                 if description
                 else "",
                 Div(
-                    Span(f"Start: {start_time}", cls="text-sm text-base-content/60 mr-4")
+                    Span(f"Start: {start_time}", cls="text-sm text-muted-foreground mr-4")
                     if start_time
                     else "",
-                    Span(f"End: {end_time}", cls="text-sm text-base-content/60 mr-4")
+                    Span(f"End: {end_time}", cls="text-sm text-muted-foreground mr-4")
                     if end_time
                     else "",
-                    Span(f"Location: {location}", cls="text-sm text-base-content/60")
+                    Span(f"Location: {location}", cls="text-sm text-muted-foreground")
                     if location
                     else "",
                     cls="flex flex-wrap",
                 ),
                 cls="p-4",
             ),
-            cls="border border-base-200 rounded-lg hover:shadow-md transition-shadow",
+            cls="border border-border rounded-lg hover:shadow-md transition-shadow",
         )
 
 
@@ -403,7 +403,7 @@ def create_events_ui_routes(_app, rt, events_service: EventsService, services: A
         return Div(
             *event_items
             if event_items
-            else [P("No events found.", cls="text-base-content/60 text-center py-8")],
+            else [P("No events found.", cls="text-muted-foreground text-center py-8")],
             id="event-list",
             cls="space-y-3",
         )
@@ -561,7 +561,6 @@ def create_events_ui_routes(_app, rt, events_service: EventsService, services: A
                             type="text",
                             name="title",
                             value=title,
-                            cls="input input-bordered w-full",
                             required=True,
                         ),
                         cls="mb-4",
@@ -573,7 +572,6 @@ def create_events_ui_routes(_app, rt, events_service: EventsService, services: A
                             description,
                             name="description",
                             rows="3",
-                            cls="textarea textarea-bordered w-full",
                         ),
                         cls="mb-4",
                     ),
@@ -586,7 +584,6 @@ def create_events_ui_routes(_app, rt, events_service: EventsService, services: A
                                 for t in event_types
                             ],
                             name="event_type",
-                            cls="select select-bordered w-full",
                         ),
                         cls="mb-4",
                     ),
@@ -597,7 +594,6 @@ def create_events_ui_routes(_app, rt, events_service: EventsService, services: A
                             type="text",
                             name="location",
                             value=location,
-                            cls="input input-bordered w-full",
                         ),
                         cls="mb-4",
                     ),
@@ -608,7 +604,6 @@ def create_events_ui_routes(_app, rt, events_service: EventsService, services: A
                             type="date",
                             name="event_date",
                             value=event_date_str,
-                            cls="input input-bordered w-full",
                             required=True,
                         ),
                         cls="mb-4",
@@ -620,7 +615,6 @@ def create_events_ui_routes(_app, rt, events_service: EventsService, services: A
                             type="time",
                             name="start_time",
                             value=start_time_str,
-                            cls="input input-bordered w-full",
                         ),
                         cls="mb-4",
                     ),
@@ -631,7 +625,6 @@ def create_events_ui_routes(_app, rt, events_service: EventsService, services: A
                             type="time",
                             name="end_time",
                             value=end_time_str,
-                            cls="input input-bordered w-full",
                         ),
                         cls="mb-4",
                     ),
@@ -769,7 +762,7 @@ def create_events_ui_routes(_app, rt, events_service: EventsService, services: A
             return await BasePage(
                 content=Card(
                     H2("Event Not Found", cls="text-xl font-bold text-error mb-4"),
-                    P(f"Could not find event: {uid}", cls="text-base-content/70"),
+                    P(f"Could not find event: {uid}", cls="text-muted-foreground"),
                     Button(
                         "← Back to Events",
                         **{"hx-get": "/events", "hx-target": "body"},
@@ -791,7 +784,7 @@ def create_events_ui_routes(_app, rt, events_service: EventsService, services: A
             # Header Card
             Card(
                 H1(f"📅 {event.title}", cls="text-2xl font-bold mb-2"),
-                P(event.description or "No description provided", cls="text-base-content/70 mb-4"),
+                P(event.description or "No description provided", cls="text-muted-foreground mb-4"),
                 # Status and Type badges
                 Div(
                     Span(f"Status: {event.status.value}", cls="badge badge-info mr-2"),
@@ -813,20 +806,20 @@ def create_events_ui_routes(_app, rt, events_service: EventsService, services: A
                 Div(
                     # Start and End Time
                     Div(
-                        P("When:", cls="text-sm font-semibold text-base-content/70 mb-1"),
+                        P("When:", cls="text-sm font-semibold text-muted-foreground mb-1"),
                         P(
                             f"{event.start_time} to {event.end_time}"
                             if event.start_time and event.end_time
                             else "Time not set",
-                            cls="text-base-content mb-3",
+                            cls="text-foreground mb-3",
                         ),
                         cls="mb-4",
                     ),
                     # Location
                     (
                         Div(
-                            P("Location:", cls="text-sm font-semibold text-base-content/70 mb-1"),
-                            P(event.location or "Not specified", cls="text-base-content mb-3"),
+                            P("Location:", cls="text-sm font-semibold text-muted-foreground mb-1"),
+                            P(event.location or "Not specified", cls="text-foreground mb-3"),
                             cls="mb-4",
                         )
                         if event.location
@@ -834,8 +827,8 @@ def create_events_ui_routes(_app, rt, events_service: EventsService, services: A
                     ),
                     # Created Date
                     Div(
-                        P("Created:", cls="text-sm font-semibold text-base-content/70 mb-1"),
-                        P(str(event.created_at)[:10], cls="text-base-content/60 text-sm"),
+                        P("Created:", cls="text-sm font-semibold text-muted-foreground mb-1"),
+                        P(str(event.created_at)[:10], cls="text-muted-foreground text-sm"),
                     ),
                     cls="space-y-2",
                 ),

@@ -24,9 +24,10 @@ from fasthtml.common import (
     Label,
     Option,
     P,
-    Select,
     Span,
 )
+
+from ui.forms import Select
 from starlette.datastructures import UploadFile
 from starlette.requests import Request
 
@@ -439,7 +440,7 @@ def create_submissions_ui_routes(
 
             if not _teacher_review_service:
                 return Div(
-                    P("No feedback yet.", cls="text-center text-base-content/60 py-4"),
+                    P("No feedback yet.", cls="text-center text-muted-foreground py-4"),
                     id="feedback-section",
                 )
 
@@ -449,7 +450,7 @@ def create_submissions_ui_routes(
             if not items:
                 return Div(
                     H4("Feedback", cls="mb-4"),
-                    P("No feedback yet.", cls="text-center text-base-content/60 py-4"),
+                    P("No feedback yet.", cls="text-center text-muted-foreground py-4"),
                     id="feedback-section",
                 )
 
@@ -483,7 +484,7 @@ def create_submissions_ui_routes(
             ex_title = record.get("exercise_title", "Exercise")
 
             return Div(
-                Span("Exercise: ", cls="font-medium text-sm text-base-content/60"),
+                Span("Exercise: ", cls="font-medium text-sm text-muted-foreground"),
                 Span(ex_title, cls="badge badge-outline badge-sm"),
                 id="exercise-link",
                 cls="mt-2",
@@ -538,7 +539,7 @@ def create_submissions_ui_routes(
         teacher_section = Div(
             H3("Teacher Assessments", cls="font-semibold mb-4"),
             Div(
-                P("Loading feedback...", cls="text-center text-base-content/60"),
+                P("Loading feedback...", cls="text-center text-muted-foreground"),
                 id="feedback-list",
                 cls="mt-2",
                 **{
@@ -547,13 +548,13 @@ def create_submissions_ui_routes(
                     "hx-swap": "outerHTML",
                 },
             ),
-            cls="card bg-base-100 shadow-sm p-4 mb-6",
+            cls="card bg-background shadow-sm p-4 mb-6",
         )
 
         activity_feedback_section = Div(
             H3("Activity Feedback", cls="font-semibold mb-4"),
             Div(
-                P("Loading activity feedback...", cls="text-center text-base-content/60"),
+                P("Loading activity feedback...", cls="text-center text-muted-foreground"),
                 id="activity-feedback-list",
                 cls="mt-2",
                 **{
@@ -562,7 +563,7 @@ def create_submissions_ui_routes(
                     "hx-swap": "outerHTML",
                 },
             ),
-            cls="card bg-base-100 shadow-sm p-4",
+            cls="card bg-background shadow-sm p-4",
         )
 
         content = Div(
@@ -614,7 +615,7 @@ def create_submissions_ui_routes(
                 return Div(
                     P(
                         "Activity feedback unavailable.",
-                        cls="text-center text-base-content/60 py-4",
+                        cls="text-center text-muted-foreground py-4",
                     ),
                     id="activity-feedback-list",
                 )
@@ -649,7 +650,6 @@ def create_submissions_ui_routes(
                             Option("Last 30 days", value="30d"),
                             Option("Last 90 days", value="90d"),
                             name="time_period",
-                            cls="select select-bordered w-full",
                         ),
                         cls="mb-3",
                     ),
@@ -660,7 +660,6 @@ def create_submissions_ui_routes(
                             Option("Standard (counts + examples)", value="standard", selected=True),
                             Option("Detailed (full breakdown)", value="detailed"),
                             name="depth",
-                            cls="select select-bordered w-full",
                         ),
                         cls="mb-4",
                     ),
@@ -683,13 +682,13 @@ def create_submissions_ui_routes(
                 ),
                 cls="card-body",
             ),
-            cls="card bg-base-100 shadow-sm mb-6",
+            cls="card bg-background shadow-sm mb-6",
         )
 
         recent_reports = Div(
             H3("Recent Progress Reports", cls="font-semibold mb-4"),
             Div(
-                P("Loading...", cls="text-center text-base-content/60"),
+                P("Loading...", cls="text-center text-muted-foreground"),
                 id="progress-list",
                 **{
                     "hx-get": "/submissions/progress/list",
@@ -745,7 +744,7 @@ def create_submissions_ui_routes(
             return Div(
                 P(
                     "Shared users list will appear here after sharing",
-                    cls="text-sm text-base-content/60",
+                    cls="text-sm text-muted-foreground",
                 ),
                 Span("No users yet", cls="badge badge-ghost"),
                 id="shared-users-content",
@@ -786,7 +785,7 @@ def create_submissions_ui_routes(
             Div(
                 H3("Submission Details", cls="card-title"),
                 Div(
-                    P("Loading submission details...", cls="text-center text-base-content/60"),
+                    P("Loading submission details...", cls="text-center text-muted-foreground"),
                     id="submission-info",
                     cls="mb-4",
                     **{
@@ -806,9 +805,9 @@ def create_submissions_ui_routes(
                 Div(
                     H4("Processed Content", cls="mt-6 mb-4"),
                     Div(
-                        P("Loading content...", cls="text-center text-base-content/60"),
+                        P("Loading content...", cls="text-center text-muted-foreground"),
                         id="processed-content",
-                        cls="p-4 bg-base-200 rounded-lg",
+                        cls="p-4 bg-muted rounded-lg",
                         style="max-height: 600px; overflow-y: auto;",
                         **{
                             "hx-get": f"/submissions/{uid}/content",
@@ -820,7 +819,7 @@ def create_submissions_ui_routes(
                     cls="mb-4",
                 ),
                 Div(
-                    P("Loading feedback...", cls="text-center text-base-content/60 py-2"),
+                    P("Loading feedback...", cls="text-center text-muted-foreground py-2"),
                     id="feedback-section",
                     cls="mb-4",
                     **{
@@ -844,13 +843,13 @@ def create_submissions_ui_routes(
                 ),
                 cls="card-body",
             ),
-            cls="card bg-base-100 shadow-sm",
+            cls="card bg-background shadow-sm",
         )
 
         content = Div(
             Div(
                 H1("Submission Details", cls="text-3xl font-bold"),
-                P(f"UID: {uid}", cls="text-lg text-base-content/60"),
+                P(f"UID: {uid}", cls="text-lg text-muted-foreground"),
                 cls="text-center mb-8",
             ),
             detail_card,

@@ -37,6 +37,7 @@ from ui.calendar.components import (
 from ui.calendar.converters import habit_to_calendar_items
 from ui.feedback import Progress
 from ui.forms import Input, Label, Select, Textarea
+from ui.layout import Size
 from ui.patterns.activity_views_base import (
     ActivityCalendarNav,
     ActivityViewSwitcher,
@@ -103,17 +104,17 @@ class HabitsViewComponents:
         # Stats bar
         stats_bar = Div(
             Div(
-                Span("Total: ", cls="text-base-content/60"),
+                Span("Total: ", cls="text-muted-foreground"),
                 Span(str(stats.get("total", 0)), cls="font-bold"),
                 cls="mr-4",
             ),
             Div(
-                Span("Active Streaks: ", cls="text-base-content/60"),
+                Span("Active Streaks: ", cls="text-muted-foreground"),
                 Span(str(stats.get("active_streaks", 0)), cls="font-bold text-success"),
                 cls="mr-4",
             ),
             Div(
-                Span("Completed Today: ", cls="text-base-content/60"),
+                Span("Completed Today: ", cls="text-muted-foreground"),
                 Span(str(stats.get("completed_today", 0)), cls="font-bold text-info"),
             ),
             cls="flex items-center mb-4 text-sm",
@@ -132,7 +133,8 @@ class HabitsViewComponents:
                     ),
                     Option("Paused", value="paused", selected=filters.get("status") == "paused"),
                     name="filter_status",
-                    cls="select select-bordered select-sm",
+                    size=Size.sm,
+                    full_width=False,
                     **{
                         "hx-get": "/habits/list-fragment",
                         "hx-target": "#habit-list",
@@ -156,7 +158,8 @@ class HabitsViewComponents:
                         selected=filters.get("sort_by") == "created_at",
                     ),
                     name="sort_by",
-                    cls="select select-bordered select-sm",
+                    size=Size.sm,
+                    full_width=False,
                     **{
                         "hx-get": "/habits/list-fragment",
                         "hx-target": "#habit-list",
@@ -176,7 +179,7 @@ class HabitsViewComponents:
             else [
                 P(
                     "No habits found. Create one to get started!",
-                    cls="text-base-content/60 text-center py-8",
+                    cls="text-muted-foreground text-center py-8",
                 )
             ],
             id="habit-list",
@@ -209,7 +212,7 @@ class HabitsViewComponents:
         status_badge = status_badge_class(status_str)
 
         # Streak indicator
-        streak_color = "text-success" if current_streak > 0 else "text-base-content/50"
+        streak_color = "text-success" if current_streak > 0 else "text-muted-foreground"
 
         return Div(
             Div(
@@ -224,7 +227,7 @@ class HabitsViewComponents:
                     description[:100] + "..."
                     if description and len(description) > 100
                     else description,
-                    cls="text-base-content/70 text-sm mt-1",
+                    cls="text-muted-foreground text-sm mt-1",
                 )
                 if description
                 else "",
@@ -233,7 +236,7 @@ class HabitsViewComponents:
                     Div(
                         Span("🔥", cls="text-lg mr-1"),
                         Span(f"{current_streak}", cls=f"font-bold {streak_color}"),
-                        Span(" day streak", cls="text-base-content/60 text-sm ml-1"),
+                        Span(" day streak", cls="text-muted-foreground text-sm ml-1"),
                         cls="flex items-center",
                     ),
                     # Progress bar showing streak vs best
@@ -245,12 +248,12 @@ class HabitsViewComponents:
                             max=max(best_streak, current_streak, 1),
                             cls="progress progress-success w-24 h-2",
                         ),
-                        Span(f"Best: {best_streak}", cls="text-xs text-base-content/50 ml-2"),
+                        Span(f"Best: {best_streak}", cls="text-xs text-muted-foreground ml-2"),
                         cls="flex items-center mt-1",
                     )
                     if best_streak > 0
                     else Div(
-                        Span(f"Best: {best_streak}", cls="text-xs text-base-content/50"),
+                        Span(f"Best: {best_streak}", cls="text-xs text-muted-foreground"),
                         cls="ml-4",
                     ),
                     cls="flex flex-col mt-2",
@@ -259,7 +262,7 @@ class HabitsViewComponents:
                 Div(
                     Span(
                         f"Frequency: {str(frequency).title()}",
-                        cls="text-xs text-base-content/60 mr-4",
+                        cls="text-xs text-muted-foreground mr-4",
                     ),
                     cls="flex items-center mt-2",
                 ),
@@ -293,7 +296,7 @@ class HabitsViewComponents:
                 cls="p-4",
             ),
             id=f"habit-{uid}",
-            cls="card bg-base-100 shadow-sm border border-base-200 hover:shadow-md transition-shadow",
+            cls="card bg-background shadow-sm border border-border hover:shadow-md transition-shadow",
         )
 
     # ========================================================================
@@ -336,7 +339,6 @@ class HabitsViewComponents:
                     type="text",
                     name="name",
                     placeholder="What habit do you want to build?",
-                    cls="input input-bordered w-full",
                     required=True,
                     autofocus=True,
                 ),
@@ -349,7 +351,6 @@ class HabitsViewComponents:
                     name="description",
                     placeholder="Describe your habit...",
                     rows="3",
-                    cls="textarea textarea-bordered w-full",
                 ),
                 cls="mb-4",
             ),
@@ -359,7 +360,6 @@ class HabitsViewComponents:
                 Select(
                     *[Option(cat.title(), value=cat) for cat in categories],
                     name="category",
-                    cls="select select-bordered w-full",
                 ),
                 cls="mb-4",
             ),
@@ -370,11 +370,10 @@ class HabitsViewComponents:
                     Option("Build (positive habit)", value="build", selected=True),
                     Option("Break (habit to stop)", value="break"),
                     name="polarity",
-                    cls="select select-bordered w-full",
                 ),
                 P(
                     "Are you building a new habit or breaking an old one?",
-                    cls="text-xs text-base-content/60 mt-1",
+                    cls="text-xs text-muted-foreground mt-1",
                 ),
                 cls="mb-4",
             ),
@@ -391,7 +390,6 @@ class HabitsViewComponents:
                     Option("Weekly", value="weekly"),
                     Option("Monthly", value="monthly"),
                     name="recurrence_pattern",
-                    cls="select select-bordered w-full",
                 ),
                 cls="mb-4",
             ),
@@ -404,7 +402,6 @@ class HabitsViewComponents:
                     value="7",
                     min="1",
                     max="7",
-                    cls="input input-bordered w-full",
                 ),
                 cls="mb-4",
             ),
@@ -416,7 +413,6 @@ class HabitsViewComponents:
                     name="duration_minutes",
                     placeholder="15",
                     min="1",
-                    cls="input input-bordered w-full",
                 ),
                 cls="mb-4",
             ),
@@ -430,7 +426,6 @@ class HabitsViewComponents:
                     Option("Challenging", value="challenging"),
                     Option("Hard", value="hard"),
                     name="difficulty",
-                    cls="select select-bordered w-full",
                 ),
                 cls="mb-4",
             ),
@@ -456,7 +451,7 @@ class HabitsViewComponents:
                 value="true",
                 cls="btn btn-outline btn-lg",
             ),
-            cls="flex justify-end gap-2 pt-6 border-t border-base-200",
+            cls="flex justify-end gap-2 pt-6 border-t border-border",
         )
 
         return Div(
@@ -473,7 +468,7 @@ class HabitsViewComponents:
                     "hx-target": "#view-content",
                     "hx-swap": "innerHTML",
                 },
-                cls="card bg-base-100 shadow-lg p-6",
+                cls="card bg-background shadow-lg p-6",
             ),
             id="create-view",
         )

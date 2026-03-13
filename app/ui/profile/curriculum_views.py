@@ -34,23 +34,23 @@ def KnowledgeDomainView(context: UserContext, services: Any = None, user_uid: st
         H2("Knowledge Units", cls="text-2xl font-bold mb-2"),
         P(
             "All knowledge units in the curriculum. Track your learning progress.",
-            cls="text-base-content/70 mb-6",
+            cls="text-muted-foreground mb-6",
         ),
         # Quick stats row
         Div(
             Div(
                 Span(str(mastered), cls="text-xl font-bold text-success"),
-                Span(" mastered", cls="text-sm text-base-content/60"),
+                Span(" mastered", cls="text-sm text-muted-foreground"),
                 cls="flex items-baseline gap-1",
             ),
             Div(
                 Span(str(in_progress), cls="text-xl font-bold text-warning"),
-                Span(" in progress", cls="text-sm text-base-content/60"),
+                Span(" in progress", cls="text-sm text-muted-foreground"),
                 cls="flex items-baseline gap-1",
             ),
             Div(
                 Span(str(ready), cls="text-xl font-bold text-info"),
-                Span(" ready", cls="text-sm text-base-content/60"),
+                Span(" ready", cls="text-sm text-muted-foreground"),
                 cls="flex items-baseline gap-1",
             ),
             cls="flex gap-6 mb-6",
@@ -75,7 +75,7 @@ def LearningStepsDomainView(_context: UserContext, _focus_uid: str | None = None
         H2("Learning Steps", cls="text-2xl font-bold mb-2"),
         P(
             "Structured sequences within a learning path.",
-            cls="text-base-content/70 mb-6",
+            cls="text-muted-foreground mb-6",
         ),
         EmptyState(
             title="No learning steps available yet",
@@ -115,13 +115,13 @@ def LearningPathsDomainView(context: UserContext, focus_uid: str | None = None) 
         H2("Learning Paths", cls="text-2xl font-bold mb-2"),
         P(
             "Structured learning journeys through the curriculum.",
-            cls="text-base-content/70 mb-6",
+            cls="text-muted-foreground mb-6",
         ),
         # Learning Paths section
-        H3("Your Paths", cls="text-lg font-semibold text-base-content mt-2 mb-4"),
+        H3("Your Paths", cls="text-lg font-semibold text-foreground mt-2 mb-4"),
         _learning_paths_list(context),
         # Ready to Learn section
-        H3("Ready to Learn", cls="text-lg font-semibold text-base-content mt-6 mb-4"),
+        H3("Ready to Learn", cls="text-lg font-semibold text-foreground mt-6 mb-4"),
         _ready_to_learn_list(context),
         # Link to knowledge page
         A(
@@ -141,8 +141,8 @@ def _learning_paths_list(context: UserContext) -> Div:
         items = [
             Div(
                 Span("🗺️", cls="mr-2"),
-                Span(f"Path {uid[:12]}...", cls="font-medium text-base-content"),
-                cls="flex items-center p-3 bg-base-100 rounded-lg",
+                Span(f"Path {uid[:12]}...", cls="font-medium text-foreground"),
+                cls="flex items-center p-3 bg-background rounded-lg",
             )
             for uid in context.enrolled_path_uids[:5]
         ]
@@ -167,7 +167,7 @@ def _learning_paths_list(context: UserContext) -> Div:
                 Div(
                     Div(
                         Span("🗺️", cls="mr-2"),
-                        Span(title, cls="font-medium text-base-content flex-1"),
+                        Span(title, cls="font-medium text-foreground flex-1"),
                         Span(
                             "Active" if is_current else "",
                             cls="text-xs text-primary font-medium",
@@ -182,16 +182,16 @@ def _learning_paths_list(context: UserContext) -> Div:
                             cls="h-2 bg-primary rounded-full transition-all",
                             style=f"width: {progress_percent}%",
                         ),
-                        cls="h-2 bg-base-200 rounded-full w-full",
+                        cls="h-2 bg-muted rounded-full w-full",
                     ),
                     Div(
-                        Span(f"{progress_percent}% complete", cls="text-xs text-base-content/60"),
+                        Span(f"{progress_percent}% complete", cls="text-xs text-muted-foreground"),
                         cls="mt-1",
                     ),
                     cls="w-full",
                 ),
                 href=f"/pathways/path/{uid}" if uid else "#",
-                cls="block p-3 bg-base-100 rounded-lg hover:bg-base-200 transition-colors",
+                cls="block p-3 bg-background rounded-lg hover:bg-muted transition-colors",
             )
         )
 
@@ -209,13 +209,13 @@ def _ready_to_learn_list(context: UserContext) -> Div:
             return Div(
                 P(
                     f"{blocked_count} knowledge units blocked by prerequisites",
-                    cls="text-base-content/60 text-sm",
+                    cls="text-muted-foreground text-sm",
                 ),
                 P(
                     "Complete prerequisite knowledge to unlock more",
-                    cls="text-base-content/60 text-xs mt-1",
+                    cls="text-muted-foreground text-xs mt-1",
                 ),
-                cls="bg-base-200 rounded-lg p-4",
+                cls="bg-muted rounded-lg p-4",
             )
         return EmptyState("No knowledge ready to learn")
 
@@ -229,9 +229,9 @@ def _ready_to_learn_list(context: UserContext) -> Div:
         items.append(
             A(
                 Span("💡", cls="mr-2"),
-                Span(title, cls="font-medium text-base-content"),
+                Span(title, cls="font-medium text-foreground"),
                 href=f"/article/{uid}",
-                cls="flex items-center p-3 bg-base-100 rounded-lg hover:bg-base-200 transition-colors",
+                cls="flex items-center p-3 bg-background rounded-lg hover:bg-muted transition-colors",
             )
         )
 

@@ -149,7 +149,7 @@ def EntityRelationshipsSection(
             *sections,
             cls="space-y-6",  # Vertical stacking with spacing
         ),
-        cls="mt-8 border-t border-base-200 pt-8",
+        cls="mt-8 border-t border-border pt-8",
     )
 
 

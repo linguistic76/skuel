@@ -87,7 +87,7 @@ def _render_step_browser_card(step: Any) -> Any:
         ),
         P(
             (step.description or step.intent or "")[:150],
-            cls="text-base-content/70 text-sm mb-3",
+            cls="text-muted-foreground text-sm mb-3",
         ),
         Div(*badges, cls="flex flex-wrap gap-2") if badges else None,
     )
@@ -113,7 +113,6 @@ class PathwaysUIComponents:
                         Option("Intermediate", value="intermediate"),
                         Option("Advanced", value="advanced"),
                         name="difficulty",
-                        cls="select select-bordered w-full",
                     ),
                     cls="form-control",
                 ),
@@ -126,7 +125,6 @@ class PathwaysUIComponents:
                         Option("Web Development", value="web_dev"),
                         Option("Cloud Computing", value="cloud"),
                         name="domain",
-                        cls="select select-bordered w-full",
                     ),
                     cls="form-control",
                 ),
@@ -138,7 +136,6 @@ class PathwaysUIComponents:
                         Option("20-50 hours", value="medium"),
                         Option("50+ hours", value="long"),
                         name="duration",
-                        cls="select select-bordered w-full",
                     ),
                     cls="form-control",
                 ),
@@ -164,23 +161,23 @@ class PathwaysUIComponents:
                 ),
                 # Progress Bar
                 Div(
-                    Div(f"{path.progress:.1f}% Complete", cls="text-sm text-base-content/70 mb-1"),
+                    Div(f"{path.progress:.1f}% Complete", cls="text-sm text-muted-foreground mb-1"),
                     Div(
                         Div(
                             cls="h-2 bg-primary rounded-full transition-all",
                             style=f"width: {path.progress}%",
                         ),
-                        cls="w-full bg-base-300 rounded-full h-2",
+                        cls="w-full bg-secondary rounded-full h-2",
                     ),
                     cls="mb-3",
                 ),
                 # Current Step & Time
                 Div(
-                    P(f"Current: {path.current_step}", cls="text-sm text-base-content/80"),
-                    P(f"{path.time_invested} invested", cls="text-xs text-base-content/60"),
+                    P(f"Current: {path.current_step}", cls="text-sm text-foreground/80"),
+                    P(f"{path.time_invested} invested", cls="text-xs text-muted-foreground"),
                     P(
                         f"{path.estimated_completion} to complete",
-                        cls="text-xs text-base-content/60",
+                        cls="text-xs text-muted-foreground",
                     ),
                     cls="space-y-1 mb-4",
                 ),
@@ -203,14 +200,14 @@ class PathwaysUIComponents:
                 # Path Header
                 Div(
                     H3(path["title"], cls="text-lg font-semibold mb-2"),
-                    P(path["description"], cls="text-sm text-base-content/70 mb-3"),
+                    P(path["description"], cls="text-sm text-muted-foreground mb-3"),
                     cls="mb-4",
                 ),
                 # Path Info
                 Div(
                     Div(
                         Span(f"{path['estimated_hours']}h", cls="text-sm"),
-                        cls="text-base-content/60 mb-2",
+                        cls="text-muted-foreground mb-2",
                     ),
                     Span(path["difficulty"].title(), cls="badge badge-primary mb-3"),
                     cls="mb-4",
@@ -273,10 +270,10 @@ class PathwaysUIComponents:
             Div(
                 P(
                     step.description or step.intent or "",
-                    cls="text-base-content/70 mb-2",
+                    cls="text-muted-foreground mb-2",
                 ),
                 Div(
-                    Span(hours_text, cls="text-sm text-base-content/60 mr-3")
+                    Span(hours_text, cls="text-sm text-muted-foreground mr-3")
                     if hours_text
                     else None,
                     difficulty_badge,
@@ -284,7 +281,7 @@ class PathwaysUIComponents:
                 ),
                 cls="ml-8",
             ),
-            cls="border border-base-300 rounded-lg p-4 hover:bg-base-100 transition-colors",
+            cls="border border-border rounded-lg p-4 hover:bg-background transition-colors",
         )
 
 
@@ -357,7 +354,7 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None, ls_servi
             paths_section = Div(
                 P(
                     "No active learning paths yet. Start exploring!",
-                    cls="text-base-content/60 text-center py-8",
+                    cls="text-muted-foreground text-center py-8",
                 ),
                 Div(
                     A(
@@ -380,7 +377,7 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None, ls_servi
                 H1("Pathways Dashboard", cls="text-3xl font-bold text-primary"),
                 P(
                     "Track your learning journey and discover new knowledge",
-                    cls="text-lg text-base-content/70 mt-2",
+                    cls="text-lg text-muted-foreground mt-2",
                 ),
                 cls="mb-8",
             ),
@@ -390,36 +387,36 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None, ls_servi
                 Div(
                     Div(
                         Div(
-                            Span("Learning Hours", cls="text-sm text-base-content/70"),
+                            Span("Learning Hours", cls="text-sm text-muted-foreground"),
                             Span(f"{stats.total_hours:.0f}", cls="text-2xl font-bold text-primary"),
-                            P("Total estimated hours", cls="text-xs text-base-content/60"),
+                            P("Total estimated hours", cls="text-xs text-muted-foreground"),
                             cls="stat text-center",
                         ),
                         Div(
-                            Span("Concepts Mastered", cls="text-sm text-base-content/70"),
+                            Span("Concepts Mastered", cls="text-sm text-muted-foreground"),
                             Span(
                                 str(stats.concepts_mastered),
                                 cls="text-2xl font-bold text-success",
                             ),
-                            P("Across all learning paths", cls="text-xs text-base-content/60"),
+                            P("Across all learning paths", cls="text-xs text-muted-foreground"),
                             cls="stat text-center",
                         ),
                         Div(
-                            Span("Active Paths", cls="text-sm text-base-content/70"),
+                            Span("Active Paths", cls="text-sm text-muted-foreground"),
                             Span(
                                 str(len(active_paths)),
                                 cls="text-2xl font-bold text-primary",
                             ),
-                            P("In progress", cls="text-xs text-base-content/60"),
+                            P("In progress", cls="text-xs text-muted-foreground"),
                             cls="stat text-center",
                         ),
                         Div(
-                            Span("Completion Rate", cls="text-sm text-base-content/70"),
+                            Span("Completion Rate", cls="text-sm text-muted-foreground"),
                             Span(
                                 f"{stats.completion_rate * 100:.0f}%",
                                 cls="text-2xl font-bold text-warning",
                             ),
-                            P("Started paths finished", cls="text-xs text-base-content/60"),
+                            P("Started paths finished", cls="text-xs text-muted-foreground"),
                             cls="stat text-center",
                         ),
                         cls="stats stats-horizontal shadow w-full",
@@ -506,7 +503,7 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None, ls_servi
             grid_content = Div(
                 P(
                     "No learning paths available yet.",
-                    cls="text-base-content/60 text-center py-8",
+                    cls="text-muted-foreground text-center py-8",
                 ),
             )
 
@@ -515,7 +512,7 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None, ls_servi
                 H1("Browse Learning Paths", cls="text-3xl font-bold text-primary"),
                 P(
                     "Discover structured learning paths to achieve your goals",
-                    cls="text-lg text-base-content/70 mt-2",
+                    cls="text-lg text-muted-foreground mt-2",
                 ),
                 cls="mb-8",
             ),
@@ -567,7 +564,7 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None, ls_servi
             grid_content = Div(
                 P(
                     "No learning steps available yet.",
-                    cls="text-base-content/60 text-center py-8",
+                    cls="text-muted-foreground text-center py-8",
                 ),
             )
 
@@ -576,7 +573,7 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None, ls_servi
                 H1("Browse Learning Steps", cls="text-3xl font-bold text-primary"),
                 P(
                     "Explore individual learning steps across all paths",
-                    cls="text-lg text-base-content/70 mt-2",
+                    cls="text-lg text-muted-foreground mt-2",
                 ),
                 cls="mb-8",
             ),
@@ -632,7 +629,7 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None, ls_servi
         return Div(
             P(
                 "No learning paths match your filters.",
-                cls="text-base-content/60 text-center py-8",
+                cls="text-muted-foreground text-center py-8",
             ),
         )
 
@@ -648,7 +645,7 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None, ls_servi
                     H1("Learning Path Not Found", cls="text-2xl font-bold mb-4"),
                     P(
                         f"Could not find learning path: {path_uid}",
-                        cls="text-base-content/70 mb-4",
+                        cls="text-muted-foreground mb-4",
                     ),
                     Button(
                         "Back to Pathways",
@@ -697,7 +694,7 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None, ls_servi
                 cls="space-y-4",
             )
         else:
-            steps_section = P("No steps defined for this path yet.", cls="text-base-content/60")
+            steps_section = P("No steps defined for this path yet.", cls="text-muted-foreground")
 
         # Learning outcomes
         outcomes = path.outcomes or ()
@@ -708,7 +705,7 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None, ls_servi
             Header(
                 Div(
                     H1(path.title or "Untitled Path", cls="text-3xl font-bold text-primary"),
-                    P(path.description or "", cls="text-lg text-base-content/70 mt-2"),
+                    P(path.description or "", cls="text-lg text-muted-foreground mt-2"),
                     Div(
                         Span(
                             f"{int(path.estimated_hours or 0)} hours",
@@ -757,7 +754,7 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None, ls_servi
                     cls="space-y-2",
                 )
                 if outcomes
-                else P("No learning outcomes specified.", cls="text-base-content/60"),
+                else P("No learning outcomes specified.", cls="text-muted-foreground"),
                 cls="mb-8",
             ),
             cls="container mx-auto px-4 py-6",
@@ -804,7 +801,7 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None, ls_servi
                 H1("Learning Analytics", cls="text-3xl font-bold text-primary"),
                 P(
                     "Insights into your learning journey",
-                    cls="text-lg text-base-content/70 mt-2",
+                    cls="text-lg text-muted-foreground mt-2",
                 ),
                 cls="mb-8",
             ),
@@ -814,24 +811,24 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None, ls_servi
                 Div(
                     Div(
                         Div(
-                            Span("Concepts Mastered", cls="text-sm text-base-content/70"),
+                            Span("Concepts Mastered", cls="text-sm text-muted-foreground"),
                             Span(str(concepts_mastered), cls="text-2xl font-bold text-success"),
-                            P("Knowledge units mastered", cls="text-xs text-base-content/60"),
+                            P("Knowledge units mastered", cls="text-xs text-muted-foreground"),
                             cls="stat text-center",
                         ),
                         Div(
-                            Span("In Progress", cls="text-sm text-base-content/70"),
+                            Span("In Progress", cls="text-sm text-muted-foreground"),
                             Span(str(in_progress), cls="text-2xl font-bold text-primary"),
-                            P("Currently learning", cls="text-xs text-base-content/60"),
+                            P("Currently learning", cls="text-xs text-muted-foreground"),
                             cls="stat text-center",
                         ),
                         Div(
-                            Span("Avg Retention", cls="text-sm text-base-content/70"),
+                            Span("Avg Retention", cls="text-sm text-muted-foreground"),
                             Span(
                                 f"{avg_retention * 100:.0f}%",
                                 cls="text-2xl font-bold text-warning",
                             ),
-                            P("Across mastered concepts", cls="text-xs text-base-content/60"),
+                            P("Across mastered concepts", cls="text-xs text-muted-foreground"),
                             cls="stat text-center",
                         ),
                         cls="stats stats-horizontal shadow w-full",
@@ -886,7 +883,7 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None, ls_servi
 
             detail_content = Card(
                 H1(step.title or f"Learning Step: {uid}", cls="text-2xl font-bold mb-4"),
-                P(step.description or step.intent or "", cls="text-base-content/70 mb-4"),
+                P(step.description or step.intent or "", cls="text-muted-foreground mb-4"),
                 Div(
                     Span(f"Sequence: {step.sequence}", cls="badge badge-info mr-2")
                     if step.sequence
@@ -907,7 +904,7 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None, ls_servi
         else:
             detail_content = Card(
                 H1(f"Learning Step: {uid}", cls="text-2xl font-bold mb-4"),
-                P("Learning step not found.", cls="text-base-content/70 mb-4"),
+                P("Learning step not found.", cls="text-muted-foreground mb-4"),
                 A("← Back to Pathways", href="/pathways", cls="btn btn-ghost"),
                 cls="p-6 mb-4",
             )
@@ -945,7 +942,7 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None, ls_servi
 
             detail_content = Card(
                 H1(path.title or f"Learning Path: {uid}", cls="text-2xl font-bold mb-4"),
-                P(path.description or "", cls="text-base-content/70 mb-4"),
+                P(path.description or "", cls="text-muted-foreground mb-4"),
                 Div(
                     Span(difficulty.title(), cls="badge badge-primary mr-2"),
                     Span(f"{int(path.estimated_hours or 0)}h", cls="badge badge-secondary mr-2"),
@@ -969,7 +966,7 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None, ls_servi
         else:
             detail_content = Card(
                 H1(f"Learning Path: {uid}", cls="text-2xl font-bold mb-4"),
-                P("Learning path not found.", cls="text-base-content/70 mb-4"),
+                P("Learning path not found.", cls="text-muted-foreground mb-4"),
                 A("← Back to Pathways", href="/pathways", cls="btn btn-ghost"),
                 cls="p-6 mb-4",
             )
@@ -998,9 +995,9 @@ def _render_stat_card(title: str, value: str, description: str) -> Any:
     """Render a simple stat card for analytics."""
     return Card(
         Div(
-            P(title, cls="text-sm text-base-content/70"),
+            P(title, cls="text-sm text-muted-foreground"),
             P(value, cls="text-2xl font-bold"),
-            P(description, cls="text-xs text-base-content/60"),
+            P(description, cls="text-xs text-muted-foreground"),
             cls="text-center p-4",
         ),
     )

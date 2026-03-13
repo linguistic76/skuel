@@ -122,21 +122,21 @@ class FieldRendererMapper:
     def _render_list(value: list) -> Div:
         """Render list as bullet points"""
         if not value:
-            return Span("—", cls="text-base-content/50 italic")
+            return Span("—", cls="text-muted-foreground italic")
 
         items = [Li(str(item), cls="text-sm") for item in value]
-        return Ul(*items, cls="list-disc list-inside text-base-content/80")
+        return Ul(*items, cls="list-disc list-inside text-foreground/80")
 
     @staticmethod
     def _render_dict(value: dict) -> Div:
         """Render dict as key-value pairs"""
         if not value:
-            return Span("—", cls="text-base-content/50 italic")
+            return Span("—", cls="text-muted-foreground italic")
 
         items = [
             Div(
-                Span(f"{k}:", cls="font-semibold text-base-content/70 mr-2"),
-                Span(str(v), cls="text-base-content/80"),
+                Span(f"{k}:", cls="font-semibold text-muted-foreground mr-2"),
+                Span(str(v), cls="text-foreground/80"),
                 cls="flex gap-2",
             )
             for k, v in value.items()
@@ -147,13 +147,13 @@ class FieldRendererMapper:
     def _render_date(value: date) -> Span:
         """Render date in readable format"""
         formatted = value.strftime("%B %d, %Y")  # e.g., "October 03, 2025"
-        return Span(formatted, cls="text-base-content/80")
+        return Span(formatted, cls="text-foreground/80")
 
     @staticmethod
     def _render_datetime(value: datetime) -> Span:
         """Render datetime with time"""
         formatted = value.strftime("%B %d, %Y at %I:%M %p")  # e.g., "October 03, 2025 at 02:30 PM"
-        return Span(formatted, cls="text-base-content/80")
+        return Span(formatted, cls="text-foreground/80")
 
     @staticmethod
     def _render_boolean(value: bool) -> Span:
@@ -167,20 +167,20 @@ class FieldRendererMapper:
     def _render_number(value: float) -> Span:
         """Render number with formatting"""
         if isinstance(value, int):
-            return Span(str(value), cls="text-base-content/80 font-mono")
+            return Span(str(value), cls="text-foreground/80 font-mono")
         else:
             # Format float to 2 decimal places
-            return Span(f"{value:.2f}", cls="text-base-content/80 font-mono")
+            return Span(f"{value:.2f}", cls="text-foreground/80 font-mono")
 
     @staticmethod
     def _render_none(_value: Any) -> Span:
         """Render None value as placeholder"""
-        return Span("—", cls="text-base-content/50 italic")
+        return Span("—", cls="text-muted-foreground italic")
 
     @staticmethod
     def _render_fallback(value: Any) -> P:
         """Render unknown type as string"""
-        return P(str(value), cls="text-base-content/80")
+        return P(str(value), cls="text-foreground/80")
 
     @staticmethod
     def _render_string(value: str) -> P:
@@ -189,10 +189,10 @@ class FieldRendererMapper:
             # Truncate long strings
             return P(
                 value[:200] + "...",
-                cls="text-base-content/80 text-sm",
+                cls="text-foreground/80 text-sm",
                 title=value,  # Full text on hover
             )
-        return P(value, cls="text-base-content/80")
+        return P(value, cls="text-foreground/80")
 
     @staticmethod
     def get_field_label(field_name: str) -> str:
@@ -336,7 +336,7 @@ class CardGenerator:
 
             # Render field
             field_component = Div(
-                Label(label, cls="label-text font-semibold text-base-content/70 block mb-1"),
+                Label(label, cls="label-text font-semibold text-muted-foreground block mb-1"),
                 renderer(value),
                 cls="mb-3",
             )
@@ -344,7 +344,7 @@ class CardGenerator:
             card_components.append(field_component)
 
         # Build card attributes
-        attrs = {"cls": "card bg-base-100 shadow-md p-6"}
+        attrs = {"cls": "card bg-background shadow-md p-6"}
         if card_attrs:
             attrs.update(card_attrs)
 
@@ -422,7 +422,7 @@ class CardGenerator:
             display_fields=display_fields,
             title_field=title_field,
             card_attrs={
-                "cls": "card bg-base-100 border border-base-200 p-3 hover:shadow-md transition-shadow"
+                "cls": "card bg-background border border-border p-3 hover:shadow-md transition-shadow"
             },
         )
 
@@ -443,7 +443,7 @@ class CardGenerator:
             instance,
             exclude_fields=exclude_fields,
             show_empty_fields=True,
-            card_attrs={"cls": "card bg-base-100 shadow-xl p-8"},
+            card_attrs={"cls": "card bg-background shadow-xl p-8"},
         )
 
 
@@ -501,7 +501,7 @@ class CardGeneratorExamples:
                 "hx_get": f"/api/tasks/{task.uid}",
                 "hx_trigger": "click",
                 "hx_target": "#detail-panel",
-                "cls": "card bg-base-100 shadow-md p-6 cursor-pointer hover:shadow-xl transition-shadow",
+                "cls": "card bg-background shadow-md p-6 cursor-pointer hover:shadow-xl transition-shadow",
             },
         )
 

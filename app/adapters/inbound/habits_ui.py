@@ -143,7 +143,7 @@ class HabitUIComponents:
             if habits
             else P(
                 "No habits yet. Create one to get started!",
-                cls="text-base-content/60 text-center py-8",
+                cls="text-muted-foreground text-center py-8",
             ),
             Div(id="modal"),  # Modal container for HTMX
         )
@@ -197,7 +197,7 @@ class HabitUIComponents:
             },
             card_attrs={
                 "id": f"habit-{uid}",
-                "cls": f"border-l-4 {'border-blue-500' if str(status) == 'active' else 'border-base-300'} p-4",
+                "cls": f"border-l-4 {'border-blue-500' if str(status) == 'active' else 'border-border'} p-4",
             },
         )
 
@@ -321,7 +321,7 @@ class HabitUIComponents:
             Card(
                 CardBody(
                     H2("📈 Performance Overview", cls="text-lg font-semibold mb-4"),
-                    P("Analytics charts will be loaded here", cls="text-base-content/60"),
+                    P("Analytics charts will be loaded here", cls="text-muted-foreground"),
                 ),
                 cls="mb-6",
             ),
@@ -329,7 +329,7 @@ class HabitUIComponents:
             Card(
                 CardBody(
                     H2("🔥 Streak Analysis", cls="text-lg font-semibold mb-4"),
-                    P("Streak patterns and trends", cls="text-base-content/60"),
+                    P("Streak patterns and trends", cls="text-muted-foreground"),
                 ),
                 cls="mb-6",
             ),
@@ -337,7 +337,7 @@ class HabitUIComponents:
             Card(
                 CardBody(
                     H2("🧠 Behavioral Insights", cls="text-lg font-semibold mb-4"),
-                    P("AI-powered insights from your habit patterns", cls="text-base-content/60"),
+                    P("AI-powered insights from your habit patterns", cls="text-muted-foreground"),
                 ),
             ),
             cls="container mx-auto p-6",
@@ -352,7 +352,7 @@ class HabitUIComponents:
             Card(
                 CardBody(
                     H3("📊 Completion Trends", cls="text-lg font-semibold mb-4"),
-                    P("Progress charts will be loaded here", cls="text-base-content/60"),
+                    P("Progress charts will be loaded here", cls="text-muted-foreground"),
                 ),
                 cls="mb-6",
             ),
@@ -360,7 +360,7 @@ class HabitUIComponents:
             Card(
                 CardBody(
                     H3("🎯 Goal Tracking", cls="text-lg font-semibold mb-4"),
-                    P("Track your habit goals and milestones", cls="text-base-content/60"),
+                    P("Track your habit goals and milestones", cls="text-muted-foreground"),
                 ),
             ),
             cls="container mx-auto p-6",
@@ -617,7 +617,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
         return Div(
             *habit_items
             if habit_items
-            else [P("No habits found.", cls="text-base-content/60 text-center py-8")],
+            else [P("No habits found.", cls="text-muted-foreground text-center py-8")],
             id="habit-list",
             cls="space-y-3",
         )
@@ -758,7 +758,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
             return Div(
                 Card(
                     H2("Error Creating Habit", cls="text-xl font-bold text-red-600 mb-4"),
-                    P(f"Failed to create habit: {result.error}", cls="text-base-content/70 mb-4"),
+                    P(f"Failed to create habit: {result.error}", cls="text-muted-foreground mb-4"),
                     Button(
                         "Try Again",
                         variant=ButtonT.primary,
@@ -777,7 +777,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
                 H2("Habit Created!", cls="text-2xl font-bold text-green-600 mb-4 text-center"),
                 P(
                     f"Successfully created: {habit.title}",
-                    cls="text-lg text-base-content/70 mb-2 text-center",
+                    cls="text-lg text-muted-foreground mb-2 text-center",
                 ),
                 (
                     Div(
@@ -787,7 +787,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
                         ),
                         P(
                             "Every completion is a vote for this identity!",
-                            cls="text-sm text-base-content/70 text-center mt-2",
+                            cls="text-sm text-muted-foreground text-center mt-2",
                         ),
                         cls="p-4 bg-purple-50 rounded-lg mb-6",
                     )
@@ -835,7 +835,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
         return Div(
             P(
                 "Please use the Complete button to mark habit as done",
-                cls="text-base-content/70 p-4",
+                cls="text-muted-foreground p-4",
             )
         )
 
@@ -1108,7 +1108,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
         # Ownership verification - returns NotFound if user doesn't own this habit
         habit_result = await habits_service.core.verify_ownership(uid, user_uid)
         if habit_result.is_error:
-            return P("Habit not found", cls="text-center text-base-content/60 py-8")
+            return P("Habit not found", cls="text-center text-muted-foreground py-8")
 
         habit = habit_result.value
 
@@ -1165,7 +1165,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
                 cls="space-y-3",
             )
             if filtered_habits
-            else P("No habits found for this category", cls="text-center text-base-content/60 py-8")
+            else P("No habits found for this category", cls="text-center text-muted-foreground py-8")
         )
 
     @rt("/habits/{uid}/details")
@@ -1176,7 +1176,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
                 H2("📊 Habit Details", cls="text-xl font-bold mb-4"),
                 P(
                     f"Detailed view for habit {uid} will be implemented here",
-                    cls="text-base-content/60",
+                    cls="text-muted-foreground",
                 ),
             ),
         )
@@ -1192,7 +1192,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
             return Card(
                 CardBody(
                     H2("Error", cls="text-xl font-bold text-red-600 mb-4"),
-                    P("Habit not found", cls="text-base-content/60"),
+                    P("Habit not found", cls="text-muted-foreground"),
                     Button(
                         "Close",
                         size=Size.sm,
@@ -1223,7 +1223,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
             return Card(
                 CardBody(
                     H2("Error", cls="text-xl font-bold text-red-600 mb-4"),
-                    P(f"Failed to save: {result.error}", cls="text-base-content/60"),
+                    P(f"Failed to save: {result.error}", cls="text-muted-foreground"),
                     Button(
                         "Close",
                         size=Size.sm,
@@ -1250,7 +1250,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
             return Card(
                 CardBody(
                     H2("Error", cls="text-xl font-bold text-red-600 mb-4"),
-                    P(f"Could not load habit: {result.error}", cls="text-base-content/60"),
+                    P(f"Could not load habit: {result.error}", cls="text-muted-foreground"),
                     Button(
                         "Close",
                         size=Size.sm,
@@ -1272,7 +1272,8 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
 
         status = normalize_enum_str(getattr(habit, "status", None), "active")
 
-        from fasthtml.common import Form, Input, Label, Option, Select, Textarea
+        from fasthtml.common import Form, Label, Option
+        from ui.forms import Input, Select, Textarea
 
         return Card(
             CardBody(
@@ -1285,7 +1286,6 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
                             type="text",
                             name="name",
                             value=name,
-                            cls="input input-bordered w-full",
                             required=True,
                         ),
                         cls="form-control mb-3",
@@ -1296,7 +1296,6 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
                         Textarea(
                             description,
                             name="description",
-                            cls="textarea textarea-bordered w-full",
                             rows="2",
                         ),
                         cls="form-control mb-3",
@@ -1308,7 +1307,6 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
                             type="text",
                             name="cue",
                             value=cue,
-                            cls="input input-bordered w-full",
                             placeholder="What triggers this habit?",
                         ),
                         cls="form-control mb-3",
@@ -1320,7 +1318,6 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
                             type="text",
                             name="routine",
                             value=routine,
-                            cls="input input-bordered w-full",
                             placeholder="What do you do?",
                         ),
                         cls="form-control mb-3",
@@ -1332,7 +1329,6 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
                             type="text",
                             name="reward",
                             value=reward,
-                            cls="input input-bordered w-full",
                             placeholder="What's the benefit?",
                         ),
                         cls="form-control mb-3",
@@ -1347,7 +1343,6 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
                                 "Completed", value="completed", selected=(status == "completed")
                             ),
                             name="status",
-                            cls="select select-bordered w-full",
                         ),
                         cls="form-control mb-4",
                     ),
@@ -1432,7 +1427,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
             return await BasePage(
                 content=Card(
                     H2("Habit Not Found", cls="text-xl font-bold text-error mb-4"),
-                    P(f"Could not find habit: {uid}", cls="text-base-content/70"),
+                    P(f"Could not find habit: {uid}", cls="text-muted-foreground"),
                     Button(
                         "← Back to Habits",
                         **{"hx-get": "/habits", "hx-target": "body"},
@@ -1454,7 +1449,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
             # Header Card
             Card(
                 H1(f"🎯 {habit.title}", cls="text-2xl font-bold mb-2"),
-                P(habit.description or "No description provided", cls="text-base-content/70 mb-4"),
+                P(habit.description or "No description provided", cls="text-muted-foreground mb-4"),
                 # Status and Frequency badges
                 Div(
                     Span(f"Status: {habit.status.value}", cls="badge badge-info mr-2"),
@@ -1474,8 +1469,8 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
                     # Cue and Response
                     (
                         Div(
-                            P("Cue:", cls="text-sm font-semibold text-base-content/70 mb-1"),
-                            P(habit.cue or "Not specified", cls="text-base-content mb-3"),
+                            P("Cue:", cls="text-sm font-semibold text-muted-foreground mb-1"),
+                            P(habit.cue or "Not specified", cls="text-foreground mb-3"),
                             cls="mb-4",
                         )
                         if habit.cue
@@ -1483,8 +1478,8 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
                     ),
                     # Created Date
                     Div(
-                        P("Created:", cls="text-sm font-semibold text-base-content/70 mb-1"),
-                        P(str(habit.created_at)[:10], cls="text-base-content/60 text-sm"),
+                        P("Created:", cls="text-sm font-semibold text-muted-foreground mb-1"),
+                        P(str(habit.created_at)[:10], cls="text-muted-foreground text-sm"),
                     ),
                     cls="space-y-2",
                 ),

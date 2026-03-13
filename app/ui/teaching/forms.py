@@ -7,10 +7,10 @@ Exercise create/edit form component.
 
 from typing import Any
 
-from fasthtml.common import Div, Form, Input, Label, Option, P, Textarea
+from fasthtml.common import Div, Form, Label, Option, P
 
 from ui.buttons import Button, ButtonT
-from ui.forms import Select
+from ui.forms import Input, Select, Textarea
 
 
 def render_exercise_form(groups: list[dict[str, Any]], exercise: Any = None) -> Div:
@@ -76,7 +76,6 @@ def render_exercise_form(groups: list[dict[str, Any]], exercise: Any = None) -> 
                     name="name",
                     value=name_val,
                     placeholder="e.g., Daily Reflection, Principle Mining",
-                    cls="input input-bordered w-full",
                     required=True,
                 ),
                 cls="form-control mb-4",
@@ -87,14 +86,14 @@ def render_exercise_form(groups: list[dict[str, Any]], exercise: Any = None) -> 
                     instructions_val,
                     name="instructions",
                     placeholder="Write the instructions for students and the LLM...",
-                    cls="textarea textarea-bordered w-full h-40",
+                    cls="h-40",
                     required=True,
                 ),
                 cls="form-control mb-4",
             ),
             Div(
                 Label("LLM Model", cls="label-text font-medium"),
-                Select(*model_options, name="model", cls="select select-bordered w-full"),
+                Select(*model_options, name="model"),
                 cls="form-control mb-4",
             ),
             Div(
@@ -129,7 +128,7 @@ def render_exercise_form(groups: list[dict[str, Any]], exercise: Any = None) -> 
             Div(
                 Div(
                     Label("Group", cls="label-text font-medium"),
-                    Select(*group_options, name="group_uid", cls="select select-bordered w-full"),
+                    Select(*group_options, name="group_uid"),
                     cls="form-control mb-3",
                 ),
                 Div(
@@ -138,7 +137,6 @@ def render_exercise_form(groups: list[dict[str, Any]], exercise: Any = None) -> 
                         type="date",
                         name="due_date",
                         value=due_date_val,
-                        cls="input input-bordered w-full",
                     ),
                     cls="form-control mb-3",
                 ),
@@ -158,13 +156,13 @@ def render_exercise_form(groups: list[dict[str, Any]], exercise: Any = None) -> 
                 Div(
                     P(
                         "One note per line — reference materials the LLM should consider.",
-                        cls="text-xs text-base-content/60 mb-1",
+                        cls="text-xs text-muted-foreground mb-1",
                     ),
                     Textarea(
                         context_notes_str,
                         name="context_notes",
                         placeholder="Focus on self-awareness\nBe gentle and curious",
-                        cls="textarea textarea-bordered w-full h-24",
+                        cls="h-24",
                     ),
                     **{"x-show": "notesOpen"},
                 ),

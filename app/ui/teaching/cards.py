@@ -17,7 +17,7 @@ def render_empty_state(title: str, description: str) -> Div:
     return Div(
         Div(
             H3(title, cls="text-lg font-medium mb-2"),
-            P(description, cls="text-base-content/60"),
+            P(description, cls="text-muted-foreground"),
             cls="text-center py-12",
         ),
     )
@@ -38,7 +38,7 @@ def render_stat_card(label: str, value: int, icon: str, href: str, badge_cls: st
             Div(str(value), cls=value_cls),
             cls="stat",
         ),
-        cls="card bg-base-100 shadow-sm cursor-pointer hover:shadow-md transition-shadow",
+        cls="card bg-background shadow-sm cursor-pointer hover:shadow-md transition-shadow",
         **{"onclick": f"window.location='{href}'"},
     )
 
@@ -70,7 +70,7 @@ def render_dashboard(stats: dict[str, Any]) -> Div:
         )
         if pending > 0
         else Div(
-            P("No submissions pending review.", cls="text-base-content/60"),
+            P("No submissions pending review.", cls="text-muted-foreground"),
         ),
     )
 
@@ -101,7 +101,7 @@ def render_queue_item(item: dict[str, Any]) -> Div:
             Div(
                 Div(
                     H4(title, cls="mb-0 font-semibold"),
-                    P(" · ".join(subtitle_parts), cls="text-sm text-base-content/60 mb-0"),
+                    P(" · ".join(subtitle_parts), cls="text-sm text-muted-foreground mb-0"),
                     cls="flex-1",
                 ),
                 Div(
@@ -122,7 +122,7 @@ def render_queue_item(item: dict[str, Any]) -> Div:
             ),
             cls="card-body p-4",
         ),
-        cls="card bg-base-100 shadow-sm mb-2",
+        cls="card bg-background shadow-sm mb-2",
     )
 
 
@@ -168,7 +168,7 @@ def render_exercise_summary_card(item: dict[str, Any]) -> Div:
             ),
             cls="card-body p-4",
         ),
-        cls="card bg-base-100 shadow-sm mb-2",
+        cls="card bg-background shadow-sm mb-2",
     )
 
 
@@ -187,7 +187,7 @@ def render_student_summary_card(item: dict[str, Any]) -> Div:
             Div(
                 Div(
                     H4(student_name, cls="mb-0 font-semibold"),
-                    P(student_uid, cls="text-xs text-base-content/40 mb-0"),
+                    P(student_uid, cls="text-xs text-foreground/40 mb-0"),
                     cls="flex-1",
                 ),
                 Div(
@@ -210,7 +210,7 @@ def render_student_summary_card(item: dict[str, Any]) -> Div:
             ),
             cls="card-body p-4",
         ),
-        cls="card bg-base-100 shadow-sm mb-2",
+        cls="card bg-background shadow-sm mb-2",
     )
 
 
@@ -236,7 +236,7 @@ def render_class_card(item: dict[str, Any]) -> Div:
                         active_badge,
                         cls="flex items-center gap-2",
                     ),
-                    P(description, cls="text-sm text-base-content/60 mb-0 mt-1")
+                    P(description, cls="text-sm text-muted-foreground mb-0 mt-1")
                     if description
                     else "",
                     cls="flex-1",
@@ -259,5 +259,5 @@ def render_class_card(item: dict[str, Any]) -> Div:
             ),
             cls="card-body p-4",
         ),
-        cls="card bg-base-100 shadow-sm mb-2",
+        cls="card bg-background shadow-sm mb-2",
     )

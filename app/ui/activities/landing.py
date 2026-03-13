@@ -19,8 +19,8 @@ def ActivitiesLandingView(context: UserContext) -> Div:
     + Knowledge (static stat) + Journals (CTA).
     """
     header = Div(
-        H2("Activities", cls="text-xl font-semibold text-base-content"),
-        P("Your activity domains at a glance.", cls="text-sm text-base-content/50 mt-0.5"),
+        H2("Activities", cls="text-xl font-semibold text-foreground"),
+        P("Your activity domains at a glance.", cls="text-sm text-muted-foreground mt-0.5"),
         cls="mb-6",
     )
 
@@ -79,9 +79,9 @@ _PRIORITY_LABELS: dict[Priority, str] = {
 def _card_preview_skeleton() -> Div:
     """Animated skeleton shown while HTMX loads item lists."""
     return Div(
-        Div(cls="h-4 bg-base-200 rounded animate-pulse"),
-        Div(cls="h-4 bg-base-200 rounded animate-pulse w-4/5"),
-        Div(cls="h-4 bg-base-200 rounded animate-pulse w-3/5"),
+        Div(cls="h-4 bg-muted rounded animate-pulse"),
+        Div(cls="h-4 bg-muted rounded animate-pulse w-4/5"),
+        Div(cls="h-4 bg-muted rounded animate-pulse w-3/5"),
         cls="space-y-2 py-1",
     )
 
@@ -99,7 +99,7 @@ def _domain_card_grid(context: UserContext) -> Div:
             "+",
             href=create_href,
             cls="w-7 h-7 flex items-center justify-center rounded-full "
-            "text-base-content/40 hover:text-base-content hover:bg-base-200 "
+            "text-foreground/40 hover:text-foreground hover:bg-muted "
             "transition-colors text-lg font-bold leading-none",
             title=f"New {name.removesuffix('s')}",
         )
@@ -109,7 +109,7 @@ def _domain_card_grid(context: UserContext) -> Div:
                 Div(
                     Div(
                         Span(icon, cls="text-xl"),
-                        Span(name, cls="text-base font-semibold text-base-content"),
+                        Span(name, cls="text-base font-semibold text-foreground"),
                         Span(str(active_count), cls="badge badge-sm badge-ghost"),
                         cls="flex items-center gap-2",
                     ),
@@ -123,7 +123,7 @@ def _domain_card_grid(context: UserContext) -> Div:
                     hx_swap="innerHTML",
                     cls="min-h-[100px]",
                 ),
-                cls="bg-base-100 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow",
+                cls="bg-background rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow",
             )
         )
 
@@ -131,27 +131,27 @@ def _domain_card_grid(context: UserContext) -> Div:
     total_knowledge = len(context.mastered_knowledge_uids) + len(context.in_progress_knowledge_uids)
     mastered = len(context.mastered_knowledge_uids)
     knowledge_secondary = (
-        Span(f"{mastered} mastered", cls="text-sm text-base-content/50") if mastered > 0 else None
+        Span(f"{mastered} mastered", cls="text-sm text-muted-foreground") if mastered > 0 else None
     )
     cards.append(
         Div(
             Div(
                 Div(
                     Span("📖", cls="text-xl"),
-                    Span("Knowledge", cls="text-base font-semibold text-base-content"),
+                    Span("Knowledge", cls="text-base font-semibold text-foreground"),
                     cls="flex items-center gap-2",
                 ),
                 cls="flex items-center justify-between mb-3",
             ),
             Div(
-                Span(str(total_knowledge), cls="text-3xl font-bold text-base-content"),
-                Span("studied", cls="text-sm text-base-content/50 ml-2"),
+                Span(str(total_knowledge), cls="text-3xl font-bold text-foreground"),
+                Span("studied", cls="text-sm text-muted-foreground ml-2"),
                 cls="flex items-baseline",
             ),
             Div(knowledge_secondary, cls="mt-1 min-h-[1.25rem]")
             if knowledge_secondary
             else Div(cls="mt-1 min-h-[1.25rem]"),
-            cls="bg-base-100 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow",
+            cls="bg-background rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow",
         )
     )
 
@@ -161,14 +161,14 @@ def _domain_card_grid(context: UserContext) -> Div:
             Div(
                 Div(
                     Span("📓", cls="text-xl"),
-                    Span("Journals", cls="text-base font-semibold text-base-content"),
+                    Span("Journals", cls="text-base font-semibold text-foreground"),
                     cls="flex items-center gap-2",
                 ),
                 A(
                     "+",
                     href="/journals/submit",
                     cls="w-7 h-7 flex items-center justify-center rounded-full "
-                    "text-base-content/40 hover:text-base-content hover:bg-base-200 "
+                    "text-foreground/40 hover:text-foreground hover:bg-muted "
                     "transition-colors text-lg font-bold leading-none",
                     title="Submit journal",
                 ),
@@ -176,14 +176,14 @@ def _domain_card_grid(context: UserContext) -> Div:
             ),
             P(
                 "Submit a journal entry to track your progress.",
-                cls="text-sm text-base-content/50",
+                cls="text-sm text-muted-foreground",
             ),
             A(
                 "Submit journal →",
                 href="/journals/submit",
                 cls="text-xs text-primary hover:underline mt-2 inline-block",
             ),
-            cls="bg-base-100 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow",
+            cls="bg-background rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow",
         )
     )
 
@@ -204,7 +204,7 @@ def render_activity_card_preview(items: list[Any], slug: str) -> Div:
         return Div(
             P(
                 f"No active {slug}",
-                cls="text-sm text-base-content/40 text-center py-3",
+                cls="text-sm text-foreground/40 text-center py-3",
             ),
             A(
                 f"View all {slug} →",
@@ -224,7 +224,7 @@ def render_activity_card_preview(items: list[Any], slug: str) -> Div:
         label = _PRIORITY_LABELS.get(raw, "P4")
         return Span(
             Span(cls=f"w-2 h-2 rounded-full {color} shrink-0"),
-            Span(label, cls="text-xs font-medium text-base-content/50 w-5"),
+            Span(label, cls="text-xs font-medium text-muted-foreground w-5"),
             cls="inline-flex items-center gap-1 shrink-0",
             title=f"Priority: {raw.value.title()}",
         )
@@ -234,7 +234,7 @@ def render_activity_card_preview(items: list[Any], slug: str) -> Div:
             _priority_dot(item),
             Span(
                 getattr(item, "title", "Untitled"),
-                cls="text-sm text-base-content truncate flex-1 min-w-0",
+                cls="text-sm text-foreground truncate flex-1 min-w-0",
             ),
             cls="flex items-center gap-2 py-1.5",
         )

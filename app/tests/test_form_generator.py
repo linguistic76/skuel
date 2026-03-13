@@ -308,7 +308,7 @@ class TestSections:
         # Last section should not
         assert "border-b" in html
         # Count occurrences: 2 sections with border, 1 without
-        assert html.count("border-b border-base-200") == 2
+        assert html.count("border-b border-border") == 2
 
     def test_sections_with_exclude_fields(self):
         form = FormGenerator.from_model(
@@ -388,7 +388,7 @@ class TestHelpTexts:
             include_fields=["title"],
         )
         html = get_form_html(form)
-        assert "text-base-content/70" not in html or "Enter a clear" not in html
+        assert "text-muted-foreground" not in html or "Enter a clear" not in html
 
     def test_help_text_in_sections(self):
         form = FormGenerator.from_model(
@@ -550,28 +550,30 @@ class TestCustomWidgets:
 # ============================================================================
 
 
-class TestDaisyUIIntegration:
-    """Test that generated widgets use DaisyUI variant classes."""
+class TestMonsterUIIntegration:
+    """Test that generated widgets use MonsterUI wrapper components."""
 
-    def test_text_input_has_daisyui_classes(self):
+    def test_text_input_renders(self):
         form = FormGenerator.from_model(
             SampleCreateRequest,
             action="/test",
             include_fields=["title"],
         )
         html = get_form_html(form)
-        assert "input-bordered" in html
+        assert "input" in html
+        assert 'name="title"' in html
 
-    def test_select_has_daisyui_classes(self):
+    def test_select_renders(self):
         form = FormGenerator.from_model(
             SampleCreateRequest,
             action="/test",
             include_fields=["priority"],
         )
         html = get_form_html(form)
-        assert "select-bordered" in html
+        assert "select" in html
+        assert 'name="priority"' in html
 
-    def test_checkbox_has_daisyui_classes(self):
+    def test_checkbox_renders(self):
         form = FormGenerator.from_model(
             SampleCreateRequest,
             action="/test",
@@ -580,14 +582,15 @@ class TestDaisyUIIntegration:
         html = get_form_html(form)
         assert "checkbox" in html
 
-    def test_textarea_has_daisyui_classes(self):
+    def test_textarea_renders(self):
         form = FormGenerator.from_model(
             SampleCreateRequest,
             action="/test",
             include_fields=["description"],
         )
         html = get_form_html(form)
-        assert "textarea-bordered" in html
+        assert "textarea" in html
+        assert 'name="description"' in html
 
 
 # ============================================================================

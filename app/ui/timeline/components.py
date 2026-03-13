@@ -21,6 +21,7 @@ from fasthtml.common import H1, Body, Div, Head, Html, Link, Meta, Option, P, Sc
 
 from ui.buttons import Button
 from ui.forms import Input, Label, Select
+from ui.layout import Size
 
 
 def render_timeline_viewer_page(
@@ -111,7 +112,7 @@ def _render_controls() -> Div:
     return Div(
         # Zoom controls
         Div(
-            Span("Zoom:", cls="text-sm text-base-content/70 mr-2"),
+            Span("Zoom:", cls="text-sm text-muted-foreground mr-2"),
             Button(
                 "+",
                 cls="btn btn-sm btn-ghost",
@@ -150,7 +151,7 @@ def _render_filters(project: str | None = None, user_uid: str | None = None) -> 
             Input(
                 type="date",
                 name="startDate",
-                cls="input input-bordered input-sm w-full",
+                size=Size.sm,
                 **{"x-ref": "startDate"},
             ),
             cls="filter-group",
@@ -160,7 +161,7 @@ def _render_filters(project: str | None = None, user_uid: str | None = None) -> 
             Input(
                 type="date",
                 name="endDate",
-                cls="input input-bordered input-sm w-full",
+                size=Size.sm,
                 **{"x-ref": "endDate"},
             ),
             cls="filter-group",
@@ -172,7 +173,7 @@ def _render_filters(project: str | None = None, user_uid: str | None = None) -> 
                 name="project",
                 placeholder="Filter by project",
                 value=project or "",
-                cls="input input-bordered input-sm w-full",
+                size=Size.sm,
                 **{"x-ref": "project"},
             ),
             cls="filter-group",
@@ -184,7 +185,7 @@ def _render_filters(project: str | None = None, user_uid: str | None = None) -> 
                 Option("By Project", value="project"),
                 Option("No Grouping", value="none"),
                 name="groupBy",
-                cls="select select-bordered select-sm w-full",
+                size=Size.sm,
                 **{"x-ref": "groupBy"},
             ),
             cls="filter-group",
@@ -196,7 +197,7 @@ def _render_filters(project: str | None = None, user_uid: str | None = None) -> 
         ),
         # Hidden user_uid for API calls
         Input(type="hidden", name="user_uid", value=user_uid or "", **{"x-ref": "userUid"}),
-        cls="filters grid grid-cols-2 md:grid-cols-5 gap-4 p-4 bg-base-200",
+        cls="filters grid grid-cols-2 md:grid-cols-5 gap-4 p-4 bg-muted",
     )
 
 
@@ -206,7 +207,7 @@ def _render_timeline_container() -> Div:
         # Loading indicator
         Div(
             Span(cls="loading loading-spinner loading-lg"),
-            P("Loading timeline...", cls="mt-2 text-base-content/70"),
+            P("Loading timeline...", cls="mt-2 text-muted-foreground"),
             cls="flex flex-col items-center justify-center h-full",
             **{"x-show": "loading"},
         ),
@@ -231,7 +232,7 @@ def _render_timeline_container() -> Div:
             cls="w-full h-full",
             **{"x-show": "!loading && !error"},
         ),
-        cls="timeline-container h-[70vh] border rounded-lg bg-base-100",
+        cls="timeline-container h-[70vh] border rounded-lg bg-background",
     )
 
 
@@ -250,7 +251,7 @@ def render_timeline_error(error_message: str) -> Html:
         Body(
             H1("Timeline Error", cls="text-2xl font-bold text-error"),
             P(f"Error: {error_message}", cls="mt-4"),
-            P("Please check the server logs for more details.", cls="text-base-content/70"),
+            P("Please check the server logs for more details.", cls="text-muted-foreground"),
             Button(
                 "Go Back",
                 cls="btn btn-primary mt-4",

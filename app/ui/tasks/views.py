@@ -121,7 +121,6 @@ class TasksViewComponents:
                     type="text",
                     name="title",
                     placeholder="What needs to be done?",
-                    cls="input input-bordered w-full",
                     required=True,
                     autofocus=True,
                 ),
@@ -134,7 +133,6 @@ class TasksViewComponents:
                     name="description",
                     placeholder="Add details, notes, or context...",
                     rows="4",
-                    cls="textarea textarea-bordered w-full",
                 ),
                 cls="mb-4",
             ),
@@ -146,7 +144,6 @@ class TasksViewComponents:
                     name="project",
                     placeholder="e.g., Work, Personal, Home",
                     list="create-project-suggestions",
-                    cls="input input-bordered w-full",
                 ),
                 project_datalist,
                 cls="mb-4",
@@ -160,7 +157,6 @@ class TasksViewComponents:
                     Option("P3 - Medium", value="medium", selected=True),
                     Option("P4 - Low", value="low"),
                     name="priority",
-                    cls="select select-bordered w-full",
                 ),
                 cls="mb-4",
             ),
@@ -175,9 +171,8 @@ class TasksViewComponents:
                 Input(
                     type="date",
                     name="scheduled_date",
-                    cls="input input-bordered w-full",
                 ),
-                P("When to start working on this task", cls="text-xs text-base-content/60 mt-1"),
+                P("When to start working on this task", cls="text-xs text-muted-foreground mt-1"),
                 cls="mb-4",
             ),
             # Due date
@@ -186,9 +181,8 @@ class TasksViewComponents:
                 Input(
                     type="date",
                     name="due_date",
-                    cls="input input-bordered w-full",
                 ),
-                P("Deadline for completion", cls="text-xs text-base-content/60 mt-1"),
+                P("Deadline for completion", cls="text-xs text-muted-foreground mt-1"),
                 cls="mb-4",
             ),
             # Duration
@@ -200,7 +194,6 @@ class TasksViewComponents:
                     placeholder="60",
                     min="5",
                     step="5",
-                    cls="input input-bordered w-full",
                 ),
                 cls="mb-4",
             ),
@@ -228,7 +221,7 @@ class TasksViewComponents:
                 variant=ButtonT.outline,
                 size=Size.lg,
             ),
-            cls="flex justify-end gap-2 pt-6 border-t border-base-200",
+            cls="flex justify-end gap-2 pt-6 border-t border-border",
         )
 
         return Div(
@@ -245,7 +238,7 @@ class TasksViewComponents:
                     "hx-target": "#view-content",
                     "hx-swap": "innerHTML",
                 },
-                cls="card bg-base-100 shadow-lg p-6",
+                cls="card bg-background shadow-lg p-6",
             ),
             id="create-view",
         )

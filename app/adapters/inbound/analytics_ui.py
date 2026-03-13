@@ -22,11 +22,9 @@ from fasthtml.common import (
     H4,
     Div,
     Form,
-    Input,
     Label,
     Option,
     P,
-    Select,
     Span,
     Table,
     Tbody,
@@ -41,6 +39,7 @@ from adapters.inbound.auth import require_authenticated_user
 from core.models.enums import AnalyticsDomain
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonT
+from ui.forms import Input, Select
 from ui.layouts.navbar import create_navbar_for_request
 from ui.shared_components import MetricCard, QuickMetricCard
 
@@ -67,7 +66,7 @@ class AnalyticsUIComponents:
                 "Generate statistical analytics for any domain. "
                 "Pure metrics - completion rates, totals, distributions. "
                 "No AI recommendations, just transparent data.",
-                cls="text-base-content/60 mb-6",
+                cls="text-muted-foreground mb-6",
             ),
             # Analytics generator form
             Div(
@@ -85,7 +84,6 @@ class AnalyticsUIComponents:
                             Option("Choices", value="choices"),
                             name="analytics_domain",
                             id="analytics-domain-select",
-                            cls="select select-bordered w-full",
                         ),
                         cls="mb-4",
                     ),
@@ -101,7 +99,6 @@ class AnalyticsUIComponents:
                             Option("Custom Range", value="custom"),
                             name="period",
                             id="period-select",
-                            cls="select select-bordered w-full",
                             **{
                                 "hx-get": "/ui/analytics/period-fields",
                                 "hx-target": "#period-fields",
@@ -125,7 +122,7 @@ class AnalyticsUIComponents:
                         cls="mb-4",
                     ),
                 ),
-                cls="card bg-base-100 shadow-sm p-6 mb-6",
+                cls="card bg-background shadow-sm p-6 mb-6",
             ),
             # Analytics display area
             Div(id="analytics-display", cls="mt-6"),
@@ -139,12 +136,12 @@ class AnalyticsUIComponents:
             return Div(
                 Div(
                     Label("Start Date", cls="label"),
-                    Input(type="date", name="start_date", cls="input input-bordered w-full"),
+                    Input(type="date", name="start_date"),
                     cls="mb-4",
                 ),
                 Div(
                     Label("End Date", cls="label"),
-                    Input(type="date", name="end_date", cls="input input-bordered w-full"),
+                    Input(type="date", name="end_date"),
                     cls="mb-4",
                 ),
             )
@@ -159,9 +156,9 @@ class AnalyticsUIComponents:
                 H2(report.title, cls="text-xl font-bold mb-2"),
                 P(
                     f"{report.format_period()} • Generated {report.generated_at.strftime('%Y-%m-%d %H:%M')}",
-                    cls="text-base-content/60 text-sm",
+                    cls="text-muted-foreground text-sm",
                 ),
-                cls="card bg-base-100 shadow-sm p-6 mb-4",
+                cls="card bg-background shadow-sm p-6 mb-4",
             ),
             # Metrics cards
             AnalyticsUIComponents.render_metrics_cards(report),
@@ -235,7 +232,7 @@ class AnalyticsUIComponents:
                         ),
                         cls="table table-zebra",
                     ),
-                    cls="card bg-base-100 shadow-sm p-4 mb-4",
+                    cls="card bg-background shadow-sm p-4 mb-4",
                 )
                 if metrics.get("priority_distribution")
                 else ""
@@ -279,7 +276,7 @@ class AnalyticsUIComponents:
                         )
                         for habit_name, days in metrics.get("current_streaks", {}).items()
                     ],
-                    cls="card bg-base-100 shadow-sm p-4",
+                    cls="card bg-background shadow-sm p-4",
                 )
                 if metrics.get("current_streaks")
                 else ""
@@ -367,7 +364,7 @@ class AnalyticsUIComponents:
                 ),
                 cls="table table-zebra",
             ),
-            cls="card bg-base-100 shadow-sm p-4",
+            cls="card bg-background shadow-sm p-4",
         )
 
     # Note: metric_card() removed - now using QuickMetricCard from shared components
@@ -376,7 +373,7 @@ class AnalyticsUIComponents:
     def render_markdown_view(markdown_content) -> Any:
         """Render markdown content"""
         return Div(
-            Div(markdown_content, cls="prose max-w-none"), cls="card bg-base-100 shadow-sm p-6 mt-4"
+            Div(markdown_content, cls="prose max-w-none"), cls="card bg-background shadow-sm p-6 mt-4"
         )
 
     # ========================================================================
@@ -397,7 +394,7 @@ class AnalyticsUIComponents:
         if not alignment_data or not alignment_data.get("life_path_uid"):
             return Div(
                 P("No Life Path designated yet. Set your Life Path to track alignment."),
-                cls="text-base-content/60 p-4",
+                cls="text-muted-foreground p-4",
             )
 
         life_path_title = alignment_data.get("life_path_title", "Unknown")
@@ -429,7 +426,7 @@ class AnalyticsUIComponents:
                     QuickMetricCard("Theoretical (<0.5)", str(theoretical), "error"),
                     cls="grid grid-cols-3 gap-4",
                 ),
-                cls="card bg-base-100 shadow-sm mb-6 p-6",
+                cls="card bg-background shadow-sm mb-6 p-6",
             ),
             # Domain Contributions
             Div(
@@ -443,7 +440,7 @@ class AnalyticsUIComponents:
                 )
                 if domain_contributions
                 else P("No domain activity detected."),
-                cls="card bg-base-100 shadow-sm mb-6 p-6",
+                cls="card bg-background shadow-sm mb-6 p-6",
             ),
             # Gaps
             Div(
@@ -454,7 +451,7 @@ class AnalyticsUIComponents:
                 )
                 if gaps
                 else P("No gaps detected - excellent embodiment!", cls="text-success"),
-                cls="card bg-base-100 shadow-sm mb-6 p-6",
+                cls="card bg-background shadow-sm mb-6 p-6",
             ),
             # Recommendations
             Div(
@@ -462,7 +459,7 @@ class AnalyticsUIComponents:
                 Div(*[P(f"• {rec}", cls="mb-2") for rec in recommendations], cls="space-y-1")
                 if recommendations
                 else P("Keep up the great work!", cls="text-success"),
-                cls="card bg-base-100 shadow-sm p-6",
+                cls="card bg-background shadow-sm p-6",
             ),
             cls="max-w-4xl mx-auto p-6",
         )
@@ -476,12 +473,12 @@ class AnalyticsUIComponents:
         return Div(
             Div(
                 Span(domain.title(), cls="font-medium"),
-                Span(f"{contribution_percentage}%", cls="ml-auto text-base-content/60"),
+                Span(f"{contribution_percentage}%", cls="ml-auto text-muted-foreground"),
                 cls="flex justify-between mb-1",
             ),
             Div(
                 Div(cls="bg-primary h-2 rounded", style=f"width: {bar_width}"),
-                cls="bg-base-200 h-2 rounded overflow-hidden",
+                cls="bg-muted h-2 rounded overflow-hidden",
             ),
         )
 
@@ -493,7 +490,7 @@ class AnalyticsUIComponents:
 
         return Div(
             Span(title, cls="font-medium"),
-            Span(f"({substance:.1f} substance)", cls="ml-2 text-base-content/60 text-sm"),
+            Span(f"({substance:.1f} substance)", cls="ml-2 text-muted-foreground text-sm"),
             cls="p-2 bg-error/10 rounded",
         )
 
@@ -513,7 +510,7 @@ class AnalyticsUIComponents:
         - Cross-layer insights
         """
         if not summary_data:
-            return Div(P("No data available for this period."), cls="text-base-content/60 p-4")
+            return Div(P("No data available for this period."), cls="text-muted-foreground p-4")
 
         period = summary_data.get("period", {})
         start_date = period.get("start", "")
@@ -529,14 +526,14 @@ class AnalyticsUIComponents:
         return Div(
             # Header
             H1("Weekly Life Summary", cls="text-3xl font-bold mb-2"),
-            P(f"{start_date} to {end_date}", cls="text-base-content/60 mb-6"),
+            P(f"{start_date} to {end_date}", cls="text-muted-foreground mb-6"),
             # Overall Activity Score
             QuickMetricCard("Overall Activity", str(int(total_activity)), "primary"),
             # Summary Text
             Div(
                 H2("Summary", cls="text-xl font-semibold mb-4"),
-                P(summary_text, cls="text-base-content/70"),
-                cls="card bg-base-100 shadow-sm mb-6 p-6",
+                P(summary_text, cls="text-muted-foreground"),
+                cls="card bg-background shadow-sm mb-6 p-6",
             ),
             # Layer 0: Knowledge
             AnalyticsUIComponents._render_knowledge_layer_card(layer0_knowledge),
@@ -570,7 +567,7 @@ class AnalyticsUIComponents:
                 QuickMetricCard("In-Progress Steps", str(in_progress_steps), "accent"),
                 cls="grid grid-cols-4 gap-4",
             ),
-            cls="card bg-base-100 shadow-sm mb-6 p-6",
+            cls="card bg-background shadow-sm mb-6 p-6",
         )
 
     @staticmethod
@@ -594,9 +591,9 @@ class AnalyticsUIComponents:
             ),
             Div(
                 P("Top Themes:", cls="font-medium mb-2"),
-                P(", ".join(top_themes[:3]) if top_themes else "None", cls="text-base-content/60"),
+                P(", ".join(top_themes[:3]) if top_themes else "None", cls="text-muted-foreground"),
             ),
-            cls="card bg-base-100 shadow-sm mb-6 p-6",
+            cls="card bg-background shadow-sm mb-6 p-6",
         )
 
     @staticmethod
@@ -613,25 +610,25 @@ class AnalyticsUIComponents:
             H2("Cross-Layer Insights", cls="text-xl font-semibold mb-4"),
             P(
                 "Synthesis across all architectural layers:",
-                cls="text-sm text-base-content/60 mb-4",
+                cls="text-sm text-muted-foreground mb-4",
             ),
             # Knowledge-Activity Correlation
             Div(
                 H3("Knowledge → Activity", cls="font-semibold mb-2"),
                 P(
                     knowledge_correlation.get("insight", ""),
-                    cls="text-sm text-base-content/70 mb-4",
+                    cls="text-sm text-muted-foreground mb-4",
                 ),
             ),
             # Journal Impact
             Div(
                 H3("Reflection Impact", cls="font-semibold mb-2"),
-                P(journal_impact.get("insight", ""), cls="text-sm text-base-content/70 mb-4"),
+                P(journal_impact.get("insight", ""), cls="text-sm text-muted-foreground mb-4"),
             ),
             # Learning-Doing Alignment
             Div(
                 H3("Learning ↔ Doing", cls="font-semibold mb-2"),
-                P(learning_doing.get("insight", ""), cls="text-sm text-base-content/70"),
+                P(learning_doing.get("insight", ""), cls="text-sm text-muted-foreground"),
             ),
             cls="card bg-secondary/10 mb-6 p-6",
         )

@@ -104,7 +104,7 @@ def create_chart_view(
             # Loading state
             Div(
                 Span(cls="loading loading-spinner loading-md"),
-                P("Loading chart...", cls="text-sm text-base-content/70 mt-2"),
+                P("Loading chart...", cls="text-sm text-muted-foreground mt-2"),
                 cls="flex flex-col items-center justify-center h-full",
                 **{"x-show": "loading"},
             ),
@@ -260,7 +260,7 @@ def create_timeline_view(
             # Loading state
             Div(
                 Span(cls="loading loading-spinner loading-md"),
-                P("Loading timeline...", cls="text-sm text-base-content/70 mt-2"),
+                P("Loading timeline...", cls="text-sm text-muted-foreground mt-2"),
                 cls="flex flex-col items-center justify-center h-full",
                 **{"x-show": "loading"},
             ),
@@ -410,7 +410,7 @@ def create_gantt_view(
             # Loading state
             Div(
                 Span(cls="loading loading-spinner loading-md"),
-                P("Loading Gantt chart...", cls="text-sm text-base-content/70 mt-2"),
+                P("Loading Gantt chart...", cls="text-sm text-muted-foreground mt-2"),
                 cls="flex flex-col items-center justify-center h-full",
                 **{"x-show": "loading"},
             ),
@@ -518,7 +518,7 @@ def create_visualization_dashboard(
                     "Weekly Completion Rate",
                     include_scripts=not scripts_added["chart"],
                 ),
-                cls="card bg-base-100 shadow-sm p-4",
+                cls="card bg-background shadow-sm p-4",
             )
         )
         scripts_added["chart"] = True
@@ -532,7 +532,7 @@ def create_visualization_dashboard(
                     "Task Priority Distribution",
                     include_scripts=False,  # Already loaded
                 ),
-                cls="card bg-base-100 shadow-sm p-4",
+                cls="card bg-background shadow-sm p-4",
             )
         )
 
@@ -544,7 +544,7 @@ def create_visualization_dashboard(
                     "Schedule Overview",
                     include_scripts=not scripts_added["timeline"],
                 ),
-                cls="card bg-base-100 shadow-sm p-4 col-span-2",
+                cls="card bg-background shadow-sm p-4 col-span-2",
             )
         )
         scripts_added["timeline"] = True
@@ -557,7 +557,7 @@ def create_visualization_dashboard(
                     "Task Dependencies",
                     include_scripts=not scripts_added["gantt"],
                 ),
-                cls="card bg-base-100 shadow-sm p-4 col-span-2",
+                cls="card bg-background shadow-sm p-4 col-span-2",
             )
         )
         scripts_added["gantt"] = True

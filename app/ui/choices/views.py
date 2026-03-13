@@ -25,6 +25,7 @@ from core.models.choice.choice import Choice
 from core.utils.logging import get_logger
 from ui.buttons import Button
 from ui.forms import Input, Label, Select, Textarea
+from ui.layout import Size
 from ui.patterns.activity_views_base import ActivityViewTabs
 
 logger = get_logger("skuel.components.choices_views")
@@ -84,17 +85,17 @@ class ChoicesViewComponents:
         # Stats bar
         stats_bar = Div(
             Div(
-                Span("Total: ", cls="text-base-content/60"),
+                Span("Total: ", cls="text-muted-foreground"),
                 Span(str(stats.get("total", 0)), cls="font-bold"),
                 cls="mr-4",
             ),
             Div(
-                Span("Pending: ", cls="text-base-content/60"),
+                Span("Pending: ", cls="text-muted-foreground"),
                 Span(str(stats.get("pending", 0)), cls="font-bold text-yellow-600"),
                 cls="mr-4",
             ),
             Div(
-                Span("Decided: ", cls="text-base-content/60"),
+                Span("Decided: ", cls="text-muted-foreground"),
                 Span(str(stats.get("decided", 0)), cls="font-bold text-green-600"),
             ),
             cls="flex items-center mb-4 text-sm",
@@ -118,7 +119,8 @@ class ChoicesViewComponents:
                         selected=filters.get("status") == "implemented",
                     ),
                     name="filter_status",
-                    cls="select select-bordered select-sm",
+                    size=Size.sm,
+                    full_width=False,
                     **{
                         "hx-get": "/choices/list-fragment",
                         "hx-target": "#choice-list",
@@ -144,7 +146,8 @@ class ChoicesViewComponents:
                         selected=filters.get("sort_by") == "created_at",
                     ),
                     name="sort_by",
-                    cls="select select-bordered select-sm",
+                    size=Size.sm,
+                    full_width=False,
                     **{
                         "hx-get": "/choices/list-fragment",
                         "hx-target": "#choice-list",
@@ -164,7 +167,7 @@ class ChoicesViewComponents:
             else [
                 P(
                     "No decisions found. Create one to get started!",
-                    cls="text-base-content/60 text-center py-8",
+                    cls="text-muted-foreground text-center py-8",
                 )
             ],
             id="choice-list",
@@ -214,14 +217,14 @@ class ChoicesViewComponents:
                     description[:100] + "..."
                     if description and len(description) > 100
                     else description,
-                    cls="text-base-content/70 text-sm mt-1",
+                    cls="text-muted-foreground text-sm mt-1",
                 )
                 if description
                 else "",
                 # Meta row
                 Div(
                     Span(f"Priority: {priority_str.title()}", cls=f"text-xs {priority_color} mr-4"),
-                    Span(f"Deadline: {deadline}", cls="text-xs text-base-content/60")
+                    Span(f"Deadline: {deadline}", cls="text-xs text-muted-foreground")
                     if deadline
                     else "",
                     cls="flex items-center mt-2",
@@ -250,7 +253,7 @@ class ChoicesViewComponents:
                 cls="p-4",
             ),
             id=f"choice-{uid}",
-            cls="card bg-base-100 shadow-sm border border-base-200 hover:shadow-md transition-shadow",
+            cls="card bg-background shadow-sm border border-border hover:shadow-md transition-shadow",
         )
 
     # ========================================================================
@@ -285,7 +288,6 @@ class ChoicesViewComponents:
                     type="text",
                     name="title",
                     placeholder="What decision do you need to make?",
-                    cls="input input-bordered w-full",
                     required=True,
                     autofocus=True,
                 ),
@@ -298,7 +300,6 @@ class ChoicesViewComponents:
                     name="description",
                     placeholder="Describe the decision context...",
                     rows="4",
-                    cls="textarea textarea-bordered w-full",
                     required=True,
                 ),
                 cls="mb-4",
@@ -309,11 +310,10 @@ class ChoicesViewComponents:
                 Select(
                     *[Option(t.title(), value=t) for t in choice_types],
                     name="choice_type",
-                    cls="select select-bordered w-full",
                 ),
                 P(
                     "Binary (yes/no), Multiple options, Ranking, etc.",
-                    cls="text-xs text-base-content/60 mt-1",
+                    cls="text-xs text-muted-foreground mt-1",
                 ),
                 cls="mb-4",
             ),
@@ -328,7 +328,6 @@ class ChoicesViewComponents:
                 Select(
                     *[Option(d.title(), value=d) for d in domains],
                     name="domain",
-                    cls="select select-bordered w-full",
                 ),
                 cls="mb-4",
             ),
@@ -341,7 +340,6 @@ class ChoicesViewComponents:
                     Option("P3 - Medium", value="medium", selected=True),
                     Option("P4 - Low", value="low"),
                     name="priority",
-                    cls="select select-bordered w-full",
                 ),
                 cls="mb-4",
             ),
@@ -352,9 +350,8 @@ class ChoicesViewComponents:
                 Input(
                     type="datetime-local",
                     name="decision_deadline",
-                    cls="input input-bordered w-full",
                 ),
-                P("When do you need to decide by?", cls="text-xs text-base-content/60 mt-1"),
+                P("When do you need to decide by?", cls="text-xs text-muted-foreground mt-1"),
                 cls="mb-4",
             ),
             cls="flex-1",
@@ -363,7 +360,7 @@ class ChoicesViewComponents:
         # Options section (Alpine.js managed)
         options_section = Div(
             H3("Decision Options", cls="text-lg font-semibold mb-4"),
-            P("Add at least 2 options for this decision.", cls="text-sm text-base-content/60 mb-4"),
+            P("Add at least 2 options for this decision.", cls="text-sm text-muted-foreground mb-4"),
             # Options container with x-for loop
             Div(
                 # Template for each option (Alpine x-for)
@@ -389,7 +386,7 @@ class ChoicesViewComponents:
                         Label("Title", cls="label text-sm"),
                         Input(
                             type="text",
-                            cls="input input-bordered input-sm w-full",
+                            size=Size.sm,
                             placeholder="Option title...",
                             required=True,
                             **{
@@ -402,7 +399,7 @@ class ChoicesViewComponents:
                     Div(
                         Label("Description", cls="label text-sm"),
                         Textarea(
-                            cls="textarea textarea-bordered textarea-sm w-full",
+                            size=Size.sm,
                             rows="2",
                             placeholder="Describe this option...",
                             required=True,
@@ -412,7 +409,7 @@ class ChoicesViewComponents:
                             },
                         ),
                     ),
-                    cls="card bg-base-200 p-4 mb-3",
+                    cls="card bg-muted p-4 mb-3",
                     **{"x-bind:key": "index"},
                 ),
                 **{"x-for": "(option, index) in options"},
@@ -424,7 +421,7 @@ class ChoicesViewComponents:
                 cls="btn btn-outline btn-sm mt-2",
                 **{"x-on:click": "addOption()"},
             ),
-            cls="mb-6 pt-6 border-t border-base-200",
+            cls="mb-6 pt-6 border-t border-border",
         )
 
         # Submit buttons
@@ -456,7 +453,7 @@ class ChoicesViewComponents:
                 cls="btn btn-outline btn-lg",
                 **{"x-bind:disabled": "!isValid()"},
             ),
-            cls="flex justify-end items-center gap-2 pt-6 border-t border-base-200",
+            cls="flex justify-end items-center gap-2 pt-6 border-t border-border",
         )
 
         return Div(
@@ -475,7 +472,7 @@ class ChoicesViewComponents:
                     "hx-swap": "innerHTML",
                     "x-data": "choiceOptions()",
                 },
-                cls="card bg-base-100 shadow-lg p-6",
+                cls="card bg-background shadow-lg p-6",
             ),
             id="create-view",
         )
@@ -505,34 +502,34 @@ class ChoicesViewComponents:
             Div(
                 # Satisfaction rate
                 Div(
-                    P("Satisfaction Rate", cls="text-sm text-base-content/60"),
+                    P("Satisfaction Rate", cls="text-sm text-muted-foreground"),
                     P(
                         f"{analytics_data.get('satisfaction_rate', 0):.0%}",
                         cls="text-3xl font-bold text-green-600",
                     ),
-                    cls="text-center p-4 bg-base-200 rounded-lg",
+                    cls="text-center p-4 bg-muted rounded-lg",
                 ),
                 # Decisions made
                 Div(
-                    P("Decisions Made", cls="text-sm text-base-content/60"),
+                    P("Decisions Made", cls="text-sm text-muted-foreground"),
                     P(
                         str(analytics_data.get("total_decisions", 0)),
                         cls="text-3xl font-bold text-blue-600",
                     ),
-                    cls="text-center p-4 bg-base-200 rounded-lg",
+                    cls="text-center p-4 bg-muted rounded-lg",
                 ),
                 # On-time decisions
                 Div(
-                    P("On-Time Rate", cls="text-sm text-base-content/60"),
+                    P("On-Time Rate", cls="text-sm text-muted-foreground"),
                     P(
                         f"{analytics_data.get('on_time_rate', 0):.0%}",
                         cls="text-3xl font-bold text-purple-600",
                     ),
-                    cls="text-center p-4 bg-base-200 rounded-lg",
+                    cls="text-center p-4 bg-muted rounded-lg",
                 ),
                 cls="grid grid-cols-3 gap-4 mb-6",
             ),
-            cls="card bg-base-100 shadow-lg p-6 mb-6",
+            cls="card bg-background shadow-lg p-6 mb-6",
         )
 
         # Decision patterns
@@ -541,30 +538,30 @@ class ChoicesViewComponents:
             Div(
                 P(
                     "Pattern analysis helps you understand your decision-making tendencies.",
-                    cls="text-base-content/60 mb-4",
+                    cls="text-muted-foreground mb-4",
                 ),
                 # Placeholder for charts
                 Div(
                     P(
                         "Charts will be displayed here",
-                        cls="text-base-content/50 text-center py-12 border border-dashed border-base-300 rounded-lg",
+                        cls="text-muted-foreground text-center py-12 border border-dashed border-border rounded-lg",
                     ),
                     cls="mb-4",
                 ),
             ),
-            cls="card bg-base-100 shadow-lg p-6 mb-6",
+            cls="card bg-background shadow-lg p-6 mb-6",
         )
 
         # Recent outcomes
         outcomes_section = Div(
             H3("Recent Outcomes", cls="text-lg font-semibold mb-4"),
             Div(
-                P("Track how your past decisions turned out.", cls="text-base-content/60 mb-4"),
-                P("No outcomes recorded yet.", cls="text-base-content/50 text-center py-8")
+                P("Track how your past decisions turned out.", cls="text-muted-foreground mb-4"),
+                P("No outcomes recorded yet.", cls="text-muted-foreground text-center py-8")
                 if not analytics_data.get("outcomes")
                 else "",
             ),
-            cls="card bg-base-100 shadow-lg p-6",
+            cls="card bg-background shadow-lg p-6",
         )
 
         return Div(

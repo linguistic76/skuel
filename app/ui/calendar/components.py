@@ -165,7 +165,7 @@ def create_day_cell(
     # More indicator
     more_element = []
     if has_more:
-        more_element.append(Div("+more", cls="text-xs text-base-content/50 mt-1"))
+        more_element.append(Div("+more", cls="text-xs text-muted-foreground mt-1"))
 
     # Today's date header with badge for visibility
     if is_today:
@@ -177,7 +177,7 @@ def create_day_cell(
     else:
         date_header = Div(
             str(cell_date.day),
-            cls=f"text-sm font-semibold mb-1 {'text-base-content' if is_current_month else 'text-base-content/40'}",
+            cls=f"text-sm font-semibold mb-1 {'text-foreground' if is_current_month else 'text-foreground/40'}",
         )
 
     # Cell styling - more prominent today indicator with ring
@@ -185,9 +185,9 @@ def create_day_cell(
     if is_today:
         cell_cls += "bg-primary/10 ring-2 ring-primary ring-inset"
     elif is_current_month:
-        cell_cls += "bg-base-100"
+        cell_cls += "bg-background"
     else:
-        cell_cls += "bg-base-200"
+        cell_cls += "bg-muted"
 
     return Div(
         # Date number (with Today badge if applicable)
@@ -250,7 +250,7 @@ def create_week_grid(calendar_data: CalendarData) -> Div:
 
         time_slots.append(
             Div(
-                Div(time_label, cls="w-16 text-xs text-base-content/50 pr-2 text-right"),
+                Div(time_label, cls="w-16 text-xs text-muted-foreground pr-2 text-right"),
                 *day_cells,
                 cls="grid grid-cols-8 gap-0",
             )
@@ -336,11 +336,11 @@ def create_day_timeline(calendar_data: CalendarData) -> Div:
         timeline_slots.append(
             Div(
                 # Time label
-                Div(time_label, cls="w-20 text-sm text-base-content/50 pr-4 text-right"),
+                Div(time_label, cls="w-20 text-sm text-muted-foreground pr-4 text-right"),
                 # Items for this hour
                 Div(
                     *[create_timeline_item(item) for item in slot_items],
-                    cls="flex-1 border-l-2 border-base-200 pl-4 min-h-[60px]",
+                    cls="flex-1 border-l-2 border-border pl-4 min-h-[60px]",
                     # Alpine.js: click opens quick-add modal, drag-drop handlers
                     **{
                         "x-on:click": f"openQuickAdd('{calendar_data.start_date.isoformat()}', {hour})",
@@ -348,11 +348,11 @@ def create_day_timeline(calendar_data: CalendarData) -> Div:
                         "x-on:drop": f"handleDrop($event, '{slot_datetime}')",
                     },
                 ),
-                cls="flex mb-0 hover:bg-base-200 cursor-pointer",
+                cls="flex mb-0 hover:bg-muted cursor-pointer",
             )
         )
 
-    return Div(*timeline_slots, cls="bg-base-100 rounded-lg border p-4")
+    return Div(*timeline_slots, cls="bg-background rounded-lg border p-4")
 
 
 def create_timeline_item(item: CalendarItem) -> Div:
@@ -375,18 +375,18 @@ def create_timeline_item(item: CalendarItem) -> Div:
         ),
         P(
             f"{item.start_time.strftime('%H:%M')} - {item.end_time.strftime('%H:%M')} ({duration} min)",
-            cls="text-sm text-base-content/60 mb-1",
+            cls="text-sm text-muted-foreground mb-1",
         ),
         P(
             item.description[:100] + "..." if len(item.description) > 100 else item.description,
-            cls="text-sm text-base-content/70",
+            cls="text-sm text-muted-foreground",
         )
         if item.description
         else None,
         # Habit occurrence indicator
         create_habit_check_in(item) if item.item_type == CalendarItemType.HABIT else None,
         id=f"calendar-item-{item.uid}",  # ID for potential OOB swap
-        cls="card bg-base-100 shadow-sm mb-2 p-3 cursor-move",
+        cls="card bg-background shadow-sm mb-2 p-3 cursor-move",
         style=f"border-left: 4px solid {item.color}",
         draggable="true",
         # Alpine.js: drag-and-drop handling + HTMX for modal loading
@@ -462,7 +462,7 @@ def create_habit_check_in(item: CalendarItem) -> Div:
             ),
             cls="flex gap-1",
         ),
-        cls="mt-3 p-2 bg-base-200 rounded",
+        cls="mt-3 p-2 bg-muted rounded",
     )
 
 
@@ -547,7 +547,7 @@ def create_quick_add_modal() -> Div:
                     ),
                     cls="flex justify-end",
                 ),
-                cls="bg-base-100 rounded-lg p-6 max-w-md w-full",
+                cls="bg-background rounded-lg p-6 max-w-md w-full",
                 # HTMX form submission
                 **{
                     "hx-post": "/events/calendar/quick-create",
@@ -668,13 +668,13 @@ def error_response(error_message: Any) -> Div:
     return Div(
         Div(
             H2("Error", cls="text-xl font-bold text-error mb-2"),
-            P(str(error_message), cls="text-base-content/70"),
+            P(str(error_message), cls="text-muted-foreground"),
             Button(
                 "Go Back",
                 cls="mt-4 btn btn-primary",
                 onclick="window.history.back()",
             ),
-            cls="card bg-base-100 shadow-md p-6",
+            cls="card bg-background shadow-md p-6",
         ),
         cls="container max-w-md mx-auto mt-8",
     )

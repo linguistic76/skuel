@@ -641,7 +641,7 @@ def create_tasks_ui_routes(
             return await BasePage(
                 content=Card(
                     H2("Task Not Found", cls="text-xl font-bold text-error mb-4"),
-                    P(f"Could not find task: {uid}", cls="text-base-content/70"),
+                    P(f"Could not find task: {uid}", cls="text-muted-foreground"),
                     Button(
                         "← Back to Tasks",
                         **{"hx-get": "/tasks", "hx-target": "body"},
@@ -663,7 +663,7 @@ def create_tasks_ui_routes(
             # Header Card
             Card(
                 H1(f"✓ {task.title}", cls="text-2xl font-bold mb-2"),
-                P(task.description or "No description provided", cls="text-base-content/70 mb-4"),
+                P(task.description or "No description provided", cls="text-muted-foreground mb-4"),
                 # Status and Priority badges
                 Div(
                     Span(f"Status: {task.status.value}", cls="badge badge-info mr-2"),
@@ -682,8 +682,8 @@ def create_tasks_ui_routes(
                     # Due Date
                     (
                         Div(
-                            P("Due Date:", cls="text-sm font-semibold text-base-content/70 mb-1"),
-                            P(str(task.due_date), cls="text-base-content mb-3"),
+                            P("Due Date:", cls="text-sm font-semibold text-muted-foreground mb-1"),
+                            P(str(task.due_date), cls="text-foreground mb-3"),
                             cls="mb-4",
                         )
                         if task.due_date
@@ -692,8 +692,8 @@ def create_tasks_ui_routes(
                     # Assignee
                     (
                         Div(
-                            P("Assignee:", cls="text-sm font-semibold text-base-content/70 mb-1"),
-                            P(task.assignee or "Unassigned", cls="text-base-content mb-3"),
+                            P("Assignee:", cls="text-sm font-semibold text-muted-foreground mb-1"),
+                            P(task.assignee or "Unassigned", cls="text-foreground mb-3"),
                             cls="mb-4",
                         )
                         if task.assignee
@@ -701,8 +701,8 @@ def create_tasks_ui_routes(
                     ),
                     # Created Date
                     Div(
-                        P("Created:", cls="text-sm font-semibold text-base-content/70 mb-1"),
-                        P(str(task.created_at)[:10], cls="text-base-content/60 text-sm"),
+                        P("Created:", cls="text-sm font-semibold text-muted-foreground mb-1"),
+                        P(str(task.created_at)[:10], cls="text-muted-foreground text-sm"),
                         cls="mb-4",
                     ),
                     cls="space-y-2",

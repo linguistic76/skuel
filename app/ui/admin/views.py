@@ -24,6 +24,7 @@ from fasthtml.common import H2, A, Div, Form, Option, P, Span, Tbody, Td, Th, Th
 from ui.buttons import Button
 from ui.data import Table
 from ui.forms import Select
+from ui.layout import Size
 from ui.patterns.entity_dashboard import SharedUIComponents
 
 
@@ -116,7 +117,7 @@ class AdminUIComponents:
             Div(
                 Div(
                     Span(display_name, cls="text-lg font-semibold"),
-                    Span(f"@{username}", cls="text-sm text-base-content/50 ml-2"),
+                    Span(f"@{username}", cls="text-sm text-muted-foreground ml-2"),
                     cls="flex items-center gap-2",
                 ),
                 Div(
@@ -129,12 +130,12 @@ class AdminUIComponents:
             # Details
             Div(
                 P(
-                    Span("Email: ", cls="text-base-content/50"),
+                    Span("Email: ", cls="text-muted-foreground"),
                     Span(email),
                     cls="text-sm",
                 ),
                 P(
-                    Span("Last login: ", cls="text-base-content/50"),
+                    Span("Last login: ", cls="text-muted-foreground"),
                     Span(last_login),
                     cls="text-sm",
                 ),
@@ -145,7 +146,7 @@ class AdminUIComponents:
             # Actions
             Div(*actions, cls="flex flex-wrap gap-2") if actions else None,
             id=f"user-card-{uid.replace(':', '-')}",
-            cls="card bg-base-100 shadow-sm p-4 border border-base-300",
+            cls="card bg-background shadow-sm p-4 border border-border",
         )
 
     @staticmethod
@@ -161,8 +162,8 @@ class AdminUIComponents:
         """
         if not users:
             return Div(
-                P("No users found", cls="text-center text-base-content/50 py-8"),
-                cls="card bg-base-100 shadow-sm",
+                P("No users found", cls="text-center text-muted-foreground py-8"),
+                cls="card bg-background shadow-sm",
             )
 
         rows = []
@@ -180,10 +181,10 @@ class AdminUIComponents:
             rows.append(
                 Tr(
                     Td(username, cls="font-medium"),
-                    Td(email, cls="text-base-content/70"),
+                    Td(email, cls="text-muted-foreground"),
                     Td(AdminUIComponents.render_role_badge(role)),
                     Td(AdminUIComponents.render_status_badge(is_active)),
-                    Td(last_login, cls="text-sm text-base-content/50"),
+                    Td(last_login, cls="text-sm text-muted-foreground"),
                     Td(
                         A(
                             "View",
@@ -192,7 +193,7 @@ class AdminUIComponents:
                         ),
                         cls="text-right",
                     ),
-                    cls="hover:bg-base-200",
+                    cls="hover:bg-muted",
                 )
             )
 
@@ -207,7 +208,7 @@ class AdminUIComponents:
                         Th("Last Login"),
                         Th("", cls="text-right"),
                     ),
-                    cls="bg-base-200",
+                    cls="bg-muted",
                 ),
                 Tbody(*rows),
                 cls="table table-zebra w-full",
@@ -243,7 +244,8 @@ class AdminUIComponents:
                         for role in roles
                     ],
                     name="role",
-                    cls="select select-bordered select-sm",
+                    size=Size.sm,
+                    full_width=False,
                 ),
                 Button(
                     "Save",
@@ -261,7 +263,7 @@ class AdminUIComponents:
             hx_post=f"/api/admin/users/{uid}/role",
             hx_swap="outerHTML",
             hx_target=f"#user-card-{uid.replace(':', '-')}",
-            cls="bg-base-200 p-2 rounded-lg",
+            cls="bg-muted p-2 rounded-lg",
         )
 
     @staticmethod
@@ -320,7 +322,7 @@ class AdminUIComponents:
                     for r in roles
                 ],
                 name="role",
-                cls="select select-bordered",
+                full_width=False,
                 hx_get="/admin/users/partial",
                 hx_target="#user-list",
                 hx_trigger="change",
@@ -345,7 +347,7 @@ class AdminUIComponents:
                     for s in statuses
                 ],
                 name="status",
-                cls="select select-bordered",
+                full_width=False,
                 hx_get="/admin/users/partial",
                 hx_target="#user-list",
                 hx_trigger="change",
@@ -363,7 +365,7 @@ class AdminUIComponents:
         """
         if not users:
             return Div(
-                P("No users found", cls="text-center text-base-content/50 py-8"),
+                P("No users found", cls="text-center text-muted-foreground py-8"),
             )
 
         rows = []
@@ -391,7 +393,7 @@ class AdminUIComponents:
                         cls="text-center",
                     )
                 return Td(
-                    Span("—", cls="text-base-content/30"),
+                    Span("—", cls="text-foreground/30"),
                     cls="text-center",
                 )
 
@@ -403,20 +405,20 @@ class AdminUIComponents:
                                 Span(display_name, cls="font-medium"),
                                 Span(
                                     f"@{username}",
-                                    cls="text-xs text-base-content/50 block",
+                                    cls="text-xs text-muted-foreground block",
                                 ),
                             ),
                             href=f"/admin/users/{uid}",
                             cls="hover:underline",
                         ),
                     ),
-                    Td(email, cls="text-sm text-base-content/70"),
+                    Td(email, cls="text-sm text-muted-foreground"),
                     Td(AdminUIComponents.render_role_badge(role)),
                     Td(AdminUIComponents.render_status_badge(is_active)),
                     Td(
                         last_login
                         if last_login != "Never"
-                        else Span("Never", cls="text-base-content/30"),
+                        else Span("Never", cls="text-foreground/30"),
                         cls="text-sm",
                     ),
                     _count_cell(task_count),
@@ -431,7 +433,7 @@ class AdminUIComponents:
                         ),
                         cls="text-right",
                     ),
-                    cls="hover:bg-base-200",
+                    cls="hover:bg-muted",
                 )
             )
 
@@ -450,7 +452,7 @@ class AdminUIComponents:
                         Th("KUs", cls="text-center"),
                         Th("", cls="text-right"),
                     ),
-                    cls="bg-base-200",
+                    cls="bg-muted",
                 ),
                 Tbody(*rows),
                 cls="table table-zebra w-full",
@@ -577,7 +579,7 @@ class AdminUIComponents:
         """
         if not reports:
             return Div(
-                P("No reports submitted yet.", cls="text-base-content/50 text-sm py-4"),
+                P("No reports submitted yet.", cls="text-muted-foreground text-sm py-4"),
             )
 
         from ui.badge_classes import submission_status_badge_class
@@ -599,13 +601,13 @@ class AdminUIComponents:
                             cls=f"badge {submission_status_badge_class(status)} badge-sm",
                         )
                     ),
-                    Td(created, cls="text-sm text-base-content/50"),
-                    cls="hover:bg-base-200",
+                    Td(created, cls="text-sm text-muted-foreground"),
+                    cls="hover:bg-muted",
                 )
             )
 
         return Div(
-            P(f"{len(reports)} report(s)", cls="text-sm text-base-content/50 mb-3"),
+            P(f"{len(reports)} report(s)", cls="text-sm text-muted-foreground mb-3"),
             Div(
                 Table(
                     Thead(
@@ -615,7 +617,7 @@ class AdminUIComponents:
                             Th("Status"),
                             Th("Created"),
                         ),
-                        cls="bg-base-200",
+                        cls="bg-muted",
                     ),
                     Tbody(*rows),
                     cls="table table-zebra w-full",
@@ -634,7 +636,7 @@ class AdminUIComponents:
         """
         if not projects:
             return Div(
-                P("No report projects found.", cls="text-base-content/50 text-sm py-4"),
+                P("No report projects found.", cls="text-muted-foreground text-sm py-4"),
             )
 
         rows = []
@@ -659,13 +661,13 @@ class AdminUIComponents:
                     Td(Span(name, cls="font-medium text-sm")),
                     Td(Span(str(scope).upper(), cls="badge badge-outline badge-sm")),
                     Td(active_badge),
-                    Td(created, cls="text-sm text-base-content/50"),
-                    cls="hover:bg-base-200",
+                    Td(created, cls="text-sm text-muted-foreground"),
+                    cls="hover:bg-muted",
                 )
             )
 
         return Div(
-            P(f"{len(projects)} project(s)", cls="text-sm text-base-content/50 mb-3"),
+            P(f"{len(projects)} project(s)", cls="text-sm text-muted-foreground mb-3"),
             Div(
                 Table(
                     Thead(
@@ -675,7 +677,7 @@ class AdminUIComponents:
                             Th("Status"),
                             Th("Created"),
                         ),
-                        cls="bg-base-200",
+                        cls="bg-muted",
                     ),
                     Tbody(*rows),
                     cls="table table-zebra w-full",
@@ -707,13 +709,13 @@ class AdminAnalyticsComponents:
             Div(
                 H2("User Distribution", cls="text-xl font-semibold mb-4"),
                 AdminAnalyticsComponents.render_user_distribution(user_stats),
-                cls="card bg-base-100 shadow-sm p-6 mb-6",
+                cls="card bg-background shadow-sm p-6 mb-6",
             ),
             # Activity stats section
             Div(
                 H2("Activity Statistics (30 days)", cls="text-xl font-semibold mb-4"),
                 AdminAnalyticsComponents.render_activity_stats(activity_stats),
-                cls="card bg-base-100 shadow-sm p-6 mb-6",
+                cls="card bg-background shadow-sm p-6 mb-6",
             ),
         )
 
@@ -744,7 +746,7 @@ class AdminAnalyticsComponents:
                 Div(
                     Div(
                         Span(role_name, cls="text-sm font-medium"),
-                        Span(str(count), cls="text-sm text-base-content/50"),
+                        Span(str(count), cls="text-sm text-muted-foreground"),
                         cls="flex justify-between mb-1",
                     ),
                     Div(
@@ -752,7 +754,7 @@ class AdminAnalyticsComponents:
                             cls=f"{color} h-full rounded-full transition-all duration-300",
                             style=f"width: {pct}%",
                         ),
-                        cls="h-4 bg-base-200 rounded-full overflow-hidden",
+                        cls="h-4 bg-muted rounded-full overflow-hidden",
                     ),
                     cls="mb-3",
                 )
@@ -810,7 +812,7 @@ class AdminSystemComponents:
         "healthy": "text-green-600",
         "warning": "text-yellow-600",
         "critical": "text-red-600",
-        "unknown": "text-base-content/70",
+        "unknown": "text-muted-foreground",
     }
 
     @staticmethod
@@ -832,13 +834,13 @@ class AdminSystemComponents:
             Div(
                 H2("System Status", cls="text-xl font-semibold mb-4"),
                 AdminSystemComponents.render_overall_status(overall_status),
-                cls="card bg-base-100 shadow-sm p-6 mb-6",
+                cls="card bg-background shadow-sm p-6 mb-6",
             ),
             # Component status
             Div(
                 H2("Component Health", cls="text-xl font-semibold mb-4"),
                 AdminSystemComponents.render_components_grid(components),
-                cls="card bg-base-100 shadow-sm p-6 mb-6",
+                cls="card bg-background shadow-sm p-6 mb-6",
             ),
         )
 
@@ -846,7 +848,7 @@ class AdminSystemComponents:
     def render_overall_status(status: str) -> Div:
         """Render overall system status indicator."""
         bg_color = AdminSystemComponents.STATUS_COLORS.get(status, "bg-gray-400")
-        text_color = AdminSystemComponents.STATUS_TEXT_COLORS.get(status, "text-base-content/70")
+        text_color = AdminSystemComponents.STATUS_TEXT_COLORS.get(status, "text-muted-foreground")
 
         return Div(
             Div(
@@ -859,7 +861,7 @@ class AdminSystemComponents:
             ),
             P(
                 "All systems operational" if status == "healthy" else "Some systems need attention",
-                cls="text-base-content/50 mt-2",
+                cls="text-muted-foreground mt-2",
             ),
         )
 
@@ -881,7 +883,7 @@ class AdminSystemComponents:
         response_time = data.get("response_time_ms")
 
         bg_color = AdminSystemComponents.STATUS_COLORS.get(status, "bg-gray-400")
-        text_color = AdminSystemComponents.STATUS_TEXT_COLORS.get(status, "text-base-content/70")
+        text_color = AdminSystemComponents.STATUS_TEXT_COLORS.get(status, "text-muted-foreground")
 
         return Div(
             Div(
@@ -890,20 +892,20 @@ class AdminSystemComponents:
                 cls="flex items-center mb-2",
             ),
             Span(status.capitalize(), cls=f"text-sm {text_color}"),
-            P(message, cls="text-xs text-base-content/50 mt-1") if message else None,
+            P(message, cls="text-xs text-muted-foreground mt-1") if message else None,
             (
-                P(f"Response: {response_time}ms", cls="text-xs text-base-content/50")
+                P(f"Response: {response_time}ms", cls="text-xs text-muted-foreground")
                 if response_time
                 else None
             ),
-            cls="p-3 bg-base-200 rounded-lg",
+            cls="p-3 bg-muted rounded-lg",
         )
 
     @staticmethod
     def render_components_grid(components: dict) -> Div:
         """Render grid of component health cards."""
         if not components:
-            return P("No component data available", cls="text-base-content/50")
+            return P("No component data available", cls="text-muted-foreground")
 
         cards = [
             AdminSystemComponents.render_component_health_card(name, data)
@@ -962,23 +964,23 @@ def _ku_state_section(title: str, badge_cls: str, kus: list[dict], date_field: s
                     Div(
                         Span(
                             " | ".join(extra_info),
-                            cls="text-xs text-base-content/50 mr-3",
+                            cls="text-xs text-muted-foreground mr-3",
                         )
                         if extra_info
                         else None,
-                        Span(date_val or "", cls="text-xs text-base-content/50"),
+                        Span(date_val or "", cls="text-xs text-muted-foreground"),
                         cls="flex items-center",
                     ),
                     cls="flex items-center justify-between",
                 ),
-                cls="border-b border-base-200 py-2 last:border-b-0",
+                cls="border-b border-border py-2 last:border-b-0",
             )
         )
 
     return Div(
         Div(
             Span(title, cls=f"badge {badge_cls} font-semibold"),
-            Span(f"({len(kus)})", cls="text-sm text-base-content/50 ml-2"),
+            Span(f"({len(kus)})", cls="text-sm text-muted-foreground ml-2"),
             cls="flex items-center mb-3",
         ),
         *items,
@@ -1001,7 +1003,7 @@ class AdminLearningComponents:
                         cls="text-primary hover:underline",
                     ),
                     " to populate the knowledge graph.",
-                    cls="text-base-content/50 py-4",
+                    cls="text-muted-foreground py-4",
                 ),
             )
 
@@ -1046,7 +1048,7 @@ class AdminLearningComponents:
             return Div(
                 P(
                     "No user learning activity recorded yet.",
-                    cls="text-base-content/50 py-4",
+                    cls="text-muted-foreground py-4",
                 ),
             )
 
@@ -1061,7 +1063,7 @@ class AdminLearningComponents:
                     "Users exist but no KU interactions have been recorded. "
                     "Knowledge Units must be ingested first, then users "
                     "interact via the reading interface.",
-                    cls="text-base-content/50 py-4",
+                    cls="text-muted-foreground py-4",
                 ),
             )
 
@@ -1087,7 +1089,7 @@ class AdminLearningComponents:
                     ),
                     Td(str(row.get("bookmarked_count", 0)), cls="text-center"),
                     Td(str(row.get("total_interactions", 0)), cls="text-center"),
-                    cls="hover:bg-base-200",
+                    cls="hover:bg-muted",
                 )
             )
 
@@ -1102,7 +1104,7 @@ class AdminLearningComponents:
                         Th("Bookmarked", cls="text-center"),
                         Th("Total", cls="text-center"),
                     ),
-                    cls="bg-base-200",
+                    cls="bg-muted",
                 ),
                 Tbody(*rows),
                 cls="table table-zebra w-full",
@@ -1125,7 +1127,7 @@ class AdminLearningComponents:
             return Div(
                 P(
                     "This user has no KU interactions yet.",
-                    cls="text-base-content/50 py-4",
+                    cls="text-muted-foreground py-4",
                 ),
             )
 
@@ -1165,7 +1167,7 @@ class AdminLearningComponents:
             return Div(
                 P(
                     "No Knowledge Unit interactions recorded for this user.",
-                    cls="text-base-content/50 py-4",
+                    cls="text-muted-foreground py-4",
                 ),
             )
 

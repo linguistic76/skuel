@@ -44,19 +44,19 @@ def StatCard(
     trend_colors = {
         "up": "text-success",
         "down": "text-error",
-        "neutral": "text-base-content/60",
+        "neutral": "text-muted-foreground",
     }
 
     content = [
         Caption(label),
         Div(
-            Span(str(value), cls="text-3xl font-bold text-base-content"),
+            Span(str(value), cls="text-3xl font-bold text-foreground"),
             cls="mt-1",
         ),
     ]
 
     if change:
-        trend_cls = trend_colors.get(trend, "text-base-content/60")
+        trend_cls = trend_colors.get(trend, "text-muted-foreground")
         content.append(Span(change, cls=f"text-sm {trend_cls} mt-1 block"))
 
     return Card(CardBody(*content), variant=CardT.compact, **kwargs)

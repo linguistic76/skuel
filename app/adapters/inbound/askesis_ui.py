@@ -25,6 +25,7 @@ from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonT
 from ui.cards import Card
 from ui.forms import Select, Textarea
+from ui.layout import Size
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 
 logger = get_logger("skuel.ui.askesis")
@@ -85,7 +86,7 @@ class AskesisUI:
                     ),
                     P(
                         "Ask me anything about your learning, tasks, or knowledge.",
-                        cls="text-base text-center text-base-content/60 mb-12",
+                        cls="text-base text-center text-muted-foreground mb-12",
                     ),
                     cls="mt-32",  # Generous top margin (login page style)
                 ),
@@ -96,7 +97,7 @@ class AskesisUI:
                             Textarea(
                                 name="message",
                                 placeholder="Type your message here...",
-                                cls="textarea textarea-bordered w-full min-h-[100px] resize-none focus:outline-none focus:ring-2 focus:ring-primary",
+                                cls="min-h-[100px] resize-none focus:outline-none focus:ring-2 focus:ring-primary",
                                 required=True,
                                 rows=4,
                                 id="chat-input",
@@ -110,7 +111,9 @@ class AskesisUI:
                                 Option("Opus 3", value="opus-3"),
                                 Option("Haiku 3", value="haiku-3"),
                                 name="model",
-                                cls="select select-bordered select-sm text-sm",
+                                cls="text-sm",
+                                size=Size.sm,
+                                full_width=False,
                             ),
                             # Right: Primary action (blue button like login)
                             Button(
@@ -182,7 +185,7 @@ class AskesisUI:
                 ),
                 cls="max-w-2xl mx-auto",  # Centered like login (max-w-md equivalent)
             ),
-            cls="min-h-screen bg-base-100 px-4 py-8",
+            cls="min-h-screen bg-background px-4 py-8",
         )
 
     @staticmethod
@@ -207,11 +210,11 @@ class AskesisUI:
                     cls="mr-3",
                 ),
                 Div(
-                    P(sender, cls="text-xs text-base-content/60 mb-1"),
-                    P(message, cls="text-base text-base-content"),
+                    P(sender, cls="text-xs text-muted-foreground mb-1"),
+                    P(message, cls="text-base text-foreground"),
                     cls="flex-1",
                 ),
-                cls="flex items-start p-4 bg-base-100 border-l-2 border-primary rounded-lg",
+                cls="flex items-start p-4 bg-background border-l-2 border-primary rounded-lg",
             )
         else:
             # User message - subtle styling
@@ -219,16 +222,16 @@ class AskesisUI:
                 Div(
                     Span(
                         sender[0].upper(),
-                        cls="inline-flex items-center justify-center w-8 h-8 rounded-full bg-base-300 text-base-content text-sm font-semibold",
+                        cls="inline-flex items-center justify-center w-8 h-8 rounded-full bg-secondary text-foreground text-sm font-semibold",
                     ),
                     cls="mr-3",
                 ),
                 Div(
-                    P(sender, cls="text-xs text-base-content/60 mb-1"),
-                    P(message, cls="text-base text-base-content"),
+                    P(sender, cls="text-xs text-muted-foreground mb-1"),
+                    P(message, cls="text-base text-foreground"),
                     cls="flex-1",
                 ),
-                cls="flex items-start p-4 bg-base-50 border border-base-300 rounded-lg",
+                cls="flex items-start p-4 bg-base-50 border border-border rounded-lg",
             )
 
 
@@ -282,11 +285,11 @@ def create_askesis_ui_routes(_app, rt, _askesis_service):
         """View conversation history."""
         content = Div(
             H1("Chat History", cls="text-3xl font-bold mb-6"),
-            P("Your past conversations will appear here.", cls="text-base-content/60 mb-4"),
+            P("Your past conversations will appear here.", cls="text-muted-foreground mb-4"),
             Div(
                 Card(
-                    P("No conversations yet", cls="text-center py-8 text-base-content/60"),
-                    cls="bg-base-200",
+                    P("No conversations yet", cls="text-center py-8 text-muted-foreground"),
+                    cls="bg-muted",
                 ),
                 cls="max-w-4xl mx-auto",
             ),
@@ -305,18 +308,18 @@ def create_askesis_ui_routes(_app, rt, _askesis_service):
         """View AI insights and analytics."""
         content = Div(
             H1("Analytics", cls="text-3xl font-bold mb-6"),
-            P("Intelligence insights and performance metrics.", cls="text-base-content/60 mb-4"),
+            P("Intelligence insights and performance metrics.", cls="text-muted-foreground mb-4"),
             Div(
                 Card(
                     Div(
                         H2("Coming Soon", cls="text-xl font-semibold mb-2"),
                         P(
                             "AI analytics and insights will be available here.",
-                            cls="text-base-content/60",
+                            cls="text-muted-foreground",
                         ),
                         cls="text-center py-12",
                     ),
-                    cls="bg-base-200",
+                    cls="bg-muted",
                 ),
                 cls="max-w-4xl mx-auto",
             ),
@@ -335,7 +338,7 @@ def create_askesis_ui_routes(_app, rt, _askesis_service):
         """Configure Askesis assistant."""
         content = Div(
             H1("Settings", cls="text-3xl font-bold mb-6"),
-            P("Configure your AI assistant preferences.", cls="text-base-content/60 mb-6"),
+            P("Configure your AI assistant preferences.", cls="text-muted-foreground mb-6"),
             Div(
                 Card(
                     Form(
@@ -346,7 +349,6 @@ def create_askesis_ui_routes(_app, rt, _askesis_service):
                                 Option("Opus 3", value="opus-3"),
                                 Option("Haiku 3", value="haiku-3"),
                                 name="default_model",
-                                cls="select select-bordered w-full",
                             ),
                             cls="form-control mb-4",
                         ),
@@ -357,14 +359,13 @@ def create_askesis_ui_routes(_app, rt, _askesis_service):
                                 Option("Balanced", value="balanced", selected=True),
                                 Option("Detailed", value="detailed"),
                                 name="response_length",
-                                cls="select select-bordered w-full",
                             ),
                             cls="form-control mb-4",
                         ),
                         Button("Save Settings", variant=ButtonT.primary, type="submit"),
                         cls="space-y-4",
                     ),
-                    cls="bg-base-200 p-6",
+                    cls="bg-muted p-6",
                 ),
                 cls="max-w-2xl mx-auto",
             ),

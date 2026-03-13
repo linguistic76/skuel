@@ -78,9 +78,9 @@ def DryRunPreviewComponent(preview: Any, operation_id: str | None = None) -> FT:
                 cls="stat",
             ),
             Div(
-                Div("⏭️", cls="stat-figure text-2xl text-base-content/50"),
+                Div("⏭️", cls="stat-figure text-2xl text-muted-foreground"),
                 Div("To Skip", cls="stat-title"),
-                Div(str(len(files_to_skip)), cls="stat-value text-base-content/50"),
+                Div(str(len(files_to_skip)), cls="stat-value text-muted-foreground"),
                 cls="stat",
             ),
             cls="stats stats-vertical lg:stats-horizontal shadow mb-4 w-full",
@@ -91,7 +91,7 @@ def DryRunPreviewComponent(preview: Any, operation_id: str | None = None) -> FT:
                 H3("Relationships", cls="text-lg font-semibold mb-2"),
                 P(
                     f"Would create {len(relationships_to_create)} relationships between entities",
-                    cls="text-sm text-base-content/70",
+                    cls="text-sm text-muted-foreground",
                 ),
                 cls="mb-4",
             )
@@ -139,7 +139,7 @@ def FilesToCreateTable(files_to_create: list[dict[str, Any]]) -> FT:
 
     return Div(
         H3("Files to Create", cls="text-lg font-semibold mb-2 mt-4 text-success"),
-        P(f"{len(files_to_create)} new entities", cls="text-sm text-base-content/70 mb-2"),
+        P(f"{len(files_to_create)} new entities", cls="text-sm text-muted-foreground mb-2"),
         Div(
             Table(
                 Thead(
@@ -180,7 +180,7 @@ def FilesToCreateTable(files_to_create: list[dict[str, Any]]) -> FT:
         (
             P(
                 f"Showing first 100 of {len(files_to_create)} files",
-                cls="text-sm text-base-content/70 mt-2",
+                cls="text-sm text-muted-foreground mt-2",
             )
             if len(files_to_create) > 100
             else None
@@ -206,7 +206,7 @@ def FilesToUpdateTable(files_to_update: list[dict[str, Any]]) -> FT:
         H3("Files to Update", cls="text-lg font-semibold mb-2 mt-4 text-warning"),
         P(
             f"{len(files_to_update)} existing entities",
-            cls="text-sm text-base-content/70 mb-2",
+            cls="text-sm text-muted-foreground mb-2",
         ),
         Div(
             Table(
@@ -234,7 +234,7 @@ def FilesToUpdateTable(files_to_update: list[dict[str, Any]]) -> FT:
                             ),
                             Td(
                                 file.get("changes_summary", "Content updated"),
-                                cls="text-sm text-base-content/70",
+                                cls="text-sm text-muted-foreground",
                             ),
                         )
                         for file in files_to_update[:100]  # Limit to 100 for performance
@@ -247,7 +247,7 @@ def FilesToUpdateTable(files_to_update: list[dict[str, Any]]) -> FT:
         (
             P(
                 f"Showing first 100 of {len(files_to_update)} files",
-                cls="text-sm text-base-content/70 mt-2",
+                cls="text-sm text-muted-foreground mt-2",
             )
             if len(files_to_update) > 100
             else None

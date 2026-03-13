@@ -111,7 +111,7 @@ _profile_domain_data: dict[str, ProfileDomainItem] = {}
 
 def _profile_item_renderer(item: SidebarItem, is_active: bool) -> "FT":
     """Custom renderer for profile sidebar items with badges and status dots."""
-    active_cls = "bg-base-200 font-semibold" if is_active else ""
+    active_cls = "bg-muted font-semibold" if is_active else ""
 
     # Check if this item has rich domain data
     domain = _profile_domain_data.get(item.slug)
@@ -131,7 +131,7 @@ def _profile_item_renderer(item: SidebarItem, is_active: bool) -> "FT":
                 Div(*badges, cls="flex items-center gap-2"),
                 href=item.href,
                 cls=f"flex items-center gap-2 rounded-lg px-3 py-2.5 min-h-[44px]"
-                f" transition-colors hover:bg-base-200 {active_cls}",
+                f" transition-colors hover:bg-muted {active_cls}",
             )
         )
 
@@ -142,7 +142,7 @@ def _profile_item_renderer(item: SidebarItem, is_active: bool) -> "FT":
             Span(item.label, cls="flex-1"),
             href=item.href,
             cls=f"flex items-center gap-2 rounded-lg px-3 py-2.5 min-h-[44px]"
-            f" transition-colors hover:bg-base-200 {active_cls}",
+            f" transition-colors hover:bg-muted {active_cls}",
         )
     )
 

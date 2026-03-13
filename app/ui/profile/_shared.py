@@ -97,7 +97,7 @@ def DomainFilterControls(domain: str, total_count: int) -> Div:
         Div(
             # Sort dropdown
             Div(
-                Label("Sort by:", cls="text-sm font-medium text-base-content mr-2"),
+                Label("Sort by:", cls="text-sm font-medium text-foreground mr-2"),
                 Select(
                     *[Option(label, value=value) for value, label in sorts],
                     cls="select select-sm select-bordered",
@@ -107,7 +107,7 @@ def DomainFilterControls(domain: str, total_count: int) -> Div:
             ),
             # Filter buttons
             Div(
-                Label("Filter:", cls="text-sm font-medium text-base-content mr-2"),
+                Label("Filter:", cls="text-sm font-medium text-foreground mr-2"),
                 Div(*filter_buttons, cls="flex gap-2 flex-wrap"),
                 cls="flex items-center gap-2",
             ),
@@ -129,7 +129,7 @@ def DomainFilterControls(domain: str, total_count: int) -> Div:
             ),
             cls="flex items-center gap-4 flex-wrap",
         ),
-        cls="p-4 bg-base-200 rounded-lg mb-4",
+        cls="p-4 bg-muted rounded-lg mb-4",
         x_data="domainFilter()",
     )
 
@@ -163,13 +163,13 @@ def DomainIntelligenceCard(
         items.append(
             Li(
                 Span(icon, cls="mr-2"),
-                Span(text, cls="text-sm text-base-content"),
+                Span(text, cls="text-sm text-foreground"),
                 cls="flex items-start py-2",
             )
         )
 
     return Div(
-        H3(title, cls="text-md font-semibold text-base-content mb-3"),
+        H3(title, cls="text-md font-semibold text-foreground mb-3"),
         Ul(*items, cls="space-y-1"),
         cls="p-4 bg-primary/5 rounded-lg border border-primary/20 mb-6",
     )
@@ -200,8 +200,8 @@ def DomainSummaryCard(
     for label, value in stats:
         stats_html.append(
             Div(
-                Div(str(value), cls="text-2xl font-bold text-base-content"),
-                Div(label, cls="text-sm text-base-content/60"),
+                Div(str(value), cls="text-2xl font-bold text-foreground"),
+                Div(label, cls="text-sm text-muted-foreground"),
                 cls="text-center",
             )
         )
@@ -209,7 +209,7 @@ def DomainSummaryCard(
     return Div(
         Div(
             Span(icon, cls="text-3xl"),
-            H3(title, cls="text-xl font-semibold text-base-content"),
+            H3(title, cls="text-xl font-semibold text-foreground"),
             cls="flex items-center gap-3 mb-4",
         ),
         Div(*stats_html, cls="grid grid-cols-3 gap-4"),
@@ -303,8 +303,8 @@ def _item_list(
             return EmptyState_for_domain(domain, empty_message)
         # Fallback to basic empty state
         return Div(
-            P(empty_message, cls="text-base-content/60 italic text-center py-8"),
-            cls="bg-base-200 rounded-lg",
+            P(empty_message, cls="text-muted-foreground italic text-center py-8"),
+            cls="bg-muted rounded-lg",
         )
 
     list_items = []
@@ -330,7 +330,7 @@ def _item_list(
             )
 
         item_content = Div(
-            Span(title, cls="font-medium text-base-content"),
+            Span(title, cls="font-medium text-foreground"),
             status_badge,
             cls="flex items-center justify-between",
         )
@@ -350,7 +350,7 @@ def _item_list(
                 A(
                     item_content,
                     href=href,
-                    cls="block p-3 hover:bg-base-200 rounded-lg transition-colors",
+                    cls="block p-3 hover:bg-muted rounded-lg transition-colors",
                     **item_attrs,
                 )
             )

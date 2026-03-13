@@ -79,7 +79,7 @@ class ActivityViewTabs:
                         ":aria-selected": f"activeTab === '{view_id}' ? 'true' : 'false'",
                         ":tabindex": f"activeTab === '{view_id}' ? 0 : -1",
                         # Dynamic classes for active state
-                        ":class": f"{{'bg-blue-600 text-white rounded-lg': activeTab === '{view_id}', 'text-base-content/70 hover:bg-base-200 rounded-lg': activeTab !== '{view_id}'}}",
+                        ":class": f"{{'bg-blue-600 text-white rounded-lg': activeTab === '{view_id}', 'text-muted-foreground hover:bg-muted rounded-lg': activeTab !== '{view_id}'}}",
                         # Alpine.js event handlers
                         "@click": f"setActiveTab('{view_id}')",
                         "@keydown": f"handleTabKeydown($event, '{view_id}')",
@@ -349,7 +349,8 @@ class ActivityListFilters:
         Returns:
             Select element for sorting
         """
-        from fasthtml.common import Option, Select
+        from fasthtml.common import Option
+        from ui.forms import Select
 
         options = [
             Option(label, value=value, selected=(value == current_sort))
@@ -358,7 +359,8 @@ class ActivityListFilters:
 
         return Select(
             *options,
-            cls="select select-bordered select-sm",
+            size=Size.sm,
+            full_width=False,
             **{
                 "hx-get": f"/{domain}/list-fragment",
                 "hx-target": "#entity-list",

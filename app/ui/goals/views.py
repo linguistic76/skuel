@@ -37,6 +37,7 @@ from ui.calendar.components import (
 from ui.calendar.converters import goal_to_calendar_item
 from ui.feedback import Progress
 from ui.forms import Input, Label, Select, Textarea
+from ui.layout import Size
 from ui.patterns.activity_views_base import (
     ActivityCalendarNav,
     ActivityViewSwitcher,
@@ -103,17 +104,17 @@ class GoalsViewComponents:
         # Stats bar
         stats_bar = Div(
             Div(
-                Span("Total: ", cls="text-base-content/60"),
+                Span("Total: ", cls="text-muted-foreground"),
                 Span(str(stats.get("total", 0)), cls="font-bold"),
                 cls="mr-4",
             ),
             Div(
-                Span("Active: ", cls="text-base-content/60"),
+                Span("Active: ", cls="text-muted-foreground"),
                 Span(str(stats.get("active", 0)), cls="font-bold text-success"),
                 cls="mr-4",
             ),
             Div(
-                Span("Completed: ", cls="text-base-content/60"),
+                Span("Completed: ", cls="text-muted-foreground"),
                 Span(str(stats.get("completed", 0)), cls="font-bold text-info"),
             ),
             cls="flex items-center mb-4 text-sm",
@@ -138,7 +139,8 @@ class GoalsViewComponents:
                     ),
                     Option("Paused", value="paused", selected=filters.get("status") == "paused"),
                     name="filter_status",
-                    cls="select select-bordered select-sm",
+                    size=Size.sm,
+                    full_width=False,
                     **{
                         "hx-get": "/goals/list-fragment",
                         "hx-target": "#goal-list",
@@ -168,7 +170,8 @@ class GoalsViewComponents:
                         selected=filters.get("sort_by") == "created_at",
                     ),
                     name="sort_by",
-                    cls="select select-bordered select-sm",
+                    size=Size.sm,
+                    full_width=False,
                     **{
                         "hx-get": "/goals/list-fragment",
                         "hx-target": "#goal-list",
@@ -188,7 +191,7 @@ class GoalsViewComponents:
             else [
                 P(
                     "No goals found. Create one to get started!",
-                    cls="text-base-content/60 text-center py-8",
+                    cls="text-muted-foreground text-center py-8",
                 )
             ],
             id="goal-list",
@@ -245,14 +248,14 @@ class GoalsViewComponents:
                     description[:100] + "..."
                     if description and len(description) > 100
                     else description,
-                    cls="text-base-content/70 text-sm mt-1",
+                    cls="text-muted-foreground text-sm mt-1",
                 )
                 if description
                 else "",
                 # Progress bar
                 Div(
                     Div(
-                        Span(f"Progress: {int(progress)}%", cls="text-xs text-base-content/60"),
+                        Span(f"Progress: {int(progress)}%", cls="text-xs text-muted-foreground"),
                         Progress(
                             value=int(progress),
                             max=100,
@@ -266,7 +269,7 @@ class GoalsViewComponents:
                 # Meta row
                 Div(
                     Span(f"Priority: {priority_str.title()}", cls=f"text-xs {priority_color} mr-4"),
-                    Span(f"Due: {target_date}", cls="text-xs text-base-content/60")
+                    Span(f"Due: {target_date}", cls="text-xs text-muted-foreground")
                     if target_date
                     else "",
                     cls="flex items-center mt-2",
@@ -289,7 +292,7 @@ class GoalsViewComponents:
                 cls="p-4",
             ),
             id=f"goal-{uid}",
-            cls="card bg-base-100 shadow-sm border border-base-200 hover:shadow-md transition-shadow",
+            cls="card bg-background shadow-sm border border-border hover:shadow-md transition-shadow",
         )
 
     # ========================================================================
@@ -342,7 +345,6 @@ class GoalsViewComponents:
                     type="text",
                     name="title",
                     placeholder="What do you want to achieve?",
-                    cls="input input-bordered w-full",
                     required=True,
                     autofocus=True,
                 ),
@@ -355,7 +357,6 @@ class GoalsViewComponents:
                     name="description",
                     placeholder="Describe your goal in detail...",
                     rows="4",
-                    cls="textarea textarea-bordered w-full",
                 ),
                 cls="mb-4",
             ),
@@ -366,7 +367,6 @@ class GoalsViewComponents:
                     name="why_important",
                     placeholder="What motivates you to achieve this goal?",
                     rows="3",
-                    cls="textarea textarea-bordered w-full",
                 ),
                 cls="mb-4",
             ),
@@ -376,7 +376,6 @@ class GoalsViewComponents:
                 Select(
                     *[Option(cat.title(), value=cat) for cat in categories],
                     name="domain",
-                    cls="select select-bordered w-full",
                 ),
                 cls="mb-4",
             ),
@@ -394,11 +393,10 @@ class GoalsViewComponents:
                         for value, label in timeframes
                     ],
                     name="timeframe",
-                    cls="select select-bordered w-full",
                 ),
                 P(
                     "How long do you have to achieve this goal?",
-                    cls="text-xs text-base-content/60 mt-1",
+                    cls="text-xs text-muted-foreground mt-1",
                 ),
                 cls="mb-4",
             ),
@@ -408,11 +406,10 @@ class GoalsViewComponents:
                 Input(
                     type="date",
                     name="target_date",
-                    cls="input input-bordered w-full",
                 ),
                 P(
                     "When do you want to complete this goal?",
-                    cls="text-xs text-base-content/60 mt-1",
+                    cls="text-xs text-muted-foreground mt-1",
                 ),
                 cls="mb-4",
             ),
@@ -425,7 +422,6 @@ class GoalsViewComponents:
                     Option("P3 - Medium", value="medium", selected=True),
                     Option("P4 - Low", value="low"),
                     name="priority",
-                    cls="select select-bordered w-full",
                 ),
                 cls="mb-4",
             ),
@@ -437,9 +433,8 @@ class GoalsViewComponents:
                     name="target_value",
                     placeholder="e.g., 100",
                     min="0",
-                    cls="input input-bordered w-full",
                 ),
-                P("Numeric target for measurable goals", cls="text-xs text-base-content/60 mt-1"),
+                P("Numeric target for measurable goals", cls="text-xs text-muted-foreground mt-1"),
                 cls="mb-4",
             ),
             cls="flex-1",
@@ -464,7 +459,7 @@ class GoalsViewComponents:
                 value="true",
                 cls="btn btn-outline btn-lg",
             ),
-            cls="flex justify-end gap-2 pt-6 border-t border-base-200",
+            cls="flex justify-end gap-2 pt-6 border-t border-border",
         )
 
         return Div(
@@ -481,7 +476,7 @@ class GoalsViewComponents:
                     "hx-target": "#view-content",
                     "hx-swap": "innerHTML",
                 },
-                cls="card bg-base-100 shadow-lg p-6",
+                cls="card bg-background shadow-lg p-6",
             ),
             id="create-view",
         )
@@ -613,7 +608,7 @@ class GoalsViewComponents:
             # Page header with controls
             Div(
                 H2(f"Hierarchy: {root_goal.title}", cls="text-2xl font-bold"),
-                P("Explore goal breakdown and dependencies", cls="text-base-content/70 text-sm"),
+                P("Explore goal breakdown and dependencies", cls="text-muted-foreground text-sm"),
                 Row(
                     Button(
                         "Expand All",
@@ -672,7 +667,7 @@ class GoalsViewComponents:
                         ),
                         cls="flex items-center justify-between",
                     ),
-                    cls="bg-base-200 rounded-lg border border-base-300 p-4",
+                    cls="bg-muted rounded-lg border border-border p-4",
                 ),
             ),
             gap=6,

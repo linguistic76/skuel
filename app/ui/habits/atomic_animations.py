@@ -403,9 +403,9 @@ class AtomicHabitsAnimations:
             P(label, cls="text-sm font-medium mb-1") if label else None,
             Div(
                 Div(cls=f"{bar_color} h-full progress-animated", style=f"width: {percentage}%"),
-                cls="w-full bg-base-200 rounded-full h-3 overflow-hidden",
+                cls="w-full bg-muted rounded-full h-3 overflow-hidden",
             ),
-            P(f"{int(current)}/{int(target)}", cls="text-xs text-base-content/70 mt-1"),
+            P(f"{int(current)}/{int(target)}", cls="text-xs text-muted-foreground mt-1"),
         )
 
     @staticmethod
@@ -443,7 +443,7 @@ class AtomicHabitsAnimations:
                     cls=f"{color} h-full flex items-center {glow_class}",
                     style=f"width: {percentage}%",
                 ),
-                cls="w-full bg-base-200 rounded-lg h-8 overflow-hidden",
+                cls="w-full bg-muted rounded-lg h-8 overflow-hidden",
             ),
         )
 
@@ -553,7 +553,7 @@ class AtomicHabitsAnimations:
                         cls="bg-blue-600 chart-bar w-full flex items-end justify-center pb-1",
                         style=f"height: {bar_height}%; animation-delay: {delay}s;",
                     ),
-                    P(label, cls="text-xs text-base-content/70 mt-2 text-center"),
+                    P(label, cls="text-xs text-muted-foreground mt-2 text-center"),
                     cls="flex-1 flex flex-col items-stretch",
                 )
             )

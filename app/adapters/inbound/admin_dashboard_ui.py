@@ -77,7 +77,7 @@ def create_admin_dashboard_routes(_app, rt, services):
                 H1("Admin Dashboard", cls="text-3xl font-bold"),
                 P(
                     "System overview and management",
-                    cls="text-base-content/50 mt-1",
+                    cls="text-muted-foreground mt-1",
                 ),
                 cls="mb-8",
             ),
@@ -92,7 +92,7 @@ def create_admin_dashboard_routes(_app, rt, services):
                             cls="flex items-center gap-3",
                         ),
                         href="/admin/users",
-                        cls="card bg-base-100 shadow-sm p-4 hover:shadow-md transition-shadow",
+                        cls="card bg-background shadow-sm p-4 hover:shadow-md transition-shadow",
                     ),
                     A(
                         Div(
@@ -101,7 +101,7 @@ def create_admin_dashboard_routes(_app, rt, services):
                             cls="flex items-center gap-3",
                         ),
                         href="/admin/analytics",
-                        cls="card bg-base-100 shadow-sm p-4 hover:shadow-md transition-shadow",
+                        cls="card bg-background shadow-sm p-4 hover:shadow-md transition-shadow",
                     ),
                     A(
                         Div(
@@ -110,7 +110,7 @@ def create_admin_dashboard_routes(_app, rt, services):
                             cls="flex items-center gap-3",
                         ),
                         href="/admin/system",
-                        cls="card bg-base-100 shadow-sm p-4 hover:shadow-md transition-shadow",
+                        cls="card bg-background shadow-sm p-4 hover:shadow-md transition-shadow",
                     ),
                     A(
                         Div(
@@ -119,7 +119,7 @@ def create_admin_dashboard_routes(_app, rt, services):
                             cls="flex items-center gap-3",
                         ),
                         href="/finance",
-                        cls="card bg-base-100 shadow-sm p-4 hover:shadow-md transition-shadow",
+                        cls="card bg-background shadow-sm p-4 hover:shadow-md transition-shadow",
                     ),
                     A(
                         Div(
@@ -128,7 +128,7 @@ def create_admin_dashboard_routes(_app, rt, services):
                             cls="flex items-center gap-3",
                         ),
                         href="/ingest",
-                        cls="card bg-base-100 shadow-sm p-4 hover:shadow-md transition-shadow",
+                        cls="card bg-background shadow-sm p-4 hover:shadow-md transition-shadow",
                     ),
                     cls="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4",
                 ),
@@ -138,7 +138,7 @@ def create_admin_dashboard_routes(_app, rt, services):
             Div(
                 H2("System Status", cls="text-xl font-semibold mb-4"),
                 _render_system_summary(system_status),
-                cls="card bg-base-100 shadow-sm p-6",
+                cls="card bg-background shadow-sm p-6",
             ),
         )
 
@@ -196,7 +196,7 @@ def create_admin_dashboard_routes(_app, rt, services):
                 H1("User Management", cls="text-3xl font-bold"),
                 P(
                     f"{user_stats.get('total', 0)} total users",
-                    cls="text-base-content/50 mt-1",
+                    cls="text-muted-foreground mt-1",
                 ),
                 cls="mb-6",
             ),
@@ -210,7 +210,7 @@ def create_admin_dashboard_routes(_app, rt, services):
                     AdminUIComponents.render_status_filter(status),
                     cls="flex flex-wrap gap-4",
                 ),
-                cls="card bg-base-100 shadow-sm p-4 mb-6",
+                cls="card bg-background shadow-sm p-4 mb-6",
             ),
             # User table
             Div(
@@ -219,7 +219,7 @@ def create_admin_dashboard_routes(_app, rt, services):
                     AdminUIComponents.render_users_table(users_data),
                     id="user-list",
                 ),
-                cls="card bg-base-100 shadow-sm p-4",
+                cls="card bg-background shadow-sm p-4",
             ),
         )
 
@@ -277,7 +277,7 @@ def create_admin_dashboard_routes(_app, rt, services):
         if result.is_error or not result.value:
             content = Div(
                 H1("User Not Found", cls="text-3xl font-bold text-error"),
-                P(f"No user found with UID: {uid}", cls="text-base-content/50"),
+                P(f"No user found with UID: {uid}", cls="text-muted-foreground"),
                 A("← Back to Users", href="/admin/users", cls="btn btn-ghost mt-4"),
             )
             return await create_admin_page(
@@ -356,31 +356,31 @@ def create_admin_dashboard_routes(_app, rt, services):
                     _detail_row("Verified", "Yes" if user_data["is_verified"] else "No"),
                     cls="space-y-3",
                 ),
-                cls="card bg-base-100 shadow-sm p-6 mb-6",
+                cls="card bg-background shadow-sm p-6 mb-6",
             ),
             # Activity, Learning & Session stats
             Div(
                 H2("User Statistics", cls="text-xl font-semibold mb-4"),
                 AdminUIComponents.render_user_activity_stats(detail_stats, uid),
-                cls="card bg-base-100 shadow-sm p-6 mb-6",
+                cls="card bg-background shadow-sm p-6 mb-6",
             ),
             # Reports section
             Div(
                 H2("Reports", cls="text-xl font-semibold mb-4"),
                 AdminUIComponents.render_user_reports_list(reports_data, uid),
-                cls="card bg-base-100 shadow-sm p-6 mb-6",
+                cls="card bg-background shadow-sm p-6 mb-6",
             ),
             # Report Projects section
             Div(
                 H2("Report Projects", cls="text-xl font-semibold mb-4"),
                 AdminUIComponents.render_user_projects_list(projects_data, uid),
-                cls="card bg-base-100 shadow-sm p-6 mb-6",
+                cls="card bg-background shadow-sm p-6 mb-6",
             ),
             # Role change section
             Div(
                 H2("Change Role", cls="text-xl font-semibold mb-4"),
                 AdminUIComponents.render_role_change_form(user_data),
-                cls="card bg-base-100 shadow-sm p-6 mb-6",
+                cls="card bg-background shadow-sm p-6 mb-6",
             ),
             # Actions
             Div(
@@ -394,7 +394,7 @@ def create_admin_dashboard_routes(_app, rt, services):
                     ),
                     cls="flex gap-4",
                 ),
-                cls="card bg-base-100 shadow-sm p-6",
+                cls="card bg-background shadow-sm p-6",
             ),
         )
 
@@ -511,7 +511,7 @@ def create_admin_dashboard_routes(_app, rt, services):
                 H1("Analytics", cls="text-3xl font-bold"),
                 P(
                     "Platform usage and user statistics",
-                    cls="text-base-content/50 mt-1",
+                    cls="text-muted-foreground mt-1",
                 ),
                 cls="mb-8",
             ),
@@ -572,7 +572,7 @@ def create_admin_dashboard_routes(_app, rt, services):
                 H1("System Health", cls="text-3xl font-bold"),
                 P(
                     "Monitor system components and services",
-                    cls="text-base-content/50 mt-1",
+                    cls="text-muted-foreground mt-1",
                 ),
                 cls="mb-8",
             ),
@@ -624,7 +624,7 @@ def create_admin_dashboard_routes(_app, rt, services):
                 H1("Learning Dashboard", cls="text-3xl font-bold"),
                 P(
                     "Track knowledge unit progression across all users",
-                    cls="text-base-content/50 mt-1",
+                    cls="text-muted-foreground mt-1",
                 ),
                 cls="mb-8",
             ),
@@ -632,13 +632,13 @@ def create_admin_dashboard_routes(_app, rt, services):
             Div(
                 H2("Knowledge Unit Overview", cls="text-xl font-semibold mb-4"),
                 AdminLearningComponents.render_ku_system_metrics(ku_metrics),
-                cls="card bg-base-100 shadow-sm p-6 mb-6",
+                cls="card bg-background shadow-sm p-6 mb-6",
             ),
             # User progress table
             Div(
                 H2("User KU Progress", cls="text-xl font-semibold mb-4"),
                 AdminLearningComponents.render_user_progress_table(user_progress),
-                cls="card bg-base-100 shadow-sm p-6",
+                cls="card bg-background shadow-sm p-6",
             ),
         )
 
@@ -666,7 +666,7 @@ def create_admin_dashboard_routes(_app, rt, services):
         if user_result.is_error or not user_result.value:
             content = Div(
                 H1("User Not Found", cls="text-3xl font-bold text-error"),
-                P(f"No user found with UID: {uid}", cls="text-base-content/50"),
+                P(f"No user found with UID: {uid}", cls="text-muted-foreground"),
                 A(
                     "← Back to Learning Dashboard",
                     href="/admin/learning",
@@ -704,13 +704,13 @@ def create_admin_dashboard_routes(_app, rt, services):
             Div(
                 H2("Progress Summary", cls="text-xl font-semibold mb-4"),
                 AdminLearningComponents.render_user_ku_summary(user_ku_detail),
-                cls="card bg-base-100 shadow-sm p-6 mb-6",
+                cls="card bg-background shadow-sm p-6 mb-6",
             ),
             # Detailed KU list
             Div(
                 H2("Knowledge Units", cls="text-xl font-semibold mb-4"),
                 AdminLearningComponents.render_user_ku_detail_list(user_ku_detail),
-                cls="card bg-base-100 shadow-sm p-6",
+                cls="card bg-background shadow-sm p-6",
             ),
         )
 
@@ -795,7 +795,7 @@ def _render_system_summary(status_data: dict) -> Div:
         "warning": "text-warning",
         "critical": "text-error",
         "degraded": "text-warning",
-        "unknown": "text-base-content/70",
+        "unknown": "text-muted-foreground",
     }
 
     dot_colors = {
@@ -813,13 +813,13 @@ def _render_system_summary(status_data: dict) -> Div:
             ),
             Span(
                 status.upper(),
-                cls=f"font-semibold ml-2 {status_colors.get(status, 'text-base-content/70')}",
+                cls=f"font-semibold ml-2 {status_colors.get(status, 'text-muted-foreground')}",
             ),
             cls="flex items-center",
         ),
         P(
             "All systems operational" if is_healthy else "Some components need attention",
-            cls="text-base-content/50 text-sm mt-2",
+            cls="text-muted-foreground text-sm mt-2",
         ),
         A(
             "View Details →",
@@ -832,7 +832,7 @@ def _render_system_summary(status_data: dict) -> Div:
 def _detail_row(label: str, value: str) -> Div:
     """Render a detail row for user info."""
     return Div(
-        Span(label, cls="text-base-content/50 w-32 inline-block"),
+        Span(label, cls="text-muted-foreground w-32 inline-block"),
         Span(value, cls="font-medium"),
         cls="text-sm",
     )

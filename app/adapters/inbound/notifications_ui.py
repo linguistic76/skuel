@@ -62,7 +62,7 @@ def _notification_card(notif: dict[str, Any]) -> Div:
     is_read = notif.get("read", False)
 
     read_cls = "opacity-60" if is_read else ""
-    bg_cls = "bg-base-100" if is_read else "bg-base-100 border-l-4 border-primary"
+    bg_cls = "bg-background" if is_read else "bg-background border-l-4 border-primary"
 
     # Format created_at
     created_at = notif.get("created_at", "")
@@ -102,9 +102,9 @@ def _notification_card(notif: dict[str, Any]) -> Div:
                         ),
                         cls="flex items-center gap-1",
                     ),
-                    P(notif.get("message", ""), cls="text-sm text-base-content/70 mt-1"),
+                    P(notif.get("message", ""), cls="text-sm text-muted-foreground mt-1"),
                     Div(
-                        Span(time_display, cls="text-xs text-base-content/50"),
+                        Span(time_display, cls="text-xs text-muted-foreground"),
                         A(
                             "View →",
                             href=link_href,
@@ -130,10 +130,10 @@ def _empty_state() -> Div:
         Div(
             Span("🔔", cls="text-4xl"),
             H3("No notifications", cls="text-lg font-medium mt-2"),
-            P("You're all caught up!", cls="text-base-content/60"),
+            P("You're all caught up!", cls="text-muted-foreground"),
             cls="text-center py-12",
         ),
-        cls="card bg-base-100",
+        cls="card bg-background",
     )
 
 

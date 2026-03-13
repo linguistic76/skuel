@@ -30,9 +30,9 @@ def PageTitle(text: str, subtitle: str | None = None, **kwargs: Any) -> Div:
     Returns:
         A Div containing the title and optional subtitle
     """
-    elements = [H1(text, cls="text-4xl font-bold tracking-tight text-base-content")]
+    elements = [H1(text, cls="text-4xl font-bold tracking-tight text-foreground")]
     if subtitle:
-        elements.append(P(subtitle, cls="mt-2 text-lg text-base-content/70"))
+        elements.append(P(subtitle, cls="mt-2 text-lg text-muted-foreground"))
     return Div(*elements, cls="mb-8", **kwargs)
 
 
@@ -46,7 +46,7 @@ def SectionTitle(text: str, **kwargs: Any) -> H2:
     Returns:
         An H2 element with section styling
     """
-    return H2(text, cls="text-2xl font-semibold tracking-tight text-base-content mb-6", **kwargs)
+    return H2(text, cls="text-2xl font-semibold tracking-tight text-foreground mb-6", **kwargs)
 
 
 def CardTitle(text: str, truncate: bool = True, **kwargs: Any) -> H3:
@@ -61,7 +61,7 @@ def CardTitle(text: str, truncate: bool = True, **kwargs: Any) -> H3:
         An H3 element with card title styling
     """
     truncate_cls = "truncate-1" if truncate else ""
-    return H3(text, cls=f"text-lg font-semibold text-base-content {truncate_cls}".strip(), **kwargs)
+    return H3(text, cls=f"text-lg font-semibold text-foreground {truncate_cls}".strip(), **kwargs)
 
 
 def Subtitle(text: str, **kwargs: Any) -> H4:
@@ -74,7 +74,7 @@ def Subtitle(text: str, **kwargs: Any) -> H4:
     Returns:
         An H4 element with subtitle styling
     """
-    return H4(text, cls="text-base font-semibold text-base-content mb-4", **kwargs)
+    return H4(text, cls="text-base font-semibold text-foreground mb-4", **kwargs)
 
 
 def BodyText(text: str, muted: bool = False, **kwargs: Any) -> P:
@@ -88,7 +88,7 @@ def BodyText(text: str, muted: bool = False, **kwargs: Any) -> P:
     Returns:
         A P element with body text styling
     """
-    color = "text-base-content/60" if muted else "text-base-content"
+    color = "text-muted-foreground" if muted else "text-foreground"
     return P(text, cls=f"text-base leading-relaxed {color}", **kwargs)
 
 
@@ -103,7 +103,7 @@ def SmallText(text: str, muted: bool = True, **kwargs: Any) -> Span:
     Returns:
         A Span element with small text styling
     """
-    color = "text-base-content/60" if muted else "text-base-content/70"
+    color = "text-muted-foreground" if muted else "text-muted-foreground"
     return Span(text, cls=f"text-sm {color}", **kwargs)
 
 
@@ -117,7 +117,7 @@ def Caption(text: str, **kwargs: Any) -> Span:
     Returns:
         A Span element with caption styling
     """
-    return Span(text, cls="text-xs text-base-content/60 uppercase tracking-wide", **kwargs)
+    return Span(text, cls="text-xs text-muted-foreground uppercase tracking-wide", **kwargs)
 
 
 def TruncatedText(text: str, lines: int = 1, cls: str = "", **kwargs: Any) -> Span:

@@ -24,8 +24,9 @@ from fasthtml.common import (
     Div,
     Form,
     P,
-    Textarea,
 )
+
+from ui.forms import Textarea
 from starlette.requests import Request
 
 from adapters.inbound.auth import make_service_getter, require_authenticated_user
@@ -187,7 +188,7 @@ def create_teaching_ui_routes(
             )
         elif not result.value:
             list_content = Div(
-                P("No approved submissions yet.", cls="text-center text-base-content/60 py-8"),
+                P("No approved submissions yet.", cls="text-center text-muted-foreground py-8"),
             )
         else:
             list_content = Div(*[render_queue_item(item) for item in result.value])
@@ -224,7 +225,7 @@ def create_teaching_ui_routes(
             submission_section = render_submission_content(detail_result.value)
         else:
             submission_section = Div(
-                P("Submission content unavailable.", cls="text-sm text-base-content/50 italic"),
+                P("Submission content unavailable.", cls="text-sm text-muted-foreground italic"),
                 cls="mb-4",
             )
 
@@ -253,7 +254,7 @@ def create_teaching_ui_routes(
                             Textarea(
                                 name="feedback",
                                 placeholder="Write your feedback here...",
-                                cls="textarea textarea-bordered w-full h-32",
+                                cls="h-32",
                                 required=True,
                             ),
                             cls="mb-4",
@@ -305,7 +306,7 @@ def create_teaching_ui_routes(
                     Div(id="review-result", cls="mt-4"),
                     cls="card-body",
                 ),
-                cls="card bg-base-100 shadow-sm",
+                cls="card bg-background shadow-sm",
             ),
             Div(
                 A(
@@ -450,7 +451,7 @@ def create_teaching_ui_routes(
             rows = Div(
                 P(
                     "No submissions yet for this exercise.",
-                    cls="text-center text-base-content/60 py-8",
+                    cls="text-center text-muted-foreground py-8",
                 )
             )
         else:
@@ -535,7 +536,7 @@ def create_teaching_ui_routes(
             submission_rows = Div(
                 P(
                     "No submissions from this student.",
-                    cls="text-center text-base-content/60 py-8",
+                    cls="text-center text-muted-foreground py-8",
                 )
             )
         else:
@@ -585,7 +586,7 @@ def create_teaching_ui_routes(
                     H3("No classes yet", cls="text-lg font-medium mb-2"),
                     P(
                         "Create your first class from the Groups section to get started.",
-                        cls="text-base-content/60",
+                        cls="text-muted-foreground",
                     ),
                     A(
                         "Go to Groups →",
@@ -627,7 +628,7 @@ def create_teaching_ui_routes(
             )
         elif not result.value:
             members_content = Div(
-                P("No members in this class yet.", cls="text-center text-base-content/60 py-8")
+                P("No members in this class yet.", cls="text-center text-muted-foreground py-8")
             )
         else:
             members_content = Div(*[render_class_member_row(item) for item in result.value])

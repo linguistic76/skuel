@@ -273,7 +273,7 @@ def EntityCard(
             TruncatedText(
                 description,
                 lines=config.description_lines,  # Use config
-                cls="text-sm text-base-content/70 mt-2 block",
+                cls="text-sm text-muted-foreground mt-2 block",
             )
         )
 
@@ -282,7 +282,7 @@ def EntityCard(
         content.append(Div(*meta_items, cls="flex flex-wrap gap-3 mt-3"))
 
     if actions:
-        content.append(Div(actions, cls="mt-4 pt-3 border-t border-base-200"))
+        content.append(Div(actions, cls="mt-4 pt-3 border-t border-border"))
 
     # Card styling - apply variant configuration
     card_cls_parts = []

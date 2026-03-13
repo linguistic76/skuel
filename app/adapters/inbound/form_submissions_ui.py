@@ -39,7 +39,7 @@ def create_form_submissions_ui_routes(
 
         if not submissions:
             content = Div(
-                P("You haven't submitted any forms yet.", cls="text-base-content/60"),
+                P("You haven't submitted any forms yet.", cls="text-muted-foreground"),
                 cls="text-center py-12",
             )
         else:
@@ -57,15 +57,15 @@ def create_form_submissions_ui_routes(
                                 Span(title, cls="font-medium"),
                                 Span(
                                     f"Template: {template_uid}" if template_uid else "",
-                                    cls="text-xs text-base-content/50 ml-2",
+                                    cls="text-xs text-muted-foreground ml-2",
                                 ),
                                 cls="flex items-center",
                             ),
                             Span(
                                 str(created)[:10] if created else "",
-                                cls="text-xs text-base-content/50",
+                                cls="text-xs text-muted-foreground",
                             ),
-                            cls="flex justify-between items-center py-3 px-4 hover:bg-base-200 rounded-lg",
+                            cls="flex justify-between items-center py-3 px-4 hover:bg-muted rounded-lg",
                         ),
                         href=f"/my-forms/detail?uid={uid}",
                     )
@@ -115,7 +115,7 @@ def create_form_submissions_ui_routes(
                 Div(
                     Span(key.replace("_", " ").title(), cls="font-medium text-sm w-40"),
                     Span(str(value), cls="text-sm"),
-                    cls="flex gap-4 py-2 border-b border-base-200",
+                    cls="flex gap-4 py-2 border-b border-border",
                 )
             )
 
@@ -133,9 +133,9 @@ def create_form_submissions_ui_routes(
                 H2(submission.title or "Form Submission", cls="text-2xl font-bold mb-2"),
                 P(
                     f"Submitted: {str(submission.created_at)[:19]}",
-                    cls="text-sm text-base-content/60 mb-6",
+                    cls="text-sm text-muted-foreground mb-6",
                 ),
-                Div(*data_rows) if data_rows else P("No form data.", cls="text-base-content/60"),
+                Div(*data_rows) if data_rows else P("No form data.", cls="text-muted-foreground"),
                 delete_btn,
                 A("Back to My Forms", href="/my-forms", cls="btn btn-ghost btn-sm mt-4 ml-2"),
             ),

@@ -8,7 +8,7 @@ Design Principles:
 - Zero-friction capture (quick-add always visible)
 - Clean visual hierarchy (priority flags, not badges)
 - HTMX-powered interactions (instant feedback)
-- DaisyUI/Tailwind styling
+- MonsterUI/Tailwind styling
 
 Usage:
     from ui.tasks.todoist_components import TodoistTaskComponents
@@ -49,7 +49,7 @@ PRIORITY_TO_P = {
     Priority.CRITICAL: ("P1", "text-red-500", "fill-red-500"),
     Priority.HIGH: ("P2", "text-orange-500", "fill-orange-500"),
     Priority.MEDIUM: ("P3", "text-blue-500", "fill-blue-500"),
-    Priority.LOW: ("P4", "text-base-content/50", "fill-gray-400"),
+    Priority.LOW: ("P4", "text-muted-foreground", "fill-gray-400"),
 }
 
 
@@ -85,7 +85,7 @@ class TodoistTaskComponents:
                 priority = Priority.LOW
 
         p_label, text_class, _fill_class = PRIORITY_TO_P.get(
-            priority, ("P4", "text-base-content/50", "fill-gray-400")
+            priority, ("P4", "text-muted-foreground", "fill-gray-400")
         )
 
         # Flag icon SVG - use NotStr to render raw HTML
@@ -154,7 +154,7 @@ class TodoistTaskComponents:
         today = date.today()
 
         if is_completed:
-            cls = "text-xs text-base-content/50 line-through"
+            cls = "text-xs text-muted-foreground line-through"
             label = due_date.strftime("%b %d")
         elif due_date < today:
             cls = "text-xs text-red-500 font-medium"
@@ -164,7 +164,7 @@ class TodoistTaskComponents:
             cls = "text-xs text-orange-500 font-medium"
             label = "Today"
         else:
-            cls = "text-xs text-base-content/60"
+            cls = "text-xs text-muted-foreground"
             days_until = (due_date - today).days
             if days_until == 1:
                 label = "Tomorrow"
@@ -215,14 +215,14 @@ class TodoistTaskComponents:
         # Title (with strikethrough if completed)
         title_cls = "text-sm"
         if is_completed:
-            title_cls += " line-through text-base-content/50"
+            title_cls += " line-through text-muted-foreground"
 
         # Title with optional description
         description = getattr(task, "description", None)
         if description:
             title_section = Div(
                 Span(task.title, cls=title_cls),
-                P(description, cls="text-xs text-base-content/60 mt-0.5 line-clamp-1"),
+                P(description, cls="text-xs text-muted-foreground mt-0.5 line-clamp-1"),
                 cls="flex-1 min-w-0",
             )
         else:
@@ -241,7 +241,7 @@ class TodoistTaskComponents:
         assignee_tag = TodoistTaskComponents.render_assignee_tag(getattr(task, "assignee", None))
 
         # Row styling
-        row_cls = "flex items-center gap-3 py-3 px-4 hover:bg-base-200/50 border-b border-base-200 transition-colors"
+        row_cls = "flex items-center gap-3 py-3 px-4 hover:bg-muted/50 border-b border-border transition-colors"
         if is_completed:
             row_cls += " opacity-60"
 
@@ -347,7 +347,6 @@ class TodoistTaskComponents:
                     type="text",
                     name="title",
                     value=task.title,
-                    cls="input input-bordered w-full",
                     required=True,
                 ),
                 cls="mb-4",
@@ -360,7 +359,6 @@ class TodoistTaskComponents:
                     name="description",
                     placeholder="Add details...",
                     rows="3",
-                    cls="textarea textarea-bordered w-full",
                 ),
                 cls="mb-4",
             ),
@@ -372,7 +370,6 @@ class TodoistTaskComponents:
                         type="date",
                         name="due_date",
                         value=due_date_value,
-                        cls="input input-bordered w-full",
                     ),
                     cls="flex-1",
                 ),
@@ -382,7 +379,6 @@ class TodoistTaskComponents:
                         type="date",
                         name="scheduled_date",
                         value=scheduled_date_value,
-                        cls="input input-bordered w-full",
                     ),
                     cls="flex-1",
                 ),
@@ -397,7 +393,6 @@ class TodoistTaskComponents:
                     value=str(duration),
                     min="5",
                     max="480",
-                    cls="input input-bordered w-full",
                 ),
                 cls="mb-4",
             ),
@@ -405,12 +400,12 @@ class TodoistTaskComponents:
             Div(
                 Div(
                     Label("Priority", cls="label font-semibold"),
-                    Select(*priority_options, name="priority", cls="select select-bordered w-full"),
+                    Select(*priority_options, name="priority"),
                     cls="flex-1",
                 ),
                 Div(
                     Label("Status", cls="label font-semibold"),
-                    Select(*status_options, name="status", cls="select select-bordered w-full"),
+                    Select(*status_options, name="status"),
                     cls="flex-1",
                 ),
                 cls="flex gap-4 mb-4",
@@ -424,7 +419,6 @@ class TodoistTaskComponents:
                     value=getattr(task, "project", "") or "",
                     placeholder="e.g., Work, Personal",
                     list="edit-project-suggestions",
-                    cls="input input-bordered w-full",
                 ),
                 project_datalist,
                 cls="mb-4",
@@ -437,7 +431,6 @@ class TodoistTaskComponents:
                     name="tags",
                     value=tags_value,
                     placeholder="tag1, tag2, tag3",
-                    cls="input input-bordered w-full",
                 ),
                 cls="mb-4",
             ),
@@ -544,7 +537,9 @@ class TodoistTaskComponents:
             type="text",
             name="title",
             placeholder="Add a task...",
-            cls="input input-bordered input-sm flex-1",
+            cls="flex-1",
+            size=Size.sm,
+            full_width=False,
             required=True,
         )
 
@@ -557,7 +552,9 @@ class TodoistTaskComponents:
             name="project",
             placeholder="Project",
             list="project-suggestions",
-            cls="input input-bordered input-sm w-32",
+            cls="w-32",
+            size=Size.sm,
+            full_width=False,
         )
 
         # Priority dropdown (P1-P4)
@@ -567,7 +564,9 @@ class TodoistTaskComponents:
             Option("P2", value="high"),
             Option("P1", value="critical"),
             name="priority",
-            cls="select select-bordered select-sm w-20",
+            cls="w-20",
+            size=Size.sm,
+            full_width=False,
         )
 
         # Assignee input
@@ -575,17 +574,19 @@ class TodoistTaskComponents:
             type="text",
             name="assignee",
             placeholder="Assignee",
-            cls="input input-bordered input-sm w-28",
+            cls="w-28",
+            size=Size.sm,
+            full_width=False,
         )
 
         # Start date (scheduled_date)
         start_date_input = Input(
-            type="date", name="scheduled_date", cls="input input-bordered input-sm w-36"
+            type="date", name="scheduled_date", cls="w-36", size=Size.sm, full_width=False
         )
 
         # Due date
         due_date_input = Input(
-            type="date", name="due_date", cls="input input-bordered input-sm w-36"
+            type="date", name="due_date", cls="w-36", size=Size.sm, full_width=False
         )
 
         # Description textarea (optional, collapsible)
@@ -593,7 +594,7 @@ class TodoistTaskComponents:
             name="description",
             placeholder="Add description (optional)...",
             rows="2",
-            cls="textarea textarea-bordered textarea-sm w-full",
+            size=Size.sm,
         )
 
         # Parent task input with datalist (for subtasks)
@@ -609,7 +610,9 @@ class TodoistTaskComponents:
             name="parent_uid",
             placeholder="Parent task (for subtasks)",
             list="parent-task-suggestions",
-            cls="input input-bordered input-sm w-48",
+            cls="w-48",
+            size=Size.sm,
+            full_width=False,
         )
 
         # Recurrence pattern dropdown
@@ -624,12 +627,14 @@ class TodoistTaskComponents:
             Option("Quarterly", value="quarterly"),
             Option("Yearly", value="yearly"),
             name="recurrence_pattern",
-            cls="select select-bordered select-sm w-32",
+            cls="w-32",
+            size=Size.sm,
+            full_width=False,
         )
 
         # Recurrence end date
         recurrence_end_input = Input(
-            type="date", name="recurrence_end_date", cls="input input-bordered input-sm w-36"
+            type="date", name="recurrence_end_date", cls="w-36", size=Size.sm, full_width=False
         )
 
         # Add button - make it clearly visible
@@ -649,32 +654,32 @@ class TodoistTaskComponents:
 
         # Second row: Assignee + Start + Due (more visible labels)
         row2 = Div(
-            Label("Assignee:", cls="text-sm text-base-content/70 font-medium"),
+            Label("Assignee:", cls="text-sm text-muted-foreground font-medium"),
             assignee_input,
-            Label("Start:", cls="text-sm text-base-content/70 font-medium ml-3"),
+            Label("Start:", cls="text-sm text-muted-foreground font-medium ml-3"),
             start_date_input,
-            Label("Due:", cls="text-sm text-base-content/70 font-medium ml-3"),
+            Label("Due:", cls="text-sm text-muted-foreground font-medium ml-3"),
             due_date_input,
-            cls="flex items-center gap-3 mt-4 pt-4 border-t border-base-200",
+            cls="flex items-center gap-3 mt-4 pt-4 border-t border-border",
         )
 
         # Third row: Description
         row3 = Div(
-            Label("Description:", cls="text-sm text-base-content/70 font-medium"),
+            Label("Description:", cls="text-sm text-muted-foreground font-medium"),
             description_input,
             cls="mt-3",
         )
 
         # Fourth row: Parent task (subtasks) + Recurrence
         row4 = Div(
-            Label("Subtask of:", cls="text-sm text-base-content/70 font-medium"),
+            Label("Subtask of:", cls="text-sm text-muted-foreground font-medium"),
             parent_input,
             parent_datalist,  # Hidden datalist for autocomplete
-            Label("Repeat:", cls="text-sm text-base-content/70 font-medium ml-3"),
+            Label("Repeat:", cls="text-sm text-muted-foreground font-medium ml-3"),
             recurrence_select,
-            Label("Until:", cls="text-sm text-base-content/70 font-medium ml-3"),
+            Label("Until:", cls="text-sm text-muted-foreground font-medium ml-3"),
             recurrence_end_input,
-            cls="flex items-center gap-3 mt-4 pt-4 border-t border-base-200",
+            cls="flex items-center gap-3 mt-4 pt-4 border-t border-border",
         )
 
         return Form(
@@ -686,7 +691,7 @@ class TodoistTaskComponents:
             hx_target="#task-list",
             hx_swap="outerHTML",
             hx_on__after_request="this.reset()",
-            cls="card bg-base-100 shadow-md border border-base-200 p-6 mb-6 rounded-xl",
+            cls="card bg-background shadow-md border border-border p-6 mb-6 rounded-xl",
         )
 
     # ========================================================================
@@ -716,7 +721,8 @@ class TodoistTaskComponents:
         project_filter = Select(
             *project_options,
             name="filter_project",
-            cls="select select-bordered select-sm",
+            size=Size.sm,
+            full_width=False,
             hx_get="/tasks/list-fragment",
             hx_target="#task-list",
             hx_include="[name^='filter_'],[name='sort_by']",
@@ -729,7 +735,8 @@ class TodoistTaskComponents:
         assignee_filter = Select(
             *assignee_options,
             name="filter_assignee",
-            cls="select select-bordered select-sm",
+            size=Size.sm,
+            full_width=False,
             hx_get="/tasks/list-fragment",
             hx_target="#task-list",
             hx_include="[name^='filter_'],[name='sort_by']",
@@ -743,7 +750,8 @@ class TodoistTaskComponents:
             Option("This Week", value="week"),
             Option("Overdue", value="overdue"),
             name="filter_due",
-            cls="select select-bordered select-sm",
+            size=Size.sm,
+            full_width=False,
             hx_get="/tasks/list-fragment",
             hx_target="#task-list",
             hx_include="[name^='filter_'],[name='sort_by']",
@@ -755,7 +763,8 @@ class TodoistTaskComponents:
             Option("Completed", value="completed"),
             Option("All", value="all"),
             name="filter_status",
-            cls="select select-bordered select-sm",
+            size=Size.sm,
+            full_width=False,
             hx_get="/tasks/list-fragment",
             hx_target="#task-list",
             hx_include="[name^='filter_'],[name='sort_by']",
@@ -768,7 +777,8 @@ class TodoistTaskComponents:
             Option("Recently Added", value="created_at"),
             Option("Project", value="project"),
             name="sort_by",
-            cls="select select-bordered select-sm",
+            size=Size.sm,
+            full_width=False,
             hx_get="/tasks/list-fragment",
             hx_target="#task-list",
             hx_include="[name^='filter_'],[name='sort_by']",
@@ -776,31 +786,31 @@ class TodoistTaskComponents:
 
         return Div(
             Div(
-                Label("Project:", cls="text-xs text-base-content/60"),
+                Label("Project:", cls="text-xs text-muted-foreground"),
                 project_filter,
                 cls="flex items-center gap-1",
             ),
             Div(
-                Label("Assignee:", cls="text-xs text-base-content/60"),
+                Label("Assignee:", cls="text-xs text-muted-foreground"),
                 assignee_filter,
                 cls="flex items-center gap-1",
             ),
             Div(
-                Label("Due:", cls="text-xs text-base-content/60"),
+                Label("Due:", cls="text-xs text-muted-foreground"),
                 due_filter,
                 cls="flex items-center gap-1",
             ),
             Div(
-                Label("Status:", cls="text-xs text-base-content/60"),
+                Label("Status:", cls="text-xs text-muted-foreground"),
                 status_filter,
                 cls="flex items-center gap-1",
             ),
             Div(
-                Label("Sort:", cls="text-xs text-base-content/60"),
+                Label("Sort:", cls="text-xs text-muted-foreground"),
                 sort_select,
                 cls="flex items-center gap-1",
             ),
-            cls="flex flex-wrap items-center gap-4 p-4 bg-base-200/50 rounded-lg mb-6",
+            cls="flex flex-wrap items-center gap-4 p-4 bg-muted/50 rounded-lg mb-6",
         )
 
     # ========================================================================
@@ -837,13 +847,13 @@ class TodoistTaskComponents:
         overdue = stats.get("overdue", 0)
 
         return Div(
-            Span(f"{total} tasks", cls="text-sm text-base-content/70"),
-            Span("|", cls="text-base-content/30 mx-2"),
+            Span(f"{total} tasks", cls="text-sm text-muted-foreground"),
+            Span("|", cls="text-foreground/30 mx-2"),
             Span(f"{completed} completed", cls="text-sm text-green-600"),
-            Span("|", cls="text-base-content/30 mx-2"),
+            Span("|", cls="text-foreground/30 mx-2"),
             Span(
                 f"{overdue} overdue",
-                cls=f"text-sm {'text-red-500 font-medium' if overdue > 0 else 'text-base-content/60'}",
+                cls=f"text-sm {'text-red-500 font-medium' if overdue > 0 else 'text-muted-foreground'}",
             ),
             cls="flex items-center mb-4",
         )
@@ -882,6 +892,6 @@ class TodoistTaskComponents:
             # Task List
             Div(
                 TodoistTaskComponents.render_task_list(tasks),
-                cls="card bg-base-100 shadow-md border border-base-200 rounded-xl overflow-hidden",
+                cls="card bg-background shadow-md border border-border rounded-xl overflow-hidden",
             ),
         )

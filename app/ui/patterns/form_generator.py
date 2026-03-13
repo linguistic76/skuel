@@ -366,10 +366,10 @@ class FormGenerator:
                 )
             if fields:
                 is_last = i == total_sections - 1
-                section_cls = "mb-6" if is_last else "mb-6 pb-6 border-b border-base-200"
+                section_cls = "mb-6" if is_last else "mb-6 pb-6 border-b border-border"
                 section_divs.append(
                     Div(
-                        H3(section_title, cls="text-lg font-semibold mb-3 text-base-content/70"),
+                        H3(section_title, cls="text-lg font-semibold mb-3 text-muted-foreground"),
                         *fields,
                         cls=section_cls,
                     )
@@ -436,7 +436,7 @@ class FormGenerator:
             widget,
         ]
         if help_text:
-            children.append(P(help_text, cls="text-sm text-base-content/70 mt-1"))
+            children.append(P(help_text, cls="text-sm text-muted-foreground mt-1"))
         # Alpine.js error display (hidden by default, shown by formValidator)
         children.append(
             Div(

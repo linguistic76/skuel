@@ -33,8 +33,8 @@ def PageHeader(
         Page header component
     """
     title_section = Div(
-        H1(title, cls="text-2xl font-bold text-base-content"),
-        P(subtitle, cls="text-base-content/70 mt-1") if subtitle else None,
+        H1(title, cls="text-2xl font-bold text-foreground"),
+        P(subtitle, cls="text-muted-foreground mt-1") if subtitle else None,
     )
 
     if actions:

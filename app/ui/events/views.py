@@ -37,6 +37,7 @@ from ui.calendar.components import (
 )
 from ui.calendar.converters import event_to_calendar_item
 from ui.forms import Input, Label, Select, Textarea
+from ui.layout import Size
 from ui.patterns.activity_views_base import (
     ActivityCalendarNav,
     ActivityViewSwitcher,
@@ -199,17 +200,17 @@ class EventsViewComponents:
         # Stats bar
         stats_bar = Div(
             Div(
-                Span("Total: ", cls="text-base-content/60"),
+                Span("Total: ", cls="text-muted-foreground"),
                 Span(str(stats.get("total", 0)), cls="font-bold"),
                 cls="mr-4",
             ),
             Div(
-                Span("Upcoming: ", cls="text-base-content/60"),
+                Span("Upcoming: ", cls="text-muted-foreground"),
                 Span(str(stats.get("upcoming", 0)), cls="font-bold text-green-600"),
                 cls="mr-4",
             ),
             Div(
-                Span("Today: ", cls="text-base-content/60"),
+                Span("Today: ", cls="text-muted-foreground"),
                 Span(str(stats.get("today", 0)), cls="font-bold text-blue-600"),
             ),
             cls="flex items-center mb-4 text-sm",
@@ -228,7 +229,8 @@ class EventsViewComponents:
                     Option("Work", value="work", selected=filters.get("type") == "work"),
                     Option("Social", value="social", selected=filters.get("type") == "social"),
                     name="filter_type",
-                    cls="select select-bordered select-sm",
+                    size=Size.sm,
+                    full_width=False,
                     **{
                         "hx-get": "/events/list-fragment",
                         "hx-target": "#event-list",
@@ -247,7 +249,8 @@ class EventsViewComponents:
                         selected=filters.get("sort_by") == "created_at",
                     ),
                     name="sort_by",
-                    cls="select select-bordered select-sm",
+                    size=Size.sm,
+                    full_width=False,
                     **{
                         "hx-get": "/events/list-fragment",
                         "hx-target": "#event-list",
@@ -267,7 +270,7 @@ class EventsViewComponents:
             else [
                 P(
                     "No events found. Create one to get started!",
-                    cls="text-base-content/60 text-center py-8",
+                    cls="text-muted-foreground text-center py-8",
                 )
             ],
             id="event-list",
@@ -308,19 +311,19 @@ class EventsViewComponents:
                     description[:100] + "..."
                     if description and len(description) > 100
                     else description,
-                    cls="text-base-content/70 text-sm mt-1",
+                    cls="text-muted-foreground text-sm mt-1",
                 )
                 if description
                 else "",
                 # Date and time
                 Div(
-                    Span(f"📅 {event_date}", cls="text-sm text-base-content/70 mr-4")
+                    Span(f"📅 {event_date}", cls="text-sm text-muted-foreground mr-4")
                     if event_date
                     else "",
-                    Span(f"🕐 {start_time} - {end_time}", cls="text-sm text-base-content/70 mr-4")
+                    Span(f"🕐 {start_time} - {end_time}", cls="text-sm text-muted-foreground mr-4")
                     if start_time
                     else "",
-                    Span(f"📍 {location}", cls="text-sm text-base-content/60") if location else "",
+                    Span(f"📍 {location}", cls="text-sm text-muted-foreground") if location else "",
                     cls="flex flex-wrap items-center mt-2",
                 ),
                 # Actions
@@ -340,7 +343,7 @@ class EventsViewComponents:
                 cls="p-4",
             ),
             id=f"event-{uid}",
-            cls="card bg-base-100 shadow-sm border border-base-200 hover:shadow-md transition-shadow",
+            cls="card bg-background shadow-sm border border-border hover:shadow-md transition-shadow",
         )
 
     # ========================================================================
@@ -379,7 +382,6 @@ class EventsViewComponents:
                     type="text",
                     name="title",
                     placeholder="What's the event?",
-                    cls="input input-bordered w-full",
                     required=True,
                     autofocus=True,
                 ),
@@ -392,7 +394,6 @@ class EventsViewComponents:
                     name="description",
                     placeholder="Event details...",
                     rows="3",
-                    cls="textarea textarea-bordered w-full",
                 ),
                 cls="mb-4",
             ),
@@ -402,7 +403,6 @@ class EventsViewComponents:
                 Select(
                     *[Option(t.title(), value=t) for t in event_types],
                     name="event_type",
-                    cls="select select-bordered w-full",
                 ),
                 cls="mb-4",
             ),
@@ -413,7 +413,6 @@ class EventsViewComponents:
                     type="text",
                     name="location",
                     placeholder="Where is it?",
-                    cls="input input-bordered w-full",
                 ),
                 cls="mb-4",
             ),
@@ -428,7 +427,6 @@ class EventsViewComponents:
                 Input(
                     type="date",
                     name="event_date",
-                    cls="input input-bordered w-full",
                     required=True,
                 ),
                 cls="mb-4",
@@ -439,7 +437,6 @@ class EventsViewComponents:
                 Input(
                     type="time",
                     name="start_time",
-                    cls="input input-bordered w-full",
                     required=True,
                 ),
                 cls="mb-4",
@@ -450,7 +447,6 @@ class EventsViewComponents:
                 Input(
                     type="time",
                     name="end_time",
-                    cls="input input-bordered w-full",
                     required=True,
                 ),
                 cls="mb-4",
@@ -464,7 +460,6 @@ class EventsViewComponents:
                     Option("P3 - Medium", value="medium", selected=True),
                     Option("P4 - Low", value="low"),
                     name="priority",
-                    cls="select select-bordered w-full",
                 ),
                 cls="mb-4",
             ),
@@ -490,7 +485,7 @@ class EventsViewComponents:
                 value="true",
                 cls="btn btn-outline btn-lg",
             ),
-            cls="flex justify-end gap-2 pt-6 border-t border-base-200",
+            cls="flex justify-end gap-2 pt-6 border-t border-border",
         )
 
         return Div(
@@ -507,7 +502,7 @@ class EventsViewComponents:
                     "hx-target": "#view-content",
                     "hx-swap": "innerHTML",
                 },
-                cls="card bg-base-100 shadow-lg p-6",
+                cls="card bg-background shadow-lg p-6",
             ),
             id="create-view",
         )

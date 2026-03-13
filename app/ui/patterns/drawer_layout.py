@@ -106,7 +106,7 @@ class DrawerLayout:
             <!-- Main Content -->
             <div class="drawer-content flex flex-col" id="{self.content_id}">
                 <!-- Navbar for mobile (shows hamburger menu) -->
-                <div class="navbar bg-base-200 lg:hidden">
+                <div class="navbar bg-muted lg:hidden">
                     <div class="flex-none">
                         <label for="{self.drawer_id}" class="btn btn-square btn-ghost drawer-button">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="inline-block w-6 h-6 stroke-current">
@@ -120,7 +120,7 @@ class DrawerLayout:
                 </div>
 
                 <!-- Page Content -->
-                <div class="flex-1 p-6 lg:p-8 bg-base-100">
+                <div class="flex-1 p-6 lg:p-8 bg-background">
                     {content}
                 </div>
             </div>
@@ -128,7 +128,7 @@ class DrawerLayout:
             <!-- Sidebar -->
             <div class="drawer-side">
                 <label for="{self.drawer_id}" aria-label="close sidebar" class="drawer-overlay"></label>
-                <div class="menu p-4 {self.sidebar_width} min-h-full bg-base-200 text-base-content">
+                <div class="menu p-4 {self.sidebar_width} min-h-full bg-muted text-foreground">
                     {header_html}
 
                     <!-- Sidebar Menu -->
@@ -219,7 +219,7 @@ class DrawerLayout:
     def _build_header_html(self) -> str:
         """Build HTML for sidebar header."""
         subtitle_html = (
-            f'<p class="text-sm text-base-content/70">{self.subtitle}</p>' if self.subtitle else ""
+            f'<p class="text-sm text-muted-foreground">{self.subtitle}</p>' if self.subtitle else ""
         )
 
         return f"""
@@ -235,7 +235,7 @@ class DrawerLayout:
         if self.footer_content:
             return f"""
                 <!-- Sidebar Footer -->
-                <div class="mt-auto pt-6 border-t border-base-300">
+                <div class="mt-auto pt-6 border-t border-border">
                     {self.footer_content}
                 </div>
             """

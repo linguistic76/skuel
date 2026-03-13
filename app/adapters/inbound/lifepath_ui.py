@@ -121,7 +121,7 @@ def create_lifepath_ui_routes(
             H1("Express Your Vision", cls="text-3xl font-bold mb-6"),
             P(
                 "What do you want to become? Express your life vision in your own words.",
-                cls="text-lg text-base-content/70 mb-8",
+                cls="text-lg text-muted-foreground mb-8",
             ),
             Card(
                 Div(
@@ -138,7 +138,7 @@ def create_lifepath_ui_routes(
                             ),
                             P(
                                 "Be specific about who you want to become, not just what you want to achieve.",
-                                cls="text-sm text-base-content/60 mt-2",
+                                cls="text-sm text-muted-foreground mt-2",
                             ),
                             cls="mb-6",
                         ),
@@ -262,7 +262,7 @@ def _error_page(message: str):
     """Return error page."""
     return Div(
         H1("Error", cls="text-2xl font-bold text-red-600"),
-        P(message, cls="text-base-content/70 mt-2"),
+        P(message, cls="text-muted-foreground mt-2"),
         A("Go back", href="/lifepath", cls="btn btn-primary mt-4"),
         cls="container mx-auto px-4 py-8",
     )
@@ -275,7 +275,7 @@ def _build_dashboard_content(status: dict, user_uid: str) -> Any:
             H1("Welcome to Your Life Path", cls="text-3xl font-bold mb-6"),
             P(
                 "You haven't expressed your vision yet. Start by telling us what you want to become.",
-                cls="text-lg text-base-content/70 mb-8",
+                cls="text-lg text-muted-foreground mb-8",
             ),
             A(
                 "Express Your Vision",
@@ -298,7 +298,7 @@ def _build_dashboard_content(status: dict, user_uid: str) -> Any:
                 H3("Your Vision", cls="font-semibold text-lg mb-2"),
                 P(
                     status.get("vision", {}).get("statement", "No vision"),
-                    cls="text-base-content/70 italic",
+                    cls="text-muted-foreground italic",
                 ),
                 Div(
                     *[
@@ -317,7 +317,7 @@ def _build_dashboard_content(status: dict, user_uid: str) -> Any:
                 H3("Alignment Score", cls="font-semibold text-lg mb-2"),
                 Div(
                     Span(f"{int(alignment_score * 100)}%", cls="text-4xl font-bold"),
-                    Span(f" ({alignment_level})", cls="text-xl text-base-content/60 ml-2"),
+                    Span(f" ({alignment_level})", cls="text-xl text-muted-foreground ml-2"),
                     cls="mb-4",
                 ),
                 Progress(
@@ -327,7 +327,7 @@ def _build_dashboard_content(status: dict, user_uid: str) -> Any:
                 ),
                 P(
                     "Are you LIVING what you SAID?",
-                    cls="text-sm text-base-content/60 mt-2",
+                    cls="text-sm text-muted-foreground mt-2",
                 ),
                 cls="p-4",
             ),
@@ -357,7 +357,7 @@ def _build_recommendations_page(data: dict, user_uid: str) -> Any:
                     H3(rec.get("lp_name", "Unknown"), cls="font-semibold text-lg"),
                     P(
                         f"Match: {int(rec.get('match_score', 0) * 100)}%",
-                        cls="text-sm text-base-content/60",
+                        cls="text-sm text-muted-foreground",
                     ),
                     Div(
                         *[
@@ -390,10 +390,10 @@ def _build_recommendations_page(data: dict, user_uid: str) -> Any:
 
     return Div(
         H1("Choose Your Life Path", cls="text-3xl font-bold mb-4"),
-        P(f'Your vision: "{vision.get("statement", "")}"', cls="text-base-content/70 italic mb-2"),
+        P(f'Your vision: "{vision.get("statement", "")}"', cls="text-muted-foreground italic mb-2"),
         P(
             f"Themes extracted: {', '.join(vision.get('themes', []))}",
-            cls="text-sm text-base-content/50 mb-8",
+            cls="text-sm text-muted-foreground mb-8",
         ),
         H2("Recommended Learning Paths", cls="text-xl font-semibold mb-4"),
         *rec_cards if rec_cards else [P("No matching Learning Paths found. Create one!")],
@@ -431,8 +431,8 @@ def _build_alignment_dashboard(status: dict, user_uid: str) -> Any:
     rec_items = [
         Div(
             Span(rec.get("title", ""), cls="font-medium"),
-            P(rec.get("description", ""), cls="text-sm text-base-content/60"),
-            cls="p-3 bg-base-200 rounded mb-2",
+            P(rec.get("description", ""), cls="text-sm text-muted-foreground"),
+            cls="p-3 bg-muted rounded mb-2",
         )
         for rec in recommendations[:5]
     ]
@@ -449,13 +449,13 @@ def _build_alignment_dashboard(status: dict, user_uid: str) -> Any:
                     ),
                     Span(
                         alignment.get("alignment_level", "").title(),
-                        cls="text-2xl text-base-content/60 ml-4",
+                        cls="text-2xl text-muted-foreground ml-4",
                     ),
                     cls="flex items-baseline mb-4",
                 ),
                 P(
                     "Are you LIVING what you SAID?",
-                    cls="text-base-content/70",
+                    cls="text-muted-foreground",
                 ),
                 cls="p-6 text-center",
             ),
@@ -493,10 +493,10 @@ def _build_daily_focus(daily_focus: dict | None) -> Any:
         Div(
             H3("Today's Focus", cls="font-semibold text-lg mb-2"),
             P(daily_focus.get("focus", ""), cls="text-xl font-medium mb-2"),
-            P(daily_focus.get("reason", ""), cls="text-sm text-base-content/60"),
+            P(daily_focus.get("reason", ""), cls="text-sm text-muted-foreground"),
             P(
                 f"Action: {daily_focus.get('action', '')}",
-                cls="text-sm text-base-content/70 mt-2 italic",
+                cls="text-sm text-muted-foreground mt-2 italic",
             ),
             cls="p-4",
         ),

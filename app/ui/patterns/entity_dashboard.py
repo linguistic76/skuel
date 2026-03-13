@@ -173,7 +173,7 @@ class SharedUIComponents:
                 dashboard_content,
                 # Modal container for edit forms
                 Div(id="modal"),
-                cls="bg-base-200 min-h-screen",
+                cls="bg-muted min-h-screen",
             ),
             **{"data-theme": "light"},
         )
@@ -208,7 +208,7 @@ class SharedUIComponents:
             "orange": "text-orange-600",
             "purple": "text-purple-600",
             "red": "text-red-600",
-            "gray": "text-base-content/70",
+            "gray": "text-muted-foreground",
             "yellow": "text-yellow-600",
             "indigo": "text-indigo-600",
         }
@@ -224,7 +224,7 @@ class SharedUIComponents:
                 Card(
                     Div(
                         Span(str(value), cls=f"text-3xl font-bold {color_class}"),
-                        P(label, cls="text-sm text-base-content/70 mt-1"),
+                        P(label, cls="text-sm text-muted-foreground mt-1"),
                         cls="text-center",
                     ),
                     cls="p-4",
@@ -343,7 +343,7 @@ class SharedUIComponents:
         if entities:
             entity_cards = [entity_renderer(entity) for entity in entities]
         else:
-            entity_cards = [P(empty_message, cls="text-center text-base-content/60 py-8")]
+            entity_cards = [P(empty_message, cls="text-center text-muted-foreground py-8")]
 
         return Card(
             H2("📋 All Items", cls="text-xl font-semibold mb-4"),
@@ -376,7 +376,7 @@ class SharedUIComponents:
             )
         """
         if not entities:
-            return Div(P(empty_message, cls="text-center text-base-content/60 py-8"))
+            return Div(P(empty_message, cls="text-center text-muted-foreground py-8"))
 
         entity_cards = [entity_renderer(entity) for entity in entities]
 
@@ -493,7 +493,7 @@ class SharedUIComponents:
         return Div(
             Div(
                 H2(title, cls="text-2xl font-bold"),
-                (P(subtitle, cls="text-sm text-base-content/70") if subtitle else None),
+                (P(subtitle, cls="text-sm text-muted-foreground") if subtitle else None),
                 cls="flex-1",
             ),
             (Div(*action_buttons, cls="flex gap-2") if action_buttons else None),
@@ -562,7 +562,7 @@ class SharedUIComponents:
             Div(
                 Span(icon, cls="text-6xl mb-4"),
                 H3(title, cls="text-xl font-semibold mb-2"),
-                P(message, cls="text-base-content/70 mb-6"),
+                P(message, cls="text-muted-foreground mb-6"),
                 action_button if action_button else None,
                 cls="text-center py-12",
             ),

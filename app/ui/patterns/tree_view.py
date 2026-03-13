@@ -74,7 +74,7 @@ def TreeView(
             # Initial loading state - will be replaced by HTMX
             # Note: parent_depth=-1 so root nodes render at depth 0
             Div(
-                Span("Loading...", cls="text-base-content/60 text-sm italic"),
+                Span("Loading...", cls="text-muted-foreground text-sm italic"),
                 cls="px-2 py-1",
                 **{
                     "hx-get": f"{children_endpoint.replace('{uid}', root_uid)}?parent_depth=-1",
@@ -142,7 +142,7 @@ def _render_tree_node(
             **{
                 "x-on:click.stop": f"toggleExpand('{uid}')",
             },
-            cls="btn btn-ghost btn-xs p-0 min-h-0 h-6 w-6 text-base-content/60 hover:text-base-content",
+            cls="btn btn-ghost btn-xs p-0 min-h-0 h-6 w-6 text-muted-foreground hover:text-foreground",
             type="button",
         )
     else:
@@ -178,7 +178,7 @@ def _render_tree_node(
         **{
             "x-on:dblclick": f"startEdit('{uid}')",
         },
-        cls="flex-grow text-sm cursor-text hover:bg-base-200 px-1 rounded node-title",
+        cls="flex-grow text-sm cursor-text hover:bg-muted px-1 rounded node-title",
         **{"data-uid": uid},
     )
 
@@ -206,7 +206,7 @@ def _render_tree_node(
     # Node content row
     node_content = Div(
         *content_elements,
-        cls="flex items-center gap-2 py-1 px-2 rounded hover:bg-base-200 group",
+        cls="flex items-center gap-2 py-1 px-2 rounded hover:bg-muted group",
         style=f"padding-left: {indent}px",
         **drag_attrs,
     )
@@ -264,7 +264,7 @@ def TreeNodeList(
 
     if not nodes:
         return Div(
-            Span("No items", cls="text-base-content/60 text-sm italic"),
+            Span("No items", cls="text-muted-foreground text-sm italic"),
             cls="px-2 py-1",
             style=f"padding-left: {(child_depth * 24) + 8}px",
         )

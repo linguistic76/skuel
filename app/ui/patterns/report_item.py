@@ -31,8 +31,8 @@ def render_report_item(fb: dict[str, Any]) -> Div:
         Div(
             Div(
                 Span(type_label, cls="font-medium text-sm"),
-                Span(f" by {teacher_name}", cls="text-sm text-base-content/60"),
-                Span(f" · {time_display}", cls="text-xs text-base-content/40")
+                Span(f" by {teacher_name}", cls="text-sm text-muted-foreground"),
+                Span(f" · {time_display}", cls="text-xs text-foreground/40")
                 if time_display
                 else "",
                 cls="mb-1",
@@ -40,5 +40,5 @@ def render_report_item(fb: dict[str, Any]) -> Div:
             P(content, cls="text-sm whitespace-pre-wrap"),
             cls="p-3",
         ),
-        cls=f"border-l-4 {border_cls} bg-base-200/50 rounded-r mb-2",
+        cls=f"border-l-4 {border_cls} bg-muted/50 rounded-r mb-2",
     )

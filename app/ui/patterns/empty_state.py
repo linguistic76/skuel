@@ -51,7 +51,7 @@ def EmptyState(
         )  # Decorative - title conveys meaning
 
     # Use a smaller, centered title for empty states
-    content.append(Div(title, cls="text-xl font-semibold text-base-content"))
+    content.append(Div(title, cls="text-xl font-semibold text-foreground"))
 
     if description:
         content.append(BodyText(description, muted=True))

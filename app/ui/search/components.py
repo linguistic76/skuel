@@ -96,9 +96,9 @@ def _render_horizontal_layout() -> Div:
                     P("Enter a search query to begin", cls="text-xl"),
                     P(
                         "Use the filters above to refine your results",
-                        cls="text-sm mt-2 text-base-content/50",
+                        cls="text-sm mt-2 text-muted-foreground",
                     ),
-                    cls="text-center text-base-content/60 py-16",
+                    cls="text-center text-muted-foreground py-16",
                 ),
                 id="search-results",
                 cls="mt-6",
@@ -165,7 +165,7 @@ def _render_filter_bar() -> str:
     Contains: Type, Nous, Sort dropdowns + Learning Progress and Graph Relationships checkboxes.
     """
     return f"""
-    <div class="filter-bar bg-base-100 rounded-lg shadow-sm p-4 mb-4">
+    <div class="filter-bar bg-background rounded-lg shadow-sm p-4 mb-4">
         <!-- Dropdowns Row -->
         <div class="flex flex-wrap gap-4 items-end mb-4">
             <!-- Entity Type -->
@@ -194,10 +194,10 @@ def _render_filter_bar() -> str:
         </div>
 
         <!-- Checkbox Groups Row -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 pt-3 border-t border-base-200">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 pt-3 border-t border-border">
             <!-- Learning Progress -->
             <div>
-                <div class="text-xs font-semibold uppercase tracking-wide text-base-content/60 mb-2">Learning Progress</div>
+                <div class="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Learning Progress</div>
                 <div class="flex flex-wrap gap-x-4 gap-y-1">
                     {_render_learning_progress_checkboxes()}
                 </div>
@@ -205,7 +205,7 @@ def _render_filter_bar() -> str:
 
             <!-- Graph Relationships -->
             <div>
-                <div class="text-xs font-semibold uppercase tracking-wide text-base-content/60 mb-2">Graph Relationships</div>
+                <div class="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Graph Relationships</div>
                 <div class="flex flex-wrap gap-x-4 gap-y-1">
                     {_render_relationship_checkboxes()}
                 </div>
@@ -213,7 +213,7 @@ def _render_filter_bar() -> str:
 
             <!-- Semantic Search -->
             <div>
-                <div class="text-xs font-semibold uppercase tracking-wide text-base-content/60 mb-2">Semantic Search
+                <div class="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Semantic Search
                     <span class="badge badge-xs badge-primary ml-1">NEW</span>
                 </div>
                 <div class="flex flex-wrap gap-x-4 gap-y-1">
@@ -321,7 +321,7 @@ def _render_context_filters() -> str:
     """
     return f"""
     <!-- Context Filters (shown based on entity type) -->
-    <div class="context-filters bg-base-100 rounded-lg shadow-sm p-4 mb-4"
+    <div class="context-filters bg-background rounded-lg shadow-sm p-4 mb-4"
          x-show="showContextFilters"
          x-transition:enter="transition ease-out duration-200"
          x-transition:enter-start="opacity-0 -translate-y-2"
@@ -330,7 +330,7 @@ def _render_context_filters() -> str:
          x-transition:leave-start="opacity-100 translate-y-0"
          x-transition:leave-end="opacity-0 -translate-y-2">
 
-        <div class="text-xs font-semibold uppercase tracking-wide text-base-content/60 mb-3">
+        <div class="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">
             <span x-text="contextFilterLabel">Filters</span>
         </div>
 
@@ -672,7 +672,7 @@ def _render_active_filter_badges() -> str:
     <!-- Active Filter Badges -->
     <div class="active-filters mb-4" x-show="hasActiveFilters" x-transition>
         <div class="flex flex-wrap items-center gap-2">
-            <span class="text-xs text-base-content/60">Active filters:</span>
+            <span class="text-xs text-muted-foreground">Active filters:</span>
 
             <!-- Entity Type Badge -->
             <template x-if="entityType">
@@ -704,9 +704,9 @@ def _render_search_input() -> str:
 
     return f"""
     <!-- Search Input -->
-    <div class="search-input-container bg-base-100 rounded-lg shadow-sm p-4">
+    <div class="search-input-container bg-background rounded-lg shadow-sm p-4">
         <div class="relative">
-            <span class="absolute inset-y-0 left-3 flex items-center text-base-content/40">
+            <span class="absolute inset-y-0 left-3 flex items-center text-foreground/40">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
@@ -743,7 +743,7 @@ def _render_results_sort_dropdown() -> Any:
     ]
 
     return Div(
-        Span("Sort:", cls="text-sm text-base-content/60 mr-2"),
+        Span("Sort:", cls="text-sm text-muted-foreground mr-2"),
         NotStr(f"""
         <select name="sort_order" id="sort-order-results" class="select select-bordered select-xs"
                 hx-get="/search/results"
@@ -765,11 +765,11 @@ def render_search_results(response: SearchResponse) -> Any:
                 P("🔍", cls="text-center text-5xl mb-4"),
                 P(
                     f"No results found for '{response.query_text}'",
-                    cls="text-center text-xl text-base-content/60",
+                    cls="text-center text-xl text-muted-foreground",
                 ),
                 P(
                     "Try adjusting your filters or search terms",
-                    cls="text-center text-sm text-base-content/50",
+                    cls="text-center text-sm text-muted-foreground",
                 ),
                 cls="text-center py-16",
             ),
@@ -786,11 +786,11 @@ def render_search_results(response: SearchResponse) -> Any:
                 H3(f"Found {response.total} results", cls="text-xl font-bold"),
                 P(
                     f"Showing {page_info['showing_from']}-{page_info['showing_to']} of {page_info['total_results']}",
-                    cls="text-base-content/60 text-sm",
+                    cls="text-muted-foreground text-sm",
                 ),
                 P(
                     f"Search completed in {response.search_time_ms:.0f}ms",
-                    cls="text-base-content/50 text-xs",
+                    cls="text-muted-foreground text-xs",
                 ),
             ),
             # Right side: Sort dropdown
@@ -843,7 +843,7 @@ def _render_result_card(result: dict) -> Any:
     # Add description with generous spacing
     if description:
         card_body_items.append(
-            P(description, cls="text-sm text-base-content/70 mt-2 leading-relaxed")
+            P(description, cls="text-sm text-muted-foreground mt-2 leading-relaxed")
         )
 
     # Add graph context if available
@@ -863,7 +863,7 @@ def _render_result_card(result: dict) -> Any:
     return Div(
         Div(
             *card_body_items,
-            cls="card bg-base-100 shadow-sm hover:shadow-md transition-shadow border border-base-200 p-6",
+            cls="card bg-background shadow-sm hover:shadow-md transition-shadow border border-border p-6",
         )
     )
 
@@ -958,7 +958,7 @@ def _render_graph_context(context: dict) -> Any | None:
         Div(
             Span("Graph Context: ", cls="font-semibold text-sm mr-2"),
             *items,
-            cls="mt-3 p-3 bg-base-200 rounded-lg border-l-4 border-primary",
+            cls="mt-3 p-3 bg-muted rounded-lg border-l-4 border-primary",
         ),
         cls="mt-4",
     )
@@ -1014,10 +1014,10 @@ def render_empty_search_prompt() -> Div:
     return Div(
         Div(
             P("🔍", cls="text-center text-5xl mb-4"),
-            P("Enter a search query to begin", cls="text-center text-xl text-base-content/60"),
+            P("Enter a search query to begin", cls="text-center text-xl text-muted-foreground"),
             P(
                 "Use the filters above to refine your results",
-                cls="text-center text-sm text-base-content/50",
+                cls="text-center text-sm text-muted-foreground",
             ),
             cls="text-center py-16",
         ),

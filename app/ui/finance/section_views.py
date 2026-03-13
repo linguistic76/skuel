@@ -64,22 +64,22 @@ class FinanceSectionViews:
         stats_section = Div(
             Div(
                 Div(f"${total_spent:,.2f}", cls="text-2xl font-bold text-info"),
-                Div("Spent This Month", cls="text-sm text-base-content/60 mt-1"),
+                Div("Spent This Month", cls="text-sm text-muted-foreground mt-1"),
                 cls="bg-info/10 rounded-lg p-4 text-center",
             ),
             Div(
                 Div(f"${total_budget:,.2f}", cls="text-2xl font-bold text-success"),
-                Div("Total Budget", cls="text-sm text-base-content/60 mt-1"),
+                Div("Total Budget", cls="text-sm text-muted-foreground mt-1"),
                 cls="bg-success/10 rounded-lg p-4 text-center",
             ),
             Div(
                 Div(f"{budget_utilization:.0f}%", cls="text-2xl font-bold text-warning"),
-                Div("Budget Used", cls="text-sm text-base-content/60 mt-1"),
+                Div("Budget Used", cls="text-sm text-muted-foreground mt-1"),
                 cls="bg-warning/10 rounded-lg p-4 text-center",
             ),
             Div(
                 Div(health_status, cls="text-2xl font-bold text-primary"),
-                Div("Health Status", cls="text-sm text-base-content/60 mt-1"),
+                Div("Health Status", cls="text-sm text-muted-foreground mt-1"),
                 cls="bg-primary/10 rounded-lg p-4 text-center",
             ),
             cls="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8",
@@ -102,7 +102,7 @@ class FinanceSectionViews:
                 A(
                     "View Reports",
                     href="/finance/reports",
-                    cls="inline-flex items-center px-4 py-2 bg-base-100 border border-base-300 rounded-lg hover:bg-base-200 transition",
+                    cls="inline-flex items-center px-4 py-2 bg-background border border-border rounded-lg hover:bg-muted transition",
                 ),
                 cls="flex flex-wrap gap-3",
             ),
@@ -115,23 +115,23 @@ class FinanceSectionViews:
                 Div(
                     Div(
                         Span(exp.get("description", "Unknown"), cls="font-medium"),
-                        Span(f" - ${exp.get('amount', 0):.2f}", cls="text-base-content/60"),
+                        Span(f" - ${exp.get('amount', 0):.2f}", cls="text-muted-foreground"),
                         cls="flex-1",
                     ),
                     Div(
                         Span(
                             exp.get("category", ""),
-                            cls="text-xs px-2 py-0.5 bg-base-200 rounded",
+                            cls="text-xs px-2 py-0.5 bg-muted rounded",
                         ),
                         cls="ml-2",
                     ),
-                    cls="flex items-center justify-between py-2 border-b border-base-300 last:border-0",
+                    cls="flex items-center justify-between py-2 border-b border-border last:border-0",
                 )
                 for exp in recent_expenses[:5]
             ]
             recent_section = Div(
                 H3("Recent Expenses", cls="text-lg font-semibold mb-3"),
-                Div(*expense_items, cls="bg-base-100 border border-base-300 rounded-lg p-4"),
+                Div(*expense_items, cls="bg-background border border-border rounded-lg p-4"),
                 A(
                     "View all expenses →",
                     href="/finance/expenses",
@@ -143,13 +143,13 @@ class FinanceSectionViews:
             recent_section = Div(
                 H3("Recent Expenses", cls="text-lg font-semibold mb-3"),
                 Div(
-                    P("No expenses recorded yet.", cls="text-base-content/60"),
+                    P("No expenses recorded yet.", cls="text-muted-foreground"),
                     A(
                         "Add your first expense →",
                         href="/finance/expenses",
                         cls="text-primary text-sm",
                     ),
-                    cls="bg-base-100 border border-base-300 rounded-lg p-4",
+                    cls="bg-background border border-border rounded-lg p-4",
                 ),
                 cls="mb-8",
             )
@@ -216,16 +216,16 @@ class FinanceSectionViews:
                         Input(
                             type="date",
                             name="start_date",
-                            cls="px-3 py-2 border border-base-300 rounded-lg w-full",
+                            cls="px-3 py-2 border border-border rounded-lg w-full",
                         ),
                         cls="flex-1",
                     ),
-                    Span("to", cls="px-2 self-center text-base-content/60"),
+                    Span("to", cls="px-2 self-center text-muted-foreground"),
                     Div(
                         Input(
                             type="date",
                             name="end_date",
-                            cls="px-3 py-2 border border-base-300 rounded-lg w-full",
+                            cls="px-3 py-2 border border-border rounded-lg w-full",
                         ),
                         cls="flex-1",
                     ),
@@ -236,7 +236,7 @@ class FinanceSectionViews:
                             for cat in categories
                         ],
                         name="category",
-                        cls="px-3 py-2 border border-base-300 rounded-lg",
+                        cls="px-3 py-2 border border-border rounded-lg",
                     ),
                     Button(
                         "Filter",
@@ -249,7 +249,7 @@ class FinanceSectionViews:
                 hx_target="#expense-list",
                 hx_swap="innerHTML",
             ),
-            cls="bg-base-100 border border-base-300 rounded-lg p-4 mb-6",
+            cls="bg-background border border-border rounded-lg p-4 mb-6",
         )
 
         # Add expense form
@@ -265,7 +265,7 @@ class FinanceSectionViews:
                             step="0.01",
                             min="0.01",
                             required=True,
-                            cls="px-3 py-2 border border-base-300 rounded-lg w-full",
+                            cls="px-3 py-2 border border-border rounded-lg w-full",
                         ),
                         cls="w-32",
                     ),
@@ -275,7 +275,7 @@ class FinanceSectionViews:
                             name="description",
                             placeholder="Description",
                             required=True,
-                            cls="px-3 py-2 border border-base-300 rounded-lg w-full",
+                            cls="px-3 py-2 border border-border rounded-lg w-full",
                         ),
                         cls="flex-1",
                     ),
@@ -285,7 +285,7 @@ class FinanceSectionViews:
                             name="expense_date",
                             value=str(date.today()),
                             required=True,
-                            cls="px-3 py-2 border border-base-300 rounded-lg w-full",
+                            cls="px-3 py-2 border border-border rounded-lg w-full",
                         ),
                         cls="w-40",
                     ),
@@ -296,7 +296,7 @@ class FinanceSectionViews:
                         Option("SKUEL", value="SKUEL"),
                         name="category",
                         required=True,
-                        cls="px-3 py-2 border border-base-300 rounded-lg",
+                        cls="px-3 py-2 border border-border rounded-lg",
                     ),
                     Button(
                         "Add Expense",
@@ -319,7 +319,7 @@ class FinanceSectionViews:
                     Td(exp.get("description", ""), cls="py-3 px-4"),
                     Td(f"${exp.get('amount', 0):.2f}", cls="py-3 px-4 font-medium"),
                     Td(exp.get("category", ""), cls="py-3 px-4"),
-                    Td(str(exp.get("expense_date", "")), cls="py-3 px-4 text-base-content/60"),
+                    Td(str(exp.get("expense_date", "")), cls="py-3 px-4 text-muted-foreground"),
                     Td(
                         Span(
                             exp.get("status", "PENDING"),
@@ -327,7 +327,7 @@ class FinanceSectionViews:
                         ),
                         cls="py-3 px-4",
                     ),
-                    cls="border-b border-base-300 hover:bg-base-200",
+                    cls="border-b border-border hover:bg-muted",
                 )
                 for exp in expenses
             ]
@@ -339,7 +339,7 @@ class FinanceSectionViews:
                         Th("Category", cls="py-3 px-4 text-left font-semibold"),
                         Th("Date", cls="py-3 px-4 text-left font-semibold"),
                         Th("Status", cls="py-3 px-4 text-left font-semibold"),
-                        cls="bg-base-200",
+                        cls="bg-muted",
                     )
                 ),
                 Tbody(*expense_rows, id="expense-list"),
@@ -348,20 +348,20 @@ class FinanceSectionViews:
             list_section = Div(
                 Div(
                     H3("Expenses", cls="text-lg font-semibold"),
-                    Span(f"{total_count} total", cls="text-base-content/60 text-sm"),
+                    Span(f"{total_count} total", cls="text-muted-foreground text-sm"),
                     cls="flex items-center justify-between mb-3",
                 ),
                 Div(
                     expense_table,
-                    cls="bg-base-100 border border-base-300 rounded-lg overflow-hidden",
+                    cls="bg-background border border-border rounded-lg overflow-hidden",
                 ),
             )
         else:
             list_section = Div(
                 H3("Expenses", cls="text-lg font-semibold mb-3"),
                 Div(
-                    P("No expenses found.", cls="text-base-content/60"),
-                    cls="bg-base-100 border border-base-300 rounded-lg p-8 text-center",
+                    P("No expenses found.", cls="text-muted-foreground"),
+                    cls="bg-background border border-border rounded-lg p-8 text-center",
                 ),
                 id="expense-list",
             )
@@ -397,12 +397,12 @@ class FinanceSectionViews:
         summary = Div(
             Div(
                 Div(f"${total_budgeted:,.2f}", cls="text-2xl font-bold text-success"),
-                Div("Total Budgeted", cls="text-sm text-base-content/60 mt-1"),
+                Div("Total Budgeted", cls="text-sm text-muted-foreground mt-1"),
                 cls="bg-success/10 rounded-lg p-4 text-center",
             ),
             Div(
                 Div(f"${total_spent:,.2f}", cls="text-2xl font-bold text-info"),
-                Div("Total Spent", cls="text-sm text-base-content/60 mt-1"),
+                Div("Total Spent", cls="text-sm text-muted-foreground mt-1"),
                 cls="bg-info/10 rounded-lg p-4 text-center",
             ),
             Div(
@@ -410,12 +410,12 @@ class FinanceSectionViews:
                     f"${total_budgeted - total_spent:,.2f}",
                     cls="text-2xl font-bold text-primary",
                 ),
-                Div("Remaining", cls="text-sm text-base-content/60 mt-1"),
+                Div("Remaining", cls="text-sm text-muted-foreground mt-1"),
                 cls="bg-primary/10 rounded-lg p-4 text-center",
             ),
             Div(
                 Div(f"{utilization:.0f}%", cls="text-2xl font-bold text-warning"),
-                Div("Overall Utilization", cls="text-sm text-base-content/60 mt-1"),
+                Div("Overall Utilization", cls="text-sm text-muted-foreground mt-1"),
                 cls="bg-warning/10 rounded-lg p-4 text-center",
             ),
             cls="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8",
@@ -432,7 +432,7 @@ class FinanceSectionViews:
                             name="name",
                             placeholder="Budget Name",
                             required=True,
-                            cls="px-3 py-2 border border-base-300 rounded-lg w-full",
+                            cls="px-3 py-2 border border-border rounded-lg w-full",
                         ),
                         cls="flex-1",
                     ),
@@ -444,7 +444,7 @@ class FinanceSectionViews:
                             step="0.01",
                             min="0.01",
                             required=True,
-                            cls="px-3 py-2 border border-base-300 rounded-lg w-full",
+                            cls="px-3 py-2 border border-border rounded-lg w-full",
                         ),
                         cls="w-32",
                     ),
@@ -456,7 +456,7 @@ class FinanceSectionViews:
                         Option("Yearly", value="YEARLY"),
                         name="period",
                         required=True,
-                        cls="px-3 py-2 border border-base-300 rounded-lg",
+                        cls="px-3 py-2 border border-border rounded-lg",
                     ),
                     Select(
                         Option("Category...", value="", disabled=True, selected=True),
@@ -465,7 +465,7 @@ class FinanceSectionViews:
                         Option("SKUEL", value="SKUEL"),
                         name="category",
                         required=True,
-                        cls="px-3 py-2 border border-base-300 rounded-lg",
+                        cls="px-3 py-2 border border-border rounded-lg",
                     ),
                     Button(
                         "Create Budget",
@@ -507,14 +507,14 @@ class FinanceSectionViews:
                             H3(budget.get("name", "Budget"), cls="font-semibold"),
                             Span(
                                 budget.get("period", "Monthly"),
-                                cls="text-xs px-2 py-0.5 bg-base-200 rounded",
+                                cls="text-xs px-2 py-0.5 bg-muted rounded",
                             ),
                             cls="flex items-center justify-between mb-2",
                         ),
                         Div(
                             Span(f"${spent:,.2f}", cls="font-medium"),
-                            Span(" / ", cls="text-base-content/60"),
-                            Span(f"${limit:,.2f}", cls="text-base-content/60"),
+                            Span(" / ", cls="text-muted-foreground"),
+                            Span(f"${limit:,.2f}", cls="text-muted-foreground"),
                             cls="text-sm mb-2",
                         ),
                         # Progress bar
@@ -523,16 +523,16 @@ class FinanceSectionViews:
                                 style=f"width: {min(util_pct, 100)}%",
                                 cls=f"h-full {bar_color} rounded-full transition-all",
                             ),
-                            cls="h-2 bg-base-200 rounded-full overflow-hidden mb-2",
+                            cls="h-2 bg-muted rounded-full overflow-hidden mb-2",
                         ),
                         Div(
                             Span(f"{util_pct:.0f}% used", cls=f"text-sm {status_color}"),
                             Span(
-                                f"${remaining:,.2f} remaining", cls="text-sm text-base-content/60"
+                                f"${remaining:,.2f} remaining", cls="text-sm text-muted-foreground"
                             ),
                             cls="flex justify-between",
                         ),
-                        cls="bg-base-100 border border-base-300 rounded-lg p-4",
+                        cls="bg-background border border-border rounded-lg p-4",
                     )
                 )
             list_section = Div(
@@ -543,12 +543,12 @@ class FinanceSectionViews:
             list_section = Div(
                 H3("Active Budgets", cls="text-lg font-semibold mb-3"),
                 Div(
-                    P("No budgets created yet.", cls="text-base-content/60"),
+                    P("No budgets created yet.", cls="text-muted-foreground"),
                     P(
                         "Create your first budget to start tracking spending.",
-                        cls="text-sm text-base-content/60 mt-1",
+                        cls="text-sm text-muted-foreground mt-1",
                     ),
-                    cls="bg-base-100 border border-base-300 rounded-lg p-8 text-center",
+                    cls="bg-background border border-border rounded-lg p-8 text-center",
                 ),
                 id="budget-list",
             )
@@ -591,20 +591,20 @@ class FinanceSectionViews:
             Div(
                 Div(
                     Div(f"${month_total:,.2f}", cls="text-2xl font-bold text-info"),
-                    Div("Total Spent", cls="text-sm text-base-content/60 mt-1"),
+                    Div("Total Spent", cls="text-sm text-muted-foreground mt-1"),
                     cls="text-center",
                 ),
                 Div(
                     Div(str(expense_count), cls="text-2xl font-bold text-primary"),
-                    Div("Expenses", cls="text-sm text-base-content/60 mt-1"),
+                    Div("Expenses", cls="text-sm text-muted-foreground mt-1"),
                     cls="text-center",
                 ),
                 Div(
                     Div(f"${avg_expense:,.2f}", cls="text-2xl font-bold text-success"),
-                    Div("Average", cls="text-sm text-base-content/60 mt-1"),
+                    Div("Average", cls="text-sm text-muted-foreground mt-1"),
                     cls="text-center",
                 ),
-                cls="grid grid-cols-3 gap-4 bg-base-100 border border-base-300 rounded-lg p-6",
+                cls="grid grid-cols-3 gap-4 bg-background border border-border rounded-lg p-6",
             ),
             cls="mb-8",
         )
@@ -622,24 +622,24 @@ class FinanceSectionViews:
                         Span(f"${cat.get('amount', 0):,.2f}", cls="font-semibold"),
                         Span(
                             f" ({cat.get('percentage', 0):.0f}%)",
-                            cls="text-base-content/60 text-sm",
+                            cls="text-muted-foreground text-sm",
                         ),
                     ),
-                    cls="flex items-center justify-between py-3 border-b border-base-300 last:border-0",
+                    cls="flex items-center justify-between py-3 border-b border-border last:border-0",
                 )
                 for cat in category_breakdown
             ]
             category_section = Div(
                 H3("Spending by Category", cls="text-lg font-semibold mb-3"),
-                Div(*category_rows, cls="bg-base-100 border border-base-300 rounded-lg p-4"),
+                Div(*category_rows, cls="bg-background border border-border rounded-lg p-4"),
                 cls="mb-8",
             )
         else:
             category_section = Div(
                 H3("Spending by Category", cls="text-lg font-semibold mb-3"),
                 Div(
-                    P("No spending data available yet.", cls="text-base-content/60"),
-                    cls="bg-base-100 border border-base-300 rounded-lg p-4",
+                    P("No spending data available yet.", cls="text-muted-foreground"),
+                    cls="bg-background border border-border rounded-lg p-4",
                 ),
                 cls="mb-8",
             )
@@ -657,7 +657,7 @@ class FinanceSectionViews:
                         Div(f"${tax_total:,.2f}", cls="text-xl font-bold text-success"),
                         Div(
                             f"{tax_count} deductible expenses this year",
-                            cls="text-sm text-base-content/60",
+                            cls="text-sm text-muted-foreground",
                         ),
                     ),
                     cls="flex items-center",
@@ -709,21 +709,21 @@ class FinanceSectionViews:
             "Fair": "text-warning bg-warning/10",
             "Poor": "text-warning bg-warning/10",
             "Critical": "text-error bg-error/10",
-        }.get(health_tier, "text-base-content/70 bg-base-200")
+        }.get(health_tier, "text-muted-foreground bg-muted")
 
         health_section = Div(
             H3("Financial Health Score", cls="text-lg font-semibold mb-3"),
             Div(
                 Div(
                     Div(f"{health_score * 100:.0f}", cls="text-4xl font-bold"),
-                    Div("out of 100", cls="text-sm text-base-content/60"),
+                    Div("out of 100", cls="text-sm text-muted-foreground"),
                     cls="text-center",
                 ),
                 Div(
                     Span(health_tier, cls=f"px-4 py-2 rounded-full font-semibold {health_color}"),
                     cls="text-center mt-4",
                 ),
-                cls="bg-base-100 border border-base-300 rounded-lg p-6",
+                cls="bg-background border border-border rounded-lg p-6",
             ),
             cls="mb-8",
         )
@@ -732,12 +732,12 @@ class FinanceSectionViews:
         metrics_section = Div(
             Div(
                 Div(spending_pattern, cls="text-xl font-bold text-primary"),
-                Div("Spending Pattern", cls="text-sm text-base-content/60 mt-1"),
+                Div("Spending Pattern", cls="text-sm text-muted-foreground mt-1"),
                 cls="bg-primary/10 rounded-lg p-4 text-center",
             ),
             Div(
                 Div(f"{budget_adherence:.0f}%", cls="text-xl font-bold text-success"),
-                Div("Budget Adherence", cls="text-sm text-base-content/60 mt-1"),
+                Div("Budget Adherence", cls="text-sm text-muted-foreground mt-1"),
                 cls="bg-success/10 rounded-lg p-4 text-center",
             ),
             cls="grid grid-cols-2 gap-4 mb-8",
@@ -767,11 +767,11 @@ class FinanceSectionViews:
                     Span(pattern_icon, cls="text-3xl mr-3"),
                     Div(
                         Div(spending_pattern, cls="font-semibold"),
-                        Div(pattern_desc, cls="text-sm text-base-content/60"),
+                        Div(pattern_desc, cls="text-sm text-muted-foreground"),
                     ),
                     cls="flex items-center",
                 ),
-                cls="bg-base-100 border border-base-300 rounded-lg p-4",
+                cls="bg-background border border-border rounded-lg p-4",
             ),
             cls="mb-8",
         )
@@ -795,7 +795,7 @@ class FinanceSectionViews:
                     Span("Track recurring expenses to identify potential savings"),
                     cls="py-2",
                 ),
-                cls="bg-base-100 border border-base-300 rounded-lg p-4 divide-y divide-border",
+                cls="bg-background border border-border rounded-lg p-4 divide-y divide-border",
             ),
         )
 

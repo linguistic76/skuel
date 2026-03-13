@@ -70,7 +70,7 @@ def setup_activities_routes(rt: Any, services: "Services") -> None:
             return await BasePage(
                 Div(
                     H1("Error", cls="text-3xl font-bold text-error mb-4"),
-                    P("Failed to load user context.", cls="text-lg text-base-content/70"),
+                    P("Failed to load user context.", cls="text-lg text-muted-foreground"),
                     cls="flex flex-col items-center justify-center min-h-[400px] p-8",
                 ),
                 title="Activities",
@@ -121,7 +121,7 @@ def setup_activities_routes(rt: Any, services: "Services") -> None:
         if service is None:
             from fasthtml.common import P
 
-            return P("Service not available", cls="text-sm text-base-content/50 py-2")
+            return P("Service not available", cls="text-sm text-muted-foreground py-2")
 
         method = getattr(service, method_name)
         result: Result[list[Any]] = await method(user_uid)
@@ -133,7 +133,7 @@ def setup_activities_routes(rt: Any, services: "Services") -> None:
                 "Failed to load activity card preview",
                 extra={"slug": slug, "user_uid": user_uid, "error": str(result.error)},
             )
-            return P("Unable to load items", cls="text-sm text-base-content/50 py-2")
+            return P("Unable to load items", cls="text-sm text-muted-foreground py-2")
 
         active_items = [
             item

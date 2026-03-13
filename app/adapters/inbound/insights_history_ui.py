@@ -9,13 +9,15 @@ UI routes for viewing dismissed and actioned insights with notes.
 from dataclasses import dataclass
 from typing import Any
 
-from fasthtml.common import Div, NotStr, P, Select, Span
+from fasthtml.common import Div, NotStr, P, Span
 from starlette.requests import Request
 
 from adapters.inbound.auth import require_authenticated_user
 from core.utils.logging import get_logger
 from ui.feedback import Badge, BadgeT
+from ui.forms import Select
 from ui.insights.insight_card import InsightCard
+from ui.layout import Size
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
 from ui.patterns.empty_state import EmptyState
@@ -101,12 +103,13 @@ def create_insights_history_routes(
                         f'<option value="dismissed" {"selected" if params.history_type == "dismissed" else ""}>Dismissed Only</option>'
                         f'<option value="actioned" {"selected" if params.history_type == "actioned" else ""}>Actioned Only</option>'
                     ),
-                    cls="select select-bordered select-sm",
+                    size=Size.sm,
+                    full_width=False,
                     onchange="window.location.href='/insights/history?type=' + this.value",
                 ),
                 cls="flex items-center",
             ),
-            cls="mb-6 p-4 bg-base-200 rounded-lg flex justify-between items-center",
+            cls="mb-6 p-4 bg-muted rounded-lg flex justify-between items-center",
         )
 
         # Build insight cards with action metadata
@@ -130,21 +133,21 @@ def create_insights_history_routes(
                             f" on {action_date.strftime('%b %d, %Y at %I:%M %p')}"
                             if action_date
                             else "",
-                            cls="text-xs text-base-content/60 ml-2",
+                            cls="text-xs text-muted-foreground ml-2",
                         ),
                         cls="flex items-center mb-2",
                     ),
                     Div(
-                        Span("Your notes: ", cls="text-xs font-semibold text-base-content/70"),
+                        Span("Your notes: ", cls="text-xs font-semibold text-muted-foreground"),
                         Span(
                             action_notes if action_notes else "(No notes provided)",
-                            cls="text-xs text-base-content/60 italic",
+                            cls="text-xs text-muted-foreground italic",
                         ),
                         cls="mb-3",
                     )
                     if action_notes or insight.dismissed or insight.actioned
                     else Div(),
-                    cls="mb-2 p-3 bg-base-100 rounded-md border-l-2 "
+                    cls="mb-2 p-3 bg-background rounded-md border-l-2 "
                     + ("border-l-base-300" if insight.dismissed else "border-l-success"),
                 )
 
@@ -177,17 +180,17 @@ def create_insights_history_routes(
         stats_summary = Div(
             Div(
                 Div(
-                    P("Total Actions", cls="text-sm text-base-content/70"),
+                    P("Total Actions", cls="text-sm text-muted-foreground"),
                     P(str(len(insights)), cls="text-3xl font-bold"),
                     cls="stat",
                 ),
                 Div(
-                    P("Dismissed", cls="text-sm text-base-content/70"),
+                    P("Dismissed", cls="text-sm text-muted-foreground"),
                     P(str(dismissed_count), cls="text-3xl font-bold"),
                     cls="stat",
                 ),
                 Div(
-                    P("Actioned", cls="text-sm text-base-content/70"),
+                    P("Actioned", cls="text-sm text-muted-foreground"),
                     P(str(actioned_count), cls="text-3xl font-bold text-success"),
                     cls="stat",
                 ),

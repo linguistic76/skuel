@@ -114,13 +114,13 @@ class AtomicHabitsAnalytics:
                         Option("Last 90 days", value="90d"),
                         Option("Last 365 days", value="365d"),
                         Option("All time", value="all"),
-                        cls="select select-bordered",
+                        full_width=False,
                         hx_get="/analytics/update",
                         hx_target="#analytics-content",
                     ),
                     Span(
                         f"{start_date.strftime('%b %d, %Y')} - {end_date.strftime('%b %d, %Y')}",
-                        cls="text-sm text-base-content/70 ml-4",
+                        cls="text-sm text-muted-foreground ml-4",
                     ),
                     Button(
                         "Export Data",
@@ -154,7 +154,7 @@ class AtomicHabitsAnalytics:
                             f"{stats['avg_system_strength']:.1f}%",
                             cls="text-3xl font-bold text-blue-600",
                         ),
-                        P("Avg System Strength", cls="text-sm text-base-content/70"),
+                        P("Avg System Strength", cls="text-sm text-muted-foreground"),
                         cls="text-center",
                     ),
                 ),
@@ -166,7 +166,7 @@ class AtomicHabitsAnalytics:
                             str(stats["total_identity_votes"]),
                             cls="text-3xl font-bold text-purple-600",
                         ),
-                        P("Total Identity Votes", cls="text-sm text-base-content/70"),
+                        P("Total Identity Votes", cls="text-sm text-muted-foreground"),
                         cls="text-center",
                     ),
                 ),
@@ -178,7 +178,7 @@ class AtomicHabitsAnalytics:
                             f"{stats['habits_in_optimal_essentiality']}/{stats['total_habits']}",
                             cls="text-3xl font-bold text-green-600",
                         ),
-                        P("Optimal Essentiality", cls="text-sm text-base-content/70"),
+                        P("Optimal Essentiality", cls="text-sm text-muted-foreground"),
                         cls="text-center",
                     ),
                 ),
@@ -187,7 +187,7 @@ class AtomicHabitsAnalytics:
                 CardBody(
                     Div(
                         Span(stats["velocity_trend"], cls="text-3xl font-bold text-orange-600"),
-                        P("Velocity Trend", cls="text-sm text-base-content/70"),
+                        P("Velocity Trend", cls="text-sm text-muted-foreground"),
                         cls="text-center",
                     ),
                 ),
@@ -258,10 +258,10 @@ class AtomicHabitsAnalytics:
                 Tr(
                     Td(goal.goal_title, cls="font-medium"),
                     Td(f"{goal.system_strength * 100:.1f}%", cls=f"font-bold {strength_color}"),
-                    Td(f"{goal.velocity:.1f}", cls="text-base-content/70"),
+                    Td(f"{goal.velocity:.1f}", cls="text-muted-foreground"),
                     Td(
                         f"{goal.essential_count}/{goal.critical_count}/{goal.supporting_count}/{goal.optional_count}",
-                        cls="text-sm text-base-content/70",
+                        cls="text-sm text-muted-foreground",
                     ),
                     Td(str(goal.identity_votes), cls="text-purple-600"),
                     Td(
@@ -280,7 +280,7 @@ class AtomicHabitsAnalytics:
                 H2("🔍 System Comparison", cls="text-2xl font-bold mb-4"),
                 P(
                     "Compare habit systems across all your active goals",
-                    cls="text-base-content/70 mb-6",
+                    cls="text-muted-foreground mb-6",
                 ),
                 Table(
                     Thead(
@@ -312,7 +312,7 @@ class AtomicHabitsAnalytics:
                             '🎯 Consider migrating 1 supporting habit in "Master Python" to critical tier',
                             cls="text-sm text-blue-700",
                         ),
-                        cls="p-4 bg-base-200 rounded-lg",
+                        cls="p-4 bg-muted rounded-lg",
                     ),
                 ),
             ),
@@ -343,7 +343,7 @@ class AtomicHabitsAnalytics:
                 H2("📈 Historical Trends", cls="text-2xl font-bold mb-4"),
                 P(
                     f"System performance from {start_date.strftime('%b %d')} to {end_date.strftime('%b %d')}",
-                    cls="text-base-content/70 mb-6",
+                    cls="text-muted-foreground mb-6",
                 ),
                 # System Strength Trend
                 Div(
@@ -428,7 +428,7 @@ class AtomicHabitsAnalytics:
                         ),
                         cls="text-center",
                     ),
-                    Td("→", cls="text-2xl text-base-content/50 text-center"),
+                    Td("→", cls="text-2xl text-muted-foreground text-center"),
                     Td(
                         Span(
                             migration.to_level.upper(),
@@ -438,9 +438,9 @@ class AtomicHabitsAnalytics:
                     ),
                     Td(
                         migration.migration_date.strftime("%b %d, %Y"),
-                        cls="text-sm text-base-content/70",
+                        cls="text-sm text-muted-foreground",
                     ),
-                    Td(migration.reason, cls="text-sm italic text-base-content/70"),
+                    Td(migration.reason, cls="text-sm italic text-muted-foreground"),
                 )
             )
 
@@ -449,7 +449,7 @@ class AtomicHabitsAnalytics:
                 H2("🔄 Habit Migration Tracking", cls="text-2xl font-bold mb-4"),
                 P(
                     "See how your habits evolve in importance over time",
-                    cls="text-base-content/70 mb-6",
+                    cls="text-muted-foreground mb-6",
                 ),
                 Table(
                     Thead(
@@ -514,7 +514,7 @@ class AtomicHabitsAnalytics:
                 Tr(
                     Td(benchmark.metric, cls="font-medium"),
                     Td(f"{user_val:.1f}", cls=f"font-bold {comparison}"),
-                    Td(f"{community_val:.1f}", cls="text-base-content/70"),
+                    Td(f"{community_val:.1f}", cls="text-muted-foreground"),
                     Td(
                         Span(
                             f"{percentile}th",
@@ -531,9 +531,9 @@ class AtomicHabitsAnalytics:
                 H2("🌍 Community Benchmarking", cls="text-2xl font-bold mb-4"),
                 P(
                     "Compare your performance against anonymized community averages",
-                    cls="text-base-content/70 mb-2",
+                    cls="text-muted-foreground mb-2",
                 ),
-                P("Data from 12,487 active SKUEL users", cls="text-xs text-base-content/60 mb-6"),
+                P("Data from 12,487 active SKUEL users", cls="text-xs text-muted-foreground mb-6"),
                 Table(
                     Thead(
                         Tr(
@@ -586,7 +586,7 @@ class AtomicHabitsAnalytics:
                     H2("📥 Export Analytics", cls="text-2xl font-bold mb-4"),
                     P(
                         "Download your complete habit analytics data",
-                        cls="text-base-content/70 mb-6",
+                        cls="text-muted-foreground mb-6",
                     ),
                     # Export options
                     Div(
@@ -597,7 +597,7 @@ class AtomicHabitsAnalytics:
                                 "JSON (Developers)", value="json", selected=export_format == "json"
                             ),
                             Option("PDF Report", value="pdf", selected=export_format == "pdf"),
-                            cls="select select-bordered w-full mb-4",
+                            cls="mb-4",
                         ),
                         Label("Include:", cls="font-medium mb-2"),
                         Div(

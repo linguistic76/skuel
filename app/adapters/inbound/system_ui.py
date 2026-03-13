@@ -93,7 +93,7 @@ def create_system_ui_routes(
                     ]
                 )
             ],
-            cls="navbar bg-base-100",
+            cls="navbar bg-background",
         )
 
         # Return DaisyUI/Tailwind components with module-level imports
@@ -104,11 +104,11 @@ def create_system_ui_routes(
                     [
                         H1(
                             "Page Not Found",
-                            cls="text-4xl font-bold text-center mb-2 text-base-content",
+                            cls="text-4xl font-bold text-center mb-2 text-foreground",
                         ),
                         P(
                             "Sorry, the page you're looking for doesn't exist.",
-                            cls="text-base-content/70 text-center mb-8 text-lg",
+                            cls="text-muted-foreground text-center mb-8 text-lg",
                         ),
                         Div(
                             [
@@ -121,7 +121,7 @@ def create_system_ui_routes(
                     cls="dashboard-header",
                 ),
             ],
-            cls="tasks-dashboard p-8 bg-base-200 min-h-screen",
+            cls="tasks-dashboard p-8 bg-muted min-h-screen",
         )
 
     logger.info("✅ System UI routes registered")
@@ -152,13 +152,13 @@ def _render_login_landing_page() -> NotStr:
     <title>SKUEL - Personal Knowledge & Productivity</title>
     <link rel="stylesheet" href="/static/css/output.css?v=4">
 </head>
-<body class="h-full bg-base-300">
+<body class="h-full bg-secondary">
     <div class="flex min-h-full">
         <!-- Left side: Branding -->
         <div class="hidden lg:flex lg:w-1/2 flex-col justify-center px-12">
             <h1 class="text-5xl font-bold text-primary mb-4">SKUEL</h1>
-            <p class="text-2xl text-base-content mb-6">Your integrated personal knowledge and productivity system</p>
-            <ul class="space-y-3 text-base-content/70">
+            <p class="text-2xl text-foreground mb-6">Your integrated personal knowledge and productivity system</p>
+            <ul class="space-y-3 text-muted-foreground">
                 <li class="flex items-center gap-3">
                     <span class="text-primary/80">✓</span>
                     Track tasks, goals, and habits in one place
@@ -184,7 +184,7 @@ def _render_login_landing_page() -> NotStr:
             <h1 class="text-center text-3xl font-bold text-primary lg:hidden mb-8">SKUEL</h1>
 
             <!-- Login card -->
-            <div class="card bg-base-100 w-full max-w-sm shadow-2xl">
+            <div class="card bg-background w-full max-w-sm shadow-2xl">
                 <div class="card-body">
                     <h2 class="card-title text-2xl font-bold mb-4">Sign in</h2>
 

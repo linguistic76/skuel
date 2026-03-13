@@ -9,13 +9,14 @@ UI routes for displaying and managing event-driven insights.
 from dataclasses import dataclass
 from typing import Any
 
-from fasthtml.common import H2, H3, A, Div, Input, Label, NotStr, P, Select, Span
+from fasthtml.common import H2, H3, A, Div, Label, NotStr, P, Span
 from starlette.requests import Request
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.route_factories import parse_int_query_param
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonT
+from ui.forms import Input, Select
 from ui.insights.insight_card import InsightCard
 from ui.layout import Size
 from ui.layouts.base_page import BasePage
@@ -134,7 +135,7 @@ def create_insights_ui_routes(
                     Input(
                         type="text",
                         placeholder="Search insights...",
-                        cls="input input-bordered input-sm w-full",
+                        size=Size.sm,
                         **{"x-model": "filters.search"},
                         **{"@input.debounce.300ms": "applyFilters()"},
                     ),
@@ -153,7 +154,8 @@ def create_insights_ui_routes(
                             '<option value="choices">Choices</option>'
                             '<option value="principles">Principles</option>'
                         ),
-                        cls="select select-bordered select-sm",
+                        size=Size.sm,
+                        full_width=False,
                         **{"x-model": "filters.domain"},
                         **{"@change": "applyFilters()"},
                     ),
@@ -174,7 +176,8 @@ def create_insights_ui_routes(
                             '<option value="medium">Medium</option>'
                             '<option value="low">Low</option>'
                         ),
-                        cls="select select-bordered select-sm",
+                        size=Size.sm,
+                        full_width=False,
                         **{"x-model": "filters.impact"},
                         **{"@change": "applyFilters()"},
                     ),
@@ -193,7 +196,8 @@ def create_insights_ui_routes(
                             '<option value="principle_violation">Principle Violation</option>'
                             '<option value="learning_opportunity">Learning Opportunity</option>'
                         ),
-                        cls="select select-bordered select-sm",
+                        size=Size.sm,
+                        full_width=False,
                         **{"x-model": "filters.type"},
                         **{"@change": "applyFilters()"},
                     ),
@@ -208,7 +212,8 @@ def create_insights_ui_routes(
                             '<option value="unactioned">Not Acted On</option>'
                             '<option value="actioned">Acted On</option>'
                         ),
-                        cls="select select-bordered select-sm",
+                        size=Size.sm,
+                        full_width=False,
                         **{"x-model": "filters.status"},
                         **{"@change": "applyFilters()"},
                     ),
@@ -228,12 +233,12 @@ def create_insights_ui_routes(
                 # Loading indicator (shown during debounce/navigation)
                 Span(
                     "Filtering...",
-                    cls="text-xs text-base-content/60 loading loading-spinner loading-xs",
+                    cls="text-xs text-muted-foreground loading loading-spinner loading-xs",
                     **{"x-show": "loading"},
                 ),
                 cls="flex gap-2 mt-3 items-center",
             ),
-            cls="mb-6 p-4 bg-base-200 rounded-lg",
+            cls="mb-6 p-4 bg-muted rounded-lg",
             **{
                 "x-data": f"insightFiltersDebounced({{search: '{filters.search}', domain: '{filters.domain or ''}', impact: '{filters.impact or ''}', type: '{filters.insight_type or ''}', status: '{filters.action_status or 'all'}'}})"
             },
@@ -296,7 +301,7 @@ def create_insights_ui_routes(
                     Span("Select All", cls="ml-2 text-sm font-medium"),
                     cls="label cursor-pointer justify-start gap-2",
                 ),
-                cls="mb-4 p-3 bg-base-200 rounded-lg",
+                cls="mb-4 p-3 bg-muted rounded-lg",
             )
 
         # , Task 8: Progressive loading with HTMX infinite scroll
@@ -392,28 +397,28 @@ def create_insights_ui_routes(
                     Div(
                         **{
                             "x-data": "chartVis('/api/insights/charts/impact-distribution', 'doughnut')",
-                            "class": "bg-base-100 p-4 rounded-lg shadow",
+                            "class": "bg-background p-4 rounded-lg shadow",
                         }
                     ),
                     # Domain distribution (bar)
                     Div(
                         **{
                             "x-data": "chartVis('/api/insights/charts/domain-distribution', 'bar')",
-                            "class": "bg-base-100 p-4 rounded-lg shadow",
+                            "class": "bg-background p-4 rounded-lg shadow",
                         }
                     ),
                     # Type distribution (doughnut)
                     Div(
                         **{
                             "x-data": "chartVis('/api/insights/charts/type-distribution', 'doughnut')",
-                            "class": "bg-base-100 p-4 rounded-lg shadow",
+                            "class": "bg-background p-4 rounded-lg shadow",
                         }
                     ),
                     # Action rate (gauge)
                     Div(
                         **{
                             "x-data": "chartVis('/api/insights/charts/action-rate', 'doughnut')",
-                            "class": "bg-base-100 p-4 rounded-lg shadow",
+                            "class": "bg-background p-4 rounded-lg shadow",
                         }
                     ),
                     cls="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6",
@@ -472,22 +477,22 @@ def create_insights_ui_routes(
             H2("Insight Statistics", cls="text-2xl font-bold mb-6"),
             Div(
                 Div(
-                    P("Total Insights", cls="text-sm text-base-content/70"),
+                    P("Total Insights", cls="text-sm text-muted-foreground"),
                     P(str(stats.get("total_insights", 0)), cls="text-3xl font-bold"),
                     cls="stat",
                 ),
                 Div(
-                    P("Active Insights", cls="text-sm text-base-content/70"),
+                    P("Active Insights", cls="text-sm text-muted-foreground"),
                     P(str(stats.get("active_insights", 0)), cls="text-3xl font-bold"),
                     cls="stat",
                 ),
                 Div(
-                    P("Actioned", cls="text-sm text-base-content/70"),
+                    P("Actioned", cls="text-sm text-muted-foreground"),
                     P(str(stats.get("actioned_insights", 0)), cls="text-3xl font-bold"),
                     cls="stat",
                 ),
                 Div(
-                    P("Action Rate", cls="text-sm text-base-content/70"),
+                    P("Action Rate", cls="text-sm text-muted-foreground"),
                     P(
                         f"{stats.get('action_rate', 0):.0%}",
                         cls="text-3xl font-bold",
@@ -500,7 +505,7 @@ def create_insights_ui_routes(
                 H2("Domains", cls="text-xl font-bold mb-4 mt-8"),
                 P(
                     ", ".join(stats.get("domains", [])) or "None",
-                    cls="text-base-content/70",
+                    cls="text-muted-foreground",
                 ),
                 cls="mt-6",
             ),
@@ -573,7 +578,7 @@ def create_insights_ui_routes(
         if not new_insights:
             # No more insights - return end marker
             return Div(
-                P("No more insights to load", cls="text-center text-base-content/60 py-4"),
+                P("No more insights to load", cls="text-center text-muted-foreground py-4"),
                 id="load-more-trigger",
             )
 

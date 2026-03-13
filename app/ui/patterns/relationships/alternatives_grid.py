@@ -69,11 +69,11 @@ def render_alternatives_fragment(alternatives: list[dict[str, Any]]) -> Div:
     if not alternatives:
         return Div(
             "No alternatives defined.",
-            cls="text-base-content/70 text-sm",
+            cls="text-muted-foreground text-sm",
         )
 
     # Header row
-    headers = [Th("Criteria", cls="bg-base-200")]
+    headers = [Th("Criteria", cls="bg-muted")]
     for alt in alternatives:
         headers.append(
             Th(
@@ -81,11 +81,11 @@ def render_alternatives_fragment(alternatives: list[dict[str, Any]]) -> Div:
                     Div(alt["title"], cls="font-semibold"),
                     Div(
                         alt["entity_type"].capitalize(),
-                        cls="text-xs text-base-content/60 font-normal",
+                        cls="text-xs text-muted-foreground font-normal",
                     ),
                     cls="space-y-1",
                 ),
-                cls="bg-base-200",
+                cls="bg-muted",
             )
         )
 

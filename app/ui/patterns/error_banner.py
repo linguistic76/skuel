@@ -104,7 +104,7 @@ def render_error_banner(
         content.append(
             Details(
                 Summary("Technical Details (Dev Mode)", cls="cursor-pointer text-sm mt-2"),
-                P(technical_details, cls="text-sm mt-2 font-mono bg-base-300 p-2 rounded"),
+                P(technical_details, cls="text-sm mt-2 font-mono bg-secondary p-2 rounded"),
                 cls="mt-2",
             )
         )
@@ -170,8 +170,8 @@ def render_empty_state_with_error(
     from fasthtml.common import H3, A, Button
 
     content = [
-        H3(title, cls="text-xl font-bold text-base-content/70 mb-2"),
-        P(message, cls="text-base-content/60 mb-4"),
+        H3(title, cls="text-xl font-bold text-muted-foreground mb-2"),
+        P(message, cls="text-muted-foreground mb-4"),
     ]
 
     if action_label and action_href:

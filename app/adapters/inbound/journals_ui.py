@@ -19,13 +19,11 @@ from fasthtml.common import (
     A,
     Div,
     Form,
-    Input,
     Label,
     NotStr,
     Option,
     P,
     Script,
-    Select,
     Span,
 )
 from starlette.datastructures import UploadFile
@@ -39,6 +37,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from ui.buttons import Button, ButtonT
 from ui.feedback import get_submission_status_badge_class
+from ui.forms import Input, Select
 from ui.patterns.page_header import PageHeader
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 
@@ -169,7 +168,7 @@ def _render_report_card(report: Any) -> Any:
                     H4(report.original_filename, cls="mb-0 font-semibold"),
                     P(
                         f"{identifier} \u2022 {file_size_mb:.2f} MB",
-                        cls="text-sm text-base-content/60 mb-0",
+                        cls="text-sm text-muted-foreground mb-0",
                     ),
                     cls="flex-1",
                 ),
@@ -187,7 +186,7 @@ def _render_report_card(report: Any) -> Any:
             ),
             cls="card-body p-4",
         ),
-        cls="card bg-base-100 shadow-sm mb-2",
+        cls="card bg-background shadow-sm mb-2",
     )
 
 
@@ -195,7 +194,7 @@ def _render_reports_grid(reports: list[Any]) -> Any:
     """Render reports grid as HTML fragment for HTMX swap."""
     if not reports:
         return Div(
-            P("No journals found.", cls="text-center text-base-content/60"),
+            P("No journals found.", cls="text-center text-muted-foreground"),
             id="submissions-grid-container",
         )
 
@@ -233,14 +232,14 @@ def _render_instruction_card(ex: Any, is_first: bool = False) -> Any:
     else:
         date_str = ""
 
-    selected_cls = "ring-2 ring-primary bg-base-200" if is_first else ""
+    selected_cls = "ring-2 ring-primary bg-muted" if is_first else ""
     return Div(
         Div(
             Span(title, cls="text-sm font-semibold truncate"),
-            Span(date_str, cls="text-xs text-base-content/60 shrink-0 ml-2"),
+            Span(date_str, cls="text-xs text-muted-foreground shrink-0 ml-2"),
             cls="flex items-center justify-between",
         ),
-        cls=f"instruction-card border border-base-300 rounded-lg p-3 cursor-pointer hover:bg-base-200 transition-colors {selected_cls}",
+        cls=f"instruction-card border border-border rounded-lg p-3 cursor-pointer hover:bg-muted transition-colors {selected_cls}",
         **{
             "data-uid": uid,
             "onclick": f"selectInstruction('{uid}', this)",
@@ -269,7 +268,7 @@ def _render_instruction_list(exercises: list[Any], error: str | None = None) -> 
             _render_instruction_card(ex, is_first=(i == 0)) for i, ex in enumerate(exercises_sorted)
         )
     else:
-        parts.append(P("No saved instruction files yet.", cls="text-sm text-base-content/60"))
+        parts.append(P("No saved instruction files yet.", cls="text-sm text-muted-foreground"))
 
     return Div(*parts, id="instruction-file-list", cls="space-y-2")
 
@@ -289,11 +288,10 @@ def _render_upload_form(exercises: list[Any] | None = None) -> Any:
                             type="text",
                             name="title",
                             placeholder="Leave blank to auto-generate (e.g. Journal — mike — Mar 02, 2026 — #1)",
-                            cls="input input-bordered w-full",
                         ),
                         P(
                             "Leave blank to use the auto-generated title",
-                            cls="text-xs text-base-content/60 mt-1",
+                            cls="text-xs text-muted-foreground mt-1",
                         ),
                         cls="mb-4",
                     ),
@@ -369,10 +367,10 @@ def _render_upload_form(exercises: list[Any] | None = None) -> Any:
                             P("Select File", cls="text-center mb-0", id="file-label-text"),
                             P(
                                 "Click to browse (audio, text, PDF, images, video)",
-                                cls="text-sm text-base-content/60 text-center mt-0",
+                                cls="text-sm text-muted-foreground text-center mt-0",
                                 id="file-label-hint",
                             ),
-                            cls="p-4 text-center bg-base-200 rounded-lg cursor-pointer border-2 border-dashed border-base-300",
+                            cls="p-4 text-center bg-muted rounded-lg cursor-pointer border-2 border-dashed border-border",
                             **{"x-on:click": "document.getElementById('file-input').click()"},
                         ),
                         cls="mb-4",
@@ -433,7 +431,7 @@ def _render_upload_form(exercises: list[Any] | None = None) -> Any:
                     }"""
                 },
             ),
-            cls="card bg-base-100 shadow-sm hover:shadow-md transition-shadow",
+            cls="card bg-background shadow-sm hover:shadow-md transition-shadow",
         ),
     )
 
@@ -445,9 +443,9 @@ def _upload_form_script() -> Any:
         // Global: highlight selected instruction card and store its uid
         function selectInstruction(uid, el) {
             document.querySelectorAll('.instruction-card').forEach(function(c) {
-                c.classList.remove('ring-2', 'ring-primary', 'bg-base-200');
+                c.classList.remove('ring-2', 'ring-primary', 'bg-muted');
             });
-            if (el) el.classList.add('ring-2', 'ring-primary', 'bg-base-200');
+            if (el) el.classList.add('ring-2', 'ring-primary', 'bg-muted');
             var inp = document.getElementById('exercise-uid-input');
             if (inp) inp.value = uid || '';
         }
@@ -538,7 +536,6 @@ def _render_filters_section() -> Any:
                         Option("Completed", value="completed"),
                         Option("Failed", value="failed"),
                         name="status",
-                        cls="select select-bordered w-full",
                     ),
                     cls="mb-2",
                 ),
@@ -552,14 +549,14 @@ def _render_filters_section() -> Any:
             ),
             cls="card-body",
         ),
-        cls="card bg-base-100 shadow-sm mb-6",
+        cls="card bg-background shadow-sm mb-6",
     )
 
 
 def _render_reports_grid_container() -> Any:
     """Render the HTMX-loading reports grid container."""
     return Div(
-        P("Loading AI reports...", cls="text-center text-base-content/60"),
+        P("Loading AI reports...", cls="text-center text-muted-foreground"),
         id="submissions-grid-container",
         cls="mt-4",
         **{

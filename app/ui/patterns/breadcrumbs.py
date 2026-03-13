@@ -54,7 +54,7 @@ def Breadcrumbs(
             # Current page (no link)
             crumbs.append(
                 Li(
-                    Span(item["title"], cls="text-base-content/70"),
+                    Span(item["title"], cls="text-muted-foreground"),
                     cls="breadcrumb-current",
                 )
             )

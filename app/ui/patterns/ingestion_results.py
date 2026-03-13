@@ -177,7 +177,7 @@ def ErrorsTable(errors: list[dict[str, Any]]) -> FT:
                             Td(error.get("error", "Unknown error"), cls="text-sm"),
                             Td(
                                 error.get("suggestion", "—"),
-                                cls="text-sm text-base-content/70",
+                                cls="text-sm text-muted-foreground",
                             ),
                         )
                         for error in errors
@@ -222,7 +222,7 @@ def ProgressIndicator(operation_id: str) -> FT:
                 cls="bg-primary h-4 rounded transition-all duration-300",
                 **{"x-bind:style": "{ width: percentage + '%' }"},
             ),
-            cls="w-full bg-base-300 rounded h-4 mb-2 overflow-hidden",
+            cls="w-full bg-secondary rounded h-4 mb-2 overflow-hidden",
         ),
         # Stats
         Div(
@@ -236,7 +236,7 @@ def ProgressIndicator(operation_id: str) -> FT:
         Div(
             Strong("Current: "),
             Span(**{"x-text": "currentFile"}, cls="font-mono text-xs"),
-            cls="text-sm text-base-content/70 mb-2 truncate",
+            cls="text-sm text-muted-foreground mb-2 truncate",
         ),
         # ETA
         Div(
@@ -252,7 +252,7 @@ def ProgressIndicator(operation_id: str) -> FT:
             cls="text-sm mt-2",
         ),
         **{"x-data": f"ingestionProgress('{operation_id}')"},
-        cls="ingestion-progress-indicator p-4 bg-base-200 rounded-lg",
+        cls="ingestion-progress-indicator p-4 bg-muted rounded-lg",
     )
 
 

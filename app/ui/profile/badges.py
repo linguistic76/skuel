@@ -50,12 +50,12 @@ def CountBadge(count: int, active: int | None = None) -> Span:
     if active is not None and active > 0:
         return Span(
             f"{active}/{count}",
-            cls="text-xs font-medium text-base-content/60 bg-base-200 px-2 py-0.5 rounded-full",
+            cls="text-xs font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded-full",
         )
 
     return Span(
         str(count),
-        cls="text-xs font-medium text-base-content/60 bg-base-200 px-2 py-0.5 rounded-full",
+        cls="text-xs font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded-full",
     )
 
 
@@ -81,7 +81,7 @@ def DomainSidebarItem(domain: "ProfileDomainItem", is_active: bool) -> A:
             "bg-primary/10 text-primary font-semibold border-l-4 border-primary -ml-1 pl-4"
         )
     else:
-        state_classes = "text-base-content/70 hover:text-base-content hover:bg-base-100"
+        state_classes = "text-muted-foreground hover:text-foreground hover:bg-background"
 
     return A(
         # Left side: icon + name

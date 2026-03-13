@@ -74,7 +74,7 @@ def _build_field(spec: dict[str, Any]) -> Div:
 
     help_text = spec.get("help_text")
     if help_text:
-        children.append(P(help_text, cls="text-sm text-base-content/70 mt-1"))
+        children.append(P(help_text, cls="text-sm text-muted-foreground mt-1"))
 
     return Div(*children, cls="form-control")
 
@@ -103,7 +103,7 @@ def render_inline_form_template(
     if title:
         header_parts.append(H3(title, cls="text-base font-semibold mb-2"))
     if instructions:
-        header_parts.append(P(instructions, cls="text-sm text-base-content/70 mb-4"))
+        header_parts.append(P(instructions, cls="text-sm text-muted-foreground mb-4"))
 
     # Success/error feedback container
     feedback = Div(id=f"form-feedback-{form_template_uid}", cls="mt-2")
@@ -122,7 +122,7 @@ def render_inline_form_template(
             },
             cls="space-y-4",
         ),
-        cls="form-template-container border border-base-200 rounded-lg p-6 my-6",
+        cls="form-template-container border border-border rounded-lg p-6 my-6",
     )
 
 

@@ -405,7 +405,7 @@ def create_principles_ui_routes(
         return Div(
             *principle_items
             if principle_items
-            else [P("No principles found.", cls="text-base-content/60 text-center py-8")],
+            else [P("No principles found.", cls="text-muted-foreground text-center py-8")],
             id="principle-list",
             cls="space-y-3",
         )
@@ -536,7 +536,7 @@ def create_principles_ui_routes(
             return await BasePage(
                 content=Card(
                     H2("Principle Not Found", cls="text-xl font-bold text-error mb-4"),
-                    P(f"Could not find principle: {uid}", cls="text-base-content/70"),
+                    P(f"Could not find principle: {uid}", cls="text-muted-foreground"),
                     Button(
                         "← Back to Principles",
                         **{"hx-get": "/principles", "hx-target": "body"},
@@ -587,7 +587,7 @@ def create_principles_ui_routes(
             ]
         else:
             reflection_cards = [
-                P("No reflections recorded yet.", cls="text-base-content/60 text-center py-4")
+                P("No reflections recorded yet.", cls="text-muted-foreground text-center py-4")
             ]
 
         reflection_section = Div(
@@ -604,7 +604,7 @@ def create_principles_ui_routes(
                 cls="flex items-center justify-between mb-4",
             ),
             Div(*reflection_cards, cls="space-y-3"),
-            cls="card bg-base-100 shadow-lg p-6 mt-4",
+            cls="card bg-background shadow-lg p-6 mt-4",
         )
 
         # Build detail content inline
@@ -617,12 +617,12 @@ def create_principles_ui_routes(
                 Span(category_str.title(), cls="badge badge-outline"),
                 Span("Inactive", cls="badge badge-ghost ml-2") if not is_active else "",
                 # Statement
-                P(statement, cls="text-lg text-base-content/70 mt-4 italic") if statement else "",
+                P(statement, cls="text-lg text-muted-foreground mt-4 italic") if statement else "",
                 # Description
                 (
                     Div(
                         H3("Description", cls="font-semibold mt-6 mb-2"),
-                        P(description or "No description provided.", cls="text-base-content/70"),
+                        P(description or "No description provided.", cls="text-muted-foreground"),
                     )
                     if description
                     else ""
@@ -631,7 +631,7 @@ def create_principles_ui_routes(
                 (
                     Div(
                         H3("Why This Matters", cls="font-semibold mt-6 mb-2"),
-                        P(why_important or "Not specified.", cls="text-base-content/70"),
+                        P(why_important or "Not specified.", cls="text-muted-foreground"),
                     )
                     if why_important
                     else ""

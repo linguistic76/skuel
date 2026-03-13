@@ -37,7 +37,7 @@ def render_submission_card(submission: Any, is_pinned: bool = False) -> Any:
                     H4(submission.original_filename, cls="mb-0 font-semibold"),
                     P(
                         f"{identifier} \u2022 {file_size_mb:.2f} MB",
-                        cls="text-sm text-base-content/60 mb-0",
+                        cls="text-sm text-muted-foreground mb-0",
                     ),
                     cls="flex-1",
                 ),
@@ -60,7 +60,7 @@ def render_submission_card(submission: Any, is_pinned: bool = False) -> Any:
             ),
             cls="card-body p-4",
         ),
-        cls="card bg-base-100 shadow-sm mb-2",
+        cls="card bg-background shadow-sm mb-2",
     )
 
 
@@ -68,7 +68,7 @@ def render_submissions_grid(submissions: list[Any]) -> Any:
     """Render submissions grid as HTML fragment for HTMX swap."""
     if not submissions:
         return Div(
-            P("No submissions found.", cls="text-center text-base-content/60"),
+            P("No submissions found.", cls="text-center text-muted-foreground"),
             id="submissions-grid-container",
         )
 
@@ -88,15 +88,15 @@ def render_submission_detail(submission: Any) -> Any:
     return Div(
         Div(
             Div(
-                P("Filename", cls="text-xs text-base-content/60 mb-0"),
+                P("Filename", cls="text-xs text-muted-foreground mb-0"),
                 P(submission.original_filename, cls="mb-0 font-bold"),
             ),
             Div(
-                P("Identifier", cls="text-xs text-base-content/60 mb-0"),
+                P("Identifier", cls="text-xs text-muted-foreground mb-0"),
                 P(identifier, cls="mb-0 font-semibold"),
             ),
             Div(
-                P("Status", cls="text-xs text-base-content/60 mb-0"),
+                P("Status", cls="text-xs text-muted-foreground mb-0"),
                 P(
                     Span(
                         submission.status,
@@ -106,15 +106,15 @@ def render_submission_detail(submission: Any) -> Any:
                 ),
             ),
             Div(
-                P("File Size", cls="text-xs text-base-content/60 mb-0"),
+                P("File Size", cls="text-xs text-muted-foreground mb-0"),
                 P(f"{file_size_mb:.2f} MB", cls="mb-0"),
             ),
             Div(
-                P("Processing Duration", cls="text-xs text-base-content/60 mb-0"),
+                P("Processing Duration", cls="text-xs text-muted-foreground mb-0"),
                 P(f"{processing_duration or 'N/A'} seconds", cls="mb-0"),
             ),
             Div(
-                P("Created", cls="text-xs text-base-content/60 mb-0"),
+                P("Created", cls="text-xs text-muted-foreground mb-0"),
                 P(str(created_at) if created_at else "N/A", cls="mb-0"),
             ),
             cls="grid grid-cols-1 md:grid-cols-2 gap-4",
@@ -155,14 +155,14 @@ def render_processed_content(content: str | None, has_content: bool) -> Any:
     """Render processed content as HTML fragment."""
     if not has_content or not content:
         return Div(
-            P("No processed content available.", cls="text-base-content/60"),
+            P("No processed content available.", cls="text-muted-foreground"),
             id="processed-content",
-            cls="p-4 bg-base-200 rounded-lg",
+            cls="p-4 bg-muted rounded-lg",
         )
 
     return Div(
         Div(content, cls="text-sm", style="white-space: pre-wrap"),
         id="processed-content",
-        cls="p-4 bg-base-200 rounded-lg",
+        cls="p-4 bg-muted rounded-lg",
         style="max-height: 600px; overflow-y: auto;",
     )

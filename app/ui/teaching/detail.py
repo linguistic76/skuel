@@ -50,13 +50,13 @@ def render_submission_content(detail: dict[str, Any]) -> Div:
             Div(
                 Span(
                     "Exercise instructions",
-                    cls="text-xs font-semibold text-base-content/50 uppercase tracking-wide",
+                    cls="text-xs font-semibold text-muted-foreground uppercase tracking-wide",
                 ),
                 P(
                     exercise_instructions,
-                    cls="text-sm text-base-content/70 whitespace-pre-wrap mt-1",
+                    cls="text-sm text-muted-foreground whitespace-pre-wrap mt-1",
                 ),
-                cls="p-3 bg-base-200/50 rounded",
+                cls="p-3 bg-muted/50 rounded",
             ),
             cls="mb-3",
         )
@@ -66,7 +66,7 @@ def render_submission_content(detail: dict[str, Any]) -> Div:
             Div(
                 Div(
                     H4(title, cls="font-semibold mb-1"),
-                    P(" · ".join(meta_parts), cls="text-sm text-base-content/60 mb-0"),
+                    P(" · ".join(meta_parts), cls="text-sm text-muted-foreground mb-0"),
                     cls="flex-1",
                 ),
                 Div(
@@ -80,14 +80,14 @@ def render_submission_content(detail: dict[str, Any]) -> Div:
             Div(
                 Span(
                     "Submission content",
-                    cls="text-xs font-semibold text-base-content/50 uppercase tracking-wide",
+                    cls="text-xs font-semibold text-muted-foreground uppercase tracking-wide",
                 ),
                 P(display_content, cls="text-sm whitespace-pre-wrap mt-1"),
-                cls="p-3 bg-base-200/30 rounded border border-base-300",
+                cls="p-3 bg-muted/30 rounded border border-border",
             ),
             cls="card-body p-4",
         ),
-        cls="card bg-base-100 shadow-sm mb-4",
+        cls="card bg-background shadow-sm mb-4",
     )
 
 
@@ -118,7 +118,7 @@ def render_exercise_submission_row(item: dict[str, Any]) -> Div:
             Div(
                 Div(
                     H4(title, cls="mb-0 font-semibold"),
-                    P(f"by {student_name}", cls="text-sm text-base-content/60 mb-0"),
+                    P(f"by {student_name}", cls="text-sm text-muted-foreground mb-0"),
                     cls="flex-1",
                 ),
                 Div(
@@ -138,7 +138,7 @@ def render_exercise_submission_row(item: dict[str, Any]) -> Div:
             ),
             cls="card-body p-4",
         ),
-        cls="card bg-base-100 shadow-sm mb-2",
+        cls="card bg-background shadow-sm mb-2",
     )
 
 
@@ -152,7 +152,7 @@ def render_student_submission_row(item: dict[str, Any]) -> Div:
 
     exercise_label: Any = ""
     if exercise_title:
-        exercise_label = Span(f"Exercise: {exercise_title}", cls="text-xs text-base-content/50")
+        exercise_label = Span(f"Exercise: {exercise_title}", cls="text-xs text-muted-foreground")
 
     feedback_indicator: Any = ""
     if feedback_count > 0:
@@ -203,7 +203,7 @@ def render_student_submission_row(item: dict[str, Any]) -> Div:
             feedback_toggle,
             cls="card-body p-4",
         ),
-        cls="card bg-base-100 shadow-sm mb-2",
+        cls="card bg-background shadow-sm mb-2",
     )
 
 
@@ -223,7 +223,7 @@ def render_class_member_row(item: dict[str, Any]) -> Div:
             Div(
                 Div(
                     H4(user_name, cls="mb-0 font-semibold"),
-                    P(f"{role} · {user_uid}", cls="text-xs text-base-content/40 mb-0"),
+                    P(f"{role} · {user_uid}", cls="text-xs text-foreground/40 mb-0"),
                     cls="flex-1",
                 ),
                 Div(
@@ -243,5 +243,5 @@ def render_class_member_row(item: dict[str, Any]) -> Div:
             ),
             cls="card-body p-4",
         ),
-        cls="card bg-base-100 shadow-sm mb-2",
+        cls="card bg-background shadow-sm mb-2",
     )

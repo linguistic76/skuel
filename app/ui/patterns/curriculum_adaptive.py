@@ -57,7 +57,7 @@ def SELCategoryCard(category: SELCategory, progress: CurriculumProgress) -> Any:
         ),
         P(
             f"{progress.completion_percentage:.0f}% complete",
-            cls="text-sm text-base-content/70 mt-1 text-center",
+            cls="text-sm text-muted-foreground mt-1 text-center",
         ),
         cls="mt-3",
     )
@@ -113,12 +113,12 @@ def SELJourneyOverview(journey: LearningJourney) -> Div:
             H1("Your Learning Journey", cls="text-2xl font-bold"),
             P(
                 "Social Emotional Learning: Build competencies across 5 core areas",
-                cls="text-lg text-base-content/70",
+                cls="text-lg text-muted-foreground",
             ),
             Div(
                 P(
                     f"Overall Completion: {journey.overall_completion:.0f}%",
-                    cls="text-sm text-base-content/70 mb-2",
+                    cls="text-sm text-muted-foreground mb-2",
                 ),
                 Progress(
                     value=int(journey.overall_completion),

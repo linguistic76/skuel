@@ -79,7 +79,7 @@ def _wrap_calendar_page(navbar: Any, content: Any, title: str = "Calendar") -> A
         Body(
             navbar,
             content,
-            cls="bg-base-100 min-h-screen",
+            cls="bg-background min-h-screen",
             **{"x-data": "calendarPage()"},
         ),
     )
@@ -152,7 +152,7 @@ def _render_item_details_modal(item: Any) -> Div:
     if item.priority:
         priority_stars = Span(
             "⭐" * item.priority,
-            cls="text-sm text-base-content/60 ml-4",
+            cls="text-sm text-muted-foreground ml-4",
         )
 
     # Schedule info
@@ -166,15 +166,15 @@ def _render_item_details_modal(item: Any) -> Div:
     if item.is_recurring:
         recurrence_info = P(
             f"🔁 Recurring: {item.recurrence_pattern}",
-            cls="text-sm text-base-content/60 mt-1",
+            cls="text-sm text-muted-foreground mt-1",
         )
 
     # Description section
     description_section = None
     if item.description:
         description_section = Div(
-            P("Description", cls="text-sm font-semibold text-base-content/70 mb-2"),
-            P(item.description, cls="text-base-content/60"),
+            P("Description", cls="text-sm font-semibold text-muted-foreground mb-2"),
+            P(item.description, cls="text-muted-foreground"),
             cls="mb-4",
         )
 
@@ -185,16 +185,16 @@ def _render_item_details_modal(item: Any) -> Div:
         if item.location:
             event_details.append(
                 P(
-                    Span("📍 Location:", cls="font-semibold text-base-content/70"),
-                    Span(item.location, cls="text-base-content/60 ml-2"),
+                    Span("📍 Location:", cls="font-semibold text-muted-foreground"),
+                    Span(item.location, cls="text-muted-foreground ml-2"),
                     cls="text-sm mb-2",
                 )
             )
         if item.is_online:
             event_details.append(
                 P(
-                    Span("💻 Format:", cls="font-semibold text-base-content/70"),
-                    Span("Online Meeting", cls="text-base-content/60 ml-2"),
+                    Span("💻 Format:", cls="font-semibold text-muted-foreground"),
+                    Span("Online Meeting", cls="text-muted-foreground ml-2"),
                     cls="text-sm mb-2",
                 )
             )
@@ -202,7 +202,7 @@ def _render_item_details_modal(item: Any) -> Div:
             attendee_badges = [
                 Span(
                     email,
-                    cls="px-2 py-1 bg-base-100 border border-info/20 text-info rounded text-xs mr-1 mb-1",
+                    cls="px-2 py-1 bg-background border border-info/20 text-info rounded text-xs mr-1 mb-1",
                 )
                 for email in list(item.attendee_emails)[:5]
             ]
@@ -211,7 +211,7 @@ def _render_item_details_modal(item: Any) -> Div:
                     P(
                         f"👥 Attendees ({len(item.attendee_emails)}"
                         + (f"/{item.max_attendees})" if item.max_attendees else ")"),
-                        cls="text-sm font-semibold text-base-content/70 mb-1",
+                        cls="text-sm font-semibold text-muted-foreground mb-1",
                     ),
                     Div(*attendee_badges, cls="flex flex-wrap"),
                     cls="mt-2",
@@ -236,7 +236,7 @@ def _render_item_details_modal(item: Any) -> Div:
     if item.tags:
         tag_badges = [Span(tag, cls="badge badge-info badge-sm mr-1") for tag in item.tags]
         tags_section = Div(
-            P("Tags", cls="text-sm font-semibold text-base-content/70 mb-2"),
+            P("Tags", cls="text-sm font-semibold text-muted-foreground mb-2"),
             Div(*tag_badges, cls="flex flex-wrap"),
             cls="mb-4",
         )
@@ -297,7 +297,7 @@ def _render_item_details_modal(item: Any) -> Div:
                             '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>'
                             "</svg>"
                         ),
-                        cls="btn btn-ghost btn-sm text-base-content/50 hover:text-base-content/70",
+                        cls="btn btn-ghost btn-sm text-muted-foreground hover:text-muted-foreground",
                         onclick="document.getElementById('item-details-modal').remove()",
                     ),
                     cls="flex justify-between items-start mb-4",
@@ -306,10 +306,10 @@ def _render_item_details_modal(item: Any) -> Div:
                 Div(type_badge, priority_stars, cls="flex items-center space-x-4 mb-4"),
                 # Schedule
                 Div(
-                    P("Schedule", cls="text-sm font-semibold text-base-content/70 mb-2"),
-                    P(schedule_text, cls="text-sm text-base-content/60"),
+                    P("Schedule", cls="text-sm font-semibold text-muted-foreground mb-2"),
+                    P(schedule_text, cls="text-sm text-muted-foreground"),
                     recurrence_info,
-                    cls="bg-base-200 p-4 rounded-lg mb-4",
+                    cls="bg-muted p-4 rounded-lg mb-4",
                 ),
                 # Description
                 description_section,
@@ -321,7 +321,7 @@ def _render_item_details_modal(item: Any) -> Div:
                 tags_section,
                 # Actions
                 Div(*action_buttons, cls="flex pt-4 border-t"),
-                cls="bg-base-100 rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto",
+                cls="bg-background rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto",
             ),
             cls="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50",
             onclick="if(event.target === this) document.getElementById('item-details-modal').remove()",
@@ -684,7 +684,7 @@ def create_calendar_ui_routes(_app, rt, calendar_service, habits_service=None):
             return Div(
                 P(
                     f"✓ Would record {status} (service not available)",
-                    cls="text-base-content/60 text-sm",
+                    cls="text-muted-foreground text-sm",
                 ),
                 cls="alert",
             )
@@ -713,13 +713,13 @@ def create_calendar_ui_routes(_app, rt, calendar_service, habits_service=None):
             Div(
                 Div(
                     H2("Error", cls="text-xl font-bold text-error mb-2"),
-                    P("Calendar item not found", cls="text-base-content/70"),
+                    P("Calendar item not found", cls="text-muted-foreground"),
                     Button(
                         "Close",
                         cls="mt-4 btn btn-ghost",
                         onclick="document.getElementById('item-details-modal').remove()",
                     ),
-                    cls="bg-base-100 rounded-lg p-6 max-w-md w-full mx-4",
+                    cls="bg-background rounded-lg p-6 max-w-md w-full mx-4",
                 ),
                 cls="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50",
                 onclick="if(event.target === this) document.getElementById('item-details-modal').remove()",

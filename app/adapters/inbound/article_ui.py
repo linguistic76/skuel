@@ -318,14 +318,14 @@ class KuUIComponents:
                 H3("💡 Recommended for You", cls="text-lg font-semibold mb-4"),
                 P(
                     "Personalized knowledge recommendations will appear here",
-                    cls="text-base-content/60",
+                    cls="text-muted-foreground",
                 ),
                 cls="p-6 mb-6",
             ),
             # Knowledge paths
             Card(
                 H3("🛤️ Learning Paths", cls="text-lg font-semibold mb-4"),
-                P("Suggested learning paths based on your interests", cls="text-base-content/60"),
+                P("Suggested learning paths based on your interests", cls="text-muted-foreground"),
                 cls="p-6",
             ),
             cls="container mx-auto p-6",
@@ -339,7 +339,7 @@ class KuUIComponents:
             # Growth metrics
             Card(
                 H3("📈 Growth Metrics", cls="text-lg font-semibold mb-4"),
-                P("Knowledge base growth and usage analytics", cls="text-base-content/60"),
+                P("Knowledge base growth and usage analytics", cls="text-muted-foreground"),
                 cls="p-6 mb-6",
             ),
             # Connection analysis
@@ -347,7 +347,7 @@ class KuUIComponents:
                 H3("🕸️ Connection Analysis", cls="text-lg font-semibold mb-4"),
                 P(
                     "Knowledge graph connectivity and relationship insights",
-                    cls="text-base-content/60",
+                    cls="text-muted-foreground",
                 ),
                 cls="p-6 mb-6",
             ),
@@ -356,7 +356,7 @@ class KuUIComponents:
                 H3("🎯 Domain Insights", cls="text-lg font-semibold mb-4"),
                 P(
                     "Knowledge distribution and domain expertise mapping",
-                    cls="text-base-content/60",
+                    cls="text-muted-foreground",
                 ),
                 cls="p-6",
             ),
@@ -432,7 +432,7 @@ def create_article_ui_routes(_app, rt, ku_service):
                 Div(
                     P(
                         "Loading your learning journey...",
-                        cls="text-center py-4 text-base-content/70",
+                        cls="text-center py-4 text-muted-foreground",
                     ),
                     cls="animate-pulse",
                 ),
@@ -447,7 +447,7 @@ def create_article_ui_routes(_app, rt, ku_service):
             # KU cards (loaded via HTMX, filtered by tab)
             Div(
                 Div(
-                    P("Loading knowledge units...", cls="text-center py-8 text-base-content/70"),
+                    P("Loading knowledge units...", cls="text-center py-8 text-muted-foreground"),
                     cls="animate-pulse",
                 ),
                 hx_get=f"/article/filter?sel_category={sel_param}"
@@ -495,7 +495,7 @@ def create_article_ui_routes(_app, rt, ku_service):
             H1("🕸️ Knowledge Graph", cls="text-2xl font-bold mb-6"),
             P(
                 "Interactive knowledge graph visualization will be implemented here",
-                cls="text-base-content/60",
+                cls="text-muted-foreground",
             ),
             cls="p-6 container mx-auto",
         )
@@ -546,7 +546,7 @@ def create_article_ui_routes(_app, rt, ku_service):
                 cls="grid grid-cols-1 md:grid-cols-2 gap-4",
             )
             if knowledge
-            else P("No knowledge units found", cls="text-center text-base-content/70 py-8")
+            else P("No knowledge units found", cls="text-center text-muted-foreground py-8")
         )
 
     @rt("/article/moc-nav")
@@ -573,7 +573,7 @@ def create_article_ui_routes(_app, rt, ku_service):
             H2("🧠 Knowledge Details", cls="text-xl font-bold mb-4"),
             P(
                 f"Detailed view for knowledge unit {uid} will be implemented here",
-                cls="text-base-content/60",
+                cls="text-muted-foreground",
             ),
             cls="p-6",
         )
@@ -585,7 +585,7 @@ def create_article_ui_routes(_app, rt, ku_service):
             H2("✏️ Edit Knowledge", cls="text-xl font-bold mb-4"),
             P(
                 f"Edit form for knowledge unit {uid} will be implemented here",
-                cls="text-base-content/60",
+                cls="text-muted-foreground",
             ),
             cls="p-6",
         )
@@ -597,7 +597,7 @@ def create_article_ui_routes(_app, rt, ku_service):
             H2("🕸️ Knowledge Graph", cls="text-xl font-bold mb-4"),
             P(
                 f"Graph view centered on knowledge unit {uid} will be implemented here",
-                cls="text-base-content/60",
+                cls="text-muted-foreground",
             ),
             cls="p-6",
         )

@@ -73,7 +73,7 @@ def create_ingestion_ui_routes(
         return Card(
             CardBody(
                 SectionHeader(title),
-                P(description, cls="text-base-content/60 -mt-4 mb-4"),
+                P(description, cls="text-muted-foreground -mt-4 mb-4"),
                 Form(
                     *form_groups,
                     Div(
@@ -88,7 +88,7 @@ def create_ingestion_ui_routes(
                     cls="space-y-4",
                 ),
             ),
-            cls="bg-base-100 shadow-sm border border-base-200",
+            cls="bg-background shadow-sm border border-border",
         )
 
     @rt("/ingest")
@@ -143,12 +143,12 @@ def create_ingestion_ui_routes(
                         Pre(
                             "",
                             id="ingest-results",
-                            cls="bg-base-200 p-4 rounded-lg text-sm font-mono whitespace-pre-wrap text-base-content/70",
+                            cls="bg-muted p-4 rounded-lg text-sm font-mono whitespace-pre-wrap text-muted-foreground",
                         ),
                     ),
                 ),
                 id="ingest-details-card",
-                cls="bg-base-100 shadow-sm border border-base-200 mt-3 hidden",
+                cls="bg-background shadow-sm border border-border mt-3 hidden",
             ),
             # JavaScript for ingestion operations
             NotStr("""
@@ -202,7 +202,7 @@ def create_ingestion_ui_routes(
                 }
 
                 detailsEl.textContent = JSON.stringify(result, null, 2);
-                detailsEl.classList.remove('text-base-content/70', 'text-success', 'text-error');
+                detailsEl.classList.remove('text-muted-foreground', 'text-success', 'text-error');
                 detailsEl.classList.add(isError ? 'text-error' : 'text-success');
                 detailsCard.classList.remove('hidden');
                 statusEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });

@@ -114,7 +114,7 @@ class FinanceUIComponents:
             expense,
             display_fields=display_fields,
             field_renderers={"amount": render_amount},
-            card_attrs={"id": f"expense-{uid}", "cls": "border border-base-200 p-4"},
+            card_attrs={"id": f"expense-{uid}", "cls": "border border-border p-4"},
         )
 
         buttons = [
@@ -158,7 +158,7 @@ class FinanceUIComponents:
             budget,
             display_fields=display_fields,
             field_renderers={"amount_limit": render_amount_limit},
-            card_attrs={"id": f"budget-{uid}", "cls": "border border-base-200 p-4"},
+            card_attrs={"id": f"budget-{uid}", "cls": "border border-border p-4"},
         )
 
         buttons = [

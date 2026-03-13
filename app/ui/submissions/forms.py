@@ -10,17 +10,16 @@ from typing import Any
 from fasthtml.common import (
     Div,
     Form,
-    Input,
-    Label,
     NotStr,
     Option,
     P,
     Script,
-    Select,
     Span,
 )
 
 from ui.buttons import Button, ButtonT
+from ui.forms import Input, Label, Select
+from ui.layout import Size
 
 
 def render_upload_form(
@@ -43,11 +42,10 @@ def render_upload_form(
             Select(
                 *exercise_options,
                 name="fulfills_exercise_uid",
-                cls="select select-bordered w-full",
             ),
             P(
                 "Link this submission to a teacher exercise",
-                cls="text-xs text-base-content/60 mt-1",
+                cls="text-xs text-muted-foreground mt-1",
             ),
             cls="mb-4",
         )
@@ -62,12 +60,11 @@ def render_upload_form(
                         type="text",
                         name="identifier",
                         placeholder="e.g. meditation-basics, yoga-101",
-                        cls="input input-bordered w-full",
                         required=True,
                     ),
                     P(
                         "A short label linking this submission to a Knowledge Unit",
-                        cls="text-xs text-base-content/60 mt-1",
+                        cls="text-xs text-muted-foreground mt-1",
                     ),
                     cls="mb-4",
                 ),
@@ -77,9 +74,9 @@ def render_upload_form(
                             P("Select File", cls="text-center mb-0"),
                             P(
                                 "Click to browse for files (audio, text, PDF, images, video)",
-                                cls="text-sm text-base-content/60 text-center mt-0",
+                                cls="text-sm text-muted-foreground text-center mt-0",
                             ),
-                            cls="p-4 text-center bg-base-200 rounded-lg cursor-pointer border-2 border-dashed border-base-300",
+                            cls="p-4 text-center bg-muted rounded-lg cursor-pointer border-2 border-dashed border-border",
                         ),
                         Input(
                             type="file",
@@ -111,7 +108,7 @@ def render_upload_form(
             ),
             cls="card-body",
         ),
-        cls="card bg-base-100 shadow-sm hover:shadow-md transition-shadow",
+        cls="card bg-background shadow-sm hover:shadow-md transition-shadow",
     )
 
 
@@ -162,7 +159,6 @@ def render_filters_section() -> Any:
                             Option("Progress Report", value="progress"),
                             Option("Assessment", value="assessment"),
                             name="report_type",
-                            cls="select select-bordered w-full",
                         ),
                         cls="flex-1",
                     ),
@@ -177,7 +173,6 @@ def render_filters_section() -> Any:
                             Option("Failed", value="failed"),
                             Option("Manual Review", value="manual_review"),
                             name="status",
-                            cls="select select-bordered w-full",
                         ),
                         cls="flex-1",
                     ),
@@ -193,14 +188,14 @@ def render_filters_section() -> Any:
             ),
             cls="card-body",
         ),
-        cls="card bg-base-100 shadow-sm mb-6",
+        cls="card bg-background shadow-sm mb-6",
     )
 
 
 def render_submissions_grid_container() -> Any:
     """Render the HTMX-loading reports grid container."""
     return Div(
-        P("Loading reports...", cls="text-center text-base-content/60"),
+        P("Loading reports...", cls="text-center text-muted-foreground"),
         id="submissions-grid-container",
         cls="mt-4",
         **{
@@ -214,7 +209,7 @@ def render_submissions_grid_container() -> Any:
 def render_yours_list_container() -> Any:
     """HTMX-loading container for the submissions history list."""
     return Div(
-        P("Loading your submissions...", cls="text-center text-base-content/60"),
+        P("Loading your submissions...", cls="text-center text-muted-foreground"),
         id="submissions-yours-list",
         cls="mt-4",
         **{
@@ -242,7 +237,6 @@ def render_category_selector(submission: Any) -> Any:
                 Option(cat.title(), value=cat, selected=(cat == current_category))
                 for cat in categories
             ],
-            cls="select select-bordered w-full",
             hx_post=f"/api/submissions/categorize?submission_uid={submission.uid}&user_uid={submission.user_uid}",
             hx_trigger="change",
             hx_target=f"#category-display-{submission.uid}",
@@ -296,13 +290,14 @@ def render_tags_manager(submission: Any) -> Any:
     return Div(
         Div(*tag_elements, cls="flex flex-wrap")
         if tags
-        else Div("No tags", cls="text-sm text-base-content/60"),
+        else Div("No tags", cls="text-sm text-muted-foreground"),
         Form(
             Input(
                 type="text",
                 name="new_tag",
                 placeholder="Add tag...",
-                cls="input input-bordered input-sm w-full max-w-xs",
+                cls="max-w-xs",
+                size=Size.sm,
             ),
             Button("Add Tag", type="submit", cls="btn btn-primary btn-sm ml-2"),
             cls="flex items-center mt-2",
@@ -312,7 +307,7 @@ def render_tags_manager(submission: Any) -> Any:
             hx_swap="outerHTML",
         ),
         id=f"tags-manager-{submission.uid}",
-        cls="p-4 bg-base-200 rounded-lg",
+        cls="p-4 bg-muted rounded-lg",
     )
 
 
@@ -350,9 +345,9 @@ def render_status_buttons(submission: Any) -> Any:
         ),
         Div(
             Span(
-                f"Current status: {current_status}", cls="text-xs text-base-content/60 mt-2 block"
+                f"Current status: {current_status}", cls="text-xs text-muted-foreground mt-2 block"
             ),
         ),
         id=f"status-buttons-{submission.uid}",
-        cls="p-4 bg-base-200 rounded-lg",
+        cls="p-4 bg-muted rounded-lg",
     )
