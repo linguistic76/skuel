@@ -243,31 +243,106 @@ class UserStateAnalyzer:
 
     def _summarize_context(self, user_context: UserContext) -> dict[str, Any]:
         """
-        Create summary of user context.
+        Create per-domain summary of user context for API consumers.
+
+        Mirrors the domain stats that build_llm_context() renders as natural
+        language — both read directly from UserContext but serve different
+        consumers (structured API response vs. LLM prompt text).
 
         Args:
             user_context: User context
 
         Returns:
-            Summary dict with active items, state flags, and progress metrics
+            Summary dict keyed by domain with counts, scores, and flags
         """
-        return {
-            "active_items": {
-                "tasks": len(user_context.active_task_uids),
-                "goals": len(user_context.active_goal_uids),
-                "habits": len(user_context.active_habit_uids),
-            },
-            "state_flags": {
-                "is_blocked": user_context.is_blocked,
-                "has_overdue": user_context.has_overdue_items,
-                "at_risk_habits": len(user_context.at_risk_habits),
-            },
-            "progress_metrics": {
-                "learning_velocity": user_context.calculate_learning_velocity(),
-                "workload": user_context.current_workload_score,
-                "mastered_knowledge": len(user_context.mastered_knowledge_uids),
-            },
+        # --- Tasks ---
+        tasks: dict[str, Any] = {
+            "active": len(user_context.active_task_uids),
+            "overdue": len(user_context.overdue_task_uids),
+            "blocked": len(user_context.blocked_task_uids),
+            "due_today": len(user_context.today_task_uids),
         }
+
+        # --- Goals ---
+        goals: dict[str, Any] = {
+            "active": len(user_context.active_goal_uids),
+            "nearing_deadline": len(user_context.get_goals_nearing_deadline(days=30)),
+        }
+        if user_context.goal_progress:
+            goals["average_progress"] = round(
+                sum(user_context.goal_progress.values())
+                / len(user_context.goal_progress),
+                2,
+            )
+
+        # --- Habits ---
+        habits: dict[str, Any] = {
+            "active": len(user_context.active_habit_uids),
+            "at_risk": len(user_context.at_risk_habits),
+        }
+        if user_context.habit_streaks:
+            habits["longest_streak"] = max(user_context.habit_streaks.values())
+            habits["average_streak"] = round(
+                sum(user_context.habit_streaks.values())
+                / len(user_context.habit_streaks),
+                1,
+            )
+
+        # --- Events ---
+        events: dict[str, Any] = {
+            "upcoming": len(user_context.upcoming_event_uids),
+            "today": len(user_context.today_event_uids),
+        }
+
+        # --- Knowledge & Learning ---
+        knowledge: dict[str, Any] = {
+            "mastery_average": round(user_context.mastery_average, 2),
+            "mastered": len(user_context.mastered_knowledge_uids),
+            "in_progress": len(user_context.in_progress_knowledge_uids),
+            "ready_to_learn": len(user_context.next_recommended_knowledge),
+            "learning_velocity": round(
+                user_context.calculate_learning_velocity(), 2
+            ),
+        }
+        if user_context.current_learning_path_uid:
+            knowledge["current_learning_path"] = (
+                user_context.current_learning_path_uid
+            )
+
+        # --- Capacity ---
+        capacity: dict[str, Any] = {
+            "workload": round(user_context.current_workload_score, 2),
+            "is_blocked": user_context.is_blocked,
+            "is_overwhelmed": user_context.is_overwhelmed,
+            "has_overdue": user_context.has_overdue_items,
+        }
+
+        # --- Life Path (only when set) ---
+        life_path: dict[str, Any] | None = None
+        if user_context.life_path_uid:
+            from core.constants import MasteryLevel
+
+            life_path = {
+                "alignment_score": round(
+                    user_context.life_path_alignment_score, 2
+                ),
+                "is_aligned": user_context.is_life_aligned(
+                    MasteryLevel.DEFAULT
+                ),
+            }
+
+        summary: dict[str, Any] = {
+            "tasks": tasks,
+            "goals": goals,
+            "habits": habits,
+            "events": events,
+            "knowledge": knowledge,
+            "capacity": capacity,
+        }
+        if life_path is not None:
+            summary["life_path"] = life_path
+
+        return summary
 
     # ========================================================================
     # PRIVATE - INSIGHT GENERATION

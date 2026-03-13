@@ -45,6 +45,8 @@ def create_mock_user_context(
     # Activity UIDs (lists)
     context.active_task_uids = [f"task_{i}" for i in range(active_tasks)]
     context.overdue_task_uids = [f"overdue_{i}" for i in range(overdue_tasks)]
+    context.today_task_uids = []
+    context.blocked_task_uids = []
     context.has_overdue_items = overdue_tasks > 0
 
     # Habit data
@@ -55,12 +57,27 @@ def create_mock_user_context(
     # Goal data
     context.active_goal_uids = [f"goal_{i}" for i in range(active_goals)]
     context.goal_progress = {f"goal_{i}": goal_progress_avg for i in range(active_goals)}
+    context.get_goals_nearing_deadline = Mock(return_value=[])
 
     # Knowledge data
     context.mastered_knowledge_uids = {f"ku_{i}" for i in range(mastered_knowledge)}
-    context.blocked_task_uids = []
+    context.in_progress_knowledge_uids = set()
+    context.next_recommended_knowledge = [f"ku.ready_{i}" for i in range(ready_to_learn_count)]
+    context.mastery_average = 0.5
+    context.current_learning_path_uid = None
     context.prerequisites_needed = {}
     context.is_blocked = is_blocked
+
+    # Events
+    context.upcoming_event_uids = []
+    context.today_event_uids = []
+
+    # Life path
+    context.life_path_uid = None
+    context.life_path_alignment_score = 0.0
+
+    # Capacity
+    context.is_overwhelmed = False
 
     # Domain progress (for calculate_domain_balance)
     context.domain_progress = domain_progress or {"tech": 0.5, "personal": 0.5}
