@@ -39,13 +39,14 @@ from __future__ import annotations
 import asyncio
 from typing import TYPE_CHECKING, Any
 
-from core.constants import AskesisPipelineTimeout, QueryProcessorConfidence
+from core.constants import AskesisPipelineTimeout, AskesisTokenBudget, QueryProcessorConfidence
 from core.models.enums import MessageRole
 from core.models.query_types import QueryIntent
 from core.models.user.conversation import ConversationContext
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+from core.utils.text_truncation import truncate_to_budget
 
 if TYPE_CHECKING:
     from core.ports.zpd_protocols import ZPDOperations
@@ -213,14 +214,14 @@ class QueryProcessor:
         if not user_context.enrolled_path_uids:
             return Result.ok(_ENROLLMENT_GATE_RESPONSE)
 
-        # Step 2.5: Load conversation history if session_id provided
+        # Step 3: Load conversation history
         conversation_history: list[dict[str, str]] | None = None
         session = None
         if session_id:
             session = self.conversation_context.get_or_create_session(session_id, user_uid)
             conversation_history = session.to_llm_messages(max_tokens=2000) or None
 
-        # Step 3: Classify query intent
+        # Step 4: Classify intent
         intent_result = await self.intent_classifier.classify_intent(question)
         if intent_result.is_error:
             return Result.fail(
@@ -232,7 +233,7 @@ class QueryProcessor:
             )
         intent = intent_result.value
 
-        # Step 4: Extract entities mentioned in query
+        # Step 5: Extract entities
         try:
             extracted_entities = await self.entity_extractor.extract_entities_from_query(
                 question, user_context
@@ -251,81 +252,27 @@ class QueryProcessor:
                 "choices": [],
             }
 
-        # Step 5: Retrieve relevant entities based on intent
+        # Step 6: Retrieve relevant context
         relevant_context = await self.context_retriever.retrieve_relevant_context(
             user_context, question, intent
         )
-
-        # Add extracted entities to context
         if any(extracted_entities.values()):
             relevant_context["mentioned_entities"] = extracted_entities
 
-        # Step 6: Check for LS bundle and apply guided pipeline if available
-        guided_system_prompt: str | None = None
-        guidance_mode: str | None = None
-        ls_bundle = None
-
-        bundle_result = await self.context_retriever.load_ls_bundle(user_uid, user_context)
-        if not bundle_result.is_error:
-            ls_bundle = bundle_result.value
-
-            # Get target KU UIDs from question (scoped to bundle)
-            target_ku_uids = self.entity_extractor.extract_from_bundle(question, ls_bundle)
-
-            # Get ZPD evidence for target KUs (empty dict if no KUs matched)
-            zone_evidence: dict[str, Any] = {}
-            if target_ku_uids:
-                zpd_result = await self.zpd_service.assess_ku_readiness(user_uid, target_ku_uids)
-                if not zpd_result.is_error:
-                    zone_evidence = zpd_result.value
-
-            # Determine guidance mode — works even when target_ku_uids is empty
-            # (classify_pedagogical_intent returns OUT_OF_SCOPE or ENCOURAGE_PRACTICE)
-            guidance = self.intent_classifier.determine_guidance_mode(
-                question, ls_bundle, zone_evidence, target_ku_uids
-            )
-
-            # Build guided system prompt
-            guided_system_prompt = self.response_generator.build_guided_system_prompt(
-                guidance, ls_bundle, user_context
-            )
-            guidance_mode = guidance.mode.value
-
-        # Step 7: Build LLM-friendly context and generate answer
-        llm_context = self.response_generator.build_llm_context(
-            user_context, question, intent, ls_bundle=ls_bundle
+        # Step 7: Run guided pipeline (ZPD + guidance mode)
+        guided_system_prompt, guidance_mode, ls_bundle = await self._run_guided_pipeline(
+            user_uid, question, user_context
         )
 
-        # Step 8: Generate natural language answer using LLM
+        # Step 8: Generate answer (guided or context-aware)
         if guided_system_prompt:
-            # Use guided pipeline with Socratic system prompt
-            user_prompt = question
-            if ls_bundle and ls_bundle.curriculum_context_text:
-                from core.constants import AskesisTokenBudget
-                from core.utils.text_truncation import truncate_to_budget
-
-                curriculum_text = truncate_to_budget(
-                    ls_bundle.curriculum_context_text,
-                    AskesisTokenBudget.MAX_USER_PROMPT_CURRICULUM_CHARS,
-                )
-                user_prompt = (
-                    f"=== CURRICULUM CONTEXT (for your reference, do NOT share directly) ===\n"
-                    f"{curriculum_text}\n\n"
-                    f"=== LEARNER'S MESSAGE ===\n{question}"
-                )
-
-            llm_response = await self.llm_service.generate(
-                prompt=user_prompt,
-                system_prompt=guided_system_prompt,
-                temperature=0.7,
-                max_tokens=500,
-                conversation_history=conversation_history,
-            )
-            answer = llm_response.content or (
-                "I'd like to explore this with you, but I'm having trouble "
-                "formulating my response. Could you rephrase your question?"
+            answer = await self._generate_guided_answer(
+                question, guided_system_prompt, ls_bundle, conversation_history
             )
         else:
+            llm_context = self.response_generator.build_llm_context(
+                user_context, question, intent, ls_bundle=ls_bundle
+            )
             answer = await self.llm_service.generate_context_aware_answer(
                 query=question,
                 user_context=llm_context,
@@ -334,17 +281,15 @@ class QueryProcessor:
                 conversation_history=conversation_history,
             )
 
-        # Step 8.5: Record turns on session if active
+        # Step 9: Record conversation turns
         if session:
             session.add_turn(MessageRole.USER, question)
             session.add_turn(MessageRole.ASSISTANT, answer)
 
-        # Step 9: Generate suggested actions
+        # Step 10: Generate actions + citations
         suggested_actions = self.response_generator.generate_actions(
             user_context, intent, relevant_context
         )
-
-        # Step 10: Add citations for knowledge units
         citations_text = ""
         if intent in (QueryIntent.PREREQUISITE, QueryIntent.HIERARCHICAL):
             knowledge_entities = extracted_entities.get("knowledge", [])
@@ -354,27 +299,17 @@ class QueryProcessor:
                     knowledge_uids, min_evidence_count=1
                 )
 
-        # Step 11: Package response with calculated confidence
-        final_answer = answer + citations_text if citations_text else answer
-        confidence = QueryProcessorConfidence.calculate(
-            has_context=bool(relevant_context),
-            has_citations=bool(citations_text),
-            has_entities=any(extracted_entities.values()),
+        # Step 11: Build response
+        response = self._build_answer_response(
+            answer=answer,
+            relevant_context=relevant_context,
+            suggested_actions=suggested_actions,
+            citations_text=citations_text,
+            extracted_entities=extracted_entities,
+            is_guided=guided_system_prompt is not None,
+            guidance_mode=guidance_mode,
+            session_id=session_id,
         )
-        response: dict[str, Any] = {
-            "answer": final_answer,
-            "context_used": relevant_context,
-            "suggested_actions": suggested_actions,
-            "confidence": confidence,
-            "mode": "guided" if guided_system_prompt else "llm_generated",
-            "has_citations": bool(citations_text),
-        }
-
-        if guidance_mode:
-            response["guidance_mode"] = guidance_mode
-
-        if session_id:
-            response["session_id"] = session_id
 
         logger.info(
             "Generated answer for user %s question: %s (intent: %s, citations: %s, guidance: %s)",
@@ -439,7 +374,7 @@ class QueryProcessor:
         self, user_uid: str, query_message: str, depth: int = 2
     ) -> Result[dict[str, Any]]:
         """Inner pipeline for process_query_with_context, wrapped with timeout."""
-        # LP enrollment gate: load user context to check enrollment
+        # Step 1: Load user context + enrollment gate
         user_context_result = await self.user_service.get_rich_unified_context(user_uid)
         if user_context_result.is_error:
             error = user_context_result.expect_error()
@@ -455,15 +390,13 @@ class QueryProcessor:
         if not user_context.enrolled_path_uids:
             return Result.ok(_ENROLLMENT_GATE_RESPONSE)
 
-        # Step 1: Get complete learning context in single query
+        # Step 2: Get learning context
         context_result = await self.context_retriever.get_learning_context(user_uid, depth)
-
         if context_result.is_error:
             return context_result
-
         context_data = context_result.value
 
-        # Step 2: Determine query intent
+        # Step 3: Classify intent
         intent_result = await self.intent_classifier.classify_intent(query_message)
         if intent_result.is_error:
             return Result.fail(
@@ -475,64 +408,20 @@ class QueryProcessor:
             )
         intent = intent_result.value
 
-        # Extract context nodes
+        # Step 4: Run guided pipeline (ZPD + guidance mode)
+        guided_system_prompt, guidance_mode, ls_bundle = await self._run_guided_pipeline(
+            user_uid, query_message, user_context
+        )
+
+        # Step 5: Generate response (guided or context-aware)
         current_knowledge = context_data["knowledge_units"]
         active_learning = context_data["learning_paths"]
         active_tasks = context_data["related_tasks"]
         related_goals = context_data.get("related_goals", [])
 
-        # Step 3: Load LS bundle and apply guided pipeline if available
-        guided_system_prompt: str | None = None
-        guidance_mode: str | None = None
-
-        bundle_result = await self.context_retriever.load_ls_bundle(user_uid, user_context)
-        if not bundle_result.is_error:
-            ls_bundle = bundle_result.value
-            target_ku_uids = self.entity_extractor.extract_from_bundle(query_message, ls_bundle)
-
-            # Get ZPD evidence for target KUs (empty dict if no KUs matched)
-            zone_evidence: dict[str, Any] = {}
-            if target_ku_uids:
-                zpd_result = await self.zpd_service.assess_ku_readiness(user_uid, target_ku_uids)
-                if not zpd_result.is_error:
-                    zone_evidence = zpd_result.value
-
-            # Determine guidance mode — works even when target_ku_uids is empty
-            guidance = self.intent_classifier.determine_guidance_mode(
-                query_message, ls_bundle, zone_evidence, target_ku_uids
-            )
-            guided_system_prompt = self.response_generator.build_guided_system_prompt(
-                guidance, ls_bundle, user_context
-            )
-            guidance_mode = guidance.mode.value
-
-        # Step 4: Generate AI response
         if guided_system_prompt:
-            ls_bundle = bundle_result.value
-            user_prompt = query_message
-            if ls_bundle.curriculum_context_text:
-                from core.constants import AskesisTokenBudget
-                from core.utils.text_truncation import truncate_to_budget
-
-                curriculum_text = truncate_to_budget(
-                    ls_bundle.curriculum_context_text,
-                    AskesisTokenBudget.MAX_USER_PROMPT_CURRICULUM_CHARS,
-                )
-                user_prompt = (
-                    f"=== CURRICULUM CONTEXT (for your reference, do NOT share directly) ===\n"
-                    f"{curriculum_text}\n\n"
-                    f"=== LEARNER'S MESSAGE ===\n{query_message}"
-                )
-
-            llm_response = await self.llm_service.generate(
-                prompt=user_prompt,
-                system_prompt=guided_system_prompt,
-                temperature=0.7,
-                max_tokens=500,
-            )
-            response = llm_response.content or (
-                "I'd like to explore this with you, but I'm having trouble "
-                "formulating my response. Could you rephrase your question?"
+            response = await self._generate_guided_answer(
+                query_message, guided_system_prompt, ls_bundle
             )
         else:
             response = await self._generate_context_aware_response(
@@ -544,12 +433,10 @@ class QueryProcessor:
                 intent=intent,
             )
 
-        # Step 5: Generate suggested actions
+        # Step 6: Build result
         suggested_actions = self.response_generator.generate_suggested_actions(
             query_message, context_data, intent
         )
-
-        # Step 6: Build and return result
         result_dict = self._build_query_response_result(
             response,
             current_knowledge,
@@ -559,11 +446,116 @@ class QueryProcessor:
             intent,
             suggested_actions,
         )
-
         if guidance_mode:
             result_dict["guidance_mode"] = guidance_mode
 
         return Result.ok(result_dict)
+
+    # ========================================================================
+    # PRIVATE - SHARED PIPELINE STEPS
+    # ========================================================================
+
+    async def _run_guided_pipeline(
+        self,
+        user_uid: str,
+        question: str,
+        user_context: Any,
+    ) -> tuple[str | None, str | None, Any]:
+        """
+        Load LS bundle and compute guided system prompt + guidance mode.
+
+        Returns:
+            (guided_system_prompt, guidance_mode, ls_bundle) — all None if no bundle available.
+        """
+        bundle_result = await self.context_retriever.load_ls_bundle(user_uid, user_context)
+        if bundle_result.is_error:
+            return None, None, None
+
+        ls_bundle = bundle_result.value
+        target_ku_uids = self.entity_extractor.extract_from_bundle(question, ls_bundle)
+
+        zone_evidence: dict[str, Any] = {}
+        if target_ku_uids:
+            zpd_result = await self.zpd_service.assess_ku_readiness(user_uid, target_ku_uids)
+            if not zpd_result.is_error:
+                zone_evidence = zpd_result.value
+
+        guidance = self.intent_classifier.determine_guidance_mode(
+            question, ls_bundle, zone_evidence, target_ku_uids
+        )
+        guided_system_prompt = self.response_generator.build_guided_system_prompt(
+            guidance, ls_bundle, user_context
+        )
+        return guided_system_prompt, guidance.mode.value, ls_bundle
+
+    async def _generate_guided_answer(
+        self,
+        question: str,
+        guided_system_prompt: str,
+        ls_bundle: Any,
+        conversation_history: list[dict[str, str]] | None = None,
+    ) -> str:
+        """
+        Generate an LLM answer using the guided (Socratic) pipeline.
+
+        Prepends curriculum context to the user prompt when available,
+        then calls LLM with the guided system prompt.
+        """
+        user_prompt = question
+        if ls_bundle and ls_bundle.curriculum_context_text:
+            curriculum_text = truncate_to_budget(
+                ls_bundle.curriculum_context_text,
+                AskesisTokenBudget.MAX_USER_PROMPT_CURRICULUM_CHARS,
+            )
+            user_prompt = (
+                f"=== CURRICULUM CONTEXT (for your reference, do NOT share directly) ===\n"
+                f"{curriculum_text}\n\n"
+                f"=== LEARNER'S MESSAGE ===\n{question}"
+            )
+
+        llm_response = await self.llm_service.generate(
+            prompt=user_prompt,
+            system_prompt=guided_system_prompt,
+            temperature=0.7,
+            max_tokens=500,
+            conversation_history=conversation_history,
+        )
+        return llm_response.content or (
+            "I'd like to explore this with you, but I'm having trouble "
+            "formulating my response. Could you rephrase your question?"
+        )
+
+    def _build_answer_response(
+        self,
+        answer: str,
+        relevant_context: dict[str, Any],
+        suggested_actions: list[dict[str, Any]],
+        citations_text: str,
+        extracted_entities: dict[str, list[Any]],
+        is_guided: bool,
+        guidance_mode: str | None,
+        session_id: str | None,
+    ) -> dict[str, Any]:
+        """Build the response dict for answer_user_question."""
+        final_answer = answer + citations_text if citations_text else answer
+        confidence = QueryProcessorConfidence.calculate(
+            has_context=bool(relevant_context),
+            has_citations=bool(citations_text),
+            has_entities=any(extracted_entities.values()),
+        )
+        response: dict[str, Any] = {
+            "answer": final_answer,
+            "context_used": relevant_context,
+            "suggested_actions": suggested_actions,
+            "confidence": confidence,
+            "mode": "guided" if is_guided else "llm_generated",
+            "has_citations": bool(citations_text),
+        }
+        if guidance_mode:
+            response["guidance_mode"] = guidance_mode
+        if session_id:
+            response["session_id"] = session_id
+        return response
 
     # ========================================================================
     # PRIVATE - RESPONSE GENERATION
