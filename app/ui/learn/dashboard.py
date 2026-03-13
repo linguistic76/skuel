@@ -1,7 +1,7 @@
 """Learning dashboard — /learn landing page.
 
-Workspace hub with 3 action cards (Submit, My Submissions, Reports)
-and curriculum discovery links (Articles, KUs, Exercises, Learning Paths).
+Workspace hub with 4 action cards (Submit, Exercises, My Submissions, Reports)
+and curriculum discovery links (Articles, KUs, Learning Paths).
 No sidebar on the landing page.
 """
 
@@ -18,9 +18,10 @@ def LearnDashboardView(context: UserContext) -> Div:
             H3("Your Workspace", cls="text-base font-semibold text-base-content/80 mb-4"),
             Div(
                 _submit_card(),
+                _exercises_card(),
                 _submissions_card(context),
                 _reports_card(),
-                cls="grid grid-cols-1 md:grid-cols-3 gap-5",
+                cls="flex flex-col gap-5",
             ),
             cls="mb-8",
         ),
@@ -32,9 +33,8 @@ def LearnDashboardView(context: UserContext) -> Div:
             Div(
                 _discovery_link("Articles", "/articles", "Browse teaching content"),
                 _discovery_link("Knowledge Units", "/ku", "Explore atomic concepts"),
-                _discovery_link("Exercises", "/exercises", "Practice with exercises"),
                 _discovery_link("Learning Paths", "/pathways", "Structured progression"),
-                cls="grid grid-cols-2 md:grid-cols-4 gap-3",
+                cls="grid grid-cols-1 md:grid-cols-3 gap-3",
             ),
         ),
     )
@@ -66,6 +66,27 @@ def _submit_card() -> Div:
         A(
             "Submit work →",
             href="/learn/submit",
+            cls="text-sm text-primary hover:underline inline-block",
+        ),
+        cls="bg-base-100 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow",
+    )
+
+
+def _exercises_card() -> Div:
+    """Exercises card."""
+    return Div(
+        Div(
+            Span("🏋️", cls="text-2xl"),
+            H3("Exercises", cls="text-lg font-semibold text-base-content"),
+            cls="flex items-center gap-2 mb-3",
+        ),
+        P(
+            "Practice with exercises linked to articles and knowledge units.",
+            cls="text-sm text-base-content/60 mb-3",
+        ),
+        A(
+            "Browse exercises →",
+            href="/exercises",
             cls="text-sm text-primary hover:underline inline-block",
         ),
         cls="bg-base-100 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow",

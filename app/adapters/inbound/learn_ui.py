@@ -5,7 +5,7 @@ Learn UI Routes — Student Workspace Hub
 The student's core workspace for submitting work, tracking submissions,
 and reviewing feedback. Routes absorbed from submissions_ui.py under /learn/*.
 
-Layout: 3-item sidebar (Submit / My Submissions / Reports) on sub-pages.
+Layout: 4-item sidebar (Submit / Exercises / My Submissions / Reports) on sub-pages.
 Landing page (/learn) has no sidebar.
 
 Routes:
