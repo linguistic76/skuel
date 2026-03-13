@@ -202,9 +202,11 @@ if result.is_ok:
 **Purpose:** Assess current user state across all domains
 
 **Key Methods:**
-- `analyze_user_state()` - Comprehensive state analysis
+- `analyze_user_state()` - Comprehensive state analysis (returns `AskesisAnalysis`)
 - `identify_patterns()` - Behavioral pattern detection
 - `calculate_system_health()` - Per-domain health metrics
+
+**`AskesisAnalysis.context_summary`** — per-domain structured dict (tasks, goals, habits, events, knowledge, capacity, life_path) exposed in the API response. Mirrors the data points that `ResponseGenerator.build_llm_context()` renders as natural language — same source (UserContext), different format (structured dict for API consumers vs. text for LLM).
 
 **January 2026:** Uses pure functions from `state_scoring.py` (no circular dependency)
 

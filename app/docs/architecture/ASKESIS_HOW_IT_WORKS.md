@@ -202,6 +202,20 @@ These functions have **zero side effects** and **zero service dependencies**. Th
 
 Reads UserContext and produces an `AskesisAnalysis` — a frozen dataclass containing:
 
+**Context summary** — per-domain structured dict exposed in the API response. Mirrors the same data points that `ResponseGenerator.build_llm_context()` renders as natural language for the LLM, but in structured form for API consumers:
+
+| Section | Fields |
+|---------|--------|
+| `tasks` | active, overdue, blocked, due_today |
+| `goals` | active, average_progress, nearing_deadline |
+| `habits` | active, at_risk, longest_streak, average_streak |
+| `events` | upcoming, today |
+| `knowledge` | mastery_average, mastered, in_progress, ready_to_learn, learning_velocity, current_learning_path |
+| `capacity` | workload, is_blocked, is_overwhelmed, has_overdue |
+| `life_path` | alignment_score, is_aligned (only when life_path_uid set) |
+
+Both `_summarize_context` (structured dict) and `build_llm_context` (natural language string) read directly from UserContext — incidental duplication, not structural. UserContext is the shared data source; each consumer picks the fields it needs in the format its audience requires.
+
 **Health metrics** (each 0.0-1.0, combined into weighted `overall`):
 - `consistency` — habit streak average / 30-day benchmark (weight: 30%)
 - `progress` — goal advancement percentage (20%)
