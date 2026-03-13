@@ -190,46 +190,29 @@ def render_error_banner(message: str) -> Div:
         cls="mb-4",
     )
 
-# 3. Data helpers return Result[T]
-async def get_all_tasks(user_uid: str) -> Result[list[Any]]:
-    """Get all tasks for user."""
-    try:
-        result = await tasks_service.get_user_tasks(user_uid)
-        if result.is_error:
-            logger.warning(f"Failed to fetch tasks: {result.error}")
-            return result  # Propagate the error
-        return Result.ok(result.value or [])
-    except Exception as e:
-        logger.error(
-            "Error fetching all tasks",
-            extra={
-                "user_uid": user_uid,
-                "error_type": type(e).__name__,
-                "error_message": str(e),
-            },
-        )
-        return Errors.system(f"Failed to fetch tasks: {e}")
-
-# 4. Routes check errors and render banners
+# 3. Routes call service facades that return Result[T]
 @rt("/tasks")
 async def tasks_dashboard(request) -> Any:
     user_uid = require_authenticated_user(request)
     filters = parse_filters(request)
 
-    # Get data with Result[T]
-    filtered_result = await get_filtered_tasks(user_uid, filters.status, filters.sort_by)
+    # Single service call returns entities + stats (+ projects/assignees for Tasks)
+    filtered_result = await tasks_service.get_filtered_context(
+        user_uid, status_filter=filters.status_filter, sort_by=filters.sort_by,
+    )
 
     # CHECK FOR ERRORS - show banner instead of empty list
     if filtered_result.is_error:
         error_content = Div(
             TasksViewComponents.render_view_tabs(active_view="list"),
-            render_error_banner(f"Failed to load tasks: {filtered_result.error}"),
+            render_error_banner("Failed to load tasks"),
             cls=f"{Spacing.PAGE} {Container.WIDE}",
         )
         return create_tasks_page(error_content, request=request)
 
     # Extract values only after error check
-    tasks, stats = filtered_result.value
+    ctx = filtered_result.value
+    tasks, stats = ctx["entities"], ctx["stats"]
     return TasksViewComponents.render_list_view(tasks, stats, ...)
 ```
 

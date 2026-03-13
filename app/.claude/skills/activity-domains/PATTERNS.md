@@ -93,10 +93,10 @@ result = await tasks_service.get_scheduling_recommendations(user_uid)
 
 **Problem**: UI list views need fetch → stats → filter → sort orchestration. Writing this as closures inside route factories made it untestable and duplicated the same 4-step pattern across all 6 domains.
 
-**Solution**: Each service facade exposes `get_filtered_context()` returning `Result[ListContext]`. Stats come from a Cypher COUNT aggregation (no entity deserialization). Status filter is pushed to a Cypher WHERE clause. Both run in parallel via `asyncio.gather()`.
+**Solution**: Each service facade exposes `get_filtered_context()` returning `Result[ListContext]`. A **single query** fetches all user entities for the domain; stats are computed in Python from the full set, then status/secondary filters and sort are applied Python-side. This reduces each page load from 2-4 Neo4j queries to **1 query**.
 
 ```python
-from core.ports.query_types import ListContext  # TypedDict: {"entities": list[Any], "stats": dict[str, int]}
+from core.ports.query_types import ListContext  # TypedDict: entities, stats, projects?, assignees?
 
 # In route handler:
 result = await habits_service.get_filtered_context(user_uid, status_filter="active", sort_by="streak")
@@ -117,13 +117,19 @@ habits, stats = ctx["entities"], ctx["stats"]
 | `ChoicesService` | `get_filtered_context(user_uid, status_filter="pending", sort_by="deadline")` |
 | `PrinciplesService` | `get_filtered_context(user_uid, category_filter="all", strength_filter="all", sort_by="strength")` |
 
-**Query layer** (each `*_core_service.py`):
-- `get_stats_for_user(user_uid)` — Cypher COUNT aggregation; returns `dict[str, int]` with no entity deserialization
-- `get_for_user_filtered(user_uid, status_filter)` — Cypher `WHERE` clause; status pushed to database
+**Single-fetch architecture** (each facade's `get_filtered_context`):
+1. Calls `self.core.get_for_user_filtered(user_uid, "all")` — **one query**, fetches all user entities
+2. Computes stats in Python from the full set (replaces separate Cypher COUNT query)
+3. Applies status filter in Python
+4. Applies domain-specific secondary filters + sort in Python
+5. Returns `ListContext` dict
+
+**Tasks additionally** returns `projects` and `assignees` lists in the `ListContext`, eliminating separate UI-level data fetching.
 
 **Module-level helpers** (Python-side, in each `*_service.py` facade file):
+- `_apply_status_filter(entities, status_filter)` — generic active/completed/all filter (Tasks)
 - `_apply_{domain}_sort(entities, sort_by)` — pure sort logic (all 6 domains)
-- `_apply_task_secondary_filters(tasks, project, assignee, due_filter)` — project/assignee/date filters (Tasks only; status is Cypher-side)
+- `_apply_task_secondary_filters(tasks, project, assignee, due_filter)` — project/assignee/date filters (Tasks only)
 - `_apply_principle_filters(principles, category_filter, strength_filter)` — category and strength threshold filters (Principles only)
 
 **Route file convention** (all 6 `*_ui.py` files, module-level not inside factory):

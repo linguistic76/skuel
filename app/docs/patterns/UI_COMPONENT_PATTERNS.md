@@ -1127,93 +1127,56 @@ async def task_detail_view(request, uid: str) -> Any:
 
 ## Activity Domain Filtered List Queries
 
-*Added: 2026-01-24 | Updated: 2026-03-03 (stats + status filter pushed to Cypher)*
+*Added: 2026-01-24 | Updated: 2026-03-13 (single-fetch architecture — 1 query per page load)*
 
-**Core Principle:** "Push filtering and aggregation to the database; keep Python for sorting and domain-specific secondary filters"
+**Core Principle:** "One query per page load; compute stats and apply filters in Python from the fetched set"
 
-### Problem: God Helper Anti-Pattern
+### Problem: Multiple Redundant Queries
 
-**Before:** Single 50-90 line functions mixing I/O with computation:
-```python
-async def get_filtered_tasks(...) -> Result[tuple[list[Any], dict[str, int]]]:
-    """God helper doing 5 things: fetch ALL entities, stats, filter, sort."""
-    try:
-        # 1. Fetch ALL user entities into Python memory (no WHERE clause)
-        tasks_result = await get_all_tasks(user_uid)
+**Before:** Each page load ran 2-4 separate Neo4j queries — a Cypher COUNT for stats, a filtered entity fetch, and (for Tasks) two additional queries for project/assignee dropdown lists. These were parallelized with `asyncio.gather()` but still hit the database multiple times.
 
-        # 2. Calculate stats over full Python list
-        stats = {"total": len(tasks), "completed": ..., "overdue": ...}
+### Solution: Single-Fetch `get_filtered_context()`
 
-        # 3. Filter by status in Python
-        if status_filter == "active":
-            tasks = [t for t in tasks if t.status != "completed"]
+Each facade's `get_filtered_context()` now fetches ALL user entities for the domain in **one query** via `get_for_user_filtered(user_uid, "all")`, then computes everything in Python:
 
-        # 4. Sort in Python
-        tasks = sorted(tasks, key=get_task_due_date_sort_key)
-
-        return Result.ok((tasks, stats))
-```
-
-**Issues:**
-- Fetches ALL entities into Python memory regardless of filter — O(n) deserialization waste
-- Stats and filtering require full Python scan after deserialization
-- 90 lines doing 5 distinct things; hard to test or modify one aspect
-
-### Solution: Cypher-Level Stats and Filtering
-
-**Pattern:** Stats via Cypher COUNT (no deserialization), status filter via Cypher WHERE, both parallel:
-
-```python
-# In *_core_service.py:
-
-async def get_stats_for_user(self, user_uid: str) -> Result[dict[str, int]]:
-    """Cypher COUNT aggregation — zero entity deserialization."""
-    query = """
-    MATCH (n:Entity {user_uid: $user_uid, entity_type: 'task'})
-    RETURN count(n) AS total,
-           count(CASE WHEN n.status = 'completed' THEN 1 END) AS completed,
-           count(CASE WHEN n.due_date IS NOT NULL AND n.due_date < date()
-                      AND n.status <> 'completed' THEN 1 END) AS overdue
-    """
-    result = await self.backend.execute_query(query, {"user_uid": user_uid})
-    ...
-
-async def get_for_user_filtered(
-    self, user_uid: str, status_filter: str = "active"
-) -> Result[list[Task]]:
-    """Cypher WHERE clause — status filter pushed to database."""
-    match status_filter:
-        case "active":
-            result = await self.backend.find_by(
-                user_uid=user_uid, status__not_in=["completed"]
-            )
-        case "completed":
-            result = await self.backend.find_by(user_uid=user_uid, status="completed")
-        case _:
-            result = await self.backend.find_by(user_uid=user_uid)
-    ...
-```
-
-**Facade orchestrator** — parallel execution via `asyncio.gather()`:
 ```python
 async def get_filtered_context(
     self, user_uid, project=None, status_filter="active", sort_by="due_date"
 ) -> Result[ListContext]:
-    import asyncio
-    stats_result, entities_result = await asyncio.gather(
-        self.core.get_stats_for_user(user_uid),
-        self.core.get_for_user_filtered(user_uid, status_filter),
-    )
-    if stats_result.is_error:
-        return stats_result
-    if entities_result.is_error:
-        return entities_result
-    filtered = _apply_task_secondary_filters(entities_result.value, project, ...)
+    # 1. Single database query — fetch all user entities
+    all_result = await self.core.get_for_user_filtered(user_uid, "all")
+    if all_result.is_error:
+        return Result.fail(all_result)
+    all_tasks = all_result.value
+
+    # 2. Stats from full set (replaces separate Cypher COUNT query)
+    today = date.today()
+    stats = {
+        "total": len(all_tasks),
+        "completed": sum(1 for t in all_tasks if t.status == EntityStatus.COMPLETED),
+        "overdue": sum(1 for t in all_tasks if t.due_date and t.due_date < today
+                       and t.status != EntityStatus.COMPLETED),
+    }
+
+    # 3. Status filter + secondary filters + sort in Python
+    filtered = _apply_status_filter(all_tasks, status_filter)
+    filtered = _apply_task_secondary_filters(filtered, project, assignee, due_filter)
     sorted_tasks = _apply_task_sort(filtered, sort_by)
-    return Result.ok({"entities": sorted_tasks, "stats": stats_result.value})
+
+    # 4. Tasks additionally returns UI dropdown metadata
+    projects = sorted({t.project for t in all_tasks if t.project})
+    assignees = sorted({getattr(t, "assignee", None) for t in all_tasks} - {None})
+
+    return Result.ok({
+        "entities": sorted_tasks, "stats": stats,
+        "projects": list(projects), "assignees": sorted(assignees),
+    })
 ```
 
+**`ListContext` TypedDict** (`core/ports/query_types.py`): `entities`, `stats`, and optional `projects`/`assignees` (Tasks only).
+
 **What stays Python-side:**
+- `_apply_status_filter(entities, status_filter)` — generic active/completed/all (Tasks)
 - `_apply_{domain}_sort(entities, sort_by)` — all 6 domains
 - `_apply_task_secondary_filters(tasks, project, assignee, due_filter)` — Tasks only (project/assignee/date filters)
 - `_apply_principle_filters(principles, category_filter, strength_filter)` — Principles only (category and strength threshold)
