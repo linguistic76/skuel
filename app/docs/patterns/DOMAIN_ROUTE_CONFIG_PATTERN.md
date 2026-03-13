@@ -1259,7 +1259,7 @@ Zero runtime overhead - routes are registered once at application startup.
 - Zero regressions detected
 
 **Phase 9 (Complete - 2026-03-11):** Non-Activity domain migrations (6 files)
-- ✅ monitoring_routes.py, article_reading_routes.py, learn_routes.py (simple migrations)
+- ✅ monitoring_routes.py, article_reading_routes.py, study_routes.py (simple migrations)
 - ✅ search_routes.py (service-extraction, SearchRouter as primary)
 - ✅ hierarchy_routes.py, lateral_routes.py (loop-pattern, multi-service via kwargs)
 - graphql_routes.py: signature normalized only (needs full services container)

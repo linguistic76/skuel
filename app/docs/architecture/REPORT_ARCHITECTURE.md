@@ -57,7 +57,7 @@ Both paths produce report entities. The `EntityType` and `ProcessorType` fields 
 - "Assignment" is what a **teacher gives** — that's an `Exercise` with `scope=ASSIGNED`
 - "Submission" is what a **student uploads** — file content going through a processing pipeline
 - Matches service names: `SubmissionsService`, protocol: `SubmissionOperations`
-- Matches route language: `/learn/submit` (UI), `/api/submissions/*` (API)
+- Matches route language: `/submit` (UI), `/api/submissions/*` (API)
 
 ---
 
@@ -352,8 +352,8 @@ The learning loop does not end at a leaf domain — it fans back out across the 
 
 | Route | Who | What |
 |-------|-----|------|
-| `/learn/submit` | Student | Upload files for processing |
-| `/learn/submissions/{uid}` | Owner | View submission, sharing controls |
+| `/submit` | Student | Upload files for processing |
+| `/submissions/{uid}` | Owner | View submission, sharing controls |
 | `/journals/submit` | Admin | Upload files for AI (LLM) processing |
 | `/profile/shared` | Any user | "Shared With Me" inbox |
 | `/api/teaching/review-queue` | Teacher | Pending submission review queue |

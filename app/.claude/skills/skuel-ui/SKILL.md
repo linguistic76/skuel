@@ -387,7 +387,7 @@ from ui.patterns.sidebar import SidebarItem
 
 SidebarItem(
     label="Submit",              # Display text
-    href="/learn/submit",        # Navigation URL
+    href="/submit",              # Navigation URL
     slug="submit",               # For active state matching
     icon="📤",                   # Optional emoji
     description="",              # Optional subtitle (renders two-line item)
@@ -403,21 +403,21 @@ SidebarItem(
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 
 items = [
-    SidebarItem("Submit", "/learn/submit", "submit", icon="📤"),
-    SidebarItem("My Submissions", "/learn/submissions", "submissions", icon="📝"),
-    SidebarItem("Exercise Reports", "/learn/exercise-reports", "exercise-reports", icon="📋"),
-    SidebarItem("Activity Reports", "/learn/activity-reports", "activity-reports", icon="📊"),
-    SidebarItem("Generate Reports", "/learn/generate-reports", "generate-reports", icon="⚡"),
+    SidebarItem("Submit", "/submit", "submit", icon="📤"),
+    SidebarItem("My Submissions", "/submissions", "submissions", icon="📝"),
+    SidebarItem("Exercise Reports", "/exercise-reports", "exercise-reports", icon="📋"),
+    SidebarItem("Activity Reports", "/activity-reports", "activity-reports", icon="📊"),
+    SidebarItem("Generate Reports", "/generate-reports", "generate-reports", icon="⚡"),
 ]
 
 return await SidebarPage(
     content=my_content,
     items=items,
     active="submit",                    # Active item slug
-    title="Learn",                      # Sidebar heading
-    storage_key="learn-sidebar",        # localStorage key for collapse state
+    title="Study",                      # Sidebar heading
+    storage_key="study-sidebar",        # localStorage key for collapse state
     request=request,
-    active_page="learn",                # Navbar active item
+    active_page="study",                # Navbar active item
     # Optional:
     subtitle="",                        # Sidebar subtitle
     extra_sidebar_sections=[],          # Additional content below nav items
