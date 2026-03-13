@@ -51,7 +51,7 @@ def render_submission_card(submission: Any, is_pinned: bool = False) -> Any:
                     PinButton(entity_uid=submission.uid, is_pinned=is_pinned, size="xs"),
                     A(
                         "View",
-                        href=f"/submissions/{submission.uid}",
+                        href=f"/learn/submissions/{submission.uid}",
                         cls="btn btn-sm btn-ghost",
                     ),
                     cls="flex gap-2",

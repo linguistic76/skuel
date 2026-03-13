@@ -1,12 +1,12 @@
 """Submissions Routes - File Submission and Processing Pipeline
 ================================================================
 
-Wires Submissions API, UI, Sharing, and Journals routes using DomainRouteConfig
-(Multi-Factory variant).
+Wires Submissions API, Sharing, and Journals routes using DomainRouteConfig.
+UI routes have moved to /learn/* (see learn_routes.py / learn_ui.py).
+Old /submissions/* UI paths redirect 301 to their /learn/* equivalents.
 
 Standard factories (via DomainRouteConfig):
 - create_submissions_api_routes: Upload, list, process, download, content management
-- create_submissions_ui_routes: Dashboard, detail view, HTMX fragments
 
 Extension factories (manual):
 - create_submissions_sharing_api_routes: Share, unshare, visibility, portfolio
@@ -25,7 +25,6 @@ from adapters.inbound.progress_report_api import create_progress_report_api_rout
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 from adapters.inbound.submissions_api import create_submissions_api_routes
 from adapters.inbound.submissions_sharing_api import create_submissions_sharing_api_routes
-from adapters.inbound.submissions_ui import create_submissions_ui_routes
 from core.utils.logging import get_logger
 
 logger = get_logger("skuel.routes.submissions")
@@ -34,20 +33,11 @@ SUBMISSIONS_CONFIG = DomainRouteConfig(
     domain_name="submissions",
     primary_service_attr="submissions",
     api_factory=create_submissions_api_routes,
-    ui_factory=create_submissions_ui_routes,
     api_related_services={
         "processing_service": "submissions_processor",
         "submissions_search_service": "submissions_search",
         "submissions_core_service": "submissions_core",
         "teacher_review_service": "teacher_review",
-    },
-    ui_related_services={
-        "_processing_service": "submissions_processor",
-        "_exercises_service": "assignments",
-        "_submissions_search_service": "submissions_search",
-        "_submissions_core_service": "submissions_core",
-        "_activity_report_service": "activity_report",
-        "_teacher_review_service": "teacher_review",
     },
 )
 
@@ -72,15 +62,66 @@ JOURNALS_CONFIG = DomainRouteConfig(
 )
 
 
+def _create_submission_redirects(rt: RouteDecorator) -> RouteList:
+    """301 redirects from old /submissions/* UI paths to /learn/*.
+
+    API routes (/api/submissions/*) are NOT affected.
+    """
+    from starlette.responses import RedirectResponse
+
+    @rt("/submissions")
+    async def submissions_landing(request: Any) -> Any:
+        return RedirectResponse("/learn", status_code=301)
+
+    @rt("/submissions/submit")
+    async def submissions_submit(request: Any) -> Any:
+        qs = str(request.query_params)
+        target = f"/learn/submit?{qs}" if qs else "/learn/submit"
+        return RedirectResponse(target, status_code=301)
+
+    @rt("/submissions/browse")
+    async def submissions_browse(request: Any) -> Any:
+        return RedirectResponse("/learn/submissions", status_code=301)
+
+    @rt("/submissions/yours")
+    async def submissions_yours(request: Any) -> Any:
+        return RedirectResponse("/learn/submissions", status_code=301)
+
+    @rt("/submissions/reports")
+    async def submissions_reports(request: Any) -> Any:
+        return RedirectResponse("/learn/reports", status_code=301)
+
+    @rt("/submissions/progress")
+    async def submissions_progress(request: Any) -> Any:
+        return RedirectResponse("/learn/reports", status_code=301)
+
+    @rt("/submissions/assignments")
+    async def submissions_assignments(request: Any) -> Any:
+        return RedirectResponse("/exercises", status_code=301)
+
+    @rt("/submissions/{uid}")
+    async def submissions_detail(request: Any, uid: str) -> Any:
+        return RedirectResponse(f"/learn/submissions/{uid}", status_code=301)
+
+    logger.info("Submission UI redirects registered (301 → /learn/*)")
+    return [
+        submissions_landing,
+        submissions_submit,
+        submissions_browse,
+        submissions_yours,
+        submissions_reports,
+        submissions_progress,
+        submissions_assignments,
+        submissions_detail,
+    ]
+
+
 def create_submissions_routes(
     app: FastHTMLApp, rt: RouteDecorator, services: Any, _sync_service=None
 ) -> RouteList:
     """
-    Wire submissions API, UI, and sharing routes using configuration-driven registration.
-
-    Uses DomainRouteConfig for standard API + UI routes (shared primary service).
-    Sharing routes appended manually: their primary service (sharing)
-    differs from the API/UI primary (submissions).
+    Wire submissions API and sharing routes using configuration-driven registration.
+    UI routes have moved to /learn/* — old paths redirect 301.
 
     Args:
         app: FastHTML app instance
@@ -92,6 +133,10 @@ def create_submissions_routes(
         List of all registered route functions
     """
     routes = register_domain_routes(app, rt, services, SUBMISSIONS_CONFIG)
+
+    # Redirects: old /submissions/* UI paths → /learn/*
+    redirect_routes = _create_submission_redirects(rt)
+    routes.extend(redirect_routes)
 
     # Extension: sharing routes use UnifiedSharingService
     if services and services.sharing:

@@ -1,15 +1,15 @@
-"""Learning sidebar configuration.
+"""Learning workspace sidebar configuration.
 
-Reflects the learning loop workflow:
-Study (content) → Practice (the loop) → Pathways (structured progression)
+3-item sidebar for the student workspace sub-pages:
+Submit (upload work) → My Submissions (track work) → Reports (feedback received)
 
-Sidebar appears on /learn/study, /learn/practice, /learn/pathways — NOT on /learn landing.
+Sidebar appears on /learn/submit, /learn/submissions, /learn/reports — NOT on /learn landing.
 """
 
 from ui.patterns.sidebar import SidebarItem
 
 LEARN_SIDEBAR_ITEMS: list[SidebarItem] = [
-    SidebarItem("Study", "/learn/study", "study", icon="📖"),
-    SidebarItem("Practice", "/learn/practice", "practice", icon="✏️"),
-    SidebarItem("Pathways", "/learn/pathways", "pathways", icon="🗺️"),
+    SidebarItem("Submit", "/learn/submit", "submit", icon="📤"),
+    SidebarItem("My Submissions", "/learn/submissions", "submissions", icon="📝"),
+    SidebarItem("Reports", "/learn/reports", "reports", icon="💬"),
 ]

@@ -1,6 +1,6 @@
 """Learning page layout with sidebar.
 
-Used by /learn/study, /learn/practice, /learn/pathways.
+Used by /learn/submit, /learn/submissions, /learn/reports.
 NOT used by the /learn landing page.
 """
 
@@ -24,7 +24,7 @@ async def create_learn_page(
 
     Args:
         content: Main content HTML
-        active_section: Currently active section slug ("study", "practice", "pathways")
+        active_section: Currently active section slug ("submit", "submissions", "reports")
         request: Starlette request for navbar auto-detection
         title: Page title for browser tab
     """

@@ -697,7 +697,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
         """Redirect legacy profile domain URLs.
 
         Activity domains redirect to /activities/{domain}.
-        Curriculum domains redirect to /learn (future: /learn/study, /learn/pathways).
+        Curriculum domains redirect to standalone entity routes.
         """
         from starlette.responses import RedirectResponse
 
@@ -708,9 +708,9 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
             return RedirectResponse(f"/{domain}{suffix}", status_code=302)
 
         curriculum_redirects = {
-            "knowledge": "/learn/study",
-            "learning-steps": "/learn/pathways",
-            "learning-paths": "/learn/pathways",
+            "knowledge": "/ku",
+            "learning-steps": "/pathways",
+            "learning-paths": "/pathways",
         }
         if domain in curriculum_redirects:
             return RedirectResponse(curriculum_redirects[domain], status_code=302)

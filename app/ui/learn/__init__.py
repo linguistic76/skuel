@@ -1,4 +1,4 @@
-"""Learn UI components — learning hub, sidebar layout, and page views."""
+"""Learn UI components — workspace hub, sidebar layout, and dashboard."""
 
 from ui.learn.layout import create_learn_page
 from ui.learn.sidebar import LEARN_SIDEBAR_ITEMS

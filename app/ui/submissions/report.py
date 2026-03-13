@@ -96,7 +96,7 @@ def render_submission_history_row(item: dict) -> Any:
             ),
             A(
                 "View",
-                href=f"/submissions/{uid}",
+                href=f"/learn/submissions/{uid}",
                 cls="btn btn-sm btn-ghost ml-3",
             ),
             cls="flex items-center gap-4",
@@ -157,7 +157,7 @@ def render_report_card(assessment: Any) -> Any:
                     cls="text-sm text-base-content/60 mb-2",
                 ),
                 P(preview, cls="text-sm"),
-                A("View Full", href=f"/submissions/{uid}", cls="btn btn-sm btn-ghost mt-2"),
+                A("View Full", href=f"/learn/submissions/{uid}", cls="btn btn-sm btn-ghost mt-2"),
                 cls="card-body p-4",
             ),
             cls="card bg-base-100 shadow-sm mb-3",

@@ -102,7 +102,7 @@ def render_upload_form(
                 ),
                 Div(id="upload-status", cls="mt-4 text-center"),
                 **{
-                    "hx-post": "/submissions/upload",
+                    "hx-post": "/learn/upload",
                     "hx-target": "#upload-status",
                     "hx-swap": "outerHTML",
                     "hx-encoding": "multipart/form-data",
@@ -184,7 +184,7 @@ def render_filters_section() -> Any:
                     cls="flex gap-4",
                 ),
                 **{
-                    "hx-get": "/submissions/grid",
+                    "hx-get": "/learn/grid",
                     "hx-target": "#submissions-grid-container",
                     "hx-swap": "outerHTML",
                     "hx-trigger": "change from:select",
@@ -204,7 +204,7 @@ def render_submissions_grid_container() -> Any:
         id="submissions-grid-container",
         cls="mt-4",
         **{
-            "hx-get": "/submissions/grid",
+            "hx-get": "/learn/grid",
             "hx-trigger": "load",
             "hx-swap": "outerHTML",
         },
@@ -218,7 +218,7 @@ def render_yours_list_container() -> Any:
         id="submissions-yours-list",
         cls="mt-4",
         **{
-            "hx-get": "/submissions/yours/list",
+            "hx-get": "/learn/submissions/list",
             "hx-trigger": "load",
             "hx-swap": "outerHTML",
         },
@@ -265,7 +265,7 @@ def render_category_display(submission: Any) -> Any:
         Button(
             "Change",
             cls="btn btn-xs btn-ghost ml-2",
-            hx_get=f"/submissions/{submission.uid}/category-selector",
+            hx_get=f"/learn/submissions/{submission.uid}/category-selector",
             hx_target=f"#category-display-{submission.uid}",
             hx_swap="outerHTML",
         ),
