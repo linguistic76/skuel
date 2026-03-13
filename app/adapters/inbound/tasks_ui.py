@@ -19,9 +19,8 @@ Routes:
 __version__ = "2.0"
 
 import contextlib
-from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date
 from typing import Any
 
 from fasthtml.common import H1, H2, Div, JSONResponse, P, Span
@@ -43,7 +42,7 @@ from core.models.enums.scheduling_enums import RecurrencePattern
 from core.models.task.task_request import TaskCreateRequest as TaskCreateRequest
 from core.services.tasks_service import TasksService
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import Result
 from ui.buttons import Button, ButtonT
 from ui.cards import Card
 from ui.layouts.base_page import BasePage
@@ -107,146 +106,6 @@ def create_tasks_ui_routes(
     logger.info("Registering three-view task routes (standalone)")
 
     # ========================================================================
-    # AUTOCOMPLETE CACHE
-    # ========================================================================
-
-    _autocomplete_cache: dict[str, tuple[datetime, list[str]]] = {}
-    _cache_ttl_seconds = 300  # 5 minutes
-
-    def _get_cached_autocomplete(
-        cache_key: str,
-        fetch_fn: Callable[[], list[str]],
-    ) -> list[str]:
-        """
-        Get autocomplete results from cache or fetch fresh.
-
-        Args:
-            cache_key: Unique key for cache (e.g., "projects:user.mike")
-            fetch_fn: Function to fetch fresh data if cache miss
-
-        Returns:
-            Cached or fresh list of strings
-        """
-        now = datetime.now()
-
-        # Check cache
-        if cache_key in _autocomplete_cache:
-            cached_time, cached_data = _autocomplete_cache[cache_key]
-            age = (now - cached_time).total_seconds()
-
-            if age < _cache_ttl_seconds:
-                logger.debug(f"Autocomplete cache HIT: {cache_key} (age: {age:.1f}s)")
-                return cached_data
-
-        # Cache miss - fetch fresh
-        logger.debug(f"Autocomplete cache MISS: {cache_key}")
-        fresh_data = fetch_fn()
-        _autocomplete_cache[cache_key] = (now, fresh_data)
-
-        return fresh_data
-
-    # ========================================================================
-    # DATA FETCHING
-    # ========================================================================
-
-    async def get_all_tasks(user_uid: str) -> Result[list[Any]]:
-        """Get all tasks for user."""
-        try:
-            result = await tasks_service.get_user_tasks(user_uid)
-            if result.is_error:
-                logger.warning(f"Failed to fetch tasks: {result.error}")
-                return result  # Propagate the error
-            return Result.ok(result.value or [])
-        except Exception as e:
-            logger.error(
-                "Error fetching all tasks",
-                extra={
-                    "user_uid": user_uid,
-                    "error_type": type(e).__name__,
-                    "error_message": str(e),
-                },
-            )
-            return Result.fail(Errors.system(f"Failed to fetch tasks: {e}"))
-
-    async def get_distinct_projects(user_uid: str) -> Result[list[str]]:
-        """Get distinct project names for the user's tasks (with caching)."""
-        cache_key = f"projects:{user_uid}"
-
-        try:
-            # Try cache first
-            now = datetime.now()
-            if cache_key in _autocomplete_cache:
-                cached_time, cached_data = _autocomplete_cache[cache_key]
-                age = (now - cached_time).total_seconds()
-                if age < _cache_ttl_seconds:
-                    logger.debug(f"Autocomplete cache HIT: {cache_key} (age: {age:.1f}s)")
-                    return Result.ok(cached_data)
-
-            # Cache miss - fetch fresh
-            logger.debug(f"Autocomplete cache MISS: {cache_key}")
-            tasks_result = await get_all_tasks(user_uid)
-            if tasks_result.is_error:
-                return tasks_result
-
-            tasks = tasks_result.value
-            projects = sorted({t.project for t in tasks if t.project})
-
-            # Update cache
-            _autocomplete_cache[cache_key] = (now, projects)
-
-            return Result.ok(projects)
-        except Exception as e:
-            logger.error(
-                "Error fetching projects",
-                extra={
-                    "user_uid": user_uid,
-                    "error_type": type(e).__name__,
-                    "error_message": str(e),
-                },
-            )
-            return Result.fail(Errors.system(f"Failed to fetch projects: {e}"))
-
-    async def get_distinct_assignees(user_uid: str) -> Result[list[str]]:
-        """Get distinct assignee names for the user's tasks (with caching)."""
-        cache_key = f"assignees:{user_uid}"
-
-        try:
-            # Try cache first
-            now = datetime.now()
-            if cache_key in _autocomplete_cache:
-                cached_time, cached_data = _autocomplete_cache[cache_key]
-                age = (now - cached_time).total_seconds()
-                if age < _cache_ttl_seconds:
-                    logger.debug(f"Autocomplete cache HIT: {cache_key} (age: {age:.1f}s)")
-                    return Result.ok(cached_data)
-
-            # Cache miss - fetch fresh
-            logger.debug(f"Autocomplete cache MISS: {cache_key}")
-            tasks_result = await get_all_tasks(user_uid)
-            if tasks_result.is_error:
-                return tasks_result
-
-            tasks = tasks_result.value
-            assignees = {getattr(t, "assignee", None) for t in tasks}
-            assignees.discard(None)
-            assignees_sorted = sorted(assignees)
-
-            # Update cache
-            _autocomplete_cache[cache_key] = (now, assignees_sorted)
-
-            return Result.ok(assignees_sorted)
-        except Exception as e:
-            logger.error(
-                "Error fetching assignees",
-                extra={
-                    "user_uid": user_uid,
-                    "error_type": type(e).__name__,
-                    "error_message": str(e),
-                },
-            )
-            return Result.fail(Errors.system(f"Failed to fetch assignees: {e}"))
-
-    # ========================================================================
     # MAIN DASHBOARD (Standalone Three-View)
     # ========================================================================
 
@@ -264,7 +123,7 @@ def create_tasks_ui_routes(
         # Get calendar params (for calendar view)
         calendar_params = parse_calendar_params(request)
 
-        # Get data (with error handling)
+        # Get data (with error handling) — single query returns entities + stats + projects + assignees
         filtered_result = await tasks_service.get_filtered_context(
             user_uid,
             filters.project or None,
@@ -273,8 +132,6 @@ def create_tasks_ui_routes(
             filters.status_filter,
             filters.sort_by,
         )
-        projects_result = await get_distinct_projects(user_uid)
-        assignees_result = await get_distinct_assignees(user_uid)
 
         # Check for errors
         if filtered_result.is_error:
@@ -287,8 +144,8 @@ def create_tasks_ui_routes(
 
         ctx = filtered_result.value
         tasks = ctx["entities"]
-        projects = projects_result.value if not projects_result.is_error else []
-        assignees = assignees_result.value if not assignees_result.is_error else []
+        projects = ctx.get("projects", [])
+        assignees = ctx.get("assignees", [])
 
         # Render the appropriate view content
         if view == "create":
@@ -298,14 +155,16 @@ def create_tasks_ui_routes(
             )
         elif view == "calendar":
             # Get all user's tasks (not filtered by status) for calendar
-            all_tasks_result = await get_all_tasks(user_uid)
-            if all_tasks_result.is_error:
+            all_result = await tasks_service.get_filtered_context(
+                user_uid, status_filter="all"
+            )
+            if all_result.is_error:
                 view_content = render_error_banner(
-                    f"Unable to load calendar: {all_tasks_result.error}"
+                    f"Unable to load calendar: {all_result.error}"
                 )
             else:
                 view_content = TasksViewComponents.render_calendar_view(
-                    tasks=all_tasks_result.value,
+                    tasks=all_result.value["entities"],
                     current_date=calendar_params.current_date,
                     calendar_view=calendar_params.calendar_view,
                 )
@@ -344,7 +203,7 @@ def create_tasks_ui_routes(
         # Get filter params
         filters = parse_filters(request)
 
-        # Get data
+        # Get data — single query returns entities + stats + projects + assignees
         filtered_result = await tasks_service.get_filtered_context(
             user_uid,
             filters.project or None,
@@ -353,8 +212,6 @@ def create_tasks_ui_routes(
             filters.status_filter,
             filters.sort_by,
         )
-        projects_result = await get_distinct_projects(user_uid)
-        assignees_result = await get_distinct_assignees(user_uid)
 
         # Handle errors
         if filtered_result.is_error:
@@ -362,8 +219,8 @@ def create_tasks_ui_routes(
 
         ctx = filtered_result.value
         tasks = ctx["entities"]
-        projects = projects_result.value if not projects_result.is_error else []
-        assignees = assignees_result.value if not assignees_result.is_error else []
+        projects = ctx.get("projects", [])
+        assignees = ctx.get("assignees", [])
 
         return TasksViewComponents.render_list_view(
             tasks=tasks,
@@ -383,19 +240,18 @@ def create_tasks_ui_routes(
         """HTMX fragment for create view."""
         user_uid = require_authenticated_user(request)
 
-        tasks_result = await get_all_tasks(user_uid)
-        projects_result = await get_distinct_projects(user_uid)
+        filtered_result = await tasks_service.get_filtered_context(
+            user_uid, status_filter="all"
+        )
 
         # Handle errors
-        if tasks_result.is_error:
+        if filtered_result.is_error:
             return render_error_banner("Failed to load tasks")
 
-        tasks = tasks_result.value
-        projects = projects_result.value if not projects_result.is_error else []
-
+        ctx = filtered_result.value
         return TasksViewComponents.render_create_view(
-            projects=projects,
-            existing_tasks=tasks,
+            projects=ctx.get("projects", []),
+            existing_tasks=ctx["entities"],
         )
 
     @rt("/tasks/view/calendar")
@@ -407,14 +263,16 @@ def create_tasks_ui_routes(
         calendar_params = parse_calendar_params(request)
 
         # Get all user's tasks for calendar (not filtered by status)
-        tasks_result = await get_all_tasks(user_uid)
+        filtered_result = await tasks_service.get_filtered_context(
+            user_uid, status_filter="all"
+        )
 
         # Handle errors
-        if tasks_result.is_error:
+        if filtered_result.is_error:
             return render_error_banner("Unable to load calendar")
 
         return TasksViewComponents.render_calendar_view(
-            tasks=tasks_result.value,
+            tasks=filtered_result.value["entities"],
             current_date=calendar_params.current_date,
             calendar_view=calendar_params.calendar_view,
         )
@@ -519,40 +377,33 @@ def create_tasks_ui_routes(
     async def render_task_success_view(user_uid: str) -> Any:
         """Render list view after successful task creation."""
         filtered_result = await tasks_service.get_filtered_context(user_uid)
-        projects_result = await get_distinct_projects(user_uid)
-        assignees_result = await get_distinct_assignees(user_uid)
 
         # Handle errors
         if filtered_result.is_error:
             return render_error_banner("Failed to load tasks")
 
         ctx = filtered_result.value
-        all_tasks = ctx["entities"]
-        projects = projects_result.value if not projects_result.is_error else []
-        assignees = assignees_result.value if not assignees_result.is_error else []
-
         return TasksViewComponents.render_list_view(
-            tasks=all_tasks,
+            tasks=ctx["entities"],
             filters={},
-            projects=projects,
-            assignees=assignees,
+            projects=ctx.get("projects", []),
+            assignees=ctx.get("assignees", []),
         )
 
     async def render_task_add_another_view(user_uid: str) -> Any:
         """Render create view for add-another flow."""
-        tasks_result = await get_all_tasks(user_uid)
-        projects_result = await get_distinct_projects(user_uid)
+        filtered_result = await tasks_service.get_filtered_context(
+            user_uid, status_filter="all"
+        )
 
         # Handle errors
-        if tasks_result.is_error:
+        if filtered_result.is_error:
             return render_error_banner("Failed to load tasks")
 
-        tasks = tasks_result.value
-        projects = projects_result.value if not projects_result.is_error else []
-
+        ctx = filtered_result.value
         return TasksViewComponents.render_create_view(
-            projects=projects,
-            existing_tasks=tasks,
+            projects=ctx.get("projects", []),
+            existing_tasks=ctx["entities"],
         )
 
     # Register quick-add route via factory
@@ -622,10 +473,10 @@ def create_tasks_ui_routes(
         user_uid = require_authenticated_user(request)
         query = request.query_params.get("q", "").lower()
 
-        projects_result = await get_distinct_projects(user_uid)
-
-        # Graceful degradation: fall back to empty list for autocomplete
-        projects = projects_result.value if not projects_result.is_error else []
+        filtered_result = await tasks_service.get_filtered_context(
+            user_uid, status_filter="all"
+        )
+        projects = filtered_result.value.get("projects", []) if not filtered_result.is_error else []
 
         if query:
             projects = [p for p in projects if query in p.lower()]
@@ -638,10 +489,10 @@ def create_tasks_ui_routes(
         user_uid = require_authenticated_user(request)
         query = request.query_params.get("q", "").lower()
 
-        assignees_result = await get_distinct_assignees(user_uid)
-
-        # Graceful degradation: fall back to empty list for autocomplete
-        assignees = assignees_result.value if not assignees_result.is_error else []
+        filtered_result = await tasks_service.get_filtered_context(
+            user_uid, status_filter="all"
+        )
+        assignees = filtered_result.value.get("assignees", []) if not filtered_result.is_error else []
 
         if query:
             assignees = [a for a in assignees if query in a.lower()]
@@ -666,8 +517,10 @@ def create_tasks_ui_routes(
             return error
 
         # Get projects for autocomplete
-        projects_result = await get_distinct_projects(user_uid)
-        projects = projects_result.value if not projects_result.is_error else []
+        filtered_result = await tasks_service.get_filtered_context(
+            user_uid, status_filter="all"
+        )
+        projects = filtered_result.value.get("projects", []) if not filtered_result.is_error else []
 
         return TodoistTaskComponents.render_task_edit_modal(task, projects)
 

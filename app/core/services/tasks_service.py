@@ -123,6 +123,17 @@ class TaskAnalyticsDashboard(TypedDict):
     analytics_status: AnalyticsStatus
 
 
+def _apply_status_filter(entities: list[Any], status_filter: str) -> list[Any]:
+    """Apply status filter in Python (replaces Cypher-level filtering)."""
+    match status_filter:
+        case "active":
+            return [e for e in entities if e.status != EntityStatus.COMPLETED]
+        case "completed":
+            return [e for e in entities if e.status == EntityStatus.COMPLETED]
+        case _:
+            return entities
+
+
 def _apply_task_secondary_filters(
     tasks: list[Any],
     project: str | None = None,
@@ -993,26 +1004,44 @@ class TasksService(BaseService["TasksOperations", Task]):
         status_filter: str = "active",
         sort_by: str = "due_date",
     ) -> Result[ListContext]:
-        """Get filtered and sorted tasks with pre-filter stats.
+        """Get filtered and sorted tasks with pre-filter stats in a single query.
 
-        Stats via Cypher COUNT (no entity deserialization).
-        Status filter pushed to Cypher WHERE; project/assignee/due_filter applied Python-side.
+        Fetches ALL user tasks once, computes stats in Python, then filters and sorts.
+        Also returns projects/assignees lists for UI dropdowns.
         """
-        import asyncio
+        all_result = await self.core.get_for_user_filtered(user_uid, "all")
+        if all_result.is_error:
+            return Result.fail(all_result)
+        all_tasks = all_result.value
 
-        stats_result, entities_result = await asyncio.gather(
-            self.core.get_stats_for_user(user_uid),
-            self.core.get_for_user_filtered(user_uid, status_filter),
-        )
-        if stats_result.is_error:
-            return Result.fail(stats_result)
-        if entities_result.is_error:
-            return Result.fail(entities_result)
-        filtered = _apply_task_secondary_filters(
-            entities_result.value, project, assignee, due_filter
-        )
+        # Stats from full set (replaces Cypher COUNT)
+        today = date.today()
+        stats = {
+            "total": len(all_tasks),
+            "completed": sum(1 for t in all_tasks if t.status == EntityStatus.COMPLETED),
+            "overdue": sum(
+                1
+                for t in all_tasks
+                if t.due_date and t.due_date < today and t.status != EntityStatus.COMPLETED
+            ),
+        }
+
+        # Status filter in Python
+        filtered = _apply_status_filter(all_tasks, status_filter)
+        filtered = _apply_task_secondary_filters(filtered, project, assignee, due_filter)
         sorted_tasks = _apply_task_sort(filtered, sort_by)
-        return Result.ok({"entities": sorted_tasks, "stats": stats_result.value})
+
+        # Metadata for UI dropdowns (replaces get_distinct_projects/assignees)
+        projects = sorted({t.project for t in all_tasks if t.project})
+        assignees_set = {getattr(t, "assignee", None) for t in all_tasks}
+        assignees_set.discard(None)
+
+        return Result.ok({
+            "entities": sorted_tasks,
+            "stats": stats,
+            "projects": list(projects),
+            "assignees": sorted(assignees_set),
+        })
 
 
 # Legacy alias removed - class renamed directly to TasksService

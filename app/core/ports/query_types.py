@@ -1135,6 +1135,8 @@ class ListContext(TypedDict, total=False):
     Fields:
         entities: Filtered and sorted entity list
         stats: Aggregate stats computed BEFORE filtering (total, domain-specific counts)
+        projects: Distinct project names (Tasks domain only)
+        assignees: Distinct assignee names (Tasks domain only)
 
     Usage:
         ctx = result.value
@@ -1143,6 +1145,8 @@ class ListContext(TypedDict, total=False):
 
     entities: list[Any]
     stats: dict[str, int]
+    projects: list[str]
+    assignees: list[str]
 
 
 class ContextSummary(TypedDict, total=False):

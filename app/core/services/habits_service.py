@@ -1313,23 +1313,35 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
         status_filter: str = "active",
         sort_by: str = "streak",
     ) -> Result[ListContext]:
-        """Get filtered and sorted habits with pre-filter stats.
+        """Get filtered and sorted habits with pre-filter stats in a single query.
 
-        Stats via Cypher COUNT (no entity deserialization).
-        Status filter pushed to Cypher WHERE (not Python post-filter).
+        Fetches ALL user habits once, computes stats in Python, then filters and sorts.
         """
-        import asyncio
+        all_result = await self.core.get_for_user_filtered(user_uid, "all")
+        if all_result.is_error:
+            return Result.fail(all_result)
+        all_habits = all_result.value
 
-        stats_result, entities_result = await asyncio.gather(
-            self.core.get_stats_for_user(user_uid),
-            self.core.get_for_user_filtered(user_uid, status_filter),
-        )
-        if stats_result.is_error:
-            return Result.fail(stats_result)
-        if entities_result.is_error:
-            return Result.fail(entities_result)
-        sorted_habits = _apply_habit_sort(entities_result.value, sort_by)
-        return Result.ok({"entities": sorted_habits, "stats": stats_result.value})
+        # Stats from full set (replaces Cypher COUNT)
+        stats = {
+            "total": len(all_habits),
+            "active": sum(1 for h in all_habits if h.status == EntityStatus.ACTIVE),
+            "streaks": sum(1 for h in all_habits if getattr(h, "current_streak", 0) > 0),
+        }
+
+        # Status filter in Python
+        match status_filter:
+            case "active":
+                filtered = [h for h in all_habits if h.status == EntityStatus.ACTIVE]
+            case "paused":
+                filtered = [h for h in all_habits if h.status == EntityStatus.PAUSED]
+            case "completed":
+                filtered = [h for h in all_habits if h.status == EntityStatus.COMPLETED]
+            case _:
+                filtered = all_habits
+
+        sorted_habits = _apply_habit_sort(filtered, sort_by)
+        return Result.ok({"entities": sorted_habits, "stats": stats})
 
 
 # Legacy alias removed - class renamed directly to HabitsService

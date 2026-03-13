@@ -848,21 +848,28 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
         strength_filter: str = "all",
         sort_by: str = "strength",
     ) -> Result[ListContext]:
-        """Get filtered and sorted principles with pre-filter stats.
+        """Get filtered and sorted principles with pre-filter stats in a single query.
 
-        Stats via Cypher COUNT (no entity deserialization).
-        Category/strength filtering stays Python-side (numeric threshold logic).
+        Fetches ALL user principles once, computes stats in Python, then filters and sorts.
         """
-        import asyncio
+        all_result = await self.core.get_for_user_filtered(user_uid)
+        if all_result.is_error:
+            return Result.fail(all_result)
+        all_principles = all_result.value
 
-        stats_result, entities_result = await asyncio.gather(
-            self.core.get_stats_for_user(user_uid),
-            self.core.get_for_user_filtered(user_uid),
-        )
-        if stats_result.is_error:
-            return Result.fail(stats_result)
-        if entities_result.is_error:
-            return Result.fail(entities_result)
-        filtered = _apply_principle_filters(entities_result.value, category_filter, strength_filter)
+        # Stats from full set (replaces Cypher COUNT)
+        stats = {
+            "total": len(all_principles),
+            "core": sum(
+                1 for p in all_principles
+                if _get_principle_strength_value(p) >= 5
+            ),
+            "active": sum(
+                1 for p in all_principles
+                if getattr(p, "is_active", True)
+            ),
+        }
+
+        filtered = _apply_principle_filters(all_principles, category_filter, strength_filter)
         sorted_principles = _apply_principle_sort(filtered, sort_by)
-        return Result.ok({"entities": sorted_principles, "stats": stats_result.value})
+        return Result.ok({"entities": sorted_principles, "stats": stats})

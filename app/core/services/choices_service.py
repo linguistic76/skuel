@@ -480,23 +480,48 @@ class ChoicesService(BaseService["ChoicesOperations", Choice]):
         status_filter: str = "pending",
         sort_by: str = "deadline",
     ) -> Result[ListContext]:
-        """Get filtered and sorted choices with pre-filter stats.
+        """Get filtered and sorted choices with pre-filter stats in a single query.
 
-        Stats via Cypher COUNT (no entity deserialization).
-        Status filter pushed to Cypher WHERE (not Python post-filter).
+        Fetches ALL user choices once, computes stats in Python, then filters and sorts.
         """
-        import asyncio
+        all_result = await self.core.get_for_user_filtered(user_uid, "all")
+        if all_result.is_error:
+            return Result.fail(all_result)
+        all_choices = all_result.value
 
-        stats_result, entities_result = await asyncio.gather(
-            self.core.get_stats_for_user(user_uid),
-            self.core.get_for_user_filtered(user_uid, status_filter),
-        )
-        if stats_result.is_error:
-            return Result.fail(stats_result)
-        if entities_result.is_error:
-            return Result.fail(entities_result)
-        sorted_choices = _apply_choice_sort(entities_result.value, sort_by)
-        return Result.ok({"entities": sorted_choices, "stats": stats_result.value})
+        # Stats from full set (replaces Cypher COUNT)
+        stats = {
+            "total": len(all_choices),
+            "pending": sum(
+                1 for c in all_choices if _get_choice_enum_value(c, "status") == "pending"
+            ),
+            "decided": sum(
+                1 for c in all_choices if _get_choice_enum_value(c, "status") == "decided"
+            ),
+        }
+
+        # Status filter in Python
+        match status_filter:
+            case "pending":
+                filtered = [
+                    c for c in all_choices
+                    if _get_choice_enum_value(c, "status") == "pending"
+                ]
+            case "decided":
+                filtered = [
+                    c for c in all_choices
+                    if _get_choice_enum_value(c, "status") == "decided"
+                ]
+            case "implemented":
+                filtered = [
+                    c for c in all_choices
+                    if _get_choice_enum_value(c, "status") == "implemented"
+                ]
+            case _:
+                filtered = all_choices
+
+        sorted_choices = _apply_choice_sort(filtered, sort_by)
+        return Result.ok({"entities": sorted_choices, "stats": stats})
 
     # Note: Intelligence delegations (get_choice_with_context, get_decision_intelligence,
     # analyze_choice_impact, get_decision_patterns, etc.) and Search delegations

@@ -926,20 +926,45 @@ class EventsService(BaseService["EventsOperations", Event]):
         status_filter: str = "scheduled",
         sort_by: str = "start_time",
     ) -> Result[ListContext]:
-        """Get filtered and sorted events with pre-filter stats.
+        """Get filtered and sorted events with pre-filter stats in a single query.
 
-        Stats via Cypher COUNT (no entity deserialization).
-        Status filter pushed to Cypher WHERE (not Python post-filter).
+        Fetches ALL user events once, computes stats in Python, then filters and sorts.
         """
-        import asyncio
+        all_result = await self.core.get_for_user_filtered(user_uid, "all")
+        if all_result.is_error:
+            return Result.fail(all_result)
+        all_events = all_result.value
 
-        stats_result, entities_result = await asyncio.gather(
-            self.core.get_stats_for_user(user_uid),
-            self.core.get_for_user_filtered(user_uid, status_filter),
-        )
-        if stats_result.is_error:
-            return Result.fail(stats_result)
-        if entities_result.is_error:
-            return Result.fail(entities_result)
-        sorted_events = _apply_event_sort(entities_result.value, sort_by)
-        return Result.ok({"entities": sorted_events, "stats": stats_result.value})
+        # Stats from full set (replaces Cypher COUNT)
+        today = date.today()
+        stats = {
+            "total": len(all_events),
+            "scheduled": sum(
+                1 for e in all_events if _get_event_status_value(e) == "scheduled"
+            ),
+            "today": sum(
+                1
+                for e in all_events
+                if getattr(e, "event_date", None) == today
+            ),
+        }
+
+        # Status filter in Python
+        match status_filter:
+            case "scheduled":
+                filtered = [
+                    e for e in all_events if _get_event_status_value(e) == "scheduled"
+                ]
+            case "completed":
+                filtered = [
+                    e for e in all_events if _get_event_status_value(e) == "completed"
+                ]
+            case "cancelled":
+                filtered = [
+                    e for e in all_events if _get_event_status_value(e) == "cancelled"
+                ]
+            case _:
+                filtered = all_events
+
+        sorted_events = _apply_event_sort(filtered, sort_by)
+        return Result.ok({"entities": sorted_events, "stats": stats})

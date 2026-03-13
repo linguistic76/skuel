@@ -686,23 +686,39 @@ class GoalsService(BaseService[GoalsOperations, Goal]):
         status_filter: str = "active",
         sort_by: str = "target_date",
     ) -> Result[ListContext]:
-        """Get filtered and sorted goals with pre-filter stats.
+        """Get filtered and sorted goals with pre-filter stats in a single query.
 
-        Stats via Cypher COUNT (no entity deserialization).
-        Status filter pushed to Cypher WHERE (not Python post-filter).
+        Fetches ALL user goals once, computes stats in Python, then filters and sorts.
         """
-        import asyncio
+        all_result = await self.core.get_for_user_filtered(user_uid, "all")
+        if all_result.is_error:
+            return Result.fail(all_result)
+        all_goals = all_result.value
 
-        stats_result, entities_result = await asyncio.gather(
-            self.core.get_stats_for_user(user_uid),
-            self.core.get_for_user_filtered(user_uid, status_filter),
-        )
-        if stats_result.is_error:
-            return Result.fail(stats_result)
-        if entities_result.is_error:
-            return Result.fail(entities_result)
-        sorted_goals = _apply_goal_sort(entities_result.value, sort_by)
-        return Result.ok({"entities": sorted_goals, "stats": stats_result.value})
+        # Stats from full set (replaces Cypher COUNT)
+        stats = {
+            "total": len(all_goals),
+            "active": sum(
+                1 for g in all_goals
+                if _get_goal_status_str(g) not in ("completed", "cancelled", "archived")
+            ),
+            "completed": sum(1 for g in all_goals if _get_goal_status_str(g) == "completed"),
+        }
+
+        # Status filter in Python
+        match status_filter:
+            case "active":
+                filtered = [
+                    g for g in all_goals
+                    if _get_goal_status_str(g) not in ("completed", "cancelled", "archived")
+                ]
+            case "completed":
+                filtered = [g for g in all_goals if _get_goal_status_str(g) == "completed"]
+            case _:
+                filtered = all_goals
+
+        sorted_goals = _apply_goal_sort(filtered, sort_by)
+        return Result.ok({"entities": sorted_goals, "stats": stats})
 
     # Note: Status operations (activate_goal, pause_goal, complete_goal, archive_goal)
     # and Search operations (list_goal_categories, get_goals_by_status, search_goals, etc.)
