@@ -36,12 +36,11 @@ Reports is the primary user-facing interface for all content submissions and sys
 
 | Route | Type | Purpose |
 |-------|------|---------|
-| `/reports` | UI | Dashboard with 5-item sidebar |
-| `/submissions/submit` | UI | File upload form |
-| `/submissions/browse` | UI | Browse all reports with type/status filters |
-| `/submissions/yours` | UI | User's own reports |
-| `/submissions/feedback` | UI | Assessments received from teachers |
-| `/submissions/progress` | UI | Generate progress reports + schedule settings |
+| `/learn` | UI | Student workspace hub (no sidebar) |
+| `/learn/submit` | UI | File upload form |
+| `/learn/submissions` | UI | My submitted work (yours + browse merged) |
+| `/learn/reports` | UI | Teacher assessments + progress reports (merged) |
+| `/learn/submissions/{uid}` | UI | Submission detail page |
 | `/journals` | UI | Two-tier journal submission (voice + curated) |
 | `/api/submissions/upload` | API | File upload endpoint |
 | `/api/reports` | API | List reports (supports `report_type` filter) |

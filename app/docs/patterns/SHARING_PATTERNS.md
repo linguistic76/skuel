@@ -671,7 +671,7 @@ if result.is_error:
 - **Protocol:** `core/ports/sharing_protocols.py`
 - **API Routes:** `adapters/inbound/submissions_sharing_api.py`
 - **Group sharing routes:** `adapters/inbound/submissions_sharing_api.py`
-- **UI Routes:** `adapters/inbound/submissions_ui.py`
+- **UI Routes:** `adapters/inbound/learn_ui.py`
 - **UI Components:** `ui/submissions/sharing.py`
 - **Profile Tab:** `adapters/inbound/user_profile_ui.py`
 

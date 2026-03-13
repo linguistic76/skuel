@@ -315,7 +315,7 @@ MAIN_NAV_ITEMS: tuple[NavItem, ...] = (
 
 The navbar has three icon links in the left section (after the SKUEL logo):
 - **A** (Activities) → `/activities` — 6 Activity Domain cards + Journal + Knowledge
-- **L** (Learn) → `/learn` — Study/Practice/Pathways (the learning loop)
+- **L** (Learn) → `/learn` — Student workspace hub (Submit/My Submissions/Reports)
 - **U** (Avatar) → `/profile` — Lean profile (Focus + Steady + Settings)
 
 See `/ui/layouts/nav_config.py` for `ICON_NAV_ITEMS` and `IconNavItem`.
@@ -387,7 +387,7 @@ from ui.patterns.sidebar import SidebarItem
 
 SidebarItem(
     label="Submit",              # Display text
-    href="/submissions/submit",  # Navigation URL
+    href="/learn/submit",        # Navigation URL
     slug="submit",               # For active state matching
     icon="📤",                   # Optional emoji
     description="",              # Optional subtitle (renders two-line item)
@@ -403,9 +403,9 @@ SidebarItem(
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 
 items = [
-    SidebarItem("Submit", "/submissions/submit", "submit", icon="📤"),
-    SidebarItem("Browse", "/submissions/browse", "browse", icon="📂"),
-    SidebarItem("Projects", "/submissions/projects", "projects", icon="📋"),
+    SidebarItem("Submit", "/learn/submit", "submit", icon="📤"),
+    SidebarItem("My Submissions", "/learn/submissions", "submissions", icon="📝"),
+    SidebarItem("Reports", "/learn/reports", "reports", icon="💬"),
 ]
 
 return await SidebarPage(

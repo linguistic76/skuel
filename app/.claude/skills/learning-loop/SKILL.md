@@ -526,11 +526,11 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
 
 | Phase | Route | Method | Who |
 |-------|-------|--------|-----|
-| **Student assignments** | `/submissions/assignments` | GET | Student |
-| **Submission** | `/submissions/submit` | POST | Student |
-| **Submission detail** | `/submissions/{uid}` | GET | Student (owner) |
-| **Submission feedback** | `/submissions/{uid}/feedback` | GET (HTMX) | Student (owner) |
-| **Submission exercise link** | `/submissions/{uid}/exercise` | GET (HTMX) | Student |
+| **Student assignments** | `/exercises` | GET | Student |
+| **Submission** | `/learn/submit` | POST | Student |
+| **Submission detail** | `/learn/submissions/{uid}` | GET | Student (owner) |
+| **Submission feedback** | `/learn/submissions/{uid}/report` | GET (HTMX) | Student (owner) |
+| **Submission exercise link** | `/learn/submissions/{uid}/exercise` | GET (HTMX) | Student |
 | **Submission** | `/api/submissions/...` | GET/POST | Student |
 | **Submission sharing** | `/api/share/group` | POST | Student |
 | **Submission sharing** | `/api/submissions/shared-with-me` | GET | Teacher |
@@ -654,7 +654,7 @@ that never closes the loop.
 | `core/ports/group_protocols.py` | support | `GroupOperations` only (group CRUD + membership) |
 | `core/services/sharing/unified_sharing_service.py` | 3 | Entity-agnostic sharing |
 | `adapters/persistence/neo4j/domain_backends.py` | all | Domain-specific Cypher |
-| `adapters/inbound/submissions_ui.py` | 2+3+4 | Student assignments page, submit form, feedback display |
+| `adapters/inbound/learn_ui.py` | 2+3+4 | Student submit form, submissions list, feedback display |
 | `adapters/inbound/teaching_ui.py` | 4 | Teacher review queue, feedback form, sidebar dashboard |
 | `adapters/inbound/teaching_api.py` | 4 | Teacher API (review queue, revision, approve, dashboard) |
 | `ui/patterns/feedback_item.py` | 4 | Shared feedback rendering (used by teaching + submissions UI) |

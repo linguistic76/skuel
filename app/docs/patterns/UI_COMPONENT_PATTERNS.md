@@ -73,7 +73,9 @@ SKUEL uses a layered UI component architecture built on Tailwind CSS and DaisyUI
 
 **Evolution (2026-02-16):** Events moved from main navbar to avatar dropdown — all 6 Activity Domains in one place.
 
-**Evolution (2026-03-11):** Major restructure into three focused areas. Navbar gains icon links: **A** (`/activities`) and **L** (`/learn`). Profile stripped to lean (Focus + Steady + Settings). Activity domains at `/activities/{domain}` with Activity sidebar. Learning at `/learn` with Study/Practice/Pathways sidebar reflecting the learning loop. Avatar dropdown removed — avatar is a direct link to `/profile`.
+**Evolution (2026-03-11):** Major restructure into three focused areas. Navbar gains icon links: **A** (`/activities`) and **L** (`/learn`). Profile stripped to lean (Focus + Steady + Settings). Activity domains at `/activities/{domain}` with Activity sidebar. Avatar dropdown removed — avatar is a direct link to `/profile`.
+
+**Evolution (2026-03-13):** `/learn` redesigned as student workspace hub. Old Study/Practice/Pathways sidebar replaced with Submit/My Submissions/Reports. Submission UI routes moved from `/submissions/*` to `/learn/*` (old paths redirect 301). `/learn` landing shows 3 workspace action cards + curriculum discovery links. Sidebar only appears on sub-pages (`/learn/submit`, `/learn/submissions`, `/learn/reports`).
 
 **Evolution (2026-02-09):** All 5 sidebars (Profile, KU, Reports, Journals, Askesis) unified into single Tailwind + Alpine.js component (`SidebarPage`). Custom CSS/JS files (`profile_sidebar.css`, `profile_sidebar.js`) deleted. Mobile uses horizontal DaisyUI tabs instead of drawer/overlay.
 
@@ -139,15 +141,15 @@ All sidebar pages (Activities, Learn, KU, Reports, Journals, Askesis) use a sing
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 
 items = [
-    SidebarItem("Study", "/learn/study", "study", icon="📖"),
-    SidebarItem("Practice", "/learn/practice", "practice", icon="✏️"),
-    SidebarItem("Pathways", "/learn/pathways", "pathways", icon="🗺️"),
+    SidebarItem("Submit", "/learn/submit", "submit", icon="📤"),
+    SidebarItem("My Submissions", "/learn/submissions", "submissions", icon="📝"),
+    SidebarItem("Reports", "/learn/reports", "reports", icon="💬"),
 ]
 
 return await SidebarPage(
     content=main_content,
     items=items,
-    active="study",
+    active="submit",
     title="Learn",
     storage_key="learn-sidebar",
     request=request,
