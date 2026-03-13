@@ -403,7 +403,7 @@ def render_domain_card_preview(items: list[Any], slug: str) -> Div:
     ]
 
     return Div(
-        Ul(*rows, cls="divide-y divide-base-200"),
+        Ul(*rows, cls="divide-y divide-border"),
         A(
             f"View all {slug} →",
             href=view_href,

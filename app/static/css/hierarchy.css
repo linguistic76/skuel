@@ -7,7 +7,7 @@
 
 /* Tree View Container */
 .tree-container {
-    @apply bg-base-100 rounded-lg border border-base-300 p-4;
+    @apply bg-background rounded-lg border border-border p-4;
     @apply overflow-auto max-h-[600px];
 }
 
@@ -25,7 +25,7 @@
 }
 
 .tree-node .node-content:hover {
-    @apply bg-base-200;
+    @apply bg-muted;
 }
 
 /* Drag states */
@@ -71,16 +71,16 @@
 
 .breadcrumbs li:not(:last-child)::after {
     content: "›";
-    @apply ml-2 text-base-content/60;
+    @apply ml-2 text-muted-foreground;
 }
 
 .breadcrumbs li:last-child {
-    @apply text-base-content/70 font-medium;
+    @apply text-muted-foreground font-medium;
 }
 
 /* Indented List */
 .indented-list {
-    @apply bg-base-100 rounded-lg border border-base-300 p-2;
+    @apply bg-background rounded-lg border border-border p-2;
 }
 
 /* Loading state */
@@ -89,12 +89,12 @@
 }
 
 .tree-loading .node-content {
-    @apply bg-base-200;
+    @apply bg-muted;
 }
 
 /* Empty state */
 .tree-empty {
-    @apply text-base-content/60 text-sm italic text-center py-8;
+    @apply text-muted-foreground text-sm italic text-center py-8;
 }
 
 /* Alpine.js cloak */

@@ -804,13 +804,13 @@ def _render_system_summary(status_data: dict) -> Div:
         "warning": "bg-warning",
         "critical": "bg-error",
         "degraded": "bg-warning",
-        "unknown": "bg-base-content/50",
+        "unknown": "bg-muted-foreground",
     }
 
     return Div(
         Div(
             Span(
-                cls=f"w-3 h-3 rounded-full {dot_colors.get(status, 'bg-base-content/50')} animate-pulse"
+                cls=f"w-3 h-3 rounded-full {dot_colors.get(status, 'bg-muted-foreground')} animate-pulse"
             ),
             Span(
                 status.upper(),

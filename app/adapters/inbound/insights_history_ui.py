@@ -148,7 +148,7 @@ def create_insights_history_routes(
                     if action_notes or insight.dismissed or insight.actioned
                     else Div(),
                     cls="mb-2 p-3 bg-background rounded-md border-l-2 "
-                    + ("border-l-base-300" if insight.dismissed else "border-l-success"),
+                    + ("border-l-border" if insight.dismissed else "border-l-success"),
                 )
 
                 # Wrap card with metadata

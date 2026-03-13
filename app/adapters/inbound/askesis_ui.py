@@ -231,7 +231,7 @@ class AskesisUI:
                     P(message, cls="text-base text-foreground"),
                     cls="flex-1",
                 ),
-                cls="flex items-start p-4 bg-base-50 border border-border rounded-lg",
+                cls="flex items-start p-4 bg-muted border border-border rounded-lg",
             )
 
 

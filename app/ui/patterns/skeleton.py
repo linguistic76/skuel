@@ -112,7 +112,7 @@ def SkeletonTable(rows: int = 5) -> Div:
                 )
                 for _ in range(rows)
             ],
-            cls="divide-y divide-base-300/50",
+            cls="divide-y divide-border/50",
         ),
         cls="bg-background shadow-sm p-4",
     )

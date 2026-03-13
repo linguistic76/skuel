@@ -28,7 +28,7 @@ def StatusBadge(status: str) -> Span:
         "critical": "bg-error",
     }
 
-    color_class = color_classes.get(status, "bg-base-content/60")
+    color_class = color_classes.get(status, "bg-muted-foreground")
 
     return Span(
         cls=f"w-2 h-2 rounded-full {color_class}",

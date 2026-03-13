@@ -1006,7 +1006,7 @@ def _render_pagination(response: SearchResponse) -> Any:
                 hx_include="[name='query'], [name='domain'], [name='sel_category'], [name='learning_level'], [name='content_type'], [name='educational_level']",
                 cls=f"btn btn-sm {'btn-disabled' if not response.has_more_pages() else 'btn-outline'}",
             ),
-            cls="join flex justify-center gap-1",
+            cls="flex justify-center gap-1",
         ),
         cls="mt-12",
     )
