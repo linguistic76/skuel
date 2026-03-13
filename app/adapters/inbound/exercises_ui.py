@@ -17,8 +17,10 @@ from typing import Any
 
 from fasthtml.common import H1, H2, H3, A, Code, Div, Form, Li, Option, P, Pre, Span, Ul
 
-from adapters.inbound.auth import make_service_getter, require_teacher
+from adapters.inbound.auth import make_service_getter, require_authenticated_user, require_teacher
 from core.utils.logging import get_logger
+from ui.learn.layout import create_learn_page
+from ui.patterns.page_header import PageHeader
 from ui.buttons import Button, ButtonT
 from ui.cards import Card
 from ui.forms import Input, Label, Select, Textarea
@@ -41,12 +43,6 @@ class ExerciseUIComponents:
         exercises = exercises or []
 
         navbar = create_navbar_for_request(request, active_page="exercises")
-
-        # Get user_uid from session if not provided
-        if user_uid is None and request:
-            from adapters.inbound.auth import require_authenticated_user
-
-            user_uid = require_authenticated_user(request)
 
         return Div(
             navbar,
@@ -428,24 +424,31 @@ def create_exercises_ui_routes(
     """
     Create exercises UI routes.
 
-    Role-gated to TEACHER+ — only teachers and admins can create/manage
-    AI feedback instruction templates.
+    Dashboard is open to all authenticated users (exercises are shared curriculum).
+    Create/edit/delete routes are TEACHER+ gated.
     """
 
     get_user_service = make_service_getter(user_service)
 
     @app.get("/ui/exercises")
-    @require_teacher(get_user_service)
-    async def exercises_dashboard(request, current_user=None) -> Any:
-        """Exercises dashboard."""
+    async def exercises_dashboard(request) -> Any:
+        """Exercises dashboard — open to all authenticated users, Learn sidebar layout."""
         try:
-            user_uid = current_user.uid if current_user else None
+            user_uid = require_authenticated_user(request)
 
             result = await exercises_service.list_user_exercises(user_uid)
             exercises = [] if result.is_error else result.value
 
-            return ExerciseUIComponents.render_exercises_dashboard(
-                exercises=exercises, request=request, user_uid=user_uid
+            content = Div(
+                PageHeader("Exercises", subtitle="Practice with exercises linked to articles and knowledge units"),
+                ExerciseUIComponents.render_exercises_list(exercises),
+                id="main-content",
+            )
+            return await create_learn_page(
+                content=content,
+                active_section="exercises",
+                request=request,
+                title="Exercises - Learn",
             )
 
         except Exception as e:
