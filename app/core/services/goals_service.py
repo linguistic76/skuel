@@ -699,7 +699,8 @@ class GoalsService(BaseService[GoalsOperations, Goal]):
         stats = {
             "total": len(all_goals),
             "active": sum(
-                1 for g in all_goals
+                1
+                for g in all_goals
                 if _get_goal_status_str(g) not in ("completed", "cancelled", "archived")
             ),
             "completed": sum(1 for g in all_goals if _get_goal_status_str(g) == "completed"),
@@ -709,7 +710,8 @@ class GoalsService(BaseService[GoalsOperations, Goal]):
         match status_filter:
             case "active":
                 filtered = [
-                    g for g in all_goals
+                    g
+                    for g in all_goals
                     if _get_goal_status_str(g) not in ("completed", "cancelled", "archived")
                 ]
             case "completed":

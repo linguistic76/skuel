@@ -155,13 +155,9 @@ def create_tasks_ui_routes(
             )
         elif view == "calendar":
             # Get all user's tasks (not filtered by status) for calendar
-            all_result = await tasks_service.get_filtered_context(
-                user_uid, status_filter="all"
-            )
+            all_result = await tasks_service.get_filtered_context(user_uid, status_filter="all")
             if all_result.is_error:
-                view_content = render_error_banner(
-                    f"Unable to load calendar: {all_result.error}"
-                )
+                view_content = render_error_banner(f"Unable to load calendar: {all_result.error}")
             else:
                 view_content = TasksViewComponents.render_calendar_view(
                     tasks=all_result.value["entities"],
@@ -240,9 +236,7 @@ def create_tasks_ui_routes(
         """HTMX fragment for create view."""
         user_uid = require_authenticated_user(request)
 
-        filtered_result = await tasks_service.get_filtered_context(
-            user_uid, status_filter="all"
-        )
+        filtered_result = await tasks_service.get_filtered_context(user_uid, status_filter="all")
 
         # Handle errors
         if filtered_result.is_error:
@@ -263,9 +257,7 @@ def create_tasks_ui_routes(
         calendar_params = parse_calendar_params(request)
 
         # Get all user's tasks for calendar (not filtered by status)
-        filtered_result = await tasks_service.get_filtered_context(
-            user_uid, status_filter="all"
-        )
+        filtered_result = await tasks_service.get_filtered_context(user_uid, status_filter="all")
 
         # Handle errors
         if filtered_result.is_error:
@@ -392,9 +384,7 @@ def create_tasks_ui_routes(
 
     async def render_task_add_another_view(user_uid: str) -> Any:
         """Render create view for add-another flow."""
-        filtered_result = await tasks_service.get_filtered_context(
-            user_uid, status_filter="all"
-        )
+        filtered_result = await tasks_service.get_filtered_context(user_uid, status_filter="all")
 
         # Handle errors
         if filtered_result.is_error:
@@ -473,9 +463,7 @@ def create_tasks_ui_routes(
         user_uid = require_authenticated_user(request)
         query = request.query_params.get("q", "").lower()
 
-        filtered_result = await tasks_service.get_filtered_context(
-            user_uid, status_filter="all"
-        )
+        filtered_result = await tasks_service.get_filtered_context(user_uid, status_filter="all")
         projects = filtered_result.value.get("projects", []) if not filtered_result.is_error else []
 
         if query:
@@ -489,10 +477,10 @@ def create_tasks_ui_routes(
         user_uid = require_authenticated_user(request)
         query = request.query_params.get("q", "").lower()
 
-        filtered_result = await tasks_service.get_filtered_context(
-            user_uid, status_filter="all"
+        filtered_result = await tasks_service.get_filtered_context(user_uid, status_filter="all")
+        assignees = (
+            filtered_result.value.get("assignees", []) if not filtered_result.is_error else []
         )
-        assignees = filtered_result.value.get("assignees", []) if not filtered_result.is_error else []
 
         if query:
             assignees = [a for a in assignees if query in a.lower()]
@@ -517,9 +505,7 @@ def create_tasks_ui_routes(
             return error
 
         # Get projects for autocomplete
-        filtered_result = await tasks_service.get_filtered_context(
-            user_uid, status_filter="all"
-        )
+        filtered_result = await tasks_service.get_filtered_context(user_uid, status_filter="all")
         projects = filtered_result.value.get("projects", []) if not filtered_result.is_error else []
 
         return TodoistTaskComponents.render_task_edit_modal(task, projects)

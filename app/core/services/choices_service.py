@@ -504,18 +504,15 @@ class ChoicesService(BaseService["ChoicesOperations", Choice]):
         match status_filter:
             case "pending":
                 filtered = [
-                    c for c in all_choices
-                    if _get_choice_enum_value(c, "status") == "pending"
+                    c for c in all_choices if _get_choice_enum_value(c, "status") == "pending"
                 ]
             case "decided":
                 filtered = [
-                    c for c in all_choices
-                    if _get_choice_enum_value(c, "status") == "decided"
+                    c for c in all_choices if _get_choice_enum_value(c, "status") == "decided"
                 ]
             case "implemented":
                 filtered = [
-                    c for c in all_choices
-                    if _get_choice_enum_value(c, "status") == "implemented"
+                    c for c in all_choices if _get_choice_enum_value(c, "status") == "implemented"
                 ]
             case _:
                 filtered = all_choices

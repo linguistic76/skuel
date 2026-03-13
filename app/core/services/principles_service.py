@@ -860,14 +860,8 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
         # Stats from full set (replaces Cypher COUNT)
         stats = {
             "total": len(all_principles),
-            "core": sum(
-                1 for p in all_principles
-                if _get_principle_strength_value(p) >= 5
-            ),
-            "active": sum(
-                1 for p in all_principles
-                if getattr(p, "is_active", True)
-            ),
+            "core": sum(1 for p in all_principles if _get_principle_strength_value(p) >= 5),
+            "active": sum(1 for p in all_principles if getattr(p, "is_active", True)),
         }
 
         filtered = _apply_principle_filters(all_principles, category_filter, strength_filter)

@@ -270,8 +270,7 @@ class UserStateAnalyzer:
         }
         if user_context.goal_progress:
             goals["average_progress"] = round(
-                sum(user_context.goal_progress.values())
-                / len(user_context.goal_progress),
+                sum(user_context.goal_progress.values()) / len(user_context.goal_progress),
                 2,
             )
 
@@ -283,8 +282,7 @@ class UserStateAnalyzer:
         if user_context.habit_streaks:
             habits["longest_streak"] = max(user_context.habit_streaks.values())
             habits["average_streak"] = round(
-                sum(user_context.habit_streaks.values())
-                / len(user_context.habit_streaks),
+                sum(user_context.habit_streaks.values()) / len(user_context.habit_streaks),
                 1,
             )
 
@@ -300,14 +298,10 @@ class UserStateAnalyzer:
             "mastered": len(user_context.mastered_knowledge_uids),
             "in_progress": len(user_context.in_progress_knowledge_uids),
             "ready_to_learn": len(user_context.next_recommended_knowledge),
-            "learning_velocity": round(
-                user_context.calculate_learning_velocity(), 2
-            ),
+            "learning_velocity": round(user_context.calculate_learning_velocity(), 2),
         }
         if user_context.current_learning_path_uid:
-            knowledge["current_learning_path"] = (
-                user_context.current_learning_path_uid
-            )
+            knowledge["current_learning_path"] = user_context.current_learning_path_uid
 
         # --- Capacity ---
         capacity: dict[str, Any] = {
@@ -323,12 +317,8 @@ class UserStateAnalyzer:
             from core.constants import MasteryLevel
 
             life_path = {
-                "alignment_score": round(
-                    user_context.life_path_alignment_score, 2
-                ),
-                "is_aligned": user_context.is_life_aligned(
-                    MasteryLevel.DEFAULT
-                ),
+                "alignment_score": round(user_context.life_path_alignment_score, 2),
+                "is_aligned": user_context.is_life_aligned(MasteryLevel.DEFAULT),
             }
 
         summary: dict[str, Any] = {

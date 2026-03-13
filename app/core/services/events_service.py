@@ -939,30 +939,18 @@ class EventsService(BaseService["EventsOperations", Event]):
         today = date.today()
         stats = {
             "total": len(all_events),
-            "scheduled": sum(
-                1 for e in all_events if _get_event_status_value(e) == "scheduled"
-            ),
-            "today": sum(
-                1
-                for e in all_events
-                if getattr(e, "event_date", None) == today
-            ),
+            "scheduled": sum(1 for e in all_events if _get_event_status_value(e) == "scheduled"),
+            "today": sum(1 for e in all_events if getattr(e, "event_date", None) == today),
         }
 
         # Status filter in Python
         match status_filter:
             case "scheduled":
-                filtered = [
-                    e for e in all_events if _get_event_status_value(e) == "scheduled"
-                ]
+                filtered = [e for e in all_events if _get_event_status_value(e) == "scheduled"]
             case "completed":
-                filtered = [
-                    e for e in all_events if _get_event_status_value(e) == "completed"
-                ]
+                filtered = [e for e in all_events if _get_event_status_value(e) == "completed"]
             case "cancelled":
-                filtered = [
-                    e for e in all_events if _get_event_status_value(e) == "cancelled"
-                ]
+                filtered = [e for e in all_events if _get_event_status_value(e) == "cancelled"]
             case _:
                 filtered = all_events
 

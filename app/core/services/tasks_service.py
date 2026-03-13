@@ -1036,12 +1036,14 @@ class TasksService(BaseService["TasksOperations", Task]):
         assignees_set = {getattr(t, "assignee", None) for t in all_tasks}
         assignees_set.discard(None)
 
-        return Result.ok({
-            "entities": sorted_tasks,
-            "stats": stats,
-            "projects": list(projects),
-            "assignees": sorted(assignees_set),
-        })
+        return Result.ok(
+            {
+                "entities": sorted_tasks,
+                "stats": stats,
+                "projects": list(projects),
+                "assignees": sorted(assignees_set),
+            }
+        )
 
 
 # Legacy alias removed - class renamed directly to TasksService

@@ -33,9 +33,7 @@ _PREVIEW_VALID_SLUGS = frozenset({"tasks", "goals", "habits", "events", "choices
 
 _TERMINAL_STATUSES = frozenset(["completed", "failed", "cancelled", "archived"])
 
-_VALID_ACTIVITY_DOMAINS = frozenset(
-    {"tasks", "events", "goals", "habits", "principles", "choices"}
-)
+_VALID_ACTIVITY_DOMAINS = frozenset({"tasks", "events", "goals", "habits", "principles", "choices"})
 
 
 def _preview_priority_sort_key(item: Any) -> int:
