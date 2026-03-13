@@ -1,7 +1,7 @@
-"""Unified sidebar component — Tailwind + Alpine.js.
+"""Unified sidebar component — Tailwind + Alpine.js (MonsterUI).
 
 Desktop: Collapsible fixed sidebar with toggle button.
-Mobile: Horizontal DaisyUI tabs at top of content area.
+Mobile: Horizontal tabs at top of content area.
 
 One pattern for all sidebar pages (Profile, KU, Submissions, Journals, Askesis).
 
@@ -9,8 +9,8 @@ Usage:
     from ui.patterns.sidebar import SidebarItem, SidebarPage
 
     items = [
-        SidebarItem("Submit", "/submissions/submit", "submit", icon="📤"),
-        SidebarItem("Browse", "/submissions/browse", "browse", icon="📂"),
+        SidebarItem("Submit", "/submissions/submit", "submit", icon="..."),
+        SidebarItem("Browse", "/submissions/browse", "browse", icon="..."),
     ]
 
     return await SidebarPage(
@@ -48,7 +48,7 @@ class SidebarItem:
     icon: str = ""
     description: str = ""
     badge_text: str = ""
-    badge_cls: str = "badge badge-sm badge-ghost"
+    badge_cls: str = "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-muted text-muted-foreground"
     hx_attrs: dict[str, str] = field(default_factory=dict)
 
 
@@ -64,7 +64,7 @@ def _chevron_svg() -> "FT":
 
 def _default_item_renderer(item: SidebarItem, is_active: bool) -> "FT":
     """Default sidebar item renderer."""
-    active_cls = "bg-base-200 font-semibold" if is_active else ""
+    active_cls = "bg-accent font-semibold" if is_active else ""
     children: list[Any] = []
 
     if item.icon:
@@ -89,7 +89,7 @@ def _default_item_renderer(item: SidebarItem, is_active: bool) -> "FT":
             A(
                 content,
                 href=item.href,
-                cls=f"flex items-center rounded-lg px-3 py-2.5 min-h-[44px] transition-colors hover:bg-base-200 {active_cls}",
+                cls=f"flex items-center rounded-lg px-3 py-2.5 min-h-[44px] transition-colors hover:bg-accent {active_cls}",
                 **item.hx_attrs,
             )
         )
@@ -101,7 +101,7 @@ def _default_item_renderer(item: SidebarItem, is_active: bool) -> "FT":
         A(
             *children,
             href=item.href,
-            cls=f"flex items-center gap-2 rounded-lg px-3 py-2.5 min-h-[44px] transition-colors hover:bg-base-200 {active_cls}",
+            cls=f"flex items-center gap-2 rounded-lg px-3 py-2.5 min-h-[44px] transition-colors hover:bg-accent {active_cls}",
             **item.hx_attrs,
         )
     )
@@ -142,7 +142,7 @@ def SidebarNav(
     extra_sections = []
     if extra_sidebar_sections:
         extra_sections = [
-            Li(cls="border-t border-base-200 my-2"),
+            Li(cls="border-t border-border my-2"),
             *extra_sidebar_sections,
         ]
 
@@ -151,7 +151,7 @@ def SidebarNav(
         title_el = A(
             title,
             href=title_href,
-            cls="text-xl font-bold text-primary hover:text-primary-focus",
+            cls="text-xl font-bold text-primary hover:text-primary/80",
         )
     else:
         title_el = H3(title, cls="text-xl font-bold text-primary")
@@ -162,7 +162,7 @@ def SidebarNav(
             Button(
                 _chevron_svg(),
                 cls="absolute right-2 top-4 w-11 h-11 flex items-center justify-center"
-                " rounded-md border border-base-300 bg-base-100 hover:bg-base-200"
+                " rounded-md border border-border bg-background hover:bg-accent"
                 " transition-all duration-300 cursor-pointer z-10",
                 type="button",
                 aria_label="Toggle sidebar",
@@ -180,16 +180,16 @@ def SidebarNav(
                     P(subtitle, cls="text-xs opacity-60 mt-1") if subtitle else "",
                     cls="px-4 py-4",
                 ),
-                Li(cls="border-t border-base-200 my-0"),
+                Li(cls="border-t border-border my-0"),
                 *sidebar_items,
                 *extra_sections,
-                cls="menu w-full p-4 transition-opacity duration-300",
+                cls="w-full p-4 transition-opacity duration-300 list-none",
                 **{":class": "collapsed ? 'opacity-0 invisible' : 'opacity-100 visible'"},
             ),
             cls="h-full relative overflow-y-auto",
         ),
-        cls="hidden lg:block fixed top-16 left-0 bottom-0 w-64 bg-base-100"
-        " border-r border-base-300 z-40 transition-transform duration-300"
+        cls="hidden lg:block fixed top-16 left-0 bottom-0 w-64 bg-background"
+        " border-r border-border z-40 transition-transform duration-300"
         " overflow-hidden",
         **{":class": "collapsed ? '-translate-x-52' : 'translate-x-0'"},
         role="navigation",
@@ -207,7 +207,7 @@ def SidebarNav(
                 tab_label,
                 href=item.href,
                 role="tab",
-                cls=f"tab whitespace-nowrap {'tab-active' if is_active else ''}",
+                cls=f"whitespace-nowrap px-3 py-2 text-sm border-b-2 {'border-primary text-primary font-medium' if is_active else 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'}",
                 **item.hx_attrs,
             )
         )
@@ -219,7 +219,7 @@ def SidebarNav(
     mobile_tabs = Div(
         Div(
             *tab_items,
-            cls="tabs tabs-bordered overflow-x-auto flex-nowrap",
+            cls="flex overflow-x-auto gap-1 border-b border-border",
             role="tablist",
             aria_label=f"{title} navigation",
         ),
@@ -265,7 +265,6 @@ async def SidebarPage(
     )
 
     # Content area with responsive margin
-    # x-data needed here too to read collapsed state for margin adjustment
     page_content = Div(
         nav,
         Div(

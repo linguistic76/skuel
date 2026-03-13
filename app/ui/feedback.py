@@ -1,15 +1,19 @@
 """
-SKUEL DaisyUI Feedback Components
-================================
+SKUEL Feedback Components (MonsterUI)
+======================================
 
-AlertT, BadgeT, ProgressT, LoadingT enums and Alert, Badge, Loading,
-Progress, RadialProgress wrappers.
+Alert, Badge, Loading, Progress, RadialProgress wrappers.
+Uses MonsterUI where available, Tailwind utilities for semantic badges.
 """
 
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import Div, Span
+from monsterui.daisy import Alert as MAlert
+from monsterui.daisy import AlertT as MAlertT
+from monsterui.daisy import Loading as MLoading
+from monsterui.daisy import LoadingT as MLoadingT
 
 if TYPE_CHECKING:
     from ui.buttons import ButtonT
@@ -33,7 +37,7 @@ __all__ = [
 
 
 def get_submission_status_badge_class(status: str) -> str:
-    """Get DaisyUI badge class for submission/report status.
+    """Get badge class for submission/report status.
 
     Centralised mapping used by submissions_ui, journals_ui, and user_profile_ui.
     Delegates to ui.badge_classes for the canonical mapping.
@@ -44,50 +48,74 @@ def get_submission_status_badge_class(status: str) -> str:
 
 
 class AlertT(StrEnum):
-    """Alert variant types - maps to DaisyUI alert-* classes."""
+    """Alert variant types."""
 
-    info = "alert-info"
-    success = "alert-success"
-    warning = "alert-warning"
-    error = "alert-error"
+    info = "info"
+    success = "success"
+    warning = "warning"
+    error = "error"
+
+
+# Mapping SKUEL AlertT to MonsterUI AlertT
+_ALERT_MAP: dict[str, MAlertT] = {
+    "info": MAlertT.info,
+    "success": MAlertT.success,
+    "warning": MAlertT.warning,
+    "error": MAlertT.error,
+}
 
 
 class BadgeT(StrEnum):
-    """Badge variant types - maps to DaisyUI badge-* classes."""
+    """Badge variant types — mapped to Tailwind utility classes."""
 
-    primary = "badge-primary"
-    secondary = "badge-secondary"
-    accent = "badge-accent"
-    neutral = "badge-neutral"
-    ghost = "badge-ghost"
-    info = "badge-info"
-    success = "badge-success"
-    warning = "badge-warning"
-    error = "badge-error"
-    outline = "badge-outline"
+    primary = "primary"
+    secondary = "secondary"
+    accent = "accent"
+    neutral = "neutral"
+    ghost = "ghost"
+    info = "info"
+    success = "success"
+    warning = "warning"
+    error = "error"
+    outline = "outline"
+
+
+# Badge color classes (Tailwind utilities — no DaisyUI dependency)
+_BADGE_COLORS: dict[str, str] = {
+    "primary": "bg-primary/10 text-primary border-primary/20",
+    "secondary": "bg-secondary text-secondary-foreground border-secondary",
+    "accent": "bg-violet-100 text-violet-800 border-violet-200",
+    "neutral": "bg-muted text-muted-foreground border-border",
+    "ghost": "bg-muted/50 text-muted-foreground border-transparent",
+    "info": "bg-blue-100 text-blue-800 border-blue-200",
+    "success": "bg-green-100 text-green-800 border-green-200",
+    "warning": "bg-yellow-100 text-yellow-800 border-yellow-200",
+    "error": "bg-red-100 text-red-800 border-red-200",
+    "outline": "bg-transparent text-foreground border-border",
+}
 
 
 class ProgressT(StrEnum):
-    """Progress variant types - maps to DaisyUI progress-* classes."""
+    """Progress variant types — mapped to Tailwind colors."""
 
-    primary = "progress-primary"
-    secondary = "progress-secondary"
-    accent = "progress-accent"
-    info = "progress-info"
-    success = "progress-success"
-    warning = "progress-warning"
-    error = "progress-error"
+    primary = "primary"
+    secondary = "secondary"
+    accent = "accent"
+    info = "info"
+    success = "success"
+    warning = "warning"
+    error = "error"
 
 
 class LoadingT(StrEnum):
     """Loading spinner variant types."""
 
-    spinner = "loading-spinner"
-    dots = "loading-dots"
-    ring = "loading-ring"
-    ball = "loading-ball"
-    bars = "loading-bars"
-    infinity = "loading-infinity"
+    spinner = "spinner"
+    dots = "dots"
+    ring = "ring"
+    ball = "ball"
+    bars = "bars"
+    infinity = "infinity"
 
 
 def Alert(
@@ -97,22 +125,19 @@ def Alert(
     **kwargs: Any,
 ) -> Any:
     """
-    DaisyUI Alert wrapper.
+    Alert wrapper using MonsterUI.
 
     Args:
         *c: Alert content
         cls: Additional CSS classes
         variant: Alert style variant (info, success, warning, error)
         **kwargs: Additional HTML attributes
-
-    Example:
-        Alert("Operation successful!", variant=AlertT.success)
-        Alert(Span("Warning!"), P("Please review."), variant=AlertT.warning)
     """
-    classes = ["alert", variant.value]
+    mu_variant = _ALERT_MAP.get(variant.value, MAlertT.info)
+    cls_parts = [mu_variant]
     if cls:
-        classes.append(cls)
-    return Div(*c, cls=" ".join(classes), role="alert", **kwargs)
+        cls_parts.append(cls)
+    return MAlert(*c, cls=tuple(cls_parts), **kwargs)
 
 
 def Badge(
@@ -123,7 +148,7 @@ def Badge(
     **kwargs: Any,
 ) -> Any:
     """
-    DaisyUI Badge wrapper.
+    Badge/pill component using Tailwind utility classes.
 
     Args:
         *c: Badge content
@@ -131,16 +156,25 @@ def Badge(
         variant: Badge style variant
         size: Badge size (xs, sm, md, lg)
         **kwargs: Additional HTML attributes
-
-    Example:
-        Badge("New", variant=BadgeT.primary)
-        Badge("5", variant=BadgeT.error, size=Size.sm)
     """
-    classes = ["badge", variant.value]
+    color_cls = _BADGE_COLORS.get(variant.value, _BADGE_COLORS["neutral"])
+
+    size_cls = {
+        "xs": "text-[10px] px-1.5 py-0",
+        "sm": "text-xs px-2 py-0.5",
+        "md": "text-xs px-2.5 py-0.5",
+        "lg": "text-sm px-3 py-1",
+    }
+
+    classes = ["inline-flex items-center rounded-full border font-medium", color_cls]
     if size:
-        classes.append(f"badge-{size.value}")
+        classes.append(size_cls.get(size.value, size_cls["sm"]))
+    else:
+        classes.append(size_cls["sm"])
+
     if cls:
         classes.append(cls)
+
     return Span(*c, cls=" ".join(classes), **kwargs)
 
 
@@ -151,22 +185,34 @@ def Loading(
     **kwargs: Any,
 ) -> Any:
     """
-    DaisyUI Loading spinner.
+    Loading spinner using MonsterUI.
 
     Args:
         cls: Additional CSS classes
         variant: Loading animation type
         size: Loading size (xs, sm, md, lg)
         **kwargs: Additional HTML attributes
-
-    Example:
-        Loading(size=Size.lg)
-        Loading(variant=LoadingT.dots, size=Size.sm)
     """
-    classes = ["loading", variant.value, f"loading-{size.value}"]
-    if cls:
-        classes.append(cls)
-    return Span(cls=" ".join(classes), **kwargs)
+    # Map SKUEL LoadingT to MonsterUI LoadingT
+    mu_loading_map: dict[str, MLoadingT] = {
+        "spinner": MLoadingT.spinner,
+        "dots": MLoadingT.dots,
+        "ring": MLoadingT.ring,
+        "ball": MLoadingT.ball,
+        "bars": MLoadingT.bars,
+        "infinity": MLoadingT.infinity,
+    }
+    mu_size_map: dict[str, MLoadingT] = {
+        "xs": MLoadingT.xs,
+        "sm": MLoadingT.sm,
+        "md": MLoadingT.md,
+        "lg": MLoadingT.lg,
+    }
+
+    mu_variant = mu_loading_map.get(variant.value, MLoadingT.spinner)
+    mu_size = mu_size_map.get(size.value, MLoadingT.md)
+
+    return MLoading(cls=(mu_variant, mu_size, cls) if cls else (mu_variant, mu_size), **kwargs)
 
 
 def Progress(
@@ -177,7 +223,7 @@ def Progress(
     **kwargs: Any,
 ) -> Any:
     """
-    DaisyUI Progress bar.
+    Progress bar using MonsterUI.
 
     Args:
         value: Current progress value (None for indeterminate)
@@ -185,22 +231,20 @@ def Progress(
         cls: Additional CSS classes
         variant: Progress color variant
         **kwargs: Additional HTML attributes
-
-    Example:
-        Progress(value=75, variant=ProgressT.success)
-        Progress()  # Indeterminate
     """
-    from fasthtml.common import Progress as FTProgress
+    from monsterui.franken import Progress as MProgress
 
-    classes = ["progress", variant.value, "w-full"]
+    cls_parts = []
     if cls:
-        classes.append(cls)
+        cls_parts.append(cls)
 
-    attrs = {"cls": " ".join(classes), "max": str(max_val)}
+    attrs: dict[str, Any] = {"max": str(max_val)}
     if value is not None:
         attrs["value"] = str(int(value))
+    if cls_parts:
+        attrs["cls"] = " ".join(cls_parts)
 
-    return FTProgress(**attrs, **kwargs)
+    return MProgress(**attrs, **kwargs)
 
 
 def RadialProgress(
@@ -211,38 +255,39 @@ def RadialProgress(
     **kwargs: Any,
 ) -> Any:
     """
-    DaisyUI Radial progress (circular).
+    Radial progress (circular) — custom SKUEL component (no MonsterUI equivalent).
 
     Args:
         value: Progress percentage (0-100)
         cls: Additional CSS classes
-        variant: Color variant (from ui.buttons.ButtonT)
+        variant: Color variant (ignored in MonsterUI — uses primary)
         size: Size as CSS value (e.g., "4rem", "5rem")
         **kwargs: Additional HTML attributes
-
-    Example:
-        RadialProgress(75, variant=ButtonT.success)
     """
-    from ui.buttons import ButtonT
-
-    if variant is None:
-        variant = ButtonT.primary
-    classes = ["radial-progress", variant.value.replace("btn-", "text-")]
+    classes = ["relative inline-flex items-center justify-center"]
     if cls:
         classes.append(cls)
 
-    style = f"--value:{int(value)}; --size:{size};"
+    pct = int(value)
+    # SVG-based radial progress
     return Div(
-        f"{int(value)}%",
+        Div(
+            f"{pct}%",
+            cls="absolute text-xs font-semibold text-foreground",
+        ),
+        Div(
+            cls="radial-progress-ring",
+            style=f"--value:{pct}; --size:{size}; width:{size}; height:{size};",
+        ),
         cls=" ".join(classes),
-        style=style,
         role="progressbar",
+        **{"aria-valuenow": str(pct), "aria-valuemin": "0", "aria-valuemax": "100"},
         **kwargs,
     )
 
 
 def StatusBadge(status: str | None, **kwargs: Any) -> Any:
-    """Status-aware badge that maps status values to DaisyUI badge variants.
+    """Status-aware badge that maps status values to badge variants.
 
     Args:
         status: The status string (case-insensitive). Supported values:
@@ -253,7 +298,7 @@ def StatusBadge(status: str | None, **kwargs: Any) -> Any:
         **kwargs: Additional attributes passed to Badge
 
     Returns:
-        A DaisyUI Badge with appropriate variant, or None if status is None
+        A Badge with appropriate variant, or None if status is None
     """
     if status is None:
         return None
@@ -284,7 +329,7 @@ def StatusBadge(status: str | None, **kwargs: Any) -> Any:
 
 
 def PriorityBadge(priority: str | None, **kwargs: Any) -> Any:
-    """Priority-aware badge that maps priority values to DaisyUI badge variants.
+    """Priority-aware badge that maps priority values to badge variants.
 
     Args:
         priority: The priority string (case-insensitive). Supported values:
@@ -294,7 +339,7 @@ def PriorityBadge(priority: str | None, **kwargs: Any) -> Any:
         **kwargs: Additional attributes passed to Badge
 
     Returns:
-        A DaisyUI Badge with appropriate variant, or None if priority is None
+        A Badge with appropriate variant, or None if priority is None
     """
     if priority is None:
         return None

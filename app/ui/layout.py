@@ -1,17 +1,23 @@
 """
-SKUEL DaisyUI Layout Components
-================================
+SKUEL Layout Components
+========================
 
-Size enum and layout helper components (DivHStacked, DivVStacked, etc.).
+Size enum and layout helper components. Re-exports MonsterUI layout primitives
+where possible, keeps SKUEL adapters for gap/align parameters.
 
-Size lives here because it is consumed by buttons, forms, badges, and loading
-components — a single canonical location avoids circular imports.
+MonsterUI provides: DivFullySpaced, DivCentered, DivHStacked, DivVStacked, Grid, Center.
+SKUEL keeps thin adapters for: DivHStacked/DivVStacked (gap=int), Grid (cols/responsive).
 """
 
 from enum import StrEnum
 from typing import Any
 
 from fasthtml.common import Div
+from monsterui.franken import (
+    Center,
+    DivCentered,
+    DivFullySpaced,
+)
 
 __all__ = [
     "Size",
@@ -19,6 +25,7 @@ __all__ = [
     "DivVStacked",
     "DivFullySpaced",
     "DivCentered",
+    "Center",
     "FlexItem",
     "Grid",
     "Row",
@@ -45,7 +52,10 @@ def DivHStacked(
     **kwargs: Any,
 ) -> Any:
     """
-    Horizontal flex stack.
+    Horizontal flex stack with configurable gap.
+
+    SKUEL adapter: MonsterUI's DivHStacked doesn't accept gap=int,
+    so we keep this wrapper to translate gap/align to Tailwind classes.
 
     Args:
         *c: Child elements
@@ -53,9 +63,6 @@ def DivHStacked(
         cls: Additional CSS classes
         align: Align items ("start", "center", "end", "stretch", "baseline")
         **kwargs: Additional HTML attributes
-
-    Example:
-        DivHStacked(Icon("check"), Span("Success"), gap=2)
     """
     classes = ["flex", "flex-row", f"gap-{gap}", f"items-{align}"]
     if cls:
@@ -71,7 +78,10 @@ def DivVStacked(
     **kwargs: Any,
 ) -> Any:
     """
-    Vertical flex stack.
+    Vertical flex stack with configurable gap.
+
+    SKUEL adapter: MonsterUI's DivVStacked doesn't accept gap=int,
+    so we keep this wrapper to translate gap/align to Tailwind classes.
 
     Args:
         *c: Child elements
@@ -79,44 +89,8 @@ def DivVStacked(
         cls: Additional CSS classes
         align: Align items ("start", "center", "end", "stretch")
         **kwargs: Additional HTML attributes
-
-    Example:
-        DivVStacked(H1("Title"), P("Description"), gap=4)
     """
     classes = ["flex", "flex-col", f"gap-{gap}", f"items-{align}"]
-    if cls:
-        classes.append(cls)
-    return Div(*c, cls=" ".join(classes), **kwargs)
-
-
-def DivFullySpaced(*c: Any, cls: str = "", **kwargs: Any) -> Any:
-    """
-    Space-between flex layout.
-
-    Args:
-        *c: Child elements (typically 2)
-        cls: Additional CSS classes
-        **kwargs: Additional HTML attributes
-
-    Example:
-        DivFullySpaced(Span("Left"), Span("Right"))
-    """
-    classes = ["flex", "justify-between", "items-center"]
-    if cls:
-        classes.append(cls)
-    return Div(*c, cls=" ".join(classes), **kwargs)
-
-
-def DivCentered(*c: Any, cls: str = "", **kwargs: Any) -> Any:
-    """
-    Centered flex layout (both axes).
-
-    Args:
-        *c: Child elements
-        cls: Additional CSS classes
-        **kwargs: Additional HTML attributes
-    """
-    classes = ["flex", "justify-center", "items-center"]
     if cls:
         classes.append(cls)
     return Div(*c, cls=" ".join(classes), **kwargs)
@@ -131,7 +105,10 @@ def Grid(
     **kwargs: Any,
 ) -> Any:
     """
-    CSS Grid wrapper.
+    CSS Grid wrapper with responsive breakpoints.
+
+    SKUEL adapter: translates cols/responsive to Tailwind grid classes.
+    MonsterUI's Grid auto-detects columns from child count; SKUEL needs explicit control.
 
     Args:
         *c: Grid items
@@ -140,14 +117,10 @@ def Grid(
         cls: Additional CSS classes
         responsive: If True, adds responsive breakpoints
         **kwargs: Additional HTML attributes
-
-    Example:
-        Grid(Card(...), Card(...), Card(...), cols=3, gap=4)
     """
     classes = ["grid", f"gap-{gap}"]
 
     if responsive:
-        # Responsive grid: 1 col on mobile, 2 on sm, cols on md+
         if cols == 2:
             classes.append("grid-cols-1 sm:grid-cols-2")
         elif cols == 3:

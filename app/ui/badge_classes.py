@@ -1,10 +1,11 @@
 """
-Centralized Badge & Color Class Mappings
-==========================================
+Centralized Badge & Color Class Mappings (MonsterUI/Tailwind)
+==============================================================
 
-Single source of truth for all status/priority/role/essentiality → CSS class
+Single source of truth for all status/priority/role/essentiality -> CSS class
 mappings used across SKUEL's UI layer.
 
+Migrated from DaisyUI badge-* classes to Tailwind utility classes.
 Every UI component that needs a badge color, text color, or background class
 should import from this module instead of defining inline dicts.
 
@@ -16,148 +17,148 @@ Only DUPLICATED mappings are centralized here.
 from __future__ import annotations
 
 # ============================================================================
-# ACTIVITY STATUS → BADGE CLASS
+# ACTIVITY STATUS -> BADGE CLASS
 # ============================================================================
-# Superset covering all activity domain statuses (tasks, goals, habits,
-# choices, principles, events) and card_generator generic statuses.
+# Tailwind utility classes replacing DaisyUI badge-* classes.
 
 STATUS_BADGE: dict[str, str] = {
     # Common activity statuses
-    "active": "badge-success",
-    "completed": "badge-success",
-    "done": "badge-success",
-    "in_progress": "badge-warning",
-    "paused": "badge-warning",
-    "pending": "badge-warning",
-    "todo": "badge-info",
-    "scheduled": "badge-info",
-    "blocked": "badge-error",
-    "cancelled": "badge-error",
-    "failed": "badge-error",
-    "inactive": "badge-ghost",
-    "archived": "badge-ghost",
-    "draft": "badge-ghost",
+    "active": "bg-green-100 text-green-800 border-green-200",
+    "completed": "bg-green-100 text-green-800 border-green-200",
+    "done": "bg-green-100 text-green-800 border-green-200",
+    "in_progress": "bg-yellow-100 text-yellow-800 border-yellow-200",
+    "paused": "bg-yellow-100 text-yellow-800 border-yellow-200",
+    "pending": "bg-yellow-100 text-yellow-800 border-yellow-200",
+    "todo": "bg-blue-100 text-blue-800 border-blue-200",
+    "scheduled": "bg-blue-100 text-blue-800 border-blue-200",
+    "blocked": "bg-red-100 text-red-800 border-red-200",
+    "cancelled": "bg-red-100 text-red-800 border-red-200",
+    "failed": "bg-red-100 text-red-800 border-red-200",
+    "inactive": "bg-gray-100 text-gray-600 border-gray-200",
+    "archived": "bg-gray-100 text-gray-600 border-gray-200",
+    "draft": "bg-gray-100 text-gray-600 border-gray-200",
     # Choice-specific
-    "decided": "badge-success",
-    "implemented": "badge-info",
-    "evaluated": "badge-primary",
+    "decided": "bg-green-100 text-green-800 border-green-200",
+    "implemented": "bg-blue-100 text-blue-800 border-blue-200",
+    "evaluated": "bg-primary/10 text-primary border-primary/20",
 }
 
 
 def status_badge_class(status: str) -> str:
-    """Get DaisyUI badge class for any activity status string."""
-    return STATUS_BADGE.get(status.lower().strip(), "badge-ghost")
+    """Get Tailwind badge class for any activity status string."""
+    return STATUS_BADGE.get(status.lower().strip(), "bg-gray-100 text-gray-600 border-gray-200")
 
 
 # ============================================================================
-# ACTIVITY STATUS → TEXT COLOR
+# ACTIVITY STATUS -> TEXT COLOR
 # ============================================================================
 
 STATUS_TEXT: dict[str, str] = {
-    "completed": "text-success",
-    "in_progress": "text-warning",
-    "pending": "text-base-content/60",
-    "overdue": "text-error",
-    "at_risk": "text-error",
-    "blocked": "text-error",
-    "keystone": "text-success",
+    "completed": "text-green-600",
+    "in_progress": "text-yellow-600",
+    "pending": "text-muted-foreground",
+    "overdue": "text-red-600",
+    "at_risk": "text-red-600",
+    "blocked": "text-red-600",
+    "keystone": "text-green-600",
     "near_complete": "text-primary",
-    "active": "text-success",
-    "paused": "text-warning",
+    "active": "text-green-600",
+    "paused": "text-yellow-600",
 }
 
 
 def status_text_class(status: str) -> str:
     """Get Tailwind text color class for any activity status string."""
-    return STATUS_TEXT.get(status.lower().strip(), "text-base-content/60")
+    return STATUS_TEXT.get(status.lower().strip(), "text-muted-foreground")
 
 
 # ============================================================================
-# PRIORITY → BADGE CLASS
+# PRIORITY -> BADGE CLASS
 # ============================================================================
 
 PRIORITY_BADGE: dict[str, str] = {
-    "critical": "badge-error",
-    "high": "badge-warning",
-    "medium": "badge-info",
-    "low": "badge-success",
+    "critical": "bg-red-100 text-red-800 border-red-200",
+    "high": "bg-yellow-100 text-yellow-800 border-yellow-200",
+    "medium": "bg-blue-100 text-blue-800 border-blue-200",
+    "low": "bg-green-100 text-green-800 border-green-200",
 }
 
 
 def priority_badge_class(priority: str) -> str:
-    """Get DaisyUI badge class for a priority level."""
-    return PRIORITY_BADGE.get(priority.lower().strip(), "badge-neutral")
+    """Get Tailwind badge class for a priority level."""
+    return PRIORITY_BADGE.get(
+        priority.lower().strip(), "bg-muted text-muted-foreground border-border"
+    )
 
 
 # ============================================================================
-# PRIORITY → TEXT COLOR
+# PRIORITY -> TEXT COLOR
 # ============================================================================
 
 PRIORITY_TEXT: dict[str, str] = {
-    "critical": "text-error",
-    "high": "text-warning",
-    "medium": "text-info",
-    "low": "text-base-content/70",
+    "critical": "text-red-600",
+    "high": "text-yellow-600",
+    "medium": "text-blue-600",
+    "low": "text-muted-foreground",
 }
 
 
 def priority_text_class(priority: str) -> str:
     """Get Tailwind text color class for a priority level."""
-    return PRIORITY_TEXT.get(priority.lower().strip(), "text-base-content/70")
+    return PRIORITY_TEXT.get(priority.lower().strip(), "text-muted-foreground")
 
 
 # ============================================================================
-# PRIORITY / IMPACT → BORDER & DOT CLASSES
+# PRIORITY / IMPACT -> BORDER & DOT CLASSES
 # ============================================================================
-# Used by entity cards (left border accent) and insight cards (impact dots).
-# Same semantic scale as PRIORITY_BADGE: critical/high → error, medium → warning,
-# low → success.
 
 PRIORITY_BORDER: dict[str, str] = {
-    "critical": "border-l-error",
-    "high": "border-l-error",
-    "medium": "border-l-warning",
-    "low": "border-l-success",
+    "critical": "border-l-red-500",
+    "high": "border-l-red-500",
+    "medium": "border-l-yellow-500",
+    "low": "border-l-green-500",
 }
 
 
 def priority_border_class(priority: str) -> str:
-    """Get DaisyUI border-left class for a priority/impact level."""
-    return PRIORITY_BORDER.get(priority.lower().strip(), "border-l-base-300")
+    """Get border-left class for a priority/impact level."""
+    return PRIORITY_BORDER.get(priority.lower().strip(), "border-l-border")
 
 
 PRIORITY_DOT: dict[str, str] = {
-    "critical": "bg-error",
-    "high": "bg-error",
-    "medium": "bg-warning",
-    "low": "bg-success",
+    "critical": "bg-red-500",
+    "high": "bg-red-500",
+    "medium": "bg-yellow-500",
+    "low": "bg-green-500",
 }
 
 
 def priority_dot_class(priority: str) -> str:
     """Get background dot class for a priority/impact level."""
-    return PRIORITY_DOT.get(priority.lower().strip(), "bg-base-300")
+    return PRIORITY_DOT.get(priority.lower().strip(), "bg-muted")
 
 
 # ============================================================================
-# ESSENTIALITY → BADGE CLASS
+# ESSENTIALITY -> BADGE CLASS
 # ============================================================================
 
 ESSENTIALITY_BADGE: dict[str, str] = {
-    "essential": "badge-error",
-    "critical": "badge-warning",
-    "supporting": "badge-info",
-    "optional": "badge-ghost",
+    "essential": "bg-red-100 text-red-800 border-red-200",
+    "critical": "bg-yellow-100 text-yellow-800 border-yellow-200",
+    "supporting": "bg-blue-100 text-blue-800 border-blue-200",
+    "optional": "bg-gray-100 text-gray-600 border-gray-200",
 }
 
 
 def essentiality_badge_class(essentiality: str) -> str:
-    """Get DaisyUI badge class for a habit essentiality level."""
-    return ESSENTIALITY_BADGE.get(essentiality.lower().strip(), "badge-ghost")
+    """Get Tailwind badge class for a habit essentiality level."""
+    return ESSENTIALITY_BADGE.get(
+        essentiality.lower().strip(), "bg-gray-100 text-gray-600 border-gray-200"
+    )
 
 
 # ============================================================================
-# ESSENTIALITY → STYLED (emoji, border, background)
+# ESSENTIALITY -> STYLED (emoji, border, background)
 # ============================================================================
 
 ESSENTIALITY_STYLED: dict[str, tuple[str, str, str]] = {
@@ -172,86 +173,92 @@ def essentiality_styled(essentiality: str) -> tuple[str, str, str]:
     """Get (emoji, border_class, bg_class) for a habit essentiality level."""
     return ESSENTIALITY_STYLED.get(
         essentiality.lower().strip(),
-        ("\u26aa", "border-base-300", "bg-base-200"),
+        ("\u26aa", "border-border", "bg-muted"),
     )
 
 
 # ============================================================================
-# SUBMISSION / REPORT STATUS → BADGE CLASS
+# SUBMISSION / REPORT STATUS -> BADGE CLASS
 # ============================================================================
 
 SUBMISSION_STATUS_BADGE: dict[str, str] = {
-    "submitted": "badge-warning",
-    "queued": "badge-warning",
-    "processing": "badge-info",
-    "completed": "badge-success",
-    "failed": "badge-error",
-    "manual_review": "badge-ghost",
-    "revision_requested": "badge-warning",
+    "submitted": "bg-yellow-100 text-yellow-800 border-yellow-200",
+    "queued": "bg-yellow-100 text-yellow-800 border-yellow-200",
+    "processing": "bg-blue-100 text-blue-800 border-blue-200",
+    "completed": "bg-green-100 text-green-800 border-green-200",
+    "failed": "bg-red-100 text-red-800 border-red-200",
+    "manual_review": "bg-gray-100 text-gray-600 border-gray-200",
+    "revision_requested": "bg-yellow-100 text-yellow-800 border-yellow-200",
 }
 
 
 def submission_status_badge_class(status: str) -> str:
-    """Get DaisyUI badge class for a submission/report status."""
-    return SUBMISSION_STATUS_BADGE.get(status.lower().strip(), "badge-ghost")
+    """Get Tailwind badge class for a submission/report status."""
+    return SUBMISSION_STATUS_BADGE.get(
+        status.lower().strip(), "bg-gray-100 text-gray-600 border-gray-200"
+    )
 
 
 # ============================================================================
-# HEALTH STATUS → CSS CLASSES
+# HEALTH STATUS -> CSS CLASSES
 # ============================================================================
 
 HEALTH_BG: dict[str, str] = {
-    "healthy": "bg-success/10 border-success",
-    "warning": "bg-warning/10 border-warning",
-    "critical": "bg-error/10 border-error",
+    "healthy": "bg-green-50 border-green-500",
+    "warning": "bg-yellow-50 border-yellow-500",
+    "critical": "bg-red-50 border-red-500",
 }
 
 
 def health_bg_class(status: str) -> str:
     """Get background/border classes for a domain health status."""
-    return HEALTH_BG.get(status.lower().strip(), "bg-base-100 border-base-300 shadow-sm")
+    return HEALTH_BG.get(status.lower().strip(), "bg-background border-border shadow-sm")
 
 
 HEALTH_DOT: dict[str, str] = {
-    "healthy": "bg-success",
-    "warning": "bg-warning",
-    "critical": "bg-error",
+    "healthy": "bg-green-500",
+    "warning": "bg-yellow-500",
+    "critical": "bg-red-500",
 }
 
 
 def health_dot_class(status: str) -> str:
     """Get dot background class for a domain health status."""
-    return HEALTH_DOT.get(status.lower().strip(), "bg-base-content/60")
+    return HEALTH_DOT.get(status.lower().strip(), "bg-muted-foreground")
 
 
 # ============================================================================
-# USER ROLE → BADGE CLASS
+# USER ROLE -> BADGE CLASS
 # ============================================================================
 
 ROLE_BADGE: dict[str, str] = {
-    "admin": "badge-error",
-    "teacher": "badge-warning",
-    "member": "badge-success",
-    "registered": "badge-info",
+    "admin": "bg-red-100 text-red-800 border-red-200",
+    "teacher": "bg-yellow-100 text-yellow-800 border-yellow-200",
+    "member": "bg-green-100 text-green-800 border-green-200",
+    "registered": "bg-blue-100 text-blue-800 border-blue-200",
 }
 
 
 def role_badge_class(role: str) -> str:
-    """Get DaisyUI badge class for a user role."""
-    return ROLE_BADGE.get(role.lower().strip(), "badge-neutral")
+    """Get Tailwind badge class for a user role."""
+    return ROLE_BADGE.get(
+        role.lower().strip(), "bg-muted text-muted-foreground border-border"
+    )
 
 
 # ============================================================================
-# REFLECTION QUALITY → BADGE CLASS
+# REFLECTION QUALITY -> BADGE CLASS
 # ============================================================================
 
 QUALITY_BADGE: dict[str, str] = {
-    "deep": "badge-success",
-    "moderate": "badge-warning",
-    "shallow": "badge-ghost",
+    "deep": "bg-green-100 text-green-800 border-green-200",
+    "moderate": "bg-yellow-100 text-yellow-800 border-yellow-200",
+    "shallow": "bg-gray-100 text-gray-600 border-gray-200",
 }
 
 
 def quality_badge_class(quality: str) -> str:
-    """Get DaisyUI badge class for reflection quality level."""
-    return QUALITY_BADGE.get(quality.lower().strip(), "badge-ghost")
+    """Get Tailwind badge class for reflection quality level."""
+    return QUALITY_BADGE.get(
+        quality.lower().strip(), "bg-gray-100 text-gray-600 border-gray-200"
+    )

@@ -12,6 +12,8 @@ dependencies = [
     # Web Framework
     "python-fasthtml>=0.12.21",
     "uvicorn>=0.35.0",
+    # UI Component Library (MonsterUI — FastHTML-native)
+    "monsterui",
     # Database - PHASE 6: Pinned versions for operational stability
     # Neo4j driver version must be compatible with server version
     # For production: Neo4j 5.26.0 server requires APOC 5.26.0

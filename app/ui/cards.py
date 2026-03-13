@@ -1,25 +1,41 @@
 """
-SKUEL DaisyUI Card Components
-================================
+SKUEL Card Components (MonsterUI)
+==================================
 
-CardT enum and Card, CardBody, CardTitle, CardActions, CardFigure wrappers.
+Card wrappers using MonsterUI's card system.
+Keeps SKUEL's API (Card, CardBody, CardTitle, CardActions, CardFigure, CardLink).
 """
 
 from enum import StrEnum
 from typing import Any
 
 from fasthtml.common import A, Div
+from monsterui.franken import CardBody as MCardBody
+from monsterui.franken import CardContainer as MCardContainer
+from monsterui.franken import CardFooter as MCardFooter
+from monsterui.franken import CardHeader as MCardHeader
+from monsterui.franken import CardT as MCardT
+from monsterui.franken import CardTitle as MCardTitle
 
 __all__ = ["CardT", "Card", "CardBody", "CardTitle", "CardActions", "CardFigure", "CardLink"]
 
 
 class CardT(StrEnum):
-    """Card variant types - maps to DaisyUI styling."""
+    """Card variant types — maps to MonsterUI CardT."""
 
-    default = ""
-    bordered = "card-bordered"
-    compact = "card-compact"
-    side = "card-side"
+    default = "default"
+    bordered = "default"
+    compact = "default"
+    side = "default"
+
+
+# Mapping from SKUEL CardT to MonsterUI CardT
+_CARD_VARIANT_MAP: dict[str, MCardT] = {
+    "default": MCardT.default,
+    "bordered": MCardT.default,
+    "compact": MCardT.default,
+    "side": MCardT.default,
+}
 
 
 def Card(
@@ -29,62 +45,34 @@ def Card(
     **kwargs: Any,
 ) -> Any:
     """
-    DaisyUI Card wrapper.
+    Card wrapper using MonsterUI internals.
 
     Args:
         *c: Card content (should include CardBody for proper styling)
         cls: Additional CSS classes
         variant: Card style variant
         **kwargs: Additional HTML attributes
-
-    Example:
-        Card(CardBody(H1("Title"), P("Content")))
-        Card(CardBody(...), variant=CardT.bordered)
     """
-    classes = ["card", "bg-base-100", "shadow-sm"]
-
-    if variant.value:
-        classes.append(variant.value)
-
+    mu_variant = _CARD_VARIANT_MAP.get(variant.value, MCardT.default)
+    cls_parts: list[Any] = [mu_variant]
     if cls:
-        classes.append(cls)
+        cls_parts.append(cls)
 
-    return Div(*c, cls=" ".join(classes), **kwargs)
+    return MCardContainer(*c, cls=tuple(cls_parts), **kwargs)
 
 
 def CardBody(*c: Any, cls: str = "", **kwargs: Any) -> Any:
-    """
-    DaisyUI Card body wrapper.
-
-    Args:
-        *c: Card body content
-        cls: Additional CSS classes
-        **kwargs: Additional HTML attributes
-    """
-    classes = ["card-body"]
-    if cls:
-        classes.append(cls)
-    return Div(*c, cls=" ".join(classes), **kwargs)
+    """Card body wrapper using MonsterUI."""
+    return MCardBody(*c, cls=cls or None, **kwargs)
 
 
 def CardTitle(*c: Any, cls: str = "", **kwargs: Any) -> Any:
-    """
-    DaisyUI Card title wrapper.
-
-    Args:
-        *c: Title content
-        cls: Additional CSS classes
-        **kwargs: Additional HTML attributes
-    """
-    classes = ["card-title"]
-    if cls:
-        classes.append(cls)
-    return Div(*c, cls=" ".join(classes), **kwargs)
+    """Card title wrapper using MonsterUI."""
+    return MCardTitle(*c, cls=cls or None, **kwargs)
 
 
 def CardActions(*c: Any, cls: str = "", justify: str = "end", **kwargs: Any) -> Any:
-    """
-    DaisyUI Card actions wrapper.
+    """Card actions wrapper (footer area for buttons).
 
     Args:
         *c: Action buttons/content
@@ -92,15 +80,14 @@ def CardActions(*c: Any, cls: str = "", justify: str = "end", **kwargs: Any) -> 
         justify: Justify content ("start", "end", "center", "between")
         **kwargs: Additional HTML attributes
     """
-    classes = ["card-actions", f"justify-{justify}"]
+    classes = [f"justify-{justify}"]
     if cls:
         classes.append(cls)
-    return Div(*c, cls=" ".join(classes), **kwargs)
+    return MCardFooter(*c, cls=" ".join(classes), **kwargs)
 
 
 def CardFigure(*c: Any, cls: str = "", **kwargs: Any) -> Any:
-    """
-    DaisyUI Card figure wrapper for images.
+    """Card figure wrapper for images.
 
     Args:
         *c: Figure content (typically an Img)
@@ -109,7 +96,7 @@ def CardFigure(*c: Any, cls: str = "", **kwargs: Any) -> Any:
     """
     from fasthtml.common import Figure
 
-    classes = ["figure"]
+    classes = ["overflow-hidden rounded-t-lg"]
     if cls:
         classes.append(cls)
     return Figure(*c, cls=" ".join(classes), **kwargs)
@@ -124,8 +111,11 @@ def CardLink(*c: Any, href: str, cls: str = "", **kwargs: Any) -> Any:
         cls: Additional CSS classes
         **kwargs: Additional attributes passed to the A element
     """
-    base_cls = (
-        "block card bg-base-100 shadow-sm hover:border-primary hover:shadow-md transition-all"
-    )
+    base_cls = "block rounded-lg border bg-card text-card-foreground shadow-sm hover:border-primary hover:shadow-md transition-all"
     full_cls = f"{base_cls} {cls}".strip() if cls else base_cls
     return A(*c, href=href, cls=full_cls, **kwargs)
+
+
+def CardHeader(*c: Any, cls: str = "", **kwargs: Any) -> Any:
+    """Card header wrapper using MonsterUI."""
+    return MCardHeader(*c, cls=cls or None, **kwargs)

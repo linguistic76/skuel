@@ -1,4 +1,4 @@
-"""SKUEL UI Design System — DaisyUI + Typography-First Architecture."""
+"""SKUEL UI Design System — MonsterUI + Typography-First Architecture."""
 
 from ui.buttons import Button, ButtonLink, ButtonT, IconButton
 from ui.cards import Card, CardActions, CardBody, CardFigure, CardLink, CardT

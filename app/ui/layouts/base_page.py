@@ -29,7 +29,7 @@ from fasthtml.common import A, Body, Button, Div, Head, Html, Link, Main, Meta, 
 
 from ui.layouts.navbar import create_navbar, create_navbar_for_request
 from ui.layouts.page_types import PAGE_CONFIG, PageType
-from ui.theme import ALPINE_VERSION, DAISYUI_VERSION, HTMX_VERSION
+from ui.theme import ALPINE_VERSION, HTMX_VERSION, Theme
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
@@ -60,16 +60,15 @@ def build_head(
     if extra_css:
         css_links = [Link(rel="stylesheet", href=path) for path in extra_css]
 
+    # MonsterUI theme headers (FrankenUI + Tailwind + icons)
+    mu_headers = Theme.blue.headers()
+
     return Head(
         Meta(charset="UTF-8"),
         Meta(name="viewport", content="width=device-width, initial-scale=1.0, viewport-fit=cover"),
         Title(f"{title} - SKUEL"),
-        # DaisyUI CSS
-        Link(
-            href=f"https://cdn.jsdelivr.net/npm/daisyui@{DAISYUI_VERSION}/dist/full.min.css",
-            rel="stylesheet",
-            type="text/css",
-        ),
+        # MonsterUI headers (FrankenUI CSS/JS + Tailwind + Lucide icons)
+        *mu_headers,
         # HTMX for hypermedia
         Script(src=f"https://unpkg.com/htmx.org@{HTMX_VERSION}"),
         # Alpine.js (self-hosted, version-pinned)
@@ -78,7 +77,6 @@ def build_head(
         Link(rel="stylesheet", href="/static/vendor/vis-network/vis-network.min.css"),
         Script(src="/static/vendor/vis-network/vis-network.min.js"),
         # SKUEL CSS
-        Link(rel="stylesheet", href="/static/css/output.css"),
         Link(rel="stylesheet", href="/static/css/main.css"),
         Link(rel="stylesheet", href="/static/css/hierarchy.css"),
         # Extra CSS for specific pages
@@ -135,11 +133,11 @@ async def BasePage(
     """Unified page wrapper for consistent UX across SKUEL.
 
     Provides:
-    - Consistent HTML head (HTMX, Alpine.js, DaisyUI, Tailwind)
+    - Consistent HTML head (MonsterUI, HTMX, Alpine.js)
     - Navbar with active page highlighting
     - Page layout based on type (HUB with sidebar, STANDARD centered)
     - Modal container for overlays
-    - Consistent data-theme
+    - Consistent theming
 
     Args:
         content: Main page content
@@ -173,7 +171,7 @@ async def BasePage(
             # Sidebar (always visible on lg+)
             Div(
                 sidebar,
-                cls=f"hidden lg:block {config['sidebar_width']} shrink-0 bg-base-100 border-r border-base-200 min-h-[calc(100vh-64px)] sticky top-16",
+                cls=f"hidden lg:block {config['sidebar_width']} shrink-0 bg-background border-r border-border min-h-[calc(100vh-64px)] sticky top-16",
             ),
             # Content area
             Div(
@@ -214,9 +212,6 @@ async def BasePage(
             # Modal container for overlays
             Div(id="modal"),
             # Live region for screen reader announcements (Task 10: WCAG 2.1 Level AA)
-            # Automatically announces HTMX operations (create, update, delete, errors)
-            # Manual announcements: window.SKUEL.announce(message, priority)
-            # Custom announcements: Add data-announce="Custom message" to HTMX target
             Div(
                 id="live-region",
                 role="status",
@@ -236,31 +231,33 @@ async def BasePage(
                         Div(
                             P(**{"x-text": "toast.message"}, cls="text-sm font-medium"),
                             Button(
-                                "×",
+                                "x",
                                 **{"@click": "dismiss(toast.id)"},
                                 cls="ml-4 text-lg hover:opacity-70 transition-opacity",
                                 type="button",
                             ),
                             cls="flex items-center justify-between",
                         ),
-                        cls="alert shadow-lg max-w-sm transition-all",
+                        cls="rounded-lg border px-4 py-3 shadow-lg max-w-sm transition-all",
                         **{
                             ":class": """{
-                                'alert-success': toast.type === 'success',
-                                'alert-error': toast.type === 'error',
-                                'alert-info': toast.type === 'info',
-                                'alert-warning': toast.type === 'warning'
+                                'bg-green-50 border-green-200 text-green-800': toast.type === 'success',
+                                'bg-red-50 border-red-200 text-red-800': toast.type === 'error',
+                                'bg-blue-50 border-blue-200 text-blue-800': toast.type === 'info',
+                                'bg-yellow-50 border-yellow-200 text-yellow-800': toast.type === 'warning'
                             }""",
                         },
                     )
                 )
             ),
-            cls="bg-base-100",
+            cls="bg-background text-foreground",
         ),
         **{
-            "data-theme": "light",
             "x-data": "",
-            "x-init": "var t = localStorage.getItem('skuel-theme'); if (t) $el.setAttribute('data-theme', t)",
+            "x-init": """
+                var t = localStorage.getItem('skuel-theme');
+                if (t === 'dark') document.documentElement.classList.add('dark');
+            """,
         },
     )
 

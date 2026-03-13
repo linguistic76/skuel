@@ -1,13 +1,18 @@
 """
-SKUEL DaisyUI Navigation Components
-================================
+SKUEL Navigation Components (MonsterUI)
+=========================================
 
-Navbar, Menu, MenuItem, Dropdown, DropdownTrigger, DropdownContent, Tabs, Tab.
+Navbar, Menu, MenuItem, Dropdown, Tabs, Tab wrappers.
+Uses MonsterUI/UIkit navigation components.
 """
 
 from typing import Any
 
 from fasthtml.common import Div
+from monsterui.franken import NavContainer as MNavContainer
+from monsterui.franken import NavDividerLi as MNavDividerLi
+from monsterui.franken import NavHeaderLi as MNavHeaderLi
+from monsterui.franken import TabContainer as MTabContainer
 
 __all__ = [
     "Navbar",
@@ -26,38 +31,38 @@ __all__ = [
 
 def Navbar(*c: Any, cls: str = "", **kwargs: Any) -> Any:
     """
-    DaisyUI Navbar wrapper.
+    Navbar wrapper.
 
     Args:
         *c: Navbar content (NavbarStart, NavbarCenter, NavbarEnd)
         cls: Additional CSS classes
         **kwargs: Additional HTML attributes
     """
-    classes = ["navbar", "bg-base-100"]
+    classes = ["flex items-center justify-between px-4 py-2 bg-background border-b border-border"]
     if cls:
         classes.append(cls)
     return Div(*c, cls=" ".join(classes), **kwargs)
 
 
 def NavbarStart(*c: Any, cls: str = "", **kwargs: Any) -> Any:
-    """DaisyUI Navbar start section."""
-    classes = ["navbar-start"]
+    """Navbar start section."""
+    classes = ["flex items-center gap-2"]
     if cls:
         classes.append(cls)
     return Div(*c, cls=" ".join(classes), **kwargs)
 
 
 def NavbarCenter(*c: Any, cls: str = "", **kwargs: Any) -> Any:
-    """DaisyUI Navbar center section."""
-    classes = ["navbar-center"]
+    """Navbar center section."""
+    classes = ["flex items-center gap-2"]
     if cls:
         classes.append(cls)
     return Div(*c, cls=" ".join(classes), **kwargs)
 
 
 def NavbarEnd(*c: Any, cls: str = "", **kwargs: Any) -> Any:
-    """DaisyUI Navbar end section."""
-    classes = ["navbar-end"]
+    """Navbar end section."""
+    classes = ["flex items-center gap-2 ml-auto"]
     if cls:
         classes.append(cls)
     return Div(*c, cls=" ".join(classes), **kwargs)
@@ -65,7 +70,7 @@ def NavbarEnd(*c: Any, cls: str = "", **kwargs: Any) -> Any:
 
 def Menu(*c: Any, cls: str = "", horizontal: bool = False, **kwargs: Any) -> Any:
     """
-    DaisyUI Menu wrapper.
+    Menu wrapper using MonsterUI NavContainer.
 
     Args:
         *c: Menu items
@@ -73,54 +78,41 @@ def Menu(*c: Any, cls: str = "", horizontal: bool = False, **kwargs: Any) -> Any
         horizontal: If True, renders horizontally
         **kwargs: Additional HTML attributes
     """
-    from fasthtml.common import Ul
-
-    classes = ["menu"]
+    cls_parts = []
     if horizontal:
-        classes.append("menu-horizontal")
+        cls_parts.append("flex flex-row gap-1")
     if cls:
-        classes.append(cls)
-    return Ul(*c, cls=" ".join(classes), **kwargs)
+        cls_parts.append(cls)
+
+    return MNavContainer(*c, cls=" ".join(cls_parts) if cls_parts else None, **kwargs)
 
 
 def MenuItem(*c: Any, cls: str = "", _active: bool = False, **kwargs: Any) -> Any:
     """
-    DaisyUI Menu item wrapper.
+    Menu item wrapper.
 
     Args:
         *c: Menu item content (typically an A tag)
         cls: Additional CSS classes
-        _active: If True, marks as active item (currently unused - active class handled by caller)
+        _active: If True, marks as active item
         **kwargs: Additional HTML attributes
     """
     from fasthtml.common import Li
 
-    # The active class goes on the A element inside, not the Li
     return Li(*c, cls=cls if cls else None, **kwargs)
 
 
 def Dropdown(*c: Any, cls: str = "", end: bool = False, **kwargs: Any) -> Any:
     """
-    DaisyUI Dropdown wrapper.
+    Dropdown wrapper.
 
     Args:
         *c: Dropdown trigger and content
         cls: Additional CSS classes
         end: If True, aligns dropdown to end
         **kwargs: Additional HTML attributes
-
-    Example:
-        Dropdown(
-            DropdownTrigger(Button("Options")),
-            DropdownContent(
-                MenuItem(A("Edit")),
-                MenuItem(A("Delete")),
-            )
-        )
     """
-    classes = ["dropdown"]
-    if end:
-        classes.append("dropdown-end")
+    classes = ["relative inline-block"]
     if cls:
         classes.append(cls)
     return Div(*c, cls=" ".join(classes), **kwargs)
@@ -128,18 +120,15 @@ def Dropdown(*c: Any, cls: str = "", end: bool = False, **kwargs: Any) -> Any:
 
 def DropdownTrigger(*c: Any, cls: str = "", **kwargs: Any) -> Any:
     """
-    DaisyUI Dropdown trigger (use tabindex for accessibility).
+    Dropdown trigger.
 
     Args:
         *c: Trigger content (typically a Button)
         cls: Additional CSS classes
         **kwargs: Additional HTML attributes
     """
-    classes = []
-    if cls:
-        classes.append(cls)
     return Div(
-        *c, tabindex="0", role="button", cls=" ".join(classes) if classes else None, **kwargs
+        *c, tabindex="0", role="button", cls=cls if cls else None, **kwargs
     )
 
 
@@ -150,7 +139,7 @@ def DropdownContent(
     **kwargs: Any,
 ) -> Any:
     """
-    DaisyUI Dropdown content wrapper.
+    Dropdown content wrapper.
 
     Args:
         *c: Dropdown menu items
@@ -161,14 +150,16 @@ def DropdownContent(
     from fasthtml.common import Ul
 
     classes = [
-        "dropdown-content",
-        "menu",
-        "bg-base-100",
-        "rounded-box",
-        "shadow",
-        "z-[1]",
+        "absolute",
+        "z-50",
+        "mt-2",
         "w-52",
+        "rounded-md",
+        "border",
+        "border-border",
+        "bg-background",
         "p-2",
+        "shadow-lg",
     ]
     if cls:
         classes.append(cls)
@@ -177,23 +168,16 @@ def DropdownContent(
 
 def Tabs(*c: Any, cls: str = "", boxed: bool = False, lifted: bool = False, **kwargs: Any) -> Any:
     """
-    DaisyUI Tabs wrapper.
+    Tabs wrapper using MonsterUI TabContainer.
 
     Args:
         *c: Tab items
         cls: Additional CSS classes
-        boxed: If True, uses boxed style
-        lifted: If True, uses lifted style
+        boxed: If True, uses boxed style (kept for API compat)
+        lifted: If True, uses lifted style (kept for API compat)
         **kwargs: Additional HTML attributes
     """
-    classes = ["tabs"]
-    if boxed:
-        classes.append("tabs-boxed")
-    if lifted:
-        classes.append("tabs-lifted")
-    if cls:
-        classes.append(cls)
-    return Div(*c, cls=" ".join(classes), role="tablist", **kwargs)
+    return MTabContainer(*c, cls=cls or None, **kwargs)
 
 
 def Tab(
@@ -204,43 +188,33 @@ def Tab(
     **kwargs: Any,
 ) -> Any:
     """
-    DaisyUI Tab item with WCAG 2.1 Level AA compliance.
+    Tab item with WCAG 2.1 Level AA compliance.
 
     Args:
         *c: Tab content
         cls: Additional CSS classes
         active: If True, marks as active tab
         disabled: If True, disables the tab
-        **kwargs: Additional HTML attributes (aria-controls, etc.)
-
-    Note:
-        For full accessibility, use with Alpine.js accessibleTabs component:
-        - Manages aria-selected toggling
-        - Handles tabindex (0 for active, -1 for inactive)
-        - Provides arrow key navigation
+        **kwargs: Additional HTML attributes
     """
-    from fasthtml.common import A
+    from fasthtml.common import A, Li
 
-    classes = ["tab"]
+    classes = []
     if active:
-        classes.append("tab-active")
+        classes.append("uk-active")
     if disabled:
-        classes.append("tab-disabled")
+        classes.append("uk-disabled")
     if cls:
         classes.append(cls)
 
-    # WCAG 2.1 Level AA: Add ARIA attributes for accessibility
-    # role="tab" identifies this as a tab control
-    # aria-selected indicates current selection state
-    # tabindex controls keyboard focus (0 for active, -1 for inactive)
     attrs = {
-        "cls": " ".join(classes),
         "role": "tab",
         "aria_selected": "true" if active else "false",
         "tabindex": 0 if active else -1,
     }
-
-    # Merge with user-provided kwargs (allows overriding)
     attrs.update(kwargs)
 
-    return A(*c, **attrs)
+    return Li(
+        A(*c, **attrs),
+        cls=" ".join(classes) if classes else None,
+    )

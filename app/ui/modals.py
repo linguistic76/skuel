@@ -1,14 +1,26 @@
 """
-SKUEL DaisyUI Modal Components
-================================
+SKUEL Modal Components (MonsterUI)
+====================================
 
-Modal, ModalBox, ModalAction, ModalBackdrop wrappers.
+Modal wrappers using MonsterUI's modal system.
+Keeps SKUEL's API (Modal, ModalBox, ModalAction, ModalBackdrop).
+
+Note: MonsterUI modals use UIkit's modal system. Opening mechanism changes from
+dialog.showModal() to UIkit.modal('#id').show() or data-uk-toggle="target: #id".
 """
 
 from typing import Any
 
-from fasthtml.common import Button as FTButton
-from fasthtml.common import Dialog, Div
+from fasthtml.common import Div
+from monsterui.franken import Button as MButton
+from monsterui.franken import ButtonT as MButtonT
+from monsterui.franken import ModalBody as MModalBody
+from monsterui.franken import ModalCloseButton as MModalCloseButton
+from monsterui.franken import ModalContainer as MModalContainer
+from monsterui.franken import ModalDialog as MModalDialog
+from monsterui.franken import ModalFooter as MModalFooter
+from monsterui.franken import ModalHeader as MModalHeader
+from monsterui.franken import ModalTitle as MModalTitle
 
 __all__ = ["Modal", "ModalBox", "ModalAction", "ModalBackdrop"]
 
@@ -22,103 +34,82 @@ def Modal(
     **kwargs: Any,
 ) -> Any:
     """
-    DaisyUI Modal wrapper using dialog element with WCAG 2.1 Level AA compliance.
+    Modal wrapper using MonsterUI's UIkit modal system.
 
     Args:
         id: Modal ID (required for opening/closing)
         *c: Modal content (should include ModalBox)
         cls: Additional CSS classes
         open_on_load: If True, modal opens when page loads
-        title_id: ID of the modal title element for aria-labelledby (recommended)
+        title_id: ID of the modal title element for aria-labelledby
         **kwargs: Additional HTML attributes
 
-    Example:
-        Modal("my-modal",
-            ModalBox(
-                H2("Modal Title", id="modal-title"),
-                P("Modal content here"),
-                ModalAction(
-                    Button("Close", onclick="my-modal.close()")
-                )
-            ),
-            title_id="modal-title"
-        )
-
-    ARIA Attributes:
-        - role="dialog" (implicit from <dialog> element)
-        - aria-modal="true" (automatically added)
-        - aria-labelledby (if title_id provided)
-
-    To open: document.getElementById('my-modal').showModal()
-    To close: document.getElementById('my-modal').close()
+    To open: UIkit.modal('#my-modal').show() or use data-uk-toggle="target: #id"
+    To close: UIkit.modal('#my-modal').hide() or use ModalCloseButton
     """
-    classes = ["modal"]
-    if cls:
-        classes.append(cls)
+    attrs: dict[str, Any] = {"id": id}
 
-    attrs = {
-        "id": id,
-        "cls": " ".join(classes),
-        "aria_modal": "true",  # WCAG 2.1 Level AA requirement
-    }
-
-    # Add aria-labelledby if title ID provided
     if title_id:
         attrs["aria_labelledby"] = title_id
 
-    if open_on_load:
-        attrs["open"] = True
+    if cls:
+        attrs["cls"] = cls
 
-    return Dialog(*c, **attrs, **kwargs)
+    if open_on_load:
+        attrs["uk_open"] = True
+
+    return MModalContainer(*c, **attrs, **kwargs)
 
 
 def ModalBox(*c: Any, cls: str = "", role: str = "document", **kwargs: Any) -> Any:
     """
-    DaisyUI Modal box wrapper (the content container) with accessibility support.
+    Modal dialog content wrapper using MonsterUI.
 
     Args:
         *c: Modal box content
         cls: Additional CSS classes
         role: ARIA role (default: "document" for screen readers)
         **kwargs: Additional HTML attributes
-
-    Note:
-        The role="document" tells screen readers this is the main modal content,
-        allowing proper navigation within the dialog.
     """
-    classes = ["modal-box"]
-    if cls:
-        classes.append(cls)
-
-    # Add role for accessibility
-    attrs = {"cls": " ".join(classes)}
-    if role:
-        attrs["role"] = role
-
-    return Div(*c, **attrs, **kwargs)
+    return MModalDialog(*c, cls=cls or None, **kwargs)
 
 
 def ModalAction(*c: Any, cls: str = "", **kwargs: Any) -> Any:
     """
-    DaisyUI Modal action wrapper (for buttons).
+    Modal action wrapper (for buttons in footer).
 
     Args:
         *c: Action buttons
         cls: Additional CSS classes
         **kwargs: Additional HTML attributes
     """
-    classes = ["modal-action"]
-    if cls:
-        classes.append(cls)
-    return Div(*c, cls=" ".join(classes), **kwargs)
+    return MModalFooter(*c, cls=cls or None, **kwargs)
 
 
 def ModalBackdrop(**kwargs: Any) -> Any:
     """
-    DaisyUI Modal backdrop (closes modal on click).
+    Modal close button — replaces DaisyUI backdrop close pattern.
 
-    Add as child of Modal after ModalBox to enable click-outside-to-close.
+    In MonsterUI, use ModalCloseButton or clicking outside the dialog.
     """
-    from fasthtml.common import Form
+    return MModalCloseButton("Close", cls=MButtonT.default, **kwargs)
 
-    return Form(method="dialog", cls="modal-backdrop")(FTButton("close", **kwargs))
+
+def ModalHeader(*c: Any, cls: str = "", **kwargs: Any) -> Any:
+    """Modal header wrapper using MonsterUI."""
+    return MModalHeader(*c, cls=cls or None, **kwargs)
+
+
+def ModalBody(*c: Any, cls: str = "", **kwargs: Any) -> Any:
+    """Modal body wrapper using MonsterUI."""
+    return MModalBody(*c, cls=cls or None, **kwargs)
+
+
+def ModalTitle(*c: Any, cls: str = "", **kwargs: Any) -> Any:
+    """Modal title wrapper using MonsterUI."""
+    return MModalTitle(*c, cls=cls or None, **kwargs)
+
+
+def ModalCloseButton(*c: Any, cls: str = "", **kwargs: Any) -> Any:
+    """Modal close button using MonsterUI."""
+    return MModalCloseButton(*c, cls=cls or None, **kwargs)

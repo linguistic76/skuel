@@ -29,7 +29,7 @@ from core.config import UnifiedConfig
 from core.ports.infrastructure_protocols import EventBusOperations
 from core.utils.logging import RequestIDMiddleware, get_logger
 from services_bootstrap import Services, compose_services
-from ui.theme import chartjs_headers, daisy_headers
+from ui.theme import chartjs_headers, monster_headers
 
 try:
     from starlette.applications import ASGIApp
@@ -383,8 +383,8 @@ def _create_web_app(_config: UnifiedConfig, static_directory: str | None = None)
         live=True,
         pico=False,  # Disable pico CSS
         hdrs=(
-            # SKUEL DaisyUI theme headers (includes HTMX, Alpine.js, custom CSS/JS)
-            *daisy_headers(),
+            # SKUEL MonsterUI theme headers (includes HTMX, Alpine.js, custom CSS/JS)
+            *monster_headers(),
             # Chart.js for data visualization
             *chartjs_headers(),
         ),

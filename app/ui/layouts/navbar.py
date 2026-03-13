@@ -1,8 +1,8 @@
 """
-Navbar Component - SKUEL Patterns
-=================================
+Navbar Component - SKUEL Patterns (MonsterUI)
+==============================================
 
-Dark themed navigation using DaisyUI patterns.
+Navigation bar using Tailwind utilities + Alpine.js.
 Alpine.js handles UI state, FastHTML handles rendering.
 
 Usage:
@@ -29,7 +29,7 @@ def _icon_nav_link(item: IconNavItem, active_page: str) -> A:
     """Create a circular letter icon link for the navbar (e.g., 'A' for Activities)."""
     is_active = item.page_key == active_page
     active_cls = "bg-primary/20 text-primary ring-1 ring-primary/30"
-    inactive_cls = "bg-base-200 text-base-content/70 hover:bg-base-300 hover:text-base-content"
+    inactive_cls = "bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground"
 
     return A(
         Span(item.label, cls="sr-only"),
@@ -40,7 +40,7 @@ def _icon_nav_link(item: IconNavItem, active_page: str) -> A:
             aria_hidden="true",
         ),
         href=item.href,
-        cls="btn btn-ghost btn-circle",
+        cls="inline-flex items-center justify-center size-10 rounded-full hover:bg-accent",
     )
 
 
@@ -50,14 +50,14 @@ def _nav_link(item: NavItem, active_page: str, mobile: bool = False) -> A:
 
     if mobile:
         base_cls = (
-            "block rounded-md px-3 py-2 text-base font-medium focus:outline-none focus:bg-base-300"
+            "block rounded-md px-3 py-2 text-base font-medium focus:outline-none focus:bg-accent"
         )
-        active_cls = "bg-base-300 text-base-content"
-        inactive_cls = "text-base-content/70 hover:bg-base-300 hover:text-base-content"
+        active_cls = "bg-accent text-accent-foreground"
+        inactive_cls = "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
     else:
         base_cls = "rounded-md px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary"
-        active_cls = "bg-base-300 text-base-content"
-        inactive_cls = "text-base-content/70 hover:bg-base-300 hover:text-base-content"
+        active_cls = "bg-accent text-accent-foreground"
+        inactive_cls = "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
 
     cls = f"{base_cls} {active_cls if is_active else inactive_cls}"
 
@@ -113,47 +113,38 @@ def _search_button(active_page: str = "") -> A:
     """Create search icon button that navigates to /search."""
     is_active = active_page == "search"
     active_cls = (
-        "text-base-content" if is_active else "text-base-content/70 hover:text-base-content"
+        "text-foreground" if is_active else "text-muted-foreground hover:text-foreground"
     )
     return A(
         Span("Search", cls="sr-only"),
         _search_icon(),
         href="/search",
-        cls=f"btn btn-ghost btn-circle {active_cls}",
+        cls=f"inline-flex items-center justify-center size-10 rounded-full hover:bg-accent {active_cls}",
     )
 
 
 def _notification_button(unread_count: int = 0) -> Button:
-    """Create notification bell button with optional badge.
-
-    Args:
-        unread_count: Number of unread insights/notifications
-
-    Returns:
-        Button with bell icon and optional count badge
-    """
-    # Build button content
+    """Create notification bell button with optional badge."""
     button_content = [
         Span("View notifications", cls="sr-only"),
         _bell_icon(),
     ]
 
-    # Add badge if there are unread items
     if unread_count > 0:
         badge = Div(
             Span(
                 str(unread_count) if unread_count < 100 else "99+",
                 cls="text-xs font-bold text-white",
             ),
-            cls="absolute -top-1 -right-1 size-5 rounded-full bg-warning flex items-center justify-center",
+            cls="absolute -top-1 -right-1 size-5 rounded-full bg-yellow-500 flex items-center justify-center",
         )
         button_content.append(badge)
 
     return Button(
         *button_content,
         type="button",
-        cls="btn btn-ghost btn-circle text-base-content/70 hover:text-base-content relative",
-        **{"hx-get": "/notifications"},  # Navigate to notifications on click
+        cls="inline-flex items-center justify-center size-10 rounded-full hover:bg-accent text-muted-foreground hover:text-foreground relative",
+        **{"hx-get": "/notifications"},
     )
 
 
@@ -161,11 +152,10 @@ def _mobile_menu_button() -> Button:
     """Create hamburger/close toggle button for mobile with keyboard navigation."""
     return Button(
         Span("Open menu", cls="sr-only"),
-        # Show hamburger when closed, X when open
         Span(_hamburger_icon(), **{"x-show": "!mobileMenuOpen"}),
         Span(_close_icon(), **{"x-show": "mobileMenuOpen", "x-cloak": ""}),
         type="button",
-        cls="btn btn-ghost btn-square sm:hidden",
+        cls="inline-flex items-center justify-center size-10 rounded-md hover:bg-accent sm:hidden",
         **{
             "@click": "toggleMobile()",
             "@keydown.down.prevent": "toggleMobile()",
@@ -177,7 +167,7 @@ def _mobile_menu_button() -> Button:
 
 
 def _avatar_hue(name: str) -> int:
-    """Deterministic hue (0–359) from a name string for per-user avatar color."""
+    """Deterministic hue (0-359) from a name string for per-user avatar color."""
     h = 0
     for c in name:
         h = (h * 31 + ord(c)) % 360
@@ -203,7 +193,7 @@ def _logout_button() -> A:
         Span("Sign out", cls="sr-only"),
         _logout_icon(),
         href="/logout",
-        cls="btn btn-ghost btn-circle text-base-content/70 hover:text-base-content",
+        cls="inline-flex items-center justify-center size-10 rounded-full hover:bg-accent text-muted-foreground hover:text-foreground",
     )
 
 
@@ -223,16 +213,12 @@ def _avatar_link(current_user: str) -> A:
         Span("Go to profile", cls="sr-only"),
         avatar,
         href="/profile",
-        cls="btn btn-ghost btn-circle",
+        cls="inline-flex items-center justify-center size-10 rounded-full hover:bg-accent",
     )
 
 
 def _admin_profile_section(current_user: str) -> Div:
-    """Simplified profile section for admin users — no activity domain dropdown.
-
-    Admin accounts focus on administration, not personal activity tracking.
-    Shows avatar + sign out link only.
-    """
+    """Simplified profile section for admin users."""
     initial = current_user[0].upper() if current_user else "A"
     hue = _avatar_hue(current_user)
 
@@ -248,12 +234,12 @@ def _admin_profile_section(current_user: str) -> Div:
             Span("Go to admin dashboard", cls="sr-only"),
             avatar,
             href="/admin",
-            cls="btn btn-ghost btn-circle",
+            cls="inline-flex items-center justify-center size-10 rounded-full hover:bg-accent",
         ),
         A(
             "Sign out",
             href="/logout",
-            cls="btn btn-ghost btn-sm text-base-content/70 hover:text-base-content",
+            cls="text-sm text-muted-foreground hover:text-foreground px-2 py-1 rounded hover:bg-accent",
         ),
         cls="hidden sm:flex items-center gap-2",
     )
@@ -262,8 +248,8 @@ def _admin_profile_section(current_user: str) -> Div:
 def _auth_buttons() -> Div:
     """Create login/signup buttons for unauthenticated users."""
     return Div(
-        A("Login", href="/login", cls="btn btn-ghost btn-sm"),
-        A("Sign Up", href="/register", cls="btn btn-primary btn-sm"),
+        A("Login", href="/login", cls="text-sm text-muted-foreground hover:text-foreground px-3 py-2 rounded hover:bg-accent"),
+        A("Sign Up", href="/register", cls="text-sm bg-primary text-primary-foreground px-3 py-2 rounded hover:bg-primary/90"),
         cls="flex items-center gap-2",
     )
 
@@ -277,14 +263,14 @@ def create_navbar(
     unread_insights: int = 0,
 ) -> Nav:
     """
-    Create the navigation bar using SKUEL patterns.
+    Create the navigation bar.
 
     Args:
         current_user: Current user's display name or UID
         is_authenticated: Whether user is logged in
-        active_page: Current page slug for highlighting (e.g., "profile/hub", "calendar")
-        is_admin: Whether user has admin role (shows Admin Dashboard link)
-        is_teacher: Whether user has teacher role or higher (shows Teaching link)
+        active_page: Current page slug for highlighting
+        is_admin: Whether user has admin role
+        is_teacher: Whether user has teacher role or higher
         unread_insights: Number of unread insights
 
     Returns:
@@ -298,12 +284,11 @@ def create_navbar(
             return False
         return not (item.requires_teacher and not (is_teacher or is_admin))
 
-    # Build navigation items list, filtering role-gated items
     nav_items = [item for item in MAIN_NAV_ITEMS if _should_show_item(item)]
     if is_admin:
         nav_items.insert(0, ADMIN_NAV_ITEM)
 
-    # Icon navigation links (Activities, Learn) — shown for authenticated non-admin users
+    # Icon navigation links (Activities, Learn)
     icon_links: list[A] = []
     if is_authenticated and not is_admin:
         icon_links = [_icon_nav_link(item, active_page) for item in ICON_NAV_ITEMS]
@@ -314,11 +299,10 @@ def create_navbar(
         cls="hidden sm:flex sm:space-x-1",
     )
 
-    # Mobile navigation links (shown when mobileMenuOpen)
+    # Mobile navigation links
     mobile_nav_items = list(nav_items)
     mobile_links = Div(
         Div(
-            # Icon nav items as mobile links
             *(
                 [
                     _nav_link(
@@ -340,8 +324,7 @@ def create_navbar(
         **{"x-show": "mobileMenuOpen", "x-transition": "", "x-cloak": ""},
     )
 
-    # Profile section (authenticated vs not)
-    # Admin users get simplified profile — sign out text link only
+    # Profile section
     if is_authenticated and current_user and is_admin:
         profile_section = _admin_profile_section(current_user)
     elif is_authenticated and current_user:
@@ -356,7 +339,6 @@ def create_navbar(
         profile_section = _auth_buttons()
 
     return Nav(
-        # Main navbar container — 3-column layout: Logo+Profile | Centered Nav | Balance
         Div(
             # Left column: Mobile menu button + Logo + Icon Nav + Profile + Notifications
             Div(
@@ -370,17 +352,15 @@ def create_navbar(
                 profile_section,
                 cls="flex items-center gap-2 flex-1",
             ),
-            # Center column: Desktop navigation links (centered via equal flex-1 siblings)
+            # Center column: Desktop navigation links
             desktop_links,
             # Right column: Empty for centering balance
             Div(cls="flex-1 hidden sm:block"),
             cls="flex items-center h-16 flex-1 px-4 sm:px-6 lg:px-8",
         ),
-        # Mobile menu (collapsible)
         mobile_links,
-        # Alpine.js state management
         **{"x-data": "navbar()"},
-        cls="navbar bg-base-100 border-b border-base-200 sticky top-0 z-50",
+        cls="bg-background border-b border-border sticky top-0 z-50",
     )
 
 
@@ -393,12 +373,9 @@ async def create_navbar_for_request(
     """
     Create navbar with automatic user/admin detection from session.
 
-    This is the recommended way to create navbars in routes. It automatically
-    reads user_uid, is_authenticated, and is_admin from the session.
-
     Args:
         request: Starlette/FastHTML request object
-        active_page: Current page slug for highlighting (e.g., "calendar", "search")
+        active_page: Current page slug for highlighting
         insight_store: Optional InsightStore for fetching unread insight count
         notification_service: Optional NotificationService for unread notification count
 
@@ -420,12 +397,11 @@ async def create_navbar_for_request(
             from adapters.inbound.auth import require_authenticated_user
 
             user_uid = require_authenticated_user(request)
-            # Get total active insights count
             stats_result = await insight_store.get_insight_stats(user_uid)
             if not stats_result.is_error:
                 unread_insights = stats_result.value.get("active_insights", 0)
         except Exception:
-            pass  # Silently fail - navbar should always render
+            pass
 
     # Get unread notification count
     unread_notifications = 0
@@ -438,7 +414,7 @@ async def create_navbar_for_request(
             if not count_result.is_error:
                 unread_notifications = count_result.value
         except Exception:
-            pass  # Silently fail - navbar should always render
+            pass
 
     return create_navbar(
         current_user=get_current_user(request),

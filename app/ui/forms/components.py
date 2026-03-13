@@ -1,9 +1,9 @@
 """
-SKUEL DaisyUI Form Components
-================================
+SKUEL Form Components (MonsterUI)
+==================================
 
-InputT enum and Input, Select, Textarea, FormControl, Label, LabelText,
-Checkbox, Radio, Toggle, Range wrappers.
+Form component wrappers using MonsterUI internals.
+Keeps SKUEL's API (Input, Select, Textarea, FormControl, Label, Checkbox, etc.).
 """
 
 from enum import StrEnum
@@ -11,8 +11,14 @@ from typing import Any
 
 from fasthtml.common import Div, Span
 from fasthtml.common import Input as FTInput
-from fasthtml.common import Select as FTSelect
-from fasthtml.common import Textarea as FTTextarea
+from monsterui.franken import CheckboxX as MCheckbox
+from monsterui.franken import FormLabel as MFormLabel
+from monsterui.franken import Input as MInput
+from monsterui.franken import Radio as MRadio
+from monsterui.franken import Range as MRange
+from monsterui.franken import Select as MSelect
+from monsterui.franken import Switch as MSwitch
+from monsterui.franken import TextArea as MTextArea
 
 from ui.buttons import ButtonT
 from ui.layout import Size
@@ -33,17 +39,21 @@ __all__ = [
 
 
 class InputT(StrEnum):
-    """Input variant types - maps to DaisyUI input-* classes."""
+    """Input variant types — kept for API compatibility.
 
-    bordered = "input-bordered"
-    ghost = "input-ghost"
-    primary = "input-primary"
-    secondary = "input-secondary"
-    accent = "input-accent"
-    info = "input-info"
-    success = "input-success"
-    warning = "input-warning"
-    error = "input-error"
+    MonsterUI inputs don't have variant classes like DaisyUI's input-bordered etc.
+    The variant parameter is accepted but styling comes from the MonsterUI theme.
+    """
+
+    bordered = "bordered"
+    ghost = "ghost"
+    primary = "primary"
+    secondary = "secondary"
+    accent = "accent"
+    info = "info"
+    success = "success"
+    warning = "warning"
+    error = "error"
 
 
 def Input(
@@ -56,33 +66,24 @@ def Input(
     **kwargs: Any,
 ) -> Any:
     """
-    DaisyUI Input wrapper with optional help text and error message.
+    Input wrapper using MonsterUI.
 
     Args:
         cls: Additional CSS classes
-        variant: Input style variant
+        variant: Input style variant (kept for API compat; MonsterUI uses theme styling)
         size: Input size (xs, sm, md, lg)
         full_width: If True, input takes full width
-        help_text: Optional help text displayed below the input (e.g., "Must be at least 8 characters")
+        help_text: Optional help text displayed below the input
         error_text: Optional error message displayed below the input
         **kwargs: Additional HTML attributes (type, name, value, placeholder, id, etc.)
-
-    Returns:
-        If help_text or error_text provided: Div wrapper with input + help/error text
-        Otherwise: Just the input element (backward compatible)
-
-    Example:
-        Input(type="text", name="email", placeholder="Enter email")
-        Input(type="password", name="password", help_text="Must be at least 8 characters")
-        Input(variant=InputT.error, error_text="Email is required")
     """
-    classes = ["input", variant.value]
-    if size:
-        classes.append(f"input-{size.value}")
+    cls_parts = []
     if full_width:
-        classes.append("w-full")
+        cls_parts.append("w-full")
+    if variant == InputT.error or error_text:
+        cls_parts.append("border-destructive")
     if cls:
-        classes.append(cls)
+        cls_parts.append(cls)
 
     # Build ARIA attributes if help or error text provided
     input_name = kwargs.get("name", kwargs.get("id", "input"))
@@ -99,7 +100,7 @@ def Input(
     if describedby_ids:
         kwargs["aria_describedby"] = " ".join(describedby_ids)
 
-    input_element = FTInput(cls=" ".join(classes), **kwargs)
+    input_element = MInput(cls=" ".join(cls_parts) if cls_parts else None, **kwargs)
 
     # If no help or error text, return just the input (backward compatible)
     if not help_text and not error_text:
@@ -109,10 +110,14 @@ def Input(
     elements = [input_element]
 
     if help_text:
-        elements.append(Div(help_text, id=help_id, cls="mt-1 text-sm text-base-content/70"))
+        elements.append(
+            Div(help_text, id=help_id, cls="mt-1 text-sm text-muted-foreground")
+        )
 
     if error_text:
-        elements.append(Div(error_text, id=error_id, role="alert", cls="mt-1 text-sm text-error"))
+        elements.append(
+            Div(error_text, id=error_id, role="alert", cls="mt-1 text-sm text-destructive")
+        )
 
     return Div(*elements, cls="w-full" if full_width else "")
 
@@ -128,40 +133,27 @@ def Select(
     **kwargs: Any,
 ) -> Any:
     """
-    DaisyUI Select wrapper with optional help text and error message.
+    Select wrapper using MonsterUI.
 
     Args:
-        *options: Option elements or (value, label) tuples
+        *options: Option elements
         cls: Additional CSS classes
-        variant: Select style variant
+        variant: Select style variant (kept for API compat)
         size: Select size (xs, sm, md, lg)
         full_width: If True, select takes full width
         help_text: Optional help text displayed below the select
         error_text: Optional error message displayed below the select
         **kwargs: Additional HTML attributes (name, required, id, etc.)
-
-    Returns:
-        If help_text or error_text provided: Div wrapper with select + help/error text
-        Otherwise: Just the select element (backward compatible)
-
-    Example:
-        Select(
-            Option("Choose...", value=""),
-            Option("Option 1", value="1"),
-            Option("Option 2", value="2"),
-            name="choice"
-        )
-        Select(..., help_text="Select your preferred option")
     """
-    classes = ["select", variant.value.replace("input-", "select-")]
-    if size:
-        classes.append(f"select-{size.value}")
+    cls_parts = []
     if full_width:
-        classes.append("w-full")
+        cls_parts.append("w-full")
+    if variant == InputT.error or error_text:
+        cls_parts.append("border-destructive")
     if cls:
-        classes.append(cls)
+        cls_parts.append(cls)
 
-    # Build ARIA attributes if help or error text provided
+    # Build ARIA attributes
     select_name = kwargs.get("name", kwargs.get("id", "select"))
     help_id = f"{select_name}-help"
     error_id = f"{select_name}-error"
@@ -176,20 +168,22 @@ def Select(
     if describedby_ids:
         kwargs["aria_describedby"] = " ".join(describedby_ids)
 
-    select_element = FTSelect(*options, cls=" ".join(classes), **kwargs)
+    select_element = MSelect(*options, cls=" ".join(cls_parts) if cls_parts else None, **kwargs)
 
-    # If no help or error text, return just the select (backward compatible)
     if not help_text and not error_text:
         return select_element
 
-    # Otherwise, wrap with help/error text
     elements = [select_element]
 
     if help_text:
-        elements.append(Div(help_text, id=help_id, cls="mt-1 text-sm text-base-content/70"))
+        elements.append(
+            Div(help_text, id=help_id, cls="mt-1 text-sm text-muted-foreground")
+        )
 
     if error_text:
-        elements.append(Div(error_text, id=error_id, role="alert", cls="mt-1 text-sm text-error"))
+        elements.append(
+            Div(error_text, id=error_id, role="alert", cls="mt-1 text-sm text-destructive")
+        )
 
     return Div(*elements, cls="w-full" if full_width else "")
 
@@ -205,35 +199,27 @@ def Textarea(
     **kwargs: Any,
 ) -> Any:
     """
-    DaisyUI Textarea wrapper with optional help text and error message.
+    Textarea wrapper using MonsterUI.
 
     Args:
         *c: Initial textarea content
         cls: Additional CSS classes
-        variant: Textarea style variant
+        variant: Textarea style variant (kept for API compat)
         size: Textarea size (xs, sm, md, lg)
         full_width: If True, textarea takes full width
         help_text: Optional help text displayed below the textarea
         error_text: Optional error message displayed below the textarea
         **kwargs: Additional HTML attributes (name, rows, placeholder, id, etc.)
-
-    Returns:
-        If help_text or error_text provided: Div wrapper with textarea + help/error text
-        Otherwise: Just the textarea element (backward compatible)
-
-    Example:
-        Textarea(name="description", rows="4", placeholder="Enter description...")
-        Textarea(name="bio", help_text="Tell us about yourself (max 500 characters)")
     """
-    classes = ["textarea", variant.value.replace("input-", "textarea-")]
-    if size:
-        classes.append(f"textarea-{size.value}")
+    cls_parts = []
     if full_width:
-        classes.append("w-full")
+        cls_parts.append("w-full")
+    if variant == InputT.error or error_text:
+        cls_parts.append("border-destructive")
     if cls:
-        classes.append(cls)
+        cls_parts.append(cls)
 
-    # Build ARIA attributes if help or error text provided
+    # Build ARIA attributes
     textarea_name = kwargs.get("name", kwargs.get("id", "textarea"))
     help_id = f"{textarea_name}-help"
     error_id = f"{textarea_name}-error"
@@ -248,40 +234,38 @@ def Textarea(
     if describedby_ids:
         kwargs["aria_describedby"] = " ".join(describedby_ids)
 
-    textarea_element = FTTextarea(*c, cls=" ".join(classes), **kwargs)
+    textarea_element = MTextArea(
+        *c, cls=" ".join(cls_parts) if cls_parts else None, **kwargs
+    )
 
-    # If no help or error text, return just the textarea (backward compatible)
     if not help_text and not error_text:
         return textarea_element
 
-    # Otherwise, wrap with help/error text
     elements = [textarea_element]
 
     if help_text:
-        elements.append(Div(help_text, id=help_id, cls="mt-1 text-sm text-base-content/70"))
+        elements.append(
+            Div(help_text, id=help_id, cls="mt-1 text-sm text-muted-foreground")
+        )
 
     if error_text:
-        elements.append(Div(error_text, id=error_id, role="alert", cls="mt-1 text-sm text-error"))
+        elements.append(
+            Div(error_text, id=error_id, role="alert", cls="mt-1 text-sm text-destructive")
+        )
 
     return Div(*elements, cls="w-full" if full_width else "")
 
 
 def FormControl(*c: Any, cls: str = "", **kwargs: Any) -> Any:
     """
-    DaisyUI Form control wrapper for proper form layout.
+    Form control wrapper for proper form layout.
 
     Args:
         *c: Form control content (label, input, helper text)
         cls: Additional CSS classes
         **kwargs: Additional HTML attributes
-
-    Example:
-        FormControl(
-            Label("Email", for_="email"),
-            Input(type="email", id="email", name="email"),
-        )
     """
-    classes = ["form-control"]
+    classes = ["space-y-2"]
     if cls:
         classes.append(cls)
     return Div(*c, cls=" ".join(classes), **kwargs)
@@ -289,32 +273,27 @@ def FormControl(*c: Any, cls: str = "", **kwargs: Any) -> Any:
 
 def Label(*c: Any, cls: str = "", **kwargs: Any) -> Any:
     """
-    DaisyUI Label wrapper.
+    Form label wrapper using MonsterUI FormLabel.
 
     Args:
         *c: Label content
         cls: Additional CSS classes
         **kwargs: Additional HTML attributes
     """
-    from fasthtml.common import Label as FTLabel
-
-    classes = ["label"]
-    if cls:
-        classes.append(cls)
-    return FTLabel(*c, cls=" ".join(classes), **kwargs)
+    return MFormLabel(*c, cls=cls or None, **kwargs)
 
 
 def LabelText(*c: Any, cls: str = "", alt: bool = False, **kwargs: Any) -> Any:
     """
-    DaisyUI Label text wrapper.
+    Label text wrapper.
 
     Args:
         *c: Label text content
         cls: Additional CSS classes
-        alt: If True, uses label-text-alt for smaller text
+        alt: If True, uses smaller muted text
         **kwargs: Additional HTML attributes
     """
-    classes = ["label-text-alt" if alt else "label-text"]
+    classes = ["text-xs text-muted-foreground" if alt else "text-sm font-medium"]
     if cls:
         classes.append(cls)
     return Span(*c, cls=" ".join(classes), **kwargs)
@@ -327,20 +306,15 @@ def Checkbox(
     **kwargs: Any,
 ) -> Any:
     """
-    DaisyUI Checkbox wrapper.
+    Checkbox wrapper using MonsterUI.
 
     Args:
         cls: Additional CSS classes
-        variant: Checkbox color variant
+        variant: Checkbox color variant (kept for API compat)
         size: Checkbox size (xs, sm, md, lg)
         **kwargs: Additional HTML attributes
     """
-    classes = ["checkbox", variant.value.replace("btn-", "checkbox-")]
-    if size:
-        classes.append(f"checkbox-{size.value}")
-    if cls:
-        classes.append(cls)
-    return FTInput(type="checkbox", cls=" ".join(classes), **kwargs)
+    return MCheckbox(cls=cls or None, **kwargs)
 
 
 def Radio(
@@ -350,20 +324,15 @@ def Radio(
     **kwargs: Any,
 ) -> Any:
     """
-    DaisyUI Radio wrapper.
+    Radio button wrapper using MonsterUI.
 
     Args:
         cls: Additional CSS classes
-        variant: Radio color variant
+        variant: Radio color variant (kept for API compat)
         size: Radio size (xs, sm, md, lg)
         **kwargs: Additional HTML attributes
     """
-    classes = ["radio", variant.value.replace("btn-", "radio-")]
-    if size:
-        classes.append(f"radio-{size.value}")
-    if cls:
-        classes.append(cls)
-    return FTInput(type="radio", cls=" ".join(classes), **kwargs)
+    return MRadio(cls=cls or None, **kwargs)
 
 
 def Toggle(
@@ -373,20 +342,15 @@ def Toggle(
     **kwargs: Any,
 ) -> Any:
     """
-    DaisyUI Toggle wrapper.
+    Toggle/Switch wrapper using MonsterUI's Switch component.
 
     Args:
         cls: Additional CSS classes
-        variant: Toggle color variant
+        variant: Toggle color variant (kept for API compat)
         size: Toggle size (xs, sm, md, lg)
         **kwargs: Additional HTML attributes
     """
-    classes = ["toggle", variant.value.replace("btn-", "toggle-")]
-    if size:
-        classes.append(f"toggle-{size.value}")
-    if cls:
-        classes.append(cls)
-    return FTInput(type="checkbox", cls=" ".join(classes), **kwargs)
+    return MSwitch(cls=cls or None, **kwargs)
 
 
 def Range(
@@ -396,17 +360,12 @@ def Range(
     **kwargs: Any,
 ) -> Any:
     """
-    DaisyUI Range slider wrapper.
+    Range slider wrapper using MonsterUI.
 
     Args:
         cls: Additional CSS classes
-        variant: Range color variant
+        variant: Range color variant (kept for API compat)
         size: Range size (xs, sm, md, lg)
         **kwargs: Additional HTML attributes (min, max, value, step)
     """
-    classes = ["range", variant.value.replace("btn-", "range-")]
-    if size:
-        classes.append(f"range-{size.value}")
-    if cls:
-        classes.append(cls)
-    return FTInput(type="range", cls=" ".join(classes), **kwargs)
+    return MRange(cls=cls or None, **kwargs)
