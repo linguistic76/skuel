@@ -75,7 +75,7 @@ SKUEL uses a layered UI component architecture built on Tailwind CSS and DaisyUI
 
 **Evolution (2026-03-11):** Major restructure into three focused areas. Navbar gains icon links: **A** (`/activities`) and **L** (`/learn`). Profile stripped to lean (Focus + Steady + Settings). Activity domains at `/activities/{domain}` with Activity sidebar. Avatar dropdown removed — avatar is a direct link to `/profile`.
 
-**Evolution (2026-03-13):** `/learn` redesigned as student workspace hub. Old Study/Practice/Pathways sidebar replaced with Submit/My Submissions/Reports. Submission UI routes moved from `/submissions/*` to `/learn/*` (old paths redirect 301). `/learn` landing shows 3 workspace action cards + curriculum discovery links. Sidebar only appears on sub-pages (`/learn/submit`, `/learn/submissions`, `/learn/reports`).
+**Evolution (2026-03-13):** `/learn` redesigned as student workspace hub. Old Study/Practice/Pathways sidebar replaced with Submit/Exercises/My Submissions/Reports. Submission UI routes moved from `/submissions/*` to `/learn/*` (old paths redirect 301). `/learn` landing shows 4 vertically-stacked workspace cards (Submit, Exercises, My Submissions, Reports) + 3 curriculum discovery links (Articles, KUs, Learning Paths). Sidebar only appears on sub-pages (`/learn/submit`, `/learn/submissions`, `/learn/reports`). Exercises links to `/exercises` (existing domain route).
 
 **Evolution (2026-02-09):** All 5 sidebars (Profile, KU, Reports, Journals, Askesis) unified into single Tailwind + Alpine.js component (`SidebarPage`). Custom CSS/JS files (`profile_sidebar.css`, `profile_sidebar.js`) deleted. Mobile uses horizontal DaisyUI tabs instead of drawer/overlay.
 

@@ -1,11 +1,11 @@
 """Learning dashboard — /learn landing page.
 
-Workspace hub with 4 action cards (Submit, Exercises, My Submissions, Reports)
+Workspace hub with 4 action cards (Exercises, Submit, My Submissions, Reports)
 and curriculum discovery links (Articles, KUs, Learning Paths).
 No sidebar on the landing page.
 """
 
-from fasthtml.common import H2, H3, A, Div, P, Span
+from fasthtml.common import H3, A, Div, P, Span
 
 from core.services.user.unified_user_context import UserContext
 
@@ -13,17 +13,12 @@ from core.services.user.unified_user_context import UserContext
 def LearnDashboardView(context: UserContext) -> Div:
     """Landing page content for /learn — the student workspace hub."""
     return Div(
-        _header(),
         Div(
-            H3("Your Workspace", cls="text-base font-semibold text-base-content/80 mb-4"),
-            Div(
-                _submit_card(),
-                _exercises_card(),
-                _submissions_card(context),
-                _reports_card(),
-                cls="flex flex-col gap-5",
-            ),
-            cls="mb-8",
+            _exercises_card(),
+            _submit_card(),
+            _submissions_card(context),
+            _reports_card(),
+            cls="flex flex-col gap-5",
         ),
         Div(
             H3(
@@ -37,17 +32,6 @@ def LearnDashboardView(context: UserContext) -> Div:
                 cls="grid grid-cols-1 md:grid-cols-3 gap-3",
             ),
         ),
-    )
-
-
-def _header() -> Div:
-    return Div(
-        H2("Learn", cls="text-xl font-semibold text-base-content"),
-        P(
-            "Submit work, track progress, and review feedback.",
-            cls="text-sm text-base-content/50 mt-0.5",
-        ),
-        cls="mb-6",
     )
 
 

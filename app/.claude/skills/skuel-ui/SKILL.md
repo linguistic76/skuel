@@ -315,7 +315,7 @@ MAIN_NAV_ITEMS: tuple[NavItem, ...] = (
 
 The navbar has three icon links in the left section (after the SKUEL logo):
 - **A** (Activities) → `/activities` — 6 Activity Domain cards + Journal + Knowledge
-- **L** (Learn) → `/learn` — Student workspace hub (Submit/My Submissions/Reports)
+- **L** (Learn) → `/learn` — Student workspace hub (Submit/Exercises/My Submissions/Reports)
 - **U** (Avatar) → `/profile` — Lean profile (Focus + Steady + Settings)
 
 See `/ui/layouts/nav_config.py` for `ICON_NAV_ITEMS` and `IconNavItem`.
