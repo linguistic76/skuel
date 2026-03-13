@@ -15,6 +15,8 @@ from typing import Any
 
 from fasthtml.common import FT, H3, Div, Span, Strong, Table, Tbody, Td, Th, Thead, Tr
 
+from ui.feedback import Badge, BadgeT
+
 
 def IngestionResultsSummary(stats: Any) -> FT:
     """
@@ -169,9 +171,9 @@ def ErrorsTable(errors: list[dict[str, Any]]) -> FT:
                                 title=error.get("file", ""),
                             ),
                             Td(
-                                Span(
+                                Badge(
                                     error.get("stage", "unknown"),
-                                    cls="badge badge-sm badge-outline",
+                                    variant=BadgeT.outline,
                                 )
                             ),
                             Td(error.get("error", "Unknown error"), cls="text-sm"),

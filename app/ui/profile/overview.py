@@ -16,6 +16,7 @@ from fasthtml.common import H2, H3, A, Canvas, Div, Li, P, Span, Ul
 
 from core.models.enums import Priority
 from core.services.user.unified_user_context import UserContext
+from ui.feedback import Badge, BadgeT
 
 if TYPE_CHECKING:
     from core.models.context_types import (
@@ -456,7 +457,7 @@ def _domain_progress_grid(context: UserContext) -> Div:
                     Div(
                         Span(icon, cls="text-xl"),
                         Span(name, cls="text-base font-semibold text-foreground"),
-                        Span(str(active_count), cls="badge badge-sm badge-ghost"),
+                        Badge(str(active_count), variant=BadgeT.ghost),
                         cls="flex items-center gap-2",
                     ),
                     create_btn,

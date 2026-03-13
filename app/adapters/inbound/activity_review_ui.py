@@ -44,7 +44,9 @@ from starlette.responses import RedirectResponse
 from adapters.inbound.auth import make_service_getter, require_admin
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonT
+from ui.feedback import Badge, BadgeT
 from ui.forms import Input, Select, Textarea
+from ui.layout import Size
 from ui.patterns.page_header import PageHeader
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 
@@ -93,7 +95,7 @@ def _render_queue_item(item: dict[str, Any]) -> Any:
         except (ValueError, TypeError):
             date_str = str(created_at)[:10]
 
-    domain_badges = [Span(d, cls="badge badge-ghost badge-xs") for d in (domains or [])]
+    domain_badges = [Badge(d, variant=BadgeT.ghost, size=Size.xs) for d in (domains or [])]
 
     review_href = f"/activity-review/new?subject_uid={subject_uid}&time_period={time_period}"
 
@@ -135,7 +137,7 @@ def _render_snapshot_domain_card(domain_name: str, items: list[Any]) -> Any:
         item_rows.append(
             Div(
                 Span(title, cls="text-sm flex-1"),
-                Span(status, cls="badge badge-ghost badge-xs") if status else None,
+                Badge(status, variant=BadgeT.ghost, size=Size.xs) if status else None,
                 cls="flex items-center gap-2 py-1 border-b border-border last:border-0",
             )
         )

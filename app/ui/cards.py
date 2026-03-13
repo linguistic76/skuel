@@ -9,7 +9,7 @@ Keeps SKUEL's API (Card, CardBody, CardTitle, CardActions, CardFigure, CardLink)
 from enum import StrEnum
 from typing import Any
 
-from fasthtml.common import A, Div
+from fasthtml.common import A
 from monsterui.franken import CardBody as MCardBody
 from monsterui.franken import CardContainer as MCardContainer
 from monsterui.franken import CardFooter as MCardFooter

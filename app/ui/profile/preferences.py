@@ -219,8 +219,6 @@ class UserPreferencesComponents:
                     value=prefs.get("available_minutes_daily", 60),
                     min=0,
                     max=1440,
-
-
                 ),
                 P(
                     f"{prefs.get('available_minutes_daily', 60)} minutes = {prefs.get('available_minutes_daily', 60) / 60:.1f} hours",
@@ -257,8 +255,6 @@ class UserPreferencesComponents:
                         value=prefs.get("reminder_minutes_before", 15),
                         min=0,
                         max=1440,
-    
-
                     ),
                     cls="form-control mb-4",
                 ),
@@ -268,8 +264,6 @@ class UserPreferencesComponents:
                         type="time",
                         name="daily_summary_time",
                         value=prefs.get("daily_summary_time", "09:00"),
-    
-
                     ),
                     cls="form-control mb-4",
                 ),
@@ -359,8 +353,6 @@ class UserPreferencesComponents:
                     type="text",
                     name="timezone",
                     value=prefs.get("timezone", "UTC"),
-
-
                 ),
                 P(
                     "e.g., America/New_York, Europe/London, Asia/Tokyo",
@@ -385,8 +377,6 @@ class UserPreferencesComponents:
                     value=prefs.get("weekly_task_goal", 10),
                     min=0,
                     max=100,
-
-
                 ),
                 P(
                     "Target number of tasks to complete each week",
@@ -402,8 +392,6 @@ class UserPreferencesComponents:
                     value=prefs.get("daily_habit_goal", 3),
                     min=0,
                     max=20,
-
-
                 ),
                 P(
                     "Target number of habits to complete each day",
@@ -419,8 +407,6 @@ class UserPreferencesComponents:
                     value=prefs.get("monthly_learning_hours", 20),
                     min=0,
                     max=500,
-
-
                 ),
                 P("Target learning hours per month", cls="text-sm text-muted-foreground mt-1"),
                 cls="form-control mb-4",

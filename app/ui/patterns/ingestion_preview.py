@@ -22,7 +22,6 @@ from fasthtml.common import (
     Div,
     Li,
     P,
-    Span,
     Table,
     Tbody,
     Td,
@@ -31,6 +30,8 @@ from fasthtml.common import (
     Tr,
     Ul,
 )
+
+from ui.feedback import Badge, BadgeT
 
 
 def DryRunPreviewComponent(preview: Any, operation_id: str | None = None) -> FT:
@@ -159,9 +160,9 @@ def FilesToCreateTable(files_to_create: list[dict[str, Any]]) -> FT:
                             ),
                             Td(file.get("title", "Untitled")),
                             Td(
-                                Span(
+                                Badge(
                                     file.get("entity_type", "unknown").upper(),
-                                    cls="badge badge-sm badge-outline badge-success",
+                                    variant=BadgeT.success,
                                 )
                             ),
                             Td(
@@ -227,9 +228,9 @@ def FilesToUpdateTable(files_to_update: list[dict[str, Any]]) -> FT:
                             ),
                             Td(file.get("title", "Untitled")),
                             Td(
-                                Span(
+                                Badge(
                                     file.get("entity_type", "unknown").upper(),
-                                    cls="badge badge-sm badge-outline badge-warning",
+                                    variant=BadgeT.warning,
                                 )
                             ),
                             Td(

@@ -44,6 +44,7 @@ from ui.buttons import Button, ButtonT
 from ui.cards import Card
 from ui.events.layout import create_events_page
 from ui.events.views import EventsViewComponents
+from ui.feedback import Badge, BadgeT
 from ui.forms import Input, Label, Select, Textarea
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
@@ -138,7 +139,7 @@ class EventUIComponents:
             Div(
                 Div(
                     Span(title, cls="font-semibold text-lg"),
-                    Span(str(status).title(), cls="badge badge-primary ml-2"),
+                    Badge(str(status).title(), variant=BadgeT.primary, cls="ml-2"),
                     cls="flex items-center mb-2",
                 ),
                 P(
@@ -787,14 +788,15 @@ def create_events_ui_routes(_app, rt, events_service: EventsService, services: A
                 P(event.description or "No description provided", cls="text-muted-foreground mb-4"),
                 # Status and Type badges
                 Div(
-                    Span(f"Status: {event.status.value}", cls="badge badge-info mr-2"),
-                    Span(
+                    Badge(f"Status: {event.status.value}", variant=BadgeT.info, cls="mr-2"),
+                    Badge(
                         f"Type: {event.event_type if event.event_type else 'Not set'}",
-                        cls="badge badge-success mr-2",
+                        variant=BadgeT.success,
+                        cls="mr-2",
                     ),
-                    Span(
+                    Badge(
                         f"Priority: {event.priority if event.priority else 'Not set'}",
-                        cls="badge badge-warning",
+                        variant=BadgeT.warning,
                     ),
                     cls="flex gap-2 flex-wrap",
                 ),

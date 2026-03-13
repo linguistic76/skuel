@@ -27,7 +27,7 @@ Usage in UI components:
     badge_class = get_priority_badge_class("high")  # Returns "badge-warning"
 
     # Tier 3: Component builder
-    badge_component = render_priority_badge("high")  # Returns DaisyUI Badge
+    badge_component = render_priority_badge("high")  # Returns styled Badge
 """
 
 from __future__ import annotations
@@ -54,13 +54,8 @@ from core.models.enums import (
 from core.models.event.calendar_models import CalendarItemType
 from ui.buttons import Button
 from ui.cards import Card, CardBody
-
-
-# Simple Badge component (local helper for this module)
-def Badge(text: str, cls: str = "badge") -> Span:
-    """Simple badge component using Span with DaisyUI classes."""
-    return Span(text, cls=cls)
-
+from ui.feedback import Badge, BadgeT
+from ui.layout import Size
 
 # ============================================================================
 # TREND HELPERS
@@ -613,13 +608,13 @@ def get_priority_border_class(priority: str | Priority) -> str:
 
 def get_priority_badge_class(priority: str | Priority) -> str:
     """
-    Get DaisyUI badge class for a priority level.
+    Get Tailwind badge class for a priority level.
 
     Args:
         priority: Priority level string or enum,
 
     Returns:
-        Badge CSS class (e.g., "badge-warning")
+        Tailwind CSS class string for badge coloring
     """
     from ui.badge_classes import priority_badge_class
 
@@ -630,13 +625,13 @@ def get_priority_badge_class(priority: str | Priority) -> str:
 
 def get_status_badge_class(status: str | EntityStatus) -> str:
     """
-    Get DaisyUI badge class for an activity status.
+    Get Tailwind badge class for an activity status.
 
     Args:
         status: Activity status string or enum,
 
     Returns:
-        Badge CSS class (e.g., "badge-success")
+        Tailwind CSS class string for badge coloring
     """
     from ui.badge_classes import status_badge_class
 
@@ -682,28 +677,24 @@ def get_status_text_color(status: str | EntityStatus) -> str:
 
 def render_priority_badge(priority: str | Priority) -> Span:
     """
-    Render priority as styled DaisyUI badge component.
+    Render priority as styled badge component.
 
     Args:
         priority: Priority enum or string value,
 
     Returns:
-        DaisyUI Badge component
-
-    Example:
-        >>> render_priority_badge("high")
-        <Badge cls="badge badge-warning">High</Badge>
+        Badge component with priority-appropriate color
     """
     if isinstance(priority, str):
         try:
             priority = Priority(priority)
         except ValueError:
-            return Badge("Unknown", cls="badge badge-neutral")
+            return Badge("Unknown", variant=BadgeT.neutral)
 
     badge_class = get_priority_badge_class(priority)
     label = priority.value.title()
 
-    return Badge(label, cls=f"badge {badge_class}")
+    return Badge(label, variant=None, cls=badge_class)
 
 
 def render_status_chip(status: str | EntityStatus) -> Span:
@@ -740,28 +731,24 @@ def render_status_chip(status: str | EntityStatus) -> Span:
 
 def render_status_badge(status: str | EntityStatus) -> Span:
     """
-    Render status as styled DaisyUI badge component.
+    Render status as styled badge component.
 
     Args:
         status: Activity status enum or string value,
 
     Returns:
-        DaisyUI Badge component
-
-    Example:
-        >>> render_status_badge("completed")
-        <Badge cls="badge badge-success">Completed</Badge>
+        Badge component with status-appropriate color
     """
     if isinstance(status, str):
         try:
             status = EntityStatus(status)
         except ValueError:
-            return Badge("Unknown", cls="badge badge-neutral")
+            return Badge("Unknown", variant=BadgeT.neutral)
 
     badge_class = get_status_badge_class(status)
     label = status.value.replace("_", " ").title()
 
-    return Badge(label, cls=f"badge {badge_class}")
+    return Badge(label, variant=None, cls=badge_class)
 
 
 def render_trend_indicator(trend: str, value: float | None = None) -> Div:
@@ -803,31 +790,26 @@ def render_completion_badge(status: str | CompletionStatus) -> Span:
 
     Returns:
         Badge component with emoji and label
-
-    Example:
-        >>> render_completion_badge("done")
-        <Badge cls="badge badge-success">✅ Done</Badge>
     """
     if isinstance(status, str):
         try:
             status = CompletionStatus(status)
         except ValueError:
-            return Badge("❓ Unknown", cls="badge badge-neutral")
+            return Badge("❓ Unknown", variant=BadgeT.neutral)
 
     emoji = status.get_emoji()
     label = status.value.title()
 
-    # Map completion status to badge classes
-    status_to_class = {
-        CompletionStatus.DONE: "badge-success",
-        CompletionStatus.PARTIAL: "badge-info",
-        CompletionStatus.SKIPPED: "badge-warning",
-        CompletionStatus.MISSED: "badge-error",
-        CompletionStatus.PAUSED: "badge-neutral",
+    status_to_variant: dict[CompletionStatus, BadgeT] = {
+        CompletionStatus.DONE: BadgeT.success,
+        CompletionStatus.PARTIAL: BadgeT.info,
+        CompletionStatus.SKIPPED: BadgeT.warning,
+        CompletionStatus.MISSED: BadgeT.error,
+        CompletionStatus.PAUSED: BadgeT.neutral,
     }
-    badge_class = status_to_class.get(status, "badge-neutral")
+    variant = status_to_variant.get(status, BadgeT.neutral)
 
-    return Badge(f"{emoji} {label}", cls=f"badge {badge_class}")
+    return Badge(f"{emoji} {label}", variant=variant)
 
 
 # ============================================================================
@@ -931,18 +913,11 @@ def render_tag_list(tags: list[str] | None) -> Div | str:
 
     Returns:
         Div containing badge elements, or empty string if no tags
-
-    Example:
-        >>> render_tag_list(["urgent", "work"])
-        <Div cls="flex gap-1 flex-wrap">
-            <Badge cls="badge badge-sm badge-outline">urgent</Badge>
-            <Badge cls="badge badge-sm badge-outline">work</Badge>
-        </Div>
     """
     if not tags:
         return ""
 
-    tag_badges = [Badge(tag, cls="badge badge-sm badge-outline") for tag in tags]
+    tag_badges = [Badge(tag, variant=BadgeT.outline, size=Size.sm) for tag in tags]
 
     return Div(*tag_badges, cls="flex gap-1 flex-wrap")
 

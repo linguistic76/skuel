@@ -7,9 +7,9 @@ Card renderers for submission lists, grids, and detail views.
 
 from typing import Any
 
-from fasthtml.common import H4, A, Div, P, Span
+from fasthtml.common import H4, A, Div, P
 
-from ui.feedback import get_submission_status_badge_class
+from ui.feedback import Badge, get_submission_status_badge_class
 
 _get_status_badge_class = get_submission_status_badge_class
 
@@ -42,9 +42,10 @@ def render_submission_card(submission: Any, is_pinned: bool = False) -> Any:
                     cls="flex-1",
                 ),
                 Div(
-                    Span(
+                    Badge(
                         submission.status,
-                        cls=f"badge {_get_status_badge_class(submission.status)}",
+                        variant=None,
+                        cls=_get_status_badge_class(submission.status),
                     ),
                 ),
                 Div(
@@ -98,9 +99,10 @@ def render_submission_detail(submission: Any) -> Any:
             Div(
                 P("Status", cls="text-xs text-muted-foreground mb-0"),
                 P(
-                    Span(
+                    Badge(
                         submission.status,
-                        cls=f"badge {_get_status_badge_class(submission.status)}",
+                        variant=None,
+                        cls=_get_status_badge_class(submission.status),
                     ),
                     cls="mb-0",
                 ),

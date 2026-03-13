@@ -13,6 +13,8 @@ from fasthtml.common import (
     Span,
 )
 
+from ui.feedback import Badge, BadgeT
+from ui.layout import Size
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 
 if TYPE_CHECKING:
@@ -81,7 +83,7 @@ def _status_badge(status: str) -> "FT":
 def _count_badge(count: int, active: int | None = None) -> "FT":
     """Count badge showing total (optionally with active subset)."""
     text = f"{active}/{count}" if active is not None and active > 0 else str(count)
-    return Span(text, cls="badge badge-sm badge-ghost")
+    return Badge(text, variant=BadgeT.ghost)
 
 
 def _insight_badge(insight_count: int) -> Optional["FT"]:
@@ -97,10 +99,12 @@ def _insight_badge(insight_count: int) -> Optional["FT"]:
         "</svg>"
     )
 
-    return Span(
+    return Badge(
         bell_svg,
         Span(str(insight_count), cls="text-xs font-bold"),
-        cls="badge badge-xs badge-warning gap-1",
+        cls="gap-1",
+        size=Size.xs,
+        variant=BadgeT.warning,
         title=f"{insight_count} active insight{'s' if insight_count != 1 else ''}",
     )
 

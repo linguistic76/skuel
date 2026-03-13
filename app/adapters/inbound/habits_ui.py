@@ -37,6 +37,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from ui.buttons import Button, ButtonT
 from ui.cards import Card, CardBody
+from ui.feedback import Badge, BadgeT
 from ui.habits.atomic_achievements import AtomicHabitsBadges
 from ui.habits.atomic_analytics import AtomicHabitsAnalytics
 from ui.habits.atomic_components import AtomicHabitsComponents
@@ -1165,7 +1166,9 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
                 cls="space-y-3",
             )
             if filtered_habits
-            else P("No habits found for this category", cls="text-center text-muted-foreground py-8")
+            else P(
+                "No habits found for this category", cls="text-center text-muted-foreground py-8"
+            )
         )
 
     @rt("/habits/{uid}/details")
@@ -1273,6 +1276,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
         status = normalize_enum_str(getattr(habit, "status", None), "active")
 
         from fasthtml.common import Form, Label, Option
+
         from ui.forms import Input, Select, Textarea
 
         return Card(
@@ -1452,12 +1456,13 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
                 P(habit.description or "No description provided", cls="text-muted-foreground mb-4"),
                 # Status and Frequency badges
                 Div(
-                    Span(f"Status: {habit.status.value}", cls="badge badge-info mr-2"),
-                    Span(
+                    Badge(f"Status: {habit.status.value}", variant=BadgeT.info, cls="mr-2"),
+                    Badge(
                         f"Frequency: {f'{habit.target_days_per_week}x/week' if habit.target_days_per_week else 'Not set'}",
-                        cls="badge badge-success mr-2",
+                        variant=BadgeT.success,
+                        cls="mr-2",
                     ),
-                    Span(f"Streak: {habit.current_streak or 0} days", cls="badge badge-warning"),
+                    Badge(f"Streak: {habit.current_streak or 0} days", variant=BadgeT.warning),
                     cls="flex gap-2 flex-wrap",
                 ),
                 cls="p-6 mb-4",

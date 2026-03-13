@@ -7,7 +7,10 @@ Renderers for teacher assessments, activity reports, and progress report cards.
 
 from typing import Any
 
-from fasthtml.common import H4, Div, NotStr, P, Span
+from fasthtml.common import H4, Div, NotStr, P
+
+from ui.feedback import Badge, BadgeT
+from ui.layout import Size
 
 # ============================================================================
 # SHARED HELPERS
@@ -35,7 +38,7 @@ def render_processor_badge(processor_type_str: str) -> Any:
     """Render a DaisyUI badge for processor type (LLM / Scheduled / Admin)."""
     label = _PROCESSOR_LABELS.get(processor_type_str, processor_type_str or "AI")
     badge_cls = _PROCESSOR_BADGE_CLASSES.get(processor_type_str, "badge-ghost")
-    return Span(label, cls=f"badge {badge_cls} badge-sm")
+    return Badge(label, variant=None, size=Size.sm, cls=badge_cls)
 
 
 def format_date(dt_value: Any) -> str:
@@ -59,12 +62,12 @@ def format_date(dt_value: Any) -> str:
 def render_review_status_badge(status: str, feedback_count: int) -> Any:
     """Return a DaisyUI badge indicating the teacher review outcome."""
     if feedback_count > 0 and status == "completed":
-        return Span("Reviewed", cls="badge badge-success badge-sm")
+        return Badge("Reviewed", variant=BadgeT.success, size=Size.sm)
     if status == "revision_requested":
-        return Span("Revision Needed", cls="badge badge-warning badge-sm")
+        return Badge("Revision Needed", variant=BadgeT.warning, size=Size.sm)
     if feedback_count == 0 and status == "submitted":
-        return Span("Awaiting Review", cls="badge badge-neutral badge-sm")
-    return Span(status.replace("_", " ").title(), cls="badge badge-ghost badge-sm")
+        return Badge("Awaiting Review", variant=BadgeT.neutral, size=Size.sm)
+    return Badge(status.replace("_", " ").title(), variant=BadgeT.ghost, size=Size.sm)
 
 
 def render_submission_history_row(item: dict) -> Any:
@@ -80,7 +83,7 @@ def render_submission_history_row(item: dict) -> Any:
     feedback_chip: Any = ""
     if feedback_count > 0:
         label = f"{feedback_count} feedback round{'s' if feedback_count != 1 else ''}"
-        feedback_chip = Span(label, cls="badge badge-outline badge-sm ml-2")
+        feedback_chip = Badge(label, variant=BadgeT.outline, size=Size.sm, cls="ml-2")
 
     return Div(
         Div(
@@ -253,12 +256,12 @@ def render_progress_report_card(report: Any) -> Any:
 
     badges = []
     if time_period:
-        badges.append(Span(str(time_period), cls="badge badge-outline badge-sm"))
+        badges.append(Badge(str(time_period), variant=BadgeT.outline, size=Size.sm))
     if depth:
-        badges.append(Span(str(depth), cls="badge badge-outline badge-sm"))
+        badges.append(Badge(str(depth), variant=BadgeT.outline, size=Size.sm))
     badges.append(render_processor_badge(ptype_str))
 
-    domain_badges = [Span(str(d), cls="badge badge-ghost badge-xs") for d in domains_covered]
+    domain_badges = [Badge(str(d), variant=BadgeT.ghost, size=Size.xs) for d in domains_covered]
 
     if content:
         content_section = Div(

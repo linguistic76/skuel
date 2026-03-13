@@ -31,6 +31,7 @@ from typing import Any, get_args, get_origin
 from fasthtml.common import H3, Div, Li, P, Span, Ul
 
 from core.utils.logging import get_logger
+from ui.feedback import Badge, BadgeT
 from ui.forms import Label
 
 logger = get_logger("skuel.components.card_generator")
@@ -116,7 +117,7 @@ class FieldRendererMapper:
         key = str(display).lower().replace(" ", "_")
         badge_cls = status_badge_class(key)
 
-        return Span(str(display), cls=f"badge {badge_cls}")
+        return Badge(str(display), variant=None, cls=badge_cls)
 
     @staticmethod
     def _render_list(value: list) -> Div:
@@ -159,9 +160,9 @@ class FieldRendererMapper:
     def _render_boolean(value: bool) -> Span:
         """Render boolean as badge"""
         if value:
-            return Span("✓ Yes", cls="badge badge-success")
+            return Badge("✓ Yes", variant=BadgeT.success)
         else:
-            return Span("✗ No", cls="badge badge-ghost")
+            return Badge("✗ No", variant=BadgeT.ghost)
 
     @staticmethod
     def _render_number(value: float) -> Span:
@@ -248,7 +249,7 @@ class CardGenerator:
 
         Example:
             def render_priority(v):
-                return Span(v, cls="badge badge-warning")
+                return Badge(v, variant=BadgeT.warning)
 
             card = CardGenerator.from_dataclass(
                 task,
@@ -472,7 +473,7 @@ class CardGeneratorExamples:
 
         def render_priority(v) -> Any:
             bolts = "⚡" * (3 if v.value == "high" else 2 if v.value == "medium" else 1)
-            return Span(f"{bolts} {v.value}", cls="badge badge-warning")
+            return Badge(f"{bolts} {v.value}", variant=BadgeT.warning)
 
         def render_due_date(v) -> Any:
             return Span(f"📅 {v.strftime('%b %d')}", cls="text-info font-semibold")

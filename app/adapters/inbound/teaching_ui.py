@@ -25,14 +25,13 @@ from fasthtml.common import (
     Form,
     P,
 )
-
-from ui.forms import Textarea
 from starlette.requests import Request
 
 from adapters.inbound.auth import make_service_getter, require_authenticated_user
 from adapters.inbound.auth.roles import UserRole, require_role
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonT
+from ui.forms import Textarea
 from ui.patterns.page_header import PageHeader
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 from ui.teaching.cards import (

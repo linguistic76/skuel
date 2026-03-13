@@ -22,6 +22,7 @@ from fasthtml.common import H1, H2, H3, Div, Option, P, Span, Tbody, Td, Th, The
 from ui.buttons import Button
 from ui.cards import Card, CardBody
 from ui.data import Table
+from ui.feedback import Badge, BadgeT
 from ui.forms import Input, Label, Select
 from ui.habits.atomic_animations import AtomicHabitsAnimations
 from ui.ui_types import BenchmarkData, HabitMigration
@@ -516,9 +517,14 @@ class AtomicHabitsAnalytics:
                     Td(f"{user_val:.1f}", cls=f"font-bold {comparison}"),
                     Td(f"{community_val:.1f}", cls="text-muted-foreground"),
                     Td(
-                        Span(
+                        Badge(
                             f"{percentile}th",
-                            cls=f"badge {'badge-success' if percentile >= 75 else 'badge-info' if percentile >= 50 else 'badge-ghost'} font-bold",
+                            variant=BadgeT.success
+                            if percentile >= 75
+                            else BadgeT.info
+                            if percentile >= 50
+                            else BadgeT.ghost,
+                            cls="font-bold",
                         ),
                         cls="text-center",
                     ),

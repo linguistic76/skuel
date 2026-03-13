@@ -102,9 +102,7 @@ def InsightCard(insight: PersistedInsight) -> Div:
                     action_html += f": {rationale}"
                 action_items.append(
                     Div(
-                        NotStr(
-                            f'<span class="text-xs text-foreground/80">• {action_html}</span>'
-                        ),
+                        NotStr(f'<span class="text-xs text-foreground/80">• {action_html}</span>'),
                         cls="mt-1",
                     )
                 )

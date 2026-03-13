@@ -25,6 +25,8 @@ from starlette.requests import Request
 from adapters.inbound.auth import require_authenticated_user
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonT
+from ui.feedback import Badge, BadgeT
+from ui.layout import Size
 from ui.layouts.base_page import BasePage
 from ui.patterns.page_header import PageHeader
 
@@ -43,9 +45,9 @@ _NOTIFICATION_ICONS: dict[str, str] = {
     "revision_requested": "✏️",
 }
 
-_NOTIFICATION_BADGE_CLS: dict[str, str] = {
-    "feedback_received": "badge-info",
-    "revision_requested": "badge-warning",
+_NOTIFICATION_BADGE_VARIANT: dict[str, BadgeT] = {
+    "feedback_received": BadgeT.info,
+    "revision_requested": BadgeT.warning,
 }
 
 
@@ -58,7 +60,7 @@ def _notification_card(notif: dict[str, Any]) -> Div:
     """Render a single notification card."""
     ntype = notif.get("notification_type", "")
     icon = _NOTIFICATION_ICONS.get(ntype, "🔔")
-    badge_cls = _NOTIFICATION_BADGE_CLS.get(ntype, "badge-ghost")
+    badge_variant = _NOTIFICATION_BADGE_VARIANT.get(ntype, BadgeT.ghost)
     is_read = notif.get("read", False)
 
     read_cls = "opacity-60" if is_read else ""
@@ -96,9 +98,11 @@ def _notification_card(notif: dict[str, Any]) -> Div:
                 Div(
                     Div(
                         Span(notif.get("title", ""), cls="font-medium"),
-                        Span(
+                        Badge(
                             ntype.replace("_", " ").title(),
-                            cls=f"badge badge-sm {badge_cls} ml-2",
+                            variant=badge_variant,
+                            size=Size.sm,
+                            cls="ml-2",
                         ),
                         cls="flex items-center gap-1",
                     ),

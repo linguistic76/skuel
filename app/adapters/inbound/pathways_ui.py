@@ -29,7 +29,9 @@ from core.models.pathways.pathways_request import LearningPathFilterRequest
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonT
 from ui.cards import Card
+from ui.feedback import Badge, BadgeT
 from ui.forms import Label, Select
+from ui.layout import Size
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
 from ui.patterns.form_generator import FormGenerator
@@ -70,11 +72,11 @@ def _render_step_browser_card(step: Any) -> Any:
 
     badges = []
     if difficulty:
-        badges.append(Span(difficulty.title(), cls="badge badge-primary badge-sm"))
+        badges.append(Badge(difficulty.title(), variant=BadgeT.primary, size=Size.sm))
     if hours_text:
-        badges.append(Span(hours_text, cls="badge badge-secondary badge-sm"))
+        badges.append(Badge(hours_text, variant=BadgeT.secondary, size=Size.sm))
     if step.sequence:
-        badges.append(Span(f"Step {step.sequence}", cls="badge badge-info badge-sm"))
+        badges.append(Badge(f"Step {step.sequence}", variant=BadgeT.info, size=Size.sm))
 
     return Card(
         H4(
@@ -156,7 +158,7 @@ class PathwaysUIComponents:
                 # Path Header
                 Div(
                     H3(path.title, cls="text-lg font-semibold"),
-                    Span(path.difficulty.title(), cls="badge badge-primary"),
+                    Badge(path.difficulty.title(), variant=BadgeT.primary),
                     cls="flex justify-between items-start mb-2",
                 ),
                 # Progress Bar
@@ -209,13 +211,13 @@ class PathwaysUIComponents:
                         Span(f"{path['estimated_hours']}h", cls="text-sm"),
                         cls="text-muted-foreground mb-2",
                     ),
-                    Span(path["difficulty"].title(), cls="badge badge-primary mb-3"),
+                    Badge(path["difficulty"].title(), variant=BadgeT.primary, cls="mb-3"),
                     cls="mb-4",
                 ),
                 # Tags
                 Div(
                     *[
-                        Span(tag, cls="badge badge-outline badge-sm mr-1 mb-1")
+                        Badge(tag, variant=BadgeT.outline, size=Size.sm, cls="mr-1 mb-1")
                         for tag in path.get("tags", [])[:3]
                     ],
                     cls="mb-4",
@@ -247,20 +249,20 @@ class PathwaysUIComponents:
     def render_step_item(step: Any, index: int, is_mastered: bool) -> Any:
         """Render a single learning step in a path's curriculum list."""
         mastery_badge = (
-            Span("Mastered", cls="badge badge-success badge-sm")
+            Badge("Mastered", variant=BadgeT.success, size=Size.sm)
             if is_mastered
-            else Span("Not started", cls="badge badge-outline badge-sm")
+            else Badge("Not started", variant=BadgeT.outline, size=Size.sm)
         )
         difficulty = _difficulty_label(step.difficulty_rating) if step.difficulty_rating else ""
         difficulty_badge = (
-            Span(difficulty.title(), cls="badge badge-primary badge-sm") if difficulty else None
+            Badge(difficulty.title(), variant=BadgeT.primary, size=Size.sm) if difficulty else None
         )
         hours_text = f"{step.estimated_hours:.0f}h" if step.estimated_hours else ""
 
         return Div(
             Div(
                 # Sequence number
-                Span(f"Step {index}", cls="badge badge-primary mr-2"),
+                Badge(f"Step {index}", variant=BadgeT.primary, cls="mr-2"),
                 # Title
                 H4(step.title or f"Step {index}", cls="text-lg font-semibold flex-1"),
                 # Mastery status
@@ -707,12 +709,13 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None, ls_servi
                     H1(path.title or "Untitled Path", cls="text-3xl font-bold text-primary"),
                     P(path.description or "", cls="text-lg text-muted-foreground mt-2"),
                     Div(
-                        Span(
+                        Badge(
                             f"{int(path.estimated_hours or 0)} hours",
-                            cls="badge badge-secondary mr-2",
+                            variant=BadgeT.secondary,
+                            cls="mr-2",
                         ),
-                        Span(f"{difficulty.title()}", cls="badge badge-primary mr-2"),
-                        Span(f"{total_steps} steps", cls="badge badge-info"),
+                        Badge(f"{difficulty.title()}", variant=BadgeT.primary, cls="mr-2"),
+                        Badge(f"{total_steps} steps", variant=BadgeT.info),
                         cls="flex flex-wrap gap-2 mt-4",
                     ),
                     cls="flex-1",
@@ -885,16 +888,16 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None, ls_servi
                 H1(step.title or f"Learning Step: {uid}", cls="text-2xl font-bold mb-4"),
                 P(step.description or step.intent or "", cls="text-muted-foreground mb-4"),
                 Div(
-                    Span(f"Sequence: {step.sequence}", cls="badge badge-info mr-2")
+                    Badge(f"Sequence: {step.sequence}", variant=BadgeT.info, cls="mr-2")
                     if step.sequence
                     else None,
-                    Span(difficulty.title(), cls="badge badge-primary mr-2")
+                    Badge(difficulty.title(), variant=BadgeT.primary, cls="mr-2")
                     if difficulty
                     else None,
-                    Span(hours_text, cls="badge badge-secondary mr-2") if hours_text else None,
-                    Span(
+                    Badge(hours_text, variant=BadgeT.secondary, cls="mr-2") if hours_text else None,
+                    Badge(
                         f"Mastery: {step.current_mastery * 100:.0f}%",
-                        cls="badge badge-success" if step.is_mastered() else "badge badge-outline",
+                        variant=BadgeT.success if step.is_mastered() else BadgeT.outline,
                     ),
                     cls="flex flex-wrap gap-2 mb-4",
                 ),
@@ -944,12 +947,14 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None, ls_servi
                 H1(path.title or f"Learning Path: {uid}", cls="text-2xl font-bold mb-4"),
                 P(path.description or "", cls="text-muted-foreground mb-4"),
                 Div(
-                    Span(difficulty.title(), cls="badge badge-primary mr-2"),
-                    Span(f"{int(path.estimated_hours or 0)}h", cls="badge badge-secondary mr-2"),
-                    Span(f"{len(steps)} steps", cls="badge badge-info mr-2"),
-                    Span(
+                    Badge(difficulty.title(), variant=BadgeT.primary, cls="mr-2"),
+                    Badge(
+                        f"{int(path.estimated_hours or 0)}h", variant=BadgeT.secondary, cls="mr-2"
+                    ),
+                    Badge(f"{len(steps)} steps", variant=BadgeT.info, cls="mr-2"),
+                    Badge(
                         str(path.path_type.value if path.path_type else "standard"),
-                        cls="badge badge-outline",
+                        variant=BadgeT.outline,
                     ),
                     cls="flex flex-wrap gap-2 mb-4",
                 ),

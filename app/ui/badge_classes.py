@@ -241,9 +241,7 @@ ROLE_BADGE: dict[str, str] = {
 
 def role_badge_class(role: str) -> str:
     """Get Tailwind badge class for a user role."""
-    return ROLE_BADGE.get(
-        role.lower().strip(), "bg-muted text-muted-foreground border-border"
-    )
+    return ROLE_BADGE.get(role.lower().strip(), "bg-muted text-muted-foreground border-border")
 
 
 # ============================================================================
@@ -259,6 +257,4 @@ QUALITY_BADGE: dict[str, str] = {
 
 def quality_badge_class(quality: str) -> str:
     """Get Tailwind badge class for reflection quality level."""
-    return QUALITY_BADGE.get(
-        quality.lower().strip(), "bg-gray-100 text-gray-600 border-gray-200"
-    )
+    return QUALITY_BADGE.get(quality.lower().strip(), "bg-gray-100 text-gray-600 border-gray-200")

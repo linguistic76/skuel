@@ -157,7 +157,7 @@ def test_get_priority_badge_class_all_levels():
     for priority in ["low", "medium", "high", "critical"]:
         badge_class = get_priority_badge_class(priority)
         assert isinstance(badge_class, str)
-        assert "badge" in badge_class
+        assert "bg-" in badge_class  # Tailwind utility class
 
 
 def test_get_priority_badge_class_invalid():
@@ -190,7 +190,7 @@ def test_get_status_badge_class():
     for status in ["todo", "completed", "in_progress"]:
         badge_class = get_status_badge_class(status)
         assert isinstance(badge_class, str)
-        assert "badge" in badge_class
+        assert "bg-" in badge_class  # Tailwind utility class
 
 
 # ============================================================================

@@ -7,8 +7,10 @@ Dashboard, stat, and summary card components for teaching views.
 
 from typing import Any
 
-from fasthtml.common import H3, H4, A, Div, P, Span
+from fasthtml.common import H3, H4, A, Div, P
 
+from ui.feedback import Badge, BadgeT
+from ui.layout import Size
 from ui.teaching.badges import entity_type_badge, status_badge
 
 
@@ -91,9 +93,10 @@ def render_queue_item(item: dict[str, Any]) -> Div:
 
     feedback_indicator: Any = ""
     if feedback_count > 0:
-        feedback_indicator = Span(
+        feedback_indicator = Badge(
             f"{feedback_count} feedback",
-            cls="badge badge-sm badge-info",
+            variant=BadgeT.info,
+            size=Size.sm,
         )
 
     return Div(
@@ -135,8 +138,8 @@ def render_exercise_summary_card(item: dict[str, Any]) -> Div:
     reviewed_count = item.get("reviewed_count", 0)
     pending_count = item.get("pending_count", 0)
 
-    scope_badge = Span(scope, cls="badge badge-outline badge-sm") if scope else ""
-    pending_badge_cls = "badge-warning" if pending_count > 0 else "badge-ghost"
+    scope_badge = Badge(scope, variant=BadgeT.outline, size=Size.sm) if scope else ""
+    pending_variant = BadgeT.warning if pending_count > 0 else BadgeT.ghost
 
     return Div(
         Div(
@@ -147,8 +150,8 @@ def render_exercise_summary_card(item: dict[str, Any]) -> Div:
                     cls="flex-1",
                 ),
                 Div(
-                    Span(f"{pending_count} pending", cls=f"badge {pending_badge_cls}"),
-                    Span(f"{reviewed_count}/{total_count} reviewed", cls="badge badge-ghost"),
+                    Badge(f"{pending_count} pending", variant=pending_variant),
+                    Badge(f"{reviewed_count}/{total_count} reviewed", variant=BadgeT.ghost),
                     cls="flex gap-2 items-center",
                 ),
                 cls="flex items-center justify-between gap-4",
@@ -180,7 +183,7 @@ def render_student_summary_card(item: dict[str, Any]) -> Div:
     reviewed_count = item.get("reviewed_count", 0)
     pending_count = item.get("pending_count", 0)
 
-    pending_badge_cls = "badge-warning" if pending_count > 0 else "badge-ghost"
+    pending_variant = BadgeT.warning if pending_count > 0 else BadgeT.ghost
 
     return Div(
         Div(
@@ -191,10 +194,10 @@ def render_student_summary_card(item: dict[str, Any]) -> Div:
                     cls="flex-1",
                 ),
                 Div(
-                    Span(f"{pending_count} pending", cls=f"badge {pending_badge_cls}"),
-                    Span(
+                    Badge(f"{pending_count} pending", variant=pending_variant),
+                    Badge(
                         f"{reviewed_count}/{submission_count} reviewed",
-                        cls="badge badge-ghost",
+                        variant=BadgeT.ghost,
                     ),
                     cls="flex gap-2 items-center",
                 ),
@@ -224,8 +227,8 @@ def render_class_card(item: dict[str, Any]) -> Div:
     pending_count = item.get("pending_count", 0)
     is_active = item.get("is_active", True)
 
-    pending_badge_cls = "badge-warning" if pending_count > 0 else "badge-ghost"
-    active_badge: Any = "" if is_active else Span("Inactive", cls="badge badge-ghost badge-sm")
+    pending_variant = BadgeT.warning if pending_count > 0 else BadgeT.ghost
+    active_badge: Any = "" if is_active else Badge("Inactive", variant=BadgeT.ghost, size=Size.sm)
 
     return Div(
         Div(
@@ -242,9 +245,9 @@ def render_class_card(item: dict[str, Any]) -> Div:
                     cls="flex-1",
                 ),
                 Div(
-                    Span(f"{pending_count} pending", cls=f"badge {pending_badge_cls}"),
-                    Span(f"{member_count} students", cls="badge badge-ghost"),
-                    Span(f"{exercise_count} exercises", cls="badge badge-ghost"),
+                    Badge(f"{pending_count} pending", variant=pending_variant),
+                    Badge(f"{member_count} students", variant=BadgeT.ghost),
+                    Badge(f"{exercise_count} exercises", variant=BadgeT.ghost),
                     cls="flex gap-2 items-center flex-wrap",
                 ),
                 cls="flex items-start justify-between gap-4",

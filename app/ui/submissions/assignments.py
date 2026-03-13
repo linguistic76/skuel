@@ -10,6 +10,9 @@ from typing import Any
 
 from fasthtml.common import H4, A, Div, P, Span
 
+from ui.feedback import Badge, BadgeT
+from ui.layout import Size
+
 
 def render_assignment_card(ex: dict[str, Any]) -> Any:
     """Render a single exercise assignment card."""
@@ -22,21 +25,21 @@ def render_assignment_card(ex: dict[str, Any]) -> Any:
 
     # Status badge
     if has_submission:
-        status_badge = Span("Submitted", cls="badge badge-success")
+        status_badge = Badge("Submitted", variant=BadgeT.success)
     elif due_date_str:
         try:
             due = date.fromisoformat(str(due_date_str))
             days_until = (due - date.today()).days
             if days_until < 0:
-                status_badge = Span(f"Overdue ({-days_until}d)", cls="badge badge-error")
+                status_badge = Badge(f"Overdue ({-days_until}d)", variant=BadgeT.error)
             elif days_until <= 3:
-                status_badge = Span(f"Due in {days_until}d", cls="badge badge-warning")
+                status_badge = Badge(f"Due in {days_until}d", variant=BadgeT.warning)
             else:
-                status_badge = Span(f"Due in {days_until}d", cls="badge badge-info")
+                status_badge = Badge(f"Due in {days_until}d", variant=BadgeT.info)
         except (ValueError, TypeError):
-            status_badge = Span("Pending", cls="badge badge-ghost")
+            status_badge = Badge("Pending", variant=BadgeT.ghost)
     else:
-        status_badge = Span("No deadline", cls="badge badge-ghost")
+        status_badge = Badge("No deadline", variant=BadgeT.ghost)
 
     # Instructions preview (truncated)
     instructions_preview = ""
@@ -44,7 +47,7 @@ def render_assignment_card(ex: dict[str, Any]) -> Any:
         preview_text = instructions[:200] + ("..." if len(instructions) > 200 else "")
         instructions_preview = P(preview_text, cls="text-sm text-muted-foreground mt-2")
 
-    group_tag = Span(group_name, cls="badge badge-outline badge-sm") if group_name else ""
+    group_tag = Badge(group_name, variant=BadgeT.outline, size=Size.sm) if group_name else ""
     due_display = ""
     if due_date_str:
         due_display = Span(f"Due: {due_date_str}", cls="text-sm text-muted-foreground")

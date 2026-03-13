@@ -143,7 +143,7 @@ def Alert(
 def Badge(
     *c: Any,
     cls: str = "",
-    variant: BadgeT = BadgeT.primary,
+    variant: BadgeT | None = BadgeT.primary,
     size: Size | None = None,
     **kwargs: Any,
 ) -> Any:
@@ -153,11 +153,11 @@ def Badge(
     Args:
         *c: Badge content
         cls: Additional CSS classes
-        variant: Badge style variant
+        variant: Badge style variant (None to skip color — caller provides via cls)
         size: Badge size (xs, sm, md, lg)
         **kwargs: Additional HTML attributes
     """
-    color_cls = _BADGE_COLORS.get(variant.value, _BADGE_COLORS["neutral"])
+    color_cls = _BADGE_COLORS.get(variant.value, _BADGE_COLORS["neutral"]) if variant else ""
 
     size_cls = {
         "xs": "text-[10px] px-1.5 py-0",

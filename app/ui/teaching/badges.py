@@ -5,26 +5,29 @@ Teaching UI Badges
 Status and entity type badge components for teaching views.
 """
 
-from fasthtml.common import Span
+from typing import Any
+
+from ui.feedback import Badge, BadgeT
+from ui.layout import Size
 
 
-def status_badge(status: str) -> Span:
-    """Render a DaisyUI badge for entity status."""
-    badge_classes = {
-        "submitted": "badge-warning",
-        "active": "badge-info",
-        "completed": "badge-success",
-        "revision_requested": "badge-error",
-        "draft": "badge-ghost",
+def status_badge(status: str) -> Any:
+    """Render a badge for entity status."""
+    badge_variants: dict[str, BadgeT] = {
+        "submitted": BadgeT.warning,
+        "active": BadgeT.info,
+        "completed": BadgeT.success,
+        "revision_requested": BadgeT.error,
+        "draft": BadgeT.ghost,
     }
-    cls = badge_classes.get(status, "badge-ghost")
+    variant = badge_variants.get(status, BadgeT.ghost)
     label = status.replace("_", " ").title()
-    return Span(label, cls=f"badge {cls}")
+    return Badge(label, variant=variant)
 
 
-def entity_type_badge(entity_type: str | None) -> Span:
-    """Render a DaisyUI badge for entity type."""
+def entity_type_badge(entity_type: str | None) -> Any:
+    """Render a badge for entity type."""
     if not entity_type:
-        return Span()
+        return ""
     label = entity_type.replace("_", " ").title()
-    return Span(label, cls="badge badge-outline badge-sm")
+    return Badge(label, variant=BadgeT.outline, size=Size.sm)

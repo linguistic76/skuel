@@ -24,6 +24,7 @@ from fasthtml.common import H2, H3, A, Div, Form, Option, P, Span
 from core.models.choice.choice import Choice
 from core.utils.logging import get_logger
 from ui.buttons import Button
+from ui.feedback import Badge
 from ui.forms import Input, Label, Select, Textarea
 from ui.layout import Size
 from ui.patterns.activity_views_base import ActivityViewTabs
@@ -209,7 +210,7 @@ class ChoicesViewComponents:
                 # Header row
                 Div(
                     H3(title, cls="text-lg font-semibold"),
-                    Span(status_str.title(), cls=f"badge {status_badge} badge-sm ml-2"),
+                    Badge(status_str.title(), variant=None, cls=f"{status_badge} ml-2"),
                     cls="flex items-center",
                 ),
                 # Description
@@ -360,7 +361,10 @@ class ChoicesViewComponents:
         # Options section (Alpine.js managed)
         options_section = Div(
             H3("Decision Options", cls="text-lg font-semibold mb-4"),
-            P("Add at least 2 options for this decision.", cls="text-sm text-muted-foreground mb-4"),
+            P(
+                "Add at least 2 options for this decision.",
+                cls="text-sm text-muted-foreground mb-4",
+            ),
             # Options container with x-for loop
             Div(
                 # Template for each option (Alpine x-for)

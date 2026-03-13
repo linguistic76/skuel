@@ -8,7 +8,7 @@ Extracted from search_routes.py for separation of concerns.
 Design Philosophy:
     "Users can handle complexity, but they need visual calm to process it."
 
-Uses semantic HTML with TailwindCSS + DaisyUI styling.
+Uses semantic HTML with TailwindCSS + MonsterUI styling.
 
 Usage:
     from ui.search.components import (
@@ -37,6 +37,7 @@ from ui.enum_helpers import (
     get_educational_icon,
     get_sel_icon,
 )
+from ui.feedback import Badge, BadgeT
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
 
@@ -214,7 +215,7 @@ def _render_filter_bar() -> str:
             <!-- Semantic Search -->
             <div>
                 <div class="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Semantic Search
-                    <span class="badge badge-xs badge-primary ml-1">NEW</span>
+                    <span class="inline-flex items-center rounded-full border font-medium text-[10px] px-1.5 py-0 bg-primary/10 text-primary border-primary/20 ml-1">NEW</span>
                 </div>
                 <div class="flex flex-wrap gap-x-4 gap-y-1">
                     {_render_semantic_search_checkboxes()}
@@ -676,7 +677,7 @@ def _render_active_filter_badges() -> str:
 
             <!-- Entity Type Badge -->
             <template x-if="entityType">
-                <span class="badge badge-primary badge-sm gap-1">
+                <span class="inline-flex items-center rounded-full border font-medium text-xs px-2 py-0.5 bg-primary/10 text-primary border-primary/20 gap-1">
                     <span x-text="getFilterLabel('entity_type', entityType)"></span>
                     <button type="button" class="hover:text-error" x-on:click="clearFilter('entity_type')">×</button>
                 </span>
@@ -836,7 +837,7 @@ def _render_result_card(result: dict) -> Any:
 
     # Build card content
     card_body_items = [
-        Span(domain_text, cls="badge badge-primary badge-sm mb-2"),
+        Badge(domain_text, variant=BadgeT.primary, cls="mb-2"),
         H4(title, cls="font-bold text-lg"),
     ]
 
@@ -890,26 +891,29 @@ def _render_graph_context(context: dict) -> Any | None:
     # Learning state badge (first, most prominent)
     if learning_state == "mastered":
         items.append(
-            Span(
+            Badge(
                 "✅ Mastered",
-                cls="badge badge-success badge-sm mr-1",
+                variant=BadgeT.success,
+                cls="mr-1",
                 title="You have mastered this knowledge",
             )
         )
     elif learning_state == "in_progress":
         items.append(
-            Span(
+            Badge(
                 "📖 Learning",
-                cls="badge badge-info badge-sm mr-1",
+                variant=BadgeT.info,
+                cls="mr-1",
                 title="You are actively learning this",
             )
         )
     elif learning_state == "viewed":
         view_count = context.get("view_count", 0)
         items.append(
-            Span(
+            Badge(
                 f"👁️ Viewed ({view_count}x)" if view_count > 1 else "👁️ Viewed",
-                cls="badge badge-ghost badge-sm mr-1",
+                variant=BadgeT.ghost,
+                cls="mr-1",
                 title="You have seen this content",
             )
         )
@@ -918,15 +922,16 @@ def _render_graph_context(context: dict) -> Any | None:
     # Prerequisites status
     if prerequisites:
         prereq_icon = "✓" if prerequisites_met else "⚠"
-        prereq_class = "badge-success" if prerequisites_met else "badge-warning"
+        prereq_variant = BadgeT.success if prerequisites_met else BadgeT.warning
         prereq_text = (
             f"{len(prerequisites)} prerequisites {'met' if prerequisites_met else 'required'}"
         )
 
         items.append(
-            Span(
+            Badge(
                 f"{prereq_icon} {prereq_text}",
-                cls=f"badge {prereq_class} badge-sm mr-1",
+                variant=prereq_variant,
+                cls="mr-1",
                 title=", ".join(p.get("title", "Unknown") for p in prerequisites[:3]),
             )
         )
@@ -934,9 +939,10 @@ def _render_graph_context(context: dict) -> Any | None:
     # What it enables
     if enables:
         items.append(
-            Span(
+            Badge(
                 f"→ Unlocks {len(enables)} topics",
-                cls="badge badge-ghost badge-sm mr-1",
+                variant=BadgeT.ghost,
+                cls="mr-1",
                 title=", ".join(e.get("title", "Unknown") for e in enables[:3]),
             )
         )
@@ -944,9 +950,10 @@ def _render_graph_context(context: dict) -> Any | None:
     # Goal alignment
     if supporting_goals:
         items.append(
-            Span(
+            Badge(
                 f"Supports {len(supporting_goals)} goals",
-                cls="badge badge-primary badge-sm mr-1",
+                variant=BadgeT.primary,
+                cls="mr-1",
                 title=", ".join(g.get("title", "Unknown") for g in supporting_goals),
             )
         )

@@ -23,6 +23,7 @@ from fasthtml.common import H2, H3, A, Div, Form, Option, P, Span
 
 from core.utils.logging import get_logger
 from ui.buttons import Button
+from ui.feedback import Badge, BadgeT
 from ui.forms import Input, Label, Select, Textarea
 from ui.layout import Size
 from ui.patterns.activity_views_base import ActivityViewTabs
@@ -230,14 +231,14 @@ class PrinciplesViewComponents:
             strength.value if isinstance(strength, PrincipleStrength) else str(strength).lower()
         )
         strength_labels = {
-            "core": ("Core", "badge-primary"),
-            "strong": ("Strong", "badge-success"),
-            "moderate": ("Moderate", "badge-info"),
-            "developing": ("Developing", "badge-warning"),
-            "exploring": ("Aspirational", "badge-ghost"),
+            "core": ("Core", BadgeT.primary),
+            "strong": ("Strong", BadgeT.success),
+            "moderate": ("Moderate", BadgeT.info),
+            "developing": ("Developing", BadgeT.warning),
+            "exploring": ("Aspirational", BadgeT.ghost),
         }
-        strength_label, strength_color = strength_labels.get(
-            strength_str, ("Moderate", "badge-info")
+        strength_label, strength_variant = strength_labels.get(
+            strength_str, ("Moderate", BadgeT.info)
         )
 
         # Category color
@@ -261,10 +262,8 @@ class PrinciplesViewComponents:
                 # Header row
                 Div(
                     H3(title, cls="text-lg font-semibold"),
-                    Span(strength_label, cls=f"badge {strength_color} badge-sm ml-2"),
-                    Span("Inactive", cls="badge badge-ghost badge-sm ml-2")
-                    if not is_active
-                    else "",
+                    Badge(strength_label, variant=strength_variant, cls="ml-2"),
+                    Badge("Inactive", variant=BadgeT.ghost, cls="ml-2") if not is_active else "",
                     cls="flex items-center",
                 ),
                 # Description
@@ -947,14 +946,16 @@ class PrinciplesViewComponents:
         trigger_type = getattr(reflection, "trigger_type", "manual")
 
         # Alignment level styling
-        alignment_colors = {
-            AlignmentLevel.ALIGNED: ("badge-success", "Fully Aligned"),
-            AlignmentLevel.MOSTLY_ALIGNED: ("badge-info", "Mostly Aligned"),
-            AlignmentLevel.PARTIAL: ("badge-warning", "Partial"),
-            AlignmentLevel.MISALIGNED: ("badge-error", "Misaligned"),
-            AlignmentLevel.UNKNOWN: ("badge-ghost", "Unknown"),
+        alignment_variants = {
+            AlignmentLevel.ALIGNED: (BadgeT.success, "Fully Aligned"),
+            AlignmentLevel.MOSTLY_ALIGNED: (BadgeT.info, "Mostly Aligned"),
+            AlignmentLevel.PARTIAL: (BadgeT.warning, "Partial"),
+            AlignmentLevel.MISALIGNED: (BadgeT.error, "Misaligned"),
+            AlignmentLevel.UNKNOWN: (BadgeT.ghost, "Unknown"),
         }
-        color_cls, alignment_text = alignment_colors.get(alignment, ("badge-ghost", "Unknown"))
+        alignment_variant, alignment_text = alignment_variants.get(
+            alignment, (BadgeT.ghost, "Unknown")
+        )
 
         # Quality badge
         quality_label = "deep" if quality >= 0.7 else "moderate" if quality >= 0.4 else "shallow"
@@ -965,10 +966,11 @@ class PrinciplesViewComponents:
                 # Date and alignment
                 Div(
                     Span(str(reflection_date), cls="text-sm text-muted-foreground"),
-                    Span(alignment_text, cls=f"badge {color_cls} ml-2"),
-                    Span(
+                    Badge(alignment_text, variant=alignment_variant, cls="ml-2"),
+                    Badge(
                         quality_label,
-                        cls=f"badge {quality_badge_class(quality_label)} ml-2",
+                        variant=None,
+                        cls=f"{quality_badge_class(quality_label)} ml-2",
                     ),
                     cls="flex items-center gap-2 mb-2",
                 ),

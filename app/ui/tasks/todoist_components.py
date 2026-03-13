@@ -38,6 +38,7 @@ from fasthtml.common import (
 from core.models.enums import EntityStatus, Priority
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonT
+from ui.feedback import Badge, BadgeT
 from ui.forms import Input, Select, Textarea
 from ui.layout import Size
 
@@ -111,7 +112,7 @@ class TodoistTaskComponents:
         if not project:
             return ""
 
-        return Span(f"@{project}", cls="badge badge-ghost badge-sm")
+        return Badge(f"@{project}", variant=BadgeT.ghost)
 
     # ========================================================================
     # ASSIGNEE TAG

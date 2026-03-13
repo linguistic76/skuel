@@ -18,6 +18,7 @@ from fasthtml.common import (
 )
 
 from ui.buttons import Button, ButtonT
+from ui.feedback import Badge, BadgeT
 from ui.forms import Input, Label, Select
 from ui.layout import Size
 
@@ -255,7 +256,7 @@ def render_category_display(submission: Any) -> Any:
     )
 
     return Div(
-        Span(f"Category: {current_category.title()}", cls="badge badge-primary"),
+        Badge(f"Category: {current_category.title()}", variant=BadgeT.primary),
         Button(
             "Change",
             cls="btn btn-xs btn-ghost ml-2",
@@ -272,7 +273,7 @@ def render_tags_manager(submission: Any) -> Any:
     tags = submission.metadata.get("tags", []) if submission.metadata else []
 
     tag_elements = [
-        Span(
+        Badge(
             tag,
             Button(
                 "\u00d7",
@@ -282,7 +283,8 @@ def render_tags_manager(submission: Any) -> Any:
                 hx_target=f"#tags-manager-{submission.uid}",
                 hx_swap="outerHTML",
             ),
-            cls="badge badge-secondary mr-2 mb-2",
+            variant=BadgeT.secondary,
+            cls="mr-2 mb-2",
         )
         for tag in tags
     ]

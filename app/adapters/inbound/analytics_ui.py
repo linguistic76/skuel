@@ -373,7 +373,8 @@ class AnalyticsUIComponents:
     def render_markdown_view(markdown_content) -> Any:
         """Render markdown content"""
         return Div(
-            Div(markdown_content, cls="prose max-w-none"), cls="card bg-background shadow-sm p-6 mt-4"
+            Div(markdown_content, cls="prose max-w-none"),
+            cls="card bg-background shadow-sm p-6 mt-4",
         )
 
     # ========================================================================

@@ -10,8 +10,6 @@ from typing import Any
 
 from fasthtml.common import Div
 from monsterui.franken import NavContainer as MNavContainer
-from monsterui.franken import NavDividerLi as MNavDividerLi
-from monsterui.franken import NavHeaderLi as MNavHeaderLi
 from monsterui.franken import TabContainer as MTabContainer
 
 __all__ = [
@@ -127,9 +125,7 @@ def DropdownTrigger(*c: Any, cls: str = "", **kwargs: Any) -> Any:
         cls: Additional CSS classes
         **kwargs: Additional HTML attributes
     """
-    return Div(
-        *c, tabindex="0", role="button", cls=cls if cls else None, **kwargs
-    )
+    return Div(*c, tabindex="0", role="button", cls=cls if cls else None, **kwargs)
 
 
 def DropdownContent(

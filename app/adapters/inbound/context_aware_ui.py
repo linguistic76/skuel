@@ -109,7 +109,10 @@ class ContextAwareUIComponents:
 
         return Card(
             H3("🔍 AI Insights", cls="text-xl font-semibold mb-4"),
-            P("Intelligent analysis of your patterns and context", cls="text-muted-foreground mb-4"),
+            P(
+                "Intelligent analysis of your patterns and context",
+                cls="text-muted-foreground mb-4",
+            ),
             Div(
                 [
                     InsightCard(

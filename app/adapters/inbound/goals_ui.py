@@ -37,7 +37,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from ui.buttons import Button, ButtonT
 from ui.cards import Card
-from ui.feedback import Progress
+from ui.feedback import Badge, BadgeT, Progress
 from ui.goals.layout import create_goals_page
 from ui.goals.views import GoalsViewComponents
 from ui.habits.atomic_components import AtomicHabitsComponents
@@ -167,7 +167,7 @@ class GoalUIComponents:
             # Title and status
             Div(
                 H3(title, cls="text-lg font-semibold"),
-                Span(str(status).title(), cls="badge badge-primary"),
+                Badge(str(status).title(), variant=BadgeT.primary),
                 cls="flex justify-between items-start mb-2",
             ),
             # Description
@@ -188,8 +188,8 @@ class GoalUIComponents:
             else "",
             # Metadata badges
             Div(
-                Span(category.title(), cls="badge badge-outline badge-sm") if category else "",
-                Span(priority.title(), cls="badge badge-ghost badge-sm") if priority else "",
+                Badge(category.title(), variant=BadgeT.outline, size=Size.sm) if category else "",
+                Badge(priority.title(), variant=BadgeT.ghost, size=Size.sm) if priority else "",
                 Span(f"📅 {target_date}", cls="text-xs text-muted-foreground")
                 if target_date
                 else "",
@@ -803,8 +803,8 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsService, services: Any 
                     ),
                     # Status and Priority badges
                     Div(
-                        Span(f"Status: {goal.status.value}", cls="badge badge-info mr-2"),
-                        Span(f"Priority: {goal.priority or 'Not set'}", cls="badge badge-warning"),
+                        Badge(f"Status: {goal.status.value}", variant=BadgeT.info, cls="mr-2"),
+                        Badge(f"Priority: {goal.priority or 'Not set'}", variant=BadgeT.warning),
                         cls="flex gap-2",
                     ),
                     cls="mb-6",
@@ -814,7 +814,8 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsService, services: Any 
             # Explanation Section
             Card(
                 H2(
-                    "💡 Why This Goal Exists", cls="text-xl font-semibold mb-4 text-muted-foreground"
+                    "💡 Why This Goal Exists",
+                    cls="text-xl font-semibold mb-4 text-muted-foreground",
                 ),
                 # Main explanation
                 Div(
@@ -839,7 +840,10 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsService, services: Any 
                         Div(
                             P("Reasoning:", cls="text-sm font-semibold text-muted-foreground mb-1"),
                             P(derivation.reasoning, cls="text-muted-foreground mb-2"),
-                            P("Confidence:", cls="text-sm font-semibold text-muted-foreground mb-1"),
+                            P(
+                                "Confidence:",
+                                cls="text-sm font-semibold text-muted-foreground mb-1",
+                            ),
                             Div(
                                 Progress(
                                     value=int(derivation.confidence * 100),
@@ -874,9 +878,11 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsService, services: Any 
                                     cls="mb-2",
                                 ),
                                 Div(
-                                    Span(
+                                    Badge(
                                         f"Strength: {g.get_strength_label()}",
-                                        cls=f"badge {'badge-success' if g.is_strong_guidance() else 'badge-warning'}",
+                                        variant=BadgeT.success
+                                        if g.is_strong_guidance()
+                                        else BadgeT.warning,
                                     ),
                                     Progress(
                                         value=int(g.strength * 100),
@@ -892,7 +898,9 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsService, services: Any 
                         cls="space-y-2",
                     )
                     if guidances
-                    else P("No principle guidances defined yet", cls="text-muted-foreground italic"),
+                    else P(
+                        "No principle guidances defined yet", cls="text-muted-foreground italic"
+                    ),
                     cls="mb-4",
                 ),
                 cls="p-6 mb-4",

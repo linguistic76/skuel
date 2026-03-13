@@ -36,7 +36,7 @@ from core.models.enums.entity_enums import EntityType, ProcessorType
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from ui.buttons import Button, ButtonT
-from ui.feedback import get_submission_status_badge_class
+from ui.feedback import Badge, get_submission_status_badge_class
 from ui.forms import Input, Select
 from ui.patterns.page_header import PageHeader
 from ui.patterns.sidebar import SidebarItem, SidebarPage
@@ -173,9 +173,10 @@ def _render_report_card(report: Any) -> Any:
                     cls="flex-1",
                 ),
                 Div(
-                    Span(
+                    Badge(
                         report.status,
-                        cls=f"badge {_get_status_badge_class(report.status)}",
+                        variant=None,
+                        cls=_get_status_badge_class(report.status),
                     ),
                 ),
                 Div(

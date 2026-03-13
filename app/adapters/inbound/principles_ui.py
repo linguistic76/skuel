@@ -23,7 +23,7 @@ __version__ = "2.0"
 from dataclasses import dataclass
 from typing import Any, cast
 
-from fasthtml.common import H1, H2, H3, Div, P, Span
+from fasthtml.common import H1, H2, H3, Div, P
 from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
@@ -41,6 +41,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from ui.buttons import Button, ButtonT
 from ui.cards import Card
+from ui.feedback import Badge, BadgeT
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
 from ui.patterns.error_banner import render_error_banner
@@ -613,9 +614,9 @@ def create_principles_ui_routes(
             # Main card
             Card(
                 H1(name, cls="text-2xl font-bold mb-2"),
-                Span(strength_str.title(), cls="badge badge-primary mr-2"),
-                Span(category_str.title(), cls="badge badge-outline"),
-                Span("Inactive", cls="badge badge-ghost ml-2") if not is_active else "",
+                Badge(strength_str.title(), variant=BadgeT.primary, cls="mr-2"),
+                Badge(category_str.title(), variant=BadgeT.outline),
+                Badge("Inactive", variant=BadgeT.ghost, cls="ml-2") if not is_active else "",
                 # Statement
                 P(statement, cls="text-lg text-muted-foreground mt-4 italic") if statement else "",
                 # Description

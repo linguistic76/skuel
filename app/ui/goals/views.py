@@ -35,7 +35,7 @@ from ui.calendar.components import (
     create_week_grid,
 )
 from ui.calendar.converters import goal_to_calendar_item
-from ui.feedback import Progress
+from ui.feedback import Badge, Progress
 from ui.forms import Input, Label, Select, Textarea
 from ui.layout import Size
 from ui.patterns.activity_views_base import (
@@ -240,7 +240,7 @@ class GoalsViewComponents:
                 # Header row
                 Div(
                     H3(title, cls="text-lg font-semibold"),
-                    Span(status_str.title(), cls=f"badge {status_badge} badge-sm ml-2"),
+                    Badge(status_str.title(), variant=None, cls=f"{status_badge} ml-2"),
                     cls="flex items-center",
                 ),
                 # Description

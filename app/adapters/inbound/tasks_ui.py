@@ -23,7 +23,7 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
-from fasthtml.common import H1, H2, Div, JSONResponse, P, Span
+from fasthtml.common import H1, H2, Div, JSONResponse, P
 from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
@@ -45,6 +45,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 from ui.buttons import Button, ButtonT
 from ui.cards import Card
+from ui.feedback import Badge, BadgeT
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
 from ui.patterns.error_banner import render_error_banner
@@ -666,9 +667,13 @@ def create_tasks_ui_routes(
                 P(task.description or "No description provided", cls="text-muted-foreground mb-4"),
                 # Status and Priority badges
                 Div(
-                    Span(f"Status: {task.status.value}", cls="badge badge-info mr-2"),
-                    Span(f"Priority: {task.priority or 'Not set'}", cls="badge badge-warning mr-2"),
-                    Span(f"Project: {task.project or 'None'}", cls="badge badge-ghost")
+                    Badge(f"Status: {task.status.value}", variant=BadgeT.info, cls="mr-2"),
+                    Badge(
+                        f"Priority: {task.priority or 'Not set'}",
+                        variant=BadgeT.warning,
+                        cls="mr-2",
+                    ),
+                    Badge(f"Project: {task.project or 'None'}", variant=BadgeT.ghost)
                     if task.project
                     else "",
                     cls="flex gap-2 flex-wrap",

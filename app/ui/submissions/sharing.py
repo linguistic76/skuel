@@ -14,10 +14,10 @@ from fasthtml.common import (
     Form,
     Option,
     P,
-    Span,
 )
 
 from ui.buttons import Button
+from ui.feedback import Badge, BadgeT
 from ui.forms import Input, Label, Select
 
 
@@ -28,7 +28,7 @@ def render_visibility_dropdown(submission: Any) -> Any:
 
     if not is_shareable:
         return Div(
-            Span("Private", cls="badge badge-ghost"),
+            Badge("Private", variant=BadgeT.ghost),
             P(
                 "Only completed reports can be shared",
                 cls="text-xs text-muted-foreground mt-1 mb-0",

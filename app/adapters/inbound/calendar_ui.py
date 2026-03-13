@@ -50,6 +50,8 @@ from ui.calendar.components import (
     create_week_grid,
     error_response,
 )
+from ui.feedback import Badge, BadgeT
+from ui.layout import Size
 from ui.layouts.navbar import create_navbar_for_request
 
 logger = get_logger("skuel.routes.calendar")
@@ -234,7 +236,9 @@ def _render_item_details_modal(item: Any) -> Div:
     # Tags
     tags_section = None
     if item.tags:
-        tag_badges = [Span(tag, cls="badge badge-info badge-sm mr-1") for tag in item.tags]
+        tag_badges = [
+            Badge(tag, variant=BadgeT.info, size=Size.sm, cls="mr-1") for tag in item.tags
+        ]
         tags_section = Div(
             P("Tags", cls="text-sm font-semibold text-muted-foreground mb-2"),
             Div(*tag_badges, cls="flex flex-wrap"),

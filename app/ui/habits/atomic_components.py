@@ -64,7 +64,9 @@ class AtomicHabitsComponents:
         return Card(
             CardBody(
                 # Progress indicator
-                Div(Span("Step 1 of 4", cls="text-sm text-muted-foreground"), cls="mb-4 text-right"),
+                Div(
+                    Span("Step 1 of 4", cls="text-sm text-muted-foreground"), cls="mb-4 text-right"
+                ),
                 # Header
                 H2("Create New Habit", cls="text-2xl font-bold mb-2"),
                 P(
@@ -183,7 +185,9 @@ class AtomicHabitsComponents:
         return Card(
             CardBody(
                 # Progress
-                Div(Span("Step 2 of 4", cls="text-sm text-muted-foreground"), cls="mb-4 text-right"),
+                Div(
+                    Span("Step 2 of 4", cls="text-sm text-muted-foreground"), cls="mb-4 text-right"
+                ),
                 H2("⚙️ Behavior Design", cls="text-2xl font-bold mb-2"),
                 P(
                     "Design your habit using the Atomic Habits framework",
@@ -292,7 +296,9 @@ class AtomicHabitsComponents:
         return Card(
             CardBody(
                 # Progress
-                Div(Span("Step 3 of 4", cls="text-sm text-muted-foreground"), cls="mb-4 text-right"),
+                Div(
+                    Span("Step 3 of 4", cls="text-sm text-muted-foreground"), cls="mb-4 text-right"
+                ),
                 H2("📘 Link to Goals", cls="text-2xl font-bold mb-2"),
                 P("How essential is this habit for each goal?", cls="text-muted-foreground mb-6"),
                 Form(
@@ -430,7 +436,9 @@ class AtomicHabitsComponents:
         return Card(
             CardBody(
                 # Progress
-                Div(Span("Step 4 of 4", cls="text-sm text-muted-foreground"), cls="mb-4 text-right"),
+                Div(
+                    Span("Step 4 of 4", cls="text-sm text-muted-foreground"), cls="mb-4 text-right"
+                ),
                 H2("✅ Review & Create", cls="text-2xl font-bold mb-6"),
                 # Review summary
                 Div(

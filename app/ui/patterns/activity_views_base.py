@@ -350,6 +350,7 @@ class ActivityListFilters:
             Select element for sorting
         """
         from fasthtml.common import Option
+
         from ui.forms import Select
 
         options = [

@@ -40,6 +40,7 @@ from ui.buttons import Button, ButtonT
 from ui.cards import Card
 from ui.choices.layout import create_choices_page
 from ui.choices.views import ChoicesViewComponents
+from ui.feedback import Badge, BadgeT
 from ui.forms import Input, Label, Select, Textarea
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
@@ -950,13 +951,16 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
             # Header Card
             Card(
                 H1(f"🤔 {choice.title}", cls="text-2xl font-bold mb-2"),
-                P(choice.description or "No description provided", cls="text-muted-foreground mb-4"),
+                P(
+                    choice.description or "No description provided",
+                    cls="text-muted-foreground mb-4",
+                ),
                 # Status and Urgency badges
                 Div(
-                    Span(f"Status: {choice.status.value}", cls="badge badge-info mr-2"),
-                    Span(f"Priority: {priority.title()}", cls="badge badge-ghost mr-2"),
-                    Span(f"Domain: {domain.title()}", cls="badge badge-outline mr-2"),
-                    Span(f"Type: {choice_type.title()}", cls="badge badge-outline"),
+                    Badge(f"Status: {choice.status.value}", variant=BadgeT.info, cls="mr-2"),
+                    Badge(f"Priority: {priority.title()}", variant=BadgeT.ghost, cls="mr-2"),
+                    Badge(f"Domain: {domain.title()}", variant=BadgeT.outline, cls="mr-2"),
+                    Badge(f"Type: {choice_type.title()}", variant=BadgeT.outline),
                     cls="flex gap-2 flex-wrap",
                 ),
                 cls="p-6 mb-4",

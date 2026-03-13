@@ -25,7 +25,9 @@ from core.utils.logging import get_logger
 from core.utils.markdown_renderer import render_markdown_with_toc
 from ui.cards import Card, CardBody
 from ui.exercises.inline_form import render_inline_exercise_form
+from ui.feedback import Badge, BadgeT
 from ui.forms.inline_form_template import render_inline_form_template
+from ui.layout import Size
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
 from ui.patterns.breadcrumbs import Breadcrumbs
@@ -34,12 +36,13 @@ from ui.patterns.relationships import EntityRelationshipsSection
 logger = get_logger("skuel.routes.ku.reading.ui")
 
 
-def _metadata_badge(label: str, value: str, color: str = "badge-ghost") -> Span:
+def _metadata_badge(label: str, value: str, variant: BadgeT = BadgeT.ghost) -> Any:
     """Render a metadata badge."""
-    return Span(
+    return Badge(
         Span(label, cls="font-medium mr-1"),
         value,
-        cls=f"badge {color} gap-1",
+        variant=variant,
+        cls="gap-1",
     )
 
 
@@ -82,12 +85,12 @@ def _exercises_for_ku_section(exercises: list[dict]) -> Any:
         else:
             # Standard exercise link
             scope = e.get("scope", "personal")
-            scope_cls = "badge-secondary" if scope == "assigned" else "badge-ghost"
+            scope_variant = BadgeT.secondary if scope == "assigned" else BadgeT.ghost
             due = e.get("due_date")
             due_span = Span(f" · due {due}", cls="text-xs text-muted-foreground") if due else None
             row_parts: list[Any] = [
                 Span(e.get("title", "Untitled Exercise"), cls="text-sm font-medium"),
-                Span(scope.title(), cls=f"badge badge-sm {scope_cls} ml-2"),
+                Badge(scope.title(), variant=scope_variant, size=Size.sm, cls="ml-2"),
             ]
             if due_span:
                 row_parts.append(due_span)
@@ -313,13 +316,11 @@ def create_article_reading_ui_routes(
         metadata_items = []
         if ku.domain:
             domain_label = getattr(ku.domain, "value", str(ku.domain))
-            metadata_items.append(
-                _metadata_badge("Domain:", domain_label, "badge-primary badge-outline")
-            )
+            metadata_items.append(_metadata_badge("Domain:", domain_label, BadgeT.primary))
         if ku.complexity:
-            metadata_items.append(_metadata_badge("Complexity:", ku.complexity, "badge-ghost"))
+            metadata_items.append(_metadata_badge("Complexity:", ku.complexity))
         if view_count > 0:
-            metadata_items.append(_metadata_badge("Views:", str(view_count), "badge-ghost"))
+            metadata_items.append(_metadata_badge("Views:", str(view_count)))
 
         metadata_section = (
             Div(*metadata_items, cls="flex flex-wrap gap-2") if metadata_items else None
@@ -328,7 +329,7 @@ def create_article_reading_ui_routes(
         # Tags
         tags_section = None
         if ku.tags:
-            tag_badges = [Span(tag, cls="badge badge-outline badge-sm") for tag in ku.tags]
+            tag_badges = [Badge(tag, variant=BadgeT.outline, size=Size.sm) for tag in ku.tags]
             tags_section = Div(*tag_badges, cls="flex flex-wrap gap-1 mt-3")
 
         # Reading content (markdown only — TOC is separate)

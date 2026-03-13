@@ -28,8 +28,9 @@ from adapters.inbound.auth import require_authenticated_user
 from core.utils.logging import get_logger
 from ui.buttons import Button
 from ui.cards import Card
-from ui.feedback import Progress
+from ui.feedback import Badge, BadgeT, Progress
 from ui.forms import Label, Textarea
+from ui.layout import Size
 from ui.patterns.drawer_layout import create_drawer_layout
 from ui.tokens import Container
 
@@ -302,7 +303,7 @@ def _build_dashboard_content(status: dict, user_uid: str) -> Any:
                 ),
                 Div(
                     *[
-                        Span(theme, cls="badge badge-outline mr-2")
+                        Badge(theme, variant=BadgeT.outline, cls="mr-2")
                         for theme in status.get("vision", {}).get("themes", [])[:5]
                     ],
                     cls="mt-4",
@@ -361,7 +362,7 @@ def _build_recommendations_page(data: dict, user_uid: str) -> Any:
                     ),
                     Div(
                         *[
-                            Span(t, cls="badge badge-primary badge-sm mr-1")
+                            Badge(t, variant=BadgeT.primary, size=Size.sm, cls="mr-1")
                             for t in rec.get("matching_themes", [])[:3]
                         ],
                         cls="mt-2",

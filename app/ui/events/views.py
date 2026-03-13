@@ -36,6 +36,7 @@ from ui.calendar.components import (
     create_week_grid,
 )
 from ui.calendar.converters import event_to_calendar_item
+from ui.feedback import Badge, BadgeT
 from ui.forms import Input, Label, Select, Textarea
 from ui.layout import Size
 from ui.patterns.activity_views_base import (
@@ -303,7 +304,7 @@ class EventsViewComponents:
                 # Header row
                 Div(
                     H3(title, cls="text-lg font-semibold"),
-                    Span(event_type_str.title(), cls="badge badge-primary badge-sm ml-2"),
+                    Badge(event_type_str.title(), variant=BadgeT.primary, cls="ml-2"),
                     cls="flex items-center",
                 ),
                 # Description

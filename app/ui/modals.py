@@ -11,8 +11,6 @@ dialog.showModal() to UIkit.modal('#id').show() or data-uk-toggle="target: #id".
 
 from typing import Any
 
-from fasthtml.common import Div
-from monsterui.franken import Button as MButton
 from monsterui.franken import ButtonT as MButtonT
 from monsterui.franken import ModalBody as MModalBody
 from monsterui.franken import ModalCloseButton as MModalCloseButton

@@ -112,9 +112,7 @@ def _search_icon() -> NotStr:
 def _search_button(active_page: str = "") -> A:
     """Create search icon button that navigates to /search."""
     is_active = active_page == "search"
-    active_cls = (
-        "text-foreground" if is_active else "text-muted-foreground hover:text-foreground"
-    )
+    active_cls = "text-foreground" if is_active else "text-muted-foreground hover:text-foreground"
     return A(
         Span("Search", cls="sr-only"),
         _search_icon(),
@@ -248,8 +246,16 @@ def _admin_profile_section(current_user: str) -> Div:
 def _auth_buttons() -> Div:
     """Create login/signup buttons for unauthenticated users."""
     return Div(
-        A("Login", href="/login", cls="text-sm text-muted-foreground hover:text-foreground px-3 py-2 rounded hover:bg-accent"),
-        A("Sign Up", href="/register", cls="text-sm bg-primary text-primary-foreground px-3 py-2 rounded hover:bg-primary/90"),
+        A(
+            "Login",
+            href="/login",
+            cls="text-sm text-muted-foreground hover:text-foreground px-3 py-2 rounded hover:bg-accent",
+        ),
+        A(
+            "Sign Up",
+            href="/register",
+            cls="text-sm bg-primary text-primary-foreground px-3 py-2 rounded hover:bg-primary/90",
+        ),
         cls="flex items-center gap-2",
     )
 

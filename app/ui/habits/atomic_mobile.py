@@ -25,6 +25,7 @@ from fasthtml.common import H1, H2, H3, Div, P, Span
 
 from ui.buttons import Button
 from ui.cards import Card, CardBody
+from ui.feedback import Badge
 
 
 class AtomicHabitsMobile:
@@ -171,7 +172,7 @@ class AtomicHabitsMobile:
         return Card(
             CardBody(
                 # Essentiality badge
-                Span(essentiality.upper(), cls=f"badge badge-sm {badge_color}"),
+                Badge(essentiality.upper(), variant=None, cls=badge_color),
                 # Habit name
                 H2(name, cls="text-xl font-bold text-foreground my-3"),
                 # Identity (if applicable)

@@ -17,12 +17,13 @@ Usage:
     stats = AdminUIComponents.render_user_stats(stats_data)
 """
 
-from typing import ClassVar
+from typing import Any, ClassVar
 
 from fasthtml.common import H2, A, Div, Form, Option, P, Span, Tbody, Td, Th, Thead, Tr
 
 from ui.buttons import Button
 from ui.data import Table
+from ui.feedback import Badge, BadgeT
 from ui.forms import Select
 from ui.layout import Size
 from ui.patterns.entity_dashboard import SharedUIComponents
@@ -32,22 +33,23 @@ class AdminUIComponents:
     """User management UI components for admin dashboard."""
 
     @staticmethod
-    def render_role_badge(role: str) -> Span:
+    def render_role_badge(role: str) -> Any:
         """Render a role badge with appropriate color."""
         from ui.badge_classes import role_badge_class
 
         color_class = role_badge_class(role)
-        return Span(
+        return Badge(
             role.upper(),
-            cls=f"badge {color_class} font-semibold",
+            variant=None,
+            cls=f"{color_class} font-semibold",
         )
 
     @staticmethod
-    def render_status_badge(is_active: bool) -> Span:
+    def render_status_badge(is_active: bool) -> Any:
         """Render active/inactive status badge."""
         if is_active:
-            return Span("Active", cls="badge badge-success badge-outline")
-        return Span("Inactive", cls="badge badge-ghost")
+            return Badge("Active", variant=BadgeT.success, cls="border-success/20")
+        return Badge("Inactive", variant=BadgeT.ghost)
 
     @staticmethod
     def render_user_card(user: dict, show_actions: bool = True) -> Div:
@@ -594,11 +596,13 @@ class AdminUIComponents:
             rows.append(
                 Tr(
                     Td(Span(title, cls="font-medium text-sm")),
-                    Td(Span(report_type.upper(), cls="badge badge-outline badge-sm")),
+                    Td(Badge(report_type.upper(), variant=BadgeT.outline, size=Size.sm)),
                     Td(
-                        Span(
+                        Badge(
                             status.replace("_", " ").upper(),
-                            cls=f"badge {submission_status_badge_class(status)} badge-sm",
+                            variant=None,
+                            size=Size.sm,
+                            cls=submission_status_badge_class(status),
                         )
                     ),
                     Td(created, cls="text-sm text-muted-foreground"),
@@ -651,15 +655,15 @@ class AdminUIComponents:
                 created = strftime_fn("%Y-%m-%d") if strftime_fn else str(raw_created)[:10]
 
             active_badge = (
-                Span("Active", cls="badge badge-success badge-sm")
+                Badge("Active", variant=BadgeT.success, size=Size.sm)
                 if is_active
-                else Span("Inactive", cls="badge badge-ghost badge-sm")
+                else Badge("Inactive", variant=BadgeT.ghost, size=Size.sm)
             )
 
             rows.append(
                 Tr(
                     Td(Span(name, cls="font-medium text-sm")),
-                    Td(Span(str(scope).upper(), cls="badge badge-outline badge-sm")),
+                    Td(Badge(str(scope).upper(), variant=BadgeT.outline, size=Size.sm)),
                     Td(active_badge),
                     Td(created, cls="text-sm text-muted-foreground"),
                     cls="hover:bg-muted",
@@ -940,7 +944,7 @@ class AdminSystemComponents:
         return SharedUIComponents.render_stats_cards(stats_config)
 
 
-def _ku_state_section(title: str, badge_cls: str, kus: list[dict], date_field: str) -> Div:
+def _ku_state_section(title: str, badge_variant: BadgeT, kus: list[dict], date_field: str) -> Div:
     """Render a section of KUs grouped by learning state."""
     items = []
     for ku in kus:
@@ -979,7 +983,7 @@ def _ku_state_section(title: str, badge_cls: str, kus: list[dict], date_field: s
 
     return Div(
         Div(
-            Span(title, cls=f"badge {badge_cls} font-semibold"),
+            Badge(title, variant=badge_variant, cls="font-semibold"),
             Span(f"({len(kus)})", cls="text-sm text-muted-foreground ml-2"),
             cls="flex items-center mb-3",
         ),
@@ -1175,19 +1179,19 @@ class AdminLearningComponents:
 
         if bookmarked:
             sections.append(
-                _ku_state_section("Bookmarked", "badge-info", bookmarked, "bookmarked_at")
+                _ku_state_section("Bookmarked", BadgeT.info, bookmarked, "bookmarked_at")
             )
 
         if mastered:
-            sections.append(_ku_state_section("Mastered", "badge-success", mastered, "mastered_at"))
+            sections.append(_ku_state_section("Mastered", BadgeT.success, mastered, "mastered_at"))
 
         if in_progress:
             sections.append(
-                _ku_state_section("In Progress", "badge-warning", in_progress, "started_at")
+                _ku_state_section("In Progress", BadgeT.warning, in_progress, "started_at")
             )
 
         if viewed:
-            sections.append(_ku_state_section("Viewed", "badge-ghost", viewed, "last_viewed_at"))
+            sections.append(_ku_state_section("Viewed", BadgeT.ghost, viewed, "last_viewed_at"))
 
         return Div(*sections, cls="space-y-6")
 

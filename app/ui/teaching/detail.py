@@ -9,6 +9,8 @@ from typing import Any
 
 from fasthtml.common import H4, A, Div, P, Span
 
+from ui.feedback import Badge, BadgeT
+from ui.layout import Size
 from ui.teaching.badges import entity_type_badge, status_badge
 from ui.teaching.cards import get_display_title
 
@@ -108,9 +110,10 @@ def render_exercise_submission_row(item: dict[str, Any]) -> Div:
 
     feedback_indicator: Any = ""
     if feedback_count > 0:
-        feedback_indicator = Span(
+        feedback_indicator = Badge(
             f"{feedback_count} feedback",
-            cls="badge badge-sm badge-info",
+            variant=BadgeT.info,
+            size=Size.sm,
         )
 
     return Div(
@@ -156,9 +159,10 @@ def render_student_submission_row(item: dict[str, Any]) -> Div:
 
     feedback_indicator: Any = ""
     if feedback_count > 0:
-        feedback_indicator = Span(
+        feedback_indicator = Badge(
             f"{feedback_count} feedback",
-            cls="badge badge-sm badge-info",
+            variant=BadgeT.info,
+            size=Size.sm,
         )
 
     feedback_toggle: Any = ""
@@ -216,7 +220,7 @@ def render_class_member_row(item: dict[str, Any]) -> Div:
     reviewed_count = item.get("reviewed_count", 0)
     pending_count = item.get("pending_count", 0)
 
-    pending_badge_cls = "badge-warning" if pending_count > 0 else "badge-ghost"
+    pending_variant = BadgeT.warning if pending_count > 0 else BadgeT.ghost
 
     return Div(
         Div(
@@ -227,8 +231,8 @@ def render_class_member_row(item: dict[str, Any]) -> Div:
                     cls="flex-1",
                 ),
                 Div(
-                    Span(f"{pending_count} pending", cls=f"badge {pending_badge_cls}"),
-                    Span(f"{reviewed_count}/{submission_count} reviewed", cls="badge badge-ghost"),
+                    Badge(f"{pending_count} pending", variant=pending_variant),
+                    Badge(f"{reviewed_count}/{submission_count} reviewed", variant=BadgeT.ghost),
                     cls="flex gap-2 items-center",
                 ),
                 cls="flex items-center justify-between gap-4",

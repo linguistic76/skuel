@@ -34,8 +34,6 @@ from fasthtml.common import (
     P,
     Span,
 )
-
-from ui.forms import Select
 from starlette.datastructures import UploadFile
 from starlette.requests import Request
 
@@ -44,6 +42,9 @@ from adapters.inbound.fasthtml_types import RouteDecorator, RouteList
 from core.models.enums.entity_enums import EntityType, ProcessorType
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonT
+from ui.feedback import Badge, BadgeT
+from ui.forms import Select
+from ui.layout import Size
 from ui.layouts.base_page import BasePage
 from ui.patterns.page_header import PageHeader
 from ui.study.layout import create_study_page
@@ -676,7 +677,7 @@ def create_study_ui_routes(
 
             return Div(
                 Span("Exercise: ", cls="font-medium text-sm text-muted-foreground"),
-                Span(ex_title, cls="badge badge-outline badge-sm"),
+                Badge(ex_title, variant=BadgeT.outline, size=Size.sm),
                 id="exercise-link",
                 cls="mt-2",
             )
@@ -725,7 +726,7 @@ def create_study_ui_routes(
                     "Shared users list will appear here after sharing",
                     cls="text-sm text-muted-foreground",
                 ),
-                Span("No users yet", cls="badge badge-ghost"),
+                Badge("No users yet", variant=BadgeT.ghost),
                 id="shared-users-content",
             )
 

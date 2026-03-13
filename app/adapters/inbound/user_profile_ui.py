@@ -34,12 +34,9 @@ from core.ports import get_enum_value
 from core.services.user.unified_user_context import UserContext
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
-from ui.feedback import get_submission_status_badge_class
+from ui.feedback import Badge, BadgeT, get_submission_status_badge_class
+from ui.layout import Size
 from ui.layouts.base_page import BasePage
-from ui.profile.curriculum_views import (
-    LearningPathsDomainView,
-    LearningStepsDomainView,
-)
 from ui.profile.domain_stats_config import (
     DOMAIN_STATS_CONFIG,
     knowledge_active,
@@ -740,7 +737,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
             return await error_page(str(e), 500)
 
         # Fetch shared reports
-        from fasthtml.common import H2, H4, A, Button, Div, P, Span
+        from fasthtml.common import H2, H4, A, Button, Div, P
 
         shared_reports = []
         if services.sharing:
@@ -759,9 +756,11 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
                     # Header with filename and status
                     Div(
                         H4(report.original_filename, cls="card-title text-sm"),
-                        Span(
+                        Badge(
                             report.status,
-                            cls=f"badge badge-sm {get_submission_status_badge_class(report.status)}",
+                            variant=None,
+                            size=Size.sm,
+                            cls=get_submission_status_badge_class(report.status),
                         ),
                         cls="flex items-center justify-between",
                     ),
@@ -875,11 +874,11 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
 
             badges = []
             if is_mastered:
-                badges.append(Span("Mastered", cls="badge badge-xs badge-success"))
+                badges.append(Badge("Mastered", variant=BadgeT.success, size=Size.xs))
             if is_bookmarked:
-                badges.append(Span("Bookmarked", cls="badge badge-xs badge-info"))
+                badges.append(Badge("Bookmarked", variant=BadgeT.info, size=Size.xs))
             if is_viewed and not is_mastered:
-                badges.append(Span("Viewed", cls="badge badge-xs badge-ghost"))
+                badges.append(Badge("Viewed", variant=BadgeT.ghost, size=Size.xs))
 
             return A(
                 Div(
@@ -900,9 +899,10 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
 
         ku_content = (
             Div(
-                Span(
+                Badge(
                     f"{len(all_kus)} knowledge units",
-                    cls="badge badge-ghost mb-4",
+                    variant=BadgeT.ghost,
+                    cls="mb-4",
                 ),
                 Div(
                     *[entity_card(ku) for ku in all_kus],

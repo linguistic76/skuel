@@ -10,7 +10,6 @@ from enum import StrEnum
 from typing import Any
 
 from fasthtml.common import Div, Span
-from fasthtml.common import Input as FTInput
 from monsterui.franken import CheckboxX as MCheckbox
 from monsterui.franken import FormLabel as MFormLabel
 from monsterui.franken import Input as MInput
@@ -110,9 +109,7 @@ def Input(
     elements = [input_element]
 
     if help_text:
-        elements.append(
-            Div(help_text, id=help_id, cls="mt-1 text-sm text-muted-foreground")
-        )
+        elements.append(Div(help_text, id=help_id, cls="mt-1 text-sm text-muted-foreground"))
 
     if error_text:
         elements.append(
@@ -176,9 +173,7 @@ def Select(
     elements = [select_element]
 
     if help_text:
-        elements.append(
-            Div(help_text, id=help_id, cls="mt-1 text-sm text-muted-foreground")
-        )
+        elements.append(Div(help_text, id=help_id, cls="mt-1 text-sm text-muted-foreground"))
 
     if error_text:
         elements.append(
@@ -234,9 +229,7 @@ def Textarea(
     if describedby_ids:
         kwargs["aria_describedby"] = " ".join(describedby_ids)
 
-    textarea_element = MTextArea(
-        *c, cls=" ".join(cls_parts) if cls_parts else None, **kwargs
-    )
+    textarea_element = MTextArea(*c, cls=" ".join(cls_parts) if cls_parts else None, **kwargs)
 
     if not help_text and not error_text:
         return textarea_element
@@ -244,9 +237,7 @@ def Textarea(
     elements = [textarea_element]
 
     if help_text:
-        elements.append(
-            Div(help_text, id=help_id, cls="mt-1 text-sm text-muted-foreground")
-        )
+        elements.append(Div(help_text, id=help_id, cls="mt-1 text-sm text-muted-foreground"))
 
     if error_text:
         elements.append(

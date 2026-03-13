@@ -28,6 +28,7 @@ from typing import Any
 from fasthtml.common import H3, Div, Table, Tbody, Td, Th, Thead, Tr
 
 from ui.cards import Card, CardBody
+from ui.feedback import Badge, BadgeT
 
 
 def AlternativesComparisonGrid(entity_uid: str, entity_type: str) -> Div:
@@ -104,15 +105,14 @@ def render_alternatives_fragment(alternatives: list[dict[str, Any]]) -> Div:
     status_cells = [Td("Status", cls="font-semibold")]
     for alt in alternatives:
         status = alt.get("status", "unknown")
-        status_badge_cls = "badge badge-sm"
         if status == "completed":
-            status_badge_cls += " badge-success"
+            status_variant = BadgeT.success
         elif status in {"active", "in_progress"}:
-            status_badge_cls += " badge-info"
+            status_variant = BadgeT.info
         else:
-            status_badge_cls += " badge-ghost"
+            status_variant = BadgeT.ghost
 
-        status_cells.append(Td(Div(status.replace("_", " ").title(), cls=status_badge_cls)))
+        status_cells.append(Td(Badge(status.replace("_", " ").title(), variant=status_variant)))
     rows.append(Tr(*status_cells))
 
     # Priority row

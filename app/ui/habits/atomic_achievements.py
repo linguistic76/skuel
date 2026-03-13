@@ -400,7 +400,10 @@ class AtomicHabitsBadges:
         progress_section = None
         if not badge.is_unlocked:
             progress_section = Div(
-                P(f"Progress: {badge.progress_display()}", cls="text-xs text-muted-foreground mb-1"),
+                P(
+                    f"Progress: {badge.progress_display()}",
+                    cls="text-xs text-muted-foreground mb-1",
+                ),
                 Progress(
                     value=int(badge.progress_percentage()),
                     cls="progress progress-primary w-full h-2",
