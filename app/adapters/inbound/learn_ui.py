@@ -5,14 +5,16 @@ Learn UI Routes — Student Workspace Hub
 The student's core workspace for submitting work, tracking submissions,
 and reviewing feedback. Routes absorbed from submissions_ui.py under /learn/*.
 
-Layout: 4-item sidebar (Submit / Exercises / My Submissions / Reports) on sub-pages.
-Landing page (/learn) has no sidebar.
+Layout: 6-item sidebar (Exercises / Submit / My Submissions / Assessments / Activity Reports
+/ Generate Reports) on sub-pages. Landing page (/learn) has no sidebar.
 
 Routes:
 - GET /learn — Dashboard landing (no sidebar)
 - GET /learn/submit — File upload form
 - GET /learn/submissions — My submitted work (yours + browse merged)
-- GET /learn/reports — Teacher assessments + progress reports (merged)
+- GET /learn/assessments — Teacher/AI assessments on submissions
+- GET /learn/activity-reports — AI and scheduled activity feedback
+- GET /learn/generate-reports — On-demand progress report generation
 - GET /learn/submissions/{uid} — Submission detail page
 - HTMX fragments for all above
 """
@@ -226,18 +228,17 @@ def create_learn_ui_routes(
         )
 
     # ========================================================================
-    # REPORTS PAGE (sidebar) — merges reports + progress
+    # ASSESSMENTS PAGE (sidebar) — teacher/AI assessments on submissions
     # ========================================================================
 
-    @rt("/learn/reports")
-    async def learn_reports(request: Request) -> Any:
-        """Reports: teacher assessments + activity feedback + progress reports."""
+    @rt("/learn/assessments")
+    async def learn_assessments(request: Request) -> Any:
+        """Teacher and AI assessments on exercise/journal submissions."""
         require_authenticated_user(request)
 
         teacher_section = Div(
-            H3("Teacher Assessments", cls="font-semibold mb-4"),
             Div(
-                P("Loading feedback...", cls="text-center text-base-content/60"),
+                P("Loading assessments...", cls="text-center text-base-content/60"),
                 id="feedback-list",
                 cls="mt-2",
                 **{
@@ -246,13 +247,35 @@ def create_learn_ui_routes(
                     "hx-swap": "outerHTML",
                 },
             ),
-            cls="card bg-base-100 shadow-sm p-4 mb-6",
+            cls="card bg-base-100 shadow-sm p-4",
         )
 
+        content = Div(
+            PageHeader(
+                "Assessments",
+                subtitle="Teacher and AI feedback on your submissions",
+            ),
+            teacher_section,
+        )
+        return await create_learn_page(
+            content=content,
+            active_section="assessments",
+            request=request,
+            title="Assessments - Learn",
+        )
+
+    # ========================================================================
+    # ACTIVITY REPORTS PAGE (sidebar) — activity feedback + progress reports
+    # ========================================================================
+
+    @rt("/learn/activity-reports")
+    async def learn_activity_reports(request: Request) -> Any:
+        """Activity feedback — AI and scheduled activity reports."""
+        require_authenticated_user(request)
+
         activity_feedback_section = Div(
-            H3("Activity Feedback", cls="font-semibold mb-4"),
             Div(
-                P("Loading activity feedback...", cls="text-center text-base-content/60"),
+                P("Loading activity reports...", cls="text-center text-base-content/60"),
                 id="activity-feedback-list",
                 cls="mt-2",
                 **{
@@ -261,10 +284,32 @@ def create_learn_ui_routes(
                     "hx-swap": "outerHTML",
                 },
             ),
-            cls="card bg-base-100 shadow-sm p-4 mb-6",
+            cls="card bg-base-100 shadow-sm p-4",
         )
 
-        # Progress reports section (merged from /submissions/progress)
+        content = Div(
+            PageHeader(
+                "Activity Reports",
+                subtitle="AI and scheduled feedback on your activity patterns",
+            ),
+            activity_feedback_section,
+        )
+        return await create_learn_page(
+            content=content,
+            active_section="activity-reports",
+            request=request,
+            title="Activity Reports - Learn",
+        )
+
+    # ========================================================================
+    # GENERATE REPORTS PAGE (sidebar) — on-demand progress report generation
+    # ========================================================================
+
+    @rt("/learn/generate-reports")
+    async def learn_generate_reports(request: Request) -> Any:
+        """Generate and view progress reports."""
+        require_authenticated_user(request)
+
         generate_card = Div(
             Div(
                 H3("Generate Progress Report", cls="font-semibold mb-4"),
@@ -328,17 +373,18 @@ def create_learn_ui_routes(
         )
 
         content = Div(
-            PageHeader("Reports", subtitle="Assessments, feedback, and progress tracking"),
-            teacher_section,
-            activity_feedback_section,
+            PageHeader(
+                "Generate Reports",
+                subtitle="Create on-demand progress reports across your domains",
+            ),
             generate_card,
             recent_reports,
         )
         return await create_learn_page(
             content=content,
-            active_section="reports",
+            active_section="generate-reports",
             request=request,
-            title="Reports - Learn",
+            title="Generate Reports - Learn",
         )
 
     # ========================================================================
@@ -786,7 +832,7 @@ def create_learn_ui_routes(
         )
 
     logger.info(
-        "Learn UI routes created (/learn, /learn/submit, /learn/submissions, /learn/reports)"
+        "Learn UI routes created (/learn, /learn/submit, /learn/submissions, /learn/assessments, /learn/activity-reports, /learn/generate-reports)"
     )
 
     # Route order matters! Specific routes before parameterized routes.
@@ -794,7 +840,9 @@ def create_learn_ui_routes(
         learn_landing,  # /learn (exact)
         learn_submit,  # /learn/submit
         learn_submissions,  # /learn/submissions
-        learn_reports,  # /learn/reports
+        learn_assessments,  # /learn/assessments
+        learn_activity_reports,  # /learn/activity-reports
+        learn_generate_reports,  # /learn/generate-reports
         learn_reports_list,  # /learn/reports/list (HTMX)
         learn_activity_report_list,  # /learn/reports/activity-list (HTMX)
         learn_progress_list,  # /learn/reports/progress-list (HTMX)

@@ -89,11 +89,11 @@ def _create_submission_redirects(rt: RouteDecorator) -> RouteList:
 
     @rt("/submissions/reports")
     async def submissions_reports(request: Any) -> Any:
-        return RedirectResponse("/learn/reports", status_code=301)
+        return RedirectResponse("/learn/assessments", status_code=301)
 
     @rt("/submissions/progress")
     async def submissions_progress(request: Any) -> Any:
-        return RedirectResponse("/learn/reports", status_code=301)
+        return RedirectResponse("/learn/activity-reports", status_code=301)
 
     @rt("/submissions/assignments")
     async def submissions_assignments(request: Any) -> Any:

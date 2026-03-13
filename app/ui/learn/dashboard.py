@@ -1,7 +1,7 @@
 """Learning dashboard — /learn landing page.
 
-Workspace hub with 4 action cards (Exercises, Submit, My Submissions, Reports)
-and curriculum discovery links (Articles, KUs, Learning Paths).
+Workspace hub with 6 action cards (Exercises, Submit, My Submissions, Assessments,
+Activity Reports, Generate Reports) and curriculum discovery links.
 No sidebar on the landing page.
 """
 
@@ -17,7 +17,9 @@ def LearnDashboardView(context: UserContext) -> Div:
             _exercises_card(),
             _submit_card(),
             _submissions_card(context),
-            _reports_card(),
+            _assessments_card(),
+            _activity_reports_card(),
+            _generate_reports_card(),
             cls="flex flex-col gap-5",
         ),
         Div(
@@ -70,7 +72,7 @@ def _exercises_card() -> Div:
         ),
         A(
             "Browse exercises →",
-            href="/exercises",
+            href="/ui/exercises",
             cls="text-sm text-primary hover:underline inline-block",
         ),
         cls="bg-base-100 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow",
@@ -98,21 +100,63 @@ def _submissions_card(context: UserContext) -> Div:
     )
 
 
-def _reports_card() -> Div:
-    """Reports card."""
+def _assessments_card() -> Div:
+    """Assessments card."""
     return Div(
         Div(
-            Span("💬", cls="text-2xl"),
-            H3("Reports", cls="text-lg font-semibold text-base-content"),
+            Span("📋", cls="text-2xl"),
+            H3("Assessments", cls="text-lg font-semibold text-base-content"),
             cls="flex items-center gap-2 mb-3",
         ),
         P(
-            "Teacher assessments, activity feedback, and progress reports.",
+            "Teacher and AI feedback on your exercise and journal submissions.",
             cls="text-sm text-base-content/60 mb-3",
         ),
         A(
-            "View reports →",
-            href="/learn/reports",
+            "View assessments →",
+            href="/learn/assessments",
+            cls="text-sm text-primary hover:underline inline-block",
+        ),
+        cls="bg-base-100 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow",
+    )
+
+
+def _activity_reports_card() -> Div:
+    """Activity Reports card."""
+    return Div(
+        Div(
+            Span("📊", cls="text-2xl"),
+            H3("Activity Reports", cls="text-lg font-semibold text-base-content"),
+            cls="flex items-center gap-2 mb-3",
+        ),
+        P(
+            "Activity feedback and progress reports across your domains.",
+            cls="text-sm text-base-content/60 mb-3",
+        ),
+        A(
+            "View activity reports →",
+            href="/learn/activity-reports",
+            cls="text-sm text-primary hover:underline inline-block",
+        ),
+        cls="bg-base-100 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow",
+    )
+
+
+def _generate_reports_card() -> Div:
+    """Generate Reports card."""
+    return Div(
+        Div(
+            Span("⚡", cls="text-2xl"),
+            H3("Generate Reports", cls="text-lg font-semibold text-base-content"),
+            cls="flex items-center gap-2 mb-3",
+        ),
+        P(
+            "Create on-demand progress reports across your activity domains.",
+            cls="text-sm text-base-content/60 mb-3",
+        ),
+        A(
+            "Generate reports →",
+            href="/learn/generate-reports",
             cls="text-sm text-primary hover:underline inline-block",
         ),
         cls="bg-base-100 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow",
