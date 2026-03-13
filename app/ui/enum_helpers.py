@@ -52,7 +52,8 @@ from core.models.enums import (
     TrendDirection,
 )
 from core.models.event.calendar_models import CalendarItemType
-from ui.buttons import Button
+from ui.buttons import Button, ButtonT
+from ui.layout import Size
 from ui.cards import Card, CardBody
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
@@ -1089,7 +1090,9 @@ def render_entity_card(
         for action in actions:
             btn = Button(
                 action.get("label", "Action"),
-                cls=action.get("class", "btn btn-sm btn-outline"),
+                variant=ButtonT.outline,
+                size=Size.sm,
+                cls=action.get("class", ""),
                 **{k: v for k, v in action.items() if k not in ["label", "class"]},
             )
             buttons.append(btn)
@@ -1098,13 +1101,15 @@ def render_entity_card(
         buttons = [
             Button(
                 "View",
-                cls="btn btn-sm btn-outline",
+                variant=ButtonT.outline,
+                size=Size.sm,
                 hx_get=f"/{entity_type}s/{uid}",
                 hx_target="#modal",
             ),
             Button(
                 "Edit",
-                cls="btn btn-sm btn-primary",
+                variant=ButtonT.primary,
+                size=Size.sm,
                 hx_get=f"/{entity_type}s/{uid}/edit",
                 hx_target="#modal",
             ),

@@ -48,7 +48,8 @@ from typing import Any
 
 from fasthtml.common import H3, H4, Details, Div, P, Span, Summary
 
-from ui.buttons import Button
+from ui.buttons import Button, ButtonT
+from ui.layout import Size
 from ui.cards import Card, CardBody
 from ui.enum_helpers import get_health_color, get_health_icon, get_trend_color, get_trend_icon
 from ui.feedback import Alert, AlertT, Badge, Progress, ProgressT
@@ -439,8 +440,8 @@ def RecommendationCard(
         ),
         # Action buttons
         Div(
-            Button(action_label, cls="btn btn-sm btn-primary"),
-            Button("Learn More", cls="btn btn-sm btn-outline") if learn_more else None,
+            Button(action_label, variant=ButtonT.primary, size=Size.sm),
+            Button("Learn More", variant=ButtonT.outline, size=Size.sm) if learn_more else None,
             cls="flex gap-2",
         ),
         cls="p-4 border border-border rounded bg-background shadow-sm",

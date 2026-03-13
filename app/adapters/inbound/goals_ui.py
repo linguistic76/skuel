@@ -848,7 +848,7 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsService, services: Any 
                                 Progress(
                                     value=int(derivation.confidence * 100),
                                     max="100",
-                                    cls="progress progress-primary w-full",
+                                    cls="w-full",
                                 ),
                                 Span(
                                     f"{int(derivation.confidence * 100)}% - {derivation.get_confidence_label()}",
@@ -887,7 +887,7 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsService, services: Any 
                                     Progress(
                                         value=int(g.strength * 100),
                                         max="100",
-                                        cls="progress progress-primary w-full mt-1",
+                                        cls="w-full mt-1",
                                     ),
                                     cls="mb-2",
                                 ),
@@ -942,7 +942,7 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsService, services: Any 
                             Progress(
                                 value=int(getattr(goal, "progress_percentage", 0)),
                                 max="100",
-                                cls="progress progress-success w-full",
+                                cls="w-full",
                             ),
                             Span(
                                 f"{int(getattr(goal, 'progress_percentage', 0))}%",

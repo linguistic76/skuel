@@ -18,11 +18,12 @@ Routes:
 import json
 from typing import Any
 
-from fasthtml.common import H3, A, Button, Div, NotStr, P, Request, Small, Span
+from fasthtml.common import H3, Div, NotStr, P, Request, Small, Span
 
 from adapters.inbound.auth import require_authenticated_user
 from core.utils.logging import get_logger
 from core.utils.markdown_renderer import render_markdown_with_toc
+from ui.buttons import Button, ButtonLink, ButtonT
 from ui.cards import Card, CardBody
 from ui.exercises.inline_form import render_inline_exercise_form
 from ui.feedback import Badge, BadgeT
@@ -113,7 +114,7 @@ def _nav_button(ku: dict | None, direction: str) -> Any:
         label = f"{'Previous' if direction == 'prev' else 'Next'}"
         return Button(
             f"{'←' if direction == 'prev' else ''} {label} {'→' if direction == 'next' else ''}",
-            cls="btn btn-outline btn-disabled",
+            variant=ButtonT.outline,
             disabled=True,
         )
 
@@ -122,23 +123,23 @@ def _nav_button(ku: dict | None, direction: str) -> Any:
         label = label[:37] + "..."
 
     if direction == "prev":
-        return A(
+        return ButtonLink(
             Div(
                 Small("Previous", cls="text-xs text-muted-foreground"),
                 Div(f"← {label}", cls="text-sm"),
                 cls="text-left",
             ),
             href=f"/article/{ku.get('uid')}",
-            cls="btn btn-outline",
+            variant=ButtonT.outline,
         )
-    return A(
+    return ButtonLink(
         Div(
             Small("Next", cls="text-xs text-muted-foreground"),
             Div(f"{label} →", cls="text-sm"),
             cls="text-right",
         ),
         href=f"/article/{ku.get('uid')}",
-        cls="btn btn-outline",
+        variant=ButtonT.outline,
     )
 
 
@@ -217,7 +218,13 @@ def create_article_reading_ui_routes(
                         CardBody(
                             H3("Knowledge Unit Not Found", cls="text-lg font-bold"),
                             P(f"No KU with identifier: {uid}", cls="text-muted-foreground mt-2"),
-                            A("← Back to Knowledge", href="/sel", cls="btn btn-ghost btn-sm mt-4"),
+                            ButtonLink(
+                                "← Back to Knowledge",
+                                href="/sel",
+                                variant=ButtonT.ghost,
+                                size=Size.sm,
+                                cls="mt-4",
+                            ),
                         ),
                     ),
                     cls="max-w-4xl mx-auto p-8",
@@ -295,9 +302,8 @@ def create_article_reading_ui_routes(
         # Action buttons
         mark_read_btn = Button(
             "Marked as Read" if is_marked_read else "Mark as Read",
-            cls="btn btn-sm btn-outline btn-success"
-            if is_marked_read
-            else "btn btn-sm btn-primary",
+            variant=ButtonT.success if is_marked_read else ButtonT.primary,
+            size=Size.sm,
             hx_post=f"/api/article/{uid}/mark-read",
             hx_swap="outerHTML",
             hx_target="this",
@@ -306,7 +312,8 @@ def create_article_reading_ui_routes(
 
         bookmark_btn = Button(
             "Bookmarked" if is_bookmarked else "Bookmark",
-            cls="btn btn-sm btn-secondary" if is_bookmarked else "btn btn-sm btn-ghost",
+            variant=ButtonT.secondary if is_bookmarked else ButtonT.ghost,
+            size=Size.sm,
             hx_post=f"/api/article/{uid}/bookmark",
             hx_swap="outerHTML",
             hx_target="this",

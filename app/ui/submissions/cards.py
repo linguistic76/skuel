@@ -10,6 +10,7 @@ from typing import Any
 from fasthtml.common import H4, A, Div, P
 
 from ui.feedback import Badge, get_submission_status_badge_class
+from ui.cards import Card, CardBody
 
 _get_status_badge_class = get_submission_status_badge_class
 
@@ -30,8 +31,8 @@ def render_submission_card(submission: Any, is_pinned: bool = False) -> Any:
 
     file_size_mb = (submission.file_size / 1024 / 1024) if submission.file_size else 0
     identifier = get_submission_identifier(submission)
-    return Div(
-        Div(
+    return Card(
+        CardBody(
             Div(
                 Div(
                     H4(submission.original_filename, cls="mb-0 font-semibold"),
@@ -59,9 +60,9 @@ def render_submission_card(submission: Any, is_pinned: bool = False) -> Any:
                 ),
                 cls="flex items-center gap-4",
             ),
-            cls="card-body p-4",
+            cls="p-4",
         ),
-        cls="card bg-background shadow-sm mb-2",
+        cls="bg-background shadow-sm mb-2",
     )
 
 

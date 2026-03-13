@@ -7,6 +7,8 @@ Learning content lives at /learn.
 from fasthtml.common import H2, A, Div, Span
 
 from core.services.user.unified_user_context import UserContext
+from ui.buttons import ButtonLink, ButtonT
+from ui.layout import Size
 
 
 def LeanProfileView(context: UserContext) -> Div:
@@ -90,11 +92,13 @@ def _velocity_summary(context: UserContext) -> Div:
 
 def _settings_link() -> Div:
     return Div(
-        A(
+        ButtonLink(
             Span("⚙️", cls="mr-2"),
             "Settings",
             href="/profile/settings",
-            cls="btn btn-ghost btn-sm text-muted-foreground hover:text-foreground",
+            variant=ButtonT.ghost,
+            size=Size.sm,
+            cls="text-muted-foreground hover:text-foreground",
         ),
         cls="mt-8 pt-6 border-t border-border",
     )

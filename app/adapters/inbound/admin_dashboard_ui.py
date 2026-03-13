@@ -37,6 +37,7 @@ from ui.admin.views import (
     AdminUIComponents,
 )
 from ui.buttons import Button, ButtonT
+from ui.cards import Card
 
 logger = get_logger("skuel.routes.admin.ui")
 
@@ -92,7 +93,7 @@ def create_admin_dashboard_routes(_app, rt, services):
                             cls="flex items-center gap-3",
                         ),
                         href="/admin/users",
-                        cls="card bg-background shadow-sm p-4 hover:shadow-md transition-shadow",
+                        cls="bg-background shadow-sm p-4 hover:shadow-md transition-shadow",
                     ),
                     A(
                         Div(
@@ -101,7 +102,7 @@ def create_admin_dashboard_routes(_app, rt, services):
                             cls="flex items-center gap-3",
                         ),
                         href="/admin/analytics",
-                        cls="card bg-background shadow-sm p-4 hover:shadow-md transition-shadow",
+                        cls="bg-background shadow-sm p-4 hover:shadow-md transition-shadow",
                     ),
                     A(
                         Div(
@@ -110,7 +111,7 @@ def create_admin_dashboard_routes(_app, rt, services):
                             cls="flex items-center gap-3",
                         ),
                         href="/admin/system",
-                        cls="card bg-background shadow-sm p-4 hover:shadow-md transition-shadow",
+                        cls="bg-background shadow-sm p-4 hover:shadow-md transition-shadow",
                     ),
                     A(
                         Div(
@@ -119,7 +120,7 @@ def create_admin_dashboard_routes(_app, rt, services):
                             cls="flex items-center gap-3",
                         ),
                         href="/finance",
-                        cls="card bg-background shadow-sm p-4 hover:shadow-md transition-shadow",
+                        cls="bg-background shadow-sm p-4 hover:shadow-md transition-shadow",
                     ),
                     A(
                         Div(
@@ -128,17 +129,17 @@ def create_admin_dashboard_routes(_app, rt, services):
                             cls="flex items-center gap-3",
                         ),
                         href="/ingest",
-                        cls="card bg-background shadow-sm p-4 hover:shadow-md transition-shadow",
+                        cls="bg-background shadow-sm p-4 hover:shadow-md transition-shadow",
                     ),
                     cls="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4",
                 ),
                 cls="mb-8",
             ),
             # System status summary
-            Div(
+            Card(
                 H2("System Status", cls="text-xl font-semibold mb-4"),
                 _render_system_summary(system_status),
-                cls="card bg-background shadow-sm p-6",
+                cls="bg-background shadow-sm p-6",
             ),
         )
 
@@ -203,23 +204,23 @@ def create_admin_dashboard_routes(_app, rt, services):
             # Stats
             AdminUIComponents.render_user_stats(user_stats),
             # Filters
-            Div(
+            Card(
                 H3("Filters", cls="text-lg font-semibold mb-3"),
                 Div(
                     AdminUIComponents.render_role_filter(role),
                     AdminUIComponents.render_status_filter(status),
                     cls="flex flex-wrap gap-4",
                 ),
-                cls="card bg-background shadow-sm p-4 mb-6",
+                cls="bg-background shadow-sm p-4 mb-6",
             ),
             # User table
-            Div(
+            Card(
                 H3("Users", cls="text-lg font-semibold mb-3"),
                 Div(
                     AdminUIComponents.render_users_table(users_data),
                     id="user-list",
                 ),
-                cls="card bg-background shadow-sm p-4",
+                cls="bg-background shadow-sm p-4",
             ),
         )
 
@@ -345,7 +346,7 @@ def create_admin_dashboard_routes(_app, rt, services):
                 cls="mb-6",
             ),
             # User details card
-            Div(
+            Card(
                 H2("User Details", cls="text-xl font-semibold mb-4"),
                 Div(
                     _detail_row("UID", user_data["uid"]),
@@ -356,34 +357,34 @@ def create_admin_dashboard_routes(_app, rt, services):
                     _detail_row("Verified", "Yes" if user_data["is_verified"] else "No"),
                     cls="space-y-3",
                 ),
-                cls="card bg-background shadow-sm p-6 mb-6",
+                cls="bg-background shadow-sm p-6 mb-6",
             ),
             # Activity, Learning & Session stats
-            Div(
+            Card(
                 H2("User Statistics", cls="text-xl font-semibold mb-4"),
                 AdminUIComponents.render_user_activity_stats(detail_stats, uid),
-                cls="card bg-background shadow-sm p-6 mb-6",
+                cls="bg-background shadow-sm p-6 mb-6",
             ),
             # Reports section
-            Div(
+            Card(
                 H2("Reports", cls="text-xl font-semibold mb-4"),
                 AdminUIComponents.render_user_reports_list(reports_data, uid),
-                cls="card bg-background shadow-sm p-6 mb-6",
+                cls="bg-background shadow-sm p-6 mb-6",
             ),
             # Report Projects section
-            Div(
+            Card(
                 H2("Report Projects", cls="text-xl font-semibold mb-4"),
                 AdminUIComponents.render_user_projects_list(projects_data, uid),
-                cls="card bg-background shadow-sm p-6 mb-6",
+                cls="bg-background shadow-sm p-6 mb-6",
             ),
             # Role change section
-            Div(
+            Card(
                 H2("Change Role", cls="text-xl font-semibold mb-4"),
                 AdminUIComponents.render_role_change_form(user_data),
-                cls="card bg-background shadow-sm p-6 mb-6",
+                cls="bg-background shadow-sm p-6 mb-6",
             ),
             # Actions
-            Div(
+            Card(
                 H2("Account Actions", cls="text-xl font-semibold mb-4"),
                 Div(
                     Button(
@@ -394,7 +395,7 @@ def create_admin_dashboard_routes(_app, rt, services):
                     ),
                     cls="flex gap-4",
                 ),
-                cls="card bg-background shadow-sm p-6",
+                cls="bg-background shadow-sm p-6",
             ),
         )
 
@@ -629,16 +630,16 @@ def create_admin_dashboard_routes(_app, rt, services):
                 cls="mb-8",
             ),
             # System-wide KU metrics
-            Div(
+            Card(
                 H2("Knowledge Unit Overview", cls="text-xl font-semibold mb-4"),
                 AdminLearningComponents.render_ku_system_metrics(ku_metrics),
-                cls="card bg-background shadow-sm p-6 mb-6",
+                cls="bg-background shadow-sm p-6 mb-6",
             ),
             # User progress table
-            Div(
+            Card(
                 H2("User KU Progress", cls="text-xl font-semibold mb-4"),
                 AdminLearningComponents.render_user_progress_table(user_progress),
-                cls="card bg-background shadow-sm p-6",
+                cls="bg-background shadow-sm p-6",
             ),
         )
 
@@ -701,16 +702,16 @@ def create_admin_dashboard_routes(_app, rt, services):
                 cls="mb-6",
             ),
             # Summary stats
-            Div(
+            Card(
                 H2("Progress Summary", cls="text-xl font-semibold mb-4"),
                 AdminLearningComponents.render_user_ku_summary(user_ku_detail),
-                cls="card bg-background shadow-sm p-6 mb-6",
+                cls="bg-background shadow-sm p-6 mb-6",
             ),
             # Detailed KU list
-            Div(
+            Card(
                 H2("Knowledge Units", cls="text-xl font-semibold mb-4"),
                 AdminLearningComponents.render_user_ku_detail_list(user_ku_detail),
-                cls="card bg-background shadow-sm p-6",
+                cls="bg-background shadow-sm p-6",
             ),
         )
 

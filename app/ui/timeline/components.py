@@ -19,7 +19,7 @@ __version__ = "2.0"  # Vis.js Timeline version
 
 from fasthtml.common import H1, Body, Div, Head, Html, Link, Meta, Option, P, Script, Span, Title
 
-from ui.buttons import Button
+from ui.buttons import Button, ButtonT
 from ui.forms import Input, Label, Select
 from ui.layout import Size
 
@@ -115,19 +115,22 @@ def _render_controls() -> Div:
             Span("Zoom:", cls="text-sm text-muted-foreground mr-2"),
             Button(
                 "+",
-                cls="btn btn-sm btn-ghost",
+                variant=ButtonT.ghost,
+                size=Size.sm,
                 **{"@click": "zoomIn()"},
                 title="Zoom in",
             ),
             Button(
                 "-",
-                cls="btn btn-sm btn-ghost",
+                variant=ButtonT.ghost,
+                size=Size.sm,
                 **{"@click": "zoomOut()"},
                 title="Zoom out",
             ),
             Button(
                 "Fit All",
-                cls="btn btn-sm btn-ghost",
+                variant=ButtonT.ghost,
+                size=Size.sm,
                 **{"@click": "fit()"},
                 title="Fit all items",
             ),
@@ -136,7 +139,8 @@ def _render_controls() -> Div:
         # Refresh button
         Button(
             "Refresh",
-            cls="btn btn-sm btn-primary",
+            variant=ButtonT.primary,
+            size=Size.sm,
             **{"@click": "refresh()"},
         ),
         cls="controls flex justify-between items-center p-4 border-b",
@@ -192,7 +196,8 @@ def _render_filters(project: str | None = None, user_uid: str | None = None) -> 
         ),
         Button(
             "Apply Filters",
-            cls="btn btn-sm btn-primary",
+            variant=ButtonT.primary,
+            size=Size.sm,
             **{"@click": "applyFilters()"},
         ),
         # Hidden user_uid for API calls
@@ -220,7 +225,9 @@ def _render_timeline_container() -> Div:
             ),
             Button(
                 "Retry",
-                cls="btn btn-sm btn-error mt-2",
+                variant=ButtonT.error,
+                size=Size.sm,
+                cls="mt-2",
                 **{"@click": "refresh()"},
             ),
             cls="flex flex-col items-center justify-center h-full",
@@ -254,7 +261,8 @@ def render_timeline_error(error_message: str) -> Html:
             P("Please check the server logs for more details.", cls="text-muted-foreground"),
             Button(
                 "Go Back",
-                cls="btn btn-primary mt-4",
+                variant=ButtonT.primary,
+                cls="mt-4",
                 onclick="history.back()",
             ),
         ),
@@ -286,9 +294,9 @@ def create_embedded_timeline(
     if show_controls:
         controls.append(
             Div(
-                Button("+", cls="btn btn-xs btn-ghost", **{"@click": "zoomIn()"}),
-                Button("-", cls="btn btn-xs btn-ghost", **{"@click": "zoomOut()"}),
-                Button("Fit", cls="btn btn-xs btn-ghost", **{"@click": "fit()"}),
+                Button("+", variant=ButtonT.ghost, size=Size.xs, **{"@click": "zoomIn()"}),
+                Button("-", variant=ButtonT.ghost, size=Size.xs, **{"@click": "zoomOut()"}),
+                Button("Fit", variant=ButtonT.ghost, size=Size.xs, **{"@click": "fit()"}),
                 cls="absolute top-2 right-2 flex gap-1 z-10",
             )
         )

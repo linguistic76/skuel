@@ -27,6 +27,7 @@ from ui.feedback import Badge, BadgeT
 from ui.forms import Input, Label, Select, Textarea
 from ui.layout import Size
 from ui.patterns.activity_views_base import ActivityViewTabs
+from ui.cards import Card
 
 logger = get_logger("skuel.components.principles_views")
 
@@ -257,7 +258,7 @@ class PrinciplesViewComponents:
         }
         category_color = category_colors.get(category_str, "text-muted-foreground")
 
-        return Div(
+        return Card(
             Div(
                 # Header row
                 Div(
@@ -313,7 +314,7 @@ class PrinciplesViewComponents:
                 cls="p-4",
             ),
             id=f"principle-{uid}",
-            cls="card bg-background shadow-sm border border-border hover:shadow-md transition-shadow",
+            cls="bg-background shadow-sm border border-border hover:shadow-md transition-shadow",
         )
 
     # ========================================================================
@@ -473,7 +474,7 @@ class PrinciplesViewComponents:
                     "hx-target": "#view-content",
                     "hx-swap": "innerHTML",
                 },
-                cls="card bg-background shadow-lg p-6",
+                cls="bg-background shadow-lg p-6",
             ),
             id="create-view",
         )
@@ -498,7 +499,7 @@ class PrinciplesViewComponents:
         analytics_data = analytics_data or {}
 
         # Adherence metrics
-        adherence_section = Div(
+        adherence_section = Card(
             H3("Principle Adherence", cls="text-lg font-semibold mb-4"),
             Div(
                 # Overall adherence
@@ -530,11 +531,11 @@ class PrinciplesViewComponents:
                 ),
                 cls="grid grid-cols-3 gap-4 mb-6",
             ),
-            cls="card bg-background shadow-lg p-6 mb-6",
+            cls="bg-background shadow-lg p-6 mb-6",
         )
 
         # Impact analysis
-        impact_section = Div(
+        impact_section = Card(
             H3("Principle Impact", cls="text-lg font-semibold mb-4"),
             Div(
                 P(
@@ -550,7 +551,7 @@ class PrinciplesViewComponents:
                     cls="mb-4",
                 ),
             ),
-            cls="card bg-background shadow-lg p-6 mb-6",
+            cls="bg-background shadow-lg p-6 mb-6",
         )
 
         # Reflection history
@@ -569,10 +570,10 @@ class PrinciplesViewComponents:
                 P("No reflections recorded yet.", cls="text-muted-foreground text-center py-8"),
             )
 
-        reflection_section = Div(
+        reflection_section = Card(
             H3("Recent Reflections", cls="text-lg font-semibold mb-4"),
             reflection_content,
-            cls="card bg-background shadow-lg p-6",
+            cls="bg-background shadow-lg p-6",
         )
 
         return Div(
@@ -625,7 +626,7 @@ class PrinciplesViewComponents:
         category_str = normalize_enum_str(category, "personal")
 
         return Div(
-            Div(
+            Card(
                 H2("Edit Principle", cls="text-xl font-bold mb-4"),
                 Form(
                     # Name
@@ -705,7 +706,7 @@ class PrinciplesViewComponents:
                         "hx-on::after-request": "document.getElementById('modal').innerHTML = ''",
                     },
                 ),
-                cls="card bg-background shadow-xl p-6 max-w-lg mx-auto mt-20",
+                cls="bg-background shadow-xl p-6 max-w-lg mx-auto mt-20",
             ),
             cls="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center z-50",
             id="edit-modal",
@@ -730,7 +731,7 @@ class PrinciplesViewComponents:
         name = getattr(principle, "name", "Untitled")
 
         return Div(
-            Div(
+            Card(
                 H2(f"Reflect on: {name}", cls="text-xl font-bold mb-4"),
                 P(
                     "How well did you align with this principle today?",
@@ -857,7 +858,7 @@ class PrinciplesViewComponents:
                         "hx-on::after-request": "document.getElementById('modal').innerHTML = ''",
                     },
                 ),
-                cls="card bg-background shadow-xl p-6 max-w-lg mx-auto mt-20",
+                cls="bg-background shadow-xl p-6 max-w-lg mx-auto mt-20",
             ),
             cls="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center z-50 overflow-y-auto",
             id="reflect-modal",
@@ -961,7 +962,7 @@ class PrinciplesViewComponents:
         quality_label = "deep" if quality >= 0.7 else "moderate" if quality >= 0.4 else "shallow"
         from ui.badge_classes import quality_badge_class
 
-        return Div(
+        return Card(
             Div(
                 # Date and alignment
                 Div(
@@ -987,7 +988,7 @@ class PrinciplesViewComponents:
                 else None,
                 cls="p-4",
             ),
-            cls="card bg-background shadow border border-border",
+            cls="bg-background shadow border border-border",
         )
 
     # ========================================================================
@@ -1042,28 +1043,28 @@ class PrinciplesViewComponents:
         # Stats cards
         stats_row = Div(
             # Reflection count
-            Div(
+            Card(
                 Span("Reflections", cls="text-sm text-muted-foreground block"),
                 Span(str(reflection_count), cls="text-2xl font-bold"),
-                cls="card bg-background shadow p-4 text-center",
+                cls="bg-background shadow p-4 text-center",
             ),
             # Average alignment
-            Div(
+            Card(
                 Span("Avg Alignment", cls="text-sm text-muted-foreground block"),
                 Span(f"{avg_alignment:.1f}/4", cls="text-2xl font-bold"),
-                cls="card bg-background shadow p-4 text-center",
+                cls="bg-background shadow p-4 text-center",
             ),
             # Trend direction
-            Div(
+            Card(
                 Span("Trend", cls="text-sm text-muted-foreground block"),
                 Span(trend_text, cls=f"text-2xl font-bold {trend_cls}"),
-                cls="card bg-background shadow p-4 text-center",
+                cls="bg-background shadow p-4 text-center",
             ),
             # Quality average
-            Div(
+            Card(
                 Span("Quality", cls="text-sm text-muted-foreground block"),
                 Span(f"{quality_avg:.0%}", cls="text-2xl font-bold"),
-                cls="card bg-background shadow p-4 text-center",
+                cls="bg-background shadow p-4 text-center",
             ),
             cls="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6",
         )
@@ -1080,12 +1081,12 @@ class PrinciplesViewComponents:
             )
 
         trigger_section = (
-            Div(
+            Card(
                 H3("Reflection Triggers", cls="text-lg font-semibold mb-3"),
                 *trigger_items
                 if trigger_items
                 else [P("No trigger data", cls="text-muted-foreground")],
-                cls="card bg-background shadow p-4",
+                cls="bg-background shadow p-4",
             )
             if trigger_dist
             else None

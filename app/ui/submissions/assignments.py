@@ -12,6 +12,7 @@ from fasthtml.common import H4, A, Div, P, Span
 
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
+from ui.cards import Card
 
 
 def render_assignment_card(ex: dict[str, Any]) -> Any:
@@ -61,11 +62,11 @@ def render_assignment_card(ex: dict[str, Any]) -> Any:
             cls="btn btn-primary btn-sm",
         )
 
-    return Div(
+    return Card(
         Div(
             Div(
                 Div(
-                    H4(title, cls="card-title text-lg"),
+                    H4(title, cls="text-lg"),
                     status_badge,
                     cls="flex items-center gap-2 flex-wrap",
                 ),
@@ -76,19 +77,19 @@ def render_assignment_card(ex: dict[str, Any]) -> Any:
             Div(action, cls="flex items-center"),
             cls="flex justify-between gap-4",
         ),
-        cls="card bg-background shadow-sm p-4",
+        cls="bg-background shadow-sm p-4",
     )
 
 
 def render_assignments_list(exercises: list[dict[str, Any]]) -> Any:
     """Render student's assigned exercises with submission status."""
     if not exercises:
-        return Div(
+        return Card(
             P(
                 "No exercises assigned yet. You'll see exercises here when a teacher assigns them to your group.",
                 cls="text-center text-muted-foreground py-8",
             ),
-            cls="card bg-background shadow-sm p-6",
+            cls="bg-background shadow-sm p-6",
         )
 
     cards = [render_assignment_card(ex) for ex in exercises]

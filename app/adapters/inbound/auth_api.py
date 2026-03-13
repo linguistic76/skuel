@@ -18,7 +18,7 @@ Date: 2026-01-21
 
 from typing import Any
 
-from fasthtml.common import H1, H2, A, Div, P, Pre
+from fasthtml.common import H1, H2, Div, P, Pre
 from starlette.requests import Request
 
 from adapters.inbound.auth import (
@@ -28,6 +28,7 @@ from adapters.inbound.auth import (
     require_admin,
 )
 from core.utils.logging import get_logger
+from ui.buttons import ButtonLink, ButtonT
 from ui.cards import Card, CardBody
 
 logger = get_logger("skuel.routes.auth_api")
@@ -115,12 +116,12 @@ def create_auth_api_routes(
                         cls="mb-6",
                     ),
                     Div(
-                        A(
+                        ButtonLink(
                             "Logout" if is_auth else "Login",
                             href="/logout" if is_auth else "/login",
-                            cls="btn btn-secondary",
+                            variant=ButtonT.secondary,
                         ),
-                        A("Home", href="/", cls="btn btn-outline"),
+                        ButtonLink("Home", href="/", variant=ButtonT.outline),
                         cls="flex gap-3",
                     ),
                 ),

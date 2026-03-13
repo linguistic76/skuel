@@ -27,6 +27,7 @@ from ui.feedback import Badge, BadgeT
 from ui.forms import Select
 from ui.layout import Size
 from ui.patterns.entity_dashboard import SharedUIComponents
+from ui.cards import Card
 
 
 class AdminUIComponents:
@@ -114,7 +115,7 @@ class AdminUIComponents:
                     )
                 )
 
-        return Div(
+        return Card(
             # Header with name and badges
             Div(
                 Div(
@@ -148,7 +149,7 @@ class AdminUIComponents:
             # Actions
             Div(*actions, cls="flex flex-wrap gap-2") if actions else None,
             id=f"user-card-{uid.replace(':', '-')}",
-            cls="card bg-background shadow-sm p-4 border border-border",
+            cls="bg-background shadow-sm p-4 border border-border",
         )
 
     @staticmethod
@@ -163,9 +164,9 @@ class AdminUIComponents:
             Div containing the user table
         """
         if not users:
-            return Div(
+            return Card(
                 P("No users found", cls="text-center text-muted-foreground py-8"),
-                cls="card bg-background shadow-sm",
+                cls="bg-background shadow-sm",
             )
 
         rows = []
@@ -710,16 +711,16 @@ class AdminAnalyticsComponents:
 
         return Div(
             # User distribution section
-            Div(
+            Card(
                 H2("User Distribution", cls="text-xl font-semibold mb-4"),
                 AdminAnalyticsComponents.render_user_distribution(user_stats),
-                cls="card bg-background shadow-sm p-6 mb-6",
+                cls="bg-background shadow-sm p-6 mb-6",
             ),
             # Activity stats section
-            Div(
+            Card(
                 H2("Activity Statistics (30 days)", cls="text-xl font-semibold mb-4"),
                 AdminAnalyticsComponents.render_activity_stats(activity_stats),
-                cls="card bg-background shadow-sm p-6 mb-6",
+                cls="bg-background shadow-sm p-6 mb-6",
             ),
         )
 
@@ -835,16 +836,16 @@ class AdminSystemComponents:
 
         return Div(
             # Overall status
-            Div(
+            Card(
                 H2("System Status", cls="text-xl font-semibold mb-4"),
                 AdminSystemComponents.render_overall_status(overall_status),
-                cls="card bg-background shadow-sm p-6 mb-6",
+                cls="bg-background shadow-sm p-6 mb-6",
             ),
             # Component status
-            Div(
+            Card(
                 H2("Component Health", cls="text-xl font-semibold mb-4"),
                 AdminSystemComponents.render_components_grid(components),
-                cls="card bg-background shadow-sm p-6 mb-6",
+                cls="bg-background shadow-sm p-6 mb-6",
             ),
         )
 

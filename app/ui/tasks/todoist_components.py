@@ -41,6 +41,7 @@ from ui.buttons import Button, ButtonT
 from ui.feedback import Badge, BadgeT
 from ui.forms import Input, Select, Textarea
 from ui.layout import Size
+from ui.cards import Card
 
 logger = get_logger("skuel.components.todoist")
 
@@ -692,7 +693,7 @@ class TodoistTaskComponents:
             hx_target="#task-list",
             hx_swap="outerHTML",
             hx_on__after_request="this.reset()",
-            cls="card bg-background shadow-md border border-border p-6 mb-6 rounded-xl",
+            cls="bg-background shadow-md border border-border p-6 mb-6 rounded-xl",
         )
 
     # ========================================================================
@@ -891,8 +892,8 @@ class TodoistTaskComponents:
             # Filter Bar (Todoist-specific feature)
             TodoistTaskComponents.render_filter_bar(projects, assignees, filters),
             # Task List
-            Div(
+            Card(
                 TodoistTaskComponents.render_task_list(tasks),
-                cls="card bg-background shadow-md border border-border rounded-xl overflow-hidden",
+                cls="bg-background shadow-md border border-border rounded-xl overflow-hidden",
             ),
         )

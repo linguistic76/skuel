@@ -23,7 +23,8 @@ from typing import Any
 
 from fasthtml.common import H1, H2, H3, Div, P, Span
 
-from ui.buttons import Button
+from ui.buttons import Button, ButtonLink, ButtonT
+from ui.layout import Size
 from ui.cards import Card, CardBody
 from ui.feedback import Badge
 
@@ -198,7 +199,8 @@ class AtomicHabitsMobile:
                 # One-tap completion button (thumb-zone)
                 Button(
                     "✓ Complete" if not is_completed else "✓ Completed",
-                    cls=f"btn w-full {'btn-success' if not is_completed else 'btn-disabled'} text-lg py-4",
+                    variant=ButtonT.success if not is_completed else None,
+                    cls="w-full text-lg py-4",
                     hx_post=f"/habits/{uid}/complete",
                     hx_target="#main-content",
                     hx_swap="outerHTML",
@@ -235,7 +237,8 @@ class AtomicHabitsMobile:
                         P("Badges", cls="text-sm font-medium"),
                         cls="text-center",
                     ),
-                    cls="btn btn-secondary flex-1 h-24",
+                    variant=ButtonT.secondary,
+                    cls="flex-1 h-24",
                     hx_get="/badges/showcase",
                     hx_target="#main-content",
                 ),
@@ -245,7 +248,8 @@ class AtomicHabitsMobile:
                         P("Analytics", cls="text-sm font-medium"),
                         cls="text-center",
                     ),
-                    cls="btn btn-secondary flex-1 h-24",
+                    variant=ButtonT.secondary,
+                    cls="flex-1 h-24",
                     hx_get="/habits/analytics",
                     hx_target="#main-content",
                 ),
@@ -255,7 +259,8 @@ class AtomicHabitsMobile:
                         P("New Habit", cls="text-sm font-medium"),
                         cls="text-center",
                     ),
-                    cls="btn btn-primary flex-1 h-24",
+                    variant=ButtonT.primary,
+                    cls="flex-1 h-24",
                     hx_get="/habits/wizard/step1",
                     hx_target="#modal",
                 ),
@@ -269,25 +274,29 @@ class AtomicHabitsMobile:
         return Div(
             Button(
                 Div(Span("🏠", cls="text-2xl"), P("Today", cls="text-xs"), cls="text-center"),
-                cls="flex-1 btn btn-ghost",
+                variant=ButtonT.ghost,
+                cls="flex-1",
                 hx_get="/habits/mobile",
                 hx_target="#main-content",
             ),
             Button(
                 Div(Span("📋", cls="text-2xl"), P("All Habits", cls="text-xs"), cls="text-center"),
-                cls="flex-1 btn btn-ghost",
+                variant=ButtonT.ghost,
+                cls="flex-1",
                 hx_get="/habits",
                 hx_target="#main-content",
             ),
             Button(
                 Div(Span("🎯", cls="text-2xl"), P("Goals", cls="text-xs"), cls="text-center"),
-                cls="flex-1 btn btn-ghost",
+                variant=ButtonT.ghost,
+                cls="flex-1",
                 hx_get="/goals",
                 hx_target="#main-content",
             ),
             Button(
                 Div(Span("👤", cls="text-2xl"), P("Profile", cls="text-xs"), cls="text-center"),
-                cls="flex-1 btn btn-ghost",
+                variant=ButtonT.ghost,
+                cls="flex-1",
                 hx_get="/profile",
                 hx_target="#main-content",
             ),
@@ -316,7 +325,8 @@ class AtomicHabitsMobile:
             # Back button
             Button(
                 "← Back",
-                cls="btn btn-ghost mb-4",
+                variant=ButtonT.ghost,
+                cls="mb-4",
                 hx_get="/habits/mobile",
                 hx_target="#main-content",
             ),
@@ -402,19 +412,22 @@ class AtomicHabitsMobile:
             Div(
                 Button(
                     "✏️ Edit Habit",
-                    cls="btn btn-secondary w-full mb-2",
+                    variant=ButtonT.secondary,
+                    cls="w-full mb-2",
                     hx_get=f"/habits/{uid}/edit",
                     hx_target="#modal",
                 ),
                 Button(
                     "🧠 View Patterns",
-                    cls="btn btn-secondary w-full mb-2",
+                    variant=ButtonT.secondary,
+                    cls="w-full mb-2",
                     hx_get=f"/habits/{uid}/patterns",
                     hx_target="#modal",
                 ),
                 Button(
                     "✓ Complete Today",
-                    cls="btn btn-success w-full text-lg py-4",
+                    variant=ButtonT.success,
+                    cls="w-full text-lg py-4",
                     hx_post=f"/habits/{uid}/complete",
                     hx_target="#main-content",
                 ),

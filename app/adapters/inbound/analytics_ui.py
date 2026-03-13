@@ -42,6 +42,7 @@ from ui.buttons import Button, ButtonT
 from ui.forms import Input, Select
 from ui.layouts.navbar import create_navbar_for_request
 from ui.shared_components import MetricCard, QuickMetricCard
+from ui.cards import Card
 
 logger = get_logger("skuel.routes.analytics.ui")
 
@@ -69,7 +70,7 @@ class AnalyticsUIComponents:
                 cls="text-muted-foreground mb-6",
             ),
             # Analytics generator form
-            Div(
+            Card(
                 H3("Generate Analytics", cls="text-lg font-semibold mb-4"),
                 Form(
                     # Domain selection
@@ -122,7 +123,7 @@ class AnalyticsUIComponents:
                         cls="mb-4",
                     ),
                 ),
-                cls="card bg-background shadow-sm p-6 mb-6",
+                cls="bg-background shadow-sm p-6 mb-6",
             ),
             # Analytics display area
             Div(id="analytics-display", cls="mt-6"),
@@ -152,13 +153,13 @@ class AnalyticsUIComponents:
         """Render generated analytics result"""
         return Div(
             # Analytics header
-            Div(
+            Card(
                 H2(report.title, cls="text-xl font-bold mb-2"),
                 P(
                     f"{report.format_period()} • Generated {report.generated_at.strftime('%Y-%m-%d %H:%M')}",
                     cls="text-muted-foreground text-sm",
                 ),
-                cls="card bg-background shadow-sm p-6 mb-4",
+                cls="bg-background shadow-sm p-6 mb-4",
             ),
             # Metrics cards
             AnalyticsUIComponents.render_metrics_cards(report),
@@ -218,7 +219,7 @@ class AnalyticsUIComponents:
             ),
             # Priority distribution
             (
-                Div(
+                Card(
                     H4("Priority Distribution", cls="font-semibold mb-3"),
                     Table(
                         Thead(Tr(Th("Priority"), Th("Count"), cls="text-left")),
@@ -232,7 +233,7 @@ class AnalyticsUIComponents:
                         ),
                         cls="table table-zebra",
                     ),
-                    cls="card bg-background shadow-sm p-4 mb-4",
+                    cls="bg-background shadow-sm p-4 mb-4",
                 )
                 if metrics.get("priority_distribution")
                 else ""
@@ -266,7 +267,7 @@ class AnalyticsUIComponents:
             ),
             # Streaks
             (
-                Div(
+                Card(
                     H4("Current Streaks", cls="font-semibold mb-3"),
                     *[
                         Div(
@@ -276,7 +277,7 @@ class AnalyticsUIComponents:
                         )
                         for habit_name, days in metrics.get("current_streaks", {}).items()
                     ],
-                    cls="card bg-background shadow-sm p-4",
+                    cls="bg-background shadow-sm p-4",
                 )
                 if metrics.get("current_streaks")
                 else ""
@@ -352,7 +353,7 @@ class AnalyticsUIComponents:
     @staticmethod
     def render_generic_metrics(metrics) -> Any:
         """Fallback for generic metrics display"""
-        return Div(
+        return Card(
             H4("Metrics", cls="font-semibold mb-3"),
             Table(
                 Tbody(
@@ -364,7 +365,7 @@ class AnalyticsUIComponents:
                 ),
                 cls="table table-zebra",
             ),
-            cls="card bg-background shadow-sm p-4",
+            cls="bg-background shadow-sm p-4",
         )
 
     # Note: metric_card() removed - now using QuickMetricCard from shared components
@@ -372,9 +373,9 @@ class AnalyticsUIComponents:
     @staticmethod
     def render_markdown_view(markdown_content) -> Any:
         """Render markdown content"""
-        return Div(
+        return Card(
             Div(markdown_content, cls="prose max-w-none"),
-            cls="card bg-background shadow-sm p-6 mt-4",
+            cls="bg-background shadow-sm p-6 mt-4",
         )
 
     # ========================================================================
@@ -419,7 +420,7 @@ class AnalyticsUIComponents:
             # Alignment Score Card
             QuickMetricCard("Alignment Score", f"{score_percentage}%", score_color),
             # Knowledge Breakdown
-            Div(
+            Card(
                 H2("Knowledge Embodiment", cls="text-xl font-semibold mb-4"),
                 Div(
                     QuickMetricCard("Total Knowledge", str(knowledge_count), "primary"),
@@ -427,10 +428,10 @@ class AnalyticsUIComponents:
                     QuickMetricCard("Theoretical (<0.5)", str(theoretical), "error"),
                     cls="grid grid-cols-3 gap-4",
                 ),
-                cls="card bg-background shadow-sm mb-6 p-6",
+                cls="bg-background shadow-sm mb-6 p-6",
             ),
             # Domain Contributions
-            Div(
+            Card(
                 H2("Domain Contributions to Life Path", cls="text-xl font-semibold mb-4"),
                 Div(
                     *[
@@ -441,10 +442,10 @@ class AnalyticsUIComponents:
                 )
                 if domain_contributions
                 else P("No domain activity detected."),
-                cls="card bg-background shadow-sm mb-6 p-6",
+                cls="bg-background shadow-sm mb-6 p-6",
             ),
             # Gaps
-            Div(
+            Card(
                 H2("Knowledge Gaps", cls="text-xl font-semibold mb-4"),
                 Div(
                     *[AnalyticsUIComponents._render_gap_item(gap) for gap in gaps[:5]],
@@ -452,15 +453,15 @@ class AnalyticsUIComponents:
                 )
                 if gaps
                 else P("No gaps detected - excellent embodiment!", cls="text-success"),
-                cls="card bg-background shadow-sm mb-6 p-6",
+                cls="bg-background shadow-sm mb-6 p-6",
             ),
             # Recommendations
-            Div(
+            Card(
                 H2("Recommendations", cls="text-xl font-semibold mb-4"),
                 Div(*[P(f"• {rec}", cls="mb-2") for rec in recommendations], cls="space-y-1")
                 if recommendations
                 else P("Keep up the great work!", cls="text-success"),
-                cls="card bg-background shadow-sm p-6",
+                cls="bg-background shadow-sm p-6",
             ),
             cls="max-w-4xl mx-auto p-6",
         )
@@ -531,10 +532,10 @@ class AnalyticsUIComponents:
             # Overall Activity Score
             QuickMetricCard("Overall Activity", str(int(total_activity)), "primary"),
             # Summary Text
-            Div(
+            Card(
                 H2("Summary", cls="text-xl font-semibold mb-4"),
                 P(summary_text, cls="text-muted-foreground"),
-                cls="card bg-background shadow-sm mb-6 p-6",
+                cls="bg-background shadow-sm mb-6 p-6",
             ),
             # Layer 0: Knowledge
             AnalyticsUIComponents._render_knowledge_layer_card(layer0_knowledge),
@@ -559,7 +560,7 @@ class AnalyticsUIComponents:
         active_paths = curriculum_progress.get("active_learning_paths", 0)
         in_progress_steps = curriculum_progress.get("in_progress_learning_steps", 0)
 
-        return Div(
+        return Card(
             H2("Layer 0: Knowledge & Learning", cls="text-xl font-semibold mb-4"),
             Div(
                 QuickMetricCard("Avg Substance", f"{int(avg_substance * 100)}%", "primary"),
@@ -568,7 +569,7 @@ class AnalyticsUIComponents:
                 QuickMetricCard("In-Progress Steps", str(in_progress_steps), "accent"),
                 cls="grid grid-cols-4 gap-4",
             ),
-            cls="card bg-background shadow-sm mb-6 p-6",
+            cls="bg-background shadow-sm mb-6 p-6",
         )
 
     @staticmethod
@@ -582,7 +583,7 @@ class AnalyticsUIComponents:
         metacognition_score = layer2_data.get("metacognition_score", 0.0)
         top_themes = layer2_data.get("top_themes", [])
 
-        return Div(
+        return Card(
             H2("Layer 2: Reflection & Journals", cls="text-xl font-semibold mb-4"),
             Div(
                 QuickMetricCard("Entries", str(entry_count), "primary"),
@@ -594,7 +595,7 @@ class AnalyticsUIComponents:
                 P("Top Themes:", cls="font-medium mb-2"),
                 P(", ".join(top_themes[:3]) if top_themes else "None", cls="text-muted-foreground"),
             ),
-            cls="card bg-background shadow-sm mb-6 p-6",
+            cls="bg-background shadow-sm mb-6 p-6",
         )
 
     @staticmethod
@@ -607,7 +608,7 @@ class AnalyticsUIComponents:
         journal_impact = insights.get("journal_reflection_impact", {})
         learning_doing = insights.get("learning_doing_alignment", {})
 
-        return Div(
+        return Card(
             H2("Cross-Layer Insights", cls="text-xl font-semibold mb-4"),
             P(
                 "Synthesis across all architectural layers:",
@@ -631,7 +632,7 @@ class AnalyticsUIComponents:
                 H3("Learning ↔ Doing", cls="font-semibold mb-2"),
                 P(learning_doing.get("insight", ""), cls="text-sm text-muted-foreground"),
             ),
-            cls="card bg-secondary/10 mb-6 p-6",
+            cls="bg-secondary/10 mb-6 p-6",
         )
 
 

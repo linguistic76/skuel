@@ -9,13 +9,13 @@ UI routes for displaying and managing event-driven insights.
 from dataclasses import dataclass
 from typing import Any
 
-from fasthtml.common import H2, H3, A, Div, Label, NotStr, P, Span
+from fasthtml.common import H2, H3, Div, Label, NotStr, P, Span
 from starlette.requests import Request
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.route_factories import parse_int_query_param
 from core.utils.logging import get_logger
-from ui.buttons import Button, ButtonT
+from ui.buttons import Button, ButtonLink, ButtonT
 from ui.forms import Input, Select
 from ui.insights.insight_card import InsightCard
 from ui.layout import Size
@@ -294,7 +294,7 @@ def create_insights_ui_routes(
                 Label(
                     Input(
                         type="checkbox",
-                        cls="checkbox checkbox-sm",
+                        cls="uk-checkbox",
                         **{"x-model": "selectAllChecked"},
                         **{"@change": "toggleSelectAll()"},
                     ),
@@ -337,7 +337,7 @@ def create_insights_ui_routes(
                             type="checkbox",
                             name="insight-checkbox",
                             value=insight.uid,
-                            cls="checkbox checkbox-sm",
+                            cls="uk-checkbox",
                             **{"@change": f"toggleSelection('{insight.uid}')"},
                             **{":checked": f"isSelected('{insight.uid}')"},
                         ),
@@ -434,10 +434,11 @@ def create_insights_ui_routes(
             ),
             # , Task 17: Link to history page
             Div(
-                A(
+                ButtonLink(
                     "📜 View History",
                     href="/insights/history",
-                    cls="btn btn-sm btn-ghost",
+                    variant=ButtonT.ghost,
+                    size=Size.sm,
                 ),
                 cls="mb-4",
             ),
@@ -613,7 +614,7 @@ def create_insights_ui_routes(
                         type="checkbox",
                         name="insight-checkbox",
                         value=insight.uid,
-                        cls="checkbox checkbox-sm",
+                        cls="uk-checkbox",
                         **{"@change": f"toggleSelection('{insight.uid}')"},
                         **{":checked": f"isSelected('{insight.uid}')"},
                     ),

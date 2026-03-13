@@ -12,13 +12,14 @@ __version__ = "2.0"
 
 from typing import Any
 
-from fasthtml.common import H1, A, Div, Nav, NotStr, P
+from fasthtml.common import H1, Div, Nav, NotStr, P
 from starlette.requests import Request
 from starlette.responses import RedirectResponse
 
 from adapters.inbound.auth import is_authenticated
 from core.utils.logging import get_logger
-from ui.layout import Container
+from ui.buttons import ButtonLink, ButtonT
+from ui.layout import Container, Size
 
 logger = get_logger("skuel.routes.system.ui")
 
@@ -80,10 +81,24 @@ def create_system_ui_routes(
                             [
                                 Div(
                                     [
-                                        A("SKUEL", href="/", cls="btn btn-ghost text-xl"),
-                                        A("Home", href="/", cls="btn btn-ghost btn-sm"),
-                                        A("Search", href="/search", cls="btn btn-ghost btn-sm"),
-                                        A("Askesis", href="/askesis", cls="btn btn-ghost btn-sm"),
+                                        ButtonLink(
+                                            "SKUEL", href="/", variant=ButtonT.ghost, cls="text-xl"
+                                        ),
+                                        ButtonLink(
+                                            "Home", href="/", variant=ButtonT.ghost, size=Size.sm
+                                        ),
+                                        ButtonLink(
+                                            "Search",
+                                            href="/search",
+                                            variant=ButtonT.ghost,
+                                            size=Size.sm,
+                                        ),
+                                        ButtonLink(
+                                            "Askesis",
+                                            href="/askesis",
+                                            variant=ButtonT.ghost,
+                                            size=Size.sm,
+                                        ),
                                     ],
                                     cls="flex items-center gap-2",
                                 ),
@@ -112,8 +127,10 @@ def create_system_ui_routes(
                         ),
                         Div(
                             [
-                                A("Go Home", href="/", cls="btn btn-primary mr-2"),
-                                A("Search", href="/search", cls="btn btn-secondary"),
+                                ButtonLink(
+                                    "Go Home", href="/", variant=ButtonT.primary, cls="mr-2"
+                                ),
+                                ButtonLink("Search", href="/search", variant=ButtonT.secondary),
                             ],
                             cls="text-center",
                         ),
@@ -184,9 +201,9 @@ def _render_login_landing_page() -> NotStr:
             <h1 class="text-center text-3xl font-bold text-primary lg:hidden mb-8">SKUEL</h1>
 
             <!-- Login card -->
-            <div class="card bg-background w-full max-w-sm shadow-2xl">
-                <div class="card-body">
-                    <h2 class="card-title text-2xl font-bold mb-4">Sign in</h2>
+            <div class="uk-card uk-card-default bg-background w-full max-w-sm shadow-2xl">
+                <div class="uk-card-body">
+                    <h2 class="uk-card-title text-2xl font-bold mb-4">Sign in</h2>
 
                     <form action="/login/submit" method="POST">
                         <!-- Email/Username field -->
@@ -202,7 +219,7 @@ def _render_login_landing_page() -> NotStr:
                                 autocomplete="email"
                                 autofocus
                                 placeholder="Enter your email or username"
-                                class="input input-bordered w-full"
+                                class="uk-input w-full"
                             />
                         </div>
 
@@ -219,13 +236,13 @@ def _render_login_landing_page() -> NotStr:
                                 required
                                 autocomplete="current-password"
                                 placeholder="Enter your password"
-                                class="input input-bordered w-full"
+                                class="uk-input w-full"
                             />
                         </div>
 
                         <!-- Submit button -->
                         <div class="form-control mt-6">
-                            <button type="submit" class="btn btn-primary w-full">Sign in</button>
+                            <button type="submit" class="uk-btn uk-btn-primary w-full">Sign in</button>
                         </div>
                     </form>
 

@@ -238,7 +238,7 @@ class TasksViewComponents:
                     "hx-target": "#view-content",
                     "hx-swap": "innerHTML",
                 },
-                cls="card bg-background shadow-lg p-6",
+                cls="bg-background shadow-lg p-6",
             ),
             id="create-view",
         )

@@ -62,6 +62,7 @@ from ui.submissions.report import (
     render_yours_list,
 )
 from ui.submissions.sharing import render_sharing_section
+from ui.cards import Card, CardBody
 
 logger = get_logger("skuel.routes.submissions.ui")
 
@@ -537,7 +538,7 @@ def create_submissions_ui_routes(
         """Reports page: assessments received from teachers + AI activity reports."""
         require_authenticated_user(request)
 
-        teacher_section = Div(
+        teacher_section = Card(
             H3("Teacher Assessments", cls="font-semibold mb-4"),
             Div(
                 P("Loading feedback...", cls="text-center text-muted-foreground"),
@@ -549,10 +550,10 @@ def create_submissions_ui_routes(
                     "hx-swap": "outerHTML",
                 },
             ),
-            cls="card bg-background shadow-sm p-4 mb-6",
+            cls="bg-background shadow-sm p-4 mb-6",
         )
 
-        activity_feedback_section = Div(
+        activity_feedback_section = Card(
             H3("Activity Feedback", cls="font-semibold mb-4"),
             Div(
                 P("Loading activity feedback...", cls="text-center text-muted-foreground"),
@@ -564,7 +565,7 @@ def create_submissions_ui_routes(
                     "hx-swap": "outerHTML",
                 },
             ),
-            cls="card bg-background shadow-sm p-4",
+            cls="bg-background shadow-sm p-4",
         )
 
         content = Div(
@@ -639,8 +640,8 @@ def create_submissions_ui_routes(
         """Progress page: generate and view progress reports."""
         require_authenticated_user(request)
 
-        generate_card = Div(
-            Div(
+        generate_card = Card(
+            CardBody(
                 H3("Generate Progress Report", cls="font-semibold mb-4"),
                 Form(
                     Div(
@@ -681,9 +682,9 @@ def create_submissions_ui_routes(
                         "hx-headers": '{"Content-Type": "application/json"}',
                     },
                 ),
-                cls="card-body",
+
             ),
-            cls="card bg-background shadow-sm mb-6",
+            cls="bg-background shadow-sm mb-6",
         )
 
         recent_reports = Div(
@@ -782,9 +783,9 @@ def create_submissions_ui_routes(
         if not submission_result.is_error and submission_result.value is not None:
             is_owner = submission_result.value.user_uid == user_uid
 
-        detail_card = Div(
-            Div(
-                H3("Submission Details", cls="card-title"),
+        detail_card = Card(
+            CardBody(
+                H3("Submission Details"),
                 Div(
                     P("Loading submission details...", cls="text-center text-muted-foreground"),
                     id="submission-info",
@@ -842,9 +843,9 @@ def create_submissions_ui_routes(
                     ),
                     cls="mt-4",
                 ),
-                cls="card-body",
+
             ),
-            cls="card bg-background shadow-sm",
+            cls="bg-background shadow-sm",
         )
 
         content = Div(

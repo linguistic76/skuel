@@ -20,13 +20,13 @@ Philosophy:
 
 from typing import Any
 
-from fasthtml.common import H1, H2, H3, A, Div, Form, P, Span
+from fasthtml.common import H1, H2, H3, Div, Form, P, Span
 from starlette.requests import Request
 from starlette.responses import RedirectResponse
 
 from adapters.inbound.auth import require_authenticated_user
 from core.utils.logging import get_logger
-from ui.buttons import Button
+from ui.buttons import Button, ButtonLink, ButtonT
 from ui.cards import Card
 from ui.feedback import Badge, BadgeT, Progress
 from ui.forms import Label, Textarea
@@ -146,7 +146,8 @@ def create_lifepath_ui_routes(
                         Button(
                             "Extract Themes & Get Recommendations",
                             type="submit",
-                            cls="btn btn-primary w-full",
+                            variant=ButtonT.primary,
+                            cls="w-full",
                         ),
                         method="post",
                         action="/lifepath/vision",
@@ -264,7 +265,7 @@ def _error_page(message: str):
     return Div(
         H1("Error", cls="text-2xl font-bold text-red-600"),
         P(message, cls="text-muted-foreground mt-2"),
-        A("Go back", href="/lifepath", cls="btn btn-primary mt-4"),
+        ButtonLink("Go back", href="/lifepath", variant=ButtonT.primary, cls="mt-4"),
         cls="container mx-auto px-4 py-8",
     )
 
@@ -278,10 +279,11 @@ def _build_dashboard_content(status: dict, user_uid: str) -> Any:
                 "You haven't expressed your vision yet. Start by telling us what you want to become.",
                 cls="text-lg text-muted-foreground mb-8",
             ),
-            A(
+            ButtonLink(
                 "Express Your Vision",
                 href="/lifepath/vision",
-                cls="btn btn-primary btn-lg",
+                variant=ButtonT.primary,
+                size=Size.lg,
             ),
             cls="container mx-auto px-4 py-8 text-center",
         )
@@ -336,8 +338,13 @@ def _build_dashboard_content(status: dict, user_uid: str) -> Any:
         ),
         # Quick actions
         Div(
-            A("View Alignment Details", href="/lifepath/alignment", cls="btn btn-outline mr-4"),
-            A("Update Vision", href="/lifepath/vision", cls="btn btn-outline"),
+            ButtonLink(
+                "View Alignment Details",
+                href="/lifepath/alignment",
+                variant=ButtonT.outline,
+                cls="mr-4",
+            ),
+            ButtonLink("Update Vision", href="/lifepath/vision", variant=ButtonT.outline),
             cls="flex gap-4",
         ),
         # Daily focus
@@ -373,7 +380,8 @@ def _build_recommendations_page(data: dict, user_uid: str) -> Any:
                     Button(
                         "Choose This Path",
                         type="submit",
-                        cls="btn btn-primary btn-sm",
+                        variant=ButtonT.primary,
+                        size=Size.sm,
                     ),
                     cls="p-4 pt-0",
                 ),
@@ -480,7 +488,7 @@ def _build_alignment_dashboard(status: dict, user_uid: str) -> Any:
             ),
             cls="mb-8",
         ),
-        A("Back to Dashboard", href="/lifepath", cls="btn btn-outline"),
+        ButtonLink("Back to Dashboard", href="/lifepath", variant=ButtonT.outline),
         cls=f"container mx-auto px-4 py-8 {Container.NARROW}",
     )
 

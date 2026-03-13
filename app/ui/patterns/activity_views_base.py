@@ -258,16 +258,14 @@ class ActivityViewSwitcher:
             Div containing view switcher buttons
         """
 
-        def btn_class(view: str) -> str:
-            base = "btn btn-sm"
-            if view == active_view:
-                return f"{base} btn-primary"
-            return f"{base} btn-ghost"
+        def btn_variant(view: str) -> ButtonT:
+            return ButtonT.primary if view == active_view else ButtonT.ghost
 
         return Div(
             Button(
                 "Month",
-                cls=btn_class("month"),
+                variant=btn_variant("month"),
+                size=Size.sm,
                 **{
                     "hx-get": f"/{domain}/view/calendar?calendar_view=month&date={current_date.isoformat()}",
                     "hx-target": "#view-content",
@@ -275,7 +273,8 @@ class ActivityViewSwitcher:
             ),
             Button(
                 "Week",
-                cls=btn_class("week"),
+                variant=btn_variant("week"),
+                size=Size.sm,
                 **{
                     "hx-get": f"/{domain}/view/calendar?calendar_view=week&date={current_date.isoformat()}",
                     "hx-target": "#view-content",
@@ -283,7 +282,8 @@ class ActivityViewSwitcher:
             ),
             Button(
                 "Day",
-                cls=btn_class("day"),
+                variant=btn_variant("day"),
+                size=Size.sm,
                 **{
                     "hx-get": f"/{domain}/view/calendar?calendar_view=day&date={current_date.isoformat()}",
                     "hx-target": "#view-content",

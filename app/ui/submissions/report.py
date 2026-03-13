@@ -11,6 +11,7 @@ from fasthtml.common import H4, Div, NotStr, P
 
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
+from ui.cards import Card, CardBody
 
 # ============================================================================
 # SHARED HELPERS
@@ -85,7 +86,7 @@ def render_submission_history_row(item: dict) -> Any:
         label = f"{feedback_count} feedback round{'s' if feedback_count != 1 else ''}"
         feedback_chip = Badge(label, variant=BadgeT.outline, size=Size.sm, cls="ml-2")
 
-    return Div(
+    return Card(
         Div(
             Div(
                 P(filename, cls="font-semibold mb-0"),
@@ -104,7 +105,7 @@ def render_submission_history_row(item: dict) -> Any:
             ),
             cls="flex items-center gap-4",
         ),
-        cls="card bg-background shadow-sm mb-2",
+        cls="bg-background shadow-sm mb-2",
     )
 
 
@@ -152,8 +153,8 @@ def render_report_card(assessment: Any) -> Any:
     date_str = format_date(created_at)
 
     return Div(
-        Div(
-            Div(
+        Card(
+            CardBody(
                 H4(title, cls="font-semibold mb-1"),
                 P(
                     f"From: {user_uid} \u00b7 {date_str} \u00b7 {source_label}",
@@ -161,9 +162,9 @@ def render_report_card(assessment: Any) -> Any:
                 ),
                 P(preview, cls="text-sm"),
                 A("View Full", href=f"/submissions/{uid}", cls="btn btn-sm btn-ghost mt-2"),
-                cls="card-body p-4",
+                cls="p-4",
             ),
-            cls="card bg-background shadow-sm mb-3",
+            cls="bg-background shadow-sm mb-3",
         ),
     )
 
@@ -205,8 +206,8 @@ def render_activity_report_card(report: Any) -> Any:
         date_parts.append(str(time_period))
     subtitle = " \u00b7 ".join(date_parts)
 
-    return Div(
-        Div(
+    return Card(
+        CardBody(
             Div(
                 Div(
                     P(title, cls="font-semibold mb-0 text-sm"),
@@ -216,9 +217,9 @@ def render_activity_report_card(report: Any) -> Any:
                 cls="flex items-start justify-between gap-2",
             ),
             P(truncated, cls="text-xs text-muted-foreground mt-1") if truncated else None,
-            cls="card-body p-3",
+            cls="p-3",
         ),
-        cls="card bg-background border border-border mb-2",
+        cls="bg-background border border-border mb-2",
     )
 
 
@@ -279,8 +280,8 @@ def render_progress_report_card(report: Any) -> Any:
             cls="text-sm text-foreground/40 mt-1",
         )
 
-    return Div(
-        Div(
+    return Card(
+        CardBody(
             Div(
                 Div(
                     H4(title, cls="font-semibold mb-0"),
@@ -291,9 +292,9 @@ def render_progress_report_card(report: Any) -> Any:
             Div(*badges, cls="flex flex-wrap gap-1 mb-2") if badges else None,
             Div(*domain_badges, cls="flex flex-wrap gap-1 mb-2") if domain_badges else None,
             content_section,
-            cls="card-body p-4",
+            cls="p-4",
         ),
-        cls="card bg-background shadow-sm mb-3",
+        cls="bg-background shadow-sm mb-3",
     )
 
 

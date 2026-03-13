@@ -22,9 +22,7 @@ from typing import Any
 from fasthtml.common import (
     H1,
     H2,
-    A,
     Body,
-    Button,
     Container,
     Div,
     Head,
@@ -42,6 +40,7 @@ from starlette.requests import Request
 from adapters.inbound.auth import require_authenticated_user
 from core.models.event.calendar_models import CalendarView
 from core.utils.logging import get_logger
+from ui.buttons import Button, ButtonLink, ButtonT
 from ui.calendar.components import (
     create_day_timeline,
     create_month_grid,
@@ -50,7 +49,7 @@ from ui.calendar.components import (
     create_week_grid,
     error_response,
 )
-from ui.feedback import Badge, BadgeT
+from ui.feedback import Alert, AlertT, Badge, BadgeT
 from ui.layout import Size
 from ui.layouts.navbar import create_navbar_for_request
 
@@ -249,7 +248,7 @@ def _render_item_details_modal(item: Any) -> Div:
     action_buttons = [
         Button(
             "Close",
-            cls="btn btn-ghost",
+            variant=ButtonT.ghost,
             onclick="document.getElementById('item-details-modal').remove()",
         )
     ]
@@ -257,19 +256,21 @@ def _render_item_details_modal(item: Any) -> Div:
     if item.item_type.value in ("task_work", "task_deadline"):
         action_buttons.insert(
             0,
-            A(
+            ButtonLink(
                 "Edit Task",
                 href=f"/tasks/{item.source_uid}/edit",
-                cls="btn btn-primary mr-2",
+                variant=ButtonT.primary,
+                cls="mr-2",
             ),
         )
     elif item.item_type.value == "event":
         action_buttons.insert(
             0,
-            A(
+            ButtonLink(
                 "Edit Event",
                 href=f"/events/{item.source_uid}/edit",
-                cls="btn btn-success mr-2",
+                variant=ButtonT.success,
+                cls="mr-2",
             ),
         )
     elif item.item_type.value == "habit":
@@ -277,7 +278,8 @@ def _render_item_details_modal(item: Any) -> Div:
             0,
             Button(
                 "Mark Complete",
-                cls="btn btn-secondary mr-2",
+                variant=ButtonT.secondary,
+                cls="mr-2",
                 **{
                     "hx-post": f"/events/calendar/habit/{item.source_uid}/complete",
                     "hx-swap": "none",
@@ -301,7 +303,9 @@ def _render_item_details_modal(item: Any) -> Div:
                             '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>'
                             "</svg>"
                         ),
-                        cls="btn btn-ghost btn-sm text-muted-foreground hover:text-muted-foreground",
+                        variant=ButtonT.ghost,
+                        size=Size.sm,
+                        cls="text-muted-foreground hover:text-muted-foreground",
                         onclick="document.getElementById('item-details-modal').remove()",
                     ),
                     cls="flex justify-between items-start mb-4",
@@ -376,20 +380,24 @@ def create_calendar_ui_routes(_app, rt, calendar_service, habits_service=None):
                         create_view_switcher("month", first_day),
                         # Month navigation - using links instead of JavaScript
                         Div(
-                            A(
+                            ButtonLink(
                                 "← Previous",
                                 href=f"/events/month/{_get_prev_month(year, month)[0]}/{_get_prev_month(year, month)[1]}",
-                                cls="btn btn-ghost btn-sm",
+                                variant=ButtonT.ghost,
+                                size=Size.sm,
                             ),
-                            A(
+                            ButtonLink(
                                 "Today",
                                 href="/events",
-                                cls="btn btn-primary btn-sm mx-2",
+                                variant=ButtonT.primary,
+                                size=Size.sm,
+                                cls="mx-2",
                             ),
-                            A(
+                            ButtonLink(
                                 "Next →",
                                 href=f"/events/month/{_get_next_month(year, month)[0]}/{_get_next_month(year, month)[1]}",
-                                cls="btn btn-ghost btn-sm",
+                                variant=ButtonT.ghost,
+                                size=Size.sm,
                             ),
                             cls="flex justify-center mb-6",
                         ),
@@ -454,20 +462,24 @@ def create_calendar_ui_routes(_app, rt, calendar_service, habits_service=None):
                         create_view_switcher("week", week_start),
                         # Week navigation - using links instead of JavaScript
                         Div(
-                            A(
+                            ButtonLink(
                                 "← Previous Week",
                                 href=f"/events/week/{_get_prev_week(week_start)}",
-                                cls="btn btn-ghost btn-sm",
+                                variant=ButtonT.ghost,
+                                size=Size.sm,
                             ),
-                            A(
+                            ButtonLink(
                                 "This Week",
                                 href=f"/events/week/{date.today().isoformat()}",
-                                cls="btn btn-primary btn-sm mx-2",
+                                variant=ButtonT.primary,
+                                size=Size.sm,
+                                cls="mx-2",
                             ),
-                            A(
+                            ButtonLink(
                                 "Next Week →",
                                 href=f"/events/week/{_get_next_week(week_start)}",
-                                cls="btn btn-ghost btn-sm",
+                                variant=ButtonT.ghost,
+                                size=Size.sm,
                             ),
                             cls="flex justify-center mb-6",
                         ),
@@ -520,20 +532,24 @@ def create_calendar_ui_routes(_app, rt, calendar_service, habits_service=None):
                         create_view_switcher("day", target_date),
                         # Day navigation - using links instead of JavaScript
                         Div(
-                            A(
+                            ButtonLink(
                                 "← Previous Day",
                                 href=f"/events/day/{_get_prev_day(target_date)}",
-                                cls="btn btn-ghost btn-sm",
+                                variant=ButtonT.ghost,
+                                size=Size.sm,
                             ),
-                            A(
+                            ButtonLink(
                                 "Today",
                                 href=f"/events/day/{date.today().isoformat()}",
-                                cls="btn btn-primary btn-sm mx-2",
+                                variant=ButtonT.primary,
+                                size=Size.sm,
+                                cls="mx-2",
                             ),
-                            A(
+                            ButtonLink(
                                 "Next Day →",
                                 href=f"/events/day/{_get_next_day(target_date)}",
-                                cls="btn btn-ghost btn-sm",
+                                variant=ButtonT.ghost,
+                                size=Size.sm,
                             ),
                             cls="flex justify-center mb-6",
                         ),
@@ -574,15 +590,15 @@ def create_calendar_ui_routes(_app, rt, calendar_service, habits_service=None):
 
             # Validation
             if not title:
-                return Div(
-                    P("Please enter a title", cls="text-error text-sm"),
-                    cls="alert alert-error",
+                return Alert(
+                    P("Please enter a title", cls="text-sm"),
+                    variant=AlertT.error,
                 )
 
             if not start_time_str:
-                return Div(
-                    P("Please select a date and time", cls="text-error text-sm"),
-                    cls="alert alert-error",
+                return Alert(
+                    P("Please select a date and time", cls="text-sm"),
+                    variant=AlertT.error,
                 )
 
             # Parse datetime
@@ -599,33 +615,34 @@ def create_calendar_ui_routes(_app, rt, calendar_service, habits_service=None):
             if result.is_ok:
                 # Success - show message and trigger page reload
                 return Div(
-                    Div(
+                    Alert(
                         P(
                             f"✓ {item_type.title()} created successfully!",
-                            cls="text-success font-medium",
+                            cls="font-medium",
                         ),
-                        P("Refreshing calendar...", cls="text-success/70 text-sm"),
-                        cls="alert alert-success mb-4",
+                        P("Refreshing calendar...", cls="text-sm opacity-70"),
+                        variant=AlertT.success,
+                        cls="mb-4",
                     ),
                     # Auto-reload after brief delay
                     Script("setTimeout(() => window.location.reload(), 1000);"),
                 )
             else:
-                return Div(
-                    P(f"Failed to create: {result.error}", cls="text-error text-sm"),
-                    cls="alert alert-error",
+                return Alert(
+                    P(f"Failed to create: {result.error}", cls="text-sm"),
+                    variant=AlertT.error,
                 )
 
         except ValueError as e:
-            return Div(
-                P(f"Invalid input: {e}", cls="text-error text-sm"),
-                cls="alert alert-error",
+            return Alert(
+                P(f"Invalid input: {e}", cls="text-sm"),
+                variant=AlertT.error,
             )
         except Exception as e:
             logger.error(f"Quick create error: {e}")
-            return Div(
-                P(f"Error: {e}", cls="text-error text-sm"),
-                cls="alert alert-error",
+            return Alert(
+                P(f"Error: {e}", cls="text-sm"),
+                variant=AlertT.error,
             )
 
     @rt("/events/calendar/habit/{habit_uid}/record/{status}")
@@ -644,9 +661,9 @@ def create_calendar_ui_routes(_app, rt, calendar_service, habits_service=None):
             # Validate status
             valid_statuses = {"done", "skipped", "missed"}
             if status.lower() not in valid_statuses:
-                return Div(
-                    P(f"Invalid status: {status}", cls="text-error text-sm"),
-                    cls="alert alert-error",
+                return Alert(
+                    P(f"Invalid status: {status}", cls="text-sm"),
+                    variant=AlertT.error,
                 )
 
             # Get today's date
@@ -663,41 +680,41 @@ def create_calendar_ui_routes(_app, rt, calendar_service, habits_service=None):
 
                 if result.is_ok:
                     status_icons = {"done": "✅", "skipped": "⏭️", "missed": "❌"}
-                    status_alerts = {
-                        "done": "alert alert-success",
-                        "skipped": "alert alert-warning",
-                        "missed": "alert alert-error",
+                    status_variants = {
+                        "done": AlertT.success,
+                        "skipped": AlertT.warning,
+                        "missed": AlertT.error,
                     }
                     icon = status_icons.get(status.lower(), "✓")
-                    alert_cls = status_alerts.get(status.lower(), "alert")
+                    variant = status_variants.get(status.lower(), AlertT.info)
 
-                    return Div(
+                    return Alert(
                         P(
                             f"{icon} Recorded as {status}!",
                             cls="text-sm font-medium",
                         ),
-                        cls=alert_cls,
+                        variant=variant,
                     )
                 else:
-                    return Div(
-                        P(f"Failed: {result.error}", cls="text-error text-sm"),
-                        cls="alert alert-error",
+                    return Alert(
+                        P(f"Failed: {result.error}", cls="text-sm"),
+                        variant=AlertT.error,
                     )
 
             # Fallback for development (no service)
-            return Div(
+            return Alert(
                 P(
                     f"✓ Would record {status} (service not available)",
-                    cls="text-muted-foreground text-sm",
+                    cls="text-sm",
                 ),
-                cls="alert",
+                variant=AlertT.info,
             )
 
         except Exception as e:
             logger.error(f"Habit record error: {e}")
-            return Div(
-                P(f"Error: {e}", cls="text-error text-sm"),
-                cls="alert alert-error",
+            return Alert(
+                P(f"Error: {e}", cls="text-sm"),
+                variant=AlertT.error,
             )
 
     @rt("/events/calendar/item-details/{item_id}")
@@ -720,7 +737,8 @@ def create_calendar_ui_routes(_app, rt, calendar_service, habits_service=None):
                     P("Calendar item not found", cls="text-muted-foreground"),
                     Button(
                         "Close",
-                        cls="mt-4 btn btn-ghost",
+                        variant=ButtonT.ghost,
+                        cls="mt-4",
                         onclick="document.getElementById('item-details-modal').remove()",
                     ),
                     cls="bg-background rounded-lg p-6 max-w-md w-full mx-4",

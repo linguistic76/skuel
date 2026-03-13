@@ -2,7 +2,7 @@
 CardGenerator - Dynamic Display Card Generation from Dataclasses
 =================================================================
 
-Generates DaisyUI display cards automatically from dataclass introspection.
+Generates display cards automatically from dataclass introspection.
 
 Following the 100% dynamic architecture vision:
 - Models define structure → UI auto-generates
@@ -31,6 +31,7 @@ from typing import Any, get_args, get_origin
 from fasthtml.common import H3, Div, Li, P, Span, Ul
 
 from core.utils.logging import get_logger
+from ui.cards import Card
 from ui.feedback import Badge, BadgeT
 from ui.forms import Label
 
@@ -345,12 +346,12 @@ class CardGenerator:
             card_components.append(field_component)
 
         # Build card attributes
-        attrs = {"cls": "card bg-background shadow-md p-6"}
+        attrs = {"cls": "bg-background shadow-md p-6"}
         if card_attrs:
             attrs.update(card_attrs)
 
         # Return generated card
-        card = Div(*card_components, **attrs)
+        card = Card(*card_components, **attrs)
 
         logger.info(f"✅ Generated card with {len(card_components)} components")
         return card
@@ -423,7 +424,7 @@ class CardGenerator:
             display_fields=display_fields,
             title_field=title_field,
             card_attrs={
-                "cls": "card bg-background border border-border p-3 hover:shadow-md transition-shadow"
+                "cls": "bg-background border border-border p-3 hover:shadow-md transition-shadow"
             },
         )
 
@@ -444,7 +445,7 @@ class CardGenerator:
             instance,
             exclude_fields=exclude_fields,
             show_empty_fields=True,
-            card_attrs={"cls": "card bg-background shadow-xl p-8"},
+            card_attrs={"cls": "bg-background shadow-xl p-8"},
         )
 
 
@@ -502,7 +503,7 @@ class CardGeneratorExamples:
                 "hx_get": f"/api/tasks/{task.uid}",
                 "hx_trigger": "click",
                 "hx_target": "#detail-panel",
-                "cls": "card bg-background shadow-md p-6 cursor-pointer hover:shadow-xl transition-shadow",
+                "cls": "bg-background shadow-md p-6 cursor-pointer hover:shadow-xl transition-shadow",
             },
         )
 

@@ -3,7 +3,7 @@ Authentication UI Components
 ============================
 
 Reusable components for user registration and login.
-Uses semantic HTML with TailwindCSS + DaisyUI styling.
+Uses semantic HTML with Tailwind + MonsterUI styling.
 
 Version: 2.0.0
 Date: 2025-12-02
@@ -63,7 +63,7 @@ class AuthComponents:
                             required
                             autocomplete="email"
                             autofocus
-                            class="input input-bordered w-full"
+                            class="uk-input w-full"
                         />
                     </div>
                 </div>
@@ -82,7 +82,7 @@ class AuthComponents:
                             name="password"
                             required
                             autocomplete="current-password"
-                            class="input input-bordered w-full"
+                            class="uk-input w-full"
                         />
                     </div>
                 </div>
@@ -157,7 +157,7 @@ class AuthComponents:
                             minlength="3"
                             maxlength="30"
                             pattern="[a-zA-Z0-9_]+"
-                            class="input input-bordered w-full"
+                            class="uk-input w-full"
                         />
                     </div>
                     <p class="mt-1 text-xs text-muted-foreground">3-30 characters, letters, numbers, and underscores only</p>
@@ -174,7 +174,7 @@ class AuthComponents:
                             placeholder="your.email@example.com"
                             required
                             autocomplete="email"
-                            class="input input-bordered w-full"
+                            class="uk-input w-full"
                         />
                     </div>
                 </div>
@@ -190,7 +190,7 @@ class AuthComponents:
                             placeholder="How should we call you?"
                             required
                             maxlength="100"
-                            class="input input-bordered w-full"
+                            class="uk-input w-full"
                         />
                     </div>
                 </div>
@@ -207,7 +207,7 @@ class AuthComponents:
                             required
                             minlength="6"
                             autocomplete="new-password"
-                            class="input input-bordered w-full"
+                            class="uk-input w-full"
                         />
                     </div>
                     <p class="mt-1 text-xs text-muted-foreground">At least 6 characters</p>
@@ -225,7 +225,7 @@ class AuthComponents:
                             required
                             minlength="6"
                             autocomplete="new-password"
-                            class="input input-bordered w-full"
+                            class="uk-input w-full"
                         />
                     </div>
                 </div>
@@ -239,7 +239,7 @@ class AuthComponents:
                         name="accept_terms"
                         value="1"
                         required
-                        class="mt-1 h-4 w-4 rounded border-base-content/30 bg-white/5 text-primary focus:ring-primary focus:ring-offset-base-300"
+                        class="uk-checkbox mt-1 h-4 w-4"
                     />
                     <label for="accept_terms" class="text-sm text-muted-foreground">
                         I agree to the
@@ -279,10 +279,10 @@ class AuthComponents:
         """
         return NotStr(f"""
         <div class="min-h-screen bg-muted flex items-center justify-center p-6">
-            <div class="card bg-background shadow-xl max-w-lg w-full">
-                <div class="card-body text-center">
+            <div class="uk-card uk-card-default bg-background shadow-xl max-w-lg w-full">
+                <div class="uk-card-body text-center">
                     <div class="text-6xl mb-4">✅</div>
-                    <h1 class="card-title text-3xl font-bold justify-center mb-2">Welcome to SKUEL!</h1>
+                    <h1 class="uk-card-title text-3xl font-bold justify-center mb-2">Welcome to SKUEL!</h1>
                     <p class="text-lg text-muted-foreground mb-6">
                         Your account '{username}' has been created successfully!
                     </p>
@@ -305,8 +305,8 @@ class AuthComponents:
                         </ul>
                     </div>
 
-                    <div class="card-actions justify-center">
-                        <a href="/" class="btn btn-primary w-full">Get Started</a>
+                    <div class="uk-card-footer justify-center">
+                        <a href="/" class="uk-btn uk-btn-primary w-full">Get Started</a>
                     </div>
                 </div>
             </div>
@@ -326,17 +326,17 @@ class AuthComponents:
         """
         return NotStr(f"""
         <div class="min-h-screen bg-muted flex items-center justify-center p-6">
-            <div class="card bg-background shadow-xl max-w-lg w-full">
-                <div class="card-body text-center">
+            <div class="uk-card uk-card-default bg-background shadow-xl max-w-lg w-full">
+                <div class="uk-card-body text-center">
                     <div class="text-6xl mb-4">❌</div>
-                    <h1 class="card-title text-3xl font-bold text-error justify-center mb-2">
+                    <h1 class="uk-card-title text-3xl font-bold text-error justify-center mb-2">
                         Login Failed
                     </h1>
                     <p class="text-lg text-foreground/80 mb-6">{error_message}</p>
 
-                    <div class="card-actions justify-center gap-3">
-                        <a href="/login" class="btn btn-primary">Try Again</a>
-                        <a href="/forgot-password" class="btn btn-outline">Forgot Password?</a>
+                    <div class="uk-card-footer justify-center gap-3">
+                        <a href="/login" class="uk-btn uk-btn-primary">Try Again</a>
+                        <a href="/forgot-password" class="uk-btn uk-btn-secondary">Forgot Password?</a>
                     </div>
                 </div>
             </div>
@@ -364,9 +364,9 @@ class AuthComponents:
 
         return NotStr(f"""
         <div class="min-h-screen bg-muted flex items-center justify-center p-6">
-            <div class="card bg-background shadow-xl max-w-md w-full">
-                <div class="card-body text-center">
-                    <h1 class="card-title text-3xl font-bold justify-center mb-2">Reset Password</h1>
+            <div class="uk-card uk-card-default bg-background shadow-xl max-w-md w-full">
+                <div class="uk-card-body text-center">
+                    <h1 class="uk-card-title text-3xl font-bold justify-center mb-2">Reset Password</h1>
                     <p class="text-muted-foreground mb-6">
                         Enter your email and we'll send you a link to reset your password.
                     </p>
@@ -379,13 +379,13 @@ class AuthComponents:
                                 type="email"
                                 name="email"
                                 placeholder="your.email@example.com"
-                                class="input input-bordered w-full"
+                                class="uk-input w-full"
                                 required
                                 autofocus
                             />
                         </div>
 
-                        <button type="submit" class="btn btn-primary w-full">
+                        <button type="submit" class="uk-btn uk-btn-primary w-full">
                             Send Reset Link
                         </button>
                     </form>
@@ -393,7 +393,7 @@ class AuthComponents:
                     <div class="divider text-muted-foreground text-sm">or</div>
 
                     <div class="space-y-2">
-                        <a href="/reset-password" class="btn btn-outline btn-sm w-full">
+                        <a href="/reset-password" class="uk-btn uk-btn-secondary uk-btn-sm w-full">
                             I Have a Reset Token
                         </a>
                         <a href="/login" class="link link-hover text-muted-foreground">
@@ -420,21 +420,21 @@ class AuthComponents:
         error_html = ""
         if error_message:
             error_html = f"""
-            <div class="alert alert-error mb-4">
-                <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+            <div class="mb-4 rounded-md bg-red-500/10 border border-red-500/20 p-3 flex items-center gap-2" role="alert">
+                <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6 text-red-400" fill="none" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                <span>{error_message}</span>
+                <span class="text-sm text-red-400">{error_message}</span>
             </div>
             """
 
         return NotStr(f"""
         <div class="min-h-screen bg-muted flex items-center justify-center p-6">
-            <div class="card bg-background shadow-xl max-w-md w-full">
-                <div class="card-body">
+            <div class="uk-card uk-card-default bg-background shadow-xl max-w-md w-full">
+                <div class="uk-card-body">
                     <div class="text-center mb-4">
                         <div class="text-5xl mb-2">🔑</div>
-                        <h1 class="card-title text-2xl font-bold justify-center">Reset Your Password</h1>
+                        <h1 class="uk-card-title text-2xl font-bold justify-center">Reset Your Password</h1>
                         <p class="text-muted-foreground text-sm mt-1">
                             Enter your reset token
                         </p>
@@ -451,7 +451,7 @@ class AuthComponents:
                                 type="text"
                                 name="token"
                                 placeholder="Paste your reset token here"
-                                class="input input-bordered w-full font-mono text-sm"
+                                class="uk-input w-full font-mono text-sm"
                                 value="{token}"
                                 required
                             />
@@ -470,7 +470,7 @@ class AuthComponents:
                                 type="password"
                                 name="password"
                                 placeholder="Enter new password"
-                                class="input input-bordered w-full"
+                                class="uk-input w-full"
                                 minlength="8"
                                 required
                             />
@@ -489,13 +489,13 @@ class AuthComponents:
                                 type="password"
                                 name="confirm_password"
                                 placeholder="Confirm new password"
-                                class="input input-bordered w-full"
+                                class="uk-input w-full"
                                 minlength="8"
                                 required
                             />
                         </div>
 
-                        <button type="submit" class="btn btn-primary w-full">
+                        <button type="submit" class="uk-btn uk-btn-primary w-full">
                             Reset Password
                         </button>
                     </form>
@@ -522,16 +522,16 @@ class AuthComponents:
         """
         return NotStr("""
         <div class="min-h-screen bg-muted flex items-center justify-center p-6">
-            <div class="card bg-background shadow-xl max-w-md w-full">
-                <div class="card-body text-center">
+            <div class="uk-card uk-card-default bg-background shadow-xl max-w-md w-full">
+                <div class="uk-card-body text-center">
                     <div class="text-6xl mb-4">✅</div>
-                    <h1 class="card-title text-3xl font-bold justify-center mb-2">Password Reset!</h1>
+                    <h1 class="uk-card-title text-3xl font-bold justify-center mb-2">Password Reset!</h1>
                     <p class="text-muted-foreground mb-6">
                         Your password has been reset successfully.
                         You can now log in with your new password.
                     </p>
 
-                    <a href="/login" class="btn btn-primary w-full">
+                    <a href="/login" class="uk-btn uk-btn-primary w-full">
                         Go to Login
                     </a>
                 </div>
@@ -552,10 +552,10 @@ class AuthComponents:
         """
         return NotStr(f"""
         <div class="min-h-screen bg-muted flex items-center justify-center p-6">
-            <div class="card bg-background shadow-xl max-w-lg w-full">
-                <div class="card-body text-center">
+            <div class="uk-card uk-card-default bg-background shadow-xl max-w-lg w-full">
+                <div class="uk-card-body text-center">
                     <div class="text-6xl mb-4">✉️</div>
-                    <h1 class="card-title text-3xl font-bold justify-center mb-2">Check Your Email</h1>
+                    <h1 class="uk-card-title text-3xl font-bold justify-center mb-2">Check Your Email</h1>
                     <p class="text-lg text-muted-foreground mb-4">
                         We've sent a verification email to <strong>{email}</strong>.
                     </p>
@@ -563,8 +563,8 @@ class AuthComponents:
                         Please click the link in the email to verify your account before logging in.
                     </p>
 
-                    <div class="card-actions justify-center">
-                        <a href="/login" class="btn btn-primary w-full">Go to Login</a>
+                    <div class="uk-card-footer justify-center">
+                        <a href="/login" class="uk-btn uk-btn-primary w-full">Go to Login</a>
                     </div>
                 </div>
             </div>
@@ -584,15 +584,15 @@ class AuthComponents:
         """
         return NotStr(f"""
         <div class="min-h-screen bg-muted flex items-center justify-center p-6">
-            <div class="card bg-background shadow-xl max-w-md w-full">
-                <div class="card-body text-center">
-                    <h1 class="card-title text-3xl font-bold justify-center mb-4">Check Your Email</h1>
+            <div class="uk-card uk-card-default bg-background shadow-xl max-w-md w-full">
+                <div class="uk-card-body text-center">
+                    <h1 class="uk-card-title text-3xl font-bold justify-center mb-4">Check Your Email</h1>
                     <p class="text-muted-foreground mb-6">
                         If an account exists for <strong>{email}</strong>, you'll receive password reset instructions shortly.
                     </p>
 
-                    <div class="card-actions justify-center">
-                        <a href="/login" class="btn btn-primary w-full">Back to Login</a>
+                    <div class="uk-card-footer justify-center">
+                        <a href="/login" class="uk-btn uk-btn-primary w-full">Back to Login</a>
                     </div>
                 </div>
             </div>
@@ -610,10 +610,10 @@ class AuthComponents:
         return NotStr("""
         <meta http-equiv="refresh" content="2;url=/login">
         <div class="min-h-screen bg-muted flex items-center justify-center p-6">
-            <div class="card bg-background shadow-xl max-w-lg w-full">
-                <div class="card-body text-center">
+            <div class="uk-card uk-card-default bg-background shadow-xl max-w-lg w-full">
+                <div class="uk-card-body text-center">
                     <div class="text-6xl mb-4">✅</div>
-                    <h1 class="card-title text-3xl font-bold justify-center mb-2">Email Verified!</h1>
+                    <h1 class="uk-card-title text-3xl font-bold justify-center mb-2">Email Verified!</h1>
                     <p class="text-lg text-muted-foreground mb-4">
                         Your email has been verified successfully.
                     </p>

@@ -15,7 +15,7 @@ from typing import Any
 
 from fasthtml.common import H3, H4, Div, Li, P, Span, Tbody, Td, Th, Thead, Tr, Ul
 
-from ui.buttons import Button
+from ui.buttons import Button, ButtonT
 from ui.cards import Card, CardBody
 from ui.data import Table
 from ui.feedback import Progress
@@ -326,7 +326,7 @@ class AtomicHabitsIntelligence:
                     P("— James Clear, Atomic Habits", cls="text-sm text-muted-foreground mb-6"),
                     Button(
                         "Define Essential Habits →",
-                        cls="btn btn-primary",
+                        variant=ButtonT.primary,
                         hx_get="/goals/habits/configure",
                         hx_target="#modal",
                     ),
@@ -641,7 +641,7 @@ class AtomicHabitsIntelligence:
                         f"Your habit system is contributing {int(overall * 100)}% toward goal achievement.",
                         cls="text-sm text-muted-foreground mb-3",
                     ),
-                    Progress(value=int(overall * 100), cls="progress progress-primary w-full"),
+                    Progress(value=int(overall * 100), cls="w-full"),
                     cls="bg-muted p-4 rounded-lg",
                 ),
             ),
@@ -668,7 +668,7 @@ class AtomicHabitsIntelligence:
             ),
             Div(
                 P(f"Impact Score: {int(impact * 100)}%", cls="text-xs text-muted-foreground mb-1"),
-                Progress(value=int(impact * 100), cls="progress progress-sm w-full mb-1"),
+                Progress(value=int(impact * 100), cls="w-full mb-1"),
                 P(f"Consistency: {int(consistency * 100)}%", cls="text-xs text-muted-foreground"),
                 cls="px-2",
             ),

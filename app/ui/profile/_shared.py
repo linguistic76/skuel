@@ -5,7 +5,10 @@ Reusable building blocks consumed by curriculum_views.py and overview.py.
 
 from typing import Any
 
-from fasthtml.common import H3, A, Button, Div, Label, Li, Option, P, Select, Span, Ul
+from fasthtml.common import H3, A, Div, Label, Li, Option, P, Select, Span, Ul
+
+from ui.buttons import Button, ButtonT
+from ui.layout import Size
 
 from ui.patterns.empty_state import EmptyState
 
@@ -87,8 +90,9 @@ def DomainFilterControls(domain: str, total_count: int) -> Div:
         filter_buttons.append(
             Button(
                 label,
-                cls="btn btn-sm",
-                x_bind_class=f"{{'btn-primary': filterPreset === '{value}', 'btn-ghost': filterPreset !== '{value}'}}",
+                variant=ButtonT.ghost,
+                size=Size.sm,
+                x_bind_class=f"{{'uk-button-primary': filterPreset === '{value}', 'uk-button-ghost': filterPreset !== '{value}'}}",
                 x_on_click=f"filterPreset = '{value}'",
             )
         )
@@ -122,7 +126,8 @@ def DomainFilterControls(domain: str, total_count: int) -> Div:
                         f"Show Less (showing {total_count})",
                         x_show="showAll",
                     ),
-                    cls="btn btn-sm btn-ghost",
+                    variant=ButtonT.ghost,
+                    size=Size.sm,
                     x_on_click="toggleShowAll()",
                 ),
                 cls="ml-auto",

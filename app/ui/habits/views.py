@@ -38,6 +38,7 @@ from ui.calendar.converters import habit_to_calendar_items
 from ui.feedback import Badge, Progress
 from ui.forms import Input, Label, Select, Textarea
 from ui.layout import Size
+from ui.cards import Card
 from ui.patterns.activity_views_base import (
     ActivityCalendarNav,
     ActivityViewSwitcher,
@@ -214,7 +215,7 @@ class HabitsViewComponents:
         # Streak indicator
         streak_color = "text-success" if current_streak > 0 else "text-muted-foreground"
 
-        return Div(
+        return Card(
             Div(
                 # Header row
                 Div(
@@ -296,7 +297,7 @@ class HabitsViewComponents:
                 cls="p-4",
             ),
             id=f"habit-{uid}",
-            cls="card bg-background shadow-sm border border-border hover:shadow-md transition-shadow",
+            cls="bg-background shadow-sm border border-border hover:shadow-md transition-shadow",
         )
 
     # ========================================================================
@@ -468,7 +469,7 @@ class HabitsViewComponents:
                     "hx-target": "#view-content",
                     "hx-swap": "innerHTML",
                 },
-                cls="card bg-background shadow-lg p-6",
+                cls="bg-background shadow-lg p-6",
             ),
             id="create-view",
         )

@@ -17,6 +17,7 @@ Usage:
 """
 
 from fasthtml.common import Div
+from ui.cards import Card
 
 
 def SkeletonCard() -> Div:
@@ -25,14 +26,14 @@ def SkeletonCard() -> Div:
     Returns:
         A div with skeleton animation representing a card
     """
-    return Div(
+    return Card(
         # Title skeleton
         Div(cls="h-6 bg-secondary rounded w-3/4 animate-pulse"),
         # Content line 1
         Div(cls="h-4 bg-secondary rounded w-full mt-2 animate-pulse"),
         # Content line 2
         Div(cls="h-4 bg-secondary rounded w-5/6 mt-2 animate-pulse"),
-        cls="card bg-background shadow-sm p-4",
+        cls="bg-background shadow-sm p-4",
     )
 
 
@@ -57,7 +58,7 @@ def SkeletonStats() -> Div:
     Returns:
         A div with skeleton animation representing a stats card
     """
-    return Div(
+    return Card(
         Div(
             # Stat 1
             Div(
@@ -79,7 +80,7 @@ def SkeletonStats() -> Div:
             ),
             cls="flex justify-around w-full",
         ),
-        cls="card bg-background shadow-sm p-6",
+        cls="bg-background shadow-sm p-6",
     )
 
 
@@ -92,7 +93,7 @@ def SkeletonTable(rows: int = 5) -> Div:
     Returns:
         A div with skeleton animation representing a table
     """
-    return Div(
+    return Card(
         # Table header
         Div(
             Div(cls="h-4 bg-secondary rounded w-24 animate-pulse"),
@@ -113,7 +114,7 @@ def SkeletonTable(rows: int = 5) -> Div:
             ],
             cls="divide-y divide-base-300/50",
         ),
-        cls="card bg-background shadow-sm p-4",
+        cls="bg-background shadow-sm p-4",
     )
 
 
@@ -172,7 +173,7 @@ def SkeletonIntelligence() -> Div:
     """
     return Div(
         # Alignment breakdown card
-        Div(
+        Card(
             Div(cls="h-5 bg-secondary rounded w-48 animate-pulse mb-4"),
             Div(
                 *[
@@ -185,25 +186,25 @@ def SkeletonIntelligence() -> Div:
                 ],
                 cls="grid grid-cols-5 gap-4",
             ),
-            cls="card bg-background shadow-sm p-6 mb-6",
+            cls="bg-background shadow-sm p-6 mb-6",
         ),
         # Daily plan card
-        Div(
+        Card(
             Div(cls="h-5 bg-secondary rounded w-40 animate-pulse mb-4"),
             Div(
                 *[Div(cls="h-4 bg-secondary rounded w-full animate-pulse") for _ in range(4)],
                 cls="space-y-2",
             ),
-            cls="card bg-background shadow-sm p-6 mb-6",
+            cls="bg-background shadow-sm p-6 mb-6",
         ),
         # Synergies card
-        Div(
+        Card(
             Div(cls="h-5 bg-secondary rounded w-56 animate-pulse mb-4"),
             Div(
                 *[Div(cls="h-4 bg-secondary rounded w-full animate-pulse") for _ in range(3)],
                 cls="space-y-2",
             ),
-            cls="card bg-background shadow-sm p-6",
+            cls="bg-background shadow-sm p-6",
         ),
     )
 

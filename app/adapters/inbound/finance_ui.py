@@ -19,16 +19,18 @@ __version__ = "3.0"
 from datetime import date
 from typing import Any
 
-from fasthtml.common import A, Div, Span
+from fasthtml.common import Div, Span
 from starlette.requests import Request
 
 from adapters.inbound.auth import make_service_getter, require_admin
 from core.constants import QueryLimit
 from core.models.finance.finance_request import BudgetCreateRequest, ExpenseCreateRequest
 from core.utils.logging import get_logger
+from ui.buttons import ButtonLink, ButtonT
 from ui.cards import Card
 from ui.finance import create_finance_page
 from ui.finance.section_views import FinanceSectionViews
+from ui.layout import Size
 from ui.patterns.card_generator import CardGenerator
 from ui.patterns.form_generator import FormGenerator
 
@@ -118,15 +120,17 @@ class FinanceUIComponents:
         )
 
         buttons = [
-            A(
+            ButtonLink(
                 "View",
                 href=f"/finance/expenses/{uid}",
-                cls="btn btn-sm btn-outline",
+                variant=ButtonT.outline,
+                size=Size.sm,
             ),
-            A(
+            ButtonLink(
                 "Edit",
                 href=f"/finance/expenses/{uid}/edit",
-                cls="btn btn-sm btn-ghost",
+                variant=ButtonT.ghost,
+                size=Size.sm,
             ),
         ]
 
@@ -162,15 +166,17 @@ class FinanceUIComponents:
         )
 
         buttons = [
-            A(
+            ButtonLink(
                 "View",
                 href=f"/finance/budgets/{uid}",
-                cls="btn btn-sm btn-outline",
+                variant=ButtonT.outline,
+                size=Size.sm,
             ),
-            A(
+            ButtonLink(
                 "Edit",
                 href=f"/finance/budgets/{uid}/edit",
-                cls="btn btn-sm btn-ghost",
+                variant=ButtonT.ghost,
+                size=Size.sm,
             ),
         ]
 

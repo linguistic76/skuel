@@ -15,6 +15,8 @@ from fasthtml.common import H2, A, Div, P, Request, Span
 
 from adapters.inbound.auth import require_authenticated_user
 from core.utils.logging import get_logger
+from ui.buttons import Button, ButtonLink, ButtonT
+from ui.layout import Size
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
 
@@ -120,12 +122,14 @@ def create_form_submissions_ui_routes(
             )
 
         # Delete button
-        delete_btn = A(
+        delete_btn = Button(
             "Delete Submission",
             hx_delete=f"/api/form-submissions/delete?uid={uid}",
             hx_confirm="Are you sure you want to delete this submission?",
             hx_swap="none",
-            cls="btn btn-error btn-sm mt-6",
+            variant=ButtonT.error,
+            size=Size.sm,
+            cls="mt-6",
         )
 
         return BasePage(
@@ -137,7 +141,13 @@ def create_form_submissions_ui_routes(
                 ),
                 Div(*data_rows) if data_rows else P("No form data.", cls="text-muted-foreground"),
                 delete_btn,
-                A("Back to My Forms", href="/my-forms", cls="btn btn-ghost btn-sm mt-4 ml-2"),
+                ButtonLink(
+                    "Back to My Forms",
+                    href="/my-forms",
+                    variant=ButtonT.ghost,
+                    size=Size.sm,
+                    cls="mt-4 ml-2",
+                ),
             ),
             title=submission.title or "Form Submission",
             page_type=PageType.STANDARD,

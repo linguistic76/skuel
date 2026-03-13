@@ -29,6 +29,7 @@ from ui.feedback import Badge, BadgeT
 from ui.layout import Size
 from ui.layouts.base_page import BasePage
 from ui.patterns.page_header import PageHeader
+from ui.cards import Card, CardBody
 
 if TYPE_CHECKING:
     from core.services.notifications.notification_service import NotificationService
@@ -92,7 +93,7 @@ def _notification_card(notif: dict[str, Any]) -> Div:
         )
 
     return Div(
-        Div(
+        CardBody(
             Div(
                 Span(icon, cls="text-lg", aria_hidden="true"),
                 Div(
@@ -121,7 +122,7 @@ def _notification_card(notif: dict[str, Any]) -> Div:
                 ),
                 cls="flex items-start gap-3",
             ),
-            cls="card-body p-4",
+            cls="p-4",
         ),
         cls=f"card {bg_cls} shadow-sm {read_cls}",
         id=f"notif-{notif['uid']}",
@@ -130,14 +131,14 @@ def _notification_card(notif: dict[str, Any]) -> Div:
 
 def _empty_state() -> Div:
     """Show when there are no notifications."""
-    return Div(
+    return Card(
         Div(
             Span("🔔", cls="text-4xl"),
             H3("No notifications", cls="text-lg font-medium mt-2"),
             P("You're all caught up!", cls="text-muted-foreground"),
             cls="text-center py-12",
         ),
-        cls="card bg-background",
+        cls="bg-background",
     )
 
 

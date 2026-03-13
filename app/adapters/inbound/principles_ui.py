@@ -591,7 +591,7 @@ def create_principles_ui_routes(
                 P("No reflections recorded yet.", cls="text-muted-foreground text-center py-4")
             ]
 
-        reflection_section = Div(
+        reflection_section = Card(
             Div(
                 H3("Recent Reflections", cls="text-lg font-semibold"),
                 Button(
@@ -605,7 +605,7 @@ def create_principles_ui_routes(
                 cls="flex items-center justify-between mb-4",
             ),
             Div(*reflection_cards, cls="space-y-3"),
-            cls="card bg-background shadow-lg p-6 mt-4",
+            cls="bg-background shadow-lg p-6 mt-4",
         )
 
         # Build detail content inline

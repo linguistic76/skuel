@@ -13,7 +13,7 @@ from starlette.requests import Request
 
 from adapters.inbound.auth import make_service_getter, require_admin
 from core.utils.logging import get_logger
-from ui.buttons import Button
+from ui.buttons import Button, ButtonT
 from ui.cards import Card, CardBody
 from ui.forms import Input, Label
 from ui.layouts.base_page import BasePage
@@ -50,13 +50,12 @@ def create_ingestion_ui_routes(
     def _form_group(
         label_text: str, input_id: str, placeholder: str, input_type: str = "text", value: str = ""
     ):
-        """Build a consistent DaisyUI form group."""
+        """Build a consistent form group."""
         input_attrs = {
             "type": input_type,
             "name": input_id,
             "id": input_id,
             "placeholder": placeholder,
-            "cls": "input input-bordered w-full",
         }
         if value:
             input_attrs["value"] = value
@@ -80,7 +79,7 @@ def create_ingestion_ui_routes(
                         Button(
                             button_text,
                             type="button",
-                            cls="btn btn-primary",
+                            variant=ButtonT.primary,
                             onclick=onclick,
                         ),
                         cls="mt-2",

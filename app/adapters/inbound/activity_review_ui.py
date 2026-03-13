@@ -49,6 +49,7 @@ from ui.forms import Input, Select, Textarea
 from ui.layout import Size
 from ui.patterns.page_header import PageHeader
 from ui.patterns.sidebar import SidebarItem, SidebarPage
+from ui.cards import Card, CardBody
 
 logger = get_logger("skuel.routes.activity_review.ui")
 
@@ -100,8 +101,8 @@ def _render_queue_item(item: dict[str, Any]) -> Any:
     review_href = f"/activity-review/new?subject_uid={subject_uid}&time_period={time_period}"
 
     return Div(
-        Div(
-            Div(
+        Card(
+            CardBody(
                 H4(subject_uid, cls="font-semibold mb-1"),
                 P(
                     f"{date_str} · {time_period}",
@@ -114,9 +115,9 @@ def _render_queue_item(item: dict[str, Any]) -> Any:
                     href=review_href,
                     cls="btn btn-sm btn-primary",
                 ),
-                cls="card-body p-4",
+                cls="p-4",
             ),
-            cls="card bg-background shadow-sm mb-3",
+            cls="bg-background shadow-sm mb-3",
         ),
     )
 
@@ -124,10 +125,10 @@ def _render_queue_item(item: dict[str, Any]) -> Any:
 def _render_snapshot_domain_card(domain_name: str, items: list[Any]) -> Any:
     """Render a single domain's activity snapshot card."""
     if not items:
-        return Div(
+        return Card(
             H4(domain_name.title(), cls="font-semibold mb-1"),
             P("No recent activity.", cls="text-sm text-muted-foreground"),
-            cls="card bg-muted p-4 mb-3",
+            cls="bg-muted p-4 mb-3",
         )
 
     item_rows = []
@@ -142,10 +143,10 @@ def _render_snapshot_domain_card(domain_name: str, items: list[Any]) -> Any:
             )
         )
 
-    return Div(
+    return Card(
         H4(f"{domain_name.title()} ({len(items)})", cls="font-semibold mb-3"),
         Div(*item_rows),
-        cls="card bg-muted p-4 mb-3",
+        cls="bg-muted p-4 mb-3",
     )
 
 
@@ -223,10 +224,10 @@ def create_activity_review_ui_routes(
 
         content = Div(
             PageHeader("Review Queue", subtitle="Pending activity review requests from users"),
-            Div(
+            Card(
                 H3("Pending Requests", cls="font-semibold mb-4"),
                 queue_content,
-                cls="card bg-background shadow-sm p-4",
+                cls="bg-background shadow-sm p-4",
             ),
         )
 
@@ -273,7 +274,7 @@ def create_activity_review_ui_routes(
                 )
             )
 
-        snapshot_form = Div(
+        snapshot_form = Card(
             H3("Load Activity Snapshot", cls="font-semibold mb-4"),
             Form(
                 Div(
@@ -319,7 +320,7 @@ def create_activity_review_ui_routes(
                     "hx-include": "[name='subject_uid'],[name='time_period'],[name='domains']",
                 },
             ),
-            cls="card bg-background shadow-sm p-4 mb-4",
+            cls="bg-background shadow-sm p-4 mb-4",
         )
 
         snapshot_display = Div(
@@ -330,7 +331,7 @@ def create_activity_review_ui_routes(
             id="snapshot-display",
         )
 
-        feedback_form = Div(
+        feedback_form = Card(
             H3("Write Feedback", cls="font-semibold mb-4"),
             Form(
                 Input(
@@ -379,7 +380,7 @@ def create_activity_review_ui_routes(
                 });
                 """)
             ),
-            cls="card bg-background shadow-sm p-4 mt-4",
+            cls="bg-background shadow-sm p-4 mt-4",
         )
 
         content = Div(

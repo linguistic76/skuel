@@ -115,12 +115,14 @@ def create_insights_api_routes(
         )
 
         # Return success message (HTMX will swap with this)
-        from fasthtml.common import Div, NotStr
+        from fasthtml.common import NotStr
+
+        from ui.feedback import Alert, AlertT
 
         return Result.ok(
-            Div(
+            Alert(
                 NotStr("✓ Great! You've acted on this insight."),
-                cls="alert alert-success",
+                variant=AlertT.success,
             )
         )
 

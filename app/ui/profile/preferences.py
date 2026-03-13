@@ -15,6 +15,7 @@ from fasthtml.common import H1, H2, Div, Form, Option, P, Span
 
 from ui.buttons import Button
 from ui.forms import Input, Label, Select
+from ui.cards import Card
 
 
 class UserPreferencesComponents:
@@ -40,34 +41,34 @@ class UserPreferencesComponents:
             H1("User Settings & Preferences", cls="text-3xl font-bold mb-6"),
             P("Customize your SKUEL experience", cls="text-lg text-muted-foreground mb-8"),
             # Learning Preferences Section
-            Div(
+            Card(
                 H2("🎓 Learning Preferences", cls="text-2xl font-semibold mb-4"),
                 UserPreferencesComponents._render_learning_prefs_form(user_preferences),
-                cls="card bg-background shadow-sm p-6 mb-6",
+                cls="bg-background shadow-sm p-6 mb-6",
             ),
             # Scheduling Preferences Section
-            Div(
+            Card(
                 H2("📅 Scheduling & Time", cls="text-2xl font-semibold mb-4"),
                 UserPreferencesComponents._render_scheduling_prefs_form(user_preferences),
-                cls="card bg-background shadow-sm p-6 mb-6",
+                cls="bg-background shadow-sm p-6 mb-6",
             ),
             # Notification Preferences Section
-            Div(
+            Card(
                 H2("🔔 Notifications", cls="text-2xl font-semibold mb-4"),
                 UserPreferencesComponents._render_notification_prefs_form(user_preferences),
-                cls="card bg-background shadow-sm p-6 mb-6",
+                cls="bg-background shadow-sm p-6 mb-6",
             ),
             # Display Preferences Section
-            Div(
+            Card(
                 H2("🎨 Display & Appearance", cls="text-2xl font-semibold mb-4"),
                 UserPreferencesComponents._render_display_prefs_form(user_preferences),
-                cls="card bg-background shadow-sm p-6 mb-6",
+                cls="bg-background shadow-sm p-6 mb-6",
             ),
             # Goal Preferences Section
-            Div(
+            Card(
                 H2("🎯 Goals & Targets", cls="text-2xl font-semibold mb-4"),
                 UserPreferencesComponents._render_goal_prefs_form(user_preferences),
-                cls="card bg-background shadow-sm p-6 mb-6",
+                cls="bg-background shadow-sm p-6 mb-6",
             ),
             # Save button
             Div(

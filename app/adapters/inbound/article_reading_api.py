@@ -15,12 +15,14 @@ Routes:
 
 from typing import Any
 
-from fasthtml.common import Button, Request
+from fasthtml.common import Request
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
+from ui.buttons import Button, ButtonT
+from ui.layout import Size
 
 logger = get_logger("skuel.routes.ku.reading.api")
 
@@ -54,13 +56,15 @@ def create_article_reading_api_routes(
         if result.is_error:
             return Button(
                 "Error",
-                cls="btn btn-sm btn-error",
+                variant=ButtonT.error,
+                size=Size.sm,
                 disabled=True,
             )
 
         return Button(
             "Marked as Read",
-            cls="btn btn-sm btn-outline btn-success",
+            variant=ButtonT.success,
+            size=Size.sm,
             disabled=True,
         )
 
@@ -74,7 +78,8 @@ def create_article_reading_api_routes(
         if result.is_error:
             return Button(
                 "Error",
-                cls="btn btn-sm btn-error",
+                variant=ButtonT.error,
+                size=Size.sm,
                 disabled=True,
             )
 
@@ -82,7 +87,8 @@ def create_article_reading_api_routes(
 
         return Button(
             "Bookmarked" if is_bookmarked else "Bookmark",
-            cls="btn btn-sm btn-secondary" if is_bookmarked else "btn btn-sm btn-ghost",
+            variant=ButtonT.secondary if is_bookmarked else ButtonT.ghost,
+            size=Size.sm,
             hx_post=f"/api/article/{uid}/bookmark",
             hx_swap="outerHTML",
             hx_target="this",

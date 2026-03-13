@@ -26,6 +26,7 @@ Usage:
 """
 
 from fasthtml.common import H3, Canvas, Div, Link, P, Script, Span
+from ui.cards import Card
 
 # =============================================================================
 # Library Script Tags
@@ -511,53 +512,53 @@ def create_visualization_dashboard(
     if include_charts:
         # Completion rate chart
         sections.append(
-            Div(
+            Card(
                 create_chart_view(
                     f"/api/visualizations/completion?user_uid={user_uid}&period=week",
                     "line",
                     "Weekly Completion Rate",
                     include_scripts=not scripts_added["chart"],
                 ),
-                cls="card bg-background shadow-sm p-4",
+                cls="bg-background shadow-sm p-4",
             )
         )
         scripts_added["chart"] = True
 
         # Distribution chart
         sections.append(
-            Div(
+            Card(
                 create_chart_view(
                     f"/api/visualizations/priority-distribution?user_uid={user_uid}",
                     "doughnut",
                     "Task Priority Distribution",
                     include_scripts=False,  # Already loaded
                 ),
-                cls="card bg-background shadow-sm p-4",
+                cls="bg-background shadow-sm p-4",
             )
         )
 
     if include_timeline:
         sections.append(
-            Div(
+            Card(
                 create_timeline_view(
                     f"/api/visualizations/timeline?user_uid={user_uid}",
                     "Schedule Overview",
                     include_scripts=not scripts_added["timeline"],
                 ),
-                cls="card bg-background shadow-sm p-4 col-span-2",
+                cls="bg-background shadow-sm p-4 col-span-2",
             )
         )
         scripts_added["timeline"] = True
 
     if include_gantt:
         sections.append(
-            Div(
+            Card(
                 create_gantt_view(
                     f"/api/visualizations/gantt/tasks?user_uid={user_uid}",
                     "Task Dependencies",
                     include_scripts=not scripts_added["gantt"],
                 ),
-                cls="card bg-background shadow-sm p-4 col-span-2",
+                cls="bg-background shadow-sm p-4 col-span-2",
             )
         )
         scripts_added["gantt"] = True

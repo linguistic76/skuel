@@ -58,6 +58,7 @@ from ui.profile.layout import (
     create_profile_page,
 )
 from ui.profile.overview import render_domain_card_preview
+from ui.cards import Card, CardBody
 
 logger = get_logger("skuel.routes.user_profile")
 
@@ -751,11 +752,11 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
         # Build shared content view
         def shared_content_card(report: Any) -> Any:
             """Render a shared report card."""
-            return Div(
-                Div(
+            return Card(
+                CardBody(
                     # Header with filename and status
                     Div(
-                        H4(report.original_filename, cls="card-title text-sm"),
+                        H4(report.original_filename, cls="text-sm"),
                         Badge(
                             report.status,
                             variant=None,
@@ -785,9 +786,9 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
                         ),
                         cls="mt-3",
                     ),
-                    cls="card-body p-4",
+                    cls="p-4",
                 ),
-                cls="card bg-muted shadow-sm hover:shadow-md transition-shadow",
+                cls="bg-muted shadow-sm hover:shadow-md transition-shadow",
             )
 
         # Content view
@@ -811,12 +812,12 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
                     cls="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4",
                 )
                 if shared_reports
-                else Div(
+                else Card(
                     P(
                         "No content shared with you yet.",
                         cls="text-center text-muted-foreground py-12",
                     ),
-                    cls="card bg-muted p-8",
+                    cls="bg-muted p-8",
                 )
             ),
         )
@@ -881,18 +882,18 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
                 badges.append(Badge("Viewed", variant=BadgeT.ghost, size=Size.xs))
 
             return A(
-                Div(
-                    Div(
-                        H4(ku_title, cls="card-title text-sm"),
+                Card(
+                    CardBody(
+                        H4(ku_title, cls="text-sm"),
                         (
                             P(ku_domain, cls="text-xs text-muted-foreground mt-1")
                             if ku_domain
                             else None
                         ),
                         Div(*badges, cls="flex gap-1 mt-2") if badges else None,
-                        cls="card-body p-4",
+                        cls="p-4",
                     ),
-                    cls="card bg-muted shadow-sm hover:shadow-md transition-shadow",
+                    cls="bg-muted shadow-sm hover:shadow-md transition-shadow",
                 ),
                 href=f"/article/{ku['uid']}",
             )
@@ -910,12 +911,12 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
                 ),
             )
             if all_kus
-            else Div(
+            else Card(
                 P(
                     "No knowledge units available yet.",
                     cls="text-center text-muted-foreground py-12",
                 ),
-                cls="card bg-muted p-8",
+                cls="bg-muted p-8",
             )
         )
 

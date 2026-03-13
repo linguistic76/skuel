@@ -26,7 +26,10 @@ See: /docs/patterns/HIERARCHY_COMPONENTS_GUIDE.md
 
 from typing import Any
 
-from fasthtml.common import Button, Div, Input, Span
+from fasthtml.common import Div, Input, Span
+
+from ui.buttons import Button, ButtonT
+from ui.layout import Size
 
 
 def TreeView(
@@ -142,7 +145,9 @@ def _render_tree_node(
             **{
                 "x-on:click.stop": f"toggleExpand('{uid}')",
             },
-            cls="btn btn-ghost btn-xs p-0 min-h-0 h-6 w-6 text-muted-foreground hover:text-foreground",
+            variant=ButtonT.ghost,
+            size=Size.xs,
+            cls="p-0 min-h-0 h-6 w-6 text-muted-foreground hover:text-foreground",
             type="button",
         )
     else:
@@ -169,7 +174,7 @@ def _render_tree_node(
                 "x-model": "selected",
                 ":value": f"'{uid}'",
             },
-            cls="checkbox checkbox-sm mr-2",
+            cls="uk-checkbox mr-2",
         )
 
     # Title (inline editable)
@@ -184,7 +189,7 @@ def _render_tree_node(
 
     # Actions menu (edit, delete, add child)
     actions = Div(
-        Button("⋮", cls="btn btn-ghost btn-xs", type="button"),
+        Button("⋮", variant=ButtonT.ghost, size=Size.xs, type="button"),
         cls="dropdown dropdown-end opacity-0 group-hover:opacity-100",
     )
 

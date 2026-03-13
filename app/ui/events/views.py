@@ -39,6 +39,7 @@ from ui.calendar.converters import event_to_calendar_item
 from ui.feedback import Badge, BadgeT
 from ui.forms import Input, Label, Select, Textarea
 from ui.layout import Size
+from ui.cards import Card
 from ui.patterns.activity_views_base import (
     ActivityCalendarNav,
     ActivityViewSwitcher,
@@ -299,7 +300,7 @@ class EventsViewComponents:
 
         event_type_str = str(event_type).lower()
 
-        return Div(
+        return Card(
             Div(
                 # Header row
                 Div(
@@ -344,7 +345,7 @@ class EventsViewComponents:
                 cls="p-4",
             ),
             id=f"event-{uid}",
-            cls="card bg-background shadow-sm border border-border hover:shadow-md transition-shadow",
+            cls="bg-background shadow-sm border border-border hover:shadow-md transition-shadow",
         )
 
     # ========================================================================
@@ -503,7 +504,7 @@ class EventsViewComponents:
                     "hx-target": "#view-content",
                     "hx-swap": "innerHTML",
                 },
-                cls="card bg-background shadow-lg p-6",
+                cls="bg-background shadow-lg p-6",
             ),
             id="create-view",
         )

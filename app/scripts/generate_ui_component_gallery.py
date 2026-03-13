@@ -235,7 +235,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             </div>
         </header>
 
-        <div class="card bg-white shadow-lg mb-6 p-4">
+        <div class="uk-card uk-card-default bg-white shadow-lg mb-6 p-4">
             <div class="flex flex-wrap gap-2">
                 <button class="filter-btn btn btn-sm active" onclick="filterByTier('all')">All</button>
                 <button class="filter-btn btn btn-sm" onclick="filterByTier('tier1')">Tier 1: Helpers</button>

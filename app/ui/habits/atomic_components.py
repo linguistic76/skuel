@@ -15,7 +15,7 @@ from typing import Any
 
 from fasthtml.common import H2, H3, H4, Div, Form, Option, P, Span, Strong
 
-from ui.buttons import Button
+from ui.buttons import Button, ButtonT
 from ui.cards import Card, CardBody
 from ui.forms import Input, Label, Select, Textarea
 from ui.habits.atomic_animations import AtomicHabitsAnimations
@@ -159,12 +159,12 @@ class AtomicHabitsComponents:
                     # Action buttons
                     Div(
                         Button(
-                            "Cancel", type="button", cls="btn btn-ghost", onclick="closeModal()"
+                            "Cancel", type="button", variant=ButtonT.ghost, onclick="closeModal()"
                         ),
                         Button(
                             "Next: Behavior Design →",
                             type="submit",
-                            cls="btn btn-primary",
+                            variant=ButtonT.primary,
                             hx_post="/habits/wizard/step2",
                             hx_target="#wizard-container",
                             hx_include="[name]",
@@ -257,7 +257,7 @@ class AtomicHabitsComponents:
                         Button(
                             "← Back",
                             type="button",
-                            cls="btn btn-ghost",
+                            variant=ButtonT.ghost,
                             hx_post="/habits/wizard/step1",
                             hx_target="#wizard-container",
                             hx_include="[name]",
@@ -265,7 +265,7 @@ class AtomicHabitsComponents:
                         Button(
                             "Next: Link Goals →",
                             type="submit",
-                            cls="btn btn-primary",
+                            variant=ButtonT.primary,
                             hx_post="/habits/wizard/step3",
                             hx_target="#wizard-container",
                             hx_include="[name]",
@@ -326,7 +326,7 @@ class AtomicHabitsComponents:
                         Button(
                             "← Back",
                             type="button",
-                            cls="btn btn-ghost",
+                            variant=ButtonT.ghost,
                             hx_post="/habits/wizard/step2",
                             hx_target="#wizard-container",
                             hx_include="[name]",
@@ -334,7 +334,7 @@ class AtomicHabitsComponents:
                         Button(
                             "Next: Review →",
                             type="submit",
-                            cls="btn btn-primary",
+                            variant=ButtonT.primary,
                             hx_post="/habits/wizard/step4",
                             hx_target="#wizard-container",
                             hx_include="[name]",
@@ -500,14 +500,14 @@ class AtomicHabitsComponents:
                     Button(
                         "← Back",
                         type="button",
-                        cls="btn btn-ghost",
+                        variant=ButtonT.ghost,
                         hx_post="/habits/wizard/step3",
                         hx_target="#wizard-container",
                     ),
                     Button(
                         "Create Habit 🎉",
                         type="submit",
-                        cls="btn btn-primary btn-lg",
+                        variant=ButtonT.primary,
                         hx_post="/api/habits/create-with-identity",
                         hx_target="#main-content",
                     ),
@@ -871,11 +871,11 @@ class AtomicHabitsComponents:
                     Div(
                         Button(
                             "View Updated Dashboard",
-                            cls="btn btn-primary",
+                            variant=ButtonT.primary,
                             hx_get="/habits",
                             hx_target="#main-content",
                         ),
-                        Button("Close", cls="btn btn-ghost", onclick="closeModal()"),
+                        Button("Close", variant=ButtonT.ghost, onclick="closeModal()"),
                         cls="flex gap-4 justify-center",
                     ),
                 ),

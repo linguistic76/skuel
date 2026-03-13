@@ -19,7 +19,8 @@ from typing import Any, TypedDict
 
 from fasthtml.common import H1, H2, H3, Div, Option, P, Span, Tbody, Td, Th, Thead, Tr
 
-from ui.buttons import Button
+from ui.buttons import Button, ButtonT
+from ui.layout import Size
 from ui.cards import Card, CardBody
 from ui.data import Table
 from ui.feedback import Badge, BadgeT
@@ -125,7 +126,9 @@ class AtomicHabitsAnalytics:
                     ),
                     Button(
                         "Export Data",
-                        cls="btn btn-secondary btn-sm ml-4",
+                        variant=ButtonT.secondary,
+                        size=Size.sm,
+                        cls="ml-4",
                         hx_get="/analytics/export",
                     ),
                     cls="flex items-center justify-between",
@@ -268,7 +271,8 @@ class AtomicHabitsAnalytics:
                     Td(
                         Button(
                             "Details",
-                            cls="btn btn-sm btn-secondary",
+                            variant=ButtonT.secondary,
+                            size=Size.sm,
                             hx_get=f"/goals/{goal.goal_uid}/system-health",
                             hx_target="#modal",
                         )
@@ -629,9 +633,11 @@ class AtomicHabitsAnalytics:
                     ),
                     # Actions
                     Div(
-                        Button("Cancel", cls="btn btn-ghost", onclick="closeModal()"),
+                        Button("Cancel", variant=ButtonT.ghost, onclick="closeModal()"),
                         Button(
-                            "📥 Export", cls="btn btn-primary", hx_get="/analytics/export/download"
+                            "📥 Export",
+                            variant=ButtonT.primary,
+                            hx_get="/analytics/export/download",
                         ),
                         cls="flex gap-4 justify-end",
                     ),

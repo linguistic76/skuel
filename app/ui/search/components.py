@@ -40,6 +40,7 @@ from ui.enum_helpers import (
 from ui.feedback import Badge, BadgeT
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
+from ui.cards import Card
 
 # ============================================================================
 # PAGE LAYOUT COMPONENTS
@@ -862,9 +863,9 @@ def _render_result_card(result: dict) -> Any:
     )
 
     return Div(
-        Div(
+        Card(
             *card_body_items,
-            cls="card bg-background shadow-sm hover:shadow-md transition-shadow border border-border p-6",
+            cls="bg-background shadow-sm hover:shadow-md transition-shadow border border-border p-6",
         )
     )
 

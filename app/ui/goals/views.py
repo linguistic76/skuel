@@ -38,6 +38,7 @@ from ui.calendar.converters import goal_to_calendar_item
 from ui.feedback import Badge, Progress
 from ui.forms import Input, Label, Select, Textarea
 from ui.layout import Size
+from ui.cards import Card
 from ui.patterns.activity_views_base import (
     ActivityCalendarNav,
     ActivityViewSwitcher,
@@ -235,7 +236,7 @@ class GoalsViewComponents:
         priority_str = str(priority).lower()
         priority_color = priority_text_class(priority_str)
 
-        return Div(
+        return Card(
             Div(
                 # Header row
                 Div(
@@ -292,7 +293,7 @@ class GoalsViewComponents:
                 cls="p-4",
             ),
             id=f"goal-{uid}",
-            cls="card bg-background shadow-sm border border-border hover:shadow-md transition-shadow",
+            cls="bg-background shadow-sm border border-border hover:shadow-md transition-shadow",
         )
 
     # ========================================================================
@@ -476,7 +477,7 @@ class GoalsViewComponents:
                     "hx-target": "#view-content",
                     "hx-swap": "innerHTML",
                 },
-                cls="card bg-background shadow-lg p-6",
+                cls="bg-background shadow-lg p-6",
             ),
             id="create-view",
         )

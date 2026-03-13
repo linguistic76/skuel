@@ -15,6 +15,8 @@ This file uses:
 from typing import Any
 
 from fasthtml.common import Request
+
+from ui.feedback import Alert, AlertT
 from pydantic import ValidationError
 
 from adapters.inbound.auth import require_admin, require_authenticated_user
@@ -347,9 +349,9 @@ def create_article_api_routes(
         result = await article_service.get_sel_journey(user_uid)
 
         if result.is_error:
-            return Div(
-                P("Unable to load your learning journey.", cls="text-error text-center py-8"),
-                cls="alert alert-error",
+            return Alert(
+                P("Unable to load your learning journey.", cls="text-center py-8"),
+                variant=AlertT.error,
             )
 
         from ui.patterns.curriculum_adaptive import SELJourneyOverview
@@ -368,16 +370,14 @@ def create_article_api_routes(
         try:
             sel_category = SELCategory(category)
         except ValueError:
-            return Div(
-                P(f"Invalid category: {category}", cls="text-error"), cls="alert alert-error"
-            )
+            return Alert(P(f"Invalid category: {category}"), variant=AlertT.error)
 
         result = await article_service.get_personalized_curriculum(
             user_uid=user_uid, sel_category=sel_category, limit=limit
         )
 
         if result.is_error:
-            return Div(P("Unable to load curriculum.", cls="text-error"), cls="alert alert-error")
+            return Alert(P("Unable to load curriculum."), variant=AlertT.error)
 
         curriculum = result.value
         if not curriculum:

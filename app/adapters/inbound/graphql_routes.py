@@ -18,7 +18,6 @@ from typing import Any
 from fasthtml.common import (
     H1,
     H3,
-    Button,
     Card,
     Div,
     Form,
@@ -33,6 +32,7 @@ from adapters.inbound.fasthtml_types import RouteList
 from core.utils.logging import get_logger
 from routes.graphql import create_graphql_context, create_graphql_schema
 from services_bootstrap import Services
+from ui.buttons import Button, ButtonT
 
 logger = get_logger(__name__)
 
@@ -110,7 +110,7 @@ def create_graphql_routes(
                             ),
                             cls="mb-4",
                         ),
-                        Button("Execute Query", type="submit", cls="btn btn-primary"),
+                        Button("Execute Query", type="submit", variant=ButtonT.primary),
                         hx_post="/graphql/execute",
                         hx_target="#graphql-result",
                         hx_swap="innerHTML",

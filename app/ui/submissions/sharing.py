@@ -19,6 +19,7 @@ from fasthtml.common import (
 from ui.buttons import Button
 from ui.feedback import Badge, BadgeT
 from ui.forms import Input, Label, Select
+from ui.cards import Card
 
 
 def render_visibility_dropdown(submission: Any) -> Any:
@@ -167,7 +168,7 @@ def render_shared_users_list(report_uid: str) -> Any:
 
 def render_sharing_section(submission: Any) -> Any:
     """Render complete sharing section for submission detail page."""
-    return Div(
+    return Card(
         H4("Sharing & Visibility", cls="font-bold text-lg mb-4"),
         Div(
             render_visibility_dropdown(submission),
@@ -179,7 +180,7 @@ def render_sharing_section(submission: Any) -> Any:
             cls="space-y-2",
         ),
         id="sharing-section",
-        cls="card bg-muted p-4 rounded-lg mt-6",
+        cls="bg-muted p-4 rounded-lg mt-6",
         **{
             "x-data": "{ shareModal: false }",
         },

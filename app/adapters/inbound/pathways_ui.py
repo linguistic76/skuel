@@ -27,7 +27,7 @@ from fasthtml.common import (
 from adapters.inbound.auth import require_authenticated_user
 from core.models.pathways.pathways_request import LearningPathFilterRequest
 from core.utils.logging import get_logger
-from ui.buttons import Button, ButtonT
+from ui.buttons import Button, ButtonLink, ButtonT
 from ui.cards import Card
 from ui.feedback import Badge, BadgeT
 from ui.forms import Label, Select
@@ -184,10 +184,12 @@ class PathwaysUIComponents:
                     cls="space-y-1 mb-4",
                 ),
                 # Action Button
-                A(
+                ButtonLink(
                     "Continue Learning",
                     href=f"/pathways/path/{path.uid}",
-                    cls="btn btn-primary btn-sm w-full",
+                    variant=ButtonT.primary,
+                    size=Size.sm,
+                    cls="w-full",
                 ),
                 cls="p-4",
             ),
@@ -224,10 +226,12 @@ class PathwaysUIComponents:
                 ),
                 # Action Buttons
                 Div(
-                    A(
+                    ButtonLink(
                         "View Details",
                         href=f"/pathways/path/{path['uid']}",
-                        cls="btn btn-outline btn-sm flex-1",
+                        variant=ButtonT.outline,
+                        size=Size.sm,
+                        cls="flex-1",
                     ),
                     Button(
                         "Enroll",
@@ -359,15 +363,15 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None, ls_servi
                     cls="text-muted-foreground text-center py-8",
                 ),
                 Div(
-                    A(
+                    ButtonLink(
                         "Browse Learning Paths",
                         href="/pathways/browse",
-                        cls="btn btn-primary",
+                        variant=ButtonT.primary,
                     ),
-                    A(
+                    ButtonLink(
                         "Browse Learning Steps",
                         href="/pathways/steps",
-                        cls="btn btn-secondary",
+                        variant=ButtonT.secondary,
                     ),
                     cls="flex flex-wrap gap-3 justify-center",
                 ),
@@ -432,15 +436,17 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None, ls_servi
                 Div(
                     H2("Active Learning Paths", cls="text-xl font-semibold mb-4"),
                     Div(
-                        A(
+                        ButtonLink(
                             "Browse Learning Paths",
                             href="/pathways/browse",
-                            cls="btn btn-primary btn-sm",
+                            variant=ButtonT.primary,
+                            size=Size.sm,
                         ),
-                        A(
+                        ButtonLink(
                             "Browse Learning Steps",
                             href="/pathways/steps",
-                            cls="btn btn-secondary btn-sm",
+                            variant=ButtonT.secondary,
+                            size=Size.sm,
                         ),
                         cls="flex flex-wrap gap-2",
                     ),
@@ -453,20 +459,20 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None, ls_servi
             Card(
                 H2("Quick Actions", cls="text-xl font-semibold mb-4"),
                 Div(
-                    A(
+                    ButtonLink(
                         "View Analytics",
                         href="/pathways/analytics",
-                        cls="btn btn-secondary",
+                        variant=ButtonT.secondary,
                     ),
-                    A(
+                    ButtonLink(
                         "Browse Paths",
                         href="/pathways/browse",
-                        cls="btn btn-outline",
+                        variant=ButtonT.outline,
                     ),
-                    A(
+                    ButtonLink(
                         "Browse Steps",
                         href="/pathways/steps",
-                        cls="btn btn-outline",
+                        variant=ButtonT.outline,
                     ),
                     cls="flex flex-wrap gap-3",
                 ),
@@ -901,14 +907,14 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None, ls_servi
                     ),
                     cls="flex flex-wrap gap-2 mb-4",
                 ),
-                A("← Back to Pathways", href="/pathways", cls="btn btn-ghost"),
+                ButtonLink("← Back to Pathways", href="/pathways", variant=ButtonT.ghost),
                 cls="p-6 mb-4",
             )
         else:
             detail_content = Card(
                 H1(f"Learning Step: {uid}", cls="text-2xl font-bold mb-4"),
                 P("Learning step not found.", cls="text-muted-foreground mb-4"),
-                A("← Back to Pathways", href="/pathways", cls="btn btn-ghost"),
+                ButtonLink("← Back to Pathways", href="/pathways", variant=ButtonT.ghost),
                 cls="p-6 mb-4",
             )
 
@@ -965,14 +971,14 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None, ls_servi
                 )
                 if outcomes
                 else None,
-                A("← Back to Pathways", href="/pathways", cls="btn btn-ghost"),
+                ButtonLink("← Back to Pathways", href="/pathways", variant=ButtonT.ghost),
                 cls="p-6 mb-4",
             )
         else:
             detail_content = Card(
                 H1(f"Learning Path: {uid}", cls="text-2xl font-bold mb-4"),
                 P("Learning path not found.", cls="text-muted-foreground mb-4"),
-                A("← Back to Pathways", href="/pathways", cls="btn btn-ghost"),
+                ButtonLink("← Back to Pathways", href="/pathways", variant=ButtonT.ghost),
                 cls="p-6 mb-4",
             )
 

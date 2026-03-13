@@ -12,6 +12,7 @@ from fasthtml.common import H3, H4, A, Div, P
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
 from ui.teaching.badges import entity_type_badge, status_badge
+from ui.cards import Card, CardBody
 
 
 def render_empty_state(title: str, description: str) -> Div:
@@ -33,14 +34,14 @@ def get_display_title(item: dict[str, Any]) -> str:
 def render_stat_card(label: str, value: int, icon: str, href: str, badge_cls: str = "") -> Div:
     """Render a single stat card linking to the relevant section."""
     value_cls = f"stat-value {badge_cls}" if badge_cls else "stat-value"
-    return Div(
+    return Card(
         Div(
             Div(icon, cls="stat-figure text-2xl"),
             Div(label, cls="stat-title"),
             Div(str(value), cls=value_cls),
             cls="stat",
         ),
-        cls="card bg-background shadow-sm cursor-pointer hover:shadow-md transition-shadow",
+        cls="bg-background shadow-sm cursor-pointer hover:shadow-md transition-shadow",
         **{"onclick": f"window.location='{href}'"},
     )
 
@@ -99,8 +100,8 @@ def render_queue_item(item: dict[str, Any]) -> Div:
             size=Size.sm,
         )
 
-    return Div(
-        Div(
+    return Card(
+        CardBody(
             Div(
                 Div(
                     H4(title, cls="mb-0 font-semibold"),
@@ -123,9 +124,9 @@ def render_queue_item(item: dict[str, Any]) -> Div:
                 ),
                 cls="flex justify-end mt-3",
             ),
-            cls="card-body p-4",
+            cls="p-4",
         ),
-        cls="card bg-background shadow-sm mb-2",
+        cls="bg-background shadow-sm mb-2",
     )
 
 
@@ -141,8 +142,8 @@ def render_exercise_summary_card(item: dict[str, Any]) -> Div:
     scope_badge = Badge(scope, variant=BadgeT.outline, size=Size.sm) if scope else ""
     pending_variant = BadgeT.warning if pending_count > 0 else BadgeT.ghost
 
-    return Div(
-        Div(
+    return Card(
+        CardBody(
             Div(
                 Div(
                     H4(title, cls="mb-0 font-semibold"),
@@ -169,9 +170,9 @@ def render_exercise_summary_card(item: dict[str, Any]) -> Div:
                 ),
                 cls="flex gap-2 justify-end mt-3",
             ),
-            cls="card-body p-4",
+            cls="p-4",
         ),
-        cls="card bg-background shadow-sm mb-2",
+        cls="bg-background shadow-sm mb-2",
     )
 
 
@@ -185,8 +186,8 @@ def render_student_summary_card(item: dict[str, Any]) -> Div:
 
     pending_variant = BadgeT.warning if pending_count > 0 else BadgeT.ghost
 
-    return Div(
-        Div(
+    return Card(
+        CardBody(
             Div(
                 Div(
                     H4(student_name, cls="mb-0 font-semibold"),
@@ -211,9 +212,9 @@ def render_student_summary_card(item: dict[str, Any]) -> Div:
                 ),
                 cls="flex justify-end mt-3",
             ),
-            cls="card-body p-4",
+            cls="p-4",
         ),
-        cls="card bg-background shadow-sm mb-2",
+        cls="bg-background shadow-sm mb-2",
     )
 
 
@@ -230,8 +231,8 @@ def render_class_card(item: dict[str, Any]) -> Div:
     pending_variant = BadgeT.warning if pending_count > 0 else BadgeT.ghost
     active_badge: Any = "" if is_active else Badge("Inactive", variant=BadgeT.ghost, size=Size.sm)
 
-    return Div(
-        Div(
+    return Card(
+        CardBody(
             Div(
                 Div(
                     Div(
@@ -260,7 +261,7 @@ def render_class_card(item: dict[str, Any]) -> Div:
                 ),
                 cls="flex justify-end mt-3",
             ),
-            cls="card-body p-4",
+            cls="p-4",
         ),
-        cls="card bg-background shadow-sm mb-2",
+        cls="bg-background shadow-sm mb-2",
     )

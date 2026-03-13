@@ -28,6 +28,7 @@ from ui.feedback import Badge
 from ui.forms import Input, Label, Select, Textarea
 from ui.layout import Size
 from ui.patterns.activity_views_base import ActivityViewTabs
+from ui.cards import Card
 
 logger = get_logger("skuel.components.choices_views")
 
@@ -205,7 +206,7 @@ class ChoicesViewComponents:
         priority_str = str(priority).lower()
         priority_color = priority_text_class(priority_str)
 
-        return Div(
+        return Card(
             Div(
                 # Header row
                 Div(
@@ -254,7 +255,7 @@ class ChoicesViewComponents:
                 cls="p-4",
             ),
             id=f"choice-{uid}",
-            cls="card bg-background shadow-sm border border-border hover:shadow-md transition-shadow",
+            cls="bg-background shadow-sm border border-border hover:shadow-md transition-shadow",
         )
 
     # ========================================================================
@@ -368,7 +369,7 @@ class ChoicesViewComponents:
             # Options container with x-for loop
             Div(
                 # Template for each option (Alpine x-for)
-                Div(
+                Card(
                     Div(
                         Span(
                             "Option ",
@@ -413,7 +414,7 @@ class ChoicesViewComponents:
                             },
                         ),
                     ),
-                    cls="card bg-muted p-4 mb-3",
+                    cls="bg-muted p-4 mb-3",
                     **{"x-bind:key": "index"},
                 ),
                 **{"x-for": "(option, index) in options"},
@@ -476,7 +477,7 @@ class ChoicesViewComponents:
                     "hx-swap": "innerHTML",
                     "x-data": "choiceOptions()",
                 },
-                cls="card bg-background shadow-lg p-6",
+                cls="bg-background shadow-lg p-6",
             ),
             id="create-view",
         )
@@ -501,7 +502,7 @@ class ChoicesViewComponents:
         analytics_data = analytics_data or {}
 
         # Decision quality metrics
-        quality_section = Div(
+        quality_section = Card(
             H3("Decision Quality", cls="text-lg font-semibold mb-4"),
             Div(
                 # Satisfaction rate
@@ -533,11 +534,11 @@ class ChoicesViewComponents:
                 ),
                 cls="grid grid-cols-3 gap-4 mb-6",
             ),
-            cls="card bg-background shadow-lg p-6 mb-6",
+            cls="bg-background shadow-lg p-6 mb-6",
         )
 
         # Decision patterns
-        patterns_section = Div(
+        patterns_section = Card(
             H3("Decision Patterns", cls="text-lg font-semibold mb-4"),
             Div(
                 P(
@@ -553,11 +554,11 @@ class ChoicesViewComponents:
                     cls="mb-4",
                 ),
             ),
-            cls="card bg-background shadow-lg p-6 mb-6",
+            cls="bg-background shadow-lg p-6 mb-6",
         )
 
         # Recent outcomes
-        outcomes_section = Div(
+        outcomes_section = Card(
             H3("Recent Outcomes", cls="text-lg font-semibold mb-4"),
             Div(
                 P("Track how your past decisions turned out.", cls="text-muted-foreground mb-4"),
@@ -565,7 +566,7 @@ class ChoicesViewComponents:
                 if not analytics_data.get("outcomes")
                 else "",
             ),
-            cls="card bg-background shadow-lg p-6",
+            cls="bg-background shadow-lg p-6",
         )
 
         return Div(

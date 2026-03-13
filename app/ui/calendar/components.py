@@ -30,6 +30,7 @@ from core.models.event.calendar_models import (
 )
 from ui.buttons import Button
 from ui.forms import Input, Label, Select
+from ui.cards import Card
 
 
 def create_month_grid(calendar_data: CalendarData) -> Div:
@@ -367,7 +368,7 @@ def create_timeline_item(item: CalendarItem) -> Div:
     """
     duration = (item.end_time - item.start_time).seconds // 60
 
-    return Div(
+    return Card(
         Div(
             Span(item.icon, cls="text-lg mr-2"),
             Span(item.title, cls="font-semibold"),
@@ -386,7 +387,7 @@ def create_timeline_item(item: CalendarItem) -> Div:
         # Habit occurrence indicator
         create_habit_check_in(item) if item.item_type == CalendarItemType.HABIT else None,
         id=f"calendar-item-{item.uid}",  # ID for potential OOB swap
-        cls="card bg-background shadow-sm mb-2 p-3 cursor-move",
+        cls="bg-background shadow-sm mb-2 p-3 cursor-move",
         style=f"border-left: 4px solid {item.color}",
         draggable="true",
         # Alpine.js: drag-and-drop handling + HTMX for modal loading
@@ -666,7 +667,7 @@ def error_response(error_message: Any) -> Div:
         Div with the error UI
     """
     return Div(
-        Div(
+        Card(
             H2("Error", cls="text-xl font-bold text-error mb-2"),
             P(str(error_message), cls="text-muted-foreground"),
             Button(
@@ -674,7 +675,7 @@ def error_response(error_message: Any) -> Div:
                 cls="mt-4 btn btn-primary",
                 onclick="window.history.back()",
             ),
-            cls="card bg-background shadow-md p-6",
+            cls="bg-background shadow-md p-6",
         ),
         cls="container max-w-md mx-auto mt-8",
     )

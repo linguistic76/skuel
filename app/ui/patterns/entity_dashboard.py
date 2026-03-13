@@ -46,7 +46,8 @@ from fasthtml.common import (
 )
 
 from core.utils.logging import get_logger
-from ui.buttons import Button, ButtonT
+from ui.buttons import Button, ButtonLink, ButtonT
+from ui.layout import Size
 from ui.cards import Card
 from ui.forms import Input, InputT, Select
 from ui.layouts.base_page import build_head
@@ -485,10 +486,19 @@ class SharedUIComponents:
         action_buttons = []
         if actions:
             for action in actions:
-                btn_attrs = {"cls": action.get("class", "btn btn-sm btn-ghost")}
                 if "href" in action:
-                    btn_attrs["onclick"] = f"window.location.href='{action['href']}'"
-                action_buttons.append(Button(action["label"], **btn_attrs))
+                    action_buttons.append(
+                        ButtonLink(
+                            action["label"],
+                            href=action["href"],
+                            variant=ButtonT.ghost,
+                            size=Size.sm,
+                        )
+                    )
+                else:
+                    action_buttons.append(
+                        Button(action["label"], variant=ButtonT.ghost, size=Size.sm)
+                    )
 
         return Div(
             Div(
@@ -618,7 +628,10 @@ class SharedUIComponents:
             navbar,
             # Back button
             (
-                Div(A("← Back", href=back_link, cls="btn btn-ghost btn-sm"), cls="mb-4")
+                Div(
+                    ButtonLink("← Back", href=back_link, variant=ButtonT.ghost, size=Size.sm),
+                    cls="mb-4",
+                )
                 if back_link
                 else None
             ),

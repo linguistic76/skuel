@@ -21,6 +21,7 @@ from ui.buttons import Button, ButtonT
 from ui.feedback import Badge, BadgeT
 from ui.forms import Input, Label, Select
 from ui.layout import Size
+from ui.cards import Card, CardBody
 
 
 def render_upload_form(
@@ -51,8 +52,8 @@ def render_upload_form(
             cls="mb-4",
         )
 
-    return Div(
-        Div(
+    return Card(
+        CardBody(
             Form(
                 exercise_section,
                 Div(
@@ -107,9 +108,9 @@ def render_upload_form(
                 },
                 id="upload-form",
             ),
-            cls="card-body",
+
         ),
-        cls="card bg-background shadow-sm hover:shadow-md transition-shadow",
+        cls="bg-background shadow-sm hover:shadow-md transition-shadow",
     )
 
 
@@ -146,8 +147,8 @@ def upload_form_script() -> Any:
 
 def render_filters_section() -> Any:
     """Render the status and type filter controls card."""
-    return Div(
-        Div(
+    return Card(
+        CardBody(
             Form(
                 Div(
                     Div(
@@ -187,9 +188,9 @@ def render_filters_section() -> Any:
                 },
                 id="filter-form",
             ),
-            cls="card-body",
+
         ),
-        cls="card bg-background shadow-sm mb-6",
+        cls="bg-background shadow-sm mb-6",
     )
 
 

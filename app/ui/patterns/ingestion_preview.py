@@ -18,7 +18,6 @@ from fasthtml.common import (
     H2,
     H3,
     H4,
-    Button,
     Div,
     Li,
     P,
@@ -31,7 +30,9 @@ from fasthtml.common import (
     Ul,
 )
 
-from ui.feedback import Badge, BadgeT
+from ui.buttons import Button, ButtonT
+
+from ui.feedback import Alert, AlertT, Badge, BadgeT
 
 
 def DryRunPreviewComponent(preview: Any, operation_id: str | None = None) -> FT:
@@ -110,12 +111,12 @@ def DryRunPreviewComponent(preview: Any, operation_id: str | None = None) -> FT:
             Div(
                 Button(
                     "Execute Ingestion",
-                    cls="btn btn-primary",
+                    variant=ButtonT.primary,
                     hx_post="/api/ingest/execute",
                     hx_vals=f'{{"operation_id": "{operation_id}"}}',
                     hx_target="#ingestion-results",
                 ),
-                Button("Cancel", cls="btn btn-ghost", onclick="window.history.back()"),
+                Button("Cancel", variant=ButtonT.ghost, onclick="window.history.back()"),
                 cls="flex gap-2 mt-4",
             )
             if operation_id
@@ -271,7 +272,8 @@ def ValidationMessages(warnings: list[str], errors: list[str]) -> FT:
     if not warnings and not errors:
         return None
 
-    return Div(
+    variant = AlertT.warning if warnings and not errors else AlertT.error
+    return Alert(
         # Warnings
         (
             Div(
@@ -312,7 +314,8 @@ def ValidationMessages(warnings: list[str], errors: list[str]) -> FT:
             if errors
             else None
         ),
-        cls="alert alert-warning mb-4" if warnings and not errors else "alert alert-error mb-4",
+        variant=variant,
+        cls="mb-4",
     )
 
 

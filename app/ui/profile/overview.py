@@ -17,6 +17,7 @@ from fasthtml.common import H2, H3, A, Canvas, Div, Li, P, Span, Ul
 from core.models.enums import Priority
 from core.services.user.unified_user_context import UserContext
 from ui.feedback import Badge, BadgeT
+from ui.cards import Card
 
 if TYPE_CHECKING:
     from core.models.context_types import (
@@ -558,7 +559,7 @@ def _chart_visualizations_section() -> Div:
         # Two-column grid for charts
         Div(
             # Alignment Radar Chart
-            Div(
+            Card(
                 Div(
                     Canvas(
                         **{
@@ -581,10 +582,10 @@ def _chart_visualizations_section() -> Div:
                     ),
                     **{"x-data": "chartVis('/api/profile/charts/alignment', 'radar')"},
                 ),
-                cls="card bg-background shadow-sm p-6",
+                cls="bg-background shadow-sm p-6",
             ),
             # Domain Progress Timeline
-            Div(
+            Card(
                 Div(
                     Canvas(
                         **{
@@ -607,7 +608,7 @@ def _chart_visualizations_section() -> Div:
                     ),
                     **{"x-data": "chartVis('/api/profile/charts/domain-progress', 'line')"},
                 ),
-                cls="card bg-background shadow-sm p-6",
+                cls="bg-background shadow-sm p-6",
             ),
             cls="grid grid-cols-1 lg:grid-cols-2 gap-6",
         ),

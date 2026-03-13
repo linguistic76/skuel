@@ -27,7 +27,8 @@ from typing import Any, ClassVar
 
 from fasthtml.common import H2, H3, Div, P, Span
 
-from ui.buttons import Button
+from ui.buttons import Button, ButtonT
+from ui.layout import Size
 from ui.cards import Card, CardBody
 from ui.feedback import Progress
 from ui.forms import Label
@@ -374,7 +375,8 @@ class AtomicHabitsBadges:
                 Label("Show locked badges", cls="text-sm font-medium mr-2"),
                 Button(
                     "Toggle",
-                    cls="btn btn-sm btn-secondary",
+                    variant=ButtonT.secondary,
+                    size=Size.sm,
                     hx_get="/badges/showcase?show_locked=" + ("false" if show_locked else "true"),
                     hx_target="#badge-showcase",
                 ),
@@ -406,7 +408,7 @@ class AtomicHabitsBadges:
                 ),
                 Progress(
                     value=int(badge.progress_percentage()),
-                    cls="progress progress-primary w-full h-2",
+                    cls="w-full h-2",
                 ),
                 cls="mt-3",
             )
@@ -493,10 +495,10 @@ class AtomicHabitsBadges:
                     ),
                     # Share buttons
                     Div(
-                        Button("Share Achievement", cls="btn btn-primary btn-wide mb-2"),
+                        Button("Share Achievement", variant=ButtonT.primary, cls="mb-2"),
                         Button(
                             "View All Badges",
-                            cls="btn btn-secondary btn-wide",
+                            variant=ButtonT.secondary,
                             hx_get="/badges/showcase",
                             hx_target="#main-content",
                         ),
@@ -505,7 +507,8 @@ class AtomicHabitsBadges:
                     # Close button
                     Button(
                         "✕",
-                        cls="btn btn-sm btn-circle absolute right-2 top-2",
+                        size=Size.sm,
+                        cls="btn-circle absolute right-2 top-2",
                         onclick="document.getElementById('badge-celebration-modal').close()",
                     ),
                     cls="p-8 max-w-md",
@@ -549,7 +552,7 @@ class AtomicHabitsBadges:
                 ),
                 Progress(
                     value=int(badge.progress_percentage()),
-                    cls="progress progress-primary w-full h-2",
+                    cls="w-full h-2",
                 ),
                 cls="mb-4 last:mb-0",
             )
@@ -562,7 +565,9 @@ class AtomicHabitsBadges:
                 *badge_items,
                 Button(
                     "View All Badges",
-                    cls="btn btn-sm btn-secondary w-full mt-4",
+                    variant=ButtonT.secondary,
+                    size=Size.sm,
+                    cls="w-full mt-4",
                     hx_get="/badges/showcase",
                     hx_target="#main-content",
                 ),

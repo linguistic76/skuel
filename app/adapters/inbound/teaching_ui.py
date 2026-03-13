@@ -50,6 +50,7 @@ from ui.teaching.detail import (
     render_submission_content,
 )
 from ui.teaching.forms import render_exercise_form
+from ui.cards import Card, CardBody
 
 if TYPE_CHECKING:
     from core.ports import TeacherReviewOperations
@@ -246,8 +247,8 @@ def create_teaching_ui_routes(
             # Feedback history (if any)
             feedback_history_section,
             # Feedback form
-            Div(
-                Div(
+            Card(
+                CardBody(
                     Form(
                         Div(
                             Textarea(
@@ -303,9 +304,9 @@ def create_teaching_ui_routes(
                         cls="mt-4",
                     ),
                     Div(id="review-result", cls="mt-4"),
-                    cls="card-body",
+
                 ),
-                cls="card bg-background shadow-sm",
+                cls="bg-background shadow-sm",
             ),
             Div(
                 A(

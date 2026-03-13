@@ -20,7 +20,7 @@ from core.models.enums import SELCategory
 from core.models.pathways.learning_progress import CurriculumProgress, LearningJourney
 from ui.buttons import ButtonLink, ButtonT
 from ui.enum_helpers import get_sel_icon
-from ui.feedback import Badge, BadgeT, Progress
+from ui.feedback import Alert, AlertT, Badge, BadgeT, Progress
 from ui.patterns.entity_card import CardConfig, EntityCard
 
 
@@ -53,7 +53,7 @@ def SELCategoryCard(category: SELCategory, progress: CurriculumProgress) -> Any:
         Progress(
             value=progress.articles_mastered,
             max_val=progress.total_articles,
-            cls="progress progress-primary w-full",
+            cls="w-full",
         ),
         P(
             f"{progress.completion_percentage:.0f}% complete",
@@ -123,19 +123,20 @@ def SELJourneyOverview(journey: LearningJourney) -> Div:
                 Progress(
                     value=int(journey.overall_completion),
                     max_val=100,
-                    cls="progress progress-primary",
+                    cls="",
                 ),
                 cls="mt-4",
             ),
             cls="mb-8",
         ),
-        Div(
+        Alert(
             P(
                 f"Recommended Focus: {next_category.value.replace('_', ' ').title()} "
                 f"{get_sel_icon(next_category.value)}",
                 cls="m-0",
             ),
-            cls="alert alert-info mb-4",
+            variant=AlertT.info,
+            cls="mb-4",
         ),
         H2("Your Progress by Category", cls="text-xl font-semibold mb-4"),
         Div(

@@ -13,6 +13,7 @@ from ui.feedback import Badge, BadgeT
 from ui.layout import Size
 from ui.teaching.badges import entity_type_badge, status_badge
 from ui.teaching.cards import get_display_title
+from ui.cards import Card, CardBody
 
 
 def get_student_name(item: dict[str, Any]) -> str:
@@ -63,8 +64,8 @@ def render_submission_content(detail: dict[str, Any]) -> Div:
             cls="mb-3",
         )
 
-    return Div(
-        Div(
+    return Card(
+        CardBody(
             Div(
                 Div(
                     H4(title, cls="font-semibold mb-1"),
@@ -87,9 +88,9 @@ def render_submission_content(detail: dict[str, Any]) -> Div:
                 P(display_content, cls="text-sm whitespace-pre-wrap mt-1"),
                 cls="p-3 bg-muted/30 rounded border border-border",
             ),
-            cls="card-body p-4",
+            cls="p-4",
         ),
-        cls="card bg-background shadow-sm mb-4",
+        cls="bg-background shadow-sm mb-4",
     )
 
 
@@ -116,8 +117,8 @@ def render_exercise_submission_row(item: dict[str, Any]) -> Div:
             size=Size.sm,
         )
 
-    return Div(
-        Div(
+    return Card(
+        CardBody(
             Div(
                 Div(
                     H4(title, cls="mb-0 font-semibold"),
@@ -139,9 +140,9 @@ def render_exercise_submission_row(item: dict[str, Any]) -> Div:
                 ),
                 cls="flex justify-end mt-3",
             ),
-            cls="card-body p-4",
+            cls="p-4",
         ),
-        cls="card bg-background shadow-sm mb-2",
+        cls="bg-background shadow-sm mb-2",
     )
 
 
@@ -181,8 +182,8 @@ def render_student_submission_row(item: dict[str, Any]) -> Div:
             cls="mt-2",
         )
 
-    return Div(
-        Div(
+    return Card(
+        CardBody(
             Div(
                 Div(
                     H4(title, cls="mb-0 font-semibold"),
@@ -205,9 +206,9 @@ def render_student_submission_row(item: dict[str, Any]) -> Div:
                 cls="flex justify-end mt-3",
             ),
             feedback_toggle,
-            cls="card-body p-4",
+            cls="p-4",
         ),
-        cls="card bg-background shadow-sm mb-2",
+        cls="bg-background shadow-sm mb-2",
     )
 
 
@@ -222,8 +223,8 @@ def render_class_member_row(item: dict[str, Any]) -> Div:
 
     pending_variant = BadgeT.warning if pending_count > 0 else BadgeT.ghost
 
-    return Div(
-        Div(
+    return Card(
+        CardBody(
             Div(
                 Div(
                     H4(user_name, cls="mb-0 font-semibold"),
@@ -245,7 +246,7 @@ def render_class_member_row(item: dict[str, Any]) -> Div:
                 ),
                 cls="flex justify-end mt-3",
             ),
-            cls="card-body p-4",
+            cls="p-4",
         ),
-        cls="card bg-background shadow-sm mb-2",
+        cls="bg-background shadow-sm mb-2",
     )

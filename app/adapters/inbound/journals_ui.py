@@ -40,6 +40,7 @@ from ui.feedback import Badge, get_submission_status_badge_class
 from ui.forms import Input, Select
 from ui.patterns.page_header import PageHeader
 from ui.patterns.sidebar import SidebarItem, SidebarPage
+from ui.cards import Card, CardBody
 
 logger = get_logger("skuel.routes.journals.ui")
 
@@ -161,8 +162,8 @@ def _render_report_card(report: Any) -> Any:
             )
         )
 
-    return Div(
-        Div(
+    return Card(
+        CardBody(
             Div(
                 Div(
                     H4(report.original_filename, cls="mb-0 font-semibold"),
@@ -185,9 +186,9 @@ def _render_report_card(report: Any) -> Any:
                 ),
                 cls="flex items-center gap-4",
             ),
-            cls="card-body p-4",
+            cls="p-4",
         ),
-        cls="card bg-background shadow-sm mb-2",
+        cls="bg-background shadow-sm mb-2",
     )
 
 
@@ -278,9 +279,9 @@ def _render_upload_form(exercises: list[Any] | None = None) -> Any:
     """Render the file upload form — title + instruction selector + file."""
     exercises = exercises or []
     return Div(
-        Div(
+        Card(
             # x-data on card-body so both Form and instruction file picker share scope
-            Div(
+            CardBody(
                 Form(
                     # Title input (optional — auto-generated if left blank)
                     Div(
@@ -406,7 +407,7 @@ def _render_upload_form(exercises: list[Any] | None = None) -> Any:
                         "hx-trigger": "change",
                     },
                 ),
-                cls="card-body",
+
                 **{
                     "x-data": """{
                         selectedFile: null,
@@ -432,7 +433,7 @@ def _render_upload_form(exercises: list[Any] | None = None) -> Any:
                     }"""
                 },
             ),
-            cls="card bg-background shadow-sm hover:shadow-md transition-shadow",
+            cls="bg-background shadow-sm hover:shadow-md transition-shadow",
         ),
     )
 
@@ -524,8 +525,8 @@ def _upload_form_script() -> Any:
 
 def _render_filters_section() -> Any:
     """Render the status filter controls card."""
-    return Div(
-        Div(
+    return Card(
+        CardBody(
             Form(
                 Div(
                     Label("Status", cls="label"),
@@ -548,9 +549,9 @@ def _render_filters_section() -> Any:
                 },
                 id="filter-form",
             ),
-            cls="card-body",
+
         ),
-        cls="card bg-background shadow-sm mb-6",
+        cls="bg-background shadow-sm mb-6",
     )
 
 
