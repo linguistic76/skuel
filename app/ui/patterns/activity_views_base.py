@@ -33,7 +33,7 @@ class ActivityViewTabs:
     """
     Generic three-tab navigation for Activity Domains.
 
-    Uses DaisyUI tabs with HTMX for dynamic content loading.
+    Uses Tabs with HTMX for dynamic content loading.
     """
 
     @staticmethod

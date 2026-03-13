@@ -2,7 +2,7 @@
 FormGenerator - Dynamic Form Generation from Pydantic Models
 =============================================================
 
-Generates DaisyUI forms from Pydantic model introspection. Supports
+Generates forms from Pydantic model introspection. Supports
 sections, help text, pre-fill, hidden fields, and fragment mode for
 embedding forms within article content.
 
@@ -52,7 +52,7 @@ def _unwrap_optional(annotation: type) -> type:
 
 
 class FieldWidgetMapper:
-    """Maps Pydantic field types to DaisyUI widget types via introspection."""
+    """Maps Pydantic field types to widget types via introspection."""
 
     @staticmethod
     def get_widget_type(field_name: str, field_info: FieldInfo, annotation: type) -> str:
@@ -173,7 +173,7 @@ class FormGenerator:
     """
     Dynamic form generator using Pydantic model introspection.
 
-    Generates DaisyUI-styled forms with proper variant classes, ARIA support,
+    Generates MonsterUI-styled forms with proper variant classes, ARIA support,
     and Alpine.js validation. Supports sections, help text, pre-fill, hidden
     fields, and fragment mode for embedding in article content.
 
@@ -198,7 +198,7 @@ class FormGenerator:
         as_fragment: bool = False,
     ) -> Any:
         """
-        Generate a DaisyUI form from Pydantic model introspection.
+        Generate a form from Pydantic model introspection.
 
         Args:
             model_class: Pydantic model to introspect
@@ -459,7 +459,7 @@ class FormGenerator:
         value: Any = None,
     ) -> Any:
         """
-        Build a DaisyUI-styled input widget.
+        Build a MonsterUI-styled input widget.
 
         Uses ui/forms.py wrappers (Input, Select, Textarea, Checkbox) for
         consistent variant classes, ARIA support, and full-width defaults.

@@ -32,7 +32,7 @@ flowchart TD
     K --> L["Domain Services<br/>Tasks, Goals, KU, etc."]
     L --> M["Route Factories<br/>DomainRouteConfig"]
     M --> N["FastHTML Routes<br/>Server-rendered HTML"]
-    N --> O["User Interface<br/>HTMX + Alpine.js + DaisyUI"]
+    N --> O["User Interface<br/>HTMX + Alpine.js + MonsterUI"]
 
     O --> P["User Action<br/>(complete task, etc.)"]
     P --> Q["Event Published<br/>(task.completed)"]
@@ -140,7 +140,7 @@ sequenceDiagram
 
     Service-->>API: Return IngestionStats/IncrementalStats
     API-->>UI: HTTP Response with IngestionResultsSummary
-    UI-->>Admin: Display formatted results<br/>(DaisyUI stat cards + tables)
+    UI-->>Admin: Display formatted results<br/>(MonsterUI stat cards + tables)
     WS--xUI: Connection closed
 ```
 

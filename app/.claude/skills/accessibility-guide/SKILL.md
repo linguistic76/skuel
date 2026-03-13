@@ -5,7 +5,7 @@ allowed-tools: Read, Grep, Glob
 related_skills:
 - html-htmx
 - html-navigation
-- daisyui
+- ui-css
 - skuel-form-patterns
 - js-alpine
 ---
@@ -115,7 +115,7 @@ Does this element perform an action (same page)?
 | UI components | 3:1 | Buttons, form borders, icons |
 | Graphics (meaningful) | 3:1 | Chart elements, diagrams |
 
-**SKUEL DaisyUI Color System:**
+**SKUEL MonsterUI Color System:**
 - `text-base-content` on `bg-base-100` - Always passes (designed for contrast)
 - `text-primary` on `bg-base-100` - Checked in theme
 - `text-error` on `bg-error` - High contrast for alerts
@@ -142,7 +142,7 @@ Does this element perform an action (same page)?
 .focus-visible:ring-2 .ring-primary .ring-offset-2
 ```
 
-**DaisyUI default:** All interactive components have built-in focus styles.
+**MonsterUI default:** All interactive components have built-in focus styles.
 
 ## Implementation Patterns
 
@@ -813,7 +813,7 @@ def _domain_menu_item(domain: ProfileDomainItem, is_active: bool) -> "FT":
 - **aria-hidden on decorative content:** Emojis and badges not announced
 - **aria-current="page":** Screen reader announces "current page"
 - **Semantic `<a>` for links:** Native keyboard support
-- **Focus visible:** DaisyUI menu items have built-in focus styles
+- **Focus visible:** MonsterUI menu items have built-in focus styles
 
 ### Example 2: Task Form with Validation
 
@@ -912,7 +912,7 @@ Button(
 # ❌ BAD: Light gray on white (fails WCAG)
 P("Secondary text", cls="text-gray-300")
 
-# ✅ GOOD: DaisyUI semantic colors (guaranteed contrast)
+# ✅ GOOD: MonsterUI semantic colors (guaranteed contrast)
 P("Secondary text", cls="text-base-content/70")
 ```
 

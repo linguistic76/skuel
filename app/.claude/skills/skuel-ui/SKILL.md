@@ -22,7 +22,7 @@ allowed-tools: Read, Grep, Glob
 
 ### BasePage — The Foundation
 
-`BasePage` is the single entry point for all pages. It automatically includes HTMX, Alpine.js, DaisyUI, Tailwind, Vis.js, SKUEL's JS/CSS, modal container, and ARIA live regions.
+`BasePage` is the single entry point for all pages. It automatically includes HTMX, Alpine.js, MonsterUI (FrankenUI + Tailwind), Vis.js, SKUEL's JS/CSS, modal container, and ARIA live regions.
 
 ```python
 from ui.layouts.base_page import BasePage
@@ -150,7 +150,7 @@ Layouts  (/ui/layouts/, /ui/{domain}/layout.py)
     ↓ compose
 Patterns (/ui/patterns/, /ui/{domain}/views.py)
     ↓ compose
-Components (/ui/buttons.py, /ui/cards.py, /ui/forms/, /ui/feedback.py, /ui/layout.py, /ui/text.py, … — DaisyUI wrappers)
+Components (/ui/buttons.py, /ui/cards.py, /ui/forms/, /ui/feedback.py, /ui/layout.py, /ui/text.py, … — MonsterUI wrappers)
 ```
 
 Each layer has a single responsibility: components handle styling, patterns handle domain semantics, layouts handle page structure.
@@ -431,7 +431,7 @@ return await SidebarPage(
 
 **Desktop (lg: 1024px+):** Fixed left sidebar (256px) with collapse toggle → collapses to 48px edge.
 
-**Mobile:** Hidden sidebar; DaisyUI horizontal `tabs tabs-bordered` replace it. No drawer, no hamburger overlay.
+**Mobile:** Hidden sidebar; horizontal `tabs tabs-bordered` replace it. No drawer, no hamburger overlay.
 
 ```
 Desktop:              Mobile:
@@ -504,7 +504,7 @@ Alpine.data('collapsibleSidebar', function(storageKey) {
 
 ### FormGenerator (Preferred)
 
-Use `FormGenerator` for all standard forms. It introspects Pydantic request models and generates DaisyUI-styled forms with correct types, constraints, labels, and Alpine.js validation.
+Use `FormGenerator` for all standard forms. It introspects Pydantic request models and generates MonsterUI-styled forms with correct types, constraints, labels, and Alpine.js validation.
 
 ```python
 from ui.patterns.form_generator import FormGenerator
@@ -550,7 +550,7 @@ exercise_fields = FormGenerator.from_model(
 | **Early validation** | Pure Python function | `Result[None]` with clear message | Before Pydantic, custom rules |
 | **Schema validation** | Pydantic request model | 422 Unprocessable Entity | Type safety |
 
-### Manual Form Structure (DaisyUI)
+### Manual Form Structure
 
 For forms that need full custom control beyond FormGenerator's capabilities:
 
@@ -722,10 +722,10 @@ Div(
 
 ## 6. Inline CSS Reference (SKUEL Essentials)
 
-Use DaisyUI semantic tokens, not Tailwind palette:
+Use MonsterUI semantic tokens, not Tailwind palette:
 
 ```python
-# ✅ DaisyUI tokens (respect active theme)
+# ✅ semantic tokens (respect active theme)
 "text-base-content"         # Primary text
 "text-base-content/70"      # Secondary text
 "bg-base-100"               # Page background
@@ -736,7 +736,7 @@ Use DaisyUI semantic tokens, not Tailwind palette:
 "text-gray-900"  "bg-white"  "text-gray-600"
 ```
 
-**Key DaisyUI classes for SKUEL:**
+**Key MonsterUI classes for SKUEL:**
 
 ```html
 <!-- Buttons -->
@@ -854,7 +854,7 @@ Div(cls="max-w-6xl mx-auto p-6 lg:p-8")
 # ✅ Design tokens
 Div(cls=f"{Container.STANDARD} {Spacing.PAGE}")
 
-# ❌ DaisyUI drawer for sidebar (conflicts with BasePage padding)
+# ❌ Raw drawer HTML for sidebar (conflicts with BasePage padding)
 Div(cls="drawer lg:drawer-open", ...)
 # ✅ SidebarPage() (Tailwind + Alpine, no conflicts)
 
@@ -879,9 +879,9 @@ Form(hx_get="/tasks/create")
 # ✅ POST for all mutations
 Form(hx_post="/tasks/create")
 
-# ❌ Tailwind palette over DaisyUI tokens
+# ❌ Tailwind palette over semantic tokens
 P("text", cls="text-gray-600")
-# ✅ Semantic DaisyUI tokens
+# ✅ Semantic tokens
 P("text", cls="text-base-content/70")
 ```
 
@@ -903,7 +903,7 @@ When building a new SKUEL page or feature, verify:
 - [ ] Active page highlighted in navbar
 
 **Sidebar (if applicable):**
-- [ ] `SidebarPage()` used (not DaisyUI drawer)
+- [ ] `SidebarPage()` used (not raw drawer HTML)
 - [ ] `storage_key` is unique per page
 - [ ] Desktop collapse works; state persists on reload
 - [ ] Mobile shows horizontal tabs (not drawer)
@@ -941,7 +941,7 @@ When building a new SKUEL page or feature, verify:
 | `/ui/patterns/__init__.py` | `PageHeader`, `SectionHeader`, `EmptyState`, `StatsGrid`, `FormGenerator` |
 | `/ui/patterns/form_generator.py` | `FormGenerator` — dynamic form generation from Pydantic models |
 | `/ui/tokens.py` | `Container`, `Spacing`, `Card` design tokens |
-| `ui/buttons.py`, `ui/cards.py`, `ui/forms/`, `ui/modals.py`, `ui/feedback.py`, `ui/layout.py`, `ui/navigation.py`, `ui/data.py` | FastHTML DaisyUI wrappers — 8 focused modules (March 2026) |
+| `ui/buttons.py`, `ui/cards.py`, `ui/forms/`, `ui/modals.py`, `ui/feedback.py`, `ui/layout.py`, `ui/navigation.py`, `ui/data.py` | FastHTML MonsterUI wrappers — 8 focused modules (March 2026) |
 | `/static/js/skuel.js` | All Alpine.data() components |
 | `/ui/profile/_shared.py` | Shared profile primitives (`DomainSummaryCard`, `DomainIntelligenceCard`, `DomainFilterControls`, `_item_list`) |
 | `/ui/profile/curriculum_views.py` | KU, LS, LP profile views |
@@ -950,7 +950,7 @@ When building a new SKUEL page or feature, verify:
 
 ## See Also
 
-- `ui-css` — Deep reference for DaisyUI components and Tailwind utilities
+- `ui-css` — Deep reference for MonsterUI components and Tailwind utilities
 - `ui-browser` — Deep reference for HTMX patterns and Alpine.js directives
 - `fasthtml` — FastHTML route patterns and FT component system
 - `chartjs` — Chart.js analytics visualization

@@ -45,7 +45,7 @@ def render_error_banner(
         show_details: Whether to show technical details (default: False, respects DEBUG mode)
 
     Returns:
-        DaisyUI alert component with error message
+        Alert component with error message
 
     Example:
         # Simple error
@@ -64,7 +64,7 @@ def render_error_banner(
             severity="warning"
         )
     """
-    # Map severity to DaisyUI alert classes
+    # Map severity to alert classes
     alert_class_map = {
         "error": "alert-error",
         "warning": "alert-warning",

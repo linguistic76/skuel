@@ -132,7 +132,7 @@ SKUEL uses these specific versions for stability:
 |-----------|---------|--------|-------|
 | **HTMX** | 1.9.10 | CDN (unpkg.com) | Critical for navigation |
 | **Alpine.js** | 3.14.8 | Self-hosted | `/static/vendor/alpinejs/` |
-| **DaisyUI** | 5 | CDN | Component library |
+| **MonsterUI** | Latest | `monster_headers()` | Component library (FrankenUI + Tailwind) |
 | **Tailwind** | Latest | CDN | Utility classes |
 
 ## Why HTMX 1.9.10?
@@ -146,21 +146,21 @@ SKUEL chose HTMX 1.9.10 over 2.0.x for these reasons:
 
 ## SKUEL Pages
 
-Pages using `daisy_headers()` from `ui.theme` get standardized headers including HTMX 1.9.10:
+Pages using `monster_headers()` from `ui.theme` get standardized headers including HTMX 1.9.10:
 
 ```python
 from fasthtml.common import fast_app
-from ui.theme import daisy_headers
+from ui.theme import monster_headers
 from ui.cards import Card, CardBody
 
-app, rt = fast_app(hdrs=daisy_headers())
+app, rt = fast_app(hdrs=monster_headers())
 
 @rt("/")
 def homepage():
-    return Card(CardBody(...))  # daisy_headers() handles HTMX
+    return Card(CardBody(...))  # monster_headers() handles HTMX
 ```
 
-**Key:** All SKUEL pages use `daisy_headers()` for consistent versioning across the application.
+**Key:** All SKUEL pages use `monster_headers()` for consistent versioning across the application.
 
 ## Debugging Navigation Issues
 
@@ -275,7 +275,7 @@ def create_tasks_page(content, request=None):
 ```python
 # WRONG - manual head construction (versions will drift)
 Head(
-    Link(href="https://cdn.jsdelivr.net/npm/daisyui@5/dist/full.min.css", ...),
+    # MonsterUI is loaded via monster_headers() — do not add CDN links manually
     Script(src="https://unpkg.com/htmx.org@1.9.10"),
     ...
 )

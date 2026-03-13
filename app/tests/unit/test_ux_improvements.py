@@ -10,7 +10,7 @@ def test_input_with_aria_attributes():
     """Verify Input component includes ARIA attributes for accessibility."""
     from ui.forms import Input
 
-    # Test input with error (DaisyUI API uses error_text=)
+    # Test input with error (MonsterUI API uses error_text=)
     input_with_error = Input(
         name="email",
         error_text="Invalid email address",
@@ -51,7 +51,7 @@ def test_textarea_with_aria_attributes():
     """Verify Textarea component includes ARIA attributes for accessibility."""
     from ui.forms import Textarea
 
-    # Test textarea with error (DaisyUI API uses error_text=)
+    # Test textarea with error (MonsterUI API uses error_text=)
     textarea_with_error = Textarea(
         name="description",
         error_text="Description is required",
@@ -75,7 +75,7 @@ def test_select_with_aria_attributes():
 
     from ui.forms import Select
 
-    # Test select with error (DaisyUI API uses error_text=, options as children)
+    # Test select with error (MonsterUI API uses error_text=, options as children)
     select_with_error = Select(
         Option("Work", value="work"),
         Option("Personal", value="personal"),

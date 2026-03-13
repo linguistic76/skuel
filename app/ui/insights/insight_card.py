@@ -300,7 +300,7 @@ def InsightDetailModal(insight: PersistedInsight) -> Div:
         insight: PersistedInsight model with all insight data
 
     Returns:
-        DaisyUI modal component wrapped in Alpine.js controller
+        Modal component wrapped in Alpine.js controller
     """
     # Build confidence indicator
     confidence_pct = int(insight.confidence * 100)
@@ -369,7 +369,7 @@ def InsightDetailModal(insight: PersistedInsight) -> Div:
                 cls="mb-6",
             )
 
-    # Modal structure (DaisyUI modal)
+    # Modal structure (modal)
     return Div(
         # Modal overlay
         Div(

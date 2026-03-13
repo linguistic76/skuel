@@ -546,7 +546,7 @@ class TestCustomWidgets:
 
 
 # ============================================================================
-# Tests: DaisyUI wrapper integration
+# Tests: UI wrapper integration
 # ============================================================================
 
 

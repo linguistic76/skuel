@@ -8,7 +8,7 @@ UI for exercises (instruction templates) following SKUEL's transparency principl
 - Side-by-side entry + feedback view
 - No black boxes
 
-Uses DaisyUI/Tailwind components for clean, consistent design.
+Uses MonsterUI/Tailwind components for clean, consistent design.
 
 Formerly assignments_ui.py — renamed per of Ku hierarchy refactoring.
 """

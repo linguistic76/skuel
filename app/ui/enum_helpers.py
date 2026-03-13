@@ -1024,7 +1024,7 @@ def render_entity_card(
         actions: Optional list of action button configs
 
     Returns:
-        DaisyUI Card component,
+        Card component,
 
     Example:
         >>> render_entity_card(

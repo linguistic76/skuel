@@ -1,7 +1,7 @@
 # SKUEL UI Component Catalog
 
 **Last Updated:** 2026-03-10
-**Status:** Complete — DaisyUI consolidated (primitives layer removed)
+**Status:** Complete — MonsterUI consolidated (primitives layer removed)
 
 ---
 
@@ -9,13 +9,13 @@
 
 This catalog documents all UI components in SKUEL's design system, organized into three tiers:
 
-1. **DaisyUI Wrappers** - Semantic component wrappers (buttons, cards, badges, forms, layout, text, feedback)
+1. **MonsterUI Wrappers** - Semantic component wrappers (buttons, cards, badges, forms, layout, text, feedback)
 2. **Patterns** - Composed reusable components (headers, cards, grids)
 3. **Layouts** - Page structures (BasePage, domain layouts)
 
-All components follow DaisyUI conventions and WCAG 2.1 Level AA accessibility standards.
+All components follow MonsterUI (FrankenUI + Tailwind) conventions and WCAG 2.1 Level AA accessibility standards.
 
-> **Note (2026-03-10):** The `ui/primitives/` layer was removed. All unique value was absorbed into the DaisyUI wrapper modules: typography helpers → `ui/text.py`, StatusBadge/PriorityBadge → `ui/feedback.py`, FlexItem/Row/Stack → `ui/layout.py`, CardLink → `ui/cards.py`, ButtonLink/IconButton → `ui/buttons.py`.
+> **Note (2026-03-10):** The `ui/primitives/` layer was removed. All unique value was absorbed into the MonsterUI wrapper modules: typography helpers → `ui/text.py`, StatusBadge/PriorityBadge → `ui/feedback.py`, FlexItem/Row/Stack → `ui/layout.py`, CardLink → `ui/cards.py`, ButtonLink/IconButton → `ui/buttons.py`.
 
 ---
 
@@ -34,9 +34,9 @@ All components follow DaisyUI conventions and WCAG 2.1 Level AA accessibility st
 
 ---
 
-# DaisyUI Component Modules
+# MonsterUI Component Modules
 
-Thin Python wrappers around FastHTML FT components with DaisyUI styling.
+Thin Python wrappers around FastHTML FT components with MonsterUI styling.
 These are the **lowest-level SKUEL building blocks** — imported directly in route files and views.
 
 **Module map** (March 2026 — decomposed from `daisy_components.py`):
@@ -993,7 +993,7 @@ CONTAINERS = {
 
 ```python
 CARD = {
-    "base": "bg-base-100 border border-base-200 rounded-lg shadow-sm",
+    "base": "bg-background border border-border rounded-lg shadow-sm",
     "padding": "p-4",
     "gap": "gap-3",
 }
@@ -1190,7 +1190,7 @@ Div(cls=f"{CONTAINERS['standard']} {SPACING['section_gap']}")
 
 Quick alphabetical index:
 
-**DaisyUI Wrappers (ui/*.py):**
+**MonsterUI Wrappers (ui/*.py):**
 - **Alert / AlertT** - `ui.feedback`
 - **Avatar / AvatarGroup** - `ui.data`
 - **Badge / BadgeT** - `ui.feedback`
@@ -1232,7 +1232,7 @@ Quick alphabetical index:
 - **Error Handling Patterns:** `/docs/patterns/ERROR_HANDLING.md`
 - **UI Component Patterns:** `/docs/patterns/UI_COMPONENT_PATTERNS.md`
 - **WCAG Accessibility Guide:** `/.claude/skills/accessibility-guide/`
-- **DaisyUI Components:** `/.claude/skills/daisyui/`
+- **MonsterUI Components:** `/.claude/skills/monsterui/`
 
 ---
 

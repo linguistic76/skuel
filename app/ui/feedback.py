@@ -80,7 +80,7 @@ class BadgeT(StrEnum):
     outline = "outline"
 
 
-# Badge color classes (Tailwind utilities — no DaisyUI dependency)
+# Badge color classes (Tailwind utilities)
 _BADGE_COLORS: dict[str, str] = {
     "primary": "bg-primary/10 text-primary border-primary/20",
     "secondary": "bg-secondary text-secondary-foreground border-secondary",

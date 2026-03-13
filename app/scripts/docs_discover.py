@@ -102,7 +102,7 @@ TASK_MAP = {
     "style component": [
         "/docs/patterns/UI_COMPONENT_PATTERNS.md",
         "/.claude/skills/tailwind-css/SKILL.md",
-        "/.claude/skills/daisyui/SKILL.md",
+        "/.claude/skills/ui-css/SKILL.md",
     ],
     "search implementation": [
         "/docs/architecture/SEARCH_ARCHITECTURE.md",

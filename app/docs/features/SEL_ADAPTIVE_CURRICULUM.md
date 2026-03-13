@@ -133,7 +133,7 @@ async def sel_category(request: Request) -> Any:
         breadcrumbs,
         PageHeader("Category Name", subtitle="Description"),
         SectionHeader("About This Competency"),
-        P("Description text...", cls="text-base-content/70 mb-6"),
+        P("Description text...", cls="text-muted-foreground mb-6"),
 
         # HTMX dynamic curriculum loading
         SectionHeader("Your Personalized Curriculum"),
@@ -371,7 +371,7 @@ LIMIT 30
 ### Drawer Sidebar
 
 ```python
-# Preserved drawer navigation (DaisyUI checkbox-based)
+# Preserved drawer navigation (checkbox-based)
 create_sel_sidebar_layout(
     active_page="self-awareness",
     content=main_content

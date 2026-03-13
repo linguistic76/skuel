@@ -14,7 +14,7 @@ updated: 2026-02-01
 | Skill | Purpose | Foundation |
 |-------|---------|------------|
 | [tailwind-css](tailwind-css/SKILL.md) | Utility-first CSS | None (base layer) |
-| [daisyui](daisyui/SKILL.md) | Semantic CSS components | tailwind-css |
+| [daisyui](ui-css/SKILL.md) | Semantic CSS components | tailwind-css |
 | [monsterui](monsterui/SKILL.md) | FastHTML component library | daisyui, tailwind-css |
 
 ### Core Python Stack

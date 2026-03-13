@@ -99,7 +99,7 @@ class CalendarParams:
 
 ### 3. Error Banner Component
 
-User-visible error messages using DaisyUI alert:
+User-visible error messages using alert:
 
 ```python
 def render_error_banner(message: str) -> Div:
@@ -669,7 +669,7 @@ def render_error_banner(message: str) -> Div:
     """
     Render error banner for UI failures.
 
-    Uses DaisyUI alert component with error styling.
+    Uses alert component with error styling.
     """
     return Div(
         Div(
@@ -697,7 +697,7 @@ if result.is_error:
 ```
 
 **Styling:**
-- DaisyUI `alert alert-error` (red background, error icon)
+- MonsterUI alert (red background, error icon)
 - Bold title with emoji (⚠️ Error)
 - Small text for message
 - Bottom margin (mb-4)
@@ -1071,7 +1071,7 @@ if other_result.is_error:
     return render_error_banner(f"Failed to process: {other_result.error}")
 ```
 
-**Consistency:** All errors use same component (DaisyUI alert, emoji, styling)
+**Consistency:** All errors use same component (alert, emoji, styling)
 
 ---
 

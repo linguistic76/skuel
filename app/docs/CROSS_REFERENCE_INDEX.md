@@ -234,7 +234,7 @@ For each skill, this section shows all related documentation (architecture docs,
 
 ### @ui-css
 
-**Description:** SKUEL's CSS layer — DaisyUI semantic components + Tailwind utility classes
+**Description:** SKUEL's CSS layer — MonsterUI component wrappers + Tailwind utility classes
 
 **Patterns (Primary):**
 - [UI_COMPONENT_PATTERNS.md](/docs/patterns/UI_COMPONENT_PATTERNS.md)

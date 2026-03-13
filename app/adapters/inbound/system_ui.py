@@ -71,7 +71,7 @@ def create_system_ui_routes(
 
     @rt("/404")
     async def not_found() -> Any:
-        """404 Not Found page using DaisyUI/Tailwind with module-level imports"""
+        """404 Not Found page using MonsterUI/Tailwind with module-level imports"""
         # Create navigation using module-level imported components
         navbar = Nav(
             [
@@ -111,7 +111,7 @@ def create_system_ui_routes(
             cls="navbar bg-background",
         )
 
-        # Return DaisyUI/Tailwind components with module-level imports
+        # Return MonsterUI/Tailwind components with module-level imports
         return Container(
             [
                 navbar,
@@ -162,7 +162,7 @@ def _render_login_landing_page() -> NotStr:
     Simple, focused design like Facebook's logged-out homepage.
     """
     return NotStr("""<!DOCTYPE html>
-<html class="h-full dark" data-theme="dark">
+<html class="h-full dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">

@@ -8,7 +8,7 @@ Following 100% Dynamic Architecture:
 - Generic patterns that work for ANY entity type
 - Dynamic rendering via callable entity_renderer
 - Composition-based, not inheritance
-- DaisyUI component library with type-safe enums
+- MonsterUI component library with type-safe enums
 
 Usage:
     from ui.patterns.entity_dashboard import SharedUIComponents
@@ -24,7 +24,7 @@ Usage:
         ]
     )
 
-Version: 2.0.0 (January 2026) - DaisyUI Migration
+Version: 2.0.0 (January 2026) - MonsterUI Migration
 """
 
 from collections.abc import Callable
@@ -176,7 +176,7 @@ class SharedUIComponents:
                 Div(id="modal"),
                 cls="bg-muted min-h-screen",
             ),
-            **{"data-theme": "light"},
+            # MonsterUI uses class-based dark mode (no data-theme attribute)
         )
 
     # ========================================================================

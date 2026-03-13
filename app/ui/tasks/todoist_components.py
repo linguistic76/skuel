@@ -280,7 +280,7 @@ class TodoistTaskComponents:
         """
         Render task edit modal with form.
 
-        Uses DaisyUI modal + Alpine.js for state management.
+        Uses modal + Alpine.js for state management.
         Form submits via HTMX POST to /tasks/update endpoint.
 
         Args:

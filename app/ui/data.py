@@ -1,5 +1,5 @@
 """
-SKUEL DaisyUI Data Display Components
+SKUEL Data Display Components
 ================================
 
 Table, Stats (Stat, StatTitle, StatValue, StatDesc, StatFigure),
@@ -30,7 +30,7 @@ __all__ = [
 
 def Table(*c: Any, cls: str = "", zebra: bool = False, **kwargs: Any) -> Any:
     """
-    DaisyUI Table wrapper.
+    Table wrapper.
 
     Args:
         *c: Table content (Thead, Tbody)
@@ -57,7 +57,7 @@ def Tooltip(
     **kwargs: Any,
 ) -> Any:
     """
-    DaisyUI Tooltip wrapper.
+    Tooltip wrapper.
 
     Args:
         *c: Element to wrap with tooltip
@@ -85,7 +85,7 @@ def Divider(
     **kwargs: Any,
 ) -> Any:
     """
-    DaisyUI Divider.
+    Divider.
 
     Args:
         text: Optional text to show in divider
@@ -103,7 +103,7 @@ def Divider(
 
 def Avatar(*c: Any, cls: str = "", online: bool | None = None, **kwargs: Any) -> Any:
     """
-    DaisyUI Avatar wrapper.
+    Avatar wrapper.
 
     Args:
         *c: Avatar content (typically an Img in a Div)
@@ -123,7 +123,7 @@ def Avatar(*c: Any, cls: str = "", online: bool | None = None, **kwargs: Any) ->
 
 def AvatarGroup(*c: Any, cls: str = "", **kwargs: Any) -> Any:
     """
-    DaisyUI Avatar group wrapper.
+    Avatar group wrapper.
 
     Args:
         *c: Avatar elements
@@ -138,7 +138,7 @@ def AvatarGroup(*c: Any, cls: str = "", **kwargs: Any) -> Any:
 
 def Stats(*c: Any, cls: str = "", vertical: bool = False, **kwargs: Any) -> Any:
     """
-    DaisyUI Stats wrapper.
+    Stats wrapper.
 
     Args:
         *c: Stat items
@@ -156,7 +156,7 @@ def Stats(*c: Any, cls: str = "", vertical: bool = False, **kwargs: Any) -> Any:
 
 def Stat(*c: Any, cls: str = "", **kwargs: Any) -> Any:
     """
-    DaisyUI Stat item wrapper.
+    Stat item wrapper.
 
     Args:
         *c: Stat content (StatTitle, StatValue, StatDesc, etc.)
@@ -170,7 +170,7 @@ def Stat(*c: Any, cls: str = "", **kwargs: Any) -> Any:
 
 
 def StatTitle(*c: Any, cls: str = "", **kwargs: Any) -> Any:
-    """DaisyUI Stat title."""
+    """Stat title."""
     classes = ["stat-title"]
     if cls:
         classes.append(cls)
@@ -178,7 +178,7 @@ def StatTitle(*c: Any, cls: str = "", **kwargs: Any) -> Any:
 
 
 def StatValue(*c: Any, cls: str = "", **kwargs: Any) -> Any:
-    """DaisyUI Stat value."""
+    """Stat value."""
     classes = ["stat-value"]
     if cls:
         classes.append(cls)
@@ -186,7 +186,7 @@ def StatValue(*c: Any, cls: str = "", **kwargs: Any) -> Any:
 
 
 def StatDesc(*c: Any, cls: str = "", **kwargs: Any) -> Any:
-    """DaisyUI Stat description."""
+    """Stat description."""
     classes = ["stat-desc"]
     if cls:
         classes.append(cls)
@@ -194,7 +194,7 @@ def StatDesc(*c: Any, cls: str = "", **kwargs: Any) -> Any:
 
 
 def StatFigure(*c: Any, cls: str = "", **kwargs: Any) -> Any:
-    """DaisyUI Stat figure (for icons)."""
+    """Stat figure (for icons)."""
     classes = ["stat-figure"]
     if cls:
         classes.append(cls)

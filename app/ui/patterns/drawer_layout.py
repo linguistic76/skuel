@@ -1,8 +1,8 @@
 """
-Drawer Layout Component - DaisyUI-Based Sidebar
-================================================
+Drawer Layout Component - CSS-Based Sidebar
+=============================================
 
-Reusable drawer layout component using DaisyUI's CSS-only drawer pattern.
+Reusable drawer layout component using CSS-only drawer pattern.
 Provides a responsive sidebar that is open on desktop (lg:drawer-open) and
 overlay-based on mobile.
 
@@ -28,7 +28,7 @@ Benefits over custom CSS/JS:
     - CSS-only toggle (checkbox-based, no JavaScript required for basic function)
     - Built-in responsive: lg:drawer-open shows sidebar on desktop, overlay on mobile
     - Built-in overlay: drawer-overlay handles click-to-close
-    - DaisyUI themes automatically apply
+    - Theme classes automatically apply
     - ~90 lines vs ~280 lines of custom CSS/JS
 
 Version: 1.0
@@ -54,7 +54,7 @@ class MenuItem:
 @dataclass
 class DrawerLayout:
     """
-    DaisyUI Drawer layout component.
+    Drawer layout component.
 
     Args:
         drawer_id: Unique ID for this drawer (for checkbox toggle)
@@ -97,7 +97,7 @@ class DrawerLayout:
         # Build footer HTML
         footer_html = self._build_footer_html() if self.show_footer else ""
 
-        # DaisyUI Drawer HTML
+        # Drawer HTML
         drawer_html = f"""
         <div class="drawer lg:drawer-open">
             <!-- Drawer Toggle (Hidden checkbox) -->

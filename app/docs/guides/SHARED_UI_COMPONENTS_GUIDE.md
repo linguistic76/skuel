@@ -9,7 +9,7 @@ related: [AUTH_PATTERNS.md]
 
 # Shared UI Components Guide
 
-**Version:** 2.0.0 (January 2026) - DaisyUI Migration
+**Version:** 2.0.0 (January 2026)
 **Status:** Production Ready
 **Location:** `/ui/patterns/entity_dashboard.py`
 
@@ -20,7 +20,7 @@ related: [AUTH_PATTERNS.md]
 The Shared UI Components library provides reusable dashboard patterns for all SKUEL domains. It eliminates duplicate code across 15+ UI files and ensures consistent user experience.
 
 **Version 2.0.0 Changes (January 2026):**
-- ✅ Migrated from FrankenUI to DaisyUI component library
+- ✅ Migrated to MonsterUI (FrankenUI + Tailwind) component library
 - ✅ Type-safe component imports (Button, Card, Input, Select with typed variants)
 - ✅ Enum-based variants replace string classes (ButtonT.primary instead of "btn-primary")
 - ✅ Backwards compatibility maintained for action config dictionaries
@@ -31,10 +31,10 @@ The Shared UI Components library provides reusable dashboard patterns for all SK
 **"Write once, render everywhere"**
 
 All dashboards (Tasks, Habits, Goals, Events, Finance, etc.) share the same underlying patterns:
-- Stats cards (DaisyUI Card component)
-- Quick action buttons (DaisyUI Button with typed variants)
+- Stats cards (MonsterUI Card component)
+- Quick action buttons (MonsterUI Button with typed variants)
 - Entity lists/grids
-- Filters and search (DaisyUI Select/Input)
+- Filters and search (MonsterUI Select/Input)
 - Empty states
 - Detail views
 
@@ -78,7 +78,7 @@ Instead of copying these patterns 15 times, we implement them once in `SharedUIC
 ```python
 from ui.patterns.entity_dashboard import SharedUIComponents
 
-# DaisyUI components are imported internally by SharedUIComponents
+# MonsterUI components are imported internally by SharedUIComponents
 # You don't need to import them directly unless building custom renderers:
 from ui.buttons import Button, ButtonT
 from ui.cards import Card
@@ -147,7 +147,7 @@ empty = SharedUIComponents.render_empty_state(
 
 **Returns:** Complete `Html` document (not `Div`) using `build_head()` from `base_page.py`.
 
-> **Important:** This function returns a full `Html(build_head(...), Body(...))` document to ensure consistent HTMX versioning across all pages. The `<head>` is provided by `build_head()` — the single source of truth for all vendor library versions (DaisyUI, HTMX, Alpine.js, etc.). See [UI Component Patterns - Page Layout Architecture](/docs/patterns/UI_COMPONENT_PATTERNS.md#page-layout-architecture-critical) for details.
+> **Important:** This function returns a full `Html(build_head(...), Body(...))` document to ensure consistent HTMX versioning across all pages. The `<head>` is provided by `build_head()` — the single source of truth for all vendor library versions (MonsterUI, HTMX, Alpine.js, etc.). See [UI Component Patterns - Page Layout Architecture](/docs/patterns/UI_COMPONENT_PATTERNS.md#page-layout-architecture-critical) for details.
 
 **Parameters:**
 - `title` (str): Dashboard title with emoji (e.g., "🎯 Habit Tracker")
@@ -677,7 +677,7 @@ entity_renderer=HabitCard  # Missing lambda/call
 
 ### v2.1.0 (March 2026)
 - `render_entity_dashboard()` now uses `build_head()` from `base_page.py` instead of constructing its own `<head>`
-- Fixes stale DaisyUI version (was 4.4.19, now uses canonical version from `ui/theme.py`)
+- Fixes stale version reference (now uses canonical version from `ui/theme.py` via `monster_headers()`)
 - Removes reference to non-existent `skuel.css` (correct file is `main.css`)
 - Single source of truth: all version updates to `build_head()` automatically propagate
 
@@ -707,4 +707,4 @@ entity_renderer=HabitCard  # Missing lambda/call
 **Last Updated:** March 6, 2026
 **Maintained By:** SKUEL Core Team
 **License:** MIT
-**Component Library:** DaisyUI with type-safe enums (v2.0.0+)
+**Component Library:** MonsterUI (FrankenUI + Tailwind) with type-safe enums (v2.0.0+)

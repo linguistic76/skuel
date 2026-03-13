@@ -98,7 +98,7 @@ Neo4j Graph (digital)
 **Tech Stack:**
 - **FastHTML:** Python-native HTML generation, route decorators
 - **HTMX:** Hypermedia-driven interactions (no SPA framework)
-- **DaisyUI:** Tailwind CSS component library for consistent UI
+- **MonsterUI (FrankenUI + Tailwind):** Component library for consistent UI
 - **Alpine.js:** Client-side reactivity for modals, dropdowns, etc.
 
 **Why Server-Rendered (Not SPA):**
@@ -168,7 +168,7 @@ async def ku_detail(request: Request, uid: str):
 │ Layer 4: Hypermedia UX (User Interface)                      │
 │   - FastHTML routes serving HTML                             │
 │   - HTMX for dynamic updates                                 │
-│   - DaisyUI + Alpine.js for interactivity                    │
+│   - MonsterUI + Alpine.js for interactivity                  │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -206,7 +206,7 @@ The ingestion system has evolved from a basic file importer to a sophisticated c
 - **Dry-Run Mode:** Preview changes before execution
 - **Ingestion History:** Full audit trail in Neo4j graph
 - **Real-Time Progress:** WebSocket-based updates
-- **Formatted Results:** DaisyUI stat cards and tables
+- **Formatted Results:** MonsterUI stat cards and tables
 - **Domain Integration:** Admin-only ingestion triggers on list pages
 
 ### Ingestion Modes
@@ -397,7 +397,7 @@ RETURN path
        ↓ Route Factories
        │
 ┌──────┴───────────────────────────────────────────┐
-│ FastHTML Routes → HTML → HTMX → Alpine.js        │
+│ FastHTML Routes → HTML → HTMX → MonsterUI + Alpine.js │
 │   - Server-rendered                               │
 │   - Progressive enhancement                       │
 │   - Accessible by default                         │

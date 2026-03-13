@@ -8,7 +8,7 @@
 
 ## Before Committing Any UI Code
 
-### 1. Colors (DaisyUI)
+### 1. Colors (MonsterUI)
 
 **Check:**
 - [ ] Using semantic colors (`bg-base-100`, `text-base-content`, `btn-primary`)?
@@ -31,34 +31,33 @@ Div(cls="bg-white text-gray-900")
 Div(cls="bg-base-100 text-base-content")
 ```
 
-**See:** [daisyui/SKILL.md](daisyui/SKILL.md#critical-avoid-hardcoded-colors)
+**See:** [ui-css/SKILL.md](ui-css/SKILL.md#critical-avoid-hardcoded-colors)
 
 ---
 
-### 2. Theme (DaisyUI)
+### 2. Theme (MonsterUI)
 
 **Check:**
-- [ ] `data-theme` on `<html>` element (not `<body>`)?
+- [ ] Dark mode uses `dark` class on `<html>` element (MonsterUI class-based dark mode)?
 - [ ] Theme script runs before CSS loads (FOUC prevention)?
-- [ ] Nested themes reapply `bg-base-100` and `text-base-content`?
-- [ ] Theme preference saved to localStorage?
+- [ ] Theme preference saved to localStorage (`skuel-theme` key)?
 
 **Quick Test:**
 ```bash
-# Check if theme is on html or body
-grep -r "data-theme" adapters/inbound/
+# Check dark mode toggle works
+grep -r "classList.*dark" ui/theme.py
 ```
 
 **Fix:**
 ```html
-<!-- BAD -->
-<body data-theme="light">
+<!-- BAD (old DaisyUI pattern) -->
+<html data-theme="dark">
 
-<!-- GOOD -->
-<html data-theme="light">
+<!-- GOOD (MonsterUI class-based dark mode) -->
+<html class="dark">
 ```
 
-**See:** [daisyui/theme-application-guide.md](daisyui/theme-application-guide.md)
+**See:** [ui-css/SKILL.md](ui-css/SKILL.md)
 
 ---
 
@@ -303,7 +302,7 @@ errors=0
 
 # Check 1: Hardcoded colors
 if grep -rq "bg-white\|text-gray-[0-9]\|bg-gray-[0-9]" adapters/inbound/ ui/ 2>/dev/null; then
-    echo "❌ Found hardcoded colors (use DaisyUI semantic colors)"
+    echo "❌ Found hardcoded colors (use MonsterUI semantic colors)"
     grep -rn "bg-white\|text-gray-[0-9]\|bg-gray-[0-9]" adapters/inbound/ ui/ | head -5
     errors=$((errors+1))
 else
@@ -398,16 +397,16 @@ When fixing violations, address in this order:
 ## Related Guides
 
 ### By Skill
-- [daisyui/SKILL.md](daisyui/SKILL.md) - DaisyUI components and semantic colors
-- [daisyui/css-variables-guide.md](daisyui/css-variables-guide.md) - CSS variables and OKLCH
-- [daisyui/theme-application-guide.md](daisyui/theme-application-guide.md) - Theme patterns
+- [ui-css/SKILL.md](ui-css/SKILL.md) - MonsterUI components and semantic colors
+- [ui-css/SKILL.md](ui-css/SKILL.md) - CSS variables and OKLCH
+- [ui-css/SKILL.md](ui-css/SKILL.md) - Theme patterns
 - [tailwind-css/SKILL.md](tailwind-css/SKILL.md) - Tailwind utilities
 - [tailwind-css/design-consistency-guide.md](tailwind-css/design-consistency-guide.md) - SKUEL tokens
 - [html-htmx/SKILL.md](html-htmx/SKILL.md) - Semantic HTML and HTMX
 
 ### By Topic
-- **Colors:** [daisyui/SKILL.md#critical-avoid-hardcoded-colors](daisyui/SKILL.md)
-- **Theme:** [daisyui/theme-application-guide.md](daisyui/theme-application-guide.md)
+- **Colors:** [ui-css/SKILL.md#critical-avoid-hardcoded-colors](ui-css/SKILL.md)
+- **Theme:** [ui-css/SKILL.md](ui-css/SKILL.md)
 - **Spacing:** [tailwind-css/design-consistency-guide.md#spacing-scale](tailwind-css/design-consistency-guide.md)
 - **Containers:** [tailwind-css/design-consistency-guide.md#container-widths](tailwind-css/design-consistency-guide.md)
 - **Tokens:** [tailwind-css/design-consistency-guide.md#skuel-design-token-system](tailwind-css/design-consistency-guide.md)

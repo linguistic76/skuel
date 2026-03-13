@@ -16,7 +16,7 @@ bespoke alternative.
 **Examples already in practice:**
 - **Neo4j** (graph database) → future **AuraDB** (managed Neo4j)
 - **Prometheus + Grafana** (observability) — industry-standard, community-maintained
-- **DaisyUI + Tailwind** (UI) — maintained component library over hand-rolled CSS
+- **MonsterUI (FrankenUI + Tailwind)** (UI) — maintained component library over hand-rolled CSS
 - **FastHTML** (web framework) — maintained framework over custom server code
 
 **This roadmap item:** Replace SKUEL's implicit "files are on the same machine" assumption with

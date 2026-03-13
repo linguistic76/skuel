@@ -51,7 +51,7 @@ class FieldRendererMapper:
         """
         Determine default renderer from field type introspection.
 
-        Returns a function that renders the value as a DaisyUI component.
+        Returns a function that renders the value as a UI component.
         """
         # Handle None values
         if value is None:
@@ -216,7 +216,7 @@ class CardGenerator:
     Follows 100% dynamic architecture:
     - Introspects dataclass fields via fields()
     - Determines renderers via type annotations
-    - Generates DaisyUI components
+    - Generates UI components
     """
 
     @staticmethod
@@ -246,7 +246,7 @@ class CardGenerator:
             show_empty_fields: Show fields even if value is None/empty
 
         Returns:
-            DaisyUI Card component
+            Card component
 
         Example:
             def render_priority(v):

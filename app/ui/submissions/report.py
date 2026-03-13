@@ -36,7 +36,7 @@ def get_processor_type_str(report: Any) -> str:
 
 
 def render_processor_badge(processor_type_str: str) -> Any:
-    """Render a DaisyUI badge for processor type (LLM / Scheduled / Admin)."""
+    """Render a badge for processor type (LLM / Scheduled / Admin)."""
     label = _PROCESSOR_LABELS.get(processor_type_str, processor_type_str or "AI")
     badge_cls = _PROCESSOR_BADGE_CLASSES.get(processor_type_str, "badge-ghost")
     return Badge(label, variant=None, size=Size.sm, cls=badge_cls)
@@ -61,7 +61,7 @@ def format_date(dt_value: Any) -> str:
 
 
 def render_review_status_badge(status: str, feedback_count: int) -> Any:
-    """Return a DaisyUI badge indicating the teacher review outcome."""
+    """Return a badge indicating the teacher review outcome."""
     if feedback_count > 0 and status == "completed":
         return Badge("Reviewed", variant=BadgeT.success, size=Size.sm)
     if status == "revision_requested":

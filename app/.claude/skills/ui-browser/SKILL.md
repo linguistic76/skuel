@@ -551,7 +551,7 @@ HTMX enhances HTML — use semantic elements, not div soup:
 ## See Also
 
 - `skuel-ui` — SKUEL-specific patterns using HTMX + Alpine (forms, navigation, sidebars)
-- `ui-css` — DaisyUI + Tailwind for styling interactive components
+- `ui-css` — MonsterUI (FrankenUI + Tailwind) for styling interactive components
 - `chartjs` — Chart.js visualization via `chartVis()` Alpine component
 - HTMX Docs: https://htmx.org/docs/
 - Alpine.js Docs: https://alpinejs.dev/

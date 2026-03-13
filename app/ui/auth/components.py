@@ -35,7 +35,7 @@ class AuthComponents:
             """
 
         return NotStr(f"""<!DOCTYPE html>
-<html class="h-full dark" data-theme="dark">
+<html class="h-full dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -124,7 +124,7 @@ class AuthComponents:
             """
 
         return NotStr(f"""<!DOCTYPE html>
-<html class="h-full dark" data-theme="dark">
+<html class="h-full dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">

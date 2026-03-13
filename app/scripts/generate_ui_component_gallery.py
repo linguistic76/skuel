@@ -95,14 +95,14 @@ COMPONENTS = [
         "get_priority_badge_class",
         'get_priority_badge_class("high")',
         "Returns: badge-warning",
-        "Map priority to DaisyUI badge class",
+        "Map priority to badge class",
     ),
     (
         "tier2",
         "get_status_badge_class",
         'get_status_badge_class("in_progress")',
         "Returns: badge-info",
-        "Map status to DaisyUI badge class",
+        "Map status to badge class",
     ),
     (
         "tier2",
@@ -206,7 +206,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SKUEL UI Component Gallery</title>
-    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.4.19/dist/full.min.css" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/franken-wc@0.1.0/dist/css/core.min.css" rel="stylesheet" />
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         .component-card {{ margin-bottom: 1.5rem; }}

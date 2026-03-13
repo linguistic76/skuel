@@ -84,7 +84,7 @@ skills:
     keywords: [pydantic, validation, basemodel, serialization]
 
   - name: ui-css
-    description: SKUEL CSS layer — DaisyUI semantic components + Tailwind utility classes
+    description: SKUEL CSS layer — MonsterUI (FrankenUI + Tailwind) components
     last_reviewed: "2026-03-01"
     foundation: []
     dependencies: []
@@ -94,7 +94,7 @@ skills:
       - /docs/patterns/UI_COMPONENT_PATTERNS.md
     related_adrs: []
     patterns: []
-    keywords: [tailwind, daisyui, css, styling, responsive, utility-first, components, ui, semantic, accessible]
+    keywords: [tailwind, monsterui, frankenui, css, styling, responsive, utility-first, components, ui, semantic, accessible]
 
   - name: chartjs
     description: Chart.js data visualization in SKUEL

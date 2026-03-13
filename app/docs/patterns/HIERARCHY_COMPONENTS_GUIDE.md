@@ -19,7 +19,7 @@ related_docs: []
 SKUEL provides a comprehensive set of hierarchy visualization components for displaying parent-child relationships across all domains:
 
 1. **TreeView** - Custom expandable tree with full features
-2. **AccordionHierarchy** - DaisyUI collapse-based for content-heavy nodes
+2. **AccordionHierarchy** - MonsterUI collapse-based for content-heavy nodes
 3. **Breadcrumbs** - Ancestor navigation trail
 4. **IndentedList** - Simple static indented display
 

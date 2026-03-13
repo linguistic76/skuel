@@ -40,7 +40,7 @@ __all__ = [
 class InputT(StrEnum):
     """Input variant types — kept for API compatibility.
 
-    MonsterUI inputs don't have variant classes like DaisyUI's input-bordered etc.
+    MonsterUI inputs don't have variant classes like input-bordered etc.
     The variant parameter is accepted but styling comes from the MonsterUI theme.
     """
 

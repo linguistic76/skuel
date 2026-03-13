@@ -275,40 +275,10 @@ class UserPreferencesComponents:
             action="/profile/settings/save",
         )
 
-    # All DaisyUI built-in themes
-    DAISYUI_THEMES = [
+    # MonsterUI themes (class-based dark mode via Tailwind)
+    THEMES = [
         "light",
         "dark",
-        "cupcake",
-        "bumblebee",
-        "emerald",
-        "corporate",
-        "synthwave",
-        "retro",
-        "cyberpunk",
-        "valentine",
-        "halloween",
-        "garden",
-        "forest",
-        "aqua",
-        "lofi",
-        "pastel",
-        "fantasy",
-        "wireframe",
-        "black",
-        "luxury",
-        "dracula",
-        "cmyk",
-        "autumn",
-        "business",
-        "acid",
-        "lemonade",
-        "night",
-        "coffee",
-        "winter",
-        "dim",
-        "nord",
-        "sunset",
     ]
 
     @staticmethod
@@ -321,7 +291,7 @@ class UserPreferencesComponents:
                 value=theme,
                 selected=current_theme == theme,
             )
-            for theme in UserPreferencesComponents.DAISYUI_THEMES
+            for theme in UserPreferencesComponents.THEMES
         ]
 
         return Form(
@@ -330,7 +300,7 @@ class UserPreferencesComponents:
                 Select(
                     *theme_options,
                     name="theme",
-                    onchange="document.documentElement.setAttribute('data-theme', this.value)",
+                    onchange="this.value === 'dark' ? document.documentElement.classList.add('dark') : document.documentElement.classList.remove('dark'); localStorage.setItem('skuel-theme', this.value)",
                 ),
                 P(
                     "Theme changes preview instantly. Save to persist.",

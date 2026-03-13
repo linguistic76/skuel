@@ -6,7 +6,7 @@ Formatted ingestion results with cards and tables, replacing raw JSON displays.
 
 Components:
 - IngestionResultsSummary: Main results view with stats cards and breakdowns
-- StatCard: DaisyUI stat card for individual metrics
+- StatCard: Stat card for individual metrics
 - EntityBreakdownTable: Table showing entities by type
 - ErrorsTable: Table showing ingestion errors with suggestions
 """
@@ -83,7 +83,7 @@ def IngestionResultsSummary(stats: Any) -> FT:
 
 def StatCard(label: str, value: Any, icon: str, color_class: str = "") -> FT:
     """
-    DaisyUI stat card for displaying a single metric.
+    Stat card for displaying a single metric.
 
     Args:
         label: Stat label

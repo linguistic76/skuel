@@ -3,7 +3,7 @@
 **Location:** `ui/patterns/form_generator.py`
 **Import:** `from ui.patterns.form_generator import FormGenerator`
 
-FormGenerator creates DaisyUI forms automatically from Pydantic request models. Point it at a model, and it introspects fields, types, constraints, and enums to produce a complete, styled form.
+FormGenerator creates MonsterUI-styled forms automatically from Pydantic request models. Point it at a model, and it introspects fields, types, constraints, and enums to produce a complete, styled form.
 
 ---
 
@@ -19,7 +19,7 @@ form = FormGenerator.from_model(TaskCreateRequest, action="/api/tasks")
 
 This generates a `<form>` with:
 - One input per model field (type-appropriate: text, number, select, etc.)
-- DaisyUI styling (`input-bordered`, `select-bordered`, etc.)
+- MonsterUI styling (`input-bordered`, `select-bordered`, etc.)
 - Labels from `Field(description=...)` or auto-generated from field names
 - Pydantic constraint attributes (`min`, `max`, `minlength`, `maxlength`)
 - Alpine.js `formValidator` for client-side validation
@@ -156,7 +156,7 @@ FormGenerator.from_model(
 )
 ```
 
-Help text renders as a `<p>` with `text-sm text-base-content/70` styling, between the input and the error display.
+Help text renders as a `<p>` with `text-sm text-muted-foreground` styling, between the input and the error display.
 
 ---
 
@@ -342,8 +342,8 @@ form = Form(
 
 ## Type Mapping Reference
 
-| Python Type | Widget | DaisyUI Class |
-|-------------|--------|---------------|
+| Python Type | Widget | MonsterUI Class |
+|-------------|--------|-----------------|
 | `str` | `<input type="text">` | `input input-bordered` |
 | `str` (name contains "description", "notes", "content", "body") | `<textarea>` | `textarea textarea-bordered` |
 | `str` (max_length > 100) | `<textarea>` | `textarea textarea-bordered` |

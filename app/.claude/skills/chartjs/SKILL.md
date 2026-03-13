@@ -353,7 +353,7 @@ SKUEL also includes:
 
 - **[js-alpine](../js-alpine/SKILL.md)** - `chartVis()` Alpine component for chart state management
 - **[monsterui](../monsterui/SKILL.md)** - Card containers for chart dashboards
-- **[daisyui](../daisyui/SKILL.md)** - Loading spinners, error states
+- **[daisyui](../ui-css/SKILL.md)** - Loading spinners, error states
 
 ## Foundation
 

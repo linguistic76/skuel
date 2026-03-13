@@ -92,7 +92,7 @@ def my_page():
 |-----------|---------|--------|
 | HTMX | 1.9.10 | CDN (unpkg.com) |
 | Alpine.js | 3.14.8 | Self-hosted (`/static/vendor/`) |
-| DaisyUI | 4.4.19 | CDN |
+| MonsterUI | Latest | `monster_headers()` |
 | Tailwind | Latest | CDN |
 
 **See:** `/docs/patterns/UI_COMPONENT_PATTERNS.md#page-layout-architecture-critical` for detailed patterns.
@@ -237,14 +237,14 @@ def my_component() -> Div:
 
 ### SKUEL Pages (Standard)
 
-SKUEL's `daisy_headers()` automatically includes Alpine.js (self-hosted for stability):
+SKUEL's `monster_headers()` automatically includes Alpine.js (self-hosted for stability):
 
 ```python
 from fasthtml.common import fast_app
-from ui.theme import daisy_headers
+from ui.theme import monster_headers
 
 app, rt = fast_app(
-    hdrs=daisy_headers(),  # Includes Alpine.js 3.14.8
+    hdrs=monster_headers(),  # Includes Alpine.js 3.14.8
 )
 ```
 

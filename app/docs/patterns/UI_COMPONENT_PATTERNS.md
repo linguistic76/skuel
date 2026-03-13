@@ -6,7 +6,7 @@ related_skills:
   - accessibility-guide
   - base-page-architecture
   - custom-sidebar-patterns
-  - daisyui
+  - ui-css
   - html-htmx
   - html-navigation
   - js-alpine
@@ -22,13 +22,13 @@ related_docs: []
 
 ## Quick Start
 
-**Core Skills:** [@base-page-architecture](../../.claude/skills/base-page-architecture/SKILL.md), [@daisyui](../../.claude/skills/daisyui/SKILL.md), [@tailwind-css](../../.claude/skills/tailwind-css/SKILL.md), [@html-htmx](../../.claude/skills/html-htmx/SKILL.md), [@js-alpine](../../.claude/skills/js-alpine/SKILL.md)
+**Core Skills:** [@base-page-architecture](../../.claude/skills/base-page-architecture/SKILL.md), [@ui-css](../../.claude/skills/ui-css/SKILL.md), [@tailwind-css](../../.claude/skills/tailwind-css/SKILL.md), [@html-htmx](../../.claude/skills/html-htmx/SKILL.md), [@js-alpine](../../.claude/skills/js-alpine/SKILL.md)
 
 **Advanced Skills:** [@custom-sidebar-patterns](../../.claude/skills/custom-sidebar-patterns/SKILL.md), [@html-navigation](../../.claude/skills/html-navigation/SKILL.md), [@skuel-component-composition](../../.claude/skills/skuel-component-composition/SKILL.md), [@accessibility-guide](../../.claude/skills/accessibility-guide/SKILL.md)
 
 For hands-on implementation:
 1. Invoke `@base-page-architecture` for BasePage patterns and page types
-2. Invoke `@daisyui` for pre-built accessible UI components
+2. Invoke `@ui-css` for MonsterUI (FrankenUI + Tailwind) components
 3. Invoke `@tailwind-css` for utility-first styling
 4. Invoke `@html-htmx` for server communication patterns
 5. Invoke `@js-alpine` for client-side interactivity
@@ -44,14 +44,14 @@ For hands-on implementation:
 
 ## Overview
 
-SKUEL uses a layered UI component architecture built on Tailwind CSS and DaisyUI 5. This document explains the component system and how to use it.
+SKUEL uses a layered UI component architecture built on MonsterUI (FrankenUI + Tailwind). This document explains the component system and how to use it.
 
 **Key Files:**
 - `/ui/` - SKUEL UI design system (components, patterns, layouts, tokens)
 - `/ui/layouts/base_page.py` - Unified page wrapper
 - `/ui/layouts/page_types.py` - Page type definitions (HUB vs STANDARD)
 - `/ui/tokens.py` - Spacing, container, and styling tokens
-- `/ui/buttons.py`, `/ui/cards.py`, `/ui/forms/`, `/ui/modals.py`, `/ui/feedback.py`, `/ui/layout.py`, `/ui/navigation.py`, `/ui/data.py` - DaisyUI wrappers (8 focused modules, March 2026)
+- `/ui/buttons.py`, `/ui/cards.py`, `/ui/forms/`, `/ui/modals.py`, `/ui/feedback.py`, `/ui/layout.py`, `/ui/navigation.py`, `/ui/data.py` - MonsterUI wrappers (8 focused modules, March 2026)
 
 ---
 
@@ -77,7 +77,7 @@ SKUEL uses a layered UI component architecture built on Tailwind CSS and DaisyUI
 
 **Evolution (2026-03-13):** `/study` is the student workspace hub landing page. Sub-pages are top-level routes (`/exercises`, `/submit`, `/submissions`, `/exercise-reports`, `/activity-reports`, `/generate-reports`) sharing a 6-item sidebar. `/study` landing shows 6 vertically-stacked workspace cards + 3 curriculum discovery links. Old `/submissions/*` and `/learn/*` UI paths redirect 301 to the new top-level routes.
 
-**Evolution (2026-02-09):** All 5 sidebars (Profile, KU, Reports, Journals, Askesis) unified into single Tailwind + Alpine.js component (`SidebarPage`). Custom CSS/JS files (`profile_sidebar.css`, `profile_sidebar.js`) deleted. Mobile uses horizontal DaisyUI tabs instead of drawer/overlay.
+**Evolution (2026-02-09):** All 5 sidebars (Profile, KU, Reports, Journals, Askesis) unified into single Tailwind + Alpine.js component (`SidebarPage`). Custom CSS/JS files (`profile_sidebar.css`, `profile_sidebar.js`) deleted. Mobile uses horizontal MonsterUI tabs instead of drawer/overlay.
 
 **Background Convention (2026-02-05):** All layout surfaces (navbar, sidebars, body) are `bg-white`. Edges are defined by 1px borders (`border-b border-gray-200` on navbar, `border-r border-gray-200` on sidebars, CSS `border-right` on custom sidebars), not color contrast. Only interactive states (active nav links, hover) use tinted backgrounds.
 
@@ -131,7 +131,7 @@ All sidebar pages (Activities, Learn, KU, Reports, Journals, Askesis) use a sing
 **Key Features:**
 - One component for all 5 sidebar pages
 - Desktop: Fixed sidebar (256px) with smooth collapse to 48px edge
-- Mobile: Horizontal DaisyUI tabs (no drawer/overlay)
+- Mobile: Horizontal MonsterUI tabs (no drawer/overlay)
 - Alpine.js `collapsibleSidebar` + `Alpine.store()` for shared reactive state
 - localStorage persistence of collapsed state
 - Screen reader announcements on toggle
@@ -299,7 +299,7 @@ Spacing.SECTION     # "space-y-8"
 Spacing.CONTENT     # "space-y-4"
 
 # Card styling
-Card.BASE           # "bg-base-100 border border-base-200 rounded-lg"
+Card.BASE           # "bg-background border border-border rounded-lg"
 Card.INTERACTIVE    # Card.BASE + hover shadow
 Card.PADDING        # "p-6"
 ```
@@ -334,13 +334,13 @@ Defined in `/static/css/input.css`:
 
 ---
 
-## Import Pattern (DaisyUI Wrappers)
+## Import Pattern (MonsterUI Wrappers)
 
 ```python
 # Pure HTML elements from FastHTML
 from fasthtml.common import H1, H2, H3, P, A, Form, Li, Ul
 
-# SKUEL DaisyUI wrappers — 8 focused modules (March 2026)
+# SKUEL MonsterUI wrappers — 8 focused modules (March 2026)
 from ui.buttons import Button, ButtonT
 from ui.cards import Card, CardBody, CardTitle, CardActions, CardT
 from ui.feedback import Alert, AlertT, Badge, BadgeT, Loading, LoadingT, Progress, ProgressT, RadialProgress, get_submission_status_badge_class
@@ -353,34 +353,33 @@ from ui.data import Avatar, AvatarGroup, Divider, Stat, StatDesc, StatFigure, St
 from fasthtml.common import Div, Option, Span, Tbody, Td, Th, Thead, Tr
 
 # Theme for app initialization
-from ui.theme import daisy_headers, Theme
+from ui.theme import monster_headers, Theme
 ```
 
 ---
 
 ## Theme Headers
 
-All SKUEL pages use `daisy_headers()` for consistent styling:
+All SKUEL pages use `monster_headers()` for consistent styling:
 
 ```python
 from fasthtml.common import fast_app
-from ui.theme import daisy_headers, Theme
+from ui.theme import monster_headers, Theme
 
 # Default (light theme)
-app, rt = fast_app(hdrs=daisy_headers())
+app, rt = fast_app(hdrs=monster_headers())
 
 # With custom theme
-app, rt = fast_app(hdrs=daisy_headers(theme=Theme.dark))
+app, rt = fast_app(hdrs=monster_headers(theme=Theme.dark))
 
 # With PWA support
 from ui.theme import pwa_headers
-app, rt = fast_app(hdrs=(*daisy_headers(), *pwa_headers()))
+app, rt = fast_app(hdrs=(*monster_headers(), *pwa_headers()))
 ```
 
-**What `daisy_headers()` includes:**
+**What `monster_headers()` includes:**
 - Meta viewport tags
-- DaisyUI 5 CSS (CDN)
-- Tailwind CSS (CDN)
+- MonsterUI (FrankenUI + Tailwind) styles (loaded via `monster_headers()`)
 - HTMX 1.9.10
 - Alpine.js 3.14.8 (self-hosted)
 - Lucide icons (optional)
@@ -404,7 +403,7 @@ Html(
 
 ## Type-Safe Variants
 
-SKUEL uses Python enums for type-safe DaisyUI variants:
+SKUEL uses Python enums for type-safe MonsterUI variants:
 
 ### Buttons
 
@@ -481,7 +480,7 @@ Card(
 Card(
     CardBody(
         CardTitle(H3("Task Name")),
-        P("Task description here", cls="text-base-content/70"),
+        P("Task description here", cls="text-muted-foreground"),
         CardActions(
             Button("Edit", variant=ButtonT.ghost, size=Size.sm),
             Button("Complete", variant=ButtonT.success, size=Size.sm),
@@ -789,10 +788,10 @@ def TaskCard(task: Task) -> Any:
                 CardTitle(H4(task.title)),
                 Badge(task.status.value, variant=_status_badge(task.status)),
             ),
-            P(task.description or "No description", cls="text-base-content/70 text-sm"),
+            P(task.description or "No description", cls="text-muted-foreground text-sm"),
             DivHStacked(
                 Badge(task.priority.value, variant=_priority_badge(task.priority)),
-                Span(f"Due: {task.due_date}", cls="text-xs text-base-content/50") if task.due_date else None,
+                Span(f"Due: {task.due_date}", cls="text-xs text-muted-foreground/50") if task.due_date else None,
                 gap=2
             ),
             CardActions(
@@ -813,8 +812,8 @@ def EmptyState(message: str, action_text: str = None, action_url: str = None) ->
     """Render an empty state message."""
     return DivCentered(
         DivVStacked(
-            Span("", data_lucide="inbox", cls="w-16 h-16 text-base-content/30"),
-            P(message, cls="text-base-content/60"),
+            Span("", data_lucide="inbox", cls="w-16 h-16 text-muted-foreground/30"),
+            P(message, cls="text-muted-foreground/60"),
             Button(action_text, variant=ButtonT.primary, hx_get=action_url) if action_text else None,
             gap=4, align="center"
         ),
@@ -826,7 +825,7 @@ def EmptyState(message: str, action_text: str = None, action_url: str = None) ->
 
 ## Common Anti-Patterns
 
-### Don't Use Raw DaisyUI Classes on Wrappers
+### Don't Use Raw MonsterUI Classes on Wrappers
 
 ```python
 # BAD: Redundant - Button already adds "btn btn-primary"
@@ -836,11 +835,11 @@ Button("Click", cls="btn btn-primary")
 Button("Click", variant=ButtonT.primary)
 ```
 
-### Don't Mix Old FrankenUI/MonsterUI Patterns
+### Don't Import Directly from MonsterUI Package
 
 ```python
-# BAD: Old MonsterUI pattern (removed)
-from monsterui.all import Button, Card  # DELETED
+# BAD: Bypasses SKUEL wrappers
+from monsterui.all import Button, Card  # Don't use directly
 
 # GOOD: Use SKUEL wrappers
 from ui.buttons import Button
@@ -1333,7 +1332,7 @@ return await SidebarPage(content=..., items=..., active=..., title=..., ...)
 ### ProfileLayout Class (2026-02-01)
 
 **What Was Removed:**
-- **ProfileLayout class** (175 lines) — legacy DaisyUI drawer implementation
+- **ProfileLayout class** (175 lines) — legacy drawer implementation
 - Replaced by `create_profile_page()` which now uses `SidebarPage()`
 
 ### Philosophy Applied
@@ -1350,7 +1349,7 @@ SKUEL does NOT maintain backward compatibility. When a better pattern emerges:
 
 ## See Also
 
-- `/.claude/skills/daisyui/SKILL.md` - DaisyUI 5 component reference
+- `/.claude/skills/ui-css/SKILL.md` - MonsterUI (FrankenUI + Tailwind) component reference
 - `/.claude/skills/tailwind-css/SKILL.md` - Tailwind utility reference
 - `/.claude/skills/fasthtml/SKILL.md` - FastHTML framework guide
 - `/.claude/skills/js-alpine/SKILL.md` - Alpine.js for UI state

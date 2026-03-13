@@ -169,7 +169,7 @@ from ui.data import Divider, Stats, Table, Tooltip
 from fasthtml.common import Div, H1, H2, H3, Option, P, Span
 ```
 
-**Rule**: SKUEL DaisyUI wrappers live in `ui/{module}.py`. Standard HTML/FastHTML components come from `fasthtml.common`. See: `/docs/ui/COMPONENT_CATALOG.md` for the full module map.
+**Rule**: SKUEL MonsterUI wrappers live in `ui/{module}.py`. Standard HTML/FastHTML components come from `fasthtml.common`. See: `/docs/ui/COMPONENT_CATALOG.md` for the full module map.
 
 ---
 

@@ -2,7 +2,7 @@
 Shared UI Components Library
 ============================
 
-Reusable DaisyUI components following Dynamic Enum Pattern.
+Reusable UI components following the Dynamic Enum Pattern.
 
 Core Principle: "Single source of truth for UI component patterns"
 

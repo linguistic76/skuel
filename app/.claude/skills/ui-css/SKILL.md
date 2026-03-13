@@ -1,10 +1,10 @@
 ---
 name: ui-css
-description: Expert guide for SKUEL's CSS layer — DaisyUI semantic components + Tailwind utility classes. Use when styling components, choosing between CSS layers, implementing responsive layouts, working with DaisyUI components (buttons, forms, modals, cards, navbar), or when the user mentions DaisyUI, Tailwind, CSS, styling, component library, responsive design, or dark mode.
+description: Expert guide for SKUEL's CSS layer — MonsterUI (FrankenUI + Tailwind) components. Use when styling components, choosing between CSS layers, implementing responsive layouts, working with MonsterUI components (buttons, forms, modals, cards, navbar), or when the user mentions MonsterUI, FrankenUI, Tailwind, CSS, styling, component library, responsive design, or dark mode.
 allowed-tools: Read, Grep, Glob
 ---
 
-# SKUEL CSS Layer: DaisyUI + Tailwind
+# SKUEL CSS Layer: MonsterUI + Tailwind
 
 ## Core Philosophy
 
@@ -33,7 +33,7 @@ Button("Save", cls="bg-blue-600 text-white px-4 py-2 rounded")  # Use ButtonT.pr
 
 ## FastHTML Integration
 
-Tailwind and DaisyUI classes work via `cls=` in FastHTML:
+Tailwind and MonsterUI classes work via `cls=` in FastHTML:
 
 ```python
 # Single string
@@ -400,7 +400,7 @@ FormControl(
 | `bg-error` / `text-error` | Error state |
 | `bg-warning` / `text-warning` | Warning state |
 
-**Key rule:** Always use DaisyUI semantic tokens (`bg-base-100`, `text-primary`) not Tailwind palette (`bg-white`, `bg-blue-600`). Semantic tokens respect the active DaisyUI theme automatically.
+**Key rule:** Always use MonsterUI semantic tokens (`bg-base-100`, `text-primary`) not Tailwind palette (`bg-white`, `bg-blue-600`). Semantic tokens respect the active DaisyUI theme automatically.
 
 ### States & Interactions
 
@@ -462,7 +462,7 @@ Users select their theme on `/profile/settings` (Display & Appearance section). 
 | Pattern | Tool |
 |---------|------|
 | Standard spacing/layout | Tailwind utilities |
-| Repeated semantic components | DaisyUI classes |
+| Repeated semantic components | MonsterUI classes |
 | Repeated 5+ times | `@apply` in component class |
 | Complex animations/pseudo | Custom CSS |
 | Design tokens | CSS variables in `/ui/tokens.py` |
@@ -483,17 +483,17 @@ Users select their theme on `/profile/settings` (Display & Appearance section). 
 
 1. **Semantic HTML first** — use `<article>`, `<section>`, `<nav>`, not divs for everything
 2. **Mobile-first** — apply base classes for mobile, add `md:` / `lg:` prefixes for larger screens
-3. **DaisyUI tokens over Tailwind palette** — `text-base-content` not `text-gray-900`
+3. **semantic tokens over Tailwind palette** — `text-base-content` not `text-gray-900`
 4. **Design tokens over magic numbers** — `Container.STANDARD` not `max-w-6xl mx-auto` repeated
 5. **`cls` parameter for extensibility** — components accept extra classes via `cls` parameter
 
 ## Anti-Patterns
 
 ```python
-# ❌ Raw Tailwind when DaisyUI has it
+# ❌ Raw Tailwind when MonsterUI has it
 Div("Error", cls="bg-red-100 text-red-800 p-3 rounded")  # Use alert alert-error
 
-# ❌ Tailwind palette instead of DaisyUI tokens
+# ❌ Tailwind palette instead of semantic tokens
 P("Text", cls="text-gray-600")  # Use text-base-content/70
 
 # ❌ Hardcoded container widths
@@ -510,11 +510,11 @@ Div(cls="p-5")  # Use p-4 or p-6 (standard scale)
 | `/ui/tokens.py` | Design tokens (Container, Spacing, Card) |
 | `/static/css/main.css` | Custom CSS and `@apply` patterns |
 | `/static/css/output.css` | Compiled Tailwind output |
-| `ui/buttons.py`, `ui/cards.py`, `ui/forms/`, `ui/modals.py`, `ui/feedback.py`, `ui/layout.py`, `ui/navigation.py`, `ui/data.py` | FastHTML DaisyUI component wrappers — 8 focused modules (March 2026) |
+| `ui/buttons.py`, `ui/cards.py`, `ui/forms/`, `ui/modals.py`, `ui/feedback.py`, `ui/layout.py`, `ui/navigation.py`, `ui/data.py` | FastHTML MonsterUI component wrappers — 8 focused modules (March 2026) |
 
 ## See Also
 
 - `skuel-ui` — SKUEL-specific UI patterns (pages, forms, navigation, components)
 - `ui-browser` — HTMX + Alpine.js interactivity layer
 - Tailwind Docs: https://tailwindcss.com/docs
-- DaisyUI Docs: https://daisyui.com/components/
+- MonsterUI docs: see monsterui package

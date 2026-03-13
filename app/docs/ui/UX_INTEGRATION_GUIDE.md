@@ -344,7 +344,7 @@ setTimeout(() => liveRegion.textContent = '', 1000);
 1. Toast container added to `base_page.py`?
 2. `toastManager` initialized in Alpine?
 3. Response headers include `X-Toast-Message`?
-4. DaisyUI alert classes available?
+4. MonsterUI alert classes available?
 
 **Debug:**
 ```javascript

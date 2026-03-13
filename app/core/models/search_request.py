@@ -15,7 +15,7 @@ This module provides:
   - Cross-domain search (entity types)
   - Array search (tags)
 - SearchResponse: Structured response with results and facet counts
-- FacetCount: UI-ready facet counts for DaisyUI filters
+- FacetCount: UI-ready facet counts for UI filters
 
 Usage Example:
     ```python
@@ -716,7 +716,7 @@ class SearchResponse(BaseModel):
 
     Provides everything needed for:
     - Displaying search results
-    - Rendering DaisyUI filter badges with counts
+    - Rendering filter badges with counts
     - Pagination
     """
 

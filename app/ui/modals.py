@@ -86,7 +86,7 @@ def ModalAction(*c: Any, cls: str = "", **kwargs: Any) -> Any:
 
 def ModalBackdrop(**kwargs: Any) -> Any:
     """
-    Modal close button — replaces DaisyUI backdrop close pattern.
+    Modal close button.
 
     In MonsterUI, use ModalCloseButton or clicking outside the dialog.
     """

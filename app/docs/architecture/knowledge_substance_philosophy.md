@@ -310,7 +310,7 @@ def SubstanceScoreCard(score: float, ku_title: str) -> FT:
 
 **Color-Coded Feedback System:**
 
-The component uses DaisyUI badge classes to provide immediate visual feedback:
+The component uses MonsterUI badge classes to provide immediate visual feedback:
 - **Red (badge-error):** Signals urgent need for practice
 - **Orange (badge-warning):** Encourages initial application
 - **Yellow (badge-info):** Motivates continued practice

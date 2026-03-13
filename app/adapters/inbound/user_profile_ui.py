@@ -362,9 +362,10 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
 
         # Persist theme to localStorage so it applies on all pages
         saved_theme = preferences_update.get("theme", "light")
+        dark_toggle = "document.documentElement.classList.add('dark')" if saved_theme == "dark" else "document.documentElement.classList.remove('dark')"
         theme_script = Script(
             f"localStorage.setItem('skuel-theme', '{saved_theme}');"
-            f"document.documentElement.setAttribute('data-theme', '{saved_theme}');"
+            f"{dark_toggle};"
         )
 
         return Div(
