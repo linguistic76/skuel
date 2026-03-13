@@ -1,7 +1,7 @@
 """Activity sidebar configuration.
 
 Sidebar items for activity domain pages (/{domain}).
-Also shown on /activities/journals and /activities/reports.
+Also shown on /journals and /submissions/reports.
 """
 
 from ui.patterns.sidebar import SidebarItem
@@ -13,6 +13,6 @@ ACTIVITY_SIDEBAR_ITEMS: list[SidebarItem] = [
     SidebarItem("Habits", "/habits", "habits", icon="🔄"),
     SidebarItem("Principles", "/principles", "principles", icon="⚖️"),
     SidebarItem("Choices", "/choices", "choices", icon="🔀"),
-    SidebarItem("Journals", "/activities/journals", "journals", icon="📓"),
-    SidebarItem("Reports", "/activities/reports", "reports", icon="📊"),
+    SidebarItem("Journals", "/journals", "journals", icon="📓"),
+    SidebarItem("Reports", "/submissions/reports", "reports", icon="📊"),
 ]
