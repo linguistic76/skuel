@@ -29,6 +29,7 @@ from typing import TYPE_CHECKING, Any
 from core.constants import MasteryLevel
 from core.models.askesis.pedagogical_intent import PedagogicalIntent
 from core.models.query_types import QueryIntent
+from core.prompts import PROMPT_REGISTRY
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -229,9 +230,9 @@ class ResponseGenerator:
         """DIRECT mode: redirect or out-of-scope responses.
 
         Covers REDIRECT_TO_CURRICULUM and OUT_OF_SCOPE pedagogical intents.
+        Templates: askesis_guided_redirect, askesis_guided_out_of_scope
         """
         if guidance.pedagogical_detail == PedagogicalIntent.REDIRECT_TO_CURRICULUM:
-            # Find Articles linked to the target KUs
             article_refs = []
             for ku_uid in guidance.target_ku_uids:
                 article = ls_bundle.get_article_for_ku(ku_uid)
@@ -241,34 +242,17 @@ class ResponseGenerator:
             if not article_refs:
                 article_refs = [a.title or "Untitled Article" for a in ls_bundle.articles]
 
-            articles_text = ", ".join(dict.fromkeys(article_refs))
-
-            resource_refs = self._get_resource_references(ls_bundle)
-
-            return (
-                "You are a Socratic tutor. The learner is asking about "
-                "concepts they haven't engaged with yet and there is "
-                "curriculum content available for them to study. Gently "
-                "redirect them to read the relevant material first. Be "
-                "encouraging, not dismissive. Give a brief orientation of "
-                "what they'll find in the material. If there are referenced "
-                "resources (books, talks, etc.), mention them as additional "
-                "reading.\n\n"
-                f"Recommended reading: {articles_text}"
-                f"{resource_refs}"
+            return PROMPT_REGISTRY.render(
+                "askesis_guided_redirect",
+                articles_text=", ".join(dict.fromkeys(article_refs)),
+                resource_refs=self._get_resource_references(ls_bundle),
             )
 
         # OUT_OF_SCOPE
-        ls_title = ls_bundle.learning_step.title or "your current step"
-        ls_intent = ls_bundle.learning_step.intent or ""
-
-        return (
-            "You are a Socratic tutor. The learner asked about something "
-            "outside the scope of their current learning step. Acknowledge "
-            "their curiosity, but gently redirect them to their current "
-            "focus. Be warm, not dismissive.\n\n"
-            f"Current learning step: {ls_title}\n"
-            f"Step intent: {ls_intent}"
+        return PROMPT_REGISTRY.render(
+            "askesis_guided_out_of_scope",
+            ls_title=ls_bundle.learning_step.title or "your current step",
+            ls_intent=ls_bundle.learning_step.intent or "",
         )
 
     def _build_socratic_prompt(
@@ -279,29 +263,15 @@ class ResponseGenerator:
         """SOCRATIC mode: assess understanding or probe deeper.
 
         Covers ASSESS_UNDERSTANDING and PROBE_DEEPER pedagogical intents.
+        Templates: askesis_guided_assess, askesis_guided_probe
         """
-        ku_names = self._get_ku_names(ls_bundle, guidance.target_ku_uids)
+        concepts = ", ".join(self._get_ku_names(ls_bundle, guidance.target_ku_uids))
 
         if guidance.pedagogical_detail == PedagogicalIntent.ASSESS_UNDERSTANDING:
-            return (
-                "You are a Socratic tutor. The learner has engaged with the "
-                "following concepts and you need to assess their understanding. "
-                "Do NOT give answers or explain the concepts. Instead, ask the "
-                "learner to explain what they know in their own words. Use "
-                "open-ended questions like 'Tell me what you understand about...' "
-                "or 'How would you explain... to someone new to this?'\n\n"
-                f"Concepts to assess: {', '.join(ku_names)}"
-            )
+            return PROMPT_REGISTRY.render("askesis_guided_assess", concepts=concepts)
 
         # PROBE_DEEPER
-        return (
-            "You are a Socratic tutor. The learner has some familiarity "
-            "with these concepts but hasn't demonstrated deep understanding. "
-            "Ask a follow-up question that tests understanding beyond "
-            "surface-level recognition. Probe for application, nuance, or "
-            "connections. Do NOT give the answer.\n\n"
-            f"Concepts to probe: {', '.join(ku_names)}"
-        )
+        return PROMPT_REGISTRY.render("askesis_guided_probe", concepts=concepts)
 
     def _build_exploratory_prompt(
         self,
@@ -311,22 +281,14 @@ class ResponseGenerator:
         """EXPLORATORY mode: scaffold or surface connections.
 
         Covers SCAFFOLD and SURFACE_CONNECTION pedagogical intents.
+        Templates: askesis_guided_scaffold, askesis_guided_connection
         """
         if guidance.pedagogical_detail == PedagogicalIntent.SCAFFOLD:
-            ku_names = self._get_ku_names(ls_bundle, guidance.target_ku_uids)
-            resource_refs = self._get_resource_references(ls_bundle)
-            return (
-                "You are a Socratic tutor. The learner is approaching new "
-                "concepts they haven't engaged with yet. Guide them toward "
-                "understanding through questions, analogies, and step-by-step "
-                "reasoning. Do NOT give direct explanations. Ask questions "
-                "that lead them to discover the insight themselves. If there "
-                "are referenced resources, you may draw on them as examples "
-                "or suggest them for deeper exploration.\n\n"
-                f"Concepts to scaffold: {', '.join(ku_names)}"
-                f"{resource_refs}\n\n"
-                "Use the curriculum context below to know what you're "
-                "scaffolding toward, but do not simply restate it."
+            concepts = ", ".join(self._get_ku_names(ls_bundle, guidance.target_ku_uids))
+            return PROMPT_REGISTRY.render(
+                "askesis_guided_scaffold",
+                concepts=concepts,
+                resource_refs=self._get_resource_references(ls_bundle),
             )
 
         # SURFACE_CONNECTION
@@ -345,12 +307,9 @@ class ResponseGenerator:
             evidence = edge.get("evidence", "")
             edges_text += f"- {rel_type}: {evidence}\n"
 
-        return (
-            "You are a Socratic tutor. The learner's question touches "
-            "concepts that are connected in the curriculum. Surface this "
-            "connection and ask the learner to reflect on how the concepts "
-            "relate. Use the relationship evidence to guide the question.\n\n"
-            f"Relationship evidence:\n{edges_text or 'No specific evidence available.'}"
+        return PROMPT_REGISTRY.render(
+            "askesis_guided_connection",
+            edges_text=edges_text or "No specific evidence available.",
         )
 
     def _build_encouraging_prompt(
@@ -361,6 +320,7 @@ class ResponseGenerator:
         """ENCOURAGING mode: connect understanding to practice.
 
         Covers ENCOURAGE_PRACTICE pedagogical intent.
+        Template: askesis_guided_practice
         """
         practice_items = []
         for habit in ls_bundle.habits:
@@ -375,18 +335,11 @@ class ResponseGenerator:
             if practice_items
             else "No specific practice activities linked."
         )
-        resource_refs = self._get_resource_references(ls_bundle)
 
-        return (
-            "You are a Socratic tutor. The learner has conceptual "
-            "understanding but needs to deepen it through practice. "
-            "Acknowledge their understanding, then encourage them to "
-            "engage with the practice activities linked to their current "
-            "learning step. Explain how practice compounds knowledge. "
-            "If there are referenced resources, suggest them as companions "
-            "to practice.\n\n"
-            f"Available practice activities:\n{practice_text}"
-            f"{resource_refs}"
+        return PROMPT_REGISTRY.render(
+            "askesis_guided_practice",
+            practice_text=practice_text,
+            resource_refs=self._get_resource_references(ls_bundle),
         )
 
     # ========================================================================

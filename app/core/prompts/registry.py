@@ -20,6 +20,13 @@ Available templates (core/prompts/templates/):
     journal_exploration           — Critical thinking formatter for JournalOutputGenerator
     dsl_domain_recognition        — Full domain recognition prompt for LLMDSLBridgeService
     dsl_domain_recognition_compact — Compact domain recognition prompt for LLMDSLBridgeService
+    askesis_guided_redirect       — DIRECT/REDIRECT_TO_CURRICULUM system prompt
+    askesis_guided_out_of_scope   — DIRECT/OUT_OF_SCOPE system prompt
+    askesis_guided_assess         — SOCRATIC/ASSESS_UNDERSTANDING system prompt
+    askesis_guided_probe          — SOCRATIC/PROBE_DEEPER system prompt
+    askesis_guided_scaffold       — EXPLORATORY/SCAFFOLD system prompt
+    askesis_guided_connection     — EXPLORATORY/SURFACE_CONNECTION system prompt
+    askesis_guided_practice       — ENCOURAGING/ENCOURAGE_PRACTICE system prompt
 """
 
 from pathlib import Path

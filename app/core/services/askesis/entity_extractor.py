@@ -28,11 +28,13 @@ March 2026: Added extract_from_bundle() for LS-scoped Socratic pipeline.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from core.models.askesis.ls_bundle import LSBundle
     from core.ports import (
         ArticleOperations,
@@ -42,6 +44,14 @@ if TYPE_CHECKING:
         TasksOperations,
     )
     from core.services.user import UserContext
+
+
+@runtime_checkable
+class _EntityLookup(Protocol):
+    """Minimal protocol for services that can look up an entity by UID."""
+
+    async def get(self, uid: str) -> Any: ...  # boundary: Result[T] varies by domain
+
 
 logger = get_logger(__name__)
 
@@ -120,12 +130,37 @@ class EntityExtractor:
         """
         query_lower = query.lower()
 
+        # Combine today + upcoming events, preserving order and removing duplicates
+        event_uids = dict.fromkeys(user_context.today_event_uids + user_context.upcoming_event_uids)
+
         entities = {
-            "knowledge": await self._extract_knowledge_entities(query_lower, user_context),
-            "tasks": await self._extract_task_entities(query_lower, user_context),
-            "goals": await self._extract_goal_entities(query_lower, user_context),
-            "habits": await self._extract_habit_entities(query_lower, user_context),
-            "events": await self._extract_event_entities(query_lower, user_context),
+            "knowledge": await self._extract_matching_entities(
+                query_lower,
+                user_context.mastered_knowledge_uids
+                | user_context.in_progress_knowledge_uids
+                | user_context.blocked_knowledge_uids,
+                self.knowledge_service,
+            ),
+            "tasks": await self._extract_matching_entities(
+                query_lower,
+                user_context.active_task_uids,
+                self.tasks_service,
+            ),
+            "goals": await self._extract_matching_entities(
+                query_lower,
+                user_context.active_goal_uids,
+                self.goals_service,
+            ),
+            "habits": await self._extract_matching_entities(
+                query_lower,
+                user_context.active_habit_uids,
+                self.habits_service,
+            ),
+            "events": await self._extract_matching_entities(
+                query_lower,
+                event_uids,
+                self.events_service,
+            ),
             "principles": [],
             "choices": [],
         }
@@ -194,193 +229,35 @@ class EntityExtractor:
         return matched_uids
 
     # ========================================================================
-    # PRIVATE - ENTITY TYPE EXTRACTION
+    # PRIVATE - ENTITY EXTRACTION (GENERIC)
     # ========================================================================
 
-    async def _extract_knowledge_entities(
-        self, query_lower: str, user_context: UserContext
+    async def _extract_matching_entities(
+        self,
+        query_lower: str,
+        uids: Iterable[str],
+        service: _EntityLookup,
     ) -> list[dict[str, str]]:
-        """
-        Extract knowledge units mentioned in query.
+        """Fetch entities by UID and return those whose title fuzzy-matches the query.
 
         Args:
             query_lower: Lowercase query string
-            user_context: User's complete context
+            uids: Entity UIDs to check (set, list, or dict_keys)
+            service: Any domain service with an async `get(uid)` returning Result[T]
 
         Returns:
-            List of dicts with 'uid' and 'title' keys for matched knowledge units
+            List of dicts with 'uid' and 'title' keys for matched entities
         """
         matched = []
-
-        # Get all knowledge UIDs from context
-        all_knowledge_uids = (
-            user_context.mastered_knowledge_uids
-            | user_context.in_progress_knowledge_uids
-            | user_context.blocked_knowledge_uids
-        )
-
-        # Match against each knowledge unit
-        for ku_uid in all_knowledge_uids:
+        for uid in uids:
             try:
-                ku_result = await self.knowledge_service.get(ku_uid)
-                if ku_result.is_ok and ku_result.value:
-                    ku = ku_result.value
-                    # Check if title appears in query (case-insensitive)
-                    if self._fuzzy_match(ku.title, query_lower):
-                        matched.append({"uid": ku_uid, "title": ku.title})
-            except Exception:
-                continue
-
-        return matched
-
-    async def _extract_task_entities(
-        self, query_lower: str, user_context: UserContext
-    ) -> list[dict[str, str]]:
-        """
-        Extract tasks mentioned in query.
-
-        Process:
-        1. Get all task UIDs from UserContext
-        2. For each task, fetch full details
-        3. Check if title appears in query (fuzzy matching)
-        4. Return matched UIDs and titles
-
-        Args:
-            query_lower: Lowercase query string
-            user_context: User's complete context
-
-        Returns:
-            List of dicts with 'uid' and 'title' keys for matched tasks
-        """
-        matched = []
-        all_task_uids = user_context.active_task_uids
-
-        for task_uid in all_task_uids:
-            try:
-                # Get task details
-                result = await self.tasks_service.get(task_uid)
+                result = await service.get(uid)
                 if result.is_ok and result.value:
-                    task = result.value
-                    # Check if task title appears in query
-                    if self._fuzzy_match(task.title, query_lower):
-                        matched.append({"uid": task_uid, "title": task.title})
+                    entity = result.value
+                    if self._fuzzy_match(entity.title, query_lower):
+                        matched.append({"uid": uid, "title": entity.title})
             except Exception:
                 continue
-
-        return matched
-
-    async def _extract_goal_entities(
-        self, query_lower: str, user_context: UserContext
-    ) -> list[dict[str, str]]:
-        """
-        Extract goals mentioned in query.
-
-        Process:
-        1. Get all goal UIDs from UserContext
-        2. For each goal, fetch full details
-        3. Check if title appears in query (fuzzy matching)
-        4. Return matched UIDs and titles
-
-        Args:
-            query_lower: Lowercase query string
-            user_context: User's complete context
-
-        Returns:
-            List of dicts with 'uid' and 'title' keys for matched goals
-        """
-        matched = []
-        all_goal_uids = user_context.active_goal_uids
-
-        for goal_uid in all_goal_uids:
-            try:
-                # Get goal details
-                result = await self.goals_service.get(goal_uid)
-                if result.is_ok and result.value:
-                    goal = result.value
-                    # Check if goal title appears in query
-                    if self._fuzzy_match(goal.title, query_lower):
-                        matched.append({"uid": goal_uid, "title": goal.title})
-            except Exception:
-                continue
-
-        return matched
-
-    async def _extract_habit_entities(
-        self, query_lower: str, user_context: UserContext
-    ) -> list[dict[str, str]]:
-        """
-        Extract habits mentioned in query.
-
-        Process:
-        1. Get all habit UIDs from UserContext
-        2. For each habit, fetch full details
-        3. Check if title appears in query (fuzzy matching)
-        4. Return matched UIDs and titles
-
-        Args:
-            query_lower: Lowercase query string
-            user_context: User's complete context
-
-        Returns:
-            List of dicts with 'uid' and 'title' keys for matched habits
-        """
-        matched = []
-        all_habit_uids = user_context.active_habit_uids
-
-        for habit_uid in all_habit_uids:
-            try:
-                # Get habit details
-                result = await self.habits_service.get(habit_uid)
-                if result.is_ok and result.value:
-                    habit = result.value
-                    # Check if habit title appears in query
-                    if self._fuzzy_match(habit.title, query_lower):
-                        matched.append({"uid": habit_uid, "title": habit.title})
-            except Exception:
-                continue
-
-        return matched
-
-    async def _extract_event_entities(
-        self, query_lower: str, user_context: UserContext
-    ) -> list[dict[str, str]]:
-        """
-        Extract events mentioned in query.
-
-        Process:
-        1. Get all event UIDs from UserContext
-        2. For each event, fetch full details
-        3. Check if title appears in query (fuzzy matching)
-        4. Return matched UIDs and titles
-
-        Args:
-            query_lower: Lowercase query string
-            user_context: User's complete context
-
-        Returns:
-            List of dicts with 'uid' and 'title' keys for matched events
-        """
-        matched = []
-        # Combine today + upcoming events, preserving order and removing duplicates
-        seen = set()
-        all_event_uids = []
-        for uid in user_context.today_event_uids + user_context.upcoming_event_uids:
-            if uid not in seen:
-                seen.add(uid)
-                all_event_uids.append(uid)
-
-        for event_uid in all_event_uids:
-            try:
-                # Get event details
-                result = await self.events_service.get(event_uid)
-                if result.is_ok and result.value:
-                    event = result.value
-                    # Check if event title appears in query
-                    if self._fuzzy_match(event.title, query_lower):
-                        matched.append({"uid": event_uid, "title": event.title})
-            except Exception:
-                continue
-
         return matched
 
     # ========================================================================
