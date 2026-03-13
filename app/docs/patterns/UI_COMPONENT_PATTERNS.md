@@ -37,7 +37,7 @@ For hands-on implementation:
 8. Continue below for complete component architecture
 
 **Related Documentation:**
-- [/ui/activities/layout.py](/ui/activities/layout.py) - Activities sidebar example
+- [/ui/activities/sidebar.py](/ui/activities/sidebar.py) - Activities sidebar items
 - [/ui/learn/layout.py](/ui/learn/layout.py) - Learn sidebar example
 
 ---
@@ -106,8 +106,8 @@ return BasePage(
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 
 items = [
-    SidebarItem("Tasks", "/activities/tasks", "tasks", icon="✅"),
-    SidebarItem("Goals", "/activities/goals", "goals", icon="🎯"),
+    SidebarItem("Tasks", "/tasks", "tasks", icon="✅"),
+    SidebarItem("Goals", "/goals", "goals", icon="🎯"),
 ]
 return await SidebarPage(
     content=my_content,
@@ -384,12 +384,12 @@ app, rt = fast_app(hdrs=(*daisy_headers(), *pwa_headers()))
 
 ### `build_head()` — Canonical `<head>` for Full Documents
 
-Pages that return complete `Html()` documents (rather than partial HTMX fragments) use `build_head()` from `base_page.py`. This is the **single source of truth** for all `<head>` content — `BasePage`, `ActivityLayout`, and `SharedUIComponents.render_entity_dashboard()` all delegate to it. Never construct a `Head(...)` manually.
+Pages that return complete `Html()` documents (rather than partial HTMX fragments) use `build_head()` from `base_page.py`. This is the **single source of truth** for all `<head>` content — `BasePage` and `SharedUIComponents.render_entity_dashboard()` all delegate to it. Never construct a `Head(...)` manually.
 
 ```python
 from ui.layouts.base_page import build_head
 
-# Used internally by BasePage, ActivityLayout, entity_dashboard
+# Used internally by BasePage, entity_dashboard
 Html(
     build_head("Page Title", extra_css=["/static/css/calendar.css"]),
     Body(content),

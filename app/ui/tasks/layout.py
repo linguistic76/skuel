@@ -2,7 +2,7 @@
 Tasks Standalone Layout
 =======================
 
-Standalone page layout for tasks. Delegates to the shared ActivityLayout
+Standalone page layout for tasks. Delegates to create_activity_page()
 for consistency with other Activity Domains.
 
 Version: 2.0 - Delegates to create_activity_page() for Html document consistency

@@ -43,7 +43,7 @@ def build_head(
     """Build complete HTML head for any SKUEL page.
 
     This is the single source of truth for <head> content. Used by BasePage,
-    ActivityLayout, SharedUIComponents, and any code that returns a full Html document.
+    SharedUIComponents, and any code that returns a full Html document.
 
     Args:
         title: Page title (appended with " - SKUEL")

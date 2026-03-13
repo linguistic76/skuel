@@ -1,7 +1,6 @@
 """Shared primitive components for profile domain views.
 
-Five reusable building blocks consumed by activity_views.py, curriculum_views.py,
-and overview.py.
+Reusable building blocks consumed by curriculum_views.py and overview.py.
 """
 
 from typing import Any

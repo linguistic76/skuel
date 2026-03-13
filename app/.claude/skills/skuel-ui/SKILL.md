@@ -38,7 +38,7 @@ return BasePage(
 **Never build custom HTML structure** — no bare `Html(Head(...), Body(...))`. Always use `BasePage`. If a custom layout genuinely cannot use `BasePage`, use `build_head()` for the `<head>` — never construct it manually.
 
 ```python
-# For custom layouts that can't use BasePage (e.g., ActivityLayout):
+# For custom layouts that can't use BasePage:
 from ui.layouts.base_page import build_head
 Html(build_head("Title", extra_css=["/static/css/calendar.css"]), Body(...))
 ```
@@ -241,8 +241,7 @@ class TasksViewComponents:
         return Grid(*[TaskCard(t) for t in tasks], cls="grid-cols-1 gap-4")
 
 # Strategy 3: Configuration-driven (use when N domains share one layout)
-# Real example: ActivityDomainViewConfig in ui/profile/activity_views.py
-# Six Activity Domain views share one layout — only data-extraction varies per domain.
+# Real example: DomainRouteConfig in adapters/inbound — six Activity Domain routes share config.
 # Mirrors DomainConfig at the service layer.
 
 @dataclass(frozen=True)
@@ -942,8 +941,7 @@ When building a new SKUEL page or feature, verify:
 | `/ui/tokens.py` | `Container`, `Spacing`, `Card` design tokens |
 | `ui/buttons.py`, `ui/cards.py`, `ui/forms/`, `ui/modals.py`, `ui/feedback.py`, `ui/layout.py`, `ui/navigation.py`, `ui/data.py` | FastHTML DaisyUI wrappers — 8 focused modules (March 2026) |
 | `/static/js/skuel.js` | All Alpine.data() components |
-| `/ui/profile/_shared.py` | 5 shared profile primitives (`DomainFilterControls`, `DomainSummaryCard`, `DomainIntelligenceCard`, `_item_list`) |
-| `/ui/profile/activity_views.py` | `ActivityDomainViewConfig` + `ActivityDomainView` + 6 public wrappers (Tasks/Goals/Habits/Events/Choices/Principles) |
+| `/ui/profile/_shared.py` | Shared profile primitives (`DomainSummaryCard`, `DomainIntelligenceCard`, `DomainFilterControls`, `_item_list`) |
 | `/ui/profile/curriculum_views.py` | KU, LS, LP profile views |
 | `/ui/profile/overview.py` | `OverviewView` + all intelligence helper functions |
 | `/docs/patterns/UI_COMPONENT_PATTERNS.md` | Complete patterns documentation |

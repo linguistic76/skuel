@@ -426,9 +426,9 @@ await BasePage(
 from ui.patterns.sidebar import SidebarPage, SidebarItem
 
 items = [
-    SidebarItem(label="Tasks", href="/activities/tasks", slug="tasks", icon="✅"),
-    SidebarItem(label="Goals", href="/activities/goals", slug="goals", icon="🎯"),
-    SidebarItem(label="Habits", href="/activities/habits", slug="habits", icon="🔄"),
+    SidebarItem(label="Tasks", href="/tasks", slug="tasks", icon="✅"),
+    SidebarItem(label="Goals", href="/goals", slug="goals", icon="🎯"),
+    SidebarItem(label="Habits", href="/habits", slug="habits", icon="🔄"),
 ]
 
 await SidebarPage(
