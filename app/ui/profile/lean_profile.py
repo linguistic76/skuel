@@ -40,7 +40,7 @@ def _current_focus_card(context: UserContext) -> Div:
                 "No current focus set",
                 cls="text-sm text-base-content/50 group-hover:text-primary transition-colors",
             ),
-            href="/activities/tasks",
+            href="/tasks",
             cls="flex items-center mb-4 group",
         )
 

@@ -198,7 +198,7 @@ def render_activity_card_preview(items: list[Any], slug: str) -> Div:
 
     Shows up to 5 active items sorted by priority with a "View all" link.
     """
-    view_href = f"/activities/{slug}"
+    view_href = f"/{slug}"
 
     if not items:
         return Div(

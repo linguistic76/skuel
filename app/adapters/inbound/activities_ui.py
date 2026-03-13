@@ -1,8 +1,8 @@
-"""Activities UI Routes — Landing page + domain views with sidebar.
+"""Activities UI Routes — Landing page + domain redirects.
 
 Routes:
 - GET /activities — Landing page with domain card grid (no sidebar)
-- GET /activities/{domain} — Domain view with Activity sidebar
+- GET /activities/{domain} — 302 redirect to /{domain} (preserves bookmarks)
 - GET /api/activities/{slug}/preview — HTMX fragment for domain card item lists
 """
 
@@ -18,16 +18,7 @@ from core.models.enums import Priority
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 from ui.activities.landing import ActivitiesLandingView, render_activity_card_preview
-from ui.activities.layout import create_activities_page
 from ui.layouts.base_page import BasePage
-from ui.profile.activity_views import (
-    ChoicesDomainView,
-    EventsDomainView,
-    GoalsDomainView,
-    HabitsDomainView,
-    PrinciplesDomainView,
-    TasksDomainView,
-)
 
 logger = get_logger("skuel.routes.activities")
 
@@ -42,16 +33,9 @@ _PREVIEW_VALID_SLUGS = frozenset({"tasks", "goals", "habits", "events", "choices
 
 _TERMINAL_STATUSES = frozenset(["completed", "failed", "cancelled", "archived"])
 
-_DOMAIN_VIEWS = {
-    "tasks": TasksDomainView,
-    "events": EventsDomainView,
-    "goals": GoalsDomainView,
-    "habits": HabitsDomainView,
-    "principles": PrinciplesDomainView,
-    "choices": ChoicesDomainView,
-}
-
-_VALID_DOMAINS = frozenset(_DOMAIN_VIEWS.keys())
+_VALID_ACTIVITY_DOMAINS = frozenset(
+    {"tasks", "events", "goals", "habits", "principles", "choices"}
+)
 
 
 def _preview_priority_sort_key(item: Any) -> int:
@@ -106,40 +90,14 @@ def setup_activities_routes(rt: Any, services: "Services") -> None:
 
     @rt("/activities/{domain}")
     async def activities_domain(request: Request, domain: str) -> Any:
-        """Individual activity domain view with sidebar."""
-        if domain not in _VALID_DOMAINS:
-            from starlette.responses import RedirectResponse
+        """Redirect /activities/{domain} to /{domain} — preserves bookmarks."""
+        from starlette.responses import RedirectResponse
 
-            return RedirectResponse("/activities", status_code=302)
+        if domain in _VALID_ACTIVITY_DOMAINS:
+            return RedirectResponse(f"/{domain}", status_code=302)
 
-        user_uid = require_authenticated_user(request)
-
-        context_result = await user_service.get_rich_unified_context(user_uid)
-        if context_result.is_error:
-            from fasthtml.common import H1, P
-
-            return await BasePage(
-                Div(
-                    H1("Error", cls="text-3xl font-bold text-error mb-4"),
-                    P("Failed to load user context.", cls="text-lg text-base-content/70"),
-                    cls="flex flex-col items-center justify-center min-h-[400px] p-8",
-                ),
-                title="Activities",
-                request=request,
-                active_page="activities",
-            )
-
-        context = context_result.value
-        focus_uid = request.query_params.get("focus")
-        view_fn = _DOMAIN_VIEWS[domain]
-        domain_content = view_fn(context, focus_uid)
-
-        return await create_activities_page(
-            content=domain_content,
-            active_domain=domain,
-            request=request,
-            title=f"{domain.title()} - Activities",
-        )
+        # Unknown domain — redirect to landing
+        return RedirectResponse("/activities", status_code=302)
 
     @rt("/api/activities/{slug}/preview")
     async def activity_card_preview(request: Request, slug: str) -> Any:
@@ -191,5 +149,5 @@ def setup_activities_routes(rt: Any, services: "Services") -> None:
         return render_activity_card_preview(preview_items, slug)
 
     logger.info(
-        "Activities routes registered (/activities, /activities/{domain}, /api/activities/{slug}/preview)"
+        "Activities routes registered (/activities, /activities/{domain} redirect, /api/activities/{slug}/preview)"
     )

@@ -185,7 +185,7 @@ def _overview_insights(context: UserContext) -> Div:
             _insight_item(
                 "warning",
                 f"{len(context.overdue_task_uids)} overdue tasks need attention",
-                "/activities/tasks",
+                "/tasks",
             )
         )
 
@@ -195,7 +195,7 @@ def _overview_insights(context: UserContext) -> Div:
             _insight_item(
                 "warning",
                 f"{len(context.at_risk_habits)} habits at risk of breaking streak",
-                "/activities/habits",
+                "/habits",
             )
         )
 
@@ -205,7 +205,7 @@ def _overview_insights(context: UserContext) -> Div:
             _insight_item(
                 "info",
                 f"{len(context.pending_choice_uids)} choices awaiting your decision",
-                "/activities/choices",
+                "/choices",
             )
         )
 
@@ -261,7 +261,7 @@ def _current_focus_card(context: UserContext) -> Div:
                 "No current focus set",
                 cls="text-sm text-base-content/50 group-hover:text-primary transition-colors",
             ),
-            href="/activities/tasks",
+            href="/tasks",
             cls="flex items-center mb-4 group",
         )
 

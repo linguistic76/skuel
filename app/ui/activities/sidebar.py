@@ -1,18 +1,18 @@
 """Activity sidebar configuration.
 
-Sidebar items for individual activity domain pages (/activities/tasks, etc.).
-NOT shown on the /activities landing page.
+Sidebar items for activity domain pages (/{domain}).
+Also shown on /activities/journals and /activities/reports.
 """
 
 from ui.patterns.sidebar import SidebarItem
 
 ACTIVITY_SIDEBAR_ITEMS: list[SidebarItem] = [
-    SidebarItem("Tasks", "/activities/tasks", "tasks", icon="✅"),
-    SidebarItem("Events", "/activities/events", "events", icon="📅"),
-    SidebarItem("Goals", "/activities/goals", "goals", icon="🎯"),
-    SidebarItem("Habits", "/activities/habits", "habits", icon="🔄"),
-    SidebarItem("Principles", "/activities/principles", "principles", icon="⚖️"),
-    SidebarItem("Choices", "/activities/choices", "choices", icon="🔀"),
+    SidebarItem("Tasks", "/tasks", "tasks", icon="✅"),
+    SidebarItem("Events", "/events", "events", icon="📅"),
+    SidebarItem("Goals", "/goals", "goals", icon="🎯"),
+    SidebarItem("Habits", "/habits", "habits", icon="🔄"),
+    SidebarItem("Principles", "/principles", "principles", icon="⚖️"),
+    SidebarItem("Choices", "/choices", "choices", icon="🔀"),
     SidebarItem("Journals", "/activities/journals", "journals", icon="📓"),
     SidebarItem("Reports", "/activities/reports", "reports", icon="📊"),
 ]

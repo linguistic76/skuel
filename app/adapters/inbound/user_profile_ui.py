@@ -36,14 +36,6 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from ui.feedback import get_submission_status_badge_class
 from ui.layouts.base_page import BasePage
-from ui.profile.activity_views import (
-    ChoicesDomainView,
-    EventsDomainView,
-    GoalsDomainView,
-    HabitsDomainView,
-    PrinciplesDomainView,
-    TasksDomainView,
-)
 from ui.profile.curriculum_views import (
     LearningPathsDomainView,
     LearningStepsDomainView,
@@ -516,47 +508,6 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
 
         return items
 
-    async def _get_domain_view(
-        domain: str, context: UserContext, user_uid: str, focus_uid: str | None = None
-    ) -> Any:
-        """
-        Get the appropriate view component for a domain.
-
-        , Task 11: Supports focus_uid for deep linking to specific entities.
-
-        Args:
-            domain: Domain name (tasks, events, goals, etc.)
-            context: UserContext with all user data
-            user_uid: Current user's UID (for knowledge Neo4j query)
-            focus_uid: Optional entity UID to highlight/scroll to
-
-        Raises ValueError if domain is invalid (fail-fast).
-        Note: Route validates domains, so this should never be reached.
-        """
-        # Knowledge needs async Neo4j query
-        if domain == "knowledge":
-            return await _build_knowledge_view(context, user_uid)
-
-        views = {
-            # Activity Domains
-            "tasks": TasksDomainView,
-            "events": EventsDomainView,
-            "goals": GoalsDomainView,
-            "habits": HabitsDomainView,
-            "principles": PrinciplesDomainView,
-            "choices": ChoicesDomainView,
-            # Curriculum Domains
-            "learning-steps": LearningStepsDomainView,
-            "learning-paths": LearningPathsDomainView,
-        }
-
-        view_fn = views.get(domain)
-        if view_fn:
-            return view_fn(context, focus_uid)
-
-        # Fail-fast: Route should validate domains, so this is a bug
-        raise ValueError(f"Unknown domain: {domain}")
-
     async def _get_intelligence_data(
         context: UserContext,
     ) -> "Result[dict[str, Any] | None]":
@@ -754,7 +705,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
         if domain in activity_domains:
             focus = request.query_params.get("focus", "")
             suffix = f"?focus={focus}" if focus else ""
-            return RedirectResponse(f"/activities/{domain}{suffix}", status_code=302)
+            return RedirectResponse(f"/{domain}{suffix}", status_code=302)
 
         curriculum_redirects = {
             "knowledge": "/learn/study",

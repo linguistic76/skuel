@@ -3,27 +3,22 @@ Activity Domain Standalone Layout
 =================================
 
 Shared standalone page layout for all Activity Domains (Tasks, Goals, Habits,
-Events, Choices, Principles). Each domain uses the same three-view tab pattern.
+Events, Choices, Principles). Each domain uses the same three-view tab pattern
+with a cross-domain sidebar for navigation.
 
-Returns a complete Html document with explicit headers. This ensures
-navigation works correctly by avoiding FastHTML's default HTMX wrapping.
-
-Version: 2.0 - Returns Html document (not Div) for navigation compatibility
+Uses SidebarPage for consistent sidebar + content layout.
 
 Usage:
     from ui.layouts.activity_layout import create_activity_page
 
     content = GoalsViewComponents.render_list_view(...)
-    return create_activity_page(content, "goals", request=request)
+    return await create_activity_page(content, "goals", request=request)
 """
 
-from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import Body, Div, Html
-
-from ui.layouts.base_page import build_head
-from ui.layouts.navbar import create_navbar, create_navbar_for_request
+from ui.activities.sidebar import ACTIVITY_SIDEBAR_ITEMS
+from ui.patterns.sidebar import SidebarPage
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
@@ -51,78 +46,6 @@ DOMAIN_CSS: dict[str, list[str]] = {
 }
 
 
-@dataclass
-class ActivityLayout:
-    """
-    Shared activity domain layout without sidebar.
-
-    Returns a complete Html document with explicit headers. This ensures
-    navigation works correctly by avoiding FastHTML's default HTMX version.
-
-    Features:
-    - Top navbar with navigation
-    - Full-width content area (no sidebar)
-    - Centered container with responsive padding
-    - Domain-specific CSS includes
-    - Explicit HTMX/Alpine.js headers for navigation compatibility
-    """
-
-    domain: str
-    request: "Request | None" = None
-    user_display_name: str = ""
-    is_authenticated: bool = True
-    is_admin: bool = False
-
-    @property
-    def title(self) -> str:
-        """Get display title for the domain."""
-        return DOMAIN_TITLES.get(self.domain, self.domain.title())
-
-    async def render(self, content: Any) -> "FT":
-        """
-        Render the activity domain page layout.
-
-        Returns a complete Html document with explicit headers.
-        This ensures navigation works correctly.
-
-        Args:
-            content: The main page content (tabs + view content)
-
-        Returns:
-            Complete Html document with navbar and content
-        """
-        # Prefer request-based navbar (auto-detects user, admin from session)
-        if self.request is not None:
-            navbar = await create_navbar_for_request(self.request, active_page=self.domain)
-        else:
-            # Fallback for backwards compatibility
-            navbar = create_navbar(
-                current_user=self.user_display_name,
-                is_authenticated=self.is_authenticated,
-                active_page=self.domain,
-                is_admin=self.is_admin,
-            )
-
-        # Get domain-specific CSS files
-        domain_css = DOMAIN_CSS.get(self.domain, [])
-
-        return Html(
-            build_head(self.title, extra_css=domain_css or None),
-            Body(
-                navbar,
-                # Main content area with full width
-                Div(
-                    content,
-                    cls="min-h-screen",
-                ),
-                # Modal container for edit forms and other modals
-                Div(id="modal"),
-                cls="bg-base-100",
-            ),
-            **{"data-theme": "light"},
-        )
-
-
 async def create_activity_page(
     content: Any,
     domain: str,
@@ -132,38 +55,35 @@ async def create_activity_page(
     is_admin: bool = False,
 ) -> "FT":
     """
-    Create a standalone activity domain page.
+    Create a standalone activity domain page with sidebar navigation.
 
-    Returns a complete Html document with explicit headers. This ensures
-    navigation works correctly by avoiding FastHTML's default HTMX wrapping.
+    Returns a complete Html document via SidebarPage with cross-domain
+    sidebar navigation for switching between activity domains.
 
     Args:
         content: Main page content (tabs + view content)
         domain: Domain name (tasks, goals, habits, events, choices, principles)
         request: Starlette request object (preferred - auto-detects auth from session)
-        user_display_name: Current user's display name (fallback if no request)
-        is_authenticated: Whether user is logged in (fallback if no request)
-        is_admin: Whether user has admin role (fallback if no request)
+        user_display_name: Unused, kept for backward compatibility
+        is_authenticated: Unused, kept for backward compatibility
+        is_admin: Unused, kept for backward compatibility
 
     Returns:
-        Complete Html document with activity domain page layout
-
-    Usage:
-        content = Div(
-            GoalsViewComponents.render_view_tabs(active_view="list"),
-            GoalsViewComponents.render_list_view(goals, filters, stats),
-            cls="p-6 lg:p-8 max-w-6xl mx-auto",  # Standard SKUEL container
-        )
-        return await create_activity_page(content, "goals", request=request)
+        Complete Html document with sidebar and activity domain page layout
     """
-    layout = ActivityLayout(
-        domain=domain,
+    title = DOMAIN_TITLES.get(domain, domain.title())
+
+    return await SidebarPage(
+        content=content,
+        items=ACTIVITY_SIDEBAR_ITEMS,
+        active=domain,
+        title="Activities",
+        storage_key="activities-sidebar",
+        page_title=title,
         request=request,
-        user_display_name=user_display_name,
-        is_authenticated=is_authenticated,
-        is_admin=is_admin,
+        active_page="activities",
+        title_href="/activities",
     )
-    return await layout.render(content)
 
 
-__all__ = ["ActivityLayout", "create_activity_page", "DOMAIN_TITLES", "DOMAIN_CSS"]
+__all__ = ["create_activity_page", "DOMAIN_TITLES", "DOMAIN_CSS"]
