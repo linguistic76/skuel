@@ -54,7 +54,7 @@ def render_assignment_card(ex: dict[str, Any]) -> Any:
     else:
         action = A(
             "Submit",
-            href=f"/learn/submit?exercise_uid={uid}",
+            href=f"/submit?exercise_uid={uid}",
             cls="btn btn-primary btn-sm",
         )
 

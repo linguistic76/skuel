@@ -1,21 +1,21 @@
 """
-Learn UI Routes — Student Workspace Hub
+Study UI Routes — Student Workspace Hub
 ========================================
 
 The student's core workspace for submitting work, tracking submissions,
-and reviewing feedback. Routes absorbed from submissions_ui.py under /learn/*.
+and reviewing feedback. All sub-pages are top-level routes with shared sidebar.
 
 Layout: 6-item sidebar (Exercises / Submit / My Submissions / Exercise Reports / Activity Reports
-/ Generate Reports) on sub-pages. Landing page (/learn) has no sidebar.
+/ Generate Reports) on sub-pages. Landing page (/study) has no sidebar.
 
 Routes:
-- GET /learn — Dashboard landing (no sidebar)
-- GET /learn/submit — File upload form
-- GET /learn/submissions — My submitted work (yours + browse merged)
-- GET /learn/exercise-reports — Teacher/AI feedback on exercise submissions
-- GET /learn/activity-reports — AI and scheduled activity feedback
-- GET /learn/generate-reports — On-demand progress report generation
-- GET /learn/submissions/{uid} — Submission detail page
+- GET /study — Dashboard landing (no sidebar)
+- GET /submit — File upload form
+- GET /submissions — My submitted work (yours + browse merged)
+- GET /exercise-reports — Teacher/AI feedback on exercise submissions
+- GET /activity-reports — AI and scheduled activity feedback
+- GET /generate-reports — On-demand progress report generation
+- GET /submissions/{uid} — Submission detail page
 - HTMX fragments for all above
 """
 
@@ -44,8 +44,8 @@ from core.models.enums.entity_enums import EntityType, ProcessorType
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonT
 from ui.layouts.base_page import BasePage
-from ui.learn.layout import create_learn_page
 from ui.patterns.page_header import PageHeader
+from ui.study.layout import create_study_page
 from ui.submissions.cards import (
     render_processed_content,
     render_submission_detail,
@@ -69,7 +69,7 @@ from ui.submissions.report import (
 )
 from ui.submissions.sharing import render_sharing_section
 
-logger = get_logger("skuel.routes.learn")
+logger = get_logger("skuel.routes.study")
 
 
 # ============================================================================
@@ -98,7 +98,7 @@ def parse_submission_filters(request: Request) -> SubmissionFilters:
 # ============================================================================
 
 
-def create_learn_ui_routes(
+def create_study_ui_routes(
     _app,
     rt: RouteDecorator,
     submissions_service,
@@ -125,7 +125,7 @@ def create_learn_ui_routes(
         teacher_review_service: TeacherReviewService for feedback on submissions
     """
 
-    logger.info("Creating Learn UI routes")
+    logger.info("Creating Study UI routes")
 
     # ========================================================================
     # HELPER
@@ -144,8 +144,8 @@ def create_learn_ui_routes(
     # LANDING PAGE (no sidebar)
     # ========================================================================
 
-    @rt("/learn")
-    async def learn_landing(request: Request) -> Any:
+    @rt("/study")
+    async def study_landing(request: Request) -> Any:
         """Learning workspace hub — submit work, track submissions, review feedback."""
         user_uid = require_authenticated_user(request)
 
@@ -158,27 +158,27 @@ def create_learn_ui_routes(
                     P(str(e), cls="text-lg text-base-content/70"),
                     cls="flex flex-col items-center justify-center min-h-[400px] p-8",
                 ),
-                title="Learn",
+                title="Study",
                 request=request,
-                active_page="learn",
+                active_page="study",
             )
 
-        from ui.learn.dashboard import LearnDashboardView
+        from ui.study.dashboard import StudyDashboardView
 
-        content = LearnDashboardView(context)
+        content = StudyDashboardView(context)
         return await BasePage(
             content,
-            title="Learn",
+            title="Study",
             request=request,
-            active_page="learn",
+            active_page="study",
         )
 
     # ========================================================================
     # SUBMIT PAGE (sidebar)
     # ========================================================================
 
-    @rt("/learn/submit")
-    async def learn_submit(request: Request) -> Any:
+    @rt("/submit")
+    async def study_submit(request: Request) -> Any:
         """Submit page: upload form with optional exercise selector."""
         user_uid = require_authenticated_user(request)
 
@@ -195,19 +195,19 @@ def create_learn_ui_routes(
             render_upload_form(assigned_exercises, selected_exercise_uid=selected_exercise_uid),
             upload_form_script(),
         )
-        return await create_learn_page(
+        return await create_study_page(
             content=content,
             active_section="submit",
             request=request,
-            title="Submit - Learn",
+            title="Submit - Study",
         )
 
     # ========================================================================
     # MY SUBMISSIONS PAGE (sidebar) — merges yours + browse
     # ========================================================================
 
-    @rt("/learn/submissions")
-    async def learn_submissions(request: Request) -> Any:
+    @rt("/submissions")
+    async def study_submissions(request: Request) -> Any:
         """My Submissions: your submitted work with review status + browse/filter."""
         require_authenticated_user(request)
         content = Div(
@@ -220,19 +220,19 @@ def create_learn_ui_routes(
             render_filters_section(),
             render_submissions_grid_container(),
         )
-        return await create_learn_page(
+        return await create_study_page(
             content=content,
             active_section="submissions",
             request=request,
-            title="My Submissions - Learn",
+            title="My Submissions - Study",
         )
 
     # ========================================================================
     # EXERCISE REPORTS PAGE (sidebar) — teacher/AI feedback on submissions
     # ========================================================================
 
-    @rt("/learn/exercise-reports")
-    async def learn_exercise_reports(request: Request) -> Any:
+    @rt("/exercise-reports")
+    async def study_exercise_reports(request: Request) -> Any:
         """Teacher and AI exercise reports on submissions."""
         require_authenticated_user(request)
 
@@ -242,7 +242,7 @@ def create_learn_ui_routes(
                 id="feedback-list",
                 cls="mt-2",
                 **{
-                    "hx-get": "/learn/reports/list",
+                    "hx-get": "/reports/list",
                     "hx-trigger": "load",
                     "hx-swap": "outerHTML",
                 },
@@ -257,19 +257,19 @@ def create_learn_ui_routes(
             ),
             reports_section,
         )
-        return await create_learn_page(
+        return await create_study_page(
             content=content,
             active_section="exercise-reports",
             request=request,
-            title="Exercise Reports - Learn",
+            title="Exercise Reports - Study",
         )
 
     # ========================================================================
     # ACTIVITY REPORTS PAGE (sidebar) — activity feedback + progress reports
     # ========================================================================
 
-    @rt("/learn/activity-reports")
-    async def learn_activity_reports(request: Request) -> Any:
+    @rt("/activity-reports")
+    async def study_activity_reports(request: Request) -> Any:
         """Activity feedback — AI and scheduled activity reports."""
         require_authenticated_user(request)
 
@@ -279,7 +279,7 @@ def create_learn_ui_routes(
                 id="activity-feedback-list",
                 cls="mt-2",
                 **{
-                    "hx-get": "/learn/reports/activity-list",
+                    "hx-get": "/reports/activity-list",
                     "hx-trigger": "load",
                     "hx-swap": "outerHTML",
                 },
@@ -294,19 +294,19 @@ def create_learn_ui_routes(
             ),
             activity_feedback_section,
         )
-        return await create_learn_page(
+        return await create_study_page(
             content=content,
             active_section="activity-reports",
             request=request,
-            title="Activity Reports - Learn",
+            title="Activity Reports - Study",
         )
 
     # ========================================================================
     # GENERATE REPORTS PAGE (sidebar) — on-demand progress report generation
     # ========================================================================
 
-    @rt("/learn/generate-reports")
-    async def learn_generate_reports(request: Request) -> Any:
+    @rt("/generate-reports")
+    async def study_generate_reports(request: Request) -> Any:
         """Generate and view progress reports."""
         require_authenticated_user(request)
 
@@ -365,7 +365,7 @@ def create_learn_ui_routes(
                 P("Loading...", cls="text-center text-base-content/60"),
                 id="progress-list",
                 **{
-                    "hx-get": "/learn/reports/progress-list",
+                    "hx-get": "/reports/progress-list",
                     "hx-trigger": "load",
                     "hx-swap": "outerHTML",
                 },
@@ -380,19 +380,19 @@ def create_learn_ui_routes(
             generate_card,
             recent_reports,
         )
-        return await create_learn_page(
+        return await create_study_page(
             content=content,
             active_section="generate-reports",
             request=request,
-            title="Generate Reports - Learn",
+            title="Generate Reports - Study",
         )
 
     # ========================================================================
     # HTMX ENDPOINTS
     # ========================================================================
 
-    @rt("/learn/submissions/list")
-    async def learn_submissions_list(request: Request) -> Any:
+    @rt("/submissions/list")
+    async def study_submissions_list(request: Request) -> Any:
         """HTMX fragment: student's submissions with teacher review status."""
         try:
             user_uid = require_authenticated_user(request)
@@ -401,9 +401,7 @@ def create_learn_ui_routes(
                     P("Submissions service unavailable.", cls="text-center text-error"),
                     id="submissions-yours-list",
                 )
-            result = await submissions_search_service.get_submissions_with_feedback_status(
-                user_uid
-            )
+            result = await submissions_search_service.get_submissions_with_feedback_status(user_uid)
             items = result.value if not result.is_error else []
             return render_yours_list(items)
         except Exception as e:
@@ -413,7 +411,7 @@ def create_learn_ui_routes(
                 id="submissions-yours-list",
             )
 
-    @rt("/learn/upload")
+    @rt("/upload")
     async def upload_submission(request: Request) -> Any:
         """HTMX endpoint for submission file upload (human review)."""
         try:
@@ -465,7 +463,7 @@ def create_learn_ui_routes(
             logger.error(f"Error uploading submission: {e}", exc_info=True)
             return render_upload_status("error", f"Upload failed: {e}", is_error=True)
 
-    @rt("/learn/grid")
+    @rt("/grid")
     async def get_submissions_grid(request: Request) -> Any:
         """HTMX endpoint for loading submissions grid with filters."""
         try:
@@ -497,8 +495,8 @@ def create_learn_ui_routes(
                 id="submissions-grid-container",
             )
 
-    @rt("/learn/reports/list")
-    async def learn_reports_list(request: Request) -> Any:
+    @rt("/reports/list")
+    async def study_reports_list(request: Request) -> Any:
         """HTMX fragment: teacher assessments received."""
         try:
             user_uid = require_authenticated_user(request)
@@ -519,8 +517,8 @@ def create_learn_ui_routes(
                 id="feedback-list",
             )
 
-    @rt("/learn/reports/activity-list")
-    async def learn_activity_report_list(request: Request) -> Any:
+    @rt("/reports/activity-list")
+    async def study_activity_report_list(request: Request) -> Any:
         """HTMX fragment: activity reports."""
         try:
             user_uid = require_authenticated_user(request)
@@ -542,8 +540,8 @@ def create_learn_ui_routes(
                 id="activity-feedback-list",
             )
 
-    @rt("/learn/reports/progress-list")
-    async def learn_progress_list(request: Request) -> Any:
+    @rt("/reports/progress-list")
+    async def study_progress_list(request: Request) -> Any:
         """HTMX fragment: progress reports."""
         try:
             user_uid = require_authenticated_user(request)
@@ -565,7 +563,7 @@ def create_learn_ui_routes(
     # SUBMISSION DETAIL HTMX ENDPOINTS
     # ========================================================================
 
-    @rt("/learn/submissions/{uid}/info")
+    @rt("/submissions/{uid}/info")
     async def get_submission_info(request: Request, uid: str) -> Any:
         """HTMX endpoint for loading submission detail info."""
         try:
@@ -601,7 +599,7 @@ def create_learn_ui_routes(
                 id="submission-info",
             )
 
-    @rt("/learn/submissions/{uid}/content")
+    @rt("/submissions/{uid}/content")
     async def get_submission_content(request: Request, uid: str) -> Any:
         """HTMX endpoint for loading submission processed content."""
         try:
@@ -618,7 +616,7 @@ def create_learn_ui_routes(
             logger.error(f"Error loading submission content: {e}", exc_info=True)
             return render_processed_content(None, False)
 
-    @rt("/learn/submissions/{uid}/report")
+    @rt("/submissions/{uid}/report")
     async def get_submission_report(request: Request, uid: str) -> Any:
         """HTMX endpoint: report received on this submission."""
         from ui.patterns.report_item import render_report_item
@@ -660,7 +658,7 @@ def create_learn_ui_routes(
                 id="feedback-section",
             )
 
-    @rt("/learn/submissions/{uid}/exercise")
+    @rt("/submissions/{uid}/exercise")
     async def get_submission_exercise(request: Request, uid: str) -> Any:
         """HTMX endpoint: which exercise this submission fulfills."""
         try:
@@ -687,7 +685,7 @@ def create_learn_ui_routes(
             logger.error(f"Error loading exercise link for {uid}: {e}", exc_info=True)
             return Div(id="exercise-link")
 
-    @rt("/learn/submissions/{uid}/category-selector")
+    @rt("/submissions/{uid}/category-selector")
     async def get_category_selector(request: Request, uid: str) -> Any:
         """HTMX endpoint for category selector."""
         try:
@@ -702,7 +700,7 @@ def create_learn_ui_routes(
             logger.error(f"Error loading category selector: {e}", exc_info=True)
             return Div("Error loading category selector", cls="text-error")
 
-    @rt("/learn/submissions/{uid}/tags-manager")
+    @rt("/submissions/{uid}/tags-manager")
     async def get_tags_manager(request: Request, uid: str) -> Any:
         """HTMX endpoint for tags manager."""
         try:
@@ -717,7 +715,7 @@ def create_learn_ui_routes(
             logger.error(f"Error loading tags manager: {e}", exc_info=True)
             return Div("Error loading tags manager", cls="text-error")
 
-    @rt("/learn/submissions/{uid}/shared-users")
+    @rt("/submissions/{uid}/shared-users")
     async def get_shared_users_ui(request: Request, uid: str) -> Any:
         """HTMX endpoint for rendering shared users list."""
         try:
@@ -740,7 +738,7 @@ def create_learn_ui_routes(
     # SUBMISSION DETAIL PAGE — MUST BE LAST (catch-all pattern)
     # ========================================================================
 
-    @rt("/learn/submissions/{uid}")
+    @rt("/submissions/{uid}")
     async def submission_detail(request: Request, uid: str) -> Any:
         """Submission detail view with HTMX-loaded sections."""
         user_uid = require_authenticated_user(request)
@@ -758,7 +756,7 @@ def create_learn_ui_routes(
                     id="submission-info",
                     cls="mb-4",
                     **{
-                        "hx-get": f"/learn/submissions/{uid}/info",
+                        "hx-get": f"/submissions/{uid}/info",
                         "hx-trigger": "load",
                         "hx-swap": "outerHTML",
                     },
@@ -766,7 +764,7 @@ def create_learn_ui_routes(
                 Div(
                     id="exercise-link",
                     **{
-                        "hx-get": f"/learn/submissions/{uid}/exercise",
+                        "hx-get": f"/submissions/{uid}/exercise",
                         "hx-trigger": "load",
                         "hx-swap": "outerHTML",
                     },
@@ -779,7 +777,7 @@ def create_learn_ui_routes(
                         cls="p-4 bg-base-200 rounded-lg",
                         style="max-height: 600px; overflow-y: auto;",
                         **{
-                            "hx-get": f"/learn/submissions/{uid}/content",
+                            "hx-get": f"/submissions/{uid}/content",
                             "hx-trigger": "load",
                             "hx-swap": "outerHTML",
                         },
@@ -792,7 +790,7 @@ def create_learn_ui_routes(
                     id="feedback-section",
                     cls="mb-4",
                     **{
-                        "hx-get": f"/learn/submissions/{uid}/report",
+                        "hx-get": f"/submissions/{uid}/report",
                         "hx-trigger": "load",
                         "hx-swap": "outerHTML",
                     },
@@ -805,7 +803,7 @@ def create_learn_ui_routes(
                 Div(
                     A(
                         "\u2190 Back to Submissions",
-                        href="/learn/submissions",
+                        href="/submissions",
                         cls="btn btn-ghost",
                     ),
                     cls="mt-4",
@@ -828,33 +826,33 @@ def create_learn_ui_routes(
             content,
             title="Submission Details",
             request=request,
-            active_page="learn",
+            active_page="study",
         )
 
     logger.info(
-        "Learn UI routes created (/learn, /learn/submit, /learn/submissions, /learn/exercise-reports, /learn/activity-reports, /learn/generate-reports)"
+        "Study UI routes created (/study, /submit, /submissions, /exercise-reports, /activity-reports, /generate-reports)"
     )
 
     # Route order matters! Specific routes before parameterized routes.
     return [
-        learn_landing,  # /learn (exact)
-        learn_submit,  # /learn/submit
-        learn_submissions,  # /learn/submissions
-        learn_exercise_reports,  # /learn/exercise-reports
-        learn_activity_reports,  # /learn/activity-reports
-        learn_generate_reports,  # /learn/generate-reports
-        learn_reports_list,  # /learn/reports/list (HTMX)
-        learn_activity_report_list,  # /learn/reports/activity-list (HTMX)
-        learn_progress_list,  # /learn/reports/progress-list (HTMX)
-        learn_submissions_list,  # /learn/submissions/list (HTMX)
-        upload_submission,  # /learn/upload (HTMX POST)
-        get_submissions_grid,  # /learn/grid (HTMX GET)
-        get_submission_info,  # /learn/submissions/{uid}/info
-        get_submission_content,  # /learn/submissions/{uid}/content
-        get_submission_report,  # /learn/submissions/{uid}/report
-        get_submission_exercise,  # /learn/submissions/{uid}/exercise
-        get_category_selector,  # /learn/submissions/{uid}/category-selector
-        get_tags_manager,  # /learn/submissions/{uid}/tags-manager
-        get_shared_users_ui,  # /learn/submissions/{uid}/shared-users
-        submission_detail,  # /learn/submissions/{uid} (catch-all — LAST)
+        study_landing,  # /learn (exact)
+        study_submit,  # /submit
+        study_submissions,  # /submissions
+        study_exercise_reports,  # /exercise-reports
+        study_activity_reports,  # /activity-reports
+        study_generate_reports,  # /generate-reports
+        study_reports_list,  # /reports/list (HTMX)
+        study_activity_report_list,  # /reports/activity-list (HTMX)
+        study_progress_list,  # /reports/progress-list (HTMX)
+        study_submissions_list,  # /submissions/list (HTMX)
+        upload_submission,  # /upload (HTMX POST)
+        get_submissions_grid,  # /grid (HTMX GET)
+        get_submission_info,  # /submissions/{uid}/info
+        get_submission_content,  # /submissions/{uid}/content
+        get_submission_report,  # /submissions/{uid}/report
+        get_submission_exercise,  # /submissions/{uid}/exercise
+        get_category_selector,  # /submissions/{uid}/category-selector
+        get_tags_manager,  # /submissions/{uid}/tags-manager
+        get_shared_users_ui,  # /submissions/{uid}/shared-users
+        submission_detail,  # /submissions/{uid} (catch-all — LAST)
     ]

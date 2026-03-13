@@ -2,8 +2,8 @@
 ================================================================
 
 Wires Submissions API, Sharing, and Journals routes using DomainRouteConfig.
-UI routes have moved to /learn/* (see learn_routes.py / learn_ui.py).
-Old /submissions/* UI paths redirect 301 to their /learn/* equivalents.
+UI routes are top-level (/submit, /submissions, etc. — see study_routes.py / study_ui.py).
+Old /submissions/* and /learn/* UI paths redirect 301 to the new top-level routes.
 
 Standard factories (via DomainRouteConfig):
 - create_submissions_api_routes: Upload, list, process, download, content management
@@ -63,56 +63,91 @@ JOURNALS_CONFIG = DomainRouteConfig(
 
 
 def _create_submission_redirects(rt: RouteDecorator) -> RouteList:
-    """301 redirects from old /submissions/* UI paths to /learn/*.
+    """301 redirects from old /submissions/* and /learn/* UI paths to new top-level routes.
 
     API routes (/api/submissions/*) are NOT affected.
     """
     from starlette.responses import RedirectResponse
 
-    @rt("/submissions")
-    async def submissions_landing(request: Any) -> Any:
-        return RedirectResponse("/learn", status_code=301)
-
     @rt("/submissions/submit")
     async def submissions_submit(request: Any) -> Any:
         qs = str(request.query_params)
-        target = f"/learn/submit?{qs}" if qs else "/learn/submit"
+        target = f"/submit?{qs}" if qs else "/submit"
         return RedirectResponse(target, status_code=301)
 
     @rt("/submissions/browse")
     async def submissions_browse(request: Any) -> Any:
-        return RedirectResponse("/learn/submissions", status_code=301)
+        return RedirectResponse("/submissions", status_code=301)
 
     @rt("/submissions/yours")
     async def submissions_yours(request: Any) -> Any:
-        return RedirectResponse("/learn/submissions", status_code=301)
+        return RedirectResponse("/submissions", status_code=301)
 
     @rt("/submissions/reports")
     async def submissions_reports(request: Any) -> Any:
-        return RedirectResponse("/learn/exercise-reports", status_code=301)
+        return RedirectResponse("/exercise-reports", status_code=301)
 
     @rt("/submissions/progress")
     async def submissions_progress(request: Any) -> Any:
-        return RedirectResponse("/learn/activity-reports", status_code=301)
+        return RedirectResponse("/activity-reports", status_code=301)
 
     @rt("/submissions/assignments")
     async def submissions_assignments(request: Any) -> Any:
         return RedirectResponse("/exercises", status_code=301)
 
-    @rt("/submissions/{uid}")
-    async def submissions_detail(request: Any, uid: str) -> Any:
-        return RedirectResponse(f"/learn/submissions/{uid}", status_code=301)
+    # Old /learn/* paths redirect to new top-level routes
+    @rt("/learn/submit")
+    async def learn_submit_redirect(request: Any) -> Any:
+        qs = str(request.query_params)
+        target = f"/submit?{qs}" if qs else "/submit"
+        return RedirectResponse(target, status_code=301)
 
-    logger.info("Submission UI redirects registered (301 → /learn/*)")
+    @rt("/learn/submissions")
+    async def learn_submissions_redirect(request: Any) -> Any:
+        return RedirectResponse("/submissions", status_code=301)
+
+    @rt("/learn/exercise-reports")
+    async def learn_exercise_reports_redirect(request: Any) -> Any:
+        return RedirectResponse("/exercise-reports", status_code=301)
+
+    @rt("/learn/activity-reports")
+    async def learn_activity_reports_redirect(request: Any) -> Any:
+        return RedirectResponse("/activity-reports", status_code=301)
+
+    @rt("/learn/generate-reports")
+    async def learn_generate_reports_redirect(request: Any) -> Any:
+        return RedirectResponse("/generate-reports", status_code=301)
+
+    @rt("/learn/submissions/{uid}")
+    async def learn_submissions_detail_redirect(request: Any, uid: str) -> Any:
+        return RedirectResponse(f"/submissions/{uid}", status_code=301)
+
+    # Old /ui/exercises path
+    @rt("/ui/exercises")
+    async def ui_exercises_redirect(request: Any) -> Any:
+        return RedirectResponse("/exercises", status_code=301)
+
+    # Old /learn landing → /study
+    @rt("/learn")
+    async def learn_landing_redirect(request: Any) -> Any:
+        return RedirectResponse("/study", status_code=301)
+
+    logger.info("Submission UI redirects registered (301 → top-level routes)")
     return [
-        submissions_landing,
         submissions_submit,
         submissions_browse,
         submissions_yours,
         submissions_reports,
         submissions_progress,
         submissions_assignments,
-        submissions_detail,
+        learn_submit_redirect,
+        learn_submissions_redirect,
+        learn_exercise_reports_redirect,
+        learn_activity_reports_redirect,
+        learn_generate_reports_redirect,
+        learn_submissions_detail_redirect,
+        ui_exercises_redirect,
+        learn_landing_redirect,
     ]
 
 
@@ -121,7 +156,7 @@ def create_submissions_routes(
 ) -> RouteList:
     """
     Wire submissions API and sharing routes using configuration-driven registration.
-    UI routes have moved to /learn/* — old paths redirect 301.
+    UI routes are top-level (/submit, /submissions, etc.) — old paths redirect 301.
 
     Args:
         app: FastHTML app instance
@@ -134,7 +169,7 @@ def create_submissions_routes(
     """
     routes = register_domain_routes(app, rt, services, SUBMISSIONS_CONFIG)
 
-    # Redirects: old /submissions/* UI paths → /learn/*
+    # Redirects: old /submissions/* and /learn/* UI paths → top-level routes
     redirect_routes = _create_submission_redirects(rt)
     routes.extend(redirect_routes)
 

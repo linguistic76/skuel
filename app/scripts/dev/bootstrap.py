@@ -711,11 +711,11 @@ async def _wire_all_routes(
     setup_activities_routes(rt, services)
     logger.info("✅ Activities routes registered (/activities)")
 
-    # Learn Hub
-    from adapters.inbound.learn_routes import create_learn_routes
+    # Study Hub
+    from adapters.inbound.study_routes import create_study_routes
 
-    create_learn_routes(app, rt, services)
-    logger.info("✅ Learn routes registered (/learn)")
+    create_study_routes(app, rt, services)
+    logger.info("✅ Study routes registered (/study)")
 
     # User Profile Hub
     from adapters.inbound.user_profile_ui import setup_user_profile_routes

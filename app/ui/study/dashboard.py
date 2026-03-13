@@ -1,4 +1,4 @@
-"""Learning dashboard — /learn landing page.
+"""Study dashboard — /study landing page.
 
 Workspace hub with 6 action cards (Exercises, Submit, My Submissions, Exercise Reports,
 Activity Reports, Generate Reports) and curriculum discovery links.
@@ -10,8 +10,8 @@ from fasthtml.common import H3, A, Div, P, Span
 from core.services.user.unified_user_context import UserContext
 
 
-def LearnDashboardView(context: UserContext) -> Div:
-    """Landing page content for /learn — the student workspace hub."""
+def StudyDashboardView(context: UserContext) -> Div:
+    """Landing page content for /study — the student workspace hub."""
     return Div(
         Div(
             _exercises_card(),
@@ -51,7 +51,7 @@ def _submit_card() -> Div:
         ),
         A(
             "Submit work →",
-            href="/learn/submit",
+            href="/submit",
             cls="text-sm text-primary hover:underline inline-block",
         ),
         cls="bg-base-100 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow",
@@ -72,7 +72,7 @@ def _exercises_card() -> Div:
         ),
         A(
             "Browse exercises →",
-            href="/ui/exercises",
+            href="/exercises",
             cls="text-sm text-primary hover:underline inline-block",
         ),
         cls="bg-base-100 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow",
@@ -93,7 +93,7 @@ def _submissions_card(context: UserContext) -> Div:
         ),
         A(
             "View submissions →",
-            href="/learn/submissions",
+            href="/submissions",
             cls="text-sm text-primary hover:underline inline-block",
         ),
         cls="bg-base-100 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow",
@@ -114,7 +114,7 @@ def _exercise_reports_card() -> Div:
         ),
         A(
             "View exercise reports →",
-            href="/learn/exercise-reports",
+            href="/exercise-reports",
             cls="text-sm text-primary hover:underline inline-block",
         ),
         cls="bg-base-100 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow",
@@ -135,7 +135,7 @@ def _activity_reports_card() -> Div:
         ),
         A(
             "View activity reports →",
-            href="/learn/activity-reports",
+            href="/activity-reports",
             cls="text-sm text-primary hover:underline inline-block",
         ),
         cls="bg-base-100 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow",
@@ -156,7 +156,7 @@ def _generate_reports_card() -> Div:
         ),
         A(
             "Generate reports →",
-            href="/learn/generate-reports",
+            href="/generate-reports",
             cls="text-sm text-primary hover:underline inline-block",
         ),
         cls="bg-base-100 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow",

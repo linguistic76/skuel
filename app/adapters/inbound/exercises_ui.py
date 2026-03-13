@@ -19,12 +19,12 @@ from fasthtml.common import H1, H2, H3, A, Code, Div, Form, Li, Option, P, Pre, 
 
 from adapters.inbound.auth import make_service_getter, require_authenticated_user, require_teacher
 from core.utils.logging import get_logger
-from ui.learn.layout import create_learn_page
-from ui.patterns.page_header import PageHeader
 from ui.buttons import Button, ButtonT
 from ui.cards import Card
 from ui.forms import Input, Label, Select, Textarea
 from ui.layouts.navbar import create_navbar_for_request
+from ui.patterns.page_header import PageHeader
+from ui.study.layout import create_study_page
 
 logger = get_logger("skuel.routes.exercises.ui")
 
@@ -57,7 +57,7 @@ class ExerciseUIComponents:
             Div(
                 Button(
                     "Create New Exercise",
-                    hx_get=f"/ui/exercises/new?user_uid={user_uid}",
+                    hx_get=f"/exercises/new?user_uid={user_uid}",
                     hx_target="#main-content",
                     variant=ButtonT.primary,
                     cls="mb-6",
@@ -125,14 +125,14 @@ class ExerciseUIComponents:
                 Div(
                     Button(
                         "Edit",
-                        hx_get=f"/ui/exercises/{exercise.uid}/edit",
+                        hx_get=f"/exercises/{exercise.uid}/edit",
                         hx_target="#main-content",
                         variant=ButtonT.ghost,
                         cls="btn-sm mr-2",
                     ),
                     Button(
                         "View Instructions",
-                        hx_get=f"/ui/exercises/{exercise.uid}/view",
+                        hx_get=f"/exercises/{exercise.uid}/view",
                         hx_target="#main-content",
                         variant=ButtonT.ghost,
                         cls="btn-sm mr-2",
@@ -279,7 +279,7 @@ class ExerciseUIComponents:
                         Button("Save Exercise", type="submit", variant=ButtonT.primary, cls="mr-2"),
                         Button(
                             "Cancel",
-                            hx_get="/ui/exercises",
+                            hx_get="/exercises",
                             hx_target="#main-content",
                             variant=ButtonT.ghost,
                         ),
@@ -391,14 +391,14 @@ class ExerciseUIComponents:
             Div(
                 Button(
                     "Edit Exercise",
-                    hx_get=f"/ui/exercises/{exercise.uid}/edit",
+                    hx_get=f"/exercises/{exercise.uid}/edit",
                     hx_target="#main-content",
                     variant=ButtonT.primary,
                     cls="mr-2",
                 ),
                 Button(
                     "Back to Exercises",
-                    hx_get="/ui/exercises",
+                    hx_get="/exercises",
                     hx_target="#main-content",
                     variant=ButtonT.ghost,
                 ),
@@ -430,7 +430,7 @@ def create_exercises_ui_routes(
 
     get_user_service = make_service_getter(user_service)
 
-    @app.get("/ui/exercises")
+    @app.get("/exercises")
     async def exercises_dashboard(request) -> Any:
         """Exercises dashboard — open to all authenticated users, Learn sidebar layout."""
         try:
@@ -440,22 +440,25 @@ def create_exercises_ui_routes(
             exercises = [] if result.is_error else result.value
 
             content = Div(
-                PageHeader("Exercises", subtitle="Practice with exercises linked to articles and knowledge units"),
+                PageHeader(
+                    "Exercises",
+                    subtitle="Practice with exercises linked to articles and knowledge units",
+                ),
                 ExerciseUIComponents.render_exercises_list(exercises),
                 id="main-content",
             )
-            return await create_learn_page(
+            return await create_study_page(
                 content=content,
                 active_section="exercises",
                 request=request,
-                title="Exercises - Learn",
+                title="Exercises - Study",
             )
 
         except Exception as e:
             logger.error(f"Error rendering exercises dashboard: {e}")
             return Div(P(f"Error loading exercises: {e}", cls="text-red-600"))
 
-    @app.get("/ui/exercises/new")
+    @app.get("/exercises/new")
     @require_teacher(get_user_service)
     async def new_exercise_form(request, current_user=None) -> Any:
         """New exercise form."""
@@ -463,7 +466,7 @@ def create_exercises_ui_routes(
 
         return ExerciseUIComponents.render_exercise_editor(user_uid=user_uid, mode="create")
 
-    @app.get("/ui/exercises/{uid}/edit")
+    @app.get("/exercises/{uid}/edit")
     @require_teacher(get_user_service)
     async def edit_exercise_form(_request, uid: str, current_user=None) -> Any:
         """Edit exercise form."""
@@ -481,7 +484,7 @@ def create_exercises_ui_routes(
             logger.error(f"Error loading exercise for edit: {e}")
             return Div(P(f"Error: {e}", cls="text-red-600"))
 
-    @app.get("/ui/exercises/{uid}/view")
+    @app.get("/exercises/{uid}/view")
     @require_teacher(get_user_service)
     async def view_exercise(_request, uid: str, current_user=None) -> Any:
         """View exercise with transparency and required Ku foundation."""
