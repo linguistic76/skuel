@@ -1,6 +1,6 @@
 """Learning dashboard — /learn landing page.
 
-Workspace hub with 6 action cards (Exercises, Submit, My Submissions, Assessments,
+Workspace hub with 6 action cards (Exercises, Submit, My Submissions, Exercise Reports,
 Activity Reports, Generate Reports) and curriculum discovery links.
 No sidebar on the landing page.
 """
@@ -17,7 +17,7 @@ def LearnDashboardView(context: UserContext) -> Div:
             _exercises_card(),
             _submit_card(),
             _submissions_card(context),
-            _assessments_card(),
+            _exercise_reports_card(),
             _activity_reports_card(),
             _generate_reports_card(),
             cls="flex flex-col gap-5",
@@ -100,21 +100,21 @@ def _submissions_card(context: UserContext) -> Div:
     )
 
 
-def _assessments_card() -> Div:
-    """Assessments card."""
+def _exercise_reports_card() -> Div:
+    """Exercise Reports card."""
     return Div(
         Div(
             Span("📋", cls="text-2xl"),
-            H3("Assessments", cls="text-lg font-semibold text-base-content"),
+            H3("Exercise Reports", cls="text-lg font-semibold text-base-content"),
             cls="flex items-center gap-2 mb-3",
         ),
         P(
-            "Teacher and AI feedback on your exercise and journal submissions.",
+            "Teacher and AI feedback on your exercise submissions.",
             cls="text-sm text-base-content/60 mb-3",
         ),
         A(
-            "View assessments →",
-            href="/learn/assessments",
+            "View exercise reports →",
+            href="/learn/exercise-reports",
             cls="text-sm text-primary hover:underline inline-block",
         ),
         cls="bg-base-100 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow",

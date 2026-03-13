@@ -405,17 +405,19 @@ from ui.patterns.sidebar import SidebarItem, SidebarPage
 items = [
     SidebarItem("Submit", "/learn/submit", "submit", icon="📤"),
     SidebarItem("My Submissions", "/learn/submissions", "submissions", icon="📝"),
-    SidebarItem("Reports", "/learn/reports", "reports", icon="💬"),
+    SidebarItem("Exercise Reports", "/learn/exercise-reports", "exercise-reports", icon="📋"),
+    SidebarItem("Activity Reports", "/learn/activity-reports", "activity-reports", icon="📊"),
+    SidebarItem("Generate Reports", "/learn/generate-reports", "generate-reports", icon="⚡"),
 ]
 
 return await SidebarPage(
     content=my_content,
     items=items,
     active="submit",                    # Active item slug
-    title="Reports",                    # Sidebar heading
-    storage_key="reports-sidebar",      # localStorage key for collapse state
+    title="Learn",                      # Sidebar heading
+    storage_key="learn-sidebar",        # localStorage key for collapse state
     request=request,
-    active_page="reports",              # Navbar active item
+    active_page="learn",                # Navbar active item
     # Optional:
     subtitle="",                        # Sidebar subtitle
     extra_sidebar_sections=[],          # Additional content below nav items

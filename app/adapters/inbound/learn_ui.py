@@ -5,14 +5,14 @@ Learn UI Routes — Student Workspace Hub
 The student's core workspace for submitting work, tracking submissions,
 and reviewing feedback. Routes absorbed from submissions_ui.py under /learn/*.
 
-Layout: 6-item sidebar (Exercises / Submit / My Submissions / Assessments / Activity Reports
+Layout: 6-item sidebar (Exercises / Submit / My Submissions / Exercise Reports / Activity Reports
 / Generate Reports) on sub-pages. Landing page (/learn) has no sidebar.
 
 Routes:
 - GET /learn — Dashboard landing (no sidebar)
 - GET /learn/submit — File upload form
 - GET /learn/submissions — My submitted work (yours + browse merged)
-- GET /learn/assessments — Teacher/AI assessments on submissions
+- GET /learn/exercise-reports — Teacher/AI feedback on exercise submissions
 - GET /learn/activity-reports — AI and scheduled activity feedback
 - GET /learn/generate-reports — On-demand progress report generation
 - GET /learn/submissions/{uid} — Submission detail page
@@ -228,17 +228,17 @@ def create_learn_ui_routes(
         )
 
     # ========================================================================
-    # ASSESSMENTS PAGE (sidebar) — teacher/AI assessments on submissions
+    # EXERCISE REPORTS PAGE (sidebar) — teacher/AI feedback on submissions
     # ========================================================================
 
-    @rt("/learn/assessments")
-    async def learn_assessments(request: Request) -> Any:
-        """Teacher and AI assessments on exercise/journal submissions."""
+    @rt("/learn/exercise-reports")
+    async def learn_exercise_reports(request: Request) -> Any:
+        """Teacher and AI exercise reports on submissions."""
         require_authenticated_user(request)
 
-        teacher_section = Div(
+        reports_section = Div(
             Div(
-                P("Loading assessments...", cls="text-center text-base-content/60"),
+                P("Loading exercise reports...", cls="text-center text-base-content/60"),
                 id="feedback-list",
                 cls="mt-2",
                 **{
@@ -252,16 +252,16 @@ def create_learn_ui_routes(
 
         content = Div(
             PageHeader(
-                "Assessments",
-                subtitle="Teacher and AI feedback on your submissions",
+                "Exercise Reports",
+                subtitle="Teacher and AI feedback on your exercise submissions",
             ),
-            teacher_section,
+            reports_section,
         )
         return await create_learn_page(
             content=content,
-            active_section="assessments",
+            active_section="exercise-reports",
             request=request,
-            title="Assessments - Learn",
+            title="Exercise Reports - Learn",
         )
 
     # ========================================================================
@@ -832,7 +832,7 @@ def create_learn_ui_routes(
         )
 
     logger.info(
-        "Learn UI routes created (/learn, /learn/submit, /learn/submissions, /learn/assessments, /learn/activity-reports, /learn/generate-reports)"
+        "Learn UI routes created (/learn, /learn/submit, /learn/submissions, /learn/exercise-reports, /learn/activity-reports, /learn/generate-reports)"
     )
 
     # Route order matters! Specific routes before parameterized routes.
@@ -840,7 +840,7 @@ def create_learn_ui_routes(
         learn_landing,  # /learn (exact)
         learn_submit,  # /learn/submit
         learn_submissions,  # /learn/submissions
-        learn_assessments,  # /learn/assessments
+        learn_exercise_reports,  # /learn/exercise-reports
         learn_activity_reports,  # /learn/activity-reports
         learn_generate_reports,  # /learn/generate-reports
         learn_reports_list,  # /learn/reports/list (HTMX)

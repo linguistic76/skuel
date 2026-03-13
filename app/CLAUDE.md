@@ -477,7 +477,7 @@ type Scorer[T] = Callable[[T], Score]
 
 - Routes in `/adapters/inbound/*_routes.py`, UI in `/ui/`, Static in `/static/`
 - Navbar has icon links: **A** (Activities, `/activities`) and **L** (Learn, `/learn`) + avatar **U** (Profile, `/profile`)
-- `/profile` is lean (Focus + Steady + Settings). Activity domains at `/activities/{domain}` with sidebar. `/learn` is the student workspace hub (Submit/Exercises/My Submissions/Reports sidebar on sub-pages). Old `/submissions/*` UI paths redirect 301 to `/learn/*`.
+- `/profile` is lean (Focus + Steady + Settings). Activity domains at `/activities/{domain}` with sidebar. `/learn` is the student workspace hub (6-item sidebar: Exercises/Submit/My Submissions/Exercise Reports/Activity Reports/Generate Reports). Old `/submissions/*` UI paths redirect 301 to `/learn/*`.
 - All sidebars unified into `SidebarPage` from `ui/patterns/sidebar.py`
 
 **Key Files:** `/ui/layouts/base_page.py`, `/ui/layouts/navbar.py`, `/ui/patterns/sidebar.py`, `/ui/patterns/` (PageHeader, form_generator, card_generator, etc.)
