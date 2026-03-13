@@ -339,7 +339,7 @@ Three things distinguish Askesis from a generic AI assistant:
 | Journal signal extraction | Phase 2 — `JournalInsight` shape defined | Journals reveal what the user actually understands vs. what they've merely encountered |
 | Neo4j conversation persistence | Deferred | Cross-session continuity ("last week we discussed X") |
 | Teacher interface | Deferred | Teachers shaping what Askesis says to their students |
-| Prompt template migration | Deferred | Moving inline prompt strings to editable PROMPT_REGISTRY templates |
+| Prompt template migration | **Partial** — guided system prompts (7 templates) migrated; LLM context assembly + Q&A/planning prompts remain programmatic | Editable pedagogical prompts without touching Python |
 | Events + Principles in LS bundle | Planned | Currently empty tuples — will populate from graph_context |
 | Resource access expansion | Planned | Broader resource discovery beyond CITES_RESOURCE — semantic search across all Resources |
 | Fine-tuned model | Deferred | Training on conversation data once volume exists |
@@ -371,4 +371,5 @@ Three things distinguish Askesis from a generic AI assistant:
 | Protocols (16 methods) | `core/ports/askesis_protocols.py` |
 | API routes (20 endpoints) | `adapters/inbound/askesis_api.py` |
 | UI routes | `adapters/inbound/askesis_ui.py` |
-| Prompt templates (4) | `core/prompts/templates/askesis_*.md` |
+| Guided prompt templates (7) | `core/prompts/templates/askesis_guided_*.md` |
+| Interaction pattern templates (4) | `core/prompts/templates/askesis_scaffold_entry.md`, `askesis_socratic_turn.md`, `askesis_ku_bridge.md`, `askesis_journal_reflection.md` |

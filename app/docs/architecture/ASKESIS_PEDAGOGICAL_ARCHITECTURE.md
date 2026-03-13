@@ -252,23 +252,35 @@ Prompt builders: `core/services/askesis/response_generator.py`.
 Each Askesis prompt template encodes one pedagogical intent. The template is the
 curriculum of the conversation — it constrains what Askesis can do.
 
+### Guided System Prompts (Active — March 2026)
+
+`ResponseGenerator.build_guided_system_prompt()` dispatches to 4 mode-specific builders,
+each rendering one or two templates via `PROMPT_REGISTRY.render()`. Dynamic context
+(article refs, KU names, resource refs, edge text, practice items) is computed in Python
+and passed as template placeholders. Prompt text lives in `core/prompts/templates/`.
+
+| Template | GuidanceMode | PedagogicalIntent |
+|----------|-------------|-------------------|
+| `askesis_guided_redirect` | DIRECT | REDIRECT_TO_CURRICULUM |
+| `askesis_guided_out_of_scope` | DIRECT | OUT_OF_SCOPE |
+| `askesis_guided_assess` | SOCRATIC | ASSESS_UNDERSTANDING |
+| `askesis_guided_probe` | SOCRATIC | PROBE_DEEPER |
+| `askesis_guided_scaffold` | EXPLORATORY | SCAFFOLD |
+| `askesis_guided_connection` | EXPLORATORY | SURFACE_CONNECTION |
+| `askesis_guided_practice` | ENCOURAGING | ENCOURAGE_PRACTICE |
+
+### Interaction Pattern Templates (Phase 2 — Defined, Not Yet Wired)
+
+Four additional templates define future interaction patterns. These become valuable when
+journal signals (Phase 2) provide template variables like `{journal_open_questions}` and
+`{user_momentum}` that the current pipeline doesn't yet populate.
+
 | Template | Intent | When Used |
 |----------|--------|-----------|
 | `askesis_scaffold_entry` | Open a session — invite, don't lecture | Session start |
 | `askesis_socratic_turn` | Draw user toward their own realization | Mid-conversation |
 | `askesis_ku_bridge` | Introduce adjacent KU as natural next step | ZPD traversal |
 | `askesis_journal_reflection` | Respond to journal open questions | Journal-triggered session |
-
-**Current state (March 2026):** Templates are defined as pedagogical design artifacts.
-The guided pipeline uses programmatic prompt builders in `ResponseGenerator`:
-`_build_direct_prompt()`, `_build_socratic_prompt()`, `_build_exploratory_prompt()`,
-`_build_encouraging_prompt()`. These are wired to `QueryProcessor` via
-`build_guided_system_prompt()` and selected by `GuidanceDetermination`.
-
-**Migration path (deferred):** Each `_build_*_prompt()` method could be replaced by
-`PROMPT_REGISTRY.render()` calls using the template files. This becomes valuable when
-journal signals (Phase 2) provide template variables like `{journal_open_questions}` and
-`{user_momentum}` that the current programmatic builders don't yet populate.
 
 ---
 
@@ -309,5 +321,6 @@ assistant cannot do this. Askesis can.
 - `docs/roadmap/conversation-neo4j-persistence-deferred.md` — Neo4j conversation schema
 - `docs/roadmap/teacher-askesis-interface-deferred.md` — teacher interface design
 - `core/models/submissions/journal_insight.py` — JournalInsight dataclass stub
-- `core/prompts/templates/askesis_*.md` — four prompt templates
+- `core/prompts/templates/askesis_guided_*.md` — 7 guided system prompt templates (active)
+- `core/prompts/templates/askesis_scaffold_entry.md`, `askesis_socratic_turn.md`, `askesis_ku_bridge.md`, `askesis_journal_reflection.md` — 4 interaction pattern templates (Phase 2)
 - `.claude/skills/prompt-templates/SKILL.md` — template catalog

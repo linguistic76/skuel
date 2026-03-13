@@ -440,6 +440,8 @@ principles_rich = entities_rich.get("principles", [])
 | **March 2026** | Backwards compatibility removed: all `AskesisDeps` fields required, `zpd_service` required (LP gate ensures curriculum exists), keyword fallback deleted from IntentClassifier, template fallback deleted from QueryProcessor, Askesis creation gated behind `INTELLIGENCE_TIER=full` |
 | **March 2026** | `AskesisCitationService` wired in bootstrap — `create_askesis_service()` now requires `citation_service` param; QueryProcessor formats prerequisite-chain citations in responses |
 | **March 2026** | Socratic pipeline added (LSContextLoader, SocraticEngine) then absorbed into existing services: LSContextLoader → ContextRetriever.load_ls_bundle(), SocraticEngine → ResponseGenerator.build_guided_system_prompt(), GuidanceDetermination added to IntentClassifier. LP enrollment gate. GuidanceMode enum: DIRECT/SOCRATIC/EXPLORATORY/ENCOURAGING. ConversationStyle deleted. One pipeline. |
+| **March 2026** | EntityExtractor DRY fix: 5 copy-pasted `_extract_*_entities()` methods → single generic `_extract_matching_entities()` with `_EntityLookup` protocol. -155 lines. |
+| **March 2026** | Guided system prompts migrated to PROMPT_REGISTRY: 7 `askesis_guided_*` templates replace hardcoded strings in ResponseGenerator. Prompt text editable without touching Python. |
 
 ---
 
@@ -522,62 +524,45 @@ async def _order_by_prerequisites(self, ku_uids: list[str]) -> list[str]:
 
 ## LLM Prompts
 
-### Current State
+### Two Layers
 
-Askesis's `QueryProcessor` uses `LLMService.generate_context_aware_answer()` for its
-primary LLM interaction. Context is assembled programmatically in
-`ResponseGenerator.build_llm_context()` — no PROMPT_REGISTRY use yet. The DSL bridge
-(`LLMDSLBridgeService`) does use PROMPT_REGISTRY for domain recognition.
+Askesis uses PROMPT_REGISTRY for two distinct prompt layers:
 
-### Why This Will Change
+1. **Guided system prompts (template-driven):** `ResponseGenerator.build_guided_system_prompt()` renders one of 7 `askesis_guided_*` templates via `PROMPT_REGISTRY.render()`. Each template encodes one `PedagogicalIntent`. The Python method computes dynamic context (article refs, KU names, resource refs, edge text) and passes it as template placeholders. Prompt text is editable in `core/prompts/templates/` without touching Python.
 
-Prompt engineering and service logic are currently coupled. When tuning Askesis's
-responses, an implementer must read Python to find the prompt. This is the wrong layer.
+2. **LLM context assembly (programmatic):** `ResponseGenerator.build_llm_context()` converts UserContext into natural language for the LLM call. `QueryProcessor._generate_context_aware_response()` calls `LLMService.generate_context_aware_answer()` with this assembled context. This layer remains programmatic — the context is data-driven, not pedagogical prose.
 
-As Askesis's LLM interactions stabilize, each should become a named template in
-`core/prompts/templates/` with documented placeholders — editable without touching Python.
+### Guided System Prompt Templates
 
-### Migration Path
+| Template ID | GuidanceMode | PedagogicalIntent | Key Placeholders |
+|-------------|-------------|-------------------|-----------------|
+| `askesis_guided_redirect` | DIRECT | REDIRECT_TO_CURRICULUM | `{articles_text}`, `{resource_refs}` |
+| `askesis_guided_out_of_scope` | DIRECT | OUT_OF_SCOPE | `{ls_title}`, `{ls_intent}` |
+| `askesis_guided_assess` | SOCRATIC | ASSESS_UNDERSTANDING | `{concepts}` |
+| `askesis_guided_probe` | SOCRATIC | PROBE_DEEPER | `{concepts}` |
+| `askesis_guided_scaffold` | EXPLORATORY | SCAFFOLD | `{concepts}`, `{resource_refs}` |
+| `askesis_guided_connection` | EXPLORATORY | SURFACE_CONNECTION | `{edges_text}` |
+| `askesis_guided_practice` | ENCOURAGING | ENCOURAGE_PRACTICE | `{practice_text}`, `{resource_refs}` |
 
-Each `generate_context_aware_answer()` call maps to one template:
+### Interaction Pattern Templates (Phase 2)
 
-```python
-# Current (programmatic assembly in ResponseGenerator)
-context = self._build_llm_context(current_knowledge, active_learning, ...)
-response = await self.llm_service.generate_context_aware_answer(
-    query=query_message, context=context, intent=intent.value
-)
+Four additional templates define future interaction patterns — session opener, mid-turn Socratic, KU bridge, journal reflection. These are defined as pedagogical design artifacts in `core/prompts/templates/` but not yet wired to the pipeline:
 
-# Target (template-driven)
-from core.prompts import PROMPT_REGISTRY
-prompt = PROMPT_REGISTRY.render("askesis_qa_response",
-    query=query_message,
-    intent=intent.value,
-    knowledge_context=context["knowledge"],
-    learning_context=context["learning"],
-)
-response = await openai_service.generate_completion(prompt=prompt)
-```
+| Template ID | Interaction Pattern | Wired |
+|-------------|-------------------|-------|
+| `askesis_scaffold_entry` | Session opener — invite, don't lecture | Phase 2 |
+| `askesis_socratic_turn` | Mid-conversation Socratic turn | Phase 2 |
+| `askesis_ku_bridge` | Introduce adjacent KU as natural next step | Phase 2 |
+| `askesis_journal_reflection` | Respond to journal open questions | Phase 2 |
 
-### Planned Template IDs
+### Remaining Migration
 
-| Template ID | Service | Placeholders |
+The LLM context assembly layer (`build_llm_context()`) and the Q&A/planning responses (`generate_context_aware_answer()`) could move to templates when their patterns stabilize:
+
+| Planned Template ID | Service | Placeholders |
 |-------------|---------|--------------|
-| `askesis_qa_response.md` | `QueryProcessor` | `{query}`, `{intent}`, `{knowledge_context}`, `{learning_context}` |
-| `askesis_daily_plan.md` | `ActionRecommendationEngine` | `{user_summary}`, `{active_tasks}`, `{goals_progress}` |
-| `askesis_synergy_detection.md` | `UserStateAnalyzer` | `{domain_stats}`, `{time_period}` |
-
-### Editing Prompts Today
-
-The existing templates live in `core/prompts/templates/`. To tune Askesis's DSL recognition:
-
-```bash
-# Edit the domain recognition prompt (used by LLMDSLBridgeService)
-$EDITOR core/prompts/templates/dsl_domain_recognition.md
-```
-
-For Q&A and planning responses, edit `ResponseGenerator.build_llm_context()` and
-`QueryProcessor._generate_context_aware_response()` until those migrate to templates.
+| `askesis_qa_response` | `QueryProcessor` | `{query}`, `{intent}`, `{knowledge_context}`, `{learning_context}` |
+| `askesis_daily_plan` | `ActionRecommendationEngine` | `{user_summary}`, `{active_tasks}`, `{goals_progress}` |
 
 **See:** `@prompt-templates` skill — complete registry reference, naming conventions, anti-patterns
 

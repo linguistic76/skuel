@@ -57,6 +57,13 @@ core/prompts/
     ├── journal_exploration.md
     ├── dsl_domain_recognition.md
     ├── dsl_domain_recognition_compact.md
+    ├── askesis_guided_redirect.md
+    ├── askesis_guided_out_of_scope.md
+    ├── askesis_guided_assess.md
+    ├── askesis_guided_probe.md
+    ├── askesis_guided_scaffold.md
+    ├── askesis_guided_connection.md
+    ├── askesis_guided_practice.md
     ├── askesis_scaffold_entry.md
     ├── askesis_socratic_turn.md
     ├── askesis_ku_bridge.md
@@ -79,10 +86,17 @@ programming error, not a domain failure.
 | `journal_exploration` | `JournalOutputGenerator._format_exploration()` | `{content}` |
 | `dsl_domain_recognition` | `LLMDSLBridgeService.transform()` (default) | `{journal_text}` |
 | `dsl_domain_recognition_compact` | `LLMDSLBridgeService.transform()` (compact mode) | `{journal_text}` |
-| `askesis_scaffold_entry` | `AskesisService` (Phase 2) | `{ku_title}`, `{ku_description}`, `{user_current_zone}`, `{journal_open_questions}`, `{journal_concepts}`, `{user_momentum}`, `{guidance_mode}`, `{conversation_history}` |
-| `askesis_socratic_turn` | `QueryProcessor` (Phase 2) | `{ku_title}`, `{conversation_history}`, `{user_message}`, `{user_understanding_estimate}`, `{awaiting_response_to}` |
-| `askesis_ku_bridge` | `AskesisService` (Phase 2) | `{current_ku_title}`, `{current_ku_engagement}`, `{target_ku_title}`, `{target_ku_description}`, `{bridge_connection}` |
-| `askesis_journal_reflection` | `AskesisService` (Phase 2) | `{user_name}`, `{journal_open_questions}`, `{journal_struggles}`, `{related_ku_title}`, `{related_ku_description}` |
+| `askesis_guided_redirect` | `ResponseGenerator._build_direct_prompt()` | `{articles_text}`, `{resource_refs}` |
+| `askesis_guided_out_of_scope` | `ResponseGenerator._build_direct_prompt()` | `{ls_title}`, `{ls_intent}` |
+| `askesis_guided_assess` | `ResponseGenerator._build_socratic_prompt()` | `{concepts}` |
+| `askesis_guided_probe` | `ResponseGenerator._build_socratic_prompt()` | `{concepts}` |
+| `askesis_guided_scaffold` | `ResponseGenerator._build_exploratory_prompt()` | `{concepts}`, `{resource_refs}` |
+| `askesis_guided_connection` | `ResponseGenerator._build_exploratory_prompt()` | `{edges_text}` |
+| `askesis_guided_practice` | `ResponseGenerator._build_encouraging_prompt()` | `{practice_text}`, `{resource_refs}` |
+| `askesis_scaffold_entry` | Phase 2 — session opener | `{ku_title}`, `{ku_description}`, `{user_current_zone}`, `{journal_open_questions}`, `{journal_concepts}`, `{user_momentum}`, `{guidance_mode}`, `{conversation_history}` |
+| `askesis_socratic_turn` | Phase 2 — mid-conversation | `{ku_title}`, `{conversation_history}`, `{user_message}`, `{user_understanding_estimate}`, `{awaiting_response_to}` |
+| `askesis_ku_bridge` | Phase 2 — ZPD traversal | `{current_ku_title}`, `{current_ku_engagement}`, `{target_ku_title}`, `{target_ku_description}`, `{bridge_connection}` |
+| `askesis_journal_reflection` | Phase 2 — journal-triggered | `{user_name}`, `{journal_open_questions}`, `{journal_struggles}`, `{related_ku_title}`, `{related_ku_description}` |
 
 ---
 
@@ -137,28 +151,36 @@ prompt = PROMPT_REGISTRY.render("activity_feedback", stats_json=json.dumps(stats
 ## Askesis & Pedagogical Dialogue
 
 Askesis is a ZPD-aware Socratic companion anchored to curriculum objects (KU, LP, Exercise).
-Four templates define its pedagogical vocabulary — each encodes one conversational intent.
+Two template layers define its pedagogical vocabulary:
 
-**Current state:** Templates are defined and loadable via `PROMPT_REGISTRY`. Wiring to
-`QueryProcessor` is Phase 2 (after ZPDService). Askesis currently uses programmatic string
-assembly in `ResponseGenerator.build_llm_context()`.
+### Layer 1: Guided System Prompts (Active)
 
-**Template selection by GuidanceMode:**
+`ResponseGenerator.build_guided_system_prompt()` dispatches to 4 mode-specific builders,
+each rendering templates via `PROMPT_REGISTRY.render()`. Dynamic context (article refs, KU
+names, resource refs, edge text, practice items) is computed in Python and passed as
+template placeholders.
 
-| GuidanceMode | Primary Template | Trigger |
-|-------------|-----------------|---------|
-| `SOCRATIC` | `askesis_socratic_turn` | Default — consistent engagement |
-| `EXPLORATORY` | `askesis_scaffold_entry` | Journal with open questions |
-| `ENCOURAGING` | `askesis_scaffold_entry` | Low momentum |
-| `DIRECT` | `askesis_scaffold_entry` | First encounter with KU |
-| ZPD traversal | `askesis_ku_bridge` | Proximal zone KU detected |
-| Journal-triggered | `askesis_journal_reflection` | Open questions surfaced passively |
+| GuidanceMode | PedagogicalIntent | Template |
+|-------------|-------------------|---------|
+| `DIRECT` | REDIRECT_TO_CURRICULUM | `askesis_guided_redirect` |
+| `DIRECT` | OUT_OF_SCOPE | `askesis_guided_out_of_scope` |
+| `SOCRATIC` | ASSESS_UNDERSTANDING | `askesis_guided_assess` |
+| `SOCRATIC` | PROBE_DEEPER | `askesis_guided_probe` |
+| `EXPLORATORY` | SCAFFOLD | `askesis_guided_scaffold` |
+| `EXPLORATORY` | SURFACE_CONNECTION | `askesis_guided_connection` |
+| `ENCOURAGING` | ENCOURAGE_PRACTICE | `askesis_guided_practice` |
 
-**Curriculum anchoring:** Every Askesis session opens with a `ku_uid` as context.
-`{ku_title}` and `{ku_description}` placeholders are always populated from the anchor KU.
+### Layer 2: Interaction Pattern Templates (Phase 2 — Defined, Not Yet Wired)
 
-**Migration path:** Each `generate_context_aware_answer()` call → one template file.
-Programmatic context building → documented placeholders. Service logic shrinks.
+Four templates define future interaction patterns. These become valuable when journal
+signals provide variables like `{journal_open_questions}` and `{user_momentum}`.
+
+| Template | Interaction Pattern |
+|----------|-------------------|
+| `askesis_scaffold_entry` | Session opener — invite, don't lecture |
+| `askesis_socratic_turn` | Mid-conversation Socratic turn |
+| `askesis_ku_bridge` | Introduce adjacent KU as natural next step |
+| `askesis_journal_reflection` | Respond to journal open questions |
 
 ---
 
