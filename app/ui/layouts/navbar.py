@@ -13,7 +13,8 @@ Usage:
 
 from typing import Any
 
-from fasthtml.common import A, Button, Div, Nav, NotStr, Span
+from fasthtml.common import A, Button, Div, Nav, Span
+from monsterui.franken import UkIcon
 from starlette.requests import Request
 
 from ui.layouts.nav_config import (
@@ -64,49 +65,24 @@ def _nav_link(item: NavItem, active_page: str, mobile: bool = False) -> A:
     return A(item.label, href=item.href, cls=cls)
 
 
-def _bell_icon() -> NotStr:
-    """Create the notification bell SVG icon (decorative - button has sr-only label)."""
-    return NotStr(
-        '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" '
-        'stroke-width="1.5" stroke="currentColor" class="size-6" aria-hidden="true">'
-        '<path stroke-linecap="round" stroke-linejoin="round" '
-        'd="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75'
-        "a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0"
-        'm5.714 0a3 3 0 1 1-5.714 0"/>'
-        "</svg>"
-    )
+def _bell_icon():
+    """Notification bell icon (decorative - button has sr-only label)."""
+    return UkIcon("bell", cls="size-6", aria_hidden="true")
 
 
-def _hamburger_icon() -> NotStr:
-    """Create the hamburger menu SVG icon (decorative - button has sr-only label)."""
-    return NotStr(
-        '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" '
-        'stroke-width="1.5" stroke="currentColor" class="size-6" aria-hidden="true">'
-        '<path stroke-linecap="round" stroke-linejoin="round" '
-        'd="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/>'
-        "</svg>"
-    )
+def _hamburger_icon():
+    """Hamburger menu icon (decorative - button has sr-only label)."""
+    return UkIcon("menu", cls="size-6", aria_hidden="true")
 
 
-def _close_icon() -> NotStr:
-    """Create the close X SVG icon (decorative - button has sr-only label)."""
-    return NotStr(
-        '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" '
-        'stroke-width="1.5" stroke="currentColor" class="size-6" aria-hidden="true">'
-        '<path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>'
-        "</svg>"
-    )
+def _close_icon():
+    """Close X icon (decorative - button has sr-only label)."""
+    return UkIcon("x", cls="size-6", aria_hidden="true")
 
 
-def _search_icon() -> NotStr:
-    """Create the search magnifying glass SVG icon (decorative - link has sr-only label)."""
-    return NotStr(
-        '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" '
-        'stroke-width="1.5" stroke="currentColor" class="size-6" aria-hidden="true">'
-        '<path stroke-linecap="round" stroke-linejoin="round" '
-        'd="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"/>'
-        "</svg>"
-    )
+def _search_icon():
+    """Search magnifying glass icon (decorative - link has sr-only label)."""
+    return UkIcon("search", cls="size-6", aria_hidden="true")
 
 
 def _search_button(active_page: str = "") -> A:
@@ -172,17 +148,9 @@ def _avatar_hue(name: str) -> int:
     return h
 
 
-def _logout_icon() -> NotStr:
-    """Create the sign-out arrow-right-on-rectangle SVG icon."""
-    return NotStr(
-        '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" '
-        'stroke-width="1.5" stroke="currentColor" class="size-6" aria-hidden="true">'
-        '<path stroke-linecap="round" stroke-linejoin="round" '
-        'd="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5'
-        "A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9"
-        '"/>'
-        "</svg>"
-    )
+def _logout_icon():
+    """Sign-out icon."""
+    return UkIcon("log-out", cls="size-6", aria_hidden="true")
 
 
 def _logout_button() -> A:

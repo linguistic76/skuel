@@ -29,12 +29,12 @@ from fasthtml.common import (
     Html,
     Link,
     Meta,
-    NotStr,
     P,
     Script,
     Span,
     Title,
 )
+from monsterui.franken import UkIcon
 from starlette.requests import Request
 
 from adapters.inbound.auth import require_authenticated_user
@@ -298,11 +298,7 @@ def _render_item_details_modal(item: Any) -> Div:
                         cls="text-2xl font-bold flex items-center",
                     ),
                     Button(
-                        NotStr(
-                            '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">'
-                            '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>'
-                            "</svg>"
-                        ),
+                        UkIcon("x", cls="w-6 h-6"),
                         variant=ButtonT.ghost,
                         size=Size.sm,
                         cls="text-muted-foreground hover:text-muted-foreground",

@@ -28,7 +28,8 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import H3, A, Button, Div, Li, NotStr, P, Span, Ul
+from fasthtml.common import H3, A, Button, Div, Li, P, Span, Ul
+from monsterui.franken import UkIcon
 
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
@@ -54,12 +55,7 @@ class SidebarItem:
 
 def _chevron_svg() -> "FT":
     """Collapse toggle chevron icon."""
-    return NotStr(
-        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none"'
-        ' stroke="currentColor" stroke-width="2" aria-hidden="true">'
-        '<path d="M15 18l-6-6 6-6"></path>'
-        "</svg>"
-    )
+    return UkIcon("chevron-left", height=16, width=16, cls="", aria_hidden="true")
 
 
 def _default_item_renderer(item: SidebarItem, is_active: bool) -> "FT":

@@ -709,9 +709,7 @@ def _render_search_input() -> str:
     <div class="search-input-container bg-background rounded-lg shadow-sm p-4">
         <div class="relative">
             <span class="absolute inset-y-0 left-3 flex items-center text-foreground/40">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
+                <uk-icon icon="search" width="20" height="20" class="h-5 w-5"></uk-icon>
             </span>
             <input type="text"
                    name="query"

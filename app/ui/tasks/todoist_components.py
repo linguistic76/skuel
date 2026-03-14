@@ -27,13 +27,13 @@ from fasthtml.common import (
     Form,
     Label,
     Li,
-    NotStr,
     Option,
     P,
     Script,
     Span,
     Ul,
 )
+from monsterui.franken import UkIcon
 
 from core.models.enums import EntityStatus, Priority
 from core.utils.logging import get_logger
@@ -47,12 +47,12 @@ from ui.modals import ModalAction, ModalBox
 logger = get_logger("skuel.components.todoist")
 
 
-# Priority to P1-P4 mapping (Todoist style)
+# Priority to P1-P4 mapping (Todoist style): (label, text color class)
 PRIORITY_TO_P = {
-    Priority.CRITICAL: ("P1", "text-red-500", "fill-red-500"),
-    Priority.HIGH: ("P2", "text-orange-500", "fill-orange-500"),
-    Priority.MEDIUM: ("P3", "text-blue-500", "fill-blue-500"),
-    Priority.LOW: ("P4", "text-muted-foreground", "fill-gray-400"),
+    Priority.CRITICAL: ("P1", "text-red-500"),
+    Priority.HIGH: ("P2", "text-orange-500"),
+    Priority.MEDIUM: ("P3", "text-blue-500"),
+    Priority.LOW: ("P4", "text-muted-foreground"),
 }
 
 
@@ -87,18 +87,12 @@ class TodoistTaskComponents:
             except ValueError:
                 priority = Priority.LOW
 
-        p_label, text_class, _fill_class = PRIORITY_TO_P.get(
-            priority, ("P4", "text-muted-foreground", "fill-gray-400")
-        )
-
-        # Flag icon SVG - use NotStr to render raw HTML
-        flag_svg = f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" class="w-4 h-4 {text_class}" fill="currentColor">
-            <path d="M3.5 2v12.5a.5.5 0 0 1-1 0V2a.5.5 0 0 1 1 0z"/>
-            <path d="M3.5 2h9.004a.5.5 0 0 1 .447.724l-2.5 5 2.5 5a.5.5 0 0 1-.447.724H3.5V2z"/>
-        </svg>"""
+        p_label, text_class = PRIORITY_TO_P.get(priority, ("P4", "text-muted-foreground"))
 
         return Span(
-            Span(NotStr(flag_svg), cls="inline-block"),
+            Span(
+                UkIcon("flag", height=16, width=16, cls=f"w-4 h-4 {text_class}"), cls="inline-block"
+            ),
             Span(p_label, cls=f"text-xs font-medium ml-0.5 {text_class}"),
             cls="inline-flex items-center",
             title=f"Priority: {priority.value.title()}",

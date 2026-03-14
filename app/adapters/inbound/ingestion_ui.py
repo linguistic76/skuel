@@ -161,9 +161,7 @@ def create_ingestion_ui_routes(
                     const msg = result.error || result.message || 'Ingestion failed';
                     statusEl.innerHTML = `
                         <div class="bg-red-100 text-red-800 border border-red-200 p-3 rounded-lg shadow-sm">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                            </svg>
+                            <uk-icon icon="x" width="24" height="24" class="shrink-0 h-6 w-6"></uk-icon>
                             <span class="font-semibold">${msg}</span>
                         </div>`;
                 } else {
@@ -188,9 +186,7 @@ def create_ingestion_ui_routes(
 
                     statusEl.innerHTML = `
                         <div class="bg-green-100 text-green-800 border border-green-200 p-3 rounded-lg shadow-sm">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                            </svg>
+                            <uk-icon icon="check" width="24" height="24" class="shrink-0 h-6 w-6"></uk-icon>
                             <div>
                                 <span class="font-semibold">Ingested successfully</span>
                                 <span class="text-sm opacity-80 ml-2">${summary}</span>
