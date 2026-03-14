@@ -69,3 +69,21 @@ class HabitEssentiality(StrEnum):
     CRITICAL = "critical"
     SUPPORTING = "supporting"
     OPTIONAL = "optional"
+
+    def get_badge_class(self) -> str:
+        """Get Tailwind badge classes for essentiality display."""
+        return {
+            HabitEssentiality.ESSENTIAL: "bg-red-100 text-red-800 border-red-200",
+            HabitEssentiality.CRITICAL: "bg-yellow-100 text-yellow-800 border-yellow-200",
+            HabitEssentiality.SUPPORTING: "bg-blue-100 text-blue-800 border-blue-200",
+            HabitEssentiality.OPTIONAL: "bg-gray-100 text-gray-600 border-gray-200",
+        }.get(self, "bg-gray-100 text-gray-600 border-gray-200")
+
+    def get_styled(self) -> tuple[str, str, str]:
+        """Get (emoji, border_class, bg_class) for essentiality display."""
+        return {
+            HabitEssentiality.ESSENTIAL: ("\U0001f534", "border-red-500", "bg-red-50"),
+            HabitEssentiality.CRITICAL: ("\U0001f7e0", "border-orange-500", "bg-orange-50"),
+            HabitEssentiality.SUPPORTING: ("\U0001f7e1", "border-yellow-500", "bg-yellow-50"),
+            HabitEssentiality.OPTIONAL: ("\U0001f7e2", "border-green-500", "bg-green-50"),
+        }.get(self, ("\u26aa", "border-border", "bg-muted"))

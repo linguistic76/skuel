@@ -594,9 +594,9 @@ class AtomicHabitsAnalytics:
     @staticmethod
     def _get_essentiality_color(essentiality: str) -> str:
         """Get color class for essentiality level."""
-        from ui.badge_classes import essentiality_badge_class
+        from ui.enum_helpers import get_essentiality_badge_class
 
-        return essentiality_badge_class(essentiality)
+        return get_essentiality_badge_class(essentiality)
 
     @staticmethod
     def render_export_modal(export_format: str = "csv") -> Div:

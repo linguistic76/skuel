@@ -91,7 +91,7 @@ def DomainFilterControls(domain: str, total_count: int) -> Div:
                 label,
                 variant=ButtonT.ghost,
                 size=Size.sm,
-                x_bind_class=f"{{'uk-btn-primary': filterPreset === '{value}', 'uk-btn-ghost': filterPreset !== '{value}'}}",
+                x_bind_class=f"{{'bg-primary text-primary-foreground': filterPreset === '{value}', '': filterPreset !== '{value}'}}",
                 x_on_click=f"filterPreset = '{value}'",
             )
         )
@@ -196,9 +196,9 @@ def DomainSummaryCard(
     Returns:
         Card div with stats
     """
-    from ui.badge_classes import health_bg_class
+    from ui.enum_helpers import get_health_bg_class
 
-    status_bg = health_bg_class(status)
+    status_bg = get_health_bg_class(status)
 
     stats_html = []
     for label, value in stats:
@@ -325,9 +325,9 @@ def _item_list(
 
         status_badge = ""
         if status:
-            from ui.badge_classes import status_text_class
+            from ui.enum_helpers import get_status_text_class
 
-            status_color = status_text_class(status)
+            status_color = get_status_text_class(status)
             status_badge = Span(
                 status.replace("_", " ").title(),
                 cls=f"text-xs font-medium {status_color}",

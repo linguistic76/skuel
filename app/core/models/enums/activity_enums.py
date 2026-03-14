@@ -54,6 +54,42 @@ class Priority(StrEnum):
         }
         return colors.get(self, "#9ca3af")  # Gray default
 
+    def get_badge_class(self) -> str:
+        """Get Tailwind badge classes for priority display."""
+        return {
+            Priority.CRITICAL: "bg-red-100 text-red-800 border-red-200",
+            Priority.HIGH: "bg-yellow-100 text-yellow-800 border-yellow-200",
+            Priority.MEDIUM: "bg-blue-100 text-blue-800 border-blue-200",
+            Priority.LOW: "bg-green-100 text-green-800 border-green-200",
+        }.get(self, "bg-muted text-muted-foreground border-border")
+
+    def get_text_class(self) -> str:
+        """Get Tailwind text color class for priority display."""
+        return {
+            Priority.CRITICAL: "text-red-600",
+            Priority.HIGH: "text-yellow-600",
+            Priority.MEDIUM: "text-blue-600",
+            Priority.LOW: "text-muted-foreground",
+        }.get(self, "text-muted-foreground")
+
+    def get_border_class(self) -> str:
+        """Get Tailwind border-left class for priority display."""
+        return {
+            Priority.CRITICAL: "border-l-red-500",
+            Priority.HIGH: "border-l-red-500",
+            Priority.MEDIUM: "border-l-yellow-500",
+            Priority.LOW: "border-l-green-500",
+        }.get(self, "border-l-border")
+
+    def get_dot_class(self) -> str:
+        """Get Tailwind dot background class for priority display."""
+        return {
+            Priority.CRITICAL: "bg-red-500",
+            Priority.HIGH: "bg-red-500",
+            Priority.MEDIUM: "bg-yellow-500",
+            Priority.LOW: "bg-green-500",
+        }.get(self, "bg-muted")
+
     def get_search_synonyms(self) -> tuple[str, ...]:
         """Return search terms that match this priority level"""
         synonyms = {

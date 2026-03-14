@@ -971,7 +971,11 @@ class PrinciplesViewComponents:
 
         # Quality badge
         quality_label = "deep" if quality >= 0.7 else "moderate" if quality >= 0.4 else "shallow"
-        from ui.badge_classes import quality_badge_class
+        quality_badge_map = {
+            "deep": "bg-green-100 text-green-800 border-green-200",
+            "moderate": "bg-yellow-100 text-yellow-800 border-yellow-200",
+            "shallow": "bg-gray-100 text-gray-600 border-gray-200",
+        }
 
         return Card(
             Div(
@@ -982,7 +986,7 @@ class PrinciplesViewComponents:
                     Badge(
                         quality_label,
                         variant=None,
-                        cls=f"{quality_badge_class(quality_label)} ml-2",
+                        cls=f"{quality_badge_map.get(quality_label, 'bg-gray-100 text-gray-600 border-gray-200')} ml-2",
                     ),
                     cls="flex items-center gap-2 mb-2",
                 ),

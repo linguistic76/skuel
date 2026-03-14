@@ -40,6 +40,15 @@ class UserRole(StrEnum):
     TEACHER = "teacher"  # Member + content creation
     ADMIN = "admin"  # Teacher + user management
 
+    def get_badge_class(self) -> str:
+        """Get Tailwind badge classes for role display."""
+        return {
+            UserRole.ADMIN: "bg-red-100 text-red-800 border-red-200",
+            UserRole.TEACHER: "bg-yellow-100 text-yellow-800 border-yellow-200",
+            UserRole.MEMBER: "bg-green-100 text-green-800 border-green-200",
+            UserRole.REGISTERED: "bg-blue-100 text-blue-800 border-blue-200",
+        }.get(self, "bg-muted text-muted-foreground border-border")
+
     @property
     def _hierarchy_level(self) -> int:
         """Get numeric hierarchy level for comparison."""
@@ -135,13 +144,8 @@ class ContextHealthScore(StrEnum):
         }
         return mapping.get(self, 0.5)
 
-    def get_color(self) -> str:
-        """
-        Get Tailwind CSS color class for health score.
-
-        Returns:
-            Tailwind color class (e.g., "text-green-600")
-        """
+    def get_text_class(self) -> str:
+        """Get Tailwind CSS text color class for health score."""
         colors = {
             ContextHealthScore.POOR: "text-red-600",
             ContextHealthScore.FAIR: "text-yellow-600",

@@ -74,9 +74,9 @@ CURRICULUM_ORDER = ["knowledge", "learning-steps", "learning-paths"]
 
 def _status_badge(status: str) -> "FT":
     """Status indicator dot."""
-    from ui.badge_classes import health_dot_class
+    from ui.enum_helpers import get_health_dot_class
 
-    color = health_dot_class(status)
+    color = get_health_dot_class(status)
     return Span(cls=f"w-2 h-2 rounded-full {color}", title=f"Status: {status}")
 
 

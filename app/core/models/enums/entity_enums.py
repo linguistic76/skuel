@@ -438,6 +438,14 @@ class EntityStatus(StrEnum):
         """Get hex color for UI rendering."""
         return _ENTITY_STATUS_COLORS[self]
 
+    def get_badge_class(self) -> str:
+        """Get Tailwind badge classes for status display."""
+        return _ENTITY_STATUS_BADGE_CLASSES.get(self, "bg-gray-100 text-gray-600 border-gray-200")
+
+    def get_text_class(self) -> str:
+        """Get Tailwind text color class for status display."""
+        return _ENTITY_STATUS_TEXT_CLASSES.get(self, "text-muted-foreground")
+
     def get_search_synonyms(self) -> tuple[str, ...]:
         """Return search terms that match this status."""
         return _ENTITY_STATUS_SEARCH_SYNONYMS.get(self, ())
@@ -543,6 +551,32 @@ _ENTITY_STATUS_COLORS: dict[EntityStatus, str] = {
     EntityStatus.POSTPONED: "#A855F7",  # Purple
     EntityStatus.REVISION_REQUESTED: "#F97316",  # Orange
     EntityStatus.ARCHIVED: "#9CA3AF",  # Gray
+}
+
+_ENTITY_STATUS_BADGE_CLASSES: dict[EntityStatus, str] = {
+    EntityStatus.ACTIVE: "bg-green-100 text-green-800 border-green-200",
+    EntityStatus.COMPLETED: "bg-green-100 text-green-800 border-green-200",
+    EntityStatus.PAUSED: "bg-yellow-100 text-yellow-800 border-yellow-200",
+    EntityStatus.SCHEDULED: "bg-blue-100 text-blue-800 border-blue-200",
+    EntityStatus.BLOCKED: "bg-red-100 text-red-800 border-red-200",
+    EntityStatus.CANCELLED: "bg-red-100 text-red-800 border-red-200",
+    EntityStatus.FAILED: "bg-red-100 text-red-800 border-red-200",
+    EntityStatus.ARCHIVED: "bg-gray-100 text-gray-600 border-gray-200",
+    EntityStatus.DRAFT: "bg-gray-100 text-gray-600 border-gray-200",
+    EntityStatus.POSTPONED: "bg-yellow-100 text-yellow-800 border-yellow-200",
+    EntityStatus.SUBMITTED: "bg-yellow-100 text-yellow-800 border-yellow-200",
+    EntityStatus.QUEUED: "bg-yellow-100 text-yellow-800 border-yellow-200",
+    EntityStatus.PROCESSING: "bg-blue-100 text-blue-800 border-blue-200",
+    EntityStatus.REVISION_REQUESTED: "bg-yellow-100 text-yellow-800 border-yellow-200",
+}
+
+_ENTITY_STATUS_TEXT_CLASSES: dict[EntityStatus, str] = {
+    EntityStatus.COMPLETED: "text-green-600",
+    EntityStatus.ACTIVE: "text-green-600",
+    EntityStatus.PAUSED: "text-yellow-600",
+    EntityStatus.BLOCKED: "text-red-600",
+    EntityStatus.FAILED: "text-red-600",
+    EntityStatus.SCHEDULED: "text-blue-600",
 }
 
 _ENTITY_STATUS_SEARCH_SYNONYMS: dict[EntityStatus, tuple[str, ...]] = {

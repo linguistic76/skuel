@@ -40,11 +40,14 @@ def get_submission_status_badge_class(status: str) -> str:
     """Get badge class for submission/report status.
 
     Centralised mapping used by submissions_ui, journals_ui, and user_profile_ui.
-    Delegates to ui.badge_classes for the canonical mapping.
+    Delegates to EntityStatus enum for the canonical mapping.
     """
-    from ui.badge_classes import submission_status_badge_class
+    from core.models.enums import EntityStatus
 
-    return submission_status_badge_class(status)
+    try:
+        return EntityStatus(status.lower().strip()).get_badge_class()
+    except ValueError:
+        return "bg-gray-100 text-gray-600 border-gray-200"
 
 
 class AlertT(StrEnum):

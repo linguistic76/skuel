@@ -227,14 +227,14 @@ class GoalsViewComponents:
 
         # Status color
         from core.utils.type_converters import normalize_enum_str
-        from ui.badge_classes import priority_text_class, status_badge_class
+        from ui.enum_helpers import get_priority_text_class, get_status_badge_class
 
         status_str = normalize_enum_str(status, "active")
-        status_badge = status_badge_class(status_str)
+        status_badge = get_status_badge_class(status_str)
 
         # Priority color
         priority_str = str(priority).lower()
-        priority_color = priority_text_class(priority_str)
+        priority_color = get_priority_text_class(priority_str)
 
         return Card(
             Div(

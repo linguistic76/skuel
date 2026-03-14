@@ -207,10 +207,10 @@ class HabitsViewComponents:
 
         # Status color
         from core.utils.type_converters import normalize_enum_str
-        from ui.badge_classes import status_badge_class
+        from ui.enum_helpers import get_status_badge_class
 
         status_str = normalize_enum_str(status, "active")
-        status_badge = status_badge_class(status_str)
+        status_badge = get_status_badge_class(status_str)
 
         # Streak indicator
         streak_color = "text-success" if current_streak > 0 else "text-muted-foreground"
@@ -247,7 +247,7 @@ class HabitsViewComponents:
                             if best_streak > 0
                             else current_streak,
                             max=max(best_streak, current_streak, 1),
-                            cls="progress progress-success w-24 h-2",
+                            cls="w-24 h-2",
                         ),
                         Span(f"Best: {best_streak}", cls="text-xs text-muted-foreground ml-2"),
                         cls="flex items-center mt-1",
@@ -281,9 +281,8 @@ class HabitsViewComponents:
                     ),
                     Button(
                         "Edit",
-                        variant=ButtonT.outline,
+                        variant=ButtonT.primary,
                         size=Size.xs,
-                        cls="uk-btn-primary",
                         **{
                             "hx-get": f"/habits/{uid}/edit",
                             "hx-target": "#modal",

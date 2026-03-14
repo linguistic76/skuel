@@ -165,9 +165,9 @@ class AtomicHabitsMobile:
         is_completed = habit.get("completed_today", False)
 
         # Essentiality badge color
-        from ui.badge_classes import essentiality_badge_class
+        from ui.enum_helpers import get_essentiality_badge_class
 
-        badge_color = essentiality_badge_class(essentiality)
+        badge_color = get_essentiality_badge_class(essentiality)
 
         return Card(
             CardBody(

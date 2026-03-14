@@ -14,25 +14,23 @@ Run with:
     uv run pytest tests/test_ui_components.py -v
 """
 
+from core.models.enums import (
+    BridgeType,
+    EntityStatus,
+    Priority,
+    SeverityLevel,
+)
 from ui.enum_helpers import (
-    Badge,
     get_activity_icon,
-    get_bridge_color,
     get_completion_emoji,
     get_content_icon,
-    get_educational_color,
     get_educational_icon,
     get_health_color,
     get_health_icon,
     get_priority_badge_class,
-    get_priority_color,
     get_recurrence_label,
-    get_sel_color,
     get_sel_icon,
-    get_severity_color,
-    get_severity_numeric,
     get_status_badge_class,
-    get_status_color,
     get_time_icon,
     get_time_label,
     get_trend_color,
@@ -40,6 +38,7 @@ from ui.enum_helpers import (
     render_priority_badge,
     render_status_badge,
 )
+from ui.feedback import Badge
 
 # ============================================================================
 # ENUM HELPERS - TREND
@@ -110,25 +109,15 @@ def test_get_health_icon_invalid():
 
 def test_get_severity_color_all_levels():
     """Test severity level color mapping."""
-    assert "red" in get_severity_color("high")
-    assert "yellow" in get_severity_color("medium")
-    assert "blue" in get_severity_color("low")
-
-
-def test_get_severity_color_invalid():
-    """Test severity color fallback for invalid input."""
-    assert "gray" in get_severity_color("invalid")
+    assert "red" in SeverityLevel.HIGH.get_color()
+    assert "yellow" in SeverityLevel.MEDIUM.get_color()
+    assert "blue" in SeverityLevel.LOW.get_color()
 
 
 def test_get_severity_numeric_ordering():
     """Test severity numeric values for proper sorting."""
-    assert get_severity_numeric("high") > get_severity_numeric("medium")
-    assert get_severity_numeric("medium") > get_severity_numeric("low")
-
-
-def test_get_severity_numeric_invalid():
-    """Test severity numeric fallback for invalid input."""
-    assert get_severity_numeric("bad_level") == 2  # Medium default
+    assert SeverityLevel.HIGH.to_numeric() > SeverityLevel.MEDIUM.to_numeric()
+    assert SeverityLevel.MEDIUM.to_numeric() > SeverityLevel.LOW.to_numeric()
 
 
 # ============================================================================
@@ -138,18 +127,10 @@ def test_get_severity_numeric_invalid():
 
 def test_get_priority_color_all_levels():
     """Test priority color mapping."""
-    # Just verify they return color strings
-    for priority in ["low", "medium", "high", "critical"]:
-        color = get_priority_color(priority)
+    for priority in [Priority.LOW, Priority.MEDIUM, Priority.HIGH, Priority.CRITICAL]:
+        color = priority.get_color()
         assert isinstance(color, str)
         assert len(color) > 0
-
-
-def test_get_priority_color_invalid():
-    """Test priority color fallback."""
-    color = get_priority_color("invalid_priority")
-    assert isinstance(color, str)
-    # Should return a default color
 
 
 def test_get_priority_badge_class_all_levels():
@@ -173,16 +154,10 @@ def test_get_priority_badge_class_invalid():
 
 def test_get_status_color_common_statuses():
     """Test activity status color mapping."""
-    for status in ["todo", "completed", "archived", "cancelled"]:
-        color = get_status_color(status)
+    for status in [EntityStatus.COMPLETED, EntityStatus.ARCHIVED, EntityStatus.CANCELLED]:
+        color = status.get_color()
         assert isinstance(color, str)
         assert len(color) > 0
-
-
-def test_get_status_color_invalid():
-    """Test activity status color fallback."""
-    color = get_status_color("nonexistent_status")
-    assert isinstance(color, str)
 
 
 def test_get_status_badge_class():
@@ -310,35 +285,6 @@ def test_get_educational_icon_common_levels():
         assert len(icon) > 0
 
 
-def test_get_educational_color_common_levels():
-    """Test educational level color mapping."""
-    levels = ["elementary", "high_school", "college", "postgraduate"]
-    for level in levels:
-        color = get_educational_color(level)
-        assert isinstance(color, str)
-        assert len(color) > 0
-
-
-# ============================================================================
-# ENUM HELPERS - SEL CATEGORY
-# ============================================================================
-
-
-def test_get_sel_color():
-    """Test SEL category color mapping."""
-    categories = [
-        "self_awareness",
-        "self_management",
-        "social_awareness",
-        "relationship_skills",
-        "responsible_decision_making",
-    ]
-    for category in categories:
-        color = get_sel_color(category)
-        assert isinstance(color, str)
-        assert len(color) > 0
-
-
 def test_get_sel_icon():
     """Test SEL category icon mapping."""
     categories = [
@@ -358,9 +304,8 @@ def test_get_sel_icon():
 
 def test_get_bridge_color():
     """Test knowledge bridge type color mapping."""
-    bridge_types = ["prerequisite", "enables", "related", "complements"]
-    for bridge_type in bridge_types:
-        color = get_bridge_color(bridge_type)
+    for bridge_type in BridgeType:
+        color = bridge_type.get_color()
         assert isinstance(color, str)
 
 
@@ -451,12 +396,12 @@ def test_enum_helpers_handle_empty_string():
 def test_enum_helpers_case_sensitivity():
     """Test that enum helpers handle different cases."""
     # Most enums are lowercase, but test that UPPER fails gracefully
-    color_lower = get_priority_color("high")
-    color_upper = get_priority_color("HIGH")
+    badge_lower = get_priority_badge_class("high")
+    badge_upper = get_priority_badge_class("HIGH")
 
     # Should either match or return defaults
-    assert isinstance(color_lower, str)
-    assert isinstance(color_upper, str)
+    assert isinstance(badge_lower, str)
+    assert isinstance(badge_upper, str)
 
 
 # ============================================================================
@@ -469,25 +414,18 @@ def test_multiple_enum_helpers_consistency():
     # Priority helpers should all work for same values
     priority = "high"
 
-    color = get_priority_color(priority)
     badge_class = get_priority_badge_class(priority)
     badge = render_priority_badge(priority)
 
     # All should produce valid outputs
-    assert isinstance(color, str)
     assert isinstance(badge_class, str)
     assert badge is not None
 
 
 def test_enum_helpers_with_dash_vs_underscore():
     """Test enum helpers handle different naming conventions."""
-    # Some enums use underscores, some use dashes
-    # Test that helpers handle this properly
-
-    # Activity status might use either
-    assert isinstance(get_status_color("in_progress"), str)
-    # If it also accepts dashes, test that
-    # assert isinstance(get_status_color("in-progress"), str)
+    # Activity status with underscores
+    assert isinstance(get_status_badge_class("in_progress"), str)
 
 
 # ============================================================================
@@ -506,7 +444,7 @@ def test_enum_helpers_are_fast():
         get_trend_color("increasing")
         get_health_icon("healthy")
         get_priority_badge_class("high")
-        get_severity_numeric("medium")
+        SeverityLevel.MEDIUM.to_numeric()
 
     elapsed = time.time() - start
 

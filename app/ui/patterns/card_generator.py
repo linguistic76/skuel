@@ -109,14 +109,14 @@ class FieldRendererMapper:
     @staticmethod
     def _render_enum(value: Enum) -> Span:
         """Render enum value as a badge"""
-        from ui.badge_classes import status_badge_class
+        from ui.enum_helpers import get_status_badge_class
 
         # Type is known to be Enum, use .value directly (per CLAUDE.md Oct 5 update)
         display = str(value.value)
 
         # Match on lowercase value/name
         key = str(display).lower().replace(" ", "_")
-        badge_cls = status_badge_class(key)
+        badge_cls = get_status_badge_class(key)
 
         return Badge(str(display), variant=None, cls=badge_cls)
 

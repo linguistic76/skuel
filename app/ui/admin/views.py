@@ -36,9 +36,9 @@ class AdminUIComponents:
     @staticmethod
     def render_role_badge(role: str) -> Any:
         """Render a role badge with appropriate color."""
-        from ui.badge_classes import role_badge_class
+        from ui.enum_helpers import get_role_badge_class
 
-        color_class = role_badge_class(role)
+        color_class = get_role_badge_class(role)
         return Badge(
             role.upper(),
             variant=None,
@@ -88,9 +88,8 @@ class AdminUIComponents:
                 ),
                 Button(
                     "Edit Role",
-                    variant=ButtonT.outline,
+                    variant=ButtonT.primary,
                     size=Size.sm,
-                    cls="uk-btn-primary",
                     hx_get=f"/admin/users/{uid}/role-form",
                     hx_target=f"#role-form-{uid.replace(':', '-')}",
                     hx_swap="innerHTML",
@@ -100,9 +99,8 @@ class AdminUIComponents:
                 actions.append(
                     Button(
                         "Deactivate",
-                        variant=ButtonT.outline,
+                        variant=ButtonT.error,
                         size=Size.sm,
-                        cls="uk-btn-destructive",
                         hx_post=f"/api/admin/users/{uid}/deactivate",
                         hx_confirm="Are you sure you want to deactivate this user?",
                         hx_swap="outerHTML",
@@ -113,9 +111,8 @@ class AdminUIComponents:
                 actions.append(
                     Button(
                         "Activate",
-                        variant=ButtonT.outline,
+                        variant=ButtonT.primary,
                         size=Size.sm,
-                        cls="uk-btn-primary",
                         hx_post=f"/api/admin/users/{uid}/activate",
                         hx_swap="outerHTML",
                         hx_target=f"#user-card-{uid.replace(':', '-')}",
@@ -583,7 +580,7 @@ class AdminUIComponents:
                 P("No reports submitted yet.", cls="text-muted-foreground text-sm py-4"),
             )
 
-        from ui.badge_classes import submission_status_badge_class
+        from ui.enum_helpers import get_submission_status_badge_class
 
         def _report_cell_render(k: str, v: object) -> Td:
             if k == "Title":
@@ -607,7 +604,7 @@ class AdminUIComponents:
                         status.replace("_", " ").upper(),
                         variant=None,
                         size=Size.sm,
-                        cls=submission_status_badge_class(status),
+                        cls=get_submission_status_badge_class(status),
                     ),
                     "Created": created,
                 }

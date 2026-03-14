@@ -43,9 +43,9 @@ def InsightCard(insight: PersistedInsight) -> Div:
         InsightCard(insight)
     """
     # Impact badge colors (maps to priority colors)
-    from ui.badge_classes import priority_border_class
+    from ui.enum_helpers import get_priority_border_class
 
-    border_cls = priority_border_class(insight.impact.value)
+    border_cls = get_priority_border_class(insight.impact.value)
 
     # Build badges row
     badges = []
@@ -209,9 +209,9 @@ def InsightMiniCard(insight: PersistedInsight, show_domain: bool = False) -> Div
         InsightMiniCard(insight, show_domain=True)
     """
     # Impact indicator dot
-    from ui.badge_classes import priority_dot_class
+    from ui.enum_helpers import get_priority_dot_class
 
-    dot_color = priority_dot_class(insight.impact.value)
+    dot_color = get_priority_dot_class(insight.impact.value)
 
     # Build badge
     badges = []

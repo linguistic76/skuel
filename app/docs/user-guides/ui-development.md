@@ -27,7 +27,7 @@ Every page is a Python function that returns HTML. There is no JSX, no template 
 | Add a form for creating/editing entities | [FormGenerator](#formgenerator--forms-from-pydantic-models) — auto-generates from Pydantic models |
 | Show loading states for HTMX content | [Skeleton Loaders](#skeleton-loaders) — `SkeletonList`, `SkeletonCard`, etc. |
 | Add a sidebar navigation page | [SidebarPage](#sidebarpage--pages-with-navigation-sidebar) — profile hub pattern |
-| Display status/priority with correct colors | [Badge Classes](#badge-classes-uibadge_classespy) or `StatusBadge`/`PriorityBadge` |
+| Display status/priority with correct colors | [Enum Helpers](#enum-helpers-uienum_helperspy) or `StatusBadge`/`PriorityBadge` |
 | Add client-side interactivity (toggles, filters) | [Alpine.js Component Registry](#alpinejs-component-registry) — check if a component already exists |
 | Add server-triggered partial updates | [HTMX](#htmx--server-communication) — `hx_get`, `hx_post`, `hx_swap` |
 | Style with consistent spacing/containers | [Design Tokens](#design-tokens-uitokenspy) — `Spacing.SECTION`, `Container.STANDARD` |
@@ -614,24 +614,24 @@ Div(content, cls=Container.WIDE)      # "max-w-7xl mx-auto"
 
 ---
 
-## Badge Classes (`ui/badge_classes.py`)
+## Enum Helpers (`ui/enum_helpers.py`)
 
-When you need raw MonsterUI class strings (for inline styling without component wrappers), use the centralized mappings:
+Bridge layer between UI templates (raw strings) and core enums (which own presentation data). When you need Tailwind class strings for status/priority/role display:
 
 ```python
-from ui.badge_classes import (
-    status_badge_class,
-    priority_badge_class,
-    priority_border_class,
-    submission_status_badge_class,
+from ui.enum_helpers import (
+    get_status_badge_class,
+    get_priority_badge_class,
+    get_priority_border_class,
+    get_submission_status_badge_class,
 )
 
-cls = status_badge_class("active")       # "badge-success"
-cls = priority_badge_class("critical")   # "badge-error"
-cls = priority_border_class("high")      # "border-l-4 border-warning"
+cls = get_status_badge_class("active")       # "bg-green-100 text-green-800 border-green-200"
+cls = get_priority_badge_class("critical")   # "bg-red-100 text-red-800 border-red-200"
+cls = get_priority_border_class("high")      # "border-l-red-500"
 ```
 
-This is the single source of truth for all status/priority color mappings. Don't hardcode badge classes elsewhere.
+Presentation data lives on the enums themselves (`EntityStatus.get_badge_class()`, `Priority.get_badge_class()`). The helper functions handle `str → enum` conversion with safe fallbacks.
 
 ---
 
@@ -949,8 +949,7 @@ When building new components:
 | Tables, dividers | `ui/data.py` |
 | Design tokens | `ui/tokens.py` |
 | Theme + headers | `ui/theme.py` |
-| Badge class mappings | `ui/badge_classes.py` |
-| Enum-to-color helpers | `ui/enum_helpers.py` |
+| Enum presentation bridge | `ui/enum_helpers.py` |
 | Page wrapper | `ui/layouts/base_page.py` |
 | Navbar | `ui/layouts/navbar.py` |
 | Sidebar pages | `ui/patterns/sidebar.py` |

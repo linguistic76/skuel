@@ -338,8 +338,8 @@ class TrendDirection(StrEnum):
     DECREASING = "decreasing"
     STABLE = "stable"
 
-    def get_color(self) -> str:
-        """Get Tailwind CSS color class for trend direction"""
+    def get_text_class(self) -> str:
+        """Get Tailwind CSS text color class for trend direction."""
         colors = {
             TrendDirection.INCREASING: "text-green-600",
             TrendDirection.DECREASING: "text-red-600",
@@ -374,6 +374,22 @@ class HealthStatus(StrEnum):
             HealthStatus.UNKNOWN: "gray",
         }
         return colors.get(self, "gray")
+
+    def get_bg_class(self) -> str:
+        """Get Tailwind background/border classes for health status."""
+        return {
+            HealthStatus.HEALTHY: "bg-green-50 border-green-500",
+            HealthStatus.WARNING: "bg-yellow-50 border-yellow-500",
+            HealthStatus.CRITICAL: "bg-red-50 border-red-500",
+        }.get(self, "bg-background border-border shadow-sm")
+
+    def get_dot_class(self) -> str:
+        """Get Tailwind dot background class for health status."""
+        return {
+            HealthStatus.HEALTHY: "bg-green-500",
+            HealthStatus.WARNING: "bg-yellow-500",
+            HealthStatus.CRITICAL: "bg-red-500",
+        }.get(self, "bg-muted-foreground")
 
     def get_icon(self) -> str:
         """Get emoji icon for health status"""
