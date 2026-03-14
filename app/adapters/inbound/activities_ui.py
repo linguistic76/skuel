@@ -1,14 +1,17 @@
-"""Activities UI Routes — Landing page + domain redirects.
+"""Activities UI Routes — Redirects to /profile + HTMX preview endpoints.
+
+The activities overview is now part of the /profile page.
 
 Routes:
-- GET /activities — Landing page with domain card grid (no sidebar)
+- GET /activities — 301 redirect to /profile
 - GET /activities/{domain} — 302 redirect to /{domain} (preserves bookmarks)
 - GET /api/activities/{slug}/preview — HTMX fragment for domain card item lists
 """
 
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import Div, Request
+from fasthtml.common import Request
+from starlette.responses import RedirectResponse
 
 if TYPE_CHECKING:
     from services_bootstrap import Services
@@ -17,8 +20,7 @@ from adapters.inbound.auth import require_authenticated_user
 from core.models.enums import Priority
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
-from ui.activities.landing import ActivitiesLandingView, render_activity_card_preview
-from ui.layouts.base_page import BasePage
+from ui.activities.landing import render_activity_card_preview
 
 logger = get_logger("skuel.routes.activities")
 
@@ -56,46 +58,18 @@ def setup_activities_routes(rt: Any, services: "Services") -> None:
     """
     if services.user_service is None:
         raise RuntimeError("UserService is required for activities routes")
-    user_service = services.user_service
 
     @rt("/activities")
     async def activities_landing(request: Request) -> Any:
-        """Activities landing page — card grid, no sidebar."""
-        user_uid = require_authenticated_user(request)
-
-        context_result = await user_service.get_rich_unified_context(user_uid)
-        if context_result.is_error:
-            from fasthtml.common import H1, P
-
-            return await BasePage(
-                Div(
-                    H1("Error", cls="text-3xl font-bold text-error mb-4"),
-                    P("Failed to load user context.", cls="text-lg text-muted-foreground"),
-                    cls="flex flex-col items-center justify-center min-h-[400px] p-8",
-                ),
-                title="Activities",
-                request=request,
-                active_page="activities",
-            )
-
-        content = ActivitiesLandingView(context_result.value)
-        return await BasePage(
-            content,
-            title="Activities",
-            request=request,
-            active_page="activities",
-        )
+        """Redirect to /profile — activities overview lives there now."""
+        return RedirectResponse("/profile", status_code=301)
 
     @rt("/activities/{domain}")
     async def activities_domain(request: Request, domain: str) -> Any:
         """Redirect /activities/{domain} to /{domain} — preserves bookmarks."""
-        from starlette.responses import RedirectResponse
-
         if domain in _VALID_ACTIVITY_DOMAINS:
             return RedirectResponse(f"/{domain}", status_code=302)
-
-        # Unknown domain — redirect to landing
-        return RedirectResponse("/activities", status_code=302)
+        return RedirectResponse("/profile", status_code=302)
 
     @rt("/api/activities/{slug}/preview")
     async def activity_card_preview(request: Request, slug: str) -> Any:
@@ -147,5 +121,5 @@ def setup_activities_routes(rt: Any, services: "Services") -> None:
         return render_activity_card_preview(preview_items, slug)
 
     logger.info(
-        "Activities routes registered (/activities, /activities/{domain} redirect, /api/activities/{slug}/preview)"
+        "Activities routes registered (/activities -> /profile redirect, /api/activities/{slug}/preview)"
     )

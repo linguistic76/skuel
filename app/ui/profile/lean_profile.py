@@ -1,35 +1,32 @@
-"""Lean profile view — Focus + Steady measurements only.
+"""Lean profile view — Focus + Velocity + Activity overview.
 
-This is the stripped-down /profile page. Activity domains live at /activities.
-Learning content lives at /learn.
+The /profile page shows personal measurements at top, then all activity domains
+at a glance via HTMX-loaded card previews.
 """
 
 from fasthtml.common import H2, A, Div, Span
 
 from core.services.user.unified_user_context import UserContext
+from ui.activities.landing import domain_card_grid
 from ui.buttons import ButtonLink, ButtonT
 from ui.layout import Size
+from ui.layouts.dashboard import DashboardSection
 
 
 def LeanProfileView(context: UserContext) -> Div:
-    """Lean profile: Focus measurement + Steady measurement + Settings link.
+    """Profile overview: Focus + Velocity + Activity domain grid.
 
     Args:
-        context: UserContext with ~240 fields of user state
+        context: UserContext with ~250 fields of user state
     """
     return Div(
-        _header(),
         _current_focus_card(context),
         _velocity_summary(context),
+        DashboardSection(
+            "Activities",
+            domain_card_grid(context),
+        ),
         _settings_link(),
-        cls="max-w-2xl",
-    )
-
-
-def _header() -> Div:
-    return Div(
-        H2("Your Profile", cls="text-xl font-semibold text-foreground"),
-        cls="mb-6",
     )
 
 

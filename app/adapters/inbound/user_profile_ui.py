@@ -2,20 +2,18 @@
 User Profile UI Routes - Profile Hub with Sidebar Navigation
 =============================================================
 
-Routes for the user profile pages with /nous-style sidebar navigation.
-
-Activity Domains (Tasks, Goals, Habits, Choices, Principles) are accessed via
-the navbar avatar dropdown (ui/layouts/navbar.py), not the profile sidebar.
+Routes for the user profile pages with sidebar navigation.
 
 Key Routes:
-- GET /profile - Profile overview (sidebar: Overview, Shared With Me, Curriculum)
+- GET /profile - Profile overview (Focus + Velocity + Activity domains at a glance)
 - GET /profile/{domain} - Domain-specific view (knowledge, learning-steps, learning-paths, shared)
 - GET /profile/settings - User settings/preferences
 
 Architecture:
 - /profile is THE main entry point with sidebar navigation
-- Uses UserContext (~240 fields) as the authoritative source for user state
-- Uses BasePage with /nous-style sidebar for modern, consistent UX
+- Activities overview (formerly /activities) is embedded in /profile
+- Uses UserContext (~250 fields) as the authoritative source for user state
+- Uses BasePage with sidebar for consistent UX
 """
 
 __version__ = "4.0"  # Merged dashboard sidebar into profile/hub
@@ -597,14 +595,11 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
 
     @rt("/profile")
     async def profile_page(request: Request) -> Any:
-        """Lean profile page — Focus + Steady measurements + Settings link.
-
-        Activity domains live at /activities. Learning content lives at /learn.
-        """
+        """Profile overview — Focus + Velocity + Activity domains at a glance."""
         user_uid = require_authenticated_user(request)
 
         try:
-            _user, context = await _get_user_and_context(user_uid)
+            user, context = await _get_user_and_context(user_uid)
         except ValueError as e:
             logger.error(
                 "Failed to load user or context for profile page",
@@ -616,11 +611,29 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
 
         content = LeanProfileView(context)
 
-        return await BasePage(
-            content,
+        # Build sidebar domain items
+        insight_counts: dict[str, int] = {}
+        total_unread_insights = 0
+        if services.insight_store:
+            counts_result = await services.insight_store.get_insight_counts_by_domain(user_uid)
+            if not counts_result.is_error:
+                insight_counts = counts_result.value
+                total_unread_insights = sum(insight_counts.values())
+
+        domain_items = _build_domain_items(context, insight_counts)
+        curriculum_items = _build_curriculum_items(context)
+        display_name = user.display_name if user.display_name else user.username
+
+        return await create_profile_page(
+            content=content,
+            domains=domain_items,
+            active_domain="",
+            user_display_name=display_name,
             title="Profile",
+            is_admin=user.can_manage_users(),
+            curriculum_domains=curriculum_items,
+            unread_insights=total_unread_insights,
             request=request,
-            active_page="profile/hub",
         )
 
     @rt("/api/profile/{slug}/preview")

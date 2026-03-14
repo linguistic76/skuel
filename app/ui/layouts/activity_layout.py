@@ -82,7 +82,7 @@ async def create_activity_page(
         page_title=title,
         request=request,
         active_page="activities",
-        title_href="/activities",
+        title_href="/profile",
     )
 
 

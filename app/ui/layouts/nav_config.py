@@ -57,7 +57,7 @@ class IconNavItem:
 
 # Icon navigation items — rendered as circular letter buttons in the left navbar section
 ICON_NAV_ITEMS: tuple[IconNavItem, ...] = (
-    IconNavItem("Activities", "A", "/activities", "activities"),
+    IconNavItem("Activities", "A", "/profile", "activities"),
     IconNavItem("Study", "S", "/study", "study"),
 )
 

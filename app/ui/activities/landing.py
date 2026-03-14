@@ -27,7 +27,7 @@ def ActivitiesLandingView(context: UserContext) -> Div:
 
     return Div(
         header,
-        _domain_card_grid(context),
+        domain_card_grid(context),
     )
 
 
@@ -87,7 +87,7 @@ def _card_preview_skeleton() -> Div:
     )
 
 
-def _domain_card_grid(context: UserContext) -> Div:
+def domain_card_grid(context: UserContext) -> Div:
     """8-card grid: 6 Activity Domains + Knowledge + Journals."""
     cards: list[Any] = []
 
