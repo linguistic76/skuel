@@ -14,7 +14,7 @@ Supported field types: text, textarea, select, checkbox, number, date.
 import json
 from typing import Any
 
-from fasthtml.common import H3, Div, Form, Option, P
+from fasthtml.common import H3, Div, Form, Option, P, Small, Span
 
 from ui.buttons import Button, ButtonT
 from ui.forms.components import Checkbox, Input, Label, Select, Textarea
@@ -108,15 +108,56 @@ def render_inline_form_template(
     # Success/error feedback container
     feedback = Div(id=f"form-feedback-{form_template_uid}", cls="mt-2")
 
+    # Sharing controls (collapsible)
+    sharing_section = Div(
+        Div(
+            Small(
+                "Sharing options",
+                cls="text-muted-foreground cursor-pointer underline",
+                **{"@click": "showSharing = !showSharing"},
+            ),
+            cls="mt-2",
+        ),
+        Div(
+            Div(
+                Checkbox(name="share_with_admin"),
+                Span("Send to teacher/admin", cls="ml-2 text-sm"),
+                cls="flex items-center",
+            ),
+            Div(
+                Label("Share with (comma-separated user IDs)"),
+                Input(
+                    type="text",
+                    name="recipient_uids",
+                    placeholder="user_abc123, user_def456",
+                ),
+                cls="space-y-1 mt-2",
+            ),
+            x_show="showSharing",
+            cls="space-y-2 mt-2 p-3 border border-border rounded",
+        ),
+    )
+
     return Div(
         *header_parts,
         Form(
             *fields,
-            # Submit button
-            Button("Submit", type="submit", variant=ButtonT.primary, cls="mt-4"),
+            # Submit button with loading state
+            Button(
+                "Submit",
+                type="submit",
+                variant=ButtonT.primary,
+                cls="mt-4",
+                **{
+                    "x-text": "submitting ? 'Submitting...' : 'Submit'",
+                    ":disabled": "submitting",
+                    ":class": "submitting ? 'opacity-50 cursor-not-allowed' : ''",
+                },
+            ),
+            sharing_section,
             feedback,
             # Alpine.js handles JSON submission
-            x_data=json.dumps({"submitting": False, "submitted": False}),
+            x_data=json.dumps({"submitting": False, "submitted": False, "showSharing": False}),
             **{
                 "@submit.prevent": _submit_handler(form_template_uid, form_schema),
             },
@@ -141,20 +182,33 @@ def _submit_handler(form_template_uid: str, field_specs: list[dict[str, Any]]) -
     return (
         f"if (submitting) return; "
         f"submitting = true; "
+        f"document.getElementById('form-feedback-{form_template_uid}').innerHTML = ''; "
         f"let formData = {{{field_extractions}}}; "
+        f"let shareAdmin = $el.querySelector('[name=share_with_admin]')?.checked || false; "
+        f"let recipientRaw = $el.querySelector('[name=recipient_uids]')?.value || ''; "
+        f"let recipientUids = recipientRaw ? recipientRaw.split(',').map(function(s){{return s.trim()}}).filter(function(s){{return s}}) : null; "
         f"let res = await fetch('/api/form-submissions/submit', {{"
         f"method: 'POST', "
         f"headers: {{'Content-Type': 'application/json'}}, "
-        f"body: JSON.stringify({{form_template_uid: '{form_template_uid}', form_data: formData}})"
+        f"body: JSON.stringify({{form_template_uid: '{form_template_uid}', form_data: formData, share_with_admin: shareAdmin, recipient_uids: recipientUids}})"
         f"}}); "
         f"submitting = false; "
         f"if (res.ok) {{ "
         f"submitted = true; "
-        f"$el.innerHTML = '<div class=\"bg-green-100 text-green-800 border border-green-200 p-3 rounded-lg\">Submitted successfully.</div>'; "
+        f"let data = await res.json(); "
+        f"let uid = data.submission?.uid || ''; "
+        f"$el.innerHTML = '<div class=\"space-y-3\">' "
+        f"+ '<div class=\"uk-alert uk-alert-success\">Submitted successfully.</div>' "
+        f"+ (uid ? '<a href=\"/my-forms/detail?uid=' + uid + '\" class=\"text-primary underline text-sm\">View Submission</a>' : '') "
+        f'+ \' <button onclick="location.reload()" class="text-sm text-muted-foreground underline ml-2">Submit Another</button>\' '
+        f"+ '</div>'; "
         f"}} else {{ "
         f"let err = await res.json(); "
         f"document.getElementById('form-feedback-{form_template_uid}').innerHTML = "
-        f"'<div class=\"bg-red-100 text-red-800 border border-red-200 p-3 rounded-lg\">' + (err.error || 'Submission failed') + '</div>'; "
+        f"'<div class=\"uk-alert uk-alert-danger flex items-center justify-between\">' "
+        f"+ '<span>' + (err.error || 'Submission failed') + '</span>' "
+        f'+ \'<button onclick="this.parentElement.remove()" class="ml-2 font-bold">&times;</button>\' '
+        f"+ '</div>'; "
         f"}}"
     )
 

@@ -12,6 +12,7 @@ from pydantic import ValidationError
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
+from core.models.entity_converters import entity_to_response
 from core.models.forms.form_submission_request import (
     FormSubmissionCreateRequest,
     FormSubmissionShareRequest,
@@ -49,7 +50,7 @@ def create_form_submissions_api_routes(
         except Exception as e:
             return Result.fail(Errors.validation(f"Invalid request body: {e}", field="body"))
 
-        return await form_submission_service.submit_form(
+        result = await form_submission_service.submit_form(
             user_uid=user_uid,
             form_template_uid=req.form_template_uid,
             form_data=req.form_data,
@@ -58,6 +59,9 @@ def create_form_submissions_api_routes(
             recipient_uids=req.recipient_uids,
             share_with_admin=req.share_with_admin,
         )
+        if result.is_error:
+            return result
+        return Result.ok({"submission": entity_to_response(result.value)})
 
     # ========================================================================
     # READ

@@ -116,8 +116,18 @@ def render_inline_exercise_form(
         *header_parts,
         Form(
             *fields,
-            # Submit button
-            Button("Submit", type="submit", variant=ButtonT.primary, cls="mt-4"),
+            # Submit button with loading state
+            Button(
+                "Submit",
+                type="submit",
+                variant=ButtonT.primary,
+                cls="mt-4",
+                **{
+                    "x-text": "submitting ? 'Submitting...' : 'Submit'",
+                    ":disabled": "submitting",
+                    ":class": "submitting ? 'opacity-50 cursor-not-allowed' : ''",
+                },
+            ),
             feedback,
             # Alpine.js handles JSON submission
             x_data=json.dumps({"submitting": False, "submitted": False}),
@@ -140,6 +150,7 @@ def _submit_handler(exercise_uid: str, field_names: list[str]) -> str:
     return (
         f"if (submitting) return; "
         f"submitting = true; "
+        f"document.getElementById('form-feedback-{exercise_uid}').innerHTML = ''; "
         f"let formData = {{{field_extractions}}}; "
         f"let res = await fetch('/api/submissions/form', {{"
         f"method: 'POST', "
@@ -149,11 +160,19 @@ def _submit_handler(exercise_uid: str, field_names: list[str]) -> str:
         f"submitting = false; "
         f"if (res.ok) {{ "
         f"submitted = true; "
-        f"$el.innerHTML = '<div class=\"bg-green-100 text-green-800 border border-green-200 p-3 rounded-lg\">Submitted successfully.</div>'; "
+        f"let data = await res.json(); "
+        f"$el.innerHTML = '<div class=\"space-y-3\">' "
+        f"+ '<div class=\"uk-alert uk-alert-success\">Submitted successfully.</div>' "
+        f'+ \'<a href="/submissions" class="text-primary underline text-sm">View Your Submissions</a>\' '
+        f'+ \' <button onclick="location.reload()" class="text-sm text-muted-foreground underline ml-2">Submit Another</button>\' '
+        f"+ '</div>'; "
         f"}} else {{ "
         f"let err = await res.json(); "
         f"document.getElementById('form-feedback-{exercise_uid}').innerHTML = "
-        f"'<div class=\"bg-red-100 text-red-800 border border-red-200 p-3 rounded-lg\">' + (err.error || 'Submission failed') + '</div>'; "
+        f"'<div class=\"uk-alert uk-alert-danger flex items-center justify-between\">' "
+        f"+ '<span>' + (err.error || 'Submission failed') + '</span>' "
+        f'+ \'<button onclick="this.parentElement.remove()" class="ml-2 font-bold">&times;</button>\' '
+        f"+ '</div>'; "
         f"}}"
     )
 
