@@ -206,7 +206,8 @@ def TaskCard(title: str, desc: str, stat: str, prio: str, uid: str): ...
 ### Common Patterns Library
 
 ```python
-from ui.patterns import PageHeader, SectionHeader, EmptyState, StatsGrid
+from ui.patterns import PageHeader, SectionHeader, EmptyState, StatsGrid, StatCard
+from ui.patterns import ProgressMetric, RecommendationCard, SettingToggle
 
 # Empty state with optional action
 EmptyState(
@@ -217,10 +218,16 @@ EmptyState(
 
 # Stats grid
 StatsGrid([
-    {"label": "Total", "value": "42", "icon": "✅", "trend": "+5"},
-    {"label": "Completed", "value": "18", "icon": "🎉"},
-    {"label": "Overdue", "value": "3", "icon": "⚠️", "trend": "-2"},
+    {"label": "Total", "value": "42", "trend": "+5"},
+    {"label": "Completed", "value": "18"},
+    {"label": "Overdue", "value": "3", "trend": "-2"},
 ])
+
+# Single stat with semantic color
+StatCard(label="Completion Rate", value="85%", color="success")
+
+# Progress bar with auto color thresholds
+ProgressMetric("Data Quality", 0.88)  # green ≥80%, yellow ≥60%, red <60%
 ```
 
 ### Composition Strategies
@@ -940,7 +947,7 @@ When building a new SKUEL page or feature, verify:
 | `/ui/layouts/navbar.py` | Navbar with profile dropdown |
 | `/ui/layouts/nav_config.py` | `PROFILE_DROPDOWN_ITEMS`, `MAIN_NAV_ITEMS` |
 | `/ui/patterns/sidebar.py` | `SidebarItem`, `SidebarNav`, `SidebarPage` |
-| `/ui/patterns/__init__.py` | `PageHeader`, `SectionHeader`, `EmptyState`, `StatsGrid`, `FormGenerator` |
+| `/ui/patterns/__init__.py` | `PageHeader`, `SectionHeader`, `EmptyState`, `StatCard`, `StatsGrid`, `FormGenerator`, `ProgressMetric`, `RecommendationCard`, `SettingToggle` |
 | `/ui/patterns/form_generator.py` | `FormGenerator` — dynamic form generation from Pydantic models |
 | `/ui/tokens.py` | `Container`, `Spacing`, `Card` design tokens |
 | `ui/buttons.py`, `ui/cards.py`, `ui/forms/`, `ui/modals.py`, `ui/feedback.py`, `ui/layout.py`, `ui/navigation.py`, `ui/data.py` | FastHTML MonsterUI wrappers — 8 focused modules (March 2026) |
