@@ -109,14 +109,14 @@ from ui.patterns import PageHeader, SectionHeader
 PageHeader(
     "Tasks",
     subtitle="Manage your daily work",
-    actions=Button("Create Task", cls="btn btn-primary",
+    actions=Button("Create Task", variant=ButtonT.primary,
                    **{"hx-get": "/tasks/create-modal", "hx-target": "#modal"}),
 )
 
 # Section header with action link
 SectionHeader(
     "Recent Tasks",
-    action=A("View All", href="/tasks/all", cls="link link-primary"),
+    action=A("View All", href="/tasks/all", cls="text-primary hover:underline"),
 )
 ```
 
@@ -183,9 +183,9 @@ def TaskCard(
             H4(task.title, cls="font-semibold"),
             P(task.description, cls="text-sm text-base-content/70") if show_description else None,
             CardActions(
-                Button("Edit", cls="btn btn-ghost btn-sm",
+                Button("Edit", variant=ButtonT.ghost, size=Size.sm,
                        **{"hx-get": f"/tasks/{task.uid}/edit", "hx-target": "#modal"}),
-                Button("Complete", cls="btn btn-success btn-sm",
+                Button("Complete", variant=ButtonT.success, size=Size.sm,
                        **{"hx-post": f"/api/tasks/{task.uid}/complete"}),
             ) if show_actions else None,
         ),
@@ -212,7 +212,7 @@ from ui.patterns import PageHeader, SectionHeader, EmptyState, StatsGrid
 EmptyState(
     "No tasks found.",
     icon="✅",
-    action=Button("Create Task", cls="btn btn-primary"),
+    action=Button("Create Task", variant=ButtonT.primary),
 )
 
 # Stats grid
@@ -230,7 +230,7 @@ StatsGrid([
 def GoalCard(goal: Goal, show_actions: bool = True) -> Any:
     return Card(CardBody(
         H4(goal.title),
-        Badge(goal.status.value, cls="badge badge-success"),
+        Badge(goal.status.value, variant=BadgeT.success),
         CardActions(Button("Update", ...)) if show_actions else None,
     ))
 
@@ -277,7 +277,7 @@ def TasksView(context: UserContext, focus_uid: str | None = None) -> Div:
 def create_tasks_page(content: Any, request: Request | None = None) -> Any:
     return BasePage(
         Div(
-            PageHeader("Tasks", actions=Button("New Task", cls="btn btn-primary")),
+            PageHeader("Tasks", actions=Button("New Task", variant=ButtonT.primary)),
             content,
             cls=f"{Spacing.PAGE} {Container.STANDARD}",
         ),
@@ -335,7 +335,7 @@ def _icon_nav_link(item: IconNavItem, active_page: str) -> A:
             f"{active_cls if is_active else inactive_cls}",
         ),
         href=item.href,
-        cls="btn btn-ghost btn-circle",
+        cls="uk-icon-button",
     )
 ```
 
@@ -354,7 +354,8 @@ Nav(
 Button(
     Span(_hamburger_icon(), **{"x-show": "!mobileMenuOpen"}),
     Span(_close_icon(), **{"x-show": "mobileMenuOpen", "x-cloak": ""}),
-    cls="btn btn-ghost btn-square sm:hidden",
+    variant=ButtonT.ghost,
+    cls="sm:hidden",
     **{"@click": "toggleMobile()"},
 )
 
@@ -392,7 +393,7 @@ SidebarItem(
     icon="📤",                   # Optional emoji
     description="",              # Optional subtitle (renders two-line item)
     badge_text="",               # Optional badge (e.g., count)
-    badge_cls="badge badge-sm badge-ghost",
+    badge_cls="uk-badge",
     hx_attrs={},                 # Optional HTMX attributes
 )
 ```
@@ -631,26 +632,27 @@ async def create_task(request):
 ### Modal Forms
 
 ```python
+from ui.buttons import Button, ButtonT
+from ui.modals import ModalBox, ModalAction
+
 @rt("/tasks/create-modal")
 async def task_create_modal(request):
     """Return modal HTML for HTMX swap into #modal."""
     return Dialog(
-        Div(
+        ModalBox(
             H3("Create Task", cls="font-bold text-lg"),
             create_task_form(action_url="/tasks/quick-add"),
-            Div(
-                Button("Cancel", cls="btn btn-ghost",
+            ModalAction(
+                Button("Cancel", variant=ButtonT.ghost,
                        **{"onclick": "document.getElementById('modal-dialog').close()"}),
-                cls="modal-action",
             ),
-            cls="modal-box",
         ),
         id="modal-dialog",
         cls="modal modal-open",
     )
 
 # Trigger button (renders modal into global #modal container)
-Button("New Task", cls="btn btn-primary",
+Button("New Task", variant=ButtonT.primary,
        **{"hx-get": "/tasks/create-modal", "hx-target": "#modal"})
 ```
 
@@ -662,8 +664,8 @@ def render_quick_add_form() -> Any:
     return Form(
         Div(
             Input(type="text", name="title", placeholder="Add a task...",
-                  required=True, cls="input input-bordered flex-1"),
-            Button("Add", cls="btn btn-primary", type="submit"),
+                  required=True, cls="uk-input flex-1"),
+            Button("Add", variant=ButtonT.primary, type="submit"),
             cls="flex gap-2",
         ),
         hx_post="/tasks/quick-add",
@@ -680,18 +682,18 @@ Form(
     FormControl(
         Label(LabelText("Task Type")),
         Select(Option("One-time", value="once"), Option("Recurring", value="recurring"),
-               name="task_type", cls="select select-bordered w-full",
+               name="task_type", cls="uk-select w-full",
                **{"x-model": "taskType"}),
     ),
     Div(
         FormControl(
             Label(LabelText("Recurrence Pattern")),
             Select(Option("Daily"), Option("Weekly"), Option("Monthly"),
-                   name="recurrence_pattern", cls="select select-bordered w-full"),
+                   name="recurrence_pattern", cls="uk-select w-full"),
         ),
         **{"x-show": "taskType === 'recurring'", "x-transition": ""},
     ),
-    Button("Create", cls="btn btn-primary", type="submit"),
+    Button("Create", variant=ButtonT.primary, type="submit"),
     hx_post="/tasks/create",
     **{"x-data": "{ taskType: 'once' }"},
 )
@@ -701,14 +703,14 @@ Form(
 
 ```python
 # Date with min constraint
-Input(type="date", name="due_date", min=str(date.today()), cls="input input-bordered w-full")
+Input(type="date", name="due_date", min=str(date.today()), cls="uk-input w-full")
 
 # Time with 15-minute increments
-Input(type="time", name="start_time", value="09:00", step="900", cls="input input-bordered w-full")
+Input(type="time", name="start_time", value="09:00", step="900", cls="uk-input w-full")
 
 # Datetime-local
 Input(type="datetime-local", name="event_start",
-      value=datetime.now().strftime("%Y-%m-%dT%H:%M"), cls="input input-bordered w-full")
+      value=datetime.now().strftime("%Y-%m-%dT%H:%M"), cls="uk-input w-full")
 
 # Two-column date row
 Div(
@@ -736,29 +738,36 @@ Use MonsterUI semantic tokens, not Tailwind palette:
 "text-gray-900"  "bg-white"  "text-gray-600"
 ```
 
-**Key MonsterUI classes for SKUEL:**
+**MonsterUI wrapper components for SKUEL:**
 
-```html
-<!-- Buttons -->
-<button class="btn btn-primary">Primary</button>
-<button class="btn btn-ghost btn-sm">Ghost Small</button>
-<button class="btn btn-outline btn-error">Delete</button>
+```python
+from ui.buttons import Button, ButtonT, ButtonLink, IconButton
+from ui.feedback import Alert, AlertT, Badge, BadgeT, Loading, LoadingT
+from ui.forms import FormControl, Label, LabelText, Input, Select, Textarea, Checkbox
+from ui.modals import Modal, ModalBox, ModalAction
+from ui.layout import Size
+from ui.data import Table, Divider
 
-<!-- Status badges -->
-<span class="badge badge-success">Active</span>
-<span class="badge badge-warning badge-sm">Pending</span>
-<span class="badge badge-error">Blocked</span>
-<span class="badge badge-ghost">Default</span>
+# Buttons
+Button("Primary", variant=ButtonT.primary)
+Button("Ghost Small", variant=ButtonT.ghost, size=Size.sm)
+Button("Delete", variant=ButtonT.outline_error)
 
-<!-- Alerts / Error banners -->
-<div class="alert alert-error"><span>⚠️</span><span>Error message</span></div>
-<div class="alert alert-success"><span>Task created!</span></div>
+# Status badges
+Badge("Active", variant=BadgeT.success)
+Badge("Pending", variant=BadgeT.warning, size=Size.sm)
+Badge("Blocked", variant=BadgeT.error)
+Badge("Default", variant=BadgeT.ghost)
 
-<!-- Cards (using tokens) -->
-<div class="bg-base-100 border border-base-200 rounded-lg p-6 hover:shadow-md transition-shadow">
+# Alerts / Error banners
+Alert("Error message", variant=AlertT.error)
+Alert("Task created!", variant=AlertT.success)
 
-<!-- Loading -->
-<span class="loading loading-spinner loading-sm"></span>
+# Cards (using tokens)
+Div(cls="bg-base-100 border border-base-200 rounded-lg p-6 hover:shadow-md transition-shadow")
+
+# Loading
+Loading(variant=LoadingT.spinner, size=Size.sm)
 ```
 
 **Responsive layout:**
@@ -801,7 +810,7 @@ Input(name="q", **{
 })
 
 # Delete with confirmation
-Button("Delete", cls="btn btn-error btn-sm", **{
+Button("Delete", variant=ButtonT.error, size=Size.sm, **{
     "hx-delete": f"/api/tasks/{uid}",
     "hx-confirm": "Delete this task?",
     "hx-target": "closest .task-card",
@@ -813,7 +822,7 @@ Button("Delete", cls="btn btn-error btn-sm", **{
 
 ```python
 # Loading button state
-Button("Save", cls="btn btn-primary",
+Button("Save", variant=ButtonT.primary,
        **{"@click": "loading = true", ":disabled": "loading",
           "x-data": "{ loading: false }"},
        **{"@htmx:after-request": "loading = false"})

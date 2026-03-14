@@ -37,7 +37,7 @@ def analytics_page():
     <div class="relative h-64" x-data="chartVis('/api/visualizations/completion', 'line')">
         <!-- Loading state -->
         <div x-show="loading" class="flex flex-col items-center justify-center h-full">
-            <span class="loading loading-spinner loading-md"></span>
+            <span class="uk-spinner"></span>
             <p class="text-sm text-base-content/70 mt-2">Loading chart...</p>
         </div>
         <!-- Error state -->
@@ -170,7 +170,7 @@ def custom_chart(data_url: str, chart_type: str = "line") -> Div:
         Div(
             # Loading state
             Div(
-                Span(cls="loading loading-spinner loading-md"),
+                Loading(variant=LoadingT.spinner, size=Size.md),
                 P("Loading...", cls="text-sm mt-2"),
                 cls="flex flex-col items-center justify-center h-full",
                 **{"x-show": "loading"},
@@ -209,7 +209,7 @@ def filterable_chart():
                 Option("Month", value="month"),
                 Option("Quarter", value="quarter"),
                 name="period",
-                cls="select select-bordered",
+                cls="uk-select",
                 hx_get="/partials/completion-chart",
                 hx_trigger="change",
                 hx_target="#chart-container",
@@ -248,7 +248,7 @@ def chart_modal_trigger():
     return Div(
         Button(
             "View Analytics",
-            cls="btn btn-primary",
+            variant=ButtonT.primary,
             hx_get="/partials/analytics-modal",
             hx_target="#modal-content",
             **{"@click": "open = true"},
@@ -368,7 +368,7 @@ def chart_with_fallback(data_url: str):
                 P("Chart failed to load", cls="text-error mb-2"),
                 Button(
                     "Retry",
-                    cls="btn btn-sm",
+                    variant=ButtonT.default, size=Size.sm,
                     **{"@click": f"refresh()"},
                 ),
                 cls="flex flex-col items-center justify-center h-full",

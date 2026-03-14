@@ -181,12 +181,10 @@ def parse_filters(request) -> Filters:
 # 2. Error banner component
 def render_error_banner(message: str) -> Div:
     """Render error banner for UI failures."""
-    return Div(
-        Div(
-            P("⚠️ Error", cls="font-bold text-error"),
-            P(message, cls="text-sm"),
-            cls="alert alert-error",
-        ),
+    return Alert(
+        P("⚠️ Error", cls="font-bold text-error"),
+        P(message, cls="text-sm"),
+        variant=AlertT.error,
         cls="mb-4",
     )
 

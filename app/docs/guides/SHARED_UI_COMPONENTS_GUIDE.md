@@ -101,7 +101,7 @@ def render_habits_dashboard(habits, stats):
         entities=habits,
         entity_renderer=HabitUIComponents.render_habit_card,
         quick_actions=[
-            {'label': '➕ New Habit', 'href': '/habits/wizard/step1', 'class': 'btn-primary'}
+            {'label': '➕ New Habit', 'href': '/habits/wizard/step1', 'variant': 'primary'}
         ],
         categories=["health", "productivity", "learning"],
         filter_endpoint="/habits/filter"
@@ -135,7 +135,7 @@ empty = SharedUIComponents.render_empty_state(
     icon="📋",
     title="No tasks yet",
     message="Create your first task to get started",
-    action={'label': 'Create Task', 'href': '/tasks/create', 'class': 'btn-primary'}
+    action={'label': 'Create Task', 'href': '/tasks/create', 'variant': 'primary'}
 )
 ```
 
@@ -210,8 +210,8 @@ async def tasks_dashboard(request):
         entities=tasks,
         entity_renderer=lambda t: TaskCard(t),
         quick_actions=[
-            {'label': '➕ New', 'href': '/tasks/create', 'class': 'btn-primary'},
-            {'label': '📊 Analytics', 'href': '/tasks/analytics', 'class': 'btn-secondary'}
+            {'label': '➕ New', 'href': '/tasks/create', 'variant': 'primary'},
+            {'label': '📊 Analytics', 'href': '/tasks/analytics', 'variant': 'secondary'}
         ],
         request=request,        # RECOMMENDED
         active_page="tasks",
@@ -249,9 +249,9 @@ stats = SharedUIComponents.render_stats_cards({
 **Example:**
 ```python
 actions = SharedUIComponents.render_quick_actions([
-    {'label': '➕ New Task', 'href': '/tasks/create', 'class': 'btn-primary'},
-    {'label': '📊 Analytics', 'hx_get': '/analytics', 'hx_target': '#main', 'class': 'btn-secondary'},
-    {'label': '⚙️ Settings', 'href': '/settings', 'class': 'btn-ghost'}
+    {'label': '➕ New Task', 'href': '/tasks/create', 'variant': 'primary'},
+    {'label': '📊 Analytics', 'hx_get': '/analytics', 'hx_target': '#main', 'variant': 'secondary'},
+    {'label': '⚙️ Settings', 'href': '/settings', 'variant': 'ghost'}
 ])
 ```
 
@@ -340,7 +340,7 @@ empty = SharedUIComponents.render_empty_state(
     icon="📋",
     title="No tasks yet",
     message="Create your first task to get started",
-    action={'label': 'Create Task', 'href': '/tasks/create', 'class': 'btn-primary'}
+    action={'label': 'Create Task', 'href': '/tasks/create', 'variant': 'primary'}
 )
 ```
 
@@ -394,8 +394,8 @@ def render_habits_dashboard(habits, stats):
 
     # Manual action buttons (25 lines)
     action_buttons = Div(
-        Button("➕ New", cls="btn btn-primary", ...),
-        Button("📊 Analytics", cls="btn btn-secondary", ...),
+        Button("➕ New", variant=ButtonT.primary, ...),
+        Button("📊 Analytics", variant=ButtonT.secondary, ...),
         # ... 3 more buttons ...
         cls="flex gap-4 justify-center mb-6"
     )
@@ -421,8 +421,8 @@ def render_habits_dashboard(habits, stats):
         entities=habits,
         entity_renderer=HabitUIComponents.render_habit_card,
         quick_actions=[
-            {'label': '➕ New', 'href': '/habits/create', 'class': 'btn-primary'},
-            {'label': '📊 Analytics', 'href': '/habits/analytics', 'class': 'btn-secondary'}
+            {'label': '➕ New', 'href': '/habits/create', 'variant': 'primary'},
+            {'label': '📊 Analytics', 'href': '/habits/analytics', 'variant': 'secondary'}
         ]
     )
 ```
@@ -666,12 +666,12 @@ entity_renderer=HabitCard  # Missing lambda/call
 
 ## Changelog
 
-### v2.0.0 (January 2026) - DaisyUI Migration
-- **BREAKING:** Migrated from FrankenUI to DaisyUI component library
+### v2.0.0 (January 2026) - MonsterUI Migration
+- **BREAKING:** Migrated to MonsterUI wrapper component library
 - Replaced all `Div(..., cls="card bg-base-100...")` with `Card(..., cls="...")`
 - Replaced button string classes with typed enums (`ButtonT.primary`, `ButtonT.secondary`, etc.)
-- Replaced input/select classes with variant enums (`InputT.bordered`)
-- Added backwards compatibility parser for existing action configs using "btn-primary" string classes
+- Replaced input/select classes with MonsterUI classes (`uk-input`, `uk-select`)
+- Added backwards compatibility parser for existing action configs using `"variant": "primary"` style
 - Updated wizard paths (`/habits/wizard/step1` instead of `/habits/create`)
 - All calling code continues to work with string-based action configs (internal translation to enums)
 

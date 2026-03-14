@@ -10,25 +10,24 @@ allowed-tools: Read, Grep, Glob
 
 > "Semantic component classes that compose with Tailwind utilities — start with the most specific, fall back to utilities."
 
-SKUEL uses a **three-layer CSS architecture**:
+SKUEL uses a **two-layer CSS architecture**:
 
 | Layer | Library | Decision Rule | Example |
 |-------|---------|---------------|---------|
-| **Component** | MonsterUI | Pre-built FastHTML components | `ButtonT.primary`, `Card`, `Grid` |
-| **Semantic** | DaisyUI 5 | Themed UI patterns, no component exists in MonsterUI | `btn btn-primary`, `modal`, `tabs` |
+| **Component** | MonsterUI wrappers | Pre-built FastHTML components | `Button(variant=ButtonT.primary)`, `Alert(variant=AlertT.error)` |
 | **Utility** | Tailwind | Custom spacing, layout, one-off adjustments | `flex gap-4 p-6 rounded-lg` |
 
-**Decision Rule:** MonsterUI first → DaisyUI second → Tailwind utilities for customization
+**Decision Rule:** MonsterUI wrapper first → Tailwind utilities for customization
 
 ```python
-# ✅ MonsterUI component + Tailwind customization
-Button("Save", cls=(ButtonT.primary, "w-full mt-4"))
+# ✅ MonsterUI wrapper component + Tailwind customization
+Button("Save", variant=ButtonT.primary, cls="w-full mt-4")
 
-# ✅ DaisyUI when MonsterUI doesn't have it
-Div(Input(type="checkbox", cls="toggle toggle-primary"))
+# ✅ MonsterUI wrapper for forms
+Checkbox(name="agree", cls="uk-checkbox")
 
-# ⚠️ Avoid raw Tailwind when MonsterUI has a component
-Button("Save", cls="bg-blue-600 text-white px-4 py-2 rounded")  # Use ButtonT.primary
+# ⚠️ Avoid raw Tailwind when MonsterUI has a wrapper
+Button("Save", cls="bg-blue-600 text-white px-4 py-2 rounded")  # Use variant=ButtonT.primary
 ```
 
 ## FastHTML Integration
@@ -52,246 +51,179 @@ Div(
 
 ---
 
-## DaisyUI 5 Component Reference
+## MonsterUI Wrapper Component Reference
+
+All UI components use Python wrapper functions. Import from the appropriate module.
 
 ### Buttons
 
-```html
-<!-- Variants -->
-<button class="btn btn-primary">Primary</button>
-<button class="btn btn-secondary">Secondary</button>
-<button class="btn btn-accent">Accent</button>
-<button class="btn btn-ghost">Ghost</button>
-<button class="btn btn-outline">Outline</button>
-<button class="btn btn-error">Danger</button>
-<button class="btn btn-success">Success</button>
+```python
+from ui.buttons import Button, ButtonT, ButtonLink, IconButton
+from ui.layout import Size
 
-<!-- Sizes -->
-<button class="btn btn-xs">XSmall</button>
-<button class="btn btn-sm">Small</button>
-<button class="btn btn-md">Medium (default)</button>
-<button class="btn btn-lg">Large</button>
+# Variants
+Button("Primary", variant=ButtonT.primary)
+Button("Secondary", variant=ButtonT.secondary)
+Button("Ghost", variant=ButtonT.ghost)
+Button("Error", variant=ButtonT.error)
+Button("Success", variant=ButtonT.success)
 
-<!-- States -->
-<button class="btn btn-primary loading">Loading</button>
-<button class="btn" disabled>Disabled</button>
+# Sizes
+Button("Small", variant=ButtonT.primary, size=Size.sm)
+Button("Large", variant=ButtonT.primary, size=Size.lg)
 
-<!-- Shape -->
-<button class="btn btn-circle">◉</button>
-<button class="btn btn-square">■</button>
+# Link styled as button
+ButtonLink("View Details", href="/tasks/123", variant=ButtonT.ghost)
+
+# Icon button
+IconButton("pencil", variant=ButtonT.ghost, size=Size.sm)
 ```
 
 ### Form Controls
 
-```html
-<!-- Text input -->
-<input type="text" class="input input-bordered w-full" placeholder="Enter text">
-<input type="text" class="input input-bordered input-error w-full">
+```python
+from ui.forms import FormControl, Label, LabelText, Input, Select, Textarea, Checkbox, Radio, Toggle
 
-<!-- Select -->
-<select class="select select-bordered w-full">
-  <option disabled selected>Pick one</option>
-  <option>Option 1</option>
-</select>
+# Text input
+Input(type="text", name="title", placeholder="Enter text", cls="uk-input w-full")
 
-<!-- Textarea -->
-<textarea class="textarea textarea-bordered w-full" rows="4"></textarea>
+# Select
+Select(
+    Option("Pick one", disabled=True, selected=True),
+    Option("Option 1", value="1"),
+    name="choice", cls="uk-select w-full",
+)
 
-<!-- Checkbox -->
-<input type="checkbox" class="checkbox checkbox-primary">
+# Textarea
+Textarea(name="description", rows=4, cls="uk-textarea w-full")
 
-<!-- Toggle -->
-<input type="checkbox" class="toggle toggle-primary">
+# Checkbox
+Checkbox(name="agree", cls="uk-checkbox")
 
-<!-- Radio -->
-<input type="radio" name="x" class="radio radio-primary">
+# Toggle
+Toggle(name="enabled")
 
-<!-- Range -->
-<input type="range" min="0" max="100" class="range range-primary">
-
-<!-- File input -->
-<input type="file" class="file-input file-input-bordered w-full">
+# Radio
+Radio(name="priority", value="high")
 ```
 
 ### FormControl Pattern (SKUEL Standard)
 
-Always wrap inputs in `form-control` + `label` for accessibility:
-
-```html
-<div class="form-control w-full">
-  <label class="label">
-    <span class="label-text">Email *</span>
-    <span class="label-text-alt">Required</span>
-  </label>
-  <input type="email" name="email" required class="input input-bordered w-full">
-  <label class="label">
-    <span class="label-text-alt text-error">Error message here</span>
-  </label>
-</div>
-```
+Always wrap inputs in `FormControl` + `Label` for accessibility:
 
 ```python
-# FastHTML equivalent
+from ui.forms import FormControl, Label, LabelText, Input
+
 FormControl(
     Label(LabelText("Email *")),
-    Input(type="email", name="email", required=True, cls="input input-bordered w-full"),
+    Input(type="email", name="email", required=True, cls="uk-input w-full"),
 )
 ```
 
 ### Cards
 
-```html
-<!-- Basic card -->
-<div class="card bg-base-100 shadow-md">
-  <div class="card-body">
-    <h2 class="card-title">Card Title</h2>
-    <p>Card description</p>
-    <div class="card-actions justify-end">
-      <button class="btn btn-primary">Action</button>
-    </div>
-  </div>
-</div>
+```python
+# Using design tokens (preferred)
+from ui.tokens import Card
 
-<!-- Interactive card -->
-<div class="card bg-base-100 border border-base-200 hover:shadow-lg transition-shadow cursor-pointer">
-  <div class="card-body p-4">
-    <h3 class="font-semibold">Title</h3>
-    <p class="text-sm text-base-content/70">Description</p>
-  </div>
-</div>
+# Basic card
+Div(content, cls=Card.BASE)  # "bg-base-100 border border-base-200 rounded-lg"
+
+# Interactive card
+Div(content, cls=Card.INTERACTIVE)  # BASE + "hover:shadow-md transition-shadow"
 ```
 
 ### Badges
 
-```html
-<span class="badge">Default</span>
-<span class="badge badge-primary">Primary</span>
-<span class="badge badge-secondary">Secondary</span>
-<span class="badge badge-success">Success</span>
-<span class="badge badge-warning">Warning</span>
-<span class="badge badge-error">Error</span>
-<span class="badge badge-ghost">Ghost</span>
+```python
+from ui.feedback import Badge, BadgeT
+from ui.layout import Size
 
-<!-- Sizes -->
-<span class="badge badge-xs">XS</span>
-<span class="badge badge-sm">SM</span>
-<span class="badge badge-lg">LG</span>
+Badge("Default")
+Badge("Primary", variant=BadgeT.primary)
+Badge("Success", variant=BadgeT.success)
+Badge("Warning", variant=BadgeT.warning)
+Badge("Error", variant=BadgeT.error)
+Badge("Ghost", variant=BadgeT.ghost)
 
-<!-- Outline -->
-<span class="badge badge-outline badge-primary">Outline</span>
+# Sizes
+Badge("Small", variant=BadgeT.success, size=Size.sm)
 ```
 
 ### Alerts
 
-```html
-<div class="alert alert-info">Info message</div>
-<div class="alert alert-success">Success message</div>
-<div class="alert alert-warning">Warning message</div>
-<div class="alert alert-error">Error message</div>
+```python
+from ui.feedback import Alert, AlertT
 
-<!-- With icon -->
-<div class="alert alert-error">
-  <span>⚠️</span>
-  <span>Something went wrong</span>
-</div>
+Alert("Info message", variant=AlertT.info)
+Alert("Success message", variant=AlertT.success)
+Alert("Warning message", variant=AlertT.warning)
+Alert("Error message", variant=AlertT.error)
 ```
 
 ### Modals
 
-```html
-<!-- Modal trigger -->
-<button onclick="my_modal.showModal()" class="btn btn-primary">Open Modal</button>
+```python
+from ui.buttons import Button, ButtonT
+from ui.modals import Modal, ModalBox, ModalAction, ModalBackdrop
 
-<!-- Native dialog modal (DaisyUI 5) -->
-<dialog id="my_modal" class="modal">
-  <div class="modal-box">
-    <h3 class="font-bold text-lg">Modal Title</h3>
-    <p class="py-4">Modal content here</p>
-    <div class="modal-action">
-      <form method="dialog">
-        <button class="btn btn-ghost">Cancel</button>
-        <button class="btn btn-primary">Confirm</button>
-      </form>
-    </div>
-  </div>
-  <!-- Backdrop click closes modal -->
-  <form method="dialog" class="modal-backdrop">
-    <button>close</button>
-  </form>
-</dialog>
+Dialog(
+    ModalBox(
+        H3("Modal Title", cls="font-bold text-lg"),
+        P("Modal content here", cls="py-4"),
+        ModalAction(
+            Button("Cancel", variant=ButtonT.ghost),
+            Button("Confirm", variant=ButtonT.primary),
+        ),
+    ),
+    ModalBackdrop(),
+    id="my_modal",
+    cls="modal",
+)
 ```
 
 ### Navbar
 
-```html
-<div class="navbar bg-white border-b border-gray-200 sticky top-0 z-50">
-  <div class="navbar-start">
-    <a href="/" class="text-xl font-bold">Brand</a>
-  </div>
-  <div class="navbar-center hidden sm:flex">
-    <ul class="menu menu-horizontal gap-1">
-      <li><a href="/tasks" class="btn btn-ghost btn-sm">Tasks</a></li>
-      <li><a href="/goals" class="btn btn-ghost btn-sm">Goals</a></li>
-    </ul>
-  </div>
-  <div class="navbar-end">
-    <button class="btn btn-ghost btn-circle">👤</button>
-  </div>
-</div>
-```
-
-### Tabs
-
-```html
-<!-- Bordered tabs (used in mobile sidebars) -->
-<div class="tabs tabs-bordered">
-  <a class="tab tab-active">Active</a>
-  <a class="tab">Tab 2</a>
-  <a class="tab">Tab 3</a>
-</div>
-
-<!-- Boxed tabs -->
-<div class="tabs tabs-boxed">
-  <a class="tab tab-active">Active</a>
-  <a class="tab">Tab 2</a>
-</div>
-```
-
-### Menu (Sidebar Nav)
-
-```html
-<ul class="menu bg-base-100 rounded-box w-56">
-  <li class="menu-title">Section Title</li>
-  <li><a class="active">Active item</a></li>
-  <li><a>Item 2</a></li>
-  <li>
-    <details>
-      <summary>Submenu</summary>
-      <ul>
-        <li><a>Sub item 1</a></li>
-      </ul>
-    </details>
-  </li>
-</ul>
+```python
+# Navbar uses Tailwind utilities directly (no wrapper needed)
+Nav(
+    Div(A("Brand", href="/", cls="text-xl font-bold"), cls="navbar-start"),
+    Div(
+        A("Tasks", href="/tasks", cls="text-sm hover:text-primary"),
+        A("Goals", href="/goals", cls="text-sm hover:text-primary"),
+        cls="navbar-center hidden sm:flex gap-4",
+    ),
+    Div(A("Profile", href="/profile"), cls="navbar-end"),
+    cls="bg-white border-b border-gray-200 sticky top-0 z-50 px-4 py-2",
+)
 ```
 
 ### Loading
 
-```html
-<span class="loading loading-spinner loading-sm"></span>
-<span class="loading loading-spinner loading-md"></span>
-<span class="loading loading-dots"></span>
-<span class="loading loading-ring"></span>
+```python
+from ui.feedback import Loading, LoadingT
+from ui.layout import Size
+
+Loading(variant=LoadingT.spinner, size=Size.sm)
+Loading(variant=LoadingT.spinner, size=Size.md)
+Loading(variant=LoadingT.dots)
 ```
 
-### Toast / Notifications
+### Tables
 
-```html
-<div class="toast toast-end">
-  <div class="alert alert-success">
-    <span>Task created!</span>
-  </div>
-</div>
+```python
+from ui.data import Table
+
+# Striped table
+Table(thead, tbody, cls="uk-table uk-table-striped")
+```
+
+### Dividers
+
+```python
+from ui.data import Divider
+
+Divider()  # renders border-t border-border my-4
 ```
 
 ---
@@ -384,7 +316,7 @@ FormControl(
 <div class="lg:hidden">Mobile only</div>
 ```
 
-### DaisyUI Color Tokens (use these instead of Tailwind palette)
+### Semantic Color Tokens (use these instead of Tailwind palette)
 
 | Token | Use |
 |-------|-----|
@@ -400,7 +332,7 @@ FormControl(
 | `bg-error` / `text-error` | Error state |
 | `bg-warning` / `text-warning` | Warning state |
 
-**Key rule:** Always use MonsterUI semantic tokens (`bg-base-100`, `text-primary`) not Tailwind palette (`bg-white`, `bg-blue-600`). Semantic tokens respect the active DaisyUI theme automatically.
+**Key rule:** Always use semantic tokens (`bg-base-100`, `text-primary`) not Tailwind palette (`bg-white`, `bg-blue-600`). Semantic tokens respect the active theme automatically.
 
 ### States & Interactions
 
@@ -449,11 +381,9 @@ Card.PADDING        # "p-6"
 
 ---
 
-## Theming (DaisyUI 5)
+## Theming
 
-All 31 DaisyUI built-in themes are enabled in `tailwind.config.js` (`themes: true`).
-
-Users select their theme on `/profile/settings` (Display & Appearance section). The selected theme is saved to Neo4j preferences and localStorage. On page load, `base_page.py` reads from localStorage via `x-init` and sets `data-theme` on the `<html>` element. Default: `light`.
+Theme selection is available on `/profile/settings` (Display & Appearance section). The selected theme is saved to Neo4j preferences and localStorage. On page load, `base_page.py` reads from localStorage via `x-init` and applies the theme. Default: `light`.
 
 ---
 
@@ -491,7 +421,7 @@ Users select their theme on `/profile/settings` (Display & Appearance section). 
 
 ```python
 # ❌ Raw Tailwind when MonsterUI has it
-Div("Error", cls="bg-red-100 text-red-800 p-3 rounded")  # Use alert alert-error
+Div("Error", cls="bg-red-100 text-red-800 p-3 rounded")  # Use Alert(variant=AlertT.error)
 
 # ❌ Tailwind palette instead of semantic tokens
 P("Text", cls="text-gray-600")  # Use text-base-content/70

@@ -322,16 +322,16 @@ The component uses MonsterUI badge classes to provide immediate visual feedback:
 # score = 0.15 → Red "Theoretical"
 Div(
     Span("15%", cls="text-2xl font-bold"),
-    Span("Theoretical", cls="badge badge-error ml-2"),
-    Div("Pure theory - no application yet", cls="text-sm text-gray-600"),
+    Badge("Theoretical", variant=BadgeT.error, cls="ml-2"),
+    Div("Pure theory - no application yet", cls="text-sm text-base-content/70"),
     cls="substance-score-card"
 )
 
 # score = 0.85 → Dark Green "Mastered"
 Div(
     Span("85%", cls="text-2xl font-bold"),
-    Span("Mastered", cls="badge badge-success ml-2"),
-    Div("Lifestyle integrated - embodied knowledge", cls="text-sm text-gray-600"),
+    Badge("Mastered", variant=BadgeT.success, cls="ml-2"),
+    Div("Lifestyle integrated - embodied knowledge", cls="text-sm text-base-content/70"),
     cls="substance-score-card"
 )
 ```

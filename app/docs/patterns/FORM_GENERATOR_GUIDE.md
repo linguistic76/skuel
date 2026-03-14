@@ -19,7 +19,7 @@ form = FormGenerator.from_model(TaskCreateRequest, action="/api/tasks")
 
 This generates a `<form>` with:
 - One input per model field (type-appropriate: text, number, select, etc.)
-- MonsterUI styling (`input-bordered`, `select-bordered`, etc.)
+- MonsterUI styling (`uk-input`, `uk-select`, etc.)
 - Labels from `Field(description=...)` or auto-generated from field names
 - Pydantic constraint attributes (`min`, `max`, `minlength`, `maxlength`)
 - Alpine.js `formValidator` for client-side validation
@@ -344,15 +344,15 @@ form = Form(
 
 | Python Type | Widget | MonsterUI Class |
 |-------------|--------|-----------------|
-| `str` | `<input type="text">` | `input input-bordered` |
-| `str` (name contains "description", "notes", "content", "body") | `<textarea>` | `textarea textarea-bordered` |
-| `str` (max_length > 100) | `<textarea>` | `textarea textarea-bordered` |
-| `int`, `float` | `<input type="number">` | `input input-bordered` |
-| `bool` | `<input type="checkbox">` | `checkbox checkbox-primary` |
-| `date` | `<input type="date">` | `input input-bordered` |
-| `datetime` | `<input type="datetime-local">` | `input input-bordered` |
-| `Enum` subclass | `<select>` | `select select-bordered` |
-| `list[str]` | `<textarea>` | `textarea textarea-bordered` |
+| `str` | `<input type="text">` | `uk-input` |
+| `str` (name contains "description", "notes", "content", "body") | `<textarea>` | `uk-textarea` |
+| `str` (max_length > 100) | `<textarea>` | `uk-textarea` |
+| `int`, `float` | `<input type="number">` | `uk-input` |
+| `bool` | `<input type="checkbox">` | `uk-checkbox` |
+| `date` | `<input type="date">` | `uk-input` |
+| `datetime` | `<input type="datetime-local">` | `uk-input` |
+| `Enum` subclass | `<select>` | `uk-select` |
+| `list[str]` | `<textarea>` | `uk-textarea` |
 
 ### Pydantic metadata overrides
 

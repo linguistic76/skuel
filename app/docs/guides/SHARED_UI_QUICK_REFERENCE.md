@@ -24,7 +24,7 @@ dashboard = SharedUIComponents.render_entity_dashboard(
     stats={'total': {'label': 'Total', 'value': 42, 'color': 'blue'}},
     entities=your_entities,
     entity_renderer=lambda e: YourEntityCard(e),
-    quick_actions=[{'label': '➕ New', 'href': '/create', 'class': 'btn-primary'}]
+    quick_actions=[{'label': '➕ New', 'href': '/create', 'variant': 'primary'}]
 )
 ```
 
@@ -46,8 +46,8 @@ stats = SharedUIComponents.render_stats_cards({
 
 ```python
 actions = SharedUIComponents.render_quick_actions([
-    {'label': '➕ New', 'href': '/create', 'class': 'btn-primary'},
-    {'label': '📊 Stats', 'hx_get': '/stats', 'hx_target': '#main', 'class': 'btn-secondary'}
+    {'label': '➕ New', 'href': '/create', 'variant': 'primary'},
+    {'label': '📊 Stats', 'hx_get': '/stats', 'hx_target': '#main', 'variant': 'secondary'}
 ])
 ```
 
@@ -79,7 +79,7 @@ empty = SharedUIComponents.render_empty_state(
     icon="📋",
     title="No items yet",
     message="Create your first item",
-    action={'label': 'Create', 'href': '/create', 'class': 'btn-primary'}
+    action={'label': 'Create', 'href': '/create', 'variant': 'primary'}
 )
 ```
 
@@ -109,7 +109,7 @@ search = SharedUIComponents.render_search_bar(
 ```python
 {
     'label': '➕ Button Text',        # Required
-    'class': 'btn-primary',           # Required
+    'variant': 'primary',           # Required
     'href': '/path'                   # Use href OR hx_get
     # OR
     'hx_get': '/endpoint',            # HTMX alternative
@@ -254,7 +254,7 @@ def render_dashboard(entities):
         stats={'total': {'label': 'Total', 'value': len(entities), 'color': 'blue'}},
         entities=entities,
         entity_renderer=render_card,
-        quick_actions=[{'label': 'New', 'href': '/create', 'class': 'btn-primary'}]
+        quick_actions=[{'label': 'New', 'href': '/create', 'variant': 'primary'}]
     )
 ```
 

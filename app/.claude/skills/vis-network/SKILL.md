@@ -198,7 +198,7 @@ def custom_graph_page(request, uid: str):
                         "x-model": "depth",
                         "@change": "loadGraph()",
                     },
-                    cls="select select-bordered select-sm",
+                    cls="uk-select uk-form-small",
                 ),
 
                 # Graph container - MUST have ID matching x-ref
@@ -1353,9 +1353,9 @@ Div(
             "x-model": "depth",           # Bind to Alpine state
             "@change": "loadGraph()",     # Reload graph on change
         },
-        cls="select select-bordered select-sm",
+        cls="uk-select uk-form-small",
     ),
-    cls="form-control w-64",
+    cls="space-y-2 w-64",
 )
 ```
 

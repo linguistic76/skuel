@@ -179,7 +179,7 @@ HTMX extends HTML by giving every element access to the full HTTP protocol.
 ```python
 Form(
     # ... form controls ...
-    Button("Create Task", type="submit", cls="btn btn-primary"),
+    Button("Create Task", type="submit", variant=ButtonT.primary),
     hx_post="/tasks/quick-add",
     hx_target="#task-list",
     hx_swap="beforeend",
@@ -220,7 +220,7 @@ response.headers["HX-Push-Url"] = "/tasks"
      @htmx:after-request="loading = false">
   <button hx-get="/data">
     <span x-show="!loading">Load</span>
-    <span x-show="loading" class="loading loading-spinner loading-xs"></span>
+    <span x-show="loading" class="uk-spinner uk-spinner-small"></span>
   </button>
 </div>
 ```
@@ -297,7 +297,7 @@ Script(src="/static/vendor/alpinejs/alpine.3.14.8.min.js", defer=True)
 
 ```html
 <div x-data="{ open: false }">
-  <button @click="open = true" class="btn btn-primary">Open</button>
+  <button @click="open = true" class="uk-button uk-button-primary">Open</button>
 
   <div x-show="open"
        x-transition:enter="transition ease-out duration-200"
@@ -308,10 +308,10 @@ Script(src="/static/vendor/alpinejs/alpine.3.14.8.min.js", defer=True)
        x-transition:leave-end="opacity-0"
        class="fixed inset-0 bg-black/50 z-50"
        @click="open = false">
-    <div class="modal-box" @click.stop>
+    <div class="uk-modal-dialog uk-modal-body" @click.stop>
       <h3 class="font-bold text-lg">Modal</h3>
-      <div class="modal-action">
-        <button @click="open = false" class="btn btn-ghost">Close</button>
+      <div class="uk-modal-footer uk-text-right">
+        <button @click="open = false" class="uk-button uk-button-default">Close</button>
       </div>
     </div>
   </div>
@@ -336,7 +336,7 @@ Script(src="/static/vendor/alpinejs/alpine.3.14.8.min.js", defer=True)
 
 ```html
 <div x-data="{ tab: 'first' }">
-  <div class="tabs tabs-boxed">
+  <div class="uk-tab">
     <button @click="tab = 'first'" :class="{ 'tab-active': tab === 'first' }" class="tab">First</button>
     <button @click="tab = 'second'" :class="{ 'tab-active': tab === 'second' }" class="tab">Second</button>
   </div>
@@ -349,7 +349,7 @@ Script(src="/static/vendor/alpinejs/alpine.3.14.8.min.js", defer=True)
 
 ```html
 <div x-data="{ open: false }" @click.outside="open = false" class="relative">
-  <button @click="open = !open" class="btn btn-ghost btn-circle">👤</button>
+  <button @click="open = !open" class="uk-icon-button">👤</button>
   <div x-show="open" x-transition.origin.top.right
        class="absolute right-0 mt-2 w-48 bg-base-100 rounded-lg shadow-lg z-50">
     <a href="/profile" class="block px-4 py-2 hover:bg-base-200">Profile</a>
@@ -362,14 +362,14 @@ Script(src="/static/vendor/alpinejs/alpine.3.14.8.min.js", defer=True)
 
 ```html
 <div x-data="{ taskType: 'once' }">
-  <select x-model="taskType" name="task_type" class="select select-bordered w-full">
+  <select x-model="taskType" name="task_type" class="uk-select w-full">
     <option value="once">One-time</option>
     <option value="recurring">Recurring</option>
   </select>
 
   <!-- Only show for recurring -->
   <div x-show="taskType === 'recurring'" x-transition>
-    <select name="recurrence_pattern" class="select select-bordered w-full">
+    <select name="recurrence_pattern" class="uk-select w-full">
       <option value="daily">Daily</option>
       <option value="weekly">Weekly</option>
     </select>

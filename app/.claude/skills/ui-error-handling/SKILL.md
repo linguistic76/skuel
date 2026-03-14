@@ -99,17 +99,17 @@ class CalendarParams:
 
 ### 3. Error Banner Component
 
-User-visible error messages using alert:
+User-visible error messages using Alert wrapper:
 
 ```python
+from ui.feedback import Alert, AlertT
+
 def render_error_banner(message: str) -> Div:
     """Render error banner for UI failures."""
-    return Div(
-        Div(
-            P("⚠️ Error", cls="font-bold text-error"),
-            P(message, cls="text-sm"),
-            cls="alert alert-error",
-        ),
+    return Alert(
+        P("⚠️ Error", cls="font-bold text-error"),
+        P(message, cls="text-sm"),
+        variant=AlertT.error,
         cls="mb-4",
     )
 ```
@@ -669,14 +669,12 @@ def render_error_banner(message: str) -> Div:
     """
     Render error banner for UI failures.
 
-    Uses alert component with error styling.
+    Uses Alert wrapper with error variant.
     """
-    return Div(
-        Div(
-            P("⚠️ Error", cls="font-bold text-error"),
-            P(message, cls="text-sm"),
-            cls="alert alert-error",
-        ),
+    return Alert(
+        P("⚠️ Error", cls="font-bold text-error"),
+        P(message, cls="text-sm"),
+        variant=AlertT.error,
         cls="mb-4",
     )
 ```

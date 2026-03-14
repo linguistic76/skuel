@@ -253,7 +253,7 @@ Button(
     hx_target="#result",
     hx_swap="outerHTML",
     hx_indicator="#spinner",
-    cls="btn btn-primary"
+    variant=ButtonT.primary
 )
 ```
 
@@ -351,7 +351,7 @@ chmod +x .claude/scripts/ux-check.sh
 
 | Need | Use This | Not This |
 |------|----------|----------|
-| Button | `btn btn-primary` | `bg-blue-600` |
+| Button | `Button(variant=ButtonT.primary)` | `bg-blue-600` |
 | Background | `bg-base-100` | `bg-white` |
 | Text | `text-base-content` | `text-gray-900` |
 | Container | `Container.STANDARD` | `max-w-6xl` |

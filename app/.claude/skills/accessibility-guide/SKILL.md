@@ -165,17 +165,19 @@ Button(
 )
 
 # ✅ Link for navigation (new page/route)
-A(
+from ui.buttons import ButtonLink, ButtonT
+
+ButtonLink(
     "View Task Details",
     href="/tasks/task-123",
-    cls="btn btn-ghost",  # Styled as button, but semantically a link
+    variant=ButtonT.ghost,  # Styled as button, but semantically a link
 )
 
 # ❌ BAD: Div as button (no keyboard support)
 Div(
     "Delete Task",
     onclick="confirmDelete('task-123')",
-    cls="btn btn-error",  # Looks like button, but not accessible
+    cls="uk-button uk-button-danger",  # Looks like button, but not accessible
 )
 
 # ✅ GOOD: Div with ARIA and keyboard support
@@ -186,7 +188,7 @@ Div(
     onclick="confirmDelete('task-123')",
     onkeydown="if(event.key === 'Enter' || event.key === ' ') confirmDelete('task-123')",
     aria_label="Delete task: Buy groceries",
-    cls="btn btn-error",
+    cls="uk-button uk-button-danger",
 )
 ```
 
@@ -212,7 +214,7 @@ FormControl(
         name="email",
         id="email-input",
         aria_required="true",
-        cls="input input-bordered w-full",
+        cls="uk-input w-full",
     ),
 )
 
@@ -225,7 +227,7 @@ FormControl(
         id="password-input",
         aria_describedby="password-help",
         aria_required="true",
-        cls="input input-bordered w-full",
+        cls="uk-input w-full",
     ),
     P(
         "Must be at least 8 characters with one uppercase letter.",
@@ -243,7 +245,7 @@ FormControl(
         id="username-input",
         aria_invalid="true",
         aria_describedby="username-error",
-        cls="input input-bordered input-error w-full",
+        cls="uk-input uk-form-danger w-full",
     ),
     P(
         "This username is unavailable.",
@@ -266,7 +268,7 @@ FormControl(
         id="name-input",
         required=True,
         aria_required="true",
-        cls="input input-bordered w-full",
+        cls="uk-input w-full",
     ),
 )
 ```
@@ -481,7 +483,7 @@ def render_success_toast(message: str) -> Any:
         Div(
             Span("✓", cls="text-success text-xl", aria_hidden="true"),
             Span(message, cls="ml-2"),
-            cls="alert alert-success",
+            cls="uk-alert uk-alert-success",
         ),
         role="status",
         aria_live="polite",
@@ -497,7 +499,7 @@ def render_error_banner(message: str) -> Any:
         Div(
             P("⚠️ Error", cls="font-bold text-error"),
             P(message, cls="text-sm"),
-            cls="alert alert-error",
+            cls="uk-alert uk-alert-danger",
         ),
         role="alert",
         aria_live="assertive",
@@ -838,7 +840,7 @@ FormControl(
         aria_describedby="title-help",
         maxlength=200,
         autofocus=True,
-        cls="input input-bordered w-full",
+        cls="uk-input w-full",
     ),
     P(
         "Enter a clear, actionable task title (max 200 characters).",
@@ -864,7 +866,7 @@ FormControl(
 Div(
     "Delete",
     onclick="deleteTask()",
-    cls="btn btn-error",
+    cls="uk-button uk-button-danger",
 )
 
 # ✅ GOOD: Semantic button element
@@ -1024,6 +1026,6 @@ Use axe DevTools extension:
 
 - `html-htmx` - For semantic HTML structure
 - `html-navigation` - For accessible navigation patterns
-- `daisyui` - For accessible component styling
+- `ui-css` - For accessible component styling
 - `skuel-form-patterns` - For accessible form patterns
 - `js-alpine` - For accessible interactive components

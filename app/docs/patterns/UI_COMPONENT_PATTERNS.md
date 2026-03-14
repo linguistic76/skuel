@@ -828,8 +828,8 @@ def EmptyState(message: str, action_text: str = None, action_url: str = None) ->
 ### Don't Use Raw MonsterUI Classes on Wrappers
 
 ```python
-# BAD: Redundant - Button already adds "btn btn-primary"
-Button("Click", cls="btn btn-primary")
+# BAD: Redundant - Button wrapper already adds button classes
+Button("Click", cls="uk-button uk-button-primary")
 
 # GOOD: Use the variant enum
 Button("Click", variant=ButtonT.primary)
@@ -954,7 +954,7 @@ def render_error_banner(message: str) -> Div:
         Div(
             P("⚠️ Error", cls="font-bold text-error"),
             P(message, cls="text-sm"),
-            cls="alert alert-error",
+            variant=AlertT.error,
         ),
         cls="mb-4",
     )
