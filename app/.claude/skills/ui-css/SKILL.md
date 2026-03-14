@@ -82,23 +82,22 @@ IconButton("pencil", variant=ButtonT.ghost, size=Size.sm)
 ### Form Controls
 
 ```python
-from ui.forms import FormControl, Label, LabelText, Input, Select, Textarea, Checkbox, Radio, Toggle
+from ui.forms import LabelInput, LabelTextArea, LabelSelect, LabelCheckbox, Toggle, Radio
 
-# Text input
-Input(type="text", name="title", placeholder="Enter text", cls="uk-input w-full")
+# Text input (label + input in one component)
+LabelInput("Title", name="title", placeholder="Enter text")
+
+# Email input (required)
+LabelInput("Email *", name="email", type="email", required=True)
 
 # Select
-Select(
-    Option("Pick one", disabled=True, selected=True),
-    Option("Option 1", value="1"),
-    name="choice", cls="uk-select w-full",
-)
+LabelSelect("Choice", Option("Pick one", disabled=True, selected=True), Option("Option 1", value="1"), name="choice")
 
 # Textarea
-Textarea(name="description", rows=4, cls="uk-textarea w-full")
+LabelTextArea("Description", name="description", rows=4)
 
 # Checkbox
-Checkbox(name="agree", cls="uk-checkbox")
+LabelCheckbox("I agree", name="agree")
 
 # Toggle
 Toggle(name="enabled")
@@ -107,17 +106,14 @@ Toggle(name="enabled")
 Radio(name="priority", value="high")
 ```
 
-### FormControl Pattern (SKUEL Standard)
+### LabelInput Pattern (SKUEL Standard)
 
-Always wrap inputs in `FormControl` + `Label` for accessibility:
+Use `LabelInput` (and siblings) for accessible label+input pairs:
 
 ```python
-from ui.forms import FormControl, Label, LabelText, Input
+from ui.forms import LabelInput
 
-FormControl(
-    Label(LabelText("Email *")),
-    Input(type="email", name="email", required=True, cls="uk-input w-full"),
-)
+LabelInput("Email *", name="email", type="email", required=True)
 ```
 
 ### Cards
@@ -209,21 +205,21 @@ Loading(variant=LoadingT.spinner, size=Size.md)
 Loading(variant=LoadingT.dots)
 ```
 
-### Tables
+### Tables & Dividers
 
 ```python
-from ui.data import Table
+from ui.data import Table, TableFromDicts, TableFromLists, TableT, Divider, DividerSplit, DividerT
 
 # Striped table
 Table(thead, tbody, cls="uk-table uk-table-striped")
-```
 
-### Dividers
+# Table from data
+TableFromDicts(header_map={"name": "Name", "score": "Score"}, rows=data)
+TableFromLists(header=["Name", "Score"], body=[["Alice", 90], ["Bob", 85]])
 
-```python
-from ui.data import Divider
-
+# Divider
 Divider()  # renders border-t border-border my-4
+DividerSplit("or")  # divider with centered text
 ```
 
 ---

@@ -135,7 +135,7 @@ CardLink(
 ### Forms (`ui/forms/`)
 
 ```python
-from ui.forms import Input, Select, Textarea, FormControl, Label, Checkbox, InputT
+from ui.forms import Input, Select, Textarea, LabelInput, LabelTextArea, LabelSelect, LabelCheckbox, Checkbox
 from ui.layout import Size
 from fasthtml.common import Option, Form
 
@@ -163,23 +163,15 @@ Textarea(name="description", placeholder="Describe the task...", rows=4)
 # Checkbox
 Checkbox(name="is_public", checked=False)
 
-# Wrapped in a form
+# Wrapped in a form (LabelInput/LabelTextArea combine label + input)
 Form(
-    FormControl(
-        Label("Title"),
-        Input(name="title", placeholder="Task title", required=True),
-    ),
-    FormControl(
-        Label("Description"),
-        Textarea(name="description", placeholder="Details..."),
-    ),
+    LabelInput("Title", name="title", placeholder="Task title", required=True),
+    LabelTextArea("Description", name="description", placeholder="Details..."),
     Button("Create Task", type="submit"),
     method="post",
     action="/api/tasks",
 )
 ```
-
-**InputT variants:** `bordered` (default), `ghost`, `primary`, `secondary`, `accent`, `info`, `success`, `warning`, `error`
 
 ### Feedback (`ui/feedback.py`)
 
@@ -339,7 +331,7 @@ Tabs(
 ### Data Display (`ui/data.py`)
 
 ```python
-from ui.data import Table, Stats, Stat, StatTitle, StatValue, StatDesc, StatFigure, Tooltip, Divider
+from ui.data import Table, TableFromDicts, TableFromLists, TableT, Divider, DividerSplit, DividerT
 
 # Table
 Table(
@@ -351,29 +343,9 @@ Table(
     zebra=True,
 )
 
-# Stats
-Stats(
-    Stat(
-        StatTitle("Total Tasks"),
-        StatValue("142"),
-        StatDesc("21% increase from last month"),
-    ),
-    Stat(
-        StatTitle("Completion Rate"),
-        StatValue("87%"),
-        StatDesc("Above target"),
-    ),
-)
-
-# StatFigure — icon/image slot for a Stat
-Stat(
-    StatFigure(Span("📊", cls="text-2xl")),
-    StatTitle("Tasks"),
-    StatValue("42"),
-)
-
-# Tooltip
-Tooltip(Button("Hover me"), tip="This is helpful info", position="bottom")
+# Section divider
+Divider()
+DividerSplit("OR")  # Divider with centered text
 ```
 
 ---
@@ -858,7 +830,7 @@ def create_example_routes(app, rt, services):
 
 **4. HTMX screen reader announcements use path-based detection.** The live region in BasePage announces CRUD operations to screen readers by detecting `/create`, `/update`, `/delete` in the request path. If your route doesn't include these substrings, the announcement won't fire.
 
-**5. FormGenerator always wraps fields in `FormControl`.** For custom form layouts where you need direct control over field placement, use the primitives from `ui/forms/` (`Input`, `Select`, `Label`, `FormControl`) directly instead of `FormGenerator.render()`.
+**5. FormGenerator handles label+input pairing automatically.** For custom form layouts where you need direct control over field placement, use the primitives from `ui/forms/` (`Input`, `Select`, `LabelInput`, `LabelSelect`, `LabelTextArea`) directly instead of `FormGenerator.render()`.
 
 ---
 
@@ -974,7 +946,7 @@ When building new components:
 | Typography | `ui/text.py` |
 | Modals | `ui/modals.py` |
 | Nav components | `ui/navigation.py` |
-| Tables, stats, tooltips | `ui/data.py` |
+| Tables, dividers | `ui/data.py` |
 | Design tokens | `ui/tokens.py` |
 | Theme + headers | `ui/theme.py` |
 | Badge class mappings | `ui/badge_classes.py` |

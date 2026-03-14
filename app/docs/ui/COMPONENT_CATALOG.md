@@ -25,7 +25,7 @@ All components follow MonsterUI (FrankenUI + Tailwind) conventions and WCAG 2.1 
 |----------|------------|----------|
 | **Buttons** | Button, ButtonLink, IconButton, ButtonT | `ui/buttons.py` |
 | **Cards** | Card, CardBody, CardTitle, CardActions, CardFigure, CardLink, CardT | `ui/cards.py` |
-| **Forms** | Input, Select, Textarea, Checkbox, Radio, Toggle, Range, FormControl, Label | `ui/forms/` |
+| **Forms** | Input, Select, Textarea, Checkbox, Radio, Toggle, Range, LabelInput, LabelTextArea, LabelSelect, LabelCheckbox | `ui/forms/` |
 | **Feedback** | Alert, Badge, StatusBadge, PriorityBadge, Loading, Progress, RadialProgress | `ui/feedback.py` |
 | **Layout** | DivHStacked, DivVStacked, DivFullySpaced, DivCentered, Grid, Container, Row, Stack, FlexItem, Size | `ui/layout.py` |
 | **Typography** | PageTitle, SectionTitle, CardTitle, Subtitle, BodyText, SmallText, Caption, TruncatedText | `ui/text.py` |
@@ -46,22 +46,22 @@ These are the **lowest-level SKUEL building blocks** — imported directly in ro
 | `ui.layout` | `Size`, `DivHStacked`, `DivVStacked`, `DivFullySpaced`, `DivCentered`, `Grid`, `Container` |
 | `ui.buttons` | `ButtonT`, `Button` |
 | `ui.cards` | `CardT`, `Card`, `CardBody`, `CardTitle`, `CardActions`, `CardFigure` |
-| `ui.forms` | `InputT`, `Input`, `Select`, `Textarea`, `FormControl`, `Label`, `LabelText`, `Checkbox`, `Radio`, `Toggle`, `Range` |
+| `ui.forms` | `Input`, `Select`, `Textarea`, `Checkbox`, `Radio`, `Toggle`, `Range`, `LabelInput`, `LabelTextArea`, `LabelSelect`, `LabelCheckbox` |
 | `ui.modals` | `Modal`, `ModalBox`, `ModalAction`, `ModalBackdrop` |
 | `ui.feedback` | `AlertT`, `BadgeT`, `ProgressT`, `LoadingT`, `Alert`, `Badge`, `Loading`, `Progress`, `RadialProgress`, `get_submission_status_badge_class` |
 | `ui.navigation` | `Navbar`, `NavbarStart`, `NavbarCenter`, `NavbarEnd`, `Menu`, `MenuItem`, `Dropdown`, `DropdownTrigger`, `DropdownContent`, `Tabs`, `Tab` |
-| `ui.data` | `Table`, `Stats`, `Stat`, `StatTitle`, `StatValue`, `StatDesc`, `StatFigure`, `Tooltip`, `Divider`, `Avatar`, `AvatarGroup` |
+| `ui.data` | `Table`, `TableFromDicts`, `TableFromLists`, `TableT`, `Divider`, `DividerSplit`, `DividerT` |
 
 **Import pattern:**
 ```python
 from ui.buttons import Button, ButtonT
 from ui.cards import Card, CardBody
-from ui.forms import FormControl, Input, InputT, Label, LabelText, Select, Textarea
+from ui.forms import Input, LabelInput, LabelTextArea, LabelSelect, LabelCheckbox, Select, Textarea
 from ui.feedback import Alert, AlertT, Badge, Progress, ProgressT, get_submission_status_badge_class
 from ui.layout import Container, DivHStacked, DivVStacked, Size
 from ui.modals import Modal, ModalAction, ModalBackdrop, ModalBox
 from ui.navigation import Dropdown, DropdownContent, DropdownTrigger, Menu, MenuItem, Navbar
-from ui.data import Divider, Stat, Stats, Table, Tooltip
+from ui.data import Divider, DividerSplit, DividerT, Table, TableFromDicts, TableFromLists, TableT
 # Standard FastHTML elements (Div, Span, Option, Thead, Tbody, etc.)
 from fasthtml.common import Div, Option, Span
 ```
@@ -1192,23 +1192,21 @@ Quick alphabetical index:
 
 **MonsterUI Wrappers (ui/*.py):**
 - **Alert / AlertT** - `ui.feedback`
-- **Avatar / AvatarGroup** - `ui.data`
 - **Badge / BadgeT** - `ui.feedback`
 - **Button / ButtonT** - `ui.buttons`
 - **Card / CardBody / CardT** - `ui.cards`
 - **Checkbox / Radio / Toggle / Range** - `ui.forms`
 - **Container / Grid / DivHStacked / DivVStacked** - `ui.layout`
-- **Divider / Tooltip** - `ui.data`
+- **Divider / DividerSplit / DividerT** - `ui.data`
 - **Dropdown / DropdownTrigger / DropdownContent** - `ui.navigation`
-- **FormControl / Label / LabelText** - `ui.forms`
-- **Input / InputT / Select / Textarea** - `ui.forms`
+- **Input / Select / Textarea** - `ui.forms`
+- **LabelInput / LabelTextArea / LabelSelect / LabelCheckbox** - `ui.forms`
 - **Loading / LoadingT** - `ui.feedback`
 - **Menu / MenuItem / Navbar** - `ui.navigation`
 - **Modal / ModalBox / ModalAction / ModalBackdrop** - `ui.modals`
 - **Progress / ProgressT / RadialProgress** - `ui.feedback`
 - **Size** - `ui.layout`
-- **Stats / Stat / StatTitle / StatValue / StatDesc / StatFigure** - `ui.data`
-- **Table** - `ui.data`
+- **Table / TableFromDicts / TableFromLists / TableT** - `ui.data`
 - **Tabs / Tab** - `ui.navigation`
 
 **Patterns & Layouts:**

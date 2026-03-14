@@ -557,29 +557,22 @@ For forms that need full custom control beyond FormGenerator's capabilities:
 
 ```python
 from ui.buttons import Button, ButtonT
-from ui.forms import FormControl, Input, Label, LabelText, Select, Textarea
+from ui.forms import LabelInput, LabelTextArea, LabelSelect
 
 def create_task_form(action_url: str = "/tasks/quick-add") -> Any:
     return Form(
-        FormControl(
-            Label(LabelText("Title *")),
-            Input(type="text", name="title", placeholder="What needs to be done?",
-                  required=True, maxlength=200),
-        ),
-        FormControl(
-            Label(LabelText("Description")),
-            Textarea(name="description", rows=4),
-        ),
-        FormControl(
-            Label(LabelText("Priority")),
-            Select(
-                Option("Select...", value="", selected=True),
-                Option("Critical", value="critical"),
-                Option("High", value="high"),
-                Option("Medium", value="medium"),
-                Option("Low", value="low"),
-                name="priority",
-            ),
+        LabelInput("Title *", type="text", name="title",
+                   placeholder="What needs to be done?",
+                   required=True, maxlength=200),
+        LabelTextArea("Description", name="description", rows=4),
+        LabelSelect(
+            Option("Select...", value="", selected=True),
+            Option("Critical", value="critical"),
+            Option("High", value="high"),
+            Option("Medium", value="medium"),
+            Option("Low", value="low"),
+            label="Priority",
+            name="priority",
         ),
         Button("Create Task", variant=ButtonT.primary, type="submit", cls="w-full mt-4"),
         hx_post=action_url,
@@ -679,17 +672,17 @@ def render_quick_add_form() -> Any:
 
 ```python
 Form(
-    FormControl(
-        Label(LabelText("Task Type")),
-        Select(Option("One-time", value="once"), Option("Recurring", value="recurring"),
-               name="task_type", cls="uk-select w-full",
-               **{"x-model": "taskType"}),
+    LabelSelect(
+        Option("One-time", value="once"), Option("Recurring", value="recurring"),
+        label="Task Type",
+        name="task_type", cls="uk-select w-full",
+        **{"x-model": "taskType"},
     ),
     Div(
-        FormControl(
-            Label(LabelText("Recurrence Pattern")),
-            Select(Option("Daily"), Option("Weekly"), Option("Monthly"),
-                   name="recurrence_pattern", cls="uk-select w-full"),
+        LabelSelect(
+            Option("Daily"), Option("Weekly"), Option("Monthly"),
+            label="Recurrence Pattern",
+            name="recurrence_pattern", cls="uk-select w-full",
         ),
         **{"x-show": "taskType === 'recurring'", "x-transition": ""},
     ),
@@ -714,8 +707,8 @@ Input(type="datetime-local", name="event_start",
 
 # Two-column date row
 Div(
-    FormControl(Label(LabelText("Start")), Input(type="date", name="start_date", ...)),
-    FormControl(Label(LabelText("End")), Input(type="date", name="end_date", ...)),
+    LabelInput("Start", type="date", name="start_date"),
+    LabelInput("End", type="date", name="end_date"),
     cls="grid grid-cols-2 gap-4",
 )
 ```
@@ -743,10 +736,10 @@ Use MonsterUI semantic tokens, not Tailwind palette:
 ```python
 from ui.buttons import Button, ButtonT, ButtonLink, IconButton
 from ui.feedback import Alert, AlertT, Badge, BadgeT, Loading, LoadingT
-from ui.forms import FormControl, Label, LabelText, Input, Select, Textarea, Checkbox
+from ui.forms import LabelInput, LabelTextArea, LabelSelect, LabelCheckbox, Input, Select, Textarea, Checkbox
 from ui.modals import Modal, ModalBox, ModalAction
 from ui.layout import Size
-from ui.data import Table, Divider
+from ui.data import Table, TableFromDicts, TableFromLists, TableT, Divider, DividerSplit, DividerT
 
 # Buttons
 Button("Primary", variant=ButtonT.primary)
@@ -829,7 +822,7 @@ Button("Save", variant=ButtonT.primary,
 
 # Conditional field visibility
 Div(
-    FormControl(...),
+    LabelSelect(..., label="Pattern", name="recurrence"),
     **{"x-show": "type === 'recurring'", "x-transition": ""},
 )
 
@@ -878,10 +871,10 @@ result = TaskCreateRequest(**form_data)  # Generic 422 on error
 validation = validate_task_form_data(form_dict)
 if validation.is_error: return render_error_banner(...)
 
-# ❌ Input without FormControl wrapper (accessibility issue)
+# ❌ Separate Label + Input without wrapper (accessibility issue)
 Label("Email"), Input(name="email")
-# ✅ Wrap in FormControl
-FormControl(Label(LabelText("Email")), Input(name="email", ...))
+# ✅ Use LabelInput (handles label, ARIA help_text/error_text)
+LabelInput("Email", name="email", type="email")
 
 # ❌ GET for mutations
 Form(hx_get="/tasks/create")
@@ -918,7 +911,7 @@ When building a new SKUEL page or feature, verify:
 - [ ] Mobile shows horizontal tabs (not drawer)
 
 **Forms:**
-- [ ] All inputs in `FormControl` + `Label` wrapper
+- [ ] All inputs use `LabelInput`, `LabelTextArea`, `LabelSelect`, or `LabelCheckbox`
 - [ ] Required fields have `required=True` and asterisk in label
 - [ ] Early validation function with clear messages
 - [ ] POST (not GET) for all mutations

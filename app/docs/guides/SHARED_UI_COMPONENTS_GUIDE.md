@@ -82,7 +82,7 @@ from ui.patterns.entity_dashboard import SharedUIComponents
 # You don't need to import them directly unless building custom renderers:
 from ui.buttons import Button, ButtonT
 from ui.cards import Card
-from ui.forms import Input, InputT, Select
+from ui.forms import Input, Select
 from ui.layout import Size
 ```
 

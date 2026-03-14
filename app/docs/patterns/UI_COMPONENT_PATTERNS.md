@@ -344,11 +344,11 @@ from fasthtml.common import H1, H2, H3, P, A, Form, Li, Ul
 from ui.buttons import Button, ButtonT
 from ui.cards import Card, CardBody, CardTitle, CardActions, CardT
 from ui.feedback import Alert, AlertT, Badge, BadgeT, Loading, LoadingT, Progress, ProgressT, RadialProgress, get_submission_status_badge_class
-from ui.forms import Checkbox, FormControl, Input, InputT, Label, LabelText, Radio, Range, Select, Textarea, Toggle
+from ui.forms import Checkbox, Input, LabelCheckbox, LabelInput, LabelSelect, LabelTextArea, Radio, Range, Select, Textarea, Toggle
 from ui.layout import Container, DivCentered, DivFullySpaced, DivHStacked, DivVStacked, Grid, Size
 from ui.modals import Modal, ModalAction, ModalBackdrop, ModalBox
 from ui.navigation import Dropdown, DropdownContent, DropdownTrigger, Menu, MenuItem, Navbar, NavbarCenter, NavbarEnd, NavbarStart, Tab, Tabs
-from ui.data import Avatar, AvatarGroup, Divider, Stat, StatDesc, StatFigure, StatTitle, StatValue, Stats, Table, Tooltip
+from ui.data import Divider, DividerSplit, DividerT, Table, TableFromDicts, TableFromLists, TableT
 # Standard FastHTML elements — always from fasthtml.common
 from fasthtml.common import Div, Option, Span, Tbody, Td, Th, Thead, Tr
 
@@ -512,18 +512,9 @@ Card(CardBody(...), variant=CardT.side)
 from fasthtml.common import Form
 
 Form(
-    FormControl(
-        Label(LabelText("Email")),
-        Input(type="email", name="email", placeholder="Enter email"),
-    ),
-    FormControl(
-        Label(LabelText("Password")),
-        Input(type="password", name="password"),
-    ),
-    FormControl(
-        Label(LabelText("Remember me")),
-        Checkbox(name="remember", variant=ButtonT.primary),
-    ),
+    LabelInput("Email", type="email", name="email", placeholder="Enter email"),
+    LabelInput("Password", type="password", name="password"),
+    LabelCheckbox("Remember me", name="remember"),
     Button("Sign In", variant=ButtonT.primary, type="submit"),
     hx_post="/login",
     hx_target="#result",
@@ -535,29 +526,21 @@ Form(
 ```python
 from fasthtml.common import Option
 
-FormControl(
-    Label(LabelText("Priority")),
-    Select(
-        Option("Select...", value=""),
-        Option("High", value="high"),
-        Option("Medium", value="medium"),
-        Option("Low", value="low"),
-        name="priority"
-    ),
+LabelSelect(
+    Option("Select...", value=""),
+    Option("High", value="high"),
+    Option("Medium", value="medium"),
+    Option("Low", value="low"),
+    label="Priority",
+    name="priority",
 )
 
-FormControl(
-    Label(LabelText("Description")),
-    Textarea(name="description", rows="4", placeholder="Enter description..."),
-)
+LabelTextArea("Description", name="description", rows="4", placeholder="Enter description...")
 ```
 
-### Input Variants
+### Input Sizing
 
 ```python
-Input(variant=InputT.bordered)  # Default
-Input(variant=InputT.primary)
-Input(variant=InputT.error)  # For validation errors
 Input(size=Size.sm)  # Small input
 ```
 
@@ -705,24 +688,6 @@ Dropdown(
 ---
 
 ## Data Display
-
-### Stats
-
-```python
-Stats(
-    Stat(
-        StatFigure(Span("", cls="text-3xl"), i="lucide-check-circle"),
-        StatTitle("Tasks Completed"),
-        StatValue("42"),
-        StatDesc("This week"),
-    ),
-    Stat(
-        StatTitle("Goals Progress"),
-        StatValue("78%"),
-        StatDesc("On track"),
-    ),
-)
-```
 
 ### Tables
 

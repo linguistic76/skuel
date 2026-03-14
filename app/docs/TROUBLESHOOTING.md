@@ -159,11 +159,11 @@ from ui.daisy_components import Button, ButtonT, Card, Progress
 from ui.buttons import Button, ButtonT
 from ui.cards import Card, CardBody
 from ui.feedback import Progress, ProgressT
-from ui.forms import FormControl, Input, Label, Select, Textarea
+from ui.forms import Input, LabelInput, LabelTextArea, LabelSelect, Select, Textarea
 from ui.layout import Container, DivHStacked, Size
 from ui.modals import Modal, ModalBox, ModalAction, ModalBackdrop
 from ui.navigation import Dropdown, Menu, Navbar, Tabs
-from ui.data import Divider, Stats, Table, Tooltip
+from ui.data import Divider, DividerSplit, DividerT, Table, TableFromDicts, TableFromLists, TableT
 
 # Standard HTML/FastHTML elements always come from fasthtml.common
 from fasthtml.common import Div, H1, H2, H3, Option, P, Span

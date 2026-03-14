@@ -201,83 +201,67 @@ Div(
 
 **Purpose:** Associate labels with inputs, provide help text
 
+SKUEL uses `LabelInput`, `LabelTextArea`, and `LabelSelect` wrappers that have **built-in ARIA support**. These wrappers automatically handle `aria-describedby`, `aria-invalid`, label association, and help/error text rendering -- no manual wiring needed.
+
 **Implementation:**
 
 ```python
-from ui.forms import FormControl, Input, Label, LabelText
+from ui.forms import LabelInput, LabelTextArea, LabelSelect
 
-# ✅ Basic label association (implicit via FormControl)
-FormControl(
-    Label(LabelText("Email Address")),
-    Input(
-        type="email",
-        name="email",
-        id="email-input",
-        aria_required="true",
-        cls="uk-input w-full",
-    ),
+# ✅ Basic label association (built into LabelInput)
+LabelInput("Email Address", type="email", name="email")
+
+# ✅ With help text (auto aria-describedby + help div)
+LabelInput(
+    "Password",
+    type="password",
+    name="password",
+    help_text="Must be at least 8 characters with one uppercase letter.",
 )
 
-# ✅ With help text (aria-describedby)
-FormControl(
-    Label(LabelText("Password"), for_="password-input"),
-    Input(
-        type="password",
-        name="password",
-        id="password-input",
-        aria_describedby="password-help",
-        aria_required="true",
-        cls="uk-input w-full",
-    ),
-    P(
-        "Must be at least 8 characters with one uppercase letter.",
-        id="password-help",
-        cls="text-sm text-base-content/70 mt-1",
-    ),
-)
-
-# ✅ With error message (aria-invalid + aria-describedby)
-FormControl(
-    Label(LabelText("Username"), for_="username-input"),
-    Input(
-        type="text",
-        name="username",
-        id="username-input",
-        aria_invalid="true",
-        aria_describedby="username-error",
-        cls="uk-input uk-form-danger w-full",
-    ),
-    P(
-        "This username is unavailable.",
-        id="username-error",
-        role="alert",
-        cls="text-sm text-error mt-1",
-    ),
+# ✅ With error message (auto aria-invalid="true" + aria-describedby + error div)
+LabelInput(
+    "Username",
+    type="text",
+    name="username",
+    error_text="This username is unavailable.",
 )
 
 # ✅ Required field indicator
-FormControl(
-    Label(
-        LabelText("Full Name "),
-        Span("*", cls="text-error", aria_label="required"),
-        for_="name-input",
-    ),
-    Input(
-        type="text",
-        name="name",
-        id="name-input",
-        required=True,
-        aria_required="true",
-        cls="uk-input w-full",
-    ),
+LabelInput(
+    "Full Name",
+    type="text",
+    name="name",
+    required=True,
 )
+
+# ✅ Textarea with help text
+LabelTextArea(
+    "Description",
+    name="description",
+    help_text="Describe what needs to be done in detail.",
+)
+
+# ✅ Select with label
+LabelSelect(
+    Option("Low", value="low"),
+    Option("Medium", value="medium", selected=True),
+    Option("High", value="high"),
+    label="Priority",
+    name="priority",
+)
+
+# Standalone inputs (no label needed, e.g., inside custom layouts)
+from ui.forms import Input, Select, Textarea
+Input(type="text", name="search", placeholder="Search...", aria_label="Search")
 ```
 
-**Key ARIA Attributes:**
-- **aria-required:** Indicates required field (in addition to HTML `required`)
-- **aria-invalid:** Marks field with validation error
-- **aria-describedby:** Links help text or error message to input
-- **role="alert":** Screen reader announces error immediately
+**Built-in ARIA Features of LabelInput/LabelTextArea/LabelSelect:**
+- **Label association:** Automatic `<label>` wrapping -- no manual `for_=` or `id=` needed
+- **help_text=:** Renders a help div and adds `aria-describedby` pointing to it
+- **error_text=:** Renders an error div, adds `aria-describedby` pointing to it, and sets `aria-invalid="true"`
+- **required=True:** Adds HTML `required` attribute
+- **role="alert":** Error text divs are announced immediately by screen readers
 
 ### Pattern 3: Modal Dialog Accessibility
 
@@ -824,36 +808,24 @@ def _domain_menu_item(domain: ProfileDomainItem, is_active: bool) -> "FT":
 **Accessible form:**
 
 ```python
-FormControl(
-    Label(
-        LabelText("Title "),
-        Span("*", cls="text-error", aria_label="required"),
-        for_="task-title-input",
-    ),
-    Input(
-        type="text",
-        name="title",
-        id="task-title-input",
-        placeholder="What needs to be done?",
-        required=True,
-        aria_required="true",
-        aria_describedby="title-help",
-        maxlength=200,
-        autofocus=True,
-        cls="uk-input w-full",
-    ),
-    P(
-        "Enter a clear, actionable task title (max 200 characters).",
-        id="title-help",
-        cls="text-sm text-base-content/70 mt-1",
-    ),
+from ui.forms import LabelInput
+
+LabelInput(
+    "Title",
+    type="text",
+    name="title",
+    placeholder="What needs to be done?",
+    required=True,
+    maxlength=200,
+    autofocus=True,
+    help_text="Enter a clear, actionable task title (max 200 characters).",
 )
 ```
 
 **Why accessible:**
-- **for attribute:** Links label to input
-- **aria-required:** Announces required field
-- **aria-describedby:** Links help text to input
+- **LabelInput:** Automatically associates label with input (no manual `for_=`/`id=` wiring)
+- **required=True:** Adds HTML `required` attribute
+- **help_text=:** Automatically adds `aria-describedby` linking to the help text div
 - **autofocus:** Keyboard users start typing immediately
 - **maxlength:** Prevents over-length input client-side
 
@@ -884,11 +856,9 @@ Button(
 # ❌ BAD: Input without label (screen reader doesn't know purpose)
 Input(type="text", name="email", placeholder="Email")
 
-# ✅ GOOD: Proper label association
-FormControl(
-    Label(LabelText("Email Address"), for_="email-input"),
-    Input(type="email", name="email", id="email-input"),
-)
+# ✅ GOOD: LabelInput handles label association automatically
+from ui.forms import LabelInput
+LabelInput("Email Address", type="email", name="email")
 ```
 
 ### Mistake 3: Decorative Icons Without aria-hidden
