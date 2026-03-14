@@ -211,7 +211,7 @@ ACTION: Using your understanding of what this commit changed and why, determine 
 # Use Python for reliable JSON escaping
 python3 -c "
 import json, sys
-print(json.dumps({'systemMessage': sys.argv[1]}))
+print(json.dumps({'additionalContext': sys.argv[1]}))
 " "$MSG"
 
 exit 0

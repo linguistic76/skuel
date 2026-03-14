@@ -22,11 +22,11 @@ if [ ! -f "$SCRIPT_PATH" ]; then
     exit 0
 fi
 
-# Change to app directory for poetry to work
+# Change to app directory for uv to work
 cd "$PROJECT_ROOT/app" || exit 0
 
 # Run the docs check (quiet mode for hooks)
-poetry run python "$SCRIPT_PATH" --since HEAD --quiet
+uv run python "$SCRIPT_PATH" --since HEAD --quiet
 
 # Always exit 0 - don't block commits
 exit 0

@@ -63,7 +63,7 @@ def create_tasks_routes(app, rt, services):
 | Pathways | `pathways_routes.py` | `pathways_api.py` | `pathways_ui.py` |
 | Reports | `reports_routes.py` | `reports_api.py` | `reports_ui.py` |
 | Askesis | `askesis_routes.py` | `askesis_api.py` | `askesis_ui.py` |
-| Context | `context_routes.py` | `context_aware_api.py` | `context_aware_ui.py` |
+| Context | `context_routes.py` | `context_aware_api.py` | *(none — profile page)* |
 
 ## Standalone Routes (No Three-Tier)
 

@@ -13,13 +13,13 @@ set -e
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-# Only run if poetry.lock changed
-if git diff-tree -r --name-only --no-commit-id ORIG_HEAD HEAD | grep -q "poetry.lock"; then
+# Only run if uv.lock changed
+if git diff-tree -r --name-only --no-commit-id ORIG_HEAD HEAD | grep -q "uv.lock"; then
     echo ""
     echo -e "${YELLOW}🔍 Detecting library changes...${NC}"
 
     # Run detection script
-    poetry run python scripts/detect_library_changes.py --from-ref ORIG_HEAD || true
+    uv run python scripts/detect_library_changes.py --from-ref ORIG_HEAD || true
 fi
 
 exit 0
