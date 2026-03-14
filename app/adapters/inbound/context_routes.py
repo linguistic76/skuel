@@ -2,27 +2,17 @@
 Context Routes - Configuration-Driven Registration
 =================================================
 
-Wires Context-Aware API and UI routes using DomainRouteConfig pattern.
-
-Benefits:
-- Consistent with other domain route files
-- Soft-fail service validation
-- Minimal boilerplate
-- Clean separation of concerns
-
-Version: 2.0 (Migrated to DomainRouteConfig pattern)
+Wires Context-Aware API routes using DomainRouteConfig pattern.
 """
 
 from adapters.inbound.context_aware_api import create_context_aware_api_routes
-from adapters.inbound.context_aware_ui import create_context_aware_ui_routes
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 
-# Configuration for Context routes
 CONTEXT_CONFIG = DomainRouteConfig(
     domain_name="context",
-    primary_service_attr="context_service",  # services.context_service
+    primary_service_attr="context_service",
     api_factory=create_context_aware_api_routes,
-    ui_factory=create_context_aware_ui_routes,
+    ui_factory=None,  # No UI routes — profile page handles context display
     api_related_services={},
 )
 
