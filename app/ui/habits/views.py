@@ -283,7 +283,7 @@ class HabitsViewComponents:
                         "Edit",
                         variant=ButtonT.outline,
                         size=Size.xs,
-                        cls="uk-button-primary",
+                        cls="uk-btn-primary",
                         **{
                             "hx-get": f"/habits/{uid}/edit",
                             "hx-target": "#modal",

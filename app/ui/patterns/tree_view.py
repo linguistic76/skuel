@@ -174,7 +174,7 @@ def _render_tree_node(
                 "x-model": "selected",
                 ":value": f"'{uid}'",
             },
-            cls="uk-checkbox mr-2",
+            cls="uk-checkbox cursor-pointer mr-2",
         )
 
     # Title (inline editable)

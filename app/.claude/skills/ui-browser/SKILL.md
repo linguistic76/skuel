@@ -297,7 +297,7 @@ Script(src="/static/vendor/alpinejs/alpine.3.14.8.min.js", defer=True)
 
 ```html
 <div x-data="{ open: false }">
-  <button @click="open = true" class="uk-button uk-button-primary">Open</button>
+  <button @click="open = true" class="uk-btn uk-btn-primary">Open</button>
 
   <div x-show="open"
        x-transition:enter="transition ease-out duration-200"
@@ -311,7 +311,7 @@ Script(src="/static/vendor/alpinejs/alpine.3.14.8.min.js", defer=True)
     <div class="uk-modal-dialog uk-modal-body" @click.stop>
       <h3 class="font-bold text-lg">Modal</h3>
       <div class="uk-modal-footer uk-text-right">
-        <button @click="open = false" class="uk-button uk-button-default">Close</button>
+        <button @click="open = false" class="uk-btn uk-btn-default">Close</button>
       </div>
     </div>
   </div>

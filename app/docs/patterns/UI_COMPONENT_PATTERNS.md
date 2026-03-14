@@ -799,7 +799,7 @@ def EmptyState(message: str, action_text: str = None, action_url: str = None) ->
 
 ```python
 # BAD: Redundant - Button wrapper already adds button classes
-Button("Click", cls="uk-button uk-button-primary")
+Button("Click", cls="uk-btn uk-btn-primary")
 
 # GOOD: Use the variant enum
 Button("Click", variant=ButtonT.primary)

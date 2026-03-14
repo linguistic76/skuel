@@ -177,7 +177,7 @@ ButtonLink(
 Div(
     "Delete Task",
     onclick="confirmDelete('task-123')",
-    cls="uk-button uk-button-danger",  # Looks like button, but not accessible
+    cls="uk-btn uk-btn-destructive",  # Looks like button, but not accessible
 )
 
 # ✅ GOOD: Div with ARIA and keyboard support
@@ -188,7 +188,7 @@ Div(
     onclick="confirmDelete('task-123')",
     onkeydown="if(event.key === 'Enter' || event.key === ' ') confirmDelete('task-123')",
     aria_label="Delete task: Buy groceries",
-    cls="uk-button uk-button-danger",
+    cls="uk-btn uk-btn-destructive",
 )
 ```
 
@@ -838,7 +838,7 @@ LabelInput(
 Div(
     "Delete",
     onclick="deleteTask()",
-    cls="uk-button uk-button-danger",
+    cls="uk-btn uk-btn-destructive",
 )
 
 # ✅ GOOD: Semantic button element

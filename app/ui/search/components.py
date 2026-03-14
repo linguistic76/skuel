@@ -248,7 +248,7 @@ def _render_entity_type_select() -> str:
     )
 
     return f"""
-    <select name="entity_type" class="uk-select uk-form-small w-full"
+    <select name="entity_type" class="uk-select uk-form-sm w-full"
             hx-get="/search/results"
             hx-trigger="change"
             hx-target="#search-results"
@@ -277,7 +277,7 @@ def _render_nous_select() -> str:
     ]
     options = "\n".join(f'<option value="{value}">{label}</option>' for value, label in sections)
     return f"""
-    <select name="nous_section" class="uk-select uk-form-small w-full"
+    <select name="nous_section" class="uk-select uk-form-sm w-full"
             hx-get="/search/results"
             hx-trigger="change"
             hx-target="#search-results"
@@ -305,7 +305,7 @@ def _render_sort_select() -> str:
     )
 
     return f"""
-    <select name="sort_order" class="uk-select uk-form-small w-full"
+    <select name="sort_order" class="uk-select uk-form-sm w-full"
             hx-get="/search/results"
             hx-trigger="change"
             hx-target="#search-results"
@@ -426,7 +426,7 @@ def _render_status_select() -> str:
     ]
     options = "\n".join(f'<option value="{value}">{label}</option>' for value, label in statuses)
     return f"""
-    <select name="status" class="uk-select uk-form-small w-full"
+    <select name="status" class="uk-select uk-form-sm w-full"
             hx-get="/search/results" hx-trigger="change" hx-target="#search-results"
             hx-include="{_get_hx_include("status")}">
         {options}
@@ -445,7 +445,7 @@ def _render_priority_select() -> str:
     ]
     options = "\n".join(f'<option value="{value}">{label}</option>' for value, label in priorities)
     return f"""
-    <select name="priority" class="uk-select uk-form-small w-full"
+    <select name="priority" class="uk-select uk-form-sm w-full"
             hx-get="/search/results" hx-trigger="change" hx-target="#search-results"
             hx-include="{_get_hx_include("priority")}">
         {options}
@@ -465,7 +465,7 @@ def _render_frequency_select() -> str:
     ]
     options = "\n".join(f'<option value="{value}">{label}</option>' for value, label in frequencies)
     return f"""
-    <select name="frequency" class="uk-select uk-form-small w-full"
+    <select name="frequency" class="uk-select uk-form-sm w-full"
             hx-get="/search/results" hx-trigger="change" hx-target="#search-results"
             hx-include="{_get_hx_include("frequency")}">
         {options}
@@ -485,7 +485,7 @@ def _render_event_type_select() -> str:
     ]
     options = "\n".join(f'<option value="{value}">{label}</option>' for value, label in event_types)
     return f"""
-    <select name="event_type" class="uk-select uk-form-small w-full"
+    <select name="event_type" class="uk-select uk-form-sm w-full"
             hx-get="/search/results" hx-trigger="change" hx-target="#search-results"
             hx-include="{_get_hx_include("event_type")}">
         {options}
@@ -504,7 +504,7 @@ def _render_urgency_select() -> str:
     ]
     options = "\n".join(f'<option value="{value}">{label}</option>' for value, label in urgencies)
     return f"""
-    <select name="urgency" class="uk-select uk-form-small w-full"
+    <select name="urgency" class="uk-select uk-form-sm w-full"
             hx-get="/search/results" hx-trigger="change" hx-target="#search-results"
             hx-include="{_get_hx_include("urgency")}">
         {options}
@@ -523,7 +523,7 @@ def _render_strength_select() -> str:
     ]
     options = "\n".join(f'<option value="{value}">{label}</option>' for value, label in strengths)
     return f"""
-    <select name="strength" class="uk-select uk-form-small w-full"
+    <select name="strength" class="uk-select uk-form-sm w-full"
             hx-get="/search/results" hx-trigger="change" hx-target="#search-results"
             hx-include="{_get_hx_include("strength")}">
         {options}
@@ -540,7 +540,7 @@ def _render_sel_select() -> str:
             f'<option value="{cat.value}">{icon} {cat.value.replace("_", " ").title()}</option>\n'
         )
     return f"""
-    <select name="sel_category" class="uk-select uk-form-small w-full"
+    <select name="sel_category" class="uk-select uk-form-sm w-full"
             hx-get="/search/results" hx-trigger="change" hx-target="#search-results"
             hx-include="{_get_hx_include("sel_category")}">
         {options}
@@ -554,7 +554,7 @@ def _render_learning_level_select() -> str:
     for level in LearningLevel:
         options += f'<option value="{level.value}">{level.value.capitalize()}</option>\n'
     return f"""
-    <select name="learning_level" class="uk-select uk-form-small w-full"
+    <select name="learning_level" class="uk-select uk-form-sm w-full"
             hx-get="/search/results" hx-trigger="change" hx-target="#search-results"
             hx-include="{_get_hx_include("learning_level")}">
         {options}
@@ -569,7 +569,7 @@ def _render_content_type_select() -> str:
         icon = get_content_icon(ctype.value)
         options += f'<option value="{ctype.value}">{icon} {ctype.value.capitalize()}</option>\n'
     return f"""
-    <select name="content_type" class="uk-select uk-form-small w-full"
+    <select name="content_type" class="uk-select uk-form-sm w-full"
             hx-get="/search/results" hx-trigger="change" hx-target="#search-results"
             hx-include="{_get_hx_include("content_type")}">
         {options}
@@ -584,7 +584,7 @@ def _render_educational_level_select() -> str:
         icon = get_educational_icon(level.value)
         options += f'<option value="{level.value}">{icon} {level.value.replace("_", " ").title()}</option>\n'
     return f"""
-    <select name="educational_level" class="uk-select uk-form-small w-full"
+    <select name="educational_level" class="uk-select uk-form-sm w-full"
             hx-get="/search/results" hx-trigger="change" hx-target="#search-results"
             hx-include="{_get_hx_include("educational_level")}">
         {options}
@@ -688,7 +688,7 @@ def _render_active_filter_badges() -> str:
 
             <!-- Clear All Button -->
             <button type="button"
-                    class="uk-btn uk-btn-default uk-btn-small text-error"
+                    class="uk-btn uk-btn-default uk-btn-sm text-error"
                     x-on:click="clearAllFilters()"
                     x-show="hasActiveFilters">
                 Clear All
@@ -745,7 +745,7 @@ def _render_results_sort_dropdown() -> Any:
     return Div(
         Span("Sort:", cls="text-sm text-muted-foreground mr-2"),
         NotStr(f"""
-        <select name="sort_order" id="sort-order-results" class="uk-select uk-form-small"
+        <select name="sort_order" id="sort-order-results" class="uk-select uk-form-sm"
                 hx-get="/search/results"
                 hx-trigger="change"
                 hx-target="#search-results"
@@ -985,13 +985,13 @@ def _render_pagination(response: SearchResponse) -> Any:
                 hx_get="/search/results",
                 hx_target="#search-results",
                 hx_include="[name='query'], [name='domain'], [name='sel_category'], [name='learning_level'], [name='content_type'], [name='educational_level']",
-                cls=f"uk-btn uk-btn-small {'uk-disabled' if current_page <= 1 else 'uk-btn-default'}",
+                cls=f"uk-btn uk-btn-sm {'uk-disabled' if current_page <= 1 else 'uk-btn-default'}",
             ),
             # Page numbers (show current and surrounding pages)
             *[
                 A(
                     str(page),
-                    cls=f"uk-btn uk-btn-small {'uk-button-primary' if page == current_page else 'uk-btn-default'}",
+                    cls=f"uk-btn uk-btn-sm {'uk-btn-primary' if page == current_page else 'uk-btn-default'}",
                 )
                 for page in range(max(1, current_page - 2), min(total_pages + 1, current_page + 3))
             ],
@@ -1002,7 +1002,7 @@ def _render_pagination(response: SearchResponse) -> Any:
                 hx_get="/search/results",
                 hx_target="#search-results",
                 hx_include="[name='query'], [name='domain'], [name='sel_category'], [name='learning_level'], [name='content_type'], [name='educational_level']",
-                cls=f"uk-btn uk-btn-small {'uk-disabled' if not response.has_more_pages() else 'uk-btn-default'}",
+                cls=f"uk-btn uk-btn-sm {'uk-disabled' if not response.has_more_pages() else 'uk-btn-default'}",
             ),
             cls="flex justify-center gap-1",
         ),

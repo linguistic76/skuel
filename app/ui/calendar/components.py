@@ -631,7 +631,7 @@ def create_view_switcher(current_view: str, target_date: date) -> Div:
         if is_active:
             # Active view - styled span (not clickable)
             buttons.append(
-                Span(label, cls=f"uk-btn uk-btn-small uk-button-primary cursor-default {cls_extra}")
+                Span(label, cls=f"uk-btn uk-btn-sm uk-btn-primary cursor-default {cls_extra}")
             )
         else:
             # Inactive view - use link

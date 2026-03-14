@@ -236,17 +236,17 @@ def create_timeline_view(
                     "Zoom: ",
                     Span(
                         "+",
-                        cls="uk-btn uk-btn-default uk-btn-small",
+                        cls="uk-btn uk-btn-default uk-btn-sm",
                         **{"@click": "zoomIn()"},
                     ),
                     Span(
                         "-",
-                        cls="uk-btn uk-btn-default uk-btn-small",
+                        cls="uk-btn uk-btn-default uk-btn-sm",
                         **{"@click": "zoomOut()"},
                     ),
                     Span(
                         "Fit",
-                        cls="uk-btn uk-btn-default uk-btn-small",
+                        cls="uk-btn uk-btn-default uk-btn-sm",
                         **{"@click": "fit()"},
                     ),
                     cls="flex items-center gap-1 text-sm",
@@ -385,21 +385,21 @@ def create_gantt_view(
             Div(
                 Span(
                     "Day",
-                    cls="uk-btn uk-btn-small",
-                    **{":class": "viewMode === 'Day' ? 'uk-button-primary' : 'uk-button-default'"},
+                    cls="uk-btn uk-btn-sm",
+                    **{":class": "viewMode === 'Day' ? 'uk-btn-primary' : 'uk-btn-default'"},
                     **{"@click": "setViewMode('Day')"},
                 ),
                 Span(
                     "Week",
-                    cls="uk-btn uk-btn-small",
-                    **{":class": "viewMode === 'Week' ? 'uk-button-primary' : 'uk-button-default'"},
+                    cls="uk-btn uk-btn-sm",
+                    **{":class": "viewMode === 'Week' ? 'uk-btn-primary' : 'uk-btn-default'"},
                     **{"@click": "setViewMode('Week')"},
                 ),
                 Span(
                     "Month",
-                    cls="uk-btn uk-btn-small",
+                    cls="uk-btn uk-btn-sm",
                     **{
-                        ":class": "viewMode === 'Month' ? 'uk-button-primary' : 'uk-button-default'"
+                        ":class": "viewMode === 'Month' ? 'uk-btn-primary' : 'uk-btn-default'"
                     },
                     **{"@click": "setViewMode('Month')"},
                 ),

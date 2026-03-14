@@ -91,7 +91,7 @@ def DomainFilterControls(domain: str, total_count: int) -> Div:
                 label,
                 variant=ButtonT.ghost,
                 size=Size.sm,
-                x_bind_class=f"{{'uk-button-primary': filterPreset === '{value}', 'uk-button-ghost': filterPreset !== '{value}'}}",
+                x_bind_class=f"{{'uk-btn-primary': filterPreset === '{value}', 'uk-btn-ghost': filterPreset !== '{value}'}}",
                 x_on_click=f"filterPreset = '{value}'",
             )
         )
@@ -103,7 +103,7 @@ def DomainFilterControls(domain: str, total_count: int) -> Div:
                 Label("Sort by:", cls="text-sm font-medium text-foreground mr-2"),
                 Select(
                     *[Option(label, value=value) for value, label in sorts],
-                    cls="uk-select uk-form-small",
+                    cls="uk-select uk-form-sm",
                     x_model="sortBy",
                 ),
                 cls="flex items-center gap-2",

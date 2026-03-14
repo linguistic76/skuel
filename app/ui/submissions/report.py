@@ -101,7 +101,7 @@ def render_submission_history_row(item: dict) -> Any:
             A(
                 "View",
                 href=f"/submissions/{uid}",
-                cls="uk-btn uk-btn-default uk-btn-small ml-3",
+                cls="uk-btn uk-btn-default uk-btn-sm ml-3",
             ),
             cls="flex items-center gap-4",
         ),
@@ -164,7 +164,7 @@ def render_report_card(assessment: Any) -> Any:
                 A(
                     "View Full",
                     href=f"/submissions/{uid}",
-                    cls="uk-btn uk-btn-default uk-btn-small mt-2",
+                    cls="uk-btn uk-btn-default uk-btn-sm mt-2",
                 ),
                 cls="p-4",
             ),

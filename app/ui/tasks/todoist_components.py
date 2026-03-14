@@ -194,7 +194,7 @@ class TodoistTaskComponents:
         checkbox = Input(
             type="checkbox",
             checked=is_completed,
-            cls="uk-checkbox",
+            cls="uk-checkbox cursor-pointer",
             hx_post=f"/tasks/{task.uid}/toggle",
             hx_target=f"#task-{task.uid}",
             hx_swap="outerHTML",
