@@ -223,10 +223,18 @@ disallow_any_generics = false  # Allow untyped generics in models
 
 [[tool.mypy.overrides]]
 # Utility modules - lenient for generic helper functions
-module = ["core.utils.*", "ui.*"]
+module = ["core.utils.*"]
 disallow_untyped_defs = false
 warn_return_any = false
 disallow_any_generics = false
+
+[[tool.mypy.overrides]]
+# UI modules - lenient; monsterui has no py.typed marker
+module = ["ui.*"]
+disallow_untyped_defs = false
+warn_return_any = false
+disallow_any_generics = false
+disable_error_code = ["import-untyped"]
 
 [[tool.mypy.overrides]]
 # Events and protocols - lenient (auto-generated patterns)
