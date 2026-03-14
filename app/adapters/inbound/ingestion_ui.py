@@ -8,6 +8,8 @@ Security:
 - Dashboard requires admin role
 """
 
+from typing import Any
+
 from fasthtml.common import Div, Form, NotStr, P, Pre
 from starlette.requests import Request
 
@@ -15,7 +17,7 @@ from adapters.inbound.auth import make_service_getter, require_admin
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonT
 from ui.cards import Card, CardBody
-from ui.forms import FormControl, Input, Label
+from ui.forms import LabelInput
 from ui.layouts.base_page import BasePage
 from ui.patterns import PageHeader, SectionHeader
 
@@ -51,19 +53,15 @@ def create_ingestion_ui_routes(
         label_text: str, input_id: str, placeholder: str, input_type: str = "text", value: str = ""
     ):
         """Build a consistent form group."""
-        input_attrs = {
+        kwargs: dict[str, Any] = {
             "type": input_type,
             "name": input_id,
             "id": input_id,
             "placeholder": placeholder,
         }
         if value:
-            input_attrs["value"] = value
-        return FormControl(
-            Label(label_text, _for=input_id),
-            Input(**input_attrs),
-            cls="w-full",
-        )
+            kwargs["value"] = value
+        return LabelInput(label_text, cls="space-y-2 w-full", **kwargs)
 
     def _ingestion_card(
         title: str, description: str, form_groups: list, button_text: str, onclick: str

@@ -10,7 +10,7 @@ from typing import Any
 from fasthtml.common import Div, Form, Option, P
 
 from ui.buttons import Button, ButtonT
-from ui.forms import FormControl, Input, Label, Radio, Select, Textarea
+from ui.forms import Label, LabelInput, LabelSelect, LabelTextArea, Radio, Textarea
 
 
 def render_exercise_form(groups: list[dict[str, Any]], exercise: Any = None) -> Div:
@@ -69,34 +69,34 @@ def render_exercise_form(groups: list[dict[str, Any]], exercise: Any = None) -> 
 
     return Div(
         Form(
-            FormControl(
-                Label("Name", cls="font-medium"),
-                Input(
-                    type="text",
-                    name="name",
-                    value=name_val,
-                    placeholder="e.g., Daily Reflection, Principle Mining",
-                    required=True,
-                ),
-                cls="mb-4",
+            LabelInput(
+                "Name",
+                lbl_cls="font-medium",
+                type="text",
+                name="name",
+                value=name_val,
+                placeholder="e.g., Daily Reflection, Principle Mining",
+                required=True,
+                cls="space-y-2 mb-4",
             ),
-            FormControl(
-                Label("Instructions (visible to students & LLM)", cls="font-medium"),
-                Textarea(
-                    instructions_val,
-                    name="instructions",
-                    placeholder="Write the instructions for students and the LLM...",
-                    cls="h-40",
-                    required=True,
-                ),
-                cls="mb-4",
+            LabelTextArea(
+                "Instructions (visible to students & LLM)",
+                value=instructions_val,
+                lbl_cls="font-medium",
+                input_cls="h-40",
+                name="instructions",
+                placeholder="Write the instructions for students and the LLM...",
+                cls="space-y-2 mb-4",
+                required=True,
             ),
-            FormControl(
-                Label("LLM Model", cls="font-medium"),
-                Select(*model_options, name="model"),
-                cls="mb-4",
+            LabelSelect(
+                *model_options,
+                label="LLM Model",
+                lbl_cls="font-medium",
+                name="model",
+                cls="space-y-2 mb-4",
             ),
-            FormControl(
+            Div(
                 Label("Scope", cls="font-medium"),
                 Div(
                     Label(
@@ -121,26 +121,27 @@ def render_exercise_form(groups: list[dict[str, Any]], exercise: Any = None) -> 
                     ),
                     cls="flex gap-6",
                 ),
-                cls="mb-4",
+                cls="space-y-2 mb-4",
             ),
             Div(
-                FormControl(
-                    Label("Group", cls="font-medium"),
-                    Select(*group_options, name="group_uid"),
-                    cls="mb-3",
+                LabelSelect(
+                    *group_options,
+                    label="Group",
+                    lbl_cls="font-medium",
+                    name="group_uid",
+                    cls="space-y-2 mb-3",
                 ),
-                FormControl(
-                    Label("Due Date", cls="font-medium"),
-                    Input(
-                        type="date",
-                        name="due_date",
-                        value=due_date_val,
-                    ),
-                    cls="mb-3",
+                LabelInput(
+                    "Due Date",
+                    lbl_cls="font-medium",
+                    type="date",
+                    name="due_date",
+                    value=due_date_val,
+                    cls="space-y-2 mb-3",
                 ),
                 **{"x-show": "scope === 'assigned'"},
             ),
-            FormControl(
+            Div(
                 Div(
                     P(
                         "Context Notes (optional)",
@@ -164,7 +165,7 @@ def render_exercise_form(groups: list[dict[str, Any]], exercise: Any = None) -> 
                     ),
                     **{"x-show": "notesOpen"},
                 ),
-                cls="mb-4",
+                cls="space-y-2 mb-4",
             ),
             Div(
                 Button(

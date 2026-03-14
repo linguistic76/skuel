@@ -7,11 +7,12 @@ plus the inline form template renderer.
 
 from ui.forms.components import (
     Checkbox,
-    FormControl,
     Input,
-    InputT,
     Label,
-    LabelText,
+    LabelCheckbox,
+    LabelInput,
+    LabelSelect,
+    LabelTextArea,
     Radio,
     Range,
     Select,
@@ -22,11 +23,12 @@ from ui.forms.inline_form_template import render_inline_form_template
 
 __all__ = [
     "Checkbox",
-    "FormControl",
     "Input",
-    "InputT",
     "Label",
-    "LabelText",
+    "LabelCheckbox",
+    "LabelInput",
+    "LabelSelect",
+    "LabelTextArea",
     "Radio",
     "Range",
     "Select",

@@ -44,7 +44,7 @@ from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonLink, ButtonT
 from ui.cards import Card, CardBody
 from ui.feedback import Alert, AlertT, Badge, BadgeT
-from ui.forms import Checkbox, FormControl, Input, Label, Select, Textarea
+from ui.forms import Checkbox, Input, Label, LabelInput, LabelSelect, LabelTextArea
 from ui.layout import Size
 from ui.patterns.page_header import PageHeader
 from ui.patterns.sidebar import SidebarItem, SidebarPage
@@ -274,33 +274,29 @@ def create_activity_review_ui_routes(
         snapshot_form = Card(
             H3("Load Activity Snapshot", cls="font-semibold mb-4"),
             Form(
-                FormControl(
-                    Label("User UID"),
-                    Input(
-                        type="text",
-                        name="subject_uid",
-                        value=subject_uid,
-                        placeholder="user_name",
-                        id="snapshot-subject-uid",
-                    ),
-                    cls="mb-3",
+                LabelInput(
+                    "User UID",
+                    type="text",
+                    name="subject_uid",
+                    value=subject_uid,
+                    placeholder="user_name",
+                    id="snapshot-subject-uid",
+                    cls="space-y-2 mb-3",
                 ),
-                FormControl(
-                    Label("Time Period"),
-                    Select(
-                        Option("Last 7 days", value="7d", selected=(time_period == "7d")),
-                        Option("Last 14 days", value="14d", selected=(time_period == "14d")),
-                        Option("Last 30 days", value="30d", selected=(time_period == "30d")),
-                        Option("Last 90 days", value="90d", selected=(time_period == "90d")),
-                        name="time_period",
-                        id="snapshot-time-period",
-                    ),
-                    cls="mb-3",
+                LabelSelect(
+                    Option("Last 7 days", value="7d", selected=(time_period == "7d")),
+                    Option("Last 14 days", value="14d", selected=(time_period == "14d")),
+                    Option("Last 30 days", value="30d", selected=(time_period == "30d")),
+                    Option("Last 90 days", value="90d", selected=(time_period == "90d")),
+                    label="Time Period",
+                    name="time_period",
+                    id="snapshot-time-period",
+                    cls="space-y-2 mb-3",
                 ),
-                FormControl(
+                Div(
                     Label("Domains"),
                     Div(*domain_checkboxes, cls="flex flex-wrap gap-4 mt-1"),
-                    cls="mb-4",
+                    cls="space-y-2 mb-4",
                 ),
                 Div(
                     Button(
@@ -337,14 +333,12 @@ def create_activity_review_ui_routes(
                 Input(
                     type="hidden", name="time_period", id="feedback-time-period", value=time_period
                 ),
-                FormControl(
-                    Label("Feedback"),
-                    Textarea(
-                        name="feedback_text",
-                        placeholder="Write your qualitative feedback here. What patterns do you notice? What recommendations do you have?",
-                        cls="h-40",
-                    ),
-                    cls="mb-4",
+                LabelTextArea(
+                    "Feedback",
+                    name="feedback_text",
+                    placeholder="Write your qualitative feedback here. What patterns do you notice? What recommendations do you have?",
+                    input_cls="h-40",
+                    cls="space-y-2 mb-4",
                 ),
                 Div(
                     Button(

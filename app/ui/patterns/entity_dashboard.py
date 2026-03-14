@@ -47,7 +47,7 @@ from fasthtml.common import (
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonLink, ButtonT
 from ui.cards import Card
-from ui.forms import Input, InputT, Select
+from ui.forms import Input, Select
 from ui.layout import Size
 from ui.layouts.base_page import build_head
 from ui.layouts.navbar import create_navbar, create_navbar_for_request
@@ -395,7 +395,6 @@ class SharedUIComponents:
                 Option("All Categories", value="all", selected=True),
                 *[Option(cat.title(), value=cat) for cat in categories],
                 name="category",
-                variant=InputT.bordered,
                 hx_get=filter_endpoint,
                 hx_target=target_id,
                 hx_trigger="change",
@@ -432,7 +431,6 @@ class SharedUIComponents:
                     type="text",
                     name="query",
                     placeholder=placeholder,
-                    variant=InputT.bordered,
                     hx_post=search_endpoint,
                     hx_target=target_id,
                     hx_trigger="keyup changed delay:300ms",

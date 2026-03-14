@@ -17,7 +17,7 @@ from typing import Any
 from fasthtml.common import H3, Div, Form, Option, P
 
 from ui.buttons import Button, ButtonT
-from ui.forms.components import Checkbox, FormControl, Input, Label, Select, Textarea
+from ui.forms.components import Checkbox, Input, Label, Select, Textarea
 
 
 def _build_field(spec: dict[str, Any]) -> Div:
@@ -76,7 +76,7 @@ def _build_field(spec: dict[str, Any]) -> Div:
     if help_text:
         children.append(P(help_text, cls="text-sm text-muted-foreground mt-1"))
 
-    return FormControl(*children)
+    return Div(*children, cls="space-y-2")
 
 
 def render_inline_form_template(

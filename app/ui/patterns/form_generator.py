@@ -30,7 +30,7 @@ from core.ports import (
 )
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonT
-from ui.forms import Checkbox, FormControl, Input, Label, Select, Textarea
+from ui.forms import Checkbox, Input, Label, Select, Textarea
 
 logger = get_logger("skuel.components.form_generator")
 
@@ -446,7 +446,7 @@ class FormGenerator:
                 style="display:none;",
             )
         )
-        return FormControl(*children)
+        return Div(*children, cls="space-y-2")
 
     @staticmethod
     def _build_widget(

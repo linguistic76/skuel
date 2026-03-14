@@ -1277,78 +1277,64 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
 
         from fasthtml.common import Form, Option
 
-        from ui.forms import FormControl, Input, Label, Select, Textarea
+        from ui.forms import LabelInput, LabelSelect, LabelTextArea
 
         return Card(
             CardBody(
                 H2("Edit Habit", cls="text-xl font-bold mb-4"),
                 Form(
                     # Name
-                    FormControl(
-                        Label("Name"),
-                        Input(
-                            type="text",
-                            name="name",
-                            value=name,
-                            required=True,
-                        ),
-                        cls="mb-3",
+                    LabelInput(
+                        "Name",
+                        type="text",
+                        name="name",
+                        value=name,
+                        required=True,
+                        cls="space-y-2 mb-3",
                     ),
                     # Description
-                    FormControl(
-                        Label("Description"),
-                        Textarea(
-                            description,
-                            name="description",
-                            rows="2",
-                        ),
-                        cls="mb-3",
+                    LabelTextArea(
+                        "Description",
+                        value=description,
+                        name="description",
+                        rows="2",
+                        cls="space-y-2 mb-3",
                     ),
                     # Cue
-                    FormControl(
-                        Label("Cue (trigger)"),
-                        Input(
-                            type="text",
-                            name="cue",
-                            value=cue,
-                            placeholder="What triggers this habit?",
-                        ),
-                        cls="mb-3",
+                    LabelInput(
+                        "Cue (trigger)",
+                        type="text",
+                        name="cue",
+                        value=cue,
+                        placeholder="What triggers this habit?",
+                        cls="space-y-2 mb-3",
                     ),
                     # Routine
-                    FormControl(
-                        Label("Routine (action)"),
-                        Input(
-                            type="text",
-                            name="routine",
-                            value=routine,
-                            placeholder="What do you do?",
-                        ),
-                        cls="mb-3",
+                    LabelInput(
+                        "Routine (action)",
+                        type="text",
+                        name="routine",
+                        value=routine,
+                        placeholder="What do you do?",
+                        cls="space-y-2 mb-3",
                     ),
                     # Reward
-                    FormControl(
-                        Label("Reward"),
-                        Input(
-                            type="text",
-                            name="reward",
-                            value=reward,
-                            placeholder="What's the benefit?",
-                        ),
-                        cls="mb-3",
+                    LabelInput(
+                        "Reward",
+                        type="text",
+                        name="reward",
+                        value=reward,
+                        placeholder="What's the benefit?",
+                        cls="space-y-2 mb-3",
                     ),
                     # Status
-                    FormControl(
-                        Label("Status"),
-                        Select(
-                            Option("Active", value="active", selected=(status == "active")),
-                            Option("Paused", value="paused", selected=(status == "paused")),
-                            Option(
-                                "Completed", value="completed", selected=(status == "completed")
-                            ),
-                            name="status",
-                        ),
-                        cls="mb-4",
+                    LabelSelect(
+                        Option("Active", value="active", selected=(status == "active")),
+                        Option("Paused", value="paused", selected=(status == "paused")),
+                        Option("Completed", value="completed", selected=(status == "completed")),
+                        label="Status",
+                        name="status",
+                        cls="space-y-2 mb-4",
                     ),
                     # Buttons
                     Div(

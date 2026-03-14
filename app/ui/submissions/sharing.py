@@ -19,7 +19,7 @@ from fasthtml.common import (
 from ui.buttons import Button, ButtonT
 from ui.cards import Card
 from ui.feedback import Badge, BadgeT
-from ui.forms import FormControl, Input, Label, Select
+from ui.forms import Label, LabelInput, LabelSelect, Select
 from ui.layout import Size
 from ui.modals import ModalBox
 
@@ -95,26 +95,22 @@ def render_share_modal(report_uid: str) -> Any:
                     ),
                     H3("Share Report", cls="font-bold text-lg mb-4"),
                     Form(
-                        FormControl(
-                            Label("User UID:"),
-                            Input(
-                                type="text",
-                                name="recipient_uid",
-                                placeholder="user_teacher",
-                                required=True,
-                            ),
-                            cls="mb-3",
+                        LabelInput(
+                            "User UID:",
+                            type="text",
+                            name="recipient_uid",
+                            placeholder="user_teacher",
+                            required=True,
+                            cls="space-y-2 mb-3",
                         ),
-                        FormControl(
-                            Label("Role:"),
-                            Select(
-                                Option("Viewer", value="viewer", selected=True),
-                                Option("Teacher", value="teacher"),
-                                Option("Peer", value="peer"),
-                                Option("Mentor", value="mentor"),
-                                name="role",
-                            ),
-                            cls="mb-4",
+                        LabelSelect(
+                            Option("Viewer", value="viewer", selected=True),
+                            Option("Teacher", value="teacher"),
+                            Option("Peer", value="peer"),
+                            Option("Mentor", value="mentor"),
+                            label="Role:",
+                            name="role",
+                            cls="space-y-2 mb-4",
                         ),
                         Div(
                             Button(

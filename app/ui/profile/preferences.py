@@ -16,7 +16,7 @@ from fasthtml.common import H1, H2, Div, Form, Option, P, Span
 from ui.buttons import Button, ButtonT
 from ui.cards import Card
 from ui.feedback import Alert, AlertT
-from ui.forms import Checkbox, FormControl, Input, Label, Select
+from ui.forms import Checkbox, Label, LabelInput, LabelSelect
 
 
 class UserPreferencesComponents:
@@ -95,35 +95,30 @@ class UserPreferencesComponents:
     def _render_learning_prefs_form(prefs: dict) -> Any:
         """Render learning preferences section"""
         return Form(
-            FormControl(
-                Label("Learning Level", cls="font-semibold"),
-                Select(name="learning_level")(
-                    Option(
-                        "Beginner",
-                        value="beginner",
-                        selected=prefs.get("learning_level") == "beginner",
-                    ),
-                    Option(
-                        "Intermediate",
-                        value="intermediate",
-                        selected=prefs.get("learning_level") == "intermediate",
-                    ),
-                    Option(
-                        "Advanced",
-                        value="advanced",
-                        selected=prefs.get("learning_level") == "advanced",
-                    ),
-                    Option(
-                        "Expert", value="expert", selected=prefs.get("learning_level") == "expert"
-                    ),
+            LabelSelect(
+                Option(
+                    "Beginner",
+                    value="beginner",
+                    selected=prefs.get("learning_level") == "beginner",
                 ),
-                P(
-                    "Your current skill level helps us recommend appropriate content",
-                    cls="text-sm text-muted-foreground mt-1",
+                Option(
+                    "Intermediate",
+                    value="intermediate",
+                    selected=prefs.get("learning_level") == "intermediate",
                 ),
-                cls="mb-4",
+                Option(
+                    "Advanced",
+                    value="advanced",
+                    selected=prefs.get("learning_level") == "advanced",
+                ),
+                Option("Expert", value="expert", selected=prefs.get("learning_level") == "expert"),
+                label="Learning Level",
+                lbl_cls="font-semibold",
+                name="learning_level",
+                help_text="Your current skill level helps us recommend appropriate content",
+                cls="space-y-2 mb-4",
             ),
-            FormControl(
+            Div(
                 Label("Preferred Learning Modalities", cls="font-semibold"),
                 Div(
                     Div(
@@ -164,7 +159,7 @@ class UserPreferencesComponents:
                     ),
                     cls="space-y-2",
                 ),
-                cls="mb-4",
+                cls="space-y-2 mb-4",
             ),
             id="learning-prefs-form",
             method="POST",
@@ -175,45 +170,47 @@ class UserPreferencesComponents:
     def _render_scheduling_prefs_form(prefs: dict) -> Any:
         """Render scheduling preferences section"""
         return Form(
-            FormControl(
-                Label("Preferred Time of Day", cls="font-semibold"),
-                Select(name="preferred_time_of_day")(
-                    Option(
-                        "Anytime",
-                        value="anytime",
-                        selected=prefs.get("preferred_time_of_day") == "anytime",
-                    ),
-                    Option(
-                        "Morning",
-                        value="morning",
-                        selected=prefs.get("preferred_time_of_day") == "morning",
-                    ),
-                    Option(
-                        "Afternoon",
-                        value="afternoon",
-                        selected=prefs.get("preferred_time_of_day") == "afternoon",
-                    ),
-                    Option(
-                        "Evening",
-                        value="evening",
-                        selected=prefs.get("preferred_time_of_day") == "evening",
-                    ),
-                    Option(
-                        "Night",
-                        value="night",
-                        selected=prefs.get("preferred_time_of_day") == "night",
-                    ),
+            LabelSelect(
+                Option(
+                    "Anytime",
+                    value="anytime",
+                    selected=prefs.get("preferred_time_of_day") == "anytime",
                 ),
-                cls="mb-4",
+                Option(
+                    "Morning",
+                    value="morning",
+                    selected=prefs.get("preferred_time_of_day") == "morning",
+                ),
+                Option(
+                    "Afternoon",
+                    value="afternoon",
+                    selected=prefs.get("preferred_time_of_day") == "afternoon",
+                ),
+                Option(
+                    "Evening",
+                    value="evening",
+                    selected=prefs.get("preferred_time_of_day") == "evening",
+                ),
+                Option(
+                    "Night",
+                    value="night",
+                    selected=prefs.get("preferred_time_of_day") == "night",
+                ),
+                label="Preferred Time of Day",
+                lbl_cls="font-semibold",
+                name="preferred_time_of_day",
+                cls="space-y-2 mb-4",
             ),
-            FormControl(
-                Label("Available Minutes Daily", cls="font-semibold"),
-                Input(
+            Div(
+                LabelInput(
+                    "Available Minutes Daily",
+                    lbl_cls="font-semibold",
                     type="number",
                     name="available_minutes_daily",
                     value=prefs.get("available_minutes_daily", 60),
                     min=0,
                     max=1440,
+                    cls="space-y-2",
                 ),
                 P(
                     f"{prefs.get('available_minutes_daily', 60)} minutes = {prefs.get('available_minutes_daily', 60) / 60:.1f} hours",
@@ -240,25 +237,23 @@ class UserPreferencesComponents:
                     Label("Enable Reminders", _for="enable_reminders", cls="ml-2 font-semibold"),
                     cls="flex items-center mb-4",
                 ),
-                FormControl(
-                    Label("Reminder Minutes Before", cls="font-semibold"),
-                    Input(
-                        type="number",
-                        name="reminder_minutes_before",
-                        value=prefs.get("reminder_minutes_before", 15),
-                        min=0,
-                        max=1440,
-                    ),
-                    cls="mb-4",
+                LabelInput(
+                    "Reminder Minutes Before",
+                    lbl_cls="font-semibold",
+                    type="number",
+                    name="reminder_minutes_before",
+                    value=prefs.get("reminder_minutes_before", 15),
+                    min=0,
+                    max=1440,
+                    cls="space-y-2 mb-4",
                 ),
-                FormControl(
-                    Label("Daily Summary Time (HH:MM)", cls="font-semibold"),
-                    Input(
-                        type="time",
-                        name="daily_summary_time",
-                        value=prefs.get("daily_summary_time", "09:00"),
-                    ),
-                    cls="mb-4",
+                LabelInput(
+                    "Daily Summary Time (HH:MM)",
+                    lbl_cls="font-semibold",
+                    type="time",
+                    name="daily_summary_time",
+                    value=prefs.get("daily_summary_time", "09:00"),
+                    cls="space-y-2 mb-4",
                 ),
                 cls="space-y-4",
             ),
@@ -287,41 +282,33 @@ class UserPreferencesComponents:
         ]
 
         return Form(
-            FormControl(
-                Label("Theme", cls="font-semibold"),
-                Select(
-                    *theme_options,
-                    name="theme",
-                    onchange="this.value === 'dark' ? document.documentElement.classList.add('dark') : document.documentElement.classList.remove('dark'); localStorage.setItem('skuel-theme', this.value)",
-                ),
-                P(
-                    "Theme changes preview instantly. Save to persist.",
-                    cls="text-sm text-muted-foreground mt-1",
-                ),
-                cls="mb-4",
+            LabelSelect(
+                *theme_options,
+                label="Theme",
+                lbl_cls="font-semibold",
+                name="theme",
+                onchange="this.value === 'dark' ? document.documentElement.classList.add('dark') : document.documentElement.classList.remove('dark'); localStorage.setItem('skuel-theme', this.value)",
+                help_text="Theme changes preview instantly. Save to persist.",
+                cls="space-y-2 mb-4",
             ),
-            FormControl(
-                Label("Language", cls="font-semibold"),
-                Select(name="language")(
-                    Option("English", value="en", selected=prefs.get("language") == "en"),
-                    Option("Spanish", value="es", selected=prefs.get("language") == "es"),
-                    Option("French", value="fr", selected=prefs.get("language") == "fr"),
-                    Option("German", value="de", selected=prefs.get("language") == "de"),
-                ),
-                cls="mb-4",
+            LabelSelect(
+                Option("English", value="en", selected=prefs.get("language") == "en"),
+                Option("Spanish", value="es", selected=prefs.get("language") == "es"),
+                Option("French", value="fr", selected=prefs.get("language") == "fr"),
+                Option("German", value="de", selected=prefs.get("language") == "de"),
+                label="Language",
+                lbl_cls="font-semibold",
+                name="language",
+                cls="space-y-2 mb-4",
             ),
-            FormControl(
-                Label("Timezone", cls="font-semibold"),
-                Input(
-                    type="text",
-                    name="timezone",
-                    value=prefs.get("timezone", "UTC"),
-                ),
-                P(
-                    "e.g., America/New_York, Europe/London, Asia/Tokyo",
-                    cls="text-sm text-muted-foreground mt-1",
-                ),
-                cls="mb-4",
+            LabelInput(
+                "Timezone",
+                lbl_cls="font-semibold",
+                type="text",
+                name="timezone",
+                value=prefs.get("timezone", "UTC"),
+                help_text="e.g., America/New_York, Europe/London, Asia/Tokyo",
+                cls="space-y-2 mb-4",
             ),
             id="display-prefs-form",
             method="POST",
@@ -332,47 +319,38 @@ class UserPreferencesComponents:
     def _render_goal_prefs_form(prefs: dict) -> Any:
         """Render goal preferences section"""
         return Form(
-            FormControl(
-                Label("Weekly Task Goal", cls="font-semibold"),
-                Input(
-                    type="number",
-                    name="weekly_task_goal",
-                    value=prefs.get("weekly_task_goal", 10),
-                    min=0,
-                    max=100,
-                ),
-                P(
-                    "Target number of tasks to complete each week",
-                    cls="text-sm text-muted-foreground mt-1",
-                ),
-                cls="mb-4",
+            LabelInput(
+                "Weekly Task Goal",
+                lbl_cls="font-semibold",
+                type="number",
+                name="weekly_task_goal",
+                value=prefs.get("weekly_task_goal", 10),
+                min=0,
+                max=100,
+                help_text="Target number of tasks to complete each week",
+                cls="space-y-2 mb-4",
             ),
-            FormControl(
-                Label("Daily Habit Goal", cls="font-semibold"),
-                Input(
-                    type="number",
-                    name="daily_habit_goal",
-                    value=prefs.get("daily_habit_goal", 3),
-                    min=0,
-                    max=20,
-                ),
-                P(
-                    "Target number of habits to complete each day",
-                    cls="text-sm text-muted-foreground mt-1",
-                ),
-                cls="mb-4",
+            LabelInput(
+                "Daily Habit Goal",
+                lbl_cls="font-semibold",
+                type="number",
+                name="daily_habit_goal",
+                value=prefs.get("daily_habit_goal", 3),
+                min=0,
+                max=20,
+                help_text="Target number of habits to complete each day",
+                cls="space-y-2 mb-4",
             ),
-            FormControl(
-                Label("Monthly Learning Hours", cls="font-semibold"),
-                Input(
-                    type="number",
-                    name="monthly_learning_hours",
-                    value=prefs.get("monthly_learning_hours", 20),
-                    min=0,
-                    max=500,
-                ),
-                P("Target learning hours per month", cls="text-sm text-muted-foreground mt-1"),
-                cls="mb-4",
+            LabelInput(
+                "Monthly Learning Hours",
+                lbl_cls="font-semibold",
+                type="number",
+                name="monthly_learning_hours",
+                value=prefs.get("monthly_learning_hours", 20),
+                min=0,
+                max=500,
+                help_text="Target learning hours per month",
+                cls="space-y-2 mb-4",
             ),
             id="goal-prefs-form",
             method="POST",

@@ -16,7 +16,7 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.route_factories import parse_int_query_param
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonLink, ButtonT
-from ui.forms import FormControl, Input, Label, Select
+from ui.forms import Input, Label, LabelInput, LabelSelect
 from ui.insights.insight_card import InsightCard
 from ui.layout import Size
 from ui.layouts.base_page import BasePage
@@ -130,90 +130,85 @@ def create_insights_ui_routes(
             # Row 1: Search + Domain
             Div(
                 # Full-text search (debounced 300ms)
-                FormControl(
-                    Label("Search", cls="text-xs"),
-                    Input(
-                        type="text",
-                        placeholder="Search insights...",
-                        size=Size.sm,
-                        **{"x-model": "filters.search"},
-                        **{"@input.debounce.300ms": "applyFilters()"},
-                    ),
-                    cls="flex-1",
+                LabelInput(
+                    "Search",
+                    lbl_cls="text-xs",
+                    type="text",
+                    placeholder="Search insights...",
+                    size=Size.sm,
+                    cls="space-y-2 flex-1",
+                    **{"x-model": "filters.search"},
+                    **{"@input.debounce.300ms": "applyFilters()"},
                 ),
                 # Domain filter
-                FormControl(
-                    Label("Domain", cls="text-xs"),
-                    Select(
-                        NotStr(
-                            '<option value="">All Domains</option>'
-                            '<option value="tasks">Tasks</option>'
-                            '<option value="goals">Goals</option>'
-                            '<option value="habits">Habits</option>'
-                            '<option value="events">Events</option>'
-                            '<option value="choices">Choices</option>'
-                            '<option value="principles">Principles</option>'
-                        ),
-                        size=Size.sm,
-                        full_width=False,
-                        **{"x-model": "filters.domain"},
-                        **{"@change": "applyFilters()"},
+                LabelSelect(
+                    NotStr(
+                        '<option value="">All Domains</option>'
+                        '<option value="tasks">Tasks</option>'
+                        '<option value="goals">Goals</option>'
+                        '<option value="habits">Habits</option>'
+                        '<option value="events">Events</option>'
+                        '<option value="choices">Choices</option>'
+                        '<option value="principles">Principles</option>'
                     ),
+                    label="Domain",
+                    lbl_cls="text-xs",
+                    size=Size.sm,
+                    full_width=False,
+                    **{"x-model": "filters.domain"},
+                    **{"@change": "applyFilters()"},
                 ),
                 cls="flex gap-3",
             ),
             # Row 2: Impact + Type + Status
             Div(
                 # Impact filter
-                FormControl(
-                    Label("Impact", cls="text-xs"),
-                    Select(
-                        NotStr(
-                            '<option value="">All Impact</option>'
-                            '<option value="critical">Critical</option>'
-                            '<option value="high">High</option>'
-                            '<option value="medium">Medium</option>'
-                            '<option value="low">Low</option>'
-                        ),
-                        size=Size.sm,
-                        full_width=False,
-                        **{"x-model": "filters.impact"},
-                        **{"@change": "applyFilters()"},
+                LabelSelect(
+                    NotStr(
+                        '<option value="">All Impact</option>'
+                        '<option value="critical">Critical</option>'
+                        '<option value="high">High</option>'
+                        '<option value="medium">Medium</option>'
+                        '<option value="low">Low</option>'
                     ),
+                    label="Impact",
+                    lbl_cls="text-xs",
+                    size=Size.sm,
+                    full_width=False,
+                    **{"x-model": "filters.impact"},
+                    **{"@change": "applyFilters()"},
                 ),
                 # Insight type filter
-                FormControl(
-                    Label("Type", cls="text-xs"),
-                    Select(
-                        NotStr(
-                            '<option value="">All Types</option>'
-                            '<option value="difficulty_pattern">Difficulty Pattern</option>'
-                            '<option value="completion_streak">Completion Streak</option>'
-                            '<option value="habit_synergy">Habit Synergy</option>'
-                            '<option value="goal_alignment">Goal Alignment</option>'
-                            '<option value="principle_violation">Principle Violation</option>'
-                            '<option value="learning_opportunity">Learning Opportunity</option>'
-                        ),
-                        size=Size.sm,
-                        full_width=False,
-                        **{"x-model": "filters.type"},
-                        **{"@change": "applyFilters()"},
+                LabelSelect(
+                    NotStr(
+                        '<option value="">All Types</option>'
+                        '<option value="difficulty_pattern">Difficulty Pattern</option>'
+                        '<option value="completion_streak">Completion Streak</option>'
+                        '<option value="habit_synergy">Habit Synergy</option>'
+                        '<option value="goal_alignment">Goal Alignment</option>'
+                        '<option value="principle_violation">Principle Violation</option>'
+                        '<option value="learning_opportunity">Learning Opportunity</option>'
                     ),
+                    label="Type",
+                    lbl_cls="text-xs",
+                    size=Size.sm,
+                    full_width=False,
+                    **{"x-model": "filters.type"},
+                    **{"@change": "applyFilters()"},
                 ),
                 # Action status filter
-                FormControl(
-                    Label("Status", cls="text-xs"),
-                    Select(
-                        NotStr(
-                            '<option value="all">All</option>'
-                            '<option value="unactioned">Not Acted On</option>'
-                            '<option value="actioned">Acted On</option>'
-                        ),
-                        size=Size.sm,
-                        full_width=False,
-                        **{"x-model": "filters.status"},
-                        **{"@change": "applyFilters()"},
+                LabelSelect(
+                    NotStr(
+                        '<option value="all">All</option>'
+                        '<option value="unactioned">Not Acted On</option>'
+                        '<option value="actioned">Acted On</option>'
                     ),
+                    label="Status",
+                    lbl_cls="text-xs",
+                    size=Size.sm,
+                    full_width=False,
+                    **{"x-model": "filters.status"},
+                    **{"@change": "applyFilters()"},
                 ),
                 cls="flex gap-3 mt-3",
             ),

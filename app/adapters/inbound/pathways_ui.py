@@ -30,7 +30,7 @@ from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonLink, ButtonT
 from ui.cards import Card
 from ui.feedback import Badge, BadgeT
-from ui.forms import FormControl, Label, Select
+from ui.forms import LabelSelect
 from ui.layout import Size
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
@@ -107,36 +107,30 @@ class PathwaysUIComponents:
             method="POST",
             include_fields=["difficulty", "domain", "duration"],
             custom_widgets={
-                "difficulty": FormControl(
-                    Label("Difficulty Level"),
-                    Select(
-                        Option("All Levels", value="all", selected=True),
-                        Option("Beginner", value="beginner"),
-                        Option("Intermediate", value="intermediate"),
-                        Option("Advanced", value="advanced"),
-                        name="difficulty",
-                    ),
+                "difficulty": LabelSelect(
+                    Option("All Levels", value="all", selected=True),
+                    Option("Beginner", value="beginner"),
+                    Option("Intermediate", value="intermediate"),
+                    Option("Advanced", value="advanced"),
+                    label="Difficulty Level",
+                    name="difficulty",
                 ),
-                "domain": FormControl(
-                    Label("Domain"),
-                    Select(
-                        Option("All Domains", value="all", selected=True),
-                        Option("Programming", value="programming"),
-                        Option("Data Science", value="data_science"),
-                        Option("Web Development", value="web_dev"),
-                        Option("Cloud Computing", value="cloud"),
-                        name="domain",
-                    ),
+                "domain": LabelSelect(
+                    Option("All Domains", value="all", selected=True),
+                    Option("Programming", value="programming"),
+                    Option("Data Science", value="data_science"),
+                    Option("Web Development", value="web_dev"),
+                    Option("Cloud Computing", value="cloud"),
+                    label="Domain",
+                    name="domain",
                 ),
-                "duration": FormControl(
-                    Label("Time Commitment"),
-                    Select(
-                        Option("Any Duration", value="all", selected=True),
-                        Option("Under 20 hours", value="short"),
-                        Option("20-50 hours", value="medium"),
-                        Option("50+ hours", value="long"),
-                        name="duration",
-                    ),
+                "duration": LabelSelect(
+                    Option("Any Duration", value="all", selected=True),
+                    Option("Under 20 hours", value="short"),
+                    Option("20-50 hours", value="medium"),
+                    Option("50+ hours", value="long"),
+                    label="Time Commitment",
+                    name="duration",
                 ),
             },
             form_attrs={
