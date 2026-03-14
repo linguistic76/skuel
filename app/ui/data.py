@@ -6,9 +6,8 @@ Table and Divider display components using MonsterUI.
 """
 
 from monsterui.franken import Divider as MDivider
-from monsterui.franken import DividerSplit, DividerT
+from monsterui.franken import DividerSplit, DividerT, TableFromDicts, TableFromLists, TableT
 from monsterui.franken import Table as MTable
-from monsterui.franken import TableFromDicts, TableFromLists, TableT
 
 __all__ = [
     "Table",

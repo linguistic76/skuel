@@ -17,11 +17,11 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import Any, TypedDict
 
-from fasthtml.common import H1, H2, H3, Div, Option, P, Span, Tbody, Td, Th, Thead, Tr
+from fasthtml.common import H1, H2, H3, Div, Option, P, Span, Td, Th
 
 from ui.buttons import Button, ButtonT
 from ui.cards import Card, CardBody
-from ui.data import Table
+from ui.data import TableFromDicts
 from ui.feedback import Badge, BadgeT
 from ui.forms import Input, Label, Select
 from ui.habits.atomic_animations import AtomicHabitsAnimations
@@ -246,38 +246,47 @@ class AtomicHabitsAnalytics:
         def get_system_strength(goal) -> Any:
             return goal.system_strength
 
-        comparison_rows = []
-        for goal in sorted(mock_goals, key=get_system_strength, reverse=True):
-            strength_color = (
-                "text-green-600"
-                if goal.system_strength >= 0.8
-                else "text-blue-600"
-                if goal.system_strength >= 0.6
-                else "text-yellow-600"
-                if goal.system_strength >= 0.4
-                else "text-red-600"
-            )
+        def _strength_color(strength: float) -> str:
+            if strength >= 0.8:
+                return "text-green-600"
+            if strength >= 0.6:
+                return "text-blue-600"
+            if strength >= 0.4:
+                return "text-yellow-600"
+            return "text-red-600"
 
-            comparison_rows.append(
-                Tr(
-                    Td(goal.goal_title, cls="font-medium"),
-                    Td(f"{goal.system_strength * 100:.1f}%", cls=f"font-bold {strength_color}"),
-                    Td(f"{goal.velocity:.1f}", cls="text-muted-foreground"),
-                    Td(
-                        f"{goal.essential_count}/{goal.critical_count}/{goal.supporting_count}/{goal.optional_count}",
-                        cls="text-sm text-muted-foreground",
+        def _comparison_cell_render(k: str, v: object) -> Td:
+            styles = {
+                "Goal": "font-medium",
+                "Velocity": "text-muted-foreground",
+                "E/C/S/O Habits": "text-sm text-muted-foreground",
+                "Identity Votes": "text-purple-600",
+            }
+            return Td(v, cls=styles.get(k, ""))
+
+        body_data = []
+        for goal in sorted(mock_goals, key=get_system_strength, reverse=True):
+            body_data.append(
+                {
+                    "Goal": goal.goal_title,
+                    "System Strength": Span(
+                        f"{goal.system_strength * 100:.1f}%",
+                        cls=f"font-bold {_strength_color(goal.system_strength)}",
                     ),
-                    Td(str(goal.identity_votes), cls="text-purple-600"),
-                    Td(
-                        Button(
-                            "Details",
-                            variant=ButtonT.secondary,
-                            size=Size.sm,
-                            hx_get=f"/goals/{goal.goal_uid}/system-health",
-                            hx_target="#modal",
-                        )
+                    "Velocity": f"{goal.velocity:.1f}",
+                    "E/C/S/O Habits": (
+                        f"{goal.essential_count}/{goal.critical_count}/"
+                        f"{goal.supporting_count}/{goal.optional_count}"
                     ),
-                )
+                    "Identity Votes": str(goal.identity_votes),
+                    "Actions": Button(
+                        "Details",
+                        variant=ButtonT.secondary,
+                        size=Size.sm,
+                        hx_get=f"/goals/{goal.goal_uid}/system-health",
+                        hx_target="#modal",
+                    ),
+                }
             )
 
         return Card(
@@ -287,19 +296,17 @@ class AtomicHabitsAnalytics:
                     "Compare habit systems across all your active goals",
                     cls="text-muted-foreground mb-6",
                 ),
-                Table(
-                    Thead(
-                        Tr(
-                            Th("Goal", cls="text-left"),
-                            Th("System Strength", cls="text-left"),
-                            Th("Velocity", cls="text-left"),
-                            Th("E/C/S/O Habits", cls="text-left"),
-                            Th("Identity Votes", cls="text-left"),
-                            Th("Actions", cls="text-left"),
-                        )
-                    ),
-                    Tbody(*comparison_rows),
-                    cls="table w-full",
+                TableFromDicts(
+                    header_data=[
+                        "Goal",
+                        "System Strength",
+                        "Velocity",
+                        "E/C/S/O Habits",
+                        "Identity Votes",
+                        "Actions",
+                    ],
+                    body_data=body_data,
+                    body_cell_render=_comparison_cell_render,
                 ),
                 # Insights
                 Div(
@@ -417,36 +424,44 @@ class AtomicHabitsAnalytics:
             ),
         ]
 
-        migration_rows = []
+        centered_cols = {"From", "", "To"}
+
+        def _migration_header_render(col: str) -> Th:
+            if col in centered_cols:
+                return Th(col, cls="text-center")
+            return Th(col, cls="text-left")
+
+        def _migration_cell_render(k: str, v: object) -> Td:
+            if k in centered_cols:
+                return Td(v, cls="text-center")
+            if k == "Date":
+                return Td(v, cls="text-sm text-muted-foreground")
+            if k == "Reason":
+                return Td(v, cls="text-sm italic text-muted-foreground")
+            if k == "Habit":
+                return Td(v, cls="font-medium")
+            return Td(v)
+
+        body_data = []
         for migration in migrations:
-            # Color code essentiality levels
             from_color = AtomicHabitsAnalytics._get_essentiality_color(migration.from_level)
             to_color = AtomicHabitsAnalytics._get_essentiality_color(migration.to_level)
 
-            migration_rows.append(
-                Tr(
-                    Td(migration.habit, cls="font-medium"),
-                    Td(
-                        Span(
-                            migration.from_level.upper(),
-                            cls=f"px-2 py-1 rounded text-xs font-bold {from_color}",
-                        ),
-                        cls="text-center",
+            body_data.append(
+                {
+                    "Habit": migration.habit,
+                    "From": Span(
+                        migration.from_level.upper(),
+                        cls=f"px-2 py-1 rounded text-xs font-bold {from_color}",
                     ),
-                    Td("→", cls="text-2xl text-muted-foreground text-center"),
-                    Td(
-                        Span(
-                            migration.to_level.upper(),
-                            cls=f"px-2 py-1 rounded text-xs font-bold {to_color}",
-                        ),
-                        cls="text-center",
+                    "": "→",
+                    "To": Span(
+                        migration.to_level.upper(),
+                        cls=f"px-2 py-1 rounded text-xs font-bold {to_color}",
                     ),
-                    Td(
-                        migration.migration_date.strftime("%b %d, %Y"),
-                        cls="text-sm text-muted-foreground",
-                    ),
-                    Td(migration.reason, cls="text-sm italic text-muted-foreground"),
-                )
+                    "Date": migration.migration_date.strftime("%b %d, %Y"),
+                    "Reason": migration.reason,
+                }
             )
 
         return Card(
@@ -456,19 +471,11 @@ class AtomicHabitsAnalytics:
                     "See how your habits evolve in importance over time",
                     cls="text-muted-foreground mb-6",
                 ),
-                Table(
-                    Thead(
-                        Tr(
-                            Th("Habit", cls="text-left"),
-                            Th("From", cls="text-center"),
-                            Th("", cls="text-center"),
-                            Th("To", cls="text-center"),
-                            Th("Date", cls="text-left"),
-                            Th("Reason", cls="text-left"),
-                        )
-                    ),
-                    Tbody(*migration_rows),
-                    cls="table w-full",
+                TableFromDicts(
+                    header_data=["Habit", "From", "", "To", "Date", "Reason"],
+                    body_data=body_data,
+                    header_cell_render=_migration_header_render,
+                    body_cell_render=_migration_cell_render,
                 ),
                 # Migration insights
                 Div(
@@ -505,35 +512,46 @@ class AtomicHabitsAnalytics:
             BenchmarkData(metric="Velocity", user=118.0, community=75.0, percentile=88),
         ]
 
-        benchmark_rows = []
+        bench_centered = {"Your Percentile", "Trend"}
+
+        def _bench_header_render(col: str) -> Th:
+            if col in bench_centered:
+                return Th(col, cls="text-center")
+            return Th(col, cls="text-left")
+
+        def _bench_cell_render(k: str, v: object) -> Td:
+            if k in bench_centered:
+                return Td(v, cls="text-center")
+            if k == "Metric":
+                return Td(v, cls="font-medium")
+            if k == "Community Avg":
+                return Td(v, cls="text-muted-foreground")
+            return Td(v)
+
+        body_data = []
         for benchmark in benchmarks:
             user_val = benchmark.user
             community_val = benchmark.community
             percentile = benchmark.percentile
-
-            # Determine if user is above/below community
             comparison = "text-green-600" if user_val > community_val else "text-red-600"
             comparison_icon = "📈" if user_val > community_val else "📉"
 
-            benchmark_rows.append(
-                Tr(
-                    Td(benchmark.metric, cls="font-medium"),
-                    Td(f"{user_val:.1f}", cls=f"font-bold {comparison}"),
-                    Td(f"{community_val:.1f}", cls="text-muted-foreground"),
-                    Td(
-                        Badge(
-                            f"{percentile}th",
-                            variant=BadgeT.success
-                            if percentile >= 75
-                            else BadgeT.info
-                            if percentile >= 50
-                            else BadgeT.ghost,
-                            cls="font-bold",
-                        ),
-                        cls="text-center",
+            body_data.append(
+                {
+                    "Metric": benchmark.metric,
+                    "You": Span(f"{user_val:.1f}", cls=f"font-bold {comparison}"),
+                    "Community Avg": f"{community_val:.1f}",
+                    "Your Percentile": Badge(
+                        f"{percentile}th",
+                        variant=BadgeT.success
+                        if percentile >= 75
+                        else BadgeT.info
+                        if percentile >= 50
+                        else BadgeT.ghost,
+                        cls="font-bold",
                     ),
-                    Td(f"{comparison_icon}", cls="text-2xl text-center"),
-                )
+                    "Trend": comparison_icon,
+                }
             )
 
         return Card(
@@ -544,18 +562,11 @@ class AtomicHabitsAnalytics:
                     cls="text-muted-foreground mb-2",
                 ),
                 P("Data from 12,487 active SKUEL users", cls="text-xs text-muted-foreground mb-6"),
-                Table(
-                    Thead(
-                        Tr(
-                            Th("Metric", cls="text-left"),
-                            Th("You", cls="text-left"),
-                            Th("Community Avg", cls="text-left"),
-                            Th("Your Percentile", cls="text-center"),
-                            Th("Trend", cls="text-center"),
-                        )
-                    ),
-                    Tbody(*benchmark_rows),
-                    cls="table w-full",
+                TableFromDicts(
+                    header_data=["Metric", "You", "Community Avg", "Your Percentile", "Trend"],
+                    body_data=body_data,
+                    header_cell_render=_bench_header_render,
+                    body_cell_render=_bench_cell_render,
                 ),
                 # Performance summary
                 Div(

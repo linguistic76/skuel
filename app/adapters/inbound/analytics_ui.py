@@ -26,12 +26,6 @@ from fasthtml.common import (
     Option,
     P,
     Span,
-    Table,
-    Tbody,
-    Td,
-    Th,
-    Thead,
-    Tr,
 )
 from starlette.requests import Request
 
@@ -40,6 +34,7 @@ from core.models.enums import AnalyticsDomain
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonT
 from ui.cards import Card
+from ui.data import TableFromDicts, TableT
 from ui.feedback import Alert, AlertT
 from ui.forms import Input, Select
 from ui.layouts.navbar import create_navbar_for_request
@@ -222,17 +217,13 @@ class AnalyticsUIComponents:
             (
                 Card(
                     H4("Priority Distribution", cls="font-semibold mb-3"),
-                    Table(
-                        Thead(Tr(Th("Priority"), Th("Count"), cls="text-left")),
-                        Tbody(
-                            *[
-                                Tr(Td(priority.title()), Td(str(count)))
-                                for priority, count in metrics.get(
-                                    "priority_distribution", {}
-                                ).items()
-                            ]
-                        ),
-                        cls="uk-table uk-table-striped",
+                    TableFromDicts(
+                        header_data=["Priority", "Count"],
+                        body_data=[
+                            {"Priority": p.title(), "Count": str(c)}
+                            for p, c in metrics.get("priority_distribution", {}).items()
+                        ],
+                        cls=(TableT.striped,),
                     ),
                     cls="bg-background shadow-sm p-4 mb-4",
                 )
@@ -356,15 +347,14 @@ class AnalyticsUIComponents:
         """Fallback for generic metrics display"""
         return Card(
             H4("Metrics", cls="font-semibold mb-3"),
-            Table(
-                Tbody(
-                    *[
-                        Tr(Td(key.replace("_", " ").title()), Td(str(value)))
-                        for key, value in metrics.items()
-                        if not isinstance(value, dict)
-                    ]
-                ),
-                cls="uk-table uk-table-striped",
+            TableFromDicts(
+                header_data=["Metric", "Value"],
+                body_data=[
+                    {"Metric": k.replace("_", " ").title(), "Value": str(v)}
+                    for k, v in metrics.items()
+                    if not isinstance(v, dict)
+                ],
+                cls=(TableT.striped,),
             ),
             cls="bg-background shadow-sm p-4",
         )

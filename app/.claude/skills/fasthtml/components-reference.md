@@ -159,21 +159,23 @@ Audio(src="/audio.mp3", controls=True)
 
 ### Tables
 
+**Prefer `TableFromDicts`** from `ui/data.py` for data-driven tables:
+
 ```python
-Table(
-    Caption("Table Caption"),
-    Thead(
-        Tr(Th("Name"), Th("Age"), Th("City"))
-    ),
-    Tbody(
-        Tr(Td("Alice"), Td("30"), Td("NYC")),
-        Tr(Td("Bob"), Td("25"), Td("LA")),
-    ),
-    Tfoot(
-        Tr(Td("Total", colspan="2"), Td("2"))
-    )
+from ui.data import TableFromDicts, TableT
+
+TableFromDicts(
+    header_data=["Name", "Age", "City"],
+    body_data=[
+        {"Name": "Alice", "Age": "30", "City": "NYC"},
+        {"Name": "Bob", "Age": "25", "City": "LA"},
+    ],
+    body_cell_render=lambda k, v: Td(v, cls="font-bold" if k == "Name" else ""),
+    cls=(TableT.striped, TableT.sm),
 )
 ```
+
+Manual `Table(Thead(...), Tbody(...))` is only needed for non-data-driven layouts (hardcoded rows, dynamic column counts, headerless tables).
 
 ## Form Elements
 

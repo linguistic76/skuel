@@ -13,8 +13,9 @@ Components:
 
 from typing import Any
 
-from fasthtml.common import FT, H3, Div, Span, Strong, Table, Tbody, Td, Th, Thead, Tr
+from fasthtml.common import FT, H3, Div, Span, Strong, Td
 
+from ui.data import TableFromDicts, TableT
 from ui.feedback import Badge, BadgeT
 
 
@@ -115,21 +116,24 @@ def EntityBreakdownTable(entity_counts: dict[str, int]) -> FT:
     if not entity_counts:
         return None
 
+    def _breakdown_cell_render(k: str, v: object) -> Td:
+        if k == "Entity Type":
+            return Td(v, cls="font-semibold")
+        if k == "Count":
+            return Td(v, cls="text-right")
+        return Td(v)
+
     return Div(
         H3("Entity Breakdown", cls="text-lg font-semibold mb-2 mt-4"),
         Div(
-            Table(
-                Thead(Tr(Th("Entity Type"), Th("Count", cls="text-right"))),
-                Tbody(
-                    *[
-                        Tr(
-                            Td(entity_type.upper(), cls="font-semibold"),
-                            Td(str(count), cls="text-right"),
-                        )
-                        for entity_type, count in sorted(entity_counts.items())
-                    ]
-                ),
-                cls="uk-table uk-table-striped uk-table-small",
+            TableFromDicts(
+                header_data=["Entity Type", "Count"],
+                body_data=[
+                    {"Entity Type": et.upper(), "Count": str(count)}
+                    for et, count in sorted(entity_counts.items())
+                ],
+                body_cell_render=_breakdown_cell_render,
+                cls=(TableT.striped, TableT.sm),
             ),
             cls="overflow-x-auto",
         ),
@@ -150,42 +154,30 @@ def ErrorsTable(errors: list[dict[str, Any]]) -> FT:
     if not errors:
         return None
 
+    def _error_cell_render(k: str, v: object) -> Td:
+        styles = {
+            "File": "font-mono text-xs max-w-xs truncate",
+            "Error": "text-sm",
+            "Suggestion": "text-sm text-muted-foreground",
+        }
+        return Td(v, cls=styles.get(k, ""))
+
     return Div(
         H3("Errors", cls="text-lg font-semibold mb-2 mt-4 text-error"),
         Div(
-            Table(
-                Thead(
-                    Tr(
-                        Th("File"),
-                        Th("Stage"),
-                        Th("Error"),
-                        Th("Suggestion"),
-                    )
-                ),
-                Tbody(
-                    *[
-                        Tr(
-                            Td(
-                                error.get("file", "unknown"),
-                                cls="font-mono text-xs max-w-xs truncate",
-                                title=error.get("file", ""),
-                            ),
-                            Td(
-                                Badge(
-                                    error.get("stage", "unknown"),
-                                    variant=BadgeT.outline,
-                                )
-                            ),
-                            Td(error.get("error", "Unknown error"), cls="text-sm"),
-                            Td(
-                                error.get("suggestion", "—"),
-                                cls="text-sm text-muted-foreground",
-                            ),
-                        )
-                        for error in errors
-                    ]
-                ),
-                cls="uk-table uk-table-striped uk-table-small",
+            TableFromDicts(
+                header_data=["File", "Stage", "Error", "Suggestion"],
+                body_data=[
+                    {
+                        "File": error.get("file", "unknown"),
+                        "Stage": Badge(error.get("stage", "unknown"), variant=BadgeT.outline),
+                        "Error": error.get("error", "Unknown error"),
+                        "Suggestion": error.get("suggestion", "—"),
+                    }
+                    for error in errors
+                ],
+                body_cell_render=_error_cell_render,
+                cls=(TableT.striped, TableT.sm),
             ),
             cls="overflow-x-auto",
         ),

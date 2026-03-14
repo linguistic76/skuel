@@ -19,11 +19,11 @@ Usage:
 
 from typing import Any, ClassVar
 
-from fasthtml.common import H2, A, Div, Form, Option, P, Span, Tbody, Td, Th, Thead, Tr
+from fasthtml.common import H2, A, Div, Form, Option, P, Span, Td
 
 from ui.buttons import Button, ButtonLink, ButtonT
 from ui.cards import Card
-from ui.data import Table
+from ui.data import TableFromDicts, TableT
 from ui.feedback import Badge, BadgeT
 from ui.forms import Select
 from ui.layout import Size
@@ -176,53 +176,44 @@ class AdminUIComponents:
                 cls="bg-background shadow-sm",
             )
 
-        rows = []
+        def _user_cell_render(k: str, v: object) -> Td:
+            styles = {
+                "Username": "font-medium",
+                "Email": "text-muted-foreground",
+                "Last Login": "text-sm text-muted-foreground",
+                "": "text-right",
+            }
+            return Td(v, cls=styles.get(k, ""))
+
+        body_data = []
         for user in users:
             uid = user.get("uid", "")
-            username = user.get("username", "Unknown")
-            email = user.get("email", "")
-            role = user.get("role", "registered")
-            is_active = user.get("is_active", True)
             last_login = user.get("last_login_at", "Never")
-
             if last_login and last_login != "Never" and "T" in str(last_login):
                 last_login = str(last_login).split("T")[0]
 
-            rows.append(
-                Tr(
-                    Td(username, cls="font-medium"),
-                    Td(email, cls="text-muted-foreground"),
-                    Td(AdminUIComponents.render_role_badge(role)),
-                    Td(AdminUIComponents.render_status_badge(is_active)),
-                    Td(last_login, cls="text-sm text-muted-foreground"),
-                    Td(
-                        ButtonLink(
-                            "View",
-                            href=f"/admin/users/{uid}",
-                            variant=ButtonT.ghost,
-                            size=Size.xs,
-                        ),
-                        cls="text-right",
+            body_data.append(
+                {
+                    "Username": user.get("username", "Unknown"),
+                    "Email": user.get("email", ""),
+                    "Role": AdminUIComponents.render_role_badge(user.get("role", "registered")),
+                    "Status": AdminUIComponents.render_status_badge(user.get("is_active", True)),
+                    "Last Login": last_login,
+                    "": ButtonLink(
+                        "View",
+                        href=f"/admin/users/{uid}",
+                        variant=ButtonT.ghost,
+                        size=Size.xs,
                     ),
-                    cls="hover:bg-muted",
-                )
+                }
             )
 
         return Div(
-            Table(
-                Thead(
-                    Tr(
-                        Th("Username"),
-                        Th("Email"),
-                        Th("Role"),
-                        Th("Status"),
-                        Th("Last Login"),
-                        Th("", cls="text-right"),
-                    ),
-                    cls="bg-muted",
-                ),
-                Tbody(*rows),
-                cls="uk-table uk-table-striped w-full",
+            TableFromDicts(
+                header_data=["Username", "Email", "Role", "Status", "Last Login", ""],
+                body_data=body_data,
+                body_cell_render=_user_cell_render,
+                cls=(TableT.striped,),
             ),
             cls="overflow-x-auto",
         )
@@ -381,96 +372,91 @@ class AdminUIComponents:
                 P("No users found", cls="text-center text-muted-foreground py-8"),
             )
 
-        rows = []
+        centered_cols = {"Tasks", "Goals", "Habits", "KUs"}
+
+        def _activity_header_render(col: str) -> object:
+            from fasthtml.common import Th
+
+            if col in centered_cols:
+                return Th(col, cls="text-center")
+            if col == "":
+                return Th("", cls="text-right")
+            return Th(col)
+
+        def _activity_cell_render(k: str, v: object) -> Td:
+            if k in centered_cols:
+                return Td(v, cls="text-center")
+            styles = {
+                "Email": "text-sm text-muted-foreground",
+                "Last Login": "text-sm",
+                "": "text-right",
+            }
+            return Td(v, cls=styles.get(k, ""))
+
+        def _count_value(count: int) -> Span:
+            if count > 0:
+                return Span(str(count), cls="font-semibold")
+            return Span("—", cls="text-foreground/30")
+
+        body_data = []
         for user in users:
             uid = user.get("uid", "")
             username = user.get("username", "Unknown")
             display_name = user.get("display_name") or username
-            email = user.get("email", "")
-            role = user.get("role", "registered")
-            is_active = user.get("is_active", True)
             last_login = user.get("last_login_at", "Never")
-
             if last_login and last_login != "Never" and "T" in str(last_login):
                 last_login = str(last_login).split("T")[0]
 
-            task_count = user.get("task_count", 0) or 0
-            goal_count = user.get("goal_count", 0) or 0
-            habit_count = user.get("habit_count", 0) or 0
-            ku_mastered = user.get("ku_mastered", 0) or 0
-
-            def _count_cell(count: int) -> Td:
-                if count > 0:
-                    return Td(
-                        Span(str(count), cls="font-semibold"),
-                        cls="text-center",
-                    )
-                return Td(
-                    Span("—", cls="text-foreground/30"),
-                    cls="text-center",
-                )
-
-            rows.append(
-                Tr(
-                    Td(
-                        A(
-                            Div(
-                                Span(display_name, cls="font-medium"),
-                                Span(
-                                    f"@{username}",
-                                    cls="text-xs text-muted-foreground block",
-                                ),
-                            ),
-                            href=f"/admin/users/{uid}",
-                            cls="hover:underline",
+            body_data.append(
+                {
+                    "User": A(
+                        Div(
+                            Span(display_name, cls="font-medium"),
+                            Span(f"@{username}", cls="text-xs text-muted-foreground block"),
                         ),
+                        href=f"/admin/users/{uid}",
+                        cls="hover:underline",
                     ),
-                    Td(email, cls="text-sm text-muted-foreground"),
-                    Td(AdminUIComponents.render_role_badge(role)),
-                    Td(AdminUIComponents.render_status_badge(is_active)),
-                    Td(
+                    "Email": user.get("email", ""),
+                    "Role": AdminUIComponents.render_role_badge(user.get("role", "registered")),
+                    "Status": AdminUIComponents.render_status_badge(user.get("is_active", True)),
+                    "Last Login": (
                         last_login
                         if last_login != "Never"
-                        else Span("Never", cls="text-foreground/30"),
-                        cls="text-sm",
+                        else Span("Never", cls="text-foreground/30")
                     ),
-                    _count_cell(task_count),
-                    _count_cell(goal_count),
-                    _count_cell(habit_count),
-                    _count_cell(ku_mastered),
-                    Td(
-                        ButtonLink(
-                            "View →",
-                            href=f"/admin/users/{uid}",
-                            variant=ButtonT.ghost,
-                            size=Size.xs,
-                            cls="text-primary",
-                        ),
-                        cls="text-right",
+                    "Tasks": _count_value(user.get("task_count", 0) or 0),
+                    "Goals": _count_value(user.get("goal_count", 0) or 0),
+                    "Habits": _count_value(user.get("habit_count", 0) or 0),
+                    "KUs": _count_value(user.get("ku_mastered", 0) or 0),
+                    "": ButtonLink(
+                        "View →",
+                        href=f"/admin/users/{uid}",
+                        variant=ButtonT.ghost,
+                        size=Size.xs,
+                        cls="text-primary",
                     ),
-                    cls="hover:bg-muted",
-                )
+                }
             )
 
         return Div(
-            Table(
-                Thead(
-                    Tr(
-                        Th("User"),
-                        Th("Email"),
-                        Th("Role"),
-                        Th("Status"),
-                        Th("Last Login"),
-                        Th("Tasks", cls="text-center"),
-                        Th("Goals", cls="text-center"),
-                        Th("Habits", cls="text-center"),
-                        Th("KUs", cls="text-center"),
-                        Th("", cls="text-right"),
-                    ),
-                    cls="bg-muted",
-                ),
-                Tbody(*rows),
-                cls="uk-table uk-table-striped w-full",
+            TableFromDicts(
+                header_data=[
+                    "User",
+                    "Email",
+                    "Role",
+                    "Status",
+                    "Last Login",
+                    "Tasks",
+                    "Goals",
+                    "Habits",
+                    "KUs",
+                    "",
+                ],
+                body_data=body_data,
+                header_cell_render=_activity_header_render,
+                body_cell_render=_activity_cell_render,
+                cls=(TableT.striped,),
             ),
             cls="overflow-x-auto",
         )
@@ -599,45 +585,42 @@ class AdminUIComponents:
 
         from ui.badge_classes import submission_status_badge_class
 
-        rows = []
+        def _report_cell_render(k: str, v: object) -> Td:
+            if k == "Title":
+                return Td(v, cls="font-medium text-sm")
+            if k == "Created":
+                return Td(v, cls="text-sm text-muted-foreground")
+            return Td(v)
+
+        body_data = []
         for report in reports:
             report_type = report.report_type.value if report.report_type else "unknown"
             status = report.status.value if report.status else "unknown"
             title = report.title or getattr(report, "original_filename", None) or report.uid
             created = report.created_at.strftime("%Y-%m-%d") if report.created_at else "Unknown"
 
-            rows.append(
-                Tr(
-                    Td(Span(title, cls="font-medium text-sm")),
-                    Td(Badge(report_type.upper(), variant=BadgeT.outline, size=Size.sm)),
-                    Td(
-                        Badge(
-                            status.replace("_", " ").upper(),
-                            variant=None,
-                            size=Size.sm,
-                            cls=submission_status_badge_class(status),
-                        )
+            body_data.append(
+                {
+                    "Title": title,
+                    "Type": Badge(report_type.upper(), variant=BadgeT.outline, size=Size.sm),
+                    "Status": Badge(
+                        status.replace("_", " ").upper(),
+                        variant=None,
+                        size=Size.sm,
+                        cls=submission_status_badge_class(status),
                     ),
-                    Td(created, cls="text-sm text-muted-foreground"),
-                    cls="hover:bg-muted",
-                )
+                    "Created": created,
+                }
             )
 
         return Div(
             P(f"{len(reports)} report(s)", cls="text-sm text-muted-foreground mb-3"),
             Div(
-                Table(
-                    Thead(
-                        Tr(
-                            Th("Title"),
-                            Th("Type"),
-                            Th("Status"),
-                            Th("Created"),
-                        ),
-                        cls="bg-muted",
-                    ),
-                    Tbody(*rows),
-                    cls="uk-table uk-table-striped w-full",
+                TableFromDicts(
+                    header_data=["Title", "Type", "Status", "Created"],
+                    body_data=body_data,
+                    body_cell_render=_report_cell_render,
+                    cls=(TableT.striped,),
                 ),
                 cls="overflow-x-auto",
             ),
@@ -656,7 +639,14 @@ class AdminUIComponents:
                 P("No report projects found.", cls="text-muted-foreground text-sm py-4"),
             )
 
-        rows = []
+        def _project_cell_render(k: str, v: object) -> Td:
+            if k == "Name":
+                return Td(v, cls="font-medium text-sm")
+            if k == "Created":
+                return Td(v, cls="text-sm text-muted-foreground")
+            return Td(v)
+
+        body_data = []
         for project in projects:
             name = project.name or project.uid
             scope = getattr(project, "scope", "personal")
@@ -667,37 +657,27 @@ class AdminUIComponents:
                 strftime_fn = getattr(raw_created, "strftime", None)
                 created = strftime_fn("%Y-%m-%d") if strftime_fn else str(raw_created)[:10]
 
-            active_badge = (
-                Badge("Active", variant=BadgeT.success, size=Size.sm)
-                if is_active
-                else Badge("Inactive", variant=BadgeT.ghost, size=Size.sm)
-            )
-
-            rows.append(
-                Tr(
-                    Td(Span(name, cls="font-medium text-sm")),
-                    Td(Badge(str(scope).upper(), variant=BadgeT.outline, size=Size.sm)),
-                    Td(active_badge),
-                    Td(created, cls="text-sm text-muted-foreground"),
-                    cls="hover:bg-muted",
-                )
+            body_data.append(
+                {
+                    "Name": name,
+                    "Scope": Badge(str(scope).upper(), variant=BadgeT.outline, size=Size.sm),
+                    "Status": (
+                        Badge("Active", variant=BadgeT.success, size=Size.sm)
+                        if is_active
+                        else Badge("Inactive", variant=BadgeT.ghost, size=Size.sm)
+                    ),
+                    "Created": created,
+                }
             )
 
         return Div(
             P(f"{len(projects)} project(s)", cls="text-sm text-muted-foreground mb-3"),
             Div(
-                Table(
-                    Thead(
-                        Tr(
-                            Th("Name"),
-                            Th("Scope"),
-                            Th("Status"),
-                            Th("Created"),
-                        ),
-                        cls="bg-muted",
-                    ),
-                    Tbody(*rows),
-                    cls="uk-table uk-table-striped w-full",
+                TableFromDicts(
+                    header_data=["Name", "Scope", "Status", "Created"],
+                    body_data=body_data,
+                    body_cell_render=_project_cell_render,
+                    cls=(TableT.striped,),
                 ),
                 cls="overflow-x-auto",
             ),
@@ -1084,47 +1064,49 @@ class AdminLearningComponents:
                 ),
             )
 
-        rows = []
+        centered_cols = {"Viewed", "In Progress", "Mastered", "Bookmarked", "Total"}
+
+        def _progress_header_render(col: str) -> object:
+            from fasthtml.common import Th
+
+            if col in centered_cols:
+                return Th(col, cls="text-center")
+            return Th(col)
+
+        def _progress_cell_render(k: str, v: object) -> Td:
+            if k == "Mastered":
+                return Td(v, cls="text-center font-semibold")
+            if k in centered_cols:
+                return Td(v, cls="text-center")
+            return Td(v)
+
+        body_data = []
         for row in user_progress:
             display = row.get("display_name") or row.get("username") or row.get("uid", "Unknown")
             uid = row.get("uid", "")
 
-            rows.append(
-                Tr(
-                    Td(
-                        A(
-                            display,
-                            href=f"/admin/learning/user/{uid}",
-                            cls="text-primary hover:underline font-medium",
-                        ),
+            body_data.append(
+                {
+                    "User": A(
+                        display,
+                        href=f"/admin/learning/user/{uid}",
+                        cls="text-primary hover:underline font-medium",
                     ),
-                    Td(str(row.get("viewed_count", 0)), cls="text-center"),
-                    Td(str(row.get("in_progress_count", 0)), cls="text-center"),
-                    Td(
-                        str(row.get("mastered_count", 0)),
-                        cls="text-center font-semibold",
-                    ),
-                    Td(str(row.get("bookmarked_count", 0)), cls="text-center"),
-                    Td(str(row.get("total_interactions", 0)), cls="text-center"),
-                    cls="hover:bg-muted",
-                )
+                    "Viewed": str(row.get("viewed_count", 0)),
+                    "In Progress": str(row.get("in_progress_count", 0)),
+                    "Mastered": str(row.get("mastered_count", 0)),
+                    "Bookmarked": str(row.get("bookmarked_count", 0)),
+                    "Total": str(row.get("total_interactions", 0)),
+                }
             )
 
         return Div(
-            Table(
-                Thead(
-                    Tr(
-                        Th("User"),
-                        Th("Viewed", cls="text-center"),
-                        Th("In Progress", cls="text-center"),
-                        Th("Mastered", cls="text-center"),
-                        Th("Bookmarked", cls="text-center"),
-                        Th("Total", cls="text-center"),
-                    ),
-                    cls="bg-muted",
-                ),
-                Tbody(*rows),
-                cls="uk-table uk-table-striped w-full",
+            TableFromDicts(
+                header_data=["User", "Viewed", "In Progress", "Mastered", "Bookmarked", "Total"],
+                body_data=body_data,
+                header_cell_render=_progress_header_render,
+                body_cell_render=_progress_cell_render,
+                cls=(TableT.striped,),
             ),
             cls="overflow-x-auto",
         )

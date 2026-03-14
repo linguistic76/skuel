@@ -22,13 +22,10 @@ from fasthtml.common import (
     P,
     Select,
     Span,
-    Table,
-    Tbody,
     Td,
-    Th,
-    Thead,
-    Tr,
 )
+
+from ui.data import TableFromDicts, TableT
 
 
 class FinanceSectionViews:
@@ -314,36 +311,32 @@ class FinanceSectionViews:
 
         # Expense list
         if expenses:
-            expense_rows = [
-                Tr(
-                    Td(exp.get("description", ""), cls="py-3 px-4"),
-                    Td(f"${exp.get('amount', 0):.2f}", cls="py-3 px-4 font-medium"),
-                    Td(exp.get("category", ""), cls="py-3 px-4"),
-                    Td(str(exp.get("expense_date", "")), cls="py-3 px-4 text-muted-foreground"),
-                    Td(
-                        Span(
-                            exp.get("status", "PENDING"),
-                            cls=f"px-2 py-0.5 text-xs rounded {'bg-success/20 text-success' if exp.get('status') == 'PAID' else 'bg-warning/20 text-warning'}",
-                        ),
-                        cls="py-3 px-4",
+
+            def _expense_cell_render(k: str, v: object) -> Td:
+                if k == "Amount":
+                    return Td(v, cls="py-3 px-4 font-medium")
+                if k == "Date":
+                    return Td(v, cls="py-3 px-4 text-muted-foreground")
+                return Td(v, cls="py-3 px-4")
+
+            expense_body = [
+                {
+                    "Description": exp.get("description", ""),
+                    "Amount": f"${exp.get('amount', 0):.2f}",
+                    "Category": exp.get("category", ""),
+                    "Date": str(exp.get("expense_date", "")),
+                    "Status": Span(
+                        exp.get("status", "PENDING"),
+                        cls=f"px-2 py-0.5 text-xs rounded {'bg-success/20 text-success' if exp.get('status') == 'PAID' else 'bg-warning/20 text-warning'}",
                     ),
-                    cls="border-b border-border hover:bg-muted",
-                )
+                }
                 for exp in expenses
             ]
-            expense_table = Table(
-                Thead(
-                    Tr(
-                        Th("Description", cls="py-3 px-4 text-left font-semibold"),
-                        Th("Amount", cls="py-3 px-4 text-left font-semibold"),
-                        Th("Category", cls="py-3 px-4 text-left font-semibold"),
-                        Th("Date", cls="py-3 px-4 text-left font-semibold"),
-                        Th("Status", cls="py-3 px-4 text-left font-semibold"),
-                        cls="bg-muted",
-                    )
-                ),
-                Tbody(*expense_rows, id="expense-list"),
-                cls="w-full",
+            expense_table = TableFromDicts(
+                header_data=["Description", "Amount", "Category", "Date", "Status"],
+                body_data=expense_body,
+                body_cell_render=_expense_cell_render,
+                cls=(TableT.hover, TableT.divider),
             )
             list_section = Div(
                 Div(

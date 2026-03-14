@@ -210,11 +210,13 @@ Loading(variant=LoadingT.dots)
 ```python
 from ui.data import Table, TableFromDicts, TableFromLists, TableT, Divider, DividerSplit, DividerT
 
-# Striped table
-Table(thead, tbody, cls="uk-table uk-table-striped")
-
-# Table from data
-TableFromDicts(header_map={"name": "Name", "score": "Score"}, rows=data)
+# Preferred: TableFromDicts for data-driven tables
+TableFromDicts(
+    header_data=["Name", "Score"],
+    body_data=[{"Name": "Alice", "Score": 90}, {"Name": "Bob", "Score": 85}],
+    body_cell_render=lambda k, v: Td(v, cls="font-bold" if k == "Name" else ""),
+    cls=(TableT.striped, TableT.sm),
+)
 TableFromLists(header=["Name", "Score"], body=[["Alice", 90], ["Bob", 85]])
 
 # Divider

@@ -19,14 +19,11 @@ from fasthtml.common import (
     Option,
     Select,
     Span,
-    Table,
-    Tbody,
     Td,
     Textarea,
-    Th,
-    Thead,
-    Tr,
 )
+
+from ui.data import TableFromDicts, TableT
 
 
 class InvoiceViews:
@@ -176,7 +173,6 @@ class InvoiceViews:
                 id="invoice-list",
             )
 
-        # Status badge colors
         status_colors = {
             "draft": "bg-muted text-foreground/80",
             "sent": "bg-info/20 text-info",
@@ -186,95 +182,66 @@ class InvoiceViews:
             "cancelled": "bg-secondary text-muted-foreground",
         }
 
-        rows = []
+        from fasthtml.common import Th
+
+        def _inv_header_render(col: str) -> Th:
+            base = "py-3 px-4 text-sm font-semibold text-muted-foreground"
+            if col == "Amount":
+                return Th(col, cls=f"{base} text-right")
+            return Th(col, cls=f"{base} text-left")
+
+        def _inv_cell_render(k: str, v: object) -> Td:
+            styles = {
+                "Counterparty": "py-3 px-4 font-medium",
+                "Amount": "py-3 px-4 text-right font-semibold",
+                "Due Date": "py-3 px-4 text-muted-foreground",
+            }
+            return Td(v, cls=styles.get(k, "py-3 px-4"))
+
+        body_data = []
         for inv in invoices:
             status = inv.get("status", "draft")
             status_class = status_colors.get(status, "bg-muted text-foreground/80")
             type_icon = "📤" if inv.get("invoice_type") == "outgoing" else "📥"
 
-            rows.append(
-                Tr(
-                    Td(
-                        Div(
-                            Span(type_icon, cls="mr-2"),
-                            Span(inv.get("uid", "")[:20] + "...", cls="font-mono text-xs"),
-                            cls="flex items-center",
+            body_data.append(
+                {
+                    "Invoice": Div(
+                        Span(type_icon, cls="mr-2"),
+                        Span(inv.get("uid", "")[:20] + "...", cls="font-mono text-xs"),
+                        cls="flex items-center",
+                    ),
+                    "Counterparty": inv.get("counterparty", "Unknown"),
+                    "Amount": f"${inv.get('total', 0):,.2f}",
+                    "Due Date": inv.get("due_date", "N/A"),
+                    "Status": Span(
+                        status.upper(),
+                        cls=f"px-2 py-1 rounded-full text-xs font-medium {status_class}",
+                    ),
+                    "Actions": Div(
+                        A(
+                            "View",
+                            href=f"/api/invoices/{inv.get('uid')}",
+                            cls="text-sm text-primary hover:underline mr-3",
                         ),
-                        cls="py-3 px-4",
-                    ),
-                    Td(
-                        inv.get("counterparty", "Unknown"),
-                        cls="py-3 px-4 font-medium",
-                    ),
-                    Td(
-                        f"${inv.get('total', 0):,.2f}",
-                        cls="py-3 px-4 text-right font-semibold",
-                    ),
-                    Td(
-                        inv.get("due_date", "N/A"),
-                        cls="py-3 px-4 text-muted-foreground",
-                    ),
-                    Td(
-                        Span(
-                            status.upper(),
-                            cls=f"px-2 py-1 rounded-full text-xs font-medium {status_class}",
+                        A(
+                            "PDF",
+                            href=f"/api/invoices/{inv.get('uid')}/pdf",
+                            cls="text-sm text-primary hover:underline",
+                            download=True,
                         ),
-                        cls="py-3 px-4",
+                        cls="flex items-center gap-2",
                     ),
-                    Td(
-                        Div(
-                            A(
-                                "View",
-                                href=f"/api/invoices/{inv.get('uid')}",
-                                cls="text-sm text-primary hover:underline mr-3",
-                            ),
-                            A(
-                                "PDF",
-                                href=f"/api/invoices/{inv.get('uid')}/pdf",
-                                cls="text-sm text-primary hover:underline",
-                                download=True,
-                            ),
-                            cls="flex items-center gap-2",
-                        ),
-                        cls="py-3 px-4",
-                    ),
-                    cls="border-b border-border hover:bg-muted",
-                )
+                }
             )
 
         return Div(
-            Table(
-                Thead(
-                    Tr(
-                        Th(
-                            "Invoice",
-                            cls="py-3 px-4 text-left text-sm font-semibold text-muted-foreground",
-                        ),
-                        Th(
-                            "Counterparty",
-                            cls="py-3 px-4 text-left text-sm font-semibold text-muted-foreground",
-                        ),
-                        Th(
-                            "Amount",
-                            cls="py-3 px-4 text-right text-sm font-semibold text-muted-foreground",
-                        ),
-                        Th(
-                            "Due Date",
-                            cls="py-3 px-4 text-left text-sm font-semibold text-muted-foreground",
-                        ),
-                        Th(
-                            "Status",
-                            cls="py-3 px-4 text-left text-sm font-semibold text-muted-foreground",
-                        ),
-                        Th(
-                            "Actions",
-                            cls="py-3 px-4 text-left text-sm font-semibold text-muted-foreground",
-                        ),
-                        cls="bg-muted",
-                    ),
-                ),
-                Tbody(*rows),
-                cls="w-full",
+            TableFromDicts(
+                header_data=["Invoice", "Counterparty", "Amount", "Due Date", "Status", "Actions"],
+                body_data=body_data,
+                header_cell_render=_inv_header_render,
+                body_cell_render=_inv_cell_render,
+                cls=(TableT.hover, TableT.divider),
             ),
             cls="bg-background rounded-lg border border-border overflow-hidden",
             id="invoice-list",

@@ -21,16 +21,12 @@ from fasthtml.common import (
     Div,
     Li,
     P,
-    Table,
-    Tbody,
     Td,
-    Th,
-    Thead,
-    Tr,
     Ul,
 )
 
 from ui.buttons import Button, ButtonT
+from ui.data import TableFromDicts, TableT
 from ui.feedback import Alert, AlertT, Badge, BadgeT
 
 
@@ -138,43 +134,30 @@ def FilesToCreateTable(files_to_create: list[dict[str, Any]]) -> FT:
     if not files_to_create:
         return None
 
+    def _create_cell_render(k: str, v: object) -> Td:
+        styles = {"UID": "font-mono text-xs", "File": "font-mono text-xs max-w-xs truncate"}
+        return Td(v, cls=styles.get(k, ""))
+
     return Div(
         H3("Files to Create", cls="text-lg font-semibold mb-2 mt-4 text-success"),
         P(f"{len(files_to_create)} new entities", cls="text-sm text-muted-foreground mb-2"),
         Div(
-            Table(
-                Thead(
-                    Tr(
-                        Th("UID"),
-                        Th("Title"),
-                        Th("Type"),
-                        Th("File"),
-                    )
-                ),
-                Tbody(
-                    *[
-                        Tr(
-                            Td(
-                                file.get("uid", ""),
-                                cls="font-mono text-xs",
-                            ),
-                            Td(file.get("title", "Untitled")),
-                            Td(
-                                Badge(
-                                    file.get("entity_type", "unknown").upper(),
-                                    variant=BadgeT.success,
-                                )
-                            ),
-                            Td(
-                                file.get("file_path", ""),
-                                cls="font-mono text-xs max-w-xs truncate",
-                                title=file.get("file_path", ""),
-                            ),
-                        )
-                        for file in files_to_create[:100]  # Limit to 100 for performance
-                    ]
-                ),
-                cls="uk-table uk-table-striped uk-table-small",
+            TableFromDicts(
+                header_data=["UID", "Title", "Type", "File"],
+                body_data=[
+                    {
+                        "UID": file.get("uid", ""),
+                        "Title": file.get("title", "Untitled"),
+                        "Type": Badge(
+                            file.get("entity_type", "unknown").upper(),
+                            variant=BadgeT.success,
+                        ),
+                        "File": file.get("file_path", ""),
+                    }
+                    for file in files_to_create[:100]
+                ],
+                body_cell_render=_create_cell_render,
+                cls=(TableT.striped, TableT.sm),
             ),
             cls="overflow-x-auto",
         ),
@@ -203,6 +186,13 @@ def FilesToUpdateTable(files_to_update: list[dict[str, Any]]) -> FT:
     if not files_to_update:
         return None
 
+    def _update_cell_render(k: str, v: object) -> Td:
+        styles = {
+            "UID": "font-mono text-xs",
+            "Changes": "text-sm text-muted-foreground",
+        }
+        return Td(v, cls=styles.get(k, ""))
+
     return Div(
         H3("Files to Update", cls="text-lg font-semibold mb-2 mt-4 text-warning"),
         P(
@@ -210,38 +200,22 @@ def FilesToUpdateTable(files_to_update: list[dict[str, Any]]) -> FT:
             cls="text-sm text-muted-foreground mb-2",
         ),
         Div(
-            Table(
-                Thead(
-                    Tr(
-                        Th("UID"),
-                        Th("Title"),
-                        Th("Type"),
-                        Th("Changes"),
-                    )
-                ),
-                Tbody(
-                    *[
-                        Tr(
-                            Td(
-                                file.get("uid", ""),
-                                cls="font-mono text-xs",
-                            ),
-                            Td(file.get("title", "Untitled")),
-                            Td(
-                                Badge(
-                                    file.get("entity_type", "unknown").upper(),
-                                    variant=BadgeT.warning,
-                                )
-                            ),
-                            Td(
-                                file.get("changes_summary", "Content updated"),
-                                cls="text-sm text-muted-foreground",
-                            ),
-                        )
-                        for file in files_to_update[:100]  # Limit to 100 for performance
-                    ]
-                ),
-                cls="uk-table uk-table-striped uk-table-small",
+            TableFromDicts(
+                header_data=["UID", "Title", "Type", "Changes"],
+                body_data=[
+                    {
+                        "UID": file.get("uid", ""),
+                        "Title": file.get("title", "Untitled"),
+                        "Type": Badge(
+                            file.get("entity_type", "unknown").upper(),
+                            variant=BadgeT.warning,
+                        ),
+                        "Changes": file.get("changes_summary", "Content updated"),
+                    }
+                    for file in files_to_update[:100]
+                ],
+                body_cell_render=_update_cell_render,
+                cls=(TableT.striped, TableT.sm),
             ),
             cls="overflow-x-auto",
         ),
