@@ -15,7 +15,10 @@ Usage:
     )
 """
 
-from fasthtml.common import Button, Span
+from fasthtml.common import Span
+
+from ui.buttons import Button, ButtonT
+from ui.layout import Size
 
 
 def PinButton(entity_uid: str, is_pinned: bool = False, show_text: bool = False, size: str = "sm"):
@@ -66,12 +69,17 @@ def PinButton(entity_uid: str, is_pinned: bool = False, show_text: bool = False,
         htmx_attrs["hx_post"] = "/api/user/pins"
         htmx_attrs["hx_vals"] = f'{{"entity_uid": "{entity_uid}"}}'
 
-    # Button style
-    button_class = f"btn btn-{size} {'btn-primary' if is_pinned else 'btn-ghost'}"
+    # Map size string to Size enum
+    size_map = {"xs": Size.xs, "sm": Size.sm, "md": Size.md, "lg": Size.lg}
+    button_size = size_map.get(size, Size.sm)
+
+    # Variant based on pinned state
+    button_variant = ButtonT.primary if is_pinned else ButtonT.ghost
 
     return Button(
         *content,
-        cls=button_class,
+        variant=button_variant,
+        size=button_size,
         **htmx_attrs,
     )
 

@@ -48,6 +48,7 @@ from ui.feedback import Badge, BadgeT
 from ui.forms import Input, Label, Select, Textarea
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
+from ui.modals import Modal, ModalBox
 from ui.patterns.entity_dashboard import SharedUIComponents
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.relationships import EntityRelationshipsSection
@@ -95,9 +96,9 @@ class EventUIComponents:
 
         # Define quick actions
         quick_actions = [
-            {"label": "New Event", "href": "/events?view=create", "class": "btn-primary"},
-            {"label": "View Calendar", "href": "/events", "class": "btn-secondary"},
-            {"label": "Upcoming", "href": "/events?view=upcoming", "class": "btn-outline"},
+            {"label": "New Event", "href": "/events?view=create", "variant": "primary"},
+            {"label": "View Calendar", "href": "/events", "variant": "secondary"},
+            {"label": "Upcoming", "href": "/events?view=upcoming", "variant": "outline"},
         ]
 
         # Render content
@@ -551,8 +552,9 @@ def create_events_ui_routes(_app, rt, events_service: EventsService, services: A
         end_time_str = end_time_py.strftime("%H:%M") if end_time_py else ""
 
         # Build edit form modal
-        return Div(
-            Div(
+        return Modal(
+            "edit-event-modal",
+            ModalBox(
                 H2("Edit Event", cls="text-xl font-bold mb-4"),
                 Form(
                     # Title
@@ -655,18 +657,8 @@ def create_events_ui_routes(_app, rt, events_service: EventsService, services: A
                         "hx-swap": "innerHTML",
                     },
                 ),
-                cls="modal-box",
             ),
-            Div(
-                cls="modal-backdrop",
-                **{
-                    "hx-get": "/events",
-                    "hx-target": "body",
-                    "hx-swap": "innerHTML",
-                },
-            ),
-            id="modal",
-            cls="modal modal-open",
+            open_on_load=True,
         )
 
     @rt("/events/{uid}/update", methods=["POST"])

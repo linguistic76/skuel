@@ -30,7 +30,7 @@ from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonLink, ButtonT
 from ui.cards import Card
 from ui.feedback import Badge, BadgeT
-from ui.forms import Label, Select
+from ui.forms import FormControl, Label, Select
 from ui.layout import Size
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
@@ -107,8 +107,8 @@ class PathwaysUIComponents:
             method="POST",
             include_fields=["difficulty", "domain", "duration"],
             custom_widgets={
-                "difficulty": Div(
-                    Label("Difficulty Level", cls="label"),
+                "difficulty": FormControl(
+                    Label("Difficulty Level"),
                     Select(
                         Option("All Levels", value="all", selected=True),
                         Option("Beginner", value="beginner"),
@@ -116,10 +116,9 @@ class PathwaysUIComponents:
                         Option("Advanced", value="advanced"),
                         name="difficulty",
                     ),
-                    cls="form-control",
                 ),
-                "domain": Div(
-                    Label("Domain", cls="label"),
+                "domain": FormControl(
+                    Label("Domain"),
                     Select(
                         Option("All Domains", value="all", selected=True),
                         Option("Programming", value="programming"),
@@ -128,10 +127,9 @@ class PathwaysUIComponents:
                         Option("Cloud Computing", value="cloud"),
                         name="domain",
                     ),
-                    cls="form-control",
                 ),
-                "duration": Div(
-                    Label("Time Commitment", cls="label"),
+                "duration": FormControl(
+                    Label("Time Commitment"),
                     Select(
                         Option("Any Duration", value="all", selected=True),
                         Option("Under 20 hours", value="short"),
@@ -139,7 +137,6 @@ class PathwaysUIComponents:
                         Option("50+ hours", value="long"),
                         name="duration",
                     ),
-                    cls="form-control",
                 ),
             },
             form_attrs={
@@ -236,7 +233,8 @@ class PathwaysUIComponents:
                     Button(
                         "Enroll",
                         variant=ButtonT.primary,
-                        cls="btn-sm flex-1",
+                        size=Size.sm,
+                        cls="flex-1",
                         **{
                             "hx-post": f"/api/pathways/enroll/{path['uid']}",
                             "hx-target": "#main-content",
@@ -736,7 +734,7 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None, ls_servi
                     else Button(
                         "Enroll Now",
                         variant=ButtonT.primary,
-                        cls="btn-lg",
+                        size=Size.lg,
                         **{
                             "hx-post": f"/api/pathways/enroll/{path_uid}",
                             "hx-target": "#main-content",

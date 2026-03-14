@@ -42,6 +42,7 @@ from core.utils.result_simplified import Errors, Result
 from ui.buttons import Button, ButtonT
 from ui.cards import Card
 from ui.feedback import Badge, BadgeT
+from ui.layout import Size
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
 from ui.patterns.error_banner import render_error_banner
@@ -596,7 +597,8 @@ def create_principles_ui_routes(
                 H3("Recent Reflections", cls="text-lg font-semibold"),
                 Button(
                     "View All",
-                    cls="btn btn-xs btn-outline",
+                    variant=ButtonT.outline,
+                    size=Size.xs,
                     **{
                         "hx-get": f"/principles/{uid}/reflections",
                         "hx-target": "#view-content",

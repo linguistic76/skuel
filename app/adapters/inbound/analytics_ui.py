@@ -39,10 +39,11 @@ from adapters.inbound.auth import require_authenticated_user
 from core.models.enums import AnalyticsDomain
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonT
+from ui.cards import Card
+from ui.feedback import Alert, AlertT
 from ui.forms import Input, Select
 from ui.layouts.navbar import create_navbar_for_request
 from ui.shared_components import MetricCard, QuickMetricCard
-from ui.cards import Card
 
 logger = get_logger("skuel.routes.analytics.ui")
 
@@ -231,7 +232,7 @@ class AnalyticsUIComponents:
                                 ).items()
                             ]
                         ),
-                        cls="table table-zebra",
+                        cls="uk-table uk-table-striped",
                     ),
                     cls="bg-background shadow-sm p-4 mb-4",
                 )
@@ -240,7 +241,7 @@ class AnalyticsUIComponents:
             ),
             # Overdue tasks
             (
-                Div(
+                Alert(
                     Div(
                         Span("⚠️", cls="text-2xl mr-2"),
                         Span(
@@ -248,7 +249,7 @@ class AnalyticsUIComponents:
                         ),
                         cls="flex items-center",
                     ),
-                    cls="alert alert-warning",
+                    variant=AlertT.warning,
                 )
                 if metrics.get("overdue_count", 0) > 0
                 else ""
@@ -363,7 +364,7 @@ class AnalyticsUIComponents:
                         if not isinstance(value, dict)
                     ]
                 ),
-                cls="table table-zebra",
+                cls="uk-table uk-table-striped",
             ),
             cls="bg-background shadow-sm p-4",
         )

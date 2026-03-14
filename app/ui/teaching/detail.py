@@ -7,13 +7,14 @@ Submission content display and row components for detail views.
 
 from typing import Any
 
-from fasthtml.common import H4, A, Div, P, Span
+from fasthtml.common import H4, Div, P, Span
 
+from ui.buttons import Button, ButtonLink, ButtonT
+from ui.cards import Card, CardBody
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
 from ui.teaching.badges import entity_type_badge, status_badge
 from ui.teaching.cards import get_display_title
-from ui.cards import Card, CardBody
 
 
 def get_student_name(item: dict[str, Any]) -> str:
@@ -133,10 +134,11 @@ def render_exercise_submission_row(item: dict[str, Any]) -> Div:
                 cls="flex items-center justify-between gap-4",
             ),
             Div(
-                A(
+                ButtonLink(
                     "Review",
                     href=f"/teaching/review/{uid}",
-                    cls="btn btn-sm btn-primary",
+                    variant=ButtonT.primary,
+                    size=Size.sm,
                 ),
                 cls="flex justify-end mt-3",
             ),
@@ -169,9 +171,10 @@ def render_student_submission_row(item: dict[str, Any]) -> Div:
     feedback_toggle: Any = ""
     if feedback_count > 0:
         feedback_toggle = Div(
-            A(
+            Button(
                 "View Feedback",
-                cls="btn btn-xs btn-ghost",
+                variant=ButtonT.ghost,
+                size=Size.xs,
                 **{
                     "hx-get": f"/api/submissions/{uid}/feedback",
                     "hx-target": f"#feedback-{uid}",
@@ -198,10 +201,11 @@ def render_student_submission_row(item: dict[str, Any]) -> Div:
                 cls="flex items-center justify-between gap-4",
             ),
             Div(
-                A(
+                ButtonLink(
                     "Review",
                     href=f"/teaching/review/{uid}",
-                    cls="btn btn-sm btn-primary",
+                    variant=ButtonT.primary,
+                    size=Size.sm,
                 ),
                 cls="flex justify-end mt-3",
             ),
@@ -239,10 +243,11 @@ def render_class_member_row(item: dict[str, Any]) -> Div:
                 cls="flex items-center justify-between gap-4",
             ),
             Div(
-                A(
+                ButtonLink(
                     "View Submissions",
                     href=f"/teaching/students/{user_uid}",
-                    cls="btn btn-sm btn-ghost",
+                    variant=ButtonT.ghost,
+                    size=Size.sm,
                 ),
                 cls="flex justify-end mt-3",
             ),

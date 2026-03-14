@@ -32,6 +32,7 @@ from core.models.enums import (
     SELCategory,
 )
 from core.models.search_request import SearchResponse
+from ui.cards import Card
 from ui.enum_helpers import (
     get_content_icon,
     get_educational_icon,
@@ -40,7 +41,6 @@ from ui.enum_helpers import (
 from ui.feedback import Badge, BadgeT
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
-from ui.cards import Card
 
 # ============================================================================
 # PAGE LAYOUT COMPONENTS
@@ -171,25 +171,25 @@ def _render_filter_bar() -> str:
         <!-- Dropdowns Row -->
         <div class="flex flex-wrap gap-4 items-end mb-4">
             <!-- Entity Type -->
-            <div class="form-control flex-1 min-w-[150px]">
+            <div class="space-y-2 flex-1 min-w-[150px]">
                 <label class="label py-1">
-                    <span class="label-text text-xs font-semibold uppercase tracking-wide">Type</span>
+                    <span class="text-xs font-semibold uppercase tracking-wide">Type</span>
                 </label>
                 {_render_entity_type_select()}
             </div>
 
             <!-- Nous -->
-            <div class="form-control flex-1 min-w-[150px]">
+            <div class="space-y-2 flex-1 min-w-[150px]">
                 <label class="label py-1">
-                    <span class="label-text text-xs font-semibold uppercase tracking-wide">Nous</span>
+                    <span class="text-xs font-semibold uppercase tracking-wide">Nous</span>
                 </label>
                 {_render_nous_select()}
             </div>
 
             <!-- Sort Order -->
-            <div class="form-control flex-1 min-w-[150px]">
+            <div class="space-y-2 flex-1 min-w-[150px]">
                 <label class="label py-1">
-                    <span class="label-text text-xs font-semibold uppercase tracking-wide">Sort</span>
+                    <span class="text-xs font-semibold uppercase tracking-wide">Sort</span>
                 </label>
                 {_render_sort_select()}
             </div>
@@ -248,7 +248,7 @@ def _render_entity_type_select() -> str:
     )
 
     return f"""
-    <select name="entity_type" class="select select-bordered select-sm w-full"
+    <select name="entity_type" class="uk-select uk-form-small w-full"
             hx-get="/search/results"
             hx-trigger="change"
             hx-target="#search-results"
@@ -277,7 +277,7 @@ def _render_nous_select() -> str:
     ]
     options = "\n".join(f'<option value="{value}">{label}</option>' for value, label in sections)
     return f"""
-    <select name="nous_section" class="select select-bordered select-sm w-full"
+    <select name="nous_section" class="uk-select uk-form-small w-full"
             hx-get="/search/results"
             hx-trigger="change"
             hx-target="#search-results"
@@ -305,7 +305,7 @@ def _render_sort_select() -> str:
     )
 
     return f"""
-    <select name="sort_order" class="select select-bordered select-sm w-full"
+    <select name="sort_order" class="uk-select uk-form-small w-full"
             hx-get="/search/results"
             hx-trigger="change"
             hx-target="#search-results"
@@ -338,74 +338,74 @@ def _render_context_filters() -> str:
 
         <div class="flex flex-wrap gap-4">
             <!-- Common Filters (Activity domains) -->
-            <div class="form-control min-w-[140px]" x-show="isFilterVisible('status')" x-transition>
+            <div class="space-y-2 min-w-[140px]" x-show="isFilterVisible('status')" x-transition>
                 <label class="label py-0.5">
-                    <span class="label-text text-xs">Status</span>
+                    <span class="text-sm font-medium">Status</span>
                 </label>
                 {_render_status_select()}
             </div>
 
-            <div class="form-control min-w-[140px]" x-show="isFilterVisible('priority')" x-transition>
+            <div class="space-y-2 min-w-[140px]" x-show="isFilterVisible('priority')" x-transition>
                 <label class="label py-0.5">
-                    <span class="label-text text-xs">Priority</span>
+                    <span class="text-sm font-medium">Priority</span>
                 </label>
                 {_render_priority_select()}
             </div>
 
             <!-- Domain-Specific -->
-            <div class="form-control min-w-[140px]" x-show="isFilterVisible('frequency')" x-transition>
+            <div class="space-y-2 min-w-[140px]" x-show="isFilterVisible('frequency')" x-transition>
                 <label class="label py-0.5">
-                    <span class="label-text text-xs">Frequency</span>
+                    <span class="text-sm font-medium">Frequency</span>
                 </label>
                 {_render_frequency_select()}
             </div>
 
-            <div class="form-control min-w-[140px]" x-show="isFilterVisible('event_type')" x-transition>
+            <div class="space-y-2 min-w-[140px]" x-show="isFilterVisible('event_type')" x-transition>
                 <label class="label py-0.5">
-                    <span class="label-text text-xs">Event Type</span>
+                    <span class="text-sm font-medium">Event Type</span>
                 </label>
                 {_render_event_type_select()}
             </div>
 
-            <div class="form-control min-w-[140px]" x-show="isFilterVisible('urgency')" x-transition>
+            <div class="space-y-2 min-w-[140px]" x-show="isFilterVisible('urgency')" x-transition>
                 <label class="label py-0.5">
-                    <span class="label-text text-xs">Urgency</span>
+                    <span class="text-sm font-medium">Urgency</span>
                 </label>
                 {_render_urgency_select()}
             </div>
 
-            <div class="form-control min-w-[140px]" x-show="isFilterVisible('strength')" x-transition>
+            <div class="space-y-2 min-w-[140px]" x-show="isFilterVisible('strength')" x-transition>
                 <label class="label py-0.5">
-                    <span class="label-text text-xs">Strength</span>
+                    <span class="text-sm font-medium">Strength</span>
                 </label>
                 {_render_strength_select()}
             </div>
 
             <!-- Knowledge Filters (Curriculum domains) -->
-            <div class="form-control min-w-[140px]" x-show="isFilterVisible('sel_category')" x-transition>
+            <div class="space-y-2 min-w-[140px]" x-show="isFilterVisible('sel_category')" x-transition>
                 <label class="label py-0.5">
-                    <span class="label-text text-xs">SEL Category</span>
+                    <span class="text-sm font-medium">SEL Category</span>
                 </label>
                 {_render_sel_select()}
             </div>
 
-            <div class="form-control min-w-[140px]" x-show="isFilterVisible('learning_level')" x-transition>
+            <div class="space-y-2 min-w-[140px]" x-show="isFilterVisible('learning_level')" x-transition>
                 <label class="label py-0.5">
-                    <span class="label-text text-xs">Learning Level</span>
+                    <span class="text-sm font-medium">Learning Level</span>
                 </label>
                 {_render_learning_level_select()}
             </div>
 
-            <div class="form-control min-w-[140px]" x-show="isFilterVisible('content_type')" x-transition>
+            <div class="space-y-2 min-w-[140px]" x-show="isFilterVisible('content_type')" x-transition>
                 <label class="label py-0.5">
-                    <span class="label-text text-xs">Content Type</span>
+                    <span class="text-sm font-medium">Content Type</span>
                 </label>
                 {_render_content_type_select()}
             </div>
 
-            <div class="form-control min-w-[140px]" x-show="isFilterVisible('educational_level')" x-transition>
+            <div class="space-y-2 min-w-[140px]" x-show="isFilterVisible('educational_level')" x-transition>
                 <label class="label py-0.5">
-                    <span class="label-text text-xs">Educational Level</span>
+                    <span class="text-sm font-medium">Educational Level</span>
                 </label>
                 {_render_educational_level_select()}
             </div>
@@ -426,7 +426,7 @@ def _render_status_select() -> str:
     ]
     options = "\n".join(f'<option value="{value}">{label}</option>' for value, label in statuses)
     return f"""
-    <select name="status" class="select select-bordered select-xs w-full"
+    <select name="status" class="uk-select uk-form-small w-full"
             hx-get="/search/results" hx-trigger="change" hx-target="#search-results"
             hx-include="{_get_hx_include("status")}">
         {options}
@@ -445,7 +445,7 @@ def _render_priority_select() -> str:
     ]
     options = "\n".join(f'<option value="{value}">{label}</option>' for value, label in priorities)
     return f"""
-    <select name="priority" class="select select-bordered select-xs w-full"
+    <select name="priority" class="uk-select uk-form-small w-full"
             hx-get="/search/results" hx-trigger="change" hx-target="#search-results"
             hx-include="{_get_hx_include("priority")}">
         {options}
@@ -465,7 +465,7 @@ def _render_frequency_select() -> str:
     ]
     options = "\n".join(f'<option value="{value}">{label}</option>' for value, label in frequencies)
     return f"""
-    <select name="frequency" class="select select-bordered select-xs w-full"
+    <select name="frequency" class="uk-select uk-form-small w-full"
             hx-get="/search/results" hx-trigger="change" hx-target="#search-results"
             hx-include="{_get_hx_include("frequency")}">
         {options}
@@ -485,7 +485,7 @@ def _render_event_type_select() -> str:
     ]
     options = "\n".join(f'<option value="{value}">{label}</option>' for value, label in event_types)
     return f"""
-    <select name="event_type" class="select select-bordered select-xs w-full"
+    <select name="event_type" class="uk-select uk-form-small w-full"
             hx-get="/search/results" hx-trigger="change" hx-target="#search-results"
             hx-include="{_get_hx_include("event_type")}">
         {options}
@@ -504,7 +504,7 @@ def _render_urgency_select() -> str:
     ]
     options = "\n".join(f'<option value="{value}">{label}</option>' for value, label in urgencies)
     return f"""
-    <select name="urgency" class="select select-bordered select-xs w-full"
+    <select name="urgency" class="uk-select uk-form-small w-full"
             hx-get="/search/results" hx-trigger="change" hx-target="#search-results"
             hx-include="{_get_hx_include("urgency")}">
         {options}
@@ -523,7 +523,7 @@ def _render_strength_select() -> str:
     ]
     options = "\n".join(f'<option value="{value}">{label}</option>' for value, label in strengths)
     return f"""
-    <select name="strength" class="select select-bordered select-xs w-full"
+    <select name="strength" class="uk-select uk-form-small w-full"
             hx-get="/search/results" hx-trigger="change" hx-target="#search-results"
             hx-include="{_get_hx_include("strength")}">
         {options}
@@ -540,7 +540,7 @@ def _render_sel_select() -> str:
             f'<option value="{cat.value}">{icon} {cat.value.replace("_", " ").title()}</option>\n'
         )
     return f"""
-    <select name="sel_category" class="select select-bordered select-xs w-full"
+    <select name="sel_category" class="uk-select uk-form-small w-full"
             hx-get="/search/results" hx-trigger="change" hx-target="#search-results"
             hx-include="{_get_hx_include("sel_category")}">
         {options}
@@ -554,7 +554,7 @@ def _render_learning_level_select() -> str:
     for level in LearningLevel:
         options += f'<option value="{level.value}">{level.value.capitalize()}</option>\n'
     return f"""
-    <select name="learning_level" class="select select-bordered select-xs w-full"
+    <select name="learning_level" class="uk-select uk-form-small w-full"
             hx-get="/search/results" hx-trigger="change" hx-target="#search-results"
             hx-include="{_get_hx_include("learning_level")}">
         {options}
@@ -569,7 +569,7 @@ def _render_content_type_select() -> str:
         icon = get_content_icon(ctype.value)
         options += f'<option value="{ctype.value}">{icon} {ctype.value.capitalize()}</option>\n'
     return f"""
-    <select name="content_type" class="select select-bordered select-xs w-full"
+    <select name="content_type" class="uk-select uk-form-small w-full"
             hx-get="/search/results" hx-trigger="change" hx-target="#search-results"
             hx-include="{_get_hx_include("content_type")}">
         {options}
@@ -584,7 +584,7 @@ def _render_educational_level_select() -> str:
         icon = get_educational_icon(level.value)
         options += f'<option value="{level.value}">{icon} {level.value.replace("_", " ").title()}</option>\n'
     return f"""
-    <select name="educational_level" class="select select-bordered select-xs w-full"
+    <select name="educational_level" class="uk-select uk-form-small w-full"
             hx-get="/search/results" hx-trigger="change" hx-target="#search-results"
             hx-include="{_get_hx_include("educational_level")}">
         {options}
@@ -604,10 +604,10 @@ def _render_learning_progress_checkboxes() -> str:
     for name, label in filters:
         result += f"""
         <label class="label cursor-pointer justify-start gap-2 py-1">
-            <input type="checkbox" name="{name}" value="true" class="checkbox checkbox-xs checkbox-primary"
+            <input type="checkbox" name="{name}" value="true" class="uk-checkbox"
                    hx-get="/search/results" hx-trigger="change" hx-target="#search-results"
                    hx-include="{_get_hx_include(name)}">
-            <span class="label-text text-xs">{label}</span>
+            <span class="text-sm font-medium">{label}</span>
         </label>
         """
     return result
@@ -630,10 +630,10 @@ def _render_relationship_checkboxes() -> str:
     for name, label in filters:
         result += f"""
         <label class="label cursor-pointer justify-start gap-2 py-0.5">
-            <input type="checkbox" name="{name}" value="true" class="checkbox checkbox-xs checkbox-primary"
+            <input type="checkbox" name="{name}" value="true" class="uk-checkbox"
                    hx-get="/search/results" hx-trigger="change" hx-target="#search-results"
                    hx-include="{_get_hx_include(name)}">
-            <span class="label-text text-xs">{label}</span>
+            <span class="text-sm font-medium">{label}</span>
         </label>
         """
     return result
@@ -655,10 +655,10 @@ def _render_semantic_search_checkboxes() -> str:
     for name, label in filters:
         result += f"""
         <label class="label cursor-pointer justify-start gap-2 py-0.5">
-            <input type="checkbox" name="{name}" value="true" class="checkbox checkbox-xs checkbox-primary"
+            <input type="checkbox" name="{name}" value="true" class="uk-checkbox"
                    hx-get="/search/results" hx-trigger="change" hx-target="#search-results"
                    hx-include="{_get_hx_include(name)}">
-            <span class="label-text text-xs">{label}</span>
+            <span class="text-sm font-medium">{label}</span>
         </label>
         """
     return result
@@ -688,7 +688,7 @@ def _render_active_filter_badges() -> str:
 
             <!-- Clear All Button -->
             <button type="button"
-                    class="btn btn-ghost btn-xs text-error"
+                    class="uk-btn uk-btn-default uk-btn-small text-error"
                     x-on:click="clearAllFilters()"
                     x-show="hasActiveFilters">
                 Clear All
@@ -716,7 +716,7 @@ def _render_search_input() -> str:
             <input type="text"
                    name="query"
                    placeholder="Search across all your knowledge..."
-                   class="input input-bordered w-full pl-10 pr-4"
+                   class="uk-input w-full pl-10 pr-4"
                    hx-get="/search/results"
                    hx-trigger="keyup changed delay:500ms"
                    hx-target="#search-results"
@@ -747,7 +747,7 @@ def _render_results_sort_dropdown() -> Any:
     return Div(
         Span("Sort:", cls="text-sm text-muted-foreground mr-2"),
         NotStr(f"""
-        <select name="sort_order" id="sort-order-results" class="select select-bordered select-xs"
+        <select name="sort_order" id="sort-order-results" class="uk-select uk-form-small"
                 hx-get="/search/results"
                 hx-trigger="change"
                 hx-target="#search-results"
@@ -857,7 +857,7 @@ def _render_result_card(result: dict) -> Any:
     # Add footer with clean button
     card_body_items.append(
         Div(
-            A("View Details", href=f"/{domain}/{uid}", cls="link link-primary text-sm"),
+            A("View Details", href=f"/{domain}/{uid}", cls="text-primary hover:underline text-sm"),
             cls="mt-4",
         )
     )
@@ -987,13 +987,13 @@ def _render_pagination(response: SearchResponse) -> Any:
                 hx_get="/search/results",
                 hx_target="#search-results",
                 hx_include="[name='query'], [name='domain'], [name='sel_category'], [name='learning_level'], [name='content_type'], [name='educational_level']",
-                cls=f"btn btn-sm {'btn-disabled' if current_page <= 1 else 'btn-outline'}",
+                cls=f"uk-btn uk-btn-small {'uk-disabled' if current_page <= 1 else 'uk-btn-default'}",
             ),
             # Page numbers (show current and surrounding pages)
             *[
                 A(
                     str(page),
-                    cls=f"btn btn-sm {'btn-primary' if page == current_page else 'btn-ghost'}",
+                    cls=f"uk-btn uk-btn-small {'uk-button-primary' if page == current_page else 'uk-btn-default'}",
                 )
                 for page in range(max(1, current_page - 2), min(total_pages + 1, current_page + 3))
             ],
@@ -1004,7 +1004,7 @@ def _render_pagination(response: SearchResponse) -> Any:
                 hx_get="/search/results",
                 hx_target="#search-results",
                 hx_include="[name='query'], [name='domain'], [name='sel_category'], [name='learning_level'], [name='content_type'], [name='educational_level']",
-                cls=f"btn btn-sm {'btn-disabled' if not response.has_more_pages() else 'btn-outline'}",
+                cls=f"uk-btn uk-btn-small {'uk-disabled' if not response.has_more_pages() else 'uk-btn-default'}",
             ),
             cls="flex justify-center gap-1",
         ),
@@ -1035,11 +1035,18 @@ def render_empty_search_prompt() -> Div:
 
 def render_search_error(message: str, error_type: str = "error") -> Div:
     """Render a search error message."""
-    alert_class = f"alert alert-{error_type}"
+    from ui.feedback import Alert, AlertT
+
+    variant_map: dict[str, AlertT] = {
+        "error": AlertT.error,
+        "warning": AlertT.warning,
+        "info": AlertT.info,
+        "success": AlertT.success,
+    }
     return Div(
-        Div(
+        Alert(
             P(message),
-            cls=alert_class,
+            variant=variant_map.get(error_type, AlertT.error),
         ),
         id="search-results",
     )

@@ -81,7 +81,7 @@ def _build_field(spec: dict[str, Any]) -> Div:
     if help_text:
         children.append(P(help_text, cls="text-sm text-muted-foreground mt-1"))
 
-    return Div(*children, cls="form-control")
+    return Div(*children, cls="space-y-2")
 
 
 def render_inline_exercise_form(
@@ -149,11 +149,11 @@ def _submit_handler(exercise_uid: str, field_names: list[str]) -> str:
         f"submitting = false; "
         f"if (res.ok) {{ "
         f"submitted = true; "
-        f"$el.innerHTML = '<div class=\"alert alert-success\">Submitted successfully.</div>'; "
+        f"$el.innerHTML = '<div class=\"bg-green-100 text-green-800 border border-green-200 p-3 rounded-lg\">Submitted successfully.</div>'; "
         f"}} else {{ "
         f"let err = await res.json(); "
         f"document.getElementById('form-feedback-{exercise_uid}').innerHTML = "
-        f"'<div class=\"alert alert-error\">' + (err.error || 'Submission failed') + '</div>'; "
+        f"'<div class=\"bg-red-100 text-red-800 border border-red-200 p-3 rounded-lg\">' + (err.error || 'Submission failed') + '</div>'; "
         f"}}"
     )
 

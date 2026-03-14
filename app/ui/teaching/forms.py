@@ -7,10 +7,10 @@ Exercise create/edit form component.
 
 from typing import Any
 
-from fasthtml.common import Div, Form, Label, Option, P
+from fasthtml.common import Div, Form, Option, P
 
 from ui.buttons import Button, ButtonT
-from ui.forms import Input, Select, Textarea
+from ui.forms import FormControl, Input, Label, Radio, Select, Textarea
 
 
 def render_exercise_form(groups: list[dict[str, Any]], exercise: Any = None) -> Div:
@@ -62,15 +62,15 @@ def render_exercise_form(groups: list[dict[str, Any]], exercise: Any = None) -> 
         "try{"
         "var d=JSON.parse(event.detail.xhr.responseText);"
         "document.getElementById('form-result').innerHTML="
-        "'<div class=\"alert alert-error mt-2\">'+(d.message||'Error saving exercise')+'</div>';"
+        "'<div class=\"bg-red-100 text-red-800 border border-red-200 p-3 rounded-lg mt-2\">'+(d.message||'Error saving exercise')+'</div>';"
         "}catch(e){}"
         "}"
     )
 
     return Div(
         Form(
-            Div(
-                Label("Name", cls="label-text font-medium"),
+            FormControl(
+                Label("Name", cls="font-medium"),
                 Input(
                     type="text",
                     name="name",
@@ -78,10 +78,10 @@ def render_exercise_form(groups: list[dict[str, Any]], exercise: Any = None) -> 
                     placeholder="e.g., Daily Reflection, Principle Mining",
                     required=True,
                 ),
-                cls="form-control mb-4",
+                cls="mb-4",
             ),
-            Div(
-                Label("Instructions (visible to students & LLM)", cls="label-text font-medium"),
+            FormControl(
+                Label("Instructions (visible to students & LLM)", cls="font-medium"),
                 Textarea(
                     instructions_val,
                     name="instructions",
@@ -89,60 +89,58 @@ def render_exercise_form(groups: list[dict[str, Any]], exercise: Any = None) -> 
                     cls="h-40",
                     required=True,
                 ),
-                cls="form-control mb-4",
+                cls="mb-4",
             ),
-            Div(
-                Label("LLM Model", cls="label-text font-medium"),
+            FormControl(
+                Label("LLM Model", cls="font-medium"),
                 Select(*model_options, name="model"),
-                cls="form-control mb-4",
+                cls="mb-4",
             ),
-            Div(
-                Label("Scope", cls="label-text font-medium"),
+            FormControl(
+                Label("Scope", cls="font-medium"),
                 Div(
                     Label(
-                        Input(
-                            type="radio",
+                        Radio(
                             name="scope",
                             value="personal",
-                            cls="radio radio-sm mr-2",
+                            cls="mr-2",
                             **{"x-model": "scope"},
                         ),
                         "Personal",
-                        cls="label cursor-pointer gap-2 justify-start",
+                        cls="cursor-pointer gap-2 justify-start",
                     ),
                     Label(
-                        Input(
-                            type="radio",
+                        Radio(
                             name="scope",
                             value="assigned",
-                            cls="radio radio-sm mr-2",
+                            cls="mr-2",
                             **{"x-model": "scope"},
                         ),
                         "Assigned to group",
-                        cls="label cursor-pointer gap-2 justify-start",
+                        cls="cursor-pointer gap-2 justify-start",
                     ),
                     cls="flex gap-6",
                 ),
-                cls="form-control mb-4",
+                cls="mb-4",
             ),
             Div(
-                Div(
-                    Label("Group", cls="label-text font-medium"),
+                FormControl(
+                    Label("Group", cls="font-medium"),
                     Select(*group_options, name="group_uid"),
-                    cls="form-control mb-3",
+                    cls="mb-3",
                 ),
-                Div(
-                    Label("Due Date", cls="label-text font-medium"),
+                FormControl(
+                    Label("Due Date", cls="font-medium"),
                     Input(
                         type="date",
                         name="due_date",
                         value=due_date_val,
                     ),
-                    cls="form-control mb-3",
+                    cls="mb-3",
                 ),
                 **{"x-show": "scope === 'assigned'"},
             ),
-            Div(
+            FormControl(
                 Div(
                     P(
                         "Context Notes (optional)",
@@ -166,7 +164,7 @@ def render_exercise_form(groups: list[dict[str, Any]], exercise: Any = None) -> 
                     ),
                     **{"x-show": "notesOpen"},
                 ),
-                cls="form-control mb-4",
+                cls="mb-4",
             ),
             Div(
                 Button(

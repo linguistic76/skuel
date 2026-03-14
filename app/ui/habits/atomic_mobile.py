@@ -23,8 +23,7 @@ from typing import Any
 
 from fasthtml.common import H1, H2, H3, Div, P, Span
 
-from ui.buttons import Button, ButtonLink, ButtonT
-from ui.layout import Size
+from ui.buttons import Button, ButtonT
 from ui.cards import Card, CardBody
 from ui.feedback import Badge
 

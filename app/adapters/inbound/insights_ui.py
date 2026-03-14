@@ -9,14 +9,14 @@ UI routes for displaying and managing event-driven insights.
 from dataclasses import dataclass
 from typing import Any
 
-from fasthtml.common import H2, H3, Div, Label, NotStr, P, Span
+from fasthtml.common import H2, H3, Div, NotStr, P, Span
 from starlette.requests import Request
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.route_factories import parse_int_query_param
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonLink, ButtonT
-from ui.forms import Input, Select
+from ui.forms import FormControl, Input, Label, Select
 from ui.insights.insight_card import InsightCard
 from ui.layout import Size
 from ui.layouts.base_page import BasePage
@@ -130,8 +130,8 @@ def create_insights_ui_routes(
             # Row 1: Search + Domain
             Div(
                 # Full-text search (debounced 300ms)
-                Div(
-                    Label("Search", cls="label label-text text-xs"),
+                FormControl(
+                    Label("Search", cls="text-xs"),
                     Input(
                         type="text",
                         placeholder="Search insights...",
@@ -139,11 +139,11 @@ def create_insights_ui_routes(
                         **{"x-model": "filters.search"},
                         **{"@input.debounce.300ms": "applyFilters()"},
                     ),
-                    cls="form-control flex-1",
+                    cls="flex-1",
                 ),
                 # Domain filter
-                Div(
-                    Label("Domain", cls="label label-text text-xs"),
+                FormControl(
+                    Label("Domain", cls="text-xs"),
                     Select(
                         NotStr(
                             '<option value="">All Domains</option>'
@@ -159,15 +159,14 @@ def create_insights_ui_routes(
                         **{"x-model": "filters.domain"},
                         **{"@change": "applyFilters()"},
                     ),
-                    cls="form-control",
                 ),
                 cls="flex gap-3",
             ),
             # Row 2: Impact + Type + Status
             Div(
                 # Impact filter
-                Div(
-                    Label("Impact", cls="label label-text text-xs"),
+                FormControl(
+                    Label("Impact", cls="text-xs"),
                     Select(
                         NotStr(
                             '<option value="">All Impact</option>'
@@ -181,11 +180,10 @@ def create_insights_ui_routes(
                         **{"x-model": "filters.impact"},
                         **{"@change": "applyFilters()"},
                     ),
-                    cls="form-control",
                 ),
                 # Insight type filter
-                Div(
-                    Label("Type", cls="label label-text text-xs"),
+                FormControl(
+                    Label("Type", cls="text-xs"),
                     Select(
                         NotStr(
                             '<option value="">All Types</option>'
@@ -201,11 +199,10 @@ def create_insights_ui_routes(
                         **{"x-model": "filters.type"},
                         **{"@change": "applyFilters()"},
                     ),
-                    cls="form-control",
                 ),
                 # Action status filter
-                Div(
-                    Label("Status", cls="label label-text text-xs"),
+                FormControl(
+                    Label("Status", cls="text-xs"),
                     Select(
                         NotStr(
                             '<option value="all">All</option>'
@@ -217,7 +214,6 @@ def create_insights_ui_routes(
                         **{"x-model": "filters.status"},
                         **{"@change": "applyFilters()"},
                     ),
-                    cls="form-control",
                 ),
                 cls="flex gap-3 mt-3",
             ),
@@ -233,7 +229,7 @@ def create_insights_ui_routes(
                 # Loading indicator (shown during debounce/navigation)
                 Span(
                     "Filtering...",
-                    cls="text-xs text-muted-foreground loading loading-spinner loading-xs",
+                    cls="text-xs text-muted-foreground uk-spinner uk-spinner-small",
                     **{"x-show": "loading"},
                 ),
                 cls="flex gap-2 mt-3 items-center",
@@ -299,7 +295,7 @@ def create_insights_ui_routes(
                         **{"@change": "toggleSelectAll()"},
                     ),
                     Span("Select All", cls="ml-2 text-sm font-medium"),
-                    cls="label cursor-pointer justify-start gap-2",
+                    cls="cursor-pointer justify-start gap-2",
                 ),
                 cls="mb-4 p-3 bg-muted rounded-lg",
             )
@@ -371,7 +367,7 @@ def create_insights_ui_routes(
                 # Loading indicator
                 Div(
                     Div(
-                        Span("Loading more insights...", cls="loading loading-spinner loading-md"),
+                        Span("Loading more insights...", cls="uk-spinner uk-spinner-small"),
                         cls="flex justify-center items-center py-8",
                     ),
                     id="loading-indicator",

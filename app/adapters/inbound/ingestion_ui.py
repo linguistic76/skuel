@@ -15,7 +15,7 @@ from adapters.inbound.auth import make_service_getter, require_admin
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonT
 from ui.cards import Card, CardBody
-from ui.forms import Input, Label
+from ui.forms import FormControl, Input, Label
 from ui.layouts.base_page import BasePage
 from ui.patterns import PageHeader, SectionHeader
 
@@ -59,10 +59,10 @@ def create_ingestion_ui_routes(
         }
         if value:
             input_attrs["value"] = value
-        return Div(
-            Label(label_text, _for=input_id, cls="label"),
+        return FormControl(
+            Label(label_text, _for=input_id),
             Input(**input_attrs),
-            cls="form-control w-full",
+            cls="w-full",
         )
 
     def _ingestion_card(
@@ -162,7 +162,7 @@ def create_ingestion_ui_routes(
                 if (isError) {
                     const msg = result.error || result.message || 'Ingestion failed';
                     statusEl.innerHTML = `
-                        <div class="alert alert-error shadow-sm">
+                        <div class="bg-red-100 text-red-800 border border-red-200 p-3 rounded-lg shadow-sm">
                             <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                             </svg>
@@ -189,7 +189,7 @@ def create_ingestion_ui_routes(
                     }
 
                     statusEl.innerHTML = `
-                        <div class="alert alert-success shadow-sm">
+                        <div class="bg-green-100 text-green-800 border border-green-200 p-3 rounded-lg shadow-sm">
                             <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
                             </svg>
@@ -212,7 +212,7 @@ def create_ingestion_ui_routes(
                 const statusEl = document.getElementById('ingest-status');
                 statusEl.innerHTML = `
                     <div class="alert shadow-sm">
-                        <span class="loading loading-spinner loading-sm"></span>
+                        <span class="uk-spinner uk-spinner-small"></span>
                         <span>Ingesting...</span>
                     </div>`;
                 document.getElementById('ingest-details-card').classList.add('hidden');

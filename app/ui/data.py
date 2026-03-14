@@ -40,9 +40,9 @@ def Table(*c: Any, cls: str = "", zebra: bool = False, **kwargs: Any) -> Any:
     """
     from fasthtml.common import Table as FTTable
 
-    classes = ["table"]
+    classes = ["uk-table"]
     if zebra:
-        classes.append("table-zebra")
+        classes.append("uk-table-striped")
     if cls:
         classes.append(cls)
     return FTTable(*c, cls=" ".join(classes), **kwargs)
@@ -93,12 +93,15 @@ def Divider(
         horizontal: If True, horizontal divider; else vertical
         **kwargs: Additional HTML attributes
     """
-    classes = ["divider"]
-    if not horizontal:
-        classes.append("divider-horizontal")
+    if horizontal:
+        base_classes = ["border-t border-border my-4"]
+    else:
+        base_classes = ["border-l border-border mx-4 h-full"]
+    if text:
+        base_classes.append("flex items-center gap-2 text-muted-foreground text-sm")
     if cls:
-        classes.append(cls)
-    return Div(text if text else None, cls=" ".join(classes), **kwargs)
+        base_classes.append(cls)
+    return Div(text if text else None, cls=" ".join(base_classes), **kwargs)
 
 
 def Avatar(*c: Any, cls: str = "", online: bool | None = None, **kwargs: Any) -> Any:

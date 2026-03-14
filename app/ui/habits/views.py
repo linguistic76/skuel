@@ -19,7 +19,7 @@ Usage:
 from datetime import date, timedelta
 from typing import Any
 
-from fasthtml.common import H2, H3, A, Div, Form, Option, P, Span
+from fasthtml.common import H2, H3, Div, Form, Option, P, Span
 
 from core.models.event.calendar_models import (
     CalendarData,
@@ -27,7 +27,7 @@ from core.models.event.calendar_models import (
 )
 from core.models.habit.habit import Habit as Habit
 from core.utils.logging import get_logger
-from ui.buttons import Button
+from ui.buttons import Button, ButtonLink, ButtonT
 from ui.calendar.components import (
     create_day_timeline,
     create_month_grid,
@@ -35,10 +35,10 @@ from ui.calendar.components import (
     create_week_grid,
 )
 from ui.calendar.converters import habit_to_calendar_items
+from ui.cards import Card
 from ui.feedback import Badge, Progress
 from ui.forms import Input, Label, Select, Textarea
 from ui.layout import Size
-from ui.cards import Card
 from ui.patterns.activity_views_base import (
     ActivityCalendarNav,
     ActivityViewSwitcher,
@@ -271,7 +271,8 @@ class HabitsViewComponents:
                 Div(
                     Button(
                         "✓ Complete",
-                        cls="btn btn-xs btn-success",
+                        variant=ButtonT.success,
+                        size=Size.xs,
                         **{
                             "hx-post": f"/habits/{uid}/complete",
                             "hx-target": f"#habit-{uid}",
@@ -280,7 +281,9 @@ class HabitsViewComponents:
                     ),
                     Button(
                         "Edit",
-                        cls="btn btn-xs btn-outline btn-primary",
+                        variant=ButtonT.outline,
+                        size=Size.xs,
+                        cls="uk-button-primary",
                         **{
                             "hx-get": f"/habits/{uid}/edit",
                             "hx-target": "#modal",
@@ -289,7 +292,8 @@ class HabitsViewComponents:
                     ),
                     Button(
                         "View",
-                        cls="btn btn-xs btn-outline",
+                        variant=ButtonT.outline,
+                        size=Size.xs,
                         **{"hx-get": f"/habits/{uid}", "hx-target": "body"},
                     ),
                     cls="flex gap-2 mt-3",
@@ -435,22 +439,25 @@ class HabitsViewComponents:
 
         # Submit buttons
         submit_section = Div(
-            A(
+            ButtonLink(
                 "Cancel",
                 href="/habits",
-                cls="btn btn-ghost btn-lg",
+                variant=ButtonT.ghost,
+                size=Size.lg,
             ),
             Button(
                 "Create Habit",
                 type="submit",
-                cls="btn btn-primary btn-lg",
+                variant=ButtonT.primary,
+                size=Size.lg,
             ),
             Button(
                 "Create & Add Another",
                 type="submit",
                 name="add_another",
                 value="true",
-                cls="btn btn-outline btn-lg",
+                variant=ButtonT.outline,
+                size=Size.lg,
             ),
             cls="flex justify-end gap-2 pt-6 border-t border-border",
         )

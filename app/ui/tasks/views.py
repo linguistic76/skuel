@@ -21,7 +21,6 @@ from typing import Any
 
 from fasthtml.common import (
     H2,
-    A,
     Datalist,
     Div,
     Form,
@@ -35,7 +34,7 @@ from core.models.event.calendar_models import (
     CalendarView,
 )
 from core.utils.logging import get_logger
-from ui.buttons import Button, ButtonT
+from ui.buttons import Button, ButtonLink, ButtonT
 from ui.calendar.components import (
     create_day_timeline,
     create_month_grid,
@@ -202,10 +201,11 @@ class TasksViewComponents:
 
         # Submit buttons
         submit_section = Div(
-            A(
+            ButtonLink(
                 "Cancel",
                 href="/tasks",
-                cls="btn btn-ghost btn-lg",
+                variant=ButtonT.ghost,
+                size=Size.lg,
             ),
             Button(
                 "Create Task",

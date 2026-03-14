@@ -7,12 +7,13 @@ Dashboard, stat, and summary card components for teaching views.
 
 from typing import Any
 
-from fasthtml.common import H3, H4, A, Div, P
+from fasthtml.common import H3, H4, Div, P
 
+from ui.buttons import ButtonLink, ButtonT
+from ui.cards import Card, CardBody
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
 from ui.teaching.badges import entity_type_badge, status_badge
-from ui.cards import Card, CardBody
 
 
 def render_empty_state(title: str, description: str) -> Div:
@@ -64,10 +65,10 @@ def render_dashboard(stats: dict[str, Any]) -> Div:
             cls="grid grid-cols-2 gap-4 mb-6",
         ),
         Div(
-            A(
+            ButtonLink(
                 "Go to Review Queue →",
                 href="/teaching/queue",
-                cls="btn btn-primary",
+                variant=ButtonT.primary,
             ),
             cls="mt-2",
         )
@@ -117,10 +118,11 @@ def render_queue_item(item: dict[str, Any]) -> Div:
                 cls="flex items-center justify-between gap-4",
             ),
             Div(
-                A(
+                ButtonLink(
                     "Review",
                     href=f"/teaching/review/{ku_uid}",
-                    cls="btn btn-sm btn-primary",
+                    variant=ButtonT.primary,
+                    size=Size.sm,
                 ),
                 cls="flex justify-end mt-3",
             ),
@@ -158,15 +160,17 @@ def render_exercise_summary_card(item: dict[str, Any]) -> Div:
                 cls="flex items-center justify-between gap-4",
             ),
             Div(
-                A(
+                ButtonLink(
                     "Edit",
                     href=f"/teaching/exercises/{uid}/edit",
-                    cls="btn btn-sm btn-ghost",
+                    variant=ButtonT.ghost,
+                    size=Size.sm,
                 ),
-                A(
+                ButtonLink(
                     "View Submissions",
                     href=f"/teaching/exercises/{uid}/submissions",
-                    cls="btn btn-sm btn-primary",
+                    variant=ButtonT.primary,
+                    size=Size.sm,
                 ),
                 cls="flex gap-2 justify-end mt-3",
             ),
@@ -205,10 +209,11 @@ def render_student_summary_card(item: dict[str, Any]) -> Div:
                 cls="flex items-center justify-between gap-4",
             ),
             Div(
-                A(
+                ButtonLink(
                     "View Student",
                     href=f"/teaching/students/{student_uid}",
-                    cls="btn btn-sm btn-primary",
+                    variant=ButtonT.primary,
+                    size=Size.sm,
                 ),
                 cls="flex justify-end mt-3",
             ),
@@ -254,10 +259,11 @@ def render_class_card(item: dict[str, Any]) -> Div:
                 cls="flex items-start justify-between gap-4",
             ),
             Div(
-                A(
+                ButtonLink(
                     "View Class",
                     href=f"/teaching/classes/{uid}",
-                    cls="btn btn-sm btn-primary",
+                    variant=ButtonT.primary,
+                    size=Size.sm,
                 ),
                 cls="flex justify-end mt-3",
             ),

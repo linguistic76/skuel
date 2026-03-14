@@ -13,9 +13,10 @@ from typing import Any
 
 from fasthtml.common import H1, H2, Div, Form, Option, P, Span
 
-from ui.buttons import Button
-from ui.forms import Input, Label, Select
+from ui.buttons import Button, ButtonT
 from ui.cards import Card
+from ui.feedback import Alert, AlertT
+from ui.forms import Checkbox, FormControl, Input, Label, Select
 
 
 class UserPreferencesComponents:
@@ -75,13 +76,14 @@ class UserPreferencesComponents:
                 Button(
                     "Cancel",
                     type="button",
-                    cls="btn btn-outline mr-4",
+                    variant=ButtonT.outline,
+                    cls="mr-4",
                     onclick="window.location.href='/profile'",
                 ),
                 Button(
                     "Save All Changes",
                     type="submit",
-                    cls="btn btn-primary",
+                    variant=ButtonT.primary,
                     form="preferences-form",
                 ),
                 cls="flex justify-end mt-6",
@@ -93,8 +95,8 @@ class UserPreferencesComponents:
     def _render_learning_prefs_form(prefs: dict) -> Any:
         """Render learning preferences section"""
         return Form(
-            Div(
-                Label("Learning Level", cls="label font-semibold"),
+            FormControl(
+                Label("Learning Level", cls="font-semibold"),
                 Select(name="learning_level")(
                     Option(
                         "Beginner",
@@ -119,58 +121,50 @@ class UserPreferencesComponents:
                     "Your current skill level helps us recommend appropriate content",
                     cls="text-sm text-muted-foreground mt-1",
                 ),
-                cls="form-control mb-4",
+                cls="mb-4",
             ),
-            Div(
-                Label("Preferred Learning Modalities", cls="label font-semibold"),
+            FormControl(
+                Label("Preferred Learning Modalities", cls="font-semibold"),
                 Div(
                     Div(
-                        Input(
-                            type="checkbox",
+                        Checkbox(
                             name="modality_video",
                             id="modality_video",
                             checked="video" in prefs.get("preferred_modalities", []),
-                            cls="checkbox",
                         ),
                         Label("Video", _for="modality_video", cls="ml-2"),
                         cls="flex items-center mb-2",
                     ),
                     Div(
-                        Input(
-                            type="checkbox",
+                        Checkbox(
                             name="modality_reading",
                             id="modality_reading",
                             checked="reading" in prefs.get("preferred_modalities", []),
-                            cls="checkbox",
                         ),
                         Label("Reading", _for="modality_reading", cls="ml-2"),
                         cls="flex items-center mb-2",
                     ),
                     Div(
-                        Input(
-                            type="checkbox",
+                        Checkbox(
                             name="modality_interactive",
                             id="modality_interactive",
                             checked="interactive" in prefs.get("preferred_modalities", []),
-                            cls="checkbox",
                         ),
                         Label("Interactive", _for="modality_interactive", cls="ml-2"),
                         cls="flex items-center mb-2",
                     ),
                     Div(
-                        Input(
-                            type="checkbox",
+                        Checkbox(
                             name="modality_audio",
                             id="modality_audio",
                             checked="audio" in prefs.get("preferred_modalities", []),
-                            cls="checkbox",
                         ),
                         Label("Audio/Podcasts", _for="modality_audio", cls="ml-2"),
                         cls="flex items-center",
                     ),
                     cls="space-y-2",
                 ),
-                cls="form-control mb-4",
+                cls="mb-4",
             ),
             id="learning-prefs-form",
             method="POST",
@@ -181,8 +175,8 @@ class UserPreferencesComponents:
     def _render_scheduling_prefs_form(prefs: dict) -> Any:
         """Render scheduling preferences section"""
         return Form(
-            Div(
-                Label("Preferred Time of Day", cls="label font-semibold"),
+            FormControl(
+                Label("Preferred Time of Day", cls="font-semibold"),
                 Select(name="preferred_time_of_day")(
                     Option(
                         "Anytime",
@@ -210,10 +204,10 @@ class UserPreferencesComponents:
                         selected=prefs.get("preferred_time_of_day") == "night",
                     ),
                 ),
-                cls="form-control mb-4",
+                cls="mb-4",
             ),
-            Div(
-                Label("Available Minutes Daily", cls="label font-semibold"),
+            FormControl(
+                Label("Available Minutes Daily", cls="font-semibold"),
                 Input(
                     type="number",
                     name="available_minutes_daily",
@@ -225,7 +219,7 @@ class UserPreferencesComponents:
                     f"{prefs.get('available_minutes_daily', 60)} minutes = {prefs.get('available_minutes_daily', 60) / 60:.1f} hours",
                     cls="text-sm text-muted-foreground mt-1",
                 ),
-                cls="form-control mb-4",
+                cls="mb-4",
             ),
             id="scheduling-prefs-form",
             method="POST",
@@ -238,18 +232,16 @@ class UserPreferencesComponents:
         return Form(
             Div(
                 Div(
-                    Input(
-                        type="checkbox",
+                    Checkbox(
                         name="enable_reminders",
                         id="enable_reminders",
                         checked=prefs.get("enable_reminders", True),
-                        cls="checkbox",
                     ),
                     Label("Enable Reminders", _for="enable_reminders", cls="ml-2 font-semibold"),
                     cls="flex items-center mb-4",
                 ),
-                Div(
-                    Label("Reminder Minutes Before", cls="label font-semibold"),
+                FormControl(
+                    Label("Reminder Minutes Before", cls="font-semibold"),
                     Input(
                         type="number",
                         name="reminder_minutes_before",
@@ -257,16 +249,16 @@ class UserPreferencesComponents:
                         min=0,
                         max=1440,
                     ),
-                    cls="form-control mb-4",
+                    cls="mb-4",
                 ),
-                Div(
-                    Label("Daily Summary Time (HH:MM)", cls="label font-semibold"),
+                FormControl(
+                    Label("Daily Summary Time (HH:MM)", cls="font-semibold"),
                     Input(
                         type="time",
                         name="daily_summary_time",
                         value=prefs.get("daily_summary_time", "09:00"),
                     ),
-                    cls="form-control mb-4",
+                    cls="mb-4",
                 ),
                 cls="space-y-4",
             ),
@@ -295,8 +287,8 @@ class UserPreferencesComponents:
         ]
 
         return Form(
-            Div(
-                Label("Theme", cls="label font-semibold"),
+            FormControl(
+                Label("Theme", cls="font-semibold"),
                 Select(
                     *theme_options,
                     name="theme",
@@ -306,20 +298,20 @@ class UserPreferencesComponents:
                     "Theme changes preview instantly. Save to persist.",
                     cls="text-sm text-muted-foreground mt-1",
                 ),
-                cls="form-control mb-4",
+                cls="mb-4",
             ),
-            Div(
-                Label("Language", cls="label font-semibold"),
+            FormControl(
+                Label("Language", cls="font-semibold"),
                 Select(name="language")(
                     Option("English", value="en", selected=prefs.get("language") == "en"),
                     Option("Spanish", value="es", selected=prefs.get("language") == "es"),
                     Option("French", value="fr", selected=prefs.get("language") == "fr"),
                     Option("German", value="de", selected=prefs.get("language") == "de"),
                 ),
-                cls="form-control mb-4",
+                cls="mb-4",
             ),
-            Div(
-                Label("Timezone", cls="label font-semibold"),
+            FormControl(
+                Label("Timezone", cls="font-semibold"),
                 Input(
                     type="text",
                     name="timezone",
@@ -329,7 +321,7 @@ class UserPreferencesComponents:
                     "e.g., America/New_York, Europe/London, Asia/Tokyo",
                     cls="text-sm text-muted-foreground mt-1",
                 ),
-                cls="form-control mb-4",
+                cls="mb-4",
             ),
             id="display-prefs-form",
             method="POST",
@@ -340,8 +332,8 @@ class UserPreferencesComponents:
     def _render_goal_prefs_form(prefs: dict) -> Any:
         """Render goal preferences section"""
         return Form(
-            Div(
-                Label("Weekly Task Goal", cls="label font-semibold"),
+            FormControl(
+                Label("Weekly Task Goal", cls="font-semibold"),
                 Input(
                     type="number",
                     name="weekly_task_goal",
@@ -353,10 +345,10 @@ class UserPreferencesComponents:
                     "Target number of tasks to complete each week",
                     cls="text-sm text-muted-foreground mt-1",
                 ),
-                cls="form-control mb-4",
+                cls="mb-4",
             ),
-            Div(
-                Label("Daily Habit Goal", cls="label font-semibold"),
+            FormControl(
+                Label("Daily Habit Goal", cls="font-semibold"),
                 Input(
                     type="number",
                     name="daily_habit_goal",
@@ -368,10 +360,10 @@ class UserPreferencesComponents:
                     "Target number of habits to complete each day",
                     cls="text-sm text-muted-foreground mt-1",
                 ),
-                cls="form-control mb-4",
+                cls="mb-4",
             ),
-            Div(
-                Label("Monthly Learning Hours", cls="label font-semibold"),
+            FormControl(
+                Label("Monthly Learning Hours", cls="font-semibold"),
                 Input(
                     type="number",
                     name="monthly_learning_hours",
@@ -380,7 +372,7 @@ class UserPreferencesComponents:
                     max=500,
                 ),
                 P("Target learning hours per month", cls="text-sm text-muted-foreground mt-1"),
-                cls="form-control mb-4",
+                cls="mb-4",
             ),
             id="goal-prefs-form",
             method="POST",
@@ -390,7 +382,7 @@ class UserPreferencesComponents:
     @staticmethod
     def render_preferences_saved_message() -> Any:
         """Render success message after saving preferences"""
-        return Div(
+        return Alert(
             Div(
                 Span("✅", cls="text-3xl mr-3"),
                 Span("Preferences saved successfully!", cls="text-lg font-semibold"),
@@ -398,8 +390,10 @@ class UserPreferencesComponents:
             ),
             Button(
                 "Back to Profile",
-                cls="btn btn-primary mt-4",
+                variant=ButtonT.primary,
+                cls="mt-4",
                 onclick="window.location.href='/profile'",
             ),
-            cls="alert alert-success p-6 max-w-2xl mx-auto mt-8",
+            variant=AlertT.success,
+            cls="p-6 max-w-2xl mx-auto mt-8",
         )

@@ -338,7 +338,7 @@ class CardGenerator:
 
             # Render field
             field_component = Div(
-                Label(label, cls="label-text font-semibold text-muted-foreground block mb-1"),
+                Label(label, cls="font-semibold text-muted-foreground block mb-1"),
                 renderer(value),
                 cls="mb-3",
             )

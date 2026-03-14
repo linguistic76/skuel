@@ -7,10 +7,12 @@ Card renderers for submission lists, grids, and detail views.
 
 from typing import Any
 
-from fasthtml.common import H4, A, Div, P
+from fasthtml.common import H4, Div, P
 
-from ui.feedback import Badge, get_submission_status_badge_class
+from ui.buttons import ButtonLink, ButtonT
 from ui.cards import Card, CardBody
+from ui.feedback import Alert, AlertT, Badge, get_submission_status_badge_class
+from ui.layout import Size
 
 _get_status_badge_class = get_submission_status_badge_class
 
@@ -51,10 +53,11 @@ def render_submission_card(submission: Any, is_pinned: bool = False) -> Any:
                 ),
                 Div(
                     PinButton(entity_uid=submission.uid, is_pinned=is_pinned, size="xs"),
-                    A(
+                    ButtonLink(
                         "View",
                         href=f"/submissions/{submission.uid}",
-                        cls="btn btn-sm btn-ghost",
+                        variant=ButtonT.ghost,
+                        size=Size.sm,
                     ),
                     cls="flex gap-2",
                 ),
@@ -135,20 +138,20 @@ def render_upload_status(
     """Render upload status as HTML fragment for HTMX swap."""
     if is_error:
         return Div(
-            Div(
+            Alert(
                 H4("Upload Failed", cls="mb-0"),
                 P(message, cls="mb-0"),
-                cls="alert alert-error",
+                variant=AlertT.error,
             ),
             id="upload-status",
         )
 
     return Div(
-        Div(
+        Alert(
             H4("File Uploaded Successfully!", cls="mb-0"),
             P(f"Submission ID: {submission_uid}", cls="mb-0") if submission_uid else None,
             P(f"Status: {status}", cls="mb-0"),
-            cls="alert alert-success",
+            variant=AlertT.success,
         ),
         id="upload-status",
     )

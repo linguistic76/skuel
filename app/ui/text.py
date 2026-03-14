@@ -103,7 +103,7 @@ def SmallText(text: str, muted: bool = True, **kwargs: Any) -> Span:
     Returns:
         A Span element with small text styling
     """
-    color = "text-muted-foreground" if muted else "text-muted-foreground"
+    color = "text-muted-foreground" if muted else "text-foreground"
     return Span(text, cls=f"text-sm {color}", **kwargs)
 
 

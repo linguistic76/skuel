@@ -25,11 +25,11 @@ from starlette.requests import Request
 from adapters.inbound.auth import require_authenticated_user
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonT
+from ui.cards import Card, CardBody
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
 from ui.layouts.base_page import BasePage
 from ui.patterns.page_header import PageHeader
-from ui.cards import Card, CardBody
 
 if TYPE_CHECKING:
     from core.services.notifications.notification_service import NotificationService
@@ -84,7 +84,7 @@ def _notification_card(notif: dict[str, Any]) -> Div:
         mark_read_btn = Button(
             "Mark read",
             variant=ButtonT.ghost,
-            cls="btn-xs",
+            size=Size.xs,
             **{
                 "hx-post": f"/notifications/{notif['uid']}/read",
                 "hx-target": f"#notif-{notif['uid']}",
@@ -180,7 +180,7 @@ def create_notifications_ui_routes(
             mark_all_btn = Button(
                 "Mark all as read",
                 variant=ButtonT.ghost,
-                cls="btn-sm",
+                size=Size.sm,
                 **{
                     "hx-post": "/notifications/read-all",
                     "hx-target": "#notification-list",

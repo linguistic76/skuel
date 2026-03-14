@@ -34,6 +34,7 @@ from core.ports import get_enum_value
 from core.services.user.unified_user_context import UserContext
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+from ui.cards import Card, CardBody
 from ui.feedback import Badge, BadgeT, get_submission_status_badge_class
 from ui.layout import Size
 from ui.layouts.base_page import BasePage
@@ -58,7 +59,6 @@ from ui.profile.layout import (
     create_profile_page,
 )
 from ui.profile.overview import render_domain_card_preview
-from ui.cards import Card, CardBody
 
 logger = get_logger("skuel.routes.user_profile")
 
@@ -362,10 +362,13 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
 
         # Persist theme to localStorage so it applies on all pages
         saved_theme = preferences_update.get("theme", "light")
-        dark_toggle = "document.documentElement.classList.add('dark')" if saved_theme == "dark" else "document.documentElement.classList.remove('dark')"
+        dark_toggle = (
+            "document.documentElement.classList.add('dark')"
+            if saved_theme == "dark"
+            else "document.documentElement.classList.remove('dark')"
+        )
         theme_script = Script(
-            f"localStorage.setItem('skuel-theme', '{saved_theme}');"
-            f"{dark_toggle};"
+            f"localStorage.setItem('skuel-theme', '{saved_theme}');{dark_toggle};"
         )
 
         return Div(
@@ -739,7 +742,10 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
             return await error_page(str(e), 500)
 
         # Fetch shared reports
-        from fasthtml.common import H2, H4, A, Button, Div, P
+        from fasthtml.common import H2, H4, Div, P
+
+        from ui.buttons import Button, ButtonLink, ButtonT
+        from ui.layout import Size
 
         shared_reports = []
         if services.sharing:
@@ -780,10 +786,11 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
                     ),
                     # Actions
                     Div(
-                        A(
+                        ButtonLink(
                             "View",
                             href=f"/submissions/{report.uid}",
-                            cls="btn btn-xs btn-primary",
+                            variant=ButtonT.primary,
+                            size=Size.xs,
                         ),
                         cls="mt-3",
                     ),
@@ -801,9 +808,9 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
             ),
             # Filter tabs
             Div(
-                Button("All", cls="btn btn-sm btn-ghost", disabled=True),
-                Button("Reports", cls="btn btn-sm btn-primary"),
-                Button("Events", cls="btn btn-sm btn-ghost", disabled=True),
+                Button("All", variant=ButtonT.ghost, size=Size.sm, disabled=True),
+                Button("Reports", variant=ButtonT.primary, size=Size.sm),
+                Button("Events", variant=ButtonT.ghost, size=Size.sm, disabled=True),
                 cls="flex gap-2 mb-6",
             ),
             # Shared content grid

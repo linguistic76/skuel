@@ -114,19 +114,19 @@ class HabitUIComponents:
                 "label": "New Habit",
                 "hx_get": "/habits/wizard/step1",
                 "hx_target": "#modal",
-                "class": "btn-primary",
+                "variant": "primary",
             },
             {
                 "label": "Achievements",
                 "hx_get": "/badges/showcase",
                 "hx_target": "#main-content",
-                "class": "btn-secondary",
+                "variant": "secondary",
             },
             {
                 "label": "Analytics",
                 "hx_get": "/habits/analytics",
                 "hx_target": "#main-content",
-                "class": "btn-secondary",
+                "variant": "secondary",
             },
         ]
 
@@ -1275,71 +1275,71 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
 
         status = normalize_enum_str(getattr(habit, "status", None), "active")
 
-        from fasthtml.common import Form, Label, Option
+        from fasthtml.common import Form, Option
 
-        from ui.forms import Input, Select, Textarea
+        from ui.forms import FormControl, Input, Label, Select, Textarea
 
         return Card(
             CardBody(
                 H2("Edit Habit", cls="text-xl font-bold mb-4"),
                 Form(
                     # Name
-                    Div(
-                        Label("Name", cls="label"),
+                    FormControl(
+                        Label("Name"),
                         Input(
                             type="text",
                             name="name",
                             value=name,
                             required=True,
                         ),
-                        cls="form-control mb-3",
+                        cls="mb-3",
                     ),
                     # Description
-                    Div(
-                        Label("Description", cls="label"),
+                    FormControl(
+                        Label("Description"),
                         Textarea(
                             description,
                             name="description",
                             rows="2",
                         ),
-                        cls="form-control mb-3",
+                        cls="mb-3",
                     ),
                     # Cue
-                    Div(
-                        Label("Cue (trigger)", cls="label"),
+                    FormControl(
+                        Label("Cue (trigger)"),
                         Input(
                             type="text",
                             name="cue",
                             value=cue,
                             placeholder="What triggers this habit?",
                         ),
-                        cls="form-control mb-3",
+                        cls="mb-3",
                     ),
                     # Routine
-                    Div(
-                        Label("Routine (action)", cls="label"),
+                    FormControl(
+                        Label("Routine (action)"),
                         Input(
                             type="text",
                             name="routine",
                             value=routine,
                             placeholder="What do you do?",
                         ),
-                        cls="form-control mb-3",
+                        cls="mb-3",
                     ),
                     # Reward
-                    Div(
-                        Label("Reward", cls="label"),
+                    FormControl(
+                        Label("Reward"),
                         Input(
                             type="text",
                             name="reward",
                             value=reward,
                             placeholder="What's the benefit?",
                         ),
-                        cls="form-control mb-3",
+                        cls="mb-3",
                     ),
                     # Status
-                    Div(
-                        Label("Status", cls="label"),
+                    FormControl(
+                        Label("Status"),
                         Select(
                             Option("Active", value="active", selected=(status == "active")),
                             Option("Paused", value="paused", selected=(status == "paused")),
@@ -1348,7 +1348,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
                             ),
                             name="status",
                         ),
-                        cls="form-control mb-4",
+                        cls="mb-4",
                     ),
                     # Buttons
                     Div(

@@ -88,7 +88,7 @@ class AuthComponents:
                 </div>
 
                 <div>
-                    <button type="submit" class="flex w-full justify-center rounded-md bg-primary px-3 py-1.5 text-sm/6 font-semibold text-primary-content hover:bg-primary/80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Sign in</button>
+                    <button type="submit" class="flex w-full justify-center rounded-md bg-primary px-3 py-1.5 text-sm/6 font-semibold text-primary-foreground hover:bg-primary/80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Sign in</button>
                 </div>
             </form>
 
@@ -251,7 +251,7 @@ class AuthComponents:
 
                 <!-- Submit button -->
                 <div class="pt-2">
-                    <button type="submit" class="flex w-full justify-center rounded-md bg-primary px-3 py-1.5 text-sm/6 font-semibold text-primary-content hover:bg-primary/80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
+                    <button type="submit" class="flex w-full justify-center rounded-md bg-primary px-3 py-1.5 text-sm/6 font-semibold text-primary-foreground hover:bg-primary/80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
                         Create account
                     </button>
                 </div>
@@ -329,7 +329,7 @@ class AuthComponents:
             <div class="uk-card uk-card-default bg-background shadow-xl max-w-lg w-full">
                 <div class="uk-card-body text-center">
                     <div class="text-6xl mb-4">❌</div>
-                    <h1 class="uk-card-title text-3xl font-bold text-error justify-center mb-2">
+                    <h1 class="uk-card-title text-3xl font-bold text-destructive justify-center mb-2">
                         Login Failed
                     </h1>
                     <p class="text-lg text-foreground/80 mb-6">{error_message}</p>
@@ -374,7 +374,7 @@ class AuthComponents:
                     {error_html}
 
                     <form action="/forgot-password" method="POST" class="space-y-4">
-                        <div class="form-control">
+                        <div class="space-y-2">
                             <input
                                 type="email"
                                 name="email"
@@ -390,13 +390,13 @@ class AuthComponents:
                         </button>
                     </form>
 
-                    <div class="divider text-muted-foreground text-sm">or</div>
+                    <div class="border-t border-border my-4 text-muted-foreground text-sm">or</div>
 
                     <div class="space-y-2">
                         <a href="/reset-password" class="uk-btn uk-btn-secondary uk-btn-sm w-full">
                             I Have a Reset Token
                         </a>
-                        <a href="/login" class="link link-hover text-muted-foreground">
+                        <a href="/login" class="hover:underline text-muted-foreground">
                             Back to Login
                         </a>
                     </div>
@@ -443,9 +443,9 @@ class AuthComponents:
                     {error_html}
 
                     <form action="/reset-password/submit" method="POST" class="space-y-4">
-                        <div class="form-control">
-                            <label class="label">
-                                <span class="label-text font-medium">Reset Token</span>
+                        <div class="space-y-2">
+                            <label class="block text-sm font-medium">
+                                <span class="block text-sm font-medium">Reset Token</span>
                             </label>
                             <input
                                 type="text"
@@ -455,16 +455,16 @@ class AuthComponents:
                                 value="{token}"
                                 required
                             />
-                            <label class="label">
-                                <span class="label-text-alt text-muted-foreground">
+                            <label class="block text-sm font-medium">
+                                <span class="text-xs text-muted-foreground">
                                     The token from your password reset email
                                 </span>
                             </label>
                         </div>
 
-                        <div class="form-control">
-                            <label class="label">
-                                <span class="label-text font-medium">New Password</span>
+                        <div class="space-y-2">
+                            <label class="block text-sm font-medium">
+                                <span class="block text-sm font-medium">New Password</span>
                             </label>
                             <input
                                 type="password"
@@ -474,16 +474,16 @@ class AuthComponents:
                                 minlength="8"
                                 required
                             />
-                            <label class="label">
-                                <span class="label-text-alt text-muted-foreground">
+                            <label class="block text-sm font-medium">
+                                <span class="text-xs text-muted-foreground">
                                     At least 8 characters
                                 </span>
                             </label>
                         </div>
 
-                        <div class="form-control">
-                            <label class="label">
-                                <span class="label-text font-medium">Confirm Password</span>
+                        <div class="space-y-2">
+                            <label class="block text-sm font-medium">
+                                <span class="block text-sm font-medium">Confirm Password</span>
                             </label>
                             <input
                                 type="password"
@@ -500,10 +500,10 @@ class AuthComponents:
                         </button>
                     </form>
 
-                    <div class="divider text-muted-foreground text-sm">or</div>
+                    <div class="border-t border-border my-4 text-muted-foreground text-sm">or</div>
 
                     <div class="text-center">
-                        <a href="/login" class="link link-hover text-muted-foreground">
+                        <a href="/login" class="hover:underline text-muted-foreground">
                             Back to Login
                         </a>
                     </div>
@@ -618,7 +618,7 @@ class AuthComponents:
                         Your email has been verified successfully.
                     </p>
                     <p class="text-foreground/80 mb-6">
-                        <span class="loading loading-spinner loading-sm"></span>
+                        <span class="uk-spinner uk-spinner-small"></span>
                         Redirecting you to login...
                     </p>
                 </div>

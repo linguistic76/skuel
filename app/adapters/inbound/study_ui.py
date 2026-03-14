@@ -26,7 +26,6 @@ from fasthtml.common import (
     H1,
     H3,
     H4,
-    A,
     Div,
     Form,
     Label,
@@ -41,8 +40,9 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import RouteDecorator, RouteList
 from core.models.enums.entity_enums import EntityType, ProcessorType
 from core.utils.logging import get_logger
-from ui.buttons import Button, ButtonT
-from ui.feedback import Badge, BadgeT
+from ui.buttons import Button, ButtonLink, ButtonT
+from ui.cards import Card, CardBody
+from ui.feedback import Alert, AlertT, Badge, BadgeT
 from ui.forms import Select
 from ui.layout import Size
 from ui.layouts.base_page import BasePage
@@ -70,7 +70,6 @@ from ui.submissions.report import (
     render_yours_list,
 )
 from ui.submissions.sharing import render_sharing_section
-from ui.cards import Card, CardBody
 
 logger = get_logger("skuel.routes.study")
 
@@ -355,7 +354,6 @@ def create_study_ui_routes(
                         "hx-headers": '{"Content-Type": "application/json"}',
                     },
                 ),
-
             ),
             cls="bg-background shadow-sm mb-6",
         )
@@ -572,9 +570,9 @@ def create_study_ui_routes(
 
             if result.is_error:
                 return Div(
-                    Div(
+                    Alert(
                         P(f"Failed to load submission: {result.error}"),
-                        cls="alert alert-error",
+                        variant=AlertT.error,
                     ),
                     id="submission-info",
                 )
@@ -582,9 +580,9 @@ def create_study_ui_routes(
             submission = result.value
             if not submission:
                 return Div(
-                    Div(
+                    Alert(
                         P(f"Report {uid} not found"),
-                        cls="alert alert-warning",
+                        variant=AlertT.warning,
                     ),
                     id="submission-info",
                 )
@@ -593,9 +591,9 @@ def create_study_ui_routes(
         except Exception as e:
             logger.error(f"Error loading submission info: {e}", exc_info=True)
             return Div(
-                Div(
+                Alert(
                     P(f"Error: {e}"),
-                    cls="alert alert-error",
+                    variant=AlertT.error,
                 ),
                 id="submission-info",
             )
@@ -802,14 +800,13 @@ def create_study_ui_routes(
                     else None
                 ),
                 Div(
-                    A(
+                    ButtonLink(
                         "\u2190 Back to Submissions",
                         href="/submissions",
-                        cls="btn btn-ghost",
+                        variant=ButtonT.ghost,
                     ),
                     cls="mt-4",
                 ),
-
             ),
             cls="bg-background shadow-sm",
         )

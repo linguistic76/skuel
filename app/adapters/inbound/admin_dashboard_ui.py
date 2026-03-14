@@ -36,8 +36,9 @@ from ui.admin.views import (
     AdminSystemComponents,
     AdminUIComponents,
 )
-from ui.buttons import Button, ButtonT
+from ui.buttons import Button, ButtonLink, ButtonT
 from ui.cards import Card
+from ui.layout import Size
 
 logger = get_logger("skuel.routes.admin.ui")
 
@@ -279,7 +280,9 @@ def create_admin_dashboard_routes(_app, rt, services):
             content = Div(
                 H1("User Not Found", cls="text-3xl font-bold text-error"),
                 P(f"No user found with UID: {uid}", cls="text-muted-foreground"),
-                A("← Back to Users", href="/admin/users", cls="btn btn-ghost mt-4"),
+                ButtonLink(
+                    "← Back to Users", href="/admin/users", variant=ButtonT.ghost, cls="mt-4"
+                ),
             )
             return await create_admin_page(
                 content=content,
@@ -334,7 +337,13 @@ def create_admin_dashboard_routes(_app, rt, services):
 
         content = Div(
             # Back button
-            A("← Back to Users", href="/admin/users", cls="btn btn-ghost btn-sm mb-4"),
+            ButtonLink(
+                "← Back to Users",
+                href="/admin/users",
+                variant=ButtonT.ghost,
+                size=Size.sm,
+                cls="mb-4",
+            ),
             # Page header
             Div(
                 H1(user_data["display_name"] or user_data["username"], cls="text-3xl font-bold"),
@@ -389,7 +398,7 @@ def create_admin_dashboard_routes(_app, rt, services):
                 Div(
                     Button(
                         "Deactivate Account" if user_data["is_active"] else "Activate Account",
-                        cls=f"btn {'btn-error' if user_data['is_active'] else 'btn-success'}",
+                        variant=ButtonT.error if user_data["is_active"] else ButtonT.success,
                         hx_post=f"/api/admin/users/{uid}/{'deactivate' if user_data['is_active'] else 'activate'}",
                         hx_confirm=f"Are you sure you want to {'deactivate' if user_data['is_active'] else 'activate'} this user?",
                     ),
@@ -668,10 +677,11 @@ def create_admin_dashboard_routes(_app, rt, services):
             content = Div(
                 H1("User Not Found", cls="text-3xl font-bold text-error"),
                 P(f"No user found with UID: {uid}", cls="text-muted-foreground"),
-                A(
+                ButtonLink(
                     "← Back to Learning Dashboard",
                     href="/admin/learning",
-                    cls="btn btn-ghost mt-4",
+                    variant=ButtonT.ghost,
+                    cls="mt-4",
                 ),
             )
             return await create_admin_page(
@@ -688,10 +698,12 @@ def create_admin_dashboard_routes(_app, rt, services):
 
         content = Div(
             # Back button
-            A(
+            ButtonLink(
                 "← Back to Learning Dashboard",
                 href="/admin/learning",
-                cls="btn btn-ghost btn-sm mb-4",
+                variant=ButtonT.ghost,
+                size=Size.sm,
+                cls="mb-4",
             ),
             # Page header
             Div(

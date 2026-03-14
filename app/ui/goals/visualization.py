@@ -26,7 +26,10 @@ Usage:
 """
 
 from fasthtml.common import H3, Canvas, Div, Link, P, Script, Span
+
 from ui.cards import Card
+from ui.feedback import Loading, LoadingT
+from ui.layout import Size
 
 # =============================================================================
 # Library Script Tags
@@ -104,7 +107,7 @@ def create_chart_view(
         Div(
             # Loading state
             Div(
-                Span(cls="loading loading-spinner loading-md"),
+                Loading(variant=LoadingT.spinner, size=Size.md),
                 P("Loading chart...", cls="text-sm text-muted-foreground mt-2"),
                 cls="flex flex-col items-center justify-center h-full",
                 **{"x-show": "loading"},
@@ -233,17 +236,17 @@ def create_timeline_view(
                     "Zoom: ",
                     Span(
                         "+",
-                        cls="btn btn-xs btn-ghost",
+                        cls="uk-btn uk-btn-default uk-btn-small",
                         **{"@click": "zoomIn()"},
                     ),
                     Span(
                         "-",
-                        cls="btn btn-xs btn-ghost",
+                        cls="uk-btn uk-btn-default uk-btn-small",
                         **{"@click": "zoomOut()"},
                     ),
                     Span(
                         "Fit",
-                        cls="btn btn-xs btn-ghost",
+                        cls="uk-btn uk-btn-default uk-btn-small",
                         **{"@click": "fit()"},
                     ),
                     cls="flex items-center gap-1 text-sm",
@@ -260,7 +263,7 @@ def create_timeline_view(
         Div(
             # Loading state
             Div(
-                Span(cls="loading loading-spinner loading-md"),
+                Loading(variant=LoadingT.spinner, size=Size.md),
                 P("Loading timeline...", cls="text-sm text-muted-foreground mt-2"),
                 cls="flex flex-col items-center justify-center h-full",
                 **{"x-show": "loading"},
@@ -382,20 +385,22 @@ def create_gantt_view(
             Div(
                 Span(
                     "Day",
-                    cls="btn btn-xs",
-                    **{":class": "viewMode === 'Day' ? 'btn-primary' : 'btn-ghost'"},
+                    cls="uk-btn uk-btn-small",
+                    **{":class": "viewMode === 'Day' ? 'uk-button-primary' : 'uk-button-default'"},
                     **{"@click": "setViewMode('Day')"},
                 ),
                 Span(
                     "Week",
-                    cls="btn btn-xs",
-                    **{":class": "viewMode === 'Week' ? 'btn-primary' : 'btn-ghost'"},
+                    cls="uk-btn uk-btn-small",
+                    **{":class": "viewMode === 'Week' ? 'uk-button-primary' : 'uk-button-default'"},
                     **{"@click": "setViewMode('Week')"},
                 ),
                 Span(
                     "Month",
-                    cls="btn btn-xs",
-                    **{":class": "viewMode === 'Month' ? 'btn-primary' : 'btn-ghost'"},
+                    cls="uk-btn uk-btn-small",
+                    **{
+                        ":class": "viewMode === 'Month' ? 'uk-button-primary' : 'uk-button-default'"
+                    },
                     **{"@click": "setViewMode('Month')"},
                 ),
                 cls="flex items-center gap-1",
@@ -410,7 +415,7 @@ def create_gantt_view(
         Div(
             # Loading state
             Div(
-                Span(cls="loading loading-spinner loading-md"),
+                Loading(variant=LoadingT.spinner, size=Size.md),
                 P("Loading Gantt chart...", cls="text-sm text-muted-foreground mt-2"),
                 cls="flex flex-col items-center justify-center h-full",
                 **{"x-show": "loading"},

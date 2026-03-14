@@ -21,13 +21,13 @@ from typing import Any, ClassVar
 
 from fasthtml.common import H2, A, Div, Form, Option, P, Span, Tbody, Td, Th, Thead, Tr
 
-from ui.buttons import Button
+from ui.buttons import Button, ButtonLink, ButtonT
+from ui.cards import Card
 from ui.data import Table
 from ui.feedback import Badge, BadgeT
 from ui.forms import Select
 from ui.layout import Size
 from ui.patterns.entity_dashboard import SharedUIComponents
-from ui.cards import Card
 
 
 class AdminUIComponents:
@@ -80,14 +80,17 @@ class AdminUIComponents:
         actions = []
         if show_actions:
             actions = [
-                A(
+                ButtonLink(
                     "View",
                     href=f"/admin/users/{uid}",
-                    cls="btn btn-sm btn-ghost",
+                    variant=ButtonT.ghost,
+                    size=Size.sm,
                 ),
                 Button(
                     "Edit Role",
-                    cls="btn btn-sm btn-outline btn-primary",
+                    variant=ButtonT.outline,
+                    size=Size.sm,
+                    cls="uk-button-primary",
                     hx_get=f"/admin/users/{uid}/role-form",
                     hx_target=f"#role-form-{uid.replace(':', '-')}",
                     hx_swap="innerHTML",
@@ -97,7 +100,9 @@ class AdminUIComponents:
                 actions.append(
                     Button(
                         "Deactivate",
-                        cls="btn btn-sm btn-outline btn-error",
+                        variant=ButtonT.outline,
+                        size=Size.sm,
+                        cls="uk-button-danger",
                         hx_post=f"/api/admin/users/{uid}/deactivate",
                         hx_confirm="Are you sure you want to deactivate this user?",
                         hx_swap="outerHTML",
@@ -108,7 +113,9 @@ class AdminUIComponents:
                 actions.append(
                     Button(
                         "Activate",
-                        cls="btn btn-sm btn-outline btn-success",
+                        variant=ButtonT.outline,
+                        size=Size.sm,
+                        cls="uk-button-success",
                         hx_post=f"/api/admin/users/{uid}/activate",
                         hx_swap="outerHTML",
                         hx_target=f"#user-card-{uid.replace(':', '-')}",
@@ -189,10 +196,11 @@ class AdminUIComponents:
                     Td(AdminUIComponents.render_status_badge(is_active)),
                     Td(last_login, cls="text-sm text-muted-foreground"),
                     Td(
-                        A(
+                        ButtonLink(
                             "View",
                             href=f"/admin/users/{uid}",
-                            cls="btn btn-xs btn-ghost",
+                            variant=ButtonT.ghost,
+                            size=Size.xs,
                         ),
                         cls="text-right",
                     ),
@@ -214,7 +222,7 @@ class AdminUIComponents:
                     cls="bg-muted",
                 ),
                 Tbody(*rows),
-                cls="table table-zebra w-full",
+                cls="uk-table uk-table-striped w-full",
             ),
             cls="overflow-x-auto",
         )
@@ -253,12 +261,14 @@ class AdminUIComponents:
                 Button(
                     "Save",
                     type="submit",
-                    cls="btn btn-sm btn-primary",
+                    variant=ButtonT.primary,
+                    size=Size.sm,
                 ),
                 Button(
                     "Cancel",
                     type="button",
-                    cls="btn btn-sm btn-ghost",
+                    variant=ButtonT.ghost,
+                    size=Size.sm,
                     onclick="this.closest('form').remove()",
                 ),
                 cls="flex items-center gap-2",
@@ -331,7 +341,7 @@ class AdminUIComponents:
                 hx_trigger="change",
                 hx_include="[name='status']",
             ),
-            cls="form-control",
+            cls="space-y-2",
         )
 
     @staticmethod
@@ -356,7 +366,7 @@ class AdminUIComponents:
                 hx_trigger="change",
                 hx_include="[name='role']",
             ),
-            cls="form-control",
+            cls="space-y-2",
         )
 
     @staticmethod
@@ -429,10 +439,12 @@ class AdminUIComponents:
                     _count_cell(habit_count),
                     _count_cell(ku_mastered),
                     Td(
-                        A(
+                        ButtonLink(
                             "View →",
                             href=f"/admin/users/{uid}",
-                            cls="btn btn-xs btn-ghost text-primary",
+                            variant=ButtonT.ghost,
+                            size=Size.xs,
+                            cls="text-primary",
                         ),
                         cls="text-right",
                     ),
@@ -458,7 +470,7 @@ class AdminUIComponents:
                     cls="bg-muted",
                 ),
                 Tbody(*rows),
-                cls="table table-zebra w-full",
+                cls="uk-table uk-table-striped w-full",
             ),
             cls="overflow-x-auto",
         )
@@ -625,7 +637,7 @@ class AdminUIComponents:
                         cls="bg-muted",
                     ),
                     Tbody(*rows),
-                    cls="table table-zebra w-full",
+                    cls="uk-table uk-table-striped w-full",
                 ),
                 cls="overflow-x-auto",
             ),
@@ -685,7 +697,7 @@ class AdminUIComponents:
                         cls="bg-muted",
                     ),
                     Tbody(*rows),
-                    cls="table table-zebra w-full",
+                    cls="uk-table uk-table-striped w-full",
                 ),
                 cls="overflow-x-auto",
             ),
@@ -1112,7 +1124,7 @@ class AdminLearningComponents:
                     cls="bg-muted",
                 ),
                 Tbody(*rows),
-                cls="table table-zebra w-full",
+                cls="uk-table uk-table-striped w-full",
             ),
             cls="overflow-x-auto",
         )

@@ -9,19 +9,19 @@ from typing import Any
 
 from fasthtml.common import H4, Div, NotStr, P
 
+from ui.cards import Card, CardBody
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
-from ui.cards import Card, CardBody
 
 # ============================================================================
 # SHARED HELPERS
 # ============================================================================
 
 _PROCESSOR_LABELS = {"llm": "LLM", "automatic": "Scheduled", "human": "Admin"}
-_PROCESSOR_BADGE_CLASSES = {
-    "llm": "badge-info",
-    "automatic": "badge-ghost",
-    "human": "badge-primary",
+_PROCESSOR_BADGE_VARIANTS: dict[str, BadgeT] = {
+    "llm": BadgeT.info,
+    "automatic": BadgeT.ghost,
+    "human": BadgeT.primary,
 }
 
 
@@ -38,8 +38,8 @@ def get_processor_type_str(report: Any) -> str:
 def render_processor_badge(processor_type_str: str) -> Any:
     """Render a badge for processor type (LLM / Scheduled / Admin)."""
     label = _PROCESSOR_LABELS.get(processor_type_str, processor_type_str or "AI")
-    badge_cls = _PROCESSOR_BADGE_CLASSES.get(processor_type_str, "badge-ghost")
-    return Badge(label, variant=None, size=Size.sm, cls=badge_cls)
+    variant = _PROCESSOR_BADGE_VARIANTS.get(processor_type_str, BadgeT.ghost)
+    return Badge(label, variant=variant, size=Size.sm)
 
 
 def format_date(dt_value: Any) -> str:
@@ -101,7 +101,7 @@ def render_submission_history_row(item: dict) -> Any:
             A(
                 "View",
                 href=f"/submissions/{uid}",
-                cls="btn btn-sm btn-ghost ml-3",
+                cls="uk-btn uk-btn-default uk-btn-small ml-3",
             ),
             cls="flex items-center gap-4",
         ),
@@ -161,7 +161,11 @@ def render_report_card(assessment: Any) -> Any:
                     cls="text-sm text-muted-foreground mb-2",
                 ),
                 P(preview, cls="text-sm"),
-                A("View Full", href=f"/submissions/{uid}", cls="btn btn-sm btn-ghost mt-2"),
+                A(
+                    "View Full",
+                    href=f"/submissions/{uid}",
+                    cls="uk-btn uk-btn-default uk-btn-small mt-2",
+                ),
                 cls="p-4",
             ),
             cls="bg-background shadow-sm mb-3",

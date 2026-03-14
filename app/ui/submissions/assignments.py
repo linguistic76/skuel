@@ -8,11 +8,12 @@ Cards for exercises assigned to students via group membership.
 from datetime import date
 from typing import Any
 
-from fasthtml.common import H4, A, Div, P, Span
+from fasthtml.common import H4, Div, P, Span
 
+from ui.buttons import ButtonLink, ButtonT
+from ui.cards import Card
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
-from ui.cards import Card
 
 
 def render_assignment_card(ex: dict[str, Any]) -> Any:
@@ -56,10 +57,11 @@ def render_assignment_card(ex: dict[str, Any]) -> Any:
     if has_submission:
         action = Span("Already submitted", cls="text-sm text-success")
     else:
-        action = A(
+        action = ButtonLink(
             "Submit",
             href=f"/submit?exercise_uid={uid}",
-            cls="btn btn-primary btn-sm",
+            variant=ButtonT.primary,
+            size=Size.sm,
         )
 
     return Card(

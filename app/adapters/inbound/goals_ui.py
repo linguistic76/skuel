@@ -104,7 +104,7 @@ class GoalUIComponents:
                 "label": "New Goal",
                 "hx_get": "/goals/view/create",
                 "hx_target": "#modal",
-                "class": "btn-primary",
+                "variant": "primary",
             },
         ]
 

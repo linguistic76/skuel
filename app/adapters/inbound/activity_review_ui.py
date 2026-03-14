@@ -28,10 +28,8 @@ if TYPE_CHECKING:
 from fasthtml.common import (
     H3,
     H4,
-    A,
     Div,
     Form,
-    Label,
     NotStr,
     Option,
     P,
@@ -43,13 +41,13 @@ from starlette.responses import RedirectResponse
 
 from adapters.inbound.auth import make_service_getter, require_admin
 from core.utils.logging import get_logger
-from ui.buttons import Button, ButtonT
-from ui.feedback import Badge, BadgeT
-from ui.forms import Input, Select, Textarea
+from ui.buttons import Button, ButtonLink, ButtonT
+from ui.cards import Card, CardBody
+from ui.feedback import Alert, AlertT, Badge, BadgeT
+from ui.forms import Checkbox, FormControl, Input, Label, Select, Textarea
 from ui.layout import Size
 from ui.patterns.page_header import PageHeader
 from ui.patterns.sidebar import SidebarItem, SidebarPage
-from ui.cards import Card, CardBody
 
 logger = get_logger("skuel.routes.activity_review.ui")
 
@@ -110,10 +108,11 @@ def _render_queue_item(item: dict[str, Any]) -> Any:
                 ),
                 Div(*domain_badges, cls="flex flex-wrap gap-1 mb-2") if domain_badges else None,
                 P(message, cls="text-sm text-muted-foreground mb-3") if message else None,
-                A(
+                ButtonLink(
                     "Start Review",
                     href=review_href,
-                    cls="btn btn-sm btn-primary",
+                    variant=ButtonT.primary,
+                    size=Size.sm,
                 ),
                 cls="p-4",
             ),
@@ -261,15 +260,13 @@ def create_activity_review_ui_routes(
         for domain_value, domain_label in _DOMAIN_CHOICES:
             domain_checkboxes.append(
                 Div(
-                    Input(
-                        type="checkbox",
+                    Checkbox(
                         name="domains",
                         value=domain_value,
                         checked=True,
-                        cls="checkbox checkbox-sm",
                         id=f"domain-{domain_value}",
                     ),
-                    Label(domain_label, fr=f"domain-{domain_value}", cls="label label-text ml-2"),
+                    Label(domain_label, _for=f"domain-{domain_value}", cls="ml-2"),
                     cls="flex items-center gap-1",
                 )
             )
@@ -277,8 +274,8 @@ def create_activity_review_ui_routes(
         snapshot_form = Card(
             H3("Load Activity Snapshot", cls="font-semibold mb-4"),
             Form(
-                Div(
-                    Label("User UID", cls="label label-text"),
+                FormControl(
+                    Label("User UID"),
                     Input(
                         type="text",
                         name="subject_uid",
@@ -288,8 +285,8 @@ def create_activity_review_ui_routes(
                     ),
                     cls="mb-3",
                 ),
-                Div(
-                    Label("Time Period", cls="label label-text"),
+                FormControl(
+                    Label("Time Period"),
                     Select(
                         Option("Last 7 days", value="7d", selected=(time_period == "7d")),
                         Option("Last 14 days", value="14d", selected=(time_period == "14d")),
@@ -300,8 +297,8 @@ def create_activity_review_ui_routes(
                     ),
                     cls="mb-3",
                 ),
-                Div(
-                    Label("Domains", cls="label label-text"),
+                FormControl(
+                    Label("Domains"),
                     Div(*domain_checkboxes, cls="flex flex-wrap gap-4 mt-1"),
                     cls="mb-4",
                 ),
@@ -340,8 +337,8 @@ def create_activity_review_ui_routes(
                 Input(
                     type="hidden", name="time_period", id="feedback-time-period", value=time_period
                 ),
-                Div(
-                    Label("Feedback", cls="label label-text"),
+                FormControl(
+                    Label("Feedback"),
                     Textarea(
                         name="feedback_text",
                         placeholder="Write your qualitative feedback here. What patterns do you notice? What recommendations do you have?",
@@ -491,9 +488,9 @@ def create_activity_review_ui_routes(
 
         if not subject_uid or not feedback_text:
             return Div(
-                Div(
+                Alert(
                     P("User UID and feedback text are required.", cls="mb-0"),
-                    cls="alert alert-error",
+                    variant=AlertT.error,
                 ),
             )
 
@@ -508,20 +505,20 @@ def create_activity_review_ui_routes(
         except Exception as e:
             logger.error(f"Error submitting activity feedback: {e}", exc_info=True)
             return Div(
-                Div(
+                Alert(
                     P(f"Error submitting feedback: {e}", cls="mb-0"),
-                    cls="alert alert-error",
+                    variant=AlertT.error,
                 ),
             )
 
         if result.is_error:
             return Div(
-                Div(
+                Alert(
                     P(
                         f"Failed: {result.error.message if result.error else 'Unknown error'}",
                         cls="mb-0",
                     ),
-                    cls="alert alert-error",
+                    variant=AlertT.error,
                 ),
             )
 
@@ -530,7 +527,7 @@ def create_activity_review_ui_routes(
         uid_display = f" (uid: {uid_val})" if uid_val else ""
 
         return Div(
-            Div(
+            Alert(
                 P(
                     f"Feedback submitted successfully{uid_display}.",
                     cls="mb-0 font-semibold",
@@ -539,7 +536,7 @@ def create_activity_review_ui_routes(
                     f"Activity feedback for {subject_uid} saved with ProcessorType.HUMAN.",
                     cls="mb-0 text-sm",
                 ),
-                cls="alert alert-success",
+                variant=AlertT.success,
             ),
         )
 

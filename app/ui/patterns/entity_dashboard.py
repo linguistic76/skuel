@@ -20,7 +20,7 @@ Usage:
         entities=habits,
         entity_renderer=HabitUIComponents.render_habit_card,
         quick_actions=[
-            {'label': '➕ New Habit', 'href': '/habits/wizard/step1', 'class': 'btn-primary'}
+            {'label': '➕ New Habit', 'href': '/habits/wizard/step1', 'variant': 'primary'}
         ]
     )
 
@@ -34,7 +34,6 @@ from fasthtml.common import (
     H1,
     H2,
     H3,
-    A,
     Body,
     Div,
     Form,
@@ -47,9 +46,9 @@ from fasthtml.common import (
 
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonLink, ButtonT
-from ui.layout import Size
 from ui.cards import Card
 from ui.forms import Input, InputT, Select
+from ui.layout import Size
 from ui.layouts.base_page import build_head
 from ui.layouts.navbar import create_navbar, create_navbar_for_request
 
@@ -125,7 +124,7 @@ class SharedUIComponents:
                 entities=habits,
                 entity_renderer=HabitUIComponents.render_habit_card,
                 quick_actions=[
-                    {'label': '➕ New Habit', 'href': '/habits/wizard/step1', 'class': 'btn-primary'}
+                    {'label': '➕ New Habit', 'href': '/habits/wizard/step1', 'variant': 'primary'}
                 ],
                 request=request,  # Recommended: auto-detects user/admin from session
                 active_page="habits",
@@ -252,7 +251,7 @@ class SharedUIComponents:
 
         Example:
             actions = [
-                {'label': '➕ New Task', 'href': '/tasks/create', 'class': 'btn-primary'},
+                {'label': '➕ New Task', 'href': '/tasks/create', 'variant': 'primary'},
                 {'label': '📊 Analytics', 'hx_get': '/tasks/analytics', 'hx_target': '#main'}
             ]
         """
@@ -261,27 +260,10 @@ class SharedUIComponents:
 
         buttons = []
         for action in actions:
-            # Parse variant from class string for backwards compatibility
-            class_str = action.get("class", "btn-secondary")
-            variant = ButtonT.secondary  # default
-
-            # Extract variant from common class patterns
-            if "btn-primary" in class_str:
-                variant = ButtonT.primary
-            elif "btn-secondary" in class_str:
-                variant = ButtonT.secondary
-            elif "btn-ghost" in class_str:
-                variant = ButtonT.ghost
-            elif "btn-outline" in class_str:
-                variant = ButtonT.outline
-            elif "btn-success" in class_str:
-                variant = ButtonT.success
-            elif "btn-warning" in class_str:
-                variant = ButtonT.warning
-            elif "btn-error" in class_str:
-                variant = ButtonT.error
-            elif "btn-info" in class_str:
-                variant = ButtonT.info
+            variant_str = action.get("variant", "secondary")
+            variant = (
+                ButtonT(variant_str) if variant_str in ButtonT.__members__ else ButtonT.secondary
+            )
 
             btn_attrs = {"variant": variant}
 
@@ -532,32 +514,15 @@ class SharedUIComponents:
                 icon="📋",
                 title="No tasks yet",
                 message="Create your first task to get started",
-                action={'label': 'Create Task', 'href': '/tasks/create', 'class': 'btn-primary'}
+                action={'label': 'Create Task', 'href': '/tasks/create', 'variant': 'primary'}
             )
         """
         action_button = None
         if action:
-            # Parse variant from class string for backwards compatibility
-            class_str = action.get("class", "btn-primary")
-            variant = ButtonT.primary  # default
-
-            # Extract variant from common class patterns
-            if "btn-primary" in class_str:
-                variant = ButtonT.primary
-            elif "btn-secondary" in class_str:
-                variant = ButtonT.secondary
-            elif "btn-ghost" in class_str:
-                variant = ButtonT.ghost
-            elif "btn-outline" in class_str:
-                variant = ButtonT.outline
-            elif "btn-success" in class_str:
-                variant = ButtonT.success
-            elif "btn-warning" in class_str:
-                variant = ButtonT.warning
-            elif "btn-error" in class_str:
-                variant = ButtonT.error
-            elif "btn-info" in class_str:
-                variant = ButtonT.info
+            variant_str = action.get("variant", "primary")
+            variant = (
+                ButtonT(variant_str) if variant_str in ButtonT.__members__ else ButtonT.primary
+            )
 
             btn_attrs = {"variant": variant}
             if "href" in action:
@@ -644,15 +609,9 @@ class SharedUIComponents:
                     *[
                         Button(
                             a["label"],
-                            variant=(
-                                ButtonT.primary
-                                if "btn-primary" in a.get("class", "")
-                                else ButtonT.ghost
-                                if "btn-ghost" in a.get("class", "")
-                                else ButtonT.outline
-                                if "btn-outline" in a.get("class", "")
-                                else ButtonT.secondary
-                            ),
+                            variant=ButtonT(a["variant"])
+                            if a.get("variant") in ButtonT.__members__
+                            else ButtonT.secondary,
                             onclick=f"window.location.href='{a['href']}'" if "href" in a else None,
                         )
                         for a in actions
@@ -718,8 +677,8 @@ class SharedUIComponentsExamples:
             entities=habits,
             entity_renderer=SharedUIComponentsExamples._simple_habit_card,
             quick_actions=[
-                {"label": "➕ New Habit", "href": "/habits/wizard/step1", "class": "btn-primary"},
-                {"label": "📊 Analytics", "href": "/habits/analytics", "class": "btn-secondary"},
+                {"label": "➕ New Habit", "href": "/habits/wizard/step1", "variant": "primary"},
+                {"label": "📊 Analytics", "href": "/habits/analytics", "variant": "secondary"},
             ],
             categories=["health", "productivity", "learning"],
             filter_endpoint="/habits/filter",
@@ -741,9 +700,7 @@ class SharedUIComponentsExamples:
             },
             entities=tasks,
             entity_renderer=SharedUIComponentsExamples._simple_task_card,
-            quick_actions=[
-                {"label": "➕ New Task", "href": "/tasks/create", "class": "btn-primary"}
-            ],
+            quick_actions=[{"label": "➕ New Task", "href": "/tasks/create", "variant": "primary"}],
         )
 
     @staticmethod

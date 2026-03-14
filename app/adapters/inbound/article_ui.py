@@ -22,6 +22,7 @@ from core.models.enums import SELCategory
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonT
 from ui.cards import Card
+from ui.layout import Size
 from ui.patterns.card_generator import CardGenerator
 from ui.patterns.entity_dashboard import SharedUIComponents
 from ui.patterns.form_generator import FormGenerator
@@ -157,25 +158,25 @@ class KuUIComponents:
                 "label": "➕ New Knowledge",
                 "hx_get": "/article/create",
                 "hx_target": "#modal",
-                "class": "btn-primary",
+                "variant": "primary",
             },
             {
                 "label": "🔍 Discovery",
                 "hx_get": "/article/discovery",
                 "hx_target": "#main-content",
-                "class": "btn-secondary",
+                "variant": "secondary",
             },
             {
                 "label": "📊 Analytics",
                 "hx_get": "/article/analytics",
                 "hx_target": "#main-content",
-                "class": "btn-outline",
+                "variant": "outline",
             },
             {
                 "label": "🕸️ Graph View",
                 "hx_get": "/article/graph",
                 "hx_target": "#main-content",
-                "class": "btn-ghost",
+                "variant": "ghost",
             },
         ]
 
@@ -237,14 +238,14 @@ class KuUIComponents:
             Button(
                 "👁️ View",
                 variant=ButtonT.outline,
-                cls="btn-sm",
+                size=Size.sm,
                 hx_get=f"/article/{uid}/details",
                 hx_target="#modal" if compact else "#main-content",
             ),
             Button(
                 "✏️ Edit",
                 variant=ButtonT.ghost,
-                cls="btn-sm",
+                size=Size.sm,
                 hx_get=f"/article/{uid}/edit",
                 hx_target="#modal",
             ),
@@ -255,7 +256,7 @@ class KuUIComponents:
                 Button(
                     "🕸️ Graph",
                     variant=ButtonT.secondary,
-                    cls="btn-sm",
+                    size=Size.sm,
                     hx_get=f"/article/{uid}/graph",
                     hx_target="#main-content",
                 )
@@ -307,9 +308,13 @@ class KuUIComponents:
             Card(
                 H3("🎯 Discovery Tools", cls="text-lg font-semibold mb-4"),
                 Div(
-                    Button("🔗 Find Connections", variant=ButtonT.primary, cls="btn-sm mr-2"),
-                    Button("📈 Trending Topics", variant=ButtonT.secondary, cls="btn-sm mr-2"),
-                    Button("🕳️ Knowledge Gaps", variant=ButtonT.outline, cls="btn-sm"),
+                    Button(
+                        "🔗 Find Connections", variant=ButtonT.primary, size=Size.sm, cls="mr-2"
+                    ),
+                    Button(
+                        "📈 Trending Topics", variant=ButtonT.secondary, size=Size.sm, cls="mr-2"
+                    ),
+                    Button("🕳️ Knowledge Gaps", variant=ButtonT.outline, size=Size.sm),
                 ),
                 cls="p-6 mb-6",
             ),

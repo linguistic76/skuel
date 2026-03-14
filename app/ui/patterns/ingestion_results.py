@@ -129,7 +129,7 @@ def EntityBreakdownTable(entity_counts: dict[str, int]) -> FT:
                         for entity_type, count in sorted(entity_counts.items())
                     ]
                 ),
-                cls="table table-zebra table-sm",
+                cls="uk-table uk-table-striped uk-table-small",
             ),
             cls="overflow-x-auto",
         ),
@@ -185,7 +185,7 @@ def ErrorsTable(errors: list[dict[str, Any]]) -> FT:
                         for error in errors
                     ]
                 ),
-                cls="table table-zebra table-sm",
+                cls="uk-table uk-table-striped uk-table-small",
             ),
             cls="overflow-x-auto",
         ),

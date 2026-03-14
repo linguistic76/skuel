@@ -19,15 +19,15 @@ Usage:
 
 from typing import Any
 
-from fasthtml.common import H2, H3, A, Div, Form, Option, P, Span
+from fasthtml.common import H2, H3, Div, Form, Option, P, Span
 
 from core.utils.logging import get_logger
-from ui.buttons import Button
+from ui.buttons import Button, ButtonLink, ButtonT
+from ui.cards import Card
 from ui.feedback import Badge, BadgeT
 from ui.forms import Input, Label, Select, Textarea
 from ui.layout import Size
 from ui.patterns.activity_views_base import ActivityViewTabs
-from ui.cards import Card
 
 logger = get_logger("skuel.components.principles_views")
 
@@ -286,14 +286,16 @@ class PrinciplesViewComponents:
                 Div(
                     Button(
                         "Reflect",
-                        cls="btn btn-xs btn-success",
+                        variant=ButtonT.success,
+                        size=Size.xs,
                         **{"hx-get": f"/principles/{uid}/reflect", "hx-target": "#modal"},
                     )
                     if is_active
                     else "",
                     Button(
                         "History",
-                        cls="btn btn-xs btn-info",
+                        variant=ButtonT.info,
+                        size=Size.xs,
                         **{
                             "hx-get": f"/principles/{uid}/reflections",
                             "hx-target": "#view-content",
@@ -301,12 +303,14 @@ class PrinciplesViewComponents:
                     ),
                     Button(
                         "View",
-                        cls="btn btn-xs btn-outline",
+                        variant=ButtonT.outline,
+                        size=Size.xs,
                         **{"hx-get": f"/principles/{uid}", "hx-target": "body"},
                     ),
                     Button(
                         "Edit",
-                        cls="btn btn-xs btn-ghost",
+                        variant=ButtonT.ghost,
+                        size=Size.xs,
                         **{"hx-get": f"/principles/{uid}/edit", "hx-target": "#modal"},
                     ),
                     cls="flex gap-2 mt-3",
@@ -424,7 +428,7 @@ class PrinciplesViewComponents:
                         name="is_active",
                         value="true",
                         checked=True,
-                        cls="checkbox checkbox-primary mr-2",
+                        cls="uk-checkbox mr-2",
                     ),
                     "Active Principle",
                     cls="label cursor-pointer justify-start",
@@ -440,22 +444,25 @@ class PrinciplesViewComponents:
 
         # Submit buttons
         submit_section = Div(
-            A(
+            ButtonLink(
                 "Cancel",
                 href="/principles",
-                cls="btn btn-ghost btn-lg",
+                variant=ButtonT.ghost,
+                size=Size.lg,
             ),
             Button(
                 "Create Principle",
                 type="submit",
-                cls="btn btn-primary btn-lg",
+                variant=ButtonT.primary,
+                size=Size.lg,
             ),
             Button(
                 "Create & Add Another",
                 type="submit",
                 name="add_another",
                 value="true",
-                cls="btn btn-outline btn-lg",
+                variant=ButtonT.outline,
+                size=Size.lg,
             ),
             cls="flex justify-end gap-2 pt-6 border-t border-border",
         )
@@ -681,7 +688,7 @@ class PrinciplesViewComponents:
                                 name="is_active",
                                 value="true",
                                 checked=is_active,
-                                cls="checkbox checkbox-primary mr-2",
+                                cls="uk-checkbox mr-2",
                             ),
                             "Active",
                             cls="label cursor-pointer justify-start",
@@ -690,11 +697,12 @@ class PrinciplesViewComponents:
                     ),
                     # Buttons
                     Div(
-                        Button("Save", type="submit", cls="btn btn-primary"),
+                        Button("Save", type="submit", variant=ButtonT.primary),
                         Button(
                             "Cancel",
                             type="button",
-                            cls="btn btn-ghost ml-2",
+                            variant=ButtonT.ghost,
+                            cls="ml-2",
                             **{"onclick": "document.getElementById('modal').innerHTML = ''"},
                         ),
                         cls="flex justify-end",
@@ -842,11 +850,12 @@ class PrinciplesViewComponents:
                     ),
                     # Buttons
                     Div(
-                        Button("Save Reflection", type="submit", cls="btn btn-success"),
+                        Button("Save Reflection", type="submit", variant=ButtonT.success),
                         Button(
                             "Cancel",
                             type="button",
-                            cls="btn btn-ghost ml-2",
+                            variant=ButtonT.ghost,
+                            cls="ml-2",
                             **{"onclick": "document.getElementById('modal').innerHTML = ''"},
                         ),
                         cls="flex justify-end",
@@ -890,7 +899,8 @@ class PrinciplesViewComponents:
         header = Div(
             Button(
                 "← Back to List",
-                cls="btn btn-ghost btn-sm",
+                variant=ButtonT.ghost,
+                size=Size.sm,
                 **{
                     "hx-get": "/principles/view/list",
                     "hx-target": "#view-content",
@@ -904,7 +914,8 @@ class PrinciplesViewComponents:
         trend_link = Div(
             Button(
                 "View Alignment Trend",
-                cls="btn btn-outline btn-sm",
+                variant=ButtonT.outline,
+                size=Size.sm,
                 **{
                     "hx-get": f"/principles/{uid}/alignment-trend",
                     "hx-target": "#view-content",
@@ -1029,7 +1040,8 @@ class PrinciplesViewComponents:
         header = Div(
             Button(
                 "← Back to Reflections",
-                cls="btn btn-ghost btn-sm",
+                variant=ButtonT.ghost,
+                size=Size.sm,
                 **{
                     "hx-get": f"/principles/{principle_uid}/reflections",
                     "hx-target": "#view-content",

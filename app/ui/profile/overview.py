@@ -16,8 +16,8 @@ from fasthtml.common import H2, H3, A, Canvas, Div, Li, P, Span, Ul
 
 from core.models.enums import Priority
 from core.services.user.unified_user_context import UserContext
-from ui.feedback import Badge, BadgeT
 from ui.cards import Card
+from ui.feedback import Alert, AlertT, Badge, BadgeT
 
 if TYPE_CHECKING:
     from core.models.context_types import (
@@ -98,7 +98,7 @@ def OverviewView(
             },
         ),
         # Error state
-        Div(
+        Alert(
             Div(
                 Span("⚠️ ", cls="text-2xl mr-2"),
                 Span("Failed to load intelligence data", cls="font-medium"),
@@ -109,7 +109,7 @@ def OverviewView(
                 cls="text-sm text-muted-foreground mt-2",
                 **{"x-show": "hasCache"},
             ),
-            cls="alert alert-warning",
+            variant=AlertT.warning,
             **{"x-show": "error"},
         ),
         id="intelligence-container",

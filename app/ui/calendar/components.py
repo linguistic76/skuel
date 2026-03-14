@@ -20,7 +20,7 @@ __version__ = "1.0"
 from datetime import date, timedelta
 from typing import Any
 
-from fasthtml.common import H2, H3, H4, A, Div, Form, Option, P, Span
+from fasthtml.common import H2, H3, H4, Div, Form, Option, P, Span
 
 from core.models.event.calendar_models import (
     CalendarData,
@@ -28,9 +28,11 @@ from core.models.event.calendar_models import (
     CalendarItemType,
     CalendarOccurrence,
 )
-from ui.buttons import Button
-from ui.forms import Input, Label, Select
+from ui.buttons import Button, ButtonLink, ButtonT
 from ui.cards import Card
+from ui.feedback import Badge, BadgeT
+from ui.forms import Input, Label, Select
+from ui.layout import Size
 
 
 def create_month_grid(calendar_data: CalendarData) -> Div:
@@ -172,7 +174,7 @@ def create_day_cell(
     if is_today:
         date_header = Div(
             Span(str(cell_date.day), cls="text-lg font-bold text-primary"),
-            Span("Today", cls="ml-2 badge badge-primary badge-sm"),
+            Badge("Today", variant=BadgeT.primary, size=Size.sm, cls="ml-2"),
             cls="flex items-center mb-1",
         )
     else:
@@ -431,7 +433,8 @@ def create_habit_check_in(item: CalendarItem) -> Div:
             Button(
                 "✅",
                 type="button",
-                cls="btn btn-success btn-sm",
+                variant=ButtonT.success,
+                size=Size.sm,
                 **{
                     "hx-post": f"/events/calendar/habit/{habit_uid}/record/done",
                     "hx-target": f"#habit-status-{habit_uid}",
@@ -442,7 +445,8 @@ def create_habit_check_in(item: CalendarItem) -> Div:
             Button(
                 "⏭️",
                 type="button",
-                cls="btn btn-warning btn-sm",
+                variant=ButtonT.warning,
+                size=Size.sm,
                 **{
                     "hx-post": f"/events/calendar/habit/{habit_uid}/record/skipped",
                     "hx-target": f"#habit-status-{habit_uid}",
@@ -453,7 +457,8 @@ def create_habit_check_in(item: CalendarItem) -> Div:
             Button(
                 "❌",
                 type="button",
-                cls="btn btn-error btn-sm",
+                variant=ButtonT.error,
+                size=Size.sm,
                 **{
                     "hx-post": f"/events/calendar/habit/{habit_uid}/record/missed",
                     "hx-target": f"#habit-status-{habit_uid}",
@@ -538,13 +543,14 @@ def create_quick_add_modal() -> Div:
                     Button(
                         "Cancel",
                         type="button",
-                        cls="btn btn-ghost mr-2",
+                        variant=ButtonT.ghost,
+                        cls="mr-2",
                         **{"x-on:click": "closeQuickAdd()"},
                     ),
                     Button(
                         "Create",
                         type="submit",
-                        cls="btn btn-primary",
+                        variant=ButtonT.primary,
                     ),
                     cls="flex justify-end",
                 ),
@@ -614,24 +620,28 @@ def create_view_switcher(current_view: str, target_date: date) -> Div:
     buttons = []
     for label, view, url in views:
         is_active = view == current_view
-        cls_base = "btn btn-sm"
+        cls_extra = ""
         if view == "day":
-            cls_base += " rounded-l-lg rounded-r-none"
+            cls_extra = "rounded-l-lg rounded-r-none"
         elif view == "month":
-            cls_base += " rounded-r-lg rounded-l-none"
+            cls_extra = "rounded-r-lg rounded-l-none"
         else:
-            cls_base += " rounded-none"
+            cls_extra = "rounded-none"
 
         if is_active:
             # Active view - styled span (not clickable)
-            buttons.append(Span(label, cls=f"{cls_base} btn-primary cursor-default"))
+            buttons.append(
+                Span(label, cls=f"uk-btn uk-btn-small uk-button-primary cursor-default {cls_extra}")
+            )
         else:
             # Inactive view - use link
             buttons.append(
-                A(
+                ButtonLink(
                     label,
                     href=url,
-                    cls=f"{cls_base} btn-ghost",
+                    variant=ButtonT.ghost,
+                    size=Size.sm,
+                    cls=cls_extra,
                 )
             )
 
@@ -650,7 +660,8 @@ def create_quick_add_button() -> Div:
     return Div(
         Button(
             "+ Add Item",
-            cls="fixed bottom-6 right-6 btn btn-success rounded-full shadow-lg",
+            variant=ButtonT.success,
+            cls="fixed bottom-6 right-6 rounded-full shadow-lg",
             **{"x-on:click": "openQuickAdd()"},
         ),
     )
@@ -672,7 +683,8 @@ def error_response(error_message: Any) -> Div:
             P(str(error_message), cls="text-muted-foreground"),
             Button(
                 "Go Back",
-                cls="mt-4 btn btn-primary",
+                variant=ButtonT.primary,
+                cls="mt-4",
                 onclick="window.history.back()",
             ),
             cls="bg-background shadow-md p-6",

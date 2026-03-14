@@ -25,8 +25,18 @@ from typing import TYPE_CHECKING
 
 from fasthtml.common import Details, Div, P, Summary
 
+from ui.feedback import Alert, AlertT
+
 if TYPE_CHECKING:
     from fasthtml.common import FT
+
+# Map severity strings to AlertT variants
+_SEVERITY_TO_ALERTT: dict[str, AlertT] = {
+    "error": AlertT.error,
+    "warning": AlertT.warning,
+    "info": AlertT.info,
+    "success": AlertT.success,
+}
 
 
 def render_error_banner(
@@ -64,15 +74,6 @@ def render_error_banner(
             severity="warning"
         )
     """
-    # Map severity to alert classes
-    alert_class_map = {
-        "error": "alert-error",
-        "warning": "alert-warning",
-        "info": "alert-info",
-        "success": "alert-success",
-    }
-    alert_class = alert_class_map.get(severity, "alert-error")
-
     # Icon map for visual distinction
     icon_map = {
         "error": "❌",
@@ -109,9 +110,10 @@ def render_error_banner(
             )
         )
 
-    return Div(
+    return Alert(
         *content,
-        cls=f"alert {alert_class} mb-4 shadow-lg",
+        variant=_SEVERITY_TO_ALERTT.get(severity, AlertT.error),
+        cls="mb-4 shadow-lg",
         role="alert",  # WCAG: Screen reader announcement
         **{"aria-live": "polite"},  # WCAG: Announce dynamically added errors
     )
@@ -129,7 +131,7 @@ def render_inline_error(message: str) -> "FT":
 
     Example:
         Div(
-            Input(name="title", cls="input-error"),
+            Input(name="title", cls="border-destructive"),
             render_inline_error("Title is required"),
         )
     """

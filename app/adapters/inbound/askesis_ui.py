@@ -17,14 +17,14 @@ __version__ = "5.0"
 
 from typing import Any
 
-from fasthtml.common import H1, H2, Div, Form, Label, Option, P, Span
+from fasthtml.common import H1, H2, Div, Form, Option, P, Span
 from starlette.requests import Request
 
 from adapters.inbound.auth import require_authenticated_user
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonT
 from ui.cards import Card
-from ui.forms import Select, Textarea
+from ui.forms import FormControl, Label, Select, Textarea
 from ui.layout import Size
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 
@@ -159,7 +159,7 @@ class AskesisUI:
                     Button(
                         "Show quick shortcuts",
                         variant=ButtonT.ghost,
-                        cls="btn-sm",
+                        size=Size.sm,
                         **{
                             "onclick": "document.getElementById('shortcuts').classList.toggle('hidden')",
                         },
@@ -169,10 +169,10 @@ class AskesisUI:
                 # Shortcuts menu (hidden by default - progressive disclosure)
                 Div(
                     Div(
-                        Button("Write", variant=ButtonT.outline, cls="btn-sm"),
-                        Button("Learn", variant=ButtonT.outline, cls="btn-sm"),
-                        Button("Code", variant=ButtonT.outline, cls="btn-sm"),
-                        Button("Plan", variant=ButtonT.outline, cls="btn-sm"),
+                        Button("Write", variant=ButtonT.outline, size=Size.sm),
+                        Button("Learn", variant=ButtonT.outline, size=Size.sm),
+                        Button("Code", variant=ButtonT.outline, size=Size.sm),
+                        Button("Plan", variant=ButtonT.outline, size=Size.sm),
                         cls="flex gap-2 justify-center flex-wrap",
                     ),
                     id="shortcuts",
@@ -342,25 +342,25 @@ def create_askesis_ui_routes(_app, rt, _askesis_service):
             Div(
                 Card(
                     Form(
-                        Div(
-                            Label("Default Model", cls="label"),
+                        FormControl(
+                            Label("Default Model"),
                             Select(
                                 Option("Sonnet 4.5", value="sonnet-4.5", selected=True),
                                 Option("Opus 3", value="opus-3"),
                                 Option("Haiku 3", value="haiku-3"),
                                 name="default_model",
                             ),
-                            cls="form-control mb-4",
+                            cls="mb-4",
                         ),
-                        Div(
-                            Label("Response Length", cls="label"),
+                        FormControl(
+                            Label("Response Length"),
                             Select(
                                 Option("Concise", value="concise"),
                                 Option("Balanced", value="balanced", selected=True),
                                 Option("Detailed", value="detailed"),
                                 name="response_length",
                             ),
-                            cls="form-control mb-4",
+                            cls="mb-4",
                         ),
                         Button("Save Settings", variant=ButtonT.primary, type="submit"),
                         cls="space-y-4",

@@ -20,6 +20,7 @@ __version__ = "2.0"  # Vis.js Timeline version
 from fasthtml.common import H1, Body, Div, Head, Html, Link, Meta, Option, P, Script, Span, Title
 
 from ui.buttons import Button, ButtonT
+from ui.feedback import Loading, LoadingT
 from ui.forms import Input, Label, Select
 from ui.layout import Size
 
@@ -211,7 +212,7 @@ def _render_timeline_container() -> Div:
     return Div(
         # Loading indicator
         Div(
-            Span(cls="loading loading-spinner loading-lg"),
+            Loading(variant=LoadingT.spinner, size=Size.lg),
             P("Loading timeline...", cls="mt-2 text-muted-foreground"),
             cls="flex flex-col items-center justify-center h-full",
             **{"x-show": "loading"},
@@ -305,7 +306,7 @@ def create_embedded_timeline(
         *controls,
         # Loading
         Div(
-            Span(cls="loading loading-spinner loading-sm"),
+            Loading(variant=LoadingT.spinner, size=Size.sm),
             cls="flex items-center justify-center h-full",
             **{"x-show": "loading"},
         ),

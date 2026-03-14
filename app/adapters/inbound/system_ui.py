@@ -207,9 +207,9 @@ def _render_login_landing_page() -> NotStr:
 
                     <form action="/login/submit" method="POST">
                         <!-- Email/Username field -->
-                        <div class="form-control w-full mb-4">
+                        <div class="space-y-2 w-full mb-4">
                             <label class="label" for="username">
-                                <span class="label-text">Email or Username</span>
+                                <span class="text-sm font-medium">Email or Username</span>
                             </label>
                             <input
                                 id="username"
@@ -224,10 +224,10 @@ def _render_login_landing_page() -> NotStr:
                         </div>
 
                         <!-- Password field -->
-                        <div class="form-control w-full mb-4">
+                        <div class="space-y-2 w-full mb-4">
                             <label class="label" for="password">
-                                <span class="label-text">Password</span>
-                                <a href="/forgot-password" class="label-text-alt link link-hover">Forgot password?</a>
+                                <span class="text-sm font-medium">Password</span>
+                                <a href="/forgot-password" class="text-xs text-muted-foreground hover:underline">Forgot password?</a>
                             </label>
                             <input
                                 id="password"
@@ -241,7 +241,7 @@ def _render_login_landing_page() -> NotStr:
                         </div>
 
                         <!-- Submit button -->
-                        <div class="form-control mt-6">
+                        <div class="space-y-2 mt-6">
                             <button type="submit" class="uk-btn uk-btn-primary w-full">Sign in</button>
                         </div>
                     </form>
@@ -249,7 +249,7 @@ def _render_login_landing_page() -> NotStr:
                     <!-- Sign up link -->
                     <div class="mt-4 text-center">
                         <span class="text-sm">Don't have an account? </span>
-                        <a href="/register" class="link link-hover text-sm">Sign up</a>
+                        <a href="/register" class="hover:underline text-sm">Sign up</a>
                     </div>
                 </div>
             </div>

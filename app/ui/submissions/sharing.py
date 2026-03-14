@@ -16,10 +16,12 @@ from fasthtml.common import (
     P,
 )
 
-from ui.buttons import Button
-from ui.feedback import Badge, BadgeT
-from ui.forms import Input, Label, Select
+from ui.buttons import Button, ButtonT
 from ui.cards import Card
+from ui.feedback import Badge, BadgeT
+from ui.forms import FormControl, Input, Label, Select
+from ui.layout import Size
+from ui.modals import ModalBox
 
 
 def render_visibility_dropdown(submission: Any) -> Any:
@@ -44,7 +46,7 @@ def render_visibility_dropdown(submission: Any) -> Any:
     ]
 
     return Div(
-        Label("Visibility:", cls="label label-text font-bold"),
+        Label("Visibility:", cls="font-bold"),
         Select(
             *[
                 Option(
@@ -72,7 +74,7 @@ def render_visibility_dropdown(submission: Any) -> Any:
             id="visibility-status",
             cls="mt-1",
         ),
-        cls="form-control mb-4",
+        cls="mb-4",
     )
 
 
@@ -81,29 +83,30 @@ def render_share_modal(report_uid: str) -> Any:
     return Div(
         Div(
             Div(
-                Div(
+                ModalBox(
                     Form(
                         Button(
                             "\u2715",
-                            cls="btn btn-sm btn-circle btn-ghost absolute right-2 top-2",
+                            variant=ButtonT.ghost,
+                            cls="rounded-full absolute right-2 top-2",
                             **{"@click": "shareModal = false"},
                         ),
                         method="dialog",
                     ),
                     H3("Share Report", cls="font-bold text-lg mb-4"),
                     Form(
-                        Div(
-                            Label("User UID:", cls="label label-text"),
+                        FormControl(
+                            Label("User UID:"),
                             Input(
                                 type="text",
                                 name="recipient_uid",
                                 placeholder="user_teacher",
                                 required=True,
                             ),
-                            cls="form-control mb-3",
+                            cls="mb-3",
                         ),
-                        Div(
-                            Label("Role:", cls="label label-text"),
+                        FormControl(
+                            Label("Role:"),
                             Select(
                                 Option("Viewer", value="viewer", selected=True),
                                 Option("Teacher", value="teacher"),
@@ -111,19 +114,19 @@ def render_share_modal(report_uid: str) -> Any:
                                 Option("Mentor", value="mentor"),
                                 name="role",
                             ),
-                            cls="form-control mb-4",
+                            cls="mb-4",
                         ),
                         Div(
                             Button(
                                 "Cancel",
                                 type="button",
-                                cls="btn btn-ghost",
+                                variant=ButtonT.ghost,
                                 **{"@click": "shareModal = false"},
                             ),
                             Button(
                                 "Share",
                                 type="submit",
-                                cls="btn btn-primary",
+                                variant=ButtonT.primary,
                             ),
                             cls="flex gap-2 justify-end",
                         ),
@@ -135,17 +138,17 @@ def render_share_modal(report_uid: str) -> Any:
                             "@submit.prevent": "$el.dispatchEvent(new Event('htmx:trigger')); shareModal = false"
                         },
                     ),
-                    cls="modal-box",
                 ),
-                cls="modal-backdrop",
+                cls="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4",
                 **{"@click": "shareModal = false"},
             ),
-            cls="modal",
+            cls="relative z-50",
             **{"x-show": "shareModal", "x-cloak": ""},
         ),
         Button(
             "Share with User",
-            cls="btn btn-primary btn-sm",
+            variant=ButtonT.primary,
+            size=Size.sm,
             **{"@click": "shareModal = true"},
         ),
     )

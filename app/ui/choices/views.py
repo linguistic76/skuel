@@ -19,16 +19,16 @@ Usage:
 
 from typing import Any
 
-from fasthtml.common import H2, H3, A, Div, Form, Option, P, Span
+from fasthtml.common import H2, H3, Div, Form, Option, P, Span
 
 from core.models.choice.choice import Choice
 from core.utils.logging import get_logger
-from ui.buttons import Button
+from ui.buttons import Button, ButtonLink, ButtonT
+from ui.cards import Card
 from ui.feedback import Badge
 from ui.forms import Input, Label, Select, Textarea
 from ui.layout import Size
 from ui.patterns.activity_views_base import ActivityViewTabs
-from ui.cards import Card
 
 logger = get_logger("skuel.components.choices_views")
 
@@ -235,19 +235,22 @@ class ChoicesViewComponents:
                 Div(
                     Button(
                         "Decide",
-                        cls="btn btn-xs btn-success",
+                        variant=ButtonT.success,
+                        size=Size.xs,
                         **{"hx-get": f"/choices/{uid}/decide", "hx-target": "#modal"},
                     )
                     if status_str == "pending"
                     else "",
                     Button(
                         "View",
-                        cls="btn btn-xs btn-outline",
+                        variant=ButtonT.outline,
+                        size=Size.xs,
                         **{"hx-get": f"/choices/{uid}", "hx-target": "body"},
                     ),
                     Button(
                         "Edit",
-                        cls="btn btn-xs btn-ghost",
+                        variant=ButtonT.ghost,
+                        size=Size.xs,
                         **{"hx-get": f"/choices/{uid}/edit", "hx-target": "#modal"},
                     ),
                     cls="flex gap-2 mt-3",
@@ -379,7 +382,9 @@ class ChoicesViewComponents:
                         Button(
                             "Remove",
                             type="button",
-                            cls="btn btn-ghost btn-xs text-error",
+                            variant=ButtonT.ghost,
+                            size=Size.xs,
+                            cls="text-error",
                             **{
                                 "x-show": "canRemove()",
                                 "x-on:click": "removeOption(index)",
@@ -423,7 +428,9 @@ class ChoicesViewComponents:
             Button(
                 "+ Add Another Option",
                 type="button",
-                cls="btn btn-outline btn-sm mt-2",
+                variant=ButtonT.outline,
+                size=Size.sm,
+                cls="mt-2",
                 **{"x-on:click": "addOption()"},
             ),
             cls="mb-6 pt-6 border-t border-border",
@@ -439,15 +446,17 @@ class ChoicesViewComponents:
                 ),
                 **{"x-show": "!isValid()"},
             ),
-            A(
+            ButtonLink(
                 "Cancel",
                 href="/choices",
-                cls="btn btn-ghost btn-lg",
+                variant=ButtonT.ghost,
+                size=Size.lg,
             ),
             Button(
                 "Create Decision",
                 type="submit",
-                cls="btn btn-primary btn-lg",
+                variant=ButtonT.primary,
+                size=Size.lg,
                 **{"x-bind:disabled": "!isValid()"},
             ),
             Button(
@@ -455,7 +464,8 @@ class ChoicesViewComponents:
                 type="submit",
                 name="add_another",
                 value="true",
-                cls="btn btn-outline btn-lg",
+                variant=ButtonT.outline,
+                size=Size.lg,
                 **{"x-bind:disabled": "!isValid()"},
             ),
             cls="flex justify-end items-center gap-2 pt-6 border-t border-border",

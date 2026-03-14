@@ -44,6 +44,7 @@ from ui.feedback import Badge, BadgeT
 from ui.forms import Input, Label, Select, Textarea
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
+from ui.modals import Modal, ModalBox
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.relationships import EntityRelationshipsSection
 from ui.tokens import Container, Spacing
@@ -526,8 +527,9 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
         options = getattr(choice, "options", []) or []
 
         if len(options) < 2:
-            return Div(
-                Div(
+            return Modal(
+                "decide-modal",
+                ModalBox(
                     P(
                         "You need at least 2 options to make a decision.",
                         cls="text-muted-foreground mb-4",
@@ -541,11 +543,10 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
                         "Close",
                         variant=ButtonT.ghost,
                         cls="ml-2",
-                        **{"onclick": "this.closest('.modal').remove()"},
+                        **{"onclick": "UIkit.modal('#decide-modal').hide()"},
                     ),
-                    cls="modal-box",
                 ),
-                cls="modal modal-open",
+                open_on_load=True,
             )
 
         # Build option selection
@@ -567,7 +568,7 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
                         type="radio",
                         name="selected_option_uid",
                         value=opt_uid,
-                        cls="radio radio-primary",
+                        cls="uk-radio",
                         required=True,
                     ),
                     Div(
@@ -584,8 +585,9 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
                 )
             )
 
-        return Div(
-            Div(
+        return Modal(
+            "decide-choice-modal",
+            ModalBox(
                 H3(f"Decide: {choice.title}", cls="text-lg font-bold mb-4"),
                 Form(
                     P("Select the option you've decided on:", cls="text-muted-foreground mb-4"),
@@ -606,7 +608,7 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
                             type="button",
                             variant=ButtonT.ghost,
                             cls="ml-2",
-                            **{"onclick": "this.closest('.modal').remove()"},
+                            **{"onclick": "UIkit.modal('#decide-choice-modal').hide()"},
                         ),
                     ),
                     **{
@@ -614,9 +616,8 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
                         "hx-target": "body",
                     },
                 ),
-                cls="modal-box",
             ),
-            cls="modal modal-open",
+            open_on_load=True,
         )
 
     @rt("/choices/{uid}/decide", methods=["POST"])
@@ -675,8 +676,9 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
         domains = ["personal", "business", "health", "finance", "social"]
         priorities = ["critical", "high", "medium", "low"]
 
-        return Div(
-            Div(
+        return Modal(
+            "edit-choice-modal",
+            ModalBox(
                 H3("Edit Decision", cls="text-lg font-bold mb-4"),
                 Form(
                     # Title
@@ -740,7 +742,7 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
                             type="button",
                             variant=ButtonT.ghost,
                             cls="ml-2",
-                            **{"onclick": "this.closest('.modal').remove()"},
+                            **{"onclick": "UIkit.modal('#edit-choice-modal').hide()"},
                         ),
                     ),
                     **{
@@ -748,9 +750,8 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
                         "hx-target": "body",
                     },
                 ),
-                cls="modal-box",
             ),
-            cls="modal modal-open",
+            open_on_load=True,
         )
 
     @rt("/choices/{uid}/edit", methods=["POST"])
@@ -816,8 +817,9 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
         if error:
             return error
 
-        return Div(
-            Div(
+        return Modal(
+            "add-option-modal",
+            ModalBox(
                 H3("Add Option", cls="text-lg font-bold mb-4"),
                 Form(
                     # Title
@@ -850,7 +852,7 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
                             type="button",
                             variant=ButtonT.ghost,
                             cls="ml-2",
-                            **{"onclick": "this.closest('.modal').remove()"},
+                            **{"onclick": "UIkit.modal('#add-option-modal').hide()"},
                         ),
                     ),
                     **{
@@ -858,9 +860,8 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
                         "hx-target": "body",
                     },
                 ),
-                cls="modal-box",
             ),
-            cls="modal modal-open",
+            open_on_load=True,
         )
 
     @rt("/choices/{uid}/add-option", methods=["POST"])

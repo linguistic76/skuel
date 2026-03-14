@@ -24,7 +24,7 @@ Usage in UI components:
     color = get_trend_color("increasing")  # Returns "text-green-600"
 
     # Tier 2: Tailwind mapper
-    badge_class = get_priority_badge_class("high")  # Returns "badge-warning"
+    badge_class = get_priority_badge_class("high")  # Returns Tailwind color classes
 
     # Tier 3: Component builder
     badge_component = render_priority_badge("high")  # Returns styled Badge
@@ -53,7 +53,6 @@ from core.models.enums import (
 )
 from core.models.event.calendar_models import CalendarItemType
 from ui.buttons import Button, ButtonT
-from ui.layout import Size
 from ui.cards import Card, CardBody
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size

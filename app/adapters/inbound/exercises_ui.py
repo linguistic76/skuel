@@ -22,6 +22,7 @@ from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonT
 from ui.cards import Card
 from ui.forms import Input, Label, Select, Textarea
+from ui.layout import Size
 from ui.layouts.navbar import create_navbar_for_request
 from ui.patterns.page_header import PageHeader
 from ui.study.layout import create_study_page
@@ -128,14 +129,16 @@ class ExerciseUIComponents:
                         hx_get=f"/exercises/{exercise.uid}/edit",
                         hx_target="#main-content",
                         variant=ButtonT.ghost,
-                        cls="btn-sm mr-2",
+                        size=Size.sm,
+                        cls="mr-2",
                     ),
                     Button(
                         "View Instructions",
                         hx_get=f"/exercises/{exercise.uid}/view",
                         hx_target="#main-content",
                         variant=ButtonT.ghost,
-                        cls="btn-sm mr-2",
+                        size=Size.sm,
+                        cls="mr-2",
                     ),
                     Button(
                         "Delete",
@@ -144,7 +147,7 @@ class ExerciseUIComponents:
                         hx_target="closest .card",
                         hx_swap="outerHTML",
                         variant=ButtonT.error,
-                        cls="btn-sm",
+                        size=Size.sm,
                     ),
                     cls="flex gap-2",
                 ),
@@ -169,7 +172,7 @@ class ExerciseUIComponents:
                     (Input(type="hidden", name="user_uid", value=user_uid) if not is_edit else ""),
                     # Exercise name
                     Div(
-                        Label("Exercise Name", cls="label-text"),
+                        Label("Exercise Name"),
                         Input(
                             type="text",
                             name="name",
@@ -181,9 +184,7 @@ class ExerciseUIComponents:
                     ),
                     # Instructions - THE KEY TRANSPARENCY ELEMENT
                     Div(
-                        Label(
-                            "Instructions (Visible to You & LLM)", cls="label-text font-semibold"
-                        ),
+                        Label("Instructions (Visible to You & LLM)", cls="font-semibold"),
                         P(
                             "These are the exact instructions sent to the LLM. "
                             "Be clear and specific about what kind of feedback you want.",
@@ -204,7 +205,7 @@ class ExerciseUIComponents:
                     ),
                     # Model selection
                     Div(
-                        Label("LLM Model", cls="label-text"),
+                        Label("LLM Model"),
                         Select(
                             Option(
                                 "Claude Sonnet 4.6 (Recommended)",
@@ -237,7 +238,7 @@ class ExerciseUIComponents:
                     ),
                     # Context notes (optional)
                     Div(
-                        Label("Context Notes (Optional)", cls="label-text"),
+                        Label("Context Notes (Optional)"),
                         P(
                             "Reference materials or context the LLM should consider. One per line.",
                             cls="text-sm text-muted-foreground mb-2",
@@ -258,7 +259,7 @@ class ExerciseUIComponents:
                     ),
                     # Domain (optional)
                     Div(
-                        Label("Domain (Optional)", cls="label-text"),
+                        Label("Domain (Optional)"),
                         Select(
                             Option("None", value=""),
                             Option("Personal", value="personal"),
@@ -307,7 +308,7 @@ class ExerciseUIComponents:
                 A(
                     ku.get("title") or ku.get("uid", "Untitled"),
                     href=f"/article/{ku.get('uid')}",
-                    cls="link link-primary mr-3",
+                    cls="text-primary hover:underline mr-3",
                 )
                 for ku in required_knowledge
             ]

@@ -61,7 +61,7 @@ def RelationshipGraphView(
                     Option("Depth 2", value="2", selected=(depth == 2)),
                     Option("Depth 3", value="3"),
                     name="graph_depth",
-                    cls="select select-sm select-bordered",
+                    cls="uk-select uk-form-small",
                     **{"x-on:change": "changeDepth($event.target.value)"},
                 ),
                 cls="flex items-center justify-between mb-4",

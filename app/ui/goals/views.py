@@ -19,7 +19,7 @@ Usage:
 from datetime import date, timedelta
 from typing import Any
 
-from fasthtml.common import H2, H3, A, Div, Form, Option, P, Span
+from fasthtml.common import H2, H3, Div, Form, Option, P, Span
 
 from core.models.event.calendar_models import (
     CalendarData,
@@ -27,7 +27,7 @@ from core.models.event.calendar_models import (
 )
 from core.models.goal.goal import Goal
 from core.utils.logging import get_logger
-from ui.buttons import Button
+from ui.buttons import Button, ButtonLink, ButtonT
 from ui.calendar.components import (
     create_day_timeline,
     create_month_grid,
@@ -35,10 +35,10 @@ from ui.calendar.components import (
     create_week_grid,
 )
 from ui.calendar.converters import goal_to_calendar_item
+from ui.cards import Card
 from ui.feedback import Badge, Progress
 from ui.forms import Input, Label, Select, Textarea
 from ui.layout import Size
-from ui.cards import Card
 from ui.patterns.activity_views_base import (
     ActivityCalendarNav,
     ActivityViewSwitcher,
@@ -279,12 +279,14 @@ class GoalsViewComponents:
                 Div(
                     Button(
                         "View",
-                        cls="btn btn-xs btn-outline",
+                        variant=ButtonT.outline,
+                        size=Size.xs,
                         **{"hx-get": f"/goals/{uid}", "hx-target": "body"},
                     ),
                     Button(
                         "Edit",
-                        cls="btn btn-xs btn-ghost",
+                        variant=ButtonT.ghost,
+                        size=Size.xs,
                         **{"hx-get": f"/goals/{uid}/edit", "hx-target": "#modal"},
                     ),
                     PinButton(entity_uid=uid, is_pinned=is_pinned, show_text=True, size="xs"),
@@ -443,22 +445,25 @@ class GoalsViewComponents:
 
         # Submit buttons
         submit_section = Div(
-            A(
+            ButtonLink(
                 "Cancel",
                 href="/goals",
-                cls="btn btn-ghost btn-lg",
+                variant=ButtonT.ghost,
+                size=Size.lg,
             ),
             Button(
                 "Create Goal",
                 type="submit",
-                cls="btn btn-primary btn-lg",
+                variant=ButtonT.primary,
+                size=Size.lg,
             ),
             Button(
                 "Create & Add Another",
                 type="submit",
                 name="add_another",
                 value="true",
-                cls="btn btn-outline btn-lg",
+                variant=ButtonT.outline,
+                size=Size.lg,
             ),
             cls="flex justify-end gap-2 pt-6 border-t border-border",
         )

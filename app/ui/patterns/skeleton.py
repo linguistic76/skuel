@@ -17,6 +17,7 @@ Usage:
 """
 
 from fasthtml.common import Div
+
 from ui.cards import Card
 
 

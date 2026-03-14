@@ -28,10 +28,11 @@ from typing import Any, ClassVar
 from fasthtml.common import H2, H3, Div, P, Span
 
 from ui.buttons import Button, ButtonT
-from ui.layout import Size
 from ui.cards import Card, CardBody
 from ui.feedback import Progress
 from ui.forms import Label
+from ui.layout import Size
+from ui.modals import Modal, ModalBox
 
 
 class BadgeCategory(StrEnum):
@@ -456,67 +457,57 @@ class AtomicHabitsBadges:
     def render_badge_unlock_celebration(badge: Badge) -> Div:
         """Celebration modal shown when badge is unlocked."""
 
-        return Div(
-            Div(
+        return Modal(
+            "badge-celebration-modal",
+            ModalBox(
+                # Animated badge icon
+                Div(Span(badge.icon, cls="text-8xl animate-bounce"), cls="text-center mb-6"),
+                # Achievement announcement
+                H2("🎉 Achievement Unlocked!", cls="text-3xl font-bold text-center mb-4"),
+                # Badge title with rarity
                 Div(
-                    # Animated badge icon
-                    Div(Span(badge.icon, cls="text-8xl animate-bounce"), cls="text-center mb-6"),
-                    # Achievement announcement
-                    H2("🎉 Achievement Unlocked!", cls="text-3xl font-bold text-center mb-4"),
-                    # Badge title with rarity
-                    Div(
-                        H3(badge.title, cls="text-2xl font-bold mb-2"),
-                        Span(
-                            badge.rarity_tier().upper(),
-                            cls="text-sm font-bold px-3 py-1 rounded",
-                            style=f"background-color: {badge.rarity_color()}; color: white;",
-                        ),
-                        cls="flex flex-col items-center mb-4",
+                    H3(badge.title, cls="text-2xl font-bold mb-2"),
+                    Span(
+                        badge.rarity_tier().upper(),
+                        cls="text-sm font-bold px-3 py-1 rounded",
+                        style=f"background-color: {badge.rarity_color()}; color: white;",
                     ),
-                    # Description
-                    P(badge.description, cls="text-center text-muted-foreground mb-6"),
-                    # Points earned
-                    Card(
-                        CardBody(
-                            Div(
-                                Span("⭐", cls="text-4xl text-yellow-500"),
-                                Div(
-                                    P(
-                                        f"+{badge.points} Points",
-                                        cls="text-2xl font-bold text-yellow-600",
-                                    ),
-                                    P("Added to your total", cls="text-sm text-muted-foreground"),
-                                    cls="text-center",
-                                ),
-                                cls="flex items-center justify-center gap-4",
-                            ),
-                        ),
-                        cls="bg-yellow-50 mb-6",
-                    ),
-                    # Share buttons
-                    Div(
-                        Button("Share Achievement", variant=ButtonT.primary, cls="mb-2"),
-                        Button(
-                            "View All Badges",
-                            variant=ButtonT.secondary,
-                            hx_get="/badges/showcase",
-                            hx_target="#main-content",
-                        ),
-                        cls="flex flex-col items-center gap-2",
-                    ),
-                    # Close button
-                    Button(
-                        "✕",
-                        size=Size.sm,
-                        cls="btn-circle absolute right-2 top-2",
-                        onclick="document.getElementById('badge-celebration-modal').close()",
-                    ),
-                    cls="p-8 max-w-md",
+                    cls="flex flex-col items-center mb-4",
                 ),
-                cls="modal-box",
+                # Description
+                P(badge.description, cls="text-center text-muted-foreground mb-6"),
+                # Points earned
+                Card(
+                    CardBody(
+                        Div(
+                            Span("⭐", cls="text-4xl text-yellow-500"),
+                            Div(
+                                P(
+                                    f"+{badge.points} Points",
+                                    cls="text-2xl font-bold text-yellow-600",
+                                ),
+                                P("Added to your total", cls="text-sm text-muted-foreground"),
+                                cls="text-center",
+                            ),
+                            cls="flex items-center justify-center gap-4",
+                        ),
+                    ),
+                    cls="bg-yellow-50 mb-6",
+                ),
+                # Share buttons
+                Div(
+                    Button("Share Achievement", variant=ButtonT.primary, cls="mb-2"),
+                    Button(
+                        "View All Badges",
+                        variant=ButtonT.secondary,
+                        hx_get="/badges/showcase",
+                        hx_target="#main-content",
+                    ),
+                    cls="flex flex-col items-center gap-2",
+                ),
+                cls="p-8 max-w-md",
             ),
-            id="badge-celebration-modal",
-            cls="modal modal-open",
+            open_on_load=True,
         )
 
     @staticmethod

@@ -31,7 +31,6 @@ from fasthtml.common import (
 )
 
 from ui.buttons import Button, ButtonT
-
 from ui.feedback import Alert, AlertT, Badge, BadgeT
 
 
@@ -175,7 +174,7 @@ def FilesToCreateTable(files_to_create: list[dict[str, Any]]) -> FT:
                         for file in files_to_create[:100]  # Limit to 100 for performance
                     ]
                 ),
-                cls="table table-zebra table-sm",
+                cls="uk-table uk-table-striped uk-table-small",
             ),
             cls="overflow-x-auto",
         ),
@@ -242,7 +241,7 @@ def FilesToUpdateTable(files_to_update: list[dict[str, Any]]) -> FT:
                         for file in files_to_update[:100]  # Limit to 100 for performance
                     ]
                 ),
-                cls="table table-zebra table-sm",
+                cls="uk-table uk-table-striped uk-table-small",
             ),
             cls="overflow-x-auto",
         ),

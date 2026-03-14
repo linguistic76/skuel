@@ -16,10 +16,8 @@ from typing import Any
 
 from fasthtml.common import (
     H4,
-    A,
     Div,
     Form,
-    Label,
     NotStr,
     Option,
     P,
@@ -35,12 +33,13 @@ from adapters.inbound.boundary import boundary_handler
 from core.models.enums.entity_enums import EntityType, ProcessorType
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
-from ui.buttons import Button, ButtonT
-from ui.feedback import Badge, get_submission_status_badge_class
-from ui.forms import Input, Select
+from ui.buttons import Button, ButtonLink, ButtonT
+from ui.cards import Card, CardBody
+from ui.feedback import Alert, AlertT, Badge, get_submission_status_badge_class
+from ui.forms import Input, Label, Radio, Select
+from ui.layout import Size
 from ui.patterns.page_header import PageHeader
 from ui.patterns.sidebar import SidebarItem, SidebarPage
-from ui.cards import Card, CardBody
 
 logger = get_logger("skuel.routes.journals.ui")
 
@@ -92,27 +91,29 @@ def _render_upload_status(
     """Render upload status as HTML fragment for HTMX swap."""
     if is_error:
         return Div(
-            Div(
+            Alert(
                 H4("Upload Failed", cls="mb-0"),
                 P(message, cls="mb-0"),
-                cls="alert alert-error",
+                variant=AlertT.error,
             ),
             id="upload-status",
         )
 
     return Div(
-        Div(
+        Alert(
             H4("Submitted to AI", cls="mb-0"),
             P(f"Report ID: {report_uid}", cls="mb-0") if report_uid else None,
             P(f"Status: {status}", cls="mb-0"),
-            A(
+            ButtonLink(
                 "View Report",
                 href=f"/submissions/{report_uid}",
-                cls="btn btn-sm btn-ghost mt-2",
+                variant=ButtonT.ghost,
+                size=Size.sm,
+                cls="mt-2",
             )
             if report_uid
             else None,
-            cls="alert alert-success",
+            variant=AlertT.success,
         ),
         id="upload-status",
     )
@@ -145,20 +146,22 @@ def _render_report_card(report: Any) -> Any:
 
     # Build action buttons
     action_buttons = [
-        A(
+        ButtonLink(
             "View",
             href=f"/submissions/{report.uid}",
-            cls="btn btn-sm btn-ghost",
+            variant=ButtonT.ghost,
+            size=Size.sm,
         ),
     ]
 
     # Add download button for completed reports with je_output
     if has_je_output and report.status == "completed":
         action_buttons.append(
-            A(
+            ButtonLink(
                 "Download",
                 href=f"/journals/{report.uid}/download",
-                cls="btn btn-sm btn-primary",
+                variant=ButtonT.primary,
+                size=Size.sm,
             )
         )
 
@@ -285,7 +288,7 @@ def _render_upload_form(exercises: list[Any] | None = None) -> Any:
                 Form(
                     # Title input (optional — auto-generated if left blank)
                     Div(
-                        Label("Title (optional)", cls="label"),
+                        Label("Title (optional)"),
                         Input(
                             type="text",
                             name="title",
@@ -301,15 +304,13 @@ def _render_upload_form(exercises: list[Any] | None = None) -> Any:
                     Input(type="hidden", name="exercise_uid", id="exercise-uid-input", value=""),
                     # Processing instructions section
                     Div(
-                        Label("Processing Instructions", cls="label"),
+                        Label("Processing Instructions"),
                         Div(
                             # Default radio
                             Label(
-                                Input(
-                                    type="radio",
+                                Radio(
                                     name="instruction_mode",
                                     value="default",
-                                    cls="radio radio-sm",
                                     **{
                                         "x-model": "instructionMode",
                                         "@change": "clearInstructionUid()",
@@ -320,11 +321,9 @@ def _render_upload_form(exercises: list[Any] | None = None) -> Any:
                             ),
                             # Custom file radio
                             Label(
-                                Input(
-                                    type="radio",
+                                Radio(
                                     name="instruction_mode",
                                     value="custom",
-                                    cls="radio radio-sm",
                                     **{
                                         "x-model": "instructionMode",
                                         "@change": "autoSelectFirstInstruction()",
@@ -339,7 +338,9 @@ def _render_upload_form(exercises: list[Any] | None = None) -> Any:
                                 Button(
                                     "+ Upload instruction file",
                                     type="button",
-                                    cls="btn btn-sm btn-outline mb-3",
+                                    variant=ButtonT.outline,
+                                    size=Size.sm,
+                                    cls="mb-3",
                                     **{
                                         "@click": "document.getElementById('instruction-file-picker').click()"
                                     },
@@ -407,7 +408,6 @@ def _render_upload_form(exercises: list[Any] | None = None) -> Any:
                         "hx-trigger": "change",
                     },
                 ),
-
                 **{
                     "x-data": """{
                         selectedFile: null,
@@ -529,7 +529,7 @@ def _render_filters_section() -> Any:
         CardBody(
             Form(
                 Div(
-                    Label("Status", cls="label"),
+                    Label("Status"),
                     Select(
                         Option("All Status", value="", selected=True),
                         Option("Submitted", value="submitted"),
@@ -549,7 +549,6 @@ def _render_filters_section() -> Any:
                 },
                 id="filter-form",
             ),
-
         ),
         cls="bg-background shadow-sm mb-6",
     )

@@ -15,8 +15,6 @@ This file uses:
 from typing import Any
 
 from fasthtml.common import Request
-
-from ui.feedback import Alert, AlertT
 from pydantic import ValidationError
 
 from adapters.inbound.auth import require_admin, require_authenticated_user
@@ -37,6 +35,7 @@ from core.models.enums import ContentScope
 from core.models.enums.user_enums import UserRole
 from core.services.article_service import ArticleService
 from core.utils.result_simplified import Errors, Result
+from ui.feedback import Alert, AlertT
 
 
 def create_article_api_routes(
@@ -343,7 +342,7 @@ def create_article_api_routes(
     @rt("/api/article/journey-html")
     async def get_article_journey_html(request: Request) -> Any:
         """HTMX: Render SEL journey as HTML fragment."""
-        from fasthtml.common import Div, P
+        from fasthtml.common import P
 
         user_uid = require_authenticated_user(request)
         result = await article_service.get_sel_journey(user_uid)

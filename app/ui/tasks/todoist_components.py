@@ -38,10 +38,11 @@ from fasthtml.common import (
 from core.models.enums import EntityStatus, Priority
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonT
+from ui.cards import Card
 from ui.feedback import Badge, BadgeT
 from ui.forms import Input, Select, Textarea
 from ui.layout import Size
-from ui.cards import Card
+from ui.modals import ModalAction, ModalBox
 
 logger = get_logger("skuel.components.todoist")
 
@@ -199,7 +200,7 @@ class TodoistTaskComponents:
         checkbox = Input(
             type="checkbox",
             checked=is_completed,
-            cls="checkbox checkbox-sm",
+            cls="uk-checkbox",
             hx_post=f"/tasks/{task.uid}/toggle",
             hx_target=f"#task-{task.uid}",
             hx_swap="outerHTML",
@@ -437,7 +438,7 @@ class TodoistTaskComponents:
                 cls="mb-4",
             ),
             # Modal actions
-            Div(
+            ModalAction(
                 Button(
                     "Cancel",
                     type="button",
@@ -450,7 +451,6 @@ class TodoistTaskComponents:
                     id="task-save-btn",
                     variant=ButtonT.primary,
                 ),
-                cls="modal-action",
             ),
             id="task-edit-form",
         )
@@ -498,18 +498,18 @@ class TodoistTaskComponents:
         from fasthtml.common import Dialog
 
         return Dialog(
-            Div(
+            ModalBox(
                 # Close button
                 Button(
                     "✕",
                     variant=ButtonT.ghost,
                     size=Size.sm,
-                    cls="btn-circle absolute right-2 top-2",
+                    cls="rounded-full absolute right-2 top-2",
                     onclick="document.getElementById('task-edit-modal').close()",
                 ),
                 H3("Edit Task", cls="font-bold text-lg mb-4"),
                 form_content,
-                cls="modal-box w-11/12 max-w-2xl relative",
+                cls="w-11/12 max-w-2xl relative",
             ),
             init_script,
             id="task-edit-modal",

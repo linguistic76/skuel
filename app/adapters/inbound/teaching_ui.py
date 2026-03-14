@@ -20,7 +20,6 @@ from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import (
     H3,
-    A,
     Div,
     Form,
     P,
@@ -30,8 +29,10 @@ from starlette.requests import Request
 from adapters.inbound.auth import make_service_getter, require_authenticated_user
 from adapters.inbound.auth.roles import UserRole, require_role
 from core.utils.logging import get_logger
-from ui.buttons import Button, ButtonT
+from ui.buttons import Button, ButtonLink, ButtonT
+from ui.cards import Card, CardBody
 from ui.forms import Textarea
+from ui.layout import Size
 from ui.patterns.page_header import PageHeader
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 from ui.teaching.cards import (
@@ -50,7 +51,6 @@ from ui.teaching.detail import (
     render_submission_content,
 )
 from ui.teaching.forms import render_exercise_form
-from ui.cards import Card, CardBody
 
 if TYPE_CHECKING:
     from core.ports import TeacherReviewOperations
@@ -304,15 +304,16 @@ def create_teaching_ui_routes(
                         cls="mt-4",
                     ),
                     Div(id="review-result", cls="mt-4"),
-
                 ),
                 cls="bg-background shadow-sm",
             ),
             Div(
-                A(
+                ButtonLink(
                     "Back to Queue",
                     href="/teaching/queue",
-                    cls="btn btn-ghost btn-sm mt-4",
+                    variant=ButtonT.ghost,
+                    size=Size.sm,
+                    cls="mt-4",
                 ),
             ),
         )
@@ -354,10 +355,12 @@ def create_teaching_ui_routes(
         content = Div(
             PageHeader("By Exercise", subtitle="Submissions grouped by exercise"),
             Div(
-                A(
+                ButtonLink(
                     "+ New Exercise",
                     href="/teaching/exercises/new",
-                    cls="btn btn-primary btn-sm mb-4",
+                    variant=ButtonT.primary,
+                    size=Size.sm,
+                    cls="mb-4",
                 ),
             ),
             page_content,
@@ -385,10 +388,12 @@ def create_teaching_ui_routes(
         content = Div(
             PageHeader("New Exercise", subtitle="Create an exercise for your students"),
             render_exercise_form(groups),
-            A(
+            ButtonLink(
                 "← Back to Exercises",
                 href="/teaching/exercises",
-                cls="btn btn-ghost btn-sm mt-4",
+                variant=ButtonT.ghost,
+                size=Size.sm,
+                cls="mt-4",
             ),
         )
         return await SidebarPage(
@@ -422,10 +427,12 @@ def create_teaching_ui_routes(
         content = Div(
             PageHeader(f"Edit: {title}", subtitle="Update exercise details"),
             render_exercise_form(groups, exercise=exercise),
-            A(
+            ButtonLink(
                 "← Back to Exercises",
                 href="/teaching/exercises",
-                cls="btn btn-ghost btn-sm mt-4",
+                variant=ButtonT.ghost,
+                size=Size.sm,
+                cls="mt-4",
             ),
         )
         return await SidebarPage(
@@ -458,10 +465,12 @@ def create_teaching_ui_routes(
             rows = Div(*[render_exercise_submission_row(item) for item in result.value])
 
         back_link = Div(
-            A(
+            ButtonLink(
                 "← By Exercise",
                 href="/teaching/exercises",
-                cls="btn btn-ghost btn-sm mt-4",
+                variant=ButtonT.ghost,
+                size=Size.sm,
+                cls="mt-4",
             ),
         )
 
@@ -543,10 +552,12 @@ def create_teaching_ui_routes(
             submission_rows = Div(*[render_student_submission_row(item) for item in result.value])
 
         back_link = Div(
-            A(
+            ButtonLink(
                 "← By Student",
                 href="/teaching/students",
-                cls="btn btn-ghost btn-sm mt-4",
+                variant=ButtonT.ghost,
+                size=Size.sm,
+                cls="mt-4",
             ),
         )
 
@@ -588,10 +599,12 @@ def create_teaching_ui_routes(
                         "Create your first class from the Groups section to get started.",
                         cls="text-muted-foreground",
                     ),
-                    A(
+                    ButtonLink(
                         "Go to Groups →",
                         href="/groups",
-                        cls="btn btn-primary btn-sm mt-4",
+                        variant=ButtonT.primary,
+                        size=Size.sm,
+                        cls="mt-4",
                     ),
                     cls="text-center py-12",
                 ),
@@ -634,10 +647,12 @@ def create_teaching_ui_routes(
             members_content = Div(*[render_class_member_row(item) for item in result.value])
 
         back_link = Div(
-            A(
+            ButtonLink(
                 "← Classes",
                 href="/teaching/classes",
-                cls="btn btn-ghost btn-sm mt-4",
+                variant=ButtonT.ghost,
+                size=Size.sm,
+                cls="mt-4",
             ),
         )
 
