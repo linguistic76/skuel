@@ -72,15 +72,28 @@ class ChoicesViewComponents:
             [
                 {"label": "Total", "value": stats.get("total", 0)},
                 {"label": "Pending", "value": stats.get("pending", 0), "trend": "neutral"},
-                {"label": "Decided", "value": stats.get("decided", 0), "trend": "up" if stats.get("decided", 0) > 0 else "neutral"},
+                {
+                    "label": "Decided",
+                    "value": stats.get("decided", 0),
+                    "trend": "up" if stats.get("decided", 0) > 0 else "neutral",
+                },
             ],
             cols=3,
         )
 
         filter_bar = ActivityListFilters.render(
             domain="choices",
-            status_options=[("all", "All"), ("pending", "Pending"), ("decided", "Decided"), ("implemented", "Implemented")],
-            sort_options=[("deadline", "Deadline"), ("priority", "Priority"), ("created_at", "Created")],
+            status_options=[
+                ("all", "All"),
+                ("pending", "Pending"),
+                ("decided", "Decided"),
+                ("implemented", "Implemented"),
+            ],
+            sort_options=[
+                ("deadline", "Deadline"),
+                ("priority", "Priority"),
+                ("created_at", "Created"),
+            ],
             current_status=filters.get("status", "pending"),
             current_sort=filters.get("sort_by", "deadline"),
             list_target="#choice-list",
@@ -102,7 +115,9 @@ class ChoicesViewComponents:
         )
 
         return Div(
-            stats_bar, filter_bar, choice_list,
+            stats_bar,
+            filter_bar,
+            choice_list,
             Div(id="modal"),
             id="list-view",
         )
@@ -125,12 +140,29 @@ class ChoicesViewComponents:
         action_buttons: list[Any] = []
         if status_str == "pending":
             action_buttons.append(
-                Button("Decide", variant=ButtonT.success, size=Size.xs, **{"hx-get": f"/choices/{uid}/decide", "hx-target": "#modal"})
+                Button(
+                    "Decide",
+                    variant=ButtonT.success,
+                    size=Size.xs,
+                    **{"hx-get": f"/choices/{uid}/decide", "hx-target": "#modal"},
+                )
             )
-        action_buttons.extend([
-            Button("View", variant=ButtonT.outline, size=Size.xs, **{"hx-get": f"/choices/{uid}", "hx-target": "body"}),
-            Button("Edit", variant=ButtonT.ghost, size=Size.xs, **{"hx-get": f"/choices/{uid}/edit", "hx-target": "#modal"}),
-        ])
+        action_buttons.extend(
+            [
+                Button(
+                    "View",
+                    variant=ButtonT.outline,
+                    size=Size.xs,
+                    **{"hx-get": f"/choices/{uid}", "hx-target": "body"},
+                ),
+                Button(
+                    "Edit",
+                    variant=ButtonT.ghost,
+                    size=Size.xs,
+                    **{"hx-get": f"/choices/{uid}/edit", "hx-target": "#modal"},
+                ),
+            ]
+        )
         actions = Div(*action_buttons, cls="flex gap-2")
 
         return EntityCard(
@@ -159,18 +191,32 @@ class ChoicesViewComponents:
         left_column = Div(
             Div(
                 Label("Decision Title", cls="label font-semibold"),
-                Input(type="text", name="title", placeholder="What decision do you need to make?", required=True, autofocus=True),
+                Input(
+                    type="text",
+                    name="title",
+                    placeholder="What decision do you need to make?",
+                    required=True,
+                    autofocus=True,
+                ),
                 cls="mb-4",
             ),
             Div(
                 Label("Description", cls="label font-semibold"),
-                Textarea(name="description", placeholder="Describe the decision context...", rows="4", required=True),
+                Textarea(
+                    name="description",
+                    placeholder="Describe the decision context...",
+                    rows="4",
+                    required=True,
+                ),
                 cls="mb-4",
             ),
             Div(
                 Label("Decision Type", cls="label font-semibold"),
                 Select(*[Option(t.title(), value=t) for t in choice_types], name="choice_type"),
-                P("Binary (yes/no), Multiple options, Ranking, etc.", cls="text-xs text-muted-foreground mt-1"),
+                P(
+                    "Binary (yes/no), Multiple options, Ranking, etc.",
+                    cls="text-xs text-muted-foreground mt-1",
+                ),
                 cls="mb-4",
             ),
             cls="flex-1",
@@ -205,13 +251,20 @@ class ChoicesViewComponents:
         # Options section (Alpine.js managed)
         options_section = Div(
             H3("Decision Options", cls="text-lg font-semibold mb-4"),
-            P("Add at least 2 options for this decision.", cls="text-sm text-muted-foreground mb-4"),
+            P(
+                "Add at least 2 options for this decision.",
+                cls="text-sm text-muted-foreground mb-4",
+            ),
             Div(
                 Card(
                     Div(
                         Span("Option ", Span(**{"x-text": "index + 1"}), cls="font-medium"),
                         Button(
-                            "Remove", type="button", variant=ButtonT.ghost, size=Size.xs, cls="text-error",
+                            "Remove",
+                            type="button",
+                            variant=ButtonT.ghost,
+                            size=Size.xs,
+                            cls="text-error",
                             **{"x-show": "canRemove()", "x-on:click": "removeOption(index)"},
                         ),
                         cls="flex justify-between items-center mb-2",
@@ -219,16 +272,28 @@ class ChoicesViewComponents:
                     Div(
                         Label("Title", cls="label text-sm"),
                         Input(
-                            type="text", size=Size.sm, placeholder="Option title...", required=True,
-                            **{"x-model": "option.title", "x-bind:name": "'options[' + index + '].title'"},
+                            type="text",
+                            size=Size.sm,
+                            placeholder="Option title...",
+                            required=True,
+                            **{
+                                "x-model": "option.title",
+                                "x-bind:name": "'options[' + index + '].title'",
+                            },
                         ),
                         cls="mb-2",
                     ),
                     Div(
                         Label("Description", cls="label text-sm"),
                         Textarea(
-                            size=Size.sm, rows="2", placeholder="Describe this option...", required=True,
-                            **{"x-model": "option.description", "x-bind:name": "'options[' + index + '].description'"},
+                            size=Size.sm,
+                            rows="2",
+                            placeholder="Describe this option...",
+                            required=True,
+                            **{
+                                "x-model": "option.description",
+                                "x-bind:name": "'options[' + index + '].description'",
+                            },
                         ),
                     ),
                     cls="bg-muted p-4 mb-3",
@@ -237,7 +302,11 @@ class ChoicesViewComponents:
                 **{"x-for": "(option, index) in options"},
             ),
             Button(
-                "+ Add Another Option", type="button", variant=ButtonT.outline, size=Size.sm, cls="mt-2",
+                "+ Add Another Option",
+                type="button",
+                variant=ButtonT.outline,
+                size=Size.sm,
+                cls="mt-2",
                 **{"x-on:click": "addOption()"},
             ),
             cls="mb-6 pt-6 border-t border-border",
@@ -253,19 +322,29 @@ class ChoicesViewComponents:
             ),
             ButtonLink("Cancel", href="/choices", variant=ButtonT.ghost, size=Size.lg),
             Button(
-                "Create Decision", type="submit", variant=ButtonT.primary, size=Size.lg,
+                "Create Decision",
+                type="submit",
+                variant=ButtonT.primary,
+                size=Size.lg,
                 **{"x-bind:disabled": "!isValid()"},
             ),
             Button(
-                "Create & Add Another", type="submit", name="add_another", value="true",
-                variant=ButtonT.outline, size=Size.lg,
+                "Create & Add Another",
+                type="submit",
+                name="add_another",
+                value="true",
+                variant=ButtonT.outline,
+                size=Size.lg,
                 **{"x-bind:disabled": "!isValid()"},
             ),
             cls="flex justify-end items-center gap-2 pt-6 border-t border-border",
         )
 
         return ActivityCreateForm(
-            "choices", "Decision", left_column, right_column,
+            "choices",
+            "Decision",
+            left_column,
+            right_column,
             extra_sections=[options_section, submit_section],
             form_attrs={"x-data": "choiceOptions()"},
             include_default_submit=False,
@@ -287,17 +366,26 @@ class ChoicesViewComponents:
             Div(
                 Div(
                     P("Satisfaction Rate", cls="text-sm text-muted-foreground"),
-                    P(f"{analytics_data.get('satisfaction_rate', 0):.0%}", cls="text-3xl font-bold text-green-600"),
+                    P(
+                        f"{analytics_data.get('satisfaction_rate', 0):.0%}",
+                        cls="text-3xl font-bold text-green-600",
+                    ),
                     cls="text-center p-4 bg-muted rounded-lg",
                 ),
                 Div(
                     P("Decisions Made", cls="text-sm text-muted-foreground"),
-                    P(str(analytics_data.get("total_decisions", 0)), cls="text-3xl font-bold text-blue-600"),
+                    P(
+                        str(analytics_data.get("total_decisions", 0)),
+                        cls="text-3xl font-bold text-blue-600",
+                    ),
                     cls="text-center p-4 bg-muted rounded-lg",
                 ),
                 Div(
                     P("On-Time Rate", cls="text-sm text-muted-foreground"),
-                    P(f"{analytics_data.get('on_time_rate', 0):.0%}", cls="text-3xl font-bold text-purple-600"),
+                    P(
+                        f"{analytics_data.get('on_time_rate', 0):.0%}",
+                        cls="text-3xl font-bold text-purple-600",
+                    ),
                     cls="text-center p-4 bg-muted rounded-lg",
                 ),
                 cls="grid grid-cols-3 gap-4 mb-6",
@@ -308,9 +396,15 @@ class ChoicesViewComponents:
         patterns_section = Card(
             H3("Decision Patterns", cls="text-lg font-semibold mb-4"),
             Div(
-                P("Pattern analysis helps you understand your decision-making tendencies.", cls="text-muted-foreground mb-4"),
+                P(
+                    "Pattern analysis helps you understand your decision-making tendencies.",
+                    cls="text-muted-foreground mb-4",
+                ),
                 Div(
-                    P("Charts will be displayed here", cls="text-muted-foreground text-center py-12 border border-dashed border-border rounded-lg"),
+                    P(
+                        "Charts will be displayed here",
+                        cls="text-muted-foreground text-center py-12 border border-dashed border-border rounded-lg",
+                    ),
                     cls="mb-4",
                 ),
             ),

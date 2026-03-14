@@ -493,13 +493,11 @@ def render_activity_calendar(
     else:  # month
         start_date = current_date.replace(day=1)
         if current_date.month == 12:
-            end_date = current_date.replace(
-                year=current_date.year + 1, month=1, day=1
-            ) - timedelta(days=1)
+            end_date = current_date.replace(year=current_date.year + 1, month=1, day=1) - timedelta(
+                days=1
+            )
         else:
-            end_date = current_date.replace(
-                month=current_date.month + 1, day=1
-            ) - timedelta(days=1)
+            end_date = current_date.replace(month=current_date.month + 1, day=1) - timedelta(days=1)
         view_type = CalendarView.MONTH
 
     # Filter items to date range

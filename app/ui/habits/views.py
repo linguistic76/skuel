@@ -74,7 +74,11 @@ class HabitsViewComponents:
         stats_bar = StatsGrid(
             [
                 {"label": "Total", "value": stats.get("total", 0)},
-                {"label": "Active Streaks", "value": stats.get("active_streaks", 0), "trend": "up" if stats.get("active_streaks", 0) > 0 else "neutral"},
+                {
+                    "label": "Active Streaks",
+                    "value": stats.get("active_streaks", 0),
+                    "trend": "up" if stats.get("active_streaks", 0) > 0 else "neutral",
+                },
                 {"label": "Completed Today", "value": stats.get("completed_today", 0)},
             ],
             cols=3,
@@ -127,7 +131,9 @@ class HabitsViewComponents:
                 ),
                 Div(
                     Progress(
-                        value=min(current_streak, best_streak) if best_streak > 0 else current_streak,
+                        value=min(current_streak, best_streak)
+                        if best_streak > 0
+                        else current_streak,
                         max=max(best_streak, current_streak, 1),
                         cls="w-24 h-2",
                     ),
@@ -146,11 +152,27 @@ class HabitsViewComponents:
 
         actions = Div(
             Button(
-                "✓ Complete", variant=ButtonT.success, size=Size.xs,
-                **{"hx-post": f"/habits/{uid}/complete", "hx-target": f"#habit-{uid}", "hx-swap": "outerHTML"},
+                "✓ Complete",
+                variant=ButtonT.success,
+                size=Size.xs,
+                **{
+                    "hx-post": f"/habits/{uid}/complete",
+                    "hx-target": f"#habit-{uid}",
+                    "hx-swap": "outerHTML",
+                },
             ),
-            Button("Edit", variant=ButtonT.primary, size=Size.xs, **{"hx-get": f"/habits/{uid}/edit", "hx-target": "#modal", "hx-swap": "innerHTML"}),
-            Button("View", variant=ButtonT.outline, size=Size.xs, **{"hx-get": f"/habits/{uid}", "hx-target": "body"}),
+            Button(
+                "Edit",
+                variant=ButtonT.primary,
+                size=Size.xs,
+                **{"hx-get": f"/habits/{uid}/edit", "hx-target": "#modal", "hx-swap": "innerHTML"},
+            ),
+            Button(
+                "View",
+                variant=ButtonT.outline,
+                size=Size.xs,
+                **{"hx-get": f"/habits/{uid}", "hx-target": "body"},
+            ),
             cls="flex gap-2",
         )
 
@@ -173,14 +195,27 @@ class HabitsViewComponents:
     ) -> Div:
         """Render the habit creation form."""
         categories = categories or [
-            "health", "fitness", "mindfulness", "learning",
-            "productivity", "creative", "social", "financial", "other",
+            "health",
+            "fitness",
+            "mindfulness",
+            "learning",
+            "productivity",
+            "creative",
+            "social",
+            "financial",
+            "other",
         ]
 
         left_column = Div(
             Div(
                 Label("Habit Name", cls="label font-semibold"),
-                Input(type="text", name="name", placeholder="What habit do you want to build?", required=True, autofocus=True),
+                Input(
+                    type="text",
+                    name="name",
+                    placeholder="What habit do you want to build?",
+                    required=True,
+                    autofocus=True,
+                ),
                 cls="mb-4",
             ),
             Div(
@@ -200,7 +235,10 @@ class HabitsViewComponents:
                     Option("Break (habit to stop)", value="break"),
                     name="polarity",
                 ),
-                P("Are you building a new habit or breaking an old one?", cls="text-xs text-muted-foreground mt-1"),
+                P(
+                    "Are you building a new habit or breaking an old one?",
+                    cls="text-xs text-muted-foreground mt-1",
+                ),
                 cls="mb-4",
             ),
             cls="flex-1",

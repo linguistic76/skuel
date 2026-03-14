@@ -74,7 +74,11 @@ class GoalsViewComponents:
         stats_bar = StatsGrid(
             [
                 {"label": "Total", "value": stats.get("total", 0)},
-                {"label": "Active", "value": stats.get("active", 0), "trend": "up" if stats.get("active", 0) > 0 else "neutral"},
+                {
+                    "label": "Active",
+                    "value": stats.get("active", 0),
+                    "trend": "up" if stats.get("active", 0) > 0 else "neutral",
+                },
                 {"label": "Completed", "value": stats.get("completed", 0)},
             ],
             cols=3,
@@ -82,8 +86,18 @@ class GoalsViewComponents:
 
         filter_bar = ActivityListFilters.render(
             domain="goals",
-            status_options=[("all", "All"), ("active", "Active"), ("completed", "Completed"), ("paused", "Paused")],
-            sort_options=[("target_date", "Target Date"), ("priority", "Priority"), ("progress", "Progress"), ("created_at", "Created")],
+            status_options=[
+                ("all", "All"),
+                ("active", "Active"),
+                ("completed", "Completed"),
+                ("paused", "Paused"),
+            ],
+            sort_options=[
+                ("target_date", "Target Date"),
+                ("priority", "Priority"),
+                ("progress", "Progress"),
+                ("created_at", "Created"),
+            ],
             current_status=filters.get("status", "active"),
             current_sort=filters.get("sort_by", "target_date"),
             list_target="#goal-list",
@@ -120,7 +134,11 @@ class GoalsViewComponents:
             metadata.append(
                 Div(
                     Span(f"Progress: {int(progress)}%", cls="text-xs text-muted-foreground"),
-                    Progress(value=int(progress), max=100, cls="progress progress-primary w-full h-2 mt-1"),
+                    Progress(
+                        value=int(progress),
+                        max=100,
+                        cls="progress progress-primary w-full h-2 mt-1",
+                    ),
                     cls="w-full",
                 )
             )
@@ -128,8 +146,18 @@ class GoalsViewComponents:
             metadata.append(Span(f"Due: {target_date}", cls="text-xs text-muted-foreground"))
 
         actions = Div(
-            Button("View", variant=ButtonT.outline, size=Size.xs, **{"hx-get": f"/goals/{uid}", "hx-target": "body"}),
-            Button("Edit", variant=ButtonT.ghost, size=Size.xs, **{"hx-get": f"/goals/{uid}/edit", "hx-target": "#modal"}),
+            Button(
+                "View",
+                variant=ButtonT.outline,
+                size=Size.xs,
+                **{"hx-get": f"/goals/{uid}", "hx-target": "body"},
+            ),
+            Button(
+                "Edit",
+                variant=ButtonT.ghost,
+                size=Size.xs,
+                **{"hx-get": f"/goals/{uid}/edit", "hx-target": "#modal"},
+            ),
             PinButton(entity_uid=uid, is_pinned=is_pinned, show_text=True, size="xs"),
             cls="flex gap-2",
         )
@@ -155,28 +183,50 @@ class GoalsViewComponents:
     ) -> Div:
         """Render the goal creation form."""
         categories = categories or [
-            "business", "health", "education", "personal",
-            "tech", "creative", "social", "research",
+            "business",
+            "health",
+            "education",
+            "personal",
+            "tech",
+            "creative",
+            "social",
+            "research",
         ]
         timeframes = timeframes or [
-            ("daily", "Daily"), ("weekly", "Weekly"), ("monthly", "Monthly"),
-            ("quarterly", "Quarterly"), ("yearly", "Yearly"), ("multi_year", "Multi-Year"),
+            ("daily", "Daily"),
+            ("weekly", "Weekly"),
+            ("monthly", "Monthly"),
+            ("quarterly", "Quarterly"),
+            ("yearly", "Yearly"),
+            ("multi_year", "Multi-Year"),
         ]
 
         left_column = Div(
             Div(
                 Label("Goal Title", cls="label font-semibold"),
-                Input(type="text", name="title", placeholder="What do you want to achieve?", required=True, autofocus=True),
+                Input(
+                    type="text",
+                    name="title",
+                    placeholder="What do you want to achieve?",
+                    required=True,
+                    autofocus=True,
+                ),
                 cls="mb-4",
             ),
             Div(
                 Label("Description", cls="label font-semibold"),
-                Textarea(name="description", placeholder="Describe your goal in detail...", rows="4"),
+                Textarea(
+                    name="description", placeholder="Describe your goal in detail...", rows="4"
+                ),
                 cls="mb-4",
             ),
             Div(
                 Label("Why is this important?", cls="label font-semibold"),
-                Textarea(name="why_important", placeholder="What motivates you to achieve this goal?", rows="3"),
+                Textarea(
+                    name="why_important",
+                    placeholder="What motivates you to achieve this goal?",
+                    rows="3",
+                ),
                 cls="mb-4",
             ),
             Div(
@@ -191,16 +241,25 @@ class GoalsViewComponents:
             Div(
                 Label("Timeframe", cls="label font-semibold"),
                 Select(
-                    *[Option(label, value=value, selected=(value == "quarterly")) for value, label in timeframes],
+                    *[
+                        Option(label, value=value, selected=(value == "quarterly"))
+                        for value, label in timeframes
+                    ],
                     name="timeframe",
                 ),
-                P("How long do you have to achieve this goal?", cls="text-xs text-muted-foreground mt-1"),
+                P(
+                    "How long do you have to achieve this goal?",
+                    cls="text-xs text-muted-foreground mt-1",
+                ),
                 cls="mb-4",
             ),
             Div(
                 Label("Target Date", cls="label font-semibold"),
                 Input(type="date", name="target_date"),
-                P("When do you want to complete this goal?", cls="text-xs text-muted-foreground mt-1"),
+                P(
+                    "When do you want to complete this goal?",
+                    cls="text-xs text-muted-foreground mt-1",
+                ),
                 cls="mb-4",
             ),
             Div(
@@ -260,9 +319,25 @@ class GoalsViewComponents:
                 H2(f"Hierarchy: {root_goal.title}", cls="text-2xl font-bold"),
                 P("Explore goal breakdown and dependencies", cls="text-muted-foreground text-sm"),
                 Row(
-                    Button("Expand All", variant="secondary", size="sm", **{"x-on:click": "expandAll()"}),
-                    Button("Collapse All", variant="secondary", size="sm", **{"x-on:click": "collapseAll()"}),
-                    Button("Select All", variant="secondary", size="sm", **{"x-on:click": "selectAll()"}, **{"x-show": "showCheckboxes"}),
+                    Button(
+                        "Expand All",
+                        variant="secondary",
+                        size="sm",
+                        **{"x-on:click": "expandAll()"},
+                    ),
+                    Button(
+                        "Collapse All",
+                        variant="secondary",
+                        size="sm",
+                        **{"x-on:click": "collapseAll()"},
+                    ),
+                    Button(
+                        "Select All",
+                        variant="secondary",
+                        size="sm",
+                        **{"x-on:click": "selectAll()"},
+                        **{"x-show": "showCheckboxes"},
+                    ),
                     gap=2,
                 ),
                 cls="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-4",
@@ -279,10 +354,22 @@ class GoalsViewComponents:
             Div(**{"x-show": "selected.length > 0", "x-cloak": True})(
                 Div(
                     Div(
-                        Span(**{"x-text": "`${selected.length} items selected`"}, cls="font-medium"),
+                        Span(
+                            **{"x-text": "`${selected.length} items selected`"}, cls="font-medium"
+                        ),
                         Row(
-                            Button("Deselect All", variant="secondary", size="sm", **{"x-on:click": "deselectAll()"}),
-                            Button("Delete Selected", variant="danger", size="sm", **{"x-on:click": "bulkDelete()"}),
+                            Button(
+                                "Deselect All",
+                                variant="secondary",
+                                size="sm",
+                                **{"x-on:click": "deselectAll()"},
+                            ),
+                            Button(
+                                "Delete Selected",
+                                variant="danger",
+                                size="sm",
+                                **{"x-on:click": "bulkDelete()"},
+                            ),
                             gap=2,
                         ),
                         cls="flex items-center justify-between",

@@ -92,7 +92,11 @@ class EventsViewComponents:
         stats_bar = StatsGrid(
             [
                 {"label": "Total", "value": stats.get("total", 0)},
-                {"label": "Upcoming", "value": stats.get("upcoming", 0), "trend": "up" if stats.get("upcoming", 0) > 0 else "neutral"},
+                {
+                    "label": "Upcoming",
+                    "value": stats.get("upcoming", 0),
+                    "trend": "up" if stats.get("upcoming", 0) > 0 else "neutral",
+                },
                 {"label": "Today", "value": stats.get("today", 0)},
             ],
             cols=3,
@@ -100,7 +104,13 @@ class EventsViewComponents:
 
         filter_bar = ActivityListFilters.render(
             domain="events",
-            status_options=[("all", "All"), ("meeting", "Meeting"), ("personal", "Personal"), ("work", "Work"), ("social", "Social")],
+            status_options=[
+                ("all", "All"),
+                ("meeting", "Meeting"),
+                ("personal", "Personal"),
+                ("work", "Work"),
+                ("social", "Social"),
+            ],
             sort_options=[("date", "Date"), ("created_at", "Created")],
             current_status=filters.get("type", "all"),
             current_sort=filters.get("sort_by", "date"),
@@ -141,13 +151,25 @@ class EventsViewComponents:
         if event_date:
             metadata.append(Span(f"📅 {event_date}", cls="text-sm text-muted-foreground"))
         if start_time:
-            metadata.append(Span(f"🕐 {start_time} - {end_time}", cls="text-sm text-muted-foreground"))
+            metadata.append(
+                Span(f"🕐 {start_time} - {end_time}", cls="text-sm text-muted-foreground")
+            )
         if location:
             metadata.append(Span(f"📍 {location}", cls="text-sm text-muted-foreground"))
 
         actions = Div(
-            Button("View", variant=ButtonT.outline, size=Size.xs, **{"hx-get": f"/events/{uid}", "hx-target": "body"}),
-            Button("Edit", variant=ButtonT.ghost, size=Size.xs, **{"hx-get": f"/events/{uid}/edit", "hx-target": "#modal"}),
+            Button(
+                "View",
+                variant=ButtonT.outline,
+                size=Size.xs,
+                **{"hx-get": f"/events/{uid}", "hx-target": "body"},
+            ),
+            Button(
+                "Edit",
+                variant=ButtonT.ghost,
+                size=Size.xs,
+                **{"hx-get": f"/events/{uid}/edit", "hx-target": "#modal"},
+            ),
             cls="flex gap-2",
         )
 
@@ -170,14 +192,25 @@ class EventsViewComponents:
     ) -> Div:
         """Render the event creation form."""
         event_types = event_types or [
-            "meeting", "personal", "work", "social",
-            "learning", "deadline", "reminder",
+            "meeting",
+            "personal",
+            "work",
+            "social",
+            "learning",
+            "deadline",
+            "reminder",
         ]
 
         left_column = Div(
             Div(
                 Label("Event Title", cls="label font-semibold"),
-                Input(type="text", name="title", placeholder="What's the event?", required=True, autofocus=True),
+                Input(
+                    type="text",
+                    name="title",
+                    placeholder="What's the event?",
+                    required=True,
+                    autofocus=True,
+                ),
                 cls="mb-4",
             ),
             Div(

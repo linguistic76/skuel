@@ -2,9 +2,8 @@
 Drawer Layout Component - CSS-Based Sidebar
 =============================================
 
-Reusable drawer layout component using CSS-only drawer pattern.
-Provides a responsive sidebar that is open on desktop (lg:drawer-open) and
-overlay-based on mobile.
+Reusable drawer layout component using Tailwind's peer-based toggle pattern.
+Provides a responsive sidebar visible on desktop and overlay-based on mobile.
 
 Usage:
     from ui.patterns.drawer_layout import DrawerLayout, MenuItem
@@ -24,14 +23,13 @@ Usage:
 
     page_content = layout.render(main_content)
 
-Benefits over custom CSS/JS:
-    - CSS-only toggle (checkbox-based, no JavaScript required for basic function)
-    - Built-in responsive: lg:drawer-open shows sidebar on desktop, overlay on mobile
-    - Built-in overlay: drawer-overlay handles click-to-close
-    - Theme classes automatically apply
-    - ~90 lines vs ~280 lines of custom CSS/JS
+Benefits:
+    - CSS-only toggle (checkbox + Tailwind peer, no JavaScript required)
+    - Responsive: sidebar static on lg+, slide-in overlay on mobile
+    - Click-outside-to-close via label overlay
+    - Smooth slide transition via Tailwind transform
 
-Version: 1.0
+Version: 2.0
 """
 
 from dataclasses import dataclass
@@ -97,44 +95,47 @@ class DrawerLayout:
         # Build footer HTML
         footer_html = self._build_footer_html() if self.show_footer else ""
 
-        # Drawer HTML
+        # Drawer HTML — pure Tailwind peer-based sidebar
         drawer_html = f"""
-        <div class="drawer lg:drawer-open">
-            <!-- Drawer Toggle (Hidden checkbox) -->
-            <input id="{self.drawer_id}" type="checkbox" class="drawer-toggle" />
+        <div class="relative min-h-screen lg:flex">
+            <!-- Mobile toggle checkbox (hidden) -->
+            <input id="{self.drawer_id}" type="checkbox" class="hidden peer" />
 
-            <!-- Main Content -->
-            <div class="drawer-content flex flex-col" id="{self.content_id}">
-                <!-- Navbar for mobile (shows hamburger menu) -->
-                <div class="navbar bg-muted lg:hidden">
-                    <div class="flex-none">
-                        <label for="{self.drawer_id}" class="uk-btn uk-btn-ghost drawer-button">
-                            <uk-icon icon="menu" width="24" height="24" class="inline-block w-6 h-6"></uk-icon>
-                        </label>
-                    </div>
-                    <div class="flex-1">
-                        <span class="text-xl font-bold">{self.title}</span>
-                    </div>
-                </div>
-
-                <!-- Page Content -->
-                <div class="flex-1 p-6 lg:p-8 bg-background">
-                    {content}
-                </div>
-            </div>
+            <!-- Mobile overlay -->
+            <label for="{self.drawer_id}" aria-label="close sidebar"
+                   class="fixed inset-0 bg-black/50 z-40 hidden peer-checked:block lg:hidden"></label>
 
             <!-- Sidebar -->
-            <div class="drawer-side">
-                <label for="{self.drawer_id}" aria-label="close sidebar" class="drawer-overlay"></label>
-                <div class="menu p-4 {self.sidebar_width} min-h-full bg-muted text-foreground">
+            <div class="fixed inset-y-0 left-0 z-50 {self.sidebar_width} bg-muted text-foreground
+                        transform -translate-x-full peer-checked:translate-x-0
+                        transition-transform duration-300
+                        lg:translate-x-0 lg:static lg:z-auto
+                        overflow-y-auto">
+                <div class="p-4">
                     {header_html}
 
                     <!-- Sidebar Menu -->
-                    <ul class="menu space-y-1">
+                    <ul class="space-y-1">
                         {menu_html}
                     </ul>
 
                     {footer_html}
+                </div>
+            </div>
+
+            <!-- Main Content -->
+            <div class="flex-1 flex flex-col min-h-screen">
+                <!-- Mobile navbar -->
+                <div class="flex items-center bg-muted p-2 lg:hidden">
+                    <label for="{self.drawer_id}" class="p-2 rounded hover:bg-secondary cursor-pointer">
+                        <uk-icon icon="menu" width="24" height="24" class="inline-block w-6 h-6"></uk-icon>
+                    </label>
+                    <span class="text-xl font-bold ml-2">{self.title}</span>
+                </div>
+
+                <!-- Page Content -->
+                <div class="flex-1 p-6 lg:p-8 bg-background" id="{self.content_id}">
+                    {content}
                 </div>
             </div>
         </div>
@@ -152,12 +153,12 @@ class DrawerLayout:
             }}
 
             .drawer-menu-item:hover {{
-                background-color: hsl(var(--b3));
+                background-color: hsl(var(--secondary));
             }}
 
             .drawer-menu-item.active {{
-                background-color: hsl(var(--p) / 0.1);
-                border-left: 3px solid hsl(var(--p));
+                background-color: hsl(var(--primary) / 0.1);
+                border-left: 3px solid hsl(var(--primary));
                 font-weight: 600;
             }}
 
@@ -174,11 +175,6 @@ class DrawerLayout:
 
             .drawer-menu-item.active .menu-desc {{
                 opacity: 0.9;
-            }}
-
-            /* Smooth transitions */
-            .drawer-content {{
-                transition: margin-left 0.3s ease;
             }}
         </style>
         """

@@ -69,15 +69,25 @@ class PrinciplesViewComponents:
         filters = filters or {}
         stats = stats or {}
         categories = categories or [
-            "spiritual", "ethical", "relational", "personal",
-            "professional", "intellectual", "health", "creative",
+            "spiritual",
+            "ethical",
+            "relational",
+            "personal",
+            "professional",
+            "intellectual",
+            "health",
+            "creative",
         ]
 
         stats_bar = StatsGrid(
             [
                 {"label": "Total", "value": stats.get("total", 0)},
                 {"label": "Core", "value": stats.get("core", 0)},
-                {"label": "Active", "value": stats.get("active", 0), "trend": "up" if stats.get("active", 0) > 0 else "neutral"},
+                {
+                    "label": "Active",
+                    "value": stats.get("active", 0),
+                    "trend": "up" if stats.get("active", 0) > 0 else "neutral",
+                },
             ],
             cols=3,
         )
@@ -89,8 +99,16 @@ class PrinciplesViewComponents:
                 Option("All", value="all", selected=filters.get("strength") == "all"),
                 Option("Core", value="core", selected=filters.get("strength") == "core"),
                 Option("Strong", value="strong", selected=filters.get("strength") == "strong"),
-                Option("Developing", value="developing", selected=filters.get("strength") == "developing"),
-                Option("Aspirational", value="aspirational", selected=filters.get("strength") == "aspirational"),
+                Option(
+                    "Developing",
+                    value="developing",
+                    selected=filters.get("strength") == "developing",
+                ),
+                Option(
+                    "Aspirational",
+                    value="aspirational",
+                    selected=filters.get("strength") == "aspirational",
+                ),
                 name="filter_strength",
                 size=Size.sm,
                 full_width=False,
@@ -186,13 +204,35 @@ class PrinciplesViewComponents:
         action_buttons: list[Any] = []
         if is_active:
             action_buttons.append(
-                Button("Reflect", variant=ButtonT.success, size=Size.xs, **{"hx-get": f"/principles/{uid}/reflect", "hx-target": "#modal"})
+                Button(
+                    "Reflect",
+                    variant=ButtonT.success,
+                    size=Size.xs,
+                    **{"hx-get": f"/principles/{uid}/reflect", "hx-target": "#modal"},
+                )
             )
-        action_buttons.extend([
-            Button("History", variant=ButtonT.info, size=Size.xs, **{"hx-get": f"/principles/{uid}/reflections", "hx-target": "#view-content"}),
-            Button("View", variant=ButtonT.outline, size=Size.xs, **{"hx-get": f"/principles/{uid}", "hx-target": "body"}),
-            Button("Edit", variant=ButtonT.ghost, size=Size.xs, **{"hx-get": f"/principles/{uid}/edit", "hx-target": "#modal"}),
-        ])
+        action_buttons.extend(
+            [
+                Button(
+                    "History",
+                    variant=ButtonT.info,
+                    size=Size.xs,
+                    **{"hx-get": f"/principles/{uid}/reflections", "hx-target": "#view-content"},
+                ),
+                Button(
+                    "View",
+                    variant=ButtonT.outline,
+                    size=Size.xs,
+                    **{"hx-get": f"/principles/{uid}", "hx-target": "body"},
+                ),
+                Button(
+                    "Edit",
+                    variant=ButtonT.ghost,
+                    size=Size.xs,
+                    **{"hx-get": f"/principles/{uid}/edit", "hx-target": "#modal"},
+                ),
+            ]
+        )
         actions = Div(*action_buttons, cls="flex gap-2")
 
         return EntityCard(
@@ -213,28 +253,50 @@ class PrinciplesViewComponents:
     ) -> Div:
         """Render the principle creation form."""
         categories = categories or [
-            "spiritual", "ethical", "relational", "personal",
-            "professional", "intellectual", "health", "creative",
+            "spiritual",
+            "ethical",
+            "relational",
+            "personal",
+            "professional",
+            "intellectual",
+            "health",
+            "creative",
         ]
 
         left_column = Div(
             Div(
                 Label("Principle Title", cls="label font-semibold"),
-                Input(type="text", name="title", placeholder="What principle guides you?", required=True, autofocus=True),
+                Input(
+                    type="text",
+                    name="title",
+                    placeholder="What principle guides you?",
+                    required=True,
+                    autofocus=True,
+                ),
                 cls="mb-4",
             ),
             Div(
                 Label("Description", cls="label font-semibold"),
                 Textarea(
                     "",
-                    name="description", placeholder="Describe this principle and why it matters to you...", rows="4", required=True,
+                    name="description",
+                    placeholder="Describe this principle and why it matters to you...",
+                    rows="4",
+                    required=True,
                 ),
                 cls="mb-4",
             ),
             Div(
                 Label("Statement", cls="label font-semibold"),
-                Input(type="text", name="statement", placeholder="A short, memorable statement (e.g., 'Act with integrity')"),
-                P("A concise statement you can recall easily", cls="text-xs text-muted-foreground mt-1"),
+                Input(
+                    type="text",
+                    name="statement",
+                    placeholder="A short, memorable statement (e.g., 'Act with integrity')",
+                ),
+                P(
+                    "A concise statement you can recall easily",
+                    cls="text-xs text-muted-foreground mt-1",
+                ),
                 cls="mb-4",
             ),
             cls="flex-1",
@@ -255,16 +317,28 @@ class PrinciplesViewComponents:
                     Option("Core (fundamental to who I am)", value="0.95"),
                     name="strength",
                 ),
-                P("How established is this principle in your life?", cls="text-xs text-muted-foreground mt-1"),
+                P(
+                    "How established is this principle in your life?",
+                    cls="text-xs text-muted-foreground mt-1",
+                ),
                 cls="mb-4",
             ),
             Div(
                 Label(
-                    Input(type="checkbox", name="is_active", value="true", checked=True, cls="uk-checkbox cursor-pointer mr-2"),
+                    Input(
+                        type="checkbox",
+                        name="is_active",
+                        value="true",
+                        checked=True,
+                        cls="uk-checkbox cursor-pointer mr-2",
+                    ),
                     "Active Principle",
                     cls="label cursor-pointer justify-start",
                 ),
-                P("Active principles guide your daily decisions", cls="text-xs text-muted-foreground mt-1"),
+                P(
+                    "Active principles guide your daily decisions",
+                    cls="text-xs text-muted-foreground mt-1",
+                ),
                 cls="mb-4",
             ),
             cls="flex-1",
@@ -288,17 +362,26 @@ class PrinciplesViewComponents:
             Div(
                 Div(
                     P("Overall Adherence", cls="text-sm text-muted-foreground"),
-                    P(f"{analytics_data.get('overall_adherence', 0):.0%}", cls="text-3xl font-bold text-green-600"),
+                    P(
+                        f"{analytics_data.get('overall_adherence', 0):.0%}",
+                        cls="text-3xl font-bold text-green-600",
+                    ),
                     cls="text-center p-4 bg-muted rounded-lg",
                 ),
                 Div(
                     P("Core Principles", cls="text-sm text-muted-foreground"),
-                    P(str(analytics_data.get("core_count", 0)), cls="text-3xl font-bold text-purple-600"),
+                    P(
+                        str(analytics_data.get("core_count", 0)),
+                        cls="text-3xl font-bold text-purple-600",
+                    ),
                     cls="text-center p-4 bg-muted rounded-lg",
                 ),
                 Div(
                     P("Active Principles", cls="text-sm text-muted-foreground"),
-                    P(str(analytics_data.get("active_count", 0)), cls="text-3xl font-bold text-blue-600"),
+                    P(
+                        str(analytics_data.get("active_count", 0)),
+                        cls="text-3xl font-bold text-blue-600",
+                    ),
                     cls="text-center p-4 bg-muted rounded-lg",
                 ),
                 cls="grid grid-cols-3 gap-4 mb-6",
@@ -309,9 +392,15 @@ class PrinciplesViewComponents:
         impact_section = Card(
             H3("Principle Impact", cls="text-lg font-semibold mb-4"),
             Div(
-                P("Track how your principles influence your goals and choices.", cls="text-muted-foreground mb-4"),
+                P(
+                    "Track how your principles influence your goals and choices.",
+                    cls="text-muted-foreground mb-4",
+                ),
                 Div(
-                    P("Impact charts will be displayed here", cls="text-muted-foreground text-center py-12 border border-dashed border-border rounded-lg"),
+                    P(
+                        "Impact charts will be displayed here",
+                        cls="text-muted-foreground text-center py-12 border border-dashed border-border rounded-lg",
+                    ),
                     cls="mb-4",
                 ),
             ),
@@ -352,8 +441,14 @@ class PrinciplesViewComponents:
     ) -> Div:
         """Render edit form for a principle (modal content)."""
         categories = categories or [
-            "spiritual", "ethical", "relational", "personal",
-            "professional", "intellectual", "health", "creative",
+            "spiritual",
+            "ethical",
+            "relational",
+            "personal",
+            "professional",
+            "intellectual",
+            "health",
+            "creative",
         ]
 
         uid = getattr(principle, "uid", "")
@@ -380,7 +475,12 @@ class PrinciplesViewComponents:
                     ),
                     Div(
                         Label("Statement", cls="label font-semibold"),
-                        Input(type="text", name="statement", value=statement, placeholder="A short, memorable statement"),
+                        Input(
+                            type="text",
+                            name="statement",
+                            value=statement,
+                            placeholder="A short, memorable statement",
+                        ),
                         cls="mb-4",
                     ),
                     Div(
@@ -391,14 +491,23 @@ class PrinciplesViewComponents:
                     Div(
                         Label("Category", cls="label font-semibold"),
                         Select(
-                            *[Option(c.title(), value=c, selected=(c == category_str)) for c in categories],
+                            *[
+                                Option(c.title(), value=c, selected=(c == category_str))
+                                for c in categories
+                            ],
                             name="category",
                         ),
                         cls="mb-4",
                     ),
                     Div(
                         Label(
-                            Input(type="checkbox", name="is_active", value="true", checked=is_active, cls="uk-checkbox cursor-pointer mr-2"),
+                            Input(
+                                type="checkbox",
+                                name="is_active",
+                                value="true",
+                                checked=is_active,
+                                cls="uk-checkbox cursor-pointer mr-2",
+                            ),
                             "Active",
                             cls="label cursor-pointer justify-start",
                         ),
@@ -407,7 +516,10 @@ class PrinciplesViewComponents:
                     Div(
                         Button("Save", type="submit", variant=ButtonT.primary),
                         Button(
-                            "Cancel", type="button", variant=ButtonT.ghost, cls="ml-2",
+                            "Cancel",
+                            type="button",
+                            variant=ButtonT.ghost,
+                            cls="ml-2",
                             **{"onclick": "document.getElementById('modal').innerHTML = ''"},
                         ),
                         cls="flex justify-end",
@@ -440,7 +552,10 @@ class PrinciplesViewComponents:
         return Div(
             Card(
                 H2(f"Reflect on: {name}", cls="text-xl font-bold mb-4"),
-                P("How well did you align with this principle today?", cls="text-muted-foreground mb-4"),
+                P(
+                    "How well did you align with this principle today?",
+                    cls="text-muted-foreground mb-4",
+                ),
                 Form(
                     Div(
                         Label("Alignment Level", cls="label font-semibold"),
@@ -448,7 +563,9 @@ class PrinciplesViewComponents:
                             Option("Aligned - Fully lived this principle", value="aligned"),
                             Option("Mostly Aligned - Minor deviations", value="mostly_aligned"),
                             Option("Partial - Some alignment, room for growth", value="partial"),
-                            Option("Misaligned - Actions contradicted principle", value="misaligned"),
+                            Option(
+                                "Misaligned - Actions contradicted principle", value="misaligned"
+                            ),
                             Option("Unknown - Unsure how to assess", value="unknown"),
                             name="alignment_level",
                         ),
@@ -457,24 +574,35 @@ class PrinciplesViewComponents:
                     Div(
                         Label("Evidence *", cls="label font-semibold"),
                         Textarea(
-                            "", name="evidence",
+                            "",
+                            name="evidence",
                             placeholder="What specifically did you observe? What actions did you take? (Required - at least 5 characters)",
-                            rows="3", required=True, minlength="5",
+                            rows="3",
+                            required=True,
+                            minlength="5",
                         ),
-                        P("Describe what happened that relates to this principle.", cls="text-xs text-muted-foreground mt-1"),
+                        P(
+                            "Describe what happened that relates to this principle.",
+                            cls="text-xs text-muted-foreground mt-1",
+                        ),
                         cls="mb-4",
                     ),
                     Div(
                         Label("Additional Notes", cls="label font-semibold"),
                         Textarea(
-                            "", name="reflection",
-                            placeholder="What did you learn? Any insights? (Optional)", rows="3",
+                            "",
+                            name="reflection",
+                            placeholder="What did you learn? Any insights? (Optional)",
+                            rows="3",
                         ),
                         cls="mb-4",
                     ),
                     Div(
                         Div(
-                            Span("What triggered this reflection?", cls="font-semibold text-muted-foreground"),
+                            Span(
+                                "What triggered this reflection?",
+                                cls="font-semibold text-muted-foreground",
+                            ),
                             Span("(Optional)", cls="text-xs text-muted-foreground ml-2"),
                             cls="mb-2",
                         ),
@@ -486,7 +614,9 @@ class PrinciplesViewComponents:
                                 Option("Habit check-in", value="habit"),
                                 Option("Event occurred", value="event"),
                                 Option("Choice/Decision", value="choice"),
-                                name="trigger_type", size=Size.sm, id="trigger-type-select",
+                                name="trigger_type",
+                                size=Size.sm,
+                                id="trigger-type-select",
                                 **{
                                     "x-data": "{ showTriggerUid: false }",
                                     "x-on:change": "showTriggerUid = $event.target.value !== 'manual'",
@@ -496,16 +626,27 @@ class PrinciplesViewComponents:
                         ),
                         Div(
                             Label("Related Entity UID", cls="label text-sm"),
-                            Input(type="text", name="trigger_uid", placeholder="e.g., goal.fitness, habit.meditation", size=Size.sm),
-                            P("UID of the goal, habit, event, or choice that prompted this reflection", cls="text-xs text-muted-foreground mt-1"),
-                            cls="mb-2", id="trigger-uid-container",
+                            Input(
+                                type="text",
+                                name="trigger_uid",
+                                placeholder="e.g., goal.fitness, habit.meditation",
+                                size=Size.sm,
+                            ),
+                            P(
+                                "UID of the goal, habit, event, or choice that prompted this reflection",
+                                cls="text-xs text-muted-foreground mt-1",
+                            ),
+                            cls="mb-2",
+                            id="trigger-uid-container",
                         ),
                         Div(
                             Label("Situation Context", cls="label text-sm"),
                             Textarea(
-                                "", name="trigger_context",
+                                "",
+                                name="trigger_context",
                                 placeholder="Describe the situation that prompted this reflection...",
-                                rows="2", size=Size.sm,
+                                rows="2",
+                                size=Size.sm,
                             ),
                             cls="mb-2",
                         ),
@@ -514,7 +655,10 @@ class PrinciplesViewComponents:
                     Div(
                         Button("Save Reflection", type="submit", variant=ButtonT.success),
                         Button(
-                            "Cancel", type="button", variant=ButtonT.ghost, cls="ml-2",
+                            "Cancel",
+                            type="button",
+                            variant=ButtonT.ghost,
+                            cls="ml-2",
                             **{"onclick": "document.getElementById('modal').innerHTML = ''"},
                         ),
                         cls="flex justify-end",
@@ -547,7 +691,9 @@ class PrinciplesViewComponents:
 
         header = Div(
             Button(
-                "← Back to List", variant=ButtonT.ghost, size=Size.sm,
+                "← Back to List",
+                variant=ButtonT.ghost,
+                size=Size.sm,
                 **{"hx-get": "/principles/view/list", "hx-target": "#view-content"},
             ),
             H2(f"Reflection History: {name}", cls="text-xl font-bold mt-4 mb-4"),
@@ -556,7 +702,9 @@ class PrinciplesViewComponents:
 
         trend_link = Div(
             Button(
-                "View Alignment Trend", variant=ButtonT.outline, size=Size.sm,
+                "View Alignment Trend",
+                variant=ButtonT.outline,
+                size=Size.sm,
                 **{"hx-get": f"/principles/{uid}/alignment-trend", "hx-target": "#view-content"},
             ),
             cls="mb-4",
@@ -575,7 +723,12 @@ class PrinciplesViewComponents:
                 )
             ]
 
-        return Div(header, trend_link, Div(*reflection_cards, cls="space-y-4"), id="reflection-history-view")
+        return Div(
+            header,
+            trend_link,
+            Div(*reflection_cards, cls="space-y-4"),
+            id="reflection-history-view",
+        )
 
     @staticmethod
     def _render_reflection_card(reflection: Any) -> Div:
@@ -613,7 +766,8 @@ class PrinciplesViewComponents:
                     Span(str(reflection_date), cls="text-sm text-muted-foreground"),
                     Badge(alignment_text, variant=alignment_variant, cls="ml-2"),
                     Badge(
-                        quality_label, variant=None,
+                        quality_label,
+                        variant=None,
                         cls=f"{quality_badge_map.get(quality_label, 'bg-gray-100 text-gray-600 border-gray-200')} ml-2",
                     ),
                     cls="flex items-center gap-2 mb-2",
@@ -658,8 +812,13 @@ class PrinciplesViewComponents:
 
         header = Div(
             Button(
-                "← Back to Reflections", variant=ButtonT.ghost, size=Size.sm,
-                **{"hx-get": f"/principles/{principle_uid}/reflections", "hx-target": "#view-content"},
+                "← Back to Reflections",
+                variant=ButtonT.ghost,
+                size=Size.sm,
+                **{
+                    "hx-get": f"/principles/{principle_uid}/reflections",
+                    "hx-target": "#view-content",
+                },
             ),
             H2("Alignment Trend", cls="text-xl font-bold mt-4 mb-4"),
             P(f"Period: {period_start} to {period_end}", cls="text-muted-foreground mb-4"),
