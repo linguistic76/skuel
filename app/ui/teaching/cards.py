@@ -34,13 +34,13 @@ def get_display_title(item: dict[str, Any]) -> str:
 
 def render_stat_card(label: str, value: int, icon: str, href: str, badge_cls: str = "") -> Div:
     """Render a single stat card linking to the relevant section."""
-    value_cls = f"stat-value {badge_cls}" if badge_cls else "stat-value"
+    value_cls = f"text-2xl font-bold {badge_cls}" if badge_cls else "text-2xl font-bold"
     return Card(
         Div(
-            Div(icon, cls="stat-figure text-2xl"),
-            Div(label, cls="stat-title"),
+            Div(icon, cls="text-2xl"),
+            Div(label, cls="text-sm text-muted-foreground"),
             Div(str(value), cls=value_cls),
-            cls="stat",
+            cls="p-4 text-center",
         ),
         cls="bg-background shadow-sm cursor-pointer hover:shadow-md transition-shadow",
         **{"onclick": f"window.location='{href}'"},

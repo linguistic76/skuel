@@ -53,7 +53,7 @@ def IngestionResultsSummary(stats: Any) -> FT:
             StatCard("Successful", successful, "✅", "text-success"),
             StatCard("Failed", failed, "❌", "text-error" if failed > 0 else ""),
             StatCard("Duration", f"{duration:.1f}s", "⏱️"),
-            cls="stats stats-vertical lg:stats-horizontal shadow mb-4 w-full",
+            cls="grid grid-cols-2 lg:grid-cols-4 gap-4 shadow rounded-lg mb-4 w-full",
         ),
         # Incremental ingestion stats (if present)
         (
@@ -62,7 +62,7 @@ def IngestionResultsSummary(stats: Any) -> FT:
                 Div(
                     StatCard("Files Skipped", files_skipped, "⏭️", "text-info"),
                     StatCard("Efficiency", f"{ingestion_efficiency:.1f}%", "🎯", "text-success"),
-                    cls="stats stats-vertical lg:stats-horizontal shadow mb-4 w-full",
+                    cls="grid grid-cols-2 gap-4 shadow rounded-lg mb-4 w-full",
                 ),
             )
             if has_incremental_stats
@@ -74,7 +74,7 @@ def IngestionResultsSummary(stats: Any) -> FT:
             StatCard("Nodes Created", nodes_created, "🔵"),
             StatCard("Nodes Updated", nodes_updated, "🔄"),
             StatCard("Edges Created", relationships_created, "🔗"),
-            cls="stats stats-vertical lg:stats-horizontal shadow mb-4 w-full",
+            cls="grid grid-cols-3 gap-4 shadow rounded-lg mb-4 w-full",
         ),
         # Errors table (if any)
         ErrorsTable(errors) if errors else None,
@@ -96,10 +96,10 @@ def StatCard(label: str, value: Any, icon: str, color_class: str = "") -> FT:
         FastHTML component
     """
     return Div(
-        Div(icon, cls="stat-figure text-2xl"),
-        Div(label, cls="stat-title"),
-        Div(str(value), cls=f"stat-value {color_class}"),
-        cls="stat",
+        Div(icon, cls="text-2xl"),
+        Div(label, cls="text-sm text-muted-foreground"),
+        Div(str(value), cls=f"text-2xl font-bold {color_class}"),
+        cls="p-4 text-center",
     )
 
 

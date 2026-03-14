@@ -57,30 +57,30 @@ def DryRunPreviewComponent(preview: Any, operation_id: str | None = None) -> FT:
         # Summary stats
         Div(
             Div(
-                Div("📊", cls="stat-figure text-2xl"),
-                Div("Total Files", cls="stat-title"),
-                Div(str(total_files), cls="stat-value"),
-                cls="stat",
+                Div("📊", cls="text-2xl"),
+                Div("Total Files", cls="text-sm text-muted-foreground"),
+                Div(str(total_files), cls="text-2xl font-bold"),
+                cls="p-4 text-center",
             ),
             Div(
-                Div("➕", cls="stat-figure text-2xl text-success"),
-                Div("To Create", cls="stat-title"),
-                Div(str(len(files_to_create)), cls="stat-value text-success"),
-                cls="stat",
+                Div("➕", cls="text-2xl text-success"),
+                Div("To Create", cls="text-sm text-muted-foreground"),
+                Div(str(len(files_to_create)), cls="text-2xl font-bold text-success"),
+                cls="p-4 text-center",
             ),
             Div(
-                Div("🔄", cls="stat-figure text-2xl text-warning"),
-                Div("To Update", cls="stat-title"),
-                Div(str(len(files_to_update)), cls="stat-value text-warning"),
-                cls="stat",
+                Div("🔄", cls="text-2xl text-warning"),
+                Div("To Update", cls="text-sm text-muted-foreground"),
+                Div(str(len(files_to_update)), cls="text-2xl font-bold text-warning"),
+                cls="p-4 text-center",
             ),
             Div(
-                Div("⏭️", cls="stat-figure text-2xl text-muted-foreground"),
-                Div("To Skip", cls="stat-title"),
-                Div(str(len(files_to_skip)), cls="stat-value text-muted-foreground"),
-                cls="stat",
+                Div("⏭️", cls="text-2xl text-muted-foreground"),
+                Div("To Skip", cls="text-sm text-muted-foreground"),
+                Div(str(len(files_to_skip)), cls="text-2xl font-bold text-muted-foreground"),
+                cls="p-4 text-center",
             ),
-            cls="stats stats-vertical lg:stats-horizontal shadow mb-4 w-full",
+            cls="grid grid-cols-2 lg:grid-cols-4 gap-4 shadow rounded-lg mb-4 w-full",
         ),
         # Relationship stats
         (

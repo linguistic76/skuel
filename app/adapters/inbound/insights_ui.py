@@ -471,17 +471,17 @@ def create_insights_ui_routes(
                 Div(
                     P("Total Insights", cls="text-sm text-muted-foreground"),
                     P(str(stats.get("total_insights", 0)), cls="text-3xl font-bold"),
-                    cls="stat",
+                    cls="p-4 text-center",
                 ),
                 Div(
                     P("Active Insights", cls="text-sm text-muted-foreground"),
                     P(str(stats.get("active_insights", 0)), cls="text-3xl font-bold"),
-                    cls="stat",
+                    cls="p-4 text-center",
                 ),
                 Div(
                     P("Actioned", cls="text-sm text-muted-foreground"),
                     P(str(stats.get("actioned_insights", 0)), cls="text-3xl font-bold"),
-                    cls="stat",
+                    cls="p-4 text-center",
                 ),
                 Div(
                     P("Action Rate", cls="text-sm text-muted-foreground"),
@@ -489,9 +489,9 @@ def create_insights_ui_routes(
                         f"{stats.get('action_rate', 0):.0%}",
                         cls="text-3xl font-bold",
                     ),
-                    cls="stat",
+                    cls="p-4 text-center",
                 ),
-                cls="stats stats-vertical lg:stats-horizontal shadow",
+                cls="grid grid-cols-2 lg:grid-cols-4 gap-4 shadow rounded-lg",
             ),
             Div(
                 H2("Domains", cls="text-xl font-bold mb-4 mt-8"),

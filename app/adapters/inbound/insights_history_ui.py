@@ -182,19 +182,19 @@ def create_insights_history_routes(
                 Div(
                     P("Total Actions", cls="text-sm text-muted-foreground"),
                     P(str(len(insights)), cls="text-3xl font-bold"),
-                    cls="stat",
+                    cls="p-4 text-center",
                 ),
                 Div(
                     P("Dismissed", cls="text-sm text-muted-foreground"),
                     P(str(dismissed_count), cls="text-3xl font-bold"),
-                    cls="stat",
+                    cls="p-4 text-center",
                 ),
                 Div(
                     P("Actioned", cls="text-sm text-muted-foreground"),
                     P(str(actioned_count), cls="text-3xl font-bold text-success"),
-                    cls="stat",
+                    cls="p-4 text-center",
                 ),
-                cls="stats stats-horizontal shadow mb-6",
+                cls="grid grid-cols-3 gap-4 shadow rounded-lg mb-6",
             ),
         )
 
