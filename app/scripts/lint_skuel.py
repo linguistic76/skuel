@@ -183,7 +183,7 @@ return Result.fail(f"Error: {e}")  # String-based""",
 Domain backends in domain_backends.py are legitimate extensions with domain-specific
 relationship Cypher. New wrapper classes outside domain_backends.py are violations.""",
         "good": """tasks_backend = UniversalNeo4jBackend[Task](driver, "Task", Task)
-# Domain backends in domain_backends.py are legitimate (TasksBackend, ArticleBackend, etc.)""",
+# Domain backends in domain_backends.py are legitimate (TasksBackend, LessonBackend, etc.)""",
         "bad": """class TasksBackend(UniversalNeo4jBackend[Task]):  # Don't create outside domain_backends.py
     pass""",
     },

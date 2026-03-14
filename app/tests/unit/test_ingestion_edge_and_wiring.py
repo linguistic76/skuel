@@ -5,7 +5,7 @@ Covers:
 - Edge detection (is_edge_type)
 - Edge validation (validate_edge_data)
 - Edge preparation (prepare_edge_data)
-- Article USES_KU wiring via registry
+- Lesson USES_KU wiring via registry
 - LS relationship field wiring (all 10+ fields)
 - LS preparer normalization (single→list, UID normalization)
 - Evidence relationship types on RelationshipName
@@ -36,8 +36,8 @@ class TestEdgeDetection:
         assert is_edge_type({"type": "EDGE"}) is True
         assert is_edge_type({"type": " Edge "}) is True
 
-    def test_article_not_edge(self):
-        assert is_edge_type({"type": "Article"}) is False
+    def test_lesson_not_edge(self):
+        assert is_edge_type({"type": "Lesson"}) is False
 
     def test_ku_not_edge(self):
         assert is_edge_type({"type": "ku"}) is False
@@ -199,15 +199,15 @@ class TestEdgePreparer:
 
 
 # ============================================================================
-# ARTICLE USES_KU WIRING
+# LESSON USES_KU WIRING
 # ============================================================================
 
 
-class TestArticleUsesKuWiring:
-    """Tests for Article USES_KU ingestion wiring."""
+class TestLessonUsesKuWiring:
+    """Tests for Lesson USES_KU ingestion wiring."""
 
     def test_registry_includes_uses_kus(self):
-        config = generate_ingestion_relationship_config(EntityType.ARTICLE)
+        config = generate_ingestion_relationship_config(EntityType.LESSON)
         assert config is not None
         assert "uses_kus" in config
         assert config["uses_kus"]["rel_type"] == "USES_KU"
@@ -216,20 +216,20 @@ class TestArticleUsesKuWiring:
 
     def test_preparer_normalizes_uses_kus(self):
         data = {
-            "type": "article",
-            "title": "Test Article",
+            "type": "lesson",
+            "title": "Test Lesson",
             "uses_kus": ["ku:meditation-basics", "ku:breathwork"],
         }
-        result = prepare_entity_data(EntityType.ARTICLE, data, "body content", Path("test.md"))
+        result = prepare_entity_data(EntityType.LESSON, data, "body content", Path("test.md"))
         assert result["uses_kus"] == ["ku.meditation-basics", "ku.breathwork"]
 
     def test_preparer_skips_non_list_uses_kus(self):
         data = {
-            "type": "article",
-            "title": "Test Article",
+            "type": "lesson",
+            "title": "Test Lesson",
             "uses_kus": "not-a-list",
         }
-        result = prepare_entity_data(EntityType.ARTICLE, data, "body content", Path("test.md"))
+        result = prepare_entity_data(EntityType.LESSON, data, "body content", Path("test.md"))
         # Non-list value left unchanged
         assert result["uses_kus"] == "not-a-list"
 

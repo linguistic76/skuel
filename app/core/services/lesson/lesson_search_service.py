@@ -11,7 +11,7 @@ This service provides:
 - KU-specific methods: search_chunks(), find_similar_content(), etc.
 
 Architecture (January 2026 - ADR-023 Harmonization):
-- Extends BaseService[UniversalNeo4jBackend[Article], Article]
+- Extends BaseService[UniversalNeo4jBackend[Lesson], Article]
 - Inherits: search(), graph_aware_faceted_search(), etc.
 - Uses backend.execute_query() (NO driver parameter)
 - Class attributes configure behavior
@@ -25,13 +25,13 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from core.constants import QueryLimit
-from core.models.article.article import Article
+from core.models.lesson.lesson import Lesson
 from core.models.curriculum_dto import CurriculumDTO
 from core.models.entity import Entity
 from core.models.enums import KuComplexity
 from core.models.enums.neo_labels import NeoLabel
 from core.models.relationship_names import RelationshipName
-from core.ports import ArticleOperations
+from core.ports import LessonOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import create_curriculum_domain_config
 from core.utils.decorators import with_error_handling
@@ -49,7 +49,7 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-class ArticleSearchService(BaseService[ArticleOperations, Entity]):
+class LessonSearchService(BaseService[LessonOperations, Entity]):
     """
     Search service for Knowledge Units - BaseService pattern.
 
@@ -133,7 +133,7 @@ class ArticleSearchService(BaseService[ArticleOperations, Entity]):
 
     def __init__(
         self,
-        backend: UniversalNeo4jBackend[Article],
+        backend: UniversalNeo4jBackend[Lesson],
         content_repo: Any | None = None,  # Was ContentOperations (deleted January 2026)
         intelligence: IntelligenceOperations | None = None,
         query_builder: QueryBuilderOperations | None = None,
@@ -443,7 +443,7 @@ class ArticleSearchService(BaseService[ArticleOperations, Entity]):
         # Get the source unit to verify it exists
         source_result = await self.backend.get(uid)
         if source_result.is_error or not source_result.value:
-            return Result.fail(Errors.not_found(resource="Article", identifier=uid))
+            return Result.fail(Errors.not_found(resource="Lesson", identifier=uid))
 
         # Try AI-enhanced vector search if available and preferred
         if self.vector_search and prefer_vector_search:
@@ -750,7 +750,7 @@ class ArticleSearchService(BaseService[ArticleOperations, Entity]):
     # HELPER METHODS
     # =========================================================================
 
-    def _to_dto(self, entity: Article) -> CurriculumDTO:
+    def _to_dto(self, entity: Lesson) -> CurriculumDTO:
         """Convert an Article entity to CurriculumDTO."""
         if isinstance(entity, CurriculumDTO):
             return entity

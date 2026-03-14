@@ -97,7 +97,7 @@ class AnalyticsMetricsService:
             choices_service: ChoicesService facade (Layer 1)
             principle_service: PrinciplesService facade (Layer 1)
             content_enrichment: ContentEnrichmentService (Layer 2)
-            ku_service: ArticleService for knowledge metrics (Layer 0)
+            ku_service: LessonService for knowledge metrics (Layer 0)
             lp_service: LpService for curriculum metrics (Layer 0)
         """
         # Layer 1 domain services
@@ -684,7 +684,7 @@ class AnalyticsMetricsService:
         if not self.ku_service:
             return Result.fail(
                 Errors.system(
-                    message="ArticleService not available", operation="calculate_knowledge_metrics"
+                    message="LessonService not available", operation="calculate_knowledge_metrics"
                 )
             )
 

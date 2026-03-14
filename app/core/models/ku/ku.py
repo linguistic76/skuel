@@ -3,10 +3,10 @@ Ku - Atomic Knowledge Unit
 ===========================
 
 A Ku is a single definable thing: a concept, state, principle, substance,
-practice, or value. Small enough to appear in many Articles without dragging
+practice, or value. Small enough to appear in many Lessons without dragging
 narrative. Extends Entity directly (not Curriculum — no learning metadata).
 
-Ku = Unit of Truth/Reference. Article = Unit of Teaching.
+Ku = Unit of Truth/Reference. Lesson = Unit of Teaching.
 
 Hierarchy:
     Entity (~29 fields)
@@ -41,11 +41,11 @@ class Ku(Entity):
     A Ku is a single definable thing: a concept (caffeine), a state (buzzing),
     a principle (truth_oriented_collaboration), a practice (meditation).
 
-    Unlike Articles (which are teaching compositions with narrative),
+    Unlike Lessons (which are teaching compositions with narrative),
     Kus are lightweight ontology/reference nodes. They don't carry
     learning metadata (complexity, SEL category, substance scores).
 
-    Articles USES_KU to compose atoms into narrative.
+    Lessons USES_KU to compose atoms into narrative.
     Learning Steps TRAINS_KU to declare learning objectives.
     """
 

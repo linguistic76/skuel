@@ -1,5 +1,5 @@
 """
-Article Content Model
+Lesson Content Model
 ======================
 
 Rich content storage with automatic chunking for RAG.

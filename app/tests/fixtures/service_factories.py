@@ -267,7 +267,7 @@ def create_tasks_service_for_testing(
 # """Create JournalsService for testing."""
 
 # def create_knowledge_service_for_testing(...):
-# """Create KnowledgeService (ArticleService) for testing."""
+# """Create KnowledgeService (LessonService) for testing."""
 
 # def create_learning_service_for_testing(...):
 # """Create LearningService (LpIntelligenceService) for testing."""
@@ -452,7 +452,7 @@ def create_askesis_user_context_for_testing(
 Service Factory Migration Checklist:
 
 MOC — DELETED (February 2026). MOC is no longer a separate service.
-  KU organization tests use ArticleOrganizationService directly.
+  KU organization tests use LessonOrganizationService directly.
 
 UserContext (6 failures)
 - [x] Create create_unified_user_context_for_testing()

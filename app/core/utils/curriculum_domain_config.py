@@ -36,8 +36,8 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 from core.models.relationship_registry import (
-    ARTICLE_CONFIG,
     KU_CONFIG,
+    LESSON_CONFIG,
     LP_CONFIG,
     LS_CONFIG,
 )
@@ -46,15 +46,15 @@ from core.services.relationships import UnifiedRelationshipService
 if TYPE_CHECKING:
     from neo4j import AsyncDriver
 
-    from core.ports import ArticleOperations, EventBusOperations, QueryBuilderOperations
-    from core.services.article.article_adaptive_service import ArticleAdaptiveService
-    from core.services.article.article_core_service import ArticleCoreService
-    from core.services.article.article_graph_service import ArticleGraphService
-    from core.services.article.article_mastery_service import ArticleMasteryService
-    from core.services.article.article_practice_service import ArticlePracticeService
-    from core.services.article.article_search_service import ArticleSearchService
-    from core.services.article.article_semantic_service import ArticleSemanticService
-    from core.services.article_intelligence_service import ArticleIntelligenceService
+    from core.ports import EventBusOperations, LessonOperations, QueryBuilderOperations
+    from core.services.lesson.lesson_adaptive_service import LessonAdaptiveService
+    from core.services.lesson.lesson_core_service import LessonCoreService
+    from core.services.lesson.lesson_graph_service import LessonGraphService
+    from core.services.lesson.lesson_mastery_service import LessonMasteryService
+    from core.services.lesson.lesson_practice_service import LessonPracticeService
+    from core.services.lesson.lesson_search_service import LessonSearchService
+    from core.services.lesson.lesson_semantic_service import LessonSemanticService
+    from core.services.lesson_intelligence_service import LessonIntelligenceService
     from core.services.lp.lp_core_service import LpCoreService
     from core.services.lp.lp_progress_service import LpProgressService
     from core.services.lp.lp_search_service import LpSearchService
@@ -229,24 +229,24 @@ def create_curriculum_sub_services(
 
 # =============================================================================
 # DOMAIN-SPECIFIC FACTORIES
-# Article and LP have complex dependencies that require specialized factories.
+# Lesson and LP have complex dependencies that require specialized factories.
 # LS uses the generic create_curriculum_sub_services() above.
 # =============================================================================
 
 
 @dataclass
-class ArticleSubServices:
-    """Container for all ArticleService sub-services created by the factory."""
+class LessonSubServices:
+    """Container for all LessonService sub-services created by the factory."""
 
-    core: "ArticleCoreService"
-    search: "ArticleSearchService"
-    graph: "ArticleGraphService"
-    semantic: "ArticleSemanticService"
-    practice: "ArticlePracticeService"
-    mastery: "ArticleMasteryService"
+    core: "LessonCoreService"
+    search: "LessonSearchService"
+    graph: "LessonGraphService"
+    semantic: "LessonSemanticService"
+    practice: "LessonPracticeService"
+    mastery: "LessonMasteryService"
     relationships: "UnifiedRelationshipService"
-    intelligence: "ArticleIntelligenceService"
-    adaptive: "ArticleAdaptiveService"
+    intelligence: "LessonIntelligenceService"
+    adaptive: "LessonAdaptiveService"
 
 
 @dataclass
@@ -261,8 +261,8 @@ class LpSubServices:
     backend: Any  # BackendOperations[Ku] — protocol-typed to avoid adapter import
 
 
-def create_article_sub_services(
-    backend: "ArticleOperations",
+def create_lesson_sub_services(
+    backend: "LessonOperations",
     content_repo: Any | None,
     neo4j_adapter: Any | None,
     chunking_service: Any | None,
@@ -273,25 +273,25 @@ def create_article_sub_services(
     user_service: Any | None = None,
     vector_search_service: Any | None = None,
     embeddings_service: Any | None = None,
-) -> ArticleSubServices:
+) -> LessonSubServices:
     """
-    Factory function to create all 8 ArticleService sub-services.
+    Factory function to create all 8 LessonService sub-services.
 
     Handles the circular dependency: Intelligence must be created
     BEFORE Core (Core depends on intelligence for content analysis).
 
     Creation Order:
     1. UnifiedRelationshipService (backend, config, graph_intel)
-    2. ArticleIntelligenceService (backend, graph_intel, relationships, embeddings, llm)
-    3. ArticleCoreService (repo, content_repo, intelligence, chunking, event_bus)
-    4. ArticleSearchService (backend, content_repo, intelligence, query_builder, vector_search, embeddings)
-    5. ArticleGraphService (repo, neo4j_adapter, graph_intel)
-    6. ArticleSemanticService (repo, neo4j_adapter, intelligence)
-    7. ArticlePracticeService (backend, event_bus)
-    8. ArticleMasteryService (backend, event_bus)
+    2. LessonIntelligenceService (backend, graph_intel, relationships, embeddings, llm)
+    3. LessonCoreService (repo, content_repo, intelligence, chunking, event_bus)
+    4. LessonSearchService (backend, content_repo, intelligence, query_builder, vector_search, embeddings)
+    5. LessonGraphService (repo, neo4j_adapter, graph_intel)
+    6. LessonSemanticService (repo, neo4j_adapter, intelligence)
+    7. LessonPracticeService (backend, event_bus)
+    8. LessonMasteryService (backend, event_bus)
 
     Args:
-        backend: ArticleOperations backend - REQUIRED
+        backend: LessonOperations backend - REQUIRED
         content_repo: Content storage backend (optional)
         neo4j_adapter: Neo4j adapter for graph operations (optional)
         chunking_service: Chunking service for RAG (optional)
@@ -304,28 +304,28 @@ def create_article_sub_services(
         embeddings_service: Optional HuggingFaceEmbeddingsService for embedding generation (January 2026 - GenAI)
 
     Returns:
-        ArticleSubServices dataclass with all 8 sub-services
+        LessonSubServices dataclass with all 8 sub-services
     """
     # Lazy imports to avoid circular dependencies
-    from core.services.article.article_adaptive_service import ArticleAdaptiveService
-    from core.services.article.article_core_service import ArticleCoreService
-    from core.services.article.article_graph_service import ArticleGraphService
-    from core.services.article.article_mastery_service import ArticleMasteryService
-    from core.services.article.article_practice_service import ArticlePracticeService
-    from core.services.article.article_search_service import ArticleSearchService
-    from core.services.article.article_semantic_service import ArticleSemanticService
-    from core.services.article_intelligence_service import ArticleIntelligenceService
+    from core.services.lesson.lesson_adaptive_service import LessonAdaptiveService
+    from core.services.lesson.lesson_core_service import LessonCoreService
+    from core.services.lesson.lesson_graph_service import LessonGraphService
+    from core.services.lesson.lesson_mastery_service import LessonMasteryService
+    from core.services.lesson.lesson_practice_service import LessonPracticeService
+    from core.services.lesson.lesson_search_service import LessonSearchService
+    from core.services.lesson.lesson_semantic_service import LessonSemanticService
+    from core.services.lesson_intelligence_service import LessonIntelligenceService
 
     # Step 1: Create relationship service (needed by intelligence)
     relationships = UnifiedRelationshipService(
         backend=backend,
-        config=ARTICLE_CONFIG,
+        config=LESSON_CONFIG,
         graph_intel=graph_intelligence_service,
     )
 
     # Step 2: Create intelligence BEFORE core (circular dependency)
     # ADR-030: Analytics services have zero AI dependencies
-    intelligence = ArticleIntelligenceService(
+    intelligence = LessonIntelligenceService(
         backend=backend,
         graph_intelligence_service=graph_intelligence_service,
         relationship_service=relationships,
@@ -333,7 +333,7 @@ def create_article_sub_services(
     )
 
     # Step 3: Create core (requires intelligence)
-    core = ArticleCoreService(
+    core = LessonCoreService(
         repo=backend,
         content_repo=content_repo,
         intelligence=intelligence,
@@ -342,7 +342,7 @@ def create_article_sub_services(
     )
 
     # Step 4: Create search (with optional vector search - January 2026 GenAI)
-    search = ArticleSearchService(
+    search = LessonSearchService(
         backend=backend,
         content_repo=content_repo,
         intelligence=intelligence,
@@ -352,29 +352,29 @@ def create_article_sub_services(
     )
 
     # Step 5: Create graph
-    graph = ArticleGraphService(
+    graph = LessonGraphService(
         repo=backend,
         neo4j_adapter=neo4j_adapter,
         graph_intel=graph_intelligence_service,
     )
 
     # Step 6: Create semantic
-    semantic = ArticleSemanticService(
+    semantic = LessonSemanticService(
         repo=backend,
         neo4j_adapter=neo4j_adapter,
         intelligence=intelligence,
     )
 
     # Step 7: Create practice (event-driven)
-    practice = ArticlePracticeService(backend=backend, event_bus=event_bus)
+    practice = LessonPracticeService(backend=backend, event_bus=event_bus)
 
     # Step 8: Create mastery (pedagogical tracking)
-    mastery = ArticleMasteryService(backend=backend, event_bus=event_bus)
+    mastery = LessonMasteryService(backend=backend, event_bus=event_bus)
 
     # Step 9: Create adaptive curriculum service
-    adaptive = ArticleAdaptiveService(ku_backend=backend, user_service=user_service)
+    adaptive = LessonAdaptiveService(ku_backend=backend, user_service=user_service)
 
-    return ArticleSubServices(
+    return LessonSubServices(
         core=core,
         search=search,
         graph=graph,

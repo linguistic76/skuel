@@ -4,7 +4,7 @@ The /profile page shows personal measurements at top, then all activity domains
 at a glance via HTMX-loaded card previews.
 """
 
-from fasthtml.common import H2, A, Div, Span
+from fasthtml.common import A, Div, Span
 
 from core.services.user.unified_user_context import UserContext
 from ui.activities.landing import domain_card_grid

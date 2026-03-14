@@ -162,7 +162,7 @@ async def test_dry_run_includes_relationships(
 
     # Mock entity with relationships
     mock_parse.return_value = (
-        EntityType.ARTICLE,
+        EntityType.LESSON,
         {
             "uid": "ku_new-content_789",
             "title": "Test KU",

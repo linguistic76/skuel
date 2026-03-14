@@ -71,8 +71,8 @@ class FormTemplateUpdateRequest(BaseModel):
         return validate_form_field_specs(v)
 
 
-class FormArticleLinkRequest(BaseModel):
-    """Request to link/unlink a FormTemplate to/from an Article."""
+class FormLessonLinkRequest(BaseModel):
+    """Request to link/unlink a FormTemplate to/from a Lesson."""
 
     form_template_uid: str = Field(..., description="FormTemplate UID")
-    article_uid: str = Field(..., description="Article UID")
+    lesson_uid: str = Field(..., description="Lesson UID")

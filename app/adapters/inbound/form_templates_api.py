@@ -13,7 +13,7 @@ from pydantic import ValidationError
 from adapters.inbound.auth import make_service_getter, require_admin
 from adapters.inbound.boundary import boundary_handler
 from core.models.forms.form_template_request import (
-    FormArticleLinkRequest,
+    FormLessonLinkRequest,
     FormTemplateCreateRequest,
     FormTemplateUpdateRequest,
 )
@@ -123,39 +123,39 @@ def create_form_templates_api_routes(
         return await form_template_service.delete_form_template(uid)
 
     # ========================================================================
-    # ARTICLE LINKING
+    # LESSON LINKING
     # ========================================================================
 
-    @rt("/api/form-templates/link-article", methods=["POST"])
+    @rt("/api/form-templates/link-lesson", methods=["POST"])
     @require_admin(get_user_service)
     @boundary_handler()
-    async def link_form_to_article(request: Request, current_user: Any = None) -> Result[Any]:
-        """Link a FormTemplate to an Article via EMBEDS_FORM."""
+    async def link_form_to_lesson(request: Request, current_user: Any = None) -> Result[Any]:
+        """Link a FormTemplate to a Lesson via EMBEDS_FORM."""
         try:
             body = await request.json()
-            req = FormArticleLinkRequest(**body)
+            req = FormLessonLinkRequest(**body)
         except ValidationError as e:
             return Result.fail(Errors.validation(str(e), field="body"))
         except Exception as e:
             return Result.fail(Errors.validation(f"Invalid request body: {e}", field="body"))
 
-        return await form_template_service.link_to_article(req.form_template_uid, req.article_uid)
+        return await form_template_service.link_to_lesson(req.form_template_uid, req.lesson_uid)
 
-    @rt("/api/form-templates/unlink-article", methods=["POST"])
+    @rt("/api/form-templates/unlink-lesson", methods=["POST"])
     @require_admin(get_user_service)
     @boundary_handler()
-    async def unlink_form_from_article(request: Request, current_user: Any = None) -> Result[Any]:
-        """Remove EMBEDS_FORM link between FormTemplate and Article."""
+    async def unlink_form_from_lesson(request: Request, current_user: Any = None) -> Result[Any]:
+        """Remove EMBEDS_FORM link between FormTemplate and Lesson."""
         try:
             body = await request.json()
-            req = FormArticleLinkRequest(**body)
+            req = FormLessonLinkRequest(**body)
         except ValidationError as e:
             return Result.fail(Errors.validation(str(e), field="body"))
         except Exception as e:
             return Result.fail(Errors.validation(f"Invalid request body: {e}", field="body"))
 
-        return await form_template_service.unlink_from_article(
-            req.form_template_uid, req.article_uid
+        return await form_template_service.unlink_from_lesson(
+            req.form_template_uid, req.lesson_uid
         )
 
     return []

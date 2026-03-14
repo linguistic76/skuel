@@ -2,7 +2,7 @@
 Test KU Graph Service
 ======================
 
-Tests for the ArticleGraphService focused sub-service.
+Tests for the LessonGraphService focused sub-service.
 """
 
 from unittest.mock import AsyncMock, MagicMock
@@ -11,7 +11,7 @@ import pytest
 
 from core.models.curriculum_dto import CurriculumDTO
 from core.models.enums import Domain
-from core.services.article.article_graph_service import ArticleGraphService
+from core.services.lesson.lesson_graph_service import LessonGraphService
 from core.utils.result_simplified import Result
 
 
@@ -30,7 +30,7 @@ def make_ku_dto(uid="ku.test.1", title="Test Title", domain="tech"):
 
 
 class TestKuGraphServiceInitialization:
-    """Test ArticleGraphService initialization."""
+    """Test LessonGraphService initialization."""
 
     def test_initialization_with_all_dependencies(self):
         """Test successful initialization with all dependencies."""
@@ -38,7 +38,7 @@ class TestKuGraphServiceInitialization:
         neo4j = MagicMock()
         graph_intel = MagicMock()
 
-        service = ArticleGraphService(repo=repo, neo4j_adapter=neo4j, graph_intel=graph_intel)
+        service = LessonGraphService(repo=repo, neo4j_adapter=neo4j, graph_intel=graph_intel)
 
         assert service.repo == repo
         assert service.neo4j == neo4j
@@ -49,7 +49,7 @@ class TestKuGraphServiceInitialization:
         repo = MagicMock()
         neo4j = MagicMock()
 
-        service = ArticleGraphService(repo=repo, neo4j_adapter=neo4j)
+        service = LessonGraphService(repo=repo, neo4j_adapter=neo4j)
 
         assert service.repo == repo
         assert service.neo4j == neo4j
@@ -58,23 +58,23 @@ class TestKuGraphServiceInitialization:
     def test_initialization_fails_without_repo(self):
         """Test that initialization fails without required repo."""
         with pytest.raises(ValueError, match="KU repository is required"):
-            ArticleGraphService(repo=None, neo4j_adapter=MagicMock())
+            LessonGraphService(repo=None, neo4j_adapter=MagicMock())
 
     def test_initialization_fails_without_neo4j(self):
         """Test that initialization fails without required Neo4j adapter."""
         with pytest.raises(ValueError, match="Neo4j adapter is required"):
-            ArticleGraphService(repo=MagicMock(), neo4j_adapter=None)
+            LessonGraphService(repo=MagicMock(), neo4j_adapter=None)
 
 
 class TestGraphTraversal:
     """Test graph traversal operations."""
 
     @pytest.fixture
-    def service(self) -> ArticleGraphService:
+    def service(self) -> LessonGraphService:
         """Create service with mocked dependencies."""
         repo = MagicMock()
         neo4j = MagicMock()
-        return ArticleGraphService(repo=repo, neo4j_adapter=neo4j)
+        return LessonGraphService(repo=repo, neo4j_adapter=neo4j)
 
     @pytest.mark.asyncio
     async def test_find_prerequisites_unit_not_found(self, service):
@@ -162,7 +162,7 @@ class TestGraphTraversal:
             return_value=Result.ok([make_ku_dto("ku.next.1", "Next")])
         )
 
-        result = await service.get_article_with_context("ku.test.1", depth=2)
+        result = await service.get_lesson_with_context("ku.test.1", depth=2)
 
         assert result.is_ok
         context = result.value
@@ -177,11 +177,11 @@ class TestRelationshipManagement:
     """Test relationship creation and management."""
 
     @pytest.fixture
-    def service(self) -> ArticleGraphService:
+    def service(self) -> LessonGraphService:
         """Create service with mocked dependencies."""
         repo = MagicMock()
         neo4j = MagicMock()
-        return ArticleGraphService(repo=repo, neo4j_adapter=neo4j)
+        return LessonGraphService(repo=repo, neo4j_adapter=neo4j)
 
     @pytest.mark.asyncio
     async def test_link_prerequisite_unit_not_found(self, service):
@@ -227,12 +227,12 @@ class TestAnalysisRecommendations:
     """Test analysis and recommendation operations."""
 
     @pytest.fixture
-    def service(self) -> ArticleGraphService:
+    def service(self) -> LessonGraphService:
         """Create service with mocked dependencies."""
         repo = MagicMock()
         neo4j = MagicMock()
         graph_intel = MagicMock()
-        return ArticleGraphService(repo=repo, neo4j_adapter=neo4j, graph_intel=graph_intel)
+        return LessonGraphService(repo=repo, neo4j_adapter=neo4j, graph_intel=graph_intel)
 
     @pytest.mark.asyncio
     async def test_get_prerequisite_chain_success(self, service):
@@ -342,11 +342,11 @@ class TestTimeAwareLearningPath:
     """Test metadata-aware learning path generation (Quick Win #2)."""
 
     @pytest.fixture
-    def service(self) -> ArticleGraphService:
+    def service(self) -> LessonGraphService:
         """Create service with mocked dependencies."""
         repo = MagicMock()
         neo4j = MagicMock()
-        return ArticleGraphService(repo=repo, neo4j_adapter=neo4j)
+        return LessonGraphService(repo=repo, neo4j_adapter=neo4j)
 
     @pytest.mark.asyncio
     async def test_time_aware_path_target_not_found(self, service):
@@ -507,11 +507,11 @@ class TestHubScoreCaching:
     """Test hub score caching and foundational knowledge identification (Quick Win #3)."""
 
     @pytest.fixture
-    def service(self) -> ArticleGraphService:
+    def service(self) -> LessonGraphService:
         """Create service with mocked dependencies."""
         repo = MagicMock()
         neo4j = MagicMock()
-        return ArticleGraphService(repo=repo, neo4j_adapter=neo4j)
+        return LessonGraphService(repo=repo, neo4j_adapter=neo4j)
 
     @pytest.mark.asyncio
     async def test_update_hub_scores_success(self, service):
@@ -644,21 +644,21 @@ class TestHubScoreCaching:
 
 
 class TestFacadeDelegation:
-    """Test that ArticleService facade correctly delegates to graph service."""
+    """Test that LessonService facade correctly delegates to graph service."""
 
     @pytest.mark.asyncio
     async def test_facade_delegates_graph_methods(self):
         """Test that all graph methods are delegated."""
-        from core.services.article_service import ArticleService
+        from core.services.lesson_service import LessonService
 
         # Create facade with mocked dependencies
         repo = MagicMock()
         content_repo = MagicMock()
         neo4j = MagicMock()
-        query_builder = MagicMock()  # Required for ArticleSearchService
+        query_builder = MagicMock()  # Required for LessonSearchService
         graph_intel = MagicMock()
 
-        service = ArticleService(
+        service = LessonService(
             repo=repo,
             content_repo=content_repo,
             neo4j_adapter=neo4j,
@@ -673,7 +673,7 @@ class TestFacadeDelegation:
         # Verify all graph methods exist on facade
         assert callable(service.find_prerequisites)
         assert callable(service.find_next_steps)
-        assert callable(service.get_article_with_context)
+        assert callable(service.get_lesson_with_context)
         assert callable(service.link_prerequisite)
         assert callable(service.link_parent_child)
         assert callable(service.get_prerequisite_chain)

@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from core.models.article.article import Article
+    from core.models.lesson.lesson import Lesson
     from core.models.event.event import Event
     from core.models.habit.habit import Habit
     from core.models.ku.ku import Ku
@@ -36,7 +36,7 @@ class LSBundle:
     """Complete context for a user's active Learning Step.
 
     Contains the LS itself plus all entities reachable through its graph
-    relationships: primary/supporting Articles, trained KUs, linked Habits,
+    relationships: primary/supporting Lessons, trained KUs, linked Habits,
     Tasks, Events, Principles, and semantic edges between bundle entities.
 
     All collection fields are tuples (immutable). The bundle is built once
@@ -47,11 +47,11 @@ class LSBundle:
     learning_path: LearningPath | None = None
 
     # Curriculum content
-    articles: tuple[Article, ...] = ()  # primary + supporting knowledge
+    lessons: tuple[Lesson, ...] = ()  # primary + supporting knowledge
     kus: tuple[Ku, ...] = ()  # via trains_ku_uids on LS
 
     # Reference material cited by curriculum in this LS
-    resources: tuple[Resource, ...] = ()  # via CITES_RESOURCE on Articles/KUs
+    resources: tuple[Resource, ...] = ()  # via CITES_RESOURCE on Lessons/KUs
 
     # Activity entities linked to this LS
     principles: tuple[Principle, ...] = ()  # via EMBODIES_PRINCIPLE
@@ -62,23 +62,23 @@ class LSBundle:
     # Semantic relationships between bundle entities
     edges: tuple[dict, ...] = ()
 
-    # Learning objectives extracted from Articles in the bundle
+    # Learning objectives extracted from Lessons in the bundle
     learning_objectives: tuple[str, ...] = ()
 
     def contains_ku(self, ku_uid: str) -> bool:
         """Check if a KU is part of this bundle."""
         return any(ku.uid == ku_uid for ku in self.kus)
 
-    def get_article_for_ku(self, ku_uid: str) -> Article | None:
-        """Find the Article that USES_KU for the given KU UID.
+    def get_lesson_for_ku(self, ku_uid: str) -> Lesson | None:
+        """Find the Lesson that USES_KU for the given KU UID.
 
-        Searches article content fields for KU references. Returns the first
-        match — in practice, one Article covers one KU within a single LS.
+        Searches lesson content fields for KU references. Returns the first
+        match — in practice, one Lesson covers one KU within a single LS.
         """
-        for article in self.articles:
-            # Articles reference KUs via semantic_links (from Curriculum base)
-            if ku_uid in (article.semantic_links or ()):
-                return article
+        for lesson in self.lessons:
+            # Lessons reference KUs via semantic_links (from Curriculum base)
+            if ku_uid in (lesson.semantic_links or ()):
+                return lesson
         return None
 
     def get_all_entity_uids(self) -> set[str]:
@@ -88,7 +88,7 @@ class LSBundle:
         if self.learning_path:
             uids.add(self.learning_path.uid)
         for collection in (
-            self.articles,
+            self.lessons,
             self.kus,
             self.resources,
             self.principles,
@@ -107,7 +107,7 @@ class LSBundle:
         if self.learning_path:
             titles[self.learning_path.uid] = self.learning_path.title or ""
         for collection in (
-            self.articles,
+            self.lessons,
             self.kus,
             self.resources,
             self.principles,
@@ -129,24 +129,24 @@ class LSBundle:
 
     @property
     def curriculum_context_text(self) -> str:
-        """Concatenated Article content + Resource references for LLM context.
+        """Concatenated Lesson content + Resource references for LLM context.
 
         Used by ResponseGenerator when the pedagogical move needs the curriculum
         as reference (e.g., SCAFFOLD, REDIRECT_TO_CURRICULUM).
 
-        Includes resource summaries after article content so Askesis can
+        Includes resource summaries after lesson content so Askesis can
         reference cited material (books, talks, films) in conversations.
 
         Truncated to AskesisTokenBudget.MAX_CURRICULUM_CHARS to prevent
-        exceeding LLM context windows when the bundle has many Articles.
+        exceeding LLM context windows when the bundle has many Lessons.
         """
         from core.constants import AskesisTokenBudget
         from core.utils.text_truncation import truncate_to_budget
 
         parts = [
-            f"## {article.title}\n\n{article.content}"
-            for article in self.articles
-            if article.content
+            f"## {lesson.title}\n\n{lesson.content}"
+            for lesson in self.lessons
+            if lesson.content
         ]
 
         # Append resource references — compact summaries, not full content
@@ -165,7 +165,7 @@ class LSBundle:
     def __str__(self) -> str:
         return (
             f"LSBundle(ls={self.learning_step.uid}, "
-            f"articles={len(self.articles)}, kus={len(self.kus)}, "
+            f"lessons={len(self.lessons)}, kus={len(self.kus)}, "
             f"resources={len(self.resources)}, "
             f"habits={len(self.habits)}, tasks={len(self.tasks)})"
         )

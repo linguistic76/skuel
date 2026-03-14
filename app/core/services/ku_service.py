@@ -72,7 +72,7 @@ class KuService:
         self.search_service = common.search
         self.relationships = common.relationships
         self.intelligence: KuIntelligenceService = common.intelligence
-        self.backend: KuBackend = backend  # For get_articles() reverse traversal
+        self.backend: KuBackend = backend  # For get_lessons() reverse traversal
 
         logger.debug("KuService facade initialized with 4 sub-services via factory")
 
@@ -134,17 +134,17 @@ class KuService:
         return await self.intelligence.get_with_context(uid, depth)
 
     async def get_usage_summary(self, ku_uid: str) -> Result[dict[str, int]]:
-        """Count articles, learning steps, and organized children for a Ku."""
+        """Count lessons, learning steps, and organized children for a Ku."""
         return await self.intelligence.get_usage_summary(ku_uid)
 
     # =========================================================================
     # GRAPH (reverse traversal via backend)
     # =========================================================================
 
-    async def get_articles(self, ku_uid: str) -> Result[list[dict[str, Any]]]:
-        """Get all Articles that use this atomic Ku via USES_KU."""
+    async def get_lessons(self, ku_uid: str) -> Result[list[dict[str, Any]]]:
+        """Get all Lessons that use this atomic Ku via USES_KU."""
         if self.backend is None:
             return Result.fail(
                 Errors.system("KuService backend not configured for graph operations")
             )
-        return await self.backend.get_articles_using(ku_uid)
+        return await self.backend.get_lessons_using(ku_uid)

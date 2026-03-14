@@ -64,13 +64,13 @@ class GraphQLQueryHelpers:
         """
         Get prerequisite knowledge units for GraphQL resolver.
 
-        Delegates to ArticleService.get_prerequisites() which returns
+        Delegates to LessonService.get_prerequisites() which returns
         Result[list[CurriculumDTO]].
         """
-        if not context.services.article:
+        if not context.services.lesson:
             return []
 
-        result = await context.services.article.get_prerequisites(ku_uid)
+        result = await context.services.lesson.get_prerequisites(ku_uid)
         dtos = unwrap_result(result, [])
         prereqs = [knowledge_node_from_dto(dto) for dto in dtos]
         logger.debug(f"Loaded {len(prereqs)} prerequisites for {ku_uid}")
@@ -81,13 +81,13 @@ class GraphQLQueryHelpers:
         """
         Get knowledge units enabled by this one (reverse prerequisites).
 
-        Delegates to ArticleService.get_enables() which returns
+        Delegates to LessonService.get_enables() which returns
         Result[list[CurriculumDTO]].
         """
-        if not context.services.article:
+        if not context.services.lesson:
             return []
 
-        result = await context.services.article.get_enables(ku_uid)
+        result = await context.services.lesson.get_enables(ku_uid)
         dtos = unwrap_result(result, [])
         enabled = [knowledge_node_from_dto(dto) for dto in dtos]
         logger.debug(f"Loaded {len(enabled)} enabled knowledge units for {ku_uid}")

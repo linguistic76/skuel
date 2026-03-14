@@ -4,7 +4,7 @@ FormGenerator - Dynamic Form Generation from Pydantic Models
 
 Generates forms from Pydantic model introspection. Supports
 sections, help text, pre-fill, hidden fields, and fragment mode for
-embedding forms within article content.
+embedding forms within lesson content.
 
 See: /docs/patterns/FORM_GENERATOR_GUIDE.md
 """
@@ -175,7 +175,7 @@ class FormGenerator:
 
     Generates MonsterUI-styled forms with proper variant classes, ARIA support,
     and Alpine.js validation. Supports sections, help text, pre-fill, hidden
-    fields, and fragment mode for embedding in article content.
+    fields, and fragment mode for embedding in lesson content.
 
     See: /docs/patterns/FORM_GENERATOR_GUIDE.md
     """
@@ -215,7 +215,7 @@ class FormGenerator:
             form_attrs: Extra form/wrapper attributes (hx_post, cls, x-data override, etc.)
             values: Pre-fill values: {"field": value}
             as_fragment: True = Div with fields only (no form tag, no submit).
-                         Use for embedding in article content or composing forms.
+                         Use for embedding in lesson content or composing forms.
         """
         logger.debug("Generating form from %s", model_class.__name__)
 
@@ -260,7 +260,7 @@ class FormGenerator:
         for hf_name, hf_value in hidden_fields.items():
             form_fields.append(FTInput(type="hidden", name=hf_name, value=str(hf_value)))
 
-        # Fragment mode: Div with fields only (for embedding in articles)
+        # Fragment mode: Div with fields only (for embedding in lessons)
         if as_fragment:
             wrapper_attrs: dict[str, Any] = {"cls": "space-y-4"}
             if form_attrs:

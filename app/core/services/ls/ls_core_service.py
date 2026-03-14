@@ -12,7 +12,7 @@ This sub-service handles:
 - Path-filtered listings
 
 Part of LsService decomposition (October 24, 2025)
-- Follows ArticleService and LpService decomposition patterns
+- Follows LessonService and LpService decomposition patterns
 - Clear separation of concerns
 - Single responsibility: CRUD operations
 

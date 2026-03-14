@@ -74,7 +74,7 @@ class TestZPDAction:
     def test_basic_action(self) -> None:
         action = ZPDAction(
             entity_uid="ku_1",
-            entity_type="article",
+            entity_type="lesson",
             action_type="learn",
             priority=0.8,
             rationale="all prerequisites met",
@@ -142,9 +142,9 @@ class TestTopProximalKuUids:
 class TestTopRecommendedActions:
     def test_sorts_by_priority_descending(self) -> None:
         actions = (
-            ZPDAction("ku_a", "article", "learn", 0.3, "low"),
-            ZPDAction("ku_b", "article", "learn", 0.9, "high"),
-            ZPDAction("ku_c", "article", "learn", 0.6, "mid"),
+            ZPDAction("ku_a", "lesson", "learn", 0.3, "low"),
+            ZPDAction("ku_b", "lesson", "learn", 0.9, "high"),
+            ZPDAction("ku_c", "lesson", "learn", 0.6, "mid"),
         )
         a = _make_assessment(recommended_actions=actions)
         top = a.top_recommended_actions(2)

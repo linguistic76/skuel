@@ -155,7 +155,7 @@ def test_required_field_validation():
 
     # Test 1: Valid KU data (has title and content is skipped for early validation)
     valid_ku_data = {"title": "Test KU", "content": "Some content"}
-    result = service.validate_required_fields(EntityType.ARTICLE, valid_ku_data, mock_path)
+    result = service.validate_required_fields(EntityType.LESSON, valid_ku_data, mock_path)
     assert result.is_ok, f"Expected OK for valid KU data, got: {result}"
 
     # Test 2: Missing required field for principle (needs 'statement')
@@ -182,14 +182,14 @@ def test_required_field_validation():
     # Test 5: validate_entity_data - check post-preparation validation
     # Simulate prepared entity data missing content
     incomplete_ku_data = {"uid": "ku.test", "title": "Test"}  # Missing 'content'
-    result = service.validate_entity_data(EntityType.ARTICLE, incomplete_ku_data, mock_path)
+    result = service.validate_entity_data(EntityType.LESSON, incomplete_ku_data, mock_path)
     assert result.is_error, "Expected error for KU missing 'content' after preparation"
     error = result.expect_error()
     assert "content" in error.message, f"Expected 'content' in error: {error.message}"
 
     # Test 6: Complete KU data passes validation
     complete_ku_data = {"uid": "ku.test", "title": "Test", "content": "Body content"}
-    result = service.validate_entity_data(EntityType.ARTICLE, complete_ku_data, mock_path)
+    result = service.validate_entity_data(EntityType.LESSON, complete_ku_data, mock_path)
     assert result.is_ok, f"Expected OK for complete KU data, got: {result}"
 
     print("✅ Required field validation works correctly!")
@@ -237,7 +237,7 @@ def test_user_uid_injection():
     # Test 3: Curriculum domain (ku) should NOT get user_uid (shared knowledge)
     ku_data = {"title": "Test KU", "content": "Body content"}
     prepared = service.prepare_entity_data(
-        EntityType.ARTICLE, ku_data, "Body content", Path("/tmp/test-ku.md")
+        EntityType.LESSON, ku_data, "Body content", Path("/tmp/test-ku.md")
     )
     assert "user_uid" not in prepared, "KU should not have user_uid (shared knowledge)"
 
@@ -263,7 +263,7 @@ def test_user_uid_injection():
         assert config.requires_user_uid, f"{entity_type.value} should require user_uid"
 
     # Test 6: Curriculum domains should NOT require user_uid
-    curriculum_types = [EntityType.ARTICLE, EntityType.LEARNING_PATH, EntityType.LEARNING_STEP]
+    curriculum_types = [EntityType.LESSON, EntityType.LEARNING_PATH, EntityType.LEARNING_STEP]
     for entity_type in curriculum_types:
         config = ENTITY_CONFIGS[entity_type]
         assert not config.requires_user_uid, f"{entity_type.value} should NOT require user_uid"
@@ -299,20 +299,20 @@ def test_entity_type_detection():
     # Test 2: Type aliases are normalized
     data_with_alias = {"type": "knowledge", "title": "Test KU"}
     result = service.detect_entity_type(data_with_alias, Path("/tmp/test.yaml"))
-    assert result == EntityType.ARTICLE, (
-        f"Expected EntityType.ARTICLE (alias normalized), got {result}"
+    assert result == EntityType.LESSON, (
+        f"Expected EntityType.LESSON (alias normalized), got {result}"
     )
 
     # Test 3: MOC flag detection (now maps to KU)
     data_with_moc_flag = {"moc": True, "title": "Map of Content"}
     result = service.detect_entity_type(data_with_moc_flag, Path("/tmp/test.md"))
-    assert result == EntityType.ARTICLE, f"Expected EntityType.ARTICLE (MOC flag), got {result}"
+    assert result == EntityType.LESSON, f"Expected EntityType.LESSON (MOC flag), got {result}"
 
     # Test 4: Default to KU for markdown without type
     data_no_type = {"title": "Some Knowledge"}
     result = service.detect_entity_type(data_no_type, Path("/tmp/test.md"))
-    assert result == EntityType.ARTICLE, (
-        f"Expected EntityType.ARTICLE (default for .md), got {result}"
+    assert result == EntityType.LESSON, (
+        f"Expected EntityType.LESSON (default for .md), got {result}"
     )
 
     # Test 5: Case insensitivity
@@ -332,16 +332,16 @@ def test_entity_type_detection():
     result = service.detect_entity_type({"type": "ku"}, Path("/tmp/test.yaml"))
     assert result == EntityType.KU, "KU detection should return EntityType.KU"
 
-    # "knowledgeunit" and "knowledge" still map to ARTICLE (backward compat for old files)
+    # "knowledgeunit" and "knowledge" still map to LESSON (backward compat for old files)
     result = service.detect_entity_type({"type": "knowledgeunit"}, Path("/tmp/test.yaml"))
-    assert result == EntityType.ARTICLE, "knowledgeunit should return EntityType.ARTICLE"
+    assert result == EntityType.LESSON, "knowledgeunit should return EntityType.LESSON"
 
     result = service.detect_entity_type({"type": "knowledge"}, Path("/tmp/test.yaml"))
-    assert result == EntityType.ARTICLE, "knowledge should return EntityType.ARTICLE"
+    assert result == EntityType.LESSON, "knowledge should return EntityType.LESSON"
 
     print("✅ Entity type detection works correctly!")
     print("   - Returns EntityType/NonKuDomain enum (type-safe!)")
-    print("   - Handles aliases (knowledge → ARTICLE, knowledgeunit → ARTICLE)")
+    print("   - Handles aliases (knowledge → LESSON, knowledgeunit → LESSON)")
     print("   - ku → KU (atomic knowledge unit)")
     print("   - Case insensitive")
     print("   - MOC flag detection works")
@@ -365,11 +365,11 @@ async def test_dry_run_validation():
     with tempfile.TemporaryDirectory() as tmpdir:
         tmppath = Path(tmpdir)
 
-        # Test 1: Valid markdown file (type: article)
+        # Test 1: Valid markdown file (type: lesson)
         valid_md = tmppath / "test-knowledge.md"
         valid_md.write_text("""---
 title: Test Knowledge Unit
-type: article
+type: lesson
 ---
 This is the content of the knowledge unit.
 """)
@@ -377,8 +377,8 @@ This is the content of the knowledge unit.
         assert result.is_ok
         validation = result.value
         assert validation.valid, f"Expected valid, got errors: {validation.errors}"
-        assert validation.entity_type == "article"
-        assert validation.uid == "a.test-knowledge"
+        assert validation.entity_type == "lesson"
+        assert validation.uid == "l.test-knowledge"
         assert validation.title == "Test Knowledge Unit"
         assert validation.format == "markdown"
         assert validation.prepared_data is not None
@@ -472,13 +472,13 @@ async def test_parallel_directory_processing():
     with tempfile.TemporaryDirectory() as tmpdir:
         tmppath = Path(tmpdir)
 
-        # Create 10 valid markdown files (Articles = teaching content)
+        # Create 10 valid markdown files (Lessons = teaching content)
         for i in range(10):
-            (tmppath / f"article-{i}.md").write_text(f"""---
-title: Article {i}
-type: article
+            (tmppath / f"lesson-{i}.md").write_text(f"""---
+title: Lesson {i}
+type: lesson
 ---
-Content for Article {i}
+Content for Lesson {i}
 """)
 
         # Create 5 valid YAML files
@@ -503,13 +503,13 @@ description: Description for task {i}
         # Test 3: Test parse_file_sync helper directly (from batch module)
         from core.services.ingestion.batch import parse_file_sync
 
-        test_file = tmppath / "article-0.md"
+        test_file = tmppath / "lesson-0.md"
         entity_type, entity_data, error = parse_file_sync(test_file)
         assert error is None, f"Should parse successfully: {error}"
         assert entity_type is not None
-        assert entity_type.value == "article"
+        assert entity_type.value == "lesson"
         assert entity_data is not None
-        assert entity_data["title"] == "Article 0"
+        assert entity_data["title"] == "Lesson 0"
 
         # Test 4: Test error handling in parallel processing
         # Add an invalid file

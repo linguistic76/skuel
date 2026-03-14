@@ -45,23 +45,23 @@ class TestRichUserContextPattern:
         # Create prerequisite knowledge
         prereq_dto = CurriculumDTO(
             uid=UIDGenerator.generate_random_uid("ku"),
-            entity_type=EntityType.ARTICLE,
+            entity_type=EntityType.LESSON,
             title="Python Basics",
             domain=Domain.TECH,
         )
-        await services.article.core.backend.create(prereq_dto.to_dict())
+        await services.lesson.core.backend.create(prereq_dto.to_dict())
 
         # Create main knowledge unit
         ku_dto = CurriculumDTO(
             uid=UIDGenerator.generate_random_uid("ku"),
-            entity_type=EntityType.ARTICLE,
+            entity_type=EntityType.LESSON,
             title="Advanced Python",
             domain=Domain.TECH,
         )
-        await services.article.core.backend.create(ku_dto.to_dict())
+        await services.lesson.core.backend.create(ku_dto.to_dict())
 
         # Create prerequisite relationship
-        await services.article.core.backend.driver.execute_query(
+        await services.lesson.core.backend.driver.execute_query(
             """
             MATCH (ku:Entity {uid: $ku_uid})
             MATCH (prereq:Entity {uid: $prereq_uid})
@@ -216,11 +216,11 @@ class TestRichUserContextPattern:
         # Create test data
         ku_dto = CurriculumDTO(
             uid=UIDGenerator.generate_random_uid("ku"),
-            entity_type=EntityType.ARTICLE,
+            entity_type=EntityType.LESSON,
             title="Test Knowledge",
             domain=Domain.TECH,
         )
-        await services.article.core.backend.create(ku_dto.to_dict())
+        await services.lesson.core.backend.create(ku_dto.to_dict())
 
         task_dto = TaskDTO.create_task(
             user_uid=test_user.uid,
@@ -341,11 +341,11 @@ class TestRichUserContextPattern:
         # Create cross-domain test data
         ku_dto = CurriculumDTO(
             uid=UIDGenerator.generate_random_uid("ku"),
-            entity_type=EntityType.ARTICLE,
+            entity_type=EntityType.LESSON,
             title="Test Knowledge",
             domain=Domain.TECH,
         )
-        await services.article.core.backend.create(ku_dto.to_dict())
+        await services.lesson.core.backend.create(ku_dto.to_dict())
 
         goal_dto = GoalDTO.create_goal(
             user_uid=test_user.uid,

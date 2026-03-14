@@ -1,1 +1,1 @@
-"""Article content models — chunking, metadata, and curriculum content."""
+"""Lesson content models — chunking, metadata, and curriculum content."""

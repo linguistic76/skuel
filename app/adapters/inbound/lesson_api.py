@@ -1,5 +1,5 @@
 """
-Article API - Migrated to CRUDRouteFactory
+Lesson API - Migrated to CRUDRouteFactory
 ===========================================
 
 Sixth migration in CRUD API rollout.
@@ -25,24 +25,24 @@ from adapters.inbound.route_factories import (
     parse_int_query_param,
 )
 from adapters.inbound.route_factories.analytics_route_factory import AnalyticsRouteFactory
-from core.models.article.article_request import (
-    ArticleContentUpdateRequest,
-    ArticleCreateRequest,
-    ArticleRelationshipCreateRequest,
+from core.models.lesson.lesson_request import (
+    LessonContentUpdateRequest,
+    LessonCreateRequest,
+    LessonRelationshipCreateRequest,
 )
 from core.models.entity_requests import AddTagsRequest, EntityUpdateRequest, RemoveTagsRequest
 from core.models.enums import ContentScope
 from core.models.enums.user_enums import UserRole
-from core.services.article_service import ArticleService
+from core.services.lesson_service import LessonService
 from core.utils.result_simplified import Errors, Result
 from ui.feedback import Alert, AlertT
 
 
-def create_article_api_routes(
-    app: Any, rt: Any, article_service: ArticleService, user_service: Any = None
+def create_lesson_api_routes(
+    app: Any, rt: Any, lesson_service: LessonService, user_service: Any = None
 ) -> list[Any]:
     """
-    Create Article API routes using factory pattern.
+    Create Lesson API routes using factory pattern.
 
     SECURITY: CRUD write operations (create, update, delete) require ADMIN role.
     Read operations (get, list) are public.
@@ -50,7 +50,7 @@ def create_article_api_routes(
     Args:
         app: FastHTML application instance
         rt: Route decorator
-        article_service: Article service instance
+        lesson_service: Lesson service instance
         user_service: User service for admin role verification
     """
 
@@ -62,22 +62,22 @@ def create_article_api_routes(
     # ========================================================================
 
     crud_factory = CRUDRouteFactory(
-        service=article_service,
-        domain_name="article",
-        create_schema=ArticleCreateRequest,
+        service=lesson_service,
+        domain_name="lesson",
+        create_schema=LessonCreateRequest,
         update_schema=EntityUpdateRequest,
-        uid_prefix="a",
+        uid_prefix="l",
         scope=ContentScope.SHARED,
         require_role=UserRole.ADMIN,
         user_service_getter=user_service_getter,
     )
 
     # Register all standard CRUD routes:
-    # - POST /api/article (create)
-    # - GET /api/article/{uid} (get)
-    # - PUT /api/article/{uid} (update)
-    # - DELETE /api/article/{uid} (delete)
-    # - GET /api/article (list with pagination)
+    # - POST /api/lesson (create)
+    # - GET /api/lesson/{uid} (get)
+    # - PUT /api/lesson/{uid} (update)
+    # - DELETE /api/lesson/{uid} (delete)
+    # - GET /api/lesson (list with pagination)
     crud_factory.register_routes(app, rt)
 
     # ========================================================================
@@ -85,197 +85,197 @@ def create_article_api_routes(
     # ========================================================================
 
     intelligence_factory = IntelligenceRouteFactory(
-        intelligence_service=article_service.intelligence,
-        domain_name="article",
+        intelligence_service=lesson_service.intelligence,
+        domain_name="lesson",
         scope=ContentScope.SHARED,  # Curriculum content is shared
     )
 
     # Register intelligence routes:
-    # - GET /api/article/context?uid=...&depth=2 (entity with graph context)
-    # - GET /api/article/analytics?period_days=30 (user performance analytics)
-    # - GET /api/article/insights?uid=... (domain-specific insights)
+    # - GET /api/lesson/context?uid=...&depth=2 (entity with graph context)
+    # - GET /api/lesson/analytics?period_days=30 (user performance analytics)
+    # - GET /api/lesson/insights?uid=... (domain-specific insights)
     intelligence_factory.register_routes(app, rt)
 
     # ========================================================================
     # DOMAIN-SPECIFIC ROUTES (Manual)
     # ========================================================================
 
-    # Article Relationships
+    # Lesson Relationships
     # ---------------------
 
-    @rt("/api/article/relationships", methods=["POST"])
+    @rt("/api/lesson/relationships", methods=["POST"])
     @require_admin(user_service_getter)
     @boundary_handler()
-    async def create_article_relationship_route(
+    async def create_lesson_relationship_route(
         request: Request, current_user: Any, uid: str
     ) -> Result[Any]:
-        """Create a relationship between articles. Requires ADMIN role."""
+        """Create a relationship between lessons. Requires ADMIN role."""
         body = await request.json()
         try:
-            req = ArticleRelationshipCreateRequest(**body)
+            req = LessonRelationshipCreateRequest(**body)
         except ValidationError as e:
             return Result.fail(Errors.validation(str(e), field="body"))
 
-        return await article_service.create_article_relationship(
+        return await lesson_service.create_lesson_relationship(
             uid, req.target_uid, req.type, req.strength, req.description
         )
 
-    @rt("/api/article/relationships", methods=["GET"])
+    @rt("/api/lesson/relationships", methods=["GET"])
     @boundary_handler()
-    async def get_article_relationships_route(request: Request, uid: str) -> Result[Any]:
-        """Get relationships for an article."""
+    async def get_lesson_relationships_route(request: Request, uid: str) -> Result[Any]:
+        """Get relationships for a lesson."""
         params = dict(request.query_params)
         relationship_type = params.get("type")
-        # Note: direction param not supported by ArticleService - ignoring for now
+        # Note: direction param not supported by LessonService - ignoring for now
 
-        return await article_service.get_article_relationships(uid, relationship_type)
+        return await lesson_service.get_lesson_relationships(uid, relationship_type)
 
-    @rt("/api/article/prerequisites")
+    @rt("/api/lesson/prerequisites")
     @boundary_handler()
-    async def get_article_prerequisites_route(request: Request, uid: str) -> Result[Any]:
-        """Get prerequisites for an article."""
-        return await article_service.get_article_prerequisites(uid)
+    async def get_lesson_prerequisites_route(request: Request, uid: str) -> Result[Any]:
+        """Get prerequisites for a lesson."""
+        return await lesson_service.get_lesson_prerequisites(uid)
 
-    @rt("/api/article/dependencies")
+    @rt("/api/lesson/dependencies")
     @boundary_handler()
-    async def get_article_dependencies_route(request: Request, uid: str) -> Result[Any]:
-        """Get what depends on this article."""
-        return await article_service.get_article_dependencies(uid)
+    async def get_lesson_dependencies_route(request: Request, uid: str) -> Result[Any]:
+        """Get what depends on this lesson."""
+        return await lesson_service.get_lesson_dependencies(uid)
 
     # Curriculum Content Operations
     # ---------------------
 
-    @rt("/api/article/content", methods=["POST"])
+    @rt("/api/lesson/content", methods=["POST"])
     @require_admin(user_service_getter)
     @boundary_handler()
-    async def update_article_content_route(
+    async def update_lesson_content_route(
         request: Request, current_user: Any, uid: str
     ) -> Result[Any]:
-        """Update article content. Requires ADMIN role."""
+        """Update lesson content. Requires ADMIN role."""
         body = await request.json()
         try:
-            req = ArticleContentUpdateRequest(**body)
+            req = LessonContentUpdateRequest(**body)
         except ValidationError as e:
             return Result.fail(Errors.validation(str(e), field="body"))
 
-        return await article_service.update_article_content(uid, req.content, req.title)
+        return await lesson_service.update_lesson_content(uid, req.content, req.title)
 
-    @rt("/api/article/tags", methods=["POST"])
+    @rt("/api/lesson/tags", methods=["POST"])
     @require_admin(user_service_getter)
     @boundary_handler()
-    async def add_article_tags_route(request: Request, current_user: Any, uid: str) -> Result[Any]:
-        """Add tags to an article. Requires ADMIN role."""
+    async def add_lesson_tags_route(request: Request, current_user: Any, uid: str) -> Result[Any]:
+        """Add tags to a lesson. Requires ADMIN role."""
         body = await request.json()
         try:
             req = AddTagsRequest(**body)
         except ValidationError as e:
             return Result.fail(Errors.validation(str(e), field="body"))
 
-        return await article_service.add_article_tags(uid, req.tags)
+        return await lesson_service.add_lesson_tags(uid, req.tags)
 
-    @rt("/api/article/tags", methods=["DELETE"])
+    @rt("/api/lesson/tags", methods=["DELETE"])
     @require_admin(user_service_getter)
     @boundary_handler()
-    async def remove_article_tags_route(
+    async def remove_lesson_tags_route(
         request: Request, current_user: Any, uid: str
     ) -> Result[Any]:
-        """Remove tags from an article. Requires ADMIN role."""
+        """Remove tags from a lesson. Requires ADMIN role."""
         body = await request.json()
         try:
             req = RemoveTagsRequest(**body)
         except ValidationError as e:
             return Result.fail(Errors.validation(str(e), field="body"))
 
-        return await article_service.remove_article_tags(uid, req.tags)
+        return await lesson_service.remove_lesson_tags(uid, req.tags)
 
-    # Article Search and Discovery
+    # Lesson Search and Discovery
     # ----------------------------
 
-    @rt("/api/article/search")
+    @rt("/api/lesson/search")
     @boundary_handler()
-    async def search_article_route(request: Request) -> Result[Any]:
-        """Search articles by content, title, or tags."""
+    async def search_lesson_route(request: Request) -> Result[Any]:
+        """Search lessons by content, title, or tags."""
         params = dict(request.query_params)
         query = params.get("q", "")
-        # Note: search_type param not supported by ArticleService - searches all by default
+        # Note: search_type param not supported by LessonService - searches all by default
         limit = parse_int_query_param(params, "limit", 50, minimum=1, maximum=100)
 
-        return await article_service.search_articles(query, limit)
+        return await lesson_service.search_lessons(query, limit)
 
-    @rt("/api/article/related")
+    @rt("/api/lesson/related")
     @boundary_handler()
-    async def find_related_article_route(request: Request, uid: str) -> Result[Any]:
-        """Find articles related to the given one."""
+    async def find_related_lesson_route(request: Request, uid: str) -> Result[Any]:
+        """Find lessons related to the given one."""
         params = dict(request.query_params)
         similarity_threshold = float(params.get("threshold", 0.7))
         limit = parse_int_query_param(params, "limit", 10, minimum=1, maximum=500)
 
-        return await article_service.find_related_articles(uid, similarity_threshold, limit)
+        return await lesson_service.find_related_lessons(uid, similarity_threshold, limit)
 
-    @rt("/api/article/recommendations")
+    @rt("/api/lesson/recommendations")
     @boundary_handler()
-    async def get_article_recommendations_route(request: Request, uid: str) -> Result[Any]:
-        """Get personalized article recommendations."""
+    async def get_lesson_recommendations_route(request: Request, uid: str) -> Result[Any]:
+        """Get personalized lesson recommendations."""
         params = dict(request.query_params)
         user_uid = params.get("user_uid")
         recommendation_type = params.get("type", "learning")
 
-        return await article_service.get_article_recommendations(uid, user_uid, recommendation_type)
+        return await lesson_service.get_lesson_recommendations(uid, user_uid, recommendation_type)
 
-    # Article Organization
+    # Lesson Organization
     # --------------------
 
-    @rt("/api/article/domains")
+    @rt("/api/lesson/domains")
     @boundary_handler()
-    async def list_article_domains_route(_request: Request) -> Result[Any]:
-        """List all article domains."""
-        return await article_service.list_article_domains()
+    async def list_lesson_domains_route(_request: Request) -> Result[Any]:
+        """List all lesson domains."""
+        return await lesson_service.list_lesson_domains()
 
-    @rt("/api/article/by-domain")
+    @rt("/api/lesson/by-domain")
     @boundary_handler()
-    async def get_article_by_domain_route(request: Request, domain: str) -> Result[Any]:
-        """Get articles in a specific domain."""
+    async def get_lesson_by_domain_route(request: Request, domain: str) -> Result[Any]:
+        """Get lessons in a specific domain."""
         params = dict(request.query_params)
         limit = parse_int_query_param(params, "limit", 100, minimum=1, maximum=500)
 
-        return await article_service.get_articles_by_domain(domain, limit)
+        return await lesson_service.get_lessons_by_domain(domain, limit)
 
-    @rt("/api/article/categories")
+    @rt("/api/lesson/categories")
     @boundary_handler()
-    async def list_article_categories_route(_request: Request) -> Result[Any]:
-        """List all article categories."""
-        return await article_service.list_article_categories()
+    async def list_lesson_categories_route(_request: Request) -> Result[Any]:
+        """List all lesson categories."""
+        return await lesson_service.list_lesson_categories()
 
-    @rt("/api/article/tags")
+    @rt("/api/lesson/tags")
     @boundary_handler()
-    async def list_article_tags_route(request: Request) -> Result[Any]:
-        """List all article tags with usage counts."""
+    async def list_lesson_tags_route(request: Request) -> Result[Any]:
+        """List all lesson tags with usage counts."""
         params = dict(request.query_params)
         min_usage = parse_int_query_param(params, "min_usage", 1, minimum=0)
 
-        return await article_service.list_article_tags(min_usage)
+        return await lesson_service.list_lesson_tags(min_usage)
 
-    # Article Analytics
+    # Lesson Analytics
     # -----------------
 
-    @rt("/api/article/stats")
+    @rt("/api/lesson/stats")
     @boundary_handler()
-    async def get_article_stats_route(request: Request, uid: str) -> Result[Any]:
-        """Get statistics for an article."""
-        return await article_service.get_article_stats(uid)
+    async def get_lesson_stats_route(request: Request, uid: str) -> Result[Any]:
+        """Get statistics for a lesson."""
+        return await lesson_service.get_lesson_stats(uid)
 
     # ========================================================================
-    # USER CONTEXT ROUTES - Article-Activity Integration (January 2026)
+    # USER CONTEXT ROUTES - Lesson-Activity Integration (January 2026)
     # ========================================================================
 
-    @rt("/api/article/my-context")
+    @rt("/api/lesson/my-context")
     @boundary_handler()
-    async def get_article_user_context_route(request: Request, uid: str) -> Result[Any]:
+    async def get_lesson_user_context_route(request: Request, uid: str) -> Result[Any]:
         """
-        Get personalized context for how the current user uses this article.
+        Get personalized context for how the current user uses this lesson.
 
         Returns per-user substance score, activity breakdown, and recommendations
-        for deepening article application.
+        for deepening lesson application.
 
         Requires authentication - returns 401 if not logged in.
 
@@ -296,38 +296,38 @@ def create_article_api_routes(
         user_uid = require_authenticated_user(request)
 
         # Get UserContext for this user
-        if not article_service.user_service:
+        if not lesson_service.user_service:
             return Result.fail(
                 Errors.system(
                     message="User service not available",
-                    operation="get_article_user_context",
+                    operation="get_lesson_user_context",
                 )
             )
 
-        context_result = await article_service.user_service.get_user_context(user_uid)
+        context_result = await lesson_service.user_service.get_user_context(user_uid)
         if context_result.is_error:
             return Result.fail(context_result.expect_error())
 
         user_context = context_result.value
-        return await article_service.get_user_article_context(uid, user_context)
+        return await lesson_service.get_user_lesson_context(uid, user_context)
 
     # ========================================================================
     # ADAPTIVE CURRICULUM ROUTES (absorbed from SEL)
     # ========================================================================
 
-    @rt("/api/article/journey")
+    @rt("/api/lesson/journey")
     @boundary_handler()
-    async def get_article_journey(request: Request) -> Result[Any]:
+    async def get_lesson_journey(request: Request) -> Result[Any]:
         """Get user's SEL learning journey — progress across all 5 categories."""
         user_uid = require_authenticated_user(request)
-        return await article_service.get_sel_journey(user_uid)
+        return await lesson_service.get_sel_journey(user_uid)
 
-    @rt("/api/article/curriculum/{category}")
+    @rt("/api/lesson/curriculum/{category}")
     @boundary_handler()
     async def get_personalized_curriculum(
         request: Request, category: str, limit: int = 10
     ) -> Result[Any]:
-        """Get personalized article curriculum for an SEL category."""
+        """Get personalized lesson curriculum for an SEL category."""
         from core.models.enums import SELCategory
 
         user_uid = require_authenticated_user(request)
@@ -335,17 +335,17 @@ def create_article_api_routes(
             sel_category = SELCategory(category)
         except ValueError:
             return Result.fail(Errors.validation(f"Invalid SEL category: {category}"))
-        return await article_service.get_personalized_curriculum(
+        return await lesson_service.get_personalized_curriculum(
             user_uid=user_uid, sel_category=sel_category, limit=limit
         )
 
-    @rt("/api/article/journey-html")
-    async def get_article_journey_html(request: Request) -> Any:
+    @rt("/api/lesson/journey-html")
+    async def get_lesson_journey_html(request: Request) -> Any:
         """HTMX: Render SEL journey as HTML fragment."""
         from fasthtml.common import P
 
         user_uid = require_authenticated_user(request)
-        result = await article_service.get_sel_journey(user_uid)
+        result = await lesson_service.get_sel_journey(user_uid)
 
         if result.is_error:
             return Alert(
@@ -357,7 +357,7 @@ def create_article_api_routes(
 
         return SELJourneyOverview(result.value)
 
-    @rt("/api/article/curriculum-html/{category}")
+    @rt("/api/lesson/curriculum-html/{category}")
     async def get_curriculum_html(request: Request, category: str, limit: int = 10) -> Any:
         """HTMX: Render personalized curriculum grid as HTML fragment."""
         from fasthtml.common import Div, P
@@ -371,7 +371,7 @@ def create_article_api_routes(
         except ValueError:
             return Alert(P(f"Invalid category: {category}"), variant=AlertT.error)
 
-        result = await article_service.get_personalized_curriculum(
+        result = await lesson_service.get_personalized_curriculum(
             user_uid=user_uid, sel_category=sel_category, limit=limit
         )
 
@@ -401,30 +401,30 @@ def create_article_api_routes(
 
     # Analytics handler functions
     async def handle_summary_analytics(service, params):
-        """Handle summary analytics for all articles."""
+        """Handle summary analytics for all lessons."""
         time_period = params.get("period", "month")
-        return await service.get_article_summary_analytics(time_period)
+        return await service.get_lesson_summary_analytics(time_period)
 
     async def handle_graph_structure(service, params):
-        """Handle article graph structure and metrics."""
+        """Handle lesson graph structure and metrics."""
         include_metrics = params.get("metrics", "true").lower() == "true"
-        return await service.get_article_graph_structure(include_metrics)
+        return await service.get_lesson_graph_structure(include_metrics)
 
     # Create analytics factory
     analytics_factory = AnalyticsRouteFactory(
-        service=article_service,
-        domain_name="article",
+        service=lesson_service,
+        domain_name="lesson",
         analytics_config={
             "summary": {
-                "path": "/api/article/analytics/summary",
+                "path": "/api/lesson/analytics/summary",
                 "handler": handle_summary_analytics,
-                "description": "Get summary analytics for all articles",
+                "description": "Get summary analytics for all lessons",
                 "methods": ["GET"],
             },
             "graph_structure": {
-                "path": "/api/article/graph/structure",
+                "path": "/api/lesson/graph/structure",
                 "handler": handle_graph_structure,
-                "description": "Get article graph structure and metrics",
+                "description": "Get lesson graph structure and metrics",
                 "methods": ["GET"],
             },
         },
@@ -432,24 +432,3 @@ def create_article_api_routes(
     analytics_factory.register_routes(app, rt)
 
     return []  # Routes registered via @rt() decorators (no objects returned)
-
-
-# Migration Statistics:
-# =====================
-# - CRUD Factory Migration:
-# Before (ku_api.py): 327 lines
-# After (CRUD factory): ~270 lines
-# CRUD Reduction: 57 lines (17% reduction via CRUDRouteFactory)
-#
-# - Analytics Factory Migration:
-# Analytics endpoints migrated: 2 (summary, graph structure)
-# Analytics before: ~26 lines (13 lines × 2 endpoints)
-# Analytics after: ~20 lines (handlers + factory config)
-# Analytics Reduction: ~6 lines (23% reduction via AnalyticsRouteFactory)
-#
-# Total Reduction: ~63 lines (19% overall reduction)
-#
-# Factory usage:
-# - CRUDRouteFactory: 5 standard CRUD routes
-# - AnalyticsRouteFactory: 2 analytics endpoints
-# - Manual routes: 17 domain-specific routes

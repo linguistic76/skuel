@@ -279,7 +279,7 @@ class AskesisTokenBudget:
 
     Askesis builds context from multiple sources (UserContext, curriculum content,
     activity reports) before sending to the LLM. Without truncation, a rich
-    UserContext or a bundle with many Articles can exceed the LLM context window
+    UserContext or a bundle with many Lessons can exceed the LLM context window
     or waste tokens on low-value content.
 
     These budgets use characters (~4 chars ≈ 1 token) as a practical proxy.
@@ -289,7 +289,7 @@ class AskesisTokenBudget:
     """
 
     # Maximum characters for curriculum content injected from LSBundle.
-    # ~2500 tokens — enough for 2-3 Articles' worth of teaching content.
+    # ~2500 tokens — enough for 2-3 Lessons' worth of teaching content.
     MAX_CURRICULUM_CHARS: Final = 10000
 
     # Maximum characters for the full LLM context built by ResponseGenerator.

@@ -99,7 +99,7 @@ __all__ = [
     "ku_backend",
     "mock_intelligence_service",
     "mock_graph_intel",
-    # "article_service",  # Not defined in this conftest
+    # "lesson_service",  # Not defined in this conftest
     "ingestion_service",
     "tasks_backend",
     "events_backend",

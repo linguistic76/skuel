@@ -1,8 +1,8 @@
 """
-Article Mastery Service - Pedagogical Tracking
+Lesson Mastery Service - Pedagogical Tracking
 ===============================================
 
-Tracks user mastery transitions for Articles (teaching compositions).
+Tracks user mastery transitions for Lessons (teaching compositions).
 
 State Progression:
     NONE -> VIEWED -> IN_PROGRESS -> MASTERED
@@ -55,7 +55,7 @@ class UserKuProgress:
     is_bookmarked: bool = False  # BOOKMARKED relationship exists
 
 
-class ArticleMasteryService:
+class LessonMasteryService:
     """
     Tracks user interactions with knowledge units.
 
@@ -89,7 +89,7 @@ class ArticleMasteryService:
         """
         self.backend = backend
         self.event_bus = event_bus
-        self.logger = get_logger("skuel.services.article.mastery")
+        self.logger = get_logger("skuel.services.lesson.mastery")
 
     async def record_view(
         self,
@@ -391,7 +391,7 @@ class ArticleMasteryService:
             Result[None]: Success or database error
         """
         if not self.backend:
-            return Result.fail(Errors.system("Backend required", service="ArticleMasteryService"))
+            return Result.fail(Errors.system("Backend required", service="LessonMasteryService"))
 
         query = """
         MATCH (user:User {uid: $user_uid})
@@ -427,7 +427,7 @@ class ArticleMasteryService:
             Result[bool]: True if bookmarked, False if unbookmarked
         """
         if not self.backend:
-            return Result.fail(Errors.system("Backend required", service="ArticleMasteryService"))
+            return Result.fail(Errors.system("Backend required", service="LessonMasteryService"))
 
         # Check if bookmark exists
         check_query = """
@@ -502,7 +502,7 @@ class ArticleMasteryService:
             Result[bool]: True if mastered successfully
         """
         if not self.backend:
-            return Result.fail(Errors.system("Backend required", service="ArticleMasteryService"))
+            return Result.fail(Errors.system("Backend required", service="LessonMasteryService"))
 
         now = datetime.now(UTC).isoformat()
 
@@ -566,7 +566,7 @@ class ArticleMasteryService:
             Result[list[str]]: List of bookmarked KU UIDs
         """
         if not self.backend:
-            return Result.fail(Errors.system("Backend required", service="ArticleMasteryService"))
+            return Result.fail(Errors.system("Backend required", service="LessonMasteryService"))
 
         query = """
         MATCH (user:User {uid: $user_uid})-[r:BOOKMARKED]->(ku:Entity)
@@ -597,7 +597,7 @@ class ArticleMasteryService:
                 uid, title, domain, viewed, bookmarked, mastered
         """
         if not self.backend:
-            return Result.fail(Errors.system("Backend required", service="ArticleMasteryService"))
+            return Result.fail(Errors.system("Backend required", service="LessonMasteryService"))
 
         query = """
         MATCH (ku:Entity)

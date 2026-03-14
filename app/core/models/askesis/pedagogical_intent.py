@@ -33,8 +33,8 @@ class PedagogicalIntent(StrEnum):
         System prompt: "Ask questions that lead toward [insight] step by step."
         Triggered when: KU in proximal zone (structurally adjacent, not engaged).
 
-    REDIRECT_TO_CURRICULUM — Point user to the Article/KU they need to read.
-        Response: "Before we explore [X], read [Article title]."
+    REDIRECT_TO_CURRICULUM — Point user to the Lesson/KU they need to read.
+        Response: "Before we explore [X], read [Lesson title]."
         Triggered when: KU not yet engaged and has curriculum content available.
 
     ENCOURAGE_PRACTICE — Connect understanding to Habit/Task/Event practice.

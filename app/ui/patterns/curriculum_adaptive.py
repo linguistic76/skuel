@@ -7,7 +7,7 @@ Display curriculum content organized by SEL categories.
 
 Components:
 - SELCategoryCard: Progress card for one SEL category
-- AdaptiveArticleCard: Card for one Article in personalized curriculum
+- AdaptiveKUCard: Card for one KU in personalized curriculum
 - SELJourneyOverview: Complete journey across all 5 categories
 """
 
@@ -29,9 +29,9 @@ def SELCategoryCard(category: SELCategory, progress: CurriculumProgress) -> Any:
     category_title = f"{get_sel_icon(category.value)} {category.value.replace('_', ' ').title()}"
 
     metadata = [
-        f"{progress.articles_mastered} mastered",
-        f"{progress.articles_in_progress} in progress",
-        f"{progress.articles_available} available",
+        f"{progress.lessons_mastered} mastered",
+        f"{progress.lessons_in_progress} in progress",
+        f"{progress.lessons_available} available",
     ]
 
     card = EntityCard(
@@ -42,7 +42,7 @@ def SELCategoryCard(category: SELCategory, progress: CurriculumProgress) -> Any:
         metadata=metadata,
         actions=ButtonLink(
             "Continue Learning →",
-            href=f"/articles?sel={category.value}",
+            href=f"/lessons?sel={category.value}",
             variant=ButtonT.primary,
             cls="w-full",
         ),
@@ -51,8 +51,8 @@ def SELCategoryCard(category: SELCategory, progress: CurriculumProgress) -> Any:
 
     progress_section = Div(
         Progress(
-            value=progress.articles_mastered,
-            max_val=progress.total_articles,
+            value=progress.lessons_mastered,
+            max_val=progress.total_lessons,
             cls="w-full",
         ),
         P(

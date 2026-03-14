@@ -26,7 +26,7 @@ import asyncio
 from typing import Any
 
 from core.events import (
-    ArticleEmbeddingRequested,
+    LessonEmbeddingRequested,
     ChoiceEmbeddingRequested,
     ChunkEmbeddingRequested,
     ChunkEmbeddingsCompleted,
@@ -120,7 +120,7 @@ class EmbeddingBackgroundWorker:
         self.event_bus.subscribe(PrincipleEmbeddingRequested, self._queue_request)
 
         # Subscribe to all embedding request events — Curriculum types
-        self.event_bus.subscribe(ArticleEmbeddingRequested, self._queue_request)
+        self.event_bus.subscribe(LessonEmbeddingRequested, self._queue_request)
         self.event_bus.subscribe(KuEmbeddingRequested, self._queue_request)
         self.event_bus.subscribe(ResourceEmbeddingRequested, self._queue_request)
         self.event_bus.subscribe(ExerciseEmbeddingRequested, self._queue_request)
@@ -326,7 +326,7 @@ class EmbeddingBackgroundWorker:
                 "event": "Event",
                 "choice": "Choice",
                 "principle": "Principle",
-                "article": "Article",
+                "lesson": "Lesson",
                 "ku": "Ku",
                 "resource": "Resource",
                 "exercise": "Exercise",

@@ -23,15 +23,15 @@ from pydantic import ValidationError
 from adapters.inbound.auth import make_service_getter, require_admin
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.route_factories import parse_int_query_param
-from core.models.article.article_request import ArticleOrganizeRequest, ArticleReorderRequest
+from core.models.lesson.lesson_request import LessonOrganizeRequest, LessonReorderRequest
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.ports import ArticleOperations
+    from core.ports import LessonOperations
 
 
-def create_article_organization_api_routes(
-    app: Any, rt: Any, ku_service: "ArticleOperations", user_service: Any = None
+def create_lesson_organization_api_routes(
+    app: Any, rt: Any, ku_service: "LessonOperations", user_service: Any = None
 ) -> list[Any]:
     """
     Create KU organization API routes.
@@ -49,7 +49,7 @@ def create_article_organization_api_routes(
     # IDENTITY OPERATIONS
     # ========================================================================
 
-    @rt("/api/article/{uid}/is-organizer")
+    @rt("/api/lesson/{uid}/is-organizer")
     @boundary_handler()
     async def is_organizer_route(request: Request, uid: str) -> Result[dict[str, Any]]:
         """Check if a Ku has organized children."""
@@ -58,7 +58,7 @@ def create_article_organization_api_routes(
             return Result.fail(result.expect_error())
         return Result.ok({"ku_uid": uid, "is_organizer": result.value})
 
-    @rt("/api/article/{uid}/organization")
+    @rt("/api/lesson/{uid}/organization")
     @boundary_handler()
     async def get_organization_route(request: Request, uid: str) -> Result[dict[str, Any]]:
         """Get a Ku with its organized children hierarchy."""
@@ -71,14 +71,14 @@ def create_article_organization_api_routes(
     # ORGANIZATION OPERATIONS (ADMIN ONLY)
     # ========================================================================
 
-    @rt("/api/article/organize", methods=["POST"])
+    @rt("/api/lesson/organize", methods=["POST"])
     @require_admin(get_user_service)
     @boundary_handler(success_status=201)
     async def organize_route(request, current_user) -> Result[dict[str, Any]]:
         """Organize a Ku under another Ku (create ORGANIZES relationship)."""
         body = await request.json()
         try:
-            req = ArticleOrganizeRequest(**body)
+            req = LessonOrganizeRequest(**body)
         except ValidationError as e:
             return Result.fail(Errors.validation(str(e), field="body"))
 
@@ -89,14 +89,14 @@ def create_article_organization_api_routes(
             {"success": result.value, "parent_uid": req.parent_uid, "child_uid": req.child_uid}
         )
 
-    @rt("/api/article/unorganize", methods=["POST"])
+    @rt("/api/lesson/unorganize", methods=["POST"])
     @require_admin(get_user_service)
     @boundary_handler()
     async def unorganize_route(request, current_user) -> Result[dict[str, Any]]:
         """Remove organization relationship between Kus."""
         body = await request.json()
         try:
-            req = ArticleOrganizeRequest(**body)
+            req = LessonOrganizeRequest(**body)
         except ValidationError as e:
             return Result.fail(Errors.validation(str(e), field="body"))
 
@@ -105,14 +105,14 @@ def create_article_organization_api_routes(
             return Result.fail(result.expect_error())
         return Result.ok({"success": result.value})
 
-    @rt("/api/article/reorder", methods=["POST"])
+    @rt("/api/lesson/reorder", methods=["POST"])
     @require_admin(get_user_service)
     @boundary_handler()
     async def reorder_route(request, current_user) -> Result[dict[str, Any]]:
         """Change the order of a child Ku within its parent."""
         body = await request.json()
         try:
-            req = ArticleReorderRequest(**body)
+            req = LessonReorderRequest(**body)
         except ValidationError as e:
             return Result.fail(Errors.validation(str(e), field="body"))
 
@@ -125,13 +125,13 @@ def create_article_organization_api_routes(
     # DISCOVERY OPERATIONS
     # ========================================================================
 
-    @rt("/api/article/{uid}/organizers")
+    @rt("/api/lesson/{uid}/organizers")
     @boundary_handler()
     async def find_organizers_route(request: Request, uid: str) -> Result[list[Any]]:
         """Find all parent Kus that organize the given Ku."""
         return await ku_service.find_organizers(uid)
 
-    @rt("/api/article/root-organizers")
+    @rt("/api/lesson/root-organizers")
     @boundary_handler()
     async def list_root_organizers_route(request: Request) -> Result[list[Any]]:
         """List Kus that organize others but are not themselves organized (root organizers)."""
@@ -139,7 +139,7 @@ def create_article_organization_api_routes(
         limit = parse_int_query_param(params, "limit", 50, minimum=1, maximum=500)
         return await ku_service.list_root_organizers(limit)
 
-    @rt("/api/article/{uid}/organized-children")
+    @rt("/api/lesson/{uid}/organized-children")
     @boundary_handler()
     async def get_organized_children_route(request: Request, uid: str) -> Result[list[Any]]:
         """Get direct children of a Ku organized by ORGANIZES relationship."""

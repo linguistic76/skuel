@@ -389,7 +389,7 @@ def create_lateral_api_routes(
     all_routes.extend(ku_factory.register_routes(app, rt))
 
     # KU-specific: ENABLES relationship
-    @rt("/api/article/{uid}/lateral/enables", methods=["POST"])
+    @rt("/api/lesson/{uid}/lateral/enables", methods=["POST"])
     @boundary_handler(success_status=201)
     async def create_entity_enables(
         request: Request,
@@ -423,7 +423,7 @@ def create_lateral_api_routes(
             }
         )
 
-    @rt("/api/article/{uid}/lateral/enables", methods=["GET"])
+    @rt("/api/lesson/{uid}/lateral/enables", methods=["GET"])
     @boundary_handler()
     async def get_entity_enables(request: Request, uid: str) -> Result[dict[str, Any]]:
         """Get knowledge units that this KU enables."""
@@ -445,7 +445,7 @@ def create_lateral_api_routes(
             }
         )
 
-    @rt("/api/article/{uid}/lateral/enabled-by", methods=["GET"])
+    @rt("/api/lesson/{uid}/lateral/enabled-by", methods=["GET"])
     @boundary_handler()
     async def get_entity_enabled_by(request: Request, uid: str) -> Result[dict[str, Any]]:
         """Get knowledge units that enable this KU."""

@@ -876,10 +876,10 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
         """
         from fasthtml.common import H2, H4, A, Div, P, Span
 
-        # Query all KUs with user's relationship status via ArticleService
+        # Query all KUs with user's relationship status via LessonService
         all_kus: list[dict] = []
-        if services.article:
-            result = await services.article.get_all_user_knowledge_status(user_uid)
+        if services.lesson:
+            result = await services.lesson.get_all_user_knowledge_status(user_uid)
             if result.is_error:
                 logger.warning(f"Failed to fetch KUs: {result.expect_error()}")
             else:
@@ -916,7 +916,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
                     ),
                     cls="bg-muted shadow-sm hover:shadow-md transition-shadow",
                 ),
-                href=f"/article/{ku['uid']}",
+                href=f"/lesson/{ku['uid']}",
             )
 
         ku_content = (

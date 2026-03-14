@@ -39,7 +39,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-from core.models.article.article import Article
+from core.models.lesson.lesson import Lesson
 from core.models.choice.choice import Choice
 from core.models.entity import Entity
 from core.models.event.event import Event
@@ -644,24 +644,24 @@ class PrinciplesBackend(UniversalNeo4jBackend[Principle]):
         return await self.create_user_relationship(user_uid, principle_uid)
 
 
-class ArticleBackend(UniversalNeo4jBackend[Article]):
+class LessonBackend(UniversalNeo4jBackend[Lesson]):
     """
-    Domain backend for Article (teaching composition) entities.
+    Domain backend for Lesson (teaching composition) entities.
 
-    Extends UniversalNeo4jBackend[Article] with explicit implementations of
+    Extends UniversalNeo4jBackend[Lesson] with explicit implementations of
     ORGANIZES relationship operations previously handled by QueryExecutor
-    in ArticleOrganizationService:
-    - is_organizer(article_uid)                    → check ORGANIZES existence
+    in LessonOrganizationService:
+    - is_organizer(lesson_uid)                     → check ORGANIZES existence
     - organize(parent_uid, child_uid, order)       → MERGE ORGANIZES relationship
     - unorganize(parent_uid, child_uid)            → DELETE ORGANIZES relationship
     - reorder(parent_uid, child_uid, new_order)    → SET r.order on ORGANIZES
     - get_organized_children(parent_uid, limit)   → fetch direct ORGANIZES children
-    - find_organizers(article_uid)                 → find parent Articles
-    - list_root_organizers(limit)                  → Articles not organized by anyone
+    - find_organizers(lesson_uid)                  → find parent Lessons
+    - list_root_organizers(limit)                  → Lessons not organized by anyone
     """
 
     async def is_organizer(self, ku_uid: str) -> Result[bool]:
-        """Check if an Article has organized children. Returns error if not found."""
+        """Check if a Lesson has organized children. Returns error if not found."""
         query = """
         MATCH (ku:Entity {uid: $ku_uid})
         OPTIONAL MATCH (ku)-[:ORGANIZES]->(child:Entity)
@@ -672,17 +672,17 @@ class ArticleBackend(UniversalNeo4jBackend[Article]):
                 result = await session.run(query, {"ku_uid": ku_uid})
                 records = await result.data()
             if not records:
-                return Result.fail(Errors.not_found(resource="Article", identifier=ku_uid))
+                return Result.fail(Errors.not_found(resource="Lesson", identifier=ku_uid))
             record = records[0]
             if not record["ku_exists"]:
-                return Result.fail(Errors.not_found(resource="Article", identifier=ku_uid))
+                return Result.fail(Errors.not_found(resource="Lesson", identifier=ku_uid))
             return Result.ok(record["is_organizer"])
         except Exception as e:
             self.logger.error(f"Failed is_organizer check for {ku_uid}: {e}")
             return Result.fail(Errors.database(operation="is_organizer", message=str(e)))
 
     async def organize(self, parent_uid: str, child_uid: str, order: int = 0) -> Result[bool]:
-        """Create ORGANIZES relationship between two Articles."""
+        """Create ORGANIZES relationship between two Lessons."""
         query = """
         MATCH (parent:Entity {uid: $parent_uid})
         MATCH (child:Entity {uid: $child_uid})
@@ -700,7 +700,7 @@ class ArticleBackend(UniversalNeo4jBackend[Article]):
             success = bool(records and records[0]["success"])
             if success:
                 self.logger.info(
-                    f"Organized Article {child_uid} under {parent_uid} at position {order}"
+                    f"Organized Lesson {child_uid} under {parent_uid} at position {order}"
                 )
             return Result.ok(success)
         except Exception as e:
@@ -708,7 +708,7 @@ class ArticleBackend(UniversalNeo4jBackend[Article]):
             return Result.fail(Errors.database(operation="organize", message=str(e)))
 
     async def unorganize(self, parent_uid: str, child_uid: str) -> Result[bool]:
-        """Remove ORGANIZES relationship between two Articles."""
+        """Remove ORGANIZES relationship between two Lessons."""
         query = """
         MATCH (parent:Entity {uid: $parent_uid})-[r:ORGANIZES]->(child:Entity {uid: $child_uid})
         DELETE r
@@ -730,7 +730,7 @@ class ArticleBackend(UniversalNeo4jBackend[Article]):
             return Result.fail(Errors.database(operation="unorganize", message=str(e)))
 
     async def reorder(self, parent_uid: str, child_uid: str, new_order: int) -> Result[bool]:
-        """Change the order of a child Article within its parent organizer."""
+        """Change the order of a child Lesson within its parent organizer."""
         query = """
         MATCH (parent:Entity {uid: $parent_uid})-[r:ORGANIZES]->(child:Entity {uid: $child_uid})
         SET r.order = $new_order
@@ -755,7 +755,7 @@ class ArticleBackend(UniversalNeo4jBackend[Article]):
     async def get_organized_children(
         self, parent_uid: str, limit: int | None = None
     ) -> Result[list[dict[str, Any]]]:
-        """Get direct ORGANIZES children of an Article, ordered by position."""
+        """Get direct ORGANIZES children of a Lesson, ordered by position."""
         query = """
         MATCH (parent:Entity {uid: $parent_uid})-[r:ORGANIZES]->(child:Entity)
         RETURN child.uid AS uid, child.title AS title, r.order AS order
@@ -778,7 +778,7 @@ class ArticleBackend(UniversalNeo4jBackend[Article]):
             return Result.fail(Errors.database(operation="get_organized_children", message=str(e)))
 
     async def find_organizers(self, ku_uid: str) -> Result[list[dict[str, Any]]]:
-        """Find all parent Articles that organize the given Article."""
+        """Find all parent Lessons that organize the given Lesson."""
         query = """
         MATCH (parent:Entity)-[r:ORGANIZES]->(ku:Entity {uid: $ku_uid})
         RETURN parent.uid AS uid, parent.title AS title, r.order AS order
@@ -820,44 +820,44 @@ class ArticleBackend(UniversalNeo4jBackend[Article]):
             self.logger.error(f"Failed list_root_organizers: {e}")
             return Result.fail(Errors.database(operation="list_root_organizers", message=str(e)))
 
-    async def link_to_ku(self, article_uid: str, ku_uid: str) -> Result[bool]:
-        """Create USES_KU relationship from Article to atomic Ku."""
+    async def link_to_ku(self, lesson_uid: str, ku_uid: str) -> Result[bool]:
+        """Create USES_KU relationship from Lesson to atomic Ku."""
         query = """
-        MATCH (article:Entity {uid: $article_uid})
+        MATCH (lesson:Entity {uid: $lesson_uid})
         MATCH (ku:Entity {uid: $ku_uid})
-        MERGE (article)-[r:USES_KU]->(ku)
+        MERGE (lesson)-[r:USES_KU]->(ku)
         RETURN true AS success
         """
         try:
             async with self.driver.session() as session:
-                result = await session.run(query, {"article_uid": article_uid, "ku_uid": ku_uid})
+                result = await session.run(query, {"lesson_uid": lesson_uid, "ku_uid": ku_uid})
                 records = await result.data()
             if not records:
                 return Result.fail(
                     Errors.not_found(
-                        resource="Article or Ku", identifier=f"{article_uid} / {ku_uid}"
+                        resource="Lesson or Ku", identifier=f"{lesson_uid} / {ku_uid}"
                     )
                 )
             return Result.ok(True)
         except Exception as e:
-            self.logger.error(f"Failed link_to_ku {article_uid} -> {ku_uid}: {e}")
+            self.logger.error(f"Failed link_to_ku {lesson_uid} -> {ku_uid}: {e}")
             return Result.fail(Errors.database(operation="link_to_ku", message=str(e)))
 
-    async def get_used_kus(self, article_uid: str) -> Result[list[dict[str, Any]]]:
-        """Get all atomic Kus used by an Article via USES_KU."""
+    async def get_used_kus(self, lesson_uid: str) -> Result[list[dict[str, Any]]]:
+        """Get all atomic Kus used by a Lesson via USES_KU."""
         query = """
-        MATCH (article:Entity {uid: $article_uid})-[:USES_KU]->(ku:Entity)
+        MATCH (lesson:Entity {uid: $lesson_uid})-[:USES_KU]->(ku:Entity)
         RETURN ku.uid AS uid, ku.title AS title, ku.namespace AS namespace,
                ku.ku_category AS ku_category
         ORDER BY ku.title
         """
         try:
             async with self.driver.session() as session:
-                result = await session.run(query, {"article_uid": article_uid})
+                result = await session.run(query, {"lesson_uid": lesson_uid})
                 records = await result.data()
             return Result.ok(records)
         except Exception as e:
-            self.logger.error(f"Failed get_used_kus for {article_uid}: {e}")
+            self.logger.error(f"Failed get_used_kus for {lesson_uid}: {e}")
             return Result.fail(Errors.database(operation="get_used_kus", message=str(e)))
 
 
@@ -877,16 +877,16 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
     """Domain backend for atomic Knowledge Unit entities.
 
     Lightweight reference nodes with reverse-traversal methods:
-    - get_articles_using(ku_uid) — Articles that USES_KU this Ku
+    - get_lessons_using(ku_uid) — Lessons that USES_KU this Ku
     """
 
-    async def get_articles_using(self, ku_uid: str) -> Result[list[dict[str, Any]]]:
-        """Get all Articles that use this atomic Ku via USES_KU."""
+    async def get_lessons_using(self, ku_uid: str) -> Result[list[dict[str, Any]]]:
+        """Get all Lessons that use this atomic Ku via USES_KU."""
         query = """
-        MATCH (article:Entity)-[:USES_KU]->(ku:Entity {uid: $ku_uid})
-        RETURN article.uid AS uid, article.title AS title,
-               article.description AS description
-        ORDER BY article.title
+        MATCH (lesson:Entity)-[:USES_KU]->(ku:Entity {uid: $ku_uid})
+        RETURN lesson.uid AS uid, lesson.title AS title,
+               lesson.description AS description
+        ORDER BY lesson.title
         """
         try:
             async with self.driver.session() as session:
@@ -894,8 +894,8 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
                 records = await result.data()
             return Result.ok(records)
         except Exception as e:
-            self.logger.error(f"Failed get_articles_using for {ku_uid}: {e}")
-            return Result.fail(Errors.database(operation="get_articles_using", message=str(e)))
+            self.logger.error(f"Failed get_lessons_using for {ku_uid}: {e}")
+            return Result.fail(Errors.database(operation="get_lessons_using", message=str(e)))
 
 
 class LpBackend(UniversalNeo4jBackend[LearningPath]):
@@ -1196,7 +1196,7 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
     predicates. Typed to Entity (the base class) since sharing spans all entity types.
 
     Moves sharing Cypher from the service layer into the persistence boundary,
-    following the same pattern as ArticleBackend (ORGANIZES), LpBackend (progress),
+    following the same pattern as LessonBackend (ORGANIZES), LpBackend (progress),
     and ExerciseBackend (curriculum linking).
 
     See: /docs/patterns/SHARING_PATTERNS.md
@@ -1473,37 +1473,37 @@ class FormTemplateBackend(UniversalNeo4jBackend["FormTemplate"]):
     Domain backend for FormTemplate entities.
 
     Provides:
-    - get_forms_for_article — Query FormTemplates linked to an article via EMBEDS_FORM
+    - get_forms_for_lesson — Query FormTemplates linked to a lesson via EMBEDS_FORM
     """
 
-    async def get_forms_for_article(self, article_uid: str) -> Result[list[dict[str, Any]]]:
-        """Get all FormTemplates embedded in an article."""
+    async def get_forms_for_lesson(self, lesson_uid: str) -> Result[list[dict[str, Any]]]:
+        """Get all FormTemplates embedded in a lesson."""
         result = await self.execute_query(
             f"""
-            MATCH (a:Entity {{uid: $article_uid}})
+            MATCH (a:Entity {{uid: $lesson_uid}})
                   -[:{RelationshipName.EMBEDS_FORM}]->
                   (ft:Entity {{entity_type: 'form_template'}})
             RETURN ft
             ORDER BY ft.title ASC
             """,
-            {"article_uid": article_uid},
+            {"lesson_uid": lesson_uid},
         )
         if result.is_error:
             return Result.fail(result.expect_error())
         return Result.ok([dict(record["ft"]) for record in (result.value or [])])
 
-    async def link_to_article(self, form_template_uid: str, article_uid: str) -> Result[bool]:
-        """Create EMBEDS_FORM relationship from article to form template."""
+    async def link_to_lesson(self, form_template_uid: str, lesson_uid: str) -> Result[bool]:
+        """Create EMBEDS_FORM relationship from lesson to form template."""
         result = await self.execute_query(
             f"""
-            MATCH (a:Entity {{uid: $article_uid}})
-            WHERE a.entity_type IN ['article', 'ku']
+            MATCH (a:Entity {{uid: $lesson_uid}})
+            WHERE a.entity_type IN ['lesson', 'ku']
             MATCH (ft:Entity {{uid: $ft_uid, entity_type: 'form_template'}})
             MERGE (a)-[r:{RelationshipName.EMBEDS_FORM}]->(ft)
             ON CREATE SET r.created_at = datetime()
             RETURN true as success
             """,
-            {"article_uid": article_uid, "ft_uid": form_template_uid},
+            {"lesson_uid": lesson_uid, "ft_uid": form_template_uid},
         )
         if result.is_error:
             return Result.fail(result.expect_error())
@@ -1511,23 +1511,23 @@ class FormTemplateBackend(UniversalNeo4jBackend["FormTemplate"]):
         if not records:
             return Result.fail(
                 Errors.not_found(
-                    resource="Article or FormTemplate",
-                    identifier=f"{article_uid} -> {form_template_uid}",
+                    resource="Lesson or FormTemplate",
+                    identifier=f"{lesson_uid} -> {form_template_uid}",
                 )
             )
         return Result.ok(True)
 
-    async def unlink_from_article(self, form_template_uid: str, article_uid: str) -> Result[bool]:
+    async def unlink_from_lesson(self, form_template_uid: str, lesson_uid: str) -> Result[bool]:
         """Remove EMBEDS_FORM relationship."""
         result = await self.execute_query(
             f"""
-            MATCH (a:Entity {{uid: $article_uid}})
+            MATCH (a:Entity {{uid: $lesson_uid}})
                   -[r:{RelationshipName.EMBEDS_FORM}]->
                   (ft:Entity {{uid: $ft_uid}})
             DELETE r
             RETURN true as success
             """,
-            {"article_uid": article_uid, "ft_uid": form_template_uid},
+            {"lesson_uid": lesson_uid, "ft_uid": form_template_uid},
         )
         if result.is_error:
             return Result.fail(result.expect_error())
@@ -1620,7 +1620,7 @@ __all__ = [
     "FormTemplateBackend",
     "GoalsBackend",
     "HabitsBackend",
-    "ArticleBackend",
+    "LessonBackend",
     "KuBackend",
     "LpBackend",
     "PrinciplesBackend",

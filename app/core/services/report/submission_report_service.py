@@ -31,7 +31,7 @@ from core.utils.uid_generator import UIDGenerator
 
 if TYPE_CHECKING:
     from core.ports import QueryExecutor
-    from core.services.article.article_mastery_service import ArticleMasteryService
+    from core.services.lesson.lesson_mastery_service import LessonMasteryService
 
 logger = get_logger(__name__)
 
@@ -52,7 +52,7 @@ class SubmissionReportService:
         openai_service: OpenAIService | None = None,
         anthropic_service: AnthropicService | None = None,
         executor: "QueryExecutor | None" = None,
-        ku_interaction_service: "ArticleMasteryService | None" = None,
+        ku_interaction_service: "LessonMasteryService | None" = None,
     ) -> None:
         """
         Initialize with AI services and query executor.

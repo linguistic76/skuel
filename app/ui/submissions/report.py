@@ -9,8 +9,8 @@ from typing import Any
 
 from fasthtml.common import H4, Div, NotStr, P
 
-from ui.cards import Card, CardBody
 from ui.buttons import ButtonLink, ButtonT
+from ui.cards import Card, CardBody
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
 
@@ -74,7 +74,6 @@ def render_review_status_badge(status: str, feedback_count: int) -> Any:
 
 def render_submission_history_row(item: dict) -> Any:
     """Render a single submission row with review status for the history list."""
-    from fasthtml.common import A
 
     filename = item.get("original_filename") or item.get("title") or "Untitled"
     status = item.get("status") or "submitted"
@@ -135,7 +134,6 @@ def render_yours_list(items: list[dict]) -> Any:
 
 def render_report_card(assessment: Any) -> Any:
     """Render a single received-report card (server-side, no inline JS)."""
-    from fasthtml.common import A
 
     uid = getattr(assessment, "uid", "") or ""
     title = getattr(assessment, "title", "") or "Assessment"

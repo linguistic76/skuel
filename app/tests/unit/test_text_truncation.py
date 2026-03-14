@@ -74,12 +74,12 @@ class TestTruncateToBudget:
         result = truncate_to_budget(text, 45)
         assert result.endswith("...")
 
-    def test_realistic_article_content(self) -> None:
-        """Simulates real Article content truncation."""
-        articles = [
-            f"## Article {i}\n\n{'This is the content of article. ' * 100}" for i in range(10)
+    def test_realistic_lesson_content(self) -> None:
+        """Simulates real Lesson content truncation."""
+        lessons = [
+            f"## Lesson {i}\n\n{'This is the content of lesson. ' * 100}" for i in range(10)
         ]
-        text = "\n\n---\n\n".join(articles)
+        text = "\n\n---\n\n".join(lessons)
         assert len(text) > 10000
 
         result = truncate_to_budget(text, 10000)

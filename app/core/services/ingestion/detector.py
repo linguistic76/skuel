@@ -19,15 +19,15 @@ from core.models.enums.entity_enums import EntityType, NonKuDomain
 
 # Map YAML type values to EntityType/NonKuDomain (handles aliases)
 TYPE_MAPPING: dict[str, EntityType | NonKuDomain] = {
-    # Articles (teaching compositions)
-    "article": EntityType.ARTICLE,
-    "knowledgeunit": EntityType.ARTICLE,
-    "knowledge": EntityType.ARTICLE,
+    # Lessons (teaching compositions)
+    "lesson": EntityType.LESSON,
+    "knowledgeunit": EntityType.LESSON,
+    "knowledge": EntityType.LESSON,
     # Atomic Ku (knowledge unit — concept, state, principle, substance, practice, value)
     "ku": EntityType.KU,
     # Maps of Content (MOC is emergent via ORGANIZES relationships)
-    "moc": EntityType.ARTICLE,
-    "mapofcontent": EntityType.ARTICLE,
+    "moc": EntityType.LESSON,
+    "mapofcontent": EntityType.LESSON,
     # Activity domains
     "task": EntityType.TASK,
     "goal": EntityType.GOAL,
@@ -108,11 +108,11 @@ def detect_entity_type(data: dict[str, Any], file_path: Path) -> EntityType | No
 
     # Check for MOC flag (markdown convention) — MOC is now ARTICLE
     if data.get("moc") is True:
-        return EntityType.ARTICLE
+        return EntityType.LESSON
 
     # Default to ARTICLE for markdown files without explicit type
     if file_path.suffix.lower() == ".md":
-        return EntityType.ARTICLE
+        return EntityType.LESSON
 
     raise ValueError(f"Cannot determine entity type for {file_path}")
 

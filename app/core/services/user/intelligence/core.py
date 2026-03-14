@@ -46,7 +46,7 @@ from core.services.user.intelligence.temporal_momentum import TemporalMomentumMi
 if TYPE_CHECKING:
     from core.ports.zpd_protocols import ZPDOperations
     from core.services.analytics_relationship_service import AnalyticsRelationshipService
-    from core.services.article.article_graph_service import ArticleGraphService
+    from core.services.lesson.lesson_graph_service import LessonGraphService
     from core.services.calendar_service import CalendarService
     from core.services.relationships import UnifiedRelationshipService
 
@@ -83,7 +83,7 @@ class UserContextIntelligence(
     - principles: UnifiedRelationshipService - What values guide this?
 
     Curriculum Domains (3):
-    - article: ArticleGraphService - What knowledge is ready?
+    - lesson: LessonGraphService - What knowledge is ready?
     - ls: UnifiedRelationshipService - Learning step relationships (unified)
     - lp: UnifiedRelationshipService - Critical path to life path (unified)
 
@@ -125,7 +125,7 @@ class UserContextIntelligence(
         choices: UnifiedRelationshipService,
         principles: UnifiedRelationshipService,
         # Curriculum Domains (3) - REQUIRED
-        article: ArticleGraphService,
+        lesson: LessonGraphService,
         ls: UnifiedRelationshipService,  # January 2026: Unified
         lp: UnifiedRelationshipService,  # January 2026: Unified
         # Processing Domains (3) - REQUIRED
@@ -154,7 +154,7 @@ class UserContextIntelligence(
                 principles: Principles relationship service for value alignment
 
             Curriculum Domains (3):
-                article: Article service for learning readiness
+                lesson: Article service for learning readiness
                 ls: Learning step service for step sequencing
                 lp: Learning path service for critical path analysis
 
@@ -184,7 +184,7 @@ class UserContextIntelligence(
             "choices": choices,
             "principles": principles,
             # Curriculum Domains (3)
-            "article": article,
+            "lesson": lesson,
             "ls": ls,
             "lp": lp,
             # Processing Domains (3)
@@ -214,7 +214,7 @@ class UserContextIntelligence(
         self.principles = principles
 
         # Curriculum domains (3)
-        self.article = article
+        self.lesson = lesson
         self.ls = ls
         self.lp = lp
 

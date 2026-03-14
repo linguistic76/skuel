@@ -233,18 +233,18 @@ class ResponseGenerator:
         Templates: askesis_guided_redirect, askesis_guided_out_of_scope
         """
         if guidance.pedagogical_detail == PedagogicalIntent.REDIRECT_TO_CURRICULUM:
-            article_refs = []
+            lesson_refs = []
             for ku_uid in guidance.target_ku_uids:
-                article = ls_bundle.get_article_for_ku(ku_uid)
-                if article:
-                    article_refs.append(article.title or "Untitled Article")
+                lesson = ls_bundle.get_lesson_for_ku(ku_uid)
+                if lesson:
+                    lesson_refs.append(lesson.title or "Untitled Lesson")
 
-            if not article_refs:
-                article_refs = [a.title or "Untitled Article" for a in ls_bundle.articles]
+            if not lesson_refs:
+                lesson_refs = [a.title or "Untitled Lesson" for a in ls_bundle.lessons]
 
             return PROMPT_REGISTRY.render(
                 "askesis_guided_redirect",
-                articles_text=", ".join(dict.fromkeys(article_refs)),
+                articles_text=", ".join(dict.fromkeys(lesson_refs)),
                 resource_refs=self._get_resource_references(ls_bundle),
             )
 

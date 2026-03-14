@@ -145,11 +145,11 @@ class EntityIngestionConfig:
 # See: core/models/relationship_registry.py (single source of truth)
 # See: /docs/decisions/ADR-026-unified-relationship-registry.md
 ENTITY_CONFIGS: dict[EntityType | NonKuDomain, EntityIngestionConfig] = {
-    EntityType.ARTICLE: EntityIngestionConfig(
+    EntityType.LESSON: EntityIngestionConfig(
         entity_label="Entity",
-        uid_prefix="a",
+        uid_prefix="l",
         required_fields=("title", "content"),
-        relationship_config=generate_ingestion_relationship_config(EntityType.ARTICLE),
+        relationship_config=generate_ingestion_relationship_config(EntityType.LESSON),
     ),
     EntityType.KU: EntityIngestionConfig(
         entity_label="Ku",

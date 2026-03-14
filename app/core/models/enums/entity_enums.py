@@ -30,7 +30,6 @@ class EntityType(StrEnum):
 
     Entity types (alphabetical):
         ACTIVITY_REPORT      → AI/human feedback about activity patterns
-        ARTICLE              → Teaching composition (essay-like narrative)
         CHOICE               → Knowledge about decisions you make
         EVENT                → Knowledge about what you attend
         EXERCISE             → Instruction template for practicing curriculum
@@ -44,6 +43,7 @@ class EntityType(StrEnum):
         JOURNAL_SUBMISSION   → Voice or text journal entry (user's own reflections)
         KU                   → Atomic knowledge unit (concept, state, principle)
         LEARNING_PATH        → Ordered sequence of steps
+        LESSON               → Teaching composition (essay-like narrative)
         LEARNING_STEP        → Step in a learning path
         LIFE_PATH            → Knowledge about your life direction
         PRINCIPLE            → Knowledge about what you believe
@@ -51,18 +51,18 @@ class EntityType(StrEnum):
         REVISED_EXERCISE     → Targeted revision instructions after feedback
         TASK                 → Knowledge about what needs doing
 
-    Any Article can organize other Articles via ORGANIZES relationships (emergent
+    Any Lesson can organize other Lessons via ORGANIZES relationships (emergent
     identity — no separate MOC type needed).
 
     Content origin tiers (see ContentOrigin):
         A  CURATED      → RESOURCE
-        B  CURRICULUM   → ARTICLE, KU, LEARNING_STEP, LEARNING_PATH, EXERCISE, REVISED_EXERCISE
+        B  CURRICULUM   → LESSON, KU, LEARNING_STEP, LEARNING_PATH, EXERCISE, REVISED_EXERCISE
         C  USER_CREATED → Activities (6), EXERCISE_SUBMISSION, JOURNAL_SUBMISSION, LIFE_PATH,
                           FORM_SUBMISSION
         D  REPORT       → ACTIVITY_REPORT, EXERCISE_REPORT, JOURNAL_REPORT
 
     Ownership rules:
-        Curriculum + Resource + FormTemplate: user_uid = None (shared content, admin-created)
+        Curriculum (Lesson, KU, LS, LP, Exercise) + Resource + FormTemplate: user_uid = None (shared content, admin-created)
         Content processing:    user_uid = student/teacher (user-owned)
         Activity (6):          user_uid = student (user-owned)
         Destination:           user_uid = student (user-owned)
@@ -70,7 +70,7 @@ class EntityType(StrEnum):
     """
 
     # Curriculum (admin-created, shared)
-    ARTICLE = "article"
+    LESSON = "lesson"
     KU = "ku"
     LEARNING_STEP = "learning_step"
     LEARNING_PATH = "learning_path"
@@ -93,10 +93,11 @@ class EntityType(StrEnum):
     EXERCISE_REPORT = "exercise_report"
     JOURNAL_REPORT = "journal_report"
 
-    # Deprecated aliases — use EXERCISE_SUBMISSION, JOURNAL_SUBMISSION, EXERCISE_REPORT
+    # Deprecated aliases — use EXERCISE_SUBMISSION, JOURNAL_SUBMISSION, EXERCISE_REPORT, LESSON
     SUBMISSION = "submission"  # deprecated: use EXERCISE_SUBMISSION
     JOURNAL = "journal"  # deprecated: use JOURNAL_SUBMISSION
     SUBMISSION_REPORT = "submission_report"  # deprecated: use EXERCISE_REPORT
+    ARTICLE = "lesson"  # deprecated: use LESSON
 
     # Activity (user-owned)
     TASK = "task"
@@ -122,7 +123,7 @@ class EntityType(StrEnum):
     # -------------------------------------------------------------------------
 
     def is_knowledge(self) -> bool:
-        """Check if this is curriculum knowledge content (Article or Ku)."""
+        """Check if this is curriculum knowledge content (Lesson or Ku)."""
         return self in _KNOWLEDGE_TYPES
 
     def is_curriculum_structure(self) -> bool:
@@ -211,10 +212,10 @@ class EntityType(StrEnum):
 
         Supports aliases for backward compatibility with DSL and ingestion:
             "ku" -> KU (canonical)
-            "knowledge" -> KU
+            "knowledge" -> LESSON
             "ls" -> LEARNING_STEP
             "lp" -> LEARNING_PATH
-            "submission_report" -> SUBMISSION_REPORT
+            "submission_report" -> EXERCISE_REPORT
         """
         normalized = text.strip().lower().replace("-", "_").replace(" ", "_")
         return _ENTITY_TYPE_ALIASES.get(normalized)
@@ -222,7 +223,7 @@ class EntityType(StrEnum):
 
 # EntityType lookup tables (module-level for performance)
 _ENTITY_TYPE_DISPLAY_NAMES: dict[EntityType, str] = {
-    EntityType.ARTICLE: "Article",
+    EntityType.LESSON: "Lesson",
     EntityType.KU: "Knowledge Unit",
     EntityType.RESOURCE: "Resource",
     EntityType.LEARNING_STEP: "Learning Step",
@@ -249,7 +250,7 @@ _ENTITY_TYPE_DISPLAY_NAMES: dict[EntityType, str] = {
     EntityType.SUBMISSION_REPORT: "Submission Report",
 }
 
-_KNOWLEDGE_TYPES = frozenset({EntityType.ARTICLE, EntityType.KU})
+_KNOWLEDGE_TYPES = frozenset({EntityType.LESSON, EntityType.KU})
 _CURRICULUM_STRUCTURE_TYPES = frozenset(
     {EntityType.LEARNING_STEP, EntityType.LEARNING_PATH, EntityType.EXERCISE}
 )
@@ -278,7 +279,7 @@ _ACTIVITY_TYPES = frozenset(
 )
 _SHARED_TYPES = frozenset(
     {
-        EntityType.ARTICLE,
+        EntityType.LESSON,
         EntityType.KU,
         EntityType.RESOURCE,
         EntityType.LEARNING_STEP,
@@ -312,7 +313,7 @@ _CONTENT_ORIGIN_BY_TYPE: dict[EntityType, ContentOrigin] = {
     EntityType.RESOURCE: ContentOrigin.CURATED,
     EntityType.FORM_TEMPLATE: ContentOrigin.CURATED,
     # B — Curriculum structure and organization
-    EntityType.ARTICLE: ContentOrigin.CURRICULUM,
+    EntityType.LESSON: ContentOrigin.CURRICULUM,
     EntityType.KU: ContentOrigin.CURRICULUM,
     EntityType.LEARNING_STEP: ContentOrigin.CURRICULUM,
     EntityType.LEARNING_PATH: ContentOrigin.CURRICULUM,
@@ -342,7 +343,7 @@ _CONTENT_ORIGIN_BY_TYPE: dict[EntityType, ContentOrigin] = {
 
 _ENTITY_TYPE_ALIASES: dict[str, EntityType] = {
     # Canonical values
-    "article": EntityType.ARTICLE,
+    "lesson": EntityType.LESSON,
     "ku": EntityType.KU,
     "resource": EntityType.RESOURCE,
     "learning_step": EntityType.LEARNING_STEP,
@@ -365,9 +366,9 @@ _ENTITY_TYPE_ALIASES: dict[str, EntityType] = {
     "submission_report": EntityType.EXERCISE_REPORT,
     "submission_feedback": EntityType.EXERCISE_REPORT,  # pre-rename compat
     # Aliases
-    "knowledge": EntityType.ARTICLE,
-    "moc": EntityType.ARTICLE,
-    "map_of_content": EntityType.ARTICLE,
+    "knowledge": EntityType.LESSON,
+    "moc": EntityType.LESSON,
+    "map_of_content": EntityType.LESSON,
     "book": EntityType.RESOURCE,
     "film": EntityType.RESOURCE,
     "talk": EntityType.RESOURCE,
@@ -686,7 +687,7 @@ _VALID_TRANSITIONS: dict[EntityStatus, set[EntityStatus]] = {
 
 # Valid statuses per EntityType (from plan specification)
 _VALID_STATUSES_BY_TYPE: dict[EntityType, frozenset[EntityStatus]] = {
-    EntityType.ARTICLE: frozenset(
+    EntityType.LESSON: frozenset(
         {
             EntityStatus.DRAFT,
             EntityStatus.COMPLETED,
@@ -898,7 +899,7 @@ _VALID_STATUSES_BY_TYPE: dict[EntityType, frozenset[EntityStatus]] = {
 }
 
 _DEFAULT_STATUS_BY_TYPE: dict[EntityType, EntityStatus] = {
-    EntityType.ARTICLE: EntityStatus.COMPLETED,
+    EntityType.LESSON: EntityStatus.COMPLETED,
     EntityType.KU: EntityStatus.COMPLETED,
     EntityType.RESOURCE: EntityStatus.COMPLETED,
     EntityType.LEARNING_STEP: EntityStatus.DRAFT,

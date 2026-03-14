@@ -513,7 +513,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
                     "sort_by": filters.sort_by,
                 },
                 stats=stats,
-                categories=categories,
+                _categories=categories,
             )
 
         # Build page with tabs + view content
@@ -556,7 +556,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
             habits=habits,
             filters=filters_dict,
             stats=stats,
-            categories=categories,
+            _categories=categories,
         )
 
     @rt("/habits/view/create")
@@ -682,7 +682,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
             habits=habits,
             filters={},
             stats=stats,
-            categories=categories,
+            _categories=categories,
         )
 
     async def render_habit_add_another_view(user_uid: str) -> Any:

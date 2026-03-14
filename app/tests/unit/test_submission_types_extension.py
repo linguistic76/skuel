@@ -140,7 +140,7 @@ class TestKuSubjectUid:
         ku = Curriculum(
             uid="ku_test_123",
             title="Shared Knowledge",
-            entity_type=EntityType.ARTICLE,
+            entity_type=EntityType.LESSON,
         )
         assert ku.is_user_owned is False
 

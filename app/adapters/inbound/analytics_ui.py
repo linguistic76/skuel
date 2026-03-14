@@ -316,7 +316,6 @@ class AnalyticsUIComponents:
     def render_finance_metrics(metrics) -> Any:
         """Render finance metrics using shared components"""
         net_balance = metrics.get("net_balance", 0)
-        balance_color = "success" if net_balance >= 0 else "error"
 
         return Div(
             H3("💰 Finance Metrics", cls="text-lg font-semibold mb-4"),

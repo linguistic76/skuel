@@ -45,7 +45,7 @@ from core.services.user.intelligence.core import UserContextIntelligence
 if TYPE_CHECKING:
     from core.ports.zpd_protocols import ZPDOperations
     from core.services.analytics_relationship_service import AnalyticsRelationshipService
-    from core.services.article.article_graph_service import ArticleGraphService
+    from core.services.lesson.lesson_graph_service import LessonGraphService
     from core.services.calendar_service import CalendarService
 
     # LpRelationshipService deleted - LP now uses UnifiedRelationshipService
@@ -102,7 +102,7 @@ class UserContextIntelligenceFactory:
         choices: UnifiedRelationshipService,
         principles: UnifiedRelationshipService,
         # Curriculum Domains (3) - REQUIRED
-        article: ArticleGraphService,
+        lesson: LessonGraphService,
         ls: UnifiedRelationshipService,  # January 2026: Unified
         lp: UnifiedRelationshipService,  # January 2026: Unified
         # Processing Domains (3) - REQUIRED
@@ -129,7 +129,7 @@ class UserContextIntelligenceFactory:
                 principles: Principles relationship service
 
             Curriculum Domains (3):
-                article: Article graph service
+                lesson: Article graph service
                 ls: Learning step relationship service
                 lp: Learning path relationship service
 
@@ -157,7 +157,7 @@ class UserContextIntelligenceFactory:
             "choices": choices,
             "principles": principles,
             # Curriculum Domains (3)
-            "article": article,
+            "lesson": lesson,
             "ls": ls,
             "lp": lp,
             # Processing Domains (3)
@@ -184,7 +184,7 @@ class UserContextIntelligenceFactory:
         self._choices = choices
         self._principles = principles
         # Curriculum domains (3)
-        self._article = article
+        self._lesson = lesson
         self._ls = ls
         self._lp = lp
         # Processing domains (3)
@@ -218,7 +218,7 @@ class UserContextIntelligenceFactory:
             choices=self._choices,
             principles=self._principles,
             # Curriculum domains (3)
-            article=self._article,
+            lesson=self._lesson,
             ls=self._ls,
             lp=self._lp,
             # Processing domains (3)

@@ -193,7 +193,7 @@ class LpSearchService(BaseService["BackendOperations[LearningPath]", LearningPat
         """
         Find learning paths that teach this knowledge (via learning steps).
 
-        Complementary to ArticleGraphService.find_learning_paths_teaching().
+        Complementary to LessonGraphService.find_learning_paths_teaching().
         Returns full LP entities instead of just UIDs.
 
         Graph Pattern: (Ku{learning_path})-[:HAS_STEP]->(Ku{learning_step})-[:CONTAINS_KNOWLEDGE]->(Ku)

@@ -9,7 +9,7 @@ curriculum domains (KU, LS, LP, Exercise), parallel to BackendOperations
 for Activity domains.
 
 Any Ku can organize other Kus via ORGANIZES relationships (emergent identity).
-Organization methods are part of ArticleOperations protocol.
+Organization methods are part of LessonOperations protocol.
 
 Design Principle: "Curriculum domains follow the same patterns as Activity domains"
 -------------------------------------------------------------------------------
@@ -22,7 +22,7 @@ The Four Curriculum Domains:
 
 Protocol Hierarchy:
     - CurriculumOperations[T]: Base protocol inheriting BackendOperations
-    - ArticleOperations: Extends CurriculumOperations[Article] with KU-specific methods
+    - LessonOperations: Extends CurriculumOperations[Lesson] with KU-specific methods
     - LsOperations: Extends CurriculumOperations[LearningStep] with LS-specific methods
     - LpOperations: Extends CurriculumOperations[LearningPath] with LP-specific methods
     - ExerciseOperations: Standalone protocol for Exercise instruction templates
@@ -40,8 +40,8 @@ Protocol Hierarchy
             └── get_hierarchy() → Result[dict]
 
 Domain-Specific Protocols:
-    ArticleOperations(CurriculumOperations[Article], Protocol):
-        ├── get_enables() → Result[list[Article]]
+    LessonOperations(CurriculumOperations[Lesson], Protocol):
+        ├── get_enables() → Result[list[Lesson]]
         ├── get_semantic_links() → Result[list[str]]
         └── get_substance_score() → Result[float]
 
@@ -61,9 +61,9 @@ This aligns with Activity domain patterns per CLAUDE.md.
 
 Usage
 -----
-    from core.ports import CurriculumOperations, ArticleOperations
+    from core.ports import CurriculumOperations, LessonOperations
 
-    class ArticleCoreService(BaseService[ArticleOperations, Article]):
+    class LessonCoreService(BaseService[LessonOperations, Lesson]):
         @property
         def entity_label(self) -> str:
             return "Entity"
@@ -85,7 +85,7 @@ from .base_protocols import BackendOperations, GraphRelationshipOperations
 if TYPE_CHECKING:
     from datetime import date
 
-    from core.models.article.article import Article
+    from core.models.lesson.lesson import Lesson
     from core.models.exercises.exercise import Exercise
     from core.models.pathways.learning_path import LearningPath
     from core.models.pathways.learning_step import LearningStep
@@ -126,8 +126,8 @@ class CurriculumOperations[T](BackendOperations[T], GraphRelationshipOperations,
         PLUS these curriculum-specific additions.
 
     Example:
-        class KuUniversalBackend(UniversalNeo4jBackend[Article], CurriculumOperations[Article]):
-            async def get_with_content(self, uid: str) -> Result[Article]:
+        class KuUniversalBackend(UniversalNeo4jBackend[Lesson], CurriculumOperations[Lesson]):
+            async def get_with_content(self, uid: str) -> Result[Lesson]:
                 # Implementation
                 ...
     """
@@ -293,16 +293,16 @@ class KuInteractionOperations(Protocol):
 
 
 @runtime_checkable
-class ArticleOperations(CurriculumOperations["Article"], Protocol):
+class LessonOperations(CurriculumOperations["Lesson"], Protocol):
     """
-    Article (teaching composition) specific operations.
+    Lesson (teaching composition) specific operations.
 
-    Extends CurriculumOperations with Article-specific methods for:
+    Extends CurriculumOperations with Lesson-specific methods for:
     - Semantic relationships
     - Substance tracking (applied knowledge measurement)
     - Domain-specific queries
 
-    Neo4j: Article nodes are :Entity:Article{entity_type='article'}
+    Neo4j: Lesson nodes are :Entity:Lesson{entity_type='lesson'}
     UID Format: "a_{slug}_{random}" (e.g., "a_python-basics_a1b2c3d4")
     """
 
@@ -319,7 +319,7 @@ class ArticleOperations(CurriculumOperations["Article"], Protocol):
     # KU-SPECIFIC RETRIEVAL
     # =========================================================================
 
-    async def get_ku(self, uid: str) -> Result[Article]:
+    async def get_ku(self, uid: str) -> Result[Lesson]:
         """
         Get a Knowledge Unit by UID.
 
@@ -329,11 +329,11 @@ class ArticleOperations(CurriculumOperations["Article"], Protocol):
             uid: KU UID (e.g., "ku_python-basics_a1b2c3d4")
 
         Returns:
-            Result[Article]: The knowledge unit or not-found error
+            Result[Lesson]: The knowledge unit or not-found error
         """
         ...
 
-    async def get_user_kus(self, user_uid: str) -> Result[list[Article]]:
+    async def get_user_kus(self, user_uid: str) -> Result[list[Lesson]]:
         """
         Get all KUs accessible to a user.
 
@@ -341,7 +341,7 @@ class ArticleOperations(CurriculumOperations["Article"], Protocol):
             user_uid: User UID
 
         Returns:
-            Result[list[Article]]: User's knowledge units
+            Result[list[Lesson]]: User's knowledge units
         """
         ...
 
@@ -368,7 +368,7 @@ class ArticleOperations(CurriculumOperations["Article"], Protocol):
         self,
         uid: str,
         domain: str,
-    ) -> Result[list[Article]]:
+    ) -> Result[list[Lesson]]:
         """
         Get related KUs filtered by domain.
 
@@ -377,7 +377,7 @@ class ArticleOperations(CurriculumOperations["Article"], Protocol):
             domain: Domain filter (e.g., "TECH", "HEALTH")
 
         Returns:
-            Result[list[Article]]: Related KUs in specified domain
+            Result[list[Lesson]]: Related KUs in specified domain
         """
         ...
 
@@ -445,39 +445,39 @@ class ArticleOperations(CurriculumOperations["Article"], Protocol):
         ...
 
     # =========================================================================
-    # ORGANIZATION (ORGANIZES relationships — any Article can organize others)
+    # ORGANIZATION (ORGANIZES relationships — any Lesson can organize others)
     # =========================================================================
 
     async def organize(self, parent_uid: str, child_uid: str, order: int = 0) -> Result[bool]:
-        """Create ORGANIZES relationship between two Articles."""
+        """Create ORGANIZES relationship between two Lessons."""
         ...
 
     async def unorganize(self, parent_uid: str, child_uid: str) -> Result[bool]:
-        """Remove ORGANIZES relationship between two Articles."""
+        """Remove ORGANIZES relationship between two Lessons."""
         ...
 
     async def reorder(self, parent_uid: str, child_uid: str, new_order: int) -> Result[bool]:
-        """Change the order of a child Article within its parent."""
+        """Change the order of a child Lesson within its parent."""
         ...
 
     async def is_organizer(self, ku_uid: str) -> Result[bool]:
-        """Check if an Article has organized children."""
+        """Check if a Lesson has organized children."""
         ...
 
     async def get_organization_view(self, ku_uid: str, max_depth: int = 3) -> Result[Any]:
-        """Get an Article with its organized children hierarchy."""
+        """Get a Lesson with its organized children hierarchy."""
         ...
 
     async def find_organizers(self, ku_uid: str) -> Result[list[dict[str, Any]]]:
-        """Find all parent Articles that organize the given Article."""
+        """Find all parent Lessons that organize the given Lesson."""
         ...
 
     async def list_root_organizers(self, limit: int = 50) -> Result[list[dict[str, Any]]]:
-        """List Articles that organize others but are not themselves organized."""
+        """List Lessons that organize others but are not themselves organized."""
         ...
 
     async def get_organized_children(self, ku_uid: str) -> Result[list[dict[str, Any]]]:
-        """Get direct children of an Article organized by ORGANIZES relationship."""
+        """Get direct children of a Lesson organized by ORGANIZES relationship."""
         ...
 
 
@@ -554,7 +554,7 @@ class LsOperations(CurriculumOperations["LearningStep"], Protocol):
         """
         ...
 
-    async def get_primary_knowledge(self, uid: str) -> Result[list[Article]]:
+    async def get_primary_knowledge(self, uid: str) -> Result[list[Lesson]]:
         """
         Get primary (core) knowledge units for this step.
 
@@ -562,11 +562,11 @@ class LsOperations(CurriculumOperations["LearningStep"], Protocol):
             uid: LS UID
 
         Returns:
-            Result[list[Article]]: Primary knowledge units
+            Result[list[Lesson]]: Primary knowledge units
         """
         ...
 
-    async def get_supporting_knowledge(self, uid: str) -> Result[list[Article]]:
+    async def get_supporting_knowledge(self, uid: str) -> Result[list[Lesson]]:
         """
         Get supporting (optional) knowledge units for this step.
 
@@ -574,7 +574,7 @@ class LsOperations(CurriculumOperations["LearningStep"], Protocol):
             uid: LS UID
 
         Returns:
-            Result[list[Article]]: Supporting knowledge units
+            Result[list[Lesson]]: Supporting knowledge units
         """
         ...
 
@@ -1174,7 +1174,7 @@ class RevisedExerciseOperations(Protocol):
 # This is an emergent identity pattern, not a separate entity type.
 #
 # For organization operations, use:
-# - ArticleOrganizationService (sub-service of ArticleService) for graph navigation
-# - ArticleOperations protocol for type-safe access
+# - LessonOrganizationService (sub-service of LessonService) for graph navigation
+# - LessonOperations protocol for type-safe access
 #
 # See: /docs/domains/moc.md for full architecture documentation

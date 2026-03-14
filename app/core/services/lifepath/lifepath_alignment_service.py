@@ -29,7 +29,7 @@ from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from core.ports import QueryExecutor
-    from core.services.article_service import ArticleService
+    from core.services.lesson_service import LessonService
     from core.services.lp_service import LpService
     from core.services.user.unified_user_context import UserContext
 
@@ -55,7 +55,7 @@ class LifePathAlignmentService:
         self,
         executor: QueryExecutor | None = None,
         lp_service: LpService | None = None,
-        ku_service: ArticleService | None = None,
+        ku_service: LessonService | None = None,
     ) -> None:
         """
         Initialize alignment service.

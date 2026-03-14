@@ -131,7 +131,7 @@ class TestBuildEmbeddingTextFromDict:
             "content": "Programming language",
             "summary": "High-level",
         }
-        result = build_embedding_text(EntityType.ARTICLE, data)
+        result = build_embedding_text(EntityType.LESSON, data)
         assert result == "Python\n\nProgramming language\n\nHigh-level"
 
     def test_empty_dict_returns_empty_string(self):
@@ -216,7 +216,7 @@ class TestBuildEmbeddingTextFromModel:
 
     def test_ku_model_with_all_fields_uses_double_newlines(self):
         ku = MockKU(title="Python", content="Programming language", summary="High-level")
-        result = build_embedding_text(EntityType.ARTICLE, ku)
+        result = build_embedding_text(EntityType.LESSON, ku)
         assert result == "Python\n\nProgramming language\n\nHigh-level"
 
     def test_model_with_none_fields(self):
@@ -276,7 +276,7 @@ class TestSeparatorLogic:
 
     def test_ku_uses_double_newline(self):
         data = {"title": "A", "content": "B", "summary": "C"}
-        result = build_embedding_text(EntityType.ARTICLE, data)
+        result = build_embedding_text(EntityType.LESSON, data)
         assert "\n\n" in result
         assert result == "A\n\nB\n\nC"
 

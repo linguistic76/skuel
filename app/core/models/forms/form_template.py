@@ -6,7 +6,7 @@ Frozen dataclass for admin-created form templates. Extends Entity directly
 (not Curriculum) — doesn't need 21 Curriculum fields.
 
 FormTemplates define a form_schema (list of field specs) that gets rendered
-as inline forms in Articles via EMBEDS_FORM relationships.
+as inline forms in Lessons via EMBEDS_FORM relationships.
 
 Hierarchy:
     Entity (~19 fields)

@@ -14,7 +14,7 @@ import pytest_asyncio
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.curriculum import Curriculum
 from core.models.enums import Domain, SELCategory
-from core.services.article.article_relationship_helpers import (
+from core.services.lesson.lesson_relationship_helpers import (
     KuRelationshipFilters,
     KuRelationshipTypeFilters,
 )

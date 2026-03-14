@@ -2,7 +2,7 @@
 Learning Step Service Sub-modules
 ===================================
 
-Decomposed learning step services following the ArticleService and LpService patterns.
+Decomposed learning step services following the LessonService and LpService patterns.
 
 Architecture (January 2026 - One Path Forward):
 - ls_core_service.py: CRUD operations + persistence (extends BaseService)

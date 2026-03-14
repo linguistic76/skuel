@@ -307,7 +307,7 @@ class ExerciseUIComponents:
             ku_links = [
                 A(
                     ku.get("title") or ku.get("uid", "Untitled"),
-                    href=f"/article/{ku.get('uid')}",
+                    href=f"/lesson/{ku.get('uid')}",
                     cls="text-primary hover:underline mr-3",
                 )
                 for ku in required_knowledge
@@ -438,7 +438,7 @@ def create_exercises_ui_routes(
             content = Div(
                 PageHeader(
                     "Exercises",
-                    subtitle="Practice with exercises linked to articles and knowledge units",
+                    subtitle="Practice with exercises linked to lessons and knowledge units",
                 ),
                 ExerciseUIComponents.render_exercises_list(exercises),
                 id="main-content",

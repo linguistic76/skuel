@@ -439,7 +439,7 @@ class TestHiddenFields:
 
 
 class TestAsFragment:
-    """Test fragment mode for article embedding."""
+    """Test fragment mode for lesson embedding."""
 
     def test_fragment_returns_div_not_form(self):
         result = FormGenerator.from_model(

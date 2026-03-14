@@ -108,7 +108,7 @@ class TestBuildRecommendedActions:
         )
         assert len(actions) == 2
         assert all(a.action_type == "learn" for a in actions)
-        assert all(a.entity_type == "article" for a in actions)
+        assert all(a.entity_type == "lesson" for a in actions)
 
     def test_priority_formula(self) -> None:
         service = ZPDService(backend=_make_backend())

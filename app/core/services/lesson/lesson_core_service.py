@@ -21,7 +21,7 @@ Handles basic create, read, update, DETACH DELETE operations for knowledge units
 
 **Architecture (January 2026 Unified):**
 - Inherits from BaseService for unified Activity/Curriculum patterns
-- Uses CurriculumOperations[Article] protocol hierarchy
+- Uses CurriculumOperations[Lesson] protocol hierarchy
 - Returns Result[CurriculumDTO] for backward compatibility with facade
 """
 
@@ -29,7 +29,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from core.events import publish_event
-from core.models.article.article import Article
+from core.models.lesson.lesson import Lesson
 from core.models.curriculum_dto import CurriculumDTO
 from core.models.entity import Entity
 from core.models.enums import Domain, KnowledgeStatus
@@ -45,7 +45,7 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
 
 
-class ArticleCoreService(BaseService[CurriculumOperations[Entity], Entity], MetadataManagerMixin):
+class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], MetadataManagerMixin):
     """
     Core CRUD operations for knowledge units.
 
@@ -97,7 +97,7 @@ class ArticleCoreService(BaseService[CurriculumOperations[Entity], Entity], Meta
         Initialize core service with required dependencies.
 
         Args:
-            repo: CurriculumOperations[Article] backend (typically UniversalNeo4jBackend[Article])
+            repo: CurriculumOperations[Lesson] backend (typically UniversalNeo4jBackend[Article])
             content_repo: ContentOperations backend for content storage
             intelligence: Intelligence service for content analysis
             chunking: Optional chunking service for RAG
@@ -235,16 +235,16 @@ class ArticleCoreService(BaseService[CurriculumOperations[Entity], Entity], Meta
         from core.utils.embedding_text_builder import build_embedding_text
 
         embedding_text = build_embedding_text(
-            EntityType.ARTICLE,
+            EntityType.LESSON,
             {"title": title.strip(), "content": body, "summary": summary or title[:100]},
         )
         if embedding_text:
-            from core.events import ArticleEmbeddingRequested
+            from core.events import LessonEmbeddingRequested
 
             now = datetime.now(UTC)
-            embedding_event = ArticleEmbeddingRequested(
+            embedding_event = LessonEmbeddingRequested(
                 entity_uid=uid,
-                entity_type="article",
+                entity_type="lesson",
                 embedding_text=embedding_text,
                 user_uid=metadata.get("created_by_user", "user:system"),
                 requested_at=now,
@@ -328,7 +328,7 @@ class ArticleCoreService(BaseService[CurriculumOperations[Entity], Entity], Meta
 
     @track_query_metrics("ku_get")
     @with_error_handling("get", error_type="database", uid_param="uid")
-    async def get(self, uid: str) -> Result[Article]:
+    async def get(self, uid: str) -> Result[Lesson]:
         """
         Get a knowledge unit with its content.
 
@@ -454,7 +454,7 @@ class ArticleCoreService(BaseService[CurriculumOperations[Entity], Entity], Meta
             return Result.fail(result.expect_error())
 
         if not result.value:
-            return Result.fail(Errors.not_found(resource="Article", identifier=uid))
+            return Result.fail(Errors.not_found(resource="Lesson", identifier=uid))
 
         record = result.value[0]
         ku_node = record["ku"]
@@ -484,7 +484,7 @@ class ArticleCoreService(BaseService[CurriculumOperations[Entity], Entity], Meta
 
     @track_query_metrics("ku_get_with_content")
     @with_error_handling("get_with_content", error_type="database", uid_param="uid")
-    async def get_with_content(self, uid: str) -> Result[tuple[Article, str]]:
+    async def get_with_content(self, uid: str) -> Result[tuple[Lesson, str]]:
         """
         Get a knowledge unit with its full content body.
 
@@ -552,7 +552,7 @@ class ArticleCoreService(BaseService[CurriculumOperations[Entity], Entity], Meta
         # Return updated DTO
         return await self.get(uid)
 
-    async def _update_content(self, uid: str, new_body: str, existing_dto: Article) -> None:
+    async def _update_content(self, uid: str, new_body: str, existing_dto: Lesson) -> None:
         """
         Update content with optional re-chunking.
 
@@ -761,7 +761,7 @@ class ArticleCoreService(BaseService[CurriculumOperations[Entity], Entity], Meta
     @with_error_handling("get_subkus", error_type="database", uid_param="parent_uid")
     async def get_subkus(
         self, parent_uid: str, depth: int = 1, include_metadata: bool = False
-    ) -> Result[list[Article]]:
+    ) -> Result[list[Lesson]]:
         """
         Get all KUs organized under this parent KU (MOC pattern).
 
@@ -798,14 +798,14 @@ class ArticleCoreService(BaseService[CurriculumOperations[Entity], Entity], Meta
         # Convert to Ku domain objects using from_neo4j_node (picks up ALL fields)
         from core.utils.neo4j_mapper import from_neo4j_node
 
-        kus = [from_neo4j_node(record["child"], Article) for record in result.value]
+        kus = [from_neo4j_node(record["child"], Lesson) for record in result.value]
 
         self.logger.info(f"Found {len(kus)} subKUs for parent {parent_uid} (depth={depth})")
         return Result.ok(kus)
 
     @track_query_metrics("ku_get_parent_kus")
     @with_error_handling("get_parent_kus", error_type="database", uid_param="ku_uid")
-    async def get_parent_kus(self, ku_uid: str) -> Result[list[Article]]:
+    async def get_parent_kus(self, ku_uid: str) -> Result[list[Lesson]]:
         """
         Get all parent KUs (can have multiple via MOC pattern).
 
@@ -838,7 +838,7 @@ class ArticleCoreService(BaseService[CurriculumOperations[Entity], Entity], Meta
         # Convert to Ku domain objects using from_neo4j_node (picks up ALL fields)
         from core.utils.neo4j_mapper import from_neo4j_node
 
-        parents = [from_neo4j_node(record["parent"], Article) for record in result.value]
+        parents = [from_neo4j_node(record["parent"], Lesson) for record in result.value]
 
         self.logger.info(f"Found {len(parents)} parent KUs for {ku_uid}")
         return Result.ok(parents)

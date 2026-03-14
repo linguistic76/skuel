@@ -14,7 +14,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from core.events import publish_event
-from core.events.article_events import KnowledgePracticed
+from core.events.lesson_events import KnowledgePracticed
 from core.events.calendar_event_events import CalendarEventCompleted
 from core.utils.logging import get_logger
 
@@ -22,12 +22,12 @@ if TYPE_CHECKING:
     from core.ports import BackendOperations
 
 
-class ArticlePracticeService:
+class LessonPracticeService:
     """
     Knowledge practice tracking service for event-driven updates.
 
     Handles automatic KU practice count updates when events are completed,
-    eliminating direct dependencies between EventsService and ArticleService.
+    eliminating direct dependencies between EventsService and LessonService.
 
     Event-Driven Architecture:
     - Subscribes to CalendarEventCompleted events
@@ -50,7 +50,7 @@ class ArticlePracticeService:
         """
         self.backend = backend
         self.event_bus = event_bus
-        self.logger = get_logger("skuel.services.article.practice")
+        self.logger = get_logger("skuel.services.lesson.practice")
 
     # ========================================================================
     # EVENT HANDLERS
@@ -61,7 +61,7 @@ class ArticlePracticeService:
         Update KU practice counts when an event is completed.
 
         This handler implements event-driven KU practice tracking,
-        eliminating direct dependency between EventsService and ArticleService.
+        eliminating direct dependency between EventsService and LessonService.
 
         When an event is completed:
         1. Find all KUs that this event practices

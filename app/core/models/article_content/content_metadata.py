@@ -1,8 +1,8 @@
 """
-Article Content Metadata Model
+Lesson Content Metadata Model
 ================================
 
-Analytics and search optimization metadata for article content.
+Analytics and search optimization metadata for lesson content.
 This is computed metadata that can be regenerated from the content.
 
 Useful for search indexing, content analytics, and learning recommendations.

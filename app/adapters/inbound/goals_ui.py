@@ -562,7 +562,7 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsService, services: Any 
                     "sort_by": filters.sort_by,
                 },
                 stats=stats,
-                categories=categories,
+                _categories=categories,
             )
 
         # Build page with tabs + view content
@@ -605,7 +605,7 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsService, services: Any 
             goals=goals,
             filters=filters_dict,
             stats=stats,
-            categories=categories,
+            _categories=categories,
         )
 
     @rt("/goals/view/create")

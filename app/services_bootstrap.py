@@ -19,7 +19,7 @@ ENTITY TYPE SERVICES COMPOSED HERE
     5. choices → ChoicesService - Decisions and outcomes
     6. principles → PrinciplesService - Values and alignment
     7. finance → FinanceService - Expenses and budgets
-    8. knowledge → ArticleService - Knowledge Units (ku:)
+    8. knowledge → LessonService - Knowledge Units (ku:)
     9. ls → LsService - Learning Steps (ls:)
     10. lp → LpService - Learning Paths (lp:)
     11. submissions → SubmissionsCoreService - File processing + journals
@@ -116,7 +116,7 @@ if TYPE_CHECKING:
     )
     from core.services.admin_stats_service import AdminStatsService
     from core.services.analytics_service import AnalyticsService
-    from core.services.article_service import ArticleService
+    from core.services.lesson_service import LessonService
     from core.services.askesis_ai_service import AskesisAIService
     from core.services.background.embedding_worker import EmbeddingBackgroundWorker
     from core.services.background.progress_report_worker import ProgressReportWorker
@@ -176,7 +176,7 @@ from core.ports import (
     # NOTE: LearningPathsOperations DELETED January 2026 - replaced by LpOperations
     # NOTE: JournalsOperations DELETED February 2026 - Journal merged into Reports
     # NOTE: ChoicesOperations, EventsOperations, GoalsOperations, HabitsOperations,
-    #       ArticleOperations, LpOperations, LsOperations, PrinciplesOperations, TasksOperations
+    #       LessonOperations, LpOperations, LsOperations, PrinciplesOperations, TasksOperations
     #       moved to TYPE_CHECKING block — facade services use concrete types (March 2026)
     LifePathOperations,
     QueryExecutor,
@@ -236,9 +236,9 @@ class Services:
     # ========================================================================
     # CURRICULUM DOMAINS (3) - KU, LS, LP
     # ========================================================================
-    article: "ArticleService | None" = None  # ArticleService (teaching compositions)
+    lesson: "LessonService | None" = None  # LessonService (teaching compositions)
     ku: "KuService | None" = None  # KuService (atomic knowledge units)
-    # adaptive_sel removed — absorbed into ArticleService.adaptive (February 2026)
+    # adaptive_sel removed — absorbed into LessonService.adaptive (February 2026)
     cross_domain: "AdaptiveLpCrossDomainService | None" = None
 
     # Content services
@@ -619,7 +619,7 @@ def _create_learning_services(
     from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
     from core.models.pathways.learning_path import LearningPath
     from core.models.pathways.learning_step import LearningStep
-    from core.services.article_service import ArticleService
+    from core.services.lesson_service import LessonService
     from core.services.entity_retrieval import EntityRetrieval
     from core.services.lp_service import LpService  # Intelligence created internally
     from core.services.ls_service import LsService
@@ -672,9 +672,9 @@ def _create_learning_services(
     unified_query_builder = QueryBuilder(schema_service)
 
     # Create knowledge service using dynamic backends with REQUIRED query_builder
-    # January 2026: ArticleIntelligenceService created internally, no longer passed in
+    # January 2026: LessonIntelligenceService created internally, no longer passed in
     # January 2026 - GenAI Integration: Pass vector search and embeddings services
-    ku_service = ArticleService(
+    ku_service = LessonService(
         repo=knowledge_backend,
         content_repo=content_adapter,  # Neo4jContentAdapter implements ContentOperations protocol
         neo4j_adapter=neo4j_adapter,
@@ -682,7 +682,7 @@ def _create_learning_services(
         graph_intelligence_service=graph_intelligence,
         query_builder=unified_query_builder,  # QueryBuilder is now REQUIRED
         event_bus=event_bus,  # Event-driven architecture
-        # executor removed: ArticleOrganizationService now uses backend directly
+        # executor removed: LessonOrganizationService now uses backend directly
         user_service=user_service,  # January 2026: KU-Activity Integration
         vector_search_service=vector_search_service,  # January 2026: GenAI vector search
         embeddings_service=embeddings_service,  # March 2026: HuggingFace embeddings (bge-large-en-v1.5)
@@ -741,7 +741,7 @@ def _create_learning_services(
         chunking_service=chunking_service,
     )
 
-    # Adaptive SEL removed — now ArticleService.adaptive sub-service (February 2026)
+    # Adaptive SEL removed — now LessonService.adaptive sub-service (February 2026)
 
     # NOTE: Askesis creation MOVED to compose_services() (January 2026)
     # This allows intelligence_factory to be passed at construction time (not post-wired)
@@ -757,7 +757,7 @@ def _create_learning_services(
 
     return {
         "learning_intelligence": learning_paths.intelligence,  # Access via facade
-        "article_service": ku_service,
+        "lesson_service": ku_service,
         "atomic_ku_service": atomic_ku_service,
         "user_progress": user_progress,
         # unified_progress DELETED (January 2026)
@@ -1080,7 +1080,7 @@ async def compose_services(
         # 100% Dynamic Pattern: Instantiate UniversalNeo4jBackend directly at point of use
         # "The plant (models) grows on the lattice (UniversalNeo4jBackend)"
         from adapters.persistence.neo4j.domain_backends import (
-            ArticleBackend,
+            LessonBackend,
             ChoicesBackend,
             EventsBackend,
             GoalsBackend,
@@ -1169,13 +1169,13 @@ async def compose_services(
         # User is NOT an activity domain - it's the identity layer all domains reference
         # See: CLAUDE.md §2.11 Domain Architecture Categories
         from adapters.persistence.neo4j.user_backend import UserBackend
-        from core.models.article.article import Article
+        from core.models.lesson.lesson import Lesson
 
         users_backend = UserBackend(driver)
-        knowledge_backend = ArticleBackend(
+        knowledge_backend = LessonBackend(
             driver,
-            NeoLabel.ARTICLE,
-            Article,
+            NeoLabel.LESSON,
+            Lesson,
             prometheus_metrics=prometheus_metrics,
             base_label=NeoLabel.ENTITY,
         )
@@ -1532,7 +1532,7 @@ async def compose_services(
         # Create AI services when LLM/embeddings are available
         # AI services are OPTIONAL - the app functions fully without them
         if llm_service and embeddings_service:
-            from core.services.article.article_ai_service import ArticleAIService
+            from core.services.lesson.lesson_ai_service import LessonAIService
             from core.services.askesis_ai_service import AskesisAIService
             from core.services.choices.choices_ai_service import ChoicesAIService
             from core.services.context_aware_ai_service import ContextAwareAIService
@@ -1586,8 +1586,8 @@ async def compose_services(
             activity_services["principles"].ai = principles_ai
 
             # Create AI services for Curriculum Domains (4)
-            ku_ai = ArticleAIService(
-                backend=learning_services["article_service"].core.backend,
+            ku_ai = LessonAIService(
+                backend=learning_services["lesson_service"].core.backend,
                 llm_service=llm_service,
                 embeddings_service=embeddings_service,
             )
@@ -1602,7 +1602,7 @@ async def compose_services(
                 embeddings_service=embeddings_service,
             )
             # Wire AI services into Curriculum Domain facades (post-construction)
-            learning_services["article_service"].ai = ku_ai
+            learning_services["lesson_service"].ai = ku_ai
             learning_services["learning_steps"].ai = ls_ai
             learning_services["learning_paths"].ai = lp_ai
 
@@ -1687,7 +1687,7 @@ async def compose_services(
                 anthropic_service=None,  # Only OpenAI configured for now
                 executor=query_executor,  # Creates SUBMISSION_REPORT entity + REPORT_FOR relationship
                 ku_interaction_service=learning_services[
-                    "article_service"
+                    "lesson_service"
                 ].mastery,  # Closes mastery loop
             )
 
@@ -1772,7 +1772,7 @@ async def compose_services(
 
         teacher_review_service = TeacherReviewService(
             executor=query_executor,
-            ku_interaction_service=learning_services["article_service"].mastery,
+            ku_interaction_service=learning_services["lesson_service"].mastery,
             event_bus=event_bus,
         )
         logger.info("✅ TeacherReviewService created (ADR-040)")
@@ -1836,7 +1836,7 @@ async def compose_services(
         lifepath_service = LifePathService(
             executor=query_executor,
             lp_service=learning_services["learning_paths"],
-            ku_service=learning_services["article_service"],
+            ku_service=learning_services["lesson_service"],
             user_service=user_service,
             llm_service=llm_service,
         )
@@ -1856,7 +1856,7 @@ async def compose_services(
             # Finance Domain (1) - admin-only bookkeeping
             finance_service=core_services["finance"],
             # Curriculum Domains (3) - admin creates, all read
-            ku_service=learning_services["article_service"],
+            ku_service=learning_services["lesson_service"],
             ls_service=learning_services["learning_steps"],
             lp_service=learning_services["learning_paths"],
             # Meta Domains (3)
@@ -1959,7 +1959,7 @@ async def compose_services(
             principle_service=activity_services["principles"],
             content_enrichment=content_enrichment,  # ✅ ContentEnrichmentService - Layer 2 reporting
             user_service=user_service,  # Life path alignment
-            ku_service=learning_services["article_service"],  # Layer 0 reporting
+            ku_service=learning_services["lesson_service"],  # Layer 0 reporting
             lp_service=learning_services["learning_paths"],  # Layer 0 reporting
             event_bus=event_bus,  # Event-driven report generation
         )
@@ -2320,10 +2320,10 @@ async def compose_services(
         # Event completion → Knowledge practice tracking
         from core.events.calendar_event_events import CalendarEventCompleted
 
-        ku_service = learning_services["article_service"]
+        ku_service = learning_services["lesson_service"]
         event_bus.subscribe(CalendarEventCompleted, ku_service.practice.handle_event_completed)
         logger.info(
-            "✅ ArticlePracticeService subscribed to CalendarEventCompleted (automatic practice tracking)"
+            "✅ LessonPracticeService subscribed to CalendarEventCompleted (automatic practice tracking)"
         )
 
         # Habit streak milestone → Achievement badges
@@ -2397,7 +2397,7 @@ async def compose_services(
         # "Applied knowledge, not pure theory" - Track real-world knowledge application
         # ========================================================================
 
-        from core.events.article_events import (
+        from core.events.lesson_events import (
             KnowledgeAppliedInTask,
             KnowledgeBuiltIntoHabit,
             KnowledgeBulkAppliedInTask,
@@ -2408,7 +2408,7 @@ async def compose_services(
         )
 
         # Get KU service from learning services
-        ku_service = learning_services["article_service"]
+        ku_service = learning_services["lesson_service"]
 
         # Subscribe to substance tracking events (single-entity)
         event_bus.subscribe(KnowledgeAppliedInTask, ku_service.handle_knowledge_applied_in_task)
@@ -2429,7 +2429,7 @@ async def compose_services(
             KnowledgeBulkInformedChoice, ku_service.handle_knowledge_bulk_informed_choice
         )
 
-        logger.info("✅ ArticleService subscribed to substance tracking events:")
+        logger.info("✅ LessonService subscribed to substance tracking events:")
         logger.info("   - KnowledgeAppliedInTask (weight: 0.05)")
         logger.info("   - KnowledgePracticedInEvent (weight: 0.05)")
         logger.info("   - KnowledgeBuiltIntoHabit (weight: 0.10, lifestyle integration)")
@@ -2510,7 +2510,7 @@ async def compose_services(
         event_bus.subscribe(
             LearningStepCompleted, ku_service.intelligence.handle_learning_step_completed
         )
-        logger.info("✅ ArticleIntelligenceService subscribed to LearningStepCompleted")
+        logger.info("✅ LessonIntelligenceService subscribed to LearningStepCompleted")
 
         # ========================================================================
         # TIER 2 HANDLERS: Pattern-Based Event Intelligence (January 2026)
@@ -2561,7 +2561,7 @@ async def compose_services(
             # Finance (NOT an Activity Domain - separate facade)
             finance=core_services["finance"],
             # Knowledge
-            article=learning_services["article_service"],
+            lesson=learning_services["lesson_service"],
             ku=learning_services["atomic_ku_service"],
             cross_domain=learning_services["cross_domain"],
             # Content
@@ -2744,7 +2744,7 @@ async def compose_services(
             choices=activity_services["choices"].relationships,
             principles=activity_services["principles"].relationships,
             # Curriculum Domains (3)
-            article=learning_services["article_service"].graph,  # ArticleGraphService
+            lesson=learning_services["lesson_service"].graph,  # LessonGraphService
             ls=learning_services[
                 "learning_steps"
             ].relationships,  # Factory expects 'ls' parameter name
@@ -2781,7 +2781,7 @@ async def compose_services(
             from core.services.askesis_factory import create_askesis_service
 
             citation_service = AskesisCitationService(
-                backend=learning_services["article_service"].core.backend,
+                backend=learning_services["lesson_service"].core.backend,
             )
 
             services.askesis = create_askesis_service(

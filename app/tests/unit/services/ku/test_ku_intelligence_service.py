@@ -106,7 +106,7 @@ class TestKuIntelligenceDomainInsights:
         ku = _make_ku(namespace="body", ku_category="substance", aliases=("coffee", "java"))
         backend.get.return_value = Result.ok(ku)
         backend.execute_query.return_value = Result.ok(
-            [{"articles": 3, "learning_steps": 1, "organized_children": 0}]
+            [{"lessons": 3, "learning_steps": 1, "organized_children": 0}]
         )
         service = KuIntelligenceService(backend=backend)
 
@@ -117,7 +117,7 @@ class TestKuIntelligenceDomainInsights:
         assert data["ku_title"] == "Test Ku"
         assert data["namespace"] == "body"
         assert data["alias_count"] == 2
-        assert data["usage"]["articles"] == 3
+        assert data["usage"]["lessons"] == 3
 
     @pytest.mark.asyncio
     async def test_returns_not_found_for_missing_ku(self):
@@ -137,7 +137,7 @@ class TestKuIntelligenceUsageSummary:
     async def test_returns_counts(self):
         backend = _make_backend()
         backend.execute_query.return_value = Result.ok(
-            [{"articles": 5, "learning_steps": 2, "organized_children": 3}]
+            [{"lessons": 5, "learning_steps": 2, "organized_children": 3}]
         )
         service = KuIntelligenceService(backend=backend)
 
@@ -145,7 +145,7 @@ class TestKuIntelligenceUsageSummary:
 
         assert result.is_ok
         assert result.value == {
-            "articles": 5,
+            "lessons": 5,
             "learning_steps": 2,
             "organized_children": 3,
         }
@@ -159,7 +159,7 @@ class TestKuIntelligenceUsageSummary:
         result = await service.get_usage_summary("ku_test_abc123")
 
         assert result.is_ok
-        assert result.value == {"articles": 0, "learning_steps": 0, "organized_children": 0}
+        assert result.value == {"lessons": 0, "learning_steps": 0, "organized_children": 0}
 
 
 class TestKuIntelligenceIsTrained:

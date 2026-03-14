@@ -20,7 +20,7 @@ import contextlib
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from core.models.article.article import Article
+from core.models.lesson.lesson import Lesson
 from core.models.curriculum import Curriculum
 from core.models.enums import Domain, LearningLevel, SELCategory
 from core.models.pathways.learning_path import LearningPath
@@ -41,23 +41,23 @@ from core.utils.result_simplified import Errors, Result
 if TYPE_CHECKING:
     from core.ports import BackendOperations
 
-logger = get_logger("skuel.services.article.adaptive")
+logger = get_logger("skuel.services.lesson.adaptive")
 
 
-class ArticleAdaptiveService:
+class LessonAdaptiveService:
     """
     Personalized KU curriculum delivery.
 
     Analyzes user's learning journey and delivers personalized
     Knowledge Units based on readiness, prerequisites, and learning velocity.
 
-    Sub-service of ArticleService facade — SEL categories are a property of KUs,
+    Sub-service of LessonService facade — SEL categories are a property of KUs,
     not a separate domain.
     """
 
     def __init__(
         self,
-        ku_backend: "BackendOperations[Article]",
+        ku_backend: "BackendOperations[Lesson]",
         user_service=None,
     ) -> None:
         if not ku_backend:
@@ -74,7 +74,7 @@ class ArticleAdaptiveService:
     @with_error_handling(error_type="system", operation="get_personalized_curriculum")
     async def get_personalized_curriculum(
         self, user_uid: str, sel_category: SELCategory, limit: int = 10
-    ) -> Result[list[Article]]:
+    ) -> Result[list[Lesson]]:
         """
         Get personalized curriculum for user in an SEL category.
 
@@ -106,7 +106,7 @@ class ArticleAdaptiveService:
         # 5. Return top N
         return Result.ok(ranked_kus[:limit])
 
-    async def _is_user_ready(self, user_intel: UserLearningIntelligence, ku: Article) -> bool:
+    async def _is_user_ready(self, user_intel: UserLearningIntelligence, ku: Lesson) -> bool:
         """Check if user is ready for this KU (not mastered, prereqs met, level ok)."""
         if ku.uid in user_intel.current_masteries:
             return False
@@ -124,7 +124,7 @@ class ArticleAdaptiveService:
         return ku.is_appropriate_for_level(user_level)
 
     async def _check_prerequisites_met(
-        self, user_intel: UserLearningIntelligence, ku: Article
+        self, user_intel: UserLearningIntelligence, ku: Lesson
     ) -> bool:
         """Check if user has mastered all prerequisites for this KU."""
         try:
@@ -163,8 +163,8 @@ class ArticleAdaptiveService:
             return LearningLevel.BEGINNER
 
     async def _rank_by_learning_value(
-        self, user_intel: UserLearningIntelligence, kus: list[Article]
-    ) -> list[Article]:
+        self, user_intel: UserLearningIntelligence, kus: list[Lesson]
+    ) -> list[Lesson]:
         """Rank KUs by learning value for this user (highest first)."""
         ku_scores = []
         for ku in kus:
@@ -177,7 +177,7 @@ class ArticleAdaptiveService:
         return [ku for ku, _score in sorted_ku_scores]
 
     async def _calculate_learning_value(
-        self, user_intel: UserLearningIntelligence, ku: Article
+        self, user_intel: UserLearningIntelligence, ku: Lesson
     ) -> float:
         """
         Calculate learning value score for a KU.
@@ -225,7 +225,7 @@ class ArticleAdaptiveService:
 
         return score
 
-    async def _count_enables(self, ku: Article) -> int:
+    async def _count_enables(self, ku: Lesson) -> int:
         """Count how many KUs this one enables."""
         try:
             enables_result = await self.ku_backend.get_related_uids(
@@ -236,7 +236,7 @@ class ArticleAdaptiveService:
         except (AttributeError, Exception):
             return 0
 
-    async def _count_prerequisites(self, ku: Article) -> int:
+    async def _count_prerequisites(self, ku: Lesson) -> int:
         """Count how many prerequisites this KU has."""
         try:
             prereq_result = await self.ku_backend.get_related_uids(

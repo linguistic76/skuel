@@ -4,7 +4,7 @@ Form Protocols - ISP Contracts for Form Services
 
 Interface Segregation Principle protocols consumed by route files.
 
-FormTemplateOperations — admin-facing CRUD + article linking
+FormTemplateOperations — admin-facing CRUD + lesson linking
 FormSubmissionOperations — user-facing submit, list, delete, share
 """
 
@@ -14,7 +14,7 @@ from core.utils.result_simplified import Result
 
 
 class FormTemplateOperations(Protocol):
-    """Form template operations for admin CRUD and article embedding.
+    """Form template operations for admin CRUD and lesson embedding.
 
     Route consumer: form_templates_api.py
     Implementation: FormTemplateService
@@ -48,13 +48,13 @@ class FormTemplateOperations(Protocol):
         """Delete a FormTemplate. Fails if submissions exist (data integrity guard)."""
         ...
 
-    async def link_to_article(self, form_template_uid: str, article_uid: str) -> Result[bool]: ...
+    async def link_to_lesson(self, form_template_uid: str, lesson_uid: str) -> Result[bool]: ...
 
-    async def unlink_from_article(
-        self, form_template_uid: str, article_uid: str
+    async def unlink_from_lesson(
+        self, form_template_uid: str, lesson_uid: str
     ) -> Result[bool]: ...
 
-    async def get_for_article(self, article_uid: str) -> Result[list[dict[str, Any]]]: ...
+    async def get_for_lesson(self, lesson_uid: str) -> Result[list[dict[str, Any]]]: ...
 
 
 class FormSubmissionOperations(Protocol):

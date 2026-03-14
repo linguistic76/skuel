@@ -77,7 +77,7 @@ Python is easy to learn and powerful.
 
         # Then: Chunks were generated
         assert ingestion_data["chunks_generated"] is True, "Chunks should be generated for KU"
-        assert ingestion_data["entity_type"] == "article", "Entity type should be article"
+        assert ingestion_data["entity_type"] == "lesson", "Entity type should be lesson"
 
         # Then: Chunks are in the chunking service cache
         ku_uid = ingestion_data["uid"]

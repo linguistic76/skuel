@@ -2,7 +2,7 @@
 Learning Domain Events
 ======================
 
-Events published by learning services (ArticleService, LpService, LpIntelligenceService).
+Events published by learning services (LessonService, LpService, LpIntelligenceService).
 
 Event Catalog:
 - knowledge.mastered - KU mastered by user
@@ -185,10 +185,10 @@ class PrerequisitesAnalyzed(BaseEvent):
     """
     Published when prerequisites are computed for a KU.
 
-    This event enables decoupling LpIntelligenceService from ArticleService.
+    This event enables decoupling LpIntelligenceService from LessonService.
 
     Subscribers:
-    - ArticleService (update KU prerequisite relationships)
+    - LessonService (update KU prerequisite relationships)
     - SearchService (update dependency graph)
     """
 
@@ -237,7 +237,7 @@ class LearningRecommendationGenerated(BaseEvent):
 Publishing Learning Events:
 ===========================
 
-# In ArticleService.mark_mastered()
+# In LessonService.mark_mastered()
 async def mark_mastered(self, ku_uid: str, user_uid: str, score: float) -> Result[None]:
     '''Mark a KU as mastered by user.'''
 
@@ -321,7 +321,7 @@ async def analyze_prerequisites(self, ku_uid: str) -> Result[list[str]]:
     # Perform semantic analysis
     prerequisites = await self._semantic_prerequisite_analysis(ku_uid)
 
-    # Publish event instead of directly updating ArticleService
+    # Publish event instead of directly updating LessonService
     if self.event_bus:
         event = PrerequisitesAnalyzed(
             ku_uid=ku_uid,
@@ -337,7 +337,7 @@ async def analyze_prerequisites(self, ku_uid: str) -> Result[list[str]]:
 Event Handlers (Subscribers):
 =============================
 
-# In ArticleService - Handling prerequisite analysis
+# In LessonService - Handling prerequisite analysis
 async def handle_prerequisites_analyzed(self, event: PrerequisitesAnalyzed) -> None:
     '''Update KU with computed prerequisites.'''
     try:
@@ -435,8 +435,8 @@ def _wire_event_subscribers(event_bus: EventBusOperations, services: Services):
     event_bus.subscribe(LearningPathStarted, services.user_service.handle_learning_path_started)
     event_bus.subscribe(LearningPathCompleted, services.user_service.handle_learning_path_completed)
 
-    # Prerequisites analysis → ArticleService
-    event_bus.subscribe(PrerequisitesAnalyzed, services.article.handle_prerequisites_analyzed)
+    # Prerequisites analysis → LessonService
+    event_bus.subscribe(PrerequisitesAnalyzed, services.lesson.handle_prerequisites_analyzed)
 
     # Learning achievements
     event_bus.subscribe(LearningPathCompleted, services.achievements.handle_learning_path_completed)
@@ -452,14 +452,14 @@ Breaking Circular Dependency:
 =============================
 
 # Before (Circular):
-learning_intelligence = LpIntelligenceService(ku_service=None)  # ← Needs ArticleService
-ku_service = ArticleService(intelligence_service=learning_intelligence)  # ← Needs LpIntelligenceService
+learning_intelligence = LpIntelligenceService(ku_service=None)  # ← Needs LessonService
+ku_service = LessonService(intelligence_service=learning_intelligence)  # ← Needs LpIntelligenceService
 learning_intelligence.ku_service = ku_service  # ← Post-construction hack
 
 
 # After (Event-driven):
 learning_intelligence = LpIntelligenceService(event_bus=event_bus)  # ← Independent
-ku_service = ArticleService(event_bus=event_bus)  # ← Independent
+ku_service = LessonService(event_bus=event_bus)  # ← Independent
 
 # Wire via events
 event_bus.subscribe(PrerequisitesAnalyzed, ku_service.handle_prerequisites_analyzed)

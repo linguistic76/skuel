@@ -8,7 +8,7 @@ Provides:
 - Graph context retrieval (get_with_context)
 - Performance analytics (get_performance_analytics)
 - Domain insights (get_domain_insights)
-- Usage summary (articles, learning steps, organized children)
+- Usage summary (lessons, learning steps, organized children)
 - Organization depth (ORGANIZES tree traversal)
 
 See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
@@ -42,7 +42,7 @@ class KuIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", "Ku"])
     Pure graph queries and Python calculations.
 
     Provides:
-    - Usage analysis: how many articles/steps reference this Ku
+    - Usage analysis: how many lessons/steps reference this Ku
     - Organization analysis: ORGANIZES tree depth and child count
     - Existence checks: is_trained, is_organized
     """
@@ -77,7 +77,7 @@ class KuIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", "Ku"])
     # ========================================================================
 
     async def get_with_context(self, uid: str, depth: int = 2) -> Result[tuple[Ku, GraphContext]]:
-        """Get Ku with full graph context (articles, learning steps, children)."""
+        """Get Ku with full graph context (lessons, learning steps, children)."""
         if self.orchestrator is None:
             return Result.fail(
                 Errors.system(
@@ -154,16 +154,16 @@ class KuIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", "Ku"])
 
     @with_error_handling("get_usage_summary", error_type="database", uid_param="ku_uid")
     async def get_usage_summary(self, ku_uid: str) -> Result[dict[str, int]]:
-        """Count articles (USES_KU), learning steps (TRAINS_KU), and organized children (ORGANIZES).
+        """Count lessons (USES_KU), learning steps (TRAINS_KU), and organized children (ORGANIZES).
 
         Single Cypher query for efficiency.
         """
         query = """
             MATCH (ku:Entity:Ku {uid: $ku_uid})
-            OPTIONAL MATCH (article:Entity)-[:USES_KU]->(ku)
+            OPTIONAL MATCH (lesson:Entity)-[:USES_KU]->(ku)
             OPTIONAL MATCH (ls:Entity)-[:TRAINS_KU]->(ku)
             OPTIONAL MATCH (ku)-[:ORGANIZES]->(child:Entity)
-            RETURN count(DISTINCT article) as articles,
+            RETURN count(DISTINCT lesson) as lessons,
                    count(DISTINCT ls) as learning_steps,
                    count(DISTINCT child) as organized_children
         """
@@ -173,12 +173,12 @@ class KuIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", "Ku"])
 
         records = result.value or []
         if not records:
-            return Result.ok({"articles": 0, "learning_steps": 0, "organized_children": 0})
+            return Result.ok({"lessons": 0, "learning_steps": 0, "organized_children": 0})
 
         row = records[0]
         return Result.ok(
             {
-                "articles": row.get("articles", 0),
+                "lessons": row.get("lessons", 0),
                 "learning_steps": row.get("learning_steps", 0),
                 "organized_children": row.get("organized_children", 0),
             }

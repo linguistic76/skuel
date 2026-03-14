@@ -104,10 +104,10 @@ def create_graphql_context(
 
     # Helper functions to bind context to batch loaders (SKUEL012: no lambdas)
     async def load_knowledge_units(keys: list[str]) -> list[Any]:
-        if context.services.article is None:
+        if context.services.lesson is None:
             return [None] * len(keys)
         return await _batch_load(
-            keys, context.services.article.get_articles_batch, "knowledge units"
+            keys, context.services.lesson.get_articles_batch, "knowledge units"
         )
 
     async def load_tasks(keys: list[str]) -> list[Any]:

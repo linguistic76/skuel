@@ -5,7 +5,7 @@ RevisedExercise - Five-Phase Learning Loop Domain Model
 Frozen dataclass for teacher-created revised exercise instructions that
 address specific feedback gaps. Part of the five-phase learning loop:
 
-    Article → Exercise v1 → Submission v1 → SubmissionReport v1
+    Lesson → Exercise v1 → Submission v1 → SubmissionReport v1
                                                   ↓
                                             RevisedExercise v2 → Submission v2 → ...
 

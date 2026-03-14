@@ -22,13 +22,13 @@ from typing import TYPE_CHECKING, Any
 
 from core.constants import GraphDepth
 from core.events.curriculum_events import LearningStepCompleted
-from core.models.article.article import Article
+from core.models.lesson.lesson import Lesson
 from core.models.curriculum_dto import CurriculumDTO
 from core.models.entity import Entity
 from core.models.enums import Domain
 from core.models.graph_context import GraphContext
 from core.models.relationship_names import RelationshipName
-from core.ports import ArticleOperations
+from core.ports import LessonOperations
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
 from core.services.intelligence import GraphContextOrchestrator
@@ -38,7 +38,7 @@ if TYPE_CHECKING:
     from core.services.user import UserContext
 
 
-class ArticleIntelligenceService(BaseAnalyticsService[ArticleOperations, Entity]):
+class LessonIntelligenceService(BaseAnalyticsService[LessonOperations, Entity]):
     """Real implementation of knowledge intelligence features.
 
     NOTE: This service extends BaseAnalyticsService (ADR-030) and has NO AI dependencies.
@@ -53,7 +53,7 @@ class ArticleIntelligenceService(BaseAnalyticsService[ArticleOperations, Entity]
 
     def __init__(
         self,
-        backend: ArticleOperations,
+        backend: LessonOperations,
         graph_intelligence_service: GraphIntelligenceService,
         relationship_service: Any | None = None,
         user_service: Any | None = None,
@@ -81,7 +81,7 @@ class ArticleIntelligenceService(BaseAnalyticsService[ArticleOperations, Entity]
         if graph_intelligence_service:
             self.orchestrator = GraphContextOrchestrator[Entity, CurriculumDTO](
                 service=self,
-                backend_get_method="get",  # ArticleService uses generic 'get'
+                backend_get_method="get",  # LessonService uses generic 'get'
                 dto_class=CurriculumDTO,
                 model_class=Entity,
                 domain=Domain.KNOWLEDGE,
@@ -95,7 +95,7 @@ class ArticleIntelligenceService(BaseAnalyticsService[ArticleOperations, Entity]
 
     async def get_with_context(
         self, uid: str, depth: int = 2
-    ) -> Result[tuple[Article, GraphContext]]:
+    ) -> Result[tuple[Lesson, GraphContext]]:
         """
         Get knowledge unit with full graph context.
 

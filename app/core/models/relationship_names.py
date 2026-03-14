@@ -77,8 +77,8 @@ class RelationshipName(StrEnum):
     REINFORCED_BY_KNOWLEDGE = "REINFORCED_BY_KNOWLEDGE"  # Habits reinforced by knowledge
     BLOCKED_BY_KNOWLEDGE = "BLOCKED_BY_KNOWLEDGE"  # Tasks blocked by lack of knowledge
 
-    # Article → Ku composition
-    USES_KU = "USES_KU"  # (Article)-[:USES_KU]->(Ku) — article composes atomic Ku
+    # Lesson → Ku composition
+    USES_KU = "USES_KU"  # (Lesson)-[:USES_KU]->(Ku) — lesson composes atomic Ku
     TRAINS_KU = "TRAINS_KU"  # (Ls)-[:TRAINS_KU]->(Ku) — learning step trains atomic Ku
 
     # =========================================================================
@@ -286,14 +286,14 @@ class RelationshipName(StrEnum):
     # RESOURCE RELATIONSHIPS
     # Curriculum-to-Resource citations
     # =========================================================================
-    # (Article/Ku)-[:CITES_RESOURCE {context}]->(Resource) — curriculum cites reference material
+    # (Lesson/Ku)-[:CITES_RESOURCE {context}]->(Resource) — curriculum cites reference material
     CITES_RESOURCE = "CITES_RESOURCE"
 
     # =========================================================================
     # FORM RELATIONSHIPS
     # General-purpose form system
     # =========================================================================
-    # (Article)-[:EMBEDS_FORM]->(FormTemplate) — article contains inline form
+    # (Lesson)-[:EMBEDS_FORM]->(FormTemplate) — lesson contains inline form
     EMBEDS_FORM = "EMBEDS_FORM"
     # (FormSubmission)-[:RESPONDS_TO_FORM]->(FormTemplate) — submission answers template
     RESPONDS_TO_FORM = "RESPONDS_TO_FORM"

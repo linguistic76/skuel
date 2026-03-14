@@ -73,7 +73,7 @@ References:
 # NOTE: Journal events DELETED (February 2026) - Journal merged into Submissions
 # Journal operations now fire SubmissionCreated/SubmissionDeleted events with entity_type="journal"
 # Knowledge substance events (tracking real-world application)
-from core.events.article_events import (
+from core.events.lesson_events import (
     KnowledgeAppliedInTask,
     KnowledgeBuiltIntoHabit,
     KnowledgeBulkAppliedInTask,
@@ -120,7 +120,7 @@ from core.events.curriculum_events import (
 
 # Embedding events (async background generation)
 from core.events.embedding_events import (
-    ArticleEmbeddingRequested,
+    LessonEmbeddingRequested,
     ChoiceEmbeddingRequested,
     EmbeddingRequested,
     EventEmbeddingRequested,
@@ -251,7 +251,7 @@ __all__ = [
     "ChunkEmbeddingRequested",
     "ChunkEmbeddingsCompleted",
     # Embedding events (async background generation)
-    "ArticleEmbeddingRequested",
+    "LessonEmbeddingRequested",
     "ChoiceEmbeddingRequested",
     "EmbeddingRequested",
     "EventEmbeddingRequested",
@@ -380,7 +380,7 @@ EVENT_REGISTRY: dict[str, type[BaseEvent]] = {
     "event.embedding_requested": EventEmbeddingRequested,
     "choice.embedding_requested": ChoiceEmbeddingRequested,
     "principle.embedding_requested": PrincipleEmbeddingRequested,
-    "article.embedding_requested": ArticleEmbeddingRequested,
+    "lesson.embedding_requested": LessonEmbeddingRequested,
     "ku.embedding_requested": KuEmbeddingRequested,
     "resource.embedding_requested": ResourceEmbeddingRequested,
     "exercise.embedding_requested": ExerciseEmbeddingRequested,

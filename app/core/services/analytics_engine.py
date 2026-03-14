@@ -3,7 +3,7 @@ Knowledge Analytics Engine
 ======================================
 
 **UTILITY SERVICE** - Injected dependency, not a standalone service.
-This service is used BY ArticleService and TasksService, not a duplicate.
+This service is used BY LessonService and TasksService, not a duplicate.
 
 Advanced analytics and insights for knowledge-aware learning patterns.
 Provides learning pattern recognition, knowledge-aware priority scoring,
@@ -805,7 +805,7 @@ class AnalyticsEngine:
             # Extract domain from ku.domain.specific format
             parts = ku_uid.split(".")
             if len(parts) >= 2 and parts[0] in (
-                EntityType.ARTICLE.value,
+                EntityType.LESSON.value,
                 EntityType.KU.value,
                 "a",
             ):  # UID prefix, not Neo4j label

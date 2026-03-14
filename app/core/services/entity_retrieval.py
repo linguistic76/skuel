@@ -27,11 +27,11 @@ from adapters.persistence.neo4j.query import (
     create_search_request,
 )
 from core.constants import GraphDepth
-from core.models.article.article import Article
+from core.models.lesson.lesson import Lesson
 from core.models.query_types import IndexStrategy, QueryIntent
 
 # Use protocol interfaces instead of ports
-from core.ports.curriculum_protocols import ArticleOperations
+from core.ports.curriculum_protocols import LessonOperations
 from core.services.embeddings_service import HuggingFaceEmbeddingsService
 from core.services.user import UserContext
 from core.utils.logging import get_logger
@@ -71,7 +71,7 @@ logger = get_logger(__name__)
 class EnhancedResult:
     """A knowledge unit with retrieval enhancements"""
 
-    unit: Article
+    unit: Lesson
     base_score: float  # Original search score
     vector_score: float  # Semantic similarity score
     graph_score: float  # Graph relevance score
@@ -100,7 +100,7 @@ class EntityRetrieval:
 
     def __init__(
         self,
-        knowledge_repo: ArticleOperations,
+        knowledge_repo: LessonOperations,
         embeddings_service: HuggingFaceEmbeddingsService | None = None,
         unified_query_builder=None,  # Use the unified query builder service
         user_progress_service=None,  # Optional progress service for intelligent ranking

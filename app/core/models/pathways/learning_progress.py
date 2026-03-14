@@ -29,10 +29,10 @@ class CurriculumProgress:
     sel_category: SELCategory
 
     # Progress Metrics
-    articles_mastered: int = 0
-    articles_in_progress: int = 0
-    articles_available: int = 0
-    total_articles: int = 0
+    lessons_mastered: int = 0
+    lessons_in_progress: int = 0
+    lessons_available: int = 0
+    total_lessons: int = 0
 
     # Computed Progress
     completion_percentage: float = 0.0  # 0-100
@@ -50,9 +50,9 @@ class CurriculumProgress:
         Returns:
             Float between 0-100 representing progress percentage
         """
-        if self.total_articles == 0:
+        if self.total_lessons == 0:
             return 0.0
-        return (self.articles_mastered / self.total_articles) * 100
+        return (self.lessons_mastered / self.total_lessons) * 100
 
     def determine_level(self) -> LearningLevel:
         """
@@ -79,7 +79,7 @@ class CurriculumProgress:
 
     def is_just_starting(self) -> bool:
         """Check if user is just starting this category"""
-        return self.articles_mastered == 0
+        return self.lessons_mastered == 0
 
     def is_completed(self) -> bool:
         """Check if user has completed this category"""

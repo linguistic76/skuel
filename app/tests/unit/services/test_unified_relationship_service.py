@@ -8,7 +8,7 @@ Tests focus on:
 
 Fixture strategy: object.__new__() bypasses the complex __init__ (which requires backend,
 DomainRelationshipConfig, RelationshipCreationHelper, etc.). Sub-attributes are mocked
-directly — the same pattern used for ArticleService in Phase 2.
+directly — the same pattern used for LessonService in Phase 2.
 """
 
 from unittest.mock import AsyncMock, Mock

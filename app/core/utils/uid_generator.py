@@ -39,7 +39,7 @@ class UIDGenerator:
     """
 
     # Prefixes for different entity types
-    ARTICLE_PREFIX = "a"
+    LESSON_PREFIX = "l"
     KNOWLEDGE_PREFIX = "ku"
     DOMAIN_PREFIX = "dom"
     PATH_PREFIX = "path"
@@ -88,7 +88,7 @@ class UIDGenerator:
 
         Note:
             - Hierarchy stored in (ku)-[:ORGANIZES]->(ku) relationships
-            - Use ArticleCoreService.organize_ku() to create parent-child relationships
+            - Use LessonCoreService.organize_ku() to create parent-child relationships
             - See: /docs/patterns/UNIVERSAL_HIERARCHICAL_PATTERN.md
         """
         slug = cls.slugify(title)
@@ -96,23 +96,23 @@ class UIDGenerator:
         return f"{cls.KNOWLEDGE_PREFIX}_{slug}_{random_suffix}"
 
     @classmethod
-    def generate_article_uid(cls, title: str) -> str:
+    def generate_lesson_uid(cls, title: str) -> str:
         """
-        Generate a flat article UID.
+        Generate a flat lesson UID.
 
         Args:
-            title: Article title
+            title: Lesson title
 
         Returns:
             Flat UID with format: a_{slug}_{random}
 
         Examples:
-            >>> generate_article_uid("Meditation Basics")
+            >>> generate_lesson_uid("Meditation Basics")
             'a_meditation-basics_a1b2c3d4'
         """
         slug = cls.slugify(title)
         random_suffix = uuid.uuid4().hex[:8]
-        return f"{cls.ARTICLE_PREFIX}_{slug}_{random_suffix}"
+        return f"{cls.LESSON_PREFIX}_{slug}_{random_suffix}"
 
     @classmethod
     def generate_domain_uid(cls, name: str, parent_domain_uid: str | None = None) -> str:
@@ -212,8 +212,8 @@ class UIDGenerator:
     #
     # Hierarchy is now stored in graph relationships:
     # - (parent:Entity)-[:ORGANIZES {order}]->(child:Entity)
-    # - Use ArticleCoreService.get_parent_kus() to find parents
-    # - Use ArticleCoreService.get_ku_hierarchy() for full hierarchy context
+    # - Use LessonCoreService.get_parent_kus() to find parents
+    # - Use LessonCoreService.get_ku_hierarchy() for full hierarchy context
     #
     # See: /docs/patterns/UNIVERSAL_HIERARCHICAL_PATTERN.md
 

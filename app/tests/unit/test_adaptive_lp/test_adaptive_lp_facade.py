@@ -25,7 +25,7 @@ from core.utils.result_simplified import Result
 
 
 def create_mock_ku_service() -> Mock:
-    """Create mock ArticleService."""
+    """Create mock LessonService."""
     ku_service = Mock()
     ku_service.get = AsyncMock(return_value=Result.ok({"uid": "ku.test", "title": "Test KU"}))
     ku_service.search = AsyncMock(return_value=Result.ok([]))

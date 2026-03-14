@@ -29,15 +29,15 @@ from core.models.task.task_dto import TaskDTO
 
 
 class TestKuThreeTierRoundTrip:
-    """Test lossless DTO ↔ Article (Curriculum) conversion."""
+    """Test lossless DTO ↔ Lesson (Curriculum) conversion."""
 
     def _make_full_dto(self) -> CurriculumDTO:
         """Create a CurriculumDTO with all fields populated."""
         now = datetime.now()
         return CurriculumDTO(
-            uid="a_test_abc123",
+            uid="l_test_abc123",
             title="Test Knowledge",
-            entity_type=EntityType.ARTICLE,
+            entity_type=EntityType.LESSON,
             domain=Domain.KNOWLEDGE,
             word_count=42,
             quality_score=0.85,
@@ -135,9 +135,9 @@ class TestKuThreeTierRoundTrip:
     def test_none_sel_category_preserved(self):
         """sel_category=None must survive round-trip (not default to SELF_AWARENESS)."""
         dto = CurriculumDTO(
-            uid="a_test_none",
+            uid="l_test_none",
             title="No SEL",
-            entity_type=EntityType.ARTICLE,
+            entity_type=EntityType.LESSON,
             domain=Domain.TECH,
             sel_category=None,
         )
@@ -418,9 +418,9 @@ class TestCurriculumFieldSeparation:
         """Curriculum round-trip via DTO preserves all curriculum fields."""
         now = datetime.now()
         dto = CurriculumDTO(
-            uid="a_test_crt",
+            uid="l_test_crt",
             title="Curriculum RT",
-            entity_type=EntityType.ARTICLE,
+            entity_type=EntityType.LESSON,
             complexity=KuComplexity.ADVANCED,
             learning_level=LearningLevel.EXPERT,
             sel_category=SELCategory.SELF_AWARENESS,

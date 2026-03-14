@@ -36,7 +36,7 @@ Benefits:
 Note:
 -----
 KuRelationships uses this utility for its fetch_via_unified() path but retains
-a separate fetch() path via ArticleGraphService for semantic context support.
+a separate fetch() path via LessonGraphService for semantic context support.
 
 Philosophy: "Relationships ARE the data structure, not serialized lists"
 """

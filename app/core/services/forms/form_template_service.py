@@ -224,14 +224,14 @@ class FormTemplateService(BaseService):
     # ARTICLE LINKING
     # ========================================================================
 
-    async def link_to_article(self, form_template_uid: str, article_uid: str) -> Result[bool]:
-        """Link a FormTemplate to an Article via EMBEDS_FORM."""
-        return await self.backend.link_to_article(form_template_uid, article_uid)
+    async def link_to_lesson(self, form_template_uid: str, lesson_uid: str) -> Result[bool]:
+        """Link a FormTemplate to a Lesson via EMBEDS_FORM."""
+        return await self.backend.link_to_lesson(form_template_uid, lesson_uid)
 
-    async def unlink_from_article(self, form_template_uid: str, article_uid: str) -> Result[bool]:
-        """Remove EMBEDS_FORM link between FormTemplate and Article."""
-        return await self.backend.unlink_from_article(form_template_uid, article_uid)
+    async def unlink_from_lesson(self, form_template_uid: str, lesson_uid: str) -> Result[bool]:
+        """Remove EMBEDS_FORM link between FormTemplate and Lesson."""
+        return await self.backend.unlink_from_lesson(form_template_uid, lesson_uid)
 
-    async def get_for_article(self, article_uid: str) -> Result[list[dict[str, Any]]]:
-        """Get all FormTemplates embedded in an article."""
-        return await self.backend.get_forms_for_article(article_uid)
+    async def get_for_lesson(self, lesson_uid: str) -> Result[list[dict[str, Any]]]:
+        """Get all FormTemplates embedded in a lesson."""
+        return await self.backend.get_forms_for_lesson(lesson_uid)

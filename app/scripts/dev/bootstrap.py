@@ -445,7 +445,7 @@ async def _wire_all_routes(
     This uses the streamlined route organization with 4 consolidated files:
     - core_routes.py (tasks + habits + timeline)
     - content_routes.py (journals + audio transcription)
-    - article_routes.py (discovery + hierarchical + askesis)
+    - lesson_routes.py (discovery + hierarchical + askesis)
     - system_routes.py (main + health + operations)
     - finance_routes.py (standalone)
 
@@ -463,9 +463,9 @@ async def _wire_all_routes(
     # ========================================================================
 
     # Knowledge routes
-    from adapters.inbound.article_routes import create_article_routes
+    from adapters.inbound.lesson_routes import create_lesson_routes
 
-    create_article_routes(app, rt, services, None)
+    create_lesson_routes(app, rt, services, None)
 
     # Search routes - THE PRIMARY SEARCH INTERFACE
     # One Path Forward: All search goes through SearchRouter (January 2026)
@@ -616,10 +616,10 @@ async def _wire_all_routes(
         register_analytics_routes(app, services)
         logger.info("✅ Analytics API routes registered (Phase 5: Event-driven live metrics)")
 
-    from adapters.inbound.article_organization_api import create_article_organization_api_routes
+    from adapters.inbound.lesson_organization_api import create_lesson_organization_api_routes
 
-    create_article_organization_api_routes(
-        app, rt, ku_service=services.article, user_service=services.user_service
+    create_lesson_organization_api_routes(
+        app, rt, ku_service=services.lesson, user_service=services.user_service
     )
     logger.info("✅ KU organization routes registered")
 
@@ -698,9 +698,9 @@ async def _wire_all_routes(
     # SEL routes removed — absorbed into /ku hub (February 2026)
 
     # KU Reading routes (MVP - Phase A)
-    from adapters.inbound.article_reading_routes import create_article_reading_routes
+    from adapters.inbound.lesson_reading_routes import create_lesson_reading_routes
 
-    create_article_reading_routes(app, rt, services, None)
+    create_lesson_reading_routes(app, rt, services, None)
     logger.info(
         "✅ KU reading routes registered (4 endpoints: read page, mark-read, bookmark, navigation)"
     )

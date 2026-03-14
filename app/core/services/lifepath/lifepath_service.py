@@ -35,7 +35,7 @@ from .lifepath_types import WordActionAlignment
 from .lifepath_vision_service import LifePathVisionService
 
 if TYPE_CHECKING:
-    from core.services.article_service import ArticleService
+    from core.services.lesson_service import LessonService
     from core.services.llm_service import LLMService
     from core.services.lp_service import LpService
     from core.services.user.unified_user_context import UserContext
@@ -76,7 +76,7 @@ class LifePathService:
         self,
         executor: Any = None,
         lp_service: LpService | None = None,
-        ku_service: ArticleService | None = None,
+        ku_service: LessonService | None = None,
         user_service: UserService | None = None,
         llm_service: LLMService | None = None,
     ) -> None:

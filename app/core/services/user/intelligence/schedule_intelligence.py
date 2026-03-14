@@ -433,7 +433,7 @@ class ScheduleIntelligenceMixin:
         elif entity_type == EntityType.HABIT.value:
             schedule_fit = 0.85  # Habits are flexible
         elif (
-            entity_type in ("knowledge", EntityType.ARTICLE.value, EntityType.KU.value)
+            entity_type in ("knowledge", EntityType.LESSON.value, EntityType.KU.value)
             and time_slot == "morning"
         ):
             schedule_fit = 0.95  # Learning best in morning

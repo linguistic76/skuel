@@ -153,7 +153,7 @@ class TestKuServiceIntelligenceDelegation:
     async def test_get_usage_summary_delegates(self):
         service, common = self._make_service()
         common.intelligence.get_usage_summary.return_value = Result.ok(
-            {"articles": 1, "learning_steps": 0, "organized_children": 0}
+            {"lessons": 1, "learning_steps": 0, "organized_children": 0}
         )
 
         await service.get_usage_summary("ku_test_abc123")

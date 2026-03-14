@@ -2,10 +2,10 @@
 Curriculum Hierarchy Tests
 =============================
 
-Tests for the Curriculum base class and Article leaf class hierarchy. Verifies:
+Tests for the Curriculum base class and Lesson leaf class hierarchy. Verifies:
 
 1. Curriculum base class field inheritance from Entity (no type forcing)
-2. Article leaf class forces EntityType.ARTICLE in __post_init__
+2. Lesson leaf class forces EntityType.LESSON in __post_init__
 3. LearningStep and LearningPath inherit from Curriculum (not Entity)
 4. Substance methods work with real data (not stubs)
 5. Learning methods (complexity, SEL, level) work correctly
@@ -14,7 +14,7 @@ Tests for the Curriculum base class and Article leaf class hierarchy. Verifies:
 
 from datetime import datetime, timedelta
 
-from core.models.article.article import Article
+from core.models.lesson.lesson import Lesson
 from core.models.curriculum import Curriculum
 from core.models.entity import Entity
 from core.models.enums import Domain, KuComplexity, LearningLevel, SELCategory
@@ -46,18 +46,18 @@ class TestCurriculumKuCreation:
         cu = Curriculum(uid="ku_test", title="Test", entity_type=EntityType.TASK)
         assert cu.entity_type == EntityType.TASK  # Not overridden
 
-    def test_article_leaf_forces_article_type(self):
-        """Article leaf class forces entity_type=EntityType.ARTICLE in __post_init__."""
-        article = Article(uid="a_test", title="Test", entity_type=EntityType.TASK)
-        assert article.entity_type == EntityType.ARTICLE  # Article always forces ARTICLE type
+    def test_lesson_leaf_forces_lesson_type(self):
+        """Lesson leaf class forces entity_type=EntityType.LESSON in __post_init__."""
+        lesson = Lesson(uid="l_test", title="Test", entity_type=EntityType.TASK)
+        assert lesson.entity_type == EntityType.LESSON  # Lesson always forces LESSON type
 
-    def test_article_basic_creation(self):
-        """Article can be created and is a Curriculum instance."""
-        article = Article(uid="a_python_abc123", title="Python Basics")
-        assert article.uid == "a_python_abc123"
-        assert article.entity_type == EntityType.ARTICLE
-        assert isinstance(article, Curriculum)
-        assert isinstance(article, Entity)
+    def test_lesson_basic_creation(self):
+        """Lesson can be created and is a Curriculum instance."""
+        lesson = Lesson(uid="l_python_abc123", title="Python Basics")
+        assert lesson.uid == "l_python_abc123"
+        assert lesson.entity_type == EntityType.LESSON
+        assert isinstance(lesson, Curriculum)
+        assert isinstance(lesson, Entity)
 
     def test_learning_field_defaults(self):
         """Learning metadata fields have correct defaults."""

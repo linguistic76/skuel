@@ -26,10 +26,10 @@ When working in a file or area of the codebase, address problems you encounter �
 
 `Entity` is the base frozen dataclass for all 19 domain types. The `entity_type` field discriminates which kind of entity it is. The `parent_entity_uid` field tracks derivation chains.
 
-- **Article** (`EntityType.ARTICLE`, extends `Curriculum`) — essay-like teaching composition. Services in `core/services/article/`.
+- **Lesson** (`EntityType.LESSON`, extends `Curriculum`) — essay-like teaching composition. Services in `core/services/lesson/`.
 - **Ku** (`EntityType.KU`, extends `Entity`) — atomic knowledge unit. Lightweight ontology/reference node. Services in `core/services/ku/`.
-- **Composition:** `(Article)-[:USES_KU]->(Ku)` — Articles compose atomic Kus into narrative.
-- **Learning loop:** Article -> Exercise -> ExerciseSubmission -> ExerciseReport -> RevisedExercise -> ...
+- **Composition:** `(Lesson)-[:USES_KU]->(Ku)` — Lessons compose atomic Kus into narrative.
+- **Learning loop:** Lesson -> Exercise -> ExerciseSubmission -> ExerciseReport -> RevisedExercise -> ...
 
 ## Naming Conventions
 
@@ -123,7 +123,7 @@ SKUEL separates runtime into two layers. The **Analog layer** (graph structure, 
 | FormTemplate | General-purpose form definition | `ft_{slug}_{random}` | Admin-created, shared |
 | FormSubmission | User response to a FormTemplate | `fs_{slug}_{random}` | User-owned |
 | Finance | Admin-only bookkeeping | `expense_{random}` | Admin-only |
-| Article | Teaching composition (essay-like) | `a_{slug}_{random}` | Admin-created, shared |
+| Lesson | Teaching composition (essay-like) | `l_{slug}_{random}` | Admin-created, shared |
 | Ku | Atomic knowledge unit | `ku_{slug}_{random}` | Admin-created, shared |
 | Resource | Curated content (books, talks, films) | N/A | Admin-created, shared |
 | LearningStep | Step in a learning path | `ls:{random}` | Admin-created, shared |
@@ -154,7 +154,7 @@ Entity types have behavioral traits — not category membership — that determi
 ### Entity Type Groups
 
 - **Activity (6):** Task, Goal, Habit, Event, Choice, Principle — facade pattern with `.core`, `.search`, `.intelligence` sub-services. Created via `create_common_sub_services()`. Events additionally has integration sub-services; **Calendar** cross-cutting system handles scheduling aggregation.
-- **Curriculum (5):** Article, Ku, LearningStep, LearningPath, Exercise — `ContentScope.SHARED`, admin creates, all users read.
+- **Curriculum (5):** Lesson, Ku, LearningStep, LearningPath, Exercise — `ContentScope.SHARED`, admin creates, all users read.
 - **Submissions/Reports (5):** ExerciseSubmission, JournalSubmission, ExerciseReport, JournalReport, ActivityReport — the learning loop. Services in `core/services/submissions/` + `core/services/report/`.
 - **Other:** Finance (admin-only), Resource (curated, not curriculum), Groups (ADR-040), RevisedExercise (teacher-owned hybrid), MOC (emergent via ORGANIZES), LifePath (the destination, alignment score 0.0-1.0).
 
@@ -216,11 +216,11 @@ Entity (~18 fields: uid, entity_type, title, description, status, tags, ...)
 |   +-- Task, Goal, Habit, Event, Choice, Principle  (Activity)
 |   +-- LifePath, ActivityReport, Submission -> Journal, SubmissionReport
 +-- Ku(Entity) -- atomic knowledge unit (namespace, ku_category, aliases, source)
-+-- Curriculum(Entity) +21 fields -> Article, LearningStep, LearningPath, Exercise
++-- Curriculum(Entity) +21 fields -> Lesson, LearningStep, LearningPath, Exercise
 +-- Resource(Entity) +7 fields (Curated content)
 ```
 
-**DTOs** mirror the hierarchy: `EntityDTO -> UserOwnedDTO, KuDTO, CurriculumDTO -> ArticleDTO, ResourceDTO`
+**DTOs** mirror the hierarchy: `EntityDTO -> UserOwnedDTO, KuDTO, CurriculumDTO -> LessonDTO, ResourceDTO`
 
 **Key enums:** `EntityType` (18 values), `EntityStatus` (14 values) — both in `entity_enums.py`.
 
@@ -537,7 +537,7 @@ await publish_event(self.event_bus, TaskCompleted(task_uid=uid, user_uid=user_ui
 
 **4-Layer Architecture:** `*Operations protocol -> *Backend subclass -> *Service facade -> sub-services`
 
-**Domain Backends** (all in `domain_backends.py`): TasksBackend, EventsBackend, GoalsBackend, HabitsBackend, ChoicesBackend, PrinciplesBackend, ArticleBackend, KuBackend, SubmissionsBackend, SharingBackend, LpBackend, ExerciseBackend, RevisedExerciseBackend, FormTemplateBackend, FormSubmissionBackend.
+**Domain Backends** (all in `domain_backends.py`): TasksBackend, EventsBackend, GoalsBackend, HabitsBackend, ChoicesBackend, PrinciplesBackend, LessonBackend, KuBackend, SubmissionsBackend, SharingBackend, LpBackend, ExerciseBackend, RevisedExerciseBackend, FormTemplateBackend, FormSubmissionBackend.
 
 Domain-specific relationship Cypher belongs on the domain backend. Cross-domain aggregation stays in services. Use `cascade=True` for Activity Domains.
 
@@ -553,7 +553,7 @@ Domain-specific relationship Cypher belongs on the domain backend. Cross-domain 
 
 **Three Query Systems:** UnifiedQueryBuilder (default), QueryBuilder (optimization), CypherGenerator (pure Cypher).
 
-**Searchable Domains:** All 14 — Task, Goal, Habit, Event, Choice, Principle, Article, LS, LP, Exercise, RevisedExercise, Submission, FormTemplate, FormSubmission.
+**Searchable Domains:** All 14 — Task, Goal, Habit, Event, Choice, Principle, Lesson, LS, LP, Exercise, RevisedExercise, Submission, FormTemplate, FormSubmission.
 
 **DomainConfig** is THE single source of truth for BaseService configuration: `dto_class`, `model_class`, `search_fields`, `search_order_by`, `category_field`, `temporal_exclude_statuses`, `supports_user_progress`, `user_ownership_relationship`, `graph_enrichment_patterns`, etc.
 
@@ -586,7 +586,7 @@ One-way pipeline: Markdown/YAML -> Neo4j. Dry-run mode, incremental ingestion, i
 | Pattern | UID Format | Topology | Metaphor |
 |---------|-----------|----------|----------|
 | Ku | `ku_{slug}_{random}` | Atom | A single concept/fact |
-| Article | `a_{slug}_{random}` | Composition | A teaching narrative (composes Kus) |
+| Lesson | `l_{slug}_{random}` | Composition | A teaching narrative (composes Kus) |
 | LS | `ls:{random}` | Edge | A step in a staircase |
 | LP | `lp:{random}` | Path | The full staircase |
 
@@ -733,7 +733,7 @@ from core.utils.embedding_text_builder import build_embedding_text
 text = build_embedding_text(EntityType.TASK, {"title": "Fix bug", "description": "Details"})
 ```
 
-**Supported:** All 13 content-bearing entity types — Article, Ku, Exercise, LearningStep, LearningPath, Resource, RevisedExercise, Task, Goal, Habit, Event, Choice, Principle. Field mappings in `EMBEDDING_FIELD_MAPS`.
+**Supported:** All 13 content-bearing entity types — Lesson, Ku, Exercise, LearningStep, LearningPath, Resource, RevisedExercise, Task, Goal, Habit, Event, Choice, Principle. Field mappings in `EMBEDDING_FIELD_MAPS`.
 
 ## Quick Reference: Key Files
 

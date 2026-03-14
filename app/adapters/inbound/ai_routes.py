@@ -55,7 +55,7 @@ async def _ai_route(
     Args:
         request: Starlette request
         services: Service container
-        domain_attr: Attribute name on services (e.g. "tasks", "article")
+        domain_attr: Attribute name on services (e.g. "tasks", "lesson")
         domain_label: Human-readable domain name for error messages
         method_name: AI service method to call
         args: Positional args to pass to the method
@@ -322,7 +322,7 @@ def create_ai_routes(app: Any, rt: Any, services: Any) -> list[Any]:
         )
 
     # ------------------------------------------------------------------
-    # KNOWLEDGE (ARTICLE) AI ROUTES
+    # KNOWLEDGE (LESSON) AI ROUTES
     # ------------------------------------------------------------------
 
     @rt("/api/knowledge/ai/related")
@@ -331,9 +331,9 @@ def create_ai_routes(app: Any, rt: Any, services: Any) -> list[Any]:
         return await _ai_route(
             request,
             services,
-            "article",
+            "lesson",
             "Knowledge",
-            "find_related_articles",
+            "find_related_lessons",
             (uid, limit),
             wrap_key="related_knowledge",
         )
@@ -344,7 +344,7 @@ def create_ai_routes(app: Any, rt: Any, services: Any) -> list[Any]:
         return await _ai_route(
             request,
             services,
-            "article",
+            "lesson",
             "Knowledge",
             "semantic_search",
             (query, limit),
@@ -357,7 +357,7 @@ def create_ai_routes(app: Any, rt: Any, services: Any) -> list[Any]:
         return await _ai_route(
             request,
             services,
-            "article",
+            "lesson",
             "Knowledge",
             "generate_summary",
             (uid,),
@@ -368,14 +368,14 @@ def create_ai_routes(app: Any, rt: Any, services: Any) -> list[Any]:
     async def knowledge_ai_explain(request: Any, uid: str, level: str = "intermediate") -> Any:
         """Explain a knowledge unit at a specified level."""
         return await _ai_route(
-            request, services, "article", "Knowledge", "explain_at_level", (uid, level)
+            request, services, "lesson", "Knowledge", "explain_at_level", (uid, level)
         )
 
     @rt("/api/knowledge/ai/applications")
     async def knowledge_ai_applications(request: Any, uid: str) -> Any:
         """Suggest practical applications of knowledge."""
         return await _ai_route(
-            request, services, "article", "Knowledge", "suggest_applications", (uid,)
+            request, services, "lesson", "Knowledge", "suggest_applications", (uid,)
         )
 
     # ------------------------------------------------------------------
@@ -482,7 +482,7 @@ def create_ai_routes(app: Any, rt: Any, services: Any) -> list[Any]:
                 "events": services.events.ai is not None,
                 "choices": services.choices.ai is not None,
                 "principles": services.principles.ai is not None,
-                "knowledge": services.article.ai is not None,
+                "knowledge": services.lesson.ai is not None,
                 "learning_steps": services.ls.ai is not None,
                 "learning_paths": services.lp.ai is not None,
             }

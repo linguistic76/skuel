@@ -13,7 +13,7 @@ Handles all graph operations for knowledge units.
 - Prerequisite chains
 
 **Dependencies:**
-- ArticleOperations (backend protocol)
+- LessonOperations (backend protocol)
 - Neo4jAdapter (graph operations)
 - GraphIntelligence service (smart traversal)
 """
@@ -38,7 +38,7 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_priority_score
 
 
-class ArticleGraphService:
+class LessonGraphService:
     """
     Graph navigation and relationship operations for knowledge units.
     """
@@ -48,7 +48,7 @@ class ArticleGraphService:
         Initialize graph service with required dependencies.
 
         Args:
-            repo: ArticleOperations backend,
+            repo: LessonOperations backend,
             neo4j_adapter: Neo4j adapter for graph operations,
             graph_intel: Graph intelligence service for smart traversal
         """
@@ -62,7 +62,7 @@ class ArticleGraphService:
         self.neo4j = neo4j_adapter
         self.graph_intel = graph_intel
 
-        self.logger = get_logger("skuel.services.article.graph")
+        self.logger = get_logger("skuel.services.lesson.graph")
 
     async def _execute_query(
         self, query: str, params: dict[str, Any], operation: str = "execute_query"
@@ -217,8 +217,8 @@ class ArticleGraphService:
         self.logger.debug(f"Found {len(next_steps)} next steps for {uid}")
         return Result.ok(next_steps)
 
-    @with_error_handling("get_article_with_context", error_type="database", uid_param="uid")
-    async def get_article_with_context(self, uid: str, depth: int = 2) -> Result[dict[str, Any]]:
+    @with_error_handling("get_lesson_with_context", error_type="database", uid_param="uid")
+    async def get_lesson_with_context(self, uid: str, depth: int = 2) -> Result[dict[str, Any]]:
         """
         Get article with full graph context.
 
@@ -1223,8 +1223,8 @@ class ArticleGraphService:
         )
         return Result.ok(contextual_kus)
 
-    @with_error_handling("get_articles_to_reinforce_for_user", error_type="database")
-    async def get_articles_to_reinforce_for_user(
+    @with_error_handling("get_lessons_to_reinforce_for_user", error_type="database")
+    async def get_lessons_to_reinforce_for_user(
         self,
         context: "UserContext",
         mastery_threshold: float = 0.7,

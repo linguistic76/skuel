@@ -8,11 +8,11 @@ User-facing routes for reading Knowledge Units with:
 - Mark as read / bookmark actions
 - Next/prev navigation via MOC ORGANIZES order
 - KU metadata display (domain, complexity, tags)
-- Exercises practicing this knowledge (Ku → Exercise loop entry point)
+- Exercises practicing this knowledge (Ku -> Exercise loop entry point)
 - Lateral relationships visualization
 
 Routes:
-- GET /article/{uid} - KU detail page with reading interface
+- GET /lesson/{uid} - KU detail page with reading interface
 """
 
 import json
@@ -63,7 +63,7 @@ def _parse_form_schema(raw: Any) -> list[dict] | None:
 
 
 def _exercises_for_ku_section(exercises: list[dict]) -> Any:
-    """Exercises that practice this knowledge — Ku → Exercise loop entry point.
+    """Exercises that practice this knowledge — Ku -> Exercise loop entry point.
 
     Exercises with form_schema render as inline forms. Others show as links.
     """
@@ -75,7 +75,7 @@ def _exercises_for_ku_section(exercises: list[dict]) -> Any:
         form_schema = _parse_form_schema(e.get("form_schema"))
 
         if form_schema:
-            # Inline form — embedded directly in the article
+            # Inline form — embedded directly in the lesson
             rows.append(
                 render_inline_exercise_form(
                     exercise_uid=e.get("uid", ""),
@@ -129,7 +129,7 @@ def _nav_button(ku: dict | None, direction: str) -> Any:
                 Div(f"← {label}", cls="text-sm"),
                 cls="text-left",
             ),
-            href=f"/article/{ku.get('uid')}",
+            href=f"/lesson/{ku.get('uid')}",
             variant=ButtonT.outline,
         )
     return ButtonLink(
@@ -138,7 +138,7 @@ def _nav_button(ku: dict | None, direction: str) -> Any:
             Div(f"{label} →", cls="text-sm"),
             cls="text-right",
         ),
-        href=f"/article/{ku.get('uid')}",
+        href=f"/lesson/{ku.get('uid')}",
         variant=ButtonT.outline,
     )
 
@@ -171,7 +171,7 @@ def _form_templates_section(form_templates: list[dict]) -> Any:
     )
 
 
-def create_article_reading_ui_routes(
+def create_lesson_reading_ui_routes(
     app: Any,
     rt: Any,
     ku_service: Any,
@@ -194,7 +194,7 @@ def create_article_reading_ui_routes(
         List of registered route functions
     """
 
-    @rt("/article/{uid}")
+    @rt("/lesson/{uid}")
     async def ku_detail_page(request: Request, uid: str) -> Any:
         """
         KU detail page with full reading interface.
@@ -244,15 +244,15 @@ def create_article_reading_ui_routes(
         is_bookmarked = state_result.value.is_bookmarked if state_result.is_ok else False
         view_count = state_result.value.view_count if state_result.is_ok else 0
 
-        # Exercises that practice this knowledge (Ku → Exercise loop)
+        # Exercises that practice this knowledge (Ku -> Exercise loop)
         exercises_result = await exercises_service.get_exercises_for_curriculum(uid)
         exercises_for_ku = exercises_result.value if exercises_result.is_ok else []
 
-        # FormTemplates embedded in this article (EMBEDS_FORM)
-        form_templates_for_article: list[dict] = []
+        # FormTemplates embedded in this lesson (EMBEDS_FORM)
+        form_templates_for_lesson: list[dict] = []
         if form_template_service:
-            ft_result = await form_template_service.get_for_article(uid)
-            form_templates_for_article = ft_result.value if ft_result.is_ok else []
+            ft_result = await form_template_service.get_for_lesson(uid)
+            form_templates_for_lesson = ft_result.value if ft_result.is_ok else []
 
         # Get organization context for breadcrumbs + navigation
         organizers_result = await ku_service.find_organizers(uid)
@@ -304,7 +304,7 @@ def create_article_reading_ui_routes(
             "Marked as Read" if is_marked_read else "Mark as Read",
             variant=ButtonT.success if is_marked_read else ButtonT.primary,
             size=Size.sm,
-            hx_post=f"/api/article/{uid}/mark-read",
+            hx_post=f"/api/lesson/{uid}/mark-read",
             hx_swap="outerHTML",
             hx_target="this",
             disabled=is_marked_read,
@@ -314,7 +314,7 @@ def create_article_reading_ui_routes(
             "Bookmarked" if is_bookmarked else "Bookmark",
             variant=ButtonT.secondary if is_bookmarked else ButtonT.ghost,
             size=Size.sm,
-            hx_post=f"/api/article/{uid}/bookmark",
+            hx_post=f"/api/lesson/{uid}/bookmark",
             hx_swap="outerHTML",
             hx_target="this",
         )
@@ -381,7 +381,7 @@ def create_article_reading_ui_routes(
             metadata_footer,
             nav_section,
             _exercises_for_ku_section(exercises_for_ku),
-            _form_templates_section(form_templates_for_article),
+            _form_templates_section(form_templates_for_lesson),
             Div(
                 EntityRelationshipsSection(
                     entity_uid=uid,
@@ -417,11 +417,11 @@ def create_article_reading_ui_routes(
             page_type=PageType.CUSTOM,
         )
 
-    logger.info("KU reading UI routes registered: /article/{uid}")
+    logger.info("KU reading UI routes registered: /lesson/{uid}")
 
     return [
         ku_detail_page,
     ]
 
 
-__all__ = ["create_article_reading_ui_routes"]
+__all__ = ["create_lesson_reading_ui_routes"]

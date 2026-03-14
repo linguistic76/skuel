@@ -12,7 +12,7 @@ This sub-service handles:
 - Path-to-steps relationship management
 
 Part of LpService decomposition (October 24, 2025)
-- Follows ArticleService decomposition pattern
+- Follows LessonService decomposition pattern
 - Clear separation of concerns
 - Single responsibility: CRUD operations
 

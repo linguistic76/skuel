@@ -47,27 +47,27 @@ class TestCurriculumRichContext:
         primary_ku = CurriculumDTO(
             uid=UIDGenerator.generate_random_uid("ku"),
             title="Python Functions",
-            entity_type=EntityType.ARTICLE,
+            entity_type=EntityType.LESSON,
             domain=Domain.TECH,
         )
-        await services.article.core.backend.create(primary_ku.to_dict())
+        await services.lesson.core.backend.create(primary_ku.to_dict())
 
         supporting_ku = CurriculumDTO(
             uid=UIDGenerator.generate_random_uid("ku"),
             title="Python Variables",
-            entity_type=EntityType.ARTICLE,
+            entity_type=EntityType.LESSON,
             domain=Domain.TECH,
         )
-        await services.article.core.backend.create(supporting_ku.to_dict())
+        await services.lesson.core.backend.create(supporting_ku.to_dict())
 
         # Create prerequisite knowledge
         prereq_ku = CurriculumDTO(
             uid=UIDGenerator.generate_random_uid("ku"),
             title="Python Basics",
-            entity_type=EntityType.ARTICLE,
+            entity_type=EntityType.LESSON,
             domain=Domain.TECH,
         )
-        await services.article.core.backend.create(prereq_ku.to_dict())
+        await services.lesson.core.backend.create(prereq_ku.to_dict())
 
         # Create guiding principle
         principle = PrincipleDTO(
@@ -226,10 +226,10 @@ class TestCurriculumRichContext:
         prereq_ku = CurriculumDTO(
             uid=UIDGenerator.generate_random_uid("ku"),
             title="Programming Fundamentals",
-            entity_type=EntityType.ARTICLE,
+            entity_type=EntityType.LESSON,
             domain=Domain.TECH,
         )
-        await services.article.core.backend.create(prereq_ku.to_dict())
+        await services.lesson.core.backend.create(prereq_ku.to_dict())
 
         # Create aligned goal
         goal = GoalDTO.create_goal(
@@ -387,10 +387,10 @@ class TestCurriculumRichContext:
         ku = CurriculumDTO(
             uid=UIDGenerator.generate_random_uid("ku"),
             title="Python Functions",
-            entity_type=EntityType.ARTICLE,
+            entity_type=EntityType.LESSON,
             domain=Domain.TECH,
         )
-        await services.article.core.backend.create(ku.to_dict())
+        await services.lesson.core.backend.create(ku.to_dict())
 
         # Wait for persistence
         await asyncio.sleep(0.1)

@@ -25,8 +25,8 @@ NOTE: KU is a Curriculum domain - content is SHARED (no user_uid ownership).
 
 from typing import TYPE_CHECKING, Any
 
-from core.models.article.article import Article
-from core.ports import ArticleOperations
+from core.models.lesson.lesson import Lesson
+from core.ports import LessonOperations
 from core.services.base_ai_service import BaseAIService
 from core.utils.result_simplified import Errors, Result
 
@@ -35,7 +35,7 @@ if TYPE_CHECKING:
     from core.services.llm_service import LLMService
 
 
-class ArticleAIService(BaseAIService[ArticleOperations, Article]):
+class LessonAIService(BaseAIService[LessonOperations, Lesson]):
     """
     AI-powered features for Knowledge Units domain.
 
@@ -57,7 +57,7 @@ class ArticleAIService(BaseAIService[ArticleOperations, Article]):
 
     def __init__(
         self,
-        backend: ArticleOperations,
+        backend: LessonOperations,
         llm_service: "LLMService",
         embeddings_service: "HuggingFaceEmbeddingsService",
         content_repo: Any | None = None,
@@ -119,7 +119,7 @@ class ArticleAIService(BaseAIService[ArticleOperations, Article]):
 
         article = article_result.value
         if not article:
-            return Result.fail(Errors.not_found(resource="Article", identifier=article_uid))
+            return Result.fail(Errors.not_found(resource="Lesson", identifier=article_uid))
 
         content = await self._fetch_content(article_uid)
         search_text = f"{article.title} {article.summary}"

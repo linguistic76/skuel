@@ -1,4 +1,4 @@
-"""Article domain request models.
+"""Lesson domain request models.
 
 See: /docs/architecture/CURRICULUM_GROUPING_PATTERNS.md
 """
@@ -15,10 +15,10 @@ from core.models.enums import (
 from core.models.request_base import CreateRequestBase
 
 
-class ArticleCreateRequest(CreateRequestBase):
-    """Create admin-authored article (essay-like teaching composition)."""
+class LessonCreateRequest(CreateRequestBase):
+    """Create admin-authored lesson (essay-like teaching composition)."""
 
-    title: str = Field(min_length=1, max_length=200, description="Title of the article")
+    title: str = Field(min_length=1, max_length=200, description="Title of the lesson")
     domain: Domain = Field(description="Knowledge domain")
 
     # Content
@@ -44,35 +44,35 @@ class ArticleCreateRequest(CreateRequestBase):
 # =============================================================================
 
 
-class ArticleRelationshipCreateRequest(BaseModel):
-    """Request to create a relationship between articles."""
+class LessonRelationshipCreateRequest(BaseModel):
+    """Request to create a relationship between lessons."""
 
-    target_uid: str = Field(..., description="Target article UID")
+    target_uid: str = Field(..., description="Target lesson UID")
     type: str = Field(default="RELATED_TO", description="Relationship type")
     strength: float = Field(default=1.0, ge=0.0, le=1.0, description="Relationship strength")
     description: str = Field(default="", max_length=500, description="Relationship description")
 
 
-class ArticleContentUpdateRequest(BaseModel):
-    """Request to update article content."""
+class LessonContentUpdateRequest(BaseModel):
+    """Request to update lesson content."""
 
-    content: str = Field(..., min_length=1, description="Article content")
+    content: str = Field(..., min_length=1, description="Lesson content")
     title: str | None = Field(
         None, min_length=1, max_length=200, description="Optional title update"
     )
 
 
-class ArticleOrganizeRequest(BaseModel):
-    """Request to organize an article under another (create ORGANIZES relationship)."""
+class LessonOrganizeRequest(BaseModel):
+    """Request to organize a lesson under another (create ORGANIZES relationship)."""
 
-    parent_uid: str = Field(..., description="Parent article UID")
-    child_uid: str = Field(..., description="Child article UID")
+    parent_uid: str = Field(..., description="Parent lesson UID")
+    child_uid: str = Field(..., description="Child lesson UID")
     order: int = Field(default=0, ge=0, description="Sort order within parent")
 
 
-class ArticleReorderRequest(BaseModel):
-    """Request to change the order of a child article within its parent."""
+class LessonReorderRequest(BaseModel):
+    """Request to change the order of a child lesson within its parent."""
 
-    parent_uid: str = Field(..., description="Parent article UID")
-    child_uid: str = Field(..., description="Child article UID")
+    parent_uid: str = Field(..., description="Parent lesson UID")
+    child_uid: str = Field(..., description="Child lesson UID")
     new_order: int = Field(..., ge=0, description="New sort order")

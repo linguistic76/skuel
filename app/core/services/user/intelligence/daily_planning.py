@@ -52,7 +52,7 @@ class DailyPlanningMixin:
     events: Any  # EventsRelationshipService
     choices: Any  # ChoicesRelationshipService
     principles: Any  # PrinciplesRelationshipService
-    ku: Any  # ArticleGraphService
+    ku: Any  # LessonGraphService
 
     # Stubs for methods provided by TemporalMomentumMixin in the composed class.
     if TYPE_CHECKING:

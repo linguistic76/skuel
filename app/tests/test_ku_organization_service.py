@@ -3,7 +3,7 @@
 KU Organization Service Test Suite
 ====================================
 
-Tests for ArticleOrganizationService — ORGANIZES relationship management.
+Tests for LessonOrganizationService — ORGANIZES relationship management.
 
 Any Ku can organize other Kus via ORGANIZES relationships (emergent identity).
 This test suite covers:
@@ -17,8 +17,8 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from core.services.article.article_organization_service import (
-    ArticleOrganizationService,
+from core.services.lesson.lesson_organization_service import (
+    LessonOrganizationService,
     OrganizationView,
     OrganizedKu,
 )
@@ -31,7 +31,7 @@ from core.utils.result_simplified import Errors, Result
 
 @pytest.fixture
 def mock_ku_service() -> Mock:
-    """Create mock ArticleService."""
+    """Create mock LessonService."""
     ku_service = Mock()
     ku_service.get = AsyncMock()
     return ku_service
@@ -39,7 +39,7 @@ def mock_ku_service() -> Mock:
 
 @pytest.fixture
 def mock_backend() -> Mock:
-    """Create mock ArticleBackend with all organization methods."""
+    """Create mock LessonBackend with all organization methods."""
     backend = Mock()
     backend.is_organizer = AsyncMock()
     backend.organize = AsyncMock()
@@ -52,9 +52,9 @@ def mock_backend() -> Mock:
 
 
 @pytest.fixture
-def organization_service(mock_ku_service, mock_backend) -> ArticleOrganizationService:
-    """Create ArticleOrganizationService instance for testing."""
-    return ArticleOrganizationService(ku_service=mock_ku_service, backend=mock_backend)
+def organization_service(mock_ku_service, mock_backend) -> LessonOrganizationService:
+    """Create LessonOrganizationService instance for testing."""
+    return LessonOrganizationService(ku_service=mock_ku_service, backend=mock_backend)
 
 
 @pytest.fixture

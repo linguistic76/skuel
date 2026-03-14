@@ -31,7 +31,7 @@ from core.utils.result_simplified import Result
 
 @pytest.fixture
 def mock_ku_service():
-    """Mock ArticleService for recommendations."""
+    """Mock LessonService for recommendations."""
     ku_service = Mock()
     ku_service.get = AsyncMock(return_value=Result.ok({"uid": "ku.test", "title": "Test KU"}))
     ku_service.get_prerequisites = AsyncMock(return_value=Result.ok([]))

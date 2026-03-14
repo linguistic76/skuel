@@ -30,7 +30,7 @@ ENTITY TYPES NOT USING THIS BASE SERVICE
     7. FinanceService - Expenses and budgets (standalone facade)
 
 **Curriculum Domain Services (3)** - Standalone facades:
-    8. ArticleService - Knowledge Units (ku:)
+    8. LessonService - Knowledge Units (ku:)
     9. LsService - Learning Steps (ls:)
     10. LpService - Learning Paths (lp:)
 

@@ -34,7 +34,7 @@ class TestRichContextPattern:
 
     async def test_knowledge_get_with_context(self, services, test_user):
         """
-        Test ArticleCoreService.get_with_context() fetches KU + graph neighborhood.
+        Test LessonCoreService.get_with_context() fetches KU + graph neighborhood.
 
         Validates that prerequisites, dependents, related KUs, and mastery
         stats are all fetched in a single query.
@@ -43,10 +43,10 @@ class TestRichContextPattern:
         prereq_dto = CurriculumDTO(
             uid=UIDGenerator.generate_random_uid("ku"),
             title="Python Basics",
-            entity_type=EntityType.ARTICLE,
+            entity_type=EntityType.LESSON,
             domain=Domain.TECH,
         )
-        prereq_result = await services.article.core.backend.create(prereq_dto.to_dict())
+        prereq_result = await services.lesson.core.backend.create(prereq_dto.to_dict())
         assert prereq_result.is_ok, f"Failed to create prereq KU: {prereq_result.error}"
         print(f"✅ Created prereq KU: {prereq_dto.uid}")
 
@@ -54,10 +54,10 @@ class TestRichContextPattern:
         ku_dto = CurriculumDTO(
             uid=UIDGenerator.generate_random_uid("ku"),
             title="Advanced Python",
-            entity_type=EntityType.ARTICLE,
+            entity_type=EntityType.LESSON,
             domain=Domain.TECH,
         )
-        main_ku_result = await services.article.core.backend.create(ku_dto.to_dict())
+        main_ku_result = await services.lesson.core.backend.create(ku_dto.to_dict())
         assert main_ku_result.is_ok, f"Failed to create main KU: {main_ku_result.error}"
         print(f"✅ Created main KU: {ku_dto.uid}")
 
@@ -66,7 +66,7 @@ class TestRichContextPattern:
 
         # DEBUG: Verify nodes exist in database
         verify_query = "MATCH (ku:Entity) RETURN count(ku) as count, collect(ku.uid) as uids"
-        verify_result = await services.article.core.backend.driver.execute_query(verify_query, {})
+        verify_result = await services.lesson.core.backend.driver.execute_query(verify_query, {})
         verify_records = verify_result.records
         if verify_records:
             count = verify_records[0]["count"]
@@ -76,7 +76,7 @@ class TestRichContextPattern:
             print("❌ No KnowledgeUnit nodes found in DB!")
 
         # Create prerequisite relationship
-        await services.article.core.backend.driver.execute_query(
+        await services.lesson.core.backend.driver.execute_query(
             """
             MATCH (ku:Entity {uid: $ku_uid})
             MATCH (prereq:Entity {uid: $prereq_uid})
@@ -90,7 +90,7 @@ class TestRichContextPattern:
 
         # DEBUG: Try a simple direct query first
         simple_query = "MATCH (ku:Entity {uid: $uid}) RETURN ku, ku.uid as uid, ku.title as title"
-        simple_result = await services.article.core.backend.driver.execute_query(
+        simple_result = await services.lesson.core.backend.driver.execute_query(
             simple_query, {"uid": ku_dto.uid}
         )
         simple_records = simple_result.records
@@ -101,7 +101,7 @@ class TestRichContextPattern:
         else:
             print(f"❌ Simple query found nothing for UID: {ku_dto.uid}")
 
-        result = await services.article.core.get_with_context(ku_dto.uid)
+        result = await services.lesson.core.get_with_context(ku_dto.uid)
 
         assert result.is_ok, f"Failed to get KU with context: {result.error}"
 
@@ -134,10 +134,10 @@ class TestRichContextPattern:
         ku_dto = CurriculumDTO(
             uid=UIDGenerator.generate_random_uid("ku"),
             title="Deployment Best Practices",
-            entity_type=EntityType.ARTICLE,
+            entity_type=EntityType.LESSON,
             domain=Domain.TECH,
         )
-        await services.article.core.backend.create(ku_dto.to_dict())
+        await services.lesson.core.backend.create(ku_dto.to_dict())
 
         # Create goal
         goal_dto = GoalDTO.create_goal(
@@ -181,7 +181,7 @@ class TestRichContextPattern:
         context = task.metadata["graph_context"]
 
         # Post entity model migration: entity_label="Entity" means LABEL_CONFIGS resolves to
-        # ARTICLE_CONFIG (curriculum), so context keys are curriculum-generic, not task-specific.
+        # LESSON_CONFIG (curriculum), so context keys are curriculum-generic, not task-specific.
         # Verify that context was populated (structure depends on registry resolution).
         assert isinstance(context, dict)
         assert "query_timestamp" in context
@@ -237,7 +237,7 @@ class TestRichContextPattern:
         context = goal.metadata["graph_context"]
 
         # Post entity model migration: entity_label="Entity" means LABEL_CONFIGS resolves to
-        # ARTICLE_CONFIG (curriculum), so context keys are curriculum-generic, not goal-specific.
+        # LESSON_CONFIG (curriculum), so context keys are curriculum-generic, not goal-specific.
         # Verify that context was populated (structure depends on registry resolution).
         assert isinstance(context, dict)
         assert "query_timestamp" in context
@@ -255,43 +255,43 @@ class TestRichContextPattern:
         ku_dto = CurriculumDTO(
             uid=UIDGenerator.generate_random_uid("ku"),
             title="Test Knowledge",
-            entity_type=EntityType.ARTICLE,
+            entity_type=EntityType.LESSON,
             domain=Domain.TECH,
         )
-        await services.article.core.backend.create(ku_dto.to_dict())
+        await services.lesson.core.backend.create(ku_dto.to_dict())
 
         # Method 1: Multiple separate queries (OLD way)
         start_time = time.time()
 
         # Query 1: Get KU
-        ku_result = await services.article.core.get(ku_dto.uid)
+        ku_result = await services.lesson.core.get(ku_dto.uid)
 
         # Query 2: Get prerequisites (separate query)
         prereq_query = """
         MATCH (ku:Entity {uid: $uid})-[:REQUIRES_KNOWLEDGE]->(prereq)
         RETURN prereq
         """
-        await services.article.core.backend.driver.execute_query(prereq_query, {"uid": ku_dto.uid})
+        await services.lesson.core.backend.driver.execute_query(prereq_query, {"uid": ku_dto.uid})
 
         # Query 3: Get dependents (separate query)
         dep_query = """
         MATCH (dependent)-[:REQUIRES_KNOWLEDGE]->(ku:Entity {uid: $uid})
         RETURN dependent
         """
-        await services.article.core.backend.driver.execute_query(dep_query, {"uid": ku_dto.uid})
+        await services.lesson.core.backend.driver.execute_query(dep_query, {"uid": ku_dto.uid})
 
         # Query 4: Get related (separate query)
         related_query = """
         MATCH (ku:Entity {uid: $uid})-[:RELATED_TO]-(related)
         RETURN related
         """
-        await services.article.core.backend.driver.execute_query(related_query, {"uid": ku_dto.uid})
+        await services.lesson.core.backend.driver.execute_query(related_query, {"uid": ku_dto.uid})
 
         old_time = time.time() - start_time
 
         # Method 2: Single query with context (NEW way)
         start_time = time.time()
-        context_result = await services.article.core.get_with_context(ku_dto.uid)
+        context_result = await services.lesson.core.get_with_context(ku_dto.uid)
         new_time = time.time() - start_time
 
         # Validate both methods work

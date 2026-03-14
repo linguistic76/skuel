@@ -35,7 +35,7 @@ class LearningIntelligenceMixin:
 
     context: UserContext
     tasks: Any  # TasksRelationshipService
-    ku: Any  # ArticleGraphService
+    ku: Any  # LessonGraphService
     vector_search: Any = None  # Neo4jVectorSearchService (optional)
     zpd_service: Any = None  # ZPDOperations (optional — see core/ports/zpd_protocols.py)
 
@@ -399,7 +399,7 @@ class LearningIntelligenceMixin:
         """
         Get application opportunities using DIRECT graph queries.
 
-        Uses ArticleGraphService reverse relationship queries to find where
+        Uses LessonGraphService reverse relationship queries to find where
         knowledge is being applied across all activity domains.
 
         Fail-fast: All queries are REQUIRED. No graceful degradation.
@@ -421,7 +421,7 @@ class LearningIntelligenceMixin:
         if tasks_result.is_ok and tasks_result.value:
             opportunities["tasks"] = [t.uid for t in tasks_result.value[:5]]
 
-        # Get habits reinforcing this knowledge (NEW - graph query via ArticleGraphService)
+        # Get habits reinforcing this knowledge (NEW - graph query via LessonGraphService)
         habits_result = await self.ku.find_habits_reinforcing_knowledge(
             ku_uid, self.context.user_uid, only_active=True
         )
@@ -433,7 +433,7 @@ class LearningIntelligenceMixin:
                 f"Failed to find habits for KU {ku_uid}: {habits_result.expect_error()}"
             )
 
-        # Get events applying this knowledge (NEW - graph query via ArticleGraphService)
+        # Get events applying this knowledge (NEW - graph query via LessonGraphService)
         events_result = await self.ku.find_events_applying_knowledge(
             ku_uid, self.context.user_uid, upcoming_only=True
         )

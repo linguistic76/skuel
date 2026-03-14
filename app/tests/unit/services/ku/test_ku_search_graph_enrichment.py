@@ -1,23 +1,23 @@
 """
 Unit tests for KU Search Graph Enrichment Patterns.
 
-Tests that ArticleSearchService properly configures _graph_enrichment_patterns
+Tests that LessonSearchService properly configures _graph_enrichment_patterns
 to surface cross-domain activity applications in search results.
 """
 
-from core.services.article.article_search_service import ArticleSearchService
+from core.services.lesson.lesson_search_service import LessonSearchService
 
 
 class TestGraphEnrichmentPatternsConfiguration:
     """Test that _graph_enrichment_patterns is properly configured."""
 
     def test_graph_enrichment_patterns_configured(self):
-        """Verify ArticleSearchService defines graph enrichment patterns."""
-        assert hasattr(ArticleSearchService, "_graph_enrichment_patterns")
-        assert len(ArticleSearchService._graph_enrichment_patterns) > 0
+        """Verify LessonSearchService defines graph enrichment patterns."""
+        assert hasattr(LessonSearchService, "_graph_enrichment_patterns")
+        assert len(LessonSearchService._graph_enrichment_patterns) > 0
 
         # Verify each pattern has correct structure (context_key, rel_type, label)
-        for pattern in ArticleSearchService._graph_enrichment_patterns:
+        for pattern in LessonSearchService._graph_enrichment_patterns:
             assert isinstance(pattern, tuple)
             assert len(pattern) == 3
 
@@ -30,7 +30,7 @@ class TestGraphEnrichmentPatternsConfiguration:
 
     def test_activity_domain_patterns_included(self):
         """Verify Activity Domain relationships are configured."""
-        patterns = ArticleSearchService._graph_enrichment_patterns
+        patterns = LessonSearchService._graph_enrichment_patterns
         context_keys = [p[0] for p in patterns]
 
         # Activity Domain applications (6 domains)
@@ -43,7 +43,7 @@ class TestGraphEnrichmentPatternsConfiguration:
 
     def test_curriculum_patterns_included(self):
         """Verify Curriculum relationships are configured."""
-        patterns = ArticleSearchService._graph_enrichment_patterns
+        patterns = LessonSearchService._graph_enrichment_patterns
         context_keys = [p[0] for p in patterns]
 
         # Curriculum (LS directly, LP handled separately)
@@ -51,7 +51,7 @@ class TestGraphEnrichmentPatternsConfiguration:
 
     def test_ku_navigation_patterns_included(self):
         """Verify KU↔KU navigation relationships are configured."""
-        patterns = ArticleSearchService._graph_enrichment_patterns
+        patterns = LessonSearchService._graph_enrichment_patterns
         context_keys = [p[0] for p in patterns]
 
         # KU navigation
@@ -61,11 +61,11 @@ class TestGraphEnrichmentPatternsConfiguration:
     def test_minimum_pattern_count(self):
         """Verify at least 9 patterns are configured (8 Activity/Curriculum + KU nav)."""
         # 6 Activity Domains + 1 Curriculum (LS) + 2 KU navigation = 9 minimum
-        assert len(ArticleSearchService._graph_enrichment_patterns) >= 9
+        assert len(LessonSearchService._graph_enrichment_patterns) >= 9
 
     def test_pattern_relationship_types_are_valid(self):
         """Verify all relationship types are non-empty strings."""
-        patterns = ArticleSearchService._graph_enrichment_patterns
+        patterns = LessonSearchService._graph_enrichment_patterns
 
         for context_key, rel_type, _label in patterns:
             assert rel_type, f"Empty relationship type for {context_key}"
@@ -76,7 +76,7 @@ class TestGraphEnrichmentPatternsConfiguration:
 
     def test_pattern_labels_are_valid(self):
         """Verify all target labels are non-empty strings."""
-        patterns = ArticleSearchService._graph_enrichment_patterns
+        patterns = LessonSearchService._graph_enrichment_patterns
 
         valid_labels = {
             "Task",
@@ -96,7 +96,7 @@ class TestGraphEnrichmentPatternsConfiguration:
 
     def test_no_duplicate_context_keys(self):
         """Verify no duplicate context keys (would cause conflicts)."""
-        patterns = ArticleSearchService._graph_enrichment_patterns
+        patterns = LessonSearchService._graph_enrichment_patterns
         context_keys = [p[0] for p in patterns]
 
         assert len(context_keys) == len(set(context_keys)), "Duplicate context keys found"

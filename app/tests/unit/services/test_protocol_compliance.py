@@ -37,7 +37,7 @@ from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.ports import BackendOperations
 
 # Facade services - Curriculum Domains
-from core.services.article_service import ArticleService
+from core.services.lesson_service import LessonService
 
 # Facade services - Activity Domains
 from core.services.choices_service import ChoicesService
@@ -47,7 +47,7 @@ from core.services.habits_service import HabitsService
 from core.services.lp_service import LpService
 from core.services.ls_service import LsService
 
-# NOTE: MOCService removed (February 2026) - organization logic absorbed into ArticleService
+# NOTE: MOCService removed (February 2026) - organization logic absorbed into LessonService
 from core.services.principles_service import PrinciplesService
 from core.services.tasks_service import TasksService
 
@@ -110,7 +110,7 @@ class TestFacadeStructure:
         EventsService,
         ChoicesService,
         PrinciplesService,
-        ArticleService,
+        LessonService,
         LsService,
         LpService,
     ]

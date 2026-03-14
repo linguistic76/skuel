@@ -14,7 +14,7 @@ ENTITY_TYPE_CLASS_MAP maps each EntityType enum to its domain-specific subclass.
 See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
 
-from core.models.article.article import Article
+from core.models.lesson.lesson import Lesson
 from core.models.choice.choice import Choice
 from core.models.entity import Entity
 from core.models.enums.entity_enums import EntityType
@@ -51,8 +51,8 @@ from core.models.task.task import Task
 ActivityEntity = Task | Goal | Habit | Event | Choice | Principle
 
 # Curriculum entities — carry learning_level, quality_score, sel_category, etc.
-# Article is the narrative curriculum leaf; Curriculum is the base class.
-CurriculumEntity = Article | LearningStep | LearningPath | Exercise
+# Lesson is the narrative curriculum leaf; Curriculum is the base class.
+CurriculumEntity = Lesson | LearningStep | LearningPath | Exercise
 
 # Atomic Ku — lightweight ontology/reference node (extends Entity directly, not Curriculum)
 KuEntity = Ku
@@ -76,7 +76,7 @@ ENTITY_TYPE_CLASS_MAP: dict[EntityType, type[Entity]] = {
     EntityType.EVENT: Event,
     EntityType.CHOICE: Choice,
     EntityType.PRINCIPLE: Principle,
-    EntityType.ARTICLE: Article,
+    EntityType.LESSON: Lesson,
     EntityType.KU: Ku,
     EntityType.RESOURCE: Resource,
     EntityType.LEARNING_STEP: LearningStep,

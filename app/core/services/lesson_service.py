@@ -1,20 +1,20 @@
 """
-Article Service - Facade
+Lesson Service - Facade
 ========================
 
-Unified interface for all article operations.
+Unified interface for all lesson operations.
 Delegates to specialized sub-services for focused responsibilities.
 
 Sub-Services:
-- ArticleCoreService: CRUD operations
-- ArticleSearchService: Search and discovery
-- ArticleGraphService: Graph navigation and relationships
-- ArticleSemanticService: Semantic relationship management
-- ArticlePracticeService: Event-driven practice tracking
-- ArticleMasteryService: Pedagogical tracking (VIEWED->IN_PROGRESS->MASTERED)
+- LessonCoreService: CRUD operations
+- LessonSearchService: Search and discovery
+- LessonGraphService: Graph navigation and relationships
+- LessonSemanticService: Semantic relationship management
+- LessonPracticeService: Event-driven practice tracking
+- LessonMasteryService: Pedagogical tracking (VIEWED->IN_PROGRESS->MASTERED)
 
 Graph and Semantic services are internal implementation details.
-External callers should use the ArticleService facade methods.
+External callers should use the LessonService facade methods.
 """
 
 from datetime import datetime
@@ -24,7 +24,7 @@ from core.constants import GraphDepth, QueryLimit
 
 if TYPE_CHECKING:
     from core.ports import (
-        ArticleOperations,
+        LessonOperations,
         EventBusOperations,
         QueryBuilderOperations,
     )
@@ -37,7 +37,7 @@ from core.models.curriculum_dto import CurriculumDTO
 from core.ports.base_protocols import HasUID
 
 # Import sub-services
-from core.services.article.article_ai_service import ArticleAIService
+from core.services.lesson.lesson_ai_service import LessonAIService
 from core.utils.decorators import with_error_handling
 from core.utils.error_boundary import safe_event_handler
 from core.utils.logging import get_logger
@@ -46,26 +46,26 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_second_item
 
 
-class ArticleService:
+class LessonService:
     """
-    Unified facade for article operations.
+    Unified facade for lesson operations.
 
     Delegates to specialized sub-services (January 2026 - ADR-031):
-    - ArticleCoreService: CRUD operations
-    - ArticleSearchService: Search and discovery
-    - ArticleGraphService: Graph navigation and relationships
-    - ArticleSemanticService: Semantic relationship management
-    - ArticlePracticeService: Event-driven practice tracking
-    - ArticleMasteryService: Pedagogical tracking
+    - LessonCoreService: CRUD operations
+    - LessonSearchService: Search and discovery
+    - LessonGraphService: Graph navigation and relationships
+    - LessonSemanticService: Semantic relationship management
+    - LessonPracticeService: Event-driven practice tracking
+    - LessonMasteryService: Pedagogical tracking
     - UnifiedRelationshipService: Harmonious relationship operations
-    - ArticleIntelligenceService: Intelligence and analytics
-    - ArticleOrganizationService: ORGANIZES relationships (any article can organize others)
+    - LessonIntelligenceService: Intelligence and analytics
+    - LessonOrganizationService: ORGANIZES relationships (any lesson can organize others)
 
     Access relationship operations via self.relationships:
-    - get_related_entities("prerequisites", uid) - Get prerequisite articles
-    - get_related_entities("enables_learning", uid) - Get enabled articles
-    - get_related_entities("applied_in_tasks", uid) - Get tasks that apply this article
-    - get_related_entities("reinforced_by_habits", uid) - Get habits that reinforce this article
+    - get_related_entities("prerequisites", uid) - Get prerequisite lessons
+    - get_related_entities("enables_learning", uid) - Get enabled lessons
+    - get_related_entities("applied_in_tasks", uid) - Get tasks that apply this lesson
+    - get_related_entities("reinforced_by_habits", uid) - Get habits that reinforce this lesson
     """
 
     # ========================================================================
@@ -148,8 +148,8 @@ class ArticleService:
     async def find_next_steps(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.graph.find_next_steps(*args, **kwargs)
 
-    async def get_article_with_context(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.graph.get_article_with_context(*args, **kwargs)
+    async def get_lesson_with_context(self, *args: Any, **kwargs: Any) -> Result[Any]:
+        return await self.graph.get_lesson_with_context(*args, **kwargs)
 
     async def link_prerequisite(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.graph.link_prerequisite(*args, **kwargs)
@@ -267,16 +267,16 @@ class ArticleService:
 
     def __init__(
         self,
-        repo: "ArticleOperations",
+        repo: "LessonOperations",
         content_repo: "Any | None" = None,  # Was ContentOperations (deleted January 2026)
         neo4j_adapter: "Any | None" = None,
         chunking_service: "Any | None" = None,
         graph_intelligence_service: "Any | None" = None,
         query_builder: "QueryBuilderOperations | None" = None,
         event_bus: "EventBusOperations | None" = None,
-        _executor: "Any | None" = None,  # Placeholder - ArticleOrganizationService now uses backend
+        _executor: "Any | None" = None,  # Placeholder - LessonOrganizationService now uses backend
         user_service: "Any | None" = None,
-        ai_service: ArticleAIService | None = None,
+        ai_service: LessonAIService | None = None,
         vector_search_service: "Any | None" = None,
         embeddings_service: "Any | None" = None,
     ) -> None:
@@ -288,11 +288,11 @@ class ArticleService:
         Services run at full capacity or fail immediately at startup.
 
         **January 2026 - Factory Pattern (Architecture Consistency Review):**
-        Uses create_article_sub_services() factory for consistent initialization.
+        Uses create_lesson_sub_services() factory for consistent initialization.
         Factory handles circular dependency: intelligence created before core.
 
         Args:
-            repo: ArticleOperations backend - REQUIRED
+            repo: LessonOperations backend - REQUIRED
             content_repo: Content storage backend (optional)
             neo4j_adapter: Neo4j adapter for graph operations (optional)
             chunking_service: Chunking service for RAG (optional)
@@ -301,28 +301,28 @@ class ArticleService:
             event_bus: Event bus for publishing domain events (optional)
             driver: Neo4j async driver for event-driven operations (optional)
             user_service: UserService for UserContext access (January 2026 - KU-Activity Integration)
-            ai_service: Optional ArticleAIService for AI features (ADR-030 separation)
+            ai_service: Optional LessonAIService for AI features (ADR-030 separation)
             vector_search_service: Optional Neo4jVectorSearchService for semantic search (January 2026 - GenAI)
             embeddings_service: Optional HuggingFaceEmbeddingsService for embedding generation (January 2026 - GenAI)
         """
         # FAIL-FAST: Backend is REQUIRED
         if not repo:
             raise ValueError(
-                "ArticleService backend (repo) is REQUIRED. "
+                "LessonService backend (repo) is REQUIRED. "
                 "SKUEL follows fail-fast architecture - all required dependencies "
                 "must be provided at initialization."
             )
         if not graph_intelligence_service:
             raise ValueError(
-                "ArticleService graph_intelligence_service is REQUIRED. "
+                "LessonService graph_intelligence_service is REQUIRED. "
                 "SKUEL follows fail-fast architecture - graph intelligence enables "
                 "cross-domain queries for curriculum domains."
             )
 
         # Create all sub-services via factory (January 2026 - Architecture Consistency)
-        from core.utils.curriculum_domain_config import create_article_sub_services
+        from core.utils.curriculum_domain_config import create_lesson_sub_services
 
-        subs = create_article_sub_services(
+        subs = create_lesson_sub_services(
             backend=repo,
             content_repo=content_repo,
             neo4j_adapter=neo4j_adapter,
@@ -360,32 +360,32 @@ class ArticleService:
         self.user_service = user_service
 
         # Organization service (ORGANIZES relationships — any Ku can organize others)
-        from core.services.article.article_organization_service import ArticleOrganizationService
+        from core.services.lesson.lesson_organization_service import LessonOrganizationService
 
-        self.organization = ArticleOrganizationService(ku_service=self, backend=repo)  # type: ignore[arg-type]
+        self.organization = LessonOrganizationService(ku_service=self, backend=repo)  # type: ignore[arg-type]
 
         # Optional AI service (ADR-030: AI features are optional)
-        self.ai: ArticleAIService | None = ai_service
+        self.ai: LessonAIService | None = ai_service
 
-        self.logger = get_logger("skuel.services.article")
+        self.logger = get_logger("skuel.services.lesson")
         self.logger.debug(
-            "ArticleService initialized via factory (9 sub-services, circular dependency handled)"
+            "LessonService initialized via factory (9 sub-services, circular dependency handled)"
         )
 
     # ========================================================================
-    # CORE CRUD OPERATIONS - Delegated to ArticleCoreService
+    # CORE CRUD OPERATIONS - Delegated to LessonCoreService
     # ========================================================================
     # Note: Simple delegations (create, get, update, delete, publish, archive,
     # get_user_mastery, get_chunks, analyze_content) delegated via explicit methods below.
 
-    async def get_articles_batch(self, uids: list[str]) -> Result[list[Any]]:
+    async def get_lessons_batch(self, uids: list[str]) -> Result[list[Any]]:
         """
-        Get multiple articles in one batched query.
+        Get multiple lessons in one batched query.
 
         Critical for GraphQL DataLoader batching to prevent N+1 queries.
 
         Args:
-            uids: List of article UIDs to fetch
+            uids: List of lesson UIDs to fetch
 
         Returns:
             Result containing list of CurriculumDTOs (None for missing UIDs)
@@ -393,7 +393,7 @@ class ArticleService:
         """
         if not self.repo:
             return Result.fail(
-                Errors.system("Article repository not available", operation="get_articles_batch")
+                Errors.system("Lesson repository not available", operation="get_lessons_batch")
             )
 
         # Use UniversalNeo4jBackend's get_many() method
@@ -453,7 +453,7 @@ class ArticleService:
         return Result.ok(kus)
 
     # ========================================================================
-    # SEARCH OPERATIONS - Delegated to ArticleSearchService
+    # SEARCH OPERATIONS - Delegated to LessonSearchService
     # ========================================================================
     # Note: Simple delegations (search_by_title_template, search_with_user_context,
     # find_similar_content, search_by_tags, search_by_facets, search_chunks_with_facets,
@@ -461,9 +461,9 @@ class ArticleService:
     # delegated via explicit methods below.
 
     # ========================================================================
-    # GRAPH OPERATIONS - Delegated to ArticleGraphService
+    # GRAPH OPERATIONS - Delegated to LessonGraphService
     # ========================================================================
-    # Note: Simple delegations (find_prerequisites, find_next_steps, get_article_with_context,
+    # Note: Simple delegations (find_prerequisites, find_next_steps, get_lesson_with_context,
     # link_prerequisite, link_parent_child, get_prerequisite_chain, analyze_knowledge_gaps,
     # get_learning_recommendations, find_time_aware_learning_path, update_hub_scores,
     # get_foundational_knowledge) delegated via explicit methods below.
@@ -491,12 +491,12 @@ class ArticleService:
         return await self.graph.find_next_steps(uid=uid)
 
     # ========================================================================
-    # SEMANTIC OPERATIONS - Delegated to ArticleSemanticService
+    # SEMANTIC OPERATIONS - Delegated to LessonSemanticService
     # ========================================================================
     # Note: Simple delegations (create_with_semantic_relationships, get_semantic_neighborhood)
     # delegated via explicit methods below.
 
-    async def create_article_relationship(
+    async def create_lesson_relationship(
         self,
         source_uid: str,
         target_uid: str,
@@ -506,11 +506,11 @@ class ArticleService:
         notes: str | None = None,
     ) -> Result[bool]:
         """
-        Create a semantic relationship between two articles.
+        Create a semantic relationship between two lessons.
 
         Args:
-            source_uid: Source article UID (subject)
-            target_uid: Target article UID (object)
+            source_uid: Source lesson UID (subject)
+            target_uid: Target lesson UID (object)
             relationship_type: SemanticRelationshipType enum value
             confidence: Confidence score (0.0-1.0)
             strength: Strength of relationship (0.0-1.0)
@@ -528,11 +528,11 @@ class ArticleService:
             notes=notes,
         )
 
-    async def get_article_relationships(
+    async def get_lesson_relationships(
         self, uid: str, relationship_type: str | None = None
     ) -> Result[list[dict[str, Any]]]:
         """
-        Get relationships for an article.
+        Get relationships for an lesson.
 
         Args:
             uid: Knowledge unit UID
@@ -562,11 +562,11 @@ class ArticleService:
 
         return await self.semantic.get_relationships_by_type(uid=uid, predicate=predicate)
 
-    async def get_article_dependencies(
+    async def get_lesson_dependencies(
         self, uid: str, limit: int = 10
     ) -> Result[list[CurriculumDTO]]:
         """
-        Get articles that depend on this one.
+        Get lessons that depend on this one.
 
         Args:
             uid: Knowledge unit UID
@@ -581,11 +581,11 @@ class ArticleService:
     # CONTENT AND TAG MANAGEMENT
     # ========================================================================
 
-    async def update_article_content(
+    async def update_lesson_content(
         self, uid: str, content: str, title: str | None = None
     ) -> Result[CurriculumDTO]:
         """
-        Update an article's content.
+        Update an lesson's content.
 
         Args:
             uid: Knowledge unit UID
@@ -600,9 +600,9 @@ class ArticleService:
             updates["title"] = title
         return await self.core.update(uid, updates)
 
-    async def add_article_tags(self, uid: str, tags: list[str]) -> Result[CurriculumDTO]:
+    async def add_lesson_tags(self, uid: str, tags: list[str]) -> Result[CurriculumDTO]:
         """
-        Add tags to an article.
+        Add tags to an lesson.
 
         Args:
             uid: Knowledge unit UID
@@ -626,9 +626,9 @@ class ArticleService:
 
         return await self.core.update(uid, {"tags": updated_tags})
 
-    async def remove_article_tags(self, uid: str, tags: list[str]) -> Result[CurriculumDTO]:
+    async def remove_lesson_tags(self, uid: str, tags: list[str]) -> Result[CurriculumDTO]:
         """
-        Remove tags from an article.
+        Remove tags from an lesson.
 
         Args:
             uid: Knowledge unit UID
@@ -656,9 +656,9 @@ class ArticleService:
     # SEARCH AND FILTERING
     # ========================================================================
 
-    async def search_articles(self, query: str, limit: int = 50) -> Result[list[CurriculumDTO]]:
+    async def search_lessons(self, query: str, limit: int = 50) -> Result[list[CurriculumDTO]]:
         """
-        Search articles by text query.
+        Search lessons by text query.
 
         Args:
             query: Search query string
@@ -669,9 +669,9 @@ class ArticleService:
         """
         return await self.search_service.search_by_title_template(query=query, limit=limit)
 
-    async def get_articles_by_domain(self, domain: str, limit: int = 100) -> Result[list[Any]]:
+    async def get_lessons_by_domain(self, domain: str, limit: int = 100) -> Result[list[Any]]:
         """
-        Get articles by domain.
+        Get lessons by domain.
 
         Args:
             domain: Domain name (e.g., "TECH", "BUSINESS")
@@ -683,8 +683,8 @@ class ArticleService:
         if not self.repo:
             return Result.fail(
                 Errors.system(
-                    message="Article repository not available",
-                    operation="get_articles_by_domain",
+                    message="Lesson repository not available",
+                    operation="get_lessons_by_domain",
                 )
             )
 
@@ -985,23 +985,23 @@ class ArticleService:
     # ADDITIONAL API METHODS - Required by knowledge_api.py
     # ========================================================================
 
-    async def get_article_prerequisites(self, uid: str) -> Result[list[CurriculumDTO]]:
+    async def get_lesson_prerequisites(self, uid: str) -> Result[list[CurriculumDTO]]:
         """
-        Get prerequisite articles (API-compatible wrapper).
+        Get prerequisite lessons (API-compatible wrapper).
 
         Args:
             uid: Knowledge unit UID
 
         Returns:
-            Result with list of prerequisite articles
+            Result with list of prerequisite lessons
         """
         return await self.get_prerequisites(uid)
 
-    async def find_related_articles(
+    async def find_related_lessons(
         self, uid: str, similarity_threshold: float = 0.7, limit: int = 10
     ) -> Result[list[CurriculumDTO]]:
         """
-        Find articles related to the given one.
+        Find lessons related to the given one.
 
         Args:
             uid: Knowledge unit UID
@@ -1042,14 +1042,14 @@ class ArticleService:
 
         return Result.ok(kus)
 
-    async def get_article_recommendations(
+    async def get_lesson_recommendations(
         self,
         uid: str,
         user_uid: str | None = None,
         recommendation_type: str = "learning",
     ) -> Result[list[CurriculumDTO]]:
         """
-        Get personalized article recommendations.
+        Get personalized lesson recommendations.
 
         Args:
             uid: Starting knowledge unit UID
@@ -1064,16 +1064,16 @@ class ArticleService:
             return await self.graph.find_next_steps(uid=uid, limit=5)
         elif recommendation_type == "related":
             # Get related knowledge
-            return await self.find_related_articles(uid, limit=10)
+            return await self.find_related_lessons(uid, limit=10)
         else:
             # Default: learning recommendations starting from the given uid
             # Note: get_learning_recommendations is user-global, so for uid-specific
             # recommendations we use find_next_steps which traverses from the starting point
             return await self.graph.find_next_steps(uid=uid, limit=10)
 
-    async def list_article_domains(self) -> Result[list[str]]:
+    async def list_lesson_domains(self) -> Result[list[str]]:
         """
-        List all article domains.
+        List all lesson domains.
 
         Returns:
             Result with list of unique domain names
@@ -1084,9 +1084,9 @@ class ArticleService:
         domains = [d.value for d in Domain]
         return Result.ok(domains)
 
-    async def list_article_categories(self) -> Result[list[str]]:
+    async def list_lesson_categories(self) -> Result[list[str]]:
         """
-        List all article categories.
+        List all lesson categories.
 
         Returns:
             Result with list of unique categories
@@ -1094,8 +1094,8 @@ class ArticleService:
         if not self.repo:
             return Result.fail(
                 Errors.system(
-                    message="Article repository not available",
-                    operation="list_article_categories",
+                    message="Lesson repository not available",
+                    operation="list_lesson_categories",
                 )
             )
 
@@ -1114,9 +1114,9 @@ class ArticleService:
 
         return Result.ok(sorted(list(categories)))
 
-    async def list_article_tags(self, min_usage: int = 1) -> Result[list[dict[str, Any]]]:
+    async def list_lesson_tags(self, min_usage: int = 1) -> Result[list[dict[str, Any]]]:
         """
-        List all article tags with usage counts.
+        List all lesson tags with usage counts.
 
         Args:
             min_usage: Minimum usage count to include tag
@@ -1127,8 +1127,8 @@ class ArticleService:
         if not self.repo:
             return Result.fail(
                 Errors.system(
-                    message="Article repository not available",
-                    operation="list_article_tags",
+                    message="Lesson repository not available",
+                    operation="list_lesson_tags",
                 )
             )
 
@@ -1154,9 +1154,9 @@ class ArticleService:
 
         return Result.ok(tags_list)
 
-    async def get_article_stats(self, uid: str) -> Result[dict[str, Any]]:
+    async def get_lesson_stats(self, uid: str) -> Result[dict[str, Any]]:
         """
-        Get statistics for an article.
+        Get statistics for an lesson.
 
         Args:
             uid: Knowledge unit UID
@@ -1178,7 +1178,7 @@ class ArticleService:
         prereq_count = len(prereqs_result.value) if prereqs_result.is_ok else 0
 
         # Get dependents count
-        deps_result = await self.get_article_dependencies(uid)
+        deps_result = await self.get_lesson_dependencies(uid)
         deps_count = len(deps_result.value) if deps_result.is_ok else 0
 
         stats = {
@@ -1199,11 +1199,11 @@ class ArticleService:
     # USER CONTEXT OPERATIONS - KU-Activity Integration (January 2026)
     # ========================================================================
 
-    async def get_user_article_context(
+    async def get_user_lesson_context(
         self, ku_uid: str, user_context: "UserContext"
     ) -> Result[dict[str, Any]]:
         """
-        Get personalized article context showing how a user applies this knowledge.
+        Get personalized lesson context showing how a user applies this knowledge.
 
         Calculates per-user substance score based on their activity domains
         (tasks, habits, events, journals, choices) that reference this KU.
@@ -1238,13 +1238,13 @@ class ArticleService:
         return await self.intelligence.calculate_user_substance(ku_uid, user_context)
 
     # =========================================================================
-    # KU COMPOSITION (Article → atomic Ku via USES_KU)
+    # KU COMPOSITION (Lesson → atomic Ku via USES_KU)
     # =========================================================================
 
-    async def link_to_ku(self, article_uid: str, ku_uid: str) -> Result[bool]:
-        """Link this Article to an atomic Ku via USES_KU."""
-        return await self.core.backend.link_to_ku(article_uid, ku_uid)  # type: ignore[attr-defined]
+    async def link_to_ku(self, lesson_uid: str, ku_uid: str) -> Result[bool]:
+        """Link this Lesson to an atomic Ku via USES_KU."""
+        return await self.core.backend.link_to_ku(lesson_uid, ku_uid)  # type: ignore[attr-defined]
 
-    async def get_used_kus(self, article_uid: str) -> Result[list[dict[str, Any]]]:
-        """Get all atomic Kus used by this Article."""
-        return await self.core.backend.get_used_kus(article_uid)  # type: ignore[attr-defined]
+    async def get_used_kus(self, lesson_uid: str) -> Result[list[dict[str, Any]]]:
+        """Get all atomic Kus used by this Lesson."""
+        return await self.core.backend.get_used_kus(lesson_uid)  # type: ignore[attr-defined]

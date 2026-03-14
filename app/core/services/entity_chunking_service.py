@@ -17,13 +17,13 @@ Architecture:
 - Lives at `/core/services/` level (not in `/ku/` directory)
 - Injected into SubmissionsCoreService for content create/update operations
 - Specialized utility for RAG content chunking
-- See `/core/services/article/README.md` for architecture overview
+- See `/core/services/lesson/README.md` for architecture overview
 """
 
 from operator import itemgetter
 from typing import Any, TypedDict
 
-from core.models.article.article import Article
+from core.models.lesson.lesson import Lesson
 from core.models.article_content.content import CurriculumContent
 from core.models.article_content.content_chunks import ContentChunk, ContentChunkType
 from core.models.article_content.content_metadata import ContentMetadata
@@ -102,7 +102,7 @@ class EntityChunkingService:
         Process knowledge content during ingestion (simplified interface).
 
         This method is designed for use during ingestion when we have raw
-        entity data but not a full Article domain model yet. It creates chunks
+        entity data but not a full Lesson domain model yet. It creates chunks
         and metadata directly from the UID and content.
 
         Args:
@@ -146,7 +146,7 @@ class EntityChunkingService:
 
     async def process_ku_content(
         self,
-        knowledge: Article,
+        knowledge: Lesson,
         content_body: str,
         format: str = "markdown",
         source_path: str | None = None,
@@ -192,7 +192,7 @@ class EntityChunkingService:
             )
 
     async def update_article_content(
-        self, knowledge: Article, new_content_body: str
+        self, knowledge: Lesson, new_content_body: str
     ) -> Result[tuple[CurriculumContent, ContentMetadata]]:
         """
         Update existing article content with new text.
@@ -478,13 +478,13 @@ class EntityChunkingService:
     # ==========================================================================
 
     async def process_batch(
-        self, knowledge_items: list[tuple[Article, str]], format: str = "markdown"
+        self, knowledge_items: list[tuple[Lesson, str]], format: str = "markdown"
     ) -> Result[dict[str, Any]]:
         """
         Process multiple knowledge items in batch.
 
         Args:
-            knowledge_items: List of (Article, content_body) tuples,
+            knowledge_items: List of (Lesson, content_body) tuples,
             format: Content format for all items
 
         Returns:

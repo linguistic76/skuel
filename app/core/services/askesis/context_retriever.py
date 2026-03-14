@@ -44,7 +44,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.models.article.article import Article
+    from core.models.lesson.lesson import Lesson
     from core.models.ku.ku import Ku
     from core.models.pathways.learning_path import LearningPath
     from core.models.pathways.learning_step import LearningStep
@@ -95,7 +95,7 @@ class ContextRetriever:
         embeddings_service: Any,  # boundary: EmbeddingsService protocol not yet extracted
         vector_search_service: Any | None = None,  # boundary: Neo4jVectorSearchService
         # LS bundle dependencies — all required (fail-fast per SKUEL philosophy)
-        article_service: EntityLookup | None = None,
+        lesson_service: EntityLookup | None = None,
         ku_service: EntityLookup | None = None,
         habits_service: EntityLookup | None = None,
         tasks_service: EntityLookup | None = None,
@@ -115,7 +115,7 @@ class ContextRetriever:
             graph_intelligence_service: GraphIntelligenceService for graph intelligence queries
             embeddings_service: EmbeddingsService for semantic search
             vector_search_service: Neo4jVectorSearchService for native vector index search
-            article_service: For fetching full Article content (LS bundle)
+            lesson_service: For fetching full Lesson content (LS bundle)
             ku_service: For fetching full Ku objects from trains_ku_uids (LS bundle)
             habits_service: For fetching full Habit objects from graph_context (LS bundle)
             tasks_service: For fetching full Task objects from graph_context (LS bundle)
@@ -128,7 +128,7 @@ class ContextRetriever:
         self.vector_search_service = vector_search_service
 
         # LS bundle dependencies
-        self.article_service = article_service
+        self.lesson_service = lesson_service
         self.ku_service = ku_service
         self.habits_service = habits_service
         self.tasks_service = tasks_service
@@ -356,7 +356,7 @@ class ContextRetriever:
         Steps:
         1. Find the active LS from user_context.active_learning_steps_rich
         2. Extract graph_context (habits, tasks, knowledge UIDs)
-        3. Fetch full Article content for primary + supporting knowledge UIDs
+        3. Fetch full Lesson content for primary + supporting knowledge UIDs
         4. Fetch full Ku objects for trains_ku_uids
         5. Fetch full activity entities from graph_context UIDs
         6. Assemble into frozen LSBundle
@@ -387,7 +387,7 @@ class ContextRetriever:
         # We use return_exceptions=True so a single failure doesn't cancel
         # the others — a partial bundle (LS + whatever succeeded) is more
         # useful than no bundle at all.
-        articles_coro = self._fetch_articles(learning_step, graph_context)
+        lessons_coro = self._fetch_lessons(learning_step, graph_context)
         kus_coro = self._fetch_kus(learning_step)
         lp_coro = self._fetch_learning_path(graph_context)
         habits_coro = self._fetch_entities_by_uid(
@@ -398,7 +398,7 @@ class ContextRetriever:
         )
 
         raw_results = await asyncio.gather(
-            articles_coro,
+            lessons_coro,
             kus_coro,
             lp_coro,
             habits_coro,
@@ -406,7 +406,7 @@ class ContextRetriever:
             return_exceptions=True,
         )
 
-        fetch_labels = ("articles", "kus", "learning_path", "habits", "tasks")
+        fetch_labels = ("lessons", "kus", "learning_path", "habits", "tasks")
         defaults: tuple[Any, ...] = ([], [], None, [], [])
 
         resolved: list[Any] = []
@@ -417,25 +417,25 @@ class ContextRetriever:
             else:
                 resolved.append(raw)
 
-        articles, kus, learning_path, habits, tasks = resolved
+        lessons, kus, learning_path, habits, tasks = resolved
         events: list[Any] = []  # Event templates not yet in graph_context
         principles: list[Any] = []  # Principles not yet in graph_context
 
-        # Step 3b: Fetch Resources cited by bundle Articles/KUs (Ring 2 context)
-        # Done after articles/kus resolve so we know which UIDs to traverse from.
-        article_uids = [a.uid for a in articles]
+        # Step 3b: Fetch Resources cited by bundle Lessons/KUs (Ring 2 context)
+        # Done after lessons/kus resolve so we know which UIDs to traverse from.
+        lesson_uids = [a.uid for a in lessons]
         ku_uids_list = [k.uid for k in kus]
         try:
-            resources = await self._fetch_cited_resources(article_uids + ku_uids_list)
+            resources = await self._fetch_cited_resources(lesson_uids + ku_uids_list)
         except Exception as exc:
             logger.warning("LS bundle fetch failed for resources (user %s): %s", user_uid, exc)
             resources = []
 
-        # Step 4: Collect learning objectives from articles
+        # Step 4: Collect learning objectives from lessons
         learning_objectives: list[str] = []
-        for article in articles:
-            if article.learning_objectives:
-                learning_objectives.extend(article.learning_objectives)
+        for lesson in lessons:
+            if lesson.learning_objectives:
+                learning_objectives.extend(lesson.learning_objectives)
 
         # Step 5: Collect edges between bundle entities
         edges = self._extract_edges(graph_context)
@@ -443,7 +443,7 @@ class ContextRetriever:
         bundle = LSBundle(
             learning_step=learning_step,
             learning_path=learning_path,
-            articles=tuple(articles),
+            lessons=tuple(lessons),
             kus=tuple(kus),
             resources=tuple(resources),
             principles=tuple(principles),
@@ -506,39 +506,39 @@ class ContextRetriever:
             logger.warning("Failed to build LearningStep from data: %s", uid)
             return None
 
-    async def _fetch_articles(
+    async def _fetch_lessons(
         self, learning_step: LearningStep, graph_context: dict[str, Any]
-    ) -> list[Article]:
-        """Fetch full Articles for primary + supporting knowledge UIDs.
+    ) -> list[Lesson]:
+        """Fetch full Lessons for primary + supporting knowledge UIDs.
 
         The LS has primary_knowledge_uids and supporting_knowledge_uids pointing
-        to Articles. The graph_context also has knowledge_relationships with UIDs.
+        to Lessons. The graph_context also has knowledge_relationships with UIDs.
         We fetch full content so the Socratic engine can use it as curriculum context.
         """
-        if not self.article_service:
+        if not self.lesson_service:
             return []
 
-        article_uids: set[str] = set()
+        lesson_uids: set[str] = set()
         if learning_step.primary_knowledge_uids:
-            article_uids.update(learning_step.primary_knowledge_uids)
+            lesson_uids.update(learning_step.primary_knowledge_uids)
         if learning_step.supporting_knowledge_uids:
-            article_uids.update(learning_step.supporting_knowledge_uids)
+            lesson_uids.update(learning_step.supporting_knowledge_uids)
 
         # Also check graph_context knowledge_relationships for additional UIDs
         for kr in graph_context.get("knowledge_relationships", []):
             if isinstance(kr, dict) and kr.get("uid"):
-                article_uids.add(kr["uid"])
+                lesson_uids.add(kr["uid"])
 
-        results = await asyncio.gather(*(self.article_service.get(uid) for uid in article_uids))
+        results = await asyncio.gather(*(self.lesson_service.get(uid) for uid in lesson_uids))
 
-        articles: list[Article] = []
-        for uid, result in zip(article_uids, results, strict=False):
+        lessons: list[Lesson] = []
+        for uid, result in zip(lesson_uids, results, strict=False):
             if result.is_ok and result.value:
-                articles.append(result.value)
+                lessons.append(result.value)
             else:
-                logger.debug("Could not fetch article %s for LS bundle", uid)
+                logger.debug("Could not fetch lesson %s for LS bundle", uid)
 
-        return articles
+        return lessons
 
     async def _fetch_kus(self, learning_step: LearningStep) -> list[Ku]:
         """Fetch full Ku objects for trains_ku_uids on the LS.

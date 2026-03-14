@@ -13,8 +13,8 @@ import asyncio
 from dataclasses import dataclass, field
 from typing import Any
 
-from core.services.article.article_graph_service import ArticleGraphService
-from core.services.article.article_semantic_service import ArticleSemanticService
+from core.services.lesson.lesson_graph_service import LessonGraphService
+from core.services.lesson.lesson_semantic_service import LessonSemanticService
 from core.services.relationships import UnifiedRelationshipService
 from core.utils.generic_fetcher import fetch_relationships_parallel
 from core.utils.result_simplified import Result
@@ -45,7 +45,7 @@ class KuRelationships:
     Hybrid Design: Simple UID lists + Optional rich semantic context.
 
     Two fetch paths:
-    - fetch() — via ArticleGraphService (supports semantic context)
+    - fetch() — via LessonGraphService (supports semantic context)
     - fetch_via_unified() — via UnifiedRelationshipService (consistent pattern)
     """
 
@@ -69,11 +69,11 @@ class KuRelationships:
     async def fetch(
         cls,
         ku_uid: str,
-        graph_service: ArticleGraphService,
-        semantic_service: ArticleSemanticService | None = None,
+        graph_service: LessonGraphService,
+        semantic_service: LessonSemanticService | None = None,
         include_semantic_context: bool = False,
     ) -> KuRelationships:
-        """Fetch all relationship data from graph in parallel via ArticleGraphService."""
+        """Fetch all relationship data from graph in parallel via LessonGraphService."""
         # Execute all relationship queries in parallel
         results = await asyncio.gather(
             _get_prerequisites(graph_service, ku_uid),
@@ -229,11 +229,11 @@ class KuRelationships:
 
 
 # ========================================================================
-# HELPER QUERY FUNCTIONS (for ArticleGraphService fetch path)
+# HELPER QUERY FUNCTIONS (for LessonGraphService fetch path)
 # ========================================================================
 
 
-async def _get_prerequisites(graph_service: ArticleGraphService, ku_uid: str) -> Result:
+async def _get_prerequisites(graph_service: LessonGraphService, ku_uid: str) -> Result:
     """Get prerequisite knowledge units (REQUIRES relationship)."""
     try:
         return await graph_service.find_prerequisites(ku_uid, depth=1)
@@ -245,7 +245,7 @@ async def _get_prerequisites(graph_service: ArticleGraphService, ku_uid: str) ->
         return Result.ok([])
 
 
-async def _get_enables(graph_service: ArticleGraphService, ku_uid: str) -> Result:
+async def _get_enables(graph_service: LessonGraphService, ku_uid: str) -> Result:
     """Get knowledge units this KU enables (ENABLES relationship)."""
     try:
         return await graph_service.find_next_steps(ku_uid, limit=100)
@@ -257,7 +257,7 @@ async def _get_enables(graph_service: ArticleGraphService, ku_uid: str) -> Resul
         return Result.ok([])
 
 
-async def _get_related_knowledge(graph_service: ArticleGraphService, ku_uid: str) -> Result:
+async def _get_related_knowledge(graph_service: LessonGraphService, ku_uid: str) -> Result:
     """Get related knowledge units (RELATED_TO relationship)."""
     try:
         query = """
@@ -277,7 +277,7 @@ async def _get_related_knowledge(graph_service: ArticleGraphService, ku_uid: str
         return Result.ok([])
 
 
-async def _get_broader_concepts(graph_service: ArticleGraphService, ku_uid: str) -> Result:
+async def _get_broader_concepts(graph_service: LessonGraphService, ku_uid: str) -> Result:
     """Get broader concepts (HAS_BROADER relationship)."""
     try:
         query = """
@@ -297,7 +297,7 @@ async def _get_broader_concepts(graph_service: ArticleGraphService, ku_uid: str)
         return Result.ok([])
 
 
-async def _get_narrower_concepts(graph_service: ArticleGraphService, ku_uid: str) -> Result:
+async def _get_narrower_concepts(graph_service: LessonGraphService, ku_uid: str) -> Result:
     """Get narrower concepts (HAS_NARROWER relationship)."""
     try:
         query = """
@@ -317,7 +317,7 @@ async def _get_narrower_concepts(graph_service: ArticleGraphService, ku_uid: str
         return Result.ok([])
 
 
-async def _get_learning_paths(graph_service: ArticleGraphService, ku_uid: str) -> Result:
+async def _get_learning_paths(graph_service: LessonGraphService, ku_uid: str) -> Result:
     """Get learning paths containing this KU."""
     try:
         query = """
@@ -337,7 +337,7 @@ async def _get_learning_paths(graph_service: ArticleGraphService, ku_uid: str) -
         return Result.ok([])
 
 
-async def _get_applying_tasks(graph_service: ArticleGraphService, ku_uid: str) -> Result:
+async def _get_applying_tasks(graph_service: LessonGraphService, ku_uid: str) -> Result:
     """Get tasks applying this knowledge."""
     try:
         query = """
@@ -357,7 +357,7 @@ async def _get_applying_tasks(graph_service: ArticleGraphService, ku_uid: str) -
         return Result.ok([])
 
 
-async def _get_practicing_events(graph_service: ArticleGraphService, ku_uid: str) -> Result:
+async def _get_practicing_events(graph_service: LessonGraphService, ku_uid: str) -> Result:
     """Get events practicing this knowledge."""
     try:
         query = """
@@ -377,7 +377,7 @@ async def _get_practicing_events(graph_service: ArticleGraphService, ku_uid: str
         return Result.ok([])
 
 
-async def _get_reinforcing_habits(graph_service: ArticleGraphService, ku_uid: str) -> Result:
+async def _get_reinforcing_habits(graph_service: LessonGraphService, ku_uid: str) -> Result:
     """Get habits reinforcing this knowledge."""
     try:
         query = """

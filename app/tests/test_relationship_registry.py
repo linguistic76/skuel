@@ -12,7 +12,7 @@ February 2026: Removed parallel config tests (generator functions deleted)
 from core.models.enums import Domain
 from core.models.relationship_names import RelationshipName
 from core.models.relationship_registry import (
-    ARTICLE_CONFIG,
+    LESSON_CONFIG,
     CHOICES_CONFIG,
     DOMAIN_CONFIGS,
     EVENTS_CONFIG,
@@ -267,7 +267,7 @@ class TestNamedUnifiedConfigs:
 
     def test_curriculum_unified_configs_match_label_registry(self):
         """Verify curriculum *_CONFIG configs match LABEL_CONFIGS entries."""
-        assert ARTICLE_CONFIG is LABEL_CONFIGS["Entity"]
+        assert LESSON_CONFIG is LABEL_CONFIGS["Entity"]
         assert LS_CONFIG is LABEL_CONFIGS["Ls"]
         assert LP_CONFIG is LABEL_CONFIGS["Lp"]
 
@@ -280,7 +280,7 @@ class TestNamedUnifiedConfigs:
             EVENTS_CONFIG,
             CHOICES_CONFIG,
             PRINCIPLES_CONFIG,
-            ARTICLE_CONFIG,
+            LESSON_CONFIG,
             LS_CONFIG,
             LP_CONFIG,
         ]:
@@ -332,7 +332,7 @@ class TestRegistryIntegration:
     def test_ku_organizes_have_ordering(self):
         """Verify KU config has ordering on organizes relationships."""
         organizes_rel = None
-        for rel in ARTICLE_CONFIG.relationships:
+        for rel in LESSON_CONFIG.relationships:
             if rel.method_key == "organizes":
                 organizes_rel = rel
                 break

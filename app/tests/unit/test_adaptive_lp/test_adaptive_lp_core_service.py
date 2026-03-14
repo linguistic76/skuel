@@ -30,7 +30,7 @@ from core.utils.result_simplified import Result
 
 
 def create_mock_ku_service() -> Mock:
-    """Create mock ArticleService with standard methods."""
+    """Create mock LessonService with standard methods."""
     ku_service = Mock()
     ku_service.get = AsyncMock(
         return_value=Result.ok(

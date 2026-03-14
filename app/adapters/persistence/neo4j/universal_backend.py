@@ -15,7 +15,7 @@ BACKENDS IN USE (services_bootstrap.py)
 **Domain-specific backends:**
     TasksBackend[Task], GoalsBackend[Goal], HabitsBackend[Habit]
     EventsBackend[Event], ChoicesBackend[Choice], PrinciplesBackend[Principle]
-    ArticleBackend[Article], LpBackend[LearningPath], ExerciseBackend[Exercise]
+    LessonBackend[Lesson], LpBackend[LearningPath], ExerciseBackend[Exercise]
     SubmissionsBackend[Submission]
 
 **Generic backends (UniversalNeo4jBackend[T]):**

@@ -23,7 +23,7 @@ from core.utils.result_simplified import Errors, Result
 
 
 def create_mock_ku_service() -> Mock:
-    """Create mock ArticleService that returns entities with .title attribute."""
+    """Create mock LessonService that returns entities with .title attribute."""
     ku_service = Mock()
 
     # Mock .get() to return entity with .title (entity_extractor.py line 197-202)

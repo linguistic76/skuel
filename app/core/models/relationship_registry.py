@@ -1604,7 +1604,7 @@ PRINCIPLE_REFLECTION_CONFIG = DomainRelationshipConfig(
 # -----------------------------------------------------------------------------
 
 # KU (Knowledge Unit)
-ARTICLE_CONFIG = DomainRelationshipConfig(
+LESSON_CONFIG = DomainRelationshipConfig(
     domain=Domain.KNOWLEDGE,
     entity_label="Entity",
     dto_class=CurriculumDTO,
@@ -1712,7 +1712,7 @@ ARTICLE_CONFIG = DomainRelationshipConfig(
             "organized_by",
             "organized_by",
         ),
-        # Composition: Article → atomic Ku
+        # Composition: Lesson → atomic Ku
         UnifiedRelationshipDefinition(
             RelationshipName.USES_KU,
             "Ku",
@@ -1747,12 +1747,12 @@ KU_CONFIG = DomainRelationshipConfig(
     ownership_relationship=None,  # Shared content
     is_shared_content=True,
     relationships=(
-        # Incoming: Articles that compose this atomic Ku
+        # Incoming: Lessons that compose this atomic Ku
         UnifiedRelationshipDefinition(
             RelationshipName.USES_KU,
             "Entity",
             "incoming",
-            "used_by_articles",
+            "used_by_lessons",
             "used_by",
         ),
         # Incoming: Learning Steps that train this Ku
@@ -2123,7 +2123,7 @@ DOMAIN_CONFIGS: dict[Domain, DomainRelationshipConfig] = {
     # Curriculum Domains - Shared content
     # Note: LS and LP both use Domain.LEARNING
     # Use LABEL_CONFIGS for unambiguous lookup
-    Domain.KNOWLEDGE: ARTICLE_CONFIG,  # Primary for Domain.KNOWLEDGE
+    Domain.KNOWLEDGE: LESSON_CONFIG,  # Primary for Domain.KNOWLEDGE
     Domain.LEARNING: LS_CONFIG,  # Primary for Domain.LEARNING
 }
 
@@ -2144,7 +2144,7 @@ LABEL_CONFIGS: dict[str, DomainRelationshipConfig] = {
     # Principle Reflection (January 2026)
     "PrincipleReflection": PRINCIPLE_REFLECTION_CONFIG,
     # Curriculum Domains — all :Entity in Neo4j, virtual keys for config lookup
-    "Entity": ARTICLE_CONFIG,
+    "Entity": LESSON_CONFIG,
     "Ku": KU_CONFIG,
     "Ls": LS_CONFIG,  # Virtual key — config lookup key for 'learning_step'}
     "Lp": LP_CONFIG,  # Virtual key — config lookup key for 'learning_path'}
@@ -2378,7 +2378,7 @@ def get_config_by_label(entity_label: str) -> DomainRelationshipConfig | None:
 # Maps EntityType to registry config key (Neo4j label string).
 # All domain entities are :Entity nodes; virtual config keys kept for lookup.
 ENTITY_TYPE_TO_LABEL: dict[EntityType, str] = {
-    EntityType.ARTICLE: "Entity",
+    EntityType.LESSON: "Entity",
     EntityType.KU: "Ku",
     EntityType.TASK: "Task",
     EntityType.GOAL: "Goal",
@@ -2392,7 +2392,7 @@ ENTITY_TYPE_TO_LABEL: dict[EntityType, str] = {
 }
 
 LABEL_TO_DEFAULT_ENTITY_TYPE: dict[str, EntityType] = {
-    "Entity": EntityType.ARTICLE,
+    "Entity": EntityType.LESSON,
     "Ku": EntityType.KU,
     "Task": EntityType.TASK,
     "Goal": EntityType.GOAL,
