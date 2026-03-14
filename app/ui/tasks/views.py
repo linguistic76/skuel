@@ -282,10 +282,7 @@ class TasksViewComponents:
 
         return Div(
             filter_bar,
-            Div(
-                task_list,
-                id="task-list",
-            ),
+            task_list,
             id="list-view",
         )
 
