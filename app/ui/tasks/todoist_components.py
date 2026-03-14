@@ -30,10 +30,11 @@ from fasthtml.common import (
     Option,
     P,
     Script,
+    Select as RawSelect,
     Span,
     Ul,
 )
-from monsterui.franken import UkIcon
+from monsterui.franken import CheckboxX, UkIcon
 
 from core.models.enums import EntityStatus, Priority
 from core.utils.logging import get_logger
@@ -177,35 +178,25 @@ class TodoistTaskComponents:
     # ========================================================================
 
     @staticmethod
-    def render_task_item(task: Any, is_pinned: bool = False) -> Any:
+    def render_task_item(task: Any) -> Any:
         """
         Render single task row in Todoist style.
 
-        Layout: [checkbox] [pin] [clickable: title + @project + P1-4 + due + assignee]
+        Layout: [checkbox] [clickable: title + @project + P1-4 + due + assignee]
         Clicking the row (not checkbox) opens edit modal via HTMX.
 
         Args:
             task: Task entity
-            is_pinned: Whether this task is pinned
         """
         is_completed = task.status == EntityStatus.COMPLETED
 
         # Checkbox - with click.stop to prevent triggering row click
-        checkbox = Input(
-            type="checkbox",
-            checked=is_completed,
-            cls="uk-checkbox cursor-pointer",
+        checkbox = CheckboxX(
+            selected=is_completed,
+            cls="cursor-pointer shrink-0",
             hx_post=f"/tasks/{task.uid}/toggle",
             hx_target=f"#task-{task.uid}",
             hx_swap="outerHTML",
-            **{"x-on:click.stop": ""},  # Prevent click from bubbling to row
-        )
-
-        # Pin button - with click.stop to prevent triggering row click
-        from ui.patterns.pin_button import PinButton
-
-        pin_btn = Div(
-            PinButton(entity_uid=task.uid, is_pinned=is_pinned, size="xs"),
             **{"x-on:click.stop": ""},  # Prevent click from bubbling to row
         )
 
@@ -260,7 +251,6 @@ class TodoistTaskComponents:
 
         return Li(
             checkbox,
-            pin_btn,
             clickable_content,
             id=f"task-{task.uid}",
             cls=row_cls,
@@ -710,74 +700,58 @@ class TodoistTaskComponents:
         assignees = assignees or []
         current_filters = current_filters or {}
 
+        # Shared HTMX attrs for all filter/sort selects.
+        # Uses native <select> (RawSelect) instead of MonsterUI Select because
+        # MonsterUI's <uk-select> overrides hx-trigger and hx-include, breaking HTMX.
+        _htmx = dict(
+            hx_get="/tasks/list-fragment",
+            hx_target="#task-list",
+            hx_swap="outerHTML",
+            hx_include="[name^='filter_'],[name='sort_by']",
+        )
+        _cls = "text-sm rounded border border-border bg-background px-2 py-1"
+
         # Project filter
         project_options = [Option("All Projects", value="")]
         project_options.extend(Option(p, value=p) for p in projects)
 
-        project_filter = Select(
-            *project_options,
-            name="filter_project",
-            size=Size.sm,
-            full_width=False,
-            hx_get="/tasks/list-fragment",
-            hx_target="#task-list",
-            hx_include="[name^='filter_'],[name='sort_by']",
+        project_filter = RawSelect(
+            *project_options, name="filter_project", cls=_cls, **_htmx
         )
 
         # Assignee filter
         assignee_options = [Option("All Assignees", value="")]
         assignee_options.extend(Option(a, value=a) for a in assignees)
 
-        assignee_filter = Select(
-            *assignee_options,
-            name="filter_assignee",
-            size=Size.sm,
-            full_width=False,
-            hx_get="/tasks/list-fragment",
-            hx_target="#task-list",
-            hx_include="[name^='filter_'],[name='sort_by']",
+        assignee_filter = RawSelect(
+            *assignee_options, name="filter_assignee", cls=_cls, **_htmx
         )
 
         # Due date filter
-        due_filter = Select(
+        due_filter = RawSelect(
             Option("All Dates", value=""),
             Option("Today", value="today"),
             Option("Tomorrow", value="tomorrow"),
             Option("This Week", value="week"),
             Option("Overdue", value="overdue"),
-            name="filter_due",
-            size=Size.sm,
-            full_width=False,
-            hx_get="/tasks/list-fragment",
-            hx_target="#task-list",
-            hx_include="[name^='filter_'],[name='sort_by']",
+            name="filter_due", cls=_cls, **_htmx,
         )
 
         # Status filter
-        status_filter = Select(
+        status_filter = RawSelect(
             Option("Active", value="active", selected=True),
             Option("Completed", value="completed"),
             Option("All", value="all"),
-            name="filter_status",
-            size=Size.sm,
-            full_width=False,
-            hx_get="/tasks/list-fragment",
-            hx_target="#task-list",
-            hx_include="[name^='filter_'],[name='sort_by']",
+            name="filter_status", cls=_cls, **_htmx,
         )
 
         # Sort dropdown
-        sort_select = Select(
+        sort_select = RawSelect(
             Option("Due Date", value="due_date"),
             Option("Priority", value="priority"),
             Option("Recently Added", value="created_at"),
             Option("Project", value="project"),
-            name="sort_by",
-            size=Size.sm,
-            full_width=False,
-            hx_get="/tasks/list-fragment",
-            hx_target="#task-list",
-            hx_include="[name^='filter_'],[name='sort_by']",
+            name="sort_by", cls=_cls, **_htmx,
         )
 
         return Div(
@@ -815,16 +789,23 @@ class TodoistTaskComponents:
 
     @staticmethod
     def render_task_list(tasks: list[Any]) -> Any:
-        """Render the task list container."""
+        """Render the task list container.
+
+        Always wraps content in a Div with id="task-list" so HTMX filter
+        swaps can always find the target element, even when the list is empty.
+        """
         if not tasks:
             from ui.patterns.empty_state import EmptyState
 
-            return EmptyState(
-                icon="📋",
-                title="No tasks yet",
-                description="Create your first task to get started",
-                action_text="Create Task",
-                action_url="/tasks?view=create",
+            return Div(
+                EmptyState(
+                    icon="📋",
+                    title="No tasks yet",
+                    description="Create your first task to get started",
+                    action_text="Create Task",
+                    action_url="/tasks?view=create",
+                ),
+                id="task-list",
             )
 
         task_items = [TodoistTaskComponents.render_task_item(task) for task in tasks]
