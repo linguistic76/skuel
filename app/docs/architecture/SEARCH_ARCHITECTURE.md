@@ -674,7 +674,7 @@ Used by `_is_habit_due_in_window()`, `_is_habit_overdue()`, and `get_due_today()
 
 | File | Purpose |
 |------|---------|
-| `core/utils/timestamp_helpers.py` | `score_deadline_proximity()`, `get_frequency_window_days()`, `FREQUENCY_WINDOWS_DAYS` |
+| `core/utils/timestamp_helpers.py` | `score_deadline_proximity()`, `get_frequency_window_days()`, `FREQUENCY_WINDOWS_DAYS`, `week_bounds()`, `month_bounds()`, `prev_month()`, `next_month()`, `week_label()` |
 | `core/services/domain_config.py` | `temporal_exclude_statuses`, `temporal_secondary_sort` config fields |
 | `core/services/mixins/time_query_mixin.py` | `get_due_soon()`, `get_overdue()` base implementations |
 | `adapters/persistence/neo4j/query/cypher/domain_queries.py` | `build_due_soon_query()`, `build_overdue_query()` |
