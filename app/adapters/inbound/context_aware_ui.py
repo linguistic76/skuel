@@ -4,11 +4,7 @@ Context-Aware UI Routes - Component-Based Interface
 
 Clean component-based UI routes for context-aware functionality.
 
-✅ MIGRATED TO FORMGENERATOR/CARDGENERATOR PATTERN
-✅ MIGRATED TO SHARED UI COMPONENTS (October 10, 2025)
-- Previously: Manual component composition (display-only)
-- Now: Uses /ui/shared_components.py for all UI elements
-- Status: Display-only file, no forms to migrate
+Uses ui/patterns/ components (StatCard, ProgressMetric, RecommendationCard, SettingToggle).
 """
 
 from adapters.inbound.auth import require_authenticated_user
@@ -17,17 +13,14 @@ __version__ = "2.1"
 
 from typing import Any
 
-from fasthtml.common import H1, H3, Div, P
+from fasthtml.common import H1, H3, Div, P, Span
 
 from core.utils.logging import get_logger
 from ui.cards import Card
-from ui.shared_components import (
-    InsightCard,
-    MetricCard,
-    ProgressMetric,
-    RecommendationCard,
-    SettingToggle,
-)
+from ui.patterns.progress_metric import ProgressMetric
+from ui.patterns.recommendation_card import RecommendationCard
+from ui.patterns.setting_toggle import SettingToggle
+from ui.patterns.stats_grid import StatCard
 
 logger = get_logger("skuel.routes.context_aware.ui")
 
@@ -78,34 +71,55 @@ class ContextAwareUIComponents:
 
     @staticmethod
     def render_context_overview(context_data) -> Any:
-        """Context overview cards component using shared MetricCard"""
+        """Context overview cards component"""
         return Div(
-            MetricCard(
-                title="Productivity Score",
+            StatCard(
+                label="Productivity Score",
                 value=f"{context_data.get('productivity_score', 0):.0%}",
-                subtitle="Based on recent patterns",
-                color="blue",
+                change="Based on recent patterns",
+                color="primary",
             ),
-            MetricCard(
-                title="Energy Level",
+            StatCard(
+                label="Energy Level",
                 value=f"{context_data.get('energy_level', 0):.0%}",
-                subtitle="Current state",
-                color="purple",
+                change="Current state",
+                color="secondary",
             ),
-            MetricCard(
-                title="Context Health",
+            StatCard(
+                label="Context Health",
                 value=f"{context_data.get('context_health', 0):.0%}",
-                subtitle="Overall system health",
-                color="green",
+                change="Overall system health",
+                color="success",
             ),
             cls="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8",
         )
 
     @staticmethod
     def render_quick_insights(insights=None) -> Any:
-        """Quick insights component using shared InsightCard"""
+        """Quick insights component"""
         if not insights:
             insights = []
+
+        # CONSOLIDATION: This generic insight display should converge with
+        # ui/insights/insight_card.py (PersistedInsight-based) when context
+        # intelligence features mature to produce typed insight models.
+        def _insight_card(text: str, confidence: float, category: str) -> Div:
+            return Div(
+                Div(
+                    Span("💡", cls="text-xl mr-3"),
+                    Div(
+                        P(text, cls="text-foreground mb-2"),
+                        Div(
+                            Span(f"Confidence: {confidence:.0%}", cls="text-muted-foreground"),
+                            Span(category, cls="text-primary font-medium"),
+                            cls="flex gap-4 text-sm",
+                        ),
+                        cls="flex-1",
+                    ),
+                    cls="flex items-start",
+                ),
+                cls="p-4 bg-muted rounded shadow-sm",
+            )
 
         return Card(
             H3("🔍 AI Insights", cls="text-xl font-semibold mb-4"),
@@ -115,11 +129,10 @@ class ContextAwareUIComponents:
             ),
             Div(
                 [
-                    InsightCard(
+                    _insight_card(
                         text=insight.get("text", ""),
                         confidence=insight.get("confidence", 0),
                         category=insight.get("category", "General"),
-                        icon="💡",
                     )
                     for insight in insights[:5]
                 ]
@@ -196,10 +209,10 @@ class ContextAwareUIComponents:
             Card(
                 H3("Intelligence Metrics", cls="text-xl font-semibold mb-4"),
                 Div(
-                    MetricCard("Context Awareness", "87%", color="blue"),
-                    MetricCard("Adaptive Learning", "84%", color="purple"),
-                    MetricCard("Prediction Quality", "89%", color="green"),
-                    MetricCard("Optimization Impact", "76%", color="indigo"),
+                    StatCard(label="Context Awareness", value="87%", color="primary"),
+                    StatCard(label="Adaptive Learning", value="84%", color="secondary"),
+                    StatCard(label="Prediction Quality", value="89%", color="success"),
+                    StatCard(label="Optimization Impact", value="76%", color="accent"),
                     cls="grid grid-cols-1 md:grid-cols-2 gap-6",
                 ),
                 cls="p-6 mb-6",

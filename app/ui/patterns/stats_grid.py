@@ -18,6 +18,7 @@ def StatCard(
     value: str | int,
     change: str | None = None,
     trend: str | None = None,
+    color: str | None = None,
     **kwargs: Any,
 ) -> Div:
     """Single statistic card.
@@ -28,6 +29,8 @@ def StatCard(
         change: Optional change text (e.g., "+5 this week")
         trend: Optional trend direction - "up", "down", or "neutral"
             Used to color the change text
+        color: Optional semantic color token (e.g., "primary", "success",
+            "accent", "secondary", "error"). Applied as text-{color} to the value.
         **kwargs: Additional attributes passed to Card
 
     Returns:
@@ -47,10 +50,14 @@ def StatCard(
         "neutral": "text-muted-foreground",
     }
 
+    value_cls = (
+        f"text-3xl font-bold text-{color}" if color else "text-3xl font-bold text-foreground"
+    )
+
     content = [
         Caption(label),
         Div(
-            Span(str(value), cls="text-3xl font-bold text-foreground"),
+            Span(str(value), cls=value_cls),
             cls="mt-1",
         ),
     ]

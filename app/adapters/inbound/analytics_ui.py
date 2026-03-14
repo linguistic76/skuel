@@ -5,10 +5,7 @@ Analytics Dashboard UI - Statistical Domain Analysis
 Clean dashboard for viewing statistical analytics.
 Following SKUEL principles: just numbers and charts, no AI recommendations.
 
-MIGRATED TO SHARED UI COMPONENTS (October 10, 2025)
-- Previously: Custom metric_card() implementation
-- Now: Uses /ui/shared_components.py for MetricCard and QuickMetricCard
-- Benefit: Consistent styling across all dashboards
+Uses StatCard/StatsGrid from ui/patterns/stats_grid.py for all metric displays.
 """
 
 from dataclasses import dataclass
@@ -38,7 +35,7 @@ from ui.data import TableFromDicts, TableT
 from ui.feedback import Alert, AlertT
 from ui.forms import Input, Select
 from ui.layouts.navbar import create_navbar_for_request
-from ui.shared_components import MetricCard, QuickMetricCard
+from ui.patterns.stats_grid import StatCard, StatsGrid
 
 logger = get_logger("skuel.routes.analytics.ui")
 
@@ -198,20 +195,20 @@ class AnalyticsUIComponents:
         """Render task metrics using shared components"""
         return Div(
             H3("📋 Task Metrics", cls="text-lg font-semibold mb-4"),
-            # Summary cards using shared QuickMetricCard
-            Div(
-                QuickMetricCard("Total Tasks", str(metrics.get("total_count", 0)), "primary"),
-                QuickMetricCard("Completed", str(metrics.get("completed_count", 0)), "success"),
-                QuickMetricCard("In Progress", str(metrics.get("in_progress_count", 0)), "accent"),
-                QuickMetricCard("Pending", str(metrics.get("pending_count", 0)), "secondary"),
-                cls="grid grid-cols-4 gap-4 mb-6",
+            StatsGrid(
+                [
+                    {"label": "Total Tasks", "value": str(metrics.get("total_count", 0))},
+                    {"label": "Completed", "value": str(metrics.get("completed_count", 0))},
+                    {"label": "In Progress", "value": str(metrics.get("in_progress_count", 0))},
+                    {"label": "Pending", "value": str(metrics.get("pending_count", 0))},
+                ],
+                cls="mb-6",
             ),
-            # Completion rate using shared MetricCard
-            MetricCard(
-                title="Completion Rate",
+            StatCard(
+                label="Completion Rate",
                 value=f"{metrics.get('completion_rate', 0)}%",
-                subtitle="Tasks completed in period",
-                color="green",
+                change="Tasks completed in period",
+                color="success",
             ),
             # Priority distribution
             (
@@ -252,10 +249,13 @@ class AnalyticsUIComponents:
         """Render habit metrics using shared components"""
         return Div(
             H3("🎯 Habit Metrics", cls="text-lg font-semibold mb-4"),
-            Div(
-                QuickMetricCard("Active Habits", str(metrics.get("total_active", 0)), "primary"),
-                QuickMetricCard("Consistency", f"{metrics.get('consistency_rate', 0)}%", "success"),
-                cls="grid grid-cols-2 gap-4 mb-6",
+            StatsGrid(
+                [
+                    {"label": "Active Habits", "value": str(metrics.get("total_active", 0))},
+                    {"label": "Consistency", "value": f"{metrics.get('consistency_rate', 0)}%"},
+                ],
+                cols=2,
+                cls="mb-6",
             ),
             # Streaks
             (
@@ -281,14 +281,16 @@ class AnalyticsUIComponents:
         """Render goal metrics using shared components"""
         return Div(
             H3("🎯 Goal Metrics", cls="text-lg font-semibold mb-4"),
-            Div(
-                QuickMetricCard("Active Goals", str(metrics.get("total_active", 0)), "primary"),
-                QuickMetricCard("On Track", str(metrics.get("on_track_count", 0)), "success"),
-                QuickMetricCard("At Risk", str(metrics.get("at_risk_count", 0)), "error"),
-                QuickMetricCard(
-                    "Avg Progress", f"{metrics.get('avg_progress_percentage', 0)}%", "accent"
-                ),
-                cls="grid grid-cols-4 gap-4",
+            StatsGrid(
+                [
+                    {"label": "Active Goals", "value": str(metrics.get("total_active", 0))},
+                    {"label": "On Track", "value": str(metrics.get("on_track_count", 0))},
+                    {"label": "At Risk", "value": str(metrics.get("at_risk_count", 0))},
+                    {
+                        "label": "Avg Progress",
+                        "value": f"{metrics.get('avg_progress_percentage', 0)}%",
+                    },
+                ]
             ),
         )
 
@@ -297,14 +299,16 @@ class AnalyticsUIComponents:
         """Render event metrics using shared components"""
         return Div(
             H3("📅 Event Metrics", cls="text-lg font-semibold mb-4"),
-            Div(
-                QuickMetricCard("Total Events", str(metrics.get("total_count", 0)), "primary"),
-                QuickMetricCard("Upcoming", str(metrics.get("upcoming_count", 0)), "accent"),
-                QuickMetricCard("Completed", str(metrics.get("completed_count", 0)), "success"),
-                QuickMetricCard(
-                    "Hours Scheduled", str(metrics.get("total_hours_scheduled", 0)), "secondary"
-                ),
-                cls="grid grid-cols-4 gap-4",
+            StatsGrid(
+                [
+                    {"label": "Total Events", "value": str(metrics.get("total_count", 0))},
+                    {"label": "Upcoming", "value": str(metrics.get("upcoming_count", 0))},
+                    {"label": "Completed", "value": str(metrics.get("completed_count", 0))},
+                    {
+                        "label": "Hours Scheduled",
+                        "value": str(metrics.get("total_hours_scheduled", 0)),
+                    },
+                ]
             ),
         )
 
@@ -316,15 +320,16 @@ class AnalyticsUIComponents:
 
         return Div(
             H3("💰 Finance Metrics", cls="text-lg font-semibold mb-4"),
-            Div(
-                QuickMetricCard(
-                    "Total Expenses", f"${metrics.get('total_expenses', 0):,.2f}", "error"
-                ),
-                QuickMetricCard(
-                    "Total Income", f"${metrics.get('total_income', 0):,.2f}", "success"
-                ),
-                QuickMetricCard("Net Balance", f"${net_balance:,.2f}", balance_color),
-                cls="grid grid-cols-3 gap-4",
+            StatsGrid(
+                [
+                    {
+                        "label": "Total Expenses",
+                        "value": f"${metrics.get('total_expenses', 0):,.2f}",
+                    },
+                    {"label": "Total Income", "value": f"${metrics.get('total_income', 0):,.2f}"},
+                    {"label": "Net Balance", "value": f"${net_balance:,.2f}"},
+                ],
+                cols=3,
             ),
         )
 
@@ -333,12 +338,12 @@ class AnalyticsUIComponents:
         """Render choice metrics using shared components"""
         return Div(
             H3("🤔 Choice Metrics", cls="text-lg font-semibold mb-4"),
-            Div(
-                QuickMetricCard("Total Choices", str(metrics.get("total_choices", 0)), "primary"),
-                QuickMetricCard(
-                    "Reviewed", str(metrics.get("choices_reviewed_count", 0)), "success"
-                ),
-                cls="grid grid-cols-2 gap-4",
+            StatsGrid(
+                [
+                    {"label": "Total Choices", "value": str(metrics.get("total_choices", 0))},
+                    {"label": "Reviewed", "value": str(metrics.get("choices_reviewed_count", 0))},
+                ],
+                cols=2,
             ),
         )
 
@@ -359,7 +364,7 @@ class AnalyticsUIComponents:
             cls="bg-background shadow-sm p-4",
         )
 
-    # Note: metric_card() removed - now using QuickMetricCard from shared components
+    # Note: metric_card() removed - now using StatCard from ui.patterns.stats_grid
 
     @staticmethod
     def render_markdown_view(markdown_content) -> Any:
@@ -409,15 +414,17 @@ class AnalyticsUIComponents:
             # Header
             H1(f"Life Path: {life_path_title}", cls="text-3xl font-bold mb-6"),
             # Alignment Score Card
-            QuickMetricCard("Alignment Score", f"{score_percentage}%", score_color),
+            StatCard(label="Alignment Score", value=f"{score_percentage}%", color=score_color),
             # Knowledge Breakdown
             Card(
                 H2("Knowledge Embodiment", cls="text-xl font-semibold mb-4"),
-                Div(
-                    QuickMetricCard("Total Knowledge", str(knowledge_count), "primary"),
-                    QuickMetricCard("Embodied (0.8+)", str(embodied), "success"),
-                    QuickMetricCard("Theoretical (<0.5)", str(theoretical), "error"),
-                    cls="grid grid-cols-3 gap-4",
+                StatsGrid(
+                    [
+                        {"label": "Total Knowledge", "value": str(knowledge_count)},
+                        {"label": "Embodied (0.8+)", "value": str(embodied)},
+                        {"label": "Theoretical (<0.5)", "value": str(theoretical)},
+                    ],
+                    cols=3,
                 ),
                 cls="bg-background shadow-sm mb-6 p-6",
             ),
@@ -521,7 +528,7 @@ class AnalyticsUIComponents:
             H1("Weekly Life Summary", cls="text-3xl font-bold mb-2"),
             P(f"{start_date} to {end_date}", cls="text-muted-foreground mb-6"),
             # Overall Activity Score
-            QuickMetricCard("Overall Activity", str(int(total_activity)), "primary"),
+            StatCard(label="Overall Activity", value=str(int(total_activity)), color="primary"),
             # Summary Text
             Card(
                 H2("Summary", cls="text-xl font-semibold mb-4"),
@@ -553,12 +560,13 @@ class AnalyticsUIComponents:
 
         return Card(
             H2("Layer 0: Knowledge & Learning", cls="text-xl font-semibold mb-4"),
-            Div(
-                QuickMetricCard("Avg Substance", f"{int(avg_substance * 100)}%", "primary"),
-                QuickMetricCard("Embodied", str(embodied), "success"),
-                QuickMetricCard("Active Paths", str(active_paths), "accent"),
-                QuickMetricCard("In-Progress Steps", str(in_progress_steps), "accent"),
-                cls="grid grid-cols-4 gap-4",
+            StatsGrid(
+                [
+                    {"label": "Avg Substance", "value": f"{int(avg_substance * 100)}%"},
+                    {"label": "Embodied", "value": str(embodied)},
+                    {"label": "Active Paths", "value": str(active_paths)},
+                    {"label": "In-Progress Steps", "value": str(in_progress_steps)},
+                ]
             ),
             cls="bg-background shadow-sm mb-6 p-6",
         )
@@ -576,11 +584,14 @@ class AnalyticsUIComponents:
 
         return Card(
             H2("Layer 2: Reflection & Journals", cls="text-xl font-semibold mb-4"),
-            Div(
-                QuickMetricCard("Entries", str(entry_count), "primary"),
-                QuickMetricCard("Frequency", f"{reflection_frequency:.1f}/day", "accent"),
-                QuickMetricCard("Metacognition", f"{int(metacognition_score * 100)}%", "success"),
-                cls="grid grid-cols-3 gap-4 mb-4",
+            StatsGrid(
+                [
+                    {"label": "Entries", "value": str(entry_count)},
+                    {"label": "Frequency", "value": f"{reflection_frequency:.1f}/day"},
+                    {"label": "Metacognition", "value": f"{int(metacognition_score * 100)}%"},
+                ],
+                cols=3,
+                cls="mb-4",
             ),
             Div(
                 P("Top Themes:", cls="font-medium mb-2"),
