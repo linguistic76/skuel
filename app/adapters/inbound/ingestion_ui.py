@@ -160,7 +160,7 @@ def create_ingestion_ui_routes(
                 if (isError) {
                     const msg = result.error || result.message || 'Ingestion failed';
                     statusEl.innerHTML = `
-                        <div class="bg-red-100 text-red-800 border border-red-200 p-3 rounded-lg shadow-sm">
+                        <div class="uk-alert uk-alert-danger">
                             <uk-icon icon="x" width="24" height="24" class="shrink-0 h-6 w-6"></uk-icon>
                             <span class="font-semibold">${msg}</span>
                         </div>`;
@@ -185,7 +185,7 @@ def create_ingestion_ui_routes(
                     }
 
                     statusEl.innerHTML = `
-                        <div class="bg-green-100 text-green-800 border border-green-200 p-3 rounded-lg shadow-sm">
+                        <div class="uk-alert uk-alert-success">
                             <uk-icon icon="check" width="24" height="24" class="shrink-0 h-6 w-6"></uk-icon>
                             <div>
                                 <span class="font-semibold">Ingested successfully</span>
@@ -212,7 +212,7 @@ def create_ingestion_ui_routes(
                 document.getElementById('ingest-details-card').classList.add('hidden');
                 if (btnEl) {
                     btnEl.disabled = true;
-                    btnEl.classList.add('btn-disabled');
+                    btnEl.classList.add('opacity-50', 'pointer-events-none');
                 }
             }
 
@@ -220,7 +220,7 @@ def create_ingestion_ui_routes(
                 _ingesting = false;
                 if (btnEl) {
                     btnEl.disabled = false;
-                    btnEl.classList.remove('btn-disabled');
+                    btnEl.classList.remove('opacity-50', 'pointer-events-none');
                 }
             }
 

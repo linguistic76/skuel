@@ -27,6 +27,7 @@ Usage:
 
 from fasthtml.common import H3, Canvas, Div, Link, P, Script, Span
 
+from ui.buttons import Button, ButtonT
 from ui.cards import Card
 from ui.feedback import Loading, LoadingT
 from ui.layout import Size
@@ -234,19 +235,22 @@ def create_timeline_view(
             Div(
                 Div(
                     "Zoom: ",
-                    Span(
+                    Button(
                         "+",
-                        cls="uk-btn uk-btn-default uk-btn-sm",
+                        variant=ButtonT.secondary,
+                        size=Size.sm,
                         **{"@click": "zoomIn()"},
                     ),
-                    Span(
+                    Button(
                         "-",
-                        cls="uk-btn uk-btn-default uk-btn-sm",
+                        variant=ButtonT.secondary,
+                        size=Size.sm,
                         **{"@click": "zoomOut()"},
                     ),
-                    Span(
+                    Button(
                         "Fit",
-                        cls="uk-btn uk-btn-default uk-btn-sm",
+                        variant=ButtonT.secondary,
+                        size=Size.sm,
                         **{"@click": "fit()"},
                     ),
                     cls="flex items-center gap-1 text-sm",
@@ -398,9 +402,7 @@ def create_gantt_view(
                 Span(
                     "Month",
                     cls="uk-btn uk-btn-sm",
-                    **{
-                        ":class": "viewMode === 'Month' ? 'uk-btn-primary' : 'uk-btn-default'"
-                    },
+                    **{":class": "viewMode === 'Month' ? 'uk-btn-primary' : 'uk-btn-default'"},
                     **{"@click": "setViewMode('Month')"},
                 ),
                 cls="flex items-center gap-1",

@@ -62,7 +62,7 @@ def render_exercise_form(groups: list[dict[str, Any]], exercise: Any = None) -> 
         "try{"
         "var d=JSON.parse(event.detail.xhr.responseText);"
         "document.getElementById('form-result').innerHTML="
-        "'<div class=\"bg-red-100 text-red-800 border border-red-200 p-3 rounded-lg mt-2\">'+(d.message||'Error saving exercise')+'</div>';"
+        "'<div class=\"uk-alert uk-alert-danger mt-2\">'+(d.message||'Error saving exercise')+'</div>';"
         "}catch(e){}"
         "}"
     )

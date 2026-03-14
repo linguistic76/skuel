@@ -715,17 +715,13 @@ class TodoistTaskComponents:
         project_options = [Option("All Projects", value="")]
         project_options.extend(Option(p, value=p) for p in projects)
 
-        project_filter = RawSelect(
-            *project_options, name="filter_project", cls=_cls, **_htmx
-        )
+        project_filter = RawSelect(*project_options, name="filter_project", cls=_cls, **_htmx)
 
         # Assignee filter
         assignee_options = [Option("All Assignees", value="")]
         assignee_options.extend(Option(a, value=a) for a in assignees)
 
-        assignee_filter = RawSelect(
-            *assignee_options, name="filter_assignee", cls=_cls, **_htmx
-        )
+        assignee_filter = RawSelect(*assignee_options, name="filter_assignee", cls=_cls, **_htmx)
 
         # Due date filter
         due_filter = RawSelect(
@@ -734,7 +730,9 @@ class TodoistTaskComponents:
             Option("Tomorrow", value="tomorrow"),
             Option("This Week", value="week"),
             Option("Overdue", value="overdue"),
-            name="filter_due", cls=_cls, **_htmx,
+            name="filter_due",
+            cls=_cls,
+            **_htmx,
         )
 
         # Status filter
@@ -742,7 +740,9 @@ class TodoistTaskComponents:
             Option("Active", value="active", selected=True),
             Option("Completed", value="completed"),
             Option("All", value="all"),
-            name="filter_status", cls=_cls, **_htmx,
+            name="filter_status",
+            cls=_cls,
+            **_htmx,
         )
 
         # Sort dropdown
@@ -751,7 +751,9 @@ class TodoistTaskComponents:
             Option("Priority", value="priority"),
             Option("Recently Added", value="created_at"),
             Option("Project", value="project"),
-            name="sort_by", cls=_cls, **_htmx,
+            name="sort_by",
+            cls=_cls,
+            **_htmx,
         )
 
         return Div(

@@ -10,6 +10,7 @@ from typing import Any
 from fasthtml.common import H4, Div, NotStr, P
 
 from ui.cards import Card, CardBody
+from ui.buttons import ButtonLink, ButtonT
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
 
@@ -98,10 +99,12 @@ def render_submission_history_row(item: dict) -> Any:
                 feedback_chip,
                 cls="flex items-center gap-2",
             ),
-            A(
+            ButtonLink(
                 "View",
                 href=f"/submissions/{uid}",
-                cls="uk-btn uk-btn-default uk-btn-sm ml-3",
+                variant=ButtonT.secondary,
+                size=Size.sm,
+                cls="ml-3",
             ),
             cls="flex items-center gap-4",
         ),
@@ -161,10 +164,12 @@ def render_report_card(assessment: Any) -> Any:
                     cls="text-sm text-muted-foreground mb-2",
                 ),
                 P(preview, cls="text-sm"),
-                A(
+                ButtonLink(
                     "View Full",
                     href=f"/submissions/{uid}",
-                    cls="uk-btn uk-btn-default uk-btn-sm mt-2",
+                    variant=ButtonT.secondary,
+                    size=Size.sm,
+                    cls="mt-2",
                 ),
                 cls="p-4",
             ),
