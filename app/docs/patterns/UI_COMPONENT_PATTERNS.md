@@ -849,9 +849,9 @@ Div(..., cls="lg:hidden")
 Div(..., cls="hidden lg:block")
 ```
 
-### Drawer for Mobile Navigation
+### Sidebar for Navigation
 
-Use the existing `drawer_layout.py` pattern for responsive sidebars.
+Use `SidebarPage` from `ui/patterns/sidebar.py` for all sidebar pages. Desktop: collapsible fixed sidebar. Mobile: horizontal tabs.
 
 ---
 
