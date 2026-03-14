@@ -16,7 +16,7 @@ Usage:
     calendar_view = TasksViewComponents.render_calendar_view(tasks, today, "month")
 """
 
-from datetime import date, timedelta
+from datetime import date
 from typing import Any
 
 from fasthtml.common import (
@@ -34,6 +34,7 @@ from core.models.event.calendar_models import (
     CalendarView,
 )
 from core.utils.logging import get_logger
+from core.utils.timestamp_helpers import month_bounds, week_bounds
 from ui.buttons import Button, ButtonLink, ButtonT
 from ui.calendar.components import (
     create_day_timeline,
@@ -326,22 +327,10 @@ class TasksViewComponents:
             end_date = current_date
             view_type = CalendarView.DAY
         elif calendar_view == "week":
-            # Start from Monday of current week
-            days_since_monday = current_date.weekday()
-            start_date = current_date - timedelta(days=days_since_monday)
-            end_date = start_date + timedelta(days=6)
+            start_date, end_date = week_bounds(current_date)
             view_type = CalendarView.WEEK
         else:  # month
-            start_date = current_date.replace(day=1)
-            # Last day of month
-            if current_date.month == 12:
-                end_date = current_date.replace(
-                    year=current_date.year + 1, month=1, day=1
-                ) - timedelta(days=1)
-            else:
-                end_date = current_date.replace(month=current_date.month + 1, day=1) - timedelta(
-                    days=1
-                )
+            start_date, end_date = month_bounds(current_date)
             view_type = CalendarView.MONTH
 
         # Filter items to date range

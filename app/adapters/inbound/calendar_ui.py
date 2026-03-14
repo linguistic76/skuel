@@ -40,6 +40,7 @@ from starlette.requests import Request
 from adapters.inbound.auth import require_authenticated_user
 from core.models.event.calendar_models import CalendarView
 from core.utils.logging import get_logger
+from core.utils.timestamp_helpers import next_month, prev_month, week_bounds
 from ui.buttons import Button, ButtonLink, ButtonT
 from ui.calendar.components import (
     create_day_timeline,
@@ -91,18 +92,8 @@ def _wrap_calendar_page(navbar: Any, content: Any, title: str = "Calendar") -> A
 # ============================================================================
 
 
-def _get_prev_month(year: int, month: int) -> tuple[int, int]:
-    """Calculate previous month year and month."""
-    if month == 1:
-        return (year - 1, 12)
-    return (year, month - 1)
-
-
-def _get_next_month(year: int, month: int) -> tuple[int, int]:
-    """Calculate next month year and month."""
-    if month == 12:
-        return (year + 1, 1)
-    return (year, month + 1)
+_get_prev_month = prev_month
+_get_next_month = next_month
 
 
 def _get_prev_week(d: date) -> str:
@@ -426,9 +417,7 @@ def create_calendar_ui_routes(_app, rt, calendar_service, habits_service=None):
             target_date = date.today()
 
         # Calculate week range (Monday to Sunday)
-        days_since_monday = target_date.weekday()
-        week_start = target_date - timedelta(days=days_since_monday)
-        week_end = week_start + timedelta(days=6)
+        week_start, week_end = week_bounds(target_date)
 
         # Get calendar data
         result = await calendar_service.get_calendar_view(

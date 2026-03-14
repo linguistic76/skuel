@@ -17,6 +17,9 @@ Usage:
         now_local,
         set_timestamps,
         serialize_datetime,
+        week_bounds,
+        month_bounds,
+        week_label,
     )
 
     # Set timestamps on frozen dataclass
@@ -26,7 +29,7 @@ Usage:
     created_at = now_utc()
 """
 
-from datetime import UTC, date, datetime, time
+from datetime import UTC, date, datetime, time, timedelta
 from typing import TypeVar
 
 T = TypeVar("T")
@@ -478,6 +481,53 @@ def get_frequency_window_days(
     if not recurrence_pattern:
         return default
     return FREQUENCY_WINDOWS_DAYS.get(recurrence_pattern, default)
+
+
+def week_bounds(d: date) -> tuple[date, date]:
+    """
+    Get Monday-Sunday bounds for the week containing ``d``.
+
+    Returns:
+        (monday, sunday) tuple
+    """
+    monday = d - timedelta(days=d.weekday())
+    sunday = monday + timedelta(days=6)
+    return monday, sunday
+
+
+def month_bounds(d: date) -> tuple[date, date]:
+    """
+    Get first and last day of the month containing ``d``.
+
+    Returns:
+        (first_day, last_day) tuple
+    """
+    first = d.replace(day=1)
+    if d.month == 12:
+        last = d.replace(year=d.year + 1, month=1, day=1) - timedelta(days=1)
+    else:
+        last = d.replace(month=d.month + 1, day=1) - timedelta(days=1)
+    return first, last
+
+
+def prev_month(year: int, month: int) -> tuple[int, int]:
+    """Return (year, month) for the previous month."""
+    if month == 1:
+        return (year - 1, 12)
+    return (year, month - 1)
+
+
+def next_month(year: int, month: int) -> tuple[int, int]:
+    """Return (year, month) for the next month."""
+    if month == 12:
+        return (year + 1, 1)
+    return (year, month + 1)
+
+
+def week_label(d: date) -> str:
+    """Format a week range label like ``'Mar 09 - Mar 15, 2026'``."""
+    monday, sunday = week_bounds(d)
+    return f"{monday.strftime('%b %d')} - {sunday.strftime('%b %d, %Y')}"
 
 
 def score_deadline_proximity(

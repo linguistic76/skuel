@@ -30,14 +30,18 @@ from fasthtml.common import (
     Option,
     P,
     Script,
-    Select as RawSelect,
     Span,
     Ul,
+)
+from fasthtml.common import (
+    Select as RawSelect,
 )
 from monsterui.franken import CheckboxX, UkIcon
 
 from core.models.enums import EntityStatus, Priority
 from core.utils.logging import get_logger
+from core.utils.timestamp_helpers import days_until as _days_until
+from core.utils.timestamp_helpers import is_overdue, parse_date
 from ui.buttons import Button, ButtonT
 from ui.cards import Card
 from ui.feedback import Badge, BadgeT
@@ -144,29 +148,26 @@ class TodoistTaskComponents:
         if hasattr(due_date, "to_native"):
             due_date = due_date.to_native()
         elif isinstance(due_date, str):
-            try:
-                due_date = date.fromisoformat(due_date)
-            except ValueError:
+            due_date = parse_date(due_date)
+            if due_date is None:
                 return ""
 
-        today = date.today()
+        remaining = _days_until(due_date)
 
         if is_completed:
             cls = "text-xs text-muted-foreground line-through"
             label = due_date.strftime("%b %d")
-        elif due_date < today:
+        elif is_overdue(due_date):
             cls = "text-xs text-red-500 font-medium"
-            days_ago = (today - due_date).days
-            label = f"Overdue ({days_ago}d)"
-        elif due_date == today:
+            label = f"Overdue ({-(remaining or 0)}d)"
+        elif remaining == 0:
             cls = "text-xs text-orange-500 font-medium"
             label = "Today"
         else:
             cls = "text-xs text-muted-foreground"
-            days_until = (due_date - today).days
-            if days_until == 1:
+            if remaining == 1:
                 label = "Tomorrow"
-            elif days_until <= 7:
+            elif remaining is not None and remaining <= 7:
                 label = due_date.strftime("%a")  # e.g., "Mon"
             else:
                 label = due_date.strftime("%b %d")  # e.g., "Dec 15"

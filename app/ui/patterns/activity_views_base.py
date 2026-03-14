@@ -33,6 +33,13 @@ from fasthtml.common import (
     Span,
 )
 
+from core.utils.timestamp_helpers import (
+    month_bounds,
+    next_month,
+    prev_month,
+    week_bounds,
+    week_label,
+)
 from ui.buttons import Button, ButtonLink, ButtonT
 from ui.layout import Size
 
@@ -191,22 +198,12 @@ class ActivityCalendarNav:
         elif view == "week":
             prev_date = current_date - timedelta(days=7)
             next_date = current_date + timedelta(days=7)
-            # Show week range
-            days_since_monday = current_date.weekday()
-            week_start = current_date - timedelta(days=days_since_monday)
-            week_end = week_start + timedelta(days=6)
-            date_label = f"{week_start.strftime('%b %d')} - {week_end.strftime('%b %d, %Y')}"
+            date_label = week_label(current_date)
         else:  # month
-            # Previous month
-            if current_date.month == 1:
-                prev_date = current_date.replace(year=current_date.year - 1, month=12, day=1)
-            else:
-                prev_date = current_date.replace(month=current_date.month - 1, day=1)
-            # Next month
-            if current_date.month == 12:
-                next_date = current_date.replace(year=current_date.year + 1, month=1, day=1)
-            else:
-                next_date = current_date.replace(month=current_date.month + 1, day=1)
+            py, pm = prev_month(current_date.year, current_date.month)
+            prev_date = current_date.replace(year=py, month=pm, day=1)
+            ny, nm = next_month(current_date.year, current_date.month)
+            next_date = current_date.replace(year=ny, month=nm, day=1)
             date_label = current_date.strftime("%B %Y")
 
         return Div(
@@ -486,18 +483,10 @@ def render_activity_calendar(
         end_date = current_date
         view_type = CalendarView.DAY
     elif calendar_view == "week":
-        days_since_monday = current_date.weekday()
-        start_date = current_date - timedelta(days=days_since_monday)
-        end_date = start_date + timedelta(days=6)
+        start_date, end_date = week_bounds(current_date)
         view_type = CalendarView.WEEK
     else:  # month
-        start_date = current_date.replace(day=1)
-        if current_date.month == 12:
-            end_date = current_date.replace(year=current_date.year + 1, month=1, day=1) - timedelta(
-                days=1
-            )
-        else:
-            end_date = current_date.replace(month=current_date.month + 1, day=1) - timedelta(days=1)
+        start_date, end_date = month_bounds(current_date)
         view_type = CalendarView.MONTH
 
     # Filter items to date range

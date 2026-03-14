@@ -5,11 +5,11 @@ Submission Assignment UI Components
 Cards for exercises assigned to students via group membership.
 """
 
-from datetime import date
 from typing import Any
 
 from fasthtml.common import H4, Div, P, Span
 
+from core.utils.timestamp_helpers import days_until, parse_date
 from ui.buttons import ButtonLink, ButtonT
 from ui.cards import Card
 from ui.feedback import Badge, BadgeT
@@ -30,14 +30,16 @@ def render_assignment_card(ex: dict[str, Any]) -> Any:
         status_badge = Badge("Submitted", variant=BadgeT.success)
     elif due_date_str:
         try:
-            due = date.fromisoformat(str(due_date_str))
-            days_until = (due - date.today()).days
-            if days_until < 0:
-                status_badge = Badge(f"Overdue ({-days_until}d)", variant=BadgeT.error)
-            elif days_until <= 3:
-                status_badge = Badge(f"Due in {days_until}d", variant=BadgeT.warning)
+            due = parse_date(str(due_date_str))
+            remaining = days_until(due)
+            if remaining is not None and remaining < 0:
+                status_badge = Badge(f"Overdue ({-remaining}d)", variant=BadgeT.error)
+            elif remaining is not None and remaining <= 3:
+                status_badge = Badge(f"Due in {remaining}d", variant=BadgeT.warning)
+            elif remaining is not None:
+                status_badge = Badge(f"Due in {remaining}d", variant=BadgeT.info)
             else:
-                status_badge = Badge(f"Due in {days_until}d", variant=BadgeT.info)
+                status_badge = Badge("Pending", variant=BadgeT.ghost)
         except (ValueError, TypeError):
             status_badge = Badge("Pending", variant=BadgeT.ghost)
     else:
