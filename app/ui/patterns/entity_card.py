@@ -170,7 +170,7 @@ def EntityCard(
     description: str = "",
     status: str | None = None,
     priority: str | None = None,
-    metadata: list[str] | None = None,
+    metadata: list[Any] | None = None,
     actions: Any = None,
     href: str | None = None,
     config: CardConfig | None = None,
@@ -278,7 +278,7 @@ def EntityCard(
         )
 
     if metadata:
-        meta_items = [SmallText(m) for m in metadata]
+        meta_items = [SmallText(m) if isinstance(m, str) else m for m in metadata]
         content.append(Div(*meta_items, cls="flex flex-wrap gap-3 mt-3"))
 
     if actions:

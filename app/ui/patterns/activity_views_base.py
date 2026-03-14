@@ -3,10 +3,14 @@ Activity Views Base Components
 ==============================
 
 Shared components for Activity Domain three-view interfaces.
-Provides reusable tab navigation, calendar navigation, and view switchers.
+Provides reusable tab navigation, calendar navigation, view switchers,
+filter bars, create form wrappers, and calendar view helpers.
 
 Usage:
-    from ui.patterns.activity_views_base import ActivityViewTabs, ActivityCalendarNav
+    from ui.patterns.activity_views_base import (
+        ActivityViewTabs, ActivityCalendarNav, ActivityListFilters,
+        ActivityCreateForm, render_activity_calendar,
+    )
 
     tabs = ActivityViewTabs.render("goals", "list", [
         ("list", "List", "List"),
@@ -15,17 +19,21 @@ Usage:
     ])
 """
 
+from collections.abc import Callable
 from datetime import date, timedelta
 from typing import Any
 
 from fasthtml.common import (
+    H2,
     H3,
     A,
     Div,
+    Form,
+    Option,
     Span,
 )
 
-from ui.buttons import Button, ButtonT
+from ui.buttons import Button, ButtonLink, ButtonT
 from ui.layout import Size
 
 
@@ -294,81 +302,244 @@ class ActivityViewSwitcher:
 
 
 class ActivityListFilters:
-    """
-    Common filter bar patterns for list views.
-    """
+    """Unified filter bar for activity domain list views."""
 
     @staticmethod
-    def render_status_filter(
+    def render(
         domain: str,
-        statuses: list[tuple[str, str]],  # (value, label)
+        status_options: list[tuple[str, str]],
+        sort_options: list[tuple[str, str]],
         current_status: str = "active",
-    ) -> Div:
-        """
-        Render status filter pills.
-
-        Args:
-            domain: Domain name for route URLs
-            statuses: List of (value, label) tuples
-            current_status: Currently selected status
-
-        Returns:
-            Div containing status filter buttons
-        """
-        buttons = []
-        for value, label in statuses:
-            variant = ButtonT.primary if value == current_status else ButtonT.ghost
-            buttons.append(
-                Button(
-                    label,
-                    variant=variant,
-                    size=Size.sm,
-                    **{
-                        "hx-get": f"/{domain}/list-fragment?filter_status={value}",
-                        "hx-target": "#entity-list",
-                    },
-                )
-            )
-
-        return Div(*buttons, cls="btn-group")
-
-    @staticmethod
-    def render_sort_dropdown(
-        domain: str,
-        sort_options: list[tuple[str, str]],  # (value, label)
         current_sort: str = "created_at",
-    ) -> Any:
-        """
-        Render sort dropdown.
+        list_target: str | None = None,
+        filter_name: str = "filter_status",
+        filter_label: str = "Status",
+        extra_filters: list[Any] | None = None,
+    ) -> Div:
+        """Render the full filter bar with status/type dropdown, sort dropdown, and extras.
 
         Args:
             domain: Domain name for route URLs
-            sort_options: List of (value, label) tuples
-            current_sort: Currently selected sort option
-
-        Returns:
-            Select element for sorting
+            status_options: (value, label) tuples for the primary filter
+            sort_options: (value, label) tuples for the sort dropdown
+            current_status: Currently selected primary filter value
+            current_sort: Currently selected sort value
+            list_target: HTMX target ID (defaults to #{domain}-list)
+            filter_name: Name attribute for the primary filter (default: filter_status)
+            filter_label: Display label for the primary filter (default: Status)
+            extra_filters: Additional filter Divs to insert between primary and sort
         """
-        from fasthtml.common import Option
+        from ui.forms import Label, Select
 
-        from ui.forms import Select
+        target = list_target or f"#{domain}-list"
 
-        options = [
-            Option(label, value=value, selected=(value == current_sort))
-            for value, label in sort_options
-        ]
-
-        return Select(
-            *options,
-            size=Size.sm,
-            full_width=False,
-            **{
-                "hx-get": f"/{domain}/list-fragment",
-                "hx-target": "#entity-list",
-                "hx-include": "[name^='filter_']",
-                "name": "sort_by",
-            },
+        primary_filter = Div(
+            Label(f"{filter_label}:", cls="mr-2 text-sm"),
+            Select(
+                *[
+                    Option(label, value=value, selected=(value == current_status))
+                    for value, label in status_options
+                ],
+                name=filter_name,
+                size=Size.sm,
+                full_width=False,
+                **{
+                    "hx-get": f"/{domain}/list-fragment",
+                    "hx-target": target,
+                    "hx-include": "[name^='filter_'], [name='sort_by']",
+                },
+            ),
+            cls="mr-4",
         )
+
+        sort_filter = Div(
+            Label("Sort:", cls="mr-2 text-sm"),
+            Select(
+                *[
+                    Option(label, value=value, selected=(value == current_sort))
+                    for value, label in sort_options
+                ],
+                name="sort_by",
+                size=Size.sm,
+                full_width=False,
+                **{
+                    "hx-get": f"/{domain}/list-fragment",
+                    "hx-target": target,
+                    "hx-include": "[name^='filter_']",
+                },
+            ),
+        )
+
+        children = [primary_filter]
+        if extra_filters:
+            children.extend(extra_filters)
+        children.append(sort_filter)
+
+        return Div(*children, cls="flex items-center mb-4")
+
+
+def ActivityCreateForm(
+    domain: str,
+    entity_label: str,
+    left_column: Any,
+    right_column: Any,
+    extra_sections: list[Any] | None = None,
+    form_attrs: dict[str, str] | None = None,
+    include_default_submit: bool = True,
+) -> Div:
+    """Shared create form wrapper for activity domains.
+
+    Args:
+        domain: URL path segment (e.g. "goals")
+        entity_label: Display name (e.g. "Goal")
+        left_column: Left column content (Div)
+        right_column: Right column content (Div)
+        extra_sections: Additional sections after columns (before default submit)
+        form_attrs: Extra attributes on the Form element (e.g. x-data)
+        include_default_submit: If False, skips the default Cancel/Create/Create & Add Another buttons
+    """
+    form_children: list[Any] = [
+        Div(left_column, right_column, cls="flex flex-col lg:flex-row gap-8"),
+    ]
+    if extra_sections:
+        form_children.extend(extra_sections)
+
+    if include_default_submit:
+        submit_section = Div(
+            ButtonLink("Cancel", href=f"/{domain}", variant=ButtonT.ghost, size=Size.lg),
+            Button(f"Create {entity_label}", type="submit", variant=ButtonT.primary, size=Size.lg),
+            Button(
+                "Create & Add Another",
+                type="submit",
+                name="add_another",
+                value="true",
+                variant=ButtonT.outline,
+                size=Size.lg,
+            ),
+            cls="flex justify-end gap-2 pt-6 border-t border-border",
+        )
+        form_children.append(submit_section)
+
+    form_kwargs: dict[str, Any] = {
+        "hx-post": f"/{domain}/quick-add",
+        "hx-target": "#view-content",
+        "hx-swap": "innerHTML",
+    }
+    if form_attrs:
+        form_kwargs.update(form_attrs)
+
+    return Div(
+        H2(f"Create New {entity_label}", cls="text-2xl font-bold mb-6"),
+        Form(*form_children, cls="bg-background shadow-lg p-6", **form_kwargs),
+        id="create-view",
+    )
+
+
+def render_activity_calendar(
+    domain: str,
+    entities: list[Any],
+    converter: Callable[[Any], Any],
+    current_date: date | None = None,
+    calendar_view: str = "month",
+    converter_returns_list: bool = False,
+    converter_extra_args: tuple[Any, ...] = (),
+) -> Div:
+    """Shared calendar rendering for activity domains.
+
+    Args:
+        domain: Domain name for route URLs
+        entities: List of domain entities to display
+        converter: Function to convert entity -> CalendarItem (or list)
+        current_date: Current date (defaults to today)
+        calendar_view: "month", "week", or "day"
+        converter_returns_list: True if converter returns list[CalendarItem]
+        converter_extra_args: Extra positional args passed to converter after entity
+    """
+    from core.models.event.calendar_models import CalendarData, CalendarView
+    from core.utils.logging import get_logger
+    from ui.calendar.components import (
+        create_day_timeline,
+        create_month_grid,
+        create_reschedule_form,
+        create_week_grid,
+    )
+
+    logger = get_logger(f"skuel.components.{domain}_views")
+    current_date = current_date or date.today()
+
+    # Convert entities to CalendarItems
+    calendar_items: list[Any] = []
+    for entity in entities:
+        try:
+            result = converter(entity, *converter_extra_args)
+            if converter_returns_list:
+                calendar_items.extend(result)
+            elif result is not None:
+                calendar_items.append(result)
+        except Exception as e:
+            logger.warning(f"Failed to convert {domain} entity to calendar item: {e}")
+            continue
+
+    # Calculate date range
+    if calendar_view == "day":
+        start_date = current_date
+        end_date = current_date
+        view_type = CalendarView.DAY
+    elif calendar_view == "week":
+        days_since_monday = current_date.weekday()
+        start_date = current_date - timedelta(days=days_since_monday)
+        end_date = start_date + timedelta(days=6)
+        view_type = CalendarView.WEEK
+    else:  # month
+        start_date = current_date.replace(day=1)
+        if current_date.month == 12:
+            end_date = current_date.replace(
+                year=current_date.year + 1, month=1, day=1
+            ) - timedelta(days=1)
+        else:
+            end_date = current_date.replace(
+                month=current_date.month + 1, day=1
+            ) - timedelta(days=1)
+        view_type = CalendarView.MONTH
+
+    # Filter items to date range
+    filtered_items = [
+        item
+        for item in calendar_items
+        if start_date <= item.start_time.date() <= end_date
+        or (hasattr(item, "end_time") and start_date <= item.end_time.date() <= end_date)
+    ]
+
+    calendar_data = CalendarData(
+        items=filtered_items,
+        occurrences={},
+        view=view_type,
+        start_date=start_date,
+        end_date=end_date,
+        metadata={},
+    )
+
+    nav_header = ActivityCalendarNav.render(domain, current_date, calendar_view)
+    view_switcher = ActivityViewSwitcher.render(domain, current_date, calendar_view)
+
+    if calendar_view == "day":
+        grid = create_day_timeline(calendar_data)
+    elif calendar_view == "week":
+        grid = create_week_grid(calendar_data)
+    else:
+        grid = create_month_grid(calendar_data)
+
+    return Div(
+        Div(
+            nav_header,
+            view_switcher,
+            cls="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-4",
+        ),
+        Div(grid, id="calendar-grid"),
+        create_reschedule_form(),
+        id="calendar-view",
+        **{"x-data": "calendarDrag()"},
+    )
 
 
 __all__ = [
@@ -376,4 +547,6 @@ __all__ = [
     "ActivityCalendarNav",
     "ActivityViewSwitcher",
     "ActivityListFilters",
+    "ActivityCreateForm",
+    "render_activity_calendar",
 ]
