@@ -1,4 +1,0 @@
-
-  1. Leave ui/submissions/ as-is — it's a component library, components don't need to mirror routes. The forms, cards, and report components are generic and could serve any route.
-  2. Rename ui/submissions/ to ui/learn/submissions/ — makes the directory structure mirror the route structure, but adds file churn.
-
