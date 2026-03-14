@@ -331,16 +331,16 @@ Tabs(
 ### Data Display (`ui/data.py`)
 
 ```python
-from ui.data import Table, TableFromDicts, TableFromLists, TableT, Divider, DividerSplit, DividerT
+from ui.data import TableFromDicts, TableT, Divider, DividerSplit, DividerT
 
-# Table
-Table(
-    Thead(Tr(Th("Name"), Th("Status"), Th("Due"))),
-    Tbody(
-        Tr(Td("Fix bug"), Td(StatusBadge("active")), Td("Mar 15")),
-        Tr(Td("Write docs"), Td(StatusBadge("pending")), Td("Mar 20")),
-    ),
-    zebra=True,
+# Preferred: TableFromDicts for data-driven tables
+TableFromDicts(
+    header_data=["Name", "Status", "Due"],
+    body_data=[
+        {"Name": "Fix bug", "Status": StatusBadge("active"), "Due": "Mar 15"},
+        {"Name": "Write docs", "Status": StatusBadge("pending"), "Due": "Mar 20"},
+    ],
+    cls=(TableT.striped,),
 )
 
 # Section divider

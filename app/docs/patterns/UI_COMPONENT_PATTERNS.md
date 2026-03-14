@@ -691,30 +691,35 @@ Dropdown(
 
 ### Tables
 
+**Prefer `TableFromDicts`** for data-driven tables. Pre-render components (Badge, Button) into dict values:
+
 ```python
-Table(
-    Thead(
-        Tr(
-            Th("Name"),
-            Th("Status"),
-            Th("Actions"),
-        )
-    ),
-    Tbody(
-        Tr(
-            Td("Task 1"),
-            Td(Badge("Active", variant=BadgeT.success)),
-            Td(Button("Edit", variant=ButtonT.ghost, size=Size.xs)),
-        ),
-        Tr(
-            Td("Task 2"),
-            Td(Badge("Pending", variant=BadgeT.warning)),
-            Td(Button("Edit", variant=ButtonT.ghost, size=Size.xs)),
-        ),
-    ),
-    zebra=True
+from ui.data import TableFromDicts, TableT
+
+def _cell_render(k, v):
+    if k == "Name": return Td(v, cls="font-medium")
+    return Td(v)
+
+TableFromDicts(
+    header_data=["Name", "Status", "Actions"],
+    body_data=[
+        {
+            "Name": "Task 1",
+            "Status": Badge("Active", variant=BadgeT.success),
+            "Actions": Button("Edit", variant=ButtonT.ghost, size=Size.xs),
+        },
+        {
+            "Name": "Task 2",
+            "Status": Badge("Pending", variant=BadgeT.warning),
+            "Actions": Button("Edit", variant=ButtonT.ghost, size=Size.xs),
+        },
+    ],
+    body_cell_render=_cell_render,
+    cls=(TableT.striped,),
 )
 ```
+
+Manual `Table(Thead(...), Tbody(...))` is only needed for non-data-driven layouts (hardcoded rows, dynamic column counts, headerless tables). See `docs/roadmap/tables-custom-design.md` for deferred cases.
 
 ---
 
