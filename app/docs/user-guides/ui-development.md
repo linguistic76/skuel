@@ -369,14 +369,13 @@ await BasePage(
     active_page="tasks",
 )
 
-# Hub page (with sidebar)
+# Custom page (full-width, page manages its own layout — used by SidebarPage)
 await BasePage(
     content=my_content,
-    title="Profile",
-    page_type=PageType.HUB,
-    sidebar=my_sidebar,
+    title="Activities",
+    page_type=PageType.CUSTOM,
     request=request,
-    active_page="profile",
+    active_page="activities",
 )
 ```
 
@@ -388,9 +387,8 @@ await BasePage(
 
 | Type | Sidebar | Container | Use Case |
 |------|---------|-----------|----------|
-| `STANDARD` | None | `max-w-6xl mx-auto` | Most pages |
-| `HUB` | Left, `w-64` | `flex-1 min-w-0` | Profile, Admin Dashboard |
-| `CUSTOM` | None | Full width | Pages that manage their own layout |
+| `STANDARD` | None | `max-w-6xl mx-auto` | Most pages (centered content) |
+| `CUSTOM` | None | Full width | Page manages its own layout (used by SidebarPage) |
 
 ### SidebarPage — Pages with Navigation Sidebar
 

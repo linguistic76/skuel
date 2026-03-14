@@ -881,13 +881,12 @@ BasePage(
     request=request,
 )
 
-# Hub page with sidebar
+# Custom page (full-width, page manages its own layout)
 BasePage(
     content=main_content,
-    title="Admin Dashboard",
+    title="Activities",
     request=request,
-    page_type=PageType.HUB,
-    sidebar=admin_sidebar,
+    page_type=PageType.CUSTOM,
 )
 ```
 

@@ -95,15 +95,6 @@ return BasePage(
     active_page="tasks",
 )
 
-# Hub page with sidebar (Admin Dashboard)
-return BasePage(
-    content,
-    page_type=PageType.HUB,
-    sidebar=sidebar_menu,
-    title="Admin Dashboard",
-    request=request,
-)
-
 # Sidebar page (Activities, Learn, KU, Reports, Journals, Askesis)
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 

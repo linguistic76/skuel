@@ -112,6 +112,12 @@ DELETED: dict[str, str] = {
     "planning_mixin.ActivityDataReader": "absorbed into UserContextBuilder",
     # Deleted classes / concepts
     "ProfileLayout": "deleted — use BasePage(page_type=PageType.CUSTOM)",
+    "PageType.HUB": "deleted — sidebar pages use PageType.CUSTOM + SidebarPage",
+    "PageHead": "deleted — use build_head() from ui.layouts.base_page",
+    "PageLayout": "deleted — use BasePage",
+    "SimplePageLayout": "deleted — use BasePage",
+    "DrawerLayout": "deleted — use SidebarPage from ui.patterns.sidebar",
+    "create_drawer_layout": "deleted — use SidebarPage from ui.patterns.sidebar",
     # Deleted directories referenced as import paths
     "core.models.ku.": "core/models/ku/ monolith deleted — use domain-specific paths",
     "components.tasks": "components/ deleted — use ui.tasks.views",

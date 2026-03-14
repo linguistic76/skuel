@@ -469,11 +469,10 @@ type Scorer[T] = Callable[[T], Score]
 
 **Core Principle:** "BasePage for consistency, custom layouts for special cases"
 
-| Page Type | Sidebar | Use Case |
-|-----------|---------|----------|
-| STANDARD | None | Most pages |
-| HUB | Left (w-64) | Admin Dashboard |
-| CUSTOM | STANDARD + custom | Profile Hub |
+| Page Type | Use Case |
+|-----------|----------|
+| STANDARD | Most pages (centered content) |
+| CUSTOM | Full-width, page manages layout (SidebarPage) |
 
 - Routes in `/adapters/inbound/*_routes.py`, UI in `/ui/`, Static in `/static/`
 - Navbar has icon links: **A** (Activities, `/activities`) and **S** (Study, `/study`) + avatar **U** (Profile, `/profile`)

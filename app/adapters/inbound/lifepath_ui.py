@@ -31,37 +31,30 @@ from ui.cards import Card
 from ui.feedback import Badge, BadgeT, Progress
 from ui.forms import Label, Textarea
 from ui.layout import Size
-from ui.patterns.drawer_layout import create_drawer_layout
+from ui.patterns.sidebar import SidebarItem, SidebarPage
 from ui.tokens import Container
 
 logger = get_logger("skuel.routes.lifepath.ui")
 
-# Menu items for LifePath drawer navigation
-LIFEPATH_MENU_ITEMS: list[tuple[str, str, str, str]] = [
-    ("dashboard", "Dashboard", "/lifepath", "home"),
-    ("vision", "Vision", "/lifepath/vision", "eye"),
-    ("alignment", "Alignment", "/lifepath/alignment", "chart-bar"),
+# Menu items for LifePath sidebar navigation
+LIFEPATH_SIDEBAR_ITEMS: list[SidebarItem] = [
+    SidebarItem("Dashboard", "/lifepath", "dashboard", icon="🏠"),
+    SidebarItem("Vision", "/lifepath/vision", "vision", icon="👁"),
+    SidebarItem("Alignment", "/lifepath/alignment", "alignment", icon="📊"),
 ]
 
 
-def _lifepath_drawer_layout(active_page: str, content: Any) -> Any:
-    """
-    Create drawer layout for LifePath pages.
-
-    Args:
-        active_page: Current active page identifier
-        content: Main content to render
-
-    Returns:
-        Complete drawer layout with LifePath navigation
-    """
-    return create_drawer_layout(
-        drawer_id="lifepath-drawer",
-        title="Life Path",
-        menu_items=LIFEPATH_MENU_ITEMS,
-        active_page=active_page,
+async def _lifepath_sidebar_page(active_page: str, content: Any, request: Request) -> Any:
+    """Create sidebar page for LifePath routes."""
+    return await SidebarPage(
         content=content,
+        items=LIFEPATH_SIDEBAR_ITEMS,
+        active=active_page,
+        title="Life Path",
         subtitle="Your Journey",
+        storage_key="lifepath-sidebar",
+        request=request,
+        active_page="lifepath",
     )
 
 
@@ -102,7 +95,7 @@ def create_lifepath_ui_routes(
         # Build dashboard content
         content = _build_dashboard_content(status, user_uid)
 
-        return _lifepath_drawer_layout("dashboard", content)
+        return await _lifepath_sidebar_page("dashboard", content, request)
 
     @rt("/lifepath/vision")
     async def vision_capture_page(request: Request) -> Any:
@@ -160,7 +153,7 @@ def create_lifepath_ui_routes(
             cls="container mx-auto px-4 py-8",
         )
 
-        return _lifepath_drawer_layout("vision", content)
+        return await _lifepath_sidebar_page("vision", content, request)
 
     @rt("/lifepath/vision", methods=["POST"])
     async def process_vision_capture(request: Request) -> Any:
@@ -187,7 +180,7 @@ def create_lifepath_ui_routes(
         # Build recommendations page
         content = _build_recommendations_page(data, user_uid)
 
-        return _lifepath_drawer_layout("vision", content)
+        return await _lifepath_sidebar_page("vision", content, request)
 
     @rt("/lifepath/designate", methods=["POST"])
     async def designate_life_path(request: Request) -> Any:
@@ -233,7 +226,7 @@ def create_lifepath_ui_routes(
 
         content = _build_alignment_dashboard(status, user_uid)
 
-        return _lifepath_drawer_layout("alignment", content)
+        return await _lifepath_sidebar_page("alignment", content, request)
 
     logger.info("LifePath UI routes registered (5 routes)")
 

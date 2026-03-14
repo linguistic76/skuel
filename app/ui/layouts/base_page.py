@@ -13,13 +13,12 @@ Usage:
         request=request,
     )
 
-    # Hub page (with sidebar)
+    # Custom page (full-width, page manages its own layout — e.g. SidebarPage)
     return BasePage(
         content,
-        page_type=PageType.HUB,
-        title="Profile Hub",
+        page_type=PageType.CUSTOM,
+        title="Study",
         request=request,
-        sidebar=sidebar_content,
     )
 """
 
@@ -124,7 +123,6 @@ async def BasePage(
     page_type: PageType = PageType.STANDARD,
     request: "Request | None" = None,
     active_page: str = "",
-    sidebar: Any = None,
     extra_css: list[str] | None = None,
     user_display_name: str = "",
     is_authenticated: bool = True,
@@ -135,17 +133,16 @@ async def BasePage(
     Provides:
     - Consistent HTML head (MonsterUI, HTMX, Alpine.js)
     - Navbar with active page highlighting
-    - Page layout based on type (HUB with sidebar, STANDARD centered)
+    - Page layout based on type (STANDARD centered, CUSTOM full-width)
     - Modal container for overlays
     - Consistent theming
 
     Args:
         content: Main page content
         title: Page title (shown in browser tab as "Title - SKUEL")
-        page_type: Layout type (HUB for sidebar, STANDARD for centered)
+        page_type: Layout type (STANDARD centered, CUSTOM full-width)
         request: Starlette request (preferred - auto-detects auth/admin)
         active_page: Current page key for navbar highlighting
-        sidebar: Sidebar content (only used with PageType.HUB)
         extra_css: Additional CSS file paths to include
         user_display_name: Fallback user name if no request
         is_authenticated: Fallback auth state if no request
@@ -165,26 +162,7 @@ async def BasePage(
     )
 
     # Build main content area based on page type
-    if page_type == PageType.HUB and sidebar is not None:
-        # Hub layout: sidebar + content
-        main_area = Div(
-            # Sidebar (always visible on lg+)
-            Div(
-                sidebar,
-                cls=f"hidden lg:block {config['sidebar_width']} shrink-0 bg-background border-r border-border min-h-[calc(100vh-64px)] sticky top-16",
-            ),
-            # Content area
-            Div(
-                Main(
-                    content,
-                    id="main-content",
-                    cls=config["content_padding"],
-                ),
-                cls=config["container"],
-            ),
-            cls="flex",
-        )
-    elif page_type == PageType.CUSTOM:
+    if page_type == PageType.CUSTOM:
         # Custom layout: page manages its own container and padding
         main_area = Main(content, id="main-content")
     else:

@@ -57,24 +57,15 @@ from ui.layouts.page_types import PageType
 # STANDARD (implicit default)
 BasePage(content, title="Tasks", request=request)
 
-# HUB with fixed sidebar
-BasePage(
-    content,
-    page_type=PageType.HUB,
-    sidebar=sidebar_html,
-    title="Admin",
-    request=request,
-)
-
-# CUSTOM — use SidebarPage() instead (see Sidebar Pages section)
+# CUSTOM — full-width, page manages its own layout (used by SidebarPage)
+BasePage(content, page_type=PageType.CUSTOM, title="Activities", request=request)
 ```
 
 **Decision tree:**
 ```
 Need a sidebar?
 ├─ NO → PageType.STANDARD
-├─ YES, fixed/static? → PageType.HUB
-└─ YES, collapsible + state persistence? → SidebarPage()
+└─ YES → SidebarPage() (uses PageType.CUSTOM internally)
 ```
 
 ### Design Tokens
@@ -853,9 +844,9 @@ BasePage(content, user_display_name="John", is_authenticated=True)
 # ✅ Pass request for auto-detection
 BasePage(content, request=request)
 
-# ❌ PageType.HUB for collapsible sidebar
-BasePage(content, page_type=PageType.HUB, ...)
-# ✅ SidebarPage() for collapsible + state persistence
+# ❌ Manual sidebar layout with CUSTOM
+BasePage(content, page_type=PageType.CUSTOM, sidebar=Div(...))
+# ✅ SidebarPage() for sidebar with collapsible + state persistence
 await SidebarPage(content=content, items=items, ...)
 
 # ❌ Magic container widths
