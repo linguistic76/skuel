@@ -21,6 +21,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from core.services.ls.ls_ai_service import LsAIService
+from core.services.ls.ls_progress_service import LsProgressService
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -119,13 +120,16 @@ class LsService:
         self.relationships = common.relationships
         self.intelligence: LsIntelligenceService = common.intelligence
 
+        # Progress sub-service (event-driven, mirrors LpService.progress)
+        self.progress = LsProgressService(backend=backend, event_bus=event_bus)
+
         # Store dependencies
         self.executor = executor
         self.event_bus = event_bus
         self.ai: LsAIService | None = ai_service
         self.logger = logger
 
-        logger.debug("LsService facade initialized with 4 sub-services via factory (ADR-030)")
+        logger.debug("LsService facade initialized with 5 sub-services via factory (ADR-030)")
 
     # ============================================================================
     # CORE CRUD OPERATIONS - Delegated to LsCoreService

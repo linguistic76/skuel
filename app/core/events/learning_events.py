@@ -59,6 +59,58 @@ class KnowledgeMastered(BaseEvent):
 
 
 @dataclass(frozen=True)
+class LessonCompleted(BaseEvent):
+    """
+    Published when all KUs in a Lesson are mastered by a user.
+
+    Detected by LessonMasteryService when KnowledgeMastered fires
+    and all KUs linked via USES_KU are now mastered.
+
+    Subscribers:
+    - LsProgressService (update LS progress)
+    - UserService (invalidate context)
+    """
+
+    lesson_uid: str
+    user_uid: str
+    occurred_at: datetime
+    lesson_title: str | None = None
+    linked_ku_uids: tuple[str, ...] = ()
+
+    @property
+    def event_type(self) -> str:
+        return "lesson.completed"
+
+
+@dataclass(frozen=True)
+class LearningStepProgressUpdated(BaseEvent):
+    """
+    Published when learning step progress changes.
+
+    Subscribers:
+    - DashboardService (update progress visualization)
+    - NotificationService (milestone notifications)
+    """
+
+    ls_uid: str
+    user_uid: str
+    occurred_at: datetime
+    old_progress: float  # 0.0 to 1.0
+    new_progress: float  # 0.0 to 1.0
+    lessons_completed: int
+    lessons_total: int
+
+    @property
+    def event_type(self) -> str:
+        return "learning_step.progress_updated"
+
+    @property
+    def progress_delta(self) -> float:
+        """Calculate progress change."""
+        return self.new_progress - self.old_progress
+
+
+@dataclass(frozen=True)
 class KnowledgeCreated(BaseEvent):
     """
     Published when a new knowledge unit is created.

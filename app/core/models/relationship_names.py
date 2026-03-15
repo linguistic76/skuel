@@ -241,6 +241,7 @@ class RelationshipName(StrEnum):
     # Learning Step, Learning Path, and Map of Content relationships
     # =========================================================================
     # Learning Step (LS) relationships
+    HAS_LESSON = "HAS_LESSON"  # (LS)-[:HAS_LESSON]->(Lesson) — learning step contains lesson
     CONTAINS_KNOWLEDGE = "CONTAINS_KNOWLEDGE"  # (ls)-[:CONTAINS_KNOWLEDGE]->(ku)
     REQUIRES_STEP = "REQUIRES_STEP"  # (ls)-[:REQUIRES_STEP]->(ls) - Step prerequisites
     BUILDS_HABIT = "BUILDS_HABIT"  # (ls)-[:BUILDS_HABIT]->(habit) - Practice pattern

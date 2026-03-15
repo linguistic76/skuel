@@ -15,6 +15,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from core.events import LearningPathCompleted, LearningPathProgressUpdated, publish_event
+from core.events.curriculum_events import LearningStepCompleted
 from core.events.learning_events import KnowledgeMastered
 from core.utils.logging import get_logger
 
@@ -106,7 +107,6 @@ class LpProgressService:
                     await self._update_lp_from_ku_mastery(
                         lp_uid=lp_uid,
                         user_uid=event.user_uid,
-                        newly_mastered_ku=event.ku_uid,
                     )
                 except Exception as e:
                     # Best-effort: Don't let one LP failure block others
@@ -118,9 +118,54 @@ class LpProgressService:
             # Best-effort: Log error but don't raise (prevent KU mastery failure)
             self.logger.error(f"Error handling knowledge_mastered event: {e}")
 
+    async def handle_step_completed(self, event: LearningStepCompleted) -> None:
+        """
+        Update learning path progress when a learning step is completed.
+
+        Finds all LPs containing this LS (via HAS_STEP) and rechecks
+        LP progress. Reuses existing KU-based progress calculation
+        since LS completion implies underlying KU mastery.
+
+        Errors are logged but not raised — progress updates are best-effort.
+        """
+        try:
+            if not self.backend:
+                self.logger.warning("No backend available for LS→LP event integration")
+                return
+
+            # Find LPs containing this LS via HAS_STEP
+            query = """
+            MATCH (lp:Entity {entity_type: 'learning_path'})-[:HAS_STEP]->(ls:Entity {uid: $ls_uid})
+            RETURN DISTINCT lp.uid as lp_uid
+            """
+            result = await self.backend.execute_query(query, {"ls_uid": event.ls_uid})
+            if result.is_error:
+                self.logger.error(f"Failed to query LPs for LS {event.ls_uid}: {result.error}")
+                return
+
+            lp_uids = [r["lp_uid"] for r in (result.value or [])]
+
+            if not lp_uids:
+                self.logger.debug(f"No learning paths contain LS {event.ls_uid}")
+                return
+
+            for lp_uid in lp_uids:
+                try:
+                    await self._update_lp_from_ku_mastery(
+                        lp_uid=lp_uid,
+                        user_uid=event.user_uid,
+                    )
+                except Exception as e:
+                    self.logger.error(
+                        f"Failed to update LP {lp_uid} from LS completion: {e}"
+                    )
+
+        except Exception as e:
+            self.logger.error(f"Error handling learning_step.completed event: {e}")
+
     # FUTURE-IMPL: FUTURE-IMPL-009 - See docs/reference/DEFERRED_IMPLEMENTATIONS.md
     async def _update_lp_from_ku_mastery(
-        self, lp_uid: str, user_uid: str, newly_mastered_ku: str
+        self, lp_uid: str, user_uid: str
     ) -> None:
         """
         Internal helper to update a single learning path's progress from KU mastery.
@@ -131,7 +176,6 @@ class LpProgressService:
         Args:
             lp_uid: Learning path to update
             user_uid: User who mastered the KU
-            newly_mastered_ku: UID of newly mastered KU
         """
         if not self.backend:
             self.logger.warning("No backend available for LP progress tracking")

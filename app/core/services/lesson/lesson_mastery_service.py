@@ -23,6 +23,8 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
+from core.events import publish_event
+from core.events.learning_events import KnowledgeMastered, LessonCompleted
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -548,9 +550,77 @@ class LessonMasteryService:
                 f"Marked KU as mastered: {user_uid} -> {ku_uid} "
                 f"(score={record['mastery_score']}, method={method})"
             )
+
+            # Publish KnowledgeMastered event to activate LP progress chain
+            event = KnowledgeMastered(
+                ku_uid=ku_uid,
+                user_uid=user_uid,
+                occurred_at=datetime.now(UTC),
+                mastery_score=record["mastery_score"],
+            )
+            await publish_event(self.event_bus, event, self.logger)
+
             return Result.ok(True)
         else:
             return Result.fail(Errors.not_found("User or KU", f"{user_uid} / {ku_uid}"))
+
+    # =========================================================================
+    # EVENT HANDLERS
+    # =========================================================================
+
+    async def handle_knowledge_mastered(self, event: KnowledgeMastered) -> None:
+        """
+        Detect Lesson completion when a KU is mastered.
+
+        For each Lesson that uses the newly mastered KU (via USES_KU),
+        check if ALL KUs in that Lesson are now mastered by the user.
+        If so, publish LessonCompleted.
+
+        Best-effort: errors are logged but not raised to prevent
+        KU mastery from failing if lesson detection fails.
+        """
+        try:
+            if not self.backend:
+                self.logger.warning("No backend available for KU→Lesson completion detection")
+                return
+
+            query = """
+            MATCH (lesson:Entity {entity_type: 'lesson'})-[:USES_KU]->(ku:Entity {uid: $ku_uid})
+            WITH lesson
+            MATCH (lesson)-[:USES_KU]->(all_ku:Entity)
+            WITH lesson, collect(DISTINCT all_ku.uid) as all_ku_uids, count(DISTINCT all_ku) as total
+            OPTIONAL MATCH (user:User {uid: $user_uid})-[:MASTERED]->(mastered_ku:Entity)
+            WHERE mastered_ku.uid IN all_ku_uids
+            WITH lesson, total, count(DISTINCT mastered_ku) as mastered_count, all_ku_uids
+            WHERE mastered_count = total
+            RETURN lesson.uid as lesson_uid, lesson.title as lesson_title, all_ku_uids
+            """
+
+            result = await self.backend.execute_query(
+                query,
+                {"ku_uid": event.ku_uid, "user_uid": event.user_uid},
+            )
+
+            if result.is_error:
+                self.logger.error(f"Failed to check lesson completion: {result.error}")
+                return
+
+            for record in result.value or []:
+                lesson_event = LessonCompleted(
+                    lesson_uid=record["lesson_uid"],
+                    user_uid=event.user_uid,
+                    occurred_at=datetime.now(UTC),
+                    lesson_title=record.get("lesson_title"),
+                    linked_ku_uids=tuple(record.get("all_ku_uids", [])),
+                )
+                await publish_event(self.event_bus, lesson_event, self.logger)
+                self.logger.info(
+                    f"Lesson completed: {record['lesson_uid']} "
+                    f"(all KUs mastered by {event.user_uid})"
+                )
+
+        except Exception as e:
+            self.logger.error(f"Error detecting lesson completion: {e}")
 
     async def get_bookmarked_kus(
         self,

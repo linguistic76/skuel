@@ -704,7 +704,9 @@ def _create_learning_services(
     # Create learning step service (LS operations)
     # January 2026: graph_intel now REQUIRED for unified Curriculum architecture (ADR-030)
     # Backend created here (composition root) — core services never import adapters
-    ls_backend = UniversalNeo4jBackend[LearningStep](
+    from adapters.persistence.neo4j.domain_backends import LsBackend
+
+    ls_backend = LsBackend(
         driver, NeoLabel.LEARNING_STEP, LearningStep, base_label=NeoLabel.ENTITY
     )
     ls_service = LsService(
@@ -2309,12 +2311,36 @@ async def compose_services(
         )
 
         # Knowledge mastery → Learning Path progress update
-        from core.events.learning_events import KnowledgeMastered
+        from core.events.curriculum_events import LearningStepCompleted
+        from core.events.learning_events import KnowledgeMastered, LessonCompleted
 
         lp_service = learning_services["learning_paths"]
+        ls_service = learning_services["learning_steps"]
+        ku_service_for_mastery = learning_services["lesson_service"]
+
         event_bus.subscribe(KnowledgeMastered, lp_service.progress.handle_knowledge_mastered)
         logger.info(
             "✅ LpProgressService subscribed to KnowledgeMastered (automatic LP progress updates)"
+        )
+
+        # Knowledge mastery → Lesson completion detection
+        event_bus.subscribe(
+            KnowledgeMastered, ku_service_for_mastery.mastery.handle_knowledge_mastered
+        )
+        logger.info(
+            "✅ LessonMasteryService subscribed to KnowledgeMastered (lesson completion detection)"
+        )
+
+        # Lesson completion → LS progress update
+        event_bus.subscribe(LessonCompleted, ls_service.progress.handle_lesson_completed)
+        logger.info(
+            "✅ LsProgressService subscribed to LessonCompleted (automatic LS progress updates)"
+        )
+
+        # LS completion → LP progress update (chain: LS→LP)
+        event_bus.subscribe(LearningStepCompleted, lp_service.progress.handle_step_completed)
+        logger.info(
+            "✅ LpProgressService subscribed to LearningStepCompleted (LS→LP progress chain)"
         )
 
         # Event completion → Knowledge practice tracking

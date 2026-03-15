@@ -60,7 +60,8 @@ User:
     UserContextInvalidated, UserPreferencesChanged,
 
 Learning:
-    KnowledgeMastered, LearningPathStarted, LearningPathCompleted, PrerequisitesAnalyzed
+    KnowledgeMastered, LessonCompleted, LearningPathStarted, LearningPathCompleted,
+    LearningStepProgressUpdated, PrerequisitesAnalyzed
 
 References:
 ----------
@@ -170,6 +171,8 @@ from core.events.learning_events import (
     LearningPathProgressUpdated,
     LearningPathStarted,
     LearningRecommendationGenerated,
+    LearningStepProgressUpdated,
+    LessonCompleted,
     PrerequisitesAnalyzed,
 )
 from core.events.lesson_events import (
@@ -312,6 +315,7 @@ __all__ = [
     "KnowledgeCreated",
     "KnowledgeInformedChoice",
     # Learning
+    "LessonCompleted",
     "KnowledgeMastered",
     "KnowledgePracticed",
     "KnowledgePracticedInEvent",
@@ -319,6 +323,7 @@ __all__ = [
     "LearningPathProgressUpdated",
     "LearningPathStarted",
     "LearningRecommendationGenerated",
+    "LearningStepProgressUpdated",
     # Curriculum (LS)
     # NOTE: MOC events removed January 2026 - MOC is now KU-based
     "LearningStepCompleted",
@@ -423,6 +428,8 @@ EVENT_REGISTRY: dict[str, type[BaseEvent]] = {
     "knowledge.bulk_applied_in_task": KnowledgeBulkAppliedInTask,
     "knowledge.bulk_built_into_habit": KnowledgeBulkBuiltIntoHabit,
     "knowledge.bulk_informed_choice": KnowledgeBulkInformedChoice,
+    "lesson.completed": LessonCompleted,
+    "learning_step.progress_updated": LearningStepProgressUpdated,
     "learning_path.started": LearningPathStarted,
     "learning_path.completed": LearningPathCompleted,
     "learning_path.progress_updated": LearningPathProgressUpdated,
@@ -597,9 +604,11 @@ USER_EVENTS = [
 LEARNING_EVENTS = [
     KnowledgeMastered,
     KnowledgeCreated,
+    LessonCompleted,
     LearningPathStarted,
     LearningPathCompleted,
     LearningPathProgressUpdated,
+    LearningStepProgressUpdated,
     PrerequisitesAnalyzed,
     LearningRecommendationGenerated,
 ]

@@ -48,6 +48,7 @@ from core.models.habit.habit import Habit
 from core.models.ku.ku import Ku
 from core.models.lesson.lesson import Lesson
 from core.models.pathways.learning_path import LearningPath
+from core.models.pathways.learning_step import LearningStep
 from core.models.principle.principle import Principle
 from core.models.relationship_names import RelationshipName
 from core.models.submissions.submission import Submission
@@ -894,6 +895,77 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
         except Exception as e:
             self.logger.error(f"Failed get_lessons_using for {ku_uid}: {e}")
             return Result.fail(Errors.database(operation="get_lessons_using", message=str(e)))
+
+
+class LsBackend(UniversalNeo4jBackend[LearningStep]):
+    """
+    Domain backend for LearningStep entities.
+
+    Extends UniversalNeo4jBackend[LearningStep] with LS-specific graph queries
+    for lesson completion progress tracking.
+    """
+
+    async def get_steps_containing_lesson(self, lesson_uid: str) -> Result[list[str]]:
+        """
+        Find all LSs that contain a Lesson via HAS_LESSON.
+
+        Used by LsProgressService to find which LSs to update
+        when a Lesson is completed.
+
+        Args:
+            lesson_uid: Lesson UID
+
+        Returns:
+            Result containing list of LS UIDs
+        """
+        query = """
+        MATCH (ls:Entity {entity_type: 'learning_step'})-[:HAS_LESSON]->(lesson:Entity {uid: $lesson_uid})
+        RETURN DISTINCT ls.uid as ls_uid
+        """
+        result = await self.execute_query(query, {"lesson_uid": lesson_uid})
+        if result.is_error:
+            return Result.fail(result.expect_error())
+        records = result.value or []
+        return Result.ok([record["ls_uid"] for record in records])
+
+    async def get_lesson_completion_progress(
+        self, ls_uid: str, user_uid: str
+    ) -> Result[dict[str, Any]]:
+        """
+        Return total and completed Lesson counts for LS progress calculation.
+
+        A Lesson is "completed" when all its KUs are mastered by the user.
+
+        Args:
+            ls_uid: Learning Step UID
+            user_uid: User UID
+
+        Returns:
+            Result containing dict with total_lessons and completed_lessons
+        """
+        query = """
+        MATCH (ls:Entity {uid: $ls_uid})-[:HAS_LESSON]->(lesson:Entity {entity_type: 'lesson'})
+        WITH ls, collect(DISTINCT lesson) as all_lessons, count(DISTINCT lesson) as total
+        UNWIND all_lessons as lesson
+        OPTIONAL MATCH (lesson)-[:USES_KU]->(ku:Entity)
+        WITH ls, lesson, total, collect(DISTINCT ku.uid) as ku_uids, count(DISTINCT ku) as ku_count
+        OPTIONAL MATCH (user:User {uid: $user_uid})-[:MASTERED]->(mastered:Entity)
+        WHERE mastered.uid IN ku_uids
+        WITH ls, lesson, total, ku_count, count(DISTINCT mastered) as mastered_count
+        WITH total, collect(CASE WHEN ku_count > 0 AND mastered_count = ku_count THEN lesson.uid END) as completed
+        RETURN total as total_lessons,
+               size([x IN completed WHERE x IS NOT NULL]) as completed_lessons
+        """
+        result = await self.execute_query(query, {"ls_uid": ls_uid, "user_uid": user_uid})
+        if result.is_error:
+            return Result.fail(result.expect_error())
+        if not result.value:
+            return Result.ok({"total_lessons": 0, "completed_lessons": 0})
+        record = result.value[0]
+        return Result.ok({
+            "total_lessons": record["total_lessons"],
+            "completed_lessons": record["completed_lessons"],
+        })
 
 
 class LpBackend(UniversalNeo4jBackend[LearningPath]):

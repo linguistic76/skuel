@@ -17,9 +17,11 @@ Usage:
 """
 
 from .ls_core_service import LsCoreService
+from .ls_progress_service import LsProgressService
 from .ls_search_service import LsSearchService
 
 __all__ = [
     "LsCoreService",
+    "LsProgressService",
     "LsSearchService",
 ]
