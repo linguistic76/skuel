@@ -128,6 +128,33 @@ class TasksPlanningService(BasePlanningService["TasksOperations", Task]):
     #
     # Philosophy: "Filter by readiness, rank by relevance, enrich with insights"
 
+    async def _get_transitive_dependency_uids(
+        self, task_uid: str, max_depth: int
+    ) -> list[str]:
+        """Fetch transitive dependency UIDs via variable-length DEPENDS_ON traversal.
+
+        Args:
+            task_uid: Root task UID
+            max_depth: Maximum traversal depth (clamped to 1..10)
+
+        Returns:
+            Deduplicated list of dependency UIDs (excludes the root task)
+        """
+        from core.models.relationship_names import RelationshipName
+
+        safe_depth = max(1, min(max_depth, 10))
+        rel_type = RelationshipName.DEPENDS_ON.value
+        query = f"""
+        MATCH (root:Entity {{uid: $task_uid}})-[:{rel_type}*1..{safe_depth}]->(dep:Entity)
+        WHERE dep.uid <> $task_uid
+        RETURN DISTINCT dep.uid AS uid
+        """
+        result = await self.backend.execute_query(query, {"task_uid": task_uid})
+        if result.is_error:
+            self.logger.warning(f"Transitive dependency query failed: {result.error}")
+            return []
+        return [record["uid"] for record in result.value]
+
     @with_error_handling(
         "get_task_dependencies_for_user", error_type="database", uid_param="task_uid"
     )
@@ -156,22 +183,24 @@ class TasksPlanningService(BasePlanningService["TasksOperations", Task]):
         Args:
             task_uid: Task to get dependencies for
             context: User's complete context (~240 fields)
-            include_transitive: Include dependencies of dependencies
-            max_depth: Maximum traversal depth
+            include_transitive: Include transitive dependencies (dependencies of dependencies)
+            max_depth: Maximum traversal depth for transitive queries (1..10, default 2)
 
         Returns:
             ContextualDependencies with enriched, categorized dependencies
         """
         from core.models.context_types import ContextualDependencies, ContextualTask
 
-        # Get raw dependency UIDs and fetch Tasks
-        dep_uids = await self._get_related_uids("prerequisite_tasks", task_uid)
+        # Get dependency UIDs — direct or transitive
+        if include_transitive:
+            dep_uids = await self._get_transitive_dependency_uids(task_uid, max_depth)
+        else:
+            dep_uids = await self._get_related_uids("prerequisite_tasks", task_uid)
         deps = await self._get_tasks_by_uids(dep_uids)
 
         # Enrich each dependency with context
         enriched = []
         for dep in deps:
-            # Get this task's requirements using new API
             dep_knowledge = await self._get_related_uids("prerequisite_knowledge", dep.uid)
             dep_prereq_tasks = await self._get_related_uids("prerequisite_tasks", dep.uid)
             dep_goals: list[str] = []  # Would need goal relationship query

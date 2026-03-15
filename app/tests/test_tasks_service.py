@@ -216,65 +216,6 @@ class TestCompleteTaskWithCascade:
 
 
 # ---------------------------------------------------------------------------
-# TestGetTaskDependencies
-# ---------------------------------------------------------------------------
-
-
-class TestGetTaskDependencies:
-    @pytest.mark.asyncio
-    async def test_returns_empty_list_when_no_prerequisites(
-        self, tasks_service_with_mocked_subservices: TasksService
-    ) -> None:
-        """get_task_dependencies returns empty list when no prerequisite UIDs."""
-        service = tasks_service_with_mocked_subservices
-        service.relationships.get_related_uids = AsyncMock(return_value=Result.ok([]))
-
-        result = await service.get_task_dependencies("task_abc")
-
-        assert result.is_ok
-        assert result.value == []
-
-    @pytest.mark.asyncio
-    async def test_fetches_each_prerequisite_task(
-        self, tasks_service_with_mocked_subservices: TasksService
-    ) -> None:
-        """get_task_dependencies fetches each prerequisite Task object."""
-        service = tasks_service_with_mocked_subservices
-        service.relationships.get_related_uids = AsyncMock(
-            return_value=Result.ok(["task_prereq1", "task_prereq2"])
-        )
-
-        mock_task_1 = Mock()
-        mock_task_1.uid = "task_prereq1"
-        mock_task_2 = Mock()
-        mock_task_2.uid = "task_prereq2"
-
-        service.core.get = AsyncMock(side_effect=[Result.ok(mock_task_1), Result.ok(mock_task_2)])
-
-        result = await service.get_task_dependencies("task_abc")
-
-        assert result.is_ok
-        assert len(result.value) == 2
-        service.relationships.get_related_uids.assert_called_once_with(
-            "prerequisite_tasks", "task_abc"
-        )
-
-    @pytest.mark.asyncio
-    async def test_propagates_relationship_error(
-        self, tasks_service_with_mocked_subservices: TasksService
-    ) -> None:
-        """get_task_dependencies propagates error from relationships sub-service."""
-        service = tasks_service_with_mocked_subservices
-        service.relationships.get_related_uids = AsyncMock(
-            return_value=Result.fail(Errors.database("query", "DB error"))
-        )
-
-        result = await service.get_task_dependencies("task_abc")
-
-        assert result.is_error
-
-
-# ---------------------------------------------------------------------------
 # TestGetTaskWithDependencies
 # ---------------------------------------------------------------------------
 

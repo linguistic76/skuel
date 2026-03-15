@@ -555,26 +555,6 @@ class TasksService(BaseService["TasksOperations", Task]):
         task, context = result.value
         return Result.ok({"task": task, "practice_context": context})
 
-    async def get_task_dependencies(self, task_uid: str) -> Result[list[Task]]:
-        """Get task dependencies (both directions)."""
-        # Get prerequisite task UIDs
-        prereq_result = await self.relationships.get_related_uids("prerequisite_tasks", task_uid)
-        if prereq_result.is_error:
-            return Result.fail(prereq_result)
-
-        prereq_uids = prereq_result.value
-        if not prereq_uids:
-            return Result.ok([])
-
-        # Fetch the actual Task objects
-        tasks = []
-        for uid in prereq_uids:
-            task_result = await self.core.get(uid)
-            if task_result.is_ok and task_result.value:
-                tasks.append(task_result.value)
-
-        return Result.ok(tasks)
-
     async def link_task_to_knowledge(
         self,
         task_uid: str,

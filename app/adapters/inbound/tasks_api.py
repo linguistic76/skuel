@@ -24,13 +24,14 @@ from adapters.inbound.route_factories import (
 from adapters.inbound.route_factories.analytics_route_factory import AnalyticsRouteFactory
 from core.models.enums import ContentScope
 from core.services.tasks_service import TasksService
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 
 
 def create_tasks_api_routes(
     app: Any,
     rt: Any,
     tasks_service: TasksService,
+    user_service: Any = None,
     **_kwargs: Any,
 ) -> list[Any]:
     """
@@ -43,6 +44,7 @@ def create_tasks_api_routes(
         app: FastHTML application instance
         rt: Route decorator
         tasks_service: TasksService instance (primary service)
+        user_service: UserService for building UserContext
         **_kwargs: Absorbs related services passed by register_domain_routes
     """
 
@@ -144,8 +146,28 @@ def create_tasks_api_routes(
     async def get_task_dependencies_route(
         request: Request, user_uid: str, entity: Any
     ) -> Result[Any]:
-        """Get task dependencies (requires ownership)."""
-        return await tasks_service.get_task_dependencies(entity.uid)
+        """Get task dependencies enriched with user context (readiness, blocking, recommendations)."""
+        if not user_service:
+            return Result.fail(
+                Errors.system(message="User service not available", operation="get_task_dependencies")
+            )
+
+        context_result = await user_service.get_user_context(user_uid)
+        if context_result.is_error:
+            return Result.fail(context_result.expect_error())
+
+        params = dict(request.query_params)
+        include_transitive = params.get("include_transitive", "false").lower() in (
+            "true", "1", "yes",
+        )
+        max_depth = parse_int_query_param(params, "max_depth", 2, minimum=1, maximum=10)
+
+        return await tasks_service.get_task_dependencies_for_user(
+            task_uid=entity.uid,
+            context=context_result.value,
+            include_transitive=include_transitive,
+            max_depth=max_depth,
+        )
 
     @rt("/api/tasks/dependencies", methods=["POST"])
     @require_ownership_query(get_tasks_service)

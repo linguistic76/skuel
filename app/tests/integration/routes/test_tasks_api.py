@@ -81,7 +81,7 @@ def mock_tasks_service():
     # Domain-specific operations
     service.complete_task_with_cascade = AsyncMock(return_value=Result.ok(MockTask()))
     service.assign_task_to_user = AsyncMock(return_value=Result.ok(MockTask()))
-    service.get_task_dependencies = AsyncMock(return_value=Result.ok([]))
+    service.get_task_dependencies_for_user = AsyncMock(return_value=Result.ok([]))
     service.create_task_dependency = AsyncMock(return_value=Result.ok(True))
     service.get_user_assigned_tasks = AsyncMock(return_value=Result.ok([MockTask()]))
     service.get_tasks_applying_knowledge = AsyncMock(return_value=Result.ok([MockTask()]))
@@ -258,9 +258,9 @@ class TestTaskAssignment:
 class TestTaskDependencies:
     """Tests for task dependency functionality."""
 
-    async def test_get_task_dependencies(self, mock_tasks_service):
-        """Test getting task dependencies."""
-        result = await mock_tasks_service.get_task_dependencies("task.test123")
+    async def test_get_task_dependencies_for_user(self, mock_tasks_service):
+        """Test getting task dependencies enriched with user context."""
+        result = await mock_tasks_service.get_task_dependencies_for_user("task.test123")
 
         assert result.is_ok
         assert isinstance(result.value, list)
