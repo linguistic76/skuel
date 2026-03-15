@@ -124,25 +124,26 @@ class ContextFirstMixin(ABC):
         self,
         task_uid: str,
         context: UserContext,
+        include_transitive: bool = False,
+        max_depth: int = 2,
     ) -> Result[ContextualDependencies]:
-        # Get raw dependencies
-        raw_deps = await self.get_task_dependencies(task_uid)
+        # Get raw dependency UIDs (direct or transitive via Cypher)
+        if include_transitive:
+            dep_uids = await self._get_transitive_dependency_uids(task_uid, max_depth)
+        else:
+            dep_uids = await self._get_related_uids("prerequisite_tasks", task_uid)
+        deps = await self._get_tasks_by_uids(dep_uids)
 
         # Enrich each with context
         enriched = []
-        for dep in raw_deps.value:
-            contextual = await self._enrich_task_with_context(dep, context)
+        for dep in deps:
+            contextual = ContextualTask.from_entity_and_context(
+                uid=dep.uid, title=dep.title, context=context, ...
+            )
             enriched.append(contextual)
 
-        # Categorize and return
-        return Result.ok(
-            self._build_contextual_dependencies(
-                entity_uid=task_uid,
-                entity_type="Task",
-                enriched=enriched,
-                context=context,
-            )
-        )
+        # Categorize into ready vs blocked and return
+        ...
     ```
     """
 

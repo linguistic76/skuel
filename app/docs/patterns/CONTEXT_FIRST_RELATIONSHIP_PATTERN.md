@@ -35,15 +35,16 @@ The Context-First pattern transforms raw graph entities into personalized, score
 Relationship services originally returned raw entities with no user awareness:
 
 ```python
-# Old Pattern - Returns ALL related entities, context-blind
-async def get_task_dependencies(self, task_uid: str) -> Result[list[Task]]:
-    return await self.backend.get_task_dependencies(task_uid)
+# Old Pattern (DELETED) - Returned ALL related entities, context-blind
+# async def get_task_dependencies(self, task_uid: str) -> Result[list[Task]]:
+#     return await self.backend.get_task_dependencies(task_uid)
 
-# What this misses:
+# What this missed:
 # - Is the user ready for these dependencies? (prerequisites met?)
 # - Which dependencies align with user's current goals?
 # - Which should be prioritized based on user's capacity?
 # - Are there knowledge gaps blocking these tasks?
+# Replaced by get_task_dependencies_for_user() — One Path Forward.
 ```
 
 ## The Solution: Context-First Pattern
@@ -592,7 +593,7 @@ class ContextualDependencies:
     recommended_next_action: str = ""
 ```
 
-Used by `TasksPlanningService.get_task_dependencies_for_user()` to return ready vs. blocked dependencies with an actionable recommendation.
+Used by `TasksPlanningService.get_task_dependencies_for_user()` to return ready vs. blocked dependencies with an actionable recommendation. Supports transitive traversal (`include_transitive=True, max_depth=N`) via variable-length `DEPENDS_ON*1..N` Cypher paths.
 
 ### `PracticeOpportunity`
 

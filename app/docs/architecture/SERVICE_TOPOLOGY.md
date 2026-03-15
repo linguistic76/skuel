@@ -241,7 +241,7 @@ TasksService (Facade)
     ├─ self.planning: TasksPlanningService
     │   ├─ Extends: BaseService[TasksOperations, Task]
     │   ├─ Responsibility: Context-aware recommendations
-    │   └─ Methods: get_actionable_tasks_for_user(), get_learning_tasks_for_user()
+    │   └─ Methods: get_task_dependencies_for_user(), get_actionable_tasks_for_user(), get_learning_tasks_for_user()
     │
     ├─ self.relationships: UnifiedRelationshipService
     │   ├─ Extends: N/A (standalone service)

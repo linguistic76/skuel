@@ -529,7 +529,7 @@ context = await tasks_service.get_cross_domain_context_typed(task_uid)
 |------------|------------|
 | `get_task_knowledge()` | `get_related_uids("knowledge", uid)` |
 | `get_task_goals()` | `get_related_uids("goal", uid)` |
-| `get_task_dependencies()` | `get_related_uids("prerequisite_tasks", uid)` |
+| `get_task_dependencies()` | `get_task_dependencies_for_user(uid, context)` (context-enriched, supports transitive via `include_transitive=True, max_depth=N`) |
 | `get_task_cross_domain_context()` | `get_cross_domain_context_typed(uid)` |
 | `create_knowledge_link()` | `link_to_knowledge(uid, ku_uid, ...)` |
 | `TaskRelationships.fetch()` | `fetch_all_relationships(uid)` |

@@ -238,7 +238,7 @@ result = await scheduling.create_task_with_context(request, user_context)
 
 **Key Methods:**
 - `get_actionable_{entities}_for_user()` - Ready-to-work entities
-- `get_{domain}_dependencies_for_user()` - Prerequisite chains
+- `get_{domain}_dependencies_for_user()` - Prerequisite chains (Tasks supports transitive traversal via `include_transitive=True, max_depth=N`)
 - `suggest_{entities}()` - Context-based recommendations
 
 **When to use:**
