@@ -207,7 +207,9 @@ UserContext (state)                  UserContextIntelligence (synthesis)
 ├── goal_progress               →    calculate_life_path_alignment()
 ├── habit_streaks               →    get_cross_domain_synergies()
 ├── knowledge_mastery           →    get_optimal_next_learning_steps()
-└── 236 more fields             →    get_schedule_aware_recommendations()
+├── in_progress_knowledge_uids  →    include_learning boost in planning
+├── current_lesson_uids         →    lessons using in-progress KUs
+└── ~234 more fields            →    get_schedule_aware_recommendations()
 ```
 
 Domain intelligence services (`TasksIntelligenceService`, etc.) analyse single domains. `UserContextIntelligence` synthesises across all domains.
@@ -248,6 +250,9 @@ class UserContextQueryExecutor:
     async def execute_mega_query(self, user_uid, min_confidence) -> Result[dict]:
         """Single query: UIDs AND rich entity data with graph neighbourhoods."""
 
+    async def fetch_current_lesson_uids(self, user_uid) -> Result[list[str]]:
+        """Lightweight secondary query: lessons using KUs the user is LEARNING."""
+
     async def execute_consolidated_query(self, user_uid) -> Result[dict]:
         """Optimised standard context (UIDs only)."""
 ```
@@ -256,7 +261,7 @@ class UserContextQueryExecutor:
 
 | Method | What it populates | Path |
 |--------|-------------------|------|
-| `populate_standard_fields()` | `active_task_uids`, `active_goal_uids`, `habit_streaks`, etc. | Both |
+| `populate_standard_fields()` | `active_task_uids`, `active_goal_uids`, `habit_streaks`, `in_progress_knowledge_uids`, etc. | Both |
 | `populate_entities_rich()` | `entities_rich` dict (9 keys) | Rich only |
 | `populate_user_properties()` | `learning_level`, `preferred_time`, `energy_level`, etc. | Both |
 | `populate_life_path()` | `life_path_uid`, `life_path_alignment_score` | Both |
@@ -375,14 +380,14 @@ async def get_ready_to_work_on_today(self, context: UserContext) -> Result[Daily
 |----------|--------|-----------------|
 | `CoreIdentity` | user_uid, username | Every context-aware service |
 | `TaskAwareness` | active/blocked/overdue tasks, `knowledge_mastery` | `TasksPlanningService`, `DailyPlanningMixin` |
-| `KnowledgeAwareness` | mastery, prerequisites, velocity | `ZPDService`, Askesis |
+| `KnowledgeAwareness` | mastery, in-progress KUs, current lessons, prerequisites, velocity | `ZPDService`, Askesis, `PlanningMixin` |
 | `HabitAwareness` | streaks, at-risk habits | `HabitsIntelligenceService` |
 | `GoalAwareness` | progress, milestones, `at_risk_goals` | `GoalsPlanningService` |
 | `EventAwareness` | upcoming events, schedule | `EventsSchedulingService` |
 | `PrincipleAwareness` | core principles, integrity | `PrinciplesIntelligenceService` |
 | `ChoiceAwareness` | pending choices | `ChoicesIntelligenceService` |
 | `LearningPathAwareness` | enrolled paths, current steps, ZPD position | `ZPDService`, `AskesisQueryService` |
-| `CrossDomainAwareness` | multi-domain subset | `UserContextIntelligence` cross-domain methods |
+| `CrossDomainAwareness` | multi-domain subset (incl. in-progress KUs, current lessons) | `UserContextIntelligence` cross-domain methods, `PlanningMixin` |
 | `FullAwareness` | all fields | Askesis dialogue, admin dashboard |
 
 **Cross-protocol fields** — all 7 domain-facing protocols share two fields that `DomainPlanningMixin` relies on:

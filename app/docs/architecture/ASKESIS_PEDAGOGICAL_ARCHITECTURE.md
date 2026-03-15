@@ -77,7 +77,7 @@ When `ZPDService` and Askesis query user readiness, they need a well-defined sli
 
 | Service | Protocol | Fields used |
 |---------|----------|------------|
-| `ZPDService.assess_zone()` | `KnowledgeAwareness & LearningPathAwareness` | `mastered_knowledge_uids`, `prerequisites_completed`, `prerequisites_needed`, `enrolled_path_uids`, `current_step_uid` |
+| `ZPDService.assess_zone()` | `KnowledgeAwareness & LearningPathAwareness` | `mastered_knowledge_uids`, `in_progress_knowledge_uids`, `current_lesson_uids`, `prerequisites_completed`, `prerequisites_needed`, `enrolled_path_uids`, `current_step_uid` |
 | `AskesisQueryService` | `LearningPathAwareness` | Enrolled paths, current step, ZPD position |
 | `AskesisStateAnalysisService` | `CrossDomainAwareness` | Cross-domain readiness signals |
 | Askesis dialogue context | `FullAwareness` | Complete user state for Socratic scaffolding |

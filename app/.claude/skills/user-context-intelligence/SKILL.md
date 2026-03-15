@@ -489,6 +489,8 @@ class LearningIntelligenceMixin:
 
 **Domain-specific planning methods** (`get_at_risk_habits_for_user`, `get_actionable_tasks_for_user`, `get_upcoming_events_for_user`, `get_advancing_goals_for_user`, `get_pending_decisions_for_user`, `get_aligned_principles_for_user`) are provided by `_domain_planning_mixin.py` in the URS package via MRO — `DailyPlanningMixin` calls them on `self.tasks`, `self.habits`, etc. Each method: (1) accepts a domain-specific protocol slice (`HabitAwareness`, `TaskAwareness`, etc.), (2) returns `Result.fail()` if `context.is_rich_context` is `False`, and (3) uses `context.get_rich_entities(domain, filter_uids)` for entity extraction.
 
+**`include_learning` scoring boost:** `PlanningMixin.get_actionable_for_user()` and its `UnifiedRelationshipService` override accept `include_learning: bool = True`. When enabled, entities whose knowledge relationships overlap with `context.in_progress_knowledge_uids` receive a 20% score boost (`score *= 1.2`). This surfaces learning-relevant activities higher in the ranking. The boost checks `knowledge`, `applied_knowledge`, and `prerequisite_knowledge` relationship keys via `get_related_uids()`.
+
 ---
 
 ## UserContext Integration
@@ -507,6 +509,8 @@ class LearningIntelligenceMixin:
 | `prerequisites_completed` | `set[str]` | Learning readiness |
 | `prerequisites_needed` | `dict[str, list[str]]` | Prerequisite chains |
 | `mastered_knowledge_uids` | `set[str]` | Mastery tracking |
+| `in_progress_knowledge_uids` | `set[str]` | KUs with 0 < mastery < 0.8 — used by `include_learning` boost |
+| `current_lesson_uids` | `set[str]` | Lessons using in-progress KUs (via USES_KU relationships) |
 | `estimated_time_to_mastery` | `dict[str, int]` | Time estimates |
 | `learning_goals` | `list[str]` | Learning alignment |
 | `primary_goal_focus` | `str \| None` | Goal prioritization |

@@ -321,10 +321,12 @@ entity = await service.get_path_aware_entity("task:123", distance=1)
 
 ```python
 # Get actionable items based on user context
+# include_learning=True applies 20% score boost for entities whose knowledge
+# relationships overlap with context.in_progress_knowledge_uids
 actionable = await service.get_actionable_for_user(
     context=user_context,  # ~240 fields
     limit=10,
-    include_learning=True
+    include_learning=True  # boosts learning-relevant entities via in_progress_knowledge_uids
 )
 
 # Get blocked items with reasons

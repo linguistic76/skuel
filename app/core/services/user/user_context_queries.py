@@ -1343,6 +1343,27 @@ class UserContextQueryExecutor:
 
         return Result.ok(record["result"])
 
+    @with_error_handling("fetch_current_lesson_uids", error_type="database", uid_param="user_uid")
+    async def fetch_current_lesson_uids(
+        self, user_uid: str
+    ) -> Result[list[str]]:
+        """Fetch lesson UIDs for KUs the user is currently LEARNING."""
+        query = """
+        MATCH (user:User {uid: $user_uid})-[r:LEARNING]->(ku:Entity)
+        WHERE coalesce(r.mastery_score, 0.5) < 0.8
+        WITH collect(ku.uid) as in_progress_ku_uids
+        UNWIND in_progress_ku_uids as ku_uid
+        MATCH (lesson:Lesson)-[:USES_KU]->(ku:Entity {uid: ku_uid})
+        RETURN collect(DISTINCT lesson.uid) as lesson_uids
+        """
+        result = await self.executor.execute_query(query, {"user_uid": user_uid})
+        if result.is_error:
+            return Result.fail(result.expect_error())
+        records = result.value or []
+        if not records:
+            return Result.ok([])
+        return Result.ok(records[0].get("lesson_uids", []))
+
     @with_error_handling("execute_consolidated_query", error_type="database", uid_param="user_uid")
     async def execute_consolidated_query(self, user_uid: str) -> Result[dict[str, Any]]:
         """

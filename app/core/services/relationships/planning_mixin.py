@@ -134,6 +134,20 @@ class PlanningMixin:
             if self._is_urgent(entity, context):
                 score *= 1.3
 
+            # Learning relevance boost
+            if include_learning:
+                in_progress = getattr(context, "in_progress_knowledge_uids", None) or set()
+                if in_progress:
+                    entity_uid = getattr(entity, "uid", "")
+                    if entity_uid:
+                        for key in ["knowledge", "applied_knowledge", "prerequisite_knowledge"]:
+                            knowledge_result = await self.get_related_uids(key, entity_uid)
+                            if knowledge_result.is_ok and knowledge_result.value:
+                                overlap = set(knowledge_result.value) & in_progress
+                                if overlap:
+                                    score *= 1.2  # 20% boost for learning-relevant entities
+                                break
+
             scored_entities.append((entity, score))
 
         # Sort by score descending

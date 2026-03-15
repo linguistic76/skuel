@@ -275,6 +275,11 @@ class UserContextBuilder:
         # Populate context from query results
         self._populator.populate_from_consolidated_data(context, query_result.value)
 
+        # Fetch current lessons (lightweight secondary query)
+        lesson_result = await self._query_executor.fetch_current_lesson_uids(user_uid)
+        if lesson_result.is_ok:
+            context.current_lesson_uids = set(uid for uid in lesson_result.value if uid)
+
         # Calculate derived fields
         self._finalize_context(context)
 
@@ -380,6 +385,11 @@ class UserContextBuilder:
 
         # Populate standard context fields (UIDs, relationships, metadata)
         self._populator.populate_standard_fields(context, uids_data)
+
+        # Fetch current lessons (lightweight secondary query)
+        lesson_result = await self._query_executor.fetch_current_lesson_uids(user_uid)
+        if lesson_result.is_ok:
+            context.current_lesson_uids = set(uid for uid in lesson_result.value if uid)
 
         # Populate activity domain entities (all 6 domains, unified shape)
         self._populator.populate_entities_rich(context, entities_data)

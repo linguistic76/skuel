@@ -94,6 +94,9 @@ class UserContextPopulator:
         context.mastered_knowledge_uids = set(
             uid for uid, score in context.knowledge_mastery.items() if score >= 0.8
         )
+        context.in_progress_knowledge_uids = set(
+            uid for uid, score in context.knowledge_mastery.items() if 0 < score < 0.8
+        )
         # Extract mastery timestamps from relationship metadata
         context.mastery_timestamps = {
             item["uid"]: item["mastered_at"]
@@ -335,6 +338,10 @@ class UserContextPopulator:
         # Knowledge
         knowledge_data = data.get("knowledge", {})
         context.mastered_knowledge_uids = knowledge_data.get("mastered_uids", set())
+        knowledge_mastery = knowledge_data.get("knowledge_mastery", {})
+        context.in_progress_knowledge_uids = set(
+            uid for uid, score in knowledge_mastery.items() if 0 < score < 0.8
+        )
         context.enrolled_path_uids = knowledge_data.get("enrolled_path_uids", [])
         context.knowledge_mastery = knowledge_data.get("knowledge_mastery", {})
         context.ku_view_counts = knowledge_data.get("ku_view_counts", {})
