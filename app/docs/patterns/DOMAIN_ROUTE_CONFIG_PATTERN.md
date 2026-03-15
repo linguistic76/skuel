@@ -515,19 +515,18 @@ grep "Registered tasks routes" logs/skuel.log
 
 ```python
 LESSON_CONFIG = DomainRouteConfig(
-    domain_name="lessons",
+    domain_name="lesson",
     primary_service_attr="lesson",  # services.lesson
     api_factory=create_lesson_api_routes,
     ui_factory=create_lesson_ui_routes,
-    api_related_services={},  # No additional services needed
+    api_related_services={"user_service": "user_service"},
 )
 ```
 
 **Key features:**
-- Simplest pattern - only primary service, no related services
-- Both API and UI factories only need the primary Lesson service
-- Empty api_related_services dict (explicit no dependencies)
-- Demonstrates minimal DomainRouteConfig setup
+- Lesson routes serve `/lesson/*` endpoints only
+- KU has its own dedicated `ku_routes.py` with `KU_CONFIG` (KuService serves `/ku`)
+- Demonstrates minimal DomainRouteConfig setup with one related service
 
 ### Example 2: API Dependencies Only (Habits)
 

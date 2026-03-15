@@ -53,11 +53,11 @@
 ### Routes
 | Domain | Route file |
 |--------|-----------|
-| Lesson | `adapters/inbound/lesson_routes.py` (all Article sub-services) |
-| KU | (via Lesson routes or dedicated — see `lesson_routes.py`) |
+| Lesson | `adapters/inbound/lesson_routes.py` (LessonService) |
+| KU | `adapters/inbound/ku_routes.py` (KuService — serves /ku index) |
 | LS + LP | `adapters/inbound/pathways_routes.py` |
 
-**Note**: No separate `ls_routes.py`, `lp_routes.py`, or `moc_routes.py` files exist.
+**Note**: Ku has its own dedicated route config (`KU_CONFIG` in `ku_routes.py`), separate from Lesson routes. No separate `ls_routes.py`, `lp_routes.py`, or `moc_routes.py` files exist.
 
 ## UID Formats
 

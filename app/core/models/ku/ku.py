@@ -10,7 +10,7 @@ Ku = Unit of Truth/Reference. Lesson = Unit for Learning.
 
 Hierarchy:
     Entity (~29 fields)
-    └── Ku(Entity) +4 fields  ← EntityType.KU (this file)
+    └── Ku(Entity) +5 fields  ← EntityType.KU (this file)
 
 UID Format: ku_{namespace}-{slug}_{random}
     e.g., ku_attention-buzzing_a1b2c3d4

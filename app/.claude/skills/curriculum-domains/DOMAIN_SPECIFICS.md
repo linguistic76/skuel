@@ -77,6 +77,7 @@ await lesson_service.semantic.get_semantic_neighborhood(article_uid)
 - **Composed into Lessons** - `(Lesson)-[:USES_KU]->(Ku)` relationship
 - **Trained by LS** - `(Ls)-[:TRAINS_KU]->(Ku)` relationship
 - **Namespace + category** - `ku_category` (KuCategory enum), `namespace`, `aliases`, `source`
+- **SEL organization** - `sel_category` (SELCategory enum) groups Kus by SEL competency for the /ku index
 - **Reference node** - Ontology/reference, not a unit for learning
 
 **Key Methods:**
@@ -85,8 +86,8 @@ await lesson_service.semantic.get_semantic_neighborhood(article_uid)
 await ku_service.core.create(...)
 await ku_service.search.search(query)
 
-# Find articles that use this Ku
-await ku_service.get_articles_using(ku_uid)
+# Find lessons that use this Ku
+await ku_service.get_lessons(ku_uid)
 ```
 
 **UID Format:** `ku_{slug}_{random}`

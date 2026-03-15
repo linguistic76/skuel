@@ -19,7 +19,7 @@ Adds 22 fields to Entity:
 
 Hierarchy:
     Entity (~29 fields)
-    ├── Ku(Entity) +4 fields                           ← EntityType.KU (lightweight, no curriculum metadata)
+    ├── Ku(Entity) +5 fields                           ← EntityType.KU (lightweight, no curriculum metadata)
     └── Curriculum(Entity) +21 fields, ~30 methods     ← BASE CLASS
         ├── Lesson(Curriculum)                          ← EntityType.LESSON
         ├── LearningStep(Curriculum) +9 fields

@@ -76,7 +76,7 @@ Factory / Manual             <- Creates sub-services
 
 | Domain | Directory | Model | DTO |
 |--------|-----------|-------|-----|
-| **Lesson** | `core/models/lesson/` | `article.py` (extends Curriculum) | `article_dto.py` |
+| **Lesson** | `core/models/lesson/` | `lesson.py` (extends Curriculum) | `lesson_dto.py` |
 | **KU** | `core/models/ku/` | `ku.py` (extends Entity) | `ku_dto.py` |
 | **LS** | `core/models/pathways/` | `learning_step.py` | `learning_step_dto.py` |
 | **LP** | `core/models/pathways/` | `learning_path.py` | `learning_path_dto.py` |
@@ -86,7 +86,7 @@ Factory / Manual             <- Creates sub-services
 
 ### Get knowledge with context
 ```python
-result = await lesson_service.intelligence.get_article_with_context(uid)
+result = await lesson_service.intelligence.get_lesson_with_context(uid)
 ```
 
 ### Check learning step readiness
@@ -102,9 +102,9 @@ result = await lp_service.intelligence.validate_path_prerequisites(lp_uid)
 ### Lesson Organization (non-linear navigation)
 ```python
 # Organize Lessons into a non-linear map
-await lesson_service.organize_article(parent_uid, child_uid, order=1, importance="core")
+await lesson_service.organize_lesson(parent_uid, child_uid, order=1, importance="core")
 await lesson_service.get_organized_children(parent_uid, depth=1)
-await lesson_service.get_parent_articles(article_uid)  # Multiple parents possible
+await lesson_service.get_parent_lessons(lesson_uid)  # Multiple parents possible
 ```
 
 ### Create with factory (LS example)

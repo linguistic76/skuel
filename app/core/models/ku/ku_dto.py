@@ -3,13 +3,13 @@ KuDTO - Atomic Knowledge Unit DTO (Tier 2 - Transfer)
 =====================================================
 
 Mutable DTO for atomic knowledge unit entities (EntityType.KU).
-Extends EntityDTO (NOT CurriculumDTO) with 4 Ku-specific fields.
+Extends EntityDTO (NOT CurriculumDTO) with 5 Ku-specific fields.
 
 Ku is lightweight — no learning metadata, no substance scores.
 
 Hierarchy:
     EntityDTO (~18 common fields)
-    └── KuDTO(EntityDTO) +4 Ku-specific fields
+    └── KuDTO(EntityDTO) +5 Ku-specific fields
 
 See: /docs/patterns/three_tier_type_system.md
 """
@@ -29,11 +29,11 @@ class KuDTO(EntityDTO):
     """Mutable DTO for atomic knowledge unit entities (EntityType.KU).
 
     Extends EntityDTO with 5 Ku-specific fields:
-    - namespace: primary grouping (attention, emotion, body, ...)
-    - ku_category: state/concept/principle/intake/substance/practice/value
-    - aliases: alternative names
-    - source: self_observation/research/teacher
-    - sel_category: SEL competency this Ku belongs to
+      - namespace: primary grouping (attention, emotion, body, ...)
+      - ku_category: state/concept/principle/intake/substance/practice/value
+      - aliases: alternative names
+      - source: self_observation/research/teacher
+      - sel_category: SEL competency (self_awareness, self_management, etc.)
     """
 
     namespace: str | None = None

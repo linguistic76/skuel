@@ -98,20 +98,17 @@ await ku_service.semantic.get_semantic_neighborhood(ku_uid)
 | Relationships Container | `/core/services/ku/ku_relationships.py` |
 | Relationship Config | `KU_CONFIG` in `/core/models/relationship_registry.py` |
 
-## Model Fields
+## Model Fields (Ku-Specific)
+
+Ku extends Entity directly (not Curriculum). These are the 5 Ku-specific fields beyond the ~29 Entity base fields:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `uid` | `str` | Unique identifier (`ku.filename`) |
-| `title` | `str` | Knowledge unit title |
-| `content` | `str` | Markdown content |
-| `domain` | `Domain` | TECH, HEALTH, PERSONAL, etc. |
-| `difficulty` | `Difficulty` | Beginner, Intermediate, Advanced |
-| `estimated_minutes` | `int` | Estimated reading/learning time |
-| `source_file` | `str?` | Original markdown file path |
-| `frontmatter` | `dict?` | YAML frontmatter metadata |
-| `created_at` | `datetime` | Creation timestamp |
-| `updated_at` | `datetime` | Last update timestamp |
+| `namespace` | `str?` | Primary grouping (attention, emotion, sel, mindfulness, ...) |
+| `ku_category` | `str?` | What kind: state, concept, principle, intake, substance, practice, value |
+| `aliases` | `tuple[str, ...]` | Alternative names for search/cross-referencing |
+| `source` | `str?` | Origin: self_observation, research, teacher |
+| `sel_category` | `SELCategory?` | SEL competency: self_awareness, self_management, social_awareness, relationship_skills, responsible_decision_making |
 
 ## Relationships
 
