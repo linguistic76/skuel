@@ -413,9 +413,6 @@ class SubmissionsProcessingService:
             result = await self.activity_extractor.extract_and_create(
                 report=submission,
                 user_uid=user_uid,
-                create_relationships=instructions.get("create_activity_relationships", True)
-                if instructions
-                else True,
             )
 
             if result.is_ok:

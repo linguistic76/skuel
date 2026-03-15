@@ -28,7 +28,7 @@ Audio/Text → Transcription → LLM Formatting → **Activity Extraction** → 
 
 1. **Non-destructive**: Extraction doesn't modify the submission content
 2. **Idempotent**: Re-extraction updates existing entities, doesn't duplicate
-3. **Graph-aware**: Creates relationships between entities and the source submission
+3. **Graph-aware**: Creates entities connected to the user's ownership graph
 4. **Optional**: Activity extraction is opt-in via instructions
 5. **13-Domain Complete**: Covers all SKUEL domains for complete DSL support
 
@@ -414,8 +414,7 @@ class ActivityExtractorService:
     1. Parse processed_content for Activity Lines (@context)
     2. Convert each activity to domain-specific create request
     3. Call appropriate service to create entity
-    4. Create EXTRACTED_FROM relationship: Entity → Submission
-    5. Store extraction results in submission metadata
+    4. Store extraction results in submission metadata
     """
 
     def __init__(
@@ -502,7 +501,6 @@ class ActivityExtractorService:
         self,
         report: SubmissionEntity,
         user_uid: str,
-        create_relationships: bool = True,
     ) -> Result[ActivityExtractionResult]:
         """
         Extract Activity Lines from submission and create corresponding entities.
@@ -512,7 +510,6 @@ class ActivityExtractorService:
         Args:
             report: Processed submission with content to extract from
             user_uid: User UID for entity ownership
-            create_relationships: Whether to create EXTRACTED_FROM relationships
 
         Returns:
             Result containing ActivityExtractionResult with counts and UIDs
@@ -592,7 +589,7 @@ class ActivityExtractorService:
         # Tasks
         if self.tasks_service and extraction.tasks_found > 0:
             for activity in parsed.get_tasks():
-                result = await self._create_task(activity, user_uid, report.uid)
+                result = await self._create_task(activity, user_uid)
                 if result.is_ok and result.value:
                     extraction.tasks_created += 1
                     extraction.created_task_uids.append(result.value)
@@ -604,7 +601,7 @@ class ActivityExtractorService:
         # Habits
         if self.habits_service and extraction.habits_found > 0:
             for activity in parsed.get_habits():
-                result = await self._create_habit(activity, user_uid, report.uid)
+                result = await self._create_habit(activity, user_uid)
                 if result.is_ok and result.value:
                     extraction.habits_created += 1
                     extraction.created_habit_uids.append(result.value)
@@ -616,7 +613,7 @@ class ActivityExtractorService:
         # Goals
         if self.goals_service and extraction.goals_found > 0:
             for activity in parsed.get_goals():
-                result = await self._create_goal(activity, user_uid, report.uid)
+                result = await self._create_goal(activity, user_uid)
                 if result.is_ok and result.value:
                     extraction.goals_created += 1
                     extraction.created_goal_uids.append(result.value)
@@ -628,7 +625,7 @@ class ActivityExtractorService:
         # Events
         if self.events_service and extraction.events_found > 0:
             for activity in parsed.get_events():
-                result = await self._create_event(activity, user_uid, report.uid)
+                result = await self._create_event(activity, user_uid)
                 if result.is_ok and result.value:
                     extraction.events_created += 1
                     extraction.created_event_uids.append(result.value)
@@ -640,7 +637,7 @@ class ActivityExtractorService:
         # Principles
         if self.principles_service and extraction.principles_found > 0:
             for activity in parsed.get_principles():
-                result = await self._create_principle(activity, user_uid, report.uid)
+                result = await self._create_principle(activity, user_uid)
                 if result.is_ok and result.value:
                     extraction.principles_created += 1
                     extraction.created_principle_uids.append(result.value)
@@ -652,7 +649,7 @@ class ActivityExtractorService:
         # Choices
         if self.choices_service and extraction.choices_found > 0:
             for activity in parsed.get_choices():
-                result = await self._create_choice(activity, user_uid, report.uid)
+                result = await self._create_choice(activity, user_uid)
                 if result.is_ok and result.value:
                     extraction.choices_created += 1
                     extraction.created_choice_uids.append(result.value)
@@ -664,7 +661,7 @@ class ActivityExtractorService:
         # Finance
         if self.finance_service and extraction.finances_found > 0:
             for activity in parsed.get_finances():
-                result = await self._create_finance(activity, user_uid, report.uid)
+                result = await self._create_finance(activity, user_uid)
                 if result.is_ok and result.value:
                     extraction.finances_created += 1
                     extraction.created_finance_uids.append(result.value)
@@ -680,7 +677,7 @@ class ActivityExtractorService:
         # Knowledge Units (KU)
         if self.ku_service and extraction.kus_found > 0:
             for activity in parsed.get_knowledge_units():
-                result = await self._create_ku(activity, user_uid, report.uid)
+                result = await self._create_ku(activity, user_uid)
                 if result.is_ok and result.value:
                     extraction.kus_created += 1
                     extraction.created_ku_uids.append(result.value)
@@ -692,7 +689,7 @@ class ActivityExtractorService:
         # Learning Steps (LS)
         if self.ls_service and extraction.learning_steps_found > 0:
             for activity in parsed.get_learning_steps():
-                result = await self._create_ls(activity, user_uid, report.uid)
+                result = await self._create_ls(activity, user_uid)
                 if result.is_ok and result.value:
                     extraction.learning_steps_created += 1
                     extraction.created_ls_uids.append(result.value)
@@ -704,7 +701,7 @@ class ActivityExtractorService:
         # Learning Paths (LP)
         if self.lp_service and extraction.learning_paths_found > 0:
             for activity in parsed.get_learning_paths():
-                result = await self._create_lp(activity, user_uid, report.uid)
+                result = await self._create_lp(activity, user_uid)
                 if result.is_ok and result.value:
                     extraction.learning_paths_created += 1
                     extraction.created_lp_uids.append(result.value)
@@ -722,7 +719,7 @@ class ActivityExtractorService:
         # can trigger creation of new submissions
         if self.report_service and extraction.reports_found > 0:
             for activity in parsed.get_reports():
-                result = await self._create_report(activity, user_uid, report.uid)
+                result = await self._create_report(activity, user_uid)
                 if result.is_ok and result.value:
                     extraction.reports_created += 1
                     extraction.created_report_uids.append(result.value)
@@ -734,7 +731,7 @@ class ActivityExtractorService:
         # Calendar Items
         if self.calendar_service and extraction.calendar_items_found > 0:
             for activity in parsed.get_calendar_items():
-                result = await self._create_calendar_item(activity, user_uid, report.uid)
+                result = await self._create_calendar_item(activity, user_uid)
                 if result.is_ok and result.value:
                     extraction.calendar_items_created += 1
                     extraction.created_calendar_uids.append(result.value)
@@ -750,7 +747,7 @@ class ActivityExtractorService:
         # LifePath Items
         if self.lifepath_service and extraction.lifepath_items_found > 0:
             for activity in parsed.get_lifepath_items():
-                result = await self._create_lifepath(activity, user_uid, report.uid)
+                result = await self._create_lifepath(activity, user_uid)
                 if result.is_ok and result.value:
                     extraction.lifepath_items_created += 1
                     extraction.created_lifepath_uids.append(result.value)
@@ -779,7 +776,7 @@ class ActivityExtractorService:
 
     @with_error_handling(error_type="system", operation="create_task")
     async def _create_task(
-        self, activity: ParsedActivityLine, user_uid: str, source_report_uid: str
+        self, activity: ParsedActivityLine, user_uid: str
     ) -> Result[str | None]:
         """
         Create a task from parsed activity.
@@ -806,7 +803,7 @@ class ActivityExtractorService:
 
     @with_error_handling(error_type="system", operation="create_habit")
     async def _create_habit(
-        self, activity: ParsedActivityLine, user_uid: str, source_report_uid: str
+        self, activity: ParsedActivityLine, user_uid: str
     ) -> Result[str | None]:
         """
         Create a habit from parsed activity.
@@ -860,7 +857,7 @@ class ActivityExtractorService:
 
     @with_error_handling(error_type="system", operation="create_goal")
     async def _create_goal(
-        self, activity: ParsedActivityLine, user_uid: str, source_report_uid: str
+        self, activity: ParsedActivityLine, user_uid: str
     ) -> Result[str | None]:
         """
         Create a goal from parsed activity.
@@ -913,7 +910,7 @@ class ActivityExtractorService:
 
     @with_error_handling(error_type="system", operation="create_event")
     async def _create_event(
-        self, activity: ParsedActivityLine, user_uid: str, source_report_uid: str
+        self, activity: ParsedActivityLine, user_uid: str
     ) -> Result[str | None]:
         """
         Create an event from parsed activity.
@@ -966,7 +963,7 @@ class ActivityExtractorService:
 
     @with_error_handling(error_type="system", operation="create_principle")
     async def _create_principle(
-        self, activity: ParsedActivityLine, user_uid: str, source_report_uid: str
+        self, activity: ParsedActivityLine, user_uid: str
     ) -> Result[str | None]:
         """
         Create a principle from parsed activity.
@@ -1005,7 +1002,7 @@ class ActivityExtractorService:
 
     @with_error_handling(error_type="system", operation="create_choice")
     async def _create_choice(
-        self, activity: ParsedActivityLine, user_uid: str, source_report_uid: str
+        self, activity: ParsedActivityLine, user_uid: str
     ) -> Result[str | None]:
         """
         Create a choice from parsed activity.
@@ -1044,7 +1041,7 @@ class ActivityExtractorService:
 
     @with_error_handling(error_type="system", operation="create_finance")
     async def _create_finance(
-        self, activity: ParsedActivityLine, user_uid: str, source_report_uid: str
+        self, activity: ParsedActivityLine, user_uid: str
     ) -> Result[str | None]:
         """
         Create a finance entry (expense) from parsed activity.
@@ -1087,7 +1084,7 @@ class ActivityExtractorService:
 
     @with_error_handling(error_type="system", operation="create_ku")
     async def _create_ku(
-        self, activity: ParsedActivityLine, user_uid: str, source_report_uid: str
+        self, activity: ParsedActivityLine, user_uid: str
     ) -> Result[str | None]:
         """
         Create a KnowledgeUnit from parsed activity.
@@ -1124,7 +1121,7 @@ class ActivityExtractorService:
 
     @with_error_handling(error_type="system", operation="create_ls")
     async def _create_ls(
-        self, activity: ParsedActivityLine, user_uid: str, source_report_uid: str
+        self, activity: ParsedActivityLine, user_uid: str
     ) -> Result[str | None]:
         """
         Create a LearningStep from parsed activity.
@@ -1161,7 +1158,7 @@ class ActivityExtractorService:
 
     @with_error_handling(error_type="system", operation="create_lp")
     async def _create_lp(
-        self, activity: ParsedActivityLine, user_uid: str, source_report_uid: str
+        self, activity: ParsedActivityLine, user_uid: str
     ) -> Result[str | None]:
         """
         Create a LearningPath from parsed activity.
@@ -1202,7 +1199,7 @@ class ActivityExtractorService:
 
     @with_error_handling(error_type="system", operation="create_report")
     async def _create_report(
-        self, activity: ParsedActivityLine, user_uid: str, source_report_uid: str
+        self, activity: ParsedActivityLine, user_uid: str
     ) -> Result[str | None]:
         """
         Create a Submission from parsed activity.
@@ -1245,7 +1242,7 @@ class ActivityExtractorService:
 
     @with_error_handling(error_type="system", operation="create_analytics")
     async def _create_analytics(
-        self, activity: ParsedActivityLine, user_uid: str, source_report_uid: str
+        self, activity: ParsedActivityLine, user_uid: str
     ) -> Result[str | None]:
         """
         Create/trigger an Analytics report from parsed activity.
@@ -1289,7 +1286,7 @@ class ActivityExtractorService:
 
     @with_error_handling(error_type="system", operation="create_calendar_item")
     async def _create_calendar_item(
-        self, activity: ParsedActivityLine, user_uid: str, source_report_uid: str
+        self, activity: ParsedActivityLine, user_uid: str
     ) -> Result[str | None]:
         """
         Create a Calendar item from parsed activity.
@@ -1334,7 +1331,7 @@ class ActivityExtractorService:
 
     @with_error_handling(error_type="system", operation="create_lifepath")
     async def _create_lifepath(
-        self, activity: ParsedActivityLine, user_uid: str, source_report_uid: str
+        self, activity: ParsedActivityLine, user_uid: str
     ) -> Result[str | None]:
         """
         Create/update a LifePath alignment from parsed activity.
