@@ -7,7 +7,7 @@ This directory contains YAML templates for creating SKUEL curriculum content and
 
 ```
 yaml_templates/
-  articles/             # Article templates (teaching compositions)
+  articles/             # Article templates (units for learning)
   kus/                  # Ku templates (atomic knowledge units)
   edges/                # Edge templates (evidence relationships)
   learning_steps/       # Learning step (ls) templates
@@ -30,8 +30,8 @@ SKUEL's curriculum is built on four entities:
 | Prefix | Entity | Purpose | Content? |
 |--------|--------|---------|----------|
 | **ku** | Ku (atomic) | Single definable concept/state/practice | No (reference node) |
-| **a** | Article | Teaching composition (essay-like narrative) | Yes (markdown) |
-| **ls** | Learning Step | Step in a learning path | No (references Articles) |
+| **a** | Article | A unit for learning | Yes (markdown) |
+| **ls** | Learning Step | A collection of lessons | No (references Articles) |
 | **lp** | Learning Path | Complete learning sequence | No (sequences Steps) |
 
 ### Composition
@@ -94,7 +94,7 @@ connections:
   enables: [a:mindfulness:posture-basics]
 ```
 
-Articles are essay-like compositions that teach by composing atomic Kus into narrative.
+Articles are units for learning that compose atomic Kus into coherent learning content.
 
 ### 3. Edge (Evidence Relationship)
 

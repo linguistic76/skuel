@@ -289,7 +289,7 @@ class AskesisTokenBudget:
     """
 
     # Maximum characters for curriculum content injected from LSBundle.
-    # ~2500 tokens — enough for 2-3 Lessons' worth of teaching content.
+    # ~2500 tokens — enough for 2-3 Lessons' worth of learning content.
     MAX_CURRICULUM_CHARS: Final = 10000
 
     # Maximum characters for the full LLM context built by ResponseGenerator.

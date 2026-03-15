@@ -1,1 +1,1 @@
-"""Lesson domain models — essay-like teaching compositions."""
+"""Lesson domain models — units for learning."""

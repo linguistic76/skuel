@@ -11,9 +11,9 @@ These templates are **documentation**, not validation. Validation happens via Py
 | Entity Type | Template File | Primary Use Case |
 |-------------|---------------|------------------|
 | **Ku** | [ku_template.yaml](ku_template.yaml) | Atomic knowledge unit (concept, state, practice) |
-| **Article** | [article_template.yaml](article_template.yaml) | Teaching composition (essay-like narrative) |
+| **Article** | [article_template.yaml](article_template.yaml) | A unit for learning (composes Kus) |
 | **Edge** | [edge_template.yaml](edge_template.yaml) | Evidence relationship between entities |
-| **LearningStep** | [learning_step_template.yaml](learning_step_template.yaml) | Steps within a learning path |
+| **LearningStep** | [learning_step_template.yaml](learning_step_template.yaml) | A collection of lessons |
 | **LearningPath** | [learning_path_template.yaml](learning_path_template.yaml) | Structured learning sequences |
 | **Principle** | [principle_template.yaml](principle_template.yaml) | Guiding principles and values |
 | **Choice** | [choice_template.yaml](choice_template.yaml) | Decision points for learners |

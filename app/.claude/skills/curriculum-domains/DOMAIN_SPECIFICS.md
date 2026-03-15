@@ -74,10 +74,10 @@ await lesson_service.semantic.get_semantic_neighborhood(article_uid)
 
 **Unique Features:**
 - **Lightweight** - Extends Entity directly, not Curriculum
-- **Composed into Articles** - `(Lesson)-[:USES_KU]->(Ku)` relationship
+- **Composed into Lessons** - `(Lesson)-[:USES_KU]->(Ku)` relationship
 - **Trained by LS** - `(Ls)-[:TRAINS_KU]->(Ku)` relationship
 - **Namespace + category** - `ku_category` (KuCategory enum), `namespace`, `aliases`, `source`
-- **Reference node** - Ontology/reference, not essay-like teaching content
+- **Reference node** - Ontology/reference, not a unit for learning
 
 **Key Methods:**
 ```python

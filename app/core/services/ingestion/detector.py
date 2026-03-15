@@ -19,7 +19,7 @@ from core.models.enums.entity_enums import EntityType, NonKuDomain
 
 # Map YAML type values to EntityType/NonKuDomain (handles aliases)
 TYPE_MAPPING: dict[str, EntityType | NonKuDomain] = {
-    # Lessons (teaching compositions)
+    # Lessons (units for learning)
     "lesson": EntityType.LESSON,
     "knowledgeunit": EntityType.LESSON,
     "knowledge": EntityType.LESSON,

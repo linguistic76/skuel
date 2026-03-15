@@ -15,7 +15,7 @@ from core.models.request_base import CreateRequestBase
 
 
 class LearningStepCreateRequest(CreateRequestBase):
-    """Create a LEARNING_STEP entity (step in a learning path). Admin-only, shared."""
+    """Create a LEARNING_STEP entity (a collection of lessons). Admin-only, shared."""
 
     title: str = Field(min_length=1, max_length=200, description="Step title")
     intent: str = Field(min_length=1, description="Step intent/purpose")

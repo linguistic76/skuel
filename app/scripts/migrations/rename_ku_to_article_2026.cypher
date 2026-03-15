@@ -1,7 +1,7 @@
 // =============================================================================
 // Migration: Rename :Ku → :Article in Neo4j
 // Date: 2026-03-06
-// Context: KU→Article split — old Ku (essay-like narrative) becomes Article,
+// Context: KU→Article split — old Ku (unit for learning) becomes Article,
 //          KU is reused for new atomic knowledge units
 // =============================================================================
 

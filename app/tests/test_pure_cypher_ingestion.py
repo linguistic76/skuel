@@ -472,7 +472,7 @@ async def test_parallel_directory_processing():
     with tempfile.TemporaryDirectory() as tmpdir:
         tmppath = Path(tmpdir)
 
-        # Create 10 valid markdown files (Lessons = teaching content)
+        # Create 10 valid markdown files (Lessons = units for learning)
         for i in range(10):
             (tmppath / f"lesson-{i}.md").write_text(f"""---
 title: Lesson {i}

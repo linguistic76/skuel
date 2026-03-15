@@ -43,8 +43,8 @@ class EntityType(StrEnum):
         JOURNAL_SUBMISSION   → Voice or text journal entry (user's own reflections)
         KU                   → Atomic knowledge unit (concept, state, principle)
         LEARNING_PATH        → Ordered sequence of steps
-        LESSON               → Teaching composition (essay-like narrative)
-        LEARNING_STEP        → Step in a learning path
+        LESSON               → A unit for learning
+        LEARNING_STEP        → A collection of lessons
         LIFE_PATH            → Knowledge about your life direction
         PRINCIPLE            → Knowledge about what you believe
         RESOURCE             → Books, talks, films, music (admin-only)

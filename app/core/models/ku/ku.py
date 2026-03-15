@@ -6,7 +6,7 @@ A Ku is a single definable thing: a concept, state, principle, substance,
 practice, or value. Small enough to appear in many Lessons without dragging
 narrative. Extends Entity directly (not Curriculum — no learning metadata).
 
-Ku = Unit of Truth/Reference. Lesson = Unit of Teaching.
+Ku = Unit of Truth/Reference. Lesson = Unit for Learning.
 
 Hierarchy:
     Entity (~29 fields)
@@ -41,7 +41,7 @@ class Ku(Entity):
     A Ku is a single definable thing: a concept (caffeine), a state (buzzing),
     a principle (truth_oriented_collaboration), a practice (meditation).
 
-    Unlike Lessons (which are teaching compositions with narrative),
+    Unlike Lessons (which are units for learning with composed content),
     Kus are lightweight ontology/reference nodes. They don't carry
     learning metadata (complexity, SEL category, substance scores).
 

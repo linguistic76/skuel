@@ -60,7 +60,7 @@ ku:attention <--   a:mind-wandering     -->   ls:step-2    -->
 ```
 
 - **Kus** are atomic reference nodes (breath, attention)
-- **Articles** compose Kus into teaching narratives via `USES_KU`
+- **Articles** compose Kus into learning content via `USES_KU`
 - **Learning Steps** train specific Kus via `TRAINS_KU` and reference Articles for content
 - **Learning Path** sequences the steps
 
@@ -95,7 +95,7 @@ mindfulness_101/
   # Atomic Kus
   ku_breath.yaml
   ku_attention.yaml
-  # Articles (teaching compositions)
+  # Articles (units for learning)
   article_breath-awareness-basics.yaml
   article_posture-basics.yaml
   article_mind-wandering-happens.yaml

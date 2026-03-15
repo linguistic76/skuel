@@ -116,7 +116,6 @@ if TYPE_CHECKING:
     )
     from core.services.admin_stats_service import AdminStatsService
     from core.services.analytics_service import AnalyticsService
-    from core.services.lesson_service import LessonService
     from core.services.askesis_ai_service import AskesisAIService
     from core.services.background.embedding_worker import EmbeddingBackgroundWorker
     from core.services.background.progress_report_worker import ProgressReportWorker
@@ -134,6 +133,7 @@ if TYPE_CHECKING:
     from core.services.insight.insight_store import InsightStore
     from core.services.jupyter_neo4j_sync import JupyterNeo4jSync
     from core.services.ku_service import KuService
+    from core.services.lesson_service import LessonService
     from core.services.lp_service import LpService
     from core.services.ls_service import LsService
     from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
@@ -236,7 +236,7 @@ class Services:
     # ========================================================================
     # CURRICULUM DOMAINS (3) - KU, LS, LP
     # ========================================================================
-    lesson: "LessonService | None" = None  # LessonService (teaching compositions)
+    lesson: "LessonService | None" = None  # LessonService (units for learning)
     ku: "KuService | None" = None  # KuService (atomic knowledge units)
     # adaptive_sel removed — absorbed into LessonService.adaptive (February 2026)
     cross_domain: "AdaptiveLpCrossDomainService | None" = None
@@ -619,8 +619,8 @@ def _create_learning_services(
     from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
     from core.models.pathways.learning_path import LearningPath
     from core.models.pathways.learning_step import LearningStep
-    from core.services.lesson_service import LessonService
     from core.services.entity_retrieval import EntityRetrieval
+    from core.services.lesson_service import LessonService
     from core.services.lp_service import LpService  # Intelligence created internally
     from core.services.ls_service import LsService
     from core.services.query_builder import QueryBuilder
@@ -1080,12 +1080,12 @@ async def compose_services(
         # 100% Dynamic Pattern: Instantiate UniversalNeo4jBackend directly at point of use
         # "The plant (models) grows on the lattice (UniversalNeo4jBackend)"
         from adapters.persistence.neo4j.domain_backends import (
-            LessonBackend,
             ChoicesBackend,
             EventsBackend,
             GoalsBackend,
             HabitsBackend,
             KuBackend,
+            LessonBackend,
             PrinciplesBackend,
             SubmissionsBackend,
             TasksBackend,
@@ -1532,13 +1532,13 @@ async def compose_services(
         # Create AI services when LLM/embeddings are available
         # AI services are OPTIONAL - the app functions fully without them
         if llm_service and embeddings_service:
-            from core.services.lesson.lesson_ai_service import LessonAIService
             from core.services.askesis_ai_service import AskesisAIService
             from core.services.choices.choices_ai_service import ChoicesAIService
             from core.services.context_aware_ai_service import ContextAwareAIService
             from core.services.events.events_ai_service import EventsAIService
             from core.services.goals.goals_ai_service import GoalsAIService
             from core.services.habits.habits_ai_service import HabitsAIService
+            from core.services.lesson.lesson_ai_service import LessonAIService
             from core.services.lp.lp_ai_service import LpAIService
             from core.services.ls.ls_ai_service import LsAIService
             from core.services.principles.principles_ai_service import PrinciplesAIService

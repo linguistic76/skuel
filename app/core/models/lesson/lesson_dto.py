@@ -1,10 +1,10 @@
 """
-LessonDTO - Teaching Composition DTO (Tier 2 - Transfer)
-=========================================================
+LessonDTO - Learning Unit DTO (Tier 2 - Transfer)
+===================================================
 
-Mutable DTO for teaching composition entities (EntityType.LESSON).
+Mutable DTO for learning unit entities (EntityType.LESSON).
 Inherits all 39 fields from CurriculumDTO — no additional fields needed.
-The Lesson is the narrative curriculum entity: composed teaching content.
+The Lesson is the primary curriculum entity: a unit for learning.
 
 Hierarchy:
     EntityDTO (~18 common fields)
@@ -24,10 +24,10 @@ from core.models.curriculum_dto import CurriculumDTO
 
 @dataclass
 class LessonDTO(CurriculumDTO):
-    """Mutable DTO for teaching composition entities (EntityType.LESSON).
+    """Mutable DTO for learning unit entities (EntityType.LESSON).
 
     All 39 fields inherited from CurriculumDTO. No additional fields needed —
-    the Lesson inherits the full curriculum field set for narrative content.
+    the Lesson inherits the full curriculum field set for learning content.
     """
 
     pass

@@ -39,7 +39,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-from core.models.lesson.lesson import Lesson
 from core.models.choice.choice import Choice
 from core.models.entity import Entity
 from core.models.event.event import Event
@@ -47,6 +46,7 @@ from core.models.exercises.exercise import Exercise
 from core.models.goal.goal import Goal
 from core.models.habit.habit import Habit
 from core.models.ku.ku import Ku
+from core.models.lesson.lesson import Lesson
 from core.models.pathways.learning_path import LearningPath
 from core.models.principle.principle import Principle
 from core.models.relationship_names import RelationshipName
@@ -646,7 +646,7 @@ class PrinciplesBackend(UniversalNeo4jBackend[Principle]):
 
 class LessonBackend(UniversalNeo4jBackend[Lesson]):
     """
-    Domain backend for Lesson (teaching composition) entities.
+    Domain backend for Lesson (unit for learning) entities.
 
     Extends UniversalNeo4jBackend[Lesson] with explicit implementations of
     ORGANIZES relationship operations previously handled by QueryExecutor
@@ -834,9 +834,7 @@ class LessonBackend(UniversalNeo4jBackend[Lesson]):
                 records = await result.data()
             if not records:
                 return Result.fail(
-                    Errors.not_found(
-                        resource="Lesson or Ku", identifier=f"{lesson_uid} / {ku_uid}"
-                    )
+                    Errors.not_found(resource="Lesson or Ku", identifier=f"{lesson_uid} / {ku_uid}")
                 )
             return Result.ok(True)
         except Exception as e:

@@ -1,9 +1,9 @@
 """
-Lesson - Teaching Composition (Curriculum Leaf Class)
+Lesson - A Unit for Learning (Curriculum Leaf Class)
 =====================================================
 
-A Lesson is a teaching composition — essay-like narrative content that
-composes atomic knowledge units into a coherent educational artifact.
+A Lesson is a unit for learning — content that composes atomic knowledge
+units into coherent learning material.
 
 Part of the 4-part educational loop:
     Lesson → Exercise → Submission → Report
@@ -13,10 +13,10 @@ Hierarchy:
     └── Curriculum(Entity) +21 fields  ← BASE CLASS
         └── Lesson(Curriculum)         ← EntityType.LESSON (this file)
 
-Grouping patterns (Lesson is the point, LS is the edge, LP is the path):
-    Lesson  → teaching composition (narrative content)
-    LS      → a step in a learning path (ordered sequence of Lessons)
-    LP      → a learning path (ordered sequence of steps)
+Grouping patterns (Lesson is the unit, LS is the collection, LP is the path):
+    Lesson  → a unit for learning (composes Kus)
+    LS      → a collection of lessons
+    LP      → an ordered sequence of lesson collections
 
 See: /docs/architecture/CURRICULUM_GROUPING_PATTERNS.md
 See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
@@ -29,9 +29,9 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from core.models.lesson.lesson_dto import LessonDTO
     from core.models.curriculum_dto import CurriculumDTO
     from core.models.entity_dto import EntityDTO
+    from core.models.lesson.lesson_dto import LessonDTO
 
 from core.models.curriculum import Curriculum
 from core.models.enums.entity_enums import EntityType
@@ -40,14 +40,14 @@ from core.models.enums.entity_enums import EntityType
 @dataclass(frozen=True)
 class Lesson(Curriculum):
     """
-    Teaching Composition — essay-like narrative content for SKUEL's curriculum.
+    A Unit for Learning — SKUEL's primary curriculum content entity.
 
     A Lesson composes atomic Kus (concepts, states, principles) into coherent
-    narrative. It is the main content unit in the curriculum hierarchy — it can
-    organize other Lessons via ORGANIZES relationships (emergent MOC identity).
+    learning content. It is the main content unit in the curriculum hierarchy —
+    it can organize other Lessons via ORGANIZES relationships (emergent MOC identity).
 
     The 4-part educational loop:
-        Lesson (teaching composition) → Exercise (instruction template)
+        Lesson (unit for learning) → Exercise (instruction template)
           → Submission (student work) → SubmissionReport (teacher/AI response)
 
     See: /docs/architecture/CURRICULUM_GROUPING_PATTERNS.md

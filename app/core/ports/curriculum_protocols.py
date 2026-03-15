@@ -85,8 +85,8 @@ from .base_protocols import BackendOperations, GraphRelationshipOperations
 if TYPE_CHECKING:
     from datetime import date
 
-    from core.models.lesson.lesson import Lesson
     from core.models.exercises.exercise import Exercise
+    from core.models.lesson.lesson import Lesson
     from core.models.pathways.learning_path import LearningPath
     from core.models.pathways.learning_step import LearningStep
     from core.utils.result_simplified import Result
@@ -295,7 +295,7 @@ class KuInteractionOperations(Protocol):
 @runtime_checkable
 class LessonOperations(CurriculumOperations["Lesson"], Protocol):
     """
-    Lesson (teaching composition) specific operations.
+    Lesson (unit for learning) specific operations.
 
     Extends CurriculumOperations with Lesson-specific methods for:
     - Semantic relationships

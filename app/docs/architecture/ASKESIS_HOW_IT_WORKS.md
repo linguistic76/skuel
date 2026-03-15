@@ -99,7 +99,7 @@ This is where the Socratic pipeline begins. `ContextRetriever.load_ls_bundle()` 
 LSBundle (frozen, loaded once per question)
 ├── LearningStep        — the step itself (title, intent, mastery threshold)
 ├── LearningPath        — the parent path
-├── Lessons            — teaching compositions linked to this step
+├── Lessons            — units for learning linked to this step
 ├── KUs                 — atomic knowledge units trained by this step
 ├── Resources           — reference material (books, talks, films) cited by Articles/KUs
 ├── Habits              — practice habits linked to this step

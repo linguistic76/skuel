@@ -1,44 +1,44 @@
-# Article Sub-Services Architecture
+# Lesson Sub-Services Architecture
 
-This directory contains modular sub-services for Article (teaching composition) operations following the **Facade Pattern**.
+This directory contains modular sub-services for Lesson (unit for learning) operations following the **Facade Pattern**.
 
 ## Architecture Overview
 
 ```
 /core/services/
-├── article/                                # Domain sub-services (THIS DIRECTORY)
-│   ├── article_core_service.py             # CRUD operations
-│   ├── article_search_service.py           # Search and discovery
-│   ├── article_graph_service.py            # Graph traversal, prerequisites
-│   ├── article_semantic_service.py         # Semantic relationships
-│   ├── article_mastery_service.py          # Pedagogical state tracking
-│   ├── article_practice_service.py         # Event-driven practice tracking
-│   ├── article_ai_service.py              # Optional AI features
-│   ├── article_adaptive_service.py        # Adaptive learning recommendations
-│   ├── article_organization_service.py    # ORGANIZES relationships (MOC pattern)
-│   └── article_relationship_helpers.py    # Relationship filtering utilities
+├── lesson/                                # Domain sub-services (THIS DIRECTORY)
+│   ├── lesson_core_service.py             # CRUD operations
+│   ├── lesson_search_service.py           # Search and discovery
+│   ├── lesson_graph_service.py            # Graph traversal, prerequisites
+│   ├── lesson_semantic_service.py         # Semantic relationships
+│   ├── lesson_mastery_service.py          # Pedagogical state tracking
+│   ├── lesson_practice_service.py         # Event-driven practice tracking
+│   ├── lesson_ai_service.py              # Optional AI features
+│   ├── lesson_adaptive_service.py        # Adaptive learning recommendations
+│   ├── lesson_organization_service.py    # ORGANIZES relationships (MOC pattern)
+│   └── lesson_relationship_helpers.py    # Relationship filtering utilities
 │
-├── article_service.py                      # PUBLIC FACADE
-│                                           # → Delegates to sub-services above
+├── lesson_service.py                      # PUBLIC FACADE
+│                                          # → Delegates to sub-services above
 │
 └── Utilities (injected dependencies):
     ├── analytics_engine.py                # Advanced learning analytics
     ├── insight_generation_service.py      # AI knowledge generation
-    ├── article_intelligence_service.py    # BaseAnalyticsService extension
+    ├── lesson_intelligence_service.py     # BaseAnalyticsService extension
     ├── entity_retrieval.py                # Vector search + graph retrieval
     ├── advanced_inference_engine.py       # Sophisticated inference
     ├── entity_chunking_service.py         # Content chunking for RAG
     └── entity_inference_service.py        # Knowledge inference algorithms
 ```
 
-## Core Sub-Services (Used by ArticleService facade)
+## Core Sub-Services (Used by LessonService facade)
 
-### 1. `article_core_service.py` - CRUD Operations
+### 1. `lesson_core_service.py` - CRUD Operations
 **Responsibilities:**
-- Create Articles with content and chunking
-- Read Articles with content
-- Update Articles and re-chunk content
-- Delete Articles and cleanup
+- Create Lessons with content and chunking
+- Read Lessons with content
+- Update Lessons and re-chunk content
+- Delete Lessons and cleanup
 - Status transitions (publish, archive)
 - Content analysis integration
 
@@ -49,7 +49,7 @@ This directory contains modular sub-services for Article (teaching composition) 
 
 ---
 
-### 2. `article_search_service.py` - Search and Discovery
+### 2. `lesson_search_service.py` - Search and Discovery
 **Responsibilities:**
 - Template-based search queries
 - User context-aware search
@@ -68,7 +68,7 @@ This directory contains modular sub-services for Article (teaching composition) 
 
 ---
 
-### 3. `article_graph_service.py` - Graph Navigation
+### 3. `lesson_graph_service.py` - Graph Navigation
 **Responsibilities:**
 - Prerequisite chain discovery
 - Next steps recommendations
@@ -82,7 +82,7 @@ This directory contains modular sub-services for Article (teaching composition) 
 
 **Methods:**
 - `find_prerequisites()`, `find_next_steps()`
-- `get_article_with_context()`, `link_prerequisite()`
+- `get_lesson_with_context()`, `link_prerequisite()`
 - `link_parent_child()`, `get_prerequisite_chain()`
 - `analyze_knowledge_gaps()`, `get_learning_recommendations()`
 - `get_ready_to_learn_for_user()`, `get_learning_gaps_for_user()`
@@ -90,7 +90,7 @@ This directory contains modular sub-services for Article (teaching composition) 
 
 ---
 
-### 4. `article_semantic_service.py` - Semantic Relationships
+### 4. `lesson_semantic_service.py` - Semantic Relationships
 **Responsibilities:**
 - Semantic relationship creation and management
 - Cross-domain knowledge bridges
@@ -105,10 +105,10 @@ This directory contains modular sub-services for Article (teaching composition) 
 
 ---
 
-### 5. `article_mastery_service.py` - Pedagogical State Tracking
+### 5. `lesson_mastery_service.py` - Pedagogical State Tracking
 **Responsibilities:**
 - Track user learning state progression
-- Record when user views Article content
+- Record when user views Lesson content
 - Track in-progress learning state
 - Support pedagogical search filters
 
@@ -123,9 +123,9 @@ NONE -> VIEWED -> IN_PROGRESS -> MASTERED
 
 ---
 
-### 6. `article_practice_service.py` - Event-Driven Practice Tracking
+### 6. `lesson_practice_service.py` - Event-Driven Practice Tracking
 **Responsibilities:**
-- Track Article practice via event completion
+- Track Lesson practice via event completion
 - Update practice counts and timestamps
 - Publish KnowledgePracticed events
 
@@ -141,9 +141,9 @@ NONE -> VIEWED -> IN_PROGRESS -> MASTERED
 
 ---
 
-### 7. `article_ai_service.py` - Optional AI Features
+### 7. `lesson_ai_service.py` - Optional AI Features
 **Responsibilities:**
-- Semantic knowledge search (find related Articles by meaning)
+- Semantic knowledge search (find related Lessons by meaning)
 - AI-generated content summaries
 - Concept explanation at different levels
 - Learning path suggestions
@@ -153,11 +153,11 @@ NONE -> VIEWED -> IN_PROGRESS -> MASTERED
 - OPTIONAL - app functions fully without it
 - Enhancement layer, not core functionality
 
-**Note:** Article is a Curriculum domain - content is SHARED (no user_uid ownership).
+**Note:** Lesson is a Curriculum domain - content is SHARED (no user_uid ownership).
 
 ---
 
-### 8. `article_adaptive_service.py` - Adaptive Learning
+### 8. `lesson_adaptive_service.py` - Adaptive Learning
 **Responsibilities:**
 - Personalised curriculum delivery
 - SEL category-based recommendations
@@ -166,9 +166,9 @@ NONE -> VIEWED -> IN_PROGRESS -> MASTERED
 
 ---
 
-### 9. `article_organization_service.py` - Non-linear Navigation (MOC)
+### 9. `lesson_organization_service.py` - Non-linear Navigation (MOC)
 **Responsibilities:**
-- ORGANIZES relationships between Articles
+- ORGANIZES relationships between Lessons
 - Multiple parents supported
 - Order and importance metadata on edges
 - Root organizer discovery
@@ -179,7 +179,7 @@ NONE -> VIEWED -> IN_PROGRESS -> MASTERED
 
 ---
 
-### 10. `article_relationship_helpers.py` - Relationship Filtering Utilities
+### 10. `lesson_relationship_helpers.py` - Relationship Filtering Utilities
 **Responsibilities:**
 - Confidence filtering for prerequisite chains
 - Strength-based relationship filtering
@@ -190,14 +190,14 @@ NONE -> VIEWED -> IN_PROGRESS -> MASTERED
 
 ## Public API
 
-### For External Code: Use `ArticleService` Facade
+### For External Code: Use `LessonService` Facade
 
 ```python
-from core.services.article_service import ArticleService
+from core.services.lesson_service import LessonService
 
-# ArticleService delegates to all sub-services automatically
-article_service = ArticleService(
-    repo=article_backend,
+# LessonService delegates to all sub-services automatically
+lesson_service = LessonService(
+    repo=lesson_backend,
     content_repo=content_backend,
     intelligence_service=intelligence,
     chunking_service=chunking,
@@ -207,19 +207,19 @@ article_service = ArticleService(
 )
 
 # Use facade methods - they delegate to appropriate sub-service
-await article_service.create(...)              # → ArticleCoreService.create()
-await article_service.search_by_tags(...)      # → ArticleSearchService.search_by_tags()
-await article_service.find_prerequisites(...)  # → ArticleGraphService.find_prerequisites()
+await lesson_service.create(...)              # → LessonCoreService.create()
+await lesson_service.search_by_tags(...)      # → LessonSearchService.search_by_tags()
+await lesson_service.find_prerequisites(...)  # → LessonGraphService.find_prerequisites()
 ```
 
 ### For Internal Implementation: Use Sub-Services Directly
 
 ```python
-from core.services.article.article_core_service import ArticleCoreService
+from core.services.lesson.lesson_core_service import LessonCoreService
 
 # Direct usage for focused responsibilities
-core_service = ArticleCoreService(
-    repo=article_backend,
+core_service = LessonCoreService(
+    repo=lesson_backend,
     content_repo=content_backend,
     intelligence=intelligence,
     chunking=chunking
@@ -233,21 +233,21 @@ await core_service.create(title="...", body="...")
 ## Design Patterns Used
 
 ### 1. Facade Pattern
-`ArticleService` provides a unified interface while delegating to specialized sub-services.
+`LessonService` provides a unified interface while delegating to specialized sub-services.
 
 ### 2. Dependency Injection
 Utilities are injected into services, not directly imported.
 
 ### 3. Protocol-Based Interfaces
-All backends use protocol interfaces (e.g., `ArticleOperations`).
+All backends use protocol interfaces (e.g., `LessonOperations`).
 
 ### 4. Two-Tier Intelligence (ADR-030)
 Separation of graph analytics from AI features.
 
 | Layer | Service | Dependencies |
 |-------|---------|--------------|
-| Analytics | `article_intelligence_service.py` | Graph + Python (NO AI) |
-| AI | `article_ai_service.py` | LLM + Embeddings (optional) |
+| Analytics | `lesson_intelligence_service.py` | Graph + Python (NO AI) |
+| AI | `lesson_ai_service.py` | LLM + Embeddings (optional) |
 
 ---
 
@@ -255,7 +255,7 @@ Separation of graph analytics from AI features.
 
 | Domain | Directory | Facade | Sub-Services |
 |--------|-----------|--------|--------------|
-| **Article** | `/article/` | `article_service.py` | 10 sub-services |
+| **Lesson** | `/lesson/` | `lesson_service.py` | 10 sub-services |
 | **KU** | `/ku/` | `ku_service.py` | 2 sub-services |
 | **Goals** | `/goals/` | `goals_service.py` | 9 sub-services |
 | **Habits** | `/habits/` | `habits_service.py` | 8 sub-services |
@@ -266,6 +266,6 @@ Separation of graph analytics from AI features.
 
 - **CLAUDE.md**: Project architectural patterns and conventions
 - **Protocol definitions**: `/core/ports/curriculum_protocols.py`
-- **Domain models**: `/core/models/article/article.py`, `/core/models/article/article_dto.py`
+- **Domain models**: `/core/models/lesson/lesson.py`, `/core/models/lesson/lesson_dto.py`
 - **Bootstrap**: `/services_bootstrap.py` (composition root)
 - **ADR-030**: Intelligence services architecture (graph analytics vs AI)

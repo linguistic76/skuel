@@ -40,8 +40,8 @@ Type safety doesn't restrict - it **channels energy** so it flows and feeds back
 | Pattern | UID Format | Grouping Style | Topology | Metaphor |
 |---------|------------|----------------|----------|----------|
 | **KU** | `ku_{slug}_{random}` | Atomic unit | Point | A single brick |
-| **LS** | `ls:{random}` | Sequential step | Edge | A step in a staircase |
-| **LP** | `lp:{random}` | Linear sequence | Path | The full staircase |
+| **LS** | `ls:{random}` | Collection | Collection | A collection of lessons |
+| **LP** | `lp:{random}` | Linear sequence | Path | An ordered sequence of lesson collections |
 
 **Note:** MOC uses the `ku_{slug}_{random}` format since MOC IS a Ku with ORGANIZES relationships — no separate UID prefix needed.
 
@@ -102,15 +102,15 @@ content: |
 
 ---
 
-### LS (Learning Step) - The Sequential Step
+### LS (Learning Step) - A Collection of Lessons
 
-**What it is:** A single step in a learning journey that may aggregate multiple KUs.
+**What it is:** A collection of lessons that forms a step in a learning path.
 
 **Characteristics:**
+- Aggregates multiple lessons into a coherent collection
 - Has a specific order within a path
 - Can require mastery threshold
 - May include practice activities
-- Bridges KUs into a sequence
 
 **Example:**
 ```yaml
@@ -123,7 +123,7 @@ knowledge_units:
 mastery_threshold: 0.8
 ```
 
-**Graph Role:** LS is the edge - connecting KUs into a directed sequence.
+**Graph Role:** LS is the collection - grouping lessons into a directed sequence.
 
 ---
 

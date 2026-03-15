@@ -20,7 +20,7 @@ Each phase builds on the last. You never just consume content — you engage wit
 
 ### Phase 1: Lesson — The Knowledge
 
-Lessons are teaching compositions written by teachers. They present ideas, concepts, and narratives that form the foundation of what you'll practice. Each Lesson composes one or more atomic knowledge units (Kus) into a readable narrative.
+Lessons are units for learning written by teachers. They present ideas, concepts, and narratives that form the foundation of what you'll practice. Each Lesson composes one or more atomic knowledge units (Kus) into coherent learning content.
 
 You don't need to memorize Lessons. You need to *engage* with them — and that engagement happens in the next phase.
 

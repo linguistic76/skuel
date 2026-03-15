@@ -1,6 +1,6 @@
 # Curriculum Domains Skill
 
-> Use when building features for Lesson (teaching compositions), KU (atomic knowledge units), LS (Learning Steps), LP (Learning Paths), or MOC (Maps of Content).
+> Use when building features for Lesson (units for learning), KU (atomic knowledge units), LS (Learning Steps), LP (Learning Paths), or MOC (Maps of Content).
 
 ## When to Use This Skill
 
@@ -17,12 +17,12 @@ Four structural patterns for organizing knowledge:
 
 | Domain | UID Format | Topology | Purpose | Sub-services | Factory |
 |--------|-----------|----------|---------|--------------|---------|
-| **Lesson** | `l_{slug}_{random}` | Composition | Teaching narrative (composes Kus) | 10 | Specialized (`create_lesson_sub_services`) |
+| **Lesson** | `l_{slug}_{random}` | Unit | A unit for learning (composes Kus) | 10 | Specialized (`create_lesson_sub_services`) |
 | **KU** | `ku_{slug}_{random}` | Atom | Atomic knowledge unit (concept, principle, practice) | 4 | Generic (`create_curriculum_sub_services`) |
-| **LS** | `ls:{random}` | Edge | Sequential learning steps | 4 | Generic (`create_curriculum_sub_services`) |
+| **LS** | `ls:{random}` | Collection | Collections of lessons | 4 | Generic (`create_curriculum_sub_services`) |
 | **LP** | `lp:{random}` | Path | Complete learning sequences | 5 | Specialized (`create_lp_sub_services`) |
 
-**Composition:** `(Lesson)-[:USES_KU]->(Ku)` — Lessons compose atomic Kus into narrative. `(Ls)-[:TRAINS_KU]->(Ku)` — Learning steps train specific Kus.
+**Composition:** `(Lesson)-[:USES_KU]->(Ku)` — Lessons compose atomic Kus into coherent learning content. `(Ls)-[:TRAINS_KU]->(Ku)` — Learning steps train specific Kus.
 
 **Note on MOC:** MOC (Map of Content) is NOT a separate domain or EntityType. Any Entity with outgoing `ORGANIZES` relationships IS an organizer. This emergent identity is managed via `LessonOrganizationService` — a sub-service of `LessonService`. See `core/services/lesson/lesson_organization_service.py`.
 

@@ -3,12 +3,12 @@
 # This is a TEMPLATE EXAMPLE, not a validation schema.
 # It shows ALL valid fields for Article YAML files.
 #
-# An Article is a teaching composition -- an essay-like narrative that
-# explains, teaches, and connects concepts. Articles compose atomic Kus
-# into coherent teaching narratives via USES_KU relationships.
+# An Article is a unit for learning -- content that composes concepts
+# into coherent learning material. Articles compose atomic Kus
+# into coherent learning content via USES_KU relationships.
 #
 # Article vs Ku:
-#   - Article: teaching composition (full markdown, learning metadata)
+#   - Article: unit for learning (full markdown, learning metadata)
 #   - Ku: atomic reference node (no content body, no learning metadata)
 #
 # Purpose: Use this as a reference when creating teaching content.

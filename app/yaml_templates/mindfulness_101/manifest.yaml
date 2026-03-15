@@ -24,9 +24,9 @@ kus:
     file: ku_attention.yaml
     title: Attention
 
-# Articles (teaching compositions)
+# Articles (units for learning)
 # ==================================
-# Essay-like narratives that compose Kus into teaching content
+# Units for learning that compose Kus into coherent content
 articles:
   - uid: a:mindfulness:breath-awareness-basics
     file: article_breath-awareness-basics.yaml

@@ -29,11 +29,11 @@ SKUEL is a **knowledge-centric productivity platform** where every operation con
 | Event | Time commitment to keep | User-owned |
 | Choice | Decision to make | User-owned |
 | Principle | Value to embody | User-owned |
-| Lesson | Teaching composition (essay-like narrative) | Admin-created, shared |
+| Lesson | A unit for learning | Admin-created, shared |
 | Ku | Atomic knowledge unit (concept, principle, substance) | Admin-created, shared |
 | Resource | Curated content (books, talks, films) | Admin-created, shared |
-| LearningStep | Step in a learning path | Admin-created, shared |
-| LearningPath | Ordered sequence of steps | Admin-created, shared |
+| LearningStep | A collection of lessons | Admin-created, shared |
+| LearningPath | An ordered sequence of lesson collections | Admin-created, shared |
 | Exercise | Instruction template for practicing curriculum | Admin-created, shared |
 | FormTemplate | Reusable form definition (embeddable in Lessons) | Admin-created, shared |
 | FormSubmission | User response to a FormTemplate | User-owned |

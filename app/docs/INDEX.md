@@ -61,7 +61,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [Principles](domains/principles.md) | Values that guide goals and choices |
 | [Finance](domains/finance.md) | Expense and budget tracking (admin-only) |
 | [KU (Knowledge Unit)](domains/ku.md) | Atomic knowledge unit (point topology) |
-| [LS (Learning Step)](domains/ls.md) | Sequential steps aggregating KUs (edge topology) |
+| [LS (Learning Step)](domains/ls.md) | Collections of lessons (collection topology) |
 | [LP (Learning Path)](domains/lp.md) | Complete learning sequences (path topology) |
 | [Submissions + Feedback](domains/submissions.md) | Article→Exercise→Submission→Feedback→RevisedExercise learning loop |
 | [Journals](domains/journals.md) | User journals (EntityType.JOURNAL, AI-processed) |

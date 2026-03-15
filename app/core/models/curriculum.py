@@ -5,7 +5,7 @@ Curriculum - Curriculum Domain Base Class
 Frozen dataclass base for all curriculum-carrying entities. This is a BASE CLASS
 only — it does NOT represent a concrete entity type. Concrete leaf classes are:
 
-    Lesson(Curriculum)       → EntityType.LESSON        — teaching composition
+    Lesson(Curriculum)       → EntityType.LESSON        — a unit for learning
     LearningStep(Curriculum) → EntityType.LEARNING_STEP
     LearningPath(Curriculum) → EntityType.LEARNING_PATH
     Exercise(Curriculum)     → EntityType.EXERCISE

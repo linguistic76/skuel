@@ -1,6 +1,6 @@
 # Article Example
 # ===============
-# A teaching composition that explains concepts through narrative.
+# A unit for learning that composes concepts into coherent content.
 # See _schemas/article_template.yaml for full field reference.
 
 version: 1.0
@@ -11,8 +11,8 @@ title: Template Article
 content: |
   ## Introduction
 
-  This is a placeholder teaching article. Articles are essay-like narratives
-  that compose atomic Kus into coherent lessons.
+  This is a placeholder article. Articles are units for learning
+  that compose atomic Kus into coherent content.
 
   ## Key Concepts
 

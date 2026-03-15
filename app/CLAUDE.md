@@ -26,9 +26,9 @@ When working in a file or area of the codebase, address problems you encounter �
 
 `Entity` is the base frozen dataclass for all 19 domain types. The `entity_type` field discriminates which kind of entity it is. The `parent_entity_uid` field tracks derivation chains.
 
-- **Lesson** (`EntityType.LESSON`, extends `Curriculum`) — essay-like teaching composition. Services in `core/services/lesson/`.
+- **Lesson** (`EntityType.LESSON`, extends `Curriculum`) — a unit for learning. Services in `core/services/lesson/`.
 - **Ku** (`EntityType.KU`, extends `Entity`) — atomic knowledge unit. Lightweight ontology/reference node. Services in `core/services/ku/`.
-- **Composition:** `(Lesson)-[:USES_KU]->(Ku)` — Lessons compose atomic Kus into narrative.
+- **Composition:** `(Lesson)-[:USES_KU]->(Ku)` — Lessons compose atomic Kus into coherent learning content.
 - **Learning loop:** Lesson -> Exercise -> ExerciseSubmission -> ExerciseReport -> RevisedExercise -> ...
 
 ## Naming Conventions
@@ -123,11 +123,11 @@ SKUEL separates runtime into two layers. The **Analog layer** (graph structure, 
 | FormTemplate | General-purpose form definition | `ft_{slug}_{random}` | Admin-created, shared |
 | FormSubmission | User response to a FormTemplate | `fs_{slug}_{random}` | User-owned |
 | Finance | Admin-only bookkeeping | `expense_{random}` | Admin-only |
-| Lesson | Teaching composition (essay-like) | `l_{slug}_{random}` | Admin-created, shared |
+| Lesson | A unit for learning | `l_{slug}_{random}` | Admin-created, shared |
 | Ku | Atomic knowledge unit | `ku_{slug}_{random}` | Admin-created, shared |
 | Resource | Curated content (books, talks, films) | N/A | Admin-created, shared |
-| LearningStep | Step in a learning path | `ls:{random}` | Admin-created, shared |
-| LearningPath | Ordered sequence of steps | `lp:{random}` | Admin-created, shared |
+| LearningStep | A collection of lessons | `ls:{random}` | Admin-created, shared |
+| LearningPath | An ordered sequence of lesson collections | `lp:{random}` | Admin-created, shared |
 | Exercise | Instruction template for practicing curriculum | N/A | Admin-created, shared |
 | RevisedExercise | Targeted revision instructions after feedback | `re_{slug}_{random}` | Teacher-owned |
 | ExerciseSubmission | Student work submitted against an Exercise | `es_{slug}_{random}` | User-owned |
@@ -586,9 +586,9 @@ One-way pipeline: Markdown/YAML -> Neo4j. Dry-run mode, incremental ingestion, i
 | Pattern | UID Format | Topology | Metaphor |
 |---------|-----------|----------|----------|
 | Ku | `ku_{slug}_{random}` | Atom | A single concept/fact |
-| Lesson | `l_{slug}_{random}` | Composition | A teaching narrative (composes Kus) |
-| LS | `ls:{random}` | Edge | A step in a staircase |
-| LP | `lp:{random}` | Path | The full staircase |
+| Lesson | `l_{slug}_{random}` | Unit | A unit for learning (composes Kus) |
+| LS | `ls:{random}` | Collection | A collection of lessons |
+| LP | `lp:{random}` | Path | An ordered sequence of lesson collections |
 
 **Two Paths to Knowledge:** LS Path (structured, linear) and ORGANIZES Path (unstructured, graph, learner-directed). MOC is emergent identity — any Entity with ORGANIZES relationships.
 

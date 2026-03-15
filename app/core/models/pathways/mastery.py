@@ -3,7 +3,7 @@ Mastery & Learning Intelligence Models
 =======================================
 
 Persistent entities for learning intelligence across the curriculum domain.
-Mastery applies to both Lessons (teaching compositions) and atomic Kus
+Mastery applies to both Lessons (units for learning) and atomic Kus
 (reference nodes) — the class names are entity-agnostic by design.
 
 See: /docs/architecture/FOUR_PHASED_LEARNING_LOOP.md

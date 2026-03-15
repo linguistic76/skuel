@@ -101,7 +101,7 @@ Note the UID normalization: colons in YAML (`ku:mindfulness:breath`) become dots
 
 ## The Composition — Article
 
-An Article is a teaching narrative. Where a Ku names a single concept, an Article weaves multiple Kus into a readable composition with full markdown content. Articles are the "textbook pages" of SKUEL.
+An Article is a unit for learning. Where a Ku names a single concept, an Article weaves multiple Kus into coherent learning content with full markdown. Articles are the "textbook pages" of SKUEL.
 
 ### uses_kus — Composing Atoms
 
@@ -155,7 +155,7 @@ tags:
   - foundational
 ```
 
-**Python** — `Article` extends `Curriculum`, which extends `Entity`. The `Curriculum` base adds ~21 fields including `content`, `complexity`, `domain`, and `quality_score`. Article adds no extra fields — Curriculum provides everything a teaching composition needs.
+**Python** — `Article` extends `Curriculum`, which extends `Entity`. The `Curriculum` base adds ~21 fields including `content`, `complexity`, `domain`, and `quality_score`. Article adds no extra fields — Curriculum provides everything a unit for learning needs.
 
 **How flattening works:** The preparer extracts the nested `connections` dict and flattens it to dotted keys:
 

@@ -28,7 +28,7 @@ def StudyDashboardView(context: UserContext) -> Div:
                 cls="text-base font-semibold text-foreground/80 mb-4",
             ),
             Div(
-                _discovery_link("Lessons", "/lessons", "Browse teaching content"),
+                _discovery_link("Lessons", "/lessons", "Browse learning content"),
                 _discovery_link("Knowledge Units", "/ku", "Explore atomic concepts"),
                 _discovery_link("Learning Paths", "/pathways", "Structured progression"),
                 cls="grid grid-cols-1 md:grid-cols-3 gap-3",

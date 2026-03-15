@@ -16,7 +16,7 @@ from core.models.request_base import CreateRequestBase
 
 
 class LessonCreateRequest(CreateRequestBase):
-    """Create admin-authored lesson (essay-like teaching composition)."""
+    """Create admin-authored lesson (a unit for learning)."""
 
     title: str = Field(min_length=1, max_length=200, description="Title of the lesson")
     domain: Domain = Field(description="Knowledge domain")

@@ -2,7 +2,7 @@
 Lesson Mastery Service - Pedagogical Tracking
 ===============================================
 
-Tracks user mastery transitions for Lessons (teaching compositions).
+Tracks user mastery transitions for Lessons (units for learning).
 
 State Progression:
     NONE -> VIEWED -> IN_PROGRESS -> MASTERED

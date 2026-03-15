@@ -24,7 +24,7 @@ Learning Paths (lp) - sequences toward life goals
     ↑ composed of
 Learning Steps (ls) - curated knowledge + practice bundles
     ↑ built from
-Lessons (teaching compositions, compose atomic Kus)
+Lessons (units for learning, compose atomic Kus)
     ↕ BIDIRECTIONAL enrichment
 Supporting Domains - tasks, events, habits, journals, choices, principles
 ```
@@ -35,7 +35,7 @@ Supporting Domains - tasks, events, habits, journals, choices, principles
 
 ## Bidirectional Relationship: Lesson/KU ↔ Supporting Domains
 
-**Lessons (teaching compositions) and atomic Kus mutually enrich Supporting Domains.** Substance scoring applies to Lessons — the essay-like compositions that users interact with. Atomic Kus (`EntityType.KU`) are lightweight reference nodes composed into Lessons via `USES_KU`.
+**Lessons (units for learning) and atomic Kus mutually enrich Supporting Domains.** Substance scoring applies to Lessons — the learning units that users interact with. Atomic Kus (`EntityType.KU`) are lightweight reference nodes composed into Lessons via `USES_KU`.
 
 ### 1. Forward Direction (Lesson → Supporting)
 - Knowledge guides what tasks to create

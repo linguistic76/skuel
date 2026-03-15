@@ -19,13 +19,13 @@ related_skills:
 **Type:** Curriculum Domain (2 of 4)
 **UID Prefix:** `ls:`
 **Entity Label:** `Ls`
-**Topology:** Edge (sequential step)
+**Topology:** Collection (a collection of lessons)
 
 ## Purpose
 
 **Skill:** [@curriculum-domains](../../.claude/skills/curriculum-domains/SKILL.md)
 
-Learning Steps represent ordered steps within a learning path. They aggregate KUs into a sequential learning experience with practice opportunities (habits, tasks, events).
+Learning Steps are collections of lessons within a learning path. They aggregate lessons into a coherent learning experience with practice opportunities (habits, tasks, events).
 
 ## Service Architecture (ADR-030)
 

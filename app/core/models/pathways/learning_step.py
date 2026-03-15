@@ -1,8 +1,9 @@
 """
-LearningStep - Learning Step Domain Model
+LearningStep - A Collection of Lessons
 =============================================
 
 Frozen dataclass for learning step entities (EntityType.LEARNING_STEP).
+A LearningStep is a collection of lessons that forms a step in a learning path.
 
 Inherits common fields from Entity via Curriculum. Adds 9 learning-step-specific fields:
 - Intent (1): intent
@@ -32,11 +33,11 @@ from core.models.enums.entity_enums import EntityType
 @dataclass(frozen=True)
 class LearningStep(Curriculum):
     """
-    Immutable domain model for learning steps (EntityType.LEARNING_STEP).
+    A collection of lessons (EntityType.LEARNING_STEP).
 
-    Inherits ~50 fields from Curriculum (Entity fields + learning metadata
-    + substance tracking). Adds 9 learning-step-specific fields for intent,
-    knowledge references, path relationship, and mastery tracking.
+    A LearningStep groups related lessons into a coherent collection within
+    a learning path. Inherits ~50 fields from Curriculum. Adds 9 fields for
+    intent, knowledge references, path relationship, and mastery tracking.
     """
 
     def __post_init__(self) -> None:

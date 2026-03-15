@@ -9,7 +9,7 @@
 #
 # Ku vs Article:
 #   - Ku: atomic reference node (no content body, no learning metadata)
-#   - Article: teaching composition (full markdown content, complexity, learning_level)
+#   - Article: unit for learning (full markdown content, complexity, learning_level)
 #
 # Articles compose Kus via USES_KU relationships.
 # Learning Steps train Kus via TRAINS_KU relationships.
@@ -63,7 +63,7 @@ source: self_observation
 
 # description: Brief summary of this Ku
 # Type: String
-# Purpose: Optional brief description (NOT a full teaching narrative -- that's an Article)
+# Purpose: Optional brief description (NOT a full learning unit -- that's an Article)
 description: A brief description of this atomic knowledge unit
 
 # tags: Descriptive tags for categorization
