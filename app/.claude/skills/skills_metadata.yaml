@@ -274,6 +274,24 @@ skills:
     keywords: [prometheus, grafana, metrics, observability, monitoring, alerts]
 
   # ============================================================================
+  # MOBILE / PWA LAYER
+  # ============================================================================
+
+  - name: pwa
+    description: Progressive Web App — service worker, manifest, offline support, caching strategies
+    last_reviewed: "2026-03-16"
+    foundation: [fasthtml]
+    dependencies: []
+    library_package: null  # Web standards, not a package
+    library_version: null
+    primary_docs:
+      - /docs/architecture/PWA_ARCHITECTURE.md
+    related_adrs:
+      - ADR-050  # PWA mobile strategy
+    patterns: []
+    keywords: [pwa, service-worker, manifest, offline, installable, mobile, cache]
+
+  # ============================================================================
   # SECURITY LAYER
   # ============================================================================
 

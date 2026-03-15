@@ -82,13 +82,14 @@ tags: [documentation, index, hub, architecture, patterns]
 
 | ADR | Title | Date |
 |-----|-------|------|
+| [ADR-050](decisions/ADR-050-pwa-mobile-strategy.md) | PWA Mobile Strategy | March 2026 |
 | [ADR-042](decisions/ADR-042-privacy-as-first-class-citizen.md) | Privacy as First-Class Citizen | March 2026 |
 | [ADR-041](decisions/ADR-041-unified-ku-model.md) | Unified Ku Model | February 2026 |
 | [ADR-040](decisions/ADR-040-teacher-assignment-workflow.md) | Teacher Assignment Workflow | February 2026 |
-| [ADR-039](decisions/ADR-039-hyperview-mobile-strategy.md) | Hyperview Mobile Strategy | February 2026 |
+| [ADR-039](decisions/ADR-039-hyperview-mobile-strategy.md) | Hyperview Mobile Strategy *(superseded by ADR-050)* | February 2026 |
 | [ADR-038](decisions/ADR-038-content-sharing-model.md) | Content Sharing Model | February 2026 |
 
-See [decisions/](decisions/) for all 43 ADRs.
+See [decisions/](decisions/) for all 50 ADRs.
 
 ---
 

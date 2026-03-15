@@ -365,7 +365,8 @@ For each documentation category, this section shows which skills are relevant.
 - [ADR-036](/docs/decisions/ADR-036-prometheus-primary-cache-pattern.md) → @prometheus-grafana
 - [ADR-037](/docs/decisions/ADR-037-lateral-relationships-visualization-phase5.md) → @neo4j-cypher-patterns, @vis-network
 - [ADR-038](/docs/decisions/ADR-038-content-sharing-model.md) → @learning-loop, @pytest
-- [ADR-039](/docs/decisions/ADR-039-hyperview-mobile-strategy.md) → @fasthtml
+- [ADR-039](/docs/decisions/ADR-039-hyperview-mobile-strategy.md) → @fasthtml *(superseded by ADR-050)*
+- [ADR-050](/docs/decisions/ADR-050-pwa-mobile-strategy.md) → @fasthtml
 - [ADR-040](/docs/decisions/ADR-040-teacher-assignment-workflow.md) → @learning-loop
 - [ADR-041](/docs/decisions/ADR-041-unified-ku-model.md) → @learning-loop, @neo4j-cypher-patterns
 - [ADR-042](/docs/decisions/ADR-042-privacy-as-first-class-citizen.md) → @learning-loop, @pytest

@@ -94,7 +94,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [Search Architecture - Unified Search System](architecture/SEARCH_ARCHITECTURE.md) | 2026-03-03 | — |
 | [Service Architecture: File Organization & Topology](architecture/SERVICE_TOPOLOGY.md) | 2026-03-03 | — |
 | [User Architecture — Model, Auth, Roles, UserContext](architecture/UNIFIED_USER_ARCHITECTURE.md) | 2026-03-03 | — |
-| **[Hyperview Mobile Strategy](architecture/HYPERVIEW_STRATEGY.md)** | **2026-02-06** | **90** |
+| **[PWA Mobile Strategy](decisions/ADR-050-pwa-mobile-strategy.md)** | **2026-03-16** | **127** |
 | **[How Askesis Works](architecture/ASKESIS_HOW_IT_WORKS.md)** | **2026-03-12** | **Plain-English explanation of both halves: intelligence synthesis + guided RAG pipeline** |
 | [Askesis Architecture](architecture/ASKESIS_ARCHITECTURE.md) | 2025-11-27 | — |
 | [Askesis Pedagogical Architecture](architecture/ASKESIS_PEDAGOGICAL_ARCHITECTURE.md) | 2026-03-05 | ZPD-aware Socratic companion vision — how Askesis teaches, not how it is built |
@@ -216,7 +216,8 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [ADR-036: Prometheus Primary Cache Pattern](decisions/ADR-036-prometheus-primary-cache-pattern.md) | 2026-01-31 | 230 |
 | **[ADR-037: Lateral Relationships Visualization (Phase 5)](decisions/ADR-037-lateral-relationships-visualization-phase5.md)** | **2026-02-01** | **1330** |
 | **[ADR-038: Content Sharing Model](decisions/ADR-038-content-sharing-model.md)** | **2026-02-02** | **480** |
-| **[ADR-039: Hyperview Mobile Strategy](decisions/ADR-039-hyperview-mobile-strategy.md)** | **2026-02-06** | **130** |
+| **[ADR-039: Hyperview Mobile Strategy](decisions/ADR-039-hyperview-mobile-strategy.md)** | **2026-02-06** | **130** | *(superseded by ADR-050)* |
+| **[ADR-050: PWA Mobile Strategy](decisions/ADR-050-pwa-mobile-strategy.md)** | **2026-03-16** | **127** |
 | **[ADR-040: Teacher Assignment Workflow](decisions/ADR-040-teacher-assignment-workflow.md)** | **2026-02-06** | **102** |
 | **[ADR-041: Unified Ku Model](decisions/ADR-041-unified-ku-model.md)** | **2026-02-14** | **—** |
 | **[ADR-042: Privacy as First-Class Citizen](decisions/ADR-042-privacy-as-first-class-citizen.md)** | **2026-03-01** | **—** |

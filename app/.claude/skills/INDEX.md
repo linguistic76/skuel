@@ -88,6 +88,12 @@ updated: 2026-02-01
 |-------|---------|------------|
 | [prometheus-grafana](prometheus-grafana/SKILL.md) | Metrics collection & visualization | python, result-pattern |
 
+### Mobile / PWA
+
+| Skill | Purpose | Foundation |
+|-------|---------|------------|
+| [pwa](pwa/SKILL.md) | Service worker, manifest, offline, caching | fasthtml |
+
 ### Visualization
 
 | Skill | Purpose | Foundation |
@@ -117,6 +123,7 @@ updated: 2026-02-01
 | monsterui | 3 | MonsterUI FastHTML components |
 | neo4j-cypher-patterns | 3 | Cypher query patterns for graph database |
 | prometheus-grafana | 4 | Prometheus metrics + Grafana dashboards |
+| pwa | 1 | Progressive Web App (service worker, manifest, offline) |
 | pydantic | 3 | Pydantic validation & three-tier types |
 | pytest | 4 | Testing patterns with Result[T] |
 | python | 4 | Python development patterns |
@@ -314,6 +321,9 @@ SKUEL Architecture (domains + intelligence):
                                   v
                           zpd (pedagogical
                            gravity well)
+
+Mobile:
+    fasthtml ---> pwa (service worker, manifest, offline)
 
 Visualization:
     js-alpine ---> chartjs
