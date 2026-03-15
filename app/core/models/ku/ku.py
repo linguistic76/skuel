@@ -31,6 +31,7 @@ if TYPE_CHECKING:
 
 from core.models.entity import Entity
 from core.models.enums.entity_enums import EntityType
+from core.models.enums.learning_enums import SELCategory
 
 
 @dataclass(frozen=True)
@@ -43,7 +44,8 @@ class Ku(Entity):
 
     Unlike Lessons (which are units for learning with composed content),
     Kus are lightweight ontology/reference nodes. They don't carry
-    learning metadata (complexity, SEL category, substance scores).
+    full learning metadata (complexity, substance scores), but they
+    do carry sel_category for SEL competency organization.
 
     Lessons USES_KU to compose atoms into narrative.
     Learning Steps TRAINS_KU to declare learning objectives.
@@ -56,6 +58,7 @@ class Ku(Entity):
     ku_category: str | None = None  # state/concept/principle/intake/substance/practice/value
     aliases: tuple[str, ...] = field(default_factory=tuple)  # alternative names
     source: str | None = None  # self_observation/research/teacher
+    sel_category: SELCategory | None = None  # SEL competency this Ku belongs to
 
     def __post_init__(self) -> None:
         """Force entity_type=KU, then delegate to Entity."""

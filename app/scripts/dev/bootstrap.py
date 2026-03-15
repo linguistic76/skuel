@@ -467,6 +467,11 @@ async def _wire_all_routes(
 
     create_lesson_routes(app, rt, services, None)
 
+    # Ku routes (separate from Lesson — KuService serves /ku)
+    from adapters.inbound.ku_routes import create_ku_routes
+
+    create_ku_routes(app, rt, services, None)
+
     # Search routes - THE PRIMARY SEARCH INTERFACE
     # One Path Forward: All search goes through SearchRouter (January 2026)
     # SearchRouter dispatches to domain search services (REQUIRED - fail-fast):

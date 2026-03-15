@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from core.models.entity_dto import EntityDTO
-from core.models.enums import Domain
+from core.models.enums import Domain, SELCategory
 from core.models.enums.entity_enums import EntityStatus, EntityType
 
 
@@ -28,17 +28,19 @@ from core.models.enums.entity_enums import EntityStatus, EntityType
 class KuDTO(EntityDTO):
     """Mutable DTO for atomic knowledge unit entities (EntityType.KU).
 
-    Extends EntityDTO with 4 Ku-specific fields:
+    Extends EntityDTO with 5 Ku-specific fields:
     - namespace: primary grouping (attention, emotion, body, ...)
     - ku_category: state/concept/principle/intake/substance/practice/value
     - aliases: alternative names
     - source: self_observation/research/teacher
+    - sel_category: SEL competency this Ku belongs to
     """
 
     namespace: str | None = None
     ku_category: str | None = None
     aliases: list[str] | None = None
     source: str | None = None
+    sel_category: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary, including Ku-specific fields."""
@@ -49,6 +51,7 @@ class KuDTO(EntityDTO):
                 "ku_category": self.ku_category,
                 "aliases": self.aliases,
                 "source": self.source,
+                "sel_category": self.sel_category,
             }
         )
         return data
@@ -65,6 +68,7 @@ class KuDTO(EntityDTO):
                 "entity_type": EntityType,
                 "status": EntityStatus,
                 "domain": Domain,
+                "sel_category": SELCategory,
             },
             datetime_fields=["created_at", "updated_at"],
             list_fields=["tags", "aliases"],
@@ -95,11 +99,13 @@ class KuDTO(EntityDTO):
                 "ku_category",
                 "aliases",
                 "source",
+                "sel_category",
             },
             enum_mappings={
                 "entity_type": EntityType,
                 "status": EntityStatus,
                 "domain": Domain,
+                "sel_category": SELCategory,
             },
         )
 

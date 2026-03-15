@@ -14,6 +14,7 @@ aliases:
   - routines
   - behavior patterns
 source: sel_framework
+sel_category: self_management
 description: Habits are repeated behaviors that, through consistency, become automatic and compound into lasting personal change. They are the bridge between goals and outcomes.
 tags:
   - sel

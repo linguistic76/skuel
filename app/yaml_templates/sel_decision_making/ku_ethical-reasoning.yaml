@@ -1,0 +1,23 @@
+# Ku: Ethical Reasoning
+# =====================
+# The process of evaluating actions against moral principles.
+
+version: 1.0
+type: Ku
+
+uid: ku:sel:ethical-reasoning
+title: Ethical Reasoning
+namespace: sel
+ku_category: concept
+aliases:
+  - moral reasoning
+  - ethical thinking
+  - values-based decision making
+source: sel_framework
+sel_category: responsible_decision_making
+description: Ethical reasoning is the process of evaluating actions against moral principles — asking not just "what can I do?" but "what should I do?" and why.
+tags:
+  - sel
+  - decision-making
+  - ethics
+  - values

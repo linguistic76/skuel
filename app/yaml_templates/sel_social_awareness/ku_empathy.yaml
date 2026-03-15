@@ -1,0 +1,22 @@
+# Ku: Empathy
+# ===========
+# The ability to understand and share the feelings of another person.
+
+version: 1.0
+type: Ku
+
+uid: ku:sel:empathy
+title: Empathy
+namespace: sel
+ku_category: concept
+aliases:
+  - empathic understanding
+  - emotional attunement
+  - perspective sharing
+source: sel_framework
+sel_category: social_awareness
+description: Empathy is the ability to understand and share the feelings of another person — to feel with them, not just for them. It is the foundation of social awareness.
+tags:
+  - sel
+  - social-awareness
+  - empathy

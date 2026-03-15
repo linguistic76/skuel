@@ -14,6 +14,7 @@ aliases:
   - goal definition
   - SMART goals
 source: sel_framework
+sel_category: self_management
 description: Goal setting is the practice of defining specific, measurable outcomes to work toward. It gives direction to actions and makes progress visible.
 tags:
   - sel

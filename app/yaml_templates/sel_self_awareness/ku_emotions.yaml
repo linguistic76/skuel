@@ -14,6 +14,7 @@ aliases:
   - emotional states
   - basic emotions
 source: sel_framework
+sel_category: self_awareness
 description: Emotions are internal signals — joy, sadness, anger, fear, surprise — that communicate our state to ourselves and guide behavior.
 tags:
   - sel

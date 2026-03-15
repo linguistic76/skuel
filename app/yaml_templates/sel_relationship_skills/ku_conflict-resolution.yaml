@@ -1,0 +1,23 @@
+# Ku: Conflict Resolution
+# ========================
+# The process of finding a peaceful solution to a disagreement.
+
+version: 1.0
+type: Ku
+
+uid: ku:sel:conflict-resolution
+title: Conflict Resolution
+namespace: sel
+ku_category: practice
+aliases:
+  - resolving disagreements
+  - conflict management
+  - mediation
+source: sel_framework
+sel_category: relationship_skills
+description: Conflict resolution is the process of finding a peaceful solution to a disagreement. It requires listening, expressing needs clearly, and finding outcomes that respect everyone involved.
+tags:
+  - sel
+  - relationship-skills
+  - conflict
+  - communication

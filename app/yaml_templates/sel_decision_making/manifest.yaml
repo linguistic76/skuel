@@ -1,0 +1,13 @@
+# SEL Responsible Decision Making Bundle
+# ========================================
+# Making ethical, constructive choices — 2 Kus
+# SEL Category: responsible_decision_making
+
+bundle:
+  name: SEL Decision Making — Ethics and Consequences
+  description: Learn to reason ethically and analyze consequences before acting
+  sel_category: responsible_decision_making
+
+import_order:
+  - ku_ethical-reasoning.yaml
+  - ku_consequence-analysis.yaml

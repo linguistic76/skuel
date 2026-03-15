@@ -61,6 +61,14 @@ aliases:
 # Example: self_observation for personal insight, research for evidence-based
 source: self_observation
 
+# sel_category: SEL competency this Ku belongs to
+# Valid values: self_awareness, self_management, social_awareness,
+#               relationship_skills, responsible_decision_making
+# Default: null
+# Purpose: Groups Kus by Social Emotional Learning competency for the /ku index
+# Example: self_awareness for emotion-related concepts
+sel_category: self_awareness
+
 # description: Brief summary of this Ku
 # Type: String
 # Purpose: Optional brief description (NOT a full learning unit -- that's an Lesson)
@@ -74,6 +82,13 @@ tags:
 
 # ENUM VALUE REFERENCE
 # --------------------
+
+# sel_category options:
+#   - self_awareness: Understanding your emotions, values, and strengths
+#   - self_management: Managing emotions, behaviors, and achieving goals
+#   - social_awareness: Understanding and empathizing with others
+#   - relationship_skills: Building and maintaining healthy relationships
+#   - responsible_decision_making: Making ethical, constructive choices
 
 # ku_category options:
 #   - state: Observable conditions (buzzing, calm, heightened_arousal)

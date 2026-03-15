@@ -1,0 +1,13 @@
+# SEL Relationship Skills Bundle
+# ===============================
+# Building and maintaining healthy relationships — 2 Kus
+# SEL Category: relationship_skills
+
+bundle:
+  name: SEL Relationship Skills — Communication and Conflict
+  description: Learn to listen actively and resolve conflicts constructively
+  sel_category: relationship_skills
+
+import_order:
+  - ku_active-listening.yaml
+  - ku_conflict-resolution.yaml

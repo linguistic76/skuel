@@ -1,0 +1,13 @@
+# SEL Social Awareness Bundle
+# ============================
+# Understanding and empathizing with others — 2 Kus
+# SEL Category: social_awareness
+
+bundle:
+  name: SEL Social Awareness — Empathy and Perspective
+  description: Learn to understand others through empathy and perspective taking
+  sel_category: social_awareness
+
+import_order:
+  - ku_empathy.yaml
+  - ku_perspective-taking.yaml

@@ -1,0 +1,23 @@
+# Ku: Consequence Analysis
+# =========================
+# Thinking through the likely outcomes of a decision before acting.
+
+version: 1.0
+type: Ku
+
+uid: ku:sel:consequence-analysis
+title: Consequence Analysis
+namespace: sel
+ku_category: concept
+aliases:
+  - thinking ahead
+  - outcome prediction
+  - cost-benefit analysis
+source: sel_framework
+sel_category: responsible_decision_making
+description: Consequence analysis is thinking through the likely outcomes of a decision before acting — for yourself, for others, and over time. It turns reactive choices into deliberate ones.
+tags:
+  - sel
+  - decision-making
+  - consequences
+  - planning
