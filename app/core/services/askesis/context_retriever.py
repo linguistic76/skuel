@@ -44,8 +44,8 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.models.lesson.lesson import Lesson
     from core.models.ku.ku import Ku
+    from core.models.lesson.lesson import Lesson
     from core.models.pathways.learning_path import LearningPath
     from core.models.pathways.learning_step import LearningStep
     from core.models.resource.resource import Resource

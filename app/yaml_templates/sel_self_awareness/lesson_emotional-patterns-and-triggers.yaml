@@ -1,0 +1,66 @@
+version: 1.0
+type: Lesson
+
+uid: l:sel:emotional-patterns-and-triggers
+title: Emotional Patterns and Triggers
+sel_category: self_awareness
+learning_level: intermediate
+complexity: medium
+domain: personal
+estimated_time_minutes: 20
+
+content: |
+  ## Building on Basics
+
+  Now that you know your basic emotions, let's explore what causes them and how they pattern over time.
+
+  ## What Are Emotional Triggers?
+
+  Triggers are situations, people, or events that consistently provoke specific emotional responses.
+
+  ### Common Triggers
+
+  - **Criticism** — Anger or sadness
+  - **Uncertainty** — Fear or anxiety
+  - **Success** — Joy or pride
+  - **Loss** — Sadness or grief
+
+  ## Recognizing Your Patterns
+
+  Keep an emotion journal for 1 week:
+  - What emotion did you feel?
+  - What triggered it?
+  - How intense was it (1-10)?
+  - How long did it last?
+
+  ## Pattern Analysis
+
+  After a week, look for:
+  1. Your most frequent emotions
+  2. Your common triggers
+  3. Times of day when certain emotions arise
+  4. People or situations that consistently affect you
+
+  ## Why This Matters
+
+  Understanding your patterns gives you predictive power. You can anticipate emotional responses and prepare healthier reactions.
+
+  ## Next Steps
+
+  Advanced emotional awareness involves understanding complex emotions and emotional regulation strategies.
+
+uses_kus:
+  - ku:sel:emotions
+  - ku:sel:emotional-triggers
+
+connections:
+  requires:
+    - l:sel:understanding-your-emotions
+  enables:
+    - l:sel:complex-emotions-and-regulation
+
+tags:
+  - sel
+  - self-awareness
+  - triggers
+  - patterns

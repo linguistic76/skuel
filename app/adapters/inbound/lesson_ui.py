@@ -17,8 +17,8 @@ from fasthtml.common import A as Anchor
 from starlette.requests import Request
 from starlette.responses import Response
 
-from core.models.lesson.lesson_request import LessonCreateRequest as KuCreateRequest
 from core.models.enums import SELCategory
+from core.models.lesson.lesson_request import LessonCreateRequest as KuCreateRequest
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonT
 from ui.cards import Card
@@ -55,9 +55,7 @@ def _ku_tabs(active_tab: str = "all") -> Any:
                 label,
                 role="tab",
                 cls=f"tab {'tab-active' if is_active else ''}",
-                hx_get=f"/lesson/filter?sel_category={slug}"
-                if slug != "all"
-                else "/lesson/filter",
+                hx_get=f"/lesson/filter?sel_category={slug}" if slug != "all" else "/lesson/filter",
                 hx_target="#ku-content",
                 hx_swap="innerHTML",
                 hx_push_url=f"/ku?sel={slug}" if slug != "all" else "/ku",

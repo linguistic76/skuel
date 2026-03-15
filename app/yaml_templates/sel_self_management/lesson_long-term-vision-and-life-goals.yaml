@@ -1,0 +1,97 @@
+version: 1.0
+type: Lesson
+
+uid: l:sel:long-term-vision-and-life-goals
+title: Long-Term Vision and Life Goals
+sel_category: self_management
+learning_level: advanced
+complexity: advanced
+domain: personal
+estimated_time_minutes: 40
+
+content: |
+  ## From Tactics to Strategy
+
+  You've mastered SMART goals for specific outcomes. Now let's integrate goals into a coherent life vision.
+
+  ## The Vision Pyramid
+
+  **Vision (10+ years)** - Your life direction
+  **Long-term goals (3-5 years)** - Major milestones
+  **Annual goals (1 year)** - This year's focus
+  **Quarterly goals (3 months)** - Current priorities
+  **Weekly actions** - What you do this week
+
+  ## Creating Your Vision
+
+  Ask yourself:
+  1. What do you want your life to look like in 10 years?
+  2. What would you regret NOT doing?
+  3. What impact do you want to make?
+  4. Who do you want to become?
+
+  Write a vision statement: "In 10 years, I want to..."
+
+  ## Balanced Life Domains
+
+  Set goals across multiple domains:
+  - **Career/Professional** - Work and skill development
+  - **Financial** - Money and resources
+  - **Health/Physical** - Body and energy
+  - **Relationships** - Family and friends
+  - **Personal Growth** - Learning and character
+  - **Contribution** - Service and impact
+
+  ## Working Backwards
+
+  From your 10-year vision:
+  1. What must happen in 5 years?
+  2. What must happen in 3 years?
+  3. What must happen in 1 year?
+  4. What must happen this quarter?
+
+  ## Goal Integration
+
+  Advanced goals support each other:
+  - Learning Spanish (growth) leads to better career opportunities (professional)
+  - Morning exercise (health) leads to more energy (all domains benefit)
+
+  ## Review Cadence
+
+  - **Weekly**: Review weekly actions, adjust as needed
+  - **Monthly**: Check monthly milestones
+  - **Quarterly**: Assess quarterly goals, plan next quarter
+  - **Annually**: Major reflection and vision update
+
+  ## Practice Exercise
+
+  1. Write your 10-year vision statement
+  2. Identify 3-5 long-term goals (3-5 years) that support it
+  3. Define THIS year's goals for each long-term goal
+  4. Set THIS quarter's specific goals
+
+  ## Mastery
+
+  You now have:
+  - A clear vision for your life
+  - Integrated goals across domains
+  - A system for breaking big dreams into actions
+  - Regular review rhythms
+
+  This is self-management at the highest level.
+
+uses_kus:
+  - ku:sel:goal-setting
+  - ku:sel:habits
+
+connections:
+  requires:
+    - l:sel:smart-goals-framework
+  enables: []
+
+tags:
+  - sel
+  - self-management
+  - vision
+  - life-goals
+  - advanced

@@ -76,9 +76,7 @@ class TestTruncateToBudget:
 
     def test_realistic_lesson_content(self) -> None:
         """Simulates real Lesson content truncation."""
-        lessons = [
-            f"## Lesson {i}\n\n{'This is the content of lesson. ' * 100}" for i in range(10)
-        ]
+        lessons = [f"## Lesson {i}\n\n{'This is the content of lesson. ' * 100}" for i in range(10)]
         text = "\n\n---\n\n".join(lessons)
         assert len(text) > 10000
 

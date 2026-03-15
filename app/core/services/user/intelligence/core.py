@@ -46,8 +46,8 @@ from core.services.user.intelligence.temporal_momentum import TemporalMomentumMi
 if TYPE_CHECKING:
     from core.ports.zpd_protocols import ZPDOperations
     from core.services.analytics_relationship_service import AnalyticsRelationshipService
-    from core.services.lesson.lesson_graph_service import LessonGraphService
     from core.services.calendar_service import CalendarService
+    from core.services.lesson.lesson_graph_service import LessonGraphService
     from core.services.relationships import UnifiedRelationshipService
 
     # LpRelationshipService deleted - LP now uses UnifiedRelationshipService

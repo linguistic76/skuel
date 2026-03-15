@@ -16,7 +16,6 @@ from dataclasses import fields, is_dataclass
 from datetime import datetime
 from typing import Any, Protocol, TypeVar, runtime_checkable
 
-from core.models.lesson.lesson_request import LessonCreateRequest as KuCreateRequest
 from core.models.choice.choice import Choice
 from core.models.choice.choice_option import ChoiceOption
 from core.models.choice.choice_request import ChoiceCreateRequest
@@ -35,6 +34,7 @@ from core.models.finance.finance_request import (
 from core.models.goal.goal_request import GoalCreateRequest, GoalUpdateRequest
 from core.models.habit.habit import Habit as Habit
 from core.models.habit.habit_request import HabitCreateRequest, HabitUpdateRequest
+from core.models.lesson.lesson_request import LessonCreateRequest as KuCreateRequest
 from core.models.principle.principle import Principle
 from core.models.principle.principle_request import PrincipleCreateRequest
 from core.models.task.task_request import TaskCreateRequest, TaskUpdateRequest

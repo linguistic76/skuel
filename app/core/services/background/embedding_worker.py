@@ -26,7 +26,6 @@ import asyncio
 from typing import Any
 
 from core.events import (
-    LessonEmbeddingRequested,
     ChoiceEmbeddingRequested,
     ChunkEmbeddingRequested,
     ChunkEmbeddingsCompleted,
@@ -37,6 +36,7 @@ from core.events import (
     KuEmbeddingRequested,
     LearningPathEmbeddingRequested,
     LearningStepEmbeddingRequested,
+    LessonEmbeddingRequested,
     PrincipleEmbeddingRequested,
     ResourceEmbeddingRequested,
     RevisedExerciseEmbeddingRequested,

@@ -154,8 +154,6 @@ def create_form_templates_api_routes(
         except Exception as e:
             return Result.fail(Errors.validation(f"Invalid request body: {e}", field="body"))
 
-        return await form_template_service.unlink_from_lesson(
-            req.form_template_uid, req.lesson_uid
-        )
+        return await form_template_service.unlink_from_lesson(req.form_template_uid, req.lesson_uid)
 
     return []

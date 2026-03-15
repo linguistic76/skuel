@@ -1,0 +1,69 @@
+version: 1.0
+type: Lesson
+
+uid: l:sel:complex-emotions-and-regulation
+title: Complex Emotions and Regulation
+sel_category: self_awareness
+learning_level: advanced
+complexity: advanced
+domain: personal
+estimated_time_minutes: 30
+
+content: |
+  ## Beyond Basic Emotions
+
+  Most adult emotions are blends of basic emotions with added context.
+
+  ### Complex Emotions
+
+  - **Guilt** = Sadness + Self-blame
+  - **Shame** = Fear + Negative self-judgment
+  - **Pride** = Joy + Self-approval
+  - **Jealousy** = Fear + Anger + Sadness
+  - **Nostalgia** = Sadness + Joy (mixed)
+
+  ## Emotional Regulation
+
+  Not suppressing emotions, but managing their expression and intensity.
+
+  ### Regulation Strategies
+
+  1. **Cognitive Reappraisal** - Reframing the situation
+  2. **Mindful Acceptance** - Observing without judgment
+  3. **Expressive Writing** - Processing through journaling
+  4. **Physical Activity** - Using movement to shift state
+  5. **Social Support** - Talking with trusted others
+
+  ## Advanced Practice
+
+  1. Identify a complex emotion you felt recently
+  2. Break it down into basic emotion components
+  3. Identify the trigger and your pattern
+  4. Choose one regulation strategy to apply next time
+
+  ## Mastery
+
+  At this level, you can:
+  - Identify nuanced emotional states
+  - Predict your emotional responses
+  - Choose appropriate regulation strategies
+  - Explain your emotions to others clearly
+
+  ## Integration
+
+  This knowledge enables effective self-management and healthier relationships.
+
+uses_kus:
+  - ku:sel:emotions
+  - ku:sel:emotional-triggers
+
+connections:
+  requires:
+    - l:sel:emotional-patterns-and-triggers
+  enables: []
+
+tags:
+  - sel
+  - self-awareness
+  - regulation
+  - advanced

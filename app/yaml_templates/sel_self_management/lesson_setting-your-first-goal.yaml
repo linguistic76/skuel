@@ -1,0 +1,70 @@
+version: 1.0
+type: Lesson
+
+uid: l:sel:setting-your-first-goal
+title: Setting Your First Goal
+sel_category: self_management
+learning_level: beginner
+complexity: basic
+domain: personal
+estimated_time_minutes: 15
+
+content: |
+  ## What Is a Goal?
+
+  A goal is a specific outcome you want to achieve. It gives direction to your actions and motivation to your days.
+
+  ## Why Set Goals?
+
+  Without goals:
+  - Days feel aimless
+  - Progress is invisible
+  - Motivation wavers
+
+  With goals:
+  - You know what to work toward
+  - You can measure progress
+  - You feel accomplished
+
+  ## Your First Goal
+
+  Start small and specific:
+
+  Bad: "Be healthier"
+  Good: "Walk 10 minutes every morning this week"
+
+  Bad: "Learn programming"
+  Good: "Complete one Python tutorial by Friday"
+
+  ## The Key Elements
+
+  1. **Specific** - Exactly what will you do?
+  2. **Measurable** - How will you know you did it?
+  3. **Time-bound** - By when?
+
+  ## Practice Exercise
+
+  Write down ONE small goal for this week:
+  - Make it specific
+  - Make it measurable
+  - Set a deadline
+
+  Example: "Read 10 pages of my book every evening before bed this week"
+
+  ## Next Steps
+
+  Once you've achieved your first small goal, you'll learn how to set and track bigger goals using the SMART framework.
+
+uses_kus:
+  - ku:sel:goal-setting
+
+connections:
+  requires: []
+  enables:
+    - l:sel:smart-goals-framework
+
+tags:
+  - sel
+  - self-management
+  - goals
+  - beginner

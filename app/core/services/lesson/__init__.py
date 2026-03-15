@@ -26,8 +26,8 @@ from core.services.lesson.lesson_adaptive_service import LessonAdaptiveService
 from core.services.lesson.lesson_core_service import LessonCoreService
 from core.services.lesson.lesson_graph_service import LessonGraphService
 from core.services.lesson.lesson_mastery_service import (
-    LessonMasteryService,
     LearningState,
+    LessonMasteryService,
     UserKuProgress,
 )
 from core.services.lesson.lesson_practice_service import LessonPracticeService

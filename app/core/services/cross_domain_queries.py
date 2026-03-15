@@ -26,13 +26,13 @@ from typing import TYPE_CHECKING, Any
 from adapters.persistence.neo4j.query import build_prerequisite_chain
 from core.constants import GraphDepth
 from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
-from core.models.lesson.lesson import Lesson
 from core.models.entity_types import ENTITY_TYPE_CLASS_MAP, CurriculumEntity
 from core.models.enums.entity_enums import EntityType
 from core.models.event.event import Event
 from core.models.finance.finance_pure import ExpensePure
 from core.models.goal.goal import Goal
 from core.models.habit.habit import Habit
+from core.models.lesson.lesson import Lesson
 from core.models.task.task import Task
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger

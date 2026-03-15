@@ -20,9 +20,9 @@ import contextlib
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from core.models.lesson.lesson import Lesson
 from core.models.curriculum import Curriculum
 from core.models.enums import Domain, LearningLevel, SELCategory
+from core.models.lesson.lesson import Lesson
 from core.models.pathways.learning_path import LearningPath
 from core.models.pathways.learning_progress import CurriculumProgress, LearningJourney
 from core.models.pathways.mastery import (
@@ -293,8 +293,8 @@ class LessonAdaptiveService:
             return CurriculumProgress(
                 user_uid=user_uid,
                 sel_category=category,
-                articles_mastered=mastered,
-                total_articles=total,
+                lessons_mastered=mastered,
+                total_lessons=total,
             )
 
         except Exception as e:
@@ -303,7 +303,7 @@ class LessonAdaptiveService:
                 extra={"user_uid": user_uid, "category": category.value, "error": str(e)},
             )
             return CurriculumProgress(
-                user_uid=user_uid, sel_category=category, articles_mastered=0, total_articles=0
+                user_uid=user_uid, sel_category=category, lessons_mastered=0, total_lessons=0
             )
 
     # ==========================================================================

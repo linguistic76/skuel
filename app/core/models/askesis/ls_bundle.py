@@ -20,10 +20,10 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from core.models.lesson.lesson import Lesson
     from core.models.event.event import Event
     from core.models.habit.habit import Habit
     from core.models.ku.ku import Ku
+    from core.models.lesson.lesson import Lesson
     from core.models.pathways.learning_path import LearningPath
     from core.models.pathways.learning_step import LearningStep
     from core.models.principle.principle import Principle
@@ -144,9 +144,7 @@ class LSBundle:
         from core.utils.text_truncation import truncate_to_budget
 
         parts = [
-            f"## {lesson.title}\n\n{lesson.content}"
-            for lesson in self.lessons
-            if lesson.content
+            f"## {lesson.title}\n\n{lesson.content}" for lesson in self.lessons if lesson.content
         ]
 
         # Append resource references — compact summaries, not full content

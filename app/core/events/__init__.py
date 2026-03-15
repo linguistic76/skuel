@@ -73,16 +73,6 @@ References:
 # NOTE: Journal events DELETED (February 2026) - Journal merged into Submissions
 # Journal operations now fire SubmissionCreated/SubmissionDeleted events with entity_type="journal"
 # Knowledge substance events (tracking real-world application)
-from core.events.lesson_events import (
-    KnowledgeAppliedInTask,
-    KnowledgeBuiltIntoHabit,
-    KnowledgeBulkAppliedInTask,
-    KnowledgeBulkBuiltIntoHabit,
-    KnowledgeBulkInformedChoice,
-    KnowledgeInformedChoice,
-    KnowledgePracticed,
-    KnowledgePracticedInEvent,
-)
 from core.events.base import BaseEvent, DomainEvent, EventMetadata
 
 # Calendar Event events
@@ -120,7 +110,6 @@ from core.events.curriculum_events import (
 
 # Embedding events (async background generation)
 from core.events.embedding_events import (
-    LessonEmbeddingRequested,
     ChoiceEmbeddingRequested,
     EmbeddingRequested,
     EventEmbeddingRequested,
@@ -130,6 +119,7 @@ from core.events.embedding_events import (
     KuEmbeddingRequested,
     LearningPathEmbeddingRequested,
     LearningStepEmbeddingRequested,
+    LessonEmbeddingRequested,
     PrincipleEmbeddingRequested,
     ResourceEmbeddingRequested,
     RevisedExerciseEmbeddingRequested,
@@ -181,6 +171,16 @@ from core.events.learning_events import (
     LearningPathStarted,
     LearningRecommendationGenerated,
     PrerequisitesAnalyzed,
+)
+from core.events.lesson_events import (
+    KnowledgeAppliedInTask,
+    KnowledgeBuiltIntoHabit,
+    KnowledgeBulkAppliedInTask,
+    KnowledgeBulkBuiltIntoHabit,
+    KnowledgeBulkInformedChoice,
+    KnowledgeInformedChoice,
+    KnowledgePracticed,
+    KnowledgePracticedInEvent,
 )
 
 # Principle events

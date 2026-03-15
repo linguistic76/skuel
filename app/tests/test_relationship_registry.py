@@ -12,13 +12,13 @@ February 2026: Removed parallel config tests (generator functions deleted)
 from core.models.enums import Domain
 from core.models.relationship_names import RelationshipName
 from core.models.relationship_registry import (
-    LESSON_CONFIG,
     CHOICES_CONFIG,
     DOMAIN_CONFIGS,
     EVENTS_CONFIG,
     GOALS_CONFIG,
     HABITS_CONFIG,
     LABEL_CONFIGS,
+    LESSON_CONFIG,
     LP_CONFIG,
     LS_CONFIG,
     PRINCIPLES_CONFIG,

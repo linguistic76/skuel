@@ -1,0 +1,22 @@
+# Ku: Habits
+# ===========
+# Repeated behaviors that compound over time into lasting change.
+
+version: 1.0
+type: Ku
+
+uid: ku:sel:habits
+title: Habits
+namespace: sel
+ku_category: practice
+aliases:
+  - habit building
+  - routines
+  - behavior patterns
+source: sel_framework
+description: Habits are repeated behaviors that, through consistency, become automatic and compound into lasting personal change. They are the bridge between goals and outcomes.
+tags:
+  - sel
+  - self-management
+  - habits
+  - behavior

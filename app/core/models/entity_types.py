@@ -14,7 +14,6 @@ ENTITY_TYPE_CLASS_MAP maps each EntityType enum to its domain-specific subclass.
 See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
 
-from core.models.lesson.lesson import Lesson
 from core.models.choice.choice import Choice
 from core.models.entity import Entity
 from core.models.enums.entity_enums import EntityType
@@ -26,6 +25,7 @@ from core.models.forms.form_template import FormTemplate
 from core.models.goal.goal import Goal
 from core.models.habit.habit import Habit
 from core.models.ku.ku import Ku
+from core.models.lesson.lesson import Lesson
 from core.models.life_path.life_path import LifePath
 from core.models.pathways.learning_path import LearningPath
 from core.models.pathways.learning_step import LearningStep

@@ -1,0 +1,18 @@
+# SEL Self Awareness Bundle
+# =========================
+# Emotional Recognition learning path — 3 progressive lessons + 2 Kus
+# SEL Category: self_awareness
+
+bundle:
+  name: SEL Self Awareness — Emotional Recognition
+  description: Learn to identify, understand, and regulate emotions
+  sel_category: self_awareness
+
+import_order:
+  # Kus first (lessons reference them via uses_kus)
+  - ku_emotions.yaml
+  - ku_emotional-triggers.yaml
+  # Lessons in progression order
+  - lesson_understanding-your-emotions.yaml
+  - lesson_emotional-patterns-and-triggers.yaml
+  - lesson_complex-emotions-and-regulation.yaml

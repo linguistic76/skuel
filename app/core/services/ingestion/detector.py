@@ -21,6 +21,7 @@ from core.models.enums.entity_enums import EntityType, NonKuDomain
 TYPE_MAPPING: dict[str, EntityType | NonKuDomain] = {
     # Lessons (units for learning)
     "lesson": EntityType.LESSON,
+    "article": EntityType.LESSON,
     "knowledgeunit": EntityType.LESSON,
     "knowledge": EntityType.LESSON,
     # Atomic Ku (knowledge unit — concept, state, principle, substance, practice, value)

@@ -1,0 +1,21 @@
+# Ku: Goal Setting
+# =================
+# The practice of defining specific outcomes to work toward.
+
+version: 1.0
+type: Ku
+
+uid: ku:sel:goal-setting
+title: Goal Setting
+namespace: sel
+ku_category: practice
+aliases:
+  - setting goals
+  - goal definition
+  - SMART goals
+source: sel_framework
+description: Goal setting is the practice of defining specific, measurable outcomes to work toward. It gives direction to actions and makes progress visible.
+tags:
+  - sel
+  - self-management
+  - goals

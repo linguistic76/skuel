@@ -14,8 +14,8 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from core.events import publish_event
-from core.events.lesson_events import KnowledgePracticed
 from core.events.calendar_event_events import CalendarEventCompleted
+from core.events.lesson_events import KnowledgePracticed
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:

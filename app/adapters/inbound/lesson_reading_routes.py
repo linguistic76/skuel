@@ -11,9 +11,9 @@ Routes:
 
 from typing import Any
 
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
 from adapters.inbound.lesson_reading_api import create_lesson_reading_api_routes
 from adapters.inbound.lesson_reading_ui import create_lesson_reading_ui_routes
-from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 
 

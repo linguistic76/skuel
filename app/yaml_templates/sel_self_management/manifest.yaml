@@ -1,0 +1,18 @@
+# SEL Self Management Bundle
+# ===========================
+# Goal Setting learning path — 3 progressive lessons + 2 Kus
+# SEL Category: self_management
+
+bundle:
+  name: SEL Self Management — Goal Setting
+  description: Learn to set, track, and achieve goals at increasing scale
+  sel_category: self_management
+
+import_order:
+  # Kus first (lessons reference them via uses_kus)
+  - ku_goal-setting.yaml
+  - ku_habits.yaml
+  # Lessons in progression order
+  - lesson_setting-your-first-goal.yaml
+  - lesson_smart-goals-framework.yaml
+  - lesson_long-term-vision-and-life-goals.yaml

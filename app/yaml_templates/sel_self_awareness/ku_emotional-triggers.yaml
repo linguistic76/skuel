@@ -1,0 +1,22 @@
+# Ku: Emotional Triggers
+# =======================
+# Situations, people, or events that consistently provoke emotional responses.
+
+version: 1.0
+type: Ku
+
+uid: ku:sel:emotional-triggers
+title: Emotional Triggers
+namespace: sel
+ku_category: concept
+aliases:
+  - triggers
+  - emotional patterns
+  - emotional cues
+source: sel_framework
+description: Emotional triggers are situations, people, or events that consistently provoke specific emotional responses. Recognizing them gives predictive power over your reactions.
+tags:
+  - sel
+  - self-awareness
+  - triggers
+  - patterns

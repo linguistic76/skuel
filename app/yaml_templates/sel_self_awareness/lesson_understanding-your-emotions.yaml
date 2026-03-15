@@ -1,0 +1,51 @@
+version: 1.0
+type: Lesson
+
+uid: l:sel:understanding-your-emotions
+title: Understanding Your Emotions
+sel_category: self_awareness
+learning_level: beginner
+complexity: basic
+domain: personal
+estimated_time_minutes: 10
+
+content: |
+  ## Introduction
+
+  Emotions are signals that tell us about our internal state. Learning to identify and name emotions is the first step in emotional intelligence.
+
+  ## The 5 Basic Emotions
+
+  1. **Joy** - Feeling happy, content, or pleased
+  2. **Sadness** - Feeling down, disappointed, or low
+  3. **Anger** - Feeling frustrated, annoyed, or upset
+  4. **Fear** - Feeling scared, anxious, or worried
+  5. **Surprise** - Feeling amazed, shocked, or caught off-guard
+
+  ## Practice Exercise
+
+  Throughout today, pause 3 times and ask yourself: "What emotion am I feeling right now?"
+
+  Name it using one of the 5 basic emotions above.
+
+  ## Why This Matters
+
+  When you can name your emotions, you gain power over them. Instead of being controlled by feelings, you can understand and manage them.
+
+  ## Next Steps
+
+  Once you're comfortable identifying basic emotions, you'll learn to recognize emotional patterns and triggers.
+
+uses_kus:
+  - ku:sel:emotions
+
+connections:
+  requires: []
+  enables:
+    - l:sel:emotional-patterns-and-triggers
+
+tags:
+  - sel
+  - self-awareness
+  - emotions
+  - beginner

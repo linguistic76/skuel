@@ -416,10 +416,10 @@ async def services(neo4j_driver):
     from core.models.entity import Entity
     from core.models.entity_dto import EntityDTO
     from core.models.user.user import User
-    from core.services.lesson_service import LessonService
     from core.services.choices_service import ChoicesService
     from core.services.events_service import EventsService
     from core.services.goals_service import GoalsService
+    from core.services.lesson_service import LessonService
     from core.services.lp_service import LpService
     from core.services.ls_service import LsService
     from core.services.principles_service import PrinciplesService

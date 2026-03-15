@@ -27,8 +27,8 @@ import pytest_asyncio
 
 from adapters.infrastructure.event_bus import InMemoryEventBus
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-from core.events.lesson_events import KnowledgePracticed
 from core.events.calendar_event_events import CalendarEventCompleted
+from core.events.lesson_events import KnowledgePracticed
 from core.models.curriculum import Curriculum
 from core.models.enums import (
     Domain,

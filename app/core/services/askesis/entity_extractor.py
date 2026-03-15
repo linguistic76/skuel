@@ -37,10 +37,10 @@ if TYPE_CHECKING:
 
     from core.models.askesis.ls_bundle import LSBundle
     from core.ports import (
-        LessonOperations,
         EventsOperations,
         GoalsOperations,
         HabitsOperations,
+        LessonOperations,
         TasksOperations,
     )
     from core.services.user import UserContext

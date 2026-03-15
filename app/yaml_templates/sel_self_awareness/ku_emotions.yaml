@@ -1,0 +1,21 @@
+# Ku: Emotions
+# =============
+# The five basic emotions and their role as internal signals.
+
+version: 1.0
+type: Ku
+
+uid: ku:sel:emotions
+title: Emotions
+namespace: sel
+ku_category: concept
+aliases:
+  - feelings
+  - emotional states
+  - basic emotions
+source: sel_framework
+description: Emotions are internal signals — joy, sadness, anger, fear, surprise — that communicate our state to ourselves and guide behavior.
+tags:
+  - sel
+  - self-awareness
+  - emotions

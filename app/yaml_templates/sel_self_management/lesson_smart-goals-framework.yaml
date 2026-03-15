@@ -1,0 +1,81 @@
+version: 1.0
+type: Lesson
+
+uid: l:sel:smart-goals-framework
+title: SMART Goals Framework
+sel_category: self_management
+learning_level: intermediate
+complexity: medium
+domain: personal
+estimated_time_minutes: 25
+
+content: |
+  ## Building on Your Success
+
+  You've set and achieved small goals. Now let's scale up with the SMART framework.
+
+  ## SMART Criteria
+
+  **S**pecific - What exactly will you accomplish?
+  **M**easurable - How will you track progress?
+  **A**chievable - Is it realistic given your resources?
+  **R**elevant - Does it align with your values?
+  **T**ime-bound - What's the deadline?
+
+  ## Example Transformation
+
+  **Vague goal**: "Get better at my job"
+
+  **SMART goal**: "Complete the advanced Excel course and apply 3 new techniques in my monthly reports by the end of next quarter"
+  - Specific: Advanced Excel course, 3 techniques, monthly reports
+  - Measurable: Course completion, 3 techniques used
+  - Achievable: Quarter is enough time
+  - Relevant: Improves job performance
+  - Time-bound: End of quarter
+
+  ## Breaking Down Goals
+
+  Big goals need sub-goals:
+
+  **3-month goal**: Run a 5K race
+  **Monthly milestones**:
+  - Month 1: Run 1 mile without stopping
+  - Month 2: Run 2 miles comfortably
+  - Month 3: Complete 3 miles (5K)
+
+  **Weekly actions**:
+  - Week 1-4: Run 3 times per week, gradually increasing distance
+
+  ## Practice Exercise
+
+  Take a goal you care about and make it SMART:
+  1. Write your vague goal
+  2. Apply each SMART criterion
+  3. Break it into monthly milestones
+  4. Define weekly actions
+
+  ## Tracking Progress
+
+  - Use SKUEL's goal system to track
+  - Review weekly: Are you on track?
+  - Adjust if needed — goals aren't rigid
+
+  ## Next Steps
+
+  Advanced goal-setting involves long-term vision planning and integrating multiple life domains.
+
+uses_kus:
+  - ku:sel:goal-setting
+  - ku:sel:habits
+
+connections:
+  requires:
+    - l:sel:setting-your-first-goal
+  enables:
+    - l:sel:long-term-vision-and-life-goals
+
+tags:
+  - sel
+  - self-management
+  - goals
+  - SMART

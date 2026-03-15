@@ -25,14 +25,14 @@ from adapters.inbound.route_factories import (
     parse_int_query_param,
 )
 from adapters.inbound.route_factories.analytics_route_factory import AnalyticsRouteFactory
+from core.models.entity_requests import AddTagsRequest, EntityUpdateRequest, RemoveTagsRequest
+from core.models.enums import ContentScope
+from core.models.enums.user_enums import UserRole
 from core.models.lesson.lesson_request import (
     LessonContentUpdateRequest,
     LessonCreateRequest,
     LessonRelationshipCreateRequest,
 )
-from core.models.entity_requests import AddTagsRequest, EntityUpdateRequest, RemoveTagsRequest
-from core.models.enums import ContentScope
-from core.models.enums.user_enums import UserRole
 from core.services.lesson_service import LessonService
 from core.utils.result_simplified import Errors, Result
 from ui.feedback import Alert, AlertT

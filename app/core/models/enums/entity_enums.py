@@ -366,6 +366,7 @@ _ENTITY_TYPE_ALIASES: dict[str, EntityType] = {
     "submission_report": EntityType.EXERCISE_REPORT,
     "submission_feedback": EntityType.EXERCISE_REPORT,  # pre-rename compat
     # Aliases
+    "article": EntityType.LESSON,
     "knowledge": EntityType.LESSON,
     "moc": EntityType.LESSON,
     "map_of_content": EntityType.LESSON,
