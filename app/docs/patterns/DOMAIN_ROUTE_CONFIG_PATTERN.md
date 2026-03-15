@@ -174,13 +174,17 @@ api_factory(app, rt, primary_service,
 1. register_domain_routes() receives config
 2. Extract primary service: getattr(services, config.primary_service_attr)
 3. Validate primary service exists (return [] if missing)
-4. Extract API-related services: {kwarg: getattr(services, attr) for kwarg, attr in api_related_services}
+4. Extract API-related services: sentinel-based getattr for each api_related_services entry (warns if attr missing, silent if None)
 5. Call api_factory(app, rt, primary_service, **api_related), collect returned routes
 6. (Optional) Extract UI-related services, call ui_factory, collect returned routes
 7. Return combined route list (API + UI)
 ```
 
-**Logging:** `register_domain_routes()` does not log. Each call site in `bootstrap.py` owns its own log message, which often includes domain-specific detail (e.g. "includes intelligence API"). This avoids double-logging and keeps messages precise.
+**Service resolution warnings:** `register_domain_routes()` uses sentinel-based detection to distinguish two cases:
+- **Attribute exists but is `None`** (e.g. tier-dependent services like `submission_report` in CORE tier) — silently passes `None` through. Factory must handle with default parameters.
+- **Attribute not found on container** (e.g. stale attr name after a rename) — logs a warning and passes `None`. This catches misconfiguration early.
+
+**Logging:** Each call site in `bootstrap.py` owns its own log message, which often includes domain-specific detail (e.g. "includes intelligence API"). This avoids double-logging and keeps messages precise.
 
 ## Canonical Template
 

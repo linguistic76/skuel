@@ -78,12 +78,14 @@ api_factory(
 
 **What these service attributes are:** `services.tasks`, `services.goals`, etc. are `TasksService`/`GoalsService` facade instances. Their `.relationships` attribute is a `UnifiedRelationshipService` (URS) — a shell + 6 focused mixins (`PlanningMixin`, `DomainPlanningMixin`, `LifePathMixin`, `IntelligenceMixin`, `OrderedRelationshipsMixin`, `BatchOperationsMixin`). DomainRouteConfig wires the facade; the URS methods are used by intelligence services internally. Public API unchanged across the decomposition.
 
-**None is valid.** If `getattr(services, attr)` returns `None` (service not yet bootstrapped), the `None` is passed through. The factory must handle optional dependencies with default parameters:
+**None is valid.** If the attribute exists on the container but its value is `None` (e.g. tier-dependent services like `submission_report` in CORE tier), the `None` is passed through silently. The factory must handle optional dependencies with default parameters:
 
 ```python
 def create_tasks_api_routes(app, rt, tasks_service, goals_service=None, ...):
     ...  # goals_service may be None
 ```
+
+**Missing attributes warn.** If `getattr(services, attr)` finds no such attribute (sentinel-based detection), a warning is logged and `None` is passed. This catches stale attr names after renames — e.g. `"assignments"` → `"exercises"`.
 
 ---
 
