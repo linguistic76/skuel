@@ -728,8 +728,26 @@ async def _wire_all_routes(
     setup_user_profile_routes(rt, services)
     logger.info("✅ User profile hub routes registered")
 
+    # PWA: serve manifest.json, service-worker.js, and offline.html from root scope
+    from starlette.responses import FileResponse, RedirectResponse
+
+    static_dir = Path.cwd() / "static"
+
+    @rt("/manifest.json")
+    async def pwa_manifest(request):
+        return FileResponse(static_dir / "manifest.json", media_type="application/manifest+json")
+
+    @rt("/service-worker.js")
+    async def pwa_service_worker(request):
+        return FileResponse(static_dir / "service-worker.js", media_type="application/javascript")
+
+    @rt("/offline.html")
+    async def pwa_offline(request):
+        return FileResponse(static_dir / "offline.html", media_type="text/html")
+
+    logger.info("✅ PWA routes registered (/manifest.json, /service-worker.js, /offline.html)")
+
     # /curriculum redirect -> /pathways (curriculum hub deleted)
-    from starlette.responses import RedirectResponse
 
     @rt("/curriculum")
     async def curriculum_redirect(request):

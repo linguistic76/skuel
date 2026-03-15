@@ -1,15 +1,15 @@
 ---
 title: ADR-039: Hyperview as Mobile Strategy
-updated: 2026-02-06
-status: current
+updated: 2026-03-16
+status: superseded
 category: decisions
 tags: [adr, decisions, mobile, hyperview, hypermedia]
-related: []
+related: [ADR-050]
 ---
 
 # ADR-039: Hyperview as Mobile Strategy
 
-**Status:** Accepted (groundwork phase)
+**Status:** Superseded by [ADR-050: PWA as Mobile Strategy](ADR-050-pwa-mobile-strategy.md)
 
 **Date:** 2026-02-06
 

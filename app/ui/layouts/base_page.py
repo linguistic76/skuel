@@ -28,7 +28,7 @@ from fasthtml.common import A, Body, Button, Div, Head, Html, Link, Main, Meta, 
 
 from ui.layouts.navbar import create_navbar, create_navbar_for_request
 from ui.layouts.page_types import PAGE_CONFIG, PageType
-from ui.theme import ALPINE_VERSION, HTMX_VERSION, Theme
+from ui.theme import ALPINE_VERSION, HTMX_VERSION, Theme, pwa_headers
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
@@ -83,6 +83,8 @@ def build_head(
         # SKUEL JavaScript (Alpine components) - LOAD ONLY ONCE
         Script(src="/static/js/focus_trap.js"),
         Script(src="/static/js/skuel.js"),
+        # PWA: manifest, icons, meta tags
+        *pwa_headers(),
     )
 
 
@@ -228,6 +230,12 @@ async def BasePage(
                     )
                 )
             ),
+            # PWA: service worker registration
+            Script("""
+                if ('serviceWorker' in navigator) {
+                    navigator.serviceWorker.register('/service-worker.js');
+                }
+            """),
             cls="bg-background text-foreground",
         ),
         **{

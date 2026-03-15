@@ -493,18 +493,19 @@ type Scorer[T] = Callable[[T], Score]
 
 **Key Files:** `/static/js/skuel.js` (ALL Alpine.data() components), `/static/vendor/alpinejs/alpine.3.14.8.min.js`
 
-## Hyperview Mobile Strategy
+## PWA Mobile Strategy
 
-**Core Principle:** "One backend, two formats — HTML for web, HXML for mobile"
+**Core Principle:** "One format (HTML), installable everywhere — no app store dependency"
 
-| Platform | Format | Framework |
-|----------|--------|-----------|
-| Web | HTML | HTMX |
-| Mobile | HXML | Hyperview (React Native) |
+| Capability | Implementation |
+|------------|---------------|
+| Installability | Web app manifest (`/manifest.json`) |
+| Offline support | Service worker (network-first HTML, cache-first static) |
+| Push notifications | Web Push API (future) |
 
-**Status:** Groundwork phase. **Key Files:** `/core/hxml/elements.py`, `/adapters/inbound/negotiation.py`
+**Key Files:** `static/manifest.json`, `static/service-worker.js`, `static/offline.html`, `ui/theme.py` (`pwa_headers()`)
 
-**See:** `/docs/decisions/ADR-039-hyperview-mobile-strategy.md`
+**See:** `/docs/decisions/ADR-050-pwa-mobile-strategy.md`
 
 ## Lateral Relationships & Vis.js Graph Visualization
 
