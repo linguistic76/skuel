@@ -1,7 +1,7 @@
 version: 1.0
-type: Article
+type: Lesson
 
-uid: a:mindfulness:mind-wandering-happens
+uid: l:mindfulness:mind-wandering-happens
 title: Mind Wandering Happens
 content: |
   ## Mind Wandering is Normal
@@ -32,6 +32,7 @@ content: |
 
   Wandering isn't failure. Noticing wandering IS the practice.
 
+sel_category: self_awareness
 domain: personal
 complexity: medium
 quality_score: 0.90
@@ -41,7 +42,7 @@ uses_kus:
 
 connections:
   requires:
-    - a:mindfulness:breath-awareness-basics
+    - l:mindfulness:breath-awareness-basics
   enables: []
 
 tags:

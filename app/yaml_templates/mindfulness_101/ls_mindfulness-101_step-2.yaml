@@ -8,12 +8,12 @@ description: |
   Now that you've established breath awareness, add the practice
   of gently labeling when your mind drifts.
 
-# Knowledge Content (Article UIDs for teaching content)
+# Knowledge Content (Lesson UIDs for teaching content)
 primary_knowledge_uids:
-  - a:mindfulness:mind-wandering-happens
+  - l:mindfulness:mind-wandering-happens
 
 supporting_knowledge_uids:
-  - a:mindfulness:breath-awareness-basics
+  - l:mindfulness:breath-awareness-basics
 
 # Atomic Kus this step trains (learning objectives)
 trains_ku_uids:
@@ -28,7 +28,7 @@ prerequisite_step_uids:
   - ls:mindfulness-101:step-1
 
 prerequisite_knowledge_uids:
-  - a:mindfulness:breath-awareness-basics
+  - l:mindfulness:breath-awareness-basics
 
 # Learning Guidance
 principle_uids:

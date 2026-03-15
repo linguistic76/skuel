@@ -4,14 +4,14 @@
 # It shows ALL valid fields for Ku YAML files.
 #
 # A Ku is a single definable thing: a concept, state, principle, substance,
-# practice, or value. Small enough to appear in many Articles without dragging
+# practice, or value. Small enough to appear in many Lessons without dragging
 # narrative. Ku is a reference node, not a teaching document.
 #
-# Ku vs Article:
+# Ku vs Lesson:
 #   - Ku: atomic reference node (no content body, no learning metadata)
-#   - Article: unit for learning (full markdown content, complexity, learning_level)
+#   - Lesson: unit for learning (full markdown content, complexity, learning_level)
 #
-# Articles compose Kus via USES_KU relationships.
+# Lessons compose Kus via USES_KU relationships.
 # Learning Steps train Kus via TRAINS_KU relationships.
 #
 # Purpose: Use this as a reference when creating atomic knowledge units.
@@ -63,7 +63,7 @@ source: self_observation
 
 # description: Brief summary of this Ku
 # Type: String
-# Purpose: Optional brief description (NOT a full learning unit -- that's an Article)
+# Purpose: Optional brief description (NOT a full learning unit -- that's an Lesson)
 description: A brief description of this atomic knowledge unit
 
 # tags: Descriptive tags for categorization
@@ -93,7 +93,7 @@ tags:
 # ---------------
 # 1. Ku is NOT a teaching document -- it has NO content body
 # 2. Ku extends Entity directly (not Curriculum -- no complexity, learning_level, etc.)
-# 3. Articles compose Kus: (Article)-[:USES_KU]->(Ku)
+# 3. Lessons compose Kus: (Lesson)-[:USES_KU]->(Ku)
 # 4. Learning Steps train Kus: (Ls)-[:TRAINS_KU]->(Ku)
 # 5. Keep Kus atomic -- one definable thing per Ku
-# 6. Use Articles for narrative teaching content
+# 6. Use Lessons for narrative teaching content

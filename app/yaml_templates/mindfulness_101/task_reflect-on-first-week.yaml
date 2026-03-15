@@ -23,10 +23,10 @@ due_date: null
 scheduled_date: null
 
 # Learning Integration
-# Knowledge connections (Article UIDs for teaching content)
+# Knowledge connections (Lesson UIDs for teaching content)
 applies_knowledge_uids:
-  - a:mindfulness:breath-awareness-basics
-  - a:mindfulness:mind-wandering-happens
+  - l:mindfulness:breath-awareness-basics
+  - l:mindfulness:mind-wandering-happens
 
 fulfills_goal_uid: goal:mindfulness-beginner
 

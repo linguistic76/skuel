@@ -75,11 +75,11 @@ preferred_time: morning
 duration_minutes: 25
 
 # linked_knowledge_uids: Knowledge this habit reinforces
-# Type: List of Article or Ku UIDs
+# Type: List of Lesson or Ku UIDs
 # Purpose: Connect habit practice to learning content
-# Note: Can reference Articles (a:...) for teaching content or Kus (ku:...) for atomic concepts
+# Note: Can reference Lessons (l:...) for teaching content or Kus (ku:...) for atomic concepts
 linked_knowledge_uids:
-  - a:namespace:related-article
+  - l:namespace:related-lesson
   - ku:namespace:related-concept
 
 # linked_goal_uids: Goals this habit supports
@@ -205,5 +205,5 @@ tags:
 # 3. Use 'recurrence_pattern' not 'habit_type' or 'frequency'
 # 4. Progress fields (streaks, completions) are auto-managed by system
 # 5. Cue-Routine-Reward pattern helps establish strong habits
-# 6. linked_knowledge_uids can reference Articles (a:...) or Kus (ku:...)
+# 6. linked_knowledge_uids can reference Lessons (l:...) or Kus (ku:...)
 # 7. prerequisite_habit_uids creates a progression path (simple → complex)

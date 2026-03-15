@@ -1,17 +1,17 @@
-# Article Example
+# Lesson Example
 # ===============
 # A unit for learning that composes concepts into coherent content.
-# See _schemas/article_template.yaml for full field reference.
+# See _schemas/lesson_template.yaml for full field reference.
 
 version: 1.0
-type: Article
+type: Lesson
 
-uid: a:example:template-article
-title: Template Article
+uid: l:example:template-lesson
+title: Template Lesson
 content: |
   ## Introduction
 
-  This is a placeholder article. Articles are units for learning
+  This is a placeholder lesson. Lessons are units for learning
   that compose atomic Kus into coherent content.
 
   ## Key Concepts
@@ -21,7 +21,7 @@ content: |
 
   ## Summary
 
-  Articles teach. Kus define. Together they form SKUEL's curriculum.
+  Lessons teach. Kus define. Together they form SKUEL's curriculum.
 
 domain: personal
 complexity: basic

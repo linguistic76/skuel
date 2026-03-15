@@ -7,7 +7,7 @@ This directory contains YAML templates for creating SKUEL curriculum content and
 
 ```
 yaml_templates/
-  articles/             # Article templates (units for learning)
+  lessons/              # Lesson templates (units for learning)
   kus/                  # Ku templates (atomic knowledge units)
   edges/                # Edge templates (evidence relationships)
   learning_steps/       # Learning step (ls) templates
@@ -30,16 +30,16 @@ SKUEL's curriculum is built on four entities:
 | Prefix | Entity | Purpose | Content? |
 |--------|--------|---------|----------|
 | **ku** | Ku (atomic) | Single definable concept/state/practice | No (reference node) |
-| **a** | Article | A unit for learning | Yes (markdown) |
-| **ls** | Learning Step | A collection of lessons | No (references Articles) |
+| **l** | Lesson | A unit for learning | Yes (markdown) |
+| **ls** | Learning Step | A collection of lessons | No (references Lessons) |
 | **lp** | Learning Path | Complete learning sequence | No (sequences Steps) |
 
 ### Composition
 
 ```
-(Article)-[:USES_KU]->(Ku)       Article composes atomic Kus
+(Lesson)-[:USES_KU]->(Ku)       Lesson composes atomic Kus
 (Ls)-[:TRAINS_KU]->(Ku)          Learning Step trains atomic Kus
-(Ls)-[:PRIMARY_KNOWLEDGE]->(Article)  Step references Article for content
+(Ls)-[:PRIMARY_KNOWLEDGE]->(Lesson)  Step references Lesson for content
 (Lp)-[:HAS_STEP]->(Ls)           Path sequences Steps
 ```
 
@@ -48,7 +48,7 @@ SKUEL's curriculum is built on four entities:
 ```yaml
 # Curriculum entities
 ku:{namespace}:{slug}            # Atomic Ku: ku:attention:buzzing
-a:{namespace}:{slug}             # Article: a:mindfulness:breath-awareness-basics
+l:{namespace}:{slug}             # Lesson: l:mindfulness:breath-awareness-basics
 ls:{path}:{step-id}              # Learning step: ls:mindfulness-101:step-1
 lp:{path-name}                   # Learning path: lp:mindfulness-101
 
@@ -77,11 +77,11 @@ source: self_observation     # self_observation/research/teacher
 
 Kus are lightweight reference nodes. No content body, no learning metadata.
 
-### 2. Article (Teaching Composition)
+### 2. Lesson (Teaching Composition)
 
 ```yaml
-type: Article
-uid: a:mindfulness:breath-awareness-basics
+type: Lesson
+uid: l:mindfulness:breath-awareness-basics
 title: Breath Awareness -- Basics
 content: |
   ## Full markdown teaching narrative...
@@ -91,10 +91,10 @@ uses_kus:
   - ku:mindfulness:attention
 connections:
   requires: []
-  enables: [a:mindfulness:posture-basics]
+  enables: [l:mindfulness:posture-basics]
 ```
 
-Articles are units for learning that compose atomic Kus into coherent learning content.
+Lessons are units for learning that compose atomic Kus into coherent learning content.
 
 ### 3. Edge (Evidence Relationship)
 
@@ -116,7 +116,7 @@ source: self_observation
 # Learning Step
 type: LearningStep
 uid: ls:mindfulness-101:step-1
-knowledge_uid: a:mindfulness:breath-awareness-basics  # Article UID
+knowledge_uid: l:mindfulness:breath-awareness-basics  # Lesson UID
 trains_ku_uids: [ku:mindfulness:breath]               # Atomic Kus trained
 
 # Learning Path
@@ -132,8 +132,8 @@ A domain bundle is a complete, curated collection of related content. See `domai
 ### Creating a Domain Bundle
 
 1. Create directory: `domains/{bundle_name}/`
-2. Add atomic Kus first (referenced by Articles)
-3. Add Articles that compose Kus into teaching
+2. Add atomic Kus first (referenced by Lessons)
+3. Add Lessons that compose Kus into teaching
 4. Add supporting entities (principles, habits, tasks, events, goals, choices)
 5. Add learning steps and paths
 6. Create `manifest.yaml` with import order

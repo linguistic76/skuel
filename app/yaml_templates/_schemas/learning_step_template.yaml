@@ -27,11 +27,11 @@ title: Example Step Title
 # Example: "Pick one topic, run a single 25-minute block, and log it"
 intent: What the learner should achieve in this step
 
-# knowledge_uid: Reference to the Article for this step
-# Type: String (must be valid Article UID)
-# Pattern: a:namespace:slug
-# Example: a:study-skills:note-taking-basics
-knowledge_uid: a:example:topic
+# knowledge_uid: Reference to the Lesson for this step
+# Type: String (must be valid Lesson UID)
+# Pattern: l:namespace:slug
+# Example: l:study-skills:note-taking-basics
+knowledge_uid: l:example:topic
 
 # trains_ku_uids: Atomic Kus this step trains (learning objectives)
 # Type: List of Ku UIDs
@@ -111,7 +111,7 @@ prerequisites:
 # -----
 # 1. LearningStep files are typically embedded in LearningPath YAML, not separate files
 # 2. The uid, knowledge_uid, and sequence fields are REQUIRED
-# 3. knowledge_uid references an Article (teaching content), not a Ku (atomic concept)
+# 3. knowledge_uid references a Lesson (teaching content), not a Ku (atomic concept)
 # 4. trains_ku_uids references atomic Kus (learning objectives for this step)
 # 5. title and intent are REQUIRED by the LearningStepCreateRequest Pydantic model
 # 4. Progress tracking fields (current_mastery, completed, completed_at) are auto-managed

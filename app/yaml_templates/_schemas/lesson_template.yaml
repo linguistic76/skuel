@@ -1,33 +1,34 @@
-# Article Template
+# Lesson Template
 # ================
 # This is a TEMPLATE EXAMPLE, not a validation schema.
-# It shows ALL valid fields for Article YAML files.
+# It shows ALL valid fields for Lesson YAML files.
 #
-# An Article is a unit for learning -- content that composes concepts
-# into coherent learning material. Articles compose atomic Kus
+# A Lesson is a unit for learning -- content that composes concepts
+# into coherent learning material. Lessons compose atomic Kus
 # into coherent learning content via USES_KU relationships.
 #
-# Article vs Ku:
-#   - Article: unit for learning (full markdown, learning metadata)
+# Lesson vs Ku:
+#   - Lesson: unit for learning (full markdown, learning metadata)
 #   - Ku: atomic reference node (no content body, no learning metadata)
 #
 # Purpose: Use this as a reference when creating teaching content.
+# Note: type: Article is accepted as an alias for type: Lesson.
 
 # REQUIRED FIELDS
 # ---------------
 
 version: 1.0
-type: Article
+type: Lesson
 
 # uid: Unique identifier
-# Pattern: a:{namespace}:{slug} or a:{slug}
-# Example: a:mindfulness:breath-awareness-basics, a:calculus:derivative-rules
-uid: a:namespace:example-slug
+# Pattern: l:{namespace}:{slug} or l:{slug}
+# Example: l:mindfulness:breath-awareness-basics, l:calculus:derivative-rules
+uid: l:namespace:example-slug
 
-# title: Display title for this article
+# title: Display title for this lesson
 # Type: String
 # Example: "Breath Awareness -- Basics", "Buzzing, Stimulants, and Calm"
-title: Example Article Title
+title: Example Lesson Title
 
 # content: Full markdown teaching narrative
 # Format: Markdown with headers, bullets, code blocks, etc.
@@ -53,6 +54,13 @@ content: |
 # OPTIONAL FIELDS
 # ---------------
 
+# sel_category: Social Emotional Learning category
+# Valid values: self_awareness, self_management, social_awareness,
+#               relationship_skills, responsible_decision_making
+# Default: null
+# Purpose: Organizes lessons under SEL competency tabs on the /ku page
+sel_category: self_awareness
+
 # domain: Knowledge domain classification
 # Valid values: personal, professional, technical, health, financial, social
 # Default: personal
@@ -72,7 +80,7 @@ learning_level: beginner
 # estimated_time_minutes: Expected time to read/study
 # Type: Integer
 # Unit: Minutes
-# Example: 15 for a short article, 45 for a deep dive
+# Example: 15 for a short lesson, 45 for a deep dive
 estimated_time_minutes: 15
 
 # learning_objectives: What the learner will gain
@@ -82,10 +90,10 @@ learning_objectives:
   - Understand the basic concept
   - Apply the technique in practice
 
-# uses_kus: Atomic Kus this Article composes into its narrative
+# uses_kus: Atomic Kus this Lesson composes into its narrative
 # Type: List of Ku UIDs
-# Purpose: Declares which atomic knowledge units this Article teaches
-# Graph: Creates (Article)-[:USES_KU]->(Ku) relationships
+# Purpose: Declares which atomic knowledge units this Lesson teaches
+# Graph: Creates (Lesson)-[:USES_KU]->(Ku) relationships
 uses_kus:
   - ku:namespace:concept-1
   - ku:namespace:concept-2
@@ -95,14 +103,14 @@ uses_kus:
 # Default: 0.0
 quality_score: 0.85
 
-# connections: Prerequisite and enabling relationships to other Articles
+# connections: Prerequisite and enabling relationships to other Lessons
 # Type: Object with 'requires' and 'enables' lists
-# Purpose: Build knowledge graph between Articles
+# Purpose: Build knowledge graph between Lessons
 connections:
   requires:
-    - a:namespace:prerequisite-article
+    - l:namespace:prerequisite-lesson
   enables:
-    - a:namespace:next-article
+    - l:namespace:next-lesson
 
 # tags: Descriptive tags for categorization
 # Type: List of strings
@@ -118,9 +126,9 @@ tags:
 
 # IMPORTANT NOTES
 # ---------------
-# 1. Article replaces the old "KnowledgeUnit" type (March 2026 rename)
-# 2. Old YAML files with type: KnowledgeUnit will be ingested as Articles
-# 3. content is REQUIRED -- Articles are teaching documents
-# 4. uses_kus links to atomic Ku nodes (the concepts this Article teaches)
-# 5. Use complexity (basic/medium/advanced) not difficulty for Articles
-# 6. connections.requires/enables build the Article prerequisite graph
+# 1. Lesson replaced the old "Article" and "KnowledgeUnit" types (March 2026 renames)
+# 2. Old YAML files with type: Article or type: KnowledgeUnit will be ingested as Lessons
+# 3. content is REQUIRED -- Lessons are teaching documents
+# 4. uses_kus links to atomic Ku nodes (the concepts this Lesson teaches)
+# 5. Use complexity (basic/medium/advanced) not difficulty for Lessons
+# 6. connections.requires/enables build the Lesson prerequisite graph

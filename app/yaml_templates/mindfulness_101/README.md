@@ -9,10 +9,10 @@ A complete, beginner-friendly curriculum bundle for starting a mindfulness pract
 - `ku:mindfulness:breath` - The breath as a mindfulness anchor
 - `ku:mindfulness:attention` - The cognitive capacity to focus awareness
 
-### Articles (3)
-- `a:mindfulness:breath-awareness-basics` - Foundation of breath awareness practice
-- `a:mindfulness:posture-basics` - Simple posture guidelines
-- `a:mindfulness:mind-wandering-happens` - Understanding and working with wandering mind
+### Lessons (3)
+- `l:mindfulness:breath-awareness-basics` - Foundation of breath awareness practice
+- `l:mindfulness:posture-basics` - Simple posture guidelines
+- `l:mindfulness:mind-wandering-happens` - Understanding and working with wandering mind
 
 ### Learning Steps (2)
 - `ls:mindfulness-101:step-1` - Two Minutes Today
@@ -53,15 +53,15 @@ A complete, beginner-friendly curriculum bundle for starting a mindfulness pract
 This bundle demonstrates SKUEL's four-entity curriculum model:
 
 ```
-Ku (atom)          Article (teaching)         Ls (step)          Lp (path)
-ku:breath    <--   a:breath-awareness   -->   ls:step-1    -->   lp:mindfulness-101
-ku:attention <--   a:mind-wandering     -->   ls:step-2    -->
-                   USES_KU                    TRAINS_KU
+Ku (atom)          Lesson (teaching)        Ls (step)          Lp (path)
+ku:breath    <--   l:breath-awareness  -->   ls:step-1    -->   lp:mindfulness-101
+ku:attention <--   l:mind-wandering    -->   ls:step-2    -->
+                   USES_KU                   TRAINS_KU
 ```
 
 - **Kus** are atomic reference nodes (breath, attention)
-- **Articles** compose Kus into learning content via `USES_KU`
-- **Learning Steps** train specific Kus via `TRAINS_KU` and reference Articles for content
+- **Lessons** compose Kus into learning content via `USES_KU`
+- **Learning Steps** train specific Kus via `TRAINS_KU` and reference Lessons for content
 - **Learning Path** sequences the steps
 
 ## Ingestion
@@ -80,10 +80,10 @@ result = await ingestion_service.ingest_directory(
 
 ### Import Order (from manifest)
 
-1. **Kus** - Atomic knowledge units (referenced by Articles)
-2. **Articles** - Teaching content (references Kus)
+1. **Kus** - Atomic knowledge units (referenced by Lessons)
+2. **Lessons** - Teaching content (references Kus)
 3. **Supporting Entities** - Principles, choices, habits, tasks, events, goals
-4. **Learning Steps** - Steps that reference Articles and train Kus
+4. **Learning Steps** - Steps that reference Lessons and train Kus
 5. **Learning Path** - Path that sequences steps
 
 ## Files
@@ -95,10 +95,10 @@ mindfulness_101/
   # Atomic Kus
   ku_breath.yaml
   ku_attention.yaml
-  # Articles (units for learning)
-  article_breath-awareness-basics.yaml
-  article_posture-basics.yaml
-  article_mind-wandering-happens.yaml
+  # Lessons (units for learning)
+  lesson_breath-awareness-basics.yaml
+  lesson_posture-basics.yaml
+  lesson_mind-wandering-happens.yaml
   # Learning
   ls_mindfulness-101_step-1.yaml
   ls_mindfulness-101_step-2.yaml

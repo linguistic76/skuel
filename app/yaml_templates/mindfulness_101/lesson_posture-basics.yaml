@@ -1,7 +1,7 @@
 version: 1.0
-type: Article
+type: Lesson
 
-uid: a:mindfulness:posture-basics
+uid: l:mindfulness:posture-basics
 title: Posture — Basics
 content: |
   ## Simple Posture Guidelines
@@ -29,6 +29,7 @@ content: |
 
   Start where you're comfortable. Refine over time.
 
+sel_category: self_awareness
 domain: personal
 complexity: basic
 quality_score: 0.80
@@ -37,7 +38,7 @@ uses_kus: []
 
 connections:
   requires:
-    - a:mindfulness:breath-awareness-basics
+    - l:mindfulness:breath-awareness-basics
   enables: []
 
 tags:

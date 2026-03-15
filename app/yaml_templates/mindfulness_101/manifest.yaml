@@ -24,20 +24,20 @@ kus:
     file: ku_attention.yaml
     title: Attention
 
-# Articles (units for learning)
+# Lessons (units for learning)
 # ==================================
 # Units for learning that compose Kus into coherent content
-articles:
-  - uid: a:mindfulness:breath-awareness-basics
-    file: article_breath-awareness-basics.yaml
+lessons:
+  - uid: l:mindfulness:breath-awareness-basics
+    file: lesson_breath-awareness-basics.yaml
     title: Breath Awareness — Basics
 
-  - uid: a:mindfulness:posture-basics
-    file: article_posture-basics.yaml
+  - uid: l:mindfulness:posture-basics
+    file: lesson_posture-basics.yaml
     title: Posture — Basics
 
-  - uid: a:mindfulness:mind-wandering-happens
-    file: article_mind-wandering-happens.yaml
+  - uid: l:mindfulness:mind-wandering-happens
+    file: lesson_mind-wandering-happens.yaml
     title: Mind Wandering Happens
 
 # Learning Steps (ls)
@@ -118,10 +118,10 @@ import_order:
     - ku:mindfulness:breath
     - ku:mindfulness:attention
 
-  2_articles:
-    - a:mindfulness:breath-awareness-basics
-    - a:mindfulness:posture-basics
-    - a:mindfulness:mind-wandering-happens
+  2_lessons:
+    - l:mindfulness:breath-awareness-basics
+    - l:mindfulness:posture-basics
+    - l:mindfulness:mind-wandering-happens
 
   3_supporting_entities:
     - principle:small-steps
@@ -146,5 +146,5 @@ import_order:
 # Validation
 # ==========
 total_entities: 21
-core_curriculum_count: 10  # 2 ku + 3 articles + 2 ls + 1 lp + 2 principles (all shared content)
+core_curriculum_count: 10  # 2 ku + 3 lessons + 2 ls + 1 lp + 2 principles (all shared content)
 supporting_count: 11  # 3 choices + 2 habits + 2 tasks + 1 event + 1 goal + 2 conversations

@@ -11,7 +11,7 @@ These templates are **documentation**, not validation. Validation happens via Py
 | Entity Type | Template File | Primary Use Case |
 |-------------|---------------|------------------|
 | **Ku** | [ku_template.yaml](ku_template.yaml) | Atomic knowledge unit (concept, state, practice) |
-| **Article** | [article_template.yaml](article_template.yaml) | A unit for learning (composes Kus) |
+| **Lesson** | [lesson_template.yaml](lesson_template.yaml) | A unit for learning (composes Kus) |
 | **Edge** | [edge_template.yaml](edge_template.yaml) | Evidence relationship between entities |
 | **LearningStep** | [learning_step_template.yaml](learning_step_template.yaml) | A collection of lessons |
 | **LearningPath** | [learning_path_template.yaml](learning_path_template.yaml) | Structured learning sequences |
@@ -27,7 +27,7 @@ These templates are **documentation**, not validation. Validation happens via Py
 ```yaml
 # Curriculum
 ku:{namespace}:{slug}          # ku:attention:buzzing
-a:{namespace}:{slug}           # a:mindfulness:breath-awareness-basics
+l:{namespace}:{slug}           # l:mindfulness:breath-awareness-basics
 ls:{path}:{step}               # ls:mindfulness-101:step-1
 lp:{path}                      # lp:mindfulness-101
 
@@ -40,18 +40,18 @@ event:{name}                   # event:practice-block-2min
 principle:{name}               # principle:small-steps
 ```
 
-## Ku vs Article
+## Ku vs Lesson
 
-| | Ku | Article |
+| | Ku | Lesson |
 |---|---|---|
 | **Purpose** | Atomic reference node | Teaching composition |
 | **Content body** | No | Yes (full markdown) |
 | **Learning metadata** | No (no complexity, learning_level) | Yes |
 | **Extends** | Entity | Curriculum |
-| **UID prefix** | `ku:` | `a:` |
+| **UID prefix** | `ku:` | `l:` |
 | **Example** | "Caffeine" (substance) | "Buzzing, Stimulants, and Calm" (essay) |
 
-Articles compose Kus via `USES_KU` relationships. Learning Steps train Kus via `TRAINS_KU`.
+Lessons compose Kus via `USES_KU` relationships. Learning Steps train Kus via `TRAINS_KU`.
 
 ## Edge Templates
 
@@ -59,12 +59,12 @@ Edge YAML documents evidence relationships between entities (e.g., "caffeine exa
 
 ## Knowledge UID References in Activity Domains
 
-Activity domain templates (task, habit, goal, event, choice) can reference both Articles and Kus in their knowledge fields:
+Activity domain templates (task, habit, goal, event, choice) can reference both Lessons and Kus in their knowledge fields:
 
 ```yaml
 # In a task template
 applies_knowledge_uids:
-  - a:mindfulness:breath-awareness-basics  # Article (teaching content)
+  - l:mindfulness:breath-awareness-basics  # Lesson (teaching content)
   - ku:mindfulness:breath                  # Ku (atomic concept)
 ```
 
@@ -77,7 +77,7 @@ Load as Python dict
     |
 [Pydantic Request Model] -- Validation happens HERE
     |
-DTO (mutable transfer object)
+ DTO (mutable transfer object)
     |
 Pure Domain Model (frozen dataclass)
     |

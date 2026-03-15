@@ -17,9 +17,9 @@ preferred_time: morning
 duration_minutes: 2
 
 # Learning Integration
-# Knowledge connections (Article UIDs for teaching content)
+# Knowledge connections (Lesson UIDs for teaching content)
 linked_knowledge_uids:
-  - a:mindfulness:breath-awareness-basics
+  - l:mindfulness:breath-awareness-basics
 
 linked_goal_uids:
   - goal:mindfulness-beginner
