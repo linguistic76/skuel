@@ -188,12 +188,12 @@ Curriculum-to-Resource citations — connects teaching content to reference mate
 
 | Relationship | From | To | Properties | Purpose |
 |--------------|------|-----|------------|---------|
-| `CITES_RESOURCE` | Article / Ku | Resource | `context` | Curriculum cites reference material (books, talks, films) |
+| `CITES_RESOURCE` | Lesson / Ku | Resource | `context` | Curriculum cites reference material (books, talks, films) |
 
 ```cypher
--- Find all Resources cited by Articles in a Learning Step
+-- Find all Resources cited by Lessons in a Learning Step
 MATCH (ls:LearningStep)-[:HAS_STEP]-(lp:LearningPath)
-MATCH (ls)-[:CONTAINS_KNOWLEDGE]->(a:Article)-[:CITES_RESOURCE]->(r:Resource)
+MATCH (ls)-[:CONTAINS_KNOWLEDGE]->(a:Lesson)-[:CITES_RESOURCE]->(r:Resource)
 RETURN a.title AS article, r.title AS resource, r.author, r.media_type
 ```
 

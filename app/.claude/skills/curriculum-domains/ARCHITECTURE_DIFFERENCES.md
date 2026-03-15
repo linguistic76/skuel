@@ -1,6 +1,6 @@
 # Curriculum vs Activity Domain Architecture
 
-> Key architectural differences between Curriculum Domains (Article, KU, LS, LP, MOC) and Activity Domains (Tasks, Goals, etc.).
+> Key architectural differences between Curriculum Domains (Lesson, KU, LS, LP, MOC) and Activity Domains (Tasks, Goals, etc.).
 
 ## Ownership Model
 
@@ -38,15 +38,15 @@ self.intelligence = common.intelligence
 
 | Domain | Pattern | Factory Function |
 |--------|---------|-----------------|
-| **Article** | Specialized factory | `create_article_sub_services()` |
+| **Lesson** | Specialized factory | `create_lesson_sub_services()` |
 | **KU** | Generic factory (4 services) | `create_curriculum_sub_services()` |
 | **LS** | Generic factory | `create_curriculum_sub_services()` |
 | **LP** | Specialized factory | `create_lp_sub_services()` |
 
 ```python
-# Article - Specialized factory (handles circular core<->intelligence dependency)
-from core.utils.curriculum_domain_config import create_article_sub_services
-subs = create_article_sub_services(backend=repo, graph_intel=graph_intel, ...)
+# Lesson - Specialized factory (handles circular core<->intelligence dependency)
+from core.utils.curriculum_domain_config import create_lesson_sub_services
+subs = create_lesson_sub_services(backend=repo, graph_intel=graph_intel, ...)
 
 # LS - Generic factory (simple 4-service pattern)
 from core.utils.curriculum_domain_config import create_curriculum_sub_services
@@ -57,19 +57,19 @@ from core.utils.curriculum_domain_config import create_lp_sub_services
 subs = create_lp_sub_services(driver=driver, ls_service=ls_service, ...)
 ```
 
-**Note on MOC:** There is no `MocService`. MOC identity is emergent — any Entity with outgoing `ORGANIZES` relationships is an organizer. This is managed by `ArticleOrganizationService` (sub-service of `ArticleService`).
+**Note on MOC:** There is no `MocService`. MOC identity is emergent — any Entity with outgoing `ORGANIZES` relationships is an organizer. This is managed by `LessonOrganizationService` (sub-service of `LessonService`).
 
 ## Intelligence Service Patterns
 
 | Domain Type | Intelligence Creation | Where |
 |-------------|----------------------|-------|
 | **Activity (6)** | Factory | `create_common_sub_services()` |
-| **Article** | Specialized factory (BEFORE core) | `create_article_sub_services()` |
+| **Lesson** | Specialized factory (BEFORE core) | `create_lesson_sub_services()` |
 | **KU** | None (lightweight) | — |
 | **LS** | Generic factory | `create_curriculum_sub_services()` |
 | **LP** | Specialized factory | `create_lp_sub_services()` |
 
-**Key Difference:** Article creates intelligence BEFORE core due to circular dependency (core depends on intelligence for content analysis).
+**Key Difference:** Lesson creates intelligence BEFORE core due to circular dependency (core depends on intelligence for content analysis).
 
 ## Sub-service Count Comparison
 
@@ -81,7 +81,7 @@ subs = create_lp_sub_services(driver=driver, ls_service=ls_service, ...)
 | **Events** | 7 | Generic | Medium |
 | **Choices** | 4 | Generic | Medium |
 | **Principles** | 7 | Generic | Medium |
-| **Article** | 10 | Specialized | **High** (semantic, practice, organization, adaptive) |
+| **Lesson** | 10 | Specialized | **High** (semantic, practice, organization, adaptive) |
 | **KU** | 2 | None | **Lowest** (atomic reference) |
 | **LS** | 4 | Generic | Low (minimal design) |
 | **LP** | 5 | Specialized | Medium (validation, adaptive) |
@@ -97,14 +97,14 @@ from core.services.relationships import UnifiedRelationshipService
 self.relationships = UnifiedRelationshipService(backend, TASKS_CONFIG, graph_intel)
 
 # Curriculum Domains
-from core.models.relationship_registry import ARTICLE_CONFIG
-self.relationships = UnifiedRelationshipService(backend, ARTICLE_CONFIG, graph_intel)
+from core.models.relationship_registry import LESSON_CONFIG
+self.relationships = UnifiedRelationshipService(backend, LESSON_CONFIG, graph_intel)
 ```
 
-**MOC Special Case** - Uses Article config (MOC is Article with ORGANIZES):
+**MOC Special Case** - Uses Lesson config (MOC is Lesson with ORGANIZES):
 ```python
-from core.models.relationship_registry import ARTICLE_CONFIG
-self.relationships = UnifiedRelationshipService(backend, ARTICLE_CONFIG, graph_intel)
+from core.models.relationship_registry import LESSON_CONFIG
+self.relationships = UnifiedRelationshipService(backend, LESSON_CONFIG, graph_intel)
 ```
 
 **Direct Driver for Complex Queries:**
@@ -112,7 +112,7 @@ self.relationships = UnifiedRelationshipService(backend, ARTICLE_CONFIG, graph_i
 # When UnifiedRelationshipService doesn't fit
 async def get_semantic_neighborhood(self, article_uid: str) -> Result[dict]:
     query = """
-    MATCH (a:Article {uid: $uid})-[r]-(related)
+    MATCH (a:Lesson {uid: $uid})-[r]-(related)
     WHERE type(r) IN ['REQUIRES_KNOWLEDGE', 'ENABLES', 'HAS_NARROWER', 'RELATED_TO']
     RETURN related.uid, type(r), labels(related)
     """
@@ -142,16 +142,16 @@ Even though content is shared, Curriculum Domains track per-user data:
 
 | Data Type | Storage | Example |
 |-----------|---------|---------|
-| **Mastery level** | User→Article relationship | `(User)-[:MASTERED {level: 0.8}]->(Article)` |
+| **Mastery level** | User→Lesson relationship | `(User)-[:MASTERED {level: 0.8}]->(Lesson)` |
 | **Completion** | User→LS relationship | `(User)-[:COMPLETED]->(Ls)` |
 | **Progress** | User→LP relationship | `(User)-[:ENROLLED {progress: 0.6}]->(Lp)` |
-| **Organization** | Article→Article relationship | `(Article)-[:ORGANIZES {order, importance}]->(Article)` |
+| **Organization** | Lesson→Lesson relationship | `(Article)-[:ORGANIZES {order, importance}]->(Lesson)` |
 
 ## Circular Dependencies
 
 | Domain | Circular Dependency | Resolution |
 |--------|---------------------|------------|
-| **Article** | Core ↔ Intelligence | Create intelligence BEFORE core in factory |
+| **Lesson** | Core ↔ Intelligence | Create intelligence BEFORE core in factory |
 | **KU** | None | Simple construction |
 | **LS/LP** | None | Standard factory order |
 
@@ -159,11 +159,11 @@ Even though content is shared, Curriculum Domains track per-user data:
 
 **Curriculum content is global, but user interaction is personal.**
 
-The content (Article, KU, LS, LP, MOC) is shared across all users, but each user's progress, mastery, and preferences are stored in relationships TO that content.
+The content (Lesson, KU, LS, LP, MOC) is shared across all users, but each user's progress, mastery, and preferences are stored in relationships TO that content.
 
 **Factory Complexity Hierarchy:**
 ```
-Generic Factory (KU, LS) → Specialized Factory (Article, LP)
+Generic Factory (KU, LS) → Specialized Factory (Lesson, LP)
            ↓                           ↓
      Simple, uniform           Custom dependencies
 ```

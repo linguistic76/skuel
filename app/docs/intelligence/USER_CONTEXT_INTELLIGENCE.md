@@ -124,11 +124,11 @@ UserContextIntelligence requires ALL 13 domain services because each contributes
 | **choices** | What decisions await? | `choices_service.relationships` (UnifiedRelationshipService) |
 | **principles** | What values guide this? | `principles_service.relationships` (UnifiedRelationshipService) |
 
-### Curriculum (4) - LS/LP unified in January 2026, Article/KU split March 2026
+### Curriculum (4) - LS/LP unified in January 2026, Lesson/KU split March 2026
 
 | Service | Purpose | Implementation |
 |---------|---------|----------------|
-| **article** | What teaching content is ready? | `article_service` (ArticleGraphService) |
+| **lesson** | What teaching content is ready? | `lesson_service` (LessonGraphService) |
 | **ku** | Atomic knowledge reference | `ku_service` (KuService) |
 | **ls** | Learning step relationships | `ls_service.relationships` (UnifiedRelationshipService) |
 | **lp** | Critical path to life path | `lp_service.relationships` (UnifiedRelationshipService) |
@@ -920,7 +920,7 @@ factory = UserContextIntelligenceFactory(
     choices=choices_service.relationships,
     principles=principles_service.relationships,
     # Curriculum (3)
-    article=article_service.graph,
+    article=lesson_service.graph,
     ls=ls_service.relationships,
     lp=lp_service.relationships,
     # Processing (3)

@@ -99,7 +99,7 @@ This is where the Socratic pipeline begins. `ContextRetriever.load_ls_bundle()` 
 LSBundle (frozen, loaded once per question)
 ├── LearningStep        — the step itself (title, intent, mastery threshold)
 ├── LearningPath        — the parent path
-├── Articles            — teaching compositions linked to this step
+├── Lessons            — teaching compositions linked to this step
 ├── KUs                 — atomic knowledge units trained by this step
 ├── Resources           — reference material (books, talks, films) cited by Articles/KUs
 ├── Habits              — practice habits linked to this step
@@ -112,11 +112,11 @@ LSBundle (frozen, loaded once per question)
 
 The bundle is the **scope window**. Every pedagogical decision operates within it. If the question falls outside the bundle, Askesis redirects gently.
 
-**Resource integration (March 2026):** After Articles and KUs are fetched, ContextRetriever traverses `(Article/Ku)-[:CITES_RESOURCE]->(Resource)` to load cited reference material. Resources appear in `curriculum_context_text` as compact summaries and are referenced in guided prompts (SCAFFOLD, REDIRECT_TO_CURRICULUM, ENCOURAGING modes). This gives Askesis access to the full intellectual context — not just the teaching narrative, but the sources it draws from. Resources are also included in semantic search (embedding similarity).
+**Resource integration (March 2026):** After Lessons and KUs are fetched, ContextRetriever traverses `(Lesson/Ku)-[:CITES_RESOURCE]->(Resource)` to load cited reference material. Resources appear in `curriculum_context_text` as compact summaries and are referenced in guided prompts (SCAFFOLD, REDIRECT_TO_CURRICULUM, ENCOURAGING modes). This gives Askesis access to the full intellectual context — not just the teaching narrative, but the sources it draws from. Resources are also included in semantic search (embedding similarity).
 
-**Partial failure tolerance:** All 7 entity services (articles, KUs, habits, tasks, events, principles, LP) are required at construction — missing services cause a clear construction-time error rather than silent empty bundles at query time. At runtime, the bundle fetches entities in parallel via `asyncio.gather(return_exceptions=True)`. If any individual fetch fails (e.g., a network timeout), that collection defaults to empty — the bundle is built from whatever succeeds. Resource fetching also degrades gracefully — a graph query failure yields an empty resource list. A minimal bundle (just the LearningStep) still enables GuidanceMode decisions like OUT_OF_SCOPE and REDIRECT_TO_CURRICULUM.
+**Partial failure tolerance:** All 7 entity services (lessons, KUs, habits, tasks, events, principles, LP) are required at construction — missing services cause a clear construction-time error rather than silent empty bundles at query time. At runtime, the bundle fetches entities in parallel via `asyncio.gather(return_exceptions=True)`. If any individual fetch fails (e.g., a network timeout), that collection defaults to empty — the bundle is built from whatever succeeds. Resource fetching also degrades gracefully — a graph query failure yields an empty resource list. A minimal bundle (just the LearningStep) still enables GuidanceMode decisions like OUT_OF_SCOPE and REDIRECT_TO_CURRICULUM.
 
-**Token truncation:** `curriculum_context_text` (concatenated Article content + Resource references) is truncated to `AskesisTokenBudget.MAX_CURRICULUM_CHARS` (~2500 tokens) to prevent exceeding LLM context windows when the bundle has many Articles.
+**Token truncation:** `curriculum_context_text` (concatenated Lesson content + Resource references) is truncated to `AskesisTokenBudget.MAX_CURRICULUM_CHARS` (~2500 tokens) to prevent exceeding LLM context windows when the bundle has many Lessons.
 
 If no bundle is available (no active LS), Askesis falls back to context-aware LLM generation without the Socratic layer.
 
@@ -165,7 +165,7 @@ Without a bundle, Askesis uses `generate_context_aware_answer()` with the full U
 
 After LLM generation, `QueryProcessor._format_citations_for_askesis()` calls `AskesisCitationService.format_citations_for_askesis()` for each matched knowledge UID (up to 3). The citation service traverses `REQUIRES_KNOWLEDGE` chains up to 3 levels deep via `ProvenanceQueries.build_citation_export_query()`, returning `RelationshipCitation` objects with evidence counts. Citations are appended to the answer text.
 
-The citation service is wired at bootstrap: `AskesisCitationService(backend=article_service.core.backend)` → passed through `create_askesis_service()` → `AskesisDeps.citation_service` → `QueryProcessor`. Without the service (if `citation_service` is `None`), citation formatting returns an empty string — the answer is still generated, just without source references.
+The citation service is wired at bootstrap: `AskesisCitationService(backend=lesson_service.core.backend)` → passed through `create_askesis_service()` → `AskesisDeps.citation_service` → `QueryProcessor`. Without the service (if `citation_service` is `None`), citation formatting returns an empty string — the answer is still generated, just without source references.
 
 ### Step 10: Assemble Response
 
@@ -338,7 +338,7 @@ Stages 1–5 return a response (degraded but functional). Stages 6–7 return a 
 
 Three things distinguish Askesis from a generic AI assistant:
 
-1. **Curriculum anchoring.** Every conversation is scoped to the user's Learning Path and current Learning Step. The LLM has access to the actual teaching content (Articles), not just metadata.
+1. **Curriculum anchoring.** Every conversation is scoped to the user's Learning Path and current Learning Step. The LLM has access to the actual teaching content (Lessons), not just metadata.
 
 2. **ZPD-driven pedagogy.** The mode of response is determined by measured engagement evidence, not heuristics or LLM judgment. A deterministic decision tree ensures consistent pedagogical behavior.
 

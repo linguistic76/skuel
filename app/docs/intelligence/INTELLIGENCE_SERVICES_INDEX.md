@@ -156,8 +156,8 @@ factory = IntelligenceRouteFactory(
 
 # Factory for shared content (Curriculum)
 factory = IntelligenceRouteFactory(
-    intelligence_service=article_service.intelligence,
-    domain_name="article",
+    intelligence_service=lesson_service.intelligence,
+    domain_name="lesson",
     scope=ContentScope.SHARED,                # No ownership checks
 )
 ```

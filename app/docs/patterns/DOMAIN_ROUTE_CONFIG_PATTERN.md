@@ -505,23 +505,23 @@ grep "Registered tasks routes" logs/skuel.log
 
 ## Examples
 
-### Example 1: Single Service (Article)
+### Example 1: Single Service (Lesson)
 
-**File:** `/adapters/inbound/article_routes.py`
+**File:** `/adapters/inbound/lesson_routes.py`
 
 ```python
-ARTICLE_CONFIG = DomainRouteConfig(
-    domain_name="articles",
-    primary_service_attr="article",  # services.article
-    api_factory=create_article_api_routes,
-    ui_factory=create_article_ui_routes,
+LESSON_CONFIG = DomainRouteConfig(
+    domain_name="lessons",
+    primary_service_attr="lesson",  # services.lesson
+    api_factory=create_lesson_api_routes,
+    ui_factory=create_lesson_ui_routes,
     api_related_services={},  # No additional services needed
 )
 ```
 
 **Key features:**
 - Simplest pattern - only primary service, no related services
-- Both API and UI factories only need the primary Article service
+- Both API and UI factories only need the primary Lesson service
 - Empty api_related_services dict (explicit no dependencies)
 - Demonstrates minimal DomainRouteConfig setup
 
@@ -1005,7 +1005,7 @@ DomainRouteConfig operates at the **Adapter Layer** - it wires API/UI to the app
 
 **Other Domains (7):** *(Migrated 2026-01-24)*
 7. `/adapters/inbound/pathways_routes.py` (72 lines) - LP + LS routes
-8. `/adapters/inbound/article_routes.py` (49 lines) - Article routes
+8. `/adapters/inbound/lesson_routes.py` (49 lines) - Lesson routes
 9. `/adapters/inbound/context_routes.py` (49 lines) - UserContext routes
 10. `/adapters/inbound/reports_routes.py` (63 lines) - Meta-analysis
 11. `/adapters/inbound/finance_routes.py` (61 lines) - Admin-only bookkeeping
@@ -1259,7 +1259,7 @@ Zero runtime overhead - routes are registered once at application startup.
 - Zero regressions detected
 
 **Phase 9 (Complete - 2026-03-11):** Non-Activity domain migrations (6 files)
-- ✅ monitoring_routes.py, article_reading_routes.py, study_routes.py (simple migrations)
+- ✅ monitoring_routes.py, lesson_reading_routes.py, study_routes.py (simple migrations)
 - ✅ search_routes.py (service-extraction, SearchRouter as primary)
 - ✅ hierarchy_routes.py, lateral_routes.py (loop-pattern, multi-service via kwargs)
 - graphql_routes.py: signature normalized only (needs full services container)

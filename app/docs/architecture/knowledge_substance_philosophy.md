@@ -24,7 +24,7 @@ Learning Paths (lp) - sequences toward life goals
     ↑ composed of
 Learning Steps (ls) - curated knowledge + practice bundles
     ↑ built from
-Articles (teaching compositions, compose atomic Kus)
+Lessons (teaching compositions, compose atomic Kus)
     ↕ BIDIRECTIONAL enrichment
 Supporting Domains - tasks, events, habits, journals, choices, principles
 ```
@@ -33,17 +33,17 @@ Supporting Domains - tasks, events, habits, journals, choices, principles
 
 ---
 
-## Bidirectional Relationship: Article/KU ↔ Supporting Domains
+## Bidirectional Relationship: Lesson/KU ↔ Supporting Domains
 
-**Articles (teaching compositions) and atomic Kus mutually enrich Supporting Domains.** Substance scoring applies to Articles — the essay-like compositions that users interact with. Atomic Kus (`EntityType.KU`) are lightweight reference nodes composed into Articles via `USES_KU`.
+**Lessons (teaching compositions) and atomic Kus mutually enrich Supporting Domains.** Substance scoring applies to Lessons — the essay-like compositions that users interact with. Atomic Kus (`EntityType.KU`) are lightweight reference nodes composed into Lessons via `USES_KU`.
 
-### 1. Forward Direction (Article → Supporting)
+### 1. Forward Direction (Lesson → Supporting)
 - Knowledge guides what tasks to create
 - Knowledge informs which events to schedule
 - Knowledge shapes which habits to build
 - Knowledge influences decisions/choices
 
-### 2. Reverse Direction (Supporting → Article)
+### 2. Reverse Direction (Supporting → Lesson)
 - Tasks give knowledge substance (practical application)
 - Events provide practice opportunities (repetition)
 - Habits integrate knowledge into lifestyle (automaticity)
@@ -224,10 +224,10 @@ user_substance_score = task_score + habit_score + event_score + journal_score + 
 
 ### Implementation
 
-- **Service:** `ArticleIntelligenceService.calculate_user_substance(article_uid, user_context)`
-- **Facade:** `ArticleService.get_user_article_context(article_uid, user_context)`
-- **Route:** `/adapters/inbound/article_api.py` (`get_article_user_context_route`)
-- **Wiring:** `user_service` passed through `services_bootstrap.py` → `ArticleService` → `ArticleIntelligenceService`
+- **Service:** `LessonIntelligenceService.calculate_user_substance(article_uid, user_context)`
+- **Facade:** `LessonService.get_user_article_context(article_uid, user_context)`
+- **Route:** `/adapters/inbound/lesson_api.py` (`get_lesson_user_context_route`)
+- **Wiring:** `user_service` passed through `services_bootstrap.py` → `LessonService` → `LessonIntelligenceService`
 
 ### Future: UserContext Extensions
 
@@ -350,12 +350,12 @@ Div(
 
 | Component | Location | Purpose |
 |-----------|----------|---------|
-| **Substance Fields** | `/core/models/article/article.py` | Substance fields on `Article` model (extends Curriculum → Entity) |
-| **Decay Algorithm** | `/core/models/article/article.py` | Exponential decay, spaced repetition |
+| **Substance Fields** | `/core/models/lesson/lesson.py` | Substance fields on `Lesson` model (extends Curriculum → Entity) |
+| **Decay Algorithm** | `/core/models/lesson/lesson.py` | Exponential decay, spaced repetition |
 | **Domain Events** | `/core/events/ku_events.py` | 5 substance events |
-| **Event Listeners** | `/core/services/article_service.py` | Atomic substance updates |
+| **Event Listeners** | `/core/services/lesson_service.py` | Atomic substance updates |
 | **Event Wiring** | `/services_bootstrap.py` | Subscribe KuService to events |
-| **Dashboard UI** | `/ui/substance_dashboard.py` | Substance visualization (Article-level) |
+| **Dashboard UI** | `/ui/substance_dashboard.py` | Substance visualization (Lesson-level) |
 | **Life Path Fields** | `/core/services/user/unified_user_context.py` | Life alignment tracking |
 
 ---
@@ -483,7 +483,7 @@ substance_score = min(1.0, sum([
 - [Substance Tracking Implementation](/home/mike/skuel/app/SUBSTANCE_TRACKING_IMPLEMENTATION.md)
 - [Knowledge Events Catalog](/home/mike/skuel/app/core/events/ku_events.py)
 - [Substance Dashboard Components](/home/mike/skuel/app/ui/substance_dashboard.py)
-- [Article Model Implementation](/home/mike/skuel/app/core/models/article/article.py)
+- [Lesson Model Implementation](/home/mike/skuel/app/core/models/lesson/lesson.py)
 - [Event-Driven Architecture Guide](/home/mike/0bsidian/skuel/docs/guides/EVENT_DRIVEN_MIGRATION_GUIDE.md)
 
 ---

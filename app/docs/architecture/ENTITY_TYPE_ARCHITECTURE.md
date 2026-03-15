@@ -29,13 +29,13 @@ SKUEL is a **knowledge-centric productivity platform** where every operation con
 | Event | Time commitment to keep | User-owned |
 | Choice | Decision to make | User-owned |
 | Principle | Value to embody | User-owned |
-| Article | Teaching composition (essay-like narrative) | Admin-created, shared |
+| Lesson | Teaching composition (essay-like narrative) | Admin-created, shared |
 | Ku | Atomic knowledge unit (concept, principle, substance) | Admin-created, shared |
 | Resource | Curated content (books, talks, films) | Admin-created, shared |
 | LearningStep | Step in a learning path | Admin-created, shared |
 | LearningPath | Ordered sequence of steps | Admin-created, shared |
 | Exercise | Instruction template for practicing curriculum | Admin-created, shared |
-| FormTemplate | Reusable form definition (embeddable in Articles) | Admin-created, shared |
+| FormTemplate | Reusable form definition (embeddable in Lessons) | Admin-created, shared |
 | FormSubmission | User response to a FormTemplate | User-owned |
 | ExerciseSubmission | Student-uploaded work against an exercise | User-owned |
 | JournalSubmission | Reflective writing (voice/text) | User-owned |
@@ -116,7 +116,7 @@ Entity (~18 fields: uid, entity_type, title, description, status, tags, ...)
 |   +-- RevisedExercise(UserOwnedEntity)          REVISED_EXERCISE
 +-- FormTemplate(Entity) — reusable form definition (shared, embeddable)
 +-- Curriculum(Entity) +21 fields (base class only)
-|   +-- Article(Curriculum), LearningStep, LearningPath, Exercise
+|   +-- Lesson(Curriculum), LearningStep, LearningPath, Exercise
 +-- Ku(Entity) — atomic knowledge unit
 +-- Resource(Entity) +7 fields
 ```
@@ -131,7 +131,7 @@ EntityDTO (~18 fields)
 +-- UserOwnedDTO -> SubmissionDTO -> ExerciseSubmissionDTO, JournalSubmissionDTO
 +-- UserOwnedDTO -> SubmissionReportDTO -> ExerciseReportDTO, JournalReportDTO  (NOT SubmissionDTO)
 +-- EntityDTO -> FormTemplateDTO                   (form_schema, instructions)
-+-- CurriculumDTO(EntityDTO) -> ArticleDTO, LearningStepDTO, LearningPathDTO, ExerciseDTO
++-- CurriculumDTO(EntityDTO) -> LessonDTO, LearningStepDTO, LearningPathDTO, ExerciseDTO
 +-- KuDTO(EntityDTO)
 +-- ResourceDTO(EntityDTO)
 ```
@@ -211,16 +211,16 @@ Common sub-services created via `create_common_sub_services()` factory (`core/ut
 
 Standalone facade with 4 sub-services (Core, Budget, Reporting, Invoice). No intelligence service, no relationship configuration. All Finance routes require ADMIN role. Does NOT use `BaseService` or `BaseAnalyticsService`.
 
-### Article, Ku, LearningStep, LearningPath, Exercise — Curriculum
+### Lesson, Ku, LearningStep, LearningPath, Exercise — Curriculum
 
-Educational foundation. Article extends `Curriculum(Entity)`. Ku extends `Entity` directly (lightweight atomic unit). All admin-created, publicly readable via `ContentScope.SHARED`.
+Educational foundation. Lesson extends `Curriculum(Entity)`. Ku extends `Entity` directly (lightweight atomic unit). All admin-created, publicly readable via `ContentScope.SHARED`.
 
 ### Resource — Curated External Content
 
-Pointers to external content (books, talks, films) that Askesis can recommend. Resource extends `Entity` directly (+7 fields). Admin-created, publicly readable via `ContentScope.SHARED`. Resource is NOT curriculum — it does not participate in the `Article → Exercise → Submission → Report → RevisedExercise` loop. Its `ContentOrigin` is `CURATED` (tier A), distinct from curriculum's `CURRICULUM` (tier B).
+Pointers to external content (books, talks, films) that Askesis can recommend. Resource extends `Entity` directly (+7 fields). Admin-created, publicly readable via `ContentScope.SHARED`. Resource is NOT curriculum — it does not participate in the `Lesson → Exercise → Submission → Report → RevisedExercise` loop. Its `ContentOrigin` is `CURATED` (tier A), distinct from curriculum's `CURRICULUM` (tier B).
 
 **Two paths to knowledge (Montessori-inspired):**
-- **LS Path**: Structured, linear, teacher-directed (Article -> LS -> LP)
+- **LS Path**: Structured, linear, teacher-directed (Lesson -> LS -> LP)
 - **MOC Path**: Unstructured, graph, learner-directed (any Entity ORGANIZES others)
 
 **Service architecture:**
@@ -259,7 +259,7 @@ LpService (facade) — 5 sub-services via create_lp_sub_services()
 
 ### FormTemplate + FormSubmission — General-Purpose Forms
 
-A general-purpose form system decoupled from the learning loop. Admin creates reusable form templates, embeds them in Articles via `EMBEDS_FORM` relationships, and users submit structured responses. Submissions flow through the existing sharing infrastructure (groups, direct sharing, admin).
+A general-purpose form system decoupled from the learning loop. Admin creates reusable form templates, embeds them in Lessons via `EMBEDS_FORM` relationships, and users submit structured responses. Submissions flow through the existing sharing infrastructure (groups, direct sharing, admin).
 
 | EntityType | Inherits | Description |
 |------------|---------|-------------|
@@ -270,7 +270,7 @@ FormTemplate extends `Entity` (NOT Curriculum — doesn't need 21 Curriculum fie
 
 **Graph relationships:**
 ```cypher
-(article:Article)-[:EMBEDS_FORM]->(ft:FormTemplate)
+(article:Lesson)-[:EMBEDS_FORM]->(ft:FormTemplate)
 (fs:FormSubmission)-[:RESPONDS_TO_FORM]->(ft:FormTemplate)
 (user:User)-[:OWNS]->(fs:FormSubmission)
 ```
@@ -282,7 +282,7 @@ FormTemplate extends `Entity` (NOT Curriculum — doesn't need 21 Curriculum fie
 
 ### Submissions, Reports, ActivityReport — Content Processing
 
-The educational loop: `Article -> Exercise -> ExerciseSubmission -> ExerciseReport -> RevisedExercise -> ...`. Journals follow a parallel track: `JournalSubmission -> JournalReport`. Activity entity types are equal entry points via `ACTIVITY_REPORT`.
+The educational loop: `Lesson -> Exercise -> ExerciseSubmission -> ExerciseReport -> RevisedExercise -> ...`. Journals follow a parallel track: `JournalSubmission -> JournalReport`. Activity entity types are equal entry points via `ACTIVITY_REPORT`.
 
 | EntityType | Inherits | ProcessorType | Description |
 |------------|---------|---------------|-------------|
@@ -433,7 +433,7 @@ Natural Text
 (goal:Goal)-[:SUBGOAL_OF]->(goal:Goal)
 
 // Curriculum
-(article:Article)-[:USES_KU]->(ku:Ku)
+(article:Lesson)-[:USES_KU]->(ku:Ku)
 (ku:Curriculum)-[:REQUIRES_KNOWLEDGE]->(ku:Curriculum)
 (ku:Curriculum)-[:ENABLES_KNOWLEDGE]->(ku:Curriculum)
 (lp:LearningPath)-[:HAS_NARROWER]->(ls:LearningStep)
@@ -449,7 +449,7 @@ Natural Text
 (submission:Submission)-[:FULFILLS_EXERCISE]->(exercise:Exercise)
 
 // Forms
-(article:Article)-[:EMBEDS_FORM]->(ft:FormTemplate)
+(article:Lesson)-[:EMBEDS_FORM]->(ft:FormTemplate)
 (fs:FormSubmission)-[:RESPONDS_TO_FORM]->(ft:FormTemplate)
 
 // Sharing

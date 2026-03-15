@@ -80,7 +80,7 @@ class AskesisService:
         self.context_retriever = ContextRetriever(
             graph_intelligence_service=deps.graph_intelligence_service,
             embeddings_service=deps.embeddings_service,
-            article_service=deps.knowledge_service,
+            lesson_service=deps.knowledge_service,
             ku_service=deps.ku_service, ...
         )
 
@@ -248,7 +248,7 @@ The `UserContextIntelligenceFactory` requires all domain relationship services. 
                                        │                │
                                        ▼                ▼
                                 EmbeddingsService  Domain Services
-                                                   (Article, KU, Resource,
+                                                   (Lesson, KU, Resource,
                                                     LP, Habits, Tasks, etc.)
                                                         │
                                                GraphIntelligence

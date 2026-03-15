@@ -1,6 +1,6 @@
 # Curriculum Domain Patterns
 
-> Implementation patterns for Article, KU, LS, LP features.
+> Implementation patterns for Lesson, KU, LS, LP features.
 
 ---
 
@@ -11,10 +11,10 @@ All core/search services use `_config = create_curriculum_domain_config(...)` (n
 ```python
 from core.services.domain_config import create_curriculum_domain_config
 
-class ArticleCoreService(BaseService[ArticleOperations, Article]):
+class LessonCoreService(BaseService[LessonOperations, Article]):
     _config = create_curriculum_domain_config(
-        dto_class=ArticleDTO,
-        model_class=Article,
+        dto_class=LessonDTO,
+        model_class=Lesson,
         domain_name="articles",
         search_fields=("title", "description", "content"),
         category_field="domain",
@@ -25,26 +25,26 @@ class ArticleCoreService(BaseService[ArticleOperations, Article]):
 
 ---
 
-## Pattern: Article Organization (Non-Linear Navigation)
+## Pattern: Lesson Organization (Non-Linear Navigation)
 
-Any Article can organize other Articles via `ORGANIZES` relationships. There is no `MocService` — this is `ArticleOrganizationService`:
+Any Lesson can organize other Lessons via `ORGANIZES` relationships. There is no `MocService` — this is `LessonOrganizationService`:
 
 ```python
 # Create non-linear structure
-await article_service.organize_article(
-    parent_uid="a_yoga-fundamentals_abc123",
-    child_uid="a_meditation-basics_xyz789",
+await lesson_service.organize_article(
+    parent_uid="l_yoga-fundamentals_abc123",
+    child_uid="l_meditation-basics_xyz789",
     order=1,
     importance="core",
 )
 
 # Navigate the structure
-children = await article_service.get_organized_children("a_yoga-fundamentals_abc123", depth=2)
-parents = await article_service.get_parent_articles("a_meditation-basics_xyz789")
-root_organizers = await article_service.list_root_organizers()
+children = await lesson_service.get_organized_children("l_yoga-fundamentals_abc123", depth=2)
+parents = await lesson_service.get_parent_articles("l_meditation-basics_xyz789")
+root_organizers = await lesson_service.list_root_organizers()
 
-# Check if an Article acts as an organizer
-is_org = await article_service.is_organizer("a_yoga-fundamentals_abc123")
+# Check if a Lesson acts as an organizer
+is_org = await lesson_service.is_organizer("l_yoga-fundamentals_abc123")
 ```
 
 **When to use this pattern:** When users want to navigate knowledge non-linearly (exploring a topic map rather than following a prescribed sequence). This replaces the old MOC domain entirely.

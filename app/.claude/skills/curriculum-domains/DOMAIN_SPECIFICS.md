@@ -2,60 +2,60 @@
 
 > Special features and quirks for each Curriculum Domain.
 
-## Article (Teaching Composition) - The Composition
+## Lesson (Teaching Composition) - The Composition
 
-**Purpose:** Essay-like teaching content that composes atomic Kus into narrative. `Article` extends `Curriculum` in the model hierarchy.
+**Purpose:** Essay-like teaching content that composes atomic Kus into narrative. `Lesson` extends `Curriculum` in the model hierarchy.
 
 **Sub-services (10):**
 
 | Sub-service | Purpose |
 |-------------|---------|
-| `ArticleCoreService` | CRUD operations (extends BaseService) |
-| `ArticleSearchService` | Text search, filtering (extends BaseService) |
-| `ArticleGraphService` | Graph navigation and relationships |
-| `ArticleSemanticService` | Semantic relationship management |
-| `ArticlePracticeService` | Event-driven practice tracking |
-| `ArticleMasteryService` | Pedagogical tracking (VIEWED→IN_PROGRESS→MASTERED) |
-| `ArticleAdaptiveService` | Adaptive learning recommendations |
-| `ArticleOrganizationService` | ORGANIZES relationships — non-linear navigation (MOC pattern) |
-| `ArticleAiService` | AI-powered Article operations |
-| `ArticleRelationshipHelpers` | Relationship filtering utilities |
+| `LessonCoreService` | CRUD operations (extends BaseService) |
+| `LessonSearchService` | Text search, filtering (extends BaseService) |
+| `LessonGraphService` | Graph navigation and relationships |
+| `LessonSemanticService` | Semantic relationship management |
+| `LessonPracticeService` | Event-driven practice tracking |
+| `LessonMasteryService` | Pedagogical tracking (VIEWED→IN_PROGRESS→MASTERED) |
+| `LessonAdaptiveService` | Adaptive learning recommendations |
+| `LessonOrganizationService` | ORGANIZES relationships — non-linear navigation (MOC pattern) |
+| `LessonAiService` | AI-powered Lesson operations |
+| `LessonRelationshipHelpers` | Relationship filtering utilities |
 
-**Factory:** `create_article_sub_services()` - Specialized (handles circular core↔intelligence dependency)
+**Factory:** `create_lesson_sub_services()` - Specialized (handles circular core↔intelligence dependency)
 
 **Unique Features:**
 - **Substance tracking** - Measures how knowledge is LIVED (applied via Tasks, Habits, Events)
 - **Per-user context** - `calculate_user_substance(article_uid, user_uid)` for personalized metrics
 - **Semantic relationships** - REQUIRES_KNOWLEDGE, ENABLES, HAS_NARROWER, RELATED_TO
 - **Content ingestion** - YAML frontmatter + Markdown body
-- **Non-linear organization** - Any Article can organize other Articles via ORGANIZES (emergent MOC pattern)
-- **Composes atomic Kus** - `(Article)-[:USES_KU]->(Ku)` relationship
+- **Non-linear organization** - Any Lesson can organize other Lessons via ORGANIZES (emergent MOC pattern)
+- **Composes atomic Kus** - `(Lesson)-[:USES_KU]->(Ku)` relationship
 
 **Key Methods:**
 ```python
-# Get Article with full context
-await article_service.intelligence.get_article_with_context(uid)
+# Get Lesson with full context
+await lesson_service.intelligence.get_article_with_context(uid)
 
 # Calculate substance for user
-await article_service.intelligence.calculate_user_substance(article_uid, user_uid)
+await lesson_service.intelligence.calculate_user_substance(article_uid, user_uid)
 
 # Non-linear organization (replaces old MOC service)
-await article_service.organize_article(parent_uid, child_uid, order=1, importance="core")
-await article_service.get_organized_children(parent_uid, depth=1)
-await article_service.get_parent_articles(article_uid)  # Multiple parents possible!
-await article_service.is_organizer(article_uid)
-await article_service.list_root_organizers()
+await lesson_service.organize_article(parent_uid, child_uid, order=1, importance="core")
+await lesson_service.get_organized_children(parent_uid, depth=1)
+await lesson_service.get_parent_articles(article_uid)  # Multiple parents possible!
+await lesson_service.is_organizer(article_uid)
+await lesson_service.list_root_organizers()
 
 # Find ready-to-learn knowledge
-await article_service.search.get_ready_to_learn(user_uid)
+await lesson_service.search.get_ready_to_learn(user_uid)
 
 # Semantic neighborhood
-await article_service.semantic.get_semantic_neighborhood(article_uid)
+await lesson_service.semantic.get_semantic_neighborhood(article_uid)
 ```
 
-**UID Format:** `a_{slug}_{random}` (flat, not hierarchical - ADR-013)
+**UID Format:** `l_{slug}_{random}` (flat, not hierarchical - ADR-013)
 
-**MOC Pattern Note:** MOC is NOT an EntityType. Any Article (or other Entity) "is" an organizer when it has outgoing ORGANIZES relationships. There is no separate `MocService` or `core/services/moc/` directory — this is managed by `ArticleOrganizationService`.
+**MOC Pattern Note:** MOC is NOT an EntityType. Any Lesson (or other Entity) "is" an organizer when it has outgoing ORGANIZES relationships. There is no separate `MocService` or `core/services/moc/` directory — this is managed by `LessonOrganizationService`.
 
 ---
 
@@ -74,7 +74,7 @@ await article_service.semantic.get_semantic_neighborhood(article_uid)
 
 **Unique Features:**
 - **Lightweight** - Extends Entity directly, not Curriculum
-- **Composed into Articles** - `(Article)-[:USES_KU]->(Ku)` relationship
+- **Composed into Articles** - `(Lesson)-[:USES_KU]->(Ku)` relationship
 - **Trained by LS** - `(Ls)-[:TRAINS_KU]->(Ku)` relationship
 - **Namespace + category** - `ku_category` (KuCategory enum), `namespace`, `aliases`, `source`
 - **Reference node** - Ontology/reference, not essay-like teaching content
@@ -95,7 +95,7 @@ await ku_service.get_articles_using(ku_uid)
 
 ## LS (Learning Step) - The Edge
 
-**Purpose:** A single step in a learning sequence — connects Articles and Kus in meaningful order.
+**Purpose:** A single step in a learning sequence — connects Lessons and Kus in meaningful order.
 
 **Sub-services (4 - minimal design):**
 
@@ -177,7 +177,7 @@ await lp_service.intelligence.identify_path_blockers(lp_uid, user_uid)
 # Get optimal path recommendation
 await lp_service.intelligence.get_optimal_path_recommendation(user_uid, goal_uid)
 
-# Create path from Articles
+# Create path from Lessons
 await lp_service.create_path_from_articles(user_uid, name, article_uids)
 ```
 
@@ -191,14 +191,14 @@ await lp_service.create_path_from_articles(user_uid, name, article_uids)
 
 ## Comparison Table
 
-| Feature | Article | KU | LS | LP |
+| Feature | Lesson | KU | LS | LP |
 |---------|---------|----|----|-----|
 | **Sub-services** | 10 | 2 | 4 | 5 |
 | **Factory** | Specialized | — | Generic | Specialized |
 | **Extends** | Curriculum | Entity | Curriculum | Curriculum |
 | **Complexity** | Highest | Lowest | Low | Medium |
 | **User Progress** | Mastery level | — | Completion | Enrollment |
-| **Key Relationship** | USES_KU | (composed into Article) | TRAINS_KU | CONTAINS_STEP |
+| **Key Relationship** | USES_KU | (composed into Lesson) | TRAINS_KU | CONTAINS_STEP |
 | **Special Pattern** | Substance + Organization | Atomic reference | Practice | Validation |
-| **Navigation** | Point lookup + non-linear | Referenced from Articles | Sequential | Linear path |
+| **Navigation** | Point lookup + non-linear | Referenced from Lessons | Sequential | Linear path |
 | **Cross-Domain Dep** | None | None | None | LsService |

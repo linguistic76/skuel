@@ -256,7 +256,7 @@ class TasksSearchService(BaseService["TasksOperations", Task]):
 # Curriculum domain (shared content — no user ownership filter)
 from core.services.domain_config import create_curriculum_domain_config
 
-class ArticleSearchService(BaseService[ArticleOperations, Entity]):
+class LessonSearchService(BaseService[LessonOperations, Entity]):
     _config = create_curriculum_domain_config(
         dto_class=CurriculumDTO,
         model_class=Entity,

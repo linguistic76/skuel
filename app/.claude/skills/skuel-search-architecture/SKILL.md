@@ -46,7 +46,7 @@ SearchRouter (THE Orchestrator):
 | Group | Entities | Search Mode | Pattern |
 |-------|----------|-------------|---------|
 | **Activity (6)** | Task, Goal, Habit, Event, Choice, Principle | Graph-Aware | BaseService |
-| **Curriculum (3)** | Article, LS, LP | Graph-Aware | BaseService |
+| **Curriculum (3)** | Lesson, LS, LP | Graph-Aware | BaseService |
 | **Learning Loop (3)** | Exercise, RevisedExercise, Submission | Graph-Aware | BaseService |
 
 **Note:** MOC is NOT a searchable domain — it is emergent identity (any Ku with ORGANIZES relationships). Learning Loop services implement `SupportsGraphAwareSearch` directly (no `.search` sub-service). SearchRouter detects this via `isinstance(domain_service, SupportsGraphAwareSearch)` fallback.
@@ -148,7 +148,7 @@ await lp_service.search.get_aligned_with_goal("goal:learn-python")
 
 | Aspect | Value |
 |--------|-------|
-| **Domains** | 12 (Task, Goal, Habit, Event, Choice, Principle, Article, LS, LP, Exercise, RevisedExercise, ExerciseSubmission) |
+| **Domains** | 12 (Task, Goal, Habit, Event, Choice, Principle, Lesson, LS, LP, Exercise, RevisedExercise, ExerciseSubmission) |
 | **User Ownership** | Activity domains use OWNS; Curriculum uses None (shared) |
 | **Result Type** | `UnifiedSearchResult` with `results_by_domain` + `top_results` |
 | **Dispatch** | EntityType/NonKuDomain enum (type-safe, no string checks) |

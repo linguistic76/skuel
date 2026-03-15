@@ -54,11 +54,11 @@ crud_factory.register_routes(app, rt)
 
 # Curriculum domain (shared)
 crud_factory = CRUDRouteFactory(
-    service=article_service,
-    domain_name="article",
-    create_schema=ArticleCreateRequest,
+    service=lesson_service,
+    domain_name="lesson",
+    create_schema=LessonCreateRequest,
     update_schema=EntityUpdateRequest,
-    uid_prefix="a",
+    uid_prefix="l",
     scope=ContentScope.SHARED,  # Curriculum content is shared
 )
 crud_factory.register_routes(app, rt)
@@ -328,8 +328,8 @@ intelligence_factory.register_routes(app, rt)
 
 # For Curriculum Domains (shared content)
 intelligence_factory = IntelligenceRouteFactory(
-    intelligence_service=article_service.intelligence,
-    domain_name="article",
+    intelligence_service=lesson_service.intelligence,
+    domain_name="lesson",
     scope=ContentScope.SHARED,               # Curriculum content is shared
 )
 intelligence_factory.register_routes(app, rt)

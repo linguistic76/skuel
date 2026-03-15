@@ -190,11 +190,11 @@ __all__ = ["create_tasks_routes"]
 ```python
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 
-ARTICLE_CONFIG = DomainRouteConfig(
+LESSON_CONFIG = DomainRouteConfig(
     domain_name="article",
     primary_service_attr="article",
-    api_factory=create_article_api_routes,
-    ui_factory=create_article_ui_routes,
+    api_factory=create_lesson_api_routes,
+    ui_factory=create_lesson_ui_routes,
     api_related_services={},  # No dependencies beyond primary service
 )
 ```

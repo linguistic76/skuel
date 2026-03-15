@@ -1,10 +1,10 @@
-# ArticleIntelligenceService - Semantic Knowledge & Cross-Domain Discovery
+# LessonIntelligenceService - Semantic Knowledge & Cross-Domain Discovery
 
 ## Overview
 
-**Architecture:** Extends `BaseAnalyticsService[ArticleOperations, Article]`
-**Location:** `/core/services/article_intelligence_service.py`
-**Service Name:** `article.intelligence`
+**Architecture:** Extends `BaseAnalyticsService[LessonOperations, Lesson]`
+**Location:** `/core/services/lesson_intelligence_service.py`
+**Service Name:** `lesson.intelligence`
 **Lines:** ~728
 **Updated:** January 2026 (Protocol Compliance & Embeddings Service)
 
@@ -533,7 +533,7 @@ When `HuggingFaceEmbeddingsService` is available, the service provides:
 
 ### Unit Tests
 ```bash
-uv run python -m pytest tests/unit/services/test_article_intelligence_service.py -v
+uv run python -m pytest tests/unit/services/test_lesson_intelligence_service.py -v
 ```
 
 ### Integration Tests
@@ -548,7 +548,7 @@ uv run python -m pytest tests/integration/intelligence/ -k "test_get_knowledge_s
 ### Example Test
 ```python
 from unittest.mock import Mock
-from core.services.article_intelligence_service import ArticleIntelligenceService
+from core.services.lesson_intelligence_service import LessonIntelligenceService
 
 # Create mock services
 backend = Mock()

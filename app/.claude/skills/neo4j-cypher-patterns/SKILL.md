@@ -24,7 +24,7 @@ All domain entities use **multi-label architecture**: every entity gets `:Entity
 | Choices | `Choice` | `choice_{slug}_{random}` | `choice_accept-offer_jkl345` |
 | Principles | `Principle` | `principle_{slug}_{random}` | `principle_small-steps_mno678` |
 | **Curriculum (5) — shared content** | | | |
-| Articles | `Article` | `a_{slug}_{random}` | `a_intro-to-python_abc123` |
+| Articles | `Lesson` | `l_{slug}_{random}` | `l_intro-to-python_abc123` |
 | Knowledge Units | `Ku` | `ku_{slug}_{random}` | `ku_python-basics_abc123` |
 | Learning Steps | `LearningStep` | `ls:{random}` | `ls:intro-to-python` |
 | Learning Paths | `LearningPath` | `lp:{random}` | `lp:become-python-developer` |
@@ -70,7 +70,7 @@ All domain entities use **multi-label architecture**: every entity gets `:Entity
 (moc:Ku)-[:ORGANIZES {order: 1}]->(child:Ku)
 
 // Resource citations — curriculum cites reference material
-(article:Article)-[:CITES_RESOURCE]->(r:Resource)
+(lesson:Lesson)-[:CITES_RESOURCE]->(r:Resource)
 (ku:Ku)-[:CITES_RESOURCE]->(r:Resource)
 
 // Principles guidance

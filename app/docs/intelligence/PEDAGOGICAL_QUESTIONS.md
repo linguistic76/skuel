@@ -85,4 +85,4 @@ Substance recalculation from domain activity — recompute a knowledge unit's su
 **Why it matters:** Substance decays. A learner who practiced something intensely three months ago but hasn't touched it since needs to know their embodiment has faded.
 
 **Answered by:**
-- `ArticleIntelligenceService.calculate_user_substance()` — `core/services/article_intelligence_service.py`
+- `LessonIntelligenceService.calculate_user_substance()` — `core/services/lesson_intelligence_service.py`

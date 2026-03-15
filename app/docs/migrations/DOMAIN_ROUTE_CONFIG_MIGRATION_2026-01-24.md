@@ -46,11 +46,11 @@
 
 **Configuration:**
 ```python
-ARTICLE_CONFIG = DomainRouteConfig(
-    domain_name="article",
-    primary_service_attr="article",
-    api_factory=create_article_api_routes,
-    ui_factory=create_article_ui_routes,
+LESSON_CONFIG = DomainRouteConfig(
+    domain_name="lesson",
+    primary_service_attr="lesson",
+    api_factory=create_lesson_api_routes,
+    ui_factory=create_lesson_ui_routes,
     api_related_services={},
 )
 ```

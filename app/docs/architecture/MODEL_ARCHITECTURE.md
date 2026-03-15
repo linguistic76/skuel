@@ -136,7 +136,7 @@ core/models/{domain}/
 | `event/` | Event + EventDTO + requests | Activity | + calendar_models.py |
 | `choice/` | Choice + ChoiceDTO | Activity | + ChoiceOption sub-model |
 | `principle/` | Principle + PrincipleDTO + requests | Activity | + Reflection sub-entity, PrincipleIntelligence |
-| `article/` | Article + ArticleDTO | Curriculum | Teaching compositions |
+| `article/` | Article + LessonDTO | Curriculum | Teaching compositions |
 | `exercises/` | Exercise, RevisedExercise + DTOs + requests | Curriculum | Exercise and revision models |
 | `pathways/` | LearningStep, LearningPath + DTOs, Mastery, LpPosition, LpRelationships, LearningProgress | Curriculum | LP/LS pathway models |
 | `article_content/` | CurriculumContent, ContentChunk, ContentMetadata | Curriculum | Article body storage + RAG chunking |

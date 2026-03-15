@@ -28,7 +28,7 @@ Each stage has a single responsible service. The entire pipeline is async.
 
 1. **Format detection** — Markdown or YAML
 2. **Parsing** — Extract frontmatter/metadata + content body
-3. **Entity type detection** — Article, KU, Exercise, etc.
+3. **Entity type detection** — Lesson, KU, Exercise, etc.
 4. **Field validation** — Required fields checked per entity type
 5. **Data preparation** — `prepare_entity_data_async()` in `core/services/ingestion/preparer.py`:
    - Generate/normalize UIDs
@@ -64,7 +64,7 @@ Before embedding, the system extracts the right text fields per entity type. Thi
 
 ```python
 # Field mappings (subset — full list in EMBEDDING_FIELD_MAPS)
-EntityType.ARTICLE:    ("title", "content", "summary")      # separator: "\n\n"
+EntityType.LESSON:    ("title", "content", "summary")      # separator: "\n\n"
 EntityType.KU:         ("title", "summary", "description")  # separator: "\n\n"
 EntityType.TASK:       ("title", "description")              # separator: "\n"
 EntityType.GOAL:       ("title", "description", "vision_statement")
@@ -99,7 +99,7 @@ Current version is `v2` (migrated from OpenAI `text-embedding-3-small` at 1536 d
 
 **Service:** `EntityChunkingService` (`core/services/entity_chunking_service.py`)
 
-**When:** Immediately after ingestion, for Article entities.
+**When:** Immediately after ingestion, for Lesson entities.
 
 **What happens:**
 1. Content is split into semantic chunks
@@ -171,7 +171,7 @@ Traverses the Neo4j graph for structured context — prerequisites, learning pat
 `ContextRetriever._find_similar_knowledge()` performs a focused search:
 
 1. Embed the user's question
-2. Fetch knowledge entities (Articles, KUs, Resources) with embeddings from Neo4j (`WHERE ku.entity_type IN ['article', 'ku', 'resource']`)
+2. Fetch knowledge entities (Lessons, KUs, Resources) with embeddings from Neo4j (`WHERE ku.entity_type IN ['lesson', 'ku', 'resource']`)
 3. Calculate cosine similarity in Python
 4. Return top-5 above 0.6 threshold
 
@@ -461,7 +461,7 @@ Single-word titles under 4 characters won't match via partial word. Titles not i
 | `core/services/embeddings_service.py` | HuggingFace embedding generation |
 | `core/services/neo4j_vector_search_service.py` | Vector search (4 modes) |
 | `core/utils/embedding_text_builder.py` | Text extraction per entity type |
-| `core/services/entity_chunking_service.py` | Article chunking |
+| `core/services/entity_chunking_service.py` | Lesson chunking |
 | `core/services/background/embedding_worker.py` | Background embedding for API-created entities |
 | `core/services/ingestion/preparer.py` | Embedding generation during ingestion |
 

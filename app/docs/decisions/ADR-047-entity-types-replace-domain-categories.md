@@ -22,7 +22,7 @@ Problems with the domain-category framing:
 
 2. **Category boundaries are arbitrary.** Is Exercise "Curriculum" or "Instruction"? Is Resource "Curriculum" or "Curated Content"? These questions have no meaningful answer — the categories are imposed labels, not emergent structure.
 
-3. **Categories contradict graph-native thinking.** In a graph database, identity comes from relationships, not from category membership. An Exercise connects to an Article via `FOR_CURRICULUM`, to a Group via `FOR_GROUP`, and to a Submission via `FULFILLS_EXERCISE`. Its identity IS those relationships, not a label like "Instruction Domain."
+3. **Categories contradict graph-native thinking.** In a graph database, identity comes from relationships, not from category membership. An Exercise connects to a Lesson via `FOR_CURRICULUM`, to a Group via `FOR_GROUP`, and to a Submission via `FULFILLS_EXERCISE`. Its identity IS those relationships, not a label like "Instruction Domain."
 
 4. **Categories conflict with SKUEL's pedagogical philosophy.** SKUEL implements choose-your-own-adventure learning — decentralization and emergence over hierarchy and silos. Forcing entity types into rigid categories contradicts this at the architectural level.
 
@@ -48,7 +48,7 @@ Each entity type is a peer. No hierarchy of categories.
 | Event | Time commitment to keep |
 | Choice | Decision to make |
 | Principle | Value to embody |
-| Article | Teaching composition (essay-like narrative) |
+| Lesson | Teaching composition (essay-like narrative) |
 | Ku | Atomic knowledge unit (concept, state, principle, substance) |
 | Resource | Curated content (books, talks, films) |
 | LearningStep | Step in a learning path |
@@ -83,12 +83,12 @@ The 6 Activity entity types (Task, Goal, Habit, Event, Choice, Principle) genuin
 All other entity types are peers. Their relationships to each other are expressed through graph edges:
 
 ```
-(Article)-[:USES_KU]->(Ku)
+(Lesson)-[:USES_KU]->(Ku)
 (LearningStep)-[:TRAINS_KU]->(Ku)
-(Exercise)-[:FOR_CURRICULUM]->(Article)
+(Exercise)-[:FOR_CURRICULUM]->(Lesson)
 (Exercise)-[:FOR_GROUP]->(Group)
 (Submission)-[:FULFILLS_EXERCISE]->(Exercise)
-(Task)-[:APPLIES_KNOWLEDGE]->(Article|Ku)
+(Task)-[:APPLIES_KNOWLEDGE]->(Lesson|Ku)
 (Entity)-[:SERVES_LIFE_PATH]->(LifePath)
 ```
 

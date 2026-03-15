@@ -25,7 +25,7 @@
 | Events | `/core/services/events/events_intelligence_service.py` | |
 | Choices | `/core/services/choices/choices_intelligence_service.py` | |
 | Principles | `/core/services/principles/principles_intelligence_service.py` | |
-| Article | `/core/services/article_intelligence_service.py` | top-level (not in article/ subdir) |
+| Lesson | `/core/services/lesson_intelligence_service.py` | top-level (not in article/ subdir) |
 | LS | `/core/services/ls/ls_intelligence_service.py` | |
 | LP | `/core/services/lp_intelligence_service.py` | top-level (not in lp/ subdir) |
 

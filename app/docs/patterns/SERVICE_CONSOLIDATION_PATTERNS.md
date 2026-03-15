@@ -111,8 +111,8 @@ from core.services.domain_config import create_curriculum_domain_config
 _config = create_curriculum_domain_config(
     dto_class=CurriculumDTO,
     model_class=Curriculum,
-    domain_name="article",
-    search_fields=("title", "content", "description"),  # Article has more searchable fields
+    domain_name="lesson",
+    search_fields=("title", "content", "description"),  # Lesson has more searchable fields
     search_order_by="updated_at",   # Curriculum sorts by update time
     category_field="domain",        # Curriculum uses 'domain' not 'category'
     content_field="content",        # Field containing main content
@@ -560,7 +560,7 @@ Specialized factory functions for curriculum domains with complex initialization
 
 Activity domains use `create_common_sub_services()` with standard signatures. Some curriculum domains have non-standard requirements:
 
-- **Article**: 9 sub-services + circular dependency (intelligence must be created before core)
+- **Lesson**: 9 sub-services + circular dependency (intelligence must be created before core)
 - **LP**: 5 sub-services + cross-domain dependency (requires `ls_service`)
 - **KU, LS**: Use generic `create_curriculum_sub_services()` factory (4 sub-services each)
 
@@ -570,20 +570,20 @@ Domain-specific factory functions in `/core/utils/curriculum_domain_config.py`:
 
 ```python
 from core.utils.curriculum_domain_config import (
-    create_article_sub_services,
+    create_lesson_sub_services,
     create_lp_sub_services,
-    ArticleSubServices,
+    LessonSubServices,
     LpSubServices,
 )
 ```
 
-### Article Factory
+### Lesson Factory
 
 ```python
-# In ArticleService.__init__
-from core.utils.curriculum_domain_config import create_article_sub_services
+# In LessonService.__init__
+from core.utils.curriculum_domain_config import create_lesson_sub_services
 
-subs = create_article_sub_services(
+subs = create_lesson_sub_services(
     backend=repo,
     content_repo=content_repo,
     neo4j_adapter=neo4j_adapter,
@@ -608,9 +608,9 @@ self.adaptive = subs.adaptive
 
 **Creation Order (handles circular dependency):**
 1. `UnifiedRelationshipService` (needed by intelligence)
-2. `ArticleIntelligenceService` (BEFORE core — core depends on intelligence)
-3. `ArticleCoreService` (requires intelligence)
-4. `ArticleSearchService`, `ArticleGraphService`, `ArticleSemanticService`, `ArticlePracticeService`, `ArticleMasteryService`, `ArticleAdaptiveService`
+2. `LessonIntelligenceService` (BEFORE core — core depends on intelligence)
+3. `LessonCoreService` (requires intelligence)
+4. `LessonSearchService`, `LessonGraphService`, `LessonSemanticService`, `LessonPracticeService`, `LessonMasteryService`, `LessonAdaptiveService`
 
 ### KU and LS — Generic Factory
 
@@ -667,16 +667,16 @@ self.progress = subs.progress
 
 ```python
 @dataclass
-class ArticleSubServices:
-    core: ArticleCoreService
-    search: ArticleSearchService
-    graph: ArticleGraphService
-    semantic: ArticleSemanticService
-    practice: ArticlePracticeService
-    mastery: ArticleMasteryService
+class LessonSubServices:
+    core: LessonCoreService
+    search: LessonSearchService
+    graph: LessonGraphService
+    semantic: LessonSemanticService
+    practice: LessonPracticeService
+    mastery: LessonMasteryService
     relationships: UnifiedRelationshipService
-    intelligence: ArticleIntelligenceService
-    adaptive: ArticleAdaptiveService
+    intelligence: LessonIntelligenceService
+    adaptive: LessonAdaptiveService
 
 @dataclass
 class LpSubServices:
@@ -693,7 +693,7 @@ class LpSubServices:
 | Domain | Factory | Reason |
 |--------|---------|--------|
 | **LS** | `create_curriculum_sub_services()` | Standard 4-service pattern |
-| **Article** | `create_article_sub_services()` | 9 services + circular dependency |
+| **Lesson** | `create_lesson_sub_services()` | 9 services + circular dependency |
 | **LP** | `create_lp_sub_services()` | 5 services + cross-domain dependency |
 | **MOC** | Manual in facade | Circular (core ↔ section) requires post-init wiring |
 
@@ -716,7 +716,7 @@ class LpSubServices:
 | Explicit Delegation | `/core/services/tasks_service.py` | Explicit `async def` methods on facade class (no import needed) |
 | Relationship Registry | `/core/models/relationship_registry.py` | `from core.models.relationship_registry import generate_graph_enrichment` |
 | Post-Query Processors | `/adapters/persistence/neo4j/query/cypher/post_processors.py` | `from adapters.persistence.neo4j.query.cypher.post_processors import apply_processor, PROCESSOR_REGISTRY` |
-| Article/LP Factories | `/core/utils/curriculum_domain_config.py` | `from core.utils.curriculum_domain_config import create_article_sub_services, create_lp_sub_services` |
+| Lesson/LP Factories | `/core/utils/curriculum_domain_config.py` | `from core.utils.curriculum_domain_config import create_lesson_sub_services, create_lp_sub_services` |
 
 ---
 

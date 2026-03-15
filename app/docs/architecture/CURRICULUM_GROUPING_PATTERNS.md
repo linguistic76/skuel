@@ -361,7 +361,7 @@ The `UnifiedIngestionService` (at `core/services/ingestion/`) handles all curric
 | Ingestion | `/core/services/ingestion/` | Ingest all patterns from markdown |
 | Unified Registry | `/core/models/relationship_registry.py` | All domain relationship configs |
 
-**Note (March 2026):** Curriculum models decomposed from `/core/models/curriculum/` into domain-specific directories: `/core/models/article/`, `/core/models/exercises/`, `/core/models/pathways/`, `/core/models/article_content/`, and `/core/models/ku/`. Base classes in `/core/models/curriculum.py` and `/core/models/curriculum_dto.py`. MOC has no separate model or service; it is handled by `KuOrganizationService`.
+**Note (March 2026):** Curriculum models decomposed from `/core/models/curriculum/` into domain-specific directories: `/core/models/lesson/`, `/core/models/exercises/`, `/core/models/pathways/`, `/core/models/article_content/`, and `/core/models/ku/`. Base classes in `/core/models/curriculum.py` and `/core/models/curriculum_dto.py`. MOC has no separate model or service; it is handled by `KuOrganizationService`.
 
 ---
 

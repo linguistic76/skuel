@@ -297,7 +297,7 @@ factory = UserContextIntelligenceFactory(
     choices=choices_service.relationships,
     principles=principles_service.relationships,
     # Curriculum (3)
-    article=article_service.graph,
+    article=lesson_service.graph,
     ls=ls_service.relationships,
     lp=lp_service.relationships,
     # Processing Domains (3)
@@ -704,7 +704,7 @@ intelligence = factory.create(context)
 ## Related Skills
 
 - **[base-analytics-service](../base-analytics-service/SKILL.md)** - Level 1 domain analytics (BaseAnalyticsService, no AI) — same tier as UserContextIntelligence
-- **[learning-loop](../learning-loop/SKILL.md)** - The five-phased loop (Article → Exercise → Submission → Feedback → RevisedExercise) — context for why submissions/feedback slots exist
+- **[learning-loop](../learning-loop/SKILL.md)** - The five-phased loop (Lesson → Exercise → Submission → Feedback → RevisedExercise) — context for why submissions/feedback slots exist
 - **[result-pattern](../result-pattern/SKILL.md)** - Result[T] error handling
 
 ## See Also

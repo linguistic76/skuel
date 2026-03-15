@@ -314,9 +314,9 @@ Both methods run the same LP-scoped pipeline: LP enrollment gate → intent clas
 - `_identify_quick_wins_and_high_impact()` - Classification by prerequisite count:
   - **Quick wins**: 0-1 prerequisites (easy to start)
   - **High impact**: Many dependents (unblocks the most)
-- `_fetch_articles()`, `_fetch_kus()`, `_fetch_entities_by_uid()` - Parallel entity fetching via `asyncio.gather()`
+- `_fetch_lessons()`, `_fetch_kus()`, `_fetch_entities_by_uid()` - Parallel entity fetching via `asyncio.gather()`
 
-**LS bundle deps** use `EntityLookup` protocol (async `get(uid) -> Result[Any]`): article_service, ku_service, habits_service, tasks_service, events_service, principles_service, lp_service.
+**LS bundle deps** use `EntityLookup` protocol (async `get(uid) -> Result[Any]`): lesson_service, ku_service, habits_service, tasks_service, events_service, principles_service, lp_service.
 
 **Graph Integration:** Uses GraphIntelligenceService for semantic analysis and EmbeddingsService for vector similarity
 

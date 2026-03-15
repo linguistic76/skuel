@@ -37,12 +37,12 @@ Confidence scoring for these relationships is defined in `RelationshipStrength` 
 
 ### Relationship Targets
 
-Knowledge relationships target `:Entity` nodes — both Articles (teaching compositions) and atomic Kus (knowledge atoms). A Task can `APPLIES_KNOWLEDGE` to an Article about meditation AND to an atomic Ku for "mindfulness." The graph handles this naturally.
+Knowledge relationships target `:Entity` nodes — both Lessons (teaching compositions) and atomic Kus (knowledge atoms). A Task can `APPLIES_KNOWLEDGE` to a Lesson about meditation AND to an atomic Ku for "mindfulness." The graph handles this naturally.
 
 ### Composition Relationships (Separate Concern)
 
-Article-to-Ku composition uses dedicated relationship types:
-- `(Article)-[:USES_KU]->(Ku)` — article composes atomic Kus into narrative
+Lesson-to-Ku composition uses dedicated relationship types:
+- `(Lesson)-[:USES_KU]->(Ku)` — lesson composes atomic Kus into narrative
 - `(LearningStep)-[:TRAINS_KU]->(Ku)` — learning step trains specific Kus
 
 These are curriculum-internal and unrelated to the Activity-to-Knowledge pattern.

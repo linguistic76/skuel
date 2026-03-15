@@ -8,7 +8,7 @@ How SKUEL stores and serves two distinct kinds of content: **Article Content** (
 
 | | Article Content | Resource |
 |---|---|---|
-| **What it is** | The body text of a curriculum entity (Article, LS, LP) | A curated reference to external material (book, talk, film, podcast) |
+| **What it is** | The body text of a curriculum entity (Lesson, LS, LP) | A curated reference to external material (book, talk, film, podcast) |
 | **EntityType** | Not an entity — a facet attached via `HAS_CONTENT` | `EntityType.RESOURCE` — a first-class entity |
 | **Extends** | Standalone frozen dataclass (`CurriculumContent`) | `Entity` (7 resource-specific fields) |
 | **Ownership** | Attached to its parent curriculum entity | `ContentScope.SHARED` — admin-created, all users read |
@@ -22,7 +22,7 @@ How SKUEL stores and serves two distinct kinds of content: **Article Content** (
 
 ## Article Content (`core/models/article_content/`)
 
-Article Content is the **body text facet** of curriculum entities. When an Article is ingested from markdown, the raw text is stored as a `CurriculumContent` node connected to the Article via a `HAS_CONTENT` relationship. This keeps the Article graph node lean (metadata only) while the full text lives separately for RAG.
+Article Content is the **body text facet** of curriculum entities. When a Lesson is ingested from markdown, the raw text is stored as a `CurriculumContent` node connected to the Lesson via a `HAS_CONTENT` relationship. This keeps the Lesson graph node lean (metadata only) while the full text lives separately for RAG.
 
 ### Three Models
 
@@ -37,7 +37,7 @@ Article Content is the **body text facet** of curriculum entities. When an Artic
 ```
 Markdown file
     ↓ (ingestion)
-CurriculumContent node ←─HAS_CONTENT─ Article node
+CurriculumContent node ←─HAS_CONTENT─ Lesson node
     ↓ (auto-chunking)
 ContentChunk nodes ←─HAS_CHUNK─ CurriculumContent
     ↓ (embedding)
@@ -102,11 +102,11 @@ External content (outside SKUEL)
 
 ### Relationship to Articles
 
-An Article might reference a Resource via relationships:
-- `(Article)-[:REFERENCES]->(Resource)` — the Article cites or recommends the Resource
-- `(Resource)-[:RELATED_TO]->(Article)` — topical connection
+An Lesson might reference a Resource via relationships:
+- `(Lesson)-[:REFERENCES]->(Resource)` — the Lesson cites or recommends the Resource
+- `(Resource)-[:RELATED_TO]->(Lesson)` — topical connection
 
-But the Resource's actual content lives _outside_ SKUEL. The Article's content lives _inside_ SKUEL (as `CurriculumContent`).
+But the Resource's actual content lives _outside_ SKUEL. The Lesson's content lives _inside_ SKUEL (as `CurriculumContent`).
 
 ---
 
@@ -114,9 +114,9 @@ But the Resource's actual content lives _outside_ SKUEL. The Article's content l
 
 | Scenario | Use |
 |----------|-----|
-| Writing a teaching essay about stoic philosophy | **Article** with `CurriculumContent` body |
+| Writing a teaching essay about stoic philosophy | **Lesson** with `CurriculumContent` body |
 | Recommending "Meditations" by Marcus Aurelius | **Resource** with `media_type="book"` |
-| Ingesting a markdown file from the vault | **Article** → `CurriculumContent` (auto-chunked) |
+| Ingesting a markdown file from the vault | **Lesson** → `CurriculumContent` (auto-chunked) |
 | Linking to a YouTube lecture | **Resource** with `source_url` and `media_type="talk"` |
 | RAG retrieval for Askesis conversation | Searches **ContentChunk** vectors from `CurriculumContent` |
 | Building a reading list for a Learning Path | Links to **Resource** entities via relationships |
@@ -131,9 +131,9 @@ core/models/
 │   ├── content.py            # CurriculumContent — body storage + auto-chunking
 │   ├── content_chunks.py     # ContentChunk, ContentChunkType, chunking strategy
 │   └── content_metadata.py   # ContentMetadata — derived analytics
-├── article/                  # Article entity (curriculum leaf)
-│   ├── article.py            # Article(Curriculum) frozen dataclass
-│   └── article_dto.py        # Mutable DTO
+├── lesson/                  # Lesson entity (curriculum leaf)
+│   ├── article.py            # Lesson(Curriculum) frozen dataclass
+│   └── lesson_dto.py        # Mutable DTO
 └── resource/                 # Resource entity (external references)
     ├── resource.py           # Resource(Entity) frozen dataclass
     └── resource_dto.py       # Mutable DTO

@@ -60,7 +60,7 @@ All 14 domains are searchable via `SearchRouter` using `graph_aware_faceted_sear
 | Group | Domains | Ownership | Search Mode |
 |-------|---------|-----------|-------------|
 | Activity (6) | Tasks, Goals, Habits, Events, Choices, Principles | User-owned (`OWNS`) | Graph-Aware |
-| Curriculum (3) | Article, LS, LP | Shared content (no ownership filter) | Graph-Aware |
+| Curriculum (3) | Lesson, LS, LP | Shared content (no ownership filter) | Graph-Aware |
 | Learning Loop (3) | Exercise, RevisedExercise, Submission | User-owned (`OWNS`) | Graph-Aware |
 | Forms (2) | FormTemplate, FormSubmission | Template=shared, Submission=user-owned | Standard |
 
@@ -78,7 +78,7 @@ _SEARCHABLE_DOMAINS: frozenset[EntityType] = frozenset({
     EntityType.TASK, EntityType.GOAL, EntityType.HABIT,
     EntityType.EVENT, EntityType.CHOICE, EntityType.PRINCIPLE,
     # Curriculum (3)
-    EntityType.ARTICLE, EntityType.LEARNING_STEP, EntityType.LEARNING_PATH,
+    EntityType.LESSON, EntityType.LEARNING_STEP, EntityType.LEARNING_PATH,
     # Learning Loop (3)
     EntityType.EXERCISE, EntityType.REVISED_EXERCISE, EntityType.EXERCISE_SUBMISSION,
 })

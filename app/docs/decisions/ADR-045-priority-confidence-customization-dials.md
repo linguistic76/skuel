@@ -149,7 +149,7 @@ This applies uniformly regardless of which domain the entities belong to.
 - Primary enums: `core/models/enums/activity_enums.py` — `Priority` and `Confidence` classes
 - Priority field: `core/models/user_owned_entity.py` — `priority: str | None = None`
 - Confidence field: `core/models/curriculum.py` — `confidence: str | None = None`
-- Confidence request models: `core/models/article/article_request.py`, `core/models/pathways/pathways_request.py`
+- Confidence request models: `core/models/lesson/lesson_request.py`, `core/models/pathways/pathways_request.py`
 - Planning integration: `core/services/user/intelligence/daily_planning.py` — "CRITICAL PRIORITY OVERRIDE" block
 - Graph visualization: `core/services/lateral_relationships/lateral_relationship_service.py` — returns `confidence` + `priority` on each edge
 - Vis.js edge styling: `static/js/skuel.js` — `renderNetwork()` function

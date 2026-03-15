@@ -2,7 +2,7 @@
 name: learning-loop
 description: >
   Expert guide for SKUEL's Five-Phased Learning Loop — the core purpose of the app.
-  Use when building or reviewing any feature involving Article, Exercise, Submission, Report,
+  Use when building or reviewing any feature involving Lesson, Exercise, Submission, Report,
   or RevisedExercise. TRIGGER when: working on submissions, exercises, report generation,
   activity reports, revised exercises, teacher review, AI assessment, or when designing a new
   feature and asking "where does this fit?". This skill provides the development lens: every
@@ -31,7 +31,7 @@ Understanding the loop is the prerequisite for all architectural decisions.
 ║                                                                          ║
 ║  CURRICULUM TRACK (artifact-based)                                       ║
 ║  ────────────────────────────────────────────────────────────────────    ║
-║  [Article] → [Exercise] → [Submission/Journal] → [Report]               ║
+║  [Lesson] → [Exercise] → [Submission/Journal] → [Report]               ║
 ║   ↑             ↓              ↑↓                     ↓                  ║
 ║  admin       teacher        student               teacher/AI             ║
 ║  creates     assigns     uploads/revises          assesses               ║
@@ -408,7 +408,7 @@ identified in `SubmissionReport`. Forces a reflection step between feedback and
 resubmission.
 
 ```
-Article → Exercise v1 → Submission v1 → SubmissionReport v1
+Lesson → Exercise v1 → Submission v1 → SubmissionReport v1
                                               ↓
                                         RevisedExercise v2 → Submission v2 → ...
 ```
@@ -573,7 +573,7 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
 ### Questions to ask before building or extending
 
 1. **Which phase does this touch?**
-   - Article/Ku (knowledge content) → Phase 1
+   - Lesson/Ku (knowledge content) → Phase 1
    - Exercise (assignment/template) → Phase 2
    - Submission processing → Phase 3
    - Feedback generation or display → Phase 4

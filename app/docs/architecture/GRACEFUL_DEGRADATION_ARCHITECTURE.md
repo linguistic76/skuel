@@ -96,7 +96,7 @@ if embeddings_service:
     embedding_worker = EmbeddingBackgroundWorker(...)
 
 # Service constructors accept None
-class ArticleService:
+class LessonService:
     def __init__(self, embeddings_service=None, ...):
         self.embeddings = embeddings_service  # Can be None
 
