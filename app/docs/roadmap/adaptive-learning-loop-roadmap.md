@@ -45,7 +45,7 @@ This is the key insight: **SKUEL already collects significant outcome data that 
 | Mastery scores | `(User)-[:MASTERED {mastery_score, confidence}]->(Ku)` | Mastery decay over time (spaced repetition scheduling). Which KUs need review. |
 | View counts + time spent | `(User)-[:VIEWED {view_count, time_spent_seconds}]->(Ku)` | Learning efficiency — how much time does this user need per KU? Diminishing returns detection. |
 | Submission history | Submission → Exercise → Article chain | Which exercises are effective teachers. Which articles need rework (high submission failure rate). |
-| LP step completion | `LearningStepCompleted` events, `KnowledgeMastered` events | Optimal step ordering. Prerequisite satisfaction rates. Path completion prediction. |
+| LP step completion | `KnowledgeMastered` → `LessonCompleted` → `LearningStepProgressUpdated` / `LearningStepCompleted` → `LearningPathProgressUpdated` — **full chain now active** (March 2026). See [LEARNING_PROGRESS_EVENT_CHAIN.md](/docs/architecture/LEARNING_PROGRESS_EVENT_CHAIN.md) | Optimal step ordering. Prerequisite satisfaction rates. Path completion prediction. |
 | ZPD computation | `zpd_backend.py` — current zone, proximal zone, blocking gaps | ZPD already identifies *what* to learn next. Missing: feeding completion outcomes back to refine ZPD boundary estimates. |
 
 ### Cross-Domain — Unclosed Loops

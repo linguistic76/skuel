@@ -56,6 +56,11 @@ practice (Tasks, Goals, Habits) receives the same feedback infrastructure as cur
 work. The mechanism differs (`ACTIVITY_REPORT` vs `SUBMISSION_REPORT`), but both
 close the loop: student does work, system or teacher responds.
 
+**Learning progress event chain:** When `mark_mastered()` is called on a KU, the
+system automatically propagates progress upward: KU mastery → Lesson completion →
+LS progress → LP progress. See
+[LEARNING_PROGRESS_EVENT_CHAIN.md](/docs/architecture/LEARNING_PROGRESS_EVENT_CHAIN.md).
+
 ---
 
 ## Field Naming Convention: `entity_type` vs `EntityType`

@@ -175,8 +175,9 @@ UNAWARE → INTRODUCED → FAMILIAR → PROFICIENT → ADVANCED → EXPERT → M
 ```
 
 The `LessonMasteryService` (`core/services/lesson/lesson_mastery_service.py`) manages
-pedagogical progression: `VIEWED` → `IN_PROGRESS` → `MASTERED`. Each transition is a graph
-relationship event.
+pedagogical progression: `VIEWED` → `IN_PROGRESS` → `MASTERED`. `mark_mastered()` publishes
+`KnowledgeMastered`, which triggers the learning progress event chain — see
+[LEARNING_PROGRESS_EVENT_CHAIN.md](/docs/architecture/LEARNING_PROGRESS_EVENT_CHAIN.md).
 
 `LearningVelocity` tracks how fast a user learns in different domains — not as a judgment
 but as data for personalisation. A user who learns yoga slowly but Python quickly gets

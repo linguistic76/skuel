@@ -287,6 +287,7 @@ Type-safe relationships between patterns:
 ```python
 # LS Path (Linear)
 HAS_STEP           # LP → LS
+HAS_LESSON         # LS → Lesson (step contains lesson, progress tracking)
 REQUIRES_KNOWLEDGE # LS → KU
 
 # MOC Path (Graph) - KU organizing KUs
@@ -375,7 +376,7 @@ Each Curriculum Domain follows the **decomposed facade pattern** with complexity
 |--------|---------|--------------------------|--------------|
 | **KU** | `KuService` | 9 in `ku/` package: Core, Search, Graph, Semantic, Practice, Interaction, Organization, AI, Adaptive | `KuIntelligenceService` (standalone at `ku_intelligence_service.py`) |
 | **LP** | `LpService` | 4 in `lp/` package: Core, Search, Progress, AI | `LpIntelligenceService` (standalone at `lp_intelligence_service.py`) |
-| **LS** | `LsService` | 4 in `ls/` package: Core, Search, Intelligence, AI | `LsIntelligenceService` (in `ls/` package) |
+| **LS** | `LsService` | 5 in `ls/` package: Core, Search, Progress, Intelligence, AI | `LsIntelligenceService` (in `ls/` package) |
 
 **MOC (January 2026 - KU-Based):** There is no `MOCService`. MOC is handled by `KuOrganizationService` (sub-service of KuService). A Ku "is a MOC" when it has outgoing ORGANIZES relationships — emergent identity, not a separate service or EntityType.
 
@@ -398,7 +399,7 @@ Curriculum Domains use domain backend subclasses where relationship-specific Cyp
 | Domain | Backend | Domain-specific methods |
 |--------|---------|------------------------|
 | KU | `KuBackend` (extends `UniversalNeo4jBackend[Ku]`) | 7 ORGANIZES methods: `is_organizer`, `organize`, `unorganize`, `reorder`, `get_organized_children`, `find_organizers`, `list_root_organizers` |
-| LS | `UniversalNeo4jBackend[LearningStep]` (direct) | None |
+| LS | `LsBackend` (extends `UniversalNeo4jBackend[LearningStep]`) | `get_steps_containing_lesson`, `get_lesson_completion_progress` |
 | LP | `LpBackend` (extends `UniversalNeo4jBackend[LearningPath]`) | `get_paths_containing_ku`, `get_ku_mastery_progress` |
 | Exercise | `ExerciseBackend` (extends `UniversalNeo4jBackend[Exercise]`) | `link_to_curriculum`, `unlink_from_curriculum`, `get_required_knowledge` |
 

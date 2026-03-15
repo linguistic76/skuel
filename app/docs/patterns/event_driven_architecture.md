@@ -133,9 +133,9 @@ event_bus.subscribe(TaskCompleted, user_service.handle_task_completed)
 - `EVENT_EVENTS` (7 events): CalendarEventCreated, CalendarEventUpdated, CalendarEventCompleted, CalendarEventDeleted, CalendarEventRescheduled, EventAttendeeAdded, EventAttendeeRemoved
 - `CHOICE_EVENTS` (4 events): ChoiceCreated, ChoiceUpdated, ChoiceMade, ChoiceOutcomeRecorded
 - `PRINCIPLE_EVENTS` (4 events): PrincipleCreated, PrincipleUpdated, PrincipleStrengthChanged, PrincipleAlignmentAssessed
-- `LEARNING_EVENTS` (10 events): KnowledgeCreated, KnowledgeMastered, KnowledgePracticed, LearningPathStarted, etc.
+- `LEARNING_EVENTS` (12 events): KnowledgeCreated, KnowledgeMastered, LessonCompleted, KnowledgePracticed, LearningPathStarted, LearningPathCompleted, LearningPathProgressUpdated, LearningStepProgressUpdated, PrerequisitesAnalyzed, LearningRecommendationGenerated, etc.
 - `KNOWLEDGE_SUBSTANCE_EVENTS` (8 events): KnowledgeAppliedInTask, KnowledgeBuiltIntoHabit, etc.
-- `CURRICULUM_EVENTS` (7 events): LearningStepCreated/Updated/Deleted/Completed, MapOfContentCreated/Updated/Deleted
+- `CURRICULUM_EVENTS` (4 events): LearningStepCreated/Updated/Deleted/Completed
 - `JOURNAL_EVENTS` (3 events): JournalCreated, JournalUpdated, JournalDeleted
 - `ASSIGNMENT_EVENTS` (5 events): AssignmentSubmitted, AssignmentProcessingStarted/Completed/Failed, AssignmentDeleted
 - `TRANSCRIPTION_EVENTS` (3 events): TranscriptionCreated, TranscriptionCompleted, TranscriptionFailed
@@ -276,9 +276,8 @@ await publish_event(self.event_bus, event, self.logger)
 | Choices | ChoiceCreated, ChoiceUpdated, ChoiceMade, ChoiceOutcomeRecorded |
 | Principles | PrincipleCreated, PrincipleUpdated, PrincipleStrengthChanged, PrincipleAlignmentAssessed |
 | Finance | ExpenseCreated, ExpenseUpdated, ExpensePaid, ExpenseDeleted |
-| Learning | KnowledgeCreated, KnowledgeMastered, LearningPathStarted, LearningPathCompleted, LearningPathProgressUpdated |
+| Learning | KnowledgeCreated, KnowledgeMastered, LessonCompleted, LearningPathStarted, LearningPathCompleted, LearningPathProgressUpdated, LearningStepProgressUpdated |
 | LS | LearningStepCreated, LearningStepUpdated, LearningStepDeleted, LearningStepCompleted |
-| MOC | MapOfContentCreated, MapOfContentUpdated, MapOfContentDeleted |
 | Journals | JournalCreated, JournalUpdated, JournalDeleted |
 
 ---

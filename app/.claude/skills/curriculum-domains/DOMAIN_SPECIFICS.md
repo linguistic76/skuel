@@ -98,19 +98,23 @@ await ku_service.get_lessons(ku_uid)
 
 **Purpose:** A single step in a learning sequence — connects Lessons and Kus in meaningful order.
 
-**Sub-services (4 - minimal design):**
+**Sub-services (5):**
 
 | Sub-service | Purpose |
 |-------------|---------|
 | `LsCoreService` | CRUD operations (extends BaseService) |
 | `LsSearchService` | Text search, filtering (extends BaseService) |
+| `LsProgressService` | Progress tracking from Lesson completion (event-driven) |
 | `LsIntelligenceService` | Readiness, practice analysis |
 | `LsAiService` | AI-powered LS operations |
 
-**Factory:** `create_curriculum_sub_services()` - Generic (simplest pattern)
+**Factory:** `create_curriculum_sub_services()` - Generic (simplest pattern). Progress sub-service created directly in `LsService.__init__()`.
+
+**Backend:** `LsBackend` (extends `UniversalNeo4jBackend[LearningStep]`) — domain-specific methods: `get_steps_containing_lesson()`, `get_lesson_completion_progress()`.
 
 **Unique Features:**
-- **Minimal design** - Intentionally simple, delegates complexity to LP
+- **Event-driven progress** — `LsProgressService` subscribes to `LessonCompleted`, calculates LS progress from completed Lessons, publishes `LearningStepProgressUpdated` / `LearningStepCompleted`
+- **HAS_LESSON relationship** — `(LS)-[:HAS_LESSON]->(Lesson)` connects steps to their lessons. Derived from shared KU references during migration.
 - **Practice integration** - Links to Habits, Tasks, Events via relationships
 - **Guidance relationships** - GUIDED_BY_PRINCIPLE, OFFERS_CHOICE
 - **Prerequisite chains** - REQUIRES_STEP, TRAINS_KU
@@ -131,6 +135,7 @@ await ls_service.intelligence.practice_completeness_score(ls_uid)
 ```
 
 **Relationships Used:**
+- `HAS_LESSON` - Step contains lesson (progress tracking)
 - `REQUIRES_STEP` - Step prerequisites
 - `TRAINS_KU` - Trains atomic knowledge units
 - `BUILDS_HABIT`, `ASSIGNS_TASK`, `SCHEDULES_EVENT` - Practice integration
@@ -194,12 +199,12 @@ await lp_service.create_path_from_articles(user_uid, name, article_uids)
 
 | Feature | Lesson | KU | LS | LP |
 |---------|---------|----|----|-----|
-| **Sub-services** | 10 | 2 | 4 | 5 |
+| **Sub-services** | 10 | 2 | 5 | 5 |
 | **Factory** | Specialized | — | Generic | Specialized |
 | **Extends** | Curriculum | Entity | Curriculum | Curriculum |
 | **Complexity** | Highest | Lowest | Low | Medium |
-| **User Progress** | Mastery level | — | Completion | Enrollment |
-| **Key Relationship** | USES_KU | (composed into Lesson) | TRAINS_KU | CONTAINS_STEP |
-| **Special Pattern** | Substance + Organization | Atomic reference | Practice | Validation |
+| **User Progress** | Mastery level | — | Lesson completion | Enrollment |
+| **Key Relationship** | USES_KU | (composed into Lesson) | HAS_LESSON, TRAINS_KU | CONTAINS_STEP |
+| **Special Pattern** | Substance + Organization | Atomic reference | Practice + Progress | Validation |
 | **Navigation** | Point lookup + non-linear | Referenced from Lessons | Sequential | Linear path |
 | **Cross-Domain Dep** | None | None | None | LsService |
