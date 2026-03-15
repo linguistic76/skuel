@@ -34,7 +34,7 @@ STUDY_CONFIG = DomainRouteConfig(
     api_related_services={
         "processing_service": "submissions_processor",
         "user_service": "user_service",
-        "exercises_service": "assignments",
+        "exercises_service": "exercises",
         "submissions_search_service": "submissions_search",
         "submissions_core_service": "submissions_core",
         "activity_report_service": "activity_report",

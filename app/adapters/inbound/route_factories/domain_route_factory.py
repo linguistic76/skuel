@@ -181,15 +181,17 @@ def register_domain_routes(
         return []
 
     # 2. Extract related services for API factory (kwarg_name -> value)
+    _missing = object()
     api_related = {}
     for kwarg_name, container_attr in config.api_related_services.items():
-        value = getattr(services, container_attr, None) if services else None
-        if value is None and services:
+        value = getattr(services, container_attr, _missing) if services else None
+        if value is _missing:
             logger.warning(
                 f"{config.domain_name}: api_related_services['{kwarg_name}'] "
-                f"-> '{container_attr}' resolved to None. Verify the attribute name "
-                f"on the services container."
+                f"-> '{container_attr}' not found on services container. "
+                f"Verify the attribute name."
             )
+            value = None
         api_related[kwarg_name] = value
 
     registered: RouteList = []
@@ -238,13 +240,14 @@ def register_domain_routes(
     if config.ui_factory:
         ui_related = {}
         for kwarg_name, container_attr in config.ui_related_services.items():
-            value = getattr(services, container_attr, None) if services else None
-            if value is None and services:
+            value = getattr(services, container_attr, _missing) if services else None
+            if value is _missing:
                 logger.warning(
                     f"{config.domain_name}: ui_related_services['{kwarg_name}'] "
-                    f"-> '{container_attr}' resolved to None. Verify the attribute name "
-                    f"on the services container."
+                    f"-> '{container_attr}' not found on services container. "
+                    f"Verify the attribute name."
                 )
+                value = None
             ui_related[kwarg_name] = value
 
         registered.extend(config.ui_factory(app, rt, primary_service, **ui_related) or [])
