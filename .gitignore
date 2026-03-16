@@ -216,3 +216,10 @@ infrastructure/neo4j/data/dbms/
 
 # Neo4j runtime logs (never commit operational logs)
 infrastructure/neo4j/logs/
+
+# Scratch/notes files in core/models/
+app/core/models/000
+app/core/models/0000000000000000000
+app/core/models/2 consider
+app/core/models/2do cleanup
+app/core/models/cosmetics
