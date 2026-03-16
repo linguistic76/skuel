@@ -5,8 +5,9 @@ Study UI Routes — Student Workspace Hub
 The student's core workspace for submitting work, tracking submissions,
 and reviewing feedback. All sub-pages are top-level routes with shared sidebar.
 
-Layout: 6-item sidebar (Exercises / Submit / My Submissions / Exercise Reports / Activity Reports
+Layout: 5-item sidebar (Submit / My Submissions / Exercise Reports / Activity Reports
 / Generate Reports) on sub-pages. Landing page (/study) has no sidebar.
+Exercises moved to Curriculum sidebar.
 
 Routes:
 - GET /study — Dashboard landing (no sidebar)

@@ -311,58 +311,41 @@ MAIN_NAV_ITEMS: tuple[NavItem, ...] = (
 
 ### Navbar Icon Links
 
-The navbar has three icon links in the left section (after the SKUEL logo):
-- **A** (Activities) → `/activities` — 6 Activity Domain cards + Journal + Knowledge
-- **L** (Learn) → `/learn` — Student workspace hub (Submit/Exercises/My Submissions/Reports)
+The navbar has three icon links in the left section (after the SKUEL logo), all with hover dropdown menus:
+- **A** (Activities) → `/activities` — Dropdown: Tasks, Goals, Habits, Events, Choices, Principles
+- **C** (Curriculum) → `/curriculum` — Dropdown: Lessons, Learning Steps, Learning Paths, Exercises
+- **S** (Study) → `/study` — Dropdown: Submit, My Submissions, Exercise Reports, Activity Reports, Generate Reports
 - **U** (Avatar) → `/profile` — Lean profile (Focus + Steady + Settings)
 
-See `/ui/layouts/nav_config.py` for `ICON_NAV_ITEMS` and `IconNavItem`.
+See `/ui/layouts/nav_config.py` for `ICON_NAV_ITEMS`, `IconNavItem`, and `*_DROPDOWN_ITEMS`.
+
+Dropdowns are rendered via `_DROPDOWN_ITEMS_MAP` in `navbar.py` — maps `page_key` to dropdown items. Adding a new dropdown only requires adding entries to `nav_config.py` and the map.
 
 ```python
-# Icon nav rendering (from navbar.py)
-def _icon_nav_link(item: IconNavItem, active_page: str) -> A:
-    is_active = item.page_key == active_page
-    active_cls = "bg-primary/20 text-primary ring-1 ring-primary/30"
-    inactive_cls = "bg-base-200 text-base-content/70 hover:bg-base-300 hover:text-base-content"
-
-    return A(
-        Span(item.label, cls="sr-only"),
-        Div(
-            item.letter,
-            cls=f"size-8 rounded-full flex items-center justify-center font-semibold text-sm "
-            f"{active_cls if is_active else inactive_cls}",
-        ),
-        href=item.href,
-        cls="uk-icon-button",
-    )
+# Dropdown map (from navbar.py)
+_DROPDOWN_ITEMS_MAP: dict[str, tuple[DropdownItem, ...]] = {
+    "activities": ACTIVITY_DROPDOWN_ITEMS,
+    "curriculum": CURRICULUM_DROPDOWN_ITEMS,
+    "study": STUDY_DROPDOWN_ITEMS,
+}
 ```
 
 ### Mobile Navigation
 
-The navbar Alpine component (`navbar()` in `skuel.js`) handles both mobile hamburger and profile dropdown:
+The navbar Alpine component (`navbar()` in `skuel.js`) handles the mobile hamburger menu. On mobile, dropdown icons (A, C, S) are expanded into individual links:
 
 ```python
-Nav(
-    # ... nav content ...
-    **{"x-data": "navbar()"},
-    cls="navbar bg-white border-b border-gray-200 sticky top-0 z-50",
-)
-
-# Mobile menu button
-Button(
-    Span(_hamburger_icon(), **{"x-show": "!mobileMenuOpen"}),
-    Span(_close_icon(), **{"x-show": "mobileMenuOpen", "x-cloak": ""}),
-    variant=ButtonT.ghost,
-    cls="sm:hidden",
-    **{"@click": "toggleMobile()"},
-)
-
-# Mobile menu panel
-Div(
-    *[_nav_link(item, active_page, mobile=True) for item in nav_items],
-    cls="sm:hidden",
-    **{"x-show": "mobileMenuOpen", "x-transition": "", "x-cloak": ""},
-)
+# Mobile: dropdown items expanded as flat links
+for item in ICON_NAV_ITEMS:
+    if item.has_dropdown:
+        for di in _DROPDOWN_ITEMS_MAP.get(item.page_key, ()):
+            mobile_icon_links.append(
+                _nav_link(NavItem(f"{di.icon} {di.label}", di.href, ...), active_page, mobile=True)
+            )
+    else:
+        mobile_icon_links.append(
+            _nav_link(NavItem(item.label, item.href, item.page_key), active_page, mobile=True)
+        )
 ```
 
 **Navbar accessibility requirements:**
@@ -935,9 +918,10 @@ When building a new SKUEL page or feature, verify:
 |------|---------|
 | `/ui/layouts/base_page.py` | `BasePage` + `build_head()` — foundation for all pages |
 | `/ui/layouts/page_types.py` | `PageType` enum and config |
-| `/ui/layouts/navbar.py` | Navbar with profile dropdown |
-| `/ui/layouts/nav_config.py` | `PROFILE_DROPDOWN_ITEMS`, `MAIN_NAV_ITEMS` |
+| `/ui/layouts/navbar.py` | Navbar with A/C/S hover dropdowns |
+| `/ui/layouts/nav_config.py` | `ICON_NAV_ITEMS`, `*_DROPDOWN_ITEMS`, `MAIN_NAV_ITEMS` |
 | `/ui/patterns/sidebar.py` | `SidebarItem`, `SidebarNav`, `SidebarPage` |
+| `/ui/curriculum/` | Curriculum sidebar, layout, landing page |
 | `/ui/patterns/__init__.py` | `PageHeader`, `SectionHeader`, `EmptyState`, `StatCard`, `StatsGrid`, `FormGenerator`, `ProgressMetric`, `RecommendationCard`, `SettingToggle` |
 | `/ui/patterns/form_generator.py` | `FormGenerator` — dynamic form generation from Pydantic models |
 | `/ui/tokens.py` | `Container`, `Spacing`, `Card` design tokens |

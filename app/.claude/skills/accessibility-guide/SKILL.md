@@ -790,7 +790,7 @@ tablist.addEventListener('keydown', (e) => {
 
 ### Example 1: SKUEL Sidebar Navigation (Accessible Navigation)
 
-**File:** `/home/mike/skuel/app/ui/patterns/sidebar.py` (unified sidebar), `/home/mike/skuel/app/ui/activities/sidebar.py` (Activities), `/home/mike/skuel/app/ui/study/sidebar.py` (Study)
+**File:** `/home/mike/skuel/app/ui/patterns/sidebar.py` (unified sidebar), `/home/mike/skuel/app/ui/activities/sidebar.py` (Activities), `/home/mike/skuel/app/ui/curriculum/sidebar.py` (Curriculum), `/home/mike/skuel/app/ui/study/sidebar.py` (Study)
 
 **Accessible features:**
 
