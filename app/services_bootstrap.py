@@ -1409,6 +1409,7 @@ async def _create_intelligence_hub(
     context_builder: Any,
     user_service: Any,
     context_service: Any,
+    askesis_core_service: Any,
 ) -> None:
     """Create UserContextIntelligence factory, ZPD service, and Askesis.
 
@@ -1534,6 +1535,7 @@ async def _create_intelligence_hub(
             learning_services=learning_services,
             activity_services=activity_services,
             user_service=user_service,
+            askesis_core_service=askesis_core_service,
             zpd_service=zpd_service,
             citation_service=citation_service,
         )
@@ -2679,6 +2681,7 @@ async def compose_services(
             context_builder=context_builder,
             user_service=user_service,
             context_service=context_service,
+            askesis_core_service=askesis_core_service,
         )
 
         # ========================================================================

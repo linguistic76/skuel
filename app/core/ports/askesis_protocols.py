@@ -52,6 +52,7 @@ if TYPE_CHECKING:
     )
     from core.services.askesis.types import (
         AskesisAnalysis,
+        AskesisContext,
         AskesisInsight,
         AskesisRecommendation,
     )
@@ -431,26 +432,26 @@ class AskesisOperations(
     - AskesisRecommendationOperations (3 methods)
     - AskesisQueryOperations (2 methods)
     - AskesisDomainSynthesisOperations (8 methods)
+    - load_askesis_context (1 orchestration method)
 
-    Total: 16 methods for comprehensive life context intelligence.
+    Total: 17 methods for comprehensive life context intelligence.
 
-    Implementation: AskesisService (facade with 5 sub-services)
-
-    Example:
-        def recommend_actions(askesis: AskesisOperations) -> Result[...]:
-            # State analysis
-            analysis = await askesis.analyze_user_state(context)
-
-            # Get THE best action
-            action = await askesis.get_next_best_action(context)
-
-            # 13-domain synthesis
-            plan = await askesis.get_daily_work_plan(context)
-
-            return Result.ok(plan)
+    Implementation: AskesisService (facade with 7 sub-services)
     """
 
-    pass
+    async def load_askesis_context(self, askesis_uid: str) -> Result[AskesisContext]:
+        """Load an Askesis instance and its owner's rich UserContext.
+
+        Centralises the get_askesis → get_rich_unified_context orchestration
+        used by ~11 intelligence API routes.
+
+        Args:
+            askesis_uid: UID of the Askesis instance.
+
+        Returns:
+            Result[AskesisContext]: Askesis, user_uid, and rich UserContext.
+        """
+        ...
 
 
 @runtime_checkable

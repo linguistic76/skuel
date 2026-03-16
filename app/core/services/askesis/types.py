@@ -23,8 +23,10 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from datetime import datetime
 
+    from core.models.askesis.askesis import Askesis
     from core.models.enums import Domain, Priority
     from core.models.zpd.zpd_assessment import ZPDAssessment
+    from core.services.user import UserContext
 
 # ============================================================================
 # ENUMS - INSIGHT & RECOMMENDATION TYPES
@@ -319,3 +321,17 @@ class LearningContext:
     knowledge_gaps: list[dict[str, Any]]
     recommended_next_steps: list[dict[str, Any]]
     depth: int
+
+
+@dataclass(frozen=True)
+class AskesisContext:
+    """Pre-loaded Askesis instance and its owner's rich UserContext.
+
+    Returned by ``AskesisService.load_askesis_context()`` to centralise
+    the repeated get_askesis → get_rich_unified_context orchestration
+    that was previously duplicated across ~11 API route handlers.
+    """
+
+    askesis: Askesis
+    user_uid: str
+    user_context: UserContext

@@ -12,6 +12,7 @@ from core.services.askesis_citation_service import AskesisCitationService
 from core.services.askesis_service import AskesisDeps, AskesisService
 
 if TYPE_CHECKING:
+    from core.ports.askesis_protocols import AskesisCoreOperations
     from core.ports.zpd_protocols import ZPDOperations
     from core.services.user.intelligence import UserContextIntelligenceFactory
 
@@ -22,6 +23,7 @@ def create_askesis_service(
     learning_services: dict[str, Any],
     activity_services: dict[str, Any],
     user_service: Any,
+    askesis_core_service: AskesisCoreOperations,
     zpd_service: ZPDOperations,
     citation_service: AskesisCitationService,
 ) -> AskesisService:
@@ -37,6 +39,7 @@ def create_askesis_service(
         activity_services: Dict from _create_activity_services() — keys: tasks, goals,
             habits, events.
         user_service: UserOperations instance.
+        askesis_core_service: AskesisCoreService — CRUD ops for Askesis instances.
         zpd_service: ZPDService — required for guided pipeline (ZPD readiness assessment).
             LP enrollment gate ensures curriculum data exists.
         citation_service: AskesisCitationService — formats graph citations for responses.
@@ -45,6 +48,7 @@ def create_askesis_service(
         intelligence_factory=intelligence_factory,
         graph_intelligence_service=learning_services["graph_intelligence"],
         user_service=user_service,
+        askesis_core_service=askesis_core_service,
         llm_service=learning_services["llm_service"],
         embeddings_service=learning_services["embeddings_service"],
         knowledge_service=learning_services["article_service"],

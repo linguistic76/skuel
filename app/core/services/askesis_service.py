@@ -37,6 +37,7 @@ from core.services.askesis.entity_extractor import EntityExtractor
 from core.services.askesis.intent_classifier import IntentClassifier
 from core.services.askesis.query_processor import QueryProcessor
 from core.services.askesis.response_generator import ResponseGenerator
+from core.services.askesis.types import AskesisContext
 from core.services.askesis.user_state_analyzer import UserStateAnalyzer
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -76,6 +77,7 @@ class AskesisDeps:
     intelligence_factory: UserContextIntelligenceFactory
     graph_intelligence_service: Any  # boundary: protocol not yet extracted
     user_service: Any
+    askesis_core_service: Any  # AskesisCoreOperations — CRUD for Askesis instances
     llm_service: Any
     embeddings_service: Any
     knowledge_service: Any
@@ -150,6 +152,7 @@ class AskesisService:
         # Store dependencies
         self.graph_intel = deps.graph_intelligence_service
         self.user_service = deps.user_service
+        self.askesis_core_service = deps.askesis_core_service
         self.llm_service = deps.llm_service
         self.embeddings_service = deps.embeddings_service
         self.knowledge_service = deps.knowledge_service
@@ -212,6 +215,41 @@ class AskesisService:
         )
 
         logger.info("AskesisService initialized with 7 specialized sub-services")
+
+    # ========================================================================
+    # CONTEXT LOADING (orchestration previously in route layer)
+    # ========================================================================
+
+    async def load_askesis_context(self, askesis_uid: str) -> Result[AskesisContext]:
+        """Load an Askesis instance and its owner's rich UserContext.
+
+        Centralises the get_askesis → get_rich_unified_context orchestration
+        used by intelligence API routes. Both services are required deps
+        (guaranteed non-None at construction).
+
+        Args:
+            askesis_uid: UID of the Askesis instance to load.
+
+        Returns:
+            Result[AskesisContext] with askesis, user_uid, and user_context.
+        """
+        askesis_result = await self.askesis_core_service.get_askesis(askesis_uid)
+        if askesis_result.is_error:
+            return Result.fail(askesis_result.expect_error())
+
+        askesis = askesis_result.value
+
+        context_result = await self.user_service.get_rich_unified_context(askesis.user_uid)
+        if context_result.is_error:
+            return Result.fail(context_result.expect_error())
+
+        return Result.ok(
+            AskesisContext(
+                askesis=askesis,
+                user_uid=askesis.user_uid,
+                user_context=context_result.value,
+            )
+        )
 
     # ========================================================================
     # EXPLICIT DELEGATIONS
