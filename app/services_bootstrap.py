@@ -2456,6 +2456,11 @@ async def compose_services(
             event_bus=event_bus,
         )
 
+        # Wire journal upload orchestration deps into submissions_core_service
+        submissions_core_service.submissions_service = submissions_service
+        submissions_core_service.processing_service = submissions_processor
+        submissions_core_service.exercise_service = exercise_service
+
         # Create Submissions search service (unified query interface)
         submissions_search_service = SubmissionsSearchService(
             ku_backend=submissions_backend, event_bus=event_bus

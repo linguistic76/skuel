@@ -44,6 +44,7 @@ Service Responsibilities
 """
 
 import json
+from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from typing import TYPE_CHECKING, Any
 
@@ -126,6 +127,49 @@ class ReportCategory:
         ]
 
 
+# ============================================================================
+# DEFAULT JOURNAL PROCESSING INSTRUCTIONS
+# ============================================================================
+
+DEFAULT_JOURNAL_INSTRUCTIONS = """# General Processing Instructions
+
+## Purpose
+Transform raw content into a well-formatted, readable document.
+
+## Formatting Rules
+1. **Structure**: Organize into coherent paragraphs
+2. **Flow**: Remove verbal fillers ("um", "uh", "like")
+3. **Clarity**: Improve sentence structure while preserving meaning
+4. **Themes**: Identify main themes and group related content
+5. **Action Items**: Extract concrete action items mentioned
+6. **Title**: Generate concise, descriptive title
+
+## Context Integration
+- Reference active goals, tasks, habits when relevant
+- Link to recent journal themes for continuity
+- Identify learning opportunities from current paths
+
+## Output Format
+- Title (concise, descriptive)
+- Summary (2-3 sentences)
+- Main content (well-formatted paragraphs)
+- Key themes (bullet list)
+- Action items (if any)
+
+Preserve the author's voice and authenticity while improving readability.
+"""
+
+
+@dataclass(frozen=True)
+class JournalUploadResult:
+    """Result of the multi-step journal upload orchestration."""
+
+    submission_uid: str
+    status: str
+    processing_succeeded: bool
+    message: str
+
+
 class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
     """
     Core submission service for content management operations.
@@ -165,10 +209,10 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         content_enrichment: Any | None = None,
     ) -> None:
         """
-        Initialize Ku core service.
+        Initialize submissions core service.
 
         Args:
-            backend: Backend for Ku persistence
+            backend: Backend for submission persistence
             event_bus: Optional event bus for publishing events
             sharing_service: Optional sharing service for access control
             content_enrichment: Optional ContentEnrichmentService for AI processing
@@ -177,6 +221,11 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         self.event_bus = event_bus
         self.sharing_service = sharing_service
         self.content_enrichment = content_enrichment
+
+        # Post-init wired in services_bootstrap.py (circular dep avoidance)
+        self.submissions_service: Any | None = None
+        self.processing_service: Any | None = None
+        self.exercise_service: Any | None = None
 
     # ========================================================================
     # DOMAIN-SPECIFIC CONTRACT
@@ -895,6 +944,101 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         resolved_date = entry_date or date.today()
         existing_count = await self._count_journals_for_date(user_uid, resolved_date)
         return Result.ok(Journal.generate_title(user_uid, resolved_date, order=existing_count + 1))
+
+    async def submit_journal_file(
+        self,
+        file_content: bytes,
+        filename: str,
+        user_uid: str,
+        custom_title: str = "",
+        exercise_uid: str = "",
+    ) -> Result[JournalUploadResult]:
+        """Orchestrate multi-step journal file upload: title → instructions → submit → process.
+
+        Steps:
+        1. Resolve title (custom > auto-generated > filename fallback)
+        2. Resolve processing instructions (exercise > DEFAULT_JOURNAL_INSTRUCTIONS)
+        3. Submit file via SubmissionsService
+        4. Auto-trigger AI processing via SubmissionsProcessingService
+
+        Requires submissions_service and processing_service to be wired (post-init).
+        exercise_service is optional — enables custom instructions from exercises.
+        """
+        if not self.submissions_service:
+            return Errors.system("submissions_service not wired")
+        if not self.processing_service:
+            return Errors.system("processing_service not wired")
+
+        # Step 1: Resolve title
+        if custom_title:
+            title = custom_title
+        else:
+            title_result = await self.generate_journal_title(user_uid)
+            title = title_result.value if title_result.is_ok else filename
+
+        # Step 2: Resolve processing instructions
+        instructions_text = DEFAULT_JOURNAL_INSTRUCTIONS
+        if exercise_uid and self.exercise_service:
+            ex_result = await self.exercise_service.get_exercise(exercise_uid)
+            if ex_result.is_ok and ex_result.value and ex_result.value.instructions:
+                instructions_text = ex_result.value.instructions
+                self.logger.info(f"Using exercise instructions: {exercise_uid}")
+
+        self.logger.info(f"Journal upload: {filename} ({len(file_content)} bytes, title={title})")
+
+        # Step 3: Submit file
+        metadata: dict[str, Any] = {"project_uid": "__default__"}
+        if exercise_uid:
+            metadata["exercise_uid"] = exercise_uid
+
+        result = await self.submissions_service.submit_file(
+            file_content=file_content,
+            original_filename=filename,
+            user_uid=user_uid,
+            entity_type=EntityType.JOURNAL_SUBMISSION,
+            processor_type=ProcessorType.LLM,
+            title=title,
+            metadata=metadata,
+        )
+
+        if result.is_error:
+            return Errors.system(str(result.error))
+
+        report = result.value
+
+        # Step 4: Auto-trigger AI processing
+        # extract_activities=True enables DSL parsing: @context() tags → entities
+        process_result = await self.processing_service.process_submission(
+            report.uid,
+            instructions={
+                "custom_instructions": instructions_text,
+                "extract_activities": True,
+            },
+        )
+
+        if process_result.is_error:
+            error_msg = "File uploaded but AI processing failed"
+            if process_result.error:
+                error_msg = f"{error_msg}: {process_result.error.user_message or process_result.error.message}"
+            self.logger.warning(f"AI processing failed for {report.uid}: {error_msg}")
+            return Result.ok(
+                JournalUploadResult(
+                    submission_uid=report.uid,
+                    status="submitted",
+                    processing_succeeded=False,
+                    message=f"File uploaded. AI processing pending — {error_msg}",
+                )
+            )
+
+        processed_report = process_result.value
+        return Result.ok(
+            JournalUploadResult(
+                submission_uid=report.uid,
+                status=processed_report.status if processed_report else "completed",
+                processing_succeeded=True,
+                message="File uploaded and processed by AI",
+            )
+        )
 
     @with_error_handling("create_journal_entry", error_type="database")
     async def create_journal_entry(

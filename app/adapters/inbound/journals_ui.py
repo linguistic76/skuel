@@ -30,7 +30,7 @@ from starlette.responses import FileResponse
 
 from adapters.inbound.auth import make_service_getter, require_admin, require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
-from core.models.enums.entity_enums import EntityType, ProcessorType
+from core.models.enums.entity_enums import ProcessorType
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from ui.buttons import Button, ButtonLink, ButtonT
@@ -42,39 +42,6 @@ from ui.patterns.page_header import PageHeader
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 
 logger = get_logger("skuel.routes.journals.ui")
-
-
-# ============================================================================
-# DEFAULT INSTRUCTIONS
-# ============================================================================
-
-DEFAULT_INSTRUCTIONS = """# General Processing Instructions
-
-## Purpose
-Transform raw content into a well-formatted, readable document.
-
-## Formatting Rules
-1. **Structure**: Organize into coherent paragraphs
-2. **Flow**: Remove verbal fillers ("um", "uh", "like")
-3. **Clarity**: Improve sentence structure while preserving meaning
-4. **Themes**: Identify main themes and group related content
-5. **Action Items**: Extract concrete action items mentioned
-6. **Title**: Generate concise, descriptive title
-
-## Context Integration
-- Reference active goals, tasks, habits when relevant
-- Link to recent journal themes for continuity
-- Identify learning opportunities from current paths
-
-## Output Format
-- Title (concise, descriptive)
-- Summary (2-3 sentences)
-- Main content (well-formatted paragraphs)
-- Key themes (bullet list)
-- Action items (if any)
-
-Preserve the author's voice and authenticity while improving readability.
-"""
 
 
 # ============================================================================
@@ -687,74 +654,26 @@ def create_journals_ui_routes(
             user_uid = require_authenticated_user(request)
             file_content = await uploaded_file.read()
             filename = uploaded_file.filename or "unknown"
-
-            # Resolve title: custom > auto-generated
-            if custom_title:
-                title = custom_title
-            elif submissions_core_service:
-                title_result = await submissions_core_service.generate_journal_title(user_uid)
-                title = title_result.value if title_result.is_ok else filename
-            else:
-                title = filename
-
-            # Resolve processing instructions: exercise overrides default
             exercise_uid = str(form.get("exercise_uid", "")).strip()
-            instructions_text = DEFAULT_INSTRUCTIONS
-            if exercise_uid and report_projects_service:
-                ex_result = await report_projects_service.get_exercise(exercise_uid)
-                if ex_result.is_ok and ex_result.value and ex_result.value.instructions:
-                    instructions_text = ex_result.value.instructions
-                    logger.info(f"Using exercise instructions: {exercise_uid}")
 
-            logger.info(f"Journal upload: {filename} ({len(file_content)} bytes, title={title})")
+            if not submissions_core_service:
+                return _render_upload_status(
+                    "error", "Journal upload service unavailable", is_error=True
+                )
 
-            # Submit file with LLM processor type
-            metadata: dict[str, Any] = {"project_uid": "__default__"}
-            if exercise_uid:
-                metadata["exercise_uid"] = exercise_uid
-
-            result = await report_service.submit_file(
+            result = await submissions_core_service.submit_journal_file(
                 file_content=file_content,
-                original_filename=filename,
+                filename=filename,
                 user_uid=user_uid,
-                entity_type=EntityType.JOURNAL_SUBMISSION,
-                processor_type=ProcessorType.LLM,
-                title=title,
-                metadata=metadata,
+                custom_title=custom_title,
+                exercise_uid=exercise_uid,
             )
 
             if result.is_error:
                 return _render_upload_status("error", str(result.error), is_error=True)
 
-            report = result.value
-
-            # Auto-trigger AI processing with resolved instructions
-            # extract_activities=True enables DSL parsing: @context() tags → entities
-            process_result = await processing_service.process_submission(
-                report.uid,
-                instructions={
-                    "custom_instructions": instructions_text,
-                    "extract_activities": True,  # Enable DSL entity extraction
-                },
-            )
-
-            if process_result.is_error:
-                error_msg = "File uploaded but AI processing failed"
-                if process_result.error:
-                    error_msg = f"{error_msg}: {process_result.error.user_message or process_result.error.message}"
-                logger.warning(f"AI processing failed for {report.uid}: {error_msg}")
-                return _render_upload_status(
-                    status="submitted",
-                    message=f"File uploaded. AI processing pending — {error_msg}",
-                    report_uid=report.uid,
-                )
-
-            processed_report = process_result.value
-            return _render_upload_status(
-                status=processed_report.status if processed_report else "completed",
-                message="File uploaded and processed by AI",
-                report_uid=report.uid,
-            )
+            jr = result.value
+            return _render_upload_status(jr.status, jr.message, report_uid=jr.submission_uid)
 
         except Exception as e:
             logger.error(f"Error uploading journal: {e}", exc_info=True)
