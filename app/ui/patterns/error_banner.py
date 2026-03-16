@@ -114,7 +114,7 @@ def render_error_banner(
         *content,
         variant=_SEVERITY_TO_ALERTT.get(severity, AlertT.error),
         cls="mb-4 shadow-lg",
-        role="alert",  # WCAG: Screen reader announcement
+        # role="alert" is already set by MAlert internally
         **{"aria-live": "polite"},  # WCAG: Announce dynamically added errors
     )
 

@@ -686,7 +686,7 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsService, services: Any 
         title = form_data.get("title", "").strip()
         description = form_data.get("description", "").strip() or None
         why_important = form_data.get("why_important", "").strip() or None
-        domain = form_data.get("domain", "personal")
+        domain = form_data.get("domain", "").strip() or "personal"
         timeframe = form_data.get("timeframe", "quarterly")
         priority_str = form_data.get("priority", "medium")
         target_date_str = form_data.get("target_date", "")

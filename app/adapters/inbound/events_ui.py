@@ -423,7 +423,7 @@ def create_events_ui_routes(_app, rt, events_service: EventsService, services: A
         # Extract form data
         title = form_data.get("title", "").strip()
         description = form_data.get("description", "").strip() or None
-        event_type = form_data.get("event_type", "meeting")
+        event_type = form_data.get("event_type", "").strip() or "meeting"
         location = form_data.get("location", "").strip() or None
         event_date_str = form_data.get("event_date", "")
         start_time_str = form_data.get("start_time", "")
@@ -473,7 +473,8 @@ def create_events_ui_routes(_app, rt, events_service: EventsService, services: A
 
     async def render_event_success_view(_user_uid: str) -> Any:
         """Render calendar view after successful event creation."""
-        events = await get_all_events(_user_uid)
+        result = await get_all_events(_user_uid)
+        events = result.value if not result.is_error else []
         return EventsViewComponents.render_calendar_view(
             events=events,
             current_date=date.today(),

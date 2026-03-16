@@ -435,7 +435,7 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
         title = form_data.get("title", "").strip()
         description = form_data.get("description", "").strip() or None
         choice_type = form_data.get("choice_type", "binary")
-        domain = form_data.get("domain", "personal")
+        domain = form_data.get("domain", "").strip() or "personal"
         priority = form_data.get("priority", "medium")
         deadline_str = form_data.get("decision_deadline", "")
 
