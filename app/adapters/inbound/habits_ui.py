@@ -410,7 +410,6 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
     - Calendar: Month/Week/Day views showing habit schedules
     """
 
-    goals_service = services.goals if services else None
     logger.info("Registering three-view habit routes (standalone)")
 
     # ========================================================================
@@ -751,7 +750,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
 
         # Create habit + link to goals via service orchestration
         result = await habits_service.create_with_goal_links(
-            create_request, user_uid, goal_essentiality or None, goals_service
+            create_request, user_uid, goal_essentiality or None
         )
 
         if result.is_error:
@@ -813,7 +812,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
         """Complete habit: update streak, cast identity vote, recalculate goal impacts"""
         user_uid = require_authenticated_user(request)
 
-        result = await habits_service.complete_with_goal_impacts(uid, user_uid, goals_service)
+        result = await habits_service.complete_with_goal_impacts(uid, user_uid)
         if result.is_error:
             logger.warning(f"Habit completion failed for {uid}: {result.error}")
             return Div(P("Error: Could not complete habit", cls="text-red-600"), cls="p-4")

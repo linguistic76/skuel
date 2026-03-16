@@ -389,6 +389,9 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
         self.patterns = HabitsPatternService(habits_core=self.core)
         self.goal_analytics = HabitsGoalAnalyticsService(habits_service=self)
 
+        # Cross-domain dependency — post-wired in bootstrap
+        self.goals_service: Any = None
+
         self.logger.info(
             "HabitsService facade initialized with 13 sub-services: "
             "core, search, progress, learning, planning, scheduling, relationships, "
@@ -415,7 +418,6 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
         self,
         habit_uid: str,
         user_uid: str,
-        goals_service: Any = None,
     ) -> Result[Any]:
         """
         Complete a habit and calculate goal impacts.
@@ -443,11 +445,11 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
 
         # 4. Calculate goal impacts
         goal_impacts: list[dict[str, Any]] = []
-        if goals_service:
+        if self.goals_service:
             linked_goal_uids: list[str] = getattr(updated_habit, "linked_goal_uids", [])
             for goal_uid in linked_goal_uids:
                 try:
-                    goal_result = await goals_service.get_goal(goal_uid)
+                    goal_result = await self.goals_service.get_goal(goal_uid)
                     if goal_result.is_error:
                         continue
                     goal = goal_result.value
@@ -475,7 +477,6 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
         create_request: HabitCreateRequest,
         user_uid: str,
         goal_essentiality: dict[str, str] | None = None,
-        goals_service: Any = None,
     ) -> Result[Any]:
         """
         Create a habit and optionally link it to goals with essentiality.
@@ -491,10 +492,10 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
         habit = result.value
 
         # 2. Link to goals with essentiality
-        if goals_service and goal_essentiality:
+        if self.goals_service and goal_essentiality:
             for goal_uid, essentiality in goal_essentiality.items():
                 try:
-                    await goals_service.link_goal_to_habit(
+                    await self.goals_service.link_goal_to_habit(
                         goal_uid=goal_uid,
                         habit_uid=habit.uid,
                         contribution_type=essentiality,
