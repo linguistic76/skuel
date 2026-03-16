@@ -129,10 +129,10 @@ priority_score = readiness_score × (0.7 + 0.3 × behavioral_readiness)
 
 **Wiring ZPD in bootstrap:**
 
-```python
-from adapters.persistence.neo4j.zpd_backend import ZPDBackend
-from core.services.zpd import ZPDService
+ZPD creation and factory wiring are handled by `_create_intelligence_hub()` in `services_bootstrap.py`:
 
+```python
+# Inside _create_intelligence_hub():
 zpd_service: ZPDOperations | None = None
 if tier.ai_enabled:  # FULL tier
     zpd_backend = ZPDBackend(driver)
@@ -284,28 +284,30 @@ This is by design. The slot reservation ensures future implementation is a fill-
 
 ### UserContextIntelligenceFactory
 
-```python
-from core.services.user.intelligence import UserContextIntelligenceFactory
+Created by `_create_intelligence_hub()` in `services_bootstrap.py` (called near the end of `compose_services()`):
 
-# At bootstrap (services_bootstrap.py)
+```python
+# Inside _create_intelligence_hub():
 factory = UserContextIntelligenceFactory(
     # Activity (6)
-    tasks=tasks_service.relationships,
-    goals=goals_service.relationships,
-    habits=habits_service.relationships,
-    events=events_service.relationships,
-    choices=choices_service.relationships,
-    principles=principles_service.relationships,
+    tasks=activity_services["tasks"].relationships,
+    goals=activity_services["goals"].relationships,
+    habits=activity_services["habits"].relationships,
+    events=activity_services["events"].relationships,
+    choices=activity_services["choices"].relationships,
+    principles=activity_services["principles"].relationships,
     # Curriculum (3)
-    article=lesson_service.graph,
-    ls=ls_service.relationships,
-    lp=lp_service.relationships,
+    lesson=learning_services["lesson_service"].graph,
+    ls=learning_services["learning_steps"].relationships,
+    lp=learning_services["learning_paths"].relationships,
     # Processing Domains (3)
     submissions=submissions_relationship_service,
     report=report_relationship_service,
     analytics=analytics_relationship_service,
     # Temporal Domain (1)
     calendar=calendar_service,
+    # Optional: ZPD (FULL tier only)
+    zpd_service=zpd_service,
 )
 services.context_intelligence = factory
 ```

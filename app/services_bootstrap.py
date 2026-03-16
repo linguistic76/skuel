@@ -44,10 +44,20 @@ Service Composition:
     - UniversalNeo4jBackend[T] for all entity persistence
     - Result[T] pattern for error handling
 
+    compose_services() delegates to helper functions for readability:
+    - _create_activity_services() — 6 Activity Domain facades
+    - _create_learning_services() — Curriculum services (Lesson, KU, LS, LP)
+    - _create_core_services() — Finance, Transcription
+    - _create_orchestration_services() — GoalTaskGenerator, HabitEventScheduler
+    - _create_advanced_services() — CalendarOptimization, JupyterSync, etc.
+    - _wire_ai_services() — 12 AI services into domain facades (FULL tier)
+    - _wire_event_subscribers() — 40+ event bus subscriptions
+    - _create_intelligence_hub() — UserContextIntelligence, ZPD, Askesis
+
 Design Principles:
     - Constructor injection everywhere
     - Clear protocols/ABCs for ports
-    - Single bootstrap/wiring function
+    - Single bootstrap/wiring function (compose_services)
     - Easy testing with protocol implementations
     - Clean async lifecycle management
     - **GRACEFUL DEGRADATION**: Core services required, AI services optional

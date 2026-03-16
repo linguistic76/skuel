@@ -452,16 +452,14 @@ class TasksAIService(BaseAIService[TasksOperations, Task]):
 AI services are accessed through domain facades:
 
 ```python
-# At bootstrap (when AI is enabled)
+# AI services created and wired by _wire_ai_services() in services_bootstrap.py
+# (called from compose_services when llm_service and embeddings_service are available)
 tasks_ai = TasksAIService(
-    backend=tasks_backend,
-    llm_service=llm,
-    embeddings_service=embeddings,
+    backend=activity_services["tasks"].core.backend,
+    llm_service=llm_service,
+    embeddings_service=embeddings_service,
 )
-tasks_service = TasksService(
-    backend=tasks_backend,
-    ai_service=tasks_ai,  # Optional
-)
+activity_services["tasks"].ai = tasks_ai  # Post-construction wiring
 
 # Usage
 if tasks_service.ai:

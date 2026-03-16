@@ -124,11 +124,15 @@ Module-level helpers (each facade file): `_apply_{domain}_sort` (all 6), `_apply
 All services wired in: `services_bootstrap.py`
 
 ```python
-async def compose_services(neo4j_adapter, event_bus=None) -> Result[Services]:
-    # All 6 Activity Domain services created here
-    tasks_service = TasksService(tasks_backend, graph_intel, event_bus)
-    goals_service = GoalsService(goals_backend, graph_intel, event_bus)
-    # ...
+# compose_services() calls _create_activity_services() for all 6 domains:
+activity_services = _create_activity_services(
+    tasks_backend=tasks_backend, events_backend=events_backend,
+    habits_backend=habits_backend, goals_backend=goals_backend,
+    choices_backend=choices_backend, principles_backend=principles_backend,
+    # ... shared deps: graph_intelligence, event_bus, insight_store
+)
+# AI wired separately by _wire_ai_services() (when LLM available)
+# Event subscriptions wired by _wire_event_subscribers()
 ```
 
 ## Documentation

@@ -165,39 +165,32 @@ class UserContextIntelligenceFactory:
 
 ### In services_bootstrap.py
 
+Factory creation, ZPD wiring, and Askesis creation are handled by `_create_intelligence_hub()` — called near the end of `compose_services()`:
+
 ```python
-from core.services.user.intelligence import UserContextIntelligenceFactory
-
-async def compose_services(neo4j_driver, event_bus=None) -> Result[Services]:
-    # ... create all domain services ...
-
-    # Create factory with relationship services from facades
-    context_intelligence_factory = UserContextIntelligenceFactory(
-        # Activity (6) - from facade .relationships
-        tasks=tasks_service.relationships,
-        goals=goals_service.relationships,
-        habits=habits_service.relationships,
-        events=events_service.relationships,
-        choices=choices_service.relationships,
-        principles=principles_service.relationships,
-        # Curriculum (3)
-        article=lesson_service.graph,  # LessonGraphService
-        ls=ls_service.relationships,   # UnifiedRelationshipService
-        lp=lp_service.relationships,   # UnifiedRelationshipService
-        # Processing (3)
-        submissions=submissions_relationship_service,
-        report=report_relationship_service,
-        analytics=analytics_relationship_service,
-        # Temporal Domain (1)
-        calendar=calendar_service,
-        # Optional: ZPD service (FULL tier only — set to None in CORE tier)
-        zpd_service=zpd_service,  # ZPDOperations | None
-    )
-
-    return Result.ok(Services(
-        # ... other services ...
-        context_intelligence=context_intelligence_factory,
-    ))
+# _create_intelligence_hub() creates the factory with all 13 domain services:
+context_intelligence_factory = UserContextIntelligenceFactory(
+    # Activity (6) - from facade .relationships
+    tasks=activity_services["tasks"].relationships,
+    goals=activity_services["goals"].relationships,
+    habits=activity_services["habits"].relationships,
+    events=activity_services["events"].relationships,
+    choices=activity_services["choices"].relationships,
+    principles=activity_services["principles"].relationships,
+    # Curriculum (3)
+    lesson=learning_services["lesson_service"].graph,  # LessonGraphService
+    ls=learning_services["learning_steps"].relationships,
+    lp=learning_services["learning_paths"].relationships,
+    # Processing (3)
+    submissions=submissions_relationship_service,
+    report=report_relationship_service,
+    analytics=analytics_relationship_service,
+    # Temporal Domain (1)
+    calendar=calendar_service,
+    # Optional: ZPD service (FULL tier only — set to None in CORE tier)
+    zpd_service=zpd_service,  # ZPDOperations | None
+)
+services.context_intelligence = context_intelligence_factory
 ```
 
 ### In Services Dataclass
