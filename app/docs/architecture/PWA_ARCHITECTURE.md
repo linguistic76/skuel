@@ -11,7 +11,6 @@ related_adrs: [ADR-050]
 # PWA Architecture
 
 **ADR:** [ADR-050: PWA Mobile Strategy](/docs/decisions/ADR-050-pwa-mobile-strategy.md)
-**Supersedes:** ADR-039 (Hyperview)
 
 ## Overview
 

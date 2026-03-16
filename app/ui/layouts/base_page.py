@@ -230,6 +230,15 @@ async def BasePage(
                     )
                 )
             ),
+            # PWA: offline status banner
+            Div(
+                P(
+                    "You are offline. Some features may be unavailable.",
+                    cls="text-sm font-medium text-center",
+                ),
+                cls="fixed bottom-0 inset-x-0 bg-yellow-500 text-yellow-950 px-4 py-2 z-50",
+                **{"x-data": "offlineIndicator", "x-show": "isOffline", "x-cloak": ""},
+            ),
             # PWA: service worker registration
             Script("""
                 if ('serviceWorker' in navigator) {

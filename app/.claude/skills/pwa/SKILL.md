@@ -10,7 +10,7 @@ trigger: Use when working on service worker, web app manifest, offline support, 
 
 SKUEL is a PWA — installable from the browser, works offline, no app store. One format (HTML), one backend, open web standards.
 
-**ADR:** [ADR-050](/docs/decisions/ADR-050-pwa-mobile-strategy.md) (supersedes ADR-039 Hyperview)
+**ADR:** [ADR-050](/docs/decisions/ADR-050-pwa-mobile-strategy.md)
 **Architecture:** [PWA Architecture](/docs/architecture/PWA_ARCHITECTURE.md)
 
 ## File Map
@@ -131,12 +131,11 @@ async def pwa_offline(request):
 - **Network-first for HTML** — SKUEL is server-rendered, not SPA. Content must be fresh when online.
 - **Cache-first for static** — CSS/JS/vendor assets are versioned and rarely change mid-session.
 - **No app store** — aligns with open web standards, Linux mobile support (postmarketOS, Mobian).
-- **No second rendering format** — PWA uses the same HTML as web. Hyperview (HXML) was rejected because it required a parallel rendering layer.
+- **No second rendering format** — PWA uses the same HTML as web.
 
 ## Deep Dive Resources
 
 - [PWA Architecture](/docs/architecture/PWA_ARCHITECTURE.md) — full architecture doc
 - [ADR-050](/docs/decisions/ADR-050-pwa-mobile-strategy.md) — decision record
-- [ADR-039](/docs/decisions/ADR-039-hyperview-mobile-strategy.md) — superseded Hyperview decision
 - [MDN: Progressive Web Apps](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps)
 - [MDN: Service Worker API](https://developer.mozilla.org/en-US/docs/Web/API/Service_Worker_API)

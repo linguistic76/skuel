@@ -266,7 +266,7 @@ async def SidebarPage(
         Div(
             Div(
                 content,
-                cls="max-w-6xl mx-auto px-6 lg:px-8 py-4 lg:py-6",
+                cls="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 lg:py-6",
             ),
             cls="lg:ml-64 lg:transition-[margin-left] lg:duration-300 min-h-[calc(100vh-64px)]",
             id="sidebar-content",

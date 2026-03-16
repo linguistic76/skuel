@@ -41,7 +41,7 @@ def _icon_nav_link(item: IconNavItem, active_page: str) -> A:
             aria_hidden="true",
         ),
         href=item.href,
-        cls="inline-flex items-center justify-center size-10 rounded-full hover:bg-accent",
+        cls="inline-flex items-center justify-center size-11 rounded-full hover:bg-accent",
     )
 
 
@@ -93,7 +93,7 @@ def _search_button(active_page: str = "") -> A:
         Span("Search", cls="sr-only"),
         _search_icon(),
         href="/search",
-        cls=f"inline-flex items-center justify-center size-10 rounded-full hover:bg-accent {active_cls}",
+        cls=f"inline-flex items-center justify-center size-11 rounded-full hover:bg-accent {active_cls}",
     )
 
 
@@ -117,7 +117,7 @@ def _notification_button(unread_count: int = 0) -> Button:
     return Button(
         *button_content,
         type="button",
-        cls="inline-flex items-center justify-center size-10 rounded-full hover:bg-accent text-muted-foreground hover:text-foreground relative",
+        cls="inline-flex items-center justify-center size-11 rounded-full hover:bg-accent text-muted-foreground hover:text-foreground relative",
         **{"hx-get": "/notifications"},
     )
 
@@ -129,7 +129,7 @@ def _mobile_menu_button() -> Button:
         Span(_hamburger_icon(), **{"x-show": "!mobileMenuOpen"}),
         Span(_close_icon(), **{"x-show": "mobileMenuOpen", "x-cloak": ""}),
         type="button",
-        cls="inline-flex items-center justify-center size-10 rounded-md hover:bg-accent sm:hidden",
+        cls="inline-flex items-center justify-center size-11 rounded-md hover:bg-accent sm:hidden",
         **{
             "@click": "toggleMobile()",
             "@keydown.down.prevent": "toggleMobile()",
@@ -159,7 +159,7 @@ def _logout_button() -> A:
         Span("Sign out", cls="sr-only"),
         _logout_icon(),
         href="/logout",
-        cls="inline-flex items-center justify-center size-10 rounded-full hover:bg-accent text-muted-foreground hover:text-foreground",
+        cls="inline-flex items-center justify-center size-11 rounded-full hover:bg-accent text-muted-foreground hover:text-foreground",
     )
 
 
@@ -179,7 +179,7 @@ def _avatar_link(current_user: str) -> A:
         Span("Go to profile", cls="sr-only"),
         avatar,
         href="/profile",
-        cls="inline-flex items-center justify-center size-10 rounded-full hover:bg-accent",
+        cls="inline-flex items-center justify-center size-11 rounded-full hover:bg-accent",
     )
 
 
@@ -200,7 +200,7 @@ def _admin_profile_section(current_user: str) -> Div:
             Span("Go to admin dashboard", cls="sr-only"),
             avatar,
             href="/admin",
-            cls="inline-flex items-center justify-center size-10 rounded-full hover:bg-accent",
+            cls="inline-flex items-center justify-center size-11 rounded-full hover:bg-accent",
         ),
         A(
             "Sign out",

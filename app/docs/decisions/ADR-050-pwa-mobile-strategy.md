@@ -4,7 +4,6 @@ updated: 2026-03-16
 status: current
 category: decisions
 tags: [adr, decisions, mobile, pwa, service-worker]
-related: [ADR-039]
 ---
 
 # ADR-050: PWA as Mobile Strategy
@@ -12,8 +11,6 @@ related: [ADR-039]
 **Status:** Accepted
 
 **Date:** 2026-03-16
-
-**Supersedes:** ADR-039 (Hyperview as Mobile Strategy)
 
 **Decision Type:** Pattern/Practice
 
@@ -48,13 +45,11 @@ Implementation:
 - `adapters/inbound/negotiation.py` (content negotiation)
 - `docs/architecture/HYPERVIEW_STRATEGY.md` (strategy doc)
 
-ADR-039 is preserved as a historical decision record.
-
 ---
 
 ## Alternatives Considered
 
-### Alternative 1: Hyperview (HXML) — ADR-039, now superseded
+### Alternative 1: Hyperview (HXML)
 **Description:** Server-rendered HXML for native mobile via React Native + Hyperview client.
 
 **Why superseded:**

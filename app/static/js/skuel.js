@@ -3105,6 +3105,28 @@
 
     });
 
+    // =========================================================================
+    // Offline Status Indicator
+    // =========================================================================
+
+    document.addEventListener('alpine:init', function() {
+
+        Alpine.data('offlineIndicator', function() {
+            return {
+                isOffline: !navigator.onLine,
+
+                init: function() {
+                    var self = this;
+                    window.addEventListener('online', function() {
+                        self.isOffline = false;
+                    });
+                    window.addEventListener('offline', function() {
+                        self.isOffline = true;
+                    });
+                }
+            };
+        });
+
     });
 
 })();

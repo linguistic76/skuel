@@ -32,7 +32,7 @@ class PageConfig(TypedDict):
 PAGE_CONFIG: dict[PageType, PageConfig] = {
     PageType.STANDARD: {
         "container": "max-w-6xl mx-auto",
-        "content_padding": "p-6 lg:p-8",
+        "content_padding": "p-4 sm:p-6 lg:p-8",
     },
     PageType.CUSTOM: {
         "container": "",
