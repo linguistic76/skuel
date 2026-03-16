@@ -93,6 +93,9 @@ def _default_item_renderer(item: SidebarItem, is_active: bool) -> "FT":
     if item.badge_text:
         children.append(Span(item.badge_text, cls=item.badge_cls))
 
+    # Badge placeholder for async OOB swap (Phase 5 sidebar badges)
+    children.append(Span(id=f"sidebar-badge-{item.slug}"))
+
     return Li(
         A(
             *children,
@@ -190,6 +193,9 @@ def SidebarNav(
         **{":class": "collapsed ? '-translate-x-52' : 'translate-x-0'"},
         role="navigation",
         aria_label=f"{title} sidebar",
+        hx_get="/api/sidebar/badges",
+        hx_trigger="load",
+        hx_swap="none",
         **{"x-data": f"collapsibleSidebar('{storage_key}')"},
     )
 

@@ -222,23 +222,52 @@ def _logout_button() -> A:
     )
 
 
-def _avatar_link(current_user: str) -> A:
-    """Profile avatar as a direct link to /profile (no dropdown)."""
+def _avatar_dropdown(current_user: str, active_page: str) -> Div:
+    """Profile avatar with hover dropdown showing activity domain links.
+
+    Click navigates to /profile; hover reveals activity dropdown.
+    Uses the same relative group + group-hover pattern as icon nav dropdowns.
+    """
     initial = current_user[0].upper() if current_user else "U"
     hue = _avatar_hue(current_user)
 
-    avatar = Div(
-        initial,
-        cls="size-8 rounded-full flex items-center justify-center text-white font-medium text-sm",
-        style=f"background-color: hsl({hue}, 65%, 45%);",
-        aria_hidden="true",
-    )
-
-    return A(
+    trigger = A(
         Span("Go to profile", cls="sr-only"),
-        avatar,
+        Div(
+            initial,
+            cls="size-8 rounded-full flex items-center justify-center text-white font-medium text-sm cursor-pointer",
+            style=f"background-color: hsl({hue}, 65%, 45%);",
+            aria_hidden="true",
+        ),
         href="/profile",
         cls="inline-flex items-center justify-center size-11 rounded-full hover:bg-accent",
+        role="button",
+        aria_haspopup="true",
+        tabindex="0",
+    )
+
+    dropdown_items = [
+        A(
+            Span(di.icon, cls="text-base", aria_hidden="true") if di.icon else None,
+            Span(di.label),
+            href=di.href,
+            cls="flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-accent rounded-md",
+        )
+        for di in ACTIVITY_DROPDOWN_ITEMS
+    ]
+
+    dropdown_menu = Div(
+        *dropdown_items,
+        cls="absolute left-0 top-full mt-1 w-44 bg-background border border-border rounded-lg shadow-lg py-1 z-50 "
+        "opacity-0 invisible group-hover:opacity-100 group-hover:visible "
+        "transition-all duration-150",
+        role="menu",
+    )
+
+    return Div(
+        trigger,
+        dropdown_menu,
+        cls="relative group",
     )
 
 
@@ -332,13 +361,26 @@ def create_navbar(
         cls="hidden sm:flex sm:space-x-1",
     )
 
-    # Mobile navigation links — expand activity domains into individual links
+    # Mobile navigation links — expand all dropdowns (activity + icon nav) into individual links
     mobile_nav_items = list(nav_items)
     mobile_icon_links: list[Any] = []
     if is_authenticated and not is_admin:
+        # Activity domains (from avatar dropdown, not in ICON_NAV_ITEMS)
+        for di in ACTIVITY_DROPDOWN_ITEMS:
+            mobile_icon_links.append(
+                _nav_link(
+                    NavItem(
+                        f"{di.icon} {di.label}" if di.icon else di.label,
+                        di.href,
+                        di.label.lower(),
+                    ),
+                    active_page,
+                    mobile=True,
+                )
+            )
+        # Icon nav items (Curriculum, Study)
         for item in ICON_NAV_ITEMS:
             if item.has_dropdown:
-                # Expand dropdown items as mobile links
                 for di in _DROPDOWN_ITEMS_MAP.get(item.page_key, ()):
                     mobile_icon_links.append(
                         _nav_link(
@@ -376,7 +418,7 @@ def create_navbar(
         profile_section = _admin_profile_section(current_user)
     elif is_authenticated and current_user:
         profile_section = Div(
-            _avatar_link(current_user),
+            _avatar_dropdown(current_user, active_page),
             _logout_button(),
             _search_button(active_page),
             _notification_button(unread_insights),

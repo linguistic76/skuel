@@ -141,7 +141,7 @@ def create_tasks_ui_routes(
                 render_error_banner("Failed to load tasks"),
                 cls=f"{Spacing.PAGE} {Container.WIDE}",
             )
-            return await create_tasks_page(error_content, user_uid)
+            return await create_tasks_page(error_content, user_uid, request=request)
 
         ctx = filtered_result.value
         tasks = ctx["entities"]
@@ -186,7 +186,7 @@ def create_tasks_ui_routes(
             cls=f"{Spacing.PAGE} {Container.WIDE}",
         )
 
-        return await create_tasks_page(page_content, user_uid)
+        return await create_tasks_page(page_content, user_uid, request=request)
 
     # ========================================================================
     # HTMX VIEW FRAGMENTS

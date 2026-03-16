@@ -159,7 +159,12 @@ def safe_bool(value: Any, default: bool = False) -> bool:
 # ============================================================================
 
 
-async def error_page(message: str, status_code: int, user_display_name: str = "User") -> Any:
+async def error_page(
+    message: str,
+    status_code: int,
+    user_display_name: str = "User",
+    request: Any = None,
+) -> Any:
     """
     Unified error page for profile routes.
 
@@ -169,13 +174,12 @@ async def error_page(message: str, status_code: int, user_display_name: str = "U
         message: Error message to display
         status_code: HTTP status code (404, 500, etc.)
         user_display_name: User's display name for page header
+        request: Optional request for navbar auth detection
 
     Returns:
         Error page with consistent styling
     """
     from fasthtml.common import H1, P
-
-    from ui.profile.layout import create_profile_page
 
     content = Div(
         H1(f"Error {status_code}", cls="text-3xl font-bold text-error mb-4"),
@@ -183,14 +187,11 @@ async def error_page(message: str, status_code: int, user_display_name: str = "U
         cls="flex flex-col items-center justify-center min-h-[400px] p-8",
     )
 
-    return await create_profile_page(
+    return await BasePage(
         content=content,
-        domains=[],
-        active_domain="",
-        user_display_name=user_display_name,
         title=f"Error {status_code}",
-        is_admin=False,
-        curriculum_domains=[],
+        request=request,
+        active_page="profile",
     )
 
 
@@ -256,7 +257,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
         user_result = await user_service.get_user(user_uid)
         if user_result.is_error:
             logger.error("Failed to load user for settings", extra={"user_uid": user_uid})
-            return await error_page("User not found", 404)
+            return await error_page("User not found", 404, request=request)
         user = user_result.value
 
         # Extract preferences as dict
@@ -593,35 +594,17 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
                 "Failed to load context for profile page",
                 extra={"user_uid": user_uid, "error": str(e)},
             )
-            return await error_page(str(e), 500)
+            return await error_page(str(e), 500, request=request)
 
         from ui.profile.lean_profile import LeanProfileView
 
         content = LeanProfileView(context)
 
-        # Build sidebar domain items
-        insight_counts: dict[str, int] = {}
-        total_unread_insights = 0
-        if services.insight_store:
-            counts_result = await services.insight_store.get_insight_counts_by_domain(user_uid)
-            if not counts_result.is_error:
-                insight_counts = counts_result.value
-                total_unread_insights = sum(insight_counts.values())
-
-        domain_items = _build_domain_items(context, insight_counts)
-        curriculum_items = _build_curriculum_items(context)
-        display_name = context.display_name or context.username
-
-        return await create_profile_page(
+        return await BasePage(
             content=content,
-            domains=domain_items,
-            active_domain="",
-            user_display_name=display_name,
             title="Profile",
-            is_admin=context.user_role.can_manage_users(),
-            curriculum_domains=curriculum_items,
-            unread_insights=total_unread_insights,
             request=request,
+            active_page="profile",
         )
 
     @rt("/api/profile/{slug}/preview")
@@ -695,6 +678,78 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
 
         return render_domain_card_preview(preview_items, slug)
 
+    @rt("/api/sidebar/badges")
+    async def sidebar_badges(request: Request) -> Any:
+        """HTMX OOB-swap endpoint: async-loaded count + status badges for sidebar items.
+
+        Returns Span elements with hx-swap-oob="true" that replace the
+        `sidebar-badge-{slug}` placeholders rendered by `_default_item_renderer`.
+        """
+        from fasthtml.common import Span
+
+        from ui.profile.badges import CountBadge, StatusBadge
+
+        user_uid = require_authenticated_user(request)
+
+        try:
+            context = await _get_context(user_uid)
+        except ValueError:
+            # Degrade silently — badges are enhancement, not critical
+            return Div()
+
+        fragments: list[Any] = []
+
+        # Activity domain badges
+        for slug, config in DOMAIN_STATS_CONFIG.items():
+            count = config.count_fn(context)
+            active = config.active_fn(context)
+            status_args = config.status_args_fn(context)
+            status = config.status_fn(*status_args)
+
+            fragments.append(
+                Span(
+                    CountBadge(count, active),
+                    StatusBadge(status),
+                    id=f"sidebar-badge-{slug}",
+                    hx_swap_oob="true",
+                    cls="flex items-center gap-1",
+                )
+            )
+
+        # Curriculum badges
+        curriculum_configs: list[tuple[str, int, int, str]] = [
+            (
+                "knowledge",
+                knowledge_count(context),
+                knowledge_active(context),
+                knowledge_status(context),
+            ),
+            (
+                "learning-steps",
+                learning_steps_count(context),
+                learning_steps_active(context),
+                learning_steps_status(context),
+            ),
+            (
+                "learning-paths",
+                learning_paths_count(context),
+                learning_paths_active(context),
+                learning_paths_status(context),
+            ),
+        ]
+        for slug, count, active, status in curriculum_configs:
+            fragments.append(
+                Span(
+                    CountBadge(count, active),
+                    StatusBadge(status),
+                    id=f"sidebar-badge-{slug}",
+                    hx_swap_oob="true",
+                    cls="flex items-center gap-1",
+                )
+            )
+
+        return Div(*fragments)
+
     @rt("/profile/{domain}")
     async def profile_domain(request: Request, domain: str) -> Any:
         """Redirect legacy profile domain URLs.
@@ -739,7 +794,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
                 "Failed to load context for shared content page",
                 extra={"user_uid": user_uid, "error": str(e)},
             )
-            return await error_page(str(e), 500)
+            return await error_page(str(e), 500, request=request)
 
         # Fetch shared reports
         from fasthtml.common import H2, H4, Div, P

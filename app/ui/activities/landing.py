@@ -88,7 +88,7 @@ def _card_preview_skeleton() -> Div:
 
 
 def domain_card_grid(context: UserContext) -> Div:
-    """8-card grid: 6 Activity Domains + Knowledge + Journals."""
+    """Card grid: 6 Activity Domains + Knowledge card + Journals link."""
     cards: list[Any] = []
 
     for icon, name, slug in _ACTIVITY_DOMAINS:
@@ -156,35 +156,14 @@ def domain_card_grid(context: UserContext) -> Div:
         )
     )
 
-    # Journals card
+    # Journals link (lightweight — not a full card)
     cards.append(
-        Div(
-            Div(
-                Div(
-                    Span("📓", cls="text-xl"),
-                    Span("Journals", cls="text-base font-semibold text-foreground"),
-                    cls="flex items-center gap-2",
-                ),
-                A(
-                    "+",
-                    href="/journals/submit",
-                    cls="w-7 h-7 flex items-center justify-center rounded-full "
-                    "text-foreground/40 hover:text-foreground hover:bg-muted "
-                    "transition-colors text-lg font-bold leading-none",
-                    title="Submit journal",
-                ),
-                cls="flex items-center justify-between mb-3",
-            ),
-            P(
-                "Submit a journal entry to track your progress.",
-                cls="text-sm text-muted-foreground",
-            ),
-            A(
-                "Submit journal →",
-                href="/journals/submit",
-                cls="text-xs text-primary hover:underline mt-2 inline-block",
-            ),
-            cls="bg-background rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow",
+        A(
+            Span("📓", cls="text-lg mr-2"),
+            "Submit a journal →",
+            href="/journals/submit",
+            cls="text-sm text-primary hover:underline flex items-center "
+            "bg-background rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow",
         )
     )
 
