@@ -136,7 +136,7 @@ event_bus.subscribe(TaskCompleted, user_service.handle_task_completed)
 - `LEARNING_EVENTS` (12 events): KnowledgeCreated, KnowledgeMastered, LessonCompleted, KnowledgePracticed, LearningPathStarted, LearningPathCompleted, LearningPathProgressUpdated, LearningStepProgressUpdated, PrerequisitesAnalyzed, LearningRecommendationGenerated, etc.
 - `KNOWLEDGE_SUBSTANCE_EVENTS` (8 events): KnowledgeAppliedInTask, KnowledgeBuiltIntoHabit, etc.
 - `CURRICULUM_EVENTS` (4 events): LearningStepCreated/Updated/Deleted/Completed
-- `JOURNAL_EVENTS` (3 events): JournalCreated, JournalUpdated, JournalDeleted
+- `SUBMISSION_EVENTS` (4 events): SubmissionCreated, ReportSubmitted, SubmissionApproved, SubmissionRevisionRequested
 - `ASSIGNMENT_EVENTS` (5 events): AssignmentSubmitted, AssignmentProcessingStarted/Completed/Failed, AssignmentDeleted
 - `TRANSCRIPTION_EVENTS` (3 events): TranscriptionCreated, TranscriptionCompleted, TranscriptionFailed
 - `USER_EVENTS` (2 events): UserContextInvalidated, UserPreferencesChanged
@@ -278,7 +278,7 @@ await publish_event(self.event_bus, event, self.logger)
 | Finance | ExpenseCreated, ExpenseUpdated, ExpensePaid, ExpenseDeleted |
 | Learning | KnowledgeCreated, KnowledgeMastered, LessonCompleted, LearningPathStarted, LearningPathCompleted, LearningPathProgressUpdated, LearningStepProgressUpdated |
 | LS | LearningStepCreated, LearningStepUpdated, LearningStepDeleted, LearningStepCompleted |
-| Journals | JournalCreated, JournalUpdated, JournalDeleted |
+| Submissions | SubmissionCreated, ReportSubmitted, SubmissionApproved, SubmissionRevisionRequested |
 
 ---
 

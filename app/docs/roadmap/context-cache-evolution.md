@@ -28,21 +28,28 @@ Without caching, every intelligence request — daily planning, life path alignm
 | Owner | `UserActivityService._context_cache` |
 | Expected hit rate | ~80% during active sessions |
 
-### Invalidation Events (20+)
+### Invalidation Events (43)
 
-The cache is cleared immediately — not on TTL expiry — when any of these domain events fire:
+The cache is cleared immediately — not on TTL expiry — when any domain mutation event fires.
 
-- **Tasks:** `TaskCreated`, `TaskCompleted`, `TaskUpdated`, `TaskDeleted`
-- **Goals:** `GoalCreated`, `GoalAchieved`, `GoalMilestoneReached`, `GoalProgressUpdated`
-- **Habits:** `HabitCreated`, `HabitCompleted`, `HabitStreakBroken`, `HabitStreakMilestone`
-- **Events:** `EventCreated`, `EventCompleted`, `EventUpdated`, `EventDeleted`
-- **Choices:** `ChoiceCreated`, `ChoiceUpdated`, `ChoiceDeleted`
-- **Principles:** `PrincipleCreated`, `PrincipleUpdated`, `PrincipleDeleted`, `PrincipleStrengthChanged`
-- **Finance:** `ExpenseCreated`, `ExpenseUpdated`, `ExpenseDeleted`, `ExpensePaid`
-- **Content:** `JournalCreated`, `JournalUpdated`, `JournalDeleted`
-- **Curriculum:** `KnowledgeCreated`, `LearningPathStarted`, `LearningPathCompleted`
+Two handlers in `_wire_event_subscribers()` cover all events via data-driven subscription loops:
 
-Event subscriptions wired in `services_bootstrap.py`.
+**`invalidate_context(event)`** — for events that guarantee `event.user_uid` (34 events):
+
+- **Tasks (5):** `TaskCreated`, `TaskCompleted`, `TaskUpdated`, `TaskDeleted`, `TaskPriorityChanged`
+- **Goals (5):** `GoalCreated`, `GoalAchieved`, `GoalAbandoned`, `GoalMilestoneReached`, `GoalProgressUpdated`
+- **Habits (6):** `HabitCreated`, `HabitCompleted`, `HabitCompletionBulk`, `HabitMissed`, `HabitStreakBroken`, `HabitStreakMilestone`
+- **Principles (5):** `PrincipleCreated`, `PrincipleUpdated`, `PrincipleDeleted`, `PrincipleStrengthChanged`, `PrincipleAlignmentAssessed`
+- **Choices (5):** `ChoiceCreated`, `ChoiceUpdated`, `ChoiceDeleted`, `ChoiceMade`, `ChoiceOutcomeRecorded`
+- **Calendar Events (5):** `CalendarEventCreated`, `CalendarEventUpdated`, `CalendarEventCompleted`, `CalendarEventDeleted`, `CalendarEventRescheduled`
+- **Finance (4):** `ExpenseCreated`, `ExpenseUpdated`, `ExpenseDeleted`, `ExpensePaid`
+
+**`invalidate_context_if_user(event)`** — for curriculum events where `user_uid` may be absent (9 events):
+
+- **Learning (5):** `KnowledgeCreated`, `KnowledgeMastered`, `LearningPathStarted`, `LearningPathCompleted`, `LearningPathProgressUpdated`
+- **Learning Steps (4):** `LearningStepCreated`, `LearningStepUpdated`, `LearningStepDeleted`, `LearningStepCompleted`
+
+Event subscriptions wired in `services_bootstrap.py::_wire_event_subscribers()`.
 
 ### Request Flow
 

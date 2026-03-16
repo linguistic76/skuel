@@ -769,88 +769,48 @@ class TasksService:
 ```python
 # File: /services_bootstrap.py
 
-async def compose_services(neo4j_adapter, event_bus=None) -> Result[Services]:
+async def compose_services(neo4j_adapter, event_bus=None, config=None, ...) -> Result[Services]:
     """
-    Bootstrap process:
-    1. Create driver
-    2. Validate required API keys (fail-fast: Deepgram; optional: OpenAI)
-    3. Create universal backends
-    4. Create optional AI services (Neo4j GenAI embeddings, vector search)
-    5. Inject backends into services
-    6. Return services container
+    Bootstrap delegates to helper functions for readability:
+    1. Validate Neo4j + API keys (fail-fast)
+    2. Create domain backends (UniversalNeo4jBackend[T])
+    3. _create_activity_services() — 6 Activity Domain facades
+    4. _create_core_services() — Finance, Transcription, User passthrough
+    5. _create_learning_services() — Curriculum (Lesson, KU, LS, LP)
+    6. _wire_ai_services() — 12 AI services into facades (FULL tier only)
+    7. _wire_event_subscribers() — 43 context invalidation + cross-domain events
+    8. _create_intelligence_hub() — UserContextIntelligence, ZPD, Askesis
+    9. Validate post-construction wiring (fail-fast if any missed)
+    10. Create SearchRouter (One Path Forward)
     """
 
-    # 1. Get Neo4j driver
-    driver = neo4j_adapter.get_driver()
+    # 1. Validate required infrastructure
+    driver = neo4j_adapter.get_driver()  # Fail-fast if unavailable
+    # Required: DEEPGRAM_API_KEY — fail-fast
+    # Optional: OPENAI_API_KEY — warn only
 
-    # 2. Validate API keys (GRACEFUL DEGRADATION)
-    # Required: DEEPGRAM_API_KEY - app fails without it
-    # Optional: OPENAI_API_KEY - app runs with basic features
-    required_keys = {
-        "DEEPGRAM_API_KEY": "Deepgram API (required for audio transcription)",
-    }
-
-    recommended_keys = {
-        "OPENAI_API_KEY": "OpenAI API (optional - enables embeddings, semantic search, AI features)",
-    }
-
-    # Fail fast on missing required keys
-    # Warn on missing optional keys (app continues)
-
-    # 3. Create optional AI services
-    try:
-        openai_api_key = get_credential("OPENAI_API_KEY", fallback_to_env=True)
-        if openai_api_key and openai_api_key not in ["your-openai-api-key-here", "", "sk-"]:
-            embeddings_service = OpenAIEmbeddingsService(api_key=openai_api_key)
-            logger.info("✅ Embeddings service initialized (OpenAI)")
-        else:
-            embeddings_service = None
-            logger.warning("⚠️ Embeddings service disabled - app runs with basic features only")
-    except Exception as e:
-        embeddings_service = None
-        logger.warning("⚠️ Embeddings service disabled - continuing with basic features")
-
-    # 4. Create HuggingFace embeddings services (January 2026 - Vector Search Integration)
-    # Uses HuggingFace Inference API for embeddings (BAAI/bge-large-en-v1.5, 1024d)
-    # Requires HUGGINGFACE_API_KEY in environment
-    try:
-        genai_embeddings_service = HuggingFaceEmbeddingsService(driver)
-        vector_search_service = Neo4jVectorSearchService(driver, genai_embeddings_service)
-        logger.info("✅ HuggingFace embeddings services created (vector search enabled)")
-    except Exception as e:
-        genai_embeddings_service = None
-        vector_search_service = None
-        logger.warning("⚠️ Embeddings services unavailable - using keyword search fallback")
-
-    # 5. Create domain backends (implement protocols)
+    # 2. Create domain backends (15 backend instances)
     tasks_backend = TasksBackend(driver, NeoLabel.TASK, Task, base_label=NeoLabel.ENTITY)
-    events_backend = EventsBackend(driver, NeoLabel.EVENT, Event, base_label=NeoLabel.ENTITY)
-    habits_backend = HabitsBackend(driver, NeoLabel.HABIT, Habit, base_label=NeoLabel.ENTITY)
-    # ... all entity types
+    # ... all entity types use domain-specific Backend subclasses
 
-    # 6. Create services with backend injection and optional AI services
-    tasks_service = TasksService(backend=tasks_backend)
-    events_service = EventsService(backend=events_backend)
-    habits_service = HabitsService(backend=habits_backend)
+    # 3-5. Delegate to helper functions
+    activity_services = _create_activity_services(tasks_backend=..., ...)  # 6 facades
+    core_services = _create_core_services(finance_backend=..., ...)  # Finance + Transcription
+    learning_services = _create_learning_services(driver=..., ...)  # Lesson, KU, LS, LP
 
-    # KU service receives optional vector search and embeddings services
-    ku_service = KuService(
-        repo=ku_backend,
-        # ... other dependencies ...
-        vector_search_service=vector_search_service,  # Optional - can be None
-        embeddings_service=genai_embeddings_service,  # Optional - can be None
-    )
-    # ... all entity types
+    # 6. Wire AI (FULL tier: 12 services — 6 Activity + 3 Curriculum + 2 cross-cutting + Askesis AI)
+    _wire_ai_services(llm_service=..., activity_services=activity_services, ...)
 
-    # 7. Return services container
-    services = Services(
-        tasks=tasks_service,
-        events=events_service,
-        habits=habits_service,
-        ku=ku_service,
-        # ... all entity types
-    )
+    # 7. Event-driven architecture (data-driven subscription loops)
+    _wire_event_subscribers(event_bus=event_bus, ...)
 
+    # 8. Intelligence hub (UserContextIntelligence factory + ZPD + Askesis)
+    await _create_intelligence_hub(services=services, ...)
+
+    # 9. Validate post-construction wiring (10 attributes checked)
+    # Fails immediately if any post-wired dependency is None
+
+    # 10. Return services container
     return Result.ok(services)
 ```
 

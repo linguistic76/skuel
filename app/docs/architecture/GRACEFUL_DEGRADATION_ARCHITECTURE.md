@@ -148,6 +148,14 @@ All in `services_bootstrap.py`:
 
 Everything downstream of these three blocks naturally degrades via None-propagation.
 
+## Error Handling in Bootstrap
+
+`compose_services()` separates programming errors from configuration errors:
+
+- **Programming errors** (`TypeError`, `AttributeError`, `ImportError`, `NameError`) **propagate** — they indicate real bugs in service wiring and must not be masked.
+- **Configuration/infrastructure errors** (missing API keys, Neo4j unavailable, etc.) are caught and returned as `Result.fail()` for the caller to handle.
+- **Post-construction wiring** is validated at the end of bootstrap — 10 attributes that are set after service construction are checked for `None`. Missing wiring fails fast with a clear message.
+
 ## Switching Between Modes
 
 Switching from CORE → FULL:
