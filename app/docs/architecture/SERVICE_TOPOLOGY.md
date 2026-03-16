@@ -361,6 +361,14 @@ services_bootstrap.py:   habits.goals_service = goals       # facade-level
 ```
 
 ```
+
+```
+GoalsIntelligenceService.__init__:  self.habits_service = None
+
+services_bootstrap.py:  goals.intelligence.habits_service = habits  # sub-service-level
+```
+
+```
 SubmissionsCoreService.__init__:  self.submissions_service = None
                                   self.processing_service = None
                                   self.exercise_service = None

@@ -492,8 +492,8 @@ Map to the **Report** stage of the educational loop. `processor_type` discrimina
 
 | Protocol | Services Field | Methods | Route Consumer |
 |----------|---------------|---------|----------------|
-| `CalendarServiceOperations` | `calendar` | 4 async (get_calendar_view, get_item, quick_create, reschedule_item) | `calendar_api.py`, `visualization_api.py` |
-| `VisualizationOperations` | `visualization` | 11 (4 async data + 7 sync Chart.js/Vis.js formatters) | `visualization_api.py` |
+| `CalendarServiceOperations` | `calendar` | 5 async (get_calendar_view, get_item, quick_create, reschedule_item, record_habit_occurrence) | `calendar_api.py`, `calendar_ui.py` |
+| `VisualizationOperations` | `visualization` | 15 (8 async data-fetching + 7 sync formatters) | `visualization_api.py` |
 | `SystemServiceOperations` | `system_service` | 11 (5 async health + 6 sync management) | `system_api.py` |
 | `CrossDomainAnalyticsOperations` | `cross_domain_analytics` | 5 async (learning_velocity, spending_patterns, mood, productivity, habit_consistency) | `analytics_api.py` |
 | `LifePathOperations` | `lifepath` | 3 async + `.alignment` sub-service | `lifepath_api.py` |

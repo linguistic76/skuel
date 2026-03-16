@@ -327,14 +327,14 @@ async def predict_goal_success(
     self,
     goal_uid: str,
     lookback_days: int = 30,
-    habits_service: "HabitsOperations | None" = None
 ) -> Result[GoalPrediction]:
 ```
 
 **Parameters:**
 - `goal_uid` (str) - Goal to analyze
 - `lookback_days` (int, default=30) - Days of history to consider
-- `habits_service` (HabitsOperations, optional) - Service for fetching habit data (required for full analysis)
+
+**Cross-domain dependency:** Uses `self.habits_service` (post-wired at bootstrap) to fetch supporting habits from graph relationships. Enhanced analysis when available; works without it.
 
 **Returns:**
 ```python
@@ -358,6 +358,9 @@ GoalPrediction(
     ],
     trend="improving"
 )
+
+# risk_level is a derived property on GoalPrediction:
+prediction.risk_level  # "high" (<0.5), "medium" (<0.75), "low" (>=0.75)
 ```
 
 **Example:**
@@ -365,12 +368,12 @@ GoalPrediction(
 result = await goals_service.intelligence.predict_goal_success(
     goal_uid="goal_001",
     lookback_days=30,
-    habits_service=habits_service
 )
 
 if result.is_ok:
     prediction = result.value
     print(f"Success probability: {prediction.success_probability:.0%}")
+    print(f"Risk level: {prediction.risk_level}")
     print(f"Predicted completion: {prediction.predicted_completion_date}")
     print(f"Trend: {prediction.trend}")
 
@@ -386,7 +389,7 @@ if result.is_ok:
 **Dependencies:**
 - GoalsOperations backend (REQUIRED)
 - UnifiedRelationshipService (REQUIRED)
-- HabitsOperations (optional - enhanced analysis if provided)
+- `self.habits_service` (post-wired, optional - enhanced analysis if available)
 
 **Merged from GoalAnalyticsService (November 2025):**
 This method combines four probability factors using weighted model:
@@ -406,13 +409,13 @@ This method combines four probability factors using weighted model:
 async def analyze_habit_impact(
     self,
     goal_uid: str,
-    habits_service: "HabitsOperations | None" = None
 ) -> Result[list[HabitImpactAnalysis]]:
 ```
 
 **Parameters:**
 - `goal_uid` (str) - Goal to analyze
-- `habits_service` (HabitsOperations, required) - Service for fetching habit data
+
+**Cross-domain dependency:** Uses `self.habits_service` (post-wired at bootstrap). Fails with system error if unavailable.
 
 **Returns:**
 ```python
@@ -434,7 +437,6 @@ async def analyze_habit_impact(
 ```python
 result = await goals_service.intelligence.analyze_habit_impact(
     goal_uid="goal_001",
-    habits_service=habits_service
 )
 
 if result.is_ok:
@@ -450,7 +452,7 @@ if result.is_ok:
 **Dependencies:**
 - GoalsOperations backend (REQUIRED)
 - UnifiedRelationshipService (REQUIRED)
-- HabitsOperations (REQUIRED - fails if not provided)
+- `self.habits_service` (post-wired, REQUIRED - fails if unavailable)
 
 **Impact Calculation:**
 ```
@@ -462,7 +464,25 @@ criticality = "critical" (weight ≥ 1.5)
 
 ---
 
-### Method 7: run_scenario_analysis()
+### Method 7: assess_goal_risk()
+
+**Purpose:** Assess risk factors for goal achievement. Derives risk level from success probability prediction.
+
+**Signature:**
+```python
+async def assess_goal_risk(
+    self,
+    goal_uid: str,
+) -> Result[dict[str, Any]]:
+```
+
+**Returns:** `{"goal_uid", "risk_level", "risk_factors", "recommended_actions", "trend"}`
+
+Risk level thresholds: `success_probability < 0.5` → "high", `< 0.75` → "medium", `>= 0.75` → "low"
+
+---
+
+### Method 8: run_scenario_analysis()
 
 **Purpose:** Run what-if scenario with adjusted habit consistencies to explore optimization opportunities.
 
@@ -472,14 +492,14 @@ async def run_scenario_analysis(
     self,
     goal_uid: str,
     consistency_adjustments: dict[str, float],
-    habits_service: "HabitsOperations | None" = None
 ) -> Result[GoalPrediction]:
 ```
 
 **Parameters:**
 - `goal_uid` (str) - Goal to analyze
 - `consistency_adjustments` (dict[str, float]) - Dict of habit_uid → new_consistency (0.0-1.0)
-- `habits_service` (HabitsOperations, required) - Service for fetching habit data
+
+**Cross-domain dependency:** Uses `self.habits_service` (post-wired at bootstrap). Fails with system error if unavailable.
 
 **Returns:**
 ```python
@@ -507,7 +527,6 @@ adjustments = {
 result = await goals_service.intelligence.run_scenario_analysis(
     goal_uid="goal_001",
     consistency_adjustments=adjustments,
-    habits_service=habits_service
 )
 
 if result.is_ok:
@@ -521,13 +540,13 @@ if result.is_ok:
 **Dependencies:**
 - GoalsOperations backend (REQUIRED)
 - UnifiedRelationshipService (REQUIRED)
-- HabitsOperations (REQUIRED - fails if not provided)
+- `self.habits_service` (post-wired, REQUIRED - fails if unavailable)
 
 **Note:** Adjustments are in-memory only - does not modify actual habit data.
 
 ---
 
-### Method 8: assess_progress_dual_track() (ADR-030)
+### Method 9: assess_progress_dual_track() (ADR-030)
 
 **Purpose:** Compare user's self-assessed goal progress with system-measured progress metrics, generating perception gap analysis and personalized insights.
 
