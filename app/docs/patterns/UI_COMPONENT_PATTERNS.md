@@ -285,7 +285,7 @@ Container.NARROW    # "max-w-4xl mx-auto"
 Container.WIDE      # "max-w-7xl mx-auto"
 
 # Spacing patterns
-Spacing.PAGE        # "p-6 lg:p-8"
+Spacing.PAGE        # "p-4 sm:p-6 lg:p-8"
 Spacing.SECTION     # "space-y-8"
 Spacing.CONTENT     # "space-y-4"
 

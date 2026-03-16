@@ -83,6 +83,10 @@ When offline and no cached version exists for a navigation request, the service 
 
 When offline and a cached version exists, the cached version is served transparently.
 
+### Offline Status Indicator
+
+In addition to the service worker's `/offline.html` fallback for uncached navigation, SKUEL shows a fixed yellow banner at the bottom of every page when the browser is offline. This uses the `offlineIndicator` Alpine.js component (`static/js/skuel.js`) which listens to `online`/`offline` window events and reactively shows/hides the banner. The banner is rendered in `ui/layouts/base_page.py`.
+
 ### Cache Busting on Deploy
 
 Change `CACHE_VERSION` in `service-worker.js`. The `activate` event handler deletes all caches that don't match the current version names.
@@ -161,7 +165,7 @@ The service worker **must** be served from the root scope (`/`) to control the e
 | `static/offline.html` | Offline fallback page |
 | `static/icons/` | App icons (5 files) |
 | `ui/theme.py` | `pwa_headers()` function |
-| `ui/layouts/base_page.py` | PWA header integration + SW registration |
+| `ui/layouts/base_page.py` | PWA header integration + SW registration + offline banner |
 | `scripts/dev/bootstrap.py` | Root-level PWA routes |
 
 ## Adding New Static Assets to Offline Cache

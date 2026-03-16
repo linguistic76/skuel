@@ -356,7 +356,7 @@ chmod +x .claude/scripts/ux-check.sh
 | Text | `text-base-content` | `text-gray-900` |
 | Container | `Container.STANDARD` | `max-w-6xl` |
 | Section spacing | `Spacing.SECTION` | `space-y-8` |
-| Page padding | `Spacing.PAGE` | `p-6` |
+| Page padding | `Spacing.PAGE` | `p-4 sm:p-6 lg:p-8` |
 | Card | `Card.STANDARD` | `bg-white p-6 rounded` |
 | Heading | `Typography.H2` | `text-3xl font-bold` |
 

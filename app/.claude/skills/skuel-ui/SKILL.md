@@ -81,7 +81,7 @@ Container.NARROW    # "max-w-4xl mx-auto"   — narrow content
 Container.WIDE      # "max-w-7xl mx-auto"   — wide dashboards
 
 # Spacing
-Spacing.PAGE        # "p-6 lg:p-8"          — page-level padding
+Spacing.PAGE        # "p-4 sm:p-6 lg:p-8"  — page-level padding
 Spacing.SECTION     # "space-y-8"           — between sections
 Spacing.CONTENT     # "space-y-4"           — between items
 
@@ -850,7 +850,7 @@ BasePage(content, page_type=PageType.CUSTOM, sidebar=Div(...))
 await SidebarPage(content=content, items=items, ...)
 
 # ❌ Magic container widths
-Div(cls="max-w-6xl mx-auto p-6 lg:p-8")
+Div(cls="max-w-6xl mx-auto p-4 sm:p-6 lg:p-8")
 # ✅ Design tokens
 Div(cls=f"{Container.STANDARD} {Spacing.PAGE}")
 

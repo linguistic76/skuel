@@ -448,6 +448,7 @@ All Alpine components live in `/static/js/skuel.js` (centralized, not inline):
 | `ganttVis(url)` | Frappe Gantt | `gantt`, `loading`, `viewMode` |
 | `collapsibleSidebar(key)` | Sidebar collapse + localStorage | reads `Alpine.store(key)` |
 | `relationshipGraph(uid, type)` | Vis.js lateral relationships | `network`, `loading` |
+| `offlineIndicator` | PWA offline status banner | `isOffline` |
 
 **Usage in FastHTML:**
 ```python

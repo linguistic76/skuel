@@ -24,7 +24,7 @@ class Spacing:
     """
 
     # Page-level padding
-    PAGE = "p-6 lg:p-8"  # 24px mobile, 32px desktop
+    PAGE = "p-4 sm:p-6 lg:p-8"  # 16px mobile, 24px tablet, 32px desktop
 
     # Between major sections
     SECTION = "space-y-8"  # 32px gap

@@ -144,6 +144,27 @@ Does this element perform an action (same page)?
 
 **MonsterUI default:** All interactive components have built-in focus styles.
 
+### 6. Touch Target Size (WCAG 2.5.5)
+
+**All interactive elements must have a minimum touch target of 44x44 CSS pixels:**
+
+| Element | Tailwind Class | Size |
+|---------|---------------|------|
+| Navbar buttons (search, notifications, avatar, menu, logout) | `size-11` | 44px |
+| Sidebar nav items | `min-h-[44px]` | 44px minimum height |
+| Form inputs | Default Tailwind | 44px+ (built-in) |
+
+**SKUEL Convention:** Outer interactive element gets `size-11` (44px); inner decorative element (e.g., avatar circle) stays `size-8` (32px). The touch target is the outer element.
+
+```python
+# Navbar icon link pattern
+A(
+    Div(icon, cls="size-8 rounded-full ..."),  # Visual: 32px
+    href="/path",
+    cls="inline-flex items-center justify-center size-11 rounded-full hover:bg-accent",  # Touch: 44px
+)
+```
+
 ## Implementation Patterns
 
 ### Pattern 1: Accessible Button vs Link

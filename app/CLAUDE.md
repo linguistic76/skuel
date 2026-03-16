@@ -501,6 +501,7 @@ type Scorer[T] = Callable[[T], Score]
 |------------|---------------|
 | Installability | Web app manifest (`/manifest.json`) |
 | Offline support | Service worker (network-first HTML, cache-first static) |
+| Offline indicator | `offlineIndicator` Alpine.js component + fixed bottom banner |
 | Push notifications | Web Push API (future) |
 
 **Key Files:** `static/manifest.json`, `static/service-worker.js`, `static/offline.html`, `ui/theme.py` (`pwa_headers()`)

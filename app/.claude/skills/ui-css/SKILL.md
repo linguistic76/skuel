@@ -367,7 +367,7 @@ Container.NARROW    # "max-w-4xl mx-auto"
 Container.WIDE      # "max-w-7xl mx-auto"
 
 # Spacing
-Spacing.PAGE        # "p-6 lg:p-8"   — page-level padding
+Spacing.PAGE        # "p-4 sm:p-6 lg:p-8"  — page-level padding
 Spacing.SECTION     # "space-y-8"    — between sections
 Spacing.CONTENT     # "space-y-4"    — between items
 

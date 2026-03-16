@@ -22,7 +22,7 @@ SKUEL is a PWA — installable from the browser, works offline, no app store. On
 | `static/offline.html` | Offline fallback (self-contained) |
 | `static/icons/` | App icons (192px, 512px, maskable, favicons) |
 | `ui/theme.py` | `pwa_headers()` — meta tags + manifest link |
-| `ui/layouts/base_page.py` | Integrates `pwa_headers()` + SW registration |
+| `ui/layouts/base_page.py` | Integrates `pwa_headers()` + SW registration + offline banner |
 | `scripts/dev/bootstrap.py` | Root-level routes for manifest, SW, offline |
 
 ## Service Worker Caching Strategies
@@ -115,6 +115,15 @@ async def pwa_service_worker(request):
 async def pwa_offline(request):
     return FileResponse(static_dir / "offline.html", media_type="text/html")
 ```
+
+## Offline Status Indicator
+
+When the browser loses connectivity, a fixed yellow banner appears at the bottom of every page: "You are offline. Some features may be unavailable." It auto-dismisses when connectivity returns.
+
+**Implementation:**
+- Alpine.js component `offlineIndicator` in `static/js/skuel.js` — listens to `online`/`offline` window events
+- Banner rendered in `ui/layouts/base_page.py` with `x-data="offlineIndicator"` / `x-show="isOffline"`
+- Separate from the service worker's `/offline.html` fallback (which handles uncached navigation requests)
 
 ## Testing
 
