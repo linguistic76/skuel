@@ -21,11 +21,11 @@ from adapters.inbound.auth import make_service_getter, require_authenticated_use
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonT
 from ui.cards import Card
+from ui.curriculum.layout import create_curriculum_page
 from ui.forms import Input, Label, Select, Textarea
 from ui.layout import Size
 from ui.layouts.navbar import create_navbar_for_request
 from ui.patterns.page_header import PageHeader
-from ui.study.layout import create_study_page
 
 logger = get_logger("skuel.routes.exercises.ui")
 
@@ -443,11 +443,11 @@ def create_exercises_ui_routes(
                 ExerciseUIComponents.render_exercises_list(exercises),
                 id="main-content",
             )
-            return await create_study_page(
+            return await create_curriculum_page(
                 content=content,
                 active_section="exercises",
                 request=request,
-                title="Exercises - Study",
+                title="Exercises - Curriculum",
             )
 
         except Exception as e:  # safety-net: HTTP error boundary

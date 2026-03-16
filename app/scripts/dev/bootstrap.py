@@ -716,6 +716,12 @@ async def _wire_all_routes(
     setup_activities_routes(rt, services)
     logger.info("✅ Activities routes registered (/activities)")
 
+    # Curriculum Hub
+    from adapters.inbound.curriculum_hub_routes import create_curriculum_hub_routes
+
+    create_curriculum_hub_routes(app, rt, services)
+    logger.info("✅ Curriculum hub routes registered (/curriculum, /lessons, /learning-steps, /learning-paths)")
+
     # Study Hub
     from adapters.inbound.study_routes import create_study_routes
 
@@ -729,7 +735,7 @@ async def _wire_all_routes(
     logger.info("✅ User profile hub routes registered")
 
     # PWA: serve manifest.json, service-worker.js, and offline.html from root scope
-    from starlette.responses import FileResponse, RedirectResponse
+    from starlette.responses import FileResponse
 
     static_dir = Path.cwd() / "static"
 
@@ -746,14 +752,6 @@ async def _wire_all_routes(
         return FileResponse(static_dir / "offline.html", media_type="text/html")
 
     logger.info("✅ PWA routes registered (/manifest.json, /service-worker.js, /offline.html)")
-
-    # /curriculum redirect -> /pathways (curriculum hub deleted)
-
-    @rt("/curriculum")
-    async def curriculum_redirect(request):
-        return RedirectResponse("/pathways", status_code=301)
-
-    logger.info("✅ /curriculum redirects to /pathways")
 
     # User pins routes (entity pinning/bookmarking)
     if services.user_relationships:

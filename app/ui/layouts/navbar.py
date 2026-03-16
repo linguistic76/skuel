@@ -18,16 +18,30 @@ from monsterui.franken import UkIcon
 from starlette.requests import Request
 
 from ui.layouts.nav_config import (
+    ACTIVITY_DROPDOWN_ITEMS,
     ADMIN_NAV_ITEM,
+    CURRICULUM_DROPDOWN_ITEMS,
     ICON_NAV_ITEMS,
     MAIN_NAV_ITEMS,
+    STUDY_DROPDOWN_ITEMS,
+    DropdownItem,
     IconNavItem,
     NavItem,
 )
 
+# Mapping from icon page_key to its dropdown items
+_DROPDOWN_ITEMS_MAP: dict[str, tuple[DropdownItem, ...]] = {
+    "activities": ACTIVITY_DROPDOWN_ITEMS,
+    "curriculum": CURRICULUM_DROPDOWN_ITEMS,
+    "study": STUDY_DROPDOWN_ITEMS,
+}
 
-def _icon_nav_link(item: IconNavItem, active_page: str) -> A:
-    """Create a circular letter icon link for the navbar (e.g., 'A' for Activities)."""
+
+def _icon_nav_link(item: IconNavItem, active_page: str) -> Any:
+    """Create a circular letter icon link, with optional hover dropdown."""
+    if item.has_dropdown:
+        return _icon_nav_dropdown(item, active_page)
+
     is_active = item.page_key == active_page
     active_cls = "bg-primary/20 text-primary ring-1 ring-primary/30"
     inactive_cls = "bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground"
@@ -42,6 +56,51 @@ def _icon_nav_link(item: IconNavItem, active_page: str) -> A:
         ),
         href=item.href,
         cls="inline-flex items-center justify-center size-11 rounded-full hover:bg-accent",
+    )
+
+
+def _icon_nav_dropdown(item: IconNavItem, active_page: str) -> Div:
+    """Create an icon button with a hover dropdown for activity domains."""
+    is_active = item.page_key == active_page
+    active_cls = "bg-primary/20 text-primary ring-1 ring-primary/30"
+    inactive_cls = "bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+
+    trigger = Div(
+        Span(item.label, cls="sr-only"),
+        Div(
+            item.letter,
+            cls=f"size-8 rounded-full flex items-center justify-center font-semibold text-sm cursor-default "
+            f"{active_cls if is_active else inactive_cls}",
+            aria_hidden="true",
+        ),
+        cls="inline-flex items-center justify-center size-11 rounded-full",
+        role="button",
+        aria_haspopup="true",
+        tabindex="0",
+    )
+
+    dropdown_items = [
+        A(
+            Span(di.icon, cls="text-base", aria_hidden="true") if di.icon else None,
+            Span(di.label),
+            href=di.href,
+            cls="flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-accent rounded-md",
+        )
+        for di in _DROPDOWN_ITEMS_MAP.get(item.page_key, ())
+    ]
+
+    dropdown_menu = Div(
+        *dropdown_items,
+        cls="absolute left-0 top-full mt-1 w-44 bg-background border border-border rounded-lg shadow-lg py-1 z-50 "
+        "opacity-0 invisible group-hover:opacity-100 group-hover:visible "
+        "transition-all duration-150",
+        role="menu",
+    )
+
+    return Div(
+        trigger,
+        dropdown_menu,
+        cls="relative group",
     )
 
 
@@ -262,8 +321,8 @@ def create_navbar(
     if is_admin:
         nav_items.insert(0, ADMIN_NAV_ITEM)
 
-    # Icon navigation links (Activities, Learn)
-    icon_links: list[A] = []
+    # Icon navigation links (Activities with dropdown, Study)
+    icon_links: list[Any] = []
     if is_authenticated and not is_admin:
         icon_links = [_icon_nav_link(item, active_page) for item in ICON_NAV_ITEMS]
 
@@ -273,22 +332,36 @@ def create_navbar(
         cls="hidden sm:flex sm:space-x-1",
     )
 
-    # Mobile navigation links
+    # Mobile navigation links — expand activity domains into individual links
     mobile_nav_items = list(nav_items)
-    mobile_links = Div(
-        Div(
-            *(
-                [
+    mobile_icon_links: list[Any] = []
+    if is_authenticated and not is_admin:
+        for item in ICON_NAV_ITEMS:
+            if item.has_dropdown:
+                # Expand dropdown items as mobile links
+                for di in _DROPDOWN_ITEMS_MAP.get(item.page_key, ()):
+                    mobile_icon_links.append(
+                        _nav_link(
+                            NavItem(
+                                f"{di.icon} {di.label}" if di.icon else di.label,
+                                di.href,
+                                di.label.lower(),
+                            ),
+                            active_page,
+                            mobile=True,
+                        )
+                    )
+            else:
+                mobile_icon_links.append(
                     _nav_link(
                         NavItem(item.label, item.href, item.page_key),
                         active_page,
                         mobile=True,
                     )
-                    for item in ICON_NAV_ITEMS
-                ]
-                if is_authenticated and not is_admin
-                else []
-            ),
+                )
+    mobile_links = Div(
+        Div(
+            *mobile_icon_links,
             *[_nav_link(item, active_page, mobile=True) for item in mobile_nav_items],
             cls="space-y-1 px-2 pt-2 pb-3",
             role="menu",

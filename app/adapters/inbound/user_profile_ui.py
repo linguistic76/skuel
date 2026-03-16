@@ -712,8 +712,8 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
 
         curriculum_redirects = {
             "knowledge": "/ku",
-            "learning-steps": "/pathways",
-            "learning-paths": "/pathways",
+            "learning-steps": "/learning-steps",
+            "learning-paths": "/learning-paths",
         }
         if domain in curriculum_redirects:
             return RedirectResponse(curriculum_redirects[domain], status_code=302)

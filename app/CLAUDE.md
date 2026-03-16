@@ -476,8 +476,8 @@ type Scorer[T] = Callable[[T], Score]
 | CUSTOM | Full-width, page manages layout (SidebarPage) |
 
 - Routes in `/adapters/inbound/*_routes.py`, UI in `/ui/`, Static in `/static/`
-- Navbar has icon links: **A** (Activities, `/activities`) and **S** (Study, `/study`) + avatar **U** (Profile, `/profile`)
-- `/profile` is lean (Focus + Steady + Settings). Activity domains at `/activities/{domain}` with sidebar. `/study` is the student workspace hub landing page. Sub-pages are top-level routes (`/exercises`, `/submit`, `/submissions`, `/exercise-reports`, `/activity-reports`, `/generate-reports`) sharing a 6-item sidebar. Old `/submissions/*`, `/learn/*`, and `/ui/exercises` UI paths redirect 301 to the new top-level routes.
+- Navbar has icon links: **A** (Activities, `/activities`), **C** (Curriculum, `/curriculum`), and **S** (Study, `/study`) + avatar **U** (Profile, `/profile`)
+- `/profile` is lean (Focus + Steady + Settings). Activity domains at `/activities/{domain}` with sidebar. `/curriculum` is the curriculum hub with 4-card landing; sub-pages (`/lessons`, `/learning-steps`, `/learning-paths`, `/exercises`) share a 4-item Curriculum sidebar. `/study` is the student workspace hub landing page. Sub-pages (`/submit`, `/submissions`, `/exercise-reports`, `/activity-reports`, `/generate-reports`) share a 5-item Study sidebar. Old `/submissions/*`, `/learn/*`, and `/ui/exercises` UI paths redirect 301 to the new top-level routes.
 - All sidebars unified into `SidebarPage` from `ui/patterns/sidebar.py`
 
 **Key Files:** `/ui/layouts/base_page.py`, `/ui/layouts/navbar.py`, `/ui/patterns/sidebar.py`, `/ui/patterns/` (PageHeader, form_generator, card_generator, etc.)
