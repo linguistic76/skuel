@@ -164,7 +164,9 @@ class AdaptiveLpRecommendationsService:
                         patterns_result.value, knowledge_state
                     )
                     gaps.update(pattern_gaps)
-            except Exception as e:
+            except (ValueError, TypeError, AttributeError, KeyError) as e:
+                self.logger.debug(f"Pattern-based gap analysis failed: {e}")
+            except Exception as e:  # safety-net: catch unexpected errors
                 self.logger.debug(f"Pattern-based gap analysis failed: {e}")
 
         return Result.ok(list(gaps))
@@ -328,7 +330,12 @@ class AdaptiveLpRecommendationsService:
                 estimated_time_minutes=await self._estimate_learning_time(knowledge_gap),
             )
 
-        except Exception as e:
+        except (ValueError, TypeError, AttributeError, KeyError) as e:
+            self.logger.warning(
+                f"Failed to create gap-filling recommendation for {knowledge_gap}: {e}"
+            )
+            return None
+        except Exception as e:  # safety-net: catch unexpected errors
             self.logger.warning(
                 f"Failed to create gap-filling recommendation for {knowledge_gap}: {e}"
             )

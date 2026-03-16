@@ -267,7 +267,10 @@ class FinanceInvoiceService:
 
         except ImportError:
             return Result.fail(Errors.system("WeasyPrint not installed. Run: uv add weasyprint"))
-        except Exception as e:
+        except (OSError, ValueError) as e:
+            self.logger.error(f"PDF generation failed for {uid}: {e}")
+            return Result.fail(Errors.system(f"PDF generation failed: {e}"))
+        except Exception as e:  # safety-net: catch unexpected errors
             self.logger.error(f"PDF generation failed for {uid}: {e}")
             return Result.fail(Errors.system(f"PDF generation failed: {e}"))
 

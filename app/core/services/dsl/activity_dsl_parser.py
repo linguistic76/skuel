@@ -674,8 +674,17 @@ class ActivityDSLParser:
 
             return Result.ok(activity)
 
-        except Exception as e:
+        except (ValueError, KeyError, AttributeError) as e:
             self.logger.warning(f"Parse error for line: {line[:50]}... - {e}")
+            return Result.fail(
+                Errors.validation(
+                    message=f"Parse error: {e}",
+                    field="line",
+                    value=line[:50],
+                )
+            )
+        except Exception as e:  # safety-net: catch unexpected errors
+            self.logger.warning(f"Unexpected parse error for line: {line[:50]}... - {e}")
             return Result.fail(
                 Errors.system(
                     message=f"Parse error: {e}",

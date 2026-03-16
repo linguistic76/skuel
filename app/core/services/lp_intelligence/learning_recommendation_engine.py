@@ -160,8 +160,10 @@ class LearningRecommendationEngine:
                 f"for user {event.user_uid} (reason: {reason})"
             )
 
-        except Exception as e:
+        except (ValueError, TypeError, AttributeError, KeyError) as e:
             # Best-effort: Log error but don't raise (prevent blocking completion flow)
+            logger.error(f"Error handling learning_path_completed event: {e}")
+        except Exception as e:  # safety-net: catch unexpected errors
             logger.error(f"Error handling learning_path_completed event: {e}")
 
     async def handle_knowledge_mastered(self, event: Any) -> None:
@@ -222,8 +224,10 @@ class LearningRecommendationEngine:
             await publish_event(self.event_bus, rec_event, logger)
             logger.info(f"Published KU recommendations for user {event.user_uid}: {reason}")
 
-        except Exception as e:
+        except (ValueError, TypeError, AttributeError, KeyError) as e:
             # Best-effort: Log error but don't raise (prevent blocking mastery flow)
+            logger.error(f"Error handling knowledge_mastered event: {e}")
+        except Exception as e:  # safety-net: catch unexpected errors
             logger.error(f"Error handling knowledge_mastered event: {e}")
 
     # ========================================================================
@@ -375,7 +379,9 @@ class LearningRecommendationEngine:
 
                 return Result.ok(recommendations)
 
-            except Exception as e:
+            except (ValueError, TypeError, AttributeError, KeyError) as e:
+                logger.warning(f"Learning backend unavailable: {e}")
+            except Exception as e:  # safety-net: catch unexpected errors
                 logger.warning(f"Learning backend unavailable: {e}")
 
         return Result.ok([])

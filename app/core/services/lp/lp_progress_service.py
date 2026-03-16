@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING
 from core.events import LearningPathCompleted, LearningPathProgressUpdated, publish_event
 from core.events.curriculum_events import LearningStepCompleted
 from core.events.learning_events import KnowledgeMastered
+from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -108,14 +109,20 @@ class LpProgressService:
                         lp_uid=lp_uid,
                         user_uid=event.user_uid,
                     )
-                except Exception as e:
+                except NEO4J_EXCEPTIONS as e:
                     # Best-effort: Don't let one LP failure block others
                     self.logger.error(
                         f"Failed to update learning path {lp_uid} from KU mastery: {e}"
                     )
+                except Exception as e:  # safety-net: catch unexpected errors
+                    self.logger.error(
+                        f"Failed to update learning path {lp_uid} from KU mastery: {e}"
+                    )
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             # Best-effort: Log error but don't raise (prevent KU mastery failure)
+            self.logger.error(f"Error handling knowledge_mastered event: {e}")
+        except Exception as e:  # safety-net: catch unexpected errors
             self.logger.error(f"Error handling knowledge_mastered event: {e}")
 
     async def handle_step_completed(self, event: LearningStepCompleted) -> None:
@@ -155,10 +162,14 @@ class LpProgressService:
                         lp_uid=lp_uid,
                         user_uid=event.user_uid,
                     )
-                except Exception as e:
+                except NEO4J_EXCEPTIONS as e:
+                    self.logger.error(f"Failed to update LP {lp_uid} from LS completion: {e}")
+                except Exception as e:  # safety-net: catch unexpected errors
                     self.logger.error(f"Failed to update LP {lp_uid} from LS completion: {e}")
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
+            self.logger.error(f"Error handling learning_step.completed event: {e}")
+        except Exception as e:  # safety-net: catch unexpected errors
             self.logger.error(f"Error handling learning_step.completed event: {e}")
 
     # FUTURE-IMPL: FUTURE-IMPL-009 - See docs/reference/DEFERRED_IMPLEMENTATIONS.md

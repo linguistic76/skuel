@@ -115,7 +115,9 @@ class ContentAnalyzer:
                 embedding = await self.embeddings.create_embedding(
                     body[:1000]
                 )  # First 1000 chars, returns list[float] | None directly
-            except Exception as e:
+            except (ValueError, TypeError, ConnectionError, TimeoutError) as e:
+                logger.warning(f"Failed to create embedding: {e}")
+            except Exception as e:  # safety-net: catch unexpected errors
                 logger.warning(f"Failed to create embedding: {e}")
 
         # Determine topic categories

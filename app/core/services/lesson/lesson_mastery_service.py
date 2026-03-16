@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.events import publish_event
 from core.events.learning_events import KnowledgeMastered, LessonCompleted
+from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -619,7 +620,9 @@ class LessonMasteryService:
                     f"(all KUs mastered by {event.user_uid})"
                 )
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
+            self.logger.error(f"Error detecting lesson completion: {e}")
+        except Exception as e:  # safety-net: catch unexpected errors
             self.logger.error(f"Error detecting lesson completion: {e}")
 
     async def get_bookmarked_kus(

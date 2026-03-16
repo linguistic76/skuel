@@ -30,6 +30,7 @@ from core.services.calendar_optimization_types import (
 # - TaskDTO.project: str | None (direct access)
 # - TaskDTO.applies_knowledge_uids: REMOVED (graph-native migration)
 # Use TaskRelationships.fetch() for relationship data
+from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -314,7 +315,7 @@ class CalendarOptimizationService:
             self.logger.info(f"Calendar optimization completed for {user_uid} on {target_date}")
             return Result.ok(result)
 
-        except Exception as e:
+        except (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
             self.logger.error(f"Calendar optimization failed: {e!s}")
             return Result.fail(
                 Errors.system(
@@ -365,7 +366,7 @@ class CalendarOptimizationService:
             self.logger.info(f"Planned {len(sessions)} learning sessions for {user_uid}")
             return Result.ok(sessions)
 
-        except Exception as e:
+        except (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
             self.logger.error(f"Learning session planning failed: {e!s}")
             return Result.fail(
                 Errors.system(
@@ -435,7 +436,7 @@ class CalendarOptimizationService:
             )
             return Result.ok(recommendations)
 
-        except Exception as e:
+        except (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
             self.logger.error(f"Knowledge application timing failed: {e!s}")
             return Result.fail(
                 Errors.system(
@@ -516,7 +517,7 @@ class CalendarOptimizationService:
             self.logger.info(f"Cognitive load analysis completed for {user_uid} on {target_date}")
             return Result.ok(result)
 
-        except Exception as e:
+        except (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
             self.logger.error(f"Cognitive load balancing failed: {e!s}")
             return Result.fail(
                 Errors.system(

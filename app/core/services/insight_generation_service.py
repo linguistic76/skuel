@@ -33,6 +33,7 @@ from core.models.enums import Domain, EntityStatus, Priority
 from core.models.task.task import Task as Task
 from core.ports import HasMetadata, HasSummary
 from core.utils.decorators import with_error_handling
+from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 from core.utils.uid_generator import UIDGenerator
@@ -243,8 +244,13 @@ class InsightGenerationService:
                 )
             ]
 
-        except Exception as e:
+        except DATA_CONVERSION_EXCEPTIONS as e:
             self.logger.warning(f"Failed to get completed tasks: {e}")
+            return []
+        except Exception as e:  # safety-net: catch unexpected errors
+            self.logger.warning(
+                f"Unexpected error getting completed tasks: {type(e).__name__}: {e}"
+            )
             return []
 
     # ========================================================================
@@ -1025,8 +1031,13 @@ class InsightGenerationService:
                 },
             )
 
-        except Exception as e:
+        except DATA_CONVERSION_EXCEPTIONS as e:
             self.logger.warning(f"Failed to convert insight to knowledge: {e}")
+            return None
+        except Exception as e:  # safety-net: catch unexpected errors
+            self.logger.warning(
+                f"Unexpected error converting insight to knowledge: {type(e).__name__}: {e}"
+            )
             return None
 
     def _format_insight_as_ku_content(self, insight: GeneratedInsight) -> str:

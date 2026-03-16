@@ -17,6 +17,7 @@ from collections.abc import Awaitable, Callable
 from functools import wraps
 from typing import Any
 
+from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.result_simplified import Errors, Result
 
 logger = logging.getLogger(__name__)
@@ -49,7 +50,7 @@ def exception_to_result[R, **P](
             if not isinstance(result, Result):
                 return Result.ok(result)  # type: ignore[return-value]
             return result
-        except Exception as e:
+        except Exception as e:  # intentional-broad: last-resort service safety net
             logger.error(f"Exception in {func.__name__}: {e}")
             return Result.fail(Errors.system(message=f"Exception in {func.__name__}", exception=e))  # type: ignore[return-value]
 
@@ -117,12 +118,16 @@ def safe_backend_operation[R, **P](
                     return Result.ok(result)  # type: ignore[return-value]
                 return result
 
-            except Exception as e:
-                logger.error(f"Backend operation {operation_name} failed: {e}")
-
-                from core.utils.result_simplified import Errors
-
+            except NEO4J_EXCEPTIONS as e:
+                logger.error(f"Backend operation {operation_name} failed: {type(e).__name__}: {e}")
                 error = Errors.database(operation=operation_name, message=str(e))
+                return Result.fail(error)  # type: ignore[return-value]
+
+            except Exception as e:  # safety-net: catch non-Neo4j exceptions in backend
+                logger.error(
+                    f"Unexpected {type(e).__name__} in backend operation {operation_name}: {e}"
+                )
+                error = Errors.system(message=f"Unexpected error in {operation_name}", exception=e)
                 return Result.fail(error)  # type: ignore[return-value]
 
         return wrapper  # type: ignore[return-value]
@@ -160,7 +165,7 @@ def safe_event_handler(event_name: str) -> Callable[[Callable], Callable]:
         async def wrapper(*args: Any, **kwargs: Any) -> None:
             try:
                 await func(*args, **kwargs)
-            except Exception as e:
+            except Exception as e:  # intentional-broad: event handler must not propagate
                 # Extract event info if available
                 event_info = {}
                 if len(args) > 1:

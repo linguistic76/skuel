@@ -25,6 +25,7 @@ from core.models.auth.auth_event import AuthEventType, create_auth_event
 from core.models.auth.password_reset_token import create_password_reset_token
 from core.models.auth.session import create_session
 from core.models.user import User, create_user
+from core.utils.exception_types import AUTH_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -156,7 +157,13 @@ class GraphAuthService:
                 }
             )
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
+            self.logger.error(f"Sign up database error: {e}")
+            return Result.fail(Errors.database(operation="sign_up", message=str(e)))
+        except AUTH_EXCEPTIONS as e:
+            self.logger.error(f"Sign up data error: {e}")
+            return Result.fail(Errors.validation(message=f"Sign up error: {e}", field="user_data"))
+        except Exception as e:  # safety-net: catch unexpected errors
             self.logger.error(f"Sign up error: {e}")
             return Result.fail(Errors.system(operation="sign_up", message=str(e)))
 
@@ -286,7 +293,15 @@ class GraphAuthService:
                 }
             )
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
+            self.logger.error(f"Sign in database error: {e}")
+            return Result.fail(Errors.database(operation="sign_in", message=str(e)))
+        except AUTH_EXCEPTIONS as e:
+            self.logger.error(f"Sign in data error: {e}")
+            return Result.fail(
+                Errors.validation(message=f"Sign in error: {e}", field="credentials")
+            )
+        except Exception as e:  # safety-net: catch unexpected errors
             self.logger.error(f"Sign in error: {e}")
             return Result.fail(Errors.system(operation="sign_in", message=str(e)))
 
@@ -334,7 +349,10 @@ class GraphAuthService:
             self.logger.info("User signed out")
             return Result.ok(True)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
+            self.logger.error(f"Sign out database error: {e}")
+            return Result.fail(Errors.database(operation="sign_out", message=str(e)))
+        except Exception as e:  # safety-net: catch unexpected errors
             self.logger.error(f"Sign out error: {e}")
             return Result.fail(Errors.system(operation="sign_out", message=str(e)))
 
@@ -375,7 +393,10 @@ class GraphAuthService:
 
             return Result.ok(session.user_uid)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
+            self.logger.error(f"Session validation database error: {e}")
+            return Result.fail(Errors.database(operation="validate_session_uid", message=str(e)))
+        except Exception as e:  # safety-net: catch unexpected errors
             self.logger.error(f"Session validation error: {e}")
             return Result.fail(Errors.system(operation="validate_session_uid", message=str(e)))
 
@@ -410,7 +431,10 @@ class GraphAuthService:
 
             return Result.ok(user_result.value)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
+            self.logger.error(f"Session validation database error: {e}")
+            return Result.fail(Errors.database(operation="validate_session", message=str(e)))
+        except Exception as e:  # safety-net: catch unexpected errors
             self.logger.error(f"Session validation error: {e}")
             return Result.fail(Errors.system(operation="validate_session", message=str(e)))
 
@@ -490,7 +514,15 @@ class GraphAuthService:
             self.logger.info(f"Password changed for user: {user_uid}")
             return Result.ok(True)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
+            self.logger.error(f"Change password database error: {e}")
+            return Result.fail(Errors.database(operation="change_password", message=str(e)))
+        except AUTH_EXCEPTIONS as e:
+            self.logger.error(f"Change password data error: {e}")
+            return Result.fail(
+                Errors.validation(message=f"Change password error: {e}", field="password")
+            )
+        except Exception as e:  # safety-net: catch unexpected errors
             self.logger.error(f"Change password error: {e}")
             return Result.fail(Errors.system(operation="change_password", message=str(e)))
 
@@ -561,7 +593,12 @@ class GraphAuthService:
             self.logger.info(f"Reset token generated for {user_uid} by admin {admin_uid}")
             return Result.ok(token.token)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
+            self.logger.error(f"Generate reset token database error: {e}")
+            return Result.fail(
+                Errors.database(operation="admin_generate_reset_token", message=str(e))
+            )
+        except Exception as e:  # safety-net: catch unexpected errors
             self.logger.error(f"Generate reset token error: {e}")
             return Result.fail(
                 Errors.system(operation="admin_generate_reset_token", message=str(e))
@@ -647,7 +684,17 @@ class GraphAuthService:
             self.logger.info(f"Password reset completed for user: {token.user_uid}")
             return Result.ok(True)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
+            self.logger.error(f"Reset password with token database error: {e}")
+            return Result.fail(
+                Errors.database(operation="reset_password_with_token", message=str(e))
+            )
+        except AUTH_EXCEPTIONS as e:
+            self.logger.error(f"Reset password with token data error: {e}")
+            return Result.fail(
+                Errors.validation(message=f"Reset password error: {e}", field="token")
+            )
+        except Exception as e:  # safety-net: catch unexpected errors
             self.logger.error(f"Reset password with token error: {e}")
             return Result.fail(Errors.system(operation="reset_password_with_token", message=str(e)))
 
@@ -723,7 +770,10 @@ class GraphAuthService:
             self.logger.info(f"Password reset email flow completed for {email}")
             return Result.ok(True)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
+            self.logger.error(f"Password reset email database error: {e}")
+            return Result.ok(True)
+        except Exception as e:  # safety-net: catch unexpected errors
             self.logger.error(f"Password reset email error: {e}")
             return Result.ok(True)
 

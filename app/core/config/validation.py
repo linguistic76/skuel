@@ -37,7 +37,7 @@ class ConfigValidator:
             result = urlparse(url)
             if not all([result.scheme, result.netloc]):
                 return f"{name}: Invalid URL format: {url}"
-        except Exception as e:
+        except (ValueError, TypeError) as e:
             return f"{name}: URL parsing error: {e!s}"
         return None
 
@@ -282,5 +282,5 @@ if __name__ == "__main__":
 
         if not config_errors:
             print("\n✨ All validations passed!")
-    except Exception as e:
+    except Exception as e:  # intentional-broad: CLI entrypoint
         print(f"\n❌ Error validating configuration: {e}")

@@ -238,7 +238,7 @@ async def handle_task_completed(self, event: TaskCompleted) -> None:
     try:
         await self.invalidate_context(event.user_uid)
         self.logger.info(f"Context invalidated for user {event.user_uid}")
-    except Exception as e:
+    except Exception as e:  # intentional-broad: event handler must not propagate
         self.logger.error(f"Error handling task.completed: {e}")
 
 
@@ -248,7 +248,7 @@ async def handle_task_completed(self, event: TaskCompleted) -> None:
     try:
         await self.update_goal_progress_for_task(event.task_uid)
         self.logger.info(f"Goal progress updated for task {event.task_uid}")
-    except Exception as e:
+    except Exception as e:  # intentional-broad: event handler must not propagate
         self.logger.error(f"Error updating goal progress: {e}")
 
 

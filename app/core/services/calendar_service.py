@@ -58,6 +58,7 @@ from core.ports.domain_protocols import (
     TasksOperations,
 )
 from core.utils.decorators import with_error_handling
+from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.neo4j_temporal import convert_neo4j_date, convert_neo4j_time
 from core.utils.result_simplified import Errors, Result
@@ -433,7 +434,7 @@ class CalendarService:
                     logger.info("Database empty - showing demo tasks")
                     items.extend(self._create_demo_tasks())
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             logger.warning(f"Failed to fetch tasks: {e}")
 
         return items
@@ -474,7 +475,7 @@ class CalendarService:
                     logger.info("Database empty - showing demo events")
                     items.extend(self._create_demo_events())
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             logger.warning(f"Failed to fetch events: {e}")
 
         return items
@@ -511,7 +512,7 @@ class CalendarService:
             if result.is_ok:
                 habits = result.value  # List[Habit] - already filtered by Cypher
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             logger.warning(f"Failed to fetch habits: {e}")
 
         return habits

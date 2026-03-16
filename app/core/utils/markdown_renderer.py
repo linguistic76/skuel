@@ -61,7 +61,8 @@ class MarkdownRenderer:
             toc = getattr(self.md, "toc", "")
             self.md.reset()  # Reset state for next conversion
             return html, toc
-        except Exception as e:
+        except (ValueError, TypeError, KeyError, AttributeError) as e:
+            # markdown library can raise various errors during conversion
             logger.error(f"Markdown rendering failed: {e}")
             # Return escaped content as fallback
             return f"<pre>{content}</pre>", ""

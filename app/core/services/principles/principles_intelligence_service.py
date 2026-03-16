@@ -47,6 +47,7 @@ from core.services.intelligence import (
     determine_trend_from_rate,
 )
 from core.utils.decorators import requires_graph_intelligence
+from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -1363,7 +1364,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
                         },
                     )
 
-        except Exception as e:
+        except (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
             self.logger.error(
                 f"Error analyzing principle strength change: {e}",
                 extra={"principle_uid": event.principle_uid, "error": str(e)},
@@ -1534,7 +1535,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
                     },
                 )
 
-        except Exception as e:
+        except (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
             self.logger.error(
                 f"Error analyzing principle reflection: {e}",
                 extra={
@@ -1738,7 +1739,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
                         f"Failed to persist conflict insight: {create_result.error}"
                     )
 
-        except Exception as e:
+        except (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
             self.logger.error(
                 f"Error handling principle conflict: {e}",
                 extra={

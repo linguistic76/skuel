@@ -611,7 +611,9 @@ class AdaptiveLpCoreService:
 
             self.logger.debug(f"Calculated adaptation factors for user {user_uid}: {factors}")
 
-        except Exception as e:
+        except (ValueError, TypeError, AttributeError, KeyError) as e:
+            self.logger.warning(f"Adaptation factor calculation failed: {e}")
+        except Exception as e:  # safety-net: catch unexpected errors
             self.logger.warning(f"Adaptation factor calculation failed: {e}")
 
         return factors

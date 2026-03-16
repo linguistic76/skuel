@@ -31,8 +31,12 @@ from core.models.schema_change import (  # type: ignore[import-untyped]
 
 from core.infrastructure.database.schema import SchemaContext
 from core.utils.decorators import with_error_handling
+from core.utils.exception_types import FILE_IO_EXCEPTIONS, JSON_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+
+_HISTORY_IO_EXCEPTIONS = (*FILE_IO_EXCEPTIONS, *JSON_EXCEPTIONS)
+_HISTORY_SAVE_EXCEPTIONS = (*_HISTORY_IO_EXCEPTIONS, TypeError)
 
 
 class SchemaChangeDetector:
@@ -362,7 +366,7 @@ class SchemaChangeDetector:
 
             except asyncio.CancelledError:
                 break
-            except Exception as e:
+            except Exception as e:  # safety-net: catch unexpected errors in long-running loop
                 self.logger.error(f"Error in monitoring loop: {e}", exc_info=True)
                 await asyncio.sleep(self.check_interval_seconds)
 
@@ -397,7 +401,7 @@ class SchemaChangeDetector:
                     await handler(event)
                 else:
                     handler(event)
-            except Exception as e:
+            except Exception as e:  # safety-net: catch unexpected errors from external handlers
                 self.logger.error(f"Error in change handler: {e}", exc_info=True)
 
     async def _load_migration_history(self, current_fp: SchemaFingerprint) -> None:
@@ -441,7 +445,7 @@ class SchemaChangeDetector:
                     f"Loaded migration history with {self._migration_history.migration_count} migrations"
                 )
 
-        except Exception as e:
+        except _HISTORY_IO_EXCEPTIONS as e:
             self.logger.warning(f"Could not load migration history: {e}, creating new history")
             self._migration_history = SchemaMigrationHistory(
                 schema_id="default", initial_fingerprint=current_fp, current_fingerprint=current_fp
@@ -471,7 +475,7 @@ class SchemaChangeDetector:
 
             self.logger.debug("Saved migration history to storage")
 
-        except Exception as e:
+        except _HISTORY_SAVE_EXCEPTIONS as e:
             self.logger.error(f"Failed to save migration history: {e}")
 
     def get_migration_history(self) -> SchemaMigrationHistory | None:
@@ -532,7 +536,7 @@ class AdaptiveOptimizationHandler:
 
             event.mark_handled()
 
-        except Exception as e:
+        except Exception as e:  # safety-net: catch unexpected errors during change handling
             self.logger.error(f"Failed to handle schema change: {e}", exc_info=True)
 
     async def _invalidate_caches(self) -> None:

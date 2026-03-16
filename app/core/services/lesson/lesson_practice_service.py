@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Any
 from core.events import publish_event
 from core.events.calendar_event_events import CalendarEventCompleted
 from core.events.lesson_events import KnowledgePracticed
+from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -120,12 +121,16 @@ class LessonPracticeService:
                         event_uid=event.event_uid,
                         occurred_at=event.occurred_at,
                     )
-                except Exception as e:
+                except NEO4J_EXCEPTIONS as e:
                     # Best-effort: Don't let one KU failure block others
                     self.logger.error(f"Failed to update KU {ku_uid} practice count: {e}")
+                except Exception as e:  # safety-net: catch unexpected errors
+                    self.logger.error(f"Failed to update KU {ku_uid} practice count: {e}")
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             # Best-effort: Log error but don't raise (prevent event completion failure)
+            self.logger.error(f"Error handling event_completed event: {e}")
+        except Exception as e:  # safety-net: catch unexpected errors
             self.logger.error(f"Error handling event_completed event: {e}")
 
     async def _update_ku_practice_count(

@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING
 from core.events import publish_event
 from core.events.curriculum_events import LearningStepCompleted
 from core.events.learning_events import LearningStepProgressUpdated, LessonCompleted
+from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -84,12 +85,18 @@ class LsProgressService:
                         user_uid=event.user_uid,
                         newly_mastered_lesson=event.lesson_uid,
                     )
-                except Exception as e:
+                except NEO4J_EXCEPTIONS as e:
+                    self.logger.error(
+                        f"Failed to update learning step {ls_uid} from Lesson completion: {e}"
+                    )
+                except Exception as e:  # safety-net: catch unexpected errors
                     self.logger.error(
                         f"Failed to update learning step {ls_uid} from Lesson completion: {e}"
                     )
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
+            self.logger.error(f"Error handling lesson.completed event: {e}")
+        except Exception as e:  # safety-net: catch unexpected errors
             self.logger.error(f"Error handling lesson.completed event: {e}")
 
     async def _update_ls_from_lesson_completion(

@@ -94,8 +94,15 @@ class QueryOptimizer:
 
             return Result.ok(result)
 
-        except Exception as e:
+        except (ValueError, TypeError, AttributeError, KeyError) as e:
             self.logger.error(f"Query optimization failed: {e}", exc_info=True)
+            return Result.fail(
+                Errors.validation(
+                    field="query_builder", message=f"Query optimization failed: {e!s}"
+                )
+            )
+        except Exception as e:  # safety-net: catch unexpected errors
+            self.logger.error(f"Query optimization failed (unexpected): {e}", exc_info=True)
             return Result.fail(
                 Errors.validation(
                     field="query_builder", message=f"Query optimization failed: {e!s}"

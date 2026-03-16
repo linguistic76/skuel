@@ -359,8 +359,11 @@ class SearchRouter:
 
             return await search_service.search(query, limit)
 
-        except Exception as e:
+        except (AttributeError, TypeError, ValueError) as e:
             self.logger.error(f"Search failed for {entity_type.value}: {e}")
+            return Result.fail(Errors.database(operation="search", message=str(e)))
+        except Exception as e:  # safety-net: catch unexpected errors
+            self.logger.error(f"Search failed for {entity_type.value} (unexpected): {e}")
             return Result.fail(Errors.database(operation="search", message=str(e)))
 
     def _get_search_service(
@@ -508,8 +511,11 @@ class SearchRouter:
                 )
             )
 
-        except Exception as e:
+        except (AttributeError, TypeError, ValueError, KeyError) as e:
             self.logger.error(f"Faceted search failed: {e}")
+            return Result.fail(Errors.database(operation="faceted_search", message=str(e)))
+        except Exception as e:  # safety-net: catch unexpected errors
+            self.logger.error(f"Faceted search failed (unexpected): {e}")
             return Result.fail(Errors.database(operation="faceted_search", message=str(e)))
 
     # Domains that support graph_aware_faceted_search (January 2026 - Unified Search)
@@ -751,8 +757,11 @@ class SearchRouter:
                 )
             )
 
-        except Exception as e:
+        except (AttributeError, TypeError, ValueError, KeyError) as e:
             self.logger.error(f"Intelligent search failed: {e}")
+            return Result.fail(Errors.database(operation="intelligent_search", message=str(e)))
+        except Exception as e:  # safety-net: catch unexpected errors
+            self.logger.error(f"Intelligent search failed (unexpected): {e}")
             return Result.fail(Errors.database(operation="intelligent_search", message=str(e)))
 
     def _determine_target_domains(
@@ -872,8 +881,11 @@ class SearchRouter:
                 )
             )
 
-        except Exception as e:
+        except (AttributeError, TypeError, ValueError, KeyError) as e:
             self.logger.error(f"Advanced search failed: {e}")
+            return Result.fail(Errors.database(operation="advanced_search", message=str(e)))
+        except Exception as e:  # safety-net: catch unexpected errors
+            self.logger.error(f"Advanced search failed (unexpected): {e}")
             return Result.fail(Errors.database(operation="advanced_search", message=str(e)))
 
     async def _execute_advanced_search(
@@ -1087,8 +1099,11 @@ class SearchRouter:
             )
             return items
 
-        except Exception as e:
+        except (AttributeError, TypeError, ValueError, KeyError) as e:
             self.logger.error(f"Semantic/learning-aware search failed: {e}")
+            return []  # Graceful degradation
+        except Exception as e:  # safety-net: catch unexpected errors
+            self.logger.error(f"Semantic/learning-aware search failed (unexpected): {e}")
             return []  # Graceful degradation
 
     def _create_match_reason(self, vec_result: dict, request: "SearchRequest") -> str:
@@ -1309,7 +1324,7 @@ class SearchRouter:
                     case EntityType.PRINCIPLE:
                         priority_score = score_principle(item.entity, user_context)
                         score = priority_score.total
-            except Exception as e:
+            except (ValueError, TypeError, AttributeError, KeyError, ZeroDivisionError) as e:
                 self.logger.debug(f"Scoring failed for {item.uid}: {e}")
 
             # Create new item with score

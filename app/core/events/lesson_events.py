@@ -362,7 +362,7 @@ async def handle_knowledge_applied_in_task(self, event: KnowledgeAppliedInTask) 
             timestamp=event.occurred_at
         )
         self.logger.debug(f"Substance updated for {event.knowledge_uid}")
-    except Exception as e:
+    except Exception as e:  # intentional-broad: event handler must not propagate
         self.logger.error(f"Error incrementing substance: {e}")
 
 

@@ -32,6 +32,7 @@ from core.ports import LessonOperations
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
 from core.services.intelligence import GraphContextOrchestrator
+from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
@@ -629,7 +630,7 @@ class LessonIntelligenceService(BaseAnalyticsService[LessonOperations, Entity]):
                     },
                 )
 
-        except Exception as e:
+        except (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
             # Fire-and-forget: log error but don't propagate
             self.logger.error(
                 f"Error processing learning step completed event: {e}",

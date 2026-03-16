@@ -64,6 +64,7 @@ from core.ports.infrastructure_protocols import EventBusOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
 from core.utils.decorators import with_error_handling
+from core.utils.exception_types import LLM_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_report_date
 from core.utils.uid_generator import UIDGenerator
@@ -1644,9 +1645,13 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
                     f"Failed to create journal Ku from {event.transcription_uid}: {result.error}"
                 )
 
-        except Exception as e:
+        except (*NEO4J_EXCEPTIONS, *LLM_EXCEPTIONS) as e:
             self.logger.error(
                 f"Error handling TranscriptionCompleted for {event.transcription_uid}: {e!s}"
+            )
+        except Exception as e:  # safety-net: catch unexpected errors
+            self.logger.error(
+                f"Unexpected error handling TranscriptionCompleted for {event.transcription_uid}: {e!s}"
             )
 
 

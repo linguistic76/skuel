@@ -34,6 +34,7 @@ from core.constants import (
 from core.models.enums import EntityStatus, EntityType
 from core.models.task.task import Task as Task
 from core.services.tasks.task_relationships import TaskRelationships
+from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -193,8 +194,21 @@ class AnalyticsEngine:
 
             return Result.ok(patterns)
 
-        except Exception as e:
+        except DATA_CONVERSION_EXCEPTIONS as e:
             self.logger.error("Learning pattern analysis failed: %s", str(e))
+            return Result.fail(
+                Errors.system(
+                    message="Learning pattern analysis failed",
+                    exception=e,
+                    operation="analyze_learning_patterns",
+                    task_count=len(tasks),
+                    timeframe_days=timeframe_days,
+                )
+            )
+        except Exception as e:  # safety-net: catch unexpected errors
+            self.logger.error(
+                "Unexpected error in learning pattern analysis: %s: %s", type(e).__name__, e
+            )
             return Result.fail(
                 Errors.system(
                     message="Learning pattern analysis failed",
@@ -284,8 +298,20 @@ class AnalyticsEngine:
 
             return Result.ok(priority_result)
 
-        except Exception as e:
+        except DATA_CONVERSION_EXCEPTIONS as e:
             self.logger.error("Knowledge-aware priority calculation failed: %s", str(e))
+            return Result.fail(
+                Errors.system(
+                    message="Knowledge-aware priority calculation failed",
+                    exception=e,
+                    operation="calculate_knowledge_aware_priority",
+                    task_uid=task.uid,
+                )
+            )
+        except Exception as e:  # safety-net: catch unexpected errors
+            self.logger.error(
+                "Unexpected error in priority calculation: %s: %s", type(e).__name__, e
+            )
             return Result.fail(
                 Errors.system(
                     message="Knowledge-aware priority calculation failed",
@@ -351,8 +377,21 @@ class AnalyticsEngine:
 
             return Result.ok(insights)
 
-        except Exception as e:
+        except DATA_CONVERSION_EXCEPTIONS as e:
             self.logger.error("Task insight generation failed: %s", str(e))
+            return Result.fail(
+                Errors.system(
+                    message="Task insight generation failed",
+                    exception=e,
+                    operation="generate_task_insights",
+                    completed_task_count=len(completed_tasks),
+                    learning_pattern_count=len(learning_patterns),
+                )
+            )
+        except Exception as e:  # safety-net: catch unexpected errors
+            self.logger.error(
+                "Unexpected error in task insight generation: %s: %s", type(e).__name__, e
+            )
             return Result.fail(
                 Errors.system(
                     message="Task insight generation failed",
@@ -414,8 +453,19 @@ class AnalyticsEngine:
 
             return Result.ok(progressions)
 
-        except Exception as e:
+        except DATA_CONVERSION_EXCEPTIONS as e:
             self.logger.error("Mastery progression tracking failed: %s", str(e))
+            return Result.fail(
+                Errors.system(
+                    message="Mastery progression tracking failed",
+                    exception=e,
+                    operation="track_knowledge_mastery_progression",
+                    task_count=len(tasks),
+                    knowledge_uid_count=len(knowledge_uids),
+                )
+            )
+        except Exception as e:  # safety-net: catch unexpected errors
+            self.logger.error("Unexpected error in mastery tracking: %s: %s", type(e).__name__, e)
             return Result.fail(
                 Errors.system(
                     message="Mastery progression tracking failed",

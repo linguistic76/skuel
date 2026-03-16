@@ -38,6 +38,7 @@ from core.models.enums.submissions_enums import ProgressDepth
 from core.models.report.activity_report import ActivityReport
 from core.ports.infrastructure_protocols import EventBusOperations
 from core.prompts import PROMPT_REGISTRY
+from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, LLM_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -226,8 +227,11 @@ class ProgressReportGenerator:
             logger.info(f"Generated progress Ku {report.uid} for {user_uid}")
             return Result.ok(report)
 
-        except Exception as e:
+        except (*NEO4J_EXCEPTIONS, *LLM_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
             logger.error(f"Failed to generate progress Ku for {user_uid}: {e}")
+            return Result.fail(Errors.system(f"Failed to generate progress Ku: {e}"))
+        except Exception as e:  # safety-net: catch unexpected errors
+            logger.error(f"Unexpected error generating progress Ku for {user_uid}: {e}")
             return Result.fail(Errors.system(f"Failed to generate progress Ku: {e}"))
 
     # =========================================================================

@@ -195,8 +195,12 @@ class UserActivityService:
                     },
                 )
                 await publish_event(self.event_bus, event, logger)
-            except Exception as e:
+            except (ValueError, TypeError, AttributeError) as e:
                 # Log but do NOT fail - activity update already succeeded
+                logger.warning(
+                    f"Event publish failed for {activity_type}.{action} (user={user_uid}): {e}"
+                )
+            except Exception as e:  # safety-net: catch unexpected errors
                 logger.warning(
                     f"Event publish failed for {activity_type}.{action} (user={user_uid}): {e}"
                 )

@@ -336,37 +336,52 @@ async def test_safe_backend_operation_returns_result():
 
 @pytest.mark.asyncio
 async def test_safe_backend_operation_catches_not_found():
-    """Test safe_backend_operation converts 'not found' exception."""
+    """Test safe_backend_operation converts Neo4j 'not found' to DATABASE."""
+    from neo4j.exceptions import Neo4jError
 
     @safe_backend_operation("get_task")
     async def mock_backend_get(uid: str):
-        raise Exception(f"Task {uid} not found")
+        raise Neo4jError(f"Task {uid} not found")
 
     result = await mock_backend_get(uid="task-missing")
 
     assert result.is_error
-    # safe_backend_operation checks for "not found" in lowercase
-    assert result.error.category in [ErrorCategory.NOT_FOUND, ErrorCategory.DATABASE]
+    assert result.error.category == ErrorCategory.DATABASE
 
 
 @pytest.mark.asyncio
 async def test_safe_backend_operation_catches_duplicate():
-    """Test safe_backend_operation converts duplicate/exists exception."""
+    """Test safe_backend_operation converts Neo4j duplicate to DATABASE."""
+    from neo4j.exceptions import Neo4jError
 
     @safe_backend_operation("create_task")
     async def mock_backend_create(task_data):
-        raise Exception("Task with this title already exists")
+        raise Neo4jError("Task with this title already exists")
 
     result = await mock_backend_create({"title": "Duplicate Task"})
 
     assert result.is_error
-    # safe_backend_operation checks for "already exists" in message
-    assert result.error.category in [ErrorCategory.BUSINESS, ErrorCategory.DATABASE]
+    assert result.error.category == ErrorCategory.DATABASE
 
 
 @pytest.mark.asyncio
 async def test_safe_backend_operation_catches_connection_error():
-    """Test safe_backend_operation converts connection errors."""
+    """Test safe_backend_operation converts Neo4j errors as DATABASE category."""
+    from neo4j.exceptions import ServiceUnavailable
+
+    @safe_backend_operation("query_tasks")
+    async def mock_backend_query():
+        raise ServiceUnavailable("Connection timeout to database")
+
+    result = await mock_backend_query()
+
+    assert result.is_error
+    assert result.error.category == ErrorCategory.DATABASE
+
+
+@pytest.mark.asyncio
+async def test_safe_backend_operation_catches_generic_exception_as_system():
+    """Test safe_backend_operation converts non-Neo4j exceptions as SYSTEM category."""
 
     @safe_backend_operation("query_tasks")
     async def mock_backend_query():
@@ -375,7 +390,7 @@ async def test_safe_backend_operation_catches_connection_error():
     result = await mock_backend_query()
 
     assert result.is_error
-    assert result.error.category == ErrorCategory.DATABASE
+    assert result.error.category == ErrorCategory.SYSTEM
 
 
 @pytest.mark.asyncio

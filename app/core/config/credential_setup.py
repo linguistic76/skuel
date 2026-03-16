@@ -374,7 +374,7 @@ def main():
     except KeyboardInterrupt:
         print("\n\n👋 Credential setup cancelled")
         sys.exit(0)
-    except Exception as e:
+    except Exception as e:  # intentional-broad: CLI entrypoint
         print(f"\n❌ Error: {e}")
         sys.exit(1)
 

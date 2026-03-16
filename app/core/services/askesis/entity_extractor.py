@@ -30,6 +30,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
+from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -256,7 +257,9 @@ class EntityExtractor:
                     entity = result.value
                     if self._fuzzy_match(entity.title, query_lower):
                         matched.append({"uid": uid, "title": entity.title})
-            except Exception:
+            except NEO4J_EXCEPTIONS:
+                continue
+            except Exception:  # safety-net: catch unexpected errors
                 continue
         return matched
 

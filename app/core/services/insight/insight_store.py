@@ -32,6 +32,7 @@ from typing import TYPE_CHECKING, Any
 from core.models.insight.persisted_insight import (
     PersistedInsight,
 )
+from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -175,7 +176,7 @@ class InsightStore:
                 )
             )
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Error creating insight: {e}", exc_info=True)
             return Result.fail(
                 Errors.database(
@@ -263,8 +264,16 @@ class InsightStore:
             self.logger.debug(f"Retrieved {len(insights)} active insights for user {user_uid}")
             return Result.ok(insights)
 
-        except Exception as e:
-            self.logger.error(f"Error getting active insights: {e}", exc_info=True)
+        except NEO4J_EXCEPTIONS as e:
+            self.logger.error(f"Database error getting active insights: {e}", exc_info=True)
+            return Result.fail(
+                Errors.database(
+                    message=f"Failed to get active insights: {e}",
+                    operation="get_active_insights",
+                )
+            )
+        except (ValueError, KeyError, TypeError) as e:
+            self.logger.error(f"Data conversion error getting active insights: {e}", exc_info=True)
             return Result.fail(
                 Errors.database(
                     message=f"Failed to get active insights: {e}",
@@ -338,8 +347,21 @@ class InsightStore:
 
             return Result.ok(insights)
 
-        except Exception as e:
-            self.logger.error(f"Error getting insights for entity {entity_uid}: {e}", exc_info=True)
+        except NEO4J_EXCEPTIONS as e:
+            self.logger.error(
+                f"Database error getting insights for entity {entity_uid}: {e}", exc_info=True
+            )
+            return Result.fail(
+                Errors.database(
+                    message=f"Failed to get insights for entity: {e}",
+                    operation="get_insights_for_entity",
+                )
+            )
+        except (ValueError, KeyError, TypeError) as e:
+            self.logger.error(
+                f"Data conversion error getting insights for entity {entity_uid}: {e}",
+                exc_info=True,
+            )
             return Result.fail(
                 Errors.database(
                     message=f"Failed to get insights for entity: {e}",
@@ -392,7 +414,7 @@ class InsightStore:
 
             return Result.fail(Errors.not_found(resource="Insight", identifier=uid))
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Error dismissing insight {uid}: {e}", exc_info=True)
             return Result.fail(
                 Errors.database(
@@ -446,7 +468,7 @@ class InsightStore:
 
             return Result.fail(Errors.not_found(resource="Insight", identifier=uid))
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Error marking insight actioned {uid}: {e}", exc_info=True)
             return Result.fail(
                 Errors.database(
@@ -490,7 +512,7 @@ class InsightStore:
 
             return Result.ok(0)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Error cleaning up expired insights: {e}", exc_info=True)
             return Result.fail(
                 Errors.database(
@@ -563,8 +585,16 @@ class InsightStore:
             )
             return Result.ok(insights)
 
-        except Exception as e:
-            self.logger.error(f"Error getting insight history: {e}", exc_info=True)
+        except NEO4J_EXCEPTIONS as e:
+            self.logger.error(f"Database error getting insight history: {e}", exc_info=True)
+            return Result.fail(
+                Errors.database(
+                    message=f"Failed to get insight history: {e}",
+                    operation="get_insight_history",
+                )
+            )
+        except (ValueError, KeyError, TypeError) as e:
+            self.logger.error(f"Data conversion error getting insight history: {e}", exc_info=True)
             return Result.fail(
                 Errors.database(
                     message=f"Failed to get insight history: {e}",
@@ -640,7 +670,7 @@ class InsightStore:
                 }
             )
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Error getting insight stats: {e}", exc_info=True)
             return Result.fail(
                 Errors.database(
@@ -699,7 +729,7 @@ class InsightStore:
             self.logger.debug(f"Retrieved insight counts for user {user_uid}: {domain_counts}")
             return Result.ok(domain_counts)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Error getting insight counts by domain: {e}", exc_info=True)
             return Result.fail(
                 Errors.database(

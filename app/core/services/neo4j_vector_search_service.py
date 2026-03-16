@@ -27,6 +27,7 @@ from core.config.unified_config import VectorSearchConfig
 if TYPE_CHECKING:
     from core.ports import QueryExecutor
 from core.models.semantic import SearchMetrics
+from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -786,7 +787,7 @@ class Neo4jVectorSearchService:
 
             return 0.0
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.warning(f"Failed to calculate semantic boost for {entity_uid}: {e}")
             return 0.0  # Fail gracefully - return no boost
 

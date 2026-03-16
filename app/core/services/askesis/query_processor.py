@@ -44,6 +44,7 @@ from core.models.enums import MessageRole
 from core.models.query_types import QueryIntent
 from core.models.user.conversation import ConversationContext
 from core.utils.decorators import with_error_handling
+from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.text_truncation import truncate_to_budget
@@ -238,7 +239,12 @@ class QueryProcessor:
             extracted_entities = await self.entity_extractor.extract_entities_from_query(
                 question, user_context
             )
-        except Exception:
+        except NEO4J_EXCEPTIONS:
+            logger.warning(
+                "Entity extraction failed (database error) — continuing without entity matches",
+                exc_info=True,
+            )
+        except Exception:  # safety-net: catch unexpected errors
             logger.warning(
                 "Entity extraction failed — continuing without entity matches", exc_info=True
             )

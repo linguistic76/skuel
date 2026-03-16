@@ -100,6 +100,7 @@ from core.services.mixins import (
     TimeQueryMixin,
     UserProgressMixin,
 )
+from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -647,7 +648,7 @@ class BaseService[B: BackendOperations, T: DomainModelProtocol](
         try:
             await self.backend.health_check()
             return Result.ok(True)
-        except Exception as e:
+        except (*NEO4J_EXCEPTIONS, ConnectionError, OSError) as e:
             return Result.fail(
                 Errors.integration(service="backend", operation="health_check", message=str(e))
             )

@@ -208,7 +208,7 @@ def with_error_handling(
         async def async_wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:
             try:
                 return await func(self, *args, **kwargs)
-            except Exception as e:
+            except Exception as e:  # intentional-broad: generic error-handling decorator
                 if isinstance(self, HasLogger):
                     self.logger.error(f"Failed to {operation}: {e}")
 
@@ -219,7 +219,7 @@ def with_error_handling(
         def sync_wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:
             try:
                 return func(self, *args, **kwargs)
-            except Exception as e:
+            except Exception as e:  # intentional-broad: generic error-handling decorator
                 if isinstance(self, HasLogger):
                     self.logger.error(f"Failed to {operation}: {e}")
 

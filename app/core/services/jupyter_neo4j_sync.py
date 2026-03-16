@@ -22,8 +22,11 @@ import yaml
 
 from core.models.curriculum import Curriculum as KnowledgeUnit
 from core.services.sync_types import SyncStats
+from core.utils.exception_types import FILE_IO_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+
+_SYNC_EXCEPTIONS = (*NEO4J_EXCEPTIONS, *FILE_IO_EXCEPTIONS)
 
 if TYPE_CHECKING:
     from core.ports import QueryExecutor
@@ -244,7 +247,10 @@ class JupyterNeo4jSync:
                 }
             )
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
+            self.logger.error(f"Failed to save from Jupyter: {e}")
+            return Result.fail(Errors.database(operation="save_from_jupyter", message=str(e)))
+        except Exception as e:  # safety-net: catch unexpected errors
             self.logger.error(f"Failed to save from Jupyter: {e}")
             return Result.fail(Errors.database(operation="save_from_jupyter", message=str(e)))
 
@@ -315,7 +321,14 @@ class JupyterNeo4jSync:
 
             return Result.ok(stats)
 
-        except Exception as e:
+        except _SYNC_EXCEPTIONS as e:
+            self.logger.error(f"Failed to sync to Obsidian: {e}")
+            return Result.fail(
+                Errors.integration(
+                    service="obsidian_sync", operation="sync_to_obsidian", message=str(e)
+                )
+            )
+        except Exception as e:  # safety-net: catch unexpected errors
             self.logger.error(f"Failed to sync to Obsidian: {e}")
             return Result.fail(
                 Errors.integration(
@@ -390,7 +403,10 @@ class JupyterNeo4jSync:
             self.logger.info(f"Synced {ku_data['uid']} to {file_path}")
             return Result.ok(file_path)
 
-        except Exception as e:
+        except _SYNC_EXCEPTIONS as e:
+            self.logger.error(f"Failed to sync single item: {e}")
+            return Result.fail(Errors.system(message=f"Sync failed: {e}", operation="sync_single"))
+        except Exception as e:  # safety-net: catch unexpected errors
             self.logger.error(f"Failed to sync single item: {e}")
             return Result.fail(Errors.system(message=f"Sync failed: {e}", operation="sync_single"))
 

@@ -35,6 +35,7 @@ from core.models.pathways.mastery import (
 from core.models.relationship_names import RelationshipName
 from core.models.user.user_intelligence import IntelligenceSource, UserLearningIntelligence
 from core.utils.decorators import with_error_handling
+from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -137,7 +138,7 @@ class LessonAdaptiveService:
             return all(uid in user_intel.current_masteries for uid in prereq_uids)
         except AttributeError:
             return True
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.warning(
                 "Error checking prerequisites - failing open",
                 extra={"ku_uid": ku.uid, "error": str(e)},
@@ -233,7 +234,7 @@ class LessonAdaptiveService:
             )
             enables_uids = enables_result.value if enables_result.is_ok else []
             return len(enables_uids)
-        except (AttributeError, Exception):
+        except (AttributeError, *NEO4J_EXCEPTIONS):
             return 0
 
     async def _count_prerequisites(self, ku: Lesson) -> int:
@@ -244,7 +245,7 @@ class LessonAdaptiveService:
             )
             prereq_uids = prereq_result.value if prereq_result.is_ok else []
             return len(prereq_uids)
-        except (AttributeError, Exception):
+        except (AttributeError, *NEO4J_EXCEPTIONS):
             return 0
 
     # ==========================================================================
@@ -297,7 +298,7 @@ class LessonAdaptiveService:
                 total_lessons=total,
             )
 
-        except Exception as e:
+        except (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
             self.logger.warning(
                 "Error calculating category progress - returning empty",
                 extra={"user_uid": user_uid, "category": category.value, "error": str(e)},
@@ -338,7 +339,7 @@ class LessonAdaptiveService:
                 return Result.fail(result.expect_error())
             self.logger.info(f"Tracked curriculum completion: {user_uid} -> {ku_uid}")
             return Result.ok(None)
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to track completion: {e}")
             return Result.fail(
                 Errors.database("track_curriculum_completion", f"Failed to track completion: {e}")
@@ -386,7 +387,7 @@ class LessonAdaptiveService:
 
             return intelligence
 
-        except Exception as e:
+        except (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
             self.logger.error(
                 "Error loading user intelligence - returning None",
                 extra={"user_uid": user_uid, "error": str(e)},
@@ -512,7 +513,7 @@ class LessonAdaptiveService:
 
             return masteries
 
-        except Exception as e:
+        except (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
             self.logger.warning(
                 "Error querying user masteries - returning empty",
                 extra={"user_uid": user_uid, "error": str(e)},
@@ -540,12 +541,12 @@ class LessonAdaptiveService:
                     try:
                         learning_path = from_neo4j_node(lp_node, LearningPath)
                         learning_paths.append(learning_path)
-                    except Exception:
+                    except DATA_CONVERSION_EXCEPTIONS:
                         continue
 
             return learning_paths
 
-        except Exception:
+        except NEO4J_EXCEPTIONS:
             return []
 
     async def _query_completed_learning_paths(self, user_uid: str) -> list[str]:
@@ -563,7 +564,7 @@ class LessonAdaptiveService:
                 record["lp_uid"] for record in (query_result.value or []) if record.get("lp_uid")
             ]
 
-        except Exception:
+        except NEO4J_EXCEPTIONS:
             return []
 
     def _calculate_learning_velocities(
@@ -628,10 +629,10 @@ class LessonAdaptiveService:
             if pref_node:
                 try:
                     return from_neo4j_node(pref_node, LearningPreference)
-                except Exception:
+                except DATA_CONVERSION_EXCEPTIONS:
                     return None
 
             return None
 
-        except Exception:
+        except NEO4J_EXCEPTIONS:
             return None

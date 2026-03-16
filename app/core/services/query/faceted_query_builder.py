@@ -160,8 +160,15 @@ class FacetedQueryBuilder:
 
             return await self.optimizer.build_optimized_query(request)
 
-        except Exception as e:
+        except (ValueError, TypeError, AttributeError, KeyError) as e:
             self.logger.error(f"Faceted query building failed: {e}", exc_info=True)
+            return Result.fail(
+                Errors.validation(
+                    field="faceted_query", message=f"Failed to build faceted query: {e!s}"
+                )
+            )
+        except Exception as e:  # safety-net: catch unexpected errors
+            self.logger.error(f"Faceted query building failed (unexpected): {e}", exc_info=True)
             return Result.fail(
                 Errors.validation(
                     field="faceted_query", message=f"Failed to build faceted query: {e!s}"
@@ -258,8 +265,17 @@ class FacetedQueryBuilder:
 
             return Result.ok(facet_queries)
 
-        except Exception as e:
+        except (ValueError, TypeError, KeyError) as e:
             self.logger.error(f"Facet count query generation failed: {e}", exc_info=True)
+            return Result.fail(
+                Errors.validation(
+                    field="facet_counts", message=f"Failed to generate facet count queries: {e!s}"
+                )
+            )
+        except Exception as e:  # safety-net: catch unexpected errors
+            self.logger.error(
+                f"Facet count query generation failed (unexpected): {e}", exc_info=True
+            )
             return Result.fail(
                 Errors.validation(
                     field="facet_counts", message=f"Failed to generate facet count queries: {e!s}"

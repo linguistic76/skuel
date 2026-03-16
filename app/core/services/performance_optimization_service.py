@@ -27,6 +27,7 @@ from core.services.performance_types import (
     SLACompliance,
     TestConfiguration,
 )
+from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS
 from core.utils.logging import get_logger
 
 
@@ -247,8 +248,11 @@ class AdvancedCache:
             self.stats["size_bytes"] += size_bytes
 
             return True
-        except Exception as e:
+        except DATA_CONVERSION_EXCEPTIONS as e:
             self.logger.error(f"Cache set error: {e}")
+            return False
+        except Exception as e:  # safety-net: catch unexpected errors
+            self.logger.error(f"Unexpected cache set error: {type(e).__name__}: {e}")
             return False
 
     async def delete(self, key: str) -> bool:
@@ -396,8 +400,18 @@ class FastInferenceEngine:
                 computation_path=inference_result.get("computation_path", []),
             )
 
-        except Exception as e:
+        except DATA_CONVERSION_EXCEPTIONS as e:
             self.logger.error(f"Inference error: {e}")
+            processing_time = (time.time() - start_time) * 1000
+            return InferenceResult(
+                request_id=request.request_id,
+                inference={"error": str(e)},
+                confidence_score=0.0,
+                processing_time_ms=processing_time,
+                cache_hit=False,
+            )
+        except Exception as e:  # safety-net: catch unexpected errors
+            self.logger.error(f"Unexpected inference error: {type(e).__name__}: {e}")
             processing_time = (time.time() - start_time) * 1000
             return InferenceResult(
                 request_id=request.request_id,
@@ -591,8 +605,11 @@ class BackgroundProcessingEngine:
             heapq.heappush(self.task_queue, task)
             self.logger.debug(f"Task {task.task_id} submitted with priority {task.priority.value}")
             return True
-        except Exception as e:
+        except DATA_CONVERSION_EXCEPTIONS as e:
             self.logger.error(f"Error submitting task: {e}")
+            return False
+        except Exception as e:  # safety-net: catch unexpected errors
+            self.logger.error(f"Unexpected error submitting task: {type(e).__name__}: {e}")
             return False
 
     async def _process_queue(self) -> None:
@@ -612,8 +629,8 @@ class BackgroundProcessingEngine:
                 # Shutdown requested
                 self.logger.info("Background processing queue cancelled")
                 break
-            except Exception as e:
-                self.logger.error(f"Queue processing error: {e}")
+            except Exception as e:  # safety-net: catch unexpected errors
+                self.logger.error(f"Queue processing error: {type(e).__name__}: {e}")
                 await asyncio.sleep(1)
 
     async def _process_pending_tasks(self) -> None:
@@ -652,8 +669,8 @@ class BackgroundProcessingEngine:
             self._background_tasks.add(monitor_task)
             monitor_task.add_done_callback(self._background_tasks.discard)
 
-        except Exception as e:
-            self.logger.error(f"Task execution error: {e}")
+        except Exception as e:  # safety-net: catch unexpected errors
+            self.logger.error(f"Task execution error: {type(e).__name__}: {e}")
             await self._handle_task_failure(task, str(e))
 
     async def _monitor_task_completion(self, task: BackgroundTask, future) -> None:
@@ -671,8 +688,8 @@ class BackgroundProcessingEngine:
 
             self.logger.debug(f"Task {task.task_id} completed successfully")
 
-        except Exception as e:
-            self.logger.error(f"Task {task.task_id} failed: {e}")
+        except Exception as e:  # safety-net: catch unexpected errors
+            self.logger.error(f"Task {task.task_id} failed: {type(e).__name__}: {e}")
             await self._handle_task_failure(task, str(e))
 
     def _cpu_intensive_task(self, task: BackgroundTask) -> dict[str, Any]:
@@ -1011,9 +1028,9 @@ class PerformanceOptimizationService:
                     response_times.append(result.processing_time_ms)
                     successful_requests += 1
 
-                except Exception as e:
+                except Exception as e:  # safety-net: catch unexpected errors
                     failed_requests += 1
-                    self.logger.error(f"Test request failed: {e}")
+                    self.logger.error(f"Test request failed: {type(e).__name__}: {e}")
 
         # Execute concurrent requests
         tasks = [run_user_requests(user_id) for user_id in range(concurrent_users)]

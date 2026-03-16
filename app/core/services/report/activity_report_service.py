@@ -29,6 +29,7 @@ from core.events import publish_event
 from core.events.submission_events import ActivitySnapshotAccessed
 from core.models.enums.entity_enums import ProcessorType
 from core.models.report.activity_report import ActivityReport
+from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -334,8 +335,18 @@ class ActivityReportService:
             logger.info(f"Activity review created: {feedback.uid} by {admin_uid} for {subject_uid}")
             return Result.ok(feedback)
 
-        except Exception as e:
-            logger.error(f"Failed to submit activity report: {e}")
+        except NEO4J_EXCEPTIONS as e:
+            logger.error(f"Database error submitting activity report: {e}")
+            return Result.fail(
+                Errors.database(
+                    operation="submit_report", message=f"Failed to submit activity report: {e}"
+                )
+            )
+        except DATA_CONVERSION_EXCEPTIONS as e:
+            logger.error(f"Data conversion error submitting activity report: {e}")
+            return Result.fail(Errors.system(f"Failed to submit activity report: {e}"))
+        except Exception as e:  # safety-net: catch unexpected errors
+            logger.error(f"Unexpected error submitting activity report: {e}")
             return Result.fail(Errors.system(f"Failed to submit activity report: {e}"))
 
     async def get_history(
@@ -380,8 +391,18 @@ class ActivityReportService:
 
             return Result.ok(feedbacks)
 
-        except Exception as e:
-            logger.error(f"Failed to get activity reviews for {subject_uid}: {e}")
+        except NEO4J_EXCEPTIONS as e:
+            logger.error(f"Database error getting activity reviews for {subject_uid}: {e}")
+            return Result.fail(
+                Errors.database(
+                    operation="get_history", message=f"Failed to retrieve activity reviews: {e}"
+                )
+            )
+        except DATA_CONVERSION_EXCEPTIONS as e:
+            logger.error(f"Data conversion error getting activity reviews for {subject_uid}: {e}")
+            return Result.fail(Errors.system(f"Failed to retrieve activity reviews: {e}"))
+        except Exception as e:  # safety-net: catch unexpected errors
+            logger.error(f"Unexpected error getting activity reviews for {subject_uid}: {e}")
             return Result.fail(Errors.system(f"Failed to retrieve activity reviews: {e}"))
 
     async def annotate(
@@ -467,8 +488,13 @@ class ActivityReportService:
                     "user_revision": record.get("user_revision"),
                 }
             )
-        except Exception as e:
-            logger.error(f"Failed to annotate ActivityReport {uid}: {e}")
+        except NEO4J_EXCEPTIONS as e:
+            logger.error(f"Database error annotating ActivityReport {uid}: {e}")
+            return Result.fail(
+                Errors.database(operation="annotate", message=f"Failed to save annotation: {e}")
+            )
+        except Exception as e:  # safety-net: catch unexpected errors
+            logger.error(f"Unexpected error annotating ActivityReport {uid}: {e}")
             return Result.fail(Errors.system(f"Failed to save annotation: {e}"))
 
     async def get_annotation(self, uid: str, user_uid: str) -> Result[dict[str, Any]]:
@@ -512,8 +538,15 @@ class ActivityReportService:
                     ),
                 }
             )
-        except Exception as e:
-            logger.error(f"Failed to get annotation for ActivityReport {uid}: {e}")
+        except NEO4J_EXCEPTIONS as e:
+            logger.error(f"Database error getting annotation for ActivityReport {uid}: {e}")
+            return Result.fail(
+                Errors.database(
+                    operation="get_annotation", message=f"Failed to retrieve annotation: {e}"
+                )
+            )
+        except Exception as e:  # safety-net: catch unexpected errors
+            logger.error(f"Unexpected error getting annotation for ActivityReport {uid}: {e}")
             return Result.fail(Errors.system(f"Failed to retrieve annotation: {e}"))
 
     async def get_privacy_summary(self, user_uid: str) -> Result[dict[str, Any]]:
@@ -636,6 +669,14 @@ class ActivityReportService:
                 }
             )
 
-        except Exception as e:
-            logger.error(f"Failed to get privacy summary for {user_uid}: {e}")
+        except NEO4J_EXCEPTIONS as e:
+            logger.error(f"Database error getting privacy summary for {user_uid}: {e}")
+            return Result.fail(
+                Errors.database(
+                    operation="get_privacy_summary",
+                    message=f"Failed to retrieve privacy summary: {e}",
+                )
+            )
+        except Exception as e:  # safety-net: catch unexpected errors
+            logger.error(f"Unexpected error getting privacy summary for {user_uid}: {e}")
             return Result.fail(Errors.system(f"Failed to retrieve privacy summary: {e}"))

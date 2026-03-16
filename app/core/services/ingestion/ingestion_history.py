@@ -37,6 +37,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
+from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -242,7 +243,7 @@ class IngestionHistoryService:
                 self.logger.error(f"Failed to create error nodes: {result.error}")
             else:
                 self.logger.info(f"Created {len(errors)} error nodes for ingestion {operation_id}")
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to create error nodes: {e}")
 
     async def get_history(

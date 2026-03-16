@@ -247,7 +247,12 @@ Focus on actionable aspirations, not generic words."""
             logger.warning(f"Failed to parse LLM response: {e}")
             # Fall back to keyword extraction
             return self._extract_themes_keywords(vision_statement)
-        except Exception as e:
+        except (ValueError, TypeError, AttributeError, KeyError) as e:
+            logger.error(f"LLM theme extraction failed: {e}")
+            return Result.fail(
+                Errors.system(f"Theme extraction failed: {e}", operation="extract_themes")
+            )
+        except Exception as e:  # safety-net: catch unexpected errors
             logger.error(f"LLM theme extraction failed: {e}")
             return Result.fail(
                 Errors.system(f"Theme extraction failed: {e}", operation="extract_themes")

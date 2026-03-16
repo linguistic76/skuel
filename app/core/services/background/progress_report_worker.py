@@ -57,7 +57,10 @@ class ProgressReportWorker:
 
             try:
                 await self._process_due_schedules()
-            except Exception as e:
+            except (ValueError, TypeError, AttributeError, KeyError) as e:
+                logger.error(f"Progress report worker cycle failed: {e}")
+                self._errors += 1
+            except Exception as e:  # safety-net: catch unexpected errors
                 logger.error(f"Progress report worker cycle failed: {e}")
                 self._errors += 1
 
@@ -104,7 +107,10 @@ class ProgressReportWorker:
                     f"Generated progress report for {schedule.user_uid} (schedule: {schedule.uid})"
                 )
 
-            except Exception as e:
+            except (ValueError, TypeError, AttributeError, KeyError) as e:
+                logger.error(f"Error processing schedule {schedule.uid}: {e}")
+                self._errors += 1
+            except Exception as e:  # safety-net: catch unexpected errors
                 logger.error(f"Error processing schedule {schedule.uid}: {e}")
                 self._errors += 1
 

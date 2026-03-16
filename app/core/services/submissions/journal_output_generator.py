@@ -18,6 +18,7 @@ from pathlib import Path
 
 from core.prompts import PROMPT_REGISTRY
 from core.services.ai_service import OpenAIService
+from core.utils.exception_types import FILE_IO_EXCEPTIONS, LLM_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -139,7 +140,15 @@ class JournalOutputGenerator:
             self.logger.debug(f"Formatted content ({mode_name}): {len(formatted)} chars")
             return Result.ok(formatted)
 
-        except Exception as e:
+        except LLM_EXCEPTIONS as e:
+            return Result.fail(
+                Errors.integration(
+                    service="OpenAI",
+                    operation="format_journal",
+                    message=f"Formatting failed ({mode_name}): {e}",
+                )
+            )
+        except Exception as e:  # safety-net: catch unexpected errors
             return Result.fail(
                 Errors.system(
                     message=f"Formatting failed ({mode_name}): {e}",
@@ -178,7 +187,7 @@ class JournalOutputGenerator:
             self.logger.info(f"Saved je_output: {output_path}")
             return Result.ok(str(output_path))
 
-        except Exception as e:
+        except FILE_IO_EXCEPTIONS as e:
             return Result.fail(
                 Errors.system(
                     message=f"Failed to save je_output: {e}",
@@ -238,7 +247,7 @@ class JournalOutputGenerator:
             )
             return Result.ok({"files_deleted": files_deleted, "bytes_freed": bytes_freed})
 
-        except Exception as e:
+        except FILE_IO_EXCEPTIONS as e:
             return Result.fail(
                 Errors.system(
                     message=f"Cleanup failed: {e}",

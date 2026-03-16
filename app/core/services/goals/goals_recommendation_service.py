@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.events import publish_event
 from core.events.goal_events import GoalAchieved, GoalRecommendationsGenerated
+from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -114,7 +115,7 @@ class GoalsRecommendationService:
             )
             await publish_event(self.event_bus, recommendation_event, self.logger)
 
-        except Exception as e:
+        except (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
             # Best-effort: Log error but don't raise (prevent goal achievement failure)
             self.logger.error(f"Error handling goal_achieved event: {e}")
 

@@ -26,6 +26,7 @@ from core.services.analytics import (
     AnalyticsMetricsService,
 )
 from core.utils.decorators import with_error_handling
+from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, FILE_IO_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 from core.utils.uid_generator import UIDGenerator
@@ -178,9 +179,13 @@ class AnalyticsService:
                     f"⚠️ Goal achievement report generation failed: {result.expect_error().message}"
                 )
 
-        except Exception as e:
+        except DATA_CONVERSION_EXCEPTIONS as e:
             # Best-effort: Log error but don't raise
             self.logger.error(f"Error handling goal_achieved event: {e}")
+        except Exception as e:  # safety-net: catch unexpected errors
+            self.logger.error(
+                f"Unexpected error handling goal_achieved event: {type(e).__name__}: {e}"
+            )
 
     async def handle_learning_path_completed(self, event: Any) -> None:
         """
@@ -232,9 +237,13 @@ class AnalyticsService:
                     f"⚠️ Learning progress report generation failed: {result.expect_error().message}"
                 )
 
-        except Exception as e:
+        except DATA_CONVERSION_EXCEPTIONS as e:
             # Best-effort: Log error but don't raise
             self.logger.error(f"Error handling learning_path_completed event: {e}")
+        except Exception as e:  # safety-net: catch unexpected errors
+            self.logger.error(
+                f"Unexpected error handling learning_path_completed event: {type(e).__name__}: {e}"
+            )
 
     async def handle_habit_streak_milestone(self, event: Any) -> None:
         """
@@ -289,9 +298,13 @@ class AnalyticsService:
                     f"⚠️ Habit consistency report generation failed: {result.expect_error().message}"
                 )
 
-        except Exception as e:
+        except DATA_CONVERSION_EXCEPTIONS as e:
             # Best-effort: Log error but don't raise
             self.logger.error(f"Error handling habit_streak_milestone event: {e}")
+        except Exception as e:  # safety-net: catch unexpected errors
+            self.logger.error(
+                f"Unexpected error handling habit_streak_milestone event: {type(e).__name__}: {e}"
+            )
 
     # ========================================================================
     # SINGLE-DOMAIN REPORT GENERATION (Backward Compatible)
@@ -616,5 +629,7 @@ class AnalyticsService:
             filepath.write_text(report.markdown_content)
             self.logger.info(f"Report saved to {filepath}")
 
-        except Exception as e:
+        except FILE_IO_EXCEPTIONS as e:
             self.logger.error(f"Failed to save report: {e}")
+        except Exception as e:  # safety-net: catch unexpected errors
+            self.logger.error(f"Unexpected error saving report: {type(e).__name__}: {e}")

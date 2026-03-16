@@ -81,10 +81,14 @@ class LessonGraphService:
         Returns:
             Result containing the query results or an error
         """
+        from core.utils.exception_types import NEO4J_EXCEPTIONS
+
         try:
             results = await self.neo4j.execute_query(query, params)
             return Result.ok(results if results is not None else [])
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
+            return Result.fail(Errors.database(operation=operation, message=str(e)))
+        except Exception as e:  # safety-net: catch unexpected errors
             return Result.fail(Errors.database(operation=operation, message=str(e)))
 
     # ========================================================================

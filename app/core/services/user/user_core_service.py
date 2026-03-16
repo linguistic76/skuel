@@ -26,6 +26,7 @@ from typing import TYPE_CHECKING, Any
 from core.models.user import User, create_user
 from core.ports.infrastructure_protocols import UserOperations
 from core.utils.decorators import with_error_handling
+from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -185,7 +186,12 @@ class UserCoreService:
             # Fallback: repo doesn't have get() method, return None
             logger.warning(f"Backend doesn't support get() method for user {user_uid}")
             return Result.ok(None)
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
+            logger.error(f"Error getting user {user_uid}: {e}")
+            return Result.fail(
+                Errors.database(operation="user_query", message=f"User query failed: {e}")
+            )
+        except Exception as e:  # safety-net: catch unexpected errors
             logger.error(f"Error getting user {user_uid}: {e}")
             return Result.fail(
                 Errors.database(operation="user_query", message=f"User query failed: {e}")
@@ -576,6 +582,8 @@ class UserCoreService:
             else:
                 logger.debug(f"Updated last_login for {user.uid}")
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             # Don't fail authentication if timestamp update fails
+            logger.warning(f"Error updating last_login for {user.uid}: {e}")
+        except Exception as e:  # safety-net: catch unexpected errors
             logger.warning(f"Error updating last_login for {user.uid}: {e}")

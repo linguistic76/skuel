@@ -78,7 +78,7 @@ def instrument_handler(
 
                 return result
 
-            except Exception:
+            except Exception:  # intentional-broad: metrics must not break request
                 # Track failed request
                 status_code = 500
                 prometheus_metrics.http.requests_total.labels(

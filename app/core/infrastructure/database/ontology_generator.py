@@ -30,6 +30,7 @@ from core.ports import (
     MinLenConstraint,
     PydanticFieldInfo,
 )
+from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 
 logger = get_logger("skuel.infrastructure.ontology")
@@ -428,5 +429,5 @@ def apply_ontology_to_neo4j(ontology: Ontology, session: Any) -> None:
     for constraint in constraints:
         try:
             session.run(constraint)
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             logger.warning("Constraint already exists or failed", error=str(e))

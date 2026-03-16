@@ -52,6 +52,7 @@ from core.services.habits.habits_pattern_service import HabitsPatternService
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
 from core.services.relationships import UnifiedRelationshipService
 from core.utils.activity_domain_config import CommonSubServices, create_common_sub_services
+from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import (
@@ -464,7 +465,7 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
                             "velocity_delta": 1,
                         }
                     )
-                except Exception as e:
+                except (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
                     self.logger.warning(f"Failed to calculate impact for goal {goal_uid}: {e}")
 
         return Result.ok({"habit": updated_habit, "goal_impacts": goal_impacts})
@@ -498,7 +499,7 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
                         habit_uid=habit.uid,
                         contribution_type=essentiality,
                     )
-                except Exception as e:
+                except (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
                     self.logger.warning(f"Failed to link habit to goal {goal_uid}: {e}")
 
         return Result.ok(habit)

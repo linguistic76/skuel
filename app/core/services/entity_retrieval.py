@@ -218,8 +218,11 @@ class EntityRetrieval:
                 )
             )
 
-        except Exception as e:
+        except (ValueError, TypeError, AttributeError, KeyError) as e:
             logger.error(f"Retrieval failed: {e}")
+            return Result.fail(Errors.system(message=str(e), operation="retrieve"))
+        except Exception as e:  # safety-net: catch unexpected errors
+            logger.error(f"Retrieval failed (unexpected): {e}")
             return Result.fail(Errors.system(message=str(e), operation="retrieve"))
 
     def _analyze_query_intent(self, query: str) -> QueryElements:
@@ -304,8 +307,12 @@ class EntityRetrieval:
             logger.info(f"Chunk search found {len(enhanced_results)} knowledge units from chunks")
             return enhanced_results[:limit]
 
-        except Exception as e:
+        except (ValueError, TypeError, AttributeError, KeyError) as e:
             logger.error(f"Chunk search failed: {e}")
+            # Fallback to base search
+            return await self._execute_base_search(analysis, query, limit)
+        except Exception as e:  # safety-net: catch unexpected errors
+            logger.error(f"Chunk search failed (unexpected): {e}")
             # Fallback to base search
             return await self._execute_base_search(analysis, query, limit)
 
@@ -641,8 +648,13 @@ class EntityRetrieval:
             # Continue with standard retrieval enhanced by optimization insights
             return await self.retrieve(query, context, limit)
 
-        except Exception as e:
+        except (ValueError, TypeError, AttributeError, KeyError) as e:
             logger.error(f"Optimized retrieval failed: {e}")
+            return Result.fail(
+                Errors.system(message=str(e), operation="retrieve_with_optimized_query")
+            )
+        except Exception as e:  # safety-net: catch unexpected errors
+            logger.error(f"Optimized retrieval failed (unexpected): {e}")
             return Result.fail(
                 Errors.system(message=str(e), operation="retrieve_with_optimized_query")
             )

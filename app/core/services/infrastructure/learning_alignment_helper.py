@@ -257,7 +257,7 @@ class LearningAlignmentHelper[T, DTO, Request]:
                         f"{self.entity_name.capitalize()} '{entity_title}' created with learning alignment: "
                         f"{len(alignment_suggestions)} suggestions from {len(learning_position.active_paths)} paths"
                     )
-                except Exception as e:
+                except (AttributeError, KeyError, ValueError, TypeError) as e:
                     self.logger.warning(f"Could not assess learning alignment: {e}")
 
         return Result.ok(entity)

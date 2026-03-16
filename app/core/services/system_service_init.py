@@ -10,6 +10,7 @@ from collections.abc import Callable, Coroutine
 from typing import Any
 
 from core.services.system_service import SystemService
+from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -24,7 +25,7 @@ def _make_service_checker(
     async def check() -> Result[bool]:
         try:
             return Result.ok(bool(getattr(services, attr, None)))
-        except Exception as e:
+        except (AttributeError, TypeError) as e:
             return Result.fail(
                 Errors.system(
                     message=f"{name} health check failed",
@@ -63,7 +64,7 @@ async def initialize_system_service(system_service: SystemService, services: Any
                     await session.run("RETURN 1 as ping")
                 return Result.ok(True)
             return Result.ok(False)
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             logger.error(f"Database health check failed: {e}")
             return Result.fail(
                 Errors.system(

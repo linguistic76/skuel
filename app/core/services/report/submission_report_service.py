@@ -25,6 +25,7 @@ from core.models.exercises.exercise import Exercise
 from core.models.report.submission_report import SubmissionReport
 from core.models.submissions.submission import Submission
 from core.services.ai_service import AnthropicService, OpenAIService
+from core.utils.exception_types import LLM_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
@@ -186,8 +187,17 @@ class SubmissionReportService:
                 user_uid=user_uid,
             )
 
-        except Exception as e:
-            self.logger.error(f"Error generating report: {e}")
+        except LLM_EXCEPTIONS as e:
+            self.logger.error(f"LLM error generating report: {e}")
+            return Result.fail(
+                Errors.integration(
+                    service="LLM",
+                    operation="generate_report",
+                    message=f"Report generation failed: {e!s}",
+                )
+            )
+        except Exception as e:  # safety-net: catch unexpected errors
+            self.logger.error(f"Unexpected error generating report: {e}")
             return Result.fail(
                 Errors.system(f"Report generation failed: {e!s}", operation="generate_report")
             )
@@ -302,7 +312,7 @@ class SubmissionReportService:
 
             return Result.ok(feedback_entity)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to persist report entity: {e}")
             return Result.fail(
                 Errors.database(

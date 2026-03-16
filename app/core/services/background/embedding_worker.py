@@ -45,8 +45,11 @@ from core.events import (
 )
 from core.events.embedding_events import EmbeddingRequested
 from core.ports.infrastructure_protocols import EventBusOperations
+from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
+
+_EMBEDDING_EXCEPTIONS = (*NEO4J_EXCEPTIONS, ConnectionError, TimeoutError)
 
 
 class EmbeddingBackgroundWorker:
@@ -295,12 +298,17 @@ class EmbeddingBackgroundWorker:
                 f"(took {batch_duration:.2f}s, total: {self._total_success}/{self._total_processed})"
             )
 
-        except Exception as e:
+        except _EMBEDDING_EXCEPTIONS as e:
             self.logger.error(f"Batch processing exception: {e}")
             # Track metrics
             self._total_failed += len(requests)
             # Re-queue for retry (with limit to avoid infinite loops)
             if len(self._pending_requests) < 1000:  # Safety limit
+                self._pending_requests.extend(requests)
+        except Exception as e:  # safety-net: catch unexpected errors
+            self.logger.error(f"Batch processing exception: {e}")
+            self._total_failed += len(requests)
+            if len(self._pending_requests) < 1000:
                 self._pending_requests.extend(requests)
 
     async def _store_embedding(
@@ -368,7 +376,10 @@ class EmbeddingBackgroundWorker:
                 self.logger.warning(f"Entity not found: {entity_type} {entity_uid}")
                 return False
 
-        except Exception as e:
+        except _EMBEDDING_EXCEPTIONS as e:
+            self.logger.error(f"Failed to store embedding for {entity_uid}: {e}")
+            return False
+        except Exception as e:  # safety-net: catch unexpected errors
             self.logger.error(f"Failed to store embedding for {entity_uid}: {e}")
             return False
 
@@ -453,9 +464,13 @@ class EmbeddingBackgroundWorker:
             else:
                 self.logger.warning("Content adapter not configured - chunk embeddings not stored")
 
-        except Exception as e:
+        except _EMBEDDING_EXCEPTIONS as e:
             self.logger.error(f"Chunk batch processing exception: {e}")
             # Re-queue for retry (with safety limit)
+            if len(self._pending_chunk_requests) < 1000:
+                self._pending_chunk_requests.extend(requests)
+        except Exception as e:  # safety-net: catch unexpected errors
+            self.logger.error(f"Chunk batch processing exception: {e}")
             if len(self._pending_chunk_requests) < 1000:
                 self._pending_chunk_requests.extend(requests)
 

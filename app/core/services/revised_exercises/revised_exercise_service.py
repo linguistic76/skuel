@@ -25,6 +25,7 @@ from core.models.relationship_names import RelationshipName
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
 from core.utils.decorators import with_error_handling
+from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
@@ -326,7 +327,7 @@ class RevisedExerciseService(BaseService):
             props = record["re"]
             try:
                 exercises.append(RevisedExercise(**props))
-            except Exception as exc:
+            except DATA_CONVERSION_EXCEPTIONS as exc:
                 self.logger.warning(f"Failed to deserialize revised exercise: {exc}")
 
         return Result.ok(exercises)
@@ -367,7 +368,7 @@ class RevisedExerciseService(BaseService):
             props = record["re"]
             try:
                 exercises.append(RevisedExercise(**props))
-            except Exception as exc:
+            except DATA_CONVERSION_EXCEPTIONS as exc:
                 self.logger.warning(f"Failed to deserialize revised exercise: {exc}")
 
         return Result.ok(exercises)

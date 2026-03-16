@@ -427,7 +427,9 @@ class FinanceService:
 
             return Result.ok(created_expenses)
 
-        except Exception as e:
+        except (ValueError, TypeError, AttributeError) as e:
+            return Result.fail(Errors.system(message=str(e), operation="create_recurring_expenses"))
+        except Exception as e:  # safety-net: catch unexpected errors
             return Result.fail(Errors.system(message=str(e), operation="create_recurring_expenses"))
 
     # ========================================================================

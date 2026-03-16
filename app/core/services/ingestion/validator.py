@@ -22,6 +22,7 @@ if TYPE_CHECKING:
 
 from core.models.enums.entity_enums import EntityType, NonKuDomain
 from core.models.relationship_names import RelationshipName
+from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -270,7 +271,7 @@ async def validate_file(
         # Prepare entity data (even if validation failed, to show what would be created)
         try:
             entity_data = prepare_entity_data(entity_type, data, body, file_path, default_user_uid)
-        except Exception as e:
+        except DATA_CONVERSION_EXCEPTIONS as e:
             errors.append(f"Failed to prepare entity data: {e}")
             return Result.ok(
                 ValidationResult(
@@ -322,7 +323,7 @@ async def validate_file(
             )
         )
 
-    except Exception as e:
+    except Exception as e:  # safety-net: catch unexpected errors
         logger.error(f"Validation failed for {file_path}: {e}", exc_info=True)
         return Result.ok(
             ValidationResult(
@@ -494,7 +495,7 @@ async def validate_relationship_targets(
             )
             existing_uids.update(r["uid"] for r in records)
 
-    except Exception as e:
+    except NEO4J_EXCEPTIONS as e:
         logger.error(f"Failed to validate relationship targets: {e}")
         return Result.fail(
             Errors.database(

@@ -36,6 +36,7 @@ from core.infrastructure.database.schema import (
 # Import protocol interface
 from core.ports.infrastructure_protocols import SchemaOperations
 from core.utils.decorators import with_error_handling
+from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
@@ -389,7 +390,7 @@ class Neo4jSchemaService:
                     f"APOC available: {result[0]['version'] if result else 'unknown version'}"
                 )
             return self._apoc_available
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self._apoc_available = False
             self.logger.debug(
                 f"APOC not available ({e.__class__.__name__}), using standard queries"

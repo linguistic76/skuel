@@ -19,6 +19,7 @@ from core.models.submissions.report_schedule import (
 
 if TYPE_CHECKING:
     from core.ports import BackendOperations
+from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
@@ -168,8 +169,11 @@ class ProgressScheduleService:
                 )
                 schedules.append(report_schedule_dto_to_domain(dto))
             return Result.ok(schedules)
-        except Exception as e:
-            logger.error(f"Failed to query due schedules: {e}")
+        except NEO4J_EXCEPTIONS as e:
+            logger.error(f"Database error querying due schedules: {e}")
+            return Result.fail(Errors.database("get_due_schedules", str(e)))
+        except DATA_CONVERSION_EXCEPTIONS as e:
+            logger.error(f"Data conversion error querying due schedules: {e}")
             return Result.fail(Errors.database("get_due_schedules", str(e)))
 
     async def mark_generated(self, uid: str) -> Result[ReportSchedule]:

@@ -30,6 +30,7 @@ from core.events import (
     LearningPathCompleted,
 )
 from core.utils.decorators import with_error_handling
+from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -205,8 +206,15 @@ class CrossDomainAnalyticsService:
             self.logger.debug(f"Tracked expense for financial analytics: {event.expense_uid}")
             return Result.ok(None)
 
-        except Exception as e:
-            self.logger.error(f"Error tracking expense: {e}")
+        except NEO4J_EXCEPTIONS as e:
+            self.logger.error(f"Database error tracking expense: {e}")
+            return Result.fail(
+                Errors.database(
+                    message=f"Failed to track expense: {e!s}", operation="handle_expense_created"
+                )
+            )
+        except Exception as e:  # safety-net: catch unexpected errors
+            self.logger.error(f"Unexpected error tracking expense: {type(e).__name__}: {e}")
             return Result.fail(
                 Errors.system(
                     message=f"Failed to track expense: {e!s}", operation="handle_expense_created"
@@ -277,8 +285,18 @@ class CrossDomainAnalyticsService:
             self.logger.debug(f"Tracked knowledge mastery for velocity: {event.ku_uid}")
             return Result.ok(None)
 
-        except Exception as e:
-            self.logger.error(f"Error tracking learning velocity: {e}")
+        except NEO4J_EXCEPTIONS as e:
+            self.logger.error(f"Database error tracking learning velocity: {e}")
+            return Result.fail(
+                Errors.database(
+                    message=f"Failed to track learning velocity: {e!s}",
+                    operation="handle_knowledge_mastered",
+                )
+            )
+        except Exception as e:  # safety-net: catch unexpected errors
+            self.logger.error(
+                f"Unexpected error tracking learning velocity: {type(e).__name__}: {e}"
+            )
             return Result.fail(
                 Errors.system(
                     message=f"Failed to track learning velocity: {e!s}",
@@ -301,8 +319,16 @@ class CrossDomainAnalyticsService:
             self.logger.debug(f"Tracked path completion for velocity: {event.path_uid}")
             return Result.ok(None)
 
-        except Exception as e:
-            self.logger.error(f"Error tracking path completion: {e}")
+        except NEO4J_EXCEPTIONS as e:
+            self.logger.error(f"Database error tracking path completion: {e}")
+            return Result.fail(
+                Errors.database(
+                    message=f"Failed to track path completion: {e!s}",
+                    operation="handle_path_completed",
+                )
+            )
+        except Exception as e:  # safety-net: catch unexpected errors
+            self.logger.error(f"Unexpected error tracking path completion: {type(e).__name__}: {e}")
             return Result.fail(
                 Errors.system(
                     message=f"Failed to track path completion: {e!s}",
@@ -355,8 +381,16 @@ class CrossDomainAnalyticsService:
             self.logger.debug(f"Tracked task completion for analytics: {event.task_uid}")
             return Result.ok(None)
 
-        except Exception as e:
-            self.logger.error(f"Error tracking task completion: {e}")
+        except NEO4J_EXCEPTIONS as e:
+            self.logger.error(f"Database error tracking task completion: {e}")
+            return Result.fail(
+                Errors.database(
+                    message=f"Failed to track task completion: {e!s}",
+                    operation="handle_task_completed",
+                )
+            )
+        except Exception as e:  # safety-net: catch unexpected errors
+            self.logger.error(f"Unexpected error tracking task completion: {type(e).__name__}: {e}")
             return Result.fail(
                 Errors.system(
                     message=f"Failed to track task completion: {e!s}",
@@ -398,8 +432,18 @@ class CrossDomainAnalyticsService:
             self.logger.debug(f"Tracked habit completion for analytics: {event.habit_uid}")
             return Result.ok(None)
 
-        except Exception as e:
-            self.logger.error(f"Error tracking habit completion: {e}")
+        except NEO4J_EXCEPTIONS as e:
+            self.logger.error(f"Database error tracking habit completion: {e}")
+            return Result.fail(
+                Errors.database(
+                    message=f"Failed to track habit completion: {e!s}",
+                    operation="handle_habit_completed",
+                )
+            )
+        except Exception as e:  # safety-net: catch unexpected errors
+            self.logger.error(
+                f"Unexpected error tracking habit completion: {type(e).__name__}: {e}"
+            )
             return Result.fail(
                 Errors.system(
                     message=f"Failed to track habit completion: {e!s}",
@@ -441,8 +485,18 @@ class CrossDomainAnalyticsService:
             self.logger.debug(f"Tracked event attendance for analytics: {event.event_uid}")
             return Result.ok(None)
 
-        except Exception as e:
-            self.logger.error(f"Error tracking event attendance: {e}")
+        except NEO4J_EXCEPTIONS as e:
+            self.logger.error(f"Database error tracking event attendance: {e}")
+            return Result.fail(
+                Errors.database(
+                    message=f"Failed to track event attendance: {e!s}",
+                    operation="handle_event_completed",
+                )
+            )
+        except Exception as e:  # safety-net: catch unexpected errors
+            self.logger.error(
+                f"Unexpected error tracking event attendance: {type(e).__name__}: {e}"
+            )
             return Result.fail(
                 Errors.system(
                     message=f"Failed to track event attendance: {e!s}",

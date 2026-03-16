@@ -48,6 +48,7 @@ from core.services.tasks import (
 )
 from core.services.tasks.tasks_ai_service import TasksAIService
 from core.utils.activity_domain_config import create_common_sub_services
+from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 from core.utils.sort_functions import (
@@ -887,7 +888,7 @@ class TasksService(BaseService["TasksOperations", Task]):
                                 domain=str(knowledge_dto.domain.value),
                                 **knowledge_dto.metadata,
                             )
-        except Exception as e:
+        except (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
             self.logger.warning(f"Knowledge generation failed for user {user_uid}: {e}")
 
     async def trigger_manual_knowledge_generation(
@@ -962,7 +963,7 @@ class TasksService(BaseService["TasksOperations", Task]):
                 }
             )
 
-        except Exception as e:
+        except (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
             self.logger.error(f"Manual knowledge generation failed for user {user_uid}: {e}")
             return Result.fail(
                 Errors.system(

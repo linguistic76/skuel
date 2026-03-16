@@ -41,6 +41,7 @@ if TYPE_CHECKING:
 from core.ingestion.bulk_ingestion import BulkIngestionEngine
 from core.models.enums.entity_enums import EntityType, NonKuDomain
 from core.utils.decorators import with_error_handling
+from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -316,7 +317,7 @@ class UnifiedIngestionService:
                 }
             )
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to ingest edge ({from_uid})-[:{rel_type}]->({to_uid}): {e}")
             return Result.fail(
                 Errors.database(

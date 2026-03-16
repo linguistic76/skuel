@@ -637,8 +637,10 @@ async def test_find_by_database_error():
     """Test that database errors are handled gracefully"""
     backend, mock_session = create_mock_backend()
 
-    # Simulate database error
-    mock_session.run.side_effect = Exception("Database connection failed")
+    # Simulate database error with a Neo4j exception
+    from neo4j.exceptions import ServiceUnavailable
+
+    mock_session.run.side_effect = ServiceUnavailable("Database connection failed")
 
     result = await backend.find_by(priority="high")
 

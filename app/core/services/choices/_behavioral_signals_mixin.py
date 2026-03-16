@@ -26,6 +26,7 @@ from core.models.enums.activity_enums import DecisionQualityLevel
 from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
 from core.models.relationship_names import RelationshipName
 from core.models.shared.dual_track import DualTrackResult
+from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
@@ -145,7 +146,7 @@ class _BehavioralSignalsMixin:
                         },
                     )
 
-        except Exception as e:
+        except (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
             self.logger.error(
                 f"Error analyzing choice outcome: {e}",
                 extra={"choice_uid": event.choice_uid, "error": str(e)},
@@ -329,7 +330,7 @@ class _BehavioralSignalsMixin:
                             f"Failed to persist alignment insight: {create_result.error}"
                         )
 
-        except Exception as e:
+        except (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
             self.logger.error(
                 f"Error analyzing choice made: {e}",
                 extra={"choice_uid": event.choice_uid, "error": str(e)},

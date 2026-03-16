@@ -300,7 +300,9 @@ class Result[T]:
         if self.is_ok:
             try:
                 return Result.ok(func(self.value))
-            except Exception as e:
+            except (
+                Exception
+            ) as e:  # intentional-broad: monadic boundary catches all transform errors
                 return Result.fail(
                     ErrorContext(
                         category=ErrorCategory.SYSTEM,
@@ -346,7 +348,9 @@ class Result[T]:
                         f"Use .map() for functions that return plain values."
                     )
                 return result
-            except Exception as e:
+            except (
+                Exception
+            ) as e:  # intentional-broad: monadic boundary catches all transform errors
                 return Result.fail(
                     ErrorContext(
                         category=ErrorCategory.SYSTEM,
@@ -397,7 +401,9 @@ class Result[T]:
                         f"Use async map for functions that return plain values."
                     )
                 return result
-            except Exception as e:
+            except (
+                Exception
+            ) as e:  # intentional-broad: monadic boundary catches all transform errors
                 return Result.fail(
                     ErrorContext(
                         category=ErrorCategory.SYSTEM,
@@ -441,7 +447,7 @@ class Result[T]:
                     )
                     return self
                 return Result.fail(new_error)
-            except Exception as e:
+            except Exception as e:  # intentional-broad: side-effect must not propagate
                 # If transformation fails, preserve original error
                 logger.warning(f"map_error function raised exception: {e}")
                 return self
@@ -470,7 +476,7 @@ class Result[T]:
         if self.is_ok:
             try:
                 func(self.value)
-            except Exception as e:
+            except Exception as e:  # intentional-broad: side-effect must not propagate
                 logger.warning(f"inspect function raised exception: {e}")
         return self
 
@@ -497,7 +503,7 @@ class Result[T]:
         if self.is_error and self._error:
             try:
                 func(self._error)
-            except Exception as e:
+            except Exception as e:  # intentional-broad: side-effect must not propagate
                 logger.warning(f"inspect_error function raised exception: {e}")
         return self
 

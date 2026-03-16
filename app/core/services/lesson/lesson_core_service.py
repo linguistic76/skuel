@@ -319,7 +319,9 @@ class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], Metad
             if analysis_result.is_ok:
                 quality = analysis_result.value.quality_score
                 self.logger.debug(f"Content analysis complete for {dto.uid}: quality={quality:.2f}")
-        except Exception as e:
+        except (ValueError, TypeError, AttributeError, KeyError) as e:
+            self.logger.warning(f"Content analysis failed for {dto.uid}: {e}")
+        except Exception as e:  # safety-net: catch unexpected errors
             self.logger.warning(f"Content analysis failed for {dto.uid}: {e}")
 
     # ========================================================================
@@ -604,7 +606,9 @@ class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], Metad
         # Delete content first (gracefully handle missing content)
         try:
             await self.content_repo.delete_content(uid)
-        except Exception as e:
+        except (AttributeError, KeyError) as e:
+            self.logger.debug(f"Content delete failed (might not exist): {e}")
+        except Exception as e:  # safety-net: catch unexpected errors
             self.logger.debug(f"Content delete failed (might not exist): {e}")
 
         # Delete unit from backend
@@ -614,7 +618,9 @@ class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], Metad
         if self.chunking_service:
             try:
                 self.chunking_service.clear_cache(uid)
-            except Exception as e:
+            except (AttributeError, KeyError) as e:
+                self.logger.debug(f"Cache clear failed: {e}")
+            except Exception as e:  # safety-net: catch unexpected errors
                 self.logger.debug(f"Cache clear failed: {e}")
 
         self.logger.info(f"Deleted knowledge unit: {uid} (success={deleted})")

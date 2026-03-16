@@ -182,7 +182,7 @@ class IntentClassifier:
         """
         try:
             intent = await self._classify_via_embeddings(query)
-        except Exception:
+        except Exception:  # safety-net: embeddings service raises varied exceptions
             logger.warning(
                 "Embedding-based classification failed — defaulting to SPECIFIC",
                 exc_info=True,

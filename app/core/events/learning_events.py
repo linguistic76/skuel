@@ -406,7 +406,7 @@ async def handle_prerequisites_analyzed(self, event: PrerequisitesAnalyzed) -> N
             f"{len(event.prerequisite_uids)} prerequisites"
         )
 
-    except Exception as e:
+    except Exception as e:  # intentional-broad: event handler must not propagate
         self.logger.error(f"Error handling prerequisites.analyzed: {e}")
 
 

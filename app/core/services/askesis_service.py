@@ -38,6 +38,7 @@ from core.services.askesis.intent_classifier import IntentClassifier
 from core.services.askesis.query_processor import QueryProcessor
 from core.services.askesis.response_generator import ResponseGenerator
 from core.services.askesis.user_state_analyzer import UserStateAnalyzer
+from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -990,8 +991,11 @@ class AskesisService:
 
             return Result.ok(knowledge_units)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             logger.warning(f"Failed to find knowledge for {activity_uid}: {e}")
+            return Result.ok([])
+        except Exception as e:  # safety-net: catch unexpected errors
+            logger.warning(f"Failed to find knowledge for {activity_uid} ({type(e).__name__}): {e}")
             return Result.ok([])
 
     async def _order_by_prerequisites(
@@ -1062,8 +1066,15 @@ class AskesisService:
 
             return sorted_uids
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             logger.warning("Prerequisite ordering failed, returning original order: %s", e)
+            return ku_uids
+        except Exception as e:  # safety-net: catch unexpected errors
+            logger.warning(
+                "Prerequisite ordering failed (%s), returning original order: %s",
+                type(e).__name__,
+                e,
+            )
             return ku_uids
 
     # =========================================================================

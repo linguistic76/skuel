@@ -21,6 +21,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums.principle_enums import AlignmentLevel
+from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -117,7 +118,7 @@ class LifePathCoreService:
 
             return Result.ok(designation)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             logger.error(f"Failed to get designation for {user_uid}: {e}")
             return Result.fail(
                 Errors.database("get_designation", f"Failed to get designation: {e}")
@@ -187,7 +188,7 @@ class LifePathCoreService:
                 )
             )
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             logger.error(f"Failed to save vision for {user_uid}: {e}")
             return Result.fail(Errors.database("save_vision", f"Failed to save vision: {e}"))
 
@@ -280,7 +281,7 @@ class LifePathCoreService:
                 )
             )
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             logger.error(f"Failed to designate life path for {user_uid}: {e}")
             return Result.fail(
                 Errors.database("designate_life_path", f"Failed to designate life path: {e}")
@@ -330,7 +331,7 @@ class LifePathCoreService:
 
             return Result.ok(False)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             logger.error(f"Failed to remove designation for {user_uid}: {e}")
             return Result.fail(
                 Errors.database("remove_designation", f"Failed to remove designation: {e}")
@@ -417,7 +418,7 @@ class LifePathCoreService:
 
             return Result.ok(False)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             logger.error(f"Failed to update alignment score for {user_uid}: {e}")
             return Result.fail(
                 Errors.database("update_alignment_score", f"Failed to update alignment score: {e}")

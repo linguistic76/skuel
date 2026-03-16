@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from core.ports import QueryExecutor
 
+from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
@@ -95,8 +96,15 @@ class ReviewQueueService:
             logger.info(f"Review request created: {request_uid} for {user_uid}")
             return Result.ok({"uid": request_uid, "status": "pending", "user_uid": user_uid})
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             logger.error(f"Failed to create review request for {user_uid}: {e}")
+            return Result.fail(
+                Errors.database(
+                    operation="request_review", message=f"Failed to request review: {e}"
+                )
+            )
+        except Exception as e:  # safety-net: catch unexpected errors
+            logger.error(f"Unexpected error creating review request for {user_uid}: {e}")
             return Result.fail(Errors.system(f"Failed to request review: {e}"))
 
     async def get_pending_reviews(
@@ -132,6 +140,14 @@ class ReviewQueueService:
 
             return Result.ok(result.value or [])
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             logger.error(f"Failed to get pending reviews: {e}")
+            return Result.fail(
+                Errors.database(
+                    operation="get_pending_reviews",
+                    message=f"Failed to retrieve pending reviews: {e}",
+                )
+            )
+        except Exception as e:  # safety-net: catch unexpected errors
+            logger.error(f"Unexpected error getting pending reviews: {e}")
             return Result.fail(Errors.system(f"Failed to retrieve pending reviews: {e}"))

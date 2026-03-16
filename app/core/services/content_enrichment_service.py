@@ -1107,7 +1107,7 @@ Preserve the author's voice and authenticity while improving readability.
                         if context.get("recent_topics")
                         else "none"
                     )
-                except Exception as e:
+                except (TypeError, AttributeError, KeyError) as e:
                     self.logger.error(
                         f"Error building recent_themes: {e}, context.get('recent_topics') = {context.get('recent_topics')}"
                     )
@@ -1120,7 +1120,7 @@ Preserve the author's voice and authenticity while improving readability.
                         if isinstance(mood_trends_data, dict)
                         else "stable"
                     )
-                except Exception as e:
+                except (TypeError, AttributeError, KeyError) as e:
                     self.logger.error(
                         f"Error building trend_text: {e}, mood_trends_data = {mood_trends_data}"
                     )
@@ -1135,7 +1135,7 @@ Preserve the author's voice and authenticity while improving readability.
                             if g and isinstance(g, dict) and g.get("title")
                         ]
                     )
-                except Exception as e:
+                except (TypeError, AttributeError, KeyError) as e:
                     self.logger.error(
                         f"Error building goal_titles: {e}, active_goals_list = {active_goals_list}"
                     )
@@ -1195,11 +1195,15 @@ Preserve the author's voice and authenticity while improving readability.
             self.logger.info(f"Successfully built prompt: {len(result)} chars")
             return result
 
-        except Exception as e:
+        except (TypeError, AttributeError, KeyError, ValueError) as e:
             self.logger.error(f"CRITICAL ERROR in _build_editing_prompt: {e}", exc_info=True)
             self.logger.error(f"Context type: {type(context)}, context value: {context}")
-            # Return minimal prompt on error
-            return f"""
+        except Exception as e:  # safety-net: catch unexpected errors
+            self.logger.error(f"CRITICAL ERROR in _build_editing_prompt: {e}", exc_info=True)
+            self.logger.error(f"Context type: {type(context)}, context value: {context}")
+
+        # Return minimal prompt on error (reached by either except block)
+        return f"""
 # Journal Transcript Editing Task
 
 ## Instructions
@@ -1322,7 +1326,7 @@ Return ONLY Markdown in this structure:
                 context_summary="Context-aware editing completed",
             )
 
-        except Exception as e:
+        except (ValueError, TypeError, AttributeError, KeyError, IndexError) as e:
             self.logger.error(f"Error parsing Markdown response: {e}", exc_info=True)
             # Fallback: treat entire response as formatted content
             return SubmissionAIInsights(

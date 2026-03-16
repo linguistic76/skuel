@@ -19,6 +19,7 @@ from typing import Any
 
 from core.models.enums.entity_enums import EntityType, NonKuDomain
 from core.utils.embedding_text_builder import build_embedding_text
+from core.utils.exception_types import LLM_EXCEPTIONS
 from core.utils.logging import get_logger
 
 from .config import ENTITY_CONFIGS
@@ -251,7 +252,7 @@ async def prepare_entity_data_async(
                         f"{embedding_result.expect_error()}"
                     )
 
-            except Exception as e:
+            except (*LLM_EXCEPTIONS, ValueError, TypeError, OSError) as e:
                 logger.warning(f"Exception generating embedding for {entity_data['uid']}: {e}")
 
     return entity_data

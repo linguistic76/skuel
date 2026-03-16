@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.entity_types import SubmissionEntity
 from core.models.relationship_names import RelationshipName
+from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -93,7 +94,7 @@ class SubmissionsRelationshipService:
 
             return Result.ok(relationships_created)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             return Result.fail(
                 Errors.database(
                     operation="create_submission_relationships",

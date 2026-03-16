@@ -156,7 +156,7 @@ class FinanceCategoriesLoader:
                 main_categories=(), subcategories={}, all_categories={}, tag_to_category={}
             )
 
-        except Exception as e:
+        except (yaml.YAMLError, KeyError, TypeError, ValueError) as e:
             logger.error(f"Failed to load finance categories: {e}")
             # Create empty hierarchy
             self._hierarchy = CategoryHierarchy(

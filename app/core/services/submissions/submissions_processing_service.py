@@ -26,6 +26,7 @@ from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.submissions.journal import Journal
 from core.models.submissions.submission import Submission
 from core.services.submissions.submissions_service import SubmissionsService
+from core.utils.exception_types import LLM_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -145,7 +146,19 @@ class SubmissionsProcessingService:
                 return Result.fail(Errors.not_found("Submission", ku_uid))
             return Result.ok(updated_result.value)
 
-        except Exception as e:
+        except (*NEO4J_EXCEPTIONS, *LLM_EXCEPTIONS) as e:
+            self.logger.error(f"Processing error for submission {ku_uid}: {e}", exc_info=True)
+
+            await self.ku_submission_service.update_submission_status(
+                ku_uid, EntityStatus.FAILED, error_message=str(e)
+            )
+
+            return Result.fail(
+                Errors.system(
+                    message=f"Processing failed: {e!s}", operation="process_ku", exception=e
+                )
+            )
+        except Exception as e:  # safety-net: catch unexpected errors
             self.logger.error(
                 f"Unexpected error processing submission {ku_uid}: {e}", exc_info=True
             )
@@ -436,7 +449,12 @@ class SubmissionsProcessingService:
                     f"Activity extraction failed for {submission.uid}: {result.error}"
                 )
 
-        except Exception as e:
+        except (*NEO4J_EXCEPTIONS, *LLM_EXCEPTIONS) as e:
+            self.logger.error(
+                f"Activity extraction error for {submission.uid}: {e}",
+                exc_info=True,
+            )
+        except Exception as e:  # safety-net: catch unexpected errors
             self.logger.error(
                 f"Unexpected error during activity extraction for {submission.uid}: {e}",
                 exc_info=True,

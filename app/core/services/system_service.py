@@ -150,7 +150,7 @@ class SystemService:
                     }
                     if not is_healthy:
                         overall_healthy = False
-                except Exception as e:
+                except Exception as e:  # safety-net: checkers are external callables
                     logger.error(f"Health check failed for {name}: {e}")
                     status["components"][name] = {
                         "status": "error",
@@ -164,7 +164,9 @@ class SystemService:
 
             return Result.ok(status)
 
-        except Exception as e:
+        except (
+            Exception
+        ) as e:  # safety-net: catch unexpected errors from health check orchestration
             logger.error(f"Failed to get health status: {e}")
             return Result.fail(Errors.system(message=str(e), operation="get_health_status"))
 
@@ -250,7 +252,7 @@ class SystemService:
                     }
                     validation["valid_checkers"] += 1
 
-                except Exception as e:
+                except Exception as e:  # safety-net: checkers are external callables
                     validation["results"][name] = {
                         "valid": False,
                         "error": str(e),
@@ -262,7 +264,7 @@ class SystemService:
 
             return Result.ok(validation)
 
-        except Exception as e:
+        except Exception as e:  # safety-net: catch unexpected errors from validation orchestration
             logger.error(f"Failed to validate health checkers: {e}")
             return Result.fail(Errors.system(message=str(e), operation="validate_health_checkers"))
 

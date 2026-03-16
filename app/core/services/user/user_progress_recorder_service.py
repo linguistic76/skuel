@@ -25,6 +25,7 @@ This service is part of the refactored UserService architecture:
 
 from core.ports.infrastructure_protocols import UserOperations
 from core.utils.decorators import with_error_handling
+from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -344,7 +345,9 @@ class UserProgressRecorderService:
                 }
                 await self.repo.update_user_progress(user_uid, progress_updates)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
+            logger.error(f"Error updating progress metrics: {e}")
+        except Exception as e:  # safety-net: catch unexpected errors
             logger.error(f"Error updating progress metrics: {e}")
 
     async def _update_path_completion_progress(self, user_uid: str, _path_uid: str) -> None:
@@ -363,5 +366,7 @@ class UserProgressRecorderService:
             progress_updates = {"total_learning_paths_completed": "+1"}
             await self.repo.update_user_progress(user_uid, progress_updates)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
+            logger.error(f"Error updating path completion progress: {e}")
+        except Exception as e:  # safety-net: catch unexpected errors
             logger.error(f"Error updating path completion progress: {e}")

@@ -31,6 +31,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 from tenacity import retry, stop_after_attempt, wait_exponential
 
+from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -169,7 +170,7 @@ class HuggingFaceEmbeddingsService:
 
             return Result.ok(embedding)
 
-        except Exception as e:
+        except Exception as e:  # safety-net: HuggingFace API raises varied exceptions (HTTP, connection, type errors)
             duration = time.time() - start_time
 
             if self.prometheus_metrics:
@@ -177,7 +178,7 @@ class HuggingFaceEmbeddingsService:
                     operation="embeddings", error_type=type(e).__name__
                 ).inc()
 
-            self.logger.error(f"Embedding generation failed: {e}")
+            self.logger.error(f"Embedding generation failed ({type(e).__name__}): {e}")
             return Result.fail(
                 Errors.integration(
                     service="HuggingFace", message=f"Embedding generation failed: {e}"
@@ -424,8 +425,11 @@ class HuggingFaceEmbeddingsService:
                     self.logger.debug(f"Cache hit: {label}:{uid} (version={EMBEDDING_VERSION})")
                     return Result.ok(result.value[0]["embedding"])
 
-            except Exception as e:
+            except NEO4J_EXCEPTIONS as e:
                 self.logger.warning(f"Failed to get cached embedding: {e}")
+                # Fall through to regenerate
+            except Exception as e:  # safety-net: catch unexpected errors
+                self.logger.warning(f"Failed to get cached embedding ({type(e).__name__}): {e}")
                 # Fall through to regenerate
 
         # Cache miss or stale - generate new embedding

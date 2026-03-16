@@ -265,7 +265,10 @@ class AdaptiveLpCrossDomainService:
                 confidence_score=confidence,
             )
 
-        except Exception as e:
+        except (ValueError, TypeError, AttributeError, KeyError) as e:
+            self.logger.warning(f"Failed to create cross-domain opportunity: {e}")
+            return None
+        except Exception as e:  # safety-net: catch unexpected errors
             self.logger.warning(f"Failed to create cross-domain opportunity: {e}")
             return None
 

@@ -14,7 +14,8 @@ from base64 import b64encode
 from pathlib import Path
 from typing import Any
 
-from cryptography.fernet import Fernet
+from cryptography.exceptions import InvalidTag
+from cryptography.fernet import Fernet, InvalidToken
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
@@ -75,7 +76,7 @@ class CredentialStore:
                 key = b64encode(kdf.derive(master_key.encode()))
 
             return Fernet(key)
-        except Exception as e:
+        except (ValueError, TypeError, InvalidTag) as e:
             raise ValueError(f"Failed to initialize encryption: {e}") from e
 
     def _load_store(self) -> dict[str, Any]:
@@ -89,7 +90,7 @@ class CredentialStore:
 
             decrypted_data = self.cipher.decrypt(encrypted_data)
             return json.loads(decrypted_data.decode())
-        except Exception as e:
+        except (OSError, InvalidToken, json.JSONDecodeError, UnicodeDecodeError) as e:
             logger.error(f"Failed to load credential store: {e}")
             return {}
 
@@ -106,7 +107,7 @@ class CredentialStore:
             # Ensure file has secure permissions (owner read/write only)
             self.store_path.chmod(0o600)
 
-        except Exception as e:
+        except (OSError, TypeError, InvalidToken) as e:
             logger.error(f"Failed to save credential store: {e}")
             raise
 

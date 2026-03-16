@@ -35,6 +35,7 @@ from core.services.domain_config import create_activity_domain_config
 from core.services.tasks.task_relationships import TaskRelationships
 from core.services.user import UserContext
 from core.utils.decorators import with_error_handling
+from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.result_simplified import Result
 
 # Type alias for rich task data from UserContext
@@ -707,7 +708,7 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
         try:
             await self.backend.update(task_uid, {"status": EntityStatus.SCHEDULED.value})
             self.logger.debug(f"Triggered task {task_uid}")
-        except Exception as e:
+        except (*NEO4J_EXCEPTIONS,) as e:
             self.logger.warning(f"Failed to trigger task {task_uid}: {e}")
 
     async def _unlock_knowledge(self, knowledge_uid: str, user_uid: str) -> None:

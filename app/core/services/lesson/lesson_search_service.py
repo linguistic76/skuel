@@ -35,6 +35,7 @@ from core.ports import LessonOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import create_curriculum_domain_config
 from core.utils.decorators import with_error_handling
+from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.metrics import track_query_metrics
 from core.utils.result_simplified import Errors, Result
@@ -521,7 +522,10 @@ class LessonSearchService(BaseService[LessonOperations, Entity]):
             self.logger.debug(f"Keyword search found {len(dtos)} similar units for {uid}")
             return Result.ok(dtos)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
+            self.logger.error(f"Keyword search failed: {e}")
+            return Result.fail(Errors.database(operation="keyword_search", message=str(e)))
+        except Exception as e:  # safety-net: catch unexpected errors
             self.logger.error(f"Keyword search failed: {e}")
             return Result.fail(Errors.database(operation="keyword_search", message=str(e)))
 
@@ -742,7 +746,10 @@ class LessonSearchService(BaseService[LessonOperations, Entity]):
             self.logger.debug(f"Keyword search found {len(dtos)} results for '{query_text}'")
             return Result.ok(dtos)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
+            self.logger.error(f"Keyword search failed: {e}")
+            return Result.fail(Errors.database(operation="keyword_search", message=str(e)))
+        except Exception as e:  # safety-net: catch unexpected errors
             self.logger.error(f"Keyword search failed: {e}")
             return Result.fail(Errors.database(operation="keyword_search", message=str(e)))
 

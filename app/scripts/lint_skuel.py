@@ -25,6 +25,7 @@ WARNING (reported, doesn't block):
   SKUEL014: EntityType/NonKuDomain enum usage (not magic strings)
   SKUEL015: print() in production code - use logger instead
   SKUEL016: Stale Poetry references - SKUEL uses uv
+  SKUEL017: Bare except Exception - use specific exception types
 
 INFO (informational, visibility only):
   SKUEL006: TODO/FIXME comments - track technical debt
@@ -318,6 +319,29 @@ poetry install
 poetry add weasyprint
 poetry run python scripts/my_script.py""",
     },
+    "SKUEL017": {
+        "title": "Narrow except Exception Catches",
+        "severity": "WARNING",
+        "description": """Bare `except Exception` catches mask bugs and make debugging harder.
+Use specific exception types from core.utils.exception_types instead.
+
+Allowed markers that suppress this rule:
+  # intentional-broad: <reason>  — for catches that must remain broad (event handlers, monadic boundaries)
+  # safety-net: <reason>         — for temporary broad catches during narrowing rollout
+
+Import exception tuples from core.utils.exception_types:
+  NEO4J_EXCEPTIONS, LLM_EXCEPTIONS, OPENAI_EXCEPTIONS, ANTHROPIC_EXCEPTIONS,
+  FILE_IO_EXCEPTIONS, PARSING_EXCEPTIONS, DATA_CONVERSION_EXCEPTIONS, CONFIG_EXCEPTIONS""",
+        "good": """from core.utils.exception_types import NEO4J_EXCEPTIONS
+try:
+    result = await self.backend.get(uid)
+except NEO4J_EXCEPTIONS as e:
+    return Result.fail(Errors.database(operation="get", message=str(e)))""",
+        "bad": """try:
+    result = await self.backend.get(uid)
+except Exception as e:  # Too broad — masks non-database bugs
+    return Result.fail(Errors.database(operation="get", message=str(e)))""",
+    },
 }
 
 
@@ -528,6 +552,8 @@ class SkuelLinter:
                 self._check_print_statements(file_path, rel_path, content, lines)
             if self._should_run_rule("SKUEL016"):
                 self._check_poetry_references(file_path, rel_path, content, lines)
+            if self._should_run_rule("SKUEL017") and not is_test:
+                self._check_broad_exception_catches(file_path, rel_path, content, lines)
 
             # INFO rules (always run for visibility)
             if self._should_run_rule("SKUEL006"):
@@ -1275,6 +1301,89 @@ class SkuelLinter:
                         )
                     )
                     break  # Only report once per line
+
+    def _check_broad_exception_catches(
+        self, file_path: Path, rel_path: Path, content: str, lines: list[str]
+    ) -> None:
+        """
+        SKUEL017 [WARNING]: Bare `except Exception` without justification.
+
+        Flags `except Exception` catches that don't have an `# intentional-broad:`
+        or `# safety-net:` comment on the same line or the line above.
+
+        Exceptions: test files, scripts/, CLI entrypoints, this linter.
+        """
+        file_str = str(file_path)
+
+        # Skip files where broad catches are expected
+        if any(
+            skip in file_str
+            for skip in [
+                "lint_skuel.py",
+                "/scripts/",
+                "result_simplified.py",  # Monadic boundaries are annotated separately
+            ]
+        ):
+            return
+
+        pattern = re.compile(r"\bexcept\s+Exception\b")
+
+        # Track whether we're inside a docstring
+        in_docstring = False
+        docstring_delim = None
+
+        for line_num, line in enumerate(lines, start=1):
+            stripped = line.strip()
+
+            # Track docstring boundaries
+            for delim in ('"""', "'''"):
+                count = stripped.count(delim)
+                if count >= 2:
+                    pass  # Opening and closing on same line
+                elif count == 1:
+                    if not in_docstring:
+                        in_docstring = True
+                        docstring_delim = delim
+                    elif docstring_delim == delim:
+                        in_docstring = False
+                        docstring_delim = None
+
+            if in_docstring:
+                continue
+
+            if not pattern.search(line):
+                continue
+
+            # Skip comments
+            if stripped.startswith("#"):
+                continue
+
+            # Check if the same line has a suppression comment
+            if "# intentional-broad:" in line or "# safety-net:" in line:
+                continue
+
+            # Check if the line above has a suppression comment
+            if line_num >= 2:
+                prev_line = lines[line_num - 2]
+                if "# intentional-broad:" in prev_line or "# safety-net:" in prev_line:
+                    continue
+
+            self.result.violations.append(
+                Violation(
+                    file_path=rel_path,
+                    line_number=line_num,
+                    column=line.find("except"),
+                    severity=Severity.WARNING,
+                    rule_id="SKUEL017",
+                    message="Bare `except Exception` — use specific exception types",
+                    suggestion=(
+                        "Import from core.utils.exception_types "
+                        "(NEO4J_EXCEPTIONS, LLM_EXCEPTIONS, etc.) "
+                        "or add `# intentional-broad: <reason>` comment"
+                    ),
+                    line_content=line.strip(),
+                )
+            )
 
     # =========================================================================
     # INFO RULES (visibility only)

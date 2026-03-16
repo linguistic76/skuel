@@ -29,7 +29,10 @@ from typing import Any
 from core.services.infrastructure.graph_intelligence_service import (
     GraphIntelligenceService,
 )
+from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.result_simplified import Errors, Result
+
+_GRAPH_QUERY_EXCEPTIONS = (*NEO4J_EXCEPTIONS, KeyError, TypeError)
 
 # ============================================================================
 # KNOWLEDGE INTELLIGENCE QUERIES
@@ -168,7 +171,7 @@ async def get_learning_state(
             }
         )
 
-    except Exception as e:
+    except _GRAPH_QUERY_EXCEPTIONS as e:
         return Result.fail(
             Errors.system(
                 message="Failed to get learning state", exception=e, operation="get_learning_state"
@@ -261,7 +264,7 @@ async def analyze_knowledge_patterns(
             }
         )
 
-    except Exception as e:
+    except _GRAPH_QUERY_EXCEPTIONS as e:
         return Result.fail(
             Errors.system(
                 message="Failed to analyze knowledge patterns",
@@ -431,7 +434,7 @@ async def find_cross_domain_connections(
             }
         )
 
-    except Exception as e:
+    except _GRAPH_QUERY_EXCEPTIONS as e:
         return Result.fail(
             Errors.system(
                 message="Failed to find cross-domain connections",

@@ -829,7 +829,9 @@ class UnifiedRelationshipService[Ops: BackendOperations, Model: DomainModelProto
             # Weighted average
             return task_score * 0.5 + knowledge_score * 0.5
 
-        except Exception:
+        except (ValueError, TypeError, AttributeError, KeyError):
+            return 0.5  # Default to uncertain
+        except Exception:  # safety-net: catch unexpected errors
             return 0.5  # Default to uncertain
 
     def _calculate_relevance_score(
@@ -857,7 +859,9 @@ class UnifiedRelationshipService[Ops: BackendOperations, Model: DomainModelProto
 
             return min(score, 1.0)
 
-        except Exception:
+        except (ValueError, TypeError, AttributeError, KeyError):
+            return 0.5
+        except Exception:  # safety-net: catch unexpected errors
             return 0.5
 
     def _is_completed(self, entity: Model, context: CoreIdentity) -> bool:
@@ -930,7 +934,9 @@ class UnifiedRelationshipService[Ops: BackendOperations, Model: DomainModelProto
                                 )
                         break
 
-        except Exception as e:
+        except (ValueError, TypeError, AttributeError, KeyError) as e:
+            self.logger.warning(f"Error identifying blocking reasons: {e}")
+        except Exception as e:  # safety-net: catch unexpected errors
             self.logger.warning(f"Error identifying blocking reasons: {e}")
 
         return reasons

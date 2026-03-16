@@ -28,8 +28,11 @@ Implementation Date: October 24, 2025
 from datetime import datetime
 from typing import Any, TypedDict
 
+from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+
+_LIFE_PATH_EXCEPTIONS = (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS)
 
 logger = get_logger(__name__)
 
@@ -205,7 +208,18 @@ class AnalyticsLifePathService:
                 }
             )
 
-        except Exception as e:
+        except _LIFE_PATH_EXCEPTIONS as e:
+            return Result.fail(
+                Errors.system(
+                    f"Failed to calculate Life Path alignment: {e!s}",
+                    operation="calculate_life_path_alignment",
+                    exception=e,
+                )
+            )
+        except Exception as e:  # safety-net: catch unexpected errors
+            logger.error(
+                f"Unexpected error calculating Life Path alignment: {type(e).__name__}: {e}"
+            )
             return Result.fail(
                 Errors.system(
                     f"Failed to calculate Life Path alignment: {e!s}",
@@ -249,7 +263,18 @@ class AnalyticsLifePathService:
 
             return Result.ok(knowledge_units)
 
-        except Exception as e:
+        except _LIFE_PATH_EXCEPTIONS as e:
+            return Result.fail(
+                Errors.system(
+                    f"Failed to get Life Path knowledge units: {e!s}",
+                    operation="_get_life_path_knowledge_units",
+                    exception=e,
+                )
+            )
+        except Exception as e:  # safety-net: catch unexpected errors
+            logger.error(
+                f"Unexpected error getting Life Path knowledge units: {type(e).__name__}: {e}"
+            )
             return Result.fail(
                 Errors.system(
                     f"Failed to get Life Path knowledge units: {e!s}",

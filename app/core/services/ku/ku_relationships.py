@@ -18,6 +18,7 @@ from core.services.lesson.lesson_graph_service import LessonGraphService
 from core.services.lesson.lesson_semantic_service import LessonSemanticService
 from core.services.relationships import UnifiedRelationshipService
 from core.utils.generic_fetcher import fetch_relationships_parallel
+from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.result_simplified import Result
 
 # Type alias for consistency with other domains
@@ -238,7 +239,7 @@ async def _get_prerequisites(graph_service: LessonGraphService, ku_uid: str) -> 
     """Get prerequisite knowledge units (REQUIRES relationship)."""
     try:
         return await graph_service.find_prerequisites(ku_uid, depth=1)
-    except Exception as e:
+    except (*NEO4J_EXCEPTIONS, TypeError, AttributeError) as e:
         from core.utils.logging import get_logger
 
         logger = get_logger(__name__)
@@ -250,7 +251,7 @@ async def _get_enables(graph_service: LessonGraphService, ku_uid: str) -> Result
     """Get knowledge units this KU enables (ENABLES relationship)."""
     try:
         return await graph_service.find_next_steps(ku_uid, limit=100)
-    except Exception as e:
+    except (*NEO4J_EXCEPTIONS, TypeError, AttributeError) as e:
         from core.utils.logging import get_logger
 
         logger = get_logger(__name__)
@@ -270,7 +271,7 @@ async def _get_related_knowledge(graph_service: LessonGraphService, ku_uid: str)
         results = await graph_service.neo4j.execute_query(query, params)
         uids = [record["uid"] for record in results]
         return Result.ok(uids)
-    except Exception as e:
+    except (*NEO4J_EXCEPTIONS, TypeError, AttributeError) as e:
         from core.utils.logging import get_logger
 
         logger = get_logger(__name__)
@@ -290,7 +291,7 @@ async def _get_broader_concepts(graph_service: LessonGraphService, ku_uid: str) 
         results = await graph_service.neo4j.execute_query(query, params)
         uids = [record["uid"] for record in results]
         return Result.ok(uids)
-    except Exception as e:
+    except (*NEO4J_EXCEPTIONS, TypeError, AttributeError) as e:
         from core.utils.logging import get_logger
 
         logger = get_logger(__name__)
@@ -310,7 +311,7 @@ async def _get_narrower_concepts(graph_service: LessonGraphService, ku_uid: str)
         results = await graph_service.neo4j.execute_query(query, params)
         uids = [record["uid"] for record in results]
         return Result.ok(uids)
-    except Exception as e:
+    except (*NEO4J_EXCEPTIONS, TypeError, AttributeError) as e:
         from core.utils.logging import get_logger
 
         logger = get_logger(__name__)
@@ -330,7 +331,7 @@ async def _get_learning_paths(graph_service: LessonGraphService, ku_uid: str) ->
         results = await graph_service.neo4j.execute_query(query, params)
         uids = [record["uid"] for record in results]
         return Result.ok(uids)
-    except Exception as e:
+    except (*NEO4J_EXCEPTIONS, TypeError, AttributeError) as e:
         from core.utils.logging import get_logger
 
         logger = get_logger(__name__)
@@ -350,7 +351,7 @@ async def _get_applying_tasks(graph_service: LessonGraphService, ku_uid: str) ->
         results = await graph_service.neo4j.execute_query(query, params)
         uids = [record["uid"] for record in results]
         return Result.ok(uids)
-    except Exception as e:
+    except (*NEO4J_EXCEPTIONS, TypeError, AttributeError) as e:
         from core.utils.logging import get_logger
 
         logger = get_logger(__name__)
@@ -370,7 +371,7 @@ async def _get_practicing_events(graph_service: LessonGraphService, ku_uid: str)
         results = await graph_service.neo4j.execute_query(query, params)
         uids = [record["uid"] for record in results]
         return Result.ok(uids)
-    except Exception as e:
+    except (*NEO4J_EXCEPTIONS, TypeError, AttributeError) as e:
         from core.utils.logging import get_logger
 
         logger = get_logger(__name__)
@@ -390,7 +391,7 @@ async def _get_reinforcing_habits(graph_service: LessonGraphService, ku_uid: str
         results = await graph_service.neo4j.execute_query(query, params)
         uids = [record["uid"] for record in results]
         return Result.ok(uids)
-    except Exception as e:
+    except (*NEO4J_EXCEPTIONS, TypeError, AttributeError) as e:
         from core.utils.logging import get_logger
 
         logger = get_logger(__name__)

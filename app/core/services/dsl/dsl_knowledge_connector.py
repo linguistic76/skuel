@@ -33,6 +33,7 @@ from core.infrastructure.relationships.semantic_relationships import (
 )
 from core.models.enums.entity_enums import EntityType, NonKuDomain
 from core.services.dsl.activity_dsl_parser import ParsedActivityLine, ParsedJournal
+from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -581,7 +582,14 @@ class DSLConnectionExecutor:
                 )
             )
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
+            return Result.fail(
+                Errors.database(
+                    message=f"Failed to create edge: {e}",
+                    operation="create_knowledge_edge",
+                )
+            )
+        except Exception as e:  # safety-net: catch unexpected errors
             return Result.fail(
                 Errors.system(
                     message=f"Failed to create edge: {e}",
@@ -634,10 +642,18 @@ class DSLConnectionExecutor:
                 )
             )
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
+            return Result.fail(
+                Errors.database(
+                    message=f"Failed to create goal edge: {e}",
+                    operation="create_goal_edge",
+                )
+            )
+        except Exception as e:  # safety-net: catch unexpected errors
             return Result.fail(
                 Errors.system(
                     message=f"Failed to create goal edge: {e}",
+                    operation="create_goal_edge",
                     exception=e,
                 )
             )
@@ -686,10 +702,18 @@ class DSLConnectionExecutor:
                 )
             )
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
+            return Result.fail(
+                Errors.database(
+                    message=f"Failed to create principle edge: {e}",
+                    operation="create_principle_edge",
+                )
+            )
+        except Exception as e:  # safety-net: catch unexpected errors
             return Result.fail(
                 Errors.system(
                     message=f"Failed to create principle edge: {e}",
+                    operation="create_principle_edge",
                     exception=e,
                 )
             )

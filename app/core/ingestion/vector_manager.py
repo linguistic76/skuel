@@ -10,6 +10,7 @@ from datetime import date, datetime
 from enum import StrEnum
 from typing import Any
 
+from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -210,7 +211,7 @@ class VectorManager:
                 record = await result.single()
                 return Result.ok(record["uid"])
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to create vector: {e}")
             return Result.fail(
                 Errors.database(operation="create_vector", message=str(e), entity="vector")
@@ -266,7 +267,7 @@ class VectorManager:
                 )
                 return Result.ok(True)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to create vectorized edge: {e}")
             return Result.fail(
                 Errors.database(
@@ -321,7 +322,7 @@ class VectorManager:
 
                 return Result.ok(resultant)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to compute resultant: {e}")
             return Result.fail(
                 Errors.database(operation="compute_resultant", message=str(e), entity="vector")
@@ -397,7 +398,7 @@ class VectorManager:
 
                 return Result.ok(aligned)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to find aligned vectors: {e}")
             return Result.fail(
                 Errors.database(operation="find_aligned_vectors", message=str(e), entity="vector")
@@ -451,7 +452,7 @@ class VectorManager:
                     }
                 )
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to track vector progress: {e}")
             return Result.fail(
                 Errors.database(operation="track_vector_progress", message=str(e), entity="vector")

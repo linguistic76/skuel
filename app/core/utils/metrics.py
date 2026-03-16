@@ -109,7 +109,7 @@ def track_query_metrics(operation_name: str | None = None):
 
                 return result
 
-            except Exception:
+            except Exception:  # intentional-broad: metrics wrapper re-raises, must not filter
                 had_error = True
                 raise
 
@@ -134,7 +134,7 @@ def track_query_metrics(operation_name: str | None = None):
 
                 return result
 
-            except Exception:
+            except Exception:  # intentional-broad: metrics wrapper re-raises, must not filter
                 had_error = True
                 raise
 

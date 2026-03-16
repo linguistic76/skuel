@@ -32,6 +32,7 @@ from core.ports import BackendOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
 from core.utils.decorators import with_error_handling
+from core.utils.exception_types import FILE_IO_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
@@ -173,7 +174,7 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
             # Clean up file if Neo4j storage fails
             try:
                 Path(file_path).unlink()
-            except Exception as cleanup_error:
+            except OSError as cleanup_error:
                 self.logger.warning(f"Failed to clean up file after Neo4j error: {cleanup_error}")
 
             return create_result
@@ -295,7 +296,7 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
             self.logger.info(f"File stored: {file_path}")
             return Result.ok(file_path)
 
-        except Exception as e:
+        except FILE_IO_EXCEPTIONS as e:
             return Result.fail(
                 Errors.system(
                     message=f"Failed to store file: {e!s}", operation="store_file", exception=e
@@ -505,7 +506,7 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
                     ku_dir.rmdir()
                     self.logger.debug(f"Removed empty directory: {ku_dir}")
 
-            except Exception as e:
+            except OSError as e:
                 self.logger.warning(f"Failed to delete file {file_path}: {e}")
 
         self.logger.info(f"Submission deleted with file: {uid}")
@@ -546,7 +547,7 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
             content = file_path.read_bytes()
             return Result.ok(content)
 
-        except Exception as e:
+        except FILE_IO_EXCEPTIONS as e:
             return Result.fail(
                 Errors.system(
                     message=f"Failed to read file: {e!s}", operation="get_file_content", exception=e
@@ -592,7 +593,7 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
             content = file_path.read_bytes()
             return Result.ok(content)
 
-        except Exception as e:
+        except FILE_IO_EXCEPTIONS as e:
             return Result.fail(
                 Errors.system(
                     message=f"Failed to read processed file: {e!s}",

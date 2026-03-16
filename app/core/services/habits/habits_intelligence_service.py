@@ -850,7 +850,9 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
                     "event_type": "habit.timing.learned",
                 },
             )
-        except Exception as e:
+        except (
+            Exception
+        ) as e:  # intentional-broad: fire-and-forget event handler must not propagate
             self.logger.error(f"learn_from_completion failed (non-fatal): {e}")
 
     async def handle_habit_streak_broken(self, event: HabitStreakBroken) -> None:

@@ -37,6 +37,7 @@ from core.models.principle.principle_types import (
 # Protocol interfaces - Use main Operations protocols (not QueryOperations aliases)
 from core.ports.domain_protocols import GoalsOperations, HabitsOperations
 from core.utils.decorators import with_error_handling
+from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_principle_priority, get_timestamp
@@ -484,7 +485,7 @@ class PrinciplesAlignmentService:
                         evidence.append(f"Goal '{goal.title}' embodies this principle")
                         total_score += self._calculate_alignment_score(alignment)
                         count += 1
-            except Exception as e:
+            except (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
                 self.logger.debug(f"Could not check goals: {e}")
 
         # Check habits (if backend available)
@@ -501,7 +502,7 @@ class PrinciplesAlignmentService:
                         evidence.append(f"Habit '{habit.title}' practices this principle")
                         total_score += self._calculate_alignment_score(alignment)
                         count += 1
-            except Exception as e:
+            except (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
                 self.logger.debug(f"Could not check habits: {e}")
 
         # Calculate overall alignment

@@ -35,6 +35,7 @@ from core.models.habit.habit import Habit
 from core.models.lesson.lesson import Lesson
 from core.models.task.task import Task
 from core.utils.decorators import with_error_handling
+from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -179,8 +180,24 @@ class CrossDomainQueries:
 
             return Result.ok(knowledge_units)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to find knowledge for task: {e!s}", exc_info=True)
+            return Result.fail(
+                Errors.database(
+                    operation="find_knowledge_for_task", message=str(e), entity=task_uid
+                )
+            )
+        except (ValueError, TypeError, KeyError, AttributeError) as e:
+            self.logger.error(f"Failed to convert knowledge for task: {e!s}", exc_info=True)
+            return Result.fail(
+                Errors.database(
+                    operation="find_knowledge_for_task", message=str(e), entity=task_uid
+                )
+            )
+        except Exception as e:  # safety-net: catch unexpected errors
+            self.logger.error(
+                f"Failed to find knowledge for task (unexpected): {e!s}", exc_info=True
+            )
             return Result.fail(
                 Errors.database(
                     operation="find_knowledge_for_task", message=str(e), entity=task_uid

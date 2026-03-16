@@ -364,7 +364,9 @@ class PlanningMixin:
             # Weighted average
             return task_score * 0.5 + knowledge_score * 0.5
 
-        except Exception:
+        except (ValueError, TypeError, AttributeError, KeyError):
+            return 0.5  # Default to uncertain
+        except Exception:  # safety-net: catch unexpected errors
             return 0.5  # Default to uncertain
 
     def _calculate_relevance_score(
@@ -399,7 +401,9 @@ class PlanningMixin:
 
             return min(score, 1.0)
 
-        except Exception:
+        except (ValueError, TypeError, AttributeError, KeyError):
+            return 0.5
+        except Exception:  # safety-net: catch unexpected errors
             return 0.5
 
     def _is_completed(self, entity: Any, context: CoreIdentity) -> bool:
@@ -474,7 +478,9 @@ class PlanningMixin:
                         f"(70% needed, you have {int(current_mastery * 100)}%)"
                     )
 
-        except Exception as e:
+        except (ValueError, TypeError, AttributeError, KeyError) as e:
+            self.logger.warning(f"Error identifying blocking reasons: {e}")
+        except Exception as e:  # safety-net: catch unexpected errors
             self.logger.warning(f"Error identifying blocking reasons: {e}")
 
         return reasons

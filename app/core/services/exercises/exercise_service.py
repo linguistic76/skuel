@@ -33,6 +33,7 @@ from core.ports import get_enum_value
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
 from core.utils.decorators import with_error_handling
+from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, FILE_IO_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
@@ -228,7 +229,7 @@ class ExerciseService(BaseService):
             try:
                 exercise = Exercise(**props)
                 exercises.append(exercise)
-            except Exception as exc:
+            except DATA_CONVERSION_EXCEPTIONS as exc:
                 self.logger.warning(f"Failed to deserialize exercise: {exc}")
 
         self.logger.info(f"Found {len(exercises)} exercises for user {user_uid}")
@@ -346,7 +347,7 @@ class ExerciseService(BaseService):
             try:
                 exercise = Exercise(**props)
                 exercises.append(exercise)
-            except Exception as e:
+            except DATA_CONVERSION_EXCEPTIONS as e:
                 self.logger.warning(f"Failed to deserialize exercise: {e}")
 
         self.logger.info(f"Found {len(exercises)} exercises for student {user_uid}")
@@ -479,7 +480,15 @@ class ExerciseService(BaseService):
                     )
                 return exercise_result
 
-        except Exception as e:
+        except FILE_IO_EXCEPTIONS as e:
+            self.logger.error(f"Error loading exercise from file {file_path}: {e}")
+            return Result.fail(
+                Errors.system(
+                    f"Failed to load exercise from file: {e!s}",
+                    operation="load_project_from_file",
+                )
+            )
+        except Exception as e:  # safety-net: catch unexpected errors
             self.logger.error(f"Error loading exercise from file {file_path}: {e}")
             return Result.fail(
                 Errors.system(

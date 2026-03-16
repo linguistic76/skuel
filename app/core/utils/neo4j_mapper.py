@@ -23,6 +23,7 @@ from enum import Enum
 from typing import Any, TypeVar, Union, get_args, get_origin, get_type_hints
 
 from core.models.type_hints import Neo4jProperties
+from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS
 from core.utils.logging import get_logger
 
 T = TypeVar("T")
@@ -353,7 +354,7 @@ class Neo4jGenericMapper:
                 kwargs[field_name] = Neo4jGenericMapper._convert_value(
                     value, field_type, field_name
                 )
-            except Exception as e:
+            except DATA_CONVERSION_EXCEPTIONS as e:
                 # Log error and use raw value
                 logger.warning("Failed to convert field", field=field_name, error=str(e))
                 kwargs[field_name] = value

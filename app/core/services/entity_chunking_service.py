@@ -136,7 +136,14 @@ class EntityChunkingService:
 
         except ValueError as e:
             return Result.fail(Errors.validation(f"Invalid content: {e!s}", field="content_body"))
-        except Exception as e:
+        except (TypeError, AttributeError, KeyError) as e:
+            self.logger.error(f"Failed to process content: {e}")
+            return Result.fail(
+                Errors.system(
+                    f"Content processing failed: {e!s}", operation="process_content_for_ingestion"
+                )
+            )
+        except Exception as e:  # safety-net: catch unexpected errors
             self.logger.error(f"Failed to process content: {e}")
             return Result.fail(
                 Errors.system(
@@ -185,7 +192,12 @@ class EntityChunkingService:
 
         except ValueError as e:
             return Result.fail(Errors.validation(f"Invalid content: {e!s}", field="content_body"))
-        except Exception as e:
+        except (TypeError, AttributeError, KeyError) as e:
+            self.logger.error(f"Failed to process content: {e}")
+            return Result.fail(
+                Errors.system(f"Content processing failed: {e!s}", operation="process_ku_content")
+            )
+        except Exception as e:  # safety-net: catch unexpected errors
             self.logger.error(f"Failed to process content: {e}")
             return Result.fail(
                 Errors.system(f"Content processing failed: {e!s}", operation="process_ku_content")

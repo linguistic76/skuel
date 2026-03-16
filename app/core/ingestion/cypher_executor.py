@@ -16,6 +16,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, TypeVar
 
+from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -112,7 +113,7 @@ class CypherExecutor[T]:
             self.logger.debug(f"Executed {template.name}: {stats}")
             return Result.ok(stats)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Cypher execution failed: {e}")
             return Result.fail(
                 Errors.database(
@@ -177,7 +178,7 @@ class CypherExecutor[T]:
                     total_stats["batches_processed"] += 1
 
                     await tx.commit()
-                except Exception:
+                except NEO4J_EXCEPTIONS:
                     await tx.rollback()
                     raise
 
@@ -189,7 +190,7 @@ class CypherExecutor[T]:
             )
             return Result.ok(total_stats)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Batch execution failed: {e}")
             return Result.fail(
                 Errors.database(
@@ -219,7 +220,7 @@ class CypherExecutor[T]:
             self.logger.debug(f"Query {template.name} returned {len(records)} records")
             return Result.ok(records)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Query execution failed: {e}")
             return Result.fail(Errors.database(operation=f"query_{template.name}", message=str(e)))
 
@@ -255,7 +256,7 @@ class CypherExecutor[T]:
                             name = parts[idx + 1]
                             created.append(name)
                             self.logger.info(f"Constraint ensured: {name}")
-                except Exception as e:
+                except NEO4J_EXCEPTIONS as e:
                     # Constraint might already exist (older Neo4j versions)
                     if "already exists" in str(e).lower():
                         (self.logger.debug(f"Constraint already exists: {statement[:50]}..."),)
@@ -264,6 +265,6 @@ class CypherExecutor[T]:
 
             return Result.ok(created)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Constraint creation failed: {e}")
             return Result.fail(Errors.database(operation="create_constraints", message=str(e)))

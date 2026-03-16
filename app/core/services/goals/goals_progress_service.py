@@ -30,6 +30,7 @@ from core.services.goals.goal_relationships import GoalRelationships
 from core.services.infrastructure import ProgressCalculationHelper
 from core.services.user import UserContext
 from core.utils.dto_helpers import to_domain_model
+from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.result_simplified import Errors, Result
 
 # Type alias for rich goal data from UserContext
@@ -1044,11 +1045,11 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             for goal_uid in goal_uids:
                 try:
                     await self._update_goal_from_task_completion(goal_uid, event.user_uid)
-                except Exception as e:
+                except (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
                     self.logger.error(f"Failed to update goal {goal_uid} progress: {e}")
                     # Continue with other goals even if one fails
 
-        except Exception as e:
+        except (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
             self.logger.error(f"Error handling task_completed event for task {event.task_uid}: {e}")
 
     async def _update_goal_from_task_completion(self, goal_uid: str, user_uid: str) -> None:
@@ -1226,13 +1227,13 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
                         user_uid=event.user_uid,
                         current_streak=event.current_streak,
                     )
-                except Exception as e:
+                except (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
                     # Best-effort: Don't let one goal failure block others
                     self.logger.error(
                         f"Failed to update goal {goal_uid} from habit completion: {e}"
                     )
 
-        except Exception as e:
+        except (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
             # Best-effort: Log error but don't raise (prevent habit completion failure)
             self.logger.error(f"Error handling habit_completed event: {e}")
 

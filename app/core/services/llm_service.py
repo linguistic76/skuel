@@ -18,6 +18,7 @@ from typing import Any
 from core.config import get_openai_key
 from core.errors import ConfigurationError
 from core.ports.base_protocols import EnumLike
+from core.utils.exception_types import ANTHROPIC_EXCEPTIONS, OPENAI_EXCEPTIONS
 
 logger = logging.getLogger(__name__)
 
@@ -197,8 +198,13 @@ class LLMService:
                 model=self.config.model_name,
                 usage=response.usage.model_dump() if response.usage else None,
             )
-        except Exception as e:
+        except OPENAI_EXCEPTIONS as e:
             logger.error(f"OpenAI generation failed: {e}")
+            return LLMResponse(
+                content="", provider=LLMProvider.OPENAI, model=self.config.model_name, error=str(e)
+            )
+        except Exception as e:  # safety-net: catch unexpected errors
+            logger.error(f"OpenAI generation failed unexpectedly ({type(e).__name__}): {e}")
             return LLMResponse(
                 content="", provider=LLMProvider.OPENAI, model=self.config.model_name, error=str(e)
             )
@@ -231,8 +237,16 @@ class LLMService:
                 provider=LLMProvider.ANTHROPIC,
                 model=self.config.model_name,
             )
-        except Exception as e:
+        except ANTHROPIC_EXCEPTIONS as e:
             logger.error(f"Anthropic generation failed: {e}")
+            return LLMResponse(
+                content="",
+                provider=LLMProvider.ANTHROPIC,
+                model=self.config.model_name,
+                error=str(e),
+            )
+        except Exception as e:  # safety-net: catch unexpected errors
+            logger.error(f"Anthropic generation failed unexpectedly ({type(e).__name__}): {e}")
             return LLMResponse(
                 content="",
                 provider=LLMProvider.ANTHROPIC,

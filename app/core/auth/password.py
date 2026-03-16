@@ -96,7 +96,7 @@ def verify_password(password: str, password_hash: str) -> bool:
         # Verify
         return bcrypt.checkpw(password_bytes, hash_bytes)
 
-    except Exception as e:
+    except (ValueError, TypeError) as e:
         logger.error(f"Password verification error: {e}")
         return False
 

@@ -36,6 +36,7 @@ from typing import Any, Protocol, runtime_checkable
 from core.constants import QueryLimit
 from core.models.entity import Entity
 from core.models.enums import EntityStatus
+from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_days_until_review, get_theme_count
@@ -815,8 +816,17 @@ class AnalyticsMetricsService:
                 }
             )
 
-        except Exception as e:
+        except DATA_CONVERSION_EXCEPTIONS as e:
             logger.error(f"Failed to calculate knowledge metrics: {e}")
+            return Result.fail(
+                Errors.system(
+                    message="Knowledge metrics calculation failed",
+                    exception=e,
+                    operation="calculate_knowledge_metrics",
+                )
+            )
+        except Exception as e:  # safety-net: catch unexpected errors
+            logger.error(f"Unexpected error calculating knowledge metrics: {type(e).__name__}: {e}")
             return Result.fail(
                 Errors.system(
                     message="Knowledge metrics calculation failed",
@@ -930,8 +940,15 @@ class AnalyticsMetricsService:
                 }
             )
 
-        except Exception as e:
+        except DATA_CONVERSION_EXCEPTIONS as e:
             logger.error(f"Failed to calculate curriculum metrics: {e}")
+            return Result.fail(
+                Errors.system(message="Curriculum metrics calculation failed", exception=e)
+            )
+        except Exception as e:  # safety-net: catch unexpected errors
+            logger.error(
+                f"Unexpected error calculating curriculum metrics: {type(e).__name__}: {e}"
+            )
             return Result.fail(
                 Errors.system(message="Curriculum metrics calculation failed", exception=e)
             )
@@ -1043,8 +1060,17 @@ class AnalyticsMetricsService:
                 }
             )
 
-        except Exception as e:
+        except DATA_CONVERSION_EXCEPTIONS as e:
             logger.error(f"Failed to calculate journal metrics: {e}")
+            return Result.fail(
+                Errors.system(
+                    message="Journal metrics calculation failed",
+                    exception=e,
+                    operation="calculate_journal_metrics",
+                )
+            )
+        except Exception as e:  # safety-net: catch unexpected errors
+            logger.error(f"Unexpected error calculating journal metrics: {type(e).__name__}: {e}")
             return Result.fail(
                 Errors.system(
                     message="Journal metrics calculation failed",
@@ -1126,8 +1152,13 @@ class AnalyticsMetricsService:
 
             return journals
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             logger.warning(f"Failed to query journal assignments: {e}")
+            return []
+        except Exception as e:  # safety-net: catch unexpected errors
+            logger.warning(
+                f"Unexpected error querying journal assignments: {type(e).__name__}: {e}"
+            )
             return []
 
     # ========================================================================

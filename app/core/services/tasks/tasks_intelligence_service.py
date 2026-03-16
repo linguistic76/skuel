@@ -224,7 +224,9 @@ class TasksIntelligenceService(BaseAnalyticsService["TasksOperations", Task]):
                     "event_type": "task.duration.learned",
                 },
             )
-        except Exception as e:
+        except (
+            Exception
+        ) as e:  # intentional-broad: fire-and-forget event handler must not propagate
             self.logger.error(f"learn_from_completion failed (non-fatal): {e}")
 
     # ========================================================================

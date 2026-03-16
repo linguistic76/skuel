@@ -30,6 +30,7 @@ Usage:
 from typing import Any, ClassVar, Generic, TypeVar
 
 from core.events import publish_event
+from core.utils.exception_types import LLM_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_second_item
@@ -233,8 +234,8 @@ class BaseAIService(Generic[B, T]):
                 self.logger.error(f"Embedding generation failed: {result.error}")
                 return result
             return result
-        except Exception as e:
-            self.logger.error(f"Embedding generation failed: {e}")
+        except Exception as e:  # safety-net: embeddings service raises varied exceptions
+            self.logger.error(f"Embedding generation failed ({type(e).__name__}): {e}")
             return Result.fail(
                 Errors.integration(
                     message=f"Embedding generation failed: {e}",
@@ -277,8 +278,16 @@ class BaseAIService(Generic[B, T]):
 
             response = await self.llm.generate(full_prompt, max_tokens=max_tokens)
             return Result.ok(response)
-        except Exception as e:
+        except LLM_EXCEPTIONS as e:
             self.logger.error(f"LLM generation failed: {e}")
+            return Result.fail(
+                Errors.integration(
+                    message=f"LLM generation failed: {e}",
+                    service="llm",
+                )
+            )
+        except Exception as e:  # safety-net: catch unexpected errors
+            self.logger.error(f"LLM generation failed unexpectedly ({type(e).__name__}): {e}")
             return Result.fail(
                 Errors.integration(
                     message=f"LLM generation failed: {e}",
@@ -326,8 +335,8 @@ class BaseAIService(Generic[B, T]):
             # Sort by similarity and return top_k
             results.sort(key=get_second_item, reverse=True)
             return Result.ok(results[:top_k])
-        except Exception as e:
-            self.logger.error(f"Semantic search failed: {e}")
+        except Exception as e:  # safety-net: embeddings service raises varied exceptions
+            self.logger.error(f"Semantic search failed ({type(e).__name__}): {e}")
             return Result.fail(
                 Errors.integration(
                     message=f"Semantic search failed: {e}",

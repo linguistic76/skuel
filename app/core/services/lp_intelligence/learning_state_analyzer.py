@@ -480,7 +480,10 @@ class LearningStateAnalyzer:
                 return None
             return embedding_result.value
 
-        except Exception as e:
+        except (ValueError, TypeError, ConnectionError, TimeoutError) as e:
+            logger.warning(f"Failed to generate learning style vector: {e}")
+            return None
+        except Exception as e:  # safety-net: catch unexpected errors
             logger.warning(f"Failed to generate learning style vector: {e}")
             return None
 
@@ -522,7 +525,10 @@ class LearningStateAnalyzer:
                 "practical": 0.6,
             }
 
-        except Exception as e:
+        except (ValueError, TypeError, ConnectionError, TimeoutError) as e:
+            logger.warning(f"Failed to calculate content affinities: {e}")
+            return None
+        except Exception as e:  # safety-net: catch unexpected errors
             logger.warning(f"Failed to calculate content affinities: {e}")
             return None
 
@@ -553,6 +559,9 @@ class LearningStateAnalyzer:
         try:
             progress_result = await self.progress_backend.get_user_progress_summary(user_uid)
             return progress_result.value if progress_result.is_ok else None
-        except Exception as e:
+        except (ValueError, TypeError, AttributeError, KeyError) as e:
+            logger.warning(f"Progress backend unavailable: {e}")
+            return None
+        except Exception as e:  # safety-net: catch unexpected errors
             logger.warning(f"Progress backend unavailable: {e}")
             return None

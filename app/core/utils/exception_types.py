@@ -1,0 +1,133 @@
+"""
+Centralized Exception Type Groups
+==================================
+
+Reusable exception tuples for narrowing overly broad `except Exception` catches.
+Import the appropriate tuple and use it in place of bare `except Exception`.
+
+Usage:
+    from core.utils.exception_types import NEO4J_EXCEPTIONS, DATA_CONVERSION_EXCEPTIONS
+
+    try:
+        result = await self.backend.get(uid)
+    except NEO4J_EXCEPTIONS as e:
+        return Result.fail(Errors.database(operation="get", message=str(e)))
+    except Exception as e:  # safety-net: catch unexpected errors
+        logger.error(f"Unexpected {type(e).__name__}: {e}")
+        return Result.fail(Errors.system(message="Unexpected error", exception=e))
+
+See: /docs/patterns/ERROR_HANDLING.md
+"""
+
+from neo4j.exceptions import (
+    AuthError,
+    DriverError,
+    Neo4jError,
+    ServiceUnavailable,
+    SessionExpired,
+)
+
+# ============================================================================
+# DATABASE EXCEPTIONS
+# ============================================================================
+
+NEO4J_EXCEPTIONS = (Neo4jError, DriverError, ServiceUnavailable, SessionExpired, AuthError)
+"""Neo4j driver and query exceptions. Map to Errors.database()."""
+
+# ============================================================================
+# AI / LLM SERVICE EXCEPTIONS
+# ============================================================================
+
+# Import lazily to avoid hard dependency when AI services aren't configured
+try:
+    from openai import (
+        APIConnectionError as OpenAIConnectionError,
+        APIError as OpenAIAPIError,
+        APITimeoutError as OpenAITimeoutError,
+        RateLimitError as OpenAIRateLimitError,
+    )
+
+    OPENAI_EXCEPTIONS: tuple[type[BaseException], ...] = (
+        OpenAIAPIError,
+        OpenAIConnectionError,
+        OpenAITimeoutError,
+        OpenAIRateLimitError,
+    )
+except ImportError:
+    OPENAI_EXCEPTIONS = ()
+
+try:
+    from anthropic import (
+        APIConnectionError as AnthropicConnectionError,
+        APIError as AnthropicAPIError,
+        APITimeoutError as AnthropicTimeoutError,
+        RateLimitError as AnthropicRateLimitError,
+    )
+
+    ANTHROPIC_EXCEPTIONS: tuple[type[BaseException], ...] = (
+        AnthropicAPIError,
+        AnthropicConnectionError,
+        AnthropicTimeoutError,
+        AnthropicRateLimitError,
+    )
+except ImportError:
+    ANTHROPIC_EXCEPTIONS = ()
+
+LLM_EXCEPTIONS: tuple[type[BaseException], ...] = (*OPENAI_EXCEPTIONS, *ANTHROPIC_EXCEPTIONS)
+"""All LLM provider exceptions (OpenAI + Anthropic). Map to Errors.integration()."""
+
+# ============================================================================
+# FILE I/O EXCEPTIONS
+# ============================================================================
+
+FILE_IO_EXCEPTIONS = (FileNotFoundError, PermissionError, IsADirectoryError, OSError)
+"""File system exceptions. Map to Errors.system() or context-specific error."""
+
+# ============================================================================
+# PARSING EXCEPTIONS
+# ============================================================================
+
+import json
+import yaml  # type: ignore[import-untyped]
+
+YAML_EXCEPTIONS = (yaml.YAMLError,)
+"""YAML parsing exceptions."""
+
+JSON_EXCEPTIONS = (json.JSONDecodeError,)
+"""JSON parsing exceptions."""
+
+PARSING_EXCEPTIONS = (
+    ValueError,
+    KeyError,
+    json.JSONDecodeError,
+    yaml.YAMLError,
+)
+"""Content parsing exceptions (YAML, JSON, general value errors). Map to Errors.validation()."""
+
+# ============================================================================
+# DATA CONVERSION EXCEPTIONS
+# ============================================================================
+
+DATA_CONVERSION_EXCEPTIONS = (ValueError, TypeError, AttributeError, KeyError, ZeroDivisionError)
+"""Data transformation and conversion exceptions. Map to Errors.validation() or Errors.system()."""
+
+# ============================================================================
+# CONFIG EXCEPTIONS
+# ============================================================================
+
+CONFIG_EXCEPTIONS = (
+    FileNotFoundError,
+    json.JSONDecodeError,
+    ValueError,
+    OSError,
+    KeyError,
+    TypeError,
+)
+"""Configuration loading exceptions. Map to Errors.system()."""
+
+# ============================================================================
+# AUTH EXCEPTIONS
+# ============================================================================
+
+AUTH_EXCEPTIONS = (ValueError, TypeError)
+"""Authentication/authorization data exceptions (non-database). Map to Errors.validation()."""

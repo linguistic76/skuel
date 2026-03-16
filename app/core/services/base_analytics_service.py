@@ -34,6 +34,7 @@ from typing import Any, ClassVar, Generic, TypeVar
 
 from core.events import publish_event
 from core.models.shared.dual_track import DualTrackResult
+from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
@@ -329,7 +330,7 @@ class BaseAnalyticsService(Generic[B, T]):
                             context = from_dict_method(raw_context)
                         else:
                             context = raw_context
-                except Exception as e:
+                except (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
                     self.logger.warning(f"Failed to get context for {uid}: {e}")
 
         # 3. Calculate metrics
@@ -337,7 +338,9 @@ class BaseAnalyticsService(Generic[B, T]):
         if context:
             try:
                 metrics = metrics_fn(entity, context)
-            except Exception as e:
+            except (
+                Exception
+            ) as e:  # safety-net: catch unexpected errors from caller-provided metrics_fn
                 self.logger.warning(f"Failed to calculate metrics for {uid}: {e}")
 
         # 4. Generate recommendations (optional)
@@ -345,7 +348,9 @@ class BaseAnalyticsService(Generic[B, T]):
         if recommendations_fn and context:
             try:
                 recommendations = recommendations_fn(entity, context, metrics)
-            except Exception as e:
+            except (
+                Exception
+            ) as e:  # safety-net: catch unexpected errors from caller-provided recommendations_fn
                 self.logger.warning(f"Failed to generate recommendations for {uid}: {e}")
 
         # 5. Return structured result
@@ -438,7 +443,9 @@ class BaseAnalyticsService(Generic[B, T]):
         # 3. Calculate system alignment
         try:
             system_level, system_score, system_evidence = await system_calculator(entity, user_uid)
-        except Exception as e:
+        except (
+            Exception
+        ) as e:  # safety-net: catch unexpected errors from caller-provided system_calculator
             self.logger.error(f"System calculation failed for {uid}: {e}")
             return Result.fail(
                 Errors.system(message=f"System calculation failed: {e}", operation="dual_track")
@@ -473,7 +480,9 @@ class BaseAnalyticsService(Generic[B, T]):
                     "user_reflection": user_reflection,
                 }
                 await store_callback(uid, assessment_data)
-            except Exception as e:
+            except (
+                Exception
+            ) as e:  # safety-net: catch unexpected errors from caller-provided store_callback
                 self.logger.warning(f"Failed to store assessment for {uid}: {e}")
 
         # 9. Build and return DualTrackResult

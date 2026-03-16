@@ -45,7 +45,7 @@ def _get_neo4j_password() -> str:
 
         password = get_credential("NEO4J_PASSWORD", fallback_to_env=True)
         return password or ""
-    except Exception:
+    except (ImportError, ValueError, OSError):
         # Fallback to env if credential store fails
         return os.getenv("NEO4J_PASSWORD", "")
 

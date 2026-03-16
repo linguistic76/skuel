@@ -13,6 +13,7 @@ from typing import Any
 
 import yaml
 
+from core.utils.exception_types import FILE_IO_EXCEPTIONS
 from core.utils.frontmatter import split_frontmatter
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -134,7 +135,7 @@ def parse_markdown(
 
         return Result.ok((frontmatter, body))
 
-    except Exception as e:
+    except FILE_IO_EXCEPTIONS as e:
         return Result.fail(
             Errors.system(
                 f"Failed to parse markdown: {e}",
@@ -197,7 +198,7 @@ def parse_yaml(
                 user_message=f"File {file_path.name} has YAML syntax error{location_info}",
             )
         )
-    except Exception as e:
+    except FILE_IO_EXCEPTIONS as e:
         return Result.fail(
             Errors.system(
                 f"Failed to parse YAML: {e}",

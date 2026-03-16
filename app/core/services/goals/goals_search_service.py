@@ -31,6 +31,7 @@ from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.user import UserContext
 from core.utils.decorators import with_error_handling
+from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_result_score
 from core.utils.timestamp_helpers import score_deadline_proximity
@@ -379,7 +380,7 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
                 direction="outgoing",
             )
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Get goals for task failed: {e}")
             return Result.fail(Errors.database(operation="get_goals_for_task", message=str(e)))
 
@@ -402,7 +403,7 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
                 direction="outgoing",
             )
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Get goals for habit failed: {e}")
             return Result.fail(Errors.database(operation="get_goals_for_habit", message=str(e)))
 
@@ -425,7 +426,7 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
                 direction="incoming",
             )
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Get sub goals failed: {e}")
             return Result.fail(Errors.database(operation="get_sub_goals", message=str(e)))
 

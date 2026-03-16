@@ -9,6 +9,7 @@ Simple wrapper for AI completions used by:
 Supports both OpenAI and Anthropic models.
 """
 
+from core.utils.exception_types import ANTHROPIC_EXCEPTIONS, OPENAI_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -91,8 +92,15 @@ class OpenAIService:
 
             return Result.ok(completion)
 
-        except Exception as e:
+        except OPENAI_EXCEPTIONS as e:
             self.logger.error(f"OpenAI API error: {e}")
+            return Result.fail(
+                Errors.integration(
+                    service="OpenAI", operation="generate_completion", message=str(e)
+                )
+            )
+        except Exception as e:  # safety-net: catch unexpected errors
+            self.logger.error(f"OpenAI unexpected error ({type(e).__name__}): {e}")
             return Result.fail(
                 Errors.integration(
                     service="OpenAI", operation="generate_completion", message=str(e)
@@ -156,8 +164,15 @@ class AnthropicService:
 
             return Result.ok(completion)
 
-        except Exception as e:
+        except ANTHROPIC_EXCEPTIONS as e:
             self.logger.error(f"Anthropic API error: {e}")
+            return Result.fail(
+                Errors.integration(
+                    service="Anthropic", operation="generate_completion", message=str(e)
+                )
+            )
+        except Exception as e:  # safety-net: catch unexpected errors
+            self.logger.error(f"Anthropic unexpected error ({type(e).__name__}): {e}")
             return Result.fail(
                 Errors.integration(
                     service="Anthropic", operation="generate_completion", message=str(e)

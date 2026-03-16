@@ -19,6 +19,7 @@ from typing import Any, TypedDict
 
 from core.constants import ConfidenceLevel, InferenceConfidence
 from core.models.task.task_dto import TaskDTO
+from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -270,8 +271,19 @@ class AdvancedInferenceEngine:
 
             return Result.ok(merged_patterns)
 
-        except Exception as e:
+        except DATA_CONVERSION_EXCEPTIONS as e:
             self.logger.error("Advanced content analysis failed: %s", str(e))
+            return Result.fail(
+                Errors.system(
+                    message="Advanced content analysis failed",
+                    exception=e,
+                    operation="analyze_content_advanced",
+                    entity_type=entity_type,
+                    content_length=len(title) + len(description),
+                )
+            )
+        except Exception as e:  # safety-net: catch unexpected errors
+            self.logger.error("Unexpected error in content analysis: %s: %s", type(e).__name__, e)
             return Result.fail(
                 Errors.system(
                     message="Advanced content analysis failed",
@@ -533,7 +545,19 @@ class AdvancedInferenceEngine:
 
             return Result.ok(relationships)
 
-        except Exception as e:
+        except DATA_CONVERSION_EXCEPTIONS as e:
+            return Result.fail(
+                Errors.system(
+                    message="Cross-domain relationship discovery failed",
+                    exception=e,
+                    operation="discover_cross_domain_relationships",
+                    pattern_count=len(detected_patterns),
+                )
+            )
+        except Exception as e:  # safety-net: catch unexpected errors
+            self.logger.error(
+                "Unexpected error in cross-domain discovery: %s: %s", type(e).__name__, e
+            )
             return Result.fail(
                 Errors.system(
                     message="Cross-domain relationship discovery failed",
@@ -705,7 +729,19 @@ class AdvancedInferenceEngine:
 
             return Result.ok(task_dto)
 
-        except Exception as e:
+        except DATA_CONVERSION_EXCEPTIONS as e:
+            return Result.fail(
+                Errors.system(
+                    message="Advanced inference enhancement failed",
+                    exception=e,
+                    operation="enhance_task_dto_with_advanced_inference",
+                    task_title=task_dto.title,
+                )
+            )
+        except Exception as e:  # safety-net: catch unexpected errors
+            self.logger.error(
+                "Unexpected error in inference enhancement: %s: %s", type(e).__name__, e
+            )
             return Result.fail(
                 Errors.system(
                     message="Advanced inference enhancement failed",

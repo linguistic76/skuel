@@ -20,6 +20,7 @@ from core.models.relationship_names import RelationshipName
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
 from core.utils.decorators import with_error_handling
+from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
@@ -184,7 +185,7 @@ class GroupService(BaseService):
             try:
                 group = Group(**props)
                 groups.append(group)
-            except Exception as e:
+            except DATA_CONVERSION_EXCEPTIONS as e:
                 self.logger.warning(f"Failed to deserialize group: {e}")
 
         return Result.ok(groups)
@@ -445,5 +446,7 @@ async def _publish_event(event_bus: Any, event: Any, event_logger: Any) -> None:
     """Publish event with error handling."""
     try:
         await event_bus.publish(event)
-    except Exception as e:
+    except (ValueError, TypeError, AttributeError) as e:
+        event_logger.warning(f"Failed to publish {event.event_type}: {e}")
+    except Exception as e:  # safety-net: catch unexpected errors
         event_logger.warning(f"Failed to publish {event.event_type}: {e}")

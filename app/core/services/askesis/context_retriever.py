@@ -40,6 +40,7 @@ from core.models.askesis.ls_bundle import LSBundle
 from core.models.enums import Domain
 from core.models.query_types import QueryIntent
 from core.utils.decorators import requires_graph_intelligence, with_error_handling
+from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -427,8 +428,16 @@ class ContextRetriever:
         ku_uids_list = [k.uid for k in kus]
         try:
             resources = await self._fetch_cited_resources(lesson_uids + ku_uids_list)
-        except Exception as exc:
+        except NEO4J_EXCEPTIONS as exc:
             logger.warning("LS bundle fetch failed for resources (user %s): %s", user_uid, exc)
+            resources = []
+        except Exception as exc:  # safety-net: catch unexpected errors
+            logger.warning(
+                "LS bundle fetch failed for resources (user %s, %s): %s",
+                user_uid,
+                type(exc).__name__,
+                exc,
+            )
             resources = []
 
         # Step 4: Collect learning objectives from lessons
@@ -502,8 +511,11 @@ class ContextRetriever:
                 if getattr(dto, key, _SENTINEL) is not _SENTINEL:
                     setattr(dto, key, value)
             return LearningStep.from_dto(dto)
-        except Exception:
+        except DATA_CONVERSION_EXCEPTIONS:
             logger.warning("Failed to build LearningStep from data: %s", uid)
+            return None
+        except Exception:  # safety-net: catch unexpected errors
+            logger.warning("Failed to build LearningStep from data (unexpected): %s", uid)
             return None
 
     async def _fetch_lessons(
@@ -652,8 +664,12 @@ class ContextRetriever:
                     if getattr(dto, key, _SENTINEL) is not _SENTINEL:
                         setattr(dto, key, value)
                 resources.append(Resource.from_dto(dto))
-            except Exception:
+            except DATA_CONVERSION_EXCEPTIONS:
                 logger.debug("Could not build Resource from graph data: %s", props.get("uid"))
+            except Exception:  # safety-net: catch unexpected errors
+                logger.debug(
+                    "Could not build Resource from graph data (unexpected): %s", props.get("uid")
+                )
 
         return resources
 

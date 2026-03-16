@@ -25,6 +25,12 @@ import yaml
 
 from core.ingestion.bulk_ingestion import BulkIngestionEngine
 from core.models.enums.entity_enums import EntityType, NonKuDomain
+from core.utils.exception_types import (
+    DATA_CONVERSION_EXCEPTIONS,
+    FILE_IO_EXCEPTIONS,
+    NEO4J_EXCEPTIONS,
+    PARSING_EXCEPTIONS,
+)
 from core.utils.frontmatter import split_frontmatter
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -248,7 +254,7 @@ def parse_file_sync(
         # Stage 5: Data preparation
         try:
             entity_data = prepare_entity_data(entity_type, data, body, file_path, default_user_uid)
-        except Exception as e:
+        except DATA_CONVERSION_EXCEPTIONS as e:
             error = create_error(
                 file_path=file_path,
                 error=f"Failed to prepare entity data: {e}",
@@ -286,7 +292,17 @@ def parse_file_sync(
             suggestion="Use .md, .yaml, or .yml file extension.",
         )
         return (None, None, error.to_dict())
-    except Exception as e:
+    except FILE_IO_EXCEPTIONS as e:
+        error = create_error(
+            file_path=file_path,
+            error=str(e),
+            stage="file_io",
+            error_type="system",
+            entity_type=entity_type_str,
+            suggestion="Check file permissions and encoding (UTF-8).",
+        )
+        return (None, None, error.to_dict())
+    except Exception as e:  # safety-net: catch unexpected errors
         error = create_error(
             file_path=file_path,
             error=str(e),
@@ -329,7 +345,16 @@ async def parse_file_for_batch(
                 default_user_uid,
                 max_file_size_bytes,
             )
-        except Exception as e:
+        except (OSError, RuntimeError) as e:
+            error = create_error(
+                file_path=file_path,
+                error=str(e),
+                stage="thread_dispatch",
+                error_type="system",
+                suggestion="Thread pool or file system error. Check file format and encoding.",
+            )
+            return (None, None, error.to_dict())
+        except Exception as e:  # safety-net: catch unexpected errors
             error = create_error(
                 file_path=file_path,
                 error=str(e),
@@ -388,7 +413,7 @@ async def _ingest_edge_batch(
                     error_type="not_found",
                 )
                 errors.append(edge_error.to_dict())
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             edge_error = IngestionError(
                 file=props.get("source_file", "<edge>"),
                 error=str(e),
@@ -912,9 +937,26 @@ async def ingest_bundle(
 
         return Result.ok(stats)
 
-    except Exception as e:
+    except (*FILE_IO_EXCEPTIONS, *PARSING_EXCEPTIONS) as e:
         logger.error(
             "Failed to ingest bundle - returning error",
+            extra={
+                "bundle_path": str(bundle_path),
+                "error_type": type(e).__name__,
+                "error_message": str(e),
+            },
+            exc_info=True,
+        )
+        return Result.fail(
+            Errors.system(
+                f"Bundle ingestion failed: {e}",
+                operation="ingest_bundle",
+                details={"path": str(bundle_path)},
+            )
+        )
+    except Exception as e:  # safety-net: catch unexpected errors
+        logger.error(
+            "Failed to ingest bundle - unexpected error",
             extra={
                 "bundle_path": str(bundle_path),
                 "error_type": type(e).__name__,
@@ -972,7 +1014,7 @@ def find_entity_file(
             data = yaml.safe_load(content)
             if data and normalize_uid(data.get("uid", "")) == normalized_uid:
                 return yaml_file
-        except Exception as e:
+        except (*FILE_IO_EXCEPTIONS, *PARSING_EXCEPTIONS) as e:
             # Log but continue searching - file may be malformed but others may match
             logger.debug(
                 "Error reading YAML file during entity search",
@@ -995,7 +1037,7 @@ def find_entity_file(
                 frontmatter = yaml.safe_load(raw_yaml)
                 if frontmatter and normalize_uid(frontmatter.get("uid", "")) == normalized_uid:
                     return md_file
-        except Exception as e:
+        except (*FILE_IO_EXCEPTIONS, *PARSING_EXCEPTIONS) as e:
             # Log but continue searching - file may be malformed but others may match
             logger.debug(
                 "Error reading markdown file during entity search",
