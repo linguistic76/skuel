@@ -47,7 +47,7 @@ Service Composition:
     compose_services() delegates to helper functions for readability:
     - _create_activity_services() — 6 Activity Domain facades
     - _create_learning_services() — Curriculum services (Lesson, KU, LS, LP)
-    - _create_core_services() — Finance, Transcription
+    - _create_core_services() — Finance, Transcription, User passthrough
     - _create_orchestration_services() — GoalTaskGenerator, HabitEventScheduler
     - _create_advanced_services() — CalendarOptimization, JupyterSync, etc.
     - _wire_ai_services() — 12 AI services into domain facades (FULL tier)
@@ -495,44 +495,28 @@ class Services:
 
 
 def _create_core_services(
-    tasks_backend: Any,
-    events_backend: Any,
     finance_backend: Any,
     invoice_backend: Any,
-    habits_backend: Any,
-    habit_completions_backend: Any,
     transcription_backend: Any,
     user_service: Any,
     deepgram_api_key: str,  # REQUIRED for audio transcription (fail-fast)
     event_bus: Any = None,
-    graph_intelligence=None,
-    ku_inference_service=None,
-    analytics_engine=None,
-    ku_generation_service=None,
 ) -> dict[str, Any]:
-    """Create core productivity services.
+    """Create non-Activity, non-Learning core services (Finance, Transcription, User).
+
+    Activity Domain services are created by _create_activity_services().
+    Learning services are created by _create_learning_services().
 
     Args:
-        tasks_backend: UniversalNeo4jBackend[Task] (label=NeoLabel.TASK),
-        events_backend: UniversalNeo4jBackend[Event] (label=NeoLabel.EVENT),
-        finance_backend: UniversalNeo4jBackend[ExpensePure],
-        invoice_backend: UniversalNeo4jBackend[InvoicePure],
-        habits_backend: UniversalNeo4jBackend[Habit],
-        habit_completions_backend: UniversalNeo4jBackend[HabitCompletion],
-        transcription_backend: UniversalNeo4jBackend[Transcription],
-        user_service: UserService for context operations (REQUIRED),
-        event_bus: Event bus for publishing domain events (optional),
-        graph_intelligence: GraphIntelligenceService for -4 queries (optional),
-        ku_inference_service: EntityInferenceService for knowledge inference (optional),
-        analytics_engine: AnalyticsEngine for advanced analytics (optional),
-        ku_generation_service: InsightGenerationService for knowledge generation (optional),
+        finance_backend: UniversalNeo4jBackend[ExpensePure]
+        invoice_backend: UniversalNeo4jBackend[InvoicePure]
+        transcription_backend: UniversalNeo4jBackend[Transcription]
+        user_service: UserService for context operations (REQUIRED)
         deepgram_api_key: Deepgram API key for audio transcription (REQUIRED)
+        event_bus: Event bus for publishing domain events (optional)
     """
     from adapters.external.deepgram import DeepgramAdapter
-    from core.services.events_service import EventsService
     from core.services.finance_service import FinanceService
-    from core.services.habits_service import HabitsService
-    from core.services.tasks_service import TasksService
     from core.services.transcription import TranscriptionService
 
     # Create DeepgramAdapter (REQUIRED - fail-fast if key missing)
@@ -540,29 +524,10 @@ def _create_core_services(
     deepgram_adapter = DeepgramAdapter(deepgram_api_key, timeout=120.0)
 
     return {
-        "tasks": TasksService(
-            backend=tasks_backend,
-            ku_inference_service=ku_inference_service,
-            analytics_engine=analytics_engine,
-            ku_generation_service=ku_generation_service,
-            graph_intelligence_service=graph_intelligence,
-            event_bus=event_bus,  # Event-driven architecture
-        ),
-        "events": EventsService(
-            backend=events_backend,
-            graph_intelligence_service=graph_intelligence,  # Required for relationship service
-            event_bus=event_bus,  # Event-driven architecture
-        ),
         "finance": FinanceService(
             backend=finance_backend,
             event_bus=event_bus,  # Event-driven architecture
             invoice_backend=invoice_backend,  # Invoice management
-        ),
-        "habits": HabitsService(
-            backend=habits_backend,
-            graph_intelligence_service=graph_intelligence,  # REQUIRED for relationship service
-            completions_backend=habit_completions_backend,  # REQUIRED - fail-fast
-            event_bus=event_bus,  # Event-driven architecture
         ),
         "transcription": TranscriptionService(
             backend=transcription_backend,
@@ -1090,150 +1055,74 @@ def _wire_event_subscribers(
     from core.events.transcription_events import TranscriptionCompleted
 
     # ── Context invalidation handlers ───────────────────────────────────────
+    # Two handlers: one for events that guarantee user_uid, one for events
+    # where user_uid may be absent (curriculum/learning events).
 
-    async def invalidate_context_on_task_event(event) -> None:
-        """Invalidate user context when task events occur."""
-        logger.debug(f"Task event received: {event.__class__.__name__} for user {event.user_uid}")
+    async def invalidate_context(event) -> None:
+        """Invalidate user context cache when any domain event with user_uid fires."""
+        logger.debug(f"Context invalidation: {event.__class__.__name__} for user {event.user_uid}")
         await user_service.invalidate_context(event.user_uid)
 
-    async def invalidate_context_on_goal_event(event) -> None:
-        """Invalidate user context when goal events occur."""
-        logger.debug(f"Goal event received: {event.__class__.__name__} for user {event.user_uid}")
-        await user_service.invalidate_context(event.user_uid)
-
-    async def invalidate_context_on_habit_event(event) -> None:
-        """Invalidate user context when habit events occur."""
-        logger.debug(f"Habit event received: {event.__class__.__name__} for user {event.user_uid}")
-        await user_service.invalidate_context(event.user_uid)
-
-    async def invalidate_context_on_principle_event(event) -> None:
-        """Invalidate user context when principle events occur."""
-        logger.debug(
-            f"Principle event received: {event.__class__.__name__} for user {event.user_uid}"
-        )
-        await user_service.invalidate_context(event.user_uid)
-
-    async def invalidate_context_on_choice_event(event) -> None:
-        """Invalidate user context when choice events occur."""
-        logger.debug(f"Choice event received: {event.__class__.__name__} for user {event.user_uid}")
-        await user_service.invalidate_context(event.user_uid)
-
-    async def invalidate_context_on_calendar_event(event) -> None:
-        """Invalidate user context when calendar event events occur."""
-        logger.debug(
-            f"Calendar event received: {event.__class__.__name__} for user {event.user_uid}"
-        )
-        await user_service.invalidate_context(event.user_uid)
-
-    async def invalidate_context_on_finance_event(event) -> None:
-        """Invalidate user context when finance events occur."""
-        logger.debug(
-            f"Finance event received: {event.__class__.__name__} for user {event.user_uid}"
-        )
-        await user_service.invalidate_context(event.user_uid)
-
-    # NOTE: invalidate_context_on_journal_event REMOVED (February 2026)
-    # Journal merged into Reports — context invalidation via report events
-
-    async def invalidate_context_on_learning_event(event) -> None:
-        """Invalidate user context when learning events occur."""
-        # All learning events should have user_uid
+    async def invalidate_context_if_user(event) -> None:
+        """Invalidate user context for events that may lack user_uid (curriculum events)."""
         user_uid = getattr(event, "user_uid", None)
         if user_uid:
-            logger.debug(f"Learning event received: {event.__class__.__name__} for user {user_uid}")
+            logger.debug(f"Context invalidation: {event.__class__.__name__} for user {user_uid}")
             await user_service.invalidate_context(user_uid)
-
-    async def invalidate_context_on_ls_event(event) -> None:
-        """Invalidate user context when learning step events occur."""
-        # LS events may have user_uid for user-specific progress
-        user_uid = getattr(event, "user_uid", None)
-        if user_uid:
-            logger.debug(
-                f"Learning step event received: {event.__class__.__name__} for user {user_uid}"
-            )
-            await user_service.invalidate_context(user_uid)
-
-    # NOTE: invalidate_context_on_moc_event removed (January 2026) - MOC is now KU-based
 
     # ── Context invalidation subscriptions ──────────────────────────────────
+    # All user-owned domain events guarantee user_uid on the event object.
 
-    # Subscribe to task events
-    event_bus.subscribe(TaskCreated, invalidate_context_on_task_event)
-    event_bus.subscribe(TaskCompleted, invalidate_context_on_task_event)
-    event_bus.subscribe(TaskUpdated, invalidate_context_on_task_event)
-    event_bus.subscribe(TaskDeleted, invalidate_context_on_task_event)
-    event_bus.subscribe(TaskPriorityChanged, invalidate_context_on_task_event)
+    # Activity Domain + Finance events (user_uid guaranteed)
+    activity_context_events = [
+        # Tasks
+        TaskCreated,
+        TaskCompleted,
+        TaskUpdated,
+        TaskDeleted,
+        TaskPriorityChanged,
+        # Goals
+        GoalCreated,
+        GoalAchieved,
+        GoalAbandoned,
+        GoalMilestoneReached,
+        GoalProgressUpdated,
+        # Habits
+        HabitCreated,
+        HabitCompleted,
+        HabitCompletionBulk,
+        HabitMissed,
+        HabitStreakBroken,
+        HabitStreakMilestone,
+        # Principles
+        PrincipleCreated,
+        PrincipleUpdated,
+        PrincipleDeleted,
+        PrincipleStrengthChanged,
+        PrincipleAlignmentAssessed,
+        # Choices
+        ChoiceCreated,
+        ChoiceUpdated,
+        ChoiceDeleted,
+        ChoiceMade,
+        ChoiceOutcomeRecorded,
+        # Calendar Events
+        CalendarEventCreated,
+        CalendarEventUpdated,
+        CalendarEventCompleted,
+        CalendarEventDeleted,
+        CalendarEventRescheduled,
+        # Finance
+        ExpenseCreated,
+        ExpenseUpdated,
+        ExpenseDeleted,
+        ExpensePaid,
+    ]
+    for event_type in activity_context_events:
+        event_bus.subscribe(event_type, invalidate_context)
     logger.info(
-        "✅ UserService subscribed to task events "
-        "(TaskCreated, TaskCompleted, TaskUpdated, TaskDeleted, TaskPriorityChanged)"
+        f"✅ UserService subscribed to {len(activity_context_events)} activity/domain context events"
     )
-
-    # Subscribe to goal events
-    event_bus.subscribe(GoalCreated, invalidate_context_on_goal_event)
-    event_bus.subscribe(GoalAchieved, invalidate_context_on_goal_event)
-    event_bus.subscribe(GoalAbandoned, invalidate_context_on_goal_event)
-    event_bus.subscribe(GoalMilestoneReached, invalidate_context_on_goal_event)
-    event_bus.subscribe(GoalProgressUpdated, invalidate_context_on_goal_event)
-    logger.info(
-        "✅ UserService subscribed to goal events "
-        "(GoalCreated, GoalAchieved, GoalAbandoned, GoalMilestoneReached, GoalProgressUpdated)"
-    )
-
-    # Subscribe to habit events
-    event_bus.subscribe(HabitCreated, invalidate_context_on_habit_event)
-    event_bus.subscribe(HabitCompleted, invalidate_context_on_habit_event)
-    event_bus.subscribe(HabitCompletionBulk, invalidate_context_on_habit_event)
-    event_bus.subscribe(HabitMissed, invalidate_context_on_habit_event)
-    event_bus.subscribe(HabitStreakBroken, invalidate_context_on_habit_event)
-    event_bus.subscribe(HabitStreakMilestone, invalidate_context_on_habit_event)
-    logger.info(
-        "✅ UserService subscribed to habit events "
-        "(HabitCreated, HabitCompleted, HabitCompletionBulk, HabitMissed, HabitStreakBroken, HabitStreakMilestone)"
-    )
-
-    # Subscribe to principle events
-    event_bus.subscribe(PrincipleCreated, invalidate_context_on_principle_event)
-    event_bus.subscribe(PrincipleUpdated, invalidate_context_on_principle_event)
-    event_bus.subscribe(PrincipleDeleted, invalidate_context_on_principle_event)
-    event_bus.subscribe(PrincipleStrengthChanged, invalidate_context_on_principle_event)
-    event_bus.subscribe(PrincipleAlignmentAssessed, invalidate_context_on_principle_event)
-    logger.info(
-        "✅ UserService subscribed to principle events "
-        "(PrincipleCreated, PrincipleUpdated, PrincipleDeleted, PrincipleStrengthChanged, PrincipleAlignmentAssessed)"
-    )
-
-    # Subscribe to choice events
-    event_bus.subscribe(ChoiceCreated, invalidate_context_on_choice_event)
-    event_bus.subscribe(ChoiceUpdated, invalidate_context_on_choice_event)
-    event_bus.subscribe(ChoiceDeleted, invalidate_context_on_choice_event)
-    event_bus.subscribe(ChoiceMade, invalidate_context_on_choice_event)
-    event_bus.subscribe(ChoiceOutcomeRecorded, invalidate_context_on_choice_event)
-    logger.info(
-        "✅ UserService subscribed to choice events "
-        "(ChoiceCreated, ChoiceUpdated, ChoiceDeleted, ChoiceMade, ChoiceOutcomeRecorded)"
-    )
-
-    # Subscribe to calendar event events
-    event_bus.subscribe(CalendarEventCreated, invalidate_context_on_calendar_event)
-    event_bus.subscribe(CalendarEventUpdated, invalidate_context_on_calendar_event)
-    event_bus.subscribe(CalendarEventCompleted, invalidate_context_on_calendar_event)
-    event_bus.subscribe(CalendarEventDeleted, invalidate_context_on_calendar_event)
-    event_bus.subscribe(CalendarEventRescheduled, invalidate_context_on_calendar_event)
-    logger.info(
-        "✅ UserService subscribed to calendar event events (CalendarEventCreated, CalendarEventUpdated, CalendarEventCompleted, CalendarEventDeleted, CalendarEventRescheduled)"
-    )
-
-    # Subscribe to finance events
-    event_bus.subscribe(ExpenseCreated, invalidate_context_on_finance_event)
-    event_bus.subscribe(ExpenseUpdated, invalidate_context_on_finance_event)
-    event_bus.subscribe(ExpenseDeleted, invalidate_context_on_finance_event)
-    event_bus.subscribe(ExpensePaid, invalidate_context_on_finance_event)
-    logger.info(
-        "✅ UserService subscribed to finance events (ExpenseCreated, ExpenseUpdated, ExpenseDeleted, ExpensePaid)"
-    )
-
-    # NOTE: Journal event subscriptions REMOVED (February 2026)
-    # Journal merged into Reports — context invalidation via report events
 
     # Subscribe to transcription events for automatic journal-type report creation
     event_bus.subscribe(
@@ -1277,30 +1166,23 @@ def _wire_event_subscribers(
         "SubmissionApproved + SubmissionRevisionRequested (student notifications)"
     )
 
-    # Subscribe to learning events
-    event_bus.subscribe(KnowledgeCreated, invalidate_context_on_learning_event)
-    event_bus.subscribe(KnowledgeMastered, invalidate_context_on_learning_event)
-    event_bus.subscribe(LearningPathStarted, invalidate_context_on_learning_event)
-    event_bus.subscribe(LearningPathCompleted, invalidate_context_on_learning_event)
-    event_bus.subscribe(LearningPathProgressUpdated, invalidate_context_on_learning_event)
+    # Learning events (user_uid may be absent on curriculum-level events)
+    learning_context_events = [
+        KnowledgeCreated,
+        KnowledgeMastered,
+        LearningPathStarted,
+        LearningPathCompleted,
+        LearningPathProgressUpdated,
+        LearningStepCreated,
+        LearningStepUpdated,
+        LearningStepDeleted,
+        LearningStepCompleted,
+    ]
+    for event_type in learning_context_events:
+        event_bus.subscribe(event_type, invalidate_context_if_user)
     logger.info(
-        "✅ UserService subscribed to learning events "
-        "(KnowledgeCreated, KnowledgeMastered, LearningPathStarted, LearningPathCompleted, LearningPathProgressUpdated)"
+        f"✅ UserService subscribed to {len(learning_context_events)} learning context events"
     )
-
-    # Subscribe to learning step (LS) events
-    event_bus.subscribe(LearningStepCreated, invalidate_context_on_ls_event)
-    event_bus.subscribe(LearningStepUpdated, invalidate_context_on_ls_event)
-    event_bus.subscribe(LearningStepDeleted, invalidate_context_on_ls_event)
-    event_bus.subscribe(LearningStepCompleted, invalidate_context_on_ls_event)
-    logger.info(
-        "✅ UserService subscribed to learning step events "
-        "(LearningStepCreated, LearningStepUpdated, LearningStepDeleted, LearningStepCompleted)"
-    )
-
-    # NOTE: MOC event subscriptions removed (January 2026)
-    # MOC is Entity-based - MOC changes are Entity changes with ORGANIZES relationships
-    # Context invalidation happens through Entity events, not separate MOC events
 
     # ── Cross-domain event subscriptions ────────────────────────────────────
     # "Events over dependencies" - Eliminate service-to-service coupling
@@ -1673,7 +1555,7 @@ async def compose_services(
     config: Any = None,
     prometheus_metrics: "PrometheusMetrics | None" = None,
     metrics_cache: Any = None,
-) -> Result[tuple[Services, Any, Any]]:
+) -> Result[Services]:
     """
     Bootstrap function: creates all services with their dependencies.
 
@@ -2138,22 +2020,14 @@ async def compose_services(
 
         deepgram_api_key = get_credential("DEEPGRAM_API_KEY", fallback_to_env=True)
 
-        # Create core services (Finance, Transcription only - Activity Domains now in activity_services)
+        # Create core services (Finance, Transcription only - Activity Domains in activity_services)
         core_services = _create_core_services(
-            tasks_backend=tasks_backend,
-            events_backend=events_backend,
             finance_backend=finance_backend,
             invoice_backend=invoice_backend,
-            habits_backend=habits_backend,
-            habit_completions_backend=habit_completions_backend,
             transcription_backend=transcription_backend,
-            user_service=user_service,  # Pass user_service for context operations
-            event_bus=event_bus,  # Event-driven architecture
-            graph_intelligence=graph_intelligence,
-            ku_inference_service=ku_inference_service,
-            analytics_engine=analytics_engine,
-            ku_generation_service=ku_generation_service,
-            deepgram_api_key=deepgram_api_key,  # For audio transcription
+            user_service=user_service,
+            deepgram_api_key=deepgram_api_key,
+            event_bus=event_bus,
         )
         logger.info("✅ Core services created (with event bus + Deepgram wiring)")
 
@@ -2820,10 +2694,42 @@ async def compose_services(
         services.search_router = search_router
         logger.info("✅ SearchRouter created (One Path Forward)")
 
+        # ========================================================================
+        # VALIDATE POST-CONSTRUCTION WIRING (fail-fast if any was missed)
+        # ========================================================================
+        post_wiring_checks = {
+            "analytics_engine.relationship_service": analytics_engine.relationship_service,
+            "context_service.tasks_service": context_service.tasks_service,
+            "context_service.goal_task_generator": context_service.goal_task_generator,
+            "context_service.habits_service": context_service.habits_service,
+            "context_service.intelligence_factory": context_service.intelligence_factory,
+            "user_service.intelligence_factory": user_service.intelligence_factory,
+            "services.context_intelligence": services.context_intelligence,
+            "services.search_router": services.search_router,
+            "form_submission_service.sharing_service": form_submission_service.sharing_service,
+            "habits.goal_analytics.goals_service": (
+                activity_services["habits"].goal_analytics.goals_service
+            ),
+        }
+        missing = [name for name, value in post_wiring_checks.items() if value is None]
+        if missing:
+            raise ValueError(
+                f"Post-construction wiring incomplete — these attributes are None: "
+                f"{', '.join(missing)}"
+            )
+        logger.info(
+            f"✅ Post-construction wiring validated ({len(post_wiring_checks)} attributes checked)"
+        )
+
         logger.info("✅ Service composition complete")
         return Result.ok(services)
 
-    except Exception as e:
+    except (TypeError, AttributeError, ImportError, NameError):
+        # Programming errors must propagate — they indicate real bugs in wiring,
+        # not runtime configuration failures. Masking them as Result.fail() hides
+        # the root cause during development.
+        raise
+    except Exception as e:  # safety-net: bootstrap boundary catches config/infra failures
         import traceback
 
         logger.error(f"❌ Service composition failed: {e}")
