@@ -296,8 +296,11 @@ class AskesisOperations(
     AskesisDomainSynthesisOperations,    # 8 methods
     Protocol,
 ):
-    """Complete Askesis intelligence operations (16 methods)."""
-    pass
+    """Complete Askesis intelligence operations (17 methods)."""
+
+    async def load_askesis_context(self, askesis_uid: str) -> Result[AskesisContext]:
+        """Load Askesis instance + owner's rich UserContext in one call."""
+        ...
 ```
 
 ### Usage
@@ -385,11 +388,12 @@ The intelligence layer's `TemporalMomentumMixin` and several other mixin service
 
 If `entities_rich` is empty, these mixins return empty signals and the daily plan degrades silently.
 
-**All Askesis intelligence routes use `get_rich_unified_context()` via `_load_askesis_and_context()`.** The 5-minute cache on this method means no performance regression vs. standard depth.
+**All Askesis intelligence routes use `get_rich_unified_context()` via `AskesisService.load_askesis_context()`.** This method fetches the Askesis instance, derives the user_uid, and builds the rich UserContext in a single service call — eliminating orchestration from routes. The 5-minute cache on `get_rich_unified_context()` means no performance regression vs. standard depth.
 
 ```python
-# CORRECT — used in _load_askesis_and_context()
-context_result = await user_service.get_rich_unified_context(askesis.user_uid)
+# CORRECT — service handles the orchestration
+ctx_result = await askesis_service.load_askesis_context(askesis_uid)
+ctx = ctx_result.value  # AskesisContext(askesis, user_uid, user_context)
 
 # WRONG — leaves entities_rich empty, degrades intelligence
 # context_result = await user_service.get_user_context(askesis.user_uid)
@@ -428,7 +432,7 @@ principles_rich = entities_rich.get("principles", [])
 | **February 2026** | Route wiring switched to DomainRouteConfig (was bypassed in bootstrap) |
 | **February 2026** | Neo4j driver encapsulated in `AskesisCoreService.build_user_context()` — routes no longer hold a raw driver |
 | **February 2026** | Reports → Submissions + Feedback rename; Processing Domains now: Submissions, Journals, Feedback |
-| **March 2026** | `_load_askesis_and_context` closure extracted inside `create_askesis_api_routes` — 11 identical 15-line blocks replaced with a single helper; returns `(askesis, user_uid, user_context)` 3-tuple (1302 → 1135 lines) |
+| **March 2026** | `_load_askesis_and_context` closure extracted from route layer into `AskesisService.load_askesis_context()` — returns `AskesisContext` dataclass; `user_service` removed from route wiring; `askesis_core_service` wired into `AskesisDeps` |
 | **March 2026** | `entities_rich` unification: `active_task_rich`, `active_goal_rich`, etc. → single `entities_rich` dict; `activity_rich` removed |
 | **March 2026** | `ActivityDataReader` absorbed into `UserContext.build_rich()` — no longer a separate service |
 | **March 2026** | `ActivityReviewService` split into `ActivityReportService` + `ReviewQueueService` |

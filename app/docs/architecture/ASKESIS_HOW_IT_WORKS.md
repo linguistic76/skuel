@@ -382,7 +382,7 @@ Three things distinguish Askesis from a generic AI assistant:
 | PedagogicalIntent enum | `core/models/askesis/pedagogical_intent.py` |
 | Token truncation | `core/utils/text_truncation.py` |
 | Token budget constants | `core/constants.py` (`AskesisTokenBudget`) |
-| Protocols (16 methods) | `core/ports/askesis_protocols.py` |
+| Protocols (17 methods) | `core/ports/askesis_protocols.py` |
 | API routes (20 endpoints) | `adapters/inbound/askesis_api.py` |
 | UI routes | `adapters/inbound/askesis_ui.py` |
 | Guided prompt templates (7) | `core/prompts/templates/askesis_guided_*.md` |

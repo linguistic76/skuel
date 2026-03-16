@@ -383,7 +383,7 @@ def process_user(askesis: AskesisOperations) -> Result[...]:
 |--------|------------------------|---------|
 | **Architecture** | Modular mixin package | Facade with sub-services |
 | **Core Question** | "What is my current state?" | "What should I do next?" |
-| **Methods** | 8 core methods | 16 methods |
+| **Methods** | 8 core methods | 17 methods |
 | **Factory Pattern** | Creates instances per-request | Uses factory for synthesis |
 | **Statefulness** | Stateless analysis | Maintains session context |
 
