@@ -877,6 +877,781 @@ def _create_advanced_services(_driver: Any, query_executor: Any = None) -> dict[
     }
 
 
+def _wire_ai_services(
+    llm_service: Any,
+    embeddings_service: Any,
+    activity_services: dict[str, Any],
+    learning_services: dict[str, Any],
+    user_service: Any,
+    graph_intelligence: Any,
+) -> tuple[Any, Any]:
+    """Create and wire AI services into domain facades (ADR-030: Two-Tier Intelligence).
+
+    Returns (askesis_ai, context_aware_ai). Both None if LLM/embeddings unavailable.
+    """
+    if not (llm_service and embeddings_service):
+        logger.info("⚠️ AI services skipped (LLM or embeddings not available)")
+        return None, None
+
+    from core.services.askesis_ai_service import AskesisAIService
+    from core.services.choices.choices_ai_service import ChoicesAIService
+    from core.services.context_aware_ai_service import ContextAwareAIService
+    from core.services.events.events_ai_service import EventsAIService
+    from core.services.goals.goals_ai_service import GoalsAIService
+    from core.services.habits.habits_ai_service import HabitsAIService
+    from core.services.lesson.lesson_ai_service import LessonAIService
+    from core.services.lp.lp_ai_service import LpAIService
+    from core.services.ls.ls_ai_service import LsAIService
+    from core.services.principles.principles_ai_service import PrinciplesAIService
+    from core.services.tasks.tasks_ai_service import TasksAIService
+
+    # NOTE: MocAIService removed (January 2026) - MOC is now KU-based
+
+    # Create AI services for Activity Domains (6)
+    tasks_ai = TasksAIService(
+        backend=activity_services["tasks"].core.backend,
+        llm_service=llm_service,
+        embeddings_service=embeddings_service,
+    )
+    goals_ai = GoalsAIService(
+        backend=activity_services["goals"].core.backend,
+        llm_service=llm_service,
+        embeddings_service=embeddings_service,
+    )
+    habits_ai = HabitsAIService(
+        backend=activity_services["habits"].core.backend,
+        llm_service=llm_service,
+        embeddings_service=embeddings_service,
+    )
+    events_ai = EventsAIService(
+        backend=activity_services["events"].core.backend,
+        llm_service=llm_service,
+        embeddings_service=embeddings_service,
+    )
+    choices_ai = ChoicesAIService(
+        backend=activity_services["choices"].core.backend,
+        llm_service=llm_service,
+        embeddings_service=embeddings_service,
+    )
+    principles_ai = PrinciplesAIService(
+        backend=activity_services["principles"].core.backend,
+        llm_service=llm_service,
+        embeddings_service=embeddings_service,
+    )
+
+    # Wire AI services into Activity Domain facades (post-construction)
+    activity_services["tasks"].ai = tasks_ai
+    activity_services["goals"].ai = goals_ai
+    activity_services["habits"].ai = habits_ai
+    activity_services["events"].ai = events_ai
+    activity_services["choices"].ai = choices_ai
+    activity_services["principles"].ai = principles_ai
+
+    # Create AI services for Curriculum Domains (3)
+    ku_ai = LessonAIService(
+        backend=learning_services["lesson_service"].core.backend,
+        llm_service=llm_service,
+        embeddings_service=embeddings_service,
+    )
+    ls_ai = LsAIService(
+        backend=learning_services["learning_steps"].core.backend,
+        llm_service=llm_service,
+        embeddings_service=embeddings_service,
+    )
+    lp_ai = LpAIService(
+        backend=learning_services["learning_paths"].core.backend,
+        llm_service=llm_service,
+        embeddings_service=embeddings_service,
+    )
+    # Wire AI services into Curriculum Domain facades (post-construction)
+    learning_services["lesson_service"].ai = ku_ai
+    learning_services["learning_steps"].ai = ls_ai
+    learning_services["learning_paths"].ai = lp_ai
+
+    # Create cross-cutting AI services (2)
+    askesis_ai = AskesisAIService(
+        backend=user_service,  # Uses UserService for user state
+        llm_service=llm_service,
+        embeddings_service=embeddings_service,
+        graph_intelligence_service=graph_intelligence,
+    )
+    context_aware_ai = ContextAwareAIService(
+        backend=user_service,  # Uses UserContextOperations
+        llm_service=llm_service,
+        embeddings_service=embeddings_service,
+        graph_intelligence_service=graph_intelligence,
+    )
+
+    logger.info(
+        "✅ AI services created and wired (12 services: 6 Activity + 4 Curriculum + 2 cross-cutting)"
+    )
+    return askesis_ai, context_aware_ai
+
+
+def _wire_event_subscribers(
+    event_bus: EventBusOperations,
+    user_service: Any,
+    activity_services: dict[str, Any],
+    learning_services: dict[str, Any],
+    submissions_core_service: Any,
+    notification_service: Any,
+    advanced: dict[str, Any],
+    analytics_service: Any,
+) -> None:
+    """Wire all event subscribers for context invalidation, cross-domain, and intelligence.
+
+    Pure side-effects: subscribes handlers to the event bus. No return value.
+    """
+    import functools
+
+    # ── Import all event types ──────────────────────────────────────────────
+    from core.events import (
+        CalendarEventCompleted,
+        CalendarEventCreated,
+        CalendarEventDeleted,
+        CalendarEventRescheduled,
+        CalendarEventUpdated,
+        ChoiceCreated,
+        ChoiceDeleted,
+        ChoiceMade,
+        ChoiceOutcomeRecorded,
+        ChoiceUpdated,
+        ExpenseCreated,
+        ExpenseDeleted,
+        ExpensePaid,
+        ExpenseUpdated,
+        GoalAbandoned,
+        GoalAchieved,
+        GoalCreated,
+        GoalMilestoneReached,
+        GoalProgressUpdated,
+        HabitCompleted,
+        HabitCompletionBulk,
+        HabitCreated,
+        HabitMissed,
+        HabitStreakBroken,
+        HabitStreakMilestone,
+        KnowledgeCreated,
+        KnowledgeMastered,
+        LearningPathCompleted,
+        LearningPathProgressUpdated,
+        LearningPathStarted,
+        LearningStepCompleted,
+        LearningStepCreated,
+        LearningStepDeleted,
+        LearningStepUpdated,
+        PrincipleAlignmentAssessed,
+        PrincipleCreated,
+        PrincipleDeleted,
+        PrincipleStrengthChanged,
+        PrincipleUpdated,
+        TaskCompleted,
+        TaskCreated,
+        TaskDeleted,
+        TaskPriorityChanged,
+        TaskUpdated,
+    )
+    from core.events.handlers.exercise_handler import handle_exercise_submission
+    from core.events.handlers.report_notification_handler import (
+        handle_report_submitted,
+        handle_revision_requested,
+        handle_submission_approved,
+    )
+    from core.events.learning_events import LessonCompleted
+    from core.events.lesson_events import (
+        KnowledgeAppliedInTask,
+        KnowledgeBuiltIntoHabit,
+        KnowledgeBulkAppliedInTask,
+        KnowledgeBulkBuiltIntoHabit,
+        KnowledgeBulkInformedChoice,
+        KnowledgeInformedChoice,
+        KnowledgePracticedInEvent,
+    )
+    from core.events.principle_events import (
+        PrincipleConflictRevealed,
+        PrincipleReflectionRecorded,
+    )
+    from core.events.submission_events import (
+        ReportSubmitted,
+        SubmissionApproved,
+        SubmissionCreated,
+        SubmissionRevisionRequested,
+    )
+    from core.events.transcription_events import TranscriptionCompleted
+
+    # ── Context invalidation handlers ───────────────────────────────────────
+
+    async def invalidate_context_on_task_event(event) -> None:
+        """Invalidate user context when task events occur."""
+        logger.debug(f"Task event received: {event.__class__.__name__} for user {event.user_uid}")
+        await user_service.invalidate_context(event.user_uid)
+
+    async def invalidate_context_on_goal_event(event) -> None:
+        """Invalidate user context when goal events occur."""
+        logger.debug(f"Goal event received: {event.__class__.__name__} for user {event.user_uid}")
+        await user_service.invalidate_context(event.user_uid)
+
+    async def invalidate_context_on_habit_event(event) -> None:
+        """Invalidate user context when habit events occur."""
+        logger.debug(f"Habit event received: {event.__class__.__name__} for user {event.user_uid}")
+        await user_service.invalidate_context(event.user_uid)
+
+    async def invalidate_context_on_principle_event(event) -> None:
+        """Invalidate user context when principle events occur."""
+        logger.debug(
+            f"Principle event received: {event.__class__.__name__} for user {event.user_uid}"
+        )
+        await user_service.invalidate_context(event.user_uid)
+
+    async def invalidate_context_on_choice_event(event) -> None:
+        """Invalidate user context when choice events occur."""
+        logger.debug(f"Choice event received: {event.__class__.__name__} for user {event.user_uid}")
+        await user_service.invalidate_context(event.user_uid)
+
+    async def invalidate_context_on_calendar_event(event) -> None:
+        """Invalidate user context when calendar event events occur."""
+        logger.debug(
+            f"Calendar event received: {event.__class__.__name__} for user {event.user_uid}"
+        )
+        await user_service.invalidate_context(event.user_uid)
+
+    async def invalidate_context_on_finance_event(event) -> None:
+        """Invalidate user context when finance events occur."""
+        logger.debug(
+            f"Finance event received: {event.__class__.__name__} for user {event.user_uid}"
+        )
+        await user_service.invalidate_context(event.user_uid)
+
+    # NOTE: invalidate_context_on_journal_event REMOVED (February 2026)
+    # Journal merged into Reports — context invalidation via report events
+
+    async def invalidate_context_on_learning_event(event) -> None:
+        """Invalidate user context when learning events occur."""
+        # All learning events should have user_uid
+        user_uid = getattr(event, "user_uid", None)
+        if user_uid:
+            logger.debug(f"Learning event received: {event.__class__.__name__} for user {user_uid}")
+            await user_service.invalidate_context(user_uid)
+
+    async def invalidate_context_on_ls_event(event) -> None:
+        """Invalidate user context when learning step events occur."""
+        # LS events may have user_uid for user-specific progress
+        user_uid = getattr(event, "user_uid", None)
+        if user_uid:
+            logger.debug(
+                f"Learning step event received: {event.__class__.__name__} for user {user_uid}"
+            )
+            await user_service.invalidate_context(user_uid)
+
+    # NOTE: invalidate_context_on_moc_event removed (January 2026) - MOC is now KU-based
+
+    # ── Context invalidation subscriptions ──────────────────────────────────
+
+    # Subscribe to task events
+    event_bus.subscribe(TaskCreated, invalidate_context_on_task_event)
+    event_bus.subscribe(TaskCompleted, invalidate_context_on_task_event)
+    event_bus.subscribe(TaskUpdated, invalidate_context_on_task_event)
+    event_bus.subscribe(TaskDeleted, invalidate_context_on_task_event)
+    event_bus.subscribe(TaskPriorityChanged, invalidate_context_on_task_event)
+    logger.info(
+        "✅ UserService subscribed to task events "
+        "(TaskCreated, TaskCompleted, TaskUpdated, TaskDeleted, TaskPriorityChanged)"
+    )
+
+    # Subscribe to goal events
+    event_bus.subscribe(GoalCreated, invalidate_context_on_goal_event)
+    event_bus.subscribe(GoalAchieved, invalidate_context_on_goal_event)
+    event_bus.subscribe(GoalAbandoned, invalidate_context_on_goal_event)
+    event_bus.subscribe(GoalMilestoneReached, invalidate_context_on_goal_event)
+    event_bus.subscribe(GoalProgressUpdated, invalidate_context_on_goal_event)
+    logger.info(
+        "✅ UserService subscribed to goal events "
+        "(GoalCreated, GoalAchieved, GoalAbandoned, GoalMilestoneReached, GoalProgressUpdated)"
+    )
+
+    # Subscribe to habit events
+    event_bus.subscribe(HabitCreated, invalidate_context_on_habit_event)
+    event_bus.subscribe(HabitCompleted, invalidate_context_on_habit_event)
+    event_bus.subscribe(HabitCompletionBulk, invalidate_context_on_habit_event)
+    event_bus.subscribe(HabitMissed, invalidate_context_on_habit_event)
+    event_bus.subscribe(HabitStreakBroken, invalidate_context_on_habit_event)
+    event_bus.subscribe(HabitStreakMilestone, invalidate_context_on_habit_event)
+    logger.info(
+        "✅ UserService subscribed to habit events "
+        "(HabitCreated, HabitCompleted, HabitCompletionBulk, HabitMissed, HabitStreakBroken, HabitStreakMilestone)"
+    )
+
+    # Subscribe to principle events
+    event_bus.subscribe(PrincipleCreated, invalidate_context_on_principle_event)
+    event_bus.subscribe(PrincipleUpdated, invalidate_context_on_principle_event)
+    event_bus.subscribe(PrincipleDeleted, invalidate_context_on_principle_event)
+    event_bus.subscribe(PrincipleStrengthChanged, invalidate_context_on_principle_event)
+    event_bus.subscribe(PrincipleAlignmentAssessed, invalidate_context_on_principle_event)
+    logger.info(
+        "✅ UserService subscribed to principle events "
+        "(PrincipleCreated, PrincipleUpdated, PrincipleDeleted, PrincipleStrengthChanged, PrincipleAlignmentAssessed)"
+    )
+
+    # Subscribe to choice events
+    event_bus.subscribe(ChoiceCreated, invalidate_context_on_choice_event)
+    event_bus.subscribe(ChoiceUpdated, invalidate_context_on_choice_event)
+    event_bus.subscribe(ChoiceDeleted, invalidate_context_on_choice_event)
+    event_bus.subscribe(ChoiceMade, invalidate_context_on_choice_event)
+    event_bus.subscribe(ChoiceOutcomeRecorded, invalidate_context_on_choice_event)
+    logger.info(
+        "✅ UserService subscribed to choice events "
+        "(ChoiceCreated, ChoiceUpdated, ChoiceDeleted, ChoiceMade, ChoiceOutcomeRecorded)"
+    )
+
+    # Subscribe to calendar event events
+    event_bus.subscribe(CalendarEventCreated, invalidate_context_on_calendar_event)
+    event_bus.subscribe(CalendarEventUpdated, invalidate_context_on_calendar_event)
+    event_bus.subscribe(CalendarEventCompleted, invalidate_context_on_calendar_event)
+    event_bus.subscribe(CalendarEventDeleted, invalidate_context_on_calendar_event)
+    event_bus.subscribe(CalendarEventRescheduled, invalidate_context_on_calendar_event)
+    logger.info(
+        "✅ UserService subscribed to calendar event events (CalendarEventCreated, CalendarEventUpdated, CalendarEventCompleted, CalendarEventDeleted, CalendarEventRescheduled)"
+    )
+
+    # Subscribe to finance events
+    event_bus.subscribe(ExpenseCreated, invalidate_context_on_finance_event)
+    event_bus.subscribe(ExpenseUpdated, invalidate_context_on_finance_event)
+    event_bus.subscribe(ExpenseDeleted, invalidate_context_on_finance_event)
+    event_bus.subscribe(ExpensePaid, invalidate_context_on_finance_event)
+    logger.info(
+        "✅ UserService subscribed to finance events (ExpenseCreated, ExpenseUpdated, ExpenseDeleted, ExpensePaid)"
+    )
+
+    # NOTE: Journal event subscriptions REMOVED (February 2026)
+    # Journal merged into Reports — context invalidation via report events
+
+    # Subscribe to transcription events for automatic journal-type report creation
+    event_bus.subscribe(
+        TranscriptionCompleted,
+        submissions_core_service.handle_transcription_completed,
+    )
+    logger.info(
+        "✅ SubmissionsCoreService subscribed to TranscriptionCompleted "
+        "(automatic journal report creation from voice transcriptions)"
+    )
+
+    # Subscribe to SubmissionCreated for exercise linking (ADR-040)
+    exercise_handler = functools.partial(
+        handle_exercise_submission,
+        reports_core_service=submissions_core_service,
+    )
+    event_bus.subscribe(SubmissionCreated, exercise_handler)
+    logger.info(
+        "✅ Exercise handler subscribed to SubmissionCreated "
+        "(automatic FULFILLS_EXERCISE + SHARES_WITH creation)"
+    )
+
+    # Subscribe to report events for student notifications
+    report_submitted_handler = functools.partial(
+        handle_report_submitted,
+        notification_service=notification_service,
+    )
+    submission_approved_handler = functools.partial(
+        handle_submission_approved,
+        notification_service=notification_service,
+    )
+    revision_requested_handler = functools.partial(
+        handle_revision_requested,
+        notification_service=notification_service,
+    )
+    event_bus.subscribe(ReportSubmitted, report_submitted_handler)
+    event_bus.subscribe(SubmissionApproved, submission_approved_handler)
+    event_bus.subscribe(SubmissionRevisionRequested, revision_requested_handler)
+    logger.info(
+        "SubmissionReport notification handlers subscribed to ReportSubmitted + "
+        "SubmissionApproved + SubmissionRevisionRequested (student notifications)"
+    )
+
+    # Subscribe to learning events
+    event_bus.subscribe(KnowledgeCreated, invalidate_context_on_learning_event)
+    event_bus.subscribe(KnowledgeMastered, invalidate_context_on_learning_event)
+    event_bus.subscribe(LearningPathStarted, invalidate_context_on_learning_event)
+    event_bus.subscribe(LearningPathCompleted, invalidate_context_on_learning_event)
+    event_bus.subscribe(LearningPathProgressUpdated, invalidate_context_on_learning_event)
+    logger.info(
+        "✅ UserService subscribed to learning events "
+        "(KnowledgeCreated, KnowledgeMastered, LearningPathStarted, LearningPathCompleted, LearningPathProgressUpdated)"
+    )
+
+    # Subscribe to learning step (LS) events
+    event_bus.subscribe(LearningStepCreated, invalidate_context_on_ls_event)
+    event_bus.subscribe(LearningStepUpdated, invalidate_context_on_ls_event)
+    event_bus.subscribe(LearningStepDeleted, invalidate_context_on_ls_event)
+    event_bus.subscribe(LearningStepCompleted, invalidate_context_on_ls_event)
+    logger.info(
+        "✅ UserService subscribed to learning step events "
+        "(LearningStepCreated, LearningStepUpdated, LearningStepDeleted, LearningStepCompleted)"
+    )
+
+    # NOTE: MOC event subscriptions removed (January 2026)
+    # MOC is Entity-based - MOC changes are Entity changes with ORGANIZES relationships
+    # Context invalidation happens through Entity events, not separate MOC events
+
+    # ── Cross-domain event subscriptions ────────────────────────────────────
+    # "Events over dependencies" - Eliminate service-to-service coupling
+
+    # Task completion → Goal progress update
+    goals_service = activity_services["goals"]  # Use unified activity service
+    event_bus.subscribe(TaskCompleted, goals_service.progress.handle_task_completed)
+    logger.info("✅ GoalsProgressService subscribed to TaskCompleted (automatic progress updates)")
+
+    # Habit completion → Goal progress update
+    event_bus.subscribe(HabitCompleted, goals_service.progress.handle_habit_completed)
+    logger.info("✅ GoalsProgressService subscribed to HabitCompleted (automatic progress updates)")
+
+    # Goal achievement → Goal recommendations
+    event_bus.subscribe(GoalAchieved, goals_service.recommendations.handle_goal_achieved)
+    logger.info(
+        "✅ GoalRecommendationService subscribed to GoalAchieved (intelligent recommendations)"
+    )
+
+    # Knowledge mastery → Learning Path progress update
+    lp_service = learning_services["learning_paths"]
+    ls_service = learning_services["learning_steps"]
+    ku_service_for_mastery = learning_services["lesson_service"]
+
+    event_bus.subscribe(KnowledgeMastered, lp_service.progress.handle_knowledge_mastered)
+    logger.info(
+        "✅ LpProgressService subscribed to KnowledgeMastered (automatic LP progress updates)"
+    )
+
+    # Knowledge mastery → Lesson completion detection
+    event_bus.subscribe(KnowledgeMastered, ku_service_for_mastery.mastery.handle_knowledge_mastered)
+    logger.info(
+        "✅ LessonMasteryService subscribed to KnowledgeMastered (lesson completion detection)"
+    )
+
+    # Lesson completion → LS progress update
+    event_bus.subscribe(LessonCompleted, ls_service.progress.handle_lesson_completed)
+    logger.info(
+        "✅ LsProgressService subscribed to LessonCompleted (automatic LS progress updates)"
+    )
+
+    # LS completion → LP progress update (chain: LS→LP)
+    event_bus.subscribe(LearningStepCompleted, lp_service.progress.handle_step_completed)
+    logger.info("✅ LpProgressService subscribed to LearningStepCompleted (LS→LP progress chain)")
+
+    # Event completion → Knowledge practice tracking
+    ku_service = learning_services["lesson_service"]
+    event_bus.subscribe(CalendarEventCompleted, ku_service.practice.handle_event_completed)
+    logger.info(
+        "✅ LessonPracticeService subscribed to CalendarEventCompleted (automatic practice tracking)"
+    )
+
+    # Habit streak milestone → Achievement badges
+    habits_service = activity_services["habits"]
+    event_bus.subscribe(
+        HabitStreakMilestone, habits_service.achievements.handle_habit_streak_milestone
+    )
+    logger.info("✅ HabitAchievementService subscribed to HabitStreakMilestone (badge awarding)")
+
+    # Learning path completion & knowledge mastery → Learning recommendations
+    learning_intelligence = learning_services["learning_intelligence"]
+    event_bus.subscribe(
+        LearningPathCompleted,
+        learning_intelligence.recommendation_engine.handle_learning_path_completed,
+    )
+    event_bus.subscribe(
+        KnowledgeMastered, learning_intelligence.recommendation_engine.handle_knowledge_mastered
+    )
+    logger.info(
+        "✅ LearningRecommendationEngine subscribed to LearningPathCompleted & KnowledgeMastered "
+        "(intelligent next-step recommendations)"
+    )
+
+    # Multi-domain analytics → Track activity across all domains
+    cross_domain_analytics_service = advanced["cross_domain_analytics"]
+    event_bus.subscribe(TaskCompleted, cross_domain_analytics_service.handle_task_completed)
+    event_bus.subscribe(HabitCompleted, cross_domain_analytics_service.handle_habit_completed)
+    event_bus.subscribe(
+        CalendarEventCompleted, cross_domain_analytics_service.handle_event_completed
+    )
+    event_bus.subscribe(ExpenseCreated, cross_domain_analytics_service.handle_expense_created)
+    event_bus.subscribe(ExpensePaid, cross_domain_analytics_service.handle_expense_paid)
+    event_bus.subscribe(GoalCreated, cross_domain_analytics_service.handle_goal_created)
+    event_bus.subscribe(KnowledgeMastered, cross_domain_analytics_service.handle_knowledge_mastered)
+    event_bus.subscribe(LearningPathCompleted, cross_domain_analytics_service.handle_path_completed)
+    # NOTE: JournalCreated subscription REMOVED (February 2026)
+    # Journal merged into Reports — cross_domain_analytics needs update in
+    # to subscribe to SubmissionCreated and filter for entity_type="journal"
+    logger.info(
+        "✅ CrossDomainAnalyticsService subscribed to 8 event types "
+        "(Tasks, Habits, Events, Expenses, Goals, Knowledge, Paths)"
+    )
+
+    # Milestone achievements → Automatic report generation
+    event_bus.subscribe(GoalAchieved, analytics_service.handle_goal_achieved)
+    event_bus.subscribe(LearningPathCompleted, analytics_service.handle_learning_path_completed)
+    event_bus.subscribe(HabitStreakMilestone, analytics_service.handle_habit_streak_milestone)
+    logger.info(
+        "✅ AnalyticsService subscribed to 3 milestone events "
+        "(GoalAchieved, LearningPathCompleted, HabitStreakMilestone) for auto-report generation"
+    )
+
+    # ── Substance tracking event subscriptions ──────────────────────────────
+    # "Applied knowledge, not pure theory" - Track real-world knowledge application
+
+    # Subscribe to substance tracking events (single-entity)
+    event_bus.subscribe(KnowledgeAppliedInTask, ku_service.handle_knowledge_applied_in_task)
+    event_bus.subscribe(KnowledgePracticedInEvent, ku_service.handle_knowledge_practiced_in_event)
+    event_bus.subscribe(KnowledgeBuiltIntoHabit, ku_service.handle_knowledge_built_into_habit)
+    event_bus.subscribe(KnowledgeInformedChoice, ku_service.handle_knowledge_informed_choice)
+
+    # Subscribe to BATCH substance tracking events (O(1) vs O(n))
+    event_bus.subscribe(
+        KnowledgeBulkAppliedInTask, ku_service.handle_knowledge_bulk_applied_in_task
+    )
+    event_bus.subscribe(
+        KnowledgeBulkBuiltIntoHabit, ku_service.handle_knowledge_bulk_built_into_habit
+    )
+    event_bus.subscribe(
+        KnowledgeBulkInformedChoice, ku_service.handle_knowledge_bulk_informed_choice
+    )
+
+    logger.info("✅ LessonService subscribed to substance tracking events:")
+    logger.info("   - KnowledgeAppliedInTask (weight: 0.05)")
+    logger.info("   - KnowledgePracticedInEvent (weight: 0.05)")
+    logger.info("   - KnowledgeBuiltIntoHabit (weight: 0.10, lifestyle integration)")
+    logger.info("   - KnowledgeInformedChoice (weight: 0.07, decision-making)")
+    logger.info(
+        "   - Bulk events: KnowledgeBulkAppliedInTask, KnowledgeBulkBuiltIntoHabit, KnowledgeBulkInformedChoice"
+    )
+
+    # ── Domain intelligence event subscriptions ─────────────────────────────
+    # "Events enable cross-domain intelligence"
+
+    # ---- Adaptive Learning Loop (ADR-048) ----
+
+    # Task intelligence - duration calibration from completions
+    tasks_service = activity_services["tasks"]
+    event_bus.subscribe(TaskCompleted, tasks_service.intelligence.learn_from_completion)
+    logger.info("✅ TasksIntelligenceService subscribed to TaskCompleted (learning loop)")
+
+    # Habit intelligence - timing/scheduling learning from completions
+    habits_service = activity_services["habits"]
+    event_bus.subscribe(HabitCompleted, habits_service.intelligence.learn_from_completion)
+    logger.info("✅ HabitsIntelligenceService subscribed to HabitCompleted (learning loop)")
+
+    # ---- Existing event intelligence ----
+
+    # Habit intelligence - recovery suggestions when streaks break
+    event_bus.subscribe(HabitStreakBroken, habits_service.intelligence.handle_habit_streak_broken)
+    logger.info("✅ HabitsIntelligenceService subscribed to HabitStreakBroken")
+
+    # Choice intelligence - decision learning when outcomes are recorded
+    choices_service = activity_services["choices"]
+    event_bus.subscribe(
+        ChoiceOutcomeRecorded, choices_service.intelligence.handle_choice_outcome_recorded
+    )
+    logger.info("✅ ChoicesIntelligenceService subscribed to ChoiceOutcomeRecorded")
+
+    # Principle intelligence - alignment cascade when strength changes
+    principles_service = activity_services["principles"]
+    event_bus.subscribe(
+        PrincipleStrengthChanged,
+        principles_service.intelligence.handle_principle_strength_changed,
+    )
+    logger.info("✅ PrinciplesIntelligenceService subscribed to PrincipleStrengthChanged")
+
+    # ── Tier 1 handlers: Quick-win event intelligence ───────────────────────
+
+    # Habit intelligence - difficulty tracking when habits are missed
+    event_bus.subscribe(HabitMissed, habits_service.intelligence.handle_habit_missed)
+    logger.info("✅ HabitsIntelligenceService subscribed to HabitMissed")
+
+    # Choice intelligence - decision pattern tracking when choice is made
+    event_bus.subscribe(ChoiceMade, choices_service.intelligence.handle_choice_made)
+    logger.info("✅ ChoicesIntelligenceService subscribed to ChoiceMade")
+
+    # KU intelligence - learning progress when learning steps are completed
+    event_bus.subscribe(
+        LearningStepCompleted, ku_service.intelligence.handle_learning_step_completed
+    )
+    logger.info("✅ LessonIntelligenceService subscribed to LearningStepCompleted")
+
+    # ── Tier 2 handlers: Pattern-based event intelligence ───────────────────
+
+    # Principles intelligence - cross-domain insights from reflections
+    event_bus.subscribe(
+        PrincipleReflectionRecorded,
+        principles_service.intelligence.handle_reflection_recorded,
+    )
+    logger.info("✅ PrinciplesIntelligenceService subscribed to PrincipleReflectionRecorded")
+
+    # Principles intelligence - conflict detection and resolution guidance
+    event_bus.subscribe(
+        PrincipleConflictRevealed,
+        principles_service.intelligence.handle_conflict_revealed,
+    )
+    logger.info("✅ PrinciplesIntelligenceService subscribed to PrincipleConflictRevealed")
+
+    # NOTE: MOC intelligence subscription removed (January 2026)
+    # MOC is Entity-based - intelligence operations happen through Entity ORGANIZES relationships
+    # MapOfContentUpdated event type is deprecated - MOC changes are Entity changes
+
+    logger.info(
+        "✅ Domain intelligence event subscriptions wired (8 handlers): "
+        "Tier 1: HabitStreakBroken, ChoiceOutcomeRecorded, PrincipleStrengthChanged, "
+        "HabitMissed, ChoiceMade, LearningStepCompleted | "
+        "Tier 2: PrincipleReflectionRecorded, PrincipleConflictRevealed"
+    )
+
+    logger.info("✅ Event-driven architecture wired (40+ event types subscribed)")
+
+
+async def _create_intelligence_hub(
+    services: "Services",
+    activity_services: dict[str, Any],
+    learning_services: dict[str, Any],
+    submissions_backend: Any,
+    calendar_service: Any,
+    vector_search_service: Any,
+    driver: Any,
+    event_bus: EventBusOperations,
+    tier: "IntelligenceTier",
+    context_builder: Any,
+    user_service: Any,
+    context_service: Any,
+) -> None:
+    """Create UserContextIntelligence factory, ZPD service, and Askesis.
+
+    Mutates ``services``, ``context_builder``, ``user_service``, and ``context_service``
+    to wire the intelligence hub into the running application.
+    """
+    from core.services.analytics_relationship_service import AnalyticsRelationshipService
+    from core.services.report import ReportRelationshipService
+    from core.services.submissions import SubmissionsRelationshipService
+    from core.services.user.intelligence import UserContextIntelligenceFactory
+
+    # Create processing domain relationship services
+    # NOTE: JournalRelationshipService REMOVED (February 2026) - Journal merged into Entity model
+    # SubmissionsRelationshipService handles all submission content relationships
+    submissions_relationship_service = SubmissionsRelationshipService(backend=submissions_backend)
+    report_relationship_service = ReportRelationshipService(backend=submissions_backend)
+    analytics_relationship_service = AnalyticsRelationshipService(driver)
+    logger.info(
+        "✅ Processing domain relationship services created (Submissions, Report, Analytics)"
+    )
+
+    # ── ZPD Service (March 2026 — pedagogical core of Askesis) ──────────────
+    # Gated by INTELLIGENCE_TIER=FULL — requires behavioral signals from
+    # choices + habits intelligence services.
+    # Returns empty assessment (not an error) when curriculum graph < 3 KUs.
+    from adapters.persistence.neo4j.zpd_backend import ZPDBackend
+    from core.services.zpd import ZPDService
+
+    zpd_service: ZPDOperations | None = None
+    if tier.ai_enabled:
+        zpd_backend = ZPDBackend(driver)
+        zpd_service = ZPDService(
+            backend=zpd_backend,
+            choices_intelligence=activity_services["choices"].intelligence,
+            habits_intelligence=activity_services["habits"].intelligence,
+        )
+        services.zpd_service = zpd_service
+        context_builder.zpd_service = zpd_service
+        logger.info(
+            "✅ ZPDService created (behavioral signals: choices + habits, wired to context_builder)"
+        )
+
+        # ZPD snapshot event subscriptions
+        from adapters.persistence.neo4j.zpd_snapshot_backend import ZPDSnapshotBackend
+        from core.services.zpd.zpd_event_handler import ZPDSnapshotHandler
+
+        zpd_snapshot_backend = ZPDSnapshotBackend(driver)
+        zpd_handler = ZPDSnapshotHandler(zpd_service, zpd_snapshot_backend)
+
+        from core.events.curriculum_events import LearningStepCompleted as ZPDLSCompleted
+        from core.events.learning_events import KnowledgeMastered as ZPDKMastered
+        from core.events.learning_events import (
+            LearningPathProgressUpdated as ZPDLPProgress,
+        )
+        from core.events.submission_events import (
+            ReportSubmitted as ZPDReportSubmitted,
+        )
+        from core.events.submission_events import (
+            SubmissionApproved as ZPDSubApproved,
+        )
+
+        event_bus.subscribe(ZPDSubApproved, zpd_handler.handle_submission_approved)
+        event_bus.subscribe(ZPDReportSubmitted, zpd_handler.handle_report_submitted)
+        event_bus.subscribe(ZPDKMastered, zpd_handler.handle_knowledge_mastered)
+        event_bus.subscribe(ZPDLSCompleted, zpd_handler.handle_learning_step_completed)
+        event_bus.subscribe(ZPDLPProgress, zpd_handler.handle_learning_path_progress)
+        logger.info(
+            "✅ ZPD snapshot handler subscribed to 5 events "
+            "(SubmissionApproved, ReportSubmitted, KnowledgeMastered, "
+            "LearningStepCompleted, LearningPathProgressUpdated)"
+        )
+    else:
+        logger.info("⏭️  ZPDService skipped (intelligence tier: CORE)")
+
+    # ── UserContextIntelligence factory (13-domain architecture) ────────────
+    context_intelligence_factory = UserContextIntelligenceFactory(
+        # Activity Domains (6) - All from unified activity_services
+        tasks=activity_services["tasks"].relationships,
+        goals=activity_services["goals"].relationships,
+        habits=activity_services["habits"].relationships,
+        events=activity_services["events"].relationships,
+        choices=activity_services["choices"].relationships,
+        principles=activity_services["principles"].relationships,
+        # Curriculum Domains (3)
+        lesson=learning_services["lesson_service"].graph,  # LessonGraphService
+        ls=learning_services["learning_steps"].relationships,  # Factory expects 'ls' parameter name
+        lp=learning_services["learning_paths"].relationships,  # Factory expects 'lp' parameter name
+        # Processing Domains (3)
+        submissions=submissions_relationship_service,  # SubmissionsRelationshipService
+        report=report_relationship_service,  # ReportRelationshipService
+        analytics=analytics_relationship_service,  # AnalyticsRelationshipService
+        # Temporal Domain (1)
+        calendar=calendar_service,
+        # Optional: Vector search for semantic enhancements
+        vector_search_service=vector_search_service,
+        # Optional: ZPD service for curriculum-graph-aware learning step ranking
+        zpd_service=zpd_service,
+    )
+    services.context_intelligence = context_intelligence_factory
+    logger.info("✅ UserContextIntelligence factory created (13 domain services + ZPD wired)")
+
+    # Wire intelligence factory to UserService (post-construction wiring)
+    user_service.intelligence_factory = context_intelligence_factory
+    logger.info("✅ UserService wired with intelligence factory")
+
+    # Wire intelligence factory to UserContextService (post-construction wiring)
+    # This enables get_context_summary() to use factory.create() for intelligence queries
+    context_service.intelligence_factory = context_intelligence_factory
+    logger.info("✅ UserContextService wired with intelligence factory")
+
+    # ── Askesis service — FULL tier only (no degraded mode) ─────────────────
+    # March 2026: Gated behind tier.ai_enabled — Askesis requires all AI deps
+    if tier.ai_enabled:
+        from core.services.askesis_citation_service import AskesisCitationService
+        from core.services.askesis_factory import create_askesis_service
+
+        citation_service = AskesisCitationService(
+            backend=learning_services["lesson_service"].core.backend,
+        )
+
+        services.askesis = create_askesis_service(
+            intelligence_factory=context_intelligence_factory,
+            learning_services=learning_services,
+            activity_services=activity_services,
+            user_service=user_service,
+            zpd_service=zpd_service,
+            citation_service=citation_service,
+        )
+        logger.info(
+            "✅ Askesis service created with intelligence_factory (13-domain synthesis + ZPD)"
+        )
+    else:
+        logger.info("⏭️ Askesis service skipped (intelligence tier: CORE)")
+
+
 # ============================================================================
 # BOOTSTRAP FUNCTION (The Single Wiring Point)
 # ============================================================================
@@ -1520,110 +2295,15 @@ async def compose_services(
         # NOTE: Askesis service now created in after intelligence_factory is available
         # This eliminates post-construction wiring (January 2026 architecture evolution)
 
-        # Cross-cutting AI services (askesis_ai, context_aware_ai) created below
-        # in the AI SERVICES section - they REQUIRE LLM/embeddings
-        askesis_ai = None
-        context_aware_ai = None
-
-        # ========================================================================
-        # AI SERVICES (Optional - ADR-030: Two-Tier Intelligence Design)
-        # ========================================================================
-        # Create AI services when LLM/embeddings are available
-        # AI services are OPTIONAL - the app functions fully without them
-        if llm_service and embeddings_service:
-            from core.services.askesis_ai_service import AskesisAIService
-            from core.services.choices.choices_ai_service import ChoicesAIService
-            from core.services.context_aware_ai_service import ContextAwareAIService
-            from core.services.events.events_ai_service import EventsAIService
-            from core.services.goals.goals_ai_service import GoalsAIService
-            from core.services.habits.habits_ai_service import HabitsAIService
-            from core.services.lesson.lesson_ai_service import LessonAIService
-            from core.services.lp.lp_ai_service import LpAIService
-            from core.services.ls.ls_ai_service import LsAIService
-            from core.services.principles.principles_ai_service import PrinciplesAIService
-            from core.services.tasks.tasks_ai_service import TasksAIService
-            # NOTE: MocAIService removed (January 2026) - MOC is now KU-based
-
-            # Create AI services for Activity Domains (6)
-            tasks_ai = TasksAIService(
-                backend=activity_services["tasks"].core.backend,
-                llm_service=llm_service,
-                embeddings_service=embeddings_service,
-            )
-            goals_ai = GoalsAIService(
-                backend=activity_services["goals"].core.backend,
-                llm_service=llm_service,
-                embeddings_service=embeddings_service,
-            )
-            habits_ai = HabitsAIService(
-                backend=activity_services["habits"].core.backend,
-                llm_service=llm_service,
-                embeddings_service=embeddings_service,
-            )
-            events_ai = EventsAIService(
-                backend=activity_services["events"].core.backend,
-                llm_service=llm_service,
-                embeddings_service=embeddings_service,
-            )
-            choices_ai = ChoicesAIService(
-                backend=activity_services["choices"].core.backend,
-                llm_service=llm_service,
-                embeddings_service=embeddings_service,
-            )
-            principles_ai = PrinciplesAIService(
-                backend=activity_services["principles"].core.backend,
-                llm_service=llm_service,
-                embeddings_service=embeddings_service,
-            )
-
-            # Wire AI services into Activity Domain facades (post-construction)
-            activity_services["tasks"].ai = tasks_ai
-            activity_services["goals"].ai = goals_ai
-            activity_services["habits"].ai = habits_ai
-            activity_services["events"].ai = events_ai
-            activity_services["choices"].ai = choices_ai
-            activity_services["principles"].ai = principles_ai
-
-            # Create AI services for Curriculum Domains (4)
-            ku_ai = LessonAIService(
-                backend=learning_services["lesson_service"].core.backend,
-                llm_service=llm_service,
-                embeddings_service=embeddings_service,
-            )
-            ls_ai = LsAIService(
-                backend=learning_services["learning_steps"].core.backend,
-                llm_service=llm_service,
-                embeddings_service=embeddings_service,
-            )
-            lp_ai = LpAIService(
-                backend=learning_services["learning_paths"].core.backend,
-                llm_service=llm_service,
-                embeddings_service=embeddings_service,
-            )
-            # Wire AI services into Curriculum Domain facades (post-construction)
-            learning_services["lesson_service"].ai = ku_ai
-            learning_services["learning_steps"].ai = ls_ai
-            learning_services["learning_paths"].ai = lp_ai
-
-            # Create cross-cutting AI services (2)
-            askesis_ai = AskesisAIService(
-                backend=user_service,  # Uses UserService for user state
-                llm_service=llm_service,
-                embeddings_service=embeddings_service,
-                graph_intelligence_service=graph_intelligence,
-            )
-            context_aware_ai = ContextAwareAIService(
-                backend=user_service,  # Uses UserContextOperations
-                llm_service=llm_service,
-                embeddings_service=embeddings_service,
-                graph_intelligence_service=graph_intelligence,
-            )
-
-            logger.info(
-                "✅ AI services created and wired (12 services: 6 Activity + 4 Curriculum + 2 cross-cutting)"
-            )
-        else:
-            logger.info("⚠️ AI services skipped (LLM or embeddings not available)")
+        # Wire AI services into domain facades (ADR-030: Two-Tier Intelligence)
+        askesis_ai, context_aware_ai = _wire_ai_services(
+            llm_service=llm_service,
+            embeddings_service=embeddings_service,
+            activity_services=activity_services,
+            learning_services=learning_services,
+            user_service=user_service,
+            graph_intelligence=graph_intelligence,
+        )
 
         # Create calendar service
         from core.services.calendar_service import CalendarService
@@ -1988,588 +2668,17 @@ async def compose_services(
         await advanced["performance_optimization"].initialize()
         logger.info("✅ Advanced services created")
 
-        # ========================================================================
-        # WIRE EVENT SUBSCRIBERS (Event-Driven Architecture)
-        # ========================================================================
-
-        # Import event types
-        from core.events import (
-            CalendarEventCompleted,
-            CalendarEventCreated,
-            CalendarEventDeleted,
-            CalendarEventRescheduled,
-            CalendarEventUpdated,
-            ChoiceCreated,
-            ChoiceDeleted,
-            ChoiceMade,
-            ChoiceOutcomeRecorded,
-            ChoiceUpdated,
-            ExpenseCreated,
-            ExpenseDeleted,
-            ExpensePaid,
-            ExpenseUpdated,
-            GoalAbandoned,
-            GoalAchieved,
-            GoalCreated,
-            GoalMilestoneReached,
-            GoalProgressUpdated,
-            HabitCompleted,
-            HabitCompletionBulk,
-            HabitCreated,
-            HabitMissed,
-            HabitStreakBroken,
-            HabitStreakMilestone,
-            # NOTE: JournalCreated/Updated/Deleted REMOVED (February 2026) - Journal merged into Submissions
-            # Journal operations now fire SubmissionCreated/SubmissionDeleted events
-            KnowledgeCreated,
-            KnowledgeMastered,
-            LearningPathCompleted,
-            LearningPathProgressUpdated,
-            LearningPathStarted,
-            LearningStepCompleted,
-            LearningStepCreated,
-            LearningStepDeleted,
-            LearningStepUpdated,
-            # NOTE: MapOfContent events removed (January 2026) - MOC is now KU-based
-            PrincipleAlignmentAssessed,
-            PrincipleCreated,
-            PrincipleDeleted,
-            PrincipleStrengthChanged,
-            PrincipleUpdated,
-            TaskCompleted,
-            TaskCreated,
-            TaskDeleted,
-            TaskPriorityChanged,
-            TaskUpdated,
-        )
-
-        # Create event handlers for context invalidation
-        async def invalidate_context_on_task_event(event) -> None:
-            """Invalidate user context when task events occur."""
-            logger.debug(
-                f"Task event received: {event.__class__.__name__} for user {event.user_uid}"
-            )
-            await user_service.invalidate_context(event.user_uid)
-
-        async def invalidate_context_on_goal_event(event) -> None:
-            """Invalidate user context when goal events occur."""
-            logger.debug(
-                f"Goal event received: {event.__class__.__name__} for user {event.user_uid}"
-            )
-            await user_service.invalidate_context(event.user_uid)
-
-        async def invalidate_context_on_habit_event(event) -> None:
-            """Invalidate user context when habit events occur."""
-            logger.debug(
-                f"Habit event received: {event.__class__.__name__} for user {event.user_uid}"
-            )
-            await user_service.invalidate_context(event.user_uid)
-
-        async def invalidate_context_on_principle_event(event) -> None:
-            """Invalidate user context when principle events occur."""
-            logger.debug(
-                f"Principle event received: {event.__class__.__name__} for user {event.user_uid}"
-            )
-            await user_service.invalidate_context(event.user_uid)
-
-        async def invalidate_context_on_choice_event(event) -> None:
-            """Invalidate user context when choice events occur."""
-            logger.debug(
-                f"Choice event received: {event.__class__.__name__} for user {event.user_uid}"
-            )
-            await user_service.invalidate_context(event.user_uid)
-
-        async def invalidate_context_on_calendar_event(event) -> None:
-            """Invalidate user context when calendar event events occur."""
-            logger.debug(
-                f"Calendar event received: {event.__class__.__name__} for user {event.user_uid}"
-            )
-            await user_service.invalidate_context(event.user_uid)
-
-        async def invalidate_context_on_finance_event(event) -> None:
-            """Invalidate user context when finance events occur."""
-            logger.debug(
-                f"Finance event received: {event.__class__.__name__} for user {event.user_uid}"
-            )
-            await user_service.invalidate_context(event.user_uid)
-
-        # NOTE: invalidate_context_on_journal_event REMOVED (February 2026)
-        # Journal merged into Reports — context invalidation via report events
-
-        async def invalidate_context_on_learning_event(event) -> None:
-            """Invalidate user context when learning events occur."""
-            # All learning events should have user_uid
-            user_uid = getattr(event, "user_uid", None)
-            if user_uid:
-                logger.debug(
-                    f"Learning event received: {event.__class__.__name__} for user {user_uid}"
-                )
-                await user_service.invalidate_context(user_uid)
-
-        async def invalidate_context_on_ls_event(event) -> None:
-            """Invalidate user context when learning step events occur."""
-            # LS events may have user_uid for user-specific progress
-            user_uid = getattr(event, "user_uid", None)
-            if user_uid:
-                logger.debug(
-                    f"Learning step event received: {event.__class__.__name__} for user {user_uid}"
-                )
-                await user_service.invalidate_context(user_uid)
-
-        # NOTE: invalidate_context_on_moc_event removed (January 2026) - MOC is now KU-based
-
-        # Subscribe to task events
-        event_bus.subscribe(TaskCreated, invalidate_context_on_task_event)
-        event_bus.subscribe(TaskCompleted, invalidate_context_on_task_event)
-        event_bus.subscribe(TaskUpdated, invalidate_context_on_task_event)
-        event_bus.subscribe(TaskDeleted, invalidate_context_on_task_event)
-        event_bus.subscribe(TaskPriorityChanged, invalidate_context_on_task_event)
-        logger.info(
-            "✅ UserService subscribed to task events "
-            "(TaskCreated, TaskCompleted, TaskUpdated, TaskDeleted, TaskPriorityChanged)"
-        )
-
-        # Subscribe to goal events
-        event_bus.subscribe(GoalCreated, invalidate_context_on_goal_event)
-        event_bus.subscribe(GoalAchieved, invalidate_context_on_goal_event)
-        event_bus.subscribe(GoalAbandoned, invalidate_context_on_goal_event)
-        event_bus.subscribe(GoalMilestoneReached, invalidate_context_on_goal_event)
-        event_bus.subscribe(GoalProgressUpdated, invalidate_context_on_goal_event)
-        logger.info(
-            "✅ UserService subscribed to goal events "
-            "(GoalCreated, GoalAchieved, GoalAbandoned, GoalMilestoneReached, GoalProgressUpdated)"
-        )
-
-        # Subscribe to habit events
-        event_bus.subscribe(HabitCreated, invalidate_context_on_habit_event)
-        event_bus.subscribe(HabitCompleted, invalidate_context_on_habit_event)
-        event_bus.subscribe(HabitCompletionBulk, invalidate_context_on_habit_event)
-        event_bus.subscribe(HabitMissed, invalidate_context_on_habit_event)
-        event_bus.subscribe(HabitStreakBroken, invalidate_context_on_habit_event)
-        event_bus.subscribe(HabitStreakMilestone, invalidate_context_on_habit_event)
-        logger.info(
-            "✅ UserService subscribed to habit events "
-            "(HabitCreated, HabitCompleted, HabitCompletionBulk, HabitMissed, HabitStreakBroken, HabitStreakMilestone)"
-        )
-
-        # Subscribe to principle events
-        event_bus.subscribe(PrincipleCreated, invalidate_context_on_principle_event)
-        event_bus.subscribe(PrincipleUpdated, invalidate_context_on_principle_event)
-        event_bus.subscribe(PrincipleDeleted, invalidate_context_on_principle_event)
-        event_bus.subscribe(PrincipleStrengthChanged, invalidate_context_on_principle_event)
-        event_bus.subscribe(PrincipleAlignmentAssessed, invalidate_context_on_principle_event)
-        logger.info(
-            "✅ UserService subscribed to principle events "
-            "(PrincipleCreated, PrincipleUpdated, PrincipleDeleted, PrincipleStrengthChanged, PrincipleAlignmentAssessed)"
-        )
-
-        # Subscribe to choice events
-        event_bus.subscribe(ChoiceCreated, invalidate_context_on_choice_event)
-        event_bus.subscribe(ChoiceUpdated, invalidate_context_on_choice_event)
-        event_bus.subscribe(ChoiceDeleted, invalidate_context_on_choice_event)
-        event_bus.subscribe(ChoiceMade, invalidate_context_on_choice_event)
-        event_bus.subscribe(ChoiceOutcomeRecorded, invalidate_context_on_choice_event)
-        logger.info(
-            "✅ UserService subscribed to choice events "
-            "(ChoiceCreated, ChoiceUpdated, ChoiceDeleted, ChoiceMade, ChoiceOutcomeRecorded)"
-        )
-
-        # Subscribe to calendar event events
-        event_bus.subscribe(CalendarEventCreated, invalidate_context_on_calendar_event)
-        event_bus.subscribe(CalendarEventUpdated, invalidate_context_on_calendar_event)
-        event_bus.subscribe(CalendarEventCompleted, invalidate_context_on_calendar_event)
-        event_bus.subscribe(CalendarEventDeleted, invalidate_context_on_calendar_event)
-        event_bus.subscribe(CalendarEventRescheduled, invalidate_context_on_calendar_event)
-        logger.info(
-            "✅ UserService subscribed to calendar event events (CalendarEventCreated, CalendarEventUpdated, CalendarEventCompleted, CalendarEventDeleted, CalendarEventRescheduled)"
-        )
-
-        # Subscribe to finance events
-        event_bus.subscribe(ExpenseCreated, invalidate_context_on_finance_event)
-        event_bus.subscribe(ExpenseUpdated, invalidate_context_on_finance_event)
-        event_bus.subscribe(ExpenseDeleted, invalidate_context_on_finance_event)
-        event_bus.subscribe(ExpensePaid, invalidate_context_on_finance_event)
-        logger.info(
-            "✅ UserService subscribed to finance events (ExpenseCreated, ExpenseUpdated, ExpenseDeleted, ExpensePaid)"
-        )
-
-        # NOTE: Journal event subscriptions REMOVED (February 2026)
-        # Journal merged into Reports — context invalidation via report events
-
-        # Subscribe to transcription events for automatic journal-type report creation
-        from core.events.transcription_events import TranscriptionCompleted
-
-        event_bus.subscribe(
-            TranscriptionCompleted,
-            submissions_core_service.handle_transcription_completed,
-        )
-        logger.info(
-            "✅ SubmissionsCoreService subscribed to TranscriptionCompleted "
-            "(automatic journal report creation from voice transcriptions)"
-        )
-
-        # Subscribe to SubmissionCreated for exercise linking (ADR-040)
-        import functools
-
-        from core.events.handlers.exercise_handler import handle_exercise_submission
-        from core.events.submission_events import SubmissionCreated
-
-        exercise_handler = functools.partial(
-            handle_exercise_submission,
-            reports_core_service=submissions_core_service,
-        )
-        event_bus.subscribe(SubmissionCreated, exercise_handler)
-        logger.info(
-            "✅ Exercise handler subscribed to SubmissionCreated "
-            "(automatic FULFILLS_EXERCISE + SHARES_WITH creation)"
-        )
-
-        # Subscribe to report events for student notifications
-        from core.events.handlers.report_notification_handler import (
-            handle_report_submitted,
-            handle_revision_requested,
-            handle_submission_approved,
-        )
-        from core.events.submission_events import (
-            ReportSubmitted,
-            SubmissionApproved,
-            SubmissionRevisionRequested,
-        )
-
-        report_submitted_handler = functools.partial(
-            handle_report_submitted,
+        # Wire all event subscribers (context invalidation + cross-domain + intelligence)
+        _wire_event_subscribers(
+            event_bus=event_bus,
+            user_service=user_service,
+            activity_services=activity_services,
+            learning_services=learning_services,
+            submissions_core_service=submissions_core_service,
             notification_service=notification_service,
+            advanced=advanced,
+            analytics_service=analytics_service,
         )
-        submission_approved_handler = functools.partial(
-            handle_submission_approved,
-            notification_service=notification_service,
-        )
-        revision_requested_handler = functools.partial(
-            handle_revision_requested,
-            notification_service=notification_service,
-        )
-        event_bus.subscribe(ReportSubmitted, report_submitted_handler)
-        event_bus.subscribe(SubmissionApproved, submission_approved_handler)
-        event_bus.subscribe(SubmissionRevisionRequested, revision_requested_handler)
-        logger.info(
-            "SubmissionReport notification handlers subscribed to ReportSubmitted + "
-            "SubmissionApproved + SubmissionRevisionRequested (student notifications)"
-        )
-
-        # Subscribe to learning events
-        event_bus.subscribe(KnowledgeCreated, invalidate_context_on_learning_event)
-        event_bus.subscribe(KnowledgeMastered, invalidate_context_on_learning_event)
-        event_bus.subscribe(LearningPathStarted, invalidate_context_on_learning_event)
-        event_bus.subscribe(LearningPathCompleted, invalidate_context_on_learning_event)
-        event_bus.subscribe(LearningPathProgressUpdated, invalidate_context_on_learning_event)
-        logger.info(
-            "✅ UserService subscribed to learning events "
-            "(KnowledgeCreated, KnowledgeMastered, LearningPathStarted, LearningPathCompleted, LearningPathProgressUpdated)"
-        )
-
-        # Subscribe to learning step (LS) events
-        event_bus.subscribe(LearningStepCreated, invalidate_context_on_ls_event)
-        event_bus.subscribe(LearningStepUpdated, invalidate_context_on_ls_event)
-        event_bus.subscribe(LearningStepDeleted, invalidate_context_on_ls_event)
-        event_bus.subscribe(LearningStepCompleted, invalidate_context_on_ls_event)
-        logger.info(
-            "✅ UserService subscribed to learning step events "
-            "(LearningStepCreated, LearningStepUpdated, LearningStepDeleted, LearningStepCompleted)"
-        )
-
-        # NOTE: MOC event subscriptions removed (January 2026)
-        # MOC is Entity-based - MOC changes are Entity changes with ORGANIZES relationships
-        # Context invalidation happens through Entity events, not separate MOC events
-
-        # ========================================================================
-        # CROSS-DOMAIN EVENT SUBSCRIPTIONS
-        # "Events over dependencies" - Eliminate service-to-service coupling
-        # ========================================================================
-
-        # Task completion → Goal progress update
-        goals_service = activity_services["goals"]  # Use unified activity service
-        event_bus.subscribe(TaskCompleted, goals_service.progress.handle_task_completed)
-        logger.info(
-            "✅ GoalsProgressService subscribed to TaskCompleted (automatic progress updates)"
-        )
-
-        # Habit completion → Goal progress update
-        from core.events.habit_events import HabitCompleted
-
-        event_bus.subscribe(HabitCompleted, goals_service.progress.handle_habit_completed)
-        logger.info(
-            "✅ GoalsProgressService subscribed to HabitCompleted (automatic progress updates)"
-        )
-
-        # Goal achievement → Goal recommendations
-        event_bus.subscribe(GoalAchieved, goals_service.recommendations.handle_goal_achieved)
-        logger.info(
-            "✅ GoalRecommendationService subscribed to GoalAchieved (intelligent recommendations)"
-        )
-
-        # Knowledge mastery → Learning Path progress update
-        from core.events.curriculum_events import LearningStepCompleted
-        from core.events.learning_events import KnowledgeMastered, LessonCompleted
-
-        lp_service = learning_services["learning_paths"]
-        ls_service = learning_services["learning_steps"]
-        ku_service_for_mastery = learning_services["lesson_service"]
-
-        event_bus.subscribe(KnowledgeMastered, lp_service.progress.handle_knowledge_mastered)
-        logger.info(
-            "✅ LpProgressService subscribed to KnowledgeMastered (automatic LP progress updates)"
-        )
-
-        # Knowledge mastery → Lesson completion detection
-        event_bus.subscribe(
-            KnowledgeMastered, ku_service_for_mastery.mastery.handle_knowledge_mastered
-        )
-        logger.info(
-            "✅ LessonMasteryService subscribed to KnowledgeMastered (lesson completion detection)"
-        )
-
-        # Lesson completion → LS progress update
-        event_bus.subscribe(LessonCompleted, ls_service.progress.handle_lesson_completed)
-        logger.info(
-            "✅ LsProgressService subscribed to LessonCompleted (automatic LS progress updates)"
-        )
-
-        # LS completion → LP progress update (chain: LS→LP)
-        event_bus.subscribe(LearningStepCompleted, lp_service.progress.handle_step_completed)
-        logger.info(
-            "✅ LpProgressService subscribed to LearningStepCompleted (LS→LP progress chain)"
-        )
-
-        # Event completion → Knowledge practice tracking
-        from core.events.calendar_event_events import CalendarEventCompleted
-
-        ku_service = learning_services["lesson_service"]
-        event_bus.subscribe(CalendarEventCompleted, ku_service.practice.handle_event_completed)
-        logger.info(
-            "✅ LessonPracticeService subscribed to CalendarEventCompleted (automatic practice tracking)"
-        )
-
-        # Habit streak milestone → Achievement badges
-        from core.events.habit_events import HabitStreakMilestone
-
-        habits_service = activity_services["habits"]
-        event_bus.subscribe(
-            HabitStreakMilestone, habits_service.achievements.handle_habit_streak_milestone
-        )
-        logger.info(
-            "✅ HabitAchievementService subscribed to HabitStreakMilestone (badge awarding)"
-        )
-
-        # Learning path completion & knowledge mastery → Learning recommendations
-        from core.events.learning_events import KnowledgeMastered, LearningPathCompleted
-
-        learning_intelligence = learning_services["learning_intelligence"]
-        event_bus.subscribe(
-            LearningPathCompleted,
-            learning_intelligence.recommendation_engine.handle_learning_path_completed,
-        )
-        event_bus.subscribe(
-            KnowledgeMastered, learning_intelligence.recommendation_engine.handle_knowledge_mastered
-        )
-        logger.info(
-            "✅ LearningRecommendationEngine subscribed to LearningPathCompleted & KnowledgeMastered "
-            "(intelligent next-step recommendations)"
-        )
-
-        # Multi-domain analytics → Track activity across all domains
-        from core.events.calendar_event_events import CalendarEventCompleted
-        from core.events.habit_events import HabitCompleted
-        from core.events.task_events import TaskCompleted
-
-        cross_domain_analytics_service = advanced["cross_domain_analytics"]
-        event_bus.subscribe(TaskCompleted, cross_domain_analytics_service.handle_task_completed)
-        event_bus.subscribe(HabitCompleted, cross_domain_analytics_service.handle_habit_completed)
-        event_bus.subscribe(
-            CalendarEventCompleted, cross_domain_analytics_service.handle_event_completed
-        )
-        event_bus.subscribe(ExpenseCreated, cross_domain_analytics_service.handle_expense_created)
-        event_bus.subscribe(ExpensePaid, cross_domain_analytics_service.handle_expense_paid)
-        event_bus.subscribe(GoalCreated, cross_domain_analytics_service.handle_goal_created)
-        event_bus.subscribe(
-            KnowledgeMastered, cross_domain_analytics_service.handle_knowledge_mastered
-        )
-        event_bus.subscribe(
-            LearningPathCompleted, cross_domain_analytics_service.handle_path_completed
-        )
-        # NOTE: JournalCreated subscription REMOVED (February 2026)
-        # Journal merged into Reports — cross_domain_analytics needs update in
-        # to subscribe to SubmissionCreated and filter for entity_type="journal"
-        logger.info(
-            "✅ CrossDomainAnalyticsService subscribed to 8 event types "
-            "(Tasks, Habits, Events, Expenses, Goals, Knowledge, Paths)"
-        )
-
-        # Milestone achievements → Automatic report generation
-        from core.events.goal_events import GoalAchieved
-
-        event_bus.subscribe(GoalAchieved, analytics_service.handle_goal_achieved)
-        event_bus.subscribe(LearningPathCompleted, analytics_service.handle_learning_path_completed)
-        event_bus.subscribe(HabitStreakMilestone, analytics_service.handle_habit_streak_milestone)
-        logger.info(
-            "✅ AnalyticsService subscribed to 3 milestone events "
-            "(GoalAchieved, LearningPathCompleted, HabitStreakMilestone) for auto-report generation"
-        )
-
-        # ========================================================================
-        # SUBSTANCE TRACKING EVENT SUBSCRIPTIONS (October 17, 2025)
-        # "Applied knowledge, not pure theory" - Track real-world knowledge application
-        # ========================================================================
-
-        from core.events.lesson_events import (
-            KnowledgeAppliedInTask,
-            KnowledgeBuiltIntoHabit,
-            KnowledgeBulkAppliedInTask,
-            KnowledgeBulkBuiltIntoHabit,
-            KnowledgeBulkInformedChoice,
-            KnowledgeInformedChoice,
-            KnowledgePracticedInEvent,
-        )
-
-        # Get KU service from learning services
-        ku_service = learning_services["lesson_service"]
-
-        # Subscribe to substance tracking events (single-entity)
-        event_bus.subscribe(KnowledgeAppliedInTask, ku_service.handle_knowledge_applied_in_task)
-        event_bus.subscribe(
-            KnowledgePracticedInEvent, ku_service.handle_knowledge_practiced_in_event
-        )
-        event_bus.subscribe(KnowledgeBuiltIntoHabit, ku_service.handle_knowledge_built_into_habit)
-        event_bus.subscribe(KnowledgeInformedChoice, ku_service.handle_knowledge_informed_choice)
-
-        # Subscribe to BATCH substance tracking events (O(1) vs O(n))
-        event_bus.subscribe(
-            KnowledgeBulkAppliedInTask, ku_service.handle_knowledge_bulk_applied_in_task
-        )
-        event_bus.subscribe(
-            KnowledgeBulkBuiltIntoHabit, ku_service.handle_knowledge_bulk_built_into_habit
-        )
-        event_bus.subscribe(
-            KnowledgeBulkInformedChoice, ku_service.handle_knowledge_bulk_informed_choice
-        )
-
-        logger.info("✅ LessonService subscribed to substance tracking events:")
-        logger.info("   - KnowledgeAppliedInTask (weight: 0.05)")
-        logger.info("   - KnowledgePracticedInEvent (weight: 0.05)")
-        logger.info("   - KnowledgeBuiltIntoHabit (weight: 0.10, lifestyle integration)")
-        logger.info("   - KnowledgeInformedChoice (weight: 0.07, decision-making)")
-        logger.info(
-            "   - Bulk events: KnowledgeBulkAppliedInTask, KnowledgeBulkBuiltIntoHabit, KnowledgeBulkInformedChoice"
-        )
-
-        # ========================================================================
-        # DOMAIN INTELLIGENCE EVENT SUBSCRIPTIONS (January 2026)
-        # "Events enable cross-domain intelligence"
-        # ========================================================================
-
-        # ---- Adaptive Learning Loop (ADR-048) ----
-
-        # Task intelligence - duration calibration from completions
-        from core.events.task_events import TaskCompleted
-
-        tasks_service = activity_services["tasks"]
-        event_bus.subscribe(TaskCompleted, tasks_service.intelligence.learn_from_completion)
-        logger.info("✅ TasksIntelligenceService subscribed to TaskCompleted (learning loop)")
-
-        # Habit intelligence - timing/scheduling learning from completions
-        from core.events.habit_events import HabitCompleted
-
-        habits_service = activity_services["habits"]
-        event_bus.subscribe(HabitCompleted, habits_service.intelligence.learn_from_completion)
-        logger.info("✅ HabitsIntelligenceService subscribed to HabitCompleted (learning loop)")
-
-        # ---- Existing event intelligence ----
-
-        # Habit intelligence - recovery suggestions when streaks break
-        from core.events.habit_events import HabitStreakBroken
-
-        event_bus.subscribe(
-            HabitStreakBroken, habits_service.intelligence.handle_habit_streak_broken
-        )
-        logger.info("✅ HabitsIntelligenceService subscribed to HabitStreakBroken")
-
-        # Choice intelligence - decision learning when outcomes are recorded
-        from core.events.choice_events import ChoiceOutcomeRecorded
-
-        choices_service = activity_services["choices"]
-        event_bus.subscribe(
-            ChoiceOutcomeRecorded, choices_service.intelligence.handle_choice_outcome_recorded
-        )
-        logger.info("✅ ChoicesIntelligenceService subscribed to ChoiceOutcomeRecorded")
-
-        # Principle intelligence - alignment cascade when strength changes
-        from core.events.principle_events import PrincipleStrengthChanged
-
-        principles_service = activity_services["principles"]
-        event_bus.subscribe(
-            PrincipleStrengthChanged,
-            principles_service.intelligence.handle_principle_strength_changed,
-        )
-        logger.info("✅ PrinciplesIntelligenceService subscribed to PrincipleStrengthChanged")
-
-        # ========================================================================
-        # TIER 1 HANDLERS: Quick-Win Event Intelligence (January 2026)
-        # ========================================================================
-
-        # Habit intelligence - difficulty tracking when habits are missed
-        from core.events.habit_events import HabitMissed
-
-        event_bus.subscribe(HabitMissed, habits_service.intelligence.handle_habit_missed)
-        logger.info("✅ HabitsIntelligenceService subscribed to HabitMissed")
-
-        # Choice intelligence - decision pattern tracking when choice is made
-        from core.events.choice_events import ChoiceMade
-
-        event_bus.subscribe(ChoiceMade, choices_service.intelligence.handle_choice_made)
-        logger.info("✅ ChoicesIntelligenceService subscribed to ChoiceMade")
-
-        # KU intelligence - learning progress when learning steps are completed
-        from core.events.curriculum_events import LearningStepCompleted
-
-        event_bus.subscribe(
-            LearningStepCompleted, ku_service.intelligence.handle_learning_step_completed
-        )
-        logger.info("✅ LessonIntelligenceService subscribed to LearningStepCompleted")
-
-        # ========================================================================
-        # TIER 2 HANDLERS: Pattern-Based Event Intelligence (January 2026)
-        # ========================================================================
-
-        # Principles intelligence - cross-domain insights from reflections
-        from core.events.principle_events import (
-            PrincipleConflictRevealed,
-            PrincipleReflectionRecorded,
-        )
-
-        event_bus.subscribe(
-            PrincipleReflectionRecorded,
-            principles_service.intelligence.handle_reflection_recorded,
-        )
-        logger.info("✅ PrinciplesIntelligenceService subscribed to PrincipleReflectionRecorded")
-
-        # Principles intelligence - conflict detection and resolution guidance
-        event_bus.subscribe(
-            PrincipleConflictRevealed,
-            principles_service.intelligence.handle_conflict_revealed,
-        )
-        logger.info("✅ PrinciplesIntelligenceService subscribed to PrincipleConflictRevealed")
-
-        # NOTE: MOC intelligence subscription removed (January 2026)
-        # MOC is Entity-based - intelligence operations happen through Entity ORGANIZES relationships
-        # MapOfContentUpdated event type is deprecated - MOC changes are Entity changes
-
-        logger.info(
-            "✅ Domain intelligence event subscriptions wired (8 handlers): "
-            "Tier 1: HabitStreakBroken, ChoiceOutcomeRecorded, PrincipleStrengthChanged, "
-            "HabitMissed, ChoiceMade, LearningStepCompleted | "
-            "Tier 2: PrincipleReflectionRecorded, PrincipleConflictRevealed"
-        )
-
-        logger.info("✅ Event-driven architecture wired (40+ event types subscribed)")
         logger.info("✅ All services initialized")
 
         # Compose the services container
@@ -2672,154 +2781,21 @@ async def compose_services(
             intelligence_tier=tier,
         )
 
-        # ========================================================================
-        # CREATE USER CONTEXT INTELLIGENCE (13-Domain Architecture)
-        # ========================================================================
-        # UserContextIntelligence = UserContext + 13 Domain Services
-        # This is THE service that answers: "What should I work on next?"
-        #
-        # Entity Types:
-        # - Activity Domains (6): Tasks, Goals, Habits, Events, Choices, Principles
-        # - Curriculum Domains (3): KU, LS, LP
-        # - Processing Domains (2): Reports (includes journals), Analytics
-        # - Temporal Domain (1): Calendar
-
-        from core.services.analytics_relationship_service import AnalyticsRelationshipService
-        from core.services.report import ReportRelationshipService
-        from core.services.submissions import SubmissionsRelationshipService
-        from core.services.user.intelligence import UserContextIntelligenceFactory
-
-        # Create processing domain relationship services
-        # NOTE: JournalRelationshipService REMOVED (February 2026) - Journal merged into Entity model
-        # SubmissionsRelationshipService handles all submission content relationships
-        submissions_relationship_service = SubmissionsRelationshipService(
-            backend=submissions_backend
-        )
-        report_relationship_service = ReportRelationshipService(backend=submissions_backend)
-        analytics_relationship_service = AnalyticsRelationshipService(driver)
-        logger.info(
-            "✅ Processing domain relationship services created (Submissions, Report, Analytics)"
-        )
-
-        # ========================================================================
-        # CREATE ZPD SERVICE (March 2026 — pedagogical core of Askesis)
-        # ========================================================================
-        # ZPDService computes the user's Zone of Proximal Development from the
-        # Neo4j curriculum graph. Gated by INTELLIGENCE_TIER=FULL — requires
-        # behavioral signals from choices + habits intelligence services.
-        # Returns empty assessment (not an error) when curriculum graph < 3 KUs.
-        from adapters.persistence.neo4j.zpd_backend import ZPDBackend
-        from core.services.zpd import ZPDService
-
-        zpd_service: ZPDOperations | None = None
-        if tier.ai_enabled:
-            zpd_backend = ZPDBackend(driver)
-            zpd_service = ZPDService(
-                backend=zpd_backend,
-                choices_intelligence=activity_services["choices"].intelligence,
-                habits_intelligence=activity_services["habits"].intelligence,
-            )
-            services.zpd_service = zpd_service
-            context_builder.zpd_service = zpd_service
-            logger.info(
-                "✅ ZPDService created (behavioral signals: choices + habits, wired to context_builder)"
-            )
-
-            # ── ZPD snapshot event subscriptions ─────────────────────────
-            from adapters.persistence.neo4j.zpd_snapshot_backend import ZPDSnapshotBackend
-            from core.services.zpd.zpd_event_handler import ZPDSnapshotHandler
-
-            zpd_snapshot_backend = ZPDSnapshotBackend(driver)
-            zpd_handler = ZPDSnapshotHandler(zpd_service, zpd_snapshot_backend)
-
-            from core.events.curriculum_events import LearningStepCompleted as ZPDLSCompleted
-            from core.events.learning_events import KnowledgeMastered as ZPDKMastered
-            from core.events.learning_events import (
-                LearningPathProgressUpdated as ZPDLPProgress,
-            )
-            from core.events.submission_events import (
-                ReportSubmitted as ZPDReportSubmitted,
-            )
-            from core.events.submission_events import (
-                SubmissionApproved as ZPDSubApproved,
-            )
-
-            event_bus.subscribe(ZPDSubApproved, zpd_handler.handle_submission_approved)
-            event_bus.subscribe(ZPDReportSubmitted, zpd_handler.handle_report_submitted)
-            event_bus.subscribe(ZPDKMastered, zpd_handler.handle_knowledge_mastered)
-            event_bus.subscribe(ZPDLSCompleted, zpd_handler.handle_learning_step_completed)
-            event_bus.subscribe(ZPDLPProgress, zpd_handler.handle_learning_path_progress)
-            logger.info(
-                "✅ ZPD snapshot handler subscribed to 5 events "
-                "(SubmissionApproved, ReportSubmitted, KnowledgeMastered, "
-                "LearningStepCompleted, LearningPathProgressUpdated)"
-            )
-        else:
-            logger.info("⏭️  ZPDService skipped (intelligence tier: CORE)")
-
-        # Create factory with all 13 domain services
-        context_intelligence_factory = UserContextIntelligenceFactory(
-            # Activity Domains (6) - All from unified activity_services
-            tasks=activity_services["tasks"].relationships,
-            goals=activity_services["goals"].relationships,
-            habits=activity_services["habits"].relationships,
-            events=activity_services["events"].relationships,
-            choices=activity_services["choices"].relationships,
-            principles=activity_services["principles"].relationships,
-            # Curriculum Domains (3)
-            lesson=learning_services["lesson_service"].graph,  # LessonGraphService
-            ls=learning_services[
-                "learning_steps"
-            ].relationships,  # Factory expects 'ls' parameter name
-            lp=learning_services[
-                "learning_paths"
-            ].relationships,  # Factory expects 'lp' parameter name
-            # Processing Domains (3)
-            submissions=submissions_relationship_service,  # SubmissionsRelationshipService
-            report=report_relationship_service,  # ReportRelationshipService
-            analytics=analytics_relationship_service,  # AnalyticsRelationshipService
-            # Temporal Domain (1)
-            calendar=calendar_service,
-            # Optional: Vector search for semantic enhancements
+        # Create UserContextIntelligence factory, ZPD service, and Askesis
+        await _create_intelligence_hub(
+            services=services,
+            activity_services=activity_services,
+            learning_services=learning_services,
+            submissions_backend=submissions_backend,
+            calendar_service=calendar_service,
             vector_search_service=vector_search_service,
-            # Optional: ZPD service for curriculum-graph-aware learning step ranking
-            zpd_service=zpd_service,
+            driver=driver,
+            event_bus=event_bus,
+            tier=tier,
+            context_builder=context_builder,
+            user_service=user_service,
+            context_service=context_service,
         )
-        services.context_intelligence = context_intelligence_factory
-        logger.info("✅ UserContextIntelligence factory created (13 domain services + ZPD wired)")
-
-        # Wire intelligence factory to UserService (post-construction wiring)
-        user_service.intelligence_factory = context_intelligence_factory
-        logger.info("✅ UserService wired with intelligence factory")
-
-        # Wire intelligence factory to UserContextService (post-construction wiring)
-        # This enables get_context_summary() to use factory.create() for intelligence queries
-        context_service.intelligence_factory = context_intelligence_factory
-        logger.info("✅ UserContextService wired with intelligence factory")
-
-        # Create Askesis service — FULL tier only (no degraded mode)
-        # March 2026: Gated behind tier.ai_enabled — Askesis requires all AI deps
-        if tier.ai_enabled:
-            from core.services.askesis_citation_service import AskesisCitationService
-            from core.services.askesis_factory import create_askesis_service
-
-            citation_service = AskesisCitationService(
-                backend=learning_services["lesson_service"].core.backend,
-            )
-
-            services.askesis = create_askesis_service(
-                intelligence_factory=context_intelligence_factory,
-                learning_services=learning_services,
-                activity_services=activity_services,
-                user_service=user_service,
-                zpd_service=zpd_service,
-                citation_service=citation_service,
-            )
-            logger.info(
-                "✅ Askesis service created with intelligence_factory (13-domain synthesis + ZPD)"
-            )
-        else:
-            logger.info("⏭️ Askesis service skipped (intelligence tier: CORE)")
 
         # ========================================================================
         # CREATE SEARCH ROUTER (One Path Forward, January 2026)
