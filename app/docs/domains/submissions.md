@@ -60,7 +60,7 @@ Reports is the primary user-facing interface for all content submissions and sys
 | **Service Package** | `/core/services/submissions/ + core/services/report/` |
 | Submission Service | `submissions_service.py` |
 | Processing Service | `submissions_processing_service.py` |
-| Core Service | `submissions_core_service.py` (includes assessment CRUD) |
+| Core Service | `submissions_core_service.py` (assessment CRUD + journal upload orchestration) |
 | Search Service | `submissions_search_service.py` |
 | Relationship Service | `submissions_relationship_service.py` |
 | Sharing Service | `report_sharing_service.py` |

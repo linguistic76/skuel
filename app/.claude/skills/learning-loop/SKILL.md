@@ -516,7 +516,7 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
 | **RevisedExercise** | `RevisedExerciseService` | `RevisedExerciseOperations` | `RevisedExerciseBackend` | CRUD, `list_for_teacher`, `list_for_student`, `get_revision_chain` |
 | **Submission** | `SubmissionsService` | `SubmissionOperations` | `SubmissionsBackend` | `submit_file`, `check_access`, share methods |
 | **Submission processing** | `SubmissionsProcessingService` | `SubmissionProcessingOperations` | `SubmissionsBackend` | Processing pipeline |
-| **Submission report** | `SubmissionReportService` + `SubmissionsCoreService` | `SubmissionReportOperations` | `SubmissionsBackend` | `generate_report`, `create_assessment` |
+| **Submission report** | `SubmissionReportService` + `SubmissionsCoreService` | `SubmissionReportOperations` | `SubmissionsBackend` | `generate_report`, `create_assessment`, `submit_journal_file` |
 | **Teacher review** | `TeacherReviewService` | `TeacherReviewOperations` | `QueryExecutor` | **Review actions:** `get_review_queue`, `get_submission_detail`, `get_report_history`, `submit_report`, `request_revision`, `approve_report` · **Exercise view:** `get_exercises_with_submission_counts`, `get_submissions_for_exercise` · **Student view:** `get_students_summary`, `get_student_submissions` · **Dashboard:** `get_dashboard_stats`, `get_teacher_groups_with_stats`, `get_group_detail` |
 | **Activity Report (auto/LLM)** | `ProgressReportGenerator` | `ProgressReportOperations` | `UserContextBuilder` | `generate`, `create_scheduled` |
 | **Activity Report (scheduled)** | `ProgressReportWorker` | — | — | Background worker; calls `ProgressReportGenerator` on schedule |
@@ -648,7 +648,7 @@ that never closes the loop.
 | `core/models/submissions/submission.py` | 3 | Submission base + JOURNAL |
 | `core/models/report/submission_report.py` | 4 | SubmissionReport model |
 | `core/models/report/activity_report.py` | 4 | ActivityReport model |
-| `core/services/submissions/submissions_core_service.py` | 3+4 | CRUD + teacher assessment |
+| `core/services/submissions/submissions_core_service.py` | 3+4 | CRUD + teacher assessment + journal upload orchestration |
 | `core/services/report/submission_report_service.py` | 4 | AI report generation |
 | `core/services/report/progress_report_generator.py` | 4 | ActivityReport generation |
 | `core/services/report/activity_report_service.py` | 4 | Admin human report; all write paths converge here |
@@ -679,8 +679,9 @@ that never closes the loop.
    Teacher links Exercise to Ku via REQUIRES_KNOWLEDGE
        ↓
 3. Student submits file
-   SubmissionsService.submit_file()                 → core/services/submissions/submissions_core_service.py
+   SubmissionsService.submit_file()                 → core/services/submissions/submissions_service.py
    Creates Entity with entity_type='submission', status SUBMITTED→QUEUED→PROCESSING→COMPLETED
+   (For journals: SubmissionsCoreService.submit_journal_file() orchestrates title → instructions → submit → process)
        ↓
 4. FULFILLS_EXERCISE relationship created
    Auto-sharing: SHARES_WITH (student → teacher)

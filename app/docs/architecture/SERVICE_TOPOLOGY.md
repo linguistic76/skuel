@@ -360,7 +360,17 @@ services_bootstrap.py:   habits.goals_service = goals       # facade-level
                          habits.goal_analytics.goals_service = goals  # sub-service-level
 ```
 
-**Rule:** Routes never pass cross-domain services as parameters. Orchestration methods (e.g., `create_with_goal_links`, `complete_with_goal_impacts`) use `self.goals_service` internally.
+```
+SubmissionsCoreService.__init__:  self.submissions_service = None
+                                  self.processing_service = None
+                                  self.exercise_service = None
+
+services_bootstrap.py:  submissions_core_service.submissions_service = submissions_service
+                        submissions_core_service.processing_service = submissions_processor
+                        submissions_core_service.exercise_service = exercise_service
+```
+
+**Rule:** Routes never pass cross-domain services as parameters. Orchestration methods (e.g., `create_with_goal_links`, `submit_journal_file`) use `self.*_service` internally.
 
 ---
 

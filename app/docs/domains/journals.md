@@ -1,7 +1,7 @@
 ---
 title: Journals Domain
 created: 2025-12-04
-updated: 2026-03-02
+updated: 2026-03-16
 status: current
 category: domains
 tags: [journals, content-domain, submissions, multi-modal, ai-processing, lp-integration]
@@ -47,15 +47,19 @@ Journals support **three modes** with weighted distribution:
 ## Processing Pipeline
 
 ```
-1. User uploads file → SubmissionsService.submit_file()
-   ├─ entity_type: EntityType.JOURNAL
-   └─ processor_type: ProcessorType.LLM
+1. Route handler validates input → calls SubmissionsCoreService.submit_journal_file()
+   ├─ Orchestrates the full upload pipeline in the service layer
+   └─ Returns JournalUploadResult (submission_uid, status, processing_succeeded, message)
 
-2. AI processing triggered → SubmissionsProcessingService.process_report()
-   ├─ Audio: transcribe → process_journal()
-   └─ Text: direct → process_journal()
+2. Inside submit_journal_file():
+   a. Resolve title (custom > auto-generated > filename fallback)
+   b. Resolve instructions (Exercise > DEFAULT_JOURNAL_INSTRUCTIONS)
+   c. Submit file → SubmissionsService.submit_file()
+      ├─ entity_type: EntityType.JOURNAL_SUBMISSION
+      └─ processor_type: ProcessorType.LLM
+   d. Auto-trigger AI → SubmissionsProcessingService.process_submission()
 
-3. Multi-modal pipeline → _process_journal()
+3. AI processing pipeline → _process_journal()
    ├─ Read enrichment_mode from instructions (activity / articulation / exploration)
    ├─ JournalOutputGenerator.generate(content, enrichment_mode, journal_uid) → formatted content
    │  ├─ activity_formatter.md → structured DSL format
@@ -265,7 +269,7 @@ Three ways to specify processing instructions:
 
 | Mode | Selector Value | Behavior |
 |------|----------------|----------|
-| **Default** | `__default__` | Uses built-in `DEFAULT_INSTRUCTIONS` constant |
+| **Default** | `__default__` | Uses `DEFAULT_JOURNAL_INSTRUCTIONS` from `submissions_core_service.py` |
 | **Existing project** | `{project_uid}` | Fetches Assignment from Neo4j |
 | **Upload new** | `__upload__` | Uploads `.md` file → creates new Assignment |
 
@@ -327,11 +331,11 @@ When a journal is processed, these fields are stored in `report.metadata`:
 2. Select instructions mode (default, or upload custom instruction file)
 3. Optionally enter a custom title (auto-generated if blank: "Journal — {user_id} — {Mar 02, 2026} — #1")
 4. Upload file (audio, text, PDF, images, video)
-5. System processes:
-   - Transcribes if audio
-   - Infers journal weights via LLM
-   - Generates je_output file
-   - Extracts activities if threshold met
+5. Route calls SubmissionsCoreService.submit_journal_file() which:
+   - Resolves title and instructions
+   - Submits file via SubmissionsService
+   - Auto-triggers AI processing (transcription, weight inference, je_output, activity extraction)
+   - Returns JournalUploadResult with status
 6. User → /journals/browse ("My Journals") → sees completed entry with download button
 ```
 
@@ -369,7 +373,7 @@ When a journal is processed, these fields are stored in `report.metadata`:
 | **Services** | |
 | Output Generator | `/core/services/submissions/journal_output_generator.py` |
 | Processing Service | `/core/services/submissions/submissions_processing_service.py` |
-| Core CRUD | `/core/services/submissions/submissions_core_service.py` |
+| Core + Upload Orchestration | `/core/services/submissions/submissions_core_service.py` |
 | **Prompts** | |
 | Activity Formatter | `/core/prompts/templates/journal_activity.md` |
 | Articulation Formatter | `/core/prompts/templates/journal_articulation.md` |
