@@ -257,7 +257,7 @@ async def admin_route(request, current_user): ...
 
 **Core Principle:** "UserContext is THE single object for understanding a user's complete state"
 
-One object (~250 fields), built by one query (MEGA-QUERY), consumed by all intelligence services.
+One object (~250 fields), built by one query (MEGA-QUERY), consumed by all intelligence services. Carries core identity from the `User` model (`user_uid`, `username`, `display_name`, `email`, `user_role`) — only fetch `User` directly when you need `user.preferences`.
 
 | Depth | Method | Use Case |
 |-------|--------|----------|

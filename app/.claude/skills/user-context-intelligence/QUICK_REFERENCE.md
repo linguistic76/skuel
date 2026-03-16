@@ -351,6 +351,8 @@ plan = await intelligence.get_ready_to_work_on_today()
 | Field | Type | Purpose |
 |-------|------|---------|
 | `user_uid` | `str` | User identifier |
+| `user_role` | `UserRole` | User role (REGISTERED/MEMBER/TEACHER/ADMIN) — use `user_role.can_manage_users()` etc. |
+| `display_name` | `str` | Display name (populated from User during build) |
 | `available_minutes_daily` | `int` | Daily capacity |
 | `current_energy_level` | `float` | Energy 0.0-1.0 |
 | `current_workload_score` | `float` | Workload 0.0-1.0 |

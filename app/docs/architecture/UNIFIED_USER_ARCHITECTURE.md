@@ -28,7 +28,7 @@ SKUEL's user system has two distinct objects that serve different purposes:
 | `User` | `core/models/user/user.py` | Frozen domain model — identity, preferences, role |
 | `UserContext` | `core/services/user/unified_user_context.py` | Runtime state — everything a user has done (~250 fields) |
 
-`User` is what a user *is*. `UserContext` is what they *have* — all their entities, relationships, and graph neighbourhoods in one object, built by a single MEGA-QUERY.
+`User` is what a user *is*. `UserContext` is what they *have* — all their entities, relationships, and graph neighbourhoods in one object, built by a single MEGA-QUERY. `UserContext` carries core identity fields (`user_uid`, `username`, `display_name`, `email`, `user_role`) from the `User` model — only fetch `User` directly when you need `user.preferences` (the full `UserPreferences` object).
 
 ---
 
@@ -161,7 +161,7 @@ async def admin_only_route(request, current_user):
 
 **The problem:** Understanding a user without `UserContext` requires 15+ separate queries across all domains. Stats are disconnected from UIDs. Intelligence services can't see across domain boundaries.
 
-**The solution:** One object (~250 fields), built by one query (MEGA-QUERY), consumed by all intelligence services. Stats are computed FROM UIDs — no duplication, no drift.
+**The solution:** One object (~250 fields), built by one query (MEGA-QUERY), consumed by all intelligence services. Stats are computed FROM UIDs — no duplication, no drift. Core identity fields (`user_uid`, `username`, `display_name`, `email`, `user_role`) are populated from the `User` model during context building — callers should use `UserContext` directly instead of fetching `User` separately (the builder already resolves the user internally).
 
 ```
 Graph (Neo4j) → MEGA-QUERY → UserContext → UserContextIntelligence → Recommendations
