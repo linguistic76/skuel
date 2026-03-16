@@ -270,6 +270,18 @@ class HabitCompletionRequest(BaseModel):
 - Clear error messages ("Input should be 'poor', 'fair', 'good' or 'excellent'")
 - No manual validation needed
 
+**⚠️ HTML Form Gotcha:** HTML `<select>` elements send empty strings (`""`) when no option is selected. `dict.get("field", "default")` does NOT catch this — the key exists, so the default is ignored. Always sanitize before passing to Pydantic:
+
+```python
+# ❌ WRONG - empty string passes through, fails enum validation
+domain = form_data.get("domain", "personal")
+
+# ✅ CORRECT - empty string falls back to default
+domain = form_data.get("domain", "").strip() or "personal"
+```
+
+See `/docs/patterns/ERROR_HANDLING.md` → "Safe Enum Parsing for HTML Forms" for the full pattern.
+
 ### Complex Fields
 
 ```python

@@ -102,17 +102,20 @@ class CalendarParams:
 User-visible error messages using Alert wrapper:
 
 ```python
-from ui.feedback import Alert, AlertT
+from ui.patterns.error_banner import render_error_banner
 
-def render_error_banner(message: str) -> Div:
-    """Render error banner for UI failures."""
-    return Alert(
-        P("⚠️ Error", cls="font-bold text-error"),
-        P(message, cls="text-sm"),
-        variant=AlertT.error,
-        cls="mb-4",
-    )
+# Simple error
+render_error_banner("Unable to save task")
+
+# With technical details (shown in dev mode)
+render_error_banner(
+    "Unable to save task",
+    technical_details="Database connection timeout",
+    severity="error"
+)
 ```
+
+**Important:** Do NOT pass `role="alert"` to `Alert()` — MonsterUI's `MAlert` already sets `role="alert"` internally, and duplicating it causes a `TypeError: got multiple values for keyword argument 'role'`.
 
 ### 4. Pure Computation Helpers
 
@@ -156,6 +159,21 @@ def validate_task_form_data(form_data: dict[str, Any]) -> Result[None]:
 - Early failure (before hitting services)
 - Clear validation rules
 - Testable without mocking
+
+### 6. Safe Enum Parsing for HTML Forms
+
+HTML `<select>` elements and optional dropdowns send empty strings (`""`) when no option is selected. `dict.get("field", "default")` does NOT catch this — the key exists with value `""`, so the default is ignored and the empty string reaches Pydantic enum validation, causing a crash.
+
+```python
+# ❌ WRONG — empty string passes through, crashes Pydantic
+domain = form_data.get("domain", "personal")
+
+# ✅ CORRECT — empty string falls back to default
+domain = form_data.get("domain", "").strip() or "personal"
+event_type = form_data.get("event_type", "").strip() or "meeting"
+```
+
+**Rule:** For any form field bound to a Pydantic enum, always use `form_data.get("field", "").strip() or "default"`.
 
 ---
 
@@ -661,23 +679,7 @@ async def create_task_from_form(form_data: dict[str, Any], user_uid: str) -> Res
 
 **Use when:** Rendering errors to users (all error cases)
 
-**Example:**
-```python
-from fasthtml.common import Div, P
-
-def render_error_banner(message: str) -> Div:
-    """
-    Render error banner for UI failures.
-
-    Uses Alert wrapper with error variant.
-    """
-    return Alert(
-        P("⚠️ Error", cls="font-bold text-error"),
-        P(message, cls="text-sm"),
-        variant=AlertT.error,
-        cls="mb-4",
-    )
-```
+**Import:** `from ui.patterns.error_banner import render_error_banner`
 
 **Usage:**
 ```python
@@ -692,13 +694,16 @@ if result.is_error:
 # In HTMX fragment
 if result.is_error:
     return render_error_banner(f"Failed to load data: {result.error}")
+
+# With severity levels
+render_error_banner("Some data may be incomplete", severity="warning")
 ```
 
 **Styling:**
 - MonsterUI alert (red background, error icon)
-- Bold title with emoji (⚠️ Error)
-- Small text for message
-- Bottom margin (mb-4)
+- Severity variants: error, warning, info, success
+- `aria-live="polite"` for screen reader announcements
+- `role="alert"` set automatically by MAlert (do NOT pass it as a kwarg — causes duplicate kwarg TypeError)
 
 ---
 

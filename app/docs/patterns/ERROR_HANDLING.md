@@ -811,6 +811,22 @@ async def save_user_settings(request: Request) -> Any:
 
 **Implementation:** `/adapters/inbound/user_profile_ui.py` (lines 58-117)
 
+### Safe Enum Parsing for HTML Forms
+
+**Context:** HTML `<select>` elements and optional dropdowns send empty strings (`""`) when no option is selected. `dict.get("field", "default")` only uses the default when the key is *missing* — an empty string is truthy as a key-present value and passes through to Pydantic, where it fails enum validation.
+
+```python
+# ❌ UNSAFE - Empty string passes through, crashes Pydantic enum validation
+domain = form_data.get("domain", "personal")
+# form sends domain="" → Pydantic: "Input should be 'knowledge', 'learning', ..."
+
+# ✅ SAFE - Falls back to default on empty string
+domain = form_data.get("domain", "").strip() or "personal"
+event_type = form_data.get("event_type", "").strip() or "meeting"
+```
+
+**Rule:** For any form field bound to a Pydantic enum, always use `form_data.get("field", "").strip() or "default"` — never `form_data.get("field", "default")`.
+
 **See Also:** `/docs/patterns/API_VALIDATION_PATTERNS.md` for Pydantic request model validation (JSON bodies)
 
 ---
