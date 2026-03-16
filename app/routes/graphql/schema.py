@@ -500,7 +500,7 @@ class Query:
             Complete learning path context with progress tracking
         """
         context: GraphQLContext = info.context
-        target_user_uid = resolve_target_user(info, user_uid)
+        target_user_uid = await resolve_target_user(info, user_uid)
 
         if not context.services.lp:
             return None
@@ -656,7 +656,7 @@ class Query:
             return None
 
         # Get user's mastery profile
-        target_user_uid = resolve_target_user(info, user_uid)
+        target_user_uid = await resolve_target_user(info, user_uid)
         mastered_uids: set[str] = set()
 
         if context.services.user_progress:
@@ -862,7 +862,7 @@ class Query:
             List of blockers with severity and recommended actions
         """
         context: GraphQLContext = info.context
-        target_user_uid = resolve_target_user(info, user_uid)
+        target_user_uid = await resolve_target_user(info, user_uid)
 
         if not context.services.lp or not context.services.lesson:
             return []

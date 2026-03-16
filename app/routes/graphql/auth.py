@@ -22,6 +22,7 @@ from strawberry.types import (
     Info,  # noqa: TC002 - Strawberry evaluates resolver annotations at runtime
 )
 
+from core.models.enums.user_enums import UserRole
 from routes.graphql.context import GraphQLContext
 
 
@@ -58,19 +59,25 @@ def require_user_uid(info: Info[GraphQLContext, Any]) -> str:
     return user_uid
 
 
-def resolve_target_user(info: Info[GraphQLContext, Any], user_uid: str | None = None) -> str:
+async def resolve_target_user(
+    info: Info[GraphQLContext, Any], user_uid: str | None = None
+) -> str:
     """
     Resolve the target user for a query that accepts an optional user_uid override.
 
     Used by resolvers that allow admin queries against other users' data.
     Falls back to the authenticated user when no override is provided.
+    When a user_uid override is supplied, the caller must have ADMIN role.
 
     Args:
         info: Strawberry resolver info with GraphQLContext
-        user_uid: Optional override (for admin queries)
+        user_uid: Optional override (requires admin role)
 
     Returns:
         Target user UID (override or authenticated user)
+
+    Raises:
+        PermissionError: If user_uid override is provided by a non-admin caller
 
     Usage::
 
@@ -81,12 +88,27 @@ def resolve_target_user(info: Info[GraphQLContext, Any], user_uid: str | None = 
             path_uid: str,
             user_uid: str | None = None,
         ) -> LearningPathContext | None:
-            target_user_uid = resolve_target_user(info, user_uid)
+            target_user_uid = await resolve_target_user(info, user_uid)
     """
-    if user_uid:
-        # TODO(blocked:adr) Add admin permission check (ADR pending)
-        return user_uid
-    return require_user_uid(info)
+    caller_uid = require_user_uid(info)
+    if not user_uid:
+        return caller_uid
+
+    # Override requested — verify caller is admin
+    context: GraphQLContext = info.context
+    user_service = context.services.user_service
+    if not user_service:
+        raise PermissionError("User service unavailable — cannot verify admin role")
+
+    caller_result = await user_service.get_user(caller_uid)
+    if caller_result.is_error:
+        raise PermissionError("Could not verify caller role")
+
+    caller_user = caller_result.value
+    if not caller_user.has_permission(UserRole.ADMIN):
+        raise PermissionError("Admin role required to query other users' data")
+
+    return user_uid
 
 
 __all__ = [

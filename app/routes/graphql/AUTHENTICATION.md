@@ -57,9 +57,9 @@ async def tasks(self, info: Info[GraphQLContext, Any]) -> list[Task]:
     result = await context.services.tasks.get_filtered_context(user_uid=user_uid, ...)
 ```
 
-### `resolve_target_user(info, user_uid=None) -> str`
+### `resolve_target_user(info, user_uid=None) -> str` (async)
 
-For resolvers that accept an optional `user_uid` override (future admin queries). Falls back to the authenticated user.
+For resolvers that accept an optional `user_uid` override (admin queries). Falls back to the authenticated user. When a `user_uid` override is provided, the caller must have ADMIN role — raises `PermissionError` otherwise.
 
 ```python
 from routes.graphql.auth import resolve_target_user
@@ -70,7 +70,7 @@ async def learning_path_with_context(
     path_uid: str,
     user_uid: str | None = None,
 ) -> LearningPathContext | None:
-    target_user_uid = resolve_target_user(info, user_uid)
+    target_user_uid = await resolve_target_user(info, user_uid)
 ```
 
 ---
@@ -89,11 +89,10 @@ async def learning_path_with_context(
 
 - Session cookies: signed, SameSite=lax, secure in production
 - No user_uid in query parameters for user-owned data
-- Admin override (`resolve_target_user`) has TODO for permission check
+- Admin override (`resolve_target_user`) enforces ADMIN role check
 
 ### Not Yet Implemented
 
-- Admin permission checks for cross-user queries
 - Rate limiting per user
 - Query complexity limits per user
 - Audit logging for sensitive queries
