@@ -148,9 +148,22 @@ class VisualizationService:
     """
     Transform SKUEL data models to visualization library formats.
 
-    This service provides pure transformation functions - no I/O operations.
-    All methods are synchronous since they only transform data.
+    Owns domain service dependencies for data aggregation.
+    Formatting methods are synchronous (pure transformation).
+    Data-fetching methods are async (call domain services).
     """
+
+    def __init__(
+        self,
+        tasks_service: Any = None,
+        habits_service: Any = None,
+        goals_service: Any = None,
+        calendar_service: Any = None,
+    ) -> None:
+        self.tasks_service = tasks_service
+        self.habits_service = habits_service
+        self.goals_service = goals_service
+        self.calendar_service = calendar_service
 
     # Color schemes for consistent styling
     COLORS: ClassVar[dict[str, str]] = {
@@ -684,22 +697,16 @@ class VisualizationService:
     # Data Aggregation Methods
     # =========================================================================
 
-    async def get_completion_data(
+    async def get_completion_chart_data(
         self,
         user_uid: str,
         period: str,
-        tasks_service: Any,
     ) -> Result[dict[str, Any]]:
         """
-        Get task completion data aggregated by period.
+        Get task completion data formatted for Chart.js.
 
-        Args:
-            user_uid: User identifier
-            period: Time period (week, month, quarter)
-            tasks_service: Tasks service for data retrieval
-
-        Returns:
-            Result containing completed/total arrays and labels
+        Returns formatted Chart.js config. Falls back to demo data
+        when tasks_service is unavailable.
         """
         from datetime import date, timedelta
 
@@ -724,8 +731,14 @@ class VisualizationService:
                 )
             )
 
+        if not self.tasks_service:
+            completed = [3, 5, 4, 6, 4, 7, 5]
+            total = [5, 6, 5, 7, 6, 8, 6]
+            labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+            return self.format_completion_chart(completed, total, labels)
+
         # Get task data from service
-        result = await tasks_service.get_user_items_in_range(
+        result = await self.tasks_service.get_user_items_in_range(
             user_uid=user_uid,
             start_date=start_date,
             end_date=today,
@@ -765,29 +778,34 @@ class VisualizationService:
                 total.append(len(period_tasks))
                 completed.append(len(period_completed))
 
-        return Result.ok({"completed": completed, "total": total, "labels": labels})
+        return self.format_completion_chart(completed, total, labels)
 
-    async def get_priority_distribution_data(
+    async def get_priority_distribution_chart_data(
         self,
         user_uid: str,
-        tasks_service: Any,
-    ) -> Result[dict[str, int]]:
+    ) -> Result[dict[str, Any]]:
         """
-        Get task priority distribution.
+        Get task priority distribution formatted for Chart.js.
 
-        Args:
-            user_uid: User identifier
-            tasks_service: Tasks service for data retrieval
-
-        Returns:
-            Result containing priority distribution dict
+        Falls back to demo data when tasks_service is unavailable.
         """
         from enum import Enum
 
+        if not self.tasks_service:
+            distribution = {
+                "critical": 2,
+                "high": 5,
+                "medium": 12,
+                "low": 8,
+                "none": 3,
+            }
+            return self.format_distribution_chart(
+                distribution, "Task Priority Distribution", "doughnut"
+            )
+
         distribution: dict[str, int] = {}
 
-        # Get active tasks
-        result = await tasks_service.search.get_by_status(
+        result = await self.tasks_service.search.get_by_status(
             user_uid=user_uid,
             status="active",
         )
@@ -802,34 +820,48 @@ class VisualizationService:
                 key = priority.value if isinstance(priority, Enum) else str(priority)
                 distribution[key] = distribution.get(key, 0) + 1
 
-        return Result.ok(distribution)
+        if not distribution:
+            distribution = {
+                "critical": 2,
+                "high": 5,
+                "medium": 12,
+                "low": 8,
+                "none": 3,
+            }
 
-    async def get_streak_data(
+        return self.format_distribution_chart(
+            distribution, "Task Priority Distribution", "doughnut"
+        )
+
+    async def get_streak_chart_data(
         self,
         user_uid: str,
-        habits_service: Any,
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[dict[str, Any]]:
         """
-        Get habit streak data.
+        Get habit streak data formatted for Chart.js.
 
-        Args:
-            user_uid: User identifier
-            habits_service: Habits service for data retrieval
-
-        Returns:
-            Result containing streak data list
+        Falls back to demo data when habits_service is unavailable.
         """
-        streaks: list[dict[str, Any]] = []
+        demo_streaks = [
+            {"name": "Morning Meditation", "current": 14, "best": 21},
+            {"name": "Exercise", "current": 7, "best": 30},
+            {"name": "Reading", "current": 45, "best": 45},
+            {"name": "Journaling", "current": 3, "best": 15},
+        ]
 
-        result = await habits_service.search.get_by_status(
+        if not self.habits_service:
+            return self.format_streak_chart(demo_streaks)
+
+        result = await self.habits_service.search.get_by_status(
             user_uid=user_uid,
             status="active",
         )
 
         if result.is_error:
-            return result
+            return Result.fail(result)
 
         habits = result.value or []
+        streaks: list[dict[str, Any]] = []
         for habit in habits:
             streak = {
                 "name": getattr(habit, "title", "Habit"),
@@ -838,32 +870,40 @@ class VisualizationService:
             }
             streaks.append(streak)
 
-        return Result.ok(streaks)
+        if not streaks:
+            streaks = demo_streaks
 
-    async def get_status_distribution_data(
+        return self.format_streak_chart(streaks)
+
+    async def get_status_distribution_chart_data(
         self,
         user_uid: str,
-        tasks_service: Any,
         days_back: int = 30,
-    ) -> Result[dict[str, int]]:
+    ) -> Result[dict[str, Any]]:
         """
-        Get task status distribution.
+        Get task status distribution formatted for Chart.js.
 
-        Args:
-            user_uid: User identifier
-            tasks_service: Tasks service for data retrieval
-            days_back: Number of days to look back
-
-        Returns:
-            Result containing status distribution dict
+        Falls back to demo data when tasks_service is unavailable.
         """
         from datetime import date, timedelta
         from enum import Enum
 
+        demo_distribution = {
+            "done": 25,
+            "in_progress": 8,
+            "draft": 5,
+            "blocked": 2,
+        }
+
+        if not self.tasks_service:
+            return self.format_distribution_chart(
+                demo_distribution, "Task Status Distribution", "pie"
+            )
+
         distribution: dict[str, int] = {}
 
         today = date.today()
-        result = await tasks_service.get_user_items_in_range(
+        result = await self.tasks_service.get_user_items_in_range(
             user_uid=user_uid,
             start_date=today - timedelta(days=days_back),
             end_date=today,
@@ -880,7 +920,223 @@ class VisualizationService:
                 key = status.value if isinstance(status, Enum) else str(status)
                 distribution[key] = distribution.get(key, 0) + 1
 
-        return Result.ok(distribution)
+        if not distribution:
+            distribution = demo_distribution
+
+        return self.format_distribution_chart(distribution, "Task Status Distribution", "pie")
+
+    async def get_timeline_data(
+        self,
+        user_uid: str,
+        start_date: date,
+        end_date: date,
+        group_by: str = "type",
+    ) -> Result[dict[str, Any]]:
+        """
+        Get calendar timeline data formatted for Vis.js.
+
+        Falls back to demo data when calendar_service is unavailable.
+        """
+        today = date.today()
+
+        if not self.calendar_service:
+            demo_data: dict[str, Any] = {
+                "items": [
+                    {
+                        "id": "demo-1",
+                        "content": "Project Planning",
+                        "start": today.isoformat(),
+                        "end": (today + timedelta(days=2)).isoformat(),
+                        "group": "tasks",
+                    },
+                    {
+                        "id": "demo-2",
+                        "content": "Team Meeting",
+                        "start": (today + timedelta(days=1)).isoformat(),
+                        "group": "events",
+                        "type": "point",
+                    },
+                ],
+                "groups": [
+                    {"id": "tasks", "content": "Tasks"},
+                    {"id": "events", "content": "Events"},
+                ],
+                "options": {"showCurrentTime": True},
+            }
+            return Result.ok(demo_data)
+
+        result = await self.calendar_service.get_calendar_view(
+            user_uid=user_uid,
+            start_date=start_date,
+            end_date=end_date,
+        )
+
+        if result.is_error:
+            return result
+
+        return self.format_for_visjs(result.value, group_by)
+
+    async def get_tasks_timeline_data(
+        self,
+        user_uid: str,
+        project: str | None = None,
+    ) -> Result[dict[str, Any]]:
+        """
+        Get tasks-only timeline data formatted for Vis.js.
+
+        Falls back to demo data when tasks_service is unavailable.
+        """
+        today = date.today()
+
+        if not self.tasks_service:
+            demo_data: dict[str, Any] = {
+                "items": [
+                    {
+                        "id": "task-1_work",
+                        "content": "Complete Report",
+                        "start": today.isoformat() + "T09:00:00",
+                        "end": today.isoformat() + "T11:00:00",
+                        "group": "tasks",
+                    },
+                ],
+                "groups": [
+                    {"id": "tasks", "content": "Tasks"},
+                    {"id": "deadlines", "content": "Deadlines"},
+                ],
+            }
+            return Result.ok(demo_data)
+
+        result = await self.tasks_service.get_user_items_in_range(
+            user_uid=user_uid,
+            start_date=today - timedelta(days=30),
+            end_date=today + timedelta(days=60),
+            include_completed=True,
+        )
+
+        if result.is_error:
+            return Result.fail(result)
+
+        tasks = result.value or []
+
+        if project:
+            tasks = [t for t in tasks if getattr(t, "project", None) == project]
+
+        return self.format_tasks_for_visjs(tasks)
+
+    async def get_tasks_gantt_data(
+        self,
+        user_uid: str,
+        project: str | None = None,
+    ) -> Result[dict[str, Any]]:
+        """
+        Get tasks Gantt data formatted for Frappe Gantt.
+
+        Falls back to demo data when tasks_service is unavailable.
+        """
+        today = date.today()
+
+        if not self.tasks_service:
+            demo_data: dict[str, Any] = {
+                "tasks": [
+                    {
+                        "id": "task-1",
+                        "name": "Research Phase",
+                        "start": today.isoformat(),
+                        "end": (today + timedelta(days=5)).isoformat(),
+                        "progress": 80,
+                        "dependencies": "",
+                    },
+                    {
+                        "id": "task-2",
+                        "name": "Design Phase",
+                        "start": (today + timedelta(days=5)).isoformat(),
+                        "end": (today + timedelta(days=12)).isoformat(),
+                        "progress": 20,
+                        "dependencies": "task-1",
+                    },
+                    {
+                        "id": "task-3",
+                        "name": "Implementation",
+                        "start": (today + timedelta(days=12)).isoformat(),
+                        "end": (today + timedelta(days=25)).isoformat(),
+                        "progress": 0,
+                        "dependencies": "task-2",
+                    },
+                ],
+                "options": {"view_mode": "Week"},
+            }
+            return Result.ok(demo_data)
+
+        result = await self.tasks_service.get_user_items_in_range(
+            user_uid=user_uid,
+            start_date=today - timedelta(days=7),
+            end_date=today + timedelta(days=60),
+            include_completed=True,
+        )
+
+        if result.is_error:
+            return Result.fail(result)
+
+        tasks = result.value or []
+
+        if project:
+            tasks = [t for t in tasks if getattr(t, "project", None) == project]
+
+        # Get dependencies
+        dependencies: dict[str, list[str]] = {}
+        for task in tasks:
+            try:
+                deps_result = await self.tasks_service.relationships.get_task_prerequisites(
+                    task.uid
+                )
+                if deps_result.is_ok and deps_result.value:
+                    dependencies[task.uid] = [d.uid for d in deps_result.value]
+            except Exception:  # safety-net: dependency lookup is optional enrichment
+                pass
+
+        return self.format_for_gantt(tasks, dependencies)
+
+    async def get_goal_gantt_data(
+        self,
+        user_uid: str,
+        goal_uid: str,
+    ) -> Result[dict[str, Any]]:
+        """
+        Get goal with tasks as Gantt data formatted for Frappe Gantt.
+
+        Falls back to demo data when goals_service is unavailable.
+        """
+        today = date.today()
+
+        if not self.goals_service:
+            demo_data: dict[str, Any] = {
+                "tasks": [
+                    {
+                        "id": goal_uid,
+                        "name": "Goal: Complete Project",
+                        "start": today.isoformat(),
+                        "end": (today + timedelta(days=30)).isoformat(),
+                        "progress": 40,
+                        "custom_class": "goal-bar",
+                    },
+                ],
+                "options": {"view_mode": "Month"},
+            }
+            return Result.ok(demo_data)
+
+        goal_result = await self.goals_service.get_for_user(goal_uid, user_uid)
+
+        if goal_result.is_error:
+            return Result.fail(goal_result)
+
+        goal = goal_result.value
+
+        tasks = []
+        tasks_result = await self.goals_service.relationships.get_goal_tasks(goal_uid)
+        if tasks_result.is_ok:
+            tasks = tasks_result.value or []
+
+        return self.format_goal_gantt(goal, tasks)
 
     # =========================================================================
     # Helper Methods (Task Filtering)

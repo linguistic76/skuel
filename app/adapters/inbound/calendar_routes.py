@@ -19,10 +19,6 @@ CALENDAR_CONFIG = DomainRouteConfig(
     primary_service_attr="calendar",
     api_factory=create_calendar_api_routes,
     ui_factory=create_calendar_ui_routes,
-    api_related_services={},
-    ui_related_services={
-        "habits_service": "habits",
-    },
 )
 
 

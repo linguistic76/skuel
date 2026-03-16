@@ -13,12 +13,6 @@ VISUALIZATION_CONFIG = DomainRouteConfig(
     primary_service_attr="visualization",
     api_factory=create_visualization_api_routes,
     ui_factory=None,  # No UI routes for visualization
-    api_related_services={
-        "tasks_service": "tasks",
-        "habits_service": "habits",
-        "calendar_service": "calendar",
-        "goals_service": "goals",
-    },
 )
 
 

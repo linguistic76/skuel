@@ -72,6 +72,16 @@ class CalendarServiceOperations(Protocol):
         """Reschedule a calendar item. Returns Result[CalendarItem]."""
         ...
 
+    async def record_habit_occurrence(
+        self,
+        habit_uid: str,
+        on_date: str,
+        status: str,
+        notes: str | None = None,
+    ) -> Result[Any]:
+        """Record a habit occurrence from the calendar view."""
+        ...
+
 
 # ============================================================================
 # VISUALIZATION
@@ -89,43 +99,73 @@ class VisualizationOperations(Protocol):
     since routes call both.
     """
 
-    # Async data-fetching methods
+    # Async data-fetching + formatting methods (return Chart.js/Vis.js/Gantt configs)
 
-    async def get_completion_data(
+    async def get_completion_chart_data(
         self,
         user_uid: str,
         period: str,
-        tasks_service: Any,
     ) -> Result[dict[str, Any]]:
-        """Get task completion rate data. Returns Result[dict]."""
+        """Get task completion data formatted for Chart.js."""
         ...
 
-    async def get_priority_distribution_data(
+    async def get_priority_distribution_chart_data(
         self,
         user_uid: str,
-        tasks_service: Any,
-    ) -> Result[dict[str, int]]:
-        """Get task priority distribution. Returns Result[dict]."""
+    ) -> Result[dict[str, Any]]:
+        """Get task priority distribution formatted for Chart.js."""
         ...
 
-    async def get_streak_data(
+    async def get_streak_chart_data(
         self,
         user_uid: str,
-        habits_service: Any,
-    ) -> Result[list[dict[str, Any]]]:
-        """Get habit streak data. Returns Result[list[dict]]."""
+    ) -> Result[dict[str, Any]]:
+        """Get habit streak data formatted for Chart.js."""
         ...
 
-    async def get_status_distribution_data(
+    async def get_status_distribution_chart_data(
         self,
         user_uid: str,
-        tasks_service: Any,
         days_back: int = 30,
-    ) -> Result[dict[str, int]]:
-        """Get task status distribution. Returns Result[dict]."""
+    ) -> Result[dict[str, Any]]:
+        """Get task status distribution formatted for Chart.js."""
         ...
 
-    # Sync formatting methods (Chart.js)
+    async def get_timeline_data(
+        self,
+        user_uid: str,
+        start_date: Any,
+        end_date: Any,
+        group_by: str = "type",
+    ) -> Result[dict[str, Any]]:
+        """Get calendar timeline data formatted for Vis.js."""
+        ...
+
+    async def get_tasks_timeline_data(
+        self,
+        user_uid: str,
+        project: str | None = None,
+    ) -> Result[dict[str, Any]]:
+        """Get tasks-only timeline data formatted for Vis.js."""
+        ...
+
+    async def get_tasks_gantt_data(
+        self,
+        user_uid: str,
+        project: str | None = None,
+    ) -> Result[dict[str, Any]]:
+        """Get tasks Gantt data formatted for Frappe Gantt."""
+        ...
+
+    async def get_goal_gantt_data(
+        self,
+        user_uid: str,
+        goal_uid: str,
+    ) -> Result[dict[str, Any]]:
+        """Get goal with tasks as Gantt data formatted for Frappe Gantt."""
+        ...
+
+    # Sync formatting methods (kept public for direct use/testing)
 
     def format_completion_chart(
         self,
@@ -134,7 +174,7 @@ class VisualizationOperations(Protocol):
         labels: list[str],
         chart_type: Literal["line", "bar"] = "line",
     ) -> Result[dict[str, Any]]:
-        """Format completion data for Chart.js. Returns Result[dict]."""
+        """Format completion data for Chart.js."""
         ...
 
     def format_distribution_chart(
@@ -143,24 +183,22 @@ class VisualizationOperations(Protocol):
         title: str = "Distribution",
         chart_type: Literal["pie", "doughnut", "bar"] = "doughnut",
     ) -> Result[dict[str, Any]]:
-        """Format distribution data for Chart.js. Returns Result[dict]."""
+        """Format distribution data for Chart.js."""
         ...
 
     def format_streak_chart(
         self,
         streaks: list[dict[str, Any]],
     ) -> Result[dict[str, Any]]:
-        """Format streak data for Chart.js. Returns Result[dict]."""
+        """Format streak data for Chart.js."""
         ...
-
-    # Sync formatting methods (Vis.js + Gantt)
 
     def format_for_visjs(
         self,
         calendar_data: Any,
         group_by: Literal["type", "project", "none"] = "type",
     ) -> Result[dict[str, Any]]:
-        """Format calendar data for Vis.js timeline. Returns Result[dict]."""
+        """Format calendar data for Vis.js timeline."""
         ...
 
     def format_tasks_for_visjs(
@@ -168,7 +206,7 @@ class VisualizationOperations(Protocol):
         tasks: list[Any],
         show_deadlines: bool = True,
     ) -> Result[dict[str, Any]]:
-        """Format tasks for Vis.js timeline. Returns Result[dict]."""
+        """Format tasks for Vis.js timeline."""
         ...
 
     def format_for_gantt(
@@ -176,7 +214,7 @@ class VisualizationOperations(Protocol):
         tasks: list[Any],
         dependencies: dict[str, list[str]] | None = None,
     ) -> Result[dict[str, Any]]:
-        """Format tasks for Frappe Gantt. Returns Result[dict]."""
+        """Format tasks for Frappe Gantt."""
         ...
 
     def format_goal_gantt(
@@ -185,7 +223,7 @@ class VisualizationOperations(Protocol):
         tasks: list[Any],
         milestones: list[dict[str, Any]] | None = None,
     ) -> Result[dict[str, Any]]:
-        """Format goal with tasks for Gantt. Returns Result[dict]."""
+        """Format goal with tasks for Gantt."""
         ...
 
 

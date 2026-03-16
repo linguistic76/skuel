@@ -1145,6 +1145,10 @@ class UserContextOperations(Protocol):
         """Get adaptive learning path recommendations."""
         ...
 
+    async def predict_future_context_state(self, user_uid: str) -> Result[dict[str, Any]]:
+        """Predict future context state based on current patterns."""
+        ...
+
     async def get_context_health(self, user_uid: str) -> Result[dict[str, Any]]:
         """Get overall context health metrics."""
         ...

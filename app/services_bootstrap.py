@@ -2213,7 +2213,12 @@ async def compose_services(
         # Create visualization service (Chart.js/Vis.js/Gantt adapters)
         from core.services.visualization_service import VisualizationService
 
-        visualization_service = VisualizationService()
+        visualization_service = VisualizationService(
+            tasks_service=activity_services["tasks"],
+            habits_service=activity_services["habits"],
+            goals_service=activity_services["goals"],
+            calendar_service=calendar_service,
+        )
         logger.info("✅ Visualization service created (Chart.js/Vis.js adapters)")
 
         # Create OpenAI service + content enrichment (gated by intelligence tier - ADR-043)
@@ -2554,6 +2559,10 @@ async def compose_services(
         activity_services["habits"].goals_service = activity_services["goals"]
         activity_services["habits"].goal_analytics.goals_service = activity_services["goals"]
         logger.info("✅ HabitsService + HabitsGoalAnalyticsService wired with GoalsService")
+
+        # Post-wire habits_service into goals intelligence (cross-domain dependency)
+        activity_services["goals"].intelligence.habits_service = activity_services["habits"]
+        logger.info("✅ GoalsIntelligenceService wired with HabitsService")
 
         # Create advanced services
         advanced = _create_advanced_services(driver, query_executor=query_executor)

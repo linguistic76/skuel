@@ -846,6 +846,33 @@ class CalendarService:
         return pattern_labels.get(pattern, pattern.title())
 
     # ========================================================================
+    # HABIT OCCURRENCE RECORDING
+    # ========================================================================
+
+    async def record_habit_occurrence(
+        self,
+        habit_uid: str,
+        on_date: str,
+        status: str,
+        notes: str | None = None,
+    ) -> Result[Any]:
+        """
+        Record a habit occurrence from the calendar view.
+
+        Delegates to habits_service.record_occurrence. Returns a not-found
+        error when habits_service is unavailable.
+        """
+        if not self.habits_service:
+            return Result.fail(Errors.not_found("Habits service not available"))
+
+        return await self.habits_service.record_occurrence(
+            habit_uid=habit_uid,
+            on_date=on_date,
+            status=status,
+            notes=notes,
+        )
+
+    # ========================================================================
     # DEMO DATA (for empty database)
     # ========================================================================
 

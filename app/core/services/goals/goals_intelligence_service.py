@@ -15,6 +15,8 @@ Responsibilities:
   - Run what-if scenario analysis
 """
 
+from __future__ import annotations
+
 import math
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
@@ -70,6 +72,15 @@ class GoalPrediction:
     recommended_actions: list[str]
     trend: str  # "improving", "stable", "declining"
 
+    @property
+    def risk_level(self) -> str:
+        """Classify risk based on success probability."""
+        if self.success_probability < 0.5:
+            return "high"
+        if self.success_probability < 0.75:
+            return "medium"
+        return "low"
+
 
 @dataclass
 class HabitImpactAnalysis:
@@ -109,7 +120,7 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
         self,
         backend: GoalsOperations,
         graph_intelligence_service=None,
-        relationship_service: "GoalsRelationshipOperations | None" = None,
+        relationship_service: GoalsRelationshipOperations | None = None,
         progress_service=None,
     ) -> None:
         """
@@ -127,6 +138,7 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
             relationship_service=relationship_service,
         )
         self.progress = progress_service  # Domain-specific: for velocity calculations
+        self.habits_service: HabitsOperations | None = None  # Post-wired cross-domain dep
 
         # Initialize GraphContextOrchestrator for get_with_context pattern
         if graph_intelligence_service:
@@ -665,7 +677,6 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
         self,
         goal_uid: str,
         lookback_days: int = 30,
-        habits_service: "HabitsOperations | None" = None,
     ) -> Result[GoalPrediction]:
         """
         Predict probability of successfully achieving a goal.
@@ -679,7 +690,6 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
         Args:
             goal_uid: Goal to analyze
             lookback_days: Days of history to consider
-            habits_service: Service for fetching habit data (required for full analysis)
 
         Returns:
             GoalPrediction with success probability and insights
@@ -698,9 +708,9 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
         rels = await GoalRelationships.fetch(goal_uid, self.relationships)
 
         habits: list[Habit] = []
-        if habits_service:
+        if self.habits_service:
             for habit_uid in rels.supporting_habit_uids:
-                result = await habits_service.get(habit_uid)
+                result = await self.habits_service.get(habit_uid)
                 if result.is_ok and result.value:
                     habits.append(result.value)
 
@@ -762,19 +772,17 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
     async def analyze_habit_impact(
         self,
         goal_uid: str,
-        habits_service: "HabitsOperations | None" = None,
     ) -> Result[list[HabitImpactAnalysis]]:
         """
         Analyze the impact of each habit on goal success.
 
         Args:
             goal_uid: Goal to analyze
-            habits_service: Service for fetching habit data (required)
 
         Returns:
             List of habit impact analyses sorted by impact score
         """
-        if not habits_service:
+        if not self.habits_service:
             return Result.fail(
                 Errors.system(
                     message="Habits service not available", operation="analyze_habit_impact"
@@ -795,7 +803,7 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
         analyses = []
 
         for habit_uid in rels.supporting_habit_uids:
-            result = await habits_service.get(habit_uid)
+            result = await self.habits_service.get(habit_uid)
             if not result.is_ok:
                 continue
 
@@ -839,12 +847,39 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
 
         return Result.ok(analyses)
 
+    @with_error_handling("assess_goal_risk", error_type="system", uid_param="goal_uid")
+    async def assess_goal_risk(
+        self,
+        goal_uid: str,
+    ) -> Result[dict[str, Any]]:
+        """
+        Assess risk factors for goal achievement.
+
+        Returns risk level, factors, recommended actions, and trend
+        derived from the goal prediction.
+        """
+        prediction_result = await self.predict_goal_success(goal_uid=goal_uid)
+
+        if prediction_result.is_error:
+            return prediction_result
+
+        prediction = prediction_result.value
+
+        return Result.ok(
+            {
+                "goal_uid": goal_uid,
+                "risk_level": prediction.risk_level,
+                "risk_factors": prediction.risk_factors,
+                "recommended_actions": prediction.recommended_actions,
+                "trend": prediction.trend,
+            }
+        )
+
     @with_error_handling("run_scenario_analysis", error_type="system", uid_param="goal_uid")
     async def run_scenario_analysis(
         self,
         goal_uid: str,
         consistency_adjustments: dict[str, float],
-        habits_service: "HabitsOperations | None" = None,
     ) -> Result[GoalPrediction]:
         """
         Run what-if scenario with adjusted habit consistencies.
@@ -852,12 +887,11 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
         Args:
             goal_uid: Goal to analyze
             consistency_adjustments: Dict of habit_uid -> new_consistency (0-1)
-            habits_service: Service for fetching habit data (required)
 
         Returns:
             Prediction based on scenario
         """
-        if not habits_service:
+        if not self.habits_service:
             return Result.fail(
                 Errors.system(
                     message="Habits service not available", operation="run_scenario_analysis"
@@ -882,7 +916,7 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
 
         adjusted_habits: list[Habit] = []
         for habit_uid in rels.supporting_habit_uids:
-            result = await habits_service.get(habit_uid)
+            result = await self.habits_service.get(habit_uid)
             if result.is_ok:
                 habit = result.value
                 if not habit:

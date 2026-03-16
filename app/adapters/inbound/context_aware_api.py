@@ -28,7 +28,6 @@ from core.models.goal.goal_request import ContextualGoalTaskGenerationRequest
 from core.models.habit.habit_request import ContextualHabitCompletionRequest
 from core.models.task.task_request import ContextualTaskCompletionRequest
 from core.ports import UserContextOperations
-from core.ports.query_types import ContextDashboard
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -200,34 +199,7 @@ def create_context_aware_api_routes(
     async def predict_future_context_state_route(request: Request) -> Result[Any]:
         """Predict future context state based on current patterns."""
         user_uid = require_authenticated_user(request)
-
-        # Get dashboard with predictions enabled
-        dashboard_result = await context_service.get_context_dashboard(
-            user_uid=user_uid,
-            include_predictions=True,
-            time_window="30d",
-        )
-
-        if dashboard_result.is_error:
-            return dashboard_result
-
-        dashboard: ContextDashboard = dashboard_result.value
-
-        # Extract predictions from dashboard
-        predictions = {
-            "user_uid": user_uid,
-            "horizon": "1w",
-            "generated_at": dashboard.get("last_refresh", ""),
-            "predictions": dashboard.get("predictions", {}),
-            "current_state": {
-                "tasks": dashboard.get("tasks", {}),
-                "goals": dashboard.get("goals", {}),
-                "habits": dashboard.get("habits", {}),
-                "learning": dashboard.get("learning", {}),
-            },
-        }
-
-        return Result.ok(predictions)
+        return await context_service.predict_future_context_state(user_uid)
 
     @rt("/api/context/health")
     @boundary_handler()

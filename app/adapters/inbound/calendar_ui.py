@@ -330,7 +330,7 @@ def _render_item_details_modal(item: Any) -> Div:
 # ============================================================================
 
 
-def create_calendar_ui_routes(_app, rt, calendar_service, habits_service=None):
+def create_calendar_ui_routes(_app, rt, calendar_service):
     """Register calendar page and HTMX fragment routes."""
 
     @rt("/events/month/{year}/{month}")
@@ -654,46 +654,36 @@ def create_calendar_ui_routes(_app, rt, calendar_service, habits_service=None):
             # Get today's date
             today = date.today().isoformat()
 
-            # Record the occurrence via habits service
-            if habits_service:
-                result = await habits_service.record_occurrence(
-                    habit_uid=habit_uid,
-                    on_date=today,
-                    status=status.upper(),
-                    notes=notes or None,
-                )
-
-                if result.is_ok:
-                    status_icons = {"done": "✅", "skipped": "⏭️", "missed": "❌"}
-                    status_variants = {
-                        "done": AlertT.success,
-                        "skipped": AlertT.warning,
-                        "missed": AlertT.error,
-                    }
-                    icon = status_icons.get(status.lower(), "✓")
-                    variant = status_variants.get(status.lower(), AlertT.info)
-
-                    return Alert(
-                        P(
-                            f"{icon} Recorded as {status}!",
-                            cls="text-sm font-medium",
-                        ),
-                        variant=variant,
-                    )
-                else:
-                    return Alert(
-                        P(f"Failed: {result.error}", cls="text-sm"),
-                        variant=AlertT.error,
-                    )
-
-            # Fallback for development (no service)
-            return Alert(
-                P(
-                    f"✓ Would record {status} (service not available)",
-                    cls="text-sm",
-                ),
-                variant=AlertT.info,
+            # Record the occurrence via calendar service
+            result = await calendar_service.record_habit_occurrence(
+                habit_uid=habit_uid,
+                on_date=today,
+                status=status.upper(),
+                notes=notes or None,
             )
+
+            if result.is_ok:
+                status_icons = {"done": "✅", "skipped": "⏭️", "missed": "❌"}
+                status_variants = {
+                    "done": AlertT.success,
+                    "skipped": AlertT.warning,
+                    "missed": AlertT.error,
+                }
+                icon = status_icons.get(status.lower(), "✓")
+                variant = status_variants.get(status.lower(), AlertT.info)
+
+                return Alert(
+                    P(
+                        f"{icon} Recorded as {status}!",
+                        cls="text-sm font-medium",
+                    ),
+                    variant=variant,
+                )
+            else:
+                return Alert(
+                    P(f"Failed: {result.error}", cls="text-sm"),
+                    variant=AlertT.error,
+                )
 
         except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Habit record error: {e}")

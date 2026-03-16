@@ -151,9 +151,7 @@ def create_habit_event_routes(
 # ---------------------------------------------------------------------------
 
 
-def create_goals_intelligence_routes(
-    _app: Any, rt: Any, goals_intelligence: Any, habits: Any
-) -> list[Any]:
+def create_goals_intelligence_routes(_app: Any, rt: Any, goals_intelligence: Any) -> list[Any]:
     """Register predictive goal analytics endpoints."""
 
     @rt("/goals/predict-success")
@@ -169,7 +167,6 @@ def create_goals_intelligence_routes(
         return await goals_intelligence.predict_goal_success(
             goal_uid=uid,
             lookback_days=lookback_days,
-            habits_service=habits,
         )
 
     @rt("/goals/habit-impact")
@@ -181,10 +178,7 @@ def create_goals_intelligence_routes(
         Query params:
             uid: Goal UID
         """
-        return await goals_intelligence.analyze_habit_impact(
-            goal_uid=uid,
-            habits_service=habits,
-        )
+        return await goals_intelligence.analyze_habit_impact(goal_uid=uid)
 
     @rt("/goals/risk-assessment")
     @boundary_handler()
@@ -195,29 +189,7 @@ def create_goals_intelligence_routes(
         Query params:
             uid: Goal UID
         """
-        prediction_result = await goals_intelligence.predict_goal_success(
-            goal_uid=uid,
-            habits_service=habits,
-        )
-
-        if prediction_result.is_error:
-            return prediction_result
-
-        prediction = prediction_result.value
-
-        return Result.ok(
-            {
-                "goal_uid": uid,
-                "risk_level": "high"
-                if prediction.success_probability < 0.5
-                else "medium"
-                if prediction.success_probability < 0.75
-                else "low",
-                "risk_factors": prediction.risk_factors,
-                "recommended_actions": prediction.recommended_actions,
-                "trend": prediction.trend,
-            }
-        )
+        return await goals_intelligence.assess_goal_risk(goal_uid=uid)
 
     return [predict_success, habit_impact, risk_assessment]
 
@@ -325,9 +297,7 @@ def create_orchestration_routes(
         routes.extend(create_habit_event_routes(app, rt, services.habit_event_scheduler))
 
     if services and services.goals:
-        routes.extend(
-            create_goals_intelligence_routes(app, rt, services.goals.intelligence, services.habits)
-        )
+        routes.extend(create_goals_intelligence_routes(app, rt, services.goals.intelligence))
 
     if services and services.principles:
         routes.extend(create_principle_alignment_routes(app, rt, services.principles))

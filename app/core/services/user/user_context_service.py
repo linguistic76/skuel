@@ -384,6 +384,39 @@ class UserContextService:
 
         return Result.ok(learning_path)
 
+    async def predict_future_context_state(self, user_uid: str) -> Result[dict[str, Any]]:
+        """
+        Predict future context state based on current patterns.
+
+        Fetches the dashboard with predictions enabled and extracts
+        the prediction-relevant fields into a focused response.
+        """
+        dashboard_result = await self.get_context_dashboard(
+            user_uid=user_uid,
+            include_predictions=True,
+            time_window="30d",
+        )
+
+        if dashboard_result.is_error:
+            return dashboard_result
+
+        dashboard: ContextDashboard = dashboard_result.value
+
+        predictions = {
+            "user_uid": user_uid,
+            "horizon": "1w",
+            "generated_at": dashboard.get("last_refresh", ""),
+            "predictions": dashboard.get("predictions", {}),
+            "current_state": {
+                "tasks": dashboard.get("tasks", {}),
+                "goals": dashboard.get("goals", {}),
+                "habits": dashboard.get("habits", {}),
+                "learning": dashboard.get("learning", {}),
+            },
+        }
+
+        return Result.ok(predictions)
+
     async def get_context_health(self, user_uid: str) -> Result[dict[str, Any]]:
         """
         Get overall context system health metrics.
