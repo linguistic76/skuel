@@ -320,7 +320,7 @@ def create_admin_dashboard_routes(_app, rt, services):
                 )
                 if not reports_result.is_error and reports_result.value:
                     reports_data = reports_result.value
-        except Exception as e:
+        except Exception as e:  # safety-net: HTTP error boundary
             logger.warning(f"Failed to fetch reports for {uid}: {e}")
 
         # Fetch user's assignments
@@ -332,7 +332,7 @@ def create_admin_dashboard_routes(_app, rt, services):
                 )
                 if not projects_result.is_error and projects_result.value:
                     projects_data = projects_result.value
-        except Exception as e:
+        except Exception as e:  # safety-net: HTTP error boundary
             logger.warning(f"Failed to fetch report projects for {uid}: {e}")
 
         content = Div(
@@ -502,7 +502,7 @@ def create_admin_dashboard_routes(_app, rt, services):
                         f"Failed to fetch journal count: {journal_result.expect_error().message}"
                     )
 
-        except Exception as e:
+        except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Error fetching activity stats: {e}")
             # Leave as None values to show "N/A" in UI
 
@@ -568,7 +568,7 @@ def create_admin_dashboard_routes(_app, rt, services):
                         "components": {},
                         "error_message": result.expect_error().message,
                     }
-        except Exception as e:
+        except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Unexpected error fetching system health: {e}")
             health_data = {
                 "status": "error",
@@ -777,7 +777,7 @@ async def _get_user_stats(services) -> dict:
                 role = user.role.value.lower()
                 if role in stats:
                     stats[role] += 1
-    except Exception:
+    except Exception:  # safety-net: dashboard degrades gracefully on stats failure
         pass
 
     return stats
@@ -792,7 +792,7 @@ async def _get_system_status(services) -> dict[str, Any]:
                 return (
                     dict(result.value) if result.value else {"status": "unknown", "healthy": True}
                 )
-    except Exception as e:
+    except Exception as e:  # safety-net: dashboard degrades gracefully on health check failure
         logger.warning(f"Failed to get system status: {e}")
 
     return {"status": "unknown", "healthy": True}

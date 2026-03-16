@@ -450,7 +450,7 @@ def create_exercises_ui_routes(
                 title="Exercises - Study",
             )
 
-        except Exception as e:
+        except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Error rendering exercises dashboard: {e}")
             return Div(P(f"Error loading exercises: {e}", cls="text-red-600"))
 
@@ -476,7 +476,7 @@ def create_exercises_ui_routes(
 
             return ExerciseUIComponents.render_exercise_editor(exercise=exercise, mode="edit")
 
-        except Exception as e:
+        except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Error loading exercise for edit: {e}")
             return Div(P(f"Error: {e}", cls="text-red-600"))
 
@@ -499,7 +499,7 @@ def create_exercises_ui_routes(
                 exercise, required_knowledge=required_knowledge
             )
 
-        except Exception as e:
+        except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Error viewing exercise: {e}")
             return Div(P(f"Error: {e}", cls="text-red-600"))
 

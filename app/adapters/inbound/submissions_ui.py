@@ -274,7 +274,7 @@ def create_submissions_ui_routes(
             )
             items = result.value if not result.is_error else []
             return render_yours_list(items)
-        except Exception as e:
+        except Exception as e:  # safety-net: HTMX fragment error boundary
             logger.error(f"Error loading submissions history: {e}", exc_info=True)
             return Div(
                 P("Error loading submissions.", cls="text-center text-error"),
@@ -331,7 +331,7 @@ def create_submissions_ui_routes(
                 submission_uid=submission.uid,
             )
 
-        except Exception as e:
+        except Exception as e:  # safety-net: HTMX upload error boundary
             logger.error(f"Error uploading submission: {e}", exc_info=True)
             return render_upload_status("error", f"Upload failed: {e}", is_error=True)
 
@@ -360,7 +360,7 @@ def create_submissions_ui_routes(
             reports = result.value or []
             return render_submissions_grid(reports)
 
-        except Exception as e:
+        except Exception as e:  # safety-net: HTMX fragment error boundary
             logger.error(f"Error loading reports: {e}", exc_info=True)
             return Div(
                 P(f"Error: {e}", cls="text-center text-error"),
@@ -393,7 +393,7 @@ def create_submissions_ui_routes(
                 )
             return render_submission_detail(submission)
 
-        except Exception as e:
+        except Exception as e:  # safety-net: HTMX fragment error boundary
             logger.error(f"Error loading submission info: {e}", exc_info=True)
             return Div(
                 Alert(
@@ -416,7 +416,7 @@ def create_submissions_ui_routes(
             content = submission.processed_content if submission else None
             return render_processed_content(content, bool(content))
 
-        except Exception as e:
+        except Exception as e:  # safety-net: HTMX fragment error boundary
             logger.error(f"Error loading submission content: {e}", exc_info=True)
             return render_processed_content(None, False)
 
@@ -460,7 +460,7 @@ def create_submissions_ui_routes(
                 *[render_report_item(fb) for fb in items],
                 id="feedback-section",
             )
-        except Exception as e:
+        except Exception as e:  # safety-net: HTMX fragment error boundary
             logger.error(f"Error loading feedback for {uid}: {e}", exc_info=True)
             return Div(
                 P("Error loading feedback.", cls="text-error"),
@@ -490,7 +490,7 @@ def create_submissions_ui_routes(
                 id="exercise-link",
                 cls="mt-2",
             )
-        except Exception as e:
+        except Exception as e:  # safety-net: HTMX fragment error boundary
             logger.error(f"Error loading exercise link for {uid}: {e}", exc_info=True)
             return Div(id="exercise-link")
 
@@ -509,7 +509,7 @@ def create_submissions_ui_routes(
             submission = result.value
             return render_category_selector(submission)
 
-        except Exception as e:
+        except Exception as e:  # safety-net: HTMX fragment error boundary
             logger.error(f"Error loading category selector: {e}", exc_info=True)
             return Div("Error loading category selector", cls="text-error")
 
@@ -524,7 +524,7 @@ def create_submissions_ui_routes(
             submission = result.value
             return render_tags_manager(submission)
 
-        except Exception as e:
+        except Exception as e:  # safety-net: HTMX fragment error boundary
             logger.error(f"Error loading tags manager: {e}", exc_info=True)
             return Div("Error loading tags manager", cls="text-error")
 
@@ -600,7 +600,7 @@ def create_submissions_ui_routes(
             )
             items = result.value if not result.is_error else []
             return render_received_report_list(items)
-        except Exception as e:
+        except Exception as e:  # safety-net: HTMX fragment error boundary
             logger.error(f"Error loading feedback list: {e}", exc_info=True)
             return Div(
                 P("Error loading feedback.", cls="text-center text-error"),
@@ -623,7 +623,7 @@ def create_submissions_ui_routes(
             result = await _activity_report_service.get_history(subject_uid=user_uid, limit=10)
             items = result.value if not result.is_error else []
             return render_activity_report_list(items)
-        except Exception as e:
+        except Exception as e:  # safety-net: HTMX fragment error boundary
             logger.error(f"Error loading activity feedback list: {e}", exc_info=True)
             return Div(
                 P("Error loading activity feedback.", cls="text-center text-error"),
@@ -728,7 +728,7 @@ def create_submissions_ui_routes(
             )
             items = result.value if not result.is_error else []
             return render_progress_report_list(items)
-        except Exception as e:
+        except Exception as e:  # safety-net: HTMX fragment error boundary
             logger.error(f"Error loading progress report list: {e}", exc_info=True)
             return Div(
                 P("Error loading progress reports.", cls="text-center text-error"),
@@ -750,7 +750,7 @@ def create_submissions_ui_routes(
                 id="shared-users-content",
             )
 
-        except Exception as e:
+        except Exception as e:  # safety-net: HTMX fragment error boundary
             logger.error(f"Error loading shared users: {e}", exc_info=True)
             return Div("Error loading shared users", cls="text-error text-sm")
 

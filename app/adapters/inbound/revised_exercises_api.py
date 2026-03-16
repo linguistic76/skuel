@@ -16,6 +16,7 @@ from core.models.exercises.revised_exercise_request import (
     RevisedExerciseCreateRequest,
     RevisedExerciseUpdateRequest,
 )
+from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -49,7 +50,7 @@ def create_revised_exercises_api_routes(
         try:
             body = await request.json()
             req = RevisedExerciseCreateRequest(**body)
-        except Exception as e:
+        except DATA_CONVERSION_EXCEPTIONS as e:
             return Result.fail(Errors.validation(f"Invalid request body: {e}", field="body"))
 
         return await revised_exercise_service.create_revised_exercise(
@@ -124,7 +125,7 @@ def create_revised_exercises_api_routes(
         try:
             body = await request.json()
             req = RevisedExerciseUpdateRequest(**body)
-        except Exception as e:
+        except DATA_CONVERSION_EXCEPTIONS as e:
             return Result.fail(Errors.validation(f"Invalid request body: {e}", field="body"))
 
         return await revised_exercise_service.update_revised_exercise(

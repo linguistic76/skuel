@@ -219,7 +219,7 @@ def create_events_ui_routes(_app, rt, events_service: EventsService, services: A
                     return result  # Propagate the error
                 return Result.ok(result.value or [])
             return Result.ok([])
-        except Exception as e:
+        except Exception as e:  # safety-net: service call may raise unexpected errors
             logger.error(
                 "Error fetching all events",
                 extra={
@@ -730,7 +730,7 @@ def create_events_ui_routes(_app, rt, events_service: EventsService, services: A
             # Redirect to events page (HTMX will follow the redirect)
             return RedirectResponse("/events", status_code=303)
 
-        except Exception as e:
+        except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Error updating event: {e}")
             return Response("Error updating event", status_code=500)
 

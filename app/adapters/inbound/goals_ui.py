@@ -465,7 +465,7 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsService, services: Any 
                 logger.warning(f"Failed to fetch goals: {result.error}")
                 return result  # Propagate the error
             return Result.ok(result.value or [])
-        except Exception as e:
+        except Exception as e:  # safety-net: service call may raise unexpected errors
             logger.error(
                 "Error fetching all goals",
                 extra={

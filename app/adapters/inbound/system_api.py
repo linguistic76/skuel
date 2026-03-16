@@ -687,7 +687,7 @@ async def check_database_health(adapter):
         response_time = int((datetime.now(UTC) - start).total_seconds() * 1000)
 
         return {"healthy": True, "response_time_ms": response_time}
-    except Exception as e:
+    except Exception as e:  # safety-net: health check must never raise
         return {"healthy": False, "error": str(e)}
 
 
@@ -705,7 +705,7 @@ async def check_service_health(service):
                 "service": type(service).__name__,
                 "note": "No health check available",
             }
-    except Exception as e:
+    except Exception as e:  # safety-net: health check must never raise
         return {"healthy": False, "error": str(e)}
 
 

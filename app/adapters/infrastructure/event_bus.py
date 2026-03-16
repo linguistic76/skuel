@@ -101,7 +101,7 @@ class InMemoryEventBus:
         for handler in self._handlers.get(event_type, []):
             try:
                 handler(event)
-            except Exception as e:
+            except Exception as e:  # safety-net: prevent handler crash from propagating
                 logger.error(f"Error in event handler for {event_type_str}: {e}", exc_info=True)
 
         # Schedule async handlers as background tasks
@@ -158,7 +158,7 @@ class InMemoryEventBus:
                         error=None,
                     )
 
-            except Exception as e:
+            except Exception as e:  # safety-net: prevent handler crash from propagating
                 logger.error(f"Error in sync handler for {event_type_str}: {e}", exc_info=True)
 
                 # Record error metrics
@@ -197,7 +197,7 @@ class InMemoryEventBus:
         """Helper to call async handler with error handling."""
         try:
             await handler(event)
-        except Exception as e:
+        except Exception as e:  # safety-net: prevent handler crash from propagating
             event_type_str = getattr(event, "event_type", type(event).__name__)
             logger.error(f"Error in async handler for {event_type_str}: {e}", exc_info=True)
 
@@ -223,7 +223,7 @@ class InMemoryEventBus:
                     error=None,
                 )
 
-        except Exception as e:
+        except Exception as e:  # safety-net: prevent handler crash from propagating
             logger.error(f"Error in async handler for {event_type_str}: {e}", exc_info=True)
 
             # Record error metrics

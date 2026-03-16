@@ -154,7 +154,7 @@ class DeepgramAdapter:
             return Result.fail(
                 Errors.validation(f"Audio file not found: {audio_path}", field="audio_path")
             )
-        except Exception as e:
+        except Exception as e:  # safety-net: Deepgram SDK may raise various exception types
             self.logger.error(f"Deepgram API error: {e}")
             return Result.fail(
                 Errors.integration(

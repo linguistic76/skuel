@@ -442,7 +442,7 @@ def create_tasks_ui_routes(
             updated_task = update_result.value
             return TodoistTaskComponents.render_task_item(updated_task)
 
-        except Exception as e:
+        except Exception as e:  # safety-net: HTTP error boundary
             logger.error(
                 "Error toggling task - returning 500",
                 extra={
@@ -608,7 +608,7 @@ def create_tasks_ui_routes(
             # Return the updated task row for HTMX swap
             return TodoistTaskComponents.render_task_item(updated_task)
 
-        except Exception as e:
+        except Exception as e:  # safety-net: HTTP error boundary
             logger.error(
                 "Exception in update_task_route - returning 500",
                 extra={

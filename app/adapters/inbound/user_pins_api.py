@@ -62,7 +62,7 @@ def create_user_pins_routes(
         try:
             body = await request.json()
             entity_uid = body.get("entity_uid")
-        except Exception:
+        except Exception:  # intentional-broad: request.json() can raise various errors depending on content-type
             form = await request.form()
             entity_uid = form.get("entity_uid")
 

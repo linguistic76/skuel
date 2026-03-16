@@ -56,7 +56,7 @@ def broadcast_progress(operation_id: str, progress_data: dict[str, Any]) -> None
             task = asyncio.create_task(ws.send_json(progress_data))
             _background_tasks.add(task)
             task.add_done_callback(_background_tasks.discard)
-        except Exception as e:
+        except Exception as e:  # safety-net: WebSocket send may fail for any reason
             logger.error(f"Failed to broadcast progress: {e}")
 
 
@@ -172,7 +172,7 @@ def create_ingestion_api_routes(
             else:
                 return Result.fail(result.expect_error())
 
-        except Exception as e:
+        except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"File ingestion failed: {e}")
             return Result.fail(
                 Errors.system("File ingestion failed", exception=e, operation="ingest_file")
@@ -233,7 +233,7 @@ def create_ingestion_api_routes(
             else:
                 return Result.fail(result.expect_error())
 
-        except Exception as e:
+        except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Directory ingestion failed: {e}")
             return Result.fail(
                 Errors.system(
@@ -292,7 +292,7 @@ def create_ingestion_api_routes(
             else:
                 return Result.fail(result.expect_error())
 
-        except Exception as e:
+        except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Vault ingestion failed: {e}")
             return Result.fail(
                 Errors.system("Vault ingestion failed", exception=e, operation="ingest_vault")
@@ -354,7 +354,7 @@ def create_ingestion_api_routes(
             else:
                 return Result.fail(result.expect_error())
 
-        except Exception as e:
+        except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Bundle ingestion failed: {e}")
             return Result.fail(
                 Errors.system("Bundle ingestion failed", exception=e, operation="ingest_bundle")
@@ -436,7 +436,7 @@ def create_ingestion_api_routes(
                 stats = result.value
                 return Result.ok(IngestionResultsSummary(stats))
 
-        except Exception as e:
+        except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Domain ingestion failed for {domain_name}: {e}")
             return Result.fail(
                 Errors.system(
@@ -484,7 +484,7 @@ def create_ingestion_api_routes(
             logger.info(f"WebSocket disconnected for operation: {operation_id}")
             # Remove connection
             _active_connections.pop(operation_id, None)
-        except Exception as e:
+        except Exception as e:  # safety-net: WebSocket cleanup on unexpected error
             logger.error(f"WebSocket error for operation {operation_id}: {e}")
             # Remove connection
             _active_connections.pop(operation_id, None)

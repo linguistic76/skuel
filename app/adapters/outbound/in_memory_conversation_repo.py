@@ -76,7 +76,7 @@ class InMemoryConversationRepo:
 
             logger.debug(f"Session {session.session_id} saved for user {session.user_uid}")
 
-        except Exception as e:
+        except Exception as e:  # safety-net: serialization failure
             raise PersistenceError(f"Failed to save session {session.session_id}: {e}") from e
 
     async def load_session(self, session_id: str) -> ConversationSession | None:
@@ -89,7 +89,7 @@ class InMemoryConversationRepo:
                 logger.debug(f"Session {session_id} not found")
             return session
 
-        except Exception as e:
+        except Exception as e:  # safety-net: serialization failure
             raise PersistenceError(f"Failed to load session {session_id}: {e}") from e
 
     async def load_user_sessions(
@@ -114,7 +114,7 @@ class InMemoryConversationRepo:
             logger.debug(f"Loaded {len(sessions)} sessions for user {user_uid}")
             return sessions
 
-        except Exception as e:
+        except Exception as e:  # safety-net: serialization failure
             raise PersistenceError(f"Failed to load sessions for user {user_uid}: {e}") from e
 
     async def delete_session(self, session_id: str) -> bool:
@@ -140,7 +140,7 @@ class InMemoryConversationRepo:
             logger.debug(f"Session {session_id} not found for deletion")
             return False
 
-        except Exception as e:
+        except Exception as e:  # safety-net: serialization failure
             raise PersistenceError(f"Failed to delete session {session_id}: {e}") from e
 
     async def cleanup_inactive_sessions(self, timeout_minutes: int = 60) -> int:
@@ -161,7 +161,7 @@ class InMemoryConversationRepo:
             logger.info(f"Cleaned up {deleted_count} inactive sessions")
             return deleted_count
 
-        except Exception as e:
+        except Exception as e:  # safety-net: serialization failure
             raise PersistenceError(f"Failed to cleanup sessions: {e}") from e
 
     # Additional utility methods for in-memory implementation

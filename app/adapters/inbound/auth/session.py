@@ -103,7 +103,7 @@ def get_current_user(request: Request) -> UserUID | None:
         logger.debug(f"ℹ️ No session found - session keys: {list(session.keys())}")
         return None
 
-    except Exception as e:
+    except Exception as e:  # safety-net: session cookie access may fail unexpectedly
         logger.error(f"Error getting current user from session: {e}")
         return None
 
@@ -199,7 +199,7 @@ async def get_current_user_validated(
         user_uid = result.value
         return UserUID(user_uid) if user_uid else None  # Returns user_uid directly
 
-    except Exception as e:
+    except Exception as e:  # safety-net: session validation must not crash the request
         logger.error(f"Error validating session: {e}")
         return None
 

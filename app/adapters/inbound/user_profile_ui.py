@@ -579,8 +579,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
                 },
             )
             return Result.ok(None)
-        except Exception as e:
-            # Unexpected error during intelligence computation
+        except Exception as e:  # safety-net: unexpected intelligence computation error
             # This is a true runtime error - propagate as failure
             logger.error(
                 "Unexpected error in intelligence computation",

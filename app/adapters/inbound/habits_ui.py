@@ -425,7 +425,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
                 logger.warning(f"Failed to fetch habits: {result.error}")
                 return result  # Propagate the error
             return Result.ok(result.value or [])
-        except Exception as e:
+        except Exception as e:  # safety-net: service call may raise unexpected errors
             logger.error(
                 "Error fetching all habits",
                 extra={

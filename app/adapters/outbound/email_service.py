@@ -86,7 +86,7 @@ class ResendEmailService:
             )
             logger.info(f"Password reset email sent to {to_email}")
             return Result.ok(True)
-        except Exception as e:
+        except Exception as e:  # safety-net: email delivery failure
             logger.error(f"Failed to send password reset email: {e}")
             return Result.fail(
                 Errors.integration(

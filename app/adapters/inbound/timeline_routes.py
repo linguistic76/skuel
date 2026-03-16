@@ -183,7 +183,7 @@ def create_timeline_api_routes(_app, rt, tasks_service: Any):
                     media_type="text/plain",
                 )
 
-        except Exception as e:
+        except Exception as e:  # safety-net: HTTP error boundary
             logger.error("Timeline API error", error=str(e))
             return Response(
                 content=f"Internal server error: {e!s}", status_code=500, media_type="text/plain"
@@ -288,7 +288,7 @@ def create_timeline_api_routes(_app, rt, tasks_service: Any):
                 # Propagate the error from export_to_markwhen
                 return Result.fail(result.expect_error())
 
-        except Exception as e:
+        except Exception as e:  # safety-net: HTTP error boundary
             logger.error("Timeline preview error", error=str(e))
             return Result.fail(Errors.system(message="Timeline preview failed", exception=e))
 
@@ -319,7 +319,7 @@ def create_timeline_api_routes(_app, rt, tasks_service: Any):
                 )
             )
 
-        except Exception as e:
+        except Exception as e:  # safety-net: HTTP error boundary
             logger.error("Timeline viewer error", error=str(e))
             return Result.ok(render_timeline_error(str(e)))
 

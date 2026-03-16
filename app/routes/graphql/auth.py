@@ -59,9 +59,7 @@ def require_user_uid(info: Info[GraphQLContext, Any]) -> str:
     return user_uid
 
 
-async def resolve_target_user(
-    info: Info[GraphQLContext, Any], user_uid: str | None = None
-) -> str:
+async def resolve_target_user(info: Info[GraphQLContext, Any], user_uid: str | None = None) -> str:
     """
     Resolve the target user for a query that accepts an optional user_uid override.
 

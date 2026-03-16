@@ -207,7 +207,7 @@ def create_activity_review_ui_routes(
                 result = await review_queue.get_pending_reviews(_admin_uid=admin_uid)
                 if not result.is_error:
                     pending = result.value or []
-        except Exception as e:
+        except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Error loading review queue: {e}", exc_info=True)
 
         if pending:
@@ -431,7 +431,7 @@ def create_activity_review_ui_routes(
                 time_period=time_period,
                 domains=domains,
             )
-        except Exception as e:
+        except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Error creating snapshot for {subject_uid}: {e}", exc_info=True)
             return Div(
                 P(f"Error loading snapshot: {e}", cls="text-error text-sm"),
@@ -496,7 +496,7 @@ def create_activity_review_ui_routes(
                 time_period=time_period,
                 domains=domains,
             )
-        except Exception as e:
+        except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Error submitting activity feedback: {e}", exc_info=True)
             return Div(
                 Alert(

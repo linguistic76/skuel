@@ -623,7 +623,7 @@ def create_calendar_ui_routes(_app, rt, calendar_service, habits_service=None):
                 P(f"Invalid input: {e}", cls="text-sm"),
                 variant=AlertT.error,
             )
-        except Exception as e:
+        except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Quick create error: {e}")
             return Alert(
                 P(f"Error: {e}", cls="text-sm"),
@@ -695,7 +695,7 @@ def create_calendar_ui_routes(_app, rt, calendar_service, habits_service=None):
                 variant=AlertT.info,
             )
 
-        except Exception as e:
+        except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Habit record error: {e}")
             return Alert(
                 P(f"Error: {e}", cls="text-sm"),

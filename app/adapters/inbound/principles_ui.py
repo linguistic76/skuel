@@ -114,7 +114,7 @@ def create_principles_ui_routes(
                     return result  # Propagate the error
                 return Result.ok(result.value or [])
             return Result.ok([])
-        except Exception as e:
+        except Exception as e:  # safety-net: service call may raise unexpected errors
             logger.error(
                 "Error fetching all principles",
                 extra={
@@ -127,28 +127,18 @@ def create_principles_ui_routes(
 
     async def get_categories() -> Result[list[str]]:
         """Get available principle categories."""
-        try:
-            return Result.ok(
-                [
-                    "spiritual",
-                    "ethical",
-                    "relational",
-                    "personal",
-                    "professional",
-                    "intellectual",
-                    "health",
-                    "creative",
-                ]
-            )
-        except Exception as e:
-            logger.error(
-                "Error fetching categories",
-                extra={
-                    "error_type": type(e).__name__,
-                    "error_message": str(e),
-                },
-            )
-            return Result.fail(Errors.system(f"Failed to fetch categories: {e}"))
+        return Result.ok(
+            [
+                "spiritual",
+                "ethical",
+                "relational",
+                "personal",
+                "professional",
+                "intellectual",
+                "health",
+                "creative",
+            ]
+        )
 
     async def get_analytics_data(user_uid: str) -> Result[dict[str, Any]]:
         """Get analytics data for user."""
@@ -177,7 +167,7 @@ def create_principles_ui_routes(
                     adherence_result = await alignment.calculate_average_alignment(user_uid)
                     if not adherence_result.is_error:
                         overall_adherence = adherence_result.value
-                except Exception as e:
+                except Exception as e:  # safety-net: optional alignment degrades gracefully
                     logger.warning(f"Could not calculate adherence: {e}")
 
             # Get recent reflections from reflection service
@@ -192,7 +182,7 @@ def create_principles_ui_routes(
                     )
                     if not reflections_result.is_error:
                         recent_reflections = reflections_result.value
-                except Exception as e:
+                except Exception as e:  # safety-net: optional reflections degrade gracefully
                     logger.warning(f"Could not get recent reflections: {e}")
 
             return Result.ok(
@@ -204,7 +194,7 @@ def create_principles_ui_routes(
                     "reflections": recent_reflections,
                 }
             )
-        except Exception as e:
+        except Exception as e:  # safety-net: analytics helper degrades gracefully
             logger.error(
                 "Error getting analytics data",
                 extra={

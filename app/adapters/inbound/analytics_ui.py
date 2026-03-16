@@ -727,7 +727,7 @@ def create_analytics_ui_routes(app, rt, analytics_service):
 
             return AnalyticsUIComponents.render_analytics_result(report)
 
-        except Exception as e:
+        except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Error viewing analytics: {e}")
             return Div(P(f"Error: {e}", cls="text-error"))
 
@@ -757,7 +757,7 @@ def create_analytics_ui_routes(app, rt, analytics_service):
             # Render dashboard
             return AnalyticsUIComponents.render_life_path_alignment_dashboard(result.value)
 
-        except Exception as e:
+        except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Error rendering Life Path alignment: {e}")
             return Div(P(f"Error: {e}", cls="text-error p-4"))
 
@@ -792,7 +792,7 @@ def create_analytics_ui_routes(app, rt, analytics_service):
             # Render summary
             return AnalyticsUIComponents.render_weekly_life_summary(result.value)
 
-        except Exception as e:
+        except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Error rendering weekly life summary: {e}")
             return Div(P(f"Error: {e}", cls="text-error p-4"))
 

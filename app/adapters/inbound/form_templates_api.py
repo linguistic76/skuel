@@ -48,7 +48,7 @@ def create_form_templates_api_routes(
         try:
             body = await request.json()
             req = FormTemplateCreateRequest(**body)
-        except Exception as e:
+        except Exception as e:  # safety-net: HTTP error boundary — JSON parse + Pydantic validation
             return Result.fail(Errors.validation(f"Invalid request body: {e}", field="body"))
 
         return await form_template_service.create_form_template(
@@ -95,7 +95,7 @@ def create_form_templates_api_routes(
         try:
             body = await request.json()
             req = FormTemplateUpdateRequest(**body)
-        except Exception as e:
+        except Exception as e:  # safety-net: HTTP error boundary — JSON parse + Pydantic validation
             return Result.fail(Errors.validation(f"Invalid request body: {e}", field="body"))
 
         return await form_template_service.update_form_template(
@@ -136,7 +136,7 @@ def create_form_templates_api_routes(
             req = FormLessonLinkRequest(**body)
         except ValidationError as e:
             return Result.fail(Errors.validation(str(e), field="body"))
-        except Exception as e:
+        except Exception as e:  # safety-net: HTTP error boundary — JSON parse
             return Result.fail(Errors.validation(f"Invalid request body: {e}", field="body"))
 
         return await form_template_service.link_to_lesson(req.form_template_uid, req.lesson_uid)
@@ -151,7 +151,7 @@ def create_form_templates_api_routes(
             req = FormLessonLinkRequest(**body)
         except ValidationError as e:
             return Result.fail(Errors.validation(str(e), field="body"))
-        except Exception as e:
+        except Exception as e:  # safety-net: HTTP error boundary — JSON parse
             return Result.fail(Errors.validation(f"Invalid request body: {e}", field="body"))
 
         return await form_template_service.unlink_from_lesson(req.form_template_uid, req.lesson_uid)

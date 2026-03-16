@@ -387,8 +387,8 @@ def create_visualization_api_routes(
                     deps_result = await tasks_service.relationships.get_task_prerequisites(task.uid)
                     if deps_result.is_ok and deps_result.value:
                         dependencies[task.uid] = [d.uid for d in deps_result.value]
-                except Exception:
-                    pass  # Dependencies are optional
+                except Exception:  # safety-net: dependency lookup is optional enrichment
+                    pass
 
             return vis_service.format_for_gantt(tasks, dependencies)
 

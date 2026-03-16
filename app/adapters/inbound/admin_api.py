@@ -204,7 +204,7 @@ def create_admin_api_routes(
             role_req = ChangeUserRoleRequest(**body)
         except ValidationError as e:
             return Result.fail(Errors.validation(str(e), field="body"))
-        except Exception:
+        except Exception:  # safety-net: HTTP error boundary — JSON parse fallback
             return Result.fail(Errors.validation(message="Invalid JSON body", field="body"))
 
         new_role_str = role_req.role
@@ -267,7 +267,7 @@ def create_admin_api_routes(
         try:
             body = await request.json()
             reason = body.get("reason", "")
-        except Exception:
+        except Exception:  # safety-net: HTTP error boundary — optional JSON body
             # Body is optional for deactivation
             pass
 

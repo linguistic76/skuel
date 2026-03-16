@@ -19,6 +19,9 @@ Usage:
 See: /docs/patterns/ERROR_HANDLING.md
 """
 
+import json
+
+import yaml  # type: ignore[import-untyped]
 from neo4j.exceptions import (
     AuthError,
     DriverError,
@@ -42,8 +45,14 @@ NEO4J_EXCEPTIONS = (Neo4jError, DriverError, ServiceUnavailable, SessionExpired,
 try:
     from openai import (
         APIConnectionError as OpenAIConnectionError,
+    )
+    from openai import (
         APIError as OpenAIAPIError,
+    )
+    from openai import (
         APITimeoutError as OpenAITimeoutError,
+    )
+    from openai import (
         RateLimitError as OpenAIRateLimitError,
     )
 
@@ -59,8 +68,14 @@ except ImportError:
 try:
     from anthropic import (
         APIConnectionError as AnthropicConnectionError,
+    )
+    from anthropic import (
         APIError as AnthropicAPIError,
+    )
+    from anthropic import (
         APITimeoutError as AnthropicTimeoutError,
+    )
+    from anthropic import (
         RateLimitError as AnthropicRateLimitError,
     )
 
@@ -86,9 +101,6 @@ FILE_IO_EXCEPTIONS = (FileNotFoundError, PermissionError, IsADirectoryError, OSE
 # ============================================================================
 # PARSING EXCEPTIONS
 # ============================================================================
-
-import json
-import yaml  # type: ignore[import-untyped]
 
 YAML_EXCEPTIONS = (yaml.YAMLError,)
 """YAML parsing exceptions."""

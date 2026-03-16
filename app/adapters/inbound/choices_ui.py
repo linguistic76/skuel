@@ -108,7 +108,7 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
                     return result  # Propagate the error
                 return Result.ok(result.value or [])
             return Result.ok([])
-        except Exception as e:
+        except Exception as e:  # safety-net: service call may raise unexpected errors
             logger.error(
                 "Error fetching all choices",
                 extra={
@@ -212,7 +212,7 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
                     "outcomes": outcomes,
                 }
             )
-        except Exception as e:
+        except Exception as e:  # safety-net: analytics computation must not crash
             logger.error(
                 "Error getting analytics",
                 extra={
@@ -798,7 +798,7 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
             # Redirect to choice detail
             return Response(headers={"HX-Redirect": f"/choices/{uid}"})
 
-        except Exception as e:
+        except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Error updating choice: {e}")
             return Response("Error", status_code=500)
 

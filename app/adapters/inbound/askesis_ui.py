@@ -407,7 +407,7 @@ def create_askesis_ui_routes(_app, rt, _askesis_service):
                 else:
                     ai_response = result.value.get("answer", "No response generated.")
 
-            except Exception as e:
+            except Exception as e:  # safety-net: HTTP error boundary
                 logger.error(f"Unexpected AI service error: {e}", exc_info=True)
                 ai_response = "I'm having trouble right now. Please try again."
 
