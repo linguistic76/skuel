@@ -87,8 +87,14 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
 | `intelligence` | Pattern analysis, habit stacking recommendations |
 | `events` | Cross-domain event scheduling integration |
 | `achievements` | Achievement badge awarding (Phase 4) |
+| `patterns` | Atomic Habits pattern recognition with confidence scoring |
+| `goal_analytics` | Cross-domain Habits→Goals analytics |
 
 Created via `create_common_sub_services()` factory in facade `__init__`.
+
+### Cross-Domain Wiring
+
+`HabitsService.goals_service` is post-wired in `services_bootstrap.py` (circular dependency). The facade's orchestration methods (`create_with_goal_links`, `complete_with_goal_impacts`) use `self.goals_service` internally — routes do not pass cross-domain services as parameters.
 
 ## Model Fields
 

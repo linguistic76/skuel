@@ -45,7 +45,7 @@ Created via `create_common_sub_services()` factory:
 |--------|-------------------|
 | **Tasks** | `progress`, `scheduling`, `analytics` |
 | **Goals** | `analytics` |
-| **Habits** | `completion`, `streak` |
+| **Habits** | `progress`, `completions`, `planning`, `scheduling`, `learning`, `events`, `achievements`, `patterns`, `goal_analytics` |
 | **Events** | `habits` (integration), `learning` |
 | **Choices** | `learning`, `analytics` |
 | **Principles** | `alignment`, `learning`, `reflection` |
@@ -125,6 +125,20 @@ class TasksService(BaseService[...]):
     async def my_new_method(self, *args: Any, **kwargs: Any) -> Any:
         return await self.core.my_new_method(*args, **kwargs)
 ```
+
+## Cross-Domain Dependencies
+
+When a facade needs another domain's service (circular at construction time), use post-wiring in `services_bootstrap.py`:
+
+```python
+# In __init__ — declare as None
+self.goals_service: Any = None
+
+# In services_bootstrap.py — post-wire after all services exist
+activity_services["habits"].goals_service = activity_services["goals"]
+```
+
+Orchestration methods use `self.goals_service` — routes never pass cross-domain services as parameters.
 
 ## Backend Sharing
 

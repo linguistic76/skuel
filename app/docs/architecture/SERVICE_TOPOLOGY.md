@@ -348,6 +348,20 @@ UnifiedRelationshipService ← Depends on: relationship_config (TASKS_CONFIG)
 
 **Pattern:** Most sub-services are self-contained. Cross-service dependencies are explicit in `__init__`.
 
+### Cross-Domain Post-Wiring (Circular Dependencies)
+
+When a facade needs another domain's service, declare `None` in `__init__` and post-wire in `services_bootstrap.py`:
+
+```
+HabitsService.__init__:  self.goals_service = None
+                         self.goal_analytics.goals_service = None
+
+services_bootstrap.py:   habits.goals_service = goals       # facade-level
+                         habits.goal_analytics.goals_service = goals  # sub-service-level
+```
+
+**Rule:** Routes never pass cross-domain services as parameters. Orchestration methods (e.g., `create_with_goal_links`, `complete_with_goal_impacts`) use `self.goals_service` internally.
+
 ---
 
 ## Data Flow Examples
