@@ -56,6 +56,7 @@ The unified linter enforces SKUEL architectural patterns with three severity lev
 | **SKUEL014** | EntityType/NonKuDomain strings | Use `EntityType` or `NonKuDomain` enum |
 | **SKUEL015** | Print in production code | Use `logger.*()` instead |
 | **SKUEL016** | Stale Poetry references | SKUEL uses uv, not Poetry |
+| **SKUEL017** | Bare `except Exception` | Use specific exception types from `exception_types.py` |
 
 ## Rule: SKUEL003 - Deprecated .is_err
 
@@ -260,6 +261,62 @@ def validate_config():
 
 **See:** [LOGGING_PATTERNS.md](LOGGING_PATTERNS.md) for complete logging guidelines.
 
+## Rule: SKUEL017 - Narrow except Exception Catches
+
+**Pattern:** Use specific exception types instead of bare `except Exception`.
+
+```python
+# ❌ VIOLATION - Bare except Exception
+try:
+    result = await self.backend.get(uid)
+except Exception as e:
+    return Result.fail(Errors.database(operation="get", message=str(e)))
+
+# ✅ CORRECT - Specific exception type from exception_types.py
+from core.utils.exception_types import NEO4J_EXCEPTIONS
+
+try:
+    result = await self.backend.get(uid)
+except NEO4J_EXCEPTIONS as e:
+    return Result.fail(Errors.database(operation="get", message=str(e)))
+
+# ✅ CORRECT - Annotated intentional broad catch (event handlers, monadic boundaries)
+except Exception as e:  # intentional-broad: event handler must not propagate
+    logger.error(f"Handler failed: {e}")
+
+# ✅ CORRECT - Safety-net during validation period
+except Exception as e:  # safety-net: catch unexpected errors
+    logger.error(f"Unexpected {type(e).__name__}: {e}")
+    return Result.fail(Errors.system(message="Unexpected error", exception=e))
+```
+
+**Available exception tuples** (from `core/utils/exception_types.py`):
+
+| Tuple | Exceptions | Maps to |
+|-------|-----------|---------|
+| `NEO4J_EXCEPTIONS` | Neo4jError, DriverError, ServiceUnavailable, SessionExpired, AuthError | `Errors.database()` |
+| `OPENAI_EXCEPTIONS` | APIError, APIConnectionError, APITimeoutError, RateLimitError | `Errors.integration("openai")` |
+| `ANTHROPIC_EXCEPTIONS` | APIError, APIConnectionError, APITimeoutError, RateLimitError | `Errors.integration("anthropic")` |
+| `LLM_EXCEPTIONS` | All OpenAI + Anthropic exceptions | `Errors.integration("llm")` |
+| `FILE_IO_EXCEPTIONS` | FileNotFoundError, PermissionError, IsADirectoryError, OSError | `Errors.system()` |
+| `PARSING_EXCEPTIONS` | ValueError, KeyError, JSONDecodeError, YAMLError | `Errors.validation()` |
+| `DATA_CONVERSION_EXCEPTIONS` | ValueError, TypeError, AttributeError, KeyError, ZeroDivisionError | `Errors.validation()` / `Errors.system()` |
+| `CONFIG_EXCEPTIONS` | FileNotFoundError, JSONDecodeError, ValueError, OSError, KeyError, TypeError | `Errors.system()` |
+
+**Suppression markers** (same line or line above):
+- `# intentional-broad: <reason>` — catches that must remain broad (event handlers, monadic boundaries, metrics wrappers)
+- `# safety-net: <reason>` — temporary broad catches during narrowing rollout
+
+**Rationale:**
+- Bare `except Exception` masks bugs and makes debugging harder
+- Specific types enable correct error categorization (DATABASE vs SYSTEM vs INTEGRATION)
+- Suppression markers document why a broad catch is intentional
+
+**Exceptions:**
+- Test files (`tests/**/*.py`)
+- Scripts (`scripts/**/*.py`)
+- `result_simplified.py` (monadic boundaries annotated separately)
+
 ## Running the Linters
 
 **Run all linters:**
@@ -323,7 +380,7 @@ Add to pre-commit hooks or CI pipeline:
 ## Linter Configuration Files
 
 - **pyproject.toml** - Main configuration for ruff, mypy, pyright
-- **scripts/lint_skuel.py** - Custom SKUEL pattern enforcement (15 rules)
+- **scripts/lint_skuel.py** - Custom SKUEL pattern enforcement (16 rules)
 - **Exceptions documented in:** `pyproject.toml` section `[tool.ruff.lint.per-file-ignores]`
 
 ## Exclusion Patterns
@@ -347,5 +404,5 @@ The linter automatically excludes certain files from specific rules:
 
 ---
 
-**Last Updated:** March 6, 2026
-**Status:** Active - 15 rules enforcing SKUEL architectural patterns
+**Last Updated:** March 16, 2026
+**Status:** Active - 16 rules enforcing SKUEL architectural patterns

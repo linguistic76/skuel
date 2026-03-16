@@ -352,8 +352,35 @@ Keep manual try-except for:
 
 5. **Test error paths**: Verify that exceptions produce expected error types
 
+## Exception Narrowing (March 2026)
+
+Where manual try-except patterns are preserved (not using `@with_error_handling`), narrow `except Exception` to specific types using tuples from `core/utils/exception_types.py`:
+
+```python
+from core.utils.exception_types import NEO4J_EXCEPTIONS, LLM_EXCEPTIONS
+
+# Database operations
+except NEO4J_EXCEPTIONS as e:
+    return Result.fail(Errors.database(operation="query", message=str(e)))
+
+# LLM/AI calls
+except LLM_EXCEPTIONS as e:
+    return Result.fail(Errors.integration("llm", str(e)))
+
+# Fire-and-forget event handlers keep broad catch
+except Exception as e:  # intentional-broad: event handler must not propagate
+    logger.error(f"Handler failed: {e}")
+```
+
+**Available tuples:** `NEO4J_EXCEPTIONS`, `LLM_EXCEPTIONS`, `OPENAI_EXCEPTIONS`, `ANTHROPIC_EXCEPTIONS`, `FILE_IO_EXCEPTIONS`, `PARSING_EXCEPTIONS`, `DATA_CONVERSION_EXCEPTIONS`, `CONFIG_EXCEPTIONS`.
+
+**Enforcement:** SKUEL017 linter rule flags unannotated `except Exception`.
+
+**See:** `/docs/patterns/ERROR_HANDLING.md` (Narrowing Exception Catches section), `/core/utils/exception_types.py`
+
 ## See Also
 
 - `/docs/patterns/ERROR_HANDLING.md` - Result[T] error handling philosophy
 - `/core/utils/decorators.py` - Decorator implementations
-- `/adapters/inbound/boundary.py` + `/adapters/inbound/boundary.py` - Route-level boundary handlers
+- `/core/utils/exception_types.py` - Centralized exception type groups
+- `/adapters/inbound/boundary.py` - Route-level boundary handlers

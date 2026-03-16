@@ -375,6 +375,7 @@ SKUEL measures knowledge by how it's LIVED. Substance tracking: Habits (0.10, ma
 - Use `.is_error` (not `.is_err`) for failure checks
 - Use `Errors` factory for creating errors
 - Six error types: Validation, NotFound, Database, Integration, Business, System
+- **Narrow exceptions:** Use specific types from `core/utils/exception_types.py` (`NEO4J_EXCEPTIONS`, `LLM_EXCEPTIONS`, `DATA_CONVERSION_EXCEPTIONS`, etc.) instead of bare `except Exception`. Annotate intentional broad catches with `# intentional-broad:` or `# safety-net:` (SKUEL017).
 
 **See:** `/docs/patterns/ERROR_HANDLING.md`
 
@@ -624,6 +625,7 @@ Use for consistent timestamp/metadata handling: `timestamp_properties()`, `updat
 - SKUEL014: Use `EntityType`/`NonKuDomain` enum
 - SKUEL015: No `print()` in production
 - SKUEL016: No stale Poetry references — SKUEL uses uv
+- SKUEL017: No bare `except Exception` — use specific types from `exception_types.py`
 
 **MyPy:** Strict where it matters, gradual everywhere else. Per-module overrides in `pyproject.toml`. Three globally-disabled codes: `type-var`, `assignment`, `arg-type`. Every new `Any` needs a `# boundary:` comment or should use a specific type.
 
@@ -748,6 +750,8 @@ text = build_embedding_text(EntityType.TASK, {"title": "Fix bug", "description":
 | Protocols | `/core/ports/` |
 | Generic backend | `/adapters/persistence/neo4j/universal_backend.py` |
 | Event bus | `/core/events/event_bus.py` |
+| Exception types | `/core/utils/exception_types.py` |
+| Error boundary | `/core/utils/error_boundary.py` |
 | Route factories | `/adapters/inbound/route_factories.py` |
 | ADRs | `/docs/decisions/` |
 | Patterns | `/docs/patterns/` |

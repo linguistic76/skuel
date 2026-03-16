@@ -979,12 +979,70 @@ async def add_relationship(
     # Graph operations return Results
 ```
 
+## Narrowing Exception Catches
+*Added: March 2026*
+
+**Core Principle:** "Catch specific exception types, not bare `except Exception`"
+
+Bare `except Exception` catches mask bugs and make debugging harder. SKUEL provides centralized exception tuples in `core/utils/exception_types.py` for narrowing catches to specific, knowable exception types.
+
+### Exception Type Groups
+
+```python
+from core.utils.exception_types import (
+    NEO4J_EXCEPTIONS,           # Neo4jError, DriverError, ServiceUnavailable, etc.
+    OPENAI_EXCEPTIONS,          # APIError, APIConnectionError, APITimeoutError, RateLimitError
+    ANTHROPIC_EXCEPTIONS,       # Same set for Anthropic
+    LLM_EXCEPTIONS,             # All OpenAI + Anthropic combined
+    FILE_IO_EXCEPTIONS,         # FileNotFoundError, PermissionError, OSError, etc.
+    PARSING_EXCEPTIONS,         # ValueError, KeyError, JSONDecodeError, YAMLError
+    DATA_CONVERSION_EXCEPTIONS, # ValueError, TypeError, AttributeError, KeyError, ZeroDivisionError
+    CONFIG_EXCEPTIONS,          # FileNotFoundError, JSONDecodeError, ValueError, OSError, etc.
+)
+```
+
+### Pattern: Narrowed Catch with Safety Net
+
+```python
+from core.utils.exception_types import NEO4J_EXCEPTIONS
+
+try:
+    result = await self.backend.execute_query(query, params)
+    return Result.ok(result)
+except NEO4J_EXCEPTIONS as e:
+    return Result.fail(Errors.database(operation="query", message=str(e)))
+except Exception as e:  # safety-net: catch unexpected errors
+    logger.error(f"Unexpected {type(e).__name__} in query: {e}")
+    return Result.fail(Errors.system(message="Unexpected error", exception=e))
+```
+
+### When to Keep Broad Catches
+
+Some catches must remain broad. Annotate with a suppression comment:
+
+| Context | Comment | Why |
+|---------|---------|-----|
+| Event handlers | `# intentional-broad: event handler must not propagate` | One handler failing must not block others |
+| Monadic boundaries | `# intentional-broad: monadic boundary catches all transform errors` | `Result.map()`, `Result.and_then()` |
+| Metrics wrappers | `# intentional-broad: metrics must not break request` | Re-raises after recording |
+| Generic decorators | `# intentional-broad: generic error-handling decorator` | `@with_error_handling` catches all |
+| CLI entrypoints | `# intentional-broad: CLI entrypoint` | Top-level must catch everything |
+
+### `safe_backend_operation` Behavior
+
+The `@safe_backend_operation` decorator catches `NEO4J_EXCEPTIONS` first (→ `Errors.database()`) and falls back to a safety-net `except Exception` (→ `Errors.system()` with `type(e).__name__` logged).
+
+**Enforcement:** SKUEL017 linter rule flags bare `except Exception` without `# intentional-broad:` or `# safety-net:` comment.
+
+**See:** `/docs/patterns/linter_rules.md` (SKUEL017), `/core/utils/exception_types.py`
+
 ## File Locations
 
 - **Current Implementation**: `/core/utils/result_simplified.py`
-- **Boundary Utilities**: `/adapters/inbound/boundary.py` + `/adapters/inbound/boundary.py`
+- **Exception Type Groups**: `/core/utils/exception_types.py`
+- **Boundary Utilities**: `/adapters/inbound/boundary.py`
+- **Error Boundary Decorators**: `/core/utils/error_boundary.py`
 - **Migration Guide**: `/core/utils/result_migration_guide.md`
-- **Old Implementation**: `/core/utils/result.py` (deprecated)
 - **Tests**: `/tests/test_result_simplified.py`
 
 ## Future Enhancements
