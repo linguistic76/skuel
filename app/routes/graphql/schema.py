@@ -434,9 +434,9 @@ class Query:
                 CrossDomainOpportunity(
                     source=source_node,
                     target=target_node,
-                    bridgeType=opp.application_type,
+                    bridge_type=opp.application_type,
                     transferability=opp.skill_transfer_potential,
-                    effortRequired=f"Difficulty: {opp.estimated_difficulty}/10",
+                    effort_required=f"Difficulty: {opp.estimated_difficulty}/10",
                     reasoning=opp.description,
                     practical_projects=opp.practical_projects if opp.practical_projects else None,
                     success_patterns=opp.success_patterns if opp.success_patterns else None,
