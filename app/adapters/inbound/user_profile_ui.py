@@ -253,11 +253,11 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
         """
         user_uid = require_authenticated_user(request)
 
-        try:
-            user, _context = await _get_user_and_context(user_uid)
-        except ValueError as e:
-            logger.error("Failed to load user for settings", extra={"error": str(e)})
+        user_result = await user_service.get_user(user_uid)
+        if user_result.is_error:
+            logger.error("Failed to load user for settings", extra={"user_uid": user_uid})
             return await error_page("User not found", 404)
+        user = user_result.value
 
         # Extract preferences as dict
         prefs_dict = {}
@@ -378,36 +378,25 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
     # PROFILE HUB ROUTES - Sidebar Navigation with Domain Views
     # ========================================================================
 
-    async def _get_user_and_context(
+    async def _get_context(
         user_uid: str,
-    ) -> tuple[Any, UserContext]:
+    ) -> UserContext:
         """
-        Get user entity and UserContext.
-
-        One path forward: Get user and context from service or raise error.
+        Get rich UserContext — single call, includes user identity + role.
 
         Args:
             user_uid: Authenticated user's UID
 
         Returns:
-            Tuple of (User, UserContext)
+            UserContext with ~250 fields including user_role, display_name, username
 
         Raises:
-            ValueError: If user or context cannot be loaded
+            ValueError: If context cannot be loaded
         """
-        # Get user - ONE PATH (no fallback)
-        user_result = await user_service.get_user(user_uid)
-        if user_result.is_error:
-            raise ValueError(f"User not found: {user_uid}")
-        user = user_result.value
-
-        # Get context - ONE PATH (no fallback)
         context_result = await user_service.get_rich_unified_context(user_uid)
         if context_result.is_error:
             raise ValueError(f"Failed to load context for user: {user_uid}")
-        context = context_result.value
-
-        return user, context
+        return context_result.value
 
     def _build_domain_items(
         context: UserContext, insight_counts: dict[str, int] | None = None
@@ -598,10 +587,10 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
         user_uid = require_authenticated_user(request)
 
         try:
-            user, context = await _get_user_and_context(user_uid)
+            context = await _get_context(user_uid)
         except ValueError as e:
             logger.error(
-                "Failed to load user or context for profile page",
+                "Failed to load context for profile page",
                 extra={"user_uid": user_uid, "error": str(e)},
             )
             return await error_page(str(e), 500)
@@ -621,7 +610,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
 
         domain_items = _build_domain_items(context, insight_counts)
         curriculum_items = _build_curriculum_items(context)
-        display_name = user.display_name if user.display_name else user.username
+        display_name = context.display_name or context.username
 
         return await create_profile_page(
             content=content,
@@ -629,7 +618,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
             active_domain="",
             user_display_name=display_name,
             title="Profile",
-            is_admin=user.can_manage_users(),
+            is_admin=context.user_role.can_manage_users(),
             curriculum_domains=curriculum_items,
             unread_insights=total_unread_insights,
             request=request,
@@ -743,12 +732,11 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
         """
         user_uid = require_authenticated_user(request)
 
-        # Get user and context
         try:
-            user, context = await _get_user_and_context(user_uid)
+            context = await _get_context(user_uid)
         except ValueError as e:
             logger.error(
-                "Failed to load user or context for shared content page",
+                "Failed to load context for shared content page",
                 extra={"user_uid": user_uid, "error": str(e)},
             )
             return await error_page(str(e), 500)
@@ -853,16 +841,14 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
 
         domain_items = _build_domain_items(context, insight_counts)
         curriculum_items = _build_curriculum_items(context)
-        display_name = user.display_name if user.display_name else user.username
-        is_admin = user.can_manage_users()
 
         return await create_profile_page(
             content=content,
             domains=domain_items,
             active_domain="shared",  # Custom domain for sidebar highlighting
-            user_display_name=display_name,
+            user_display_name=context.display_name or context.username,
             title="Shared With Me - Profile Hub",
-            is_admin=is_admin,
+            is_admin=context.user_role.can_manage_users(),
             curriculum_domains=curriculum_items,
             unread_insights=total_unread_insights,
             request=request,
@@ -995,7 +981,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
 
         # Get intelligence data for alignment scores
         try:
-            _user, context = await _get_user_and_context(user_uid)
+            context = await _get_context(user_uid)
         except ValueError as e:
             from starlette.responses import JSONResponse
 
@@ -1118,7 +1104,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
         user_uid = require_authenticated_user(request)
 
         try:
-            _user, context = await _get_user_and_context(user_uid)
+            context = await _get_context(user_uid)
         except ValueError as e:
             from starlette.responses import JSONResponse
 
@@ -1212,7 +1198,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
 
         # Get user and context
         try:
-            _user, context = await _get_user_and_context(user_uid)
+            context = await _get_context(user_uid)
         except ValueError as e:
             from ui.patterns.empty_state import EmptyState
 

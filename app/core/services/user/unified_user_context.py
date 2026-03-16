@@ -95,6 +95,7 @@ from core.models.enums import (
     ResponseTone,
     TimeOfDay,
 )
+from core.models.enums.user_enums import UserRole
 
 if TYPE_CHECKING:
     from core.models.zpd.zpd_assessment import ZPDAssessment
@@ -140,6 +141,7 @@ class UserContext:
     username: str = ""  # Optional - populated by UserContextBuilder when available
     email: str = ""
     display_name: str = ""
+    user_role: UserRole = UserRole.REGISTERED
 
     # Session tracking
     session_id: str | None = None

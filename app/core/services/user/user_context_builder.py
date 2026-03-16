@@ -265,6 +265,7 @@ class UserContextBuilder:
             username=user.title,
             email=user.email,
             display_name=user.display_name or user.title,
+            user_role=user.role,
         )
 
         # Execute consolidated query
@@ -343,6 +344,7 @@ class UserContextBuilder:
             username=user.title,
             email=user.email,
             display_name=user.display_name or user.title,
+            user_role=user.role,
         )
 
         # Compute activity window — always passed to MEGA-QUERY.

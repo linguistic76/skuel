@@ -40,7 +40,7 @@ def create_teaching_api_routes(
     rt: Any,
     teacher_review_service: "TeacherReviewOperations",
     user_service: Any,
-    exercises_service: Any = None,
+    exercises_service: Any,
 ) -> list[Any]:
     """
     Create teaching API routes.

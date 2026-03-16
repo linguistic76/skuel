@@ -90,7 +90,7 @@ def create_teaching_ui_routes(
     rt: Any,
     teacher_review_service: "TeacherReviewOperations",
     user_service: Any,
-    exercises_service: Any = None,
+    exercises_service: Any,
 ) -> list[Any]:
     """
     Create teaching UI routes for the full teacher dashboard.
@@ -413,10 +413,8 @@ def create_teaching_ui_routes(
         """Edit exercise form — update an existing exercise."""
         user_uid = require_authenticated_user(request)
 
-        exercise: Any = None
-        if exercises_service:
-            exercise_result = await exercises_service.get_exercise(uid)
-            exercise = exercise_result.value if exercise_result.is_ok else None
+        exercise_result = await exercises_service.get_exercise(uid)
+        exercise: Any = exercise_result.value if exercise_result.is_ok else None
 
         groups_result = await teacher_review_service.get_teacher_groups_with_stats(
             teacher_uid=user_uid
