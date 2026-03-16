@@ -185,7 +185,7 @@ async def knowledge_unit(
 # ✅ EVEN BETTER - Use unwrap_result() helper for list queries
 from routes.graphql.query_helpers import unwrap_result
 
-result = await context.services.article.core.list(limit=safe_limit, filters=filters)
+result = await context.services.lesson.core.list(limit=safe_limit, filters=filters)
 entities, _count = unwrap_result(result, ([], 0))
 return [knowledge_node_from_dto(ku) for ku in entities]
 

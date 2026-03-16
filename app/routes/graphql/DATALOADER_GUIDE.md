@@ -62,7 +62,7 @@ Located in: `/routes/graphql/context.py`
 
 | DataLoader | Purpose | Batches |
 |------------|---------|---------|
-| `knowledge_loader` | Load articles by UID | `get_articles_batch()` |
+| `knowledge_loader` | Load lessons by UID | `get_lessons_batch()` |
 | `task_loader` | Load tasks by UID | `get_tasks_batch()` |
 | `learning_path_loader` | Load learning paths by UID | `get_learning_paths_batch()` |
 | `learning_step_loader` | Load learning steps by UID | `get_learning_steps_batch()` |
@@ -83,7 +83,7 @@ def create_graphql_context(services, search_router, user_uid=None):
     # Named functions bind context to the shared _batch_load helper (SKUEL012: no lambdas)
     async def load_knowledge_units(keys: list[str]) -> list[Any]:
         return await _batch_load(
-            keys, context.services.article.get_articles_batch, "knowledge units"
+            keys, context.services.lesson.get_lessons_batch, "knowledge units"
         )
 
     async def load_tasks(keys: list[str]) -> list[Any]:
@@ -295,7 +295,7 @@ DataLoader expects results in the **same order** as input keys:
 
 ## Service Unavailability
 
-All 4 batch methods are implemented. `_batch_load` accepts a bound method directly — no `getattr` indirection. Callers pass `service.get_articles_batch` etc. as `batch_fn`.
+All 4 batch methods are implemented. `_batch_load` accepts a bound method directly — no `getattr` indirection. Callers pass `service.get_lessons_batch` etc. as `batch_fn`.
 
 ---
 
@@ -348,7 +348,7 @@ query {
 
 3. **Implement batch methods in services**
    ```python
-   async def get_articles_batch(self, uids: list[str]) -> Result[list[Article | None]]  # ✅
+   async def get_lessons_batch(self, uids: list[str]) -> Result[list[Lesson | None]]  # ✅
    ```
 
 4. **Preserve order in batch results**
@@ -457,7 +457,7 @@ query TestBatching {
 ## Next Steps
 
 1. **All batch methods implemented:**
-   - ✅ ArticleService.get_articles_batch()
+   - ✅ LessonService.get_lessons_batch()
    - ✅ TasksService.get_tasks_batch()
    - ✅ LpService.get_learning_paths_batch()
    - ✅ LsService.get_learning_steps_batch()

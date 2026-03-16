@@ -85,11 +85,20 @@ See [GUARDRAILS.md](./GUARDRAILS.md) for complete documentation.
 ```
 routes/graphql/
 ├── __init__.py          # Package exports
-├── schema.py            # Query, Mutation, Subscription definitions
-├── types.py             # GraphQL type definitions
-├── context.py           # DataLoader + context management
-├── config.py            # Guardrails configuration
+├── schema.py            # Query, Mutation (disabled), Subscription definitions
+├── types.py             # GraphQL type definitions (Strawberry @strawberry.type)
+├── mappers.py           # Domain model → GraphQL type conversion functions
+├── query_helpers.py     # unwrap_result/unwrap_list + GraphQLQueryHelpers
+├── context.py           # DataLoader + GraphQLContext (per-request)
+├── config.py            # Guardrails configuration (GraphQLConfig)
+├── auth.py              # require_user_uid(), resolve_target_user()
+├── protocols.py         # Structural protocols (LearningStepLike, etc.)
 ├── GUARDRAILS.md        # Complete guardrails documentation
+├── AUTHENTICATION.md    # Two-layer auth design
+├── DATALOADER_GUIDE.md  # N+1 prevention patterns
+├── COMPLEXITY.md        # Query depth/token limits
+├── QUERY_EXAMPLES.md    # Real-world example queries
+├── ENHANCEMENTS.md      # Future improvements
 └── README.md            # This file
 ```
 
@@ -206,13 +215,13 @@ query {
 }
 ```
 
-#### `tasks(userUid: String!, includeCompleted: Boolean, limit: Int): [Task!]!`
+#### `tasks(includeCompleted: Boolean, limit: Int): [Task!]!`
 
-List user tasks with optional filtering.
+List tasks for the authenticated user. No `userUid` parameter — uses session auth to prevent UID spoofing.
 
 ```graphql
 query {
-  tasks(userUid: "user.001", includeCompleted: false, limit: 10) {
+  tasks(includeCompleted: false, limit: 10) {
     uid
     title
     status
@@ -255,13 +264,13 @@ query {
 
 **This solves N+1:** Fetching path → steps → knowledge in one request.
 
-#### `learningPaths(userUid: String, limit: Int): [LearningPath!]!`
+#### `learningPaths(limit: Int, allPaths: Boolean): [LearningPath!]!`
 
-List learning paths, optionally filtered by user.
+List learning paths. Default: authenticated user's paths. Set `allPaths: true` for discovery mode.
 
 ```graphql
 query {
-  learningPaths(userUid: "user.001", limit: 10) {
+  learningPaths(limit: 10) {
     uid
     name
     goal
@@ -273,13 +282,13 @@ query {
 
 ### Dashboard Query
 
-#### `userDashboard(userUid: String!): DashboardData!`
+#### `userDashboard: DashboardData!`
 
-Get complete dashboard data in ONE query.
+Get complete dashboard data in ONE query. Uses authenticated user from session.
 
 ```graphql
 query {
-  userDashboard(userUid: "user.001") {
+  userDashboard {
     tasksCount
     pathsCount
     habitsCount
@@ -325,79 +334,25 @@ query {
 
 ---
 
-## Available Mutations
+## Mutations
 
-### Task Mutations
-
-#### `createTask(input: TaskInput!): Task`
-
-Create a new task.
-
-```graphql
-mutation {
-  createTask(input: {
-    title: "Learn Python decorators"
-    description: "Study advanced Python concepts"
-    priority: "high"
-    knowledgeUid: "ku.tech.python.decorators"
-  }) {
-    uid
-    title
-    status
-    knowledge {
-      uid
-      title
-    }
-  }
-}
-```
-
-#### `updateTask(uid: String!, title: String, description: String, status: String, priority: String): Task`
-
-Update an existing task.
-
-```graphql
-mutation {
-  updateTask(
-    uid: "task.001"
-    status: "completed"
-    priority: "low"
-  ) {
-    uid
-    title
-    status
-    priority
-  }
-}
-```
-
-#### `deleteTask(uid: String!): Boolean!`
-
-Delete a task.
-
-```graphql
-mutation {
-  deleteTask(uid: "task.001")
-}
-```
-
-Returns `true` if successful, `false` otherwise.
+**Mutations are DISABLED.** GraphQL is read-only for complex nested queries. Use the REST API for all mutations (POST, PUT, DELETE). This keeps mutations in one place and leverages GraphQL's strength: flexible, composable reads.
 
 ---
 
-## Subscriptions (Future)
+## Subscriptions
 
-### `learningProgress(UserUid: String!, PathUid: String!): Float!`
+### `learningProgress(userUid: String!, pathUid: String!): Float!`
 
-Subscribe to real-time learning progress updates.
+Subscribe to real-time learning progress updates via event bus.
 
 ```graphql
 subscription {
-  learningProgress(UserUid: "user.001", PathUid: "lp.python.basics")
+  learningProgress(userUid: "user.001", pathUid: "lp.python.basics")
 }
 ```
 
-**Status:** Placeholder - requires WebSocket integration and event bus wiring.
+**Status:** Implemented. Subscribes to `LearningPathProgressUpdated` events, filters by user/path, yields progress values (0.0-1.0). Falls back to yielding 0.0 when no event bus is available. Requires WebSocket transport for production use.
 
 ---
 
@@ -428,18 +383,21 @@ config.max_list_size = 50  # Reduce maximum
 
 ## Testing
 
-### Run Integration Tests
+### Unit Tests (134 tests, 98% schema.py coverage)
 
 ```bash
-uv run python test_graphql.py
+uv run pytest tests/unit/test_graphql_schema_resolvers.py tests/unit/test_graphql_mappers.py -v
 ```
 
-Tests:
-- ✅ Schema creation
-- ✅ Context creation with DataLoaders
-- ✅ Service integration
+Tests cover all resolvers, helper functions, auth, config, context, DataLoader batching, type field resolvers, subscription, and schema factory. No Neo4j required — all services mocked.
 
-### Manual Testing with GraphiQL
+### Integration Tests
+
+```bash
+uv run pytest tests/integration/test_graphql_queries.py tests/integration/test_graphql_complex_queries.py tests/integration/test_graphql_type_contracts.py -v
+```
+
+### Manual Testing with Playground
 
 1. Start the app: `uv run python main.py`
 2. Open http://localhost:8000/graphql
@@ -496,11 +454,15 @@ logger.info("✅ GraphQL API registered at /graphql (via SearchRouter)")
 2. **DataLoader Batching** - Automatic N+1 prevention for knowledge, tasks, learning paths, steps
 3. **FastHTML Playground** - 100% Python, no React/TypeScript dependencies
 4. **Guardrails** - Cypher in repos, apply limits, project fields, Result[T] flow
+5. **Session Authentication** - `require_authenticated_user()` at HTTP layer, defense-in-depth at resolver layer
+6. **Cross-Domain Discovery** - Wired to `AdaptiveLpCrossDomainService` with DataLoader-backed KU nodes
+7. **Subscriptions** - `learning_progress` wired to event bus with filter/cleanup
+8. **Comprehensive Tests** - 134 unit tests (98% schema.py coverage), integration tests, type contract tests
 
 **⏳ Optional Enhancements:**
-1. **Authentication Hardening** - Replace dev default (`user.mike`) with real session auth
-2. **WebSocket Subscriptions** - Real-time updates (or use Server-Sent Events with HTMX)
-3. **Cross-Domain Discovery** - Wire up semantic search service
+1. **WebSocket Transport** - Required for subscriptions in production (or use SSE with HTMX)
+2. **Rate Limiting** - Per-user query rate limits
+3. **Audit Logging** - Log sensitive queries for compliance
 
 See [ENHANCEMENTS.md](./ENHANCEMENTS.md) for implementation details.
 
@@ -510,10 +472,8 @@ See [ENHANCEMENTS.md](./ENHANCEMENTS.md) for implementation details.
 
 ```toml
 # pyproject.toml
-strawberry-graphql = "^0.284.1"  # GraphQL server with type safety (Pydantic 2.12+ compatible)
+strawberry-graphql = ">=0.289.0"  # GraphQL server with type safety (Pydantic 2.12+ compatible)
 ```
-
-**Version note:** Using Strawberry 0.284.1 for Pydantic 2.12+ compatibility.
 
 ---
 
