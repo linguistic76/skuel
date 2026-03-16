@@ -129,9 +129,7 @@ class LsProgressService:
         new_progress = completed_lessons / total_lessons
 
         if abs(new_progress - old_progress) < 0.001:
-            self.logger.debug(
-                f"LS {ls_uid} progress unchanged ({new_progress:.1%}), skipping"
-            )
+            self.logger.debug(f"LS {ls_uid} progress unchanged ({new_progress:.1%}), skipping")
             return
 
         self.logger.info(

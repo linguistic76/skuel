@@ -962,10 +962,12 @@ class LsBackend(UniversalNeo4jBackend[LearningStep]):
         if not result.value:
             return Result.ok({"total_lessons": 0, "completed_lessons": 0})
         record = result.value[0]
-        return Result.ok({
-            "total_lessons": record["total_lessons"],
-            "completed_lessons": record["completed_lessons"],
-        })
+        return Result.ok(
+            {
+                "total_lessons": record["total_lessons"],
+                "completed_lessons": record["completed_lessons"],
+            }
+        )
 
 
 class LpBackend(UniversalNeo4jBackend[LearningPath]):

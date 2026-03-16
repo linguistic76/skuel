@@ -1344,9 +1344,7 @@ class UserContextQueryExecutor:
         return Result.ok(record["result"])
 
     @with_error_handling("fetch_current_lesson_uids", error_type="database", uid_param="user_uid")
-    async def fetch_current_lesson_uids(
-        self, user_uid: str
-    ) -> Result[list[str]]:
+    async def fetch_current_lesson_uids(self, user_uid: str) -> Result[list[str]]:
         """Fetch lesson UIDs for KUs the user is currently LEARNING."""
         query = """
         MATCH (user:User {uid: $user_uid})-[r:LEARNING]->(ku:Entity)

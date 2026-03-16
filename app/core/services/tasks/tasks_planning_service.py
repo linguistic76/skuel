@@ -128,9 +128,7 @@ class TasksPlanningService(BasePlanningService["TasksOperations", Task]):
     #
     # Philosophy: "Filter by readiness, rank by relevance, enrich with insights"
 
-    async def _get_transitive_dependency_uids(
-        self, task_uid: str, max_depth: int
-    ) -> list[str]:
+    async def _get_transitive_dependency_uids(self, task_uid: str, max_depth: int) -> list[str]:
         """Fetch transitive dependency UIDs via variable-length DEPENDS_ON traversal.
 
         Args:

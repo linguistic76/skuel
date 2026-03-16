@@ -205,9 +205,9 @@ class EntityExtractor:
                     matched_uids.append(ku.uid)
                     break
 
-        # Also check Article titles — if a question references an Article,
-        # match it to the KUs that Article teaches
-        for article in ls_bundle.articles:
+        # Also check Lesson titles — if a question references a Lesson,
+        # match it to the KUs that Lesson teaches
+        for article in ls_bundle.lessons:
             if self._fuzzy_match(article.title, question_lower):
                 # Find KUs linked to this Article
                 for ku in ls_bundle.kus:

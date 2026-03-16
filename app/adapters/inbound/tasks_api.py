@@ -149,7 +149,9 @@ def create_tasks_api_routes(
         """Get task dependencies enriched with user context (readiness, blocking, recommendations)."""
         if not user_service:
             return Result.fail(
-                Errors.system(message="User service not available", operation="get_task_dependencies")
+                Errors.system(
+                    message="User service not available", operation="get_task_dependencies"
+                )
             )
 
         context_result = await user_service.get_user_context(user_uid)
@@ -158,7 +160,9 @@ def create_tasks_api_routes(
 
         params = dict(request.query_params)
         include_transitive = params.get("include_transitive", "false").lower() in (
-            "true", "1", "yes",
+            "true",
+            "1",
+            "yes",
         )
         max_depth = parse_int_query_param(params, "max_depth", 2, minimum=1, maximum=10)
 

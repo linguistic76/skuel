@@ -84,7 +84,7 @@ def resolve_target_user(info: Info[GraphQLContext, Any], user_uid: str | None = 
             target_user_uid = resolve_target_user(info, user_uid)
     """
     if user_uid:
-        # TODO: Add admin permission check (ADR pending)
+        # TODO(blocked:adr) Add admin permission check (ADR pending)
         return user_uid
     return require_user_uid(info)
 

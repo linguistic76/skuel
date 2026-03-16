@@ -91,7 +91,7 @@ def learning_step_from_domain(step: LearningStepMappable, step_number: int) -> L
     This explicit conversion layer:
     - Catches type mismatches at conversion time
     - Provides clear contract between service and API layers
-    - Eliminates need for defensive hasattr() checks
+    - Eliminates need for defensive attribute-existence checks
 
     Args:
         step: Ls domain model from service layer (satisfies LearningStepMappable)

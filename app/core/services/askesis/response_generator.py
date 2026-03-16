@@ -28,6 +28,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.constants import MasteryLevel
 from core.models.askesis.pedagogical_intent import PedagogicalIntent
+from core.models.enums import EntityType
 from core.models.query_types import QueryIntent
 from core.prompts import PROMPT_REGISTRY
 from core.utils.logging import get_logger
@@ -164,7 +165,7 @@ class ResponseGenerator:
 
         # --- Conditionally-included sections ---
 
-        if "life_path" in sections and user_context.life_path_uid:
+        if EntityType.LIFE_PATH.value in sections and user_context.life_path_uid:
             self._append_life_path_section(context_parts, user_context)
 
         # Activity report: uses query-text matching (broad keyword set doesn't map to one intent)

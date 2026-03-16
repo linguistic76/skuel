@@ -744,6 +744,7 @@ class SkuelLinter:
             "_update_access",
             "_remove_from",
             "handle_",
+            "learn_from_",
             "increment_",
             "ensure_",
         ]

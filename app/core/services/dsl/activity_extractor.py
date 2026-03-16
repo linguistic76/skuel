@@ -775,9 +775,7 @@ class ActivityExtractorService:
     # ========================================================================
 
     @with_error_handling(error_type="system", operation="create_task")
-    async def _create_task(
-        self, activity: ParsedActivityLine, user_uid: str
-    ) -> Result[str | None]:
+    async def _create_task(self, activity: ParsedActivityLine, user_uid: str) -> Result[str | None]:
         """
         Create a task from parsed activity.
 
@@ -856,9 +854,7 @@ class ActivityExtractorService:
         return Result.ok(habit_uid)
 
     @with_error_handling(error_type="system", operation="create_goal")
-    async def _create_goal(
-        self, activity: ParsedActivityLine, user_uid: str
-    ) -> Result[str | None]:
+    async def _create_goal(self, activity: ParsedActivityLine, user_uid: str) -> Result[str | None]:
         """
         Create a goal from parsed activity.
 
@@ -1083,9 +1079,7 @@ class ActivityExtractorService:
     # ========================================================================
 
     @with_error_handling(error_type="system", operation="create_ku")
-    async def _create_ku(
-        self, activity: ParsedActivityLine, user_uid: str
-    ) -> Result[str | None]:
+    async def _create_ku(self, activity: ParsedActivityLine, user_uid: str) -> Result[str | None]:
         """
         Create a KnowledgeUnit from parsed activity.
 
@@ -1120,9 +1114,7 @@ class ActivityExtractorService:
         return Result.ok(ku_uid)
 
     @with_error_handling(error_type="system", operation="create_ls")
-    async def _create_ls(
-        self, activity: ParsedActivityLine, user_uid: str
-    ) -> Result[str | None]:
+    async def _create_ls(self, activity: ParsedActivityLine, user_uid: str) -> Result[str | None]:
         """
         Create a LearningStep from parsed activity.
 
@@ -1157,9 +1149,7 @@ class ActivityExtractorService:
         return Result.ok(ls_uid)
 
     @with_error_handling(error_type="system", operation="create_lp")
-    async def _create_lp(
-        self, activity: ParsedActivityLine, user_uid: str
-    ) -> Result[str | None]:
+    async def _create_lp(self, activity: ParsedActivityLine, user_uid: str) -> Result[str | None]:
         """
         Create a LearningPath from parsed activity.
 

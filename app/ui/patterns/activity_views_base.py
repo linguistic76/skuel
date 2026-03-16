@@ -494,7 +494,7 @@ def render_activity_calendar(
         item
         for item in calendar_items
         if start_date <= item.start_time.date() <= end_date
-        or (hasattr(item, "end_time") and start_date <= item.end_time.date() <= end_date)
+        or start_date <= item.end_time.date() <= end_date
     ]
 
     calendar_data = CalendarData(

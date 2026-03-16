@@ -156,17 +156,13 @@ class LpProgressService:
                         user_uid=event.user_uid,
                     )
                 except Exception as e:
-                    self.logger.error(
-                        f"Failed to update LP {lp_uid} from LS completion: {e}"
-                    )
+                    self.logger.error(f"Failed to update LP {lp_uid} from LS completion: {e}")
 
         except Exception as e:
             self.logger.error(f"Error handling learning_step.completed event: {e}")
 
     # FUTURE-IMPL: FUTURE-IMPL-009 - See docs/reference/DEFERRED_IMPLEMENTATIONS.md
-    async def _update_lp_from_ku_mastery(
-        self, lp_uid: str, user_uid: str
-    ) -> None:
+    async def _update_lp_from_ku_mastery(self, lp_uid: str, user_uid: str) -> None:
         """
         Internal helper to update a single learning path's progress from KU mastery.
 

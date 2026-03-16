@@ -299,10 +299,11 @@ class FormGenerator:
         if isinstance(instance, dict):
             values = instance
         else:
+            _missing = object()
             values = {
-                field_name: getattr(instance, field_name, None)
+                field_name: val
                 for field_name in model_class.model_fields
-                if hasattr(instance, field_name)
+                if (val := getattr(instance, field_name, _missing)) is not _missing
             }
         return FormGenerator.from_model(
             model_class, action, method, submit_label, values=values, **kwargs
@@ -469,7 +470,7 @@ class FormGenerator:
         if (
             normalized_value is not None
             and widget_type in ("date", "datetime-local")
-            and hasattr(normalized_value, "isoformat")
+            and isinstance(normalized_value, (date, datetime))
         ):
             normalized_value = normalized_value.isoformat()
 

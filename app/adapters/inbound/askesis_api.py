@@ -953,7 +953,7 @@ __all__ = ["create_askesis_api_routes"]
 # 3. Added Pydantic validation for all request bodies
 # 4. Removed all mock data responses
 # 5. Added proper HTTP status codes (201 for POST creates)
-# 6. Prepared for service integration with TODOs
+# 6. Prepared for service integration with task markers
 #
 # Routes Summary (10 routes):
 # 1. GET /api/askesis/{user_uid} - Get Askesis instance

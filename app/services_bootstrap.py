@@ -616,7 +616,6 @@ def _create_learning_services(
     query_executor: Any = None,
 ) -> dict[str, Any]:
     """Create all learning-related services using 100% dynamic backends."""
-    from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
     from core.models.pathways.learning_path import LearningPath
     from core.models.pathways.learning_step import LearningStep
     from core.services.entity_retrieval import EntityRetrieval
@@ -706,9 +705,7 @@ def _create_learning_services(
     # Backend created here (composition root) — core services never import adapters
     from adapters.persistence.neo4j.domain_backends import LsBackend
 
-    ls_backend = LsBackend(
-        driver, NeoLabel.LEARNING_STEP, LearningStep, base_label=NeoLabel.ENTITY
-    )
+    ls_backend = LsBackend(driver, NeoLabel.LEARNING_STEP, LearningStep, base_label=NeoLabel.ENTITY)
     ls_service = LsService(
         backend=ls_backend,
         executor=query_executor,

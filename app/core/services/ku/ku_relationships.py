@@ -13,6 +13,7 @@ import asyncio
 from dataclasses import dataclass, field
 from typing import Any
 
+from core.models.relationship_names import RelationshipName
 from core.services.lesson.lesson_graph_service import LessonGraphService
 from core.services.lesson.lesson_semantic_service import LessonSemanticService
 from core.services.relationships import UnifiedRelationshipService
@@ -204,7 +205,7 @@ class KuRelationships:
         high_conf_prereqs = []
         for rel in relationships:
             if (
-                rel.get("type") == "REQUIRES_KNOWLEDGE"
+                rel.get("type") == RelationshipName.REQUIRES_KNOWLEDGE.value
                 and rel.get("confidence", 0.0) >= min_confidence
             ):
                 target_uid = rel.get("target_uid")

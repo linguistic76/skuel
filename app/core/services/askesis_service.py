@@ -181,7 +181,7 @@ class AskesisService:
             embeddings_service=deps.embeddings_service,
             vector_search_service=deps.vector_search_service,
             # LS bundle dependencies (absorbed from LSContextLoader)
-            article_service=deps.knowledge_service,
+            lesson_service=deps.knowledge_service,
             ku_service=deps.ku_service,
             habits_service=deps.habits_service,
             tasks_service=deps.tasks_service,
