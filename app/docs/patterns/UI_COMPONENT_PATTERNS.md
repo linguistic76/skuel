@@ -77,7 +77,9 @@ SKUEL uses a layered UI component architecture built on MonsterUI (FrankenUI + T
 
 **Evolution (2026-03-13):** `/study` is the student workspace hub landing page. Sub-pages are top-level routes (`/submit`, `/submissions`, `/exercise-reports`, `/activity-reports`, `/generate-reports`) sharing a 5-item Study sidebar. `/study` landing shows vertically-stacked workspace cards. Old `/submissions/*` and `/learn/*` UI paths redirect 301 to the new top-level routes.
 
-**Evolution (2026-03-17):** Navbar gains **C** (Curriculum) icon between A and S. All three icons (A, C, S) now have hover dropdown menus. `/curriculum` landing shows 4-card grid. Curriculum sub-pages (`/lessons`, `/learning-steps`, `/learning-paths`, `/exercises`) share a 4-item Curriculum sidebar. Exercises moved from Study sidebar to Curriculum sidebar.
+**Evolution (2026-03-17a):** Navbar gains **C** (Curriculum) icon between A and S. All three icons (A, C, S) now have hover dropdown menus. `/curriculum` landing shows 4-card grid. Curriculum sub-pages (`/lessons`, `/learning-steps`, `/learning-paths`, `/exercises`) share a 4-item Curriculum sidebar. Exercises moved from Study sidebar to Curriculum sidebar.
+
+**Evolution (2026-03-17b):** **A** icon removed from navbar. Activity links moved to avatar hover dropdown (`_avatar_dropdown()`). Navbar now: C, S + avatar (hover → Activities) + logout. `/profile` stripped of sidebar — uses `BasePage` directly. Journals card on `/activities` replaced with lightweight link. Sidebar badges loaded async via `GET /api/sidebar/badges` (HTMX OOB swap with `CountBadge` + `StatusBadge`).
 
 **Evolution (2026-02-09):** All 5 sidebars (Profile, KU, Reports, Journals, Askesis) unified into single Tailwind + Alpine.js component (`SidebarPage`). Custom CSS/JS files (`profile_sidebar.css`, `profile_sidebar.js`) deleted. Mobile uses horizontal MonsterUI tabs instead of drawer/overlay.
 

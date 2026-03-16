@@ -311,20 +311,20 @@ MAIN_NAV_ITEMS: tuple[NavItem, ...] = (
 
 ### Navbar Icon Links
 
-The navbar has three icon links in the left section (after the SKUEL logo), all with hover dropdown menus:
-- **A** (Activities) → `/activities` — Dropdown: Tasks, Goals, Habits, Events, Choices, Principles
+The navbar left section (after the SKUEL logo) has two icon links and a profile avatar:
 - **C** (Curriculum) → `/curriculum` — Dropdown: Lessons, Learning Steps, Learning Paths, Exercises
 - **S** (Study) → `/study` — Dropdown: Submit, My Submissions, Exercise Reports, Activity Reports, Generate Reports
-- **U** (Avatar) → `/profile` — Lean profile (Focus + Steady + Settings)
+- **Avatar** (click → `/profile`; hover → Activity dropdown: Tasks, Goals, Habits, Events, Choices, Principles)
+- **Logout icon** — always visible on main line
 
 See `/ui/layouts/nav_config.py` for `ICON_NAV_ITEMS`, `IconNavItem`, and `*_DROPDOWN_ITEMS`.
 
-Dropdowns are rendered via `_DROPDOWN_ITEMS_MAP` in `navbar.py` — maps `page_key` to dropdown items. Adding a new dropdown only requires adding entries to `nav_config.py` and the map.
+Icon dropdowns are rendered via `_DROPDOWN_ITEMS_MAP` in `navbar.py`. The avatar dropdown uses `ACTIVITY_DROPDOWN_ITEMS` directly via `_avatar_dropdown()`.
 
 ```python
-# Dropdown map (from navbar.py)
+# Icon dropdown map (from navbar.py) — C and S only
 _DROPDOWN_ITEMS_MAP: dict[str, tuple[DropdownItem, ...]] = {
-    "activities": ACTIVITY_DROPDOWN_ITEMS,
+    "activities": ACTIVITY_DROPDOWN_ITEMS,   # used by avatar dropdown
     "curriculum": CURRICULUM_DROPDOWN_ITEMS,
     "study": STUDY_DROPDOWN_ITEMS,
 }
@@ -332,20 +332,16 @@ _DROPDOWN_ITEMS_MAP: dict[str, tuple[DropdownItem, ...]] = {
 
 ### Mobile Navigation
 
-The navbar Alpine component (`navbar()` in `skuel.js`) handles the mobile hamburger menu. On mobile, dropdown icons (A, C, S) are expanded into individual links:
+The navbar Alpine component (`navbar()` in `skuel.js`) handles the mobile hamburger menu. On mobile, activity domains (from avatar dropdown) and icon nav dropdowns (C, S) are expanded into individual links:
 
 ```python
-# Mobile: dropdown items expanded as flat links
-for item in ICON_NAV_ITEMS:
+# Mobile: activity domains first, then icon nav dropdowns
+for di in ACTIVITY_DROPDOWN_ITEMS:
+    mobile_icon_links.append(...)
+for item in ICON_NAV_ITEMS:  # C, S
     if item.has_dropdown:
         for di in _DROPDOWN_ITEMS_MAP.get(item.page_key, ()):
-            mobile_icon_links.append(
-                _nav_link(NavItem(f"{di.icon} {di.label}", di.href, ...), active_page, mobile=True)
-            )
-    else:
-        mobile_icon_links.append(
-            _nav_link(NavItem(item.label, item.href, item.page_key), active_page, mobile=True)
-        )
+            mobile_icon_links.append(...)
 ```
 
 **Navbar accessibility requirements:**
@@ -360,7 +356,7 @@ for item in ICON_NAV_ITEMS:
 
 ## 4. Sidebar Pages
 
-Use `SidebarPage()` for pages with collapsible, persistent sidebar navigation (Profile, KU, Submissions, Journals, Askesis).
+Use `SidebarPage()` for pages with collapsible, persistent sidebar navigation (Activity domains, Curriculum, Study, KU, Askesis). Note: `/profile` no longer uses a sidebar — it uses `BasePage` directly.
 
 ### SidebarItem
 
@@ -918,7 +914,7 @@ When building a new SKUEL page or feature, verify:
 |------|---------|
 | `/ui/layouts/base_page.py` | `BasePage` + `build_head()` — foundation for all pages |
 | `/ui/layouts/page_types.py` | `PageType` enum and config |
-| `/ui/layouts/navbar.py` | Navbar with A/C/S hover dropdowns |
+| `/ui/layouts/navbar.py` | Navbar with C/S hover dropdowns + avatar activity dropdown |
 | `/ui/layouts/nav_config.py` | `ICON_NAV_ITEMS`, `*_DROPDOWN_ITEMS`, `MAIN_NAV_ITEMS` |
 | `/ui/patterns/sidebar.py` | `SidebarItem`, `SidebarNav`, `SidebarPage` |
 | `/ui/curriculum/` | Curriculum sidebar, layout, landing page |
