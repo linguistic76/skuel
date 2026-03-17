@@ -132,26 +132,27 @@ Separate I/O from computation:
 
 ### 5. Pure Form Parsing Helpers
 
-All 6 activity domain UI files extract form parsing into module-level pure functions under a `# Form Parsing Helpers` section. These have no service calls and no request access:
+All 6 activity domain UI files extract form parsing into module-level pure functions under a `# Form Parsing Helpers` section. These have no service calls and no request access. All use `safe_form_string()` from `adapters.inbound.form_helpers` for type-safe extraction:
 
 ```python
 # adapters/inbound/tasks_ui.py — module level, before route factory
+from adapters.inbound.form_helpers import safe_form_string
 
 def parse_task_create_request(form_data: dict[str, Any]) -> TaskCreateRequest:
     """Parse form data into a TaskCreateRequest. Pure function, no side effects."""
-    title = form_data.get("title", "").strip()
-    priority_str = form_data.get("priority", "medium")
+    title = safe_form_string(form_data.get("title"))
+    description = safe_form_string(form_data.get("description")) or None
     try:
-        priority = Priority(priority_str)
+        priority = Priority(form_data.get("priority", "medium"))
     except ValueError:
         priority = Priority.MEDIUM
     # ... parse dates, recurrence, etc.
-    return TaskCreateRequest(title=title, priority=priority, ...)
+    return TaskCreateRequest(title=title, description=description, priority=priority, ...)
 
 def parse_task_update_payload(form: Any) -> dict[str, Any]:
     """Parse edit-modal form into an update dict. Pure function, no side effects."""
     updates: dict[str, Any] = {}
-    title = form.get("title", "").strip()
+    title = safe_form_string(form.get("title"))
     if title:
         updates["title"] = title
     # ... parse other fields
@@ -174,15 +175,17 @@ async def create_task_from_form(form_data: dict[str, Any], user_uid: str) -> Res
 HTML `<select>` elements and optional dropdowns send empty strings (`""`) when no option is selected. `dict.get("field", "default")` does NOT catch this — the key exists with value `""`, so the default is ignored and the empty string reaches Pydantic enum validation, causing a crash.
 
 ```python
+from adapters.inbound.form_helpers import safe_form_string
+
 # ❌ WRONG — empty string passes through, crashes Pydantic
 domain = form_data.get("domain", "personal")
 
-# ✅ CORRECT — empty string falls back to default
-domain = form_data.get("domain", "").strip() or "personal"
-event_type = form_data.get("event_type", "").strip() or "meeting"
+# ✅ CORRECT — safe_form_string strips whitespace, `or` provides fallback for empty
+domain = safe_form_string(form_data.get("domain")) or "personal"
+event_type = safe_form_string(form_data.get("event_type")) or "meeting"
 ```
 
-**Rule:** For any form field bound to a Pydantic enum, always use `form_data.get("field", "").strip() or "default"`.
+**Rule:** For any form field bound to a Pydantic enum, always use `safe_form_string(form_data.get("field")) or "default"`.
 
 ---
 
@@ -633,7 +636,7 @@ def validate_task_form_data(form_data: dict[str, Any]) -> Result[None]:
     Pure function: returns clear error messages for UI.
     """
     # Required fields
-    title = form_data.get("title", "").strip()
+    title = safe_form_string(form_data.get("title"))
     if not title:
         return Errors.validation("Task title is required")
 
@@ -830,7 +833,7 @@ async def goals_view_calendar(request):
 def validate_choice_form_data(form_data: dict[str, Any]) -> Result[None]:
     """Validate choice form data early."""
 
-    title = form_data.get("title", "").strip()
+    title = safe_form_string(form_data.get("title"))
     if not title:
         return Errors.validation("Choice title is required")
 
@@ -838,8 +841,8 @@ def validate_choice_form_data(form_data: dict[str, Any]) -> Result[None]:
         return Errors.validation("Title must be 200 characters or less")
 
     # Options validation (choices need at least 2 options)
-    option1 = form_data.get("option1", "").strip()
-    option2 = form_data.get("option2", "").strip()
+    option1 = safe_form_string(form_data.get("option1"))
+    option2 = safe_form_string(form_data.get("option2"))
 
     if not option1 or not option2:
         return Errors.validation("At least two options are required")

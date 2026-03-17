@@ -703,70 +703,17 @@ preferences_update = {
 # TypeError if form_data.get() returns None
 ```
 
-**Solution: Safe Parsing Helpers**
+**Solution: Canonical Safe Parsing Helpers**
+
+SKUEL provides type-safe form extraction helpers in `adapters/inbound/form_helpers.py`:
 
 ```python
-def safe_int(value: Any, default: int) -> int:
-    """
-    Safely parse integer from form data.
-
-    Args:
-        value: Form field value (may be None, empty string, or invalid)
-        default: Default value if parsing fails
-
-    Returns:
-        Parsed integer or default
-
-    Examples:
-        >>> safe_int("25", 10)
-        25
-        >>> safe_int("", 10)
-        10
-        >>> safe_int(None, 10)
-        10
-        >>> safe_int("invalid", 10)
-        10
-    """
-    if not value:
-        return default
-    try:
-        return int(value)
-    except (ValueError, TypeError):
-        return default
-
-
-def safe_bool(value: Any, default: bool = False) -> bool:
-    """
-    Safely parse boolean from form data.
-
-    HTML checkboxes send "on" when checked, nothing when unchecked.
-
-    Args:
-        value: Form field value
-        default: Default value if parsing fails
-
-    Returns:
-        Parsed boolean or default
-
-    Examples:
-        >>> safe_bool("on", False)
-        True
-        >>> safe_bool(None, False)
-        False
-        >>> safe_bool("true", False)
-        True
-    """
-    if value is None:
-        return default
-    if isinstance(value, bool):
-        return value
-    # HTML checkbox values
-    if value in ("on", "true", "True", "1"):
-        return True
-    if value in ("off", "false", "False", "0"):
-        return False
-    return default
+from adapters.inbound.form_helpers import safe_form_string, safe_form_int, safe_form_bool
 ```
+
+- `safe_form_string(value, default="")` — handles `str | UploadFile | None`, strips whitespace
+- `safe_form_int(value, default=0)` — parses int, returns default on failure
+- `safe_form_bool(value, default=False)` — treats `"true"`, `"1"`, `"yes"`, `"on"` as `True`
 
 **Usage in Routes:**
 
@@ -778,12 +725,12 @@ async def save_user_settings(request: Request) -> Any:
 
     # ✅ SAFE - Uses defaults on invalid input
     preferences_update = {
-        "available_minutes_daily": safe_int(form_data.get("available_minutes_daily"), 60),
-        "enable_reminders": safe_bool(form_data.get("enable_reminders"), False),
-        "reminder_minutes_before": safe_int(form_data.get("reminder_minutes_before"), 15),
-        "weekly_task_goal": safe_int(form_data.get("weekly_task_goal"), 10),
-        "daily_habit_goal": safe_int(form_data.get("daily_habit_goal"), 3),
-        "monthly_learning_hours": safe_int(form_data.get("monthly_learning_hours"), 20),
+        "available_minutes_daily": safe_form_int(form_data.get("available_minutes_daily"), 60),
+        "enable_reminders": safe_form_bool(form_data.get("enable_reminders")),
+        "reminder_minutes_before": safe_form_int(form_data.get("reminder_minutes_before"), 15),
+        "weekly_task_goal": safe_form_int(form_data.get("weekly_task_goal"), 10),
+        "daily_habit_goal": safe_form_int(form_data.get("daily_habit_goal"), 3),
+        "monthly_learning_hours": safe_form_int(form_data.get("monthly_learning_hours"), 20),
     }
 
     # Service call with validated data
@@ -817,16 +764,18 @@ async def save_user_settings(request: Request) -> Any:
 **Context:** HTML `<select>` elements and optional dropdowns send empty strings (`""`) when no option is selected. `dict.get("field", "default")` only uses the default when the key is *missing* — an empty string is truthy as a key-present value and passes through to Pydantic, where it fails enum validation.
 
 ```python
+from adapters.inbound.form_helpers import safe_form_string
+
 # ❌ UNSAFE - Empty string passes through, crashes Pydantic enum validation
 domain = form_data.get("domain", "personal")
 # form sends domain="" → Pydantic: "Input should be 'knowledge', 'learning', ..."
 
-# ✅ SAFE - Falls back to default on empty string
-domain = form_data.get("domain", "").strip() or "personal"
-event_type = form_data.get("event_type", "").strip() or "meeting"
+# ✅ SAFE - safe_form_string strips whitespace, `or` provides fallback for empty
+domain = safe_form_string(form_data.get("domain")) or "personal"
+event_type = safe_form_string(form_data.get("event_type")) or "meeting"
 ```
 
-**Rule:** For any form field bound to a Pydantic enum, always use `form_data.get("field", "").strip() or "default"` — never `form_data.get("field", "default")`.
+**Rule:** For any form field bound to a Pydantic enum, always use `safe_form_string(form_data.get("field")) or "default"` — never `form_data.get("field", "default")`.
 
 **See Also:** `/docs/patterns/API_VALIDATION_PATTERNS.md` for Pydantic request model validation (JSON bodies)
 

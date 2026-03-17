@@ -568,7 +568,7 @@ def create_task_form(action_url: str = "/tasks/quick-add") -> Any:
 ```python
 def validate_task_form_data(form_data: dict[str, Any]) -> Result[None]:
     """Pure function: validate before service call. User-facing error messages."""
-    title = form_data.get("title", "").strip()
+    title = safe_form_string(form_data.get("title"))
     if not title:
         return Errors.validation("Task title is required")
     if len(title) > 200:

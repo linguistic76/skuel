@@ -8,12 +8,13 @@ without triggering MyPy union-attr errors.
 from adapters.inbound.form_helpers import safe_form_bool, safe_form_int, safe_form_string
 
 
-# ❌ BEFORE: Unsafe pattern (MyPy error)
+# ❌ BEFORE: Unsafe pattern (MyPy error, type fragility)
 async def old_registration_handler(request):
     """This causes MyPy error: Item "UploadFile" has no attribute "strip" """
     form_data = await request.form()
 
     # MyPy error: UploadFile | str | None doesn't have .strip()
+    # Also fragile — if field contains UploadFile, .strip() crashes at runtime
     username = form_data.get("username", "").strip()
     email = form_data.get("email", "").strip()
 
