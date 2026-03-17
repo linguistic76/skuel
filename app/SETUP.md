@@ -94,7 +94,8 @@ uv run python main.py
 **Option B: Dockerized Application**
 ```bash
 cd ~/skuel/app
-docker compose up -d
+docker compose up -d                          # Neo4j + App (default)
+docker compose --profile monitoring up -d     # Neo4j + App + Prometheus + Grafana
 ```
 
 ### 5. Access SKUEL
@@ -169,9 +170,11 @@ cd ~/skuel/app && uv run python main.py
 **Best for testing containerized deployment:**
 
 ```bash
-cd ~/skuel/infrastructure && docker compose up -d     # Start Neo4j
-cd ~/skuel/app && docker compose up -d   # Start app in Docker
+cd ~/skuel/app && docker compose up -d                       # Neo4j + App
+cd ~/skuel/app && docker compose --profile monitoring up -d   # + Prometheus + Grafana
 ```
+
+The app compose extends `infrastructure/docker-compose.yml` for Neo4j, so no need to start infrastructure separately.
 
 **Benefits:**
 - Tests production-like environment
@@ -442,9 +445,10 @@ cd ~/skuel/app && uv run python main.py       # Start app
 cd ~/skuel/app && ./restart_server.sh             # Restart app (if script exists)
 
 # Application (Docker)
-cd ~/skuel/app && docker compose up -d            # Start app container
-cd ~/skuel/app && docker compose logs -f          # View app logs
-cd ~/skuel/app && docker compose restart          # Restart app
+cd ~/skuel/app && docker compose up -d                          # Neo4j + App
+cd ~/skuel/app && docker compose --profile monitoring up -d     # + Prometheus + Grafana
+cd ~/skuel/app && docker compose logs -f                        # View app logs
+cd ~/skuel/app && docker compose restart                        # Restart app
 
 # Database
 cd ~/skuel/infrastructure && docker compose exec neo4j neo4j-admin database dump neo4j --to-path=/backups

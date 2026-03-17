@@ -15,7 +15,7 @@ SKUEL uses Docker in three contexts: local development, DigitalOcean Droplet (Ne
 ```
 ~/skuel/
 ├── infrastructure/          ← Neo4j only. Independent lifecycle.
-│   ├── docker-compose.yml   ← THE Neo4j definition
+│   ├── docker-compose.yml   ← THE canonical Neo4j definition (single source of truth)
 │   ├── .env                 ← Neo4j credentials + memory config
 │   └── neo4j/               ← Persistent data, logs, plugins (host-side volumes)
 │       ├── data/
@@ -23,7 +23,7 @@ SKUEL uses Docker in three contexts: local development, DigitalOcean Droplet (Ne
 │       └── plugins/
 │
 └── app/                     ← SKUEL application + monitoring
-    ├── docker-compose.yml           ← App container + Prometheus + Grafana
+    ├── docker-compose.yml           ← Neo4j (via extends) + App + Monitoring (profile-gated)
     ├── docker-compose.production.yml ← Production app + pre-wired future services
     ├── Dockerfile.production        ← The image App Platform deploys
     ├── .env                         ← App config (Neo4j URI, API keys, ports)
@@ -32,17 +32,26 @@ SKUEL uses Docker in three contexts: local development, DigitalOcean Droplet (Ne
 
 **Why two directories?** Neo4j's lifecycle is independent of the app. You restart the app during development dozens of times; you almost never restart Neo4j. Putting them in the same compose file couples those lifecycles. It also makes Neo4j backup and data management cleaner — the `infrastructure/` directory is the single place where all graph data lives.
 
+**Compose `extends` pattern:** `app/docker-compose.yml` inherits the Neo4j service from `infrastructure/docker-compose.yml` using `extends`, overriding only what differs (no GenAI plugin, memory defaults, network). This eliminates duplication and prevents configuration drift. Volume paths resolve relative to the base file, so data still lives in `infrastructure/neo4j/`.
+
 ---
 
 ## The Three Compose Files
 
 | File | What it runs | When to use it |
 |------|--------------|----------------|
-| `infrastructure/docker-compose.yml` | Neo4j (with GenAI + APOC plugins) | Always. This is how Neo4j starts, locally or on a Droplet. |
-| `app/docker-compose.yml` | SKUEL app + Prometheus + Grafana | When you want to run the app in a container locally (instead of `uv run`). |
+| `infrastructure/docker-compose.yml` | Neo4j (canonical definition, with GenAI + APOC plugins) | Standalone Neo4j (e.g., on a Droplet). Also the base that `app/docker-compose.yml` extends. |
+| `app/docker-compose.yml` | Neo4j (via `extends`) + App. Prometheus + Grafana behind `monitoring` profile. | Default dev workflow. `docker compose up` starts Neo4j + App only. |
 | `app/docker-compose.production.yml` | SKUEL app + pre-wired future services (Redis, Ollama, nginx, etc.) | Production deployment reference. Most services are disabled. See `FUTURE_SERVICES.md`. |
 
 **The Neo4j definition inside `docker-compose.production.yml` is commented out.** It exists as a fallback reference only. Always use `infrastructure/docker-compose.yml` for Neo4j.
+
+**Monitoring is profile-gated.** Prometheus and Grafana are behind the `monitoring` profile — they do not start by default. To include them:
+
+```bash
+docker compose --profile monitoring up       # All services including monitoring
+docker compose --profile monitoring up -d    # Detached
+```
 
 ---
 
@@ -50,25 +59,31 @@ SKUEL uses Docker in three contexts: local development, DigitalOcean Droplet (Ne
 
 Order matters. Neo4j must be healthy before the app starts, because the app connects and probes the database on boot.
 
+**Recommended local workflow (fastest iteration):**
+
 ```bash
-# 1. Start Neo4j (infrastructure)
-cd ~/skuel/infrastructure
-docker compose up -d
-
-# 2. Wait for Neo4j to be ready (can take 60-90s on first start)
-docker compose logs -f neo4j | grep -m1 "Neo4j started"
-
-# 3. Start the app
-cd ~/skuel/app
-docker compose up -d skuel-app    # App only — skip if you just want Neo4j
-
-# 4. Optionally start monitoring
-docker compose up -d prometheus grafana
+./dev up-neo4j        # Start Neo4j only (Docker, detached)
+./dev serve           # Start app locally (uv run python main.py)
 ```
 
-If you start everything at once with a single `docker compose up -d` in the app directory, the app will attempt to connect to Neo4j before it is ready. It may recover on its own (retry logic exists), but it is slower and noisier than starting infrastructure first.
+**Full Docker stack (Neo4j + App):**
 
-**The preferred local workflow is still `uv run python main.py`** — it is faster to iterate on code changes. Docker is mainly for validating the containerized image before deployment.
+```bash
+cd ~/skuel/app
+docker compose up -d                          # Neo4j + App (no monitoring)
+docker compose --profile monitoring up -d     # Neo4j + App + Prometheus + Grafana
+```
+
+The `depends_on` with `condition: service_healthy` in the compose file ensures the app waits for Neo4j automatically.
+
+**Standalone Neo4j (infrastructure directory):**
+
+```bash
+cd ~/skuel/infrastructure
+docker compose up -d     # Runs the canonical Neo4j definition directly
+```
+
+Use this when running Neo4j independently (e.g., on a Droplet) without the app compose layer.
 
 ---
 

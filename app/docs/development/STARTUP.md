@@ -30,19 +30,21 @@ Equivalent to `uv run python main.py`. App starts on `http://localhost:8000`.
 
 ## Full Docker Stack
 
-Starts Neo4j + App + Prometheus + Grafana together:
+Starts Neo4j + App together (monitoring is opt-in):
 
 ```bash
-./dev up          # attached (logs in terminal)
-./dev up -d       # detached (background)
+./dev up          # attached (logs in terminal)  — Neo4j + App
+./dev up -d       # detached (background)        — Neo4j + App
+./dev up-monitoring       # Neo4j + App + Prometheus + Grafana
+./dev up-monitoring -d    # same, detached
 ```
 
-| Service    | URL                        |
-|------------|----------------------------|
-| App        | http://localhost:8000       |
-| Neo4j      | http://localhost:7474       |
-| Prometheus | http://localhost:9090       |
-| Grafana    | http://localhost:3000       |
+| Service    | URL                        | Starts by default? |
+|------------|----------------------------|--------------------|
+| App        | http://localhost:8000       | Yes                |
+| Neo4j      | http://localhost:7474       | Yes                |
+| Prometheus | http://localhost:9090       | No (`monitoring` profile) |
+| Grafana    | http://localhost:3000       | No (`monitoring` profile) |
 
 ---
 
@@ -59,11 +61,13 @@ Starts Neo4j + App + Prometheus + Grafana together:
 | Command                        | What it does                              |
 |--------------------------------|-------------------------------------------|
 | `./dev up-neo4j`               | Start Neo4j only (Docker, detached)       |
-| `./dev serve`                  | Start app (`uv run python main.py`)   |
-| `./dev up`                     | Start full stack (Docker)                 |
-| `./dev up -d`                  | Start full stack (Docker, detached)       |
+| `./dev serve`                  | Start app (`uv run python main.py`)       |
+| `./dev up`                     | Start Neo4j + App (Docker)                |
+| `./dev up -d`                  | Start Neo4j + App (Docker, detached)      |
+| `./dev up-monitoring`          | Start Neo4j + App + Prometheus + Grafana  |
+| `./dev up-monitoring -d`       | Same, detached                            |
 | `./dev down`                   | Stop all Docker services                  |
-| `uv run python main.py`    | Start app directly (same as `./dev serve`)|
+| `uv run python main.py`       | Start app directly (same as `./dev serve`)|
 
 ---
 

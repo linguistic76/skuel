@@ -76,7 +76,8 @@ uv run python main.py
 
 **Option B: Docker**
 ```bash
-docker compose up -d
+docker compose up -d                          # Neo4j + App
+docker compose --profile monitoring up -d     # + Prometheus + Grafana
 ```
 
 **Option C: Production**

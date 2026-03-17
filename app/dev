@@ -167,9 +167,15 @@ case "$1" in
     ;;
 
   up)
-    echo -e "${GREEN}Starting full stack (Neo4j + App + Prometheus + Grafana)...${NC}"
+    echo -e "${GREEN}Starting Neo4j + App...${NC}"
     shift
     docker compose up "$@"
+    ;;
+
+  up-monitoring)
+    echo -e "${GREEN}Starting Neo4j + App + Prometheus + Grafana...${NC}"
+    shift
+    docker compose --profile monitoring up "$@"
     ;;
 
   up-neo4j)
@@ -220,7 +226,8 @@ case "$1" in
     echo "  ./dev docs-check-fast - Fast check (text search only, no LLM)"
     echo ""
     echo "Docker:"
-    echo "  ./dev up             - Start full stack (Neo4j + App + Prometheus + Grafana)"
+    echo "  ./dev up             - Start Neo4j + App (monitoring excluded by default)"
+    echo "  ./dev up-monitoring  - Start Neo4j + App + Prometheus + Grafana"
     echo "  ./dev up-neo4j       - Start Neo4j only (then: uv run python main.py)"
     echo "  ./dev down           - Stop all Docker services"
     echo ""

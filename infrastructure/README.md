@@ -17,12 +17,15 @@ This directory contains **all infrastructure services** that SKUEL depends on, c
 
 **Quick Start:**
 ```bash
-# Primary workflow: unified compose (Neo4j + app together)
+# Primary workflow: unified compose (Neo4j + App — monitoring opt-in)
 cd ~/skuel/app && docker compose up -d
 
-# Alternative: Neo4j only (when running app locally with Poetry)
+# With monitoring (Prometheus + Grafana):
+cd ~/skuel/app && docker compose --profile monitoring up -d
+
+# Alternative: Neo4j only (when running app locally with uv)
 cd ~/skuel/infrastructure && docker compose up -d
-cd ~/skuel/app && poetry run python main.py
+cd ~/skuel/app && uv run python main.py
 ```
 
 **Key Benefit:** Infrastructure and application have independent lifecycles - start infrastructure once, restart app hundreds of times without losing data.
@@ -50,7 +53,7 @@ This directory contains all infrastructure services that SKUEL depends on. By se
 cd ~/skuel/infrastructure && docker compose up -d
 
 # Terminal 2: Application (restart as needed)
-cd ~/skuel/app && poetry run python main.py
+cd ~/skuel/app && uv run python main.py
 # Or use hot reload, debugger, tests, etc.
 ```
 
@@ -239,7 +242,7 @@ NEO4J_DATABASE=neo4j
 cd ~/skuel/infrastructure && docker compose up -d
 
 # Application runs locally
-cd ~/skuel/app && poetry run python main.py
+cd ~/skuel/app && uv run python main.py
 # App connects to localhost:7687 (Docker port is mapped to host)
 ```
 
@@ -267,7 +270,7 @@ docker compose -f docker-compose.production.yml up -d --scale skuel-app=3
 **Test from application directory:**
 ```bash
 cd ~/skuel/app
-poetry run python -c "
+uv run python -c "
 from neo4j import GraphDatabase
 import os
 from dotenv import load_dotenv
@@ -301,7 +304,7 @@ driver.close()
 2. **Develop application** (restart freely):
    ```bash
    cd ~/skuel/app
-   poetry run python main.py
+   uv run python main.py
    # Or use ./restart_server.sh
    ```
 
@@ -464,8 +467,10 @@ This directory is designed to hold additional infrastructure services as SKUEL g
 
 | Plugin | Status | Scope | Purpose |
 |--------|--------|-------|---------|
-| **GenAI** | ✅ Active | `genai.*` | Embeddings + vector search |
+| **GenAI** | ✅ Active (infrastructure only) | `genai.*` | Embeddings + vector search (standalone Neo4j) |
 | **APOC (core)** | ✅ Active | `apoc.meta.*` only | Schema introspection (`apoc.meta.schema`) |
+
+**Note:** When Neo4j is started via `app/docker-compose.yml` (which extends this file), the GenAI plugin is overridden to APOC-only. SKUEL uses HuggingFace Inference API for embeddings (Python-side, per ADR-049). The GenAI plugin is available only when running this compose file directly.
 
 **APOC Scope Policy:**
 - Only `apoc-core.jar` is loaded (not `apoc-all`) — dangerous procedures (`cypher.run`, `export.*`, `load.*`) are not in the JAR at all
@@ -509,7 +514,7 @@ docker ps | grep neo4j
 ```bash
 # From application directory
 cd ~/skuel/app
-poetry run python -c "
+uv run python -c "
 from neo4j import GraphDatabase
 driver = GraphDatabase.driver('neo4j://localhost:7687', auth=('neo4j', 'password'))
 driver.verify_connectivity()

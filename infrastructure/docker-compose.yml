@@ -98,7 +98,9 @@ services:
 
     volumes:
       # Persistent data storage
-      # NEO4J_DATA_DIR allows overriding the data directory (default: ./neo4j)
+      # NEO4J_DATA_DIR: absolute path to data directory (set in .env).
+      # Default ./neo4j is relative to this file's directory — works for local
+      # dev but set an absolute path in .env to avoid CWD-dependent resolution.
       - ${NEO4J_DATA_DIR:-./neo4j}/data:/data
       - ${NEO4J_DATA_DIR:-./neo4j}/logs:/logs
       - ${NEO4J_DATA_DIR:-./neo4j}/conf:/conf

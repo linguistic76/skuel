@@ -9,7 +9,7 @@ Failure modes specific to SKUEL's Docker setup, in order of likelihood.
 **Symptom:** App logs show connection errors or timeouts to Neo4j. Neo4j container is healthy.
 
 **Cause 1 — Neo4j is not ready yet.**
-The GenAI plugin takes 60-90 seconds to initialize on first container start. Neo4j's health check passes (HTTP 7474 responds) before the plugin is fully loaded. If the app started before the plugin finished initializing, it may have connected fine but embedding operations will fail silently.
+Neo4j can take 30-60 seconds to initialize on first start (longer if plugins like GenAI are enabled in the infrastructure compose). Neo4j's health check passes (HTTP 7474 responds) before all plugins are fully loaded.
 
 ```bash
 # Check if Neo4j is actually fully ready (not just HTTP-alive):
@@ -18,10 +18,11 @@ docker exec skuel-neo4j cypher-shell -u neo4j -p <password> \
 # If this hangs or errors, Neo4j is still initializing.
 ```
 
-Fix: wait for the GenAI plugin log message, then restart the app container:
+**Note:** When using `app/docker-compose.yml`, the GenAI plugin is not loaded (APOC only). When using `infrastructure/docker-compose.yml` directly, GenAI is included and takes longer to initialize.
+
+Fix: wait for initialization, then restart the app container:
 ```bash
-docker compose -f ~/skuel/infrastructure/docker-compose.yml logs neo4j | tail -20
-# Look for: "GenAI plugin loaded" or similar
+docker compose logs neo4j | tail -20
 docker compose restart skuel-app
 ```
 
@@ -131,6 +132,11 @@ If `uv.lock` keeps changing between builds (e.g., CI regenerates it), pin it in 
 ## Prometheus cannot scrape the app metrics
 
 **Symptom:** Grafana shows "no data". Prometheus targets page shows the app as `DOWN`.
+
+**First check: are Prometheus and Grafana running?** They are behind the `monitoring` profile and don't start with a plain `docker compose up`. Use:
+```bash
+docker compose --profile monitoring up -d   # or: ./dev up-monitoring -d
+```
 
 Prometheus in `app/docker-compose.yml` scrapes `http://host.docker.internal:5001/metrics` (or `172.17.0.1:5001` on Linux, configured via `extra_hosts`). This only works if the app is reachable on that address.
 

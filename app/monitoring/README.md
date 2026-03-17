@@ -15,12 +15,16 @@ related_skills:
 
 ### 1. Start the Monitoring Stack
 
+Prometheus and Grafana are behind the `monitoring` profile — they don't start with a plain `docker compose up`.
+
 ```bash
 # From project root
-docker compose up -d prometheus grafana
+./dev up-monitoring -d               # Neo4j + App + Prometheus + Grafana
+# or directly:
+docker compose --profile monitoring up -d
 
 # Verify services running
-docker compose ps
+docker compose --profile monitoring ps
 ```
 
 ### 2. Access UIs
