@@ -720,7 +720,9 @@ async def _wire_all_routes(
     from adapters.inbound.curriculum_hub_routes import create_curriculum_hub_routes
 
     create_curriculum_hub_routes(app, rt, services)
-    logger.info("✅ Curriculum hub routes registered (/curriculum, /lessons, /learning-steps, /learning-paths)")
+    logger.info(
+        "✅ Curriculum hub routes registered (/curriculum, /lessons, /learning-steps, /learning-paths)"
+    )
 
     # Study Hub
     from adapters.inbound.study_routes import create_study_routes

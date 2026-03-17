@@ -480,9 +480,7 @@ class TestKnowledgeUnitsResolver:
     async def test_returns_list(self) -> None:
         services = MagicMock()
         core = AsyncMock()
-        core.list.return_value = FakeResult(
-            value=([FakeKU(uid="ku_a"), FakeKU(uid="ku_b")], 2)
-        )
+        core.list.return_value = FakeResult(value=([FakeKU(uid="ku_a"), FakeKU(uid="ku_b")], 2))
         services.lesson.core = core
 
         ctx = _make_context(services=services)
@@ -680,9 +678,7 @@ class TestUserDashboardResolver:
         services.tasks.get_user_tasks = AsyncMock(
             return_value=FakeResult(value=[FakeTask() for _ in range(3)])
         )
-        services.lp.list_user_paths = AsyncMock(
-            return_value=FakeResult(value=[FakeLearningPath()])
-        )
+        services.lp.list_user_paths = AsyncMock(return_value=FakeResult(value=[FakeLearningPath()]))
         services.habits.get_user_habits = AsyncMock(
             return_value=FakeResult(value=[MagicMock(), MagicMock()])
         )
@@ -807,9 +803,7 @@ class TestLearningPathWithContextResolver:
         services.user_progress.build_user_knowledge_profile = AsyncMock(
             return_value=FakeResult(value=profile)
         )
-        services.lesson.get_prerequisites = AsyncMock(
-            return_value=FakeResult(value=[])
-        )
+        services.lesson.get_prerequisites = AsyncMock(return_value=FakeResult(value=[]))
 
         ctx = _make_context(
             services=services,
@@ -839,9 +833,7 @@ class TestLearningPathWithContextResolver:
         )
 
         prereq_ku = FakeKU(uid="ku_basic", title="Basics")
-        services.lesson.get_prerequisites = AsyncMock(
-            return_value=FakeResult(value=[prereq_ku])
-        )
+        services.lesson.get_prerequisites = AsyncMock(return_value=FakeResult(value=[prereq_ku]))
 
         ctx = _make_context(
             services=services,
@@ -949,7 +941,9 @@ class TestPrerequisiteChainResolver:
         assert result.total_prerequisites == 2
         # Tree: B -> [A (no children because visited)]
         assert len(result.prerequisite_tree) == 1  # Only B at top level
-        assert result.prerequisite_tree[0].children[0].children == []  # A has no children (cycle stopped)
+        assert (
+            result.prerequisite_tree[0].children[0].children == []
+        )  # A has no children (cycle stopped)
 
     @pytest.mark.asyncio
     async def test_max_depth_respected(self) -> None:
@@ -973,9 +967,7 @@ class TestPrerequisiteChainResolver:
         info = _make_info(ctx)
 
         # max_depth=1 should only traverse one level
-        result = await Query().prerequisite_chain(
-            info, knowledge_uid="ku_root", max_depth=1
-        )
+        result = await Query().prerequisite_chain(info, knowledge_uid="ku_root", max_depth=1)
 
         assert result is not None
         assert result.total_prerequisites == 1
@@ -989,12 +981,8 @@ class TestKnowledgeDependenciesResolver:
         enabled = FakeKU(uid="ku_enabled", title="Enabled")
 
         services = MagicMock()
-        services.lesson.get_prerequisites = AsyncMock(
-            return_value=FakeResult(value=[prereq])
-        )
-        services.lesson.get_enables = AsyncMock(
-            return_value=FakeResult(value=[enabled])
-        )
+        services.lesson.get_prerequisites = AsyncMock(return_value=FakeResult(value=[prereq]))
+        services.lesson.get_enables = AsyncMock(return_value=FakeResult(value=[enabled]))
 
         ctx = _make_context(
             services=services,
@@ -1042,12 +1030,8 @@ class TestKnowledgeDependenciesResolver:
     async def test_no_relationships(self) -> None:
         center = FakeKU(uid="ku_alone", title="Alone")
         services = MagicMock()
-        services.lesson.get_prerequisites = AsyncMock(
-            return_value=FakeResult(value=[])
-        )
-        services.lesson.get_enables = AsyncMock(
-            return_value=FakeResult(value=[])
-        )
+        services.lesson.get_prerequisites = AsyncMock(return_value=FakeResult(value=[]))
+        services.lesson.get_enables = AsyncMock(return_value=FakeResult(value=[]))
 
         ctx = _make_context(
             services=services,
@@ -1097,9 +1081,7 @@ class TestLearningPathBlockersResolver:
 
         services = MagicMock()
         services.lp.get_path_steps = AsyncMock(return_value=FakeResult(value=steps))
-        services.lesson.get_prerequisites = AsyncMock(
-            return_value=FakeResult(value=[])
-        )
+        services.lesson.get_prerequisites = AsyncMock(return_value=FakeResult(value=[]))
         services.user_service = None  # Skip mastery checks
 
         ctx = _make_context(
@@ -1123,9 +1105,7 @@ class TestLearningPathBlockersResolver:
         ku2 = FakeKU(uid="ku_2", title="KU 2")
 
         services = MagicMock()
-        services.lp.get_path_steps = AsyncMock(
-            return_value=FakeResult(value=[step1, step2])
-        )
+        services.lp.get_path_steps = AsyncMock(return_value=FakeResult(value=[step1, step2]))
         # Step 1 requires ku_2 (which is step 2's knowledge) → circular
         prereq_ku2 = FakeKU(uid="ku_2", title="KU 2")
         services.lesson.get_prerequisites = AsyncMock(
@@ -1186,9 +1166,7 @@ class TestLearningPathBlockersResolver:
 
         services = MagicMock()
         services.lp.get_path_steps = AsyncMock(return_value=FakeResult(value=steps))
-        services.lesson.get_prerequisites = AsyncMock(
-            return_value=FakeResult(value=[])
-        )
+        services.lesson.get_prerequisites = AsyncMock(return_value=FakeResult(value=[]))
         services.user_service = None
 
         ctx = _make_context(
@@ -1443,8 +1421,12 @@ class TestKnowledgeNodeResolvers:
         info = _make_info(ctx)
 
         node = KnowledgeNode(
-            uid="ku_center", title="Center", summary="", domain="tech",
-            tags=[], quality_score=0.9,
+            uid="ku_center",
+            title="Center",
+            summary="",
+            domain="tech",
+            tags=[],
+            quality_score=0.9,
         )
         result = await node.prerequisites(info)
         assert len(result) == 1
@@ -1460,8 +1442,12 @@ class TestKnowledgeNodeResolvers:
         info = _make_info(ctx)
 
         node = KnowledgeNode(
-            uid="ku_center", title="Center", summary="", domain="tech",
-            tags=[], quality_score=0.9,
+            uid="ku_center",
+            title="Center",
+            summary="",
+            domain="tech",
+            tags=[],
+            quality_score=0.9,
         )
         result = await node.enables(info)
         assert len(result) == 1
@@ -1527,8 +1513,12 @@ class TestLearningStepKnowledgeResolver:
         info = _make_info(ctx)
 
         step = LearningStep(
-            step_number=1, uid="ls_1", title="S", knowledge_uid="ku_1",
-            mastery_threshold=0.8, estimated_time=2.0,
+            step_number=1,
+            uid="ls_1",
+            title="S",
+            knowledge_uid="ku_1",
+            mastery_threshold=0.8,
+            estimated_time=2.0,
         )
         result = await step.knowledge(info)
         assert result is not None
@@ -1542,8 +1532,12 @@ class TestLearningStepKnowledgeResolver:
         info = _make_info(ctx)
 
         step = LearningStep(
-            step_number=1, uid="ls_1", title="S", knowledge_uid="ku_gone",
-            mastery_threshold=0.8, estimated_time=2.0,
+            step_number=1,
+            uid="ls_1",
+            title="S",
+            knowledge_uid="ku_gone",
+            mastery_threshold=0.8,
+            estimated_time=2.0,
         )
         result = await step.knowledge(info)
         assert result is None
@@ -1648,9 +1642,7 @@ class TestLearningPathWithContextStepNoKuUid:
         services.user_progress.build_user_knowledge_profile = AsyncMock(
             return_value=FakeResult(value=profile)
         )
-        services.lesson.get_prerequisites = AsyncMock(
-            return_value=FakeResult(value=[])
-        )
+        services.lesson.get_prerequisites = AsyncMock(return_value=FakeResult(value=[]))
 
         ctx = _make_context(
             services=services,
@@ -1743,13 +1735,9 @@ class TestLearningPathBlockersMasteryCheck:
 
         services = MagicMock()
         services.lp.get_path_steps = AsyncMock(return_value=FakeResult(value=steps))
-        services.lesson.get_prerequisites = AsyncMock(
-            return_value=FakeResult(value=[prereq])
-        )
+        services.lesson.get_prerequisites = AsyncMock(return_value=FakeResult(value=[prereq]))
         # user_service returns mastery score above threshold (0.7)
-        services.user_service.get_user_mastery = AsyncMock(
-            return_value=FakeResult(value=0.9)
-        )
+        services.user_service.get_user_mastery = AsyncMock(return_value=FakeResult(value=0.9))
 
         ctx = _make_context(
             services=services,
@@ -1774,13 +1762,9 @@ class TestLearningPathBlockersMasteryCheck:
 
         services = MagicMock()
         services.lp.get_path_steps = AsyncMock(return_value=FakeResult(value=steps))
-        services.lesson.get_prerequisites = AsyncMock(
-            return_value=FakeResult(value=[prereq])
-        )
+        services.lesson.get_prerequisites = AsyncMock(return_value=FakeResult(value=[prereq]))
         # user_service returns mastery score below threshold
-        services.user_service.get_user_mastery = AsyncMock(
-            return_value=FakeResult(value=0.3)
-        )
+        services.user_service.get_user_mastery = AsyncMock(return_value=FakeResult(value=0.3))
 
         ctx = _make_context(
             services=services,
@@ -1805,9 +1789,7 @@ class TestLearningPathBlockersMasteryCheck:
 
         services = MagicMock()
         services.lp.get_path_steps = AsyncMock(return_value=FakeResult(value=steps))
-        services.lesson.get_prerequisites = AsyncMock(
-            return_value=FakeResult(value=[prereq])
-        )
+        services.lesson.get_prerequisites = AsyncMock(return_value=FakeResult(value=[prereq]))
         # user_service returns error
         services.user_service.get_user_mastery = AsyncMock(
             return_value=FakeResult(error="DB error")
@@ -1840,13 +1822,9 @@ class TestLearningPathBlockersPrereqTruncation:
 
         services = MagicMock()
         services.lp.get_path_steps = AsyncMock(return_value=FakeResult(value=steps))
-        services.lesson.get_prerequisites = AsyncMock(
-            return_value=FakeResult(value=prereqs)
-        )
+        services.lesson.get_prerequisites = AsyncMock(return_value=FakeResult(value=prereqs))
         # All prereqs not mastered
-        services.user_service.get_user_mastery = AsyncMock(
-            return_value=FakeResult(value=0.1)
-        )
+        services.user_service.get_user_mastery = AsyncMock(return_value=FakeResult(value=0.1))
 
         ctx = _make_context(
             services=services,
@@ -1875,12 +1853,8 @@ class TestLearningPathBlockersLaterStepNoKuUid:
         ku1 = FakeKU(uid="ku_1", title="KU 1")
 
         services = MagicMock()
-        services.lp.get_path_steps = AsyncMock(
-            return_value=FakeResult(value=[step1, step2])
-        )
-        services.lesson.get_prerequisites = AsyncMock(
-            return_value=FakeResult(value=[])
-        )
+        services.lp.get_path_steps = AsyncMock(return_value=FakeResult(value=[step1, step2]))
+        services.lesson.get_prerequisites = AsyncMock(return_value=FakeResult(value=[]))
         services.user_service = None
 
         ctx = _make_context(
@@ -1916,8 +1890,7 @@ class TestLearningProgressSubscription:
 
         sub = Subscription()
         values = [
-            v
-            async for v in sub.learning_progress(info, user_uid="user.test", path_uid="lp_1")
+            v async for v in sub.learning_progress(info, user_uid="user.test", path_uid="lp_1")
         ]
 
         assert values == [0.0]
@@ -1941,8 +1914,7 @@ class TestLearningProgressSubscription:
 
         sub = Subscription()
         values = [
-            v
-            async for v in sub.learning_progress(info, user_uid="user.test", path_uid="lp_1")
+            v async for v in sub.learning_progress(info, user_uid="user.test", path_uid="lp_1")
         ]
 
         assert values == [0.0]

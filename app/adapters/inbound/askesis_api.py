@@ -195,7 +195,9 @@ def create_askesis_api_routes(
             return Result.fail(ctx_result.expect_error())
 
         # Get next best action recommendation
-        recommendation_result = await askesis_service.get_next_best_action(ctx_result.value.user_context)
+        recommendation_result = await askesis_service.get_next_best_action(
+            ctx_result.value.user_context
+        )
 
         if recommendation_result.is_error:
             return Result.fail(recommendation_result.expect_error())

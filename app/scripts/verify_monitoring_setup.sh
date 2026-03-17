@@ -56,7 +56,7 @@ echo ""
 
 # Start services (without building app)
 echo "5️⃣  Starting Prometheus and Grafana..."
-docker compose up -d --no-deps prometheus grafana
+docker compose --profile monitoring up -d --no-deps prometheus grafana
 echo -e "${GREEN}✅ Services started${NC}"
 echo ""
 
