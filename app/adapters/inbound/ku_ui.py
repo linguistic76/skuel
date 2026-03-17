@@ -88,12 +88,14 @@ def _build_sidebar_items(
     # Bookmarks section
     if pinned_kus:
         bookmark_links = [
-            SidebarLink(text=ku.title, href=f"/ku/detail?uid={ku.uid}")
-            for ku in pinned_kus[:10]
+            SidebarLink(text=ku.title, href=f"/ku/detail?uid={ku.uid}") for ku in pinned_kus[:10]
         ]
         extra_sections.append(
             Li(
-                H4("Bookmarked", cls="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-3 py-2"),
+                H4(
+                    "Bookmarked",
+                    cls="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-3 py-2",
+                ),
                 Ul(*bookmark_links, cls="list-none p-0"),
                 cls="mt-1",
             )
@@ -101,7 +103,10 @@ def _build_sidebar_items(
     else:
         extra_sections.append(
             Li(
-                H4("Bookmarked", cls="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-3 py-2"),
+                H4(
+                    "Bookmarked",
+                    cls="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-3 py-2",
+                ),
                 P("No bookmarks yet", cls="text-xs text-muted-foreground/60 italic px-3 py-1"),
                 cls="mt-1",
             )
@@ -110,13 +115,15 @@ def _build_sidebar_items(
     # Latest section
     if latest_kus:
         latest_links = [
-            SidebarLink(text=ku.title, href=f"/ku/detail?uid={ku.uid}")
-            for ku in latest_kus[:5]
+            SidebarLink(text=ku.title, href=f"/ku/detail?uid={ku.uid}") for ku in latest_kus[:5]
         ]
         extra_sections.append(
             Li(
                 Li(cls="border-t border-border my-2"),
-                H4("Latest", cls="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-3 py-2"),
+                H4(
+                    "Latest",
+                    cls="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-3 py-2",
+                ),
                 Ul(*latest_links, cls="list-none p-0"),
             )
         )

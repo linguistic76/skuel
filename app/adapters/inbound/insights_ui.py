@@ -66,9 +66,7 @@ def parse_insights_filters(request: Request) -> InsightsFilters:
     )
 
 
-def filter_insights(
-    insights: list[Any], filters: InsightsFilters
-) -> list[Any]:
+def filter_insights(insights: list[Any], filters: InsightsFilters) -> list[Any]:
     """Apply client-side filters to a list of insights.
 
     Used by both the main dashboard and load-more HTMX endpoint.

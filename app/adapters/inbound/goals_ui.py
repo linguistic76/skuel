@@ -426,12 +426,62 @@ class Filters:
     status: str
     sort_by: str
 
+    def to_dict(self) -> ActivityFilterSpec:
+        """Convert to dict keyed for GoalsViewComponents.render_list_view."""
+        return {"status": self.status, "sort_by": self.sort_by}
+
 
 def parse_filters(request) -> Filters:
     """Extract filter parameters from request query params."""
     return Filters(
         status=request.query_params.get("filter_status", "active"),
         sort_by=request.query_params.get("sort_by", "target_date"),
+    )
+
+
+# ============================================================================
+# Form Parsing Helpers (pure — no service calls, no request access)
+# ============================================================================
+
+
+def parse_goal_create_request(form_data: dict[str, Any]) -> GoalCreateRequest:
+    """Parse form data into a GoalCreateRequest. Pure function, no side effects."""
+    title = form_data.get("title", "").strip()
+    description = form_data.get("description", "").strip() or None
+    why_important = form_data.get("why_important", "").strip() or None
+    domain = form_data.get("domain", "").strip() or "personal"
+    timeframe = form_data.get("timeframe", "quarterly")
+    priority_str = form_data.get("priority", "medium")
+    target_date_str = form_data.get("target_date", "")
+    target_value_str = form_data.get("target_value", "")
+
+    # Parse priority
+    try:
+        priority = Priority(priority_str)
+    except ValueError:
+        priority = Priority.MEDIUM
+
+    # Parse target date
+    target_date = None
+    if target_date_str:
+        with contextlib.suppress(ValueError):
+            target_date = date.fromisoformat(target_date_str)
+
+    # Parse target value
+    target_value = None
+    if target_value_str:
+        with contextlib.suppress(ValueError):
+            target_value = float(target_value_str)
+
+    return GoalCreateRequest(
+        title=title,
+        description=description,
+        why_important=why_important,
+        domain=domain,
+        timeframe=timeframe,
+        priority=priority,
+        target_date=target_date,
+        target_value=target_value,
     )
 
 
@@ -557,10 +607,7 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsService, services: Any 
         else:  # list (default)
             view_content = GoalsViewComponents.render_list_view(
                 goals=goals,
-                filters={
-                    "status": filters.status,
-                    "sort_by": filters.sort_by,
-                },
+                filters=filters.to_dict(),
                 stats=stats,
                 _categories=categories,
             )
@@ -600,10 +647,9 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsService, services: Any 
         goals, stats = ctx["entities"], ctx["stats"]
         categories = categories_result.value
 
-        filters_dict: ActivityFilterSpec = {"status": filters.status, "sort_by": filters.sort_by}
         return GoalsViewComponents.render_list_view(
             goals=goals,
-            filters=filters_dict,
+            filters=filters.to_dict(),
             stats=stats,
             _categories=categories,
         )
@@ -677,51 +723,8 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsService, services: Any 
     # ========================================================================
 
     async def create_goal_from_form(form_data: dict[str, Any], user_uid: str) -> Result[Any]:
-        """
-        Domain-specific goal creation logic.
-
-        Handles form parsing, request building, and service call.
-        """
-        # Extract form data
-        title = form_data.get("title", "").strip()
-        description = form_data.get("description", "").strip() or None
-        why_important = form_data.get("why_important", "").strip() or None
-        domain = form_data.get("domain", "").strip() or "personal"
-        timeframe = form_data.get("timeframe", "quarterly")
-        priority_str = form_data.get("priority", "medium")
-        target_date_str = form_data.get("target_date", "")
-        target_value_str = form_data.get("target_value", "")
-
-        # Parse priority
-        try:
-            priority = Priority(priority_str)
-        except ValueError:
-            priority = Priority.MEDIUM
-
-        # Parse target date
-        target_date = None
-        if target_date_str:
-            with contextlib.suppress(ValueError):
-                target_date = date.fromisoformat(target_date_str)
-
-        # Parse target value
-        target_value = None
-        if target_value_str:
-            with contextlib.suppress(ValueError):
-                target_value = float(target_value_str)
-
-        # Build request and call service
-        create_request = GoalCreateRequest(
-            title=title,
-            description=description,
-            why_important=why_important,
-            domain=domain,
-            timeframe=timeframe,
-            priority=priority,
-            target_date=target_date,
-            target_value=target_value,
-        )
-
+        """Domain-specific goal creation logic."""
+        create_request = parse_goal_create_request(form_data)
         return await goals_service.create_goal(create_request, user_uid)
 
     async def render_goal_success_view(_user_uid: str) -> Any:

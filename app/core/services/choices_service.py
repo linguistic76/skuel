@@ -552,9 +552,7 @@ class ChoicesService(BaseService["ChoicesOperations", Choice]):
         ]
         if choices_with_satisfaction:
             satisfied_count = sum(
-                1
-                for c in choices_with_satisfaction
-                if getattr(c, "satisfaction_score", 0) >= 4
+                1 for c in choices_with_satisfaction if getattr(c, "satisfaction_score", 0) >= 4
             )
             satisfaction_rate = satisfied_count / len(choices_with_satisfaction)
         else:

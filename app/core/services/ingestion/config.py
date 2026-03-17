@@ -124,7 +124,9 @@ class EntityIngestionConfig:
     required_fields: tuple[str, ...] = ()
     default_values: dict[str, Any] | None = None
     requires_user_uid: bool = False  # Whether this entity type needs user_uid for multi-tenancy
-    base_label: str | None = "Entity"  # Multi-label base (e.g., :Entity:Task). None for non-Entity types.
+    base_label: str | None = (
+        "Entity"  # Multi-label base (e.g., :Entity:Task). None for non-Entity types.
+    )
 
 
 # ENTITY_CONFIGS — Ingestion Entity Configuration

@@ -71,6 +71,16 @@ class Filters:
     status_filter: str
     sort_by: str
 
+    def to_dict(self) -> dict[str, str]:
+        """Convert to dict keyed for TasksViewComponents.render_list_view."""
+        return {
+            "project": self.project,
+            "assignee": self.assignee,
+            "due": self.due_filter,
+            "status": self.status_filter,
+            "sort_by": self.sort_by,
+        }
+
 
 def parse_filters(request: Request) -> Filters:
     """Extract filter parameters from request query params."""
@@ -81,6 +91,123 @@ def parse_filters(request: Request) -> Filters:
         status_filter=request.query_params.get("filter_status", "active"),
         sort_by=request.query_params.get("sort_by", "due_date"),
     )
+
+
+# ============================================================================
+# Form Parsing Helpers (pure — no service calls, no request access)
+# ============================================================================
+
+
+def parse_task_create_request(form_data: dict[str, Any]) -> TaskCreateRequest:
+    """Parse form data into a TaskCreateRequest. Pure function, no side effects."""
+    title = form_data.get("title", "").strip()
+    description = form_data.get("description", "").strip() or None
+    project = form_data.get("project", "").strip() or None
+    assignee = form_data.get("assignee", "").strip() or None
+    parent_uid = form_data.get("parent_uid", "").strip() or None
+
+    # Parse priority
+    try:
+        priority = Priority(form_data.get("priority", "medium"))
+    except ValueError:
+        priority = Priority.MEDIUM
+
+    # Parse recurrence pattern
+    recurrence_pattern = None
+    recurrence_pattern_str = form_data.get("recurrence_pattern", "")
+    if recurrence_pattern_str:
+        with contextlib.suppress(ValueError):
+            recurrence_pattern = RecurrencePattern(recurrence_pattern_str)
+
+    # Parse dates
+    scheduled_date = None
+    due_date = None
+    recurrence_end_date = None
+    if scheduled_date_str := form_data.get("scheduled_date", ""):
+        with contextlib.suppress(ValueError):
+            scheduled_date = date.fromisoformat(scheduled_date_str)
+    if due_date_str := form_data.get("due_date", ""):
+        with contextlib.suppress(ValueError):
+            due_date = date.fromisoformat(due_date_str)
+    if recurrence_end_date_str := form_data.get("recurrence_end_date", ""):
+        with contextlib.suppress(ValueError):
+            recurrence_end_date = date.fromisoformat(recurrence_end_date_str)
+
+    return TaskCreateRequest(
+        title=title,
+        description=description,
+        project=project,
+        assignee=assignee,
+        priority=priority,
+        scheduled_date=scheduled_date,
+        due_date=due_date,
+        status=EntityStatus.DRAFT,
+        parent_uid=parent_uid,
+        recurrence_pattern=recurrence_pattern,
+        recurrence_end_date=recurrence_end_date,
+    )
+
+
+def parse_task_update_payload(form: Any) -> dict[str, Any]:
+    """Parse edit-modal form into an update dict. Pure function, no side effects."""
+    updates: dict[str, Any] = {}
+
+    # Title (required)
+    title = form.get("title", "").strip()
+    if title:
+        updates["title"] = title
+
+    # Description (can be cleared)
+    description = form.get("description", "").strip()
+    updates["description"] = description if description else None
+
+    # Parse dates (can be cleared)
+    due_date_str = form.get("due_date", "")
+    if due_date_str:
+        with contextlib.suppress(ValueError):
+            updates["due_date"] = date.fromisoformat(due_date_str)
+    else:
+        updates["due_date"] = None
+
+    scheduled_date_str = form.get("scheduled_date", "")
+    if scheduled_date_str:
+        with contextlib.suppress(ValueError):
+            updates["scheduled_date"] = date.fromisoformat(scheduled_date_str)
+    else:
+        updates["scheduled_date"] = None
+
+    # Parse duration
+    duration_str = form.get("duration_minutes", "")
+    if duration_str:
+        with contextlib.suppress(ValueError):
+            duration = int(duration_str)
+            if 5 <= duration <= 480:
+                updates["duration_minutes"] = duration
+
+    # Parse priority
+    priority_str = form.get("priority", "")
+    if priority_str:
+        with contextlib.suppress(ValueError):
+            updates["priority"] = Priority(priority_str)
+
+    # Parse status
+    status_str = form.get("status", "")
+    if status_str:
+        with contextlib.suppress(ValueError):
+            updates["status"] = EntityStatus(status_str)
+
+    # Project (can be cleared)
+    project = form.get("project", "").strip()
+    updates["project"] = project if project else None
+
+    # Tags (comma-separated to list)
+    tags_str = form.get("tags", "").strip()
+    if tags_str:
+        updates["tags"] = [t.strip() for t in tags_str.split(",") if t.strip()]
+    else:
+        updates["tags"] = []
+
+    return updates
 
 
 def create_tasks_ui_routes(
@@ -168,13 +295,7 @@ def create_tasks_ui_routes(
         else:  # list (default)
             view_content = TasksViewComponents.render_list_view(
                 tasks=tasks,
-                filters={
-                    "project": filters.project,
-                    "assignee": filters.assignee,
-                    "due": filters.due_filter,
-                    "status": filters.status_filter,
-                    "sort_by": filters.sort_by,
-                },
+                filters=filters.to_dict(),
                 projects=projects,
                 assignees=assignees,
             )
@@ -221,13 +342,7 @@ def create_tasks_ui_routes(
 
         return TasksViewComponents.render_list_view(
             tasks=tasks,
-            filters={
-                "project": filters.project,
-                "assignee": filters.assignee,
-                "due": filters.due_filter,
-                "status": filters.status_filter,
-                "sort_by": filters.sort_by,
-            },
+            filters=filters.to_dict(),
             projects=projects,
             assignees=assignees,
         )
@@ -305,66 +420,8 @@ def create_tasks_ui_routes(
     # ========================================================================
 
     async def create_task_from_form(form_data: dict[str, Any], user_uid: str) -> Result[Any]:
-        """
-        Domain-specific task creation logic.
-
-        Handles form parsing, request building, and service call.
-        """
-        # Extract form data
-        title = form_data.get("title", "").strip()
-        description = form_data.get("description", "").strip() or None
-        project = form_data.get("project", "").strip() or None
-        assignee = form_data.get("assignee", "").strip() or None
-        priority_str = form_data.get("priority", "medium")
-        scheduled_date_str = form_data.get("scheduled_date", "")
-        due_date_str = form_data.get("due_date", "")
-
-        # New fields: parent_uid, recurrence_pattern, recurrence_end_date
-        parent_uid = form_data.get("parent_uid", "").strip() or None
-        recurrence_pattern_str = form_data.get("recurrence_pattern", "")
-        recurrence_end_date_str = form_data.get("recurrence_end_date", "")
-
-        # Parse priority
-        try:
-            priority = Priority(priority_str)
-        except ValueError:
-            priority = Priority.MEDIUM
-
-        # Parse recurrence pattern
-        recurrence_pattern = None
-        if recurrence_pattern_str:
-            with contextlib.suppress(ValueError):
-                recurrence_pattern = RecurrencePattern(recurrence_pattern_str)
-
-        # Parse dates
-        scheduled_date = None
-        due_date = None
-        recurrence_end_date = None
-        if scheduled_date_str:
-            with contextlib.suppress(ValueError):
-                scheduled_date = date.fromisoformat(scheduled_date_str)
-        if due_date_str:
-            with contextlib.suppress(ValueError):
-                due_date = date.fromisoformat(due_date_str)
-        if recurrence_end_date_str:
-            with contextlib.suppress(ValueError):
-                recurrence_end_date = date.fromisoformat(recurrence_end_date_str)
-
-        # Build request and call service
-        create_request = TaskCreateRequest(
-            title=title,
-            description=description,
-            project=project,
-            assignee=assignee,
-            priority=priority,
-            scheduled_date=scheduled_date,
-            due_date=due_date,
-            status=EntityStatus.DRAFT,
-            parent_uid=parent_uid,
-            recurrence_pattern=recurrence_pattern,
-            recurrence_end_date=recurrence_end_date,
-        )
-
+        """Domain-specific task creation logic."""
+        create_request = parse_task_create_request(form_data)
         return await tasks_service.create_task(create_request, user_uid)
 
     async def render_task_success_view(user_uid: str) -> Any:
@@ -530,64 +587,7 @@ def create_tasks_ui_routes(
                 return error
 
             form = await request.form()
-
-            # Build update dict (only include non-empty fields)
-            updates: dict[str, Any] = {}
-
-            # Title (required)
-            title = form.get("title", "").strip()
-            if title:
-                updates["title"] = title
-
-            # Description (can be cleared)
-            description = form.get("description", "").strip()
-            updates["description"] = description if description else None
-
-            # Parse dates
-            due_date_str = form.get("due_date", "")
-            if due_date_str:
-                with contextlib.suppress(ValueError):
-                    updates["due_date"] = date.fromisoformat(due_date_str)
-            else:
-                updates["due_date"] = None
-
-            scheduled_date_str = form.get("scheduled_date", "")
-            if scheduled_date_str:
-                with contextlib.suppress(ValueError):
-                    updates["scheduled_date"] = date.fromisoformat(scheduled_date_str)
-            else:
-                updates["scheduled_date"] = None
-
-            # Parse duration
-            duration_str = form.get("duration_minutes", "")
-            if duration_str:
-                with contextlib.suppress(ValueError):
-                    duration = int(duration_str)
-                    if 5 <= duration <= 480:
-                        updates["duration_minutes"] = duration
-
-            # Parse priority
-            priority_str = form.get("priority", "")
-            if priority_str:
-                with contextlib.suppress(ValueError):
-                    updates["priority"] = Priority(priority_str)
-
-            # Parse status
-            status_str = form.get("status", "")
-            if status_str:
-                with contextlib.suppress(ValueError):
-                    updates["status"] = EntityStatus(status_str)
-
-            # Project (can be cleared)
-            project = form.get("project", "").strip()
-            updates["project"] = project if project else None
-
-            # Tags (comma-separated to list)
-            tags_str = form.get("tags", "").strip()
-            if tags_str:
-                updates["tags"] = [t.strip() for t in tags_str.split(",") if t.strip()]
-            else:
-                updates["tags"] = []
+            updates = parse_task_update_payload(form)
 
             logger.info(f"Updating task {uid} with: {updates}")
 

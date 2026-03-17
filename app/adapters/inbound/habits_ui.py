@@ -28,8 +28,9 @@ from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactor
 from adapters.inbound.ui_helpers import (
     parse_calendar_params,
 )
-from core.models.enums import Priority
+from core.models.enums import Priority, RecurrencePattern
 from core.models.enums.entity_enums import EntityStatus
+from core.models.enums.habit_enums import HabitCategory
 from core.models.habit.habit_request import HabitCreateRequest
 from core.ports.query_types import ActivityFilterSpec
 from core.services.habits_service import HabitsService
@@ -386,12 +387,52 @@ class Filters:
     status: str
     sort_by: str
 
+    def to_dict(self) -> ActivityFilterSpec:
+        """Convert to dict keyed for HabitsViewComponents.render_list_view."""
+        return {"status": self.status, "sort_by": self.sort_by}
+
 
 def parse_filters(request) -> Filters:
     """Extract filter parameters from request query params."""
     return Filters(
         status=request.query_params.get("filter_status", "active"),
         sort_by=request.query_params.get("sort_by", "streak"),
+    )
+
+
+# ============================================================================
+# Form Parsing Helpers (pure — no service calls, no request access)
+# ============================================================================
+
+
+def parse_habit_create_request(form_data: dict[str, Any]) -> HabitCreateRequest:
+    """Parse form data into a HabitCreateRequest. Pure function, no side effects."""
+    name = form_data.get("name", "").strip()
+    description = form_data.get("description", "").strip() or None
+    category_str = form_data.get("category", "other")
+    frequency_str = form_data.get("frequency", "daily")
+    target_days = form_data.get("target_days_per_week", "7")
+    cue = form_data.get("cue", "").strip() or None
+    routine = form_data.get("routine", "").strip() or None
+    reward = form_data.get("reward", "").strip() or None
+
+    try:
+        target_days_int = int(target_days)
+    except ValueError:
+        target_days_int = 7
+
+    category = HabitCategory(category_str) if category_str else HabitCategory.OTHER
+    recurrence = RecurrencePattern(frequency_str) if frequency_str else RecurrencePattern.DAILY
+
+    return HabitCreateRequest(
+        name=name,
+        description=description,
+        category=category,
+        recurrence_pattern=recurrence,
+        target_days_per_week=target_days_int,
+        cue=cue,
+        routine=routine,
+        reward=reward,
     )
 
 
@@ -507,10 +548,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
         else:  # list (default)
             view_content = HabitsViewComponents.render_list_view(
                 habits=habits,
-                filters={
-                    "status": filters.status,
-                    "sort_by": filters.sort_by,
-                },
+                filters=filters.to_dict(),
                 stats=stats,
                 _categories=categories,
             )
@@ -550,10 +588,9 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
         habits, stats = ctx["entities"], ctx["stats"]
         categories = categories_result.value
 
-        filters_dict: ActivityFilterSpec = {"status": filters.status, "sort_by": filters.sort_by}
         return HabitsViewComponents.render_list_view(
             habits=habits,
-            filters=filters_dict,
+            filters=filters.to_dict(),
             stats=stats,
             _categories=categories,
         )
@@ -627,45 +664,8 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
     # ========================================================================
 
     async def create_habit_from_form(form_data: dict[str, Any], user_uid: str) -> Result[Any]:
-        """
-        Domain-specific habit creation logic.
-
-        Handles form parsing, request building, and service call.
-        """
-        from core.models.enums import RecurrencePattern
-        from core.models.enums.habit_enums import HabitCategory
-
-        # Extract form data
-        name = form_data.get("name", "").strip()
-        description = form_data.get("description", "").strip() or None
-        category_str = form_data.get("category", "other")
-        frequency_str = form_data.get("frequency", "daily")
-        target_days = form_data.get("target_days_per_week", "7")
-        cue = form_data.get("cue", "").strip() or None
-        routine = form_data.get("routine", "").strip() or None
-        reward = form_data.get("reward", "").strip() or None
-
-        try:
-            target_days_int = int(target_days)
-        except ValueError:
-            target_days_int = 7
-
-        # Map string values to enums
-        category = HabitCategory(category_str) if category_str else HabitCategory.OTHER
-        recurrence = RecurrencePattern(frequency_str) if frequency_str else RecurrencePattern.DAILY
-
-        # Build create request
-        create_request = HabitCreateRequest(
-            name=name,
-            description=description,
-            category=category,
-            recurrence_pattern=recurrence,
-            target_days_per_week=target_days_int,
-            cue=cue,
-            routine=routine,
-            reward=reward,
-        )
-
+        """Domain-specific habit creation logic."""
+        create_request = parse_habit_create_request(form_data)
         return await habits_service.create_habit(create_request, user_uid)
 
     async def render_habit_success_view(user_uid: str) -> Any:

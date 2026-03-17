@@ -35,6 +35,7 @@ from adapters.inbound.route_factories import (
 )
 from adapters.inbound.ui_helpers import render_safe_error_response
 from core.constants import QueryLimit
+from core.models.enums.principle_enums import AlignmentLevel, PrincipleCategory, PrincipleStrength
 from core.ports.query_types import PrinciplesFilterSpec
 from core.services.principles_service import PrinciplesService
 from core.utils.logging import get_logger
@@ -65,6 +66,10 @@ class Filters:
     strength: str
     sort_by: str
 
+    def to_dict(self) -> PrinciplesFilterSpec:
+        """Convert to dict keyed for PrinciplesViewComponents.render_list_view."""
+        return {"category": self.category, "strength": self.strength, "sort_by": self.sort_by}
+
 
 def parse_filters(request) -> Filters:
     """Extract filter parameters from request query params."""
@@ -78,6 +83,107 @@ def parse_filters(request) -> Filters:
 # ============================================================================
 # UI ROUTES
 # ============================================================================
+
+
+# ============================================================================
+# Form Parsing Helpers (pure — no service calls, no request access)
+# ============================================================================
+
+
+def parse_principle_create_params(form_data: dict[str, Any]) -> dict[str, Any]:
+    """Parse form data into kwargs for create_principle(). Pure function, no side effects."""
+    title = form_data.get("title", "").strip()
+    description = form_data.get("description", "").strip() or ""
+    statement = form_data.get("statement", "").strip() or title
+    category_str = form_data.get("category", "personal")
+    strength_str = form_data.get("strength", "0.5")
+    is_active = form_data.get("is_active", "") == "true"
+
+    # Parse category
+    try:
+        category = PrincipleCategory(category_str.upper())
+    except ValueError:
+        category = PrincipleCategory.PERSONAL
+
+    # Parse strength (convert float to enum)
+    try:
+        strength_val = float(strength_str)
+        if strength_val >= 0.9:
+            strength = PrincipleStrength.CORE
+        elif strength_val >= 0.7:
+            strength = PrincipleStrength.STRONG
+        elif strength_val >= 0.4:
+            strength = PrincipleStrength.MODERATE
+        else:
+            strength = PrincipleStrength.DEVELOPING
+    except ValueError:
+        strength = PrincipleStrength.MODERATE
+
+    return {
+        "label": title,
+        "description": statement or description,
+        "category": category,
+        "why_matters": description,
+        "strength": strength,
+        "is_active": is_active,
+    }
+
+
+def parse_principle_update_payload(form: Any) -> dict[str, Any]:
+    """Parse edit form into an update dict. Pure function, no side effects."""
+    name = form.get("name", "").strip()
+    description = form.get("description", "").strip() or None
+    statement = form.get("statement", "").strip() or None
+    category_str = form.get("category", "personal")
+    is_active = form.get("is_active", "") == "true"
+
+    return {
+        "name": name,
+        "description": description,
+        "statement": statement or name,
+        "category": category_str.upper(),
+        "is_active": is_active,
+    }
+
+
+def parse_reflection_params(form: Any) -> dict[str, Any]:
+    """Parse reflection form into kwargs for save_reflection(). Pure function, no side effects."""
+    alignment_str = form.get("alignment_level", "partial")
+    reflection_notes = form.get("reflection", "").strip() or None
+    evidence = form.get("evidence", "").strip()
+
+    # Trigger fields (optional)
+    trigger_type = form.get("trigger_type", "manual").strip() or "manual"
+    trigger_uid = form.get("trigger_uid", "").strip() or None
+    trigger_context = form.get("trigger_context", "").strip() or None
+
+    # Clear trigger_uid if type is manual (no entity associated)
+    if trigger_type == "manual":
+        trigger_uid = None
+
+    # Fallback evidence if not provided
+    if not evidence:
+        evidence = reflection_notes[:100] if reflection_notes else "Reflection recorded"
+
+    # Parse alignment level
+    alignment_map = {
+        "aligned": AlignmentLevel.ALIGNED,
+        "mostly_aligned": AlignmentLevel.MOSTLY_ALIGNED,
+        "partial": AlignmentLevel.PARTIAL,
+        "partially_aligned": AlignmentLevel.PARTIAL,
+        "misaligned": AlignmentLevel.MISALIGNED,
+        "unknown": AlignmentLevel.UNKNOWN,
+    }
+    alignment_level = alignment_map.get(alignment_str.lower(), AlignmentLevel.PARTIAL)
+
+    return {
+        "alignment_level": alignment_level,
+        "evidence": evidence,
+        "reflection_notes": reflection_notes if reflection_notes else None,
+        "trigger_type": trigger_type,
+        "trigger_uid": trigger_uid,
+        "trigger_context": trigger_context,
+    }
 
 
 def create_principles_ui_routes(
@@ -280,11 +386,7 @@ def create_principles_ui_routes(
 
             view_content = PrinciplesViewComponents.render_list_view(
                 principles=principles,
-                filters={
-                    "category": filters.category,
-                    "strength": filters.strength,
-                    "sort_by": filters.sort_by,
-                },
+                filters=filters.to_dict(),
                 stats=stats,
                 categories=categories_result.value,
             )
@@ -326,14 +428,9 @@ def create_principles_ui_routes(
         if categories_result.is_error:
             return render_error_banner("Failed to load categories")
 
-        filter_spec: PrinciplesFilterSpec = {
-            "category": filters.category,
-            "strength": filters.strength,
-            "sort_by": filters.sort_by,
-        }
         return PrinciplesViewComponents.render_list_view(
             principles=principles,
-            filters=filter_spec,
+            filters=filters.to_dict(),
             stats=stats,
             categories=categories_result.value,
         )
@@ -407,52 +504,13 @@ def create_principles_ui_routes(
     # ========================================================================
 
     async def create_principle_from_form(form_data: dict[str, Any], user_uid: str) -> Result[Any]:
-        """
-        Domain-specific principle creation logic.
-
-        Handles form parsing, enum conversion, and service call with named parameters.
-        """
-        from core.models.enums.principle_enums import PrincipleCategory, PrincipleStrength
-
-        # Extract form data
-        title = form_data.get("title", "").strip()
-        description = form_data.get("description", "").strip() or ""
-        statement = form_data.get("statement", "").strip() or title
-        category_str = form_data.get("category", "personal")
-        strength_str = form_data.get("strength", "0.5")
-        is_active = form_data.get("is_active", "") == "true"
-
-        # Parse category
-        try:
-            category = PrincipleCategory(category_str.upper())
-        except ValueError:
-            category = PrincipleCategory.PERSONAL
-
-        # Parse strength (convert float to enum)
-        try:
-            strength_val = float(strength_str)
-            if strength_val >= 0.9:
-                strength = PrincipleStrength.CORE
-            elif strength_val >= 0.7:
-                strength = PrincipleStrength.STRONG
-            elif strength_val >= 0.4:
-                strength = PrincipleStrength.MODERATE
-            else:
-                strength = PrincipleStrength.DEVELOPING
-        except ValueError:
-            strength = PrincipleStrength.MODERATE
-
-        # Call service with named parameters
+        """Domain-specific principle creation logic."""
+        params = parse_principle_create_params(form_data)
         return cast(
             "Result[Any]",
             await principles_service.core.create_principle(
-                label=title,
-                description=statement or description,
-                category=category,
-                why_matters=description,
                 user_uid=user_uid,
-                strength=strength,
-                is_active=is_active,
+                **params,
             ),
         )
 
@@ -514,8 +572,6 @@ def create_principles_ui_routes(
     @rt("/principles/{uid}")
     async def view_principle(request, uid: str) -> Any:
         """View a single principle with recent reflections."""
-        from core.models.enums.principle_enums import PrincipleStrength
-
         user_uid = require_authenticated_user(request)
 
         # Fetch principle with ownership verification
@@ -718,22 +774,7 @@ def create_principles_ui_routes(
             return error
 
         form = await request.form()
-
-        # Extract form data
-        name = form.get("name", "").strip()
-        description = form.get("description", "").strip() or None
-        statement = form.get("statement", "").strip() or None
-        category_str = form.get("category", "personal")
-        is_active = form.get("is_active", "") == "true"
-
-        # Build updates dict
-        updates = {
-            "name": name,
-            "description": description,
-            "statement": statement or name,
-            "category": category_str.upper(),
-            "is_active": is_active,
-        }
+        updates = parse_principle_update_payload(form)
 
         result = await principles_service.core.update_principle(uid, updates)
         if result.is_error:
@@ -853,52 +894,19 @@ def create_principles_ui_routes(
     @rt("/principles/{uid}/reflect/save", methods=["POST"])
     async def save_reflection(request, uid: str) -> Any:
         """Save a reflection on a principle (persisted to graph)."""
-        from core.models.enums.principle_enums import AlignmentLevel
-
         user_uid = require_authenticated_user(request)
 
         if not principles_service:
             return Response("Service unavailable", status_code=503)
 
         form = await request.form()
-        alignment_str = form.get("alignment_level", "partial")
-        reflection_notes = form.get("reflection", "").strip() or None
-        evidence = form.get("evidence", "").strip()
-
-        # Trigger fields (optional)
-        trigger_type = form.get("trigger_type", "manual").strip() or "manual"
-        trigger_uid = form.get("trigger_uid", "").strip() or None
-        trigger_context = form.get("trigger_context", "").strip() or None
-
-        # Clear trigger_uid if type is manual (no entity associated)
-        if trigger_type == "manual":
-            trigger_uid = None
-
-        # Fallback evidence if not provided (shouldn't happen with required field)
-        if not evidence:
-            evidence = reflection_notes[:100] if reflection_notes else "Reflection recorded"
-
-        # Parse alignment level
-        alignment_map = {
-            "aligned": AlignmentLevel.ALIGNED,
-            "mostly_aligned": AlignmentLevel.MOSTLY_ALIGNED,
-            "partial": AlignmentLevel.PARTIAL,
-            "partially_aligned": AlignmentLevel.PARTIAL,
-            "misaligned": AlignmentLevel.MISALIGNED,
-            "unknown": AlignmentLevel.UNKNOWN,
-        }
-        alignment_level = alignment_map.get(alignment_str.lower(), AlignmentLevel.PARTIAL)
+        params = parse_reflection_params(form)
 
         # Save reflection via service
         result = await principles_service.reflection.save_reflection(
             principle_uid=uid,
             user_uid=user_uid,
-            alignment_level=alignment_level,
-            evidence=evidence,
-            reflection_notes=reflection_notes if reflection_notes else None,
-            trigger_type=trigger_type,
-            trigger_uid=trigger_uid,
-            trigger_context=trigger_context,
+            **params,
         )
 
         if result.is_error:

@@ -718,9 +718,7 @@ class Neo4jSchemaManager:
         # Composite indexes — hot query paths
         await _composite("task_user_status_idx", "Task", ["user_uid", "status"])
         await _composite("goal_user_status_idx", "Goal", ["user_uid", "status"])
-        await _composite(
-            "entity_user_type_idx", "Entity", ["user_uid", "entity_type"]
-        )
+        await _composite("entity_user_type_idx", "Entity", ["user_uid", "entity_type"])
 
         created_count = len(results["created"])
         failed_count = len(results["failed"])

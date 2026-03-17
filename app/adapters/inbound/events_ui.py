@@ -179,6 +179,10 @@ class Filters:
     status: str
     sort_by: str
 
+    def to_dict(self) -> ActivityFilterSpec:
+        """Convert to dict keyed for EventsViewComponents.render_list_view."""
+        return {"status": self.status, "sort_by": self.sort_by}
+
 
 def parse_filters(request) -> Filters:
     """Extract filter parameters from request query params."""
@@ -186,6 +190,48 @@ def parse_filters(request) -> Filters:
         status=request.query_params.get("filter_status", "scheduled"),
         sort_by=request.query_params.get("sort_by", "start_time"),
     )
+
+
+# ============================================================================
+# Form Parsing Helpers (pure — no service calls, no request access)
+# ============================================================================
+
+
+def parse_event_form_fields(form_data: dict[str, Any]) -> dict[str, Any]:
+    """Parse event form data into a dict of typed fields. Pure function, no side effects."""
+    title = form_data.get("title", "").strip()
+    description = form_data.get("description", "").strip() or None
+    event_type = form_data.get("event_type", "").strip() or "meeting"
+    location = form_data.get("location", "").strip() or None
+    event_date_str = form_data.get("event_date", "")
+    start_time_str = form_data.get("start_time", "")
+    end_time_str = form_data.get("end_time", "")
+
+    # Parse event date
+    event_date_val = None
+    if event_date_str:
+        with contextlib.suppress(ValueError):
+            event_date_val = date.fromisoformat(event_date_str)
+
+    # Parse times
+    start_time_val = None
+    end_time_val = None
+    if start_time_str:
+        with contextlib.suppress(ValueError):
+            start_time_val = time.fromisoformat(start_time_str)
+    if end_time_str:
+        with contextlib.suppress(ValueError):
+            end_time_val = time.fromisoformat(end_time_str)
+
+    return {
+        "title": title,
+        "description": description,
+        "event_type": event_type,
+        "location": location,
+        "event_date": event_date_val,
+        "start_time": start_time_val,
+        "end_time": end_time_val,
+    }
 
 
 def create_events_ui_routes(_app, rt, events_service: EventsService, services: Any = None):
@@ -284,10 +330,7 @@ def create_events_ui_routes(_app, rt, events_service: EventsService, services: A
         if view == "list":
             view_content = EventsViewComponents.render_list_view(
                 events=events,
-                filters={
-                    "status": filters.status,
-                    "sort_by": filters.sort_by,
-                },
+                filters=filters.to_dict(),
                 stats=stats,
             )
         elif view == "create":
@@ -357,10 +400,9 @@ def create_events_ui_routes(_app, rt, events_service: EventsService, services: A
         ctx = filtered_result.value
         events, stats = ctx["entities"], ctx["stats"]
 
-        filters_dict: ActivityFilterSpec = {"status": filters.status, "sort_by": filters.sort_by}
         return EventsViewComponents.render_list_view(
             events=events,
-            filters=filters_dict,
+            filters=filters.to_dict(),
             stats=stats,
         )
 
@@ -415,57 +457,23 @@ def create_events_ui_routes(_app, rt, events_service: EventsService, services: A
     # ========================================================================
 
     async def create_event_from_form(form_data: dict[str, Any], user_uid: str) -> Result[Any]:
-        """
-        Domain-specific event creation logic.
-
-        Handles form parsing, DTO building, model conversion, and service call.
-        """
-        # Extract form data
-        title = form_data.get("title", "").strip()
-        description = form_data.get("description", "").strip() or None
-        event_type = form_data.get("event_type", "").strip() or "meeting"
-        location = form_data.get("location", "").strip() or None
-        event_date_str = form_data.get("event_date", "")
-        start_time_str = form_data.get("start_time", "")
-        end_time_str = form_data.get("end_time", "")
+        """Domain-specific event creation logic."""
+        fields = parse_event_form_fields(form_data)
 
         logger.info(
-            f"Quick add event: title={title}, date={event_date_str}, "
-            f"start={start_time_str}, end={end_time_str}"
+            f"Quick add event: title={fields['title']}, date={fields['event_date']}, "
+            f"start={fields['start_time']}, end={fields['end_time']}"
         )
 
-        # Parse event date
-        event_date_val = None
-        if event_date_str:
-            try:
-                event_date_val = date.fromisoformat(event_date_str)
-            except ValueError:
-                logger.warning(f"Could not parse event_date: {event_date_str}")
-
-        # Parse times
-        start_time_val = None
-        end_time_val = None
-        if start_time_str:
-            try:
-                start_time_val = time.fromisoformat(start_time_str)
-            except ValueError:
-                logger.warning(f"Could not parse start_time: {start_time_str}")
-        if end_time_str:
-            try:
-                end_time_val = time.fromisoformat(end_time_str)
-            except ValueError:
-                logger.warning(f"Could not parse end_time: {end_time_str}")
-
-        # Build DTO and convert to domain model
         event_dto = EventDTO.create_event(
             user_uid=user_uid,
-            title=title,
-            event_date=event_date_val or date.today(),
-            start_time=start_time_val or time(9, 0),
-            end_time=end_time_val or time(10, 0),
-            event_type=event_type.upper(),
-            description=description,
-            location=location,
+            title=fields["title"],
+            event_date=fields["event_date"] or date.today(),
+            start_time=fields["start_time"] or time(9, 0),
+            end_time=fields["end_time"] or time(10, 0),
+            event_type=(fields["event_type"]).upper(),
+            description=fields["description"],
+            location=fields["location"],
         )
 
         event = Event.from_dto(event_dto)
@@ -674,45 +682,10 @@ def create_events_ui_routes(_app, rt, events_service: EventsService, services: A
             return error
 
         form = await request.form()
+        update_data = parse_event_form_fields(form)
 
-        # Extract and parse form data
-        title = form.get("title", "").strip()
-        if not title:
+        if not update_data["title"]:
             return Response("Title is required", status_code=400)
-
-        description = form.get("description", "").strip() or None
-        event_type = form.get("event_type", "meeting")
-        location = form.get("location", "").strip() or None
-        event_date_str = form.get("event_date", "")
-        start_time_str = form.get("start_time", "")
-        end_time_str = form.get("end_time", "")
-
-        # Parse event date
-        event_date_val = None
-        if event_date_str:
-            with contextlib.suppress(ValueError):
-                event_date_val = date.fromisoformat(event_date_str)
-
-        # Parse times
-        start_time_val = None
-        end_time_val = None
-        if start_time_str:
-            with contextlib.suppress(ValueError):
-                start_time_val = time.fromisoformat(start_time_str)
-        if end_time_str:
-            with contextlib.suppress(ValueError):
-                end_time_val = time.fromisoformat(end_time_str)
-
-        # Update event
-        update_data = {
-            "title": title,
-            "description": description,
-            "event_type": event_type,
-            "location": location,
-            "event_date": event_date_val,
-            "start_time": start_time_val,
-            "end_time": end_time_val,
-        }
 
         try:
             update_result = await events_service.update(uid, update_data)

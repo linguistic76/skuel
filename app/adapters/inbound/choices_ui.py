@@ -31,6 +31,14 @@ from adapters.inbound.route_factories import (
     require_owned_entity,
 )
 from adapters.inbound.ui_helpers import render_safe_error_response
+from core.models.choice.choice_request import (
+    ChoiceCreateRequest,
+    ChoiceOptionCreateRequest,
+)
+from core.models.entity_requests import EntityUpdateRequest
+from core.models.enums import Domain as DomainEnum
+from core.models.enums import Priority as PriorityEnum
+from core.models.enums.choice_enums import ChoiceType
 from core.ports.query_types import ActivityFilterSpec
 from core.services.choices_service import ChoicesService
 from core.utils.logging import get_logger
@@ -65,6 +73,10 @@ class Filters:
     status: str
     sort_by: str
 
+    def to_dict(self) -> ActivityFilterSpec:
+        """Convert to dict keyed for ChoicesViewComponents.render_list_view."""
+        return {"status": self.status, "sort_by": self.sort_by}
+
 
 def parse_filters(request) -> Filters:
     """Extract filter parameters from request query params."""
@@ -77,6 +89,83 @@ def parse_filters(request) -> Filters:
 # ============================================================================
 # UI ROUTES
 # ============================================================================
+
+
+# ============================================================================
+# Form Parsing Helpers (pure — no service calls, no request access)
+# ============================================================================
+
+
+def parse_options_from_form(form: Any) -> list[dict[str, str]]:
+    """Parse options[0].title, options[0].description, etc. from form data."""
+    options = []
+    index = 0
+    while True:
+        title_key = f"options[{index}].title"
+        desc_key = f"options[{index}].description"
+        if title_key not in form:
+            break
+        title = form.get(title_key, "").strip()
+        desc = form.get(desc_key, "").strip()
+        if title and desc:
+            options.append({"title": title, "description": desc})
+        index += 1
+    return options
+
+
+def parse_choice_create_request(
+    form_data: dict[str, Any],
+) -> ChoiceCreateRequest:
+    """Parse form data into a ChoiceCreateRequest. Pure function, no side effects."""
+    title = form_data.get("title", "").strip()
+    description = form_data.get("description", "").strip() or None
+    choice_type = form_data.get("choice_type", "binary")
+    domain = form_data.get("domain", "").strip() or "personal"
+    priority = form_data.get("priority", "medium")
+    deadline_str = form_data.get("decision_deadline", "")
+
+    options = parse_options_from_form(form_data)
+
+    # Parse deadline
+    decision_deadline = None
+    if deadline_str:
+        with contextlib.suppress(ValueError):
+            decision_deadline = datetime.fromisoformat(deadline_str)
+
+    # Map string values to enums
+    choice_type_enum = ChoiceType(choice_type) if choice_type else ChoiceType.MULTIPLE
+    domain_enum = DomainEnum(domain) if domain else DomainEnum.PERSONAL
+    priority_enum = PriorityEnum(priority) if priority else PriorityEnum.MEDIUM
+
+    option_requests = [
+        ChoiceOptionCreateRequest(title=opt["title"], description=opt["description"])
+        for opt in options
+    ]
+
+    return ChoiceCreateRequest(
+        title=title,
+        description=description or title,
+        choice_type=choice_type_enum,
+        domain=domain_enum,
+        priority=priority_enum,
+        decision_deadline=decision_deadline,
+        options=option_requests,
+    )
+
+
+def parse_choice_update_request(form: Any) -> EntityUpdateRequest:
+    """Parse edit form into an EntityUpdateRequest. Pure function, no side effects."""
+    title = form.get("title", "").strip()
+    description = form.get("description", "").strip() or None
+    priority_str = form.get("priority", "medium")
+    domain_str = form.get("domain", "personal")
+
+    return EntityUpdateRequest(
+        title=title if title else None,
+        description=description,
+        priority=PriorityEnum(priority_str),
+        domain=DomainEnum(domain_str),
+    )
 
 
 def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services: Any = None):
@@ -96,26 +185,6 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
     """
 
     logger.info("Registering three-view choice routes (standalone, analytics)")
-
-    # ========================================================================
-    # HELPERS
-    # ========================================================================
-
-    def _parse_options_from_form(form) -> list[dict[str, str]]:
-        """Parse options[0].title, options[0].description, etc. from form."""
-        options = []
-        index = 0
-        while True:
-            title_key = f"options[{index}].title"
-            desc_key = f"options[{index}].description"
-            if title_key not in form:
-                break
-            title = form.get(title_key, "").strip()
-            desc = form.get(desc_key, "").strip()
-            if title and desc:
-                options.append({"title": title, "description": desc})
-            index += 1
-        return options
 
     # ========================================================================
     # MAIN DASHBOARD (Standalone Three-View, List First)
@@ -163,10 +232,7 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
         else:
             view_content = ChoicesViewComponents.render_list_view(
                 choices=choices,
-                filters={
-                    "status": filters.status,
-                    "sort_by": filters.sort_by,
-                },
+                filters=filters.to_dict(),
                 stats=stats,
             )
 
@@ -199,10 +265,9 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
         ctx = filtered_result.value
         choices, stats = ctx["entities"], ctx["stats"]
 
-        filters_dict: ActivityFilterSpec = {"status": filters.status, "sort_by": filters.sort_by}
         return ChoicesViewComponents.render_list_view(
             choices=choices,
-            filters=filters_dict,
+            filters=filters.to_dict(),
             stats=stats,
         )
 
@@ -266,64 +331,14 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
 
     def validate_choice_options(form_data: dict[str, Any]) -> tuple[bool, str]:
         """Validate that at least 2 options are provided."""
-        options = _parse_options_from_form(form_data)
+        options = parse_options_from_form(form_data)
         if len(options) < 2:
             return (False, "At least 2 options are required")
         return (True, "")
 
     async def create_choice_from_form(form_data: dict[str, Any], user_uid: str) -> Result[Any]:
-        """
-        Domain-specific choice creation logic.
-
-        Handles form parsing, option parsing, enum conversion, and service call.
-        """
-        from core.models.choice.choice_request import (
-            ChoiceCreateRequest,
-            ChoiceOptionCreateRequest,
-        )
-        from core.models.enums import Domain as DomainEnum
-        from core.models.enums import Priority as PriorityEnum
-        from core.models.enums.choice_enums import ChoiceType
-
-        # Extract form data
-        title = form_data.get("title", "").strip()
-        description = form_data.get("description", "").strip() or None
-        choice_type = form_data.get("choice_type", "binary")
-        domain = form_data.get("domain", "").strip() or "personal"
-        priority = form_data.get("priority", "medium")
-        deadline_str = form_data.get("decision_deadline", "")
-
-        # Parse options from form
-        options = _parse_options_from_form(form_data)
-
-        # Parse deadline
-        decision_deadline = None
-        if deadline_str:
-            with contextlib.suppress(ValueError):
-                decision_deadline = datetime.fromisoformat(deadline_str)
-
-        # Map string values to enums
-        choice_type_enum = ChoiceType(choice_type) if choice_type else ChoiceType.MULTIPLE
-        domain_enum = DomainEnum(domain) if domain else DomainEnum.PERSONAL
-        priority_enum = PriorityEnum(priority) if priority else PriorityEnum.MEDIUM
-
-        # Convert options to ChoiceOptionCreateRequest objects
-        option_requests = [
-            ChoiceOptionCreateRequest(title=opt["title"], description=opt["description"])
-            for opt in options
-        ]
-
-        # Build request and call service
-        choice_request = ChoiceCreateRequest(
-            title=title,
-            description=description or title,
-            choice_type=choice_type_enum,
-            domain=domain_enum,
-            priority=priority_enum,
-            decision_deadline=decision_deadline,
-            options=option_requests,
-        )
-
+        """Domain-specific choice creation logic."""
+        choice_request = parse_choice_create_request(form_data)
         return cast(
             "Result[Any]", await choices_service.core.create_choice(choice_request, user_uid)
         )
@@ -619,23 +634,8 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
 
         form = await request.form()
 
-        from core.models.entity_requests import EntityUpdateRequest
-        from core.models.enums import Domain as DomainEnum
-        from core.models.enums import Priority as PriorityEnum
-
-        title = form.get("title", "").strip()
-        description = form.get("description", "").strip() or None
-        priority_str = form.get("priority", "medium")
-        domain_str = form.get("domain", "personal")
-
         try:
-            update_request = EntityUpdateRequest(
-                title=title if title else None,
-                description=description,
-                priority=PriorityEnum(priority_str),
-                domain=DomainEnum(domain_str),
-            )
-
+            update_request = parse_choice_update_request(form)
             result = await choices_service.update_choice(uid, update_request)
 
             if result.is_error:
