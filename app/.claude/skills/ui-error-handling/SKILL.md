@@ -142,8 +142,9 @@ def parse_task_create_request(form_data: dict[str, Any]) -> TaskCreateRequest:
     """Parse form data into a TaskCreateRequest. Pure function, no side effects."""
     title = safe_form_string(form_data.get("title"))
     description = safe_form_string(form_data.get("description")) or None
+    priority_str = safe_form_string(form_data.get("priority")) or "medium"
     try:
-        priority = Priority(form_data.get("priority", "medium"))
+        priority = Priority(priority_str)
     except ValueError:
         priority = Priority.MEDIUM
     # ... parse dates, recurrence, etc.
@@ -186,6 +187,18 @@ event_type = safe_form_string(form_data.get("event_type")) or "meeting"
 ```
 
 **Rule:** For any form field bound to a Pydantic enum, always use `safe_form_string(form_data.get("field")) or "default"`.
+
+**Additionally**, always wrap direct enum constructor calls in try/except — a crafted form can submit any string value:
+
+```python
+priority_str = safe_form_string(form_data.get("priority")) or "medium"
+try:
+    priority = Priority(priority_str)
+except ValueError:
+    priority = Priority.MEDIUM
+```
+
+All 6 activity domain `*_ui.py` files guard enum conversions this way.
 
 ---
 

@@ -777,6 +777,23 @@ event_type = safe_form_string(form_data.get("event_type")) or "meeting"
 
 **Rule:** For any form field bound to a Pydantic enum, always use `safe_form_string(form_data.get("field")) or "default"` — never `form_data.get("field", "default")`.
 
+### Guarding Enum Constructor Calls
+
+Even after extracting a non-empty string with `safe_form_string()`, the value can still be invalid for the target enum (e.g., a crafted form submitting `priority=evil`). Always wrap direct enum constructors in try/except:
+
+```python
+# ❌ UNSAFE — crafted form value crashes with ValueError → 500
+priority_enum = PriorityEnum(priority_str)
+
+# ✅ SAFE — falls back to sensible default
+try:
+    priority_enum = PriorityEnum(priority_str)
+except ValueError:
+    priority_enum = PriorityEnum.MEDIUM
+```
+
+**Consistent across all 6 activity domains:** `tasks_ui.py`, `goals_ui.py`, `habits_ui.py`, `events_ui.py`, `choices_ui.py`, `principles_ui.py` all guard enum conversions with try/except or `contextlib.suppress(ValueError)`.
+
 **See Also:** `/docs/patterns/API_VALIDATION_PATTERNS.md` for Pydantic request model validation (JSON bodies)
 
 ---

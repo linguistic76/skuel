@@ -139,6 +139,7 @@ habits, stats = ctx["entities"], ctx["stats"]
 - `parse_{domain}_update_payload(form) -> dict[str, Any]` — pure form→update dict parsing
 - Static option lists as module-level constants (e.g., Choices: `CHOICE_TYPES`, `DOMAINS`)
 - All string extraction uses `safe_form_string()` from `adapters.inbound.form_helpers` (not raw `.get().strip()`)
+- All enum constructor calls (`Priority()`, `ChoiceType()`, `HabitCategory()`, etc.) are wrapped in try/except with sensible defaults — prevents 500s from crafted form values
 
 **Route handlers stay thin:** authenticate → parse → call service → handle error → render. All form parsing and enum conversion lives in the pure helpers above, not inline in route handlers.
 
