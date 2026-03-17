@@ -1,179 +1,219 @@
 """
-Ku UI Routes — SEL-Organized Knowledge Index
-=============================================
+Ku UI Routes — Knowledge Index with Bookmarks Sidebar
+=====================================================
 
-The /ku page is a simple, single-scroll reference index:
-SEL categories as headings, Ku entities listed under each.
-No cards, no tabs, no lazy-loading fragments.
+The /ku page shows a flat listing of all Knowledge Units with:
+- Sidebar: Bookmarked Kus + Latest Kus
+- Main: Full Ku listing with pin buttons and category badges
 
 KuService is the primary service (not LessonService).
 """
 
 from typing import Any
 
-from fasthtml.common import H2, Div, Li, P, Span, Ul
 from fasthtml.common import A as Anchor
+from fasthtml.common import Div, Li, P, Span, Ul
 
-from core.models.enums import SELCategory
 from core.utils.logging import get_logger
+from ui.patterns.pin_button import PinButton
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 
 logger = get_logger("skuel.routes.ku.ui")
 
 
-def _sel_sidebar_items() -> list[SidebarItem]:
-    """Build sidebar items from SEL categories — anchor links within the page."""
-    items = [
-        SidebarItem(label="All", href="/ku", slug="all"),
-    ]
-    items.extend(
-        SidebarItem(
-            label=f"{cat.get_icon()} {cat.name.replace('_', ' ').title()}",
-            href=f"#sel-{cat.value}",
-            slug=cat.value,
-        )
-        for cat in SELCategory
-    )
-    return items
-
-
-def _render_ku_item(ku) -> Any:
-    """Render a single Ku as a compact list item."""
+def _render_ku_row(ku: Any, pinned_uids: set[str]) -> Any:
+    """Render a single Ku as a list row with pin button and badges."""
     title = getattr(ku, "title", "Untitled")
     description = getattr(ku, "description", None)
     ku_category = getattr(ku, "ku_category", None)
+    sel_category = getattr(ku, "sel_category", None)
     uid = getattr(ku, "uid", "")
+    is_pinned = uid in pinned_uids
 
-    badge = (
-        Span(
-            ku_category,
-            cls="badge badge-sm badge-outline ml-2",
+    # Truncate description
+    desc_text = None
+    if description:
+        desc_text = description[:150] + "..." if len(description) > 150 else description
+
+    # Category badges
+    badges: list[Any] = []
+    if ku_category:
+        badges.append(
+            Span(
+                ku_category,
+                cls="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-muted text-muted-foreground",
+            )
         )
-        if ku_category
-        else None
-    )
+    if sel_category:
+        sel_label = sel_category if isinstance(sel_category, str) else getattr(sel_category, "value", str(sel_category))
+        badges.append(
+            Span(
+                sel_label.replace("_", " ").title(),
+                cls="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-primary/10 text-primary",
+            )
+        )
 
     return Li(
         Div(
             Div(
-                Anchor(
-                    title,
-                    href=f"/lesson/{uid}",
-                    cls="font-medium link link-hover",
+                Div(
+                    Anchor(
+                        title,
+                        href=f"/ku/detail?uid={uid}",
+                        cls="font-medium text-foreground hover:text-primary transition-colors",
+                    ),
+                    *badges,
+                    cls="flex items-center gap-2 flex-wrap",
                 ),
-                badge,
-                cls="flex items-center gap-1",
-            )
-            if badge
-            else Anchor(
-                title,
-                href=f"/lesson/{uid}",
-                cls="font-medium link link-hover",
+                P(desc_text, cls="text-sm text-muted-foreground mt-1") if desc_text else None,
+                cls="flex-1 min-w-0",
             ),
-            P(description, cls="text-sm text-base-content/60 mt-0.5") if description else None,
-            cls="py-2",
+            PinButton(entity_uid=uid, is_pinned=is_pinned),
+            cls="flex items-center gap-3",
         ),
-        cls="border-b border-base-200 last:border-0",
+        cls="py-3 border-b border-border last:border-0",
     )
 
 
-def _render_sel_section(category: SELCategory, kus: list) -> Any:
-    """Render one SEL category heading + its Ku list."""
-    return Div(
-        H2(
-            Span(category.get_icon(), cls="mr-2"),
-            category.name.replace("_", " ").title(),
-            cls="text-xl font-bold mb-1",
-            id=f"sel-{category.value}",
-        ),
-        P(category.get_description(), cls="text-sm text-base-content/60 mb-3"),
-        Ul(
-            *[_render_ku_item(ku) for ku in kus],
-            cls="list-none p-0",
+def _build_sidebar_items(
+    pinned_kus: list[Any],
+    latest_kus: list[Any],
+) -> tuple[list[SidebarItem], list[Any]]:
+    """Build sidebar items: Bookmarks section + Latest section."""
+    items: list[SidebarItem] = [
+        SidebarItem(label="All Knowledge", href="/ku", slug="all"),
+    ]
+
+    # Extra sidebar sections for bookmarks and latest
+    from fasthtml.common import H4
+
+    extra_sections: list[Any] = []
+
+    # Bookmarks section
+    if pinned_kus:
+        bookmark_links = [
+            Li(
+                Anchor(
+                    getattr(ku, "title", "Untitled"),
+                    href=f"/ku/detail?uid={getattr(ku, 'uid', '')}",
+                    cls="text-sm text-muted-foreground hover:text-foreground transition-colors block py-1 px-3",
+                ),
+            )
+            for ku in pinned_kus[:10]
+        ]
+        extra_sections.append(
+            Li(
+                H4("Bookmarked", cls="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-3 py-2"),
+                Ul(*bookmark_links, cls="list-none p-0"),
+                cls="mt-1",
+            )
         )
-        if kus
-        else P("No knowledge units yet", cls="text-sm text-base-content/40 italic"),
-        cls="mb-8",
-    )
+    else:
+        extra_sections.append(
+            Li(
+                H4("Bookmarked", cls="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-3 py-2"),
+                P("No bookmarks yet", cls="text-xs text-muted-foreground/60 italic px-3 py-1"),
+                cls="mt-1",
+            )
+        )
+
+    # Latest section
+    if latest_kus:
+        latest_links = [
+            Li(
+                Anchor(
+                    getattr(ku, "title", "Untitled"),
+                    href=f"/ku/detail?uid={getattr(ku, 'uid', '')}",
+                    cls="text-sm text-muted-foreground hover:text-foreground transition-colors block py-1 px-3",
+                ),
+            )
+            for ku in latest_kus[:5]
+        ]
+        extra_sections.append(
+            Li(
+                Li(cls="border-t border-border my-2"),
+                H4("Latest", cls="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-3 py-2"),
+                Ul(*latest_links, cls="list-none p-0"),
+            )
+        )
+
+    return items, extra_sections
 
 
-def _render_uncategorized_section(kus: list) -> Any:
-    """Render Kus that have no sel_category."""
-    if not kus:
-        return None
-    return Div(
-        H2(
-            "Other",
-            cls="text-xl font-bold mb-1",
-            id="sel-other",
-        ),
-        P(
-            "Knowledge units not yet assigned to an SEL competency",
-            cls="text-sm text-base-content/60 mb-3",
-        ),
-        Ul(
-            *[_render_ku_item(ku) for ku in kus],
-            cls="list-none p-0",
-        ),
-        cls="mb-8",
-    )
-
-
-def create_ku_ui_routes(_app, rt, ku_service):
+def create_ku_ui_routes(_app, rt, ku_service, user_relationship_service=None):
     """
     Create /ku UI routes using KuService.
 
     Args:
         ku_service: The actual KuService (services.ku), NOT LessonService.
+        user_relationship_service: UserRelationshipService for pinned Kus.
     """
 
     logger.info("Ku UI routes registered (/ku index)")
 
     @rt("/ku")
     async def ku_index(request) -> Any:
-        """Main Ku index — single-scroll page organized by SEL category."""
+        """Main Ku index — flat listing with bookmarks/latest sidebar."""
+        from adapters.inbound.auth import is_authenticated, require_authenticated_user
         from ui.patterns.page_header import PageHeader
 
-        # Fetch all Kus in one call
-        kus = []
+        # Fetch all Kus
+        kus: list[Any] = []
         if ku_service and getattr(ku_service, "core", None):
             result = await ku_service.core.list(limit=500)
             if not result.is_error and result.value:
                 entities, _count = result.value
                 kus = entities
 
-        # Group by sel_category
-        grouped: dict[SELCategory | None, list] = {cat: [] for cat in SELCategory}
-        grouped[None] = []
-        for ku in kus:
-            cat = getattr(ku, "sel_category", None)
-            if cat in grouped:
-                grouped[cat].append(ku)
-            else:
-                grouped[None].append(ku)
+        # Fetch pinned entity UIDs for the current user
+        pinned_uids: set[str] = set()
+        pinned_kus: list[Any] = []
+        if user_relationship_service and is_authenticated(request):
+            user_uid = require_authenticated_user(request)
+            pins_result = await user_relationship_service.get_pinned_entities(user_uid)
+            if not pins_result.is_error and pins_result.value:
+                pinned_uids = set(pins_result.value)
 
-        # Build sections
-        sections = [_render_sel_section(cat, grouped[cat]) for cat in SELCategory]
+        # Build pinned Kus list (matching pinned UIDs to Ku objects)
+        ku_by_uid = {getattr(ku, "uid", ""): ku for ku in kus}
+        pinned_kus = [ku_by_uid[uid] for uid in pinned_uids if uid in ku_by_uid]
 
-        uncategorized = _render_uncategorized_section(grouped[None])
-        if uncategorized:
-            sections.append(uncategorized)
+        # Latest Kus (first 5 from the list — already sorted by created_at desc from service)
+        latest_kus = kus[:5]
+
+        # Build sidebar
+        sidebar_items, extra_sections = _build_sidebar_items(pinned_kus, latest_kus)
+
+        # Build main content — flat listing
+        if kus:
+            ku_list = Ul(
+                *[_render_ku_row(ku, pinned_uids) for ku in kus],
+                cls="list-none p-0",
+            )
+        else:
+            ku_list = Div(
+                P(
+                    "No knowledge units yet. Ingest Ku YAML files to populate this page.",
+                    cls="text-muted-foreground italic py-8 text-center",
+                ),
+            )
 
         content = Div(
             PageHeader(
                 "Knowledge",
-                subtitle="Atomic concepts organized by SEL competency",
+                subtitle="Atomic knowledge units",
             ),
-            *sections,
+            ku_list,
         )
 
         return await SidebarPage(
             content=content,
-            items=_sel_sidebar_items(),
+            items=sidebar_items,
             active="all",
             title="Knowledge",
-            subtitle="SEL Competencies",
+            subtitle="Bookmarks & Latest",
             storage_key="ku-sidebar",
+            extra_sidebar_sections=extra_sections,
             page_title="Knowledge",
             request=request,
             active_page="knowledge",

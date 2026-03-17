@@ -1,0 +1,24 @@
+# Ku: Mind Wandering
+# ==================
+# The natural tendency of attention to drift from its intended focus.
+
+version: 1.0
+type: Ku
+
+uid: ku:mindfulness:mind-wandering
+title: Mind Wandering
+namespace: mindfulness
+ku_category: state
+aliases:
+  - distraction
+  - drifting attention
+  - thought chasing
+  - default mode
+source: research
+sel_category: self_awareness
+description: The natural tendency of attention to drift from its intended focus. Mind wandering is not a failure — it is the default mode of the brain. In mindfulness practice, noticing that the mind has wandered is itself the moment of awareness being trained.
+tags:
+  - mindfulness
+  - attention
+  - awareness
+  - meta-cognition

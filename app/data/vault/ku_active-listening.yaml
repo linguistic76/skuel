@@ -1,0 +1,23 @@
+# Ku: Active Listening
+# ====================
+# Fully concentrating on what is being said rather than passively hearing.
+
+version: 1.0
+type: Ku
+
+uid: ku:sel:active-listening
+title: Active Listening
+namespace: sel
+ku_category: practice
+aliases:
+  - attentive listening
+  - deep listening
+  - reflective listening
+source: sel_framework
+sel_category: relationship_skills
+description: Active listening is the practice of fully concentrating on what is being said rather than passively hearing. It involves reflecting back, asking clarifying questions, and withholding judgment.
+tags:
+  - sel
+  - relationship-skills
+  - listening
+  - communication

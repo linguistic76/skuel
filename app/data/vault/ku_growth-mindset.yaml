@@ -1,0 +1,23 @@
+# Ku: Growth Mindset
+# ==================
+# The belief that abilities can be developed through effort, strategy, and feedback.
+
+version: 1.0
+type: Ku
+
+uid: ku:sel:growth-mindset
+title: Growth Mindset
+namespace: sel
+ku_category: concept
+aliases:
+  - incremental theory
+  - learning orientation
+  - malleability belief
+source: research
+sel_category: self_awareness
+description: The belief that abilities can be developed through effort, strategy, and feedback. A growth mindset reframes failure as information rather than identity — "I haven't learned this yet" rather than "I can't do this."
+tags:
+  - sel
+  - self-awareness
+  - mindset
+  - learning

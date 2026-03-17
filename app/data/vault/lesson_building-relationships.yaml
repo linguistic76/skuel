@@ -1,0 +1,112 @@
+version: 1.0
+type: Lesson
+
+uid: l:sel:building-relationships
+title: Building Relationships — Listening, Boundaries, and Teamwork
+sel_category: relationship_skills
+learning_level: beginner
+complexity: basic
+domain: personal
+estimated_time_minutes: 15
+
+content: |
+  ## Relationships Are Skills
+
+  Good relationships are not luck. They're not just chemistry or compatibility. They are skills — learnable, practicable, improvable.
+
+  The four relationship skills that matter most:
+  1. Listening actively
+  2. Setting boundaries
+  3. Resolving conflict
+  4. Working as a team
+
+  ## Active Listening
+
+  Most people don't listen. They wait for their turn to talk.
+
+  Active listening is different. It means giving your full attention to what someone is saying — not just their words, but their tone, body language, and what they're *not* saying.
+
+  Three rules of active listening:
+
+  **1. Be present.** Put your phone away. Make eye contact. Stop forming your response while they're still talking.
+
+  **2. Reflect back.** Paraphrase what you heard: "So what you're saying is..." This isn't parroting — it's proving you understood.
+
+  **3. Ask, don't assume.** When something is unclear, ask. "What did you mean by that?" is better than filling in the blanks with your own assumptions.
+
+  The test of good listening: could you summarize the other person's point to their satisfaction, even if you disagree with it?
+
+  ## Boundary Setting
+
+  Boundaries are not walls. They're clear signals about what you will and won't accept.
+
+  Without boundaries:
+  - You overcommit and resent it
+  - People take advantage (often without realizing)
+  - You lose track of your own needs
+
+  A boundary has three parts:
+  - **What** you need: "I need uninterrupted time to study in the evenings"
+  - **Why** it matters: "Because I can't focus if I'm constantly responding to messages"
+  - **What happens** if it's crossed: "I'm going to put my phone in another room from 7-9pm"
+
+  The hardest part of boundary setting is that some people won't like it. That's normal. A boundary that everyone is comfortable with probably isn't protecting anything.
+
+  ## Conflict Resolution
+
+  Conflict is normal. Unresolved conflict is the problem.
+
+  The goal of conflict resolution is not winning. It's finding a solution that both people can live with — or at minimum, understanding each other's position clearly enough to disagree respectfully.
+
+  A simple conflict resolution framework:
+
+  1. **Cool down first.** Never try to resolve a conflict when you're at peak emotion. Take a walk. Sleep on it. Come back when you can think clearly.
+  2. **State your experience, not their character.** "I felt ignored when you looked at your phone while I was talking" (experience) vs. "You never listen to me" (character attack).
+  3. **Listen to their side.** Use active listening. You might be missing context.
+  4. **Find the overlap.** What do you both want? Usually there's more common ground than you think.
+  5. **Agree on something specific.** Vague resolutions ("We'll try harder") fail. Specific ones ("We'll put phones away during dinner") stick.
+
+  ## Teamwork
+
+  Teamwork is not agreeing on everything. It's contributing to a shared goal while supporting other people's contributions.
+
+  Good teammates:
+  - Do what they said they would do
+  - Speak up when they disagree, but commit once a decision is made
+  - Help others succeed, not just themselves
+  - Adapt their style to what the team needs, not just what they prefer
+
+  The hardest part of teamwork: subordinating your individual preference for the collective outcome without losing your voice entirely. That's a balance, not a formula.
+
+  ## Practice
+
+  Choose one this week:
+
+  1. **Listen fully** in one conversation today. No phone. No planning your response. Just listen, then reflect back what you heard.
+  2. **Set one boundary.** Start small — it could be "I'm not checking work messages after 8pm tonight."
+  3. **Repair one thing.** Is there a small, unresolved tension with someone? Address it using the conflict framework above.
+
+  ## What's Next
+
+  You can now manage yourself and relate to others. The final SEL competency pulls it all together: making responsible decisions.
+
+uses_kus:
+  - ku:sel:active-listening
+  - ku:sel:conflict-resolution
+  - ku:sel:teamwork
+  - ku:sel:boundary-setting
+
+connections:
+  requires:
+    - l:sel:understanding-others
+  enables:
+    - l:sel:making-good-decisions
+
+tags:
+  - sel
+  - relationship-skills
+  - listening
+  - boundaries
+  - conflict
+  - teamwork
+  - beginner

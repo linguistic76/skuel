@@ -1,0 +1,23 @@
+# Ku: Stress Management
+# ======================
+# Recognizing stress signals and applying strategies to stay functional under pressure.
+
+version: 1.0
+type: Ku
+
+uid: ku:sel:stress-management
+title: Stress Management
+namespace: sel
+ku_category: practice
+aliases:
+  - coping strategies
+  - stress regulation
+  - pressure management
+source: sel_framework
+sel_category: self_management
+description: Recognizing stress signals and applying strategies to stay functional under pressure. Effective stress management starts with noticing early signs — tight shoulders, racing thoughts, shallow breathing — before they escalate into overwhelm.
+tags:
+  - sel
+  - self-management
+  - stress
+  - coping

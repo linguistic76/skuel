@@ -1,0 +1,21 @@
+# Ku: Buzzing
+# ===========
+# An observable state of mental restlessness and scattered attention.
+
+version: 1.0
+type: Ku
+
+uid: ku:attention:buzzing
+title: Buzzing
+namespace: attention
+ku_category: state
+aliases:
+  - restlessness
+  - mental agitation
+  - scattered mind
+source: self_observation
+description: A state of heightened mental activity where attention jumps rapidly between stimuli, often felt as inner restlessness.
+tags:
+  - attention
+  - state
+  - awareness

@@ -1,0 +1,23 @@
+# Ku: Self-Worth
+# ==============
+# Understanding your inherent value independent of achievements or external validation.
+
+version: 1.0
+type: Ku
+
+uid: ku:sel:self-worth
+title: Self-Worth
+namespace: sel
+ku_category: concept
+aliases:
+  - self-esteem
+  - intrinsic value
+  - self-regard
+source: sel_framework
+sel_category: self_awareness
+description: Understanding your inherent value independent of achievements or external validation. Self-worth is not earned through performance — it exists as a baseline. Confusing self-worth with achievement leads to fragile confidence that collapses under failure.
+tags:
+  - sel
+  - self-awareness
+  - identity
+  - confidence

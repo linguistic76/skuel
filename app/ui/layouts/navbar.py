@@ -46,11 +46,15 @@ def _icon_nav_link(item: IconNavItem, active_page: str) -> Any:
     active_cls = "bg-primary/20 text-primary ring-1 ring-primary/30"
     inactive_cls = "bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground"
 
+    # Emoji letters (multi-char) render larger without font-semibold text-sm
+    is_emoji = len(item.letter) > 1 or not item.letter.isascii()
+    text_cls = "text-base" if is_emoji else "font-semibold text-sm"
+
     return A(
         Span(item.label, cls="sr-only"),
         Div(
             item.letter,
-            cls=f"size-8 rounded-full flex items-center justify-center font-semibold text-sm "
+            cls=f"size-8 rounded-full flex items-center justify-center {text_cls} "
             f"{active_cls if is_active else inactive_cls}",
             aria_hidden="true",
         ),

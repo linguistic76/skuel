@@ -1,0 +1,23 @@
+# Ku: Compassion
+# ===============
+# The motivation to act on empathy — moving from understanding suffering to alleviating it.
+
+version: 1.0
+type: Ku
+
+uid: ku:sel:compassion
+title: Compassion
+namespace: sel
+ku_category: value
+aliases:
+  - caring
+  - kindness in action
+  - compassionate response
+source: sel_framework
+sel_category: social_awareness
+description: The motivation to act on empathy — moving from understanding suffering to alleviating it. Empathy says "I see your pain." Compassion says "I see your pain and I want to help." The difference is action.
+tags:
+  - sel
+  - social-awareness
+  - compassion
+  - values

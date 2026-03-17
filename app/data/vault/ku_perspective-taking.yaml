@@ -1,0 +1,22 @@
+# Ku: Perspective Taking
+# ======================
+# The cognitive ability to see a situation from another person's point of view.
+
+version: 1.0
+type: Ku
+
+uid: ku:sel:perspective-taking
+title: Perspective Taking
+namespace: sel
+ku_category: concept
+aliases:
+  - point of view
+  - seeing others' viewpoints
+  - cognitive empathy
+source: sel_framework
+sel_category: social_awareness
+description: Perspective taking is the cognitive ability to see a situation from another person's point of view. Unlike empathy (feeling with), perspective taking is understanding how someone else thinks and why.
+tags:
+  - sel
+  - social-awareness
+  - perspective

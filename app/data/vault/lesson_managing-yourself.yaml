@@ -1,0 +1,103 @@
+version: 1.0
+type: Lesson
+
+uid: l:sel:managing-yourself
+title: Managing Yourself — Goals, Habits, and Impulse Control
+sel_category: self_management
+learning_level: beginner
+complexity: basic
+domain: personal
+estimated_time_minutes: 15
+
+content: |
+  ## From Awareness to Action
+
+  Self-awareness tells you what's happening inside. Self-management is what you *do* about it.
+
+  Self-management is not about suppressing emotions or forcing yourself through willpower. It's about building systems — goals, habits, and pauses — that keep you moving in the direction you actually want to go.
+
+  ## Goal Setting
+
+  A goal converts vague intention into specific action.
+
+  Compare:
+  - Vague: "I want to be healthier"
+  - Specific: "I will walk for 15 minutes after dinner every weekday this month"
+
+  The specific version answers three questions:
+  1. **What** exactly will I do? (Walk for 15 minutes)
+  2. **When** will I do it? (After dinner, weekdays)
+  3. **How long** am I committing? (This month)
+
+  Start with one goal. One. Not five. The most common mistake in self-management is overcommitting and then feeling like a failure when you can't keep up.
+
+  ## Building Habits
+
+  Goals tell you where to go. Habits get you there without draining your willpower every day.
+
+  A habit has three parts:
+  - **Cue** — what triggers the behavior (after dinner, when my alarm rings, when I sit at my desk)
+  - **Routine** — the behavior itself (walk, stretch, write one paragraph)
+  - **Reward** — what makes your brain want to repeat it (fresh air, feeling of accomplishment, checking a box)
+
+  The secret: make it so small it's almost embarrassing. "Do one push-up" is better than "exercise for 30 minutes" because one push-up actually happens. Once the habit loop is wired, you can gradually increase the routine.
+
+  ## Impulse Control
+
+  Between stimulus and response, there is a space. In that space lies your freedom.
+
+  Impulse control is not about never feeling urges. It's about creating a **pause** between the urge and the action.
+
+  The STOP technique:
+  - **S**top — freeze physically
+  - **T**ake a breath — one slow, deep breath
+  - **O**bserve — what am I feeling? what do I want to do? what will happen if I do it?
+  - **P**roceed — choose deliberately
+
+  This takes about 10 seconds. Those 10 seconds are the difference between reacting and responding.
+
+  ## Stress as a Signal
+
+  Stress is not the enemy. Chronic, unmanaged stress is.
+
+  Early warning signs: tight shoulders, clenched jaw, shallow breathing, racing thoughts, snapping at people.
+
+  When you notice these signals, you have options:
+  - **Physical:** Move your body, drink water, step outside
+  - **Mental:** Name the stressor, write it down, break it into smaller pieces
+  - **Social:** Talk to someone, ask for help, set a boundary
+
+  The key is catching it early. A 5-minute walk when you first feel tension is more effective than an hour of recovery after you've melted down.
+
+  ## Practice
+
+  Choose ONE of these to try this week:
+
+  1. Set one small, specific goal with a clear deadline
+  2. Attach a tiny habit to something you already do daily (e.g., "After I brush my teeth, I will write one sentence in my journal")
+  3. Practice STOP once today when you feel an impulse (even a small one like reaching for your phone)
+
+  ## What's Next
+
+  Managing yourself is the inward work. Next comes the outward turn — understanding other people through social awareness.
+
+uses_kus:
+  - ku:sel:goal-setting
+  - ku:sel:habits
+  - ku:sel:impulse-control
+  - ku:sel:stress-management
+
+connections:
+  requires:
+    - l:sel:knowing-yourself
+  enables:
+    - l:sel:understanding-others
+
+tags:
+  - sel
+  - self-management
+  - goals
+  - habits
+  - impulse-control
+  - stress
+  - beginner

@@ -1,0 +1,23 @@
+# Ku: Identifying Problems
+# =========================
+# Recognizing that a situation needs a decision before jumping to solutions.
+
+version: 1.0
+type: Ku
+
+uid: ku:sel:identifying-problems
+title: Identifying Problems
+namespace: sel
+ku_category: concept
+aliases:
+  - problem recognition
+  - situation assessment
+  - defining the issue
+source: sel_framework
+sel_category: responsible_decision_making
+description: Recognizing that a situation needs a decision before jumping to solutions. Many poor decisions happen because the wrong problem was solved. Identifying the real problem — not just the symptom — is the first step in responsible decision-making.
+tags:
+  - sel
+  - decision-making
+  - problem-solving
+  - analysis

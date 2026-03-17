@@ -1,0 +1,23 @@
+# Ku: Cultural Awareness
+# =======================
+# Recognizing how culture shapes values, beliefs, and behavior — in yourself and others.
+
+version: 1.0
+type: Ku
+
+uid: ku:sel:cultural-awareness
+title: Cultural Awareness
+namespace: sel
+ku_category: concept
+aliases:
+  - cultural sensitivity
+  - cultural competence
+  - diversity awareness
+source: sel_framework
+sel_category: social_awareness
+description: Recognizing how culture shapes values, beliefs, and behavior — in yourself and others. Cultural awareness means noticing your own cultural lens before judging someone else's actions through it.
+tags:
+  - sel
+  - social-awareness
+  - culture
+  - diversity

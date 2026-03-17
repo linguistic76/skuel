@@ -1,0 +1,89 @@
+version: 1.0
+type: Lesson
+
+uid: l:sel:knowing-yourself
+title: Knowing Yourself — Emotions, Strengths, and Growth
+sel_category: self_awareness
+learning_level: beginner
+complexity: basic
+domain: personal
+estimated_time_minutes: 15
+
+content: |
+  ## Why Self-Awareness?
+
+  Self-awareness is the foundation of everything else in social-emotional learning. Before you can manage your emotions, empathize with others, or make good decisions, you have to *know what's happening inside you*.
+
+  Self-awareness isn't navel-gazing. It's practical. It answers three questions:
+
+  1. What am I feeling right now?
+  2. What am I good at?
+  3. Can I get better?
+
+  ## Recognizing Emotions
+
+  Emotions are internal signals. They're not good or bad — they're information.
+
+  The five basic emotions:
+  - **Joy** — something is going well
+  - **Sadness** — something has been lost or is missing
+  - **Anger** — a boundary has been crossed
+  - **Fear** — something feels threatening
+  - **Surprise** — something unexpected happened
+
+  Most of the time, you feel blends of these. "Frustration" is often anger + sadness. "Anxiety" is often fear + surprise. The goal isn't to categorize perfectly — it's to notice at all.
+
+  **The naming trick:** When you can name an emotion, its intensity drops. Brain imaging studies show that putting a label on a feeling reduces activity in the amygdala (your brain's alarm system). Naming isn't suppressing — it's understanding.
+
+  ## Identifying Your Strengths
+
+  Everyone has things they're naturally good at. Strengths aren't just talents — they're patterns of thinking, feeling, and behaving that feel energizing rather than draining.
+
+  Ask yourself:
+  - What activities make me lose track of time?
+  - What do people come to me for help with?
+  - What comes easily to me that seems hard for others?
+
+  Knowing your strengths matters because it tells you where to invest your effort. You don't have to be good at everything — you have to know where you shine.
+
+  ## Growth Mindset
+
+  Here's the critical piece: your abilities are not fixed.
+
+  A **fixed mindset** says: "I'm bad at math. That's just who I am."
+  A **growth mindset** says: "I'm struggling with math right now. I haven't learned this yet."
+
+  The difference is one word: *yet*.
+
+  Growth mindset doesn't mean everything is easy or that effort alone is enough. It means that struggle is information, not identity. When something is hard, that's the feeling of your brain building new connections.
+
+  ## Practice
+
+  Try this today — set three phone alarms at random times. When each alarm goes off:
+
+  1. **Name** your current emotion (use the five basics if you need a starting point)
+  2. **Notice** one strength you used in the last hour (even small ones: patience, humor, organization)
+  3. **Reframe** one struggle as a "not yet" statement
+
+  ## What's Next
+
+  Once you can notice what's happening inside you, the next step is learning to manage it — that's self-management.
+
+uses_kus:
+  - ku:sel:emotions
+  - ku:sel:emotional-triggers
+  - ku:sel:self-worth
+  - ku:sel:growth-mindset
+
+connections:
+  requires: []
+  enables:
+    - l:sel:managing-yourself
+
+tags:
+  - sel
+  - self-awareness
+  - emotions
+  - strengths
+  - growth-mindset
+  - beginner
