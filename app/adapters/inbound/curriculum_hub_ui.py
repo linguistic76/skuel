@@ -51,9 +51,9 @@ def create_curriculum_hub_ui_routes(
         lesson_service = services.lesson
         items: list[Any] = []
         if lesson_service:
-            result = await lesson_service.core.list_entities(limit=50)
+            result = await lesson_service.core.list(limit=50)
             if not result.is_error:
-                items = result.value
+                items = result.value if isinstance(result.value, list) else result.value[0]
 
         content = Div(
             PageHeader("Lessons", subtitle="Units for learning that compose atomic knowledge"),
@@ -75,9 +75,9 @@ def create_curriculum_hub_ui_routes(
         ls_service = services.ls
         items: list[Any] = []
         if ls_service:
-            result = await ls_service.core.list_entities(limit=50)
+            result = await ls_service.core.list(limit=50)
             if not result.is_error:
-                items = result.value
+                items = result.value if isinstance(result.value, list) else result.value[0]
 
         content = Div(
             PageHeader("Learning Steps", subtitle="Collections of lessons grouped by theme"),
@@ -99,9 +99,9 @@ def create_curriculum_hub_ui_routes(
         lp_service = services.lp
         items: list[Any] = []
         if lp_service:
-            result = await lp_service.core.list_entities(limit=50)
+            result = await lp_service.core.list(limit=50)
             if not result.is_error:
-                items = result.value
+                items = result.value if isinstance(result.value, list) else result.value[0]
 
         content = Div(
             PageHeader("Learning Paths", subtitle="Ordered sequences of learning step collections"),
