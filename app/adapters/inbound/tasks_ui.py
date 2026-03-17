@@ -28,6 +28,7 @@ from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
+from adapters.inbound.form_helpers import safe_form_string
 from adapters.inbound.route_factories import (
     QuickAddConfig,
     QuickAddRouteFactory,
@@ -100,11 +101,11 @@ def parse_filters(request: Request) -> Filters:
 
 def parse_task_create_request(form_data: dict[str, Any]) -> TaskCreateRequest:
     """Parse form data into a TaskCreateRequest. Pure function, no side effects."""
-    title = form_data.get("title", "").strip()
-    description = form_data.get("description", "").strip() or None
-    project = form_data.get("project", "").strip() or None
-    assignee = form_data.get("assignee", "").strip() or None
-    parent_uid = form_data.get("parent_uid", "").strip() or None
+    title = safe_form_string(form_data.get("title"))
+    description = safe_form_string(form_data.get("description")) or None
+    project = safe_form_string(form_data.get("project")) or None
+    assignee = safe_form_string(form_data.get("assignee")) or None
+    parent_uid = safe_form_string(form_data.get("parent_uid")) or None
 
     # Parse priority
     try:
@@ -153,12 +154,12 @@ def parse_task_update_payload(form: Any) -> dict[str, Any]:
     updates: dict[str, Any] = {}
 
     # Title (required)
-    title = form.get("title", "").strip()
+    title = safe_form_string(form.get("title"))
     if title:
         updates["title"] = title
 
     # Description (can be cleared)
-    description = form.get("description", "").strip()
+    description = safe_form_string(form.get("description"))
     updates["description"] = description if description else None
 
     # Parse dates (can be cleared)
@@ -197,11 +198,11 @@ def parse_task_update_payload(form: Any) -> dict[str, Any]:
             updates["status"] = EntityStatus(status_str)
 
     # Project (can be cleared)
-    project = form.get("project", "").strip()
+    project = safe_form_string(form.get("project"))
     updates["project"] = project if project else None
 
     # Tags (comma-separated to list)
-    tags_str = form.get("tags", "").strip()
+    tags_str = safe_form_string(form.get("tags"))
     if tags_str:
         updates["tags"] = [t.strip() for t in tags_str.split(",") if t.strip()]
     else:

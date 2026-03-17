@@ -21,6 +21,7 @@ from fasthtml.common import H1, H2, Div, Form, Option, P, Span
 from starlette.requests import Request
 
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.form_helpers import safe_form_string
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonT
 from ui.cards import Card
@@ -381,7 +382,7 @@ def create_askesis_ui_routes(_app, rt, _askesis_service):
         user_uid = require_authenticated_user(request)
 
         form_data = await request.form()
-        message = str(form_data.get("message", "")).strip()
+        message = safe_form_string(form_data.get("message"))
 
         user_name = user_uid.replace("user_", "").title()
 

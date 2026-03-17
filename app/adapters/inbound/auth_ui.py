@@ -36,7 +36,7 @@ from adapters.inbound.auth import (
     is_authenticated,
     set_current_user,
 )
-from adapters.inbound.form_helpers import safe_form_string
+from adapters.inbound.form_helpers import safe_form_bool, safe_form_string
 from core.models.auth import (
     ForgotPasswordRequest,
     LoginRequest,
@@ -132,7 +132,7 @@ def create_auth_ui_routes(
                     display_name=safe_form_string(form_data.get("display_name")),
                     password=safe_form_string(form_data.get("password")),
                     confirm_password=safe_form_string(form_data.get("confirm_password")),
-                    accept_terms=bool(form_data.get("accept_terms")),
+                    accept_terms=safe_form_bool(form_data.get("accept_terms")),
                 )
             except ValidationError as e:
                 error_msg = _first_validation_error(e)

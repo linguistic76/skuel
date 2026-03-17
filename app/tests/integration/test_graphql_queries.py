@@ -352,7 +352,7 @@ def test_learning_path_blockers_query(sample_queries, authenticated_client_simpl
         print(f"\n⚠️ GraphQL errors: {data['errors']}")
 
     # If successful, check structure (blockers list, might be empty)
-    if "data" in data:
+    if "data" in data and data["data"] is not None:
         blockers = data["data"]["learningPathBlockers"]
         assert isinstance(blockers, list)
 

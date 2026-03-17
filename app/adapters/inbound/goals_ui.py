@@ -25,6 +25,7 @@ from fasthtml.common import H1, H2, H3, Div, P, Script, Span
 from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.form_helpers import safe_form_string
 from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
 from adapters.inbound.ui_helpers import (
     parse_calendar_params,
@@ -446,10 +447,10 @@ def parse_filters(request) -> Filters:
 
 def parse_goal_create_request(form_data: dict[str, Any]) -> GoalCreateRequest:
     """Parse form data into a GoalCreateRequest. Pure function, no side effects."""
-    title = form_data.get("title", "").strip()
-    description = form_data.get("description", "").strip() or None
-    why_important = form_data.get("why_important", "").strip() or None
-    domain = form_data.get("domain", "").strip() or "personal"
+    title = safe_form_string(form_data.get("title"))
+    description = safe_form_string(form_data.get("description")) or None
+    why_important = safe_form_string(form_data.get("why_important")) or None
+    domain = safe_form_string(form_data.get("domain")) or "personal"
     timeframe = form_data.get("timeframe", "quarterly")
     priority_str = form_data.get("priority", "medium")
     target_date_str = form_data.get("target_date", "")

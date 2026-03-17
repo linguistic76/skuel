@@ -24,6 +24,7 @@ from fasthtml.common import H1, H2, H3, Div, P, Span
 from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.form_helpers import safe_form_string
 from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
 from adapters.inbound.ui_helpers import (
     parse_calendar_params,
@@ -407,14 +408,14 @@ def parse_filters(request) -> Filters:
 
 def parse_habit_create_request(form_data: dict[str, Any]) -> HabitCreateRequest:
     """Parse form data into a HabitCreateRequest. Pure function, no side effects."""
-    name = form_data.get("name", "").strip()
-    description = form_data.get("description", "").strip() or None
-    category_str = form_data.get("category", "other")
-    frequency_str = form_data.get("frequency", "daily")
-    target_days = form_data.get("target_days_per_week", "7")
-    cue = form_data.get("cue", "").strip() or None
-    routine = form_data.get("routine", "").strip() or None
-    reward = form_data.get("reward", "").strip() or None
+    name = safe_form_string(form_data.get("name"))
+    description = safe_form_string(form_data.get("description")) or None
+    category_str = safe_form_string(form_data.get("category")) or "other"
+    frequency_str = safe_form_string(form_data.get("frequency")) or "daily"
+    target_days = safe_form_string(form_data.get("target_days_per_week")) or "7"
+    cue = safe_form_string(form_data.get("cue")) or None
+    routine = safe_form_string(form_data.get("routine")) or None
+    reward = safe_form_string(form_data.get("reward")) or None
 
     try:
         target_days_int = int(target_days)
@@ -1209,11 +1210,11 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
 
         # Prepare update data
         updates = {
-            "name": form_data.get("name", "").strip(),
-            "description": form_data.get("description", "").strip(),
-            "cue": form_data.get("cue", "").strip(),
-            "routine": form_data.get("routine", "").strip(),
-            "reward": form_data.get("reward", "").strip(),
+            "name": safe_form_string(form_data.get("name")),
+            "description": safe_form_string(form_data.get("description")),
+            "cue": safe_form_string(form_data.get("cue")),
+            "routine": safe_form_string(form_data.get("routine")),
+            "reward": safe_form_string(form_data.get("reward")),
             "status": form_data.get("status", "active"),
         }
 

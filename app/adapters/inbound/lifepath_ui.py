@@ -25,6 +25,7 @@ from starlette.requests import Request
 from starlette.responses import RedirectResponse
 
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.form_helpers import safe_form_string
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonLink, ButtonT
 from ui.cards import Card
@@ -161,7 +162,7 @@ def create_lifepath_ui_routes(
         user_uid = require_authenticated_user(request)
 
         form = await request.form()
-        vision_statement = str(form.get("vision_statement", "")).strip()
+        vision_statement = safe_form_string(form.get("vision_statement"))
 
         if not vision_statement or len(vision_statement) < 10:
             return _error_page("Please provide a vision statement of at least 10 characters.")
@@ -188,7 +189,7 @@ def create_lifepath_ui_routes(
         user_uid = require_authenticated_user(request)
 
         form = await request.form()
-        life_path_uid = str(form.get("life_path_uid", "")).strip()
+        life_path_uid = safe_form_string(form.get("life_path_uid"))
 
         if not life_path_uid:
             return _error_page("Please select a Learning Path.")

@@ -25,6 +25,7 @@ from fasthtml.common import H1, H2, H3, Div, Form, Option, P, Span
 from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.form_helpers import safe_form_string
 from adapters.inbound.route_factories import (
     QuickAddConfig,
     QuickAddRouteFactory,
@@ -105,8 +106,8 @@ def parse_options_from_form(form: Any) -> list[dict[str, str]]:
         desc_key = f"options[{index}].description"
         if title_key not in form:
             break
-        title = form.get(title_key, "").strip()
-        desc = form.get(desc_key, "").strip()
+        title = safe_form_string(form.get(title_key))
+        desc = safe_form_string(form.get(desc_key))
         if title and desc:
             options.append({"title": title, "description": desc})
         index += 1
@@ -117,11 +118,11 @@ def parse_choice_create_request(
     form_data: dict[str, Any],
 ) -> ChoiceCreateRequest:
     """Parse form data into a ChoiceCreateRequest. Pure function, no side effects."""
-    title = form_data.get("title", "").strip()
-    description = form_data.get("description", "").strip() or None
-    choice_type = form_data.get("choice_type", "binary")
-    domain = form_data.get("domain", "").strip() or "personal"
-    priority = form_data.get("priority", "medium")
+    title = safe_form_string(form_data.get("title"))
+    description = safe_form_string(form_data.get("description")) or None
+    choice_type = safe_form_string(form_data.get("choice_type")) or "binary"
+    domain = safe_form_string(form_data.get("domain")) or "personal"
+    priority = safe_form_string(form_data.get("priority")) or "medium"
     deadline_str = form_data.get("decision_deadline", "")
 
     options = parse_options_from_form(form_data)
@@ -155,10 +156,10 @@ def parse_choice_create_request(
 
 def parse_choice_update_request(form: Any) -> EntityUpdateRequest:
     """Parse edit form into an EntityUpdateRequest. Pure function, no side effects."""
-    title = form.get("title", "").strip()
-    description = form.get("description", "").strip() or None
-    priority_str = form.get("priority", "medium")
-    domain_str = form.get("domain", "personal")
+    title = safe_form_string(form.get("title"))
+    description = safe_form_string(form.get("description")) or None
+    priority_str = safe_form_string(form.get("priority")) or "medium"
+    domain_str = safe_form_string(form.get("domain")) or "personal"
 
     return EntityUpdateRequest(
         title=title if title else None,
@@ -500,7 +501,7 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
 
         form = await request.form()
         selected_option_uid = form.get("selected_option_uid")
-        decision_rationale = form.get("decision_rationale", "").strip() or None
+        decision_rationale = safe_form_string(form.get("decision_rationale")) or None
 
         if not selected_option_uid:
             return Response("Please select an option", status_code=400)
@@ -728,8 +729,8 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
             return error
 
         form = await request.form()
-        title = form.get("title", "").strip()
-        description = form.get("description", "").strip()
+        title = safe_form_string(form.get("title"))
+        description = safe_form_string(form.get("description"))
 
         if not title or not description:
             return Response("Title and description are required", status_code=400)

@@ -25,6 +25,7 @@ from fasthtml.common import H1, H2, Div, Form, Option, P, Span
 from starlette.responses import RedirectResponse, Response
 
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.form_helpers import safe_form_string
 from adapters.inbound.route_factories import (
     QuickAddConfig,
     QuickAddRouteFactory,
@@ -199,10 +200,10 @@ def parse_filters(request) -> Filters:
 
 def parse_event_form_fields(form_data: dict[str, Any]) -> dict[str, Any]:
     """Parse event form data into a dict of typed fields. Pure function, no side effects."""
-    title = form_data.get("title", "").strip()
-    description = form_data.get("description", "").strip() or None
-    event_type = form_data.get("event_type", "").strip() or "meeting"
-    location = form_data.get("location", "").strip() or None
+    title = safe_form_string(form_data.get("title"))
+    description = safe_form_string(form_data.get("description")) or None
+    event_type = safe_form_string(form_data.get("event_type")) or "meeting"
+    location = safe_form_string(form_data.get("location")) or None
     event_date_str = form_data.get("event_date", "")
     start_time_str = form_data.get("start_time", "")
     end_time_str = form_data.get("end_time", "")

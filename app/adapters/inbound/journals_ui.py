@@ -29,6 +29,7 @@ from starlette.requests import Request
 from starlette.responses import FileResponse
 
 from adapters.inbound.auth import make_service_getter, require_admin, require_authenticated_user
+from adapters.inbound.form_helpers import safe_form_string
 from adapters.inbound.boundary import boundary_handler
 from core.models.enums.entity_enums import ProcessorType
 from core.utils.logging import get_logger
@@ -654,7 +655,7 @@ def create_journals_ui_routes(
             user_uid = require_authenticated_user(request)
             file_content = await uploaded_file.read()
             filename = uploaded_file.filename or "unknown"
-            exercise_uid = str(form.get("exercise_uid", "")).strip()
+            exercise_uid = safe_form_string(form.get("exercise_uid"))
 
             if not submissions_core_service:
                 return _render_upload_status(

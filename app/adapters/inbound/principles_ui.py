@@ -27,6 +27,7 @@ from fasthtml.common import H1, H2, H3, Div, P
 from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.form_helpers import safe_form_string
 from adapters.inbound.route_factories import (
     QuickAddConfig,
     QuickAddRouteFactory,
@@ -92,12 +93,12 @@ def parse_filters(request) -> Filters:
 
 def parse_principle_create_params(form_data: dict[str, Any]) -> dict[str, Any]:
     """Parse form data into kwargs for create_principle(). Pure function, no side effects."""
-    title = form_data.get("title", "").strip()
-    description = form_data.get("description", "").strip() or ""
-    statement = form_data.get("statement", "").strip() or title
-    category_str = form_data.get("category", "personal")
-    strength_str = form_data.get("strength", "0.5")
-    is_active = form_data.get("is_active", "") == "true"
+    title = safe_form_string(form_data.get("title"))
+    description = safe_form_string(form_data.get("description"))
+    statement = safe_form_string(form_data.get("statement")) or title
+    category_str = safe_form_string(form_data.get("category")) or "personal"
+    strength_str = safe_form_string(form_data.get("strength")) or "0.5"
+    is_active = safe_form_string(form_data.get("is_active")) == "true"
 
     # Parse category
     try:
@@ -131,11 +132,11 @@ def parse_principle_create_params(form_data: dict[str, Any]) -> dict[str, Any]:
 
 def parse_principle_update_payload(form: Any) -> dict[str, Any]:
     """Parse edit form into an update dict. Pure function, no side effects."""
-    name = form.get("name", "").strip()
-    description = form.get("description", "").strip() or None
-    statement = form.get("statement", "").strip() or None
-    category_str = form.get("category", "personal")
-    is_active = form.get("is_active", "") == "true"
+    name = safe_form_string(form.get("name"))
+    description = safe_form_string(form.get("description")) or None
+    statement = safe_form_string(form.get("statement")) or None
+    category_str = safe_form_string(form.get("category")) or "personal"
+    is_active = safe_form_string(form.get("is_active")) == "true"
 
     return {
         "name": name,
@@ -148,14 +149,14 @@ def parse_principle_update_payload(form: Any) -> dict[str, Any]:
 
 def parse_reflection_params(form: Any) -> dict[str, Any]:
     """Parse reflection form into kwargs for save_reflection(). Pure function, no side effects."""
-    alignment_str = form.get("alignment_level", "partial")
-    reflection_notes = form.get("reflection", "").strip() or None
-    evidence = form.get("evidence", "").strip()
+    alignment_str = safe_form_string(form.get("alignment_level")) or "partial"
+    reflection_notes = safe_form_string(form.get("reflection")) or None
+    evidence = safe_form_string(form.get("evidence"))
 
     # Trigger fields (optional)
-    trigger_type = form.get("trigger_type", "manual").strip() or "manual"
-    trigger_uid = form.get("trigger_uid", "").strip() or None
-    trigger_context = form.get("trigger_context", "").strip() or None
+    trigger_type = safe_form_string(form.get("trigger_type")) or "manual"
+    trigger_uid = safe_form_string(form.get("trigger_uid")) or None
+    trigger_context = safe_form_string(form.get("trigger_context")) or None
 
     # Clear trigger_uid if type is manual (no entity associated)
     if trigger_type == "manual":
