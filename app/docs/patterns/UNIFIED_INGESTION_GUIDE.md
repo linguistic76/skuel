@@ -453,24 +453,27 @@ connections:
 
 ## Entity Configuration
 
-All 14 entity types are supported. Configuration in `config.py`:
+13 entity types are file-ingestible. Configuration in `config.py`:
 
-| Entity Type | Prefix | Required Fields | Example File |
-|-------------|--------|-----------------|--------------|
-| `ku` | `ku.` | title, content | `ku.python-basics.md` |
-| `ls` | `ls.` | title | `ls.learn-variables.yaml` |
-| `lp` | `lp.` | name | `lp.python-journey.yaml` |
-| `moc` | `moc.` | title | `moc.programming.yaml` |
-| `task` | `task.` | title | `task.complete-exercise.yaml` |
-| `goal` | `goal.` | title | `goal.learn-python.yaml` |
-| `habit` | `habit.` | title | `habit.daily-practice.yaml` |
-| `event` | `event.` | title | `event.workshop.yaml` |
-| `choice` | `choice.` | title | `choice.career-path.yaml` |
-| `principle` | `principle.` | name, statement | `principle.consistency.yaml` |
-| `journal` | `journal.` | content | `journal.2026-01-07.yaml` |
-| `assignment` | `assignment.` | title | `assignment.homework.yaml` |
-| `expense` | `expense.` | description, amount | `expense.books.yaml` |
-| `lifepath` | `lifepath.` | user_uid | `lifepath.vision.yaml` |
+| Entity Type | Prefix | Neo4j Labels | Required Fields | Example File |
+|-------------|--------|-------------|-----------------|--------------|
+| `lesson` | `l.` | `:Entity:Lesson` | title, content | `l.intro-python.md` |
+| `ku` | `ku.` | `:Entity:Ku` | title | `ku.python-basics.md` |
+| `ls` | `ls.` | `:Entity:LearningStep` | title | `ls.learn-variables.yaml` |
+| `lp` | `lp.` | `:Entity:LearningPath` | name | `lp.python-journey.yaml` |
+| `task` | `task.` | `:Entity:Task` | title | `task.complete-exercise.yaml` |
+| `goal` | `goal.` | `:Entity:Goal` | title | `goal.learn-python.yaml` |
+| `habit` | `habit.` | `:Entity:Habit` | title | `habit.daily-practice.yaml` |
+| `event` | `event.` | `:Entity:Event` | title | `event.workshop.yaml` |
+| `choice` | `choice.` | `:Entity:Choice` | title | `choice.career-path.yaml` |
+| `principle` | `principle.` | `:Entity:Principle` | name, statement | `principle.consistency.yaml` |
+| `submission` | `report.` | `:Entity:Report` | title | `report.homework.yaml` |
+| `expense` | `expense.` | `:Expense` | description, amount | `expense.books.yaml` |
+| `lifepath` | `lifepath.` | `:Entity:LifePath` | user_uid | `lifepath.vision.yaml` |
+
+**Multi-label architecture:** All domain entities get both `:Entity` (universal base) and a domain-specific label (e.g., `:Task`). This enables cross-domain queries via `:Entity` and fast indexed queries via domain labels. Finance (`Expense`) is the exception — no `:Entity` base label.
+
+**Indexes:** Domain indexes (UID, user_uid, status, date, composite) are created automatically at bootstrap via `Neo4jSchemaManager.sync_domain_indexes()`. See `scripts/indexes.cypher` for the reference list.
 
 ### Entity Type Detection
 

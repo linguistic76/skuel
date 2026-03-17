@@ -1,7 +1,7 @@
 ---
 title: Neo4j Label Standardization Migration Plan
-updated: 2025-11-27
-status: current
+updated: 2026-03-17
+status: superseded
 category: migrations
 tags: [label, migrations, neo4j, standardization]
 related: []
@@ -9,9 +9,11 @@ related: []
 
 # Neo4j Label Standardization Migration Plan
 
-**Date:** November 27, 2025
-**Status:** ✅ Complete
+**Date:** November 2025
+**Status:** ⚠️ Superseded (March 2026)
 **Impact:** 1,200 code replacements across 214 files (two migration passes)
+
+> **March 2026 Update:** The short labels `Lp` and `Ls` introduced by this migration have been reversed back to `LearningPath` and `LearningStep` in the ingestion pipeline and label registry (`ENTITY_TYPE_TO_LABEL`, `LABEL_CONFIGS`). This aligns with `NeoLabel.LEARNING_PATH = "LearningPath"` and `NeoLabel.LEARNING_STEP = "LearningStep"`. The old short keys are kept as backward-compat aliases in `LABEL_CONFIGS`. Additionally, all domain entities now use **multi-label** architecture (`:Entity:Task`, `:Entity:Lesson`, etc.) — ingestion creates both labels via `BulkIngestionEngine.base_label`. Domain indexes are automated via `Neo4jSchemaManager.sync_domain_indexes()` at bootstrap.
 
 ## Objective
 

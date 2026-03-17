@@ -415,14 +415,23 @@ CREATE CONSTRAINT event_uid_unique IF NOT EXISTS FOR (e:Event) REQUIRE e.uid IS 
 CREATE CONSTRAINT choice_uid_unique IF NOT EXISTS FOR (c:Choice) REQUIRE c.uid IS UNIQUE;
 CREATE CONSTRAINT principle_uid_unique IF NOT EXISTS FOR (p:Principle) REQUIRE p.uid IS UNIQUE;
 
-// Curriculum domain constraints (3 domains)
-CREATE CONSTRAINT ku_uid_unique IF NOT EXISTS FOR (k:Entity) REQUIRE k.uid IS UNIQUE;
-CREATE CONSTRAINT ls_uid_unique IF NOT EXISTS FOR (l:Ls) REQUIRE l.uid IS UNIQUE;
-CREATE CONSTRAINT lp_uid_unique IF NOT EXISTS FOR (lp:Lp) REQUIRE lp.uid IS UNIQUE;
+// Curriculum domain constraints
+CREATE CONSTRAINT lesson_uid_unique IF NOT EXISTS FOR (n:Lesson) REQUIRE n.uid IS UNIQUE;
+CREATE CONSTRAINT ku_uid_unique IF NOT EXISTS FOR (n:Ku) REQUIRE n.uid IS UNIQUE;
+CREATE CONSTRAINT ls_uid_unique IF NOT EXISTS FOR (n:LearningStep) REQUIRE n.uid IS UNIQUE;
+CREATE CONSTRAINT lp_uid_unique IF NOT EXISTS FOR (n:LearningPath) REQUIRE n.uid IS UNIQUE;
+CREATE CONSTRAINT exercise_uid_unique IF NOT EXISTS FOR (n:Exercise) REQUIRE n.uid IS UNIQUE;
 
-// Content domain constraints (2 domains)
-CREATE CONSTRAINT journal_uid_unique IF NOT EXISTS FOR (j:Journal) REQUIRE j.uid IS UNIQUE;
-CREATE CONSTRAINT assignment_uid_unique IF NOT EXISTS FOR (a:Assignment) REQUIRE a.uid IS UNIQUE;
+// Submission/Report constraints
+CREATE CONSTRAINT exercise_submission_uid_unique IF NOT EXISTS FOR (n:ExerciseSubmission) REQUIRE n.uid IS UNIQUE;
+CREATE CONSTRAINT journal_submission_uid_unique IF NOT EXISTS FOR (n:JournalSubmission) REQUIRE n.uid IS UNIQUE;
+CREATE CONSTRAINT exercise_report_uid_unique IF NOT EXISTS FOR (n:ExerciseReport) REQUIRE n.uid IS UNIQUE;
+CREATE CONSTRAINT journal_report_uid_unique IF NOT EXISTS FOR (n:JournalReport) REQUIRE n.uid IS UNIQUE;
+CREATE CONSTRAINT activity_report_uid_unique IF NOT EXISTS FOR (n:ActivityReport) REQUIRE n.uid IS UNIQUE;
+
+// Form constraints
+CREATE CONSTRAINT form_template_uid_unique IF NOT EXISTS FOR (n:FormTemplate) REQUIRE n.uid IS UNIQUE;
+CREATE CONSTRAINT form_submission_uid_unique IF NOT EXISTS FOR (n:FormSubmission) REQUIRE n.uid IS UNIQUE;
 
 // LifePath constraint
 CREATE CONSTRAINT lifepath_uid_unique IF NOT EXISTS FOR (lp:LifePath) REQUIRE lp.uid IS UNIQUE;

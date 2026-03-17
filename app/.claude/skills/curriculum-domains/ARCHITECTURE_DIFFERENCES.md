@@ -143,9 +143,9 @@ Even though content is shared, Curriculum Domains track per-user data:
 | Data Type | Storage | Example |
 |-----------|---------|---------|
 | **Mastery level** | User→Lesson relationship | `(User)-[:MASTERED {level: 0.8}]->(Lesson)` |
-| **Completion** | User→LS relationship | `(User)-[:COMPLETED]->(Ls)` |
-| **Progress** | User→LP relationship | `(User)-[:ENROLLED {progress: 0.6}]->(Lp)` |
-| **Organization** | Lesson→Lesson relationship | `(Article)-[:ORGANIZES {order, importance}]->(Lesson)` |
+| **Completion** | User→LS relationship | `(User)-[:COMPLETED]->(LearningStep)` |
+| **Progress** | User→LP relationship | `(User)-[:ENROLLED {progress: 0.6}]->(LearningPath)` |
+| **Organization** | Lesson→Lesson relationship | `(Lesson)-[:ORGANIZES {order, importance}]->(Lesson)` |
 
 ## Circular Dependencies
 
