@@ -34,7 +34,7 @@ from adapters.inbound.ui_helpers import render_safe_error_response
 from core.ports.query_types import ActivityFilterSpec
 from core.services.choices_service import ChoicesService
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import Result
 from core.utils.type_converters import get_enum_attr_str
 from ui.buttons import Button, ButtonT
 from ui.cards import Card
@@ -51,6 +51,9 @@ from ui.tokens import Container, Spacing
 
 logger = get_logger("skuel.routes.choice.ui")
 
+# Static option lists — must match Domain/ChoiceType enum values in core/models/enums/
+CHOICE_TYPES = ["binary", "multiple", "ranking", "strategic", "operational"]
+DOMAINS = ["personal", "business", "health", "finance", "social"]
 
 # RouteDecorator and Request imported from adapters.inbound.fasthtml_types
 
@@ -95,29 +98,8 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
     logger.info("Registering three-view choice routes (standalone, analytics)")
 
     # ========================================================================
-    # DATA FETCHING HELPERS
+    # HELPERS
     # ========================================================================
-
-    async def get_all_choices(user_uid: str) -> Result[list[Any]]:
-        """Get all choices for user."""
-        try:
-            if choices_service:
-                result = await choices_service.get_user_choices(user_uid)
-                if result.is_error:
-                    logger.warning(f"Failed to fetch choices: {result.error}")
-                    return result  # Propagate the error
-                return Result.ok(result.value or [])
-            return Result.ok([])
-        except Exception as e:  # safety-net: service call may raise unexpected errors
-            logger.error(
-                "Error fetching all choices",
-                extra={
-                    "user_uid": user_uid,
-                    "error_type": type(e).__name__,
-                    "error_message": str(e),
-                },
-            )
-            return Result.fail(Errors.system(f"Failed to fetch choices: {e}"))
 
     def _parse_options_from_form(form) -> list[dict[str, str]]:
         """Parse options[0].title, options[0].description, etc. from form."""
@@ -126,7 +108,6 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
         while True:
             title_key = f"options[{index}].title"
             desc_key = f"options[{index}].description"
-            # Check if this index exists in form
             if title_key not in form:
                 break
             title = form.get(title_key, "").strip()
@@ -135,93 +116,6 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
                 options.append({"title": title, "description": desc})
             index += 1
         return options
-
-    async def get_choice_types() -> Result[list[str]]:
-        """Get available choice types."""
-        return Result.ok(["binary", "multiple", "ranking", "strategic", "operational"])
-
-    async def get_domains() -> Result[list[str]]:
-        """Get available domains."""
-        # Must match Domain enum values in core/models/enums/entity_enums.py
-        return Result.ok(["personal", "business", "health", "finance", "social"])
-
-    async def get_analytics_data(user_uid: str) -> Result[dict[str, Any]]:
-        """Get analytics data for user."""
-        try:
-            choices_result = await get_all_choices(user_uid)
-
-            # Check for errors
-            if choices_result.is_error:
-                logger.warning(f"Failed to fetch choices for analytics: {choices_result.error}")
-                return Result.fail(choices_result.expect_error())  # Propagate the error
-
-            choices = choices_result.value
-
-            # Calculate analytics
-            total = len(choices)
-            decided_statuses = ["decided", "implemented", "evaluated"]
-            decided = sum(1 for c in choices if get_enum_attr_str(c, "status") in decided_statuses)
-
-            # Calculate satisfaction rate from choices with satisfaction_score (1-5 scale)
-            choices_with_satisfaction = [
-                c for c in choices if getattr(c, "satisfaction_score", None) is not None
-            ]
-            if choices_with_satisfaction:
-                satisfied_count = sum(
-                    1
-                    for c in choices_with_satisfaction
-                    if getattr(c, "satisfaction_score", 0) >= 4  # 4-5 = satisfied
-                )
-                satisfaction_rate = satisfied_count / len(choices_with_satisfaction)
-            else:
-                satisfaction_rate = 0.0
-
-            # Calculate on-time rate from choices with deadline and decided_at
-            choices_with_deadline = [
-                c
-                for c in choices
-                if getattr(c, "decision_deadline", None) is not None
-                and getattr(c, "decided_at", None) is not None
-            ]
-            if choices_with_deadline:
-                on_time_count = sum(
-                    1 for c in choices_with_deadline if c.decided_at <= c.decision_deadline
-                )
-                on_time_rate = on_time_count / len(choices_with_deadline)
-            else:
-                on_time_rate = 0.0
-
-            # Get outcomes from evaluated choices
-            outcomes = [
-                {
-                    "title": getattr(c, "title", "Choice"),
-                    "outcome": getattr(c, "actual_outcome", ""),
-                    "satisfaction": getattr(c, "satisfaction_score", None),
-                    "lessons": getattr(c, "lessons_learned", ()),
-                }
-                for c in choices
-                if getattr(c, "actual_outcome", None) is not None
-            ]
-
-            return Result.ok(
-                {
-                    "total_choices": total,
-                    "total_decisions": decided,
-                    "satisfaction_rate": satisfaction_rate,
-                    "on_time_rate": on_time_rate,
-                    "outcomes": outcomes,
-                }
-            )
-        except Exception as e:  # safety-net: analytics computation must not crash
-            logger.error(
-                "Error getting analytics",
-                extra={
-                    "user_uid": user_uid,
-                    "error_type": type(e).__name__,
-                    "error_message": str(e),
-                },
-            )
-            return Result.fail(Errors.system(f"Failed to get analytics: {e}"))
 
     # ========================================================================
     # MAIN DASHBOARD (Standalone Three-View, List First)
@@ -232,20 +126,13 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
         """Main choices dashboard with three views (standalone, no drawer)."""
         user_uid = require_authenticated_user(request)
 
-        # Get view parameter (default to list for choices)
         view = request.query_params.get("view", "list")
-
-        # Parse using helpers
         filters = parse_filters(request)
 
-        # Get data with Result[T]
         filtered_result = await choices_service.get_filtered_context(
             user_uid, filters.status, filters.sort_by
         )
-        choice_types_result = await get_choice_types()
-        domains_result = await get_domains()
 
-        # CHECK FOR ERRORS
         if filtered_result.is_error:
             error_content = Div(
                 ChoicesViewComponents.render_view_tabs(active_view=view),
@@ -254,38 +141,17 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
             )
             return await create_choices_page(error_content, request=request)
 
-        if choice_types_result.is_error:
-            error_content = Div(
-                ChoicesViewComponents.render_view_tabs(active_view=view),
-                render_error_banner("Failed to load choice types"),
-                cls=f"{Spacing.PAGE} {Container.WIDE}",
-            )
-            return await create_choices_page(error_content, request=request)
-
-        if domains_result.is_error:
-            error_content = Div(
-                ChoicesViewComponents.render_view_tabs(active_view=view),
-                render_error_banner("Failed to load domains"),
-                cls=f"{Spacing.PAGE} {Container.WIDE}",
-            )
-            return await create_choices_page(error_content, request=request)
-
-        # Extract values
         ctx = filtered_result.value
         choices, stats = ctx["entities"], ctx["stats"]
-        choice_types = choice_types_result.value
-        domains = domains_result.value
 
-        # Render the appropriate view content
         if view == "create":
             view_content = ChoicesViewComponents.render_create_view(
-                choice_types=choice_types,
-                domains=domains,
+                choice_types=CHOICE_TYPES,
+                domains=DOMAINS,
             )
         elif view == "analytics":
-            analytics_result = await get_analytics_data(user_uid)
+            analytics_result = await choices_service.get_analytics_context(user_uid)
 
-            # Check for errors
             if analytics_result.is_error:
                 view_content = render_error_banner(
                     f"Failed to load analytics: {analytics_result.error}"
@@ -294,7 +160,7 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
                 view_content = ChoicesViewComponents.render_analytics_view(
                     analytics_data=analytics_result.value,
                 )
-        else:  # list (default for choices)
+        else:
             view_content = ChoicesViewComponents.render_list_view(
                 choices=choices,
                 filters={
@@ -304,7 +170,6 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
                 stats=stats,
             )
 
-        # Build page with tabs + view content
         page_content = Div(
             ChoicesViewComponents.render_view_tabs(active_view=view),
             Div(view_content, id="view-content", role="tabpanel"),
@@ -345,28 +210,17 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
     async def choices_view_create(request) -> Any:
         """HTMX fragment for create view."""
         require_authenticated_user(request)
-        choice_types_result = await get_choice_types()
-        domains_result = await get_domains()
-
-        # Handle errors
-        if choice_types_result.is_error:
-            return render_error_banner("Failed to load choice types")
-
-        if domains_result.is_error:
-            return render_error_banner("Failed to load domains")
-
         return ChoicesViewComponents.render_create_view(
-            choice_types=choice_types_result.value,
-            domains=domains_result.value,
+            choice_types=CHOICE_TYPES,
+            domains=DOMAINS,
         )
 
     @rt("/choices/view/analytics")
     async def choices_view_analytics(request) -> Any:
         """HTMX fragment for analytics view."""
         user_uid = require_authenticated_user(request)
-        analytics_result = await get_analytics_data(user_uid)
+        analytics_result = await choices_service.get_analytics_context(user_uid)
 
-        # Handle errors
         if analytics_result.is_error:
             return render_error_banner("Failed to load analytics")
 
@@ -490,11 +344,9 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
 
     async def render_choice_add_another_view(user_uid: str) -> Any:
         """Render create view for add-another flow."""
-        choice_types = await get_choice_types()
-        domains = await get_domains()
         return ChoicesViewComponents.render_create_view(
-            choice_types=choice_types,
-            domains=domains,
+            choice_types=CHOICE_TYPES,
+            domains=DOMAINS,
         )
 
     # Register quick-add route via factory

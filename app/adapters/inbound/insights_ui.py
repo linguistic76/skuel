@@ -66,6 +66,47 @@ def parse_insights_filters(request: Request) -> InsightsFilters:
     )
 
 
+def filter_insights(
+    insights: list[Any], filters: InsightsFilters
+) -> list[Any]:
+    """Apply client-side filters to a list of insights.
+
+    Used by both the main dashboard and load-more HTMX endpoint.
+    """
+    if filters.impact:
+        insights = [i for i in insights if i.impact.value == filters.impact]
+    if filters.insight_type:
+        insights = [i for i in insights if i.insight_type.value == filters.insight_type]
+    if filters.action_status == "unactioned":
+        insights = [i for i in insights if not i.actioned]
+    elif filters.action_status == "actioned":
+        insights = [i for i in insights if i.actioned]
+    if filters.search:
+        search_lower = filters.search.lower()
+        insights = [
+            i
+            for i in insights
+            if search_lower in i.title.lower() or search_lower in (i.description or "").lower()
+        ]
+    return insights
+
+
+def build_filter_query_string(filters: InsightsFilters) -> str:
+    """Build URL query string from insight filters."""
+    params = []
+    if filters.domain:
+        params.append(f"domain={filters.domain}")
+    if filters.impact:
+        params.append(f"impact={filters.impact}")
+    if filters.search:
+        params.append(f"search={filters.search}")
+    if filters.insight_type:
+        params.append(f"type={filters.insight_type}")
+    if filters.action_status:
+        params.append(f"status={filters.action_status}")
+    return "&".join(params)
+
+
 def create_insights_ui_routes(
     app: Any,
     rt: Any,
@@ -102,28 +143,7 @@ def create_insights_ui_routes(
             logger.error(f"Failed to retrieve insights: {result.error}")
             insights = []
         else:
-            insights = result.value
-
-            # Apply filters (client-side for now - would be server-side in production)
-            if filters.impact:
-                insights = [i for i in insights if i.impact.value == filters.impact]
-
-            if filters.insight_type:
-                insights = [i for i in insights if i.insight_type.value == filters.insight_type]
-
-            if filters.action_status == "unactioned":
-                insights = [i for i in insights if not i.actioned]
-            elif filters.action_status == "actioned":
-                insights = [i for i in insights if i.actioned]
-
-            if filters.search:
-                search_lower = filters.search.lower()
-                insights = [
-                    i
-                    for i in insights
-                    if search_lower in i.title.lower()
-                    or search_lower in (i.description or "").lower()
-                ]
+            insights = filter_insights(result.value, filters)
 
         # Build advanced filter form
         filter_form = Div(
@@ -299,19 +319,7 @@ def create_insights_ui_routes(
         # Build insight cards with load-more trigger
         if insights:
             # Encode filters for load-more URL
-            filter_params = []
-            if filters.domain:
-                filter_params.append(f"domain={filters.domain}")
-            if filters.impact:
-                filter_params.append(f"impact={filters.impact}")
-            if filters.search:
-                filter_params.append(f"search={filters.search}")
-            if filters.insight_type:
-                filter_params.append(f"type={filters.insight_type}")
-            if filters.action_status:
-                filter_params.append(f"status={filters.action_status}")
-
-            filter_query = "&".join(filter_params)
+            filter_query = build_filter_query_string(filters)
             load_more_url = (
                 f"/insights/load-more?offset={page_size}&{filter_query}"
                 if filter_query
@@ -545,24 +553,7 @@ def create_insights_ui_routes(
             logger.error(f"Failed to retrieve insights: {result.error}")
             return Div(P("Failed to load more insights", cls="text-error"))
 
-        all_insights = result.value
-
-        # Apply same filters as main dashboard
-        if filters.impact:
-            all_insights = [i for i in all_insights if i.impact.value == filters.impact]
-        if filters.insight_type:
-            all_insights = [i for i in all_insights if i.insight_type.value == filters.insight_type]
-        if filters.action_status == "unactioned":
-            all_insights = [i for i in all_insights if not i.actioned]
-        elif filters.action_status == "actioned":
-            all_insights = [i for i in all_insights if i.actioned]
-        if filters.search:
-            search_lower = filters.search.lower()
-            all_insights = [
-                i
-                for i in all_insights
-                if search_lower in i.title.lower() or search_lower in (i.description or "").lower()
-            ]
+        all_insights = filter_insights(result.value, filters)
 
         # Get only the new batch (slice from offset)
         new_insights = all_insights[filters.offset : filters.offset + page_size]
@@ -575,19 +566,7 @@ def create_insights_ui_routes(
             )
 
         # Encode filters for next load-more URL
-        filter_params = []
-        if filters.domain:
-            filter_params.append(f"domain={filters.domain}")
-        if filters.impact:
-            filter_params.append(f"impact={filters.impact}")
-        if filters.search:
-            filter_params.append(f"search={filters.search}")
-        if filters.insight_type:
-            filter_params.append(f"type={filters.insight_type}")
-        if filters.action_status:
-            filter_params.append(f"status={filters.action_status}")
-
-        filter_query = "&".join(filter_params)
+        filter_query = build_filter_query_string(filters)
         next_offset = filters.offset + page_size
         next_url = (
             f"/insights/load-more?offset={next_offset}&{filter_query}"

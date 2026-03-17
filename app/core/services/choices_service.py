@@ -14,7 +14,7 @@ Sub-Services:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypedDict
 
 from core.models.choice.choice import Choice
 from core.models.choice.choice_dto import ChoiceDTO
@@ -49,6 +49,16 @@ if TYPE_CHECKING:
     from core.ports.query_types import ListContext
     from core.ports.search_protocols import ChoicesSearchOperations
     from core.services.choices.choices_intelligence_service import ChoicesIntelligenceService
+
+
+class ChoicesAnalyticsContext(TypedDict):
+    """Return type for ChoicesService.get_analytics_context()."""
+
+    total_choices: int
+    total_decisions: int
+    satisfaction_rate: float
+    on_time_rate: float
+    outcomes: list[dict[str, Any]]
 
 
 def _get_choice_enum_value(obj: Any, attr: str, default: str = "") -> str:
@@ -519,6 +529,73 @@ class ChoicesService(BaseService["ChoicesOperations", Choice]):
 
         sorted_choices = _apply_choice_sort(filtered, sort_by)
         return Result.ok({"entities": sorted_choices, "stats": stats})
+
+    async def get_analytics_context(self, user_uid: str) -> Result[ChoicesAnalyticsContext]:
+        """Build pre-computed analytics context for the choices analytics view.
+
+        Returns dict with: total_choices, total_decisions, satisfaction_rate,
+        on_time_rate, outcomes.
+        """
+        all_result = await self.core.get_for_user_filtered(user_uid, "all")
+        if all_result.is_error:
+            return Result.fail(all_result)
+
+        choices = all_result.value
+
+        total = len(choices)
+        decided_statuses = ["decided", "implemented", "evaluated"]
+        decided = sum(1 for c in choices if get_enum_attr_str(c, "status") in decided_statuses)
+
+        # Satisfaction rate from choices with satisfaction_score (1-5 scale)
+        choices_with_satisfaction = [
+            c for c in choices if getattr(c, "satisfaction_score", None) is not None
+        ]
+        if choices_with_satisfaction:
+            satisfied_count = sum(
+                1
+                for c in choices_with_satisfaction
+                if getattr(c, "satisfaction_score", 0) >= 4
+            )
+            satisfaction_rate = satisfied_count / len(choices_with_satisfaction)
+        else:
+            satisfaction_rate = 0.0
+
+        # On-time rate from choices with deadline and decided_at
+        choices_with_deadline = [
+            c
+            for c in choices
+            if getattr(c, "decision_deadline", None) is not None
+            and getattr(c, "decided_at", None) is not None
+        ]
+        if choices_with_deadline:
+            on_time_count = sum(
+                1 for c in choices_with_deadline if c.decided_at <= c.decision_deadline
+            )
+            on_time_rate = on_time_count / len(choices_with_deadline)
+        else:
+            on_time_rate = 0.0
+
+        # Outcomes from evaluated choices
+        outcomes = [
+            {
+                "title": getattr(c, "title", "Choice"),
+                "outcome": getattr(c, "actual_outcome", ""),
+                "satisfaction": getattr(c, "satisfaction_score", None),
+                "lessons": getattr(c, "lessons_learned", ()),
+            }
+            for c in choices
+            if getattr(c, "actual_outcome", None) is not None
+        ]
+
+        return Result.ok(
+            {
+                "total_choices": total,
+                "total_decisions": decided,
+                "satisfaction_rate": satisfaction_rate,
+                "on_time_rate": on_time_rate,
+                "outcomes": outcomes,
+            }
+        )
 
     # Note: Intelligence delegations (get_choice_with_context, get_decision_intelligence,
     # analyze_choice_impact, get_decision_patterns, etc.) and Search delegations

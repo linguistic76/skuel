@@ -33,8 +33,9 @@ Finance is admin-only. Route-level security is enforced via @require_admin.
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypedDict
 
+from core.constants import QueryLimit
 from core.events import publish_event
 from core.events.finance_events import (
     ExpenseCreated,
@@ -69,6 +70,48 @@ from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from core.ports.infrastructure_protocols import EventBusOperations
+
+
+# ============================================================================
+# FINANCE CONTEXT TYPEDDICTS
+# ============================================================================
+
+
+class FinanceDashboardContext(TypedDict):
+    """Return type for FinanceService.get_dashboard_context()."""
+
+    total_spent: float
+    total_budget: float
+    budget_utilization: float
+    health_status: str
+    budget_health: str
+    recent_expenses: list[dict[str, Any]]
+    budget_alerts: list[dict[str, str]]
+
+
+class FinanceBudgetsContext(TypedDict):
+    """Return type for FinanceService.get_budgets_context()."""
+
+    budgets: list[dict[str, Any]]
+    total_budgeted: float
+    total_spent: float
+
+
+class FinanceReportsContext(TypedDict):
+    """Return type for FinanceService.get_reports_context()."""
+
+    monthly_summary: dict[str, Any]
+    category_breakdown: list[dict[str, Any]]
+    tax_summary: dict[str, Any]
+
+
+class FinanceAnalyticsContext(TypedDict):
+    """Return type for FinanceService.get_analytics_context()."""
+
+    health_score: float
+    health_tier: str
+    spending_pattern: str
+    budget_adherence: float
 
 
 class FinanceService:
@@ -715,6 +758,241 @@ class FinanceService:
                 "errors": errors,
                 "category_applied": category.value,
                 "subcategory_applied": subcategory,
+            }
+        )
+
+    # ========================================================================
+    # UI CONTEXT METHODS — Pre-computed data for route handlers
+    # ========================================================================
+
+    async def get_dashboard_context(self) -> Result[FinanceDashboardContext]:
+        """Build pre-computed dashboard context for the finance overview page.
+
+        Returns dict with: total_spent, total_budget, budget_utilization,
+        health_status, budget_health, recent_expenses, budget_alerts.
+        """
+        total_spent = 0.0
+        total_budget = 0.0
+        recent_expenses: list[dict[str, Any]] = []
+        budget_alerts: list[dict[str, str]] = []
+
+        try:
+            expenses_result = await self.list_expenses(limit=QueryLimit.DEFAULT)
+            if expenses_result.is_ok and expenses_result.value:
+                expenses_list, _ = expenses_result.value
+                for expense in expenses_list:
+                    if expense.amount:
+                        total_spent += expense.amount
+                recent_expenses = [
+                    {
+                        "description": exp.description,
+                        "amount": exp.amount,
+                        "category": getattr(exp, "category", ""),
+                        "expense_date": str(getattr(exp, "expense_date", "")),
+                    }
+                    for exp in expenses_list[:5]
+                ]
+
+            budgets_result = await self.get_active_budgets()
+            if budgets_result.is_ok and budgets_result.value:
+                for budget in budgets_result.value:
+                    if budget.amount_limit:
+                        total_budget += budget.amount_limit
+                    spent = getattr(budget, "amount_spent", 0) or 0
+                    limit = getattr(budget, "amount_limit", 1) or 1
+                    if limit > 0 and spent / limit >= 0.8:
+                        budget_alerts.append(
+                            {
+                                "type": "warning" if spent / limit < 1.0 else "critical",
+                                "message": f"{budget.name}: {spent / limit * 100:.0f}% used",
+                            }
+                        )
+
+        except (ValueError, TypeError, AttributeError) as e:
+            self.logger.warning(f"Could not fetch finance data for dashboard: {e}")
+
+        utilization = (total_spent / total_budget * 100) if total_budget > 0 else 0
+        health_status = (
+            "Good" if utilization < 80 else ("Warning" if utilization < 100 else "Over Budget")
+        )
+        budget_health = (
+            "healthy" if utilization < 80 else ("warning" if utilization < 100 else "critical")
+        )
+
+        return Result.ok(
+            {
+                "total_spent": total_spent,
+                "total_budget": total_budget,
+                "budget_utilization": utilization,
+                "health_status": health_status,
+                "budget_health": budget_health,
+                "recent_expenses": recent_expenses,
+                "budget_alerts": budget_alerts,
+            }
+        )
+
+    async def get_budgets_context(self) -> Result[FinanceBudgetsContext]:
+        """Build pre-computed context for the budgets page.
+
+        Returns dict with: budgets, total_budgeted, total_spent.
+        """
+        budgets: list[dict[str, Any]] = []
+        total_budgeted = 0.0
+        total_spent = 0.0
+
+        try:
+            budgets_result = await self.get_active_budgets()
+            if budgets_result.is_ok and budgets_result.value:
+                for budget in budgets_result.value:
+                    limit = getattr(budget, "amount_limit", 0) or 0
+                    spent = getattr(budget, "amount_spent", 0) or 0
+                    total_budgeted += limit
+                    total_spent += spent
+                    budgets.append(
+                        {
+                            "uid": budget.uid,
+                            "name": budget.name,
+                            "amount_limit": limit,
+                            "amount_spent": spent,
+                            "period": getattr(budget, "period", "MONTHLY"),
+                        }
+                    )
+        except (ValueError, TypeError, AttributeError) as e:
+            self.logger.warning(f"Could not fetch budgets: {e}")
+
+        return Result.ok(
+            {
+                "budgets": budgets,
+                "total_budgeted": total_budgeted,
+                "total_spent": total_spent,
+            }
+        )
+
+    async def get_reports_context(self) -> Result[FinanceReportsContext]:
+        """Build pre-computed context for the reports page.
+
+        Returns dict with: monthly_summary, category_breakdown, tax_summary.
+        """
+        monthly_summary: dict[str, Any] = {"total": 0.0, "count": 0, "average": 0.0}
+        category_breakdown: list[dict[str, Any]] = []
+        tax_summary: dict[str, Any] = {"total": 0.0, "count": 0}
+
+        try:
+            today = date.today()
+            month_start = date(today.year, today.month, 1)
+
+            expenses_result = await self.list_expenses(limit=QueryLimit.COMPREHENSIVE)
+            if expenses_result.is_ok and expenses_result.value:
+                expenses_list, _ = expenses_result.value
+                month_expenses: list[ExpensePure] = []
+                category_totals: dict[str, float] = {}
+                tax_total = 0.0
+                tax_count = 0
+
+                for exp in expenses_list:
+                    exp_date = getattr(exp, "expense_date", None)
+                    amount = getattr(exp, "amount", 0) or 0
+
+                    if exp_date and exp_date >= month_start:
+                        month_expenses.append(exp)
+
+                    cat = str(getattr(exp, "category", "Other"))
+                    category_totals[cat] = category_totals.get(cat, 0) + amount
+
+                    if getattr(exp, "tax_deductible", False):
+                        tax_total += amount
+                        tax_count += 1
+
+                month_total = sum(getattr(e, "amount", 0) or 0 for e in month_expenses)
+                monthly_summary = {
+                    "total": month_total,
+                    "count": len(month_expenses),
+                    "average": month_total / len(month_expenses) if month_expenses else 0,
+                }
+
+                total_all = sum(category_totals.values())
+                category_icons = {"PERSONAL": "👤", "2222": "🏠", "SKUEL": "📚"}
+                from core.utils.sort_functions import get_negative_second_item
+
+                for cat, amount in sorted(category_totals.items(), key=get_negative_second_item):
+                    category_breakdown.append(
+                        {
+                            "name": cat,
+                            "icon": category_icons.get(cat, "📁"),
+                            "amount": amount,
+                            "percentage": (amount / total_all * 100) if total_all > 0 else 0,
+                        }
+                    )
+
+                tax_summary = {"total": tax_total, "count": tax_count}
+
+        except (ValueError, TypeError, AttributeError) as e:
+            self.logger.warning(f"Could not generate reports: {e}")
+
+        return Result.ok(
+            {
+                "monthly_summary": monthly_summary,
+                "category_breakdown": category_breakdown,
+                "tax_summary": tax_summary,
+            }
+        )
+
+    async def get_analytics_context(self) -> Result[FinanceAnalyticsContext]:
+        """Build pre-computed context for the analytics page.
+
+        Returns dict with: health_score, health_tier, spending_pattern, budget_adherence.
+        """
+        health_score = 0.75
+        health_tier = "Good"
+        spending_pattern = "Balanced"
+        budget_adherence = 85.0
+
+        try:
+            budgets_result = await self.get_active_budgets()
+            if budgets_result.is_ok and budgets_result.value:
+                total_limit = 0.0
+                total_spent = 0.0
+
+                for budget in budgets_result.value:
+                    total_limit += getattr(budget, "amount_limit", 0) or 0
+                    total_spent += getattr(budget, "amount_spent", 0) or 0
+
+                if total_limit > 0:
+                    utilization = total_spent / total_limit
+                    budget_adherence = (
+                        max(0, 100 - (utilization - 1) * 100) if utilization > 1 else 100
+                    )
+
+                    if utilization <= 0.6:
+                        health_score, health_tier = 0.95, "Excellent"
+                    elif utilization <= 0.8:
+                        health_score, health_tier = 0.80, "Good"
+                    elif utilization <= 1.0:
+                        health_score, health_tier = 0.60, "Fair"
+                    elif utilization <= 1.2:
+                        health_score, health_tier = 0.40, "Poor"
+                    else:
+                        health_score, health_tier = 0.20, "Critical"
+
+            expenses_result = await self.list_expenses(limit=QueryLimit.DEFAULT)
+            if expenses_result.is_ok and expenses_result.value:
+                _expenses_list, expense_count = expenses_result.value
+                if expense_count > 50:
+                    spending_pattern = "Habitual"
+                elif expense_count > 20:
+                    spending_pattern = "Value Focused"
+                else:
+                    spending_pattern = "Minimalist"
+
+        except (ValueError, TypeError, AttributeError) as e:
+            self.logger.warning(f"Could not calculate analytics: {e}")
+
+        return Result.ok(
+            {
+                "health_score": health_score,
+                "health_tier": health_tier,
+                "spending_pattern": spending_pattern,
+                "budget_adherence": budget_adherence,
             }
         )
 

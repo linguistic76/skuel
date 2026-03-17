@@ -16,7 +16,6 @@ SECURITY: All Finance UI routes require ADMIN role.
 
 __version__ = "3.0"
 
-from datetime import date
 from typing import Any
 
 from fasthtml.common import Div, Span
@@ -223,74 +222,16 @@ def create_finance_ui_routes(_app, rt, finance_service, user_service: Any = None
         """Finance Hub dashboard with overview stats and quick actions."""
         logger.info(f"Finance dashboard accessed by {current_user.uid}")
 
-        # Fetch data for dashboard
-        total_spent = 0.0
-        total_budget = 0.0
-        recent_expenses = []
-        budget_alerts = []
+        ctx_result = await finance_service.get_dashboard_context()
+        ctx = ctx_result.value
 
-        try:
-            # Fetch expenses
-            expenses_result = await finance_service.list_expenses(limit=QueryLimit.DEFAULT)
-            if expenses_result and expenses_result.is_ok and expenses_result.value:
-                expenses_list, _ = expenses_result.value
-                for expense in expenses_list:
-                    if expense.amount:
-                        total_spent += expense.amount
-                # Get recent expenses for dashboard
-                recent_expenses = [
-                    {
-                        "description": exp.description,
-                        "amount": exp.amount,
-                        "category": getattr(exp, "category", ""),
-                        "expense_date": str(getattr(exp, "expense_date", "")),
-                    }
-                    for exp in expenses_list[:5]
-                ]
-
-            # Fetch budgets
-            budgets_result = await finance_service.get_active_budgets()
-            if budgets_result and budgets_result.is_ok and budgets_result.value:
-                for budget in budgets_result.value:
-                    if budget.amount_limit:
-                        total_budget += budget.amount_limit
-                    # Check for alerts
-                    spent = getattr(budget, "amount_spent", 0) or 0
-                    limit = getattr(budget, "amount_limit", 1) or 1
-                    if limit > 0 and spent / limit >= 0.8:
-                        budget_alerts.append(
-                            {
-                                "type": "warning" if spent / limit < 1.0 else "critical",
-                                "message": f"{budget.name}: {spent / limit * 100:.0f}% used",
-                            }
-                        )
-
-        except Exception as e:
-            logger.warning(f"Could not fetch finance data for dashboard: {e}")
-
-        # Calculate utilization
-        budget_utilization = (total_spent / total_budget * 100) if total_budget > 0 else 0
-        health_status = (
-            "Good"
-            if budget_utilization < 80
-            else ("Warning" if budget_utilization < 100 else "Over Budget")
-        )
-
-        # Determine budget health for sidebar
-        budget_health = (
-            "healthy"
-            if budget_utilization < 80
-            else ("warning" if budget_utilization < 100 else "critical")
-        )
-
-        # Render dashboard view
         content = FinanceSectionViews.render_dashboard(
-            total_spent=total_spent,
-            total_budget=total_budget,
-            budget_utilization=budget_utilization,
-            health_status=health_status,
-            recent_expenses=recent_expenses,
-            budget_alerts=budget_alerts,
+            total_spent=ctx["total_spent"],
+            total_budget=ctx["total_budget"],
+            budget_utilization=ctx["budget_utilization"],
+            health_status=ctx["health_status"],
+            recent_expenses=ctx["recent_expenses"],
+            budget_alerts=ctx["budget_alerts"],
         )
 
         return await create_finance_page(
@@ -298,7 +239,7 @@ def create_finance_ui_routes(_app, rt, finance_service, user_service: Any = None
             active_section="dashboard",
             admin_username=current_user.display_name or current_user.username,
             title="Finance Dashboard",
-            budget_health=budget_health,
+            budget_health=ctx["budget_health"],
             request=request,
         )
 
@@ -385,35 +326,13 @@ def create_finance_ui_routes(_app, rt, finance_service, user_service: Any = None
         """Budget management page with list and create form."""
         logger.info(f"Finance budgets accessed by {current_user.uid}")
 
-        budgets = []
-        total_budgeted = 0.0
-        total_spent = 0.0
-
-        try:
-            budgets_result = await finance_service.get_active_budgets()
-            if budgets_result and budgets_result.is_ok and budgets_result.value:
-                for budget in budgets_result.value:
-                    limit = getattr(budget, "amount_limit", 0) or 0
-                    spent = getattr(budget, "amount_spent", 0) or 0
-                    total_budgeted += limit
-                    total_spent += spent
-
-                    budgets.append(
-                        {
-                            "uid": budget.uid,
-                            "name": budget.name,
-                            "amount_limit": limit,
-                            "amount_spent": spent,
-                            "period": getattr(budget, "period", "MONTHLY"),
-                        }
-                    )
-        except Exception as e:
-            logger.warning(f"Could not fetch budgets: {e}")
+        ctx_result = await finance_service.get_budgets_context()
+        ctx = ctx_result.value
 
         content = FinanceSectionViews.render_budgets_list(
-            budgets=budgets,
-            total_budgeted=total_budgeted,
-            total_spent=total_spent,
+            budgets=ctx["budgets"],
+            total_budgeted=ctx["total_budgeted"],
+            total_spent=ctx["total_spent"],
         )
 
         return await create_finance_page(
@@ -434,72 +353,13 @@ def create_finance_ui_routes(_app, rt, finance_service, user_service: Any = None
         """Financial reports page with monthly summaries and tax info."""
         logger.info(f"Finance reports accessed by {current_user.uid}")
 
-        monthly_summary = {"total": 0.0, "count": 0, "average": 0.0}
-        category_breakdown = []
-        tax_summary = {"total": 0.0, "count": 0}
-
-        try:
-            # Get current month's expenses
-            today = date.today()
-            month_start = date(today.year, today.month, 1)
-
-            expenses_result = await finance_service.list_expenses(limit=QueryLimit.COMPREHENSIVE)
-            if expenses_result and expenses_result.is_ok and expenses_result.value:
-                expenses_list, _ = expenses_result.value
-                month_expenses = []
-                category_totals = {}
-                tax_total = 0.0
-                tax_count = 0
-
-                for exp in expenses_list:
-                    exp_date = getattr(exp, "expense_date", None)
-                    amount = getattr(exp, "amount", 0) or 0
-
-                    # Monthly calculation
-                    if exp_date and exp_date >= month_start:
-                        month_expenses.append(exp)
-
-                    # Category breakdown
-                    cat = str(getattr(exp, "category", "Other"))
-                    category_totals[cat] = category_totals.get(cat, 0) + amount
-
-                    # Tax deductible
-                    if getattr(exp, "tax_deductible", False):
-                        tax_total += amount
-                        tax_count += 1
-
-                # Calculate monthly summary
-                month_total = sum(getattr(e, "amount", 0) or 0 for e in month_expenses)
-                monthly_summary = {
-                    "total": month_total,
-                    "count": len(month_expenses),
-                    "average": month_total / len(month_expenses) if month_expenses else 0,
-                }
-
-                # Build category breakdown
-                total_all = sum(category_totals.values())
-                category_icons = {"PERSONAL": "👤", "2222": "🏠", "SKUEL": "📚"}
-                from core.utils.sort_functions import get_negative_second_item
-
-                for cat, amount in sorted(category_totals.items(), key=get_negative_second_item):
-                    category_breakdown.append(
-                        {
-                            "name": cat,
-                            "icon": category_icons.get(cat, "📁"),
-                            "amount": amount,
-                            "percentage": (amount / total_all * 100) if total_all > 0 else 0,
-                        }
-                    )
-
-                tax_summary = {"total": tax_total, "count": tax_count}
-
-        except Exception as e:
-            logger.warning(f"Could not generate reports: {e}")
+        ctx_result = await finance_service.get_reports_context()
+        ctx = ctx_result.value
 
         content = FinanceSectionViews.render_reports(
-            monthly_summary=monthly_summary,
-            category_breakdown=category_breakdown,
-            tax_summary=tax_summary,
+            monthly_summary=ctx["monthly_summary"],
+            category_breakdown=ctx["category_breakdown"],
+            tax_summary=ctx["tax_summary"],
         )
 
         return await create_finance_page(
@@ -520,66 +380,14 @@ def create_finance_ui_routes(_app, rt, finance_service, user_service: Any = None
         """Spending analytics page with health score and patterns."""
         logger.info(f"Finance analytics accessed by {current_user.uid}")
 
-        health_score = 0.75  # Default
-        health_tier = "Good"
-        spending_pattern = "Balanced"
-        budget_adherence = 85.0
-
-        try:
-            # Calculate financial health based on budget adherence
-            budgets_result = await finance_service.get_active_budgets()
-            if budgets_result and budgets_result.is_ok and budgets_result.value:
-                total_limit = 0.0
-                total_spent = 0.0
-
-                for budget in budgets_result.value:
-                    limit = getattr(budget, "amount_limit", 0) or 0
-                    spent = getattr(budget, "amount_spent", 0) or 0
-                    total_limit += limit
-                    total_spent += spent
-
-                if total_limit > 0:
-                    utilization = total_spent / total_limit
-                    budget_adherence = (
-                        max(0, 100 - (utilization - 1) * 100) if utilization > 1 else 100
-                    )
-
-                    # Calculate health score (inverse of over-spending)
-                    if utilization <= 0.6:
-                        health_score = 0.95
-                        health_tier = "Excellent"
-                    elif utilization <= 0.8:
-                        health_score = 0.80
-                        health_tier = "Good"
-                    elif utilization <= 1.0:
-                        health_score = 0.60
-                        health_tier = "Fair"
-                    elif utilization <= 1.2:
-                        health_score = 0.40
-                        health_tier = "Poor"
-                    else:
-                        health_score = 0.20
-                        health_tier = "Critical"
-
-            # Determine spending pattern (simplified)
-            expenses_result = await finance_service.list_expenses(limit=QueryLimit.DEFAULT)
-            if expenses_result and expenses_result.is_ok and expenses_result.value:
-                _expenses_list, expense_count = expenses_result.value
-                if expense_count > 50:
-                    spending_pattern = "Habitual"
-                elif expense_count > 20:
-                    spending_pattern = "Value Focused"
-                else:
-                    spending_pattern = "Minimalist"
-
-        except Exception as e:
-            logger.warning(f"Could not calculate analytics: {e}")
+        ctx_result = await finance_service.get_analytics_context()
+        ctx = ctx_result.value
 
         content = FinanceSectionViews.render_analytics(
-            health_score=health_score,
-            health_tier=health_tier,
-            spending_pattern=spending_pattern,
-            budget_adherence=budget_adherence,
+            health_score=ctx["health_score"],
+            health_tier=ctx["health_tier"],
+            spending_pattern=ctx["spending_pattern"],
+            budget_adherence=ctx["budget_adherence"],
         )
 
         return await create_finance_page(
