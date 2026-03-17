@@ -177,6 +177,7 @@ class BulkIngestionEngine[T]:
         entity_type: type[T],
         entity_label: str,
         template_dir: Path | None = None,
+        base_label: str | None = None,
     ) -> None:
         """
         Initialize bulk ingestion engine.
@@ -184,14 +185,24 @@ class BulkIngestionEngine[T]:
         Args:
             driver: Neo4j async driver,
             entity_type: Type of entities to ingest,
-            entity_label: Neo4j label for the entities,
-            template_dir: Directory containing Cypher templates
+            entity_label: Neo4j domain label (e.g., "Task", "Lesson"),
+            template_dir: Directory containing Cypher templates,
+            base_label: Optional base label for multi-label nodes (e.g., "Entity").
+                         When set, creates nodes with both labels: :Entity:Task
         """
         self.driver = driver
         self.entity_type = entity_type
         self.entity_label = entity_label
+        self.base_label = base_label
         self.template_dir = template_dir or Path(__file__).parent / "cypher_templates"
         self.logger = get_logger(f"{__name__}.{entity_type.__name__}")
+
+    @property
+    def _label_clause(self) -> str:
+        """Neo4j label clause for MERGE/CREATE, e.g. 'Entity:Task' or just 'Expense'."""
+        if self.base_label and self.base_label != self.entity_label:
+            return f"{self.base_label}:{self.entity_label}"
+        return self.entity_label
 
     def _get_template(self, template_name: str, subdir: str = "upserts") -> CypherTemplate:
         """Load a template from the template directory."""
@@ -303,7 +314,7 @@ class BulkIngestionEngine[T]:
         template_str = f"""
 // Generic bulk upsert template
 UNWIND $items AS item
-MERGE (n:{self.entity_label} {{uid: item.uid}})
+MERGE (n:{self._label_clause} {{uid: item.uid}})
   ON CREATE SET
     n = item,
     n.created_at = datetime()
@@ -527,7 +538,7 @@ UNWIND $items AS item
 // No APOC dependency - property filtering done in Python (CypherExecutor:265-297)
 // ========================================================================
 WITH item, item._node_props AS props
-MERGE (n:{self.entity_label} {{uid: item.uid}})
+MERGE (n:{self._label_clause} {{uid: item.uid}})
   ON CREATE SET
     n = props,
     n.created_at = datetime()

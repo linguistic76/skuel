@@ -2143,13 +2143,17 @@ LABEL_CONFIGS: dict[str, DomainRelationshipConfig] = {
     "User": USER_CONFIG,
     # Principle Reflection (January 2026)
     "PrincipleReflection": PRINCIPLE_REFLECTION_CONFIG,
-    # Curriculum Domains — all :Entity in Neo4j, virtual keys for config lookup
-    "Entity": LESSON_CONFIG,
+    # Curriculum Domains — correct Neo4j label keys
+    "Lesson": LESSON_CONFIG,
     "Ku": KU_CONFIG,
-    "Ls": LS_CONFIG,  # Virtual key — config lookup key for 'learning_step'}
-    "Lp": LP_CONFIG,  # Virtual key — config lookup key for 'learning_path'}
-    "Exercise": EXERCISE_CONFIG,  # Virtual key — config lookup key for 'exercise'}
-    "RevisedExercise": REVISED_EXERCISE_CONFIG,  # Virtual key — config lookup key for 'revised_exercise'}
+    "LearningStep": LS_CONFIG,
+    "LearningPath": LP_CONFIG,
+    "Exercise": EXERCISE_CONFIG,
+    "RevisedExercise": REVISED_EXERCISE_CONFIG,
+    # Backward-compat aliases (old label keys used by DomainConfig files)
+    "Entity": LESSON_CONFIG,
+    "Ls": LS_CONFIG,
+    "Lp": LP_CONFIG,
 }
 
 
@@ -2378,31 +2382,35 @@ def get_config_by_label(entity_label: str) -> DomainRelationshipConfig | None:
 # Maps EntityType to registry config key (Neo4j label string).
 # All domain entities are :Entity nodes; virtual config keys kept for lookup.
 ENTITY_TYPE_TO_LABEL: dict[EntityType, str] = {
-    EntityType.LESSON: "Entity",
+    EntityType.LESSON: "Lesson",
     EntityType.KU: "Ku",
     EntityType.TASK: "Task",
     EntityType.GOAL: "Goal",
-    EntityType.HABIT: "Habit",  # Virtual key — config lookup key for 'habit'}
+    EntityType.HABIT: "Habit",
     EntityType.EVENT: "Event",
-    EntityType.CHOICE: "Choice",  # Virtual key — config lookup key for 'choice'}
+    EntityType.CHOICE: "Choice",
     EntityType.PRINCIPLE: "Principle",
-    EntityType.LEARNING_PATH: "Lp",
-    EntityType.LEARNING_STEP: "Ls",
-    EntityType.EXERCISE: "Exercise",  # Virtual key — config lookup key for 'exercise'}
+    EntityType.LEARNING_PATH: "LearningPath",
+    EntityType.LEARNING_STEP: "LearningStep",
+    EntityType.EXERCISE: "Exercise",
 }
 
 LABEL_TO_DEFAULT_ENTITY_TYPE: dict[str, EntityType] = {
-    "Entity": EntityType.LESSON,
+    "Lesson": EntityType.LESSON,
     "Ku": EntityType.KU,
     "Task": EntityType.TASK,
     "Goal": EntityType.GOAL,
     "Habit": EntityType.HABIT,
     "Event": EntityType.EVENT,
-    "Choice": EntityType.CHOICE,  # Virtual key — config lookup key for 'choice'}
+    "Choice": EntityType.CHOICE,
     "Principle": EntityType.PRINCIPLE,
+    "LearningPath": EntityType.LEARNING_PATH,
+    "LearningStep": EntityType.LEARNING_STEP,
+    "Exercise": EntityType.EXERCISE,
+    # Backward-compat aliases for old label keys
+    "Entity": EntityType.LESSON,
     "Lp": EntityType.LEARNING_PATH,
     "Ls": EntityType.LEARNING_STEP,
-    "Exercise": EntityType.EXERCISE,  # Virtual key — config lookup key for 'exercise'}
 }
 
 

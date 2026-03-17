@@ -557,3 +557,175 @@ class Neo4jSchemaManager:
         )
 
         return Result.ok(summary)
+
+    async def _create_named_index(
+        self, index_name: str, label: str, field_name: str
+    ) -> Result[str]:
+        """Create a named index (custom name instead of auto-generated)."""
+        _validate_label(label)
+        _validate_identifier(field_name)
+        _validate_identifier(index_name, context="index name")
+
+        try:
+            query = f"""
+            CREATE INDEX {index_name} IF NOT EXISTS
+            FOR (n:{label}) ON (n.{field_name})
+            """
+            async with self.driver.session() as session:
+                await session.run(query)
+            return Result.ok("created")
+        except Exception as e:
+            self.logger.error(f"Failed to create index {index_name}: {e}")
+            return Result.fail(
+                Errors.database(
+                    operation="create_index", message=f"Index creation failed: {e}", entity=label
+                )
+            )
+
+    async def drop_stale_indexes(self) -> Result[dict[str, Any]]:
+        """
+        Drop indexes that reference labels no longer in use.
+
+        Stale indexes:
+        - ai_report_uid_idx (label AiReport — reports use ExerciseReport/JournalReport/SubmissionReport)
+        - lpstep_embedding_idx (label LpStep — current label is LearningStep)
+        """
+        stale_indexes = [
+            "ai_report_uid_idx",
+            "lpstep_embedding_idx",
+        ]
+        results: dict[str, Any] = {"dropped": [], "failed": []}
+
+        for index_name in stale_indexes:
+            try:
+                # Use raw identifier validation (these names are hardcoded, but be safe)
+                _validate_identifier(index_name, context="index name")
+                query = f"DROP INDEX {index_name} IF EXISTS"
+                async with self.driver.session() as session:
+                    await session.run(query)
+                results["dropped"].append(index_name)
+                self.logger.info(f"Dropped stale index: {index_name}")
+            except Exception as e:
+                results["failed"].append(index_name)
+                self.logger.warning(f"Failed to drop stale index {index_name}: {e}")
+
+        return Result.ok(results)
+
+    async def sync_domain_indexes(self) -> Result[dict[str, Any]]:
+        """
+        Create all domain indexes for optimal query performance.
+
+        Idempotent — uses IF NOT EXISTS. Safe to call on every startup.
+
+        Creates:
+        - UID indexes for all entity types (22)
+        - user_uid indexes for all UserOwnedEntity types (14)
+        - Status indexes for time-sensitive domains (4)
+        - Date indexes for temporal queries (4)
+        - Entity type discriminator index (1)
+        - Composite indexes for hot query paths (3)
+        """
+        results: dict[str, Any] = {"created": [], "failed": []}
+
+        async def _idx(name: str, label: str, field: str) -> None:
+            """Create a single named index and track result."""
+            result = await self._create_named_index(name, label, field)
+            if result.is_ok:
+                results["created"].append(name)
+            else:
+                results["failed"].append(name)
+
+        async def _composite(name: str, label: str, fields: list[str]) -> None:
+            """Create a composite index and track result."""
+            result = await self.create_composite_index(label, fields, index_name=name)
+            if result.is_ok:
+                results["created"].append(name)
+            else:
+                results["failed"].append(name)
+
+        # UID indexes — one per entity type + base Entity label
+        uid_labels = [
+            ("entity_uid_idx", "Entity"),
+            ("task_uid_idx", "Task"),
+            ("goal_uid_idx", "Goal"),
+            ("habit_uid_idx", "Habit"),
+            ("event_uid_idx", "Event"),
+            ("choice_uid_idx", "Choice"),
+            ("principle_uid_idx", "Principle"),
+            ("lesson_uid_idx", "Lesson"),
+            ("ku_uid_idx", "Ku"),
+            ("exercise_uid_idx", "Exercise"),
+            ("learning_path_uid_idx", "LearningPath"),
+            ("learning_step_uid_idx", "LearningStep"),
+            ("life_path_uid_idx", "LifePath"),
+            ("resource_uid_idx", "Resource"),
+            ("submission_uid_idx", "Submission"),
+            ("exercise_submission_uid_idx", "ExerciseSubmission"),
+            ("journal_submission_uid_idx", "JournalSubmission"),
+            ("exercise_report_uid_idx", "ExerciseReport"),
+            ("journal_report_uid_idx", "JournalReport"),
+            ("activity_report_uid_idx", "ActivityReport"),
+            ("form_template_uid_idx", "FormTemplate"),
+            ("form_submission_uid_idx", "FormSubmission"),
+            ("revised_exercise_uid_idx", "RevisedExercise"),
+        ]
+        for name, label in uid_labels:
+            await _idx(name, label, "uid")
+
+        # User UID indexes — all UserOwnedEntity types
+        user_uid_labels = [
+            ("task_user_uid_idx", "Task"),
+            ("goal_user_uid_idx", "Goal"),
+            ("habit_user_uid_idx", "Habit"),
+            ("event_user_uid_idx", "Event"),
+            ("choice_user_uid_idx", "Choice"),
+            ("principle_user_uid_idx", "Principle"),
+            ("exercise_submission_user_uid_idx", "ExerciseSubmission"),
+            ("journal_submission_user_uid_idx", "JournalSubmission"),
+            ("exercise_report_user_uid_idx", "ExerciseReport"),
+            ("journal_report_user_uid_idx", "JournalReport"),
+            ("activity_report_user_uid_idx", "ActivityReport"),
+            ("form_submission_user_uid_idx", "FormSubmission"),
+            ("revised_exercise_user_uid_idx", "RevisedExercise"),
+            ("life_path_user_uid_idx", "LifePath"),
+        ]
+        for name, label in user_uid_labels:
+            await _idx(name, label, "user_uid")
+
+        # Status indexes — time-sensitive activity domains
+        status_labels = [
+            ("task_status_idx", "Task"),
+            ("goal_status_idx", "Goal"),
+            ("habit_status_idx", "Habit"),
+            ("event_status_idx", "Event"),
+        ]
+        for name, label in status_labels:
+            await _idx(name, label, "status")
+
+        # Date indexes — temporal queries
+        date_indexes = [
+            ("task_due_date_idx", "Task", "due_date"),
+            ("event_event_date_idx", "Event", "event_date"),
+            ("goal_target_date_idx", "Goal", "target_date"),
+            ("expense_expense_date_idx", "Expense", "expense_date"),
+        ]
+        for name, label, field in date_indexes:
+            await _idx(name, label, field)
+
+        # Entity type discriminator index
+        await _idx("entity_type_idx", "Entity", "entity_type")
+
+        # Composite indexes — hot query paths
+        await _composite("task_user_status_idx", "Task", ["user_uid", "status"])
+        await _composite("goal_user_status_idx", "Goal", ["user_uid", "status"])
+        await _composite(
+            "entity_user_type_idx", "Entity", ["user_uid", "entity_type"]
+        )
+
+        created_count = len(results["created"])
+        failed_count = len(results["failed"])
+        self.logger.info(
+            f"Domain indexes synced: {created_count} created/verified, {failed_count} failed"
+        )
+
+        return Result.ok(results)

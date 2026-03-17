@@ -118,12 +118,13 @@ def generate_ingestion_relationship_config(
 class EntityIngestionConfig:
     """Configuration for ingesting a specific entity type."""
 
-    entity_label: str  # Neo4j label (e.g., "Entity", "Task")
+    entity_label: str  # Neo4j domain label (e.g., "Lesson", "Task")
     uid_prefix: str  # UID prefix (e.g., "ku", "task")
     relationship_config: dict[str, RelationshipConfig] | None = None
     required_fields: tuple[str, ...] = ()
     default_values: dict[str, Any] | None = None
     requires_user_uid: bool = False  # Whether this entity type needs user_uid for multi-tenancy
+    base_label: str | None = "Entity"  # Multi-label base (e.g., :Entity:Task). None for non-Entity types.
 
 
 # ENTITY_CONFIGS — Ingestion Entity Configuration
@@ -146,7 +147,7 @@ class EntityIngestionConfig:
 # See: /docs/decisions/ADR-026-unified-relationship-registry.md
 ENTITY_CONFIGS: dict[EntityType | NonKuDomain, EntityIngestionConfig] = {
     EntityType.LESSON: EntityIngestionConfig(
-        entity_label="Entity",
+        entity_label="Lesson",
         uid_prefix="l",
         required_fields=("title", "content"),
         relationship_config=generate_ingestion_relationship_config(EntityType.LESSON),
@@ -200,13 +201,13 @@ ENTITY_CONFIGS: dict[EntityType | NonKuDomain, EntityIngestionConfig] = {
         relationship_config=generate_ingestion_relationship_config(EntityType.PRINCIPLE),
     ),
     EntityType.LEARNING_PATH: EntityIngestionConfig(
-        entity_label="Lp",
+        entity_label="LearningPath",
         uid_prefix="lp",
         required_fields=("name",),
         relationship_config=generate_ingestion_relationship_config(EntityType.LEARNING_PATH),
     ),
     EntityType.LEARNING_STEP: EntityIngestionConfig(
-        entity_label="Ls",
+        entity_label="LearningStep",
         uid_prefix="ls",
         required_fields=("title",),
         relationship_config=generate_ingestion_relationship_config(EntityType.LEARNING_STEP),
@@ -216,6 +217,7 @@ ENTITY_CONFIGS: dict[EntityType | NonKuDomain, EntityIngestionConfig] = {
         uid_prefix="expense",
         required_fields=("description", "amount"),
         requires_user_uid=True,
+        base_label=None,  # Expense is not an Entity type
     ),
     # NOTE: Journal merged into Reports (February 2026).
     # Journal ingestion creates Entity nodes with entity_type="submission".

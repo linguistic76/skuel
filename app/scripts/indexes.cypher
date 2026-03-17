@@ -1,34 +1,75 @@
-// Priority 1: User UID indexes (10-100x faster)
-CREATE INDEX task_user_uid IF NOT EXISTS FOR (t:Task) ON (t.user_uid);
-CREATE INDEX habit_user_uid IF NOT EXISTS FOR (h:Habit) ON (h.user_uid);
-CREATE INDEX goal_user_uid IF NOT EXISTS FOR (g:Goal) ON (g.user_uid);
-CREATE INDEX event_user_uid IF NOT EXISTS FOR (e:Event) ON (e.user_uid);
-CREATE INDEX expense_user_uid IF NOT EXISTS FOR (e:Expense) ON (e.user_uid);
-CREATE INDEX choice_user_uid IF NOT EXISTS FOR (c:Choice) ON (c.user_uid);
-CREATE INDEX principle_user_uid IF NOT EXISTS FOR (p:Principle) ON (p.user_uid);
+// =============================================================================
+// SKUEL Neo4j Index Reference
+// =============================================================================
+// This file documents the complete index set. Actual creation is automated
+// via Neo4jSchemaManager.sync_domain_indexes() at bootstrap.
+//
+// Run manually only if needed: paste into Neo4j Browser or cypher-shell.
+// =============================================================================
 
-// Priority 2: Status indexes (5-10x faster)
-CREATE INDEX task_status IF NOT EXISTS FOR (t:Task) ON (t.status);
-CREATE INDEX habit_status IF NOT EXISTS FOR (h:Habit) ON (h.status);
-CREATE INDEX goal_status IF NOT EXISTS FOR (g:Goal) ON (g.status);
-CREATE INDEX event_status IF NOT EXISTS FOR (e:Event) ON (e.status);
+// UID indexes (23 — one per entity type + Entity base)
+CREATE INDEX entity_uid_idx IF NOT EXISTS FOR (n:Entity) ON (n.uid);
+CREATE INDEX task_uid_idx IF NOT EXISTS FOR (n:Task) ON (n.uid);
+CREATE INDEX goal_uid_idx IF NOT EXISTS FOR (n:Goal) ON (n.uid);
+CREATE INDEX habit_uid_idx IF NOT EXISTS FOR (n:Habit) ON (n.uid);
+CREATE INDEX event_uid_idx IF NOT EXISTS FOR (n:Event) ON (n.uid);
+CREATE INDEX choice_uid_idx IF NOT EXISTS FOR (n:Choice) ON (n.uid);
+CREATE INDEX principle_uid_idx IF NOT EXISTS FOR (n:Principle) ON (n.uid);
+CREATE INDEX lesson_uid_idx IF NOT EXISTS FOR (n:Lesson) ON (n.uid);
+CREATE INDEX ku_uid_idx IF NOT EXISTS FOR (n:Ku) ON (n.uid);
+CREATE INDEX exercise_uid_idx IF NOT EXISTS FOR (n:Exercise) ON (n.uid);
+CREATE INDEX learning_path_uid_idx IF NOT EXISTS FOR (n:LearningPath) ON (n.uid);
+CREATE INDEX learning_step_uid_idx IF NOT EXISTS FOR (n:LearningStep) ON (n.uid);
+CREATE INDEX life_path_uid_idx IF NOT EXISTS FOR (n:LifePath) ON (n.uid);
+CREATE INDEX resource_uid_idx IF NOT EXISTS FOR (n:Resource) ON (n.uid);
+CREATE INDEX submission_uid_idx IF NOT EXISTS FOR (n:Submission) ON (n.uid);
+CREATE INDEX exercise_submission_uid_idx IF NOT EXISTS FOR (n:ExerciseSubmission) ON (n.uid);
+CREATE INDEX journal_submission_uid_idx IF NOT EXISTS FOR (n:JournalSubmission) ON (n.uid);
+CREATE INDEX exercise_report_uid_idx IF NOT EXISTS FOR (n:ExerciseReport) ON (n.uid);
+CREATE INDEX journal_report_uid_idx IF NOT EXISTS FOR (n:JournalReport) ON (n.uid);
+CREATE INDEX activity_report_uid_idx IF NOT EXISTS FOR (n:ActivityReport) ON (n.uid);
+CREATE INDEX form_template_uid_idx IF NOT EXISTS FOR (n:FormTemplate) ON (n.uid);
+CREATE INDEX form_submission_uid_idx IF NOT EXISTS FOR (n:FormSubmission) ON (n.uid);
+CREATE INDEX revised_exercise_uid_idx IF NOT EXISTS FOR (n:RevisedExercise) ON (n.uid);
 
-// Priority 2: Date indexes (10-50x faster)
-CREATE INDEX task_due_date IF NOT EXISTS FOR (t:Task) ON (t.due_date);
-CREATE INDEX event_event_date IF NOT EXISTS FOR (e:Event) ON (e.event_date);
-CREATE INDEX goal_target_date IF NOT EXISTS FOR (g:Goal) ON (g.target_date);
-CREATE INDEX expense_expense_date IF NOT EXISTS FOR (e:Expense) ON (e.expense_date);
+// User UID indexes (14 — all UserOwnedEntity types)
+CREATE INDEX task_user_uid_idx IF NOT EXISTS FOR (n:Task) ON (n.user_uid);
+CREATE INDEX goal_user_uid_idx IF NOT EXISTS FOR (n:Goal) ON (n.user_uid);
+CREATE INDEX habit_user_uid_idx IF NOT EXISTS FOR (n:Habit) ON (n.user_uid);
+CREATE INDEX event_user_uid_idx IF NOT EXISTS FOR (n:Event) ON (n.user_uid);
+CREATE INDEX choice_user_uid_idx IF NOT EXISTS FOR (n:Choice) ON (n.user_uid);
+CREATE INDEX principle_user_uid_idx IF NOT EXISTS FOR (n:Principle) ON (n.user_uid);
+CREATE INDEX exercise_submission_user_uid_idx IF NOT EXISTS FOR (n:ExerciseSubmission) ON (n.user_uid);
+CREATE INDEX journal_submission_user_uid_idx IF NOT EXISTS FOR (n:JournalSubmission) ON (n.user_uid);
+CREATE INDEX exercise_report_user_uid_idx IF NOT EXISTS FOR (n:ExerciseReport) ON (n.user_uid);
+CREATE INDEX journal_report_user_uid_idx IF NOT EXISTS FOR (n:JournalReport) ON (n.user_uid);
+CREATE INDEX activity_report_user_uid_idx IF NOT EXISTS FOR (n:ActivityReport) ON (n.user_uid);
+CREATE INDEX form_submission_user_uid_idx IF NOT EXISTS FOR (n:FormSubmission) ON (n.user_uid);
+CREATE INDEX revised_exercise_user_uid_idx IF NOT EXISTS FOR (n:RevisedExercise) ON (n.user_uid);
+CREATE INDEX life_path_user_uid_idx IF NOT EXISTS FOR (n:LifePath) ON (n.user_uid);
 
-// Priority 3: Knowledge indexes (5-10x faster)
-CREATE INDEX ku_sel_category IF NOT EXISTS FOR (ku:Entity) ON (ku.sel_category);
-CREATE INDEX ku_learning_level IF NOT EXISTS FOR (ku:Entity) ON (ku.learning_level);
-CREATE INDEX ku_content_type IF NOT EXISTS FOR (ku:Entity) ON (ku.content_type);
+// Status indexes (4 — time-sensitive activity domains)
+CREATE INDEX task_status_idx IF NOT EXISTS FOR (n:Task) ON (n.status);
+CREATE INDEX goal_status_idx IF NOT EXISTS FOR (n:Goal) ON (n.status);
+CREATE INDEX habit_status_idx IF NOT EXISTS FOR (n:Habit) ON (n.status);
+CREATE INDEX event_status_idx IF NOT EXISTS FOR (n:Event) ON (n.status);
 
-// Priority 4: Combined indexes (maximum performance)
-CREATE INDEX task_user_status IF NOT EXISTS FOR (t:Task) ON (t.user_uid, t.status);
-CREATE INDEX expense_user_category IF NOT EXISTS FOR (e:Expense) ON (e.user_uid, e.category);
-CREATE INDEX goal_user_status IF NOT EXISTS FOR (g:Goal) ON (g.user_uid, g.status);
+// Date indexes (4 — temporal queries)
+CREATE INDEX task_due_date_idx IF NOT EXISTS FOR (n:Task) ON (n.due_date);
+CREATE INDEX event_event_date_idx IF NOT EXISTS FOR (n:Event) ON (n.event_date);
+CREATE INDEX goal_target_date_idx IF NOT EXISTS FOR (n:Goal) ON (n.target_date);
+CREATE INDEX expense_expense_date_idx IF NOT EXISTS FOR (n:Expense) ON (n.expense_date);
 
-// Priority 5: Entity type filtering (ActivityReport, cross-domain entity_type queries)
+// Entity type discriminator index
 CREATE INDEX entity_type_idx IF NOT EXISTS FOR (n:Entity) ON (n.entity_type);
-CREATE INDEX entity_user_type_composite IF NOT EXISTS FOR (n:Entity) ON (n.user_uid, n.entity_type);
+
+// Composite indexes (3 — hot query paths)
+CREATE INDEX task_user_status_idx IF NOT EXISTS FOR (n:Task) ON (n.user_uid, n.status);
+CREATE INDEX goal_user_status_idx IF NOT EXISTS FOR (n:Goal) ON (n.user_uid, n.status);
+CREATE INDEX entity_user_type_idx IF NOT EXISTS FOR (n:Entity) ON (n.user_uid, n.entity_type);
+
+// =============================================================================
+// Stale indexes (DROP if present from old schema)
+// =============================================================================
+DROP INDEX ai_report_uid_idx IF EXISTS;
+DROP INDEX lpstep_embedding_idx IF EXISTS;

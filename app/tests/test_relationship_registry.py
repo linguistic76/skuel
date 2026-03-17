@@ -62,17 +62,20 @@ class TestUnifiedRegistry:
             "Event",
             "Choice",
             "Principle",
-            # Curriculum Domains (5) - MOC removed January 2026 (now KU-based)
-            "Entity",
+            # Curriculum Domains — correct Neo4j label keys
+            "Lesson",
             "Ku",
+            "LearningStep",
+            "LearningPath",
+            "Exercise",
+            "RevisedExercise",
+            # Backward-compat aliases (old label keys)
+            "Entity",
             "Ls",
             "Lp",
-            "Exercise",  # Instruction templates
-            "RevisedExercise",  # Five-phase learning loop revision cycle
-            # Note: MapOfContent and MOCSection removed - MOC is now KU with ORGANIZES relationships
             # Other entities
-            "User",  # User entity relationships
-            "PrincipleReflection",  # Principle sub-entity
+            "User",
+            "PrincipleReflection",
         }
         assert set(LABEL_CONFIGS.keys()) == expected_labels
 
@@ -267,6 +270,10 @@ class TestNamedUnifiedConfigs:
 
     def test_curriculum_unified_configs_match_label_registry(self):
         """Verify curriculum *_CONFIG configs match LABEL_CONFIGS entries."""
+        assert LESSON_CONFIG is LABEL_CONFIGS["Lesson"]
+        assert LS_CONFIG is LABEL_CONFIGS["LearningStep"]
+        assert LP_CONFIG is LABEL_CONFIGS["LearningPath"]
+        # Backward-compat aliases still work
         assert LESSON_CONFIG is LABEL_CONFIGS["Entity"]
         assert LS_CONFIG is LABEL_CONFIGS["Ls"]
         assert LP_CONFIG is LABEL_CONFIGS["Lp"]

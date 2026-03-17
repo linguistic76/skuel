@@ -169,6 +169,7 @@ class UnifiedIngestionService:
                 driver=self.driver,
                 entity_type=dict,  # Engines work with dicts
                 entity_label=config.entity_label,
+                base_label=config.base_label,
             )
         return self._engines[entity_type]
 

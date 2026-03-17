@@ -1681,6 +1681,25 @@ async def compose_services(
         else:
             logger.warning(f"⚠️ Vector index sync had issues: {vector_result.error}")
 
+        # Drop stale indexes from removed labels
+        stale_result = await schema_manager.drop_stale_indexes()
+        if stale_result.is_ok:
+            dropped = stale_result.value.get("dropped", [])
+            if dropped:
+                logger.info(f"✅ Dropped stale indexes: {', '.join(dropped)}")
+
+        # Sync domain indexes (UID, user_uid, status, date, composite)
+        domain_idx_result = await schema_manager.sync_domain_indexes()
+        if domain_idx_result.is_ok:
+            created = domain_idx_result.value.get("created", [])
+            failed = domain_idx_result.value.get("failed", [])
+            logger.info(
+                f"✅ Domain indexes synced: {len(created)} created/verified"
+                + (f", {len(failed)} failed" if failed else "")
+            )
+        else:
+            logger.warning(f"⚠️ Domain index sync had issues: {domain_idx_result.error}")
+
         # Cleanup expired sessions and reset tokens (daily maintenance at startup)
         from adapters.persistence.neo4j.session_backend import SessionBackend
 
