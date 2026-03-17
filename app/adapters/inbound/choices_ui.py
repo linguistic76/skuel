@@ -133,10 +133,19 @@ def parse_choice_create_request(
         with contextlib.suppress(ValueError):
             decision_deadline = datetime.fromisoformat(deadline_str)
 
-    # Map string values to enums
-    choice_type_enum = ChoiceType(choice_type) if choice_type else ChoiceType.MULTIPLE
-    domain_enum = DomainEnum(domain) if domain else DomainEnum.PERSONAL
-    priority_enum = PriorityEnum(priority) if priority else PriorityEnum.MEDIUM
+    # Map string values to enums (guard against invalid form input)
+    try:
+        choice_type_enum = ChoiceType(choice_type) if choice_type else ChoiceType.MULTIPLE
+    except ValueError:
+        choice_type_enum = ChoiceType.MULTIPLE
+    try:
+        domain_enum = DomainEnum(domain) if domain else DomainEnum.PERSONAL
+    except ValueError:
+        domain_enum = DomainEnum.PERSONAL
+    try:
+        priority_enum = PriorityEnum(priority) if priority else PriorityEnum.MEDIUM
+    except ValueError:
+        priority_enum = PriorityEnum.MEDIUM
 
     option_requests = [
         ChoiceOptionCreateRequest(title=opt["title"], description=opt["description"])
@@ -161,11 +170,20 @@ def parse_choice_update_request(form: Any) -> EntityUpdateRequest:
     priority_str = safe_form_string(form.get("priority")) or "medium"
     domain_str = safe_form_string(form.get("domain")) or "personal"
 
+    try:
+        priority_enum = PriorityEnum(priority_str)
+    except ValueError:
+        priority_enum = PriorityEnum.MEDIUM
+    try:
+        domain_enum = DomainEnum(domain_str)
+    except ValueError:
+        domain_enum = DomainEnum.PERSONAL
+
     return EntityUpdateRequest(
         title=title if title else None,
         description=description,
-        priority=PriorityEnum(priority_str),
-        domain=DomainEnum(domain_str),
+        priority=priority_enum,
+        domain=domain_enum,
     )
 
 

@@ -422,8 +422,14 @@ def parse_habit_create_request(form_data: dict[str, Any]) -> HabitCreateRequest:
     except ValueError:
         target_days_int = 7
 
-    category = HabitCategory(category_str) if category_str else HabitCategory.OTHER
-    recurrence = RecurrencePattern(frequency_str) if frequency_str else RecurrencePattern.DAILY
+    try:
+        category = HabitCategory(category_str) if category_str else HabitCategory.OTHER
+    except ValueError:
+        category = HabitCategory.OTHER
+    try:
+        recurrence = RecurrencePattern(frequency_str) if frequency_str else RecurrencePattern.DAILY
+    except ValueError:
+        recurrence = RecurrencePattern.DAILY
 
     return HabitCreateRequest(
         name=name,
@@ -731,15 +737,16 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
         form_data = await request.form()
         wizard_data = dict(form_data)
 
-        # Build HabitCreateRequest from wizard data — strip all string fields consistently
+        # Build HabitCreateRequest from wizard data
+        identity_str = safe_form_string(wizard_data.get("identity"))
         create_request = HabitCreateRequest(
-            name=wizard_data.get("name", "").strip(),
-            description=wizard_data.get("description", "").strip() or None,
-            cue=wizard_data.get("cue", "").strip() or None,
-            routine=wizard_data.get("routine", "").strip() or None,
-            reward=wizard_data.get("reward", "").strip() or None,
-            reinforces_identity=wizard_data.get("identity", "").strip() or None,
-            is_identity_habit=bool(wizard_data.get("identity", "").strip()),
+            name=safe_form_string(wizard_data.get("name")) or "",
+            description=safe_form_string(wizard_data.get("description")) or None,
+            cue=safe_form_string(wizard_data.get("cue")) or None,
+            routine=safe_form_string(wizard_data.get("routine")) or None,
+            reward=safe_form_string(wizard_data.get("reward")) or None,
+            reinforces_identity=identity_str or None,
+            is_identity_habit=bool(identity_str),
         )
 
         # Extract goal essentiality from form fields (goal_essentiality_goal_123 = "essential")
