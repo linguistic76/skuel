@@ -122,7 +122,7 @@ render_error_banner(
 Separate I/O from computation:
 - **I/O helpers**: Async functions that fetch data, return `Result[T]`
 - **Computation helpers**: Pure functions (stats, filtering, sorting)
-- **Validation helpers**: Pure functions that return `Result[None]`
+- **Form parsing helpers**: Pure functions that parse form data into typed requests
 
 **Benefits:**
 - Testable without async mocks
@@ -130,35 +130,44 @@ Separate I/O from computation:
 - Single Responsibility Principle
 - Easy to modify individual pieces
 
-### 5. Early Form Validation
+### 5. Pure Form Parsing Helpers
 
-Validate form data BEFORE Pydantic layer:
+All 6 activity domain UI files extract form parsing into module-level pure functions under a `# Form Parsing Helpers` section. These have no service calls and no request access:
 
 ```python
-def validate_task_form_data(form_data: dict[str, Any]) -> Result[None]:
-    """
-    Validate task form data early.
+# adapters/inbound/tasks_ui.py — module level, before route factory
 
-    Pure function: returns clear error messages for UI.
-    """
+def parse_task_create_request(form_data: dict[str, Any]) -> TaskCreateRequest:
+    """Parse form data into a TaskCreateRequest. Pure function, no side effects."""
     title = form_data.get("title", "").strip()
-    if not title:
-        return Errors.validation("Task title is required")
+    priority_str = form_data.get("priority", "medium")
+    try:
+        priority = Priority(priority_str)
+    except ValueError:
+        priority = Priority.MEDIUM
+    # ... parse dates, recurrence, etc.
+    return TaskCreateRequest(title=title, priority=priority, ...)
 
-    if len(title) > 200:
-        return Errors.validation("Task title must be 200 characters or less")
-
-    # Date validation
-    # ... more validation
-
-    return Result.ok(None)
+def parse_task_update_payload(form: Any) -> dict[str, Any]:
+    """Parse edit-modal form into an update dict. Pure function, no side effects."""
+    updates: dict[str, Any] = {}
+    title = form.get("title", "").strip()
+    if title:
+        updates["title"] = title
+    # ... parse other fields
+    return updates
 ```
 
-**Benefits:**
-- User-friendly error messages (not Pydantic technical errors)
-- Early failure (before hitting services)
-- Clear validation rules
-- Testable without mocking
+Route handlers become thin — just auth + parse + service call:
+
+```python
+async def create_task_from_form(form_data: dict[str, Any], user_uid: str) -> Result[Any]:
+    """Domain-specific task creation logic."""
+    create_request = parse_task_create_request(form_data)
+    return await tasks_service.create_task(create_request, user_uid)
+```
+
+**Note:** `validate_*_form_data()` functions were eliminated (March 2026) — Pydantic is the sole validation layer. `QuickAddRouteFactory` catches `PydanticValidationError` and renders error banners automatically.
 
 ### 6. Safe Enum Parsing for HTML Forms
 

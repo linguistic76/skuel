@@ -1163,7 +1163,27 @@ Domains outside the Activity pattern use the same principle — service methods 
 
 **Insights** (`insights_ui.py`): Module-level `filter_insights()` and `build_filter_query_string()` helpers DRY the filtering logic shared between `insights_dashboard` and `load_more_insights` routes.
 
-**Pattern:** Routes should only do: authenticate → call service context method → handle error → pass context to view renderer. Data assembly, computation, and reshaping belong in service methods.
+**Pattern:** Routes should only do: authenticate → parse → call service → handle error → render. Data assembly, computation, and reshaping belong in service methods.
+
+### Route-Level Conventions (all 6 `*_ui.py` files)
+
+*Updated: 2026-03-18*
+
+Module-level helpers keep route handlers thin:
+
+| Helper | Purpose |
+|--------|---------|
+| `@dataclass class Filters` | Typed filter container with `to_dict()` for view renderer kwargs |
+| `parse_filters(request) -> Filters` | Extracts query params from request |
+| `parse_{domain}_create_request(form_data) -> {Domain}CreateRequest` | Pure form→request parsing (no service calls, no side effects) |
+| `parse_{domain}_update_payload(form) -> dict[str, Any]` | Pure form→update dict parsing |
+
+```python
+# Route handler stays thin:
+async def create_task_from_form(form_data: dict[str, Any], user_uid: str) -> Result[Any]:
+    create_request = parse_task_create_request(form_data)
+    return await tasks_service.create_task(create_request, user_uid)
+```
 
 ### Form Validation Pattern
 
