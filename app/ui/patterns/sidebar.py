@@ -106,6 +106,17 @@ def _default_item_renderer(item: SidebarItem, is_active: bool) -> "FT":
     )
 
 
+def SidebarLink(text: str, href: str) -> "FT":
+    """Compact sidebar link for entity lists (bookmarks, latest, etc.)."""
+    return Li(
+        A(
+            text,
+            href=href,
+            cls="text-sm text-muted-foreground hover:text-foreground transition-colors block py-1 px-3",
+        ),
+    )
+
+
 def SidebarNav(
     items: list[SidebarItem],
     active: str,

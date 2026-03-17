@@ -14,38 +14,34 @@ from typing import Any
 from fasthtml.common import A as Anchor
 from fasthtml.common import Div, Li, P, Span, Ul
 
+from core.models.ku.ku import Ku
 from core.utils.logging import get_logger
 from ui.patterns.pin_button import PinButton
-from ui.patterns.sidebar import SidebarItem, SidebarPage
+from ui.patterns.sidebar import SidebarItem, SidebarLink, SidebarPage
 
 logger = get_logger("skuel.routes.ku.ui")
 
 
-def _render_ku_row(ku: Any, pinned_uids: set[str]) -> Any:
+def _render_ku_row(ku: Ku, pinned_uids: set[str]) -> Any:
     """Render a single Ku as a list row with pin button and badges."""
-    title = getattr(ku, "title", "Untitled")
-    description = getattr(ku, "description", None)
-    ku_category = getattr(ku, "ku_category", None)
-    sel_category = getattr(ku, "sel_category", None)
-    uid = getattr(ku, "uid", "")
-    is_pinned = uid in pinned_uids
+    is_pinned = ku.uid in pinned_uids
 
     # Truncate description
     desc_text = None
-    if description:
-        desc_text = description[:150] + "..." if len(description) > 150 else description
+    if ku.description:
+        desc_text = ku.description[:150] + "..." if len(ku.description) > 150 else ku.description
 
     # Category badges
     badges: list[Any] = []
-    if ku_category:
+    if ku.ku_category:
         badges.append(
             Span(
-                ku_category,
+                ku.ku_category,
                 cls="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-muted text-muted-foreground",
             )
         )
-    if sel_category:
-        sel_label = sel_category if isinstance(sel_category, str) else getattr(sel_category, "value", str(sel_category))
+    if ku.sel_category:
+        sel_label = ku.sel_category if isinstance(ku.sel_category, str) else ku.sel_category.value
         badges.append(
             Span(
                 sel_label.replace("_", " ").title(),
@@ -58,8 +54,8 @@ def _render_ku_row(ku: Any, pinned_uids: set[str]) -> Any:
             Div(
                 Div(
                     Anchor(
-                        title,
-                        href=f"/ku/detail?uid={uid}",
+                        ku.title,
+                        href=f"/ku/detail?uid={ku.uid}",
                         cls="font-medium text-foreground hover:text-primary transition-colors",
                     ),
                     *badges,
@@ -68,7 +64,7 @@ def _render_ku_row(ku: Any, pinned_uids: set[str]) -> Any:
                 P(desc_text, cls="text-sm text-muted-foreground mt-1") if desc_text else None,
                 cls="flex-1 min-w-0",
             ),
-            PinButton(entity_uid=uid, is_pinned=is_pinned),
+            PinButton(entity_uid=ku.uid, is_pinned=is_pinned),
             cls="flex items-center gap-3",
         ),
         cls="py-3 border-b border-border last:border-0",
@@ -76,8 +72,8 @@ def _render_ku_row(ku: Any, pinned_uids: set[str]) -> Any:
 
 
 def _build_sidebar_items(
-    pinned_kus: list[Any],
-    latest_kus: list[Any],
+    pinned_kus: list[Ku],
+    latest_kus: list[Ku],
 ) -> tuple[list[SidebarItem], list[Any]]:
     """Build sidebar items: Bookmarks section + Latest section."""
     items: list[SidebarItem] = [
@@ -92,13 +88,7 @@ def _build_sidebar_items(
     # Bookmarks section
     if pinned_kus:
         bookmark_links = [
-            Li(
-                Anchor(
-                    getattr(ku, "title", "Untitled"),
-                    href=f"/ku/detail?uid={getattr(ku, 'uid', '')}",
-                    cls="text-sm text-muted-foreground hover:text-foreground transition-colors block py-1 px-3",
-                ),
-            )
+            SidebarLink(text=ku.title, href=f"/ku/detail?uid={ku.uid}")
             for ku in pinned_kus[:10]
         ]
         extra_sections.append(
@@ -120,13 +110,7 @@ def _build_sidebar_items(
     # Latest section
     if latest_kus:
         latest_links = [
-            Li(
-                Anchor(
-                    getattr(ku, "title", "Untitled"),
-                    href=f"/ku/detail?uid={getattr(ku, 'uid', '')}",
-                    cls="text-sm text-muted-foreground hover:text-foreground transition-colors block py-1 px-3",
-                ),
-            )
+            SidebarLink(text=ku.title, href=f"/ku/detail?uid={ku.uid}")
             for ku in latest_kus[:5]
         ]
         extra_sections.append(
@@ -158,7 +142,7 @@ def create_ku_ui_routes(_app, rt, ku_service, user_relationship_service=None):
         from ui.patterns.page_header import PageHeader
 
         # Fetch all Kus
-        kus: list[Any] = []
+        kus: list[Ku] = []
         if ku_service and getattr(ku_service, "core", None):
             result = await ku_service.core.list(limit=500)
             if not result.is_error and result.value:
@@ -167,7 +151,7 @@ def create_ku_ui_routes(_app, rt, ku_service, user_relationship_service=None):
 
         # Fetch pinned entity UIDs for the current user
         pinned_uids: set[str] = set()
-        pinned_kus: list[Any] = []
+        pinned_kus: list[Ku] = []
         if user_relationship_service and is_authenticated(request):
             user_uid = require_authenticated_user(request)
             pins_result = await user_relationship_service.get_pinned_entities(user_uid)
@@ -175,7 +159,7 @@ def create_ku_ui_routes(_app, rt, ku_service, user_relationship_service=None):
                 pinned_uids = set(pins_result.value)
 
         # Build pinned Kus list (matching pinned UIDs to Ku objects)
-        ku_by_uid = {getattr(ku, "uid", ""): ku for ku in kus}
+        ku_by_uid = {ku.uid: ku for ku in kus}
         pinned_kus = [ku_by_uid[uid] for uid in pinned_uids if uid in ku_by_uid]
 
         # Latest Kus (first 5 from the list — already sorted by created_at desc from service)
