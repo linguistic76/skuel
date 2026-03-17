@@ -1,7 +1,7 @@
 ---
 title: Finance Domain
 created: 2025-12-04
-updated: 2026-01-17
+updated: 2026-03-17
 status: current
 category: domains
 tags: [finance, domain, standalone, admin-only, bookkeeping]
@@ -9,7 +9,7 @@ tags: [finance, domain, standalone, admin-only, bookkeeping]
 
 # Finance Domain
 
-*Last updated: 2026-01-17*
+*Last updated: 2026-03-17*
 
 **Type:** Standalone Bookkeeping Domain (admin-only access)
 **UID Prefix:** `expense:`, `budget:`
@@ -222,13 +222,27 @@ Finance is intentionally **standalone** and **simple**:
 - Search service (admin queries expenses directly)
 - Relationship configuration (no graph relationships to other domains)
 - BaseService inheritance (standalone CRUD)
-- Facade pattern (no sub-services — single FinanceService class)
 
 **What Finance HAS:**
+- Facade pattern with 4 sub-services (Core, Budget, Reporting, Invoice)
 - Clean CRUD operations for expenses and budgets
 - Business validation (amount limits, locked periods)
 - Financial reporting and summaries
 - Event publishing for audit trail
+- Typed UI context methods (see below)
+
+## UI Context Methods
+
+Finance routes delegate all data assembly to typed context methods on `FinanceService`. Each method returns `Result[TypedDict]` — routes only call the method and pass the result to the view renderer.
+
+| Method | TypedDict | Keys |
+|--------|-----------|------|
+| `get_dashboard_context()` | `FinanceDashboardContext` | `total_spent`, `total_budget`, `budget_utilization`, `health_status`, `budget_health`, `recent_expenses`, `budget_alerts` |
+| `get_budgets_context()` | `FinanceBudgetsContext` | `budgets`, `total_budgeted`, `total_spent` |
+| `get_reports_context()` | `FinanceReportsContext` | `monthly_summary`, `category_breakdown`, `tax_summary` |
+| `get_analytics_context()` | `FinanceAnalyticsContext` | `health_score`, `health_tier`, `spending_pattern`, `budget_adherence` |
+
+TypedDicts defined in `core/services/finance_service.py`.
 
 ## Test Coverage
 

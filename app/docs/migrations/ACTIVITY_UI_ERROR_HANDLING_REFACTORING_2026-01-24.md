@@ -136,16 +136,16 @@ async def {domain}_dashboard(request) -> Any:
 - **Note**: Events use calendar as DEFAULT view (not list)
 - **Status**: ✅ Complete, validated, formatted, linted
 
-#### 5. Choices (`choice_ui.py`)
-- **Date**: 2026-01-24
+#### 5. Choices (`choices_ui.py`)
+- **Date**: 2026-01-24, **Updated**: 2026-03-17
 - **Features**: List + Create + Analytics views (NO calendar)
 - **Filter Fields**: `status` ("pending", "decided", "implemented", "all"), `sort_by` ("deadline", "priority", "created_at")
-- **Refactored Helpers**:
-  - `get_all_choices()` → `Result[list[Any]]`
-  - `get_filtered_choices()` → `Result[tuple[list[Any], dict]]`
-  - `get_analytics_data()` → `Result[dict[str, Any]]`
-  - `get_choice_types()` → `Result[list[str]]`
-  - `get_domains()` → `Result[list[str]]`
+- **Refactored Helpers** (January 2026 → March 2026):
+  - `get_all_choices()` — **removed** (was a wrapper around `choices_service.get_user_choices`)
+  - `get_filtered_choices()` — **superseded** by `choices_service.get_filtered_context()`
+  - `get_analytics_data()` — **moved** to `ChoicesService.get_analytics_context()` → `Result[ChoicesAnalyticsContext]`
+  - `get_choice_types()` — **replaced** by module-level `CHOICE_TYPES` constant
+  - `get_domains()` — **replaced** by module-level `DOMAINS` constant
 - **Status**: ✅ Complete, validated, formatted, linted
 
 #### 6. Principles (`principles_ui.py`)

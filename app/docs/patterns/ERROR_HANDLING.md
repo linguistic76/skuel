@@ -220,9 +220,10 @@ async def tasks_dashboard(request) -> Any:
 - **Consistency** - All Activity domains use same pattern
 - **Type safety** - Dataclasses prevent parameter extraction bugs
 
-**Implementation Status (January 2026):**
-- ✅ Tasks, Goals, Habits, Events - Complete
-- 🔄 Choices, Principles - In progress
+**Implementation Status:**
+- ✅ All 6 Activity Domains - Complete (Tasks, Goals, Habits, Events, Choices, Principles)
+- ✅ Finance - Uses typed context methods (`get_dashboard_context()`, etc.) with `Result[TypedDict]`
+- ✅ Insights - Uses `filter_insights()` helper with error-first check on `get_active_insights()`
 
 **Reference:** See `/docs/patterns/UI_COMPONENT_PATTERNS.md` for full implementation details.
 

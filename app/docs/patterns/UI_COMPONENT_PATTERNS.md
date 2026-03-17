@@ -1153,6 +1153,18 @@ async def get_filtered_context(
 
 **Tests:** `tests/unit/services/activity/test_activity_query_helpers.py` — 49 tests covering Python-side helpers.
 
+### Typed Context Methods (Non-Activity Domains)
+
+Domains outside the Activity pattern use the same principle — service methods return typed context dicts, routes stay thin:
+
+**Finance** (`FinanceService`): 4 typed context methods (`get_dashboard_context`, `get_budgets_context`, `get_reports_context`, `get_analytics_context`) return domain-specific `TypedDict`s (`FinanceDashboardContext`, etc.). Defined in `core/services/finance_service.py`.
+
+**Choices Analytics** (`ChoicesService.get_analytics_context`): Returns `ChoicesAnalyticsContext` TypedDict with `total_choices`, `total_decisions`, `satisfaction_rate`, `on_time_rate`, `outcomes`. Defined in `core/services/choices_service.py`.
+
+**Insights** (`insights_ui.py`): Module-level `filter_insights()` and `build_filter_query_string()` helpers DRY the filtering logic shared between `insights_dashboard` and `load_more_insights` routes.
+
+**Pattern:** Routes should only do: authenticate → call service context method → handle error → pass context to view renderer. Data assembly, computation, and reshaping belong in service methods.
+
 ### Form Validation Pattern
 
 **Principle:** Pydantic is the sole validation layer. Do not duplicate field constraints in manual functions.

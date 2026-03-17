@@ -1,7 +1,7 @@
 ---
 title: Choices Domain
 created: 2025-12-04
-updated: 2026-01-14
+updated: 2026-03-17
 status: current
 category: domains
 tags: [choices, activity-domain, domain]
@@ -211,10 +211,23 @@ The Create form in `/ui/choices/views.py`:
 
 ### Server-Side Parsing
 
-The `_parse_options_from_form()` helper in `/adapters/inbound/choice_ui.py`:
+The `_parse_options_from_form()` helper in `/adapters/inbound/choices_ui.py`:
 - Parses `options[0].title`, `options[0].description`, etc.
 - Validates minimum 2 options (returns 400 if fewer)
 - Converts to `ChoiceOptionCreateRequest` objects
+
+### Static Option Lists
+
+Choice types and domains are module-level constants in `choices_ui.py` (not service calls):
+
+```python
+CHOICE_TYPES = ["binary", "multiple", "ranking", "strategic", "operational"]
+DOMAINS = ["personal", "business", "health", "finance", "social"]
+```
+
+### Analytics Context
+
+Analytics computation is handled by `ChoicesService.get_analytics_context(user_uid)` → `Result[ChoicesAnalyticsContext]`. Returns `total_choices`, `total_decisions`, `satisfaction_rate`, `on_time_rate`, `outcomes`. TypedDict defined in `core/services/choices_service.py`.
 
 ## Code Examples
 

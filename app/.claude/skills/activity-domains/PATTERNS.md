@@ -136,6 +136,9 @@ habits, stats = ctx["entities"], ctx["stats"]
 - `@dataclass class Filters` — typed filter container
 - `parse_filters(request) -> Filters` — extracts query params
 - `validate_*_form_data(form_data) -> Result[None]` — called by `create_*_from_form`
+- Static option lists as module-level constants (e.g., Choices: `CHOICE_TYPES`, `DOMAINS`)
+
+**Domain-specific analytics** live on the service facade, not in route closures. Example: `ChoicesService.get_analytics_context(user_uid)` → `Result[ChoicesAnalyticsContext]`.
 
 **Tests:** `tests/unit/services/activity/test_activity_query_helpers.py` — 49 tests covering remaining Python-side helpers (sort, task secondary filters, principle filters).
 
