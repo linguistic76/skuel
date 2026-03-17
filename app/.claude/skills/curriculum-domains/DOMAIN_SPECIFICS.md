@@ -77,7 +77,7 @@ await lesson_service.semantic.get_semantic_neighborhood(article_uid)
 - **Composed into Lessons** - `(Lesson)-[:USES_KU]->(Ku)` relationship
 - **Trained by LS** - `(Ls)-[:TRAINS_KU]->(Ku)` relationship
 - **Namespace + category** - `ku_category` (KuCategory enum), `namespace`, `aliases`, `source`
-- **SEL organization** - `sel_category` (SELCategory enum) groups Kus by SEL competency for the /ku index
+- **SEL organization** - `sel_category` (SELCategory enum) classifies Kus by SEL competency. The `/ku` page shows a flat listing with bookmarks + latest sidebar (bookmarks via `UserRelationshipService` pin/unpin)
 - **Reference node** - Ontology/reference, not a unit for learning
 
 **Key Methods:**

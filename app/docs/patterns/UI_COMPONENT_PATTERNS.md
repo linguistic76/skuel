@@ -81,6 +81,8 @@ SKUEL uses a layered UI component architecture built on MonsterUI (FrankenUI + T
 
 **Evolution (2026-03-17b):** **A** icon removed from navbar. Activity links moved to avatar hover dropdown (`_avatar_dropdown()`). Navbar now: C, S + avatar (hover → Activities) + logout. `/profile` stripped of sidebar — uses `BasePage` directly. Journals card on `/activities` replaced with lightweight link. Sidebar badges loaded async via `GET /api/sidebar/badges` (HTMX OOB swap with `CountBadge` + `StatusBadge`).
 
+**Evolution (2026-03-17c):** **⚛️** (Knowledge) icon added as first navbar item, linking to `/ku`. Emoji icons use `text-base` styling (vs `font-semibold text-sm` for letter icons). `/ku` page redesigned from SEL-category grouped sections to flat Ku listing with bookmarks + latest sidebar. Sidebar powered by `UserRelationshipService.get_pinned_entities()` for bookmarks. Navbar order: SKUEL logo → ⚛️ → C → S → avatar → logout → search → bell.
+
 **Evolution (2026-02-09):** All 5 sidebars (Profile, KU, Reports, Journals, Askesis) unified into single Tailwind + Alpine.js component (`SidebarPage`). Custom CSS/JS files (`profile_sidebar.css`, `profile_sidebar.js`) deleted. Mobile uses horizontal MonsterUI tabs instead of drawer/overlay.
 
 **Background Convention (2026-02-05):** All layout surfaces (navbar, sidebars, body) are `bg-white`. Edges are defined by 1px borders (`border-b border-gray-200` on navbar, `border-r border-gray-200` on sidebars, CSS `border-right` on custom sidebars), not color contrast. Only interactive states (active nav links, hover) use tinted backgrounds.

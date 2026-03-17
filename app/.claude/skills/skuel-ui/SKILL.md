@@ -311,7 +311,8 @@ MAIN_NAV_ITEMS: tuple[NavItem, ...] = (
 
 ### Navbar Icon Links
 
-The navbar left section (after the SKUEL logo) has two icon links and a profile avatar:
+The navbar left section (after the SKUEL logo) has three icon links and a profile avatar:
+- **⚛️** (Knowledge) → `/ku` — No dropdown, direct link to Knowledge index
 - **C** (Curriculum) → `/curriculum` — Dropdown: Lessons, Learning Steps, Learning Paths, Exercises
 - **S** (Study) → `/study` — Dropdown: Submit, My Submissions, Exercise Reports, Activity Reports, Generate Reports
 - **Avatar** (click → `/profile`; hover → Activity dropdown: Tasks, Goals, Habits, Events, Choices, Principles)
@@ -319,10 +320,10 @@ The navbar left section (after the SKUEL logo) has two icon links and a profile 
 
 See `/ui/layouts/nav_config.py` for `ICON_NAV_ITEMS`, `IconNavItem`, and `*_DROPDOWN_ITEMS`.
 
-Icon dropdowns are rendered via `_DROPDOWN_ITEMS_MAP` in `navbar.py`. The avatar dropdown uses `ACTIVITY_DROPDOWN_ITEMS` directly via `_avatar_dropdown()`.
+Icon dropdowns are rendered via `_DROPDOWN_ITEMS_MAP` in `navbar.py`. The avatar dropdown uses `ACTIVITY_DROPDOWN_ITEMS` directly via `_avatar_dropdown()`. Items without `has_dropdown` (like ⚛️) render as direct links via `_icon_nav_link()`. Emoji letters (multi-char) get `text-base` styling instead of `font-semibold text-sm`.
 
 ```python
-# Icon dropdown map (from navbar.py) — C and S only
+# Icon dropdown map (from navbar.py) — C and S only (⚛️ has no dropdown)
 _DROPDOWN_ITEMS_MAP: dict[str, tuple[DropdownItem, ...]] = {
     "activities": ACTIVITY_DROPDOWN_ITEMS,   # used by avatar dropdown
     "curriculum": CURRICULUM_DROPDOWN_ITEMS,
@@ -332,16 +333,18 @@ _DROPDOWN_ITEMS_MAP: dict[str, tuple[DropdownItem, ...]] = {
 
 ### Mobile Navigation
 
-The navbar Alpine component (`navbar()` in `skuel.js`) handles the mobile hamburger menu. On mobile, activity domains (from avatar dropdown) and icon nav dropdowns (C, S) are expanded into individual links:
+The navbar Alpine component (`navbar()` in `skuel.js`) handles the mobile hamburger menu. On mobile, activity domains (from avatar dropdown) and icon nav dropdowns (C, S) are expanded into individual links. Non-dropdown items (⚛️) render as single links:
 
 ```python
-# Mobile: activity domains first, then icon nav dropdowns
+# Mobile: activity domains first, then icon nav items
 for di in ACTIVITY_DROPDOWN_ITEMS:
     mobile_icon_links.append(...)
-for item in ICON_NAV_ITEMS:  # C, S
+for item in ICON_NAV_ITEMS:  # ⚛️, C, S
     if item.has_dropdown:
         for di in _DROPDOWN_ITEMS_MAP.get(item.page_key, ()):
             mobile_icon_links.append(...)
+    else:
+        mobile_icon_links.append(...)  # Direct link (e.g., ⚛️ Knowledge)
 ```
 
 **Navbar accessibility requirements:**
@@ -914,7 +917,7 @@ When building a new SKUEL page or feature, verify:
 |------|---------|
 | `/ui/layouts/base_page.py` | `BasePage` + `build_head()` — foundation for all pages |
 | `/ui/layouts/page_types.py` | `PageType` enum and config |
-| `/ui/layouts/navbar.py` | Navbar with C/S hover dropdowns + avatar activity dropdown |
+| `/ui/layouts/navbar.py` | Navbar with ⚛️/C/S icons + avatar activity dropdown |
 | `/ui/layouts/nav_config.py` | `ICON_NAV_ITEMS`, `*_DROPDOWN_ITEMS`, `MAIN_NAV_ITEMS` |
 | `/ui/patterns/sidebar.py` | `SidebarItem`, `SidebarNav`, `SidebarPage` |
 | `/ui/curriculum/` | Curriculum sidebar, layout, landing page |

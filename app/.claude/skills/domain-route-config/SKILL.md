@@ -192,12 +192,12 @@ __all__ = ["create_tasks_routes"]
 ```python
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 
-LESSON_CONFIG = DomainRouteConfig(
-    domain_name="article",
-    primary_service_attr="article",
-    api_factory=create_lesson_api_routes,
-    ui_factory=create_lesson_ui_routes,
-    api_related_services={},  # No dependencies beyond primary service
+KU_CONFIG = DomainRouteConfig(
+    domain_name="ku",
+    primary_service_attr="ku",
+    api_factory=_ku_api_routes,
+    ui_factory=create_ku_ui_routes,
+    ui_related_services={"user_relationship_service": "user_relationships"},
 )
 ```
 
@@ -409,7 +409,7 @@ def create_tasks_ui_routes(_app, rt, tasks_service, services=None):
 | `adapters/inbound/route_factories/domain_route_factory.py` | The dataclass + `register_domain_routes()` — source of truth (119 lines) |
 | `adapters/inbound/route_factories/__init__.py` | Export surface: `DomainRouteConfig`, `register_domain_routes` |
 | `adapters/inbound/tasks_routes.py` | Exemplar: Standard pattern with related services |
-| `adapters/inbound/ku_routes.py` | Exemplar: Standard pattern, no related services |
+| `adapters/inbound/ku_routes.py` | Exemplar: Standard pattern with `ui_related_services` (UserRelationshipService for pins) |
 | `adapters/inbound/nous_routes.py` | Exemplar: UI-only pattern |
 | `adapters/inbound/insights_routes.py` | Exemplar: Multi-factory pattern |
 | `docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md` | Canonical pattern documentation (1,043 lines) |
