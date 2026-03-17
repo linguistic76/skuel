@@ -9,10 +9,13 @@
 #   Full stack (detached):   docker compose up -d
 #   Neo4j only (local dev):  docker compose up neo4j -d
 #                            uv run python main.py
+#   With monitoring:         docker compose --profile monitoring up
 #
-# Neo4j data is stored at ${NEO4J_DATA_DIR:-../infrastructure/neo4j}/
-# so both this compose and infrastructure/docker-compose.yml share
-# the same database files. No migration needed.
+# Neo4j config extends infrastructure/docker-compose.yml (single source
+# of truth). This file overrides only what differs for the app stack:
+#   - No GenAI plugin (SKUEL uses HuggingFace Python-side per ADR-049)
+#   - Memory defaults for dev environments
+#   - skuel-network for inter-container communication
 #
 # For production deployment, see docker-compose.production.yml
 # =====================================================
@@ -21,62 +24,25 @@ services:
   # --------------------------------------------------------------------------
   # Neo4j Graph Database
   # --------------------------------------------------------------------------
-  # Same config as infrastructure/docker-compose.yml.
-  # Data bind-mounted from ../infrastructure/neo4j/ by default.
+  # Extends infrastructure/docker-compose.yml — overrides only the deltas.
+  # Volume paths resolve relative to the base file (infrastructure/neo4j/).
   # --------------------------------------------------------------------------
   neo4j:
-    image: neo4j:2025.12.1
-    container_name: skuel-neo4j
-    restart: unless-stopped
-    ports:
-      - "127.0.0.1:7474:7474"  # HTTP (Neo4j Browser)
-      - "127.0.0.1:7687:7687"  # Bolt (Application connection)
+    extends:
+      file: ../infrastructure/docker-compose.yml
+      service: neo4j
     environment:
-      # Plugins
+      # Override: APOC only — no GenAI plugin (SKUEL uses HuggingFace Python-side)
       NEO4J_PLUGINS: '["apoc"]'
-
-      # Authentication
-      NEO4J_AUTH: "${NEO4J_AUTH}"
-
-      # Memory (Phase 6.3 tuned)
+      # Override: dev-friendly memory defaults
       NEO4J_server_memory_heap_initial__size: "${NEO4J_HEAP_INIT:-1G}"
       NEO4J_server_memory_heap_max__size: "${NEO4J_HEAP_MAX:-1500M}"
       NEO4J_server_memory_pagecache_size: "${NEO4J_PAGECACHE:-2G}"
-
-      # Transaction timeout
-      NEO4J_db_transaction_timeout: 600s
-
-      # Query optimization
-      NEO4J_server_memory_query__cache_per__db__cache__num__entries: "2000"
-      NEO4J_dbms_cypher_planner: COST
-
-      # Slow query logging
-      NEO4J_db_logs_query_enabled: INFO
-      NEO4J_db_logs_query_threshold: 1s
-      NEO4J_db_logs_query_parameter__logging__enabled: "true"
-
-      # Security — allow APOC meta procedures
+      # Override: APOC meta only — no GenAI procedures
       NEO4J_dbms_security_procedures_unrestricted: "apoc.meta.*"
       NEO4J_dbms_security_procedures_allowlist: "apoc.meta.*"
-
-      # Network
-      NEO4J_server_bolt_enabled: "true"
-      NEO4J_server_bolt_listen__address: 0.0.0.0:7687
-      NEO4J_server_http_enabled: "true"
-      NEO4J_server_http_listen__address: 0.0.0.0:7474
-    volumes:
-      - ${NEO4J_DATA_DIR:-../infrastructure/neo4j}/data:/data
-      - ${NEO4J_DATA_DIR:-../infrastructure/neo4j}/logs:/logs
-      - ${NEO4J_DATA_DIR:-../infrastructure/neo4j}/conf:/conf
-      - ${NEO4J_DATA_DIR:-../infrastructure/neo4j}/plugins:/plugins
-      - ${NEO4J_DATA_DIR:-../infrastructure/neo4j}/import:/import
-      - ${NEO4J_DATA_DIR:-../infrastructure/neo4j}/backups:/backups
-    healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:7474"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 40s
+      # Override: clear GenAI API key (not needed without GenAI plugin)
+      OPENAI_API_KEY: ""
     networks:
       - skuel-network
 
@@ -127,6 +93,7 @@ services:
   prometheus:
     image: prom/prometheus:v2.50.0
     container_name: skuel-prometheus
+    profiles: ["monitoring"]
     ports:
       - "9090:9090"
     volumes:
@@ -151,6 +118,7 @@ services:
   grafana:
     image: grafana/grafana:10.3.0
     container_name: skuel-grafana
+    profiles: ["monitoring"]
     ports:
       - "3000:3000"
     environment:

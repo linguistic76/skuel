@@ -98,12 +98,13 @@ services:
 
     volumes:
       # Persistent data storage
-      - ./neo4j/data:/data
-      - ./neo4j/logs:/logs
-      - ./neo4j/conf:/conf
-      - ./neo4j/plugins:/plugins
-      - ./neo4j/import:/import
-      - ./neo4j/backups:/backups
+      # NEO4J_DATA_DIR allows overriding the data directory (default: ./neo4j)
+      - ${NEO4J_DATA_DIR:-./neo4j}/data:/data
+      - ${NEO4J_DATA_DIR:-./neo4j}/logs:/logs
+      - ${NEO4J_DATA_DIR:-./neo4j}/conf:/conf
+      - ${NEO4J_DATA_DIR:-./neo4j}/plugins:/plugins
+      - ${NEO4J_DATA_DIR:-./neo4j}/import:/import
+      - ${NEO4J_DATA_DIR:-./neo4j}/backups:/backups
 
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:7474"]
