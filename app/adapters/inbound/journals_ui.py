@@ -591,6 +591,11 @@ def create_journals_ui_routes(
             ex_result = await report_projects_service.list_user_exercises(user_uid)
             if ex_result.is_ok:
                 exercises = ex_result.value or []
+            else:
+                logger.warning(
+                    "Failed to list exercises for submit page",
+                    extra={"error": str(ex_result.error)},
+                )
 
         content = Div(
             PageHeader(
@@ -717,6 +722,11 @@ def create_journals_ui_routes(
                 ex_result = await report_projects_service.list_user_exercises(user_uid)
                 if ex_result.is_ok:
                     exercises = ex_result.value or []
+                else:
+                    logger.warning(
+                        "Failed to refresh exercise list after upload",
+                        extra={"error": str(ex_result.error)},
+                    )
 
             logger.info(f"Instruction file saved for {user_uid}: {filename}")
             return _render_instruction_list(exercises)

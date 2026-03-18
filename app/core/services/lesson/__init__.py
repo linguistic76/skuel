@@ -25,6 +25,7 @@ DELETED (January 2026):
 from core.services.lesson.lesson_adaptive_service import LessonAdaptiveService
 from core.services.lesson.lesson_core_service import LessonCoreService
 from core.services.lesson.lesson_graph_service import LessonGraphService
+from core.services.lesson.lesson_organization_service import KuNavigation
 from core.services.lesson.lesson_mastery_service import (
     LearningState,
     LessonMasteryService,
@@ -35,6 +36,7 @@ from core.services.lesson.lesson_search_service import LessonSearchService
 from core.services.lesson.lesson_semantic_service import LessonSemanticService
 
 __all__ = [
+    "KuNavigation",
     "LessonAdaptiveService",
     "LessonCoreService",
     "LessonGraphService",

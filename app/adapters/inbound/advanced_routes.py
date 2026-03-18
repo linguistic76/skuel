@@ -94,11 +94,21 @@ def create_calendar_optimization_routes(
             tasks_result = await tasks.get_tasks_for_date(opt_date)
             if tasks_result.is_ok:
                 task_list = tasks_result.value or []
+            else:
+                logger.warning(
+                    "Failed to get tasks for scheduling",
+                    extra={"date": str(opt_date), "error": str(tasks_result.error)},
+                )
 
         if events:
             events_result = await events.get_events_for_date(opt_date)
             if events_result.is_ok:
                 event_list = events_result.value or []
+            else:
+                logger.warning(
+                    "Failed to get events for scheduling",
+                    extra={"date": str(opt_date), "error": str(events_result.error)},
+                )
 
         result: Result[Any] = await calendar_optimization.optimize_knowledge_scheduling(
             user_uid=user_uid,
@@ -133,6 +143,11 @@ def create_calendar_optimization_routes(
             tasks_result = await tasks.get_tasks_for_date(opt_date)
             if tasks_result.is_ok:
                 task_list = tasks_result.value or []
+            else:
+                logger.warning(
+                    "Failed to get tasks for cognitive load",
+                    extra={"date": str(opt_date), "error": str(tasks_result.error)},
+                )
 
         # Analyze cognitive load for each task
         analyses = []

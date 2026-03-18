@@ -244,6 +244,13 @@ class LessonService:
             )
         return await self.organization.get_organization_view(*args, **kwargs)
 
+    async def get_navigation(self, *args: Any, **kwargs: Any) -> Result[Any]:
+        if self.organization is None:
+            return Result.fail(
+                Errors.system("Organization service not available", "get_navigation")
+            )
+        return await self.organization.get_navigation(*args, **kwargs)
+
     async def find_organizers(self, *args: Any, **kwargs: Any) -> Result[Any]:
         if self.organization is None:
             return Result.fail(

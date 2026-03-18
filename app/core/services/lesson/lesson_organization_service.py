@@ -69,6 +69,16 @@ class OrganizationView:
         }
 
 
+@dataclass(frozen=True)
+class KuNavigation:
+    """Previous/next sibling in MOC ORGANIZES order."""
+
+    prev_uid: str | None = None
+    prev_title: str | None = None
+    next_uid: str | None = None
+    next_title: str | None = None
+
+
 class LessonOrganizationService:
     """
     Organization service for ORGANIZES relationships on Kus.
@@ -197,6 +207,47 @@ class LessonOrganizationService:
     # =========================================================================
     # DISCOVERY OPERATIONS
     # =========================================================================
+
+    async def get_navigation(self, ku_uid: str) -> Result[KuNavigation]:
+        """Get prev/next sibling in MOC ORGANIZES order.
+
+        Database errors are propagated (not hidden). Legitimate empty states
+        (no organizers, not found in children) return empty KuNavigation.
+        """
+        organizers_result = await self.backend.find_organizers(ku_uid)
+        if organizers_result.is_error:
+            return Result.fail(organizers_result.expect_error())
+
+        if not organizers_result.value:
+            return Result.ok(KuNavigation())
+
+        moc_uid = organizers_result.value[0].get("uid")
+        moc_view_result = await self.ku_service.get_organization_view(moc_uid, max_depth=1)
+        if moc_view_result.is_error:
+            return Result.fail(moc_view_result.expect_error())
+
+        children = moc_view_result.value.children
+
+        current_idx = None
+        for idx, child in enumerate(children):
+            if child.uid == ku_uid:
+                current_idx = idx
+                break
+
+        if current_idx is None:
+            return Result.ok(KuNavigation())
+
+        prev_ku = children[current_idx - 1] if current_idx > 0 else None
+        next_ku = children[current_idx + 1] if current_idx < len(children) - 1 else None
+
+        return Result.ok(
+            KuNavigation(
+                prev_uid=prev_ku.uid if prev_ku else None,
+                prev_title=prev_ku.title if prev_ku else None,
+                next_uid=next_ku.uid if next_ku else None,
+                next_title=next_ku.title if next_ku else None,
+            )
+        )
 
     async def find_organizers(self, ku_uid: str) -> Result[list[dict[str, Any]]]:
         """Find all parent Kus that organize the given Ku."""

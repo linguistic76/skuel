@@ -97,55 +97,18 @@ def create_lesson_reading_api_routes(
     @rt("/api/lesson/{uid}/navigation")
     @boundary_handler()
     async def get_ku_navigation(request: Request, uid: str) -> Result[dict[str, Any]]:
-        """
-        Get next/prev KU in MOC learning sequence.
-
-        Uses MOC ORGANIZES order to determine siblings.
-        """
+        """Get next/prev KU in MOC learning sequence."""
         require_authenticated_user(request)
-
-        empty_nav: dict[str, Any] = {
-            "prev_uid": None,
-            "prev_title": None,
-            "next_uid": None,
-            "next_title": None,
-        }
-
-        # Get organizers containing this KU
-        organizers_result = await ku_service.find_organizers(uid)
-        if organizers_result.is_error or not organizers_result.value:
-            return Result.ok(empty_nav)
-
-        # Use first organizer for navigation
-        moc_uid = organizers_result.value[0].get("uid")
-
-        # Get children via organization view (depth=1 for direct children only)
-        moc_view_result = await ku_service.get_organization_view(moc_uid, max_depth=1)
-        if moc_view_result.is_error:
-            return Result.ok(empty_nav)
-
-        children = moc_view_result.value.children
-
-        # Find current index
-        current_idx = None
-        for idx, child in enumerate(children):
-            if child.uid == uid:
-                current_idx = idx
-                break
-
-        if current_idx is None:
-            return Result.ok(empty_nav)
-
-        # Get prev/next
-        prev_ku = children[current_idx - 1] if current_idx > 0 else None
-        next_ku = children[current_idx + 1] if current_idx < len(children) - 1 else None
-
+        result = await ku_service.get_navigation(uid)
+        if result.is_error:
+            return Result.fail(result.expect_error())
+        nav = result.value
         return Result.ok(
             {
-                "prev_uid": prev_ku.uid if prev_ku else None,
-                "prev_title": prev_ku.title if prev_ku else None,
-                "next_uid": next_ku.uid if next_ku else None,
-                "next_title": next_ku.title if next_ku else None,
+                "prev_uid": nav.prev_uid,
+                "prev_title": nav.prev_title,
+                "next_uid": nav.next_uid,
+                "next_title": nav.next_title,
             }
         )
 
