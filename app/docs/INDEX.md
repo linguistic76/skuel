@@ -109,7 +109,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 
 | Document | Updated | Lines |
 |----------|---------|-------|
-| **[API Input Validation Patterns](patterns/API_VALIDATION_PATTERNS.md)** | **2026-01-24** | **760** |
+| **[API Input Validation Patterns](patterns/API_VALIDATION_PATTERNS.md)** | **2026-03-18** | **878** |
 | [Async/Sync Design Pattern](patterns/ASYNC_SYNC_DESIGN_PATTERN.md) | 2026-01-03 | 200 |
 | [BackendOperations Protocol Architecture](patterns/BACKEND_OPERATIONS_ISP.md) | 2026-01-07 | 320 |
 | [Code Quality Enforcement - Linter Rules](patterns/linter_rules.md) | 2025-10-17 | 209 |

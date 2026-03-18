@@ -46,37 +46,28 @@ SKUEL validates all external input at API boundaries to prevent 500 errors from 
 
 **Pattern:** Lightweight helper functions that return `Result[T]`
 
+**All shared helpers live in** `adapters/inbound/route_factories/route_helpers.py` and are re-exported from `adapters.inbound.route_factories`.
+
 **Example:**
 ```python
-def parse_bool_query_param(params: dict[str, str], key: str, default: bool = True) -> bool:
-    """Parse boolean from query param (handles true/1/yes/on)."""
-    value = params.get(key, str(default)).lower()
-    return value in ("true", "1", "yes", "on")
+from adapters.inbound.route_factories import (
+    parse_bool_query_param,
+    parse_date_query_param,
+    parse_csv_query_param,
+    parse_pagination_params,
+    parse_date_param_strict,
+)
 
-def validate_enum(value: str, allowed: list[str]) -> Result[str]:
-    """Validate enum value against whitelist."""
-    if value not in allowed:
-        return Result.fail(
-            Errors.validation(
-                message=f"Value must be one of: {allowed}",
-                field="param_name",
-                value=value,
-            )
-        )
-    return Result.ok(value)
-```
-
-**Usage in Routes:**
-```python
 @rt("/api/context/dashboard")
 @boundary_handler()
-async def get_dashboard(request: Request, user_uid: str) -> Result[Any]:
+async def get_dashboard(request: Request) -> Result[Any]:
+    user_uid = require_authenticated_user(request)
     params = dict(request.query_params)
 
-    # Boolean parsing
+    # Boolean parsing (silent fallback)
     include_predictions = parse_bool_query_param(params, "include_predictions", default=True)
 
-    # Enum validation
+    # Enum validation (domain-specific)
     time_window_result = validate_time_window(params.get("time_window", "7d"))
     if time_window_result.is_error:
         return time_window_result  # 400 with clear error
@@ -219,58 +210,32 @@ async def search_results(request: Request, query: str = "", status: str | None =
 
 ---
 
-### Date and Integer Query Parameters with `Result[T]`
+### Date and Integer Query Parameters with `Result[T]` (Strict Helpers)
 
-**Use Case:** Routes that parse ISO dates, year/month/quarter integers with range validation.
+**Use Case:** Routes where invalid dates or out-of-range integers should return a 400 error, not fall back to a default.
 
-**Pattern:** Helper functions returning `Result[T]` — compose naturally with `@boundary_handler()`.
-
-**Example:**
-```python
-def _parse_iso_date(value: str | None, field: str) -> Result[date]:
-    """Parse an ISO-format date string, returning a validation error on failure."""
-    if not value:
-        return Result.fail(Errors.validation(f"{field} is required", field=field))
-    try:
-        return Result.ok(date.fromisoformat(value))
-    except ValueError:
-        return Result.fail(
-            Errors.validation(f"{field} must be ISO format (YYYY-MM-DD)", field=field, value=value)
-        )
-
-def _parse_int_in_range(value: str | None, field: str, min_val: int, max_val: int) -> Result[int]:
-    """Parse an integer string and validate it falls within [min_val, max_val]."""
-    if not value:
-        return Result.fail(Errors.validation(f"{field} is required", field=field))
-    try:
-        n = int(value)
-    except ValueError:
-        return Result.fail(Errors.validation(f"{field} must be an integer", field=field, value=value))
-    if n < min_val or n > max_val:
-        return Result.fail(
-            Errors.validation(f"{field} must be between {min_val} and {max_val}", field=field, value=n)
-        )
-    return Result.ok(n)
-```
+**Helpers:** `parse_date_param_strict()` and `parse_int_param_strict()` from `route_helpers.py` — compose naturally with `@boundary_handler()`.
 
 **Usage in Routes:**
 ```python
+from adapters.inbound.route_factories import parse_date_param_strict, parse_int_param_strict
+
 @rt("/api/analytics/quarterly-progress")
 @boundary_handler()
-async def get_quarterly(request: Request) -> Result[dict[str, Any]]:
+async def get_quarterly(request: Request) -> Result[Any]:
     user_uid = require_authenticated_user(request)
 
-    year_result = _parse_int_in_range(request.query_params.get("year"), "year", 2000, 2100)
+    year_result = parse_int_param_strict(request.query_params.get("year"), "year", 2000, 2100)
     if year_result.is_error:
         return year_result
-    quarter_result = _parse_int_in_range(request.query_params.get("quarter"), "quarter", 1, 4)
+    quarter_result = parse_int_param_strict(request.query_params.get("quarter"), "quarter", 1, 4)
     if quarter_result.is_error:
         return quarter_result
 
     return await service.generate_quarterly_progress(user_uid, year_result.value, quarter_result.value)
 ```
 
-**Real-world usage:** `analytics_summary_api.py` — `_parse_iso_date()` and `_parse_int_in_range()` replace repeated try/except blocks across 4 routes.
+**Real-world usage:** `analytics_summary_api.py` — 4 routes using `parse_date_param_strict()` and `parse_int_param_strict()` for date/period validation.
 
 ---
 
@@ -463,10 +428,10 @@ The error surfaces as a 422 field error on `__root__` (model level), caught by `
 
 | Input Type | Pattern | Error Code | Use Case |
 |------------|---------|------------|----------|
-| **Query Params (GET)** | Helper functions | 400 | Simple string inputs, enums, booleans |
+| **Query Params (GET)** | Silent helpers (`parse_*_query_param`) | 200 (default) | Booleans, dates, CSV lists, pagination |
+| **Required Params (GET)** | Strict helpers (`parse_*_param_strict`) | 400 | Required dates, bounded integers |
 | **HTML Form Params (GET)** | `Model.from_form_params()` classmethod | 400 | Many checkbox/enum/optional string params needing coercion |
 | **JSON Bodies (POST/PUT)** | Pydantic models | 422 | Structured data, complex validation |
-| **Date/Integer Params** | `_parse_iso_date()` / `_parse_int_in_range()` | 400 | ISO dates, bounded integers |
 | **Path Params** | Avoid (SKUEL uses query params) | N/A | Not used in SKUEL API routes |
 
 **SKUEL Preference:** Query parameters over path parameters for all routes. See [ROUTE_NAMING_CONVENTION.md](ROUTE_NAMING_CONVENTION.md).
@@ -605,24 +570,66 @@ days_back = parse_int_query_param(request.query_params, "days_back", 30, minimum
 ### Boolean Query Parameters
 
 ```python
-# Helper function (reusable)
-def parse_bool_query_param(params: dict[str, str], key: str, default: bool = True) -> bool:
-    """Parse boolean from query param."""
-    value = params.get(key, str(default)).lower()
-    return value in ("true", "1", "yes", "on")
+from adapters.inbound.route_factories import parse_bool_query_param
 
-# Usage in route
 include_insights = parse_bool_query_param(params, "include_insights", default=True)
 ```
 
-**Handles:**
-- `?flag=true` → `True`
-- `?flag=1` → `True`
-- `?flag=yes` → `True`
-- `?flag=on` → `True`
-- `?flag=false` → `False`
-- `?flag=0` → `False`
-- Missing → Uses default
+**Handles:** `true/1/yes/on` → `True`, everything else → `False`, missing → default.
+
+---
+
+### Date Query Parameters
+
+```python
+from adapters.inbound.route_factories import parse_date_query_param
+
+# Silent fallback (optional dates)
+start_date = parse_date_query_param(params, "start_date", today - timedelta(days=7))
+
+# Strict validation (required dates)
+from adapters.inbound.route_factories import parse_date_param_strict
+result = parse_date_param_strict(params.get("start_date"), "start_date")
+if result.is_error:
+    return result  # 400 with field-level error
+```
+
+---
+
+### Comma-Separated List Parameters
+
+```python
+from adapters.inbound.route_factories import parse_csv_query_param, split_csv
+
+# From query params dict
+tags = parse_csv_query_param(params, "tags")  # ["python", "ml"]
+
+# From a string variable
+status_filter = split_csv(status)  # strips whitespace, filters empties
+```
+
+---
+
+### Pagination Parameters
+
+```python
+from adapters.inbound.route_factories import parse_pagination_params
+
+pagination = parse_pagination_params(params, default_limit=100, max_limit=500)
+# pagination.limit  — clamped to [1, max_limit]
+# pagination.offset — clamped to [0, ∞)
+```
+
+---
+
+### Date Range Parameters
+
+```python
+from adapters.inbound.route_factories import parse_date_range_params
+
+date_range = parse_date_range_params(params, default_start=today - timedelta(days=7))
+# date_range.start_date, date_range.end_date — both date | None
+```
 
 ---
 
@@ -758,20 +765,24 @@ async def track_habit_route(request: Request, entity: Any, ...) -> Result[Any]:
 
 ### Unit Tests for Helpers
 
+Tests in `tests/unit/adapters/test_route_helpers.py` cover all shared helpers (59 tests):
+
 ```python
 def test_parse_bool_query_param():
-    assert parse_bool_query_param({"flag": "true"}, "flag") == True
-    assert parse_bool_query_param({"flag": "1"}, "flag") == True
-    assert parse_bool_query_param({"flag": "false"}, "flag") == False
-    assert parse_bool_query_param({}, "flag", default=True) == True
+    assert parse_bool_query_param({"flag": "true"}, "flag") is True
+    assert parse_bool_query_param({"flag": "1"}, "flag") is True
+    assert parse_bool_query_param({"flag": "false"}, "flag") is False
+    assert parse_bool_query_param({}, "flag", default=True) is True
 
-def test_validate_enum():
-    result = validate_time_window("7d")
-    assert not result.is_error
-
-    result = validate_time_window("invalid")
+def test_parse_date_param_strict():
+    result = parse_date_param_strict("2026-03-18", "start_date")
+    assert result.is_ok
+    result = parse_date_param_strict("bad", "start_date")
     assert result.is_error
-    assert "7d" in result.expect_error().message
+
+def test_parse_csv_query_param():
+    assert parse_csv_query_param({"tags": "a, b, c"}, "tags") == ["a", "b", "c"]
+    assert parse_csv_query_param({}, "tags") == []
 ```
 
 ### Unit Tests for Pydantic Models
