@@ -108,7 +108,7 @@ class LessonIntelligenceService(BaseAnalyticsService[LessonOperations, Entity]):
             depth: Graph traversal depth (default: 2)
 
         Returns:
-            Result containing (Article, GraphContext) tuple
+            Result containing (Lesson, GraphContext) tuple
         """
         if self.orchestrator is None:
             return Result.fail(

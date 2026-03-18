@@ -129,7 +129,7 @@ class UserContextIntelligenceFactory:
                 principles: Principles relationship service
 
             Curriculum Domains (3):
-                lesson: Article graph service
+                lesson: Lesson graph service
                 ls: Learning step relationship service
                 lp: Learning path relationship service
 

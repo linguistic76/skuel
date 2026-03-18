@@ -315,7 +315,7 @@ assistant cannot do this. Askesis can.
 
 ## Cross-References
 
-- [FOUR_PHASED_LEARNING_LOOP.md](/docs/architecture/FOUR_PHASED_LEARNING_LOOP.md) — Askesis scaffolds the learning loop (Article → Exercise → Submission → Report → RevisedExercise)
+- [FOUR_PHASED_LEARNING_LOOP.md](/docs/architecture/FOUR_PHASED_LEARNING_LOOP.md) — Askesis scaffolds the learning loop (Lesson → Exercise → Submission → Report → RevisedExercise)
 - `docs/architecture/ASKESIS_ARCHITECTURE.md` — service structure (pre-refactor, 2025-11-27)
 - `docs/roadmap/zpd-service-deferred.md` — ZPDService design
 - `docs/roadmap/conversation-neo4j-persistence-deferred.md` — Neo4j conversation schema

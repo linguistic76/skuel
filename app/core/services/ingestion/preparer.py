@@ -263,7 +263,7 @@ def _should_generate_embedding(entity_type: EntityType | NonKuDomain) -> bool:
     Determine if entity type should have embeddings.
 
     All content-bearing entity types receive embeddings for semantic search:
-    - Curriculum: Article, Ku, Exercise, LearningStep, LearningPath, Resource, RevisedExercise
+    - Curriculum: Lesson, Ku, Exercise, LearningStep, LearningPath, Resource, RevisedExercise
     - Activity: Task, Goal, Habit, Event, Choice, Principle
     """
     embeddable_types = {

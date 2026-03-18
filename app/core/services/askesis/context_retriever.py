@@ -624,13 +624,13 @@ class ContextRetriever:
         return [result.value for result in results if result.is_ok and result.value]
 
     async def _fetch_cited_resources(self, source_uids: list[str]) -> list[Resource]:
-        """Fetch Resources cited by Articles/KUs via CITES_RESOURCE relationships.
+        """Fetch Resources cited by Lessons/KUs via CITES_RESOURCE relationships.
 
-        Traverses (Article/Ku)-[:CITES_RESOURCE]->(Resource) for the given
+        Traverses (Lesson/Ku)-[:CITES_RESOURCE]->(Resource) for the given
         source UIDs and builds Resource domain models from the results.
 
         Args:
-            source_uids: UIDs of Articles/KUs to traverse from.
+            source_uids: UIDs of Lessons/KUs to traverse from.
 
         Returns:
             List of Resource domain models (may be empty).

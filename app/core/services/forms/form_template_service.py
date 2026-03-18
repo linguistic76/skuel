@@ -33,7 +33,7 @@ class FormTemplateService(BaseService):
     CRUD service for FormTemplates (general-purpose form definitions).
 
     FormTemplates are shared content created by admins. They define form_schema
-    (field specs) that get rendered as inline forms in Articles.
+    (field specs) that get rendered as inline forms in Lessons.
     """
 
     _config = DomainConfig(

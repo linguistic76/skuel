@@ -15,7 +15,7 @@ UserContextIntelligence = UserContext + Domain Services
 **Entity Types:**
 
     Activity (6): Tasks, Goals, Habits, Events, Choices, Principles
-    Curriculum: Article, Ku, LearningStep, LearningPath, Exercise
+    Curriculum: Lesson, Ku, LearningStep, LearningPath, Exercise
     Curated Content: Resource
     Content processing: Submission, Journal, ActivityReport, SubmissionReport
     Destination: LifePath
@@ -154,7 +154,7 @@ class UserContextIntelligence(
                 principles: Principles relationship service for value alignment
 
             Curriculum Domains (3):
-                lesson: Article service for learning readiness
+                lesson: Lesson service for learning readiness
                 ls: Learning step service for step sequencing
                 lp: Learning path service for critical path analysis
 
