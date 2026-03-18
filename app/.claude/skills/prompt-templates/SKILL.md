@@ -86,7 +86,7 @@ programming error, not a domain failure.
 | `journal_exploration` | `JournalOutputGenerator._format_exploration()` | `{content}` |
 | `dsl_domain_recognition` | `LLMDSLBridgeService.transform()` (default) | `{journal_text}` |
 | `dsl_domain_recognition_compact` | `LLMDSLBridgeService.transform()` (compact mode) | `{journal_text}` |
-| `askesis_guided_redirect` | `ResponseGenerator._build_direct_prompt()` | `{articles_text}`, `{resource_refs}` |
+| `askesis_guided_redirect` | `ResponseGenerator._build_direct_prompt()` | `{lessons_text}`, `{resource_refs}` |
 | `askesis_guided_out_of_scope` | `ResponseGenerator._build_direct_prompt()` | `{ls_title}`, `{ls_intent}` |
 | `askesis_guided_assess` | `ResponseGenerator._build_socratic_prompt()` | `{concepts}` |
 | `askesis_guided_probe` | `ResponseGenerator._build_socratic_prompt()` | `{concepts}` |

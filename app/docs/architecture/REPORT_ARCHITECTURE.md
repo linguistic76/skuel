@@ -296,7 +296,7 @@ Methods: `get_pending_submissions()`, `get_unsubmitted_exercises()`, `get_report
 
 ## Where Reports Sit in the 4-Layer Architecture
 
-The 5-phase learning loop is: **Article → Exercise → Submission → Report → RevisedExercise**
+The 5-phase learning loop is: **Lesson → Exercise → Submission → Report → RevisedExercise**
 
 The first three stages are **leaf domains** — each owns its own Neo4j nodes and fits the standard 4-layer pattern:
 

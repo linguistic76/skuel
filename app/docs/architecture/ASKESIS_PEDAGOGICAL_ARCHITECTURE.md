@@ -256,7 +256,7 @@ curriculum of the conversation — it constrains what Askesis can do.
 
 `ResponseGenerator.build_guided_system_prompt()` dispatches to 4 mode-specific builders,
 each rendering one or two templates via `PROMPT_REGISTRY.render()`. Dynamic context
-(article refs, KU names, resource refs, edge text, practice items) is computed in Python
+(lesson refs, KU names, resource refs, edge text, practice items) is computed in Python
 and passed as template placeholders. Prompt text lives in `core/prompts/templates/`.
 
 | Template | GuidanceMode | PedagogicalIntent |

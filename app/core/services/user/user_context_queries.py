@@ -699,7 +699,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      ls, ls_prereq_steps, ls_habits,
      collect(DISTINCT {uid: ls_task.uid, title: ls_task.title, status: ls_task.status}) as ls_tasks
 
-OPTIONAL MATCH (ls)-[:REQUIRES_KNOWLEDGE|TEACHES]->(ls_ku:Entity)
+OPTIONAL MATCH (ls)-[:CONTAINS_KNOWLEDGE|REQUIRES_KNOWLEDGE|TEACHES]->(ls_ku:Entity)
 WHERE ls IS NOT NULL
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,

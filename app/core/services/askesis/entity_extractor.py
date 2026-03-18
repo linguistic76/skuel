@@ -208,13 +208,13 @@ class EntityExtractor:
 
         # Also check Lesson titles — if a question references a Lesson,
         # match it to the KUs that Lesson teaches
-        for article in ls_bundle.lessons:
-            if self._fuzzy_match(article.title, question_lower):
-                # Find KUs linked to this Article
+        for lesson in ls_bundle.lessons:
+            if self._fuzzy_match(lesson.title, question_lower):
+                # Find KUs linked to this Lesson
                 for ku in ls_bundle.kus:
                     if ku.uid not in matched_uids:
-                        # If the Article's semantic_links reference this KU
-                        if ku.uid in (article.semantic_links or ()):
+                        # If the Lesson's semantic_links reference this KU
+                        if ku.uid in (lesson.semantic_links or ()):
                             matched_uids.append(ku.uid)
 
         # If no specific KU matched but the question is clearly about the LS topic,

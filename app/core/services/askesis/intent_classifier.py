@@ -235,7 +235,7 @@ class IntentClassifier:
         if not target_ku_uids:
             # Check if the question matches any bundle entity titles at all
             if self._question_matches_bundle(question, ls_bundle):
-                # Matches non-KU entities (habits, tasks, articles)
+                # Matches non-KU entities (habits, tasks, lessons)
                 return PedagogicalIntent.ENCOURAGE_PRACTICE
             return PedagogicalIntent.OUT_OF_SCOPE
 

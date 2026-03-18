@@ -146,7 +146,7 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
             WITH s
             UNWIND $primary_knowledge_uids AS ku_uid
             MATCH (ku:Entity {uid: ku_uid})
-            CREATE (s)-[:REQUIRES_KNOWLEDGE {type: 'primary'}]->(ku)
+            CREATE (s)-[:CONTAINS_KNOWLEDGE {type: 'primary'}]->(ku)
             """
 
         # Create relationships for supporting knowledge units
@@ -155,7 +155,7 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
             WITH s
             UNWIND $supporting_knowledge_uids AS ku_uid
             MATCH (ku:Entity {uid: ku_uid})
-            CREATE (s)-[:REQUIRES_KNOWLEDGE {type: 'supporting'}]->(ku)
+            CREATE (s)-[:CONTAINS_KNOWLEDGE {type: 'supporting'}]->(ku)
             """
 
         # Optionally link to path
@@ -236,7 +236,7 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
         result = await self.backend.execute_query(
             """
             MATCH (s:Entity {uid: $uid})
-            OPTIONAL MATCH (s)-[r:REQUIRES_KNOWLEDGE]->(ku:Entity)
+            OPTIONAL MATCH (s)-[r:CONTAINS_KNOWLEDGE]->(ku:Entity)
             RETURN s, collect({uid: ku.uid, type: r.type}) as knowledge_rels
             """,
             {"uid": step_uid},
@@ -325,7 +325,7 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
             MATCH (ls:Entity {uid: $uid})
 
             // 1. Primary and supporting knowledge
-            OPTIONAL MATCH (ls)-[r_ku:REQUIRES_KNOWLEDGE]->(ku:Entity)
+            OPTIONAL MATCH (ls)-[r_ku:CONTAINS_KNOWLEDGE]->(ku:Entity)
             WITH ls, collect({
                 uid: ku.uid,
                 title: ku.title,
@@ -553,7 +553,7 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
         MATCH (s:Entity {{uid: $uid}})
         SET {", ".join(set_clauses)}
         WITH s
-        OPTIONAL MATCH (s)-[r:REQUIRES_KNOWLEDGE]->(ku:Entity)
+        OPTIONAL MATCH (s)-[r:CONTAINS_KNOWLEDGE]->(ku:Entity)
         RETURN s, collect({{uid: ku.uid, type: r.type}}) as knowledge_rels
         """
 
@@ -720,7 +720,7 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
             query = f"""
             MATCH (p:Entity {{uid: $path_uid}})-[:HAS_STEP]->(s:Entity {{entity_type: 'learning_step'}})
             {where_clause}
-            OPTIONAL MATCH (s)-[r:REQUIRES_KNOWLEDGE]->(ku:Entity)
+            OPTIONAL MATCH (s)-[r:CONTAINS_KNOWLEDGE]->(ku:Entity)
             WITH s, collect({{uid: ku.uid, type: r.type}}) as knowledge_rels
             RETURN s, knowledge_rels
             ORDER BY {order_field} {order_direction}
@@ -733,7 +733,7 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
             query = f"""
             MATCH (s:Entity {{entity_type: 'learning_step'}})
             {where_clause}
-            OPTIONAL MATCH (s)-[r:REQUIRES_KNOWLEDGE]->(ku:Entity)
+            OPTIONAL MATCH (s)-[r:CONTAINS_KNOWLEDGE]->(ku:Entity)
             WITH s, collect({{uid: ku.uid, type: r.type}}) as knowledge_rels
             RETURN s, knowledge_rels
             ORDER BY {order_field} {order_direction}

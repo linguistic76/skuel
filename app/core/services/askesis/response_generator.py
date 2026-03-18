@@ -245,7 +245,7 @@ class ResponseGenerator:
 
             return PROMPT_REGISTRY.render(
                 "askesis_guided_redirect",
-                articles_text=", ".join(dict.fromkeys(lesson_refs)),
+                lessons_text=", ".join(dict.fromkeys(lesson_refs)),
                 resource_refs=self._get_resource_references(ls_bundle),
             )
 

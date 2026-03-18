@@ -110,13 +110,13 @@ self.relationships = UnifiedRelationshipService(backend, LESSON_CONFIG, graph_in
 **Direct Driver for Complex Queries:**
 ```python
 # When UnifiedRelationshipService doesn't fit
-async def get_semantic_neighborhood(self, article_uid: str) -> Result[dict]:
+async def get_semantic_neighborhood(self, lesson_uid: str) -> Result[dict]:
     query = """
     MATCH (a:Lesson {uid: $uid})-[r]-(related)
     WHERE type(r) IN ['REQUIRES_KNOWLEDGE', 'ENABLES', 'HAS_NARROWER', 'RELATED_TO']
     RETURN related.uid, type(r), labels(related)
     """
-    result = await self.backend.driver.execute_query(query, {"uid": article_uid})
+    result = await self.backend.driver.execute_query(query, {"uid": lesson_uid})
     return Result.ok(self._parse_neighborhood(result.records))
 ```
 

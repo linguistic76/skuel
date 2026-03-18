@@ -128,12 +128,12 @@ class TestCurriculumRichContext:
             // Primary knowledge
             MATCH (ls:Entity {uid: $step_uid})
             MATCH (ku:Entity {uid: $primary_ku})
-            CREATE (ls)-[:REQUIRES_KNOWLEDGE {type: 'primary', confidence: 0.95}]->(ku)
+            CREATE (ls)-[:CONTAINS_KNOWLEDGE {type: 'primary', confidence: 0.95}]->(ku)
 
             // Supporting knowledge
             WITH ls
             MATCH (supporting:Entity {uid: $supporting_ku})
-            CREATE (ls)-[:REQUIRES_KNOWLEDGE {type: 'supporting', confidence: 0.8}]->(supporting)
+            CREATE (ls)-[:CONTAINS_KNOWLEDGE {type: 'supporting', confidence: 0.8}]->(supporting)
 
             // Prerequisite knowledge
             WITH ls
@@ -433,7 +433,7 @@ class TestCurriculumRichContext:
             // Step teaches knowledge
             WITH ls
             MATCH (ku:Entity {uid: $ku_uid})
-            CREATE (ls)-[:REQUIRES_KNOWLEDGE {type: 'primary'}]->(ku)
+            CREATE (ls)-[:CONTAINS_KNOWLEDGE {type: 'primary'}]->(ku)
 
             // User working on step
             WITH ls

@@ -153,9 +153,9 @@ form_schema: tuple[dict, ...] | None  # Inline form definition for structured su
 | Mode | `form_schema` | Student action | Submission content |
 |------|--------------|----------------|-------------------|
 | **File upload** | `None` | Uploads file (audio, text, image) | `file_path`, `processed_content` |
-| **Inline form** | Present | Fills embedded form in article | `metadata["form_data"]`, `processed_content` (JSON) |
+| **Inline form** | Present | Fills embedded form in lesson | `metadata["form_data"]`, `processed_content` (JSON) |
 
-When `form_schema` is set, the article reading page renders the form inline. Both modes
+When `form_schema` is set, the lesson reading page renders the form inline. Both modes
 create `ExerciseSubmission` and trigger the same event pipeline (`FULFILLS_EXERCISE`,
 auto-share with teacher).
 
@@ -239,7 +239,7 @@ subject_uid: str | None          # UID of the submission being evaluated
 **Processing pipeline (two entry points):**
 ```
 FILE UPLOAD PATH                          INLINE FORM PATH
-Student uploads file                      Student fills form in article page
+Student uploads file                      Student fills form in lesson page
         ↓                                         ↓
 SubmissionsService.submit_file()          SubmissionsService.submit_form()
  → file stored to disk                    → form_data in metadata + processed_content
