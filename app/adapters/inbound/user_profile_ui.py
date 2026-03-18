@@ -259,6 +259,8 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
             logger.error("Failed to load user for settings", extra={"user_uid": user_uid})
             return await error_page("User not found", 404, request=request)
         user = user_result.value
+        if user is None:
+            return await error_page("User not found", 404, request=request)
 
         # Extract preferences as dict
         prefs_dict = {}
@@ -1054,9 +1056,8 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
 
             return JSONResponse({"error": str(e)}, status_code=500)
 
-        intel_result = await _get_intelligence_data(context)
-        if intel_result.is_error or intel_result.value is None:
-            # No intelligence data - return empty chart
+        def _empty_alignment_chart(title_suffix: str) -> Any:
+            """Return an empty radar chart with zeroed data."""
             from starlette.responses import JSONResponse
 
             return JSONResponse(
@@ -1085,23 +1086,22 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
                         "plugins": {
                             "title": {
                                 "display": True,
-                                "text": "Life Path Alignment (No Data)",
+                                "text": f"Life Path Alignment ({title_suffix})",
                             }
                         },
                     },
                 }
             )
 
+        intel_result = await _get_intelligence_data(context)
+        if intel_result.is_error or intel_result.value is None:
+            return _empty_alignment_chart("No Data")
+
         intel_data = intel_result.value
         alignment = intel_data.get("alignment")
 
         if alignment is None:
-            from starlette.responses import JSONResponse
-
-            return JSONResponse(
-                {"error": "Alignment data not available"},
-                status_code=500,
-            )
+            return _empty_alignment_chart("Unavailable")
 
         # Extract alignment scores (0.0-1.0)
         knowledge_score = getattr(alignment, "knowledge_score", 0.0)

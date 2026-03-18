@@ -792,7 +792,7 @@ class VisualizationService:
         from enum import Enum
 
         if not self.tasks_service:
-            distribution = {
+            demo_distribution = {
                 "critical": 2,
                 "high": 5,
                 "medium": 12,
@@ -800,7 +800,7 @@ class VisualizationService:
                 "none": 3,
             }
             return self.format_distribution_chart(
-                distribution, "Task Priority Distribution", "doughnut"
+                demo_distribution, "Task Priority Distribution", "doughnut"
             )
 
         distribution: dict[str, int] = {}

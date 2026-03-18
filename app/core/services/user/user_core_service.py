@@ -170,16 +170,6 @@ class UserCoreService:
         try:
             # Use standard backend get() method
             result = await self.repo.get(user_uid)
-
-            if result.is_ok and result.value:
-                # Update last active timestamp (if method exists)
-                from contextlib import suppress
-
-                with suppress(
-                    AttributeError
-                ):  # update_last_active not available on frozen dataclass
-                    result.value.update_last_active()
-
             return result
 
         except AttributeError:

@@ -6,10 +6,14 @@ Interfaces for infrastructure and system services.
 """
 
 from pathlib import Path
-from typing import Any, Literal, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Literal, Protocol, runtime_checkable
 
 from core.models.type_hints import Metadata
 from core.utils.result_simplified import Result
+
+if TYPE_CHECKING:
+    from core.models.user import User
+    from core.services.user.unified_user_context import UserContext
 
 
 @runtime_checkable
@@ -56,68 +60,64 @@ class EventBusOperations(Protocol):
 class UserOperations(Protocol):
     """User management operations.
 
-    Note: Using Any for user type to avoid circular imports.
     Implementations should use the concrete User model from core.models.user.
     All methods return Result[T] for consistent error handling.
     """
 
-    async def create_user(self, user: Any) -> Result[Any]:
-        """Create a new user. Returns Result[User]."""
+    async def create_user(self, user: "User") -> Result["User"]:
+        """Create a new user."""
         ...
 
-    async def get_user_by_uid(self, user_uid: str) -> Result[Any | None]:
-        """Get user by UID. Returns Result[Optional[User]]."""
+    async def get_user_by_uid(self, user_uid: str) -> Result["User | None"]:
+        """Get user by UID."""
         ...
 
-    async def get_user_by_username(self, username: str) -> Result[Any | None]:
-        """Get user by username. Returns Result[Optional[User]]."""
+    async def get_user_by_username(self, username: str) -> Result["User | None"]:
+        """Get user by username."""
         ...
 
-    async def update_user(self, user: Any) -> Result[Any]:
-        """Update user data. Returns Result[User]."""
+    async def update_user(self, user: "User") -> Result["User"]:
+        """Update user data."""
         ...
 
     async def delete_user(self, user_uid: str) -> Result[bool]:
-        """DETACH DELETE a user. Returns Result[bool]."""
+        """DETACH DELETE a user."""
         ...
 
     async def update_user_progress(self, user_uid: str, progress_updates: Metadata) -> Result[bool]:
-        """Update user's learning progress. Returns Result[bool]."""
+        """Update user's learning progress."""
         ...
 
-    async def get_user(self, user_uid: str) -> Result[Any | None]:
-        """Get user by UID. Alias for get_user_by_uid. Returns Result[Optional[User]]."""
+    async def get_user(self, user_uid: str) -> Result["User | None"]:
+        """Get user by UID. Alias for get_user_by_uid."""
         ...
 
-    async def get_user_context(self, user_uid: str) -> Result[Any]:
-        """Get user context (UserContext). Returns Result[UserContext]."""
+    async def get_user_context(self, user_uid: str) -> Result["UserContext"]:
+        """Get user context (standard fields)."""
         ...
 
     async def get_rich_unified_context(
         self, user_uid: str, min_confidence: float = 0.7
-    ) -> Result[Any]:
-        """Get complete UserContext with both standard and rich fields. Returns Result[UserContext]."""
+    ) -> Result["UserContext"]:
+        """Get complete UserContext with both standard and rich fields."""
         ...
 
     async def update_preferences(
         self, user_uid: str, preferences_update: dict[str, Any]
-    ) -> Result[Any]:
-        """Update user preferences. Returns Result[User]."""
+    ) -> Result["User"]:
+        """Update user preferences."""
         ...
 
-    async def get(self, user_uid: str) -> Result[Any | None]:
-        """Get user by UID. Alias for get_user_by_uid. Returns Result[Optional[User]]."""
+    async def get(self, user_uid: str) -> Result["User | None"]:
+        """Get user by UID. Alias for get_user_by_uid."""
         ...
 
-    async def find_by(self, **filters: Any) -> Result[list[Any]]:
+    async def find_by(self, **filters: Any) -> Result[list["User"]]:
         """
         Find users by arbitrary filters.
 
         Args:
             **filters: Field filters (e.g., email="test@example.com", is_active=True)
-
-        Returns:
-            Result[list[User]]: Matching users
         """
         ...
 
@@ -129,7 +129,7 @@ class UserOperations(Protocol):
         practice_count: int = 1,
         confidence_level: float = 0.8,
     ) -> Result[bool]:
-        """Record user's mastery level for a knowledge unit. Returns Result[bool]."""
+        """Record user's mastery level for a knowledge unit."""
         ...
 
     async def record_knowledge_progress(
