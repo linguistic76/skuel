@@ -614,9 +614,7 @@ class UserBackend:
 
         except Exception as e:
             self.logger.error(f"Failed to complete learning path: {e}")
-            return Result.fail(
-                Errors.database(operation="complete_learning_path", message=str(e))
-            )
+            return Result.fail(Errors.database(operation="complete_learning_path", message=str(e)))
 
     async def express_interest_in_knowledge(
         self,
@@ -933,4 +931,3 @@ class UserBackend:
         except Exception as e:
             self.logger.error(f"Failed to get active learners: {e}")
             return Result.fail(Errors.database(operation="get_active_learners", message=str(e)))
-

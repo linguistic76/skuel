@@ -90,8 +90,12 @@ def create_visualization_api_routes(
         user_uid = require_authenticated_user(request)
 
         today = date.today()
-        start_date = parse_date_query_param(request.query_params, "start_date", today - timedelta(days=7))
-        end_date = parse_date_query_param(request.query_params, "end_date", today + timedelta(days=14))
+        start_date = parse_date_query_param(
+            request.query_params, "start_date", today - timedelta(days=7)
+        )
+        end_date = parse_date_query_param(
+            request.query_params, "end_date", today + timedelta(days=14)
+        )
         group_by = request.query_params.get("group_by", "type")
 
         return await vis_service.get_timeline_data(

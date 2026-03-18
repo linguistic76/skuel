@@ -169,9 +169,7 @@ class TestDateRangeParams:
     """parse_date_range_params: start/end date pair."""
 
     def test_both_present(self):
-        result = parse_date_range_params(
-            {"start_date": "2026-01-01", "end_date": "2026-01-31"}
-        )
+        result = parse_date_range_params({"start_date": "2026-01-01", "end_date": "2026-01-31"})
         assert result == DateRangeParams(date(2026, 1, 1), date(2026, 1, 31))
 
     def test_missing_both_returns_defaults(self):

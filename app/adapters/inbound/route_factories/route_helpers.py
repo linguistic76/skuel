@@ -289,9 +289,7 @@ def parse_pagination_params(
 ) -> PaginationParams:
     """Parse limit + offset query params with safe defaults and bounds."""
     return PaginationParams(
-        limit=parse_int_query_param(
-            params, "limit", default_limit, minimum=1, maximum=max_limit
-        ),
+        limit=parse_int_query_param(params, "limit", default_limit, minimum=1, maximum=max_limit),
         offset=parse_int_query_param(params, "offset", default_offset, minimum=0),
     )
 
@@ -313,9 +311,7 @@ def parse_date_param_strict(value: str | None, field: str) -> Result[date]:
         return Result.ok(date.fromisoformat(value))
     except ValueError:
         return Result.fail(
-            Errors.validation(
-                f"{field} must be ISO format (YYYY-MM-DD)", field=field, value=value
-            )
+            Errors.validation(f"{field} must be ISO format (YYYY-MM-DD)", field=field, value=value)
         )
 
 

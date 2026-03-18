@@ -159,7 +159,9 @@ def create_analytics_summary_api_routes(app, rt, analytics_service: "AnalyticsSe
         year_result = parse_int_param_strict(request.query_params.get("year"), "year", 2000, 2100)
         if year_result.is_error:
             return year_result
-        quarter_result = parse_int_param_strict(request.query_params.get("quarter"), "quarter", 1, 4)
+        quarter_result = parse_int_param_strict(
+            request.query_params.get("quarter"), "quarter", 1, 4
+        )
         if quarter_result.is_error:
             return quarter_result
 

@@ -199,9 +199,7 @@ class UserProgressRecorderService:
 
         return result
 
-    @with_error_handling(
-        "complete_learning_path", error_type="database", uid_param="user_uid"
-    )
+    @with_error_handling("complete_learning_path", error_type="database", uid_param="user_uid")
     async def complete_learning_path(
         self,
         user_uid: str,
