@@ -45,7 +45,7 @@ def create_revised_exercises_api_routes(
     @boundary_handler(success_status=201)
     async def create_revised_exercise(request: Request, current_user: Any = None) -> Result[Any]:
         """Create a new RevisedExercise."""
-        teacher_uid = require_authenticated_user(request)
+        teacher_uid = current_user.uid
 
         try:
             body = await request.json()
@@ -85,15 +85,14 @@ def create_revised_exercises_api_routes(
     @boundary_handler()
     async def list_revised_exercises(request: Request, current_user: Any = None) -> Result[Any]:
         """List revised exercises for the current teacher."""
-        teacher_uid = require_authenticated_user(request)
-        return await revised_exercise_service.list_for_teacher(teacher_uid)
+        return await revised_exercise_service.list_for_teacher(current_user.uid)
 
     @rt("/api/revised-exercises/for-student", methods=["GET"])
     @require_teacher(get_user_service)
     @boundary_handler()
     async def list_for_student(request: Request, current_user: Any = None) -> Result[Any]:
         """List revised exercises targeting a specific student (scoped to requesting teacher)."""
-        teacher_uid = require_authenticated_user(request)
+        teacher_uid = current_user.uid
         student_uid = request.query_params.get("student_uid")
         if not student_uid:
             return Result.fail(Errors.validation("student_uid is required", field="student_uid"))
