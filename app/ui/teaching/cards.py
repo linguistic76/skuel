@@ -14,6 +14,13 @@ from ui.cards import Card, CardBody
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
 from ui.teaching.badges import entity_type_badge, status_badge
+from ui.teaching.types import (
+    ClassSummary,
+    ExerciseSummary,
+    QueueItem,
+    StudentSummary,
+    TeachingDashboardStats,
+)
 
 
 def render_empty_state(title: str, description: str) -> Div:
@@ -27,9 +34,9 @@ def render_empty_state(title: str, description: str) -> Div:
     )
 
 
-def get_display_title(item: dict[str, Any]) -> str:
-    """Get display title from an item dict, with fallbacks."""
-    return item.get("title") or item.get("original_filename") or "Untitled"
+def _display_title(item: QueueItem) -> str:
+    """Get display title from a QueueItem, with fallbacks."""
+    return item.title or item.original_filename or "Untitled"
 
 
 def render_stat_card(label: str, value: int, icon: str, href: str, badge_cls: str = "") -> Div:
@@ -47,21 +54,18 @@ def render_stat_card(label: str, value: int, icon: str, href: str, badge_cls: st
     )
 
 
-def render_dashboard(stats: dict[str, Any]) -> Div:
+def render_dashboard(stats: TeachingDashboardStats) -> Div:
     """Render the overview dashboard with stat cards and quick links."""
-    pending = stats.get("pending_count", 0)
-    pending_badge = "text-warning" if pending > 0 else ""
+    pending_badge = "text-warning" if stats.pending_count > 0 else ""
 
     return Div(
         Div(
-            render_stat_card("Pending Reviews", pending, "📥", "/teaching/queue", pending_badge),
             render_stat_card(
-                "Students", stats.get("total_students", 0), "👥", "/teaching/students"
+                "Pending Reviews", stats.pending_count, "📥", "/teaching/queue", pending_badge
             ),
-            render_stat_card(
-                "Exercises", stats.get("total_exercises", 0), "📋", "/teaching/exercises"
-            ),
-            render_stat_card("Classes", stats.get("total_groups", 0), "🏫", "/teaching/classes"),
+            render_stat_card("Students", stats.total_students, "👥", "/teaching/students"),
+            render_stat_card("Exercises", stats.total_exercises, "📋", "/teaching/exercises"),
+            render_stat_card("Classes", stats.total_groups, "🏫", "/teaching/classes"),
             cls="grid grid-cols-2 gap-4 mb-6",
         ),
         Div(
@@ -72,31 +76,26 @@ def render_dashboard(stats: dict[str, Any]) -> Div:
             ),
             cls="mt-2",
         )
-        if pending > 0
+        if stats.pending_count > 0
         else Div(
             P("No submissions pending review.", cls="text-muted-foreground"),
         ),
     )
 
 
-def render_queue_item(item: dict[str, Any]) -> Div:
+def render_queue_item(item: QueueItem) -> Div:
     """Render a single review queue item as a card."""
-    title = get_display_title(item)
-    student_name = item.get("student_name") or item.get("student_uid") or "Unknown"
-    status = item.get("status") or "unknown"
-    entity_type = item.get("entity_type")
-    project_name = item.get("project_name")
-    ku_uid = item.get("ku_uid", "")
-    feedback_count = item.get("feedback_count", 0)
+    title = _display_title(item)
+    student_name = item.student_name or item.student_uid or "Unknown"
 
     subtitle_parts = [f"by {student_name}"]
-    if project_name:
-        subtitle_parts.append(f"for {project_name}")
+    if item.project_name:
+        subtitle_parts.append(f"for {item.project_name}")
 
     feedback_indicator: Any = ""
-    if feedback_count > 0:
+    if item.feedback_count > 0:
         feedback_indicator = Badge(
-            f"{feedback_count} feedback",
+            f"{item.feedback_count} feedback",
             variant=BadgeT.info,
             size=Size.sm,
         )
@@ -111,8 +110,8 @@ def render_queue_item(item: dict[str, Any]) -> Div:
                 ),
                 Div(
                     feedback_indicator,
-                    entity_type_badge(entity_type),
-                    status_badge(status),
+                    entity_type_badge(item.entity_type),
+                    status_badge(item.status),
                     cls="flex gap-2 items-center",
                 ),
                 cls="flex items-center justify-between gap-4",
@@ -120,7 +119,7 @@ def render_queue_item(item: dict[str, Any]) -> Div:
             Div(
                 ButtonLink(
                     "Review",
-                    href=f"/teaching/review/{ku_uid}",
+                    href=f"/teaching/review/{item.ku_uid}",
                     variant=ButtonT.primary,
                     size=Size.sm,
                 ),
@@ -132,29 +131,25 @@ def render_queue_item(item: dict[str, Any]) -> Div:
     )
 
 
-def render_exercise_summary_card(item: dict[str, Any]) -> Div:
+def render_exercise_summary_card(item: ExerciseSummary) -> Div:
     """Render an exercise card with submission counts and a link."""
-    title = item.get("title") or "Untitled Exercise"
-    uid = item.get("uid", "")
-    scope = item.get("scope")
-    total_count = item.get("total_count", 0)
-    reviewed_count = item.get("reviewed_count", 0)
-    pending_count = item.get("pending_count", 0)
-
-    scope_badge = Badge(scope, variant=BadgeT.outline, size=Size.sm) if scope else ""
-    pending_variant = BadgeT.warning if pending_count > 0 else BadgeT.ghost
+    scope_badge = Badge(item.scope, variant=BadgeT.outline, size=Size.sm) if item.scope else ""
+    pending_variant = BadgeT.warning if item.pending_count > 0 else BadgeT.ghost
 
     return Card(
         CardBody(
             Div(
                 Div(
-                    H4(title, cls="mb-0 font-semibold"),
-                    Div(scope_badge, cls="mt-1") if scope else "",
+                    H4(item.title, cls="mb-0 font-semibold"),
+                    Div(scope_badge, cls="mt-1") if item.scope else "",
                     cls="flex-1",
                 ),
                 Div(
-                    Badge(f"{pending_count} pending", variant=pending_variant),
-                    Badge(f"{reviewed_count}/{total_count} reviewed", variant=BadgeT.ghost),
+                    Badge(f"{item.pending_count} pending", variant=pending_variant),
+                    Badge(
+                        f"{item.reviewed_count}/{item.total_count} reviewed",
+                        variant=BadgeT.ghost,
+                    ),
                     cls="flex gap-2 items-center",
                 ),
                 cls="flex items-center justify-between gap-4",
@@ -162,13 +157,13 @@ def render_exercise_summary_card(item: dict[str, Any]) -> Div:
             Div(
                 ButtonLink(
                     "Edit",
-                    href=f"/teaching/exercises/{uid}/edit",
+                    href=f"/teaching/exercises/{item.uid}/edit",
                     variant=ButtonT.ghost,
                     size=Size.sm,
                 ),
                 ButtonLink(
                     "View Submissions",
-                    href=f"/teaching/exercises/{uid}/submissions",
+                    href=f"/teaching/exercises/{item.uid}/submissions",
                     variant=ButtonT.primary,
                     size=Size.sm,
                 ),
@@ -180,28 +175,22 @@ def render_exercise_summary_card(item: dict[str, Any]) -> Div:
     )
 
 
-def render_student_summary_card(item: dict[str, Any]) -> Div:
+def render_student_summary_card(item: StudentSummary) -> Div:
     """Render a student card with submission counts and a link."""
-    student_name = item.get("student_name") or item.get("student_uid") or "Unknown"
-    student_uid = item.get("student_uid", "")
-    submission_count = item.get("submission_count", 0)
-    reviewed_count = item.get("reviewed_count", 0)
-    pending_count = item.get("pending_count", 0)
-
-    pending_variant = BadgeT.warning if pending_count > 0 else BadgeT.ghost
+    pending_variant = BadgeT.warning if item.pending_count > 0 else BadgeT.ghost
 
     return Card(
         CardBody(
             Div(
                 Div(
-                    H4(student_name, cls="mb-0 font-semibold"),
-                    P(student_uid, cls="text-xs text-foreground/40 mb-0"),
+                    H4(item.student_name, cls="mb-0 font-semibold"),
+                    P(item.student_uid, cls="text-xs text-foreground/40 mb-0"),
                     cls="flex-1",
                 ),
                 Div(
-                    Badge(f"{pending_count} pending", variant=pending_variant),
+                    Badge(f"{item.pending_count} pending", variant=pending_variant),
                     Badge(
-                        f"{reviewed_count}/{submission_count} reviewed",
+                        f"{item.reviewed_count}/{item.submission_count} reviewed",
                         variant=BadgeT.ghost,
                     ),
                     cls="flex gap-2 items-center",
@@ -211,7 +200,7 @@ def render_student_summary_card(item: dict[str, Any]) -> Div:
             Div(
                 ButtonLink(
                     "View Student",
-                    href=f"/teaching/students/{student_uid}",
+                    href=f"/teaching/students/{item.student_uid}",
                     variant=ButtonT.primary,
                     size=Size.sm,
                 ),
@@ -223,37 +212,31 @@ def render_student_summary_card(item: dict[str, Any]) -> Div:
     )
 
 
-def render_class_card(item: dict[str, Any]) -> Div:
+def render_class_card(item: ClassSummary) -> Div:
     """Render a class (group) card with member/exercise/pending counts."""
-    name = item.get("name") or "Unnamed Class"
-    uid = item.get("uid", "")
-    description = item.get("description")
-    member_count = item.get("member_count", 0)
-    exercise_count = item.get("exercise_count", 0)
-    pending_count = item.get("pending_count", 0)
-    is_active = item.get("is_active", True)
-
-    pending_variant = BadgeT.warning if pending_count > 0 else BadgeT.ghost
-    active_badge: Any = "" if is_active else Badge("Inactive", variant=BadgeT.ghost, size=Size.sm)
+    pending_variant = BadgeT.warning if item.pending_count > 0 else BadgeT.ghost
+    active_badge: Any = (
+        "" if item.is_active else Badge("Inactive", variant=BadgeT.ghost, size=Size.sm)
+    )
 
     return Card(
         CardBody(
             Div(
                 Div(
                     Div(
-                        H4(name, cls="mb-0 font-semibold"),
+                        H4(item.name, cls="mb-0 font-semibold"),
                         active_badge,
                         cls="flex items-center gap-2",
                     ),
-                    P(description, cls="text-sm text-muted-foreground mb-0 mt-1")
-                    if description
+                    P(item.description, cls="text-sm text-muted-foreground mb-0 mt-1")
+                    if item.description
                     else "",
                     cls="flex-1",
                 ),
                 Div(
-                    Badge(f"{pending_count} pending", variant=pending_variant),
-                    Badge(f"{member_count} students", variant=BadgeT.ghost),
-                    Badge(f"{exercise_count} exercises", variant=BadgeT.ghost),
+                    Badge(f"{item.pending_count} pending", variant=pending_variant),
+                    Badge(f"{item.member_count} students", variant=BadgeT.ghost),
+                    Badge(f"{item.exercise_count} exercises", variant=BadgeT.ghost),
                     cls="flex gap-2 items-center flex-wrap",
                 ),
                 cls="flex items-start justify-between gap-4",
@@ -261,7 +244,7 @@ def render_class_card(item: dict[str, Any]) -> Div:
             Div(
                 ButtonLink(
                     "View Class",
-                    href=f"/teaching/classes/{uid}",
+                    href=f"/teaching/classes/{item.uid}",
                     variant=ButtonT.primary,
                     size=Size.sm,
                 ),

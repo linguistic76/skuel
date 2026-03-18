@@ -51,6 +51,16 @@ from ui.teaching.detail import (
     render_submission_content,
 )
 from ui.teaching.forms import render_exercise_form
+from ui.teaching.types import (
+    ClassMember,
+    ClassSummary,
+    ExerciseSummary,
+    QueueItem,
+    StudentSummary,
+    SubmissionDetail,
+    SubmissionRow,
+    TeachingDashboardStats,
+)
 
 if TYPE_CHECKING:
     from core.ports import TeacherReviewOperations
@@ -105,6 +115,31 @@ def create_teaching_ui_routes(
 
     get_user_service = make_service_getter(user_service)
 
+    def _to_queue_item(d: dict[str, Any]) -> QueueItem:
+        return QueueItem(
+            title=d.get("title", ""),
+            student_name=d.get("student_name") or d.get("student_uid") or "Unknown",
+            student_uid=d.get("student_uid", ""),
+            status=d.get("status") or "unknown",
+            entity_type=d.get("entity_type"),
+            project_name=d.get("project_name"),
+            ku_uid=d.get("ku_uid", ""),
+            feedback_count=d.get("feedback_count", 0),
+            original_filename=d.get("original_filename"),
+        )
+
+    def _to_submission_row(d: dict[str, Any]) -> SubmissionRow:
+        return SubmissionRow(
+            uid=d.get("uid", ""),
+            title=d.get("title", ""),
+            student_name=d.get("student_name") or d.get("student_uid") or "Unknown",
+            student_uid=d.get("student_uid", ""),
+            status=d.get("status") or "unknown",
+            feedback_count=d.get("feedback_count", 0),
+            exercise_title=d.get("exercise_title"),
+            original_filename=d.get("original_filename"),
+        )
+
     # ------------------------------------------------------------------
     # OVERVIEW / DASHBOARD
     # ------------------------------------------------------------------
@@ -116,7 +151,13 @@ def create_teaching_ui_routes(
         user_uid = require_authenticated_user(request)
 
         result = await teacher_review_service.get_dashboard_stats(teacher_uid=user_uid)
-        stats = result.value if result.is_ok else {}
+        raw_stats = result.value if result.is_ok else {}
+        stats = TeachingDashboardStats(
+            pending_count=raw_stats.get("pending_count", 0),
+            total_students=raw_stats.get("total_students", 0),
+            total_exercises=raw_stats.get("total_exercises", 0),
+            total_groups=raw_stats.get("total_groups", 0),
+        )
 
         content = Div(
             PageHeader("Teaching Overview", subtitle="Your teaching activity at a glance"),
@@ -153,7 +194,7 @@ def create_teaching_ui_routes(
                 "When students submit work against your assignments, it will appear here.",
             )
         else:
-            queue_content = Div(*[render_queue_item(item) for item in result.value])
+            queue_content = Div(*[render_queue_item(_to_queue_item(item)) for item in result.value])
 
         content = Div(
             PageHeader("Review Queue", subtitle="Student submissions awaiting your review"),
@@ -191,7 +232,7 @@ def create_teaching_ui_routes(
                 P("No approved submissions yet.", cls="text-center text-muted-foreground py-8"),
             )
         else:
-            list_content = Div(*[render_queue_item(item) for item in result.value])
+            list_content = Div(*[render_queue_item(_to_queue_item(item)) for item in result.value])
 
         content = Div(
             PageHeader("Approved", subtitle="Submissions you have reviewed and approved"),
@@ -222,7 +263,20 @@ def create_teaching_ui_routes(
         )
         submission_section: Any = ""
         if detail_result.is_ok and detail_result.value:
-            submission_section = render_submission_content(detail_result.value)
+            d = detail_result.value
+            detail = SubmissionDetail(
+                title=d.get("title", "Untitled"),
+                entity_type=d.get("entity_type"),
+                status=d.get("status") or "",
+                student_name=d.get("student_name") or d.get("student_uid") or "Unknown",
+                student_uid=d.get("student_uid", ""),
+                exercise_title=d.get("exercise_title"),
+                exercise_instructions=d.get("exercise_instructions"),
+                processed_content=d.get("processed_content"),
+                content=d.get("content"),
+                original_filename=d.get("original_filename"),
+            )
+            submission_section = render_submission_content(detail)
         else:
             submission_section = Div(
                 P("Submission content unavailable.", cls="text-sm text-muted-foreground italic"),
@@ -350,7 +404,21 @@ def create_teaching_ui_routes(
                 "Exercises you create will appear here with submission counts.",
             )
         else:
-            page_content = Div(*[render_exercise_summary_card(item) for item in result.value])
+            page_content = Div(
+                *[
+                    render_exercise_summary_card(
+                        ExerciseSummary(
+                            uid=item.get("uid", ""),
+                            title=item.get("title") or "Untitled Exercise",
+                            scope=item.get("scope"),
+                            total_count=item.get("total_count", 0),
+                            reviewed_count=item.get("reviewed_count", 0),
+                            pending_count=item.get("pending_count", 0),
+                        )
+                    )
+                    for item in result.value
+                ]
+            )
 
         content = Div(
             PageHeader("By Exercise", subtitle="Submissions grouped by exercise"),
@@ -460,7 +528,9 @@ def create_teaching_ui_routes(
                 )
             )
         else:
-            rows = Div(*[render_exercise_submission_row(item) for item in result.value])
+            rows = Div(
+                *[render_exercise_submission_row(_to_submission_row(item)) for item in result.value]
+            )
 
         back_link = Div(
             ButtonLink(
@@ -508,7 +578,22 @@ def create_teaching_ui_routes(
                 "Students who share work with you will appear here.",
             )
         else:
-            students_content = Div(*[render_student_summary_card(item) for item in result.value])
+            students_content = Div(
+                *[
+                    render_student_summary_card(
+                        StudentSummary(
+                            student_uid=item.get("student_uid", ""),
+                            student_name=item.get("student_name")
+                            or item.get("student_uid")
+                            or "Unknown",
+                            submission_count=item.get("submission_count", 0),
+                            reviewed_count=item.get("reviewed_count", 0),
+                            pending_count=item.get("pending_count", 0),
+                        )
+                    )
+                    for item in result.value
+                ]
+            )
 
         content = Div(
             PageHeader("By Student", subtitle="Students who have shared work with you"),
@@ -547,7 +632,9 @@ def create_teaching_ui_routes(
                 )
             )
         else:
-            submission_rows = Div(*[render_student_submission_row(item) for item in result.value])
+            submission_rows = Div(
+                *[render_student_submission_row(_to_submission_row(item)) for item in result.value]
+            )
 
         back_link = Div(
             ButtonLink(
@@ -608,7 +695,22 @@ def create_teaching_ui_routes(
                 ),
             )
         else:
-            classes_content = Div(*[render_class_card(item) for item in result.value])
+            classes_content = Div(
+                *[
+                    render_class_card(
+                        ClassSummary(
+                            uid=item.get("uid", ""),
+                            name=item.get("name") or "Unnamed Class",
+                            description=item.get("description"),
+                            member_count=item.get("member_count", 0),
+                            exercise_count=item.get("exercise_count", 0),
+                            pending_count=item.get("pending_count", 0),
+                            is_active=item.get("is_active", True),
+                        )
+                    )
+                    for item in result.value
+                ]
+            )
 
         content = Div(
             PageHeader("Classes", subtitle="Your groups and their activity"),
@@ -642,7 +744,21 @@ def create_teaching_ui_routes(
                 P("No members in this class yet.", cls="text-center text-muted-foreground py-8")
             )
         else:
-            members_content = Div(*[render_class_member_row(item) for item in result.value])
+            members_content = Div(
+                *[
+                    render_class_member_row(
+                        ClassMember(
+                            user_uid=item.get("user_uid", ""),
+                            user_name=item.get("user_name") or item.get("user_uid") or "Unknown",
+                            role=item.get("role") or "student",
+                            submission_count=item.get("submission_count", 0),
+                            reviewed_count=item.get("reviewed_count", 0),
+                            pending_count=item.get("pending_count", 0),
+                        )
+                    )
+                    for item in result.value
+                ]
+            )
 
         back_link = Div(
             ButtonLink(

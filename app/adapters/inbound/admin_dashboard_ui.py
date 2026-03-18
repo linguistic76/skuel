@@ -30,6 +30,7 @@ from fasthtml.common import H1, H2, H3, A, Div, P, Span
 from adapters.inbound.auth import make_service_getter, require_admin
 from core.utils.logging import get_logger
 from ui.admin.layout import create_admin_page
+from ui.admin.types import UserCardData
 from ui.admin.views import (
     AdminAnalyticsComponents,
     AdminLearningComponents,
@@ -293,17 +294,17 @@ def create_admin_dashboard_routes(_app, rt, services):
             )
 
         user = result.value
-        user_data = {
-            "uid": user.uid,
-            "username": user.title,
-            "email": user.email,
-            "display_name": user.display_name,
-            "role": user.role.value,
-            "is_active": user.is_active,
-            "is_verified": user.is_verified,
-            "created_at": user.created_at.isoformat() if user.created_at else None,
-            "last_login_at": user.last_login_at.isoformat() if user.last_login_at else "Never",
-        }
+        user_data = UserCardData(
+            uid=user.uid,
+            username=user.title,
+            email=user.email,
+            display_name=user.display_name or "",
+            role=user.role.value,
+            is_active=user.is_active,
+            is_verified=user.is_verified,
+            created_at=user.created_at.isoformat() if user.created_at else None,
+            last_login_at=user.last_login_at.isoformat() if user.last_login_at else "Never",
+        )
 
         system_status = await _get_system_status(services)
 
@@ -346,10 +347,10 @@ def create_admin_dashboard_routes(_app, rt, services):
             ),
             # Page header
             Div(
-                H1(user_data["display_name"] or user_data["username"], cls="text-3xl font-bold"),
+                H1(user_data.display_name or user_data.username, cls="text-3xl font-bold"),
                 Div(
-                    AdminUIComponents.render_role_badge(user_data["role"]),
-                    AdminUIComponents.render_status_badge(user_data["is_active"]),
+                    AdminUIComponents.render_role_badge(user_data.role),
+                    AdminUIComponents.render_status_badge(user_data.is_active),
                     cls="flex gap-2 mt-2",
                 ),
                 cls="mb-6",
@@ -358,12 +359,12 @@ def create_admin_dashboard_routes(_app, rt, services):
             Card(
                 H2("User Details", cls="text-xl font-semibold mb-4"),
                 Div(
-                    _detail_row("UID", user_data["uid"]),
-                    _detail_row("Username", f"@{user_data['username']}"),
-                    _detail_row("Email", user_data["email"]),
-                    _detail_row("Created", user_data["created_at"] or "Unknown"),
-                    _detail_row("Last Login", user_data["last_login_at"]),
-                    _detail_row("Verified", "Yes" if user_data["is_verified"] else "No"),
+                    _detail_row("UID", user_data.uid),
+                    _detail_row("Username", f"@{user_data.username}"),
+                    _detail_row("Email", user_data.email),
+                    _detail_row("Created", user_data.created_at or "Unknown"),
+                    _detail_row("Last Login", user_data.last_login_at),
+                    _detail_row("Verified", "Yes" if user_data.is_verified else "No"),
                     cls="space-y-3",
                 ),
                 cls="bg-background shadow-sm p-6 mb-6",
@@ -397,10 +398,10 @@ def create_admin_dashboard_routes(_app, rt, services):
                 H2("Account Actions", cls="text-xl font-semibold mb-4"),
                 Div(
                     Button(
-                        "Deactivate Account" if user_data["is_active"] else "Activate Account",
-                        variant=ButtonT.error if user_data["is_active"] else ButtonT.success,
-                        hx_post=f"/api/admin/users/{uid}/{'deactivate' if user_data['is_active'] else 'activate'}",
-                        hx_confirm=f"Are you sure you want to {'deactivate' if user_data['is_active'] else 'activate'} this user?",
+                        "Deactivate Account" if user_data.is_active else "Activate Account",
+                        variant=ButtonT.error if user_data.is_active else ButtonT.success,
+                        hx_post=f"/api/admin/users/{uid}/{'deactivate' if user_data.is_active else 'activate'}",
+                        hx_confirm=f"Are you sure you want to {'deactivate' if user_data.is_active else 'activate'} this user?",
                     ),
                     cls="flex gap-4",
                 ),
@@ -412,7 +413,7 @@ def create_admin_dashboard_routes(_app, rt, services):
             content=content,
             active_section="users",
             admin_username=current_user.display_name or current_user.title,
-            title=f"User: {user_data['display_name'] or user_data['username']}",
+            title=f"User: {user_data.display_name or user_data.username}",
             system_status=system_status.get("status", "unknown"),
             request=request,
         )
@@ -433,10 +434,13 @@ def create_admin_dashboard_routes(_app, rt, services):
             )
 
         user = result.value
-        user_data = {
-            "uid": user.uid,
-            "role": user.role.value,
-        }
+        user_data = UserCardData(
+            uid=user.uid,
+            username=user.title,
+            email=user.email or "",
+            role=user.role.value,
+            is_active=user.is_active,
+        )
 
         return AdminUIComponents.render_role_change_form(user_data)
 

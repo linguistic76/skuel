@@ -4,6 +4,7 @@ Stats grids are used to display key metrics at the top of domain
 dashboards. They show counts, totals, and trends in a compact format.
 """
 
+from dataclasses import dataclass
 from typing import Any
 
 from fasthtml.common import Div, Span
@@ -11,6 +12,17 @@ from fasthtml.common import Div, Span
 from ui.cards import Card, CardBody, CardT
 from ui.layout import Grid
 from ui.text import Caption
+
+
+@dataclass(frozen=True)
+class StatItem:
+    """Typed data carrier for a single statistic in a StatsGrid."""
+
+    label: str
+    value: str | int
+    change: str | None = None
+    trend: str | None = None
+    color: str | None = None
 
 
 def StatCard(
@@ -70,18 +82,14 @@ def StatCard(
 
 
 def StatsGrid(
-    stats: list[dict[str, Any]],
+    stats: list[StatItem],
     cols: int = 4,
     **kwargs: Any,
 ) -> Div:
     """Grid of statistic cards.
 
     Args:
-        stats: List of stat dictionaries, each containing:
-            - label: (required) Label for the stat
-            - value: (required) Value to display
-            - change: (optional) Change text
-            - trend: (optional) Trend direction
+        stats: List of StatItem instances
         cols: Number of columns at large screen sizes (default: 4)
         **kwargs: Additional attributes passed to Grid
 
@@ -90,18 +98,18 @@ def StatsGrid(
 
     Example:
         StatsGrid([
-            {"label": "Total", "value": 150},
-            {"label": "Active", "value": 42, "change": "+5", "trend": "up"},
-            {"label": "Completed", "value": 98},
-            {"label": "Overdue", "value": 10, "change": "+2", "trend": "down"},
+            StatItem(label="Total", value=150),
+            StatItem(label="Active", value=42, change="+5", trend="up"),
+            StatItem(label="Completed", value=98),
         ])
     """
     cards = [
         StatCard(
-            label=s.get("label", ""),
-            value=s.get("value", 0),
-            change=s.get("change"),
-            trend=s.get("trend"),
+            label=s.label,
+            value=s.value,
+            change=s.change,
+            trend=s.trend,
+            color=s.color,
         )
         for s in stats
     ]

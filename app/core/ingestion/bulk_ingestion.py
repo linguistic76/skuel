@@ -454,7 +454,7 @@ RETURN count(n) as processed
                     }
 
         Returns:
-            CypherTemplate with UNWIND batch operation and MERGE edge patterns
+            CypherTemplate with UNWIND batch operation and relationship patterns
 
         Generated Cypher Pattern (Pure Cypher - No APOC):
             UNWIND $items AS item
@@ -463,16 +463,21 @@ RETURN count(n) as processed
               ON CREATE SET n = props
               ON MATCH SET n += props
             WITH n, item
-            FOREACH (target_uid IN coalesce(item.`connections.requires`, []) |
-              MERGE (target:Entity {uid: target_uid})
+            CALL {
+              WITH n, item
+              UNWIND coalesce(item.`connections.requires`, []) AS _target_uid
+              MATCH (target:Entity {uid: _target_uid})
               MERGE (n)-[:REQUIRES_KNOWLEDGE]->(target)
-            )
+            }
+
+        Uses MATCH (not MERGE) for relationship targets to avoid creating
+        stub nodes with incomplete labels. If a target doesn't exist yet,
+        the relationship is silently skipped — it will be created when
+        both nodes exist and ingestion is re-run.
 
         Property filtering happens in Python (CypherExecutor:265-297) before
         Neo4j ingestion. This eliminates APOC dependency while maintaining
         the same graph-native architecture.
-
-        See: Lines 403-522 for implementation
         """
         rel_clauses = []
 
@@ -505,13 +510,24 @@ RETURN count(n) as processed
             else:  # outgoing or bidirectional
                 rel_pattern = f"(n)-[:{rel_type}]->(target)"
 
-            # Use backticks to escape property names with dots (e.g., `connections.requires`)
+            # CALL unit subquery: uses MATCH (not MERGE) to only link existing
+            # targets. The old FOREACH/MERGE pattern created stub nodes with
+            # incomplete labels (e.g., :Entity without :Lesson), causing
+            # duplicate nodes when the real entity was later ingested with
+            # its full multi-label set (:Entity:Lesson).
+            #
+            # MATCH silently skips missing targets (0 rows → no relationship).
+            # Unit subqueries (no RETURN) preserve outer rows regardless of
+            # inner row count, so the main entity upsert is unaffected.
             rel_clause = f"""
 // Handle {field_name} relationships ({direction})
-FOREACH (target_uid IN coalesce(item.`{field_name}`, []) |
-  MERGE (target:{target_label} {{uid: target_uid}})
+CALL {{
+  WITH n, item
+  WITH n, coalesce(item.`{field_name}`, []) AS _target_uids
+  UNWIND _target_uids AS _target_uid
+  MATCH (target:{target_label} {{uid: _target_uid}})
   MERGE {rel_pattern}
-)"""
+}}"""
             rel_clauses.append(rel_clause)
 
         # Build list of connection keys to exclude from node properties
@@ -532,7 +548,7 @@ UNWIND $items AS item
 // 2. item contains: {{uid, title, content, connections.requires, connections.enables, _node_props}}
 // 3. item._node_props contains: {{uid, title, content, ...}} (NO connection properties)
 // 4. Node is created/updated with ONLY non-relationship properties
-// 5. Connections become EDGES in the FOREACH clauses below
+// 5. Connections become EDGES in the CALL subquery clauses below
 //
 // Result: Relationships exist ONLY as graph edges, never as node properties
 // No APOC dependency - property filtering done in Python (CypherExecutor:265-297)

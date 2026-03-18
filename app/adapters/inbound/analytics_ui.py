@@ -35,7 +35,7 @@ from ui.data import TableFromDicts, TableT
 from ui.feedback import Alert, AlertT
 from ui.forms import Input, Select
 from ui.layouts.navbar import create_navbar_for_request
-from ui.patterns.stats_grid import StatCard, StatsGrid
+from ui.patterns.stats_grid import StatCard, StatItem, StatsGrid
 
 logger = get_logger("skuel.routes.analytics.ui")
 
@@ -197,10 +197,10 @@ class AnalyticsUIComponents:
             H3("📋 Task Metrics", cls="text-lg font-semibold mb-4"),
             StatsGrid(
                 [
-                    {"label": "Total Tasks", "value": str(metrics.get("total_count", 0))},
-                    {"label": "Completed", "value": str(metrics.get("completed_count", 0))},
-                    {"label": "In Progress", "value": str(metrics.get("in_progress_count", 0))},
-                    {"label": "Pending", "value": str(metrics.get("pending_count", 0))},
+                    StatItem(label="Total Tasks", value=str(metrics.get("total_count", 0))),
+                    StatItem(label="Completed", value=str(metrics.get("completed_count", 0))),
+                    StatItem(label="In Progress", value=str(metrics.get("in_progress_count", 0))),
+                    StatItem(label="Pending", value=str(metrics.get("pending_count", 0))),
                 ],
                 cls="mb-6",
             ),
@@ -251,8 +251,8 @@ class AnalyticsUIComponents:
             H3("🎯 Habit Metrics", cls="text-lg font-semibold mb-4"),
             StatsGrid(
                 [
-                    {"label": "Active Habits", "value": str(metrics.get("total_active", 0))},
-                    {"label": "Consistency", "value": f"{metrics.get('consistency_rate', 0)}%"},
+                    StatItem(label="Active Habits", value=str(metrics.get("total_active", 0))),
+                    StatItem(label="Consistency", value=f"{metrics.get('consistency_rate', 0)}%"),
                 ],
                 cols=2,
                 cls="mb-6",
@@ -283,13 +283,13 @@ class AnalyticsUIComponents:
             H3("🎯 Goal Metrics", cls="text-lg font-semibold mb-4"),
             StatsGrid(
                 [
-                    {"label": "Active Goals", "value": str(metrics.get("total_active", 0))},
-                    {"label": "On Track", "value": str(metrics.get("on_track_count", 0))},
-                    {"label": "At Risk", "value": str(metrics.get("at_risk_count", 0))},
-                    {
-                        "label": "Avg Progress",
-                        "value": f"{metrics.get('avg_progress_percentage', 0)}%",
-                    },
+                    StatItem(label="Active Goals", value=str(metrics.get("total_active", 0))),
+                    StatItem(label="On Track", value=str(metrics.get("on_track_count", 0))),
+                    StatItem(label="At Risk", value=str(metrics.get("at_risk_count", 0))),
+                    StatItem(
+                        label="Avg Progress",
+                        value=f"{metrics.get('avg_progress_percentage', 0)}%",
+                    ),
                 ]
             ),
         )
@@ -301,13 +301,13 @@ class AnalyticsUIComponents:
             H3("📅 Event Metrics", cls="text-lg font-semibold mb-4"),
             StatsGrid(
                 [
-                    {"label": "Total Events", "value": str(metrics.get("total_count", 0))},
-                    {"label": "Upcoming", "value": str(metrics.get("upcoming_count", 0))},
-                    {"label": "Completed", "value": str(metrics.get("completed_count", 0))},
-                    {
-                        "label": "Hours Scheduled",
-                        "value": str(metrics.get("total_hours_scheduled", 0)),
-                    },
+                    StatItem(label="Total Events", value=str(metrics.get("total_count", 0))),
+                    StatItem(label="Upcoming", value=str(metrics.get("upcoming_count", 0))),
+                    StatItem(label="Completed", value=str(metrics.get("completed_count", 0))),
+                    StatItem(
+                        label="Hours Scheduled",
+                        value=str(metrics.get("total_hours_scheduled", 0)),
+                    ),
                 ]
             ),
         )
@@ -321,12 +321,12 @@ class AnalyticsUIComponents:
             H3("💰 Finance Metrics", cls="text-lg font-semibold mb-4"),
             StatsGrid(
                 [
-                    {
-                        "label": "Total Expenses",
-                        "value": f"${metrics.get('total_expenses', 0):,.2f}",
-                    },
-                    {"label": "Total Income", "value": f"${metrics.get('total_income', 0):,.2f}"},
-                    {"label": "Net Balance", "value": f"${net_balance:,.2f}"},
+                    StatItem(
+                        label="Total Expenses",
+                        value=f"${metrics.get('total_expenses', 0):,.2f}",
+                    ),
+                    StatItem(label="Total Income", value=f"${metrics.get('total_income', 0):,.2f}"),
+                    StatItem(label="Net Balance", value=f"${net_balance:,.2f}"),
                 ],
                 cols=3,
             ),
@@ -339,8 +339,8 @@ class AnalyticsUIComponents:
             H3("🤔 Choice Metrics", cls="text-lg font-semibold mb-4"),
             StatsGrid(
                 [
-                    {"label": "Total Choices", "value": str(metrics.get("total_choices", 0))},
-                    {"label": "Reviewed", "value": str(metrics.get("choices_reviewed_count", 0))},
+                    StatItem(label="Total Choices", value=str(metrics.get("total_choices", 0))),
+                    StatItem(label="Reviewed", value=str(metrics.get("choices_reviewed_count", 0))),
                 ],
                 cols=2,
             ),
@@ -419,9 +419,9 @@ class AnalyticsUIComponents:
                 H2("Knowledge Embodiment", cls="text-xl font-semibold mb-4"),
                 StatsGrid(
                     [
-                        {"label": "Total Knowledge", "value": str(knowledge_count)},
-                        {"label": "Embodied (0.8+)", "value": str(embodied)},
-                        {"label": "Theoretical (<0.5)", "value": str(theoretical)},
+                        StatItem(label="Total Knowledge", value=str(knowledge_count)),
+                        StatItem(label="Embodied (0.8+)", value=str(embodied)),
+                        StatItem(label="Theoretical (<0.5)", value=str(theoretical)),
                     ],
                     cols=3,
                 ),
@@ -561,10 +561,10 @@ class AnalyticsUIComponents:
             H2("Layer 0: Knowledge & Learning", cls="text-xl font-semibold mb-4"),
             StatsGrid(
                 [
-                    {"label": "Avg Substance", "value": f"{int(avg_substance * 100)}%"},
-                    {"label": "Embodied", "value": str(embodied)},
-                    {"label": "Active Paths", "value": str(active_paths)},
-                    {"label": "In-Progress Steps", "value": str(in_progress_steps)},
+                    StatItem(label="Avg Substance", value=f"{int(avg_substance * 100)}%"),
+                    StatItem(label="Embodied", value=str(embodied)),
+                    StatItem(label="Active Paths", value=str(active_paths)),
+                    StatItem(label="In-Progress Steps", value=str(in_progress_steps)),
                 ]
             ),
             cls="bg-background shadow-sm mb-6 p-6",
@@ -585,9 +585,9 @@ class AnalyticsUIComponents:
             H2("Layer 2: Reflection & Journals", cls="text-xl font-semibold mb-4"),
             StatsGrid(
                 [
-                    {"label": "Entries", "value": str(entry_count)},
-                    {"label": "Frequency", "value": f"{reflection_frequency:.1f}/day"},
-                    {"label": "Metacognition", "value": f"{int(metacognition_score * 100)}%"},
+                    StatItem(label="Entries", value=str(entry_count)),
+                    StatItem(label="Frequency", value=f"{reflection_frequency:.1f}/day"),
+                    StatItem(label="Metacognition", value=f"{int(metacognition_score * 100)}%"),
                 ],
                 cols=3,
                 cls="mb-4",

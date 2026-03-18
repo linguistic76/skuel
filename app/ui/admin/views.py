@@ -21,6 +21,7 @@ from typing import Any, ClassVar
 
 from fasthtml.common import H2, A, Div, Form, Option, P, Span, Td
 
+from ui.admin.types import UserCardData
 from ui.buttons import Button, ButtonLink, ButtonT
 from ui.cards import Card
 from ui.data import TableFromDicts, TableT
@@ -53,28 +54,25 @@ class AdminUIComponents:
         return Badge("Inactive", variant=BadgeT.ghost)
 
     @staticmethod
-    def render_user_card(user: dict, show_actions: bool = True) -> Div:
+    def render_user_card(user: UserCardData, show_actions: bool = True) -> Div:
         """
         Render a user card with role badge and actions.
 
         Args:
-            user: User data dict with uid, username, email, role, is_active, etc.
+            user: Typed user card data
             show_actions: Whether to show action buttons
 
         Returns:
             Div containing the user card
         """
-        uid = user.get("uid", "")
-        username = user.get("username", "Unknown")
-        email = user.get("email", "")
-        role = user.get("role", "registered")
-        is_active = user.get("is_active", True)
-        display_name = user.get("display_name", username)
-        last_login = user.get("last_login_at", "Never")
+        display_name = user.display_name or user.username
+        last_login = user.last_login_at
 
         # Format last login - show date portion if it's a full datetime
         if last_login and last_login != "Never" and "T" in str(last_login):
             last_login = str(last_login).split("T")[0]
+
+        uid_css = user.uid.replace(":", "-")
 
         # Action buttons
         actions = []
@@ -82,7 +80,7 @@ class AdminUIComponents:
             actions = [
                 ButtonLink(
                     "View",
-                    href=f"/admin/users/{uid}",
+                    href=f"/admin/users/{user.uid}",
                     variant=ButtonT.ghost,
                     size=Size.sm,
                 ),
@@ -90,21 +88,21 @@ class AdminUIComponents:
                     "Edit Role",
                     variant=ButtonT.primary,
                     size=Size.sm,
-                    hx_get=f"/admin/users/{uid}/role-form",
-                    hx_target=f"#role-form-{uid.replace(':', '-')}",
+                    hx_get=f"/admin/users/{user.uid}/role-form",
+                    hx_target=f"#role-form-{uid_css}",
                     hx_swap="innerHTML",
                 ),
             ]
-            if is_active:
+            if user.is_active:
                 actions.append(
                     Button(
                         "Deactivate",
                         variant=ButtonT.error,
                         size=Size.sm,
-                        hx_post=f"/api/admin/users/{uid}/deactivate",
+                        hx_post=f"/api/admin/users/{user.uid}/deactivate",
                         hx_confirm="Are you sure you want to deactivate this user?",
                         hx_swap="outerHTML",
-                        hx_target=f"#user-card-{uid.replace(':', '-')}",
+                        hx_target=f"#user-card-{uid_css}",
                     )
                 )
             else:
@@ -113,9 +111,9 @@ class AdminUIComponents:
                         "Activate",
                         variant=ButtonT.primary,
                         size=Size.sm,
-                        hx_post=f"/api/admin/users/{uid}/activate",
+                        hx_post=f"/api/admin/users/{user.uid}/activate",
                         hx_swap="outerHTML",
-                        hx_target=f"#user-card-{uid.replace(':', '-')}",
+                        hx_target=f"#user-card-{uid_css}",
                     )
                 )
 
@@ -124,12 +122,12 @@ class AdminUIComponents:
             Div(
                 Div(
                     Span(display_name, cls="text-lg font-semibold"),
-                    Span(f"@{username}", cls="text-sm text-muted-foreground ml-2"),
+                    Span(f"@{user.username}", cls="text-sm text-muted-foreground ml-2"),
                     cls="flex items-center gap-2",
                 ),
                 Div(
-                    AdminUIComponents.render_role_badge(role),
-                    AdminUIComponents.render_status_badge(is_active),
+                    AdminUIComponents.render_role_badge(user.role),
+                    AdminUIComponents.render_status_badge(user.is_active),
                     cls="flex items-center gap-2",
                 ),
                 cls="flex items-center justify-between mb-3",
@@ -138,7 +136,7 @@ class AdminUIComponents:
             Div(
                 P(
                     Span("Email: ", cls="text-muted-foreground"),
-                    Span(email),
+                    Span(user.email),
                     cls="text-sm",
                 ),
                 P(
@@ -149,10 +147,10 @@ class AdminUIComponents:
                 cls="space-y-1 mb-3",
             ),
             # Role form placeholder (for HTMX)
-            Div(id=f"role-form-{uid.replace(':', '-')}", cls="mb-3"),
+            Div(id=f"role-form-{uid_css}", cls="mb-3"),
             # Actions
             Div(*actions, cls="flex flex-wrap gap-2") if actions else None,
-            id=f"user-card-{uid.replace(':', '-')}",
+            id=f"user-card-{uid_css}",
             cls="bg-background shadow-sm p-4 border border-border",
         )
 
@@ -216,18 +214,18 @@ class AdminUIComponents:
         )
 
     @staticmethod
-    def render_role_change_form(user: dict) -> Form:
+    def render_role_change_form(user: UserCardData) -> Form:
         """
         Render form for changing user role.
 
         Args:
-            user: User data dict
+            user: Typed user card data
 
         Returns:
             Form for role change with HTMX
         """
-        uid = user.get("uid", "")
-        current_role = user.get("role", "registered")
+        uid = user.uid
+        current_role = user.role
 
         roles = ["registered", "member", "teacher", "admin"]
 

@@ -34,7 +34,7 @@ from ui.patterns.activity_views_base import (
     render_activity_calendar,
 )
 from ui.patterns.entity_card import EntityCard
-from ui.patterns.stats_grid import StatsGrid
+from ui.patterns.stats_grid import StatItem, StatsGrid
 
 
 class EventsViewComponents:
@@ -91,13 +91,13 @@ class EventsViewComponents:
 
         stats_bar = StatsGrid(
             [
-                {"label": "Total", "value": stats.get("total", 0)},
-                {
-                    "label": "Upcoming",
-                    "value": stats.get("upcoming", 0),
-                    "trend": "up" if stats.get("upcoming", 0) > 0 else "neutral",
-                },
-                {"label": "Today", "value": stats.get("today", 0)},
+                StatItem(label="Total", value=stats.get("total", 0)),
+                StatItem(
+                    label="Upcoming",
+                    value=stats.get("upcoming", 0),
+                    trend="up" if stats.get("upcoming", 0) > 0 else "neutral",
+                ),
+                StatItem(label="Today", value=stats.get("today", 0)),
             ],
             cols=3,
         )

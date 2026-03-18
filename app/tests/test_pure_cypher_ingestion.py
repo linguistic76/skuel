@@ -126,8 +126,10 @@ def test_cypher_template_generation():
     assert "item._node_props" in template.template
     assert "AS props" in template.template
 
-    # Verify template includes FOREACH for relationship creation
-    assert "FOREACH" in template.template
+    # Verify template includes CALL subquery for relationship creation
+    # (uses MATCH to only link existing targets, avoiding stub node creation)
+    assert "CALL {" in template.template
+    assert "MATCH (target:" in template.template
     assert "connections.requires" in template.template
     assert "PREREQUISITE" in template.template
 

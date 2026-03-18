@@ -32,7 +32,7 @@ from ui.patterns.activity_views_base import (
     ActivityViewTabs,
 )
 from ui.patterns.entity_card import EntityCard
-from ui.patterns.stats_grid import StatsGrid
+from ui.patterns.stats_grid import StatItem, StatsGrid
 
 
 class ChoicesViewComponents:
@@ -70,13 +70,13 @@ class ChoicesViewComponents:
 
         stats_bar = StatsGrid(
             [
-                {"label": "Total", "value": stats.get("total", 0)},
-                {"label": "Pending", "value": stats.get("pending", 0), "trend": "neutral"},
-                {
-                    "label": "Decided",
-                    "value": stats.get("decided", 0),
-                    "trend": "up" if stats.get("decided", 0) > 0 else "neutral",
-                },
+                StatItem(label="Total", value=stats.get("total", 0)),
+                StatItem(label="Pending", value=stats.get("pending", 0), trend="neutral"),
+                StatItem(
+                    label="Decided",
+                    value=stats.get("decided", 0),
+                    trend="up" if stats.get("decided", 0) > 0 else "neutral",
+                ),
             ],
             cols=3,
         )

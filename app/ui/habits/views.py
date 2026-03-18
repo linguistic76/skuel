@@ -34,7 +34,7 @@ from ui.patterns.activity_views_base import (
     render_activity_calendar,
 )
 from ui.patterns.entity_card import EntityCard
-from ui.patterns.stats_grid import StatsGrid
+from ui.patterns.stats_grid import StatItem, StatsGrid
 
 
 class HabitsViewComponents:
@@ -73,13 +73,13 @@ class HabitsViewComponents:
 
         stats_bar = StatsGrid(
             [
-                {"label": "Total", "value": stats.get("total", 0)},
-                {
-                    "label": "Active Streaks",
-                    "value": stats.get("active_streaks", 0),
-                    "trend": "up" if stats.get("active_streaks", 0) > 0 else "neutral",
-                },
-                {"label": "Completed Today", "value": stats.get("completed_today", 0)},
+                StatItem(label="Total", value=stats.get("total", 0)),
+                StatItem(
+                    label="Active Streaks",
+                    value=stats.get("active_streaks", 0),
+                    trend="up" if stats.get("active_streaks", 0) > 0 else "neutral",
+                ),
+                StatItem(label="Completed Today", value=stats.get("completed_today", 0)),
             ],
             cols=3,
         )

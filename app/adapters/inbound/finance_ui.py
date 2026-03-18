@@ -408,42 +408,43 @@ def create_finance_ui_routes(_app, rt, finance_service, user_service: Any = None
         """Invoice management page with list and create form."""
         logger.info(f"Finance invoices accessed by {current_user.uid}")
 
-        invoices = []
-        stats = {
-            "total_count": 0,
-            "outgoing_total": 0.0,
-            "incoming_total": 0.0,
-            "overdue_count": 0,
-            "outstanding_total": 0.0,
-        }
+        from ui.finance.invoice_views import InvoiceViews
+        from ui.finance.types import InvoiceRow, InvoiceStats
+
+        invoices: list[InvoiceRow] = []
+        stats = InvoiceStats()
 
         try:
             # Get invoice stats
             stats_result = await finance_service.get_invoice_stats()
             if stats_result and stats_result.is_ok and stats_result.value:
-                stats = stats_result.value
+                raw = stats_result.value
+                stats = InvoiceStats(
+                    total_count=raw.get("total_count", 0),
+                    outgoing_total=raw.get("outgoing_total", 0.0),
+                    incoming_total=raw.get("incoming_total", 0.0),
+                    overdue_count=raw.get("overdue_count", 0),
+                    outstanding_total=raw.get("outstanding_total", 0.0),
+                )
 
             # Get invoice list
             invoices_result = await finance_service.list_invoices(limit=50)
             if invoices_result and invoices_result.is_ok and invoices_result.value:
                 invoices = [
-                    {
-                        "uid": inv.uid,
-                        "invoice_type": inv.invoice_type.value,
-                        "counterparty": inv.counterparty,
-                        "invoice_date": str(inv.invoice_date),
-                        "due_date": str(inv.due_date) if inv.due_date else None,
-                        "total": inv.total,
-                        "status": inv.status.value,
-                        "is_overdue": inv.is_overdue(),
-                    }
+                    InvoiceRow(
+                        uid=inv.uid,
+                        invoice_type=inv.invoice_type.value,
+                        counterparty=inv.counterparty,
+                        invoice_date=str(inv.invoice_date),
+                        due_date=str(inv.due_date) if inv.due_date else None,
+                        total=inv.total,
+                        status=inv.status.value,
+                        is_overdue=inv.is_overdue(),
+                    )
                     for inv in invoices_result.value
                 ]
         except Exception as e:
             logger.warning(f"Could not fetch invoices: {e}")
-
-        # Import and render invoice views
-        from ui.finance.invoice_views import InvoiceViews
 
         content = InvoiceViews.render_invoices_list(invoices=invoices, stats=stats)
 

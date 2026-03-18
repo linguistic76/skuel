@@ -10,14 +10,14 @@ from fasthtml.common import Div
 
 from ui.buttons import ButtonLink, ButtonT
 from ui.layout import Container, Row, Size, Stack
-from ui.patterns.stats_grid import StatsGrid
+from ui.patterns.stats_grid import StatItem, StatsGrid
 from ui.text import PageTitle
 
 
 def DashboardLayout(
     title: str,
     subtitle: str | None = None,
-    stats: list[dict[str, Any]] | None = None,
+    stats: list[StatItem] | None = None,
     quick_actions: list[dict[str, str]] | None = None,
     filters: Any = None,
     content: Any = None,
@@ -35,7 +35,7 @@ def DashboardLayout(
     Args:
         title: Page title
         subtitle: Optional subtitle/description
-        stats: Optional list of stat dictionaries for StatsGrid
+        stats: Optional list of StatItem instances for StatsGrid
         quick_actions: Optional list of action dictionaries with:
             - label: Button text
             - href: Button URL
@@ -52,10 +52,10 @@ def DashboardLayout(
             title="Tasks",
             subtitle="Manage your tasks and to-dos",
             stats=[
-                {"label": "Total", "value": 150},
-                {"label": "Active", "value": 42},
-                {"label": "Completed", "value": 98},
-                {"label": "Overdue", "value": 10, "trend": "down"},
+                StatItem(label="Total", value=150),
+                StatItem(label="Active", value=42),
+                StatItem(label="Completed", value=98),
+                StatItem(label="Overdue", value=10, trend="down"),
             ],
             quick_actions=[
                 {"label": "New Task", "href": "/tasks/create"},

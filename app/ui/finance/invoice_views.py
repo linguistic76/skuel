@@ -24,13 +24,14 @@ from fasthtml.common import (
 )
 
 from ui.data import TableFromDicts, TableT
+from ui.finance.types import InvoiceRow, InvoiceStats
 
 
 class InvoiceViews:
     """Invoice section UI components."""
 
     @staticmethod
-    def render_invoices_list(invoices: list[dict[str, Any]], stats: dict[str, Any]) -> Div:
+    def render_invoices_list(invoices: list[InvoiceRow], stats: InvoiceStats) -> Div:
         """
         Render the invoice list page with stats and create form.
 
@@ -46,7 +47,7 @@ class InvoiceViews:
             Div(
                 H2("Invoices", cls="text-2xl font-bold text-foreground"),
                 Span(
-                    f"{stats.get('total_count', 0)} total",
+                    f"{stats.total_count} total",
                     cls="text-sm text-muted-foreground",
                 ),
                 cls="flex items-center justify-between mb-6",
@@ -73,42 +74,30 @@ class InvoiceViews:
         )
 
     @staticmethod
-    def _render_stats_cards(stats: dict[str, Any]) -> Div:
+    def _render_stats_cards(stats: InvoiceStats) -> Div:
         """Render invoice statistics cards."""
+        has_overdue = stats.overdue_count > 0
         cards = [
-            {
-                "label": "Total Invoices",
-                "value": str(stats.get("total_count", 0)),
-                "icon": "📄",
-            },
-            {
-                "label": "Outstanding",
-                "value": f"${stats.get('outstanding_total', 0):,.2f}",
-                "icon": "💰",
-            },
-            {
-                "label": "Overdue",
-                "value": str(stats.get("overdue_count", 0)),
-                "icon": "⚠️" if stats.get("overdue_count", 0) > 0 else "✓",
-                "alert": stats.get("overdue_count", 0) > 0,
-            },
+            ("Total Invoices", str(stats.total_count), "📄", False),
+            ("Outstanding", f"${stats.outstanding_total:,.2f}", "💰", False),
+            ("Overdue", str(stats.overdue_count), "⚠️" if has_overdue else "✓", has_overdue),
         ]
 
         return Div(
             *[
                 Div(
                     Div(
-                        Span(card["icon"], cls="text-2xl"),
+                        Span(icon, cls="text-2xl"),
                         Div(
-                            Span(card["value"], cls="text-2xl font-bold"),
-                            Span(card["label"], cls="text-sm text-muted-foreground"),
+                            Span(value, cls="text-2xl font-bold"),
+                            Span(label, cls="text-sm text-muted-foreground"),
                             cls="flex flex-col",
                         ),
                         cls="flex items-center gap-3",
                     ),
-                    cls=f"bg-muted p-4 rounded-lg border {'border-red-300' if card.get('alert') else 'border-border'}",
+                    cls=f"bg-muted p-4 rounded-lg border {'border-red-300' if alert else 'border-border'}",
                 )
-                for card in cards
+                for label, value, icon, alert in cards
             ],
             cls="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6",
         )
@@ -156,7 +145,7 @@ class InvoiceViews:
         )
 
     @staticmethod
-    def _render_invoice_table(invoices: list[dict[str, Any]]) -> Div:
+    def _render_invoice_table(invoices: list[InvoiceRow]) -> Div:
         """Render invoice table."""
         if not invoices:
             return Div(
@@ -200,33 +189,32 @@ class InvoiceViews:
 
         body_data = []
         for inv in invoices:
-            status = inv.get("status", "draft")
-            status_class = status_colors.get(status, "bg-muted text-foreground/80")
-            type_icon = "📤" if inv.get("invoice_type") == "outgoing" else "📥"
+            status_class = status_colors.get(inv.status, "bg-muted text-foreground/80")
+            type_icon = "📤" if inv.invoice_type == "outgoing" else "📥"
 
             body_data.append(
                 {
                     "Invoice": Div(
                         Span(type_icon, cls="mr-2"),
-                        Span(inv.get("uid", "")[:20] + "...", cls="font-mono text-xs"),
+                        Span(inv.uid[:20] + "...", cls="font-mono text-xs"),
                         cls="flex items-center",
                     ),
-                    "Counterparty": inv.get("counterparty", "Unknown"),
-                    "Amount": f"${inv.get('total', 0):,.2f}",
-                    "Due Date": inv.get("due_date", "N/A"),
+                    "Counterparty": inv.counterparty,
+                    "Amount": f"${inv.total:,.2f}",
+                    "Due Date": inv.due_date or "N/A",
                     "Status": Span(
-                        status.upper(),
+                        inv.status.upper(),
                         cls=f"px-2 py-1 rounded-full text-xs font-medium {status_class}",
                     ),
                     "Actions": Div(
                         A(
                             "View",
-                            href=f"/api/invoices/{inv.get('uid')}",
+                            href=f"/api/invoices/{inv.uid}",
                             cls="text-sm text-primary hover:underline mr-3",
                         ),
                         A(
                             "PDF",
-                            href=f"/api/invoices/{inv.get('uid')}/pdf",
+                            href=f"/api/invoices/{inv.uid}/pdf",
                             cls="text-sm text-primary hover:underline",
                             download=True,
                         ),
