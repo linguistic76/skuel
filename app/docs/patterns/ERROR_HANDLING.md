@@ -1,6 +1,6 @@
 ---
 title: Error Handling Architecture
-updated: 2026-01-25
+updated: 2026-03-18
 category: patterns
 related_skills:
 - result-pattern
@@ -221,9 +221,15 @@ async def tasks_dashboard(request) -> Any:
 - **Type safety** - Dataclasses prevent parameter extraction bugs
 
 **Implementation Status:**
-- ✅ All 6 Activity Domains - Complete (Tasks, Goals, Habits, Events, Choices, Principles)
-- ✅ Finance - Uses typed context methods (`get_dashboard_context()`, etc.) with `Result[TypedDict]`
-- ✅ Insights - Uses `filter_insights()` helper with error-first check on `get_active_insights()`
+- ✅ All 6 Activity Domains — Complete (Tasks, Goals, Habits, Events, Choices, Principles)
+- ✅ Finance — Uses typed context methods (`get_dashboard_context()`, etc.) with `Result[TypedDict]`
+- ✅ Insights — Uses `filter_insights()` helper with error-first check on `get_active_insights()`
+- ✅ Teaching — `render_error_banner()` for all queue/exercise/student/class error states (2026-03-18)
+- ✅ Study — HTMX fragments preserve target `id` with error banners; replaced silent fallbacks (2026-03-18)
+- ✅ KU — Error banner on Ku list failure vs empty state for no data (2026-03-18)
+- ✅ Admin — Error logging + warning banners for user list, stats, learning dashboard (2026-03-18)
+
+**Component:** `render_error_banner()` from `ui/patterns/error_banner.py` (exported in `ui/patterns/__init__.py`).
 
 **Reference:** See `/docs/patterns/UI_COMPONENT_PATTERNS.md` for full implementation details.
 

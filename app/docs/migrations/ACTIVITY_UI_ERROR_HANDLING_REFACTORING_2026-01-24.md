@@ -240,8 +240,9 @@ For each domain after refactoring:
 
 1. ✅ Complete Choices UI refactoring
 2. ✅ Complete Principles UI refactoring (+ bug fixes)
-3. Test all domains with Neo4j stopped to verify error banners (recommended)
-4. Consider extracting common helpers to shared module (future optimization)
+3. ✅ Standardize non-Activity UI routes (2026-03-18) — Teaching, Study, KU, Admin, Insights now use `render_error_banner()` instead of ad-hoc P/Div error elements and silent fallbacks. Fixed `.is_ok` bug in teaching_ui.py. Component exported from `ui/patterns/__init__.py`.
+4. Test all domains with Neo4j stopped to verify error banners (recommended)
+5. Consider extracting common helpers to shared module (future optimization)
 
 ## References
 

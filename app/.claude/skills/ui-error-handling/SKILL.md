@@ -9,7 +9,7 @@ related_skills:
 
 # SKUEL UI Error Handling
 
-*Last updated: 2026-02-01*
+*Last updated: 2026-03-18*
 
 **When to use this skill:** When building UI routes, handling `Result[T]` at boundaries, implementing error banners, creating form validation, or understanding how SKUEL propagates errors from services to UI.
 
@@ -17,14 +17,14 @@ related_skills:
 
 ## Overview
 
-SKUEL uses a consistent error-handling pattern across all Activity domains (Tasks, Goals, Habits, Events, Choices, Principles) that makes failures **visible to users** instead of silently returning empty lists.
+SKUEL uses a consistent error-handling pattern across all UI routes that makes failures **visible to users** instead of silently returning empty lists or ad-hoc error elements.
 
 **Core Principle:** "Typed params, Result[T] propagation, visible error banners"
 
 This pattern has three key components:
 1. **Typed query parameters** (dataclasses) for type safety
 2. **Result[T] propagation** from services through data helpers
-3. **Error banner rendering** for user-visible failures
+3. **Error banner rendering** via `render_error_banner()` for user-visible failures
 
 **Benefits:**
 - User-visible errors (clear messages instead of empty lists)
@@ -32,7 +32,7 @@ This pattern has three key components:
 - Type safety (dataclasses prevent param extraction errors)
 - Consistency (all domains follow same pattern)
 
-**Applied to:** All 6 Activity domains (100% coverage as of 2026-01-24)
+**Applied to:** All 6 Activity domains + Teaching, Study, KU, Admin, Insights (standardized 2026-03-18)
 
 ---
 
@@ -1202,6 +1202,15 @@ def test_validate_task_form_data_missing_title():
 - `/adapters/inbound/tasks_ui.py` - Reference implementation (all patterns)
 - `/adapters/inbound/goals_ui.py` - Calendar-enabled variant
 - `/adapters/inbound/choice_ui.py` - Form validation example
+- `/adapters/inbound/teaching_ui.py` - Non-activity domain, sidebar pages
+- `/adapters/inbound/study_ui.py` - HTMX fragments with error banners preserving target IDs
+- `/adapters/inbound/ku_ui.py` - Error state vs empty state distinction
+- `/adapters/inbound/admin_dashboard_ui.py` - Warning severity for partial failures
+- `/adapters/inbound/insights_ui.py` - Error state with load-more pagination
+
+### Error Banner Component
+- `/ui/patterns/error_banner.py` - `render_error_banner()`, `render_inline_error()`, `render_empty_state_with_error()`
+- `/ui/patterns/__init__.py` - Package-level exports
 
 ### Documentation
 - `/docs/patterns/UI_COMPONENT_PATTERNS.md` - Complete UI patterns (lines 751-1199)
@@ -1220,13 +1229,20 @@ def test_validate_task_form_data_missing_title():
 ## See Also
 
 ### Implementation Status
-All 6 Activity domains use this pattern (100% coverage as of 2026-01-24):
-- ✅ Tasks
-- ✅ Goals
-- ✅ Habits
-- ✅ Events
-- ✅ Choices
-- ✅ Principles
+
+**Activity Domains** (full pattern with typed params + Result[T] helpers, 2026-01-24):
+- ✅ Tasks — reference implementation
+- ✅ Goals, Habits, Events, Choices, Principles
+
+**Non-Activity Domains** (render_error_banner standardized, 2026-03-18):
+- ✅ Teaching (`teaching_ui.py`) — 10 error sites, fixed `.is_ok` → `.is_error` bug (SKUEL003)
+- ✅ Study (`study_ui.py`) — 12 error sites, replaced silent fallbacks + ad-hoc P/Div elements
+- ✅ KU (`ku_ui.py`) — error banner on Ku list failure, logging for bookmark failures
+- ✅ Admin (`admin_dashboard_ui.py`) — error logging + banner for user list, stats, learning dashboard
+- ✅ Insights (`insights_ui.py`) — error banner on insights/stats load failure, load-more endpoint
+- ✅ Finance (`finance_ui.py`) — typed context methods with Result[TypedDict]
+
+**Component export:** `render_error_banner` exported from `ui/patterns/__init__.py` (2026-03-18).
 
 ### Key Insights
 

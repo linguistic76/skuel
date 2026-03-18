@@ -1027,6 +1027,8 @@ async def tasks_view_list(request) -> Any:
 
 ### Implementation Status
 
+**Activity Domains** (full pattern: typed params + Result[T] helpers + error banners):
+
 | Domain | Status | Notes |
 |--------|--------|-------|
 | Tasks | ✅ Complete | Reference implementation |
@@ -1036,13 +1038,25 @@ async def tasks_view_list(request) -> Any:
 | Choices | ✅ Complete | Analytics instead of calendar |
 | Principles | ✅ Complete | Analytics + bug fixes applied |
 
+**Non-Activity Domains** (render_error_banner standardized, 2026-03-18):
+
+| Domain | Status | Notes |
+|--------|--------|-------|
+| Teaching | ✅ Complete | 10 error sites, fixed `.is_ok` → `.is_error` (SKUEL003) |
+| Study | ✅ Complete | 12 error sites, HTMX fragments preserve target `id` |
+| KU | ✅ Complete | Error banner vs empty state distinction |
+| Admin | ✅ Complete | Warning severity for partial failures |
+| Insights | ✅ Complete | Error state with load-more pagination |
+| Finance | ✅ Complete | Typed context methods with `Result[TypedDict]` |
+
 **Reference Files:**
-- `/adapters/inbound/tasks_ui.py` - Reference pattern
-- `/adapters/inbound/goals_ui.py` - Complete implementation
-- `/adapters/inbound/habits_ui.py` - Complete implementation
-- `/adapters/inbound/events_ui.py` - Complete implementation
-- `/adapters/inbound/choice_ui.py` - Complete implementation
-- `/adapters/inbound/principles_ui.py` - Complete implementation
+- `/adapters/inbound/tasks_ui.py` - Reference pattern (Activity)
+- `/adapters/inbound/goals_ui.py` - Calendar-enabled variant
+- `/adapters/inbound/teaching_ui.py` - Sidebar pages, non-activity pattern
+- `/adapters/inbound/study_ui.py` - HTMX fragments with error banners
+- `/adapters/inbound/ku_ui.py` - Error state vs empty state
+- `/adapters/inbound/admin_dashboard_ui.py` - Warning severity for partial failures
+- `/adapters/inbound/insights_ui.py` - Error state with pagination
 
 ### Activity Domain Detail Page Pattern
 
