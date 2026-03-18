@@ -1,6 +1,6 @@
 ---
 title: Hierarchy Components Guide
-updated: '2026-02-02'
+updated: '2026-03-18'
 category: patterns
 related_skills:
 - skuel-component-composition
@@ -148,13 +148,13 @@ TreeView supports node reordering via HTML5 drag-and-drop:
 3. User drops on new parent (drop event)
 4. Alpine.js validates (prevents cycle via `isDescendant()`)
 5. HTMX posts to `/api/goals/{uid}/move` with `new_parent_uid`
-6. Server calls `create_subgoal_relationship` + `remove_subgoal_relationship`
+6. `HierarchyRouteFactory._move_node()` orchestrates: get old parent → remove old rel → create new rel
 7. HTMX refreshes affected nodes
 8. Toast notification confirms success
 
 **Cycle Prevention:**
 - **Client-side:** `isDescendant(newParent, draggedNode)` checks DOM tree
-- **Server-side:** Service validates no circular relationships (TODO: implement)
+- **Server-side:** `_would_create_cycle()` in service's `create_sub*_relationship` method
 
 **Example:**
 
@@ -353,44 +353,16 @@ async def get_children(request: Request, uid: str):
 {"success": true, "message": "Goal moved successfully"}
 ```
 
-**Implementation:**
+**Implementation:** Handled by `HierarchyRouteFactory` — no per-domain code needed.
+
+The route handler verifies ownership of both nodes, then delegates to `_move_node()` which orchestrates the three-step operation (get old parent → remove old relationship → create new relationship). Cycle prevention is handled inside the service's `create_sub*_relationship` method.
 
 ```python
-@rt("/api/goals/{uid}/move", methods=["POST"])
-async def move_goal(request: Request, uid: str):
-    user_uid = require_authenticated_user(request)
-
-    # Parse body
-    body = await request.json()
-    new_parent_uid = body.get("new_parent_uid")
-
-    if not new_parent_uid:
-        return {"success": False, "error": "new_parent_uid required"}, 400
-
-    # Verify ownership of both nodes
-    ownership_result = await goals_service.verify_ownership(uid, user_uid)
-    if ownership_result.is_error:
-        return {"success": False, "error": "Not found"}, 404
-
-    parent_ownership = await goals_service.verify_ownership(new_parent_uid, user_uid)
-    if parent_ownership.is_error:
-        return {"success": False, "error": "Parent not found"}, 404
-
-    # Remove old parent relationship (if exists)
-    old_parent_result = await goals_service.get_parent_goal(uid)
-    if not old_parent_result.is_error and old_parent_result.value:
-        await goals_service.remove_subgoal_relationship(
-            old_parent_result.value.uid,
-            uid
-        )
-
-    # Create new relationship
-    result = await goals_service.create_subgoal_relationship(new_parent_uid, uid)
-
-    if result.is_error:
-        return {"success": False, "error": str(result.error)}, 400
-
-    return {"success": True, "message": "Goal moved successfully"}
+# HierarchyRouteFactory._move_node() handles the orchestration:
+# 1. Get old parent via get_parent_{singular}(uid)
+# 2. Remove old relationship via remove_sub{singular}_relationship(old_parent_uid, uid)
+# 3. Create new relationship via create_sub{singular}_relationship(new_parent_uid, uid)
+#    (includes cycle check in service)
 ```
 
 ### PATCH /api/{domain}/{uid}
@@ -768,7 +740,7 @@ def render_hierarchy_view(root_uid: str, root_goal: Goal) -> Div:
 
 | File | Purpose |
 |------|---------|
-| `/adapters/inbound/route_factories/hierarchy_route_factory.py` | Generic route factory |
+| `/adapters/inbound/hierarchy_route_factory.py` | Generic route factory |
 | `/adapters/inbound/hierarchy_routes.py` | Route registration |
 
 ### Integration Files
