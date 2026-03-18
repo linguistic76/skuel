@@ -558,7 +558,7 @@ class UserBackend:
             self.logger.error(f"Failed to enroll in learning path: {e}")
             return Result.fail(Errors.database(operation="enroll_in_learning_path", message=str(e)))
 
-    async def complete_learning_path_graph(
+    async def complete_learning_path(
         self,
         user_uid: str,
         learning_path_uid: str,
@@ -615,7 +615,7 @@ class UserBackend:
         except Exception as e:
             self.logger.error(f"Failed to complete learning path: {e}")
             return Result.fail(
-                Errors.database(operation="complete_learning_path_graph", message=str(e))
+                Errors.database(operation="complete_learning_path", message=str(e))
             )
 
     async def express_interest_in_knowledge(

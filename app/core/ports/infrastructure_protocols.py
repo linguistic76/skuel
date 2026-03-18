@@ -88,8 +88,8 @@ class UserCrudOperations(Protocol):
 
 
 @runtime_checkable
-class UserProgressOperations(Protocol):
-    """Learning progress recording. Used by: UserProgressRecorderService.
+class UserLearningStateOperations(Protocol):
+    """Learning state management. Used by: UserProgressRecorderService.
 
     See: /docs/patterns/BACKEND_OPERATIONS_ISP.md
     """
@@ -139,14 +139,14 @@ class UserProgressOperations(Protocol):
         """Enroll user in a learning path."""
         ...
 
-    async def complete_learning_path_graph(
+    async def complete_learning_path(
         self,
         user_uid: str,
         learning_path_uid: str,
         completion_score: float = 1.0,
         feedback_rating: int | None = None,
     ) -> Result[bool]:
-        """Mark a learning path as completed in the graph."""
+        """Mark a learning path as completed."""
         ...
 
     async def express_interest_in_knowledge(
@@ -199,13 +199,13 @@ class UserActivityOperations(Protocol):
 
 @runtime_checkable
 class UserOperations(
-    UserCrudOperations, UserProgressOperations, UserActivityOperations, Protocol
+    UserCrudOperations, UserLearningStateOperations, UserActivityOperations, Protocol
 ):
     """Full user backend operations (composed). Use narrowest sub-protocol for ISP.
 
     Composed from:
     - UserCrudOperations (6 methods) — identity CRUD
-    - UserProgressOperations (8 methods) — learning progress recording
+    - UserLearningStateOperations (8 methods) — learning state management
     - UserActivityOperations (3 methods) — activity tracking
 
     See: /docs/patterns/BACKEND_OPERATIONS_ISP.md

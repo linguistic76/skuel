@@ -23,7 +23,7 @@ This service is part of the refactored UserService architecture:
 - UserService: Facade coordinating all sub-services
 """
 
-from core.ports.infrastructure_protocols import UserProgressOperations
+from core.ports.infrastructure_protocols import UserLearningStateOperations
 from core.utils.decorators import with_error_handling
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -50,7 +50,7 @@ class UserProgressRecorderService:
     - Integrates with progress metrics system
     """
 
-    def __init__(self, user_repo: UserProgressOperations) -> None:
+    def __init__(self, user_repo: UserLearningStateOperations) -> None:
         """
         Initialize user progress recorder service.
 
@@ -200,9 +200,9 @@ class UserProgressRecorderService:
         return result
 
     @with_error_handling(
-        "complete_learning_path_graph", error_type="database", uid_param="user_uid"
+        "complete_learning_path", error_type="database", uid_param="user_uid"
     )
-    async def complete_learning_path_graph(
+    async def complete_learning_path(
         self,
         user_uid: str,
         learning_path_uid: str,
@@ -227,7 +227,7 @@ class UserProgressRecorderService:
         Error cases:
             - Database operation fails → DATABASE
         """
-        result = await self.repo.complete_learning_path_graph(
+        result = await self.repo.complete_learning_path(
             user_uid, learning_path_uid, completion_score, feedback_rating
         )
 

@@ -411,15 +411,15 @@ class UserService:
             user_uid, learning_path_uid, target_completion, weekly_time_commitment, motivation_note
         )
 
-    async def complete_learning_path_graph(
+    async def complete_learning_path(
         self,
         user_uid: str,
         learning_path_uid: str,
         completion_score: float = 1.0,
         feedback_rating: int | None = None,
     ) -> Result[bool]:
-        """Mark a learning path as completed using graph relationships."""
-        return await self.progress.complete_learning_path_graph(
+        """Mark a learning path as completed."""
+        return await self.progress.complete_learning_path(
             user_uid, learning_path_uid, completion_score, feedback_rating
         )
 

@@ -188,8 +188,8 @@ from .infrastructure_protocols import (
     SchemaOperations,
     UserActivityOperations,
     UserCrudOperations,
+    UserLearningStateOperations,
     UserOperations,
-    UserProgressOperations,
 )
 
 # Intelligence operation protocols
@@ -479,7 +479,7 @@ __all__ = [
     "UserContextOperations",
     "UserCrudOperations",
     "UserOperations",
-    "UserProgressOperations",
+    "UserLearningStateOperations",
     "VisualizationOperations",
     # ========== HELPER FUNCTIONS (3) ==========
     "get_enum_attr_str",

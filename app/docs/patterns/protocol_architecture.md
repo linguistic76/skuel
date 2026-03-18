@@ -267,7 +267,7 @@ SKUEL achieved **full type safety** across the entire codebase through systemati
 - ✅ Exported all 9 facade protocols in `__init__.py`
 - ✅ Added `UserOperations` to infrastructure protocol exports
 - ✅ Narrowed `UserOperations` from `Any` to concrete `User`/`UserContext` types (March 2026)
-- ✅ ISP decomposition: `UserOperations` → `UserCrudOperations` + `UserProgressOperations` + `UserActivityOperations` (March 2026). Sub-services now depend on the narrowest sub-protocol they need.
+- ✅ ISP decomposition: `UserOperations` → `UserCrudOperations` + `UserLearningStateOperations` + `UserActivityOperations` (March 2026). Sub-services now depend on the narrowest sub-protocol they need.
 
 > **Note:** The facade protocols created in this phase were superseded in February 2026 by explicit delegation methods. Facade services now use concrete class type hints in routes instead of protocol types. See "Facade Services — Explicit Delegation" section.
 
