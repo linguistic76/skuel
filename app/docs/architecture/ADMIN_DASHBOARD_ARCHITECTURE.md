@@ -18,7 +18,7 @@ related_skills:
 
 # Admin Dashboard Architecture
 
-**Last Updated**: February 8, 2026 (User Statistics Overhaul)
+**Last Updated**: March 18, 2026 (Partial failure banners)
 ## Related Skills
 
 For implementation guidance, see:
@@ -450,9 +450,26 @@ get_user_service = make_service_getter(services.user_service)
 @require_admin(lambda: services.user_service)
 ```
 
-### 4. Result[T] with @boundary_handler
+### 4. Partial Failure Banners
 
-All routes return Result[T], converted to HTTP at boundaries:
+Dashboard helpers (`_get_user_stats`, `_get_system_status`) return `tuple[data, bool]` where the bool indicates an error. Routes unpack and conditionally render `render_error_banner(msg, severity="warning")` per section:
+
+```python
+user_stats, stats_error = await _get_user_stats(services)
+
+Card(
+    H2("User Statistics"),
+    render_error_banner("User statistics unavailable", severity="warning")
+    if stats_error
+    else AdminUIComponents.render_user_stats(user_stats),
+)
+```
+
+**Applied to:** system status (overview), user stats (users list), detail stats (user detail), KU metrics + user progress (learning dashboard).
+
+### 5. Result[T] with @boundary_handler
+
+All API routes return Result[T], converted to HTTP at boundaries:
 
 ```python
 @rt("/admin/users")

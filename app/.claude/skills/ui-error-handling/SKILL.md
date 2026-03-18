@@ -693,6 +693,95 @@ render_error_banner("Some data may be incomplete", severity="warning")
 
 ---
 
+### Pattern 9: Dashboard Partial Failure Banners
+
+**Use when:** A dashboard page makes multiple independent service calls and some may fail while others succeed.
+
+**Key Insight:** Dashboards aggregate data from multiple services. A failure in one section should not blank the entire page. Return `tuple[data, bool]` from helpers where the bool indicates an error, then conditionally render warning banners per section.
+
+**Helper pattern:**
+```python
+async def _get_user_stats(services) -> tuple[dict, bool]:
+    """Returns (stats_dict, had_error)."""
+    stats = {"total": 0, "admins": 0, ...}
+    try:
+        result = await services.user_service.list_users(...)
+        if result.is_error:
+            return stats, True
+        # ... populate stats ...
+        return stats, False
+    except Exception:
+        return stats, True
+```
+
+**Consumer pattern:**
+```python
+user_stats, stats_error = await _get_user_stats(services)
+
+# Conditional banner per section
+Card(
+    H2("User Statistics"),
+    render_error_banner("User statistics unavailable", severity="warning")
+    if stats_error
+    else AdminUIComponents.render_user_stats(user_stats),
+)
+```
+
+**Applied to:**
+- Admin dashboard: system status, user stats, detail stats, KU metrics, user progress (each independent)
+- Teaching dashboard: dashboard stats banner above zero-state dashboard
+- Profile intelligence: 4 independent calls with `partial_errors` list (see Pattern 10)
+
+---
+
+### Pattern 10: Independent Partial Results (Intelligence)
+
+**Use when:** Multiple async calls are independent and expensive — a single failure should not block the rest.
+
+**Key Insight:** Instead of a cascading fail-on-first-error chain, call each method independently, collect partial errors, and let the UI render whatever succeeded.
+
+```python
+daily_plan = alignment = synergies = learning_steps = None
+partial_errors: list[str] = []
+
+plan_result = await intelligence.get_ready_to_work_on_today()
+if plan_result.is_error:
+    partial_errors.append("Daily plan unavailable")
+else:
+    daily_plan = plan_result.value
+
+# ... same for alignment, synergies, learning_steps ...
+
+if all(v is None for v in [daily_plan, alignment, synergies, learning_steps]):
+    return Result.fail(Errors.system("All intelligence calls failed"))
+
+return Result.ok({
+    "daily_plan": daily_plan, "alignment": alignment,
+    "synergies": synergies, "learning_steps": learning_steps,
+    "partial_errors": partial_errors,
+})
+```
+
+**Consumer renders only successful sections:**
+```python
+partial_errors = intel_data.get("partial_errors", [])
+sections = [_chart_visualizations_section()]
+
+if partial_errors:
+    sections.append(render_error_banner(
+        "Some intelligence features are temporarily unavailable",
+        severity="warning",
+    ))
+
+if intel_data.get("alignment") is not None:
+    sections.append(_alignment_breakdown(intel_data["alignment"]))
+# ... conditionally append each section ...
+```
+
+**Applied to:** Profile intelligence HTMX endpoint (`/api/profile/intelligence-section`)
+
+---
+
 ## Real-World Examples
 
 ### Example 1: Tasks Dashboard (Complete Pattern)
@@ -1128,6 +1217,8 @@ When implementing error handling for a new domain:
 - [ ] Early form validation with user-friendly messages
 - [ ] HTMX fragments return error banners (not full pages)
 - [ ] Main dashboard shows tabs even on error (navigation still works)
+- [ ] Dashboard helpers return `tuple[data, bool]` when partial failure matters
+- [ ] Independent service calls use partial error collection (not fail-on-first)
 - [ ] All errors use `render_error_banner()` (consistency)
 
 ### Unit Testing Pure Helpers
@@ -1222,7 +1313,7 @@ def test_validate_task_form_data_missing_title():
 - ✅ Teaching (`teaching_ui.py`) — 10 error sites, fixed `.is_ok` → `.is_error` bug (SKUEL003)
 - ✅ Study (`study_ui.py`) — 12 error sites, replaced silent fallbacks + ad-hoc P/Div elements
 - ✅ KU (`ku_ui.py`) — error banner on Ku list failure, logging for bookmark failures
-- ✅ Admin (`admin_dashboard_ui.py`) — error logging + banner for user list, stats, learning dashboard
+- ✅ Admin (`admin_dashboard_ui.py`) — per-section warning banners for stats, system status, learning metrics, user progress
 - ✅ Insights (`insights_ui.py`) — error banner on insights/stats load failure, load-more endpoint
 - ✅ Finance (`finance_ui.py`) — typed context methods with Result[TypedDict]
 

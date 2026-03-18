@@ -1028,7 +1028,7 @@ async def tasks_view_list(request) -> Any:
 | Teaching | ✅ Complete | 10 error sites, fixed `.is_ok` → `.is_error` (SKUEL003) |
 | Study | ✅ Complete | 12 error sites, HTMX fragments preserve target `id` |
 | KU | ✅ Complete | Error banner vs empty state distinction |
-| Admin | ✅ Complete | Warning severity for partial failures |
+| Admin | ✅ Complete | Per-section warning banners via `tuple[data, bool]` helpers |
 | Insights | ✅ Complete | Error state with load-more pagination |
 | Finance | ✅ Complete | Typed context methods with `Result[TypedDict]` |
 
@@ -1043,7 +1043,7 @@ async def tasks_view_list(request) -> Any:
 - `/adapters/inbound/teaching_ui.py` - Sidebar pages, non-activity pattern
 - `/adapters/inbound/study_ui.py` - HTMX fragments with error banners
 - `/adapters/inbound/ku_ui.py` - Error state vs empty state
-- `/adapters/inbound/admin_dashboard_ui.py` - Warning severity for partial failures
+- `/adapters/inbound/admin_dashboard_ui.py` - Per-section partial failure banners via `tuple[data, bool]` helpers
 - `/adapters/inbound/insights_ui.py` - Error state with pagination
 
 ### Activity Domain Detail Page Pattern
