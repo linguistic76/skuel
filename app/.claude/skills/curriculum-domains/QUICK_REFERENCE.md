@@ -168,6 +168,12 @@ ls_service.intelligence.is_ready(ls_uid, completed_uids)
 # LP - 5 sub-services, specialized factory
 lp_service.intelligence.validate_path_prerequisites(lp_uid)
 lp_service.intelligence.get_adaptive_sequence(lp_uid, user_uid)
+
+# LP Facade aggregation (extracted from pathways_ui.py, March 2026)
+lp_service.get_dashboard_summary(user_uid, user_progress)  # Full dashboard data
+lp_service.filter_paths(difficulty, domain, duration)       # Filtered path list
+lp_service.get_path_detail_progress(path_uid, user_progress, user_uid)  # Path + mastery
+lp_service.get_learning_analytics(user_uid, user_progress)  # Knowledge profile stats
 ```
 
 ## Sub-service Summary

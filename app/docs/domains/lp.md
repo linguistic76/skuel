@@ -167,6 +167,18 @@ LpIntelligenceService is created internally by LpService (January 2026 - unified
 - Matches the unified pattern used by all other domains (Tasks, Goals, Habits, Events, Choices, Principles, KU, LS, MOC)
 - Parameter count reduced from 11+ to 7
 
+### Facade Aggregation Methods (March 2026)
+
+Extracted from `pathways_ui.py` route handlers into `LpService` facade:
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `calculate_path_progress(paths)` | `tuple[list[ActivePathData], float]` | Pure computation: progress %, current step, hours for each path |
+| `get_dashboard_summary(user_uid, user_progress?)` | `Result[dict]` | Full dashboard: active paths + stats (completion rate, concepts mastered) |
+| `filter_paths(difficulty, domain, duration, limit)` | `Result[list[dict]]` | Fetch + filter paths by difficulty/domain/duration |
+| `get_path_detail_progress(path_uid, user_progress, user_uid)` | `Result[dict]` | Path with mastery info: progress, mastered_uids, is_enrolled |
+| `get_learning_analytics(user_uid, user_progress)` | `Result[dict]` | Knowledge profile stats: mastered, in_progress, needs_review, struggling |
+
 ### Intelligence Methods
 
 | Category | Method | Returns | Description |

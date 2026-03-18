@@ -84,6 +84,15 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
 
 Created via `create_common_sub_services()` factory + domain-specific services in facade `__init__`.
 
+### Facade Aggregation Methods (March 2026)
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `get_analytics_summary(user_uid)` | `Result[dict]` | Analytics: total, core_count, active_count, overall_adherence, recent reflections |
+| `get_filtered_context(user_uid, ...)` | `Result[ListContext]` | Filtered + sorted principles with stats |
+
+`get_analytics_summary` orchestrates `core`, `alignment`, and `reflection` sub-services. Extracted from route-level `get_analytics_data` inner function.
+
 ## Model Fields
 
 | Field | Type | Description |

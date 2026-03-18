@@ -18,7 +18,7 @@ related_skills:
 
 # Admin Dashboard Architecture
 
-**Last Updated**: March 18, 2026 (Partial failure banners)
+**Last Updated**: March 18, 2026 (Service extraction: get_user_role_counts, get_activity_entity_counts)
 ## Related Skills
 
 For implementation guidance, see:
@@ -96,7 +96,9 @@ The user management section (`/admin/users`) provides:
 │   ├─ get_user()        └─ get_health_summary() ├─ get_users_with_activity_counts()│
 │   ├─ update_role()                             ├─ get_entity_system_metrics()│
 │   ├─ deactivate_user()                         ├─ get_all_users_progress()│
-│   └─ activate_user()                           └─ get_user_ku_detail()   │
+│   └─ activate_user()                           ├─ get_user_ku_detail()   │
+│                                                ├─ get_activity_entity_counts()│
+│                                                └─ get_user_role_counts() │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -226,6 +228,8 @@ Cross-domain aggregation queries, injected with `QueryExecutor`. Registered on `
 | `get_entity_system_metrics()` | Aggregate KU counts, VIEWED/IN_PROGRESS/MASTERED totals |
 | `get_all_users_progress()` | Per-user KU progress (mastered, in_progress, viewed counts) |
 | `get_user_ku_detail(user_uid)` | Detailed KU list for a user with relationship data |
+| `get_activity_entity_counts()` | System-wide Task/Habit/Goal/Journal counts via single Cypher COUNT query |
+| `get_user_role_counts()` | User counts grouped by role via single Cypher GROUP BY query |
 
 **`get_user_detail_stats` returns:**
 
@@ -452,10 +456,14 @@ get_user_service = make_service_getter(services.user_service)
 
 ### 4. Partial Failure Banners
 
-Dashboard helpers (`_get_user_stats`, `_get_system_status`) return `tuple[data, bool]` where the bool indicates an error. Routes unpack and conditionally render `render_error_banner(msg, severity="warning")` per section:
+Service methods return `Result[T]`. The `_get_system_status` helper returns `tuple[data, bool]` where the bool indicates an error. Routes unpack and conditionally render `render_error_banner(msg, severity="warning")` per section:
 
 ```python
-user_stats, stats_error = await _get_user_stats(services)
+user_stats_result = await services.admin_stats.get_user_role_counts()
+stats_error = user_stats_result.is_error
+user_stats = user_stats_result.value if not stats_error else {
+    "total": 0, "admins": 0, "teachers": 0, "members": 0, "registered": 0,
+}
 
 Card(
     H2("User Statistics"),
@@ -465,7 +473,9 @@ Card(
 )
 ```
 
-**Applied to:** system status (overview), user stats (users list), detail stats (user detail), KU metrics + user progress (learning dashboard).
+**Applied to:** system status (overview), user stats (users list), activity entity counts (analytics), detail stats (user detail), KU metrics + user progress (learning dashboard).
+
+**March 2026 — Service extraction:** `_get_user_stats` helper deleted. User role counts and activity entity counts now use efficient Cypher COUNT queries on `AdminStatsService` (`get_user_role_counts`, `get_activity_entity_counts`) instead of fetching full entity lists just to count them.
 
 ### 5. Result[T] with @boundary_handler
 
