@@ -19,6 +19,7 @@ They provide no value and actively undermine type safety.
 - `prometheus_metrics: Any` — Should be `PrometheusMetrics | None`
 - `services: Any` (in route factories) — Should be `Services | None`
 - `priority: Any` in Protocol attributes — Should be the specific enum
+- `UserOperations` return types — Were `Result[Any]`, now `Result[User]` / `Result[UserContext]` (no circular import existed)
 
 If you encounter Category A `Any` during development, fix it immediately. There is no
 architectural reason for these to exist.

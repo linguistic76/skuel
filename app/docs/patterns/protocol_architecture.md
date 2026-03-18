@@ -266,6 +266,7 @@ SKUEL achieved **full type safety** across the entire codebase through systemati
 - ✅ Created 9 facade protocols for all facade services
 - ✅ Exported all 9 facade protocols in `__init__.py`
 - ✅ Added `UserOperations` to infrastructure protocol exports
+- ✅ Narrowed `UserOperations` from `Any` to concrete `User`/`UserContext` types (March 2026)
 
 > **Note:** The facade protocols created in this phase were superseded in February 2026 by explicit delegation methods. Facade services now use concrete class type hints in routes instead of protocol types. See "Facade Services — Explicit Delegation" section.
 
