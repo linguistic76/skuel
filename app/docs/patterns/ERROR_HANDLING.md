@@ -779,20 +779,21 @@ event_type = safe_form_string(form_data.get("event_type")) or "meeting"
 
 ### Guarding Enum Constructor Calls
 
-Even after extracting a non-empty string with `safe_form_string()`, the value can still be invalid for the target enum (e.g., a crafted form submitting `priority=evil`). Always wrap direct enum constructors in try/except:
+Even after extracting a non-empty string with `safe_form_string()`, the value can still be invalid for the target enum (e.g., a crafted form submitting `priority=evil`). Use `parse_enum_safe()` from `form_helpers`:
 
 ```python
+from adapters.inbound.form_helpers import parse_enum_safe
+
 # ❌ UNSAFE — crafted form value crashes with ValueError → 500
 priority_enum = PriorityEnum(priority_str)
 
 # ✅ SAFE — falls back to sensible default
-try:
-    priority_enum = PriorityEnum(priority_str)
-except ValueError:
-    priority_enum = PriorityEnum.MEDIUM
+priority_enum = parse_enum_safe(PriorityEnum, priority_str, PriorityEnum.MEDIUM)
 ```
 
-**Consistent across all 6 activity domains:** `tasks_ui.py`, `goals_ui.py`, `habits_ui.py`, `events_ui.py`, `choices_ui.py`, `principles_ui.py` all guard enum conversions with try/except or `contextlib.suppress(ValueError)`.
+**Consistent across all 6 activity domains:** `tasks_ui.py`, `goals_ui.py`, `habits_ui.py`, `events_ui.py`, `choices_ui.py`, `principles_ui.py` all use `parse_enum_safe()` for enum conversions. The only exception is conditional-set patterns in update payloads (e.g., `tasks_ui.py`), which use `contextlib.suppress(ValueError)` because they only set the key on success.
+
+**Additional shared primitives** in `form_helpers.py`: `parse_date_safe()`, `parse_time_safe()`, `parse_datetime_safe()` replace `contextlib.suppress(ValueError)` wrappers around `date.fromisoformat()` etc. `ActivityFilters` + `parse_activity_filters()` replace duplicated 2-field `Filters` dataclasses in Goals, Habits, Events, Choices.
 
 **See Also:** `/docs/patterns/API_VALIDATION_PATTERNS.md` for Pydantic request model validation (JSON bodies)
 

@@ -133,13 +133,14 @@ habits, stats = ctx["entities"], ctx["stats"]
 - `_apply_principle_filters(principles, category_filter, strength_filter)` — category and strength threshold filters (Principles only)
 
 **Route file convention** (all 6 `*_ui.py` files, module-level not inside factory):
-- `@dataclass class Filters` — typed filter container with `to_dict()` for view renderer kwargs
-- `parse_filters(request) -> Filters` — extracts query params
+- **Filters:** Goals, Habits, Events, Choices use shared `ActivityFilters` + `parse_activity_filters()` from `form_helpers.py`. Tasks (5-field) and Principles (3-field) keep custom `Filters` dataclasses.
+- `parse_filters(request) -> ActivityFilters | Filters` — extracts query params with domain-specific defaults
 - `parse_{domain}_create_request(form_data) -> {Domain}CreateRequest` — pure form→request parsing (no service calls)
 - `parse_{domain}_update_payload(form) -> dict[str, Any]` — pure form→update dict parsing
 - Static option lists as module-level constants (e.g., Choices: `CHOICE_TYPES`, `DOMAINS`)
 - All string extraction uses `safe_form_string()` from `adapters.inbound.form_helpers` (not raw `.get().strip()`)
-- All enum constructor calls (`Priority()`, `ChoiceType()`, `HabitCategory()`, etc.) are wrapped in try/except with sensible defaults — prevents 500s from crafted form values
+- All enum parsing uses `parse_enum_safe()` from `form_helpers` — prevents 500s from crafted form values
+- Date/time parsing uses `parse_date_safe()`, `parse_time_safe()`, `parse_datetime_safe()` from `form_helpers`
 
 **Route handlers stay thin:** authenticate → parse → call service → handle error → render. All form parsing and enum conversion lives in the pure helpers above, not inline in route handlers.
 

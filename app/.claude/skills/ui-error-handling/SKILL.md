@@ -132,22 +132,24 @@ Separate I/O from computation:
 
 ### 5. Pure Form Parsing Helpers
 
-All 6 activity domain UI files extract form parsing into module-level pure functions under a `# Form Parsing Helpers` section. These have no service calls and no request access. All use `safe_form_string()` from `adapters.inbound.form_helpers` for type-safe extraction:
+All 6 activity domain UI files extract form parsing into module-level pure functions under a `# Form Parsing Helpers` section. These have no service calls and no request access. Shared primitives live in `adapters/inbound/form_helpers.py`:
+
+- `safe_form_string()`, `safe_form_int()`, `safe_form_bool()` — type-safe extraction from `str | UploadFile | None`
+- `parse_enum_safe(enum_class, value, default)` — replaces try/except ValueError pattern
+- `parse_date_safe()`, `parse_time_safe()`, `parse_datetime_safe()` — ISO string → typed value or None
+- `ActivityFilters` + `parse_activity_filters()` — shared 2-field filter dataclass for Goals, Habits, Events, Choices
 
 ```python
 # adapters/inbound/tasks_ui.py — module level, before route factory
-from adapters.inbound.form_helpers import safe_form_string
+from adapters.inbound.form_helpers import parse_enum_safe, parse_date_safe, safe_form_string
 
 def parse_task_create_request(form_data: dict[str, Any]) -> TaskCreateRequest:
     """Parse form data into a TaskCreateRequest. Pure function, no side effects."""
     title = safe_form_string(form_data.get("title"))
     description = safe_form_string(form_data.get("description")) or None
-    priority_str = safe_form_string(form_data.get("priority")) or "medium"
-    try:
-        priority = Priority(priority_str)
-    except ValueError:
-        priority = Priority.MEDIUM
-    # ... parse dates, recurrence, etc.
+    priority = parse_enum_safe(Priority, form_data.get("priority", "medium"), Priority.MEDIUM)
+    due_date = parse_date_safe(form_data.get("due_date", ""))
+    # ...
     return TaskCreateRequest(title=title, description=description, priority=priority, ...)
 
 def parse_task_update_payload(form: Any) -> dict[str, Any]:
@@ -188,17 +190,16 @@ event_type = safe_form_string(form_data.get("event_type")) or "meeting"
 
 **Rule:** For any form field bound to a Pydantic enum, always use `safe_form_string(form_data.get("field")) or "default"`.
 
-**Additionally**, always wrap direct enum constructor calls in try/except — a crafted form can submit any string value:
+**Additionally**, use `parse_enum_safe()` from `form_helpers` for enum constructor calls — a crafted form can submit any string value:
 
 ```python
+from adapters.inbound.form_helpers import parse_enum_safe
+
 priority_str = safe_form_string(form_data.get("priority")) or "medium"
-try:
-    priority = Priority(priority_str)
-except ValueError:
-    priority = Priority.MEDIUM
+priority = parse_enum_safe(Priority, priority_str, Priority.MEDIUM)
 ```
 
-All 6 activity domain `*_ui.py` files guard enum conversions this way.
+All 6 activity domain `*_ui.py` files use `parse_enum_safe()` for enum conversions. The only exceptions are conditional-set patterns in update payloads (e.g., `tasks_ui.py` update), which use `contextlib.suppress(ValueError)` because they only set the key on success.
 
 ---
 
@@ -246,53 +247,35 @@ Need to fetch data for UI?
 
 **Use when:** Extracting query parameters from request (filtering, sorting, pagination)
 
+**Two filter patterns:**
+- **`ActivityFilters`** (shared, from `form_helpers`) — 2-field `status + sort_by` for Goals, Habits, Events, Choices
+- **Custom `Filters`** (per-domain) — Tasks (5 fields), Principles (3 fields)
+
 **Example:**
 ```python
-from dataclasses import dataclass
-from datetime import date
+from adapters.inbound.form_helpers import ActivityFilters, parse_activity_filters
 
+# Goals, Habits, Events, Choices — use shared ActivityFilters
+def parse_filters(request) -> ActivityFilters:
+    return parse_activity_filters(request, default_status="active", default_sort_by="target_date")
+
+# Tasks — custom 5-field Filters (stays local)
 @dataclass
-class TaskFilters:
-    """Typed filters for task queries."""
-    status: str
-    project: str | None
+class Filters:
+    project: str
+    assignee: str
+    due_filter: str
+    status_filter: str
     sort_by: str
-
-@dataclass
-class CalendarParams:
-    """Typed params for calendar view."""
-    calendar_view: str  # "day", "week", "month"
-    current_date: date
-
-def parse_task_filters(request) -> TaskFilters:
-    """Extract task filter parameters from request."""
-    return TaskFilters(
-        status=request.query_params.get("filter_status", "active"),
-        project=request.query_params.get("project"),
-        sort_by=request.query_params.get("sort_by", "due_date"),
-    )
-
-def parse_calendar_params(request) -> CalendarParams:
-    """Extract calendar view parameters."""
-    calendar_view = request.query_params.get("calendar_view", "month")
-    date_str = request.query_params.get("date", "")
-
-    try:
-        current_date = date.fromisoformat(date_str) if date_str else date.today()
-    except ValueError:
-        current_date = date.today()  # Fallback to today
-
-    return CalendarParams(
-        calendar_view=calendar_view,
-        current_date=current_date,
-    )
 ```
+
+**Calendar params** use `parse_calendar_params()` from `ui_helpers` (unchanged).
 
 **Usage in route:**
 ```python
 @rt("/tasks")
 async def tasks_dashboard(request):
-    filters = parse_task_filters(request)  # Type-safe access
+    filters = parse_filters(request)  # Type-safe access
     calendar_params = parse_calendar_params(request)
 
     # Use filters.status, filters.project, filters.sort_by

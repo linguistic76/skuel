@@ -1173,8 +1173,10 @@ Module-level helpers keep route handlers thin:
 
 | Helper | Purpose |
 |--------|---------|
-| `@dataclass class Filters` | Typed filter container with `to_dict()` for view renderer kwargs |
-| `parse_filters(request) -> Filters` | Extracts query params from request |
+| `ActivityFilters` + `parse_activity_filters()` | Shared 2-field filter (Goals, Habits, Events, Choices) — from `form_helpers.py` |
+| Custom `Filters` dataclass | Domain-specific filters: Tasks (5 fields), Principles (3 fields) |
+| `parse_filters(request)` | Extracts query params with domain-specific defaults |
+| `parse_enum_safe()`, `parse_date_safe()`, etc. | Shared parsing primitives from `form_helpers.py` |
 | `parse_{domain}_create_request(form_data) -> {Domain}CreateRequest` | Pure form→request parsing (no service calls, no side effects) |
 | `parse_{domain}_update_payload(form) -> dict[str, Any]` | Pure form→update dict parsing |
 
