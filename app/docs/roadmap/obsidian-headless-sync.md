@@ -149,7 +149,7 @@ less responsive. Incremental mode makes this cheap even if nothing changed.
 3. Create systemd path unit: `skuel-ingest.path`
    - Watches `/opt/skuel/vault/` for modifications
    - Triggers `skuel-ingest.service` which calls the ingestion API
-4. Environment variable: `SKUEL_VAULT_PATH=/opt/skuel/vault/` consumed by ingestion endpoints
+4. Environment variable: `INGESTION_PATH=/opt/skuel/vault/` consumed by ingestion endpoints (configured via `VaultConfig.ingestion_root`)
 5. Credentials: Obsidian account credentials stored securely (systemd credential store or
    environment file with restricted permissions)
 

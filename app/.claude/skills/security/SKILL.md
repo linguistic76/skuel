@@ -66,6 +66,7 @@ Internal error details (stack traces, Cypher queries, Neo4j internals) are never
 - Explicitly allowed subdirectories (`allowed_subdirs`)
 - Explicitly allowed file extensions (`.md`, `.yaml`, `.yml`, `.json`, `.csv`)
 - Path validation enabled by default (`validate_paths=True`, `restrict_access=True`)
+- Ingestion data directory configured via `INGESTION_PATH` env var (default: `data/vault` relative to CWD)
 
 ---
 
