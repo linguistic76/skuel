@@ -287,48 +287,26 @@ async def tasks_dashboard(request):
 
 **Use when:** Fetching data from services (all data access)
 
-**Example:**
+**Shared helper** (`adapters/inbound/ui_helpers.py`):
 ```python
-from core.utils.result_simplified import Errors, Result
-from core.utils.logging import get_logger
+from adapters.inbound.ui_helpers import fetch_user_entities
 
-logger = get_logger("skuel.ui.tasks")
+# Simple — service always available:
+async def get_all_goals(user_uid: str) -> Result[list[Any]]:
+    return await fetch_user_entities(goals_service.get_user_goals, "goals", user_uid, logger)
 
-async def get_all_tasks(user_uid: str) -> Result[list[Any]]:
-    """
-    Get all tasks for user.
-
-    Returns Result[list] to propagate errors to UI.
-    """
-    try:
-        result = await tasks_service.get_user_tasks(user_uid)
-
-        if result.is_error:
-            logger.warning(
-                f"Service failed to fetch tasks: {result.error}",
-                extra={"user_uid": user_uid},
-            )
-            return result  # Propagate the error
-
-        return Result.ok(result.value or [])
-
-    except Exception as e:
-        logger.error(
-            "Unexpected error fetching tasks",
-            extra={
-                "user_uid": user_uid,
-                "error_type": type(e).__name__,
-                "error_message": str(e),
-            },
-        )
-        return Errors.system(f"Failed to fetch tasks: {e}")
+# Optional service — pass None when unavailable:
+async def get_all_events(user_uid: str) -> Result[list[Any]]:
+    service_method = events_service.get_user_events if events_service else None
+    return await fetch_user_entities(service_method, "events", user_uid, logger)
 ```
 
-**Key Features:**
+`fetch_user_entities(service_method, domain_name, user_uid, logger)` handles:
 - Returns `Result[T]` (not exceptions)
 - Logs errors with context (user_uid, error type, message)
 - Propagates service errors (`.is_error` check)
-- Catches unexpected exceptions (fallback to Errors.system)
+- Catches unexpected exceptions (fallback to `Errors.system`)
+- Returns `Result.ok([])` when service_method is None
 
 ---
 
@@ -1201,12 +1179,18 @@ def test_validate_task_form_data_missing_title():
 ### Core Files
 - `/adapters/inbound/tasks_ui.py` - Reference implementation (all patterns)
 - `/adapters/inbound/goals_ui.py` - Calendar-enabled variant
-- `/adapters/inbound/choice_ui.py` - Form validation example
+- `/adapters/inbound/choices_ui.py` - Form validation example
 - `/adapters/inbound/teaching_ui.py` - Non-activity domain, sidebar pages
 - `/adapters/inbound/study_ui.py` - HTMX fragments with error banners preserving target IDs
 - `/adapters/inbound/ku_ui.py` - Error state vs empty state distinction
 - `/adapters/inbound/admin_dashboard_ui.py` - Warning severity for partial failures
 - `/adapters/inbound/insights_ui.py` - Error state with load-more pagination
+
+### Shared Helpers (`/adapters/inbound/ui_helpers.py`)
+- `render_entity_not_found_page(entity_label, uid, domain_slug, request)` — Standard "Entity Not Found" full page for detail views (all 6 Activity domains)
+- `fetch_user_entities(service_method, domain_name, user_uid, logger)` — Fetch all entities with consistent Result[T] error handling/logging (4 domains)
+- `parse_calendar_params(request)` — Calendar view parameters (4 calendar-enabled domains)
+- `render_safe_error_response(user_message, error_context, logger, log_extra)` — Sanitized error Response for API routes
 
 ### Error Banner Component
 - `/ui/patterns/error_banner.py` - `render_error_banner()`, `render_inline_error()`, `render_empty_state_with_error()`

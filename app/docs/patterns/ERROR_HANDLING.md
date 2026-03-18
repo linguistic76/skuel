@@ -231,6 +231,10 @@ async def tasks_dashboard(request) -> Any:
 
 **Component:** `render_error_banner()` from `ui/patterns/error_banner.py` (exported in `ui/patterns/__init__.py`).
 
+**Shared Helpers** (`adapters/inbound/ui_helpers.py`):
+- `render_entity_not_found_page(entity_label, uid, domain_slug, request)` — Standard "Not Found" full page for detail views
+- `fetch_user_entities(service_method, domain_name, user_uid, logger)` — Fetch all entities with consistent Result[T] error handling
+
 **Reference:** See `/docs/patterns/UI_COMPONENT_PATTERNS.md` for full implementation details.
 
 ## Key Components

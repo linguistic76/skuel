@@ -929,44 +929,27 @@ def render_error_banner(message: str) -> Div:
 
 #### 4. Data Helpers Return Result[T]
 
+**Shared helper** (`adapters/inbound/ui_helpers.py`):
 ```python
-from core.utils.result_simplified import Errors, Result
+from adapters.inbound.ui_helpers import fetch_user_entities
 
-async def get_all_tasks(user_uid: str) -> Result[list[Any]]:
-    """Get all tasks for user."""
-    try:
-        result = await tasks_service.get_user_tasks(user_uid)
-        if result.is_error:
-            logger.warning(f"Failed to fetch tasks: {result.error}")
-            return result  # Propagate the error
-        return Result.ok(result.value or [])
-    except Exception as e:
-        logger.error(
-            "Error fetching all tasks",
-            extra={
-                "user_uid": user_uid,
-                "error_type": type(e).__name__,
-                "error_message": str(e),
-            },
-        )
-        return Errors.system(f"Failed to fetch tasks: {e}")
+async def get_all_goals(user_uid: str) -> Result[list[Any]]:
+    """Get all goals for user."""
+    return await fetch_user_entities(goals_service.get_user_goals, "goals", user_uid, logger)
 
-async def get_filtered_tasks(...) -> Result[tuple[list[Any], dict]]:
-    """Get filtered and sorted tasks with stats."""
-    try:
-        tasks_result = await get_all_tasks(user_uid)
+# For optional services, pass None when service is unavailable:
+async def get_all_events(user_uid: str) -> Result[list[Any]]:
+    service_method = events_service.get_user_events if events_service else None
+    return await fetch_user_entities(service_method, "events", user_uid, logger)
+```
 
-        # Check for errors
-        if tasks_result.is_error:
-            logger.warning(f"Failed to fetch tasks for filtering: {tasks_result.error}")
-            return tasks_result  # Propagate the error
+`fetch_user_entities()` handles Result propagation, `or []` defaulting, structured logging, and safety-net exception catching — eliminating ~18 lines of boilerplate per domain.
 
-        tasks = tasks_result.value
-        # ... filtering logic ...
-        return Result.ok((tasks, stats))
-    except Exception as e:
-        logger.error(...)
-        return Errors.system(f"Failed to filter tasks: {e}")
+**Filtering** uses the service facade directly:
+```python
+filtered_result = await tasks_service.get_filtered_context(
+    user_uid, status_filter=filters.status_filter, sort_by=filters.sort_by,
+)
 ```
 
 #### 5. Route Handlers Check Errors
@@ -1049,6 +1032,11 @@ async def tasks_view_list(request) -> Any:
 | Insights | ✅ Complete | Error state with load-more pagination |
 | Finance | ✅ Complete | Typed context methods with `Result[TypedDict]` |
 
+**Shared Helpers** (`/adapters/inbound/ui_helpers.py`):
+- `render_entity_not_found_page(entity_label, uid, domain_slug, request)` — Standard "Not Found" full page for detail views (all 6 Activity domains)
+- `fetch_user_entities(service_method, domain_name, user_uid, logger)` — Fetch all entities with consistent error handling/logging (4 domains)
+- `parse_calendar_params(request)` — Calendar view parameters (4 calendar-enabled domains)
+
 **Reference Files:**
 - `/adapters/inbound/tasks_ui.py` - Reference pattern (Activity)
 - `/adapters/inbound/goals_ui.py` - Calendar-enabled variant
@@ -1075,16 +1063,14 @@ All 6 Activity Domain detail pages (`/{domain}/{uid}`) follow a single pattern: 
 
 **Reference pattern (from Tasks):**
 ```python
+from adapters.inbound.ui_helpers import render_entity_not_found_page
+
 @rt("/tasks/{uid}")
 async def task_detail_view(request, uid: str) -> Any:
     user_uid = require_authenticated_user(request)
     result = await tasks_service.get_for_user(uid, user_uid)
     if result.is_error or result.value is None:
-        error_content = Card(Div(H2("Task Not Found"), ..., cls="text-center"))
-        return await BasePage(
-            content=error_content, title="Task Not Found",
-            page_type=PageType.STANDARD, request=request, active_page="tasks",
-        )
+        return await render_entity_not_found_page("Task", uid, "tasks", request)
     task = result.value
     content = Div(
         # Domain-specific content cards...
