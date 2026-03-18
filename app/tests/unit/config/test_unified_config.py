@@ -196,6 +196,17 @@ class TestVaultConfig:
         assert config.import_path == Path("/test/vault/neo4j/import")
         assert config.export_path == Path("/test/vault/neo4j/export")
 
+    def test_ingestion_path_absolute(self):
+        """Test ingestion_path returns absolute path from absolute ingestion_root."""
+        config = VaultConfig(ingestion_root="/opt/ingestion/data")
+        assert config.ingestion_path == Path("/opt/ingestion/data")
+
+    def test_ingestion_path_relative(self):
+        """Test ingestion_path resolves relative path against cwd."""
+        config = VaultConfig(ingestion_root="data/vault")
+        assert config.ingestion_path.is_absolute()
+        assert str(config.ingestion_path).endswith("data/vault")
+
     def test_from_env_reads_environment(self):
         """Test from_env reads VAULT_* environment variables."""
         with patch.dict(
@@ -206,6 +217,7 @@ class TestVaultConfig:
                 "AUTO_SYNC_VAULT": "false",
                 "WATCH_VAULT": "true",
                 "SYNC_INTERVAL_MINUTES": "60",
+                "INGESTION_PATH": "/custom/ingestion",
             },
         ):
             config = VaultConfig.from_env()
@@ -214,6 +226,7 @@ class TestVaultConfig:
             assert config.auto_sync is False
             assert config.watch_vault is True
             assert config.sync_interval_minutes == 60
+            assert config.ingestion_root == "/custom/ingestion"
 
 
 class TestUnifiedConfig:
