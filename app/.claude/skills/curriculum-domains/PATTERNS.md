@@ -11,7 +11,7 @@ All core/search services use `_config = create_curriculum_domain_config(...)` (n
 ```python
 from core.services.domain_config import create_curriculum_domain_config
 
-class LessonCoreService(BaseService[LessonOperations, Article]):
+class LessonCoreService(BaseService[LessonOperations, Lesson]):
     _config = create_curriculum_domain_config(
         dto_class=LessonDTO,
         model_class=Lesson,

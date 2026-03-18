@@ -42,9 +42,9 @@ connections:
   contributes_to_goal:
     - goal:master-calculus-fundamentals
   applies_knowledge:
-    - a:calculus:fundamentals
-    - a:calculus:derivative-rules
-    - a:calculus:integration-fundamentals
+    - l:calculus:fundamentals
+    - l:calculus:derivative-rules
+    - l:calculus:integration-fundamentals
 
 # Participants
 participant_count: 4

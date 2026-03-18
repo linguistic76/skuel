@@ -35,9 +35,9 @@ connections:
   reinforces_habit:
     - habit:daily-25min-focus-block
   applies_knowledge:
-    - a:calculus:derivative-rules
-    - a:calculus:chain-rule
-    - a:calculus:derivative-applications
+    - l:calculus:derivative-rules
+    - l:calculus:chain-rule
+    - l:calculus:derivative-applications
 
 # Context and motivation
 context: |

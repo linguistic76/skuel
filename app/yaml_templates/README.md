@@ -116,13 +116,17 @@ source: self_observation
 # Learning Step
 type: LearningStep
 uid: ls:mindfulness-101:step-1
-knowledge_uid: l:mindfulness:breath-awareness-basics  # Lesson UID
-trains_ku_uids: [ku:mindfulness:breath]               # Atomic Kus trained
+primary_knowledge_uids:                                # Lesson UIDs
+  - l:mindfulness:breath-awareness-basics
+trains_ku_uids: [ku:mindfulness:breath]                # Atomic Kus trained
 
 # Learning Path
 type: LearningPath
 uid: lp:mindfulness-101
-steps: [ls:mindfulness-101:step-1, ls:mindfulness-101:step-2]
+connections:
+  contains_steps:                                      # HAS_STEP edges
+    - ls:mindfulness-101:step-1
+    - ls:mindfulness-101:step-2
 ```
 
 ## Domain Bundles

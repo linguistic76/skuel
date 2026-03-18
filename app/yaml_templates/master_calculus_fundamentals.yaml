@@ -37,20 +37,19 @@ priority: high
 
 # Learning path integration
 learning_path_uid: lp:calculus-fundamentals
-# Knowledge connections (Articles for teaching content)
-required_knowledge_units:
-  - a:calculus:limits-introduction
-  - a:calculus:derivative-definition
-  - a:calculus:derivative-rules
-  - a:calculus:chain-rule
-  - a:calculus:integration-fundamentals
-  - a:calculus:fundamental-theorem-calculus
-
-# Habit support
-supporting_habits:
-  - habit:daily-25min-focus-block
-  - habit:weekly-calculus-review
-  - habit:daily-problem-solving
+# Cross-domain relationships (creates graph edges on ingestion)
+connections:
+  requires_knowledge:
+    - l:calculus:limits-introduction
+    - l:calculus:derivative-definition
+    - l:calculus:derivative-rules
+    - l:calculus:chain-rule
+    - l:calculus:integration-fundamentals
+    - l:calculus:fundamental-theorem-calculus
+  supporting_habits:
+    - habit:daily-25min-focus-block
+    - habit:weekly-calculus-review
+    - habit:daily-problem-solving
 
 # Prerequisites
 prerequisite_goals:

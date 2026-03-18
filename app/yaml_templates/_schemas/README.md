@@ -57,16 +57,25 @@ Lessons compose Kus via `USES_KU` relationships. Learning Steps train Kus via `T
 
 Edge YAML documents evidence relationships between entities (e.g., "caffeine exacerbates buzzing"). Edge ingestion is fully wired — both single-file and batch ingestion detect `type: Edge` and create relationships with evidence properties automatically.
 
-## Knowledge UID References in Activity Domains
+## Cross-Domain Relationships via `connections:`
 
-Activity domain templates (task, habit, goal, event, choice) can reference both Lessons and Kus in their knowledge fields:
+Activity domain templates (task, habit, goal, event, choice) declare cross-domain
+relationships under the `connections:` key. Field names match the relationship
+registry's `yaml_field_path` values — on ingestion, each becomes a graph edge.
 
 ```yaml
 # In a task template
-applies_knowledge_uids:
-  - l:mindfulness:breath-awareness-basics  # Lesson (teaching content)
-  - ku:mindfulness:breath                  # Ku (atomic concept)
+connections:
+  applies_knowledge:
+    - l:mindfulness:breath-awareness-basics  # Lesson (teaching content)
+    - ku:mindfulness:breath                  # Ku (atomic concept)
+  fulfills_goal:
+    - goal:mindfulness-beginner
+  reinforces_habit:
+    - habit:daily-2min-breath
 ```
+
+See `_schemas/{entity}_template.yaml` for the complete `connections:` fields per type.
 
 ## Validation Flow
 

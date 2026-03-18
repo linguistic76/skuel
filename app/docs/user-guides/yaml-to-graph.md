@@ -160,8 +160,8 @@ tags:
 **How flattening works:** The preparer extracts the nested `connections` dict and flattens it to dotted keys:
 
 ```python
-# Input:  {"connections": {"requires": [], "enables": ["a:mindfulness:posture-basics", ...]}}
-# Output: {"connections.enables": ["a.mindfulness.posture-basics", ...]}
+# Input:  {"connections": {"requires": [], "enables": ["l:mindfulness:posture-basics", ...]}}
+# Output: {"connections.enables": ["l.mindfulness.posture-basics", ...]}
 ```
 
 The BulkIngestionEngine then generates CALL subquery patterns for each dotted key:
@@ -506,7 +506,7 @@ Curriculum types use double-newline separators between fields for stronger seman
 Relationships power the most sophisticated discovery. The graph answers questions that keyword and semantic search cannot:
 
 - "What am I ready to learn?" — traverse `REQUIRES_STEP` prerequisite chains against mastery state
-- "What supports my current goal?" — follow `SUPPORTS_HABIT`, `GUIDED_BY_PRINCIPLE` from the goal
+- "What supports my current goal?" — follow `SUPPORTS_GOAL`, `GUIDED_BY_PRINCIPLE` from the goal
 - "What does this Lesson teach?" — follow `USES_KU` to atomic concepts
 
 ### Discovery Matrix

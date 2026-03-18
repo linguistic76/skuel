@@ -87,7 +87,7 @@
 ### KU Relationships
 | Relationship | Direction | Target | Purpose |
 |--------------|-----------|--------|---------|
-| `USES_KU` | incoming | Lesson | Composed into Articles |
+| `USES_KU` | incoming | Lesson | Composed into Lessons |
 | `TRAINS_KU` | incoming | LS | Trained by Learning Steps |
 
 ### LS Relationships

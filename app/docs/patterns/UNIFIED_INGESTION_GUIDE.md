@@ -524,23 +524,34 @@ connections:
 
 | Connection Field | Relationship Type | Target Entity | Used By |
 |-----------------|-------------------|---------------|---------|
-| `requires` | REQUIRES_KNOWLEDGE | KU | KU |
-| `enables` | ENABLES_KNOWLEDGE | KU | KU |
-| `related` | RELATED_TO | KU | KU |
+| `requires` | REQUIRES_KNOWLEDGE | Entity | Lesson |
+| `enables` | ENABLES_KNOWLEDGE | Entity | Lesson |
+| `related` | RELATED_TO | Entity | Lesson |
 | `depends_on` | DEPENDS_ON | Task | Task |
-| `applies_knowledge` | APPLIES_KNOWLEDGE | KU | Task, Event |
-| `requires_knowledge` | REQUIRES_KNOWLEDGE | KU | Goal |
-| `reinforces_knowledge` | REINFORCES_KNOWLEDGE | KU | Habit |
+| `applies_knowledge` | APPLIES_KNOWLEDGE | Entity | Task, Event |
+| `requires_knowledge` | REQUIRES_KNOWLEDGE | Entity | Goal |
+| `reinforces_knowledge` | REINFORCES_KNOWLEDGE | Entity | Habit |
 | `fulfills_goal` | FULFILLS_GOAL | Goal | Task |
+| `reinforces_habit` | SUPPORTS_HABIT | Entity | Task |
 | `supports_goal` | SUPPORTS_GOAL | Goal | Habit |
+| `embodies_principle` | EMBODIES_PRINCIPLE | Principle | Habit |
+| `prerequisite_habits` | REQUIRES_PREREQUISITE_HABIT | Entity | Habit |
 | `aligned_with_principle` | GUIDED_BY_PRINCIPLE | Principle | Goal |
-| `guided_by_principle` | ALIGNED_WITH_PRINCIPLE | Principle | Choice |
+| `parent_goal` | SUBGOAL_OF | Goal | Goal |
+| `sub_goals` | SUBGOAL_OF (incoming) | Goal | Goal |
+| `supporting_habits` | SUPPORTS_GOAL (incoming) | Entity | Goal |
+| `guided_by_principle` | INFORMED_BY_PRINCIPLE | Principle | Choice |
+| `affects_goal` | AFFECTS_GOAL | Goal | Choice |
+| `impacts_habit` | IMPACTS_HABIT | Entity | Choice |
+| `contributes_to_goal` | CONTRIBUTES_TO_GOAL | Goal | Event |
+| `reinforces_habit` | REINFORCES_HABIT | Entity | Event |
+| `executes_task` | EXECUTES_TASK | Task | Event |
 | `guides_goal` | GUIDES_GOAL | Goal | Principle |
-| `inspires_habit` | INSPIRES_HABIT | Habit | Principle |
-| `contains_steps` | HAS_STEP | LS | LP |
-| `organizes` | ORGANIZES | KU | MOC |
+| `inspires_habit` | INSPIRES_HABIT | Entity | Principle |
+| `contains_steps` | HAS_STEP | Entity | LP |
+| `organizes` | ORGANIZES | Entity | Lesson |
 
-#### Article Composition Fields
+#### Lesson Composition Fields
 
 | YAML Field | Relationship Type | Target | Direction |
 |-----------|-------------------|--------|-----------|
