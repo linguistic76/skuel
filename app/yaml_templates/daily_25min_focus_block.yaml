@@ -46,12 +46,12 @@ environment_requirements:
   - Timer ready
 
 # Knowledge connections
-reinforces_principles:
-  - principle:small-wins-compound
-
-supports_goals:
-  - goal:build-consistent-study-practice
-  - goal:develop-deep-focus-capability
+connections:
+  embodies_principle:
+    - principle:small-wins-compound
+  supports_goal:
+    - goal:build-consistent-study-practice
+    - goal:develop-deep-focus-capability
 
 # Success indicators
 success_criteria: |

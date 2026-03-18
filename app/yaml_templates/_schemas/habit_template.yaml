@@ -74,31 +74,32 @@ preferred_time: morning
 # Example: 25 for pomodoro sessions, 30 for review sessions
 duration_minutes: 25
 
-# linked_knowledge_uids: Knowledge this habit reinforces
-# Type: List of Lesson or Ku UIDs
-# Purpose: Connect habit practice to learning content
-# Note: Can reference Lessons (l:...) for teaching content or Kus (ku:...) for atomic concepts
-linked_knowledge_uids:
-  - l:namespace:related-lesson
-  - ku:namespace:related-concept
+# connections: Cross-domain relationships (creates graph edges on ingestion)
+# Note: Field paths must match relationship registry yaml_field_path values
+connections:
+  # reinforces_knowledge: Knowledge this habit reinforces (creates REINFORCES_KNOWLEDGE edges)
+  # Type: List of Lesson or Ku UIDs
+  # Purpose: Connect habit practice to learning content
+  # Note: Can reference Lessons (l:...) or Kus (ku:...) — target_label is Entity
+  reinforces_knowledge:
+    - l:namespace:related-lesson
+    - ku:namespace:related-concept
 
-# linked_goal_uids: Goals this habit supports
-# Type: List of Goal UIDs
-# Purpose: Show how habit contributes to larger goals
-linked_goal_uids:
-  - goal:related-goal-1
+  # supports_goal: Goals this habit supports (creates SUPPORTS_GOAL edges)
+  # Type: List of Goal UIDs
+  supports_goal:
+    - goal:related-goal-1
 
-# linked_principle_uids: Principles this habit embodies
-# Type: List of Principle UIDs
-# Purpose: Connect habit to guiding principles
-linked_principle_uids:
-  - principle:related-principle-1
+  # embodies_principle: Principles this habit embodies (creates EMBODIES_PRINCIPLE edges)
+  # Type: List of Principle UIDs
+  embodies_principle:
+    - principle:related-principle-1
 
-# prerequisite_habit_uids: Habits that should be established first
-# Type: List of Habit UIDs
-# Purpose: Build habit progression (master simple before complex)
-prerequisite_habit_uids:
-  - habit:prerequisite-habit
+  # prerequisite_habits: Habits that should be established first (creates REQUIRES_PREREQUISITE_HABIT edges)
+  # Type: List of Habit UIDs
+  # Purpose: Build habit progression (master simple before complex)
+  prerequisite_habits:
+    - habit:prerequisite-habit
 
 # current_streak: Current consecutive completions (DO NOT SET MANUALLY)
 # Type: Integer
@@ -205,5 +206,5 @@ tags:
 # 3. Use 'recurrence_pattern' not 'habit_type' or 'frequency'
 # 4. Progress fields (streaks, completions) are auto-managed by system
 # 5. Cue-Routine-Reward pattern helps establish strong habits
-# 6. linked_knowledge_uids can reference Lessons (l:...) or Kus (ku:...)
-# 7. prerequisite_habit_uids creates a progression path (simple → complex)
+# 6. connections.reinforces_knowledge can reference Lessons (l:...) or Kus (ku:...)
+# 7. connections.prerequisite_habits creates a progression path (simple → complex)

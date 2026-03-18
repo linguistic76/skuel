@@ -38,17 +38,13 @@ event_format: in_person
 participation_mode: collaborative
 
 # Event relationships
-supports_goals:
-  - goal:master-calculus-fundamentals
-
-reinforces_habits:
-  - habit:weekly-calculus-review
-
-# Knowledge connections (Articles for teaching content)
-related_knowledge_units:
-  - a:calculus:fundamentals
-  - a:calculus:derivative-rules
-  - a:calculus:integration-fundamentals
+connections:
+  contributes_to_goal:
+    - goal:master-calculus-fundamentals
+  applies_knowledge:
+    - a:calculus:fundamentals
+    - a:calculus:derivative-rules
+    - a:calculus:integration-fundamentals
 
 # Participants
 participant_count: 4

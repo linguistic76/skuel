@@ -83,27 +83,39 @@ start_date: null
 # Example: "2025-10-11"
 target_date: null
 
-# required_knowledge_uids: Knowledge needed to achieve this goal
-# Type: List of Lesson or Ku UIDs
-# Purpose: Prerequisites for goal success
-# Note: Can reference Lessons (l:...) for teaching content or Kus (ku:...) for atomic concepts
-required_knowledge_uids:
-  - l:namespace:required-lesson
-  - ku:namespace:required-concept
+# connections: Cross-domain relationships (creates graph edges on ingestion)
+# Note: Field paths must match relationship registry yaml_field_path values
+connections:
+  # requires_knowledge: Knowledge needed to achieve this goal (creates REQUIRES_KNOWLEDGE edges)
+  # Type: List of Lesson or Ku UIDs
+  # Note: Can reference Lessons (l:...) or Kus (ku:...) — target_label is Entity
+  requires_knowledge:
+    - l:namespace:required-lesson
+    - ku:namespace:required-concept
 
-# supporting_habit_uids: Habits that support this goal
-# Type: List of Habit UIDs
-# Purpose: Daily practices that enable goal achievement
-supporting_habit_uids:
-  - habit:supporting-habit-1
-  - habit:supporting-habit-2
+  # aligned_with_principle: Principles that guide this goal (creates GUIDED_BY_PRINCIPLE edges)
+  # Type: List of Principle UIDs
+  aligned_with_principle:
+    - principle:guiding-principle-1
+    - principle:guiding-principle-2
 
-# guiding_principle_uids: Principles that guide pursuit of this goal
-# Type: List of Principle UIDs
-# Purpose: Values and guidelines for approaching this goal
-guiding_principle_uids:
-  - principle:guiding-principle-1
-  - principle:guiding-principle-2
+  # supporting_habits: Habits that support this goal (creates incoming SUPPORTS_GOAL edges)
+  # Type: List of Habit UIDs
+  # Note: Direction is incoming — habits support the goal
+  supporting_habits:
+    - habit:supporting-habit-1
+    - habit:supporting-habit-2
+
+  # parent_goal: Parent goal if this is a sub-goal (creates SUBGOAL_OF edge)
+  # Type: List of Goal UIDs (single=True in registry)
+  # parent_goal:
+  #   - goal:parent-goal-uid
+
+  # sub_goals: Child goals that contribute to this goal (creates incoming SUBGOAL_OF edges)
+  # Type: List of Goal UIDs
+  # sub_goals:
+  #   - goal:child-goal-1
+  #   - goal:child-goal-2
 
 # status: Current goal status
 # Valid values: planned, active, paused, achieved, revised, abandoned
@@ -127,16 +139,6 @@ tags:
 # Type: String
 # Purpose: Connect to bigger picture aspirations
 vision_statement: null
-
-# parent_goal_uid: Parent goal if this is a sub-goal
-# Type: Goal UID
-# Purpose: Create goal hierarchy
-parent_goal_uid: null
-
-# sub_goal_uids: Child goals that contribute to this goal
-# Type: List of Goal UIDs
-# Purpose: Break large goals into smaller pieces
-sub_goal_uids: []
 
 # progress_percentage: Overall progress (0-100)
 # Type: Float
@@ -232,8 +234,8 @@ strategies:
 # 3. Use 'process' not 'habit' for goal_type (common mistake!)
 # 4. measurement_type determines how progress is tracked
 # 5. For numeric goals, set target_value and unit_of_measurement
-# 6. required_knowledge_uids can reference Lessons (l:...) or Kus (ku:...)
-# 7. supporting_habit_uids connects daily practices to goal achievement
-# 8. guiding_principle_uids grounds goal in values
-# 9. parent_goal_uid and sub_goal_uids create goal hierarchies
+# 6. connections.requires_knowledge can reference Lessons (l:...) or Kus (ku:...)
+# 7. connections.supporting_habits connects daily practices to goal achievement
+# 8. connections.aligned_with_principle grounds goal in values
+# 9. connections.parent_goal and connections.sub_goals create goal hierarchies
 # 10. status 'active' means currently working on, 'achieved' means complete

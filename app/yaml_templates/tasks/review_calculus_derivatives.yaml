@@ -29,14 +29,15 @@ status: pending
 completion_status: not_started
 
 # Task relationships
-fulfills_goal_uid: goal:master-calculus-fundamentals
-reinforces_habit_uid: habit:daily-25min-focus-block
-
-# Knowledge connections (Articles for teaching content, Kus for atomic concepts)
-related_knowledge_units:
-  - a:calculus:derivative-rules
-  - a:calculus:chain-rule
-  - a:calculus:derivative-applications
+connections:
+  fulfills_goal:
+    - goal:master-calculus-fundamentals
+  reinforces_habit:
+    - habit:daily-25min-focus-block
+  applies_knowledge:
+    - a:calculus:derivative-rules
+    - a:calculus:chain-rule
+    - a:calculus:derivative-applications
 
 # Context and motivation
 context: |

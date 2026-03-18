@@ -45,17 +45,16 @@ rationale: |
   this duration as optimal for most cognitive tasks.
 
 # What this choice enables
-enables_habits:
-  - habit:daily-25min-focus-block
-  - habit:morning-deep-work-session
-
-supports_goals:
-  - goal:master-calculus-fundamentals
-  - goal:build-consistent-study-practice
-  - goal:write-daily-500-words
-
-reinforces_principles:
-  - principle:small-wins-compound
+connections:
+  impacts_habit:
+    - habit:daily-25min-focus-block
+    - habit:morning-deep-work-session
+  affects_goal:
+    - goal:master-calculus-fundamentals
+    - goal:build-consistent-study-practice
+    - goal:write-daily-500-words
+  guided_by_principle:
+    - principle:small-wins-compound
 
 # Alternative choices considered
 alternatives_considered:

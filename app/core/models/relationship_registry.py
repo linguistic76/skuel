@@ -524,6 +524,7 @@ TASKS_CONFIG = DomainRelationshipConfig(
             "supports_habit",
             fields=("uid", "title", "current_streak"),  # Context: include streak
             single=True,  # Context: expect single habit
+            yaml_field_path="connections.reinforces_habit",
         ),
         # Task dependencies with status/priority fields
         UnifiedRelationshipDefinition(
@@ -699,6 +700,7 @@ GOALS_CONFIG = DomainRelationshipConfig(
             "parent_goal",
             fields=("uid", "title", "progress_percentage"),
             single=True,  # Single parent goal, not a list
+            yaml_field_path="connections.parent_goal",
         ),
         # Choice that inspired this goal
         UnifiedRelationshipDefinition(
@@ -723,6 +725,7 @@ GOALS_CONFIG = DomainRelationshipConfig(
                 "status",
                 "progress_percentage",
             ),  # Context: include status/progress
+            yaml_field_path="connections.sub_goals",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.SUPPORTS_GOAL,
@@ -731,6 +734,7 @@ GOALS_CONFIG = DomainRelationshipConfig(
             "contributing_habits",  # Context name: contributing_habits
             "supporting_habits",
             fields=("uid", "title", "current_streak"),  # Context: include streak
+            yaml_field_path="connections.supporting_habits",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.FULFILLS_GOAL,
@@ -877,6 +881,7 @@ HABITS_CONFIG = DomainRelationshipConfig(
             "outgoing",
             "embodied_principles",
             "principles",
+            yaml_field_path="connections.embodies_principle",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.SUPPORTS_GOAL,
@@ -894,6 +899,7 @@ HABITS_CONFIG = DomainRelationshipConfig(
             "outgoing",
             "prerequisite_habits",
             "prerequisite_habits",
+            yaml_field_path="connections.prerequisite_habits",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.REINFORCES_HABIT,
@@ -1034,6 +1040,7 @@ EVENTS_CONFIG = DomainRelationshipConfig(
             "outgoing",
             "supported_goals",
             "goals",
+            yaml_field_path="connections.contributes_to_goal",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.REINFORCES_HABIT,
@@ -1041,6 +1048,7 @@ EVENTS_CONFIG = DomainRelationshipConfig(
             "outgoing",
             "reinforced_habits",
             "habits",
+            yaml_field_path="connections.reinforces_habit",
         ),
         # Outgoing: Event → Task (tasks executed in this event)
         UnifiedRelationshipDefinition(
@@ -1050,6 +1058,7 @@ EVENTS_CONFIG = DomainRelationshipConfig(
             "executed_tasks",
             "tasks",
             fields=("uid", "title", "status", "priority"),
+            yaml_field_path="connections.executes_task",
         ),
         # Incoming: Other → Event
         UnifiedRelationshipDefinition(
@@ -1182,6 +1191,7 @@ CHOICES_CONFIG = DomainRelationshipConfig(
             "outgoing",
             "affected_goals",
             "goals",
+            yaml_field_path="connections.affects_goal",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.OPENS_LEARNING_PATH,
@@ -1231,6 +1241,7 @@ CHOICES_CONFIG = DomainRelationshipConfig(
             "impacted_habits",
             "impacted_habits",
             fields=("uid", "title", "current_streak"),
+            yaml_field_path="connections.impacts_habit",
         ),
         # Incoming: Habit informs choice
         UnifiedRelationshipDefinition(

@@ -22,11 +22,13 @@ scheduled_date: null
 
 # Learning Integration
 # Knowledge connections (Lesson UIDs for teaching content)
-applies_knowledge_uids:
-  - l:mindfulness:breath-awareness-basics
-
-fulfills_goal_uid: goal:mindfulness-beginner
-reinforces_habit_uid: habit:daily-2min-breath
+connections:
+  applies_knowledge:
+    - l:mindfulness:breath-awareness-basics
+  fulfills_goal:
+    - goal:mindfulness-beginner
+  reinforces_habit:
+    - habit:daily-2min-breath
 
 # Metadata
 tags:

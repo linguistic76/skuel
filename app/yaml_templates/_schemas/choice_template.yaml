@@ -97,6 +97,24 @@ alternatives:
   - choice:alternative-option-1
   - choice:alternative-option-2
 
+# connections: Cross-domain relationships (creates graph edges on ingestion)
+# Note: Field paths must match relationship registry yaml_field_path values
+connections:
+  # guided_by_principle: Principles that inform this choice (creates INFORMED_BY_PRINCIPLE edges)
+  # Type: List of Principle UIDs
+  guided_by_principle:
+    - principle:guiding-principle-1
+
+  # affects_goal: Goals affected by this choice (creates AFFECTS_GOAL edges)
+  # Type: List of Goal UIDs
+  affects_goal:
+    - goal:affected-goal-1
+
+  # impacts_habit: Habits this choice impacts (creates IMPACTS_HABIT edges)
+  # Type: List of Habit UIDs
+  impacts_habit:
+    - habit:impacted-habit-1
+
 # deadline: When this choice must be made by
 # Type: Date or datetime string
 # Format: YYYY-MM-DD or ISO datetime

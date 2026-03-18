@@ -22,15 +22,14 @@ target_date: null
 
 # Learning Integration
 # Knowledge connections (Lesson UIDs for teaching content)
-required_knowledge_uids:
-  - l:mindfulness:breath-awareness-basics
-  - l:mindfulness:posture-basics
-  - l:mindfulness:mind-wandering-happens
-
-supporting_habit_uids:
-  - habit:daily-2min-breath
-  - habit:label-wander-daily
-
-guiding_principle_uids:
-  - principle:small-steps
-  - principle:attention-over-intensity
+connections:
+  requires_knowledge:
+    - l:mindfulness:breath-awareness-basics
+    - l:mindfulness:posture-basics
+    - l:mindfulness:mind-wandering-happens
+  supporting_habits:
+    - habit:daily-2min-breath
+    - habit:label-wander-daily
+  aligned_with_principle:
+    - principle:small-steps
+    - principle:attention-over-intensity

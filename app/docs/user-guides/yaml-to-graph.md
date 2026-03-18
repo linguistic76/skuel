@@ -1,6 +1,6 @@
 # YAML to Graph — A Creator's Guide to SKUEL Content
 
-*Last updated: 2026-03-08*
+*Last updated: 2026-03-18*
 
 ## Overview
 
@@ -23,9 +23,9 @@ Every section follows a three-tier alignment: **YAML fields → Python model →
 
 ## The Atom — Ku
 
-A Ku is the smallest nameable concept in SKUEL. It's an atomic reference node — no content body, no paragraphs, no teaching narrative. If you can define it in one sentence, it's a Ku. If it needs explanation, it's an Article.
+A Ku is the smallest nameable concept in SKUEL. It's an atomic reference node — no content body, no paragraphs, no teaching narrative. If you can define it in one sentence, it's a Ku. If it needs explanation, it's a Lesson.
 
-**Granularity decision:** "One sentence = Ku. Paragraphs = Article."
+**Granularity decision:** "One sentence = Ku. Paragraphs = Lesson."
 
 ### ku_category Values
 
@@ -99,17 +99,17 @@ Note the UID normalization: colons in YAML (`ku:mindfulness:breath`) become dots
 
 ---
 
-## The Composition — Article
+## The Composition — Lesson
 
-An Article is a unit for learning. Where a Ku names a single concept, an Article weaves multiple Kus into coherent learning content with full markdown. Articles are the "textbook pages" of SKUEL.
+A Lesson is a unit for learning. Where a Ku names a single concept, a Lesson weaves multiple Kus into coherent learning content with full markdown. Lessons are the "textbook pages" of SKUEL.
 
 ### uses_kus — Composing Atoms
 
-The `uses_kus` field declares which Kus an Article composes. Each entry becomes a `(Article)-[:USES_KU]->(Ku)` edge in the graph. This is how SKUEL knows which atomic concepts a piece of teaching content covers.
+The `uses_kus` field declares which Kus a Lesson composes. Each entry becomes a `(Lesson)-[:USES_KU]->(Ku)` edge in the graph. This is how SKUEL knows which atomic concepts a piece of teaching content covers.
 
 ### connections — Structural Relationships
 
-The `connections` block declares how Articles relate to each other:
+The `connections` block declares how Lessons relate to each other:
 
 | Key | Relationship Created | Meaning |
 |-----|---------------------|---------|
@@ -118,13 +118,13 @@ The `connections` block declares how Articles relate to each other:
 
 ### Three-Tier Alignment
 
-**YAML** (`article_breath-awareness-basics.yaml`):
+**YAML** (`lesson_breath-awareness-basics.yaml`):
 
 ```yaml
 version: 1.0
-type: Article
+type: Lesson
 
-uid: a:mindfulness:breath-awareness-basics
+uid: l:mindfulness:breath-awareness-basics
 title: Breath Awareness — Basics
 content: |
   ## Introduction to Breath Awareness
@@ -145,8 +145,8 @@ uses_kus:
 connections:
   requires: []
   enables:
-    - a:mindfulness:posture-basics
-    - a:mindfulness:mind-wandering-happens
+    - l:mindfulness:posture-basics
+    - l:mindfulness:mind-wandering-happens
 
 tags:
   - breath
@@ -155,7 +155,7 @@ tags:
   - foundational
 ```
 
-**Python** — `Article` extends `Curriculum`, which extends `Entity`. The `Curriculum` base adds ~21 fields including `content`, `complexity`, `domain`, and `quality_score`. Article adds no extra fields — Curriculum provides everything a unit for learning needs.
+**Python** — `Lesson` extends `Curriculum`, which extends `Entity`. The `Curriculum` base adds ~21 fields including `content`, `complexity`, `domain`, and `quality_score`. Lesson adds no extra fields — Curriculum provides everything a unit for learning needs.
 
 **How flattening works:** The preparer extracts the nested `connections` dict and flattens it to dotted keys:
 
@@ -167,7 +167,7 @@ tags:
 The BulkIngestionEngine then generates CALL subquery patterns for each dotted key:
 
 ```cypher
-MERGE (n:Entity {uid: "a.mindfulness.breath-awareness-basics"})
+MERGE (n:Entity:Lesson {uid: "l.mindfulness.breath-awareness-basics"})
   ON CREATE SET n = props, n.created_at = datetime()
   ON MATCH SET n += props, n.updated_at = datetime()
 WITH n, item
@@ -201,21 +201,21 @@ The backtick escaping (`` item.`connections.enables` ``) handles the dotted key 
 
 ### LearningStep — The Cross-Domain Connector
 
-A LearningStep is the richest entity type in SKUEL. It's where curriculum meets practice — connecting Articles (what to learn) with Habits, Tasks, Choices, Events, and Principles (how to live it).
+A LearningStep is the richest entity type in SKUEL. It's where curriculum meets practice — connecting Lessons (what to learn) with Habits, Tasks, Choices, Events, and Principles (how to live it).
 
 Every UID-list field on a LearningStep becomes a set of edges in the graph:
 
 | YAML Field | Relationship | Direction | Connects To |
 |---|---|---|---|
-| `primary_knowledge_uids` | `CONTAINS_KNOWLEDGE` | outgoing | Article |
-| `supporting_knowledge_uids` | `CONTAINS_KNOWLEDGE` | outgoing | Article |
+| `primary_knowledge_uids` | `CONTAINS_KNOWLEDGE` | outgoing | Lesson |
+| `supporting_knowledge_uids` | `CONTAINS_KNOWLEDGE` | outgoing | Lesson |
 | `trains_ku_uids` | `TRAINS_KU` | outgoing | Ku |
 | `prerequisite_step_uids` | `REQUIRES_STEP` | outgoing | LearningStep |
-| `prerequisite_knowledge_uids` | `REQUIRES_KNOWLEDGE` | outgoing | Article |
+| `prerequisite_knowledge_uids` | `REQUIRES_KNOWLEDGE` | outgoing | Lesson |
 | `principle_uids` | `GUIDED_BY_PRINCIPLE` | outgoing | Principle |
-| `habit_uids` | `SUPPORTS_HABIT` | outgoing | Habit |
+| `habit_uids` | `BUILDS_HABIT` | outgoing | Habit |
 | `task_uids` | `ASSIGNS_TASK` | outgoing | Task |
-| `choice_uids` | `GUIDES_CHOICE` | outgoing | Choice |
+| `choice_uids` | `INFORMS_CHOICE` | outgoing | Choice |
 | `event_template_uids` | `SCHEDULES_EVENT` | outgoing | Event |
 
 **YAML** (`ls_mindfulness-101_step-1.yaml`):
@@ -229,10 +229,10 @@ title: Two Minutes Today
 intent: Try one two-minute breath session, note what you notice
 
 primary_knowledge_uids:
-  - a:mindfulness:breath-awareness-basics
+  - l:mindfulness:breath-awareness-basics
 
 supporting_knowledge_uids:
-  - a:mindfulness:posture-basics
+  - l:mindfulness:posture-basics
 
 trains_ku_uids:
   - ku:mindfulness:breath
@@ -267,7 +267,7 @@ This single YAML file produces one node and up to 10 edges. That's the power of 
 
 ### LearningPath — The Sequence
 
-A LearningPath sequences LearningSteps via `(LearningPath)-[:HAS_STEP]->(LearningStep)` edges. The `steps` list in YAML defines the order.
+A LearningPath sequences LearningSteps via `(LearningPath)-[:HAS_STEP]->(LearningStep)` edges. The `connections.contains_steps` list in YAML defines the order.
 
 **YAML** (`lp_mindfulness-101.yaml`):
 
@@ -284,9 +284,10 @@ goal: >-
 path_type: structured
 difficulty: beginner
 
-steps:
-  - ls:mindfulness-101:step-1
-  - ls:mindfulness-101:step-2
+connections:
+  contains_steps:
+    - ls:mindfulness-101:step-1
+    - ls:mindfulness-101:step-2
 
 outcomes:
   - Establish a daily 2-minute breath awareness practice
@@ -314,21 +315,20 @@ SKUEL's graph connects curriculum to life. Activity Domains — Task, Goal, Habi
 uid: goal:mindfulness-beginner
 title: Build a gentle daily starter practice
 
-required_knowledge_uids:
-  - a:mindfulness:breath-awareness-basics
-  - a:mindfulness:posture-basics
-  - a:mindfulness:mind-wandering-happens
-
-supporting_habit_uids:
-  - habit:daily-2min-breath
-  - habit:label-wander-daily
-
-guiding_principle_uids:
-  - principle:small-steps
-  - principle:attention-over-intensity
+connections:
+  requires_knowledge:
+    - l:mindfulness:breath-awareness-basics
+    - l:mindfulness:posture-basics
+    - l:mindfulness:mind-wandering-happens
+  supporting_habits:
+    - habit:daily-2min-breath
+    - habit:label-wander-daily
+  aligned_with_principle:
+    - principle:small-steps
+    - principle:attention-over-intensity
 ```
 
-Each UID list becomes edges: `REQUIRES_KNOWLEDGE`, `SUPPORTS_HABIT`, `GUIDED_BY_PRINCIPLE`.
+Each `connections.*` field becomes edges: `REQUIRES_KNOWLEDGE`, `SUPPORTS_GOAL` (incoming), `GUIDED_BY_PRINCIPLE`.
 
 ### The Mindfulness 101 Graph Fragment
 
@@ -342,18 +342,18 @@ Each UID list becomes edges: `REQUIRES_KNOWLEDGE`, `SUPPORTS_HABIT`, `GUIDED_BY_
           ┌────────────────┘  │  └──────────────┐
           ▼                   │                  ▼
   ┌───────────────┐    SUPPORTS_    ┌─────────────────────┐
-  │  a:breath-    │      HABIT      │ principle:small-steps│
+  │  l:breath-    │      GOAL       │ principle:small-steps│
   │  awareness    │           │     └─────────────────────┘
   │  -basics      │           ▼
   └───┬───────────┘   ┌──────────────────┐
       │ USES_KU       │ habit:daily-2min │
       ▼               │   -breath        │
   ┌────────────┐      └────────┬─────────┘
-  │ ku:breath  │               │ linked_knowledge
-  └────────────┘               │
+  │ ku:breath  │               │ REINFORCES_
+  └────────────┘               │ KNOWLEDGE
                                ▼
                     ┌───────────────────┐
-                    │  a:breath-        │
+                    │  l:breath-        │
                     │  awareness-basics │
                     └───────────────────┘
 ```
@@ -368,14 +368,13 @@ This is how SKUEL answers "What should I work on today?" — by traversing from 
 uid: habit:daily-2min-breath
 name: Daily Two-Minute Breath
 
-linked_knowledge_uids:
-  - a:mindfulness:breath-awareness-basics
-
-linked_goal_uids:
-  - goal:mindfulness-beginner
-
-linked_principle_uids:
-  - principle:small-steps
+connections:
+  reinforces_knowledge:
+    - l:mindfulness:breath-awareness-basics
+  supports_goal:
+    - goal:mindfulness-beginner
+  embodies_principle:
+    - principle:small-steps
 
 cue: After morning coffee / Right after waking
 routine: |
@@ -462,7 +461,7 @@ SET r.evidence = "After coffee I feel more restless...",
 
 | Use | When | Example |
 |-----|------|---------|
-| `connections:` block (on Articles) | Structural prerequisite/enablement | "Read Breath Basics before Mind Wandering" |
+| `connections:` block (on Lessons) | Structural prerequisite/enablement | "Read Breath Basics before Mind Wandering" |
 | `type: Edge` YAML file | Evidence-based observation with confidence | "Caffeine exacerbates buzzing (confidence: 0.8)" |
 
 Use `connections:` when the relationship is structural and certain — ordering curriculum content. Use Edge YAML when the relationship carries evidence, confidence, and polarity — tracking observations about how things affect each other.
@@ -487,7 +486,7 @@ Embedding text is built from entity-specific field maps. Each entity type contri
 
 | Entity Type | Fields included in embedding |
 |-------------|----------------------------|
-| Article | title, content, summary |
+| Lesson | title, content, summary |
 | Ku | title, summary, description |
 | LearningStep | title, intent, description |
 | LearningPath | title, description, outcomes |
@@ -508,7 +507,7 @@ Relationships power the most sophisticated discovery. The graph answers question
 
 - "What am I ready to learn?" — traverse `REQUIRES_STEP` prerequisite chains against mastery state
 - "What supports my current goal?" — follow `SUPPORTS_HABIT`, `GUIDED_BY_PRINCIPLE` from the goal
-- "What does this Article teach?" — follow `USES_KU` to atomic concepts
+- "What does this Lesson teach?" — follow `USES_KU` to atomic concepts
 
 ### Discovery Matrix
 
@@ -540,14 +539,14 @@ Dependencies must exist before the entities that reference them. The manifest's 
 
 ```yaml
 import_order:
-  1_kus:                    # Kus first — referenced by Articles
+  1_kus:                    # Kus first — referenced by Lessons
     - ku:mindfulness:breath
     - ku:mindfulness:attention
 
-  2_articles:               # Articles next — referenced by Steps
-    - a:mindfulness:breath-awareness-basics
-    - a:mindfulness:posture-basics
-    - a:mindfulness:mind-wandering-happens
+  2_lessons:                # Lessons next — referenced by Steps
+    - l:mindfulness:breath-awareness-basics
+    - l:mindfulness:posture-basics
+    - l:mindfulness:mind-wandering-happens
 
   3_supporting_entities:    # Activity entities — referenced by Steps
     - principle:small-steps
@@ -613,7 +612,7 @@ result = await service.dry_run(Path("yaml_templates/domains/mindfulness_101/"))
 | Entity Type | UID Format | Mindfulness 101 Example |
 |-------------|-----------|------------------------|
 | Ku | `ku:{namespace}:{slug}` | `ku:mindfulness:breath` |
-| Article | `a:{namespace}:{slug}` | `a:mindfulness:breath-awareness-basics` |
+| Lesson | `l:{namespace}:{slug}` | `l:mindfulness:breath-awareness-basics` |
 | LearningStep | `ls:{path}:{slug}` | `ls:mindfulness-101:step-1` |
 | LearningPath | `lp:{slug}` | `lp:mindfulness-101` |
 | Task | `task:{slug}` | `task:log-first-5-sessions` |
@@ -629,7 +628,7 @@ result = await service.dry_run(Path("yaml_templates/domains/mindfulness_101/"))
 | YAML `type:` | Required Fields |
 |-------------|----------------|
 | `Ku` | title |
-| `Article` | title, content |
+| `Lesson` | title, content |
 | `LearningStep` | title |
 | `LearningPath` | name |
 | `Task` | title |
@@ -642,7 +641,7 @@ result = await service.dry_run(Path("yaml_templates/domains/mindfulness_101/"))
 
 ### YAML `type:` Values
 
-`Ku`, `Article`, `LearningStep`, `LearningPath`, `Task`, `Goal`, `Habit`, `Event`, `Choice`, `Principle`, `Edge`
+`Ku`, `Lesson`, `LearningStep`, `LearningPath`, `Task`, `Goal`, `Habit`, `Event`, `Choice`, `Principle`, `Edge`
 
 ---
 
@@ -652,5 +651,5 @@ result = await service.dry_run(Path("yaml_templates/domains/mindfulness_101/"))
 - `yaml_templates/_schemas/` — Full field reference for every entity type
 - `yaml_templates/domains/mindfulness_101/README.md` — Bundle design principles
 - `docs/patterns/UNIFIED_INGESTION_GUIDE.md` — Ingestion API reference and modes
-- `docs/architecture/CURRICULUM_GROUPING_PATTERNS.md` — Ku, Article, LS, LP topology
+- `docs/architecture/CURRICULUM_GROUPING_PATTERNS.md` — Ku, Lesson, LS, LP topology
 - `docs/architecture/RELATIONSHIPS_ARCHITECTURE.md` — Complete relationship catalog

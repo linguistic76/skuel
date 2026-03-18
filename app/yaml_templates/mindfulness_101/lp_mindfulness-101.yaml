@@ -15,9 +15,10 @@ difficulty: beginner
 domain: personal
 
 # Steps (reference ls UIDs in sequence)
-steps:
-  - ls:mindfulness-101:step-1
-  - ls:mindfulness-101:step-2
+connections:
+  contains_steps:
+    - ls:mindfulness-101:step-1
+    - ls:mindfulness-101:step-2
 
 # Requirements
 prerequisites: []  # No prerequisites - true beginner path

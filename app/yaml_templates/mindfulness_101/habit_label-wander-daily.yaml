@@ -18,17 +18,15 @@ duration_minutes: 0  # Integrated into existing practice
 
 # Learning Integration
 # Knowledge connections (Lesson UIDs for teaching content)
-linked_knowledge_uids:
-  - l:mindfulness:mind-wandering-happens
-
-linked_goal_uids:
-  - goal:mindfulness-beginner
-
-linked_principle_uids:
-  - principle:attention-over-intensity
-
-prerequisite_habit_uids:
-  - habit:daily-2min-breath
+connections:
+  reinforces_knowledge:
+    - l:mindfulness:mind-wandering-happens
+  supports_goal:
+    - goal:mindfulness-beginner
+  embodies_principle:
+    - principle:attention-over-intensity
+  prerequisite_habits:
+    - habit:daily-2min-breath
 
 # Progress Tracking
 current_streak: 0

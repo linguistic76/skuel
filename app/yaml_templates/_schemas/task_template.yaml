@@ -55,23 +55,30 @@ priority: medium
 # Note: 'draft' for planning, 'ready' when actionable, 'in_progress' when started
 status: draft
 
-# applies_knowledge_uids: Knowledge this task applies or practices
-# Type: List of Lesson or Ku UIDs
-# Purpose: Link task to learning content
-# Note: Can reference Lessons (l:...) for teaching content or Kus (ku:...) for atomic concepts
-applies_knowledge_uids:
-  - l:namespace:related-lesson
-  - ku:namespace:related-concept
+# connections: Cross-domain relationships (creates graph edges on ingestion)
+# Note: Field paths must match relationship registry yaml_field_path values
+connections:
+  # applies_knowledge: Knowledge this task applies (creates APPLIES_KNOWLEDGE edges)
+  # Type: List of Lesson or Ku UIDs
+  # Note: Can reference Lessons (l:...) or Kus (ku:...) — target_label is Entity
+  applies_knowledge:
+    - l:namespace:related-lesson
+    - ku:namespace:related-concept
 
-# fulfills_goal_uid: Goal this task contributes to
-# Type: Goal UID (single goal, not a list)
-# Purpose: Show how task advances a goal
-fulfills_goal_uid: goal:related-goal
+  # fulfills_goal: Goal this task contributes to (creates FULFILLS_GOAL edge)
+  # Type: List of Goal UIDs (single=True in registry, but YAML is a list)
+  fulfills_goal:
+    - goal:related-goal
 
-# reinforces_habit_uid: Habit this task reinforces
-# Type: Habit UID (single habit, not a list)
-# Purpose: Connect task to habit building
-reinforces_habit_uid: habit:related-habit
+  # reinforces_habit: Habit this task reinforces (creates SUPPORTS_HABIT edge)
+  # Type: List of Habit UIDs (single=True in registry, but YAML is a list)
+  reinforces_habit:
+    - habit:related-habit
+
+  # depends_on: Tasks that must complete first (creates DEPENDS_ON edges)
+  # Type: List of Task UIDs
+  depends_on:
+    - task:prerequisite-task
 
 # tags: Descriptive tags for categorization
 # Type: List of strings
@@ -85,12 +92,6 @@ tags:
 # Format: YYYY-MM-DD
 # Example: "2025-10-15"
 due_date: null
-
-# dependencies: Other tasks that must complete first
-# Type: List of Task UIDs
-# Purpose: Define task ordering
-dependencies:
-  - task:prerequisite-task
 
 # estimated_effort: Subjective effort level
 # Valid values: trivial, low, medium, high, very_high
@@ -137,9 +138,9 @@ actual_effort: null
 # ---------------
 # 1. Task model does NOT have 'user_uid' field (different from Choice)
 # 2. Task model HAS both 'created_at' and 'updated_at' (different from Choice)
-# 3. fulfills_goal_uid is a SINGLE UID, not a list
-# 4. reinforces_habit_uid is a SINGLE UID, not a list
+# 3. connections.fulfills_goal creates a single FULFILLS_GOAL edge (single=True)
+# 4. connections.reinforces_habit creates a single SUPPORTS_HABIT edge (single=True)
 # 5. Use status to track task lifecycle: draft → ready → in_progress → completed
-# 6. dependencies creates a task graph (prerequisite tasks must finish first)
+# 6. connections.depends_on creates a task graph (prerequisite tasks must finish first)
 # 7. tags help with filtering and organization
-# 8. applies_knowledge_uids connects tasks to learning (Lessons or Kus)
+# 8. connections.applies_knowledge connects tasks to learning (Lessons or Kus)

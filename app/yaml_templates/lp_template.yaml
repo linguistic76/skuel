@@ -21,10 +21,11 @@ domain: personal  # personal | tech | health | finance | creative | other
 
 # Steps (reference standalone ls UIDs)
 # Note: Steps are now standalone entities linked by UID
-steps:
-  - ls:template-path:step-1
-  - ls:template-path:step-2
-  - ls:template-path:step-3
+connections:
+  contains_steps:
+    - ls:template-path:step-1
+    - ls:template-path:step-2
+    - ls:template-path:step-3
 
 # Requirements
 prerequisites:

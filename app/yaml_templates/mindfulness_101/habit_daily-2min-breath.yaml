@@ -18,16 +18,14 @@ duration_minutes: 2
 
 # Learning Integration
 # Knowledge connections (Lesson UIDs for teaching content)
-linked_knowledge_uids:
-  - l:mindfulness:breath-awareness-basics
-
-linked_goal_uids:
-  - goal:mindfulness-beginner
-
-linked_principle_uids:
-  - principle:small-steps
-
-prerequisite_habit_uids: []  # No prerequisites - starter habit
+connections:
+  reinforces_knowledge:
+    - l:mindfulness:breath-awareness-basics
+  supports_goal:
+    - goal:mindfulness-beginner
+  embodies_principle:
+    - principle:small-steps
+  prerequisite_habits: []  # No prerequisites - starter habit
 
 # Progress Tracking
 current_streak: 0

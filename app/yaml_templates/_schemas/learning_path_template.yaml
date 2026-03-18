@@ -48,18 +48,21 @@ path_type: structured
 # Example: "beginner" for introductory paths
 difficulty: beginner
 
-# steps: List of learning step UIDs that compose this path
-# Type: List of strings (LearningStep UIDs)
+# connections.contains_steps: Learning step UIDs that compose this path (creates HAS_STEP edges)
+# Type: Nested under 'connections' key
 # Note: Can reference separate LearningStep YAML files
 # Example: [ls:example-path:step-1, ls:example-path:step-2]
-steps:
-  - ls:example-path:step-1
-  - ls:example-path:step-2
+# Note: Ingestion field name must be 'connections.contains_steps' (not 'steps')
+connections:
+  contains_steps:
+    - ls:example-path:step-1
+    - ls:example-path:step-2
 
 # prerequisites: Knowledge required before starting this path
 # Type: List of Lesson UIDs
 # Purpose: What the learner should know before beginning
-# Example: [l:basics:fundamental-concepts]
+# Note: Stored as node property (no ingestion edge — LP REQUIRES_KNOWLEDGE
+#   has no yaml_field_path yet). To create edges, add to relationship registry.
 prerequisites:
   - l:example:prerequisite-knowledge
 

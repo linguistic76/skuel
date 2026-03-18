@@ -94,6 +94,19 @@ measurement_criteria: |
   - You avoid mid-task confusion
   - You complete tasks more efficiently
 
+# connections: Cross-domain relationships (creates graph edges on ingestion)
+# Note: Field paths must match relationship registry yaml_field_path values
+connections:
+  # guides_goal: Goals this principle guides (creates GUIDES_GOAL edges)
+  # Type: List of Goal UIDs
+  # guides_goal:
+  #   - goal:guided-goal-1
+
+  # inspires_habit: Habits this principle inspires (creates INSPIRES_HABIT edges)
+  # Type: List of Habit UIDs
+  # inspires_habit:
+  #   - habit:inspired-habit-1
+
 # tags: Descriptive tags for categorization
 # Type: List of strings
 # Example: [productivity, planning, focus]
