@@ -25,7 +25,7 @@ from typing import Any, Protocol
 from fasthtml.common import Div, Request, Span
 
 from adapters.inbound.auth import require_authenticated_user
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 
 
 class HierarchicalService(Protocol):
@@ -174,6 +174,41 @@ class HierarchyRouteFactory:
 
         return get_children
 
+    async def _move_node(self, uid: str, new_parent_uid: str) -> Result[bool]:
+        """
+        Move a node to a new parent: remove old parent relationship, create new one.
+
+        Handles the three-step orchestration (get old parent → remove old rel → create new rel)
+        that applies uniformly across all hierarchical domains.
+
+        Args:
+            uid: UID of the node to move
+            new_parent_uid: UID of the new parent node
+
+        Returns:
+            Result[bool] — success or failure with error details
+        """
+        get_parent_fn = getattr(self.service, self.get_parent_method, None)
+        remove_rel_fn = getattr(self.service, self.remove_relationship_method, None)
+        create_rel_fn = getattr(self.service, self.create_relationship_method, None)
+
+        if get_parent_fn is None or remove_rel_fn is None or create_rel_fn is None:
+            return Result.fail(
+                Errors.system(f"Hierarchy methods not available on {self.domain} service")
+            )
+
+        # Remove old relationship (if exists)
+        old_parent_result = await get_parent_fn(uid)
+        if not old_parent_result.is_error and old_parent_result.value:
+            await remove_rel_fn(old_parent_result.value.uid, uid)
+
+        # Create new relationship (includes cycle check in service)
+        create_result = await create_rel_fn(new_parent_uid, uid)
+        if create_result.is_error:
+            return Result.fail(create_result.expect_error())
+
+        return Result.ok(True)
+
     def _create_move_node_route(self) -> Any:
         """POST /api/{domain}/{uid}/move - Move node to new parent."""
 
@@ -182,7 +217,6 @@ class HierarchyRouteFactory:
             """Move node to new parent (drag-and-drop)."""
             user_uid = require_authenticated_user(request)
 
-            # Parse JSON body
             body = await request.json()
             new_parent_uid = body.get("new_parent_uid")
 
@@ -198,32 +232,9 @@ class HierarchyRouteFactory:
             if parent_ownership_result.is_error:
                 return {"success": False, "error": "Parent not found or access denied"}, 404
 
-            # Get old parent (if any)
-            get_parent_fn = getattr(self.service, self.get_parent_method, None)
-            remove_rel_fn = getattr(self.service, self.remove_relationship_method, None)
-            create_rel_fn = getattr(self.service, self.create_relationship_method, None)
-
-            # Check each function individually for mypy type narrowing
-            if get_parent_fn is None:
-                return {"success": False, "error": "get_parent method not available"}, 500
-            if remove_rel_fn is None:
-                return {"success": False, "error": "remove_relationship method not available"}, 500
-            if create_rel_fn is None:
-                return {"success": False, "error": "create_relationship method not available"}, 500
-
-            # Remove old relationship (if exists)
-            old_parent_result = await get_parent_fn(uid)
-            if not old_parent_result.is_error and old_parent_result.value:
-                await remove_rel_fn(old_parent_result.value.uid, uid)
-
-            # Create new relationship
-            create_result = await create_rel_fn(new_parent_uid, uid)
-
-            if create_result.is_error:
-                return {
-                    "success": False,
-                    "error": str(create_result.error),
-                }, 400
+            move_result = await self._move_node(uid, new_parent_uid)
+            if move_result.is_error:
+                return {"success": False, "error": str(move_result.error)}, 400
 
             return {
                 "success": True,
