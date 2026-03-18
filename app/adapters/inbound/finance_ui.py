@@ -22,7 +22,6 @@ from fasthtml.common import Div, Span
 from starlette.requests import Request
 
 from adapters.inbound.auth import make_service_getter, require_admin
-from core.constants import QueryLimit
 from core.models.finance.finance_request import BudgetCreateRequest, ExpenseCreateRequest
 from core.utils.logging import get_logger
 from ui.buttons import ButtonLink, ButtonT
@@ -256,56 +255,23 @@ def create_finance_ui_routes(_app, rt, finance_service, user_service: Any = None
 
         logger.info(f"Finance expenses accessed by {current_user.uid}")
 
-        try:
-            expenses_result = await finance_service.list_expenses(limit=QueryLimit.COMPREHENSIVE)
-
-            # Check for errors FIRST, show user-friendly message (main content failure)
-            if not expenses_result or expenses_result.is_error:
-                error_msg = (
-                    expenses_result.error.message if expenses_result else "Service unavailable"
-                )
-                return await BasePage(
-                    content=render_error_banner(
-                        "Unable to load expenses. Please try again later.", error_msg
-                    ),
-                    title="Expenses",
-                    request=request,
-                )
-
-            # Safe to access value
-            expenses_list, total_count = expenses_result.value or ([], 0)
-            expenses = [
-                {
-                    "uid": exp.uid,
-                    "description": exp.description,
-                    "amount": exp.amount,
-                    "category": getattr(exp, "category", ""),
-                    "expense_date": str(getattr(exp, "expense_date", "")),
-                    "status": getattr(exp, "status", "PENDING"),
-                }
-                for exp in expenses_list
-            ]
-        except Exception as e:
-            logger.error(f"Unexpected error fetching expenses: {e}")
+        ctx_result = await finance_service.get_expenses_context()
+        if ctx_result.is_error:
             return await BasePage(
                 content=render_error_banner(
-                    "An unexpected error occurred. Please try again later.", str(e)
+                    "Unable to load expenses. Please try again later.",
+                    ctx_result.error.message if ctx_result.error else "Service unavailable",
                 ),
                 title="Expenses",
                 request=request,
             )
 
-        # Categories for filter
-        categories = [
-            {"name": "Personal", "code": "PERSONAL"},
-            {"name": "House (2222)", "code": "2222"},
-            {"name": "SKUEL", "code": "SKUEL"},
-        ]
+        ctx = ctx_result.value
 
         content = FinanceSectionViews.render_expenses_list(
-            expenses=expenses,
-            categories=categories,
-            total_count=total_count,
+            expenses=ctx["expenses"],
+            categories=ctx["categories"],
+            total_count=ctx["total_count"],
         )
 
         return await create_finance_page(
@@ -411,40 +377,11 @@ def create_finance_ui_routes(_app, rt, finance_service, user_service: Any = None
         from ui.finance.invoice_views import InvoiceViews
         from ui.finance.types import InvoiceRow, InvoiceStats
 
-        invoices: list[InvoiceRow] = []
-        stats = InvoiceStats()
+        ctx_result = await finance_service.get_invoices_context()
+        ctx = ctx_result.value
 
-        try:
-            # Get invoice stats
-            stats_result = await finance_service.get_invoice_stats()
-            if stats_result and stats_result.is_ok and stats_result.value:
-                raw = stats_result.value
-                stats = InvoiceStats(
-                    total_count=raw.get("total_count", 0),
-                    outgoing_total=raw.get("outgoing_total", 0.0),
-                    incoming_total=raw.get("incoming_total", 0.0),
-                    overdue_count=raw.get("overdue_count", 0),
-                    outstanding_total=raw.get("outstanding_total", 0.0),
-                )
-
-            # Get invoice list
-            invoices_result = await finance_service.list_invoices(limit=50)
-            if invoices_result and invoices_result.is_ok and invoices_result.value:
-                invoices = [
-                    InvoiceRow(
-                        uid=inv.uid,
-                        invoice_type=inv.invoice_type.value,
-                        counterparty=inv.counterparty,
-                        invoice_date=str(inv.invoice_date),
-                        due_date=str(inv.due_date) if inv.due_date else None,
-                        total=inv.total,
-                        status=inv.status.value,
-                        is_overdue=inv.is_overdue(),
-                    )
-                    for inv in invoices_result.value
-                ]
-        except Exception as e:
-            logger.warning(f"Could not fetch invoices: {e}")
+        invoices = [InvoiceRow(**inv) for inv in ctx["invoices"]]
+        stats = InvoiceStats(**ctx["stats"])
 
         content = InvoiceViews.render_invoices_list(invoices=invoices, stats=stats)
 

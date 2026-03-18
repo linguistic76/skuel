@@ -114,6 +114,21 @@ class FinanceAnalyticsContext(TypedDict):
     budget_adherence: float
 
 
+class FinanceExpensesContext(TypedDict):
+    """Return type for FinanceService.get_expenses_context()."""
+
+    expenses: list[dict[str, Any]]
+    categories: list[dict[str, str]]
+    total_count: int
+
+
+class FinanceInvoicesContext(TypedDict):
+    """Return type for FinanceService.get_invoices_context()."""
+
+    invoices: list[dict[str, Any]]
+    stats: dict[str, Any]
+
+
 class FinanceService:
     """
     Finance facade service (standalone).
@@ -993,6 +1008,94 @@ class FinanceService:
                 "health_tier": health_tier,
                 "spending_pattern": spending_pattern,
                 "budget_adherence": budget_adherence,
+            }
+        )
+
+    async def get_expenses_context(self) -> Result[FinanceExpensesContext]:
+        """Build pre-computed context for the expenses page.
+
+        Returns dict with: expenses (list of display dicts), categories, total_count.
+        """
+        expenses: list[dict[str, Any]] = []
+        total_count = 0
+
+        try:
+            expenses_result = await self.list_expenses(limit=QueryLimit.COMPREHENSIVE)
+            if expenses_result.is_ok and expenses_result.value:
+                expenses_list, total_count = expenses_result.value
+                expenses = [
+                    {
+                        "uid": exp.uid,
+                        "description": exp.description,
+                        "amount": exp.amount,
+                        "category": str(getattr(exp, "category", "")),
+                        "expense_date": str(getattr(exp, "expense_date", "")),
+                        "status": str(getattr(exp, "status", "PENDING")),
+                    }
+                    for exp in expenses_list
+                ]
+        except (ValueError, TypeError, AttributeError) as e:
+            self.logger.warning(f"Could not fetch expenses: {e}")
+            return Result.fail(Errors.system(message=str(e), operation="get_expenses_context"))
+
+        categories = self.get_main_categories()
+
+        return Result.ok(
+            {
+                "expenses": expenses,
+                "categories": categories,
+                "total_count": total_count,
+            }
+        )
+
+    async def get_invoices_context(self) -> Result[FinanceInvoicesContext]:
+        """Build pre-computed context for the invoices page.
+
+        Returns dict with: invoices (list of display dicts), stats.
+        """
+        invoices: list[dict[str, Any]] = []
+        stats: dict[str, Any] = {
+            "total_count": 0,
+            "outgoing_total": 0.0,
+            "incoming_total": 0.0,
+            "overdue_count": 0,
+            "outstanding_total": 0.0,
+        }
+
+        try:
+            stats_result = await self.get_invoice_stats()
+            if stats_result and stats_result.is_ok and stats_result.value:
+                raw = stats_result.value
+                stats = {
+                    "total_count": raw.get("total_count", 0),
+                    "outgoing_total": raw.get("outgoing_total", 0.0),
+                    "incoming_total": raw.get("incoming_total", 0.0),
+                    "overdue_count": raw.get("overdue_count", 0),
+                    "outstanding_total": raw.get("outstanding_total", 0.0),
+                }
+
+            invoices_result = await self.list_invoices(limit=50)
+            if invoices_result and invoices_result.is_ok and invoices_result.value:
+                invoices = [
+                    {
+                        "uid": inv.uid,
+                        "invoice_type": inv.invoice_type.value,
+                        "counterparty": inv.counterparty,
+                        "invoice_date": str(inv.invoice_date),
+                        "due_date": str(inv.due_date) if inv.due_date else None,
+                        "total": inv.total,
+                        "status": inv.status.value,
+                        "is_overdue": inv.is_overdue(),
+                    }
+                    for inv in invoices_result.value
+                ]
+        except (ValueError, TypeError, AttributeError) as e:
+            self.logger.warning(f"Could not fetch invoices: {e}")
+
+        return Result.ok(
+            {
+                "invoices": invoices,
+                "stats": stats,
             }
         )
 
