@@ -131,7 +131,7 @@ This document provides a detailed explanation of how **Routes**, **Services**, a
 ├── ports/                            # Protocol interfaces
 │   ├── domain_protocols.py          # TasksOperations, GoalsOperations, etc.
 │   ├── curriculum_protocols.py      # KuOperations, LsOperations, LpOperations
-│   ├── infrastructure_protocols.py  # EventBus, UserOperations, etc.
+│   ├── infrastructure_protocols.py  # EventBus, User ISP hierarchy, Schema, Ingestion
 │   ├── base_protocols.py            # BackendOperations[T] ISP hierarchy
 │   ├── search_protocols.py          # SearchRouter, domain search ops
 │   └── ... (15 total protocol files)

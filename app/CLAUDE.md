@@ -313,7 +313,7 @@ class NonKuDomain(str, Enum):
 
 **Core Principle:** "Right type at the right boundary — concrete for facades, protocol for thin services"
 
-**Protocol Location:** `core/ports/` — 10 protocol files, 60+ protocols covering all domains.
+**Protocol Location:** `core/ports/` — 10 protocol files, 65+ protocols covering all domains.
 
 **Route-facing type strategy:**
 
@@ -333,6 +333,14 @@ BackendOperations[T]  <- THE protocol (UniversalNeo4jBackend implements this)
     +-- RelationshipQueryOperations
     +-- GraphTraversalOperations
     +-- LowLevelOperations
+```
+
+**UserOperations Protocol Hierarchy (ISP-compliant):**
+```
+UserOperations  <- composed protocol (UserBackend implements this)
+    +-- UserCrudOperations (6)      <- UserCoreService
+    +-- UserProgressOperations (8)  <- UserProgressRecorderService
+    +-- UserActivityOperations (3)  <- UserActivityService
 ```
 
 **See:** `/docs/patterns/protocol_architecture.md`, `/docs/patterns/BACKEND_OPERATIONS_ISP.md`

@@ -139,7 +139,7 @@ habit nodes, these private methods can traverse the context rather than issuing 
 |------|------|--------|-----------|-------|
 | `core/models/entity.py` | 185 | `can_view()` | `_viewer_uid`, `_shared_user_uids` | Visibility check stub — always returns True |
 | `core/models/entity.py` | 233 | `substance_score()` | `_force_recalculate: bool` | Force-refresh flag; recalculation not implemented |
-| `adapters/persistence/neo4j/user_backend.py` | 952 | `get_user_context()` | `_user_uid: str` | Delegated to UserService; backend has no implementation |
+| ~~`adapters/persistence/neo4j/user_backend.py`~~ | ~~952~~ | ~~`get_user_context()`~~ | ~~`_user_uid: str`~~ | **Removed** (March 2026) — was never a backend operation; use `UserService.get_user_context()` |
 | `adapters/persistence/neo4j/_relationship_crud_mixin.py` | 744 | (inline comment) | `_props` | Property validation not yet implemented |
 | `core/services/calendar/calendar_optimization_service.py` | 539 | `_get_user_energy_profile()` | `_user_uid: str` | Returns demo/static pattern; real profile query deferred |
 | `core/services/infrastructure/schema_change_detector.py` | 545 | `_update_optimizations()` | `_report: SchemaChangeReport` | Query optimization update deferred |

@@ -85,7 +85,7 @@ core/ports/
 ├── report_protocols.py                # Report stage (5 protocols)
 ├── graph_protocols.py                 # Graph entity protocols
 ├── group_protocols.py                 # Group & teaching (2 protocols)
-├── infrastructure_protocols.py        # EventBus, User, Ingestion (6 protocols)
+├── infrastructure_protocols.py        # EventBus, User (3 ISP + 1 composed), Schema, Ingestion, Closeable (9 protocols)
 ├── intelligence_protocols.py          # Analytics operations (1 protocol)
 ├── query_types.py                     # TypedDicts for type-safe queries
 ├── search_protocols.py                # Search operations (8 protocols)

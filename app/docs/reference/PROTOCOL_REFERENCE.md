@@ -41,7 +41,7 @@ related: [ADR-025, ADR-027]
 | **Group Protocols** | `/core/ports/group_protocols.py` | Group CRUD only |
 | **Service Protocols** | `/core/ports/service_protocols.py` | Calendar, Viz, System, LifePath, Auth, Orchestration |
 | **Search Protocols** | `/core/ports/search_protocols.py` | Search operations |
-| **Infrastructure Protocols** | `/core/ports/infrastructure_protocols.py` | EventBus, Schema, User, Ingestion |
+| **Infrastructure Protocols** | `/core/ports/infrastructure_protocols.py` | EventBus, Schema, User (3 ISP sub-protocols + 1 composed), Ingestion, Closeable |
 | **Intelligence Protocols** | `/core/ports/intelligence_protocols.py` | Analytics operations |
 | **Facade Services** | `/core/services/{domain}_service.py` | Concrete classes with explicit delegation methods |
 | **Context Awareness** | `/core/ports/context_awareness_protocols.py` | ISP slices of UserContext — the adoption target for all intelligence services |
