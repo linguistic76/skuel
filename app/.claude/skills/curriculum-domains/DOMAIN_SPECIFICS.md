@@ -37,20 +37,25 @@
 await lesson_service.intelligence.get_article_with_context(uid)
 
 # Calculate substance for user
-await lesson_service.intelligence.calculate_user_substance(article_uid, user_uid)
+await lesson_service.intelligence.calculate_user_substance(lesson_uid, user_uid)
 
 # Non-linear organization (replaces old MOC service)
 await lesson_service.organize_article(parent_uid, child_uid, order=1, importance="core")
 await lesson_service.get_organized_children(parent_uid, depth=1)
-await lesson_service.get_parent_articles(article_uid)  # Multiple parents possible!
-await lesson_service.is_organizer(article_uid)
+await lesson_service.get_parent_articles(lesson_uid)  # Multiple parents possible!
+await lesson_service.is_organizer(lesson_uid)
 await lesson_service.list_root_organizers()
+
+# Prev/next sibling navigation in MOC ORGANIZES order
+# Returns KuNavigation(prev_uid, prev_title, next_uid, next_title)
+# Propagates DB errors (not hidden); empty nav for legitimate empty states
+await lesson_service.get_navigation(lesson_uid)
 
 # Find ready-to-learn knowledge
 await lesson_service.search.get_ready_to_learn(user_uid)
 
 # Semantic neighborhood
-await lesson_service.semantic.get_semantic_neighborhood(article_uid)
+await lesson_service.semantic.get_semantic_neighborhood(lesson_uid)
 ```
 
 **UID Format:** `l_{slug}_{random}` (flat, not hierarchical - ADR-013)

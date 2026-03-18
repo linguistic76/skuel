@@ -45,9 +45,16 @@ root_organizers = await lesson_service.list_root_organizers()
 
 # Check if a Lesson acts as an organizer
 is_org = await lesson_service.is_organizer("l_yoga-fundamentals_abc123")
+
+# Prev/next sibling navigation (used by /api/lesson/{uid}/navigation)
+# Returns KuNavigation dataclass — propagates DB errors, returns empty nav for legitimate empty states
+result = await lesson_service.get_navigation("l_meditation-basics_xyz789")
+nav = result.value  # KuNavigation(prev_uid, prev_title, next_uid, next_title)
 ```
 
 **When to use this pattern:** When users want to navigate knowledge non-linearly (exploring a topic map rather than following a prescribed sequence). This replaces the old MOC domain entirely.
+
+**Key dataclass:** `KuNavigation` (frozen, from `core/services/lesson/lesson_organization_service.py`) — prev/next sibling in MOC ORGANIZES order. Exported via `core/services/lesson/__init__.py`.
 
 ---
 

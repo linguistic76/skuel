@@ -155,6 +155,7 @@ async def compose_services(neo4j_adapter, event_bus=None) -> Result[Services]:
 # Lesson - adaptive recommendations (10 sub-services)
 lesson_service.adaptive.get_recommendations(user_uid)
 lesson_service.organization.get_organized_children(parent_uid)  # Non-linear nav
+lesson_service.get_navigation(lesson_uid)  # Prev/next sibling in MOC order → KuNavigation
 
 # KU - 4 sub-services, generic factory (matches LS)
 ku_service.core.create_ku(...)
