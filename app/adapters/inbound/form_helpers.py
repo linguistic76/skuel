@@ -3,9 +3,21 @@ Form data extraction helpers for type-safe FastHTML form handling.
 
 FastHTML form data can return str | UploadFile | None for any field.
 These helpers provide type-safe extraction with proper type guards.
+
+Also provides shared parsing primitives for enum, date, time, and datetime
+values used across activity domain UI files.
 """
 
+from dataclasses import dataclass
+from datetime import date, datetime, time
+from enum import Enum
+from typing import Any, TypeVar
+
 from starlette.datastructures import UploadFile
+
+from core.ports.query_types import ActivityFilterSpec
+
+E = TypeVar("E", bound=Enum)
 
 
 def safe_form_string(value: str | UploadFile | None, default: str = "") -> str:
@@ -70,3 +82,83 @@ def safe_form_bool(value: str | UploadFile | None, default: bool = False) -> boo
     if isinstance(value, str):
         return value.strip().lower() in ("true", "1", "yes", "on")
     return default
+
+
+# ============================================================================
+# Shared Parsing Primitives
+# ============================================================================
+
+
+def parse_enum_safe(enum_class: type[E], value: str | None, default: E) -> E:
+    """Parse string to enum, return default on failure.
+
+    Replaces the try/except ValueError pattern duplicated across activity domain UI files.
+    """
+    if not value:
+        return default
+    try:
+        return enum_class(value)
+    except ValueError:
+        return default
+
+
+def parse_date_safe(value: str | None) -> date | None:
+    """Parse ISO date string, return None on failure."""
+    if not value:
+        return None
+    try:
+        return date.fromisoformat(value)
+    except ValueError:
+        return None
+
+
+def parse_time_safe(value: str | None) -> time | None:
+    """Parse ISO time string, return None on failure."""
+    if not value:
+        return None
+    try:
+        return time.fromisoformat(value)
+    except ValueError:
+        return None
+
+
+def parse_datetime_safe(value: str | None) -> datetime | None:
+    """Parse ISO datetime string, return None on failure."""
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value)
+    except ValueError:
+        return None
+
+
+# ============================================================================
+# Shared Activity Filters
+# ============================================================================
+
+
+@dataclass
+class ActivityFilters:
+    """Shared filters for Goals, Habits, Events, Choices (2-field domains).
+
+    Tasks (5 fields) and Principles (3 fields) keep custom Filters.
+    """
+
+    status: str
+    sort_by: str
+
+    def to_dict(self) -> ActivityFilterSpec:
+        """Convert to dict for view components."""
+        return {"status": self.status, "sort_by": self.sort_by}
+
+
+def parse_activity_filters(
+    request: Any,
+    default_status: str = "active",
+    default_sort_by: str = "created_at",
+) -> ActivityFilters:
+    """Parse standard activity filter params from request query params."""
+    return ActivityFilters(
+        status=request.query_params.get("filter_status", default_status),
+        sort_by=request.query_params.get("sort_by", default_sort_by),
+    )

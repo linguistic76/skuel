@@ -27,7 +27,7 @@ from fasthtml.common import H1, H2, H3, Div, P
 from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
-from adapters.inbound.form_helpers import safe_form_string
+from adapters.inbound.form_helpers import parse_enum_safe, safe_form_string
 from adapters.inbound.route_factories import (
     QuickAddConfig,
     QuickAddRouteFactory,
@@ -101,10 +101,7 @@ def parse_principle_create_params(form_data: dict[str, Any]) -> dict[str, Any]:
     is_active = safe_form_string(form_data.get("is_active")) == "true"
 
     # Parse category
-    try:
-        category = PrincipleCategory(category_str.upper())
-    except ValueError:
-        category = PrincipleCategory.PERSONAL
+    category = parse_enum_safe(PrincipleCategory, category_str.upper(), PrincipleCategory.PERSONAL)
 
     # Parse strength (convert float to enum)
     try:

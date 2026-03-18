@@ -16,8 +16,6 @@ Routes:
 
 __version__ = "2.0"
 
-import contextlib
-from dataclasses import dataclass
 from datetime import date, time
 from typing import Any
 
@@ -25,7 +23,13 @@ from fasthtml.common import H1, H2, Div, Form, Option, P, Span
 from starlette.responses import RedirectResponse, Response
 
 from adapters.inbound.auth import require_authenticated_user
-from adapters.inbound.form_helpers import safe_form_string
+from adapters.inbound.form_helpers import (
+    ActivityFilters,
+    parse_activity_filters,
+    parse_date_safe,
+    parse_time_safe,
+    safe_form_string,
+)
 from adapters.inbound.route_factories import (
     QuickAddConfig,
     QuickAddRouteFactory,
@@ -37,7 +41,6 @@ from adapters.inbound.ui_helpers import (
 )
 from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
-from core.ports.query_types import ActivityFilterSpec
 from core.services.events_service import EventsService
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -173,24 +176,9 @@ class EventUIComponents:
 # ============================================================================
 
 
-@dataclass
-class Filters:
-    """Typed filters for event list queries."""
-
-    status: str
-    sort_by: str
-
-    def to_dict(self) -> ActivityFilterSpec:
-        """Convert to dict keyed for EventsViewComponents.render_list_view."""
-        return {"status": self.status, "sort_by": self.sort_by}
-
-
-def parse_filters(request) -> Filters:
+def parse_filters(request) -> ActivityFilters:
     """Extract filter parameters from request query params."""
-    return Filters(
-        status=request.query_params.get("filter_status", "scheduled"),
-        sort_by=request.query_params.get("sort_by", "start_time"),
-    )
+    return parse_activity_filters(request, default_status="scheduled", default_sort_by="start_time")
 
 
 # ============================================================================
@@ -208,21 +196,10 @@ def parse_event_form_fields(form_data: dict[str, Any]) -> dict[str, Any]:
     start_time_str = form_data.get("start_time", "")
     end_time_str = form_data.get("end_time", "")
 
-    # Parse event date
-    event_date_val = None
-    if event_date_str:
-        with contextlib.suppress(ValueError):
-            event_date_val = date.fromisoformat(event_date_str)
-
-    # Parse times
-    start_time_val = None
-    end_time_val = None
-    if start_time_str:
-        with contextlib.suppress(ValueError):
-            start_time_val = time.fromisoformat(start_time_str)
-    if end_time_str:
-        with contextlib.suppress(ValueError):
-            end_time_val = time.fromisoformat(end_time_str)
+    # Parse event date and times
+    event_date_val = parse_date_safe(event_date_str)
+    start_time_val = parse_time_safe(start_time_str)
+    end_time_val = parse_time_safe(end_time_str)
 
     return {
         "title": title,

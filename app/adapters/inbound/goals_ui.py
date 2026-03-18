@@ -17,22 +17,25 @@ Routes:
 __version__ = "2.0"
 
 import contextlib
-from dataclasses import dataclass
-from datetime import date
 from typing import Any
 
 from fasthtml.common import H1, H2, H3, Div, P, Script, Span
 from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
-from adapters.inbound.form_helpers import safe_form_string
+from adapters.inbound.form_helpers import (
+    ActivityFilters,
+    parse_activity_filters,
+    parse_date_safe,
+    parse_enum_safe,
+    safe_form_string,
+)
 from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
 from adapters.inbound.ui_helpers import (
     parse_calendar_params,
 )
 from core.models.enums import Priority
 from core.models.goal.goal_request import GoalCreateRequest
-from core.ports.query_types import ActivityFilterSpec
 from core.services.goals_service import GoalsService
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -420,24 +423,9 @@ def get_priority_color(priority) -> Any:
 # ============================================================================
 
 
-@dataclass
-class Filters:
-    """Typed filters for goal list queries."""
-
-    status: str
-    sort_by: str
-
-    def to_dict(self) -> ActivityFilterSpec:
-        """Convert to dict keyed for GoalsViewComponents.render_list_view."""
-        return {"status": self.status, "sort_by": self.sort_by}
-
-
-def parse_filters(request) -> Filters:
+def parse_filters(request) -> ActivityFilters:
     """Extract filter parameters from request query params."""
-    return Filters(
-        status=request.query_params.get("filter_status", "active"),
-        sort_by=request.query_params.get("sort_by", "target_date"),
-    )
+    return parse_activity_filters(request, default_status="active", default_sort_by="target_date")
 
 
 # ============================================================================
@@ -457,16 +445,10 @@ def parse_goal_create_request(form_data: dict[str, Any]) -> GoalCreateRequest:
     target_value_str = form_data.get("target_value", "")
 
     # Parse priority
-    try:
-        priority = Priority(priority_str)
-    except ValueError:
-        priority = Priority.MEDIUM
+    priority = parse_enum_safe(Priority, priority_str, Priority.MEDIUM)
 
     # Parse target date
-    target_date = None
-    if target_date_str:
-        with contextlib.suppress(ValueError):
-            target_date = date.fromisoformat(target_date_str)
+    target_date = parse_date_safe(target_date_str)
 
     # Parse target value
     target_value = None

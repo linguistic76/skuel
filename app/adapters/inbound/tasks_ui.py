@@ -28,7 +28,7 @@ from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
-from adapters.inbound.form_helpers import safe_form_string
+from adapters.inbound.form_helpers import parse_date_safe, parse_enum_safe, safe_form_string
 from adapters.inbound.route_factories import (
     QuickAddConfig,
     QuickAddRouteFactory,
@@ -108,10 +108,7 @@ def parse_task_create_request(form_data: dict[str, Any]) -> TaskCreateRequest:
     parent_uid = safe_form_string(form_data.get("parent_uid")) or None
 
     # Parse priority
-    try:
-        priority = Priority(form_data.get("priority", "medium"))
-    except ValueError:
-        priority = Priority.MEDIUM
+    priority = parse_enum_safe(Priority, form_data.get("priority", "medium"), Priority.MEDIUM)
 
     # Parse recurrence pattern
     recurrence_pattern = None
@@ -121,18 +118,9 @@ def parse_task_create_request(form_data: dict[str, Any]) -> TaskCreateRequest:
             recurrence_pattern = RecurrencePattern(recurrence_pattern_str)
 
     # Parse dates
-    scheduled_date = None
-    due_date = None
-    recurrence_end_date = None
-    if scheduled_date_str := form_data.get("scheduled_date", ""):
-        with contextlib.suppress(ValueError):
-            scheduled_date = date.fromisoformat(scheduled_date_str)
-    if due_date_str := form_data.get("due_date", ""):
-        with contextlib.suppress(ValueError):
-            due_date = date.fromisoformat(due_date_str)
-    if recurrence_end_date_str := form_data.get("recurrence_end_date", ""):
-        with contextlib.suppress(ValueError):
-            recurrence_end_date = date.fromisoformat(recurrence_end_date_str)
+    scheduled_date = parse_date_safe(form_data.get("scheduled_date", ""))
+    due_date = parse_date_safe(form_data.get("due_date", ""))
+    recurrence_end_date = parse_date_safe(form_data.get("recurrence_end_date", ""))
 
     return TaskCreateRequest(
         title=title,

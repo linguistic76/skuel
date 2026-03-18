@@ -16,16 +16,19 @@ Routes:
 
 __version__ = "2.0"
 
-import contextlib
-from dataclasses import dataclass
-from datetime import datetime
 from typing import Any, cast
 
 from fasthtml.common import H1, H2, H3, Div, Form, Option, P, Span
 from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
-from adapters.inbound.form_helpers import safe_form_string
+from adapters.inbound.form_helpers import (
+    ActivityFilters,
+    parse_activity_filters,
+    parse_datetime_safe,
+    parse_enum_safe,
+    safe_form_string,
+)
 from adapters.inbound.route_factories import (
     QuickAddConfig,
     QuickAddRouteFactory,
@@ -42,6 +45,7 @@ from core.models.enums import Priority as PriorityEnum
 from core.models.enums.choice_enums import ChoiceType
 from core.ports.query_types import ActivityFilterSpec
 from core.services.choices_service import ChoicesService
+
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 from core.utils.type_converters import get_enum_attr_str
@@ -67,24 +71,9 @@ DOMAINS = ["personal", "business", "health", "finance", "social"]
 # RouteDecorator and Request imported from adapters.inbound.fasthtml_types
 
 
-@dataclass
-class Filters:
-    """Typed filters for choice list queries."""
-
-    status: str
-    sort_by: str
-
-    def to_dict(self) -> ActivityFilterSpec:
-        """Convert to dict keyed for ChoicesViewComponents.render_list_view."""
-        return {"status": self.status, "sort_by": self.sort_by}
-
-
-def parse_filters(request) -> Filters:
+def parse_filters(request) -> ActivityFilters:
     """Extract filter parameters from request query params."""
-    return Filters(
-        status=request.query_params.get("filter_status", "pending"),
-        sort_by=request.query_params.get("sort_by", "deadline"),
-    )
+    return parse_activity_filters(request, default_status="pending", default_sort_by="deadline")
 
 
 # ============================================================================
@@ -128,24 +117,12 @@ def parse_choice_create_request(
     options = parse_options_from_form(form_data)
 
     # Parse deadline
-    decision_deadline = None
-    if deadline_str:
-        with contextlib.suppress(ValueError):
-            decision_deadline = datetime.fromisoformat(deadline_str)
+    decision_deadline = parse_datetime_safe(deadline_str)
 
     # Map string values to enums (guard against invalid form input)
-    try:
-        choice_type_enum = ChoiceType(choice_type) if choice_type else ChoiceType.MULTIPLE
-    except ValueError:
-        choice_type_enum = ChoiceType.MULTIPLE
-    try:
-        domain_enum = DomainEnum(domain) if domain else DomainEnum.PERSONAL
-    except ValueError:
-        domain_enum = DomainEnum.PERSONAL
-    try:
-        priority_enum = PriorityEnum(priority) if priority else PriorityEnum.MEDIUM
-    except ValueError:
-        priority_enum = PriorityEnum.MEDIUM
+    choice_type_enum = parse_enum_safe(ChoiceType, choice_type, ChoiceType.MULTIPLE)
+    domain_enum = parse_enum_safe(DomainEnum, domain, DomainEnum.PERSONAL)
+    priority_enum = parse_enum_safe(PriorityEnum, priority, PriorityEnum.MEDIUM)
 
     option_requests = [
         ChoiceOptionCreateRequest(title=opt["title"], description=opt["description"])
@@ -170,14 +147,8 @@ def parse_choice_update_request(form: Any) -> EntityUpdateRequest:
     priority_str = safe_form_string(form.get("priority")) or "medium"
     domain_str = safe_form_string(form.get("domain")) or "personal"
 
-    try:
-        priority_enum = PriorityEnum(priority_str)
-    except ValueError:
-        priority_enum = PriorityEnum.MEDIUM
-    try:
-        domain_enum = DomainEnum(domain_str)
-    except ValueError:
-        domain_enum = DomainEnum.PERSONAL
+    priority_enum = parse_enum_safe(PriorityEnum, priority_str, PriorityEnum.MEDIUM)
+    domain_enum = parse_enum_safe(DomainEnum, domain_str, DomainEnum.PERSONAL)
 
     return EntityUpdateRequest(
         title=title if title else None,

@@ -16,7 +16,6 @@ Routes:
 
 __version__ = "2.0"
 
-from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import Any
 
@@ -24,7 +23,12 @@ from fasthtml.common import H1, H2, H3, Div, P, Span
 from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
-from adapters.inbound.form_helpers import safe_form_string
+from adapters.inbound.form_helpers import (
+    ActivityFilters,
+    parse_activity_filters,
+    parse_enum_safe,
+    safe_form_string,
+)
 from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
 from adapters.inbound.ui_helpers import (
     parse_calendar_params,
@@ -33,7 +37,6 @@ from core.models.enums import Priority, RecurrencePattern
 from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.habit_enums import HabitCategory
 from core.models.habit.habit_request import HabitCreateRequest
-from core.ports.query_types import ActivityFilterSpec
 from core.services.habits_service import HabitsService
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -381,24 +384,9 @@ def get_status_color(status) -> Any:
 # ============================================================================
 
 
-@dataclass
-class Filters:
-    """Typed filters for habit list queries."""
-
-    status: str
-    sort_by: str
-
-    def to_dict(self) -> ActivityFilterSpec:
-        """Convert to dict keyed for HabitsViewComponents.render_list_view."""
-        return {"status": self.status, "sort_by": self.sort_by}
-
-
-def parse_filters(request) -> Filters:
+def parse_filters(request) -> ActivityFilters:
     """Extract filter parameters from request query params."""
-    return Filters(
-        status=request.query_params.get("filter_status", "active"),
-        sort_by=request.query_params.get("sort_by", "streak"),
-    )
+    return parse_activity_filters(request, default_status="active", default_sort_by="streak")
 
 
 # ============================================================================
@@ -422,14 +410,8 @@ def parse_habit_create_request(form_data: dict[str, Any]) -> HabitCreateRequest:
     except ValueError:
         target_days_int = 7
 
-    try:
-        category = HabitCategory(category_str) if category_str else HabitCategory.OTHER
-    except ValueError:
-        category = HabitCategory.OTHER
-    try:
-        recurrence = RecurrencePattern(frequency_str) if frequency_str else RecurrencePattern.DAILY
-    except ValueError:
-        recurrence = RecurrencePattern.DAILY
+    category = parse_enum_safe(HabitCategory, category_str, HabitCategory.OTHER)
+    recurrence = parse_enum_safe(RecurrencePattern, frequency_str, RecurrencePattern.DAILY)
 
     return HabitCreateRequest(
         name=name,
