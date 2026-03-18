@@ -30,6 +30,7 @@ from fasthtml.common import H1, H2, H3, A, Div, P, Span
 from adapters.inbound.auth import make_service_getter, require_admin
 from core.utils.logging import get_logger
 from ui.admin.layout import create_admin_page
+from ui.patterns.error_banner import render_error_banner
 from ui.admin.types import UserCardData
 from ui.admin.views import (
     AdminAnalyticsComponents,
@@ -187,11 +188,21 @@ def create_admin_dashboard_routes(_app, rt, services):
             role_filter=role_filter_str,
             active_only=active_only,
         )
+        if users_result.is_error:
+            logger.error(f"Failed to load users: {users_result.error}")
         users_data = users_result.value if not users_result.is_error else []
 
         # Fetch stats for header
         user_stats = await _get_user_stats(services)
         system_status = await _get_system_status(services)
+
+        users_error_banner = (
+            render_error_banner(
+                "Failed to load user list", str(users_result.error), severity="warning"
+            )
+            if users_result.is_error
+            else None
+        )
 
         content = Div(
             # Page header
@@ -215,6 +226,8 @@ def create_admin_dashboard_routes(_app, rt, services):
                 ),
                 cls="bg-background shadow-sm p-4 mb-6",
             ),
+            # Error banner (if user list failed)
+            users_error_banner,
             # User table
             Card(
                 H3("Users", cls="text-lg font-semibold mb-3"),
@@ -259,7 +272,13 @@ def create_admin_dashboard_routes(_app, rt, services):
             role_filter=role_filter_str,
             active_only=active_only,
         )
-        users_data = users_result.value if not users_result.is_error else []
+        if users_result.is_error:
+            logger.error(f"Failed to load users: {users_result.error}")
+            return Div(
+                render_error_banner("Failed to load user list", str(users_result.error)),
+                id="user-list",
+            )
+        users_data = users_result.value or []
 
         return Div(
             AdminUIComponents.render_users_table(users_data),
@@ -310,6 +329,8 @@ def create_admin_dashboard_routes(_app, rt, services):
 
         # Fetch user activity stats
         detail_stats_result = await services.admin_stats.get_user_detail_stats(uid)
+        if detail_stats_result.is_error:
+            logger.warning(f"Failed to load detail stats for {uid}: {detail_stats_result.error}")
         detail_stats = detail_stats_result.value if not detail_stats_result.is_error else {}
 
         # Fetch user's reports
@@ -628,8 +649,12 @@ def create_admin_dashboard_routes(_app, rt, services):
         """
         system_status = await _get_system_status(services)
         ku_metrics_result = await services.admin_stats.get_entity_system_metrics()
+        if ku_metrics_result.is_error:
+            logger.error(f"Failed to load KU metrics: {ku_metrics_result.error}")
         ku_metrics = ku_metrics_result.value if not ku_metrics_result.is_error else {}
         user_progress_result = await services.admin_stats.get_all_users_progress()
+        if user_progress_result.is_error:
+            logger.error(f"Failed to load user progress: {user_progress_result.error}")
         user_progress = user_progress_result.value if not user_progress_result.is_error else []
 
         content = Div(
@@ -698,6 +723,8 @@ def create_admin_dashboard_routes(_app, rt, services):
 
         user = user_result.value
         user_ku_detail_result = await services.admin_stats.get_user_ku_detail(uid)
+        if user_ku_detail_result.is_error:
+            logger.warning(f"Failed to load KU detail for {uid}: {user_ku_detail_result.error}")
         user_ku_detail = user_ku_detail_result.value if not user_ku_detail_result.is_error else {}
 
         content = Div(

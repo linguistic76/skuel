@@ -47,6 +47,7 @@ from ui.feedback import Alert, AlertT, Badge, BadgeT
 from ui.forms import Select
 from ui.layout import Size
 from ui.layouts.base_page import BasePage
+from ui.patterns.error_banner import render_error_banner
 from ui.patterns.page_header import PageHeader
 from ui.study.layout import create_study_page
 from ui.submissions.cards import (
@@ -156,11 +157,7 @@ def create_study_ui_routes(
             context = await _get_context(user_uid)
         except ValueError as e:
             return await BasePage(
-                Div(
-                    H1("Error", cls="text-3xl font-bold text-error mb-4"),
-                    P(str(e), cls="text-lg text-muted-foreground"),
-                    cls="flex flex-col items-center justify-center min-h-[400px] p-8",
-                ),
+                render_error_banner("Unable to load study dashboard", str(e)),
                 title="Study",
                 request=request,
                 active_page="study",
@@ -398,16 +395,21 @@ def create_study_ui_routes(
             user_uid = require_authenticated_user(request)
             if not submissions_search_service:
                 return Div(
-                    P("Submissions service unavailable.", cls="text-center text-error"),
+                    render_error_banner("Submissions service unavailable"),
                     id="submissions-yours-list",
                 )
             result = await submissions_search_service.get_submissions_with_feedback_status(user_uid)
-            items = result.value if not result.is_error else []
-            return render_yours_list(items)
+            if result.is_error:
+                logger.error(f"Error loading submissions history: {result.error}")
+                return Div(
+                    render_error_banner("Failed to load submissions", str(result.error)),
+                    id="submissions-yours-list",
+                )
+            return render_yours_list(result.value or [])
         except Exception as e:
             logger.error(f"Error loading submissions history: {e}", exc_info=True)
             return Div(
-                P("Error loading submissions.", cls="text-center text-error"),
+                render_error_banner("Error loading submissions", str(e)),
                 id="submissions-yours-list",
             )
 
@@ -481,7 +483,7 @@ def create_study_ui_routes(
 
             if result.is_error:
                 return Div(
-                    P("Failed to load reports", cls="text-center text-error"),
+                    render_error_banner("Failed to load reports", str(result.error)),
                     id="submissions-grid-container",
                 )
 
@@ -491,7 +493,7 @@ def create_study_ui_routes(
         except Exception as e:
             logger.error(f"Error loading reports: {e}", exc_info=True)
             return Div(
-                P(f"Error: {e}", cls="text-center text-error"),
+                render_error_banner("Error loading reports", str(e)),
                 id="submissions-grid-container",
             )
 
@@ -502,18 +504,23 @@ def create_study_ui_routes(
             user_uid = require_authenticated_user(request)
             if not submissions_core_service:
                 return Div(
-                    P("Feedback service unavailable.", cls="text-center text-error"),
+                    render_error_banner("Feedback service unavailable"),
                     id="feedback-list",
                 )
             result = await submissions_core_service.get_assessments_for_student(
                 student_uid=user_uid
             )
-            items = result.value if not result.is_error else []
-            return render_received_report_list(items)
+            if result.is_error:
+                logger.error(f"Error loading feedback list: {result.error}")
+                return Div(
+                    render_error_banner("Failed to load feedback", str(result.error)),
+                    id="feedback-list",
+                )
+            return render_received_report_list(result.value or [])
         except Exception as e:
             logger.error(f"Error loading feedback list: {e}", exc_info=True)
             return Div(
-                P("Error loading feedback.", cls="text-center text-error"),
+                render_error_banner("Error loading feedback", str(e)),
                 id="feedback-list",
             )
 
@@ -524,19 +531,23 @@ def create_study_ui_routes(
             user_uid = require_authenticated_user(request)
             if not activity_report_service:
                 return Div(
-                    P(
-                        "Activity feedback unavailable.",
-                        cls="text-center text-muted-foreground py-4",
+                    render_error_banner(
+                        "Activity feedback service unavailable", severity="warning"
                     ),
                     id="activity-feedback-list",
                 )
             result = await activity_report_service.get_history(subject_uid=user_uid, limit=10)
-            items = result.value if not result.is_error else []
-            return render_activity_report_list(items)
+            if result.is_error:
+                logger.error(f"Error loading activity feedback: {result.error}")
+                return Div(
+                    render_error_banner("Failed to load activity feedback", str(result.error)),
+                    id="activity-feedback-list",
+                )
+            return render_activity_report_list(result.value or [])
         except Exception as e:
             logger.error(f"Error loading activity feedback list: {e}", exc_info=True)
             return Div(
-                P("Error loading activity feedback.", cls="text-center text-error"),
+                render_error_banner("Error loading activity feedback", str(e)),
                 id="activity-feedback-list",
             )
 
@@ -550,12 +561,17 @@ def create_study_ui_routes(
                 entity_type=EntityType.ACTIVITY_REPORT,
                 limit=10,
             )
-            items = result.value if not result.is_error else []
-            return render_progress_report_list(items)
+            if result.is_error:
+                logger.error(f"Error loading progress reports: {result.error}")
+                return Div(
+                    render_error_banner("Failed to load progress reports", str(result.error)),
+                    id="progress-list",
+                )
+            return render_progress_report_list(result.value or [])
         except Exception as e:
             logger.error(f"Error loading progress report list: {e}", exc_info=True)
             return Div(
-                P("Error loading progress reports.", cls="text-center text-error"),
+                render_error_banner("Error loading progress reports", str(e)),
                 id="progress-list",
             )
 
@@ -637,7 +653,13 @@ def create_study_ui_routes(
                 )
 
             history_result = await teacher_review_service.get_report_history(uid)
-            items = history_result.value if not history_result.is_error else []
+            if history_result.is_error:
+                logger.error(f"Error loading feedback for {uid}: {history_result.error}")
+                return Div(
+                    render_error_banner("Failed to load feedback", str(history_result.error)),
+                    id="feedback-section",
+                )
+            items = history_result.value or []
 
             if not items:
                 return Div(
@@ -654,7 +676,7 @@ def create_study_ui_routes(
         except Exception as e:
             logger.error(f"Error loading feedback for {uid}: {e}", exc_info=True)
             return Div(
-                P("Error loading feedback.", cls="text-error"),
+                render_error_banner("Error loading feedback", str(e)),
                 id="feedback-section",
             )
 

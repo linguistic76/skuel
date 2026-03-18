@@ -33,6 +33,7 @@ from ui.buttons import Button, ButtonLink, ButtonT
 from ui.cards import Card, CardBody
 from ui.forms import Textarea
 from ui.layout import Size
+from ui.patterns.error_banner import render_error_banner
 from ui.patterns.page_header import PageHeader
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 from ui.teaching.cards import (
@@ -151,7 +152,9 @@ def create_teaching_ui_routes(
         user_uid = require_authenticated_user(request)
 
         result = await teacher_review_service.get_dashboard_stats(teacher_uid=user_uid)
-        raw_stats = result.value if result.is_ok else {}
+        if result.is_error:
+            logger.error(f"Failed to load dashboard stats: {result.error}")
+        raw_stats = result.value if not result.is_error else {}
         stats = TeachingDashboardStats(
             pending_count=raw_stats.get("pending_count", 0),
             total_students=raw_stats.get("total_students", 0),
@@ -185,8 +188,8 @@ def create_teaching_ui_routes(
         result = await teacher_review_service.get_review_queue(teacher_uid=user_uid)
 
         if result.is_error:
-            queue_content: Any = Div(
-                P("Failed to load review queue", cls="text-center text-error"),
+            queue_content: Any = render_error_banner(
+                "Failed to load review queue", str(result.error)
             )
         elif not result.value:
             queue_content = render_empty_state(
@@ -224,8 +227,8 @@ def create_teaching_ui_routes(
         )
 
         if result.is_error:
-            list_content: Any = Div(
-                P("Failed to load approved submissions", cls="text-center text-error"),
+            list_content: Any = render_error_banner(
+                "Failed to load approved submissions", str(result.error)
             )
         elif not result.value:
             list_content = Div(
@@ -262,7 +265,7 @@ def create_teaching_ui_routes(
             submission_uid=uid, teacher_uid=user_uid
         )
         submission_section: Any = ""
-        if detail_result.is_ok and detail_result.value:
+        if not detail_result.is_error and detail_result.value:
             d = detail_result.value
             detail = SubmissionDetail(
                 title=d.get("title", "Untitled"),
@@ -395,9 +398,7 @@ def create_teaching_ui_routes(
         )
 
         if result.is_error:
-            page_content: Any = Div(
-                P("Failed to load exercises", cls="text-center text-error"),
-            )
+            page_content: Any = render_error_banner("Failed to load exercises", str(result.error))
         elif not result.value:
             page_content = render_empty_state(
                 "No exercises yet",
@@ -451,7 +452,7 @@ def create_teaching_ui_routes(
         groups_result = await teacher_review_service.get_teacher_groups_with_stats(
             teacher_uid=user_uid
         )
-        groups = groups_result.value if groups_result.is_ok else []
+        groups = groups_result.value if not groups_result.is_error else []
 
         content = Div(
             PageHeader("New Exercise", subtitle="Create an exercise for your students"),
@@ -482,12 +483,12 @@ def create_teaching_ui_routes(
         user_uid = require_authenticated_user(request)
 
         exercise_result = await exercises_service.get_exercise(uid)
-        exercise: Any = exercise_result.value if exercise_result.is_ok else None
+        exercise: Any = exercise_result.value if not exercise_result.is_error else None
 
         groups_result = await teacher_review_service.get_teacher_groups_with_stats(
             teacher_uid=user_uid
         )
-        groups = groups_result.value if groups_result.is_ok else []
+        groups = groups_result.value if not groups_result.is_error else []
 
         title = getattr(exercise, "title", uid) if exercise else uid
         content = Div(
@@ -519,7 +520,7 @@ def create_teaching_ui_routes(
         result = await teacher_review_service.get_submissions_for_exercise(exercise_uid=uid)
 
         if result.is_error:
-            rows: Any = Div(P("Failed to load submissions", cls="text-center text-error"))
+            rows: Any = render_error_banner("Failed to load submissions", str(result.error))
         elif not result.value:
             rows = Div(
                 P(
@@ -569,8 +570,8 @@ def create_teaching_ui_routes(
         result = await teacher_review_service.get_students_summary(teacher_uid=user_uid)
 
         if result.is_error:
-            students_content: Any = Div(
-                P("Failed to load students", cls="text-center text-error"),
+            students_content: Any = render_error_banner(
+                "Failed to load students", str(result.error)
             )
         elif not result.value:
             students_content = render_empty_state(
@@ -621,8 +622,8 @@ def create_teaching_ui_routes(
         )
 
         if result.is_error:
-            submission_rows: Any = Div(
-                P("Failed to load submissions", cls="text-center text-error")
+            submission_rows: Any = render_error_banner(
+                "Failed to load submissions", str(result.error)
             )
         elif not result.value:
             submission_rows = Div(
@@ -673,9 +674,7 @@ def create_teaching_ui_routes(
         result = await teacher_review_service.get_teacher_groups_with_stats(teacher_uid=user_uid)
 
         if result.is_error:
-            classes_content: Any = Div(
-                P("Failed to load classes", cls="text-center text-error"),
-            )
+            classes_content: Any = render_error_banner("Failed to load classes", str(result.error))
         elif not result.value:
             classes_content = Div(
                 Div(
@@ -736,8 +735,8 @@ def create_teaching_ui_routes(
         result = await teacher_review_service.get_group_detail(group_uid=uid, teacher_uid=user_uid)
 
         if result.is_error:
-            members_content: Any = Div(
-                P("Failed to load class members", cls="text-center text-error")
+            members_content: Any = render_error_banner(
+                "Failed to load class members", str(result.error)
             )
         elif not result.value:
             members_content = Div(

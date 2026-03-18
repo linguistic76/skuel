@@ -22,6 +22,7 @@ from ui.layout import Size
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
 from ui.patterns.empty_state import EmptyState
+from ui.patterns.error_banner import render_error_banner
 from ui.patterns.page_header import PageHeader
 
 logger = get_logger("skuel.routes.insights.ui")
@@ -137,9 +138,11 @@ def create_insights_ui_routes(
             limit=page_size,  # Initial load: 10 insights only
         )
 
+        insights_load_error = False
         if result.is_error:
             logger.error(f"Failed to retrieve insights: {result.error}")
             insights = []
+            insights_load_error = True
         else:
             insights = filter_insights(result.value, filters)
 
@@ -375,6 +378,12 @@ def create_insights_ui_routes(
                     cls="htmx-indicator",
                 ),
             )
+        elif insights_load_error:
+            # Error state — service failed
+            insight_cards = render_error_banner(
+                "Unable to load insights. Please try again later.",
+                str(result.error),
+            )
         else:
             # Empty state
             insight_cards = EmptyState(
@@ -464,9 +473,11 @@ def create_insights_ui_routes(
         # Get insight stats
         result = await insight_store.get_insight_stats(user_uid)
 
+        stats_load_error = False
         if result.is_error:
             logger.error(f"Failed to retrieve insight stats: {result.error}")
             stats = {}
+            stats_load_error = True
         else:
             stats = result.value
 
@@ -515,6 +526,9 @@ def create_insights_ui_routes(
                 title="📊 Insight Statistics",
                 subtitle="Track how you're using insights to improve",
             ),
+            render_error_banner("Unable to load insight statistics", str(result.error))
+            if stats_load_error
+            else None,
             stats_content,
             cls="space-y-6",
         )
@@ -549,7 +563,7 @@ def create_insights_ui_routes(
 
         if result.is_error:
             logger.error(f"Failed to retrieve insights: {result.error}")
-            return Div(P("Failed to load more insights", cls="text-error"))
+            return render_error_banner("Failed to load more insights", str(result.error))
 
         all_insights = filter_insights(result.value, filters)
 

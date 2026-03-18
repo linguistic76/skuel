@@ -16,6 +16,7 @@ from fasthtml.common import Div, Li, P, Span, Ul
 
 from core.models.ku.ku import Ku
 from core.utils.logging import get_logger
+from ui.patterns.error_banner import render_error_banner
 from ui.patterns.pin_button import PinButton
 from ui.patterns.sidebar import SidebarItem, SidebarLink, SidebarPage
 
@@ -150,9 +151,13 @@ def create_ku_ui_routes(_app, rt, ku_service, user_relationship_service=None):
 
         # Fetch all Kus
         kus: list[Ku] = []
+        ku_load_error = False
         if ku_service and getattr(ku_service, "core", None):
             result = await ku_service.core.list(limit=500)
-            if not result.is_error and result.value:
+            if result.is_error:
+                logger.error(f"Failed to load knowledge units: {result.error}")
+                ku_load_error = True
+            elif result.value:
                 entities, _count = result.value
                 kus = entities
 
@@ -162,7 +167,9 @@ def create_ku_ui_routes(_app, rt, ku_service, user_relationship_service=None):
         if user_relationship_service and is_authenticated(request):
             user_uid = require_authenticated_user(request)
             pins_result = await user_relationship_service.get_pinned_entities(user_uid)
-            if not pins_result.is_error and pins_result.value:
+            if pins_result.is_error:
+                logger.warning(f"Failed to load bookmarks: {pins_result.error}")
+            elif pins_result.value:
                 pinned_uids = set(pins_result.value)
 
         # Build pinned Kus list (matching pinned UIDs to Ku objects)
@@ -176,7 +183,9 @@ def create_ku_ui_routes(_app, rt, ku_service, user_relationship_service=None):
         sidebar_items, extra_sections = _build_sidebar_items(pinned_kus, latest_kus)
 
         # Build main content — flat listing
-        if kus:
+        if ku_load_error:
+            ku_list = render_error_banner("Unable to load knowledge units. Please try again later.")
+        elif kus:
             ku_list = Ul(
                 *[_render_ku_row(ku, pinned_uids) for ku in kus],
                 cls="list-none p-0",

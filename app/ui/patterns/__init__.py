@@ -2,6 +2,7 @@
 
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.entity_card import EntityCard
+from ui.patterns.error_banner import render_empty_state_with_error, render_error_banner
 from ui.patterns.form_generator import FormGenerator
 from ui.patterns.page_header import PageHeader
 from ui.patterns.progress_metric import ProgressMetric
@@ -21,4 +22,6 @@ __all__ = [
     "SettingToggle",
     "StatCard",
     "StatsGrid",
+    "render_empty_state_with_error",
+    "render_error_banner",
 ]

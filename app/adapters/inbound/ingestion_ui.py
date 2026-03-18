@@ -24,6 +24,7 @@ from ui.patterns import PageHeader, SectionHeader
 
 logger = get_logger("skuel.routes.ingestion_ui")
 
+
 def _get_default_vault_path() -> str:
     """Get default ingestion path from configuration."""
     return str(get_vault_config().ingestion_path)
