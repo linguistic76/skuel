@@ -73,7 +73,13 @@ def create_admin_dashboard_routes(_app, rt, services):
             Admin page with overview content
         """
         # Fetch system health
-        system_status = await _get_system_status(services)
+        system_status, status_error = await _get_system_status(services)
+
+        system_status_content = (
+            render_error_banner("System status unavailable", severity="warning")
+            if status_error
+            else _render_system_summary(system_status)
+        )
 
         content = Div(
             # Page header
@@ -141,7 +147,7 @@ def create_admin_dashboard_routes(_app, rt, services):
             # System status summary
             Card(
                 H2("System Status", cls="text-xl font-semibold mb-4"),
-                _render_system_summary(system_status),
+                system_status_content,
                 cls="bg-background shadow-sm p-6",
             ),
         )
@@ -193,8 +199,8 @@ def create_admin_dashboard_routes(_app, rt, services):
         users_data = users_result.value if not users_result.is_error else []
 
         # Fetch stats for header
-        user_stats = await _get_user_stats(services)
-        system_status = await _get_system_status(services)
+        user_stats, stats_error = await _get_user_stats(services)
+        system_status, _status_error = await _get_system_status(services)
 
         users_error_banner = (
             render_error_banner(
@@ -204,18 +210,27 @@ def create_admin_dashboard_routes(_app, rt, services):
             else None
         )
 
+        subtitle = (
+            "User statistics unavailable"
+            if stats_error
+            else f"{user_stats.get('total', 0)} total users"
+        )
+
+        stats_content = (
+            render_error_banner("User statistics unavailable", severity="warning")
+            if stats_error
+            else AdminUIComponents.render_user_stats(user_stats)
+        )
+
         content = Div(
             # Page header
             Div(
                 H1("User Management", cls="text-3xl font-bold"),
-                P(
-                    f"{user_stats.get('total', 0)} total users",
-                    cls="text-muted-foreground mt-1",
-                ),
+                P(subtitle, cls="text-muted-foreground mt-1"),
                 cls="mb-6",
             ),
             # Stats
-            AdminUIComponents.render_user_stats(user_stats),
+            stats_content,
             # Filters
             Card(
                 H3("Filters", cls="text-lg font-semibold mb-3"),
@@ -325,13 +340,14 @@ def create_admin_dashboard_routes(_app, rt, services):
             last_login_at=user.last_login_at.isoformat() if user.last_login_at else "Never",
         )
 
-        system_status = await _get_system_status(services)
+        system_status, _status_error = await _get_system_status(services)
 
         # Fetch user activity stats
         detail_stats_result = await services.admin_stats.get_user_detail_stats(uid)
-        if detail_stats_result.is_error:
+        detail_stats_error = detail_stats_result.is_error
+        if detail_stats_error:
             logger.warning(f"Failed to load detail stats for {uid}: {detail_stats_result.error}")
-        detail_stats = detail_stats_result.value if not detail_stats_result.is_error else {}
+        detail_stats = detail_stats_result.value if not detail_stats_error else {}
 
         # Fetch user's reports
         reports_data: list = []
@@ -393,7 +409,9 @@ def create_admin_dashboard_routes(_app, rt, services):
             # Activity, Learning & Session stats
             Card(
                 H2("User Statistics", cls="text-xl font-semibold mb-4"),
-                AdminUIComponents.render_user_activity_stats(detail_stats, uid),
+                render_error_banner("User statistics unavailable", severity="warning")
+                if detail_stats_error
+                else AdminUIComponents.render_user_activity_stats(detail_stats, uid),
                 cls="bg-background shadow-sm p-6 mb-6",
             ),
             # Reports section
@@ -479,8 +497,8 @@ def create_admin_dashboard_routes(_app, rt, services):
             Admin page with analytics content
         """
         # Fetch user stats
-        user_stats = await _get_user_stats(services)
-        system_status = await _get_system_status(services)
+        user_stats, _stats_error = await _get_user_stats(services)
+        system_status, _status_error = await _get_system_status(services)
 
         # Initialize activity stats with None to detect missing services
         activity_stats = {
@@ -647,15 +665,17 @@ def create_admin_dashboard_routes(_app, rt, services):
 
         Shows system-wide KU metrics and per-user progress table.
         """
-        system_status = await _get_system_status(services)
+        system_status, _status_error = await _get_system_status(services)
         ku_metrics_result = await services.admin_stats.get_entity_system_metrics()
-        if ku_metrics_result.is_error:
+        ku_metrics_error = ku_metrics_result.is_error
+        if ku_metrics_error:
             logger.error(f"Failed to load KU metrics: {ku_metrics_result.error}")
-        ku_metrics = ku_metrics_result.value if not ku_metrics_result.is_error else {}
+        ku_metrics = ku_metrics_result.value if not ku_metrics_error else {}
         user_progress_result = await services.admin_stats.get_all_users_progress()
-        if user_progress_result.is_error:
+        user_progress_error = user_progress_result.is_error
+        if user_progress_error:
             logger.error(f"Failed to load user progress: {user_progress_result.error}")
-        user_progress = user_progress_result.value if not user_progress_result.is_error else []
+        user_progress = user_progress_result.value if not user_progress_error else []
 
         content = Div(
             # Page header
@@ -670,13 +690,17 @@ def create_admin_dashboard_routes(_app, rt, services):
             # System-wide KU metrics
             Card(
                 H2("Knowledge Unit Overview", cls="text-xl font-semibold mb-4"),
-                AdminLearningComponents.render_ku_system_metrics(ku_metrics),
+                render_error_banner("Knowledge unit metrics unavailable", severity="warning")
+                if ku_metrics_error
+                else AdminLearningComponents.render_ku_system_metrics(ku_metrics),
                 cls="bg-background shadow-sm p-6 mb-6",
             ),
             # User progress table
             Card(
                 H2("User KU Progress", cls="text-xl font-semibold mb-4"),
-                AdminLearningComponents.render_user_progress_table(user_progress),
+                render_error_banner("User progress data unavailable", severity="warning")
+                if user_progress_error
+                else AdminLearningComponents.render_user_progress_table(user_progress),
                 cls="bg-background shadow-sm p-6",
             ),
         )
@@ -698,7 +722,7 @@ def create_admin_dashboard_routes(_app, rt, services):
 
         Shows viewed, in-progress, and mastered KUs with timestamps.
         """
-        system_status = await _get_system_status(services)
+        system_status, _status_error = await _get_system_status(services)
 
         # Get user info
         user_result = await services.user_service.get_user(uid)
@@ -782,8 +806,8 @@ def create_admin_dashboard_routes(_app, rt, services):
 # ============================================================================
 
 
-async def _get_user_stats(services) -> dict:
-    """Get user statistics for dashboard."""
+async def _get_user_stats(services) -> tuple[dict, bool]:
+    """Get user statistics for dashboard. Returns (stats, had_error)."""
     stats = {
         "total": 0,
         "admins": 0,
@@ -800,7 +824,10 @@ async def _get_user_stats(services) -> dict:
             active_only=False,
         )
 
-        if not result.is_error and result.value:
+        if result.is_error:
+            return stats, True
+
+        if result.value:
             users = result.value
             stats["total"] = len(users)
 
@@ -808,25 +835,26 @@ async def _get_user_stats(services) -> dict:
                 role = user.role.value.lower()
                 if role in stats:
                     stats[role] += 1
+        return stats, False
     except Exception:  # safety-net: dashboard degrades gracefully on stats failure
-        pass
-
-    return stats
+        return stats, True
 
 
-async def _get_system_status(services) -> dict[str, Any]:
-    """Get system health status."""
+async def _get_system_status(services) -> tuple[dict[str, Any], bool]:
+    """Get system health status. Returns (status_dict, had_error)."""
     try:
         if services.system_service:
             result = await services.system_service.get_health_status()
             if not result.is_error:
-                return (
+                status = (
                     dict(result.value) if result.value else {"status": "unknown", "healthy": True}
                 )
+                return status, False
+            return {"status": "unknown", "healthy": True}, True
     except Exception as e:  # safety-net: dashboard degrades gracefully on health check failure
         logger.warning(f"Failed to get system status: {e}")
 
-    return {"status": "unknown", "healthy": True}
+    return {"status": "unknown", "healthy": True}, True
 
 
 def _render_system_summary(status_data: dict) -> Div:

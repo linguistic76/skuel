@@ -152,9 +152,10 @@ def create_teaching_ui_routes(
         user_uid = require_authenticated_user(request)
 
         result = await teacher_review_service.get_dashboard_stats(teacher_uid=user_uid)
-        if result.is_error:
+        stats_error = result.is_error
+        if stats_error:
             logger.error(f"Failed to load dashboard stats: {result.error}")
-        raw_stats = result.value if not result.is_error else {}
+        raw_stats = result.value if not stats_error else {}
         stats = TeachingDashboardStats(
             pending_count=raw_stats.get("pending_count", 0),
             total_students=raw_stats.get("total_students", 0),
@@ -164,6 +165,9 @@ def create_teaching_ui_routes(
 
         content = Div(
             PageHeader("Teaching Overview", subtitle="Your teaching activity at a glance"),
+            render_error_banner("Dashboard statistics may be incomplete", severity="warning")
+            if stats_error
+            else None,
             render_dashboard(stats),
         )
         return await SidebarPage(

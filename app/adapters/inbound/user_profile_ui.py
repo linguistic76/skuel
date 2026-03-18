@@ -504,21 +504,20 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
         """
         Get intelligence data for OverviewView if available.
 
-        Calls UserContextIntelligence methods to get:
+        Calls UserContextIntelligence methods independently to get:
         - Daily work plan (THE flagship)
         - Life path alignment (5 dimensions)
         - Cross-domain synergies
         - Optimal learning steps
 
-        Error Handling Strategy:
-        - Configuration errors (AttributeError, TypeError, KeyError) → basic mode
-        - Runtime computation errors → Result.fail() (propagates to HTTP boundary)
-        - Service not available → basic mode
+        Each call is independent — a failure in one does not block the others.
+        Partial failures are tracked in ``partial_errors`` so the UI can show
+        a warning banner while still rendering the sections that succeeded.
 
         Returns:
-            - Result.ok(dict) - Intelligence data when fully configured
+            - Result.ok(dict) - Intelligence data (some values may be None on partial failure)
             - Result.ok(None) - Intelligence not available (use basic mode UI)
-            - Result.fail() - Actual error during intelligence computation
+            - Result.fail() - All intelligence calls failed
 
         Profile Hub operates in two modes:
         - Basic mode: Core profile data always works
@@ -531,56 +530,69 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
 
         try:
             intelligence = services.context_intelligence.create(context)
-
-            # Methods return Result[T] - propagate errors via Result.fail()
-            plan_result = await intelligence.get_ready_to_work_on_today()
-            if plan_result.is_error:
-                return Result.fail(plan_result.expect_error())
-
-            alignment_result = await intelligence.calculate_life_path_alignment()
-            if alignment_result.is_error:
-                return Result.fail(alignment_result.expect_error())
-
-            synergies_result = await intelligence.get_cross_domain_synergies()
-            if synergies_result.is_error:
-                return Result.fail(synergies_result.expect_error())
-
-            steps_result = await intelligence.get_optimal_next_learning_steps()
-            if steps_result.is_error:
-                return Result.fail(steps_result.expect_error())
-
-            return Result.ok(
-                {
-                    "daily_plan": plan_result.value,
-                    "alignment": alignment_result.value,
-                    "synergies": synergies_result.value,
-                    "learning_steps": steps_result.value,
-                }
-            )
-
         except (AttributeError, TypeError, KeyError) as e:
-            # Configuration errors - intelligence services not properly configured
-            # These are setup issues, not runtime errors - degrade gracefully to basic mode
             logger.warning(
                 "Intelligence services not properly configured - using basic mode",
-                extra={
-                    "error_type": type(e).__name__,
-                    "error_message": str(e),
-                },
+                extra={"error_type": type(e).__name__, "error_message": str(e)},
             )
             return Result.ok(None)
-        except Exception as e:  # safety-net: unexpected intelligence computation error
-            # This is a true runtime error - propagate as failure
-            logger.error(
-                "Unexpected error in intelligence computation",
-                extra={
-                    "error_type": type(e).__name__,
-                    "error_message": str(e),
-                },
-            )
-            from core.utils.result_simplified import Errors
 
-            return Result.fail(Errors.system(f"Intelligence computation failed: {e}"))
+        # Independent calls — partial failures are tracked, not propagated
+        daily_plan = alignment = synergies = learning_steps = None
+        partial_errors: list[str] = []
+
+        try:
+            plan_result = await intelligence.get_ready_to_work_on_today()
+            if plan_result.is_error:
+                partial_errors.append("Daily plan unavailable")
+            else:
+                daily_plan = plan_result.value
+        except Exception as e:  # safety-net: individual intelligence call
+            logger.warning(f"Daily plan call failed: {e}")
+            partial_errors.append("Daily plan unavailable")
+
+        try:
+            alignment_result = await intelligence.calculate_life_path_alignment()
+            if alignment_result.is_error:
+                partial_errors.append("Life path alignment unavailable")
+            else:
+                alignment = alignment_result.value
+        except Exception as e:  # safety-net: individual intelligence call
+            logger.warning(f"Alignment call failed: {e}")
+            partial_errors.append("Life path alignment unavailable")
+
+        try:
+            synergies_result = await intelligence.get_cross_domain_synergies()
+            if synergies_result.is_error:
+                partial_errors.append("Cross-domain synergies unavailable")
+            else:
+                synergies = synergies_result.value
+        except Exception as e:  # safety-net: individual intelligence call
+            logger.warning(f"Synergies call failed: {e}")
+            partial_errors.append("Cross-domain synergies unavailable")
+
+        try:
+            steps_result = await intelligence.get_optimal_next_learning_steps()
+            if steps_result.is_error:
+                partial_errors.append("Learning step recommendations unavailable")
+            else:
+                learning_steps = steps_result.value
+        except Exception as e:  # safety-net: individual intelligence call
+            logger.warning(f"Learning steps call failed: {e}")
+            partial_errors.append("Learning step recommendations unavailable")
+
+        if all(v is None for v in [daily_plan, alignment, synergies, learning_steps]):
+            return Result.fail(Errors.system("All intelligence calls failed"))
+
+        return Result.ok(
+            {
+                "daily_plan": daily_plan,
+                "alignment": alignment,
+                "synergies": synergies,
+                "learning_steps": learning_steps,
+                "partial_errors": partial_errors,
+            }
+        )
 
     @rt("/profile")
     async def profile_page(request: Request) -> Any:
@@ -1282,7 +1294,8 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
 
             return _intelligence_unavailable_card()
 
-        # Full mode - return intelligence section
+        # Full mode - return intelligence section with partial error support
+        from ui.patterns.error_banner import render_error_banner
         from ui.profile.overview import (
             _alignment_breakdown,
             _chart_visualizations_section,
@@ -1291,13 +1304,27 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
             _synergies_card,
         )
 
-        return Div(
-            _chart_visualizations_section(),
-            _alignment_breakdown(intel_data["alignment"]),
-            _daily_work_plan_card(intel_data["daily_plan"]),
-            _synergies_card(intel_data.get("synergies", [])),
-            _learning_steps_card(intel_data.get("learning_steps", [])),
-        )
+        partial_errors = intel_data.get("partial_errors", [])
+        sections: list[Any] = [_chart_visualizations_section()]
+
+        if partial_errors:
+            sections.append(
+                render_error_banner(
+                    "Some intelligence features are temporarily unavailable",
+                    severity="warning",
+                )
+            )
+
+        if intel_data.get("alignment") is not None:
+            sections.append(_alignment_breakdown(intel_data["alignment"]))
+        if intel_data.get("daily_plan") is not None:
+            sections.append(_daily_work_plan_card(intel_data["daily_plan"]))
+        if intel_data.get("synergies") is not None:
+            sections.append(_synergies_card(intel_data["synergies"]))
+        if intel_data.get("learning_steps") is not None:
+            sections.append(_learning_steps_card(intel_data["learning_steps"]))
+
+        return Div(*sections)
 
     logger.info("✅ Profile routes registered (/profile, /profile/{domain}, /profile/settings)")
     logger.info("✅ Profile chart API routes registered (/api/profile/charts/*)")
