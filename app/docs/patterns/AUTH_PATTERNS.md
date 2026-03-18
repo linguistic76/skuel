@@ -132,6 +132,20 @@ async def create_knowledge_unit(request, current_user):
 **Why `current_user: User` instead of `user_uid: str`?**
 Role checking requires fetching the user from the database anyway, so the decorator provides the full entity to avoid duplicate fetches.
 
+**Do not mix patterns:** When using a role decorator, use `current_user.uid` for the user identifier — do NOT also call `require_authenticated_user(request)`. The decorator already authenticates; the extra call is redundant.
+
+```python
+# ✅ CORRECT — use current_user.uid from decorator
+@require_teacher(get_user_service)
+async def create_item(request, current_user):
+    teacher_uid = current_user.uid
+
+# ❌ WRONG — redundant auth call
+@require_teacher(get_user_service)
+async def create_item(request, current_user):
+    teacher_uid = require_authenticated_user(request)  # Already done by decorator
+```
+
 **Available decorators:**
 - `@require_role(UserRole.ADMIN, getter)` - Explicit role requirement
 - `@require_admin(getter)` - Shortcut for ADMIN

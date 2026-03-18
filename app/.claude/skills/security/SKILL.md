@@ -74,8 +74,8 @@ Internal error details (stack traces, Cypher queries, Neo4j internals) are never
 
 When adding a new route, verify:
 
-1. **Authentication** — `user_uid = require_authenticated_user(request)` at the top
-2. **Authorization** — `@require_admin(get_service)` if admin-only; role checks if teacher-only
+1. **Authentication** — `user_uid = require_authenticated_user(request)` for standard routes, OR role decorator (`@require_admin`/`@require_teacher`) for protected routes — never both (the decorator already authenticates; use `current_user.uid` instead)
+2. **Authorization** — `@require_admin(get_service)` if admin-only; `@require_teacher(get_service)` if teacher-only
 3. **Ownership** — For USER_OWNED entities, verify `entity.user_uid == user_uid` (return 404 if not)
 4. **Error boundary** — `@boundary_handler()` wrapping the route handler
 5. **No PII in logs** — Never log user passwords, tokens, or session IDs
