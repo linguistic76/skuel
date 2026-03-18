@@ -1,6 +1,6 @@
 ---
 title: API Validation Patterns
-updated: 2026-03-11
+updated: 2026-03-18
 category: patterns
 related_skills:
 - pydantic
@@ -13,7 +13,7 @@ related_docs:
 
 # API Validation Patterns
 
-*Created: 2026-01-24 | Updated: 2026-03-11*
+*Created: 2026-01-24 | Updated: 2026-03-18*
 
 ## Quick Start
 
@@ -167,6 +167,110 @@ async def complete_task(request: Request, task_uid: str) -> Result[Any]:
 - ✅ Self-documenting (model shows expected structure)
 - ✅ Clear validation errors with field-level details
 - ✅ Consistent error handling via `Result.fail()`
+
+---
+
+### HTML Form Parameters: Model-Level `from_form_params()` Classmethod
+
+**Use Case:** Complex search/filter forms with many checkbox, enum, and optional string parameters that need coercion from raw HTML strings to typed values.
+
+**Pattern:** A `@classmethod` on the Pydantic model that encapsulates all form-specific normalization (empty string → None, checkbox string → bool, string → enum). The regular constructor stays clean for API/JSON use.
+
+**Example:**
+```python
+class SearchRequest(BaseModel):
+    status: EntityStatus | None = None
+    ready_to_learn: bool = False
+    # ... 25+ fields
+
+    @classmethod
+    def from_form_params(cls, *, status: str | None = None, ready_to_learn: str | None = None, ...) -> "SearchRequest":
+        """Build from raw HTML form strings."""
+        def _none_if_empty(v: str | None) -> str | None:
+            return None if not v or v.strip() == "" else v
+
+        def _checkbox_to_bool(v: str | None) -> bool:
+            return v == "true" if v else False
+
+        status = _none_if_empty(status)
+        return cls(
+            status=EntityStatus(status) if status else None,
+            ready_to_learn=_checkbox_to_bool(ready_to_learn),
+            ...
+        )
+```
+
+**Usage in Routes:**
+```python
+@rt("/search/results")
+async def search_results(request: Request, query: str = "", status: str | None = None, ...):
+    user_uid = require_authenticated_user(request)
+    search_request = SearchRequest.from_form_params(query=query, user_uid=user_uid, status=status, ...)
+    result = await search_router.faceted_search(search_request, user_uid)
+```
+
+**Benefits:**
+- ✅ Route handler stays thin — no inline normalization logic
+- ✅ Model owns its own coercion rules (single source of truth)
+- ✅ Regular constructor unaffected (JSON/API callers use it directly)
+- ✅ Testable independently of HTTP layer
+
+**Real-world usage:** `SearchRequest.from_form_params()` in `core/models/search_request.py` — handles 25+ form parameters for the search page.
+
+---
+
+### Date and Integer Query Parameters with `Result[T]`
+
+**Use Case:** Routes that parse ISO dates, year/month/quarter integers with range validation.
+
+**Pattern:** Helper functions returning `Result[T]` — compose naturally with `@boundary_handler()`.
+
+**Example:**
+```python
+def _parse_iso_date(value: str | None, field: str) -> Result[date]:
+    """Parse an ISO-format date string, returning a validation error on failure."""
+    if not value:
+        return Result.fail(Errors.validation(f"{field} is required", field=field))
+    try:
+        return Result.ok(date.fromisoformat(value))
+    except ValueError:
+        return Result.fail(
+            Errors.validation(f"{field} must be ISO format (YYYY-MM-DD)", field=field, value=value)
+        )
+
+def _parse_int_in_range(value: str | None, field: str, min_val: int, max_val: int) -> Result[int]:
+    """Parse an integer string and validate it falls within [min_val, max_val]."""
+    if not value:
+        return Result.fail(Errors.validation(f"{field} is required", field=field))
+    try:
+        n = int(value)
+    except ValueError:
+        return Result.fail(Errors.validation(f"{field} must be an integer", field=field, value=value))
+    if n < min_val or n > max_val:
+        return Result.fail(
+            Errors.validation(f"{field} must be between {min_val} and {max_val}", field=field, value=n)
+        )
+    return Result.ok(n)
+```
+
+**Usage in Routes:**
+```python
+@rt("/api/analytics/quarterly-progress")
+@boundary_handler()
+async def get_quarterly(request: Request) -> Result[dict[str, Any]]:
+    user_uid = require_authenticated_user(request)
+
+    year_result = _parse_int_in_range(request.query_params.get("year"), "year", 2000, 2100)
+    if year_result.is_error:
+        return year_result
+    quarter_result = _parse_int_in_range(request.query_params.get("quarter"), "quarter", 1, 4)
+    if quarter_result.is_error:
+        return quarter_result
+
+    return await service.generate_quarterly_progress(user_uid, year_result.value, quarter_result.value)
+```
+
+**Real-world usage:** `analytics_summary_api.py` — `_parse_iso_date()` and `_parse_int_in_range()` replace repeated try/except blocks across 4 routes.
 
 ---
 
@@ -360,7 +464,9 @@ The error surfaces as a 422 field error on `__root__` (model level), caught by `
 | Input Type | Pattern | Error Code | Use Case |
 |------------|---------|------------|----------|
 | **Query Params (GET)** | Helper functions | 400 | Simple string inputs, enums, booleans |
+| **HTML Form Params (GET)** | `Model.from_form_params()` classmethod | 400 | Many checkbox/enum/optional string params needing coercion |
 | **JSON Bodies (POST/PUT)** | Pydantic models | 422 | Structured data, complex validation |
+| **Date/Integer Params** | `_parse_iso_date()` / `_parse_int_in_range()` | 400 | ISO dates, bounded integers |
 | **Path Params** | Avoid (SKUEL uses query params) | N/A | Not used in SKUEL API routes |
 
 **SKUEL Preference:** Query parameters over path parameters for all routes. See [ROUTE_NAMING_CONVENTION.md](ROUTE_NAMING_CONVENTION.md).
@@ -696,23 +802,21 @@ def test_task_completion_request_defaults():
 
 ---
 
-## Reference Implementation
+## Reference Implementations
 
-**Complete Example:** Context-Aware API (`adapters/inbound/context_aware_api.py`)
-
-**Helper Functions:**
+**Context-Aware API** (`adapters/inbound/context_aware_api.py`):
 - `parse_bool_param()` - Boolean query param parsing
 - `parse_timeframe_days()` - Timeframe string to days (`"90d"` → `90`)
 - `validate_time_window()` - Enum validation
+- 2 GET routes using helpers, 3 POST routes using Pydantic models
 
-**Pydantic Models:**
-- `TaskCompletionRequest` - Task completion body
-- `GoalTaskGenerationRequest` - Goal task generation body
-- `HabitCompletionRequest` - Habit completion body
+**Search Routes** (`adapters/inbound/search_routes.py`):
+- Uses `SearchRequest.from_form_params()` — model-level classmethod handles 25+ form params (empty→None, checkbox→bool, enum parsing, extended_facets assembly)
 
-**Routes:**
-- 2 GET routes using helpers
-- 3 POST routes using Pydantic models
+**Analytics Summary API** (`adapters/inbound/analytics_summary_api.py`):
+- `_parse_iso_date()` - ISO date string → `Result[date]`
+- `_parse_int_in_range()` - Integer string with bounds → `Result[int]`
+- 4 routes using these helpers for date/period validation
 
 ---
 

@@ -382,45 +382,52 @@ class SearchRequest(BaseModel):
 
     query_text: str | None = None
     domain: Domain | None = None
+    status: EntityStatus | None = None
     ready_to_learn: bool = False
     supports_goals: bool = False
-    builds_on_mastered: bool = False
+
+    @classmethod
+    def from_form_params(cls, *, query: str = "", status: str | None = None,
+                         ready_to_learn: str | None = None, ...) -> "SearchRequest":
+        """Build from raw HTML form strings — handles all coercion.
+
+        Encapsulates: empty string → None, checkbox "true" → bool,
+        string → enum parsing, extended_facets assembly.
+        Routes stay thin — all normalization lives on the model.
+        """
+        def _none_if_empty(v: str | None) -> str | None:
+            return None if not v or v.strip() == "" else v
+
+        def _checkbox_to_bool(v: str | None) -> bool:
+            return v == "true" if v else False
+
+        status = _none_if_empty(status)
+        return cls(
+            query_text=query,
+            status=EntityStatus(status) if status else None,
+            ready_to_learn=_checkbox_to_bool(ready_to_learn),
+            ...
+        )
 
     def to_property_filters(self) -> dict[str, Any]:
-        """Convert facets to property filters"""
+        """Convert facets to property filters for Cypher WHERE clauses"""
         filters = {}
         if self.domain:
             filters["domain"] = self.domain.value
         return filters
 
     def to_graph_patterns(self) -> dict[str, str]:
-        """Convert boolean filters to Cypher patterns"""
+        """Convert boolean filters to Cypher EXISTS patterns"""
         patterns = {}
         if self.ready_to_learn:
-            patterns["ready_to_learn"] = """
-            NOT EXISTS {
-                MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Curriculum)
-                WHERE NOT EXISTS {
-                    MATCH (user:User {uid: $user_uid})-[:MASTERED]->(prereq)
-                }
-            }
-            """
+            patterns["ready_to_learn"] = "NOT EXISTS { ... }"
         if self.supports_goals:
-            patterns["supports_goals"] = """
-            EXISTS {
-                MATCH (ku)<-[:REQUIRES_KNOWLEDGE]-(goal:Goal)
-                WHERE goal.status = 'active'
-            }
-            """
+            patterns["supports_goals"] = "EXISTS { ... }"
         return patterns
 
     def has_graph_filters(self) -> bool:
         """Check if any graph-aware filters are active"""
-        return any([
-            self.ready_to_learn,
-            self.supports_goals,
-            self.builds_on_mastered,
-        ])
+        return any([self.ready_to_learn, self.supports_goals])
 
     def get_search_strategy(self) -> str:
         """Determine optimal search strategy"""
@@ -431,6 +438,10 @@ class SearchRequest(BaseModel):
         else:
             return "filter_only"
 ```
+
+**Two construction paths:**
+- `from_form_params()` — for HTML form routes (raw strings need coercion)
+- Regular constructor — for API/programmatic use (already-typed values)
 
 ## model_dump() Patterns
 

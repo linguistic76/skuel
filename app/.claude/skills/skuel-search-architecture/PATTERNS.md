@@ -58,22 +58,31 @@ top_10 = all_results.value.top_results  # Combined score: relevance 60% + priori
 **Solution**:
 ```python
 from core.models.search_request import SearchRequest
-from core.models.enums import EntityStatus, Priority
 
-# Build from route query parameters
-search_request = SearchRequest(
-    query_text=query,
-    entity_types=[EntityType.KU] if entity_type else [],
-    status=EntityStatus(status) if status else None,
-    priority=Priority(priority) if priority else None,
-    learning_level=LearningLevel(learning_level) if learning_level else None,
-    sel_category=SELCategory(sel_category) if sel_category else None,
+# Build from HTML form parameters — from_form_params() handles all coercion:
+# empty string → None, checkbox "true" → bool, string → enum, extended_facets assembly
+search_request = SearchRequest.from_form_params(
+    query=query,
     user_uid=user_uid,
+    entity_type=entity_type,       # raw string, parsed to EntityType enum
+    status=status,                 # raw string, parsed to EntityStatus enum
+    priority=priority,             # raw string, parsed to Priority enum
+    ready_to_learn=ready_to_learn, # checkbox "true"/"" → bool
+    supports_goals=supports_goals,
     limit=20,
     offset=0,
 )
 
 result = await search_router.faceted_search(search_request, user_uid)
+
+# For programmatic/API use, construct directly with typed values:
+search_request = SearchRequest(
+    query_text=query,
+    entity_types=[EntityType.KU],
+    status=EntityStatus.ACTIVE,
+    user_uid=user_uid,
+    limit=20,
+)
 ```
 
 **SearchRequest strategy selection** (`get_search_strategy()`):

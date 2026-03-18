@@ -522,6 +522,7 @@ Key design: **query text is OPTIONAL** — filter-only search is valid.
 | Pagination | `limit`, `offset` |
 
 **Key methods:**
+- `from_form_params()` — classmethod that builds a `SearchRequest` from raw HTML form strings (handles empty→None, checkbox→bool, entity type parsing, extended_facets assembly)
 - `to_property_filters()` — property → WHERE clauses
 - `to_graph_patterns()` — relationship → Cypher patterns
 - `has_relationship_filters()` — mode routing (Simple vs Graph-Aware)
