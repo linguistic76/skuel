@@ -401,10 +401,10 @@ sorted_tasks = sorted(tasks, key=get_priority)
 ### 4. Don't Use String Relationship Names
 
 ```python
-# BAD (SKUEL013 violation)
+# BAD (SKUEL013 violation) — method call
 await backend.add_relationship(task_uid, "APPLIES_KNOWLEDGE", ku_uid)
 
-# GOOD
+# GOOD — method call
 from core.models.relationship_names import RelationshipName
 
 await backend.add_relationship(
@@ -412,6 +412,18 @@ await backend.add_relationship(
     RelationshipName.APPLIES_KNOWLEDGE,
     ku_uid
 )
+
+# BAD (SKUEL013 violation) — Cypher query
+query = """
+MATCH (parent:Entity {uid: $uid})-[:HAS_SUBTASK]->(child)
+RETURN child
+"""
+
+# GOOD — f-string with enum, escaped Neo4j braces
+query = f"""
+MATCH (parent:Entity {{uid: $uid}})-[:{RelationshipName.HAS_SUBTASK.value}]->(child)
+RETURN child
+"""
 ```
 
 ### 5. Don't Check .is_err (Use .is_error)

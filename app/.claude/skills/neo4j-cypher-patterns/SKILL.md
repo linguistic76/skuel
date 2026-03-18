@@ -246,14 +246,19 @@ OPTIONAL MATCH (t)-[:FULFILLS_GOAL]->(g:Goal)
 RETURN t, ku, g
 ```
 
-### 4. Use RelationshipName Enum
+### 4. Use RelationshipName Enum (SKUEL013)
 
 ```python
 from core.models.relationship_names import RelationshipName
 
 # GOOD - type-safe, IDE autocomplete
-rel = RelationshipName.REQUIRES_KNOWLEDGE
-query = f"MATCH (a)-[:{rel.value}]->(b)"
+query = f"MATCH (a)-[:{RelationshipName.REQUIRES_KNOWLEDGE.value}]->(b)"
+
+# GOOD - multi-line with Neo4j property maps (escape braces!)
+query = f"""
+MATCH (parent:Entity {{uid: $uid}})-[:{RelationshipName.HAS_SUBTASK.value}]->(child)
+RETURN child
+"""
 
 # BAD - typo-prone, no compile-time check
 query = "MATCH (a)-[:REQURES_KNOWLEDGE]->(b)"  # typo!

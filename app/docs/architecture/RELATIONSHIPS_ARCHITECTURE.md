@@ -149,24 +149,25 @@ class DomainRelationshipConfig:
 
 **Location:** `core/models/relationship_names.py`
 
-70+ typed relationship names, organised by domain. SKUEL rule SKUEL013 requires using `RelationshipName` enum values — no string literals in relationship Cypher.
+80+ typed relationship names, organised by domain. SKUEL rule SKUEL013 requires using `RelationshipName` enum values — no string literals in relationship Cypher. Cypher query strings use f-string interpolation: `f"[:{RelationshipName.X.value}]"`.
 
 **Key groupings:**
 
 | Group | Count | Examples |
 |-------|-------|---------|
 | Knowledge | 18 | `REQUIRES_KNOWLEDGE`, `APPLIES_KNOWLEDGE`, `REINFORCES_KNOWLEDGE`, `ENABLES_KNOWLEDGE` |
-| Task | 14 | `DEPENDS_ON`, `BLOCKS`, `BLOCKED_BY`, `CONTRIBUTES_TO_GOAL`, `FULFILLS_GOAL` |
-| Goal | 12 | `SUBGOAL_OF`, `GUIDED_BY_PRINCIPLE`, `SUPPORTS_GOAL`, `ALIGNED_WITH_PATH` |
-| Habit | 10 | `REQUIRES_PREREQUISITE_HABIT`, `ENABLES_HABIT`, `EMBODIES_PRINCIPLE` |
-| Principle | 5 | `GROUNDS_PRINCIPLE`, `GUIDED_BY_KNOWLEDGE` |
-| Choice | 6 | `INFORMS_CHOICE` |
+| Task | 14 | `HAS_SUBTASK`, `SUBTASK_OF`, `DEPENDS_ON`, `BLOCKS`, `BLOCKED_BY`, `CONTRIBUTES_TO_GOAL`, `FULFILLS_GOAL` |
+| Goal | 12 | `HAS_SUBGOAL`, `SUBGOAL_OF`, `GUIDED_BY_PRINCIPLE`, `SUPPORTS_GOAL`, `ALIGNED_WITH_PATH` |
+| Habit | 12 | `HAS_SUBHABIT`, `SUBHABIT_OF`, `REQUIRES_PREREQUISITE_HABIT`, `ENABLES_HABIT`, `EMBODIES_PRINCIPLE`, `UNLOCKED_ACHIEVEMENT`, `EARNED_BADGE` |
+| Event | 5 | `HAS_SUBEVENT`, `SUBEVENT_OF`, `CONFLICTS_WITH`, `FUNDS_EVENT`, `ATTENDS` |
+| Principle | 9 | `HAS_SUBPRINCIPLE`, `SUBPRINCIPLE_OF`, `SUPPORTS_PRINCIPLE`, `GUIDES_GOAL`, `GUIDES_CHOICE`, `REFLECTS_ON`, `REVEALS_CONFLICT` |
+| Choice | 8 | `HAS_SUBCHOICE`, `SUBCHOICE_OF`, `ALIGNED_WITH_PRINCIPLE`, `CONFLICTS_WITH_PRINCIPLE`, `AFFECTS_GOAL`, `INFORMS_CHOICE` |
 | User / Ownership | 12 | `OWNS`, `MEMBER_OF`, `SHARES_WITH`, `SHARED_WITH_GROUP`, `ULTIMATE_PATH` |
 | Curriculum | 5 | `ORGANIZES`, `REQUIRES_PREREQUISITE`, `HAS_NARROWER`, `HAS_BROADER` |
 | Life Path | 2 | `SERVES_LIFE_PATH`, `ULTIMATE_PATH` |
 | Exercise / Group | 3 | `FOR_GROUP`, `FULFILLS_EXERCISE`, `ASSIGNED_TO` |
 | Resource | 1 | `CITES_RESOURCE` — `(Lesson/Ku)-[:CITES_RESOURCE {context}]->(Resource)` |
-| Content / Processing | 4 | `REPORT_FOR`, `FULFILLS_PROJECT`, `PROCESSED_BY` |
+| Content / Processing | 4 | `REPORT_FOR`, `TRANSCRIBED_FOR`, `ASSESSMENT_OF`, `HAS_SCHEDULE` |
 | Lateral | 13 | `BLOCKS`, `BLOCKED_BY`, `PREREQUISITE_FOR`, `DEPENDS_ON`, `ALTERNATIVE_TO`, `COMPLEMENTARY_TO`, `SIBLING`, `RELATED_TO` |
 
 ---

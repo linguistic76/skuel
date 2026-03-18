@@ -77,10 +77,12 @@ Goal hierarchy, dependencies, and guidance.
 
 ### Habit Relationships
 
-Habit chains, prerequisites, and reinforcement.
+Habit chains, prerequisites, reinforcement, and achievements.
 
 | Relationship | From | To | Purpose |
 |--------------|------|-----|---------|
+| `HAS_SUBHABIT` | Habit | Habit | Parent-child composition |
+| `SUBHABIT_OF` | Habit | Habit | Child-parent (bidirectional) |
 | `REQUIRES_PREREQUISITE_HABIT` | Habit | Habit | Habit requires another first |
 | `ENABLES_HABIT` | Habit | Habit | This habit enables another |
 | `REQUIRES_HABIT` | * | Habit | Requires this habit |
@@ -89,28 +91,48 @@ Habit chains, prerequisites, and reinforcement.
 | `REINFORCES_STEP` | Habit | LearningStep | Habit reinforces learning step |
 | `EMBODIES_PRINCIPLE` | Habit | Principle | Habit embodies principle |
 | `PRACTICED_AT_EVENT` | Habit | Event | Habit practiced at event |
+| `UNLOCKED_ACHIEVEMENT` | Habit | Achievement | Habit unlocked a badge |
+| `EARNED_BADGE` | User | Achievement | User earned a badge |
 
 ### Event Relationships
 
-Event conflicts, execution, and practice.
+Event hierarchy, conflicts, execution, and practice.
 
 | Relationship | From | To | Purpose |
 |--------------|------|-----|---------|
+| `HAS_SUBEVENT` | Event | Event | Parent-child composition |
+| `SUBEVENT_OF` | Event | Event | Child-parent (bidirectional) |
 | `CONFLICTS_WITH` | Event | Event | Events conflict in schedule |
 | `FUNDS_EVENT` | Expense | Event | Expense funds event |
 | `ATTENDS` | User | Event | User attends event |
 
 ### Principle Relationships
 
-Principle support, conflicts, and guidance.
+Principle hierarchy, support, conflicts, guidance, and reflections.
 
 | Relationship | From | To | Purpose |
 |--------------|------|-----|---------|
+| `HAS_SUBPRINCIPLE` | Principle | Principle | Parent-child composition |
+| `SUBPRINCIPLE_OF` | Principle | Principle | Child-parent (bidirectional) |
 | `SUPPORTS_PRINCIPLE` | * | Principle | Supports this principle |
 | `CONFLICTS_WITH_PRINCIPLE` | * | Principle | Conflicts with principle |
 | `GUIDES_GOAL` | Principle | Goal | Principle guides goal |
 | `GUIDES_CHOICE` | Principle | Choice | Principle guides choice |
 | `ALIGNED_WITH_PRINCIPLE` | Choice | Principle | Choice aligned with principle |
+| `REFLECTS_ON` | Reflection | Principle | Reflection about principle |
+| `REVEALS_CONFLICT` | Reflection | Principle | Reflection reveals conflict |
+
+### Choice Relationships
+
+Choice hierarchy, influences, and outcomes.
+
+| Relationship | From | To | Purpose |
+|--------------|------|-----|---------|
+| `HAS_SUBCHOICE` | Choice | Choice | Parent-child composition |
+| `SUBCHOICE_OF` | Choice | Choice | Child-parent (bidirectional) |
+| `AFFECTS_GOAL` | Choice | Goal | Choice affects goal |
+| `ALIGNED_WITH_PRINCIPLE` | Choice | Principle | Choice aligned with principle |
+| `CONFLICTS_WITH_PRINCIPLE` | Choice | Principle | Choice conflicts with principle |
 
 ### Choice Relationships
 

@@ -1,6 +1,6 @@
 ---
 title: Universal Hierarchical Pattern
-updated: '2026-02-02'
+updated: '2026-03-19'
 category: patterns
 related_skills: []
 related_docs: []
@@ -98,6 +98,9 @@ habit_daily-exercise_def45678
 | **Task** | `HAS_SUBTASK` / `SUBTASK_OF` | `progress_weight`, `order` | ✅ |
 | **Goal** | `HAS_SUBGOAL` / `SUBGOAL_OF` | `progress_weight`, `order` | ✅ |
 | **Habit** | `HAS_SUBHABIT` / `SUBHABIT_OF` | `progress_weight`, `order` | ✅ |
+| **Event** | `HAS_SUBEVENT` / `SUBEVENT_OF` | `order` | ✅ |
+| **Choice** | `HAS_SUBCHOICE` / `SUBCHOICE_OF` | `order` | ✅ |
+| **Principle** | `HAS_SUBPRINCIPLE` / `SUBPRINCIPLE_OF` | `order`, `importance` | ✅ |
 
 **Service Methods:**
 
