@@ -88,7 +88,7 @@ class UIDGenerator:
 
         Note:
             - Hierarchy stored in (ku)-[:ORGANIZES]->(ku) relationships
-            - Use LessonCoreService.organize_ku() to create parent-child relationships
+            - Use LessonCoreService.organize_lesson() to create parent-child relationships
             - See: /docs/patterns/UNIVERSAL_HIERARCHICAL_PATTERN.md
         """
         slug = cls.slugify(title)
@@ -212,8 +212,8 @@ class UIDGenerator:
     #
     # Hierarchy is now stored in graph relationships:
     # - (parent:Entity)-[:ORGANIZES {order}]->(child:Entity)
-    # - Use LessonCoreService.get_parent_kus() to find parents
-    # - Use LessonCoreService.get_ku_hierarchy() for full hierarchy context
+    # - Use LessonCoreService.get_parents() to find parents
+    # - Use LessonCoreService.get_hierarchy() for full hierarchy context
     #
     # See: /docs/patterns/UNIVERSAL_HIERARCHICAL_PATTERN.md
 

@@ -13,7 +13,7 @@ Architecture:
 - Lives at `/core/services/` level (not in `/ku/` directory)
 - Injected into TasksService for knowledge-aware task analysis
 - Specialized utility, not part of core KU CRUD operations
-- See `/core/services/article/README.md` for architecture overview
+- See `/core/services/lesson/README.md` for architecture overview
 """
 
 import asyncio

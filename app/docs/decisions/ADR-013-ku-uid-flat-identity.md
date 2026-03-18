@@ -265,7 +265,7 @@ async def create(self, title: str, body: str, **metadata) -> Result[CurriculumDT
     # Handle parent organization if specified
     parent_uid = metadata.get("parent_uid")
     if parent_uid:
-        await self.organize_ku(
+        await self.organize_lesson(
             parent_uid=parent_uid,
             child_uid=uid,
             order=metadata.get("order", 0),
@@ -277,11 +277,11 @@ async def create(self, title: str, body: str, **metadata) -> Result[CurriculumDT
 
 ```python
 # Added 2026-01-30
-await ku_service.get_subkus(parent_uid, depth=1)  # Get children
-await ku_service.get_parent_kus(ku_uid)           # Get parents (can be multiple!)
-await ku_service.get_ku_hierarchy(ku_uid)         # Full context
-await ku_service.organize_ku(parent, child, ...)  # Create relationship
-await ku_service.unorganize_ku(parent, child)     # Remove relationship
+await lesson_core.get_children(parent_uid, depth=1)  # Get children
+await lesson_core.get_parents(ku_uid)               # Get parents (can be multiple!)
+await lesson_core.get_hierarchy(ku_uid)             # Full context
+await lesson_core.organize_lesson(parent, child, ...)  # Create relationship
+await lesson_core.unorganize_lesson(parent, child)     # Remove relationship
 ```
 
 ### ORGANIZES Relationship
@@ -416,7 +416,7 @@ uid = generate_knowledge_uid(title="Meditation")
 # Result: "ku_meditation_a1b2c3d4" - flat, stable
 
 # Hierarchy via ORGANIZES
-await ku_service.organize_ku(
+await lesson_core.organize_lesson(
     parent_uid="ku_yoga-fundamentals_abc123",
     child_uid="ku_meditation_a1b2c3d4",
     order=1,
@@ -428,9 +428,9 @@ await ku_service.organize_ku(
 **Multiple Parents (DAG):**
 ```python
 # Same KU can be in multiple MOCs
-await ku_service.organize_ku("ku_ai-fundamentals_xyz", "ku_ml_abc", order=1)
-await ku_service.organize_ku("ku_data-science_def", "ku_ml_abc", order=2)
-await ku_service.organize_ku("ku_python-advanced_ghi", "ku_ml_abc", order=3)
+await lesson_core.organize_lesson("ku_ai-fundamentals_xyz", "ku_ml_abc", order=1)
+await lesson_core.organize_lesson("ku_data-science_def", "ku_ml_abc", order=2)
+await lesson_core.organize_lesson("ku_python-advanced_ghi", "ku_ml_abc", order=3)
 
 # Machine Learning appears in 3 different organizational contexts!
 ```
@@ -438,7 +438,7 @@ await ku_service.organize_ku("ku_python-advanced_ghi", "ku_ml_abc", order=3)
 **Reorganization Safety:**
 ```python
 # Moving KU to different parent - UID unchanged!
-await ku_service.unorganize_ku(old_parent_uid, ku_uid)
-await ku_service.organize_ku(new_parent_uid, ku_uid, order=1)
+await lesson_core.unorganize_lesson(old_parent_uid, ku_uid)
+await lesson_core.organize_lesson(new_parent_uid, ku_uid, order=1)
 # All references to ku_uid remain valid
 ```

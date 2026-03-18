@@ -47,7 +47,7 @@ from core.utils.uid_generator import UIDGenerator
 
 class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], MetadataManagerMixin):
     """
-    Core CRUD operations for knowledge units.
+    Core CRUD operations for lessons.
 
     **Architecture (January 2026 Unified):**
     Inherits from BaseService to provide:
@@ -56,7 +56,7 @@ class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], Metad
     - User progress tracking
     - Content operations with graph context
 
-    **KU-Specific Extensions:**
+    **Lesson-Specific Extensions:**
     - Content chunking for RAG
     - Content analysis integration
     - Status transitions (publish, archive)
@@ -97,7 +97,7 @@ class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], Metad
         Initialize core service with required dependencies.
 
         Args:
-            repo: CurriculumOperations[Lesson] backend (typically UniversalNeo4jBackend[Article])
+            repo: CurriculumOperations[Lesson] backend (typically UniversalNeo4jBackend[Lesson])
             content_repo: ContentOperations backend for content storage
             intelligence: Intelligence service for content analysis
             chunking: Optional chunking service for RAG
@@ -128,7 +128,7 @@ class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], Metad
     # CREATE
     # ========================================================================
 
-    @track_query_metrics("ku_create")
+    @track_query_metrics("lesson_create")
     @with_error_handling("create", error_type="database")
     async def create(
         self,
@@ -189,7 +189,7 @@ class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], Metad
         # Handle parent organization if specified (Universal Hierarchical Pattern)
         parent_uid = metadata.get("parent_uid")
         if parent_uid:
-            organize_result = await self.organize_ku(
+            organize_result = await self.organize_lesson(
                 parent_uid=parent_uid,
                 child_uid=uid,
                 order=metadata.get("order", 0),
@@ -328,7 +328,7 @@ class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], Metad
     # READ
     # ========================================================================
 
-    @track_query_metrics("ku_get")
+    @track_query_metrics("lesson_get")
     @with_error_handling("get", error_type="database", uid_param="uid")
     async def get(self, uid: str) -> Result[Lesson]:
         """
@@ -338,17 +338,17 @@ class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], Metad
             uid: Knowledge unit UID
 
         Returns:
-            Result containing Article domain model with content
+            Result containing Lesson domain model with content
         """
         # Get unit data from backend
         unit_result = await self.backend.get(uid)
         if unit_result.is_error or not unit_result.value:
             return Result.fail(Errors.not_found(f"Knowledge unit {uid} not found"))
 
-        # Backend returns Ku via from_neo4j_node() (entity_class=Article)
+        # Backend returns Lesson via from_neo4j_node() (entity_class=Lesson)
         return Result.ok(unit_result.value)
 
-    @track_query_metrics("ku_get_with_context")
+    @track_query_metrics("lesson_get_with_context")
     @with_error_handling("get_with_context", error_type="database", uid_param="uid")
     async def get_with_context(
         self, uid: str, min_confidence: float = 0.7
@@ -484,7 +484,7 @@ class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], Metad
 
         return Result.ok(dto)
 
-    @track_query_metrics("ku_get_with_content")
+    @track_query_metrics("lesson_get_with_content")
     @with_error_handling("get_with_content", error_type="database", uid_param="uid")
     async def get_with_content(self, uid: str) -> Result[tuple[Lesson, str]]:
         """
@@ -497,7 +497,7 @@ class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], Metad
             uid: Knowledge unit UID
 
         Returns:
-            Result containing (Article, content_body) tuple
+            Result containing (Lesson, content_body) tuple
         """
         ku_result = await self.get(uid)
         if ku_result.is_error:
@@ -517,7 +517,7 @@ class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], Metad
     # UPDATE
     # ========================================================================
 
-    @track_query_metrics("ku_update")
+    @track_query_metrics("lesson_update")
     @with_error_handling("update", error_type="database", uid_param="uid")
     async def update(self, uid: str, **updates: Any) -> Result[CurriculumDTO]:
         """
@@ -561,7 +561,7 @@ class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], Metad
         Pattern: Re-chunk if chunking service available, fallback to simple update.
         Also recomputes word_count on the Entity nodes.
 
-        Note: existing_dto is actually an Article instance (backend uses entity_class=Article).
+        Note: existing_dto is a Lesson instance (backend uses entity_class=Lesson).
         """
         # Recompute word_count on the Entity nodes
         new_word_count = len(new_body.strip().split())
@@ -569,7 +569,7 @@ class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], Metad
 
         if self.chunking_service:
             # Re-process with chunking — pass body directly
-            chunking_result = await self.chunking_service.update_article_content(
+            chunking_result = await self.chunking_service.update_lesson_content(
                 knowledge=None, new_content_body=new_body, parent_uid=uid
             )
 
@@ -586,7 +586,7 @@ class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], Metad
     # DELETE
     # ========================================================================
 
-    @track_query_metrics("ku_delete")
+    @track_query_metrics("lesson_delete")
     @with_error_handling("delete", error_type="database", uid_param="uid")
     async def delete(self, uid: str) -> Result[bool]:
         """
@@ -658,7 +658,7 @@ class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], Metad
     # CONTENT OPERATIONS
     # ========================================================================
 
-    @track_query_metrics("ku_get_chunks")
+    @track_query_metrics("lesson_get_chunks")
     @with_error_handling("get_chunks", error_type="database", uid_param="uid")
     async def get_chunks(self, uid: str, chunk_type=None) -> Result[list]:
         """
@@ -681,7 +681,7 @@ class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], Metad
         chunks = await self.chunking_service.get_chunks(uid, chunk_type)
         return Result.ok(chunks)
 
-    @track_query_metrics("ku_analyze_content")
+    @track_query_metrics("lesson_analyze_content")
     @with_error_handling("analyze_content", error_type="system", uid_param="uid")
     async def analyze_content(self, uid: str) -> Result[dict]:
         """
@@ -763,31 +763,30 @@ class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], Metad
     # HIERARCHICAL METHODS (Universal Hierarchical Pattern - 2026-01-30)
     # ========================================================================
 
-    @track_query_metrics("ku_get_subkus")
-    @with_error_handling("get_subkus", error_type="database", uid_param="parent_uid")
-    async def get_subkus(
+    @track_query_metrics("lesson_get_children")
+    @with_error_handling("get_children", error_type="database", uid_param="parent_uid")
+    async def get_children(
         self, parent_uid: str, depth: int = 1, include_metadata: bool = False
     ) -> Result[list[Lesson]]:
         """
-        Get all KUs organized under this parent KU (MOC pattern).
+        Get all entities organized under this parent (MOC pattern).
 
         Universal Hierarchical Pattern: Uses ORGANIZES relationships to
-        retrieve child KUs, supporting multi-level hierarchy traversal.
+        retrieve children, supporting multi-level hierarchy traversal.
 
         Args:
-            parent_uid: Parent KU UID
+            parent_uid: Parent entity UID
             depth: How many levels deep (1 = direct children only, 2 = children + grandchildren)
             include_metadata: Include relationship metadata (order, importance)
 
         Returns:
-            Result containing list of child KUs
+            Result containing list of child entities
 
         Example:
-            # Get all KUs organized under "Yoga Fundamentals" MOC
-            result = await ku_service.get_subkus("ku_yoga-fundamentals_abc123")
+            result = await lesson_core.get_children("ku_yoga-fundamentals_abc123")
             if result.is_ok:
-                for child_ku in result.value:
-                    print(f"  - {child_ku.title}")
+                for child in result.value:
+                    print(f"  - {child.title}")
 
         See: /docs/patterns/UNIVERSAL_HIERARCHICAL_PATTERN.md
         """
@@ -801,110 +800,103 @@ class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], Metad
         if result.is_error:
             return Result.fail(result.expect_error())
 
-        # Convert to Ku domain objects using from_neo4j_node (picks up ALL fields)
         from core.utils.neo4j_mapper import from_neo4j_node
 
-        kus = [from_neo4j_node(record["child"], Lesson) for record in result.value]
+        children = [from_neo4j_node(record["child"], Lesson) for record in result.value]
 
-        self.logger.info(f"Found {len(kus)} subKUs for parent {parent_uid} (depth={depth})")
-        return Result.ok(kus)
+        self.logger.info(f"Found {len(children)} children for parent {parent_uid} (depth={depth})")
+        return Result.ok(children)
 
-    @track_query_metrics("ku_get_parent_kus")
-    @with_error_handling("get_parent_kus", error_type="database", uid_param="ku_uid")
-    async def get_parent_kus(self, ku_uid: str) -> Result[list[Lesson]]:
+    @track_query_metrics("lesson_get_parents")
+    @with_error_handling("get_parents", error_type="database", uid_param="entity_uid")
+    async def get_parents(self, entity_uid: str) -> Result[list[Lesson]]:
         """
-        Get all parent KUs (can have multiple via MOC pattern).
+        Get all parent entities (can have multiple via MOC pattern).
 
-        Universal Hierarchical Pattern: A single KU can be organized under
-        multiple parent KUs (MOCs), supporting DAG structure.
+        Universal Hierarchical Pattern: A single entity can be organized under
+        multiple parents (MOCs), supporting DAG structure.
 
         Args:
-            ku_uid: Child KU UID
+            entity_uid: Child entity UID
 
         Returns:
-            Result containing list of parent KUs
+            Result containing list of parent entities
 
         Example:
             # "Machine Learning" might be in multiple MOCs
-            result = await ku_service.get_parent_kus("ku_machine-learning_xyz789")
+            result = await lesson_core.get_parents("ku_machine-learning_xyz789")
             # Could return: ["AI Fundamentals", "Data Science", "Python Advanced"]
 
         See: /docs/patterns/UNIVERSAL_HIERARCHICAL_PATTERN.md
         """
         query = """
-        MATCH (parent:Entity)-[:ORGANIZES]->(child:Entity {uid: $ku_uid})
+        MATCH (parent:Entity)-[:ORGANIZES]->(child:Entity {uid: $entity_uid})
         RETURN parent
         ORDER BY parent.title
         """
 
-        result = await self.backend.execute_query(query, {"ku_uid": ku_uid})
+        result = await self.backend.execute_query(query, {"entity_uid": entity_uid})
         if result.is_error:
             return Result.fail(result.expect_error())
 
-        # Convert to Ku domain objects using from_neo4j_node (picks up ALL fields)
         from core.utils.neo4j_mapper import from_neo4j_node
 
         parents = [from_neo4j_node(record["parent"], Lesson) for record in result.value]
 
-        self.logger.info(f"Found {len(parents)} parent KUs for {ku_uid}")
+        self.logger.info(f"Found {len(parents)} parents for {entity_uid}")
         return Result.ok(parents)
 
-    @track_query_metrics("ku_get_hierarchy")
-    @with_error_handling("get_ku_hierarchy", error_type="database", uid_param="ku_uid")
-    async def get_ku_hierarchy(self, ku_uid: str) -> Result[dict]:
+    @track_query_metrics("lesson_get_hierarchy")
+    @with_error_handling("get_hierarchy", error_type="database", uid_param="entity_uid")
+    async def get_hierarchy(self, entity_uid: str) -> Result[dict]:
         """
-        Get full hierarchy context for a KU.
+        Get full hierarchy context for an entity.
 
         Universal Hierarchical Pattern: Returns complete hierarchical context
         including ancestors, siblings, children, and depth level.
 
         Returns:
             dict with:
-            - ancestors: List of ancestor KUs (grandparent, parent, etc.)
-            - siblings: Other KUs with same parents
-            - children: Direct child KUs
+            - ancestors: List of ancestor entities (grandparent, parent, etc.)
+            - siblings: Other entities with same parents
+            - children: Direct child entities
             - depth: How deep in hierarchy (0 = root, no parents)
-
-        Example:
-            hierarchy = {
-                "ancestors": [
-                    {"uid": "ku_yoga_abc", "title": "Yoga Fundamentals", "level": 1},
-                    {"uid": "ku_meditation_def", "title": "Meditation", "level": 2}
-                ],
-                "siblings": [...]  # Other KUs under same parents
-                "children": [...]  # KUs this KU organizes
-                "depth": 3  # Three levels from root
-            }
 
         See: /docs/patterns/UNIVERSAL_HIERARCHICAL_PATTERN.md
         """
         # Get ancestors
         ancestors_query = """
-        MATCH path = (ancestor:Entity)-[:ORGANIZES*]->(ku:Entity {uid: $ku_uid})
+        MATCH path = (ancestor:Entity)-[:ORGANIZES*]->(ku:Entity {uid: $entity_uid})
         RETURN ancestor, length(path) as depth
         ORDER BY depth DESC
         """
 
         # Get children
         children_query = """
-        MATCH (ku:Entity {uid: $ku_uid})-[:ORGANIZES]->(child:Entity)
+        MATCH (ku:Entity {uid: $entity_uid})-[:ORGANIZES]->(child:Entity)
         RETURN child
         ORDER BY child.title
         """
 
-        # Get siblings (KUs with same parents)
+        # Get siblings (entities with same parents)
         siblings_query = """
         MATCH (parent:Entity)-[:ORGANIZES]->(sibling:Entity)
-        WHERE (parent)-[:ORGANIZES]->(:Entity {uid: $ku_uid})
-        AND sibling.uid <> $ku_uid
+        WHERE (parent)-[:ORGANIZES]->(:Entity {uid: $entity_uid})
+        AND sibling.uid <> $entity_uid
         RETURN DISTINCT sibling
         ORDER BY sibling.title
         """
 
         # Execute queries
-        ancestors_result = await self.backend.execute_query(ancestors_query, {"ku_uid": ku_uid})
-        children_result = await self.backend.execute_query(children_query, {"ku_uid": ku_uid})
-        siblings_result = await self.backend.execute_query(siblings_query, {"ku_uid": ku_uid})
+        ancestors_result = await self.backend.execute_query(
+            ancestors_query, {"entity_uid": entity_uid}
+        )
+        children_result = await self.backend.execute_query(
+            children_query, {"entity_uid": entity_uid}
+        )
+        siblings_result = await self.backend.execute_query(
+            siblings_query, {"entity_uid": entity_uid}
+        )
 
         if ancestors_result.is_error:
             return Result.fail(ancestors_result.expect_error())
@@ -930,7 +922,7 @@ class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], Metad
         }
 
         self.logger.info(
-            f"Hierarchy for {ku_uid}: depth={hierarchy['depth']}, "
+            f"Hierarchy for {entity_uid}: depth={hierarchy['depth']}, "
             f"ancestors={len(hierarchy['ancestors'])}, "
             f"children={len(hierarchy['children'])}, "
             f"siblings={len(hierarchy['siblings'])}"
@@ -938,20 +930,20 @@ class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], Metad
 
         return Result.ok(hierarchy)
 
-    @track_query_metrics("ku_organize")
-    @with_error_handling("organize_ku", error_type="database")
-    async def organize_ku(
+    @track_query_metrics("lesson_organize")
+    @with_error_handling("organize_lesson", error_type="database")
+    async def organize_lesson(
         self, parent_uid: str, child_uid: str, order: int = 0, importance: str = "normal"
     ) -> Result[bool]:
         """
-        Create ORGANIZES relationship between KUs (MOC pattern).
+        Create ORGANIZES relationship between entities (MOC pattern).
 
         Universal Hierarchical Pattern: Creates parent-child relationship via
         ORGANIZES edge. Supports multiple parents (DAG) and relationship metadata.
 
         Args:
-            parent_uid: Parent KU UID (the MOC)
-            child_uid: Child KU UID
+            parent_uid: Parent entity UID (the MOC)
+            child_uid: Child entity UID
             order: Display order (0 = first, higher = later)
             importance: "core", "normal", "supplemental"
 
@@ -959,8 +951,7 @@ class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], Metad
             Result[bool] - True if created
 
         Example:
-            # Add "Meditation" to "Yoga Fundamentals" MOC
-            await ku_service.organize_ku(
+            await lesson_core.organize_lesson(
                 parent_uid="ku_yoga-fundamentals_abc123",
                 child_uid="ku_meditation_xyz789",
                 order=1,
@@ -1033,25 +1024,24 @@ class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], Metad
 
         return Result.ok(success)
 
-    @track_query_metrics("ku_unorganize")
-    @with_error_handling("unorganize_ku", error_type="database")
-    async def unorganize_ku(self, parent_uid: str, child_uid: str) -> Result[bool]:
+    @track_query_metrics("lesson_unorganize")
+    @with_error_handling("unorganize_lesson", error_type="database")
+    async def unorganize_lesson(self, parent_uid: str, child_uid: str) -> Result[bool]:
         """
-        Remove ORGANIZES relationship between KUs.
+        Remove ORGANIZES relationship between entities.
 
         Universal Hierarchical Pattern: Removes parent-child relationship while
         preserving both Entity nodes. Useful for reorganization.
 
         Args:
-            parent_uid: Parent KU UID
-            child_uid: Child KU UID
+            parent_uid: Parent entity UID
+            child_uid: Child entity UID
 
         Returns:
             Result[bool] - True if removed
 
         Example:
-            # Remove "Meditation" from "Yoga Fundamentals" MOC
-            await ku_service.unorganize_ku(
+            await lesson_core.unorganize_lesson(
                 parent_uid="ku_yoga-fundamentals_abc123",
                 child_uid="ku_meditation_xyz789"
             )

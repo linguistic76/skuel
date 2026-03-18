@@ -11,7 +11,7 @@ This service provides:
 - KU-specific methods: search_chunks(), find_similar_content(), etc.
 
 Architecture (January 2026 - ADR-023 Harmonization):
-- Extends BaseService[UniversalNeo4jBackend[Lesson], Article]
+- Extends BaseService[UniversalNeo4jBackend[Lesson], Lesson]
 - Inherits: search(), graph_aware_faceted_search(), etc.
 - Uses backend.execute_query() (NO driver parameter)
 - Class attributes configure behavior
@@ -54,7 +54,7 @@ class LessonSearchService(BaseService[LessonOperations, Entity]):
     """
     Search service for Knowledge Units - BaseService pattern.
 
-    Implements DomainSearchOperations[Article] protocol for integration with
+    Implements DomainSearchOperations[Lesson] protocol for integration with
     SearchRouter and unified search infrastructure.
 
     Inherited Methods (from BaseService):
@@ -150,7 +150,7 @@ class LessonSearchService(BaseService[LessonOperations, Entity]):
         - Graceful degradation when AI services unavailable
 
         Args:
-            backend: UniversalNeo4jBackend implementing BackendOperations[Article]
+            backend: UniversalNeo4jBackend implementing BackendOperations[Lesson]
             content_repo: Optional content operations for chunk search
             intelligence: Optional intelligence service for similarity search
             query_builder: Optional query builder for optimized queries
@@ -758,12 +758,12 @@ class LessonSearchService(BaseService[LessonOperations, Entity]):
     # =========================================================================
 
     def _to_dto(self, entity: Lesson) -> CurriculumDTO:
-        """Convert an Article entity to CurriculumDTO."""
+        """Convert a Lesson entity to CurriculumDTO."""
         if isinstance(entity, CurriculumDTO):
             return entity
         if isinstance(entity, dict):
             return CurriculumDTO.from_dict(entity)
-        # Convert frozen Article to mutable CurriculumDTO — use getattr for curriculum-specific fields
+        # Convert frozen Lesson to mutable CurriculumDTO — use getattr for curriculum-specific fields
         semantic_links = getattr(entity, "semantic_links", ())
         return CurriculumDTO(
             uid=entity.uid,

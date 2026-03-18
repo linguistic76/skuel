@@ -45,6 +45,25 @@ from core.utils.metrics import get_metrics_summary
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_second_item
 
+# Allowlists for substance metric Cypher interpolation (prevents injection)
+_VALID_SUBSTANCE_METRICS: frozenset[str] = frozenset(
+    {
+        "times_applied_in_tasks",
+        "times_practiced_in_events",
+        "times_built_into_habits",
+        "choices_informed_count",
+    }
+)
+
+_VALID_SUBSTANCE_TIMESTAMP_FIELDS: frozenset[str] = frozenset(
+    {
+        "last_applied_date",
+        "last_practiced_date",
+        "last_built_into_habit_date",
+        "last_choice_informed_date",
+    }
+)
+
 
 class LessonService:
     """
@@ -915,6 +934,12 @@ class LessonService:
         """
         if not ku_uids:
             return
+        if metric not in _VALID_SUBSTANCE_METRICS:
+            self.logger.error(f"Invalid substance metric rejected: {metric}")
+            return
+        if timestamp_field not in _VALID_SUBSTANCE_TIMESTAMP_FIELDS:
+            self.logger.error(f"Invalid substance timestamp field rejected: {timestamp_field}")
+            return
 
         timestamp_str = timestamp.isoformat() if isinstance(timestamp, datetime) else str(timestamp)
 
@@ -963,6 +988,13 @@ class LessonService:
         Raises:
             Exception: Propagated to caller (typically @safe_event_handler decorator)
         """
+        if metric not in _VALID_SUBSTANCE_METRICS:
+            self.logger.error(f"Invalid substance metric rejected: {metric}")
+            return
+        if timestamp_field not in _VALID_SUBSTANCE_TIMESTAMP_FIELDS:
+            self.logger.error(f"Invalid substance timestamp field rejected: {timestamp_field}")
+            return
+
         # Convert datetime to ISO string if needed
         timestamp_str = timestamp.isoformat() if isinstance(timestamp, datetime) else str(timestamp)
 

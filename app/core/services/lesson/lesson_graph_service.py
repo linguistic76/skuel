@@ -224,7 +224,7 @@ class LessonGraphService:
     @with_error_handling("get_lesson_with_context", error_type="database", uid_param="uid")
     async def get_lesson_with_context(self, uid: str, depth: int = 2) -> Result[dict[str, Any]]:
         """
-        Get article with full graph context.
+        Get lesson with full graph context.
 
         Includes:
         - Prerequisites

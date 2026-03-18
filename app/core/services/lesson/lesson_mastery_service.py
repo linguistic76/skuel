@@ -8,7 +8,7 @@ State Progression:
     NONE -> VIEWED -> IN_PROGRESS -> MASTERED
 
 Responsibilities:
-- Record when user views Article content
+- Record when user views Lesson content
 - Track in-progress learning state
 - Manage MASTERED transitions
 - Support pedagogical search filters

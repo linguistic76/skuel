@@ -203,11 +203,11 @@ class EntityChunkingService:
                 Errors.system(f"Content processing failed: {e!s}", operation="process_ku_content")
             )
 
-    async def update_article_content(
+    async def update_lesson_content(
         self, knowledge: Lesson, new_content_body: str
     ) -> Result[tuple[CurriculumContent, ContentMetadata]]:
         """
-        Update existing article content with new text.
+        Update existing lesson content with new text.
 
         This will:
         1. Create new CurriculumContent with fresh chunks

@@ -20,6 +20,7 @@ import pytest
 import pytest_asyncio
 
 # Backend
+from core.models.enums.neo_labels import NeoLabel
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 
@@ -37,19 +38,25 @@ from core.models.pathways.learning_step import LearningStep
 @pytest.fixture
 def ku_backend(neo4j_driver) -> UniversalNeo4jBackend[Curriculum]:
     """Create KU backend with real Neo4j."""
-    return UniversalNeo4jBackend[Curriculum](neo4j_driver, "Entity", Curriculum)
+    return UniversalNeo4jBackend[Curriculum](
+        neo4j_driver, NeoLabel.LESSON, Curriculum, base_label=NeoLabel.ENTITY
+    )
 
 
 @pytest.fixture
 def lp_backend(neo4j_driver) -> UniversalNeo4jBackend[LearningPath]:
     """Create LP backend with real Neo4j."""
-    return UniversalNeo4jBackend[LearningPath](neo4j_driver, "Entity", LearningPath)
+    return UniversalNeo4jBackend[LearningPath](
+        neo4j_driver, NeoLabel.LEARNING_PATH, LearningPath, base_label=NeoLabel.ENTITY
+    )
 
 
 @pytest.fixture
 def ls_backend(neo4j_driver) -> UniversalNeo4jBackend[LearningStep]:
     """Create LS backend with real Neo4j."""
-    return UniversalNeo4jBackend[LearningStep](neo4j_driver, "Entity", LearningStep)
+    return UniversalNeo4jBackend[LearningStep](
+        neo4j_driver, NeoLabel.LEARNING_STEP, LearningStep, base_label=NeoLabel.ENTITY
+    )
 
 
 @pytest_asyncio.fixture

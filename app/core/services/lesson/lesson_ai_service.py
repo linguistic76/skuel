@@ -97,45 +97,43 @@ class LessonAIService(BaseAIService[LessonOperations, Lesson]):
     # SEMANTIC SEARCH
     # ========================================================================
 
-    async def find_related_articles(
-        self, article_uid: str, limit: int = 5
+    async def find_related_lessons(
+        self, lesson_uid: str, limit: int = 5
     ) -> Result[list[tuple[str, float]]]:
         """
-        Find semantically related articles using embeddings.
+        Find semantically related lessons using embeddings.
 
-        Uses embeddings to find articles with similar concepts/content,
+        Uses embeddings to find lessons with similar concepts/content,
         beyond just explicit graph relationships.
 
         Args:
-            article_uid: Article to find related content for
-            limit: Maximum number of related articles to return
+            lesson_uid: Lesson to find related content for
+            limit: Maximum number of related lessons to return
 
         Returns:
-            Result containing list of (article_uid, similarity_score) tuples
+            Result containing list of (lesson_uid, similarity_score) tuples
         """
-        article_result = await self.backend.get(article_uid)
-        if article_result.is_error:
-            return Result.fail(article_result.expect_error())
+        lesson_result = await self.backend.get(lesson_uid)
+        if lesson_result.is_error:
+            return Result.fail(lesson_result.expect_error())
 
-        article = article_result.value
-        if not article:
-            return Result.fail(Errors.not_found(resource="Lesson", identifier=article_uid))
+        lesson = lesson_result.value
+        if not lesson:
+            return Result.fail(Errors.not_found(resource="Lesson", identifier=lesson_uid))
 
-        content = await self._fetch_content(article_uid)
-        search_text = f"{article.title} {article.summary}"
+        content = await self._fetch_content(lesson_uid)
+        search_text = f"{lesson.title} {lesson.summary}"
         if content:
             # Use first 500 chars of content for embedding
             search_text += f" {content[:500]}"
 
-        # Get all articles in the same domain for comparison
-        all_articles_result = await self.backend.find_by(domain=article.domain)
-        if all_articles_result.is_error:
-            return Result.fail(all_articles_result.expect_error())
+        # Get all lessons in the same domain for comparison
+        all_lessons_result = await self.backend.find_by(domain=lesson.domain)
+        if all_lessons_result.is_error:
+            return Result.fail(all_lessons_result.expect_error())
 
-        all_articles = all_articles_result.value or []
-        candidates = [
-            (a.uid, f"{a.title} {a.summary}") for a in all_articles if a.uid != article_uid
-        ]
+        all_lessons = all_lessons_result.value or []
+        candidates = [(a.uid, f"{a.title} {a.summary}") for a in all_lessons if a.uid != lesson_uid]
 
         if not candidates:
             return Result.ok([])

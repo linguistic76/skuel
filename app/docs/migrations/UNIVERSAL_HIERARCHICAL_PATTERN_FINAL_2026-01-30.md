@@ -92,11 +92,11 @@ await service.remove_subtask(parent_uid, child_uid)
 
 **Service Methods:**
 ```python
-await ku_service.get_subkus(parent_uid, depth)
-await ku_service.get_parent_kus(ku_uid)  # Multiple parents possible!
-await ku_service.get_ku_hierarchy(ku_uid)
-await ku_service.organize_ku(parent_uid, child_uid, order, importance)
-await ku_service.unorganize_ku(parent_uid, child_uid)
+await lesson_core.get_children(parent_uid, depth)
+await lesson_core.get_parents(ku_uid)  # Multiple parents possible!
+await lesson_core.get_hierarchy(ku_uid)
+await lesson_core.organize_lesson(parent_uid, child_uid, order, importance)
+await lesson_core.unorganize_lesson(parent_uid, child_uid)
 ```
 
 **Status:** ✅ Complete (2026-01-30)
@@ -174,8 +174,8 @@ A KU "is" a MOC when it has outgoing ORGANIZES relationships.
 **After:**
 ```python
 # Moving updates edge only (SAFE!)
-await ku_service.unorganize_ku(old_parent, ku_uid)
-await ku_service.organize_ku(new_parent, ku_uid)
+await lesson_core.unorganize_lesson(old_parent, ku_uid)
+await lesson_core.organize_lesson(new_parent, ku_uid)
 # UID unchanged, references intact!
 ```
 
@@ -243,9 +243,9 @@ Built-in for all hierarchical relationships:
 
 ```python
 # Automatic cycle detection
-await ku_service.organize_ku(parent="ku_a", child="ku_b")  # OK
-await ku_service.organize_ku(parent="ku_b", child="ku_c")  # OK
-await ku_service.organize_ku(parent="ku_c", child="ku_a")  # ERROR!
+await lesson_core.organize_lesson(parent="ku_a", child="ku_b")  # OK
+await lesson_core.organize_lesson(parent="ku_b", child="ku_c")  # OK
+await lesson_core.organize_lesson(parent="ku_c", child="ku_a")  # ERROR!
 ```
 
 ---
@@ -345,7 +345,7 @@ await ku_service.organize_ku(parent="ku_c", child="ku_a")  # ERROR!
 
 **Needed:**
 - [ ] `test_uid_generator.py` - Test flat KU generation
-- [ ] `test_ku_hierarchical_methods.py` - Test organize_ku, get_subkus, etc.
+- [ ] `test_ku_hierarchical_methods.py` - Test organize_lesson, get_children, etc.
 - [ ] `test_ls_knowledge_relationships.py` - Test add/get/remove knowledge
 
 **Status:** Tests should be created to verify implementation

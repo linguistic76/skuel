@@ -14,7 +14,7 @@ Architecture:
 - Lives at `/core/services/` level (not in `/ku/` directory)
 - Injected into search routes, personalized discovery adapter
 - Specialized utility for multi-strategy knowledge retrieval
-- See `/core/services/article/README.md` for architecture overview
+- See `/core/services/lesson/README.md` for architecture overview
 """
 
 from dataclasses import dataclass
