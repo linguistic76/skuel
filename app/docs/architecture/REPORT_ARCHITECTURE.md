@@ -357,7 +357,7 @@ The learning loop does not end at a leaf domain — it fans back out across the 
 | `/journals/submit` | Admin | Upload files for AI (LLM) processing |
 | `/profile/shared` | Any user | "Shared With Me" inbox |
 | `/api/teaching/review-queue` | Teacher | Pending submission review queue |
-| `/api/teaching/review/{uid}/feedback` | Teacher | Submit human feedback on submission |
+| `/api/teaching/review/{uid}/feedback` | Teacher | Submit human report on submission |
 | `/api/teaching/review/{uid}/approve` | Teacher | Approve submission |
 
 **Activity report track:**
@@ -451,7 +451,7 @@ When `openai_service` is available, the generator:
 | `/api/reports/assessments/for-student` | GET | Teacher | Student's received assessments |
 | `/api/reports/assessments/by-teacher` | GET | Teacher | Teacher's authored assessments |
 | `/api/teaching/review-queue` | GET | Teacher | Pending submission review queue |
-| `/api/teaching/review/{uid}/feedback` | POST | Teacher | Submit human feedback on submission |
+| `/api/teaching/review/{uid}/feedback` | POST | Teacher | Submit human report on submission |
 | `/api/teaching/review/{uid}/approve` | POST | Teacher | Approve submission |
 
 ---

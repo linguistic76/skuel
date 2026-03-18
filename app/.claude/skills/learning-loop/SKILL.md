@@ -319,7 +319,7 @@ feedback_generated_at: datetime | None
     processor_type: 'human',     // or 'llm'
     feedback: 'Your analysis shows...'
 })
-(report)-[:FEEDBACK_FOR]->(submission:Entity:Submission)
+(report)-[:REPORT_FOR]->(submission:Entity:Submission)
 ```
 
 **Structural position:** Leaf domain. One submission in, one report node out.
@@ -338,12 +338,12 @@ in `core/ports/report_protocols.py`):
 | Request revision | `request_revision()` | `SubmissionRevisionRequested` | Student notified, resubmit expected |
 | Approve | `approve_report()` | `SubmissionApproved` | Loop closes for this exercise |
 
-Each feedback round creates a new `SubmissionReport` entity via `FEEDBACK_FOR` —
+Each feedback round creates a new `SubmissionReport` entity via `REPORT_FOR` —
 revision cycles are traceable as first-class graph entities. The loop publishes
 `ReportSubmitted`, `SubmissionRevisionRequested`, and `SubmissionApproved` events.
 Student notification delivery is **planned** — see the Messaging system in
-`CLAUDE.md`. Students currently need to poll `/submissions/feedback` or the
-activity feed to discover new feedback.
+`CLAUDE.md`. Students currently need to poll `/submissions/reports` or the
+activity feed to discover new reports.
 
 ---
 
@@ -460,7 +460,7 @@ enables student notification and learning loop progression tracking.
 **Access control:**
 - **Create:** `create_revised_exercise` verifies the teacher has `SHARES_WITH {role:'teacher'}`
   on the submission linked to the report, and the `student_uid` owns that submission.
-  Graph path checked: `(Teacher)-[:SHARES_WITH]->(Submission)<-[:FEEDBACK_FOR]-(Report)` +
+  Graph path checked: `(Teacher)-[:SHARES_WITH]->(Submission)<-[:REPORT_FOR]-(Report)` +
   `(Student)-[:OWNS]->(Submission)`. Prevents teachers from creating revisions targeting
   arbitrary students' feedback.
 - **List for student (teacher route):** `list_for_student(student_uid, teacher_uid=)` scopes
@@ -487,13 +487,13 @@ new exercise, closing the revision cycle explicitly rather than implicitly.
 | `FULFILLS_EXERCISE` | `Submission` → `Exercise` or `RevisedExercise` | Student's work satisfies this exercise |
 | `SHARES_WITH` | `Submission` → `User` | Auto-share to teacher for ASSIGNED exercises |
 | `SHARES_WITH` | `User` → `RevisedExercise` | Auto-share revision to student on creation |
-| `FEEDBACK_FOR` | `SubmissionReport` → `Submission` | Report evaluates this specific artifact |
+| `REPORT_FOR` | `SubmissionReport` → `Submission` | Report evaluates this specific artifact |
 | `RESPONDS_TO_REPORT` | `RevisedExercise` → `SubmissionReport` | Revision addresses this report |
 | `REVISES_EXERCISE` | `RevisedExercise` → `Exercise` | Revision of this original exercise |
 
 **RelationshipName enum locations:**
 ```python
-from core.models.enums.relationship_names import RelationshipName
+from core.models.relationship_names import RelationshipName
 
 RelationshipName.REQUIRES_KNOWLEDGE      # Exercise → Ku
 RelationshipName.FOR_GROUP               # Exercise → Group
@@ -534,7 +534,7 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
 | **Student assignments** | `/exercises` | GET | Student |
 | **Submission** | `/submit` | POST | Student |
 | **Submission detail** | `/submissions/{uid}` | GET | Student (owner) |
-| **Submission feedback** | `/submissions/{uid}/report` | GET (HTMX) | Student (owner) |
+| **Submission reports** | `/api/submissions/{uid}/reports` | GET | Student (owner) |
 | **Submission exercise link** | `/submissions/{uid}/exercise` | GET (HTMX) | Student |
 | **Submission** | `/api/submissions/...` | GET/POST | Student |
 | **Submission sharing** | `/api/share/group` | POST | Student |
@@ -542,7 +542,7 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
 | **Submission report** | `/api/reports/assessments` | POST | Teacher |
 | **Submission report** | `/api/reports/assessments/given` | GET | Teacher |
 | **Submission report** | `/api/reports/assessments/received` | GET | Student |
-| **Student feedback UI** | `/submissions/feedback` | GET | Student |
+| **Student reports UI** | `/submissions/reports` | GET | Student |
 | **Teacher review** | `/api/teaching/review-queue` | GET | Teacher |
 | **Teacher review** | `/api/teaching/review/{uid}` | GET | Teacher |
 | **Teacher review** | `/api/teaching/review/{uid}/feedback` | POST | Teacher |
@@ -604,7 +604,7 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
 
 ### Red flags — features to question
 
-- New data model with no `FULFILLS_EXERCISE`, `FEEDBACK_FOR`, or equivalent loop relationship
+- New data model with no `FULFILLS_EXERCISE`, `REPORT_FOR`, or equivalent loop relationship
 - A service that reads from multiple domains but writes to none of them (pure read aggregation)
 - A UI route that displays data from the loop but adds no new interaction or progression
 - Standalone admin tooling with no student-facing outcome

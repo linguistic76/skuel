@@ -118,7 +118,7 @@ Created via `SubmissionsCoreService.create_assessment()` (requires TEACHER role)
 - `ASSESSMENT_OF` relationship to student
 - `SHARES_WITH` relationship for student access
 
-Students see assessments at `/submissions/feedback`.
+Students see assessments at `/submissions/reports`.
 
 ## Relationships
 
