@@ -689,6 +689,122 @@ class SearchRequest(BaseModel):
             return "faceted"  # Boolean graph patterns
         return "text"
 
+    @classmethod
+    def from_form_params(
+        cls,
+        *,
+        query: str = "",
+        user_uid: str | None = None,
+        entity_type: str | None = None,
+        sort_order: str = "relevance",
+        # Common filters
+        status: str | None = None,
+        priority: str | None = None,
+        # Domain-specific filters
+        frequency: str | None = None,
+        event_type: str | None = None,
+        urgency: str | None = None,
+        strength: str | None = None,
+        # Knowledge filters
+        sel_category: str | None = None,
+        learning_level: str | None = None,
+        content_type: str | None = None,
+        educational_level: str | None = None,
+        # Graph relationship filters (checkbox strings)
+        ready_to_learn: str | None = None,
+        builds_on_mastered: str | None = None,
+        in_active_path: str | None = None,
+        supports_goals: str | None = None,
+        builds_on_habits: str | None = None,
+        applied_in_tasks: str | None = None,
+        aligned_with_principles: str | None = None,
+        next_logical_step: str | None = None,
+        # Nous-specific
+        nous_section: str | None = None,
+        # Pedagogical filters (checkbox strings)
+        not_yet_viewed: str | None = None,
+        viewed_not_mastered: str | None = None,
+        ready_to_review: str | None = None,
+        # Semantic search filters (checkbox strings)
+        enable_semantic_boost: str | None = None,
+        enable_learning_aware: str | None = None,
+        prefer_unmastered: str | None = None,
+        # Pagination
+        limit: int = 20,
+        offset: int = 0,
+    ) -> "SearchRequest":
+        """Build a SearchRequest from raw HTML form string parameters.
+
+        Handles empty-string-to-None normalization, checkbox-to-bool conversion,
+        entity type string parsing, and extended_facets assembly — all the
+        coercion that previously lived in the route handler.
+        """
+
+        def _none_if_empty(value: str | None) -> str | None:
+            return None if not value or value.strip() == "" else value
+
+        def _checkbox_to_bool(value: str | None) -> bool:
+            return value == "true" if value else False
+
+        # Normalize optional strings
+        status = _none_if_empty(status)
+        priority = _none_if_empty(priority)
+        sel_category = _none_if_empty(sel_category)
+        learning_level = _none_if_empty(learning_level)
+        content_type = _none_if_empty(content_type)
+        educational_level = _none_if_empty(educational_level)
+        nous_section = _none_if_empty(nous_section)
+        entity_type = _none_if_empty(entity_type)
+
+        # Parse entity type to enum
+        parsed_entity_types: list[EntityType | NonKuDomain] = []
+        if entity_type:
+            et = EntityType.from_string(entity_type) or NonKuDomain.from_string(entity_type)
+            if et:
+                parsed_entity_types = [et]
+
+        # Build extended_facets for domain-specific filters
+        extended_facets: dict[str, Any] = {}
+        for key, val in [
+            ("frequency", _none_if_empty(frequency)),
+            ("event_type", _none_if_empty(event_type)),
+            ("urgency", _none_if_empty(urgency)),
+            ("strength", _none_if_empty(strength)),
+        ]:
+            if val:
+                extended_facets[key] = val
+
+        return cls(
+            query_text=query,
+            entity_types=parsed_entity_types,
+            status=EntityStatus(status) if status else None,
+            priority=Priority(priority) if priority else None,
+            extended_facets=extended_facets if extended_facets else None,
+            sel_category=SELCategory(sel_category) if sel_category else None,
+            learning_level=LearningLevel(learning_level) if learning_level else None,
+            content_type=ContentType(content_type) if content_type else None,
+            educational_level=EducationalLevel(educational_level) if educational_level else None,
+            ready_to_learn=_checkbox_to_bool(ready_to_learn),
+            builds_on_mastered=_checkbox_to_bool(builds_on_mastered),
+            in_active_path=_checkbox_to_bool(in_active_path),
+            supports_goals=_checkbox_to_bool(supports_goals),
+            builds_on_habits=_checkbox_to_bool(builds_on_habits),
+            applied_in_tasks=_checkbox_to_bool(applied_in_tasks),
+            aligned_with_principles=_checkbox_to_bool(aligned_with_principles),
+            next_logical_step=_checkbox_to_bool(next_logical_step),
+            nous_section=nous_section,
+            not_yet_viewed=_checkbox_to_bool(not_yet_viewed),
+            viewed_not_mastered=_checkbox_to_bool(viewed_not_mastered),
+            ready_to_review=_checkbox_to_bool(ready_to_review),
+            enable_semantic_boost=_checkbox_to_bool(enable_semantic_boost),
+            enable_learning_aware=_checkbox_to_bool(enable_learning_aware),
+            prefer_unmastered=_checkbox_to_bool(prefer_unmastered),
+            user_uid=user_uid,
+            limit=limit,
+            offset=offset,
+            include_facet_counts=True,
+        )
+
     model_config = ConfigDict(
         use_enum_values=True,
         json_schema_extra={

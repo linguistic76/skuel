@@ -36,6 +36,44 @@ if TYPE_CHECKING:
     from core.services.analytics_service import AnalyticsService
 
 
+# ============================================================================
+# PARAMETER PARSING HELPERS
+# ============================================================================
+
+
+def _parse_iso_date(value: str | None, field: str) -> Result[date]:
+    """Parse an ISO-format date string, returning a validation error on failure."""
+    if not value:
+        return Result.fail(Errors.validation(f"{field} is required", field=field))
+    try:
+        return Result.ok(date.fromisoformat(value))
+    except ValueError:
+        return Result.fail(
+            Errors.validation(f"{field} must be ISO format (YYYY-MM-DD)", field=field, value=value)
+        )
+
+
+def _parse_int_in_range(value: str | None, field: str, min_val: int, max_val: int) -> Result[int]:
+    """Parse an integer string and validate it falls within [min_val, max_val]."""
+    if not value:
+        return Result.fail(Errors.validation(f"{field} is required", field=field))
+    try:
+        n = int(value)
+    except ValueError:
+        return Result.fail(
+            Errors.validation(f"{field} must be an integer", field=field, value=value)
+        )
+    if n < min_val or n > max_val:
+        return Result.fail(
+            Errors.validation(
+                f"{field} must be between {min_val} and {max_val}",
+                field=field,
+                value=n,
+            )
+        )
+    return Result.ok(n)
+
+
 def create_analytics_summary_api_routes(app, rt, analytics_service: "AnalyticsService"):
     """
     Create Analytics Summary API routes (read-only analytics).
@@ -96,21 +134,13 @@ def create_analytics_summary_api_routes(app, rt, analytics_service: "AnalyticsSe
         """
         user_uid = require_authenticated_user(request)
 
-        # Parse start_date or default to current week Monday
         start_date_str = request.query_params.get("start_date")
         if start_date_str:
-            try:
-                start_date = date.fromisoformat(start_date_str)
-            except ValueError:
-                return Result.fail(
-                    Errors.validation(
-                        "start_date must be ISO format (YYYY-MM-DD)",
-                        field="start_date",
-                        value=start_date_str,
-                    )
-                )
+            result = _parse_iso_date(start_date_str, "start_date")
+            if result.is_error:
+                return result
+            start_date = result.value
         else:
-            # Default to current week Monday
             today = date.today()
             start_date = today - timedelta(days=today.weekday())
 
@@ -133,27 +163,17 @@ def create_analytics_summary_api_routes(app, rt, analytics_service: "AnalyticsSe
             - goal_progress_analysis: Goal achievement details
         """
         user_uid = require_authenticated_user(request)
-        year_str = request.query_params.get("year")
-        month_str = request.query_params.get("month")
 
-        if not year_str or not month_str:
-            return Result.fail(Errors.validation("year and month are required", field="year,month"))
+        year_result = _parse_int_in_range(request.query_params.get("year"), "year", 2000, 2100)
+        if year_result.is_error:
+            return year_result
+        month_result = _parse_int_in_range(request.query_params.get("month"), "month", 1, 12)
+        if month_result.is_error:
+            return month_result
 
-        try:
-            year = int(year_str)
-            month = int(month_str)
-
-            if month < 1 or month > 12:
-                return Result.fail(
-                    Errors.validation("month must be between 1 and 12", field="month", value=month)
-                )
-
-        except ValueError:
-            return Result.fail(
-                Errors.validation("year and month must be integers", field="year,month")
-            )
-
-        return await analytics_service.generate_monthly_life_review(user_uid, year, month)
+        return await analytics_service.generate_monthly_life_review(
+            user_uid, year_result.value, month_result.value
+        )
 
     @rt("/api/analytics/quarterly-progress")
     @boundary_handler()
@@ -172,31 +192,17 @@ def create_analytics_summary_api_routes(app, rt, analytics_service: "AnalyticsSe
             - quarter_summary: Strategic narrative
         """
         user_uid = require_authenticated_user(request)
-        year_str = request.query_params.get("year")
-        quarter_str = request.query_params.get("quarter")
 
-        if not year_str or not quarter_str:
-            return Result.fail(
-                Errors.validation("year and quarter are required", field="year,quarter")
-            )
+        year_result = _parse_int_in_range(request.query_params.get("year"), "year", 2000, 2100)
+        if year_result.is_error:
+            return year_result
+        quarter_result = _parse_int_in_range(request.query_params.get("quarter"), "quarter", 1, 4)
+        if quarter_result.is_error:
+            return quarter_result
 
-        try:
-            year = int(year_str)
-            quarter = int(quarter_str)
-
-            if quarter < 1 or quarter > 4:
-                return Result.fail(
-                    Errors.validation(
-                        "quarter must be between 1 and 4", field="quarter", value=quarter
-                    )
-                )
-
-        except ValueError:
-            return Result.fail(
-                Errors.validation("year and quarter must be integers", field="year,quarter")
-            )
-
-        return await analytics_service.generate_quarterly_progress(user_uid, year, quarter)
+        return await analytics_service.generate_quarterly_progress(
+            user_uid, year_result.value, quarter_result.value
+        )
 
     @rt("/api/analytics/yearly-review")
     @boundary_handler()
@@ -215,19 +221,12 @@ def create_analytics_summary_api_routes(app, rt, analytics_service: "AnalyticsSe
             - year_summary: Annual retrospective
         """
         user_uid = require_authenticated_user(request)
-        year_str = request.query_params.get("year")
 
-        if not year_str:
-            return Result.fail(Errors.validation("year is required", field="year"))
+        year_result = _parse_int_in_range(request.query_params.get("year"), "year", 2000, 2100)
+        if year_result.is_error:
+            return year_result
 
-        try:
-            year = int(year_str)
-        except ValueError:
-            return Result.fail(
-                Errors.validation("year must be an integer", field="year", value=year_str)
-            )
-
-        return await analytics_service.generate_yearly_review(user_uid, year)
+        return await analytics_service.generate_yearly_review(user_uid, year_result.value)
 
     # ========================================================================
     # PATTERN DETECTION
@@ -253,31 +252,21 @@ def create_analytics_summary_api_routes(app, rt, analytics_service: "AnalyticsSe
             - domain_balance
         """
         user_uid = require_authenticated_user(request)
-        start_date_str = request.query_params.get("start_date")
-        end_date_str = request.query_params.get("end_date")
 
-        if not start_date_str or not end_date_str:
-            return Result.fail(
-                Errors.validation(
-                    "start_date and end_date are required", field="start_date,end_date"
-                )
-            )
+        start_result = _parse_iso_date(request.query_params.get("start_date"), "start_date")
+        if start_result.is_error:
+            return start_result
+        end_result = _parse_iso_date(request.query_params.get("end_date"), "end_date")
+        if end_result.is_error:
+            return end_result
 
-        try:
-            start_date = date.fromisoformat(start_date_str)
-            end_date = date.fromisoformat(end_date_str)
-        except ValueError as e:
-            return Result.fail(
-                Errors.validation(
-                    f"Dates must be ISO format (YYYY-MM-DD): {e!s}", field="start_date,end_date"
-                )
-            )
-
-        if end_date < start_date:
+        if end_result.value < start_result.value:
             return Result.fail(
                 Errors.validation("end_date must be after start_date", field="end_date")
             )
 
-        return await analytics_service.detect_cross_domain_patterns(user_uid, start_date, end_date)
+        return await analytics_service.detect_cross_domain_patterns(
+            user_uid, start_result.value, end_result.value
+        )
 
     return []

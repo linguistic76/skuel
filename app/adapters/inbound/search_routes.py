@@ -24,14 +24,6 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
-from core.models.enums import (
-    ContentType,
-    EducationalLevel,
-    EntityStatus,
-    LearningLevel,
-    Priority,
-    SELCategory,
-)
 from core.models.enums.entity_enums import EntityType, NonKuDomain
 from core.models.relationship_names import RelationshipName
 from core.models.search_request import SearchRequest
@@ -48,21 +40,6 @@ if TYPE_CHECKING:
 from core.utils.logging import get_logger
 
 logger = get_logger("skuel.routes.search")
-
-
-# ============================================================================
-# HELPER FUNCTIONS
-# ============================================================================
-
-
-def _none_if_empty(value: str | None) -> str | None:
-    """Convert empty strings to None."""
-    return None if not value or value.strip() == "" else value
-
-
-def _checkbox_to_bool(value: str | None) -> bool:
-    """Convert checkbox values to boolean."""
-    return value == "true" if value else False
 
 
 # ============================================================================
@@ -131,112 +108,46 @@ def create_search_api_routes(
         if not query.strip():
             return render_empty_search_prompt()
 
-        # Debug logging
         logger.info(
-            f"Search params: query={query}, entity_type={entity_type!r}, sort_order={sort_order!r}"
-        )
-        logger.info(f"Common filters: status={status!r}, priority={priority!r}")
-        logger.info(
-            f"Relationship filters: ready_to_learn={ready_to_learn!r}, "
-            f"builds_on_mastered={builds_on_mastered!r}, in_active_path={in_active_path!r}, "
-            f"supports_goals={supports_goals!r}, builds_on_habits={builds_on_habits!r}, "
-            f"applied_in_tasks={applied_in_tasks!r}, aligned_with_principles={aligned_with_principles!r}, "
-            f"next_logical_step={next_logical_step!r}"
+            f"Search params: query={query}, entity_type={entity_type!r}, "
+            f"status={status!r}, priority={priority!r}"
         )
 
-        # Clean up filter values
-        entity_type = _none_if_empty(entity_type)
-        status = _none_if_empty(status)
-        priority = _none_if_empty(priority)
-        frequency = _none_if_empty(frequency)
-        event_type = _none_if_empty(event_type)
-        urgency = _none_if_empty(urgency)
-        strength = _none_if_empty(strength)
-        sel_category = _none_if_empty(sel_category)
-        learning_level = _none_if_empty(learning_level)
-        content_type = _none_if_empty(content_type)
-        educational_level = _none_if_empty(educational_level)
-        nous_section = _none_if_empty(nous_section)
-
-        # Convert relationship filters to boolean
-        ready_to_learn_bool = _checkbox_to_bool(ready_to_learn)
-        builds_on_mastered_bool = _checkbox_to_bool(builds_on_mastered)
-        in_active_path_bool = _checkbox_to_bool(in_active_path)
-        supports_goals_bool = _checkbox_to_bool(supports_goals)
-        builds_on_habits_bool = _checkbox_to_bool(builds_on_habits)
-        applied_in_tasks_bool = _checkbox_to_bool(applied_in_tasks)
-        aligned_with_principles_bool = _checkbox_to_bool(aligned_with_principles)
-        next_logical_step_bool = _checkbox_to_bool(next_logical_step)
-
-        # Convert pedagogical filters to boolean
-        not_yet_viewed_bool = _checkbox_to_bool(not_yet_viewed)
-        viewed_not_mastered_bool = _checkbox_to_bool(viewed_not_mastered)
-        ready_to_review_bool = _checkbox_to_bool(ready_to_review)
-
-        # Convert semantic search filters to boolean
-        enable_semantic_boost_bool = _checkbox_to_bool(enable_semantic_boost)
-        enable_learning_aware_bool = _checkbox_to_bool(enable_learning_aware)
-        prefer_unmastered_bool = _checkbox_to_bool(prefer_unmastered)
-
-        # Parse entity type to EntityType/NonKuDomain enum
-        parsed_entity_types: list[EntityType | NonKuDomain] = []
-        if entity_type:
-            et = EntityType.from_string(entity_type) or NonKuDomain.from_string(entity_type)
-            if et:
-                parsed_entity_types = [et]
-
-        # Build extended_facets for domain-specific filters
-        extended_facets: dict[str, Any] = {}
-        if frequency:
-            extended_facets["frequency"] = frequency
-        if event_type:
-            extended_facets["event_type"] = event_type
-        if urgency:
-            extended_facets["urgency"] = urgency
-        if strength:
-            extended_facets["strength"] = strength
-
-        # Build SearchRequest with safe enum conversion
+        # Build SearchRequest — all normalization (empty→None, checkbox→bool,
+        # enum parsing, extended_facets assembly) lives on the model
         try:
-            search_request = SearchRequest(
-                query_text=query,
-                # Scope
-                entity_types=parsed_entity_types,
-                # Common filters (convert to enums)
-                status=EntityStatus(status) if status else None,
-                priority=Priority(priority) if priority else None,
-                # Domain-specific filters
-                extended_facets=extended_facets if extended_facets else None,
-                # Knowledge filters
-                sel_category=SELCategory(sel_category) if sel_category else None,
-                learning_level=LearningLevel(learning_level) if learning_level else None,
-                content_type=ContentType(content_type) if content_type else None,
-                educational_level=EducationalLevel(educational_level)
-                if educational_level
-                else None,
-                # Graph relationship filters
-                ready_to_learn=ready_to_learn_bool,
-                builds_on_mastered=builds_on_mastered_bool,
-                in_active_path=in_active_path_bool,
-                supports_goals=supports_goals_bool,
-                builds_on_habits=builds_on_habits_bool,
-                applied_in_tasks=applied_in_tasks_bool,
-                aligned_with_principles=aligned_with_principles_bool,
-                next_logical_step=next_logical_step_bool,
-                # Nous-specific filters
-                nous_section=nous_section,
-                # Pedagogical filters
-                not_yet_viewed=not_yet_viewed_bool,
-                viewed_not_mastered=viewed_not_mastered_bool,
-                ready_to_review=ready_to_review_bool,
-                # Semantic search filters
-                enable_semantic_boost=enable_semantic_boost_bool,
-                enable_learning_aware=enable_learning_aware_bool,
-                prefer_unmastered=prefer_unmastered_bool,
+            search_request = SearchRequest.from_form_params(
+                query=query,
                 user_uid=user_uid,
+                entity_type=entity_type,
+                sort_order=sort_order,
+                status=status,
+                priority=priority,
+                frequency=frequency,
+                event_type=event_type,
+                urgency=urgency,
+                strength=strength,
+                sel_category=sel_category,
+                learning_level=learning_level,
+                content_type=content_type,
+                educational_level=educational_level,
+                ready_to_learn=ready_to_learn,
+                builds_on_mastered=builds_on_mastered,
+                in_active_path=in_active_path,
+                supports_goals=supports_goals,
+                builds_on_habits=builds_on_habits,
+                applied_in_tasks=applied_in_tasks,
+                aligned_with_principles=aligned_with_principles,
+                next_logical_step=next_logical_step,
+                nous_section=nous_section,
+                not_yet_viewed=not_yet_viewed,
+                viewed_not_mastered=viewed_not_mastered,
+                ready_to_review=ready_to_review,
+                enable_semantic_boost=enable_semantic_boost,
+                enable_learning_aware=enable_learning_aware,
+                prefer_unmastered=prefer_unmastered,
                 limit=limit,
                 offset=offset,
-                include_facet_counts=True,
             )
         except ValueError as e:
             logger.error(f"Invalid filter value: {e}")

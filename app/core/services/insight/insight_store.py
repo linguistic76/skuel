@@ -727,9 +727,7 @@ class InsightStore:
     # Bulk Operations
     # ========================================
 
-    async def bulk_dismiss(
-        self, uids: list[str], user_uid: str
-    ) -> Result[dict[str, Any]]:
+    async def bulk_dismiss(self, uids: list[str], user_uid: str) -> Result[dict[str, Any]]:
         """Dismiss multiple insights, tracking successes and failures.
 
         Args:
@@ -752,15 +750,15 @@ class InsightStore:
 
         self.logger.info(f"Bulk dismissed {success_count}/{len(uids)} insights for {user_uid}")
 
-        return Result.ok({
-            "success_count": success_count,
-            "total_requested": len(uids),
-            "failed_uids": failed_uids,
-        })
+        return Result.ok(
+            {
+                "success_count": success_count,
+                "total_requested": len(uids),
+                "failed_uids": failed_uids,
+            }
+        )
 
-    async def bulk_mark_actioned(
-        self, uids: list[str], user_uid: str
-    ) -> Result[dict[str, Any]]:
+    async def bulk_mark_actioned(self, uids: list[str], user_uid: str) -> Result[dict[str, Any]]:
         """Mark multiple insights as actioned, tracking successes and failures.
 
         Args:
@@ -783,11 +781,13 @@ class InsightStore:
 
         self.logger.info(f"Bulk actioned {success_count}/{len(uids)} insights for {user_uid}")
 
-        return Result.ok({
-            "success_count": success_count,
-            "total_requested": len(uids),
-            "failed_uids": failed_uids,
-        })
+        return Result.ok(
+            {
+                "success_count": success_count,
+                "total_requested": len(uids),
+                "failed_uids": failed_uids,
+            }
+        )
 
     async def smart_dismiss(
         self, user_uid: str, filter_type: str, filter_value: str
@@ -824,7 +824,9 @@ class InsightStore:
         for insight in matching:
             dismiss_result = await self.dismiss_insight(insight.uid, user_uid)
             if dismiss_result.is_error:
-                self.logger.error(f"Failed to dismiss insight {insight.uid}: {dismiss_result.error}")
+                self.logger.error(
+                    f"Failed to dismiss insight {insight.uid}: {dismiss_result.error}"
+                )
                 failed_uids.append(insight.uid)
             else:
                 success_count += 1
@@ -834,15 +836,17 @@ class InsightStore:
             f"{filter_type}={filter_value} insights for {user_uid}"
         )
 
-        return Result.ok({
-            "success_count": success_count,
-            "total_matching": len(matching),
-            "failed_uids": failed_uids,
-            "filter": {
-                "type": filter_type,
-                "value": filter_value,
-            },
-        })
+        return Result.ok(
+            {
+                "success_count": success_count,
+                "total_matching": len(matching),
+                "failed_uids": failed_uids,
+                "filter": {
+                    "type": filter_type,
+                    "value": filter_value,
+                },
+            }
+        )
 
     # ========================================
     # Chart Data Methods
@@ -870,36 +874,38 @@ class InsightStore:
         for insight in insights:
             impact_counts[insight.impact.value] += 1
 
-        return Result.ok({
-            "type": "doughnut",
-            "data": {
-                "labels": ["Critical", "High", "Medium", "Low"],
-                "datasets": [
-                    {
-                        "label": "Insights by Impact",
-                        "data": [
-                            impact_counts["critical"],
-                            impact_counts["high"],
-                            impact_counts["medium"],
-                            impact_counts["low"],
-                        ],
-                        "backgroundColor": [
-                            "rgba(220, 38, 38, 0.8)",
-                            "rgba(234, 88, 12, 0.8)",
-                            "rgba(250, 204, 21, 0.8)",
-                            "rgba(34, 197, 94, 0.8)",
-                        ],
-                    }
-                ],
-            },
-            "options": {
-                "responsive": True,
-                "plugins": {
-                    "legend": {"position": "bottom"},
-                    "title": {"display": True, "text": "Insights by Impact Level"},
+        return Result.ok(
+            {
+                "type": "doughnut",
+                "data": {
+                    "labels": ["Critical", "High", "Medium", "Low"],
+                    "datasets": [
+                        {
+                            "label": "Insights by Impact",
+                            "data": [
+                                impact_counts["critical"],
+                                impact_counts["high"],
+                                impact_counts["medium"],
+                                impact_counts["low"],
+                            ],
+                            "backgroundColor": [
+                                "rgba(220, 38, 38, 0.8)",
+                                "rgba(234, 88, 12, 0.8)",
+                                "rgba(250, 204, 21, 0.8)",
+                                "rgba(34, 197, 94, 0.8)",
+                            ],
+                        }
+                    ],
                 },
-            },
-        })
+                "options": {
+                    "responsive": True,
+                    "plugins": {
+                        "legend": {"position": "bottom"},
+                        "title": {"display": True, "text": "Insights by Impact Level"},
+                    },
+                },
+            }
+        )
 
     async def get_domain_distribution_chart(self, user_uid: str) -> Result[dict[str, Any]]:
         """Build Chart.js bar config for insights by domain.
@@ -927,27 +933,29 @@ class InsightStore:
 
         sorted_domains = sorted(domain_counts.items(), key=itemgetter(1), reverse=True)
 
-        return Result.ok({
-            "type": "bar",
-            "data": {
-                "labels": [domain.title() for domain, _ in sorted_domains],
-                "datasets": [
-                    {
-                        "label": "Active Insights",
-                        "data": [count for _, count in sorted_domains],
-                        "backgroundColor": "rgba(59, 130, 246, 0.8)",
-                    }
-                ],
-            },
-            "options": {
-                "responsive": True,
-                "plugins": {
-                    "legend": {"display": False},
-                    "title": {"display": True, "text": "Insights by Domain"},
+        return Result.ok(
+            {
+                "type": "bar",
+                "data": {
+                    "labels": [domain.title() for domain, _ in sorted_domains],
+                    "datasets": [
+                        {
+                            "label": "Active Insights",
+                            "data": [count for _, count in sorted_domains],
+                            "backgroundColor": "rgba(59, 130, 246, 0.8)",
+                        }
+                    ],
                 },
-                "scales": {"y": {"beginAtZero": True, "ticks": {"stepSize": 1}}},
-            },
-        })
+                "options": {
+                    "responsive": True,
+                    "plugins": {
+                        "legend": {"display": False},
+                        "title": {"display": True, "text": "Insights by Domain"},
+                    },
+                    "scales": {"y": {"beginAtZero": True, "ticks": {"stepSize": 1}}},
+                },
+            }
+        )
 
     async def get_type_distribution_chart(self, user_uid: str) -> Result[dict[str, Any]]:
         """Build Chart.js doughnut config for insight type distribution.
@@ -976,33 +984,35 @@ class InsightStore:
         sorted_types = sorted(type_counts.items(), key=itemgetter(1), reverse=True)
         labels = [t.replace("_", " ").title() for t, _ in sorted_types]
 
-        return Result.ok({
-            "type": "doughnut",
-            "data": {
-                "labels": labels,
-                "datasets": [
-                    {
-                        "label": "Insights by Type",
-                        "data": [count for _, count in sorted_types],
-                        "backgroundColor": [
-                            "rgba(99, 102, 241, 0.8)",
-                            "rgba(139, 92, 246, 0.8)",
-                            "rgba(168, 85, 247, 0.8)",
-                            "rgba(236, 72, 153, 0.8)",
-                            "rgba(244, 63, 94, 0.8)",
-                            "rgba(59, 130, 246, 0.8)",
-                        ],
-                    }
-                ],
-            },
-            "options": {
-                "responsive": True,
-                "plugins": {
-                    "legend": {"position": "right"},
-                    "title": {"display": True, "text": "Insights by Type"},
+        return Result.ok(
+            {
+                "type": "doughnut",
+                "data": {
+                    "labels": labels,
+                    "datasets": [
+                        {
+                            "label": "Insights by Type",
+                            "data": [count for _, count in sorted_types],
+                            "backgroundColor": [
+                                "rgba(99, 102, 241, 0.8)",
+                                "rgba(139, 92, 246, 0.8)",
+                                "rgba(168, 85, 247, 0.8)",
+                                "rgba(236, 72, 153, 0.8)",
+                                "rgba(244, 63, 94, 0.8)",
+                                "rgba(59, 130, 246, 0.8)",
+                            ],
+                        }
+                    ],
                 },
-            },
-        })
+                "options": {
+                    "responsive": True,
+                    "plugins": {
+                        "legend": {"position": "right"},
+                        "title": {"display": True, "text": "Insights by Type"},
+                    },
+                },
+            }
+        )
 
     async def get_action_rate_chart(self, user_uid: str) -> Result[dict[str, Any]]:
         """Build Chart.js gauge-style doughnut config for action rate.
@@ -1023,31 +1033,33 @@ class InsightStore:
         action_rate = stats.get("action_rate", 0) * 100
         remaining_rate = 100 - action_rate
 
-        return Result.ok({
-            "type": "doughnut",
-            "data": {
-                "labels": ["Actioned", "Not Actioned"],
-                "datasets": [
-                    {
-                        "label": "Action Rate",
-                        "data": [action_rate, remaining_rate],
-                        "backgroundColor": [
-                            "rgba(34, 197, 94, 0.8)",
-                            "rgba(156, 163, 175, 0.3)",
-                        ],
-                    }
-                ],
-            },
-            "options": {
-                "responsive": True,
-                "circumference": 180,
-                "rotation": -90,
-                "plugins": {
-                    "legend": {"position": "bottom"},
-                    "title": {"display": True, "text": f"Action Rate: {action_rate:.1f}%"},
+        return Result.ok(
+            {
+                "type": "doughnut",
+                "data": {
+                    "labels": ["Actioned", "Not Actioned"],
+                    "datasets": [
+                        {
+                            "label": "Action Rate",
+                            "data": [action_rate, remaining_rate],
+                            "backgroundColor": [
+                                "rgba(34, 197, 94, 0.8)",
+                                "rgba(156, 163, 175, 0.3)",
+                            ],
+                        }
+                    ],
                 },
-            },
-        })
+                "options": {
+                    "responsive": True,
+                    "circumference": 180,
+                    "rotation": -90,
+                    "plugins": {
+                        "legend": {"position": "bottom"},
+                        "title": {"display": True, "text": f"Action Rate: {action_rate:.1f}%"},
+                    },
+                },
+            }
+        )
 
     async def get_insight_counts_by_domain(
         self,
