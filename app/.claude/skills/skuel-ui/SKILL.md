@@ -198,6 +198,7 @@ def TaskCard(title: str, desc: str, stat: str, prio: str, uid: str): ...
 
 ```python
 from ui.patterns import PageHeader, SectionHeader, EmptyState, StatsGrid, StatCard
+from ui.patterns.stats_grid import StatItem
 from ui.patterns import ProgressMetric, RecommendationCard, SettingToggle
 
 # Empty state with optional action
@@ -207,11 +208,11 @@ EmptyState(
     action=Button("Create Task", variant=ButtonT.primary),
 )
 
-# Stats grid
+# Stats grid — uses StatItem frozen dataclass (not dicts)
 StatsGrid([
-    {"label": "Total", "value": "42", "trend": "+5"},
-    {"label": "Completed", "value": "18"},
-    {"label": "Overdue", "value": "3", "trend": "-2"},
+    StatItem(label="Total", value="42", trend="+5"),
+    StatItem(label="Completed", value="18"),
+    StatItem(label="Overdue", value="3", trend="-2"),
 ])
 
 # Single stat with semantic color

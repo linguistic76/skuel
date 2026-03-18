@@ -471,13 +471,13 @@ EntityCard(
 ### StatsGrid — Dashboard Metrics
 
 ```python
-from ui.patterns.stats_grid import StatsGrid
+from ui.patterns.stats_grid import StatItem, StatsGrid
 
 StatsGrid([
-    {"label": "Active", "value": 42, "change": "+5 this week", "trend": "up"},
-    {"label": "Completed", "value": 98, "trend": "neutral"},
-    {"label": "Overdue", "value": 3, "change": "+1", "trend": "down"},
-    {"label": "Total", "value": 143},
+    StatItem(label="Active", value=42, change="+5 this week", trend="up"),
+    StatItem(label="Completed", value=98, trend="neutral"),
+    StatItem(label="Overdue", value=3, change="+1", trend="down"),
+    StatItem(label="Total", value=143),
 ])
 ```
 

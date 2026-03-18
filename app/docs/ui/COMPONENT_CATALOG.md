@@ -578,39 +578,53 @@ EntityCard(title=task.title, config=config)
 
 **Location:** `/ui/patterns/stats_grid.py`
 
-Grid layout for displaying statistics cards.
+Grid layout for displaying statistics cards. Uses `StatItem` frozen dataclass for type-safe data passing.
 
-### StatsGrid(*stat_cards, columns, **kwargs)
+### StatItem (frozen dataclass)
+
+Typed data carrier for a single statistic.
+
+**Fields:**
+- `label: str` - Stat label
+- `value: str | int` - Stat value
+- `change: str | None` - Change text (e.g., "+5 this week")
+- `trend: str | None` - Trend direction: "up", "down", "neutral"
+- `color: str | None` - Semantic color token (e.g., "success", "primary")
+
+### StatsGrid(stats, cols, **kwargs)
 
 Statistics grid container.
 
 **Parameters:**
-- `*stat_cards` - StatCard components
-- `columns: int` - Number of columns (default: 3)
+- `stats: list[StatItem]` - List of StatItem instances
+- `cols: int` - Number of columns (default: 4)
 - `**kwargs` - Additional attributes
 
-### StatCard(label, value, icon, trend, **kwargs)
+### StatCard(label, value, change, trend, color, **kwargs)
 
-Individual statistics card.
+Individual statistics card (lower-level, use StatItem + StatsGrid for grids).
 
 **Parameters:**
 - `label: str` - Stat label
 - `value: str | int` - Stat value
-- `icon: str | None` - Optional emoji icon
-- `trend: str | None` - Trend indicator (+5%, -3%, etc.)
+- `change: str | None` - Change text
+- `trend: str | None` - Trend direction
+- `color: str | None` - Semantic color token
 - `**kwargs` - Additional attributes
 
 **Examples:**
 ```python
-from ui.patterns.stats_grid import StatsGrid, StatCard
+from ui.patterns.stats_grid import StatItem, StatsGrid, StatCard
 
-# Stats dashboard
-StatsGrid(
-    StatCard(label="Total Tasks", value=42, icon="📋"),
-    StatCard(label="Completed", value=28, icon="✅", trend="+12%"),
-    StatCard(label="In Progress", value=14, icon="🔄"),
-    columns=3,
-)
+# Stats grid (preferred)
+StatsGrid([
+    StatItem(label="Total Tasks", value=42),
+    StatItem(label="Completed", value=28, change="+12%", trend="up"),
+    StatItem(label="In Progress", value=14),
+], cols=3)
+
+# Single stat card with color
+StatCard(label="Completion Rate", value="85%", color="success")
 ```
 
 ---

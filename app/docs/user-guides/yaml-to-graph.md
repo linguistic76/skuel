@@ -164,7 +164,7 @@ tags:
 # Output: {"connections.enables": ["a.mindfulness.posture-basics", ...]}
 ```
 
-The BulkIngestionEngine then generates FOREACH patterns for each dotted key:
+The BulkIngestionEngine then generates CALL subquery patterns for each dotted key:
 
 ```cypher
 MERGE (n:Entity {uid: "a.mindfulness.breath-awareness-basics"})
@@ -173,19 +173,27 @@ MERGE (n:Entity {uid: "a.mindfulness.breath-awareness-basics"})
 WITH n, item
 
 // uses_kus → USES_KU edges
-FOREACH (target_uid IN coalesce(item.uses_kus, []) |
-  MERGE (target:Entity {uid: target_uid})
+CALL {
+  WITH n, item
+  WITH n, coalesce(item.uses_kus, []) AS _target_uids
+  UNWIND _target_uids AS _target_uid
+  MATCH (target:Entity {uid: _target_uid})
   MERGE (n)-[:USES_KU]->(target)
-)
+}
 
 // connections.enables → ENABLES_KNOWLEDGE edges
-FOREACH (target_uid IN coalesce(item.`connections.enables`, []) |
-  MERGE (target:Entity {uid: target_uid})
+CALL {
+  WITH n, item
+  WITH n, coalesce(item.`connections.enables`, []) AS _target_uids
+  UNWIND _target_uids AS _target_uid
+  MATCH (target:Entity {uid: _target_uid})
   MERGE (n)-[:ENABLES_KNOWLEDGE]->(target)
-)
+}
 ```
 
 The backtick escaping (`` item.`connections.enables` ``) handles the dotted key in Cypher. Connection data is filtered from node properties in Python before reaching Neo4j — the dotted keys drive edge creation, they don't pollute the node.
+
+**Why MATCH (not MERGE) for targets:** Relationship targets use `MATCH` to only link nodes that already exist. The old `FOREACH`/`MERGE` pattern created stub nodes with incomplete labels (e.g., `:Entity` without `:Lesson`), causing duplicate nodes when the real entity was later ingested with its full multi-label set. `MATCH` silently skips missing targets — they will be linked on re-ingestion after both nodes exist.
 
 ---
 
