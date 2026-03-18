@@ -130,11 +130,11 @@ habits, stats = ctx["entities"], ctx["stats"]
 - `_apply_status_filter(entities, status_filter)` — generic active/completed/all filter (Tasks)
 - `_apply_{domain}_sort(entities, sort_by)` — pure sort logic (all 6 domains)
 - `_apply_task_secondary_filters(tasks, project, assignee, due_filter)` — project/assignee/date filters (Tasks only)
-- `_apply_principle_filters(principles, category_filter, strength_filter)` — category and strength threshold filters (Principles only)
+- `_apply_principle_filters(principles, category_filter, strength_filter, status_filter)` — status, category, and strength threshold filters (Principles only)
 
 **Route file convention** (all 6 `*_ui.py` files, module-level not inside factory):
-- **Filters:** Goals, Habits, Events, Choices use shared `ActivityFilters` + `parse_activity_filters()` from `form_helpers.py`. Tasks (5-field) and Principles (3-field) keep custom `Filters` dataclasses.
-- `parse_filters(request) -> ActivityFilters | Filters` — extracts query params with domain-specific defaults
+- **Filters:** All 6 domains use `ActivityFilters` hierarchy from `form_helpers.py`. Goals, Habits, Events, Choices use base `ActivityFilters` + `parse_activity_filters()`. Tasks use `TaskFilters(ActivityFilters)` + `parse_task_filters()`. Principles use `PrincipleFilters(ActivityFilters)` + `parse_principle_filters()`.
+- `parse_{domain}_filters(request) -> TaskFilters | PrincipleFilters | ActivityFilters` — extracts query params with domain-specific defaults
 - `parse_{domain}_create_request(form_data) -> {Domain}CreateRequest` — pure form→request parsing (no service calls)
 - `parse_{domain}_update_payload(form) -> dict[str, Any]` — pure form→update dict parsing
 - Static option lists as module-level constants (e.g., Choices: `CHOICE_TYPES`, `DOMAINS`)

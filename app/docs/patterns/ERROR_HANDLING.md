@@ -803,7 +803,7 @@ priority_enum = parse_enum_safe(PriorityEnum, priority_str, PriorityEnum.MEDIUM)
 
 **Consistent across all 6 activity domains:** `tasks_ui.py`, `goals_ui.py`, `habits_ui.py`, `events_ui.py`, `choices_ui.py`, `principles_ui.py` all use `parse_enum_safe()` for enum conversions. The only exception is conditional-set patterns in update payloads (e.g., `tasks_ui.py`), which use `contextlib.suppress(ValueError)` because they only set the key on success.
 
-**Additional shared primitives** in `form_helpers.py`: `parse_date_safe()`, `parse_time_safe()`, `parse_datetime_safe()` replace `contextlib.suppress(ValueError)` wrappers around `date.fromisoformat()` etc. `ActivityFilters` + `parse_activity_filters()` replace duplicated 2-field `Filters` dataclasses in Goals, Habits, Events, Choices.
+**Additional shared primitives** in `form_helpers.py`: `parse_date_safe()`, `parse_time_safe()`, `parse_datetime_safe()` replace `contextlib.suppress(ValueError)` wrappers around `date.fromisoformat()` etc. `ActivityFilters` hierarchy (`TaskFilters`, `PrincipleFilters` subclasses) + `parse_task_filters()`, `parse_principle_filters()`, `parse_activity_filters()` provide unified filter parsing for all 6 activity domains.
 
 **See Also:** `/docs/patterns/API_VALIDATION_PATTERNS.md` for Pydantic request model validation (JSON bodies)
 
