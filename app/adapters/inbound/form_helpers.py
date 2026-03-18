@@ -11,11 +11,9 @@ values used across activity domain UI files.
 from dataclasses import dataclass
 from datetime import date, datetime, time
 from enum import Enum
-from typing import Any, TypeVar
+from typing import Any
 
 from starlette.datastructures import UploadFile
-
-E = TypeVar("E", bound=Enum)
 
 
 def safe_form_string(value: str | UploadFile | None, default: str = "") -> str:
@@ -87,7 +85,7 @@ def safe_form_bool(value: str | UploadFile | None, default: bool = False) -> boo
 # ============================================================================
 
 
-def parse_enum_safe(enum_class: type[E], value: str | None, default: E) -> E:
+def parse_enum_safe[E: Enum](enum_class: type[E], value: str | None, default: E) -> E:
     """Parse string to enum, return default on failure.
 
     Replaces the try/except ValueError pattern duplicated across activity domain UI files.

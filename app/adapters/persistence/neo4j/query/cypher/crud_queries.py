@@ -297,6 +297,14 @@ def build_relationship_traversal_query(
             direction="incoming"
         )
     """
+    from core.utils.validation_helpers import validate_field_name, validate_relationship_type
+
+    # Validate inputs before Cypher interpolation
+    if not validate_relationship_type(relationship_type):
+        raise ValueError(f"Invalid relationship type: {relationship_type}")
+    if not validate_field_name(target_label):
+        raise ValueError(f"Invalid target label: {target_label}")
+
     # Build direction pattern
     if direction == "outgoing":
         pattern = f"(source {{uid: $source_uid}})-[:{relationship_type}]->(target:{target_label})"
@@ -396,6 +404,12 @@ def build_graph_aware_search_query(
             f"No valid search fields for {entity_class.__name__}. "
             f"Requested: {search_fields}, Available: {valid_fields}"
         )
+
+    from core.utils.validation_helpers import validate_relationship_type as _validate_rel_type
+
+    # Validate relationship_type before Cypher interpolation
+    if not _validate_rel_type(relationship_type):
+        raise ValueError(f"Invalid relationship type: {relationship_type}")
 
     # Build direction pattern for relationship
     if direction == "outgoing":

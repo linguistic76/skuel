@@ -15,7 +15,6 @@ TEACHER role required for all endpoints.
 See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
 """
 
-from datetime import date
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import Request
@@ -31,6 +30,8 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
+    from datetime import date
+
     from core.ports import TeacherReviewOperations
 
 logger = get_logger(__name__)

@@ -93,14 +93,18 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
 
     @safe_backend_operation("get_related_entities")
     async def get_related_entities(
-        self, uid: str, relationship_type: str, direction: str = "outgoing", limit: int = 100
+        self,
+        uid: str,
+        relationship_type: RelationshipName | str,
+        direction: str = "outgoing",
+        limit: int = 100,
     ) -> Result[builtins.list[T]]:
         """
         Get related entities via graph edges.
 
         Args:
             uid: Source entity UID,
-            relationship_type: Neo4j relationship type (e.g., "PREREQUISITE", "ENABLES"),
+            relationship_type: Neo4j relationship type (enum preferred, str validated),
             direction: Traversal direction - "outgoing", "incoming", or "both",
             limit: Max results to return
 
@@ -111,13 +115,20 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
             # Get all prerequisites for a knowledge unit
             result = await backend.get_related_entities(
                 uid="ku:python-basics",
-                relationship_type="PREREQUISITE",
+                relationship_type=RelationshipName.REQUIRES_PREREQUISITE,
                 direction="incoming"
             )
         """
+        # Extract string value — _build_direction_pattern validates it
+        rel_type = (
+            relationship_type.value
+            if isinstance(relationship_type, RelationshipName)
+            else relationship_type
+        )
+
         # Build Cypher pattern using helper
         pattern_result = self._build_direction_pattern(
-            relationship_type=relationship_type,
+            relationship_type=rel_type,
             direction=direction,
             target_label=self.label,
         )
@@ -672,9 +683,9 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
         """
         Get all related entities (bidirectional).
 
-        Convenience method for get_related_entities(relationship_type="RELATED_TO", direction="both")
+        Convenience method for get_related_entities(relationship_type=RELATED_TO, direction="both")
         """
-        return await self.get_related_entities(uid, "RELATED_TO", direction="both")
+        return await self.get_related_entities(uid, RelationshipName.RELATED_TO, direction="both")
 
     async def get_children(self, uid: str) -> Result[builtins.list[T]]:
         """
@@ -703,7 +714,9 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
 
         Convenience method for tasks/events/habits.
         """
-        return await self.get_related_entities(uid, "DEPENDS_ON", direction="outgoing")
+        return await self.get_related_entities(
+            uid, RelationshipName.DEPENDS_ON, direction="outgoing"
+        )
 
     async def get_blocks(self, uid: str) -> Result[builtins.list[T]]:
         """
@@ -711,4 +724,4 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
 
         Convenience method for tasks/events/habits.
         """
-        return await self.get_related_entities(uid, "BLOCKS", direction="outgoing")
+        return await self.get_related_entities(uid, RelationshipName.BLOCKS, direction="outgoing")

@@ -140,6 +140,17 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
             >>> backend._build_direction_pattern("OWNS", "outgoing", target_label="Task")
             Result.ok("(n)-[:OWNS]->(related:Task)")
         """
+        from core.utils.validation_helpers import validate_relationship_type
+
+        # Defense-in-depth: reject unsafe relationship types before Cypher interpolation
+        if not validate_relationship_type(relationship_type):
+            return Result.fail(
+                Errors.validation(
+                    message=f"Invalid relationship type: {relationship_type}",
+                    field="relationship_type",
+                )
+            )
+
         # Build relationship part: [r:TYPE] or [:TYPE]
         rel_part = f"[{rel_var}:{relationship_type}]" if rel_var else f"[:{relationship_type}]"
 

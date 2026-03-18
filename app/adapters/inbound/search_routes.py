@@ -124,7 +124,7 @@ def create_search_api_routes(
                 query=query,
                 user_uid=user_uid,
                 entity_type=entity_type,
-                sort_order=sort_order,
+                _sort_order=sort_order,
                 status=status,
                 priority=priority,
                 frequency=frequency,

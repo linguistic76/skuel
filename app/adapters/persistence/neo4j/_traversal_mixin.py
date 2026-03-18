@@ -163,6 +163,21 @@ class _TraversalMixin:
                 - depth: Distance from start node
                 - properties: Node properties (if include_properties=True)
         """
+        # Validate rel_pattern segments before Cypher interpolation
+        if rel_pattern:
+            from core.utils.validation_helpers import validate_relationship_type
+
+            for segment in rel_pattern.split("|"):
+                if not validate_relationship_type(segment):
+                    from core.utils.result_simplified import Errors
+
+                    return Result.fail(
+                        Errors.validation(
+                            message=f"Invalid relationship type in pattern: {segment}",
+                            field="rel_pattern",
+                        )
+                    )
+
         # Build relationship filter
         rel_filter = f":{rel_pattern}" if rel_pattern else ""
 
@@ -215,6 +230,21 @@ class _TraversalMixin:
                 - uid: Node UID
                 - labels: Node labels
         """
+        # Validate rel_types before Cypher interpolation
+        if rel_types:
+            from core.utils.validation_helpers import validate_relationship_type
+
+            for rel_type in rel_types:
+                if not validate_relationship_type(rel_type):
+                    from core.utils.result_simplified import Errors
+
+                    return Result.fail(
+                        Errors.validation(
+                            message=f"Invalid relationship type: {rel_type}",
+                            field="rel_types",
+                        )
+                    )
+
         # Build relationship filter
         rel_filter = "|".join(rel_types) if rel_types else ""
         rel_clause = f":{rel_filter}" if rel_filter else ""

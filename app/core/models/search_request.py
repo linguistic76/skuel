@@ -696,7 +696,7 @@ class SearchRequest(BaseModel):
         query: str = "",
         user_uid: str | None = None,
         entity_type: str | None = None,
-        sort_order: str = "relevance",
+        _sort_order: str = "relevance",  # Placeholder — not yet implemented
         # Common filters
         status: str | None = None,
         priority: str | None = None,
@@ -764,15 +764,16 @@ class SearchRequest(BaseModel):
                 parsed_entity_types = [et]
 
         # Build extended_facets for domain-specific filters
-        extended_facets: dict[str, Any] = {}
-        for key, val in [
-            ("frequency", _none_if_empty(frequency)),
-            ("event_type", _none_if_empty(event_type)),
-            ("urgency", _none_if_empty(urgency)),
-            ("strength", _none_if_empty(strength)),
-        ]:
-            if val:
-                extended_facets[key] = val
+        extended_facets: dict[str, Any] = {
+            key: val
+            for key, val in [
+                ("frequency", _none_if_empty(frequency)),
+                ("event_type", _none_if_empty(event_type)),
+                ("urgency", _none_if_empty(urgency)),
+                ("strength", _none_if_empty(strength)),
+            ]
+            if val
+        }
 
         return cls(
             query_text=query,
