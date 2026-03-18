@@ -38,6 +38,7 @@ from monsterui.franken import UkIcon
 from starlette.requests import Request
 
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.form_helpers import safe_form_int, safe_form_string
 from core.models.event.calendar_models import CalendarView
 from core.utils.logging import get_logger
 from core.utils.timestamp_helpers import next_month, prev_month, week_bounds
@@ -564,14 +565,10 @@ def create_calendar_ui_routes(_app, rt, calendar_service):
         try:
             form_data = await request.form()
 
-            item_type_raw = form_data.get("type", "task")
-            item_type = str(item_type_raw) if item_type_raw else "task"
-            title_raw = form_data.get("title", "")
-            title = str(title_raw).strip() if title_raw else ""
-            start_time_str_raw = form_data.get("start_time", "")
-            start_time_str = str(start_time_str_raw) if start_time_str_raw else ""
-            duration_raw = form_data.get("duration", 60)
-            duration = int(duration_raw) if duration_raw else 60
+            item_type = safe_form_string(form_data.get("type"), "task")
+            title = safe_form_string(form_data.get("title"))
+            start_time_str = safe_form_string(form_data.get("start_time"))
+            duration = safe_form_int(form_data.get("duration"), 60)
 
             # Validation
             if not title:
@@ -641,7 +638,7 @@ def create_calendar_ui_routes(_app, rt, calendar_service):
         """
         try:
             form_data = await request.form()
-            notes = form_data.get("notes", "")
+            notes = safe_form_string(form_data.get("notes"))
 
             # Validate status
             valid_statuses = {"done", "skipped", "missed"}

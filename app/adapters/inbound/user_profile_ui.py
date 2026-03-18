@@ -27,6 +27,7 @@ if TYPE_CHECKING:
     from services_bootstrap import Services
 
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.form_helpers import safe_form_bool, safe_form_int, safe_form_string
 from core.models.enums import Priority
 from core.ports import get_enum_value
 from core.services.user.unified_user_context import UserContext
@@ -85,73 +86,6 @@ def _preview_priority_sort_key(item: Any) -> int:
 
 # Valid Activity Domain slugs for the preview endpoint
 _PREVIEW_VALID_SLUGS = frozenset({"tasks", "goals", "habits", "events", "choices", "principles"})
-
-
-# ============================================================================
-# FORM PARSING HELPERS
-# ============================================================================
-
-
-def safe_int(value: Any, default: int) -> int:
-    """
-    Safely parse integer from form data.
-
-    Args:
-        value: Form field value (may be None, empty string, or invalid)
-        default: Default value if parsing fails
-
-    Returns:
-        Parsed integer or default
-
-    Examples:
-        >>> safe_int("25", 10)
-        25
-        >>> safe_int("", 10)
-        10
-        >>> safe_int(None, 10)
-        10
-        >>> safe_int("invalid", 10)
-        10
-    """
-    if not value:
-        return default
-    try:
-        return int(value)
-    except (ValueError, TypeError):
-        return default
-
-
-def safe_bool(value: Any, default: bool = False) -> bool:
-    """
-    Safely parse boolean from form data.
-
-    HTML checkboxes send "on" when checked, nothing when unchecked.
-
-    Args:
-        value: Form field value
-        default: Default value if parsing fails
-
-    Returns:
-        Parsed boolean or default
-
-    Examples:
-        >>> safe_bool("on", False)
-        True
-        >>> safe_bool(None, False)
-        False
-        >>> safe_bool("true", False)
-        True
-    """
-    if value is None:
-        return default
-    if isinstance(value, bool):
-        return value
-    # HTML checkbox values
-    if value in ("on", "true", "True", "1"):
-        return True
-    if value in ("off", "false", "False", "0"):
-        return False
-    return default
 
 
 # ============================================================================
@@ -318,19 +252,19 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
 
         # Create preferences update (use safe parsing to prevent crashes)
         preferences_update = {
-            "learning_level": form_data.get("learning_level", "intermediate"),
+            "learning_level": safe_form_string(form_data.get("learning_level"), "intermediate"),
             "preferred_modalities": modalities,
-            "preferred_time_of_day": form_data.get("preferred_time_of_day", "anytime"),
-            "available_minutes_daily": safe_int(form_data.get("available_minutes_daily"), 60),
-            "enable_reminders": safe_bool(form_data.get("enable_reminders"), False),
-            "reminder_minutes_before": safe_int(form_data.get("reminder_minutes_before"), 15),
-            "daily_summary_time": form_data.get("daily_summary_time", "09:00"),
-            "theme": form_data.get("theme", "light"),
-            "language": form_data.get("language", "en"),
-            "timezone": form_data.get("timezone", "UTC"),
-            "weekly_task_goal": safe_int(form_data.get("weekly_task_goal"), 10),
-            "daily_habit_goal": safe_int(form_data.get("daily_habit_goal"), 3),
-            "monthly_learning_hours": safe_int(form_data.get("monthly_learning_hours"), 20),
+            "preferred_time_of_day": safe_form_string(form_data.get("preferred_time_of_day"), "anytime"),
+            "available_minutes_daily": safe_form_int(form_data.get("available_minutes_daily"), 60),
+            "enable_reminders": safe_form_bool(form_data.get("enable_reminders"), False),
+            "reminder_minutes_before": safe_form_int(form_data.get("reminder_minutes_before"), 15),
+            "daily_summary_time": safe_form_string(form_data.get("daily_summary_time"), "09:00"),
+            "theme": safe_form_string(form_data.get("theme"), "light"),
+            "language": safe_form_string(form_data.get("language"), "en"),
+            "timezone": safe_form_string(form_data.get("timezone"), "UTC"),
+            "weekly_task_goal": safe_form_int(form_data.get("weekly_task_goal"), 10),
+            "daily_habit_goal": safe_form_int(form_data.get("daily_habit_goal"), 3),
+            "monthly_learning_hours": safe_form_int(form_data.get("monthly_learning_hours"), 20),
         }
 
         # Update user preferences - ONE PATH (no fallback)
