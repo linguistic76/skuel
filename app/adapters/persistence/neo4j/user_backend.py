@@ -280,22 +280,6 @@ class UserBackend:
             return Result.fail(Errors.database(operation="delete_user", message=str(e)))
 
     # ========================================================================
-    # ALIAS METHODS - UserOperations Protocol
-    # ========================================================================
-
-    async def get(self, user_uid: str) -> Result[User | None]:
-        """
-        Get user by UID (alias for get_user_by_uid).
-
-        Args:
-            user_uid: User's unique identifier
-
-        Returns:
-            Result[User | None]: User if found, None otherwise
-        """
-        return await self.get_user_by_uid(user_uid)
-
-    # ========================================================================
     # LEARNING & PROGRESS TRACKING
     # ========================================================================
     # These methods manage User-Knowledge relationships in the graph
@@ -710,7 +694,7 @@ class UserBackend:
         user_uid: str,
         knowledge_uid: str,
         bookmark_reason: str = "reference",
-        tags: list | None = None,
+        tags: list[str] | None = None,
         reminder_date: str | None = None,
     ) -> Result[bool]:
         """
@@ -950,12 +934,3 @@ class UserBackend:
             self.logger.error(f"Failed to get active learners: {e}")
             return Result.fail(Errors.database(operation="get_active_learners", message=str(e)))
 
-    async def get_user_context(self, _user_uid: str) -> Result[Any]:
-        """Get user context — delegated to UserService at runtime, not a backend operation."""
-        return Result.fail(
-            Errors.business(
-                "not_supported",
-                "get_user_context is a UserService operation, not a backend operation. "
-                "Use services.user_service.get_user_context() instead.",
-            )
-        )

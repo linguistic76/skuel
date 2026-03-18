@@ -20,6 +20,8 @@ They provide no value and actively undermine type safety.
 - `services: Any` (in route factories) — Should be `Services | None`
 - `priority: Any` in Protocol attributes — Should be the specific enum
 - `UserOperations` return types — Were `Result[Any]`, now `Result[User]` / `Result[UserContext]` (no circular import existed)
+- `get_active_learners` — Was `Result[list[Any]]`, now `Result[list[User]]`
+- `bookmark_knowledge` `tags` param — Was `list | None`, now `list[str] | None`
 
 If you encounter Category A `Any` during development, fix it immediately. There is no
 architectural reason for these to exist.

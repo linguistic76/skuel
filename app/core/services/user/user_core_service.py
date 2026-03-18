@@ -24,7 +24,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 from core.models.user import User, create_user
-from core.ports.infrastructure_protocols import UserOperations
+from core.ports.infrastructure_protocols import UserCrudOperations
 from core.utils.decorators import with_error_handling
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -54,7 +54,7 @@ class UserCoreService:
     - Graph-native authentication with bcrypt password hashing
     """
 
-    def __init__(self, user_repo: UserOperations) -> None:
+    def __init__(self, user_repo: UserCrudOperations) -> None:
         """
         Initialize user core service.
 
@@ -154,6 +154,7 @@ class UserCoreService:
             is_verified=True,  # System user is always verified
         )
 
+    @with_error_handling("get_user", error_type="database", uid_param="user_uid")
     async def get_user(self, user_uid: str) -> Result[User | None]:
         """
         Get user by UID.
@@ -167,25 +168,7 @@ class UserCoreService:
         Error cases:
             - Database query fails → DATABASE
         """
-        try:
-            # Use standard backend get() method
-            result = await self.repo.get(user_uid)
-            return result
-
-        except AttributeError:
-            # Fallback: repo doesn't have get() method, return None
-            logger.warning(f"Backend doesn't support get() method for user {user_uid}")
-            return Result.ok(None)
-        except NEO4J_EXCEPTIONS as e:
-            logger.error(f"Error getting user {user_uid}: {e}")
-            return Result.fail(
-                Errors.database(operation="user_query", message=f"User query failed: {e}")
-            )
-        except Exception as e:  # safety-net: catch unexpected errors
-            logger.error(f"Error getting user {user_uid}: {e}")
-            return Result.fail(
-                Errors.database(operation="user_query", message=f"User query failed: {e}")
-            )
+        return await self.repo.get_user_by_uid(user_uid)
 
     @with_error_handling("get_user_by_username", error_type="database")
     async def get_user_by_username(self, username: str) -> Result[User | None]:

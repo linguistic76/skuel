@@ -23,7 +23,7 @@ This service is part of the refactored UserService architecture:
 - UserService: Facade coordinating all sub-services
 """
 
-from core.ports.infrastructure_protocols import UserOperations
+from core.ports.infrastructure_protocols import UserProgressOperations
 from core.utils.decorators import with_error_handling
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -50,7 +50,7 @@ class UserProgressRecorderService:
     - Integrates with progress metrics system
     """
 
-    def __init__(self, user_repo: UserOperations) -> None:
+    def __init__(self, user_repo: UserProgressOperations) -> None:
         """
         Initialize user progress recorder service.
 
@@ -288,7 +288,7 @@ class UserProgressRecorderService:
         user_uid: str,
         knowledge_uid: str,
         bookmark_reason: str = "reference",
-        tags: list | None = None,
+        tags: list[str] | None = None,
         reminder_date: str | None = None,
     ) -> Result[bool]:
         """

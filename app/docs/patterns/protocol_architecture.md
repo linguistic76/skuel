@@ -102,7 +102,7 @@ core/ports/
 | **Domain Operations** | `domain_protocols.py` | Business logic (Tasks, Goals, etc.) | 9 |
 | **Curriculum** | `curriculum_protocols.py` | KU, LS, LP operations (unified hierarchy) | 4 |
 | **Search** | `search_protocols.py` | Search and query operations | 8 |
-| **Infrastructure** | `infrastructure_protocols.py` | EventBus, UserOperations, Ingestion | 6 |
+| **Infrastructure** | `infrastructure_protocols.py` | EventBus, User (3 ISP + 1 composed), Ingestion | 9 |
 | **Intelligence** | `intelligence_protocols.py` | Analytics and intelligence operations | 1 |
 | **Askesis** | `askesis_protocols.py` | Cross-cutting intelligence + CRUD | 6 |
 | **Submission** | `submission_protocols.py` | Submission CRUD, processing, sharing, search | 4 |
@@ -267,6 +267,7 @@ SKUEL achieved **full type safety** across the entire codebase through systemati
 - ✅ Exported all 9 facade protocols in `__init__.py`
 - ✅ Added `UserOperations` to infrastructure protocol exports
 - ✅ Narrowed `UserOperations` from `Any` to concrete `User`/`UserContext` types (March 2026)
+- ✅ ISP decomposition: `UserOperations` → `UserCrudOperations` + `UserProgressOperations` + `UserActivityOperations` (March 2026). Sub-services now depend on the narrowest sub-protocol they need.
 
 > **Note:** The facade protocols created in this phase were superseded in February 2026 by explicit delegation methods. Facade services now use concrete class type hints in routes instead of protocol types. See "Facade Services — Explicit Delegation" section.
 

@@ -13,7 +13,6 @@ from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from core.models.user import User
-    from core.services.user.unified_user_context import UserContext
 
 
 @runtime_checkable
@@ -57,11 +56,10 @@ class EventBusOperations(Protocol):
 
 
 @runtime_checkable
-class UserOperations(Protocol):
-    """User management operations.
+class UserCrudOperations(Protocol):
+    """User identity CRUD. Used by: UserCoreService.
 
-    Implementations should use the concrete User model from core.models.user.
-    All methods return Result[T] for consistent error handling.
+    See: /docs/patterns/BACKEND_OPERATIONS_ISP.md
     """
 
     async def create_user(self, user: "User") -> Result["User"]:
@@ -84,41 +82,20 @@ class UserOperations(Protocol):
         """DETACH DELETE a user."""
         ...
 
+    async def find_by(self, **filters: Any) -> Result[list["User"]]:  # boundary: kwargs
+        """Find users by arbitrary filters."""
+        ...
+
+
+@runtime_checkable
+class UserProgressOperations(Protocol):
+    """Learning progress recording. Used by: UserProgressRecorderService.
+
+    See: /docs/patterns/BACKEND_OPERATIONS_ISP.md
+    """
+
     async def update_user_progress(self, user_uid: str, progress_updates: Metadata) -> Result[bool]:
         """Update user's learning progress."""
-        ...
-
-    async def get_user(self, user_uid: str) -> Result["User | None"]:
-        """Get user by UID. Alias for get_user_by_uid."""
-        ...
-
-    async def get_user_context(self, user_uid: str) -> Result["UserContext"]:
-        """Get user context (standard fields)."""
-        ...
-
-    async def get_rich_unified_context(
-        self, user_uid: str, min_confidence: float = 0.7
-    ) -> Result["UserContext"]:
-        """Get complete UserContext with both standard and rich fields."""
-        ...
-
-    async def update_preferences(
-        self, user_uid: str, preferences_update: dict[str, Any]
-    ) -> Result["User"]:
-        """Update user preferences."""
-        ...
-
-    async def get(self, user_uid: str) -> Result["User | None"]:
-        """Get user by UID. Alias for get_user_by_uid."""
-        ...
-
-    async def find_by(self, **filters: Any) -> Result[list["User"]]:
-        """
-        Find users by arbitrary filters.
-
-        Args:
-            **filters: Field filters (e.g., email="test@example.com", is_active=True)
-        """
         ...
 
     async def record_knowledge_mastery(
@@ -140,7 +117,7 @@ class UserOperations(Protocol):
         time_invested_minutes: int = 0,
         difficulty_rating: float | None = None,
     ) -> Result[bool]:
-        """Record user's progress on a knowledge unit. Returns Result[bool]."""
+        """Record user's progress on a knowledge unit."""
         ...
 
     async def get_user_mastery(
@@ -148,16 +125,7 @@ class UserOperations(Protocol):
         user_uid: str,
         concept_uid: str,
     ) -> Result[float]:
-        """
-        Get user's mastery level for a knowledge concept.
-
-        Args:
-            user_uid: User UID
-            concept_uid: Knowledge unit UID
-
-        Returns:
-            Result[float]: Mastery score (0.0-1.0)
-        """
+        """Get user's mastery level for a knowledge concept (0.0-1.0)."""
         ...
 
     async def enroll_in_learning_path(
@@ -168,7 +136,7 @@ class UserOperations(Protocol):
         weekly_time_commitment: int = 300,
         motivation_note: str = "",
     ) -> Result[bool]:
-        """Enroll user in a learning path. Returns Result[bool]."""
+        """Enroll user in a learning path."""
         ...
 
     async def complete_learning_path_graph(
@@ -178,7 +146,7 @@ class UserOperations(Protocol):
         completion_score: float = 1.0,
         feedback_rating: int | None = None,
     ) -> Result[bool]:
-        """Mark a learning path as completed in the graph. Returns Result[bool]."""
+        """Mark a learning path as completed in the graph."""
         ...
 
     async def express_interest_in_knowledge(
@@ -190,7 +158,7 @@ class UserOperations(Protocol):
         priority: str = "medium",
         notes: str = "",
     ) -> Result[bool]:
-        """Record user's interest in a knowledge unit. Returns Result[bool]."""
+        """Record user's interest in a knowledge unit."""
         ...
 
     async def bookmark_knowledge(
@@ -198,27 +166,52 @@ class UserOperations(Protocol):
         user_uid: str,
         knowledge_uid: str,
         bookmark_reason: str = "reference",
-        tags: list | None = None,
+        tags: list[str] | None = None,
         reminder_date: str | None = None,
     ) -> Result[bool]:
-        """Bookmark a knowledge unit for later review. Returns Result[bool]."""
+        """Bookmark a knowledge unit for later review."""
         ...
 
+
+@runtime_checkable
+class UserActivityOperations(Protocol):
+    """Activity tracking. Used by: UserActivityService.
+
+    See: /docs/patterns/BACKEND_OPERATIONS_ISP.md
+    """
+
     async def update_user_activity(self, user_uid: str, activity_data: Metadata) -> Result[bool]:
-        """Update user's activity tracking data. Returns Result[bool]."""
+        """Update user's activity tracking data."""
         ...
 
     async def add_conversation_message(
         self, user_uid: str, role: str, content: str, metadata: Metadata | None = None
     ) -> Result[bool]:
-        """Add a conversation message to user's history. Returns Result[bool]."""
+        """Add a conversation message to user's history."""
         ...
 
     async def get_active_learners(
         self, since_hours: int = 24, limit: int = 100
-    ) -> Result[list[Any]]:
-        """Get list of active learners. Returns Result[List[User]]."""
+    ) -> Result[list["User"]]:
+        """Get list of active learners."""
         ...
+
+
+@runtime_checkable
+class UserOperations(
+    UserCrudOperations, UserProgressOperations, UserActivityOperations, Protocol
+):
+    """Full user backend operations (composed). Use narrowest sub-protocol for ISP.
+
+    Composed from:
+    - UserCrudOperations (6 methods) — identity CRUD
+    - UserProgressOperations (8 methods) — learning progress recording
+    - UserActivityOperations (3 methods) — activity tracking
+
+    See: /docs/patterns/BACKEND_OPERATIONS_ISP.md
+    """
+
+    ...
 
 
 @runtime_checkable

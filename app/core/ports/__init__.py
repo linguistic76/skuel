@@ -186,7 +186,10 @@ from .infrastructure_protocols import (
     EventBusOperations,
     IngestionOperations,
     SchemaOperations,
+    UserActivityOperations,
+    UserCrudOperations,
     UserOperations,
+    UserProgressOperations,
 )
 
 # Intelligence operation protocols
@@ -472,8 +475,11 @@ __all__ = [
     "TasksSearchOperations",
     "TasksOperations",
     "TeacherReviewOperations",
+    "UserActivityOperations",
     "UserContextOperations",
+    "UserCrudOperations",
     "UserOperations",
+    "UserProgressOperations",
     "VisualizationOperations",
     # ========== HELPER FUNCTIONS (3) ==========
     "get_enum_attr_str",
