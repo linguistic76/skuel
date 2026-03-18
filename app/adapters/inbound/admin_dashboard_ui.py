@@ -198,8 +198,20 @@ def create_admin_dashboard_routes(_app, rt, services):
             logger.error(f"Failed to load users: {users_result.error}")
         users_data = users_result.value if not users_result.is_error else []
 
-        # Fetch stats for header
-        user_stats, stats_error = await _get_user_stats(services)
+        # Fetch stats for header via efficient Cypher COUNT query
+        user_stats_result = await services.admin_stats.get_user_role_counts()
+        stats_error = user_stats_result.is_error
+        user_stats = (
+            user_stats_result.value
+            if not stats_error
+            else {
+                "total": 0,
+                "admins": 0,
+                "teachers": 0,
+                "members": 0,
+                "registered": 0,
+            }
+        )
         system_status, _status_error = await _get_system_status(services)
 
         users_error_banner = (
@@ -496,62 +508,32 @@ def create_admin_dashboard_routes(_app, rt, services):
         Returns:
             Admin page with analytics content
         """
-        # Fetch user stats
-        user_stats, _stats_error = await _get_user_stats(services)
+        # Fetch user stats via efficient Cypher COUNT query
+        user_stats_result = await services.admin_stats.get_user_role_counts()
+        _stats_error = user_stats_result.is_error
+        user_stats = (
+            user_stats_result.value
+            if not _stats_error
+            else {
+                "total": 0,
+                "admins": 0,
+                "teachers": 0,
+                "members": 0,
+                "registered": 0,
+            }
+        )
         system_status, _status_error = await _get_system_status(services)
 
-        # Initialize activity stats with None to detect missing services
-        activity_stats = {
-            "tasks_created": None,
-            "habits_active": None,
-            "goals_active": None,
-            "journals_submitted": None,
-        }
-
-        try:
-            if services.tasks:
-                tasks_result = await services.tasks.list(user_uid=None, limit=10000)
-                if not tasks_result.is_error:
-                    activity_stats["tasks_created"] = len(tasks_result.value or [])
-                else:
-                    logger.warning(
-                        f"Failed to fetch task count: {tasks_result.expect_error().message}"
-                    )
-
-            if services.habits:
-                habits_result = await services.habits.list(user_uid=None, limit=10000)
-                if not habits_result.is_error:
-                    activity_stats["habits_active"] = len(habits_result.value or [])
-                else:
-                    logger.warning(
-                        f"Failed to fetch habit count: {habits_result.expect_error().message}"
-                    )
-
-            if services.goals:
-                goals_result = await services.goals.list(user_uid=None, limit=10000)
-                if not goals_result.is_error:
-                    activity_stats["goals_active"] = len(goals_result.value or [])
-                else:
-                    logger.warning(
-                        f"Failed to fetch goal count: {goals_result.expect_error().message}"
-                    )
-
-            if services.journals:
-                journal_result = await services.journals.list(user_uid=None, limit=10000)
-                if not journal_result.is_error:
-                    activity_stats["journals_submitted"] = len(journal_result.value or [])
-                else:
-                    logger.warning(
-                        f"Failed to fetch journal count: {journal_result.expect_error().message}"
-                    )
-
-        except Exception as e:  # safety-net: HTTP error boundary
-            logger.error(f"Error fetching activity stats: {e}")
-            # Leave as None values to show "N/A" in UI
-
-        # Transform None to display-friendly values
-        display_stats = {k: v if v is not None else "N/A" for k, v in activity_stats.items()}
-        activity_stats = display_stats
+        # Fetch activity entity counts via efficient Cypher COUNT query
+        activity_result = await services.admin_stats.get_activity_entity_counts()
+        if activity_result.is_error:
+            logger.error(f"Error fetching activity stats: {activity_result.error}")
+            activity_stats: dict[str, Any] = {
+                k: "N/A"
+                for k in ("tasks_created", "habits_active", "goals_active", "journals_submitted")
+            }
+        else:
+            activity_stats = activity_result.value
 
         analytics_data = {
             "user_stats": user_stats,
@@ -804,40 +786,6 @@ def create_admin_dashboard_routes(_app, rt, services):
 # ============================================================================
 # HELPER FUNCTIONS
 # ============================================================================
-
-
-async def _get_user_stats(services) -> tuple[dict, bool]:
-    """Get user statistics for dashboard. Returns (stats, had_error)."""
-    stats = {
-        "total": 0,
-        "admins": 0,
-        "teachers": 0,
-        "members": 0,
-        "registered": 0,
-    }
-
-    try:
-        # Get all users (admin-only, so this is fine)
-        result = await services.user_service.list_users(
-            admin_user_uid="system",  # System call for stats
-            limit=10000,
-            active_only=False,
-        )
-
-        if result.is_error:
-            return stats, True
-
-        if result.value:
-            users = result.value
-            stats["total"] = len(users)
-
-            for user in users:
-                role = user.role.value.lower()
-                if role in stats:
-                    stats[role] += 1
-        return stats, False
-    except Exception:  # safety-net: dashboard degrades gracefully on stats failure
-        return stats, True
 
 
 async def _get_system_status(services) -> tuple[dict[str, Any], bool]:

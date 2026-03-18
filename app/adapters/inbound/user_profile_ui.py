@@ -254,7 +254,9 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
         preferences_update = {
             "learning_level": safe_form_string(form_data.get("learning_level"), "intermediate"),
             "preferred_modalities": modalities,
-            "preferred_time_of_day": safe_form_string(form_data.get("preferred_time_of_day"), "anytime"),
+            "preferred_time_of_day": safe_form_string(
+                form_data.get("preferred_time_of_day"), "anytime"
+            ),
             "available_minutes_daily": safe_form_int(form_data.get("available_minutes_daily"), 60),
             "enable_reminders": safe_form_bool(form_data.get("enable_reminders"), False),
             "reminder_minutes_before": safe_form_int(form_data.get("reminder_minutes_before"), 15),

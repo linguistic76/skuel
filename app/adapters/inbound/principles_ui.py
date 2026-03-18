@@ -34,7 +34,6 @@ from adapters.inbound.route_factories import (
     require_owned_entity,
 )
 from adapters.inbound.ui_helpers import (
-    fetch_user_entities,
     render_entity_not_found_page,
     render_safe_error_response,
 )
@@ -43,7 +42,7 @@ from core.models.enums.principle_enums import AlignmentLevel, PrincipleCategory,
 from core.ports.query_types import PrinciplesFilterSpec
 from core.services.principles_service import PrinciplesService
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import Result
 from ui.buttons import Button, ButtonT
 from ui.cards import Card
 from ui.feedback import Badge, BadgeT
@@ -189,11 +188,6 @@ def create_principles_ui_routes(
     # DATA FETCHING HELPERS
     # ========================================================================
 
-    async def get_all_principles(user_uid: str) -> Result[list[Any]]:
-        """Get all principles for user from service."""
-        service_method = principles_service.get_user_principles if principles_service else None
-        return await fetch_user_entities(service_method, "principles", user_uid, logger)
-
     async def get_categories() -> Result[list[str]]:
         """Get available principle categories."""
         return Result.ok(
@@ -208,71 +202,6 @@ def create_principles_ui_routes(
                 "creative",
             ]
         )
-
-    async def get_analytics_data(user_uid: str) -> Result[dict[str, Any]]:
-        """Get analytics data for user."""
-        try:
-            principles_result = await get_all_principles(user_uid)
-
-            # Check for errors
-            if principles_result.is_error:
-                logger.warning(f"Failed to get principles for analytics: {principles_result.error}")
-                return Result.fail(principles_result)  # Propagate the error
-
-            principles = principles_result.value
-
-            # Calculate analytics
-            total = len(principles)
-            core_count = sum(1 for p in principles if getattr(p, "strength", 0) >= 0.9)
-            active_count = sum(1 for p in principles if getattr(p, "is_active", True))
-
-            # Calculate average adherence from alignment service if available
-            overall_adherence = 0.0
-            alignment = (
-                getattr(principles_service, "alignment", None) if principles_service else None
-            )
-            if alignment:
-                try:
-                    adherence_result = await alignment.calculate_average_alignment(user_uid)
-                    if not adherence_result.is_error:
-                        overall_adherence = adherence_result.value
-                except Exception as e:  # safety-net: optional alignment degrades gracefully
-                    logger.warning(f"Could not calculate adherence: {e}")
-
-            # Get recent reflections from reflection service
-            recent_reflections: list = []
-            reflection = (
-                getattr(principles_service, "reflection", None) if principles_service else None
-            )
-            if reflection:
-                try:
-                    reflections_result = await reflection.get_recent_reflections(
-                        user_uid, days=7, limit=10
-                    )
-                    if not reflections_result.is_error:
-                        recent_reflections = reflections_result.value
-                except Exception as e:  # safety-net: optional reflections degrade gracefully
-                    logger.warning(f"Could not get recent reflections: {e}")
-
-            return Result.ok(
-                {
-                    "total_principles": total,
-                    "overall_adherence": overall_adherence,
-                    "core_count": core_count,
-                    "active_count": active_count,
-                    "reflections": recent_reflections,
-                }
-            )
-        except Exception as e:  # safety-net: analytics helper degrades gracefully
-            logger.error(
-                "Error getting analytics data",
-                extra={
-                    "user_uid": user_uid,
-                    "error_type": type(e).__name__,
-                    "error_message": str(e),
-                },
-            )
-            return Result.fail(Errors.system(f"Failed to get analytics: {e}"))
 
     # ========================================================================
     # MAIN DASHBOARD (Standalone Three-View, List First)
@@ -306,7 +235,7 @@ def create_principles_ui_routes(
                 categories=categories_result.value,
             )
         elif view == "analytics":
-            analytics_result = await get_analytics_data(user_uid)
+            analytics_result = await principles_service.get_analytics_summary(user_uid)
 
             # Check for errors
             if analytics_result.is_error:
@@ -416,7 +345,7 @@ def create_principles_ui_routes(
     async def principles_view_analytics(request) -> Any:
         """HTMX fragment for analytics view."""
         user_uid = require_authenticated_user(request)
-        analytics_result = await get_analytics_data(user_uid)
+        analytics_result = await principles_service.get_analytics_summary(user_uid)
 
         # Handle errors (return banner directly for HTMX swap)
         if analytics_result.is_error:

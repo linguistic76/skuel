@@ -859,6 +859,47 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
     # QUERY LAYER
     # ========================================================================
 
+    async def get_analytics_summary(self, user_uid: str) -> Result[dict[str, Any]]:
+        """Analytics: counts, adherence, recent reflections. Orchestrates sub-services."""
+        all_result = await self.core.get_for_user_filtered(user_uid)
+        if all_result.is_error:
+            return Result.fail(all_result)
+        principles = all_result.value
+
+        total = len(principles)
+        core_count = sum(1 for p in principles if getattr(p, "strength", 0) >= 0.9)
+        active_count = sum(1 for p in principles if getattr(p, "is_active", True))
+
+        overall_adherence = 0.0
+        try:
+            adherence_result = await self.alignment.calculate_average_alignment(user_uid)
+            if not adherence_result.is_error:
+                overall_adherence = adherence_result.value
+        except Exception as e:  # safety-net: optional alignment degrades gracefully
+            self.logger.warning(f"Could not calculate adherence: {e}")
+
+        recent_reflections: list[Any] = []
+        try:
+            reflections_result = await self.reflection.get_recent_reflections(
+                user_uid,
+                days=7,
+                limit=10,
+            )
+            if not reflections_result.is_error:
+                recent_reflections = reflections_result.value
+        except Exception as e:  # safety-net: optional reflections degrade gracefully
+            self.logger.warning(f"Could not get recent reflections: {e}")
+
+        return Result.ok(
+            {
+                "total_principles": total,
+                "overall_adherence": overall_adherence,
+                "core_count": core_count,
+                "active_count": active_count,
+                "reflections": recent_reflections,
+            }
+        )
+
     async def get_filtered_context(
         self,
         user_uid: str,

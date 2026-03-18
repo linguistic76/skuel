@@ -292,6 +292,83 @@ class AdminStatsService:
 
         return Result.ok(defaults)
 
+    async def get_activity_entity_counts(self) -> Result[dict[str, int]]:
+        """System-wide entity counts for admin analytics dashboard.
+
+        Single Cypher COUNT query — replaces fetching full entity lists just to count them.
+        """
+        result = await self.query_executor.execute_query(
+            """
+            OPTIONAL MATCH (t:Task)
+            WITH count(t) AS tasks_created
+            OPTIONAL MATCH (h:Habit)
+            WITH tasks_created, count(h) AS habits_active
+            OPTIONAL MATCH (g:Goal)
+            WITH tasks_created, habits_active, count(g) AS goals_active
+            OPTIONAL MATCH (j:JournalSubmission)
+            RETURN tasks_created, habits_active, goals_active,
+                   count(j) AS journals_submitted
+            """
+        )
+
+        if result.is_error:
+            return Result.fail(result.expect_error())
+
+        defaults: dict[str, int] = {
+            "tasks_created": 0,
+            "habits_active": 0,
+            "goals_active": 0,
+            "journals_submitted": 0,
+        }
+
+        records = result.value or []
+        if records:
+            r = records[0]
+            for key in defaults:
+                defaults[key] = r[key] or 0
+
+        return Result.ok(defaults)
+
+    async def get_user_role_counts(self) -> Result[dict[str, int]]:
+        """User counts grouped by role.
+
+        Single Cypher GROUP BY query — replaces fetching all users just to count roles.
+        """
+        result = await self.query_executor.execute_query(
+            """
+            MATCH (u:User)
+            WHERE u.uid <> 'user_system'
+            RETURN u.role AS role, count(u) AS cnt
+            """
+        )
+
+        if result.is_error:
+            return Result.fail(result.expect_error())
+
+        stats: dict[str, int] = {
+            "total": 0,
+            "admins": 0,
+            "teachers": 0,
+            "members": 0,
+            "registered": 0,
+        }
+
+        records = result.value or []
+        for r in records:
+            role = (r["role"] or "").lower()
+            count = r["cnt"] or 0
+            stats["total"] += count
+            if role == "admin":
+                stats["admins"] += count
+            elif role == "teacher":
+                stats["teachers"] += count
+            elif role == "member":
+                stats["members"] += count
+            elif role == "registered":
+                stats["registered"] += count
+
+        return Result.ok(stats)
+
     async def get_users_with_activity_counts(
         self,
         role_filter: str | None = None,

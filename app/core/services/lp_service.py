@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.services.lp.lp_ai_service import LpAIService
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import make_attribute_sort_key
 
 if TYPE_CHECKING:
@@ -29,8 +29,30 @@ if TYPE_CHECKING:
     from core.ports import EventBusOperations
     from core.services.lesson_service import LessonService
     from core.services.ls_service import LsService
+    from ui.ui_types import ActivePathData, LearningStatsData
 
 logger = get_logger(__name__)
+
+
+def _difficulty_label(rating: float) -> str:
+    """Convert 0.0-1.0 difficulty rating to human-readable label."""
+    if rating <= 0.35:
+        return "beginner"
+    if rating <= 0.65:
+        return "intermediate"
+    return "advanced"
+
+
+def _path_to_display_dict(path: Any) -> dict[str, Any]:
+    """Convert a LearningPath domain model to a display dict for browser cards."""
+    return {
+        "uid": path.uid,
+        "title": path.title or "Untitled Path",
+        "description": path.description or "",
+        "difficulty": _difficulty_label(path.difficulty_rating),
+        "estimated_hours": int(path.estimated_hours or 0),
+        "tags": list(path.tags) if path.tags else [],
+    }
 
 
 class LpService:
@@ -291,6 +313,196 @@ class LpService:
                 Errors.system(message="LsService not available", operation="list_steps")
             )
         return await self.ls_service.list_steps(path_uid, limit)
+
+    # ============================================================================
+    # AGGREGATION METHODS — extracted from pathways_ui.py route handlers
+    # ============================================================================
+
+    def calculate_path_progress(
+        self,
+        paths: list[Any],
+    ) -> tuple[list[ActivePathData], float]:
+        """Calculate progress data for a list of learning paths.
+
+        Pure computation over already-fetched path objects.
+
+        Returns:
+            Tuple of (active_path_data_list, total_hours).
+        """
+        from ui.ui_types import ActivePathData
+
+        active_paths: list[ActivePathData] = []
+        total_hours = 0.0
+
+        for path in paths:
+            steps = path.metadata.get("steps", []) if path.metadata else []
+            total_steps = len(steps)
+            mastered_count = sum(1 for s in steps if s.is_mastered())
+            progress = (mastered_count / total_steps * 100.0) if total_steps > 0 else 0.0
+
+            current_step = "Complete"
+            for s in steps:
+                if not s.is_mastered():
+                    current_step = s.title or "Next step"
+                    break
+
+            total_hours += path.estimated_hours or 0
+            active_paths.append(
+                ActivePathData(
+                    uid=path.uid,
+                    title=path.title or "Untitled Path",
+                    progress=progress,
+                    current_step=current_step,
+                    estimated_completion=f"{int(path.estimated_hours or 0)}h total",
+                    difficulty=_difficulty_label(path.difficulty_rating),
+                    time_invested=f"{int(path.estimated_hours or 0)}h est.",
+                )
+            )
+
+        return active_paths, total_hours
+
+    async def get_dashboard_summary(
+        self,
+        user_uid: str,
+        user_progress: Any | None = None,
+    ) -> Result[dict[str, Any]]:
+        """Build the full pathways dashboard summary for a user.
+
+        Fetches user paths, calculates progress, and optionally fetches knowledge profile.
+        """
+        from ui.ui_types import LearningStatsData
+
+        paths_result = await self.list_user_paths(user_uid)
+        if paths_result.is_error:
+            return Result.fail(paths_result.expect_error())
+
+        paths = paths_result.value or []
+        active_paths, total_hours = self.calculate_path_progress(paths)
+
+        concepts_mastered = 0
+        if user_progress:
+            profile_result = await user_progress.build_user_knowledge_profile(user_uid)
+            if not profile_result.is_error and profile_result.value:
+                concepts_mastered = len(profile_result.value.mastered_knowledge)
+
+        completion_rate = 0.0
+        if active_paths:
+            completed = sum(1 for p in active_paths if p.progress >= 100.0)
+            completion_rate = completed / len(active_paths)
+
+        stats = LearningStatsData(
+            total_hours=total_hours,
+            concepts_mastered=concepts_mastered,
+            active_streak=0,
+            completion_rate=completion_rate,
+        )
+
+        return Result.ok(
+            {
+                "active_paths": active_paths,
+                "stats": stats,
+            }
+        )
+
+    async def filter_paths(
+        self,
+        difficulty: str = "all",
+        domain: str = "all",
+        duration: str = "all",
+        limit: int = 50,
+    ) -> Result[list[dict[str, Any]]]:
+        """Fetch and filter learning paths by difficulty, domain, and duration."""
+        paths_result = await self.list_all_paths(limit=limit)
+        if paths_result.is_error:
+            return Result.fail(paths_result.expect_error())
+
+        paths = [_path_to_display_dict(p) for p in (paths_result.value or [])]
+
+        if difficulty and difficulty != "all":
+            paths = [p for p in paths if p["difficulty"] == difficulty]
+        if domain and domain != "all":
+            paths = [p for p in paths if domain in p["tags"]]
+        if duration and duration != "all":
+            if duration == "short":
+                paths = [p for p in paths if p["estimated_hours"] < 20]
+            elif duration == "medium":
+                paths = [p for p in paths if 20 <= p["estimated_hours"] <= 50]
+            elif duration == "long":
+                paths = [p for p in paths if p["estimated_hours"] > 50]
+
+        return Result.ok(paths)
+
+    async def get_path_detail_progress(
+        self,
+        path_uid: str,
+        user_progress: Any | None,
+        user_uid: str,
+    ) -> Result[dict[str, Any]]:
+        """Get a learning path with progress and mastery info for a user."""
+        path_result = await self.get_learning_path(path_uid)
+        if path_result.is_error or not path_result.value:
+            return Result.fail(
+                path_result.expect_error()
+                if path_result.is_error
+                else Errors.not_found(resource="LearningPath", identifier=path_uid)
+            )
+
+        path = path_result.value
+        steps = path.metadata.get("steps", []) if path.metadata else []
+        total_steps = len(steps)
+
+        mastered_uids: set[str] = set()
+        is_enrolled = False
+        if user_progress:
+            profile_result = await user_progress.build_user_knowledge_profile(user_uid)
+            if not profile_result.is_error and profile_result.value:
+                profile = profile_result.value
+                mastered_uids = profile.mastered_uids
+                is_enrolled = path_uid in profile.active_learning_paths
+
+        mastered_steps = sum(1 for s in steps if s.uid in mastered_uids or s.is_mastered())
+        progress = (mastered_steps / total_steps * 100.0) if total_steps > 0 else 0.0
+
+        return Result.ok(
+            {
+                "path": path,
+                "steps": steps,
+                "progress": progress,
+                "mastered_uids": mastered_uids,
+                "is_enrolled": is_enrolled,
+            }
+        )
+
+    async def get_learning_analytics(
+        self,
+        user_uid: str,
+        user_progress: Any | None,
+    ) -> Result[dict[str, Any]]:
+        """Get learning analytics data from user's knowledge profile."""
+        analytics: dict[str, Any] = {
+            "concepts_mastered": 0,
+            "in_progress": 0,
+            "needs_review": 0,
+            "struggling": 0,
+            "active_paths_count": 0,
+            "avg_retention": 0.0,
+        }
+
+        if user_progress:
+            profile_result = await user_progress.build_user_knowledge_profile(user_uid)
+            if not profile_result.is_error and profile_result.value:
+                profile = profile_result.value
+                analytics["concepts_mastered"] = len(profile.mastered_knowledge)
+                analytics["in_progress"] = len(profile.in_progress_knowledge)
+                analytics["needs_review"] = len(profile.needs_review_uids)
+                analytics["struggling"] = len(profile.struggling_uids)
+                analytics["active_paths_count"] = len(profile.active_learning_paths)
+                if profile.mastered_knowledge:
+                    analytics["avg_retention"] = sum(
+                        m.retention_score for m in profile.mastered_knowledge
+                    ) / len(profile.mastered_knowledge)
+
+        return Result.ok(analytics)
 
     # ============================================================================
     # CRUD OPERATIONS PROTOCOL COMPATIBILITY

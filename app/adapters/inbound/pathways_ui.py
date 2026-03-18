@@ -293,54 +293,18 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None, ls_servi
         """Main pathways dashboard with progress overview and active paths."""
         user_uid = require_authenticated_user(request)
 
-        # Fetch user's learning paths
+        # Fetch dashboard summary from service
+        summary_result = await lp_service.get_dashboard_summary(user_uid, user_progress)
         active_paths: list[ActivePathData] = []
-        total_hours = 0.0
-        paths_result = await lp_service.list_user_paths(user_uid)
-        if not paths_result.is_error and paths_result.value:
-            for path in paths_result.value:
-                steps = path.metadata.get("steps", []) if path.metadata else []
-                total_steps = len(steps)
-                mastered_count = sum(1 for s in steps if s.is_mastered())
-                progress = (mastered_count / total_steps * 100.0) if total_steps > 0 else 0.0
-                # Find first non-mastered step as current
-                current_step = "Complete"
-                for s in steps:
-                    if not s.is_mastered():
-                        current_step = s.title or "Next step"
-                        break
-                total_hours += path.estimated_hours or 0
-                active_paths.append(
-                    ActivePathData(
-                        uid=path.uid,
-                        title=path.title or "Untitled Path",
-                        progress=progress,
-                        current_step=current_step,
-                        estimated_completion=f"{int(path.estimated_hours or 0)}h total",
-                        difficulty=_difficulty_label(path.difficulty_rating),
-                        time_invested=f"{int(path.estimated_hours or 0)}h est.",
-                    )
-                )
-
-        # Fetch knowledge profile for stats
-        concepts_mastered = 0
-        completion_rate = 0.0
-        if user_progress:
-            profile_result = await user_progress.build_user_knowledge_profile(user_uid)
-            if not profile_result.is_error and profile_result.value:
-                profile = profile_result.value
-                concepts_mastered = len(profile.mastered_knowledge)
-
-        if active_paths:
-            completed = sum(1 for p in active_paths if p.progress >= 100.0)
-            completion_rate = completed / len(active_paths)
-
         stats = LearningStatsData(
-            total_hours=total_hours,
-            concepts_mastered=concepts_mastered,
+            total_hours=0.0,
+            concepts_mastered=0,
             active_streak=0,
-            completion_rate=completion_rate,
+            completion_rate=0.0,
         )
+        if not summary_result.is_error and summary_result.value:
+            active_paths = summary_result.value["active_paths"]
+            stats = summary_result.value["stats"]
 
         # Build active paths section
         if active_paths:
@@ -603,23 +567,13 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None, ls_servi
         domain = form_data.get("domain", "all")
         duration = form_data.get("duration", "all")
 
-        paths: list[dict[str, Any]] = []
-        paths_result = await lp_service.list_all_paths(limit=50)
-        if not paths_result.is_error and paths_result.value:
-            paths = [_path_to_display_dict(p) for p in paths_result.value]
-
-        # Apply filters
-        if difficulty and difficulty != "all":
-            paths = [p for p in paths if p["difficulty"] == difficulty]
-        if domain and domain != "all":
-            paths = [p for p in paths if domain in p["tags"]]
-        if duration and duration != "all":
-            if duration == "short":
-                paths = [p for p in paths if p["estimated_hours"] < 20]
-            elif duration == "medium":
-                paths = [p for p in paths if 20 <= p["estimated_hours"] <= 50]
-            elif duration == "long":
-                paths = [p for p in paths if p["estimated_hours"] > 50]
+        filter_result = await lp_service.filter_paths(
+            difficulty=difficulty,
+            domain=domain,
+            duration=duration,
+            limit=50,
+        )
+        paths = filter_result.value if not filter_result.is_error else []
 
         if paths:
             return Div(
@@ -638,8 +592,13 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None, ls_servi
     @rt("/pathways/path/{path_uid}")
     async def learning_path_detail(request, path_uid: str) -> Any:
         """Detailed view of a specific learning path with curriculum and progress."""
-        path_result = await lp_service.get_learning_path(path_uid)
-        if path_result.is_error or not path_result.value:
+        user_uid = require_authenticated_user(request)
+        detail_result = await lp_service.get_path_detail_progress(
+            path_uid,
+            user_progress,
+            user_uid,
+        )
+        if detail_result.is_error:
             content = Div(
                 Card(
                     H1("Learning Path Not Found", cls="text-2xl font-bold mb-4"),
@@ -664,23 +623,13 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None, ls_servi
                 active_page="pathways",
             )
 
-        path = path_result.value
-        steps = path.metadata.get("steps", []) if path.metadata else []
+        detail = detail_result.value
+        path = detail["path"]
+        steps = detail["steps"]
         total_steps = len(steps)
-
-        # Check enrollment and mastery
-        mastered_uids: set[str] = set()
-        is_enrolled = False
-        user_uid = require_authenticated_user(request)
-        if user_progress:
-            profile_result = await user_progress.build_user_knowledge_profile(user_uid)
-            if not profile_result.is_error and profile_result.value:
-                profile = profile_result.value
-                mastered_uids = profile.mastered_uids
-                is_enrolled = path_uid in profile.active_learning_paths
-
-        mastered_steps = sum(1 for s in steps if s.uid in mastered_uids or s.is_mastered())
-        progress = (mastered_steps / total_steps * 100.0) if total_steps > 0 else 0.0
+        mastered_uids = detail["mastered_uids"]
+        is_enrolled = detail["is_enrolled"]
+        progress = detail["progress"]
 
         # Build steps list
         if steps:
@@ -776,26 +725,14 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None, ls_servi
         """Learning analytics dashboard with real data from user progress profile."""
         user_uid = require_authenticated_user(request)
 
-        concepts_mastered = 0
-        in_progress = 0
-        needs_review = 0
-        struggling = 0
-        active_paths_count = 0
-        avg_retention = 0.0
-
-        if user_progress:
-            profile_result = await user_progress.build_user_knowledge_profile(user_uid)
-            if not profile_result.is_error and profile_result.value:
-                profile = profile_result.value
-                concepts_mastered = len(profile.mastered_knowledge)
-                in_progress = len(profile.in_progress_knowledge)
-                needs_review = len(profile.needs_review_uids)
-                struggling = len(profile.struggling_uids)
-                active_paths_count = len(profile.active_learning_paths)
-                if profile.mastered_knowledge:
-                    avg_retention = sum(
-                        m.retention_score for m in profile.mastered_knowledge
-                    ) / len(profile.mastered_knowledge)
+        analytics_result = await lp_service.get_learning_analytics(user_uid, user_progress)
+        analytics = analytics_result.value if not analytics_result.is_error else {}
+        concepts_mastered = analytics.get("concepts_mastered", 0)
+        in_progress = analytics.get("in_progress", 0)
+        needs_review = analytics.get("needs_review", 0)
+        struggling = analytics.get("struggling", 0)
+        active_paths_count = analytics.get("active_paths_count", 0)
+        avg_retention = analytics.get("avg_retention", 0.0)
 
         content = Div(
             Header(
