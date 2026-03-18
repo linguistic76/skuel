@@ -48,7 +48,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol](
 ):
 ```
 
-**Security (March 2026):** `_search_mixin.py` and `_user_entity_mixin.py` validate all interpolated field names via `validate_field_name()` to prevent Cypher injection. Invalid names fall back to safe defaults with logged warnings.
+**Security (March 2026):** All 6 mixin files validate interpolated values before Cypher string building. `_relationship_crud_mixin.py` validates relationship types in `_build_direction_pattern()` — the single choke point for all relationship pattern Cypher. `_traversal_mixin.py` validates pipe-separated relationship patterns in `traverse()` and `find_path()`. `_search_mixin.py` and `_user_entity_mixin.py` validate field names via `validate_field_name()` with safe-default fallback. Validators live in `core/utils/validation_helpers.py` and `crud_queries.py`.
 
 **Cross-mixin dependencies** use `TYPE_CHECKING` stubs (zero runtime cost, MyPy-verified).
 

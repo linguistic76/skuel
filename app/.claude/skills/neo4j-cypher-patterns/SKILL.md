@@ -203,19 +203,24 @@ MATCH (t:Task {uid: $uid})
 MATCH (t:Task {uid: '${uid}'})
 ```
 
-**Exception: labels and property names cannot be parameterized in Neo4j.** When you must interpolate them, use allowlist validation instead:
+**Exception: labels, property names, and relationship types cannot be parameterized in Neo4j.** SKUEL validates all interpolated values at the infrastructure boundary:
 
 ```python
+# Labels — allowlist against NeoLabel enum
 from adapters.persistence.neo4j.query.cypher.crud_queries import _validate_label, _validate_identifier
-
-# GOOD - validated before interpolation
 _validate_label(label)       # raises ValueError if not a known NeoLabel value
 _validate_identifier(field)  # raises ValueError if not a safe identifier
-query = f"MATCH (n:{label}) RETURN n.{field}"
 
-# BAD - unvalidated interpolation
-query = f"MATCH (n:{label}) RETURN n.{field}"  # Cypher injection risk
+# Relationship types — validated in _build_direction_pattern() (single choke point)
+# Uses validate_relationship_type() from core/utils/validation_helpers.py
+# Accepts RelationshipName enum values OR safe identifiers (^[a-zA-Z_][a-zA-Z0-9_]*$)
+
+# Field names — validated in _search_mixin.py, _user_entity_mixin.py, crud_queries.py
+from core.utils.validation_helpers import validate_field_name
+validate_field_name(name)    # regex check, max 64 chars
 ```
+
+**Coverage:** `_build_direction_pattern()` is the single choke point for all relationship Cypher patterns (`get_related_entities`, `get_related_uids`, `count_related`). `traverse()` and `find_path()` validate pipe-separated patterns. `build_relationship_traversal_query()` and `build_graph_aware_search_query()` validate before their own interpolation.
 
 The same pattern applies to DDL (vector indexes, schema creation) — validate `label`, `field_name`, and `similarity` before building the query string. See `adapters/persistence/neo4j/neo4j_schema_manager.py` for the pattern.
 

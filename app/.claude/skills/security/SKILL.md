@@ -10,7 +10,7 @@ SKUEL has a strong security foundation built into the architecture:
 
 | Area | Implementation | Status |
 |------|---------------|--------|
-| **Query injection** | All Cypher queries use parameterized `$variables` — no string formatting | Enforced (SKUEL001) |
+| **Query injection** | Parameterized `$variables` + allowlist validation for interpolated labels/relationship types/fields | Enforced (SKUEL001, SKUEL013) |
 | **Authentication** | Graph-native auth in Neo4j, `require_authenticated_user()` on all user routes | Active |
 | **Authorization** | Role-based (REGISTERED/MEMBER/TEACHER/ADMIN), `@require_admin` decorator | Active |
 | **Ownership verification** | Returns 404 (not 403) for entities the user doesn't own — no information leakage | Active |
@@ -35,6 +35,28 @@ await tx.run("MATCH (n:Entity {uid: $uid}) RETURN n", uid=entity_uid)
 # VIOLATION — raw string formatting
 await tx.run(f"MATCH (n:Entity {{uid: '{entity_uid}'}}) RETURN n")  # SKUEL001
 ```
+
+### Cypher Interpolation Validation (Defense-in-Depth)
+
+Neo4j cannot parameterize labels, property names, or relationship types — these must be interpolated into Cypher strings. SKUEL validates all such values at the infrastructure boundary before interpolation:
+
+| What | Validator | Location |
+|------|-----------|----------|
+| **Relationship types** | `validate_relationship_type()` | `_build_direction_pattern()` in `_relationship_crud_mixin.py` (single choke point for all relationship pattern building), `traverse()` and `find_path()` in `_traversal_mixin.py`, `build_relationship_traversal_query()` and `build_graph_aware_search_query()` in `crud_queries.py` |
+| **Neo4j labels** | `_validate_label()` | `crud_queries.py` — checks against `NeoLabel` enum allowlist |
+| **Field/property names** | `validate_field_name()` | `_search_mixin.py`, `_user_entity_mixin.py`, `crud_queries.py` — regex `^[a-zA-Z_][a-zA-Z0-9_]*$`, max 64 chars |
+
+```python
+from core.utils.validation_helpers import validate_relationship_type, validate_field_name
+
+# Infrastructure validates before interpolation — callers don't need to
+# _build_direction_pattern() rejects unsafe relationship types with Result.fail()
+# crud_queries validators raise ValueError for unsafe labels/fields
+```
+
+**Validators:** `core/utils/validation_helpers.py` (relationship types, field names), `crud_queries.py` (`_validate_label`, `_validate_identifier`).
+
+**See:** SKUEL013 in `/docs/patterns/linter_rules.md` for the `RelationshipName` enum that makes most interpolation type-safe at the call site.
 
 ### Ownership Verification (404 Not 403)
 
@@ -89,6 +111,7 @@ When adding a new route, verify:
 | Check | Rule | Details |
 |-------|------|---------|
 | No raw Cypher formatting | SKUEL001 | All queries parameterized |
+| Use RelationshipName enum | SKUEL013 | No hardcoded relationship strings; infrastructure validates before interpolation |
 | No `hasattr()` | SKUEL011 | Use Protocol/isinstance/getattr |
 | No lambdas | SKUEL012 | Use named functions (prevents injection via closable scope) |
 | No `print()` in production | SKUEL015 | Use `logger.*()` — print can leak to stdout |

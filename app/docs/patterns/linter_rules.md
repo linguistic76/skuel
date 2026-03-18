@@ -212,6 +212,8 @@ RETURN child
 
 **Coverage (March 2026):** All 80+ relationships enforced — Activity Domain hierarchy (HAS_SUBTASK/SUBTASK_OF, HAS_SUBGOAL/SUBGOAL_OF, HAS_SUBHABIT/SUBHABIT_OF, HAS_SUBPRINCIPLE/SUBPRINCIPLE_OF, HAS_SUBCHOICE/SUBCHOICE_OF, HAS_SUBEVENT/SUBEVENT_OF), cross-domain (SUPPORTS_GOAL, GUIDED_BY_PRINCIPLE, ALIGNED_WITH_PRINCIPLE, CONFLICTS_WITH_PRINCIPLE, REINFORCES_KNOWLEDGE, etc.), Lesson/Ku composition (USES_KU, TRAINS_KU, ORGANIZES), lateral (BLOCKS, BLOCKED_BY, DEPENDS_ON, COMPLEMENTARY_TO, ALTERNATIVE_TO, PREREQUISITE_FOR, SIBLING), sharing (SHARES_WITH, SHARED_WITH_GROUP), groups (MEMBER_OF, FOR_GROUP), ownership (OWNS), achievements (UNLOCKED_ACHIEVEMENT, EARNED_BADGE), reflections (REFLECTS_ON, REVEALS_CONFLICT), life path (ULTIMATE_PATH, SERVES_LIFE_PATH).
 
+**Infrastructure defense-in-depth:** Even when callers use `RelationshipName` enum (safe), the infrastructure layer validates all relationship type strings before Cypher interpolation via `validate_relationship_type()` in `_build_direction_pattern()`, `traverse()`, `find_path()`, and query builder functions. See `/docs/patterns/MODEL_TO_ADAPTER_DYNAMIC_ARCHITECTURE.md`.
+
 ## Rule: SKUEL014 - EntityType / NonKuDomain Enum
 
 **Pattern:** Use `EntityType` or `NonKuDomain` enum instead of magic strings for entity type identification.
