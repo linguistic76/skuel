@@ -25,7 +25,7 @@
 
 **Unique Features:**
 - **Substance tracking** - Measures how knowledge is LIVED (applied via Tasks, Habits, Events)
-- **Per-user context** - `calculate_user_substance(article_uid, user_uid)` for personalized metrics
+- **Per-user context** - `calculate_user_substance(lesson_uid, user_uid)` for personalized metrics
 - **Semantic relationships** - REQUIRES_KNOWLEDGE, ENABLES, HAS_NARROWER, RELATED_TO
 - **Content ingestion** - YAML frontmatter + Markdown body
 - **Non-linear organization** - Any Lesson can organize other Lessons via ORGANIZES (emergent MOC pattern)
@@ -34,15 +34,15 @@
 **Key Methods:**
 ```python
 # Get Lesson with full context
-await lesson_service.intelligence.get_article_with_context(uid)
+await lesson_service.intelligence.get_lesson_with_context(uid)
 
 # Calculate substance for user
 await lesson_service.intelligence.calculate_user_substance(lesson_uid, user_uid)
 
 # Non-linear organization (replaces old MOC service)
-await lesson_service.organize_article(parent_uid, child_uid, order=1, importance="core")
+await lesson_service.organize(parent_uid, child_uid, order=1, importance="core")
 await lesson_service.get_organized_children(parent_uid, depth=1)
-await lesson_service.get_parent_articles(lesson_uid)  # Multiple parents possible!
+await lesson_service.find_organizers(lesson_uid)  # Multiple parents possible!
 await lesson_service.is_organizer(lesson_uid)
 await lesson_service.list_root_organizers()
 
@@ -189,7 +189,7 @@ await lp_service.intelligence.identify_path_blockers(lp_uid, user_uid)
 await lp_service.intelligence.get_optimal_path_recommendation(user_uid, goal_uid)
 
 # Create path from Lessons
-await lp_service.create_path_from_articles(user_uid, name, article_uids)
+await lp_service.create_path_from_lessons(user_uid, name, lesson_uids)
 ```
 
 **Relationships:**

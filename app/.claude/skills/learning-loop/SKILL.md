@@ -511,7 +511,7 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
 
 | Phase | Service | Protocol | Backend | Key Methods |
 |-------|---------|----------|---------|-------------|
-| **Ku** | `KuService` | `KuOperations` | `KuBackend` | `organize`, `get_subkus`, CRUD |
+| **Lesson** | `LessonService` | `LessonOperations` | `LessonBackend` | `organize`, `get_children`, CRUD |
 | **Exercise** | `ExerciseService` | `ExerciseOperations` | `ExerciseBackend` | `link_to_curriculum`, `get_exercise_for_submission`, `get_student_exercises`, `get_student_exercises_with_status`, CRUD |
 | **RevisedExercise** | `RevisedExerciseService` | `RevisedExerciseOperations` | `RevisedExerciseBackend` | CRUD, `list_for_teacher`, `list_for_student`, `get_revision_chain` |
 | **Submission** | `SubmissionsService` | `SubmissionOperations` | `SubmissionsBackend` | `submit_file`, `check_access`, share methods |

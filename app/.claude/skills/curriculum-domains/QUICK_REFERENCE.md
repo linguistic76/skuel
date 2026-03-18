@@ -9,7 +9,7 @@
 | Domain | Directory | Model | DTO | Request |
 |--------|-----------|-------|-----|---------|
 | **Base** | `core/models/` | `curriculum.py` | `curriculum_dto.py` | — |
-| **Lesson** | `core/models/lesson/` | `article.py` (extends Curriculum) | `article_dto.py` | `article_request.py` |
+| **Lesson** | `core/models/lesson/` | `lesson.py` (extends Curriculum) | `lesson_dto.py` | `lesson_request.py` |
 | **KU** | `core/models/ku/` | `ku.py` (extends Entity) | `ku_dto.py` | — |
 | **LS** | `core/models/pathways/` | `learning_step.py` | `learning_step_dto.py` | `pathways_request.py` |
 | **LP** | `core/models/pathways/` | `learning_path.py` | `learning_path_dto.py` | `pathways_request.py` |
@@ -18,7 +18,7 @@
 ### Services (Facade + Sub-services)
 | Domain | Facade | Core | Search | Intelligence |
 |--------|--------|------|--------|--------------|
-| Lesson | `core/services/lesson_service.py` | `article/article_core_service.py` | `article/article_search_service.py` | (via `article_adaptive_service.py`) |
+| Lesson | `core/services/lesson_service.py` | `lesson/lesson_core_service.py` | `lesson/lesson_search_service.py` | (via `lesson_adaptive_service.py`) |
 | KU | `core/services/ku_service.py` | `ku/ku_core_service.py` | `ku/ku_search_service.py` | `ku/ku_intelligence_service.py` |
 | LS | `core/services/ls_service.py` | `ls/ls_core_service.py` | `ls/ls_search_service.py` | `ls/ls_intelligence_service.py` |
 | LP | `core/services/lp_service.py` | `lp/lp_core_service.py` | `lp/lp_search_service.py` | `lp_intelligence_service.py` (top-level) |
@@ -26,16 +26,16 @@
 ### Lesson Sub-services (`core/services/lesson/`)
 | Service | Purpose |
 |---------|---------|
-| `article_core_service.py` | CRUD operations |
-| `article_search_service.py` | Text search, filtering |
-| `article_graph_service.py` | Graph navigation |
-| `article_semantic_service.py` | Semantic relationship management |
-| `article_practice_service.py` | Practice tracking |
-| `article_mastery_service.py` | Pedagogical tracking (VIEWED → IN_PROGRESS → MASTERED) |
-| `article_adaptive_service.py` | Adaptive learning recommendations |
+| `lesson_core_service.py` | CRUD operations |
+| `lesson_search_service.py` | Text search, filtering |
+| `lesson_graph_service.py` | Graph navigation |
+| `lesson_semantic_service.py` | Semantic relationship management |
+| `lesson_practice_service.py` | Practice tracking |
+| `lesson_mastery_service.py` | Pedagogical tracking (VIEWED → IN_PROGRESS → MASTERED) |
+| `lesson_adaptive_service.py` | Adaptive learning recommendations |
 | `lesson_organization_service.py` | ORGANIZES relationships (non-linear nav / MOC pattern) |
 | `lesson_ai_service.py` | AI-powered Lesson operations |
-| `article_relationship_helpers.py` | Relationship filtering utilities |
+| `lesson_relationship_helpers.py` | Relationship filtering utilities |
 
 ### KU Sub-services (`core/services/ku/`)
 | Service | Purpose |
@@ -63,7 +63,7 @@
 
 | Domain | Format | Example |
 |--------|--------|---------|
-| Lesson | `l_{slug}_{random}` | `a_meditation-basics_a1b2c3d4` |
+| Lesson | `l_{slug}_{random}` | `l_meditation-basics_a1b2c3d4` |
 | KU | `ku_{slug}_{random}` | `ku_meditation-basics_x9y8z7w6` |
 | LS | `ls:{random}` | `ls:a1b2c3d4` |
 | LP | `lp:{random}` | `lp:x9y8z7w6` |
@@ -117,7 +117,7 @@
 from core.models.curriculum import Curriculum
 from core.models.curriculum_dto import CurriculumDTO
 from core.models.lesson.lesson import Lesson
-from core.models.article.article_dto import LessonDTO
+from core.models.lesson.lesson_dto import LessonDTO
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
 from core.models.pathways.learning_step import LearningStep
@@ -143,7 +143,7 @@ Services wired in: `services_bootstrap.py`
 ```python
 async def compose_services(neo4j_adapter, event_bus=None) -> Result[Services]:
     # Curriculum services use factories
-    lesson_service = LessonService(article_backend, graph_intel, event_bus)
+    lesson_service = LessonService(lesson_backend, graph_intel, event_bus)
     ku_service = KuService(ku_backend, event_bus)
     ls_service = LsService(driver, graph_intel, event_bus)
     lp_service = LpService(driver, ls_service, graph_intel, event_bus)  # Cross-domain dep
@@ -180,7 +180,7 @@ lp_service.get_learning_analytics(user_uid, user_progress)  # Knowledge profile 
 
 | Domain | Count | Key Services |
 |--------|-------|--------------|
-| **Lesson** | 10 | core, search, graph, semantic, practice, interaction, adaptive, organization, ai, relationship_helpers |
+| **Lesson** | 10 | core, search, graph, semantic, practice, mastery, adaptive, organization, ai, relationship_helpers |
 | **KU** | 4 | core, search, relationships, intelligence |
 | **LS** | 4 | core, search, intelligence, (ai) |
 | **LP** | 5 | core, search, progress, intelligence, (ai) |

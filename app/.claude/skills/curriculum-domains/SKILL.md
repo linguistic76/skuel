@@ -102,9 +102,9 @@ result = await lp_service.intelligence.validate_path_prerequisites(lp_uid)
 ### Lesson Organization (non-linear navigation)
 ```python
 # Organize Lessons into a non-linear map
-await lesson_service.organize_lesson(parent_uid, child_uid, order=1, importance="core")
+await lesson_service.organize(parent_uid, child_uid, order=1, importance="core")
 await lesson_service.get_organized_children(parent_uid, depth=1)
-await lesson_service.get_parent_lessons(lesson_uid)  # Multiple parents possible
+await lesson_service.find_organizers(lesson_uid)  # Multiple parents possible
 ```
 
 ### Create with factory (LS example)

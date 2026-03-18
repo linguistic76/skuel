@@ -1,12 +1,12 @@
-# Article Content and Resources Guide
+# Curriculum Content and Resources Guide
 
-How SKUEL stores and serves two distinct kinds of content: **Article Content** (body text for curriculum entities) and **Resources** (curated external references).
+How SKUEL stores and serves two distinct kinds of content: **Curriculum Content** (body text for curriculum entities) and **Resources** (curated external references).
 
 ---
 
 ## The Distinction
 
-| | Article Content | Resource |
+| | Curriculum Content | Resource |
 |---|---|---|
 | **What it is** | The body text of a curriculum entity (Lesson, LS, LP) | A curated reference to external material (book, talk, film, podcast) |
 | **EntityType** | Not an entity — a facet attached via `HAS_CONTENT` | `EntityType.RESOURCE` — a first-class entity |
@@ -16,13 +16,13 @@ How SKUEL stores and serves two distinct kinds of content: **Article Content** (
 | **Purpose** | RAG retrieval, reading, learning loop | Askesis recommendations, reading lists, reference |
 | **Location** | `core/models/article_content/` | `core/models/resource/` |
 
-**Key insight:** Article Content is _text you read inside SKUEL_. A Resource is _a pointer to something you read outside SKUEL_.
+**Key insight:** Curriculum content is _text you read inside SKUEL_. A Resource is _a pointer to something you read outside SKUEL_.
 
 ---
 
-## Article Content (`core/models/article_content/`)
+## Curriculum Content (`core/models/article_content/`)
 
-Article Content is the **body text facet** of curriculum entities. When a Lesson is ingested from markdown, the raw text is stored as a `CurriculumContent` node connected to the Lesson via a `HAS_CONTENT` relationship. This keeps the Lesson graph node lean (metadata only) while the full text lives separately for RAG.
+Curriculum Content is the **body text facet** of curriculum entities. When a Lesson is ingested from markdown, the raw text is stored as a `CurriculumContent` node connected to the Lesson via a `HAS_CONTENT` relationship. This keeps the Lesson graph node lean (metadata only) while the full text lives separately for RAG.
 
 ### Three Models
 
@@ -100,9 +100,9 @@ User sees: "Read 'Thinking, Fast and Slow' by Daniel Kahneman"
 External content (outside SKUEL)
 ```
 
-### Relationship to Articles
+### Relationship to Lessons
 
-An Lesson might reference a Resource via relationships:
+A Lesson might reference a Resource via relationships:
 - `(Lesson)-[:REFERENCES]->(Resource)` — the Lesson cites or recommends the Resource
 - `(Resource)-[:RELATED_TO]->(Lesson)` — topical connection
 
@@ -132,7 +132,7 @@ core/models/
 │   ├── content_chunks.py     # ContentChunk, ContentChunkType, chunking strategy
 │   └── content_metadata.py   # ContentMetadata — derived analytics
 ├── lesson/                  # Lesson entity (curriculum leaf)
-│   ├── article.py            # Lesson(Curriculum) frozen dataclass
+│   ├── lesson.py             # Lesson(Curriculum) frozen dataclass
 │   └── lesson_dto.py        # Mutable DTO
 └── resource/                 # Resource entity (external references)
     ├── resource.py           # Resource(Entity) frozen dataclass

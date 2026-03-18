@@ -15,7 +15,7 @@ class LessonCoreService(BaseService[LessonOperations, Lesson]):
     _config = create_curriculum_domain_config(
         dto_class=LessonDTO,
         model_class=Lesson,
-        domain_name="articles",
+        domain_name="lesson",
         search_fields=("title", "description", "content"),
         category_field="domain",
     )
@@ -31,7 +31,7 @@ Any Lesson can organize other Lessons via `ORGANIZES` relationships. There is no
 
 ```python
 # Create non-linear structure
-await lesson_service.organize_article(
+await lesson_service.organize(
     parent_uid="l_yoga-fundamentals_abc123",
     child_uid="l_meditation-basics_xyz789",
     order=1,
@@ -40,7 +40,7 @@ await lesson_service.organize_article(
 
 # Navigate the structure
 children = await lesson_service.get_organized_children("l_yoga-fundamentals_abc123", depth=2)
-parents = await lesson_service.get_parent_articles("l_meditation-basics_xyz789")
+parents = await lesson_service.find_organizers("l_meditation-basics_xyz789")
 root_organizers = await lesson_service.list_root_organizers()
 
 # Check if a Lesson acts as an organizer
