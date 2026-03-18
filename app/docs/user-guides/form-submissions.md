@@ -17,7 +17,7 @@ Forms are a **general-purpose content collection system** decoupled from the lea
 | Base class | `Curriculum` (21 extra fields) | `Entity` (lightweight) |
 | Submission type | `ExerciseSubmission` (file upload) | `FormSubmission` (JSON) |
 | Report cycle | Yes (ExerciseReport → RevisedExercise) | No |
-| Embedding | Articles only | Articles (via EMBEDS_FORM) |
+| Embedding | Lessons only | Lessons (via EMBEDS_FORM) |
 | Sharing | Via group assignment | At submit time (group, direct, admin) |
 
 ---
@@ -78,37 +78,37 @@ A FormTemplate's `form_schema` is a list of field specifications. Each field is 
 
 ---
 
-## Embedding Forms in Articles
+## Embedding Forms in Lessons
 
-FormTemplates are linked to Articles via the `EMBEDS_FORM` relationship. When a user reads an Article, any embedded forms render inline after the article content.
+FormTemplates are linked to Lessons via the `EMBEDS_FORM` relationship. When a user reads a Lesson, any embedded forms render inline after the lesson content.
 
 ### Linking via API
 
 ```
-POST /api/form-templates/link-article
+POST /api/form-templates/link-lesson
 {
   "form_template_uid": "ft_weekly_reflection_abc123",
-  "article_uid": "a_intro_to_python_xyz789"
+  "lesson_uid": "l_intro_to_python_xyz789"
 }
 ```
 
 ### Unlinking
 
 ```
-POST /api/form-templates/unlink-article
+POST /api/form-templates/unlink-lesson
 {
   "form_template_uid": "ft_weekly_reflection_abc123",
-  "article_uid": "a_intro_to_python_xyz789"
+  "lesson_uid": "l_intro_to_python_xyz789"
 }
 ```
 
-An Article can embed multiple FormTemplates. A FormTemplate can be embedded in multiple Articles.
+A Lesson can embed multiple FormTemplates. A FormTemplate can be embedded in multiple Lessons.
 
 ---
 
 ## Form Submission Flow
 
-1. User reads an Article with an embedded FormTemplate
+1. User reads a Lesson with an embedded FormTemplate
 2. The form renders inline with all fields from `form_schema`
 3. User fills out the form and optionally selects sharing targets
 4. On submit:
@@ -170,8 +170,8 @@ Users can delete their own submissions from the detail page. The delete is owner
 | GET | `/api/form-templates/list` | List all FormTemplates |
 | PUT | `/api/form-templates/update?uid=` | Update a FormTemplate |
 | DELETE | `/api/form-templates/delete?uid=` | Delete a FormTemplate |
-| POST | `/api/form-templates/link-article` | Link FormTemplate to Article |
-| POST | `/api/form-templates/unlink-article` | Unlink FormTemplate from Article |
+| POST | `/api/form-templates/link-lesson` | Link FormTemplate to Lesson |
+| POST | `/api/form-templates/unlink-lesson` | Unlink FormTemplate from Lesson |
 
 ### FormSubmission (User)
 
@@ -218,7 +218,7 @@ Users can delete their own submissions from the detail page. The delete is owner
 ## Graph Relationships
 
 ```
-(Article)-[:EMBEDS_FORM]->(FormTemplate)     # Article embeds a form
+(Lesson)-[:EMBEDS_FORM]->(FormTemplate)      # Lesson embeds a form
 (FormSubmission)-[:RESPONDS_TO_FORM]->(FormTemplate)  # Submission links to template
 (User)-[:OWNS]->(FormSubmission)             # User owns their submission
 (FormSubmission)-[:SHARED_WITH_GROUP]->(Group)  # Shared with a group

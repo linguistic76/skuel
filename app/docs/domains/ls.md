@@ -90,7 +90,7 @@ await ls_service.intelligence.is_ready(step_uid, completed_steps)
 | `CONTAINS_KNOWLEDGE` | Outgoing | Ku | Knowledge units in this step |
 | `HAS_STEP` (incoming) | Incoming | Lp | Parent learning path (via `in_paths` key) |
 | `REQUIRES_STEP` | Outgoing | Ls | Prerequisite steps |
-| `REQUIRES_KNOWLEDGE` | Outgoing | Ku | Prerequisite knowledge |
+| `REQUIRES_KNOWLEDGE` | Outgoing | Ku | Prerequisite knowledge (`{type: 'prerequisite'}`) |
 | `BUILDS_HABIT` | Outgoing | Habit | Practice via habits |
 | `ASSIGNS_TASK` | Outgoing | Task | Practice via tasks |
 | `SCHEDULES_EVENT` | Outgoing | Event | Practice via events |

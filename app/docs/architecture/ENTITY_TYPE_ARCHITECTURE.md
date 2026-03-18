@@ -270,7 +270,7 @@ FormTemplate extends `Entity` (NOT Curriculum — doesn't need 21 Curriculum fie
 
 **Graph relationships:**
 ```cypher
-(article:Lesson)-[:EMBEDS_FORM]->(ft:FormTemplate)
+(lesson:Lesson)-[:EMBEDS_FORM]->(ft:FormTemplate)
 (fs:FormSubmission)-[:RESPONDS_TO_FORM]->(ft:FormTemplate)
 (user:User)-[:OWNS]->(fs:FormSubmission)
 ```
@@ -433,7 +433,7 @@ Natural Text
 (goal:Goal)-[:SUBGOAL_OF]->(goal:Goal)
 
 // Curriculum
-(article:Lesson)-[:USES_KU]->(ku:Ku)
+(lesson:Lesson)-[:USES_KU]->(ku:Ku)
 (ku:Curriculum)-[:REQUIRES_KNOWLEDGE]->(ku:Curriculum)
 (ku:Curriculum)-[:ENABLES_KNOWLEDGE]->(ku:Curriculum)
 (lp:LearningPath)-[:HAS_NARROWER]->(ls:LearningStep)
@@ -449,7 +449,7 @@ Natural Text
 (submission:Submission)-[:FULFILLS_EXERCISE]->(exercise:Exercise)
 
 // Forms
-(article:Lesson)-[:EMBEDS_FORM]->(ft:FormTemplate)
+(lesson:Lesson)-[:EMBEDS_FORM]->(ft:FormTemplate)
 (fs:FormSubmission)-[:RESPONDS_TO_FORM]->(ft:FormTemplate)
 
 // Sharing

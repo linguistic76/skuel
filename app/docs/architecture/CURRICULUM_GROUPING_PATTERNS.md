@@ -288,7 +288,7 @@ Type-safe relationships between patterns:
 # LS Path (Linear)
 HAS_STEP           # LP → LS
 HAS_LESSON         # LS → Lesson (step contains lesson, progress tracking)
-REQUIRES_KNOWLEDGE # LS → KU
+CONTAINS_KNOWLEDGE # LS → KU (primary/supporting content)
 
 # MOC Path (Graph) - KU organizing KUs
 ORGANIZES          # KU → KU (with {order: int} property)

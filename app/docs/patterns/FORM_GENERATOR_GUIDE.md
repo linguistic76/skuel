@@ -269,18 +269,18 @@ FormGenerator.from_model(
 
 ---
 
-## Fragment Mode: Embedding Forms in Articles
+## Fragment Mode: Embedding Forms in Lessons
 
-`as_fragment=True` returns a `<div>` with fields only — no `<form>` tag, no submit button. Use this to embed interactive form fields within article content.
+`as_fragment=True` returns a `<div>` with fields only — no `<form>` tag, no submit button. Use this to embed interactive form fields within lesson content.
 
-### Use case: Interactive exercise within an article
+### Use case: Interactive exercise within a lesson
 
 ```python
 from fasthtml.common import Div, Form, H2, P
 from ui.buttons import Button, ButtonT
 
-# Article content with embedded exercise form
-def render_article_with_exercise(article, exercise):
+# Lesson content with embedded exercise form
+def render_lesson_with_exercise(lesson, exercise):
     exercise_fields = FormGenerator.from_model(
         ExerciseSubmissionRequest,
         include_fields=["response", "confidence_level"],
@@ -293,9 +293,9 @@ def render_article_with_exercise(article, exercise):
     )
 
     return Div(
-        # Article content
-        H2(article.title),
-        Div(article.rendered_content, cls="prose"),
+        # Lesson content
+        H2(lesson.title),
+        Div(lesson.rendered_content, cls="prose"),
 
         # Embedded exercise form
         Form(

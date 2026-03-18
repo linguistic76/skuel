@@ -920,7 +920,7 @@ factory = UserContextIntelligenceFactory(
     choices=choices_service.relationships,
     principles=principles_service.relationships,
     # Curriculum (3)
-    article=lesson_service.graph,
+    lesson=lesson_service.graph,
     ls=ls_service.relationships,
     lp=lp_service.relationships,
     # Processing (3)

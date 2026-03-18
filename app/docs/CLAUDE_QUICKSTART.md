@@ -32,7 +32,7 @@ related: [README.md, INDEX.md]
 
 ```
 Activity (6)             Curriculum (5)      Content/Processing    Other
-├── Tasks                ├── Article         ├── Submission        ├── Resource
+├── Tasks                ├── Lesson          ├── Submission        ├── Resource
 ├── Goals                ├── Ku              ├── Journal           ├── Finance
 ├── Habits               ├── LearningStep    ├── ActivityReport    ├── Groups
 ├── Events               ├── LearningPath    └── SubmissionReport  ├── MOC (emergent)

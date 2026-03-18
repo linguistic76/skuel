@@ -269,7 +269,7 @@ class LessonSearchService(BaseService[LessonOperations, Entity]):
     _config = create_curriculum_domain_config(
         dto_class=CurriculumDTO,
         model_class=Entity,
-        domain_name="article",
+        domain_name="lesson",
         search_fields=("title", "summary", "tags"),
         search_order_by="updated_at",
     )

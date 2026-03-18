@@ -196,7 +196,7 @@ await backend.add_relationship(uid1, RelationshipName.SERVES_GOAL, uid2)
 
 **Note:** Cypher query strings still use literal relationship names (unavoidable).
 
-**Covered relationships (March 2026):** Core domain (SERVES_GOAL, FULFILLS_GOAL, etc.), Article/Ku composition (USES_KU, TRAINS_KU, ORGANIZES), lateral (BLOCKS, BLOCKED_BY, DEPENDS_ON, COMPLEMENTARY_TO, ALTERNATIVE_TO, PREREQUISITE_FOR, SIBLING), sharing (SHARES_WITH, SHARED_WITH_GROUP), groups (MEMBER_OF, FOR_GROUP), ownership (OWNS).
+**Covered relationships (March 2026):** Core domain (SERVES_GOAL, FULFILLS_GOAL, etc.), Lesson/Ku composition (USES_KU, TRAINS_KU, ORGANIZES), lateral (BLOCKS, BLOCKED_BY, DEPENDS_ON, COMPLEMENTARY_TO, ALTERNATIVE_TO, PREREQUISITE_FOR, SIBLING), sharing (SHARES_WITH, SHARED_WITH_GROUP), groups (MEMBER_OF, FOR_GROUP), ownership (OWNS).
 
 ## Rule: SKUEL014 - EntityType / NonKuDomain Enum
 

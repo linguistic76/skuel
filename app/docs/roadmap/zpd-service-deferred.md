@@ -61,7 +61,7 @@ class ZoneEvidence:
 class ZPDAction:
     """A concrete recommended action from ZPD assessment."""
     entity_uid: str
-    entity_type: str       # "exercise", "article", "task", "habit"
+    entity_type: str       # "exercise", "lesson", "task", "habit"
     action_type: str       # "learn", "submit", "reinforce", "practice"
     priority: float        # 0.0-1.0
     rationale: str

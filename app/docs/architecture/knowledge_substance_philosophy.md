@@ -224,8 +224,8 @@ user_substance_score = task_score + habit_score + event_score + journal_score + 
 
 ### Implementation
 
-- **Service:** `LessonIntelligenceService.calculate_user_substance(article_uid, user_context)`
-- **Facade:** `LessonService.get_user_article_context(article_uid, user_context)`
+- **Service:** `LessonIntelligenceService.calculate_user_substance(lesson_uid, user_context)`
+- **Facade:** `LessonService.get_user_lesson_context(lesson_uid, user_context)`
 - **Route:** `/adapters/inbound/lesson_api.py` (`get_lesson_user_context_route`)
 - **Wiring:** `user_service` passed through `services_bootstrap.py` → `LessonService` → `LessonIntelligenceService`
 

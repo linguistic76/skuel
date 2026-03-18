@@ -235,7 +235,7 @@ if result.is_ok:
 
 ### Method 5: has_prerequisites()
 
-**Purpose:** Check if learning step has any prerequisites. Checks for both REQUIRES_STEP relationships (other steps) and REQUIRES_KNOWLEDGE relationships (KU prerequisites).
+**Purpose:** Check if learning step has any prerequisites. Checks for REQUIRES_STEP relationships (other steps) and REQUIRES_KNOWLEDGE {type: 'prerequisite'} relationships (prerequisite knowledge).
 
 **Signature:**
 ```python
@@ -266,7 +266,7 @@ if result.is_ok:
 
 **Dependencies:**
 - GraphQueryExecutor (REQUIRED - uses `execute_exists()`)
-- Checks REQUIRES_STEP OR REQUIRES_KNOWLEDGE relationships
+- Checks REQUIRES_STEP or REQUIRES_KNOWLEDGE {type: 'prerequisite'} relationships
 
 **Implementation Notes:**
 - Uses `execute_exists()` pattern for efficient boolean check
@@ -477,7 +477,7 @@ The primary intelligence focus is **practice integration**:
 
 **Binary Readiness Model:**
 - Step is ready when **ALL** prerequisites completed
-- Checks both REQUIRES_STEP (other steps) and REQUIRES_KNOWLEDGE (KU)
+- Checks both REQUIRES_STEP (other steps) and REQUIRES_KNOWLEDGE {type: 'prerequisite'} (KU)
 - No partial readiness - either ready or not ready
 
 This supports LP's sequential progression model.

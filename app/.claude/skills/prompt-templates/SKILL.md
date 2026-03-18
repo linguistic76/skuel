@@ -156,7 +156,7 @@ Two template layers define its pedagogical vocabulary:
 ### Layer 1: Guided System Prompts (Active)
 
 `ResponseGenerator.build_guided_system_prompt()` dispatches to 4 mode-specific builders,
-each rendering templates via `PROMPT_REGISTRY.render()`. Dynamic context (article refs, KU
+each rendering templates via `PROMPT_REGISTRY.render()`. Dynamic context (lesson refs, KU
 names, resource refs, edge text, practice items) is computed in Python and passed as
 template placeholders.
 

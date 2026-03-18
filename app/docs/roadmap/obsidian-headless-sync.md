@@ -58,7 +58,7 @@ Content authored in Obsidian that maps to SKUEL entity types:
 | Content Type | EntityType | Typical Format |
 |-------------|-----------|----------------|
 | Knowledge Units | `KU` | Markdown with YAML frontmatter |
-| Articles | `ARTICLE` | Markdown with YAML frontmatter |
+| Lessons | `LESSON` | Markdown with YAML frontmatter |
 | Learning Steps | `LEARNING_STEP` | YAML or Markdown |
 | Learning Paths | `LEARNING_PATH` | YAML |
 | Activity templates | `TASK`, `GOAL`, `HABIT`, `EVENT`, `CHOICE`, `PRINCIPLE` | YAML |

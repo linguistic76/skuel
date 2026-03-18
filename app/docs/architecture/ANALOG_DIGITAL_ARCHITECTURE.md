@@ -41,7 +41,7 @@ The test suite runs 1966 tests without any API mocking for AI services. Services
 
 | Domain | Capability |
 |--------|-----------|
-| **Curriculum** | Article, Ku, Exercise, LearningStep, LearningPath authoring and ingestion |
+| **Curriculum** | Lesson, Ku, Exercise, LearningStep, LearningPath authoring and ingestion |
 | **Activity** | Task, Goal, Habit, Event, Choice, Principle — full CRUD with status transitions |
 | **Search** | Keyword search across 12 domains via Neo4j fulltext indexes |
 | **User Context** | ~250-field UserContext built from MEGA-QUERY (standard + rich) |
@@ -49,7 +49,7 @@ The test suite runs 1966 tests without any API mocking for AI services. Services
 | **Intelligence** | UserContextIntelligence — daily planning, life path alignment, schedule-aware recommendations |
 | **Relationships** | Lateral relationships, ORGANIZES hierarchy, SERVES_LIFE_PATH |
 | **Ingestion** | Markdown/YAML -> Neo4j pipeline with chunking (chunks stored, not embedded) |
-| **Learning Loop** | Article -> Exercise -> Submission -> Report -> RevisedExercise (manual feedback) |
+| **Learning Loop** | Lesson -> Exercise -> Submission -> Report -> RevisedExercise (manual feedback) |
 | **Calendar** | Schedule aggregation across Tasks, Events, Habits, Goals |
 
 ### Digital Layer (opt-in, requires `INTELLIGENCE_TIER=full`)
