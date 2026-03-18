@@ -196,6 +196,7 @@ class RelationshipName(StrEnum):
     # User-to-entity ownership and progress
     # =========================================================================
     OWNS = "OWNS"  # (user)-[:OWNS]->(entity) - Universal ownership relationship
+    REQUESTED = "REQUESTED"  # (user)-[:REQUESTED]->(ReviewRequest) - Review request
     HAS_TASK = "HAS_TASK"
     HAS_EVENT = "HAS_EVENT"
     HAS_HABIT = "HAS_HABIT"

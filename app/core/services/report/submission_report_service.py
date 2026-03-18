@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
 from core.models.exercises.exercise import Exercise
+from core.models.relationship_names import RelationshipName
 from core.models.report.submission_report import SubmissionReport
 from core.models.submissions.submission import Submission
 from core.services.ai_service import AnthropicService, OpenAIService
@@ -233,15 +234,15 @@ class SubmissionReportService:
             else f"AI Feedback: {exercise.uid[:20]}"
         )
 
-        query = """
-        MATCH (submission:Entity {uid: $submission_uid})
-        OPTIONAL MATCH (creator:User {uid: $user_uid})
+        query = f"""
+        MATCH (submission:Entity {{uid: $submission_uid}})
+        OPTIONAL MATCH (creator:User {{uid: $user_uid}})
 
         SET submission.report_content = $feedback_text,
             submission.report_generated_at = datetime($now),
             submission.updated_at = datetime($now)
 
-        CREATE (fb:Entity {
+        CREATE (fb:Entity {{
             uid: $report_uid,
             title: $title,
             entity_type: $entity_type,
@@ -255,14 +256,14 @@ class SubmissionReportService:
             created_by: $user_uid,
             created_at: datetime($now),
             updated_at: datetime($now)
-        })
+        }})
 
         WITH submission, creator, fb
-        CREATE (fb)-[:REPORT_FOR]->(submission)
+        CREATE (fb)-[:{RelationshipName.REPORT_FOR.value}]->(submission)
 
         WITH submission, creator, fb
         WHERE creator IS NOT NULL
-        CREATE (creator)-[:OWNS]->(fb)
+        CREATE (creator)-[:{RelationshipName.OWNS.value}]->(fb)
 
         RETURN fb.uid as report_uid
         """
@@ -346,9 +347,9 @@ class SubmissionReportService:
         if not self.ku_interaction_service or not self.executor:
             return
 
-        query = """
-        MATCH (submission:Entity {uid: $submission_uid})-[:APPLIES_KNOWLEDGE]->(ku:Entity {entity_type: 'ku'})
-        OPTIONAL MATCH (student:User)-[:OWNS]->(submission)
+        query = f"""
+        MATCH (submission:Entity {{uid: $submission_uid}})-[:{RelationshipName.APPLIES_KNOWLEDGE.value}]->(ku:Entity {{entity_type: 'ku'}})
+        OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(submission)
         RETURN ku.uid AS ku_uid, student.uid AS student_uid
         """
 

@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from core.ports import QueryExecutor
 
+from core.models.relationship_names import RelationshipName
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -66,9 +67,9 @@ class ReviewQueueService:
             now = datetime.now().isoformat()
 
             result = await self.executor.execute_query(
-                """
-                MATCH (u:User {uid: $user_uid})
-                CREATE (r:ReviewRequest {
+                f"""
+                MATCH (u:User {{uid: $user_uid}})
+                CREATE (r:ReviewRequest {{
                     uid: $uid,
                     user_uid: $user_uid,
                     time_period: $time_period,
@@ -76,8 +77,8 @@ class ReviewQueueService:
                     message: $message,
                     status: 'pending',
                     created_at: datetime($now)
-                })
-                CREATE (u)-[:REQUESTED]->(r)
+                }})
+                CREATE (u)-[:{RelationshipName.REQUESTED.value}]->(r)
                 RETURN r.uid AS uid, r.status AS status
                 """,
                 {
@@ -124,8 +125,8 @@ class ReviewQueueService:
         """
         try:
             result = await self.executor.execute_query(
-                """
-                MATCH (u:User)-[:REQUESTED]->(r:ReviewRequest {status: 'pending'})
+                f"""
+                MATCH (u:User)-[:{RelationshipName.REQUESTED.value}]->(r:ReviewRequest {{status: 'pending'}})
                 RETURN r.uid AS uid, r.user_uid AS user_uid, r.time_period AS time_period,
                        r.domains AS domains, r.message AS message, r.created_at AS created_at,
                        u.username AS username

@@ -27,6 +27,7 @@ from core.events.submission_events import (
     SubmissionRevisionRequested,
 )
 from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
+from core.models.relationship_names import RelationshipName
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
@@ -93,11 +94,11 @@ class TeacherReviewService:
         where_clause = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
 
         query = f"""
-        MATCH (teacher:User {{uid: $teacher_uid}})-[r:SHARES_WITH {{role: 'teacher'}}]->(ku:Entity:Submission)
+        MATCH (teacher:User {{uid: $teacher_uid}})-[r:{RelationshipName.SHARES_WITH.value} {{role: 'teacher'}}]->(ku:Entity:Submission)
         {where_clause}
-        OPTIONAL MATCH (student:User)-[:OWNS]->(ku)
-        OPTIONAL MATCH (ku)-[:FULFILLS_EXERCISE]->(project:Entity:Exercise)
-        OPTIONAL MATCH (fb:Entity:SubmissionReport)-[:REPORT_FOR]->(ku)
+        OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(ku)
+        OPTIONAL MATCH (ku)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(project:Entity:Exercise)
+        OPTIONAL MATCH (fb:Entity:SubmissionReport)-[:{RelationshipName.REPORT_FOR.value}]->(ku)
         WITH ku, student, project, r, count(fb) as feedback_count
         RETURN ku.uid as ku_uid,
                ku.title as title,
@@ -151,9 +152,9 @@ class TeacherReviewService:
         Returns:
             Result containing list of report items ordered by creation date
         """
-        query = """
-        MATCH (fb:Entity:SubmissionReport)-[:REPORT_FOR]->(submission:Entity:Submission {uid: $submission_uid})
-        OPTIONAL MATCH (teacher:User)-[:OWNS]->(fb)
+        query = f"""
+        MATCH (fb:Entity:SubmissionReport)-[:{RelationshipName.REPORT_FOR.value}]->(submission:Entity:Submission {{uid: $submission_uid}})
+        OPTIONAL MATCH (teacher:User)-[:{RelationshipName.OWNS.value}]->(fb)
         RETURN fb.uid as uid,
                fb.title as title,
                fb.content as content,
@@ -213,9 +214,9 @@ class TeacherReviewService:
 
         # Create SUBMISSION_REPORT node, link via REPORT_FOR, share with student,
         # and update submission status — all in one transaction
-        query = """
-        MATCH (submission:Entity {uid: $report_uid})
-        OPTIONAL MATCH (student:User)-[:OWNS]->(submission)
+        query = f"""
+        MATCH (submission:Entity {{uid: $report_uid}})
+        OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(submission)
 
         // Update submission with denormalized report content
         SET submission.report_content = $feedback,
@@ -224,7 +225,7 @@ class TeacherReviewService:
             submission.updated_at = datetime($now)
 
         // Create SUBMISSION_REPORT Entity nodes
-        CREATE (fb:Entity {
+        CREATE (fb:Entity {{
             uid: $report_entity_uid,
             title: $title,
             entity_type: $entity_type,
@@ -235,18 +236,18 @@ class TeacherReviewService:
             created_by: $teacher_uid,
             created_at: datetime($now),
             updated_at: datetime($now)
-        })
+        }})
 
-        // Teacher owns the feedback
+        // Teacher owns the report
         WITH submission, student, fb
-        MATCH (teacher:User {uid: $teacher_uid})
-        CREATE (teacher)-[:OWNS]->(fb)
-        CREATE (fb)-[:REPORT_FOR]->(submission)
+        MATCH (teacher:User {{uid: $teacher_uid}})
+        CREATE (teacher)-[:{RelationshipName.OWNS.value}]->(fb)
+        CREATE (fb)-[:{RelationshipName.REPORT_FOR.value}]->(submission)
 
-        // Share feedback with student (if student exists)
+        // Share report with student (if student exists)
         WITH submission, student, fb
         WHERE student IS NOT NULL
-        CREATE (student)-[:SHARES_WITH {shared_at: datetime($now), role: 'student'}]->(fb)
+        CREATE (student)-[:{RelationshipName.SHARES_WITH.value} {{shared_at: datetime($now), role: 'student'}}]->(fb)
 
         RETURN submission.uid as uid,
                submission.status as status,
@@ -328,9 +329,9 @@ class TeacherReviewService:
         report_entity_uid = UIDGenerator.generate_uid("sr")
         now = datetime.now().isoformat()
 
-        query = """
-        MATCH (submission:Entity {uid: $report_uid})
-        OPTIONAL MATCH (student:User)-[:OWNS]->(submission)
+        query = f"""
+        MATCH (submission:Entity {{uid: $report_uid}})
+        OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(submission)
 
         // Update submission with revision status
         SET submission.report_content = $notes,
@@ -339,7 +340,7 @@ class TeacherReviewService:
             submission.updated_at = datetime($now)
 
         // Create SUBMISSION_REPORT Entity nodes for revision request
-        CREATE (fb:Entity {
+        CREATE (fb:Entity {{
             uid: $report_entity_uid,
             title: $title,
             entity_type: $entity_type,
@@ -350,18 +351,18 @@ class TeacherReviewService:
             created_by: $teacher_uid,
             created_at: datetime($now),
             updated_at: datetime($now)
-        })
+        }})
 
-        // Teacher owns the feedback
+        // Teacher owns the report
         WITH submission, student, fb
-        MATCH (teacher:User {uid: $teacher_uid})
-        CREATE (teacher)-[:OWNS]->(fb)
-        CREATE (fb)-[:REPORT_FOR]->(submission)
+        MATCH (teacher:User {{uid: $teacher_uid}})
+        CREATE (teacher)-[:{RelationshipName.OWNS.value}]->(fb)
+        CREATE (fb)-[:{RelationshipName.REPORT_FOR.value}]->(submission)
 
-        // Share feedback with student (if student exists)
+        // Share report with student (if student exists)
         WITH submission, student, fb
         WHERE student IS NOT NULL
-        CREATE (student)-[:SHARES_WITH {shared_at: datetime($now), role: 'student'}]->(fb)
+        CREATE (student)-[:{RelationshipName.SHARES_WITH.value} {{shared_at: datetime($now), role: 'student'}}]->(fb)
 
         RETURN submission.uid as uid,
                submission.status as status,
@@ -439,13 +440,13 @@ class TeacherReviewService:
         if access_check.is_error:
             return Result.fail(access_check.expect_error())
 
-        query = """
-        MATCH (ku:Entity {uid: $report_uid})
+        query = f"""
+        MATCH (ku:Entity {{uid: $report_uid}})
         SET ku.status = $status,
             ku.updated_at = datetime($now)
         WITH ku
-        OPTIONAL MATCH (student:User)-[:OWNS]->(ku)
-        OPTIONAL MATCH (ku)-[:APPLIES_KNOWLEDGE]->(curriculum:Entity:Ku)
+        OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(ku)
+        OPTIONAL MATCH (ku)-[:{RelationshipName.APPLIES_KNOWLEDGE.value}]->(curriculum:Entity:Ku)
         RETURN ku.uid as uid,
                ku.status as status,
                student.uid as student_uid,
@@ -529,9 +530,9 @@ class TeacherReviewService:
             Result containing list of exercise dicts with uid, title, scope,
             created_at, total_count, reviewed_count, pending_count
         """
-        query = """
-        MATCH (user:User {uid: $teacher_uid})-[:OWNS]->(exercise:Entity:Exercise)
-        OPTIONAL MATCH (s:Entity:Submission)-[:FULFILLS_EXERCISE]->(exercise)
+        query = f"""
+        MATCH (user:User {{uid: $teacher_uid}})-[:{RelationshipName.OWNS.value}]->(exercise:Entity:Exercise)
+        OPTIONAL MATCH (s:Entity:Submission)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(exercise)
         WITH exercise, count(s) AS total_count,
              count(CASE WHEN s.status = 'completed' THEN 1 END) AS reviewed_count
         RETURN exercise.uid AS uid, exercise.title AS title,
@@ -574,10 +575,10 @@ class TeacherReviewService:
             Result containing list of submission dicts with student info
             and feedback count
         """
-        query = """
-        MATCH (s:Entity:Submission)-[:FULFILLS_EXERCISE]->(e:Entity:Exercise {uid: $exercise_uid})
-        OPTIONAL MATCH (student:User)-[:OWNS]->(s)
-        OPTIONAL MATCH (fb:Entity:SubmissionReport)-[:REPORT_FOR]->(s)
+        query = f"""
+        MATCH (s:Entity:Submission)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(e:Entity:Exercise {{uid: $exercise_uid}})
+        OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(s)
+        OPTIONAL MATCH (fb:Entity:SubmissionReport)-[:{RelationshipName.REPORT_FOR.value}]->(s)
         WITH s, student, count(fb) AS feedback_count
         RETURN s.uid AS uid, s.title AS title,
                s.original_filename AS original_filename, s.status AS status,
@@ -620,9 +621,9 @@ class TeacherReviewService:
             Result containing list of student dicts with submission_count,
             reviewed_count, pending_count, ordered by pending descending
         """
-        query = """
-        MATCH (teacher:User {uid: $teacher_uid})-[:SHARES_WITH {role: 'teacher'}]->(ku:Entity:Submission)
-        OPTIONAL MATCH (student:User)-[:OWNS]->(ku)
+        query = f"""
+        MATCH (teacher:User {{uid: $teacher_uid}})-[:{RelationshipName.SHARES_WITH.value} {{role: 'teacher'}}]->(ku:Entity:Submission)
+        OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(ku)
         WITH student, count(ku) AS submission_count,
              count(CASE WHEN ku.status = 'completed' THEN 1 END) AS reviewed_count
         WHERE student IS NOT NULL
@@ -665,11 +666,11 @@ class TeacherReviewService:
             Result containing list of submission dicts with exercise context
             and feedback count
         """
-        query = """
-        MATCH (teacher:User {uid: $teacher_uid})-[:SHARES_WITH {role: 'teacher'}]->(ku:Entity:Submission)
-        MATCH (student:User {uid: $student_uid})-[:OWNS]->(ku)
-        OPTIONAL MATCH (fb:Entity:SubmissionReport)-[:REPORT_FOR]->(ku)
-        OPTIONAL MATCH (ku)-[:FULFILLS_EXERCISE]->(ex:Entity:Exercise)
+        query = f"""
+        MATCH (teacher:User {{uid: $teacher_uid}})-[:{RelationshipName.SHARES_WITH.value} {{role: 'teacher'}}]->(ku:Entity:Submission)
+        MATCH (student:User {{uid: $student_uid}})-[:{RelationshipName.OWNS.value}]->(ku)
+        OPTIONAL MATCH (fb:Entity:SubmissionReport)-[:{RelationshipName.REPORT_FOR.value}]->(ku)
+        OPTIONAL MATCH (ku)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex:Entity:Exercise)
         WITH ku, count(fb) AS feedback_count, ex
         RETURN ku.uid AS uid, ku.title AS title,
                ku.original_filename AS original_filename, ku.status AS status,
@@ -718,10 +719,10 @@ class TeacherReviewService:
         Returns:
             Result containing submission detail dict
         """
-        query = """
-        MATCH (teacher:User {uid: $teacher_uid})-[:SHARES_WITH {role: 'teacher'}]->(s:Entity:Submission {uid: $submission_uid})
-        OPTIONAL MATCH (student:User)-[:OWNS]->(s)
-        OPTIONAL MATCH (s)-[:FULFILLS_EXERCISE]->(ex:Entity:Exercise)
+        query = f"""
+        MATCH (teacher:User {{uid: $teacher_uid}})-[:{RelationshipName.SHARES_WITH.value} {{role: 'teacher'}}]->(s:Entity:Submission {{uid: $submission_uid}})
+        OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(s)
+        OPTIONAL MATCH (s)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex:Entity:Exercise)
         RETURN s.uid AS uid,
                s.title AS title,
                s.content AS content,
@@ -786,12 +787,12 @@ class TeacherReviewService:
         Returns:
             Result containing stats dict
         """
-        query = """
-        MATCH (teacher:User {uid: $teacher_uid})
-        OPTIONAL MATCH (teacher)-[:SHARES_WITH {role: 'teacher'}]->(ku:Entity:Submission)
-        OPTIONAL MATCH (student:User)-[:OWNS]->(ku)
-        OPTIONAL MATCH (teacher)-[:OWNS]->(ex:Entity:Exercise)
-        OPTIONAL MATCH (teacher)-[:OWNS]->(g:Group)
+        query = f"""
+        MATCH (teacher:User {{uid: $teacher_uid}})
+        OPTIONAL MATCH (teacher)-[:{RelationshipName.SHARES_WITH.value} {{role: 'teacher'}}]->(ku:Entity:Submission)
+        OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(ku)
+        OPTIONAL MATCH (teacher)-[:{RelationshipName.OWNS.value}]->(ex:Entity:Exercise)
+        OPTIONAL MATCH (teacher)-[:{RelationshipName.OWNS.value}]->(g:Group)
         RETURN
           count(CASE WHEN ku.status IN ['submitted', 'active', 'revision_requested'] THEN 1 END) AS pending_count,
           count(DISTINCT ku) AS total_submissions,
@@ -840,11 +841,11 @@ class TeacherReviewService:
         Returns:
             Result containing list of group stat dicts
         """
-        query = """
-        MATCH (teacher:User {uid: $teacher_uid})-[:OWNS]->(g:Group)
-        OPTIONAL MATCH (member:User)-[:MEMBER_OF]->(g)
-        OPTIONAL MATCH (ex:Entity:Exercise)-[:FOR_GROUP]->(g)
-        OPTIONAL MATCH (sub:Entity:Submission)-[:FULFILLS_EXERCISE]->(ex)
+        query = f"""
+        MATCH (teacher:User {{uid: $teacher_uid}})-[:{RelationshipName.OWNS.value}]->(g:Group)
+        OPTIONAL MATCH (member:User)-[:{RelationshipName.MEMBER_OF.value}]->(g)
+        OPTIONAL MATCH (ex:Entity:Exercise)-[:{RelationshipName.FOR_GROUP.value}]->(g)
+        OPTIONAL MATCH (sub:Entity:Submission)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex)
           WHERE sub.status NOT IN ['completed', 'archived']
         RETURN g.uid AS uid,
                g.name AS name,
@@ -892,11 +893,11 @@ class TeacherReviewService:
         Returns:
             Result containing list of member dicts with progress stats
         """
-        query = """
-        MATCH (teacher:User {uid: $teacher_uid})-[:OWNS]->(g:Group {uid: $group_uid})
-        MATCH (member:User)-[r:MEMBER_OF]->(g)
-        OPTIONAL MATCH (teacher)-[:SHARES_WITH {role: 'teacher'}]->(sub:Entity:Submission)
-          WHERE (member)-[:OWNS]->(sub)
+        query = f"""
+        MATCH (teacher:User {{uid: $teacher_uid}})-[:{RelationshipName.OWNS.value}]->(g:Group {{uid: $group_uid}})
+        MATCH (member:User)-[r:{RelationshipName.MEMBER_OF.value}]->(g)
+        OPTIONAL MATCH (teacher)-[:{RelationshipName.SHARES_WITH.value} {{role: 'teacher'}}]->(sub:Entity:Submission)
+          WHERE (member)-[:{RelationshipName.OWNS.value}]->(sub)
         RETURN member.uid AS user_uid,
                member.name AS user_name,
                r.role AS role,
@@ -938,8 +939,8 @@ class TeacherReviewService:
         teacher_uid: str,
     ) -> Result[bool]:
         """Verify teacher has SHARES_WITH access to the entity."""
-        query = """
-        MATCH (teacher:User {uid: $teacher_uid})-[r:SHARES_WITH {role: 'teacher'}]->(ku:Entity {uid: $report_uid})
+        query = f"""
+        MATCH (teacher:User {{uid: $teacher_uid}})-[r:{RelationshipName.SHARES_WITH.value} {{role: 'teacher'}}]->(ku:Entity {{uid: $report_uid}})
         RETURN true as has_access
         """
 

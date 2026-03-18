@@ -921,8 +921,8 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         day_end = datetime(
             entry_date.year, entry_date.month, entry_date.day, 23, 59, 59, tzinfo=UTC
         )
-        query = """
-            MATCH (u:User {uid: $user_uid})-[:OWNS]->(j:Entity {entity_type: 'journal_submission'})
+        query = f"""
+            MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(j:Entity {{entity_type: 'journal_submission'}})
             WHERE j.created_at >= $day_start AND j.created_at <= $day_end
             RETURN count(j) AS total
         """
@@ -1277,15 +1277,13 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         Returns:
             Result[bool]: True if exercise processing was applied
         """
-        from core.models.relationship_names import RelationshipName
-
         # Check if the exercise is ASSIGNED scope and get group info
         # Accepts both Exercise and RevisedExercise entity types
         exercise_result = await self.backend.execute_query(
-            """
-            MATCH (exercise:Entity {uid: $exercise_uid})
+            f"""
+            MATCH (exercise:Entity {{uid: $exercise_uid}})
             WHERE exercise.entity_type IN ['exercise', 'revised_exercise']
-            OPTIONAL MATCH (exercise)-[:FOR_GROUP]->(g:Group)
+            OPTIONAL MATCH (exercise)-[:{RelationshipName.FOR_GROUP.value}]->(g:Group)
             RETURN exercise.entity_type as exercise_entity_type,
                    exercise.scope as scope,
                    exercise.user_uid as teacher_uid,
@@ -1314,8 +1312,8 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
 
             # Verify submitting student matches the targeted student
             submitter_result = await self.backend.execute_query(
-                """
-                MATCH (student:User)-[:OWNS]->(ku:Entity {uid: $ku_uid})
+                f"""
+                MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(ku:Entity {{uid: $ku_uid}})
                 RETURN student.uid as student_uid
                 """,
                 {"ku_uid": ku_uid},
@@ -1347,9 +1345,9 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
             # Verify student is a member of the target group (if group exists)
             if group_uid:
                 student_result = await self.backend.execute_query(
-                    """
-                    MATCH (student:User)-[:OWNS]->(ku:Entity {uid: $ku_uid})
-                    OPTIONAL MATCH (student)-[:MEMBER_OF]->(g:Group {uid: $group_uid})
+                    f"""
+                    MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(ku:Entity {{uid: $ku_uid}})
+                    OPTIONAL MATCH (student)-[:{RelationshipName.MEMBER_OF.value}]->(g:Group {{uid: $group_uid}})
                     RETURN student.uid as student_uid, g.uid as member_of_group
                     """,
                     {"ku_uid": ku_uid, "group_uid": group_uid},
@@ -1371,8 +1369,8 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         # 0. Auto-generate canonical title from exercise
         if exercise_title:
             student_uid_result = await self.backend.execute_query(
-                """
-                MATCH (student:User)-[:OWNS]->(ku:Entity {uid: $ku_uid})
+                f"""
+                MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(ku:Entity {{uid: $ku_uid}})
                 RETURN student.uid as student_uid
                 """,
                 {"ku_uid": ku_uid},
@@ -1385,8 +1383,8 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
                     # Count prior submissions already linked to this exercise by this student
                     prior_count_result = await self.backend.execute_query(
                         f"""
-                        MATCH (student:User {{uid: $student_uid}})-[:OWNS]->(s:Entity)
-                            -[:{RelationshipName.FULFILLS_EXERCISE}]->(e:Entity {{uid: $exercise_uid}})
+                        MATCH (student:User {{uid: $student_uid}})-[:{RelationshipName.OWNS.value}]->(s:Entity)
+                            -[:{RelationshipName.FULFILLS_EXERCISE.value}]->(e:Entity {{uid: $exercise_uid}})
                         RETURN count(s) AS prior_count
                         """,
                         {"student_uid": submitter_uid, "exercise_uid": exercise_uid},
@@ -1540,9 +1538,9 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
 
         # Verify teacher has authority over student (share an active group)
         authority_result = await self.backend.execute_query(
-            """
-            MATCH (teacher:User {uid: $teacher_uid})-[:OWNS]->(g:Group)
-                  <-[:MEMBER_OF]-(student:User {uid: $subject_uid})
+            f"""
+            MATCH (teacher:User {{uid: $teacher_uid}})-[:{RelationshipName.OWNS.value}]->(g:Group)
+                  <-[:{RelationshipName.MEMBER_OF.value}]-(student:User {{uid: $subject_uid}})
             WHERE g.is_active = true
             RETURN g.uid AS group_uid LIMIT 1
             """,
@@ -1587,10 +1585,10 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
 
         # Create ASSESSMENT_OF relationship
         assess_result = await self.backend.execute_query(
-            """
-            MATCH (k:Entity {uid: $ku_uid})
-            MATCH (u:User {uid: $subject_uid})
-            MERGE (k)-[:ASSESSMENT_OF]->(u)
+            f"""
+            MATCH (k:Entity {{uid: $ku_uid}})
+            MATCH (u:User {{uid: $subject_uid}})
+            MERGE (k)-[:{RelationshipName.ASSESSMENT_OF.value}]->(u)
             RETURN true AS success
             """,
             {"ku_uid": uid, "subject_uid": subject_uid},
@@ -1660,8 +1658,8 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
             Result containing list of EXERCISE_REPORT entities
         """
         result = await self.backend.execute_query(
-            """
-            MATCH (k:Entity)-[:ASSESSMENT_OF]->(u:User {uid: $student_uid})
+            f"""
+            MATCH (k:Entity)-[:{RelationshipName.ASSESSMENT_OF.value}]->(u:User {{uid: $student_uid}})
             WHERE k.entity_type = 'exercise_report'
             RETURN k
             ORDER BY k.created_at DESC
