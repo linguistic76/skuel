@@ -23,6 +23,7 @@ from pydantic import ValidationError
 
 from adapters.inbound.auth.roles import UserRole, make_service_getter, require_role
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.route_factories import parse_date_param_strict
 from core.models.enums.entity_enums import ProcessorType
 from core.models.enums.submissions_enums import ExerciseScope
 from core.models.teaching.teaching_request import RequestRevisionRequest, SubmitReportRequest
@@ -224,12 +225,10 @@ def create_teaching_api_routes(
         due_date: date | None = None
         due_date_str = body.get("due_date") or ""
         if due_date_str:
-            try:
-                due_date = date.fromisoformat(due_date_str)
-            except ValueError:
-                return Result.fail(
-                    Errors.validation("Invalid due_date format (use YYYY-MM-DD)", field="due_date")
-                )
+            due_date_result = parse_date_param_strict(due_date_str, "due_date")
+            if due_date_result.is_error:
+                return due_date_result
+            due_date = due_date_result.value
 
         processor_type_str = body.get("processor_type") or "llm"
         try:

@@ -37,6 +37,7 @@ from adapters.inbound.route_factories import (
     QuickAddConfig,
     QuickAddRouteFactory,
     require_owned_entity,
+    split_csv,
 )
 from adapters.inbound.ui_helpers import (
     parse_calendar_params,
@@ -165,7 +166,7 @@ def parse_task_update_payload(form: Any) -> dict[str, Any]:
     # Tags (comma-separated to list)
     tags_str = safe_form_string(form.get("tags"))
     if tags_str:
-        updates["tags"] = [t.strip() for t in tags_str.split(",") if t.strip()]
+        updates["tags"] = split_csv(tags_str)
     else:
         updates["tags"] = []
 

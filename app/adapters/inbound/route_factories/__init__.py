@@ -41,9 +41,19 @@ from adapters.inbound.route_factories.quick_add_factory import (
     QuickAddRouteFactory,
 )
 from adapters.inbound.route_factories.route_helpers import (
+    DateRangeParams,
+    PaginationParams,
     check_required_role,
+    parse_bool_query_param,
+    parse_csv_query_param,
+    parse_date_param_strict,
+    parse_date_query_param,
+    parse_date_range_params,
+    parse_int_param_strict,
     parse_int_query_param,
+    parse_pagination_params,
     require_owned_entity,
+    split_csv,
     verify_entity_ownership,
 )
 from adapters.inbound.route_factories.status_route_factory import (
@@ -69,9 +79,19 @@ __all__ = [
     "QuickAddConfig",
     "QuickAddRouteFactory",
     # Shared route helpers
+    "DateRangeParams",
+    "PaginationParams",
     "check_required_role",
+    "parse_bool_query_param",
+    "parse_csv_query_param",
+    "parse_date_param_strict",
+    "parse_date_query_param",
+    "parse_date_range_params",
+    "parse_int_param_strict",
     "parse_int_query_param",
+    "parse_pagination_params",
     "require_owned_entity",
+    "split_csv",
     "verify_entity_ownership",
     # Status route factory (December 2025)
     "StatusOperations",

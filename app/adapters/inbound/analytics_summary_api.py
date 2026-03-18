@@ -30,48 +30,11 @@ from fasthtml.common import Request
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.route_factories import parse_date_param_strict, parse_int_param_strict
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from core.services.analytics_service import AnalyticsService
-
-
-# ============================================================================
-# PARAMETER PARSING HELPERS
-# ============================================================================
-
-
-def _parse_iso_date(value: str | None, field: str) -> Result[date]:
-    """Parse an ISO-format date string, returning a validation error on failure."""
-    if not value:
-        return Result.fail(Errors.validation(f"{field} is required", field=field))
-    try:
-        return Result.ok(date.fromisoformat(value))
-    except ValueError:
-        return Result.fail(
-            Errors.validation(f"{field} must be ISO format (YYYY-MM-DD)", field=field, value=value)
-        )
-
-
-def _parse_int_in_range(value: str | None, field: str, min_val: int, max_val: int) -> Result[int]:
-    """Parse an integer string and validate it falls within [min_val, max_val]."""
-    if not value:
-        return Result.fail(Errors.validation(f"{field} is required", field=field))
-    try:
-        n = int(value)
-    except ValueError:
-        return Result.fail(
-            Errors.validation(f"{field} must be an integer", field=field, value=value)
-        )
-    if n < min_val or n > max_val:
-        return Result.fail(
-            Errors.validation(
-                f"{field} must be between {min_val} and {max_val}",
-                field=field,
-                value=n,
-            )
-        )
-    return Result.ok(n)
 
 
 def create_analytics_summary_api_routes(app, rt, analytics_service: "AnalyticsService"):
@@ -90,7 +53,7 @@ def create_analytics_summary_api_routes(app, rt, analytics_service: "AnalyticsSe
 
     @rt("/api/analytics/life-path-alignment")
     @boundary_handler()
-    async def get_life_path_alignment_route(request: Request) -> Result[dict[str, Any]]:
+    async def get_life_path_alignment_route(request: Request) -> Result[Any]:
         """
         Get user's alignment with their ultimate life goal.
 
@@ -116,7 +79,7 @@ def create_analytics_summary_api_routes(app, rt, analytics_service: "AnalyticsSe
 
     @rt("/api/analytics/weekly-life-summary")
     @boundary_handler()
-    async def get_weekly_life_summary_route(request: Request) -> Result[dict[str, Any]]:
+    async def get_weekly_life_summary_route(request: Request) -> Result[Any]:
         """
         Get weekly life summary across ALL 4 layers.
 
@@ -136,7 +99,7 @@ def create_analytics_summary_api_routes(app, rt, analytics_service: "AnalyticsSe
 
         start_date_str = request.query_params.get("start_date")
         if start_date_str:
-            result = _parse_iso_date(start_date_str, "start_date")
+            result = parse_date_param_strict(start_date_str, "start_date")
             if result.is_error:
                 return result
             start_date = result.value
@@ -148,7 +111,7 @@ def create_analytics_summary_api_routes(app, rt, analytics_service: "AnalyticsSe
 
     @rt("/api/analytics/monthly-life-review")
     @boundary_handler()
-    async def get_monthly_life_review_route(request: Request) -> Result[dict[str, Any]]:
+    async def get_monthly_life_review_route(request: Request) -> Result[Any]:
         """
         Get monthly life review across ALL 4 layers.
 
@@ -164,10 +127,10 @@ def create_analytics_summary_api_routes(app, rt, analytics_service: "AnalyticsSe
         """
         user_uid = require_authenticated_user(request)
 
-        year_result = _parse_int_in_range(request.query_params.get("year"), "year", 2000, 2100)
+        year_result = parse_int_param_strict(request.query_params.get("year"), "year", 2000, 2100)
         if year_result.is_error:
             return year_result
-        month_result = _parse_int_in_range(request.query_params.get("month"), "month", 1, 12)
+        month_result = parse_int_param_strict(request.query_params.get("month"), "month", 1, 12)
         if month_result.is_error:
             return month_result
 
@@ -177,7 +140,7 @@ def create_analytics_summary_api_routes(app, rt, analytics_service: "AnalyticsSe
 
     @rt("/api/analytics/quarterly-progress")
     @boundary_handler()
-    async def get_quarterly_progress_route(request: Request) -> Result[dict[str, Any]]:
+    async def get_quarterly_progress_route(request: Request) -> Result[Any]:
         """
         Get quarterly progress analytics across ALL 4 layers.
 
@@ -193,10 +156,10 @@ def create_analytics_summary_api_routes(app, rt, analytics_service: "AnalyticsSe
         """
         user_uid = require_authenticated_user(request)
 
-        year_result = _parse_int_in_range(request.query_params.get("year"), "year", 2000, 2100)
+        year_result = parse_int_param_strict(request.query_params.get("year"), "year", 2000, 2100)
         if year_result.is_error:
             return year_result
-        quarter_result = _parse_int_in_range(request.query_params.get("quarter"), "quarter", 1, 4)
+        quarter_result = parse_int_param_strict(request.query_params.get("quarter"), "quarter", 1, 4)
         if quarter_result.is_error:
             return quarter_result
 
@@ -206,7 +169,7 @@ def create_analytics_summary_api_routes(app, rt, analytics_service: "AnalyticsSe
 
     @rt("/api/analytics/yearly-review")
     @boundary_handler()
-    async def get_yearly_review_route(request: Request) -> Result[dict[str, Any]]:
+    async def get_yearly_review_route(request: Request) -> Result[Any]:
         """
         Get yearly review across ALL 4 layers.
 
@@ -222,7 +185,7 @@ def create_analytics_summary_api_routes(app, rt, analytics_service: "AnalyticsSe
         """
         user_uid = require_authenticated_user(request)
 
-        year_result = _parse_int_in_range(request.query_params.get("year"), "year", 2000, 2100)
+        year_result = parse_int_param_strict(request.query_params.get("year"), "year", 2000, 2100)
         if year_result.is_error:
             return year_result
 
@@ -234,7 +197,7 @@ def create_analytics_summary_api_routes(app, rt, analytics_service: "AnalyticsSe
 
     @rt("/api/analytics/cross-domain-patterns")
     @boundary_handler()
-    async def get_cross_domain_patterns_route(request: Request) -> Result[dict[str, Any]]:
+    async def get_cross_domain_patterns_route(request: Request) -> Result[Any]:
         """
         Detect patterns and relationships across domains.
 
@@ -253,10 +216,10 @@ def create_analytics_summary_api_routes(app, rt, analytics_service: "AnalyticsSe
         """
         user_uid = require_authenticated_user(request)
 
-        start_result = _parse_iso_date(request.query_params.get("start_date"), "start_date")
+        start_result = parse_date_param_strict(request.query_params.get("start_date"), "start_date")
         if start_result.is_error:
             return start_result
-        end_result = _parse_iso_date(request.query_params.get("end_date"), "end_date")
+        end_result = parse_date_param_strict(request.query_params.get("end_date"), "end_date")
         if end_result.is_error:
             return end_result
 

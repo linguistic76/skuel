@@ -27,6 +27,7 @@ from starlette.requests import Request
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.route_factories import parse_date_query_param
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
@@ -89,11 +90,8 @@ def create_visualization_api_routes(
         user_uid = require_authenticated_user(request)
 
         today = date.today()
-        start_str = request.query_params.get("start_date")
-        end_str = request.query_params.get("end_date")
-
-        start_date = date.fromisoformat(start_str) if start_str else today - timedelta(days=7)
-        end_date = date.fromisoformat(end_str) if end_str else today + timedelta(days=14)
+        start_date = parse_date_query_param(request.query_params, "start_date", today - timedelta(days=7))
+        end_date = parse_date_query_param(request.query_params, "end_date", today + timedelta(days=14))
         group_by = request.query_params.get("group_by", "type")
 
         return await vis_service.get_timeline_data(

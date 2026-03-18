@@ -391,7 +391,7 @@ SKUEL measures knowledge by how it's LIVED. Substance tracking: Habits (0.10, ma
 
 **Core Principle:** "Validate at boundaries, fail fast with clear errors"
 
-- **Query Parameters (GET):** Helper functions (`parse_bool_param`, `validate_time_window`)
+- **Query Parameters (GET):** Shared helpers in `route_helpers.py` (`parse_bool_query_param`, `parse_date_query_param`, `parse_csv_query_param`, `parse_pagination_params`, etc.)
 - **JSON Bodies (POST):** Pydantic request models (auto-validated)
 - **Request Model Location:** `core/models/{domain}/{domain}_request.py`
 - **Error Codes:** Query params -> 400 Bad Request, JSON bodies -> 422 Unprocessable Entity

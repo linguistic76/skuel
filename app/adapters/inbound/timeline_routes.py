@@ -23,7 +23,7 @@ from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
-from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
+from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes, split_csv
 from core.models.enums import EntityStatus
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -114,7 +114,7 @@ def create_timeline_api_routes(_app, rt, tasks_service: Any):
             # Parse status filter
             status_filter = None
             if status:
-                status_filter = [s.strip() for s in status.split(",") if s.strip()]
+                status_filter = split_csv(status)
                 # Validate status values
                 valid_statuses = {s.value for s in EntityStatus}
                 invalid_statuses = [s for s in status_filter if s not in valid_statuses]
@@ -236,7 +236,7 @@ def create_timeline_api_routes(_app, rt, tasks_service: Any):
 
             status_filter = None
             if status:
-                status_filter = [s.strip() for s in status.split(",") if s.strip()]
+                status_filter = split_csv(status)
 
             # Get timeline content
             if tasks_service is None:

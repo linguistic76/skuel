@@ -23,7 +23,11 @@ from starlette.requests import Request
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
-from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
+from adapters.inbound.route_factories import (
+    DomainRouteConfig,
+    register_domain_routes,
+    split_csv,
+)
 from core.models.enums.entity_enums import EntityType, NonKuDomain
 from core.models.relationship_names import RelationshipName
 from core.models.search_request import SearchRequest
@@ -230,8 +234,7 @@ def create_search_api_routes(
         # Parse entity types
         parsed_entity_types: list[EntityType | NonKuDomain] = []
         if entity_types.strip():
-            for et_str in entity_types.split(","):
-                et_str = et_str.strip()
+            for et_str in split_csv(entity_types):
                 parsed = EntityType.from_string(et_str) or NonKuDomain.from_string(et_str)
                 if parsed:
                     parsed_entity_types.append(parsed)
@@ -249,7 +252,7 @@ def create_search_api_routes(
         # Parse tags
         parsed_tags = None
         if tags.strip():
-            parsed_tags = [t.strip() for t in tags.split(",") if t.strip()]
+            parsed_tags = split_csv(tags) or None
 
         # Build request (SearchRequest is THE canonical model)
         search_request = SearchRequest(

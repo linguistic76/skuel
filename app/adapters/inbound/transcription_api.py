@@ -21,7 +21,7 @@ from typing import Any
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
-from adapters.inbound.route_factories import parse_int_query_param
+from adapters.inbound.route_factories import parse_int_query_param, parse_pagination_params
 from core.models.transcription.transcription import (
     TranscriptionCreateRequest,
     TranscriptionProcessOptions,
@@ -100,16 +100,15 @@ def create_transcription_api_routes(
         params = dict(request.query_params)
 
         status_str = params.get("status")
-        limit = parse_int_query_param(params, "limit", 100, minimum=1, maximum=500)
-        offset = parse_int_query_param(params, "offset", 0, minimum=0)
+        pagination = parse_pagination_params(params, default_limit=100, max_limit=500)
 
         status = TranscriptionStatus(status_str) if status_str else None
 
         result = await transcription_service.list(
             user_uid=user_uid,
             status=status,
-            limit=limit,
-            offset=offset,
+            limit=pagination.limit,
+            offset=pagination.offset,
         )
 
         if result.is_error:

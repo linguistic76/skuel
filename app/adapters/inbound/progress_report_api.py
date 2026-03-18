@@ -45,7 +45,7 @@ from starlette.requests import Request
 
 from adapters.inbound.auth import make_service_getter, require_admin, require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
-from adapters.inbound.route_factories import parse_int_query_param
+from adapters.inbound.route_factories import parse_int_query_param, split_csv
 from core.models.entity_converters import entity_to_response
 from core.models.entity_requests import (
     ActivityFeedbackSubmitRequest,
@@ -258,7 +258,7 @@ def create_progress_report_api_routes(
                 )
             time_period = request.query_params.get("time_period", "7d")
             domains_param = request.query_params.get("domains", "")
-            domains = [d.strip() for d in domains_param.split(",") if d.strip()] or None
+            domains = split_csv(domains_param) or None
 
             ctx_result = await context_builder.build_rich(subject_uid, window=time_period)
             if ctx_result.is_error:

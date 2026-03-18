@@ -17,7 +17,11 @@ if TYPE_CHECKING:
 # Pydantic schemas for boundary
 from adapters.inbound.auth import make_service_getter, require_admin
 from adapters.inbound.boundary import boundary_handler
-from adapters.inbound.route_factories import parse_int_query_param
+from adapters.inbound.route_factories import (
+    parse_date_param_strict,
+    parse_int_query_param,
+    parse_pagination_params,
+)
 from adapters.inbound.route_factories.analytics_route_factory import AnalyticsRouteFactory
 from adapters.inbound.route_factories.crud_route_factory import CRUDRouteFactory
 from core.models.enums import UserRole
@@ -91,20 +95,25 @@ def create_finance_api_routes(
         params = dict(request.query_params)
 
         # Required parameters
-        start_date = date.fromisoformat(params["start_date"])
-        end_date = date.fromisoformat(params["end_date"])
+        start_result = parse_date_param_strict(params.get("start_date"), "start_date")
+        if start_result.is_error:
+            return start_result
+        end_result = parse_date_param_strict(params.get("end_date"), "end_date")
+        if end_result.is_error:
+            return end_result
+        start_date = start_result.value
+        end_date = end_result.value
 
         # Optional parameters
-        limit = parse_int_query_param(params, "limit", 100, minimum=1, maximum=500)
-        offset = parse_int_query_param(params, "offset", 0, minimum=0)
+        pagination = parse_pagination_params(params, default_limit=100, max_limit=500)
 
         # Call service with admin's user_uid (service filters by user)
         result = await finance_service.get_expenses_by_date_range(
             user_uid=current_user.uid,
             start_date=start_date,
             end_date=end_date,
-            limit=limit,
-            offset=offset,
+            limit=pagination.limit,
+            offset=pagination.offset,
         )
 
         if result.is_ok:
@@ -139,8 +148,9 @@ def create_finance_api_routes(
                 return Result.fail(Errors.validation("Query parameter is required", field="query"))
 
             # Optional parameters
-            limit = parse_int_query_param(params, "limit", 50, minimum=1, maximum=100)
-            offset = parse_int_query_param(params, "offset", 0, minimum=0)
+            pagination = parse_pagination_params(params, default_limit=50, max_limit=100)
+            limit = pagination.limit
+            offset = pagination.offset
 
             # Call service (admin sees all)
             result = await finance_service.search_expenses(

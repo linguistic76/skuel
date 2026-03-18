@@ -28,7 +28,7 @@ from fasthtml.common import Request
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
-from adapters.inbound.route_factories import parse_int_query_param
+from adapters.inbound.route_factories import parse_int_query_param, split_csv
 from core.models.askesis.askesis_request import (
     AskesisAnalyticsRequest,
     AskesisCreateRequest,
@@ -684,7 +684,7 @@ def create_askesis_api_routes(
         # Parse query parameters
         min_score = float(request.query_params.get("min_score", "0.3"))
         types_param = request.query_params.get("types", "")
-        include_types = types_param.split(",") if types_param else None
+        include_types = split_csv(types_param) or None
 
         ctx_result = await askesis_service.load_askesis_context(askesis_uid)
         if ctx_result.is_error:

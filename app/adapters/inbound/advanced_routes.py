@@ -29,7 +29,11 @@ from fasthtml.common import JSONResponse, Request
 
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
-from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
+from adapters.inbound.route_factories import (
+    DomainRouteConfig,
+    parse_date_param_strict,
+    register_domain_routes,
+)
 from core.services.calendar_optimization_service import SchedulingStrategy
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -66,16 +70,10 @@ def create_calendar_optimization_routes(
         """
         # Parse target date
         if target_date:
-            try:
-                opt_date = date.fromisoformat(target_date)
-            except ValueError:
-                return Result.fail(
-                    Errors.validation(
-                        "Invalid date format. Use YYYY-MM-DD",
-                        field="target_date",
-                        value=target_date,
-                    )
-                )
+            date_result = parse_date_param_strict(target_date, "target_date")
+            if date_result.is_error:
+                return date_result
+            opt_date = date_result.value
         else:
             opt_date = date.today()
 
@@ -122,16 +120,10 @@ def create_calendar_optimization_routes(
         Returns cognitive load distribution and overload risks.
         """
         if target_date:
-            try:
-                opt_date = date.fromisoformat(target_date)
-            except ValueError:
-                return Result.fail(
-                    Errors.validation(
-                        "Invalid date format. Use YYYY-MM-DD",
-                        field="target_date",
-                        value=target_date,
-                    )
-                )
+            date_result = parse_date_param_strict(target_date, "target_date")
+            if date_result.is_error:
+                return date_result
+            opt_date = date_result.value
         else:
             opt_date = date.today()
 

@@ -48,7 +48,7 @@ SKUEL validates all external input at API boundaries to prevent 500 errors from 
 
 **Example:**
 ```python
-def parse_bool_param(params: dict[str, str], key: str, default: bool = True) -> bool:
+def parse_bool_query_param(params: dict[str, str], key: str, default: bool = True) -> bool:
     """Parse boolean from query param (handles true/1/yes/on)."""
     value = params.get(key, str(default)).lower()
     return value in ("true", "1", "yes", "on")
@@ -74,7 +74,7 @@ async def get_dashboard(request: Request, user_uid: str) -> Result[Any]:
     params = dict(request.query_params)
 
     # Boolean parsing
-    include_predictions = parse_bool_param(params, "include_predictions", default=True)
+    include_predictions = parse_bool_query_param(params, "include_predictions", default=True)
 
     # Enum validation
     time_window_result = validate_time_window(params.get("time_window", "7d"))
@@ -606,13 +606,13 @@ days_back = parse_int_query_param(request.query_params, "days_back", 30, minimum
 
 ```python
 # Helper function (reusable)
-def parse_bool_param(params: dict[str, str], key: str, default: bool = True) -> bool:
+def parse_bool_query_param(params: dict[str, str], key: str, default: bool = True) -> bool:
     """Parse boolean from query param."""
     value = params.get(key, str(default)).lower()
     return value in ("true", "1", "yes", "on")
 
 # Usage in route
-include_insights = parse_bool_param(params, "include_insights", default=True)
+include_insights = parse_bool_query_param(params, "include_insights", default=True)
 ```
 
 **Handles:**
@@ -759,11 +759,11 @@ async def track_habit_route(request: Request, entity: Any, ...) -> Result[Any]:
 ### Unit Tests for Helpers
 
 ```python
-def test_parse_bool_param():
-    assert parse_bool_param({"flag": "true"}, "flag") == True
-    assert parse_bool_param({"flag": "1"}, "flag") == True
-    assert parse_bool_param({"flag": "false"}, "flag") == False
-    assert parse_bool_param({}, "flag", default=True) == True
+def test_parse_bool_query_param():
+    assert parse_bool_query_param({"flag": "true"}, "flag") == True
+    assert parse_bool_query_param({"flag": "1"}, "flag") == True
+    assert parse_bool_query_param({"flag": "false"}, "flag") == False
+    assert parse_bool_query_param({}, "flag", default=True) == True
 
 def test_validate_enum():
     result = validate_time_window("7d")
@@ -802,21 +802,39 @@ def test_task_completion_request_defaults():
 
 ---
 
+## Shared Query Param Helpers
+
+**Location:** `adapters/inbound/route_factories/route_helpers.py`
+**Tests:** `tests/unit/adapters/test_route_helpers.py`
+
+| Helper | Returns | Use Case |
+|--------|---------|----------|
+| `parse_int_query_param(params, key, default, *, minimum, maximum)` | `int` | Integer with bounds clamping, silent fallback |
+| `parse_bool_query_param(params, key, default)` | `bool` | Boolean (`true/1/yes/on` → True), silent fallback |
+| `parse_date_query_param(params, key, default)` | `date \| None` | ISO date, silent fallback |
+| `parse_csv_query_param(params, key)` | `list[str]` | Comma-separated list from params dict |
+| `split_csv(value)` | `list[str]` | Comma-separated list from a string variable |
+| `parse_date_range_params(params, ...)` | `DateRangeParams` | Start/end date pair, silent fallback |
+| `parse_pagination_params(params, ...)` | `PaginationParams` | Limit+offset pair with bounds |
+| `parse_date_param_strict(value, field)` | `Result[date]` | ISO date with validation error on failure |
+| `parse_int_param_strict(value, field, min, max)` | `Result[int]` | Integer in range with validation error on failure |
+
+**Silent vs strict:** Use silent helpers (`parse_*_query_param`) when invalid input should fall back to a default. Use strict helpers (`parse_*_param_strict`) when invalid input should surface as a 400/422 error.
+
 ## Reference Implementations
 
 **Context-Aware API** (`adapters/inbound/context_aware_api.py`):
-- `parse_bool_param()` - Boolean query param parsing
-- `parse_timeframe_days()` - Timeframe string to days (`"90d"` → `90`)
-- `validate_time_window()` - Enum validation
+- Uses `parse_bool_query_param()` from shared helpers
+- `validate_time_window()` - Enum validation (domain-specific)
 - 2 GET routes using helpers, 3 POST routes using Pydantic models
 
 **Search Routes** (`adapters/inbound/search_routes.py`):
-- Uses `SearchRequest.from_form_params()` — model-level classmethod handles 25+ form params (empty→None, checkbox→bool, enum parsing, extended_facets assembly)
+- Uses `split_csv()` for entity_types and tags parsing
+- Uses `SearchRequest.from_form_params()` — model-level classmethod handles 25+ form params
 
 **Analytics Summary API** (`adapters/inbound/analytics_summary_api.py`):
-- `_parse_iso_date()` - ISO date string → `Result[date]`
-- `_parse_int_in_range()` - Integer string with bounds → `Result[int]`
-- 4 routes using these helpers for date/period validation
+- Uses `parse_date_param_strict()` and `parse_int_param_strict()` from shared helpers
+- 4 routes using these for date/period validation
 
 ---
 

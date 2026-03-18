@@ -24,6 +24,7 @@ from fasthtml.common import Request
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.route_factories import parse_bool_query_param
 from core.models.goal.goal_request import ContextualGoalTaskGenerationRequest
 from core.models.habit.habit_request import ContextualHabitCompletionRequest
 from core.models.task.task_request import ContextualTaskCompletionRequest
@@ -60,7 +61,7 @@ def create_context_aware_api_routes(
         params = dict(request.query_params)
 
         # Parse boolean and validate time_window
-        include_predictions = parse_bool_param(params, "include_predictions", default=True)
+        include_predictions = parse_bool_query_param(params, "include_predictions", default=True)
         time_window_input = params.get("time_window", "7d")
 
         # Validate time_window
@@ -81,7 +82,7 @@ def create_context_aware_api_routes(
         user_uid = require_authenticated_user(request)
         params = dict(request.query_params)
 
-        include_insights = parse_bool_param(params, "include_insights", default=True)
+        include_insights = parse_bool_query_param(params, "include_insights", default=True)
 
         # Use get_context_summary for analysis (provides insights and metrics)
         return await context_service.get_context_summary(
@@ -217,35 +218,6 @@ def create_context_aware_api_routes(
 # ============================================================================
 
 
-def parse_bool_param(params: dict[str, str], key: str, default: bool = True) -> bool:
-    """
-    Parse a boolean query parameter from URL params.
-
-    Handles common boolean representations:
-    - "true", "1", "yes", "on" → True
-    - "false", "0", "no", "off" → False
-    - Missing key → default value
-
-    Args:
-        params: Query parameters dictionary
-        key: Parameter key to look up
-        default: Default value if key is missing
-
-    Returns:
-        Parsed boolean value
-
-    Examples:
-        >>> parse_bool_param({"flag": "true"}, "flag")
-        True
-        >>> parse_bool_param({"flag": "false"}, "flag")
-        False
-        >>> parse_bool_param({}, "flag", default=False)
-        False
-    """
-    value = params.get(key, str(default)).lower()
-    return value in ("true", "1", "yes", "on")
-
-
 def validate_time_window(time_window: str) -> Result[str]:
     """
     Validate time_window query parameter.
@@ -281,7 +253,6 @@ def validate_time_window(time_window: str) -> Result[str]:
 # Export the route creation function and public helpers
 __all__ = [
     "create_context_aware_api_routes",
-    "parse_bool_param",
     "validate_time_window",
 ]
 

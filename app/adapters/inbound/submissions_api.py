@@ -41,6 +41,7 @@ from starlette.responses import FileResponse
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.route_factories import split_csv
 from core.models.entity_converters import entity_to_response
 from core.models.entity_requests import (
     AddTagsRequest,
@@ -233,9 +234,7 @@ def create_submissions_api_routes(
                     )
             else:
                 # Comma-separated format
-                applies_knowledge_uids = [
-                    uid.strip() for uid in applies_knowledge_str.split(",") if uid.strip()
-                ]
+                applies_knowledge_uids = split_csv(applies_knowledge_str)
 
         logger.info(
             f"File upload: {filename} ({len(file_content)} bytes, type={report_type.value}, "

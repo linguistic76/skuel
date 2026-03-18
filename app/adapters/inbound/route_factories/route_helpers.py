@@ -7,13 +7,25 @@ Each helper follows SKUEL's Result[T] pattern: returns Result internally;
 boundary_handler converts to HTTP at the route level.
 
 Helpers:
-    check_required_role   - Role-based access control (used by CRUD, Analytics)
-    verify_entity_ownership - Ownership verification returning 404 on failure (used by Status, Query, Intelligence)
+    check_required_role       - Role-based access control (used by CRUD, Analytics)
+    verify_entity_ownership   - Ownership verification returning 404 on failure
+    parse_int_query_param     - Integer param with bounds clamping
+    parse_bool_query_param    - Boolean param ("true"/"1"/"yes"/"on" → True)
+    parse_date_query_param    - ISO date param with safe fallback
+    parse_csv_query_param     - Comma-separated list from query params
+    split_csv                 - Comma-separated list from a string value
+    parse_date_range_params   - Start/end date pair → DateRangeParams
+    parse_pagination_params   - Limit/offset pair → PaginationParams
+    parse_date_param_strict   - ISO date with Result[T] validation error
+    parse_int_param_strict    - Integer in range with Result[T] validation error
 
-See: /docs/patterns/AUTH_PATTERNS.md, /docs/patterns/OWNERSHIP_VERIFICATION.md
+See: /docs/patterns/AUTH_PATTERNS.md, /docs/patterns/OWNERSHIP_VERIFICATION.md,
+     /docs/patterns/API_VALIDATION_PATTERNS.md
 """
 
 from collections.abc import Callable, Mapping
+from dataclasses import dataclass
+from datetime import date
 from typing import Any, cast
 
 from starlette.responses import Response
@@ -182,9 +194,171 @@ async def require_owned_entity(
     return result.value, None
 
 
+# ============================================================================
+# QUERY PARAM PARSING HELPERS
+# ============================================================================
+
+
+def parse_bool_query_param(
+    params: Mapping[str, Any],
+    key: str,
+    default: bool = False,
+) -> bool:
+    """Parse a boolean query parameter with safe fallback.
+
+    Truthy values: ``"true"``, ``"1"``, ``"yes"``, ``"on"`` (case-insensitive).
+    Missing or blank values return *default*.
+    """
+    raw = params.get(key)
+    if raw is None or raw == "":
+        return default
+    return str(raw).lower() in ("true", "1", "yes", "on")
+
+
+def parse_date_query_param(
+    params: Mapping[str, Any],
+    key: str,
+    default: date | None = None,
+) -> date | None:
+    """Parse an ISO-format date query parameter with safe fallback.
+
+    Invalid or missing values return *default*.
+    """
+    raw = params.get(key)
+    if raw is None or raw == "":
+        return default
+    try:
+        return date.fromisoformat(str(raw))
+    except (TypeError, ValueError):
+        return default
+
+
+def parse_csv_query_param(
+    params: Mapping[str, Any],
+    key: str,
+) -> list[str]:
+    """Parse a comma-separated query parameter into a list of stripped, non-empty strings."""
+    raw = params.get(key)
+    if raw is None or raw == "":
+        return []
+    return split_csv(str(raw))
+
+
+def split_csv(value: str) -> list[str]:
+    """Split a comma-separated string into a list of stripped, non-empty strings."""
+    return [item.strip() for item in value.split(",") if item.strip()]
+
+
+@dataclass(frozen=True)
+class DateRangeParams:
+    """Parsed start_date / end_date pair."""
+
+    start_date: date | None
+    end_date: date | None
+
+
+def parse_date_range_params(
+    params: Mapping[str, Any],
+    start_key: str = "start_date",
+    end_key: str = "end_date",
+    *,
+    default_start: date | None = None,
+    default_end: date | None = None,
+) -> DateRangeParams:
+    """Parse a start/end date pair from query params with safe fallbacks."""
+    return DateRangeParams(
+        start_date=parse_date_query_param(params, start_key, default_start),
+        end_date=parse_date_query_param(params, end_key, default_end),
+    )
+
+
+@dataclass(frozen=True)
+class PaginationParams:
+    """Parsed limit / offset pair."""
+
+    limit: int
+    offset: int
+
+
+def parse_pagination_params(
+    params: Mapping[str, Any],
+    *,
+    default_limit: int = 50,
+    default_offset: int = 0,
+    max_limit: int = 500,
+) -> PaginationParams:
+    """Parse limit + offset query params with safe defaults and bounds."""
+    return PaginationParams(
+        limit=parse_int_query_param(
+            params, "limit", default_limit, minimum=1, maximum=max_limit
+        ),
+        offset=parse_int_query_param(params, "offset", default_offset, minimum=0),
+    )
+
+
+# ============================================================================
+# STRICT (Result-wrapped) QUERY PARAM HELPERS
+# ============================================================================
+
+
+def parse_date_param_strict(value: str | None, field: str) -> Result[date]:
+    """Parse an ISO-format date string, returning a validation error on failure.
+
+    Use when invalid input should surface as a 400/422 to the caller rather
+    than silently falling back to a default.
+    """
+    if not value:
+        return Result.fail(Errors.validation(f"{field} is required", field=field))
+    try:
+        return Result.ok(date.fromisoformat(value))
+    except ValueError:
+        return Result.fail(
+            Errors.validation(
+                f"{field} must be ISO format (YYYY-MM-DD)", field=field, value=value
+            )
+        )
+
+
+def parse_int_param_strict(
+    value: str | None, field: str, min_val: int, max_val: int
+) -> Result[int]:
+    """Parse an integer string and validate it falls within [min_val, max_val].
+
+    Use when invalid input should surface as a validation error rather than
+    silently clamping or falling back.
+    """
+    if not value:
+        return Result.fail(Errors.validation(f"{field} is required", field=field))
+    try:
+        n = int(value)
+    except ValueError:
+        return Result.fail(
+            Errors.validation(f"{field} must be an integer", field=field, value=value)
+        )
+    if n < min_val or n > max_val:
+        return Result.fail(
+            Errors.validation(
+                f"{field} must be between {min_val} and {max_val}",
+                field=field,
+                value=n,
+            )
+        )
+    return Result.ok(n)
+
+
 __all__ = [
+    "DateRangeParams",
+    "PaginationParams",
     "check_required_role",
+    "parse_bool_query_param",
+    "parse_csv_query_param",
+    "parse_date_param_strict",
+    "parse_date_query_param",
+    "parse_date_range_params",
+    "parse_int_param_strict",
     "parse_int_query_param",
+    "parse_pagination_params",
     "require_owned_entity",
+    "split_csv",
     "verify_entity_ownership",
 ]
