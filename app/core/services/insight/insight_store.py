@@ -679,6 +679,376 @@ class InsightStore:
                 )
             )
 
+    # ========================================
+    # In-Memory Filtering
+    # ========================================
+
+    @staticmethod
+    def filter_insights(
+        insights: list[PersistedInsight],
+        *,
+        impact: str | None = None,
+        insight_type: str | None = None,
+        action_status: str | None = None,
+        search: str | None = None,
+    ) -> list[PersistedInsight]:
+        """Apply in-memory filters to a list of insights.
+
+        Used for client-side filtering when all insights are already fetched.
+
+        Args:
+            insights: List of insights to filter
+            impact: Filter by impact level value (e.g. "high")
+            insight_type: Filter by insight type value (e.g. "difficulty_pattern")
+            action_status: "actioned" or "unactioned"
+            search: Case-insensitive text search in title and description
+
+        Returns:
+            Filtered list of insights
+        """
+        if impact:
+            insights = [i for i in insights if i.impact.value == impact]
+        if insight_type:
+            insights = [i for i in insights if i.insight_type.value == insight_type]
+        if action_status == "unactioned":
+            insights = [i for i in insights if not i.actioned]
+        elif action_status == "actioned":
+            insights = [i for i in insights if i.actioned]
+        if search:
+            search_lower = search.lower()
+            insights = [
+                i
+                for i in insights
+                if search_lower in i.title.lower() or search_lower in (i.description or "").lower()
+            ]
+        return insights
+
+    # ========================================
+    # Bulk Operations
+    # ========================================
+
+    async def bulk_dismiss(
+        self, uids: list[str], user_uid: str
+    ) -> Result[dict[str, Any]]:
+        """Dismiss multiple insights, tracking successes and failures.
+
+        Args:
+            uids: List of insight UIDs to dismiss
+            user_uid: User who owns the insights
+
+        Returns:
+            Result with success_count, total_requested, and failed_uids
+        """
+        success_count = 0
+        failed_uids = []
+
+        for uid in uids:
+            result = await self.dismiss_insight(uid, user_uid)
+            if result.is_error:
+                self.logger.error(f"Failed to dismiss insight {uid}: {result.error}")
+                failed_uids.append(uid)
+            else:
+                success_count += 1
+
+        self.logger.info(f"Bulk dismissed {success_count}/{len(uids)} insights for {user_uid}")
+
+        return Result.ok({
+            "success_count": success_count,
+            "total_requested": len(uids),
+            "failed_uids": failed_uids,
+        })
+
+    async def bulk_mark_actioned(
+        self, uids: list[str], user_uid: str
+    ) -> Result[dict[str, Any]]:
+        """Mark multiple insights as actioned, tracking successes and failures.
+
+        Args:
+            uids: List of insight UIDs to mark as actioned
+            user_uid: User who owns the insights
+
+        Returns:
+            Result with success_count, total_requested, and failed_uids
+        """
+        success_count = 0
+        failed_uids = []
+
+        for uid in uids:
+            result = await self.mark_actioned(uid, user_uid)
+            if result.is_error:
+                self.logger.error(f"Failed to mark insight {uid} as actioned: {result.error}")
+                failed_uids.append(uid)
+            else:
+                success_count += 1
+
+        self.logger.info(f"Bulk actioned {success_count}/{len(uids)} insights for {user_uid}")
+
+        return Result.ok({
+            "success_count": success_count,
+            "total_requested": len(uids),
+            "failed_uids": failed_uids,
+        })
+
+    async def smart_dismiss(
+        self, user_uid: str, filter_type: str, filter_value: str
+    ) -> Result[dict[str, Any]]:
+        """Dismiss all active insights matching a filter criterion.
+
+        Args:
+            user_uid: User who owns the insights
+            filter_type: Filter field — "impact", "domain", or "type"
+            filter_value: Value to match against
+
+        Returns:
+            Result with success_count, total_matching, failed_uids, and filter info
+        """
+        if filter_type not in ("impact", "domain", "type"):
+            return Result.fail(Errors.validation(f"Invalid filter_type: {filter_type}"))
+
+        result = await self.get_active_insights(user_uid=user_uid, limit=200)
+        if result.is_error:
+            return Result.fail(result.expect_error())
+
+        insights = result.value
+
+        if filter_type == "impact":
+            matching = [i for i in insights if i.impact.value == filter_value]
+        elif filter_type == "domain":
+            matching = [i for i in insights if i.domain == filter_value]
+        else:  # type
+            matching = [i for i in insights if i.insight_type.value == filter_value]
+
+        success_count = 0
+        failed_uids = []
+
+        for insight in matching:
+            dismiss_result = await self.dismiss_insight(insight.uid, user_uid)
+            if dismiss_result.is_error:
+                self.logger.error(f"Failed to dismiss insight {insight.uid}: {dismiss_result.error}")
+                failed_uids.append(insight.uid)
+            else:
+                success_count += 1
+
+        self.logger.info(
+            f"Smart dismissed {success_count}/{len(matching)} "
+            f"{filter_type}={filter_value} insights for {user_uid}"
+        )
+
+        return Result.ok({
+            "success_count": success_count,
+            "total_matching": len(matching),
+            "failed_uids": failed_uids,
+            "filter": {
+                "type": filter_type,
+                "value": filter_value,
+            },
+        })
+
+    # ========================================
+    # Chart Data Methods
+    # ========================================
+
+    async def get_impact_distribution_chart(self, user_uid: str) -> Result[dict[str, Any]]:
+        """Build Chart.js doughnut config for impact distribution.
+
+        Counts active insights per impact level and returns a complete
+        Chart.js configuration dict.
+
+        Args:
+            user_uid: User identifier
+
+        Returns:
+            Result with Chart.js doughnut config
+        """
+        result = await self.get_active_insights(user_uid=user_uid, limit=200)
+        if result.is_error:
+            return Result.fail(result.expect_error())
+
+        insights = result.value
+
+        impact_counts = {"critical": 0, "high": 0, "medium": 0, "low": 0}
+        for insight in insights:
+            impact_counts[insight.impact.value] += 1
+
+        return Result.ok({
+            "type": "doughnut",
+            "data": {
+                "labels": ["Critical", "High", "Medium", "Low"],
+                "datasets": [
+                    {
+                        "label": "Insights by Impact",
+                        "data": [
+                            impact_counts["critical"],
+                            impact_counts["high"],
+                            impact_counts["medium"],
+                            impact_counts["low"],
+                        ],
+                        "backgroundColor": [
+                            "rgba(220, 38, 38, 0.8)",
+                            "rgba(234, 88, 12, 0.8)",
+                            "rgba(250, 204, 21, 0.8)",
+                            "rgba(34, 197, 94, 0.8)",
+                        ],
+                    }
+                ],
+            },
+            "options": {
+                "responsive": True,
+                "plugins": {
+                    "legend": {"position": "bottom"},
+                    "title": {"display": True, "text": "Insights by Impact Level"},
+                },
+            },
+        })
+
+    async def get_domain_distribution_chart(self, user_uid: str) -> Result[dict[str, Any]]:
+        """Build Chart.js bar config for insights by domain.
+
+        Counts active insights per domain, sorted by count descending.
+
+        Args:
+            user_uid: User identifier
+
+        Returns:
+            Result with Chart.js bar config
+        """
+        from operator import itemgetter
+
+        result = await self.get_active_insights(user_uid=user_uid, limit=200)
+        if result.is_error:
+            return Result.fail(result.expect_error())
+
+        insights = result.value
+
+        domain_counts: dict[str, int] = {}
+        for insight in insights:
+            domain = insight.domain
+            domain_counts[domain] = domain_counts.get(domain, 0) + 1
+
+        sorted_domains = sorted(domain_counts.items(), key=itemgetter(1), reverse=True)
+
+        return Result.ok({
+            "type": "bar",
+            "data": {
+                "labels": [domain.title() for domain, _ in sorted_domains],
+                "datasets": [
+                    {
+                        "label": "Active Insights",
+                        "data": [count for _, count in sorted_domains],
+                        "backgroundColor": "rgba(59, 130, 246, 0.8)",
+                    }
+                ],
+            },
+            "options": {
+                "responsive": True,
+                "plugins": {
+                    "legend": {"display": False},
+                    "title": {"display": True, "text": "Insights by Domain"},
+                },
+                "scales": {"y": {"beginAtZero": True, "ticks": {"stepSize": 1}}},
+            },
+        })
+
+    async def get_type_distribution_chart(self, user_uid: str) -> Result[dict[str, Any]]:
+        """Build Chart.js doughnut config for insight type distribution.
+
+        Counts active insights per type, sorted by count descending.
+
+        Args:
+            user_uid: User identifier
+
+        Returns:
+            Result with Chart.js doughnut config
+        """
+        from operator import itemgetter
+
+        result = await self.get_active_insights(user_uid=user_uid, limit=200)
+        if result.is_error:
+            return Result.fail(result.expect_error())
+
+        insights = result.value
+
+        type_counts: dict[str, int] = {}
+        for insight in insights:
+            insight_type = insight.insight_type.value
+            type_counts[insight_type] = type_counts.get(insight_type, 0) + 1
+
+        sorted_types = sorted(type_counts.items(), key=itemgetter(1), reverse=True)
+        labels = [t.replace("_", " ").title() for t, _ in sorted_types]
+
+        return Result.ok({
+            "type": "doughnut",
+            "data": {
+                "labels": labels,
+                "datasets": [
+                    {
+                        "label": "Insights by Type",
+                        "data": [count for _, count in sorted_types],
+                        "backgroundColor": [
+                            "rgba(99, 102, 241, 0.8)",
+                            "rgba(139, 92, 246, 0.8)",
+                            "rgba(168, 85, 247, 0.8)",
+                            "rgba(236, 72, 153, 0.8)",
+                            "rgba(244, 63, 94, 0.8)",
+                            "rgba(59, 130, 246, 0.8)",
+                        ],
+                    }
+                ],
+            },
+            "options": {
+                "responsive": True,
+                "plugins": {
+                    "legend": {"position": "right"},
+                    "title": {"display": True, "text": "Insights by Type"},
+                },
+            },
+        })
+
+    async def get_action_rate_chart(self, user_uid: str) -> Result[dict[str, Any]]:
+        """Build Chart.js gauge-style doughnut config for action rate.
+
+        Uses insight stats to show percentage of actioned vs not actioned.
+
+        Args:
+            user_uid: User identifier
+
+        Returns:
+            Result with Chart.js doughnut config (half-circle gauge)
+        """
+        stats_result = await self.get_insight_stats(user_uid)
+        if stats_result.is_error:
+            return Result.fail(stats_result.expect_error())
+
+        stats = stats_result.value
+        action_rate = stats.get("action_rate", 0) * 100
+        remaining_rate = 100 - action_rate
+
+        return Result.ok({
+            "type": "doughnut",
+            "data": {
+                "labels": ["Actioned", "Not Actioned"],
+                "datasets": [
+                    {
+                        "label": "Action Rate",
+                        "data": [action_rate, remaining_rate],
+                        "backgroundColor": [
+                            "rgba(34, 197, 94, 0.8)",
+                            "rgba(156, 163, 175, 0.3)",
+                        ],
+                    }
+                ],
+            },
+            "options": {
+                "responsive": True,
+                "circumference": 180,
+                "rotation": -90,
+                "plugins": {
+                    "legend": {"position": "bottom"},
+                    "title": {"display": True, "text": f"Action Rate: {action_rate:.1f}%"},
+                },
+            },
+        })
+
     async def get_insight_counts_by_domain(
         self,
         user_uid: str,

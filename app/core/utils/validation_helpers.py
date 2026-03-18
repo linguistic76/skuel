@@ -426,3 +426,24 @@ def validate_confidence_scores(
         for uid, score in scores.items():
             if not isinstance(score, int | float) or not (0.0 <= score <= 1.0):
                 raise ValueError(f"Confidence score for {uid} must be between 0.0 and 1.0")
+
+
+def parse_timeframe_days(timeframe: str, default: int = 90) -> int:
+    """Parse a timeframe string like "30d" into an integer number of days.
+
+    Supports the "{N}d" format (e.g., "7d", "30d", "90d").
+    Returns the default if the format is unrecognized or parsing fails.
+
+    Args:
+        timeframe: Timeframe string (e.g., "90d")
+        default: Fallback value if parsing fails
+
+    Returns:
+        Number of days as integer
+    """
+    if timeframe.endswith("d"):
+        try:
+            return int(timeframe[:-1])
+        except ValueError:
+            return default
+    return default

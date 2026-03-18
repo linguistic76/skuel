@@ -28,6 +28,7 @@ from starlette.requests import Request
 
 from adapters.inbound.auth import require_authenticated_user
 from core.models.enums import AnalyticsDomain
+from core.models.enums.principle_enums import AlignmentLevel
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonT
 from ui.cards import Card
@@ -403,10 +404,7 @@ class AnalyticsUIComponents:
         gaps = alignment_data.get("gaps", [])
         recommendations = alignment_data.get("recommendations", [])
 
-        # Alignment score color
-        score_color = (
-            "red" if alignment_score < 0.5 else "yellow" if alignment_score < 0.7 else "green"
-        )
+        score_color = AlignmentLevel.from_score(alignment_score).get_color()
         score_percentage = int(alignment_score * 100)
 
         return Div(

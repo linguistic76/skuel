@@ -974,13 +974,9 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
         Returns:
             Result with trend data including streak trends and consistency patterns
         """
-        # Parse time range to days
-        days = 30  # default
-        if time_range.endswith("d"):
-            try:
-                days = int(time_range[:-1])
-            except ValueError:
-                days = 30
+        from core.utils.validation_helpers import parse_timeframe_days
+
+        days = parse_timeframe_days(time_range, default=30)
 
         # Get performance analytics which includes trend-relevant data
         analytics_result = await self.intelligence.get_performance_analytics(user_uid, days)

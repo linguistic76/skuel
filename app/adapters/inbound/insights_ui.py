@@ -70,24 +70,18 @@ def parse_insights_filters(request: Request) -> InsightsFilters:
 def filter_insights(insights: list[Any], filters: InsightsFilters) -> list[Any]:
     """Apply client-side filters to a list of insights.
 
+    Delegates to InsightStore.filter_insights for the actual filtering logic.
     Used by both the main dashboard and load-more HTMX endpoint.
     """
-    if filters.impact:
-        insights = [i for i in insights if i.impact.value == filters.impact]
-    if filters.insight_type:
-        insights = [i for i in insights if i.insight_type.value == filters.insight_type]
-    if filters.action_status == "unactioned":
-        insights = [i for i in insights if not i.actioned]
-    elif filters.action_status == "actioned":
-        insights = [i for i in insights if i.actioned]
-    if filters.search:
-        search_lower = filters.search.lower()
-        insights = [
-            i
-            for i in insights
-            if search_lower in i.title.lower() or search_lower in (i.description or "").lower()
-        ]
-    return insights
+    from core.services.insight import InsightStore
+
+    return InsightStore.filter_insights(
+        insights,
+        impact=filters.impact,
+        insight_type=filters.insight_type,
+        action_status=filters.action_status,
+        search=filters.search or None,
+    )
 
 
 def build_filter_query_string(filters: InsightsFilters) -> str:

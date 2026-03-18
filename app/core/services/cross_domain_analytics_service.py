@@ -905,3 +905,58 @@ class CrossDomainAnalyticsService:
                 "consistency_score": round(consistency, 2),
             }
         )
+
+    async def get_combined_dashboard(
+        self, user_uid: str, days_back: int = 30
+    ) -> Result[dict[str, Any]]:
+        """Build a combined analytics dashboard from multiple sub-queries.
+
+        Gathers learning velocity, spending patterns, and mood analysis
+        into a single response dict.
+
+        Args:
+            user_uid: User identifier
+            days_back: Number of days to analyze
+
+        Returns:
+            Result with combined dashboard containing learning_velocity,
+            spending_patterns, and mood_analysis (each None if unavailable)
+        """
+        learning_result = await self.get_learning_velocity(user_uid, days_back)
+        spending_result = await self.get_spending_patterns(user_uid, days_back)
+        mood_result = await self.get_mood_analysis(user_uid, days_back)
+
+        dashboard: dict[str, Any] = {
+            "user_uid": user_uid,
+            "period_days": days_back,
+            "generated_at": datetime.now().isoformat(),
+            "learning_velocity": None,
+            "spending_patterns": None,
+            "mood_analysis": None,
+        }
+
+        if learning_result.is_ok:
+            v = learning_result.value
+            dashboard["learning_velocity"] = {
+                "kus_mastered_per_week": v.kus_mastered_per_week,
+                "paths_completed": v.paths_completed,
+                "velocity_trend": v.velocity_trend,
+            }
+
+        if spending_result.is_ok:
+            s = spending_result.value
+            dashboard["spending_patterns"] = {
+                "top_spending_domain": s.top_spending_domain,
+                "avg_expense_amount": s.avg_expense_amount,
+                "expense_frequency_per_week": s.expense_frequency_per_week,
+            }
+
+        if mood_result.is_ok:
+            m = mood_result.value
+            dashboard["mood_analysis"] = {
+                "average_mood": m.average_mood,
+                "mood_trend": m.mood_trend,
+                "entries_per_week": m.entries_per_week,
+            }
+
+        return Result.ok(dashboard)

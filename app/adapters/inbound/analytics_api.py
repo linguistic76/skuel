@@ -276,65 +276,13 @@ def register_analytics_routes(app, services):
     @rt("/api/analytics/dashboard")
     @boundary_handler()
     async def analytics_dashboard(request):
-        """
-        Get combined analytics dashboard for user.
-
-        Query params:
-            user_uid: User identifier (required)
-            days_back: Number of days to analyze (default: 30)
-
-        Returns:
-            Combined dashboard with:
-            - learning_velocity
-            - productivity_metrics
-            - habit_consistency
-            - spending_patterns
-            - mood_analysis
-        """
+        """Get combined analytics dashboard for user."""
         user_uid = require_authenticated_user(request)
 
         days_back = parse_int_query_param(
             request.query_params, "days_back", 30, minimum=1, maximum=365
         )
 
-        # Gather all analytics (parallel queries would be better)
-        learning_result = await analytics.get_learning_velocity(user_uid, days_back)
-        spending_result = await analytics.get_spending_patterns(user_uid, days_back)
-        mood_result = await analytics.get_mood_analysis(user_uid, days_back)
-
-        dashboard = {
-            "user_uid": user_uid,
-            "period_days": days_back,
-            "generated_at": datetime.now().isoformat(),
-            "learning_velocity": None,
-            "spending_patterns": None,
-            "mood_analysis": None,
-        }
-
-        if learning_result.is_ok:
-            v = learning_result.value
-            dashboard["learning_velocity"] = {
-                "kus_mastered_per_week": v.kus_mastered_per_week,
-                "paths_completed": v.paths_completed,
-                "velocity_trend": v.velocity_trend,
-            }
-
-        if spending_result.is_ok:
-            s = spending_result.value
-            dashboard["spending_patterns"] = {
-                "top_spending_domain": s.top_spending_domain,
-                "avg_expense_amount": s.avg_expense_amount,
-                "expense_frequency_per_week": s.expense_frequency_per_week,
-            }
-
-        if mood_result.is_ok:
-            m = mood_result.value
-            dashboard["mood_analysis"] = {
-                "average_mood": m.average_mood,
-                "mood_trend": m.mood_trend,
-                "entries_per_week": m.entries_per_week,
-            }
-
-        return Result.ok(dashboard)
+        return await analytics.get_combined_dashboard(user_uid, days_back)
 
     logger.info("✅ Analytics API routes registered (6 endpoints)")

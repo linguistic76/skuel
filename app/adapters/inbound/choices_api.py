@@ -152,10 +152,9 @@ def create_choices_api_routes(
 
         timeframe = params.get("timeframe", "90d")
 
-        # Parse timeframe to days
-        lookback_days = 90
-        if timeframe.endswith("d"):
-            lookback_days = int(timeframe[:-1])
+        from core.utils.validation_helpers import parse_timeframe_days
+
+        lookback_days = parse_timeframe_days(timeframe, default=90)
 
         # Use intelligence service (analytics methods consolidated here)
         result: Result[Any] = await choice_service.intelligence.get_decision_patterns(

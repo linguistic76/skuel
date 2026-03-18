@@ -70,6 +70,14 @@ class AlignmentLevel(StrEnum):
         """Convert alignment level to numeric score (0.0-1.0)."""
         return _ALIGNMENT_SCORES[self]
 
+    def get_color(self) -> str:
+        """Get UI color for this alignment level.
+
+        Returns:
+            Color name: "green", "yellow", or "red"
+        """
+        return _ALIGNMENT_COLORS[self]
+
     @classmethod
     def from_score(cls, score: float) -> AlignmentLevel:
         """Derive alignment level from numeric score."""
@@ -99,4 +107,15 @@ _ALIGNMENT_SCORES: dict[AlignmentLevel, float] = {
     AlignmentLevel.DRIFTING: 0.2,
     AlignmentLevel.MISALIGNED: 0.1,
     AlignmentLevel.UNKNOWN: 0.0,
+}
+
+_ALIGNMENT_COLORS: dict[AlignmentLevel, str] = {
+    AlignmentLevel.FLOURISHING: "green",
+    AlignmentLevel.ALIGNED: "green",
+    AlignmentLevel.MOSTLY_ALIGNED: "green",
+    AlignmentLevel.EXPLORING: "yellow",
+    AlignmentLevel.PARTIAL: "red",
+    AlignmentLevel.DRIFTING: "red",
+    AlignmentLevel.MISALIGNED: "red",
+    AlignmentLevel.UNKNOWN: "red",
 }
