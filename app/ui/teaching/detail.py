@@ -161,7 +161,7 @@ def render_student_submission_row(item: SubmissionRow) -> Div:
                 variant=ButtonT.ghost,
                 size=Size.xs,
                 **{
-                    "hx-get": f"/api/submissions/{item.uid}/feedback",
+                    "hx-get": f"/api/submissions/{item.uid}/reports",
                     "hx-target": f"#feedback-{item.uid}",
                     "hx-swap": "innerHTML",
                 },

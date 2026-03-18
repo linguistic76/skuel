@@ -1,11 +1,11 @@
 """
-Ku Search Service
-==========================
+Submissions Search Service
+============================
 
-Service for querying Ku across all types (assignments, curriculum, feedback, etc.).
+Service for querying submissions across all types.
 
 Core Capabilities:
-- Query Ku by type, date range, status
+- Query submissions by type, date range, status
 - Filter by metadata (category, mood, tags)
 - Search submission content
 - Calculate statistics (streaks, word count, etc.)
@@ -28,16 +28,16 @@ from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
-logger = get_logger("skuel.services.ku_search")
+logger = get_logger("skuel.services.submissions_search")
 
 
 class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
     """
-    Ku search service — unified interface for all Ku types.
+    Submissions search service — unified interface for all submission types.
 
-    Provides queries for Ku of any type:
-    - Get Ku for specific date
-    - List Ku by date range
+    Provides queries for submissions of any type:
+    - Get submission for specific date
+    - List submissions by date range
     - Filter by type, category, mood, tags
     - Calculate statistics (streaks, word count)
     - Search submission content
@@ -69,20 +69,22 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
         (
             RelationshipName.REPORT_FOR.value,
             NeoLabel.ENTITY.value,
-            "feedback_received",
+            "reports_received",
             "incoming",
         ),
     )
 
-    def __init__(self, ku_backend: BackendOperations[SubmissionEntity], event_bus=None) -> None:
+    def __init__(
+        self, submissions_backend: BackendOperations[SubmissionEntity], event_bus=None
+    ) -> None:
         """
-        Initialize Ku search service.
+        Initialize submissions search service.
 
         Args:
-            ku_backend: Backend for Ku storage
+            submissions_backend: Backend for submission storage
             event_bus: Event bus for domain events (optional)
         """
-        super().__init__(ku_backend, "SubmissionsSearchService")
+        super().__init__(submissions_backend, "SubmissionsSearchService")
         self.event_bus = event_bus
         self.logger = logger
 
@@ -96,7 +98,7 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
         return "Entity"
 
     # ========================================================================
-    # KU QUERIES
+    # SUBMISSION QUERIES
     # ========================================================================
 
     @with_error_handling("get_report_for_date")
@@ -107,7 +109,7 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
         entity_type: EntityType | None = None,
     ) -> Result[Entity | None]:
         """
-        Get Ku for a specific date.
+        Get submission for a specific date.
 
         Args:
             user_uid: User identifier
@@ -115,7 +117,7 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
             entity_type: Optional type filter
 
         Returns:
-            Result containing Ku or None if not found
+            Result containing submission or None if not found
         """
         filters: dict[str, Any] = {"user_uid": user_uid, "limit": 1}
         if entity_type:
@@ -144,7 +146,7 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
         limit: int = 100,
     ) -> Result[list[Entity]]:
         """
-        List Ku within a date range.
+        List submissions within a date range.
 
         Args:
             user_uid: User identifier
@@ -154,7 +156,7 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
             limit: Max results (default 100)
 
         Returns:
-            Result containing list of Ku
+            Result containing list of submissions
         """
         filters: dict[str, Any] = {
             "user_uid": user_uid,
@@ -184,7 +186,7 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
         limit: int = 50,
     ) -> Result[list[Entity]]:
         """
-        Get Ku filtered by category (stored in metadata).
+        Get submissions filtered by category (stored in metadata).
 
         Args:
             user_uid: User identifier
@@ -193,7 +195,7 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
             limit: Max results
 
         Returns:
-            Result containing list of Ku
+            Result containing list of submissions
         """
         filters: dict[str, Any] = {
             "user_uid": user_uid,
@@ -227,7 +229,7 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
         limit: int = 50,
     ) -> Result[list[Entity]]:
         """
-        Get Ku filtered by mood (stored in metadata).
+        Get submissions filtered by mood (stored in metadata).
 
         Args:
             user_uid: User identifier
@@ -238,7 +240,7 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
             limit: Max results
 
         Returns:
-            Result containing list of Ku
+            Result containing list of submissions
         """
         filters: dict[str, Any] = {
             "user_uid": user_uid,
@@ -290,7 +292,7 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
             limit: Max results
 
         Returns:
-            Result containing list of matching Ku
+            Result containing list of matching submissions
         """
         filters: dict[str, Any] = {
             "user_uid": user_uid,
@@ -337,10 +339,10 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
             Result containing list of dicts with uid, title, original_filename,
             status, entity_type, created_at, and feedback_count.
         """
-        query = """
-        MATCH (user:User {uid: $user_uid})-[:OWNS]->(s:Entity)
+        query = f"""
+        MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(s:Entity)
         WHERE s.entity_type = 'exercise_submission'
-        OPTIONAL MATCH (fb:Entity {entity_type: 'exercise_report'})-[:REPORT_FOR]->(s)
+        OPTIONAL MATCH (fb:Entity {{entity_type: 'exercise_report'}})-[:{RelationshipName.REPORT_FOR.value}]->(s)
         WITH s, count(fb) AS feedback_count
         RETURN s.uid AS uid,
                s.title AS title,
@@ -385,12 +387,12 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
         entity_type: EntityType | None = None,
     ) -> Result[dict[str, Any]]:
         """
-        Calculate Ku statistics for date range.
+        Calculate submission statistics for date range.
 
         Statistics include:
-        - Total Ku submitted
+        - Total submissions
         - Total words written
-        - Average words per Ku
+        - Average words per submission
         - Longest streak (consecutive days)
         - Current streak
         - Most productive day of week
@@ -512,7 +514,7 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
         return streak
 
     # ========================================================================
-    # RECENT KU
+    # RECENT SUBMISSIONS
     # ========================================================================
 
     @with_error_handling("get_recent_submissions")
@@ -523,7 +525,7 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
         limit: int = 10,
     ) -> Result[list[Entity]]:
         """
-        Get most recent Ku.
+        Get most recent submissions.
 
         Args:
             user_uid: User identifier
@@ -531,7 +533,7 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
             limit: Max results (default 10)
 
         Returns:
-            Result containing list of recent Ku
+            Result containing list of recent submissions
         """
         filters: dict[str, Any] = {
             "user_uid": user_uid,

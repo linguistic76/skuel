@@ -546,7 +546,7 @@ Key design: **query text is OPTIONAL** — filter-only search is valid.
 | Principles | grounded_knowledge, guided_goals |
 | Exercise | required_knowledge, for_groups, submissions (incoming) |
 | RevisedExercise | responds_to_feedback, revises_exercise, submissions (incoming) |
-| Submission | fulfills_exercise, feedback_received (incoming) |
+| Submission | fulfills_exercise, reports_received (incoming) |
 
 ---
 

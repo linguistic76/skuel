@@ -134,8 +134,8 @@ class ExerciseUpdateRequest(BaseModel):
         return ExerciseCreateRequest.validate_form_schema(v)
 
 
-class FeedbackGenerateRequest(BaseModel):
-    """Request to generate AI feedback for a submission using an Exercise.
+class ReportGenerateRequest(BaseModel):
+    """Request to generate AI report for a submission using an Exercise.
 
     Always creates a SUBMISSION_REPORT entity (processor_type=LLM) in Neo4j.
     """

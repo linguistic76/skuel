@@ -911,22 +911,22 @@ def create_submissions_api_routes(
         logger.info("Submission content management routes registered (12 new routes)")
 
     # ========================================================================
-    # STUDENT FEEDBACK HISTORY (student-accessible, ownership-verified)
+    # STUDENT REPORT HISTORY (student-accessible, ownership-verified)
     # ========================================================================
 
     if teacher_review_service:
 
-        @rt("/api/submissions/{uid}/feedback")
+        @rt("/api/submissions/{uid}/reports")
         @boundary_handler()
-        async def get_submission_feedback_route(request: Request, uid: str) -> Result[Any]:
+        async def get_submission_reports_route(request: Request, uid: str) -> Result[Any]:
             """
-            Get all feedback rounds for a specific submission (student-facing).
+            Get all report rounds for a specific submission (student-facing).
 
             Ownership-verified: returns 404 if the requesting user does not own
             the submission — no information leakage about other students' work.
 
             Returns:
-            - 200 with {submission_uid, feedback: [...], count: N}
+            - 200 with {submission_uid, reports: [...], count: N}
             - 404 if submission not found or not owned by requester
             """
             user_uid = require_authenticated_user(request)
@@ -939,16 +939,16 @@ def create_submissions_api_routes(
             if result.is_error:
                 return Result.fail(result.expect_error())
 
-            feedback = result.value or []
+            reports = result.value or []
             return Result.ok(
                 {
                     "submission_uid": uid,
-                    "feedback": feedback,
-                    "count": len(feedback),
+                    "reports": reports,
+                    "count": len(reports),
                 }
             )
 
-        logger.info("Student feedback history route registered (/api/submissions/{uid}/feedback)")
+        logger.info("Student report history route registered (/api/submissions/{uid}/reports)")
 
     logger.info("Submissions API routes created successfully")
 

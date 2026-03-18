@@ -4,7 +4,7 @@ Exercises API - Factory Pattern Routes
 
 Provides:
 - Standard CRUD operations via CRUDRouteFactory
-- Domain-specific feedback generation (manual route)
+- Domain-specific report generation (manual route)
 """
 
 from typing import Any, cast
@@ -21,7 +21,7 @@ from core.models.exercises.exercise_request import (
     ExerciseCreateRequest,
     ExerciseKnowledgeRequest,
     ExerciseUpdateRequest,
-    FeedbackGenerateRequest,
+    ReportGenerateRequest,
 )
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -34,7 +34,7 @@ def create_exercises_api_routes(
     rt: Any,
     exercises_service: Any,
     transcript_service: Any,
-    report_feedback_service: Any,
+    submission_report_service: Any,
     user_service: Any = None,
 ) -> list[Any]:
     """
@@ -45,7 +45,7 @@ def create_exercises_api_routes(
         rt: Route decorator
         exercises_service: ExerciseService instance
         transcript_service: ContentEnrichmentService for entry lookup
-        report_feedback_service: SubmissionReportService for AI reports
+        submission_report_service: SubmissionReportService for AI reports
         user_service: UserService for role checks
     """
 
@@ -81,12 +81,12 @@ def create_exercises_api_routes(
     @rt("/api/exercises/report", methods=["POST"])
     @require_teacher(get_user_service)
     @boundary_handler()
-    async def feedback(request: Request, current_user: Any = None) -> Result[Any]:
+    async def generate_report(request: Request, current_user: Any = None) -> Result[Any]:
         """
-        Generate AI feedback for an entry using an exercise.
+        Generate AI report for an entry using an exercise.
 
         Creates a SUBMISSION_REPORT entity (processor_type=LLM) linked to the
-        submission via REPORT_FOR — symmetric with human teacher feedback.
+        submission via REPORT_FOR — symmetric with human teacher reports.
 
         Body (JSON):
         - entry_uid: Entry UID (required)
@@ -100,7 +100,7 @@ def create_exercises_api_routes(
         - 404: Entry or exercise not found
         - 503: Service not available
         """
-        if not report_feedback_service:
+        if not submission_report_service:
             return Result.fail(
                 Errors.system("Report service not available", service="SubmissionReportService")
             )
@@ -118,43 +118,43 @@ def create_exercises_api_routes(
         # Parse request body
         try:
             body = await request.json()
-            feedback_request = FeedbackGenerateRequest(**body)
+            report_request = ReportGenerateRequest(**body)
         except Exception as e:
             return Result.fail(Errors.validation(f"Invalid request body: {e}", field="body"))
 
         # Get entry and exercise
-        entry_result = await transcript_service.get(feedback_request.entry_uid)
+        entry_result = await transcript_service.get(report_request.entry_uid)
         if entry_result.is_error:
-            return Result.fail(Errors.not_found("Entry", feedback_request.entry_uid))
+            return Result.fail(Errors.not_found("Entry", report_request.entry_uid))
 
-        exercise_result = await exercises_service.get_exercise(feedback_request.project_uid)
+        exercise_result = await exercises_service.get_exercise(report_request.project_uid)
         if exercise_result.is_error:
-            return Result.fail(Errors.not_found("Exercise", feedback_request.project_uid))
+            return Result.fail(Errors.not_found("Exercise", report_request.project_uid))
 
         entry = entry_result.value
         exercise = exercise_result.value
 
-        # Generate feedback — creates SUBMISSION_REPORT entity + REPORT_FOR relationship
-        feedback_result = await report_feedback_service.generate_feedback(
+        # Generate report — creates SUBMISSION_REPORT entity + REPORT_FOR relationship
+        report_result = await submission_report_service.generate_report(
             entry=entry,
             exercise=exercise,
             user_uid=user_uid,
-            temperature=feedback_request.temperature,
-            max_tokens=feedback_request.max_tokens,
+            temperature=report_request.temperature,
+            max_tokens=report_request.max_tokens,
         )
 
-        if feedback_result.is_error:
-            logger.error(f"Failed to generate feedback: {feedback_result.error}")
-            return Result.fail(feedback_result.expect_error())
+        if report_result.is_error:
+            logger.error(f"Failed to generate report: {report_result.error}")
+            return Result.fail(report_result.expect_error())
 
-        feedback_entity = feedback_result.value
+        report_entity = report_result.value
 
         return Result.ok(
             {
-                "report_uid": feedback_entity.uid,
-                "entry_uid": feedback_request.entry_uid,
-                "project_uid": feedback_request.project_uid,
-                "report_content": feedback_entity.report_content,
+                "report_uid": report_entity.uid,
+                "entry_uid": report_request.entry_uid,
+                "project_uid": report_request.project_uid,
+                "report_content": report_entity.report_content,
             }
         )
 

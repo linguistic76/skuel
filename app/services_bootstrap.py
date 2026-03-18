@@ -2487,7 +2487,7 @@ async def compose_services(
 
         # Create Submissions search service (unified query interface)
         submissions_search_service = SubmissionsSearchService(
-            ku_backend=submissions_backend, event_bus=event_bus
+            submissions_backend=submissions_backend, event_bus=event_bus
         )
 
         logger.info("✅ Submissions pipeline services created")
