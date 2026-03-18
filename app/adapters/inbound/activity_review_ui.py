@@ -46,6 +46,7 @@ from ui.cards import Card, CardBody
 from ui.feedback import Alert, AlertT, Badge, BadgeT
 from ui.forms import Checkbox, Input, Label, LabelInput, LabelSelect, LabelTextArea
 from ui.layout import Size
+from ui.patterns.empty_state import EmptyState
 from ui.patterns.page_header import PageHeader
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 
@@ -213,12 +214,9 @@ def create_activity_review_ui_routes(
         if pending:
             queue_content: Any = Div(*[_render_queue_item(item) for item in pending])
         else:
-            queue_content = Div(
-                P("No pending review requests.", cls="text-center text-muted-foreground py-8"),
-                P(
-                    "Users can request an activity review from their feedback page.",
-                    cls="text-sm text-center text-foreground/40",
-                ),
+            queue_content = EmptyState(
+                title="No pending review requests",
+                description="Users can request an activity review from their feedback page.",
             )
 
         content = Div(

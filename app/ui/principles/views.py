@@ -26,11 +26,13 @@ from ui.cards import Card
 from ui.feedback import Badge, BadgeT
 from ui.forms import Input, Label, Select, Textarea
 from ui.layout import Size
+from ui.page_contexts import PrinciplesPageContext
 from ui.patterns.activity_views_base import (
     ActivityCreateForm,
     ActivityListFilters,
     ActivityViewTabs,
 )
+from ui.patterns.empty_state import EmptyState
 from ui.patterns.entity_card import EntityCard
 from ui.patterns.stats_grid import StatItem, StatsGrid
 
@@ -60,12 +62,23 @@ class PrinciplesViewComponents:
 
     @staticmethod
     def render_list_view(
-        principles: list[Any],
+        principles: list[Any] | None = None,
         filters: dict[str, Any] | None = None,
         stats: dict[str, int] | None = None,
         categories: list[str] | None = None,
+        *,
+        ctx: PrinciplesPageContext | None = None,
     ) -> Div:
-        """Render the principle list with strength indicators."""
+        """Render the principle list with strength indicators.
+
+        Accepts either individual args or a ``PrinciplesPageContext`` via ``ctx``.
+        """
+        if ctx is not None:
+            principles = ctx.get("entities", [])
+            filters = ctx.get("filters", {})
+            stats = ctx.get("stats", {})
+            categories = categories or ctx.get("categories")
+        principles = principles or []
         filters = filters or {}
         stats = stats or {}
         categories = categories or [
@@ -141,9 +154,11 @@ class PrinciplesViewComponents:
             *principle_items
             if principle_items
             else [
-                P(
-                    "No principles found. Create one to get started!",
-                    cls="text-muted-foreground text-center py-8",
+                EmptyState(
+                    title="No principles found",
+                    description="Create one to get started!",
+                    action_text="Create principle",
+                    action_href="/activities/principles?view=create",
                 )
             ],
             id="principle-list",
@@ -417,9 +432,9 @@ class PrinciplesViewComponents:
                 ),
             )
         else:
-            reflection_content = Div(
-                P("Track your principle reflections and growth.", cls="text-muted-foreground mb-4"),
-                P("No reflections recorded yet.", cls="text-muted-foreground text-center py-8"),
+            reflection_content = EmptyState(
+                title="No reflections recorded yet",
+                description="Track your principle reflections and growth.",
             )
 
         reflection_section = Card(

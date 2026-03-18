@@ -50,6 +50,8 @@ from ui.habits.atomic_components import AtomicHabitsComponents
 from ui.layout import Size
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
+from ui.page_contexts import GoalsPageContext
+from ui.patterns.empty_state import EmptyState
 from ui.patterns.entity_dashboard import SharedUIComponents
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.form_generator import FormGenerator
@@ -126,9 +128,11 @@ class GoalUIComponents:
                 id="goals-list",
             )
             if goals
-            else P(
-                "No goals yet. Create one to get started!",
-                cls="text-muted-foreground text-center py-8",
+            else EmptyState(
+                title="No goals yet",
+                description="Create one to get started!",
+                action_text="Create goal",
+                action_href="/activities/goals?view=create",
             ),
             Div(id="modal"),  # Modal container for HTMX
         )
@@ -575,12 +579,14 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsService, services: Any 
                     calendar_view=calendar_params.calendar_view,
                 )
         else:  # list (default)
-            view_content = GoalsViewComponents.render_list_view(
-                goals=goals,
+            page_ctx = GoalsPageContext(
+                entities=goals,
                 filters=filters.to_dict(),
                 stats=stats,
-                _categories=categories,
+                categories=categories,
+                view=view,
             )
+            view_content = GoalsViewComponents.render_list_view(ctx=page_ctx)
 
         # Build page with tabs + view content
         page_content = Div(
@@ -613,16 +619,14 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsService, services: Any 
         if categories_result.is_error:
             return render_error_banner("Failed to load categories")
 
-        ctx = filtered_result.value
-        goals, stats = ctx["entities"], ctx["stats"]
-        categories = categories_result.value
-
-        return GoalsViewComponents.render_list_view(
-            goals=goals,
+        svc_ctx = filtered_result.value
+        page_ctx = GoalsPageContext(
+            entities=svc_ctx["entities"],
             filters=filters.to_dict(),
-            stats=stats,
-            _categories=categories,
+            stats=svc_ctx["stats"],
+            categories=categories_result.value,
         )
+        return GoalsViewComponents.render_list_view(ctx=page_ctx)
 
     @rt("/goals/view/create")
     async def goals_view_create(request) -> Any:
@@ -681,9 +685,7 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsService, services: Any 
         goal_items = [GoalsViewComponents._render_goal_item(goal, user_uid) for goal in goals]
 
         return Div(
-            *goal_items
-            if goal_items
-            else [P("No goals found.", cls="text-muted-foreground text-center py-8")],
+            *goal_items if goal_items else [EmptyState(title="No goals found")],
             id="goal-list",
             cls="space-y-3",
         )

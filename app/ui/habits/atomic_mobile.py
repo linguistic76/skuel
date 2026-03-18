@@ -26,6 +26,7 @@ from fasthtml.common import H1, H2, H3, Div, P, Span
 from ui.buttons import Button, ButtonT
 from ui.cards import Card, CardBody
 from ui.feedback import Badge
+from ui.patterns.empty_state import EmptyState
 
 
 class AtomicHabitsMobile:
@@ -107,7 +108,7 @@ class AtomicHabitsMobile:
         """
         if not habits:
             return Div(
-                P("No habits for today! 🎉", cls="text-center text-muted-foreground py-12"),
+                EmptyState(title="No habits for today!", icon="🎉"),
                 cls="px-4",
             )
 

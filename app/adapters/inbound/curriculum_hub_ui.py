@@ -12,7 +12,7 @@ Routes:
 
 from typing import Any
 
-from fasthtml.common import H2, Div, P, Span
+from fasthtml.common import Div
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
@@ -20,9 +20,19 @@ from core.utils.logging import get_logger
 from ui.curriculum.landing import CurriculumLandingView
 from ui.curriculum.layout import create_curriculum_page
 from ui.layouts.base_page import BasePage
+from ui.patterns.empty_state import EmptyState
+from ui.patterns.entity_card import EntityCard
 from ui.patterns.page_header import PageHeader
+from ui.patterns.stats_grid import StatItem
 
 logger = get_logger("skuel.routes.curriculum_hub")
+
+# Detail route patterns per domain slug
+_DETAIL_ROUTES: dict[str, str] = {
+    "lessons": "/lesson/{uid}/details",
+    "learning-steps": "/ls/{uid}",
+    "learning-paths": "/lp/{uid}",
+}
 
 
 def create_curriculum_hub_ui_routes(
@@ -36,8 +46,25 @@ def create_curriculum_hub_ui_routes(
     async def curriculum_landing(request) -> Any:
         """Curriculum hub landing page — 4-card grid, no sidebar."""
         require_authenticated_user(request)
+
+        # Fetch counts for stats grid
+        stats: list[StatItem] = []
+        for label, service_attr in [
+            ("Lessons", "lesson"),
+            ("Learning Steps", "ls"),
+            ("Learning Paths", "lp"),
+            ("Exercises", "exercises"),
+        ]:
+            svc = getattr(services, service_attr, None)
+            if svc:
+                count_result = await svc.core.count()
+                count = count_result.value if not count_result.is_error else 0
+            else:
+                count = 0
+            stats.append(StatItem(label=label, value=count))
+
         return await BasePage(
-            CurriculumLandingView(),
+            CurriculumLandingView(stats=stats),
             title="Curriculum",
             request=request,
             active_page="curriculum",
@@ -57,7 +84,7 @@ def create_curriculum_hub_ui_routes(
 
         content = Div(
             PageHeader("Lessons", subtitle="Units for learning that compose atomic knowledge"),
-            _entity_list(items, "lessons", "No lessons found."),
+            _entity_list(items, "lessons", "No lessons found"),
             id="main-content",
         )
         return await create_curriculum_page(
@@ -81,7 +108,7 @@ def create_curriculum_hub_ui_routes(
 
         content = Div(
             PageHeader("Learning Steps", subtitle="Collections of lessons grouped by theme"),
-            _entity_list(items, "learning-steps", "No learning steps found."),
+            _entity_list(items, "learning-steps", "No learning steps found"),
             id="main-content",
         )
         return await create_curriculum_page(
@@ -105,7 +132,7 @@ def create_curriculum_hub_ui_routes(
 
         content = Div(
             PageHeader("Learning Paths", subtitle="Ordered sequences of learning step collections"),
-            _entity_list(items, "learning-paths", "No learning paths found."),
+            _entity_list(items, "learning-paths", "No learning paths found"),
             id="main-content",
         )
         return await create_curriculum_page(
@@ -119,11 +146,11 @@ def create_curriculum_hub_ui_routes(
 
 
 def _entity_list(items: list[Any], domain_slug: str, empty_msg: str) -> Div:
-    """Render a simple list of entities with title and description."""
+    """Render a list of curriculum entities using EntityCard."""
     if not items:
-        return Div(
-            P(empty_msg, cls="text-muted-foreground text-center py-8"),
-        )
+        return EmptyState(title=empty_msg)
+
+    detail_pattern = _DETAIL_ROUTES.get(domain_slug)
 
     rows = []
     for item in items:
@@ -131,21 +158,14 @@ def _entity_list(items: list[Any], domain_slug: str, empty_msg: str) -> Div:
         description = getattr(item, "description", "") or ""
         uid = getattr(item, "uid", "")
 
+        href = detail_pattern.format(uid=uid) if detail_pattern and uid else None
+
         rows.append(
-            Div(
-                Div(
-                    H2(title, cls="text-base font-medium text-foreground"),
-                    P(
-                        description[:120] + ("..." if len(description) > 120 else ""),
-                        cls="text-sm text-muted-foreground mt-0.5",
-                    )
-                    if description
-                    else None,
-                    cls="flex-1 min-w-0",
-                ),
-                Span(uid, cls="text-xs text-muted-foreground/60 font-mono shrink-0"),
-                cls="flex items-start justify-between gap-4 py-3 px-4 hover:bg-muted/50 rounded-lg",
+            EntityCard(
+                title=title,
+                description=description,
+                metadata=[uid] if uid else None,
+                href=href,
             )
         )
-
-    return Div(*rows, cls="divide-y divide-border")
+    return Div(*rows, cls="space-y-3")

@@ -28,6 +28,7 @@ from ui.data import TableFromDicts, TableT
 from ui.feedback import Badge, BadgeT
 from ui.forms import Select
 from ui.layout import Size
+from ui.patterns.empty_state import EmptyState
 from ui.patterns.entity_dashboard import SharedUIComponents
 
 
@@ -167,7 +168,7 @@ class AdminUIComponents:
         """
         if not users:
             return Card(
-                P("No users found", cls="text-center text-muted-foreground py-8"),
+                EmptyState(title="No users found"),
                 cls="bg-background shadow-sm",
             )
 
@@ -363,9 +364,7 @@ class AdminUIComponents:
             users: List of user dicts from _get_users_with_activity_counts().
         """
         if not users:
-            return Div(
-                P("No users found", cls="text-center text-muted-foreground py-8"),
-            )
+            return EmptyState(title="No users found")
 
         centered_cols = {"Tasks", "Goals", "Habits", "KUs"}
 
@@ -574,9 +573,7 @@ class AdminUIComponents:
             _user_uid: User UID (reserved for future linking).
         """
         if not reports:
-            return Div(
-                P("No reports submitted yet.", cls="text-muted-foreground text-sm py-4"),
-            )
+            return EmptyState(title="No reports submitted yet")
 
         from ui.enum_helpers import get_submission_status_badge_class
 
@@ -630,9 +627,7 @@ class AdminUIComponents:
             _user_uid: User UID (reserved for future linking).
         """
         if not projects:
-            return Div(
-                P("No report projects found.", cls="text-muted-foreground text-sm py-4"),
-            )
+            return EmptyState(title="No report projects found")
 
         def _project_cell_render(k: str, v: object) -> Td:
             if k == "Name":

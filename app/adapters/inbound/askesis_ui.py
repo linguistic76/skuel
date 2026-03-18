@@ -27,6 +27,7 @@ from ui.buttons import Button, ButtonT
 from ui.cards import Card
 from ui.forms import LabelSelect, Select, Textarea
 from ui.layout import Size
+from ui.patterns.empty_state import EmptyState
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 
 logger = get_logger("skuel.ui.askesis")
@@ -289,7 +290,7 @@ def create_askesis_ui_routes(_app, rt, _askesis_service):
             P("Your past conversations will appear here.", cls="text-muted-foreground mb-4"),
             Div(
                 Card(
-                    P("No conversations yet", cls="text-center py-8 text-muted-foreground"),
+                    EmptyState(title="No conversations yet"),
                     cls="bg-muted",
                 ),
                 cls="max-w-4xl mx-auto",

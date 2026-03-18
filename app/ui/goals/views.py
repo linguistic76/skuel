@@ -27,12 +27,14 @@ from ui.calendar.converters import goal_to_calendar_item
 from ui.feedback import Progress
 from ui.forms import Input, Label, Select, Textarea
 from ui.layout import Size
+from ui.page_contexts import GoalsPageContext
 from ui.patterns.activity_views_base import (
     ActivityCreateForm,
     ActivityListFilters,
     ActivityViewTabs,
     render_activity_calendar,
 )
+from ui.patterns.empty_state import EmptyState
 from ui.patterns.entity_card import EntityCard
 from ui.patterns.stats_grid import StatItem, StatsGrid
 
@@ -62,12 +64,23 @@ class GoalsViewComponents:
 
     @staticmethod
     def render_list_view(
-        goals: list[Any],
+        goals: list[Any] | None = None,
         filters: dict[str, Any] | None = None,
         stats: dict[str, int] | None = None,
         _categories: list[str] | None = None,
+        *,
+        ctx: GoalsPageContext | None = None,
     ) -> Div:
-        """Render the sortable, filterable goal list."""
+        """Render the sortable, filterable goal list.
+
+        Accepts either individual args or a ``GoalsPageContext`` via ``ctx``.
+        """
+        if ctx is not None:
+            goals = ctx.get("entities", [])
+            filters = ctx.get("filters", {})
+            stats = ctx.get("stats", {})
+            _categories = _categories or ctx.get("categories")
+        goals = goals or []
         filters = filters or {}
         stats = stats or {}
 
@@ -109,9 +122,11 @@ class GoalsViewComponents:
             *goal_items
             if goal_items
             else [
-                P(
-                    "No goals found. Create one to get started!",
-                    cls="text-muted-foreground text-center py-8",
+                EmptyState(
+                    title="No goals found",
+                    description="Create one to get started!",
+                    action_text="Create goal",
+                    action_href="/activities/goals?view=create",
                 )
             ],
             id="goal-list",

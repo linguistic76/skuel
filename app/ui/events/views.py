@@ -20,19 +20,21 @@ Usage:
 from datetime import date
 from typing import Any
 
-from fasthtml.common import Div, Option, P, Span
+from fasthtml.common import Div, Option, Span
 
 from core.models.event.event import Event
 from ui.buttons import Button, ButtonT
 from ui.calendar.converters import event_to_calendar_item
 from ui.forms import Input, Label, Select, Textarea
 from ui.layout import Size
+from ui.page_contexts import EventsPageContext
 from ui.patterns.activity_views_base import (
     ActivityCreateForm,
     ActivityListFilters,
     ActivityViewTabs,
     render_activity_calendar,
 )
+from ui.patterns.empty_state import EmptyState
 from ui.patterns.entity_card import EntityCard
 from ui.patterns.stats_grid import StatItem, StatsGrid
 
@@ -81,11 +83,21 @@ class EventsViewComponents:
 
     @staticmethod
     def render_list_view(
-        events: list[Any],
+        events: list[Any] | None = None,
         filters: dict[str, Any] | None = None,
         stats: dict[str, int] | None = None,
+        *,
+        ctx: EventsPageContext | None = None,
     ) -> Div:
-        """Render the event list with filters."""
+        """Render the event list with filters.
+
+        Accepts either individual args or an ``EventsPageContext`` via ``ctx``.
+        """
+        if ctx is not None:
+            events = ctx.get("entities", [])
+            filters = ctx.get("filters", {})
+            stats = ctx.get("stats", {})
+        events = events or []
         filters = filters or {}
         stats = stats or {}
 
@@ -125,9 +137,11 @@ class EventsViewComponents:
             *event_items
             if event_items
             else [
-                P(
-                    "No events found. Create one to get started!",
-                    cls="text-muted-foreground text-center py-8",
+                EmptyState(
+                    title="No events found",
+                    description="Create one to get started!",
+                    action_text="Create event",
+                    action_href="/activities/events?view=create",
                 )
             ],
             id="event-list",

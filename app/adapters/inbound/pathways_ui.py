@@ -34,6 +34,7 @@ from ui.forms import LabelSelect
 from ui.layout import Size
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
+from ui.patterns.empty_state import EmptyState
 from ui.patterns.form_generator import FormGenerator
 from ui.patterns.relationships import EntityRelationshipsSection
 from ui.ui_types import (
@@ -643,7 +644,7 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None, ls_servi
                 cls="space-y-4",
             )
         else:
-            steps_section = P("No steps defined for this path yet.", cls="text-muted-foreground")
+            steps_section = EmptyState(title="No steps defined for this path yet")
 
         # Learning outcomes
         outcomes = path.outcomes or ()
@@ -704,7 +705,7 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None, ls_servi
                     cls="space-y-2",
                 )
                 if outcomes
-                else P("No learning outcomes specified.", cls="text-muted-foreground"),
+                else EmptyState(title="No learning outcomes specified"),
                 cls="mb-8",
             ),
             cls="container mx-auto px-4 py-6",

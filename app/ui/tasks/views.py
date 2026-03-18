@@ -45,6 +45,7 @@ from ui.calendar.components import (
 from ui.calendar.converters import task_to_calendar_item
 from ui.forms import Input, Select, Textarea
 from ui.layout import Size
+from ui.page_contexts import TasksPageContext
 from ui.patterns.activity_views_base import (
     ActivityCalendarNav,
     ActivityViewSwitcher,
@@ -250,23 +251,23 @@ class TasksViewComponents:
 
     @staticmethod
     def render_list_view(
-        tasks: list[Any],
+        tasks: list[Any] | None = None,
         filters: dict[str, Any] | None = None,
         projects: list[str] | None = None,
         assignees: list[str] | None = None,
+        *,
+        ctx: TasksPageContext | None = None,
     ) -> Div:
-        """
-        Render the sortable, filterable task list.
+        """Render the sortable, filterable task list.
 
-        Args:
-            tasks: List of tasks to display
-            filters: Current filter values
-            projects: List of project names for filter dropdown
-            assignees: List of assignee names for filter dropdown
-
-        Returns:
-            Div containing the list view
+        Accepts either individual args or a ``TasksPageContext`` via ``ctx``.
         """
+        if ctx is not None:
+            tasks = ctx.get("entities", [])
+            filters = ctx.get("filters", {})
+            projects = projects or ctx.get("projects", [])
+            assignees = assignees or ctx.get("assignees", [])
+        tasks = tasks or []
         filters = filters or {}
         projects = projects or []
         assignees = assignees or []

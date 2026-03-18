@@ -55,6 +55,7 @@ from ui.cards import Card
 from ui.feedback import Badge, BadgeT
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
+from ui.page_contexts import TasksPageContext
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.relationships import EntityRelationshipsSection
 from ui.tasks.layout import create_tasks_page
@@ -256,12 +257,14 @@ def create_tasks_ui_routes(
                     calendar_view=calendar_params.calendar_view,
                 )
         else:  # list (default)
-            view_content = TasksViewComponents.render_list_view(
-                tasks=tasks,
+            page_ctx = TasksPageContext(
+                entities=tasks,
                 filters=filters.to_dict(),
                 projects=projects,
                 assignees=assignees,
+                view=view,
             )
+            view_content = TasksViewComponents.render_list_view(ctx=page_ctx)
 
         # Build page with tabs + view content
         page_content = Div(
@@ -298,17 +301,14 @@ def create_tasks_ui_routes(
         if filtered_result.is_error:
             return render_error_banner("Failed to load tasks")
 
-        ctx = filtered_result.value
-        tasks = ctx["entities"]
-        projects = ctx.get("projects", [])
-        assignees = ctx.get("assignees", [])
-
-        return TasksViewComponents.render_list_view(
-            tasks=tasks,
+        svc_ctx = filtered_result.value
+        page_ctx = TasksPageContext(
+            entities=svc_ctx["entities"],
             filters=filters.to_dict(),
-            projects=projects,
-            assignees=assignees,
+            projects=svc_ctx.get("projects", []),
+            assignees=svc_ctx.get("assignees", []),
         )
+        return TasksViewComponents.render_list_view(ctx=page_ctx)
 
     @rt("/tasks/view/create")
     async def tasks_view_create(request) -> Any:
@@ -395,13 +395,14 @@ def create_tasks_ui_routes(
         if filtered_result.is_error:
             return render_error_banner("Failed to load tasks")
 
-        ctx = filtered_result.value
-        return TasksViewComponents.render_list_view(
-            tasks=ctx["entities"],
+        svc_ctx = filtered_result.value
+        page_ctx = TasksPageContext(
+            entities=svc_ctx["entities"],
             filters={},
-            projects=ctx.get("projects", []),
-            assignees=ctx.get("assignees", []),
+            projects=svc_ctx.get("projects", []),
+            assignees=svc_ctx.get("assignees", []),
         )
+        return TasksViewComponents.render_list_view(ctx=page_ctx)
 
     async def render_task_add_another_view(user_uid: str) -> Any:
         """Render create view for add-another flow."""

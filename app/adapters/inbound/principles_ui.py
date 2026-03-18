@@ -39,7 +39,6 @@ from adapters.inbound.ui_helpers import (
 )
 from core.constants import QueryLimit
 from core.models.enums.principle_enums import AlignmentLevel, PrincipleCategory, PrincipleStrength
-from core.ports.query_types import PrinciplesFilterSpec
 from core.services.principles_service import PrinciplesService
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
@@ -49,6 +48,8 @@ from ui.feedback import Badge, BadgeT
 from ui.layout import Size
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
+from ui.page_contexts import PrinciplesPageContext
+from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.relationships import EntityRelationshipsSection
 from ui.principles.layout import create_principles_page
@@ -276,12 +277,13 @@ def create_principles_ui_routes(
                 )
                 return await create_principles_page(error_content, request=request)
 
-            view_content = PrinciplesViewComponents.render_list_view(
-                principles=principles,
+            page_ctx = PrinciplesPageContext(
+                entities=principles,
                 filters=filters.to_dict(),
                 stats=stats,
                 categories=categories_result.value,
             )
+            view_content = PrinciplesViewComponents.render_list_view(ctx=page_ctx)
 
         # Build page with tabs + view content
         page_content = Div(
@@ -312,20 +314,20 @@ def create_principles_ui_routes(
         if filtered_result.is_error:
             return render_error_banner("Failed to load principles")
 
-        ctx = filtered_result.value
-        principles, stats = ctx["entities"], ctx["stats"]
+        svc_ctx = filtered_result.value
         categories_result = await get_categories()
 
         # Handle categories error
         if categories_result.is_error:
             return render_error_banner("Failed to load categories")
 
-        return PrinciplesViewComponents.render_list_view(
-            principles=principles,
+        page_ctx = PrinciplesPageContext(
+            entities=svc_ctx["entities"],
             filters=filters.to_dict(),
-            stats=stats,
+            stats=svc_ctx["stats"],
             categories=categories_result.value,
         )
+        return PrinciplesViewComponents.render_list_view(ctx=page_ctx)
 
     @rt("/principles/view/create")
     async def principles_view_create(request) -> Any:
@@ -384,9 +386,7 @@ def create_principles_ui_routes(
         ]
 
         return Div(
-            *principle_items
-            if principle_items
-            else [P("No principles found.", cls="text-muted-foreground text-center py-8")],
+            *principle_items if principle_items else [EmptyState(title="No principles found")],
             id="principle-list",
             cls="space-y-3",
         )
@@ -422,17 +422,13 @@ def create_principles_ui_routes(
         if categories_result.is_error:
             return render_error_banner("Failed to load categories")
 
-        filters: PrinciplesFilterSpec = {
-            "category": "all",
-            "strength": "all",
-            "sort_by": "strength",
-        }
-        return PrinciplesViewComponents.render_list_view(
-            principles=principles,
-            filters=filters,
+        page_ctx = PrinciplesPageContext(
+            entities=principles,
+            filters={"category": "all", "strength": "all", "sort_by": "strength"},
             stats=stats,
             categories=categories_result.value,
         )
+        return PrinciplesViewComponents.render_list_view(ctx=page_ctx)
 
     async def render_principle_add_another_view(user_uid: str) -> Any:
         """Render create view for add-another flow."""
@@ -510,9 +506,7 @@ def create_principles_ui_routes(
                 PrinciplesViewComponents._render_reflection_card(r) for r in recent_reflections[:3]
             ]
         else:
-            reflection_cards = [
-                P("No reflections recorded yet.", cls="text-muted-foreground text-center py-4")
-            ]
+            reflection_cards = [EmptyState(title="No reflections recorded yet")]
 
         reflection_section = Card(
             Div(
@@ -677,17 +671,13 @@ def create_principles_ui_routes(
         if categories_result.is_error:
             return render_error_banner("Failed to load categories")
 
-        filters: PrinciplesFilterSpec = {
-            "category": "all",
-            "strength": "all",
-            "sort_by": "strength",
-        }
-        return PrinciplesViewComponents.render_list_view(
-            principles=principles,
-            filters=filters,
+        page_ctx = PrinciplesPageContext(
+            entities=principles,
+            filters={"category": "all", "strength": "all", "sort_by": "strength"},
             stats=stats,
             categories=categories_result.value,
         )
+        return PrinciplesViewComponents.render_list_view(ctx=page_ctx)
 
     @rt("/principles/{uid}/reflect")
     async def reflect_principle_form(request, uid: str) -> Any:
@@ -811,17 +801,13 @@ def create_principles_ui_routes(
         if categories_result.is_error:
             return render_error_banner("Failed to load categories")
 
-        filters: PrinciplesFilterSpec = {
-            "category": "all",
-            "strength": "all",
-            "sort_by": "strength",
-        }
-        return PrinciplesViewComponents.render_list_view(
-            principles=principles,
-            filters=filters,
+        page_ctx = PrinciplesPageContext(
+            entities=principles,
+            filters={"category": "all", "strength": "all", "sort_by": "strength"},
             stats=stats,
             categories=categories_result.value,
         )
+        return PrinciplesViewComponents.render_list_view(ctx=page_ctx)
 
     return []  # Routes registered via @rt() decorators (no objects returned)
 

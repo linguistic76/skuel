@@ -47,6 +47,7 @@ from ui.feedback import Alert, AlertT, Badge, BadgeT
 from ui.forms import Select
 from ui.layout import Size
 from ui.layouts.base_page import BasePage
+from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.page_header import PageHeader
 from ui.study.layout import create_study_page
@@ -648,7 +649,7 @@ def create_study_ui_routes(
 
             if not teacher_review_service:
                 return Div(
-                    P("No feedback yet.", cls="text-center text-muted-foreground py-4"),
+                    EmptyState(title="No feedback yet"),
                     id="feedback-section",
                 )
 
@@ -664,7 +665,7 @@ def create_study_ui_routes(
             if not items:
                 return Div(
                     H4("Feedback", cls="mb-4"),
-                    P("No feedback yet.", cls="text-center text-muted-foreground py-4"),
+                    EmptyState(title="No feedback yet"),
                     id="feedback-section",
                 )
 

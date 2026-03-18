@@ -43,7 +43,6 @@ from core.models.entity_requests import EntityUpdateRequest
 from core.models.enums import Domain as DomainEnum
 from core.models.enums import Priority as PriorityEnum
 from core.models.enums.choice_enums import ChoiceType
-from core.ports.query_types import ActivityFilterSpec
 from core.services.choices_service import ChoicesService
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
@@ -57,6 +56,8 @@ from ui.forms import Input, Label, Select, Textarea
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
 from ui.modals import Modal, ModalBox
+from ui.page_contexts import ChoicesPageContext
+from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.relationships import EntityRelationshipsSection
 from ui.tokens import Container, Spacing
@@ -219,11 +220,13 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
                     analytics_data=analytics_result.value,
                 )
         else:
-            view_content = ChoicesViewComponents.render_list_view(
-                choices=choices,
+            page_ctx = ChoicesPageContext(
+                entities=choices,
                 filters=filters.to_dict(),
                 stats=stats,
+                view=view,
             )
+            view_content = ChoicesViewComponents.render_list_view(ctx=page_ctx)
 
         page_content = Div(
             ChoicesViewComponents.render_view_tabs(active_view=view),
@@ -251,14 +254,13 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
         if filtered_result.is_error:
             return render_error_banner("Failed to load choices")
 
-        ctx = filtered_result.value
-        choices, stats = ctx["entities"], ctx["stats"]
-
-        return ChoicesViewComponents.render_list_view(
-            choices=choices,
+        svc_ctx = filtered_result.value
+        page_ctx = ChoicesPageContext(
+            entities=svc_ctx["entities"],
             filters=filters.to_dict(),
-            stats=stats,
+            stats=svc_ctx["stats"],
         )
+        return ChoicesViewComponents.render_list_view(ctx=page_ctx)
 
     @rt("/choices/view/create")
     async def choices_view_create(request) -> Any:
@@ -307,9 +309,7 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
         choice_items = [ChoicesViewComponents._render_choice_item(choice) for choice in choices]
 
         return Div(
-            *choice_items
-            if choice_items
-            else [P("No decisions found.", cls="text-muted-foreground text-center py-8")],
+            *choice_items if choice_items else [EmptyState(title="No decisions found")],
             id="choice-list",
             cls="space-y-3",
         )
@@ -337,14 +337,13 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
         result = await choices_service.get_filtered_context(user_uid)
         if result.is_error:
             return render_error_banner("Failed to load choices")
-        ctx = result.value
-        choices, stats = ctx["entities"], ctx["stats"]
-        filters: ActivityFilterSpec = {"status": "pending", "sort_by": "deadline"}
-        return ChoicesViewComponents.render_list_view(
-            choices=choices,
-            filters=filters,
-            stats=stats,
+        svc_ctx = result.value
+        page_ctx = ChoicesPageContext(
+            entities=svc_ctx["entities"],
+            filters={"status": "pending", "sort_by": "deadline"},
+            stats=svc_ctx["stats"],
         )
+        return ChoicesViewComponents.render_list_view(ctx=page_ctx)
 
     async def render_choice_add_another_view(user_uid: str) -> Any:
         """Render create view for add-another flow."""

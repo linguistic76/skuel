@@ -33,6 +33,7 @@ from ui.feedback import Progress
 from ui.forms import Label
 from ui.layout import Size
 from ui.modals import Modal, ModalBox
+from ui.patterns.empty_state import EmptyState
 
 
 class BadgeCategory(StrEnum):
@@ -526,7 +527,7 @@ class AtomicHabitsBadges:
 
         if not sorted_badges:
             return Div(
-                P("No badges in progress", cls="text-sm text-muted-foreground text-center py-4"),
+                EmptyState(title="No badges in progress"),
                 cls="bg-muted rounded-lg",
             )
 

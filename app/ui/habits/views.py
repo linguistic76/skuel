@@ -27,12 +27,14 @@ from ui.calendar.converters import habit_to_calendar_items
 from ui.feedback import Progress
 from ui.forms import Input, Label, Select, Textarea
 from ui.layout import Size
+from ui.page_contexts import HabitsPageContext
 from ui.patterns.activity_views_base import (
     ActivityCreateForm,
     ActivityListFilters,
     ActivityViewTabs,
     render_activity_calendar,
 )
+from ui.patterns.empty_state import EmptyState
 from ui.patterns.entity_card import EntityCard
 from ui.patterns.stats_grid import StatItem, StatsGrid
 
@@ -62,12 +64,23 @@ class HabitsViewComponents:
 
     @staticmethod
     def render_list_view(
-        habits: list[Any],
+        habits: list[Any] | None = None,
         filters: dict[str, Any] | None = None,
         stats: dict[str, int] | None = None,
         _categories: list[str] | None = None,
+        *,
+        ctx: HabitsPageContext | None = None,
     ) -> Div:
-        """Render the habit list with streak indicators."""
+        """Render the habit list with streak indicators.
+
+        Accepts either individual args or a ``HabitsPageContext`` via ``ctx``.
+        """
+        if ctx is not None:
+            habits = ctx.get("entities", [])
+            filters = ctx.get("filters", {})
+            stats = ctx.get("stats", {})
+            _categories = _categories or ctx.get("categories")
+        habits = habits or []
         filters = filters or {}
         stats = stats or {}
 
@@ -99,9 +112,11 @@ class HabitsViewComponents:
             *habit_items
             if habit_items
             else [
-                P(
-                    "No habits found. Create one to get started!",
-                    cls="text-muted-foreground text-center py-8",
+                EmptyState(
+                    title="No habits found",
+                    description="Create one to get started!",
+                    action_text="Create habit",
+                    action_href="/activities/habits?view=create",
                 )
             ],
             id="habit-list",

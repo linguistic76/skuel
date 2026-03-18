@@ -13,6 +13,7 @@ from ui.buttons import ButtonLink, ButtonT
 from ui.cards import Card, CardBody
 from ui.feedback import Alert, AlertT, Badge, get_submission_status_badge_class
 from ui.layout import Size
+from ui.patterns.empty_state import EmptyState
 
 _get_status_badge_class = get_submission_status_badge_class
 
@@ -73,7 +74,7 @@ def render_submissions_grid(submissions: list[Any]) -> Any:
     """Render submissions grid as HTML fragment for HTMX swap."""
     if not submissions:
         return Div(
-            P("No submissions found.", cls="text-center text-muted-foreground"),
+            EmptyState(title="No submissions found"),
             id="submissions-grid-container",
         )
 

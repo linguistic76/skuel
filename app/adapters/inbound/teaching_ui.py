@@ -33,6 +33,7 @@ from ui.buttons import Button, ButtonLink, ButtonT
 from ui.cards import Card, CardBody
 from ui.forms import Textarea
 from ui.layout import Size
+from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.page_header import PageHeader
 from ui.patterns.sidebar import SidebarItem, SidebarPage
@@ -235,9 +236,7 @@ def create_teaching_ui_routes(
                 "Failed to load approved submissions", str(result.error)
             )
         elif not result.value:
-            list_content = Div(
-                P("No approved submissions yet.", cls="text-center text-muted-foreground py-8"),
-            )
+            list_content = EmptyState(title="No approved submissions yet")
         else:
             list_content = Div(*[render_queue_item(_to_queue_item(item)) for item in result.value])
 
@@ -743,9 +742,7 @@ def create_teaching_ui_routes(
                 "Failed to load class members", str(result.error)
             )
         elif not result.value:
-            members_content = Div(
-                P("No members in this class yet.", cls="text-center text-muted-foreground py-8")
-            )
+            members_content = EmptyState(title="No members in this class yet")
         else:
             members_content = Div(
                 *[

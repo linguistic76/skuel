@@ -39,6 +39,7 @@ from ui.cards import Card, CardBody
 from ui.feedback import Alert, AlertT, Badge, get_submission_status_badge_class
 from ui.forms import Input, Label, Radio, Select
 from ui.layout import Size
+from ui.patterns.empty_state import EmptyState
 from ui.patterns.page_header import PageHeader
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 
@@ -167,7 +168,7 @@ def _render_reports_grid(reports: list[Any]) -> Any:
     """Render reports grid as HTML fragment for HTMX swap."""
     if not reports:
         return Div(
-            P("No journals found.", cls="text-center text-muted-foreground"),
+            EmptyState(title="No journals found"),
             id="submissions-grid-container",
         )
 
@@ -241,7 +242,7 @@ def _render_instruction_list(exercises: list[Any], error: str | None = None) -> 
             _render_instruction_card(ex, is_first=(i == 0)) for i, ex in enumerate(exercises_sorted)
         )
     else:
-        parts.append(P("No saved instruction files yet.", cls="text-sm text-muted-foreground"))
+        parts.append(EmptyState(title="No saved instruction files yet"))
 
     return Div(*parts, id="instruction-file-list", cls="space-y-2")
 

@@ -55,6 +55,8 @@ from ui.forms import Input, Label, Select, Textarea
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
 from ui.modals import Modal, ModalBox
+from ui.page_contexts import EventsPageContext
+from ui.patterns.empty_state import EmptyState
 from ui.patterns.entity_dashboard import SharedUIComponents
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.relationships import EntityRelationshipsSection
@@ -117,9 +119,11 @@ class EventUIComponents:
                 cls="space-y-3",
             )
             if events
-            else P(
-                "No events yet. Create one to get started!",
-                cls="text-muted-foreground text-center py-8",
+            else EmptyState(
+                title="No events yet",
+                description="Create one to get started!",
+                action_text="Create event",
+                action_href="/activities/events?view=create",
             ),
         )
 
@@ -292,11 +296,13 @@ def create_events_ui_routes(_app, rt, events_service: EventsService, services: A
 
         # Render the appropriate view content
         if view == "list":
-            view_content = EventsViewComponents.render_list_view(
-                events=events,
+            page_ctx = EventsPageContext(
+                entities=events,
                 filters=filters.to_dict(),
                 stats=stats,
+                view=view,
             )
+            view_content = EventsViewComponents.render_list_view(ctx=page_ctx)
         elif view == "create":
             view_content = EventsViewComponents.render_create_view(
                 event_types=event_types,
@@ -361,14 +367,13 @@ def create_events_ui_routes(_app, rt, events_service: EventsService, services: A
         if filtered_result.is_error:
             return render_error_banner("Failed to load events")
 
-        ctx = filtered_result.value
-        events, stats = ctx["entities"], ctx["stats"]
-
-        return EventsViewComponents.render_list_view(
-            events=events,
+        svc_ctx = filtered_result.value
+        page_ctx = EventsPageContext(
+            entities=svc_ctx["entities"],
             filters=filters.to_dict(),
-            stats=stats,
+            stats=svc_ctx["stats"],
         )
+        return EventsViewComponents.render_list_view(ctx=page_ctx)
 
     @rt("/events/view/create")
     async def events_view_create(request) -> Any:
@@ -409,9 +414,7 @@ def create_events_ui_routes(_app, rt, events_service: EventsService, services: A
         event_items = [EventsViewComponents._render_event_item(event) for event in events]
 
         return Div(
-            *event_items
-            if event_items
-            else [P("No events found.", cls="text-muted-foreground text-center py-8")],
+            *event_items if event_items else [EmptyState(title="No events found")],
             id="event-list",
             cls="space-y-3",
         )

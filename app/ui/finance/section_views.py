@@ -26,6 +26,7 @@ from fasthtml.common import (
 )
 
 from ui.data import TableFromDicts, TableT
+from ui.patterns.empty_state import EmptyState
 
 
 class FinanceSectionViews:
@@ -139,14 +140,10 @@ class FinanceSectionViews:
         else:
             recent_section = Div(
                 H3("Recent Expenses", cls="text-lg font-semibold mb-3"),
-                Div(
-                    P("No expenses recorded yet.", cls="text-muted-foreground"),
-                    A(
-                        "Add your first expense →",
-                        href="/finance/expenses",
-                        cls="text-primary text-sm",
-                    ),
-                    cls="bg-background border border-border rounded-lg p-4",
+                EmptyState(
+                    title="No expenses recorded yet",
+                    action_text="Add your first expense",
+                    action_href="/finance/expenses",
                 ),
                 cls="mb-8",
             )
@@ -352,10 +349,7 @@ class FinanceSectionViews:
         else:
             list_section = Div(
                 H3("Expenses", cls="text-lg font-semibold mb-3"),
-                Div(
-                    P("No expenses found.", cls="text-muted-foreground"),
-                    cls="bg-background border border-border rounded-lg p-8 text-center",
-                ),
+                EmptyState(title="No expenses found"),
                 id="expense-list",
             )
 
@@ -535,13 +529,9 @@ class FinanceSectionViews:
         else:
             list_section = Div(
                 H3("Active Budgets", cls="text-lg font-semibold mb-3"),
-                Div(
-                    P("No budgets created yet.", cls="text-muted-foreground"),
-                    P(
-                        "Create your first budget to start tracking spending.",
-                        cls="text-sm text-muted-foreground mt-1",
-                    ),
-                    cls="bg-background border border-border rounded-lg p-8 text-center",
+                EmptyState(
+                    title="No budgets created yet",
+                    description="Create your first budget to start tracking spending.",
                 ),
                 id="budget-list",
             )
@@ -630,10 +620,7 @@ class FinanceSectionViews:
         else:
             category_section = Div(
                 H3("Spending by Category", cls="text-lg font-semibold mb-3"),
-                Div(
-                    P("No spending data available yet.", cls="text-muted-foreground"),
-                    cls="bg-background border border-border rounded-lg p-4",
-                ),
+                EmptyState(title="No spending data available yet"),
                 cls="mb-8",
             )
 

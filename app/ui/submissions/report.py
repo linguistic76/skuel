@@ -13,6 +13,7 @@ from ui.buttons import ButtonLink, ButtonT
 from ui.cards import Card, CardBody
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
+from ui.patterns.empty_state import EmptyState
 
 # ============================================================================
 # SHARED HELPERS
@@ -115,10 +116,7 @@ def render_yours_list(items: list[dict]) -> Any:
     """Render the full list of submissions with feedback status (HTMX swap target)."""
     if not items:
         return Div(
-            P(
-                "No submissions yet.",
-                cls="text-center text-muted-foreground py-8",
-            ),
+            EmptyState(title="No submissions yet"),
             id="submissions-yours-list",
         )
     return Div(
@@ -180,10 +178,9 @@ def render_received_report_list(items: list[Any]) -> Any:
     """Render the full list of received reports (HTMX swap target)."""
     if not items:
         return Div(
-            P("No reports yet.", cls="text-center text-muted-foreground py-6"),
-            P(
-                "Assessments from teachers will appear here once submitted.",
-                cls="text-sm text-center text-foreground/40",
+            EmptyState(
+                title="No reports yet",
+                description="Assessments from teachers will appear here once submitted.",
             ),
             id="feedback-list",
         )

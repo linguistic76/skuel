@@ -26,11 +26,13 @@ from ui.buttons import Button, ButtonT
 from ui.cards import Card
 from ui.forms import Input, Label, Select, Textarea
 from ui.layout import Size
+from ui.page_contexts import ChoicesPageContext
 from ui.patterns.activity_views_base import (
     ActivityCreateForm,
     ActivityListFilters,
     ActivityViewTabs,
 )
+from ui.patterns.empty_state import EmptyState
 from ui.patterns.entity_card import EntityCard
 from ui.patterns.stats_grid import StatItem, StatsGrid
 
@@ -60,11 +62,21 @@ class ChoicesViewComponents:
 
     @staticmethod
     def render_list_view(
-        choices: list[Any],
+        choices: list[Any] | None = None,
         filters: dict[str, Any] | None = None,
         stats: dict[str, int] | None = None,
+        *,
+        ctx: ChoicesPageContext | None = None,
     ) -> Div:
-        """Render the choice list with status indicators."""
+        """Render the choice list with status indicators.
+
+        Accepts either individual args or a ``ChoicesPageContext`` via ``ctx``.
+        """
+        if ctx is not None:
+            choices = ctx.get("entities", [])
+            filters = ctx.get("filters", {})
+            stats = ctx.get("stats", {})
+        choices = choices or []
         filters = filters or {}
         stats = stats or {}
 
@@ -105,9 +117,11 @@ class ChoicesViewComponents:
             *choice_items
             if choice_items
             else [
-                P(
-                    "No decisions found. Create one to get started!",
-                    cls="text-muted-foreground text-center py-8",
+                EmptyState(
+                    title="No decisions found",
+                    description="Create one to get started!",
+                    action_text="Create decision",
+                    action_href="/activities/choices?view=create",
                 )
             ],
             id="choice-list",
@@ -415,7 +429,7 @@ class ChoicesViewComponents:
             H3("Recent Outcomes", cls="text-lg font-semibold mb-4"),
             Div(
                 P("Track how your past decisions turned out.", cls="text-muted-foreground mb-4"),
-                P("No outcomes recorded yet.", cls="text-muted-foreground text-center py-8")
+                EmptyState(title="No outcomes recorded yet")
                 if not analytics_data.get("outcomes")
                 else "",
             ),

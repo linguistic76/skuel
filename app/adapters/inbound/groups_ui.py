@@ -13,6 +13,7 @@ from fasthtml.common import H1, H2, Div, Li, P, Request, Ul
 
 from adapters.inbound.auth import require_authenticated_user
 from core.utils.logging import get_logger
+from ui.patterns.empty_state import EmptyState
 
 logger = get_logger(__name__)
 
@@ -48,7 +49,9 @@ def create_groups_ui_routes(
             H1("Groups"),
             Div(
                 H2("My Groups (Teacher)"),
-                _render_group_list(teacher_list) if teacher_list else P("No groups created yet."),
+                _render_group_list(teacher_list)
+                if teacher_list
+                else EmptyState(title="No groups created yet"),
                 cls="mb-8",
             )
             if teacher_list

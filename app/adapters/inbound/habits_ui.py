@@ -56,7 +56,9 @@ from ui.layout import Size
 from ui.layouts.base_page import BasePage
 from ui.layouts.navbar import create_navbar_for_request
 from ui.layouts.page_types import PageType
+from ui.page_contexts import HabitsPageContext
 from ui.patterns.card_generator import CardGenerator
+from ui.patterns.empty_state import EmptyState
 from ui.patterns.entity_dashboard import SharedUIComponents
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.form_generator import FormGenerator
@@ -149,9 +151,11 @@ class HabitUIComponents:
                 id="habits-list",
             )
             if habits
-            else P(
-                "No habits yet. Create one to get started!",
-                cls="text-muted-foreground text-center py-8",
+            else EmptyState(
+                title="No habits yet",
+                description="Create one to get started!",
+                action_text="Create habit",
+                action_href="/activities/habits?view=create",
             ),
             Div(id="modal"),  # Modal container for HTMX
         )
@@ -522,12 +526,14 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
                     calendar_view=calendar_params.calendar_view,
                 )
         else:  # list (default)
-            view_content = HabitsViewComponents.render_list_view(
-                habits=habits,
+            page_ctx = HabitsPageContext(
+                entities=habits,
                 filters=filters.to_dict(),
                 stats=stats,
-                _categories=categories,
+                categories=categories,
+                view=view,
             )
+            view_content = HabitsViewComponents.render_list_view(ctx=page_ctx)
 
         # Build page with tabs + view content
         page_content = Div(
@@ -560,16 +566,14 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
         if categories_result.is_error:
             return render_error_banner("Failed to load categories")
 
-        ctx = filtered_result.value
-        habits, stats = ctx["entities"], ctx["stats"]
-        categories = categories_result.value
-
-        return HabitsViewComponents.render_list_view(
-            habits=habits,
+        svc_ctx = filtered_result.value
+        page_ctx = HabitsPageContext(
+            entities=svc_ctx["entities"],
             filters=filters.to_dict(),
-            stats=stats,
-            _categories=categories,
+            stats=svc_ctx["stats"],
+            categories=categories_result.value,
         )
+        return HabitsViewComponents.render_list_view(ctx=page_ctx)
 
     @rt("/habits/view/create")
     async def habits_view_create(request) -> Any:
@@ -628,9 +632,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
         habit_items = [HabitsViewComponents._render_habit_item(habit) for habit in habits]
 
         return Div(
-            *habit_items
-            if habit_items
-            else [P("No habits found.", cls="text-muted-foreground text-center py-8")],
+            *habit_items if habit_items else [EmptyState(title="No habits found")],
             id="habit-list",
             cls="space-y-3",
         )
@@ -648,17 +650,18 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
         """Render list view after successful habit creation."""
         result = await habits_service.get_filtered_context(user_uid)
         if result.is_error:
-            habits, stats = [], {}
+            entities, stats = [], {}
         else:
-            ctx = result.value
-            habits, stats = ctx["entities"], ctx["stats"]
-        categories = await get_categories()
-        return HabitsViewComponents.render_list_view(
-            habits=habits,
+            svc_ctx = result.value
+            entities, stats = svc_ctx["entities"], svc_ctx["stats"]
+        categories_result = await get_categories()
+        page_ctx = HabitsPageContext(
+            entities=entities,
             filters={},
             stats=stats,
-            _categories=categories,
+            categories=categories_result.value if not categories_result.is_error else [],
         )
+        return HabitsViewComponents.render_list_view(ctx=page_ctx)
 
     async def render_habit_add_another_view(user_uid: str) -> Any:
         """Render create view for add-another flow."""

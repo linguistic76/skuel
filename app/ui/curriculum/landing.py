@@ -4,7 +4,11 @@ No sidebar. Shows 4 Curriculum domain cards at a glance.
 Each card links to its top-level route.
 """
 
+from typing import Any
+
 from fasthtml.common import H2, A, Div, P, Span
+
+from ui.patterns.stats_grid import StatItem, StatsGrid
 
 _CURRICULUM_DOMAINS: list[tuple[str, str, str, str]] = [
     ("📖", "Lessons", "/lessons", "Units for learning that compose atomic knowledge."),
@@ -14,16 +18,22 @@ _CURRICULUM_DOMAINS: list[tuple[str, str, str, str]] = [
 ]
 
 
-def CurriculumLandingView() -> Div:
+def CurriculumLandingView(stats: list[StatItem] | None = None) -> Div:
     """Landing page content for /curriculum.
 
     Shows a card grid with 4 Curriculum domain cards.
+    Optionally shows a StatsGrid above the card grid.
     """
     header = Div(
         H2("Curriculum", cls="text-xl font-semibold text-foreground"),
         P("Browse and manage curriculum content.", cls="text-sm text-muted-foreground mt-0.5"),
         cls="mb-6",
     )
+
+    sections: list[Any] = [header]
+
+    if stats:
+        sections.append(Div(StatsGrid(stats, cols=4), cls="mb-6"))
 
     cards = []
     for icon, name, href, description in _CURRICULUM_DOMAINS:
@@ -48,4 +58,5 @@ def CurriculumLandingView() -> Div:
         cls="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-5",
     )
 
-    return Div(header, grid)
+    sections.append(grid)
+    return Div(*sections)
