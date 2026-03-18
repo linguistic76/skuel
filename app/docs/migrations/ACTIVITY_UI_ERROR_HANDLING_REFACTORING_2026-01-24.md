@@ -1,7 +1,7 @@
 # Activity Domain UI Error Handling Refactoring
 
 **Date**: 2026-01-24
-**Status**: Complete (5/5)
+**Status**: Complete (6/6)
 **Related Docs**:
 - `/docs/patterns/UI_COMPONENT_PATTERNS.md` - Pattern documentation
 - `/docs/patterns/ERROR_HANDLING.md` - Result[T] error handling
@@ -242,7 +242,7 @@ For each domain after refactoring:
 2. ✅ Complete Principles UI refactoring (+ bug fixes)
 3. ✅ Standardize non-Activity UI routes (2026-03-18) — Teaching, Study, KU, Admin, Insights now use `render_error_banner()` instead of ad-hoc P/Div error elements and silent fallbacks. Fixed `.is_ok` bug in teaching_ui.py. Component exported from `ui/patterns/__init__.py`.
 4. Test all domains with Neo4j stopped to verify error banners (recommended)
-5. Consider extracting common helpers to shared module (future optimization)
+5. ✅ Extract common helpers to shared module (2026-03-18) — `render_entity_not_found_page()` (all 6 domains) and `fetch_user_entities()` (4 domains) extracted to `adapters/inbound/ui_helpers.py`. Eliminated ~200 lines of duplicated boilerplate. Removed unused `Errors` imports from goals, habits, events UI files.
 
 ## References
 

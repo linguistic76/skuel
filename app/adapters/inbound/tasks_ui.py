@@ -36,6 +36,7 @@ from adapters.inbound.route_factories import (
 )
 from adapters.inbound.ui_helpers import (
     parse_calendar_params,
+    render_entity_not_found_page,
     render_safe_error_response,
 )
 from core.models.enums import EntityStatus, Priority
@@ -628,23 +629,7 @@ def create_tasks_ui_routes(
 
         if result.is_error:
             logger.error(f"Failed to get task {uid}: {result.error}")
-            return await BasePage(
-                content=Card(
-                    H2("Task Not Found", cls="text-xl font-bold text-error mb-4"),
-                    P(f"Could not find task: {uid}", cls="text-muted-foreground"),
-                    Button(
-                        "← Back to Tasks",
-                        **{"hx-get": "/tasks", "hx-target": "body"},
-                        variant=ButtonT.primary,
-                        cls="mt-4",
-                    ),
-                    cls="p-6",
-                ),
-                title="Task Not Found",
-                page_type=PageType.STANDARD,
-                request=request,
-                active_page="tasks",
-            )
+            return await render_entity_not_found_page("Task", uid, "tasks", request)
 
         task = result.value
 

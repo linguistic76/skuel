@@ -31,7 +31,9 @@ from adapters.inbound.form_helpers import (
 )
 from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
 from adapters.inbound.ui_helpers import (
+    fetch_user_entities,
     parse_calendar_params,
+    render_entity_not_found_page,
 )
 from core.models.enums import Priority, RecurrencePattern
 from core.models.enums.entity_enums import EntityStatus
@@ -39,7 +41,7 @@ from core.models.enums.habit_enums import HabitCategory
 from core.models.habit.habit_request import HabitCreateRequest
 from core.services.habits_service import HabitsService
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import Result
 from ui.buttons import Button, ButtonT
 from ui.cards import Card, CardBody
 from ui.feedback import Badge, BadgeT
@@ -448,22 +450,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
 
     async def get_all_habits(user_uid: str) -> Result[list[Any]]:
         """Get all habits for user."""
-        try:
-            result = await habits_service.get_user_habits(user_uid)
-            if result.is_error:
-                logger.warning(f"Failed to fetch habits: {result.error}")
-                return result  # Propagate the error
-            return Result.ok(result.value or [])
-        except Exception as e:  # safety-net: service call may raise unexpected errors
-            logger.error(
-                "Error fetching all habits",
-                extra={
-                    "user_uid": user_uid,
-                    "error_type": type(e).__name__,
-                    "error_message": str(e),
-                },
-            )
-            return Result.fail(Errors.system(f"Failed to fetch habits: {e}"))
+        return await fetch_user_entities(habits_service.get_user_habits, "habits", user_uid, logger)
 
     async def get_categories() -> Result[list[str]]:
         """Get unique habit categories."""
@@ -1403,23 +1390,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
 
         if result.is_error:
             logger.error(f"Failed to get habit {uid}: {result.error}")
-            return await BasePage(
-                content=Card(
-                    H2("Habit Not Found", cls="text-xl font-bold text-error mb-4"),
-                    P(f"Could not find habit: {uid}", cls="text-muted-foreground"),
-                    Button(
-                        "← Back to Habits",
-                        **{"hx-get": "/habits", "hx-target": "body"},
-                        variant=ButtonT.primary,
-                        cls="mt-4",
-                    ),
-                    cls="p-6",
-                ),
-                title="Habit Not Found",
-                page_type=PageType.STANDARD,
-                request=request,
-                active_page="habits",
-            )
+            return await render_entity_not_found_page("Habit", uid, "habits", request)
 
         habit = result.value
 

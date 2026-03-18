@@ -32,13 +32,15 @@ from adapters.inbound.form_helpers import (
 )
 from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
 from adapters.inbound.ui_helpers import (
+    fetch_user_entities,
     parse_calendar_params,
+    render_entity_not_found_page,
 )
 from core.models.enums import Priority
 from core.models.goal.goal_request import GoalCreateRequest
 from core.services.goals_service import GoalsService
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import Result
 from ui.buttons import Button, ButtonT
 from ui.cards import Card
 from ui.feedback import Badge, BadgeT, Progress
@@ -492,22 +494,7 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsService, services: Any 
 
     async def get_all_goals(user_uid: str) -> Result[list[Any]]:
         """Get all goals for user."""
-        try:
-            result = await goals_service.get_user_goals(user_uid)
-            if result.is_error:
-                logger.warning(f"Failed to fetch goals: {result.error}")
-                return result  # Propagate the error
-            return Result.ok(result.value or [])
-        except Exception as e:  # safety-net: service call may raise unexpected errors
-            logger.error(
-                "Error fetching all goals",
-                extra={
-                    "user_uid": user_uid,
-                    "error_type": type(e).__name__,
-                    "error_message": str(e),
-                },
-            )
-            return Result.fail(Errors.system(f"Failed to fetch goals: {e}"))
+        return await fetch_user_entities(goals_service.get_user_goals, "goals", user_uid, logger)
 
     async def get_categories() -> Result[list[str]]:
         """Get unique goal categories (valid Domain enum values)."""
@@ -748,23 +735,7 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsService, services: Any 
             logger.error(
                 f"Failed to get goal {uid}: {result.error if result.is_error else 'Not found'}"
             )
-            return await BasePage(
-                content=Card(
-                    H2("Goal Not Found", cls="text-xl font-bold text-error mb-4"),
-                    P(f"Could not find goal: {uid}", cls="text-muted-foreground"),
-                    Button(
-                        "← Back to Goals",
-                        **{"hx-get": "/goals", "hx-target": "body"},
-                        variant=ButtonT.primary,
-                        cls="mt-4",
-                    ),
-                    cls="p-6",
-                ),
-                title="Goal Not Found",
-                page_type=PageType.STANDARD,
-                request=request,
-                active_page="goals",
-            )
+            return await render_entity_not_found_page("Goal", uid, "goals", request)
 
         goal = result.value
 

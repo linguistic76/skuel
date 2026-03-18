@@ -34,7 +34,7 @@ from adapters.inbound.route_factories import (
     QuickAddRouteFactory,
     require_owned_entity,
 )
-from adapters.inbound.ui_helpers import render_safe_error_response
+from adapters.inbound.ui_helpers import render_entity_not_found_page, render_safe_error_response
 from core.models.choice.choice_request import (
     ChoiceCreateRequest,
     ChoiceOptionCreateRequest,
@@ -762,23 +762,7 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
             logger.error(
                 f"Failed to get choice {uid}: {result.error if result.is_error else 'Not found'}"
             )
-            return await BasePage(
-                content=Card(
-                    H2("Choice Not Found", cls="text-xl font-bold text-error mb-4"),
-                    P(f"Could not find choice: {uid}", cls="text-muted-foreground"),
-                    Button(
-                        "← Back to Choices",
-                        **{"hx-get": "/choices", "hx-target": "body"},
-                        variant=ButtonT.primary,
-                        cls="mt-4",
-                    ),
-                    cls="p-6",
-                ),
-                title="Choice Not Found",
-                page_type=PageType.STANDARD,
-                request=request,
-                active_page="choices",
-            )
+            return await render_entity_not_found_page("Choice", uid, "choices", request)
 
         choice = result.value
 

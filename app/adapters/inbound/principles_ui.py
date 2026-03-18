@@ -34,7 +34,11 @@ from adapters.inbound.route_factories import (
     parse_int_query_param,
     require_owned_entity,
 )
-from adapters.inbound.ui_helpers import render_safe_error_response
+from adapters.inbound.ui_helpers import (
+    fetch_user_entities,
+    render_entity_not_found_page,
+    render_safe_error_response,
+)
 from core.constants import QueryLimit
 from core.models.enums.principle_enums import AlignmentLevel, PrincipleCategory, PrincipleStrength
 from core.ports.query_types import PrinciplesFilterSpec
@@ -210,24 +214,8 @@ def create_principles_ui_routes(
 
     async def get_all_principles(user_uid: str) -> Result[list[Any]]:
         """Get all principles for user from service."""
-        try:
-            if principles_service:
-                result = await principles_service.get_user_principles(user_uid)
-                if result.is_error:
-                    logger.warning(f"Failed to fetch principles: {result.error}")
-                    return result  # Propagate the error
-                return Result.ok(result.value or [])
-            return Result.ok([])
-        except Exception as e:  # safety-net: service call may raise unexpected errors
-            logger.error(
-                "Error fetching all principles",
-                extra={
-                    "user_uid": user_uid,
-                    "error_type": type(e).__name__,
-                    "error_message": str(e),
-                },
-            )
-            return Result.fail(Errors.system(f"Failed to fetch principles: {e}"))
+        service_method = principles_service.get_user_principles if principles_service else None
+        return await fetch_user_entities(service_method, "principles", user_uid, logger)
 
     async def get_categories() -> Result[list[str]]:
         """Get available principle categories."""
@@ -579,23 +567,7 @@ def create_principles_ui_routes(
             logger.error(
                 f"Failed to get principle {uid}: {result.error if result.is_error else 'Not found'}"
             )
-            return await BasePage(
-                content=Card(
-                    H2("Principle Not Found", cls="text-xl font-bold text-error mb-4"),
-                    P(f"Could not find principle: {uid}", cls="text-muted-foreground"),
-                    Button(
-                        "← Back to Principles",
-                        **{"hx-get": "/principles", "hx-target": "body"},
-                        variant=ButtonT.primary,
-                        cls="mt-4",
-                    ),
-                    cls="p-6",
-                ),
-                title="Principle Not Found",
-                page_type=PageType.STANDARD,
-                request=request,
-                active_page="principles",
-            )
+            return await render_entity_not_found_page("Principle", uid, "principles", request)
 
         principle = result.value
 

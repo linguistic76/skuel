@@ -36,14 +36,16 @@ from adapters.inbound.route_factories import (
     require_owned_entity,
 )
 from adapters.inbound.ui_helpers import (
+    fetch_user_entities,
     parse_calendar_params,
+    render_entity_not_found_page,
     render_safe_error_response,
 )
 from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
 from core.services.events_service import EventsService
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import Result
 from ui.buttons import Button, ButtonT
 from ui.cards import Card
 from ui.events.layout import create_events_page
@@ -235,24 +237,8 @@ def create_events_ui_routes(_app, rt, events_service: EventsService, services: A
 
     async def get_all_events(user_uid: str) -> Result[list[Any]]:
         """Get all events for user."""
-        try:
-            if events_service:
-                result = await events_service.get_user_events(user_uid)
-                if result.is_error:
-                    logger.warning(f"Failed to fetch events: {result.error}")
-                    return result  # Propagate the error
-                return Result.ok(result.value or [])
-            return Result.ok([])
-        except Exception as e:  # safety-net: service call may raise unexpected errors
-            logger.error(
-                "Error fetching all events",
-                extra={
-                    "user_uid": user_uid,
-                    "error_type": type(e).__name__,
-                    "error_message": str(e),
-                },
-            )
-            return Result.fail(Errors.system(f"Failed to fetch events: {e}"))
+        service_method = events_service.get_user_events if events_service else None
+        return await fetch_user_entities(service_method, "events", user_uid, logger)
 
     async def get_event_types() -> Result[list[str]]:
         """Get available event types."""
@@ -704,23 +690,7 @@ def create_events_ui_routes(_app, rt, events_service: EventsService, services: A
 
         if result.is_error:
             logger.error(f"Failed to get event {uid}: {result.error}")
-            return await BasePage(
-                content=Card(
-                    H2("Event Not Found", cls="text-xl font-bold text-error mb-4"),
-                    P(f"Could not find event: {uid}", cls="text-muted-foreground"),
-                    Button(
-                        "← Back to Events",
-                        **{"hx-get": "/events", "hx-target": "body"},
-                        variant=ButtonT.primary,
-                        cls="mt-4",
-                    ),
-                    cls="p-6",
-                ),
-                title="Event Not Found",
-                page_type=PageType.STANDARD,
-                request=request,
-                active_page="events",
-            )
+            return await render_entity_not_found_page("Event", uid, "events", request)
 
         event = result.value
 
