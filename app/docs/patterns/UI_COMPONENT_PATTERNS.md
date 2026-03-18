@@ -1165,14 +1165,15 @@ Domains outside the Activity pattern use the same principle — service methods 
 
 **Pattern:** Routes should only do: authenticate → parse → call service → handle error → render. Data assembly, computation, and reshaping belong in service methods.
 
-### Route-Level Conventions (all 6 `*_ui.py` files)
+### Route-Level Conventions
 
 *Updated: 2026-03-18*
 
-Module-level helpers keep route handlers thin:
+Module-level helpers keep route handlers thin. The shared primitives in `form_helpers.py` are adopted by all UI files that handle form data — the 6 Activity domains, plus `auth_ui`, `calendar_ui`, `user_profile_ui`, `lifepath_ui`, `askesis_ui`, and `journals_ui`.
 
 | Helper | Purpose |
 |--------|---------|
+| `safe_form_string()`, `safe_form_int()`, `safe_form_bool()` | Type-safe extraction from `str \| UploadFile \| None` form values |
 | `ActivityFilters` hierarchy | Unified filter base from `form_helpers.py` — Goals/Habits/Events/Choices use base, Tasks use `TaskFilters`, Principles use `PrincipleFilters` |
 | `parse_task_filters()`, `parse_principle_filters()`, `parse_activity_filters()` | Domain-specific query param extraction with defaults |
 | `parse_enum_safe()`, `parse_date_safe()`, etc. | Shared parsing primitives from `form_helpers.py` |

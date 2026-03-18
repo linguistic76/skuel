@@ -767,7 +767,7 @@ async def save_user_settings(request: Request) -> Any:
 - ✅ Clear separation: parsing vs business logic
 - ✅ Easy to test edge cases
 
-**Implementation:** `/adapters/inbound/user_profile_ui.py` (lines 58-117)
+**Implementation:** `/adapters/inbound/form_helpers.py` — `safe_form_string()`, `safe_form_int()`, `safe_form_bool()`
 
 ### Safe Enum Parsing for HTML Forms
 
