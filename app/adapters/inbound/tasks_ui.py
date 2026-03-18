@@ -19,7 +19,6 @@ Routes:
 __version__ = "2.0"
 
 import contextlib
-from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
@@ -28,7 +27,12 @@ from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
-from adapters.inbound.form_helpers import parse_date_safe, parse_enum_safe, safe_form_string
+from adapters.inbound.form_helpers import (
+    parse_date_safe,
+    parse_enum_safe,
+    parse_task_filters,
+    safe_form_string,
+)
 from adapters.inbound.route_factories import (
     QuickAddConfig,
     QuickAddRouteFactory,
@@ -61,38 +65,6 @@ logger = get_logger("skuel.routes.tasks.todoist")
 
 
 # RouteDecorator and Request imported from adapters.inbound.fasthtml_types
-
-
-@dataclass
-class Filters:
-    """Typed filters for task list queries."""
-
-    project: str
-    assignee: str
-    due_filter: str
-    status_filter: str
-    sort_by: str
-
-    def to_dict(self) -> dict[str, str]:
-        """Convert to dict keyed for TasksViewComponents.render_list_view."""
-        return {
-            "project": self.project,
-            "assignee": self.assignee,
-            "due": self.due_filter,
-            "status": self.status_filter,
-            "sort_by": self.sort_by,
-        }
-
-
-def parse_filters(request: Request) -> Filters:
-    """Extract filter parameters from request query params."""
-    return Filters(
-        project=request.query_params.get("filter_project", ""),
-        assignee=request.query_params.get("filter_assignee", ""),
-        due_filter=request.query_params.get("filter_due", ""),
-        status_filter=request.query_params.get("filter_status", "active"),
-        sort_by=request.query_params.get("sort_by", "due_date"),
-    )
 
 
 # ============================================================================
@@ -236,7 +208,7 @@ def create_tasks_ui_routes(
         view = request.query_params.get("view", "list")
 
         # Get filter params (for list view)
-        filters = parse_filters(request)
+        filters = parse_task_filters(request)
 
         # Get calendar params (for calendar view)
         calendar_params = parse_calendar_params(request)
@@ -247,7 +219,7 @@ def create_tasks_ui_routes(
             filters.project or None,
             filters.assignee or None,
             filters.due_filter or None,
-            filters.status_filter,
+            filters.status,
             filters.sort_by,
         )
 
@@ -309,7 +281,7 @@ def create_tasks_ui_routes(
         user_uid = require_authenticated_user(request)
 
         # Get filter params
-        filters = parse_filters(request)
+        filters = parse_task_filters(request)
 
         # Get data — single query returns entities + stats + projects + assignees
         filtered_result = await tasks_service.get_filtered_context(
@@ -317,7 +289,7 @@ def create_tasks_ui_routes(
             filters.project or None,
             filters.assignee or None,
             filters.due_filter or None,
-            filters.status_filter,
+            filters.status,
             filters.sort_by,
         )
 
@@ -385,7 +357,7 @@ def create_tasks_ui_routes(
         user_uid = require_authenticated_user(request)
 
         # Get filter params
-        filters = parse_filters(request)
+        filters = parse_task_filters(request)
 
         # Get filtered tasks
         filtered_result = await tasks_service.get_filtered_context(
@@ -393,7 +365,7 @@ def create_tasks_ui_routes(
             filters.project or None,
             filters.assignee or None,
             filters.due_filter or None,
-            filters.status_filter,
+            filters.status,
             filters.sort_by,
         )
 

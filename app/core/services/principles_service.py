@@ -18,6 +18,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.principle_enums import PrincipleCategory, PrincipleStrength
 from core.models.principle.principle import Principle
 from core.models.principle.principle_dto import PrincipleDTO
@@ -92,8 +93,24 @@ def _apply_principle_filters(
     principles: list[Any],
     category_filter: str = "all",
     strength_filter: str = "all",
+    status_filter: str = "all",
 ) -> list[Any]:
-    """Apply category and strength filters to principle list."""
+    """Apply status, category, and strength filters to principle list."""
+    # Status filter
+    match status_filter:
+        case "active":
+            principles = [
+                p
+                for p in principles
+                if p.status
+                not in (EntityStatus.COMPLETED, EntityStatus.ARCHIVED, EntityStatus.CANCELLED)
+            ]
+        case "completed":
+            principles = [p for p in principles if p.status == EntityStatus.COMPLETED]
+        case "archived":
+            principles = [p for p in principles if p.status == EntityStatus.ARCHIVED]
+
+    # Category filter
     if category_filter != "all":
         principles = [
             p
@@ -101,6 +118,7 @@ def _apply_principle_filters(
             if normalize_enum_str(getattr(p, "category", None)) == category_filter.lower()
         ]
 
+    # Strength filter
     if strength_filter == "core":
         principles = [p for p in principles if _get_principle_strength_value(p) >= 5]
     elif strength_filter == "strong":
@@ -847,6 +865,7 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
         category_filter: str = "all",
         strength_filter: str = "all",
         sort_by: str = "strength",
+        status_filter: str = "all",
     ) -> Result[ListContext]:
         """Get filtered and sorted principles with pre-filter stats in a single query.
 
@@ -864,6 +883,8 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
             "active": sum(1 for p in all_principles if getattr(p, "is_active", True)),
         }
 
-        filtered = _apply_principle_filters(all_principles, category_filter, strength_filter)
+        filtered = _apply_principle_filters(
+            all_principles, category_filter, strength_filter, status_filter
+        )
         sorted_principles = _apply_principle_sort(filtered, sort_by)
         return Result.ok({"entities": sorted_principles, "stats": stats})

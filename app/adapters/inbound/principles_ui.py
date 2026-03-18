@@ -20,14 +20,13 @@ to avoid the path parameter matching "quick-add" as a uid value.
 
 __version__ = "2.0"
 
-from dataclasses import dataclass
 from typing import Any, cast
 
 from fasthtml.common import H1, H2, H3, Div, P
 from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
-from adapters.inbound.form_helpers import parse_enum_safe, safe_form_string
+from adapters.inbound.form_helpers import parse_enum_safe, parse_principle_filters, safe_form_string
 from adapters.inbound.route_factories import (
     QuickAddConfig,
     QuickAddRouteFactory,
@@ -61,28 +60,6 @@ logger = get_logger("skuel.routes.principles.ui")
 
 
 # RouteDecorator and Request imported from adapters.inbound.fasthtml_types
-
-
-@dataclass
-class Filters:
-    """Typed filters for principle list queries."""
-
-    category: str
-    strength: str
-    sort_by: str
-
-    def to_dict(self) -> PrinciplesFilterSpec:
-        """Convert to dict keyed for PrinciplesViewComponents.render_list_view."""
-        return {"category": self.category, "strength": self.strength, "sort_by": self.sort_by}
-
-
-def parse_filters(request) -> Filters:
-    """Extract filter parameters from request query params."""
-    return Filters(
-        category=request.query_params.get("filter_category", "all"),
-        strength=request.query_params.get("filter_strength", "all"),
-        sort_by=request.query_params.get("sort_by", "strength"),
-    )
 
 
 # ============================================================================
@@ -310,7 +287,7 @@ def create_principles_ui_routes(
         view = request.query_params.get("view", "list")
 
         # Parse filters using helper
-        filters = parse_filters(request)
+        filters = parse_principle_filters(request)
 
         # Render the appropriate view content
         if view == "create":
@@ -345,7 +322,7 @@ def create_principles_ui_routes(
             )
         else:  # list (default for principles)
             filtered_result = await principles_service.get_filtered_context(
-                user_uid, filters.category, filters.strength, filters.sort_by
+                user_uid, filters.category, filters.strength, filters.sort_by, filters.status
             )
 
             # Check for errors
@@ -396,10 +373,10 @@ def create_principles_ui_routes(
         user_uid = require_authenticated_user(request)
 
         # Parse filters using helper
-        filters = parse_filters(request)
+        filters = parse_principle_filters(request)
 
         filtered_result = await principles_service.get_filtered_context(
-            user_uid, filters.category, filters.strength, filters.sort_by
+            user_uid, filters.category, filters.strength, filters.sort_by, filters.status
         )
 
         # Handle errors (return banner directly for HTMX swap)
@@ -459,10 +436,10 @@ def create_principles_ui_routes(
         user_uid = require_authenticated_user(request)
 
         # Parse filters using helper
-        filters = parse_filters(request)
+        filters = parse_principle_filters(request)
 
         filtered_result = await principles_service.get_filtered_context(
-            user_uid, filters.category, filters.strength, filters.sort_by
+            user_uid, filters.category, filters.strength, filters.sort_by, filters.status
         )
 
         # Handle errors (return banner directly for HTMX swap)

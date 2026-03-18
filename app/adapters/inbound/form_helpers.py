@@ -15,7 +15,6 @@ from typing import Any, TypeVar
 
 from starlette.datastructures import UploadFile
 
-from core.ports.query_types import ActivityFilterSpec
 
 E = TypeVar("E", bound=Enum)
 
@@ -139,17 +138,52 @@ def parse_datetime_safe(value: str | None) -> datetime | None:
 
 @dataclass
 class ActivityFilters:
-    """Shared filters for Goals, Habits, Events, Choices (2-field domains).
+    """Base filters shared by all 6 Activity Domains.
 
-    Tasks (5 fields) and Principles (3 fields) keep custom Filters.
+    Goals, Habits, Events, Choices use this directly (2-field).
+    Tasks and Principles extend with domain-specific fields.
     """
 
     status: str
     sort_by: str
 
-    def to_dict(self) -> ActivityFilterSpec:
+    def to_dict(self) -> dict[str, str]:
         """Convert to dict for view components."""
         return {"status": self.status, "sort_by": self.sort_by}
+
+
+@dataclass
+class TaskFilters(ActivityFilters):
+    """Tasks add project, assignee, and due date filtering."""
+
+    project: str = ""
+    assignee: str = ""
+    due_filter: str = ""
+
+    def to_dict(self) -> dict[str, str]:
+        """Convert to dict keyed for TasksViewComponents.render_list_view."""
+        return {
+            **super().to_dict(),
+            "project": self.project,
+            "assignee": self.assignee,
+            "due": self.due_filter,
+        }
+
+
+@dataclass
+class PrincipleFilters(ActivityFilters):
+    """Principles add category and strength filtering."""
+
+    category: str = "all"
+    strength: str = "all"
+
+    def to_dict(self) -> dict[str, str]:
+        """Convert to dict keyed for PrinciplesViewComponents.render_list_view."""
+        return {
+            **super().to_dict(),
+            "category": self.category,
+            "strength": self.strength,
+        }
 
 
 def parse_activity_filters(
@@ -161,4 +195,25 @@ def parse_activity_filters(
     return ActivityFilters(
         status=request.query_params.get("filter_status", default_status),
         sort_by=request.query_params.get("sort_by", default_sort_by),
+    )
+
+
+def parse_task_filters(request: Any) -> TaskFilters:
+    """Parse task-specific filter params from request query params."""
+    return TaskFilters(
+        status=request.query_params.get("filter_status", "active"),
+        sort_by=request.query_params.get("sort_by", "due_date"),
+        project=request.query_params.get("filter_project", ""),
+        assignee=request.query_params.get("filter_assignee", ""),
+        due_filter=request.query_params.get("filter_due", ""),
+    )
+
+
+def parse_principle_filters(request: Any) -> PrincipleFilters:
+    """Parse principle-specific filter params from request query params."""
+    return PrincipleFilters(
+        status=request.query_params.get("filter_status", "all"),
+        sort_by=request.query_params.get("sort_by", "strength"),
+        category=request.query_params.get("filter_category", "all"),
+        strength=request.query_params.get("filter_strength", "all"),
     )

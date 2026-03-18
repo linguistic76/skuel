@@ -8,6 +8,10 @@ Tests cover:
 - parse_datetime_safe() — ISO datetime parsing with None fallback
 - ActivityFilters — shared 2-field filter dataclass
 - parse_activity_filters() — request query param extraction
+- TaskFilters — task-specific 5-field filter subclass
+- parse_task_filters() — task filter param extraction
+- PrincipleFilters — principle-specific 4-field filter subclass
+- parse_principle_filters() — principle filter param extraction
 """
 
 from datetime import date, datetime, time
@@ -16,10 +20,14 @@ from unittest.mock import Mock
 
 from adapters.inbound.form_helpers import (
     ActivityFilters,
+    PrincipleFilters,
+    TaskFilters,
     parse_activity_filters,
     parse_date_safe,
     parse_datetime_safe,
     parse_enum_safe,
+    parse_principle_filters,
+    parse_task_filters,
     parse_time_safe,
 )
 
@@ -162,3 +170,150 @@ class TestParseActivityFilters:
         result = parse_activity_filters(request)
         assert result.status == "active"
         assert result.sort_by == "created_at"
+
+
+# ============================================================================
+# TaskFilters
+# ============================================================================
+
+
+class TestTaskFilters:
+    def test_inherits_activity_filters(self):
+        assert issubclass(TaskFilters, ActivityFilters)
+
+    def test_to_dict_includes_all_fields(self):
+        filters = TaskFilters(
+            status="active",
+            sort_by="due_date",
+            project="backend",
+            assignee="mike",
+            due_filter="overdue",
+        )
+        result = filters.to_dict()
+        assert result == {
+            "status": "active",
+            "sort_by": "due_date",
+            "project": "backend",
+            "assignee": "mike",
+            "due": "overdue",
+        }
+
+    def test_defaults(self):
+        filters = TaskFilters(status="active", sort_by="due_date")
+        assert filters.project == ""
+        assert filters.assignee == ""
+        assert filters.due_filter == ""
+
+    def test_to_dict_empty_defaults(self):
+        filters = TaskFilters(status="active", sort_by="due_date")
+        result = filters.to_dict()
+        assert result["project"] == ""
+        assert result["assignee"] == ""
+        assert result["due"] == ""
+
+
+# ============================================================================
+# parse_task_filters
+# ============================================================================
+
+
+class TestParseTaskFilters:
+    def test_all_params(self):
+        request = Mock()
+        request.query_params = {
+            "filter_status": "completed",
+            "sort_by": "title",
+            "filter_project": "api",
+            "filter_assignee": "alice",
+            "filter_due": "this_week",
+        }
+        result = parse_task_filters(request)
+        assert result.status == "completed"
+        assert result.sort_by == "title"
+        assert result.project == "api"
+        assert result.assignee == "alice"
+        assert result.due_filter == "this_week"
+
+    def test_defaults(self):
+        request = Mock()
+        request.query_params = {}
+        result = parse_task_filters(request)
+        assert result.status == "active"
+        assert result.sort_by == "due_date"
+        assert result.project == ""
+        assert result.assignee == ""
+        assert result.due_filter == ""
+
+    def test_returns_task_filters_type(self):
+        request = Mock()
+        request.query_params = {}
+        result = parse_task_filters(request)
+        assert isinstance(result, TaskFilters)
+        assert isinstance(result, ActivityFilters)
+
+
+# ============================================================================
+# PrincipleFilters
+# ============================================================================
+
+
+class TestPrincipleFilters:
+    def test_inherits_activity_filters(self):
+        assert issubclass(PrincipleFilters, ActivityFilters)
+
+    def test_to_dict_includes_all_fields(self):
+        filters = PrincipleFilters(
+            status="active",
+            sort_by="strength",
+            category="spiritual",
+            strength="core",
+        )
+        result = filters.to_dict()
+        assert result == {
+            "status": "active",
+            "sort_by": "strength",
+            "category": "spiritual",
+            "strength": "core",
+        }
+
+    def test_defaults(self):
+        filters = PrincipleFilters(status="all", sort_by="strength")
+        assert filters.category == "all"
+        assert filters.strength == "all"
+
+
+# ============================================================================
+# parse_principle_filters
+# ============================================================================
+
+
+class TestParsePrincipleFilters:
+    def test_all_params(self):
+        request = Mock()
+        request.query_params = {
+            "filter_status": "active",
+            "sort_by": "title",
+            "filter_category": "ethical",
+            "filter_strength": "core",
+        }
+        result = parse_principle_filters(request)
+        assert result.status == "active"
+        assert result.sort_by == "title"
+        assert result.category == "ethical"
+        assert result.strength == "core"
+
+    def test_defaults(self):
+        request = Mock()
+        request.query_params = {}
+        result = parse_principle_filters(request)
+        assert result.status == "all"
+        assert result.sort_by == "strength"
+        assert result.category == "all"
+        assert result.strength == "all"
+
+    def test_returns_principle_filters_type(self):
+        request = Mock()
+        request.query_params = {}
+        result = parse_principle_filters(request)
+        assert isinstance(result, PrincipleFilters)
+        assert isinstance(result, ActivityFilters)

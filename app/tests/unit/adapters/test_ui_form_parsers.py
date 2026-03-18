@@ -4,9 +4,9 @@ Unit tests for UI form parser functions.
 Tests import the actual module-level functions instead of copy-pasting definitions.
 
 Tests cover:
-- parse_filters() in tasks_ui (custom 5-field Filters)
+- parse_task_filters() from form_helpers (TaskFilters subclass)
 - parse_filters() in habits_ui, events_ui, choices_ui, goals_ui (shared ActivityFilters)
-- parse_filters() in principles_ui (custom 3-field Filters)
+- parse_principle_filters() from form_helpers (PrincipleFilters subclass)
 - parse_options_from_form() in choices_ui
 - parse_calendar_params() in ui_helpers
 """
@@ -16,13 +16,13 @@ from unittest.mock import Mock
 
 
 # ============================================================================
-# Tasks — custom 5-field Filters
+# Tasks — TaskFilters subclass (5 fields, from form_helpers)
 # ============================================================================
 
 
 class TestTasksParseFilters:
     def test_all_params(self):
-        from adapters.inbound.tasks_ui import parse_filters
+        from adapters.inbound.form_helpers import parse_task_filters
 
         request = Mock()
         request.query_params = {
@@ -32,37 +32,37 @@ class TestTasksParseFilters:
             "filter_status": "pending",
             "sort_by": "priority",
         }
-        result = parse_filters(request)
+        result = parse_task_filters(request)
         assert result.project == "ProjectX"
         assert result.assignee == "Alice"
         assert result.due_filter == "overdue"
-        assert result.status_filter == "pending"
+        assert result.status == "pending"
         assert result.sort_by == "priority"
 
     def test_defaults(self):
-        from adapters.inbound.tasks_ui import parse_filters
+        from adapters.inbound.form_helpers import parse_task_filters
 
         request = Mock()
         request.query_params = {}
-        result = parse_filters(request)
+        result = parse_task_filters(request)
         assert result.project == ""
         assert result.assignee == ""
         assert result.due_filter == ""
-        assert result.status_filter == "active"
+        assert result.status == "active"
         assert result.sort_by == "due_date"
 
     def test_partial_params(self):
-        from adapters.inbound.tasks_ui import parse_filters
+        from adapters.inbound.form_helpers import parse_task_filters
 
         request = Mock()
         request.query_params = {
             "filter_project": "MyProject",
             "filter_status": "completed",
         }
-        result = parse_filters(request)
+        result = parse_task_filters(request)
         assert result.project == "MyProject"
         assert result.assignee == ""
-        assert result.status_filter == "completed"
+        assert result.status == "completed"
         assert result.sort_by == "due_date"
 
 
@@ -167,33 +167,36 @@ class TestChoicesParseFilters:
 
 
 # ============================================================================
-# Principles — custom 3-field Filters
+# Principles — PrincipleFilters subclass (4 fields, from form_helpers)
 # ============================================================================
 
 
 class TestPrinciplesParseFilters:
     def test_all_params(self):
-        from adapters.inbound.principles_ui import parse_filters
+        from adapters.inbound.form_helpers import parse_principle_filters
 
         request = Mock()
         request.query_params = {
             "filter_category": "health",
             "filter_strength": "core",
+            "filter_status": "active",
             "sort_by": "name",
         }
-        result = parse_filters(request)
+        result = parse_principle_filters(request)
         assert result.category == "health"
         assert result.strength == "core"
+        assert result.status == "active"
         assert result.sort_by == "name"
 
     def test_defaults(self):
-        from adapters.inbound.principles_ui import parse_filters
+        from adapters.inbound.form_helpers import parse_principle_filters
 
         request = Mock()
         request.query_params = {}
-        result = parse_filters(request)
+        result = parse_principle_filters(request)
         assert result.category == "all"
         assert result.strength == "all"
+        assert result.status == "all"
         assert result.sort_by == "strength"
 
 
