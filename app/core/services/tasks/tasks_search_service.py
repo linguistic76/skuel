@@ -393,7 +393,7 @@ class TasksSearchService(BaseService["TasksOperations", Task]):
         # This is an incoming relationship from Task's perspective
         status_filter = "" if include_completed else "AND t.status <> 'completed'"
         query = f"""
-            MATCH (t:Entity)-[:ASSIGNED_TO]->(u:User {{uid: $user_uid}})
+            MATCH (t:Entity)-[:{RelationshipName.ASSIGNED_TO.value}]->(u:User {{uid: $user_uid}})
             WHERE t.uid IS NOT NULL {status_filter}
             RETURN t
             ORDER BY t.created_at DESC

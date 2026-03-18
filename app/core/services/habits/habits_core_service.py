@@ -21,6 +21,7 @@ from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.habit.habit import Habit
 from core.models.habit.habit_dto import HabitDTO
 from core.models.habit.habit_request import HabitCreateRequest
+from core.models.relationship_names import RelationshipName
 from core.ports import get_enum_value
 from core.ports.domain_protocols import HabitsOperations
 from core.services.base_service import BaseService
@@ -404,7 +405,7 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
         """
         query = f"""
         MATCH (parent:Habit {{uid: $parent_uid}})
-        MATCH (parent)-[:HAS_SUBHABIT*1..{depth}]->(subhabit:Habit)
+        MATCH (parent)-[:{RelationshipName.HAS_SUBHABIT.value}*1..{depth}]->(subhabit:Habit)
         RETURN subhabit
         ORDER BY subhabit.created_at
         """
@@ -436,9 +437,9 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
         Returns:
             Result containing parent Habit or None if root-level habit
         """
-        query = """
-        MATCH (subhabit:Habit {uid: $subhabit_uid})
-        MATCH (parent:Habit)-[:HAS_SUBHABIT]->(subhabit)
+        query = f"""
+        MATCH (subhabit:Habit {{uid: $subhabit_uid}})
+        MATCH (parent:Habit)-[:{RelationshipName.HAS_SUBHABIT.value}]->(subhabit)
         RETURN parent
         LIMIT 1
         """
@@ -481,25 +482,25 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
             # }
         """
         # Get ancestors
-        ancestors_query = """
-        MATCH path = (root:Habit)-[:HAS_SUBHABIT*]->(current:Habit {uid: $habit_uid})
-        WHERE NOT EXISTS((root)<-[:HAS_SUBHABIT]-())
+        ancestors_query = f"""
+        MATCH path = (root:Habit)-[:{RelationshipName.HAS_SUBHABIT.value}*]->(current:Habit {{uid: $habit_uid}})
+        WHERE NOT EXISTS((root)<-[:{RelationshipName.HAS_SUBHABIT.value}]-())
         RETURN nodes(path) as ancestors
         """
 
         # Get siblings
-        siblings_query = """
-        MATCH (current:Habit {uid: $habit_uid})
-        OPTIONAL MATCH (parent:Habit)-[:HAS_SUBHABIT]->(current)
-        OPTIONAL MATCH (parent)-[:HAS_SUBHABIT]->(sibling:Habit)
+        siblings_query = f"""
+        MATCH (current:Habit {{uid: $habit_uid}})
+        OPTIONAL MATCH (parent:Habit)-[:{RelationshipName.HAS_SUBHABIT.value}]->(current)
+        OPTIONAL MATCH (parent)-[:{RelationshipName.HAS_SUBHABIT.value}]->(sibling:Habit)
         WHERE sibling.uid <> $habit_uid
         RETURN collect(sibling) as siblings
         """
 
         # Get children
-        children_query = """
-        MATCH (current:Habit {uid: $habit_uid})
-        OPTIONAL MATCH (current)-[:HAS_SUBHABIT]->(child:Habit)
+        children_query = f"""
+        MATCH (current:Habit {{uid: $habit_uid}})
+        OPTIONAL MATCH (current)-[:{RelationshipName.HAS_SUBHABIT.value}]->(child:Habit)
         RETURN collect(child) as children
         """
 
@@ -590,18 +591,18 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
                 )
             )
 
-        query = """
-        MATCH (parent:Habit {uid: $parent_uid})
-        MATCH (subhabit:Habit {uid: $subhabit_uid})
+        query = f"""
+        MATCH (parent:Habit {{uid: $parent_uid}})
+        MATCH (subhabit:Habit {{uid: $subhabit_uid}})
 
-        CREATE (parent)-[:HAS_SUBHABIT {
+        CREATE (parent)-[:{RelationshipName.HAS_SUBHABIT.value} {{
             progress_weight: $weight,
             created_at: datetime()
-        }]->(subhabit)
+        }}]->(subhabit)
 
-        CREATE (subhabit)-[:SUBHABIT_OF {
+        CREATE (subhabit)-[:{RelationshipName.SUBHABIT_OF.value} {{
             created_at: datetime()
-        }]->(parent)
+        }}]->(parent)
 
         RETURN true as success
         """
@@ -641,9 +642,9 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
         Returns:
             Result containing True if relationships were deleted
         """
-        query = """
-        MATCH (parent:Habit {uid: $parent_uid})-[r1:HAS_SUBHABIT]->(subhabit:Habit {uid: $subhabit_uid})
-        MATCH (subhabit)-[r2:SUBHABIT_OF]->(parent)
+        query = f"""
+        MATCH (parent:Habit {{uid: $parent_uid}})-[r1:{RelationshipName.HAS_SUBHABIT.value}]->(subhabit:Habit {{uid: $subhabit_uid}})
+        MATCH (subhabit)-[r2:{RelationshipName.SUBHABIT_OF.value}]->(parent)
         DELETE r1, r2
         RETURN count(r1) + count(r2) as deleted_count
         """
@@ -662,9 +663,9 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
 
     async def _would_create_cycle(self, parent_uid: str, child_uid: str) -> bool:
         """Check if adding parent->child relationship would create a cycle."""
-        query = """
-        MATCH (child:Habit {uid: $child_uid})
-        MATCH path = (child)-[:HAS_SUBHABIT*]->(parent:Habit {uid: $parent_uid})
+        query = f"""
+        MATCH (child:Habit {{uid: $child_uid}})
+        MATCH path = (child)-[:{RelationshipName.HAS_SUBHABIT.value}*]->(parent:Habit {{uid: $parent_uid}})
         RETURN count(path) > 0 as would_create_cycle
         """
 

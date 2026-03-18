@@ -28,6 +28,7 @@ if TYPE_CHECKING:
 
 from core.events import TaskCompleted, publish_event
 from core.models.enums import Domain, EntityStatus, Priority
+from core.models.relationship_names import RelationshipName
 from core.models.task.task import Task
 from core.models.task.task_dto import TaskDTO
 from core.services.base_service import BaseService
@@ -343,8 +344,6 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
             self.logger.debug(f"Task {task_uid} found in rich context (no Neo4j query needed)")
 
         # CONTEXT-FIRST: Try to get relationships from rich context
-        from core.models.relationship_names import RelationshipName
-
         rels = self._get_relationships_from_rich_context(task_uid, user_context)
         if rels is not None:
             applies_knowledge_uids = rels.applies_knowledge_uids
@@ -480,8 +479,6 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
             Result indicating success
         """
         # Create relationship: (User)-[:COMPLETED_TASK]->(Task)
-        from core.models.relationship_names import RelationshipName
-
         result = await self.backend.add_relationship(
             from_uid=user_uid,
             to_uid=task_uid,
@@ -551,8 +548,6 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
             return Result.fail(task_result.expect_error())
 
         # GRAPH-NATIVE: Fetch prerequisite relationships from graph
-        from core.models.relationship_names import RelationshipName
-
         prereq_knowledge_result = await self.backend.get_related_uids(
             task_uid, RelationshipName.REQUIRES_KNOWLEDGE, direction="outgoing"
         )
@@ -655,8 +650,6 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
             Result indicating success
         """
         # Create relationship: (Task)-[:ASSIGNED_TO]->(User)
-        from core.models.relationship_names import RelationshipName
-
         properties: dict[str, Any] = {"assigned_at": datetime.now().isoformat()}
         if assigned_by:
             properties["assigned_by"] = assigned_by

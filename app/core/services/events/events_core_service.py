@@ -31,6 +31,7 @@ from core.models.enums import EntityStatus
 from core.models.enums.entity_enums import EntityType
 from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
+from core.models.relationship_names import RelationshipName
 from core.ports import get_enum_value
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
@@ -492,7 +493,7 @@ class EventsCoreService(BaseService["EventsOperations", Event]):
         """
         query = f"""
         MATCH (parent:Entity {{uid: $parent_uid}})
-        MATCH (parent)-[:HAS_SUBEVENT*1..{depth}]->(subevent:Entity)
+        MATCH (parent)-[:{RelationshipName.HAS_SUBEVENT.value}*1..{depth}]->(subevent:Entity)
         RETURN subevent
         ORDER BY subevent.created_at
         """
@@ -524,9 +525,9 @@ class EventsCoreService(BaseService["EventsOperations", Event]):
         Returns:
             Result containing parent Ku or None if root-level event
         """
-        query = """
-        MATCH (subevent:Entity {uid: $subevent_uid})
-        MATCH (parent:Entity)-[:HAS_SUBEVENT]->(subevent)
+        query = f"""
+        MATCH (subevent:Entity {{uid: $subevent_uid}})
+        MATCH (parent:Entity)-[:{RelationshipName.HAS_SUBEVENT.value}]->(subevent)
         RETURN parent
         LIMIT 1
         """
@@ -569,25 +570,25 @@ class EventsCoreService(BaseService["EventsOperations", Event]):
             # }
         """
         # Get ancestors
-        ancestors_query = """
-        MATCH path = (root:Entity)-[:HAS_SUBEVENT*]->(current:Entity {uid: $event_uid})
-        WHERE NOT EXISTS((root)<-[:HAS_SUBEVENT]-())
+        ancestors_query = f"""
+        MATCH path = (root:Entity)-[:{RelationshipName.HAS_SUBEVENT.value}*]->(current:Entity {{uid: $event_uid}})
+        WHERE NOT EXISTS((root)<-[:{RelationshipName.HAS_SUBEVENT.value}]-())
         RETURN nodes(path) as ancestors
         """
 
         # Get siblings
-        siblings_query = """
-        MATCH (current:Entity {uid: $event_uid})
-        OPTIONAL MATCH (parent:Entity)-[:HAS_SUBEVENT]->(current)
-        OPTIONAL MATCH (parent)-[:HAS_SUBEVENT]->(sibling:Entity)
+        siblings_query = f"""
+        MATCH (current:Entity {{uid: $event_uid}})
+        OPTIONAL MATCH (parent:Entity)-[:{RelationshipName.HAS_SUBEVENT.value}]->(current)
+        OPTIONAL MATCH (parent)-[:{RelationshipName.HAS_SUBEVENT.value}]->(sibling:Entity)
         WHERE sibling.uid <> $event_uid
         RETURN collect(sibling) as siblings
         """
 
         # Get children
-        children_query = """
-        MATCH (current:Entity {uid: $event_uid})
-        OPTIONAL MATCH (current)-[:HAS_SUBEVENT]->(child:Entity)
+        children_query = f"""
+        MATCH (current:Entity {{uid: $event_uid}})
+        OPTIONAL MATCH (current)-[:{RelationshipName.HAS_SUBEVENT.value}]->(child:Entity)
         RETURN collect(child) as children
         """
 
@@ -695,12 +696,12 @@ class EventsCoreService(BaseService["EventsOperations", Event]):
         MATCH (parent:Entity {{uid: $parent_uid}})
         MATCH (subevent:Entity {{uid: $subevent_uid}})
 
-        CREATE (parent)-[:HAS_SUBEVENT {{
+        CREATE (parent)-[:{RelationshipName.HAS_SUBEVENT.value} {{
             {prop_assignments},
             created_at: datetime()
         }}]->(subevent)
 
-        CREATE (subevent)-[:SUBEVENT_OF {{
+        CREATE (subevent)-[:{RelationshipName.SUBEVENT_OF.value} {{
             created_at: datetime()
         }}]->(parent)
 
@@ -740,9 +741,9 @@ class EventsCoreService(BaseService["EventsOperations", Event]):
         Returns:
             Result containing True if relationships were deleted
         """
-        query = """
-        MATCH (parent:Entity {uid: $parent_uid})-[r1:HAS_SUBEVENT]->(subevent:Entity {uid: $subevent_uid})
-        MATCH (subevent)-[r2:SUBEVENT_OF]->(parent)
+        query = f"""
+        MATCH (parent:Entity {{uid: $parent_uid}})-[r1:{RelationshipName.HAS_SUBEVENT.value}]->(subevent:Entity {{uid: $subevent_uid}})
+        MATCH (subevent)-[r2:{RelationshipName.SUBEVENT_OF.value}]->(parent)
         DELETE r1, r2
         RETURN count(r1) + count(r2) as deleted_count
         """
@@ -761,9 +762,9 @@ class EventsCoreService(BaseService["EventsOperations", Event]):
 
     async def _would_create_cycle(self, parent_uid: str, child_uid: str) -> bool:
         """Check if adding parent->child relationship would create a cycle."""
-        query = """
-        MATCH (child:Entity {uid: $child_uid})
-        MATCH path = (child)-[:HAS_SUBEVENT*]->(parent:Entity {uid: $parent_uid})
+        query = f"""
+        MATCH (child:Entity {{uid: $child_uid}})
+        MATCH path = (child)-[:{RelationshipName.HAS_SUBEVENT.value}*]->(parent:Entity {{uid: $parent_uid}})
         RETURN count(path) > 0 as would_create_cycle
         """
 

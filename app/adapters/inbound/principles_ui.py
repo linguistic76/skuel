@@ -22,7 +22,7 @@ __version__ = "2.0"
 
 from typing import Any, cast
 
-from fasthtml.common import H1, H2, H3, Div, P
+from fasthtml.common import H1, H3, Div, P
 from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user

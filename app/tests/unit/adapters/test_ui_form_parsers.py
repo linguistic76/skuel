@@ -14,7 +14,6 @@ Tests cover:
 from datetime import date
 from unittest.mock import Mock
 
-
 # ============================================================================
 # Tasks — TaskFilters subclass (5 fields, from form_helpers)
 # ============================================================================

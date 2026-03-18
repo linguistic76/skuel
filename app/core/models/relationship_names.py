@@ -134,6 +134,12 @@ class RelationshipName(StrEnum):
     HAS_SUBHABIT = "HAS_SUBHABIT"  # (parent)-[:HAS_SUBHABIT {progress_weight, order}]->(child)
     SUBHABIT_OF = "SUBHABIT_OF"  # (child)-[:SUBHABIT_OF]->(parent) - Habit routines with sub-steps
 
+    # Achievement tracking
+    UNLOCKED_ACHIEVEMENT = "UNLOCKED_ACHIEVEMENT"  # (habit)-[:UNLOCKED_ACHIEVEMENT]->(badge)
+    EARNED_BADGE = (
+        "EARNED_BADGE"  # (user)-[:EARNED_BADGE {earned_at, streak_length, habit_uid}]->(badge)
+    )
+
     # Habit Prerequisites & Dependencies
     REQUIRES_PREREQUISITE_HABIT = "REQUIRES_PREREQUISITE_HABIT"
     ENABLES_HABIT = "ENABLES_HABIT"
@@ -147,6 +153,10 @@ class RelationshipName(StrEnum):
     EMBODIES_PRINCIPLE = "EMBODIES_PRINCIPLE"
     PRACTICED_AT_EVENT = "PRACTICED_AT_EVENT"
 
+    # Parent-Child Composition
+    HAS_SUBEVENT = "HAS_SUBEVENT"  # (parent)-[:HAS_SUBEVENT {order}]->(child)
+    SUBEVENT_OF = "SUBEVENT_OF"  # (child)-[:SUBEVENT_OF]->(parent)
+
     # =========================================================================
     # EVENT RELATIONSHIPS
     # Event conflicts, execution, and practice
@@ -154,6 +164,12 @@ class RelationshipName(StrEnum):
     CONFLICTS_WITH = "CONFLICTS_WITH"
     FUNDS_EVENT = "FUNDS_EVENT"
     ATTENDS = "ATTENDS"
+
+    # Parent-Child Composition
+    HAS_SUBPRINCIPLE = (
+        "HAS_SUBPRINCIPLE"  # (parent)-[:HAS_SUBPRINCIPLE {order, importance}]->(child)
+    )
+    SUBPRINCIPLE_OF = "SUBPRINCIPLE_OF"  # (child)-[:SUBPRINCIPLE_OF]->(parent)
 
     # =========================================================================
     # PRINCIPLE RELATIONSHIPS
@@ -177,6 +193,10 @@ class RelationshipName(StrEnum):
     REVEALS_CONFLICT = "REVEALS_CONFLICT"  # (reflection)-[:REVEALS_CONFLICT]->(principle)
     MADE_REFLECTION = "MADE_REFLECTION"  # (user)-[:MADE_REFLECTION]->(reflection)
     HAS_REFLECTION = "HAS_REFLECTION"  # (principle)-[:HAS_REFLECTION]->(reflection)
+
+    # Parent-Child Composition
+    HAS_SUBCHOICE = "HAS_SUBCHOICE"  # (parent)-[:HAS_SUBCHOICE {order}]->(child)
+    SUBCHOICE_OF = "SUBCHOICE_OF"  # (child)-[:SUBCHOICE_OF]->(parent)
 
     # =========================================================================
     # CHOICE RELATIONSHIPS
@@ -503,6 +523,12 @@ class RelationshipName(StrEnum):
             self.SUBGOAL_OF,
             self.HAS_SUBHABIT,
             self.SUBHABIT_OF,
+            self.HAS_SUBPRINCIPLE,
+            self.SUBPRINCIPLE_OF,
+            self.HAS_SUBCHOICE,
+            self.SUBCHOICE_OF,
+            self.HAS_SUBEVENT,
+            self.SUBEVENT_OF,
         }
         return self in parent_child_types
 

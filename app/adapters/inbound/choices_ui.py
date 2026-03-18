@@ -45,7 +45,6 @@ from core.models.enums import Priority as PriorityEnum
 from core.models.enums.choice_enums import ChoiceType
 from core.ports.query_types import ActivityFilterSpec
 from core.services.choices_service import ChoicesService
-
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 from core.utils.type_converters import get_enum_attr_str

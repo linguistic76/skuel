@@ -5,7 +5,6 @@ Invoice UI Views
 UI components for the Invoice section of the Finance Hub.
 """
 
-from typing import Any
 
 from fasthtml.common import (
     H2,

@@ -308,8 +308,8 @@ class PrinciplesReflectionService:
         Returns:
             Result containing list of reflections, ordered by date descending
         """
-        query = """
-        MATCH (r:PrincipleReflection)-[:REFLECTS_ON]->(p:Principle {uid: $principle_uid})
+        query = f"""
+        MATCH (r:PrincipleReflection)-[:{RelationshipName.REFLECTS_ON.value}]->(p:Principle {{uid: $principle_uid}})
         WHERE r.user_uid = $user_uid
         RETURN r
         ORDER BY r.reflection_date DESC, r.created_at DESC
@@ -409,8 +409,8 @@ class PrinciplesReflectionService:
         period_end = date.today()
 
         # Get reflections in period
-        query = """
-        MATCH (r:PrincipleReflection)-[:REFLECTS_ON]->(p:Principle {uid: $principle_uid})
+        query = f"""
+        MATCH (r:PrincipleReflection)-[:{RelationshipName.REFLECTS_ON.value}]->(p:Principle {{uid: $principle_uid}})
         WHERE r.user_uid = $user_uid
           AND r.reflection_date >= date($period_start)
           AND r.reflection_date <= date($period_end)
@@ -525,8 +525,8 @@ class PrinciplesReflectionService:
         Returns:
             Result containing insights by trigger type
         """
-        query = """
-        MATCH (r:PrincipleReflection)-[:REFLECTS_ON]->(p:Principle {uid: $principle_uid})
+        query = f"""
+        MATCH (r:PrincipleReflection)-[:{RelationshipName.REFLECTS_ON.value}]->(p:Principle {{uid: $principle_uid}})
         WHERE r.user_uid = $user_uid
           AND r.trigger_type IS NOT NULL
         WITH r.trigger_type as trigger_type,
@@ -665,10 +665,10 @@ class PrinciplesReflectionService:
             - most_frequent_conflict: UID of most frequent conflicting principle
             - conflict_contexts: Common situations where conflicts arise
         """
-        query = """
-        MATCH (r:PrincipleReflection)-[:REFLECTS_ON]->(p:Principle {uid: $principle_uid})
+        query = f"""
+        MATCH (r:PrincipleReflection)-[:{RelationshipName.REFLECTS_ON.value}]->(p:Principle {{uid: $principle_uid}})
         WHERE r.user_uid = $user_uid
-        OPTIONAL MATCH (r)-[:REVEALS_CONFLICT]->(cp:Principle)
+        OPTIONAL MATCH (r)-[:{RelationshipName.REVEALS_CONFLICT.value}]->(cp:Principle)
         WITH r, cp
         WHERE cp IS NOT NULL
         RETURN cp.uid as conflict_uid,

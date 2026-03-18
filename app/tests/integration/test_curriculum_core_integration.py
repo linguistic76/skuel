@@ -19,14 +19,15 @@ from collections.abc import Generator
 import pytest
 import pytest_asyncio
 
-# Backend
-from core.models.enums.neo_labels import NeoLabel
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 
 # Domain models - use domain-specific types
 from core.models.curriculum import Curriculum
 from core.models.enums import Domain, LearningLevel, SELCategory
+
+# Backend
+from core.models.enums.neo_labels import NeoLabel
 from core.models.pathways.learning_path import LearningPath
 from core.models.pathways.learning_step import LearningStep
 

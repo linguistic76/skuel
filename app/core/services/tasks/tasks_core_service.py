@@ -573,7 +573,7 @@ class TasksCoreService(BaseService["TasksOperations", Task]):
         """
         query = f"""
         MATCH (parent:Entity {{uid: $parent_uid}})
-        MATCH (parent)-[:HAS_SUBTASK*1..{depth}]->(subtask:Entity)
+        MATCH (parent)-[:{RelationshipName.HAS_SUBTASK.value}*1..{depth}]->(subtask:Entity)
         RETURN subtask
         ORDER BY subtask.created_at
         """
@@ -605,9 +605,9 @@ class TasksCoreService(BaseService["TasksOperations", Task]):
         Returns:
             Result containing parent Task or None if root-level task
         """
-        query = """
-        MATCH (subtask:Entity {uid: $subtask_uid})
-        MATCH (parent:Entity)-[:HAS_SUBTASK]->(subtask)
+        query = f"""
+        MATCH (subtask:Entity {{uid: $subtask_uid}})
+        MATCH (parent:Entity)-[:{RelationshipName.HAS_SUBTASK.value}]->(subtask)
         RETURN parent
         LIMIT 1
         """
@@ -650,25 +650,25 @@ class TasksCoreService(BaseService["TasksOperations", Task]):
             # }
         """
         # Get ancestors
-        ancestors_query = """
-        MATCH path = (root:Entity)-[:HAS_SUBTASK*]->(current:Entity {uid: $task_uid})
-        WHERE NOT EXISTS((root)<-[:HAS_SUBTASK]-())
+        ancestors_query = f"""
+        MATCH path = (root:Entity)-[:{RelationshipName.HAS_SUBTASK.value}*]->(current:Entity {{uid: $task_uid}})
+        WHERE NOT EXISTS((root)<-[:{RelationshipName.HAS_SUBTASK.value}]-())
         RETURN nodes(path) as ancestors
         """
 
         # Get siblings
-        siblings_query = """
-        MATCH (current:Entity {uid: $task_uid})
-        OPTIONAL MATCH (parent:Entity)-[:HAS_SUBTASK]->(current)
-        OPTIONAL MATCH (parent)-[:HAS_SUBTASK]->(sibling:Entity)
+        siblings_query = f"""
+        MATCH (current:Entity {{uid: $task_uid}})
+        OPTIONAL MATCH (parent:Entity)-[:{RelationshipName.HAS_SUBTASK.value}]->(current)
+        OPTIONAL MATCH (parent)-[:{RelationshipName.HAS_SUBTASK.value}]->(sibling:Entity)
         WHERE sibling.uid <> $task_uid
         RETURN collect(sibling) as siblings
         """
 
         # Get children
-        children_query = """
-        MATCH (current:Entity {uid: $task_uid})
-        OPTIONAL MATCH (current)-[:HAS_SUBTASK]->(child:Entity)
+        children_query = f"""
+        MATCH (current:Entity {{uid: $task_uid}})
+        OPTIONAL MATCH (current)-[:{RelationshipName.HAS_SUBTASK.value}]->(child:Entity)
         RETURN collect(child) as children
         """
 
@@ -756,18 +756,18 @@ class TasksCoreService(BaseService["TasksOperations", Task]):
                 )
             )
 
-        query = """
-        MATCH (parent:Entity {uid: $parent_uid})
-        MATCH (subtask:Entity {uid: $subtask_uid})
+        query = f"""
+        MATCH (parent:Entity {{uid: $parent_uid}})
+        MATCH (subtask:Entity {{uid: $subtask_uid}})
 
-        CREATE (parent)-[:HAS_SUBTASK {
+        CREATE (parent)-[:{RelationshipName.HAS_SUBTASK.value} {{
             progress_weight: $weight,
             created_at: datetime()
-        }]->(subtask)
+        }}]->(subtask)
 
-        CREATE (subtask)-[:SUBTASK_OF {
+        CREATE (subtask)-[:{RelationshipName.SUBTASK_OF.value} {{
             created_at: datetime()
-        }]->(parent)
+        }}]->(parent)
 
         RETURN true as success
         """
@@ -792,9 +792,9 @@ class TasksCoreService(BaseService["TasksOperations", Task]):
 
     async def _would_create_cycle(self, parent_uid: str, child_uid: str) -> bool:
         """Check if adding parent->child relationship would create a cycle."""
-        query = """
-        MATCH (child:Entity {uid: $child_uid})
-        MATCH path = (child)-[:HAS_SUBTASK*]->(parent:Entity {uid: $parent_uid})
+        query = f"""
+        MATCH (child:Entity {{uid: $child_uid}})
+        MATCH path = (child)-[:{RelationshipName.HAS_SUBTASK.value}*]->(parent:Entity {{uid: $parent_uid}})
         RETURN count(path) > 0 as would_create_cycle
         """
 
@@ -879,12 +879,12 @@ class TasksCoreService(BaseService["TasksOperations", Task]):
         """
         auto_completed_uids = []
 
-        query = """
-        MATCH (completed:Entity {uid: $task_uid})
-        MATCH (parent:Entity)-[:HAS_SUBTASK]->(completed)
+        query = f"""
+        MATCH (completed:Entity {{uid: $task_uid}})
+        MATCH (parent:Entity)-[:{RelationshipName.HAS_SUBTASK.value}]->(completed)
 
         // Get all subtasks of this parent
-        MATCH (parent)-[:HAS_SUBTASK]->(sibling:Entity)
+        MATCH (parent)-[:{RelationshipName.HAS_SUBTASK.value}]->(sibling:Entity)
 
         // Check if all siblings are complete
         WITH parent,
@@ -947,9 +947,9 @@ class TasksCoreService(BaseService["TasksOperations", Task]):
             #   "completed_subtasks": 2
             # }
         """
-        query = """
-        MATCH (parent:Entity {uid: $parent_uid})
-        MATCH (parent)-[r:HAS_SUBTASK]->(child:Entity)
+        query = f"""
+        MATCH (parent:Entity {{uid: $parent_uid}})
+        MATCH (parent)-[r:{RelationshipName.HAS_SUBTASK.value}]->(child:Entity)
 
         WITH parent,
              count(child) as total_subtasks,

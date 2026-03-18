@@ -149,8 +149,8 @@ class HabitSearchService(BaseService[HabitsOperations, Habit]):
             Result containing habits sorted by priority/relevance
         """
         # Use Cypher to filter active habits at database level
-        query = """
-        MATCH (u:User {uid: $user_uid})-[:OWNS]->(h:Habit)
+        query = f"""
+        MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(h:Habit)
         WHERE NOT h.status IN $terminal_statuses
         RETURN h
         ORDER BY

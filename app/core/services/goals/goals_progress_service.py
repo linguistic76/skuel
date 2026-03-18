@@ -22,6 +22,7 @@ from core.models.enums.goal_enums import MeasurementType
 from core.models.goal.goal import Goal
 from core.models.goal.goal_dto import GoalDTO
 from core.models.graph_context import GraphContext
+from core.models.relationship_names import RelationshipName
 from core.ports.domain_protocols import GoalsOperations
 from core.ports.query_types import GoalUpdatePayload
 from core.services.base_service import BaseService
@@ -1014,8 +1015,8 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
                 f"Querying for goals linked to task {event.task_uid}, user {event.user_uid}"
             )
 
-            query = """
-            MATCH (goal:Entity {entity_type: 'goal'})-[:SUPPORTS_GOAL]->(task:Entity {uid: $task_uid, entity_type: 'task'})
+            query = f"""
+            MATCH (goal:Entity {{entity_type: 'goal'}})-[:{RelationshipName.SUPPORTS_GOAL.value}]->(task:Entity {{uid: $task_uid, entity_type: 'task'}})
             WHERE goal.user_uid = $user_uid
             RETURN goal.uid as goal_uid
             """
@@ -1080,11 +1081,11 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             return
 
         # Query all tasks linked to this goal and count completed
-        query = """
-        MATCH (goal:Entity {uid: $goal_uid, entity_type: 'goal'})-[:SUPPORTS_GOAL]->(task:Entity {entity_type: 'task'})
+        query = f"""
+        MATCH (goal:Entity {{uid: $goal_uid, entity_type: 'goal'}})-[:{RelationshipName.SUPPORTS_GOAL.value}]->(task:Entity {{entity_type: 'task'}})
         WHERE task.user_uid = $user_uid
         WITH count(task) as total_tasks
-        MATCH (goal:Entity {uid: $goal_uid, entity_type: 'goal'})-[:SUPPORTS_GOAL]->(completed:Entity {entity_type: 'task'})
+        MATCH (goal:Entity {{uid: $goal_uid, entity_type: 'goal'}})-[:{RelationshipName.SUPPORTS_GOAL.value}]->(completed:Entity {{entity_type: 'task'}})
         WHERE completed.user_uid = $user_uid
           AND completed.status = 'completed'
         RETURN total_tasks, count(completed) as completed_tasks
@@ -1196,8 +1197,8 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
                 f"Querying for goals linked to habit {event.habit_uid}, user {event.user_uid}"
             )
 
-            query = """
-            MATCH (goal:Entity {entity_type: 'goal'})-[:SUPPORTS_GOAL]->(habit:Entity {uid: $habit_uid, entity_type: 'habit'})
+            query = f"""
+            MATCH (goal:Entity {{entity_type: 'goal'}})-[:{RelationshipName.SUPPORTS_GOAL.value}]->(habit:Entity {{uid: $habit_uid, entity_type: 'habit'}})
             WHERE goal.user_uid = $user_uid
             RETURN goal.uid as goal_uid
             """
@@ -1269,11 +1270,11 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             return
 
         # Query all habits linked to this goal and their average streak
-        query = """
-        MATCH (goal:Entity {uid: $goal_uid, entity_type: 'goal'})-[:SUPPORTS_GOAL]->(habit:Entity {entity_type: 'habit'})
+        query = f"""
+        MATCH (goal:Entity {{uid: $goal_uid, entity_type: 'goal'}})-[:{RelationshipName.SUPPORTS_GOAL.value}]->(habit:Entity {{entity_type: 'habit'}})
         WHERE habit.user_uid = $user_uid
         WITH count(habit) as total_habits
-        MATCH (goal:Entity {uid: $goal_uid, entity_type: 'goal'})-[:SUPPORTS_GOAL]->(habit:Entity {entity_type: 'habit'})
+        MATCH (goal:Entity {{uid: $goal_uid, entity_type: 'goal'}})-[:{RelationshipName.SUPPORTS_GOAL.value}]->(habit:Entity {{entity_type: 'habit'}})
         WHERE habit.user_uid = $user_uid
         RETURN total_habits, avg(COALESCE(habit.current_streak, 0)) as avg_streak
         """

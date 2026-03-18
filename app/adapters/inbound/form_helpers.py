@@ -15,7 +15,6 @@ from typing import Any, TypeVar
 
 from starlette.datastructures import UploadFile
 
-
 E = TypeVar("E", bound=Enum)
 
 

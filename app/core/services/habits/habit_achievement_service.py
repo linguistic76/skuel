@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 from core.events import publish_event
 from core.events.habit_events import HabitStreakMilestone
+from core.models.relationship_names import RelationshipName
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
@@ -182,8 +183,8 @@ class HabitAchievementService:
         Returns:
             True if badge already earned, False otherwise
         """
-        query = """
-        MATCH (user:User {uid: $user_uid})-[r:EARNED_BADGE]->(badge:Achievement {badge_id: $badge_id})
+        query = f"""
+        MATCH (user:User {{uid: $user_uid}})-[r:{RelationshipName.EARNED_BADGE.value}]->(badge:Achievement {{badge_id: $badge_id}})
         WHERE r.habit_uid = $habit_uid
         RETURN count(r) > 0 as already_earned
         """
@@ -226,9 +227,9 @@ class HabitAchievementService:
         Returns:
             Result[bool] indicating success/failure
         """
-        query = """
+        query = f"""
         // Get or create achievement badge
-        MERGE (badge:Achievement {badge_id: $badge_id})
+        MERGE (badge:Achievement {{badge_id: $badge_id}})
         ON CREATE SET
             badge.name = $badge_name,
             badge.description = $badge_description,
@@ -237,18 +238,18 @@ class HabitAchievementService:
 
         // Get user and habit
         WITH badge
-        MATCH (user:User {uid: $user_uid})
-        MATCH (habit:Habit {uid: $habit_uid})
+        MATCH (user:User {{uid: $user_uid}})
+        MATCH (habit:Habit {{uid: $habit_uid}})
 
         // Create EARNED_BADGE relationship
-        CREATE (user)-[r:EARNED_BADGE {
+        CREATE (user)-[r:{RelationshipName.EARNED_BADGE.value} {{
             earned_at: datetime($occurred_at),
             streak_length: $streak_length,
             habit_uid: $habit_uid
-        }]->(badge)
+        }}]->(badge)
 
         // Also link achievement to the habit for context
-        MERGE (habit)-[:UNLOCKED_ACHIEVEMENT]->(badge)
+        MERGE (habit)-[:{RelationshipName.UNLOCKED_ACHIEVEMENT.value}]->(badge)
 
         RETURN badge.badge_id as badge_id
         """
@@ -285,8 +286,8 @@ class HabitAchievementService:
         Returns:
             Result containing list of badge dicts with details
         """
-        query = """
-        MATCH (user:User {uid: $user_uid})-[r:EARNED_BADGE]->(badge:Achievement)
+        query = f"""
+        MATCH (user:User {{uid: $user_uid}})-[r:{RelationshipName.EARNED_BADGE.value}]->(badge:Achievement)
         RETURN badge.badge_id as badge_id,
                badge.name as badge_name,
                badge.description as description,
@@ -327,8 +328,8 @@ class HabitAchievementService:
         Returns:
             Result containing list of badge dicts
         """
-        query = """
-        MATCH (habit:Habit {uid: $habit_uid})-[:UNLOCKED_ACHIEVEMENT]->(badge:Achievement)
+        query = f"""
+        MATCH (habit:Habit {{uid: $habit_uid}})-[:{RelationshipName.UNLOCKED_ACHIEVEMENT.value}]->(badge:Achievement)
         RETURN badge.badge_id as badge_id,
                badge.name as badge_name,
                badge.description as description,

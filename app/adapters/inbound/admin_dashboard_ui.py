@@ -30,7 +30,6 @@ from fasthtml.common import H1, H2, H3, A, Div, P, Span
 from adapters.inbound.auth import make_service_getter, require_admin
 from core.utils.logging import get_logger
 from ui.admin.layout import create_admin_page
-from ui.patterns.error_banner import render_error_banner
 from ui.admin.types import UserCardData
 from ui.admin.views import (
     AdminAnalyticsComponents,
@@ -41,6 +40,7 @@ from ui.admin.views import (
 from ui.buttons import Button, ButtonLink, ButtonT
 from ui.cards import Card
 from ui.layout import Size
+from ui.patterns.error_banner import render_error_banner
 
 logger = get_logger("skuel.routes.admin.ui")
 

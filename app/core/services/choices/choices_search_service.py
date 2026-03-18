@@ -370,8 +370,8 @@ class ChoicesSearchService(BaseService["ChoicesOperations", Choice]):
             Result containing aligned choices
         """
         # Query for choices aligned with principle
-        cypher_query = """
-        MATCH (c:Entity {entity_type: 'choice'})-[r:ALIGNED_WITH_PRINCIPLE]->(p:Entity {uid: $principle_uid, entity_type: 'principle'})
+        cypher_query = f"""
+        MATCH (c:Entity {{entity_type: 'choice'}})-[r:{RelationshipName.ALIGNED_WITH_PRINCIPLE.value}]->(p:Entity {{uid: $principle_uid, entity_type: 'principle'}})
         WHERE r.confidence >= $min_confidence
         RETURN c
         ORDER BY r.confidence DESC

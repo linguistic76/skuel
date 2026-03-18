@@ -21,6 +21,7 @@ from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.principle_enums import PrincipleCategory, PrincipleStrength
 from core.models.principle.principle import Principle
 from core.models.principle.principle_dto import PrincipleDTO
+from core.models.relationship_names import RelationshipName
 from core.ports.domain_protocols import PrinciplesOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
@@ -403,8 +404,6 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
             Result containing list of Principles guiding this goal
         """
         # Query graph for principles guiding this goal
-        from core.models.relationship_names import RelationshipName
-
         uids_result = await self.backend.get_related_uids(
             uid=goal_uid,
             relationship_type=RelationshipName.GUIDED_BY_PRINCIPLE,
@@ -447,8 +446,6 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
             Result containing list of Principles aligned with this habit
         """
         # Query graph for principles aligned with this habit
-        from core.models.relationship_names import RelationshipName
-
         uids_result = await self.backend.get_related_uids(
             uid=habit_uid,
             relationship_type=RelationshipName.ALIGNED_WITH_PRINCIPLE,
@@ -630,7 +627,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
         """
         query = f"""
         MATCH (parent:Principle {{uid: $parent_uid}})
-        MATCH (parent)-[:HAS_SUBPRINCIPLE*1..{depth}]->(subprinciple:Principle)
+        MATCH (parent)-[:{RelationshipName.HAS_SUBPRINCIPLE.value}*1..{depth}]->(subprinciple:Principle)
         RETURN subprinciple
         ORDER BY subprinciple.created_at
         """
@@ -664,9 +661,9 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
         Returns:
             Result containing parent Principle or None if root-level principle
         """
-        query = """
-        MATCH (subprinciple:Principle {uid: $subprinciple_uid})
-        MATCH (parent:Principle)-[:HAS_SUBPRINCIPLE]->(subprinciple)
+        query = f"""
+        MATCH (subprinciple:Principle {{uid: $subprinciple_uid}})
+        MATCH (parent:Principle)-[:{RelationshipName.HAS_SUBPRINCIPLE.value}]->(subprinciple)
         RETURN parent
         LIMIT 1
         """
@@ -711,25 +708,25 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
             # }
         """
         # Get ancestors
-        ancestors_query = """
-        MATCH path = (root:Principle)-[:HAS_SUBPRINCIPLE*]->(current:Principle {uid: $principle_uid})
-        WHERE NOT EXISTS((root)<-[:HAS_SUBPRINCIPLE]-())
+        ancestors_query = f"""
+        MATCH path = (root:Principle)-[:{RelationshipName.HAS_SUBPRINCIPLE.value}*]->(current:Principle {{uid: $principle_uid}})
+        WHERE NOT EXISTS((root)<-[:{RelationshipName.HAS_SUBPRINCIPLE.value}]-())
         RETURN nodes(path) as ancestors
         """
 
         # Get siblings
-        siblings_query = """
-        MATCH (current:Principle {uid: $principle_uid})
-        OPTIONAL MATCH (parent:Principle)-[:HAS_SUBPRINCIPLE]->(current)
-        OPTIONAL MATCH (parent)-[:HAS_SUBPRINCIPLE]->(sibling:Principle)
+        siblings_query = f"""
+        MATCH (current:Principle {{uid: $principle_uid}})
+        OPTIONAL MATCH (parent:Principle)-[:{RelationshipName.HAS_SUBPRINCIPLE.value}]->(current)
+        OPTIONAL MATCH (parent)-[:{RelationshipName.HAS_SUBPRINCIPLE.value}]->(sibling:Principle)
         WHERE sibling.uid <> $principle_uid
         RETURN collect(sibling) as siblings
         """
 
         # Get children
-        children_query = """
-        MATCH (current:Principle {uid: $principle_uid})
-        OPTIONAL MATCH (current)-[:HAS_SUBPRINCIPLE]->(child:Principle)
+        children_query = f"""
+        MATCH (current:Principle {{uid: $principle_uid}})
+        OPTIONAL MATCH (current)-[:{RelationshipName.HAS_SUBPRINCIPLE.value}]->(child:Principle)
         RETURN collect(child) as children
         """
 
@@ -825,19 +822,19 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
                 )
             )
 
-        query = """
-        MATCH (parent:Principle {uid: $parent_uid})
-        MATCH (subprinciple:Principle {uid: $subprinciple_uid})
+        query = f"""
+        MATCH (parent:Principle {{uid: $parent_uid}})
+        MATCH (subprinciple:Principle {{uid: $subprinciple_uid}})
 
-        CREATE (parent)-[:HAS_SUBPRINCIPLE {
+        CREATE (parent)-[:{RelationshipName.HAS_SUBPRINCIPLE.value} {{
             order: $order,
             importance: $importance,
             created_at: datetime()
-        }]->(subprinciple)
+        }}]->(subprinciple)
 
-        CREATE (subprinciple)-[:SUBPRINCIPLE_OF {
+        CREATE (subprinciple)-[:{RelationshipName.SUBPRINCIPLE_OF.value} {{
             created_at: datetime()
-        }]->(parent)
+        }}]->(parent)
 
         RETURN true as success
         """
@@ -885,9 +882,9 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
         Returns:
             Result containing True if relationships were deleted
         """
-        query = """
-        MATCH (parent:Principle {uid: $parent_uid})-[r1:HAS_SUBPRINCIPLE]->(subprinciple:Principle {uid: $subprinciple_uid})
-        MATCH (subprinciple)-[r2:SUBPRINCIPLE_OF]->(parent)
+        query = f"""
+        MATCH (parent:Principle {{uid: $parent_uid}})-[r1:{RelationshipName.HAS_SUBPRINCIPLE.value}]->(subprinciple:Principle {{uid: $subprinciple_uid}})
+        MATCH (subprinciple)-[r2:{RelationshipName.SUBPRINCIPLE_OF.value}]->(parent)
         DELETE r1, r2
         RETURN count(r1) + count(r2) as deleted_count
         """
@@ -908,9 +905,9 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
 
     async def _would_create_cycle(self, parent_uid: str, child_uid: str) -> bool:
         """Check if adding parent->child relationship would create a cycle."""
-        query = """
-        MATCH (child:Principle {uid: $child_uid})
-        MATCH path = (child)-[:HAS_SUBPRINCIPLE*]->(parent:Principle {uid: $parent_uid})
+        query = f"""
+        MATCH (child:Principle {{uid: $child_uid}})
+        MATCH path = (child)-[:{RelationshipName.HAS_SUBPRINCIPLE.value}*]->(parent:Principle {{uid: $parent_uid}})
         RETURN count(path) > 0 as would_create_cycle
         """
 

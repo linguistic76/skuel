@@ -424,8 +424,6 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
         Returns:
             Result containing goal UIDs guided by this principle
         """
-        from core.models.relationship_names import RelationshipName
-
         result = await self.backend.get_related_uids(
             uid=principle_uid,
             relationship_type=RelationshipName.GUIDES_GOAL,
@@ -450,8 +448,6 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
         Returns:
             Result containing habit UIDs inspired by this principle
         """
-        from core.models.relationship_names import RelationshipName
-
         result = await self.backend.get_related_uids(
             uid=principle_uid,
             relationship_type=RelationshipName.INSPIRES_HABIT,
@@ -601,12 +597,9 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
 
         # First try RELATED_TO relationships up to specified depth
         # Use variable-length path traversal for deeper connections
-        related_query = (
-            """
-        MATCH (source:Principle {uid: $uid})
-        OPTIONAL MATCH (source)-[:RELATED_TO*1.."""
-            + str(depth)
-            + """]-(related:Principle)
+        related_query = f"""
+        MATCH (source:Principle {{uid: $uid}})
+        OPTIONAL MATCH (source)-[:{RelationshipName.RELATED_TO.value}*1..{depth}]-(related:Principle)
         WHERE related.is_active = true AND related.uid <> $uid
         WITH DISTINCT related
         WHERE related IS NOT NULL
@@ -614,7 +607,6 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
         ORDER BY related.strength DESC
         LIMIT $limit
         """
-        )
 
         result = await self.backend.execute_query(
             related_query,

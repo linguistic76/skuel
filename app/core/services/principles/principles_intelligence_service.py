@@ -1860,10 +1860,10 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
             - alignment_strength: float (0.0-1.0)
             - recommendation: str
         """
-        query = """
-        MATCH (p:Principle {uid: $principle_uid})-[:GUIDES_CHOICE]->(c:Choice)
+        query = f"""
+        MATCH (p:Principle {{uid: $principle_uid}})-[:{RelationshipName.GUIDES_CHOICE.value}]->(c:Choice)
         WHERE c.user_uid = $user_uid
-          AND c.created_at >= datetime() - duration({days: $period_days})
+          AND c.created_at >= datetime() - duration({{days: $period_days}})
 
         RETURN
             count(c) AS total_choices,

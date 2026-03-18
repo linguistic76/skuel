@@ -29,7 +29,7 @@ if TYPE_CHECKING:
     from core.ports import EventBusOperations
     from core.services.lesson_service import LessonService
     from core.services.ls_service import LsService
-    from ui.ui_types import ActivePathData, LearningStatsData
+    from ui.ui_types import ActivePathData
 
 logger = get_logger(__name__)
 
