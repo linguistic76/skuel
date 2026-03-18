@@ -1,6 +1,6 @@
 ---
 title: Insight Action Tracking Pattern
-updated: '2026-02-02'
+updated: '2026-03-18'
 category: patterns
 related_skills: []
 related_docs: []
@@ -544,6 +544,53 @@ async def get_insight_effectiveness(self, user_uid: str) -> Result[dict]:
         })
 ```
 
+## Service-Layer Operations
+
+InsightStore centralizes all insight business logic. Route handlers are thin pass-throughs (authenticate → delegate → return).
+
+### Bulk Operations
+
+```python
+# Bulk dismiss — loops and tracks successes/failures
+result = await insight_store.bulk_dismiss(uids=["uid1", "uid2"], user_uid="user_mike")
+# → {"success_count": 2, "total_requested": 2, "failed_uids": []}
+
+# Bulk mark actioned
+result = await insight_store.bulk_mark_actioned(uids=["uid1"], user_uid="user_mike")
+
+# Smart dismiss — dismiss all matching a filter criterion
+result = await insight_store.smart_dismiss(
+    user_uid="user_mike",
+    filter_type="impact",   # "impact", "domain", or "type"
+    filter_value="low",
+)
+# → {"success_count": 5, "total_matching": 5, "failed_uids": [], "filter": {...}}
+```
+
+### In-Memory Filtering
+
+```python
+# Static method — filter pre-fetched insights without a DB round-trip
+filtered = InsightStore.filter_insights(
+    insights,
+    impact="high",
+    insight_type="difficulty_pattern",
+    action_status="unactioned",
+    search="meditation",
+)
+```
+
+### Chart Data (Chart.js Configs)
+
+Four methods return complete Chart.js configuration dicts:
+
+| Method | Chart Type | Aggregation |
+|--------|-----------|-------------|
+| `get_impact_distribution_chart(user_uid)` | Doughnut | Count by impact level |
+| `get_domain_distribution_chart(user_uid)` | Bar | Count by domain (sorted desc) |
+| `get_type_distribution_chart(user_uid)` | Doughnut | Count by insight type |
+| `get_action_rate_chart(user_uid)` | Half-doughnut (gauge) | Actioned vs not actioned % |
+
 ## Benefits
 
 1. **Full Accountability**: Every action is tracked with timestamp
@@ -590,5 +637,5 @@ CREATE INDEX insight_actioned_at FOR (i:Insight) ON (i.actioned_at)
 ---
 
 **Pattern Status**: ✅ Production Ready
-**Last Updated**: January 31, 2026
+**Last Updated**: March 18, 2026
 **Author**: Claude Code (Sonnet 4.5)

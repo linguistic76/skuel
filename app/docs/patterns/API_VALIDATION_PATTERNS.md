@@ -520,6 +520,25 @@ include_insights = parse_bool_param(params, "include_insights", default=True)
 
 ---
 
+### Timeframe String Parameters
+
+```python
+from core.utils.validation_helpers import parse_timeframe_days
+
+# Parse "90d" → 90, with fallback default
+lookback_days = parse_timeframe_days(timeframe, default=90)
+```
+
+**Handles:**
+- `"30d"` → `30`
+- `"7d"` → `7`
+- `"invalid"` → Uses default
+- `""` → Uses default
+
+**Location:** `core/utils/validation_helpers.py`
+
+---
+
 ### Enum Query Parameters
 
 ```python
@@ -683,6 +702,7 @@ def test_task_completion_request_defaults():
 
 **Helper Functions:**
 - `parse_bool_param()` - Boolean query param parsing
+- `parse_timeframe_days()` - Timeframe string to days (`"90d"` → `90`)
 - `validate_time_window()` - Enum validation
 
 **Pydantic Models:**

@@ -1,5 +1,5 @@
 # Enum Architecture
-*Last updated: 2026-03-03*
+*Last updated: 2026-03-18*
 
 > **Core Principle:** "Enums define behavior, services consume it"
 
@@ -224,7 +224,7 @@ CompletionStatus has dynamic methods: `counts_as_success()` (DONE and PARTIAL co
 | PrincipleStrength | CORE, STRONG, MODERATE, DEVELOPING, EXPLORING | How deeply held |
 | AlignmentLevel | FLOURISHING (1.0), ALIGNED (0.85), ... UNKNOWN (0.0) — 8 values | Alignment scoring |
 
-AlignmentLevel has `to_score()` / `from_score()` methods for the dual-track assessment pattern.
+AlignmentLevel has `to_score()` / `from_score()` methods for the dual-track assessment pattern, and `get_color()` for UI rendering (green/yellow/red).
 
 **Submissions + Feedback** (`submissions_enums.py`):
 
@@ -313,6 +313,7 @@ Enums that convert to/from float scores (0.0–1.0) via `to_score()` / `from_sco
 ```python
 AlignmentLevel.FLOURISHING.to_score()    # → 1.0
 AlignmentLevel.from_score(0.72)           # → AlignmentLevel.MOSTLY_ALIGNED
+AlignmentLevel.from_score(0.72).get_color()  # → "green"
 
 ProductivityLevel.PRODUCTIVE.to_score()   # → 0.8
 ConsistencyLevel.from_score(0.35)         # → ConsistencyLevel.INCONSISTENT
@@ -327,12 +328,15 @@ Enums that provide colors and icons for rendering:
 ```python
 Priority.HIGH.get_color()                 # → "#F59E0B" (amber)
 EntityStatus.ACTIVE.get_color()           # → "#06B6D4" (cyan)
+AlignmentLevel.FLOURISHING.get_color()    # → "green"
+AlignmentLevel.EXPLORING.get_color()      # → "yellow"
+AlignmentLevel.MISALIGNED.get_color()     # → "red"
 ActivityType.TASK.get_icon()              # → "📝"
 CompletionStatus.DONE.get_emoji()         # → "✅"
 TrendDirection.INCREASING.get_icon()      # → "📈"
 ```
 
-**Enums with display methods:** Priority, EntityStatus, ActivityType, CompletionStatus, EducationalLevel, ContentType, ContextHealthScore, TrendDirection, HealthStatus, SeverityLevel, SELCategory
+**Enums with display methods:** Priority, EntityStatus, AlignmentLevel, ActivityType, CompletionStatus, EducationalLevel, ContentType, ContextHealthScore, TrendDirection, HealthStatus, SeverityLevel, SELCategory
 
 ### 4. Status Validation
 

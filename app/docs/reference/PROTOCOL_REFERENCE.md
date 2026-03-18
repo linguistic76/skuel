@@ -495,7 +495,7 @@ Map to the **Report** stage of the educational loop. `processor_type` discrimina
 | `CalendarServiceOperations` | `calendar` | 5 async (get_calendar_view, get_item, quick_create, reschedule_item, record_habit_occurrence) | `calendar_api.py`, `calendar_ui.py` |
 | `VisualizationOperations` | `visualization` | 15 (8 async data-fetching + 7 sync formatters) | `visualization_api.py` |
 | `SystemServiceOperations` | `system_service` | 11 (5 async health + 6 sync management) | `system_api.py` |
-| `CrossDomainAnalyticsOperations` | `cross_domain_analytics` | 5 async (learning_velocity, spending_patterns, mood, productivity, habit_consistency) | `analytics_api.py` |
+| `CrossDomainAnalyticsOperations` | `cross_domain_analytics` | 6 async (learning_velocity, spending_patterns, mood, productivity, habit_consistency, get_combined_dashboard) | `analytics_api.py` |
 | `LifePathOperations` | `lifepath` | 3 async + `.alignment` sub-service | `lifepath_api.py` |
 | `GraphAuthOperations` | `graph_auth` | 7 async (sign_up, sign_in, sign_out, reset_password_email, reset_password_with_token, admin_reset_token, validate_session_uid) | `auth_ui.py`, `admin_api.py` |
 | `GoalTaskGeneratorOperations` | `goal_task_generator` | 1 (generate_tasks_for_goal) | `orchestration_routes.py` |
