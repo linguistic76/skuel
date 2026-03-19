@@ -110,6 +110,44 @@ async def render_entity_not_found_page(
     )
 
 
+async def render_dashboard_error_page(
+    title: str,
+    subtitle: str,
+    error_message: str,
+    view: str,
+    render_view_tabs: Callable[..., Any],
+    page_creator: Callable[..., Coroutine[Any, Any, Any]],
+    request: Request,
+) -> Any:
+    """Render a standard error page for activity domain dashboards.
+
+    Builds the standard error layout (PageHeader + view tabs + error banner)
+    and passes it to the domain's page_creator.
+
+    Args:
+        title: Page title, e.g. "Tasks"
+        subtitle: Page subtitle, e.g. "Manage your daily tasks"
+        error_message: Error message for the banner, e.g. "Failed to load tasks"
+        view: Active view tab, e.g. "list"
+        render_view_tabs: Domain's view tab renderer (called with active_view kwarg)
+        page_creator: Domain's page creator coroutine (called with content + request)
+        request: The Starlette request
+    """
+    from fasthtml.common import Div
+
+    from ui.patterns.error_banner import render_error_banner
+    from ui.patterns.page_header import PageHeader
+    from ui.tokens import Container, Spacing
+
+    error_content = Div(
+        PageHeader(title, subtitle=subtitle),
+        render_view_tabs(active_view=view),
+        render_error_banner(error_message),
+        cls=f"{Spacing.PAGE} {Container.WIDE}",
+    )
+    return await page_creator(error_content, request=request)
+
+
 async def fetch_user_entities(
     service_method: Callable[[str], Coroutine[Any, Any, Result[list[Any]]]] | None,
     domain_name: str,

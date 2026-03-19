@@ -41,6 +41,7 @@ from adapters.inbound.route_factories import (
 )
 from adapters.inbound.ui_helpers import (
     parse_calendar_params,
+    render_dashboard_error_page,
     render_entity_not_found_page,
     render_safe_error_response,
 )
@@ -228,13 +229,15 @@ def create_tasks_ui_routes(
 
         # Check for errors
         if filtered_result.is_error:
-            error_content = Div(
-                PageHeader("Tasks", subtitle="Manage your daily tasks"),
-                TasksViewComponents.render_view_tabs(active_view=view),
-                render_error_banner("Failed to load tasks"),
-                cls=f"{Spacing.PAGE} {Container.WIDE}",
+            return await render_dashboard_error_page(
+                "Tasks",
+                "Manage your daily tasks",
+                "Failed to load tasks",
+                view,
+                TasksViewComponents.render_view_tabs,
+                create_tasks_page,
+                request,
             )
-            return await create_tasks_page(error_content, user_uid, request=request)
 
         ctx = filtered_result.value
         tasks = ctx["entities"]

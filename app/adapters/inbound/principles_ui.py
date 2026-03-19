@@ -34,6 +34,7 @@ from adapters.inbound.route_factories import (
     require_owned_entity,
 )
 from adapters.inbound.ui_helpers import (
+    render_dashboard_error_page,
     render_entity_not_found_page,
     render_safe_error_response,
 )
@@ -226,13 +227,15 @@ def create_principles_ui_routes(
 
             # Check for errors
             if categories_result.is_error:
-                error_content = Div(
-                    PageHeader("Principles", subtitle="Define the values that guide you"),
-                    PrinciplesViewComponents.render_view_tabs(active_view=view),
-                    render_error_banner("Failed to load categories"),
-                    cls=f"{Spacing.PAGE} {Container.WIDE}",
+                return await render_dashboard_error_page(
+                    "Principles",
+                    "Define the values that guide you",
+                    "Failed to load categories",
+                    view,
+                    PrinciplesViewComponents.render_view_tabs,
+                    create_principles_page,
+                    request,
                 )
-                return await create_principles_page(error_content, request=request)
 
             view_content = PrinciplesViewComponents.render_create_view(
                 categories=categories_result.value,
@@ -242,13 +245,15 @@ def create_principles_ui_routes(
 
             # Check for errors
             if analytics_result.is_error:
-                error_content = Div(
-                    PageHeader("Principles", subtitle="Define the values that guide you"),
-                    PrinciplesViewComponents.render_view_tabs(active_view=view),
-                    render_error_banner("Failed to load analytics"),
-                    cls=f"{Spacing.PAGE} {Container.WIDE}",
+                return await render_dashboard_error_page(
+                    "Principles",
+                    "Define the values that guide you",
+                    "Failed to load analytics",
+                    view,
+                    PrinciplesViewComponents.render_view_tabs,
+                    create_principles_page,
+                    request,
                 )
-                return await create_principles_page(error_content, request=request)
 
             view_content = PrinciplesViewComponents.render_analytics_view(
                 analytics_data=analytics_result.value,
@@ -260,13 +265,15 @@ def create_principles_ui_routes(
 
             # Check for errors
             if filtered_result.is_error:
-                error_content = Div(
-                    PageHeader("Principles", subtitle="Define the values that guide you"),
-                    PrinciplesViewComponents.render_view_tabs(active_view=view),
-                    render_error_banner("Failed to load principles"),
-                    cls=f"{Spacing.PAGE} {Container.WIDE}",
+                return await render_dashboard_error_page(
+                    "Principles",
+                    "Define the values that guide you",
+                    "Failed to load principles",
+                    view,
+                    PrinciplesViewComponents.render_view_tabs,
+                    create_principles_page,
+                    request,
                 )
-                return await create_principles_page(error_content, request=request)
 
             ctx = filtered_result.value
             principles, stats = ctx["entities"], ctx["stats"]
@@ -274,13 +281,15 @@ def create_principles_ui_routes(
 
             # Check categories error
             if categories_result.is_error:
-                error_content = Div(
-                    PageHeader("Principles", subtitle="Define the values that guide you"),
-                    PrinciplesViewComponents.render_view_tabs(active_view=view),
-                    render_error_banner("Failed to load categories"),
-                    cls=f"{Spacing.PAGE} {Container.WIDE}",
+                return await render_dashboard_error_page(
+                    "Principles",
+                    "Define the values that guide you",
+                    "Failed to load categories",
+                    view,
+                    PrinciplesViewComponents.render_view_tabs,
+                    create_principles_page,
+                    request,
                 )
-                return await create_principles_page(error_content, request=request)
 
             page_ctx = PrinciplesPageContext(
                 entities=principles,

@@ -34,7 +34,11 @@ from adapters.inbound.route_factories import (
     QuickAddRouteFactory,
     require_owned_entity,
 )
-from adapters.inbound.ui_helpers import render_entity_not_found_page, render_safe_error_response
+from adapters.inbound.ui_helpers import (
+    render_dashboard_error_page,
+    render_entity_not_found_page,
+    render_safe_error_response,
+)
 from core.models.choice.choice_request import (
     ChoiceCreateRequest,
     ChoiceOptionCreateRequest,
@@ -194,13 +198,15 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
         )
 
         if filtered_result.is_error:
-            error_content = Div(
-                PageHeader("Choices", subtitle="Make and track important decisions"),
-                ChoicesViewComponents.render_view_tabs(active_view=view),
-                render_error_banner("Failed to load choices"),
-                cls=f"{Spacing.PAGE} {Container.WIDE}",
+            return await render_dashboard_error_page(
+                "Choices",
+                "Make and track important decisions",
+                "Failed to load choices",
+                view,
+                ChoicesViewComponents.render_view_tabs,
+                create_choices_page,
+                request,
             )
-            return await create_choices_page(error_content, request=request)
 
         ctx = filtered_result.value
         choices, stats = ctx["entities"], ctx["stats"]

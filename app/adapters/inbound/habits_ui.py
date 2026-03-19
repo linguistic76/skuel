@@ -33,6 +33,7 @@ from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactor
 from adapters.inbound.ui_helpers import (
     fetch_user_entities,
     parse_calendar_params,
+    render_dashboard_error_page,
     render_entity_not_found_page,
 )
 from core.models.enums import Priority, RecurrencePattern
@@ -487,22 +488,26 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
 
         # CHECK FOR ERRORS
         if filtered_result.is_error:
-            error_content = Div(
-                PageHeader("Habits", subtitle="Build and maintain daily habits"),
-                HabitsViewComponents.render_view_tabs(active_view=view),
-                render_error_banner("Failed to load habits"),
-                cls=f"{Spacing.PAGE} {Container.WIDE}",
+            return await render_dashboard_error_page(
+                "Habits",
+                "Build and maintain daily habits",
+                "Failed to load habits",
+                view,
+                HabitsViewComponents.render_view_tabs,
+                create_habits_page,
+                request,
             )
-            return await create_habits_page(error_content, request=request)
 
         if categories_result.is_error:
-            error_content = Div(
-                PageHeader("Habits", subtitle="Build and maintain daily habits"),
-                HabitsViewComponents.render_view_tabs(active_view=view),
-                render_error_banner("Failed to load categories"),
-                cls=f"{Spacing.PAGE} {Container.WIDE}",
+            return await render_dashboard_error_page(
+                "Habits",
+                "Build and maintain daily habits",
+                "Failed to load categories",
+                view,
+                HabitsViewComponents.render_view_tabs,
+                create_habits_page,
+                request,
             )
-            return await create_habits_page(error_content, request=request)
 
         # Extract values
         ctx = filtered_result.value

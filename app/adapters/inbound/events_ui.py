@@ -38,6 +38,7 @@ from adapters.inbound.route_factories import (
 from adapters.inbound.ui_helpers import (
     fetch_user_entities,
     parse_calendar_params,
+    render_dashboard_error_page,
     render_entity_not_found_page,
     render_safe_error_response,
 )
@@ -275,22 +276,26 @@ def create_events_ui_routes(_app, rt, events_service: EventsService, services: A
 
         # CHECK FOR ERRORS
         if filtered_result.is_error:
-            error_content = Div(
-                PageHeader("Events", subtitle="Schedule and track your events"),
-                EventsViewComponents.render_view_tabs(active_view=view),
-                render_error_banner("Failed to load events"),
-                cls=f"{Spacing.PAGE} {Container.WIDE}",
+            return await render_dashboard_error_page(
+                "Events",
+                "Schedule and track your events",
+                "Failed to load events",
+                view,
+                EventsViewComponents.render_view_tabs,
+                create_events_page,
+                request,
             )
-            return await create_events_page(error_content, request=request)
 
         if event_types_result.is_error:
-            error_content = Div(
-                PageHeader("Events", subtitle="Schedule and track your events"),
-                EventsViewComponents.render_view_tabs(active_view=view),
-                render_error_banner("Failed to load event types"),
-                cls=f"{Spacing.PAGE} {Container.WIDE}",
+            return await render_dashboard_error_page(
+                "Events",
+                "Schedule and track your events",
+                "Failed to load event types",
+                view,
+                EventsViewComponents.render_view_tabs,
+                create_events_page,
+                request,
             )
-            return await create_events_page(error_content, request=request)
 
         # Extract values
         ctx = filtered_result.value

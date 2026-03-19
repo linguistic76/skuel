@@ -34,6 +34,7 @@ from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactor
 from adapters.inbound.ui_helpers import (
     fetch_user_entities,
     parse_calendar_params,
+    render_dashboard_error_page,
     render_entity_not_found_page,
 )
 from core.models.enums import Priority
@@ -540,22 +541,26 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsService, services: Any 
 
         # CHECK FOR ERRORS
         if filtered_result.is_error:
-            error_content = Div(
-                PageHeader("Goals", subtitle="Track and achieve your goals"),
-                GoalsViewComponents.render_view_tabs(active_view=view),
-                render_error_banner("Failed to load goals"),
-                cls=f"{Spacing.PAGE} {Container.WIDE}",
+            return await render_dashboard_error_page(
+                "Goals",
+                "Track and achieve your goals",
+                "Failed to load goals",
+                view,
+                GoalsViewComponents.render_view_tabs,
+                create_goals_page,
+                request,
             )
-            return await create_goals_page(error_content, request=request)
 
         if categories_result.is_error:
-            error_content = Div(
-                PageHeader("Goals", subtitle="Track and achieve your goals"),
-                GoalsViewComponents.render_view_tabs(active_view=view),
-                render_error_banner("Failed to load categories"),
-                cls=f"{Spacing.PAGE} {Container.WIDE}",
+            return await render_dashboard_error_page(
+                "Goals",
+                "Track and achieve your goals",
+                "Failed to load categories",
+                view,
+                GoalsViewComponents.render_view_tabs,
+                create_goals_page,
+                request,
             )
-            return await create_goals_page(error_content, request=request)
 
         # Extract values
         ctx = filtered_result.value
