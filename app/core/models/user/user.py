@@ -107,7 +107,7 @@ class User(BaseEntity):
     # User preferences
     preferences: UserPreferences = field(default_factory=UserPreferences)
 
-    # Active entities (all CalendarTrackable)
+    # Active entities
     # These are just UIDs - the actual entities are stored elsewhere
     active_entity_uids: set[str] = field(default_factory=set)
     archived_entity_uids: set[str] = field(default_factory=set)

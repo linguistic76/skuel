@@ -606,7 +606,6 @@ def _create_learning_services(
     from core.services.query_builder import QueryBuilder
     from core.services.schema_service import Neo4jSchemaService
 
-    # Note: UnifiedProgressService DELETED (January 2026) - violates fail-fast
     from core.services.user_progress_service import UserProgressService
 
     # Create embedding + vector search services (March 2026 - HuggingFace Migration)

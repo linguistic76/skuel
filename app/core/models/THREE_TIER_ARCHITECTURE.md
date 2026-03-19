@@ -140,5 +140,5 @@ if task.is_overdue():
 1. **Never mix tiers**: Don't use Pydantic models in business logic
 2. **Always use proper imports**: Import from the correct tier for your use case
 3. **Domain models are frozen**: Create new instances instead of mutating
-4. **ConversionService**: Handles conversions between tiers
+4. **ConversionServiceV2**: Handles conversions between tiers
 5. **No backwards compatibility**: We use the three-tier system exclusively
