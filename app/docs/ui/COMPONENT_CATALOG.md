@@ -635,7 +635,7 @@ StatCard(label="Completion Rate", value="85%", color="success")
 
 Friendly empty state for lists with no items. Renders centered content with `py-12` padding.
 
-**Adoption status:** Used across ~40 locations in 25 files. All Activity Domain list views, curriculum hub, study/submissions, admin, finance, and other domains.
+**Adoption status:** Used across ~45 locations in 30+ files. All Activity Domain list views, curriculum hub, study/submissions, admin, finance, analytics, lifepath, form submissions, and other domains.
 
 ### EmptyState(title, description, action_text, action_href, icon, **kwargs)
 
@@ -725,19 +725,35 @@ render_error_banner(
 
 ### render_inline_error(message)
 
-Inline error for form fields.
+Compact inline error with WCAG accessibility (`role="alert"`, `aria-live="polite"`).
 
 **Parameters:**
 - `message: str` - Error message
 
-**Example:**
+**Use cases:**
+- Form field validation errors
+- HTMX fragment error returns (compact, no full banner needed)
+- Inline error states in cards or small sections
+
+**Adoption status:** Used across 12 route files for HTMX fragment errors (2026-03-19). Replaced ad-hoc `P("error", cls="text-error")` and `Div("error", cls="text-red-600")` patterns that lacked accessibility attributes.
+
+**Examples:**
 ```python
 from ui.patterns.error_banner import render_inline_error
 
+# Form field error
 Div(
     Input(name="email", cls="input-error"),
     render_inline_error("Invalid email format"),
 )
+
+# HTMX fragment error return
+if result.is_error:
+    return render_inline_error("Could not load data")
+
+# HTMX fragment with target ID preservation
+if result.is_error:
+    return Div(render_inline_error("Report not found"), id="content-section")
 ```
 
 ---

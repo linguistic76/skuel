@@ -224,11 +224,24 @@ async def tasks_dashboard(request) -> Any:
 - ✅ Finance — Uses typed context methods (`get_dashboard_context()`, etc.) with `Result[TypedDict]`
 - ✅ Insights — Uses `filter_insights()` helper with error-first check on `get_active_insights()`
 - ✅ Teaching — `render_error_banner()` for all queue/exercise/student/class error states (2026-03-18)
-- ✅ Study — HTMX fragments preserve target `id` with error banners; replaced silent fallbacks (2026-03-18)
+- ✅ Study — HTMX fragments preserve target `id` with `render_inline_error()`; replaced silent fallbacks (2026-03-19)
 - ✅ KU — Error banner on Ku list failure vs empty state for no data (2026-03-18)
-- ✅ Admin — Error logging + warning banners for user list, stats, learning dashboard (2026-03-18)
+- ✅ Admin — `render_error_banner()` for user-not-found pages; warning banners for stats, system status (2026-03-19)
+- ✅ Submissions — `render_inline_error()` for HTMX fragments (category selector, tags manager, shared users) (2026-03-19)
+- ✅ Journals — `render_inline_error()` for report loading, download auth, file-not-found errors (2026-03-19)
+- ✅ Exercises — `render_error_banner()` for dashboard errors; `render_inline_error()` for edit/view not-found (2026-03-19)
+- ✅ Habits — `render_inline_error()` for completion, pattern analysis, goal system/velocity/impact errors (2026-03-19)
+- ✅ Goals — `render_error_banner()` for full-page not-found; `render_inline_error()` for gantt view (2026-03-19)
+- ✅ Calendar — `render_inline_error()` for reschedule validation errors (2026-03-19)
+- ✅ Activities — `render_inline_error()` for preview card loading failures (2026-03-19)
+- ✅ Form Submissions — `render_error_banner()` for full-page errors; `EmptyState` for empty form data (2026-03-19)
+- ✅ LifePath — `EmptyState` with CTA for no matching Learning Paths (2026-03-19)
+- ✅ Analytics — `EmptyState` for no Life Path, no domain activity, no weekly data (2026-03-19)
+- ✅ Activity Review — `render_inline_error()` for missing UID and context builder errors (2026-03-19)
 
-**Component:** `render_error_banner()` from `ui/patterns/error_banner.py` (exported in `ui/patterns/__init__.py`).
+**Components:** `render_error_banner()`, `render_inline_error()` from `ui/patterns/error_banner.py`; `EmptyState` from `ui/patterns/empty_state.py`.
+
+**Pattern:** Full-page errors use `render_error_banner()`. HTMX fragment errors use `render_inline_error()` (compact, with `role="alert"` + `aria-live="polite"` for WCAG). Empty data states use `EmptyState()`.
 
 **Shared Helpers** (`adapters/inbound/ui_helpers.py`):
 - `render_entity_not_found_page(entity_label, uid, domain_slug, request)` — Standard "Not Found" full page for detail views

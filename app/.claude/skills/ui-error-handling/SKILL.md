@@ -9,7 +9,7 @@ related_skills:
 
 # SKUEL UI Error Handling
 
-*Last updated: 2026-03-18*
+*Last updated: 2026-03-19*
 
 **When to use this skill:** When building UI routes, handling `Result[T]` at boundaries, implementing error banners, creating form validation, or understanding how SKUEL propagates errors from services to UI.
 
@@ -32,7 +32,7 @@ This pattern has three key components:
 - Type safety (dataclasses prevent param extraction errors)
 - Consistency (all domains follow same pattern)
 
-**Applied to:** All 6 Activity domains + Teaching, Study, KU, Admin, Insights (standardized 2026-03-18)
+**Applied to:** All 6 Activity domains + Teaching, Study, KU, Admin, Insights, Submissions, Journals, Exercises, Calendar, Form Submissions, LifePath, Analytics, Activity Review (standardized 2026-03-19)
 
 ---
 
@@ -665,11 +665,18 @@ async def create_task_from_form(form_data: dict[str, Any], user_uid: str) -> Res
 
 **Use when:** Rendering errors to users (all error cases)
 
-**Import:** `from ui.patterns.error_banner import render_error_banner`
+**Two components for different contexts:**
+
+| Component | Use case | Output |
+|-----------|----------|--------|
+| `render_error_banner()` | Full-page errors, dashboard failures | Alert box with icon, optional technical details |
+| `render_inline_error()` | HTMX fragments, form fields, compact spaces | Small `P` with `role="alert"` + `aria-live="polite"` |
+
+**Import:** `from ui.patterns.error_banner import render_error_banner, render_inline_error`
 
 **Usage:**
 ```python
-# In main route
+# Full-page error (main route)
 if result.is_error:
     return BasePage(
         render_error_banner(f"Failed to load data: {result.error}"),
@@ -677,19 +684,26 @@ if result.is_error:
         request=request,
     )
 
-# In HTMX fragment
+# HTMX fragment error (compact, accessible)
 if result.is_error:
-    return render_error_banner(f"Failed to load data: {result.error}")
+    return render_inline_error("Could not load data")
 
-# With severity levels
+# HTMX fragment with target ID preservation
+if result.is_error:
+    return Div(render_inline_error("Report not found"), id="content-section")
+
+# With severity levels (full banner only)
 render_error_banner("Some data may be incomplete", severity="warning")
 ```
 
+**Choosing between them:**
+- **`render_error_banner()`** — full Alert component, use for page-level errors where space is available
+- **`render_inline_error()`** — compact `P` element with WCAG attributes, use for HTMX fragment returns, form field errors, and anywhere a full alert would be visually heavy
+
 **Styling:**
-- MonsterUI alert (red background, error icon)
-- Severity variants: error, warning, info, success
-- `aria-live="polite"` for screen reader announcements
-- `role="alert"` set automatically by MAlert (do NOT pass it as a kwarg — causes duplicate kwarg TypeError)
+- `render_error_banner()`: MonsterUI alert (red background, error icon), severity variants
+- `render_inline_error()`: `text-error text-sm` with `role="alert"` + `aria-live="polite"`
+- `role="alert"` set automatically by MAlert in render_error_banner (do NOT pass it as a kwarg — causes duplicate kwarg TypeError)
 
 ---
 
@@ -1219,7 +1233,7 @@ When implementing error handling for a new domain:
 - [ ] Main dashboard shows tabs even on error (navigation still works)
 - [ ] Dashboard helpers return `tuple[data, bool]` when partial failure matters
 - [ ] Independent service calls use partial error collection (not fail-on-first)
-- [ ] All errors use `render_error_banner()` (consistency)
+- [ ] All errors use `render_error_banner()` (full-page) or `render_inline_error()` (HTMX fragments)
 
 ### Unit Testing Pure Helpers
 
@@ -1269,13 +1283,22 @@ def test_validate_task_form_data_missing_title():
 
 ### Core Files
 - `/adapters/inbound/tasks_ui.py` - Reference implementation (all patterns)
-- `/adapters/inbound/goals_ui.py` - Calendar-enabled variant
+- `/adapters/inbound/goals_ui.py` - Calendar-enabled variant, `render_error_banner()` for full-page + `render_inline_error()` for gantt
 - `/adapters/inbound/choices_ui.py` - Form validation example
 - `/adapters/inbound/teaching_ui.py` - Non-activity domain, sidebar pages
-- `/adapters/inbound/study_ui.py` - HTMX fragments with error banners preserving target IDs
+- `/adapters/inbound/study_ui.py` - HTMX fragments with `render_inline_error()` preserving target IDs
+- `/adapters/inbound/submissions_ui.py` - HTMX fragments: category selector, tags manager, shared users
+- `/adapters/inbound/journals_ui.py` - Report loading, download auth, file-not-found errors
+- `/adapters/inbound/exercises_ui.py` - `render_error_banner()` for dashboard, `render_inline_error()` for edit/view
+- `/adapters/inbound/habits_ui.py` - `render_inline_error()` for completion, patterns, goal analytics
 - `/adapters/inbound/ku_ui.py` - Error state vs empty state distinction
-- `/adapters/inbound/admin_dashboard_ui.py` - Warning severity for partial failures
+- `/adapters/inbound/admin_dashboard_ui.py` - `render_error_banner()` for user-not-found, warning severity for partial failures
 - `/adapters/inbound/insights_ui.py` - Error state with load-more pagination
+- `/adapters/inbound/calendar_api.py` - `render_inline_error()` for reschedule validation
+- `/adapters/inbound/activities_ui.py` - `render_inline_error()` for preview card loading
+- `/adapters/inbound/analytics_ui.py` - `EmptyState` for no Life Path, no domain activity, no weekly data
+- `/adapters/inbound/form_submissions_ui.py` - `render_error_banner()` for full-page, `EmptyState` for empty data
+- `/adapters/inbound/lifepath_ui.py` - `EmptyState` with CTA for no matching Learning Paths
 
 ### Shared Helpers (`/adapters/inbound/ui_helpers.py`)
 - `render_entity_not_found_page(entity_label, uid, domain_slug, request)` — Standard "Entity Not Found" full page for detail views (all 6 Activity domains)
@@ -1309,15 +1332,26 @@ def test_validate_task_form_data_missing_title():
 - ✅ Tasks — reference implementation
 - ✅ Goals, Habits, Events, Choices, Principles
 
-**Non-Activity Domains** (render_error_banner standardized, 2026-03-18):
+**Non-Activity Domains** (render_error_banner standardized, 2026-03-18; render_inline_error for HTMX, 2026-03-19):
 - ✅ Teaching (`teaching_ui.py`) — 10 error sites, fixed `.is_ok` → `.is_error` bug (SKUEL003)
-- ✅ Study (`study_ui.py`) — 12 error sites, replaced silent fallbacks + ad-hoc P/Div elements
+- ✅ Study (`study_ui.py`) — `render_inline_error()` for HTMX fragments preserving target IDs
+- ✅ Submissions (`submissions_ui.py`) — `render_inline_error()` for category selector, tags manager, shared users, report loading
+- ✅ Journals (`journals_ui.py`) — `render_inline_error()` for report loading, download auth, file-not-found
+- ✅ Exercises (`exercises_ui.py`) — `render_error_banner()` for dashboard; `render_inline_error()` for edit/view not-found
+- ✅ Habits (`habits_ui.py`) — `render_inline_error()` for completion, pattern analysis, goal system/velocity/impact
+- ✅ Goals (`goals_ui.py`) — `render_error_banner()` for full-page not-found; `render_inline_error()` for gantt view
 - ✅ KU (`ku_ui.py`) — error banner on Ku list failure, logging for bookmark failures
-- ✅ Admin (`admin_dashboard_ui.py`) — per-section warning banners for stats, system status, learning metrics, user progress
+- ✅ Admin (`admin_dashboard_ui.py`) — `render_error_banner()` for user-not-found; warning banners for stats, system status
 - ✅ Insights (`insights_ui.py`) — error banner on insights/stats load failure, load-more endpoint
 - ✅ Finance (`finance_ui.py`) — typed context methods with Result[TypedDict]
+- ✅ Calendar (`calendar_api.py`) — `render_inline_error()` for reschedule validation
+- ✅ Activities (`activities_ui.py`) — `render_inline_error()` for preview card loading
+- ✅ Analytics (`analytics_ui.py`) — `EmptyState` for no Life Path, no domain activity, no weekly data
+- ✅ Form Submissions (`form_submissions_ui.py`) — `render_error_banner()` + `EmptyState` for empty data
+- ✅ LifePath (`lifepath_ui.py`) — `EmptyState` with CTA for no matching Learning Paths
+- ✅ Activity Review (`activity_review_ui.py`) — `render_inline_error()` for missing UID, context builder
 
-**Component export:** `render_error_banner` exported from `ui/patterns/__init__.py` (2026-03-18).
+**Component exports:** `render_error_banner`, `render_inline_error` from `ui/patterns/error_banner.py`; `EmptyState` from `ui/patterns/empty_state.py`.
 
 ### Key Insights
 
