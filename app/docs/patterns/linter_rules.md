@@ -1,6 +1,6 @@
 ---
 title: Code Quality Enforcement - Linter Rules
-updated: 2026-03-06
+updated: 2026-03-19
 category: patterns
 related_skills:
 - python
@@ -57,6 +57,24 @@ The unified linter enforces SKUEL architectural patterns with three severity lev
 | **SKUEL015** | Print in production code | Use `logger.*()` instead |
 | **SKUEL016** | Stale Poetry references | SKUEL uses uv, not Poetry |
 | **SKUEL017** | Bare `except Exception` | Use specific exception types from `exception_types.py` |
+
+## Inline Suppression
+
+When a rule needs to be suppressed for a legitimate reason, use inline comments instead of hardcoded allowlists:
+
+```python
+# Line-level suppression
+route_count = len(app.routes) if hasattr(app, "routes") else 0  # skuel-lint: disable=SKUEL011 -- FastHTML app attribute check
+
+# File-level suppression (place at top of file, before docstring)
+# skuel-lint: disable-file=SKUEL005 -- Cache service, raw values not Result[T]
+```
+
+**Supported rules:** SKUEL005, SKUEL011, SKUEL012, SKUEL015, SKUEL017.
+
+**SKUEL017** additionally recognizes `# intentional-broad: <reason>` and `# safety-net: <reason>` (261 existing uses).
+
+**Always include a reason** after `--` to document why the suppression is needed.
 
 ## Rule: SKUEL003 - Deprecated .is_err
 
@@ -322,6 +340,7 @@ except Exception as e:  # safety-net: catch unexpected errors
 **Suppression markers** (same line or line above):
 - `# intentional-broad: <reason>` — catches that must remain broad (event handlers, monadic boundaries, metrics wrappers)
 - `# safety-net: <reason>` — temporary broad catches during narrowing rollout
+- `# skuel-lint: disable=SKUEL017 -- <reason>` — unified suppression format (also supported)
 
 **Rationale:**
 - Bare `except Exception` masks bugs and makes debugging harder
@@ -401,14 +420,16 @@ Add to pre-commit hooks or CI pipeline:
 
 ## Exclusion Patterns
 
-The linter automatically excludes certain files from specific rules:
+The linter automatically excludes certain files from specific rules. Per-file exemptions use inline suppression comments (see above) rather than hardcoded allowlists.
 
-| Rule | Excluded Files/Patterns |
-|------|------------------------|
-| **SKUEL008** | Domain backends (`domain_backends.py`) - legitimate domain-specific extensions |
-| **SKUEL011** | UI routes (`*_ui.py`), components (`*_components.py`), tests, sort utilities |
-| **SKUEL012** | Tests, examples, mock utilities |
-| **SKUEL015** | Scripts, tests, examples, CLI utilities, `__main__` blocks, docstrings |
+| Rule | Auto-Excluded Directories | Per-File Suppression |
+|------|--------------------------|---------------------|
+| **SKUEL005** | Protocol files | `# skuel-lint: disable-file=SKUEL005` |
+| **SKUEL008** | Domain backends (`domain_backends.py`) | N/A |
+| **SKUEL011** | Tests, `sort_functions.py` | `# skuel-lint: disable=SKUEL011` |
+| **SKUEL012** | Tests, `examples/` | `# skuel-lint: disable=SKUEL012` |
+| **SKUEL015** | Tests, `scripts/`, `examples/`, `debug_*`, `lint_skuel.py`, `dev`, `__main__` blocks, docstrings | `# skuel-lint: disable=SKUEL015` |
+| **SKUEL017** | Tests, `scripts/`, `result_simplified.py` | `# intentional-broad:`, `# safety-net:`, or `# skuel-lint: disable=SKUEL017` |
 
 ## Benefits Achieved
 
@@ -420,5 +441,5 @@ The linter automatically excludes certain files from specific rules:
 
 ---
 
-**Last Updated:** March 16, 2026
-**Status:** Active - 16 rules enforcing SKUEL architectural patterns
+**Last Updated:** March 19, 2026
+**Status:** Active - 16 rules enforcing SKUEL architectural patterns, unified inline suppression via `# skuel-lint: disable=SKUELXXX`
