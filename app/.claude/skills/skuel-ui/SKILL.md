@@ -243,17 +243,16 @@ Route→UI contracts use per-domain TypedDicts from `ui/page_contexts.py`:
 from ui.page_contexts import TasksPageContext, GoalsPageContext  # etc.
 
 # Build in route, pass to view
-page_ctx = TasksPageContext(
-    entities=tasks,
-    filters=filters.to_dict(),
-    projects=projects,
-    assignees=assignees,
-    view="list",
-)
+page_ctx: TasksPageContext = {
+    "entities": tasks,
+    "filters": filters.to_dict(),
+    "projects": projects,
+    "assignees": assignees,
+}
 view_content = TasksViewComponents.render_list_view(ctx=page_ctx)
 ```
 
-All 6 Activity Domain views accept `ctx` as a keyword-only argument alongside existing positional args for backward compatibility.
+Each domain has a standalone TypedDict with typed entities (`list[Task]`, `list[Goal]`, etc.) and `total=True` for required fields (`entities`, `filters`, `stats`). Optional fields use `NotRequired` (`projects`, `assignees`, `categories`, `view`). `ctx` is the only parameter to `render_list_view`.
 
 ### Composition Strategies
 

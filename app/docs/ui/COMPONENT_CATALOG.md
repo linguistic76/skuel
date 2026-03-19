@@ -1146,19 +1146,18 @@ Per-domain TypedDicts that define the route→UI contract. Routes build a typed 
 from ui.page_contexts import TasksPageContext
 
 # In route: build typed context
-page_ctx = TasksPageContext(
-    entities=tasks,
-    filters=filters.to_dict(),
-    projects=projects,
-    assignees=assignees,
-    view="list",
-)
+page_ctx: TasksPageContext = {
+    "entities": tasks,
+    "filters": filters.to_dict(),
+    "projects": projects,
+    "assignees": assignees,
+}
 view_content = TasksViewComponents.render_list_view(ctx=page_ctx)
 ```
 
-**Available contexts:** `ActivityPageContext` (base), `TasksPageContext`, `GoalsPageContext`, `HabitsPageContext`, `EventsPageContext`, `ChoicesPageContext`, `PrinciplesPageContext`, `CurriculumHubContext`, `CurriculumListContext`, `SubmissionsPageContext`, `KuIndexContext`.
+Each Activity Domain has a standalone TypedDict with typed entities (`list[Task]`, `list[Goal]`, etc.) and `total=True` for required fields. Optional fields use `NotRequired`.
 
-All 6 Activity Domain views accept `ctx` as a keyword-only argument alongside existing positional args for backward compatibility.
+**Available contexts:** `TasksPageContext`, `GoalsPageContext`, `HabitsPageContext`, `EventsPageContext`, `ChoicesPageContext`, `PrinciplesPageContext`, `CurriculumHubContext`, `CurriculumListContext`, `SubmissionsPageContext`, `KuIndexContext`.
 
 ---
 

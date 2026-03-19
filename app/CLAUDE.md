@@ -490,7 +490,7 @@ type Scorer[T] = Callable[[T], Score]
 
 **Shared Components:** `EmptyState` (empty lists — adopted across ~40 locations), `EntityCard` (universal entity display with variant system), `StatsGrid`/`StatItem` (statistics grids). All in `/ui/patterns/`.
 
-**Page Contexts:** Per-domain TypedDicts in `/ui/page_contexts.py` define route→UI contracts. All 6 Activity Domain views accept `ctx` keyword arg. NOT in `core/ports/` — page contexts are UI concerns.
+**Page Contexts:** Per-domain TypedDicts in `/ui/page_contexts.py` define route→UI contracts with typed entities (`list[Task]`, etc.) and `total=True` for required fields. `render_list_view(ctx)` is the only signature — no dual-path. NOT in `core/ports/` — page contexts are UI concerns.
 
 **Key Files:** `/ui/layouts/base_page.py`, `/ui/layouts/navbar.py`, `/ui/patterns/sidebar.py`, `/ui/patterns/` (PageHeader, form_generator, card_generator, etc.), `/ui/page_contexts.py`
 

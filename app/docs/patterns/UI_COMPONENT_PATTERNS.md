@@ -1007,7 +1007,7 @@ async def tasks_view_list(request) -> Any:
         return render_error_banner(f"Failed to load tasks: {filtered_result.error}")
 
     tasks, stats = filtered_result.value
-    return TasksViewComponents.render_list_view(...)
+    return TasksViewComponents.render_list_view(ctx=page_ctx)
 ```
 
 ### Benefits

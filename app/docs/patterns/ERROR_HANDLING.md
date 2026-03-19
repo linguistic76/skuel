@@ -209,9 +209,8 @@ async def tasks_dashboard(request) -> Any:
         return create_tasks_page(error_content, request=request)
 
     # Extract values only after error check
-    ctx = filtered_result.value
-    tasks, stats = ctx["entities"], ctx["stats"]
-    return TasksViewComponents.render_list_view(tasks, stats, ...)
+    page_ctx = filtered_result.value
+    return TasksViewComponents.render_list_view(ctx=page_ctx)
 ```
 
 **Benefits:**
