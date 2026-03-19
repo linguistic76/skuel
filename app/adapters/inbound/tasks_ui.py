@@ -57,6 +57,7 @@ from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
 from ui.page_contexts import TasksPageContext
 from ui.patterns.error_banner import render_error_banner
+from ui.patterns.page_header import PageHeader
 from ui.patterns.relationships import EntityRelationshipsSection
 from ui.tasks.layout import create_tasks_page
 from ui.tasks.todoist_components import TodoistTaskComponents
@@ -228,6 +229,7 @@ def create_tasks_ui_routes(
         # Check for errors
         if filtered_result.is_error:
             error_content = Div(
+                PageHeader("Tasks", subtitle="Manage your daily tasks"),
                 TasksViewComponents.render_view_tabs(active_view=view),
                 render_error_banner("Failed to load tasks"),
                 cls=f"{Spacing.PAGE} {Container.WIDE}",
@@ -268,6 +270,7 @@ def create_tasks_ui_routes(
 
         # Build page with tabs + view content
         page_content = Div(
+            PageHeader("Tasks", subtitle="Manage your daily tasks"),
             TasksViewComponents.render_view_tabs(active_view=view),
             Div(view_content, id="view-content", role="tabpanel"),
             cls=f"{Spacing.PAGE} {Container.WIDE}",

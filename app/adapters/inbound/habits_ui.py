@@ -62,6 +62,7 @@ from ui.patterns.empty_state import EmptyState
 from ui.patterns.entity_dashboard import SharedUIComponents
 from ui.patterns.error_banner import render_error_banner, render_inline_error
 from ui.patterns.form_generator import FormGenerator
+from ui.patterns.page_header import PageHeader
 from ui.patterns.relationships import EntityRelationshipsSection
 from ui.tokens import Container, Spacing
 
@@ -487,6 +488,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
         # CHECK FOR ERRORS
         if filtered_result.is_error:
             error_content = Div(
+                PageHeader("Habits", subtitle="Build and maintain daily habits"),
                 HabitsViewComponents.render_view_tabs(active_view=view),
                 render_error_banner("Failed to load habits"),
                 cls=f"{Spacing.PAGE} {Container.WIDE}",
@@ -495,6 +497,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
 
         if categories_result.is_error:
             error_content = Div(
+                PageHeader("Habits", subtitle="Build and maintain daily habits"),
                 HabitsViewComponents.render_view_tabs(active_view=view),
                 render_error_banner("Failed to load categories"),
                 cls=f"{Spacing.PAGE} {Container.WIDE}",
@@ -537,6 +540,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
 
         # Build page with tabs + view content
         page_content = Div(
+            PageHeader("Habits", subtitle="Build and maintain daily habits"),
             HabitsViewComponents.render_view_tabs(active_view=view),
             Div(view_content, id="view-content", role="tabpanel"),
             cls=f"{Spacing.PAGE} {Container.WIDE}",

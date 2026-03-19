@@ -55,6 +55,7 @@ from ui.patterns.empty_state import EmptyState
 from ui.patterns.entity_dashboard import SharedUIComponents
 from ui.patterns.error_banner import render_error_banner, render_inline_error
 from ui.patterns.form_generator import FormGenerator
+from ui.patterns.page_header import PageHeader
 from ui.patterns.relationships import EntityRelationshipsSection
 from ui.tokens import Container, Spacing
 
@@ -540,6 +541,7 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsService, services: Any 
         # CHECK FOR ERRORS
         if filtered_result.is_error:
             error_content = Div(
+                PageHeader("Goals", subtitle="Track and achieve your goals"),
                 GoalsViewComponents.render_view_tabs(active_view=view),
                 render_error_banner("Failed to load goals"),
                 cls=f"{Spacing.PAGE} {Container.WIDE}",
@@ -548,6 +550,7 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsService, services: Any 
 
         if categories_result.is_error:
             error_content = Div(
+                PageHeader("Goals", subtitle="Track and achieve your goals"),
                 GoalsViewComponents.render_view_tabs(active_view=view),
                 render_error_banner("Failed to load categories"),
                 cls=f"{Spacing.PAGE} {Container.WIDE}",
@@ -590,6 +593,7 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsService, services: Any 
 
         # Build page with tabs + view content
         page_content = Div(
+            PageHeader("Goals", subtitle="Track and achieve your goals"),
             GoalsViewComponents.render_view_tabs(active_view=view),
             Div(view_content, id="view-content", role="tabpanel"),
             cls=f"{Spacing.PAGE} {Container.WIDE}",

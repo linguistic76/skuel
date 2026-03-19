@@ -51,6 +51,7 @@ from ui.layouts.page_types import PageType
 from ui.page_contexts import PrinciplesPageContext
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_error_banner
+from ui.patterns.page_header import PageHeader
 from ui.patterns.relationships import EntityRelationshipsSection
 from ui.principles.layout import create_principles_page
 from ui.principles.views import PrinciplesViewComponents
@@ -226,6 +227,7 @@ def create_principles_ui_routes(
             # Check for errors
             if categories_result.is_error:
                 error_content = Div(
+                    PageHeader("Principles", subtitle="Define the values that guide you"),
                     PrinciplesViewComponents.render_view_tabs(active_view=view),
                     render_error_banner("Failed to load categories"),
                     cls=f"{Spacing.PAGE} {Container.WIDE}",
@@ -241,6 +243,7 @@ def create_principles_ui_routes(
             # Check for errors
             if analytics_result.is_error:
                 error_content = Div(
+                    PageHeader("Principles", subtitle="Define the values that guide you"),
                     PrinciplesViewComponents.render_view_tabs(active_view=view),
                     render_error_banner("Failed to load analytics"),
                     cls=f"{Spacing.PAGE} {Container.WIDE}",
@@ -258,6 +261,7 @@ def create_principles_ui_routes(
             # Check for errors
             if filtered_result.is_error:
                 error_content = Div(
+                    PageHeader("Principles", subtitle="Define the values that guide you"),
                     PrinciplesViewComponents.render_view_tabs(active_view=view),
                     render_error_banner("Failed to load principles"),
                     cls=f"{Spacing.PAGE} {Container.WIDE}",
@@ -271,6 +275,7 @@ def create_principles_ui_routes(
             # Check categories error
             if categories_result.is_error:
                 error_content = Div(
+                    PageHeader("Principles", subtitle="Define the values that guide you"),
                     PrinciplesViewComponents.render_view_tabs(active_view=view),
                     render_error_banner("Failed to load categories"),
                     cls=f"{Spacing.PAGE} {Container.WIDE}",
@@ -287,6 +292,7 @@ def create_principles_ui_routes(
 
         # Build page with tabs + view content
         page_content = Div(
+            PageHeader("Principles", subtitle="Define the values that guide you"),
             PrinciplesViewComponents.render_view_tabs(active_view=view),
             Div(view_content, id="view-content", role="tabpanel"),
             cls=f"{Spacing.PAGE} {Container.WIDE}",

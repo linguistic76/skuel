@@ -59,6 +59,7 @@ from ui.page_contexts import EventsPageContext
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.entity_dashboard import SharedUIComponents
 from ui.patterns.error_banner import render_error_banner
+from ui.patterns.page_header import PageHeader
 from ui.patterns.relationships import EntityRelationshipsSection
 from ui.tokens import Container, Spacing
 
@@ -275,6 +276,7 @@ def create_events_ui_routes(_app, rt, events_service: EventsService, services: A
         # CHECK FOR ERRORS
         if filtered_result.is_error:
             error_content = Div(
+                PageHeader("Events", subtitle="Schedule and track your events"),
                 EventsViewComponents.render_view_tabs(active_view=view),
                 render_error_banner("Failed to load events"),
                 cls=f"{Spacing.PAGE} {Container.WIDE}",
@@ -283,6 +285,7 @@ def create_events_ui_routes(_app, rt, events_service: EventsService, services: A
 
         if event_types_result.is_error:
             error_content = Div(
+                PageHeader("Events", subtitle="Schedule and track your events"),
                 EventsViewComponents.render_view_tabs(active_view=view),
                 render_error_banner("Failed to load event types"),
                 cls=f"{Spacing.PAGE} {Container.WIDE}",
@@ -324,6 +327,7 @@ def create_events_ui_routes(_app, rt, events_service: EventsService, services: A
 
         # Build page with tabs + view content
         page_content = Div(
+            PageHeader("Events", subtitle="Schedule and track your events"),
             EventsViewComponents.render_view_tabs(active_view=view),
             Div(view_content, id="view-content", role="tabpanel"),
             cls=f"{Spacing.PAGE} {Container.WIDE}",

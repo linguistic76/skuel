@@ -59,6 +59,7 @@ from ui.modals import Modal, ModalBox
 from ui.page_contexts import ChoicesPageContext
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_error_banner
+from ui.patterns.page_header import PageHeader
 from ui.patterns.relationships import EntityRelationshipsSection
 from ui.tokens import Container, Spacing
 
@@ -194,6 +195,7 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
 
         if filtered_result.is_error:
             error_content = Div(
+                PageHeader("Choices", subtitle="Make and track important decisions"),
                 ChoicesViewComponents.render_view_tabs(active_view=view),
                 render_error_banner("Failed to load choices"),
                 cls=f"{Spacing.PAGE} {Container.WIDE}",
@@ -229,6 +231,7 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
             view_content = ChoicesViewComponents.render_list_view(ctx=page_ctx)
 
         page_content = Div(
+            PageHeader("Choices", subtitle="Make and track important decisions"),
             ChoicesViewComponents.render_view_tabs(active_view=view),
             Div(view_content, id="view-content", role="tabpanel"),
             cls=f"{Spacing.PAGE} {Container.WIDE}",
