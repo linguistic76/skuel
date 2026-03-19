@@ -980,12 +980,7 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsService, services: Any 
         # Verify goal exists and user owns it
         result = await goals_service.get_for_user(uid, user_uid)
         if result.is_error or result.value is None:
-            return await BasePage(
-                content=render_error_banner(f"Could not find goal: {uid}"),
-                title="Goal Not Found",
-                page_type=PageType.STANDARD,
-                request=request,
-            )
+            return await render_entity_not_found_page("Goal", uid, "goals", request)
 
         goal = result.value
 
