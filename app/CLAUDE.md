@@ -488,9 +488,13 @@ type Scorer[T] = Callable[[T], Score]
 - `/ku` is the Knowledge index — flat Ku listing with bookmarks + latest sidebar (pin button for bookmarking). `/profile` is a lean dashboard (no sidebar, uses `BasePage`). Activity domains at `/activities/{domain}` with sidebar. `/curriculum` is the curriculum hub with 4-card landing; sub-pages (`/lessons`, `/learning-steps`, `/learning-paths`, `/exercises`) share a 4-item Curriculum sidebar. `/study` is the student workspace hub landing page. Sub-pages (`/submit`, `/submissions`, `/exercise-reports`, `/activity-reports`, `/generate-reports`) share a 5-item Study sidebar. Old `/submissions/*`, `/learn/*`, and `/ui/exercises` UI paths redirect 301 to the new top-level routes.
 - All sidebars unified into `SidebarPage` from `ui/patterns/sidebar.py`
 
-**Key Files:** `/ui/layouts/base_page.py`, `/ui/layouts/navbar.py`, `/ui/patterns/sidebar.py`, `/ui/patterns/` (PageHeader, form_generator, card_generator, etc.)
+**Shared Components:** `EmptyState` (empty lists — adopted across ~40 locations), `EntityCard` (universal entity display with variant system), `StatsGrid`/`StatItem` (statistics grids). All in `/ui/patterns/`.
 
-**See:** `/docs/patterns/UI_COMPONENT_PATTERNS.md`
+**Page Contexts:** Per-domain TypedDicts in `/ui/page_contexts.py` define route→UI contracts. All 6 Activity Domain views accept `ctx` keyword arg. NOT in `core/ports/` — page contexts are UI concerns.
+
+**Key Files:** `/ui/layouts/base_page.py`, `/ui/layouts/navbar.py`, `/ui/patterns/sidebar.py`, `/ui/patterns/` (PageHeader, form_generator, card_generator, etc.), `/ui/page_contexts.py`
+
+**See:** `/docs/patterns/UI_COMPONENT_PATTERNS.md`, `/docs/ui/COMPONENT_CATALOG.md`
 
 ## Alpine.js Architecture
 
@@ -761,6 +765,7 @@ text = build_embedding_text(EntityType.TASK, {"title": "Fix bug", "description":
 | Exception types | `/core/utils/exception_types.py` |
 | Error boundary | `/core/utils/error_boundary.py` |
 | Route factories | `/adapters/inbound/route_factories.py` |
+| Page contexts | `/ui/page_contexts.py` |
 | ADRs | `/docs/decisions/` |
 | Patterns | `/docs/patterns/` |
 | Architecture | `/docs/architecture/` |

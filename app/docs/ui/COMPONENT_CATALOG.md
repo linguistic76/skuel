@@ -633,38 +633,44 @@ StatCard(label="Completion Rate", value="85%", color="success")
 
 **Location:** `/ui/patterns/empty_state.py`
 
-Friendly empty state for lists with no items.
+Friendly empty state for lists with no items. Renders centered content with `py-12` padding.
 
-### EmptyState(title, message, action_label, action_href, icon, **kwargs)
+**Adoption status:** Used across ~40 locations in 25 files. All Activity Domain list views, curriculum hub, study/submissions, admin, finance, and other domains.
+
+### EmptyState(title, description, action_text, action_href, icon, **kwargs)
 
 Empty state component.
 
 **Parameters:**
-- `title: str` - Empty state title
-- `message: str` - Explanation message
-- `action_label: str | None` - Call-to-action button label
-- `action_href: str | None` - Call-to-action button URL
-- `icon: str` - Emoji icon (default: "📭")
-- `**kwargs` - Additional attributes
+- `title: str` - Main message (e.g., "No tasks yet")
+- `description: str` - Optional explanatory text (default: "")
+- `action_text: str | None` - Optional CTA button label
+- `action_href: str | None` - Optional CTA button URL
+- `icon: str | None` - Optional emoji icon displayed above title
+- `**kwargs` - Additional attributes (supports `cls` merge)
+
+**Usage Rules:**
+- **Primary list views:** `EmptyState(title="...", description="...", action_text="Create ...", action_href="/...")`
+- **Secondary sections:** `EmptyState(title="...")` — no CTA
+- **Tiny inline indicators** (sidebar `<li>`, analytics cards): Leave as `P()` — `EmptyState` with `py-12` is too heavy
 
 **Examples:**
 ```python
 from ui.patterns.empty_state import EmptyState
 
-# Simple empty state
+# Primary list view with CTA
 EmptyState(
     title="No tasks found",
-    message="Create your first task to get started",
+    description="Create one to get started!",
+    action_text="Create task",
+    action_href="/activities/tasks?view=create",
 )
 
-# With action button
-EmptyState(
-    title="No tasks found",
-    message="Create your first task to get started",
-    action_label="Create Task",
-    action_href="/tasks/new",
-    icon="✨",
-)
+# Secondary section (no CTA)
+EmptyState(title="No feedback yet")
+
+# With icon
+EmptyState(title="No habits for today!", icon="🎉")
 ```
 
 ---
@@ -1087,9 +1093,9 @@ content = Div(
         cls="space-y-3",
     ) if tasks else EmptyState(
         title="No tasks found",
-        message="Create your first task to get started",
-        action_label="Create Task",
-        action_href="/tasks/new",
+        description="Create your first task to get started",
+        action_text="Create Task",
+        action_href="/activities/tasks?view=create",
     ),
 )
 ```
@@ -1129,6 +1135,30 @@ Div(
     ),
 )
 ```
+
+## Page Context Pattern
+
+**Location:** `/ui/page_contexts.py`
+
+Per-domain TypedDicts that define the route→UI contract. Routes build a typed context, views consume it.
+
+```python
+from ui.page_contexts import TasksPageContext
+
+# In route: build typed context
+page_ctx = TasksPageContext(
+    entities=tasks,
+    filters=filters.to_dict(),
+    projects=projects,
+    assignees=assignees,
+    view="list",
+)
+view_content = TasksViewComponents.render_list_view(ctx=page_ctx)
+```
+
+**Available contexts:** `ActivityPageContext` (base), `TasksPageContext`, `GoalsPageContext`, `HabitsPageContext`, `EventsPageContext`, `ChoicesPageContext`, `PrinciplesPageContext`, `CurriculumHubContext`, `CurriculumListContext`, `SubmissionsPageContext`, `KuIndexContext`.
+
+All 6 Activity Domain views accept `ctx` as a keyword-only argument alongside existing positional args for backward compatibility.
 
 ---
 

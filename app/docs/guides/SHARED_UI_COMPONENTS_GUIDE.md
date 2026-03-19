@@ -130,13 +130,21 @@ grid = SharedUIComponents.render_entity_grid(
 
 ### 4. Empty State
 
+Use `EmptyState()` from `ui/patterns/empty_state.py` (adopted across ~40 locations):
+
 ```python
-empty = SharedUIComponents.render_empty_state(
-    icon="📋",
+from ui.patterns.empty_state import EmptyState
+
+# Primary list view with CTA
+EmptyState(
     title="No tasks yet",
-    message="Create your first task to get started",
-    action={'label': 'Create Task', 'href': '/tasks/create', 'variant': 'primary'}
+    description="Create your first task to get started",
+    action_text="Create Task",
+    action_href="/activities/tasks?view=create",
 )
+
+# Secondary section (no CTA)
+EmptyState(title="No feedback yet")
 ```
 
 ## Component Reference

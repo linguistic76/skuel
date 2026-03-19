@@ -201,12 +201,19 @@ from ui.patterns import PageHeader, SectionHeader, EmptyState, StatsGrid, StatCa
 from ui.patterns.stats_grid import StatItem
 from ui.patterns import ProgressMetric, RecommendationCard, SettingToggle
 
-# Empty state with optional action
+# Empty state — primary list view with CTA
 EmptyState(
-    "No tasks found.",
-    icon="✅",
-    action=Button("Create Task", variant=ButtonT.primary),
+    title="No tasks found",
+    description="Create one to get started!",
+    action_text="Create task",
+    action_href="/activities/tasks?view=create",
 )
+
+# Empty state — secondary section (no CTA)
+EmptyState(title="No feedback yet")
+
+# Empty state — with icon
+EmptyState(title="No habits for today!", icon="🎉")
 
 # Stats grid — uses StatItem frozen dataclass (not dicts)
 StatsGrid([
@@ -221,6 +228,32 @@ StatCard(label="Completion Rate", value="85%", color="success")
 # Progress bar with auto color thresholds
 ProgressMetric("Data Quality", 0.88)  # green ≥80%, yellow ≥60%, red <60%
 ```
+
+### EmptyState Usage Rules
+
+- **Primary list views** (main entity list): `EmptyState(title="...", description="...", action_text="Create ...", action_href="/...")`
+- **Secondary sections** (detail panel subsections, sidebar items): `EmptyState(title="...")` — no CTA
+- **Tiny inline indicators** (sidebar `<li>`, analytics cards): Leave as `P()` — `EmptyState` with `py-12` is too heavy
+
+### Typed Page Contexts
+
+Route→UI contracts use per-domain TypedDicts from `ui/page_contexts.py`:
+
+```python
+from ui.page_contexts import TasksPageContext, GoalsPageContext  # etc.
+
+# Build in route, pass to view
+page_ctx = TasksPageContext(
+    entities=tasks,
+    filters=filters.to_dict(),
+    projects=projects,
+    assignees=assignees,
+    view="list",
+)
+view_content = TasksViewComponents.render_list_view(ctx=page_ctx)
+```
+
+All 6 Activity Domain views accept `ctx` as a keyword-only argument alongside existing positional args for backward compatibility.
 
 ### Composition Strategies
 
@@ -923,6 +956,7 @@ When building a new SKUEL page or feature, verify:
 | `/ui/patterns/sidebar.py` | `SidebarItem`, `SidebarNav`, `SidebarPage` |
 | `/ui/curriculum/` | Curriculum sidebar, layout, landing page |
 | `/ui/patterns/__init__.py` | `PageHeader`, `SectionHeader`, `EmptyState`, `StatCard`, `StatsGrid`, `FormGenerator`, `ProgressMetric`, `RecommendationCard`, `SettingToggle` |
+| `/ui/page_contexts.py` | Per-domain TypedDicts (`TasksPageContext`, `GoalsPageContext`, etc.) for route→UI contracts |
 | `/ui/patterns/form_generator.py` | `FormGenerator` — dynamic form generation from Pydantic models |
 | `/ui/tokens.py` | `Container`, `Spacing`, `Card` design tokens |
 | `ui/buttons.py`, `ui/cards.py`, `ui/forms/`, `ui/modals.py`, `ui/feedback.py`, `ui/layout.py`, `ui/navigation.py`, `ui/data.py` | FastHTML MonsterUI wrappers — 8 focused modules (March 2026) |

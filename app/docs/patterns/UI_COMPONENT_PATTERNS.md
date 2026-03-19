@@ -774,19 +774,29 @@ def TaskCard(task: Task) -> Any:
 
 ### Empty State
 
+**Location:** `/ui/patterns/empty_state.py`
+
+Adopted across ~40 locations in 25 files (Activity Domains, Curriculum, Study, Admin, Finance, etc.).
+
 ```python
-def EmptyState(message: str, action_text: str = None, action_url: str = None) -> Any:
-    """Render an empty state message."""
-    return DivCentered(
-        DivVStacked(
-            Span("", data_lucide="inbox", cls="w-16 h-16 text-muted-foreground/30"),
-            P(message, cls="text-muted-foreground/60"),
-            Button(action_text, variant=ButtonT.primary, hx_get=action_url) if action_text else None,
-            gap=4, align="center"
-        ),
-        cls="py-12"
-    )
+from ui.patterns.empty_state import EmptyState
+
+# Primary list view — full CTA
+EmptyState(
+    title="No tasks found",
+    description="Create one to get started!",
+    action_text="Create task",
+    action_href="/activities/tasks?view=create",
+)
+
+# Secondary section — title only
+EmptyState(title="No feedback yet")
+
+# With icon
+EmptyState(title="No habits for today!", icon="🎉")
 ```
+
+**Usage rules:** Primary list views get full CTA. Secondary sections get title only. Tiny inline indicators (sidebar `<li>`, analytics cards) stay as `P()` — `EmptyState` with `py-12` is too heavy for compact contexts.
 
 ---
 
