@@ -101,9 +101,13 @@ class TestLintResult:
 
     def test_has_critical(self) -> None:
         v = Violation(
-            file_path=Path("x.py"), line_number=1, column=0,
-            severity=Severity.CRITICAL, rule_id="SKUEL001",
-            message="test", suggestion="fix",
+            file_path=Path("x.py"),
+            line_number=1,
+            column=0,
+            severity=Severity.CRITICAL,
+            rule_id="SKUEL001",
+            message="test",
+            suggestion="fix",
         )
         result = LintResult(violations=[v])
         assert result.has_critical is True
@@ -111,9 +115,13 @@ class TestLintResult:
 
     def test_has_error(self) -> None:
         v = Violation(
-            file_path=Path("x.py"), line_number=1, column=0,
-            severity=Severity.ERROR, rule_id="SKUEL003",
-            message="test", suggestion="fix",
+            file_path=Path("x.py"),
+            line_number=1,
+            column=0,
+            severity=Severity.ERROR,
+            rule_id="SKUEL003",
+            message="test",
+            suggestion="fix",
         )
         result = LintResult(violations=[v])
         assert result.has_error is True
@@ -121,23 +129,35 @@ class TestLintResult:
 
     def test_has_warning(self) -> None:
         v = Violation(
-            file_path=Path("x.py"), line_number=1, column=0,
-            severity=Severity.WARNING, rule_id="SKUEL011",
-            message="test", suggestion="fix",
+            file_path=Path("x.py"),
+            line_number=1,
+            column=0,
+            severity=Severity.WARNING,
+            rule_id="SKUEL011",
+            message="test",
+            suggestion="fix",
         )
         result = LintResult(violations=[v])
         assert result.has_warning is True
 
     def test_by_severity(self) -> None:
         v1 = Violation(
-            file_path=Path("a.py"), line_number=1, column=0,
-            severity=Severity.ERROR, rule_id="SKUEL003",
-            message="err", suggestion="fix",
+            file_path=Path("a.py"),
+            line_number=1,
+            column=0,
+            severity=Severity.ERROR,
+            rule_id="SKUEL003",
+            message="err",
+            suggestion="fix",
         )
         v2 = Violation(
-            file_path=Path("b.py"), line_number=2, column=0,
-            severity=Severity.WARNING, rule_id="SKUEL011",
-            message="warn", suggestion="fix",
+            file_path=Path("b.py"),
+            line_number=2,
+            column=0,
+            severity=Severity.WARNING,
+            rule_id="SKUEL011",
+            message="warn",
+            suggestion="fix",
         )
         result = LintResult(violations=[v1, v2])
         assert len(result.by_severity(Severity.ERROR)) == 1
@@ -146,16 +166,31 @@ class TestLintResult:
 
     def test_by_file(self) -> None:
         v1 = Violation(
-            file_path=Path("a.py"), line_number=1, column=0,
-            severity=Severity.ERROR, rule_id="X", message="", suggestion="",
+            file_path=Path("a.py"),
+            line_number=1,
+            column=0,
+            severity=Severity.ERROR,
+            rule_id="X",
+            message="",
+            suggestion="",
         )
         v2 = Violation(
-            file_path=Path("a.py"), line_number=2, column=0,
-            severity=Severity.ERROR, rule_id="Y", message="", suggestion="",
+            file_path=Path("a.py"),
+            line_number=2,
+            column=0,
+            severity=Severity.ERROR,
+            rule_id="Y",
+            message="",
+            suggestion="",
         )
         v3 = Violation(
-            file_path=Path("b.py"), line_number=1, column=0,
-            severity=Severity.WARNING, rule_id="Z", message="", suggestion="",
+            file_path=Path("b.py"),
+            line_number=1,
+            column=0,
+            severity=Severity.WARNING,
+            rule_id="Z",
+            message="",
+            suggestion="",
         )
         result = LintResult(violations=[v1, v2, v3])
         by_file = result.by_file()
@@ -164,14 +199,22 @@ class TestLintResult:
 
     def test_by_rule(self) -> None:
         v1 = Violation(
-            file_path=Path("a.py"), line_number=1, column=0,
-            severity=Severity.ERROR, rule_id="SKUEL003",
-            message="", suggestion="",
+            file_path=Path("a.py"),
+            line_number=1,
+            column=0,
+            severity=Severity.ERROR,
+            rule_id="SKUEL003",
+            message="",
+            suggestion="",
         )
         v2 = Violation(
-            file_path=Path("b.py"), line_number=1, column=0,
-            severity=Severity.WARNING, rule_id="SKUEL011",
-            message="", suggestion="",
+            file_path=Path("b.py"),
+            line_number=1,
+            column=0,
+            severity=Severity.WARNING,
+            rule_id="SKUEL011",
+            message="",
+            suggestion="",
         )
         result = LintResult(violations=[v1, v2])
         assert len(result.by_rule("SKUEL003")) == 1
@@ -243,7 +286,7 @@ class TestSKUEL001:
 
     def test_clean_code_no_violation(self) -> None:
         linter = make_linter(["SKUEL001"])
-        violations = lint_content(linter, 'query = CypherGenerator.build_chain(uid)')
+        violations = lint_content(linter, "query = CypherGenerator.build_chain(uid)")
         assert len(violations) == 0
 
     def test_detects_apoc_meta(self) -> None:
@@ -325,7 +368,7 @@ class TestSKUEL003:
 class TestSKUEL004:
     def test_semantic_query_without_confidence(self) -> None:
         linter = make_linter(["SKUEL004"])
-        content = 'MATCH (a)-[r:REQUIRES_THEORETICAL_UNDERSTANDING]->(b)\nRETURN b'
+        content = "MATCH (a)-[r:REQUIRES_THEORETICAL_UNDERSTANDING]->(b)\nRETURN b"
         violations = lint_content(linter, content)
         assert len(violations) == 1
         assert violations[0].rule_id == "SKUEL004"
@@ -333,16 +376,16 @@ class TestSKUEL004:
     def test_semantic_query_with_confidence(self) -> None:
         linter = make_linter(["SKUEL004"])
         content = (
-            'MATCH (a)-[r:REQUIRES_THEORETICAL_UNDERSTANDING]->(b)\n'
-            'WHERE r.confidence >= 0.7\n'
-            'RETURN b'
+            "MATCH (a)-[r:REQUIRES_THEORETICAL_UNDERSTANDING]->(b)\n"
+            "WHERE r.confidence >= 0.7\n"
+            "RETURN b"
         )
         violations = lint_content(linter, content)
         assert len(violations) == 0
 
     def test_structural_query_no_warning(self) -> None:
         linter = make_linter(["SKUEL004"])
-        content = 'MATCH (a)-[r:ENABLES]->(b)\nRETURN b'
+        content = "MATCH (a)-[r:ENABLES]->(b)\nRETURN b"
         violations = lint_content(linter, content)
         assert len(violations) == 0
 
@@ -449,9 +492,7 @@ class TestSKUEL007:
 
     def test_errors_factory_clean(self) -> None:
         linter = make_linter(["SKUEL007"])
-        violations = lint_content(
-            linter, 'return Result.fail(Errors.not_found("Task", uid))'
-        )
+        violations = lint_content(linter, 'return Result.fail(Errors.not_found("Task", uid))')
         assert len(violations) == 0
 
 
@@ -677,9 +718,7 @@ class TestSKUEL013:
 
     def test_cypher_query_exempt(self) -> None:
         linter = make_linter(["SKUEL013"])
-        violations = lint_content(
-            linter, 'query = "MATCH (a)-[:SERVES_GOAL]->(b) RETURN b"'
-        )
+        violations = lint_content(linter, 'query = "MATCH (a)-[:SERVES_GOAL]->(b) RETURN b"')
         assert len(violations) == 0
 
     def test_skips_docstrings(self) -> None:

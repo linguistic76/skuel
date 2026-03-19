@@ -436,7 +436,9 @@ class UniversalNeo4jBackend[T: DomainModelProtocol](  # type: ignore[misc]  # Mi
             if suggest_fn is not None:
                 try:
                     query_intent = suggest_fn()
-                except Exception as e:  # skuel-lint: disable=SKUEL017 -- entity method may raise arbitrary errors
+                except (
+                    Exception
+                ) as e:  # skuel-lint: disable=SKUEL017 -- entity method may raise arbitrary errors
                     self.logger.warning(f"Failed to get suggested intent: {e}")
 
         if not query_intent:

@@ -307,6 +307,7 @@ class TestRenderPriorityBadge:
 
     def test_enum_input(self) -> None:
         from core.models.enums import Priority
+
         result = render_priority_badge(Priority.HIGH)
         assert result is not None
 
@@ -322,6 +323,7 @@ class TestRenderStatusBadge:
 
     def test_enum_input(self) -> None:
         from core.models.enums import EntityStatus
+
         result = render_status_badge(EntityStatus.ACTIVE)
         assert result is not None
 
@@ -357,6 +359,7 @@ class TestRenderCompletionBadge:
 
     def test_enum_input(self) -> None:
         from core.models.enums import CompletionStatus
+
         result = render_completion_badge(CompletionStatus.DONE)
         assert result is not None
 

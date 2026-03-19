@@ -148,7 +148,9 @@ def build_search_query(
                 field_type = type_hints.get(field_name)
                 origin = get_origin(field_type) if field_type else None
                 is_list_field = origin is list
-            except Exception:  # skuel-lint: disable=SKUEL017 -- type introspection may raise arbitrary errors
+            except (
+                Exception
+            ):  # skuel-lint: disable=SKUEL017 -- type introspection may raise arbitrary errors
                 is_list_field = False
 
             # For list/array fields, use IN operator (reversed: value IN array)

@@ -17,8 +17,17 @@ from ui.layout import Size
 class TestButtonT:
     def test_all_variants_exist(self) -> None:
         expected = {
-            "primary", "secondary", "accent", "neutral", "ghost", "link",
-            "info", "success", "warning", "error", "outline",
+            "primary",
+            "secondary",
+            "accent",
+            "neutral",
+            "ghost",
+            "link",
+            "info",
+            "success",
+            "warning",
+            "error",
+            "outline",
         }
         assert {v.value for v in ButtonT} == expected
 
@@ -35,6 +44,7 @@ class TestVariantMap:
 
     def test_error_maps_to_destructive(self) -> None:
         from monsterui.franken import ButtonT as MButtonT
+
         assert _VARIANT_MAP["error"] == MButtonT.destructive
 
 

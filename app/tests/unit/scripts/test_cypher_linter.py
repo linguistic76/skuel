@@ -325,7 +325,9 @@ class TestCYP009:
         )
         violations = linter._check_query_complexity(query, Path("test.py"), 1)
         assert len(violations) == 1
-        assert "Very high" in violations[0].message or "architecture review" in violations[0].message
+        assert (
+            "Very high" in violations[0].message or "architecture review" in violations[0].message
+        )
 
     def test_aggregation_adds_complexity(self) -> None:
         linter = make_linter()
