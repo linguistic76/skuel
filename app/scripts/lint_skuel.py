@@ -145,7 +145,10 @@ RETURN b  -- No confidence filter!""",
         "title": "Service Methods Should Return Result[T]",
         "severity": "WARNING",
         "description": """Public async service methods should return Result[T] for
-consistent error handling throughout the application.""",
+consistent error handling throughout the application.
+
+Suppress: # skuel-lint: disable=SKUEL005 -- <reason>
+File-level: # skuel-lint: disable-file=SKUEL005 -- <reason>""",
         "good": """async def get_task(self, uid: str) -> Result[Task]:
     ...""",
         "bad": """async def get_task(self, uid: str) -> Task:  # Should be Result[Task]
@@ -213,7 +216,9 @@ name: str = ("",)  # Probably meant "" """,
         "description": """Use explicit type checks (isinstance, Protocol) instead of hasattr().
 hasattr() is error-prone and bypasses type safety.
 
-Exceptions: tests/, sort_functions.py, mock utilities.""",
+Exceptions: tests/, sort_functions.py.
+Suppress: # skuel-lint: disable=SKUEL011 -- <reason>
+File-level: # skuel-lint: disable-file=SKUEL011 -- <reason>""",
         "good": """# Use Protocol checking
 if isinstance(obj, HasValue):
     return obj.value
@@ -238,7 +243,9 @@ if hasattr(user, 'preferences'):
         "description": """Use named functions instead of lambda expressions. Named functions
 are self-documenting, testable, and reusable.
 
-Exceptions: tests/, examples/, mock utilities.""",
+Exceptions: tests/, examples/.
+Suppress: # skuel-lint: disable=SKUEL012 -- <reason>
+File-level: # skuel-lint: disable-file=SKUEL012 -- <reason>""",
         "good": """from core.utils.sort_functions import get_priority_value
 
 def get_priority(item):
@@ -281,7 +288,9 @@ if "task" in contexts:
         "description": """Use logger.*() instead of print() for production runtime output.
 Print bypasses logging infrastructure, making debugging and monitoring harder.
 
-Exceptions: CLI utilities, docstring examples, __main__ blocks.""",
+Exceptions: scripts/, debug utilities, docstring examples, __main__ blocks.
+Suppress: # skuel-lint: disable=SKUEL015 -- <reason>
+File-level: # skuel-lint: disable-file=SKUEL015 -- <reason>""",
         "good": """from core.utils.logging import get_logger
 logger = get_logger("skuel.config")
 
@@ -430,44 +439,6 @@ class SkuelLinter:
         ".claude",  # Claude Code config/skills (documentation only)
     ]
 
-    # Files where hasattr is allowed
-    HASATTR_ALLOWED_FILES: ClassVar[list[str]] = [
-        "sort_functions.py",
-        "mock_decorators.py",
-        "test_",
-        "/tests/",
-        "type_converters.py",  # Documents Protocol-based approach
-        "graphql/protocols.py",  # Documents why hasattr not needed
-        "graphql/schema.py",  # Uses Protocol guarantees
-        "graphql/types.py",  # Documents Protocol benefits
-        "context_first_mixin.py",  # Documents _get_attr as hasattr alternative
-        "_ui.py",  # UI routes handle mixed types defensively
-        "_components.py",  # UI components handle mixed types defensively
-        "base_service.py",  # Generic service class handles dynamic config objects
-        "article_intelligence_service.py",  # Defensive checks for optional model methods
-    ]
-
-    # Files where lambda is allowed
-    LAMBDA_ALLOWED_FILES: ClassVar[list[str]] = [
-        "test_",
-        "/tests/",
-        "/examples/",
-        "mock_decorators.py",
-    ]
-
-    # Files where print is allowed
-    PRINT_ALLOWED_FILES: ClassVar[list[str]] = [
-        "test_",
-        "/tests/",
-        "/examples/",
-        "/scripts/",  # CLI utilities
-        "credential_setup.py",  # CLI utility
-        "lint_skuel.py",  # Linter itself uses print for output
-        "dev",  # dev script
-        "debug_",  # Debug scripts
-        "config/validation.py",  # Has print_validation_report() for CLI output
-    ]
-
     # Domain backends that legitimately extend UniversalNeo4jBackend
     CURRICULUM_BACKENDS: ClassVar[list[str]] = [
         "domain_backends.py",  # All domain backends (Tasks, Goals, Habits, etc.) live here
@@ -501,6 +472,14 @@ class SkuelLinter:
         if self.rules_filter is None:
             return True
         return rule_id in self.rules_filter
+
+    def _is_line_suppressed(self, line: str, rule_id: str) -> bool:
+        """Check for inline suppression: # skuel-lint: disable=SKUEL011"""
+        return f"# skuel-lint: disable={rule_id}" in line
+
+    def _is_file_suppressed(self, content: str, rule_id: str) -> bool:
+        """Check for file-level suppression: # skuel-lint: disable-file=SKUEL011"""
+        return f"# skuel-lint: disable-file={rule_id}" in content
 
     def _find_python_files(self) -> list[Path]:
         """Find all Python files to lint."""
@@ -757,6 +736,9 @@ class SkuelLinter:
         if "protocol" in str(file_path).lower():
             return
 
+        if self._is_file_suppressed(content, "SKUEL005"):
+            return
+
         utility_patterns = [
             "get(self, key:",
             "set(self, key:",
@@ -774,16 +756,6 @@ class SkuelLinter:
             "increment_",
             "ensure_",
         ]
-
-        utility_files = [
-            "performance_optimization_service.py",
-            "base_service.py",
-            "user_context_intelligence.py",
-            "progress_report_worker.py",
-        ]
-
-        if any(uf in str(file_path) for uf in utility_files):
-            return
 
         base_method_indent: int | None = None
 
@@ -822,7 +794,7 @@ class SkuelLinter:
                 if is_classmethod:
                     continue
 
-                if "Result[" not in line:
+                if "Result[" not in line and not self._is_line_suppressed(line, "SKUEL005"):
                     self.result.violations.append(
                         Violation(
                             file_path=rel_path,
@@ -906,26 +878,58 @@ class SkuelLinter:
         """
         SKUEL011 [WARNING]: No hasattr() in production code.
         """
-        # Skip allowed files
+        if self._is_file_suppressed(content, "SKUEL011"):
+            return
+
         file_str = str(file_path)
-        if any(allowed in file_str for allowed in self.HASATTR_ALLOWED_FILES):
+        # Sort functions use hasattr for generic attribute access
+        if "sort_functions.py" in file_str:
             return
 
         pattern = r"\bhasattr\s*\("
+
+        # Track docstring state to skip mentions in docstrings
+        in_docstring = False
+        docstring_delim = None
+        docstring_lines: set[int] = set()
+        for i, line in enumerate(lines, start=1):
+            stripped = line.strip()
+            for delim in ('"""', "'''"):
+                count = stripped.count(delim)
+                if count >= 2 and stripped.startswith(delim):
+                    docstring_lines.add(i)
+                elif count == 1:
+                    if not in_docstring:
+                        in_docstring = True
+                        docstring_delim = delim
+                    elif docstring_delim == delim:
+                        in_docstring = False
+                        docstring_delim = None
+            if in_docstring:
+                docstring_lines.add(i)
 
         for match in re.finditer(pattern, content):
             line_num = content[: match.start()].count("\n") + 1
             line = lines[line_num - 1]
 
-            # Skip comments
-            if line.strip().startswith("#"):
+            # Skip comments and docstrings
+            if line.strip().startswith("#") or line_num in docstring_lines:
+                continue
+
+            # Skip if hasattr appears after a # comment on the same line
+            col = match.start() - content[: match.start()].rfind("\n") - 1
+            before_match = line[:col]
+            if "#" in before_match:
+                continue
+
+            if self._is_line_suppressed(line, "SKUEL011"):
                 continue
 
             self.result.violations.append(
                 Violation(
                     file_path=rel_path,
                     line_number=line_num,
-                    column=match.start() - content[: match.start()].rfind("\n") - 1,
+                    column=col,
                     severity=Severity.WARNING,
                     rule_id="SKUEL011",
                     message="hasattr() usage - use Protocol/isinstance instead",
@@ -940,9 +944,11 @@ class SkuelLinter:
         """
         SKUEL012 [WARNING]: No lambda expressions - use named functions.
         """
-        # Skip allowed files
+        if self._is_file_suppressed(content, "SKUEL012"):
+            return
+
         file_str = str(file_path)
-        if any(allowed in file_str for allowed in self.LAMBDA_ALLOWED_FILES):
+        if "/examples/" in file_str:
             return
 
         pattern = r"\blambda\s+\w*\s*:"
@@ -954,6 +960,9 @@ class SkuelLinter:
             # Skip comments and docstrings
             stripped = line.strip()
             if stripped.startswith("#") or '"""' in line or "'''" in line:
+                continue
+
+            if self._is_line_suppressed(line, "SKUEL012"):
                 continue
 
             self.result.violations.append(
@@ -1160,9 +1169,15 @@ class SkuelLinter:
 
         Exception: CLI utilities, scripts, tests, docstrings, __main__ blocks.
         """
-        # Skip allowed files
+        if self._is_file_suppressed(content, "SKUEL015"):
+            return
+
         file_str = str(file_path)
-        if any(allowed in file_str for allowed in self.PRINT_ALLOWED_FILES):
+        # Directory-scoped exemptions: scripts, examples, debug utilities
+        if any(
+            pattern in file_str
+            for pattern in ["/scripts/", "/examples/", "debug_", "lint_skuel.py", "dev"]
+        ):
             return
 
         # Track context state
@@ -1227,6 +1242,9 @@ class SkuelLinter:
                 quote_count = before_print.count('"') + before_print.count("'")
                 if quote_count % 2 == 1:
                     continue  # Odd number of quotes = likely inside a string
+
+                if self._is_line_suppressed(line, "SKUEL015"):
+                    continue
 
                 self.result.violations.append(
                     Violation(
@@ -1359,7 +1377,11 @@ class SkuelLinter:
                 continue
 
             # Check if the same line has a suppression comment
-            if "# intentional-broad:" in line or "# safety-net:" in line:
+            if (
+                "# intentional-broad:" in line
+                or "# safety-net:" in line
+                or self._is_line_suppressed(line, "SKUEL017")
+            ):
                 continue
 
             # Check if the line above has a suppression comment

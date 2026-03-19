@@ -1,3 +1,4 @@
+# skuel-lint: disable-file=SKUEL015 -- CLI validation report
 """
 Configuration Validation
 ========================

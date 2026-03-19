@@ -1,3 +1,4 @@
+# skuel-lint: disable-file=SKUEL005 -- Cache service, raw values not Result[T]
 """
 Performance Optimization Service
 =============================================

@@ -1,3 +1,4 @@
+# skuel-lint: disable-file=SKUEL005 -- Background worker
 """
 Progress Report Background Worker
 ===================================

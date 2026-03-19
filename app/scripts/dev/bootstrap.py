@@ -696,7 +696,7 @@ async def _wire_all_routes(
     # Startup summary
     # ========================================================================
 
-    route_count = len(app.routes) if hasattr(app, "routes") else 0
+    route_count = len(app.routes) if hasattr(app, "routes") else 0  # skuel-lint: disable=SKUEL011 -- FastHTML app attribute check
     logger.info(f"Route wiring complete: {route_count} routes registered")
 
 

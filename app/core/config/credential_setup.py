@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# skuel-lint: disable-file=SKUEL015 -- Interactive CLI utility
 """
 Credential Setup Tool
 =====================

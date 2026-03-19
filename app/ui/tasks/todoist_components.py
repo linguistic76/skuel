@@ -1,3 +1,4 @@
+# skuel-lint: disable-file=SKUEL011 -- Todoist API duck typing for external types
 """
 Todoist-Style Task Components
 =============================
