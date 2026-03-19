@@ -1,6 +1,6 @@
 ---
 title: UI Component Patterns
-updated: '2026-02-03'
+updated: '2026-03-19'
 category: patterns
 related_skills:
   - accessibility-guide
@@ -303,12 +303,14 @@ Card.PADDING        # "p-6"
 
 ### Page Header & Section Header
 
+Adopted across all 6 Activity Domain dashboards, Study hub, and Curriculum hub — every `SidebarPage` content area starts with a `PageHeader`.
+
 ```python
 from ui.patterns import PageHeader, SectionHeader
 
 # Page header with optional subtitle and actions
-PageHeader("Tasks", subtitle="Manage your daily work")
-PageHeader("Goals", actions=Button("Create Goal", variant=ButtonT.primary))
+PageHeader("Tasks", subtitle="Manage your daily tasks")
+PageHeader("Goals", subtitle="Track and achieve your goals")
 
 # Section header with optional action link
 SectionHeader("Recent Tasks")

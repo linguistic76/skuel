@@ -1,6 +1,6 @@
 # SKUEL UI Component Catalog
 
-**Last Updated:** 2026-03-10
+**Last Updated:** 2026-03-19
 **Status:** Complete — MonsterUI consolidated (primitives layer removed)
 
 ---
@@ -200,16 +200,13 @@ Generic badge component.
 
 ### StatusBadge(status)
 
-Status-specific badge with predefined styling.
+Status-aware badge that delegates to `EntityStatus.get_badge_class()` for canonical styling. Covers all 14 EntityStatus values.
 
 **Parameters:**
-- `status: str | None` - Status value (active, completed, pending, etc.)
+- `status: str | None` - Status value (case-insensitive, underscores or hyphens)
+- `**kwargs` - Additional attributes passed to Badge
 
-**Auto-mapped colors:**
-- "completed" → Success (green)
-- "active", "in_progress" → Primary (blue)
-- "pending" → Warning (yellow)
-- "cancelled" → Error (red)
+**Implementation:** Converts status string → `EntityStatus` enum → `get_badge_class()` CSS string. Falls back to gray for unknown values.
 
 ### PriorityBadge(priority)
 
@@ -457,7 +454,7 @@ Composed components built from primitives for common UI patterns.
 
 **Location:** `/ui/patterns/page_header.py`
 
-Consistent header for all pages with title and optional actions.
+Consistent header for all pages with title and optional actions. Adopted across all 6 Activity Domain dashboards (Tasks, Goals, Habits, Events, Choices, Principles), Study hub, and Curriculum hub.
 
 ### PageHeader(title, subtitle, actions, breadcrumbs, **kwargs)
 
@@ -502,11 +499,9 @@ PageHeader(
 
 **Location:** `/ui/patterns/entity_card.py`
 
-Universal card for displaying domain entities with variant support.
+Universal card for displaying domain entities with variant support. Adopted in `submissions/cards.py` and `journals_ui.py`, replacing manual Card/CardBody composition.
 
 ### EntityCard(title, description, status, priority, metadata, actions, config, **kwargs)
-
-**NEW: Phase 3, Task 4 - Variant System**
 
 Generic entity card supporting three display variants.
 

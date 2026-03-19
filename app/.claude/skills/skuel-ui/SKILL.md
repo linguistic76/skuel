@@ -222,6 +222,21 @@ StatsGrid([
     StatItem(label="Overdue", value="3", trend="-2"),
 ])
 
+# EntityCard — universal entity display (replaces manual Card/CardBody)
+from ui.patterns.entity_card import EntityCard, CardConfig
+EntityCard(
+    title="Complete quarterly report",
+    status="in_progress",
+    priority="high",
+    metadata=["Due: Dec 15", "Project: Q4"],
+    actions=Div(ButtonLink("View", href="/tasks/123", variant=ButtonT.ghost)),
+)
+
+# StatusBadge — delegates to EntityStatus.get_badge_class() for all 14 statuses
+from ui.feedback import StatusBadge
+StatusBadge("active")       # EntityStatus-driven green badge
+StatusBadge("in_progress")  # EntityStatus-driven yellow badge
+
 # Single stat with semantic color
 StatCard(label="Completion Rate", value="85%", color="success")
 
