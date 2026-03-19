@@ -292,7 +292,7 @@ class Services:
     askesis: AskesisOperations | None = None
     moc: KuOperations | None = None
     search_router: SearchOperations | None = None
-    user_service: UserOperations | None = None
+    user_service: "UserService | None" = None  # Facade — concrete type
 ```
 
 ### Phase 3: Route Signatures (14 files updated)
@@ -380,7 +380,7 @@ class Services:
 | `submission_protocols.py` | 3 | SubmissionOperations, SubmissionProcessingOperations, SubmissionSearchOperations |
 | `sharing_protocols.py` | 1 | SharingOperations — entity-agnostic SHARES_WITH + SHARED_WITH_GROUP management |
 | `report_protocols.py` | 5 | SubmissionReportOperations (human + AI unified), ProgressReportOperations, ProgressScheduleOperations, ActivityReviewOperations, TeacherReviewOperations |
-| `form_protocols.py` | 4 | FormTemplateBackendOperations, FormSubmissionBackendOperations (backend-level); FormTemplateOperations, FormSubmissionOperations (route-level) |
+| `form_protocols.py` | 4 | FormTemplateBackendOperations, FormSubmissionBackendOperations (backend-level, import directly from `form_protocols`); FormTemplateOperations, FormSubmissionOperations (route-level, re-exported from `__init__`) |
 | `group_protocols.py` | 1 | GroupOperations (9 methods) |
 | `service_protocols.py` | 9 | CalendarService, Visualization, System, CrossDomainAnalytics, LifePath+Alignment, GraphAuth, GoalTaskGenerator, HabitEventScheduler |
 

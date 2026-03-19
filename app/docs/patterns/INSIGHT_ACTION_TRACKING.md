@@ -117,6 +117,15 @@ class InsightStore:
 - Log notes (truncated) for debugging
 - Store notes even if empty (consistent data model)
 
+#### Retrieval by UID
+
+```python
+async def get_insight_by_uid(self, uid: str) -> Result[PersistedInsight]:
+    """Get a single insight by UID. Returns not-found error if missing."""
+```
+
+Used by the detail modal endpoint (`/api/insights/{uid}/details`) with ownership verification.
+
 ### 3. API Endpoints
 
 Accept optional notes via JSON body:

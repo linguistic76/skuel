@@ -63,16 +63,16 @@ frozen dataclasses. See `three_tier_type_system.md` for the full rationale.
 
 ## System 2: Protocol-Based Dependency Injection
 
-**Principle:** "Zero concrete dependencies in route signatures"
+**Principle:** "Right type at the right boundary — concrete for facades, protocol for thin services"
 
-All services are injected as protocols, not concrete classes:
+Facades use concrete types (the facade IS the contract), thin services use ISP protocols:
 ```python
-# Route function — receives protocol, not concrete class
+# Route function — facades use concrete types, thin services use protocols
 def create_tasks_api_routes(
     app: FastHTMLApp,
     rt: RouteDecorator,
-    tasks_service: TasksOperations,      # Protocol — not TasksService
-    user_service: UserOperations,         # Protocol — not UserService
+    tasks_service: TasksService,          # Facade — concrete class IS the contract
+    user_service: UserService,            # Facade — concrete class IS the contract
 ) -> RouteList: ...
 ```
 

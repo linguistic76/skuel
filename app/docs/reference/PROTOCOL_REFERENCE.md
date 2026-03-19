@@ -487,7 +487,7 @@ Map to the **Report** stage of the educational loop. `processor_type` discrimina
 
 Two-tier protocols for the general-purpose form system.
 
-**Backend-level** (typed `self.backend` in services, extend `BackendOperations[T]`):
+**Backend-level** (typed `self.backend` in services, extend `BackendOperations[T]`; import directly from `core.ports.form_protocols`, not re-exported from `core.ports`):
 
 | Protocol | Consumer | Methods |
 |----------|----------|---------|

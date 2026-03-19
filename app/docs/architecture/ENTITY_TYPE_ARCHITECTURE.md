@@ -279,8 +279,8 @@ FormTemplate extends `Entity` (NOT Curriculum — doesn't need 21 Curriculum fie
 
 **Services:** `core/services/forms/form_template_service.py`, `core/services/forms/form_submission_service.py`, `core/services/forms/form_content.py`
 **Protocols (two tiers):** `core/ports/form_protocols.py`
-- Backend-level: `FormTemplateBackendOperations(BackendOperations["FormTemplate"])`, `FormSubmissionBackendOperations(BackendOperations["FormSubmission"])` — typed `self.backend` in services
-- Route-level: `FormTemplateOperations`, `FormSubmissionOperations` — typed service in routes
+- Backend-level: `FormTemplateBackendOperations(BackendOperations["FormTemplate"])`, `FormSubmissionBackendOperations(BackendOperations["FormSubmission"])` — typed `self.backend` in services (import directly from `core.ports.form_protocols`)
+- Route-level: `FormTemplateOperations`, `FormSubmissionOperations` — typed service in routes (re-exported from `core.ports`)
 
 ### Submissions, Reports, ActivityReport — Content Processing
 
