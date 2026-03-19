@@ -11,7 +11,7 @@ Usage:
     tabs = HabitsViewComponents.render_view_tabs("list")
 
     # Individual views
-    list_view = HabitsViewComponents.render_list_view(habits, filters, stats)
+    list_view = HabitsViewComponents.render_list_view(ctx)
     create_view = HabitsViewComponents.render_create_view(categories)
     calendar_view = HabitsViewComponents.render_calendar_view(habits, today, "month")
 """
@@ -63,26 +63,11 @@ class HabitsViewComponents:
     # ========================================================================
 
     @staticmethod
-    def render_list_view(
-        habits: list[Any] | None = None,
-        filters: dict[str, Any] | None = None,
-        stats: dict[str, int] | None = None,
-        _categories: list[str] | None = None,
-        *,
-        ctx: HabitsPageContext | None = None,
-    ) -> Div:
-        """Render the habit list with streak indicators.
-
-        Accepts either individual args or a ``HabitsPageContext`` via ``ctx``.
-        """
-        if ctx is not None:
-            habits = ctx.get("entities", [])
-            filters = ctx.get("filters", {})
-            stats = ctx.get("stats", {})
-            _categories = _categories or ctx.get("categories")
-        habits = habits or []
-        filters = filters or {}
-        stats = stats or {}
+    def render_list_view(ctx: HabitsPageContext) -> Div:
+        """Render the habit list with streak indicators."""
+        habits = ctx["entities"]
+        filters = ctx["filters"]
+        stats = ctx["stats"]
 
         stats_bar = StatsGrid(
             [

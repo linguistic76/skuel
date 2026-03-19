@@ -13,7 +13,7 @@ Usage:
 
     # Individual views
     calendar_view = EventsViewComponents.render_calendar_view(events, today, "month")
-    list_view = EventsViewComponents.render_list_view(events, filters, stats)
+    list_view = EventsViewComponents.render_list_view(ctx)
     create_view = EventsViewComponents.render_create_view()
 """
 
@@ -82,24 +82,11 @@ class EventsViewComponents:
     # ========================================================================
 
     @staticmethod
-    def render_list_view(
-        events: list[Any] | None = None,
-        filters: dict[str, Any] | None = None,
-        stats: dict[str, int] | None = None,
-        *,
-        ctx: EventsPageContext | None = None,
-    ) -> Div:
-        """Render the event list with filters.
-
-        Accepts either individual args or an ``EventsPageContext`` via ``ctx``.
-        """
-        if ctx is not None:
-            events = ctx.get("entities", [])
-            filters = ctx.get("filters", {})
-            stats = ctx.get("stats", {})
-        events = events or []
-        filters = filters or {}
-        stats = stats or {}
+    def render_list_view(ctx: EventsPageContext) -> Div:
+        """Render the event list with filters."""
+        events = ctx["entities"]
+        filters = ctx["filters"]
+        stats = ctx["stats"]
 
         stats_bar = StatsGrid(
             [

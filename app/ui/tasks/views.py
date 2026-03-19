@@ -12,7 +12,7 @@ Usage:
 
     # Individual views
     create_view = TasksViewComponents.render_create_view(projects, tasks, user_uid)
-    list_view = TasksViewComponents.render_list_view(tasks, filters, stats, projects, assignees)
+    list_view = TasksViewComponents.render_list_view(ctx)
     calendar_view = TasksViewComponents.render_calendar_view(tasks, today, "month")
 """
 
@@ -250,27 +250,12 @@ class TasksViewComponents:
     # ========================================================================
 
     @staticmethod
-    def render_list_view(
-        tasks: list[Any] | None = None,
-        filters: dict[str, Any] | None = None,
-        projects: list[str] | None = None,
-        assignees: list[str] | None = None,
-        *,
-        ctx: TasksPageContext | None = None,
-    ) -> Div:
-        """Render the sortable, filterable task list.
-
-        Accepts either individual args or a ``TasksPageContext`` via ``ctx``.
-        """
-        if ctx is not None:
-            tasks = ctx.get("entities", [])
-            filters = ctx.get("filters", {})
-            projects = projects or ctx.get("projects", [])
-            assignees = assignees or ctx.get("assignees", [])
-        tasks = tasks or []
-        filters = filters or {}
-        projects = projects or []
-        assignees = assignees or []
+    def render_list_view(ctx: TasksPageContext) -> Div:
+        """Render the sortable, filterable task list."""
+        tasks = ctx["entities"]
+        filters = ctx["filters"]
+        projects = ctx.get("projects", [])
+        assignees = ctx.get("assignees", [])
 
         # Filter bar (reuse existing component)
         filter_bar = TodoistTaskComponents.render_filter_bar(

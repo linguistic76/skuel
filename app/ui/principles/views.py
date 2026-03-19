@@ -12,7 +12,7 @@ Usage:
     tabs = PrinciplesViewComponents.render_view_tabs("list")
 
     # Individual views
-    list_view = PrinciplesViewComponents.render_list_view(principles, filters, stats)
+    list_view = PrinciplesViewComponents.render_list_view(ctx)
     create_view = PrinciplesViewComponents.render_create_view()
     analytics_view = PrinciplesViewComponents.render_analytics_view(analytics_data)
 """
@@ -61,27 +61,12 @@ class PrinciplesViewComponents:
     # ========================================================================
 
     @staticmethod
-    def render_list_view(
-        principles: list[Any] | None = None,
-        filters: dict[str, Any] | None = None,
-        stats: dict[str, int] | None = None,
-        categories: list[str] | None = None,
-        *,
-        ctx: PrinciplesPageContext | None = None,
-    ) -> Div:
-        """Render the principle list with strength indicators.
-
-        Accepts either individual args or a ``PrinciplesPageContext`` via ``ctx``.
-        """
-        if ctx is not None:
-            principles = ctx.get("entities", [])
-            filters = ctx.get("filters", {})
-            stats = ctx.get("stats", {})
-            categories = categories or ctx.get("categories")
-        principles = principles or []
-        filters = filters or {}
-        stats = stats or {}
-        categories = categories or [
+    def render_list_view(ctx: PrinciplesPageContext) -> Div:
+        """Render the principle list with strength indicators."""
+        principles = ctx["entities"]
+        filters = ctx["filters"]
+        stats = ctx["stats"]
+        categories = ctx.get("categories") or [
             "spiritual",
             "ethical",
             "relational",

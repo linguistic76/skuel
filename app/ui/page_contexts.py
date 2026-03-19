@@ -3,57 +3,94 @@
 Presentation-layer TypedDicts that define the contract between routes and
 UI view components. These are UI concerns, NOT service-layer contracts.
 
-The existing ``ListContext`` in ``core/ports/query_types.py`` stays unchanged —
-page contexts narrow that contract at the presentation layer.
+Each Activity Domain gets a standalone TypedDict with properly typed entities.
+Required fields use ``total=True`` (default); optional fields use ``NotRequired``.
+
+Usage::
+
+    from ui.page_contexts import TasksPageContext
+
+    ctx: TasksPageContext = {
+        "entities": tasks,
+        "filters": filters,
+    }
+    view_content = TasksViewComponents.render_list_view(ctx)
 """
 
-from typing import Any, TypedDict
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, NotRequired, TypedDict
+
+if TYPE_CHECKING:
+    from core.models.choice.choice import Choice
+    from core.models.event.event import Event
+    from core.models.goal.goal import Goal
+    from core.models.habit.habit import Habit
+    from core.models.principle.principle import Principle
+    from core.models.task.task import Task
+
 
 # ============================================================================
 # Activity Domain Contexts
 # ============================================================================
 
 
-class ActivityPageContext(TypedDict, total=False):
-    """Base for all 6 Activity Domain list views."""
+class TasksPageContext(TypedDict):
+    """Tasks list view context."""
 
-    entities: list[Any]
-    stats: dict[str, int]
+    entities: list[Task]
     filters: dict[str, Any]
-    view: str  # "list" | "create" | "calendar" | "analytics"
+    projects: NotRequired[list[str]]
+    assignees: NotRequired[list[str]]
+    view: NotRequired[str]
 
 
-class TasksPageContext(ActivityPageContext, total=False):
-    """Tasks list view context with project/assignee extensions."""
-
-    projects: list[str]
-    assignees: list[str]
-
-
-class GoalsPageContext(ActivityPageContext, total=False):
+class GoalsPageContext(TypedDict):
     """Goals list view context."""
 
-    categories: list[str]
+    entities: list[Goal]
+    stats: dict[str, int]
+    filters: dict[str, Any]
+    categories: NotRequired[list[str]]
+    view: NotRequired[str]
 
 
-class HabitsPageContext(ActivityPageContext, total=False):
+class HabitsPageContext(TypedDict):
     """Habits list view context."""
 
-    categories: list[str]
+    entities: list[Habit]
+    stats: dict[str, int]
+    filters: dict[str, Any]
+    categories: NotRequired[list[str]]
+    view: NotRequired[str]
 
 
-class EventsPageContext(ActivityPageContext, total=False):
+class EventsPageContext(TypedDict):
     """Events list view context."""
 
+    entities: list[Event]
+    stats: dict[str, int]
+    filters: dict[str, Any]
+    view: NotRequired[str]
 
-class ChoicesPageContext(ActivityPageContext, total=False):
+
+class ChoicesPageContext(TypedDict):
     """Choices list view context."""
 
+    entities: list[Choice]
+    stats: dict[str, int]
+    filters: dict[str, Any]
+    view: NotRequired[str]
 
-class PrinciplesPageContext(ActivityPageContext, total=False):
+
+class PrinciplesPageContext(TypedDict):
     """Principles list view context."""
 
-    categories: list[str]
+    entities: list[Principle]
+    stats: dict[str, int]
+    filters: dict[str, Any]
+    categories: NotRequired[list[str]]
+    view: NotRequired[str]
 
 
 # ============================================================================

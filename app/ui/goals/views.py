@@ -11,7 +11,7 @@ Usage:
     tabs = GoalsViewComponents.render_view_tabs("list")
 
     # Individual views
-    list_view = GoalsViewComponents.render_list_view(goals, filters, stats)
+    list_view = GoalsViewComponents.render_list_view(ctx)
     create_view = GoalsViewComponents.render_create_view(categories)
     calendar_view = GoalsViewComponents.render_calendar_view(goals, today, "month")
 """
@@ -63,26 +63,11 @@ class GoalsViewComponents:
     # ========================================================================
 
     @staticmethod
-    def render_list_view(
-        goals: list[Any] | None = None,
-        filters: dict[str, Any] | None = None,
-        stats: dict[str, int] | None = None,
-        _categories: list[str] | None = None,
-        *,
-        ctx: GoalsPageContext | None = None,
-    ) -> Div:
-        """Render the sortable, filterable goal list.
-
-        Accepts either individual args or a ``GoalsPageContext`` via ``ctx``.
-        """
-        if ctx is not None:
-            goals = ctx.get("entities", [])
-            filters = ctx.get("filters", {})
-            stats = ctx.get("stats", {})
-            _categories = _categories or ctx.get("categories")
-        goals = goals or []
-        filters = filters or {}
-        stats = stats or {}
+    def render_list_view(ctx: GoalsPageContext) -> Div:
+        """Render the sortable, filterable goal list."""
+        goals = ctx["entities"]
+        filters = ctx["filters"]
+        stats = ctx["stats"]
 
         stats_bar = StatsGrid(
             [

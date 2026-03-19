@@ -12,7 +12,7 @@ Usage:
     tabs = ChoicesViewComponents.render_view_tabs("list")
 
     # Individual views
-    list_view = ChoicesViewComponents.render_list_view(choices, filters, stats)
+    list_view = ChoicesViewComponents.render_list_view(ctx)
     create_view = ChoicesViewComponents.render_create_view()
     analytics_view = ChoicesViewComponents.render_analytics_view(analytics_data)
 """
@@ -61,24 +61,11 @@ class ChoicesViewComponents:
     # ========================================================================
 
     @staticmethod
-    def render_list_view(
-        choices: list[Any] | None = None,
-        filters: dict[str, Any] | None = None,
-        stats: dict[str, int] | None = None,
-        *,
-        ctx: ChoicesPageContext | None = None,
-    ) -> Div:
-        """Render the choice list with status indicators.
-
-        Accepts either individual args or a ``ChoicesPageContext`` via ``ctx``.
-        """
-        if ctx is not None:
-            choices = ctx.get("entities", [])
-            filters = ctx.get("filters", {})
-            stats = ctx.get("stats", {})
-        choices = choices or []
-        filters = filters or {}
-        stats = stats or {}
+    def render_list_view(ctx: ChoicesPageContext) -> Div:
+        """Render the choice list with status indicators."""
+        choices = ctx["entities"]
+        filters = ctx["filters"]
+        stats = ctx["stats"]
 
         stats_bar = StatsGrid(
             [

@@ -523,7 +523,7 @@ async def tasks_dashboard(request) -> Any:
 
     # Render appropriate view
     if view == "list":
-        content = TasksViewComponents.render_list_view(tasks, stats, filters)
+        content = TasksViewComponents.render_list_view(ctx=page_ctx)
     elif view == "calendar":
         content = TasksViewComponents.render_calendar_view(
             tasks,
@@ -533,7 +533,7 @@ async def tasks_dashboard(request) -> Any:
     elif view == "analytics":
         content = TasksViewComponents.render_analytics_view(tasks, stats)
     else:
-        content = TasksViewComponents.render_list_view(tasks, stats, filters)
+        content = TasksViewComponents.render_list_view(ctx=page_ctx)
 
     return BasePage(
         content,
@@ -580,7 +580,7 @@ async def tasks_view_list(request) -> Any:
 
     # Success: render list view
     tasks, stats = filtered_result.value
-    return TasksViewComponents.render_list_view(tasks, stats, filters)
+    return TasksViewComponents.render_list_view(ctx=page_ctx)
 ```
 
 **Key Differences from Main Route:**
