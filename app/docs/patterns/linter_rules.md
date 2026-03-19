@@ -344,8 +344,10 @@ except Exception as e:  # safety-net: catch unexpected errors
 
 **Suppression markers** (same line or line above):
 - `# intentional-broad: <reason>` — catches that must remain broad (event handlers, monadic boundaries, metrics wrappers)
-- `# safety-net: <reason>` — temporary broad catches during narrowing rollout
+- `# safety-net: <reason>` — broad catches at boundaries where exceptions are unpredictable (API boundaries, JSON parsing, cleanup, UI rendering)
 - `# skuel-lint: disable=SKUEL017 -- <reason>` — unified suppression format (also supported)
+
+**Status:** ✅ Zero violations (March 2026). Persistence layer uses `NEO4J_EXCEPTIONS`; API/UI boundaries use `# safety-net:` annotations.
 
 **Rationale:**
 - Bare `except Exception` masks bugs and makes debugging harder

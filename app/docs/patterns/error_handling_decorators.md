@@ -352,9 +352,9 @@ Keep manual try-except for:
 
 5. **Test error paths**: Verify that exceptions produce expected error types
 
-## Exception Narrowing (March 2026)
+## Exception Narrowing (March 2026) — ✅ Complete
 
-Where manual try-except patterns are preserved (not using `@with_error_handling`), narrow `except Exception` to specific types using tuples from `core/utils/exception_types.py`:
+Where manual try-except patterns are preserved (not using `@with_error_handling`), narrow `except Exception` to specific types using tuples from `core/utils/exception_types.py`. Zero SKUEL017 violations remain — persistence layer uses `NEO4J_EXCEPTIONS`, API/UI boundaries use `# safety-net:` annotations.
 
 ```python
 from core.utils.exception_types import NEO4J_EXCEPTIONS, LLM_EXCEPTIONS

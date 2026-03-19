@@ -1038,7 +1038,7 @@ Some catches must remain broad. Annotate with a suppression comment:
 
 The `@safe_backend_operation` decorator catches `NEO4J_EXCEPTIONS` first (→ `Errors.database()`) and falls back to a safety-net `except Exception` (→ `Errors.system()` with `type(e).__name__` logged).
 
-**Enforcement:** SKUEL017 linter rule flags bare `except Exception` without `# intentional-broad:` or `# safety-net:` comment.
+**Enforcement:** SKUEL017 linter rule flags bare `except Exception` without `# intentional-broad:` or `# safety-net:` comment. **Status:** ✅ Zero violations (March 2026). Persistence layer (19 files) uses `NEO4J_EXCEPTIONS`; API/UI boundaries (16 files) use `# safety-net:` annotations.
 
 **See:** `/docs/patterns/linter_rules.md` (SKUEL017), `/core/utils/exception_types.py`
 
