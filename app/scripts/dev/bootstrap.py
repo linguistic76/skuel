@@ -433,21 +433,14 @@ async def _wire_all_routes(
     _config: UnifiedConfig,
     prometheus_metrics: Any,
 ) -> None:
-    """
-    Wire all routes with explicit service dependencies using consolidated route files.
+    """Wire all routes with explicit service dependencies.
 
-    Args:
-        app: FastHTML app
-        rt: FastHTML router
-        services: All business services (includes SearchRouter)
-        _config: Application configuration
-
-    This uses the streamlined route organization with 4 consolidated files:
-    - core_routes.py (tasks + habits + timeline)
-    - content_routes.py (journals + audio transcription)
-    - lesson_routes.py (discovery + hierarchical + askesis)
-    - system_routes.py (main + health + operations)
-    - finance_routes.py (standalone)
+    Organized into 4 sections:
+    1. INFRASTRUCTURE — system health, auth, admin, monitoring, metrics, graphql
+    2. ENTITY DOMAIN ROUTES — all use DomainRouteConfig / register_domain_routes
+       (NO guards needed: register_domain_routes returns [] if service is None)
+    3. MANUAL ROUTES — custom wiring that doesn't fit DomainRouteConfig
+    4. PWA ROUTES — root-scope static asset serving
 
     IMPORT BOUNDARY: Route modules are imported here to prevent them from importing
     the composition root. This maintains clean dependency direction.
@@ -455,381 +448,256 @@ async def _wire_all_routes(
     DEPENDENCY INJECTION CONTRACT: All route module create_*_routes() functions
     MUST accept services as explicit parameters. Route modules MUST NOT pull
     services from any global registry, service locator, or DI container.
-    This enforces explicit dependencies and prevents hidden coupling.
     """
 
     # ========================================================================
-    # ROUTE REGISTRATION (Clean Architecture Only)
+    # Section 1: INFRASTRUCTURE (always registered)
     # ========================================================================
 
-    # Knowledge routes
-    from adapters.inbound.lesson_routes import create_lesson_routes
-
-    create_lesson_routes(app, rt, services, None)
-
-    # Ku routes (separate from Lesson — KuService serves /ku)
-    from adapters.inbound.ku_routes import create_ku_routes
-
-    create_ku_routes(app, rt, services, None)
-
-    # Search routes - THE PRIMARY SEARCH INTERFACE
-    # One Path Forward: All search goes through SearchRouter (January 2026)
-    # SearchRouter dispatches to domain search services (REQUIRED - fail-fast):
-    # - Activity Domains → graph_aware_faceted_search()
-    # - Curriculum Domains → simple text search
-    # - Cross-domain → aggregated search
-    from adapters.inbound.search_routes import create_search_routes
-
-    # SearchRouter is THE path for all search (One Path Forward)
-    create_search_routes(app, rt, services)
-    logger.info("✅ Search routes registered at /search (via SearchRouter)")
-
-    # Authentication routes (login, logout, user switching)
-    from adapters.inbound.auth_routes import create_auth_routes
-
-    create_auth_routes(app, rt, services, None)
-    logger.info("✅ Authentication routes registered (/login, /logout, /switch-user, /whoami)")
-
-    # Admin routes (user management - requires ADMIN role)
-    from adapters.inbound.admin_routes import create_admin_routes
-
-    create_admin_routes(app, rt, services, None)
-    logger.info("✅ Admin routes registered (/api/admin/users/*)")
-
-    # Admin dashboard UI routes (requires ADMIN role)
-    from adapters.inbound.admin_dashboard_ui import create_admin_dashboard_routes
-
-    create_admin_dashboard_routes(app, rt, services)
-    logger.info(
-        "✅ Admin dashboard UI routes registered (/admin, /admin/users, /admin/analytics, /admin/system)"
-    )
-
-    # System routes
-    from adapters.inbound.system_routes import create_system_routes
+    # System routes (includes SystemService initialization)
     from core.services.system_service import SystemService
     from core.services.system_service_init import initialize_system_service
 
-    # Create and initialize SystemService with component health checkers
     system_service = SystemService()
     init_result = await initialize_system_service(system_service, services)
     if init_result.is_error:
         raise ValueError(f"Failed to initialize SystemService: {init_result.error}")
-
-    # Add SystemService to services container for route access
     services.system_service = system_service
+
+    from adapters.inbound.system_routes import create_system_routes
 
     create_system_routes(app, rt, services)
 
-    # Monitoring routes
+    from adapters.inbound.auth_routes import create_auth_routes
+
+    create_auth_routes(app, rt, services, None)
+
+    from adapters.inbound.admin_routes import create_admin_routes
+
+    create_admin_routes(app, rt, services, None)
+
     from adapters.inbound.monitoring_routes import create_monitoring_routes
 
     create_monitoring_routes(app, rt, services)
-    logger.info("✅ Monitoring routes registered (/api/monitoring/*)")
 
-    # Prometheus metrics endpoint
     from adapters.inbound.metrics_routes import create_metrics_routes
 
     create_metrics_routes(app, rt)
-    logger.info("✅ Prometheus metrics endpoint registered (/metrics)")
 
-    # Insights routes
-    if services.insight_store:
-        from adapters.inbound.insights_routes import create_insights_routes
+    from adapters.inbound.graphql_routes import create_graphql_routes
 
-        create_insights_routes(app, rt, services, None)
-        logger.info("✅ Insights routes registered (/insights, /api/insights/*)")
+    create_graphql_routes(app, rt, services)
 
-    # Core domain routes
-    if services.tasks:
-        from adapters.inbound.tasks_routes import create_tasks_routes
+    # ========================================================================
+    # Section 2: ENTITY DOMAIN ROUTES
+    # All use DomainRouteConfig / register_domain_routes internally.
+    # NO guards needed — register_domain_routes returns [] if service is None.
+    # ========================================================================
 
-        create_tasks_routes(app, rt, services, None)
-        logger.info("✅ Tasks routes registered (API + UI, includes intelligence API)")
+    # -- Curriculum --
+    from adapters.inbound.lesson_routes import create_lesson_routes
 
-    if services.events:
-        from adapters.inbound.events_routes import create_events_routes
+    create_lesson_routes(app, rt, services, None)
 
-        create_events_routes(app, rt, services, None)  # sync removed Jan 2026
-        logger.info("✅ Events routes registered")
+    from adapters.inbound.ku_routes import create_ku_routes
 
-    if services.finance:
-        from adapters.inbound.finance_routes import create_finance_routes
+    create_ku_routes(app, rt, services, None)
 
-        create_finance_routes(app, rt, services, None)  # sync removed Jan 2026
-        logger.info("✅ Finance routes registered")
+    from adapters.inbound.exercises_routes import create_exercises_routes
 
-    # Submissions routes (includes Journals UI — EntityType.JOURNAL is a Submission subtype)
-    if services.submissions and services.submissions_processor:
-        from adapters.inbound.submissions_routes import create_submissions_routes
+    create_exercises_routes(app, rt, services)
 
-        create_submissions_routes(app, rt, services, None)
+    from adapters.inbound.revised_exercises_routes import create_revised_exercises_routes
 
-        logger.info(
-            "✅ Submissions routes registered (includes /journals/* UI when exercises available)"
-        )
+    create_revised_exercises_routes(app, rt, services)
 
-    if services.habits:
-        from adapters.inbound.habits_routes import create_habits_routes
+    from adapters.inbound.pathways_routes import create_pathways_routes
 
-        create_habits_routes(app, rt, services, None)  # sync removed Jan 2026
-        logger.info("✅ Habits routes registered")
+    create_pathways_routes(app, rt, services, None)
 
-    if services.goals:
-        from adapters.inbound.goals_routes import create_goals_routes
+    from adapters.inbound.askesis_routes import create_askesis_routes
 
-        create_goals_routes(app, rt, services, None)  # sync removed Jan 2026
-        logger.info("✅ Goals routes registered")
+    create_askesis_routes(app, rt, services, None)
 
-    if services.principles:
-        from adapters.inbound.principles_routes import create_principles_routes
+    from adapters.inbound.lesson_reading_routes import create_lesson_reading_routes
 
-        create_principles_routes(app, rt, services, None)  # sync removed Jan 2026
-        logger.info("✅ Principles routes registered")
+    create_lesson_reading_routes(app, rt, services, None)
 
-    if services.choices:
-        from adapters.inbound.choices_routes import create_choices_routes
+    # -- Activity --
+    from adapters.inbound.tasks_routes import create_tasks_routes
 
-        create_choices_routes(app, rt, services, None)  # sync removed Jan 2026
-        logger.info("✅ Choices routes registered")
+    create_tasks_routes(app, rt, services, None)
 
-    if services.analytics:
-        from adapters.inbound.analytics_routes import create_analytics_routes
+    from adapters.inbound.goals_routes import create_goals_routes
 
-        create_analytics_routes(app, rt, services)
-        logger.info(
-            "✅ Analytics routes registered (Layer 3 meta-analysis: Life Path + cross-layer)"
-        )
+    create_goals_routes(app, rt, services, None)
 
-    # Context-aware routes (UserContext API + UI)
-    if services.context_service:
-        from adapters.inbound.context_routes import create_context_aware_routes
+    from adapters.inbound.habits_routes import create_habits_routes
 
-        create_context_aware_routes(app, rt, services)
-        logger.info("✅ Context-aware routes registered (API + UI)")
+    create_habits_routes(app, rt, services, None)
 
-    # LifePath routes (Domain #14: The Destination)
-    if services.lifepath:
-        from adapters.inbound.lifepath_routes import create_lifepath_routes
+    from adapters.inbound.events_routes import create_events_routes
 
-        create_lifepath_routes(app, rt, services)
-        logger.info("✅ LifePath routes registered (Vision→Action bridge)")
+    create_events_routes(app, rt, services, None)
 
-    # Analytics API routes
-    if services.cross_domain_analytics:
-        from adapters.inbound.analytics_api import register_analytics_routes
+    from adapters.inbound.choices_routes import create_choices_routes
 
-        register_analytics_routes(app, services)
-        logger.info("✅ Analytics API routes registered (Phase 5: Event-driven live metrics)")
+    create_choices_routes(app, rt, services, None)
 
-    from adapters.inbound.lesson_organization_api import create_lesson_organization_api_routes
+    from adapters.inbound.principles_routes import create_principles_routes
 
-    create_lesson_organization_api_routes(
-        app, rt, ku_service=services.lesson, user_service=services.user_service
-    )
-    logger.info("✅ KU organization routes registered")
+    create_principles_routes(app, rt, services, None)
 
-    # Hierarchy routes (TreeView, AccordionHierarchy API endpoints)
+    # -- Submissions --
+    from adapters.inbound.submissions_routes import create_submissions_routes
+
+    create_submissions_routes(app, rt, services, None)
+
+    # -- Forms --
+    from adapters.inbound.form_templates_routes import create_form_templates_routes
+
+    create_form_templates_routes(app, rt, services)
+
+    from adapters.inbound.form_submissions_routes import create_form_submissions_routes
+
+    create_form_submissions_routes(app, rt, services)
+
+    # -- Other entity domains --
+    from adapters.inbound.finance_routes import create_finance_routes
+
+    create_finance_routes(app, rt, services, None)
+
+    from adapters.inbound.lifepath_routes import create_lifepath_routes
+
+    create_lifepath_routes(app, rt, services)
+
+    from adapters.inbound.context_routes import create_context_aware_routes
+
+    create_context_aware_routes(app, rt, services)
+
+    from adapters.inbound.insights_routes import create_insights_routes
+
+    create_insights_routes(app, rt, services, None)
+
+    from adapters.inbound.search_routes import create_search_routes
+
+    create_search_routes(app, rt, services)
+
+    from adapters.inbound.analytics_routes import create_analytics_routes
+
+    create_analytics_routes(app, rt, services)
+
+    from adapters.inbound.calendar_routes import create_calendar_routes
+
+    create_calendar_routes(app, rt, services)
+
+    from adapters.inbound.ingestion_routes import create_ingestion_routes
+
+    create_ingestion_routes(app, rt, services)
+
+    from adapters.inbound.notifications_routes import create_notifications_routes
+
+    create_notifications_routes(app, rt, services)
+
+    from adapters.inbound.groups_routes import create_groups_routes
+
+    create_groups_routes(app, rt, services)
+
+    from adapters.inbound.teaching_routes import create_teaching_routes
+
+    create_teaching_routes(app, rt, services)
+
+    from adapters.inbound.transcription_routes import create_transcription_routes
+
+    create_transcription_routes(app, rt, services, None)
+
+    # -- Graph / Visualization --
     from adapters.inbound.hierarchy_routes import create_hierarchy_routes
 
-    hierarchy_routes = create_hierarchy_routes(app, rt, services)
-    logger.info(
-        f"✅ Registered {len(hierarchy_routes)} hierarchy routes (Goals, Habits, Events, Choices, Principles, LP)"
-    )
+    create_hierarchy_routes(app, rt, services)
 
-    # Lateral relationship routes (January 2026 - Core graph architecture)
     from adapters.inbound.lateral_routes import create_lateral_routes
 
-    lateral_routes = create_lateral_routes(app, rt, services)
-    logger.info(
-        f"✅ Registered {len(lateral_routes)} lateral relationship routes (8 domains: Tasks, Goals, Habits, Events, Choices, Principles, KU, LS, LP)"
-    )
+    create_lateral_routes(app, rt, services)
 
-    # Unified Ingestion routes (ADR-014: Merged MD + YAML ingestion)
-    # Note: sync_routes.py DELETED (January 2026) - use /api/ingest/* endpoints
-    if services.unified_ingestion:
-        from adapters.inbound.ingestion_routes import create_ingestion_routes
+    from adapters.inbound.visualization_routes import create_visualization_routes
 
-        create_ingestion_routes(app, rt, services)
-        logger.info(
-            "✅ Ingestion routes registered (unified MD + YAML for all entity types, admin-only)"
-        )
+    create_visualization_routes(app, rt, services, None)
 
-    # Composite routes
-    if services.calendar:
-        from adapters.inbound.calendar_routes import create_calendar_routes
-
-        create_calendar_routes(app, rt, services)
-        logger.info("✅ Calendar routes registered")
-
-    # Specialized routes
     from adapters.inbound.timeline_routes import create_timeline_routes
 
     create_timeline_routes(app, rt, services)
 
-    # Visualization routes (Chart.js, Vis.js Timeline, Frappe Gantt)
-    from adapters.inbound.visualization_routes import create_visualization_routes
+    from adapters.inbound.orchestration_routes import create_orchestration_routes
 
-    create_visualization_routes(app, rt, services, None)
-    logger.info("✅ Visualization routes registered")
+    create_orchestration_routes(app, rt, services)
 
-    if services.transcription:
-        from adapters.inbound.transcription_routes import create_transcription_routes
+    from adapters.inbound.advanced_routes import create_advanced_routes
 
-        create_transcription_routes(app, rt, services, None)
-        logger.info("✅ Transcription routes registered")
+    create_advanced_routes(app, rt, services)
 
-    # Pathways routes (LP browsing + progress)
-    if services.lp:
-        from adapters.inbound.pathways_routes import create_pathways_routes
-
-        create_pathways_routes(app, rt, services, None)
-        logger.info("✅ Pathways routes registered")
-    else:
-        logger.warning("LP service not available - skipping pathways routes")
-
-    # Askesis routes - AI Learning Assistant (DomainRouteConfig)
-    from adapters.inbound.askesis_routes import create_askesis_routes
-
-    create_askesis_routes(app, rt, services, None)
-    logger.info("✅ Askesis routes registered (API + UI)")
-
-    # AI routes - Optional AI-powered features (ADR-030: Two-Tier Intelligence Design)
-    # Routes return 503 when AI services are unavailable (fail-fast at route level)
-    from adapters.inbound.ai_routes import create_ai_routes
-
-    ai_routes = create_ai_routes(app, rt, services)
-    logger.info(f"✅ AI routes registered ({len(ai_routes)} endpoints, 503 when unavailable)")
-
-    # SEL routes removed — absorbed into /ku hub (February 2026)
-
-    # KU Reading routes (MVP - Phase A)
-    from adapters.inbound.lesson_reading_routes import create_lesson_reading_routes
-
-    create_lesson_reading_routes(app, rt, services, None)
-    logger.info(
-        "✅ KU reading routes registered (4 endpoints: read page, mark-read, bookmark, navigation)"
-    )
-
-    # Activities Hub
-    from adapters.inbound.activities_ui import setup_activities_routes
-
-    setup_activities_routes(rt, services)
-    logger.info("✅ Activities routes registered (/activities)")
-
-    # Curriculum Hub
-    from adapters.inbound.curriculum_hub_routes import create_curriculum_hub_routes
-
-    create_curriculum_hub_routes(app, rt, services)
-    logger.info(
-        "✅ Curriculum hub routes registered (/curriculum, /lessons, /learning-steps, /learning-paths)"
-    )
-
-    # Study Hub
+    # -- Hubs --
     from adapters.inbound.study_routes import create_study_routes
 
     create_study_routes(app, rt, services)
-    logger.info("✅ Study routes registered (/study)")
 
-    # User Profile Hub
+    from adapters.inbound.curriculum_hub_routes import create_curriculum_hub_routes
+
+    create_curriculum_hub_routes(app, rt, services)
+
+    # ========================================================================
+    # Section 3: MANUAL ROUTES (custom wiring — not DomainRouteConfig)
+    # ========================================================================
+
+    from adapters.inbound.admin_dashboard_ui import create_admin_dashboard_routes
+
+    create_admin_dashboard_routes(app, rt, services)
+
+    if services.cross_domain_analytics:
+        from adapters.inbound.analytics_api import register_analytics_routes
+
+        register_analytics_routes(app, services)
+
+    if services.lesson:
+        from adapters.inbound.lesson_organization_api import (
+            create_lesson_organization_api_routes,
+        )
+
+        create_lesson_organization_api_routes(
+            app, rt, ku_service=services.lesson, user_service=services.user_service
+        )
+
+    from adapters.inbound.ai_routes import create_ai_routes
+
+    create_ai_routes(app, rt, services)
+
+    from adapters.inbound.activities_ui import setup_activities_routes
+
+    setup_activities_routes(rt, services)
+
     from adapters.inbound.user_profile_ui import setup_user_profile_routes
 
     setup_user_profile_routes(rt, services)
-    logger.info("✅ User profile hub routes registered")
 
-    # PWA: serve manifest.json, service-worker.js, and offline.html from root scope
-    from starlette.responses import FileResponse
-
-    static_dir = Path.cwd() / "static"
-
-    @rt("/manifest.json")
-    async def pwa_manifest(request):
-        return FileResponse(static_dir / "manifest.json", media_type="application/manifest+json")
-
-    @rt("/service-worker.js")
-    async def pwa_service_worker(request):
-        return FileResponse(static_dir / "service-worker.js", media_type="application/javascript")
-
-    @rt("/offline.html")
-    async def pwa_offline(request):
-        return FileResponse(static_dir / "offline.html", media_type="text/html")
-
-    logger.info("✅ PWA routes registered (/manifest.json, /service-worker.js, /offline.html)")
-
-    # User pins routes (entity pinning/bookmarking)
     if services.user_relationships:
         from adapters.inbound.user_pins_api import create_user_pins_routes
 
         create_user_pins_routes(app, rt, services.user_relationships)
-        logger.info("✅ User pins routes registered (4 endpoints: get, pin, unpin, reorder)")
 
-    # Orchestration API routes
-    from adapters.inbound.orchestration_routes import create_orchestration_routes
+    # ========================================================================
+    # Section 4: PWA ROUTES
+    # ========================================================================
 
-    create_orchestration_routes(app, rt, services)
-    logger.info("✅ Orchestration API routes registered (Phase 1 - Essential)")
+    from adapters.inbound.pwa_routes import create_pwa_routes
 
-    # Advanced API routes
-    from adapters.inbound.advanced_routes import create_advanced_routes
+    create_pwa_routes(rt)
 
-    create_advanced_routes(app, rt, services)
-    logger.info("✅ Advanced API routes registered (Phase 2 - Optional)")
+    # ========================================================================
+    # Startup summary
+    # ========================================================================
 
-    # Exercise routes (instruction templates for submissions)
-    if services.exercises:
-        from adapters.inbound.exercises_routes import create_exercises_routes
-
-        create_exercises_routes(app, rt, services)
-        logger.info("✅ Exercise routes registered")
-
-    # Revised Exercise routes (five-phase learning loop)
-    if services.revised_exercises:
-        from adapters.inbound.revised_exercises_routes import create_revised_exercises_routes
-
-        create_revised_exercises_routes(app, rt, services)
-        logger.info("✅ Revised Exercise routes registered (five-phase learning loop)")
-
-    # Form Template routes (general-purpose form system)
-    if services.form_templates:
-        from adapters.inbound.form_templates_routes import create_form_templates_routes
-
-        create_form_templates_routes(app, rt, services)
-        logger.info("✅ Form Template routes registered")
-
-    # Form Submission routes (general-purpose form system)
-    if services.form_submissions:
-        from adapters.inbound.form_submissions_routes import create_form_submissions_routes
-
-        create_form_submissions_routes(app, rt, services)
-        logger.info("✅ Form Submission routes registered")
-
-    # Group routes (ADR-040: Teacher Assignment Workflow)
-    if services.group_service:
-        from adapters.inbound.groups_routes import create_groups_routes
-
-        create_groups_routes(app, rt, services)
-        logger.info("✅ Group routes registered (ADR-040)")
-
-    # Teaching review routes (ADR-040: Teacher Assignment Workflow)
-    if services.teacher_review:
-        from adapters.inbound.teaching_routes import create_teaching_routes
-
-        create_teaching_routes(app, rt, services)
-        logger.info("✅ Teaching review routes registered (ADR-040)")
-
-    # Notifications routes
-    if services.notification_service:
-        from adapters.inbound.notifications_routes import create_notifications_routes
-
-        create_notifications_routes(app, rt, services)
-        logger.info("✅ Notifications routes registered")
-
-    # GraphQL API routes (REQUIRED - fail-fast)
-    # One Path Forward: GraphQL uses SearchRouter (January 2026)
-    from adapters.inbound.graphql_routes import create_graphql_routes
-
-    # SearchRouter is THE path for all search (One Path Forward)
-    create_graphql_routes(app, rt, services)
-    logger.info("✅ GraphQL API registered at /graphql (via SearchRouter)")
+    route_count = len(app.routes) if hasattr(app, "routes") else 0
+    logger.info(f"Route wiring complete: {route_count} routes registered")
 
 
 # ============================================================================
