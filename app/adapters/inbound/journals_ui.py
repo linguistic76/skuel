@@ -36,7 +36,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from ui.buttons import Button, ButtonLink, ButtonT
 from ui.cards import Card, CardBody
-from ui.feedback import Alert, AlertT, Badge, get_submission_status_badge_class
+from ui.feedback import Alert, AlertT
 from ui.forms import Input, Label, Radio, Select
 from ui.layout import Size
 from ui.patterns.empty_state import EmptyState
@@ -89,9 +89,6 @@ def _render_upload_status(
     )
 
 
-_get_status_badge_class = get_submission_status_badge_class
-
-
 def _get_report_identifier(report: Any) -> str:
     """Extract the identifier from report metadata."""
     metadata = getattr(report, "metadata", None)
@@ -103,7 +100,9 @@ def _get_report_identifier(report: Any) -> str:
 
 
 def _render_report_card(report: Any) -> Any:
-    """Render a single report card for the AI reports grid."""
+    """Render a single report card for the AI reports grid using EntityCard."""
+    from ui.patterns.entity_card import EntityCard
+
     file_size_mb = (report.file_size / 1024 / 1024) if getattr(report, "file_size", 0) else 0
     identifier = _get_report_identifier(report)
 
@@ -135,33 +134,12 @@ def _render_report_card(report: Any) -> Any:
             )
         )
 
-    return Card(
-        CardBody(
-            Div(
-                Div(
-                    H4(report.original_filename, cls="mb-0 font-semibold"),
-                    P(
-                        f"{identifier} \u2022 {file_size_mb:.2f} MB",
-                        cls="text-sm text-muted-foreground mb-0",
-                    ),
-                    cls="flex-1",
-                ),
-                Div(
-                    Badge(
-                        report.status,
-                        variant=None,
-                        cls=_get_status_badge_class(report.status),
-                    ),
-                ),
-                Div(
-                    *action_buttons,
-                    cls="flex gap-2",
-                ),
-                cls="flex items-center gap-4",
-            ),
-            cls="p-4",
-        ),
-        cls="bg-background shadow-sm mb-2",
+    return EntityCard(
+        title=report.original_filename,
+        status=str(report.status) if report.status else None,
+        metadata=[f"{identifier} \u2022 {file_size_mb:.2f} MB"],
+        actions=Div(*action_buttons, cls="flex gap-2"),
+        cls="mb-2",
     )
 
 

@@ -10,10 +10,10 @@ from typing import Any
 from fasthtml.common import H4, Div, P
 
 from ui.buttons import ButtonLink, ButtonT
-from ui.cards import Card, CardBody
 from ui.feedback import Alert, AlertT, Badge, get_submission_status_badge_class
 from ui.layout import Size
 from ui.patterns.empty_state import EmptyState
+from ui.patterns.entity_card import EntityCard
 
 _get_status_badge_class = get_submission_status_badge_class
 
@@ -29,44 +29,29 @@ def get_submission_identifier(submission: Any) -> str:
 
 
 def render_submission_card(submission: Any, is_pinned: bool = False) -> Any:
-    """Render a single submission card."""
+    """Render a single submission card using EntityCard."""
     from ui.patterns.pin_button import PinButton
 
     file_size_mb = (submission.file_size / 1024 / 1024) if submission.file_size else 0
     identifier = get_submission_identifier(submission)
-    return Card(
-        CardBody(
-            Div(
-                Div(
-                    H4(submission.original_filename, cls="mb-0 font-semibold"),
-                    P(
-                        f"{identifier} \u2022 {file_size_mb:.2f} MB",
-                        cls="text-sm text-muted-foreground mb-0",
-                    ),
-                    cls="flex-1",
-                ),
-                Div(
-                    Badge(
-                        submission.status,
-                        variant=None,
-                        cls=_get_status_badge_class(submission.status),
-                    ),
-                ),
-                Div(
-                    PinButton(entity_uid=submission.uid, is_pinned=is_pinned, size="xs"),
-                    ButtonLink(
-                        "View",
-                        href=f"/submissions/{submission.uid}",
-                        variant=ButtonT.ghost,
-                        size=Size.sm,
-                    ),
-                    cls="flex gap-2",
-                ),
-                cls="flex items-center gap-4",
-            ),
-            cls="p-4",
+
+    actions = Div(
+        PinButton(entity_uid=submission.uid, is_pinned=is_pinned, size="xs"),
+        ButtonLink(
+            "View",
+            href=f"/submissions/{submission.uid}",
+            variant=ButtonT.ghost,
+            size=Size.sm,
         ),
-        cls="bg-background shadow-sm mb-2",
+        cls="flex gap-2",
+    )
+
+    return EntityCard(
+        title=submission.original_filename,
+        status=str(submission.status) if submission.status else None,
+        metadata=[f"{identifier} \u2022 {file_size_mb:.2f} MB"],
+        actions=actions,
+        cls="mb-2",
     )
 
 

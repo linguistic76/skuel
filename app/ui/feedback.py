@@ -290,14 +290,13 @@ def RadialProgress(
 
 
 def StatusBadge(status: str | None, **kwargs: Any) -> Any:
-    """Status-aware badge that maps status values to badge variants.
+    """Status-aware badge that delegates to EntityStatus for canonical styling.
+
+    Covers all 14 EntityStatus values (active, completed, submitted, processing,
+    queued, revision_requested, etc.) via EntityStatus.get_badge_class().
 
     Args:
-        status: The status string (case-insensitive). Supported values:
-            - "active" / "completed" / "done" -> success
-            - "pending" / "in_progress" / "waiting" -> warning
-            - "blocked" / "failed" / "overdue" -> error
-            - "cancelled" / "archived" / "draft" -> neutral
+        status: The status string (case-insensitive).
         **kwargs: Additional attributes passed to Badge
 
     Returns:
@@ -306,29 +305,18 @@ def StatusBadge(status: str | None, **kwargs: Any) -> Any:
     if status is None:
         return None
 
+    from core.models.enums import EntityStatus
+
     status_lower = status.lower().replace("-", "_")
+    display_text = status_lower.replace("_", " ").title()
 
-    status_map: dict[str, tuple[str, BadgeT]] = {
-        # Success states
-        "active": ("Active", BadgeT.success),
-        "completed": ("Completed", BadgeT.success),
-        "done": ("Done", BadgeT.success),
-        # Warning states
-        "pending": ("Pending", BadgeT.warning),
-        "in_progress": ("In Progress", BadgeT.warning),
-        "waiting": ("Waiting", BadgeT.warning),
-        # Error states
-        "blocked": ("Blocked", BadgeT.error),
-        "failed": ("Failed", BadgeT.error),
-        "overdue": ("Overdue", BadgeT.error),
-        # Neutral states
-        "cancelled": ("Cancelled", BadgeT.neutral),
-        "archived": ("Archived", BadgeT.neutral),
-        "draft": ("Draft", BadgeT.neutral),
-    }
+    try:
+        entity_status = EntityStatus(status_lower)
+        badge_cls = entity_status.get_badge_class()
+    except ValueError:
+        badge_cls = "bg-gray-100 text-gray-600 border-gray-200"
 
-    text, variant = status_map.get(status_lower, (status.title(), BadgeT.neutral))
-    return Badge(text, variant=variant, **kwargs)
+    return Badge(display_text, variant=None, cls=badge_cls, **kwargs)
 
 
 def PriorityBadge(priority: str | None, **kwargs: Any) -> Any:
