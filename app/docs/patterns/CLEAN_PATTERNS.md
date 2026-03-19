@@ -57,9 +57,8 @@ class KnowledgeUniversalBackend(UniversalNeo4jBackend, KnowledgeOperations):
 # Consistent pattern across ALL domains
 learning_backend = LearningUniversalBackend(driver)
 learning_intelligence = LearningIntelligenceService(
-    learning_backend=learning_backend,  # Direct injection
+    backend=learning_backend,  # Direct injection
     progress_backend=None,
-    embeddings_service=None
 )
 ```
 

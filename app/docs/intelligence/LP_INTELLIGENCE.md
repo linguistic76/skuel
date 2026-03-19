@@ -786,9 +786,7 @@ result = await lp_intelligence.search_by_content_features(
 
 **LP-Specific Attributes:**
 - `self.progress_backend` - Progress backend for user mastery data
-- `self.learning_backend` - Learning backend for LP/LS queries
-- `self.vectors` - Vector storage backend
-- `self.ku_service` - KuService for semantic queries
+- `self.backend` - Learning backend for LP/LS queries (inherited from BaseAnalyticsService)
 - `self.user_service` - UserService for UserContext access
 
 **Sub-Service Attributes:**
@@ -817,11 +815,8 @@ from core.services.lp_intelligence_service import create_lp_intelligence_service
 # Create standalone (NOT via LpService)
 lp_intelligence = create_lp_intelligence_service(
     progress_backend=progress_backend,
-    learning_backend=lp_backend,
-    embeddings_service=embeddings_service,
-    vectors_backend=vectors_backend,
+    backend=lp_backend,
     graph_intelligence_service=graph_intelligence,
-    ku_service=ku_service,
 )
 
 # Add to Services dataclass
@@ -952,20 +947,18 @@ from core.services.lp_intelligence_service import LpIntelligenceService
 
 # Create mock dependencies
 progress_backend = Mock()
-learning_backend = Mock()
-embeddings_service = Mock()
+backend = Mock()
 
 # Instantiate service
 service = LpIntelligenceService(
     progress_backend=progress_backend,
-    learning_backend=learning_backend,
-    embeddings_service=embeddings_service
+    backend=backend,
 )
 
 # Verify initialization
 assert service._service_name == "lp.intelligence"
 assert service.progress_backend == progress_backend
-assert service.learning_backend == learning_backend
+assert service.backend == backend
 
 # Verify sub-services created
 assert service.state_analyzer is not None

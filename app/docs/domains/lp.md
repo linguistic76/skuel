@@ -297,7 +297,7 @@ When learning paths have content with practice relationships:
    ```python
    async def identify_practice_gaps(self, path_uid: str) -> Result[dict[str, Any]]:
        # Get path and its steps
-       path = await self.learning_backend.get(path_uid)
+       path = await self.backend.get(path_uid)
 
        # For each step, call existing LS intelligence
        gaps = []
