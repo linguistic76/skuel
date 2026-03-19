@@ -1045,6 +1045,7 @@ async def tasks_view_list(request) -> Any:
 | Finance | ✅ Complete | Typed context methods with `Result[TypedDict]` |
 
 **Shared Helpers** (`/adapters/inbound/ui_helpers.py`):
+- `render_dashboard_error_page(title, subtitle, error_message, view, render_view_tabs, page_creator, request)` — Standard error page for dashboard routes with tabs/nav preserved (all 6 Activity domains). Domains with multiple calls (e.g., Principles) wrap this in a local `_dashboard_error()` helper to DRY the static args.
 - `render_entity_not_found_page(entity_label, uid, domain_slug, request)` — Standard "Not Found" full page for detail views (all 6 Activity domains)
 - `fetch_user_entities(service_method, domain_name, user_uid, logger)` — Fetch all entities with consistent error handling/logging (4 domains)
 - `parse_calendar_params(request)` — Calendar view parameters (4 calendar-enabled domains)
