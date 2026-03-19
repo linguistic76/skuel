@@ -23,7 +23,7 @@ SKUEL is a PWA — installable from the browser, works offline, no app store. On
 | `static/icons/` | App icons (192px, 512px, maskable, favicons) |
 | `ui/theme.py` | `pwa_headers()` — meta tags + manifest link |
 | `ui/layouts/base_page.py` | Integrates `pwa_headers()` + SW registration + offline banner |
-| `scripts/dev/bootstrap.py` | Root-level routes for manifest, SW, offline |
+| `adapters/inbound/pwa_routes.py` | Root-level routes for manifest, SW, offline |
 
 ## Service Worker Caching Strategies
 
@@ -100,20 +100,26 @@ Replace files in `static/icons/` with branded versions. Required sizes:
 
 ## Root-Level Routes
 
-The service worker must be served from root scope (`/service-worker.js`, not `/static/service-worker.js`) to control the entire app. Three routes in `bootstrap.py`:
+The service worker must be served from root scope (`/service-worker.js`, not `/static/service-worker.js`) to control the entire app. Three routes in `adapters/inbound/pwa_routes.py`, registered in Section 4 of `_wire_all_routes()`:
 
 ```python
-@rt("/manifest.json")
-async def pwa_manifest(request):
-    return FileResponse(static_dir / "manifest.json", media_type="application/manifest+json")
+# adapters/inbound/pwa_routes.py
+from starlette.responses import FileResponse
 
-@rt("/service-worker.js")
-async def pwa_service_worker(request):
-    return FileResponse(static_dir / "service-worker.js", media_type="application/javascript")
+_static_dir = Path.cwd() / "static"
 
-@rt("/offline.html")
-async def pwa_offline(request):
-    return FileResponse(static_dir / "offline.html", media_type="text/html")
+def create_pwa_routes(rt):
+    @rt("/manifest.json")
+    async def pwa_manifest(request):
+        return FileResponse(_static_dir / "manifest.json", media_type="application/manifest+json")
+
+    @rt("/service-worker.js")
+    async def pwa_service_worker(request):
+        return FileResponse(_static_dir / "service-worker.js", media_type="application/javascript")
+
+    @rt("/offline.html")
+    async def pwa_offline(request):
+        return FileResponse(_static_dir / "offline.html", media_type="text/html")
 ```
 
 ## Offline Status Indicator

@@ -9,7 +9,7 @@ related: [OWNERSHIP_VERIFICATION.md]
 
 # SKUEL Routing Architecture: Routes, Services, and Persistence
 
-**Last Updated**: March 3, 2026
+**Last Updated**: March 19, 2026
 
 ## Overview
 
@@ -394,7 +394,7 @@ RETURN t
 
 **Impact:** Reduces route file complexity from ~80 lines to ~15 lines per domain (83% reduction).
 
-**Adoption:** 38 of 41 route files (93%).
+**Adoption:** 38 of 41 route files (93%). All DomainRouteConfig routes are registered without `if services.X:` guards in `_wire_all_routes()` — `register_domain_routes()` handles missing services via soft-fail.
 
 **Two variants of the config pattern:**
 

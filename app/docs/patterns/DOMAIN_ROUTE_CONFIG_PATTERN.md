@@ -1,6 +1,6 @@
 ---
 title: Domain Route Configuration Pattern
-updated: '2026-02-05'
+updated: '2026-03-19'
 category: patterns
 related_skills:
 - fasthtml
@@ -8,7 +8,7 @@ related_docs: []
 ---
 # Domain Route Configuration Pattern
 
-**Status:** Active | **Last Updated:** 2026-02-05
+**Status:** Active | **Last Updated:** 2026-03-19
 ## Related Skills
 
 For implementation guidance, see:
@@ -184,7 +184,7 @@ api_factory(app, rt, primary_service,
 - **Attribute exists but is `None`** (e.g. tier-dependent services like `submission_report` in CORE tier) — silently passes `None` through. Factory must handle with default parameters.
 - **Attribute not found on container** (e.g. stale attr name after a rename) — logs a warning and passes `None`. This catches misconfiguration early.
 
-**Logging:** Each call site in `bootstrap.py` owns its own log message, which often includes domain-specific detail (e.g. "includes intelligence API"). This avoids double-logging and keeps messages precise.
+**Logging:** `_wire_all_routes()` in `bootstrap.py` logs a single summary line at the end with total route count. Individual route registrations do not log — `register_domain_routes()` logs a warning only when a primary service is missing.
 
 ## Canonical Template
 
@@ -475,16 +475,9 @@ def create_tasks_routes(app, rt, services, _sync_service=None):
     return register_domain_routes(app, rt, services, TASKS_CONFIG)
 ```
 
-### Step 4: Add Bootstrap Logging
+### Step 4: Verify Registration
 
-`register_domain_routes()` does not log — the bootstrap call site owns the message. Add a log line after the call with any domain-specific detail:
-
-```python
-create_tasks_routes(app, rt, services, None)
-logger.info("✅ Tasks routes registered (API + UI, includes intelligence API)")
-```
-
-This keeps messages precise and avoids double-logging.
+`_wire_all_routes()` in `bootstrap.py` calls DomainRouteConfig routes without per-route logging — a single summary log at the end reports total route count. `register_domain_routes()` logs a warning only when a primary service is missing. No `if services.X:` guard is needed in bootstrap — the soft-fail in `register_domain_routes()` handles `None` services.
 
 ### Why Factories Return []
 
@@ -996,48 +989,63 @@ DomainRouteConfig operates at the **Adapter Layer** - it wires API/UI to the app
   - `register_domain_routes()` function (lines 132-250) - Registration with config-driven factories
   - `create_activity_domain_route_config()` function (lines 253-320) - Activity Domain convenience function
 
-### Current Users (27 files - 77% adoption)
+### Current Users (38 files - 93% adoption)
+
+All DomainRouteConfig routes are registered in Section 2 of `_wire_all_routes()` in `bootstrap.py` without `if services.X:` guards — the soft-fail in `register_domain_routes()` handles missing services.
 
 **Activity (6):**
-1. `/adapters/inbound/tasks_routes.py` (33 lines)
-2. `/adapters/inbound/goals_routes.py` (31 lines)
-3. `/adapters/inbound/habits_routes.py` (35 lines)
-4. `/adapters/inbound/events_routes.py` (33 lines)
-5. `/adapters/inbound/choices_routes.py` (31 lines)
-6. `/adapters/inbound/principles_routes.py` (32 lines)
+1. `/adapters/inbound/tasks_routes.py`
+2. `/adapters/inbound/goals_routes.py`
+3. `/adapters/inbound/habits_routes.py`
+4. `/adapters/inbound/events_routes.py`
+5. `/adapters/inbound/choices_routes.py`
+6. `/adapters/inbound/principles_routes.py`
 
-**Other Domains (7):** *(Migrated 2026-01-24)*
-7. `/adapters/inbound/pathways_routes.py` (72 lines) - LP + LS routes
-8. `/adapters/inbound/lesson_routes.py` (49 lines) - Lesson routes
-9. `/adapters/inbound/context_routes.py` (49 lines) - UserContext routes
-10. `/adapters/inbound/reports_routes.py` (63 lines) - Meta-analysis
-11. `/adapters/inbound/finance_routes.py` (61 lines) - Admin-only bookkeeping
-12. `/adapters/inbound/askesis_routes.py` (54 lines) - AI assistant management
-13. `/adapters/inbound/assignments_routes.py` - Assignments (instruction templates)
+**Curriculum (7):**
+7. `/adapters/inbound/lesson_routes.py`
+8. `/adapters/inbound/ku_routes.py`
+9. `/adapters/inbound/exercises_routes.py`
+10. `/adapters/inbound/revised_exercises_routes.py`
+11. `/adapters/inbound/pathways_routes.py` - LP + LS routes
+12. `/adapters/inbound/askesis_routes.py`
+13. `/adapters/inbound/lesson_reading_routes.py`
 
-**Tier 1-3 Migrations (9):** *(Migrated 2026-02-03)*
-14. `/adapters/inbound/transcription_routes.py` (26 lines) - Audio transcription API
-15. `/adapters/inbound/visualization_routes.py` (31 lines) - Chart.js/Vis.js visualization
-16. `/adapters/inbound/admin_routes.py` (28 lines) - Admin user management
-17. `/adapters/inbound/auth_routes.py` (32 lines) - Authentication (API + UI)
-18. `JOURNALS_CONFIG` in `/adapters/inbound/submissions_routes.py` - Journal UI (merged into submissions)
-19. `/adapters/inbound/system_routes.py` (36 lines) - System health/metrics
-20. `/adapters/inbound/ingestion_routes.py` (34 lines) - Content ingestion
-21. `/adapters/inbound/insights_routes.py` (67 lines) - Insights dashboard (multi-factory)
-22. `/adapters/inbound/nous_routes.py` (29 lines) - NOUS knowledge UI (UI-only)
+**Submissions/Forms (3):**
+14. `/adapters/inbound/submissions_routes.py` (includes Journals via JOURNALS_CONFIG)
+15. `/adapters/inbound/form_templates_routes.py`
+16. `/adapters/inbound/form_submissions_routes.py`
 
-**Phase 4 Migration (1):** *(Migrated 2026-02-03)*
-23. `/adapters/inbound/lifepath_routes.py` (32 lines) - Life path alignment (API + UI, drawer layout)
+**Other Domains (13):**
+17. `/adapters/inbound/finance_routes.py`
+18. `/adapters/inbound/lifepath_routes.py`
+19. `/adapters/inbound/context_routes.py`
+20. `/adapters/inbound/insights_routes.py` (multi-factory)
+21. `/adapters/inbound/search_routes.py`
+22. `/adapters/inbound/analytics_routes.py`
+23. `/adapters/inbound/calendar_routes.py`
+24. `/adapters/inbound/ingestion_routes.py`
+25. `/adapters/inbound/notifications_routes.py`
+26. `/adapters/inbound/groups_routes.py`
+27. `/adapters/inbound/teaching_routes.py`
+28. `/adapters/inbound/transcription_routes.py`
+29. `/adapters/inbound/monitoring_routes.py`
 
-**Phase 5 Migration (1):** *(Migrated 2026-02-03)*
-24. `/adapters/inbound/calendar_routes.py` (34 lines) - Calendar views (API + UI, HTMX fragments)
+**Infrastructure (3):**
+30. `/adapters/inbound/system_routes.py`
+31. `/adapters/inbound/admin_routes.py`
+32. `/adapters/inbound/auth_routes.py`
 
-**Phase 6 Migrations (2):** *(Migrated 2026-02-03)*
-25. `/adapters/inbound/orchestration_routes.py` (326 lines) - Cross-domain orchestration (Multi-factory, 4 service groups)
-26. `/adapters/inbound/advanced_routes.py` (306 lines) - Advanced optional services (Multi-factory, 3 service groups)
+**Graph/Visualization (6):**
+33. `/adapters/inbound/hierarchy_routes.py`
+34. `/adapters/inbound/lateral_routes.py`
+35. `/adapters/inbound/visualization_routes.py`
+36. `/adapters/inbound/timeline_routes.py`
+37. `/adapters/inbound/orchestration_routes.py` (multi-factory)
+38. `/adapters/inbound/advanced_routes.py` (multi-factory)
 
-**Phase 7 Migration (1):** *(Migrated 2026-02-04)*
-27. `/adapters/inbound/assignments_routes.py` (76 lines) - File submission pipeline (Multi-factory, sharing extension uses separate primary service)
+**Hubs (2) — registered via DomainRouteConfig but categorized as Section 2 in bootstrap:**
+- `/adapters/inbound/study_routes.py`
+- `/adapters/inbound/curriculum_hub_routes.py`
 
 ### Justified Exceptions (3 files)
 
@@ -1267,7 +1275,7 @@ Zero runtime overhead - routes are registered once at application startup.
 - ✅ hierarchy_routes.py, lateral_routes.py (loop-pattern, multi-service via kwargs)
 - graphql_routes.py: signature normalized only (needs full services container)
 
-**Summary:** 38/41 files using DomainRouteConfig (93% adoption). 3 justified exceptions: ai_routes.py, graphql_routes.py, metrics_routes.py.
+**Summary:** 38 of 41 route files use DomainRouteConfig (93% adoption). 3 justified exceptions: ai_routes.py, graphql_routes.py, metrics_routes.py. Bootstrap no longer wraps DomainRouteConfig routes in `if services.X:` guards — the soft-fail in `register_domain_routes()` handles missing services.
 
 **Key Achievements:**
 - All 4 patterns proven: Standard, API-only, UI-only, Multi-factory
