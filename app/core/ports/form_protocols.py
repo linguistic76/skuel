@@ -2,15 +2,69 @@
 Form Protocols - ISP Contracts for Form Services
 =================================================
 
-Interface Segregation Principle protocols consumed by route files.
-
-FormTemplateOperations — admin-facing CRUD + lesson linking
-FormSubmissionOperations — user-facing submit, list, delete, share
+Two protocol tiers:
+- Backend-level: FormTemplateBackendOperations, FormSubmissionBackendOperations
+  (consumed by service __init__, extend BackendOperations[T] with domain methods)
+- Route-level: FormTemplateOperations, FormSubmissionOperations
+  (consumed by route files, service-facing ISP contracts)
 """
 
-from typing import Any, Protocol
+from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any, Protocol
+
+from core.ports.base_protocols import BackendOperations
 from core.utils.result_simplified import Result
+
+if TYPE_CHECKING:
+    from core.models.forms.form_submission import FormSubmission
+    from core.models.forms.form_template import FormTemplate
+
+# ========================================================================
+# Backend-level protocols (typed self.backend in services)
+# ========================================================================
+
+
+class FormTemplateBackendOperations(BackendOperations["FormTemplate"], Protocol):
+    """Backend operations for FormTemplate — base CRUD + domain-specific methods.
+
+    Implementation: FormTemplateBackend (domain_backends.py)
+    Consumer: FormTemplateService.__init__
+    """
+
+    async def link_to_lesson(self, form_template_uid: str, lesson_uid: str) -> Result[bool]: ...
+
+    async def unlink_from_lesson(self, form_template_uid: str, lesson_uid: str) -> Result[bool]: ...
+
+    async def get_forms_for_lesson(self, lesson_uid: str) -> Result[list[dict[str, Any]]]: ...
+
+
+class FormSubmissionBackendOperations(BackendOperations["FormSubmission"], Protocol):
+    """Backend operations for FormSubmission — base CRUD + domain-specific methods.
+
+    Implementation: FormSubmissionBackend (domain_backends.py)
+    Consumer: FormSubmissionService.__init__
+    """
+
+    async def create_with_relationships(
+        self,
+        submission: FormSubmission,
+        user_uid: str,
+        form_template_uid: str,
+    ) -> Result[FormSubmission]: ...
+
+    async def list_by_user(
+        self, user_uid: str, limit: int = 50
+    ) -> Result[list[dict[str, Any]]]: ...
+
+    async def get_submissions_for_template(
+        self, form_template_uid: str
+    ) -> Result[list[dict[str, Any]]]: ...
+
+
+# ========================================================================
+# Route-level protocols (typed service in routes)
+# ========================================================================
 
 
 class FormTemplateOperations(Protocol):

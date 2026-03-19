@@ -12,11 +12,15 @@ TEACHER role required for group creation.
 See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
 """
 
+import logging
 from datetime import datetime
 from typing import Any
 
+from core.events.base import BaseEvent
 from core.models.group.group import Group, GroupDTO, create_group
 from core.models.relationship_names import RelationshipName
+from core.ports.base_protocols import BackendOperations
+from core.ports.infrastructure_protocols import EventBusOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
 from core.utils.decorators import with_error_handling
@@ -44,7 +48,9 @@ class GroupService(BaseService):
         user_ownership_relationship=RelationshipName.OWNS,
     )
 
-    def __init__(self, backend: Any, event_bus: Any = None) -> None:
+    def __init__(
+        self, backend: BackendOperations[Group], event_bus: EventBusOperations | None = None
+    ) -> None:
         """
         Initialize with backend.
 
@@ -442,10 +448,12 @@ class GroupService(BaseService):
         return Result.ok(count)
 
 
-async def _publish_event(event_bus: Any, event: Any, event_logger: Any) -> None:
+async def _publish_event(
+    event_bus: EventBusOperations, event: BaseEvent, event_logger: logging.Logger
+) -> None:
     """Publish event with error handling."""
     try:
-        await event_bus.publish(event)
+        await event_bus.publish_async(event)
     except (ValueError, TypeError, AttributeError) as e:
         event_logger.warning(f"Failed to publish {event.event_type}: {e}")
     except Exception as e:  # safety-net: catch unexpected errors

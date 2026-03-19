@@ -14,9 +14,12 @@ from core.events.form_events import FormSubmissionDeleted, FormSubmitted
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.user_enums import UserRole
 from core.models.forms.form_submission import FormSubmission
-from core.models.forms.form_template import FormTemplate
 from core.models.forms.form_submission_dto import FormSubmissionDTO
+from core.models.forms.form_template import FormTemplate
 from core.models.relationship_names import RelationshipName
+from core.ports.form_protocols import FormSubmissionBackendOperations, FormTemplateOperations
+from core.ports.infrastructure_protocols import EventBusOperations
+from core.ports.sharing_protocols import SharingOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
 from core.services.forms.form_content import build_form_processed_content
@@ -27,7 +30,7 @@ from core.utils.uid_generator import UIDGenerator
 logger = get_logger(__name__)
 
 
-class FormSubmissionService(BaseService):
+class FormSubmissionService(BaseService[FormSubmissionBackendOperations, FormSubmission]):
     """
     Service for FormSubmissions (user responses to FormTemplates).
 
@@ -46,10 +49,10 @@ class FormSubmissionService(BaseService):
 
     def __init__(
         self,
-        backend: Any,
-        event_bus: Any | None = None,
-        sharing_service: Any | None = None,
-        form_template_service: Any | None = None,
+        backend: FormSubmissionBackendOperations,
+        event_bus: EventBusOperations | None = None,
+        sharing_service: SharingOperations | None = None,
+        form_template_service: FormTemplateOperations | None = None,
     ) -> None:
         """Initialize with backend, optional event bus, sharing, and template service."""
         super().__init__(backend, "form_submissions")
@@ -206,7 +209,7 @@ class FormSubmissionService(BaseService):
                 result = await self.sharing_service.share(
                     entity_uid=submission_uid,
                     owner_uid=user_uid,
-                    target_uid=recipient_uid,
+                    recipient_uid=recipient_uid,
                 )
                 if result.is_error:
                     self.logger.warning(f"Failed to share with {recipient_uid}: {result.error}")
@@ -232,7 +235,7 @@ class FormSubmissionService(BaseService):
             result = await self.sharing_service.share(
                 entity_uid=submission_uid,
                 owner_uid=user_uid,
-                target_uid=admin_uid,
+                recipient_uid=admin_uid,
             )
             if result.is_error:
                 self.logger.warning(f"Failed to share with admin: {result.error}")

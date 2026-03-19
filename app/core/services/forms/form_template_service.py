@@ -19,6 +19,8 @@ from core.models.enums.entity_enums import EntityType
 from core.models.forms.form_template import FormTemplate
 from core.models.forms.form_template_dto import FormTemplateDTO
 from core.models.relationship_names import RelationshipName
+from core.ports.form_protocols import FormTemplateBackendOperations
+from core.ports.infrastructure_protocols import EventBusOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
 from core.utils.logging import get_logger
@@ -28,7 +30,7 @@ from core.utils.uid_generator import UIDGenerator
 logger = get_logger(__name__)
 
 
-class FormTemplateService(BaseService):
+class FormTemplateService(BaseService[FormTemplateBackendOperations, FormTemplate]):
     """
     CRUD service for FormTemplates (general-purpose form definitions).
 
@@ -44,7 +46,9 @@ class FormTemplateService(BaseService):
         search_order_by="created_at",
     )
 
-    def __init__(self, backend: Any, event_bus: Any | None = None) -> None:
+    def __init__(
+        self, backend: FormTemplateBackendOperations, event_bus: EventBusOperations | None = None
+    ) -> None:
         """Initialize with backend and optional event bus."""
         super().__init__(backend, "form_templates")
         self.backend = backend

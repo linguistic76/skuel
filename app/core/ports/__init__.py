@@ -171,7 +171,12 @@ from .domain_protocols import (
 )
 
 # Form protocols
-from .form_protocols import FormSubmissionOperations, FormTemplateOperations
+from .form_protocols import (
+    FormSubmissionBackendOperations,
+    FormSubmissionOperations,
+    FormTemplateBackendOperations,
+    FormTemplateOperations,
+)
 
 # Graph protocols - entity relationships (consolidated)
 from .graph_protocols import GraphEntity, GraphEntityBase
