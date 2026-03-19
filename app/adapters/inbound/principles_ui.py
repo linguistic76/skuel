@@ -206,6 +206,18 @@ def create_principles_ui_routes(
             ]
         )
 
+    async def _dashboard_error(error_message: str, view: str, request: Any) -> Any:
+        """Render a dashboard error page with standard Principles chrome."""
+        return await render_dashboard_error_page(
+            "Principles",
+            "Define the values that guide you",
+            error_message,
+            view,
+            PrinciplesViewComponents.render_view_tabs,
+            create_principles_page,
+            request,
+        )
+
     # ========================================================================
     # MAIN DASHBOARD (Standalone Three-View, List First)
     # ========================================================================
@@ -227,15 +239,7 @@ def create_principles_ui_routes(
 
             # Check for errors
             if categories_result.is_error:
-                return await render_dashboard_error_page(
-                    "Principles",
-                    "Define the values that guide you",
-                    "Failed to load categories",
-                    view,
-                    PrinciplesViewComponents.render_view_tabs,
-                    create_principles_page,
-                    request,
-                )
+                return await _dashboard_error("Failed to load categories", view, request)
 
             view_content = PrinciplesViewComponents.render_create_view(
                 categories=categories_result.value,
@@ -245,15 +249,7 @@ def create_principles_ui_routes(
 
             # Check for errors
             if analytics_result.is_error:
-                return await render_dashboard_error_page(
-                    "Principles",
-                    "Define the values that guide you",
-                    "Failed to load analytics",
-                    view,
-                    PrinciplesViewComponents.render_view_tabs,
-                    create_principles_page,
-                    request,
-                )
+                return await _dashboard_error("Failed to load analytics", view, request)
 
             view_content = PrinciplesViewComponents.render_analytics_view(
                 analytics_data=analytics_result.value,
@@ -265,15 +261,7 @@ def create_principles_ui_routes(
 
             # Check for errors
             if filtered_result.is_error:
-                return await render_dashboard_error_page(
-                    "Principles",
-                    "Define the values that guide you",
-                    "Failed to load principles",
-                    view,
-                    PrinciplesViewComponents.render_view_tabs,
-                    create_principles_page,
-                    request,
-                )
+                return await _dashboard_error("Failed to load principles", view, request)
 
             ctx = filtered_result.value
             principles, stats = ctx["entities"], ctx["stats"]
@@ -281,15 +269,7 @@ def create_principles_ui_routes(
 
             # Check categories error
             if categories_result.is_error:
-                return await render_dashboard_error_page(
-                    "Principles",
-                    "Define the values that guide you",
-                    "Failed to load categories",
-                    view,
-                    PrinciplesViewComponents.render_view_tabs,
-                    create_principles_page,
-                    request,
-                )
+                return await _dashboard_error("Failed to load categories", view, request)
 
             page_ctx = PrinciplesPageContext(
                 entities=principles,

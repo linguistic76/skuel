@@ -14,7 +14,7 @@ Sub-Services:
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING, Any, TypedDict
 
 if TYPE_CHECKING:
@@ -520,7 +520,6 @@ class TasksService(BaseService["TasksOperations", Task]):
 
         Reverts task status to IN_PROGRESS.
         """
-        from core.models.enums import EntityStatus
 
         return await self.core.update_task(uid, {"status": EntityStatus.ACTIVE})
 
@@ -725,7 +724,6 @@ class TasksService(BaseService["TasksOperations", Task]):
         """
         from operator import attrgetter
 
-        from core.models.enums import EntityStatus
         from core.services.tasks.task_relationships import TaskRelationships
 
         tasks_result = await self.core.get_user_tasks(user_uid)
@@ -790,9 +788,6 @@ class TasksService(BaseService["TasksOperations", Task]):
         Returns:
             Result containing generated task insights
         """
-        from datetime import date, timedelta
-
-        from core.models.enums import EntityStatus
 
         tasks_result = await self.core.get_user_tasks(user_uid)
         if tasks_result.is_error:
@@ -905,7 +900,6 @@ class TasksService(BaseService["TasksOperations", Task]):
         Returns:
             Result containing generation summary and knowledge units
         """
-        from datetime import datetime
 
         from core.utils.result_simplified import Errors
 
