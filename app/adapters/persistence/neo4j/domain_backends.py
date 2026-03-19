@@ -53,6 +53,7 @@ from core.models.principle.principle import Principle
 from core.models.relationship_names import RelationshipName
 from core.models.submissions.submission import Submission
 from core.models.task.task import Task
+from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
@@ -130,7 +131,7 @@ class HabitsBackend(UniversalNeo4jBackend[Habit]):
                 await result.single()
             self.logger.info(f"Linked Habit:{habit_uid} to Knowledge:{knowledge_uid}")
             return True
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to link habit to knowledge: {e}")
             return False
 
@@ -153,7 +154,7 @@ class HabitsBackend(UniversalNeo4jBackend[Habit]):
                 await result.single()
             self.logger.info(f"Linked Habit:{habit_uid} to Principle:{principle_uid}")
             return True
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to link habit to principle: {e}")
             return False
 
@@ -221,7 +222,7 @@ class GoalsBackend(UniversalNeo4jBackend[Goal]):
                 await result.single()
             self.logger.info(f"Added milestone to Goal:{goal_id}")
             return Result.ok(True)
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to add milestone: {e}")
             return Result.fail(Errors.database(operation="add_milestone", message=str(e)))
 
@@ -247,7 +248,7 @@ class GoalsBackend(UniversalNeo4jBackend[Goal]):
                 await result.single()
             self.logger.info(f"Linked Goal:{goal_uid} to Habit:{habit_uid}")
             return Result.ok(True)
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to link goal to habit: {e}")
             return Result.fail(Errors.database(operation="link_goal_to_habit", message=str(e)))
 
@@ -270,7 +271,7 @@ class GoalsBackend(UniversalNeo4jBackend[Goal]):
                 await result.single()
             self.logger.info(f"Linked Goal:{goal_uid} to Knowledge:{knowledge_uid}")
             return Result.ok(True)
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to link goal to knowledge: {e}")
             return Result.fail(Errors.database(operation="link_goal_to_knowledge", message=str(e)))
 
@@ -293,7 +294,7 @@ class GoalsBackend(UniversalNeo4jBackend[Goal]):
                 await result.single()
             self.logger.info(f"Linked Goal:{goal_uid} to Principle:{principle_uid}")
             return Result.ok(True)
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to link goal to principle: {e}")
             return Result.fail(Errors.database(operation="link_goal_to_principle", message=str(e)))
 
@@ -352,7 +353,7 @@ class TasksBackend(UniversalNeo4jBackend[Task]):
             self.logger.info(f"Linked Task:{task_uid} to Knowledge:{knowledge_uid}")
             return Result.ok(True)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to link task to knowledge: {e}")
             return Result.fail(Errors.database(operation="link_task_to_knowledge", message=str(e)))
 
@@ -390,7 +391,7 @@ class TasksBackend(UniversalNeo4jBackend[Task]):
             self.logger.info(f"Linked Task:{task_uid} to Goal:{goal_uid}")
             return Result.ok(True)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to link task to goal: {e}")
             return Result.fail(Errors.database(operation="link_task_to_goal", message=str(e)))
 
@@ -413,7 +414,7 @@ class TasksBackend(UniversalNeo4jBackend[Task]):
                 if not record:
                     return Result.ok({})
                 return Result.ok(dict(record))
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to get user learning state: {e}")
             return Result.fail(Errors.database(operation="get_user_learning_state", message=str(e)))
 
@@ -433,7 +434,7 @@ class TasksBackend(UniversalNeo4jBackend[Task]):
                 if not record:
                     return Result.fail(Errors.not_found(resource="User", identifier=user_uid))
                 return Result.ok(True)
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to update user learning state: {e}")
             return Result.fail(
                 Errors.database(operation="update_user_learning_state", message=str(e))
@@ -505,7 +506,7 @@ class EventsBackend(UniversalNeo4jBackend[Event]):
             self.logger.info(f"Linked Event:{event_uid} to Goal:{goal_uid}")
             return Result.ok(True)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to link event to goal: {e}")
             return Result.fail(Errors.database(operation="link_event_to_goal", message=str(e)))
 
@@ -530,7 +531,7 @@ class EventsBackend(UniversalNeo4jBackend[Event]):
             self.logger.info(f"Linked Event:{event_uid} to Habit:{habit_uid}")
             return Result.ok(True)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to link event to habit: {e}")
             return Result.fail(Errors.database(operation="link_event_to_habit", message=str(e)))
 
@@ -558,7 +559,7 @@ class EventsBackend(UniversalNeo4jBackend[Event]):
             self.logger.info(f"Linked Event:{event_uid} to {len(knowledge_uids)} knowledge units")
             return Result.ok(True)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to link event to knowledge: {e}")
             return Result.fail(Errors.database(operation="link_event_to_knowledge", message=str(e)))
 
@@ -678,7 +679,7 @@ class LessonBackend(UniversalNeo4jBackend[Lesson]):
             if not record["ku_exists"]:
                 return Result.fail(Errors.not_found(resource="Lesson", identifier=ku_uid))
             return Result.ok(record["is_organizer"])
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed is_organizer check for {ku_uid}: {e}")
             return Result.fail(Errors.database(operation="is_organizer", message=str(e)))
 
@@ -704,7 +705,7 @@ class LessonBackend(UniversalNeo4jBackend[Lesson]):
                     f"Organized Lesson {child_uid} under {parent_uid} at position {order}"
                 )
             return Result.ok(success)
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed organize {child_uid} under {parent_uid}: {e}")
             return Result.fail(Errors.database(operation="organize", message=str(e)))
 
@@ -726,7 +727,7 @@ class LessonBackend(UniversalNeo4jBackend[Lesson]):
             if success:
                 self.logger.info(f"Removed organization of {child_uid} from {parent_uid}")
             return Result.ok(success)
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed unorganize {child_uid} from {parent_uid}: {e}")
             return Result.fail(Errors.database(operation="unorganize", message=str(e)))
 
@@ -749,7 +750,7 @@ class LessonBackend(UniversalNeo4jBackend[Lesson]):
                 )
                 records = await result.data()
             return Result.ok(bool(records and records[0]["success"]))
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed reorder {child_uid} under {parent_uid}: {e}")
             return Result.fail(Errors.database(operation="reorder", message=str(e)))
 
@@ -774,7 +775,7 @@ class LessonBackend(UniversalNeo4jBackend[Lesson]):
                 {"uid": r["uid"], "title": r["title"], "order": r["order"]} for r in records
             ]
             return Result.ok(children)
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed get_organized_children for {parent_uid}: {e}")
             return Result.fail(Errors.database(operation="get_organized_children", message=str(e)))
 
@@ -793,7 +794,7 @@ class LessonBackend(UniversalNeo4jBackend[Lesson]):
                 {"uid": r["uid"], "title": r["title"], "order": r["order"]} for r in records
             ]
             return Result.ok(organizers)
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed find_organizers for {ku_uid}: {e}")
             return Result.fail(Errors.database(operation="find_organizers", message=str(e)))
 
@@ -817,7 +818,7 @@ class LessonBackend(UniversalNeo4jBackend[Lesson]):
                 for r in records
             ]
             return Result.ok(roots)
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed list_root_organizers: {e}")
             return Result.fail(Errors.database(operation="list_root_organizers", message=str(e)))
 
@@ -838,7 +839,7 @@ class LessonBackend(UniversalNeo4jBackend[Lesson]):
                     Errors.not_found(resource="Lesson or Ku", identifier=f"{lesson_uid} / {ku_uid}")
                 )
             return Result.ok(True)
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed link_to_ku {lesson_uid} -> {ku_uid}: {e}")
             return Result.fail(Errors.database(operation="link_to_ku", message=str(e)))
 
@@ -855,7 +856,7 @@ class LessonBackend(UniversalNeo4jBackend[Lesson]):
                 result = await session.run(query, {"lesson_uid": lesson_uid})
                 records = await result.data()
             return Result.ok(records)
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed get_used_kus for {lesson_uid}: {e}")
             return Result.fail(Errors.database(operation="get_used_kus", message=str(e)))
 
@@ -892,7 +893,7 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
                 result = await session.run(query, {"ku_uid": ku_uid})
                 records = await result.data()
             return Result.ok(records)
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed get_lessons_using for {ku_uid}: {e}")
             return Result.fail(Errors.database(operation="get_lessons_using", message=str(e)))
 

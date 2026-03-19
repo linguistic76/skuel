@@ -31,6 +31,7 @@ from typing import Any
 from neo4j import AsyncDriver
 
 from core.models.user import User
+from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.neo4j_mapper import from_neo4j_node, to_neo4j_node
 from core.utils.result_simplified import Errors, Result
@@ -105,7 +106,7 @@ class UserBackend:
                 self.logger.info(f"Created user identity: {created_user.uid}")
                 return Result.ok(created_user)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to create user: {e}")
             return Result.fail(Errors.database(operation="create_user", message=str(e)))
 
@@ -135,7 +136,7 @@ class UserBackend:
                 user = from_neo4j_node(dict(record["u"]), User)
                 return Result.ok(user)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to get user by UID: {e}")
             return Result.fail(Errors.database(operation="get_user_by_uid", message=str(e)))
 
@@ -165,7 +166,7 @@ class UserBackend:
                 user = from_neo4j_node(dict(record["u"]), User)
                 return Result.ok(user)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to get user by username: {e}")
             return Result.fail(Errors.database(operation="get_user_by_username", message=str(e)))
 
@@ -197,7 +198,7 @@ class UserBackend:
                 user = from_neo4j_node(dict(record["u"]), User)
                 return Result.ok(user)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to get user by email: {e}")
             return Result.fail(Errors.database(operation="get_user_by_email", message=str(e)))
 
@@ -241,7 +242,7 @@ class UserBackend:
                 self.logger.info(f"Updated user identity: {uid}")
                 return Result.ok(updated_user)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to update user: {e}")
             return Result.fail(Errors.database(operation="update_user", message=str(e)))
 
@@ -275,7 +276,7 @@ class UserBackend:
 
                 return Result.ok(deleted)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to delete user: {e}")
             return Result.fail(Errors.database(operation="delete_user", message=str(e)))
 
@@ -317,7 +318,7 @@ class UserBackend:
                 self.logger.info(f"Updated user progress: {user_uid}")
                 return Result.ok(True)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to update user progress: {e}")
             return Result.fail(Errors.database(operation="update_user_progress", message=str(e)))
 
@@ -382,7 +383,7 @@ class UserBackend:
                 )
                 return Result.ok(True)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to record knowledge mastery: {e}")
             return Result.fail(
                 Errors.database(operation="record_knowledge_mastery", message=str(e))
@@ -447,7 +448,7 @@ class UserBackend:
                 self.logger.info(f"Recorded progress: {user_uid} → {knowledge_uid} ({progress})")
                 return Result.ok(True)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to record knowledge progress: {e}")
             return Result.fail(
                 Errors.database(operation="record_knowledge_progress", message=str(e))
@@ -488,7 +489,7 @@ class UserBackend:
                 mastery_score: float = record["mastery_score"]
                 return Result.ok(mastery_score)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to get user mastery: {e}")
             return Result.fail(Errors.database(operation="get_user_mastery", message=str(e)))
 
@@ -554,7 +555,7 @@ class UserBackend:
                 self.logger.info(f"Enrolled user in path: {user_uid} → {learning_path_uid}")
                 return Result.ok(True)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to enroll in learning path: {e}")
             return Result.fail(Errors.database(operation="enroll_in_learning_path", message=str(e)))
 
@@ -612,7 +613,7 @@ class UserBackend:
                 self.logger.info(f"Completed learning path: {user_uid} → {learning_path_uid}")
                 return Result.ok(True)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to complete learning path: {e}")
             return Result.fail(Errors.database(operation="complete_learning_path", message=str(e)))
 
@@ -681,7 +682,7 @@ class UserBackend:
                 )
                 return Result.ok(True)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to express interest: {e}")
             return Result.fail(
                 Errors.database(operation="express_interest_in_knowledge", message=str(e))
@@ -746,7 +747,7 @@ class UserBackend:
                 self.logger.info(f"Bookmarked: {user_uid} → {knowledge_uid}")
                 return Result.ok(True)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to bookmark knowledge: {e}")
             return Result.fail(Errors.database(operation="bookmark_knowledge", message=str(e)))
 
@@ -788,7 +789,7 @@ class UserBackend:
 
                 return Result.ok(True)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to update user activity: {e}")
             return Result.fail(Errors.database(operation="update_user_activity", message=str(e)))
 
@@ -855,7 +856,7 @@ class UserBackend:
                 self.logger.info(f"Added conversation message: {user_uid} ({role})")
                 return Result.ok(True)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to add conversation message: {e}")
             return Result.fail(
                 Errors.database(operation="add_conversation_message", message=str(e))
@@ -893,7 +894,7 @@ class UserBackend:
                 users = [from_neo4j_node(dict(record["u"]), User) for record in records]
                 return Result.ok(users)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to find users: {e}")
             return Result.fail(Errors.database(operation="find_by", message=str(e)))
 
@@ -928,6 +929,6 @@ class UserBackend:
                 users = [from_neo4j_node(dict(record["u"]), User) for record in records]
                 return Result.ok(users)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to get active learners: {e}")
             return Result.fail(Errors.database(operation="get_active_learners", message=str(e)))

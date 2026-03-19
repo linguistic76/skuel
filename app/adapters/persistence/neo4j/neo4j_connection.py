@@ -17,6 +17,7 @@ from neo4j import AsyncGraphDatabase, Record
 from core.config.settings import get_settings
 
 # Protocols
+from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -103,7 +104,7 @@ class Neo4jConnection:
                 result = await session.run("RETURN 1 as test")
                 data = await result.single()
                 return data and data["test"] == 1
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             logger.error(f"Connection test failed: {e}")
             return False
 
@@ -130,7 +131,7 @@ class Neo4jConnection:
                 # Collect all records as Record objects
                 return [record async for record in result]
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             logger.error(f"Query execution failed: {e}")
             logger.error(f"Query: {query[:200]}...")
             return None

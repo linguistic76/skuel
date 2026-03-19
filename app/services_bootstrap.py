@@ -449,7 +449,7 @@ class Services:
                 elif isinstance(adapter, Closeable):
                     adapter.close()
                 logger.info("Graph adapter closed")
-            except Exception as e:
+            except Exception as e:  # safety-net: service bootstrap must report initialization failures
                 logger.warning(f"Error closing graph adapter: {e}")
 
         # Close event bus with detailed logging
@@ -463,7 +463,7 @@ class Services:
                 elif isinstance(bus, Closeable):
                     bus.close()
                 logger.info("Event bus closed")
-            except Exception as e:
+            except Exception as e:  # safety-net: service bootstrap must report initialization failures
                 logger.warning(f"Error closing event bus: {e}")
 
         # Auto-close all remaining closeable fields (no hardcoded list)
@@ -483,7 +483,7 @@ class Services:
                     logger.info(f"Closing {f.name}...")
                     service.close()
                     logger.info(f"{f.name} closed")
-            except Exception as e:
+            except Exception as e:  # safety-net: service bootstrap must report initialization failures
                 logger.warning(f"Error closing {f.name}: {e}")
 
         logger.info("✅ Service container cleanup complete")
@@ -632,7 +632,7 @@ def _create_learning_services(
             vector_search_service = Neo4jVectorSearchService(query_executor, embeddings_service)
             logger.info("✅ Neo4j vector search service created")
 
-        except Exception as e:
+        except Exception as e:  # safety-net: service bootstrap must report initialization failures
             logger.warning(f"Failed to initialize embedding services: {e}")
             logger.warning("   Vector search will not be available - using keyword search fallback")
             embeddings_service = None
@@ -2117,7 +2117,7 @@ async def compose_services(
                     )
                 else:
                     logger.warning("⚠️ LLM service disabled - OPENAI_API_KEY not configured")
-            except Exception as e:
+            except Exception as e:  # safety-net: service bootstrap must report initialization failures
                 logger.error(f"Failed to initialize LLM service: {e}")
                 logger.warning("⚠️ LLM service disabled - continuing with basic features")
 
@@ -2171,7 +2171,7 @@ async def compose_services(
                 logger.info(
                     "   Worker handles: 6 Activity + 7 Curriculum entity types + content chunks"
                 )
-            except Exception as e:
+            except Exception as e:  # safety-net: service bootstrap must report initialization failures
                 logger.warning(f"Failed to initialize embedding background worker: {e}")
                 logger.warning("   Embeddings will only be generated during ingestion")
         else:

@@ -199,7 +199,7 @@ class AnalyticsRouteFactory:
                 # Call the service handler (must return Result[T])
                 return cast("Result[Any]", await endpoint.handler(self.service, params))
 
-            except Exception as e:
+            except Exception as e:  # safety-net: API boundary
                 logger.error(f"Error in analytics endpoint {endpoint.path}: {e}")
                 return Result.fail(
                     Errors.system(message=f"Failed to get analytics: {e!s}", exception=e)

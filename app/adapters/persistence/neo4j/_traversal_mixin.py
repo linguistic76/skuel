@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.relationship_names import RelationshipName
 from core.utils.error_boundary import safe_backend_operation
+from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -261,7 +262,7 @@ class _TraversalMixin:
             async with self.driver.session() as session:
                 result = await session.run(cypher, {"from_uid": from_uid, "to_uid": to_uid})
                 records = await result.data()
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             # Neo4j returns error if no path exists in some versions
             if "no path" in str(e).lower():
                 return Result.ok(None)

@@ -38,6 +38,7 @@ from typing import Any
 
 from neo4j import AsyncDriver
 
+from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.processor_functions import check_exists, extract_count
 from core.utils.result_simplified import Errors, Result
 
@@ -99,7 +100,7 @@ class Neo4jQueryExecutor:
                 records = await result.data()
                 return Result.ok(records)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             return Result.fail(Errors.database(operation="execute_query", message=str(e)))
 
     # ========================================================================
@@ -150,7 +151,7 @@ class Neo4jQueryExecutor:
                 else:
                     return Result.ok(records)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             return Result.fail(Errors.database(operation=operation, message=str(e)))
 
     async def execute_write[T](
@@ -240,5 +241,5 @@ class Neo4jQueryExecutor:
 
             return Result.ok(total_created)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             return Result.fail(Errors.database(operation=operation, message=str(e)))

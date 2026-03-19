@@ -20,6 +20,7 @@ if TYPE_CHECKING:
 
     from core.models.zpd.zpd_assessment import ZPDAssessment
 
+from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -89,7 +90,7 @@ class ZPDSnapshotBackend:
                 },
             )
             return Result.ok(None)
-        except Exception as exc:
+        except NEO4J_EXCEPTIONS as exc:
             self._logger.error("ZPD snapshot save failed for %s: %s", user_uid, exc)
             return Result.fail(
                 Errors.database(
@@ -107,7 +108,7 @@ class ZPDSnapshotBackend:
             if records and records[0].get("snapshot"):
                 return Result.ok(dict(records[0]["snapshot"]))
             return Result.ok(None)
-        except Exception as exc:
+        except NEO4J_EXCEPTIONS as exc:
             self._logger.error("ZPD snapshot read failed for %s: %s", user_uid, exc)
             return Result.fail(
                 Errors.database(

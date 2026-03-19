@@ -94,6 +94,7 @@ from core.models.enums.neo_labels import NeoLabel
 from core.models.protocols import DomainModelProtocol
 from core.models.query_types import QueryIntent
 from core.utils.error_boundary import safe_backend_operation
+from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -435,7 +436,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol](  # type: ignore[misc]  # Mi
             if suggest_fn is not None:
                 try:
                     query_intent = suggest_fn()
-                except Exception as e:
+                except Exception as e:  # skuel-lint: disable=SKUEL017 -- entity method may raise arbitrary errors
                     self.logger.warning(f"Failed to get suggested intent: {e}")
 
         if not query_intent:
@@ -471,7 +472,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol](  # type: ignore[misc]  # Mi
 
             return Result.ok((entity, graph_context))
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to get graph context: {e}")
             return Result.fail(
                 Errors.database(

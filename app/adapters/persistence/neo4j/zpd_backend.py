@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from neo4j import AsyncDriver
 
+from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -195,7 +196,7 @@ class ZPDBackend:
             if records:
                 return records[0].get("ku_count", 0) or 0
             return 0
-        except Exception as exc:
+        except NEO4J_EXCEPTIONS as exc:
             self._logger.warning("ZPD: failed to count KUs — %s", exc)
             return 0
 
@@ -223,7 +224,7 @@ class ZPDBackend:
                 _TARGETED_KU_ENGAGEMENT_QUERY,
                 {"user_uid": user_uid, "ku_uids": ku_uids},
             )
-        except Exception as exc:
+        except NEO4J_EXCEPTIONS as exc:
             self._logger.error("ZPD targeted KU query failed for %s: %s", user_uid, exc)
             return Result.fail(
                 Errors.database(
@@ -274,7 +275,7 @@ class ZPDBackend:
         """
         try:
             records, _, _ = await self._driver.execute_query(_ZONE_QUERY, {"user_uid": user_uid})
-        except Exception as exc:
+        except NEO4J_EXCEPTIONS as exc:
             self._logger.error("ZPD zone query failed for %s: %s", user_uid, exc)
             return Result.fail(
                 Errors.database(

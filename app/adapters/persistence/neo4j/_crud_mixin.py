@@ -27,6 +27,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.protocols import DomainModelProtocol
 from core.utils.error_boundary import safe_backend_operation
+from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.neo4j_mapper import from_neo4j_node, to_neo4j_node
 from core.utils.result_simplified import Errors, Result
 
@@ -444,7 +445,7 @@ class _CrudMixin[T: DomainModelProtocol]:
                 self._track_db_metrics("delete", time.time() - start_time, is_error=False)
 
                 return Result.ok(deleted)
-            except Exception as e:
+            except NEO4J_EXCEPTIONS as e:
                 error_msg = str(e)
                 # Neo4j constraint error when trying to delete node with relationships
                 if "Cannot delete" in error_msg and "relationship" in error_msg.lower():

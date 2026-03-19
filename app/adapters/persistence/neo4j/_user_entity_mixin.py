@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.protocols import DomainModelProtocol
 from core.utils.error_boundary import safe_backend_operation
+from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.neo4j_mapper import from_neo4j_node
 from core.utils.result_simplified import Errors, Result
 from core.utils.validation_helpers import validate_field_name, validate_relationship_type
@@ -164,7 +165,7 @@ class _UserEntityMixin[T: DomainModelProtocol]:
                 )
                 return Result.ok(True)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to create user relationship: {e}")
             return Result.fail(Errors.database("create_user_relationship", str(e)))
 
@@ -283,7 +284,7 @@ class _UserEntityMixin[T: DomainModelProtocol]:
                 )
                 return Result.ok((entities, total_count))
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to get user entities: {e}")
             return Result.fail(Errors.database("get_user_entities", str(e)))
 
@@ -354,7 +355,7 @@ class _UserEntityMixin[T: DomainModelProtocol]:
                 count = record["count"] if record else 0
                 return Result.ok(count)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to count user entities: {e}")
             return Result.fail(Errors.database("count_user_entities", str(e)))
 
@@ -422,7 +423,7 @@ class _UserEntityMixin[T: DomainModelProtocol]:
                 )
                 return Result.ok(True)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to update relationship access: {e}")
             return Result.fail(Errors.database("update_relationship_access", str(e)))
 
@@ -481,6 +482,6 @@ class _UserEntityMixin[T: DomainModelProtocol]:
 
                 return Result.ok(deleted)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to delete user relationship: {e}")
             return Result.fail(Errors.database("delete_user_relationship", str(e)))

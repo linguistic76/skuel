@@ -174,7 +174,7 @@ def create_finance_api_routes(
                     )
                 )
 
-        except Exception as e:
+        except Exception as e:  # safety-net: API boundary
             logger.error(f"Error in search expenses route: {e}")
             return Result.fail(
                 Errors.system(message=f"Failed to search expenses: {e!s}", exception=e)
@@ -299,7 +299,7 @@ def create_finance_api_routes(
                     return Result.fail(Errors.not_found(resource="Budget", identifier=uid))
                 return Result.fail(Errors.system(message=error_msg))
 
-        except Exception as e:
+        except Exception as e:  # safety-net: API boundary
             logger.error(f"Error in recalculate budget route: {e}")
             return Result.fail(
                 Errors.system(message=f"Failed to recalculate budget: {e!s}", exception=e)
@@ -426,7 +426,7 @@ def create_finance_api_routes(
 
         try:
             invoice_request = InvoiceCreateRequest(**body)
-        except Exception as e:
+        except Exception as e:  # safety-net: JSON parsing boundary
             return Result.fail(Errors.validation(f"Invalid invoice data: {e}"))
 
         # Convert request to domain model

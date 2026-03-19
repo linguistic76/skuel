@@ -569,7 +569,7 @@ class UnifiedQueryBuilder:
 
                 self.query_builder_service = QueryBuilder(self._schema_service)
                 logger.info("Auto-initialized QueryBuilder for template support")
-            except Exception as e:
+            except Exception as e:  # skuel-lint: disable=SKUEL017 -- QueryBuilder init may fail for many reasons (import, config, schema)
                 logger.warning(
                     f"Could not auto-initialize QueryBuilder: {e}. "
                     "Template functionality will be limited."

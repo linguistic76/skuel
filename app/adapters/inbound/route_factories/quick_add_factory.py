@@ -201,7 +201,7 @@ class QuickAddRouteFactory:
                 user_msg = f"{field}: {msg}" if field else msg
                 logger.warning(f"Validation error creating {domain}: {user_msg}")
                 return render_error_banner(user_msg)
-            except Exception as e:
+            except Exception as e:  # safety-net: HTTP error boundary
                 logger.error(f"Error creating {domain}: {e}")
                 return Response(f"Error: {e}", status_code=500)
 

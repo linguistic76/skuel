@@ -493,7 +493,7 @@ async def create_navbar_for_request(
             stats_result = await insight_store.get_insight_stats(user_uid)
             if not stats_result.is_error:
                 unread_insights = stats_result.value.get("active_insights", 0)
-        except Exception:
+        except Exception:  # safety-net: badge count must not crash navbar
             pass
 
     # Get unread notification count
@@ -506,7 +506,7 @@ async def create_navbar_for_request(
             count_result = await notification_service.get_unread_count(user_uid)
             if not count_result.is_error:
                 unread_notifications = count_result.value
-        except Exception:
+        except Exception:  # safety-net: badge count must not crash navbar
             pass
 
     return create_navbar(

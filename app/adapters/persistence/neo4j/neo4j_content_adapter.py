@@ -14,6 +14,7 @@ from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
+from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -363,7 +364,7 @@ class Neo4jContentAdapter:
             logger.info(f"Successfully stored content with chunks for {uid}")
             return True
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             logger.error(f"Failed to store content with chunks for {uid}: {e}")
             return False
 
@@ -409,7 +410,7 @@ class Neo4jContentAdapter:
             logger.debug(f"Retrieved {len(chunks)} chunks for {uid}")
             return chunks
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             logger.error(f"Failed to retrieve chunks for {uid}: {e}")
             return []
 
@@ -473,6 +474,6 @@ class Neo4jContentAdapter:
             logger.warning("No chunks updated - chunks may not exist")
             return False
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             logger.error(f"Failed to store chunk embeddings: {e}")
             return False

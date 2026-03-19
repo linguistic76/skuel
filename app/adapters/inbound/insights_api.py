@@ -58,7 +58,7 @@ def create_insights_api_routes(
         try:
             body = await request.json()
             notes = body.get("notes", "")
-        except Exception:
+        except Exception:  # safety-net: JSON parsing boundary — optional body
             # No body provided - that's ok, notes are optional
             pass
 
@@ -97,7 +97,7 @@ def create_insights_api_routes(
         try:
             body = await request.json()
             notes = body.get("notes", "")
-        except Exception:
+        except Exception:  # safety-net: JSON parsing boundary — optional body
             # No body provided - that's ok, notes are optional
             pass
 
@@ -138,7 +138,7 @@ def create_insights_api_routes(
         try:
             body = await request.json()
             uids = body.get("uids", [])
-        except Exception as e:
+        except Exception as e:  # safety-net: JSON parsing boundary
             logger.error(f"Failed to parse bulk dismiss request: {e}")
             return Result.fail(Errors.validation(f"Invalid request body: {e}"))
 
@@ -156,7 +156,7 @@ def create_insights_api_routes(
         try:
             body = await request.json()
             uids = body.get("uids", [])
-        except Exception as e:
+        except Exception as e:  # safety-net: JSON parsing boundary
             logger.error(f"Failed to parse bulk action request: {e}")
             return Result.fail(Errors.validation(f"Invalid request body: {e}"))
 
@@ -176,7 +176,7 @@ def create_insights_api_routes(
             req = SmartDismissRequest(**body)
         except ValidationError as e:
             return Result.fail(Errors.validation(str(e), field="body"))
-        except Exception as e:
+        except Exception as e:  # safety-net: JSON parsing boundary
             logger.error(f"Failed to parse smart dismiss request: {e}")
             return Result.fail(Errors.validation(f"Invalid request body: {e}"))
 
@@ -353,7 +353,7 @@ def create_insights_api_routes(
         try:
             body = await request.json()
             days = body.get("days", 1)
-        except Exception as e:
+        except Exception as e:  # safety-net: JSON parsing boundary
             logger.error(f"Failed to parse snooze request: {e}")
             return Result.fail(Errors.validation(f"Invalid request body: {e}"))
 

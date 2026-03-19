@@ -204,7 +204,7 @@ def create_auth_ui_routes(
             )
             return RedirectResponse("/admin" if is_admin else "/profile", status_code=303)
 
-        except Exception as e:
+        except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Registration error: {e}")
             return AuthComponents.render_registration_page(
                 error_message=f"An error occurred: {e!s}"
@@ -298,7 +298,7 @@ def create_auth_ui_routes(
             )
             return RedirectResponse("/admin" if is_admin else "/profile", status_code=303)
 
-        except Exception as e:
+        except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Login error: {e}", exc_info=True)
             return AuthComponents.render_login_error(str(e))
 
@@ -396,7 +396,7 @@ def create_auth_ui_routes(
             logger.info("Password reset successfully via token")
             return AuthComponents.render_reset_password_success()
 
-        except Exception as e:
+        except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Password reset error: {e}")
             return AuthComponents.render_reset_password_page(
                 error_message=f"An error occurred: {e!s}"

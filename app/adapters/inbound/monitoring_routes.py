@@ -96,7 +96,7 @@ def create_monitoring_api_routes(
                 }
             )
 
-        except Exception as e:
+        except Exception as e:  # safety-net: metrics must not crash request
             logger.error(f"Failed to get worker metrics: {e}")
             return JSONResponse(
                 {
@@ -139,7 +139,7 @@ def create_monitoring_api_routes(
                 }
             )
 
-        except Exception as e:
+        except Exception as e:  # safety-net: metrics must not crash request
             logger.error(f"Failed to get system metrics: {e}")
             return JSONResponse(
                 {

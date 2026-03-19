@@ -98,7 +98,7 @@ def render_error_banner(
         import os
 
         debug_mode = os.getenv("DEBUG", "false").lower() == "true"
-    except Exception:
+    except Exception:  # safety-net: env var access must not crash rendering
         debug_mode = False
 
     if technical_details and (show_details or debug_mode):

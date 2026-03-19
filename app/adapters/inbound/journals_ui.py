@@ -661,7 +661,7 @@ def create_journals_ui_routes(
             jr = result.value
             return _render_upload_status(jr.status, jr.message, report_uid=jr.submission_uid)
 
-        except Exception as e:
+        except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Error uploading journal: {e}", exc_info=True)
             return _render_upload_status("error", f"Upload failed: {e}", is_error=True)
 
@@ -711,7 +711,7 @@ def create_journals_ui_routes(
             logger.info(f"Instruction file saved for {user_uid}: {filename}")
             return _render_instruction_list(exercises)
 
-        except Exception as e:
+        except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Error saving instruction file: {e}", exc_info=True)
             return _render_instruction_list([], error=str(e))
 
@@ -743,7 +743,7 @@ def create_journals_ui_routes(
             ]
             return _render_reports_grid(ai_reports)
 
-        except Exception as e:
+        except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Error loading AI reports: {e}", exc_info=True)
             return Div(
                 render_inline_error(f"Error: {e}"),
@@ -801,7 +801,7 @@ def create_journals_ui_routes(
                 media_type="text/markdown",
             )
 
-        except Exception as e:
+        except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Error downloading je_output for {uid}: {e}", exc_info=True)
             return Div(
                 P(f"Download failed: {e}", cls="text-center text-error"),

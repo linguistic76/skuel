@@ -25,6 +25,7 @@ from neo4j.time import DateTime as Neo4jDateTime
 from core.models.auth.auth_event import AuthEvent
 from core.models.auth.password_reset_token import PasswordResetToken
 from core.models.auth.session import Session, hash_session_token
+from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -121,7 +122,7 @@ class SessionBackend:
                 self.logger.info(f"Created session: {session.uid} for user: {session.user_uid}")
                 return Result.ok(session)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to create session: {e}")
             return Result.fail(Errors.database(operation="create_session", message=str(e)))
 
@@ -156,7 +157,7 @@ class SessionBackend:
                 session = self._node_to_session(node)
                 return Result.ok(session)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to get session by token: {e}")
             return Result.fail(Errors.database(operation="get_session_by_token", message=str(e)))
 
@@ -187,7 +188,7 @@ class SessionBackend:
                 session = self._node_to_session(node)
                 return Result.ok(session)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to get session by UID: {e}")
             return Result.fail(Errors.database(operation="get_session_by_uid", message=str(e)))
 
@@ -226,7 +227,7 @@ class SessionBackend:
 
                 return Result.ok(record is not None)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to update session activity: {e}")
             return Result.fail(Errors.database(operation="update_last_active", message=str(e)))
 
@@ -259,7 +260,7 @@ class SessionBackend:
 
                 return Result.ok(record is not None)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to invalidate session: {e}")
             return Result.fail(Errors.database(operation="invalidate_session", message=str(e)))
 
@@ -291,7 +292,7 @@ class SessionBackend:
                 self.logger.info(f"Invalidated {count} sessions for user: {user_uid}")
                 return Result.ok(count)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to invalidate user sessions: {e}")
             return Result.fail(
                 Errors.database(operation="invalidate_all_user_sessions", message=str(e))
@@ -322,7 +323,7 @@ class SessionBackend:
                 self.logger.info(f"Cleaned up {count} expired sessions")
                 return Result.ok(count)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to cleanup expired sessions: {e}")
             return Result.fail(
                 Errors.database(operation="cleanup_expired_sessions", message=str(e))
@@ -370,7 +371,7 @@ class SessionBackend:
                 sessions = [self._node_to_session(dict(r["s"])) for r in records]
                 return Result.ok(sessions)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to get user sessions: {e}")
             return Result.fail(Errors.database(operation="get_user_sessions", message=str(e)))
 
@@ -459,7 +460,7 @@ class SessionBackend:
                 )
                 return Result.ok(event)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to log auth event: {e}")
             return Result.fail(Errors.database(operation="log_auth_event", message=str(e)))
 
@@ -492,7 +493,7 @@ class SessionBackend:
                 count = record["failed_count"] if record else 0
                 return Result.ok(count)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to count failed attempts: {e}")
             return Result.fail(
                 Errors.database(operation="count_recent_failed_attempts", message=str(e))
@@ -570,7 +571,7 @@ class SessionBackend:
                 self.logger.info(f"Created reset token for user: {token.user_uid}")
                 return Result.ok(token)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to create reset token: {e}")
             return Result.fail(Errors.database(operation="create_reset_token", message=str(e)))
 
@@ -601,7 +602,7 @@ class SessionBackend:
                 token = self._node_to_reset_token(node)
                 return Result.ok(token)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to get reset token: {e}")
             return Result.fail(Errors.database(operation="get_reset_token", message=str(e)))
 
@@ -628,7 +629,7 @@ class SessionBackend:
 
                 return Result.ok(record is not None)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to mark reset token used: {e}")
             return Result.fail(Errors.database(operation="mark_reset_token_used", message=str(e)))
 
@@ -655,7 +656,7 @@ class SessionBackend:
                 self.logger.info(f"Cleaned up {count} expired/used reset tokens")
                 return Result.ok(count)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to cleanup expired tokens: {e}")
             return Result.fail(Errors.database(operation="cleanup_expired_tokens", message=str(e)))
 

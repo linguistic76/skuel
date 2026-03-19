@@ -16,6 +16,7 @@ from typing import Any
 from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection, get_connection
 
 # Protocols
+from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -188,7 +189,7 @@ class Neo4jAdapter:
         try:
             records = await self.execute_query(query, params)
             return len(records) > 0
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             logger.error(f"Failed to create relationship: {e}")
             return False
 
@@ -258,7 +259,7 @@ class Neo4jAdapter:
                     name = constraint.split()[2]  # Extract name
                     constraint_results["created"].append(name)
                     platform_logger.debug(f"✅ Constraint: {name}")
-                except Exception as e:
+                except NEO4J_EXCEPTIONS as e:
                     name = constraint.split()[2] if len(constraint.split()) > 2 else "unknown"
                     if "already exists" in str(e).lower() or "equivalent" in str(e).lower():
                         constraint_results["existing"].append(name)
@@ -274,7 +275,7 @@ class Neo4jAdapter:
                     name = index.split()[3]  # Extract name
                     index_results["created"].append(name)
                     platform_logger.debug(f"✅ Index: {name}")
-                except Exception as e:
+                except NEO4J_EXCEPTIONS as e:
                     name = index.split()[3] if len(index.split()) > 3 else "unknown"
                     if "already exists" in str(e).lower() or "equivalent" in str(e).lower():
                         index_results["existing"].append(name)
@@ -308,7 +309,7 @@ class Neo4jAdapter:
 
             return Result.ok(results)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             platform_logger.error(f"❌ Neo4j bootstrap_indexes() failed: {e}", exc_info=True)
             return Result.fail(
                 Errors.database(
@@ -468,7 +469,7 @@ class Neo4jAdapter:
 
             return Result.ok(results)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             logger.error(f"Query execution failed: {e}")
             return Result.fail(
                 Errors.database(operation="execute_query", message=f"Query execution failed: {e!s}")

@@ -68,7 +68,7 @@ def cleanup_temp_file(filepath: str):
     """Background task to cleanup temp files after response"""
     try:
         Path(filepath).unlink()
-    except Exception as e:
+    except Exception as e:  # safety-net: cleanup must not raise
         logger.warning(f"Failed to cleanup temp file {filepath}: {e}")
 
 
@@ -315,7 +315,7 @@ def create_submissions_api_routes(
 
         try:
             body = await request.json()
-        except Exception:
+        except Exception:  # safety-net: JSON parsing boundary
             return Result.fail(Errors.validation("Invalid JSON body"))
 
         try:
@@ -511,7 +511,7 @@ def create_submissions_api_routes(
             try:
                 body = await request.json()
                 instructions = body.get("instructions")
-            except Exception:
+            except Exception:  # safety-net: JSON parsing boundary — optional body
                 pass  # No body provided
 
         result = await processing_service.process_submission(uid, instructions)

@@ -1149,7 +1149,7 @@ class Subscription:
             # Cleanup: Unsubscribe when subscription ends
             try:
                 event_bus.unsubscribe(LearningPathProgressUpdated, handle_progress_update)
-            except Exception:
+            except Exception:  # safety-net: GraphQL resolver boundary
                 pass  # Ignore cleanup errors
 
 

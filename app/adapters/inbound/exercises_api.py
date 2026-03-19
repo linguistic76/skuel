@@ -119,7 +119,7 @@ def create_exercises_api_routes(
         try:
             body = await request.json()
             report_request = ReportGenerateRequest(**body)
-        except Exception as e:
+        except Exception as e:  # safety-net: JSON parsing boundary
             return Result.fail(Errors.validation(f"Invalid request body: {e}", field="body"))
 
         # Get entry and exercise

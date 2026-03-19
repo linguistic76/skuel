@@ -77,7 +77,7 @@ if __name__ == "__main__":
         asyncio.run(main())
     except KeyboardInterrupt:
         logger.info("🛑 Application interrupted by user")
-    except Exception as e:
+    except Exception as e:  # safety-net: application startup must report all errors
         logger.error(f"💥 Application crashed: {e}")
         traceback.print_exc()
         sys.exit(1)

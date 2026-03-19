@@ -17,6 +17,7 @@ from typing import Any
 
 from neo4j import AsyncDriver
 
+from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.result_simplified import Errors, Result
 
 
@@ -158,7 +159,7 @@ class RelationshipBuilder:
                 record = await result.single()
                 created = record["created"] if record else 0
                 return Result.ok(created > 0)
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             return Result.fail(Errors.database(operation="create_relationship", message=str(e)))
 
     async def delete(self) -> Result[int]:
@@ -200,7 +201,7 @@ class RelationshipBuilder:
                 record = await result.single()
                 deleted = record["deleted"] if record else 0
                 return Result.ok(deleted)
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             return Result.fail(Errors.database(operation="delete_relationship", message=str(e)))
 
     def _build_node_pattern(self, labels: list[str], var_name: str) -> str:

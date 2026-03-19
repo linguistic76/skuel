@@ -141,7 +141,7 @@ def boundary_handler(
 
             except HTTPException:
                 raise  # Let Starlette handle with correct status code (e.g. 401)
-            except Exception as e:
+            except Exception as e:  # safety-net: API boundary — catch-all after HTTPException
                 # Log full error for debugging (server-side only)
                 logger.error(f"Unexpected error in {func.__name__}: {e}", exc_info=True)
                 # Return generic message — never expose exception details to clients
@@ -228,7 +228,7 @@ def instrument_with_boundary_handler(
 
                 return response
 
-            except Exception:
+            except Exception:  # safety-net: metrics must not crash request
                 # Track failed request
                 status_code = 500
                 if prometheus_metrics:

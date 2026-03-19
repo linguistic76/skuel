@@ -473,7 +473,7 @@ def render_activity_calendar(
                 calendar_items.extend(result)
             elif result is not None:
                 calendar_items.append(result)
-        except Exception as e:
+        except Exception as e:  # safety-net: individual item conversion must not crash the list
             logger.warning(f"Failed to convert {domain} entity to calendar item: {e}")
             continue
 

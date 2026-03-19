@@ -47,7 +47,7 @@ def create_form_submissions_api_routes(
         try:
             body = await request.json()
             req = FormSubmissionCreateRequest(**body)
-        except Exception as e:
+        except Exception as e:  # safety-net: JSON parsing boundary
             return Result.fail(Errors.validation(f"Invalid request body: {e}", field="body"))
 
         result = await form_submission_service.submit_form(
@@ -114,7 +114,7 @@ def create_form_submissions_api_routes(
             req = FormSubmissionShareRequest(**body)
         except ValidationError as e:
             return Result.fail(Errors.validation(str(e), field="body"))
-        except Exception as e:
+        except Exception as e:  # safety-net: JSON parsing boundary
             return Result.fail(Errors.validation(f"Invalid request body: {e}", field="body"))
 
         return await form_submission_service.share_submission(

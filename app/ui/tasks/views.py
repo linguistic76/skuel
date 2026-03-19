@@ -303,7 +303,7 @@ class TasksViewComponents:
                 # Only include tasks with dates
                 if getattr(task, "due_date", None) or getattr(task, "scheduled_date", None):
                     calendar_items.append(task_to_calendar_item(task))
-            except Exception as e:
+            except Exception as e:  # safety-net: individual item conversion must not crash the list
                 logger.warning(f"Failed to convert task to calendar item: {e}")
                 continue
 

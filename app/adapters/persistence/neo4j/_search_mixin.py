@@ -27,6 +27,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.protocols import DomainModelProtocol
 from core.utils.error_boundary import safe_backend_operation
+from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.neo4j_mapper import from_neo4j_node
 from core.utils.result_simplified import Errors, Result
 from core.utils.validation_helpers import validate_field_name
@@ -445,7 +446,7 @@ class _SearchMixin[T: DomainModelProtocol]:
                 domain_context = record.get("domain_context", [])
                 return Result.ok(domain_context)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to get raw domain context: {e}")
             return Result.fail(Errors.database(operation="get_domain_context_raw", message=str(e)))
 

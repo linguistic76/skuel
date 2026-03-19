@@ -21,6 +21,7 @@ from typing import Any, TypeVar
 from neo4j import AsyncDriver
 
 from core.models.enums.neo_labels import NeoLabel
+from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -143,7 +144,7 @@ class Neo4jSchemaManager:
 
             return Result.ok(results)
 
-        except Exception as e:
+        except Exception as e:  # skuel-lint: disable=SKUEL017 -- schema sync iterates dataclass fields + DB ops
             self.logger.error(f"Schema sync failed for {label}: {e}")
             return Result.fail(Errors.system(f"Schema sync failed: {e}", operation="sync_indexes"))
 
@@ -176,7 +177,7 @@ class Neo4jSchemaManager:
             # (IF NOT EXISTS doesn't tell us, so we assume created for now)
             return Result.ok("created")
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to create index {index_name}: {e}")
             return Result.fail(
                 Errors.database(
@@ -211,7 +212,7 @@ class Neo4jSchemaManager:
 
             return Result.ok("created")
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to create constraint {constraint_name}: {e}")
             return Result.fail(
                 Errors.database(
@@ -244,7 +245,7 @@ class Neo4jSchemaManager:
 
             return Result.ok(indexes)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to list indexes: {e}")
             return Result.fail(
                 Errors.database(operation="list_indexes", message=f"List indexes failed: {e}")
@@ -273,7 +274,7 @@ class Neo4jSchemaManager:
 
             return Result.ok(constraints)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to list constraints: {e}")
             return Result.fail(
                 Errors.database(
@@ -340,7 +341,7 @@ class Neo4jSchemaManager:
             )
             return Result.ok("created")
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to create vector index {index_name}: {e}")
             return Result.fail(
                 Errors.database(
@@ -370,7 +371,7 @@ class Neo4jSchemaManager:
             self.logger.info(f"Dropped index: {index_name}")
             return Result.ok(None)
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to drop index {index_name}: {e}")
             return Result.fail(
                 Errors.database(operation="drop_index", message=f"Drop index failed: {e}")
@@ -415,7 +416,7 @@ class Neo4jSchemaManager:
             self.logger.info(f"Created composite index: {name}")
             return Result.ok("created")
 
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to create composite index {name}: {e}")
             return Result.fail(
                 Errors.database(
@@ -574,7 +575,7 @@ class Neo4jSchemaManager:
             async with self.driver.session() as session:
                 await session.run(query)
             return Result.ok("created")
-        except Exception as e:
+        except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to create index {index_name}: {e}")
             return Result.fail(
                 Errors.database(
@@ -605,7 +606,7 @@ class Neo4jSchemaManager:
                     await session.run(query)
                 results["dropped"].append(index_name)
                 self.logger.info(f"Dropped stale index: {index_name}")
-            except Exception as e:
+            except NEO4J_EXCEPTIONS as e:
                 results["failed"].append(index_name)
                 self.logger.warning(f"Failed to drop stale index {index_name}: {e}")
 
