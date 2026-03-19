@@ -14,6 +14,7 @@ from core.events.form_events import FormSubmissionDeleted, FormSubmitted
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.user_enums import UserRole
 from core.models.forms.form_submission import FormSubmission
+from core.models.forms.form_template import FormTemplate
 from core.models.forms.form_submission_dto import FormSubmissionDTO
 from core.models.relationship_names import RelationshipName
 from core.services.base_service import BaseService
@@ -148,13 +149,12 @@ class FormSubmissionService(BaseService):
 
         return Result.ok(submission)
 
-    async def _get_template(self, form_template_uid: str) -> Result[Any]:
+    async def _get_template(self, form_template_uid: str) -> Result[FormTemplate]:
         """Fetch a FormTemplate, delegating to template service or falling back to backend."""
         if self.form_template_service:
             return await self.form_template_service.get_form_template(form_template_uid)
 
         # Fallback: query backend directly (when template service not wired)
-        from core.models.forms.form_template import FormTemplate
 
         result = await self.backend.execute_query(
             """
