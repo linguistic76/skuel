@@ -36,6 +36,7 @@ from ui.data import TableFromDicts, TableT
 from ui.feedback import Alert, AlertT
 from ui.forms import Input, Select
 from ui.layouts.navbar import create_navbar_for_request
+from ui.patterns.empty_state import EmptyState
 from ui.patterns.stats_grid import StatCard, StatItem, StatsGrid
 
 logger = get_logger("skuel.routes.analytics.ui")
@@ -390,9 +391,12 @@ class AnalyticsUIComponents:
         - Gaps and recommendations
         """
         if not alignment_data or not alignment_data.get("life_path_uid"):
-            return Div(
-                P("No Life Path designated yet. Set your Life Path to track alignment."),
-                cls="text-muted-foreground p-4",
+            return EmptyState(
+                title="No Life Path Yet",
+                description="Set your Life Path to track alignment.",
+                action_text="Set Life Path",
+                action_href="/lifepath",
+                icon="🧭",
             )
 
         life_path_title = alignment_data.get("life_path_title", "Unknown")
@@ -436,7 +440,7 @@ class AnalyticsUIComponents:
                     cls="space-y-3",
                 )
                 if domain_contributions
-                else P("No domain activity detected."),
+                else EmptyState(title="No domain activity detected"),
                 cls="bg-background shadow-sm mb-6 p-6",
             ),
             # Gaps
@@ -507,7 +511,10 @@ class AnalyticsUIComponents:
         - Cross-layer insights
         """
         if not summary_data:
-            return Div(P("No data available for this period."), cls="text-muted-foreground p-4")
+            return EmptyState(
+                title="No Data Available",
+                description="No data available for this period.",
+            )
 
         period = summary_data.get("period", {})
         start_date = period.get("start", "")

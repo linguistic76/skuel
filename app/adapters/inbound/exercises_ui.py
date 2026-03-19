@@ -25,6 +25,7 @@ from ui.curriculum.layout import create_curriculum_page
 from ui.forms import Input, Label, Select, Textarea
 from ui.layout import Size
 from ui.layouts.navbar import create_navbar_for_request
+from ui.patterns.error_banner import render_error_banner, render_inline_error
 from ui.patterns.page_header import PageHeader
 
 logger = get_logger("skuel.routes.exercises.ui")
@@ -452,7 +453,7 @@ def create_exercises_ui_routes(
 
         except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Error rendering exercises dashboard: {e}")
-            return Div(P(f"Error loading exercises: {e}", cls="text-red-600"))
+            return render_error_banner("Error loading exercises", technical_details=str(e))
 
     @app.get("/exercises/new")
     @require_teacher(get_user_service)
@@ -470,7 +471,7 @@ def create_exercises_ui_routes(
             result = await exercises_service.get_exercise(uid)
 
             if result.is_error or not result.value:
-                return Div(P("Exercise not found", cls="text-red-600"))
+                return render_inline_error("Exercise not found")
 
             exercise = result.value
 
@@ -478,7 +479,7 @@ def create_exercises_ui_routes(
 
         except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Error loading exercise for edit: {e}")
-            return Div(P(f"Error: {e}", cls="text-red-600"))
+            return render_inline_error(f"Error: {e}")
 
     @app.get("/exercises/{uid}/view")
     @require_teacher(get_user_service)
@@ -488,7 +489,7 @@ def create_exercises_ui_routes(
             result = await exercises_service.get_exercise(uid)
 
             if result.is_error or not result.value:
-                return Div(P("Exercise not found", cls="text-red-600"))
+                return render_inline_error("Exercise not found")
 
             exercise = result.value
 
@@ -501,7 +502,7 @@ def create_exercises_ui_routes(
 
         except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Error viewing exercise: {e}")
-            return Div(P(f"Error: {e}", cls="text-red-600"))
+            return render_inline_error(f"Error: {e}")
 
     logger.info("Exercises UI routes registered")
     return []

@@ -21,6 +21,7 @@ from core.models.enums import Priority
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 from ui.activities.landing import render_activity_card_preview
+from ui.patterns.error_banner import render_inline_error
 
 logger = get_logger("skuel.routes.activities")
 
@@ -93,21 +94,17 @@ def setup_activities_routes(rt: Any, services: "Services") -> None:
         service_attr, method_name = service_map[slug]
         service = getattr(services, service_attr, None)
         if service is None:
-            from fasthtml.common import P
-
-            return P("Service not available", cls="text-sm text-muted-foreground py-2")
+            return render_inline_error("Service not available")
 
         method = getattr(service, method_name)
         result: Result[list[Any]] = await method(user_uid)
 
         if result.is_error:
-            from fasthtml.common import P
-
             logger.warning(
                 "Failed to load activity card preview",
                 extra={"slug": slug, "user_uid": user_uid, "error": str(result.error)},
             )
-            return P("Unable to load items", cls="text-sm text-muted-foreground py-2")
+            return render_inline_error("Unable to load items")
 
         active_items = [
             item

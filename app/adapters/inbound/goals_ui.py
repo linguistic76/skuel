@@ -53,7 +53,7 @@ from ui.layouts.page_types import PageType
 from ui.page_contexts import GoalsPageContext
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.entity_dashboard import SharedUIComponents
-from ui.patterns.error_banner import render_error_banner
+from ui.patterns.error_banner import render_error_banner, render_inline_error
 from ui.patterns.form_generator import FormGenerator
 from ui.patterns.relationships import EntityRelationshipsSection
 from ui.tokens import Container, Spacing
@@ -989,11 +989,7 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsService, services: Any 
         result = await goals_service.get_for_user(uid, user_uid)
         if result.is_error or result.value is None:
             return await BasePage(
-                content=Card(
-                    H3("Goal Not Found", cls="text-lg font-bold text-error"),
-                    P(f"Could not find goal: {uid}"),
-                    cls="p-6",
-                ),
+                content=render_error_banner(f"Could not find goal: {uid}"),
                 title="Goal Not Found",
                 page_type=PageType.STANDARD,
                 request=request,
@@ -1032,18 +1028,10 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsService, services: Any 
         if goals_service:
             result = await goals_service.get_for_user(uid, user_uid)
             if result.is_error:
-                return Card(
-                    H3("Goal Not Found", cls="text-lg font-bold text-error"),
-                    P(f"Could not find goal: {uid}"),
-                    cls="p-6",
-                )
+                return render_inline_error(f"Could not find goal: {uid}")
             goal = result.value
             if goal is None:
-                return Card(
-                    H3("Goal Not Found", cls="text-lg font-bold text-error"),
-                    P(f"Could not find goal: {uid}"),
-                    cls="p-6",
-                )
+                return render_inline_error(f"Could not find goal: {uid}")
             title = f"Timeline: {goal.title}"
         else:
             title = f"Timeline: Goal {uid}"

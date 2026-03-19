@@ -48,7 +48,7 @@ from ui.forms import Select
 from ui.layout import Size
 from ui.layouts.base_page import BasePage
 from ui.patterns.empty_state import EmptyState
-from ui.patterns.error_banner import render_error_banner
+from ui.patterns.error_banner import render_error_banner, render_inline_error
 from ui.patterns.page_header import PageHeader
 from ui.study.layout import create_study_page
 from ui.submissions.cards import (
@@ -643,9 +643,9 @@ def create_study_ui_routes(
 
             sub_result = await submissions_service.get_submission(uid)
             if sub_result.is_error or not sub_result.value:
-                return Div(P("Submission not found.", cls="text-error"), id="feedback-section")
+                return Div(render_inline_error("Submission not found"), id="feedback-section")
             if sub_result.value.user_uid != user_uid:
-                return Div(P("Access denied.", cls="text-error"), id="feedback-section")
+                return Div(render_inline_error("Access denied"), id="feedback-section")
 
             if not teacher_review_service:
                 return Div(
@@ -714,14 +714,14 @@ def create_study_ui_routes(
         try:
             result = await submissions_service.get_submission(uid)
             if result.is_error:
-                return Div("Report not found", cls="text-error")
+                return render_inline_error("Report not found")
 
             submission = result.value
             return render_category_selector(submission)
 
         except Exception as e:
             logger.error(f"Error loading category selector: {e}", exc_info=True)
-            return Div("Error loading category selector", cls="text-error")
+            return render_inline_error("Error loading category selector")
 
     @rt("/submissions/{uid}/tags-manager")
     async def get_tags_manager(request: Request, uid: str) -> Any:
@@ -729,14 +729,14 @@ def create_study_ui_routes(
         try:
             result = await submissions_service.get_submission(uid)
             if result.is_error:
-                return Div("Report not found", cls="text-error")
+                return render_inline_error("Report not found")
 
             submission = result.value
             return render_tags_manager(submission)
 
         except Exception as e:
             logger.error(f"Error loading tags manager: {e}", exc_info=True)
-            return Div("Error loading tags manager", cls="text-error")
+            return render_inline_error("Error loading tags manager")
 
     @rt("/submissions/{uid}/shared-users")
     async def get_shared_users_ui(request: Request, uid: str) -> Any:
@@ -755,7 +755,7 @@ def create_study_ui_routes(
 
         except Exception as e:
             logger.error(f"Error loading shared users: {e}", exc_info=True)
-            return Div("Error loading shared users", cls="text-error text-sm")
+            return render_inline_error("Error loading shared users")
 
     # ========================================================================
     # SUBMISSION DETAIL PAGE — MUST BE LAST (catch-all pattern)

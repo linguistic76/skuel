@@ -1207,7 +1207,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
 
             return EmptyState(
                 title="Error Loading Intelligence",
-                message=str(e),
+                description=str(e),
                 icon="⚠️",
             )
 
@@ -1218,7 +1218,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
 
             return EmptyState(
                 title="Intelligence Unavailable",
-                message="Failed to load intelligence features.",
+                description="Failed to load intelligence features.",
                 icon="⚠️",
             )
 

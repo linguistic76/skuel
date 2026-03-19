@@ -38,6 +38,7 @@ from ui.forms import Select
 from ui.layout import Size
 from ui.layouts.base_page import BasePage
 from ui.patterns.empty_state import EmptyState
+from ui.patterns.error_banner import render_inline_error
 from ui.patterns.page_header import PageHeader
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 from ui.submissions.assignments import render_assignments_list
@@ -267,7 +268,7 @@ def create_submissions_ui_routes(
             user_uid = require_authenticated_user(request)
             if not _submissions_search_service:
                 return Div(
-                    P("Submissions service unavailable.", cls="text-center text-error"),
+                    render_inline_error("Submissions service unavailable"),
                     id="submissions-yours-list",
                 )
             result = await _submissions_search_service.get_submissions_with_feedback_status(
@@ -278,7 +279,7 @@ def create_submissions_ui_routes(
         except Exception as e:  # safety-net: HTMX fragment error boundary
             logger.error(f"Error loading submissions history: {e}", exc_info=True)
             return Div(
-                P("Error loading submissions.", cls="text-center text-error"),
+                render_inline_error("Error loading submissions"),
                 id="submissions-yours-list",
             )
 
@@ -354,7 +355,7 @@ def create_submissions_ui_routes(
 
             if result.is_error:
                 return Div(
-                    P("Failed to load reports", cls="text-center text-error"),
+                    render_inline_error("Failed to load reports"),
                     id="submissions-grid-container",
                 )
 
@@ -364,7 +365,7 @@ def create_submissions_ui_routes(
         except Exception as e:  # safety-net: HTMX fragment error boundary
             logger.error(f"Error loading reports: {e}", exc_info=True)
             return Div(
-                P(f"Error: {e}", cls="text-center text-error"),
+                render_inline_error(f"Error: {e}"),
                 id="submissions-grid-container",
             )
 
@@ -505,14 +506,14 @@ def create_submissions_ui_routes(
         try:
             result = await _submissions_service.get_submission(uid)
             if result.is_error:
-                return Div("Report not found", cls="text-error")
+                return render_inline_error("Report not found")
 
             submission = result.value
             return render_category_selector(submission)
 
         except Exception as e:  # safety-net: HTMX fragment error boundary
             logger.error(f"Error loading category selector: {e}", exc_info=True)
-            return Div("Error loading category selector", cls="text-error")
+            return render_inline_error("Error loading category selector")
 
     @rt("/submissions/{uid}/tags-manager")
     async def get_tags_manager(request: Request, uid: str) -> Any:
@@ -520,14 +521,14 @@ def create_submissions_ui_routes(
         try:
             result = await _submissions_service.get_submission(uid)
             if result.is_error:
-                return Div("Report not found", cls="text-error")
+                return render_inline_error("Report not found")
 
             submission = result.value
             return render_tags_manager(submission)
 
         except Exception as e:  # safety-net: HTMX fragment error boundary
             logger.error(f"Error loading tags manager: {e}", exc_info=True)
-            return Div("Error loading tags manager", cls="text-error")
+            return render_inline_error("Error loading tags manager")
 
     # ========================================================================
     # FEEDBACK PAGE (assessments received)
@@ -753,7 +754,7 @@ def create_submissions_ui_routes(
 
         except Exception as e:  # safety-net: HTMX fragment error boundary
             logger.error(f"Error loading shared users: {e}", exc_info=True)
-            return Div("Error loading shared users", cls="text-error text-sm")
+            return render_inline_error("Error loading shared users")
 
     # ========================================================================
     # REPORT DETAIL VIEW - HTMX-powered

@@ -13,7 +13,7 @@ Routes:
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import Div, P
+from fasthtml.common import Div
 from pydantic import ValidationError
 from starlette.requests import Request
 
@@ -22,6 +22,7 @@ from adapters.inbound.form_helpers import safe_form_string
 from core.models.entity_requests import CalendarQuickCreateRequest
 from core.utils.result_simplified import Errors, Result
 from ui.calendar.components import calendar_item_to_dict
+from ui.patterns.error_banner import render_inline_error
 
 if TYPE_CHECKING:
     from core.ports import CalendarServiceOperations
@@ -114,16 +115,10 @@ def create_calendar_api_routes(
         new_start_str = safe_form_string(form_data.get("new_start"))
 
         if not uid:
-            return Div(
-                P("Missing item uid in request", cls="text-error"),
-                id="reschedule-error",
-            )
+            return Div(render_inline_error("Missing item uid in request"), id="reschedule-error")
 
         if not new_start_str:
-            return Div(
-                P("Missing new_start in request", cls="text-error"),
-                id="reschedule-error",
-            )
+            return Div(render_inline_error("Missing new_start in request"), id="reschedule-error")
 
         result = await calendar_service.reschedule_item(
             item_uid=uid,
@@ -137,6 +132,6 @@ def create_calendar_api_routes(
             )
         else:
             return Div(
-                P(f"Failed to reschedule: {result.error}", cls="text-error"),
+                render_inline_error(f"Failed to reschedule: {result.error}"),
                 id="reschedule-error",
             )

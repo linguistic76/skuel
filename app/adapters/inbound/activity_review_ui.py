@@ -47,6 +47,7 @@ from ui.feedback import Alert, AlertT, Badge, BadgeT
 from ui.forms import Checkbox, Input, Label, LabelInput, LabelSelect, LabelTextArea
 from ui.layout import Size
 from ui.patterns.empty_state import EmptyState
+from ui.patterns.error_banner import render_inline_error
 from ui.patterns.page_header import PageHeader
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 
@@ -410,13 +411,11 @@ def create_activity_review_ui_routes(
     ) -> Any:
         """HTMX fragment: load and display activity snapshot for admin review."""
         if not subject_uid:
-            return Div(
-                P("Please enter a user UID.", cls="text-error text-sm"),
-            )
+            return render_inline_error("Please enter a user UID")
 
         try:
             if not context_builder:
-                return Div(P("Context builder not configured.", cls="text-error text-sm"))
+                return render_inline_error("Context builder not configured")
 
             ctx_result = await context_builder.build_rich(subject_uid, window=time_period)
             if ctx_result.is_error:

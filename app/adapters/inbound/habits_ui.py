@@ -60,7 +60,7 @@ from ui.page_contexts import HabitsPageContext
 from ui.patterns.card_generator import CardGenerator
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.entity_dashboard import SharedUIComponents
-from ui.patterns.error_banner import render_error_banner
+from ui.patterns.error_banner import render_error_banner, render_inline_error
 from ui.patterns.form_generator import FormGenerator
 from ui.patterns.relationships import EntityRelationshipsSection
 from ui.tokens import Container, Spacing
@@ -795,7 +795,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
         result = await habits_service.complete_with_goal_impacts(uid, user_uid)
         if result.is_error:
             logger.warning(f"Habit completion failed for {uid}: {result.error}")
-            return Div(P("Error: Could not complete habit", cls="text-red-600"), cls="p-4")
+            return render_inline_error("Could not complete habit")
 
         updated_habit = result.value["habit"]
         goal_impacts = result.value["goal_impacts"]
@@ -831,7 +831,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
         result = await habits_service.patterns.analyze_patterns(uid, user_uid)
         if result.is_error:
             logger.warning(f"Habit pattern analysis failed for {uid}: {result.error}")
-            return Div(P("Error: Could not find habit", cls="text-red-600"), cls="p-4")
+            return render_inline_error("Could not find habit")
 
         analysis = result.value
         pattern_data = {
@@ -849,7 +849,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
         result = await habits_service.goal_analytics.get_system_health(uid)
         if result.is_error:
             logger.error(f"Failed to get system health for goal {uid}: {result.error}")
-            return Div(P("Error: Could not analyze goal system", cls="text-red-600"), cls="p-4")
+            return render_inline_error("Could not analyze goal system")
 
         health = result.value
         system_health = {
@@ -870,7 +870,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
         result = await habits_service.goal_analytics.get_velocity(uid)
         if result.is_error:
             logger.error(f"Failed to get velocity for goal {uid}: {result.error}")
-            return Div(P("Error: Could not analyze goal velocity", cls="text-red-600"), cls="p-4")
+            return render_inline_error("Could not analyze goal velocity")
 
         vel = result.value
         velocity_data = {
@@ -890,7 +890,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
         result = await habits_service.goal_analytics.get_impact_analysis(uid)
         if result.is_error:
             logger.error(f"Failed to get impact analysis for goal {uid}: {result.error}")
-            return Div(P("Error: Could not analyze goal impact", cls="text-red-600"), cls="p-4")
+            return render_inline_error("Could not analyze goal impact")
 
         impact = result.value
         impact_data = {
@@ -1088,7 +1088,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
         # Ownership verification - returns NotFound if user doesn't own this habit
         habit_result = await habits_service.core.verify_ownership(uid, user_uid)
         if habit_result.is_error:
-            return P("Habit not found", cls="text-center text-muted-foreground py-8")
+            return render_inline_error("Habit not found")
 
         habit = habit_result.value
 

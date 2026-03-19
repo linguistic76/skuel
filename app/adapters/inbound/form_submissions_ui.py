@@ -19,6 +19,8 @@ from ui.buttons import Button, ButtonLink, ButtonT
 from ui.layout import Size
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
+from ui.patterns.empty_state import EmptyState
+from ui.patterns.error_banner import render_error_banner
 
 logger = get_logger(__name__)
 
@@ -92,7 +94,7 @@ def create_form_submissions_ui_routes(
 
         if not uid:
             return BasePage(
-                P("No submission UID provided.", cls="text-error"),
+                render_error_banner("No submission UID provided"),
                 title="Form Submission",
                 page_type=PageType.STANDARD,
                 request=request,
@@ -101,7 +103,7 @@ def create_form_submissions_ui_routes(
         result = await form_submission_service.get_submission(uid, user_uid)
         if result.is_error:
             return BasePage(
-                P("Form submission not found.", cls="text-error"),
+                render_error_banner("Form submission not found"),
                 title="Form Submission",
                 page_type=PageType.STANDARD,
                 request=request,
@@ -139,7 +141,7 @@ def create_form_submissions_ui_routes(
                     f"Submitted: {str(submission.created_at)[:19]}",
                     cls="text-sm text-muted-foreground mb-6",
                 ),
-                Div(*data_rows) if data_rows else P("No form data.", cls="text-muted-foreground"),
+                Div(*data_rows) if data_rows else EmptyState(title="No form data"),
                 delete_btn,
                 ButtonLink(
                     "Back to My Forms",

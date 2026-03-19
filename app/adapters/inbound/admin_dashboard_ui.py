@@ -325,8 +325,7 @@ def create_admin_dashboard_routes(_app, rt, services):
 
         if result.is_error or not result.value:
             content = Div(
-                H1("User Not Found", cls="text-3xl font-bold text-error"),
-                P(f"No user found with UID: {uid}", cls="text-muted-foreground"),
+                render_error_banner(f"No user found with UID: {uid}"),
                 ButtonLink(
                     "← Back to Users", href="/admin/users", variant=ButtonT.ghost, cls="mt-4"
                 ),
@@ -710,8 +709,7 @@ def create_admin_dashboard_routes(_app, rt, services):
         user_result = await services.user_service.get_user(uid)
         if user_result.is_error or not user_result.value:
             content = Div(
-                H1("User Not Found", cls="text-3xl font-bold text-error"),
-                P(f"No user found with UID: {uid}", cls="text-muted-foreground"),
+                render_error_banner(f"No user found with UID: {uid}"),
                 ButtonLink(
                     "← Back to Learning Dashboard",
                     href="/admin/learning",

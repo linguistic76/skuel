@@ -382,7 +382,7 @@ def create_insights_ui_routes(
             # Empty state
             insight_cards = EmptyState(
                 title="No Active Insights",
-                message="Your intelligence services haven't detected any patterns yet. "
+                description="Your intelligence services haven't detected any patterns yet. "
                 "Keep using SKUEL and insights will appear automatically!",
                 icon="💡",
             )

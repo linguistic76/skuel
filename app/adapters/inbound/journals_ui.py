@@ -40,6 +40,7 @@ from ui.feedback import Alert, AlertT, Badge, get_submission_status_badge_class
 from ui.forms import Input, Label, Radio, Select
 from ui.layout import Size
 from ui.patterns.empty_state import EmptyState
+from ui.patterns.error_banner import render_inline_error
 from ui.patterns.page_header import PageHeader
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 
@@ -751,7 +752,7 @@ def create_journals_ui_routes(
 
             if result.is_error:
                 return Div(
-                    P("Failed to load reports", cls="text-center text-error"),
+                    render_inline_error("Failed to load reports"),
                     id="submissions-grid-container",
                 )
 
@@ -767,7 +768,7 @@ def create_journals_ui_routes(
         except Exception as e:
             logger.error(f"Error loading AI reports: {e}", exc_info=True)
             return Div(
-                P(f"Error: {e}", cls="text-center text-error"),
+                render_inline_error(f"Error: {e}"),
                 id="submissions-grid-container",
             )
 
@@ -786,9 +787,7 @@ def create_journals_ui_routes(
 
             if result.is_error:
                 logger.warning(f"Report {uid} not found for download")
-                return Div(
-                    P("Report not found", cls="text-center text-error"),
-                )
+                return render_inline_error("Report not found")
 
             report = result.value
 
@@ -797,32 +796,24 @@ def create_journals_ui_routes(
                 logger.warning(
                     f"User {user_uid} attempted to download report {uid} owned by {report.user_uid}"
                 )
-                return Div(
-                    P("Not authorized to download this report", cls="text-center text-error"),
-                )
+                return render_inline_error("Not authorized to download this report")
 
             # Check for je_output_path in metadata
             metadata = getattr(report, "metadata", None)
             if not isinstance(metadata, dict):
                 logger.warning(f"Report {uid} has no metadata")
-                return Div(
-                    P("No je_output file available for this report", cls="text-center text-error"),
-                )
+                return render_inline_error("No je_output file available for this report")
 
             je_output_path = metadata.get("je_output_path")
             if not je_output_path:
                 logger.warning(f"Report {uid} has no je_output_path in metadata")
-                return Div(
-                    P("No je_output file available for this report", cls="text-center text-error"),
-                )
+                return render_inline_error("No je_output file available for this report")
 
             # Verify file exists
             je_output_file = Path(je_output_path)
             if not je_output_file.exists():
                 logger.error(f"je_output file not found at {je_output_path} for report {uid}")
-                return Div(
-                    P("je_output file not found on disk", cls="text-center text-error"),
-                )
+                return render_inline_error("je_output file not found on disk")
 
             # Return file for download
             logger.info(f"Serving je_output download for report {uid}: {je_output_path}")

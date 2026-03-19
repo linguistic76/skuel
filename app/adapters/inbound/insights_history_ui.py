@@ -169,7 +169,7 @@ def create_insights_history_routes(
             }
             history_cards = EmptyState(
                 title="No Action History",
-                message=empty_message.get(params.history_type, "No insights found."),
+                description=empty_message.get(params.history_type, "No insights found."),
                 icon="📜",
             )
 

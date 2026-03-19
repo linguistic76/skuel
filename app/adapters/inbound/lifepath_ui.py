@@ -32,6 +32,7 @@ from ui.cards import Card
 from ui.feedback import Badge, BadgeT, Progress
 from ui.forms import Label, Textarea
 from ui.layout import Size
+from ui.patterns.empty_state import EmptyState
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 from ui.tokens import Container
 
@@ -399,7 +400,16 @@ def _build_recommendations_page(data: dict, user_uid: str) -> Any:
             cls="text-sm text-muted-foreground mb-8",
         ),
         H2("Recommended Learning Paths", cls="text-xl font-semibold mb-4"),
-        *rec_cards if rec_cards else [P("No matching Learning Paths found. Create one!")],
+        *rec_cards
+        if rec_cards
+        else [
+            EmptyState(
+                title="No Matching Learning Paths",
+                description="No matching Learning Paths found.",
+                action_text="Create one",
+                action_href="/learning-paths",
+            )
+        ],
         cls=f"container mx-auto px-4 py-8 {Container.NARROW}",
     )
 
