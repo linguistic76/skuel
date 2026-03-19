@@ -452,7 +452,6 @@ def create_lp_sub_services(
         backend=backend,
         graph_intelligence_service=graph_intelligence_service,
         progress_backend=progress_backend,
-        learning_backend=backend,
         event_bus=event_bus,
         user_service=user_service,
         executor=executor,

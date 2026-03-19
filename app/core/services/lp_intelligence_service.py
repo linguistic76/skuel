@@ -96,12 +96,11 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
 
     def __init__(
         self,
-        backend: Any | None = None,  # Primary backend (learning_backend for compatibility)
+        backend: Any | None = None,
         graph_intelligence_service: Any | None = None,
         relationship_service: Any | None = None,
         # LP-specific dependencies
         progress_backend: Any | None = None,
-        learning_backend: Any | None = None,  # Duplicate of backend for backward compatibility
         event_bus: Any | None = None,
         user_service: Any | None = None,
         executor: QueryExecutor | None = None,  # January 2026: For adaptive/validation operations
@@ -110,23 +109,19 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
         Initialize unified intelligence service.
 
         Args:
-            backend: Primary backend for BaseAnalyticsService (optional for backward compat)
+            backend: Primary backend for BaseAnalyticsService and LP operations
             graph_intelligence_service: GraphIntelligenceService - REQUIRED for validation/context
             relationship_service: UnifiedRelationshipService (optional)
             progress_backend: Progress backend (LP-specific)
-            learning_backend: Learning backend (LP-specific, also mapped to backend)
             event_bus: Event bus for publishing events
             user_service: UserService for UserContext
             executor: QueryExecutor - REQUIRED for adaptive operations (January 2026)
 
         NOTE: No embeddings_service or llm_service parameters (ADR-030).
         """
-        # Use learning_backend as primary backend if backend not provided
-        primary_backend = backend if backend is not None else learning_backend
-
         # Initialize BaseAnalyticsService (no AI dependencies)
         super().__init__(
-            backend=primary_backend,
+            backend=backend,
             graph_intelligence_service=graph_intelligence_service,
             relationship_service=relationship_service,
             event_bus=event_bus,
@@ -134,7 +129,6 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
 
         # Store LP-specific dependencies
         self.progress_backend = progress_backend
-        self.learning_backend = learning_backend or primary_backend
         self.user_service = user_service
 
         # January 2026: Store executor and graph_intel for consolidated methods
@@ -149,7 +143,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
 
         self.recommendation_engine = LearningRecommendationEngine(
             state_analyzer=self.state_analyzer,
-            learning_backend=self.learning_backend,
+            learning_backend=self.backend,
             event_bus=event_bus,  # Enable event-driven recommendations
             user_service=user_service,  # Enable UserContext access
         )
@@ -163,7 +157,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
         )
 
         # Initialize GraphContextOrchestrator for get_with_context pattern
-        if graph_intelligence_service and self.learning_backend:
+        if graph_intelligence_service and self.backend:
             self.orchestrator = GraphContextOrchestrator[Entity, LearningPathDTO](
                 service=self,
                 backend_get_method="get",
@@ -227,7 +221,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
         This returns overall LP statistics rather than user-specific data.
         """
         # LP is shared content - get overall stats
-        if not self.learning_backend:
+        if not self.backend:
             return Result.fail(
                 Errors.system(
                     message="Learning backend required for analytics",
@@ -235,7 +229,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
                 )
             )
 
-        lp_result = await self.learning_backend.find_by()
+        lp_result = await self.backend.find_by()
         if lp_result.is_error:
             return Result.fail(lp_result.expect_error())
 
@@ -270,7 +264,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
         Returns:
             Result containing insights data dict with validation and analysis
         """
-        if not self.learning_backend:
+        if not self.backend:
             return Result.fail(
                 Errors.system(
                     message="Learning backend required for insights",
@@ -279,7 +273,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
             )
 
         # Get learning path
-        lp_result = await self.learning_backend.get(uid)
+        lp_result = await self.backend.get(uid)
         if lp_result.is_error:
             return Result.fail(lp_result.expect_error())
 
@@ -824,7 +818,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
         Returns:
             Knowledge scope analysis including coverage, complexity, practice
         """
-        if not self.learning_backend:
+        if not self.backend:
             return Result.fail(
                 Errors.system(
                     message="Learning backend not available",
@@ -833,7 +827,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
             )
 
         # Get the path using backend
-        path_result = await self.learning_backend.get(path_uid)
+        path_result = await self.backend.get(path_uid)
         if path_result.is_error:
             return path_result
 
@@ -1274,7 +1268,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
 
 def create_lp_intelligence_service(
     progress_backend: Any | None = None,
-    learning_backend: Any | None = None,
+    backend: Any | None = None,
     graph_intelligence_service: Any = None,
     executor: Any = None,  # January 2026: For consolidated adaptive/validation methods
 ) -> LpIntelligenceService:
@@ -1285,7 +1279,7 @@ def create_lp_intelligence_service(
 
     Args:
         progress_backend: Progress backend (Universal Backend pattern)
-        learning_backend: Learning backend (Universal Backend pattern)
+        backend: Learning backend (Universal Backend pattern)
         graph_intelligence_service: GraphIntelligenceService
         executor: QueryExecutor (January 2026 - for consolidated methods)
 
@@ -1294,7 +1288,7 @@ def create_lp_intelligence_service(
     """
     return LpIntelligenceService(
         progress_backend=progress_backend,
-        learning_backend=learning_backend,
+        backend=backend,
         graph_intelligence_service=graph_intelligence_service,
         executor=executor,
     )
