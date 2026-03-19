@@ -398,7 +398,7 @@ class UserContextService:
         )
 
         if dashboard_result.is_error:
-            return dashboard_result
+            return Result.fail(dashboard_result.expect_error())
 
         dashboard: ContextDashboard = dashboard_result.value
 

@@ -185,6 +185,65 @@ class InsightStore:
                 )
             )
 
+    async def get_insight_by_uid(self, uid: str) -> Result[PersistedInsight]:
+        """Get a single insight by UID.
+
+        Args:
+            uid: Insight UID
+
+        Returns:
+            Result with the insight or not-found error
+        """
+        try:
+            import json
+
+            query = """
+            MATCH (i:Insight {uid: $uid})
+            RETURN i
+            """
+            result = await self.executor.execute_query(query, {"uid": uid})
+
+            if result.is_error:
+                return Result.fail(
+                    Errors.database(
+                        message=f"Failed to get insight: {result.error}",
+                        operation="get_insight_by_uid",
+                    )
+                )
+
+            if not result.value:
+                return Result.fail(Errors.not_found(resource="Insight", identifier=uid))
+
+            node = result.value[0]["i"]
+            insight_data = dict(node) if not isinstance(node, dict) else node
+
+            # Parse JSON fields
+            if isinstance(insight_data.get("related_entities"), str):
+                insight_data["related_entities"] = json.loads(insight_data["related_entities"])
+            if isinstance(insight_data.get("recommended_actions"), str):
+                insight_data["recommended_actions"] = json.loads(insight_data["recommended_actions"])
+            if isinstance(insight_data.get("supporting_data"), str):
+                insight_data["supporting_data"] = json.loads(insight_data["supporting_data"])
+
+            return Result.ok(PersistedInsight.from_dict(insight_data))
+
+        except NEO4J_EXCEPTIONS as e:
+            self.logger.error(f"Database error getting insight {uid}: {e}", exc_info=True)
+            return Result.fail(
+                Errors.database(
+                    message=f"Failed to get insight: {e}",
+                    operation="get_insight_by_uid",
+                )
+            )
+        except (ValueError, KeyError, TypeError) as e:
+            self.logger.error(f"Data conversion error getting insight {uid}: {e}", exc_info=True)
+            return Result.fail(
+                Errors.database(
+                    message=f"Failed to get insight: {e}",
+                    operation="get_insight_by_uid",
+                )
+            )
+
     async def get_active_insights(
         self,
         user_uid: str,

@@ -172,9 +172,7 @@ from .domain_protocols import (
 
 # Form protocols
 from .form_protocols import (
-    FormSubmissionBackendOperations,
     FormSubmissionOperations,
-    FormTemplateBackendOperations,
     FormTemplateOperations,
 )
 

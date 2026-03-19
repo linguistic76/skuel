@@ -162,6 +162,7 @@ if TYPE_CHECKING:
     )
     from core.services.user_progress_service import UserProgressService
     from core.services.user_relationship_service import UserRelationshipService
+    from core.services.user_service import UserService
 
 from core.ports import (
     AskesisCoreOperations,
@@ -201,7 +202,6 @@ from core.ports import (
     SystemServiceOperations,
     TeacherReviewOperations,
     UserContextOperations,
-    UserOperations,
     VisualizationOperations,
     ZPDOperations,
 )
@@ -322,7 +322,7 @@ class Services:
     )
 
     # User management (fundamental)
-    user_service: UserOperations | None = None  # UserService - user profile management
+    user_service: "UserService | None" = None  # Facade — concrete type per CLAUDE.md
     user_relationships: "UserRelationshipService | None" = None
     graph_auth: GraphAuthOperations | None = None  # GraphAuthService - graph-native authentication
     context_service: UserContextOperations | None = (

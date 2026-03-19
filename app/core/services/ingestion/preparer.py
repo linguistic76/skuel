@@ -26,6 +26,8 @@ from .config import ENTITY_CONFIGS
 
 logger = get_logger("skuel.ingestion.preparer")
 
+_EMBEDDING_EXCEPTIONS: tuple[type[BaseException], ...] = (*LLM_EXCEPTIONS, ValueError, TypeError, OSError)
+
 
 def normalize_uid(uid: str) -> str:
     """
@@ -252,7 +254,7 @@ async def prepare_entity_data_async(
                         f"{embedding_result.expect_error()}"
                     )
 
-            except (*LLM_EXCEPTIONS, ValueError, TypeError, OSError) as e:
+            except _EMBEDDING_EXCEPTIONS as e:
                 logger.warning(f"Exception generating embedding for {entity_data['uid']}: {e}")
 
     return entity_data

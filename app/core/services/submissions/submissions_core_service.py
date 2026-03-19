@@ -965,9 +965,9 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         exercise_service is optional — enables custom instructions from exercises.
         """
         if not self.submissions_service:
-            return Errors.system("submissions_service not wired")
+            return Result.fail(Errors.system("submissions_service not wired"))
         if not self.processing_service:
-            return Errors.system("processing_service not wired")
+            return Result.fail(Errors.system("processing_service not wired"))
 
         # Step 1: Resolve title
         if custom_title:
@@ -1002,7 +1002,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         )
 
         if result.is_error:
-            return Errors.system(str(result.error))
+            return Result.fail(Errors.system(str(result.error)))
 
         report = result.value
 

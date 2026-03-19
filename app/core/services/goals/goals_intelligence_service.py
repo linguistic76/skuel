@@ -861,7 +861,7 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
         prediction_result = await self.predict_goal_success(goal_uid=goal_uid)
 
         if prediction_result.is_error:
-            return prediction_result
+            return Result.fail(prediction_result.expect_error())
 
         prediction = prediction_result.value
 

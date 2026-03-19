@@ -18,7 +18,7 @@ from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from core.models.forms.form_submission import FormSubmission
-    from core.models.forms.form_template import FormTemplate
+    from core.models.forms.form_template import FormTemplate  # noqa: F401
 
 # ========================================================================
 # Backend-level protocols (typed self.backend in services)

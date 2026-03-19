@@ -31,8 +31,13 @@ For intelligent scheduling features, create a dedicated orchestration service
 that calls CalendarService for display data.
 """
 
+from __future__ import annotations
+
 from datetime import date, datetime, timedelta
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from core.services.habits_service import HabitsService
 
 from core.models.enums import Priority
 from core.models.enums.entity_enums import EntityStatus, EntityType
@@ -47,6 +52,9 @@ from core.models.event.event import Event as EventPure
 from core.models.event.event_dto import EventDTO
 from core.models.habit.habit import Habit as HabitPure
 from core.models.habit.habit_dto import HabitDTO
+
+# Facade import for habit occurrence recording (needs track_habit method)
+from core.models.habit.habit_request import TrackHabitRequest
 from core.models.task.task import Task as TaskPure
 from core.models.task.task_dto import TaskDTO
 from core.ports import get_enum_value
@@ -54,7 +62,6 @@ from core.ports import get_enum_value
 # Import protocol interfaces for dependency injection
 from core.ports.domain_protocols import (
     EventsOperations,
-    HabitsOperations,
     TasksOperations,
 )
 from core.utils.decorators import with_error_handling
@@ -85,7 +92,7 @@ class CalendarService:
     - Color and icon styling
 
     This is a meta-service: it delegates all graph queries to the injected domain
-    services (TasksOperations, EventsOperations, HabitsOperations). It does not
+    services (TasksOperations, EventsOperations, HabitsService). It does not
     write Cypher directly.
     """
 
@@ -93,7 +100,7 @@ class CalendarService:
         self,
         tasks_service: TasksOperations | None = None,
         events_service: EventsOperations | None = None,
-        habits_service: HabitsOperations | None = None,
+        habits_service: HabitsService | None = None,
     ) -> None:
         """
         Initialize with domain services.
@@ -865,12 +872,12 @@ class CalendarService:
         if not self.habits_service:
             return Result.fail(Errors.not_found("Habits service not available"))
 
-        return await self.habits_service.record_occurrence(
+        request = TrackHabitRequest(
             habit_uid=habit_uid,
-            on_date=on_date,
-            status=status,
+            completion_date=on_date,
             notes=notes,
         )
+        return await self.habits_service.track_habit(request)
 
     # ========================================================================
     # DEMO DATA (for empty database)

@@ -6,10 +6,13 @@ API routes for managing event-driven insights (dismiss, mark as actioned).
 (January 2026): Insight lifecycle management.
 """
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import Request
 from pydantic import ValidationError
+
+if TYPE_CHECKING:
+    from core.services.insight.insight_store import InsightStore
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
@@ -24,7 +27,7 @@ logger = get_logger("skuel.routes.insights.api")
 def create_insights_api_routes(
     app: Any,
     rt: Any,
-    insight_store: Any,
+    insight_store: "InsightStore",
 ) -> list[Any]:
     """Create insights API routes.
 
@@ -325,7 +328,7 @@ def create_insights_api_routes(
             "confidence": insight.confidence,
             "entity_uid": insight.entity_uid,
             "recommended_actions": insight.recommended_actions,
-            "metadata": insight.metadata or {},
+            "supporting_data": insight.supporting_data or {},
             "created_at": insight.created_at.isoformat() if insight.created_at else None,
         }
 

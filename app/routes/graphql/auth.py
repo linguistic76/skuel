@@ -103,6 +103,8 @@ async def resolve_target_user(info: Info[GraphQLContext, Any], user_uid: str | N
         raise PermissionError("Could not verify caller role")
 
     caller_user = caller_result.value
+    if not caller_user:
+        raise PermissionError("Could not verify caller role")
     if not caller_user.has_permission(UserRole.ADMIN):
         raise PermissionError("Admin role required to query other users' data")
 

@@ -385,6 +385,10 @@ class UserService:
             update_progress,
         )
 
+    async def get_user_mastery(self, user_uid: str, concept_uid: str) -> Result[float]:
+        """Get user's mastery level for a knowledge concept (0.0-1.0)."""
+        return await self.progress.repo.get_user_mastery(user_uid, concept_uid)
+
     async def record_knowledge_progress(
         self,
         user_uid: str,

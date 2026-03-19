@@ -35,7 +35,7 @@ def create_askesis_service(
     Args:
         intelligence_factory: UserContextIntelligenceFactory (required).
         learning_services: Dict from _create_learning_services() — keys: graph_intelligence,
-            llm_service, embeddings_service, article_service.
+            llm_service, embeddings_service, lesson_service.
         activity_services: Dict from _create_activity_services() — keys: tasks, goals,
             habits, events.
         user_service: UserOperations instance.
@@ -51,7 +51,7 @@ def create_askesis_service(
         askesis_core_service=askesis_core_service,
         llm_service=learning_services["llm_service"],
         embeddings_service=learning_services["embeddings_service"],
-        knowledge_service=learning_services["article_service"],
+        knowledge_service=learning_services["lesson_service"],
         tasks_service=activity_services["tasks"],
         goals_service=activity_services["goals"],
         habits_service=activity_services["habits"],
