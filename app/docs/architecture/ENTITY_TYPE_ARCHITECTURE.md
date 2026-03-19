@@ -278,7 +278,9 @@ FormTemplate extends `Entity` (NOT Curriculum — doesn't need 21 Curriculum fie
 **Data integrity:** Schema pinning (`template_schema_hash` on FormSubmission), atomic writes (`FormSubmissionBackend.create_with_relationships()`), canonical `processed_content` via `build_form_processed_content()`.
 
 **Services:** `core/services/forms/form_template_service.py`, `core/services/forms/form_submission_service.py`, `core/services/forms/form_content.py`
-**Protocols:** `FormTemplateOperations`, `FormSubmissionOperations` in `core/ports/form_protocols.py`
+**Protocols (two tiers):** `core/ports/form_protocols.py`
+- Backend-level: `FormTemplateBackendOperations(BackendOperations["FormTemplate"])`, `FormSubmissionBackendOperations(BackendOperations["FormSubmission"])` — typed `self.backend` in services
+- Route-level: `FormTemplateOperations`, `FormSubmissionOperations` — typed service in routes
 
 ### Submissions, Reports, ActivityReport — Content Processing
 

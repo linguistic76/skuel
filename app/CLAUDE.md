@@ -313,7 +313,7 @@ class NonKuDomain(str, Enum):
 
 **Core Principle:** "Right type at the right boundary — concrete for facades, protocol for thin services"
 
-**Protocol Location:** `core/ports/` — 10 protocol files, 65+ protocols covering all domains.
+**Protocol Location:** `core/ports/` — 18 protocol files, 65+ protocols covering all domains.
 
 **Route-facing type strategy:**
 

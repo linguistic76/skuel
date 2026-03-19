@@ -38,6 +38,7 @@ related: [ADR-025, ADR-027]
 | **Askesis Protocols** | `/core/ports/askesis_protocols.py` | Cross-cutting intelligence + CRUD |
 | **Submission Protocols** | `/core/ports/submission_protocols.py` | Submission CRUD, processing, sharing, search |
 | **Report Protocols** | `/core/ports/report_protocols.py` | Human + AI reports, progress reports, scheduling, teacher review |
+| **Form Protocols** | `/core/ports/form_protocols.py` | Form backend ops (2) + route-level ISP (2) |
 | **Group Protocols** | `/core/ports/group_protocols.py` | Group CRUD only |
 | **Service Protocols** | `/core/ports/service_protocols.py` | Calendar, Viz, System, LifePath, Auth, Orchestration |
 | **Search Protocols** | `/core/ports/search_protocols.py` | Search operations |
@@ -442,6 +443,7 @@ These protocols replace `Any` types on the `Services` dataclass fields, giving r
 | `submission_protocols.py` | 3 protocols | `submissions_api.py`, `progress_report_api.py` |
 | `sharing_protocols.py` | 1 protocol | `submissions_sharing_api.py` |
 | `report_protocols.py` | 5 protocols | `exercises_api.py`, `exercise_report_api.py`, `progress_report_api.py`, `teaching_api.py` |
+| `form_protocols.py` | 4 protocols | `form_templates_api.py`, `form_submissions_api.py` |
 | `group_protocols.py` | 1 protocol | `groups_api.py` |
 | `service_protocols.py` | 10 protocols | `orchestration_routes.py`, `calendar_api.py`, `visualization_api.py`, `system_api.py`, `lifepath_api.py`, `auth_ui.py`, `admin_api.py`, `lateral_routes.py` |
 
@@ -480,6 +482,24 @@ Map to the **Report** stage of the educational loop. `processor_type` discrimina
 `TeacherReviewService.create_assessment()` (processor_type=HUMAN) and `SubmissionReportService.generate_report()` (processor_type=LLM) both create `SUBMISSION_REPORT` entities linked via `REPORT_FOR`. The protocol captures what routes need regardless of which processor created it.
 
 **Note on `AssignmentOperations`:** `AssignmentOperations` remains in `curriculum_protocols.py` — Assignments are curriculum entities (Exercise scope=assigned), not reports.
+
+### Form Protocols (4) — `form_protocols.py`
+
+Two-tier protocols for the general-purpose form system.
+
+**Backend-level** (typed `self.backend` in services, extend `BackendOperations[T]`):
+
+| Protocol | Consumer | Methods |
+|----------|----------|---------|
+| `FormTemplateBackendOperations` | `FormTemplateService.__init__` | BackendOperations[FormTemplate] + `link_to_lesson`, `unlink_from_lesson`, `get_forms_for_lesson` |
+| `FormSubmissionBackendOperations` | `FormSubmissionService.__init__` | BackendOperations[FormSubmission] + `create_with_relationships`, `list_by_user`, `get_submissions_for_template` |
+
+**Route-level** (typed service in routes):
+
+| Protocol | Services Field | Methods | Route Consumer |
+|----------|---------------|---------|----------------|
+| `FormTemplateOperations` | `form_template_service` | 8 (create, get, list, update, delete, link/unlink lesson, get_for_lesson) | `form_templates_api.py` |
+| `FormSubmissionOperations` | `form_submission_service` | 5 (submit, get, list_mine, delete, share) | `form_submissions_api.py` |
 
 ### Group & Teaching Protocols (2)
 
