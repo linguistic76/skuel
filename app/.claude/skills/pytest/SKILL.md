@@ -25,7 +25,10 @@ tests/
 │   ├── conftest.py             # TestContainers, backends
 │   └── test_*.py               # Real Neo4j tests
 ├── unit/
-│   └── test_*.py               # Mocked backend tests
+│   ├── scripts/                # Linter unit tests (lint_skuel, cypher_linter)
+│   ├── ui/                     # UI helper tests (enum_helpers, calendar, text, layout, buttons)
+│   ├── services/               # Service unit tests (mocked backends)
+│   └── test_*.py               # Other unit tests
 └── templates/
     └── integration_test_template.py
 ```
@@ -279,6 +282,31 @@ async def test_complete_task_publishes_event(
     assert isinstance(event, TaskCompleted)
 ```
 
+## Pure Helper Unit Tests
+
+For pure functions (no I/O), test by calling directly with synthetic data:
+
+```python
+# Linter rule tests — instantiate SkuelLinter, call _check_* with synthetic content
+from lint_skuel import SkuelLinter
+linter = SkuelLinter(root_dir=Path("/fake"), rules_filter=["SKUEL003"])
+linter._check_is_err_usage(fp, rel, content, lines)
+assert len(linter.result.violations) == 1
+
+# UI helper tests — call bridge functions with valid/invalid strings
+from ui.enum_helpers import get_status_badge_class
+assert get_status_badge_class("active") != ""
+assert get_status_badge_class("invalid") == "bg-gray-100 text-gray-600 border-gray-200"
+
+# Calendar converter tests — use SimpleNamespace for mock entities
+from types import SimpleNamespace
+task = SimpleNamespace(uid="task_1", title="Test", due_date=date.today(), ...)
+item = task_to_calendar_item(task)
+assert item.source_uid == "task_1"
+```
+
+**Coverage:** 276 tests across 7 files cover linters (SKUEL001-017, CYP001-009), UI helpers (enum bridges, calendar converters, typography, layout, buttons).
+
 ## Additional Resources
 
 - [Fixtures Reference](fixtures-reference.md) - SKUEL fixture ecosystem
@@ -301,3 +329,5 @@ async def test_complete_task_publishes_event(
 - `/tests/integration/conftest.py` - TestContainers setup
 - `/tests/templates/integration_test_template.py` - Best practices template
 - `/docs/patterns/ERROR_HANDLING.md` - Result[T] pattern details
+- `/docs/patterns/TESTING_PATTERNS.md` - Integration + unit testing patterns
+- `/docs/patterns/linter_rules.md` - Linter rules (unit-tested)

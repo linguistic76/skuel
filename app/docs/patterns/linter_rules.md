@@ -25,6 +25,11 @@ For implementation guidance, see:
 2. **MyPy** (`mypy`) - Static type checker
 3. **Pyright** (`pyright`) - Additional type checker for VS Code
 4. **SKUEL Pattern Linter** (`scripts/lint_skuel.py`) - Custom architectural patterns
+5. **Cypher Linter** (`scripts/cypher_linter.py`) - Static analysis for Neo4j queries (CYP001–CYP010)
+
+**Unit Tests:** Both custom linters have comprehensive unit test coverage:
+- `tests/unit/scripts/test_lint_skuel.py` — 83 tests covering all 17 SKUEL rules, LintResult, suppression
+- `tests/unit/scripts/test_cypher_linter.py` — 35 tests covering CYP001–CYP006, CYP009, query extraction, helpers
 
 ## SKUEL-Specific Rules
 
@@ -415,7 +420,8 @@ Add to pre-commit hooks or CI pipeline:
 ## Linter Configuration Files
 
 - **pyproject.toml** - Main configuration for ruff, mypy, pyright
-- **scripts/lint_skuel.py** - Custom SKUEL pattern enforcement (16 rules)
+- **scripts/lint_skuel.py** - Custom SKUEL pattern enforcement (17 rules)
+- **scripts/cypher_linter.py** - Cypher query static analysis (10 rules, 2 disabled)
 - **Exceptions documented in:** `pyproject.toml` section `[tool.ruff.lint.per-file-ignores]`
 
 ## Exclusion Patterns
@@ -442,4 +448,4 @@ The linter automatically excludes certain files from specific rules. Per-file ex
 ---
 
 **Last Updated:** March 19, 2026
-**Status:** Active - 16 rules enforcing SKUEL architectural patterns, unified inline suppression via `# skuel-lint: disable=SKUELXXX`
+**Status:** Active - 17 rules enforcing SKUEL architectural patterns, unified inline suppression via `# skuel-lint: disable=SKUELXXX`. 118 unit tests cover both linters.

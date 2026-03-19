@@ -1,6 +1,6 @@
 ---
-title: Integration Testing Patterns
-updated: 2026-01-07
+title: Testing Patterns
+updated: 2026-03-19
 category: patterns
 related_skills:
 - pytest
@@ -8,11 +8,12 @@ related_docs:
 - /docs/patterns/BACKEND_OPERATIONS_ISP.md
 - /docs/patterns/UNIFIED_RELATIONSHIP_SERVICE.md
 - /docs/patterns/UNIFIED_INGESTION_GUIDE.md
+- /docs/patterns/linter_rules.md
 ---
 
-# Integration Testing Patterns
+# Testing Patterns
 
-*Last updated: 2026-01-07*
+*Last updated: 2026-03-19*
 
 **Core Principle:** "Tests should respect and validate system design, not work around it"
 
@@ -340,6 +341,31 @@ await backend.delete(uid)  # Missing cascade=True
 
 ---
 
+## Unit Test Coverage for Pure Helpers
+
+Pure helper functions (no I/O, no database) have dedicated unit tests for fast regression detection:
+
+```
+tests/unit/
+├── scripts/                          # Script/tool tests
+│   ├── test_lint_skuel.py            # 83 tests — all 17 SKUEL lint rules, LintResult, suppression
+│   └── test_cypher_linter.py         # 35 tests — CYP001-006, CYP009, query extraction, helpers
+├── ui/                               # UI component tests
+│   ├── test_enum_helpers.py          # 52 tests — 34 bridge/helper/builder functions
+│   ├── test_calendar_converters.py   # 28 tests — priority normalization, UID generation, 4 converters
+│   ├── test_text.py                  # 16 tests — 8 typography components
+│   ├── test_layout.py               # 18 tests — Size enum, 7 layout components
+│   ├── test_buttons.py              # 14 tests — ButtonT enum, variant/size maps, 3 builders
+│   └── test_domain_stats_config.py   # 30 tests — 6 domain stat calculators
+└── ...                               # Service/model unit tests
+```
+
+**Pattern:** Instantiate the target class or call the target function with synthetic data. No filesystem, database, or network access. Use `types.SimpleNamespace` for mock entities where domain models are too heavyweight.
+
+**When to add:** Any pure function with branching logic (fallbacks, enum conversion, validation) or that processes structured data (linters, converters, formatters).
+
+---
+
 ## Test Organization
 
 ### Directory Structure
@@ -347,7 +373,9 @@ await backend.delete(uid)  # Missing cascade=True
 ```
 tests/
 ├── unit/                    # Pure logic tests (no I/O)
-│   └── test_domain_models.py
+│   ├── scripts/             # Linter tests
+│   ├── ui/                  # UI helper tests
+│   └── services/            # Service unit tests (mocked backends)
 ├── integration/             # Tests with real Neo4j
 │   ├── test_user_entity_tracking.py
 │   ├── test_yaml_roundtrip.py
@@ -379,10 +407,17 @@ def test_cascade_delete_removes_relationships():
 
 | File | Purpose |
 |------|---------|
+| `tests/conftest.py` | Root pytest configuration |
 | `tests/integration/conftest.py` | Integration test fixtures |
 | `tests/integration/test_user_entity_tracking.py` | User relationship tests |
 | `tests/integration/test_yaml_roundtrip.py` | Ingestion roundtrip tests |
-| `tests/conftest.py` | Root pytest configuration |
+| `tests/unit/scripts/test_lint_skuel.py` | SKUEL linter unit tests (83 tests) |
+| `tests/unit/scripts/test_cypher_linter.py` | Cypher linter unit tests (35 tests) |
+| `tests/unit/ui/test_enum_helpers.py` | UI enum bridge tests (52 tests) |
+| `tests/unit/ui/test_calendar_converters.py` | Calendar converter tests (28 tests) |
+| `tests/unit/ui/test_text.py` | Typography component tests (16 tests) |
+| `tests/unit/ui/test_layout.py` | Layout component tests (18 tests) |
+| `tests/unit/ui/test_buttons.py` | Button component tests (14 tests) |
 
 ---
 
