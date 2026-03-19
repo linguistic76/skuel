@@ -104,7 +104,7 @@ class FormSubmissionService(BaseService):
         display_title = title or f"Form Response ({datetime.now().strftime('%Y-%m-%d %H:%M')})"
         uid = UIDGenerator.generate_uid("fs", display_title)
 
-        schema_hash = template.schema_fingerprint()
+        schema_hash = template.schema_hash()
         processed_content = build_form_processed_content(
             template_title=template.title,
             template_uid=form_template_uid,

@@ -72,7 +72,7 @@ class FormTemplate(Entity):
     # QUERIES
     # =========================================================================
 
-    def schema_fingerprint(self) -> str:
+    def schema_hash(self) -> str:
         """SHA-256 hash of normalized form_schema + instructions."""
         import hashlib
 

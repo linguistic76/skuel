@@ -171,8 +171,8 @@ class TestFormTemplateSchemaFingerprint:
             form_schema=[{"name": "q1", "type": "text", "label": "Q1"}],
             instructions="Fill this out",
         )
-        assert ft.schema_fingerprint() == ft.schema_fingerprint()
-        assert len(ft.schema_fingerprint()) == 64
+        assert ft.schema_hash() == ft.schema_hash()
+        assert len(ft.schema_hash()) == 64
 
     def test_changes_with_schema(self):
         """Different schemas produce different hashes."""
@@ -186,7 +186,7 @@ class TestFormTemplateSchemaFingerprint:
             title="Test",
             form_schema=[{"name": "q1", "type": "textarea"}],
         )
-        assert ft1.schema_fingerprint() != ft2.schema_fingerprint()
+        assert ft1.schema_hash() != ft2.schema_hash()
 
     def test_changes_with_instructions(self):
         """Different instructions produce different hashes."""
@@ -202,12 +202,12 @@ class TestFormTemplateSchemaFingerprint:
             form_schema=[{"name": "q1", "type": "text"}],
             instructions="Version 2",
         )
-        assert ft1.schema_fingerprint() != ft2.schema_fingerprint()
+        assert ft1.schema_hash() != ft2.schema_hash()
 
     def test_none_schema(self):
         """Works with None schema."""
         ft = FormTemplate(uid="ft_1", title="Test")
-        h = ft.schema_fingerprint()
+        h = ft.schema_hash()
         assert len(h) == 64
 
 

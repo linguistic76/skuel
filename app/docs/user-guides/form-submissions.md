@@ -229,7 +229,7 @@ Users can delete their own submissions from the detail page. The delete is owner
 
 ### Schema Pinning
 
-Every `FormSubmission` stores a `template_schema_hash` — the SHA-256 hash of the template's `form_schema` + `instructions` at the time of submission. If an admin later modifies the template, old submissions retain the hash of the schema the user actually saw. Use `FormTemplate.schema_fingerprint()` to compute the current hash and compare.
+Every `FormSubmission` stores a `template_schema_hash` — the SHA-256 hash of the template's `form_schema` + `instructions` at the time of submission. If an admin later modifies the template, old submissions retain the hash of the schema the user actually saw. Use `FormTemplate.schema_hash()` to compute the current hash and compare.
 
 ### Canonical Processed Content
 
