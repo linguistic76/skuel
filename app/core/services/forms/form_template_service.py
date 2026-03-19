@@ -52,11 +52,6 @@ class FormTemplateService(BaseService):
         self.logger = logger
         logger.info("FormTemplateService initialized")
 
-    @property
-    def entity_label(self) -> str:
-        """Return the graph label for FormTemplate entities."""
-        return "Entity"
-
     # ========================================================================
     # CREATE
     # ========================================================================

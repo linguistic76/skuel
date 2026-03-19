@@ -59,11 +59,6 @@ class FormSubmissionService(BaseService):
         self.logger = logger
         logger.info("FormSubmissionService initialized")
 
-    @property
-    def entity_label(self) -> str:
-        """Return the graph label for FormSubmission entities."""
-        return "Entity"
-
     # ========================================================================
     # SUBMIT
     # ========================================================================
