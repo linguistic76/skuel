@@ -381,11 +381,6 @@ class HabitUIComponents:
         )
 
 
-def get_status_color(status) -> Any:
-    """Get color class for habit status"""
-    colors = {"active": "success", "paused": "warning", "archived": "info", "completed": "success"}
-    return colors.get(status, "ghost")
-
 
 # ============================================================================
 # CLEAN UI ROUTES - Component-based rendering only

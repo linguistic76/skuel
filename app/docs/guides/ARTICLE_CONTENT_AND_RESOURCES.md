@@ -14,13 +14,13 @@ How SKUEL stores and serves two distinct kinds of content: **Curriculum Content*
 | **Ownership** | Attached to its parent curriculum entity | `ContentScope.SHARED` — admin-created, all users read |
 | **Content origin** | Written by curriculum authors (markdown) | Points to external works (URL, ISBN, author) |
 | **Purpose** | RAG retrieval, reading, learning loop | Askesis recommendations, reading lists, reference |
-| **Location** | `core/models/article_content/` | `core/models/resource/` |
+| **Location** | `core/models/lesson_content/` | `core/models/resource/` |
 
 **Key insight:** Curriculum content is _text you read inside SKUEL_. A Resource is _a pointer to something you read outside SKUEL_.
 
 ---
 
-## Curriculum Content (`core/models/article_content/`)
+## Curriculum Content (`core/models/lesson_content/`)
 
 Curriculum Content is the **body text facet** of curriculum entities. When a Lesson is ingested from markdown, the raw text is stored as a `CurriculumContent` node connected to the Lesson via a `HAS_CONTENT` relationship. This keeps the Lesson graph node lean (metadata only) while the full text lives separately for RAG.
 
@@ -127,7 +127,7 @@ But the Resource's actual content lives _outside_ SKUEL. The Lesson's content li
 
 ```
 core/models/
-├── article_content/          # Body text facet (RAG layer)
+├── lesson_content/          # Body text facet (RAG layer)
 │   ├── content.py            # CurriculumContent — body storage + auto-chunking
 │   ├── content_chunks.py     # ContentChunk, ContentChunkType, chunking strategy
 │   └── content_metadata.py   # ContentMetadata — derived analytics

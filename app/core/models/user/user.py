@@ -6,9 +6,8 @@ Core user domain model following the three-tier architecture.
 This is a frozen dataclass (immutable) that represents the core user entity.
 
 Key principles:
-- User stores identities and preferences
-- Progress is tracked by UnifiedProgress
-- Activities are managed as CalendarTrackable entities
+- User stores identity and preferences
+- Activities are managed as UserOwnedEntity types
 - Relationships handled by unified relationship system
 
 Three-tier position:
@@ -93,8 +92,7 @@ class User(BaseEntity):
     Core user domain model.
 
     This immutable model focuses on identity and preferences, delegating:
-    - Progress tracking to UnifiedProgress
-    - Activity management to CalendarTrackable entities
+    - Activity management to UserOwnedEntity types
     - Relationships to the unified relationship system
 
     Inherits from BaseEntity for consistency with other domain models.
@@ -331,8 +329,7 @@ class UserStatistics:
     """
     Computed statistics about a user.
 
-    These are calculated from UnifiedProgress records and CalendarTrackable
-    entities, not stored in the user model.
+    These are calculated from user activity data, not stored in the user model.
     """
 
     user_uid: str

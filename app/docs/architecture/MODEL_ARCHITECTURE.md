@@ -139,7 +139,7 @@ core/models/{domain}/
 | `lesson/` | Lesson + LessonDTO | Curriculum | Units for learning |
 | `exercises/` | Exercise, RevisedExercise + DTOs + requests | Curriculum | Exercise and revision models |
 | `pathways/` | LearningStep, LearningPath + DTOs, Mastery, LpPosition, LpRelationships, LearningProgress | Curriculum | LP/LS pathway models |
-| `article_content/` | CurriculumContent, ContentChunk, ContentMetadata | Curriculum | Lesson body storage + RAG chunking |
+| `lesson_content/` | CurriculumContent, ContentChunk, ContentMetadata | Curriculum | Lesson body storage + RAG chunking |
 | `ku/` | Ku + KuDTO | Curriculum | Atomic knowledge units |
 | `resource/` | Resource + ResourceDTO | Shared | Curated content (books, talks) |
 | `submissions/` | Submission, Journal + DTOs | Submissions | + submission_requests.py, report_schedule.py |

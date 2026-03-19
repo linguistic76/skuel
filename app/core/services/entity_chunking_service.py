@@ -23,9 +23,9 @@ Architecture:
 from operator import itemgetter
 from typing import Any, TypedDict
 
-from core.models.article_content.content import CurriculumContent
-from core.models.article_content.content_chunks import ContentChunk, ContentChunkType
-from core.models.article_content.content_metadata import ContentMetadata
+from core.models.lesson_content.content import CurriculumContent
+from core.models.lesson_content.content_chunks import ContentChunk, ContentChunkType
+from core.models.lesson_content.content_metadata import ContentMetadata
 from core.models.lesson.lesson import Lesson
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result

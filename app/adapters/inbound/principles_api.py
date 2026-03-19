@@ -22,12 +22,12 @@ from core.models.principle.principle_request import (
     PrincipleExpressionRequest,
     PrincipleLinkRequest,
 )
-from core.services.conversion_service import ConversionService
+from core.services.conversion_service import ConversionServiceV2
 from core.services.principles_service import PrinciplesService
 from core.utils.result_simplified import Result
 from core.utils.uid_generator import UIDGenerator
 
-conversion_service = ConversionService()
+conversion_service = ConversionServiceV2()
 
 
 def create_principles_api_routes(

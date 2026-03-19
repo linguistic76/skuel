@@ -616,7 +616,3 @@ class ConversionServiceV2:
             "bidirectional": data_dict.get("bidirectional", False),
             "created_at": datetime.now(),
         }
-
-
-# For backward compatibility, keep the old class name as an alias
-ConversionService = ConversionServiceV2

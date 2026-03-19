@@ -408,23 +408,6 @@ class GoalUIComponents:
         )
 
 
-def get_status_color(status) -> Any:
-    """Get color class for goal status"""
-    colors = {
-        "active": "success",
-        "paused": "warning",
-        "completed": "success",
-        "archived": "info",
-        "cancelled": "error",
-    }
-    return colors.get(status, "ghost")
-
-
-def get_priority_color(priority) -> Any:
-    """Get color class for goal priority"""
-    colors = {"low": "info", "medium": "warning", "high": "error", "critical": "error"}
-    return colors.get(priority, "ghost")
-
 
 # ============================================================================
 # CLEAN UI ROUTES - Component-based rendering only
