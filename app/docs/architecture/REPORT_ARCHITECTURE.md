@@ -536,6 +536,16 @@ User annotates report (additive or revision mode)
 
 ---
 
+## Test Coverage
+
+| Service | Test File | Tests | Coverage |
+|---------|-----------|-------|----------|
+| `TeacherReviewService` | `tests/unit/services/test_teacher_review_service.py` | 57 | 99% |
+| `SubmissionsCoreService` | `tests/unit/services/test_submissions_core_service.py` | 97 | 74% |
+| `SubmissionsCoreService` (assessments) | `tests/unit/test_assessment_service.py` | 7 | Assessment CRUD |
+
+---
+
 ## See Also
 
 - [FOUR_PHASED_LEARNING_LOOP.md](/docs/architecture/FOUR_PHASED_LEARNING_LOOP.md) — Entry-point overview: two tracks, four phases, how MEGA_QUERY feeds the loop

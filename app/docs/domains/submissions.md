@@ -130,9 +130,18 @@ Students see assessments at `/submissions/reports`.
 | `HAS_SCHEDULE` | User → ReportSchedule | ReportSchedule | User's generation schedule |
 | `FULFILLS_PROJECT` | Ku → Assignment | Assignment | Assignment fulfillment |
 
+## Test Coverage
+
+| Service | Test File | Tests | Notes |
+|---------|-----------|-------|-------|
+| `TeacherReviewService` | `tests/unit/services/test_teacher_review_service.py` | 57 | 99% coverage — access control, review queue, report/revision/approval flows, dashboard stats, groups |
+| `SubmissionsCoreService` | `tests/unit/services/test_submissions_core_service.py` | 97 | 74% coverage — journal CRUD, FIFO, exercise linking, tags, bulk ops, delete, export |
+| `SubmissionsCoreService` (assessments) | `tests/unit/test_assessment_service.py` | 7 | Assessment CRUD: create, authority check, relationships, metadata |
+
 ## See Also
 
 - [Entity Type Architecture](../architecture/ENTITY_TYPE_ARCHITECTURE.md) - Content/Processing section
+- [Report Architecture](../architecture/REPORT_ARCHITECTURE.md) - Canonical report reference
 - [Sharing Patterns](../patterns/SHARING_PATTERNS.md) - Three-level visibility
 - [ADR-040](../decisions/ADR-040-teacher-assignment-workflow.md) - Teacher assignment workflow
 - [Protocol Reference](../reference/PROTOCOL_REFERENCE.md) - Submission + Feedback protocols
