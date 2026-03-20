@@ -397,6 +397,10 @@ Quick lookup table for finding the right sub-service:
 | **Achievement badges** | AchievementService | Habits only |
 | **Goal recommendations** | RecommendationService | Goals only |
 | **AI/LLM features** | AIService | Tasks, Goals, Habits (optional) |
+| **LLM routing** | UnifiedLLMCaller | Journals, Reports (routes gpt*/claude* models) |
+| **Instruction resolution** | InstructionResolver | Journals, Batch (custom > exercise > mode > default) |
+| **Batch audio transcription** | BatchTranscriptionService | Journals batch (Tier 1: audio → txt) |
+| **Batch LLM processing** | BatchProcessingService | Journals batch (Tier 2: txt → md) |
 
 ---
 

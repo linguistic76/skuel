@@ -658,6 +658,7 @@ uv run python -m pytest tests/integration/intelligence/ -k "test_predict_goal_su
 - `/core/services/infrastructure/graph_intelligence_service.py` - Graph queries
 - `/core/services/embeddings_service.py` - Semantic search
 - `/core/services/llm_service.py` - AI insights
+- `/core/services/llm_caller.py` - UnifiedLLMCaller (routes to OpenAI/Anthropic by model prefix; used by JournalOutputGenerator + SubmissionReportService)
 - `/core/services/user/intelligence/` - UserContextIntelligence modular package
 
 ---

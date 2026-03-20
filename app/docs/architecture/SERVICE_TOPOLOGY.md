@@ -64,8 +64,10 @@ Infrastructure modules with no root-level facade.
 | `relationships/` | UnifiedRelationshipService + 6 mixin files |
 | `sharing/` | UnifiedSharingService (entity-agnostic sharing) |
 | `search/` | Unified search across all domains |
-| `submissions/` | Student work — CRUD, processing, search |
+| `submissions/` | Student work — CRUD, processing, search, journal output |
 | `report/` | Teacher/AI reports, activity reports, review queue |
+| `output/` | InstructionResolver (unified instruction resolution) |
+| `transcription/` | TranscriptionService + BatchTranscriptionService + BatchProcessingService |
 | `mixins/` | 7 BaseService mixin files |
 | `intelligence/` | GraphContextOrchestrator + analytics helpers |
 | `infrastructure/` | Cross-cutting helpers (PrerequisiteHelper, etc.) |
@@ -91,7 +93,7 @@ Standalone services without subfolders.
 | Category | Services |
 |----------|----------|
 | **Base Classes** | `base_service.py`, `base_analytics_service.py`, `base_ai_service.py`, `base_planning_service.py` |
-| **AI/LLM** | `ai_service.py`, `llm_service.py`, `neo4j_genai_embeddings_service.py`, `neo4j_vector_search_service.py`, `context_aware_ai_service.py` |
+| **AI/LLM** | `ai_service.py`, `llm_caller.py` (UnifiedLLMCaller), `llm_service.py`, `neo4j_genai_embeddings_service.py`, `neo4j_vector_search_service.py`, `context_aware_ai_service.py` |
 | **Analytics** | `analytics_engine.py`, `analytics_service.py`, `cross_domain_analytics_service.py`, `analytics_relationship_service.py` |
 | **Askesis Secondary** | `askesis_ai_service.py`, `askesis_citation_service.py` |
 | **KU Generation Pipeline** | `entity_chunking_service.py`, `insight_generation_service.py`, `entity_inference_service.py`, `ku_intelligence_service.py` |
@@ -585,10 +587,19 @@ Routes / Application Code
 │   ├─ submissions_core_service.py
 │   ├─ submissions_search_service.py
 │   ├─ submissions_processing_service.py
-│   └─ submissions_relationship_service.py
+│   ├─ submissions_relationship_service.py
+│   └─ journal_output_generator.py    (je_output formatting via UnifiedLLMCaller)
+│
+├─ output/
+│   └─ instruction_resolver.py        (unified instruction resolution)
+│
+├─ transcription/
+│   ├─ transcription_service.py       (single-file Deepgram transcription)
+│   ├─ batch_transcription_service.py (Tier 1: batch audio → txt)
+│   └─ batch_processing_service.py    (Tier 2: batch txt → md via LLM)
 │
 └─ report/
-    ├─ submission_report_service.py   (entry point)
+    ├─ submission_report_service.py   (entry point — uses UnifiedLLMCaller)
     ├─ activity_report_service.py     (CRUD for ActivityReport)
     ├─ review_queue_service.py        (ReviewRequest node management)
     ├─ teacher_review_service.py

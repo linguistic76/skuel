@@ -310,7 +310,7 @@ feedback_generated_at: datetime | None
 | Source | Service | ProcessorType | Trigger |
 |--------|---------|---------------|---------|
 | Teacher | `SubmissionsCoreService.create_assessment()` | `HUMAN` | Teacher reviews in queue |
-| AI | `SubmissionReportService.generate_report()` | `LLM` | Exercise has `instructions` |
+| AI | `SubmissionReportService.generate_report()` | `LLM` | Exercise has `instructions` (via `UnifiedLLMCaller`) |
 
 **Graph pattern:**
 ```cypher
@@ -516,7 +516,7 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
 | **RevisedExercise** | `RevisedExerciseService` | `RevisedExerciseOperations` | `RevisedExerciseBackend` | CRUD, `list_for_teacher`, `list_for_student`, `get_revision_chain` |
 | **Submission** | `SubmissionsService` | `SubmissionOperations` | `SubmissionsBackend` | `submit_file`, `check_access`, share methods |
 | **Submission processing** | `SubmissionsProcessingService` | `SubmissionProcessingOperations` | `SubmissionsBackend` | Processing pipeline |
-| **Submission report** | `SubmissionReportService` + `SubmissionsCoreService` | `SubmissionReportOperations` | `SubmissionsBackend` | `generate_report`, `create_assessment`, `submit_journal_file` |
+| **Submission report** | `SubmissionReportService` + `SubmissionsCoreService` | `SubmissionReportOperations` | `SubmissionsBackend` | `generate_report` (via `UnifiedLLMCaller`), `create_assessment`, `submit_journal_file` |
 | **Teacher review** | `TeacherReviewService` | `TeacherReviewOperations` | `QueryExecutor` | **Review actions:** `get_review_queue`, `get_submission_detail`, `get_report_history`, `submit_report`, `request_revision`, `approve_report` · **Exercise view:** `get_exercises_with_submission_counts`, `get_submissions_for_exercise` · **Student view:** `get_students_summary`, `get_student_submissions` · **Dashboard:** `get_dashboard_stats`, `get_teacher_groups_with_stats`, `get_group_detail` |
 | **Activity Report (auto/LLM)** | `ProgressReportGenerator` | `ProgressReportOperations` | `UserContextBuilder` | `generate`, `create_scheduled` |
 | **Activity Report (scheduled)** | `ProgressReportWorker` | — | — | Background worker; calls `ProgressReportGenerator` on schedule |
@@ -663,7 +663,11 @@ that never closes the loop.
 | `core/models/report/submission_report.py` | 4 | SubmissionReport model |
 | `core/models/report/activity_report.py` | 4 | ActivityReport model |
 | `core/services/submissions/submissions_core_service.py` | 3+4 | CRUD + teacher assessment + journal upload orchestration |
-| `core/services/report/submission_report_service.py` | 4 | AI report generation |
+| `core/services/report/submission_report_service.py` | 4 | AI report generation (via UnifiedLLMCaller) |
+| `core/services/llm_caller.py` | 3+4 | Unified LLM routing (OpenAI/Anthropic by model prefix) |
+| `core/services/output/instruction_resolver.py` | 3 | Instruction resolution (custom > exercise > mode > default) |
+| `core/services/transcription/batch_transcription_service.py` | 3 | Batch audio → txt (Tier 1) |
+| `core/services/transcription/batch_processing_service.py` | 3 | Batch txt → md (Tier 2) |
 | `core/services/report/progress_report_generator.py` | 4 | ActivityReport generation |
 | `core/services/report/activity_report_service.py` | 4 | Admin human report; all write paths converge here |
 | `core/services/report/teacher_review_service.py` | 4 | Teacher review workflow (review queue, revision, approval) |

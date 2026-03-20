@@ -277,7 +277,7 @@ Only `COMPLETED` entities can be shared (prevents sharing incomplete/failed work
 | Service | Protocol | Produces | Notes |
 |---------|----------|---------|-------|
 | `SubmissionsCoreService` | `SubmissionReportOperations` | `SUBMISSION_REPORT` (HUMAN) | Teacher assessment; verifies group membership |
-| `SubmissionReportService` | `SubmissionReportOperations` | `SUBMISSION_REPORT` (LLM) | AI evaluation via Exercise instructions |
+| `SubmissionReportService` | `SubmissionReportOperations` | `SUBMISSION_REPORT` (LLM) | AI evaluation via Exercise instructions (uses `UnifiedLLMCaller`) |
 | `ProgressReportGenerator` | `ProgressReportOperations` | `ACTIVITY_REPORT` (AUTOMATIC or LLM) | Activity summary; LLM adds qualitative insights |
 | `ActivityReportService` | `ActivityReportOperations` | `ACTIVITY_REPORT` (HUMAN or via persist()) | Processor-neutral CRUD; all write paths converge here |
 | `ReviewQueueService` | `ReviewQueueOperations` | `ReviewRequest` nodes | User-initiated review queue management |
@@ -453,6 +453,8 @@ When `openai_service` is available, the generator:
 | `/api/teaching/review-queue` | GET | Teacher | Pending submission review queue |
 | `/api/teaching/review/{uid}/feedback` | POST | Teacher | Submit human report on submission |
 | `/api/teaching/review/{uid}/approve` | POST | Teacher | Approve submission |
+| `/api/journals/batch-transcribe` | POST | Admin | Batch audio → txt (preview or run) |
+| `/api/journals/batch-process` | POST | Admin | Batch txt → md via LLM (process or combined) |
 
 ---
 

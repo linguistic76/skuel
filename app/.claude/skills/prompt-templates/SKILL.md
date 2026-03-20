@@ -81,9 +81,9 @@ programming error, not a domain failure.
 | Template ID | Consumers | Placeholders |
 |-------------|-----------|--------------|
 | `activity_feedback` | `ProgressReportGenerator._build_llm_prompt()` | `{time_period}`, `{depth}`, `{stats_json}`, `{insights_section}` |
-| `journal_activity` | `JournalOutputGenerator._format_activity()` | `{content}` |
-| `journal_articulation` | `JournalOutputGenerator._format_articulation()` | `{content}` |
-| `journal_exploration` | `JournalOutputGenerator._format_exploration()` | `{content}` |
+| `journal_activity` | `JournalOutputGenerator._format_activity()` + `InstructionResolver` | `{content}` |
+| `journal_articulation` | `JournalOutputGenerator._format_articulation()` + `InstructionResolver` | `{content}` |
+| `journal_exploration` | `JournalOutputGenerator._format_exploration()` + `InstructionResolver` | `{content}` |
 | `dsl_domain_recognition` | `LLMDSLBridgeService.transform()` (default) | `{journal_text}` |
 | `dsl_domain_recognition_compact` | `LLMDSLBridgeService.transform()` (compact mode) | `{journal_text}` |
 | `askesis_guided_redirect` | `ResponseGenerator._build_direct_prompt()` | `{lessons_text}`, `{resource_refs}` |

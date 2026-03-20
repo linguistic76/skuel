@@ -187,12 +187,57 @@ Journals support **three modes** with weighted distribution:
 
 ## Service Architecture
 
+### UnifiedLLMCaller (March 2026)
+
+**Location:** `/core/services/llm_caller.py`
+
+Routes LLM calls to OpenAI or Anthropic based on model prefix. Replaces direct
+`OpenAIService`/`AnthropicService` injection in `JournalOutputGenerator` and
+`SubmissionReportService`.
+
+```python
+class UnifiedLLMCaller:
+    async def generate(
+        prompt: str,
+        model: str = "gpt-4o-mini",     # gpt* → OpenAI, claude* → Anthropic
+        temperature: float = 0.7,
+        max_tokens: int = 4000,
+        system_prompt: str | None = None,
+    ) -> Result[str]: ...
+```
+
+**Protocol:** `LLMCallerProtocol` — injected into both `JournalOutputGenerator` and `SubmissionReportService`.
+
+### InstructionResolver (March 2026)
+
+**Location:** `/core/services/output/instruction_resolver.py`
+
+Unified instruction resolution with priority chain:
+1. `custom_instructions` — user-provided text, used directly as prompt
+2. `exercise` — Exercise.instructions field with model/temp from Exercise
+3. `enrichment_mode` — maps to prompt registry template
+4. default — `activity_tracking` template
+
+```python
+class InstructionResolver:
+    def resolve(
+        enrichment_mode: str | None = None,
+        custom_instructions: str | None = None,
+        exercise: Exercise | None = None,
+        model: str = "gpt-4o-mini",
+    ) -> Result[OutputInstruction]: ...
+```
+
+**Protocol:** `OutputInstruction` dataclass in `/core/ports/output_generator_protocols.py`
+
 ### JournalOutputGenerator
 
 **Location:** `/core/services/submissions/journal_output_generator.py`
 
 ```python
 class JournalOutputGenerator:
+    def __init__(self, llm_caller: LLMCallerProtocol, storage_base: str | None = None): ...
+
     async def generate(
         content: str,
         enrichment_mode: str,       # "activity_tracking" | "articulation" | "exploration"
@@ -202,6 +247,13 @@ class JournalOutputGenerator:
         # Selects formatter based on enrichment_mode
         # Saves to disk with date subdirectory
         # Returns file path
+
+    async def generate_output(
+        content: str,
+        instruction: OutputInstruction,
+    ) -> Result[str]:
+        # LLM-only call — no disk I/O
+        # Implements OutputGeneratorOperations protocol
 
     def cleanup_date_range(
         start_date: datetime,
@@ -234,6 +286,32 @@ class ActivityExtractorService:
 
 **Only triggered when:** `weights.activity > threshold` (default: 0.2)
 
+### Batch Transcription Pipeline (March 2026)
+
+Two-tier batch pipeline for processing multiple audio files without Neo4j involvement.
+
+**Tier 1 — BatchTranscriptionService:** `/core/services/transcription/batch_transcription_service.py`
+
+Audio folder → .txt transcripts via Deepgram. Concurrent with semaphore-bounded parallelism.
+
+```python
+class BatchTranscriptionService:
+    async def preview(input_dir, output_dir) -> Result[BatchTranscriptionPreview]: ...
+    async def transcribe_batch(input_dir, output_dir, skip_existing=True) -> Result[BatchTranscriptionResult]: ...
+```
+
+**Tier 2 — BatchProcessingService:** `/core/services/transcription/batch_processing_service.py`
+
+.txt transcripts → .md via LLM using InstructionResolver + OutputGeneratorOperations.
+
+```python
+class BatchProcessingService:
+    async def process_batch(input_dir, output_dir, enrichment_mode, ...) -> Result[BatchProcessingResult]: ...
+    async def transcribe_and_process(audio_dir, output_dir, batch_transcription, ...) -> Result[dict]: ...
+```
+
+**CLI:** `uv run python scripts/batch_transcribe.py --preview|--process|--process-only`
+
 ## Routes
 
 ### UI Routes
@@ -243,6 +321,7 @@ class ActivityExtractorService:
 | `/journals` | Landing page (redirects to `/journals/submit`) |
 | `/journals/submit` | Upload form with Assignment selector |
 | `/journals/browse` | AI-processed reports grid with filters |
+| `/journals/batch` | Batch operations page (admin-only) — preview, transcribe, process |
 | `/journals/{uid}/download` | Download je_output markdown file |
 
 ### API Routes
@@ -255,6 +334,8 @@ Journals reuse existing `/api/submissions/*` endpoints:
 | `/api/submissions/{uid}` | GET | Get journal report |
 | `/api/reports` | GET | List reports (filter by processor_type=LLM) |
 | `/api/admin/journals/cleanup` | GET | Cleanup je_output files by date range |
+| `/api/journals/batch-transcribe` | POST | Batch audio → txt (admin-only, preview or run) |
+| `/api/journals/batch-process` | POST | Batch txt → md via LLM (admin-only, process or combined) |
 
 ### HTMX Endpoints
 
@@ -352,7 +433,25 @@ When a journal is processed, these fields are stored in `report.metadata`:
 5. Ingest curated pieces via UnifiedIngestionService
 ```
 
-### Workflow 3: Cleanup (Admin only)
+### Workflow 3: Batch Transcription (Admin only — March 2026)
+
+```
+1. Admin → /journals/batch (Batch Ops page)
+2. Set input directory (default: data/je_inputs/) and output directory (default: data/je_outputs/)
+3. Click "Preview Files" — lists audio files, sizes, already-transcribed files
+4. Click "Transcribe All" — Tier 1: audio → .txt via Deepgram (concurrent, skip existing)
+5. Optionally select enrichment mode + model
+6. Click "Process Transcripts" — Tier 2: .txt → .md via LLM
+7. Or click "Transcribe + Process" — combined Tier 1 + Tier 2 pipeline
+
+CLI alternative:
+  uv run python scripts/batch_transcribe.py --preview
+  uv run python scripts/batch_transcribe.py                           # transcribe only
+  uv run python scripts/batch_transcribe.py --process --mode activity_tracking  # combined
+  uv run python scripts/batch_transcribe.py --process-only            # process existing .txt
+```
+
+### Workflow 4: Cleanup (Admin only)
 
 ```
 1. Admin decides date range to clean (e.g., December 2025)
@@ -371,16 +470,26 @@ When a journal is processed, these fields are stored in `report.metadata`:
 | Base (Submission) | `/core/models/submissions/submission.py` |
 | EntityType | `EntityType.JOURNAL` in `/core/models/enums/entity_enums.py` |
 | **Services** | |
+| LLM Caller | `/core/services/llm_caller.py` |
+| Instruction Resolver | `/core/services/output/instruction_resolver.py` |
 | Output Generator | `/core/services/submissions/journal_output_generator.py` |
 | Processing Service | `/core/services/submissions/submissions_processing_service.py` |
 | Core + Upload Orchestration | `/core/services/submissions/submissions_core_service.py` |
+| Batch Transcription (Tier 1) | `/core/services/transcription/batch_transcription_service.py` |
+| Batch Processing (Tier 2) | `/core/services/transcription/batch_processing_service.py` |
+| **Protocols** | |
+| LLM Caller Protocol | `/core/services/llm_caller.py` (`LLMCallerProtocol`) |
+| Output Generator Protocol | `/core/ports/output_generator_protocols.py` |
 | **Prompts** | |
 | Activity Formatter | `/core/prompts/templates/journal_activity.md` |
 | Articulation Formatter | `/core/prompts/templates/journal_articulation.md` |
 | Exploration Formatter | `/core/prompts/templates/journal_exploration.md` |
 | **Routes** | |
 | UI Implementation | `/adapters/inbound/journals_ui.py` |
+| Batch API | `/adapters/inbound/batch_transcription_api.py` |
 | Route Registration | `JOURNALS_CONFIG` in `/adapters/inbound/submissions_routes.py` |
+| **CLI** | |
+| Batch CLI | `/scripts/batch_transcribe.py` |
 
 ## Environment Configuration
 
@@ -388,8 +497,12 @@ When a journal is processed, these fields are stored in `report.metadata`:
 # Journal storage location (default: /tmp/skuel_journals)
 SKUEL_JOURNAL_STORAGE=/path/to/journal/storage
 
-# OpenAI API key (required for LLM processing)
+# OpenAI API key (required for LLM processing via UnifiedLLMCaller)
 OPENAI_API_KEY=sk-...
+
+# Batch transcription default directories
+# data/je_inputs/  — audio files (mp3, wav, m4a, ogg, flac, webm)
+# data/je_outputs/ — transcribed .txt and processed .md files
 ```
 
 ## Design Principles
