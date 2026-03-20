@@ -27,7 +27,7 @@ from core.events import publish_event
 from core.models.entity_types import SubmissionEntity
 from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
 from core.models.relationship_names import RelationshipName
-from core.models.submissions.journal import Journal
+from core.models.submissions.journal_submission import JournalSubmission
 from core.ports import BackendOperations
 from core.ports.infrastructure_protocols import EventBusOperations
 from core.utils.decorators import with_error_handling
@@ -148,7 +148,9 @@ class JournalsCoreService:
         """
         resolved_date = entry_date or date.today()
         existing_count = await self._count_journals_for_date(user_uid, resolved_date)
-        return Result.ok(Journal.generate_title(user_uid, resolved_date, order=existing_count + 1))
+        return Result.ok(
+            JournalSubmission.generate_title(user_uid, resolved_date, order=existing_count + 1)
+        )
 
     async def submit_journal_file(
         self,
@@ -265,11 +267,11 @@ class JournalsCoreService:
         source_type: str | None = None,
         source_file: str | None = None,
         transcription_uid: str | None = None,
-    ) -> Result[Journal]:
+    ) -> Result[JournalSubmission]:
         """
-        Create a journal-type Ku (JOURNAL with journal metadata).
+        Create a journal submission entity.
 
-        Journals are Ku entities with entity_type=JOURNAL. max_retention controls
+        Journals are submission entities with entity_type=JOURNAL_SUBMISSION. max_retention controls
         FIFO cleanup: when set (e.g., 3), oldest journals are deleted to
         maintain the limit. When None, journals are permanent.
 
@@ -318,7 +320,7 @@ class JournalsCoreService:
         if transcription_uid:
             journal_metadata["transcription_uid"] = transcription_uid
 
-        journal = Journal(
+        journal = JournalSubmission(
             uid=uid,
             title=title,
             entity_type=EntityType.JOURNAL_SUBMISSION,
@@ -343,7 +345,9 @@ class JournalsCoreService:
         return Result.ok(journal)
 
     @with_error_handling("get_ephemeral_journals", error_type="database")
-    async def get_ephemeral_journals(self, user_uid: str, limit: int = 10) -> Result[list[Journal]]:
+    async def get_ephemeral_journals(
+        self, user_uid: str, limit: int = 10
+    ) -> Result[list[JournalSubmission]]:
         """Get journals with FIFO retention (max_retention is set) for a user."""
         result = await self.backend.find_by(
             user_uid=user_uid,
@@ -357,7 +361,9 @@ class JournalsCoreService:
         return Result.ok(journals[:limit])
 
     @with_error_handling("get_permanent_journals", error_type="database")
-    async def get_permanent_journals(self, user_uid: str, limit: int = 50) -> Result[list[Journal]]:
+    async def get_permanent_journals(
+        self, user_uid: str, limit: int = 50
+    ) -> Result[list[JournalSubmission]]:
         """Get permanent journals (no FIFO retention) for a user."""
         result = await self.backend.find_by(
             user_uid=user_uid,
@@ -377,7 +383,7 @@ class JournalsCoreService:
         start_date: date,
         end_date: date,
         limit: int = 100,
-    ) -> Result[list[Journal]]:
+    ) -> Result[list[JournalSubmission]]:
         """
         Get journal submission entities within a date range.
 
@@ -445,7 +451,7 @@ class JournalsCoreService:
 
         return Result.ok(updated)
 
-    async def get_journal_with_insights(self, uid: str) -> Result[Journal | None]:
+    async def get_journal_with_insights(self, uid: str) -> Result[JournalSubmission | None]:
         """
         Get a journal submission with its extracted insights.
 
@@ -511,12 +517,12 @@ class JournalsCoreService:
 
     async def handle_transcription_completed(self, event: "TranscriptionCompleted") -> None:
         """
-        Create journal-type Ku when transcription completes.
+        Create journal submission when transcription completes.
 
         Pipeline:
         1. Try AI processing via ContentEnrichmentService (if available)
         2. Fall back to raw transcript if AI fails
-        3. Create Ku with entity_type=JOURNAL and journal metadata via create_journal_entry()
+        3. Create submission with entity_type=JOURNAL_SUBMISSION and journal metadata via create_journal_entry()
         4. Triggers FIFO cleanup for VOICE journals
 
         Args:
@@ -528,7 +534,7 @@ class JournalsCoreService:
         """
         try:
             self.logger.info(
-                f"Creating journal Ku from transcription {event.transcription_uid} "
+                f"Creating journal submission from transcription {event.transcription_uid} "
                 f"for user {event.user_uid}"
             )
 
@@ -581,12 +587,12 @@ class JournalsCoreService:
 
             if result.is_ok:
                 self.logger.info(
-                    f"Created journal Ku {result.value.uid} from transcription "
+                    f"Created journal submission {result.value.uid} from transcription "
                     f"{event.transcription_uid}"
                 )
             else:
                 self.logger.error(
-                    f"Failed to create journal Ku from {event.transcription_uid}: {result.error}"
+                    f"Failed to create journal submission from {event.transcription_uid}: {result.error}"
                 )
 
         except (*NEO4J_EXCEPTIONS, *LLM_EXCEPTIONS) as e:

@@ -2,7 +2,7 @@
 Journals UI Routes — Personal AI-Processed Journal Entries
 ===========================================================
 
-Journal is a Submission subtype (EntityType.JOURNAL extends Submission).
+Journal is a Submission subtype (EntityType.JOURNAL_SUBMISSION extends Submission).
 Users upload files here to be processed by AI using default or custom instructions.
 Registered from submissions_routes.py — journals share /api/submissions/* endpoints.
 

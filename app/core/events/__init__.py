@@ -71,8 +71,8 @@ References:
 """
 
 # Base classes and protocols
-# NOTE: Journal events DELETED (February 2026) - Journal merged into Submissions
-# Journal operations now fire SubmissionCreated/SubmissionDeleted events with entity_type="journal"
+# NOTE: Journal events DELETED (February 2026) — journals use submission events
+# Journal operations fire SubmissionCreated/SubmissionDeleted with entity_type="journal_submission"
 # Knowledge substance events (tracking real-world application)
 from core.events.base import BaseEvent, DomainEvent, EventMetadata
 

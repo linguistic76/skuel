@@ -4,13 +4,13 @@ Submissions Service Package
 
 Sub-services for the Submission stage of SKUEL's educational loop:
 
-    Ku → Exercise → Submission → Feedback
+    Lesson → Exercise → Submission → Report
                          ↑
                student produces work
 
 Architecture: Content/Processing Domain (not Activity Domain)
 - Handles file upload, processing pipelines, content management, and journals
-- EntityType.SUBMISSION + EntityType.JOURNAL (both are student work products)
+- EntityType.EXERCISE_SUBMISSION + EntityType.JOURNAL_SUBMISSION (both are student work products)
 
 Sub-services:
 - SubmissionsService: File upload and storage

@@ -1,10 +1,10 @@
 """
-Ku Processing Service
-========================
+Submissions Processing Service
+==============================
 
-Orchestrates processing of submitted Ku (assignments, journals, etc.).
+Orchestrates processing of submitted work (assignments, journals, etc.).
 
-Routes Ku to appropriate processors:
+Routes submissions to appropriate processors:
 - Audio files -> TranscriptionService -> LLM formatting -> Activity Extraction
 - Text files -> Direct LLM processing -> Activity Extraction
 - PDFs -> OCR -> LLM extraction (future)
@@ -15,7 +15,7 @@ Routes Ku to appropriate processors:
 When `extract_activities=True` in instructions, the processor will:
 1. Parse processed content for Activity Lines (@context tags)
 2. Create corresponding entities (Tasks, Habits, Goals, Events)
-3. Store extraction results in Ku metadata
+3. Store extraction results in submission metadata
 """
 
 from datetime import datetime
@@ -30,7 +30,7 @@ from core.events.submission_events import (
 from core.models.entity import Entity
 from core.models.entity_types import SubmissionEntity
 from core.models.enums.entity_enums import EntityStatus, EntityType
-from core.models.submissions.journal import Journal
+from core.models.submissions.journal_submission import JournalSubmission
 from core.models.submissions.submission import Submission
 from core.services.submissions.submissions_service import SubmissionsService
 from core.utils.exception_types import LLM_EXCEPTIONS, NEO4J_EXCEPTIONS
@@ -40,10 +40,10 @@ from core.utils.result_simplified import Errors, Result
 
 class SubmissionsProcessingService:
     """
-    Orchestrator service for Ku processing.
+    Orchestrator service for submission processing.
 
-    Routes submitted Ku through appropriate processing pipelines
-    based on file type and Ku configuration.
+    Routes submitted work through appropriate processing pipelines
+    based on file type and submission configuration.
     """
 
     def __init__(
@@ -395,10 +395,10 @@ class SubmissionsProcessingService:
     # ========================================================================
 
     async def _process_journal(
-        self, submission: Journal, content: str, instructions: dict[str, Any] | None
+        self, submission: JournalSubmission, content: str, instructions: dict[str, Any] | None
     ) -> None:
         """
-        Process journal-type Ku with enrichment pipeline.
+        Process journal submission with enrichment pipeline.
 
         Pipeline:
         1. Read enrichment_mode from instructions

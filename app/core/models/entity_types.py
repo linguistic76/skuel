@@ -58,7 +58,7 @@ CurriculumEntity = Lesson | LearningStep | LearningPath | Exercise
 KuEntity = Ku
 
 # Submission entities — carry file_path, processed_content, file_type, etc.
-SubmissionEntity = Submission | ExerciseSubmission | JournalSubmission | Journal
+SubmissionEntity = Submission | ExerciseSubmission | JournalSubmission
 
 # Report entities — report output (no file fields, report-specific fields)
 ReportEntity = ActivityReport | SubmissionReport | ExerciseReport | JournalReport
