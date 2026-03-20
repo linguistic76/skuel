@@ -23,7 +23,7 @@ Two domains have duration calibration wired to the event bus:
 
 Both are fire-and-forget via EventBus subscriptions in `services_bootstrap.py`. Learning failures never block user actions.
 
-**Note (March 2026):** All event handlers migrated from `*IntelligenceService` to dedicated `*EventHandlerService` classes (Tasks, Goals, Habits, Principles) as part of the event handler extraction pattern.
+**Note (March 2026):** All event handlers migrated from `*IntelligenceService` to dedicated `*EventHandlerService` classes (Tasks, Goals, Habits, Choices, Principles) as part of the event handler extraction pattern.
 
 ---
 
@@ -76,7 +76,7 @@ Each item follows the proven pattern: add method to `*EventHandlerService`, subs
 
 4. **Principles engagement decay** — Track which principles the user actively references vs. which go dormant. No event needed — can be computed from relationship timestamps during analytics queries.
 
-5. **Choices decision quality** *(deferred — low volume early on)* — `ChoicesIntelligenceService.learn_from_outcome()` subscribed to `ChoiceOutcomeRecorded`. Correlate `confidence` with `outcome_quality`. Store `choice_calibration_score` on User node. Rich signal but needs sufficient choice volume to be meaningful.
+5. **Choices decision quality** *(deferred — low volume early on)* — `ChoiceEventHandlerService` already subscribed to `ChoiceOutcomeRecorded` and `ChoiceMade` (March 2026). Correlate `confidence` with `outcome_quality`. Store `choice_calibration_score` on User node. Rich signal but needs sufficient choice volume to be meaningful.
 
 **Prerequisites:** None. All events and data exist. Pure service-layer additions.
 

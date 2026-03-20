@@ -35,8 +35,9 @@ User Request → FastHTML Route → Service Facade → Sub-service → Backend �
 
 **Each domain has:**
 - **Facade Service** - Single entry point (`{domain}_service.py`)
-- **7-13 Sub-services** - Specialized functionality (core, search, intelligence, etc.)
+- **6-13 Sub-services** - Specialized functionality (core, search, intelligence, event_handler, etc.)
 - **Domain Events** - Cross-service communication
+- **Event Handler Service** - Fire-and-forget reactive handlers (`*_event_handler_service.py`) — all 5 domains with events (Tasks, Goals, Habits, Choices, Principles) have dedicated handlers
 - **Three-View UI** - List, Create, Analytics tabs
 
 ## Key Files Per Domain

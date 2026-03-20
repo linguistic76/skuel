@@ -502,11 +502,11 @@ self.intelligence = common.intelligence
 | Goals | 8 | 4 | 4 (progress, scheduling, learning, event_handler) |
 | Habits | 13 | 4 | 9 (progress, scheduling, planning, learning, completions, events, event_handler, patterns, goal_analytics) |
 | Events | 8 | 4 | 4 (progress, scheduling, + custom) |
-| Choices | 7 | 4 | 3 (learning, + custom) |
+| Choices | 6 | 4 | 2 (learning, event_handler) |
 | Principles | 9 | 4 | 5 (alignment, learning, reflection, planning, event_handler) |
 
 **Most Complex:** Habits (13 sub-services)
-**Simplest:** Choices (7 sub-services)
+**Simplest:** Choices (6 sub-services)
 
 ---
 

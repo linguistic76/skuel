@@ -29,7 +29,7 @@ Choices represent decisions with outcome tracking. They connect knowledge, princ
 | Core Service | `/core/services/choices/choices_core_service.py` |
 | Search Service | `/core/services/choices/choices_search_service.py` |
 | Intelligence Service | `/core/services/choices/choices_intelligence_service.py` |
-| Analytics Service | `/core/services/choices/choices_analytics_service.py` |
+| Event Handler Service | `/core/services/choices/choice_event_handler_service.py` |
 | Facade | `/core/services/choices_service.py` |
 | Config | `CHOICES_CONFIG` in `/core/models/relationship_registry.py` |
 | Events | `/core/events/choice_events.py` |
@@ -45,7 +45,9 @@ class ChoicesService(BaseService[ChoicesOperations, Choice]):
     core: ChoicesCoreService
     search: ChoicesSearchService
     relationships: UnifiedRelationshipService
-    analytics: ChoicesAnalyticsService
+    intelligence: ChoicesIntelligenceService
+    learning: ChoicesLearningService
+    event_handler: ChoiceEventHandlerService
 
     # Explicit delegation — MyPy-native, no mixin needed
     async def get_choice(self, *args: Any, **kwargs: Any) -> Any:
@@ -53,9 +55,6 @@ class ChoicesService(BaseService[ChoicesOperations, Choice]):
 
     async def search_choices(self, *args: Any, **kwargs: Any) -> Any:
         return await self.search.search(*args, **kwargs)
-
-    async def analyze_decision_patterns(self, *args: Any, **kwargs: Any) -> Any:
-        return await self.analytics.analyze_decision_patterns(*args, **kwargs)
 ```
 
 **Sub-services:**
@@ -65,8 +64,8 @@ class ChoicesService(BaseService[ChoicesOperations, Choice]):
 | `search` | Text search, filtering, graph-aware queries |
 | `learning` | Learning path guidance integration |
 | `relationships` | Cross-domain links via `UnifiedRelationshipService` |
-| `intelligence` | Decision support, outcome analysis |
-| `analytics` | Decision pattern analysis, impact tracking |
+| `intelligence` | Decision support, dual-track assessment, prediction |
+| `event_handler` | Event-driven handlers (outcome tracking, decision patterns) |
 
 Created via `create_common_sub_services()` factory in facade `__init__`.
 
@@ -140,7 +139,7 @@ The Choices domain publishes domain events for cross-service communication:
 | `ChoiceMade` | Decision selected | `choice_uid`, `user_uid`, `selected_option_uid` |
 | `ChoiceOutcomeRecorded` | Outcome evaluated | `choice_uid`, `user_uid`, `satisfaction_score` |
 
-**Event handling:** Other services subscribe to these events (e.g., UserContext invalidation).
+**Event handling:** `ChoiceEventHandlerService` subscribes to `ChoiceOutcomeRecorded` (outcome quality analysis, principle alignment correlation) and `ChoiceMade` (decision pattern tracking, confidence analysis, insight persistence). Other services subscribe for UserContext invalidation.
 
 ## UI Routes
 

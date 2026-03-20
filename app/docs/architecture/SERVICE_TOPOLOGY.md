@@ -279,8 +279,8 @@ Activity Domain Facades (6 total)
 ├─ EventsService     (8 sub-services)
 │   └─ core, search, progress, scheduling, learning, habit_integration, intelligence, ai
 │
-├─ ChoicesService    (5 sub-services)
-│   └─ core, search, learning, intelligence, ai
+├─ ChoicesService    (6 sub-services)
+│   └─ core, search, learning, intelligence, event_handler, ai
 │
 └─ PrinciplesService (9 sub-services)
     └─ core, search, alignment, learning, planning, reflection, intelligence, ai, event_handler
