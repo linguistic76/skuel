@@ -28,7 +28,9 @@
 |---------|---------|
 | `lesson_core_service.py` | CRUD operations |
 | `lesson_search_service.py` | Text search, filtering |
-| `lesson_graph_service.py` | Graph navigation |
+| `lesson_graph_service.py` | Graph traversal, prerequisites, hub scores |
+| `lesson_application_discovery_service.py` | Reverse relationship queries (where is knowledge applied?) |
+| `lesson_context_service.py` | Context-first knowledge recommendations (*_for_user) |
 | `lesson_semantic_service.py` | Semantic relationship management |
 | `lesson_practice_service.py` | Practice tracking |
 | `lesson_mastery_service.py` | Pedagogical tracking (VIEWED → IN_PROGRESS → MASTERED) |
@@ -152,7 +154,7 @@ async def compose_services(neo4j_adapter, event_bus=None) -> Result[Services]:
 ## Intelligence Service Access
 
 ```python
-# Lesson - adaptive recommendations (10 sub-services)
+# Lesson - adaptive recommendations (12 sub-services)
 lesson_service.adaptive.get_recommendations(user_uid)
 lesson_service.organization.get_organized_children(parent_uid)  # Non-linear nav
 lesson_service.get_navigation(lesson_uid)  # Prev/next sibling in MOC order → KuNavigation

@@ -128,7 +128,7 @@ UserContextIntelligence requires ALL 13 domain services because each contributes
 
 | Service | Purpose | Implementation |
 |---------|---------|----------------|
-| **lesson** | What teaching content is ready? | `lesson_service` (LessonGraphService) |
+| **lesson** | What teaching content is ready? | `lesson_service` (LessonService facade) |
 | **ku** | Atomic knowledge reference | `ku_service` (KuService) |
 | **ls** | Learning step relationships | `ls_service.relationships` (UnifiedRelationshipService) |
 | **lp** | Critical path to life path | `lp_service.relationships` (UnifiedRelationshipService) |
@@ -298,7 +298,7 @@ async def get_optimal_next_learning_steps(
 ```
 
 **Synthesis Algorithm:**
-1. Get ready-to-learn KUs via `ku.get_ready_to_learn_for_user()`
+1. Get ready-to-learn KUs via `lesson.get_ready_to_learn_for_user()`
 2. For each KU, find application opportunities (tasks/goals it enables)
 3. Count items unlocked (knowledge with high unblocking potential)
 4. Find aligned goals (knowledge supporting active goals)
@@ -537,7 +537,7 @@ Priority 4: Advancing goals (make progress)
      Cost: ~30min per goal
 
 Priority 5: Ready-to-learn knowledge (growth)
-  └─ ku.get_ready_to_learn_for_user() → Prerequisites met
+  └─ lesson.get_ready_to_learn_for_user() → Prerequisites met
      Filter: Aligns with goals or life path
      Cost: KU estimated_time
 
@@ -920,7 +920,7 @@ factory = UserContextIntelligenceFactory(
     choices=choices_service.relationships,
     principles=principles_service.relationships,
     # Curriculum (3)
-    lesson=lesson_service.graph,
+    lesson=lesson_service,  # LessonService facade
     ls=ls_service.relationships,
     lp=lp_service.relationships,
     # Processing (3)

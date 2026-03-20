@@ -560,7 +560,7 @@ Specialized factory functions for curriculum domains with complex initialization
 
 Activity domains use `create_common_sub_services()` with standard signatures. Some curriculum domains have non-standard requirements:
 
-- **Lesson**: 9 sub-services + circular dependency (intelligence must be created before core)
+- **Lesson**: 12 sub-services + circular dependency (intelligence must be created before core)
 - **LP**: 5 sub-services + cross-domain dependency (requires `ls_service`)
 - **KU, LS**: Use generic `create_curriculum_sub_services()` factory (4 sub-services each)
 
@@ -610,7 +610,7 @@ self.adaptive = subs.adaptive
 1. `UnifiedRelationshipService` (needed by intelligence)
 2. `LessonIntelligenceService` (BEFORE core — core depends on intelligence)
 3. `LessonCoreService` (requires intelligence)
-4. `LessonSearchService`, `LessonGraphService`, `LessonSemanticService`, `LessonPracticeService`, `LessonMasteryService`, `LessonAdaptiveService`
+4. `LessonSearchService`, `LessonGraphService`, `LessonSemanticService`, `LessonPracticeService`, `LessonMasteryService`, `LessonAdaptiveService`, `LessonApplicationDiscoveryService`, `LessonContextService`
 
 ### KU and LS — Generic Factory
 
@@ -677,6 +677,8 @@ class LessonSubServices:
     relationships: UnifiedRelationshipService
     intelligence: LessonIntelligenceService
     adaptive: LessonAdaptiveService
+    application_discovery: LessonApplicationDiscoveryService
+    context_service: LessonContextService
 
 @dataclass
 class LpSubServices:
@@ -693,7 +695,7 @@ class LpSubServices:
 | Domain | Factory | Reason |
 |--------|---------|--------|
 | **LS** | `create_curriculum_sub_services()` | Standard 4-service pattern |
-| **Lesson** | `create_lesson_sub_services()` | 9 services + circular dependency |
+| **Lesson** | `create_lesson_sub_services()` | 12 services + circular dependency |
 | **LP** | `create_lp_sub_services()` | 5 services + cross-domain dependency |
 | **MOC** | Manual in facade | Circular (core ↔ section) requires post-init wiring |
 

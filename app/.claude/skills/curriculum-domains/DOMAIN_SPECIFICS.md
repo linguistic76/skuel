@@ -6,13 +6,15 @@
 
 **Purpose:** Essay-like teaching content that composes atomic Kus into narrative. `Lesson` extends `Curriculum` in the model hierarchy.
 
-**Sub-services (10):**
+**Sub-services (12):**
 
 | Sub-service | Purpose |
 |-------------|---------|
 | `LessonCoreService` | CRUD operations (extends BaseService) |
 | `LessonSearchService` | Text search, filtering (extends BaseService) |
-| `LessonGraphService` | Graph navigation and relationships |
+| `LessonGraphService` | Graph traversal, prerequisites, hub scores |
+| `LessonApplicationDiscoveryService` | Reverse relationship queries (where is knowledge applied?) |
+| `LessonContextService` | Context-first knowledge recommendations (*_for_user methods) |
 | `LessonSemanticService` | Semantic relationship management |
 | `LessonPracticeService` | Event-driven practice tracking |
 | `LessonMasteryService` | Pedagogical tracking (VIEWED→IN_PROGRESS→MASTERED) |

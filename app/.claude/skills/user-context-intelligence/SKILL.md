@@ -297,7 +297,7 @@ factory = UserContextIntelligenceFactory(
     choices=activity_services["choices"].relationships,
     principles=activity_services["principles"].relationships,
     # Curriculum (3)
-    lesson=learning_services["lesson_service"].graph,
+    lesson=learning_services["lesson_service"],  # LessonService facade
     ls=learning_services["learning_steps"].relationships,
     lp=learning_services["learning_paths"].relationships,
     # Processing Domains (3)
