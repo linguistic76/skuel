@@ -44,7 +44,7 @@ Principles represent core values and guiding beliefs that inform goals, choices,
 
 ## Facade Pattern (February 2026)
 
-`PrinciplesService` uses explicit `async def` delegation methods for clean delegation to **8 specialized sub-services**:
+`PrinciplesService` uses explicit `async def` delegation methods for clean delegation to **9 specialized sub-services**:
 
 ```python
 class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
@@ -55,6 +55,7 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
     reflection: PrinciplesReflectionService
     planning: PrinciplesPlanningService
     intelligence: PrinciplesIntelligenceService
+    event_handler: PrincipleEventHandlerService
 
     # Explicit delegation — MyPy-native, no mixin needed
     async def get_principle(self, *args: Any, **kwargs: Any) -> Any:
@@ -81,6 +82,7 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
 | `intelligence` | Conflict analysis, adherence trends, context enrichment |
 | `reflection` | Graph-connected reflection tracking (January 2026) |
 | `planning` | Context-aware recommendations (January 2026) |
+| `event_handler` | Event-driven cascade analysis and conflict intelligence (March 2026) |
 
 Created via `create_common_sub_services()` factory + domain-specific services in facade `__init__`.
 
@@ -378,7 +380,7 @@ The Principles domain publishes domain events for cross-service communication:
 | `PrincipleReflectionRecorded` | Reflection saved | `reflection_uid`, `principle_uid`, `alignment_level` |
 | `PrincipleConflictRevealed` | Conflict detected | `principle_uid`, `conflicting_principle_uid` |
 
-**Event handling:** Other services subscribe to these events (e.g., UserContext invalidation).
+**Event handling:** `PrincipleEventHandlerService` subscribes to `PrincipleStrengthChanged`, `PrincipleReflectionRecorded`, and `PrincipleConflictRevealed` for cascade analysis, cross-domain insights, and conflict resolution guidance. Other services subscribe for UserContext invalidation.
 
 ## UI Routes
 

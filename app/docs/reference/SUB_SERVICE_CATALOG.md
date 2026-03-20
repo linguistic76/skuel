@@ -494,10 +494,10 @@ self.intelligence = common.intelligence
 | Habits | 13 | 4 | 9 (progress, scheduling, planning, learning, completions, events, achievements, patterns, goal_analytics) |
 | Events | 8 | 4 | 4 (progress, scheduling, + custom) |
 | Choices | 7 | 4 | 3 (learning, + custom) |
-| Principles | 3 | 3 | 0 (core, search, intelligence only) |
+| Principles | 9 | 4 | 5 (alignment, learning, reflection, planning, event_handler) |
 
 **Most Complex:** Habits (13 sub-services)
-**Simplest:** Principles (3 sub-services)
+**Simplest:** Choices (7 sub-services)
 
 ---
 

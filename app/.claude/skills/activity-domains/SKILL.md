@@ -35,7 +35,7 @@ User Request → FastHTML Route → Service Facade → Sub-service → Backend �
 
 **Each domain has:**
 - **Facade Service** - Single entry point (`{domain}_service.py`)
-- **5-7 Sub-services** - Specialized functionality (core, search, intelligence, etc.)
+- **7-13 Sub-services** - Specialized functionality (core, search, intelligence, etc.)
 - **Domain Events** - Cross-service communication
 - **Three-View UI** - List, Create, Analytics tabs
 

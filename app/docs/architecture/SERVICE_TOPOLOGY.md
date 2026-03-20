@@ -31,7 +31,7 @@ Services with **both** a root-level facade AND a subfolder of sub-services.
 
 | Category | Services | Sub-service count |
 |----------|----------|-------------------|
-| Activity (6) | tasks, goals, habits, events, choices, principles | 5–11 per domain |
+| Activity (6) | tasks, goals, habits, events, choices, principles | 7–13 per domain |
 | Curriculum (3) | ku, lp, ls | 4–11 per domain |
 | Cross-Cutting (4) | user, askesis, finance, lifepath | varies |
 
@@ -277,8 +277,8 @@ Activity Domain Facades (6 total)
 ├─ ChoicesService    (5 sub-services)
 │   └─ core, search, learning, intelligence, ai
 │
-└─ PrinciplesService (8 sub-services)
-    └─ core, search, alignment, learning, planning, reflection, intelligence, ai
+└─ PrinciplesService (9 sub-services)
+    └─ core, search, alignment, learning, planning, reflection, intelligence, ai, event_handler
 ```
 
 **Pattern:** All 6 domains share 4 common sub-services (core, search, intelligence, ai) plus domain-specific services.

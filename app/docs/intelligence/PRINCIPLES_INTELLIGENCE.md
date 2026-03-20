@@ -5,7 +5,9 @@
 **Architecture:** Extends `BaseAnalyticsService[PrinciplesOperations, Principle]`
 **Location:** `/core/services/principles/principles_intelligence_service.py`
 **Service Name:** `principles.intelligence`
-**Lines:** ~1,909
+**Lines:** ~1,324
+
+**Note:** Event handlers (strength changes, reflections, conflicts) were extracted to `PrincipleEventHandlerService` in `/core/services/principles/principles_event_handler_service.py` (~670 lines) in March 2026.
 
 ---
 

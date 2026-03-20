@@ -404,7 +404,7 @@ from core.services.intelligence import (
 | **Habits** | [HABITS_INTELLIGENCE.md](./HABITS_INTELLIGENCE.md) | ~539 | Streak patterns, habit formation insights |
 | **Events** | [EVENTS_INTELLIGENCE.md](./EVENTS_INTELLIGENCE.md) | ~492 | Cross-domain impact, learning practice tracking |
 | **Choices** | [CHOICES_INTELLIGENCE.md](./CHOICES_INTELLIGENCE.md) | ~679 | Decision support, outcome analysis |
-| **Principles** | [PRINCIPLES_INTELLIGENCE.md](./PRINCIPLES_INTELLIGENCE.md) | ~650 | Alignment analysis, conflict detection |
+| **Principles** | [PRINCIPLES_INTELLIGENCE.md](./PRINCIPLES_INTELLIGENCE.md) | ~1,324 | Alignment analysis, conflict detection |
 
 ---
 
