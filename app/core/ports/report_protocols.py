@@ -4,7 +4,7 @@ Report Protocols
 
 Route-facing protocols for the Report stage of SKUEL's core educational loop:
 
-    Ku → Exercise → Submission → Report
+    Lesson → Exercise → Submission → Report
                                    ↑
                          someone responds to the work
 
@@ -13,7 +13,7 @@ Reports have two implementations — the mechanism differs, the concept is the s
     Human report  (teacher reviews and writes)  → processor_type = HUMAN
     AI report     (LLM evaluates via Exercise)   → processor_type = LLM
 
-Both create SUBMISSION_REPORT entities (EntityType.SUBMISSION_REPORT) linked to the
+Both create EXERCISE_REPORT entities (EntityType.EXERCISE_REPORT) linked to the
 submission via REPORT_FOR. The processor_type field discriminates the source.
 
 Progress reports (EntityType.ACTIVITY_REPORT) are macro-level AI reports — the system
@@ -21,7 +21,7 @@ summarises cross-domain activity over a time window. Still a report, broader sco
 
 Protocol Responsibilities
 --------------------------
-    SubmissionReportOperations   — Human + AI report CRUD (SUBMISSION_REPORT entities)
+    SubmissionReportOperations   — Human + AI report CRUD (EXERCISE_REPORT entities)
     ProgressReportOperations     — Auto-generated progress reports (ACTIVITY_REPORT entities)
     ProgressScheduleOperations   — Recurring progress report scheduling
     ActivityReportOperations     — Processor-neutral ActivityReport CRUD (snapshot, submit, history, annotate)
@@ -315,7 +315,7 @@ class TeacherReviewOperations(Protocol):
         self,
         teacher_uid: str,
         status_filter: str | None = None,
-        ku_type_filter: str | None = None,
+        entity_type_filter: str | None = None,
     ) -> Result[list[dict[str, Any]]]:
         """Get teacher's pending review queue. Returns Result[list[dict]]."""
         ...

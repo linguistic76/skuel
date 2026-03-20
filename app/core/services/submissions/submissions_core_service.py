@@ -16,11 +16,11 @@ SKUEL's fundamental process for applied learning:
 
     Exercise (shared template, admin/teacher-created)
         ↓  user submits work against it
-    Submission (user-owned, EntityType.SUBMISSION)
+    ExerciseSubmission (user-owned, EntityType.EXERCISE_SUBMISSION)
         ↓  process_exercise_submission() called with exercise_uid
         ↓  creates FULFILLS_EXERCISE relationship
         ↓  auto-shares with teacher (SHARES_WITH role='teacher')
-    Teacher review → SubmissionReport (EntityType.SUBMISSION_REPORT)
+    Teacher review → ExerciseReport (EntityType.EXERCISE_REPORT)
 
 The Exercise is a shared curriculum template. The moment a user creates
 a Submission against it, the Submission is exclusively their own work product —
@@ -28,10 +28,10 @@ user-owned, privately scoped by default.
 
 Four Entity Types
 --------------------------
-    SUBMISSION      → Student's work submitted against an Exercise (user-owned)
-    JOURNAL         → Voice/text journal entries with metadata (user-owned)
+    EXERCISE_SUBMISSION → Student's work submitted against an Exercise (user-owned)
+    JOURNAL_SUBMISSION  → Voice/text journal entries with metadata (user-owned)
     ACTIVITY_REPORT     → System-generated progress reports (user-owned)
-    SUBMISSION_REPORT → Teacher feedback on a Submission (teacher-owned)
+    EXERCISE_REPORT     → Teacher feedback on a Submission (teacher-owned)
 
 Service Responsibilities
 --------------------------
@@ -68,8 +68,8 @@ from core.services.domain_config import DomainConfig
 from core.services.submissions.assessment_service import AssessmentService
 from core.services.submissions.journals_core_service import (
     DEFAULT_JOURNAL_INSTRUCTIONS,
-    JournalUploadResult,
     JournalsCoreService,
+    JournalUploadResult,
 )
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_report_date
@@ -84,7 +84,7 @@ class ReportCategory:
     """
     Categories for submission content organization.
 
-    Stored in Ku.metadata['category'].
+    Stored in metadata['category'].
     Using constants instead of Enum for flexibility with existing data.
     """
 
@@ -145,7 +145,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
     Core submission service for content management operations.
 
     This service focuses on:
-    - Retrieving Ku entities with content
+    - Retrieving submission entities with content
     - Status workflow (publish, archive, draft)
     - Category management
     - Tag management
@@ -249,7 +249,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         Get a submission by UID.
 
         Args:
-            uid: Ku unique identifier
+            uid: Submission unique identifier
 
         Returns:
             Result containing the entity or an error
@@ -270,12 +270,12 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         Get a submission with access control verification.
 
         Checks if the user can view the entity based on:
-        - Ownership (user owns the Ku)
-        - Visibility (PUBLIC Ku visible to all)
+        - Ownership (user owns the submission)
+        - Visibility (PUBLIC submission visible to all)
         - Sharing (SHARED submission with SHARES_WITH relationship)
 
         Args:
-            uid: Ku unique identifier
+            uid: Submission unique identifier
             user_uid: User requesting access
 
         Returns:
@@ -340,15 +340,15 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         entity_type: EntityType | None = None,
     ) -> Result[list[SubmissionEntity]]:
         """
-        Get recent Ku entities.
+        Get recent submission entities.
 
         Args:
-            limit: Maximum number of Ku entities to return
+            limit: Maximum number of submission entities to return
             user_uid: Optional user filter
-            entity_type: Optional type filter (e.g., SUBMISSION, ACTIVITY_REPORT)
+            entity_type: Optional type filter (e.g., EXERCISE_SUBMISSION, ACTIVITY_REPORT)
 
         Returns:
-            Result containing list of Ku entities
+            Result containing list of submission entities
         """
         filters: dict[str, Any] = {}
 
@@ -362,9 +362,9 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         else:
             result = await self.backend.list(limit=limit)
             if result.is_ok:
-                kus_list = result.value
-                kus_list.sort(key=get_report_date, reverse=True)
-                return Result.ok(kus_list[:limit])
+                submissions_list = result.value
+                submissions_list.sort(key=get_report_date, reverse=True)
+                return Result.ok(submissions_list[:limit])
             return Result.ok([])
 
         if result.is_error:
@@ -511,7 +511,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
             self.logger.debug(f"Published SubmissionDeleted event for {uid}")
             return Result.ok(True)
 
-        return Result.fail(Errors.system("Failed to delete Ku"))
+        return Result.fail(Errors.system("Failed to delete submission"))
 
     # ========================================================================
     # STATUS MANAGEMENT
@@ -567,7 +567,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         """
         Categorize an entity.
 
-        Categories are stored in Ku.metadata['category'].
+        Categories are stored in metadata['category'].
 
         Args:
             uid: Submission UID
@@ -599,7 +599,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         self, category: str, limit: int = 50, user_uid: str | None = None
     ) -> Result[list[SubmissionEntity]]:
         """
-        Get Ku entities by category.
+        Get submission entities by category.
 
         Args:
             category: Category to filter by
@@ -607,7 +607,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
             user_uid: Optional user filter
 
         Returns:
-            List of Ku entities in category
+            List of submission entities in category
         """
         # Get all entities and filter by metadata.category
         filters: dict[str, Any] = {}
@@ -619,10 +619,12 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         else:
             result = await self.backend.list(limit=limit * 2)  # Fetch more, filter down
             if result.is_ok:
-                kus_list = result.value
+                submissions_list = result.value
                 # Filter by category in metadata
                 filtered = [
-                    k for k in kus_list if k.metadata and k.metadata.get("category") == category
+                    s
+                    for s in submissions_list
+                    if s.metadata and s.metadata.get("category") == category
                 ]
                 return Result.ok(filtered[:limit])
             return Result.ok([])
@@ -632,7 +634,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
 
         reports = result.value or []
         # Filter by category in metadata
-        filtered = [k for k in reports if k.metadata and k.metadata.get("category") == category]
+        filtered = [s for s in reports if s.metadata and s.metadata.get("category") == category]
 
         return Result.ok(filtered[:limit])
 
@@ -644,7 +646,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         """
         Add tags to an entity.
 
-        Tags are stored in Ku.metadata['tags'].
+        Tags are stored in metadata['tags'].
 
         Args:
             uid: Submission UID
@@ -704,7 +706,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         self, tag: str, limit: int = 50, user_uid: str | None = None
     ) -> Result[list[SubmissionEntity]]:
         """
-        Get Ku entities with a specific tag.
+        Get submission entities with a specific tag.
 
         Args:
             tag: Tag to search for
@@ -712,7 +714,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
             user_uid: Optional user filter
 
         Returns:
-            List of Ku entities with the tag
+            List of submission entities with the tag
         """
         # Get all entities and filter by metadata.tags
         filters: dict[str, Any] = {}
@@ -724,10 +726,12 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         else:
             result = await self.backend.list(limit=limit * 2)
             if result.is_ok:
-                kus_list = result.value
+                submissions_list = result.value
                 # Filter by tag in metadata
                 filtered = [
-                    k for k in kus_list if k.metadata and tag in (k.metadata.get("tags") or [])
+                    s
+                    for s in submissions_list
+                    if s.metadata and tag in (s.metadata.get("tags") or [])
                 ]
                 return Result.ok(filtered[:limit])
             return Result.ok([])
@@ -737,7 +741,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
 
         reports = result.value or []
         # Filter by tag in metadata
-        filtered = [k for k in reports if k.metadata and tag in (k.metadata.get("tags") or [])]
+        filtered = [s for s in reports if s.metadata and tag in (s.metadata.get("tags") or [])]
 
         return Result.ok(filtered[:limit])
 
@@ -747,7 +751,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
 
     async def bulk_categorize(self, uids: list[str], category: str) -> Result[int]:
         """
-        Bulk categorize multiple Ku entities.
+        Bulk categorize multiple submission entities.
 
         Args:
             uids: List of submission UIDs to categorize
@@ -769,7 +773,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
                 updated_count += 1
                 self.logger.debug(f"Updated submission {uid} to category {category}")
             else:
-                error_msg = f"Failed to update Ku {uid}: {result.error}"
+                error_msg = f"Failed to update submission {uid}: {result.error}"
                 errors.append(error_msg)
                 self.logger.warning(error_msg)
 
@@ -783,7 +787,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
 
     async def bulk_tag(self, uids: list[str], tags: list[str]) -> Result[int]:
         """
-        Bulk add tags to multiple Ku entities.
+        Bulk add tags to multiple submission entities.
 
         Args:
             uids: List of submission UIDs to tag
@@ -801,9 +805,9 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
             result = await self.add_tags(uid, tags)
             if result.is_ok:
                 updated_count += 1
-                self.logger.debug(f"Added tags {tags} to Ku {uid}")
+                self.logger.debug(f"Added tags {tags} to submission {uid}")
             else:
-                error_msg = f"Failed to tag Ku {uid}: {result.error}"
+                error_msg = f"Failed to tag submission {uid}: {result.error}"
                 errors.append(error_msg)
                 self.logger.warning(error_msg)
 
@@ -817,7 +821,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
 
     async def bulk_delete(self, uids: list[str], soft_delete: bool = True) -> Result[int]:
         """
-        Bulk delete multiple Ku entities.
+        Bulk delete multiple submission entities.
 
         Args:
             uids: List of submission UIDs to delete
@@ -845,7 +849,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
                 deleted_count += 1
                 self.logger.debug(f"Deleted submission {uid}")
             else:
-                error_msg = f"Failed to delete Ku {uid}"
+                error_msg = f"Failed to delete submission {uid}"
                 errors.append(error_msg)
                 self.logger.warning(error_msg)
 
@@ -906,7 +910,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
 
     async def process_exercise_submission(
         self,
-        ku_uid: str,
+        submission_uid: str,
         exercise_uid: str,
     ) -> Result[bool]:
         """
@@ -915,14 +919,14 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         When a student submits against an assigned exercise:
         1. Create FULFILLS_EXERCISE relationship
         2. Look up the exercise's owner (teacher)
-        3. Auto-create SHARES_WITH from teacher to Ku
-        4. Set Ku status to SUBMITTED if processor_type is HUMAN
+        3. Auto-create SHARES_WITH from teacher to submission
+        4. Set submission status to SUBMITTED if processor_type is HUMAN
 
-        Called by routes after Ku creation when exercise_uid is provided.
+        Called by routes after submission creation when exercise_uid is provided.
 
         Args:
-            ku_uid: The submitted submission UID
-            exercise_uid: The Exercise UID this Ku fulfills
+            submission_uid: The submitted submission UID
+            exercise_uid: The Exercise UID this submission fulfills
 
         Returns:
             Result[bool]: True if exercise processing was applied
@@ -963,10 +967,10 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
             # Verify submitting student matches the targeted student
             submitter_result = await self.backend.execute_query(
                 f"""
-                MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(ku:Entity {{uid: $ku_uid}})
+                MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(submission:Entity {{uid: $submission_uid}})
                 RETURN student.uid as student_uid
                 """,
-                {"ku_uid": ku_uid},
+                {"submission_uid": submission_uid},
             )
             if submitter_result.is_error:
                 self.logger.error(f"Error querying submitter: {submitter_result.error}")
@@ -996,11 +1000,11 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
             if group_uid:
                 student_result = await self.backend.execute_query(
                     f"""
-                    MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(ku:Entity {{uid: $ku_uid}})
+                    MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(submission:Entity {{uid: $submission_uid}})
                     OPTIONAL MATCH (student)-[:{RelationshipName.MEMBER_OF.value}]->(g:Group {{uid: $group_uid}})
                     RETURN student.uid as student_uid, g.uid as member_of_group
                     """,
-                    {"ku_uid": ku_uid, "group_uid": group_uid},
+                    {"submission_uid": submission_uid, "group_uid": group_uid},
                 )
 
                 if student_result.is_error:
@@ -1020,10 +1024,10 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         if exercise_title:
             student_uid_result = await self.backend.execute_query(
                 f"""
-                MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(ku:Entity {{uid: $ku_uid}})
+                MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(submission:Entity {{uid: $submission_uid}})
                 RETURN student.uid as student_uid
                 """,
-                {"ku_uid": ku_uid},
+                {"submission_uid": submission_uid},
             )
             if not student_uid_result.is_error:
                 student_uid_records = student_uid_result.value or []
@@ -1053,11 +1057,11 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
                     )
                     await self.backend.execute_query(
                         """
-                        MATCH (s:Entity {uid: $ku_uid})
+                        MATCH (s:Entity {uid: $submission_uid})
                         SET s.title = $new_title, s.updated_at = $now
                         """,
                         {
-                            "ku_uid": ku_uid,
+                            "submission_uid": submission_uid,
                             "new_title": new_title,
                             "now": datetime.now().isoformat(),
                         },
@@ -1068,13 +1072,13 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         # Accepts both Exercise and RevisedExercise entity types
         fulfills_result = await self.backend.execute_query(
             f"""
-            MATCH (ku:Entity {{uid: $ku_uid}})
+            MATCH (submission:Entity {{uid: $submission_uid}})
             MATCH (exercise:Entity {{uid: $exercise_uid}})
             WHERE exercise.entity_type IN ['exercise', 'revised_exercise']
-            MERGE (ku)-[:{RelationshipName.FULFILLS_EXERCISE}]->(exercise)
+            MERGE (submission)-[:{RelationshipName.FULFILLS_EXERCISE}]->(exercise)
             RETURN true as success
             """,
-            {"ku_uid": ku_uid, "exercise_uid": exercise_uid},
+            {"submission_uid": submission_uid, "exercise_uid": exercise_uid},
         )
 
         if fulfills_result.is_error:
@@ -1082,17 +1086,17 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
 
         # 2. Auto-share with teacher
         share_result = await self.backend.execute_query(
-            """
-            MATCH (teacher:User {uid: $teacher_uid})
-            MATCH (ku:Entity {uid: $ku_uid})
-            MERGE (teacher)-[r:SHARES_WITH]->(ku)
+            f"""
+            MATCH (teacher:User {{uid: $teacher_uid}})
+            MATCH (submission:Entity {{uid: $submission_uid}})
+            MERGE (teacher)-[r:{RelationshipName.SHARES_WITH.value}]->(submission)
             SET r.shared_at = datetime($now),
                 r.role = 'teacher'
             RETURN true as success
             """,
             {
                 "teacher_uid": teacher_uid,
-                "ku_uid": ku_uid,
+                "submission_uid": submission_uid,
                 "now": datetime.now().isoformat(),
             },
         )
@@ -1101,15 +1105,10 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
             self.logger.warning(f"Failed to auto-share with teacher: {share_result.error}")
 
         self.logger.info(
-            f"Exercise submission processed: ku={ku_uid} -> exercise={exercise_uid}, "
+            f"Exercise submission processed: submission={submission_uid} -> exercise={exercise_uid}, "
             f"teacher={teacher_uid}"
         )
         return Result.ok(True)
-
-    # Backward-compatible alias
-    async def process_assignment_submission(self, ku_uid: str, project_uid: str) -> Result[bool]:
-        """Alias for process_exercise_submission (backward compatibility)."""
-        return await self.process_exercise_submission(ku_uid, project_uid)
 
     # ========================================================================
     # JOURNAL DELEGATION (→ JournalsCoreService)

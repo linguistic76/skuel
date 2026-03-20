@@ -1090,21 +1090,6 @@ class TestProcessExerciseSubmission:
         assert backend.execute_query.await_count == 3
 
 
-class TestProcessAssignmentSubmission:
-    """Tests for process_assignment_submission backward-compat alias."""
-
-    @pytest.mark.asyncio
-    async def test_delegates_to_process_exercise_submission(self):
-        backend = _make_backend()
-        backend.execute_query = AsyncMock(return_value=Result.ok([]))
-        service = _make_service(backend=backend)
-
-        result = await service.process_assignment_submission("sub_1", "ex_1")
-
-        assert result.is_ok
-        assert result.value is False  # Exercise not found
-
-
 # ===========================================================================
 # E. Content Management
 # ===========================================================================

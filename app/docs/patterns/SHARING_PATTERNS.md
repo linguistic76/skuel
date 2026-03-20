@@ -127,10 +127,9 @@ access = await sharing_service.check_access(
 
 # Step 2: Student submits against assigned Exercise
 # Auto-sharing happens inside SubmissionsCoreService
-await submissions_core_service.process_assignment_submission(
+await submissions_core_service.process_exercise_submission(
     submission_uid=submission_uid,
     exercise_uid=exercise_uid,
-    student_uid=student_uid,
 )
 # This automatically:
 # - Creates FULFILLS_EXERCISE relationship (submission → exercise)

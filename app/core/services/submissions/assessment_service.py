@@ -134,12 +134,12 @@ class AssessmentService:
         # Create ASSESSMENT_OF relationship
         assess_result = await self.backend.execute_query(
             f"""
-            MATCH (k:Entity {{uid: $ku_uid}})
+            MATCH (assessment:Entity {{uid: $assessment_uid}})
             MATCH (u:User {{uid: $subject_uid}})
-            MERGE (k)-[:{RelationshipName.ASSESSMENT_OF.value}]->(u)
+            MERGE (assessment)-[:{RelationshipName.ASSESSMENT_OF.value}]->(u)
             RETURN true AS success
             """,
-            {"ku_uid": uid, "subject_uid": subject_uid},
+            {"assessment_uid": uid, "subject_uid": subject_uid},
         )
 
         if assess_result.is_error:
@@ -156,15 +156,15 @@ class AssessmentService:
         share_result = await self.backend.execute_query(
             """
             MATCH (student:User {uid: $subject_uid})
-            MATCH (k:Entity {uid: $ku_uid})
-            MERGE (student)-[rel:SHARES_WITH]->(k)
+            MATCH (assessment:Entity {uid: $assessment_uid})
+            MERGE (student)-[rel:{RelationshipName.SHARES_WITH.value}]->(assessment)
             SET rel.shared_at = datetime($now),
                 rel.role = 'student'
             RETURN true AS success
             """,
             {
                 "subject_uid": subject_uid,
-                "ku_uid": uid,
+                "assessment_uid": uid,
                 "now": datetime.now().isoformat(),
             },
         )
@@ -207,10 +207,10 @@ class AssessmentService:
         """
         result = await self.backend.execute_query(
             f"""
-            MATCH (k:Entity)-[:{RelationshipName.ASSESSMENT_OF.value}]->(u:User {{uid: $student_uid}})
-            WHERE k.entity_type = 'exercise_report'
-            RETURN k
-            ORDER BY k.created_at DESC
+            MATCH (report:Entity)-[:{RelationshipName.ASSESSMENT_OF.value}]->(u:User {{uid: $student_uid}})
+            WHERE report.entity_type = 'exercise_report'
+            RETURN report
+            ORDER BY report.created_at DESC
             LIMIT $limit
             """,
             {"student_uid": student_uid, "limit": limit},
@@ -221,7 +221,7 @@ class AssessmentService:
 
         reports = []
         for record in result.value or []:
-            node = record["k"]
+            node = record["report"]
             dto = SubmissionDTO.from_dict(node)
             reports.append(Entity.from_dto(dto))
         return Result.ok(reports)

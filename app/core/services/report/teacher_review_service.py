@@ -63,19 +63,19 @@ class TeacherReviewService:
         self,
         teacher_uid: str,
         status_filter: str | None = None,
-        ku_type_filter: str | None = None,
+        entity_type_filter: str | None = None,
     ) -> Result[list[dict[str, Any]]]:
         """
         Get teacher's pending review queue.
 
-        Returns Ku shared with the teacher via role="teacher",
+        Returns submissions shared with the teacher via role="teacher",
         optionally filtered by status or entity_type. Includes count of
         existing feedback rounds per submission.
 
         Args:
             teacher_uid: Teacher UID
             status_filter: Optional status filter (e.g., "submitted")
-            ku_type_filter: Optional entity_type filter (e.g., "submission", "task")
+            entity_type_filter: Optional entity_type filter (e.g., "exercise_submission")
 
         Returns:
             Result containing list of review items
@@ -87,9 +87,9 @@ class TeacherReviewService:
             where_clauses.append("report.status = $status_filter")
             params["status_filter"] = status_filter
 
-        if ku_type_filter:
-            where_clauses.append("report.entity_type = $ku_type_filter")
-            params["ku_type_filter"] = ku_type_filter
+        if entity_type_filter:
+            where_clauses.append("report.entity_type = $entity_type_filter")
+            params["entity_type_filter"] = entity_type_filter
 
         where_clause = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
 

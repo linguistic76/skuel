@@ -579,14 +579,14 @@ class TestGetReviewQueue:
         assert params["status_filter"] == "submitted"
 
     @pytest.mark.asyncio
-    async def test_ku_type_filter_passed_as_param(self):
+    async def test_entity_type_filter_passed_as_param(self):
         executor = _make_executor(Result.ok([]))
         service = _make_service(executor=executor)
 
-        await service.get_review_queue(TEACHER_UID, ku_type_filter="exercise_submission")
+        await service.get_review_queue(TEACHER_UID, entity_type_filter="exercise_submission")
 
         params = executor.execute_query.call_args[0][1]
-        assert params["ku_type_filter"] == "exercise_submission"
+        assert params["entity_type_filter"] == "exercise_submission"
 
     @pytest.mark.asyncio
     async def test_db_error_propagated(self):

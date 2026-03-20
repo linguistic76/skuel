@@ -38,22 +38,22 @@ async def handle_exercise_submission(
         return
 
     logger.info(
-        f"Exercise submission detected: ku={event.submission_uid} "
+        f"Exercise submission detected: submission={event.submission_uid} "
         f"-> exercise={event.fulfills_exercise_uid}"
     )
 
     result = await reports_core_service.process_exercise_submission(  # type: ignore[attr-defined]
-        ku_uid=event.submission_uid,
+        submission_uid=event.submission_uid,
         exercise_uid=event.fulfills_exercise_uid,
     )
 
     if result.is_error:
         logger.error(
-            f"Failed to process exercise submission: ku={event.submission_uid}, "
+            f"Failed to process exercise submission: submission={event.submission_uid}, "
             f"exercise={event.fulfills_exercise_uid}, error={result.error}"
         )
     elif result.value:
         logger.info(
-            f"Exercise submission processed: ku={event.submission_uid} "
+            f"Exercise submission processed: submission={event.submission_uid} "
             f"-> exercise={event.fulfills_exercise_uid}"
         )

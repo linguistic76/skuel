@@ -224,7 +224,7 @@ class TestGetAssessments:
         mock_backend.execute_query.return_value = Result.ok(
             [
                 {
-                    "k": {
+                    "report": {
                         "uid": "report_123",
                         "user_uid": "user_teacher",
                         "entity_type": "submission_report",
