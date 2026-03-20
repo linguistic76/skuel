@@ -256,6 +256,33 @@ result = await planning.get_actionable_tasks_for_user(user_uid, user_context)
 
 ---
 
+### EventHandlerService
+
+**Domains:** Tasks, Principles (more coming)
+**File:** `task_event_handler_service.py`, `principles_event_handler_service.py`
+
+**Responsibility:** Event-driven reactive logic (fire-and-forget handlers)
+
+**Key Methods (Tasks):**
+- `handle_task_completed()` - Duration calibration, overdue detection, principle alignment
+- `handle_task_priority_changed()` - Categorization, cascade impact, inflation detection
+- `handle_tasks_bulk_completed()` - Batch pattern classification
+
+**When to use:**
+- Reacting to domain events with fire-and-forget logic
+- Cross-domain insight generation from event context
+- Pattern detection that doesn't need to block the original operation
+
+**Example:**
+```python
+from core.services.tasks import TaskEventHandlerService
+
+handler = TaskEventHandlerService(backend=backend, relationship_service=rels)
+# Subscribed via event_bus in bootstrap — not called directly
+```
+
+---
+
 ### LearningService
 
 **Domains:** Habits, Choices, Goals

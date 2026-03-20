@@ -4,7 +4,7 @@ Tasks Service Sub-Services
 
 This package contains focused sub-services that compose the unified TasksService facade.
 
-Architecture: Facade Pattern (7 sub-services)
+Architecture: Facade Pattern (8 sub-services)
 - Each sub-service handles ONE specific responsibility
 - TasksService (facade) auto-delegates to appropriate sub-service via explicit delegation methods
 - ~35 auto-generated delegation methods + explicit orchestration methods
@@ -17,6 +17,7 @@ Sub-Services:
 - TasksSchedulingService: Scheduling, capacity management
 - TasksPlanningService: Context-aware planning and recommendations
 - TasksIntelligenceService: Pure Cypher analytics (NO AI dependencies)
+- TaskEventHandlerService: Event-driven reactive handlers
 - TasksAIService: AI-powered features (LLM/embeddings) - OPTIONAL
 
 Common Import Pattern (Production):
@@ -41,6 +42,7 @@ Architecture Notes:
 """
 
 # Import implemented services
+from core.services.tasks.task_event_handler_service import TaskEventHandlerService
 from core.services.tasks.tasks_ai_service import TasksAIService
 from core.services.tasks.tasks_core_service import TasksCoreService
 from core.services.tasks.tasks_intelligence_service import TasksIntelligenceService
@@ -50,6 +52,7 @@ from core.services.tasks.tasks_scheduling_service import TasksSchedulingService
 from core.services.tasks.tasks_search_service import TasksSearchService
 
 __all__ = [
+    "TaskEventHandlerService",
     "TasksAIService",
     "TasksCoreService",
     "TasksIntelligenceService",

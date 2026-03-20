@@ -12,6 +12,7 @@ Event Catalog:
 - task.priority_changed - Task priority changed (high-priority event)
 
 Subscribers:
+- TaskEventHandlerService (duration calibration, overdue detection, principle alignment)
 - UserService (context invalidation)
 - GoalAnalyticsService (goal progress tracking)
 - AnalyticsEngine (completion patterns)
@@ -58,6 +59,7 @@ class TaskCompleted(BaseEvent):
     Triggers context invalidation, analytics, and goal progress updates.
 
     Subscribers:
+    - TaskEventHandlerService (duration calibration, overdue detection, principle alignment)
     - UserService (invalidate user context)
     - GoalAnalyticsService (update goal progress)
     - AnalyticsEngine (track completion patterns)
@@ -131,6 +133,7 @@ class TaskPriorityChanged(BaseEvent):
     immediate attention from multiple subscribers.
 
     Subscribers:
+    - TaskEventHandlerService (categorization, cascade impact, inflation detection)
     - UserService (invalidate context)
     - NotificationService (notify if priority increased to urgent)
     - Analytics (track priority escalation patterns)
@@ -163,6 +166,7 @@ class TasksBulkCompleted(BaseEvent):
     More efficient than publishing N individual TaskCompleted events.
 
     Subscribers:
+    - TaskEventHandlerService (batch pattern classification)
     - UserService (single context invalidation)
     - GoalAnalyticsService (batch goal progress update)
     """

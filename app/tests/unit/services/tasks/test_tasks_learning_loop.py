@@ -18,6 +18,7 @@ import pytest
 from core.constants import LearningLoop
 from core.events.task_events import TaskCompleted
 from core.models.task.task import Task
+from core.services.tasks.task_event_handler_service import TaskEventHandlerService
 from core.services.tasks.tasks_intelligence_service import TasksIntelligenceService
 from core.utils.result_simplified import Result
 
@@ -53,7 +54,14 @@ def _make_backend():
     return backend
 
 
-def _make_service(backend=None):
+def _make_event_handler(backend=None):
+    """Create TaskEventHandlerService with mocked backend."""
+    if backend is None:
+        backend = _make_backend()
+    return TaskEventHandlerService(backend=backend)
+
+
+def _make_intelligence_service(backend=None):
     """Create TasksIntelligenceService with mocked backend."""
     if backend is None:
         backend = _make_backend()
@@ -61,7 +69,7 @@ def _make_service(backend=None):
 
 
 class TestLearnFromCompletion:
-    """Test learn_from_completion event handler."""
+    """Test duration calibration in TaskEventHandlerService.handle_task_completed."""
 
     @pytest.mark.asyncio
     async def test_ema_calculation_cold_start(self):
@@ -71,10 +79,10 @@ class TestLearnFromCompletion:
         backend.get.return_value = Result.ok(task)
         backend.get_user_learning_state.return_value = Result.ok({})
 
-        service = _make_service(backend)
+        handler = _make_event_handler(backend)
         event = _make_event()
 
-        await service.learn_from_completion(event)
+        await handler.handle_task_completed(event)
 
         # ratio = 45/30 = 1.5, EMA = 0.3 * 1.5 + 0.7 * 1.0 = 1.15
         call_args = backend.update_user_learning_state.call_args[0]
@@ -93,10 +101,10 @@ class TestLearnFromCompletion:
             {"task_duration_ratio": 1.5, "task_completion_count": 5}
         )
 
-        service = _make_service(backend)
+        handler = _make_event_handler(backend)
         event = _make_event()
 
-        await service.learn_from_completion(event)
+        await handler.handle_task_completed(event)
 
         # ratio = 60/60 = 1.0, EMA = 0.3 * 1.0 + 0.7 * 1.5 = 1.35
         props = backend.update_user_learning_state.call_args[0][1]
@@ -111,8 +119,8 @@ class TestLearnFromCompletion:
         backend.get.return_value = Result.ok(task)
         backend.get_user_learning_state.return_value = Result.ok({})
 
-        service = _make_service(backend)
-        await service.learn_from_completion(_make_event())
+        handler = _make_event_handler(backend)
+        await handler.handle_task_completed(_make_event())
 
         # ratio = 100/10 = 10.0 -> clamped to 3.0
         # EMA = 0.3 * 3.0 + 0.7 * 1.0 = 1.6
@@ -127,8 +135,8 @@ class TestLearnFromCompletion:
         backend.get.return_value = Result.ok(task)
         backend.get_user_learning_state.return_value = Result.ok({})
 
-        service = _make_service(backend)
-        await service.learn_from_completion(_make_event())
+        handler = _make_event_handler(backend)
+        await handler.handle_task_completed(_make_event())
 
         # ratio = 1/100 = 0.01 -> clamped to 0.2
         # EMA = 0.3 * 0.2 + 0.7 * 1.0 = 0.76
@@ -142,8 +150,8 @@ class TestLearnFromCompletion:
         task = _make_task(duration_minutes=None, actual_minutes=45)
         backend.get.return_value = Result.ok(task)
 
-        service = _make_service(backend)
-        await service.learn_from_completion(_make_event())
+        handler = _make_event_handler(backend)
+        await handler.handle_task_completed(_make_event())
 
         backend.update_user_learning_state.assert_not_awaited()
 
@@ -154,8 +162,8 @@ class TestLearnFromCompletion:
         task = _make_task(duration_minutes=30, actual_minutes=None)
         backend.get.return_value = Result.ok(task)
 
-        service = _make_service(backend)
-        await service.learn_from_completion(_make_event())
+        handler = _make_event_handler(backend)
+        await handler.handle_task_completed(_make_event())
 
         backend.update_user_learning_state.assert_not_awaited()
 
@@ -165,8 +173,8 @@ class TestLearnFromCompletion:
         backend = _make_backend()
         backend.get.return_value = Result.ok(None)
 
-        service = _make_service(backend)
-        await service.learn_from_completion(_make_event())
+        handler = _make_event_handler(backend)
+        await handler.handle_task_completed(_make_event())
 
         backend.update_user_learning_state.assert_not_awaited()
 
@@ -178,8 +186,8 @@ class TestLearnFromCompletion:
         backend.get.return_value = Result.ok(task)
         backend.get_user_learning_state.return_value = Result.ok({})
 
-        service = _make_service(backend)
-        await service.learn_from_completion(_make_event())
+        handler = _make_event_handler(backend)
+        await handler.handle_task_completed(_make_event())
 
         # predicted = round(30 * 1.15) = 34 or 35
         task_update_call = backend.update.call_args
@@ -189,19 +197,21 @@ class TestLearnFromCompletion:
 
     @pytest.mark.asyncio
     async def test_error_is_swallowed(self):
-        """Errors in learn_from_completion don't propagate."""
-        backend = _make_backend()
-        backend.get.side_effect = Exception("DB down")
+        """Neo4j errors in handle_task_completed don't propagate."""
+        from neo4j.exceptions import ServiceUnavailable
 
-        service = _make_service(backend)
+        backend = _make_backend()
+        backend.get.side_effect = ServiceUnavailable("DB down")
+
+        handler = _make_event_handler(backend)
         # Should not raise
-        await service.learn_from_completion(_make_event())
+        await handler.handle_task_completed(_make_event())
 
     @pytest.mark.asyncio
     async def test_convergence_over_multiple_completions(self):
         """EMA converges toward consistent ratio over repeated completions."""
         backend = _make_backend()
-        service = _make_service(backend)
+        handler = _make_event_handler(backend)
 
         # Simulate 10 completions where actual is always 1.5x estimated
         current_ratio = LearningLoop.DEFAULT_DURATION_RATIO
@@ -212,7 +222,7 @@ class TestLearnFromCompletion:
                 {"task_duration_ratio": current_ratio, "task_completion_count": i}
             )
 
-            await service.learn_from_completion(_make_event())
+            await handler.handle_task_completed(_make_event())
 
             props = backend.update_user_learning_state.call_args[0][1]
             current_ratio = props["task_duration_ratio"]
@@ -232,7 +242,7 @@ class TestPerformanceAnalyticsLearningFields:
             {"task_duration_ratio": 1.3, "task_completion_count": 8}
         )
 
-        service = _make_service(backend)
+        service = _make_intelligence_service(backend)
         result = await service.get_performance_analytics("user_123")
 
         assert result.is_ok
@@ -249,7 +259,7 @@ class TestPerformanceAnalyticsLearningFields:
             {"task_duration_ratio": 1.1, "task_completion_count": 3}
         )
 
-        service = _make_service(backend)
+        service = _make_intelligence_service(backend)
         result = await service.get_performance_analytics("user_123")
 
         assert result.is_ok
@@ -262,7 +272,7 @@ class TestPerformanceAnalyticsLearningFields:
         backend.find_by.return_value = Result.ok([])
         backend.get_user_learning_state.return_value = Result.ok({})
 
-        service = _make_service(backend)
+        service = _make_intelligence_service(backend)
         result = await service.get_performance_analytics("user_123")
 
         assert result.is_ok

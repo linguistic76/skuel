@@ -1039,6 +1039,7 @@ def _wire_event_subscribers(
         TaskCreated,
         TaskDeleted,
         TaskPriorityChanged,
+        TasksBulkCompleted,
         TaskUpdated,
     )
     from core.events.handlers.exercise_handler import handle_exercise_submission
@@ -1334,10 +1335,12 @@ def _wire_event_subscribers(
 
     # ---- Adaptive Learning Loop (ADR-048) ----
 
-    # Task intelligence - duration calibration from completions
+    # Task event handlers - duration calibration, priority analysis, batch patterns
     tasks_service = activity_services["tasks"]
-    event_bus.subscribe(TaskCompleted, tasks_service.intelligence.learn_from_completion)
-    logger.info("✅ TasksIntelligenceService subscribed to TaskCompleted (learning loop)")
+    event_bus.subscribe(TaskCompleted, tasks_service.event_handler.handle_task_completed)
+    event_bus.subscribe(TaskPriorityChanged, tasks_service.event_handler.handle_task_priority_changed)
+    event_bus.subscribe(TasksBulkCompleted, tasks_service.event_handler.handle_tasks_bulk_completed)
+    logger.info("✅ TaskEventHandlerService subscribed to TaskCompleted, TaskPriorityChanged, TasksBulkCompleted")
 
     # Habit intelligence - timing/scheduling learning from completions
     habits_service = activity_services["habits"]

@@ -40,6 +40,7 @@ from core.services.relationships import UnifiedRelationshipService
 
 # Sub-services
 from core.services.tasks import (
+    TaskEventHandlerService,
     TasksCoreService,
     TasksIntelligenceService,
     TasksPlanningService,
@@ -234,6 +235,7 @@ class TasksService(BaseService["TasksOperations", Task]):
     planning: TasksPlanningService
     relationships: UnifiedRelationshipService
     intelligence: TasksIntelligenceService
+    event_handler: TaskEventHandlerService
 
     def __init__(
         self,
@@ -301,6 +303,12 @@ class TasksService(BaseService["TasksOperations", Task]):
             relationship_service=self.relationships,
         )
 
+        # Event-driven reactive handlers (fire-and-forget)
+        self.event_handler = TaskEventHandlerService(
+            backend=backend,
+            relationship_service=self.relationships,
+        )
+
         # Analytics engine for direct calls (simplified from TasksAnalyticsService)
         # January 2026: TasksAnalyticsService removed - AnalyticsEngine called directly
         self.analytics_engine = analytics_engine or AnalyticsEngine(
@@ -309,8 +317,8 @@ class TasksService(BaseService["TasksOperations", Task]):
         self.ku_generation_service = ku_generation_service
 
         self.logger.info(
-            "TasksService facade initialized with 7 sub-services: "
-            "core, search, progress, scheduling, planning, relationships, intelligence"
+            "TasksService facade initialized with 8 sub-services: "
+            "core, search, progress, scheduling, planning, relationships, intelligence, event_handler"
         )
 
     # ========================================================================
