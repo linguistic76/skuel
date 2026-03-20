@@ -156,6 +156,8 @@ if TYPE_CHECKING:
     from core.services.report.review_queue_service import ReviewQueueService
     from core.services.submissions.journal_output_generator import JournalOutputGenerator
     from core.services.tasks_service import TasksService
+    from core.services.transcription.batch_processing_service import BatchProcessingService
+    from core.services.transcription.batch_transcription_service import BatchTranscriptionService
     from core.services.transcription.transcription_service import TranscriptionService
     from core.services.user.intelligence.factory import (
         UserContextIntelligenceFactory,
@@ -274,6 +276,10 @@ class Services:
     journal_generator: "JournalOutputGenerator | None" = (
         None  # JournalOutputGenerator - je_output formatting and disk storage
     )
+
+    # Batch transcription/processing services (March 2026)
+    batch_transcription: "BatchTranscriptionService | None" = None
+    batch_processing: "BatchProcessingService | None" = None
 
     # Submission pipeline services
     submissions: SubmissionOperations | None = (
@@ -540,6 +546,7 @@ def _create_core_services(
             deepgram_adapter=deepgram_adapter,
             event_bus=event_bus,
         ),
+        "deepgram_adapter": deepgram_adapter,  # Exposed for BatchTranscriptionService
         "user": user_service,
     }
 
@@ -2277,12 +2284,22 @@ async def compose_services(
         from core.services.exercises import ExerciseService
         from core.services.report import SubmissionReportService
 
+        # UnifiedLLMCaller: routes to OpenAI or Anthropic based on model prefix
+        from core.services.llm_caller import UnifiedLLMCaller
+
+        llm_caller = None
+        if ai_service:
+            llm_caller = UnifiedLLMCaller(
+                openai=ai_service,
+                anthropic=None,  # Only OpenAI configured for now
+            )
+            logger.info("✅ UnifiedLLMCaller created")
+
         # SubmissionReportService: None in CORE tier — report generation requires AI
         submission_report_service = None
-        if ai_service:
+        if llm_caller:
             submission_report_service = SubmissionReportService(
-                openai_service=ai_service,
-                anthropic_service=None,  # Only OpenAI configured for now
+                llm_caller=llm_caller,
                 executor=query_executor,  # Creates SUBMISSION_REPORT entity + REPORT_FOR relationship
                 ku_interaction_service=learning_services[
                     "lesson_service"
@@ -2466,19 +2483,48 @@ async def compose_services(
         )
         logger.info("✅ Submission activity extractor created (DSL journal → entity extraction)")
 
+        # Create instruction resolver (stateless — works without AI)
+        from core.services.output import InstructionResolver
+
+        instruction_resolver = InstructionResolver()
+        logger.info("✅ InstructionResolver created")
+
         # Create journal processing services (requires AI for LLM formatting)
         journal_generator = None
-        if ai_service:
+        if llm_caller:
             from core.services.submissions import JournalOutputGenerator
 
             # Get journal storage path from environment (default: /tmp/skuel_journals)
             journal_storage = os.getenv("SKUEL_JOURNAL_STORAGE", "/tmp/skuel_journals")
             journal_generator = JournalOutputGenerator(
-                openai_service=ai_service, storage_base=journal_storage
+                llm_caller=llm_caller, storage_base=journal_storage
             )
             logger.info(f"✅ Journal output generator created (storage: {journal_storage})")
         else:
             logger.info("⏭️  Journal output generator skipped (intelligence tier: CORE)")
+
+        # Create batch transcription service (Tier 1: audio → txt)
+        from core.services.transcription import BatchTranscriptionService
+
+        batch_transcription = BatchTranscriptionService(
+            deepgram_adapter=core_services["deepgram_adapter"],
+            max_concurrent=5,
+        )
+        logger.info("✅ BatchTranscriptionService created (Tier 1: audio → txt)")
+
+        # Create batch processing service (Tier 2: txt → md via LLM)
+        from core.services.transcription import BatchProcessingService
+
+        batch_processing = None
+        if journal_generator:
+            batch_processing = BatchProcessingService(
+                output_generator=journal_generator,
+                instruction_resolver=instruction_resolver,
+                max_concurrent=3,
+            )
+            logger.info("✅ BatchProcessingService created (Tier 2: txt → md)")
+        else:
+            logger.info("⏭️  BatchProcessingService skipped (requires journal_generator)")
 
         submissions_processor = SubmissionsProcessingService(
             ku_submission_service=submissions_service,
@@ -2633,6 +2679,9 @@ async def compose_services(
             form_templates=form_template_service,  # General-purpose form templates
             form_submissions=form_submission_service,  # User form submissions
             journal_generator=journal_generator,  # je_output formatting and disk storage
+            # Batch transcription/processing (March 2026)
+            batch_transcription=batch_transcription,
+            batch_processing=batch_processing,
             # Group & Teaching (ADR-040: Teacher exercise workflow)
             group_service=group_service,
             teacher_review=teacher_review_service,

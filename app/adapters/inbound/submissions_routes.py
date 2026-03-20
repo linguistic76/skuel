@@ -58,6 +58,8 @@ JOURNALS_CONFIG = DomainRouteConfig(
         "user_service": "user_service",
         "journal_generator": "journal_generator",
         "submissions_core_service": "submissions_core",
+        "batch_transcription_service": "batch_transcription",
+        "batch_processing_service": "batch_processing",
     },
 )
 
@@ -238,6 +240,23 @@ def create_submissions_routes(
         journal_routes = register_domain_routes(app, rt, services, JOURNALS_CONFIG)
         routes.extend(journal_routes or [])
         logger.info("Journals UI routes registered (user journaling)")
+
+    # Extension: batch transcription/processing API routes (admin-only)
+    batch_transcription_svc = getattr(services, "batch_transcription", None)
+    if batch_transcription_svc:
+        from adapters.inbound.batch_transcription_api import (
+            create_batch_transcription_api_routes,
+        )
+
+        batch_routes = create_batch_transcription_api_routes(
+            app,
+            rt,
+            batch_transcription_service=batch_transcription_svc,
+            batch_processing_service=getattr(services, "batch_processing", None),
+            user_service=getattr(services, "user_service", None),
+        )
+        routes.extend(batch_routes or [])
+        logger.info("Batch transcription API routes registered (admin-only)")
 
     return routes
 

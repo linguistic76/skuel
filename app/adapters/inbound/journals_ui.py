@@ -16,6 +16,7 @@ from typing import Any
 
 from fasthtml.common import (
     H4,
+    H5,
     Div,
     Form,
     NotStr,
@@ -23,6 +24,7 @@ from fasthtml.common import (
     P,
     Script,
     Span,
+    Textarea,
 )
 from starlette.datastructures import UploadFile
 from starlette.requests import Request
@@ -164,6 +166,7 @@ def _render_reports_grid(reports: list[Any]) -> Any:
 JOURNALS_SIDEBAR_ITEMS = [
     SidebarItem("New Entry", "/journals/submit", "submit", icon="📤"),
     SidebarItem("My Journals", "/journals/browse", "browse", icon="📄"),
+    SidebarItem("Batch Ops", "/journals/batch", "batch", icon="📦"),
 ]
 
 
@@ -530,6 +533,8 @@ def create_journals_ui_routes(
     user_service=None,
     journal_generator=None,
     submissions_core_service=None,
+    batch_transcription_service=None,
+    batch_processing_service=None,
 ):
     """
     Create journal UI routes — available to all authenticated users.
@@ -543,6 +548,8 @@ def create_journals_ui_routes(
         user_service: UserService for admin role checks
         journal_generator: JournalOutputGenerator for cleanup operations
         submissions_core_service: SubmissionsCoreService (optional — enables auto-title generation)
+        batch_transcription_service: BatchTranscriptionService (optional — batch audio → txt)
+        batch_processing_service: BatchProcessingService (optional — batch txt → md)
     """
 
     logger.info("Creating Journals UI routes")
@@ -808,6 +815,206 @@ def create_journals_ui_routes(
             )
 
     # ========================================================================
+    # BATCH OPERATIONS PAGE (admin-only)
+    # ========================================================================
+
+    @rt("/journals/batch")
+    @require_admin(get_user_service)
+    async def journals_batch_page(request: Request, current_user: Any) -> Any:
+        """Batch operations page: transcribe + process multiple files."""
+        content = Div(
+            PageHeader(
+                "Batch Operations",
+                subtitle="Transcribe and process multiple audio files",
+            ),
+            # Directories card
+            Card(
+                CardBody(
+                    H5("Directories", cls="mb-3 font-semibold"),
+                    Div(
+                        Label("Audio Input Directory"),
+                        Input(type="text", id="input-dir", value="data/je_inputs"),
+                        cls="mb-3",
+                    ),
+                    Div(
+                        Label("Output Directory"),
+                        Input(type="text", id="output-dir", value="data/je_outputs"),
+                        cls="mb-3",
+                    ),
+                    Div(
+                        Button(
+                            "Preview Files",
+                            variant=ButtonT.outline,
+                            type="button",
+                            id="preview-btn",
+                        ),
+                        Button(
+                            "Transcribe All",
+                            variant=ButtonT.primary,
+                            type="button",
+                            id="transcribe-btn",
+                            cls="ml-2",
+                        ),
+                        cls="flex gap-2",
+                    ),
+                ),
+                cls="bg-background shadow-sm mb-4",
+            ),
+            # Processing options card
+            Card(
+                CardBody(
+                    H5("LLM Processing Options", cls="mb-3 font-semibold"),
+                    Div(
+                        Label("Enrichment Mode"),
+                        Select(
+                            Option("Activity Tracking", value="activity_tracking", selected=True),
+                            Option("Idea Articulation", value="idea_articulation"),
+                            Option("Critical Thinking", value="critical_thinking"),
+                            id="enrichment-mode",
+                            name="enrichment_mode",
+                        ),
+                        cls="mb-3",
+                    ),
+                    Div(
+                        Label("Model"),
+                        Select(
+                            Option("GPT-4o Mini", value="gpt-4o-mini", selected=True),
+                            Option("GPT-4o", value="gpt-4o"),
+                            id="llm-model",
+                            name="model",
+                        ),
+                        cls="mb-3",
+                    ),
+                    Div(
+                        Label("Custom Instructions (optional — overrides mode)"),
+                        Textarea(
+                            id="custom-instructions",
+                            name="custom_instructions",
+                            rows="3",
+                            placeholder="Leave blank to use the enrichment mode template",
+                            cls="w-full",
+                        ),
+                        cls="mb-3",
+                    ),
+                    Div(
+                        Button(
+                            "Process Transcripts",
+                            variant=ButtonT.outline,
+                            type="button",
+                            id="process-btn",
+                        ),
+                        Button(
+                            "Transcribe + Process",
+                            variant=ButtonT.primary,
+                            type="button",
+                            id="combined-btn",
+                            cls="ml-2",
+                        ),
+                        cls="flex gap-2",
+                    ),
+                ),
+                cls="bg-background shadow-sm mb-4",
+            ),
+            # Results area
+            Div(id="batch-results", cls="mt-4"),
+            # Batch operations script
+            Script(
+                NotStr("""
+                function getInputDir() { return document.getElementById('input-dir').value; }
+                function getOutputDir() { return document.getElementById('output-dir').value; }
+                function getProcessingOpts() {
+                    return {
+                        enrichment_mode: document.getElementById('enrichment-mode').value,
+                        model: document.getElementById('llm-model').value,
+                        custom_instructions: document.getElementById('custom-instructions').value || null,
+                    };
+                }
+                function showResult(html) {
+                    document.getElementById('batch-results').innerHTML = html;
+                }
+                function showLoading(msg) {
+                    showResult('<div class="text-center text-muted-foreground p-4">' + msg + '</div>');
+                }
+                function formatResult(data) {
+                    if (data.preview) {
+                        var html = '<div class="p-4 bg-muted rounded-lg">';
+                        html += '<h5 class="font-semibold mb-2">Preview: ' + data.total_files + ' files (' + data.total_size_mb + ' MB)</h5>';
+                        if (data.already_transcribed && data.already_transcribed.length > 0) {
+                            html += '<p class="text-sm text-muted-foreground mb-2">Already transcribed: ' + data.already_transcribed.length + '</p>';
+                        }
+                        html += '<ul class="text-sm space-y-1">';
+                        (data.files || []).forEach(function(f) {
+                            var done = (data.already_transcribed || []).includes(f.name) ? ' <span class="text-success">[done]</span>' : '';
+                            html += '<li>' + f.name + ' (' + f.size_mb + ' MB)' + done + '</li>';
+                        });
+                        html += '</ul></div>';
+                        return html;
+                    }
+                    // Batch result
+                    var html = '<div class="p-4 bg-muted rounded-lg">';
+                    if (data.transcription) {
+                        html += '<h5 class="font-semibold mb-1">Tier 1: Transcription</h5>';
+                        html += '<p class="text-sm mb-2">Succeeded: ' + data.transcription.succeeded + ', Failed: ' + data.transcription.failed + ', Skipped: ' + data.transcription.skipped + '</p>';
+                        html += '<h5 class="font-semibold mb-1">Tier 2: Processing</h5>';
+                        html += '<p class="text-sm mb-2">Succeeded: ' + data.processing.succeeded + ', Failed: ' + data.processing.failed + ', Skipped: ' + data.processing.skipped + '</p>';
+                    } else {
+                        html += '<h5 class="font-semibold mb-1">Results</h5>';
+                        html += '<p class="text-sm mb-2">Total: ' + (data.total_files || 0) + ', Succeeded: ' + (data.succeeded || 0) + ', Failed: ' + (data.failed || 0) + ', Skipped: ' + (data.skipped || 0) + '</p>';
+                    }
+                    var errors = data.errors || [];
+                    if (errors.length > 0) {
+                        html += '<h5 class="font-semibold text-error mb-1">Errors</h5>';
+                        html += '<ul class="text-sm text-error">';
+                        errors.forEach(function(e) { html += '<li>' + e.name + ': ' + e.error + '</li>'; });
+                        html += '</ul>';
+                    }
+                    html += '</div>';
+                    return html;
+                }
+                async function apiCall(url, body) {
+                    try {
+                        var resp = await fetch(url, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+                        var data = await resp.json();
+                        if (!resp.ok) { showResult('<div class="alert alert-error">' + JSON.stringify(data) + '</div>'); return; }
+                        showResult(formatResult(data));
+                    } catch(e) { showResult('<div class="alert alert-error">Request failed: ' + e + '</div>'); }
+                }
+
+                document.getElementById('preview-btn').addEventListener('click', function() {
+                    showLoading('Loading preview...');
+                    apiCall('/api/journals/batch-transcribe', {input_dir: getInputDir(), output_dir: getOutputDir(), preview_only: true});
+                });
+                document.getElementById('transcribe-btn').addEventListener('click', function() {
+                    showLoading('Transcribing... this may take a few minutes.');
+                    apiCall('/api/journals/batch-transcribe', {input_dir: getInputDir(), output_dir: getOutputDir(), skip_existing: true});
+                });
+                document.getElementById('process-btn').addEventListener('click', function() {
+                    var opts = getProcessingOpts();
+                    showLoading('Processing transcripts via LLM...');
+                    apiCall('/api/journals/batch-process', {input_dir: getOutputDir(), ...opts, skip_existing: true});
+                });
+                document.getElementById('combined-btn').addEventListener('click', function() {
+                    var opts = getProcessingOpts();
+                    showLoading('Running combined pipeline (transcribe + process)...');
+                    apiCall('/api/journals/batch-process', {combined: true, audio_dir: getInputDir(), output_dir: getOutputDir(), ...opts, skip_existing: true});
+                });
+            """)
+            ),
+        )
+        return await SidebarPage(
+            content=content,
+            items=JOURNALS_SIDEBAR_ITEMS,
+            active="batch",
+            title="Journals",
+            subtitle="Your personal journal",
+            storage_key="journals-sidebar",
+            page_title="Batch Operations",
+            request=request,
+            active_page="journals",
+            title_href="/journals",
+        )
+
+    # ========================================================================
     # ADMIN API ENDPOINTS
     # ========================================================================
 
@@ -883,6 +1090,7 @@ def create_journals_ui_routes(
         journals_landing,
         journals_submit_page,
         journals_browse_page,
+        journals_batch_page,
         upload_journal,
         upload_instruction_file,
         get_journals_grid,

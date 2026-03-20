@@ -18,14 +18,14 @@ Following SKUEL principles:
 """
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
 from core.models.exercises.exercise import Exercise
 from core.models.relationship_names import RelationshipName
 from core.models.report.submission_report import SubmissionReport
 from core.models.submissions.submission import Submission
-from core.services.ai_service import AnthropicService, OpenAIService
+from core.services.llm_caller import LLMCallerProtocol
 from core.utils.exception_types import LLM_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -51,36 +51,26 @@ class SubmissionReportService:
 
     def __init__(
         self,
-        openai_service: OpenAIService | None = None,
-        anthropic_service: AnthropicService | None = None,
+        llm_caller: LLMCallerProtocol,
         executor: "QueryExecutor | None" = None,
         ku_interaction_service: "LessonMasteryService | None" = None,
     ) -> None:
         """
-        Initialize with AI services and query executor.
+        Initialize with LLM caller and query executor.
 
         Args:
-            openai_service: OpenAI service for GPT models
-            anthropic_service: Anthropic service for Claude models
+            llm_caller: Unified LLM caller for model-agnostic generation
             executor: QueryExecutor for creating SUBMISSION_REPORT entity in Neo4j
             ku_interaction_service: Optional — updates MASTERED relationships on linked Ku nodes
                 after feedback is persisted, closing the mastery loop for PERSONAL scope
                 exercises where no teacher approval step exists
         """
-        if not openai_service and not anthropic_service:
-            raise ValueError("At least one AI service (OpenAI or Anthropic) must be provided")
-
-        self.openai = openai_service
-        self.anthropic = anthropic_service
+        self.llm_caller = llm_caller
         self.executor = executor
         self.ku_interaction_service = ku_interaction_service
         self.logger = logger
 
-        available = []
-        if self.openai:
-            available.append("OpenAI")
-        if self.anthropic:
-            available.append("Anthropic")
+        available = ["LLMCaller"]
         if self.executor:
             available.append("Neo4j")
         if self.ku_interaction_service:
@@ -132,46 +122,13 @@ class SubmissionReportService:
             )
             self.logger.debug(f"Model: {exercise.model}, Prompt length: {len(prompt)} chars")
 
-            # Generate report text via LLM
-            if exercise.model.startswith("gpt"):
-                if not self.openai:
-                    return Result.fail(
-                        Errors.integration(
-                            service="OpenAI",
-                            operation="generate_report",
-                            message="OpenAI service not configured, but GPT model requested",
-                        )
-                    )
-                llm_result = await self.openai.generate_completion(
-                    prompt=prompt,
-                    max_tokens=max_tokens,
-                    temperature=temperature,
-                    model=exercise.model,
-                )
-
-            elif exercise.model.startswith("claude"):
-                if not self.anthropic:
-                    return Result.fail(
-                        Errors.integration(
-                            service="Anthropic",
-                            operation="generate_report",
-                            message="Anthropic service not configured, but Claude model requested",
-                        )
-                    )
-                llm_result = await self.anthropic.generate_completion(
-                    prompt=prompt,
-                    max_tokens=max_tokens,
-                    temperature=temperature,
-                    model=exercise.model,
-                )
-
-            else:
-                return Result.fail(
-                    Errors.validation(
-                        f"Unknown model: {exercise.model}. Must start with 'gpt' or 'claude'",
-                        field="model",
-                    )
-                )
+            # Generate report text via LLM (routing handled by UnifiedLLMCaller)
+            llm_result = await self.llm_caller.generate(
+                prompt=prompt,
+                model=exercise.model,
+                temperature=temperature,
+                max_tokens=max_tokens,
+            )
 
             if llm_result.is_error:
                 self.logger.error(f"AI service error: {llm_result.error}")
@@ -407,21 +364,8 @@ class SubmissionReportService:
 
     def get_supported_models(self) -> dict[str, list[str]]:
         """Get list of supported models by provider."""
-        models: dict[str, Any] = {}
-        if self.openai:
-            models["openai"] = ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-3.5-turbo"]
-        if self.anthropic:
-            models["anthropic"] = [
-                "claude-sonnet-4-6",  # Sonnet 4.6 — default
-                "claude-opus-4-6",  # Opus 4.6 — highest capability
-                "claude-haiku-4-5-20251001",  # Haiku 4.5 — fastest
-                "claude-3-5-sonnet-20241022",  # 3.5 Sonnet — kept for existing exercises
-                "claude-3-5-haiku-20241022",  # 3.5 Haiku — kept for existing exercises
-            ]
-        return models
+        return self.llm_caller.get_supported_models()
 
     def is_model_supported(self, model: str) -> bool:
         """Check if a model is supported by available services."""
-        if model.startswith("gpt") and self.openai:
-            return True
-        return bool(model.startswith("claude") and self.anthropic)
+        return self.llm_caller.is_model_supported(model)

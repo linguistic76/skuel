@@ -16,9 +16,10 @@ import os
 from datetime import datetime
 from pathlib import Path
 
+from core.ports.output_generator_protocols import OutputInstruction
 from core.prompts import PROMPT_REGISTRY
-from core.services.ai_service import OpenAIService
-from core.utils.exception_types import FILE_IO_EXCEPTIONS, LLM_EXCEPTIONS
+from core.services.llm_caller import LLMCallerProtocol
+from core.utils.exception_types import FILE_IO_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -33,15 +34,15 @@ class JournalOutputGenerator:
     Saves output to SKUEL_JOURNAL_STORAGE organized by date.
     """
 
-    def __init__(self, openai_service: OpenAIService, storage_base: str | None = None) -> None:
+    def __init__(self, llm_caller: LLMCallerProtocol, storage_base: str | None = None) -> None:
         """
-        Initialize generator with OpenAI service and storage location.
+        Initialize generator with LLM caller and storage location.
 
         Args:
-            openai_service: OpenAI service for LLM formatting
+            llm_caller: Unified LLM caller for model-agnostic formatting
             storage_base: Base directory for je_output files (env: SKUEL_JOURNAL_STORAGE)
         """
-        self.openai_service = openai_service
+        self.llm_caller = llm_caller
         self.logger = logger
 
         # Get storage location from env or use provided
@@ -104,6 +105,34 @@ class JournalOutputGenerator:
         self.logger.info(f"je_output saved: {output_path}")
         return Result.ok(output_path)
 
+    async def generate_output(
+        self,
+        content: str,
+        instruction: OutputInstruction,
+    ) -> Result[str]:
+        """
+        Generate formatted text from content + instruction. No persistence.
+
+        Implements OutputGeneratorOperations protocol.
+
+        Args:
+            content: Raw content to process
+            instruction: Resolved instruction with prompt template and LLM params
+
+        Returns:
+            Result containing formatted text (not saved to disk)
+        """
+        # Substitute {content} placeholder in the prompt template
+        prompt = instruction.prompt_text.replace("{content}", content)
+
+        return await self._call_formatter(
+            prompt=prompt,
+            mode_name=instruction.source,
+            model=instruction.model,
+            temperature=instruction.temperature,
+            max_tokens=instruction.max_tokens,
+        )
+
     async def _format_custom(self, content: str, custom_instructions: str) -> Result[str]:
         """Format content using user-provided instructions."""
         prompt = f"{custom_instructions}\n\n## Content to Process\n\n{content}"
@@ -124,13 +153,21 @@ class JournalOutputGenerator:
         prompt = PROMPT_REGISTRY.render("journal_exploration", content=content)
         return await self._call_formatter(prompt, "exploration")
 
-    async def _call_formatter(self, prompt: str, mode_name: str) -> Result[str]:
-        """Call OpenAI to format content using mode-specific prompt."""
+    async def _call_formatter(
+        self,
+        prompt: str,
+        mode_name: str,
+        model: str = "gpt-4o-mini",
+        temperature: float = 0.5,
+        max_tokens: int = 2000,
+    ) -> Result[str]:
+        """Call LLM to format content using mode-specific prompt."""
         try:
-            response = await self.openai_service.generate_completion(
+            response = await self.llm_caller.generate(
                 prompt=prompt,
-                temperature=0.5,  # Moderate creativity for formatting
-                max_tokens=2000,  # Longer output for formatted content
+                model=model,
+                temperature=temperature,
+                max_tokens=max_tokens,
             )
 
             if response.is_error:
@@ -140,14 +177,6 @@ class JournalOutputGenerator:
             self.logger.debug(f"Formatted content ({mode_name}): {len(formatted)} chars")
             return Result.ok(formatted)
 
-        except LLM_EXCEPTIONS as e:
-            return Result.fail(
-                Errors.integration(
-                    service="OpenAI",
-                    operation="format_journal",
-                    message=f"Formatting failed ({mode_name}): {e}",
-                )
-            )
         except Exception as e:  # safety-net: catch unexpected errors
             return Result.fail(
                 Errors.system(
