@@ -53,6 +53,9 @@ if TYPE_CHECKING:
     from core.services.principles.principles_alignment_service import (
         AlignmentAssessment,
     )
+    from core.services.principles.principles_event_handler_service import (
+        PrincipleEventHandlerService,
+    )
     from core.services.principles.principles_intelligence_service import (
         PrinciplesIntelligenceService,
     )
@@ -384,9 +387,21 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
             relationship_service=self.relationships,
         )
 
+        # Event handler sub-service (March 2026 - extracted from intelligence service)
+        from core.services.principles.principles_event_handler_service import (
+            PrincipleEventHandlerService,
+        )
+
+        self.event_handler: PrincipleEventHandlerService = PrincipleEventHandlerService(
+            backend=backend,
+            relationship_service=self.relationships,
+            insight_store=insight_store,
+        )
+
         self.logger.info(
-            "PrinciplesService facade initialized with 8 sub-services: "
-            "core, search, alignment, learning, relationships, intelligence, reflection, planning"
+            "PrinciplesService facade initialized with 9 sub-services: "
+            "core, search, alignment, learning, relationships, intelligence, "
+            "reflection, planning, event_handler"
         )
 
     # ========================================================================

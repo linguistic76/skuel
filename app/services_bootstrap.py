@@ -1357,13 +1357,13 @@ def _wire_event_subscribers(
     )
     logger.info("✅ ChoicesIntelligenceService subscribed to ChoiceOutcomeRecorded")
 
-    # Principle intelligence - alignment cascade when strength changes
+    # Principle event handlers - cascade analysis, reflection insights, conflict detection
     principles_service = activity_services["principles"]
     event_bus.subscribe(
         PrincipleStrengthChanged,
-        principles_service.intelligence.handle_principle_strength_changed,
+        principles_service.event_handler.handle_principle_strength_changed,
     )
-    logger.info("✅ PrinciplesIntelligenceService subscribed to PrincipleStrengthChanged")
+    logger.info("✅ PrincipleEventHandlerService subscribed to PrincipleStrengthChanged")
 
     # ── Tier 1 handlers: Quick-win event intelligence ───────────────────────
 
@@ -1383,19 +1383,19 @@ def _wire_event_subscribers(
 
     # ── Tier 2 handlers: Pattern-based event intelligence ───────────────────
 
-    # Principles intelligence - cross-domain insights from reflections
+    # Principle event handler - cross-domain insights from reflections
     event_bus.subscribe(
         PrincipleReflectionRecorded,
-        principles_service.intelligence.handle_reflection_recorded,
+        principles_service.event_handler.handle_reflection_recorded,
     )
-    logger.info("✅ PrinciplesIntelligenceService subscribed to PrincipleReflectionRecorded")
+    logger.info("✅ PrincipleEventHandlerService subscribed to PrincipleReflectionRecorded")
 
-    # Principles intelligence - conflict detection and resolution guidance
+    # Principle event handler - conflict detection and resolution guidance
     event_bus.subscribe(
         PrincipleConflictRevealed,
-        principles_service.intelligence.handle_conflict_revealed,
+        principles_service.event_handler.handle_conflict_revealed,
     )
-    logger.info("✅ PrinciplesIntelligenceService subscribed to PrincipleConflictRevealed")
+    logger.info("✅ PrincipleEventHandlerService subscribed to PrincipleConflictRevealed")
 
     # NOTE: MOC intelligence subscription removed (January 2026)
     # MOC is Entity-based - intelligence operations happen through Entity ORGANIZES relationships

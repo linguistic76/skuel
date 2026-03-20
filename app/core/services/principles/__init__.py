@@ -4,7 +4,7 @@ Principles Sub-Services Package
 
 This package contains focused sub-services that compose the unified PrinciplesService facade.
 
-Architecture: Facade Pattern (7 sub-services)
+Architecture: Facade Pattern (8 sub-services)
 - Each sub-service handles ONE specific responsibility
 - PrinciplesService (facade) delegates to appropriate sub-service via explicit delegation methods
 - Philosophical guidance domain with alignment, reflection, and learning integration
@@ -18,6 +18,7 @@ Sub-Services:
 - PrinciplesPlanningService: Context-aware recommendations
 - PrinciplesReflectionService: Reflection persistence and analytics
 - PrinciplesIntelligenceService: Pure Cypher analytics (NO AI dependencies)
+- PrincipleEventHandlerService: Event-driven cascade analysis and conflict intelligence
 
 Common Import Pattern (Production):
     from core.services.principles_service import PrinciplesService  # Facade
@@ -39,6 +40,7 @@ Architecture Notes:
 
 from core.services.principles.principles_alignment_service import PrinciplesAlignmentService
 from core.services.principles.principles_core_service import PrinciplesCoreService
+from core.services.principles.principles_event_handler_service import PrincipleEventHandlerService
 from core.services.principles.principles_intelligence_service import PrinciplesIntelligenceService
 from core.services.principles.principles_learning_service import PrinciplesLearningService
 from core.services.principles.principles_planning_service import PrinciplesPlanningService
@@ -46,6 +48,7 @@ from core.services.principles.principles_reflection_service import PrinciplesRef
 from core.services.principles.principles_search_service import PrinciplesSearchService
 
 __all__ = [
+    "PrincipleEventHandlerService",
     "PrinciplesAlignmentService",
     "PrinciplesCoreService",
     "PrinciplesIntelligenceService",
