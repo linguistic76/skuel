@@ -61,6 +61,12 @@ system automatically propagates progress upward: KU mastery → Lesson completio
 LS progress → LP progress. See
 [LEARNING_PROGRESS_EVENT_CHAIN.md](/docs/architecture/LEARNING_PROGRESS_EVENT_CHAIN.md).
 
+**Learning loop intelligence:** `LearningLoopEventHandlerService` listens to
+`SubmissionCreated`, `ReportSubmitted`, and `SubmissionApproved` to track submission
+iterations (how many attempts per exercise), teacher feedback turnaround (EMA on
+User node), and mastery velocity (quick vs persistent learner). Persists insights
+to `InsightStore`. File: `core/services/submissions/learning_loop_event_handler_service.py`.
+
 ---
 
 ## Field Naming Convention: `entity_type` vs `EntityType`
@@ -517,6 +523,7 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
 | **Submission** | `SubmissionsService` | `SubmissionOperations` | `SubmissionsBackend` | `submit_file`, `check_access`, share methods |
 | **Submission processing** | `SubmissionsProcessingService` | `SubmissionProcessingOperations` | `SubmissionsBackend` | Processing pipeline |
 | **Submission report** | `SubmissionReportService` + `SubmissionsCoreService` | `SubmissionReportOperations` | `SubmissionsBackend` | `generate_report` (via `UnifiedLLMCaller`), `create_assessment`, `submit_journal_file` |
+| **Learning Loop Intelligence** | `LearningLoopEventHandlerService` | — | `SubmissionsBackend` | `handle_submission_created` (iteration tracking), `handle_report_submitted` (feedback turnaround EMA), `handle_submission_approved` (mastery velocity) |
 | **Teacher review** | `TeacherReviewService` | `TeacherReviewOperations` | `QueryExecutor` | **Review actions:** `get_review_queue`, `get_submission_detail`, `get_report_history`, `submit_report`, `request_revision`, `approve_report` · **Exercise view:** `get_exercises_with_submission_counts`, `get_submissions_for_exercise` · **Student view:** `get_students_summary`, `get_student_submissions` · **Dashboard:** `get_dashboard_stats`, `get_teacher_groups_with_stats`, `get_group_detail` |
 | **Activity Report (auto/LLM)** | `ProgressReportGenerator` | `ProgressReportOperations` | `UserContextBuilder` | `generate`, `create_scheduled` |
 | **Activity Report (scheduled)** | `ProgressReportWorker` | — | — | Background worker; calls `ProgressReportGenerator` on schedule |

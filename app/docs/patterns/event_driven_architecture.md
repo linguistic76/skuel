@@ -265,7 +265,7 @@ await publish_event(self.event_bus, event, self.logger)
 
 ## Event Handler Insight Persistence
 
-Event handlers across all 6 Activity Domains persist structured insights to `InsightStore` (Neo4j `Insight` nodes) at key decision points. This makes pattern analysis queryable by users — not just write-only logs.
+Event handlers across all 6 Activity Domains and the Learning Loop persist structured insights to `InsightStore` (Neo4j `Insight` nodes) at key decision points. This makes pattern analysis queryable by users — not just write-only logs.
 
 **Pattern:** Each handler accepts an optional `insight_store: InsightStore | None` parameter. When provided, handlers create `PersistedInsight` nodes via `insight_store.create_insight()`. Failures are logged but never propagate (fire-and-forget contract preserved).
 
@@ -277,8 +277,9 @@ Event handlers across all 6 Activity Domains persist structured insights to `Ins
 | Habits | Difficulty detection, streak milestones | `DIFFICULTY_PATTERN`, `STREAK_PATTERN` |
 | Choices | Decision patterns, principle alignment gaps | `DECISION_PATTERN`, `PRINCIPLE_ALIGNMENT` |
 | Principles | Principle conflicts | `PRINCIPLE_CONFLICT` |
+| Learning Loop | Submission iterations, feedback turnaround anomaly, mastery velocity | `LEARNING_PROGRESS`, `COMPLETION_PATTERN`, `MASTERY_ACHIEVED` |
 
-**Wiring:** `services_bootstrap.py` passes `insight_store` to all 6 Activity Domain facades, which forward it to their `EventHandlerService`.
+**Wiring:** `services_bootstrap.py` passes `insight_store` to all 6 Activity Domain facades (which forward it to their `EventHandlerService`) and directly to `LearningLoopEventHandlerService`.
 
 **See:** [INSIGHT_ACTION_TRACKING.md](/docs/patterns/INSIGHT_ACTION_TRACKING.md), [SUB_SERVICE_CATALOG.md](/docs/reference/SUB_SERVICE_CATALOG.md)
 

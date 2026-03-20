@@ -258,12 +258,12 @@ result = await planning.get_actionable_tasks_for_user(user_uid, user_context)
 
 ### EventHandlerService
 
-**Domains:** Tasks, Goals, Habits, Events, Choices, Principles
-**Files:** `task_event_handler_service.py`, `goal_event_handler_service.py`, `habit_event_handler_service.py`, `events_event_handler_service.py`, `choice_event_handler_service.py`, `principles_event_handler_service.py`
+**Domains:** Tasks, Goals, Habits, Events, Choices, Principles + Learning Loop
+**Files:** `task_event_handler_service.py`, `goal_event_handler_service.py`, `habit_event_handler_service.py`, `events_event_handler_service.py`, `choice_event_handler_service.py`, `principles_event_handler_service.py`, `learning_loop_event_handler_service.py`
 
 **Responsibility:** Event-driven reactive logic (fire-and-forget handlers) with insight persistence to InsightStore
 
-All 6 Activity Domain event handlers accept an optional `insight_store` parameter. When provided, handlers persist `PersistedInsight` nodes to Neo4j at key decision points — making pattern analysis queryable rather than write-only logs.
+All 6 Activity Domain event handlers and the Learning Loop handler accept an optional `insight_store` parameter. When provided, handlers persist `PersistedInsight` nodes to Neo4j at key decision points — making pattern analysis queryable rather than write-only logs.
 
 **Insight Persistence by Domain:**
 
@@ -282,11 +282,20 @@ All 6 Activity Domain event handlers accept an optional `insight_store` paramete
 | **Choices** | `DECISION_PATTERN` | High-confidence principle-aligned decision |
 | **Choices** | `PRINCIPLE_ALIGNMENT` | Complex decision without principle guidance |
 | **Principles** | `PRINCIPLE_CONFLICT` | Conflict revealed between principles |
+| **Learning Loop** | `LEARNING_PROGRESS` | Submission iteration 2+ for same exercise |
+| **Learning Loop** | `COMPLETION_PATTERN` | Feedback turnaround anomaly (fast/slow vs EMA) |
+| **Learning Loop** | `MASTERY_ACHIEVED` | Quick mastery (≤2 attempts, <48h) |
+| **Learning Loop** | `LEARNING_PROGRESS` | Persistent learner (3+ attempts to mastery) |
 
 **Key Methods (Tasks):**
 - `handle_task_completed()` - Duration calibration, overdue detection, principle alignment
 - `handle_task_priority_changed()` - Categorization, cascade impact, inflation detection
 - `handle_tasks_bulk_completed()` - Batch pattern classification
+
+**Key Methods (Learning Loop):**
+- `handle_submission_created()` - Iteration counting and classification
+- `handle_report_submitted()` - Feedback turnaround EMA calibration and anomaly detection
+- `handle_submission_approved()` - Mastery velocity classification
 
 **When to use:**
 - Reacting to domain events with fire-and-forget logic
@@ -301,6 +310,12 @@ from core.services.tasks import TaskEventHandlerService
 
 handler = TaskEventHandlerService(backend=backend, relationship_service=rels, insight_store=insight_store)
 # Subscribed via event_bus in bootstrap — not called directly
+
+# Learning Loop handler — wired directly (not part of a facade)
+from core.services.submissions import LearningLoopEventHandlerService
+
+handler = LearningLoopEventHandlerService(backend=submissions_backend, insight_store=insight_store)
+# Subscribes to: SubmissionCreated, ReportSubmitted, SubmissionApproved
 ```
 
 ---

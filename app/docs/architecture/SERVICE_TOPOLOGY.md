@@ -288,6 +288,8 @@ Activity Domain Facades (6 total)
 
 **Pattern:** All 6 domains share 4 common sub-services (core, search, intelligence, ai) plus domain-specific services.
 
+**Learning Loop Intelligence:** `LearningLoopEventHandlerService` follows the same fire-and-forget pattern but is wired directly (not part of a facade). Subscribes to `SubmissionCreated`, `ReportSubmitted`, `SubmissionApproved`. Persists `LEARNING_PROGRESS`, `COMPLETION_PATTERN`, and `MASTERY_ACHIEVED` insights. File: `core/services/submissions/learning_loop_event_handler_service.py`.
+
 ---
 
 ## Sub-Service Communication
