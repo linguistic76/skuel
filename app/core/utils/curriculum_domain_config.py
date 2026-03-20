@@ -48,6 +48,10 @@ if TYPE_CHECKING:
 
     from core.ports import EventBusOperations, LessonOperations, QueryBuilderOperations
     from core.services.lesson.lesson_adaptive_service import LessonAdaptiveService
+    from core.services.lesson.lesson_application_discovery_service import (
+        LessonApplicationDiscoveryService,
+    )
+    from core.services.lesson.lesson_context_service import LessonContextService
     from core.services.lesson.lesson_core_service import LessonCoreService
     from core.services.lesson.lesson_graph_service import LessonGraphService
     from core.services.lesson.lesson_mastery_service import LessonMasteryService
@@ -247,6 +251,8 @@ class LessonSubServices:
     relationships: "UnifiedRelationshipService"
     intelligence: "LessonIntelligenceService"
     adaptive: "LessonAdaptiveService"
+    application_discovery: "LessonApplicationDiscoveryService"
+    context_service: "LessonContextService"
 
 
 @dataclass
@@ -308,6 +314,10 @@ def create_lesson_sub_services(
     """
     # Lazy imports to avoid circular dependencies
     from core.services.lesson.lesson_adaptive_service import LessonAdaptiveService
+    from core.services.lesson.lesson_application_discovery_service import (
+        LessonApplicationDiscoveryService,
+    )
+    from core.services.lesson.lesson_context_service import LessonContextService
     from core.services.lesson.lesson_core_service import LessonCoreService
     from core.services.lesson.lesson_graph_service import LessonGraphService
     from core.services.lesson.lesson_mastery_service import LessonMasteryService
@@ -374,6 +384,18 @@ def create_lesson_sub_services(
     # Step 9: Create adaptive curriculum service
     adaptive = LessonAdaptiveService(ku_backend=backend, user_service=user_service)
 
+    # Step 10: Create application discovery (reverse relationship queries)
+    application_discovery = LessonApplicationDiscoveryService(
+        repo=backend,
+        neo4j_adapter=neo4j_adapter,
+    )
+
+    # Step 11: Create context service (context-first knowledge recommendations)
+    context_service = LessonContextService(
+        repo=backend,
+        neo4j_adapter=neo4j_adapter,
+    )
+
     return LessonSubServices(
         core=core,
         search=search,
@@ -384,6 +406,8 @@ def create_lesson_sub_services(
         relationships=relationships,
         intelligence=intelligence,
         adaptive=adaptive,
+        application_discovery=application_discovery,
+        context_service=context_service,
     )
 
 

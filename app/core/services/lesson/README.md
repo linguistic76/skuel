@@ -15,6 +15,8 @@ This directory contains modular sub-services for Lesson (unit for learning) oper
 │   ├── lesson_practice_service.py         # Event-driven practice tracking
 │   ├── lesson_ai_service.py              # Optional AI features
 │   ├── lesson_adaptive_service.py        # Adaptive learning recommendations
+│   ├── lesson_application_discovery_service.py  # Reverse relationship queries
+│   ├── lesson_context_service.py        # Context-first knowledge recommendations
 │   ├── lesson_organization_service.py    # ORGANIZES relationships (MOC pattern)
 │   └── lesson_relationship_filters.py    # Relationship filtering utilities
 │
@@ -76,8 +78,6 @@ This directory contains modular sub-services for Lesson (unit for learning) oper
 - Parent-child relationships
 - Knowledge gap analysis
 - Learning recommendations
-- Context-first user queries
-- Application discovery (reverse relationships)
 - Hub score caching
 
 **Methods:**
@@ -85,8 +85,8 @@ This directory contains modular sub-services for Lesson (unit for learning) oper
 - `get_lesson_with_context()`, `link_prerequisite()`
 - `link_parent_child()`, `get_prerequisite_chain()`
 - `analyze_knowledge_gaps()`, `get_learning_recommendations()`
-- `get_ready_to_learn_for_user()`, `get_learning_gaps_for_user()`
-- `find_tasks_applying_knowledge()`, `find_goals_requiring_knowledge()`
+- `find_time_aware_learning_path()`
+- `update_hub_scores()`, `get_foundational_knowledge()`
 
 ---
 
@@ -166,7 +166,35 @@ NONE -> VIEWED -> IN_PROGRESS -> MASTERED
 
 ---
 
-### 9. `lesson_organization_service.py` - Non-linear Navigation (MOC)
+### 9. `lesson_application_discovery_service.py` - Application Discovery
+**Responsibilities:**
+- Reverse relationship queries answering "where is this knowledge used?"
+- Activity domain discovery (events, habits, tasks, goals, choices, principles)
+- Curriculum navigation (learning steps, learning paths)
+
+**Methods:**
+- `find_events_applying_knowledge()`, `find_habits_reinforcing_knowledge()`
+- `find_learning_steps_containing()`, `find_learning_paths_teaching()`
+- `find_tasks_applying_knowledge()`, `find_goals_requiring_knowledge()`
+- `find_choices_informed_by_knowledge()`, `find_principles_embodying_knowledge()`
+
+---
+
+### 10. `lesson_context_service.py` - Context-First Recommendations
+**Responsibilities:**
+- Personalized knowledge recommendations using UserContext
+- Readiness filtering (prerequisites met)
+- Goal-based learning gap analysis
+- Reinforcement suggestions (decaying mastery)
+
+**Methods:**
+- `get_ready_to_learn_for_user()` — knowledge units ready to learn
+- `get_learning_gaps_for_user()` — knowledge blocking goal progress
+- `get_lessons_to_reinforce_for_user()` — knowledge needing reinforcement
+
+---
+
+### 11. `lesson_organization_service.py` - Non-linear Navigation (MOC)
 **Responsibilities:**
 - ORGANIZES relationships between Lessons
 - Multiple parents supported
@@ -179,7 +207,7 @@ NONE -> VIEWED -> IN_PROGRESS -> MASTERED
 
 ---
 
-### 10. `lesson_relationship_filters.py` - Relationship Filtering Utilities
+### 12. `lesson_relationship_filters.py` - Relationship Filtering Utilities
 **Responsibilities:**
 - Confidence filtering for prerequisite chains
 - Strength-based relationship filtering
@@ -255,7 +283,7 @@ Separation of graph analytics from AI features.
 
 | Domain | Directory | Facade | Sub-Services |
 |--------|-----------|--------|--------------|
-| **Lesson** | `/lesson/` | `lesson_service.py` | 10 sub-services |
+| **Lesson** | `/lesson/` | `lesson_service.py` | 12 sub-services |
 | **KU** | `/ku/` | `ku_service.py` | 2 sub-services |
 | **Goals** | `/goals/` | `goals_service.py` | 8 sub-services |
 | **Habits** | `/habits/` | `habits_service.py` | 8 sub-services |

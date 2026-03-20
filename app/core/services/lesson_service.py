@@ -194,29 +194,42 @@ class LessonService:
     async def get_foundational_knowledge(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.graph.get_foundational_knowledge(*args, **kwargs)
 
+    # Application discovery delegations (reverse relationship queries)
     async def find_events_applying_knowledge(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.graph.find_events_applying_knowledge(*args, **kwargs)
+        return await self.application_discovery.find_events_applying_knowledge(*args, **kwargs)
 
     async def find_habits_reinforcing_knowledge(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.graph.find_habits_reinforcing_knowledge(*args, **kwargs)
+        return await self.application_discovery.find_habits_reinforcing_knowledge(*args, **kwargs)
 
     async def find_learning_steps_containing(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.graph.find_learning_steps_containing(*args, **kwargs)
+        return await self.application_discovery.find_learning_steps_containing(*args, **kwargs)
 
     async def find_learning_paths_teaching(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.graph.find_learning_paths_teaching(*args, **kwargs)
+        return await self.application_discovery.find_learning_paths_teaching(*args, **kwargs)
 
     async def find_tasks_applying_knowledge(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.graph.find_tasks_applying_knowledge(*args, **kwargs)
+        return await self.application_discovery.find_tasks_applying_knowledge(*args, **kwargs)
 
     async def find_goals_requiring_knowledge(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.graph.find_goals_requiring_knowledge(*args, **kwargs)
+        return await self.application_discovery.find_goals_requiring_knowledge(*args, **kwargs)
 
     async def find_choices_informed_by_knowledge(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.graph.find_choices_informed_by_knowledge(*args, **kwargs)
+        return await self.application_discovery.find_choices_informed_by_knowledge(*args, **kwargs)
 
     async def find_principles_embodying_knowledge(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.graph.find_principles_embodying_knowledge(*args, **kwargs)
+        return await self.application_discovery.find_principles_embodying_knowledge(
+            *args, **kwargs
+        )
+
+    # Context-first delegations (personalized knowledge recommendations)
+    async def get_ready_to_learn_for_user(self, *args: Any, **kwargs: Any) -> Result[Any]:
+        return await self.context_service.get_ready_to_learn_for_user(*args, **kwargs)
+
+    async def get_learning_gaps_for_user(self, *args: Any, **kwargs: Any) -> Result[Any]:
+        return await self.context_service.get_learning_gaps_for_user(*args, **kwargs)
+
+    async def get_lessons_to_reinforce_for_user(self, *args: Any, **kwargs: Any) -> Result[Any]:
+        return await self.context_service.get_lessons_to_reinforce_for_user(*args, **kwargs)
 
     # Semantic delegations
     async def create_with_semantic_relationships(self, *args: Any, **kwargs: Any) -> Result[Any]:
@@ -372,6 +385,8 @@ class LessonService:
         self.relationships = subs.relationships
         self.intelligence = subs.intelligence
         self.adaptive = subs.adaptive
+        self.application_discovery = subs.application_discovery
+        self.context_service = subs.context_service
 
         # Expose search attribute for convenience (test compatibility)
         # Note: We use search_service internally to avoid shadowing

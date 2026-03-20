@@ -1565,7 +1565,7 @@ async def _create_intelligence_hub(
         choices=activity_services["choices"].relationships,
         principles=activity_services["principles"].relationships,
         # Curriculum Domains (3)
-        lesson=learning_services["lesson_service"].graph,  # LessonGraphService
+        lesson=learning_services["lesson_service"],  # LessonService facade
         ls=learning_services["learning_steps"].relationships,  # Factory expects 'ls' parameter name
         lp=learning_services["learning_paths"].relationships,  # Factory expects 'lp' parameter name
         # Processing Domains (3)

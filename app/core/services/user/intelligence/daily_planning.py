@@ -40,7 +40,7 @@ class DailyPlanningMixin:
     Requires self.context (UserContext) and domain relationship services:
     - self.tasks, self.habits, self.goals, self.events
     - self.choices, self.principles
-    - self.ku
+    - self.lesson
     - self.report  (ReportRelationshipService — for unsubmitted exercises)
     Optional: self.vector_search (Neo4jVectorSearchService) for semantic/learning-aware search.
     """
@@ -52,7 +52,7 @@ class DailyPlanningMixin:
     events: Any  # EventsRelationshipService
     choices: Any  # ChoicesRelationshipService
     principles: Any  # PrinciplesRelationshipService
-    ku: Any  # LessonGraphService
+    lesson: Any  # LessonService facade
 
     # Stubs for methods provided by TemporalMomentumMixin in the composed class.
     if TYPE_CHECKING:
@@ -89,7 +89,7 @@ class DailyPlanningMixin:
         - principles.get_aligned_principles_for_user() - Values to embody
 
         Curriculum Domains (3):
-        - ku.get_ready_to_learn_for_user() - Ready knowledge
+        - lesson.get_ready_to_learn_for_user() - Ready knowledge
         - ls: Learning step sequencing
         - lp: Life path alignment
 
@@ -265,7 +265,7 @@ class DailyPlanningMixin:
                             estimated_time += est_time
                 else:
                     # Fallback to standard KU service
-                    learning_result = await self.ku.get_ready_to_learn_for_user(
+                    learning_result = await self.lesson.get_ready_to_learn_for_user(
                         self.context, limit=3
                     )
                     if learning_result.is_ok and learning_result.value:
@@ -279,7 +279,7 @@ class DailyPlanningMixin:
                                 estimated_time += est_time
             else:
                 # Standard path: Use KU service
-                learning_result = await self.ku.get_ready_to_learn_for_user(self.context, limit=3)
+                learning_result = await self.lesson.get_ready_to_learn_for_user(self.context, limit=3)
                 if learning_result.is_ok and learning_result.value:
                     for contextual_ku in learning_result.value:
                         est_time = self.context.estimated_time_to_mastery.get(contextual_ku.uid, 30)

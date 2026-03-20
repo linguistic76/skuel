@@ -98,7 +98,7 @@ class MockDailyPlanningService(TemporalMomentumMixin, DailyPlanningMixin):
         self.events = events
         self.choices = choices
         self.principles = principles
-        self.ku = ku
+        self.lesson = ku
         self.report = report
         self.vector_search = None
 

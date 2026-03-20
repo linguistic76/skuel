@@ -23,6 +23,10 @@ DELETED (January 2026):
 
 # Import implemented services
 from core.services.lesson.lesson_adaptive_service import LessonAdaptiveService
+from core.services.lesson.lesson_application_discovery_service import (
+    LessonApplicationDiscoveryService,
+)
+from core.services.lesson.lesson_context_service import LessonContextService
 from core.services.lesson.lesson_core_service import LessonCoreService
 from core.services.lesson.lesson_graph_service import LessonGraphService
 from core.services.lesson.lesson_mastery_service import (
@@ -38,6 +42,8 @@ from core.services.lesson.lesson_semantic_service import LessonSemanticService
 __all__ = [
     "KuNavigation",
     "LessonAdaptiveService",
+    "LessonApplicationDiscoveryService",
+    "LessonContextService",
     "LessonCoreService",
     "LessonGraphService",
     "LessonMasteryService",

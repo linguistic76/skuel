@@ -46,7 +46,7 @@ if TYPE_CHECKING:
     from core.ports.zpd_protocols import ZPDOperations
     from core.services.analytics_relationship_service import AnalyticsRelationshipService
     from core.services.calendar_service import CalendarService
-    from core.services.lesson.lesson_graph_service import LessonGraphService
+    from core.services.lesson_service import LessonService
 
     # LpRelationshipService deleted - LP now uses UnifiedRelationshipService
     # LsRelationshipService deleted - LS now uses UnifiedRelationshipService
@@ -102,7 +102,7 @@ class UserContextIntelligenceFactory:
         choices: UnifiedRelationshipService,
         principles: UnifiedRelationshipService,
         # Curriculum Domains (3) - REQUIRED
-        lesson: LessonGraphService,
+        lesson: LessonService,
         ls: UnifiedRelationshipService,  # January 2026: Unified
         lp: UnifiedRelationshipService,  # January 2026: Unified
         # Processing Domains (3) - REQUIRED

@@ -47,7 +47,7 @@ if TYPE_CHECKING:
     from core.ports.zpd_protocols import ZPDOperations
     from core.services.analytics_relationship_service import AnalyticsRelationshipService
     from core.services.calendar_service import CalendarService
-    from core.services.lesson.lesson_graph_service import LessonGraphService
+    from core.services.lesson_service import LessonService
     from core.services.relationships import UnifiedRelationshipService
 
     # LpRelationshipService deleted - LP now uses UnifiedRelationshipService
@@ -83,7 +83,7 @@ class UserContextIntelligence(
     - principles: UnifiedRelationshipService - What values guide this?
 
     Curriculum Domains (3):
-    - lesson: LessonGraphService - What knowledge is ready?
+    - lesson: LessonService - What knowledge is ready?
     - ls: UnifiedRelationshipService - Learning step relationships (unified)
     - lp: UnifiedRelationshipService - Critical path to life path (unified)
 
@@ -125,7 +125,7 @@ class UserContextIntelligence(
         choices: UnifiedRelationshipService,
         principles: UnifiedRelationshipService,
         # Curriculum Domains (3) - REQUIRED
-        lesson: LessonGraphService,
+        lesson: LessonService,
         ls: UnifiedRelationshipService,  # January 2026: Unified
         lp: UnifiedRelationshipService,  # January 2026: Unified
         # Processing Domains (3) - REQUIRED
