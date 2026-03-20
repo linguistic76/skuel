@@ -1352,6 +1352,22 @@ def _wire_event_subscribers(
         "✅ TaskEventHandlerService subscribed to TaskCompleted, TaskPriorityChanged, TasksBulkCompleted"
     )
 
+    # Events event handlers - attendance patterns, rescheduling detection, scheduling density
+    events_service = activity_services["events"]
+    event_bus.subscribe(
+        CalendarEventCompleted, events_service.event_handler.handle_event_completed
+    )
+    event_bus.subscribe(
+        CalendarEventRescheduled, events_service.event_handler.handle_event_rescheduled
+    )
+    event_bus.subscribe(
+        CalendarEventCreated, events_service.event_handler.handle_event_created
+    )
+    logger.info(
+        "✅ EventsEventHandlerService subscribed to "
+        "CalendarEventCompleted, CalendarEventRescheduled, CalendarEventCreated"
+    )
+
     # Habit event handlers - timing learning, recovery insights, difficulty tracking
     habits_service = activity_services["habits"]
     event_bus.subscribe(HabitCompleted, habits_service.event_handler.handle_habit_completed)

@@ -10,6 +10,7 @@ Sub-Services:
 - EventsHabitIntegrationService: Cross-domain habits integration
 - EventsLearningService: Learning path integration
 - UnifiedRelationshipService (EVENTS_CONFIG): Graph relationships and semantic connections
+- EventsEventHandlerService: Event-driven reactive logic (attendance patterns, rescheduling, density)
 - EventsIntelligenceService: Pure Cypher analytics
 """
 
@@ -31,6 +32,7 @@ from core.services.domain_config import create_activity_domain_config
 # Import sub-services
 from core.services.events import (
     EventsCoreService,
+    EventsEventHandlerService,
     EventsHabitIntegrationService,
     EventsIntelligenceService,
     EventsLearningService,
@@ -117,7 +119,7 @@ class EventsService(BaseService["EventsOperations", Event]):
     Events service facade with specialized sub-services.
 
     This facade:
-    1. Delegates to 6 specialized sub-services for core operations
+    1. Delegates to 7 specialized sub-services for core operations
     2. Uses explicit delegation methods (~50 methods) for sub-service access
     3. Retains explicit methods for complex cross-service orchestration
     4. Provides clean separation of concerns
@@ -160,6 +162,7 @@ class EventsService(BaseService["EventsOperations", Event]):
     progress: EventsProgressService
     scheduling: EventsSchedulingService
     relationships: UnifiedRelationshipService
+    event_handler: EventsEventHandlerService
     intelligence: EventsIntelligenceService
 
     # ========================================================================
@@ -379,10 +382,14 @@ class EventsService(BaseService["EventsOperations", Event]):
         self.learning = EventsLearningService(backend=backend, event_bus=event_bus)
         self.progress = EventsProgressService(backend=backend, event_bus=event_bus)
         self.scheduling = EventsSchedulingService(backend=backend, event_bus=event_bus)
+        self.event_handler = EventsEventHandlerService(
+            backend=backend,
+            relationship_service=self.relationships,
+        )
 
         self.logger.info(
-            "EventsService facade initialized with 8 sub-services: "
-            "core, search, habits, learning, progress, scheduling, relationships, intelligence"
+            "EventsService facade initialized with 9 sub-services: "
+            "core, search, habits, learning, progress, scheduling, relationships, event_handler, intelligence"
         )
 
     # ========================================================================

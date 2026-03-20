@@ -34,6 +34,7 @@ Events additionally has integration sub-services (`EventsHabitIntegrationService
 | Learning Service | `/core/services/events/events_learning_service.py` |
 | Progress Service | `/core/services/events/events_progress_service.py` |
 | Scheduling Service | `/core/services/events/events_scheduling_service.py` |
+| Event Handler Service | `/core/services/events/events_event_handler_service.py` |
 | Intelligence Service | `/core/services/events/events_intelligence_service.py` |
 | Facade | `/core/services/events_service.py` |
 | Config | `EVENTS_CONFIG` in `/core/models/relationship_registry.py` |
@@ -54,6 +55,7 @@ class EventsService(BaseService[EventsOperations, Event]):
     progress: EventsProgressService
     scheduling: EventsSchedulingService
     relationships: UnifiedRelationshipService
+    event_handler: EventsEventHandlerService
     intelligence: EventsIntelligenceService
 
     # Explicit delegation — MyPy-native, no mixin needed

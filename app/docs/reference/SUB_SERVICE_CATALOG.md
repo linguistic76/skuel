@@ -258,8 +258,8 @@ result = await planning.get_actionable_tasks_for_user(user_uid, user_context)
 
 ### EventHandlerService
 
-**Domains:** Tasks, Goals, Habits, Choices, Principles
-**Files:** `task_event_handler_service.py`, `goal_event_handler_service.py`, `habit_event_handler_service.py`, `choice_event_handler_service.py`, `principles_event_handler_service.py`
+**Domains:** Tasks, Goals, Habits, Events, Choices, Principles
+**Files:** `task_event_handler_service.py`, `goal_event_handler_service.py`, `habit_event_handler_service.py`, `events_event_handler_service.py`, `choice_event_handler_service.py`, `principles_event_handler_service.py`
 
 **Responsibility:** Event-driven reactive logic (fire-and-forget handlers)
 
@@ -345,8 +345,8 @@ handler = TaskEventHandlerService(backend=backend, relationship_service=rels)
 
 ### EventHandlerService
 
-**Domains:** Tasks, Goals, Habits, Choices, Principles
-**Files:** `task_event_handler_service.py`, `goal_event_handler_service.py`, `habit_event_handler_service.py`, `choice_event_handler_service.py`, `principles_event_handler_service.py`
+**Domains:** Tasks, Goals, Habits, Events, Choices, Principles
+**Files:** `task_event_handler_service.py`, `goal_event_handler_service.py`, `habit_event_handler_service.py`, `events_event_handler_service.py`, `choice_event_handler_service.py`, `principles_event_handler_service.py`
 
 **Responsibility:** Event-driven reactive handlers (fire-and-forget)
 
@@ -354,6 +354,11 @@ handler = TaskEventHandlerService(backend=backend, relationship_service=rels)
 - `handle_goal_achieved()` - Recommendations, duration calibration, principle alignment
 - `handle_goal_abandoned()` - Abandonment classification, structured logging
 - `handle_goal_progress_updated()` - Stall detection, milestone proximity, trigger logging
+
+**Key Methods (Events):**
+- `handle_event_completed()` - Attendance time-of-day tracking, goal alignment
+- `handle_event_rescheduled()` - Rescheduling pattern detection (rare/occasional/chronic)
+- `handle_event_created()` - Scheduling density monitoring, overcommitment warnings
 
 **Key Methods (Choices):**
 - `handle_choice_outcome_recorded()` - Outcome quality analysis, principle alignment correlation
@@ -501,7 +506,7 @@ self.intelligence = common.intelligence
 | Tasks | 8 | 4 | 4 (progress, scheduling, planning, event_handler) |
 | Goals | 8 | 4 | 4 (progress, scheduling, learning, event_handler) |
 | Habits | 13 | 4 | 9 (progress, scheduling, planning, learning, completions, events, event_handler, patterns, goal_analytics) |
-| Events | 8 | 4 | 4 (progress, scheduling, + custom) |
+| Events | 9 | 4 | 5 (progress, scheduling, learning, habit_integration, event_handler) |
 | Choices | 6 | 4 | 2 (learning, event_handler) |
 | Principles | 9 | 4 | 5 (alignment, learning, reflection, planning, event_handler) |
 
