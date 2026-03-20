@@ -18,8 +18,15 @@ When `extract_activities=True` in instructions, the processor will:
 3. Store extraction results in Ku metadata
 """
 
+from datetime import datetime
 from typing import Any
 
+from core.events import publish_event
+from core.events.submission_events import (
+    SubmissionProcessingCompleted,
+    SubmissionProcessingFailed,
+    SubmissionProcessingStarted,
+)
 from core.models.entity import Entity
 from core.models.entity_types import SubmissionEntity
 from core.models.enums.entity_enums import EntityStatus, EntityType
@@ -120,22 +127,41 @@ class SubmissionsProcessingService:
         # Update status to QUEUED
         await self.ku_submission_service.update_submission_status(ku_uid, EntityStatus.QUEUED)
 
+        processing_start = datetime.now()
+
         try:
             result = await self._route_to_processor(submission, instructions)
 
             if result.is_error:
+                error_message = (
+                    result.error.user_message if result.error else "Processing failed"
+                )
                 await self.ku_submission_service.update_submission_status(
                     ku_uid,
                     EntityStatus.FAILED,
-                    error_message=result.error.user_message
-                    if result.error
-                    else "Processing failed",
+                    error_message=error_message,
                 )
+                await self._publish_processing_failed(submission, error_message)
                 return result
 
             # Mark as completed
             await self.ku_submission_service.update_submission_status(
                 ku_uid, EntityStatus.COMPLETED
+            )
+
+            # Publish processing completed event
+            duration = (datetime.now() - processing_start).total_seconds()
+            await publish_event(
+                self.event_bus,
+                SubmissionProcessingCompleted(
+                    submission_uid=ku_uid,
+                    user_uid=submission.user_uid,
+                    entity_type=submission.entity_type.value,
+                    has_processed_content=True,
+                    processing_duration_seconds=duration,
+                    occurred_at=datetime.now(),
+                ),
+                self.logger,
             )
 
             # Get updated entity
@@ -152,6 +178,7 @@ class SubmissionsProcessingService:
             await self.ku_submission_service.update_submission_status(
                 ku_uid, EntityStatus.FAILED, error_message=str(e)
             )
+            await self._publish_processing_failed(submission, str(e))
 
             return Result.fail(
                 Errors.system(
@@ -166,6 +193,7 @@ class SubmissionsProcessingService:
             await self.ku_submission_service.update_submission_status(
                 ku_uid, EntityStatus.FAILED, error_message=str(e)
             )
+            await self._publish_processing_failed(submission, str(e))
 
             return Result.fail(
                 Errors.system(
@@ -177,12 +205,40 @@ class SubmissionsProcessingService:
     # PROCESSOR ROUTING
     # ========================================================================
 
+    async def _publish_processing_failed(
+        self, submission: Submission, error_message: str
+    ) -> None:
+        """Publish SubmissionProcessingFailed event."""
+        await publish_event(
+            self.event_bus,
+            SubmissionProcessingFailed(
+                submission_uid=submission.uid,
+                user_uid=submission.user_uid,
+                error_message=error_message,
+                occurred_at=datetime.now(),
+            ),
+            self.logger,
+        )
+
     async def _route_to_processor(
         self, submission: Submission, instructions: dict[str, Any] | None
     ) -> Result[Entity]:
         """Route submission to appropriate processor based on file type."""
         await self.ku_submission_service.update_submission_status(
             submission.uid, EntityStatus.PROCESSING
+        )
+
+        # Publish processing started event
+        processor_type = submission.processor_type.value if submission.processor_type else "unknown"
+        await publish_event(
+            self.event_bus,
+            SubmissionProcessingStarted(
+                submission_uid=submission.uid,
+                user_uid=submission.user_uid,
+                processor_type=processor_type,
+                occurred_at=datetime.now(),
+            ),
+            self.logger,
         )
 
         if not submission.file_type:

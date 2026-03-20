@@ -1045,6 +1045,7 @@ def _wire_event_subscribers(
     from core.events.handlers.exercise_handler import handle_exercise_submission
     from core.events.handlers.report_notification_handler import (
         handle_report_submitted,
+        handle_revised_exercise_created,
         handle_revision_requested,
         handle_submission_approved,
     )
@@ -1064,8 +1065,12 @@ def _wire_event_subscribers(
     )
     from core.events.submission_events import (
         ReportSubmitted,
+        RevisedExerciseCreated,
         SubmissionApproved,
         SubmissionCreated,
+        SubmissionProcessingCompleted,
+        SubmissionProcessingFailed,
+        SubmissionProcessingStarted,
         SubmissionRevisionRequested,
     )
     from core.events.transcription_events import TranscriptionCompleted
@@ -1133,6 +1138,10 @@ def _wire_event_subscribers(
         ExpenseUpdated,
         ExpenseDeleted,
         ExpensePaid,
+        # Submission processing lifecycle
+        SubmissionProcessingStarted,
+        SubmissionProcessingCompleted,
+        SubmissionProcessingFailed,
     ]
     for event_type in activity_context_events:
         event_bus.subscribe(event_type, invalidate_context)
@@ -1174,12 +1183,18 @@ def _wire_event_subscribers(
         handle_revision_requested,
         notification_service=notification_service,
     )
+    revised_exercise_handler = functools.partial(
+        handle_revised_exercise_created,
+        notification_service=notification_service,
+    )
     event_bus.subscribe(ReportSubmitted, report_submitted_handler)
     event_bus.subscribe(SubmissionApproved, submission_approved_handler)
     event_bus.subscribe(SubmissionRevisionRequested, revision_requested_handler)
+    event_bus.subscribe(RevisedExerciseCreated, revised_exercise_handler)
     logger.info(
-        "SubmissionReport notification handlers subscribed to ReportSubmitted + "
-        "SubmissionApproved + SubmissionRevisionRequested (student notifications)"
+        "✅ Learning loop notification handlers subscribed to ReportSubmitted + "
+        "SubmissionApproved + SubmissionRevisionRequested + RevisedExerciseCreated "
+        "(student notifications)"
     )
 
     # Learning events (user_uid may be absent on curriculum-level events)
@@ -1432,7 +1447,7 @@ def _wire_event_subscribers(
         "Tier 2: PrincipleReflectionRecorded, PrincipleConflictRevealed"
     )
 
-    logger.info("✅ Event-driven architecture wired (40+ event types subscribed)")
+    logger.info("✅ Event-driven architecture wired (45+ event types subscribed)")
 
 
 async def _create_intelligence_hub(

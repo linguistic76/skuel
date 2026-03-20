@@ -2,8 +2,9 @@
 Unit Tests for Feedback Notification Handler
 ==============================================
 
-Tests that ReportSubmitted, SubmissionApproved, and SubmissionRevisionRequested
-events create the correct notifications via NotificationService.
+Tests that ReportSubmitted, SubmissionApproved, SubmissionRevisionRequested,
+and RevisedExerciseCreated events create the correct notifications via
+NotificationService.
 """
 
 from datetime import datetime
@@ -13,11 +14,13 @@ import pytest
 
 from core.events.handlers.report_notification_handler import (
     handle_report_submitted,
+    handle_revised_exercise_created,
     handle_revision_requested,
     handle_submission_approved,
 )
 from core.events.submission_events import (
     ReportSubmitted,
+    RevisedExerciseCreated,
     SubmissionApproved,
     SubmissionRevisionRequested,
 )
@@ -177,5 +180,72 @@ async def test_handle_revision_requested_skips_when_no_student(mock_notification
     )
 
     await handle_revision_requested(event, notification_service=mock_notification_service)
+
+    mock_notification_service.create_notification.assert_not_called()
+
+
+# ============================================================================
+# REVISED EXERCISE CREATED HANDLER TESTS
+# ============================================================================
+
+
+@pytest.mark.asyncio
+async def test_handle_revised_exercise_created_creates_notification(mock_notification_service):
+    """Should create a revised_exercise_created notification for the student."""
+    event = RevisedExerciseCreated(
+        revised_exercise_uid="re_revision_abc",
+        teacher_uid="user_teacher",
+        student_uid="user_student",
+        original_exercise_uid="exercise_123",
+        report_uid="sr_456",
+        revision_number=1,
+        occurred_at=datetime.now(),
+    )
+
+    await handle_revised_exercise_created(event, notification_service=mock_notification_service)
+
+    mock_notification_service.create_notification.assert_called_once_with(
+        user_uid="user_student",
+        notification_type="revised_exercise_created",
+        title="Revision instructions are ready",
+        message="Your teacher created revision instructions based on your submission feedback.",
+        source_uid="re_revision_abc",
+        source_type="revised_exercise",
+    )
+
+
+@pytest.mark.asyncio
+async def test_handle_revised_exercise_created_includes_revision_number(mock_notification_service):
+    """Should include revision number in message when revision_number > 1."""
+    event = RevisedExerciseCreated(
+        revised_exercise_uid="re_revision_abc",
+        teacher_uid="user_teacher",
+        student_uid="user_student",
+        original_exercise_uid="exercise_123",
+        report_uid="sr_456",
+        revision_number=3,
+        occurred_at=datetime.now(),
+    )
+
+    await handle_revised_exercise_created(event, notification_service=mock_notification_service)
+
+    call_kwargs = mock_notification_service.create_notification.call_args[1]
+    assert "revision #3" in call_kwargs["message"]
+
+
+@pytest.mark.asyncio
+async def test_handle_revised_exercise_created_skips_when_no_student(mock_notification_service):
+    """Should skip notification when student_uid is empty."""
+    event = RevisedExerciseCreated(
+        revised_exercise_uid="re_revision_abc",
+        teacher_uid="user_teacher",
+        student_uid="",
+        original_exercise_uid="exercise_123",
+        report_uid="sr_456",
+        revision_number=1,
+        occurred_at=datetime.now(),
+    )
+
+    await handle_revised_exercise_created(event, notification_service=mock_notification_service)
 
     mock_notification_service.create_notification.assert_not_called()
