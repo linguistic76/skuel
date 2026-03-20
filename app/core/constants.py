@@ -522,6 +522,17 @@ class LearningLoop:
     MIN_SAMPLES_HABIT_SCHEDULING: Final = 7
     EMA_ALPHA_HABIT_TIMING: Final = 0.2
 
+    # Feedback turnaround calibration
+    MIN_SAMPLES_FEEDBACK: Final = 3
+    EMA_ALPHA_FEEDBACK: Final = 0.3
+    FEEDBACK_FAST_RATIO: Final = 0.5  # <50% of EMA = unusually fast
+    FEEDBACK_SLOW_RATIO: Final = 2.0  # >200% of EMA = unusually slow
+    DEFAULT_FEEDBACK_HOURS: Final = 48.0
+
+    # Submission iteration thresholds
+    PERSISTENT_ITERATION_THRESHOLD: Final = 3
+    EXTENDED_EFFORT_THRESHOLD: Final = 5
+
 
 # ============================================================================
 # PRIORITY SCORING WEIGHTS (analytics_engine.py)

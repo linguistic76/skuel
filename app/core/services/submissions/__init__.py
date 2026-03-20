@@ -36,8 +36,14 @@ from core.services.submissions.submissions_relationship_service import (
 from core.services.submissions.submissions_search_service import SubmissionsSearchService
 from core.services.submissions.submissions_service import SubmissionsService
 
+# Learning loop intelligence (event-driven insights)
+from core.services.submissions.learning_loop_event_handler_service import (
+    LearningLoopEventHandlerService,
+)
+
 __all__ = [
     "JournalOutputGenerator",
+    "LearningLoopEventHandlerService",
     "SubmissionAIInsights",
     "SubmissionProcessingContext",
     "SubmissionsCoreService",

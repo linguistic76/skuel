@@ -990,6 +990,8 @@ def _wire_event_subscribers(
     notification_service: Any,
     advanced: dict[str, Any],
     analytics_service: Any,
+    submissions_backend: Any = None,
+    insight_store: Any = None,
 ) -> None:
     """Wire all event subscribers for context invalidation, cross-domain, and intelligence.
 
@@ -1199,6 +1201,22 @@ def _wire_event_subscribers(
         "SubmissionApproved + SubmissionRevisionRequested + RevisedExerciseCreated "
         "(student notifications)"
     )
+
+    # Learning loop intelligence handlers — iteration tracking, feedback turnaround, mastery velocity
+    if submissions_backend and insight_store:
+        from core.services.submissions import LearningLoopEventHandlerService
+
+        learning_loop_handler = LearningLoopEventHandlerService(
+            backend=submissions_backend,
+            insight_store=insight_store,
+        )
+        event_bus.subscribe(SubmissionCreated, learning_loop_handler.handle_submission_created)
+        event_bus.subscribe(ReportSubmitted, learning_loop_handler.handle_report_submitted)
+        event_bus.subscribe(SubmissionApproved, learning_loop_handler.handle_submission_approved)
+        logger.info(
+            "✅ LearningLoopEventHandlerService subscribed to SubmissionCreated, "
+            "ReportSubmitted, SubmissionApproved (iteration tracking + feedback turnaround + mastery velocity)"
+        )
 
     # Learning events (user_uid may be absent on curriculum-level events)
     learning_context_events = [
@@ -2698,6 +2716,8 @@ async def compose_services(
             notification_service=notification_service,
             advanced=advanced,
             analytics_service=analytics_service,
+            submissions_backend=submissions_backend,
+            insight_store=insight_store,
         )
         logger.info("✅ All services initialized")
 

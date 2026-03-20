@@ -872,6 +872,119 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
     operating across all entity types.
     """
 
+    async def count_submissions_for_exercise(
+        self, user_uid: str, exercise_uid: str
+    ) -> Result[int]:
+        """Count submissions by a user for a specific exercise via FULFILLS_EXERCISE."""
+        query = """
+        MATCH (u:User {uid: $user_uid})-[:OWNS]->(s:Entity)-[:FULFILLS_EXERCISE]->(e:Entity {uid: $exercise_uid})
+        WHERE s.entity_type IN ['exercise_submission', 'submission']
+        RETURN count(s) AS count
+        """
+        try:
+            async with self.driver.session() as session:
+                result = await session.run(
+                    query, {"user_uid": user_uid, "exercise_uid": exercise_uid}
+                )
+                record = await result.single()
+                return Result.ok(record["count"] if record else 0)
+        except NEO4J_EXCEPTIONS as e:
+            self.logger.error(f"Failed count_submissions_for_exercise: {e}")
+            return Result.fail(
+                Errors.database(operation="count_submissions_for_exercise", message=str(e))
+            )
+
+    async def get_first_submission_for_exercise(
+        self, user_uid: str, exercise_uid: str
+    ) -> Result[dict[str, Any] | None]:
+        """Get earliest submission's uid + created_at for a user+exercise pair."""
+        query = """
+        MATCH (u:User {uid: $user_uid})-[:OWNS]->(s:Entity)-[:FULFILLS_EXERCISE]->(e:Entity {uid: $exercise_uid})
+        WHERE s.entity_type IN ['exercise_submission', 'submission']
+        RETURN s.uid AS uid, s.created_at AS created_at
+        ORDER BY s.created_at ASC
+        LIMIT 1
+        """
+        try:
+            async with self.driver.session() as session:
+                result = await session.run(
+                    query, {"user_uid": user_uid, "exercise_uid": exercise_uid}
+                )
+                record = await result.single()
+                if not record:
+                    return Result.ok(None)
+                return Result.ok(dict(record))
+        except NEO4J_EXCEPTIONS as e:
+            self.logger.error(f"Failed get_first_submission_for_exercise: {e}")
+            return Result.fail(
+                Errors.database(operation="get_first_submission_for_exercise", message=str(e))
+            )
+
+    async def get_exercise_for_submission(self, submission_uid: str) -> Result[str | None]:
+        """Get exercise UID linked to a submission via FULFILLS_EXERCISE."""
+        query = """
+        MATCH (s:Entity {uid: $submission_uid})-[:FULFILLS_EXERCISE]->(e:Entity)
+        RETURN e.uid AS exercise_uid
+        LIMIT 1
+        """
+        try:
+            async with self.driver.session() as session:
+                result = await session.run(query, {"submission_uid": submission_uid})
+                record = await result.single()
+                if not record:
+                    return Result.ok(None)
+                return Result.ok(record["exercise_uid"])
+        except NEO4J_EXCEPTIONS as e:
+            self.logger.error(f"Failed get_exercise_for_submission: {e}")
+            return Result.fail(
+                Errors.database(operation="get_exercise_for_submission", message=str(e))
+            )
+
+    async def get_teacher_feedback_state(self, teacher_uid: str) -> Result[dict[str, Any]]:
+        """Read feedback EMA state from User node for turnaround calibration."""
+        query = """
+        MATCH (u:User {uid: $teacher_uid})
+        RETURN u.feedback_ema_hours AS feedback_ema_hours,
+               u.feedback_sample_count AS feedback_sample_count,
+               u.feedback_updated_at AS feedback_updated_at
+        """
+        try:
+            async with self.driver.session() as session:
+                result = await session.run(query, {"teacher_uid": teacher_uid})
+                record = await result.single()
+                if not record:
+                    return Result.ok({})
+                return Result.ok(dict(record))
+        except NEO4J_EXCEPTIONS as e:
+            self.logger.error(f"Failed get_teacher_feedback_state: {e}")
+            return Result.fail(
+                Errors.database(operation="get_teacher_feedback_state", message=str(e))
+            )
+
+    async def update_teacher_feedback_state(
+        self, teacher_uid: str, properties: dict[str, Any]
+    ) -> Result[bool]:
+        """Write feedback EMA state to User node."""
+        query = """
+        MATCH (u:User {uid: $teacher_uid})
+        SET u += $properties
+        RETURN u.uid
+        """
+        try:
+            async with self.driver.session() as session:
+                result = await session.run(
+                    query, {"teacher_uid": teacher_uid, "properties": properties}
+                )
+                record = await result.single()
+                if not record:
+                    return Result.fail(Errors.not_found(resource="User", identifier=teacher_uid))
+                return Result.ok(True)
+        except NEO4J_EXCEPTIONS as e:
+            self.logger.error(f"Failed update_teacher_feedback_state: {e}")
+            return Result.fail(
+                Errors.database(operation="update_teacher_feedback_state", message=str(e))
+            )
+
 
 class KuBackend(UniversalNeo4jBackend[Ku]):
     """Domain backend for atomic Knowledge Unit entities.
