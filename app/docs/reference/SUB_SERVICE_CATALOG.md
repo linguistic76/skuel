@@ -409,7 +409,7 @@ Quick lookup table for finding the right sub-service:
 | **Learning integration** | LearningService | Habits, Choices, Goals |
 | **Habit-specific completions** | CompletionsService | Habits only |
 | **Habit-event integration** | EventIntegrationService | Habits only |
-| **Event-driven handlers** | EventHandlerService | Tasks, Goals, Habits, Choices, Principles |
+| **Event-driven handlers** | EventHandlerService | Tasks, Goals, Habits, Events, Choices, Principles |
 | **AI/LLM features** | AIService | Tasks, Goals, Habits (optional) |
 | **LLM routing** | UnifiedLLMCaller | Journals, Reports (routes gpt*/claude* models) |
 | **Instruction resolution** | InstructionResolver | Journals, Batch (custom > exercise > mode > default) |

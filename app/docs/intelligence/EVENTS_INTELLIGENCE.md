@@ -7,9 +7,10 @@
 **Service Name:** `events.intelligence`
 **Lines:** ~830
 
-**Related Services (January 2026):**
+**Related Services:**
 - `EventsProgressService` - Progress tracking, completion, attendance metrics
 - `EventsSchedulingService` - Smart scheduling, conflict detection, calendar density
+- `EventsEventHandlerService` - Fire-and-forget reactive handlers: attendance patterns, rescheduling detection, scheduling density (March 2026)
 
 ---
 
