@@ -166,7 +166,7 @@ Curriculum Work                 Activity Domains
 
 | Source | Service | ProcessorType | Trigger |
 |--------|---------|---------------|---------|
-| Teacher writes feedback | `SubmissionsCoreService.create_assessment()` | `HUMAN` | Teacher reviews submission in queue |
+| Teacher writes feedback | `AssessmentService.create_assessment()` | `HUMAN` | Teacher reviews submission in queue |
 | AI evaluates via Exercise | `SubmissionReportService.generate_report()` | `LLM` | Exercise has `instructions`; AI generates response |
 
 Both use atomic Cypher: create entity + `REPORT_FOR` relationship + denormalize to `submission.report` in one transaction.
@@ -276,7 +276,7 @@ Only `COMPLETED` entities can be shared (prevents sharing incomplete/failed work
 
 | Service | Protocol | Produces | Notes |
 |---------|----------|---------|-------|
-| `SubmissionsCoreService` | `SubmissionReportOperations` | `SUBMISSION_REPORT` (HUMAN) | Teacher assessment; verifies group membership |
+| `AssessmentService` (via `SubmissionsCoreService`) | `SubmissionReportOperations` | `SUBMISSION_REPORT` (HUMAN) | Teacher assessment; verifies group membership |
 | `SubmissionReportService` | `SubmissionReportOperations` | `SUBMISSION_REPORT` (LLM) | AI evaluation via Exercise instructions (uses `UnifiedLLMCaller`) |
 | `ProgressReportGenerator` | `ProgressReportOperations` | `ACTIVITY_REPORT` (AUTOMATIC or LLM) | Activity summary; LLM adds qualitative insights |
 | `ActivityReportService` | `ActivityReportOperations` | `ACTIVITY_REPORT` (HUMAN or via persist()) | Processor-neutral CRUD; all write paths converge here |
@@ -315,7 +315,7 @@ Reports split into two structurally different positions:
 `SUBMISSION_REPORT` fits the leaf domain model. One submission goes in, one SubmissionReport node comes out. The generating services operate against a focused backend — the scope is a single artifact and its owner.
 
 ```
-Submission  →  SubmissionReportService / SubmissionsCoreService  →  SUBMISSION_REPORT node
+Submission  →  SubmissionReportService / AssessmentService  →  SUBMISSION_REPORT node
                (one artifact in, one report node out)
 ```
 
@@ -543,8 +543,8 @@ User annotates report (additive or revision mode)
 | Service | Test File | Tests | Coverage |
 |---------|-----------|-------|----------|
 | `TeacherReviewService` | `tests/unit/services/test_teacher_review_service.py` | 57 | 99% |
-| `SubmissionsCoreService` | `tests/unit/services/test_submissions_core_service.py` | 109 | 79% |
-| `SubmissionsCoreService` (assessments) | `tests/unit/test_assessment_service.py` | 7 | Assessment CRUD |
+| `SubmissionsCoreService` + `JournalsCoreService` | `tests/unit/services/test_submissions_core_service.py` | 109 | 79% |
+| `AssessmentService` | `tests/unit/test_assessment_service.py` | 9 | Assessment CRUD |
 
 ---
 

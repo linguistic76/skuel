@@ -15,7 +15,9 @@ Architecture: Content/Processing Domain (not Activity Domain)
 Sub-services:
 - SubmissionsService: File upload and storage
 - SubmissionsProcessingService: Processing orchestration (audio, text, PDF)
-- SubmissionsCoreService: Content management + journal CRUD
+- SubmissionsCoreService: Content management facade (delegates journal + assessment)
+  - JournalsCoreService: Journal CRUD, FIFO, upload orchestration, transcription
+  - AssessmentService: Teacher assessment CRUD, authority verification
 - SubmissionsSearchService: Query and search operations
 - SubmissionsRelationshipService: Graph relationship creation
 

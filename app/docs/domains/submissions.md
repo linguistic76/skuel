@@ -60,7 +60,9 @@ Reports is the primary user-facing interface for all content submissions and sys
 | **Service Package** | `/core/services/submissions/ + core/services/report/` |
 | Submission Service | `submissions_service.py` |
 | Processing Service | `submissions_processing_service.py` |
-| Core Service | `submissions_core_service.py` (assessment CRUD + journal upload orchestration) |
+| Core Service | `submissions_core_service.py` (facade — delegates journal + assessment to sub-services) |
+| Journals Sub-Service | `journals_core_service.py` (journal CRUD, FIFO, transcription, upload orchestration) |
+| Assessment Sub-Service | `assessment_service.py` (teacher assessment CRUD, authority verification) |
 | Search Service | `submissions_search_service.py` |
 | Relationship Service | `submissions_relationship_service.py` |
 | Sharing Service | `report_sharing_service.py` |
@@ -114,7 +116,7 @@ Reports is the primary user-facing interface for all content submissions and sys
 
 ## Teacher Assessments
 
-Created via `SubmissionsCoreService.create_assessment()` (requires TEACHER role). Auto-creates:
+Created via `AssessmentService.create_assessment()` (delegated from `SubmissionsCoreService`, requires TEACHER role). Auto-creates:
 - `ASSESSMENT_OF` relationship to student
 - `SHARES_WITH` relationship for student access
 
@@ -135,8 +137,8 @@ Students see assessments at `/submissions/reports`.
 | Service | Test File | Tests | Notes |
 |---------|-----------|-------|-------|
 | `TeacherReviewService` | `tests/unit/services/test_teacher_review_service.py` | 57 | 99% coverage — access control, review queue, report/revision/approval flows, dashboard stats, groups |
-| `SubmissionsCoreService` | `tests/unit/services/test_submissions_core_service.py` | 109 | 79% coverage — journal CRUD, FIFO, exercise linking, tags, bulk ops, delete, export, submit_journal_file orchestrator |
-| `SubmissionsCoreService` (assessments) | `tests/unit/test_assessment_service.py` | 7 | Assessment CRUD: create, authority check, relationships, metadata |
+| `SubmissionsCoreService` + `JournalsCoreService` | `tests/unit/services/test_submissions_core_service.py` | 109 | 79% coverage — journal CRUD, FIFO, exercise linking, tags, bulk ops, delete, export, submit_journal_file orchestrator |
+| `AssessmentService` | `tests/unit/test_assessment_service.py` | 9 | Assessment CRUD: create, authority check, relationships, metadata |
 
 ## See Also
 

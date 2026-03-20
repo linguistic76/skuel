@@ -48,6 +48,7 @@ Journals support **three modes** with weighted distribution:
 
 ```
 1. Route handler validates input → calls SubmissionsCoreService.submit_journal_file()
+   ├─ Delegates to JournalsCoreService.submit_journal_file() (sub-service)
    ├─ Orchestrates the full upload pipeline in the service layer
    └─ Returns JournalUploadResult (submission_uid, status, processing_succeeded, message)
 
@@ -474,7 +475,8 @@ CLI alternative:
 | Instruction Resolver | `/core/services/output/instruction_resolver.py` |
 | Output Generator | `/core/services/submissions/journal_output_generator.py` |
 | Processing Service | `/core/services/submissions/submissions_processing_service.py` |
-| Core + Upload Orchestration | `/core/services/submissions/submissions_core_service.py` |
+| Core Service (facade) | `/core/services/submissions/submissions_core_service.py` |
+| Journals Sub-Service | `/core/services/submissions/journals_core_service.py` |
 | Batch Transcription (Tier 1) | `/core/services/transcription/batch_transcription_service.py` |
 | Batch Processing (Tier 2) | `/core/services/transcription/batch_processing_service.py` |
 | **Protocols** | |

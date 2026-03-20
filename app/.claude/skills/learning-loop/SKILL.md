@@ -315,7 +315,7 @@ feedback_generated_at: datetime | None
 
 | Source | Service | ProcessorType | Trigger |
 |--------|---------|---------------|---------|
-| Teacher | `SubmissionsCoreService.create_assessment()` | `HUMAN` | Teacher reviews in queue |
+| Teacher | `AssessmentService.create_assessment()` | `HUMAN` | Teacher reviews in queue |
 | AI | `SubmissionReportService.generate_report()` | `LLM` | Exercise has `instructions` (via `UnifiedLLMCaller`) |
 
 **Graph pattern:**
@@ -522,7 +522,8 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
 | **RevisedExercise** | `RevisedExerciseService` | `RevisedExerciseOperations` | `RevisedExerciseBackend` | CRUD, `list_for_teacher`, `list_for_student`, `get_revision_chain` |
 | **Submission** | `SubmissionsService` | `SubmissionOperations` | `SubmissionsBackend` | `submit_file`, `check_access`, share methods |
 | **Submission processing** | `SubmissionsProcessingService` | `SubmissionProcessingOperations` | `SubmissionsBackend` | Processing pipeline |
-| **Submission report** | `SubmissionReportService` + `SubmissionsCoreService` | `SubmissionReportOperations` | `SubmissionsBackend` | `generate_report` (via `UnifiedLLMCaller`), `create_assessment`, `submit_journal_file` |
+| **Submission report** | `SubmissionReportService` + `AssessmentService` | `SubmissionReportOperations` | `SubmissionsBackend` | `generate_report` (via `UnifiedLLMCaller`), `create_assessment` |
+| **Journal orchestration** | `JournalsCoreService` (via `SubmissionsCoreService`) | — | `SubmissionsBackend` | `submit_journal_file`, `create_journal_entry`, FIFO, transcription handler |
 | **Learning Loop Intelligence** | `LearningLoopEventHandlerService` | — | `SubmissionsBackend` | `handle_submission_created` (iteration tracking), `handle_report_submitted` (feedback turnaround EMA), `handle_submission_approved` (mastery velocity) |
 | **Teacher review** | `TeacherReviewService` | `TeacherReviewOperations` | `QueryExecutor` | **Review actions:** `get_review_queue`, `get_submission_detail`, `get_report_history`, `submit_report`, `request_revision`, `approve_report` · **Exercise view:** `get_exercises_with_submission_counts`, `get_submissions_for_exercise` · **Student view:** `get_students_summary`, `get_student_submissions` · **Dashboard:** `get_dashboard_stats`, `get_teacher_groups_with_stats`, `get_group_detail` |
 | **Activity Report (auto/LLM)** | `ProgressReportGenerator` | `ProgressReportOperations` | `UserContextBuilder` | `generate`, `create_scheduled` |
@@ -648,11 +649,11 @@ that never closes the loop.
 |---------|-----------|-------|----------|
 | `TeacherReviewService` | `tests/unit/services/test_teacher_review_service.py` | 57 | 99% (171/172 lines) |
 | `SubmissionsCoreService` | `tests/unit/services/test_submissions_core_service.py` | 109 | 79% (491/625 lines) |
-| `SubmissionsCoreService` (assessments) | `tests/unit/test_assessment_service.py` | 7 | Assessment CRUD only |
+| `AssessmentService` | `tests/unit/test_assessment_service.py` | 9 | Assessment CRUD only |
 
 **TeacherReviewService tests cover:** access control (`_verify_teacher_access`), review queue filtering, report submission + event publishing, revision requests, approval with mastery updates, dashboard stats, group management, exercise/student views.
 
-**SubmissionsCoreService tests cover:** journal CRUD + FIFO enforcement, retrieve + access checks, update/status workflow, exercise linking (standard + revised exercise paths), tag/category management, bulk operations, delete + export, date range queries, make_permanent regression, submit_journal_file orchestrator (service wiring guards, title resolution, exercise instructions, partial success).
+**SubmissionsCoreService + JournalsCoreService tests cover:** journal CRUD + FIFO enforcement, retrieve + access checks, update/status workflow, exercise linking (standard + revised exercise paths), tag/category management, bulk operations, delete + export, date range queries, make_permanent regression, submit_journal_file orchestrator (service wiring guards, title resolution, exercise instructions, partial success).
 
 ---
 
@@ -669,7 +670,9 @@ that never closes the loop.
 | `core/models/submissions/submission.py` | 3 | Submission base + JOURNAL |
 | `core/models/report/submission_report.py` | 4 | SubmissionReport model |
 | `core/models/report/activity_report.py` | 4 | ActivityReport model |
-| `core/services/submissions/submissions_core_service.py` | 3+4 | CRUD + teacher assessment + journal upload orchestration |
+| `core/services/submissions/submissions_core_service.py` | 3+4 | Facade — delegates journal + assessment to sub-services |
+| `core/services/submissions/journals_core_service.py` | 3 | Journal CRUD, FIFO, upload orchestration, transcription handler |
+| `core/services/submissions/assessment_service.py` | 4 | Teacher assessment CRUD, authority verification |
 | `core/services/report/submission_report_service.py` | 4 | AI report generation (via UnifiedLLMCaller) |
 | `core/services/llm_caller.py` | 3+4 | Unified LLM routing (OpenAI/Anthropic by model prefix) |
 | `core/services/output/instruction_resolver.py` | 3 | Instruction resolution (custom > exercise > mode > default) |
@@ -708,7 +711,7 @@ that never closes the loop.
 3. Student submits file
    SubmissionsService.submit_file()                 → core/services/submissions/submissions_service.py
    Creates Entity with entity_type='submission', status SUBMITTED→QUEUED→PROCESSING→COMPLETED
-   (For journals: SubmissionsCoreService.submit_journal_file() orchestrates title → instructions → submit → process)
+   (For journals: JournalsCoreService.submit_journal_file() orchestrates title → instructions → submit → process, delegated via SubmissionsCoreService)
        ↓
 4. FULFILLS_EXERCISE relationship created
    Auto-sharing: SHARES_WITH (student → teacher)

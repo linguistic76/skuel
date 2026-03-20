@@ -378,13 +378,16 @@ services_bootstrap.py:  goals.intelligence.habits_service = habits  # sub-servic
 ```
 
 ```
-SubmissionsCoreService.__init__:  self.submissions_service = None
+SubmissionsCoreService.__init__:  self.journals = JournalsCoreService(...)
+                                  self.assessments = AssessmentService(...)
+
+JournalsCoreService.__init__:     self.submissions_service = None
                                   self.processing_service = None
                                   self.exercise_service = None
 
-services_bootstrap.py:  submissions_core_service.submissions_service = submissions_service
-                        submissions_core_service.processing_service = submissions_processor
-                        submissions_core_service.exercise_service = exercise_service
+services_bootstrap.py:  submissions_core_service.journals.submissions_service = submissions_service
+                        submissions_core_service.journals.processing_service = submissions_processor
+                        submissions_core_service.journals.exercise_service = exercise_service
 ```
 
 **Rule:** Routes never pass cross-domain services as parameters. Orchestration methods (e.g., `create_with_goal_links`, `submit_journal_file`) use `self.*_service` internally.

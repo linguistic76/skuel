@@ -139,7 +139,7 @@ TranscriptionResult stored in Neo4j
 TranscriptionCompleted event published
        |
        v
-SubmissionsCoreService creates journal report
+JournalsCoreService creates journal report (via SubmissionsCoreService delegation)
 ```
 
 **TranscriptionProcessOptions** (Pydantic model) provides per-call overrides via the REST API:
