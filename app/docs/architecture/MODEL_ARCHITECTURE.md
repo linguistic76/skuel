@@ -205,7 +205,7 @@ ENTITY_TYPE_CLASS_MAP: dict[EntityType, type[Entity]] = {
 # Type aliases for services that handle subsets
 ActivityEntity = Task | Goal | Habit | Event | Choice | Principle
 CurriculumEntity = Ku | LearningStep | LearningPath | Exercise  # Ku is the atomic leaf
-SubmissionEntity = Submission | Journal | ActivityReport | SubmissionReport
+SubmissionEntity = Submission | ExerciseSubmission | JournalSubmission
 ```
 
 **Note:** `Ku` is a leaf domain class (`Ku(Curriculum)`), not a union type alias. The old union `Ku = Task | Goal | ...` was dissolved when `core/models/ku/` was created as a dedicated directory for atomic knowledge units (February 2026).

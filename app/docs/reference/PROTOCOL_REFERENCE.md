@@ -451,7 +451,7 @@ Plus `AskesisCoreOperations` added to existing `askesis_protocols.py`.
 
 ### Submission Protocols (3) — `submission_protocols.py`
 
-Map to the **Submission** stage of the educational loop (`Ku → Exercise → Submission → Feedback`).
+Map to the **Submission** stage of the educational loop (`Lesson → Exercise → Submission → Report`).
 
 | Protocol | Services Field | Methods | Route Consumer |
 |----------|---------------|---------|----------------|

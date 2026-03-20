@@ -220,7 +220,7 @@ core/models/ku/                    # Domain models (Tier 3) + DTOs (Tier 2)
 ├── principle.py / principle_dto.py # Principle domain
 ├── life_path.py / life_path_dto.py # LifePath domain
 ├── submission.py / submission_dto.py # Submission base
-├── journal.py / journal_dto.py    # Journal(Submission)
+├── journal_submission.py / journal_submission_dto.py  # JournalSubmission(Submission)
 ├── activity_report.py / activity_report_dto.py # ActivityReport(UserOwnedEntity) — no file fields
 ├── submission_report.py / submission_report_dto.py  # SubmissionReport(Submission)
 ├── curriculum.py / curriculum_dto.py # Curriculum base

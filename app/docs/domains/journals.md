@@ -17,7 +17,7 @@ tags: [journals, content-domain, submissions, multi-modal, ai-processing, lp-int
 
 ## Domain Architecture (February 2026)
 
-Journals are a **Submission subtype** — `Journal(Submission)` in the model hierarchy.
+Journals are a **Submission subtype** — `JournalSubmission(Submission)` in the model hierarchy.
 
 | EntityType | ProcessorType | Use Case |
 |------------|---------------|----------|
@@ -364,7 +364,7 @@ Three ways to specify processing instructions:
 ## Data Model
 
 ```python
-from core.models.submissions.journal import Journal
+from core.models.submissions.journal_submission import JournalSubmission
 from core.models.enums.entity_enums import EntityType, ProcessorType
 from core.services.submissions.journal_output_generator import JournalOutputGenerator
 

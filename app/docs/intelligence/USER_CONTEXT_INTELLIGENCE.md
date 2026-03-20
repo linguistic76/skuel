@@ -142,7 +142,7 @@ UserContextIntelligence requires ALL 13 domain services because each contributes
 
 | Service | Purpose | Implementation |
 |---------|---------|----------------|
-| **reports** | Submissions + Journals (EntityType.JOURNAL merged Feb 2026) | SubmissionsRelationshipService |
+| **reports** | Submissions + Journals (EntityType.JOURNAL_SUBMISSION) | SubmissionsRelationshipService |
 | **analytics** | Cross-domain analytics | AnalyticsRelationshipService |
 
 ### Temporal Domain (1)
