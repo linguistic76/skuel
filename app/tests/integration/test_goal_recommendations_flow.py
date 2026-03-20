@@ -6,14 +6,14 @@ Tests event-driven architecture for Goal→Recommendations.
 
 This test suite verifies that:
 1. GoalAchieved events trigger recommendation generation
-2. GoalsRecommendationService.handle_goal_achieved() receives events
+2. GoalEventHandlerService.handle_goal_achieved() receives events
 3. Recommendations are generated based on goal context (domain, knowledge, habits, principles)
 4. GoalRecommendationsGenerated events are published with recommendations
 5. Multiple recommendation strategies work (domain progression, knowledge expansion, habit reinforcement, principle alignment)
 
 Event Flow:
 -----------
-Goal achieved → GoalAchieved event → GoalsRecommendationService.handle_goal_achieved()
+Goal achieved → GoalAchieved event → GoalEventHandlerService.handle_goal_achieved()
     → Query Neo4j for goal context (knowledge, habits, principles)
     → Generate recommendations (4 strategies)
     → Publish GoalRecommendationsGenerated event
@@ -39,7 +39,7 @@ from core.models.enums.principle_enums import PrincipleCategory
 from core.models.goal.goal import Goal
 from core.models.habit.habit import Habit
 from core.models.principle.principle import Principle
-from core.services.goals.goals_recommendation_service import GoalsRecommendationService
+from core.services.goals.goal_event_handler_service import GoalEventHandlerService
 
 
 @pytest.mark.asyncio
@@ -79,10 +79,11 @@ class TestGoalRecommendationsFlow:
 
     @pytest_asyncio.fixture
     async def recommendation_service(self, goal_backend, event_bus):
-        """Create GoalsRecommendationService with event bus and backend."""
-        return GoalsRecommendationService(
+        """Create GoalEventHandlerService with event bus and backend."""
+        return GoalEventHandlerService(
             backend=goal_backend,
             event_bus=event_bus,
+            relationship_service=None,
         )
 
     @pytest_asyncio.fixture

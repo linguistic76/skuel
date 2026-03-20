@@ -363,23 +363,22 @@ handler = TaskEventHandlerService(backend=backend, relationship_service=rels)
 
 ---
 
-### RecommendationService
+### EventHandlerService
 
-**Domains:** Goals only
-**File:** `goals_recommendation_service.py`
-**Extends:** `BaseService[GoalsOperations, Goal]`
+**Domains:** Tasks, Goals, Principles
+**Files:** `task_event_handler_service.py`, `goal_event_handler_service.py`, `principles_event_handler_service.py`
 
-**Responsibility:** Goal recommendations and suggestions
+**Responsibility:** Event-driven reactive handlers (fire-and-forget)
 
-**Key Methods:**
-- `suggest_related_goals()` - Find similar goals
-- `recommend_next_steps()` - Action recommendations
-- `find_complementary_goals()` - Complementary goals
+**Key Methods (Goals):**
+- `handle_goal_achieved()` - Recommendations, duration calibration, principle alignment
+- `handle_goal_abandoned()` - Abandonment classification, structured logging
+- `handle_goal_progress_updated()` - Stall detection, milestone proximity, trigger logging
 
 **When to use:**
-- Goal discovery
-- Finding related/complementary goals
-- Next-step suggestions
+- Reacting to domain events
+- Cross-domain insight generation
+- Pattern detection and analytics logging
 
 ---
 
@@ -566,8 +565,8 @@ What do you want to do?
 ├─ [Habits only] Award achievement badges?
 │  └─ Use: AchievementService
 │
-├─ [Goals only] Get goal recommendations?
-│  └─ Use: RecommendationService
+├─ [Goals only] React to goal events (achievements, abandonment)?
+│  └─ Use: EventHandlerService
 │
 └─ [Optional] Use AI/LLM features?
    └─ Use: AIService

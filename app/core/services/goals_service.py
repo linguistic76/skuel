@@ -12,7 +12,7 @@ Sub-Services:
 - GoalsSchedulingService: Capacity management and schedule optimization (January 2026)
 - UnifiedRelationshipService (GOALS_CONFIG): Graph relationships and cross-domain links
 - GoalsIntelligenceService: pure Cypher analytics
-- GoalsRecommendationService: Intelligent goal recommendations
+- GoalEventHandlerService: Event-driven reactive handlers
 """
 
 from __future__ import annotations
@@ -29,10 +29,10 @@ from core.services.domain_config import create_activity_domain_config
 
 # Import sub-services
 from core.services.goals import (
+    GoalEventHandlerService,
     GoalsIntelligenceService,
     GoalsLearningService,
     GoalsProgressService,
-    GoalsRecommendationService,
     GoalsSchedulingService,
 )
 from core.services.goals.goal_relationships import GoalRelationships
@@ -357,9 +357,10 @@ class GoalsService(BaseService[GoalsOperations, Goal]):
             progress_service=self.progress,
         )
 
-        # Event-driven recommendation service
-        self.recommendations = GoalsRecommendationService(
+        # Event-driven handlers (replaces GoalsRecommendationService)
+        self.event_handler = GoalEventHandlerService(
             backend=backend,
+            relationship_service=self.relationships,
             event_bus=event_bus,
         )
 
@@ -372,7 +373,7 @@ class GoalsService(BaseService[GoalsOperations, Goal]):
 
         self.logger.info(
             "GoalsService facade initialized with 8 sub-services: "
-            "core, search, progress, learning, scheduling, relationships, intelligence, recommendations"
+            "core, search, progress, learning, scheduling, relationships, intelligence, event_handler"
         )
 
     # ========================================================================

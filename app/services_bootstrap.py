@@ -1212,10 +1212,14 @@ def _wire_event_subscribers(
     event_bus.subscribe(HabitCompleted, goals_service.progress.handle_habit_completed)
     logger.info("✅ GoalsProgressService subscribed to HabitCompleted (automatic progress updates)")
 
-    # Goal achievement → Goal recommendations
-    event_bus.subscribe(GoalAchieved, goals_service.recommendations.handle_goal_achieved)
+    # Goal achievement → Event handler (recommendations, duration calibration, alignment)
+    event_bus.subscribe(GoalAchieved, goals_service.event_handler.handle_goal_achieved)
+    # Goal abandonment → Event handler (classification, structured logging)
+    event_bus.subscribe(GoalAbandoned, goals_service.event_handler.handle_goal_abandoned)
+    # Goal progress → Event handler (stall detection, milestone proximity)
+    event_bus.subscribe(GoalProgressUpdated, goals_service.event_handler.handle_goal_progress_updated)
     logger.info(
-        "✅ GoalRecommendationService subscribed to GoalAchieved (intelligent recommendations)"
+        "✅ GoalEventHandlerService subscribed to GoalAchieved, GoalAbandoned, GoalProgressUpdated"
     )
 
     # Knowledge mastery → Learning Path progress update

@@ -17,7 +17,7 @@ Sub-Services:
 - GoalsLearningService: Learning path integration, knowledge connections
 - GoalsPlanningService: Context-aware planning and recommendations
 - GoalsSchedulingService: Capacity management, schedule optimization
-- GoalsRecommendationService: Goal recommendations and suggestions
+- GoalEventHandlerService: Event-driven reactive handlers (achievements, abandonment, progress)
 - GoalsIntelligenceService: Pure Cypher analytics and predictive analytics (NO AI dependencies)
 
 Common Import Pattern (Production):
@@ -37,8 +37,10 @@ Documentation:
 Architecture Notes:
 - GoalsRelationshipService replaced by UnifiedRelationshipService (December 2025)
 - GoalsGraphNativeService removed, replaced by UnifiedRelationshipService (January 2026 - ADR-029)
+- GoalsRecommendationService replaced by GoalEventHandlerService (March 2026)
 """
 
+from core.services.goals.goal_event_handler_service import GoalEventHandlerService
 from core.services.goals.goals_core_service import GoalsCoreService
 from core.services.goals.goals_intelligence_service import (
     GoalPrediction,
@@ -48,7 +50,6 @@ from core.services.goals.goals_intelligence_service import (
 from core.services.goals.goals_learning_service import GoalsLearningService
 from core.services.goals.goals_planning_service import GoalsPlanningService
 from core.services.goals.goals_progress_service import GoalsProgressService
-from core.services.goals.goals_recommendation_service import GoalsRecommendationService
 from core.services.goals.goals_scheduling_service import (
     AchievabilityResult,
     GoalCapacityResult,
@@ -61,6 +62,7 @@ from core.services.goals.goals_search_service import GoalsSearchService
 __all__ = [
     "AchievabilityResult",
     "GoalCapacityResult",
+    "GoalEventHandlerService",
     "GoalPrediction",
     "GoalSequenceItem",
     "GoalsCoreService",
@@ -68,7 +70,6 @@ __all__ = [
     "GoalsLearningService",
     "GoalsPlanningService",
     "GoalsProgressService",
-    "GoalsRecommendationService",
     "GoalsSchedulingService",
     "GoalsSearchService",
     "HabitImpactAnalysis",

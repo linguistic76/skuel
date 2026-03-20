@@ -41,7 +41,7 @@ Goals represent desired outcomes that guide learning and habit formation. They p
 | Planning Service | `/core/services/goals/goals_planning_service.py` |
 | Scheduling Service | `/core/services/goals/goals_scheduling_service.py` |
 | Intelligence Service | `/core/services/goals/goals_intelligence_service.py` |
-| Recommendation Service | `/core/services/goals/goals_recommendation_service.py` |
+| Event Handler Service | `/core/services/goals/goal_event_handler_service.py` |
 | Facade | `/core/services/goals_service.py` |
 | Config | `GOALS_CONFIG` in `/core/models/relationship_registry.py` |
 | Events | `/core/events/goal_events.py` |

@@ -93,10 +93,12 @@ After migrating `handle_goal_achieved`, check if `GoalsRecommendationService` ha
 
 ---
 
-## Pre-Assessment Checklist (for the implementation conversation)
+## Status: ✅ COMPLETE (2026-03-20)
 
-- [ ] Read `core/services/goals/goals_recommendation_service.py` in full — decide MOVE vs DELETE
-- [ ] Read `core/services/goals_service.py` — find facade integration point
-- [ ] Read `core/services/tasks/task_event_handler_service.py` — use as template
-- [ ] Grep for any other `GoalAchieved`/`GoalAbandoned` handlers outside bootstrap
-- [ ] Check if `GoalsProgressService.handle_task_completed` / `handle_habit_completed` should stay (cross-domain = yes)
+**Implementation:**
+- Created `GoalEventHandlerService` with 3 handlers (GoalAchieved, GoalAbandoned, GoalProgressUpdated)
+- Deleted `GoalsRecommendationService` (all logic migrated to event handler)
+- Sub-service count stays at 9 (recommendations → event_handler)
+- Fixed bug: `GoalAchieved.actual_duration_days` default was `(None,)` tuple instead of `None`
+- 3 new bootstrap subscriptions replacing 1 old one
+- Tests: `tests/unit/services/activity/test_goal_event_handler.py`

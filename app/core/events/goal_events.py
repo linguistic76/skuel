@@ -73,7 +73,7 @@ class GoalAchieved(BaseEvent):
     occurred_at: datetime
 
     # Performance metrics
-    actual_duration_days: int | None = (None,)
+    actual_duration_days: int | None = None
     planned_duration_days: int | None = None
     completed_ahead_of_schedule: bool = False
 
