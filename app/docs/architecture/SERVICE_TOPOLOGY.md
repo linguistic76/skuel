@@ -274,7 +274,7 @@ Activity Domain Facades (6 total)
 │
 ├─ HabitsService    (13 sub-services)  ← Most complex
 │   └─ core, search, progress, scheduling, planning, learning, completions,
-│      event_integration, achievement, intelligence, ai, patterns, goal_analytics
+│      event_integration, event_handler, intelligence, ai, patterns, goal_analytics
 │
 ├─ EventsService     (8 sub-services)
 │   └─ core, search, progress, scheduling, learning, habit_integration, intelligence, ai

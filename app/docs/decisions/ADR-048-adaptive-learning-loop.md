@@ -68,9 +68,9 @@ Next recommendation query reads updated weights
    - `(:User {preferred_task_time, avg_completion_rate})` — existing node, new properties
    - `(:Task {predicted_duration_minutes})` — calibrated over time from actuals
 
-2. **`*EventHandlerService` or `*IntelligenceService` classes handle `learn_from_outcome()` methods** — fire-and-forget event handlers. Examples:
-   - `TaskEventHandlerService.handle_task_completed()` (duration calibration — migrated from IntelligenceService, March 2026)
-   - `HabitsIntelligenceService.learn_from_completion()` (pending migration to event handler)
+2. **`*EventHandlerService` classes handle `learn_from_outcome()` methods** — fire-and-forget event handlers. Examples:
+   - `TaskEventHandlerService.handle_task_completed()` (duration calibration)
+   - `HabitEventHandlerService.handle_habit_completed()` (timing/scheduling learning)
    - `AskesisIntelligenceService.learn_from_conversation(session_uid, satisfaction_score)`
 
 3. **Event bus integration** — outcome events (already defined in `core/events/`) trigger learning updates asynchronously:

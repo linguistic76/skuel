@@ -19,11 +19,11 @@ Two domains have duration calibration wired to the event bus:
 | Domain | Handler | What It Learns | Persistence | Cold-Start Threshold |
 |--------|---------|---------------|-------------|---------------------|
 | **Tasks** | `TaskEventHandlerService.handle_task_completed()` | Duration calibration (EMA of estimated/actual ratio) | User node: `task_duration_ratio`, `task_completion_count` | 5 samples |
-| **Habits** | `HabitsIntelligenceService.learn_from_completion()` | Completion hour histogram + on-time rate (EMA) | Habit node: `completion_hours_json`, `learned_preferred_hour`, `learned_on_time_rate` | 7 samples |
+| **Habits** | `HabitEventHandlerService.handle_habit_completed()` | Completion hour histogram + on-time rate (EMA) | Habit node: `completion_hours_json`, `learned_preferred_hour`, `learned_on_time_rate` | 7 samples |
 
 Both are fire-and-forget via EventBus subscriptions in `services_bootstrap.py`. Learning failures never block user actions.
 
-**Note (March 2026):** Tasks duration calibration migrated from `TasksIntelligenceService.learn_from_completion()` to `TaskEventHandlerService.handle_task_completed()` as part of the event handler extraction pattern. Habits will follow the same pattern.
+**Note (March 2026):** All event handlers migrated from `*IntelligenceService` to dedicated `*EventHandlerService` classes (Tasks, Goals, Habits, Principles) as part of the event handler extraction pattern.
 
 ---
 
@@ -66,13 +66,13 @@ This is the key insight: **SKUEL already collects significant outcome data that 
 
 **No new data collection. Wire existing outcome data into `learn_from_*()` methods.**
 
-Each item follows the proven pattern: add method to `*IntelligenceService`, subscribe to existing event, persist EMA/histogram to existing Neo4j node.
+Each item follows the proven pattern: add method to `*EventHandlerService`, subscribe to existing event, persist EMA/histogram to existing Neo4j node.
 
-1. **Goals duration calibration** — `GoalsIntelligenceService.learn_from_achievement()` subscribed to `GoalAchieved`. Same EMA pattern as Tasks. Store `goal_duration_ratio`, `goal_completion_count` on User node. High-volume domain, direct parallel to Task learning.
+1. **Goals duration calibration** — `GoalEventHandlerService` subscribed to `GoalAchieved`. Same EMA pattern as Tasks. Store `goal_duration_ratio`, `goal_completion_count` on User node. High-volume domain, direct parallel to Task learning.
 
 2. **Events scheduling calibration** — `EventsIntelligenceService.learn_from_completion()` subscribed to `CalendarEventCompleted`. Learn whether user's events run long/short. Store `event_duration_ratio` on User node. High-volume domain.
 
-3. **Habits streak/break learning** — Already partially implemented (`handle_habit_streak_broken`, `handle_habit_missed` persist data). Missing: feeding `learned_recovery_difficulty` and `learned_difficulty_level` back into scheduling recommendations.
+3. **Habits streak/break learning** — ✅ Handlers implemented in `HabitEventHandlerService` (`handle_habit_streak_broken`, `handle_habit_missed` persist data). Missing: feeding `learned_recovery_difficulty` and `learned_difficulty_level` back into scheduling recommendations.
 
 4. **Principles engagement decay** — Track which principles the user actively references vs. which go dormant. No event needed — can be computed from relationship timestamps during analytics queries.
 

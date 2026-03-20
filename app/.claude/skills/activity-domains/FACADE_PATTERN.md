@@ -45,7 +45,7 @@ Created via `create_common_sub_services()` factory:
 |--------|-------------------|
 | **Tasks** | `progress`, `scheduling`, `planning`, `event_handler` |
 | **Goals** | `progress`, `scheduling`, `learning`, `event_handler` |
-| **Habits** | `progress`, `completions`, `planning`, `scheduling`, `learning`, `events`, `achievements`, `patterns`, `goal_analytics` |
+| **Habits** | `progress`, `completions`, `planning`, `scheduling`, `learning`, `events`, `event_handler`, `patterns`, `goal_analytics` |
 | **Events** | `habits` (integration), `learning` |
 | **Choices** | `learning` |
 | **Principles** | `alignment`, `learning`, `reflection`, `planning`, `event_handler` |
