@@ -4,8 +4,11 @@ Submissions Core Service
 
 Content management operations for submission entities.
 Handles categories, tags, publish/archive workflow, bulk operations,
-journal CRUD, and the Exercise → Submission link that drives the
-core educational loop.
+and the Exercise → Submission link that drives the core educational loop.
+
+Delegates journal-specific and assessment-specific workflows to sub-services:
+- JournalsCoreService: Journal CRUD, FIFO, transcription handling
+- AssessmentService: Teacher assessment CRUD with authority verification
 
 The Core Educational Loop
 --------------------------
@@ -30,32 +33,30 @@ Four Entity Types
     ACTIVITY_REPORT     → System-generated progress reports (user-owned)
     SUBMISSION_REPORT → Teacher feedback on a Submission (teacher-owned)
 
-Journal-specific fields (mood, energy_level, entry_date, etc.) live in metadata.
-max_retention controls FIFO cleanup for voice journals (None = permanent).
-
 Service Responsibilities
 --------------------------
 - SubmissionsService: File upload and storage
 - SubmissionsProcessingService: Content processing orchestration
-- SubmissionsCoreService: Content management + journal CRUD + exercise linking (THIS FILE)
+- SubmissionsCoreService: Content management + exercise linking (THIS FILE)
+- JournalsCoreService: Journal CRUD + FIFO + transcription (sub-service)
+- AssessmentService: Teacher assessments (sub-service)
 - SubmissionsSearchService: Read-only queries
 - ExerciseService: Exercise CRUD (in exercises package)
 - SubmissionReportService: AI report generation
 """
 
 import json
-from dataclasses import dataclass
-from datetime import UTC, date, datetime
+from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from core.events.transcription_events import TranscriptionCompleted
 
 from core.events import publish_event
-from core.events.submission_events import AssessmentCreated, SubmissionDeleted
+from core.events.submission_events import SubmissionDeleted
 from core.models.entity import Entity
 from core.models.entity_types import SubmissionEntity
-from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
+from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.relationship_names import RelationshipName
 from core.models.report.submission_report import SubmissionReport
 from core.models.submissions.journal import Journal
@@ -64,11 +65,14 @@ from core.ports import BackendOperations
 from core.ports.infrastructure_protocols import EventBusOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
-from core.utils.decorators import with_error_handling
-from core.utils.exception_types import LLM_EXCEPTIONS, NEO4J_EXCEPTIONS
+from core.services.submissions.assessment_service import AssessmentService
+from core.services.submissions.journals_core_service import (
+    DEFAULT_JOURNAL_INSTRUCTIONS,
+    JournalUploadResult,
+    JournalsCoreService,
+)
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_report_date
-from core.utils.uid_generator import UIDGenerator
 
 # ============================================================================
 # KU CATEGORY CONSTANTS
@@ -127,47 +131,13 @@ class ReportCategory:
         ]
 
 
-# ============================================================================
-# DEFAULT JOURNAL PROCESSING INSTRUCTIONS
-# ============================================================================
-
-DEFAULT_JOURNAL_INSTRUCTIONS = """# General Processing Instructions
-
-## Purpose
-Transform raw content into a well-formatted, readable document.
-
-## Formatting Rules
-1. **Structure**: Organize into coherent paragraphs
-2. **Flow**: Remove verbal fillers ("um", "uh", "like")
-3. **Clarity**: Improve sentence structure while preserving meaning
-4. **Themes**: Identify main themes and group related content
-5. **Action Items**: Extract concrete action items mentioned
-6. **Title**: Generate concise, descriptive title
-
-## Context Integration
-- Reference active goals, tasks, habits when relevant
-- Link to recent journal themes for continuity
-- Identify learning opportunities from current paths
-
-## Output Format
-- Title (concise, descriptive)
-- Summary (2-3 sentences)
-- Main content (well-formatted paragraphs)
-- Key themes (bullet list)
-- Action items (if any)
-
-Preserve the author's voice and authenticity while improving readability.
-"""
-
-
-@dataclass(frozen=True)
-class JournalUploadResult:
-    """Result of the multi-step journal upload orchestration."""
-
-    submission_uid: str
-    status: str
-    processing_succeeded: bool
-    message: str
+# Re-export for backward compatibility (moved to journals_core_service)
+__all__ = [
+    "DEFAULT_JOURNAL_INSTRUCTIONS",
+    "JournalUploadResult",
+    "ReportCategory",
+    "SubmissionsCoreService",
+]
 
 
 class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
@@ -222,10 +192,36 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         self.sharing_service = sharing_service
         self.content_enrichment = content_enrichment
 
-        # Post-init wired in services_bootstrap.py (circular dep avoidance)
-        self.submissions_service: Any | None = None
-        self.processing_service: Any | None = None
-        self.exercise_service: Any | None = None
+        # Sub-services (facade delegation pattern)
+        self.journals = JournalsCoreService(
+            backend=backend, event_bus=event_bus, content_enrichment=content_enrichment
+        )
+        self.assessments = AssessmentService(backend=backend, event_bus=event_bus)
+
+    # Post-init field proxies — wired in services_bootstrap.py via .journals
+    @property
+    def submissions_service(self) -> Any | None:
+        return self.journals.submissions_service
+
+    @submissions_service.setter
+    def submissions_service(self, value: Any) -> None:
+        self.journals.submissions_service = value
+
+    @property
+    def processing_service(self) -> Any | None:
+        return self.journals.processing_service
+
+    @processing_service.setter
+    def processing_service(self, value: Any) -> None:
+        self.journals.processing_service = value
+
+    @property
+    def exercise_service(self) -> Any | None:
+        return self.journals.exercise_service
+
+    @exercise_service.setter
+    def exercise_service(self, value: Any) -> None:
+        self.journals.exercise_service = value
 
     # ========================================================================
     # DOMAIN-SPECIFIC CONTRACT
@@ -905,354 +901,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         return Result.ok(markdown)
 
     # ========================================================================
-    # JOURNAL CRUD (merged from JournalsCoreService — February 2026)
-    #
-    # Journals are SUBMISSION entities with journal-specific fields in metadata:
-    #   metadata['journal_type'], metadata['journal_category'],
-    #   metadata['entry_date'], metadata['mood'], metadata['energy_level'],
-    #   metadata['key_topics'], metadata['action_items'],
-    #   metadata['source_type'], metadata['source_file'],
-    #   metadata['transcription_uid']
-    # ========================================================================
-
-    async def _count_journals_for_date(self, user_uid: str, entry_date: date) -> int:
-        """Count journals owned by user on the given calendar day (for sequence ordering)."""
-
-        day_start = datetime(entry_date.year, entry_date.month, entry_date.day, tzinfo=UTC)
-        day_end = datetime(
-            entry_date.year, entry_date.month, entry_date.day, 23, 59, 59, tzinfo=UTC
-        )
-        query = f"""
-            MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(j:Entity {{entity_type: 'journal_submission'}})
-            WHERE j.created_at >= $day_start AND j.created_at <= $day_end
-            RETURN count(j) AS total
-        """
-        result = await self.backend.execute_query(
-            query,
-            {"user_uid": user_uid, "day_start": day_start, "day_end": day_end},
-        )
-        if result.is_error or not result.value:
-            return 0
-        return int(result.value[0]["total"]) if result.value else 0
-
-    async def generate_journal_title(
-        self, user_uid: str, entry_date: date | None = None
-    ) -> Result[str]:
-        """Generate canonical journal title with sequence number for the given day.
-
-        Format: Journal — {user_id} — {Mar 02, 2026} — #{order}
-        """
-        resolved_date = entry_date or date.today()
-        existing_count = await self._count_journals_for_date(user_uid, resolved_date)
-        return Result.ok(Journal.generate_title(user_uid, resolved_date, order=existing_count + 1))
-
-    async def submit_journal_file(
-        self,
-        file_content: bytes,
-        filename: str,
-        user_uid: str,
-        custom_title: str = "",
-        exercise_uid: str = "",
-    ) -> Result[JournalUploadResult]:
-        """Orchestrate multi-step journal file upload: title → instructions → submit → process.
-
-        Steps:
-        1. Resolve title (custom > auto-generated > filename fallback)
-        2. Resolve processing instructions (exercise > DEFAULT_JOURNAL_INSTRUCTIONS)
-        3. Submit file via SubmissionsService
-        4. Auto-trigger AI processing via SubmissionsProcessingService
-
-        Requires submissions_service and processing_service to be wired (post-init).
-        exercise_service is optional — enables custom instructions from exercises.
-        """
-        if not self.submissions_service:
-            return Result.fail(Errors.system("submissions_service not wired"))
-        if not self.processing_service:
-            return Result.fail(Errors.system("processing_service not wired"))
-
-        # Step 1: Resolve title
-        if custom_title:
-            title = custom_title
-        else:
-            title_result = await self.generate_journal_title(user_uid)
-            title = title_result.value if title_result.is_ok else filename
-
-        # Step 2: Resolve processing instructions
-        instructions_text = DEFAULT_JOURNAL_INSTRUCTIONS
-        if exercise_uid and self.exercise_service:
-            ex_result = await self.exercise_service.get_exercise(exercise_uid)
-            if ex_result.is_ok and ex_result.value and ex_result.value.instructions:
-                instructions_text = ex_result.value.instructions
-                self.logger.info(f"Using exercise instructions: {exercise_uid}")
-
-        self.logger.info(f"Journal upload: {filename} ({len(file_content)} bytes, title={title})")
-
-        # Step 3: Submit file
-        metadata: dict[str, Any] = {"project_uid": "__default__"}
-        if exercise_uid:
-            metadata["exercise_uid"] = exercise_uid
-
-        result = await self.submissions_service.submit_file(
-            file_content=file_content,
-            original_filename=filename,
-            user_uid=user_uid,
-            entity_type=EntityType.JOURNAL_SUBMISSION,
-            processor_type=ProcessorType.LLM,
-            title=title,
-            metadata=metadata,
-        )
-
-        if result.is_error:
-            return Result.fail(Errors.system(str(result.error)))
-
-        report = result.value
-
-        # Step 4: Auto-trigger AI processing
-        # extract_activities=True enables DSL parsing: @context() tags → entities
-        process_result = await self.processing_service.process_submission(
-            report.uid,
-            instructions={
-                "custom_instructions": instructions_text,
-                "extract_activities": True,
-            },
-        )
-
-        if process_result.is_error:
-            error_msg = "File uploaded but AI processing failed"
-            if process_result.error:
-                error_msg = f"{error_msg}: {process_result.error.user_message or process_result.error.message}"
-            self.logger.warning(f"AI processing failed for {report.uid}: {error_msg}")
-            return Result.ok(
-                JournalUploadResult(
-                    submission_uid=report.uid,
-                    status="submitted",
-                    processing_succeeded=False,
-                    message=f"File uploaded. AI processing pending — {error_msg}",
-                )
-            )
-
-        processed_report = process_result.value
-        return Result.ok(
-            JournalUploadResult(
-                submission_uid=report.uid,
-                status=processed_report.status if processed_report else "completed",
-                processing_succeeded=True,
-                message="File uploaded and processed by AI",
-            )
-        )
-
-    @with_error_handling("create_journal_entry", error_type="database")
-    async def create_journal_entry(
-        self,
-        user_uid: str,
-        title: str | None = None,
-        content: str = "",
-        max_retention: int | None = None,
-        entry_date: date | None = None,
-        tags: list[str] | None = None,
-        mood: str | None = None,
-        energy_level: int | None = None,
-        key_topics: list[str] | None = None,
-        action_items: list[str] | None = None,
-        project_uid: str | None = None,
-        metadata: dict[str, Any] | None = None,
-        enforce_fifo: bool = True,
-        # Source info (for transcribed audio journals)
-        source_type: str | None = None,
-        source_file: str | None = None,
-        transcription_uid: str | None = None,
-    ) -> Result[Journal]:
-        """
-        Create a journal-type Ku (JOURNAL with journal metadata).
-
-        Journals are Ku entities with entity_type=JOURNAL. max_retention controls
-        FIFO cleanup: when set (e.g., 3), oldest journals are deleted to
-        maintain the limit. When None, journals are permanent.
-
-        Args:
-            user_uid: User who owns this journal
-            title: Journal entry title (auto-generated if None)
-            content: Journal body text
-            max_retention: FIFO cleanup limit (None = permanent, 3 = keep last 3)
-            entry_date: Date of entry (defaults to today)
-            tags: Optional tags
-            mood: Optional mood indicator
-            energy_level: Optional energy level (1-10)
-            key_topics: Optional extracted topics
-            action_items: Optional action items
-            project_uid: Optional Assignment UID for AI feedback
-            metadata: Optional additional metadata
-            enforce_fifo: If True, enforce FIFO cleanup when max_retention is set
-
-        Returns:
-            Result containing the created submission
-        """
-        resolved_date = entry_date or date.today()
-        if title is None:
-            title_result = await self.generate_journal_title(user_uid, resolved_date)
-            title = title_result.value if title_result.is_ok else f"Journal — {resolved_date}"
-
-        uid = UIDGenerator.generate_uid("je", title)
-
-        # Build journal metadata
-        journal_metadata = metadata.copy() if metadata else {}
-        journal_metadata["entry_date"] = resolved_date.isoformat()
-        if mood:
-            journal_metadata["mood"] = mood
-        if energy_level is not None:
-            journal_metadata["energy_level"] = energy_level
-        if key_topics:
-            journal_metadata["key_topics"] = key_topics
-        if action_items:
-            journal_metadata["action_items"] = action_items
-        if project_uid:
-            journal_metadata["project_uid"] = project_uid
-        if source_type:
-            journal_metadata["source_type"] = source_type
-        if source_file:
-            journal_metadata["source_file"] = source_file
-        if transcription_uid:
-            journal_metadata["transcription_uid"] = transcription_uid
-
-        journal = Journal(
-            uid=uid,
-            title=title,
-            entity_type=EntityType.JOURNAL_SUBMISSION,
-            user_uid=user_uid,
-            status=EntityStatus.DRAFT,
-            content=content,
-            max_retention=max_retention,
-            tags=tuple(tags) if tags else (),
-            metadata=journal_metadata,
-        )
-
-        result = await self.backend.create(journal)
-        if result.is_error:
-            return Result.fail(result.expect_error())
-
-        self.logger.info(f"Created journal submission: {uid} - {title}")
-
-        # Enforce FIFO for ephemeral journals
-        if enforce_fifo and max_retention is not None:
-            await self._enforce_fifo(user_uid, max_retention)
-
-        return Result.ok(journal)
-
-    @with_error_handling("get_ephemeral_journals", error_type="database")
-    async def get_ephemeral_journals(self, user_uid: str, limit: int = 10) -> Result[list[Journal]]:
-        """Get journals with FIFO retention (max_retention is set) for a user."""
-        result = await self.backend.find_by(
-            user_uid=user_uid,
-            entity_type=EntityType.JOURNAL_SUBMISSION.value,
-        )
-        if result.is_error:
-            return Result.fail(result.expect_error())
-        reports = result.value or []
-        journals = [k for k in reports if getattr(k, "max_retention", None) is not None]
-        journals.sort(key=_get_entry_date_key, reverse=True)
-        return Result.ok(journals[:limit])
-
-    @with_error_handling("get_permanent_journals", error_type="database")
-    async def get_permanent_journals(self, user_uid: str, limit: int = 50) -> Result[list[Journal]]:
-        """Get permanent journals (no FIFO retention) for a user."""
-        result = await self.backend.find_by(
-            user_uid=user_uid,
-            entity_type=EntityType.JOURNAL_SUBMISSION.value,
-        )
-        if result.is_error:
-            return Result.fail(result.expect_error())
-        reports = result.value or []
-        journals = [k for k in reports if getattr(k, "max_retention", None) is None]
-        journals.sort(key=_get_entry_date_key, reverse=True)
-        return Result.ok(journals[:limit])
-
-    @with_error_handling("get_journals_by_date_range", error_type="database")
-    async def get_journals_by_date_range(
-        self,
-        user_uid: str,
-        start_date: date,
-        end_date: date,
-        limit: int = 100,
-    ) -> Result[list[Journal]]:
-        """
-        Get journal submission entities within a date range.
-
-        Args:
-            user_uid: User identifier
-            start_date: Start of date range (inclusive)
-            end_date: End of date range (inclusive)
-            limit: Maximum number to return
-
-        Returns:
-            Result containing list of journal submission entities
-        """
-        result = await self.backend.find_by(
-            user_uid=user_uid,
-            entity_type=EntityType.JOURNAL_SUBMISSION.value,
-        )
-        if result.is_error:
-            return Result.fail(result.expect_error())
-
-        submissions = result.value or []
-        journals = []
-        for submission in submissions:
-            entry_date_str = (submission.metadata or {}).get("entry_date")
-            if entry_date_str:
-                try:
-                    entry = date.fromisoformat(entry_date_str)
-                    if start_date <= entry <= end_date:
-                        journals.append(submission)
-                except (ValueError, TypeError):
-                    pass
-
-        journals.sort(key=_get_entry_date_key, reverse=True)
-        return Result.ok(journals[:limit])
-
-    @with_error_handling("make_permanent", error_type="database")
-    async def make_permanent(self, uid: str) -> Result[SubmissionEntity]:
-        """
-        Make a journal permanent by clearing its max_retention.
-
-        Removes the journal from FIFO cleanup.
-
-        Args:
-            uid: Report UID to make permanent
-
-        Returns:
-            Result containing the updated submission
-        """
-        get_result = await self.backend.get(uid)
-        if get_result.is_error:
-            return Result.fail(get_result.expect_error())
-
-        submission = get_result.value
-        if not submission:
-            return Result.fail(Errors.not_found("resource", f"Submission {uid} not found"))
-
-        return await self.update_submission(uid, {"max_retention": None})
-
-    async def get_journal_with_insights(self, uid: str) -> Result[Journal | None]:
-        """
-        Get a journal submission with its extracted insights.
-
-        Args:
-            uid: Submission UID
-
-        Returns:
-            Result containing the entity (includes insights in metadata)
-        """
-        result = await self.backend.get(uid)
-        if result.is_error:
-            return Result.fail(result.expect_error())
-
-        submission = result.value
-        if not submission or submission.entity_type != EntityType.JOURNAL_SUBMISSION:
-            return Result.ok(None)
-
-        return Result.ok(submission)
-
-    # ========================================================================
-    # FIFO CLEANUP FOR VOICE JOURNALS
+    # EXERCISE SUBMISSION PROCESSING
     # ========================================================================
 
     async def process_exercise_submission(
@@ -1462,55 +1111,110 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         """Alias for process_exercise_submission (backward compatibility)."""
         return await self.process_exercise_submission(ku_uid, project_uid)
 
+    # ========================================================================
+    # JOURNAL DELEGATION (→ JournalsCoreService)
+    # ========================================================================
+
+    async def _count_journals_for_date(self, user_uid: str, entry_date: date) -> int:
+        """Delegate to journals sub-service."""
+        return await self.journals._count_journals_for_date(user_uid, entry_date)
+
     async def _enforce_fifo(self, user_uid: str, max_retention: int) -> Result[int]:
-        """
-        Enforce FIFO cleanup for ephemeral journals.
+        """Delegate to journals sub-service."""
+        return await self.journals._enforce_fifo(user_uid, max_retention)
 
-        When max_retention is set, delete oldest journal entries to maintain the limit.
+    async def generate_journal_title(
+        self, user_uid: str, entry_date: date | None = None
+    ) -> Result[str]:
+        """Delegate to journals sub-service."""
+        return await self.journals.generate_journal_title(user_uid, entry_date)
 
-        Args:
-            user_uid: User identifier
-            max_retention: Maximum number of journals to keep
-
-        Returns:
-            Result containing count of journals deleted
-        """
-        result = await self.backend.find_by(
-            user_uid=user_uid,
-            entity_type=EntityType.JOURNAL_SUBMISSION.value,
+    async def submit_journal_file(
+        self,
+        file_content: bytes,
+        filename: str,
+        user_uid: str,
+        custom_title: str = "",
+        exercise_uid: str = "",
+    ) -> Result[JournalUploadResult]:
+        """Delegate to journals sub-service."""
+        return await self.journals.submit_journal_file(
+            file_content, filename, user_uid, custom_title, exercise_uid
         )
 
-        if result.is_error:
-            self.logger.warning(f"Failed to get submission entities for FIFO: {result.error}")
-            return Result.ok(0)
+    async def create_journal_entry(
+        self,
+        user_uid: str,
+        title: str | None = None,
+        content: str = "",
+        max_retention: int | None = None,
+        entry_date: date | None = None,
+        tags: list[str] | None = None,
+        mood: str | None = None,
+        energy_level: int | None = None,
+        key_topics: list[str] | None = None,
+        action_items: list[str] | None = None,
+        project_uid: str | None = None,
+        metadata: dict[str, Any] | None = None,
+        enforce_fifo: bool = True,
+        source_type: str | None = None,
+        source_file: str | None = None,
+        transcription_uid: str | None = None,
+    ) -> Result[Journal]:
+        """Delegate to journals sub-service."""
+        return await self.journals.create_journal_entry(
+            user_uid=user_uid,
+            title=title,
+            content=content,
+            max_retention=max_retention,
+            entry_date=entry_date,
+            tags=tags,
+            mood=mood,
+            energy_level=energy_level,
+            key_topics=key_topics,
+            action_items=action_items,
+            project_uid=project_uid,
+            metadata=metadata,
+            enforce_fifo=enforce_fifo,
+            source_type=source_type,
+            source_file=source_file,
+            transcription_uid=transcription_uid,
+        )
 
-        reports = result.value or []
-        # Filter to journals with FIFO retention
-        journals = [k for k in reports if getattr(k, "max_retention", None) is not None]
+    async def get_ephemeral_journals(self, user_uid: str, limit: int = 10) -> Result[list[Journal]]:
+        """Delegate to journals sub-service."""
+        return await self.journals.get_ephemeral_journals(user_uid, limit)
 
-        if len(journals) <= max_retention:
-            return Result.ok(0)
+    async def get_permanent_journals(self, user_uid: str, limit: int = 50) -> Result[list[Journal]]:
+        """Delegate to journals sub-service."""
+        return await self.journals.get_permanent_journals(user_uid, limit)
 
-        # Sort by created_at ascending (oldest first)
-        journals.sort(key=_get_created_at_key)
+    async def get_journals_by_date_range(
+        self,
+        user_uid: str,
+        start_date: date,
+        end_date: date,
+        limit: int = 100,
+    ) -> Result[list[Journal]]:
+        """Delegate to journals sub-service."""
+        return await self.journals.get_journals_by_date_range(user_uid, start_date, end_date, limit)
 
-        # Delete oldest journals that exceed the limit
-        to_delete = journals[: len(journals) - max_retention]
-        deleted_count = 0
+    async def make_permanent(self, uid: str) -> Result[SubmissionEntity]:
+        """Delegate to journals sub-service."""
+        return await self.journals.make_permanent(uid)
 
-        for journal in to_delete:
-            delete_result = await self.backend.delete(journal.uid, cascade=True)
-            if delete_result.is_ok and delete_result.value:
-                deleted_count += 1
-                self.logger.info(f"FIFO cleanup: deleted journal {journal.uid}")
+    async def get_journal_with_insights(self, uid: str) -> Result[Journal | None]:
+        """Delegate to journals sub-service."""
+        return await self.journals.get_journal_with_insights(uid)
 
-        return Result.ok(deleted_count)
+    async def handle_transcription_completed(self, event: "TranscriptionCompleted") -> None:
+        """Delegate to journals sub-service."""
+        await self.journals.handle_transcription_completed(event)
 
     # ========================================================================
-    # ASSESSMENT CRUD (Teacher Assessments → SUBMISSION_REPORT entity)
+    # ASSESSMENT DELEGATION (→ AssessmentService)
     # ========================================================================
 
-    @with_error_handling("create_assessment", error_type="database")
     async def create_assessment(
         self,
         teacher_uid: str,
@@ -1519,297 +1223,19 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         content: str,
         metadata: dict[str, Any] | None = None,
     ) -> Result[SubmissionReport]:
-        """
-        Create a teacher assessment (feedback) for a student.
-
-        Creates a submission with entity_type=SUBMISSION_REPORT, auto-shares with student.
-        Verifies teacher has authority over student via shared group membership.
-
-        Args:
-            teacher_uid: Teacher creating the assessment
-            subject_uid: Student being assessed
-            title: Assessment title
-            content: Assessment content (markdown)
-            metadata: Optional additional metadata
-
-        Returns:
-            Result containing the created submission, or forbidden error if no shared group
-        """
-        from core.models.enums.metadata_enums import Visibility
-
-        # Verify teacher has authority over student (share an active group)
-        authority_result = await self.backend.execute_query(
-            f"""
-            MATCH (teacher:User {{uid: $teacher_uid}})-[:{RelationshipName.OWNS.value}]->(g:Group)
-                  <-[:{RelationshipName.MEMBER_OF.value}]-(student:User {{uid: $subject_uid}})
-            WHERE g.is_active = true
-            RETURN g.uid AS group_uid LIMIT 1
-            """,
-            {"teacher_uid": teacher_uid, "subject_uid": subject_uid},
+        """Delegate to assessments sub-service."""
+        return await self.assessments.create_assessment(
+            teacher_uid, subject_uid, title, content, metadata
         )
 
-        if authority_result.is_error:
-            self.logger.error(
-                f"Failed to verify teacher-student authority: {authority_result.error}"
-            )
-            return Result.fail(Errors.database("create_assessment", str(authority_result.error)))
-
-        authority_records = authority_result.value or []
-        if not authority_records:
-            return Result.fail(
-                Errors.forbidden(
-                    "create_assessment",
-                    f"Teacher {teacher_uid} does not have authority over student {subject_uid} "
-                    "(no shared group)",
-                )
-            )
-
-        uid = UIDGenerator.generate_uid("sr")
-
-        assessment = SubmissionReport(
-            uid=uid,
-            title=title,
-            entity_type=EntityType.EXERCISE_REPORT,
-            user_uid=teacher_uid,
-            status=EntityStatus.COMPLETED,
-            processor_type=ProcessorType.HUMAN,
-            content=content,
-            subject_uid=subject_uid,
-            created_by=teacher_uid,
-            visibility=Visibility.SHARED,
-            metadata=metadata,
-        )
-
-        result = await self.backend.create(assessment)
-        if result.is_error:
-            return Result.fail(result.expect_error())
-
-        # Create ASSESSMENT_OF relationship
-        assess_result = await self.backend.execute_query(
-            f"""
-            MATCH (k:Entity {{uid: $ku_uid}})
-            MATCH (u:User {{uid: $subject_uid}})
-            MERGE (k)-[:{RelationshipName.ASSESSMENT_OF.value}]->(u)
-            RETURN true AS success
-            """,
-            {"ku_uid": uid, "subject_uid": subject_uid},
-        )
-
-        if assess_result.is_error:
-            self.logger.error(f"Failed to create ASSESSMENT_OF relationship: {assess_result.error}")
-            return Result.fail(Errors.database("create_assessment", str(assess_result.error)))
-
-        if not (assess_result.value or []):
-            self.logger.error(f"ASSESSMENT_OF not created: student {subject_uid} not found")
-            return Result.fail(
-                Errors.database("create_assessment", "Failed to create ASSESSMENT_OF relationship")
-            )
-
-        # Auto-share with student
-        share_result = await self.backend.execute_query(
-            """
-            MATCH (student:User {uid: $subject_uid})
-            MATCH (k:Entity {uid: $ku_uid})
-            MERGE (student)-[rel:SHARES_WITH]->(k)
-            SET rel.shared_at = datetime($now),
-                rel.role = 'student'
-            RETURN true AS success
-            """,
-            {
-                "subject_uid": subject_uid,
-                "ku_uid": uid,
-                "now": datetime.now().isoformat(),
-            },
-        )
-
-        if share_result.is_error:
-            self.logger.error(f"Failed to auto-share assessment with student: {share_result.error}")
-            return Result.fail(Errors.database("create_assessment", str(share_result.error)))
-
-        if not (share_result.value or []):
-            self.logger.error(f"SHARES_WITH not created for student {subject_uid}")
-            return Result.fail(
-                Errors.database("create_assessment", "Failed to auto-share assessment with student")
-            )
-
-        # Publish event
-        event = AssessmentCreated(
-            submission_uid=uid,
-            teacher_uid=teacher_uid,
-            subject_uid=subject_uid,
-            occurred_at=datetime.now(),
-        )
-        await publish_event(self.event_bus, event, self.logger)
-
-        self.logger.info(f"Created assessment {uid}: teacher={teacher_uid}, student={subject_uid}")
-        return Result.ok(assessment)
-
-    @with_error_handling("get_assessments_for_student", error_type="database")
     async def get_assessments_for_student(
         self, student_uid: str, limit: int = 50
     ) -> Result[list[SubmissionEntity]]:
-        """
-        Get assessments received by a student.
+        """Delegate to assessments sub-service."""
+        return await self.assessments.get_assessments_for_student(student_uid, limit)
 
-        Args:
-            student_uid: Student user UID
-            limit: Maximum number of assessments to return
-
-        Returns:
-            Result containing list of EXERCISE_REPORT entities
-        """
-        result = await self.backend.execute_query(
-            f"""
-            MATCH (k:Entity)-[:{RelationshipName.ASSESSMENT_OF.value}]->(u:User {{uid: $student_uid}})
-            WHERE k.entity_type = 'exercise_report'
-            RETURN k
-            ORDER BY k.created_at DESC
-            LIMIT $limit
-            """,
-            {"student_uid": student_uid, "limit": limit},
-        )
-
-        if result.is_error:
-            return Result.fail(result.expect_error())
-
-        reports = []
-        for record in result.value or []:
-            node = record["k"]
-            dto = SubmissionDTO.from_dict(node)
-            reports.append(Entity.from_dto(dto))
-        return Result.ok(reports)
-
-    @with_error_handling("get_assessments_by_teacher", error_type="database")
     async def get_assessments_by_teacher(
         self, teacher_uid: str, limit: int = 50
     ) -> Result[list[SubmissionEntity]]:
-        """
-        Get assessments authored by a teacher.
-
-        Args:
-            teacher_uid: Teacher user UID
-            limit: Maximum number of assessments to return
-
-        Returns:
-            Result containing list of EXERCISE_REPORT entities
-        """
-        result = await self.backend.find_by(
-            user_uid=teacher_uid,
-            entity_type=EntityType.EXERCISE_REPORT.value,
-        )
-        if result.is_error:
-            return Result.fail(result.expect_error())
-
-        reports = result.value or []
-        reports.sort(key=_get_created_at_key, reverse=True)
-        return Result.ok(reports[:limit])
-
-    # ========================================================================
-    # EVENT HANDLERS
-    # ========================================================================
-
-    async def handle_transcription_completed(self, event: "TranscriptionCompleted") -> None:
-        """
-        Create journal-type Ku when transcription completes.
-
-        Pipeline:
-        1. Try AI processing via ContentEnrichmentService (if available)
-        2. Fall back to raw transcript if AI fails
-        3. Create Ku with entity_type=JOURNAL and journal metadata via create_journal_entry()
-        4. Triggers FIFO cleanup for VOICE journals
-
-        Args:
-            event: TranscriptionCompleted event with transcript data
-
-        Note:
-            Errors logged but not raised — journal creation is best-effort
-            to prevent transcription failure if journal creation fails.
-        """
-        try:
-            self.logger.info(
-                f"Creating journal Ku from transcription {event.transcription_uid} "
-                f"for user {event.user_uid}"
-            )
-
-            # Default to raw transcript
-            title = f"Voice Journal - {event.occurred_at.strftime('%Y-%m-%d %H:%M')}"
-            content = event.transcript_text
-            key_topics: list[str] = []
-            action_items: list[str] = []
-            summary: str | None = None
-
-            # Try AI processing if available
-            if self.content_enrichment:
-                insights_result = await self.content_enrichment.process_transcript(
-                    raw_transcript=event.transcript_text,
-                    user_uid=event.user_uid,
-                )
-
-                if insights_result.is_ok:
-                    insights = insights_result.value
-                    title = insights.title or title
-                    content = insights.formatted_content or content
-                    key_topics = insights.themes or []
-                    action_items = insights.action_items or []
-                    summary = insights.summary
-                    self.logger.debug(f"AI processing successful for {event.transcription_uid}")
-                else:
-                    self.logger.warning(
-                        f"AI processing failed for {event.transcription_uid}: "
-                        f"{insights_result.error}. Using raw transcript."
-                    )
-
-            # Build metadata
-            journal_metadata: dict[str, str] = {}
-            if summary:
-                journal_metadata["summary"] = summary
-
-            # Create journal entity (triggers FIFO for VOICE journals)
-            result = await self.create_journal_entry(
-                user_uid=event.user_uid,
-                title=title,
-                content=content,
-                max_retention=3,  # Audio-sourced = ephemeral with FIFO
-                key_topics=key_topics if key_topics else None,
-                action_items=action_items if action_items else None,
-                source_type="audio",
-                source_file=event.audio_file_path,
-                transcription_uid=event.transcription_uid,
-                metadata=journal_metadata,
-            )
-
-            if result.is_ok:
-                self.logger.info(
-                    f"Created journal Ku {result.value.uid} from transcription "
-                    f"{event.transcription_uid}"
-                )
-            else:
-                self.logger.error(
-                    f"Failed to create journal Ku from {event.transcription_uid}: {result.error}"
-                )
-
-        except (*NEO4J_EXCEPTIONS, *LLM_EXCEPTIONS) as e:
-            self.logger.error(
-                f"Error handling TranscriptionCompleted for {event.transcription_uid}: {e!s}"
-            )
-        except Exception as e:  # safety-net: catch unexpected errors
-            self.logger.error(
-                f"Unexpected error handling TranscriptionCompleted for {event.transcription_uid}: {e!s}"
-            )
-
-
-def _get_entry_date_key(submission: SubmissionEntity) -> date:
-    """Get entry_date from entity metadata for sorting, with fallback to date.min."""
-    if submission.metadata:
-        entry_date_str = submission.metadata.get("entry_date")
-        if entry_date_str:
-            try:
-                return date.fromisoformat(entry_date_str)
-            except (ValueError, TypeError):
-                pass
-    return date.min
-
-
-def _get_created_at_key(submission: SubmissionEntity) -> datetime:
-    """Get created_at from entity for sorting, with fallback to datetime.min."""
-    return submission.created_at if submission.created_at else datetime.min
+        """Delegate to assessments sub-service."""
+        return await self.assessments.get_assessments_by_teacher(teacher_uid, limit)

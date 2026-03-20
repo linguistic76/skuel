@@ -1390,15 +1390,11 @@ def _wire_event_subscribers(
 
     # Events event handlers - attendance patterns, rescheduling detection, scheduling density
     events_service = activity_services["events"]
-    event_bus.subscribe(
-        CalendarEventCompleted, events_service.event_handler.handle_event_completed
-    )
+    event_bus.subscribe(CalendarEventCompleted, events_service.event_handler.handle_event_completed)
     event_bus.subscribe(
         CalendarEventRescheduled, events_service.event_handler.handle_event_rescheduled
     )
-    event_bus.subscribe(
-        CalendarEventCreated, events_service.event_handler.handle_event_created
-    )
+    event_bus.subscribe(CalendarEventCreated, events_service.event_handler.handle_event_created)
     logger.info(
         "✅ EventsEventHandlerService subscribed to "
         "CalendarEventCompleted, CalendarEventRescheduled, CalendarEventCreated"
@@ -2598,10 +2594,10 @@ async def compose_services(
             event_bus=event_bus,
         )
 
-        # Wire journal upload orchestration deps into submissions_core_service
-        submissions_core_service.submissions_service = submissions_service
-        submissions_core_service.processing_service = submissions_processor
-        submissions_core_service.exercise_service = exercise_service
+        # Wire journal upload orchestration deps into journals sub-service
+        submissions_core_service.journals.submissions_service = submissions_service
+        submissions_core_service.journals.processing_service = submissions_processor
+        submissions_core_service.journals.exercise_service = exercise_service
 
         # Create Submissions search service (unified query interface)
         submissions_search_service = SubmissionsSearchService(

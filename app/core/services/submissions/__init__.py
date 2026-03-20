@@ -28,6 +28,8 @@ from core.services.submissions.submission_processing_types import (
     SubmissionAIInsights,
     SubmissionProcessingContext,
 )
+from core.services.submissions.assessment_service import AssessmentService
+from core.services.submissions.journals_core_service import JournalsCoreService
 from core.services.submissions.submissions_core_service import SubmissionsCoreService
 from core.services.submissions.submissions_processing_service import SubmissionsProcessingService
 from core.services.submissions.submissions_relationship_service import (
@@ -42,7 +44,9 @@ from core.services.submissions.learning_loop_event_handler_service import (
 )
 
 __all__ = [
+    "AssessmentService",
     "JournalOutputGenerator",
+    "JournalsCoreService",
     "LearningLoopEventHandlerService",
     "SubmissionAIInsights",
     "SubmissionProcessingContext",

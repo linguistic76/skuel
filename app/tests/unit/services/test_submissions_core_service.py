@@ -1756,7 +1756,7 @@ class TestSubmitJournalFile:
         backend = _make_backend()
         service = _make_service(backend=backend)
         _wire_journal_services(service)
-        service.generate_journal_title = AsyncMock(
+        service.journals.generate_journal_title = AsyncMock(
             return_value=Result.fail(Errors.system("title gen failed"))
         )
 
