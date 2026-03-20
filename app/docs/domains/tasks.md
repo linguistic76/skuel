@@ -37,8 +37,8 @@ Tasks represent work items with dependencies, deadlines, and knowledge requireme
 | Search Service | `/core/services/tasks/tasks_search_service.py` |
 | Progress Service | `/core/services/tasks/tasks_progress_service.py` |
 | Scheduling Service | `/core/services/tasks/tasks_scheduling_service.py` |
-| Analytics Service | `/core/services/tasks/tasks_analytics_service.py` |
 | Intelligence Service | `/core/services/tasks/tasks_intelligence_service.py` |
+| Event Handler Service | `/core/services/tasks/task_event_handler_service.py` |
 | Facade | `/core/services/tasks_service.py` |
 | Config | `TASKS_CONFIG` in `/core/models/relationship_registry.py` |
 | Events | `/core/events/task_events.py` |
@@ -57,6 +57,7 @@ class TasksService(BaseService[TasksOperations, Task]):
     scheduling: TasksSchedulingService
     relationships: UnifiedRelationshipService
     intelligence: TasksIntelligenceService
+    event_handler: TaskEventHandlerService
 
     # Explicit delegation — MyPy-native, no mixin needed
     async def get_task(self, *args: Any, **kwargs: Any) -> Any:

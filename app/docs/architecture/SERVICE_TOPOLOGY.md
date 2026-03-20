@@ -217,7 +217,7 @@ mixins/
 TasksService (Facade)
 ├─ Inherits: BaseService[TasksOperations, Task]
 ├─ Provides: ~35 explicit async delegation methods
-└─ Composes 7 sub-services:
+└─ Composes 8 sub-services:
     │
     ├─ self.core: TasksCoreService
     │   ├─ Extends: BaseService[TasksOperations, Task]
@@ -250,10 +250,15 @@ TasksService (Facade)
     │   ├─ Responsibility: Cross-domain relationships
     │   └─ Methods: link_to_knowledge(), get_with_context()
     │
-    └─ self.intelligence: TasksIntelligenceService
-        ├─ Extends: BaseAnalyticsService[TasksOperations, Task]
-        ├─ Responsibility: Pure Cypher analytics
-        └─ Methods: analyze_task_learning_metrics(), generate_task_knowledge_insights()
+    ├─ self.intelligence: TasksIntelligenceService
+    │   ├─ Extends: BaseAnalyticsService[TasksOperations, Task]
+    │   ├─ Responsibility: Pure Cypher analytics
+    │   └─ Methods: analyze_task_learning_metrics(), generate_task_knowledge_insights()
+    │
+    └─ self.event_handler: TaskEventHandlerService
+        ├─ Extends: N/A (standalone service)
+        ├─ Responsibility: Event-driven reactive handlers (fire-and-forget)
+        └─ Methods: handle_task_completed(), handle_task_priority_changed(), handle_tasks_bulk_completed()
 ```
 
 ### All Activity Domains — Sub-Service Counts
@@ -261,8 +266,8 @@ TasksService (Facade)
 ```
 Activity Domain Facades (6 total)
 │
-├─ TasksService      (7 sub-services)
-│   └─ core, search, progress, scheduling, planning, intelligence, ai
+├─ TasksService      (8 sub-services)
+│   └─ core, search, progress, scheduling, planning, intelligence, event_handler, ai
 │
 ├─ GoalsService      (9 sub-services)
 │   └─ core, search, progress, scheduling, learning, planning, recommendation, intelligence, ai

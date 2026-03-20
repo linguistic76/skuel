@@ -14,14 +14,16 @@
 
 ## What Exists Today
 
-Two domains have `learn_from_completion()` wired to the event bus:
+Two domains have duration calibration wired to the event bus:
 
-| Domain | What It Learns | Persistence | Cold-Start Threshold |
-|--------|---------------|-------------|---------------------|
-| **Tasks** | Duration calibration (EMA of estimated/actual ratio) | User node: `task_duration_ratio`, `task_completion_count` | 5 samples |
-| **Habits** | Completion hour histogram + on-time rate (EMA) | Habit node: `completion_hours_json`, `learned_preferred_hour`, `learned_on_time_rate` | 7 samples |
+| Domain | Handler | What It Learns | Persistence | Cold-Start Threshold |
+|--------|---------|---------------|-------------|---------------------|
+| **Tasks** | `TaskEventHandlerService.handle_task_completed()` | Duration calibration (EMA of estimated/actual ratio) | User node: `task_duration_ratio`, `task_completion_count` | 5 samples |
+| **Habits** | `HabitsIntelligenceService.learn_from_completion()` | Completion hour histogram + on-time rate (EMA) | Habit node: `completion_hours_json`, `learned_preferred_hour`, `learned_on_time_rate` | 7 samples |
 
 Both are fire-and-forget via EventBus subscriptions in `services_bootstrap.py`. Learning failures never block user actions.
+
+**Note (March 2026):** Tasks duration calibration migrated from `TasksIntelligenceService.learn_from_completion()` to `TaskEventHandlerService.handle_task_completed()` as part of the event handler extraction pattern. Habits will follow the same pattern.
 
 ---
 

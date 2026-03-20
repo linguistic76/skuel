@@ -68,16 +68,14 @@ Next recommendation query reads updated weights
    - `(:User {preferred_task_time, avg_completion_rate})` — existing node, new properties
    - `(:Task {predicted_duration_minutes})` — calibrated over time from actuals
 
-2. **`*IntelligenceService` classes gain `learn_from_outcome()` methods** — extending the existing `BaseAnalyticsService` subclasses. No new service layer. Examples:
-   - `TasksIntelligenceService.learn_from_completion(task_uid, actual_duration, energy_level)`
-   - `HabitsIntelligenceService.learn_from_streak(habit_uid, streak_length, break_reason)`
+2. **`*EventHandlerService` or `*IntelligenceService` classes handle `learn_from_outcome()` methods** — fire-and-forget event handlers. Examples:
+   - `TaskEventHandlerService.handle_task_completed()` (duration calibration — migrated from IntelligenceService, March 2026)
+   - `HabitsIntelligenceService.learn_from_completion()` (pending migration to event handler)
    - `AskesisIntelligenceService.learn_from_conversation(session_uid, satisfaction_score)`
 
 3. **Event bus integration** — outcome events (already defined in `core/events/`) trigger learning updates asynchronously:
    ```python
-   @subscribe(TaskCompleted)
-   async def on_task_completed(event: TaskCompleted):
-       await intelligence.learn_from_completion(event.task_uid, event.actual_duration)
+   event_bus.subscribe(TaskCompleted, tasks_service.event_handler.handle_task_completed)
    ```
 
 4. **Cold-start defaults** — when no learning data exists, services use sensible defaults from `core/constants.py`. Learning data only overrides defaults once enough samples exist (configurable threshold).

@@ -516,7 +516,7 @@ self.intelligence = common.intelligence
 
 | Domain | Total Sub-Services | Common (4) | Domain-Specific |
 |--------|-------------------|------------|-----------------|
-| Tasks | 7 | 4 | 3 (progress, scheduling, planning) |
+| Tasks | 8 | 4 | 4 (progress, scheduling, planning, event_handler) |
 | Goals | 9 | 4 | 5 (progress, scheduling, learning, recommendation, + custom) |
 | Habits | 13 | 4 | 9 (progress, scheduling, planning, learning, completions, events, achievements, patterns, goal_analytics) |
 | Events | 8 | 4 | 4 (progress, scheduling, + custom) |
