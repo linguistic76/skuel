@@ -314,7 +314,7 @@ The core learning-loop services have dedicated unit tests using the `_make_servi
 | Service | Test File | Tests | Pattern |
 |---------|-----------|-------|---------|
 | `TeacherReviewService` | `tests/unit/services/test_teacher_review_service.py` | 57 | Raw `QueryExecutor` mock (`execute_query = AsyncMock()` with `side_effect=[...]` for multi-step mutations) |
-| `SubmissionsCoreService` | `tests/unit/services/test_submissions_core_service.py` | 97 | Full `BackendOperations` mock (`get`, `create`, `update`, `delete`, `find_by`, `list`, `execute_query`) |
+| `SubmissionsCoreService` | `tests/unit/services/test_submissions_core_service.py` | 109 | Full `BackendOperations` mock (`get`, `create`, `update`, `delete`, `find_by`, `list`, `execute_query`) + orchestrator service mocks |
 | `SubmissionsCoreService` (assessments) | `tests/unit/test_assessment_service.py` | 7 | Same backend mock pattern |
 
 **Key mocking patterns in these tests:**

@@ -541,7 +541,7 @@ User annotates report (additive or revision mode)
 | Service | Test File | Tests | Coverage |
 |---------|-----------|-------|----------|
 | `TeacherReviewService` | `tests/unit/services/test_teacher_review_service.py` | 57 | 99% |
-| `SubmissionsCoreService` | `tests/unit/services/test_submissions_core_service.py` | 97 | 74% |
+| `SubmissionsCoreService` | `tests/unit/services/test_submissions_core_service.py` | 109 | 79% |
 | `SubmissionsCoreService` (assessments) | `tests/unit/test_assessment_service.py` | 7 | Assessment CRUD |
 
 ---

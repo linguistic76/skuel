@@ -640,12 +640,12 @@ that never closes the loop.
 | Service | Test File | Tests | Coverage |
 |---------|-----------|-------|----------|
 | `TeacherReviewService` | `tests/unit/services/test_teacher_review_service.py` | 57 | 99% (171/172 lines) |
-| `SubmissionsCoreService` | `tests/unit/services/test_submissions_core_service.py` | 97 | 74% (460/625 lines) |
+| `SubmissionsCoreService` | `tests/unit/services/test_submissions_core_service.py` | 109 | 79% (491/625 lines) |
 | `SubmissionsCoreService` (assessments) | `tests/unit/test_assessment_service.py` | 7 | Assessment CRUD only |
 
 **TeacherReviewService tests cover:** access control (`_verify_teacher_access`), review queue filtering, report submission + event publishing, revision requests, approval with mastery updates, dashboard stats, group management, exercise/student views.
 
-**SubmissionsCoreService tests cover:** journal CRUD + FIFO enforcement, retrieve + access checks, update/status workflow, exercise linking (standard + revised exercise paths), tag/category management, bulk operations, delete + export, date range queries.
+**SubmissionsCoreService tests cover:** journal CRUD + FIFO enforcement, retrieve + access checks, update/status workflow, exercise linking (standard + revised exercise paths), tag/category management, bulk operations, delete + export, date range queries, make_permanent regression, submit_journal_file orchestrator (service wiring guards, title resolution, exercise instructions, partial success).
 
 ---
 

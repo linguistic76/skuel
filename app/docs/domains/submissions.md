@@ -135,7 +135,7 @@ Students see assessments at `/submissions/reports`.
 | Service | Test File | Tests | Notes |
 |---------|-----------|-------|-------|
 | `TeacherReviewService` | `tests/unit/services/test_teacher_review_service.py` | 57 | 99% coverage — access control, review queue, report/revision/approval flows, dashboard stats, groups |
-| `SubmissionsCoreService` | `tests/unit/services/test_submissions_core_service.py` | 97 | 74% coverage — journal CRUD, FIFO, exercise linking, tags, bulk ops, delete, export |
+| `SubmissionsCoreService` | `tests/unit/services/test_submissions_core_service.py` | 109 | 79% coverage — journal CRUD, FIFO, exercise linking, tags, bulk ops, delete, export, submit_journal_file orchestrator |
 | `SubmissionsCoreService` (assessments) | `tests/unit/test_assessment_service.py` | 7 | Assessment CRUD: create, authority check, relationships, metadata |
 
 ## See Also
