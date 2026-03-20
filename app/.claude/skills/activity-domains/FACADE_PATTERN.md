@@ -43,12 +43,12 @@ Created via `create_common_sub_services()` factory:
 
 | Domain | Extra Sub-services |
 |--------|-------------------|
-| **Tasks** | `progress`, `scheduling`, `analytics` |
-| **Goals** | `analytics` |
+| **Tasks** | `progress`, `scheduling`, `planning`, `event_handler` |
+| **Goals** | `progress`, `scheduling`, `learning`, `event_handler` |
 | **Habits** | `progress`, `completions`, `planning`, `scheduling`, `learning`, `events`, `achievements`, `patterns`, `goal_analytics` |
 | **Events** | `habits` (integration), `learning` |
-| **Choices** | `learning`, `analytics` |
-| **Principles** | `alignment`, `learning`, `reflection` |
+| **Choices** | `learning` |
+| **Principles** | `alignment`, `learning`, `reflection`, `planning`, `event_handler` |
 
 ## Explicit Delegation Pattern
 

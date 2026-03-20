@@ -84,7 +84,7 @@ class GoalsService(BaseService[GoalsOperations, Goal]):
 | `scheduling` | Capacity management, timeline optimization (January 2026) |
 | `relationships` | Cross-domain links via `UnifiedRelationshipService` |
 | `intelligence` | Analytics, predictions, dual-track assessment |
-| `recommendations` | Event-driven goal recommendations |
+| `event_handler` | Event-driven reactive handlers (achievements, abandonment, progress) |
 
 Created via `create_common_sub_services()` factory in facade `__init__`.
 

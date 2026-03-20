@@ -4,7 +4,7 @@ Goals Service Sub-Services
 
 This package contains focused sub-services that compose the unified GoalsService facade.
 
-Architecture: Facade Pattern (9 sub-services)
+Architecture: Facade Pattern (8 sub-services)
 - Each sub-service handles ONE specific responsibility
 - GoalsService (facade) auto-delegates to appropriate sub-service via explicit delegation methods
 - ~40+ auto-generated delegation methods + explicit orchestration methods

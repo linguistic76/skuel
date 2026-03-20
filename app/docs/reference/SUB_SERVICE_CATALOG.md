@@ -421,7 +421,7 @@ Quick lookup table for finding the right sub-service:
 | **Habit-specific completions** | CompletionsService | Habits only |
 | **Habit-event integration** | EventIntegrationService | Habits only |
 | **Achievement badges** | AchievementService | Habits only |
-| **Goal recommendations** | RecommendationService | Goals only |
+| **Event-driven handlers** | EventHandlerService | Tasks, Goals, Principles |
 | **AI/LLM features** | AIService | Tasks, Goals, Habits (optional) |
 | **LLM routing** | UnifiedLLMCaller | Journals, Reports (routes gpt*/claude* models) |
 | **Instruction resolution** | InstructionResolver | Journals, Batch (custom > exercise > mode > default) |
@@ -516,7 +516,7 @@ self.intelligence = common.intelligence
 | Domain | Total Sub-Services | Common (4) | Domain-Specific |
 |--------|-------------------|------------|-----------------|
 | Tasks | 8 | 4 | 4 (progress, scheduling, planning, event_handler) |
-| Goals | 9 | 4 | 5 (progress, scheduling, learning, recommendation, + custom) |
+| Goals | 8 | 4 | 4 (progress, scheduling, learning, event_handler) |
 | Habits | 13 | 4 | 9 (progress, scheduling, planning, learning, completions, events, achievements, patterns, goal_analytics) |
 | Events | 8 | 4 | 4 (progress, scheduling, + custom) |
 | Choices | 7 | 4 | 3 (learning, + custom) |

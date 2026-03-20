@@ -269,8 +269,8 @@ Activity Domain Facades (6 total)
 ├─ TasksService      (8 sub-services)
 │   └─ core, search, progress, scheduling, planning, intelligence, event_handler, ai
 │
-├─ GoalsService      (9 sub-services)
-│   └─ core, search, progress, scheduling, learning, planning, recommendation, intelligence, ai
+├─ GoalsService      (8 sub-services)
+│   └─ core, search, progress, scheduling, learning, intelligence, event_handler, ai
 │
 ├─ HabitsService    (13 sub-services)  ← Most complex
 │   └─ core, search, progress, scheduling, planning, learning, completions,
