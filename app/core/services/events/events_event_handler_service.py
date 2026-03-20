@@ -263,9 +263,7 @@ class EventsEventHandlerService:
         """
         try:
             # Check scheduling density for the week around the event date
-            events_in_week = await self._count_events_in_week(
-                event.user_uid, event.event_date
-            )
+            events_in_week = await self._count_events_in_week(event.user_uid, event.event_date)
 
             density = _assess_scheduling_density(events_in_week)
 

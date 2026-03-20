@@ -468,8 +468,7 @@ class TestInsightPersistence:
 
         # No overdue insight (principle alignment may or may not fire)
         overdue_calls = [
-            c for c in mock_insight_store.create_insight.call_args_list
-            if "Overdue" in str(c)
+            c for c in mock_insight_store.create_insight.call_args_list if "Overdue" in str(c)
         ]
         assert len(overdue_calls) == 0
 
@@ -480,9 +479,7 @@ class TestInsightPersistence:
         mock_insight_store: AsyncMock,
     ):
         """Priority inflation >60% persists an IMBALANCE_DETECTED insight."""
-        service = TaskEventHandlerService(
-            backend=mock_backend, insight_store=mock_insight_store
-        )
+        service = TaskEventHandlerService(backend=mock_backend, insight_store=mock_insight_store)
         high_tasks = [_make_task(priority="high") for _ in range(4)]
         low_tasks = [_make_task(priority="low") for _ in range(1)]
         mock_backend.find_by.return_value = Result.ok(high_tasks + low_tasks)
@@ -524,7 +521,8 @@ class TestInsightPersistence:
 
         # Should have principle alignment insight
         alignment_calls = [
-            c for c in mock_insight_store.create_insight.call_args_list
+            c
+            for c in mock_insight_store.create_insight.call_args_list
             if "Principle" in str(c) or "principle_alignment" in str(c)
         ]
         assert len(alignment_calls) >= 1
@@ -536,9 +534,7 @@ class TestInsightPersistence:
         mock_insight_store: AsyncMock,
     ):
         """Failed insight creation is logged but does not propagate."""
-        service = TaskEventHandlerService(
-            backend=mock_backend, insight_store=mock_insight_store
-        )
+        service = TaskEventHandlerService(backend=mock_backend, insight_store=mock_insight_store)
         mock_backend.get.return_value = Result.ok(None)
         mock_insight_store.create_insight.return_value = Result(
             _error=Errors.database("create_insight", "InsightStore unavailable")

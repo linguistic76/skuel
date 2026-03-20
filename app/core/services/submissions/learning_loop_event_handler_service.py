@@ -228,9 +228,7 @@ class LearningLoopEventHandlerService:
             if isinstance(submission_created_at, str):
                 submission_created_at = datetime.fromisoformat(submission_created_at)
 
-            turnaround_hours = (
-                event.occurred_at - submission_created_at
-            ).total_seconds() / 3600.0
+            turnaround_hours = (event.occurred_at - submission_created_at).total_seconds() / 3600.0
 
             self.logger.info(
                 f"Feedback turnaround: {turnaround_hours:.1f}h",
@@ -323,9 +321,7 @@ class LearningLoopEventHandlerService:
                 return
 
             # Look up exercise for this submission
-            exercise_result = await self.backend.get_exercise_for_submission(
-                event.submission_uid
-            )
+            exercise_result = await self.backend.get_exercise_for_submission(event.submission_uid)
             if exercise_result.is_error or not exercise_result.value:
                 self.logger.debug(
                     f"No exercise found for submission {event.submission_uid}, skipping velocity calc"

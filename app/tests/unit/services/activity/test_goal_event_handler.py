@@ -546,7 +546,8 @@ class TestInsightPersistence:
 
         # Stall insight should be created
         stall_calls = [
-            c for c in mock_insight_store.create_insight.call_args_list
+            c
+            for c in mock_insight_store.create_insight.call_args_list
             if "Stall" in str(c) or "imbalance_detected" in str(c)
         ]
         assert len(stall_calls) >= 1
@@ -570,7 +571,8 @@ class TestInsightPersistence:
 
         # Milestone insight should be created
         milestone_calls = [
-            c for c in mock_insight_store.create_insight.call_args_list
+            c
+            for c in mock_insight_store.create_insight.call_args_list
             if "Milestone" in str(c) or "milestone" in str(c)
         ]
         assert len(milestone_calls) >= 1

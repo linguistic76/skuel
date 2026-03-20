@@ -235,7 +235,9 @@ class GoalEventHandlerService:
 
             # Persist abandonment insight
             if self.insight_store:
-                impact = InsightImpact.HIGH if classification == "near_miss" else InsightImpact.MEDIUM
+                impact = (
+                    InsightImpact.HIGH if classification == "near_miss" else InsightImpact.MEDIUM
+                )
                 insight = PersistedInsight(
                     uid=PersistedInsight.generate_uid(
                         InsightType.COMPLETION_PATTERN, event.goal_uid

@@ -181,7 +181,9 @@ async def handle_revised_exercise_created(
         )
         return
 
-    revision_label = f"revision #{event.revision_number}" if event.revision_number > 1 else "revision"
+    revision_label = (
+        f"revision #{event.revision_number}" if event.revision_number > 1 else "revision"
+    )
 
     result = await notification_service.create_notification(  # type: ignore[attr-defined]
         user_uid=event.student_uid,

@@ -872,9 +872,7 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
     operating across all entity types.
     """
 
-    async def count_submissions_for_exercise(
-        self, user_uid: str, exercise_uid: str
-    ) -> Result[int]:
+    async def count_submissions_for_exercise(self, user_uid: str, exercise_uid: str) -> Result[int]:
         """Count submissions by a user for a specific exercise via FULFILLS_EXERCISE."""
         query = """
         MATCH (u:User {uid: $user_uid})-[:OWNS]->(s:Entity)-[:FULFILLS_EXERCISE]->(e:Entity {uid: $exercise_uid})

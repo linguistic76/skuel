@@ -133,9 +133,7 @@ class SubmissionsProcessingService:
             result = await self._route_to_processor(submission, instructions)
 
             if result.is_error:
-                error_message = (
-                    result.error.user_message if result.error else "Processing failed"
-                )
+                error_message = result.error.user_message if result.error else "Processing failed"
                 await self.ku_submission_service.update_submission_status(
                     ku_uid,
                     EntityStatus.FAILED,
@@ -205,9 +203,7 @@ class SubmissionsProcessingService:
     # PROCESSOR ROUTING
     # ========================================================================
 
-    async def _publish_processing_failed(
-        self, submission: Submission, error_message: str
-    ) -> None:
+    async def _publish_processing_failed(self, submission: Submission, error_message: str) -> None:
         """Publish SubmissionProcessingFailed event."""
         await publish_event(
             self.event_bus,

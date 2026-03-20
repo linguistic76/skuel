@@ -72,7 +72,9 @@ def mock_event_bus() -> AsyncMock:
 
 
 @pytest.fixture
-def service(mock_submission_service: AsyncMock, mock_event_bus: AsyncMock) -> SubmissionsProcessingService:
+def service(
+    mock_submission_service: AsyncMock, mock_event_bus: AsyncMock
+) -> SubmissionsProcessingService:
     return SubmissionsProcessingService(
         ku_submission_service=mock_submission_service,
         event_bus=mock_event_bus,

@@ -65,9 +65,7 @@ def service(mock_backend: Mock) -> EventsEventHandlerService:
 def service_with_rels(
     mock_backend: Mock, mock_relationships: AsyncMock
 ) -> EventsEventHandlerService:
-    return EventsEventHandlerService(
-        backend=mock_backend, relationship_service=mock_relationships
-    )
+    return EventsEventHandlerService(backend=mock_backend, relationship_service=mock_relationships)
 
 
 @pytest.fixture
@@ -152,9 +150,7 @@ class TestAssessSchedulingDensity:
 
 class TestHandleEventCompleted:
     @pytest.mark.asyncio
-    async def test_attendance_tracking_logged(
-        self, service: EventsEventHandlerService
-    ):
+    async def test_attendance_tracking_logged(self, service: EventsEventHandlerService):
         """Attendance time-of-day pattern is logged."""
         event = CalendarEventCompleted(
             event_uid="event_test_abc",
@@ -208,9 +204,7 @@ class TestHandleEventCompleted:
             assert len(log_calls) >= 1
 
     @pytest.mark.asyncio
-    async def test_goal_alignment_without_relationships(
-        self, service: EventsEventHandlerService
-    ):
+    async def test_goal_alignment_without_relationships(self, service: EventsEventHandlerService):
         """No goal check when relationship service absent."""
         event = CalendarEventCompleted(
             event_uid="event_test_abc",
@@ -375,9 +369,7 @@ class TestHandleEventCreated:
 
         with patch.object(service.logger, "warning") as mock_warn:
             await service.handle_event_created(event)
-            warn_calls = [
-                c for c in mock_warn.call_args_list if "overcommit" in str(c).lower()
-            ]
+            warn_calls = [c for c in mock_warn.call_args_list if "overcommit" in str(c).lower()]
             assert len(warn_calls) >= 1
 
     @pytest.mark.asyncio

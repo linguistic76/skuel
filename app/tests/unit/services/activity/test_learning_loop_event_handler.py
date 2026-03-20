@@ -62,9 +62,7 @@ def service(mock_backend: Mock) -> LearningLoopEventHandlerService:
 def service_with_insights(
     mock_backend: Mock, mock_insight_store: AsyncMock
 ) -> LearningLoopEventHandlerService:
-    return LearningLoopEventHandlerService(
-        backend=mock_backend, insight_store=mock_insight_store
-    )
+    return LearningLoopEventHandlerService(backend=mock_backend, insight_store=mock_insight_store)
 
 
 def _make_submission_created(
@@ -177,14 +175,19 @@ class TestIsFeedbackAnomaly:
 
 class TestHandleSubmissionCreated:
     @pytest.mark.anyio
-    async def test_skips_without_exercise_uid(self, service: LearningLoopEventHandlerService, mock_backend: Mock):
+    async def test_skips_without_exercise_uid(
+        self, service: LearningLoopEventHandlerService, mock_backend: Mock
+    ):
         event = _make_submission_created(fulfills_exercise_uid=None)
         await service.handle_submission_created(event)
         mock_backend.count_submissions_for_exercise.assert_not_called()
 
     @pytest.mark.anyio
     async def test_first_attempt_no_insight(
-        self, service_with_insights: LearningLoopEventHandlerService, mock_backend: Mock, mock_insight_store: AsyncMock
+        self,
+        service_with_insights: LearningLoopEventHandlerService,
+        mock_backend: Mock,
+        mock_insight_store: AsyncMock,
     ):
         mock_backend.count_submissions_for_exercise.return_value = Result.ok(1)
         event = _make_submission_created()
@@ -193,7 +196,10 @@ class TestHandleSubmissionCreated:
 
     @pytest.mark.anyio
     async def test_third_attempt_persists_insight(
-        self, service_with_insights: LearningLoopEventHandlerService, mock_backend: Mock, mock_insight_store: AsyncMock
+        self,
+        service_with_insights: LearningLoopEventHandlerService,
+        mock_backend: Mock,
+        mock_insight_store: AsyncMock,
     ):
         mock_backend.count_submissions_for_exercise.return_value = Result.ok(3)
         event = _make_submission_created()
@@ -214,7 +220,9 @@ class TestHandleSubmissionCreated:
         await svc.handle_submission_created(event)
 
     @pytest.mark.anyio
-    async def test_no_insight_store(self, service: LearningLoopEventHandlerService, mock_backend: Mock):
+    async def test_no_insight_store(
+        self, service: LearningLoopEventHandlerService, mock_backend: Mock
+    ):
         """Works without insight_store — just logs."""
         mock_backend.count_submissions_for_exercise.return_value = Result.ok(3)
         event = _make_submission_created()
@@ -237,10 +245,12 @@ class TestHandleReportSubmitted:
         mock_sub = Mock()
         mock_sub.created_at = submission_created
         mock_backend.get.return_value = Result.ok(mock_sub)
-        mock_backend.get_teacher_feedback_state.return_value = Result.ok({
-            "feedback_ema_hours": 48.0,
-            "feedback_sample_count": 1,
-        })
+        mock_backend.get_teacher_feedback_state.return_value = Result.ok(
+            {
+                "feedback_ema_hours": 48.0,
+                "feedback_sample_count": 1,
+            }
+        )
 
         event = _make_report_submitted(occurred_at=datetime.now())
         await service_with_insights.handle_report_submitted(event)
@@ -254,24 +264,31 @@ class TestHandleReportSubmitted:
     async def test_submission_not_found(
         self, service_with_insights: LearningLoopEventHandlerService, mock_backend: Mock
     ):
-        mock_backend.get.return_value = Result.fail(Errors.not_found(resource="Submission", identifier="x"))
+        mock_backend.get.return_value = Result.fail(
+            Errors.not_found(resource="Submission", identifier="x")
+        )
         event = _make_report_submitted()
         await service_with_insights.handle_report_submitted(event)
         mock_backend.update_teacher_feedback_state.assert_not_called()
 
     @pytest.mark.anyio
     async def test_fast_anomaly_insight(
-        self, service_with_insights: LearningLoopEventHandlerService, mock_backend: Mock, mock_insight_store: AsyncMock
+        self,
+        service_with_insights: LearningLoopEventHandlerService,
+        mock_backend: Mock,
+        mock_insight_store: AsyncMock,
     ):
         # Submission created 2 hours ago, EMA is 48h — fast anomaly
         submission_created = datetime.now() - timedelta(hours=2)
         mock_sub = Mock()
         mock_sub.created_at = submission_created
         mock_backend.get.return_value = Result.ok(mock_sub)
-        mock_backend.get_teacher_feedback_state.return_value = Result.ok({
-            "feedback_ema_hours": 48.0,
-            "feedback_sample_count": 5,  # Above MIN_SAMPLES_FEEDBACK
-        })
+        mock_backend.get_teacher_feedback_state.return_value = Result.ok(
+            {
+                "feedback_ema_hours": 48.0,
+                "feedback_sample_count": 5,  # Above MIN_SAMPLES_FEEDBACK
+            }
+        )
 
         event = _make_report_submitted(occurred_at=datetime.now())
         await service_with_insights.handle_report_submitted(event)
@@ -282,7 +299,10 @@ class TestHandleReportSubmitted:
 
     @pytest.mark.anyio
     async def test_slow_anomaly_insight(
-        self, service_with_insights: LearningLoopEventHandlerService, mock_backend: Mock, mock_insight_store: AsyncMock
+        self,
+        service_with_insights: LearningLoopEventHandlerService,
+        mock_backend: Mock,
+        mock_insight_store: AsyncMock,
     ):
         # Submission created 200 hours ago, EMA is 48h — slow anomaly
         # new_ema = 0.3*200 + 0.7*48 = 60+33.6 = 93.6, ratio = 200/93.6 ≈ 2.14 > 2.0
@@ -290,10 +310,12 @@ class TestHandleReportSubmitted:
         mock_sub = Mock()
         mock_sub.created_at = submission_created
         mock_backend.get.return_value = Result.ok(mock_sub)
-        mock_backend.get_teacher_feedback_state.return_value = Result.ok({
-            "feedback_ema_hours": 48.0,
-            "feedback_sample_count": 5,
-        })
+        mock_backend.get_teacher_feedback_state.return_value = Result.ok(
+            {
+                "feedback_ema_hours": 48.0,
+                "feedback_sample_count": 5,
+            }
+        )
 
         event = _make_report_submitted(occurred_at=datetime.now())
         await service_with_insights.handle_report_submitted(event)
@@ -304,17 +326,22 @@ class TestHandleReportSubmitted:
 
     @pytest.mark.anyio
     async def test_no_anomaly_below_sample_threshold(
-        self, service_with_insights: LearningLoopEventHandlerService, mock_backend: Mock, mock_insight_store: AsyncMock
+        self,
+        service_with_insights: LearningLoopEventHandlerService,
+        mock_backend: Mock,
+        mock_insight_store: AsyncMock,
     ):
         # Fast turnaround, but only 1 sample — no anomaly insight
         submission_created = datetime.now() - timedelta(hours=2)
         mock_sub = Mock()
         mock_sub.created_at = submission_created
         mock_backend.get.return_value = Result.ok(mock_sub)
-        mock_backend.get_teacher_feedback_state.return_value = Result.ok({
-            "feedback_ema_hours": 48.0,
-            "feedback_sample_count": 1,
-        })
+        mock_backend.get_teacher_feedback_state.return_value = Result.ok(
+            {
+                "feedback_ema_hours": 48.0,
+                "feedback_sample_count": 1,
+            }
+        )
 
         event = _make_report_submitted(occurred_at=datetime.now())
         await service_with_insights.handle_report_submitted(event)
@@ -338,15 +365,20 @@ class TestHandleSubmissionApproved:
 
     @pytest.mark.anyio
     async def test_quick_mastery_insight(
-        self, service_with_insights: LearningLoopEventHandlerService, mock_backend: Mock, mock_insight_store: AsyncMock
+        self,
+        service_with_insights: LearningLoopEventHandlerService,
+        mock_backend: Mock,
+        mock_insight_store: AsyncMock,
     ):
         now = datetime.now()
         mock_backend.get_exercise_for_submission.return_value = Result.ok("exercise_abc")
         mock_backend.count_submissions_for_exercise.return_value = Result.ok(1)
-        mock_backend.get_first_submission_for_exercise.return_value = Result.ok({
-            "uid": "es_test_abc",
-            "created_at": now - timedelta(hours=12),
-        })
+        mock_backend.get_first_submission_for_exercise.return_value = Result.ok(
+            {
+                "uid": "es_test_abc",
+                "created_at": now - timedelta(hours=12),
+            }
+        )
 
         event = _make_submission_approved(occurred_at=now, mastered_ku_count=3)
         await service_with_insights.handle_submission_approved(event)
@@ -359,15 +391,20 @@ class TestHandleSubmissionApproved:
 
     @pytest.mark.anyio
     async def test_persistent_learner_insight(
-        self, service_with_insights: LearningLoopEventHandlerService, mock_backend: Mock, mock_insight_store: AsyncMock
+        self,
+        service_with_insights: LearningLoopEventHandlerService,
+        mock_backend: Mock,
+        mock_insight_store: AsyncMock,
     ):
         now = datetime.now()
         mock_backend.get_exercise_for_submission.return_value = Result.ok("exercise_abc")
         mock_backend.count_submissions_for_exercise.return_value = Result.ok(5)
-        mock_backend.get_first_submission_for_exercise.return_value = Result.ok({
-            "uid": "es_first",
-            "created_at": now - timedelta(hours=200),
-        })
+        mock_backend.get_first_submission_for_exercise.return_value = Result.ok(
+            {
+                "uid": "es_first",
+                "created_at": now - timedelta(hours=200),
+            }
+        )
 
         event = _make_submission_approved(occurred_at=now, mastered_ku_count=1)
         await service_with_insights.handle_submission_approved(event)
@@ -379,7 +416,10 @@ class TestHandleSubmissionApproved:
 
     @pytest.mark.anyio
     async def test_no_exercise_found(
-        self, service_with_insights: LearningLoopEventHandlerService, mock_backend: Mock, mock_insight_store: AsyncMock
+        self,
+        service_with_insights: LearningLoopEventHandlerService,
+        mock_backend: Mock,
+        mock_insight_store: AsyncMock,
     ):
         mock_backend.get_exercise_for_submission.return_value = Result.ok(None)
         event = _make_submission_approved(mastered_ku_count=2)
