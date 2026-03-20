@@ -17,7 +17,7 @@ Workflow:
 3. Update doc mtime on completion
 
 Usage:
-    uv run python scripts/docs_update.py --doc docs/patterns/metadata_manager_mixin.md
+    uv run python scripts/docs_update.py --doc docs/patterns/entity_timestamp_mixin.md
     uv run python scripts/docs_update.py --all
     uv run python scripts/docs_update.py --all --dry-run
     uv run python scripts/docs_update.py --all --yes
@@ -318,7 +318,7 @@ def main() -> None:
         epilog="""
 Examples:
     # Update a specific doc (interactive)
-    uv run python scripts/docs_update.py --doc docs/patterns/metadata_manager_mixin.md
+    uv run python scripts/docs_update.py --doc docs/patterns/entity_timestamp_mixin.md
 
     # Update all stale docs (interactive, one at a time)
     uv run python scripts/docs_update.py --all

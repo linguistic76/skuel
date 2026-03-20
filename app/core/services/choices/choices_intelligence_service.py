@@ -30,7 +30,7 @@ from core.services.choices._analytics_mixin import _AnalyticsMixin
 from core.services.choices._behavioral_signals_mixin import _BehavioralSignalsMixin
 from core.services.choices._core_intelligence_mixin import _CoreIntelligenceMixin
 from core.services.intelligence import GraphContextOrchestrator
-from core.services.intelligence.path_aware_intelligence_helper import PathAwareIntelligenceHelper
+from core.services.intelligence.path_aware_analyzer import PathAwareAnalyzer
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -95,7 +95,7 @@ class ChoicesIntelligenceService(
             )
 
         # Initialize path-aware intelligence helper
-        self.path_helper = PathAwareIntelligenceHelper()
+        self.path_helper = PathAwareAnalyzer()
 
     # ========================================================================
     # DOMAIN-SPECIFIC CONTRACT

@@ -221,7 +221,7 @@ class SubmissionsRelationshipService:
         Returns:
             Count of relationships created
         """
-        from core.infrastructure.batch import BatchOperationHelper
+        from core.infrastructure.batch import BatchCypherBuilder
 
         content_lower = processed_content.lower()
         mentioned_goal_uids = []
@@ -239,7 +239,7 @@ class SubmissionsRelationshipService:
             for goal_uid in mentioned_goal_uids
         ]
 
-        queries = BatchOperationHelper.build_relationship_create_queries(relationships)
+        queries = BatchCypherBuilder.build_relationship_create_queries(relationships)
 
         total_created = 0
         for query, rels_data in queries:

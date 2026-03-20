@@ -28,7 +28,7 @@ from core.ports.query_types import GoalUpdatePayload
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.goals.goal_relationships import GoalRelationships
-from core.services.infrastructure import ProgressCalculationHelper
+from core.services.infrastructure import ProgressCalculator
 from core.services.user import UserContext
 from core.utils.dto_helpers import to_domain_model
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
@@ -334,8 +334,8 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         # Get required knowledge UIDs from relationships
         required_knowledge_uids = list(rels.required_knowledge_uids) if rels else []
 
-        # Use ProgressCalculationHelper for unified calculation
-        progress = ProgressCalculationHelper.calculate_full_progress(
+        # Use ProgressCalculator for unified calculation
+        progress = ProgressCalculator.calculate_full_progress(
             goal_tasks=goal_tasks,
             completed_task_uids=user_context.completed_task_uids,
             supporting_habit_uids=supporting_habit_uids,
@@ -501,8 +501,8 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             h_uid: new_streak if h_uid == habit_uid else 0 for h_uid in rels.supporting_habit_uids
         }
 
-        # Use ProgressCalculationHelper for habit contribution
-        habit_result = ProgressCalculationHelper.calculate_habit_contribution(
+        # Use ProgressCalculator for habit contribution
+        habit_result = ProgressCalculator.calculate_habit_contribution(
             habit_uids=list(rels.supporting_habit_uids),
             habit_streaks=habit_streaks,
         )

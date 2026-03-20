@@ -1,6 +1,6 @@
 """
-Prerequisite Helper - Unified Prerequisite Checking
-====================================================
+Prerequisite Checker - Unified Prerequisite Checking
+=====================================================
 
 Consolidates duplicate prerequisite checking logic from:
 - TasksPlanningService._calculate_readiness_score()
@@ -49,13 +49,13 @@ class PrerequisiteResult:
         return not self.is_ready
 
 
-class PrerequisiteHelper:
+class PrerequisiteChecker:
     """
     Unified prerequisite checking for planning and scheduling services.
 
     Usage:
         # For scoring (Planning)
-        result = PrerequisiteHelper.check_prerequisites(
+        result = PrerequisiteChecker.check_prerequisites(
             required_knowledge_uids=["ku.python"],
             required_task_uids=["task.setup"],
             context=user_context,
@@ -63,7 +63,7 @@ class PrerequisiteHelper:
         score = result.score  # 0.0-1.0
 
         # For validation (Scheduling)
-        validation = PrerequisiteHelper.validate_prerequisites(
+        validation = PrerequisiteChecker.validate_prerequisites(
             required_knowledge_uids=["ku.python"],
             required_task_uids=["task.setup"],
             context=user_context,
@@ -175,7 +175,7 @@ class PrerequisiteHelper:
         if not knowledge_uids and not task_uids:
             return Result.ok(None)
 
-        result = PrerequisiteHelper.check_prerequisites(
+        result = PrerequisiteChecker.check_prerequisites(
             required_knowledge_uids=knowledge_uids,
             required_task_uids=task_uids,
             context=context,
@@ -215,7 +215,7 @@ class PrerequisiteHelper:
         Returns:
             Float between 0.0 and 1.0 representing percentage of prerequisites met
         """
-        result = PrerequisiteHelper.check_prerequisites(
+        result = PrerequisiteChecker.check_prerequisites(
             required_knowledge_uids=required_knowledge_uids,
             required_task_uids=required_task_uids,
             context=context,
@@ -244,7 +244,7 @@ class PrerequisiteHelper:
         Returns:
             List of human-readable blocking reasons
         """
-        result = PrerequisiteHelper.check_prerequisites(
+        result = PrerequisiteChecker.check_prerequisites(
             required_knowledge_uids=required_knowledge_uids,
             required_task_uids=required_task_uids,
             context=context,

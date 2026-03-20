@@ -16,7 +16,7 @@ This directory contains modular sub-services for Lesson (unit for learning) oper
 │   ├── lesson_ai_service.py              # Optional AI features
 │   ├── lesson_adaptive_service.py        # Adaptive learning recommendations
 │   ├── lesson_organization_service.py    # ORGANIZES relationships (MOC pattern)
-│   └── lesson_relationship_helpers.py    # Relationship filtering utilities
+│   └── lesson_relationship_filters.py    # Relationship filtering utilities
 │
 ├── lesson_service.py                      # PUBLIC FACADE
 │                                          # → Delegates to sub-services above
@@ -179,7 +179,7 @@ NONE -> VIEWED -> IN_PROGRESS -> MASTERED
 
 ---
 
-### 10. `lesson_relationship_helpers.py` - Relationship Filtering Utilities
+### 10. `lesson_relationship_filters.py` - Relationship Filtering Utilities
 **Responsibilities:**
 - Confidence filtering for prerequisite chains
 - Strength-based relationship filtering

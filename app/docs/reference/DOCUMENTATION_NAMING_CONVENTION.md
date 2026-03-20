@@ -38,7 +38,7 @@ Use lowercase for:
 - `constants_usage_guide.md` - Tool usage guide
 - `event_driven_architecture.md` - Implementation pattern
 - `search_service_pattern.md` - Single-pattern documentation
-- `metadata_manager_mixin.md` - Specific mixin documentation
+- `entity_timestamp_mixin.md` - Specific mixin documentation
 
 ### ADR-###-kebab-case.md (Decision Records)
 

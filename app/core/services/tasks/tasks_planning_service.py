@@ -32,7 +32,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.task.task import Task
 from core.services.base_planning_service import BasePlanningService
-from core.services.infrastructure import PrerequisiteHelper
+from core.services.infrastructure import PrerequisiteChecker
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_priority_score, get_relevance_score
@@ -465,7 +465,7 @@ class TasksPlanningService(BasePlanningService["TasksOperations", Task]):
         return Result.ok(learning_tasks[:limit])
 
     # ========================================================================
-    # CONTEXT-FIRST HELPER METHODS (Delegate to PrerequisiteHelper)
+    # CONTEXT-FIRST HELPER METHODS (Delegate to PrerequisiteChecker)
     # ========================================================================
 
     @staticmethod
@@ -477,9 +477,9 @@ class TasksPlanningService(BasePlanningService["TasksOperations", Task]):
     ) -> float:
         """Calculate readiness score based on prerequisites met.
 
-        Delegates to PrerequisiteHelper for unified logic.
+        Delegates to PrerequisiteChecker for unified logic.
         """
-        return PrerequisiteHelper.calculate_readiness_score(
+        return PrerequisiteChecker.calculate_readiness_score(
             required_knowledge_uids=required_knowledge_uids,
             required_task_uids=required_task_uids,
             context=context,
@@ -524,9 +524,9 @@ class TasksPlanningService(BasePlanningService["TasksOperations", Task]):
     ) -> list[str]:
         """Identify reasons blocking engagement.
 
-        Delegates to PrerequisiteHelper for unified logic.
+        Delegates to PrerequisiteChecker for unified logic.
         """
-        return PrerequisiteHelper.identify_blocking_reasons(
+        return PrerequisiteChecker.identify_blocking_reasons(
             required_knowledge_uids=required_knowledge,
             required_task_uids=required_tasks,
             context=context,

@@ -66,7 +66,7 @@ from core.models.relationship_names import RelationshipName
 from core.models.relationship_registry import DomainRelationshipConfig
 from core.ports.base_protocols import BackendOperations
 from core.services.base_service import BaseService
-from core.services.infrastructure import RelationshipCreationHelper, SemanticRelationshipHelper
+from core.services.infrastructure import RelationshipCreator, SemanticRelationshipLinker
 from core.services.relationships._batch_operations_mixin import BatchOperationsMixin
 from core.services.relationships._domain_planning_mixin import DomainPlanningMixin
 from core.services.relationships._intelligence_mixin import IntelligenceMixin
@@ -120,8 +120,8 @@ class UnifiedRelationshipService[Ops: BackendOperations, Model: DomainModelProto
     ```
     UnifiedRelationshipService
     ├── DomainRelationshipConfig (from relationship registry — single source of truth)
-    ├── RelationshipCreationHelper (cross-domain link creation)
-    ├── SemanticRelationshipHelper (semantic relationship operations)
+    ├── RelationshipCreator (cross-domain link creation)
+    ├── SemanticRelationshipLinker (semantic relationship operations)
     └── GraphIntelligenceService (intent-based graph queries)
     ```
     """
@@ -159,8 +159,8 @@ class UnifiedRelationshipService[Ops: BackendOperations, Model: DomainModelProto
         self._model_class = config.model_class
         self._backend_get_method = config.backend_get_method
 
-        # Initialize RelationshipCreationHelper (always)
-        self.relationship_helper = RelationshipCreationHelper[Model, DtoType](
+        # Initialize RelationshipCreator (always)
+        self.relationship_helper = RelationshipCreator[Model, DtoType](
             service=self,
             backend_get_method=config.backend_get_method,
             dto_class=config.dto_class,
@@ -168,9 +168,9 @@ class UnifiedRelationshipService[Ops: BackendOperations, Model: DomainModelProto
             domain=config.domain,
         )
 
-        # Initialize SemanticRelationshipHelper (optional)
+        # Initialize SemanticRelationshipLinker (optional)
         if config.use_semantic_helper:
-            self.semantic_helper = SemanticRelationshipHelper[Model, DtoType](
+            self.semantic_helper = SemanticRelationshipLinker[Model, DtoType](
                 service=self,
                 backend_get_method=config.backend_get_method,
                 dto_class=config.dto_class,

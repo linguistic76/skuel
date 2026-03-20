@@ -225,7 +225,7 @@ def build_batch_relationship_exists(
     """
     Generate Cypher query to check relationship existence for multiple entities.
 
-    **DELEGATES TO:** BatchOperationHelper.build_relationship_exists_query()
+    **DELEGATES TO:** BatchCypherBuilder.build_relationship_exists_query()
 
     **PERFORMANCE OPTIMIZATION:**
     Eliminates N sequential existence checks by processing multiple entities
@@ -254,14 +254,14 @@ def build_batch_relationship_exists(
         - After: 1 query x 50-200ms = 50-200ms
         - Improvement: 10-100x faster for bulk operations
     """
-    from core.infrastructure.batch import BatchOperationHelper
+    from core.infrastructure.batch import BatchCypherBuilder
 
     # Validate direction (maintained for backward compatibility)
     if direction not in ("outgoing", "incoming", "both"):
         raise ValueError(f"Invalid direction: {direction}. Valid options: outgoing, incoming, both")
 
-    # Delegate to BatchOperationHelper
-    result = BatchOperationHelper.build_relationship_exists_query(
+    # Delegate to BatchCypherBuilder
+    result = BatchCypherBuilder.build_relationship_exists_query(
         node_label=node_label,
         relationship_types=relationship_types,
         direction=direction,  # type: ignore[arg-type]
@@ -278,7 +278,7 @@ def build_batch_relationship_count(
     """
     Generate Cypher query to count relationships for multiple entities.
 
-    **DELEGATES TO:** BatchOperationHelper.build_relationship_count_query()
+    **DELEGATES TO:** BatchCypherBuilder.build_relationship_count_query()
 
     Similar to build_batch_relationship_exists() but returns actual counts
     instead of boolean existence.
@@ -301,14 +301,14 @@ def build_batch_relationship_count(
         result = await backend.execute_query(query, {"uids": task_uids})
         # Returns: [{"uid": "task:1", "count": 3}, {"uid": "task:2", "count": 0}, ...]
     """
-    from core.infrastructure.batch import BatchOperationHelper
+    from core.infrastructure.batch import BatchCypherBuilder
 
     # Validate direction (maintained for backward compatibility)
     if direction not in ("outgoing", "incoming", "both"):
         raise ValueError(f"Invalid direction: {direction}. Valid options: outgoing, incoming, both")
 
-    # Delegate to BatchOperationHelper
-    result = BatchOperationHelper.build_relationship_count_query(
+    # Delegate to BatchCypherBuilder
+    result = BatchCypherBuilder.build_relationship_count_query(
         node_label=node_label,
         relationship_types=relationship_types,
         direction=direction,  # type: ignore[arg-type]
@@ -326,7 +326,7 @@ def build_batch_relationship_exists_with_filters(
     """
     Generate Cypher query to check relationship existence with property filtering.
 
-    **DELEGATES TO:** BatchOperationHelper.build_relationship_exists_with_filters_query()
+    **DELEGATES TO:** BatchCypherBuilder.build_relationship_exists_with_filters_query()
 
     Enhanced version of build_batch_relationship_exists() that supports
     filtering relationships by their properties (e.g., confidence, strength).
@@ -352,14 +352,14 @@ def build_batch_relationship_exists_with_filters(
             property_filters={"strength__gte": 0.8}
         )
     """
-    from core.infrastructure.batch import BatchOperationHelper
+    from core.infrastructure.batch import BatchCypherBuilder
 
     # Validate direction (maintained for backward compatibility)
     if direction not in ("outgoing", "incoming", "both"):
         raise ValueError(f"Invalid direction: {direction}. Valid options: outgoing, incoming, both")
 
-    # Delegate to BatchOperationHelper
-    result = BatchOperationHelper.build_relationship_exists_with_filters_query(
+    # Delegate to BatchCypherBuilder
+    result = BatchCypherBuilder.build_relationship_exists_with_filters_query(
         node_label=node_label,
         relationship_types=relationship_types,
         direction=direction,  # type: ignore[arg-type]
@@ -379,7 +379,7 @@ def build_batch_get_related_with_filters(
     """
     Generate Cypher query to get related entity UIDs with property filtering.
 
-    **DELEGATES TO:** BatchOperationHelper.build_get_related_with_filters_query()
+    **DELEGATES TO:** BatchCypherBuilder.build_get_related_with_filters_query()
 
     Batch query that returns lists of related entity UIDs for multiple source nodes,
     with optional filtering by relationship properties.
@@ -405,14 +405,14 @@ def build_batch_get_related_with_filters(
         )
         # Returns: [{"uid": "ku:python", "related_uids": ["ku:basics", "ku:functions"]}, ...]
     """
-    from core.infrastructure.batch import BatchOperationHelper
+    from core.infrastructure.batch import BatchCypherBuilder
 
     # Validate direction (maintained for backward compatibility)
     if direction not in ("outgoing", "incoming", "both"):
         raise ValueError(f"Invalid direction: {direction}. Valid options: outgoing, incoming, both")
 
-    # Delegate to BatchOperationHelper
-    result = BatchOperationHelper.build_get_related_with_filters_query(
+    # Delegate to BatchCypherBuilder
+    result = BatchCypherBuilder.build_get_related_with_filters_query(
         node_label=node_label,
         relationship_types=relationship_types,
         direction=direction,  # type: ignore[arg-type]

@@ -70,7 +70,7 @@ Infrastructure modules with no root-level facade.
 | `transcription/` | TranscriptionService + BatchTranscriptionService + BatchProcessingService |
 | `mixins/` | 7 BaseService mixin files |
 | `intelligence/` | GraphContextOrchestrator + analytics helpers |
-| `infrastructure/` | Cross-cutting helpers (PrerequisiteHelper, etc.) |
+| `infrastructure/` | Cross-cutting helpers (PrerequisiteChecker, etc.) |
 | `ingestion/` | UnifiedIngestionService |
 | `query/` | Query builders (CypherGenerator, etc.) |
 | `insight/` | Insight analytics |
@@ -101,7 +101,7 @@ Standalone services without subfolders.
 | **Content** | `conversion_service.py`, `content_enrichment_service.py` |
 | **User Secondary** | `user_progress_service.py`, `user_relationship_service.py` |
 | **System** | `system_service.py`, `visualization_service.py`, `schema_service.py`, `performance_optimization_service.py` |
-| **Config/Helpers** | `domain_config.py`, `query_builder.py`, `metadata_manager_mixin.py`, `context_first_mixin.py` |
+| **Config/Helpers** | `domain_config.py`, `query_builder.py`, `entity_timestamp_mixin.py`, `context_first_mixin.py` |
 
 ---
 

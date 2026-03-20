@@ -1,6 +1,6 @@
 """
-Progress Calculation Helper - Unified Progress Calculations
-============================================================
+Progress Calculator - Unified Progress Calculations
+====================================================
 
 Consolidates duplicate progress calculation logic from:
 - GoalsProgressService.calculate_goal_progress_with_context()
@@ -63,23 +63,23 @@ class ProgressContributions:
     is_on_track: bool
 
 
-class ProgressCalculationHelper:
+class ProgressCalculator:
     """
     Unified progress calculation for Goals, Tasks, Habits.
 
-    Following PrerequisiteHelper pattern - static methods,
+    Following PrerequisiteChecker pattern - static methods,
     frozen dataclass results, pure calculations with no side effects.
 
     Usage:
         # Calculate habit contribution
-        result = ProgressCalculationHelper.calculate_habit_contribution(
+        result = ProgressCalculator.calculate_habit_contribution(
             habit_uids=["habit.meditation", "habit.exercise"],
             habit_streaks={"habit.meditation": 15, "habit.exercise": 7},
         )
         print(f"Habit contribution: {result.contribution}")
 
         # Calculate full progress
-        progress = ProgressCalculationHelper.calculate_full_progress(
+        progress = ProgressCalculator.calculate_full_progress(
             goal_tasks=["task.1", "task.2"],
             completed_task_uids={"task.1"},
             supporting_habit_uids=["habit.1"],
@@ -114,7 +114,7 @@ class ProgressCalculationHelper:
             HabitContributionResult with contribution, avg_consistency, habit_count
 
         Example:
-            result = ProgressCalculationHelper.calculate_habit_contribution(
+            result = ProgressCalculator.calculate_habit_contribution(
                 habit_uids=["habit.meditation", "habit.exercise"],
                 habit_streaks={"habit.meditation": 30, "habit.exercise": 15},
             )
@@ -172,7 +172,7 @@ class ProgressCalculationHelper:
             Completion ratio (0.0-1.0)
 
         Example:
-            contribution = ProgressCalculationHelper.calculate_task_contribution(
+            contribution = ProgressCalculator.calculate_task_contribution(
                 task_uids=["task.1", "task.2", "task.3"],
                 completed_task_uids={"task.1", "task.2"},
             )
@@ -200,7 +200,7 @@ class ProgressCalculationHelper:
             Completion ratio (0.0-1.0), or 1.0 if no knowledge required
 
         Example:
-            completion = ProgressCalculationHelper.calculate_knowledge_completion(
+            completion = ProgressCalculator.calculate_knowledge_completion(
                 required_knowledge_uids=["ku.python", "ku.testing"],
                 mastered_knowledge_uids={"ku.python"},
             )
@@ -229,7 +229,7 @@ class ProgressCalculationHelper:
             Completion ratio (0.0-1.0)
 
         Example:
-            completion = ProgressCalculationHelper.calculate_milestone_completion(
+            completion = ProgressCalculator.calculate_milestone_completion(
                 current_value=75.0,
                 target_value=100.0,
             )
@@ -264,7 +264,7 @@ class ProgressCalculationHelper:
             Combined progress percentage (0.0-100.0)
 
         Example:
-            progress = ProgressCalculationHelper.calculate_combined_progress(
+            progress = ProgressCalculator.calculate_combined_progress(
                 task_contribution=0.5,
                 habit_contribution=0.8,
                 knowledge_completion=1.0,
@@ -329,28 +329,28 @@ class ProgressCalculationHelper:
         Returns:
             ProgressContributions with all factors and combined progress
         """
-        task_contribution = ProgressCalculationHelper.calculate_task_contribution(
+        task_contribution = ProgressCalculator.calculate_task_contribution(
             task_uids=goal_tasks,
             completed_task_uids=completed_task_uids,
         )
 
-        habit_result = ProgressCalculationHelper.calculate_habit_contribution(
+        habit_result = ProgressCalculator.calculate_habit_contribution(
             habit_uids=supporting_habit_uids,
             habit_streaks=habit_streaks,
             habit_weights=habit_weights,
         )
 
-        knowledge_completion = ProgressCalculationHelper.calculate_knowledge_completion(
+        knowledge_completion = ProgressCalculator.calculate_knowledge_completion(
             required_knowledge_uids=required_knowledge_uids,
             mastered_knowledge_uids=mastered_knowledge_uids,
         )
 
-        milestone_completion = ProgressCalculationHelper.calculate_milestone_completion(
+        milestone_completion = ProgressCalculator.calculate_milestone_completion(
             current_value=current_value,
             target_value=target_value,
         )
 
-        combined_progress = ProgressCalculationHelper.calculate_combined_progress(
+        combined_progress = ProgressCalculator.calculate_combined_progress(
             task_contribution=task_contribution,
             habit_contribution=habit_result.contribution,
             knowledge_completion=knowledge_completion,
@@ -360,7 +360,7 @@ class ProgressCalculationHelper:
         )
 
         # Normalize to 0-100 range
-        combined_progress = ProgressCalculationHelper.normalize_progress(combined_progress)
+        combined_progress = ProgressCalculator.normalize_progress(combined_progress)
 
         return ProgressContributions(
             task_contribution=task_contribution,
@@ -389,7 +389,7 @@ class ProgressCalculationHelper:
             True if threshold was just crossed (was below, now at or above)
 
         Example:
-            achieved = ProgressCalculationHelper.check_achievement_threshold(
+            achieved = ProgressCalculator.check_achievement_threshold(
                 old_progress=95.0,
                 new_progress=100.0,
             )

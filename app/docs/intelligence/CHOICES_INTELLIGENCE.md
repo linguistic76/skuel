@@ -175,7 +175,7 @@ if result.is_ok:
 - ChoicesOperations backend (REQUIRED)
 - UnifiedRelationshipService (REQUIRED - uses `_require_relationships = True`)
 - Uses CrossDomainContextService for typed context retrieval (Phase 3)
-- Uses PathAwareIntelligenceHelper for cascade impact calculation (Phase 4)
+- Uses PathAwareAnalyzer for cascade impact calculation (Phase 4)
 
 **Decision Intelligence Components:**
 
@@ -322,7 +322,7 @@ if result.is_ok:
 **Dependencies:**
 - ChoicesOperations backend (REQUIRED)
 - UnifiedRelationshipService (REQUIRED)
-- Uses PathAwareIntelligenceHelper for cascade impact calculation (Phase 4)
+- Uses PathAwareAnalyzer for cascade impact calculation (Phase 4)
 
 **Impact Scoring:**
 ```python
@@ -769,7 +769,7 @@ ChoicesIntelligenceService extends `BaseAnalyticsService[ChoicesOperations, Choi
 **Domain-Specific Attributes:**
 - `self.context_service` - CrossDomainContextService for typed context retrieval (Phase 3)
 - `self.orchestrator` - GraphContextOrchestrator for get_with_context pattern (Phase 2)
-- `self.path_helper` - PathAwareIntelligenceHelper for cascade analysis (Phase 4)
+- `self.path_helper` - PathAwareAnalyzer for cascade analysis (Phase 4)
 
 **Dual-Track Assessment Template:**
 - `_dual_track_assessment()` - Template method for vision vs. action gap analysis
@@ -826,7 +826,7 @@ Provides detailed impact breakdown with:
 
 ### Path-Aware Intelligence (Phase 4)
 
-Uses `PathAwareIntelligenceHelper` for:
+Uses `PathAwareAnalyzer` for:
 - **Path strength calculation** - Connection quality scoring
 - **Cascade impact** - Multi-hop effect analysis
 - **Strong connection detection** - High-value relationship identification
@@ -918,4 +918,4 @@ assert service.path_helper is not None
 - `/core/services/base_intelligence_service.py` - Base implementation
 - `/core/services/choices/choices_service.py` - ChoicesService facade
 - `/core/services/intelligence/cross_domain_context_service.py` - Phase 3 context retrieval
-- `/core/services/intelligence/path_aware_intelligence_helper.py` - Phase 4 cascade analysis
+- `/core/services/intelligence/path_aware_analyzer.py` - Phase 4 cascade analysis

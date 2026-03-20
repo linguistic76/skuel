@@ -45,7 +45,7 @@ from core.models.habit.habit_request import HabitCreateRequest
 from core.ports.domain_protocols import HabitsOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
-from core.services.infrastructure import LearningAlignmentHelper
+from core.services.infrastructure import LearningAlignmentBridge
 from core.utils.decorators import with_error_handling
 from core.utils.dto_helpers import to_domain_model
 from core.utils.result_simplified import Errors, Result
@@ -135,8 +135,8 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
         self.completions = completions_service
         self.event_bus = event_bus
 
-        # Initialize LearningAlignmentHelper for curriculum integration
-        self.learning_helper = LearningAlignmentHelper[Habit, HabitDTO, HabitCreateRequest](
+        # Initialize LearningAlignmentBridge for curriculum integration
+        self.learning_helper = LearningAlignmentBridge[Habit, HabitDTO, HabitCreateRequest](
             service=self,
             backend_get_method="get_habit",
             backend_get_user_method="get_user_habits",
@@ -428,7 +428,7 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
                 )
             )
 
-        # Use LearningAlignmentHelper for creation
+        # Use LearningAlignmentBridge for creation
         custom_fields = {"user_uid": user_context.user_uid}
 
         result = await self.learning_helper.create_with_learning_alignment(

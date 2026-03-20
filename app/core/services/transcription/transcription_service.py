@@ -42,7 +42,7 @@ from core.models.transcription.transcription import (
     TranscriptionProcessOptions,
     TranscriptionStatus,
 )
-from core.services.metadata_manager_mixin import MetadataManagerMixin
+from core.services.entity_timestamp_mixin import EntityTimestampMixin
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -55,7 +55,7 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-class TranscriptionService(MetadataManagerMixin):
+class TranscriptionService(EntityTimestampMixin):
     """
     Simplified transcription service.
 

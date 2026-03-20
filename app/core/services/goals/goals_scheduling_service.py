@@ -49,7 +49,7 @@ from core.models.goal.goal_request import GoalCreateRequest
 from core.ports.domain_protocols import GoalsOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
-from core.services.infrastructure import LearningAlignmentHelper
+from core.services.infrastructure import LearningAlignmentBridge
 from core.utils.decorators import with_error_handling
 from core.utils.dto_helpers import to_domain_model
 from core.utils.result_simplified import Errors, Result
@@ -219,8 +219,8 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Goal]):
         self.progress = progress_service
         self.event_bus = event_bus
 
-        # Initialize LearningAlignmentHelper for curriculum integration
-        self.learning_helper = LearningAlignmentHelper[Goal, GoalDTO, GoalCreateRequest](
+        # Initialize LearningAlignmentBridge for curriculum integration
+        self.learning_helper = LearningAlignmentBridge[Goal, GoalDTO, GoalCreateRequest](
             service=self,
             backend_get_method="get",
             backend_get_user_method="get_user_goals",
@@ -546,7 +546,7 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Goal]):
                 )
             )
 
-        # Use LearningAlignmentHelper for creation
+        # Use LearningAlignmentBridge for creation
         custom_fields = {"user_uid": user_context.user_uid}
 
         result = await self.learning_helper.create_with_learning_alignment(

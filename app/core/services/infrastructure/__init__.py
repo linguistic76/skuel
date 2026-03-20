@@ -5,39 +5,39 @@ Infrastructure Services Module
 Shared infrastructure patterns for all service types.
 
 Provides:
-- SemanticRelationshipHelper[T, DTO]: Generic semantic relationship operations
-- LearningAlignmentHelper[T, DTO, Request]: Generic learning alignment operations
-- RelationshipCreationHelper[T, DTO]: Generic cross-domain relationship creation
-- PrerequisiteHelper: Unified prerequisite checking for planning/scheduling (January 2026)
-- ProgressCalculationHelper: Unified progress calculation for all domains (January 2026)
+- SemanticRelationshipLinker[T, DTO]: Generic semantic relationship operations
+- LearningAlignmentBridge[T, DTO, Request]: Generic learning alignment operations
+- RelationshipCreator[T, DTO]: Generic cross-domain relationship creation
+- PrerequisiteChecker: Unified prerequisite checking for planning/scheduling (January 2026)
+- ProgressCalculator: Unified progress calculation for all domains (January 2026)
 """
 
-from core.services.infrastructure.learning_alignment_helper import LearningAlignmentHelper
-from core.services.infrastructure.prerequisite_helper import (
+from core.services.infrastructure.learning_alignment_bridge import LearningAlignmentBridge
+from core.services.infrastructure.prerequisite_checker import (
     DEFAULT_MASTERY_THRESHOLD,
-    PrerequisiteHelper,
+    PrerequisiteChecker,
     PrerequisiteResult,
 )
-from core.services.infrastructure.progress_calculation_helper import (
+from core.services.infrastructure.progress_calculator import (
     DEFAULT_PROGRESS_WEIGHTS,
     STREAK_NORMALIZATION_DAYS,
     HabitContributionResult,
-    ProgressCalculationHelper,
+    ProgressCalculator,
     ProgressContributions,
 )
-from core.services.infrastructure.relationship_creation_helper import RelationshipCreationHelper
-from core.services.infrastructure.semantic_relationship_helper import SemanticRelationshipHelper
+from core.services.infrastructure.relationship_creator import RelationshipCreator
+from core.services.infrastructure.semantic_relationship_linker import SemanticRelationshipLinker
 
 __all__ = [
     "DEFAULT_MASTERY_THRESHOLD",
     "DEFAULT_PROGRESS_WEIGHTS",
     "HabitContributionResult",
-    "LearningAlignmentHelper",
-    "PrerequisiteHelper",
+    "LearningAlignmentBridge",
+    "PrerequisiteChecker",
     "PrerequisiteResult",
-    "ProgressCalculationHelper",
+    "ProgressCalculator",
     "ProgressContributions",
-    "RelationshipCreationHelper",
-    "SemanticRelationshipHelper",
+    "RelationshipCreator",
+    "SemanticRelationshipLinker",
     "STREAK_NORMALIZATION_DAYS",
 ]

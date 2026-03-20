@@ -484,13 +484,13 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
             result = await backend.delete_relationships_batch(relationships)
             print(f"Deleted {result.value} relationships")
         """
-        from core.infrastructure.batch import BatchOperationHelper
+        from core.infrastructure.batch import BatchCypherBuilder
 
         if not relationships:
             return Result.ok(0)
 
-        # Use BatchOperationHelper for query generation
-        query_result = BatchOperationHelper.build_relationship_delete_query(relationships)
+        # Use BatchCypherBuilder for query generation
+        query_result = BatchCypherBuilder.build_relationship_delete_query(relationships)
 
         async with self.driver.session() as session:
             result = await session.run(query_result.query, query_result.params)
@@ -808,11 +808,11 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         # ========================================================================
         # BATCH CREATION (All validations passed)
         # ========================================================================
-        # Uses BatchOperationHelper for pure Cypher query generation
-        from core.infrastructure.batch import BatchOperationHelper
+        # Uses BatchCypherBuilder for pure Cypher query generation
+        from core.infrastructure.batch import BatchCypherBuilder
 
         # Generate queries grouped by relationship type
-        queries = BatchOperationHelper.build_relationship_create_queries(relationships)
+        queries = BatchCypherBuilder.build_relationship_create_queries(relationships)
 
         total_created = 0
         async with self.driver.session() as session:

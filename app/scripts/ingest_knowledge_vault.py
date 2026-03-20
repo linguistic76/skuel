@@ -18,7 +18,7 @@ import yaml
 from neo4j import AsyncGraphDatabase
 
 from core.ingestion.bulk_ingestion import BulkIngestionEngine
-from core.ingestion.vector_manager import Vector, VectorManager, VectorSpace
+from core.ingestion.vector_operations import Vector, VectorOperations, VectorSpace
 from core.models.curriculum import Curriculum
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
@@ -40,7 +40,7 @@ class VaultIngester:
     def __init__(self, neo4j_uri: str, neo4j_user: str, neo4j_password: str) -> None:
         """Initialize with Neo4j connection."""
         self.driver = AsyncGraphDatabase.driver(neo4j_uri, auth=(neo4j_user, neo4j_password))
-        self.vector_manager = VectorManager(self.driver)
+        self.vector_operations = VectorOperations(self.driver)
 
     async def close(self):
         """Close database connection."""
@@ -266,7 +266,7 @@ class VaultIngester:
                     )
 
                     # Create in Neo4j
-                    result = await self.vector_manager.create_vector(vector)
+                    result = await self.vector_operations.create_vector(vector)
                     if result.is_ok():
                         created_uids.append(result.unwrap())
                         (logger.info(f"Created vector: {vector.uid}"),)

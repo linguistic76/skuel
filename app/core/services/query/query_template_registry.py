@@ -1,6 +1,6 @@
 """
-Query Template Manager
-=====================
+Query Template Registry
+=======================
 
 Template management and execution system.
 
@@ -26,7 +26,7 @@ class TemplateRegistration:
     category: str = "custom"
 
 
-class QueryTemplateManager:
+class QueryTemplateRegistry:
     """
     Manages query templates and executes them with parameters.
 
@@ -35,9 +35,9 @@ class QueryTemplateManager:
     """
 
     def __init__(self, schema_service) -> None:
-        """Initialize template manager with schema service."""
+        """Initialize template registry with schema service."""
         self.schema_service = schema_service
-        self.logger = get_logger("QueryTemplateManager")
+        self.logger = get_logger("QueryTemplateRegistry")
         self._template_library = {}
         self._load_default_templates()
 

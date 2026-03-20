@@ -45,7 +45,7 @@ class IntelligenceMixin:
         backend: Protocol-based backend
         logger: Logger instance
         graph_intel: GraphIntelligenceService (optional)
-        semantic_helper: SemanticRelationshipHelper (optional)
+        semantic_helper: SemanticRelationshipLinker (optional)
         _domain: Domain value
         _backend_get_method: Backend get method name
         _context_to_domain_model: Conversion method

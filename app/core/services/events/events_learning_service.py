@@ -23,7 +23,7 @@ from core.models.pathways.lp_position import LpPosition
 from core.ports import get_enum_value
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
-from core.services.infrastructure.learning_alignment_helper import LearningAlignmentHelper
+from core.services.infrastructure.learning_alignment_bridge import LearningAlignmentBridge
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -77,8 +77,8 @@ class EventsLearningService(BaseService["EventsOperations", Event]):
         self.relationships = relationships
         self.event_bus = event_bus
 
-        # Initialize LearningAlignmentHelper for Events
-        self.learning_helper = LearningAlignmentHelper[Event, EventDTO, EventCreateRequest](
+        # Initialize LearningAlignmentBridge for Events
+        self.learning_helper = LearningAlignmentBridge[Event, EventDTO, EventCreateRequest](
             service=self,
             backend_get_method="get",
             backend_get_user_method="list_user_events",
@@ -257,7 +257,7 @@ class EventsLearningService(BaseService["EventsOperations", Event]):
         """
         Create a study session event for specific knowledge units.
 
-        Uses LearningAlignmentHelper with custom fields for Events-specific data.
+        Uses LearningAlignmentBridge with custom fields for Events-specific data.
 
         Args:
             user_uid: UID of the user,
@@ -399,7 +399,7 @@ class EventsLearningService(BaseService["EventsOperations", Event]):
         """
         Create a study schedule for a learning path.
 
-        Uses LearningAlignmentHelper batch creation with custom fields.
+        Uses LearningAlignmentBridge batch creation with custom fields.
 
         Args:
             user_uid: UID of the user,

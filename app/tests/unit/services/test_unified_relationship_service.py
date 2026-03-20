@@ -7,7 +7,7 @@ Tests focus on:
 - Convenience link methods (link_to_knowledge, link_to_goal, link_to_principle try multiple keys)
 
 Fixture strategy: object.__new__() bypasses the complex __init__ (which requires backend,
-DomainRelationshipConfig, RelationshipCreationHelper, etc.). Sub-attributes are mocked
+DomainRelationshipConfig, RelationshipCreator, etc.). Sub-attributes are mocked
 directly — the same pattern used for LessonService in Phase 2.
 """
 

@@ -1,5 +1,5 @@
 """
-Semantic Relationship Helper - Generic Semantic Operations Pattern
+Semantic Relationship Linker - Generic Semantic Operations Pattern
 ===================================================================
 
 Eliminates duplication across relationship services by providing generic
@@ -37,7 +37,7 @@ T = TypeVar("T")  # Domain model type (Habit, Goal, Task, etc.)
 DTO = TypeVar("DTO")  # DTO type (HabitDTO, GoalDTO, etc.)
 
 
-class SemanticRelationshipHelper[T, DTO]:
+class SemanticRelationshipLinker[T, DTO]:
     """
     Generic helper for semantic relationship operations across all domains.
 
@@ -196,7 +196,7 @@ class SemanticRelationshipHelper[T, DTO]:
         Example:
             ```python
             # In HabitsRelationshipService.__init__:
-            self.semantic_helper = SemanticRelationshipHelper[Habit, HabitDTO](
+            self.semantic_helper = SemanticRelationshipLinker[Habit, HabitDTO](
                 service=self,
                 backend_get_method="get_habit",
                 dto_class=HabitDTO,

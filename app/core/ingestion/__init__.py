@@ -7,7 +7,7 @@ completing the generic programming evolution by extending it to graph-native ope
 
 from .bulk_ingestion import BulkIngestionEngine, IngestionResult
 from .cypher_executor import CypherExecutor, CypherTemplate
-from .vector_manager import Vector, VectorManager
+from .vector_operations import Vector, VectorOperations
 
 __all__ = [
     "BulkIngestionEngine",
@@ -15,5 +15,5 @@ __all__ = [
     "CypherTemplate",
     "IngestionResult",
     "Vector",
-    "VectorManager",
+    "VectorOperations",
 ]

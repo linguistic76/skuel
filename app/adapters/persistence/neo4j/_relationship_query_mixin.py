@@ -418,13 +418,13 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
             ]
             result = await backend.get_relationships_batch(relationships)
         """
-        from core.infrastructure.batch import BatchOperationHelper
+        from core.infrastructure.batch import BatchCypherBuilder
 
         if not relationships:
             return Result.ok([])
 
-        # Use BatchOperationHelper for query generation
-        query_result = BatchOperationHelper.build_relationship_properties_query(relationships)
+        # Use BatchCypherBuilder for query generation
+        query_result = BatchCypherBuilder.build_relationship_properties_query(relationships)
 
         async with self.driver.session() as session:
             result = await session.run(query_result.query, query_result.params)
@@ -461,15 +461,15 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
             ]
             result = await backend.count_relationships_batch(requests)
         """
-        from core.infrastructure.batch import BatchOperationHelper
+        from core.infrastructure.batch import BatchCypherBuilder
 
         if not requests:
             return Result.ok({})
 
         counts: dict[tuple[str, str, str], int] = {}
 
-        # Use BatchOperationHelper to generate optimized queries by direction
-        query_results = BatchOperationHelper.build_multi_direction_count_queries(requests)
+        # Use BatchCypherBuilder to generate optimized queries by direction
+        query_results = BatchCypherBuilder.build_multi_direction_count_queries(requests)
 
         async with self.driver.session() as session:
             # Execute each direction's query

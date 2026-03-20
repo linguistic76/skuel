@@ -119,9 +119,9 @@ class Vector:
         return self.scale(1.0 / self.magnitude)
 
 
-class VectorManager:
+class VectorOperations:
     """
-    Manages vector operations in Neo4j.
+    Performs vector operations in Neo4j.
 
     Provides high-level operations for:
     - Creating and updating vectors

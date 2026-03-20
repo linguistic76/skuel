@@ -38,14 +38,14 @@ from core.ports.content_protocols import ensure_content_protocol
 from core.ports.curriculum_protocols import CurriculumOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import create_curriculum_domain_config
-from core.services.metadata_manager_mixin import MetadataManagerMixin
+from core.services.entity_timestamp_mixin import EntityTimestampMixin
 from core.utils.decorators import with_error_handling
 from core.utils.metrics import track_query_metrics
 from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
 
 
-class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], MetadataManagerMixin):
+class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], EntityTimestampMixin):
     """
     Core CRUD operations for lessons.
 
@@ -170,7 +170,7 @@ class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], Metad
         # Compute word_count from body (stored as metadata on Entity nodes)
         word_count = len(body.strip().split())
 
-        # Prepare unit data with timestamps (via MetadataManagerMixin)
+        # Prepare unit data with timestamps (via EntityTimestampMixin)
         # Content body is NOT stored on the Entity nodes — it goes to the :Content node
         unit_data = {
             "uid": uid,
@@ -546,7 +546,7 @@ class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], Metad
             new_body = updates.pop("body", None) or updates.pop("content", None)
             await self._update_content(uid, new_body, existing_result.value)
 
-        # Update unit metadata (via MetadataManagerMixin)
+        # Update unit metadata (via EntityTimestampMixin)
         if updates:
             updates.update(self.update_properties(use_utc=True))
             await self.backend.update(uid, updates)

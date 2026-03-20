@@ -7,7 +7,7 @@ Query validation and syntax checking.
 Part of QueryBuilder decomposition.
 Validates query syntax and suggests optimizations.
 
-NOTE: This service depends on QueryOptimizer and QueryTemplateManager
+NOTE: This service depends on QueryOptimizer and QueryTemplateRegistry
 for full functionality. The QueryBuilder facade wires these dependencies.
 """
 
@@ -27,7 +27,7 @@ from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from core.services.query.query_optimizer import QueryOptimizer
-    from core.services.query.query_template_manager import QueryTemplateManager
+    from core.services.query.query_template_registry import QueryTemplateRegistry
 
 
 class QueryValidator:
@@ -38,7 +38,7 @@ class QueryValidator:
     optimization suggestions for query improvement.
 
     This service is part of the QueryBuilder facade decomposition.
-    It depends on QueryOptimizer and QueryTemplateManager for
+    It depends on QueryOptimizer and QueryTemplateRegistry for
     full functionality (injected after initialization).
     """
 
@@ -46,7 +46,7 @@ class QueryValidator:
         self,
         schema_service,
         optimizer: "QueryOptimizer | None" = None,
-        template_manager: "QueryTemplateManager | None" = None,
+        template_manager: "QueryTemplateRegistry | None" = None,
     ) -> None:
         """
         Initialize validator with schema service.
@@ -54,7 +54,7 @@ class QueryValidator:
         Args:
             schema_service: Schema context provider
             optimizer: Optional QueryOptimizer for optimization delegation
-            template_manager: Optional QueryTemplateManager for template access
+            template_manager: Optional QueryTemplateRegistry for template access
 
         Note: QueryBuilder facade injects optimizer and template_manager
         after initialization to avoid circular dependencies.
@@ -298,7 +298,7 @@ class QueryValidator:
         if not self.template_manager:
             return Result.fail(
                 Errors.system(
-                    message="QueryTemplateManager not available - cannot build from templates",
+                    message="QueryTemplateRegistry not available - cannot build from templates",
                     operation="build_from_natural_language",
                 )
             )

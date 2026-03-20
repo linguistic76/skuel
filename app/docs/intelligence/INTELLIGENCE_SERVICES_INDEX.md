@@ -596,7 +596,7 @@ uv run python -m pytest tests/integration/intelligence/ -k "test_predict_goal_su
 
 **Choices:**
 - Decision complexity assessment
-- Cascade impact analysis with PathAwareIntelligenceHelper
+- Cascade impact analysis with PathAwareAnalyzer
 - Regret minimization through risk assessment
 
 **Principles:**

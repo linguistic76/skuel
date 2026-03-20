@@ -1,5 +1,5 @@
 """
-Metadata Manager Mixin
+Entity Timestamp Mixin
 ======================
 
 Reusable mixin for services that need to manage entity metadata and timestamps.
@@ -20,9 +20,9 @@ Services Using This Mixin (as of January 2026):
 - LessonCoreService - timestamp_properties(use_utc=True) for KU creation/updates
 
 Usage:
-    from core.services.metadata_manager_mixin import MetadataManagerMixin
+    from core.services.entity_timestamp_mixin import EntityTimestampMixin
 
-    class TasksCoreService(BaseService, MetadataManagerMixin):
+    class TasksCoreService(BaseService, EntityTimestampMixin):
         async def create(self, task: Task, user_uid: str) -> Result[Task]:
             task = self.set_entity_metadata(task, user_uid=user_uid, source="api")
             return await self.backend.create(task)
@@ -32,7 +32,7 @@ Usage:
         return await self.backend.update(uid, self.update_properties())
 
 See Also:
-    - CLAUDE.md: "MetadataManagerMixin - Consistent Timestamp & Metadata Handling"
+    - CLAUDE.md: "EntityTimestampMixin" section
 """
 
 from typing import Any, TypeVar
@@ -42,7 +42,7 @@ from core.utils.timestamp_helpers import now_local, now_utc
 T = TypeVar("T")
 
 
-class MetadataManagerMixin:
+class EntityTimestampMixin:
     """
     Mixin providing standard metadata management for services.
 

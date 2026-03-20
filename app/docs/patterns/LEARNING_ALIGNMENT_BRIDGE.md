@@ -1,13 +1,13 @@
 ---
-title: LearningAlignmentHelper - Unified Learning Integration Pattern
+title: LearningAlignmentBridge - Unified Learning Integration Pattern
 updated: '2026-02-02'
 category: patterns
 related_skills: []
 related_docs: []
 ---
-# LearningAlignmentHelper - Unified Learning Integration Pattern
+# LearningAlignmentBridge - Unified Learning Integration Pattern
 
-**Location:** `/core/services/infrastructure/learning_alignment_helper.py`
+**Location:** `/core/services/infrastructure/learning_alignment_bridge.py`
 
 **Version:** 1.0.0 (Phase 6 - January 2026)
 
@@ -32,7 +32,7 @@ related_docs: []
 
 ## Overview
 
-The **LearningAlignmentHelper** is a generic infrastructure service that eliminates duplication across all 6 Activity Domain learning services by providing unified implementations of common learning integration patterns.
+The **LearningAlignmentBridge** is a generic infrastructure service that eliminates duplication across all 6 Activity Domain learning services by providing unified implementations of common learning integration patterns.
 
 **The Problem It Solves:**
 
@@ -61,11 +61,11 @@ Single generic helper that handles the common pattern, reducing each learning se
 
 ### Purpose
 
-LearningAlignmentHelper is a **generic, protocol-based infrastructure service** that provides unified implementations for learning path integration across all Activity Domains.
+LearningAlignmentBridge is a **generic, protocol-based infrastructure service** that provides unified implementations for learning path integration across all Activity Domains.
 
 ### Key Characteristics
 
-1. **Generic** - Works with any domain model type via TypeScript-style generics: `LearningAlignmentHelper[T, DTO, Request]`
+1. **Generic** - Works with any domain model type via TypeScript-style generics: `LearningAlignmentBridge[T, DTO, Request]`
 2. **Protocol-based** - Depends on `BackendOperations[T]` protocol, not concrete implementations
 3. **Customizable** - Supports 4 optional hooks for domain-specific logic
 4. **Extensible** - New capabilities (batch creation, custom fields) added without breaking existing domains
@@ -76,7 +76,7 @@ LearningAlignmentHelper is a **generic, protocol-based infrastructure service** 
 ```
 Layer 4: Domain Services (Tasks, Goals, Habits, Events, Choices, Principles)
     ↓ uses
-Layer 3: LearningAlignmentHelper (Infrastructure)
+Layer 3: LearningAlignmentBridge (Infrastructure)
     ↓ uses
 Layer 2: BaseService (Common service functionality)
     ↓ uses
@@ -116,7 +116,7 @@ The helper sits in the **infrastructure layer**, providing reusable patterns for
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                  LearningAlignmentHelper                    │
+│                  LearningAlignmentBridge                    │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
 │  CREATE                                                     │
@@ -149,7 +149,7 @@ T = TypeVar("T")          # Domain model (Goal, Task, Event, etc.)
 DTO = TypeVar("DTO")      # DTO type (GoalDTO, TaskDTO, etc.)
 Request = TypeVar("Request")  # Request type (GoalCreateRequest, etc.)
 
-class LearningAlignmentHelper[T, DTO, Request]:
+class LearningAlignmentBridge[T, DTO, Request]:
     # Helper is generic over these three types
 ```
 
@@ -161,7 +161,7 @@ class LearningAlignmentHelper[T, DTO, Request]:
 **Example:**
 ```python
 # In TasksSchedulingService
-self.learning_helper = LearningAlignmentHelper[Task, TaskDTO, TaskCreateRequest](
+self.learning_helper = LearningAlignmentBridge[Task, TaskDTO, TaskCreateRequest](
     service=self,
     # ... configuration ...
 )
@@ -177,7 +177,7 @@ self.learning_helper = LearningAlignmentHelper[Task, TaskDTO, TaskCreateRequest]
 The helper doesn't depend on concrete backend implementations - it uses `BaseService` methods:
 
 ```python
-class LearningAlignmentHelper[T, DTO, Request]:
+class LearningAlignmentBridge[T, DTO, Request]:
     def __init__(self, service: BaseService, ...):
         self.service = service
         self.backend = service.backend  # Protocol-based access
@@ -620,7 +620,7 @@ The helper supports 4 optional hooks for domain-specific customization without m
 ### Hook Initialization
 
 ```python
-self.learning_helper = LearningAlignmentHelper[T, DTO, Request](
+self.learning_helper = LearningAlignmentBridge[T, DTO, Request](
     service=self,
     backend_get_method="get",
     backend_get_user_method="list_user_tasks",
@@ -735,7 +735,7 @@ def _add_embodiment_data(entity: T, learning_position: LpPosition) -> dict[str, 
 
 ```python
 # In GoalsLearningService.__init__
-self.learning_helper = LearningAlignmentHelper[Goal, GoalDTO, GoalCreateRequest](
+self.learning_helper = LearningAlignmentBridge[Goal, GoalDTO, GoalCreateRequest](
     service=self,
     backend_get_method="get",
     backend_get_user_method="list_user_goals",
@@ -790,7 +790,7 @@ def _calculate_embodiment_data(
     }
 
 # In PrinciplesLearningService.__init__
-self.learning_helper = LearningAlignmentHelper[
+self.learning_helper = LearningAlignmentBridge[
     Principle, PrincipleDTO, PrincipleCreateRequest
 ](
     service=self,
@@ -861,7 +861,7 @@ async def _validate_task_prerequisites(
     return Result.ok(None)
 
 # In TasksSchedulingService.__init__
-self.learning_helper = LearningAlignmentHelper[Task, TaskDTO, TaskCreateRequest](
+self.learning_helper = LearningAlignmentBridge[Task, TaskDTO, TaskCreateRequest](
     service=self,
     backend_get_method="get",
     backend_get_user_method="list_user_tasks",
@@ -902,7 +902,7 @@ async def create_task_with_learning_context(
 
 ```python
 # In EventsLearningService.__init__
-self.learning_helper = LearningAlignmentHelper[Event, EventDTO, EventCreateRequest](
+self.learning_helper = LearningAlignmentBridge[Event, EventDTO, EventCreateRequest](
     service=self,
     backend_get_method="get",
     backend_get_user_method="list_user_events",
@@ -1003,7 +1003,7 @@ async def create_learning_path_schedule(
 
 ```python
 # Initialization
-self.learning_helper = LearningAlignmentHelper[T, DTO, Request](
+self.learning_helper = LearningAlignmentBridge[T, DTO, Request](
     service=self,
     # ... standard config ...
 )
@@ -1033,7 +1033,7 @@ def _custom_scorer(entity: T, learning_position: LpPosition) -> float:
     return score
 
 # Initialization with hook
-self.learning_helper = LearningAlignmentHelper[T, DTO, Request](
+self.learning_helper = LearningAlignmentBridge[T, DTO, Request](
     # ... standard config ...
     alignment_scorer=_custom_scorer,
 )
@@ -1064,7 +1064,7 @@ async def _validate_prerequisites(request: Request, context: Any) -> Result[None
     return Result.ok(None)
 
 # Initialization with hook
-self.learning_helper = LearningAlignmentHelper[T, DTO, Request](
+self.learning_helper = LearningAlignmentBridge[T, DTO, Request](
     # ... standard config ...
     prerequisite_validator=_validate_prerequisites,
 )
@@ -1165,7 +1165,7 @@ class GoalsLearningService:
 ```python
 class GoalsLearningService:
     def __init__(self, ...):
-        self.learning_helper = LearningAlignmentHelper[...](...) # 10 lines
+        self.learning_helper = LearningAlignmentBridge[...](...) # 10 lines
 
     async def create_goal_with_learning_integration(self, ...):  # 3 lines
         return await self.learning_helper.create_with_learning_alignment(
@@ -1197,7 +1197,7 @@ class HabitsLearningService:
 # ... 4 more domains
 
 # After: Fix in 1 place
-class LearningAlignmentHelper:
+class LearningAlignmentBridge:
     def calculate_learning_score(...):
         score += 0.5  # FIXED: all domains updated
 ```
@@ -1223,11 +1223,11 @@ class LearningAlignmentHelper:
 
 ```python
 # MyPy catches type errors
-helper = LearningAlignmentHelper[Task, GoalDTO, TaskCreateRequest](...)
+helper = LearningAlignmentBridge[Task, GoalDTO, TaskCreateRequest](...)
 #                                      ^^^^^^^^ ERROR: DTO doesn't match model type
 
 # Correct
-helper = LearningAlignmentHelper[Task, TaskDTO, TaskCreateRequest](...)
+helper = LearningAlignmentBridge[Task, TaskDTO, TaskCreateRequest](...)
 #                                      ^^^^^^^ OK: types match
 ```
 
@@ -1238,7 +1238,7 @@ helper = LearningAlignmentHelper[Task, TaskDTO, TaskCreateRequest](...)
 ```python
 # Test helper with mock types
 async def test_create_with_learning_alignment():
-    helper = LearningAlignmentHelper[MockEntity, MockDTO, MockRequest](...)
+    helper = LearningAlignmentBridge[MockEntity, MockDTO, MockRequest](...)
     result = await helper.create_with_learning_alignment(...)
     assert result.is_ok
 

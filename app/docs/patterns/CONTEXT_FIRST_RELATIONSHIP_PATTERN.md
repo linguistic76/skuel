@@ -95,7 +95,7 @@ The Context-First system has three layers:
 
 ## Layer 1: Harmonized Scoring Engine
 
-Five pure functions in `core/models/context_types.py`, extracted from what was previously scattered across `ContextFirstMixin`, `PrerequisiteHelper`, and 5 domain planning services. Same formulas, one location, parameterized for all domains.
+Five pure functions in `core/models/context_types.py`, extracted from what was previously scattered across `ContextFirstMixin`, `PrerequisiteChecker`, and 5 domain planning services. Same formulas, one location, parameterized for all domains.
 
 ### `_compute_readiness(required_knowledge, required_tasks, knowledge_mastery, completed_task_uids, threshold=0.7) -> float`
 
@@ -695,7 +695,7 @@ UserContext (MEGA-QUERY)
 | `core/services/principles/principles_planning_service.py` | 2 principle planning methods + 1 direct |
 | `core/services/ku/ku_graph_service.py` | 3 knowledge planning methods |
 | `core/utils/sort_functions.py` | Sorting helpers (`get_priority_score`, etc.) |
-| `core/services/infrastructure/` | `PrerequisiteHelper` (shared by tasks/scheduling) |
+| `core/services/infrastructure/` | `PrerequisiteChecker` (shared by tasks/scheduling) |
 
 
 ## Implementation History

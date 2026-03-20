@@ -12,7 +12,7 @@ pattern used by other relationship services (tasks, goals, habits, etc.).
 **Key Characteristics:**
 - Does NOT inherit from BaseService
 - Takes AsyncDriver directly (not a protocol-based backend)
-- Does NOT use RelationshipCreationHelper or SemanticRelationshipHelper
+- Does NOT use RelationshipCreator or SemanticRelationshipLinker
 - Writes raw Cypher queries directly via driver.session()
 - Simpler, more direct graph operations
 
@@ -40,7 +40,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from core.infrastructure.batch import BatchOperationHelper
+from core.infrastructure.batch import BatchCypherBuilder
 from core.models.relationship_names import RelationshipName
 from core.utils.processor_functions import (
     extract_created_count,
@@ -532,8 +532,8 @@ class UserRelationshipService:
         following_list = list(following_uids) if following_uids else None
         team_list = list(team_uids) if team_uids else None
 
-        # Build relationship tuples using BatchOperationHelper for standard relationships
-        relationships = BatchOperationHelper.build_relationships_list(
+        # Build relationship tuples using BatchCypherBuilder for standard relationships
+        relationships = BatchCypherBuilder.build_relationships_list(
             source_uid=user_uid,
             relationship_specs=[
                 (current_goal_uids, RelationshipName.PURSUING_GOAL, None),

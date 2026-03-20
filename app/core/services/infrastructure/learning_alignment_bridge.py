@@ -1,5 +1,5 @@
 """
-Learning Alignment Helper - Generic Learning Operations Pattern
+Learning Alignment Bridge - Generic Learning Operations Pattern
 ================================================================
 
 Eliminates duplication across learning services by providing generic
@@ -38,7 +38,7 @@ DTO = TypeVar("DTO")  # DTO type (GoalDTO, HabitDTO, etc.)
 Request = TypeVar("Request")  # Request type (GoalCreateRequest, etc.)
 
 
-class LearningAlignmentHelper[T, DTO, Request]:
+class LearningAlignmentBridge[T, DTO, Request]:
     """
     Generic helper for learning alignment operations across all domains.
 
@@ -170,7 +170,7 @@ class LearningAlignmentHelper[T, DTO, Request]:
         Example:
             ```python
             # In GoalsLearningService.__init__:
-            self.learning_helper = LearningAlignmentHelper[
+            self.learning_helper = LearningAlignmentBridge[
                 Goal, GoalDTO, GoalCreateRequest
             ](
                 service=self,

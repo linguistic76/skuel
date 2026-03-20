@@ -464,10 +464,10 @@ type Scorer[T] = Callable[[T], Score]
 
 | Helper | Purpose |
 |--------|---------|
-| `PrerequisiteHelper` | Unified prerequisite checking (returns `PrerequisiteResult` with score, is_ready, blocking_reasons) |
-| `LearningAlignmentHelper` | LP integration for any domain |
-| `SemanticRelationshipHelper` | Semantic relationship ops |
-| `RelationshipCreationHelper` | Cross-domain rel creation |
+| `PrerequisiteChecker` | Unified prerequisite checking (returns `PrerequisiteResult` with score, is_ready, blocking_reasons) |
+| `LearningAlignmentBridge` | LP integration for any domain |
+| `SemanticRelationshipLinker` | Semantic relationship ops |
+| `RelationshipCreator` | Cross-domain rel creation |
 
 ## Fail-Fast Dependency Philosophy
 
@@ -618,11 +618,11 @@ Hierarchy via `(parent)-[:ORGANIZES {order, importance}]->(child)` relationships
 
 **See:** `/docs/decisions/ADR-013-ku-uid-flat-identity.md`, `/docs/patterns/UNIVERSAL_HIERARCHICAL_PATTERN.md`
 
-## MetadataManagerMixin
+## EntityTimestampMixin
 
 Use for consistent timestamp/metadata handling: `timestamp_properties()`, `update_properties()`, `set_entity_metadata()`.
 
-**See:** `/docs/patterns/metadata_manager_mixin.md`
+**See:** `/docs/patterns/entity_timestamp_mixin.md`
 
 ## Code Quality & Formatting
 

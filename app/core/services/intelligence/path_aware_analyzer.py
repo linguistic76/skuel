@@ -1,8 +1,8 @@
 """
-Path-Aware Intelligence Helper - Reusable Path Analysis Utilities
-===================================================================
+PathAwareAnalyzer - Reusable Path Analysis Utilities
+=====================================================
 
-Path Intelligence - Generic helper for all intelligence services.
+Path Intelligence - Generic analyzer for all intelligence services.
 
 Provides reusable methods for:
 - Parsing path-aware entities from dict representations
@@ -25,7 +25,7 @@ if TYPE_CHECKING:
     )
 
 
-class PathAwareIntelligenceHelper:
+class PathAwareAnalyzer:
     """
     Reusable helper for path-aware intelligence analysis.
 
@@ -39,7 +39,7 @@ class PathAwareIntelligenceHelper:
         ```python
         class ChoicesIntelligenceService(BaseAnalyticsService):
             def __init__(self, ...):
-                self.path_helper = PathAwareIntelligenceHelper()
+                self.path_helper = PathAwareAnalyzer()
 
             async def analyze_choice_impact(self, choice_uid: str):
                 # Parse path-aware context

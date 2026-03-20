@@ -1,6 +1,6 @@
 """
-Relationship Creation Helper - Generic Cross-Domain Relationship Pattern
-=========================================================================
+Relationship Creator - Generic Cross-Domain Relationship Pattern
+=================================================================
 
 Eliminates duplication across relationship services by providing generic
 implementations for cross-domain relationship creation and context retrieval.
@@ -34,7 +34,7 @@ T = TypeVar("T")  # Domain model type (Habit, Goal, Task, etc.)
 DTO = TypeVar("DTO")  # DTO type (HabitDTO, GoalDTO, etc.)
 
 
-class RelationshipCreationHelper[T, DTO]:
+class RelationshipCreator[T, DTO]:
     """
     Generic helper for cross-domain relationship creation and context retrieval.
 
@@ -85,7 +85,7 @@ class RelationshipCreationHelper[T, DTO]:
     **15 lines → 8 lines (47% reduction, ~300-400 lines saved across all services)**
 
     SKUEL Architecture:
-    - Follows SemanticRelationshipHelper pattern exactly
+    - Follows SemanticRelationshipLinker pattern exactly
     - Leverages BaseService infrastructure
     - Protocol-based backend calls
     """
@@ -162,7 +162,7 @@ class RelationshipCreationHelper[T, DTO]:
         Example:
             ```python
             # In HabitsRelationshipService.__init__:
-            self.relationship_helper = RelationshipCreationHelper[Habit, HabitDTO](
+            self.relationship_helper = RelationshipCreator[Habit, HabitDTO](
                 service=self,
                 backend_get_method="get_habit",
                 dto_class=HabitDTO,

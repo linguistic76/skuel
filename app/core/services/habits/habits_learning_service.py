@@ -25,7 +25,7 @@ from core.models.pathways.lp_position import LpPosition
 from core.ports.domain_protocols import HabitsOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
-from core.services.infrastructure import LearningAlignmentHelper
+from core.services.infrastructure import LearningAlignmentBridge
 from core.services.user import UserContext
 from core.utils.dto_helpers import to_domain_model
 from core.utils.result_simplified import Result
@@ -70,8 +70,8 @@ class HabitsLearningService(BaseService[HabitsOperations, Habit]):
         super().__init__(backend, "habits.learning")
         self.event_bus = event_bus
 
-        # Initialize LearningAlignmentHelper for learning operations
-        self.learning_helper = LearningAlignmentHelper[Habit, HabitDTO, HabitCreateRequest](
+        # Initialize LearningAlignmentBridge for learning operations
+        self.learning_helper = LearningAlignmentBridge[Habit, HabitDTO, HabitCreateRequest](
             service=self,
             backend_get_method="get_habit",
             backend_get_user_method="get_user_habits",
@@ -211,7 +211,7 @@ class HabitsLearningService(BaseService[HabitsOperations, Habit]):
         Returns:
             Result containing created Habit with learning path alignment
         """
-        # Use LearningAlignmentHelper (consolidation)
+        # Use LearningAlignmentBridge (consolidation)
         result = await self.learning_helper.create_with_learning_alignment(
             request=habit_request, learning_position=learning_position
         )
@@ -258,7 +258,7 @@ class HabitsLearningService(BaseService[HabitsOperations, Habit]):
         Returns:
             Result containing suggested habits with learning alignment
         """
-        # Use LearningAlignmentHelper (consolidation)
+        # Use LearningAlignmentBridge (consolidation)
         return await self.learning_helper.suggest_learning_aligned_entities(
             learning_position=learning_position, filter_param=habit_category, max_suggestions=12
         )
@@ -276,7 +276,7 @@ class HabitsLearningService(BaseService[HabitsOperations, Habit]):
         Returns:
             Result containing habits that support learning progression
         """
-        # Use LearningAlignmentHelper (consolidation)
+        # Use LearningAlignmentBridge (consolidation)
         return await self.learning_helper.get_learning_supporting_entities(
             user_uid=user_uid, learning_position=learning_position
         )
@@ -294,7 +294,7 @@ class HabitsLearningService(BaseService[HabitsOperations, Habit]):
         Returns:
             Result containing learning impact assessment
         """
-        # Use LearningAlignmentHelper (consolidation)
+        # Use LearningAlignmentBridge (consolidation)
         return await self.learning_helper.assess_learning_alignment(
             entity_uid=habit_uid, learning_position=learning_position
         )

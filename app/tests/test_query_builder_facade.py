@@ -22,12 +22,12 @@ def test_import_sub_services():
         FacetedQueryBuilder,
         GraphContextBuilder,
         QueryOptimizer,
-        QueryTemplateManager,
+        QueryTemplateRegistry,
         QueryValidator,
     )
 
     assert QueryOptimizer is not None
-    assert QueryTemplateManager is not None
+    assert QueryTemplateRegistry is not None
     assert QueryValidator is not None
     assert FacetedQueryBuilder is not None
     assert GraphContextBuilder is not None
@@ -47,7 +47,7 @@ def test_sub_services_initialized():
         FacetedQueryBuilder,
         GraphContextBuilder,
         QueryOptimizer,
-        QueryTemplateManager,
+        QueryTemplateRegistry,
         QueryValidator,
     )
     from core.services.query_builder import QueryBuilder
@@ -61,7 +61,7 @@ def test_sub_services_initialized():
     assert hasattr(qb, "graph")
 
     assert isinstance(qb.optimizer, QueryOptimizer)
-    assert isinstance(qb.templates, QueryTemplateManager)
+    assert isinstance(qb.templates, QueryTemplateRegistry)
     assert isinstance(qb.validator, QueryValidator)
     assert isinstance(qb.faceted, FacetedQueryBuilder)
     assert isinstance(qb.graph, GraphContextBuilder)
@@ -77,7 +77,7 @@ def test_delegation_methods_exist():
         # QueryOptimizer methods
         "build_optimized_query",
         "get_query_explanation",
-        # QueryTemplateManager methods
+        # QueryTemplateRegistry methods
         "register_template",
         "from_template",
         "get_template_library",

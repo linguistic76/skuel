@@ -35,7 +35,7 @@
 | `lesson_adaptive_service.py` | Adaptive learning recommendations |
 | `lesson_organization_service.py` | ORGANIZES relationships (non-linear nav / MOC pattern) |
 | `lesson_ai_service.py` | AI-powered Lesson operations |
-| `lesson_relationship_helpers.py` | Relationship filtering utilities |
+| `lesson_relationship_filters.py` | Relationship filtering utilities |
 
 ### KU Sub-services (`core/services/ku/`)
 | Service | Purpose |

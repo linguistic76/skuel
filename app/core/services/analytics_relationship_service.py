@@ -11,7 +11,7 @@ This service uses the DIRECT DRIVER pattern, matching JournalRelationshipService
 **Key Characteristics:**
 - Does NOT inherit from BaseService
 - Takes AsyncDriver directly (not a protocol-based backend)
-- Does NOT use RelationshipCreationHelper or SemanticRelationshipHelper
+- Does NOT use RelationshipCreator or SemanticRelationshipLinker
 - Writes raw Cypher queries directly via driver.session()
 - Simpler, more direct graph operations
 
@@ -36,7 +36,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from core.infrastructure.batch import BatchOperationHelper
+from core.infrastructure.batch import BatchCypherBuilder
 from core.utils.processor_functions import (
     extract_dict_from_first_record,
     extract_uids_list,
@@ -410,8 +410,8 @@ class AnalyticsRelationshipService:
         Returns:
             Result containing count of relationships created
         """
-        # Build relationship tuples using BatchOperationHelper
-        relationships = BatchOperationHelper.build_relationships_list(
+        # Build relationship tuples using BatchCypherBuilder
+        relationships = BatchCypherBuilder.build_relationships_list(
             source_uid=report_uid,
             relationship_specs=[
                 (included_entity_uids, "INCLUDES_ENTITY", None),

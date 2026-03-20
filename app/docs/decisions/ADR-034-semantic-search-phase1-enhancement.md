@@ -215,7 +215,7 @@ learning_state_boost_not_started: float = 0.15
 ### Architecture
 - ✅ Follows SKUEL patterns (Result[T], protocols)
 - ✅ Configuration-driven (VectorSearchConfig)
-- ✅ Uses existing infrastructure (SemanticRelationshipHelper)
+- ✅ Uses existing infrastructure (SemanticRelationshipLinker)
 - ✅ No breaking changes
 
 ---

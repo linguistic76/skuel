@@ -21,7 +21,7 @@ Infrastructure Layer: CypherGenerator  ← Utilities
 
 **Sub-Services (Post-Decomposition):**
 - QueryOptimizer: Index-aware optimization (689 lines)
-- QueryTemplateManager: Template management (335 lines)
+- QueryTemplateRegistry: Template management (335 lines)
 - QueryValidator: Query validation (275 lines)
 - FacetedQueryBuilder: Faceted search (315 lines)
 - GraphContextBuilder: Graph traversal (68 lines)
@@ -65,7 +65,7 @@ from core.models.search_models import FacetSetRequest as FacetSetSchema
 from core.services.query.faceted_query_builder import FacetedQueryBuilder
 from core.services.query.graph_context_builder import GraphContextBuilder
 from core.services.query.query_optimizer import QueryOptimizer
-from core.services.query.query_template_manager import QueryTemplateManager
+from core.services.query.query_template_registry import QueryTemplateRegistry
 from core.services.query.query_validator import QueryValidator
 from core.services.search.core_types import FacetSet
 from core.utils.logging import get_logger
@@ -105,7 +105,7 @@ class QueryBuilder:
 
     **Sub-Services:**
     - QueryOptimizer: Index-aware optimization (689 lines)
-    - QueryTemplateManager: Template management (335 lines)
+    - QueryTemplateRegistry: Template management (335 lines)
     - QueryValidator: Query validation (275 lines)
     - FacetedQueryBuilder: Faceted search (315 lines)
     - GraphContextBuilder: Graph traversal (68 lines)
@@ -148,7 +148,7 @@ class QueryBuilder:
 
         # Initialize all sub-services
         self.optimizer = QueryOptimizer(schema_service)
-        self.templates = QueryTemplateManager(schema_service)
+        self.templates = QueryTemplateRegistry(schema_service)
         self.validator = QueryValidator(
             schema_service,
             optimizer=self.optimizer,
@@ -181,7 +181,7 @@ class QueryBuilder:
         return self.optimizer.get_query_explanation(plan)
 
     # ========================================================================
-    # TEMPLATE MANAGEMENT (Delegate to QueryTemplateManager)
+    # TEMPLATE MANAGEMENT (Delegate to QueryTemplateRegistry)
     # ========================================================================
 
     def register_template(self, name: str, spec: TemplateSpec, category: str = "custom"):

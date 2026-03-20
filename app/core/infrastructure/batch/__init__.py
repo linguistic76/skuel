@@ -12,12 +12,12 @@ This module consolidates duplicate batch patterns used across:
 Core Principle: "One query builder, many consumers"
 """
 
-from core.infrastructure.batch.batch_operation_helper import (
-    BatchOperationHelper,
+from core.infrastructure.batch.batch_cypher_builder import (
+    BatchCypherBuilder,
     BatchQueryResult,
 )
 
 __all__ = [
-    "BatchOperationHelper",
+    "BatchCypherBuilder",
     "BatchQueryResult",
 ]

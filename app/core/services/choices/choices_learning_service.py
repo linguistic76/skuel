@@ -16,7 +16,7 @@ from core.models.enums import Domain, EntityStatus, Priority
 from core.models.pathways.learning_step import LearningStep
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
-from core.services.infrastructure import LearningAlignmentHelper
+from core.services.infrastructure import LearningAlignmentBridge
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
@@ -59,8 +59,8 @@ class ChoicesLearningService(BaseService["ChoicesOperations", Choice]):
         super().__init__(backend, "choices.learning")
         self.logger = get_logger("skuel.services.choices.learning")
 
-        # Initialize LearningAlignmentHelper for learning operations
-        self.learning_helper = LearningAlignmentHelper[Choice, ChoiceDTO, ChoiceCreateRequest](
+        # Initialize LearningAlignmentBridge for learning operations
+        self.learning_helper = LearningAlignmentBridge[Choice, ChoiceDTO, ChoiceCreateRequest](
             service=self,
             backend_get_method="get",
             backend_get_user_method="get_user_choices",
@@ -432,7 +432,7 @@ class ChoicesLearningService(BaseService["ChoicesOperations", Choice]):
         Returns:
             Result containing suggested choices with learning alignment
         """
-        # Use LearningAlignmentHelper (consolidation)
+        # Use LearningAlignmentBridge (consolidation)
         result = await self.learning_helper.suggest_learning_aligned_entities(
             learning_position=learning_position, filter_param=choice_domain, max_suggestions=10
         )

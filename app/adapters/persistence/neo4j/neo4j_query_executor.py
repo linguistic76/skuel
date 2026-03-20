@@ -210,7 +210,7 @@ class Neo4jQueryExecutor:
         """
         Create multiple relationships in a single transaction.
 
-        Uses BatchOperationHelper for pure Cypher query generation.
+        Uses BatchCypherBuilder for pure Cypher query generation.
 
         Args:
             relationships: List of (from_uid, to_uid, rel_type, properties) tuples
@@ -219,7 +219,7 @@ class Neo4jQueryExecutor:
         Returns:
             Result[int] with count of relationships created
         """
-        from core.infrastructure.batch import BatchOperationHelper
+        from core.infrastructure.batch import BatchCypherBuilder
 
         if not relationships:
             return Result.ok(0)
@@ -230,7 +230,7 @@ class Neo4jQueryExecutor:
             )
 
         try:
-            queries = BatchOperationHelper.build_relationship_create_queries(relationships)
+            queries = BatchCypherBuilder.build_relationship_create_queries(relationships)
 
             total_created = 0
             async with self.driver.session() as session:

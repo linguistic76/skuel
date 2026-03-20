@@ -1,5 +1,5 @@
 """
-BatchOperationHelper - DRY Batch Operations for Neo4j
+BatchCypherBuilder - DRY Batch Operations for Neo4j
 =====================================================
 
 Consolidates UNWIND-based batch patterns used across:
@@ -60,7 +60,7 @@ class BatchQueryResult:
         params: Dictionary of query parameters
 
     Usage:
-        result = BatchOperationHelper.build_relationship_exists_query(...)
+        result = BatchCypherBuilder.build_relationship_exists_query(...)
         records = await backend.execute_query(result.query, result.params)
     """
 
@@ -68,7 +68,7 @@ class BatchQueryResult:
     params: dict[str, Any]
 
 
-class BatchOperationHelper:
+class BatchCypherBuilder:
     """
     Helper for generating efficient UNWIND-based batch Cypher queries.
 
@@ -85,10 +85,10 @@ class BatchOperationHelper:
 
     **Batch Existence Check:**
     ```python
-    from core.infrastructure.batch import BatchOperationHelper
+    from core.infrastructure.batch import BatchCypherBuilder
 
     # Generate batch existence check query
-    result = BatchOperationHelper.build_relationship_exists_query(
+    result = BatchCypherBuilder.build_relationship_exists_query(
         node_label="Task",
         relationship_types=["REQUIRES_KNOWLEDGE", "DEPENDS_ON"],
         direction="outgoing",
@@ -100,7 +100,7 @@ class BatchOperationHelper:
 
     **Batch Relationship Building:**
     ```python
-    relationships = BatchOperationHelper.build_relationships_list(
+    relationships = BatchCypherBuilder.build_relationships_list(
         source_uid=task_uid,
         relationship_specs=[
             (applies_knowledge_uids, "APPLIES_KNOWLEDGE", None),
@@ -143,7 +143,7 @@ class BatchOperationHelper:
 
         Examples:
             # Batch check prerequisites for 100 tasks
-            result = BatchOperationHelper.build_relationship_exists_query(
+            result = BatchCypherBuilder.build_relationship_exists_query(
                 node_label="Task",
                 relationship_types=["REQUIRES_KNOWLEDGE", "REQUIRES_PREREQUISITE"],
                 direction="outgoing"
@@ -152,7 +152,7 @@ class BatchOperationHelper:
             # Returns: [{"uid": "task:1", "has_relationships": True}, ...]
 
             # Batch check if goals have habit support
-            result = BatchOperationHelper.build_relationship_exists_query(
+            result = BatchCypherBuilder.build_relationship_exists_query(
                 node_label="Goal",
                 relationship_types=["REQUIRES_HABIT"],
                 direction="outgoing"
@@ -201,7 +201,7 @@ class BatchOperationHelper:
 
         Examples:
             # Batch count prerequisites for 100 tasks
-            result = BatchOperationHelper.build_relationship_count_query(
+            result = BatchCypherBuilder.build_relationship_count_query(
                 node_label="Task",
                 relationship_types=["REQUIRES_KNOWLEDGE", "DEPENDS_ON"],
                 direction="outgoing"
@@ -248,7 +248,7 @@ class BatchOperationHelper:
                 ("task:123", "ku:python", "APPLIES_KNOWLEDGE"),
                 ("task:123", "ku:algorithms", "REQUIRES_KNOWLEDGE"),
             ]
-            result = BatchOperationHelper.build_relationship_properties_query(rels)
+            result = BatchCypherBuilder.build_relationship_properties_query(rels)
             records = await backend.execute_query(result.query, result.params)
         """
         query = """
@@ -288,7 +288,7 @@ class BatchOperationHelper:
                 ("task:123", "ku:python", "APPLIES_KNOWLEDGE"),
                 ("task:123", "ku:algorithms", "REQUIRES_KNOWLEDGE"),
             ]
-            result = BatchOperationHelper.build_relationship_delete_query(rels)
+            result = BatchCypherBuilder.build_relationship_delete_query(rels)
             records = await backend.execute_query(result.query, result.params)
             deleted_count = records[0]["deleted_count"] if records else 0
         """
@@ -331,7 +331,7 @@ class BatchOperationHelper:
                 ("task:2", "DEPENDS_ON", "outgoing"),
                 ("goal:1", "SUPPORTS_GOAL", "incoming"),
             ]
-            queries = BatchOperationHelper.build_multi_direction_count_queries(requests)
+            queries = BatchCypherBuilder.build_multi_direction_count_queries(requests)
 
             # Execute each direction's query
             for direction, query_result in queries.items():
@@ -425,7 +425,7 @@ class BatchOperationHelper:
 
         Examples:
             # Find knowledge units with high-confidence prerequisites
-            result = BatchOperationHelper.build_relationship_exists_with_filters_query(
+            result = BatchCypherBuilder.build_relationship_exists_with_filters_query(
                 node_label="Entity",
                 relationship_types=["REQUIRES_KNOWLEDGE"],
                 direction="outgoing",
@@ -434,7 +434,7 @@ class BatchOperationHelper:
             records = await backend.execute_query(result.query, {"uids": ku_uids})
 
             # Find tasks with critical knowledge requirements
-            result = BatchOperationHelper.build_relationship_exists_with_filters_query(
+            result = BatchCypherBuilder.build_relationship_exists_with_filters_query(
                 node_label="Task",
                 relationship_types=["REQUIRES_KNOWLEDGE"],
                 direction="outgoing",
@@ -511,7 +511,7 @@ class BatchOperationHelper:
 
         Examples:
             # Get high-strength prerequisites for multiple knowledge units
-            result = BatchOperationHelper.build_get_related_with_filters_query(
+            result = BatchCypherBuilder.build_get_related_with_filters_query(
                 node_label="Entity",
                 relationship_types=["REQUIRES_KNOWLEDGE"],
                 direction="outgoing",
@@ -521,7 +521,7 @@ class BatchOperationHelper:
             records = await backend.execute_query(result.query, {"uids": ku_uids})
 
             # Get tasks with high knowledge requirements
-            result = BatchOperationHelper.build_get_related_with_filters_query(
+            result = BatchCypherBuilder.build_get_related_with_filters_query(
                 node_label="Task",
                 relationship_types=["REQUIRES_KNOWLEDGE"],
                 direction="outgoing",
@@ -593,7 +593,7 @@ class BatchOperationHelper:
                 ("task:1", "ku:b", "APPLIES_KNOWLEDGE", {"confidence": 0.9}),
                 ("task:1", "goal:1", "FULFILLS_GOAL", None),
             ]
-            grouped = BatchOperationHelper.group_relationships_by_type(rels)
+            grouped = BatchCypherBuilder.group_relationships_by_type(rels)
             # {"APPLIES_KNOWLEDGE": [("task:1", "ku:a", {}), ("task:1", "ku:b", {"confidence": 0.9})],
             #  "FULFILLS_GOAL": [("task:1", "goal:1", {})]}
         """
@@ -619,7 +619,7 @@ class BatchOperationHelper:
             [{from_uid, to_uid, properties}, ...] format
 
         Example:
-            query = BatchOperationHelper.build_relationship_create_query("APPLIES_KNOWLEDGE")
+            query = BatchCypherBuilder.build_relationship_create_query("APPLIES_KNOWLEDGE")
             rels_data = [{"from_uid": "task:1", "to_uid": "ku:a", "properties": {}}]
             result = await session.run(query, {"rels": rels_data})
         """
@@ -650,7 +650,7 @@ class BatchOperationHelper:
             Each query creates relationships of one type.
 
         Example:
-            queries = BatchOperationHelper.build_relationship_create_queries([
+            queries = BatchCypherBuilder.build_relationship_create_queries([
                 ("task:1", "ku:a", "APPLIES_KNOWLEDGE", None),
                 ("task:1", "goal:1", "FULFILLS_GOAL", None),
             ])
@@ -666,11 +666,11 @@ class BatchOperationHelper:
         if not relationships:
             return []
 
-        by_type = BatchOperationHelper.group_relationships_by_type(relationships)
+        by_type = BatchCypherBuilder.group_relationships_by_type(relationships)
 
         queries: list[tuple[str, list[dict[str, Any]]]] = []
         for rel_type, rels in by_type.items():
-            query = BatchOperationHelper.build_relationship_create_query(rel_type)
+            query = BatchCypherBuilder.build_relationship_create_query(rel_type)
             rels_data = [{"from_uid": f, "to_uid": t, "properties": p} for f, t, p in rels]
             queries.append((query, rels_data))
 
@@ -723,7 +723,7 @@ class BatchOperationHelper:
             # ... 7 more similar blocks
 
             # After (1 line)
-            relationships = BatchOperationHelper.build_relationships_list(
+            relationships = BatchCypherBuilder.build_relationships_list(
                 source_uid=task_uid,
                 relationship_specs=[
                     (applies_knowledge_uids, "APPLIES_KNOWLEDGE", None),
@@ -781,7 +781,7 @@ class BatchOperationHelper:
             # ... more blocks
 
             # After (1 line)
-            relationships = BatchOperationHelper.build_relationships_list_with_essentiality(
+            relationships = BatchCypherBuilder.build_relationships_list_with_essentiality(
                 source_uid=goal_uid,
                 relationship_specs=[
                     (essential_habit_uids, "REQUIRES_HABIT", "essential"),

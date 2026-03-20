@@ -33,8 +33,8 @@ from core.models.task.task_dto import TaskDTO
 from core.models.task.task_request import TaskCreateRequest
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
-from core.services.infrastructure import PrerequisiteHelper
-from core.services.infrastructure.learning_alignment_helper import LearningAlignmentHelper
+from core.services.infrastructure import PrerequisiteChecker
+from core.services.infrastructure.learning_alignment_bridge import LearningAlignmentBridge
 from core.services.user import UserContext
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
@@ -50,7 +50,7 @@ def _validate_task_prerequisites(
     """
     Validate task prerequisites against user's completed knowledge/tasks.
 
-    Delegates to PrerequisiteHelper for unified logic.
+    Delegates to PrerequisiteChecker for unified logic.
 
     Args:
         request: Task creation request
@@ -63,7 +63,7 @@ def _validate_task_prerequisites(
     applies_knowledge_uids = getattr(request, "applies_knowledge_uids", None)
     prerequisite_task_uids = getattr(request, "prerequisite_task_uids", None)
 
-    return PrerequisiteHelper.validate_prerequisites(
+    return PrerequisiteChecker.validate_prerequisites(
         required_knowledge_uids=list(applies_knowledge_uids) if applies_knowledge_uids else None,
         required_task_uids=list(prerequisite_task_uids) if prerequisite_task_uids else None,
         context=context,
@@ -101,8 +101,8 @@ class TasksSchedulingService(BaseService["TasksOperations", Task]):
         """
         super().__init__(backend=backend, service_name="tasks.scheduling")
 
-        # Initialize LearningAlignmentHelper with prerequisite validator
-        self.learning_helper = LearningAlignmentHelper[Task, TaskDTO, TaskCreateRequest](
+        # Initialize LearningAlignmentBridge with prerequisite validator
+        self.learning_helper = LearningAlignmentBridge[Task, TaskDTO, TaskCreateRequest](
             service=self,
             backend_get_method="get",
             backend_get_user_method="list_user_tasks",
@@ -261,7 +261,7 @@ class TasksSchedulingService(BaseService["TasksOperations", Task]):
         """
         Create a task enhanced with learning path position context.
 
-        Uses LearningAlignmentHelper with prerequisite validation.
+        Uses LearningAlignmentBridge with prerequisite validation.
 
         Args:
             task_request: Task creation request,
@@ -271,7 +271,7 @@ class TasksSchedulingService(BaseService["TasksOperations", Task]):
         Returns:
             Result containing created Task with learning path enhancement
         """
-        # Use LearningAlignmentHelper with prerequisite validator
+        # Use LearningAlignmentBridge with prerequisite validator
         return await self.learning_helper.create_with_learning_alignment(
             request=task_request, learning_position=learning_position, context=context
         )

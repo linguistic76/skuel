@@ -26,7 +26,7 @@ from core.models.principle.principle_request import PrincipleCreateRequest
 from core.ports.domain_protocols import PrinciplesOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
-from core.services.infrastructure.learning_alignment_helper import LearningAlignmentHelper
+from core.services.infrastructure.learning_alignment_bridge import LearningAlignmentBridge
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
@@ -145,8 +145,8 @@ class PrinciplesLearningService(BaseService[PrinciplesOperations, Principle]):
         """
         super().__init__(backend, "principles.learning")
 
-        # Initialize LearningAlignmentHelper with custom scorers
-        self.learning_helper = LearningAlignmentHelper[
+        # Initialize LearningAlignmentBridge with custom scorers
+        self.learning_helper = LearningAlignmentBridge[
             Principle, PrincipleDTO, PrincipleCreateRequest
         ](
             service=self,
@@ -243,7 +243,7 @@ class PrinciplesLearningService(BaseService[PrinciplesOperations, Principle]):
         """
         Assess how well a principle aligns with current learning progression.
 
-        Uses LearningAlignmentHelper with custom virtue embodiment scoring.
+        Uses LearningAlignmentBridge with custom virtue embodiment scoring.
 
         Args:
             principle_uid: Principle to assess,
@@ -252,7 +252,7 @@ class PrinciplesLearningService(BaseService[PrinciplesOperations, Principle]):
         Returns:
             Result containing principle-learning alignment assessment with character development data
         """
-        # Use LearningAlignmentHelper with custom scorers (consolidation)
+        # Use LearningAlignmentBridge with custom scorers (consolidation)
         return await self.learning_helper.assess_learning_alignment(
             entity_uid=principle_uid, learning_position=learning_position
         )

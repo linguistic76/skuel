@@ -137,7 +137,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [HTTP Status Codes - REST Best Practices](patterns/http_status_codes.md) | 2025-10-17 | 167 |
 | **[Insight Action Tracking Pattern](patterns/INSIGHT_ACTION_TRACKING.md)** | **2026-01-31** | **420** |
 | [Logging Patterns](patterns/LOGGING_PATTERNS.md) | 2026-01-03 | 130 |
-| [MetadataManagerMixin - Consistent Timestamp & Meta...](patterns/metadata_manager_mixin.md) | 2025-11-28 | 247 |
+| [EntityTimestampMixin - Consistent Timestamp & Meta...](patterns/entity_timestamp_mixin.md) | 2025-11-28 | 247 |
 | [Model-to-Adapter Dynamic Architecture](patterns/MODEL_TO_ADAPTER_DYNAMIC_ARCHITECTURE.md) | 2025-11-27 | 495 |
 | [MyPy Pragmatic Strategy - Making Peace with 2200 E...](patterns/mypy_pragmatic_strategy.md) | 2025-11-27 | 351 |
 | [Performance Monitoring System](patterns/PERFORMANCE_MONITORING.md) | 2025-11-27 | 1033 |

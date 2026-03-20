@@ -279,7 +279,7 @@ QueryBuilder was decomposed from a 1,614-line monolith (November 10, 2025) into 
 | Sub-Service | Lines | Purpose |
 |-------------|-------|---------|
 | **QueryOptimizer** | 689 | Index-aware optimization using Neo4j index stats |
-| **QueryTemplateManager** | 335 | Template registration and retrieval |
+| **QueryTemplateRegistry** | 335 | Template registration and retrieval |
 | **QueryValidator** | 275 | Query validation, NL-to-Cypher conversion |
 | **FacetedQueryBuilder** | 315 | Faceted search query construction |
 | **GraphContextBuilder** | 68 | Graph traversal query generation |
@@ -391,7 +391,7 @@ qb = QueryBuilder(schema_service)
 # Index-aware optimization (delegates to QueryOptimizer)
 result = await qb.build_optimized_query(request)
 
-# Template management (delegates to QueryTemplateManager)
+# Template management (delegates to QueryTemplateRegistry)
 templates = qb.get_template_library()
 
 # Query validation (delegates to QueryValidator)
@@ -410,7 +410,7 @@ validation = await qb.validate_query(query_string)
    - Automatic index selection for performance
    - Query plan analysis and explanation
 
-2. **QueryTemplateManager** (`/core/services/query/query_template_manager.py`, 335 lines)
+2. **QueryTemplateRegistry** (`/core/services/query/query_template_registry.py`, 335 lines)
    - Template registration and retrieval
    - Template library management
    - Parameterized query templates

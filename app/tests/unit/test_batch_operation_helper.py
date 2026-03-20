@@ -1,5 +1,5 @@
 """
-Tests for BatchOperationHelper - centralized batch operation utilities.
+Tests for BatchCypherBuilder - centralized batch operation utilities.
 
 Tests cover:
 1. build_relationship_exists_query() - UNWIND existence checks
@@ -15,7 +15,7 @@ Tests cover:
 
 import pytest
 
-from core.infrastructure.batch import BatchOperationHelper, BatchQueryResult
+from core.infrastructure.batch import BatchCypherBuilder, BatchQueryResult
 
 
 class TestBuildRelationshipExistsQuery:
@@ -23,7 +23,7 @@ class TestBuildRelationshipExistsQuery:
 
     def test_outgoing_direction(self):
         """Test building exists query for outgoing relationships."""
-        result = BatchOperationHelper.build_relationship_exists_query(
+        result = BatchCypherBuilder.build_relationship_exists_query(
             node_label="Task",
             relationship_types=["APPLIES_KNOWLEDGE", "REQUIRES_KNOWLEDGE"],
             direction="outgoing",
@@ -40,7 +40,7 @@ class TestBuildRelationshipExistsQuery:
 
     def test_incoming_direction(self):
         """Test building exists query for incoming relationships."""
-        result = BatchOperationHelper.build_relationship_exists_query(
+        result = BatchCypherBuilder.build_relationship_exists_query(
             node_label="Goal",
             relationship_types=["SUPPORTS_GOAL"],
             direction="incoming",
@@ -50,7 +50,7 @@ class TestBuildRelationshipExistsQuery:
 
     def test_both_direction(self):
         """Test building exists query for both directions."""
-        result = BatchOperationHelper.build_relationship_exists_query(
+        result = BatchCypherBuilder.build_relationship_exists_query(
             node_label="Entity",
             relationship_types=["RELATED_TO"],
             direction="both",
@@ -64,7 +64,7 @@ class TestBuildRelationshipCountQuery:
 
     def test_outgoing_count(self):
         """Test building count query for outgoing relationships."""
-        result = BatchOperationHelper.build_relationship_count_query(
+        result = BatchCypherBuilder.build_relationship_count_query(
             node_label="Task",
             relationship_types=["APPLIES_KNOWLEDGE"],
             direction="outgoing",
@@ -75,7 +75,7 @@ class TestBuildRelationshipCountQuery:
 
     def test_incoming_count(self):
         """Test building count query for incoming relationships."""
-        result = BatchOperationHelper.build_relationship_count_query(
+        result = BatchCypherBuilder.build_relationship_count_query(
             node_label="Goal",
             relationship_types=["FULFILLS_GOAL"],
             direction="incoming",
@@ -85,7 +85,7 @@ class TestBuildRelationshipCountQuery:
 
     def test_both_direction_count(self):
         """Test building count query for both directions."""
-        result = BatchOperationHelper.build_relationship_count_query(
+        result = BatchCypherBuilder.build_relationship_count_query(
             node_label="Principle",
             relationship_types=["RELATED_TO"],
             direction="both",
@@ -103,7 +103,7 @@ class TestBuildRelationshipPropertiesQuery:
             ("task:123", "ku:python", "APPLIES_KNOWLEDGE"),
             ("task:123", "ku:algorithms", "REQUIRES_KNOWLEDGE"),
         ]
-        result = BatchOperationHelper.build_relationship_properties_query(
+        result = BatchCypherBuilder.build_relationship_properties_query(
             relationships=relationships
         )
 
@@ -114,7 +114,7 @@ class TestBuildRelationshipPropertiesQuery:
 
     def test_empty_relationships(self):
         """Test properties query with empty list."""
-        result = BatchOperationHelper.build_relationship_properties_query(relationships=[])
+        result = BatchCypherBuilder.build_relationship_properties_query(relationships=[])
 
         assert result.params["rels"] == []
 
@@ -127,7 +127,7 @@ class TestBuildRelationshipDeleteQuery:
         relationships = [
             ("task:123", "ku:python", "APPLIES_KNOWLEDGE"),
         ]
-        result = BatchOperationHelper.build_relationship_delete_query(relationships=relationships)
+        result = BatchCypherBuilder.build_relationship_delete_query(relationships=relationships)
 
         assert isinstance(result, BatchQueryResult)
         assert "DELETE r" in result.query
@@ -139,7 +139,7 @@ class TestBuildRelationshipDeleteQuery:
             ("task:123", "ku:python", "APPLIES_KNOWLEDGE"),
             ("task:123", "ku:algorithms", "REQUIRES_KNOWLEDGE"),
         ]
-        result = BatchOperationHelper.build_relationship_delete_query(relationships=relationships)
+        result = BatchCypherBuilder.build_relationship_delete_query(relationships=relationships)
 
         assert len(result.params["rels"]) == 2
 
@@ -155,7 +155,7 @@ class TestBuildMultiDirectionCountQueries:
             ("goal:1", "SUPPORTS_GOAL", "incoming"),
         ]
 
-        results = BatchOperationHelper.build_multi_direction_count_queries(requests=requests)
+        results = BatchCypherBuilder.build_multi_direction_count_queries(requests=requests)
 
         # Should have entries for outgoing and incoming
         assert isinstance(results, dict)
@@ -168,7 +168,7 @@ class TestBuildMultiDirectionCountQueries:
             ("task:2", "DEPENDS_ON", "outgoing"),
         ]
 
-        results = BatchOperationHelper.build_multi_direction_count_queries(requests=requests)
+        results = BatchCypherBuilder.build_multi_direction_count_queries(requests=requests)
 
         # Should only have outgoing
         assert "outgoing" in results
@@ -179,7 +179,7 @@ class TestBuildRelationshipsList:
 
     def test_basic_relationships(self):
         """Test building relationships list from UID lists."""
-        relationships = BatchOperationHelper.build_relationships_list(
+        relationships = BatchCypherBuilder.build_relationships_list(
             source_uid="task:123",
             relationship_specs=[
                 (["ku:1", "ku:2"], "APPLIES_KNOWLEDGE", None),
@@ -194,7 +194,7 @@ class TestBuildRelationshipsList:
 
     def test_with_properties(self):
         """Test building relationships with properties."""
-        relationships = BatchOperationHelper.build_relationships_list(
+        relationships = BatchCypherBuilder.build_relationships_list(
             source_uid="goal:456",
             relationship_specs=[
                 (["habit:1"], "REQUIRES_HABIT", {"essentiality": "essential"}),
@@ -218,7 +218,7 @@ class TestBuildRelationshipsList:
 
     def test_empty_lists_ignored(self):
         """Test that empty or None lists are ignored."""
-        relationships = BatchOperationHelper.build_relationships_list(
+        relationships = BatchCypherBuilder.build_relationships_list(
             source_uid="task:789",
             relationship_specs=[
                 (None, "APPLIES_KNOWLEDGE", None),
@@ -232,7 +232,7 @@ class TestBuildRelationshipsList:
 
     def test_all_empty_returns_empty(self):
         """Test that all empty specs returns empty list."""
-        relationships = BatchOperationHelper.build_relationships_list(
+        relationships = BatchCypherBuilder.build_relationships_list(
             source_uid="task:000",
             relationship_specs=[
                 (None, "APPLIES_KNOWLEDGE", None),
@@ -244,7 +244,7 @@ class TestBuildRelationshipsList:
 
     def test_mixed_with_and_without_properties(self):
         """Test mixing relationships with and without properties."""
-        relationships = BatchOperationHelper.build_relationships_list(
+        relationships = BatchCypherBuilder.build_relationships_list(
             source_uid="goal:abc",
             relationship_specs=[
                 (["ku:1", "ku:2"], "REQUIRES_KNOWLEDGE", None),
@@ -275,7 +275,7 @@ class TestGroupRelationshipsByType:
             ("task:1", "ku:b", "APPLIES_KNOWLEDGE", {"confidence": 0.9}),
         ]
 
-        grouped = BatchOperationHelper.group_relationships_by_type(relationships)
+        grouped = BatchCypherBuilder.group_relationships_by_type(relationships)
 
         assert len(grouped) == 1
         assert "APPLIES_KNOWLEDGE" in grouped
@@ -292,7 +292,7 @@ class TestGroupRelationshipsByType:
             ("task:1", "goal:2", "FULFILLS_GOAL", {"priority": "high"}),
         ]
 
-        grouped = BatchOperationHelper.group_relationships_by_type(relationships)
+        grouped = BatchCypherBuilder.group_relationships_by_type(relationships)
 
         assert len(grouped) == 2
         assert "APPLIES_KNOWLEDGE" in grouped
@@ -302,7 +302,7 @@ class TestGroupRelationshipsByType:
 
     def test_empty_relationships(self):
         """Test grouping empty list."""
-        grouped = BatchOperationHelper.group_relationships_by_type([])
+        grouped = BatchCypherBuilder.group_relationships_by_type([])
 
         assert grouped == {}
 
@@ -312,7 +312,7 @@ class TestGroupRelationshipsByType:
             ("task:1", "ku:a", "APPLIES_KNOWLEDGE", None),
         ]
 
-        grouped = BatchOperationHelper.group_relationships_by_type(relationships)
+        grouped = BatchCypherBuilder.group_relationships_by_type(relationships)
 
         # Properties should be empty dict, not None
         assert grouped["APPLIES_KNOWLEDGE"][0] == ("task:1", "ku:a", {})
@@ -323,7 +323,7 @@ class TestBuildRelationshipCreateQuery:
 
     def test_generates_unwind_query(self):
         """Test that query uses UNWIND pattern."""
-        query = BatchOperationHelper.build_relationship_create_query("APPLIES_KNOWLEDGE")
+        query = BatchCypherBuilder.build_relationship_create_query("APPLIES_KNOWLEDGE")
 
         assert "UNWIND $rels AS rel" in query
         assert "MATCH (a {uid: rel.from_uid})" in query
@@ -331,7 +331,7 @@ class TestBuildRelationshipCreateQuery:
 
     def test_uses_literal_relationship_type(self):
         """Test that relationship type is literal in query (not parameterized)."""
-        query = BatchOperationHelper.build_relationship_create_query("SUPPORTS_GOAL")
+        query = BatchCypherBuilder.build_relationship_create_query("SUPPORTS_GOAL")
 
         # Relationship type should be literal, not a parameter
         assert "MERGE (a)-[r:SUPPORTS_GOAL]->(b)" in query
@@ -341,13 +341,13 @@ class TestBuildRelationshipCreateQuery:
 
     def test_sets_properties(self):
         """Test that query sets relationship properties."""
-        query = BatchOperationHelper.build_relationship_create_query("RELATED_TO")
+        query = BatchCypherBuilder.build_relationship_create_query("RELATED_TO")
 
         assert "SET r += rel.properties" in query
 
     def test_returns_count(self):
         """Test that query returns created count."""
-        query = BatchOperationHelper.build_relationship_create_query("DEPENDS_ON")
+        query = BatchCypherBuilder.build_relationship_create_query("DEPENDS_ON")
 
         assert "RETURN count(r) as created_count" in query
 
@@ -362,7 +362,7 @@ class TestBuildRelationshipCreateQueries:
             ("task:1", "ku:b", "APPLIES_KNOWLEDGE", {"confidence": 0.9}),
         ]
 
-        queries = BatchOperationHelper.build_relationship_create_queries(relationships)
+        queries = BatchCypherBuilder.build_relationship_create_queries(relationships)
 
         assert len(queries) == 1  # One query per type
         query, rels_data = queries[0]
@@ -384,7 +384,7 @@ class TestBuildRelationshipCreateQueries:
             ("task:1", "ku:b", "APPLIES_KNOWLEDGE", None),
         ]
 
-        queries = BatchOperationHelper.build_relationship_create_queries(relationships)
+        queries = BatchCypherBuilder.build_relationship_create_queries(relationships)
 
         assert len(queries) == 2  # One query per type
 
@@ -403,7 +403,7 @@ class TestBuildRelationshipCreateQueries:
 
     def test_empty_relationships(self):
         """Test that empty list returns empty queries."""
-        queries = BatchOperationHelper.build_relationship_create_queries([])
+        queries = BatchCypherBuilder.build_relationship_create_queries([])
 
         assert queries == []
 
@@ -413,7 +413,7 @@ class TestBuildRelationshipCreateQueries:
             ("report:123", "goal:456", "SUPPORTS_GOAL", None),
         ]
 
-        queries = BatchOperationHelper.build_relationship_create_queries(relationships)
+        queries = BatchCypherBuilder.build_relationship_create_queries(relationships)
 
         _, rels_data = queries[0]
 

@@ -25,7 +25,7 @@ from core.ports.domain_protocols import GoalsOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.goals_types import GoalLearningProgress, PathProgressData
-from core.services.infrastructure import LearningAlignmentHelper
+from core.services.infrastructure import LearningAlignmentBridge
 from core.services.user import UserContext
 from core.utils.dto_helpers import to_domain_model
 from core.utils.result_simplified import Result
@@ -81,8 +81,8 @@ class GoalsLearningService(BaseService[GoalsOperations, Goal]):
         self.event_bus = event_bus
         self.relationships = relationships_service  # GRAPH-NATIVE: For fetching goal relationships
 
-        # Initialize LearningAlignmentHelper for learning operations
-        self.learning_helper = LearningAlignmentHelper[Goal, GoalDTO, GoalCreateRequest](
+        # Initialize LearningAlignmentBridge for learning operations
+        self.learning_helper = LearningAlignmentBridge[Goal, GoalDTO, GoalCreateRequest](
             service=self,
             backend_get_method="get_goal",
             backend_get_user_method="get_user_goals",
@@ -122,7 +122,7 @@ class GoalsLearningService(BaseService[GoalsOperations, Goal]):
         Returns:
             Result containing created Goal with learning path integration
         """
-        # Use LearningAlignmentHelper (consolidation)
+        # Use LearningAlignmentBridge (consolidation)
         result = await self.learning_helper.create_with_learning_alignment(
             request=goal_request, learning_position=learning_position
         )
@@ -159,7 +159,7 @@ class GoalsLearningService(BaseService[GoalsOperations, Goal]):
         Returns:
             Result containing learning alignment assessment
         """
-        # Use LearningAlignmentHelper (consolidation)
+        # Use LearningAlignmentBridge (consolidation)
         return await self.learning_helper.assess_learning_alignment(
             entity_uid=goal_uid, learning_position=learning_position
         )
@@ -181,7 +181,7 @@ class GoalsLearningService(BaseService[GoalsOperations, Goal]):
         Returns:
             Result containing suggested goals with learning alignment
         """
-        # Use LearningAlignmentHelper (consolidation)
+        # Use LearningAlignmentBridge (consolidation)
         return await self.learning_helper.suggest_learning_aligned_entities(
             learning_position=learning_position, filter_param=goal_domain, max_suggestions=8
         )
@@ -203,7 +203,7 @@ class GoalsLearningService(BaseService[GoalsOperations, Goal]):
         Returns:
             Result containing goals that support learning progression
         """
-        # Use LearningAlignmentHelper (consolidation)
+        # Use LearningAlignmentBridge (consolidation)
         return await self.learning_helper.get_learning_supporting_entities(
             user_uid=user_uid, learning_position=learning_position
         )

@@ -1,12 +1,12 @@
 ---
-title: MetadataManagerMixin - Consistent Timestamp & Metadata Handling
+title: EntityTimestampMixin - Consistent Timestamp & Metadata Handling
 updated: 2026-01-20
 category: patterns
 related_skills: []
 related_docs: []
 ---
 
-# MetadataManagerMixin - Consistent Timestamp & Metadata Handling
+# EntityTimestampMixin - Consistent Timestamp & Metadata Handling
 
 *Last updated: 2026-01-20*
 
@@ -14,9 +14,9 @@ related_docs: []
 
 > "DRY timestamp and metadata handling across all services"
 
-SKUEL uses `MetadataManagerMixin` to eliminate duplicate timestamp/metadata handling code across services.
+SKUEL uses `EntityTimestampMixin` to eliminate duplicate timestamp/metadata handling code across services.
 
-**Location:** `/core/services/metadata_manager_mixin.py`
+**Location:** `/core/services/entity_timestamp_mixin.py`
 
 ## Key Methods
 
@@ -39,9 +39,9 @@ SKUEL uses `MetadataManagerMixin` to eliminate duplicate timestamp/metadata hand
 ### Pattern 1: Entity Creation with Timestamps
 
 ```python
-from core.services.metadata_manager_mixin import MetadataManagerMixin
+from core.services.entity_timestamp_mixin import EntityTimestampMixin
 
-class MyService(MetadataManagerMixin):
+class MyService(EntityTimestampMixin):
 
     async def create(self, data: dict) -> Result[Entity]:
         # Use mixin for consistent timestamps
@@ -58,7 +58,7 @@ class MyService(MetadataManagerMixin):
 ### Pattern 2: Entity Updates
 
 ```python
-class MyService(MetadataManagerMixin):
+class MyService(EntityTimestampMixin):
 
     async def update(self, uid: str, updates: dict) -> Result[Entity]:
         # Use mixin for update timestamp
@@ -69,7 +69,7 @@ class MyService(MetadataManagerMixin):
 ### Pattern 3: Setting Metadata on Frozen Dataclasses
 
 ```python
-class MyService(MetadataManagerMixin):
+class MyService(EntityTimestampMixin):
 
     async def create(self, entity: Task, user_uid: str) -> Result[Task]:
         # Set metadata on frozen dataclass (uses object.__setattr__)
@@ -85,7 +85,7 @@ class MyService(MetadataManagerMixin):
 ### Pattern 4: Building Relationship Metadata
 
 ```python
-class MyService(MetadataManagerMixin):
+class MyService(EntityTimestampMixin):
 
     async def create_relationship(self, source_uid: str, target_uid: str) -> Result[None]:
         rel_metadata = self.build_relationship_metadata(
@@ -100,7 +100,7 @@ class MyService(MetadataManagerMixin):
 ### Pattern 5: Audit Trail
 
 ```python
-class MyService(MetadataManagerMixin):
+class MyService(EntityTimestampMixin):
 
     async def update_status(self, uid: str, new_status: str) -> Result[Entity]:
         # Build audit entry
@@ -114,7 +114,7 @@ class MyService(MetadataManagerMixin):
         return await self.backend.update(uid, {"status": new_status})
 ```
 
-## Services Using MetadataManagerMixin
+## Services Using EntityTimestampMixin
 
 | Service | File | Usage |
 |---------|------|-------|
@@ -198,12 +198,12 @@ class MyService:
         return await self.backend.update(uid, updates)
 ```
 
-### After (Using MetadataManagerMixin)
+### After (Using EntityTimestampMixin)
 
 ```python
-from core.services.metadata_manager_mixin import MetadataManagerMixin
+from core.services.entity_timestamp_mixin import EntityTimestampMixin
 
-class MyService(MetadataManagerMixin):
+class MyService(EntityTimestampMixin):
     async def create(self, data: dict) -> Result[Entity]:
         timestamps = self.timestamp_properties()
         entity_data = {
@@ -241,6 +241,6 @@ self.timestamp_properties(use_utc=True)  # Uses now_utc()
 
 ## See Also
 
-- Implementation: `/core/services/metadata_manager_mixin.py`
+- Implementation: `/core/services/entity_timestamp_mixin.py`
 - Timestamp helpers: `/core/utils/timestamp_helpers.py`
 - CLAUDE.md: Brief reference in main documentation
