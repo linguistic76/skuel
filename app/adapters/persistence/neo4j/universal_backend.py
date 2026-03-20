@@ -57,6 +57,34 @@ Key Features:
     - Domain-specific queries through generic interface
     - Protocol compliance for all domain operations
 
+METHOD INDEX (by mixin)
+-----------------------
+
+_crud_mixin.py:
+    create, get, get_many, update, delete, list, create_user_relationship
+
+_search_mixin.py:
+    search, find_by, find_by_date_range, count, health_check,
+    get_domain_context_raw, execute_query
+
+_relationship_crud_mixin.py:
+    create_relationship, delete_relationship, delete_relationships_batch,
+    has_relationship, count_related, create_relationships_batch
+
+_relationship_query_mixin.py:
+    get_related_entities, get_related_uids, get_relationship_metadata,
+    update_relationship_properties, get_relationships_batch,
+    count_relationships_batch, get_edge_metadata, update_edge_metadata,
+    increment_traversal_count, get_prerequisites, get_enables,
+    get_related, get_children, get_parent, get_depends_on, get_blocks
+
+_traversal_mixin.py:
+    add_relationship, get_relationships, traverse, find_path
+
+_user_entity_mixin.py:
+    create_user_relationship, get_user_entities, count_user_entities,
+    update_relationship_access, delete_user_relationship
+
 ARCHITECTURAL BOUNDARY
 ----------------------
 

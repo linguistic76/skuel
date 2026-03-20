@@ -49,17 +49,35 @@ THE 4 CROSS-CUTTING SYSTEMS
     3. AskesisService - Life context synthesis
     4. Conversation - Turn-based chat interface
 
-MIXIN COMPOSITION (January 2026)
--------------------------------
+MIXIN COMPOSITION — METHOD INDEX
+---------------------------------
 
-BaseService is composed from 7 focused mixins:
-    - ConversionHelpersMixin: DTO conversion and result handling
-    - CrudOperationsMixin: Core CRUD and ownership-verified CRUD
-    - SearchOperationsMixin: Text search, graph search, filtering
-    - RelationshipOperationsMixin: Graph relationships and prerequisites
-    - TimeQueryMixin: Date-based queries for calendar integration
-    - UserProgressMixin: Progress and mastery tracking
-    - ContextOperationsMixin: Graph context retrieval and enrichment
+ConversionHelpersMixin:
+    (no public async methods — provides sync conversion helpers)
+
+CrudOperationsMixin:
+    create, get, update, delete, list,
+    verify_ownership, get_for_user, update_for_user, delete_for_user
+
+SearchOperationsMixin:
+    search, get_by_relationship, search_connected_to, search_by_tags,
+    search_array_field, graph_aware_faceted_search, get_by_status,
+    get_by_domain, get_by_category, list_user_categories,
+    list_all_categories, count
+
+RelationshipOperationsMixin:
+    add_relationship, get_relationships, traverse,
+    get_prerequisites, get_enables, add_prerequisite, get_hierarchy
+
+TimeQueryMixin:
+    get_user_items_in_range_base, get_user_items_in_range,
+    get_due_soon, get_overdue
+
+UserProgressMixin:
+    get_user_progress, update_user_mastery, get_user_curriculum
+
+ContextOperationsMixin:
+    get_with_content, get_with_context
 
 Architecture Patterns:
     - Protocol-based dependency injection
