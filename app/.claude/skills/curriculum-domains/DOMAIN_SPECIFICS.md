@@ -19,7 +19,7 @@
 | `LessonAdaptiveService` | Adaptive learning recommendations |
 | `LessonOrganizationService` | ORGANIZES relationships — non-linear navigation (MOC pattern) |
 | `LessonAiService` | AI-powered Lesson operations |
-| `LessonRelationshipHelpers` | Relationship filtering utilities |
+| `lesson_relationship_filters` | Relationship filtering utilities |
 
 **Factory:** `create_lesson_sub_services()` - Specialized (handles circular core↔intelligence dependency)
 
