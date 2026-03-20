@@ -221,7 +221,9 @@ class InsightStore:
             if isinstance(insight_data.get("related_entities"), str):
                 insight_data["related_entities"] = json.loads(insight_data["related_entities"])
             if isinstance(insight_data.get("recommended_actions"), str):
-                insight_data["recommended_actions"] = json.loads(insight_data["recommended_actions"])
+                insight_data["recommended_actions"] = json.loads(
+                    insight_data["recommended_actions"]
+                )
             if isinstance(insight_data.get("supporting_data"), str):
                 insight_data["supporting_data"] = json.loads(insight_data["supporting_data"])
 

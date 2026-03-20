@@ -26,7 +26,12 @@ from .config import ENTITY_CONFIGS
 
 logger = get_logger("skuel.ingestion.preparer")
 
-_EMBEDDING_EXCEPTIONS: tuple[type[BaseException], ...] = (*LLM_EXCEPTIONS, ValueError, TypeError, OSError)
+_EMBEDDING_EXCEPTIONS: tuple[type[BaseException], ...] = (
+    *LLM_EXCEPTIONS,
+    ValueError,
+    TypeError,
+    OSError,
+)
 
 
 def normalize_uid(uid: str) -> str:

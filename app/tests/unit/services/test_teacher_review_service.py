@@ -110,12 +110,16 @@ class TestSubmitReport:
             # _verify_teacher_access
             Result.ok([{"has_access": True}]),
             # main query
-            Result.ok([{
-                "uid": SUBMISSION_UID,
-                "status": "completed",
-                "student_uid": STUDENT_UID,
-                "report_entity_uid": REPORT_UID,
-            }]),
+            Result.ok(
+                [
+                    {
+                        "uid": SUBMISSION_UID,
+                        "status": "completed",
+                        "student_uid": STUDENT_UID,
+                        "report_entity_uid": REPORT_UID,
+                    }
+                ]
+            ),
         )
         service = _make_service(executor=executor)
 
@@ -168,12 +172,16 @@ class TestSubmitReport:
     async def test_publishes_report_submitted_event(self):
         executor = _make_executor(
             Result.ok([{"has_access": True}]),
-            Result.ok([{
-                "uid": SUBMISSION_UID,
-                "status": "completed",
-                "student_uid": STUDENT_UID,
-                "report_entity_uid": REPORT_UID,
-            }]),
+            Result.ok(
+                [
+                    {
+                        "uid": SUBMISSION_UID,
+                        "status": "completed",
+                        "student_uid": STUDENT_UID,
+                        "report_entity_uid": REPORT_UID,
+                    }
+                ]
+            ),
         )
         event_bus = _make_event_bus()
         service = _make_service(executor=executor, event_bus=event_bus)
@@ -191,12 +199,16 @@ class TestSubmitReport:
     async def test_no_event_bus_does_not_raise(self):
         executor = _make_executor(
             Result.ok([{"has_access": True}]),
-            Result.ok([{
-                "uid": SUBMISSION_UID,
-                "status": "completed",
-                "student_uid": STUDENT_UID,
-                "report_entity_uid": REPORT_UID,
-            }]),
+            Result.ok(
+                [
+                    {
+                        "uid": SUBMISSION_UID,
+                        "status": "completed",
+                        "student_uid": STUDENT_UID,
+                        "report_entity_uid": REPORT_UID,
+                    }
+                ]
+            ),
         )
         service = _make_service(executor=executor, event_bus=None)
 
@@ -208,12 +220,16 @@ class TestSubmitReport:
     async def test_null_student_uid_defaults_to_empty(self):
         executor = _make_executor(
             Result.ok([{"has_access": True}]),
-            Result.ok([{
-                "uid": SUBMISSION_UID,
-                "status": "completed",
-                "student_uid": None,
-                "report_entity_uid": REPORT_UID,
-            }]),
+            Result.ok(
+                [
+                    {
+                        "uid": SUBMISSION_UID,
+                        "status": "completed",
+                        "student_uid": None,
+                        "report_entity_uid": REPORT_UID,
+                    }
+                ]
+            ),
         )
         event_bus = _make_event_bus()
         service = _make_service(executor=executor, event_bus=event_bus)
@@ -234,12 +250,16 @@ class TestRequestRevision:
     async def test_success(self):
         executor = _make_executor(
             Result.ok([{"has_access": True}]),
-            Result.ok([{
-                "uid": SUBMISSION_UID,
-                "status": "revision_requested",
-                "student_uid": STUDENT_UID,
-                "report_entity_uid": REPORT_UID,
-            }]),
+            Result.ok(
+                [
+                    {
+                        "uid": SUBMISSION_UID,
+                        "status": "revision_requested",
+                        "student_uid": STUDENT_UID,
+                        "report_entity_uid": REPORT_UID,
+                    }
+                ]
+            ),
         )
         service = _make_service(executor=executor)
 
@@ -291,12 +311,16 @@ class TestRequestRevision:
     async def test_publishes_revision_requested_event(self):
         executor = _make_executor(
             Result.ok([{"has_access": True}]),
-            Result.ok([{
-                "uid": SUBMISSION_UID,
-                "status": "revision_requested",
-                "student_uid": STUDENT_UID,
-                "report_entity_uid": REPORT_UID,
-            }]),
+            Result.ok(
+                [
+                    {
+                        "uid": SUBMISSION_UID,
+                        "status": "revision_requested",
+                        "student_uid": STUDENT_UID,
+                        "report_entity_uid": REPORT_UID,
+                    }
+                ]
+            ),
         )
         event_bus = _make_event_bus()
         service = _make_service(executor=executor, event_bus=event_bus)
@@ -313,12 +337,16 @@ class TestRequestRevision:
     async def test_null_student_uid_defaults_to_empty(self):
         executor = _make_executor(
             Result.ok([{"has_access": True}]),
-            Result.ok([{
-                "uid": SUBMISSION_UID,
-                "status": "revision_requested",
-                "student_uid": None,
-                "report_entity_uid": REPORT_UID,
-            }]),
+            Result.ok(
+                [
+                    {
+                        "uid": SUBMISSION_UID,
+                        "status": "revision_requested",
+                        "student_uid": None,
+                        "report_entity_uid": REPORT_UID,
+                    }
+                ]
+            ),
         )
         event_bus = _make_event_bus()
         service = _make_service(executor=executor, event_bus=event_bus)
@@ -339,12 +367,16 @@ class TestApproveReport:
     async def test_success_no_linked_kus(self):
         executor = _make_executor(
             Result.ok([{"has_access": True}]),
-            Result.ok([{
-                "uid": SUBMISSION_UID,
-                "status": "completed",
-                "student_uid": STUDENT_UID,
-                "linked_ku_uids": [],
-            }]),
+            Result.ok(
+                [
+                    {
+                        "uid": SUBMISSION_UID,
+                        "status": "completed",
+                        "student_uid": STUDENT_UID,
+                        "linked_ku_uids": [],
+                    }
+                ]
+            ),
         )
         service = _make_service(executor=executor)
 
@@ -358,12 +390,16 @@ class TestApproveReport:
     async def test_success_with_linked_kus_mastered(self):
         executor = _make_executor(
             Result.ok([{"has_access": True}]),
-            Result.ok([{
-                "uid": SUBMISSION_UID,
-                "status": "completed",
-                "student_uid": STUDENT_UID,
-                "linked_ku_uids": ["ku_math_001", "ku_math_002"],
-            }]),
+            Result.ok(
+                [
+                    {
+                        "uid": SUBMISSION_UID,
+                        "status": "completed",
+                        "student_uid": STUDENT_UID,
+                        "linked_ku_uids": ["ku_math_001", "ku_math_002"],
+                    }
+                ]
+            ),
         )
         ku_service = MagicMock()
         ku_service.mark_mastered = AsyncMock(return_value=Result.ok(True))
@@ -379,18 +415,24 @@ class TestApproveReport:
     async def test_partial_mastery_failure(self):
         executor = _make_executor(
             Result.ok([{"has_access": True}]),
-            Result.ok([{
-                "uid": SUBMISSION_UID,
-                "status": "completed",
-                "student_uid": STUDENT_UID,
-                "linked_ku_uids": ["ku_ok", "ku_fail"],
-            }]),
+            Result.ok(
+                [
+                    {
+                        "uid": SUBMISSION_UID,
+                        "status": "completed",
+                        "student_uid": STUDENT_UID,
+                        "linked_ku_uids": ["ku_ok", "ku_fail"],
+                    }
+                ]
+            ),
         )
         ku_service = MagicMock()
-        ku_service.mark_mastered = AsyncMock(side_effect=[
-            Result.ok(True),
-            Result.fail(Errors.database("mark_mastered", "failed")),
-        ])
+        ku_service.mark_mastered = AsyncMock(
+            side_effect=[
+                Result.ok(True),
+                Result.fail(Errors.database("mark_mastered", "failed")),
+            ]
+        )
         service = _make_service(executor=executor, ku_interaction_service=ku_service)
 
         result = await service.approve_report(SUBMISSION_UID, TEACHER_UID)
@@ -438,12 +480,16 @@ class TestApproveReport:
     async def test_publishes_submission_approved_event(self):
         executor = _make_executor(
             Result.ok([{"has_access": True}]),
-            Result.ok([{
-                "uid": SUBMISSION_UID,
-                "status": "completed",
-                "student_uid": STUDENT_UID,
-                "linked_ku_uids": [],
-            }]),
+            Result.ok(
+                [
+                    {
+                        "uid": SUBMISSION_UID,
+                        "status": "completed",
+                        "student_uid": STUDENT_UID,
+                        "linked_ku_uids": [],
+                    }
+                ]
+            ),
         )
         event_bus = _make_event_bus()
         service = _make_service(executor=executor, event_bus=event_bus)
@@ -460,12 +506,16 @@ class TestApproveReport:
     async def test_no_mastery_without_ku_service(self):
         executor = _make_executor(
             Result.ok([{"has_access": True}]),
-            Result.ok([{
-                "uid": SUBMISSION_UID,
-                "status": "completed",
-                "student_uid": STUDENT_UID,
-                "linked_ku_uids": ["ku_math_001"],
-            }]),
+            Result.ok(
+                [
+                    {
+                        "uid": SUBMISSION_UID,
+                        "status": "completed",
+                        "student_uid": STUDENT_UID,
+                        "linked_ku_uids": ["ku_math_001"],
+                    }
+                ]
+            ),
         )
         service = _make_service(executor=executor, ku_interaction_service=None)
 
@@ -483,20 +533,22 @@ class TestApproveReport:
 class TestGetReviewQueue:
     @pytest.mark.asyncio
     async def test_returns_items(self):
-        records = [{
-            "ku_uid": SUBMISSION_UID,
-            "title": "Essay 1",
-            "status": "submitted",
-            "entity_type": "exercise_submission",
-            "submitted_at": "2026-03-20T10:00:00",
-            "student_uid": STUDENT_UID,
-            "student_name": "Alice",
-            "project_uid": EXERCISE_UID,
-            "project_name": "Essay Exercise",
-            "due_date": None,
-            "shared_at": "2026-03-20T09:00:00",
-            "feedback_count": 0,
-        }]
+        records = [
+            {
+                "ku_uid": SUBMISSION_UID,
+                "title": "Essay 1",
+                "status": "submitted",
+                "entity_type": "exercise_submission",
+                "submitted_at": "2026-03-20T10:00:00",
+                "student_uid": STUDENT_UID,
+                "student_name": "Alice",
+                "project_uid": EXERCISE_UID,
+                "project_name": "Essay Exercise",
+                "due_date": None,
+                "shared_at": "2026-03-20T09:00:00",
+                "feedback_count": 0,
+            }
+        ]
         executor = _make_executor(Result.ok(records))
         service = _make_service(executor=executor)
 
@@ -556,15 +608,17 @@ class TestGetReviewQueue:
 class TestGetReportHistory:
     @pytest.mark.asyncio
     async def test_returns_history(self):
-        records = [{
-            "uid": REPORT_UID,
-            "title": "Feedback: es_submission_001",
-            "content": "Nice work",
-            "status": "completed",
-            "created_at": "2026-03-20T12:00:00",
-            "teacher_uid": TEACHER_UID,
-            "teacher_name": "Prof Smith",
-        }]
+        records = [
+            {
+                "uid": REPORT_UID,
+                "title": "Feedback: es_submission_001",
+                "content": "Nice work",
+                "status": "completed",
+                "created_at": "2026-03-20T12:00:00",
+                "teacher_uid": TEACHER_UID,
+                "teacher_name": "Prof Smith",
+            }
+        ]
         executor = _make_executor(Result.ok(records))
         service = _make_service(executor=executor)
 
@@ -604,21 +658,23 @@ class TestGetReportHistory:
 class TestGetSubmissionDetail:
     @pytest.mark.asyncio
     async def test_returns_detail(self):
-        records = [{
-            "uid": SUBMISSION_UID,
-            "title": "Essay 1",
-            "content": "My essay content",
-            "processed_content": "Processed content",
-            "original_filename": "essay.pdf",
-            "entity_type": "exercise_submission",
-            "status": "submitted",
-            "created_at": "2026-03-20T10:00:00",
-            "student_uid": STUDENT_UID,
-            "student_name": "Alice",
-            "exercise_uid": EXERCISE_UID,
-            "exercise_title": "Essay Exercise",
-            "exercise_instructions": "Write an essay",
-        }]
+        records = [
+            {
+                "uid": SUBMISSION_UID,
+                "title": "Essay 1",
+                "content": "My essay content",
+                "processed_content": "Processed content",
+                "original_filename": "essay.pdf",
+                "entity_type": "exercise_submission",
+                "status": "submitted",
+                "created_at": "2026-03-20T10:00:00",
+                "student_uid": STUDENT_UID,
+                "student_name": "Alice",
+                "exercise_uid": EXERCISE_UID,
+                "exercise_title": "Essay Exercise",
+                "exercise_instructions": "Write an essay",
+            }
+        ]
         executor = _make_executor(Result.ok(records))
         service = _make_service(executor=executor)
 
@@ -669,13 +725,15 @@ class TestGetSubmissionDetail:
 class TestGetDashboardStats:
     @pytest.mark.asyncio
     async def test_returns_stats(self):
-        records = [{
-            "pending_count": 5,
-            "total_submissions": 20,
-            "total_students": 8,
-            "total_exercises": 3,
-            "total_groups": 2,
-        }]
+        records = [
+            {
+                "pending_count": 5,
+                "total_submissions": 20,
+                "total_students": 8,
+                "total_exercises": 3,
+                "total_groups": 2,
+            }
+        ]
         executor = _make_executor(Result.ok(records))
         service = _make_service(executor=executor)
 
@@ -719,15 +777,17 @@ class TestGetDashboardStats:
 class TestGetExercisesWithSubmissionCounts:
     @pytest.mark.asyncio
     async def test_returns_exercises(self):
-        records = [{
-            "uid": EXERCISE_UID,
-            "title": "Essay Exercise",
-            "scope": "group",
-            "created_at": "2026-03-01T09:00:00",
-            "total_count": 10,
-            "reviewed_count": 7,
-            "pending_count": 3,
-        }]
+        records = [
+            {
+                "uid": EXERCISE_UID,
+                "title": "Essay Exercise",
+                "scope": "group",
+                "created_at": "2026-03-01T09:00:00",
+                "total_count": 10,
+                "reviewed_count": 7,
+                "pending_count": 3,
+            }
+        ]
         executor = _make_executor(Result.ok(records))
         service = _make_service(executor=executor)
 
@@ -766,16 +826,18 @@ class TestGetExercisesWithSubmissionCounts:
 class TestGetSubmissionsForExercise:
     @pytest.mark.asyncio
     async def test_returns_submissions(self):
-        records = [{
-            "uid": SUBMISSION_UID,
-            "title": "My Essay",
-            "original_filename": "essay.pdf",
-            "status": "submitted",
-            "created_at": "2026-03-20T10:00:00",
-            "student_uid": STUDENT_UID,
-            "student_name": "Alice",
-            "feedback_count": 1,
-        }]
+        records = [
+            {
+                "uid": SUBMISSION_UID,
+                "title": "My Essay",
+                "original_filename": "essay.pdf",
+                "status": "submitted",
+                "created_at": "2026-03-20T10:00:00",
+                "student_uid": STUDENT_UID,
+                "student_name": "Alice",
+                "feedback_count": 1,
+            }
+        ]
         executor = _make_executor(Result.ok(records))
         service = _make_service(executor=executor)
 
@@ -814,13 +876,15 @@ class TestGetSubmissionsForExercise:
 class TestGetStudentsSummary:
     @pytest.mark.asyncio
     async def test_returns_students(self):
-        records = [{
-            "student_uid": STUDENT_UID,
-            "student_name": "Alice",
-            "submission_count": 5,
-            "reviewed_count": 3,
-            "pending_count": 2,
-        }]
+        records = [
+            {
+                "student_uid": STUDENT_UID,
+                "student_name": "Alice",
+                "submission_count": 5,
+                "reviewed_count": 3,
+                "pending_count": 2,
+            }
+        ]
         executor = _make_executor(Result.ok(records))
         service = _make_service(executor=executor)
 
@@ -859,16 +923,18 @@ class TestGetStudentsSummary:
 class TestGetStudentSubmissions:
     @pytest.mark.asyncio
     async def test_returns_submissions(self):
-        records = [{
-            "uid": SUBMISSION_UID,
-            "title": "Essay 1",
-            "original_filename": "essay.pdf",
-            "status": "submitted",
-            "created_at": "2026-03-20T10:00:00",
-            "feedback_count": 0,
-            "exercise_uid": EXERCISE_UID,
-            "exercise_title": "Essay Exercise",
-        }]
+        records = [
+            {
+                "uid": SUBMISSION_UID,
+                "title": "Essay 1",
+                "original_filename": "essay.pdf",
+                "status": "submitted",
+                "created_at": "2026-03-20T10:00:00",
+                "feedback_count": 0,
+                "exercise_uid": EXERCISE_UID,
+                "exercise_title": "Essay Exercise",
+            }
+        ]
         executor = _make_executor(Result.ok(records))
         service = _make_service(executor=executor)
 
@@ -897,15 +963,17 @@ class TestGetStudentSubmissions:
 class TestGetTeacherGroupsWithStats:
     @pytest.mark.asyncio
     async def test_returns_groups(self):
-        records = [{
-            "uid": GROUP_UID,
-            "name": "Math 101",
-            "description": "Intro to math",
-            "is_active": True,
-            "member_count": 15,
-            "exercise_count": 4,
-            "pending_count": 6,
-        }]
+        records = [
+            {
+                "uid": GROUP_UID,
+                "name": "Math 101",
+                "description": "Intro to math",
+                "is_active": True,
+                "member_count": 15,
+                "exercise_count": 4,
+                "pending_count": 6,
+            }
+        ]
         executor = _make_executor(Result.ok(records))
         service = _make_service(executor=executor)
 
@@ -917,15 +985,17 @@ class TestGetTeacherGroupsWithStats:
 
     @pytest.mark.asyncio
     async def test_null_counts_default_to_zero(self):
-        records = [{
-            "uid": GROUP_UID,
-            "name": "Empty Group",
-            "description": None,
-            "is_active": True,
-            "member_count": None,
-            "exercise_count": None,
-            "pending_count": None,
-        }]
+        records = [
+            {
+                "uid": GROUP_UID,
+                "name": "Empty Group",
+                "description": None,
+                "is_active": True,
+                "member_count": None,
+                "exercise_count": None,
+                "pending_count": None,
+            }
+        ]
         executor = _make_executor(Result.ok(records))
         service = _make_service(executor=executor)
 
@@ -955,15 +1025,17 @@ class TestGetTeacherGroupsWithStats:
 class TestGetGroupDetail:
     @pytest.mark.asyncio
     async def test_returns_members(self):
-        records = [{
-            "user_uid": STUDENT_UID,
-            "user_name": "Alice",
-            "role": "student",
-            "joined_at": "2026-03-01T09:00:00",
-            "submission_count": 5,
-            "reviewed_count": 3,
-            "pending_count": 2,
-        }]
+        records = [
+            {
+                "user_uid": STUDENT_UID,
+                "user_name": "Alice",
+                "role": "student",
+                "joined_at": "2026-03-01T09:00:00",
+                "submission_count": 5,
+                "reviewed_count": 3,
+                "pending_count": 2,
+            }
+        ]
         executor = _make_executor(Result.ok(records))
         service = _make_service(executor=executor)
 
@@ -975,15 +1047,17 @@ class TestGetGroupDetail:
 
     @pytest.mark.asyncio
     async def test_null_counts_default_to_zero(self):
-        records = [{
-            "user_uid": STUDENT_UID,
-            "user_name": "Bob",
-            "role": "student",
-            "joined_at": "2026-03-01T09:00:00",
-            "submission_count": None,
-            "reviewed_count": None,
-            "pending_count": None,
-        }]
+        records = [
+            {
+                "user_uid": STUDENT_UID,
+                "user_name": "Bob",
+                "role": "student",
+                "joined_at": "2026-03-01T09:00:00",
+                "submission_count": None,
+                "reviewed_count": None,
+                "pending_count": None,
+            }
+        ]
         executor = _make_executor(Result.ok(records))
         service = _make_service(executor=executor)
 

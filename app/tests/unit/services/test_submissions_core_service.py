@@ -109,9 +109,7 @@ class TestCreateJournalEntry:
         backend.find_by = AsyncMock(return_value=Result.ok([]))
         service = _make_service(backend=backend)
 
-        result = await service.create_journal_entry(
-            user_uid="user_1", title="My Custom Title"
-        )
+        result = await service.create_journal_entry(user_uid="user_1", title="My Custom Title")
 
         assert result.is_ok
         assert result.value.title == "My Custom Title"
@@ -218,9 +216,7 @@ class TestEnforceFifo:
     @pytest.mark.asyncio
     async def test_under_limit_no_deletes(self):
         backend = _make_backend()
-        journals = [
-            _make_entity(uid=f"j_{i}", max_retention=3) for i in range(2)
-        ]
+        journals = [_make_entity(uid=f"j_{i}", max_retention=3) for i in range(2)]
         backend.find_by = AsyncMock(return_value=Result.ok(journals))
         service = _make_service(backend=backend)
 
@@ -296,7 +292,9 @@ class TestEnforceFifo:
         """Only journals with max_retention set should be counted."""
         backend = _make_backend()
         fifo_journals = [
-            _make_entity(uid=f"f_{i}", max_retention=2, created_at=datetime(2026, 1, i + 1, tzinfo=UTC))
+            _make_entity(
+                uid=f"f_{i}", max_retention=2, created_at=datetime(2026, 1, i + 1, tzinfo=UTC)
+            )
             for i in range(4)
         ]
         permanent = _make_entity(uid="perm_1", max_retention=None)
@@ -348,9 +346,7 @@ class TestGetEphemeralJournals:
     @pytest.mark.asyncio
     async def test_backend_error(self):
         backend = _make_backend()
-        backend.find_by = AsyncMock(
-            return_value=Result.fail(Errors.database("find", "err"))
-        )
+        backend.find_by = AsyncMock(return_value=Result.fail(Errors.database("find", "err")))
         service = _make_service(backend=backend)
 
         result = await service.get_ephemeral_journals("user_1")
@@ -379,9 +375,7 @@ class TestGetPermanentJournals:
     @pytest.mark.asyncio
     async def test_backend_error(self):
         backend = _make_backend()
-        backend.find_by = AsyncMock(
-            return_value=Result.fail(Errors.database("find", "err"))
-        )
+        backend.find_by = AsyncMock(return_value=Result.fail(Errors.database("find", "err")))
         service = _make_service(backend=backend)
 
         result = await service.get_permanent_journals("user_1")
@@ -443,9 +437,7 @@ class TestGetJournalsByDateRange:
     @pytest.mark.asyncio
     async def test_backend_error(self):
         backend = _make_backend()
-        backend.find_by = AsyncMock(
-            return_value=Result.fail(Errors.database("find", "err"))
-        )
+        backend.find_by = AsyncMock(return_value=Result.fail(Errors.database("find", "err")))
         service = _make_service(backend=backend)
 
         result = await service.get_journals_by_date_range(
@@ -488,9 +480,7 @@ class TestGetSubmission:
     @pytest.mark.asyncio
     async def test_backend_error(self):
         backend = _make_backend()
-        backend.get = AsyncMock(
-            return_value=Result.fail(Errors.database("get", "DB timeout"))
-        )
+        backend.get = AsyncMock(return_value=Result.fail(Errors.database("get", "DB timeout")))
         service = _make_service(backend=backend)
 
         result = await service.get_submission("sub_123")
@@ -530,9 +520,7 @@ class TestGetWithAccessCheck:
     async def test_sharing_error_propagated(self):
         backend = _make_backend()
         sharing = MagicMock()
-        sharing.check_access = AsyncMock(
-            return_value=Result.fail(Errors.system("sharing down"))
-        )
+        sharing.check_access = AsyncMock(return_value=Result.fail(Errors.system("sharing down")))
         service = _make_service(backend=backend, sharing_service=sharing)
 
         result = await service.get_with_access_check("sub_123", "user_1")
@@ -615,9 +603,7 @@ class TestGetRecentSubmissions:
     @pytest.mark.asyncio
     async def test_backend_error(self):
         backend = _make_backend()
-        backend.find_by = AsyncMock(
-            return_value=Result.fail(Errors.database("find", "err"))
-        )
+        backend.find_by = AsyncMock(return_value=Result.fail(Errors.database("find", "err")))
         service = _make_service(backend=backend)
 
         result = await service.get_recent_submissions(user_uid="user_1")
@@ -656,9 +642,7 @@ class TestGetSubmissionForDate:
     @pytest.mark.asyncio
     async def test_backend_error(self):
         backend = _make_backend()
-        backend.find_by = AsyncMock(
-            return_value=Result.fail(Errors.database("find", "err"))
-        )
+        backend.find_by = AsyncMock(return_value=Result.fail(Errors.database("find", "err")))
         service = _make_service(backend=backend)
 
         result = await service.get_submission_for_date(date(2026, 3, 5))
@@ -862,14 +846,18 @@ class TestProcessExerciseSubmission:
         # 7. Auto-share with teacher
         backend.execute_query = AsyncMock(
             side_effect=[
-                Result.ok([{
-                    "exercise_entity_type": "exercise",
-                    "scope": "assigned",
-                    "teacher_uid": "teacher_1",
-                    "student_uid": None,
-                    "exercise_title": "Write Essay",
-                    "group_uid": "grp_1",
-                }]),
+                Result.ok(
+                    [
+                        {
+                            "exercise_entity_type": "exercise",
+                            "scope": "assigned",
+                            "teacher_uid": "teacher_1",
+                            "student_uid": None,
+                            "exercise_title": "Write Essay",
+                            "group_uid": "grp_1",
+                        }
+                    ]
+                ),
                 Result.ok([{"student_uid": "user_1", "member_of_group": "grp_1"}]),
                 Result.ok([{"student_uid": "user_1"}]),
                 Result.ok([{"prior_count": 0}]),
@@ -890,14 +878,18 @@ class TestProcessExerciseSubmission:
     async def test_not_assigned_scope_returns_false(self):
         backend = _make_backend()
         backend.execute_query = AsyncMock(
-            return_value=Result.ok([{
-                "exercise_entity_type": "exercise",
-                "scope": "shared",
-                "teacher_uid": "teacher_1",
-                "student_uid": None,
-                "exercise_title": "Shared Ex",
-                "group_uid": None,
-            }])
+            return_value=Result.ok(
+                [
+                    {
+                        "exercise_entity_type": "exercise",
+                        "scope": "shared",
+                        "teacher_uid": "teacher_1",
+                        "student_uid": None,
+                        "exercise_title": "Shared Ex",
+                        "group_uid": None,
+                    }
+                ]
+            )
         )
         service = _make_service(backend=backend)
 
@@ -936,14 +928,18 @@ class TestProcessExerciseSubmission:
         backend.execute_query = AsyncMock(
             side_effect=[
                 # 1. Query exercise
-                Result.ok([{
-                    "exercise_entity_type": "revised_exercise",
-                    "scope": None,
-                    "teacher_uid": "teacher_1",
-                    "student_uid": "user_1",
-                    "exercise_title": "Revision",
-                    "group_uid": None,
-                }]),
+                Result.ok(
+                    [
+                        {
+                            "exercise_entity_type": "revised_exercise",
+                            "scope": None,
+                            "teacher_uid": "teacher_1",
+                            "student_uid": "user_1",
+                            "exercise_title": "Revision",
+                            "group_uid": None,
+                        }
+                    ]
+                ),
                 # 2. Check submitter identity
                 Result.ok([{"student_uid": "user_1"}]),
                 # 3. Get student uid for title gen
@@ -970,14 +966,18 @@ class TestProcessExerciseSubmission:
         backend = _make_backend()
         backend.execute_query = AsyncMock(
             side_effect=[
-                Result.ok([{
-                    "exercise_entity_type": "revised_exercise",
-                    "scope": None,
-                    "teacher_uid": "teacher_1",
-                    "student_uid": "user_2",
-                    "exercise_title": "Revision",
-                    "group_uid": None,
-                }]),
+                Result.ok(
+                    [
+                        {
+                            "exercise_entity_type": "revised_exercise",
+                            "scope": None,
+                            "teacher_uid": "teacher_1",
+                            "student_uid": "user_2",
+                            "exercise_title": "Revision",
+                            "group_uid": None,
+                        }
+                    ]
+                ),
                 # Submitter is user_1, but exercise targets user_2
                 Result.ok([{"student_uid": "user_1"}]),
             ]
@@ -994,14 +994,18 @@ class TestProcessExerciseSubmission:
         backend = _make_backend()
         backend.execute_query = AsyncMock(
             side_effect=[
-                Result.ok([{
-                    "exercise_entity_type": "exercise",
-                    "scope": "assigned",
-                    "teacher_uid": "teacher_1",
-                    "student_uid": None,
-                    "exercise_title": "Essay",
-                    "group_uid": "grp_1",
-                }]),
+                Result.ok(
+                    [
+                        {
+                            "exercise_entity_type": "exercise",
+                            "scope": "assigned",
+                            "teacher_uid": "teacher_1",
+                            "student_uid": None,
+                            "exercise_title": "Essay",
+                            "group_uid": "grp_1",
+                        }
+                    ]
+                ),
                 # Student not in group
                 Result.ok([{"student_uid": "user_1", "member_of_group": None}]),
             ]
@@ -1019,14 +1023,18 @@ class TestProcessExerciseSubmission:
         backend = _make_backend()
         backend.execute_query = AsyncMock(
             side_effect=[
-                Result.ok([{
-                    "exercise_entity_type": "exercise",
-                    "scope": "assigned",
-                    "teacher_uid": "teacher_1",
-                    "student_uid": None,
-                    "exercise_title": "Write Essay",
-                    "group_uid": None,
-                }]),
+                Result.ok(
+                    [
+                        {
+                            "exercise_entity_type": "exercise",
+                            "scope": "assigned",
+                            "teacher_uid": "teacher_1",
+                            "student_uid": None,
+                            "exercise_title": "Write Essay",
+                            "group_uid": None,
+                        }
+                    ]
+                ),
                 # No group check needed (group_uid is None)
                 # Get student uid for title
                 Result.ok([{"student_uid": "user_1"}]),
@@ -1055,14 +1063,18 @@ class TestProcessExerciseSubmission:
         backend = _make_backend()
         backend.execute_query = AsyncMock(
             side_effect=[
-                Result.ok([{
-                    "exercise_entity_type": "exercise",
-                    "scope": "assigned",
-                    "teacher_uid": "teacher_1",
-                    "student_uid": None,
-                    "exercise_title": "",
-                    "group_uid": None,
-                }]),
+                Result.ok(
+                    [
+                        {
+                            "exercise_entity_type": "exercise",
+                            "scope": "assigned",
+                            "teacher_uid": "teacher_1",
+                            "student_uid": None,
+                            "exercise_title": "",
+                            "group_uid": None,
+                        }
+                    ]
+                ),
                 # FULFILLS_EXERCISE
                 Result.ok([{"success": True}]),
                 # Auto-share
@@ -1428,9 +1440,7 @@ class TestCountJournalsForDate:
     @pytest.mark.asyncio
     async def test_returns_zero_on_error(self):
         backend = _make_backend()
-        backend.execute_query = AsyncMock(
-            return_value=Result.fail(Errors.database("count", "err"))
-        )
+        backend.execute_query = AsyncMock(return_value=Result.fail(Errors.database("count", "err")))
         service = _make_service(backend=backend)
 
         count = await service._count_journals_for_date("user_1", date(2026, 3, 1))
@@ -1497,9 +1507,7 @@ class TestGetRecentSubmissionsNoFilters:
     @pytest.mark.asyncio
     async def test_no_filters_list_error_returns_empty(self):
         backend = _make_backend()
-        backend.list = AsyncMock(
-            return_value=Result.fail(Errors.database("list", "err"))
-        )
+        backend.list = AsyncMock(return_value=Result.fail(Errors.database("list", "err")))
         service = _make_service(backend=backend)
 
         result = await service.get_recent_submissions(limit=5)
@@ -1538,9 +1546,7 @@ class TestGetPublicSubmissions:
     @pytest.mark.asyncio
     async def test_error(self):
         backend = _make_backend()
-        backend.find_by = AsyncMock(
-            return_value=Result.fail(Errors.database("find", "err"))
-        )
+        backend.find_by = AsyncMock(return_value=Result.fail(Errors.database("find", "err")))
         service = _make_service(backend=backend)
 
         result = await service.get_public_submissions()
@@ -1771,16 +1777,16 @@ class TestSubmitJournalFile:
         mock_exercise = MagicMock()
         mock_exercise.instructions = "Custom exercise instructions"
         service.exercise_service = MagicMock()
-        service.exercise_service.get_exercise = AsyncMock(
-            return_value=Result.ok(mock_exercise)
-        )
+        service.exercise_service.get_exercise = AsyncMock(return_value=Result.ok(mock_exercise))
 
         await service.submit_journal_file(
             b"data", "f.m4a", "user_1", custom_title="T", exercise_uid="ex_1"
         )
 
         process_kwargs = service.processing_service.process_submission.call_args.kwargs
-        assert process_kwargs["instructions"]["custom_instructions"] == "Custom exercise instructions"
+        assert (
+            process_kwargs["instructions"]["custom_instructions"] == "Custom exercise instructions"
+        )
 
     @pytest.mark.asyncio
     async def test_exercise_not_found_uses_default(self):
@@ -1829,9 +1835,7 @@ class TestSubmitJournalFile:
             submit_return=Result.fail(Errors.system("upload failed")),
         )
 
-        result = await service.submit_journal_file(
-            b"data", "f.m4a", "user_1", custom_title="T"
-        )
+        result = await service.submit_journal_file(b"data", "f.m4a", "user_1", custom_title="T")
 
         assert result.is_error
         service.processing_service.process_submission.assert_not_awaited()
@@ -1847,9 +1851,7 @@ class TestSubmitJournalFile:
             process_return=Result.fail(Errors.system("LLM timeout")),
         )
 
-        result = await service.submit_journal_file(
-            b"data", "f.m4a", "user_1", custom_title="T"
-        )
+        result = await service.submit_journal_file(b"data", "f.m4a", "user_1", custom_title="T")
 
         assert result.is_ok
         assert result.value.processing_succeeded is False
