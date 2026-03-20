@@ -10,9 +10,10 @@ Architecture: Shell delegates to 3 focused mixins in the same directory:
   _analytics_mixin.py          — get_quick_decision_metrics, batch_analyze_decision_complexity,
                                   get_decision_patterns, get_choice_quality_correlations,
                                   get_domain_decision_patterns
-  _behavioral_signals_mixin.py — event handlers, dual-track, principle analysis,
+  _behavioral_signals_mixin.py — dual-track, principle analysis,
                                   predict_decision_quality, calculate_life_path_contribution,
                                   get_zpd_behavioral_signals()
+                                  (event handlers migrated to ChoiceEventHandlerService, March 2026)
 
 See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """

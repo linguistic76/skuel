@@ -1217,7 +1217,9 @@ def _wire_event_subscribers(
     # Goal abandonment → Event handler (classification, structured logging)
     event_bus.subscribe(GoalAbandoned, goals_service.event_handler.handle_goal_abandoned)
     # Goal progress → Event handler (stall detection, milestone proximity)
-    event_bus.subscribe(GoalProgressUpdated, goals_service.event_handler.handle_goal_progress_updated)
+    event_bus.subscribe(
+        GoalProgressUpdated, goals_service.event_handler.handle_goal_progress_updated
+    )
     logger.info(
         "✅ GoalEventHandlerService subscribed to GoalAchieved, GoalAbandoned, GoalProgressUpdated"
     )
@@ -1342,9 +1344,13 @@ def _wire_event_subscribers(
     # Task event handlers - duration calibration, priority analysis, batch patterns
     tasks_service = activity_services["tasks"]
     event_bus.subscribe(TaskCompleted, tasks_service.event_handler.handle_task_completed)
-    event_bus.subscribe(TaskPriorityChanged, tasks_service.event_handler.handle_task_priority_changed)
+    event_bus.subscribe(
+        TaskPriorityChanged, tasks_service.event_handler.handle_task_priority_changed
+    )
     event_bus.subscribe(TasksBulkCompleted, tasks_service.event_handler.handle_tasks_bulk_completed)
-    logger.info("✅ TaskEventHandlerService subscribed to TaskCompleted, TaskPriorityChanged, TasksBulkCompleted")
+    logger.info(
+        "✅ TaskEventHandlerService subscribed to TaskCompleted, TaskPriorityChanged, TasksBulkCompleted"
+    )
 
     # Habit event handlers - timing learning, recovery insights, difficulty tracking
     habits_service = activity_services["habits"]
@@ -1352,12 +1358,12 @@ def _wire_event_subscribers(
     event_bus.subscribe(HabitStreakBroken, habits_service.event_handler.handle_habit_streak_broken)
     logger.info("✅ HabitEventHandlerService subscribed to HabitCompleted, HabitStreakBroken")
 
-    # Choice intelligence - decision learning when outcomes are recorded
+    # Choice event handlers - decision learning when outcomes are recorded
     choices_service = activity_services["choices"]
     event_bus.subscribe(
-        ChoiceOutcomeRecorded, choices_service.intelligence.handle_choice_outcome_recorded
+        ChoiceOutcomeRecorded, choices_service.event_handler.handle_choice_outcome_recorded
     )
-    logger.info("✅ ChoicesIntelligenceService subscribed to ChoiceOutcomeRecorded")
+    logger.info("✅ ChoiceEventHandlerService subscribed to ChoiceOutcomeRecorded")
 
     # Principle event handlers - cascade analysis, reflection insights, conflict detection
     principles_service = activity_services["principles"]
@@ -1373,9 +1379,9 @@ def _wire_event_subscribers(
     event_bus.subscribe(HabitMissed, habits_service.event_handler.handle_habit_missed)
     logger.info("✅ HabitEventHandlerService subscribed to HabitMissed")
 
-    # Choice intelligence - decision pattern tracking when choice is made
-    event_bus.subscribe(ChoiceMade, choices_service.intelligence.handle_choice_made)
-    logger.info("✅ ChoicesIntelligenceService subscribed to ChoiceMade")
+    # Choice event handler - decision pattern tracking when choice is made
+    event_bus.subscribe(ChoiceMade, choices_service.event_handler.handle_choice_made)
+    logger.info("✅ ChoiceEventHandlerService subscribed to ChoiceMade")
 
     # KU intelligence - learning progress when learning steps are completed
     event_bus.subscribe(

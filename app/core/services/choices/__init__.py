@@ -4,7 +4,7 @@ Choices Sub-Services Package
 
 This package contains focused sub-services that compose the unified ChoicesService facade.
 
-Architecture: Facade Pattern (4 sub-services)
+Architecture: Facade Pattern (5 sub-services)
 - Each sub-service handles ONE specific responsibility
 - ChoicesService (facade) delegates to appropriate sub-service via explicit delegation methods
 - Decision-making domain with principle alignment and learning guidance
@@ -15,6 +15,7 @@ Sub-Services:
 - ChoicesSearchService: Search, discovery, filtering
 - ChoicesLearningService: Learning path guidance, knowledge integration
 - ChoicesIntelligenceService: Pure Cypher analytics, decision pattern analysis (NO AI dependencies)
+- ChoiceEventHandlerService: Event-driven reactive logic (outcome tracking, decision patterns)
 
 Additional Exports:
 - choices_types: Frozen dataclasses for intelligence results (DecisionAnalysis, RiskAssessment, etc.)
@@ -36,8 +37,10 @@ Documentation:
 Architecture Notes:
 - ChoicesRelationshipService replaced by UnifiedRelationshipService (December 2025)
 - ChoicesAnalyticsService consolidated into ChoicesIntelligenceService (January 2026)
+- Event handlers extracted from ChoicesIntelligenceService to ChoiceEventHandlerService (March 2026)
 """
 
+from core.services.choices.choice_event_handler_service import ChoiceEventHandlerService
 from core.services.choices.choices_core_service import ChoicesCoreService
 from core.services.choices.choices_intelligence_service import ChoicesIntelligenceService
 from core.services.choices.choices_learning_service import ChoicesLearningService
@@ -60,6 +63,7 @@ from core.services.choices.choices_types import (
 
 __all__ = [
     # Services
+    "ChoiceEventHandlerService",
     "ChoicesCoreService",
     "ChoicesIntelligenceService",
     "ChoicesLearningService",

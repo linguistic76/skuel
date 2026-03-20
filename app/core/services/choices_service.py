@@ -24,6 +24,7 @@ from core.services.base_service import BaseService
 
 # Import sub-services
 from core.services.choices import ChoicesLearningService
+from core.services.choices.choice_event_handler_service import ChoiceEventHandlerService
 from core.services.choices.choices_ai_service import ChoicesAIService
 from core.services.domain_config import create_activity_domain_config
 
@@ -88,7 +89,7 @@ class ChoicesService(BaseService["ChoicesOperations", Choice]):
     Choices service facade with specialized sub-services.
 
     This facade:
-    1. Delegates to 5 specialized sub-services for core operations
+    1. Delegates to 6 specialized sub-services for core operations
     2. Uses explicit delegation methods (~26 methods) for sub-service access
     3. Retains explicit methods for complex operations
     4. Provides clean separation of concerns
@@ -254,10 +255,16 @@ class ChoicesService(BaseService["ChoicesOperations", Choice]):
 
         # Domain-specific sub-services (not common to all facades)
         self.learning = ChoicesLearningService(backend=backend)
+        self.event_handler = ChoiceEventHandlerService(
+            backend=backend,
+            relationship_service=self.relationships,
+            insight_store=insight_store,
+            event_bus=event_bus,
+        )
 
         self.logger.info(
-            "ChoicesService facade initialized with 5 sub-services: "
-            "core, search, learning, relationships, intelligence"
+            "ChoicesService facade initialized with 6 sub-services: "
+            "core, search, learning, relationships, intelligence, event_handler"
         )
 
     # ========================================================================

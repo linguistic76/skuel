@@ -258,8 +258,8 @@ result = await planning.get_actionable_tasks_for_user(user_uid, user_context)
 
 ### EventHandlerService
 
-**Domains:** Tasks, Principles (more coming)
-**File:** `task_event_handler_service.py`, `principles_event_handler_service.py`
+**Domains:** Tasks, Goals, Habits, Choices, Principles
+**Files:** `task_event_handler_service.py`, `goal_event_handler_service.py`, `habit_event_handler_service.py`, `choice_event_handler_service.py`, `principles_event_handler_service.py`
 
 **Responsibility:** Event-driven reactive logic (fire-and-forget handlers)
 
@@ -345,8 +345,8 @@ handler = TaskEventHandlerService(backend=backend, relationship_service=rels)
 
 ### EventHandlerService
 
-**Domains:** Tasks, Goals, Habits, Principles
-**Files:** `task_event_handler_service.py`, `goal_event_handler_service.py`, `habit_event_handler_service.py`, `principles_event_handler_service.py`
+**Domains:** Tasks, Goals, Habits, Choices, Principles
+**Files:** `task_event_handler_service.py`, `goal_event_handler_service.py`, `habit_event_handler_service.py`, `choice_event_handler_service.py`, `principles_event_handler_service.py`
 
 **Responsibility:** Event-driven reactive handlers (fire-and-forget)
 
@@ -354,6 +354,10 @@ handler = TaskEventHandlerService(backend=backend, relationship_service=rels)
 - `handle_goal_achieved()` - Recommendations, duration calibration, principle alignment
 - `handle_goal_abandoned()` - Abandonment classification, structured logging
 - `handle_goal_progress_updated()` - Stall detection, milestone proximity, trigger logging
+
+**Key Methods (Choices):**
+- `handle_choice_outcome_recorded()` - Outcome quality analysis, principle alignment correlation
+- `handle_choice_made()` - Decision pattern tracking, confidence analysis, insight persistence
 
 **When to use:**
 - Reacting to domain events
@@ -400,7 +404,7 @@ Quick lookup table for finding the right sub-service:
 | **Learning integration** | LearningService | Habits, Choices, Goals |
 | **Habit-specific completions** | CompletionsService | Habits only |
 | **Habit-event integration** | EventIntegrationService | Habits only |
-| **Event-driven handlers** | EventHandlerService | Tasks, Goals, Habits, Principles |
+| **Event-driven handlers** | EventHandlerService | Tasks, Goals, Habits, Choices, Principles |
 | **AI/LLM features** | AIService | Tasks, Goals, Habits (optional) |
 | **LLM routing** | UnifiedLLMCaller | Journals, Reports (routes gpt*/claude* models) |
 | **Instruction resolution** | InstructionResolver | Journals, Batch (custom > exercise > mode > default) |
@@ -545,6 +549,9 @@ What do you want to do?
 │  └─ Use: EventHandlerService
 │
 ├─ [Goals only] React to goal events (achievements, abandonment)?
+│  └─ Use: EventHandlerService
+│
+├─ [Choices only] React to choice events (outcomes, decisions)?
 │  └─ Use: EventHandlerService
 │
 └─ [Optional] Use AI/LLM features?
