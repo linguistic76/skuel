@@ -53,7 +53,9 @@ def create_batch_transcription_api_routes(
     @rt("/api/journals/batch-transcribe")
     @require_admin(get_user_service)
     @boundary_handler(success_status=200)
-    async def batch_transcribe(request: Request, current_user: Any = None) -> Result[dict[str, Any]]:
+    async def batch_transcribe(
+        request: Request, current_user: Any = None
+    ) -> Result[dict[str, Any]]:
         """
         Batch transcribe audio files to text.
 

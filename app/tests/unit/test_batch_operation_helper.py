@@ -103,9 +103,7 @@ class TestBuildRelationshipPropertiesQuery:
             ("task:123", "ku:python", "APPLIES_KNOWLEDGE"),
             ("task:123", "ku:algorithms", "REQUIRES_KNOWLEDGE"),
         ]
-        result = BatchCypherBuilder.build_relationship_properties_query(
-            relationships=relationships
-        )
+        result = BatchCypherBuilder.build_relationship_properties_query(relationships=relationships)
 
         assert isinstance(result, BatchQueryResult)
         assert "UNWIND $rels as rel" in result.query

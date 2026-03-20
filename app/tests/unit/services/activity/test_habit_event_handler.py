@@ -254,7 +254,10 @@ class TestHandleHabitStreakBroken:
 
     @pytest.mark.asyncio
     async def test_knowledge_impact_queried(
-        self, service_full: HabitEventHandlerService, mock_backend: Mock, mock_relationships: AsyncMock
+        self,
+        service_full: HabitEventHandlerService,
+        mock_backend: Mock,
+        mock_relationships: AsyncMock,
     ):
         """Knowledge reinforcement relationships are queried."""
         habit = _make_habit()
@@ -370,7 +373,10 @@ class TestHandleHabitMissed:
 
     @pytest.mark.asyncio
     async def test_normal_miss_no_insight(
-        self, service_full: HabitEventHandlerService, mock_backend: Mock, mock_insight_store: AsyncMock
+        self,
+        service_full: HabitEventHandlerService,
+        mock_backend: Mock,
+        mock_insight_store: AsyncMock,
     ):
         """Single miss does not persist insight."""
         habit = _make_habit()
@@ -391,7 +397,10 @@ class TestHandleHabitMissed:
 
     @pytest.mark.asyncio
     async def test_difficult_persists_insight(
-        self, service_full: HabitEventHandlerService, mock_backend: Mock, mock_insight_store: AsyncMock
+        self,
+        service_full: HabitEventHandlerService,
+        mock_backend: Mock,
+        mock_insight_store: AsyncMock,
     ):
         """3+ consecutive misses persist difficulty insight."""
         habit = _make_habit(title="Morning Meditation")

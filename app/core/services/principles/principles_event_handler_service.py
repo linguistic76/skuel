@@ -156,9 +156,7 @@ class PrincipleEventHandlerService:
 
             # 4. Calculate cascade impact
             total_affected = len(goal_uids) + len(habit_uids)
-            strength_change = _categorize_strength_change(
-                event.old_strength, event.new_strength
-            )
+            strength_change = _categorize_strength_change(event.old_strength, event.new_strength)
 
             # 5. Log structured insights
             self.logger.info(
@@ -556,9 +554,7 @@ def _categorize_strength_change(old_strength: str, new_strength: str) -> str:
         return "lateral"
 
 
-def _analyze_trigger_context(
-    trigger_type: str | None, trigger_uid: str | None
-) -> dict[str, Any]:
+def _analyze_trigger_context(trigger_type: str | None, trigger_uid: str | None) -> dict[str, Any]:
     """Analyze the context of what triggered this reflection."""
     if not trigger_type or not trigger_uid:
         return {"type": "manual", "description": "Self-initiated reflection"}

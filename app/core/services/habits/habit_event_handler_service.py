@@ -26,7 +26,12 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 from core.constants import LearningLoop
 from core.events import publish_event
-from core.events.habit_events import HabitCompleted, HabitMissed, HabitStreakBroken, HabitStreakMilestone
+from core.events.habit_events import (
+    HabitCompleted,
+    HabitMissed,
+    HabitStreakBroken,
+    HabitStreakMilestone,
+)
 from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
 from core.models.relationship_names import RelationshipName
 from core.utils.decorators import with_error_handling
@@ -408,7 +413,9 @@ class HabitEventHandlerService:
                     "days_overdue": days_overdue,
                     "severity": severity,
                     "difficulty_assessment": difficulty_assessment,
-                    "frequency": habit.recurrence_pattern if habit.recurrence_pattern else "unknown",
+                    "frequency": habit.recurrence_pattern
+                    if habit.recurrence_pattern
+                    else "unknown",
                     "event_type": "habit.missed.analyzed",
                 },
             )
@@ -442,7 +449,9 @@ class HabitEventHandlerService:
                         confidence=0.85,
                         impact=impact,
                         entity_uid=event.habit_uid,
-                        recommended_actions=[{"action": "Adjust frequency", "rationale": suggestion}]
+                        recommended_actions=[
+                            {"action": "Adjust frequency", "rationale": suggestion}
+                        ]
                         if suggestion
                         else [],
                         supporting_data={
