@@ -14,8 +14,10 @@ related: []
 > `/home/mike/0bsidian/skuel/docs/` contains **content** (KU docs), NOT technical documentation.
 
 *Generated: 2025-12-07*
-*Updated: 2026-03-03*
+*Updated: 2026-03-20*
 *Total: ~200 documents*
+
+> **New here? Read [START_HERE.md](START_HERE.md) first.** It covers what SKUEL is, the 21 entity types, how a request flows, and the key patterns — in 5 minutes.
 
 > **📝 Documentation Standards:**
 > - **File Naming:** UPPERCASE for major reference docs/guides, lowercase for specific patterns
