@@ -42,7 +42,7 @@ Habits represent recurring behaviors with streak tracking. They form the "system
 | Scheduling Service | `/core/services/habits/habits_scheduling_service.py` |
 | Intelligence Service | `/core/services/habits/habits_intelligence_service.py` |
 | Learning Service | `/core/services/habits/habits_learning_service.py` |
-| Achievement Service | `/core/services/habits/habit_achievement_service.py` |
+| Event Handler Service | `/core/services/habits/habit_event_handler_service.py` |
 | Facade | `/core/services/habits_service.py` |
 | Config | `HABITS_CONFIG` in `/core/models/relationship_registry.py` |
 | Events | `/core/events/habit_events.py` |
@@ -86,7 +86,7 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
 | `relationships` | Cross-domain links via `UnifiedRelationshipService` |
 | `intelligence` | Pattern analysis, habit stacking recommendations |
 | `events` | Cross-domain event scheduling integration |
-| `achievements` | Achievement badge awarding (Phase 4) |
+| `event_handler` | Event-driven reactive logic (timing learning, badges, difficulty) |
 | `patterns` | Atomic Habits pattern recognition with confidence scoring |
 | `goal_analytics` | Cross-domain Habits→Goals analytics |
 

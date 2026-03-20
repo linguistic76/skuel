@@ -7,6 +7,9 @@ Tests timing/scheduling learning and persisted difficulty:
 - Streak broken persists recovery difficulty
 - Missed persists difficulty level
 - Performance analytics includes learned insights
+
+Note: Event handlers migrated from HabitsIntelligenceService to
+HabitEventHandlerService (March 2026). Tests updated accordingly.
 """
 
 import json
@@ -17,6 +20,7 @@ import pytest
 
 from core.events.habit_events import HabitCompleted, HabitMissed, HabitStreakBroken
 from core.models.habit.habit import Habit
+from core.services.habits.habit_event_handler_service import HabitEventHandlerService
 from core.services.habits.habits_intelligence_service import HabitsIntelligenceService
 from core.utils.result_simplified import Result
 
@@ -58,7 +62,19 @@ def _make_relationships():
     return rels
 
 
-def _make_service(backend=None, relationships=None):
+def _make_event_handler(backend=None, relationships=None):
+    """Create HabitEventHandlerService with mocks."""
+    if backend is None:
+        backend = _make_backend()
+    if relationships is None:
+        relationships = _make_relationships()
+    return HabitEventHandlerService(
+        backend=backend,
+        relationship_service=relationships,
+    )
+
+
+def _make_intelligence_service(backend=None, relationships=None):
     """Create HabitsIntelligenceService with mocks."""
     if backend is None:
         backend = _make_backend()
@@ -71,7 +87,7 @@ def _make_service(backend=None, relationships=None):
 
 
 class TestLearnFromCompletion:
-    """Test learn_from_completion event handler."""
+    """Test handle_habit_completed event handler."""
 
     @pytest.mark.asyncio
     async def test_tracks_completion_hour(self):
@@ -80,14 +96,14 @@ class TestLearnFromCompletion:
         habit = _make_habit()
         backend.get.return_value = Result.ok(habit)
 
-        service = _make_service(backend)
+        service = _make_event_handler(backend)
         event = HabitCompleted(
             habit_uid="habit_test_abc",
             user_uid="user_123",
             occurred_at=datetime(2026, 3, 9, 14, 30),  # 2:30 PM
         )
 
-        await service.learn_from_completion(event)
+        await service.handle_habit_completed(event)
 
         update_call = backend.update.call_args[0]
         assert update_call[0] == "habit_test_abc"
@@ -100,7 +116,7 @@ class TestLearnFromCompletion:
     async def test_builds_histogram_over_time(self):
         """Histogram accumulates across completions."""
         backend = _make_backend()
-        service = _make_service(backend)
+        service = _make_event_handler(backend)
 
         # First completion at 8 AM
         habit1 = _make_habit()
@@ -110,7 +126,7 @@ class TestLearnFromCompletion:
             user_uid="user_123",
             occurred_at=datetime(2026, 3, 9, 8, 0),
         )
-        await service.learn_from_completion(event1)
+        await service.handle_habit_completed(event1)
 
         # Second completion at 8 AM (with existing histogram)
         hist_after_first = backend.update.call_args[0][1]["completion_hours_json"]
@@ -121,7 +137,7 @@ class TestLearnFromCompletion:
             user_uid="user_123",
             occurred_at=datetime(2026, 3, 10, 8, 0),
         )
-        await service.learn_from_completion(event2)
+        await service.handle_habit_completed(event2)
 
         props = backend.update.call_args[0][1]
         hours_hist = json.loads(props["completion_hours_json"])
@@ -137,14 +153,14 @@ class TestLearnFromCompletion:
         habit = _make_habit(completion_hours_json=existing_hist, learned_completion_count=8)
         backend.get.return_value = Result.ok(habit)
 
-        service = _make_service(backend)
+        service = _make_event_handler(backend)
         # Complete at 14:00 again
         event = HabitCompleted(
             habit_uid="habit_test_abc",
             user_uid="user_123",
             occurred_at=datetime(2026, 3, 9, 14, 0),
         )
-        await service.learn_from_completion(event)
+        await service.handle_habit_completed(event)
 
         props = backend.update.call_args[0][1]
         assert props["learned_preferred_hour"] == 14
@@ -156,7 +172,7 @@ class TestLearnFromCompletion:
         habit = _make_habit(learned_on_time_rate=0.8)
         backend.get.return_value = Result.ok(habit)
 
-        service = _make_service(backend)
+        service = _make_event_handler(backend)
         # Complete late
         event = HabitCompleted(
             habit_uid="habit_test_abc",
@@ -164,7 +180,7 @@ class TestLearnFromCompletion:
             occurred_at=datetime.now(),
             completed_on_time=False,
         )
-        await service.learn_from_completion(event)
+        await service.handle_habit_completed(event)
 
         # EMA = 0.2 * 0.0 + 0.8 * 0.8 = 0.64
         props = backend.update.call_args[0][1]
@@ -177,14 +193,14 @@ class TestLearnFromCompletion:
         habit = _make_habit()
         backend.get.return_value = Result.ok(habit)
 
-        service = _make_service(backend)
+        service = _make_event_handler(backend)
         event = HabitCompleted(
             habit_uid="habit_test_abc",
             user_uid="user_123",
             occurred_at=datetime.now(),
             completed_on_time=True,
         )
-        await service.learn_from_completion(event)
+        await service.handle_habit_completed(event)
 
         # Cold start: old_rate = 1.0, EMA = 0.2 * 1.0 + 0.8 * 1.0 = 1.0
         props = backend.update.call_args[0][1]
@@ -197,13 +213,13 @@ class TestLearnFromCompletion:
         habit = _make_habit(learned_completion_count=5)
         backend.get.return_value = Result.ok(habit)
 
-        service = _make_service(backend)
+        service = _make_event_handler(backend)
         event = HabitCompleted(
             habit_uid="habit_test_abc",
             user_uid="user_123",
             occurred_at=datetime.now(),
         )
-        await service.learn_from_completion(event)
+        await service.handle_habit_completed(event)
 
         props = backend.update.call_args[0][1]
         assert props["learned_completion_count"] == 6
@@ -211,17 +227,19 @@ class TestLearnFromCompletion:
     @pytest.mark.asyncio
     async def test_error_is_swallowed(self):
         """Errors don't propagate."""
-        backend = _make_backend()
-        backend.get.side_effect = Exception("DB down")
+        from neo4j.exceptions import ServiceUnavailable
 
-        service = _make_service(backend)
+        backend = _make_backend()
+        backend.get.side_effect = ServiceUnavailable("DB down")
+
+        service = _make_event_handler(backend)
         event = HabitCompleted(
             habit_uid="habit_test_abc",
             user_uid="user_123",
             occurred_at=datetime.now(),
         )
         # Should not raise
-        await service.learn_from_completion(event)
+        await service.handle_habit_completed(event)
 
 
 class TestStreakBrokenPersistence:
@@ -233,7 +251,7 @@ class TestStreakBrokenPersistence:
         habit = _make_habit()
         backend.get.return_value = Result.ok(habit)
 
-        service = _make_service(backend)
+        service = _make_event_handler(backend)
         event = HabitStreakBroken(
             habit_uid="habit_test_abc",
             user_uid="user_123",
@@ -270,7 +288,7 @@ class TestMissedPersistence:
         habit = _make_habit()
         backend.get.return_value = Result.ok(habit)
 
-        service = _make_service(backend)
+        service = _make_event_handler(backend)
         event = HabitMissed(
             habit_uid="habit_test_abc",
             user_uid="user_123",
@@ -301,7 +319,7 @@ class TestMissedPersistence:
         habit = _make_habit()
         backend.get.return_value = Result.ok(habit)
 
-        service = _make_service(backend)
+        service = _make_event_handler(backend)
         event = HabitMissed(
             habit_uid="habit_test_abc",
             user_uid="user_123",
@@ -353,7 +371,7 @@ class TestPerformanceAnalyticsLearnedInsights:
         ]
         backend.find_by.return_value = Result.ok(habits)
 
-        service = _make_service(backend)
+        service = _make_intelligence_service(backend)
         result = await service.get_performance_analytics("user_123")
 
         assert result.is_ok
@@ -368,7 +386,7 @@ class TestPerformanceAnalyticsLearnedInsights:
         habits = [_make_habit(uid="h1")]
         backend.find_by.return_value = Result.ok(habits)
 
-        service = _make_service(backend)
+        service = _make_intelligence_service(backend)
         result = await service.get_performance_analytics("user_123")
 
         assert result.is_ok

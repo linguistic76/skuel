@@ -14,7 +14,7 @@ Sub-Services:
 - UnifiedRelationshipService (HABITS_CONFIG): Graph relationships and semantic connections
 - HabitsIntelligenceService: pure Cypher analytics
 - HabitsEventIntegrationService: Cross-domain event scheduling integration
-- HabitAchievementService: Achievement badge awarding
+- HabitEventHandlerService: Event-driven reactive logic (fire-and-forget handlers)
 - HabitsCompletionService: Completion tracking with quality scores and streaks
 - HabitsPatternService: Atomic Habits pattern recognition with confidence scoring
 - HabitsGoalAnalyticsService: Cross-domain Habits->Goals analytics
@@ -42,7 +42,7 @@ from core.services.habits import (
     HabitsProgressService,
     HabitsSchedulingService,
 )
-from core.services.habits.habit_achievement_service import HabitAchievementService
+from core.services.habits.habit_event_handler_service import HabitEventHandlerService
 from core.services.habits.habits_ai_service import HabitsAIService
 from core.services.habits.habits_completion_service import HabitsCompletionService
 from core.services.habits.habits_goal_analytics_service import HabitsGoalAnalyticsService
@@ -379,9 +379,11 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
             event_bus=event_bus,
         )
 
-        # Event-driven achievement service (backend is REQUIRED)
-        self.achievements = HabitAchievementService(
+        # Event-driven handler service (replaces HabitAchievementService, March 2026)
+        self.event_handler = HabitEventHandlerService(
             backend=backend,
+            relationship_service=self.relationships,
+            insight_store=insight_store,
             event_bus=event_bus,
         )
 
@@ -395,7 +397,7 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
         self.logger.info(
             "HabitsService facade initialized with 13 sub-services: "
             "core, search, progress, learning, planning, scheduling, relationships, "
-            "intelligence, event_integration, achievements, completions, patterns, goal_analytics"
+            "intelligence, event_integration, event_handler, completions, patterns, goal_analytics"
         )
 
     # ========================================================================

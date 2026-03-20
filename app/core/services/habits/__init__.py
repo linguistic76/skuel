@@ -20,6 +20,7 @@ Sub-Services (in this package):
 - HabitsSchedulingService: Smart scheduling, capacity management
 - HabitsEventIntegrationService: Cross-domain event scheduling integration
 - HabitsIntelligenceService: Pure Cypher analytics (NO AI dependencies)
+- HabitEventHandlerService: Event-driven reactive logic (fire-and-forget handlers)
 - HabitsPatternService: Atomic Habits pattern recognition with confidence scoring
 - HabitsGoalAnalyticsService: Cross-domain Habits->Goals analytics (system health, velocity, impact)
 
@@ -39,8 +40,10 @@ Documentation:
 
 Architecture Notes:
 - HabitsRelationshipService replaced by UnifiedRelationshipService (December 2025)
+- HabitAchievementService absorbed into HabitEventHandlerService (March 2026)
 """
 
+from core.services.habits.habit_event_handler_service import HabitEventHandlerService
 from core.services.habits.habit_search_service import HabitSearchService
 from core.services.habits.habits_core_service import HabitsCoreService
 from core.services.habits.habits_event_integration_service import HabitsEventIntegrationService
@@ -53,6 +56,7 @@ from core.services.habits.habits_progress_service import HabitsProgressService
 from core.services.habits.habits_scheduling_service import HabitsSchedulingService
 
 __all__ = [
+    "HabitEventHandlerService",
     "HabitSearchService",
     "HabitsCoreService",
     "HabitsEventIntegrationService",

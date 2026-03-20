@@ -343,30 +343,10 @@ handler = TaskEventHandlerService(backend=backend, relationship_service=rels)
 
 ---
 
-### AchievementService
-
-**Domains:** Habits only
-**File:** `habits_achievement_service.py`
-**Extends:** `BaseService[HabitsOperations, Habit]`
-
-**Responsibility:** Achievement badges and milestone tracking
-
-**Key Methods:**
-- `check_achievements()` - Detect earned achievements
-- `award_achievement()` - Grant achievement badge
-- `get_user_achievements()` - List earned achievements
-
-**When to use:**
-- Gamification features
-- Milestone celebrations
-- Achievement tracking
-
----
-
 ### EventHandlerService
 
-**Domains:** Tasks, Goals, Principles
-**Files:** `task_event_handler_service.py`, `goal_event_handler_service.py`, `principles_event_handler_service.py`
+**Domains:** Tasks, Goals, Habits, Principles
+**Files:** `task_event_handler_service.py`, `goal_event_handler_service.py`, `habit_event_handler_service.py`, `principles_event_handler_service.py`
 
 **Responsibility:** Event-driven reactive handlers (fire-and-forget)
 
@@ -420,8 +400,7 @@ Quick lookup table for finding the right sub-service:
 | **Learning integration** | LearningService | Habits, Choices, Goals |
 | **Habit-specific completions** | CompletionsService | Habits only |
 | **Habit-event integration** | EventIntegrationService | Habits only |
-| **Achievement badges** | AchievementService | Habits only |
-| **Event-driven handlers** | EventHandlerService | Tasks, Goals, Principles |
+| **Event-driven handlers** | EventHandlerService | Tasks, Goals, Habits, Principles |
 | **AI/LLM features** | AIService | Tasks, Goals, Habits (optional) |
 | **LLM routing** | UnifiedLLMCaller | Journals, Reports (routes gpt*/claude* models) |
 | **Instruction resolution** | InstructionResolver | Journals, Batch (custom > exercise > mode > default) |
@@ -517,7 +496,7 @@ self.intelligence = common.intelligence
 |--------|-------------------|------------|-----------------|
 | Tasks | 8 | 4 | 4 (progress, scheduling, planning, event_handler) |
 | Goals | 8 | 4 | 4 (progress, scheduling, learning, event_handler) |
-| Habits | 13 | 4 | 9 (progress, scheduling, planning, learning, completions, events, achievements, patterns, goal_analytics) |
+| Habits | 13 | 4 | 9 (progress, scheduling, planning, learning, completions, events, event_handler, patterns, goal_analytics) |
 | Events | 8 | 4 | 4 (progress, scheduling, + custom) |
 | Choices | 7 | 4 | 3 (learning, + custom) |
 | Principles | 9 | 4 | 5 (alignment, learning, reflection, planning, event_handler) |
@@ -563,7 +542,7 @@ What do you want to do?
 │  └─ Use: EventIntegrationService
 │
 ├─ [Habits only] Award achievement badges?
-│  └─ Use: AchievementService
+│  └─ Use: EventHandlerService
 │
 ├─ [Goals only] React to goal events (achievements, abandonment)?
 │  └─ Use: EventHandlerService

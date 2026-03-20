@@ -204,7 +204,7 @@ async def compose_services(neo4j_adapter, event_bus=None) -> Result[Services]:
     # ... more services ...
 
     # 4. Wire event subscriptions
-    event_bus.subscribe(HabitStreakMilestone, habit_achievement_service.handle_habit_streak_milestone)
+    event_bus.subscribe(HabitStreakMilestone, habits_service.event_handler.handle_habit_streak_milestone)
     event_bus.subscribe(GoalAchieved, lp_intelligence.handle_goal_achieved)
     # ... more subscriptions ...
 

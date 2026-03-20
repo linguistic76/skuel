@@ -1258,9 +1258,9 @@ def _wire_event_subscribers(
     # Habit streak milestone → Achievement badges
     habits_service = activity_services["habits"]
     event_bus.subscribe(
-        HabitStreakMilestone, habits_service.achievements.handle_habit_streak_milestone
+        HabitStreakMilestone, habits_service.event_handler.handle_habit_streak_milestone
     )
-    logger.info("✅ HabitAchievementService subscribed to HabitStreakMilestone (badge awarding)")
+    logger.info("✅ HabitEventHandlerService subscribed to HabitStreakMilestone (badge awarding)")
 
     # Learning path completion & knowledge mastery → Learning recommendations
     learning_intelligence = learning_services["learning_intelligence"]
@@ -1346,16 +1346,11 @@ def _wire_event_subscribers(
     event_bus.subscribe(TasksBulkCompleted, tasks_service.event_handler.handle_tasks_bulk_completed)
     logger.info("✅ TaskEventHandlerService subscribed to TaskCompleted, TaskPriorityChanged, TasksBulkCompleted")
 
-    # Habit intelligence - timing/scheduling learning from completions
+    # Habit event handlers - timing learning, recovery insights, difficulty tracking
     habits_service = activity_services["habits"]
-    event_bus.subscribe(HabitCompleted, habits_service.intelligence.learn_from_completion)
-    logger.info("✅ HabitsIntelligenceService subscribed to HabitCompleted (learning loop)")
-
-    # ---- Existing event intelligence ----
-
-    # Habit intelligence - recovery suggestions when streaks break
-    event_bus.subscribe(HabitStreakBroken, habits_service.intelligence.handle_habit_streak_broken)
-    logger.info("✅ HabitsIntelligenceService subscribed to HabitStreakBroken")
+    event_bus.subscribe(HabitCompleted, habits_service.event_handler.handle_habit_completed)
+    event_bus.subscribe(HabitStreakBroken, habits_service.event_handler.handle_habit_streak_broken)
+    logger.info("✅ HabitEventHandlerService subscribed to HabitCompleted, HabitStreakBroken")
 
     # Choice intelligence - decision learning when outcomes are recorded
     choices_service = activity_services["choices"]
@@ -1374,9 +1369,9 @@ def _wire_event_subscribers(
 
     # ── Tier 1 handlers: Quick-win event intelligence ───────────────────────
 
-    # Habit intelligence - difficulty tracking when habits are missed
-    event_bus.subscribe(HabitMissed, habits_service.intelligence.handle_habit_missed)
-    logger.info("✅ HabitsIntelligenceService subscribed to HabitMissed")
+    # Habit event handler - difficulty tracking when habits are missed
+    event_bus.subscribe(HabitMissed, habits_service.event_handler.handle_habit_missed)
+    logger.info("✅ HabitEventHandlerService subscribed to HabitMissed")
 
     # Choice intelligence - decision pattern tracking when choice is made
     event_bus.subscribe(ChoiceMade, choices_service.intelligence.handle_choice_made)

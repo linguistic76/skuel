@@ -5,13 +5,13 @@ Integration Tests: Habit Streak→Achievement Badges Flow
 Tests the complete event-driven flow:
 1. Habit reaches streak milestone (7, 30, 100, 365 days)
 2. HabitStreakMilestone event published
-3. HabitAchievementService awards badge
+3. HabitEventHandlerService awards badge
 4. Achievement node created in Neo4j
 5. EARNED_BADGE relationship established
 6. AchievementEarned event published
 
-Version: 1.0.0
-Date: 2025-11-05
+Version: 2.0.0
+Date: 2026-03-20
 """
 
 from datetime import datetime
@@ -27,7 +27,7 @@ from core.models.enums.entity_enums import EntityStatus as HabitStatus
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.habit_enums import HabitCategory
 from core.models.habit.habit import Habit as Habit
-from core.services.habits.habit_achievement_service import HabitAchievementService
+from core.services.habits.habit_event_handler_service import HabitEventHandlerService
 
 
 @pytest.mark.asyncio
@@ -42,6 +42,9 @@ class TestHabitAchievementsFlow:
     - Graph relationship creation
     - Event publishing
     - Error handling
+
+    Note: Achievement badge handling migrated from HabitAchievementService
+    to HabitEventHandlerService (March 2026).
     """
 
     @pytest_asyncio.fixture
@@ -58,8 +61,8 @@ class TestHabitAchievementsFlow:
 
     @pytest_asyncio.fixture
     async def achievement_service(self, habit_backend, event_bus):
-        """Create HabitAchievementService with backend and event bus."""
-        return HabitAchievementService(backend=habit_backend, event_bus=event_bus)
+        """Create HabitEventHandlerService with backend and event bus."""
+        return HabitEventHandlerService(backend=habit_backend, event_bus=event_bus)
 
     @pytest_asyncio.fixture
     async def test_user(self, neo4j_driver, test_user_uid):
