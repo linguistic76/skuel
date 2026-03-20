@@ -1,7 +1,7 @@
 ---
 title: Tasks Domain
 created: 2025-12-04
-updated: 2026-01-11
+updated: 2026-03-20
 status: current
 category: domains
 tags:
@@ -68,6 +68,18 @@ class TasksService(BaseService[TasksOperations, Task]):
 ```
 
 **Note (January 2026)**: TasksAnalyticsService removed. KU analytics methods are now direct in TasksService, Task model analysis moved to TasksIntelligenceService.
+
+## Event Handler — Insight Persistence (March 2026)
+
+`TaskEventHandlerService` handles fire-and-forget reactive logic and persists structured insights to `InsightStore`:
+
+| Handler | Trigger | InsightType | Impact |
+|---------|---------|------------|--------|
+| `handle_task_completed` | `event.was_overdue` | `COMPLETION_PATTERN` | MEDIUM |
+| `handle_task_priority_changed` | `inflation_ratio > 0.6` | `IMBALANCE_DETECTED` | HIGH |
+| `handle_task_completed` | Principle alignment found | `PRINCIPLE_ALIGNMENT` | LOW |
+
+Also handles: duration calibration (EMA on User node), cascade impact analysis, batch pattern classification.
 
 ## Model Fields
 

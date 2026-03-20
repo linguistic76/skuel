@@ -1,7 +1,7 @@
 ---
 title: Goals Domain
 created: 2025-12-04
-updated: 2026-01-19
+updated: 2026-03-20
 status: current
 category: domains
 tags:
@@ -87,6 +87,18 @@ class GoalsService(BaseService[GoalsOperations, Goal]):
 | `event_handler` | Event-driven reactive handlers (achievements, abandonment, progress) |
 
 Created via `create_common_sub_services()` factory in facade `__init__`.
+
+## Event Handler — Insight Persistence (March 2026)
+
+`GoalEventHandlerService` handles fire-and-forget reactive logic and persists structured insights to `InsightStore`:
+
+| Handler | Trigger | InsightType | Impact |
+|---------|---------|------------|--------|
+| `handle_goal_abandoned` | All abandonments | `COMPLETION_PATTERN` | HIGH (near-miss) / MEDIUM |
+| `handle_goal_progress_updated` | `progress_delta < 0.01` | `IMBALANCE_DETECTED` | MEDIUM |
+| `handle_goal_progress_updated` | Within 5% of 25/50/75/100% | `COMPLETION_PATTERN` | LOW |
+
+Also handles: recommendation generation, duration calibration, principle alignment, cross-domain trigger logging.
 
 ## Model Fields
 

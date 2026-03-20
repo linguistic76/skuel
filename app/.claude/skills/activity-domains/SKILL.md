@@ -37,7 +37,7 @@ User Request → FastHTML Route → Service Facade → Sub-service → Backend �
 - **Facade Service** - Single entry point (`{domain}_service.py`)
 - **6-13 Sub-services** - Specialized functionality (core, search, intelligence, event_handler, etc.)
 - **Domain Events** - Cross-service communication
-- **Event Handler Service** - Fire-and-forget reactive handlers (`*_event_handler_service.py`) — all 6 Activity Domains (Tasks, Goals, Habits, Events, Choices, Principles) have dedicated handlers
+- **Event Handler Service** - Fire-and-forget reactive handlers (`*_event_handler_service.py`) — all 6 Activity Domains have dedicated handlers; all persist structured insights to `InsightStore` (Neo4j `Insight` nodes) at key decision points (overdue tasks, priority inflation, goal stalls, rescheduling patterns, etc.)
 - **Three-View UI** - List, Create, Analytics tabs
 
 ## Key Files Per Domain

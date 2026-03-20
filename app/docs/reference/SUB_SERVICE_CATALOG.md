@@ -261,7 +261,27 @@ result = await planning.get_actionable_tasks_for_user(user_uid, user_context)
 **Domains:** Tasks, Goals, Habits, Events, Choices, Principles
 **Files:** `task_event_handler_service.py`, `goal_event_handler_service.py`, `habit_event_handler_service.py`, `events_event_handler_service.py`, `choice_event_handler_service.py`, `principles_event_handler_service.py`
 
-**Responsibility:** Event-driven reactive logic (fire-and-forget handlers)
+**Responsibility:** Event-driven reactive logic (fire-and-forget handlers) with insight persistence to InsightStore
+
+All 6 Activity Domain event handlers accept an optional `insight_store` parameter. When provided, handlers persist `PersistedInsight` nodes to Neo4j at key decision points — making pattern analysis queryable rather than write-only logs.
+
+**Insight Persistence by Domain:**
+
+| Domain | InsightType | Trigger |
+|--------|------------|---------|
+| **Tasks** | `COMPLETION_PATTERN` | Overdue task completed |
+| **Tasks** | `IMBALANCE_DETECTED` | Priority inflation >60% |
+| **Tasks** | `PRINCIPLE_ALIGNMENT` | Completed task aligned with principles |
+| **Goals** | `COMPLETION_PATTERN` | Goal abandoned (HIGH for near-miss) |
+| **Goals** | `IMBALANCE_DETECTED` | Progress stall (delta <1%) |
+| **Goals** | `COMPLETION_PATTERN` | Approaching milestone (25/50/75/100%) |
+| **Events** | `IMBALANCE_DETECTED` | Chronic rescheduling (4+ in 30 days) |
+| **Events** | `IMBALANCE_DETECTED` | Schedule overcommitted (13+ events/week) |
+| **Habits** | `DIFFICULTY_PATTERN` | 3+ consecutive misses |
+| **Habits** | `STREAK_PATTERN` | Streak milestones |
+| **Choices** | `DECISION_PATTERN` | High-confidence principle-aligned decision |
+| **Choices** | `PRINCIPLE_ALIGNMENT` | Complex decision without principle guidance |
+| **Principles** | `PRINCIPLE_CONFLICT` | Conflict revealed between principles |
 
 **Key Methods (Tasks):**
 - `handle_task_completed()` - Duration calibration, overdue detection, principle alignment
@@ -273,11 +293,13 @@ result = await planning.get_actionable_tasks_for_user(user_uid, user_context)
 - Cross-domain insight generation from event context
 - Pattern detection that doesn't need to block the original operation
 
+**See:** [INSIGHT_ACTION_TRACKING.md](/docs/patterns/INSIGHT_ACTION_TRACKING.md)
+
 **Example:**
 ```python
 from core.services.tasks import TaskEventHandlerService
 
-handler = TaskEventHandlerService(backend=backend, relationship_service=rels)
+handler = TaskEventHandlerService(backend=backend, relationship_service=rels, insight_store=insight_store)
 # Subscribed via event_bus in bootstrap — not called directly
 ```
 

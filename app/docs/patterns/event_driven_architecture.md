@@ -263,6 +263,27 @@ await publish_event(self.event_bus, event, self.logger)
 
 ---
 
+## Event Handler Insight Persistence
+
+Event handlers across all 6 Activity Domains persist structured insights to `InsightStore` (Neo4j `Insight` nodes) at key decision points. This makes pattern analysis queryable by users — not just write-only logs.
+
+**Pattern:** Each handler accepts an optional `insight_store: InsightStore | None` parameter. When provided, handlers create `PersistedInsight` nodes via `insight_store.create_insight()`. Failures are logged but never propagate (fire-and-forget contract preserved).
+
+| Domain | Insights Persisted | InsightTypes |
+|--------|--------------------|--------------|
+| Tasks | Overdue completion, priority inflation, principle alignment | `COMPLETION_PATTERN`, `IMBALANCE_DETECTED`, `PRINCIPLE_ALIGNMENT` |
+| Goals | Abandonment classification, progress stall, milestone proximity | `COMPLETION_PATTERN`, `IMBALANCE_DETECTED` |
+| Events | Chronic rescheduling, schedule overcommitment | `IMBALANCE_DETECTED` |
+| Habits | Difficulty detection, streak milestones | `DIFFICULTY_PATTERN`, `STREAK_PATTERN` |
+| Choices | Decision patterns, principle alignment gaps | `DECISION_PATTERN`, `PRINCIPLE_ALIGNMENT` |
+| Principles | Principle conflicts | `PRINCIPLE_CONFLICT` |
+
+**Wiring:** `services_bootstrap.py` passes `insight_store` to all 6 Activity Domain facades, which forward it to their `EventHandlerService`.
+
+**See:** [INSIGHT_ACTION_TRACKING.md](/docs/patterns/INSIGHT_ACTION_TRACKING.md), [SUB_SERVICE_CATALOG.md](/docs/reference/SUB_SERVICE_CATALOG.md)
+
+---
+
 ## Context Invalidation Coverage
 
 **52 events** trigger UserContext invalidation across all domains:
@@ -291,5 +312,5 @@ await publish_event(self.event_bus, event, self.logger)
 
 ---
 
-**Last Updated:** January 15, 2026
+**Last Updated:** March 20, 2026
 **Status:** Complete - Phase 5 event bus efficiency improvements deployed

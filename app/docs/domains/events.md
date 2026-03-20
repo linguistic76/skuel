@@ -1,7 +1,7 @@
 ---
 title: Events Domain
 created: 2025-12-04
-updated: 2026-01-19
+updated: 2026-03-20
 status: current
 category: domains
 tags: [events, scheduling-domain, integration-domain, domain]
@@ -71,6 +71,17 @@ class EventsService(BaseService[EventsOperations, Event]):
     async def schedule_event_smart(self, *args: Any, **kwargs: Any) -> Any:
         return await self.scheduling.schedule_event_smart(*args, **kwargs)
 ```
+
+## Event Handler — Insight Persistence (March 2026)
+
+`EventsEventHandlerService` handles fire-and-forget reactive logic and persists structured insights to `InsightStore`:
+
+| Handler | Trigger | InsightType | Impact |
+|---------|---------|------------|--------|
+| `handle_event_rescheduled` | Chronic pattern (4+ in 30 days) | `IMBALANCE_DETECTED` | HIGH |
+| `handle_event_created` | Overcommitted (13+ events/week) | `IMBALANCE_DETECTED` | HIGH |
+
+Also handles: attendance time-of-day tracking, goal alignment checks, rescheduling pattern classification, scheduling density monitoring.
 
 ## Model Fields
 

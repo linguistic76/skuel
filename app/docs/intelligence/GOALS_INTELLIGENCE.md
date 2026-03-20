@@ -7,6 +7,8 @@
 **Service Name:** `goals.intelligence`
 **Lines:** ~1,495
 
+**Related:** `GoalEventHandlerService` (`/core/services/goals/goal_event_handler_service.py`) — fire-and-forget reactive handlers; persists `COMPLETION_PATTERN` (abandonment, milestones) and `IMBALANCE_DETECTED` (progress stalls) insights to InsightStore (March 2026).
+
 ---
 
 ## Purpose

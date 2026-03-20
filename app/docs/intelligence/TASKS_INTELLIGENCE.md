@@ -7,6 +7,8 @@
 **Service Name:** `tasks.intelligence`
 **Lines:** ~1459
 
+**Related:** `TaskEventHandlerService` (`/core/services/tasks/task_event_handler_service.py`) — fire-and-forget reactive handlers extracted from intelligence; persists `COMPLETION_PATTERN`, `IMBALANCE_DETECTED`, and `PRINCIPLE_ALIGNMENT` insights to InsightStore (March 2026).
+
 ---
 
 ## Purpose

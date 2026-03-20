@@ -10,7 +10,7 @@
 **Related Services:**
 - `EventsProgressService` - Progress tracking, completion, attendance metrics
 - `EventsSchedulingService` - Smart scheduling, conflict detection, calendar density
-- `EventsEventHandlerService` - Fire-and-forget reactive handlers: attendance patterns, rescheduling detection, scheduling density (March 2026)
+- `EventsEventHandlerService` - Fire-and-forget reactive handlers: attendance patterns, rescheduling detection, scheduling density; persists `IMBALANCE_DETECTED` insights for chronic rescheduling and overcommitment to InsightStore (March 2026)
 
 ---
 
