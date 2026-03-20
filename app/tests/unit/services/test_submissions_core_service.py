@@ -8,6 +8,8 @@ import pytest
 
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.services.submissions.submissions_core_service import (
+    DEFAULT_JOURNAL_INSTRUCTIONS,
+    JournalUploadResult,
     ReportCategory,
     SubmissionsCoreService,
 )
@@ -1562,6 +1564,21 @@ class TestMakePermanent:
         assert result.is_ok
 
     @pytest.mark.asyncio
+    async def test_max_retention_passed_to_backend(self):
+        """Regression: max_retention must not be filtered out by allowed_fields."""
+        backend = _make_backend()
+        entity = _make_entity(max_retention=3)
+        backend.get = AsyncMock(return_value=Result.ok(entity))
+        backend.update = AsyncMock(return_value=Result.ok(_make_entity(max_retention=None)))
+        service = _make_service(backend=backend)
+
+        await service.make_permanent("sub_123")
+
+        update_dict = backend.update.call_args.args[1]
+        assert "max_retention" in update_dict
+        assert update_dict["max_retention"] is None
+
+    @pytest.mark.asyncio
     async def test_not_found(self):
         backend = _make_backend()
         backend.get = AsyncMock(return_value=Result.ok(None))
@@ -1646,3 +1663,209 @@ class TestGetSubmissionForDateEdgeCases:
 
         call_kwargs = backend.find_by.call_args.kwargs
         assert call_kwargs["user_uid"] == "user_1"
+
+
+# ===========================================================================
+# I. Journal File Upload Orchestration
+# ===========================================================================
+
+
+def _wire_journal_services(service, submit_return=None, process_return=None):
+    """Wire mock submissions_service and processing_service onto a SubmissionsCoreService."""
+    mock_report = MagicMock()
+    mock_report.uid = "sub_journal_1"
+    mock_report.status = "completed"
+
+    service.submissions_service = MagicMock()
+    service.submissions_service.submit_file = AsyncMock(
+        return_value=submit_return or Result.ok(mock_report)
+    )
+    service.processing_service = MagicMock()
+    service.processing_service.process_submission = AsyncMock(
+        return_value=process_return or Result.ok(mock_report)
+    )
+    return mock_report
+
+
+class TestSubmitJournalFile:
+    """Tests for submit_journal_file orchestrator."""
+
+    @pytest.mark.asyncio
+    async def test_submissions_service_not_wired(self):
+        service = _make_service()
+        service.submissions_service = None
+        service.processing_service = MagicMock()
+
+        result = await service.submit_journal_file(b"data", "f.m4a", "user_1")
+
+        assert result.is_error
+        assert "submissions_service" in result.error.message
+
+    @pytest.mark.asyncio
+    async def test_processing_service_not_wired(self):
+        service = _make_service()
+        service.submissions_service = MagicMock()
+        service.processing_service = None
+
+        result = await service.submit_journal_file(b"data", "f.m4a", "user_1")
+
+        assert result.is_error
+        assert "processing_service" in result.error.message
+
+    @pytest.mark.asyncio
+    async def test_success_full_flow(self):
+        backend = _make_backend()
+        service = _make_service(backend=backend)
+        _wire_journal_services(service)
+
+        result = await service.submit_journal_file(
+            b"audio data", "recording.m4a", "user_1", custom_title="My Journal"
+        )
+
+        assert result.is_ok
+        upload_result = result.value
+        assert isinstance(upload_result, JournalUploadResult)
+        assert upload_result.submission_uid == "sub_journal_1"
+        assert upload_result.processing_succeeded is True
+        service.submissions_service.submit_file.assert_awaited_once()
+        service.processing_service.process_submission.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_auto_generated_title(self):
+        """No custom_title → calls generate_journal_title → uses result."""
+        backend = _make_backend()
+        backend.execute_query = AsyncMock(return_value=Result.ok([{"total": 5}]))
+        service = _make_service(backend=backend)
+        _wire_journal_services(service)
+
+        result = await service.submit_journal_file(b"data", "file.m4a", "user_1")
+
+        assert result.is_ok
+        submit_kwargs = service.submissions_service.submit_file.call_args.kwargs
+        assert submit_kwargs["title"] != "file.m4a"
+
+    @pytest.mark.asyncio
+    async def test_title_fallback_to_filename(self):
+        """generate_journal_title fails → uses filename."""
+        backend = _make_backend()
+        service = _make_service(backend=backend)
+        _wire_journal_services(service)
+        service.generate_journal_title = AsyncMock(
+            return_value=Result.fail(Errors.system("title gen failed"))
+        )
+
+        result = await service.submit_journal_file(b"data", "my_audio.m4a", "user_1")
+
+        assert result.is_ok
+        submit_kwargs = service.submissions_service.submit_file.call_args.kwargs
+        assert submit_kwargs["title"] == "my_audio.m4a"
+
+    @pytest.mark.asyncio
+    async def test_exercise_instructions_used(self):
+        """exercise_uid + exercise_service → custom instructions from exercise."""
+        backend = _make_backend()
+        backend.execute_query = AsyncMock(return_value=Result.ok([{"total": 0}]))
+        service = _make_service(backend=backend)
+        _wire_journal_services(service)
+
+        mock_exercise = MagicMock()
+        mock_exercise.instructions = "Custom exercise instructions"
+        service.exercise_service = MagicMock()
+        service.exercise_service.get_exercise = AsyncMock(
+            return_value=Result.ok(mock_exercise)
+        )
+
+        await service.submit_journal_file(
+            b"data", "f.m4a", "user_1", custom_title="T", exercise_uid="ex_1"
+        )
+
+        process_kwargs = service.processing_service.process_submission.call_args.kwargs
+        assert process_kwargs["instructions"]["custom_instructions"] == "Custom exercise instructions"
+
+    @pytest.mark.asyncio
+    async def test_exercise_not_found_uses_default(self):
+        """exercise_uid but exercise lookup fails → DEFAULT_JOURNAL_INSTRUCTIONS."""
+        backend = _make_backend()
+        backend.execute_query = AsyncMock(return_value=Result.ok([{"total": 0}]))
+        service = _make_service(backend=backend)
+        _wire_journal_services(service)
+
+        service.exercise_service = MagicMock()
+        service.exercise_service.get_exercise = AsyncMock(
+            return_value=Result.fail(Errors.not_found("exercise", "not found"))
+        )
+
+        await service.submit_journal_file(
+            b"data", "f.m4a", "user_1", custom_title="T", exercise_uid="ex_1"
+        )
+
+        process_kwargs = service.processing_service.process_submission.call_args.kwargs
+        assert process_kwargs["instructions"]["custom_instructions"] == DEFAULT_JOURNAL_INSTRUCTIONS
+
+    @pytest.mark.asyncio
+    async def test_no_exercise_service_uses_default(self):
+        """exercise_uid but no exercise_service wired → DEFAULT_JOURNAL_INSTRUCTIONS."""
+        backend = _make_backend()
+        backend.execute_query = AsyncMock(return_value=Result.ok([{"total": 0}]))
+        service = _make_service(backend=backend)
+        _wire_journal_services(service)
+        service.exercise_service = None
+
+        await service.submit_journal_file(
+            b"data", "f.m4a", "user_1", custom_title="T", exercise_uid="ex_1"
+        )
+
+        process_kwargs = service.processing_service.process_submission.call_args.kwargs
+        assert process_kwargs["instructions"]["custom_instructions"] == DEFAULT_JOURNAL_INSTRUCTIONS
+
+    @pytest.mark.asyncio
+    async def test_submit_file_failure(self):
+        """submissions_service.submit_file fails → propagates error."""
+        backend = _make_backend()
+        backend.execute_query = AsyncMock(return_value=Result.ok([{"total": 0}]))
+        service = _make_service(backend=backend)
+        _wire_journal_services(
+            service,
+            submit_return=Result.fail(Errors.system("upload failed")),
+        )
+
+        result = await service.submit_journal_file(
+            b"data", "f.m4a", "user_1", custom_title="T"
+        )
+
+        assert result.is_error
+        service.processing_service.process_submission.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_processing_failure_partial_success(self):
+        """Submit succeeds, process fails → ok with processing_succeeded=False."""
+        backend = _make_backend()
+        backend.execute_query = AsyncMock(return_value=Result.ok([{"total": 0}]))
+        service = _make_service(backend=backend)
+        _wire_journal_services(
+            service,
+            process_return=Result.fail(Errors.system("LLM timeout")),
+        )
+
+        result = await service.submit_journal_file(
+            b"data", "f.m4a", "user_1", custom_title="T"
+        )
+
+        assert result.is_ok
+        assert result.value.processing_succeeded is False
+        assert result.value.submission_uid == "sub_journal_1"
+
+    @pytest.mark.asyncio
+    async def test_exercise_uid_in_metadata(self):
+        """exercise_uid is included in metadata passed to submit_file."""
+        backend = _make_backend()
+        backend.execute_query = AsyncMock(return_value=Result.ok([{"total": 0}]))
+        service = _make_service(backend=backend)
+        _wire_journal_services(service)
+
+        await service.submit_journal_file(
+            b"data", "f.m4a", "user_1", custom_title="T", exercise_uid="ex_42"
+        )
+
+        submit_kwargs = service.submissions_service.submit_file.call_args.kwargs
+        assert submit_kwargs["metadata"]["exercise_uid"] == "ex_42"

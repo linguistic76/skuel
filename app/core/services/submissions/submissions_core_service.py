@@ -445,6 +445,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
             "word_count",
             "visibility",
             "instructions",
+            "max_retention",
         }
 
         # Filter updates to allowed fields
