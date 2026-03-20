@@ -58,6 +58,10 @@ For each skill, this section shows all related documentation (architecture docs,
 **Architecture:**
 - [FOUR_PHASED_LEARNING_LOOP.md](/docs/architecture/FOUR_PHASED_LEARNING_LOOP.md)
 - [REPORT_ARCHITECTURE.md](/docs/architecture/REPORT_ARCHITECTURE.md)
+- [AUDIO_TRANSCRIPTION_ARCHITECTURE.md](/docs/architecture/AUDIO_TRANSCRIPTION_ARCHITECTURE.md)
+
+**Configuration:**
+- [DEEPGRAM_CONFIG.md](/docs/configuration/DEEPGRAM_CONFIG.md)
 
 **ADRs:**
 - [ADR-038](/docs/decisions/ADR-038-content-sharing-model.md)

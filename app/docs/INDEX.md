@@ -102,6 +102,15 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [Analytics Architecture](architecture/ANALYTICS_ARCHITECTURE.md) | 2025-11-27 | — |
 | [Core Systems Architecture](architecture/CORE_SYSTEMS_ARCHITECTURE.md) | 2026-02-08 | — |
 | **[Service Topology](architecture/SERVICE_TOPOLOGY.md)** | **2026-01-29** | **—** |
+| **[Audio Transcription Architecture](architecture/AUDIO_TRANSCRIPTION_ARCHITECTURE.md)** | **2026-03-20** | **Config-driven Deepgram options, utterance formatting, batch pipeline, intelligence features** |
+
+## Configuration
+
+*External service configuration files*
+
+| Document | Updated | Description |
+|----------|---------|-------------|
+| **[Deepgram Configuration Guide](configuration/DEEPGRAM_CONFIG.md)** | **2026-03-20** | **All Deepgram transcription options — model, formatting, utterances, intelligence, vocabulary** |
 
 ## Patterns
 

@@ -248,9 +248,11 @@ Standard pattern for processing services:
 
 ```python
 # In services_bootstrap.py
+from core.config.deepgram_config import load_deepgram_config
 
-# 1. Create external adapter (optional, may be None)
-deepgram_adapter = DeepgramAdapter(api_key) if api_key else None
+# 1. Load config and create external adapter
+deepgram_config = load_deepgram_config()  # reads config/deepgram.toml
+deepgram_adapter = DeepgramAdapter(api_key, config=deepgram_config)
 
 # 2. Create backend with standard UniversalNeo4jBackend
 transcription_backend = UniversalNeo4jBackend[Transcription](
@@ -264,6 +266,8 @@ transcription_service = TranscriptionService(
     event_bus=event_bus,
 )
 ```
+
+See: [Deepgram Configuration Guide](/docs/configuration/DEEPGRAM_CONFIG.md) for all available options.
 
 ---
 

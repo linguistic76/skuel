@@ -666,8 +666,10 @@ that never closes the loop.
 | `core/services/report/submission_report_service.py` | 4 | AI report generation (via UnifiedLLMCaller) |
 | `core/services/llm_caller.py` | 3+4 | Unified LLM routing (OpenAI/Anthropic by model prefix) |
 | `core/services/output/instruction_resolver.py` | 3 | Instruction resolution (custom > exercise > mode > default) |
-| `core/services/transcription/batch_transcription_service.py` | 3 | Batch audio → txt (Tier 1) |
+| `core/services/transcription/batch_transcription_service.py` | 3 | Batch audio → txt (Tier 1, config via `config/deepgram.toml`) |
 | `core/services/transcription/batch_processing_service.py` | 3 | Batch txt → md (Tier 2) |
+| `config/deepgram.toml` | 3 | Deepgram options — model, utterances, intelligence, vocabulary |
+| `core/config/deepgram_config.py` | 3 | Config loader for `config/deepgram.toml` |
 | `core/services/report/progress_report_generator.py` | 4 | ActivityReport generation |
 | `core/services/report/activity_report_service.py` | 4 | Admin human report; all write paths converge here |
 | `core/services/report/teacher_review_service.py` | 4 | Teacher review workflow (review queue, revision, approval) |
@@ -800,6 +802,8 @@ class AdminSummary(UserOwnedEntity):  # New entity for admin-written reports?
 - [ADR-040: Teacher Assignment Workflow](/docs/decisions/ADR-040-teacher-assignment-workflow.md)
 - [SHARING_PATTERNS.md](/docs/patterns/SHARING_PATTERNS.md)
 - [ENTITY_TYPE_ARCHITECTURE.md](/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md)
+- [AUDIO_TRANSCRIPTION_ARCHITECTURE.md](/docs/architecture/AUDIO_TRANSCRIPTION_ARCHITECTURE.md) — Deepgram config, batch pipeline, utterance formatting
+- [DEEPGRAM_CONFIG.md](/docs/configuration/DEEPGRAM_CONFIG.md) — transcription option reference (`config/deepgram.toml`)
 
 ---
 

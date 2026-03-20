@@ -767,6 +767,7 @@ text = build_embedding_text(EntityType.TASK, {"title": "Fix bug", "description":
 | Error boundary | `/core/utils/error_boundary.py` |
 | Route factories | `/adapters/inbound/route_factories.py` |
 | Page contexts | `/ui/page_contexts.py` |
+| Deepgram config | `/config/deepgram.toml` |
 | ADRs | `/docs/decisions/` |
 | Patterns | `/docs/patterns/` |
 | Architecture | `/docs/architecture/` |
