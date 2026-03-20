@@ -532,8 +532,11 @@ def _create_core_services(
     from core.services.transcription import TranscriptionService
 
     # Create DeepgramAdapter (REQUIRED - fail-fast if key missing)
-    # 120s timeout for large audio files (up to ~10MB / 10 minutes of audio)
-    deepgram_adapter = DeepgramAdapter(deepgram_api_key, timeout=120.0)
+    # Options loaded from config/deepgram.toml — see docs/configuration/DEEPGRAM_CONFIG.md
+    from core.config.deepgram_config import load_deepgram_config
+
+    deepgram_config = load_deepgram_config()
+    deepgram_adapter = DeepgramAdapter(deepgram_api_key, config=deepgram_config)
 
     return {
         "finance": FinanceService(

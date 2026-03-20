@@ -820,7 +820,7 @@ def create_journals_ui_routes(
 
     @rt("/journals/batch")
     @require_admin(get_user_service)
-    async def journals_batch_page(request: Request, current_user: Any) -> Any:
+    async def journals_batch_page(request: Request, current_user: Any = None) -> Any:
         """Batch operations page: transcribe + process multiple files."""
         content = Div(
             PageHeader(

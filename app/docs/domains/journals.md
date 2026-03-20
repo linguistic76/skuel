@@ -500,10 +500,20 @@ SKUEL_JOURNAL_STORAGE=/path/to/journal/storage
 # OpenAI API key (required for LLM processing via UnifiedLLMCaller)
 OPENAI_API_KEY=sk-...
 
+# Deepgram API key (required for audio transcription)
+DEEPGRAM_API_KEY=your-deepgram-key
+
 # Batch transcription default directories
 # data/je_inputs/  — audio files (mp3, wav, m4a, ogg, flac, webm)
 # data/je_outputs/ — transcribed .txt and processed .md files
 ```
+
+## Deepgram Configuration
+
+All Deepgram transcription options (model, language, formatting, utterance splits, intelligence features) are controlled via `config/deepgram.toml`. Edit the file and restart the app — no code changes needed.
+
+**See:** [Deepgram Configuration Guide](/docs/configuration/DEEPGRAM_CONFIG.md) for the full option reference.
+**See:** [Audio Transcription Architecture](/docs/architecture/AUDIO_TRANSCRIPTION_ARCHITECTURE.md) for the system design.
 
 ## Design Principles
 
@@ -533,3 +543,5 @@ OPENAI_API_KEY=sk-...
 - [Activity DSL](/docs/dsl/DSL_SPECIFICATION.md) - `@context()` tag specification
 - [ADR-040: Teacher Assignment Workflow](/docs/decisions/ADR-040-teacher-assignment-workflow.md) - Assignment dual purpose
 - [UnifiedIngestionService](/docs/patterns/UNIFIED_INGESTION_GUIDE.md) - Post-curation ingestion
+- [Deepgram Configuration Guide](/docs/configuration/DEEPGRAM_CONFIG.md) - Transcription option reference
+- [Audio Transcription Architecture](/docs/architecture/AUDIO_TRANSCRIPTION_ARCHITECTURE.md) - Transcription system design

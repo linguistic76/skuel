@@ -1,0 +1,141 @@
+# =============================================================================
+# Deepgram Configuration — SKUEL Audio Transcription
+# =============================================================================
+#
+# Controls all Deepgram API options for audio transcription.
+# Edit this file to change transcription behavior without touching code.
+#
+# See: docs/configuration/DEEPGRAM_CONFIG.md
+# API Ref: https://developers.deepgram.com/reference/speech-to-text/listen-pre-recorded
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Model & Language
+# -----------------------------------------------------------------------------
+[model]
+# AI model for transcription. Options:
+#   nova-3          — Latest flagship, 50+ languages
+#   nova-2          — Stable, 36+ languages (SKUEL default)
+#   nova-2-medical  — Medical terminology
+#   nova-2-meeting  — Meeting transcription
+#   whisper-large   — OpenAI Whisper (rate-limited)
+name = "nova-2"
+
+# BCP-47 language code. Common: en, en-US, en-GB, es, fr, de, pt-BR, ja, ko, zh
+language = "en"
+
+# Auto-detect the dominant spoken language (overrides language setting)
+detect_language = false
+
+# -----------------------------------------------------------------------------
+# Formatting
+# -----------------------------------------------------------------------------
+[formatting]
+# Master formatting switch — enables punctuation, paragraphs, and (for English)
+# formats dates, times, currency, phone numbers, emails, URLs.
+smart_format = true
+
+# Add punctuation and capitalization. Redundant if smart_format = true.
+punctuate = true
+
+# Split transcript into paragraphs for readability.
+paragraphs = true
+
+# Convert spoken numbers to digits (e.g., "twenty three" → "23")
+numerals = false
+
+# Convert spoken measurements to abbreviations (e.g., "five kilograms" → "5 kg")
+measurements = false
+
+# Include filler words ("uh", "um") in the transcript
+filler_words = false
+
+# Replace profanity with asterisks
+profanity_filter = false
+
+# Dictation mode — interprets spoken commands like "period", "new paragraph"
+dictation = false
+
+# -----------------------------------------------------------------------------
+# Utterances — controls paragraph breaks in output
+# -----------------------------------------------------------------------------
+[utterances]
+# Enable utterance segmentation. Each utterance becomes a paragraph in output.
+enabled = true
+
+# Seconds of silence that triggers an utterance split.
+# Lower = more paragraphs, higher = fewer paragraphs.
+# Deepgram default: 0.8 | SKUEL default: 1.7
+split_threshold = 1.7
+
+# -----------------------------------------------------------------------------
+# Speaker Detection
+# -----------------------------------------------------------------------------
+[speakers]
+# Identify and label different speakers (Speaker 0, Speaker 1, etc.)
+diarize = false
+
+# Number of independent audio channels to transcribe
+# multichannel = false
+
+# -----------------------------------------------------------------------------
+# Intelligence Features (English-only, requires 50+ words)
+# -----------------------------------------------------------------------------
+# These features add metadata to the Deepgram response. When enabled,
+# results are captured in TranscriptionResult.raw_response for downstream use.
+# Structured extraction into SKUEL domain models is planned for later.
+#
+# COST NOTE: Intelligence features consume additional Deepgram credits.
+# Enable only what you need.
+# -----------------------------------------------------------------------------
+[intelligence]
+# Summarize the entire transcript (short summary)
+summarize = false
+
+# Detect topics discussed in the transcript
+topics = false
+
+# Recognize speaker intents from context
+intents = false
+
+# Sentiment analysis — positive/negative/neutral per sentence, with score -1.0 to +1.0
+sentiment = false
+
+# Extract named entities (people, places, organizations, etc.)
+detect_entities = false
+
+# -----------------------------------------------------------------------------
+# Search & Vocabulary
+# -----------------------------------------------------------------------------
+[vocabulary]
+# Boost or suppress specific terms during transcription.
+# Format: ["term:weight", ...] where weight is -10 (suppress) to 10 (boost).
+# Example: ["SKUEL:5", "Neo4j:3", "Cypher:3"]
+keywords = []
+
+# Find and replace terms in the output transcript.
+# Format: ["original:replacement", ...]
+# Example: ["colour:color"]
+replace = []
+
+# Redact sensitive information. Options:
+#   false     — no redaction (default)
+#   "pci"     — payment card info
+#   "pii"     — personal identifying info
+#   "numbers" — all numbers
+#   true      — redact all
+redact = false
+
+# -----------------------------------------------------------------------------
+# Request Settings
+# -----------------------------------------------------------------------------
+[request]
+# API timeout in seconds. Increase for very long audio files.
+timeout = 120.0
+
+# Number of alternative transcriptions to return (1 = just the best)
+alternatives = 1
+
+# Tags for Deepgram usage dashboard (billing visibility)
+# Example: ["skuel", "journals"]
+tags = []

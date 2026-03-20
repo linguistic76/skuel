@@ -4,20 +4,32 @@ Deepgram Adapter - Thin Wrapper for Audio Transcription API
 
 Single responsibility: Send audio to Deepgram, return transcript.
 
+All transcription options are controlled via config/deepgram.toml.
+The adapter reads a DeepgramConfig at init time and uses it as defaults.
+Per-call overrides are still possible via keyword arguments.
+
+See: docs/configuration/DEEPGRAM_CONFIG.md
+See: config/deepgram.toml
+
 ARCHITECTURE DECISION (December 2025):
 This is a thin adapter, NOT a service. It has no business logic,
 no state management, no persistence. Just API calls.
 
 Usage:
-    adapter = DeepgramAdapter(api_key="...")
-    result = await adapter.transcribe(audio_path, options)
+    from core.config.deepgram_config import load_deepgram_config
+
+    config = load_deepgram_config()
+    adapter = DeepgramAdapter(api_key="...", config=config)
+    result = await adapter.transcribe(audio_path)
     if result.is_ok:
         print(result.value.transcript_text)
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import aiofiles  # type: ignore[import-untyped]
 from deepgram import DeepgramClient, PrerecordedOptions
@@ -26,6 +38,9 @@ from deepgram.options import DeepgramClientOptions
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.type_converters import _HasToDict
+
+if TYPE_CHECKING:
+    from core.config.deepgram_config import DeepgramConfig
 
 logger = get_logger(__name__)
 
@@ -47,15 +62,23 @@ class DeepgramAdapter:
 
     Does ONE thing: audio file → API call → transcript.
     No persistence, no state, no business logic.
+
+    All options are driven by DeepgramConfig (loaded from config/deepgram.toml).
     """
 
-    def __init__(self, api_key: str, timeout: float = 120.0) -> None:
+    def __init__(
+        self,
+        api_key: str,
+        config: DeepgramConfig | None = None,
+        timeout: float | None = None,
+    ) -> None:
         """
-        Initialize with Deepgram API key.
+        Initialize with Deepgram API key and optional config.
 
         Args:
             api_key: Deepgram API key (required)
-            timeout: API request timeout in seconds (default: 120s for large files)
+            config: DeepgramConfig from config/deepgram.toml (optional, uses defaults if None)
+            timeout: API request timeout override. If None, uses config.timeout (default: 120s).
 
         Raises:
             ValueError: If api_key is not provided
@@ -63,31 +86,96 @@ class DeepgramAdapter:
         if not api_key:
             raise ValueError("Deepgram API key is required")
 
+        # Load config — import here to avoid circular imports at module level
+        if config is None:
+            from core.config.deepgram_config import DeepgramConfig
+
+            config = DeepgramConfig()
+
+        self.config = config
+        self.timeout = timeout if timeout is not None else config.timeout
+
         # Initialize client with timeout configuration
-        config = DeepgramClientOptions(api_key=api_key, options={"timeout": timeout})
-        self.client = DeepgramClient(api_key=api_key, config=config)
-        self.timeout = timeout
+        client_config = DeepgramClientOptions(api_key=api_key, options={"timeout": self.timeout})
+        self.client = DeepgramClient(api_key=api_key, config=client_config)
         self.logger = logger
+
+    def _build_options(self, **overrides: Any) -> PrerecordedOptions:
+        """Build PrerecordedOptions from config with optional per-call overrides.
+
+        Merges config/deepgram.toml defaults with any keyword overrides.
+        Only non-default values are passed to Deepgram to avoid unnecessary API charges.
+        """
+        # Start with config values
+        params = self.config.to_transcribe_kwargs()
+
+        # Apply per-call overrides
+        params.update({k: v for k, v in overrides.items() if v is not None})
+
+        # Build PrerecordedOptions — only include truthy intelligence features
+        # and non-empty list fields to keep the API call clean
+        opts: dict[str, Any] = {
+            "model": params["model"],
+            "language": params["language"],
+            "smart_format": params["smart_format"],
+            "punctuate": params["punctuate"],
+            "paragraphs": params["paragraphs"],
+            "utterances": params["utterances"],
+            "utt_split": params["utt_split"],
+            "diarize": params["diarize"],
+        }
+
+        # Conditional options — only add when enabled to avoid extra API costs
+        if params.get("detect_language"):
+            opts["detect_language"] = True
+        if params.get("numerals"):
+            opts["numerals"] = True
+        if params.get("measurements"):
+            opts["measurements"] = True
+        if params.get("filler_words"):
+            opts["filler_words"] = True
+        if params.get("profanity_filter"):
+            opts["profanity_filter"] = True
+        if params.get("dictation"):
+            opts["dictation"] = True
+        if params.get("summarize"):
+            opts["summarize"] = params["summarize"]
+        if params.get("topics"):
+            opts["topics"] = True
+        if params.get("intents"):
+            opts["intents"] = True
+        if params.get("sentiment"):
+            opts["sentiment"] = True
+        if params.get("detect_entities"):
+            opts["detect_entities"] = True
+        if params.get("keywords"):
+            opts["keywords"] = params["keywords"]
+        if params.get("replace"):
+            opts["replace"] = params["replace"]
+        if params.get("redact"):
+            opts["redact"] = params["redact"]
+        if params.get("alternatives", 1) > 1:
+            opts["alternatives"] = params["alternatives"]
+        if params.get("tags"):
+            opts["tag"] = params["tags"]
+
+        return PrerecordedOptions(**opts)
 
     async def transcribe(
         self,
         audio_path: str | Path,
-        language: str = "en",
-        model: str = "nova-2",
-        punctuate: bool = True,
-        paragraphs: bool = True,
-        diarize: bool = False,
+        **overrides: Any,
     ) -> Result[TranscriptionResult]:
         """
         Transcribe audio file using Deepgram API.
 
+        Options come from config/deepgram.toml by default. Pass keyword
+        arguments to override any option for this single call.
+
         Args:
             audio_path: Path to audio file
-            language: Language code (default: "en")
-            model: Deepgram model (default: "nova-2")
-            punctuate: Enable punctuation
-            paragraphs: Enable paragraph detection
-            diarize: Enable speaker diarization
+            **overrides: Per-call option overrides (e.g., model="nova-3", diarize=True).
+                         Keys match DeepgramConfig field names.
 
         Returns:
             Result containing TranscriptionResult or error
@@ -107,16 +195,8 @@ class DeepgramAdapter:
             async with aiofiles.open(path, "rb") as audio_file:
                 audio_data = await audio_file.read()
 
-            # Configure options
-            options = PrerecordedOptions(
-                model=model,
-                language=language,
-                smart_format=True,
-                punctuate=punctuate,
-                paragraphs=paragraphs,
-                diarize=diarize,
-                utterances=True,
-            )
+            # Build options from config + overrides
+            options = self._build_options(**overrides)
 
             # Call Deepgram API
             file_size_mb = len(audio_data) / (1024 * 1024)
@@ -177,7 +257,22 @@ class DeepgramAdapter:
         return mimetypes.get(suffix.lower(), "audio/mpeg")
 
     def _extract_transcript(self, response: Any) -> str:
-        """Extract transcript text from Deepgram response."""
+        """Extract transcript text from Deepgram response.
+
+        Uses utterances (split by silence gaps) to create paragraph breaks.
+        Falls back to flat channel transcript if utterances are unavailable.
+        """
+        # Prefer utterances — each becomes a paragraph separated by blank lines
+        try:
+            utterances = response.results.utterances
+            if utterances and len(utterances) > 0:
+                paragraphs = [u.transcript.strip() for u in utterances if u.transcript.strip()]
+                if paragraphs:
+                    return "\n\n".join(paragraphs)
+        except (AttributeError, IndexError):
+            pass
+
+        # Fallback: flat transcript from channel alternatives
         try:
             channels = response.results.channels
             if channels and len(channels) > 0:

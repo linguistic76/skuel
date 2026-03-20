@@ -267,18 +267,21 @@ class TranscriptionService(MetadataManagerMixin):
         )
         await self.backend.update(uid, {"status": "processing", **self.update_properties()})
 
-        # Use provided options or defaults
+        # Use provided options as per-call overrides (config/deepgram.toml has defaults)
         opts = options or TranscriptionProcessOptions()
+        overrides = {
+            "language": opts.language,
+            "model": opts.model,
+            "punctuate": opts.punctuate,
+            "paragraphs": opts.paragraphs,
+            "diarize": opts.diarize,
+        }
 
         # Call Deepgram
         self.logger.info(f"Processing transcription {uid}")
         result = await self.deepgram.transcribe(
             audio_path=transcription.audio_file_path,
-            language=opts.language,
-            model=opts.model,
-            punctuate=opts.punctuate,
-            paragraphs=opts.paragraphs,
-            diarize=opts.diarize,
+            **overrides,
         )
 
         if result.is_error:
