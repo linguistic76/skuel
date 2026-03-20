@@ -29,6 +29,7 @@ from core.events.task_events import (
     TasksBulkCompleted,
 )
 from core.models.enums import Priority
+from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
 from core.models.relationship_names import RelationshipName
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -152,6 +153,30 @@ class TaskEventHandlerService:
                         "event_type": "task.overdue_completion",
                     },
                 )
+
+                # Persist overdue completion insight
+                if self.insight_store:
+                    insight = PersistedInsight(
+                        uid=PersistedInsight.generate_uid(
+                            InsightType.COMPLETION_PATTERN, event.task_uid
+                        ),
+                        user_uid=event.user_uid,
+                        insight_type=InsightType.COMPLETION_PATTERN,
+                        domain="tasks",
+                        title="Overdue Task Completed",
+                        description="A task was completed past its due date. Consider adjusting time estimates.",
+                        confidence=0.85,
+                        impact=InsightImpact.MEDIUM,
+                        entity_uid=event.task_uid,
+                        supporting_data={
+                            "was_overdue": True,
+                        },
+                    )
+                    create_result = await self.insight_store.create_insight(insight)
+                    if create_result.is_error:
+                        self.logger.warning(
+                            f"Failed to persist overdue insight: {create_result.error}"
+                        )
 
             # 3. Principle alignment check
             if self.relationships:
@@ -357,6 +382,31 @@ class TaskEventHandlerService:
                 },
             )
 
+            # Persist principle alignment insight
+            if self.insight_store:
+                insight = PersistedInsight(
+                    uid=PersistedInsight.generate_uid(
+                        InsightType.PRINCIPLE_ALIGNMENT, event.task_uid
+                    ),
+                    user_uid=event.user_uid,
+                    insight_type=InsightType.PRINCIPLE_ALIGNMENT,
+                    domain="tasks",
+                    title="Task Aligned with Principles",
+                    description=f"Completed task contributes to {len(principle_uids)} principle(s).",
+                    confidence=0.8,
+                    impact=InsightImpact.LOW,
+                    entity_uid=event.task_uid,
+                    related_entities={"principles": principle_uids[:5]},
+                    supporting_data={
+                        "principle_count": len(principle_uids),
+                    },
+                )
+                create_result = await self.insight_store.create_insight(insight)
+                if create_result.is_error:
+                    self.logger.warning(
+                        f"Failed to persist alignment insight: {create_result.error}"
+                    )
+
     async def _detect_priority_inflation(self, event: TaskPriorityChanged) -> None:
         """Detect if user has too many high/critical priority tasks.
 
@@ -370,11 +420,7 @@ class TaskEventHandlerService:
         if len(tasks) < 3:
             return
 
-        high_count = sum(
-            1
-            for t in tasks
-            if t.priority and Priority(t.priority).to_numeric() >= 3
-        )
+        high_count = sum(1 for t in tasks if t.priority and Priority(t.priority).to_numeric() >= 3)
         inflation_ratio = high_count / len(tasks)
 
         if inflation_ratio > 0.6:
@@ -388,3 +434,35 @@ class TaskEventHandlerService:
                     "event_type": "task.priority.inflation_warning",
                 },
             )
+
+            # Persist priority inflation insight
+            if self.insight_store:
+                insight = PersistedInsight(
+                    uid=PersistedInsight.generate_uid(
+                        InsightType.IMBALANCE_DETECTED, event.task_uid
+                    ),
+                    user_uid=event.user_uid,
+                    insight_type=InsightType.IMBALANCE_DETECTED,
+                    domain="tasks",
+                    title="Priority Inflation Detected",
+                    description=f"{inflation_ratio:.0%} of your tasks are high or critical priority. Consider re-evaluating priorities.",
+                    confidence=0.9,
+                    impact=InsightImpact.HIGH,
+                    entity_uid=event.task_uid,
+                    recommended_actions=[
+                        {
+                            "action": "Review and re-prioritize tasks",
+                            "rationale": "When most tasks are high priority, nothing is truly prioritized",
+                        }
+                    ],
+                    supporting_data={
+                        "high_priority_count": high_count,
+                        "total_tasks": len(tasks),
+                        "inflation_ratio": round(inflation_ratio, 2),
+                    },
+                )
+                create_result = await self.insight_store.create_insight(insight)
+                if create_result.is_error:
+                    self.logger.warning(
+                        f"Failed to persist inflation insight: {create_result.error}"
+                    )

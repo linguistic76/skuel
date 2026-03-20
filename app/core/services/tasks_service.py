@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING, Any, TypedDict
 if TYPE_CHECKING:
     from core.ports.domain_protocols import TasksOperations
     from core.ports.search_protocols import TasksSearchOperations
+    from core.services.insight.insight_store import InsightStore
 
 # Domain models
 from core.models.enums import EntityStatus
@@ -246,6 +247,7 @@ class TasksService(BaseService["TasksOperations", Task]):
         graph_intelligence_service=None,
         event_bus=None,
         ai_service: TasksAIService | None = None,
+        insight_store: InsightStore | None = None,
     ) -> None:
         """
         Initialize enhanced tasks service with specialized sub-services.
@@ -258,6 +260,7 @@ class TasksService(BaseService["TasksOperations", Task]):
             graph_intelligence_service: GraphIntelligenceService for pure Cypher analytics,
             event_bus: Event bus for publishing domain events (optional)
             ai_service: Optional AI service for LLM/embeddings features (January 2026)
+            insight_store: For persisting event-driven insights (optional)
         """
         super().__init__(backend, "tasks")
 
@@ -307,6 +310,7 @@ class TasksService(BaseService["TasksOperations", Task]):
         self.event_handler = TaskEventHandlerService(
             backend=backend,
             relationship_service=self.relationships,
+            insight_store=insight_store,
         )
 
         # Analytics engine for direct calls (simplified from TasksAnalyticsService)

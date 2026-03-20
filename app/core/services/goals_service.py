@@ -60,6 +60,7 @@ if TYPE_CHECKING:
     from core.ports.infrastructure_protocols import EventBusOperations
     from core.ports.query_types import ListContext
     from core.ports.search_protocols import GoalsSearchOperations
+    from core.services.insight.insight_store import InsightStore
     from core.services.user import UserContext
 
 
@@ -294,6 +295,7 @@ class GoalsService(BaseService[GoalsOperations, Goal]):
         graph_intelligence_service: GraphIntelligenceService,
         event_bus: EventBusOperations | None = None,
         ai_service: GoalsAIService | None = None,
+        insight_store: InsightStore | None = None,
     ) -> None:
         """
         Initialize enhanced goals service with specialized sub-services.
@@ -362,6 +364,7 @@ class GoalsService(BaseService[GoalsOperations, Goal]):
             backend=backend,
             relationship_service=self.relationships,
             event_bus=event_bus,
+            insight_store=insight_store,
         )
 
         # January 2026: Scheduling service for capacity and timeline management

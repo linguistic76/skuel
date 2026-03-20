@@ -812,11 +812,13 @@ def _create_activity_services(
             ku_generation_service=ku_generation_service,
             graph_intelligence_service=graph_intelligence,
             event_bus=event_bus,
+            insight_store=insight_store,
         ),
         "events": EventsService(
             backend=events_backend,
             graph_intelligence_service=graph_intelligence,
             event_bus=event_bus,
+            insight_store=insight_store,
         ),
         "habits": HabitsService(
             backend=habits_backend,
@@ -829,6 +831,7 @@ def _create_activity_services(
             backend=goals_backend,
             graph_intelligence_service=graph_intelligence,
             event_bus=event_bus,
+            insight_store=insight_store,
         ),
         "choices": ChoicesService(
             backend=choices_backend,

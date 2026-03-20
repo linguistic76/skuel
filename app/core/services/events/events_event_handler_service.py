@@ -27,12 +27,14 @@ from core.events.calendar_event_events import (
     CalendarEventCreated,
     CalendarEventRescheduled,
 )
+from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
 from core.models.relationship_names import RelationshipName
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
     from core.ports.domain_protocols import EventsOperations
+    from core.services.insight.insight_store import InsightStore
     from core.services.relationships import UnifiedRelationshipService
 
 
@@ -93,15 +95,18 @@ class EventsEventHandlerService:
         self,
         backend: EventsOperations,
         relationship_service: UnifiedRelationshipService | None = None,
+        insight_store: InsightStore | None = None,
     ) -> None:
         """Initialize events event handler service.
 
         Args:
             backend: Backend for event operations
             relationship_service: For querying related entities (optional)
+            insight_store: For persisting event-driven insights (optional)
         """
         self.backend = backend
         self.relationships = relationship_service
+        self.insight_store = insight_store
         self.logger = get_logger("skuel.services.events.event_handler")
 
     # ========================================================================
@@ -202,6 +207,38 @@ class EventsEventHandlerService:
                     },
                 )
 
+                # Persist chronic rescheduling insight
+                if self.insight_store:
+                    insight = PersistedInsight(
+                        uid=PersistedInsight.generate_uid(
+                            InsightType.IMBALANCE_DETECTED, event.event_uid
+                        ),
+                        user_uid=event.user_uid,
+                        insight_type=InsightType.IMBALANCE_DETECTED,
+                        domain="events",
+                        title="Chronic Rescheduling Detected",
+                        description=f"{reschedule_count} events rescheduled recently. Consider reviewing your scheduling approach.",
+                        confidence=0.85,
+                        impact=InsightImpact.HIGH,
+                        entity_uid=event.event_uid,
+                        recommended_actions=[
+                            {
+                                "action": "Add buffer time between events",
+                                "rationale": "Chronic rescheduling often signals overcommitment or unrealistic scheduling",
+                            }
+                        ],
+                        supporting_data={
+                            "reschedule_count": reschedule_count,
+                            "old_date": event.old_date.isoformat(),
+                            "new_date": event.new_date.isoformat(),
+                        },
+                    )
+                    create_result = await self.insight_store.create_insight(insight)
+                    if create_result.is_error:
+                        self.logger.warning(
+                            f"Failed to persist rescheduling insight: {create_result.error}"
+                        )
+
         except (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
             self.logger.error(
                 f"Error handling event_rescheduled: {e}",
@@ -255,6 +292,38 @@ class EventsEventHandlerService:
                         "event_type": "calendar_event.scheduling.overcommitted",
                     },
                 )
+
+                # Persist overcommitment insight
+                if self.insight_store:
+                    insight = PersistedInsight(
+                        uid=PersistedInsight.generate_uid(
+                            InsightType.IMBALANCE_DETECTED, event.event_uid
+                        ),
+                        user_uid=event.user_uid,
+                        insight_type=InsightType.IMBALANCE_DETECTED,
+                        domain="events",
+                        title="Schedule Overcommitted",
+                        description=f"{events_in_week} events in the week of {event.event_date}. Consider reducing commitments.",
+                        confidence=0.9,
+                        impact=InsightImpact.HIGH,
+                        entity_uid=event.event_uid,
+                        recommended_actions=[
+                            {
+                                "action": "Decline or reschedule non-essential events",
+                                "rationale": "Overcommitment reduces effectiveness across all commitments",
+                            }
+                        ],
+                        supporting_data={
+                            "events_in_week": events_in_week,
+                            "event_date": event.event_date.isoformat(),
+                            "density": density,
+                        },
+                    )
+                    create_result = await self.insight_store.create_insight(insight)
+                    if create_result.is_error:
+                        self.logger.warning(
+                            f"Failed to persist overcommitment insight: {create_result.error}"
+                        )
 
         except (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
             self.logger.error(

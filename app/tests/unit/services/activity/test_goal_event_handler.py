@@ -24,7 +24,7 @@ from core.services.goals.goal_event_handler_service import (
     _classify_abandonment,
     _nearest_milestone,
 )
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -53,18 +53,29 @@ def mock_event_bus() -> AsyncMock:
 
 
 @pytest.fixture
+def mock_insight_store() -> AsyncMock:
+    store = AsyncMock()
+    store.create_insight = AsyncMock(return_value=Result.ok(True))
+    return store
+
+
+@pytest.fixture
 def service(mock_backend: Mock) -> GoalEventHandlerService:
     return GoalEventHandlerService(backend=mock_backend)
 
 
 @pytest.fixture
 def service_full(
-    mock_backend: Mock, mock_relationships: AsyncMock, mock_event_bus: AsyncMock
+    mock_backend: Mock,
+    mock_relationships: AsyncMock,
+    mock_event_bus: AsyncMock,
+    mock_insight_store: AsyncMock,
 ) -> GoalEventHandlerService:
     return GoalEventHandlerService(
         backend=mock_backend,
         relationship_service=mock_relationships,
         event_bus=mock_event_bus,
+        insight_store=mock_insight_store,
     )
 
 
@@ -461,3 +472,127 @@ class TestHandleGoalProgressUpdated:
 
         # Should NOT raise
         await service.handle_goal_progress_updated(event)
+
+
+# ---------------------------------------------------------------------------
+# Insight persistence tests
+# ---------------------------------------------------------------------------
+
+
+class TestInsightPersistence:
+    @pytest.mark.asyncio
+    async def test_abandonment_persists_insight(
+        self,
+        service_full: GoalEventHandlerService,
+        mock_insight_store: AsyncMock,
+    ):
+        """Goal abandonment persists a COMPLETION_PATTERN insight."""
+        event = GoalAbandoned(
+            goal_uid="goal_test_abc",
+            user_uid="user_mike",
+            occurred_at=datetime.now(),
+            reason="changed_priorities",
+            progress_at_abandonment=0.50,
+            days_active=30,
+        )
+
+        await service_full.handle_goal_abandoned(event)
+
+        mock_insight_store.create_insight.assert_called_once()
+        insight = mock_insight_store.create_insight.call_args[0][0]
+        assert insight.insight_type.value == "completion_pattern"
+        assert insight.domain == "goals"
+        assert insight.impact.value == "medium"
+
+    @pytest.mark.asyncio
+    async def test_near_miss_abandonment_high_impact(
+        self,
+        service_full: GoalEventHandlerService,
+        mock_insight_store: AsyncMock,
+    ):
+        """Near-miss abandonment (>75%) persists a HIGH impact insight."""
+        event = GoalAbandoned(
+            goal_uid="goal_test_abc",
+            user_uid="user_mike",
+            occurred_at=datetime.now(),
+            reason="too_difficult",
+            progress_at_abandonment=0.85,
+            days_active=60,
+        )
+
+        await service_full.handle_goal_abandoned(event)
+
+        mock_insight_store.create_insight.assert_called_once()
+        insight = mock_insight_store.create_insight.call_args[0][0]
+        assert insight.impact.value == "high"
+        assert len(insight.recommended_actions) > 0
+
+    @pytest.mark.asyncio
+    async def test_progress_stall_persists_insight(
+        self,
+        service_full: GoalEventHandlerService,
+        mock_insight_store: AsyncMock,
+    ):
+        """Progress stall persists an IMBALANCE_DETECTED insight."""
+        event = GoalProgressUpdated(
+            goal_uid="goal_test_abc",
+            user_uid="user_mike",
+            old_progress=0.50,
+            new_progress=0.505,
+            occurred_at=datetime.now(),
+        )
+
+        await service_full.handle_goal_progress_updated(event)
+
+        # Stall insight should be created
+        stall_calls = [
+            c for c in mock_insight_store.create_insight.call_args_list
+            if "Stall" in str(c) or "imbalance_detected" in str(c)
+        ]
+        assert len(stall_calls) >= 1
+
+    @pytest.mark.asyncio
+    async def test_milestone_proximity_persists_insight(
+        self,
+        service_full: GoalEventHandlerService,
+        mock_insight_store: AsyncMock,
+    ):
+        """Approaching a milestone persists a COMPLETION_PATTERN insight."""
+        event = GoalProgressUpdated(
+            goal_uid="goal_test_abc",
+            user_uid="user_mike",
+            old_progress=0.45,
+            new_progress=0.47,
+            occurred_at=datetime.now(),
+        )
+
+        await service_full.handle_goal_progress_updated(event)
+
+        # Milestone insight should be created
+        milestone_calls = [
+            c for c in mock_insight_store.create_insight.call_args_list
+            if "Milestone" in str(c) or "milestone" in str(c)
+        ]
+        assert len(milestone_calls) >= 1
+
+    @pytest.mark.asyncio
+    async def test_insight_failure_does_not_propagate(
+        self,
+        service_full: GoalEventHandlerService,
+        mock_insight_store: AsyncMock,
+    ):
+        """Failed insight creation is logged but does not propagate."""
+        mock_insight_store.create_insight.return_value = Result(
+            _error=Errors.database("create_insight", "InsightStore unavailable")
+        )
+
+        event = GoalAbandoned(
+            goal_uid="goal_test_abc",
+            user_uid="user_mike",
+            occurred_at=datetime.now(),
+            progress_at_abandonment=0.50,
+            days_active=10,
+        )
+
+        # Should NOT raise
+        await service_full.handle_goal_abandoned(event)

@@ -66,6 +66,7 @@ if TYPE_CHECKING:
     from core.ports.query_types import ListContext
     from core.ports.search_protocols import EventsSearchOperations
     from core.services.events.events_intelligence_service import EventsIntelligenceService
+    from core.services.insight.insight_store import InsightStore
     from core.services.user import UserContext
 
 
@@ -341,6 +342,7 @@ class EventsService(BaseService["EventsOperations", Event]):
         graph_intelligence_service: GraphIntelligenceService,
         event_bus: EventBusOperations | None = None,
         ai_service: EventsAIService | None = None,
+        insight_store: InsightStore | None = None,
     ) -> None:
         """
         Initialize enhanced events service with specialized sub-services.
@@ -385,6 +387,7 @@ class EventsService(BaseService["EventsOperations", Event]):
         self.event_handler = EventsEventHandlerService(
             backend=backend,
             relationship_service=self.relationships,
+            insight_store=insight_store,
         )
 
         self.logger.info(

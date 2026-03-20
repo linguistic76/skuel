@@ -30,6 +30,7 @@ from core.events.goal_events import (
     GoalProgressUpdated,
     GoalRecommendationsGenerated,
 )
+from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
 from core.models.relationship_names import RelationshipName
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -37,6 +38,7 @@ from core.utils.logging import get_logger
 if TYPE_CHECKING:
     from core.ports.domain_protocols import GoalsOperations
     from core.ports.infrastructure_protocols import EventBusOperations
+    from core.services.insight.insight_store import InsightStore
     from core.services.relationships import UnifiedRelationshipService
 
 
@@ -94,6 +96,7 @@ class GoalEventHandlerService:
         backend: GoalsOperations,
         relationship_service: UnifiedRelationshipService | None = None,
         event_bus: EventBusOperations | None = None,
+        insight_store: InsightStore | None = None,
     ) -> None:
         """Initialize goal event handler service.
 
@@ -101,10 +104,12 @@ class GoalEventHandlerService:
             backend: Backend for goal operations
             relationship_service: For querying related entities (optional)
             event_bus: For publishing recommendation events (optional)
+            insight_store: For persisting event-driven insights (optional)
         """
         self.backend = backend
         self.relationships = relationship_service
         self.event_bus = event_bus
+        self.insight_store = insight_store
         self.logger = get_logger("skuel.services.goals.event_handler")
 
     # ========================================================================
@@ -228,6 +233,42 @@ class GoalEventHandlerService:
                     },
                 )
 
+            # Persist abandonment insight
+            if self.insight_store:
+                impact = InsightImpact.HIGH if classification == "near_miss" else InsightImpact.MEDIUM
+                insight = PersistedInsight(
+                    uid=PersistedInsight.generate_uid(
+                        InsightType.COMPLETION_PATTERN, event.goal_uid
+                    ),
+                    user_uid=event.user_uid,
+                    insight_type=InsightType.COMPLETION_PATTERN,
+                    domain="goals",
+                    title=f"Goal Abandoned ({classification.replace('_', ' ')})",
+                    description=f"Goal abandoned at {event.progress_at_abandonment:.0%} progress after {event.days_active} days.",
+                    confidence=0.85,
+                    impact=impact,
+                    entity_uid=event.goal_uid,
+                    recommended_actions=[
+                        {
+                            "action": "Review goal scope and break into smaller milestones",
+                            "rationale": "Near-miss abandonments suggest the goal was achievable with better pacing",
+                        }
+                    ]
+                    if classification == "near_miss"
+                    else [],
+                    supporting_data={
+                        "classification": classification,
+                        "progress_at_abandonment": event.progress_at_abandonment,
+                        "days_active": event.days_active,
+                        "reason": event.reason,
+                    },
+                )
+                create_result = await self.insight_store.create_insight(insight)
+                if create_result.is_error:
+                    self.logger.warning(
+                        f"Failed to persist abandonment insight: {create_result.error}"
+                    )
+
         except (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
             self.logger.error(
                 f"Error handling goal_abandoned event: {e}",
@@ -266,6 +307,37 @@ class GoalEventHandlerService:
                     },
                 )
 
+                # Persist stall insight
+                if self.insight_store:
+                    insight = PersistedInsight(
+                        uid=PersistedInsight.generate_uid(
+                            InsightType.IMBALANCE_DETECTED, event.goal_uid
+                        ),
+                        user_uid=event.user_uid,
+                        insight_type=InsightType.IMBALANCE_DETECTED,
+                        domain="goals",
+                        title="Goal Progress Stall",
+                        description=f"Goal at {event.new_progress:.0%} with negligible recent progress.",
+                        confidence=0.8,
+                        impact=InsightImpact.MEDIUM,
+                        entity_uid=event.goal_uid,
+                        recommended_actions=[
+                            {
+                                "action": "Break the goal into smaller actionable tasks",
+                                "rationale": "Stalled goals often need decomposition to regain momentum",
+                            }
+                        ],
+                        supporting_data={
+                            "new_progress": event.new_progress,
+                            "progress_delta": event.progress_delta,
+                        },
+                    )
+                    create_result = await self.insight_store.create_insight(insight)
+                    if create_result.is_error:
+                        self.logger.warning(
+                            f"Failed to persist stall insight: {create_result.error}"
+                        )
+
             # 2. Milestone proximity alert
             milestone = _nearest_milestone(event.new_progress)
             if milestone is not None:
@@ -279,6 +351,31 @@ class GoalEventHandlerService:
                         "event_type": "goal.progress.milestone_proximity",
                     },
                 )
+
+                # Persist milestone proximity insight
+                if self.insight_store:
+                    insight = PersistedInsight(
+                        uid=PersistedInsight.generate_uid(
+                            InsightType.COMPLETION_PATTERN, event.goal_uid
+                        ),
+                        user_uid=event.user_uid,
+                        insight_type=InsightType.COMPLETION_PATTERN,
+                        domain="goals",
+                        title=f"Approaching {milestone}% Milestone",
+                        description=f"Goal is within 5% of the {milestone}% milestone — keep pushing!",
+                        confidence=0.9,
+                        impact=InsightImpact.LOW,
+                        entity_uid=event.goal_uid,
+                        supporting_data={
+                            "new_progress": event.new_progress,
+                            "approaching_milestone": milestone,
+                        },
+                    )
+                    create_result = await self.insight_store.create_insight(insight)
+                    if create_result.is_error:
+                        self.logger.warning(
+                            f"Failed to persist milestone insight: {create_result.error}"
+                        )
 
             # 3. Cross-domain trigger logging
             trigger = "manual"

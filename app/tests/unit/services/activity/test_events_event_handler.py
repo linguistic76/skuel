@@ -25,7 +25,7 @@ from core.services.events.events_event_handler_service import (
     _assess_scheduling_density,
     _classify_rescheduling_pattern,
 )
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -50,6 +50,13 @@ def mock_relationships() -> AsyncMock:
 
 
 @pytest.fixture
+def mock_insight_store() -> AsyncMock:
+    store = AsyncMock()
+    store.create_insight = AsyncMock(return_value=Result.ok(True))
+    return store
+
+
+@pytest.fixture
 def service(mock_backend: Mock) -> EventsEventHandlerService:
     return EventsEventHandlerService(backend=mock_backend)
 
@@ -60,6 +67,17 @@ def service_with_rels(
 ) -> EventsEventHandlerService:
     return EventsEventHandlerService(
         backend=mock_backend, relationship_service=mock_relationships
+    )
+
+
+@pytest.fixture
+def service_full(
+    mock_backend: Mock, mock_relationships: AsyncMock, mock_insight_store: AsyncMock
+) -> EventsEventHandlerService:
+    return EventsEventHandlerService(
+        backend=mock_backend,
+        relationship_service=mock_relationships,
+        insight_store=mock_insight_store,
     )
 
 
@@ -402,3 +420,108 @@ class TestHandleEventCreated:
 
         # Should NOT raise
         await service.handle_event_created(event)
+
+
+# ---------------------------------------------------------------------------
+# Insight persistence tests
+# ---------------------------------------------------------------------------
+
+
+class TestInsightPersistence:
+    @pytest.mark.asyncio
+    async def test_chronic_rescheduling_persists_insight(
+        self,
+        service_full: EventsEventHandlerService,
+        mock_backend: Mock,
+        mock_insight_store: AsyncMock,
+    ):
+        """Chronic rescheduling persists an IMBALANCE_DETECTED insight."""
+        mock_backend.execute_query.return_value = Result.ok([{"reschedule_count": 5}])
+
+        event = CalendarEventRescheduled(
+            event_uid="event_test_abc",
+            user_uid="user_mike",
+            old_date=date(2026, 3, 20),
+            new_date=date(2026, 3, 25),
+            occurred_at=datetime(2026, 3, 19, 10, 0),
+        )
+
+        await service_full.handle_event_rescheduled(event)
+
+        mock_insight_store.create_insight.assert_called_once()
+        insight = mock_insight_store.create_insight.call_args[0][0]
+        assert insight.insight_type.value == "imbalance_detected"
+        assert insight.domain == "events"
+        assert insight.impact.value == "high"
+
+    @pytest.mark.asyncio
+    async def test_no_insight_for_rare_rescheduling(
+        self,
+        service_full: EventsEventHandlerService,
+        mock_backend: Mock,
+        mock_insight_store: AsyncMock,
+    ):
+        """Rare rescheduling does not persist an insight."""
+        mock_backend.execute_query.return_value = Result.ok([{"reschedule_count": 1}])
+
+        event = CalendarEventRescheduled(
+            event_uid="event_test_abc",
+            user_uid="user_mike",
+            old_date=date(2026, 3, 20),
+            new_date=date(2026, 3, 22),
+            occurred_at=datetime(2026, 3, 19, 10, 0),
+        )
+
+        await service_full.handle_event_rescheduled(event)
+
+        mock_insight_store.create_insight.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_overcommitment_persists_insight(
+        self,
+        service_full: EventsEventHandlerService,
+        mock_backend: Mock,
+        mock_insight_store: AsyncMock,
+    ):
+        """Overcommitment persists an IMBALANCE_DETECTED insight."""
+        mock_backend.execute_query.return_value = Result.ok([{"event_count": 15}])
+
+        event = CalendarEventCreated(
+            event_uid="event_test_abc",
+            user_uid="user_mike",
+            title="Another Meeting",
+            event_date=date(2026, 3, 20),
+            calendar_event_type="meeting",
+            occurred_at=datetime(2026, 3, 20, 9, 0),
+        )
+
+        await service_full.handle_event_created(event)
+
+        mock_insight_store.create_insight.assert_called_once()
+        insight = mock_insight_store.create_insight.call_args[0][0]
+        assert insight.insight_type.value == "imbalance_detected"
+        assert insight.impact.value == "high"
+
+    @pytest.mark.asyncio
+    async def test_insight_failure_does_not_propagate(
+        self,
+        service_full: EventsEventHandlerService,
+        mock_backend: Mock,
+        mock_insight_store: AsyncMock,
+    ):
+        """Failed insight creation is logged but does not propagate."""
+        mock_backend.execute_query.return_value = Result.ok([{"reschedule_count": 5}])
+        mock_insight_store.create_insight.return_value = Result(
+            _error=Errors.database("create_insight", "InsightStore unavailable")
+        )
+
+        event = CalendarEventRescheduled(
+            event_uid="event_test_abc",
+            user_uid="user_mike",
+            old_date=date(2026, 3, 20),
+            new_date=date(2026, 3, 25),
+            occurred_at=datetime(2026, 3, 19, 10, 0),
+        )
+
+        # Should NOT raise
+        await service_full.handle_event_rescheduled(event)
