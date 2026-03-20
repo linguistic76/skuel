@@ -53,7 +53,7 @@ Understanding the loop is the prerequisite for all architectural decisions.
 
 **Two tracks, one loop.** Activity Domains are equal entry points — a user's lived
 practice (Tasks, Goals, Habits) receives the same feedback infrastructure as curriculum
-work. The mechanism differs (`ACTIVITY_REPORT` vs `SUBMISSION_REPORT`), but both
+work. The mechanism differs (`ACTIVITY_REPORT` vs `EXERCISE_REPORT`), but both
 close the loop: student does work, system or teacher responds.
 
 **Learning progress event chain:** When `mark_mastered()` is called on a KU, the
@@ -239,8 +239,8 @@ subject_uid: str | None          # UID of the submission being evaluated
 
 | EntityType | Created by | ProcessorType | Processing |
 |-----------|-----------|---------------|-----------|
-| `SUBMISSION` | Student uploads | `HUMAN` (then LLM feedback) | Transcription if audio |
-| `JOURNAL` | Admin uploads | `LLM` | Auto-processed, AI uses Exercise instructions |
+| `EXERCISE_SUBMISSION` | Student uploads | `HUMAN` (then LLM feedback) | Transcription if audio |
+| `JOURNAL_SUBMISSION` | Admin uploads | `LLM` | Auto-processed, AI uses Exercise instructions |
 
 **Processing pipeline (two entry points):**
 ```
@@ -296,9 +296,9 @@ Without Submission, the loop has no student voice.
 **What it is:** The evaluation. Two structurally distinct entities cover two distinct
 entry points. Both close the loop — both say "here is what your work means."
 
-### 4a. SUBMISSION_REPORT — Response to an Artifact
+### 4a. EXERCISE_REPORT — Response to an Artifact
 
-**EntityType:** `EntityType.SUBMISSION_REPORT`
+**EntityType:** `EntityType.EXERCISE_REPORT`
 **Model:** `core/models/report/submission_report.py` — `SubmissionReport(Submission)` frozen dataclass
 **Neo4j label:** `:Entity:SubmissionReport`
 **Inherits:** Full `Submission` model (+2 report-specific fields)

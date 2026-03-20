@@ -62,7 +62,7 @@ Every measurement flows from real user behaviour, not self-reported progress.
 
 | Track | Entry Point | Feedback Entity | Who Responds |
 |-------|------------|-----------------|--------------|
-| **Curriculum** | Student uploads a file against an Exercise | `SUBMISSION_REPORT` | Teacher or AI (via Exercise instructions) |
+| **Curriculum** | Student uploads a file against an Exercise | `EXERCISE_REPORT` | Teacher or AI (via Exercise instructions) |
 | **Activity** | User's lived practice over a time window | `ACTIVITY_REPORT` | AI (scheduled or on-demand) or Admin |
 
 Activity Domains are **equal** entry points — not secondary. A user's Tasks, Goals, Habits,
@@ -73,8 +73,8 @@ The mechanism differs, but the loop closes either way.
 > senses that must not be conflated. The **conceptual submission** in the Activity Track is
 > the user's lived practice across all six Activity Domains over a time window — it is
 > implicit, never uploaded, and produces an `ACTIVITY_REPORT`. The **structural Submission**
-> (`EntityType.SUBMISSION`) is a file a student explicitly uploads against an Exercise in the
-> Curriculum Track and produces a `SUBMISSION_REPORT`. `ActivityReport` inherits
+> (`EntityType.EXERCISE_SUBMISSION`) is a file a student explicitly uploads against an Exercise in the
+> Curriculum Track and produces an `EXERCISE_REPORT`. `ActivityReport` inherits
 > `UserOwnedEntity` directly — it has no file fields. `Submission` inherits a file-aware
 > base class. When reading code that touches both tracks, keep this distinction in mind:
 > the loop closes differently in each track even though the pedagogical concept is the same.
@@ -303,7 +303,7 @@ LLM prompt embedded for AI-assisted feedback. Two scopes: `PERSONAL` (self-direc
 **EntityType:** `EntityType.EXERCISE`
 **Loop role:** The *how* — operationalises Lesson content into a concrete task. The `instructions`
 field serves double duty: directive for the student AND prompt for the AI when generating
-`SUBMISSION_REPORT`.
+`EXERCISE_REPORT`.
 
 **See:** [REPORT_ARCHITECTURE.md](/docs/architecture/REPORT_ARCHITECTURE.md) —
 Exercise pipeline and teacher workflow.
@@ -313,10 +313,10 @@ Exercise pipeline and teacher workflow.
 ## Phase 3: Submission — The Student's Work
 
 **What:** The student's artifact. An uploaded file (audio, text, image) that is processed
-into `processed_content` — the evaluable form. Two leaf types: `SUBMISSION` (student
-uploads) and `JOURNAL` (admin uploads for AI-only processing).
+into `processed_content` — the evaluable form. Two leaf types: `EXERCISE_SUBMISSION` (student
+uploads) and `JOURNAL_SUBMISSION` (admin uploads for AI-only processing).
 
-**EntityType:** `EntityType.SUBMISSION` or `EntityType.JOURNAL`
+**EntityType:** `EntityType.EXERCISE_SUBMISSION` or `EntityType.JOURNAL_SUBMISSION`
 **Loop role:** The *evidence* — the student's demonstration of engagement with Lesson content.
 Without it, the Curriculum Track has no student voice.
 
@@ -330,13 +330,13 @@ full pipeline from upload to sharing and teacher review queue.
 **What:** The evaluation. Two structurally distinct entities cover the two tracks.
 Both say "here is what your work means."
 
-### 4a. SUBMISSION_REPORT — Response to an Artifact
+### 4a. EXERCISE_REPORT — Response to an Artifact
 
-**What:** Evaluation of a specific `SUBMISSION` or `JOURNAL`. One artifact in, one
+**What:** Evaluation of a specific `EXERCISE_SUBMISSION` or `JOURNAL_SUBMISSION`. One artifact in, one
 `SubmissionReport` node out. Two sources: teacher writes (`HUMAN`) or AI evaluates
 via the Exercise's `instructions` field (`LLM`).
 
-**EntityType:** `EntityType.SUBMISSION_REPORT`
+**EntityType:** `EntityType.EXERCISE_REPORT`
 **Structural position:** Leaf domain — fits the standard 4-layer architecture cleanly
 (`SubmissionReportOperations` protocol → `SubmissionsBackend` → `SubmissionReportService` / `SubmissionsCoreService`).
 

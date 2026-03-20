@@ -9,7 +9,7 @@ tags: [journals, content-domain, submissions, multi-modal, ai-processing, lp-int
 
 # Journals Domain
 
-**Type:** Submission subtype (`EntityType.JOURNAL`, extends `Submission`)
+**Type:** Submission subtype (`EntityType.JOURNAL_SUBMISSION`, extends `Submission`)
 **UID Prefix:** `journal_`
 **Entity Label:** `:Entity:Journal`
 **UI Route:** `/journals` (all authenticated users, registered via `submissions_routes.py`)
@@ -21,10 +21,10 @@ Journals are a **Submission subtype** — `Journal(Submission)` in the model hie
 
 | EntityType | ProcessorType | Use Case |
 |------------|---------------|----------|
-| `JOURNAL` | `LLM` | User-uploaded AI-processed journal entries |
-| `SUBMISSION` | `HUMAN` | User file uploads against an Exercise |
+| `JOURNAL_SUBMISSION` | `LLM` | User-uploaded AI-processed journal entries |
+| `EXERCISE_SUBMISSION` | `HUMAN` | User file uploads against an Exercise |
 
-**Key insight:** Journal is NOT a separate domain. It is `EntityType.JOURNAL`, a distinct entity
+**Key insight:** Journal is NOT a separate domain. It is `EntityType.JOURNAL_SUBMISSION`, a distinct entity
 type within the Submissions domain. The `/journals/*` UI is a domain-specific entry point;
 route registration, services, and API all live inside submissions.
 
@@ -469,7 +469,7 @@ CLI alternative:
 | Domain Model | `/core/models/submissions/journal.py` |
 | DTO | `/core/models/submissions/journal_dto.py` |
 | Base (Submission) | `/core/models/submissions/submission.py` |
-| EntityType | `EntityType.JOURNAL` in `/core/models/enums/entity_enums.py` |
+| EntityType | `EntityType.JOURNAL_SUBMISSION` in `/core/models/enums/entity_enums.py` |
 | **Services** | |
 | LLM Caller | `/core/services/llm_caller.py` |
 | Instruction Resolver | `/core/services/output/instruction_resolver.py` |
