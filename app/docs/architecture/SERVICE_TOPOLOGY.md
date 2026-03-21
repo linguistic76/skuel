@@ -303,6 +303,18 @@ Activity Domain Facades (6 total)
 
 **Pattern:** All 6 domains share 4 common sub-services (core, search, intelligence, ai) plus domain-specific services.
 
+**Shared Knowledge Intelligence (singleton):**
+```
+ActivityKnowledgeIntelligenceService (core/services/knowledge/)
+├─ Extends: BaseAnalyticsService["BackendOperations[Entity]", Entity]
+├─ Backend: UniversalNeo4jBackend[Entity] with NeoLabel.ENTITY
+│   └─ find_by(user_uid=...) returns user-owned activity entities across all domains
+│      (shared entities lack user_uid and naturally filter out)
+├─ Responsibility: Domain-agnostic knowledge suggestions, prerequisites, learning opportunities
+└─ Methods: get_knowledge_suggestions(), generate_knowledge_from_entities(),
+            get_knowledge_prerequisites(), get_learning_opportunities()
+```
+
 **Learning Loop Intelligence:** `LearningLoopEventHandlerService` follows the same fire-and-forget pattern but is wired directly (not part of a facade). Subscribes to `SubmissionCreated`, `ReportSubmitted`, `SubmissionApproved`. Persists `LEARNING_PROGRESS`, `COMPLETION_PATTERN`, and `MASTERY_ACHIEVED` insights. File: `core/services/submissions/learning_loop_event_handler_service.py`.
 
 ---

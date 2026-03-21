@@ -415,6 +415,8 @@ from core.services.intelligence import (
 
 Extracted from TasksIntelligenceService (March 2026). These methods are domain-agnostic — they use `PatternAnalyzer` on entity titles and graph traversal via shared utilities. All 6 activity domains have knowledge relationships in Neo4j.
 
+**Backend:** Uses `UniversalNeo4jBackend[Entity]` with `NeoLabel.ENTITY` — queries across ALL entity types. Since only user-owned activity entities have `user_uid`, shared entities (Lesson, Ku, etc.) naturally filter out from `find_by(user_uid=...)` calls. Uses `EntityStatus.COMPLETED` (not `CompletionStatus.DONE`) for completed entity queries.
+
 ---
 
 ### Curriculum (4)
@@ -578,6 +580,8 @@ uv run python -m pytest tests/integration/intelligence/ -k "test_predict_goal_su
 - ✅ `ActivityKnowledgeIntelligenceService` created (`core/services/knowledge/`)
 - Domain-agnostic methods extracted from TasksIntelligenceService: `get_knowledge_suggestions()`, `generate_knowledge_from_entities()`, `get_knowledge_prerequisites()`, `get_learning_opportunities()`
 - These methods serve all 6 activity domains (graph relationships already exist)
+- Backend: `UniversalNeo4jBackend[Entity]` with `NeoLabel.ENTITY` — queries user-owned activity entities across all domains
+- Type: `BaseAnalyticsService["BackendOperations[Entity]", Entity]`
 
 **Standalone (modular package architecture):**
 - UserContextIntelligence (ADR-021, mixin composition pattern)

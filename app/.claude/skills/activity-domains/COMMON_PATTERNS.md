@@ -142,6 +142,8 @@ class TasksIntelligenceService(BaseAnalyticsService[TasksOperations, Task]):
 
 **Shared knowledge intelligence** (suggestions, prerequisites, learning opportunities) lives in
 `ActivityKnowledgeIntelligenceService` (`core/services/knowledge/`) — serves all 6 activity domains.
+Uses `UniversalNeo4jBackend[Entity]` with `NeoLabel.ENTITY` so `find_by(user_uid=...)` returns
+user-owned activity entities across all domains (shared entities lack `user_uid` and filter out).
 
 ## Cross-Domain Relationships
 
