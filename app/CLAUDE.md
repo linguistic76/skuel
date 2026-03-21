@@ -581,7 +581,7 @@ Domain-specific relationship Cypher belongs on the domain backend. Cross-domain 
 
 **7 Mixins:** ConversionHelpers, CRUD, Search, Relationships, TimeQuery, UserProgress, Context.
 
-**6 Activity Domains:** Tasks (9 sub-services), Goals (8), Habits (13), Events (9), Choices (6), Principles (9). All use facade pattern with explicit `async def` delegation methods. Factory: `create_common_sub_services()`. **Shared:** `ActivityKnowledgeIntelligenceService` (`core/services/knowledge/`) provides domain-agnostic knowledge intelligence (suggestions, prerequisites, learning opportunities) for all 6 domains.
+**6 Activity Domains:** Tasks (11 sub-services), Goals (9), Habits (14), Events (10), Choices (7), Principles (10). All use facade pattern with explicit `async def` delegation methods. Factory: `create_common_sub_services()`. **Shared:** `ActivityKnowledgeIntelligenceService` (`core/services/knowledge/`) provides domain-agnostic knowledge intelligence (suggestions, prerequisites, learning opportunities) for all 6 domains — wired into every facade via `self.knowledge_intelligence`.
 
 **Essential Docs:** `/docs/guides/BASESERVICE_QUICK_START.md`, `/docs/reference/SUB_SERVICE_CATALOG.md`, `/docs/reference/BASESERVICE_METHOD_INDEX.md`, `/docs/architecture/SERVICE_TOPOLOGY.md`
 

@@ -33,7 +33,7 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from core.constants import GraphDepth
 from core.models.entity import Entity
@@ -43,9 +43,6 @@ from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.intelligence import PatternAnalyzer
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_second_item
-
-if TYPE_CHECKING:
-    from core.ports.domain_protocols import BackendOperations
 
 # =============================================================================
 # HELPER FUNCTIONS (SKUEL012 - no lambdas)
@@ -57,9 +54,7 @@ def _extract_lowercase_title(entity: Any) -> str:
     return entity.title.lower()
 
 
-class ActivityKnowledgeIntelligenceService(
-    BaseAnalyticsService["BackendOperations[Entity]", Entity]
-):
+class ActivityKnowledgeIntelligenceService(BaseAnalyticsService[Any, Entity]):
     """
     Knowledge intelligence for ANY activity domain entity.
 
@@ -311,7 +306,7 @@ class ActivityKnowledgeIntelligenceService(
                         )
 
         # Identify skill development opportunities
-        skill_opportunities = self._identify_skill_opportunities(entities)
+        skill_opportunities = await self._identify_skill_opportunities(entities)
         opportunities.extend(skill_opportunities)
 
         # Determine recommended focus
@@ -378,20 +373,41 @@ class ActivityKnowledgeIntelligenceService(
             f"Document {pattern['name']} workflow and best practices" for pattern in patterns[:5]
         ]
 
-    def _identify_skill_opportunities(self, entities: list) -> list[dict[str, Any]]:
-        """Identify skill development opportunities from entity titles."""
+    async def _get_skill_vocabulary(self) -> list[str]:
+        """Derive skill vocabulary from Ku titles/tags in the graph."""
+        query = """
+        MATCH (k:Ku:Entity)
+        RETURN k.title AS title, k.tags AS tags
+        """
+        results = await self.graph_intel.executor.execute_query(query, {})
+        if results.is_error:
+            return []
+
+        keywords: set[str] = set()
+        for record in results.value:
+            title = record.get("title", "")
+            if title:
+                # Use individual words >= 4 chars from Ku titles
+                for word in title.lower().split():
+                    if len(word) >= 4:
+                        keywords.add(word)
+            tags = record.get("tags")
+            if tags:
+                tag_list = tags if isinstance(tags, list) else [tags]
+                for tag in tag_list:
+                    if isinstance(tag, str) and len(tag) >= 3:
+                        keywords.add(tag.lower())
+        return list(keywords)
+
+    async def _identify_skill_opportunities(self, entities: list) -> list[dict[str, Any]]:
+        """Identify skill development opportunities from entity titles using graph-derived vocabulary."""
+        skill_keywords = await self._get_skill_vocabulary()
+        if not skill_keywords:
+            return []
         return PatternAnalyzer.extract_skill_keywords(
             entities,
             text_extractor=_extract_lowercase_title,
-            skill_keywords=[
-                "python",
-                "javascript",
-                "react",
-                "api",
-                "database",
-                "testing",
-                "deploy",
-            ],
+            skill_keywords=skill_keywords,
         )
 
     def _determine_focus_areas(self, opportunities: list[dict]) -> list[str]:

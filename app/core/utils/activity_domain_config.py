@@ -143,7 +143,7 @@ ACTIVITY_DOMAIN_CONFIGS: dict[str, ActivityDomainConfig] = {
 @dataclass
 class CommonSubServices(Generic[T_Intelligence]):
     """
-    Container for the 4 common sub-services created by the factory.
+    Container for the 5 common sub-services created by the factory.
 
     Generic over T_Intelligence to preserve the concrete intelligence service type.
     Facades should annotate the assignment to get proper type checking:
@@ -156,6 +156,7 @@ class CommonSubServices(Generic[T_Intelligence]):
     search: Any
     relationships: UnifiedRelationshipService
     intelligence: T_Intelligence
+    knowledge_intelligence: Any  # ActivityKnowledgeIntelligenceService (shared singleton)
 
 
 def create_common_sub_services(
@@ -164,9 +165,10 @@ def create_common_sub_services(
     graph_intel: Any,
     event_bus: Any = None,
     insight_store: Any = None,
+    knowledge_intelligence: Any = None,
 ) -> CommonSubServices[Any]:
     """
-    Factory function to create the 4 common sub-services for Activity Domain facades.
+    Factory function to create the 5 common sub-services for Activity Domain facades.
 
     This eliminates ~80 lines of repetitive initialization code per facade.
 
@@ -176,21 +178,24 @@ def create_common_sub_services(
         graph_intel: GraphIntelligenceService for analytics
         event_bus: Event bus for domain events (optional)
         insight_store: InsightStore for persisting event-driven insights (optional, - January 2026)
+        knowledge_intelligence: ActivityKnowledgeIntelligenceService (shared singleton)
 
     Returns:
-        CommonSubServices dataclass with core, search, relationships, intelligence.
+        CommonSubServices dataclass with core, search, relationships, intelligence,
+        knowledge_intelligence.
         Callers should annotate with specific intelligence type for type safety:
 
             common: CommonSubServices[TasksIntelligenceService] = create_common_sub_services(...)
 
     Example:
         common: CommonSubServices[TasksIntelligenceService] = create_common_sub_services(
-            "tasks", backend, graph_intel, event_bus, insight_store
+            "tasks", backend, graph_intel, event_bus, insight_store, knowledge_intelligence
         )
         self.core = common.core
         self.search = common.search
         self.relationships = common.relationships
         self.intelligence = common.intelligence # Typed as TasksIntelligenceService
+        self.knowledge_intelligence = common.knowledge_intelligence
     """
     import importlib
 
@@ -241,4 +246,5 @@ def create_common_sub_services(
         search=search,
         relationships=relationships,
         intelligence=intelligence,
+        knowledge_intelligence=knowledge_intelligence,
     )

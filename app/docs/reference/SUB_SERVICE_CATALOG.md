@@ -166,6 +166,32 @@ result = await rels.link_to_knowledge(task_uid, ku_uid, knowledge_score_required
 
 ---
 
+### ActivityKnowledgeIntelligenceService
+
+**File:** `core/services/knowledge/activity_knowledge_intelligence_service.py`
+**Extends:** `BaseAnalyticsService`
+
+**Responsibility:** Domain-agnostic knowledge intelligence for all 6 Activity Domains (shared singleton)
+
+**Key Methods:**
+- `get_knowledge_suggestions()` - Knowledge suggestions from entity patterns
+- `generate_knowledge_from_entities()` - Knowledge units from completed entities
+- `get_knowledge_prerequisites()` - Knowledge prerequisites for any entity
+- `get_learning_opportunities()` - Learning opportunities from entity patterns
+
+**When to use:**
+- Analyzing how activities connect to knowledge
+- Finding knowledge gaps across all activity domains
+- Generating knowledge unit proposals from patterns
+
+**Dependencies:**
+- Entity-level backend (`NeoLabel.ENTITY`)
+- `GraphIntelligenceService` (graph traversal)
+
+**Access:** Via any Activity Domain facade — `service.get_knowledge_suggestions(user_uid)`
+
+---
+
 ## Domain-Specific Sub-Services
 
 These sub-services exist in specific Activity Domains:

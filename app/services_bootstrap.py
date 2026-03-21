@@ -809,6 +809,8 @@ def _create_activity_services(
     ku_generation_service: Any = None,
     # Event-driven insights
     insight_store: Any = None,
+    # Knowledge intelligence (shared singleton for all 6 domains)
+    activity_knowledge_intelligence: Any = None,
 ) -> dict[str, Any]:
     """Create all 6 Activity Domain services.
 
@@ -840,12 +842,14 @@ def _create_activity_services(
             graph_intelligence_service=graph_intelligence,
             event_bus=event_bus,
             insight_store=insight_store,
+            activity_knowledge_intelligence=activity_knowledge_intelligence,
         ),
         "events": EventsService(
             backend=events_backend,
             graph_intelligence_service=graph_intelligence,
             event_bus=event_bus,
             insight_store=insight_store,
+            activity_knowledge_intelligence=activity_knowledge_intelligence,
         ),
         "habits": HabitsService(
             backend=habits_backend,
@@ -853,18 +857,21 @@ def _create_activity_services(
             completions_backend=habit_completions_backend,  # REQUIRED - fail-fast
             event_bus=event_bus,
             insight_store=insight_store,
+            activity_knowledge_intelligence=activity_knowledge_intelligence,
         ),
         "goals": GoalsService(
             backend=goals_backend,
             graph_intelligence_service=graph_intelligence,
             event_bus=event_bus,
             insight_store=insight_store,
+            activity_knowledge_intelligence=activity_knowledge_intelligence,
         ),
         "choices": ChoicesService(
             backend=choices_backend,
             graph_intelligence_service=graph_intelligence,
             event_bus=event_bus,
             insight_store=insight_store,
+            activity_knowledge_intelligence=activity_knowledge_intelligence,
         ),
         "principles": PrinciplesService(
             backend=principles_backend,
@@ -874,6 +881,7 @@ def _create_activity_services(
             reflection_backend=reflection_backend,
             event_bus=event_bus,
             insight_store=insight_store,
+            activity_knowledge_intelligence=activity_knowledge_intelligence,
         ),
     }
 
@@ -2131,6 +2139,7 @@ async def compose_services(
             analytics_engine=analytics_engine,
             ku_generation_service=ku_generation_service,
             insight_store=insight_store,
+            activity_knowledge_intelligence=activity_knowledge_intelligence,
         )
         logger.info("✅ Activity Domain services created (6 facades with embedded intelligence)")
 

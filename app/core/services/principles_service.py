@@ -324,6 +324,7 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
         event_bus: Any = None,
         ai_service: PrinciplesAIService | None = None,
         insight_store: Any = None,
+        activity_knowledge_intelligence: Any = None,
     ) -> None:
         """
         Initialize enhanced principles service with specialized sub-services.
@@ -398,11 +399,40 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
             insight_store=insight_store,
         )
 
+        # Knowledge intelligence (shared singleton — domain-agnostic)
+        self.knowledge_intelligence = activity_knowledge_intelligence
+
         self.logger.info(
-            "PrinciplesService facade initialized with 9 sub-services: "
+            "PrinciplesService facade initialized with 10 sub-services: "
             "core, search, alignment, learning, relationships, intelligence, "
-            "reflection, planning, event_handler"
+            "reflection, planning, event_handler, knowledge_intelligence"
         )
+
+    # ========================================================================
+    # KNOWLEDGE INTELLIGENCE - Delegate to ActivityKnowledgeIntelligenceService
+    # ========================================================================
+
+    async def get_knowledge_suggestions(
+        self, user_uid: str, entity_uid: str | None = None
+    ) -> Result[dict[str, Any]]:
+        """Generate knowledge suggestions from entity patterns."""
+        return await self.knowledge_intelligence.get_knowledge_suggestions(user_uid, entity_uid)
+
+    async def generate_knowledge_from_entities(
+        self, user_uid: str, period_days: int = 30
+    ) -> Result[dict[str, Any]]:
+        """Generate knowledge units from completed entities."""
+        return await self.knowledge_intelligence.generate_knowledge_from_entities(
+            user_uid, period_days
+        )
+
+    async def get_knowledge_prerequisites(self, entity_uid: str) -> Result[dict[str, Any]]:
+        """Analyze knowledge prerequisites for an entity."""
+        return await self.knowledge_intelligence.get_knowledge_prerequisites(entity_uid)
+
+    async def get_learning_opportunities(self, user_uid: str) -> Result[dict[str, Any]]:
+        """Discover learning opportunities from entity patterns."""
+        return await self.knowledge_intelligence.get_learning_opportunities(user_uid)
 
     # ========================================================================
     # DOMAIN-SPECIFIC CONTRACT

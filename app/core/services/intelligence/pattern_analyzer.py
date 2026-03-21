@@ -188,12 +188,12 @@ class PatternAnalyzer:
         """
         Extract skill development opportunities from entity text.
 
-        Used by TasksIntelligenceService for skill opportunity identification.
+        Used by ActivityKnowledgeIntelligenceService for skill opportunity identification.
 
         Args:
             entities: List of entities to analyze
             text_extractor: Function to get searchable text from entity
-            skill_keywords: Optional list of keywords to detect (default: common tech skills)
+            skill_keywords: List of keywords to detect (empty list returns no results)
 
         Returns:
             List of {"skill": name, "suggestion": text, "source": "task_analysis"} dicts
@@ -206,19 +206,7 @@ class PatternAnalyzer:
                 ["python", "react", "database", "testing"]
             )
         """
-        default_keywords = [
-            "python",
-            "javascript",
-            "react",
-            "api",
-            "database",
-            "testing",
-            "deploy",
-            "docker",
-            "kubernetes",
-            "sql",
-        ]
-        keywords = skill_keywords or default_keywords
+        keywords = skill_keywords or []
         found_skills: set[str] = set()
 
         for entity in entities:

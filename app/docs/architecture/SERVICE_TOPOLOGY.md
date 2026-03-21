@@ -279,34 +279,33 @@ TasksService (Facade)
 ```
 Activity Domain Facades (6 total)
 │
-├─ TasksService     (9 sub-services)
-│   └─ core, search, progress, scheduling, planning, intelligence, productivity, learning_metrics, event_handler, ai
-│   NOTE: Knowledge intelligence (suggestions, prerequisites, learning opportunities) extracted to
-│         ActivityKnowledgeIntelligenceService (core/services/knowledge/) — shared across all 6 domains
+├─ TasksService     (11 sub-services)
+│   └─ core, search, progress, scheduling, planning, intelligence, productivity,
+│      learning_metrics, event_handler, knowledge_intelligence, ai
 │
-├─ GoalsService      (8 sub-services)
-│   └─ core, search, progress, scheduling, learning, intelligence, event_handler, ai
+├─ GoalsService      (9 sub-services)
+│   └─ core, search, progress, scheduling, learning, intelligence, event_handler, knowledge_intelligence, ai
 │
-├─ HabitsService    (13 sub-services)  ← Most complex
+├─ HabitsService    (14 sub-services)  ← Most complex
 │   └─ core, search, progress, scheduling, planning, learning, completions,
-│      event_integration, event_handler, intelligence, ai, patterns, goal_analytics
+│      event_integration, event_handler, intelligence, knowledge_intelligence, ai, patterns, goal_analytics
 │
-├─ EventsService     (9 sub-services)
-│   └─ core, search, progress, scheduling, learning, habit_integration, event_handler, intelligence, ai
+├─ EventsService     (10 sub-services)
+│   └─ core, search, progress, scheduling, learning, habit_integration, event_handler, intelligence, knowledge_intelligence, ai
 │
-├─ ChoicesService    (6 sub-services)
-│   └─ core, search, learning, intelligence, event_handler, ai
+├─ ChoicesService    (7 sub-services)
+│   └─ core, search, learning, intelligence, event_handler, knowledge_intelligence, ai
 │
-└─ PrinciplesService (9 sub-services)
-    └─ core, search, alignment, learning, planning, reflection, intelligence, ai, event_handler
+└─ PrinciplesService (10 sub-services)
+    └─ core, search, alignment, learning, planning, reflection, intelligence, knowledge_intelligence, ai, event_handler
 ```
 
-**Pattern:** All 6 domains share 4 common sub-services (core, search, intelligence, ai) plus domain-specific services.
+**Pattern:** All 6 domains share 5 common sub-services (core, search, intelligence, knowledge_intelligence, ai) plus domain-specific services.
 
 **Shared Knowledge Intelligence (singleton):**
 ```
 ActivityKnowledgeIntelligenceService (core/services/knowledge/)
-├─ Extends: BaseAnalyticsService["BackendOperations[Entity]", Entity]
+├─ Extends: BaseAnalyticsService[Any, Entity]
 ├─ Backend: UniversalNeo4jBackend[Entity] with NeoLabel.ENTITY
 │   └─ find_by(user_uid=...) returns user-owned activity entities across all domains
 │      (shared entities lack user_uid and naturally filter out)

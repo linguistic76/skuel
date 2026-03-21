@@ -173,10 +173,11 @@ NONE -> VIEWED -> IN_PROGRESS -> MASTERED
 - Curriculum navigation (learning steps, learning paths)
 
 **Methods:**
-- `find_events_applying_knowledge()`, `find_habits_reinforcing_knowledge()`
-- `find_learning_steps_containing()`, `find_learning_paths_teaching()`
-- `find_tasks_applying_knowledge()`, `find_goals_requiring_knowledge()`
-- `find_choices_informed_by_knowledge()`, `find_principles_embodying_knowledge()`
+- `find_activities_connected_to_knowledge()` — generic method for all 6 activity domains
+- Domain wrappers: `find_events_applying_knowledge()`, `find_habits_reinforcing_knowledge()`,
+  `find_tasks_applying_knowledge()`, `find_goals_requiring_knowledge()`,
+  `find_choices_informed_by_knowledge()`, `find_principles_embodying_knowledge()`
+- Curriculum: `find_learning_steps_containing()`, `find_learning_paths_teaching()`
 
 ---
 
