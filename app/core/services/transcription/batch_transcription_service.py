@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from core.utils.exception_types import FILE_IO_EXCEPTIONS
@@ -26,6 +25,8 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from adapters.external.deepgram.adapter import DeepgramAdapter
 
 logger = get_logger("skuel.services.transcription.batch")
@@ -82,7 +83,7 @@ class BatchTranscriptionService:
 
     def __init__(
         self,
-        deepgram_adapter: "DeepgramAdapter",
+        deepgram_adapter: DeepgramAdapter,
         max_concurrent: int = 5,
     ) -> None:
         """

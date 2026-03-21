@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from core.ports.output_generator_protocols import OutputGeneratorOperations
@@ -27,6 +26,8 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from core.services.output.instruction_resolver import InstructionResolver
     from core.services.transcription.batch_transcription_service import (
         BatchTranscriptionService,
@@ -66,7 +67,7 @@ class BatchProcessingService:
     def __init__(
         self,
         output_generator: OutputGeneratorOperations,
-        instruction_resolver: "InstructionResolver",
+        instruction_resolver: InstructionResolver,
         max_concurrent: int = 3,  # LLM calls are more expensive than transcription
     ) -> None:
         """
@@ -232,7 +233,7 @@ class BatchProcessingService:
         self,
         audio_dir: Path,
         output_dir: Path,
-        batch_transcription: "BatchTranscriptionService",
+        batch_transcription: BatchTranscriptionService,
         enrichment_mode: str | None = None,
         custom_instructions: str | None = None,
         model: str = "gpt-4o-mini",

@@ -375,6 +375,8 @@ class ActivityKnowledgeIntelligenceService(BaseAnalyticsService[Any, Entity]):
 
     async def _get_skill_vocabulary(self) -> list[str]:
         """Derive skill vocabulary from Ku titles/tags in the graph."""
+        if not self.graph_intel:
+            return []
         query = """
         MATCH (k:Ku:Entity)
         RETURN k.title AS title, k.tags AS tags

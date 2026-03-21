@@ -70,8 +70,8 @@ class UnifiedLLMCaller:
 
     def __init__(
         self,
-        openai: "OpenAIService | None" = None,
-        anthropic: "AnthropicService | None" = None,
+        openai: OpenAIService | None = None,
+        anthropic: AnthropicService | None = None,
     ) -> None:
         if not openai and not anthropic:
             raise ValueError("At least one AI service (OpenAI or Anthropic) must be provided")

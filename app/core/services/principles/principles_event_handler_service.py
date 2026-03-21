@@ -28,7 +28,6 @@ from core.events.principle_events import (
 )
 from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
 from core.models.principle.principle import Principle
-from core.models.relationship_names import RelationshipName
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 
@@ -137,10 +136,8 @@ class PrincipleEventHandlerService:
             # 2. Query connected goals
             goal_uids: list[str] = []
             if self.relationships:
-                goal_result = await self.relationships.get_related_uids(
+                goal_result = await self.relationships.get_principle_goals(
                     event.principle_uid,
-                    RelationshipName.ALIGNED_WITH_PRINCIPLE.value,
-                    "incoming",
                 )
                 if goal_result.is_ok:
                     goal_uids = goal_result.value
@@ -149,7 +146,7 @@ class PrincipleEventHandlerService:
             habit_uids: list[str] = []
             if self.relationships:
                 habit_result = await self.relationships.get_related_uids(
-                    event.principle_uid, RelationshipName.GUIDED_BY_PRINCIPLE.value, "incoming"
+                    "habits", event.principle_uid
                 )
                 if habit_result.is_ok:
                     habit_uids = habit_result.value

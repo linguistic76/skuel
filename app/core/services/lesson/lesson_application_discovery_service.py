@@ -16,6 +16,7 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 
 from typing import Any
 
+from core.models.relationship_names import RelationshipName
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -130,13 +131,10 @@ class LessonApplicationDiscoveryService:
         if results.is_error:
             return Result.fail(results.expect_error())
 
-        entity_uids = [
-            record["entity_uid"] for record in results.value if record.get("entity_uid")
-        ]
+        entity_uids = [record["entity_uid"] for record in results.value if record.get("entity_uid")]
 
         self.logger.debug(
-            f"Found {len(entity_uids)} {node_label} entities "
-            f"connected to knowledge {ku_uid}"
+            f"Found {len(entity_uids)} {node_label} entities connected to knowledge {ku_uid}"
         )
         return Result.ok(entity_uids)
 
@@ -155,7 +153,10 @@ class LessonApplicationDiscoveryService:
             ku_uid=ku_uid,
             user_uid=user_uid,
             node_label="Event",
-            relationship_types=["APPLIES_KNOWLEDGE", "REINFORCES_KNOWLEDGE"],
+            relationship_types=[
+                RelationshipName.APPLIES_KNOWLEDGE.value,
+                RelationshipName.REINFORCES_KNOWLEDGE.value,
+            ],
             filters=filters,
             order_by="start_time",
         )
@@ -171,7 +172,7 @@ class LessonApplicationDiscoveryService:
             ku_uid=ku_uid,
             user_uid=user_uid,
             node_label="Habit",
-            relationship_types=["REINFORCES_KNOWLEDGE"],
+            relationship_types=[RelationshipName.REINFORCES_KNOWLEDGE.value],
             filters=filters,
             order_by="created_at",
         )
@@ -187,7 +188,7 @@ class LessonApplicationDiscoveryService:
             ku_uid=ku_uid,
             user_uid=user_uid,
             node_label="Task",
-            relationship_types=["APPLIES_KNOWLEDGE"],
+            relationship_types=[RelationshipName.APPLIES_KNOWLEDGE.value],
             filters=filters,
             order_by="due_date",
         )
@@ -203,7 +204,7 @@ class LessonApplicationDiscoveryService:
             ku_uid=ku_uid,
             user_uid=user_uid,
             node_label="Goal",
-            relationship_types=["REQUIRES_KNOWLEDGE"],
+            relationship_types=[RelationshipName.REQUIRES_KNOWLEDGE.value],
             filters=filters,
             order_by="target_date",
         )
@@ -236,7 +237,7 @@ class LessonApplicationDiscoveryService:
             ku_uid=ku_uid,
             user_uid=user_uid,
             node_label="Principle",
-            relationship_types=["REINFORCES_KNOWLEDGE"],
+            relationship_types=[RelationshipName.REINFORCES_KNOWLEDGE.value],
             filters=filters,
             order_by="strength",
         )
@@ -276,9 +277,7 @@ class LessonApplicationDiscoveryService:
         if results.is_error:
             return Result.fail(results.expect_error())
 
-        step_uids = [
-            record["step_uid"] for record in results.value if record.get("step_uid")
-        ]
+        step_uids = [record["step_uid"] for record in results.value if record.get("step_uid")]
 
         self.logger.debug(f"Found {len(step_uids)} learning steps containing knowledge {ku_uid}")
         return Result.ok(step_uids)
@@ -310,9 +309,7 @@ class LessonApplicationDiscoveryService:
         if results.is_error:
             return Result.fail(results.expect_error())
 
-        path_uids = [
-            record["path_uid"] for record in results.value if record.get("path_uid")
-        ]
+        path_uids = [record["path_uid"] for record in results.value if record.get("path_uid")]
 
         self.logger.debug(f"Found {len(path_uids)} learning paths teaching knowledge {ku_uid}")
         return Result.ok(path_uids)

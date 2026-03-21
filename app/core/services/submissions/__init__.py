@@ -25,13 +25,18 @@ Sharing lives in core.services.sharing (cross-domain).
 Report services live in core.services.report.
 """
 
+from core.services.submissions.assessment_service import AssessmentService
 from core.services.submissions.journal_output_generator import JournalOutputGenerator
+from core.services.submissions.journals_core_service import JournalsCoreService
+
+# Learning loop intelligence (event-driven insights)
+from core.services.submissions.learning_loop_event_handler_service import (
+    LearningLoopEventHandlerService,
+)
 from core.services.submissions.submission_processing_types import (
     SubmissionAIInsights,
     SubmissionProcessingContext,
 )
-from core.services.submissions.assessment_service import AssessmentService
-from core.services.submissions.journals_core_service import JournalsCoreService
 from core.services.submissions.submissions_core_service import SubmissionsCoreService
 from core.services.submissions.submissions_processing_service import SubmissionsProcessingService
 from core.services.submissions.submissions_relationship_service import (
@@ -39,11 +44,6 @@ from core.services.submissions.submissions_relationship_service import (
 )
 from core.services.submissions.submissions_search_service import SubmissionsSearchService
 from core.services.submissions.submissions_service import SubmissionsService
-
-# Learning loop intelligence (event-driven insights)
-from core.services.submissions.learning_loop_event_handler_service import (
-    LearningLoopEventHandlerService,
-)
 
 __all__ = [
     "AssessmentService",

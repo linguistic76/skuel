@@ -472,9 +472,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
                     count += 1
 
             # Get inspired habits
-            habits_result = await self.relationships.get_related_uids(
-                principle.uid, RelationshipName.GUIDED_BY_PRINCIPLE.value, "incoming"
-            )
+            habits_result = await self.relationships.get_related_uids("habits", principle.uid)
             if habits_result.is_ok and habits_result.value:
                 for habit_uid in habits_result.value:
                     evidence.append(f"Habit '{habit_uid}' practices this principle")

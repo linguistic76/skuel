@@ -12,7 +12,7 @@ See: core/services/output/instruction_resolver.py for instruction resolution log
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Literal, Protocol
 
 from core.utils.result_simplified import Result

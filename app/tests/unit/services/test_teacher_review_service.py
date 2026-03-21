@@ -12,7 +12,6 @@ from core.events.submission_events import (
 from core.services.report.teacher_review_service import TeacherReviewService
 from core.utils.result_simplified import Errors, Result
 
-
 TEACHER_UID = "user_teacher_abc"
 STUDENT_UID = "user_student_xyz"
 SUBMISSION_UID = "es_submission_001"

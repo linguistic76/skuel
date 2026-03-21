@@ -2,7 +2,7 @@
 
 import json
 from datetime import UTC, date, datetime
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -14,7 +14,6 @@ from core.services.submissions.submissions_core_service import (
     SubmissionsCoreService,
 )
 from core.utils.result_simplified import Errors, Result
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -32,8 +31,8 @@ def _make_entity(**kwargs):
     entity.content = kwargs.get("content", "test content")
     entity.created_at = kwargs.get("created_at", datetime(2026, 3, 1, tzinfo=UTC))
     entity.user_uid = kwargs.get("user_uid", "user_1")
-    entity.max_retention = kwargs.get("max_retention", None)
-    entity.processed_content = kwargs.get("processed_content", None)
+    entity.max_retention = kwargs.get("max_retention")
+    entity.processed_content = kwargs.get("processed_content")
     entity.tags = kwargs.get("tags", ())
     return entity
 
@@ -298,7 +297,7 @@ class TestEnforceFifo:
             for i in range(4)
         ]
         permanent = _make_entity(uid="perm_1", max_retention=None)
-        backend.find_by = AsyncMock(return_value=Result.ok(fifo_journals + [permanent]))
+        backend.find_by = AsyncMock(return_value=Result.ok([*fifo_journals, permanent]))
         backend.delete = AsyncMock(return_value=Result.ok(True))
         service = _make_service(backend=backend)
 

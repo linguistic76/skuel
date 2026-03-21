@@ -9,13 +9,10 @@ Uses synthetic string content — no filesystem access needed.
 import sys
 from pathlib import Path
 
-import pytest
-
 # scripts/ has no __init__.py — add it to sys.path for import
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
 
 from lint_skuel import LintResult, Severity, SkuelLinter, Violation
-
 
 # ============================================================================
 # HELPERS
@@ -79,9 +76,8 @@ def lint_content(
         if linter._should_run_rule("SKUEL014"):
             linter._check_entity_type_strings(fp, rel, content, lines)
 
-    if is_adapter:
-        if linter._should_run_rule("SKUEL008"):
-            linter._check_backend_wrappers(fp, rel, content)
+    if is_adapter and linter._should_run_rule("SKUEL008"):
+        linter._check_backend_wrappers(fp, rel, content)
 
     return linter.result.violations
 

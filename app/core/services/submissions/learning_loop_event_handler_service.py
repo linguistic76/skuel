@@ -20,7 +20,7 @@ Responsibilities:
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from core.constants import LearningLoop
 from core.events.submission_events import (

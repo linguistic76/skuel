@@ -50,7 +50,7 @@ class InstructionResolver:
         self,
         enrichment_mode: str | None = None,
         custom_instructions: str | None = None,
-        exercise: "Exercise | None" = None,
+        exercise: Exercise | None = None,
         model: str = "gpt-4o-mini",
         temperature: float = 0.7,
         max_tokens: int = 4000,

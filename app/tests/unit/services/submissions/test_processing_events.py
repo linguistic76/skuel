@@ -8,8 +8,7 @@ Tests cover:
 - Events not published when event_bus is None (graceful degradation)
 """
 
-from datetime import datetime
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
@@ -24,7 +23,6 @@ from core.services.submissions.submissions_processing_service import (
     SubmissionsProcessingService,
 )
 from core.utils.result_simplified import Errors, Result
-
 
 # ---------------------------------------------------------------------------
 # Fixtures

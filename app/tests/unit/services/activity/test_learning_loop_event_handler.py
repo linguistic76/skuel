@@ -9,9 +9,10 @@ Tests cover:
 """
 
 from datetime import datetime, timedelta
-from unittest.mock import AsyncMock, Mock, PropertyMock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
+from neo4j.exceptions import ServiceUnavailable
 
 from core.events.submission_events import (
     ReportSubmitted,
@@ -24,10 +25,7 @@ from core.services.submissions.learning_loop_event_handler_service import (
     _classify_mastery_velocity,
     _is_feedback_anomaly,
 )
-from neo4j.exceptions import ServiceUnavailable
-
 from core.utils.result_simplified import Errors, Result
-
 
 # ---------------------------------------------------------------------------
 # Fixtures

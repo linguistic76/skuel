@@ -5,8 +5,6 @@ Tests for UI Enum Helpers
 Tests bridge functions, non-Tailwind helpers, and component builders.
 """
 
-import pytest
-
 from ui.enum_helpers import (
     get_activity_icon,
     get_calendar_icon,
@@ -39,7 +37,6 @@ from ui.enum_helpers import (
     render_status_chip,
     render_trend_indicator,
 )
-
 
 # ============================================================================
 # BRIDGE FUNCTIONS — str → Tailwind class

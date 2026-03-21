@@ -27,7 +27,6 @@ from core.services.tasks.task_event_handler_service import (
 )
 from core.utils.result_simplified import Errors, Result
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------

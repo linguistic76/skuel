@@ -9,8 +9,6 @@ Uses SimpleNamespace for mock entities.
 from datetime import date, time, timedelta
 from types import SimpleNamespace
 
-import pytest
-
 from core.models.enums import Priority
 from ui.calendar.converters import (
     EVENT_TYPE_COLORS,
@@ -23,7 +21,6 @@ from ui.calendar.converters import (
     habit_to_calendar_items,
     task_to_calendar_item,
 )
-
 
 # ============================================================================
 # _normalize_priority

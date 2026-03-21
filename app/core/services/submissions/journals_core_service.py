@@ -23,7 +23,6 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from core.events.transcription_events import TranscriptionCompleted
 
-from core.events import publish_event
 from core.models.entity_types import SubmissionEntity
 from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
 from core.models.relationship_names import RelationshipName

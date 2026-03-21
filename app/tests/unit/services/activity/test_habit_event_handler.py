@@ -28,7 +28,6 @@ from core.services.habits.habit_event_handler_service import (
 )
 from core.utils.result_simplified import Result
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------

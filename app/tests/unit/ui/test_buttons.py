@@ -5,9 +5,8 @@ Tests for UI Button Components
 Verifies ButtonT enum, variant/size mapping, and component builders.
 """
 
-from ui.buttons import ButtonT, _SIZE_MAP, _VARIANT_MAP, Button, ButtonLink, IconButton
+from ui.buttons import _SIZE_MAP, _VARIANT_MAP, Button, ButtonLink, ButtonT, IconButton
 from ui.layout import Size
-
 
 # ============================================================================
 # ButtonT enum
@@ -120,7 +119,7 @@ class TestIconButton:
         assert result is not None
 
     def test_variant(self) -> None:
-        result = IconButton("➕", variant=ButtonT.primary)
+        result = IconButton("+", variant=ButtonT.primary)
         assert result is not None
 
     def test_with_size(self) -> None:

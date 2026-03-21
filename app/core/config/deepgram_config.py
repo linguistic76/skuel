@@ -76,7 +76,7 @@ class DeepgramConfig:
             return cls()
 
         try:
-            with open(config_path, "rb") as f:
+            with config_path.open("rb") as f:
                 raw = tomllib.load(f)
         except Exception as e:  # safety-net: bad TOML should not crash the app
             logger.warning(f"Failed to parse {config_path}: {e} — using defaults")

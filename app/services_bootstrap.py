@@ -532,12 +532,12 @@ def _create_core_services(
         event_bus: Event bus for publishing domain events (optional)
     """
     from adapters.external.deepgram import DeepgramAdapter
-    from core.services.finance_service import FinanceService
-    from core.services.transcription import TranscriptionService
 
     # Create DeepgramAdapter (REQUIRED - fail-fast if key missing)
     # Options loaded from config/deepgram.toml — see docs/configuration/DEEPGRAM_CONFIG.md
     from core.config.deepgram_config import load_deepgram_config
+    from core.services.finance_service import FinanceService
+    from core.services.transcription import TranscriptionService
 
     deepgram_config = load_deepgram_config()
     deepgram_adapter = DeepgramAdapter(deepgram_api_key, config=deepgram_config)
@@ -609,6 +609,7 @@ def _create_learning_services(
     event_bus: Any = None,
     prometheus_metrics: "PrometheusMetrics | None" = None,
     query_executor: Any = None,
+    activity_knowledge_intelligence: Any = None,
 ) -> dict[str, Any]:
     """Create all learning-related services using 100% dynamic backends."""
     from core.models.pathways.learning_path import LearningPath
@@ -619,7 +620,6 @@ def _create_learning_services(
     from core.services.ls_service import LsService
     from core.services.query_builder import QueryBuilder
     from core.services.schema_service import Neo4jSchemaService
-
     from core.services.user_progress_service import UserProgressService
 
     # Create embedding + vector search services (March 2026 - HuggingFace Migration)
@@ -689,28 +689,6 @@ def _create_learning_services(
         graph_intel=graph_intelligence,
         event_bus=event_bus,
     )
-
-    # Create activity knowledge intelligence service (March 2026)
-    # Shared knowledge intelligence for all 6 activity domains — extracted from
-    # TasksIntelligenceService because these methods are domain-agnostic.
-    # Uses Entity-level backend (NeoLabel.ENTITY) so find_by(user_uid=...) queries
-    # across ALL user-owned activity entities (Tasks, Goals, Habits, Events, Choices,
-    # Principles). Shared entities (Lesson, Ku, etc.) lack user_uid so naturally
-    # filter out.
-    from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-    from core.models.entity import Entity
-
-    activity_entity_backend = UniversalNeo4jBackend[Entity](
-        driver, NeoLabel.ENTITY, Entity, base_label=NeoLabel.ENTITY
-    )
-
-    from core.services.knowledge import ActivityKnowledgeIntelligenceService
-
-    activity_knowledge_intelligence = ActivityKnowledgeIntelligenceService(
-        backend=activity_entity_backend,
-        graph_intelligence_service=graph_intelligence,
-    )
-    logger.info("✅ ActivityKnowledgeIntelligenceService created")
 
     # Create progress services
     user_progress = UserProgressService(query_executor)
@@ -2122,6 +2100,24 @@ async def compose_services(
         logger.info("✅ InsightStore created (event-driven insights)")
 
         # ========================================================================
+        # ACTIVITY KNOWLEDGE INTELLIGENCE (shared singleton for all 6 domains)
+        # ========================================================================
+        # Created here (not in _create_learning_services) to break circular
+        # dependency: activity_services needs this, learning_services needs activity_services.
+        from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
+        from core.models.entity import Entity
+        from core.services.knowledge import ActivityKnowledgeIntelligenceService
+
+        activity_entity_backend = UniversalNeo4jBackend[Entity](
+            driver, NeoLabel.ENTITY, Entity, base_label=NeoLabel.ENTITY
+        )
+        activity_knowledge_intelligence = ActivityKnowledgeIntelligenceService(
+            backend=activity_entity_backend,
+            graph_intelligence_service=graph_intelligence,
+        )
+        logger.info("✅ ActivityKnowledgeIntelligenceService created")
+
+        # ========================================================================
         # ACTIVITY DOMAIN SERVICES (6) - Unified creation
         # ========================================================================
         activity_services = _create_activity_services(
@@ -2249,6 +2245,7 @@ async def compose_services(
             event_bus=event_bus,  # Event-driven architecture
             prometheus_metrics=prometheus_metrics,  # Metrics instrumentation
             query_executor=query_executor,
+            activity_knowledge_intelligence=activity_knowledge_intelligence,
         )
         logger.info("✅ Learning services created")
 
@@ -2377,10 +2374,10 @@ async def compose_services(
         from adapters.persistence.neo4j.domain_backends import ExerciseBackend
         from core.models.exercises.exercise import Exercise
         from core.services.exercises import ExerciseService
-        from core.services.report import SubmissionReportService
 
         # UnifiedLLMCaller: routes to OpenAI or Anthropic based on model prefix
         from core.services.llm_caller import UnifiedLLMCaller
+        from core.services.report import SubmissionReportService
 
         llm_caller = None
         if ai_service:
