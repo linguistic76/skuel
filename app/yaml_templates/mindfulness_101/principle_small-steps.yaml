@@ -26,12 +26,16 @@ supported_knowledge_domains:
   - ku:breath-awareness-basics
   - ku:mind-wandering-happens
 
-guided_goal_uids:
-  - goal:mindfulness-beginner
-
-inspired_habit_uids:
-  - habit:daily-2min-breath
-  - habit:label-wander-daily
+# Knowledge connections — substance tracking
+connections:
+  grounded_in_knowledge:
+    - l:mindfulness:breath-awareness-basics
+    - l:mindfulness:mind-wandering-happens
+  guides_goal:
+    - goal:mindfulness-beginner
+  inspires_habit:
+    - habit:daily-2min-breath
+    - habit:label-wander-daily
 
 related_principle_uids:
   - principle:attention-over-intensity

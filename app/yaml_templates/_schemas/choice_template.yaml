@@ -100,6 +100,13 @@ alternatives:
 # connections: Cross-domain relationships (creates graph edges on ingestion)
 # Note: Field paths must match relationship registry yaml_field_path values
 connections:
+  # informed_by_knowledge: Knowledge that informs this choice (creates INFORMED_BY_KNOWLEDGE edges)
+  # Type: List of Lesson or KU UIDs
+  # Purpose: Links choice to knowledge units — feeds substance tracking pipeline
+  informed_by_knowledge:
+    - l:example-lesson
+    - ku:example-concept
+
   # guided_by_principle: Principles that inform this choice (creates INFORMED_BY_PRINCIPLE edges)
   # Type: List of Principle UIDs
   guided_by_principle:

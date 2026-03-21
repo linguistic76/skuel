@@ -23,6 +23,11 @@ constraints:
   - Requires ability to notice mental drift
   - No additional time needed (part of existing practice)
 
+# Knowledge connections — substance tracking
+connections:
+  informed_by_knowledge:
+    - l:mindfulness:mind-wandering-happens
+
 # Context
 stakeholders:
   - self

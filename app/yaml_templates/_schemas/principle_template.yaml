@@ -97,6 +97,13 @@ measurement_criteria: |
 # connections: Cross-domain relationships (creates graph edges on ingestion)
 # Note: Field paths must match relationship registry yaml_field_path values
 connections:
+  # grounded_in_knowledge: Knowledge this principle is grounded in (creates GROUNDED_IN_KNOWLEDGE edges)
+  # Type: List of Lesson or KU UIDs
+  # Purpose: Links principle to knowledge units — feeds substance tracking pipeline
+  grounded_in_knowledge:
+    - l:example-lesson
+    - ku:example-concept
+
   # guides_goal: Goals this principle guides (creates GUIDES_GOAL edges)
   # Type: List of Goal UIDs
   # guides_goal:

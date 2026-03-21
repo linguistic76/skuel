@@ -26,11 +26,15 @@ supported_knowledge_domains:
   - ku:mind-wandering-happens
   - ku:breath-awareness-basics
 
-guided_goal_uids:
-  - goal:mindfulness-beginner
-
-inspired_habit_uids:
-  - habit:label-wander-daily
+# Knowledge connections — substance tracking
+connections:
+  grounded_in_knowledge:
+    - l:mindfulness:mind-wandering-happens
+    - l:mindfulness:breath-awareness-basics
+  guides_goal:
+    - goal:mindfulness-beginner
+  inspires_habit:
+    - habit:label-wander-daily
 
 related_principle_uids:
   - principle:small-steps

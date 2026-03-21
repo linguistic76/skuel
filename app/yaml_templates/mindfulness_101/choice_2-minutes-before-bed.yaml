@@ -23,6 +23,11 @@ constraints:
   - May conflict with elaborate bedtime routines
   - Should be done before getting into bed for sleep hygiene
 
+# Knowledge connections — substance tracking
+connections:
+  informed_by_knowledge:
+    - l:mindfulness:breath-awareness-basics
+
 # Context
 stakeholders:
   - self

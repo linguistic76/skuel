@@ -1176,6 +1176,7 @@ CHOICES_CONFIG = DomainRelationshipConfig(
             "outgoing",
             "informed_by_knowledge",
             "knowledge",
+            yaml_field_path="connections.informed_by_knowledge",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.INFORMED_BY_PRINCIPLE,
@@ -1325,6 +1326,7 @@ PRINCIPLES_CONFIG = DomainRelationshipConfig(
             "outgoing",
             "grounding_knowledge",
             "knowledge",
+            yaml_field_path="connections.grounded_in_knowledge",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.GUIDES_GOAL,

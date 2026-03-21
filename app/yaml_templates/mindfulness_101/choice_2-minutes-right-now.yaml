@@ -23,6 +23,11 @@ constraints:
   - Requires minimal quiet space
   - No special equipment needed
 
+# Knowledge connections — substance tracking
+connections:
+  informed_by_knowledge:
+    - l:mindfulness:breath-awareness-basics
+
 # Context
 stakeholders:
   - self
