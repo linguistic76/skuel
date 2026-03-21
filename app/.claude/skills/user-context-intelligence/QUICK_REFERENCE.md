@@ -112,6 +112,17 @@ from core.models.context_types import (
 | **Temporal (1)** |
 | 13 | Calendar | `CalendarService` | `self.calendar` |
 
+### Optional: FilteredContextProvider Dict
+
+`self.filtered_providers: dict[str, FilteredContextProvider]` — maps domain names to facades for on-demand per-domain queries. 11 domains: tasks, goals, habits, events, choices, principles, lessons, ku, learning_steps, learning_paths, exercises.
+
+```python
+# On-demand domain query (vs. UserContext broad snapshot)
+result = await self.filtered_providers["tasks"].get_filtered_context(user_uid, status_filter="active")
+```
+
+**See:** `core/ports/filtered_context_protocols.py`, `core/services/filtered_context.py`
+
 ---
 
 ## The 8 Core Methods

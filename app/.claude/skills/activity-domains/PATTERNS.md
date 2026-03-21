@@ -91,12 +91,14 @@ result = await tasks_service.get_scheduling_recommendations(user_uid)
 
 ## Pattern: Filtered List Queries (`get_filtered_context`)
 
-**Problem**: UI list views need fetch → stats → filter → sort orchestration. Writing this as closures inside route factories made it untestable and duplicated the same 4-step pattern across all 6 domains.
+**Problem**: UI list views need fetch → stats → filter → sort orchestration. The same 4-step pattern was duplicated across all 6 Activity domains and needed to extend to Curriculum domains for intelligence service consumption.
 
-**Solution**: Each service facade exposes `get_filtered_context()` returning `Result[ListContext]`. A **single query** fetches all user entities for the domain; stats are computed in Python from the full set, then status/secondary filters and sort are applied Python-side. This reduces each page load from 2-4 Neo4j queries to **1 query**.
+**Solution**: All 11 domain facades (6 Activity + 5 Curriculum) expose `get_filtered_context()` returning `Result[ListContext]`, satisfying the `FilteredContextProvider` protocol. A shared skeleton (`build_filtered_context()`) enforces the pattern; domains provide callables for their stats, filters, and sort logic.
+
+**Two consumers**: UI routes (per-domain filtered list pages) and intelligence services (on-demand domain-specific queries via `FilteredContextProvider` protocol). UserContext is the broad snapshot (MEGA_QUERY); `get_filtered_context()` is the per-domain zoom lens.
 
 ```python
-from core.ports.query_types import ListContext  # TypedDict: entities, stats, projects?, assignees?
+from core.ports.query_types import ListContext  # TypedDict: entities, stats, metadata?
 
 # In route handler:
 result = await habits_service.get_filtered_context(user_uid, status_filter="active", sort_by="streak")
@@ -104,9 +106,13 @@ if result.is_error:
     return render_error_banner("Failed to load habits")
 ctx = result.value
 habits, stats = ctx["entities"], ctx["stats"]
+
+# In intelligence services (domain-agnostic via protocol):
+provider: FilteredContextProvider = self.filtered_providers["habits"]
+result = await provider.get_filtered_context(user_uid, status_filter="active")
 ```
 
-**Method signatures (all 6 domains):**
+**Method signatures (Activity Domains — 6):**
 
 | Service | Signature |
 |---------|-----------|
@@ -117,20 +123,38 @@ habits, stats = ctx["entities"], ctx["stats"]
 | `ChoicesService` | `get_filtered_context(user_uid, status_filter="pending", sort_by="deadline")` |
 | `PrinciplesService` | `get_filtered_context(user_uid, category_filter="all", strength_filter="all", sort_by="strength")` |
 
-**Single-fetch architecture** (each facade's `get_filtered_context`):
-1. Calls `self.core.get_for_user_filtered(user_uid, "all")` — **one query**, fetches all user entities
-2. Computes stats in Python from the full set (replaces separate Cypher COUNT query)
-3. Applies status filter in Python
-4. Applies domain-specific secondary filters + sort in Python
-5. Returns `ListContext` dict
+**Method signatures (Curriculum Domains — 5):**
 
-**Tasks additionally** returns `projects` and `assignees` lists in the `ListContext`, eliminating separate UI-level data fetching.
+| Service | Signature |
+|---------|-----------|
+| `LessonService` | `get_filtered_context(user_uid, status_filter="all", sort_by="title")` |
+| `KuService` | `get_filtered_context(user_uid, status_filter="all", sort_by="title")` |
+| `LsService` | `get_filtered_context(user_uid, status_filter="all", sort_by="title")` |
+| `LpService` | `get_filtered_context(user_uid, status_filter="all", sort_by="title")` |
+| `ExerciseService` | `get_filtered_context(user_uid, status_filter="all", sort_by="title")` |
+
+**Shared skeleton** (`core/services/filtered_context.py`):
+
+Each facade calls `build_filtered_context()` with domain-specific callables:
+1. `fetch_all` — async callable returning all entities (one query)
+2. `compute_stats` — stats from the full set (pre-filter)
+3. `apply_filters` — domain-specific status/secondary filters (captures params via closure)
+4. `apply_sort` — domain-specific sort
+5. `compute_metadata` — optional domain-specific extras (Tasks: project/assignee lists)
+
+**`FilteredContextProvider` protocol** (`core/ports/filtered_context_protocols.py`):
+
+Common params: `user_uid`, `status_filter`, `sort_by`. Concrete facades add domain-specific params with defaults, satisfying structural subtyping. Intelligence services call via the protocol; UI routes call concrete classes directly.
+
+**`ListContext` TypedDict** (`core/ports/query_types.py`): `entities` (filtered list), `stats` (dict[str, int | float]), `metadata` (dict[str, Any], optional — Tasks uses for project/assignee dropdowns).
 
 **Module-level helpers** (Python-side, in each `*_service.py` facade file):
-- `_apply_status_filter(entities, status_filter)` — generic active/completed/all filter (Tasks)
-- `_apply_{domain}_sort(entities, sort_by)` — pure sort logic (all 6 domains)
-- `_apply_task_secondary_filters(tasks, project, assignee, due_filter)` — project/assignee/date filters (Tasks only)
-- `_apply_principle_filters(principles, category_filter, strength_filter, status_filter)` — status, category, and strength threshold filters (Principles only)
+- `_compute_{domain}_stats(entities)` — stats from full set (all 11 domains)
+- `_apply_{domain}_status_filter(entities, status_filter)` — status filter (Activity domains)
+- `_apply_{domain}_sort(entities, sort_by)` — pure sort logic (all 11 domains)
+- `_apply_task_secondary_filters(tasks, project, assignee, due_filter)` — Tasks only
+- `_apply_principle_filters(principles, category_filter, strength_filter, status_filter)` — Principles only
+- `_compute_task_metadata(all_tasks)` — Tasks only (project/assignee lists)
 
 **Route file convention** (all 6 `*_ui.py` files, module-level not inside factory):
 - **Filters:** All 6 domains use `ActivityFilters` hierarchy from `form_helpers.py`. Goals, Habits, Events, Choices use base `ActivityFilters` + `parse_activity_filters()`. Tasks use `TaskFilters(ActivityFilters)` + `parse_task_filters()`. Principles use `PrincipleFilters(ActivityFilters)` + `parse_principle_filters()`.

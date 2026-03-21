@@ -97,23 +97,27 @@ from core.services.relationships import UnifiedRelationshipService
 
 ## Filtered List Query Method
 
-All 6 facades expose `get_filtered_context()` → `Result[ListContext]`:
+All 11 facades (6 Activity + 5 Curriculum) expose `get_filtered_context()` → `Result[ListContext]`, satisfying the `FilteredContextProvider` protocol. Uses shared `build_filtered_context()` skeleton.
 
 ```python
 ctx = (await habits_service.get_filtered_context(user_uid)).value
 habits, stats = ctx["entities"], ctx["stats"]
+# Tasks metadata: ctx["metadata"]["projects"], ctx["metadata"]["assignees"]
 ```
 
-| Service | Default sort |
-|---------|-------------|
-| Habits | `streak` |
-| Tasks | `due_date` |
-| Goals | `target_date` |
-| Events | `start_time` |
-| Choices | `deadline` |
-| Principles | `strength` |
+| Service | Default sort | Default filter |
+|---------|-------------|----------------|
+| Habits | `streak` | `active` |
+| Tasks | `due_date` | `active` |
+| Goals | `target_date` | `active` |
+| Events | `start_time` | `scheduled` |
+| Choices | `deadline` | `pending` |
+| Principles | `strength` | `all` |
+| Lesson/Ku/LS/LP/Exercise | `title` | `all` |
 
-Module-level helpers (each facade file): `_apply_{domain}_sort` (all 6), `_apply_task_secondary_filters` (Tasks), `_apply_principle_filters` (Principles)
+Module-level helpers (each facade file): `_compute_{domain}_stats`, `_apply_{domain}_status_filter`, `_apply_{domain}_sort` (all 11), plus `_apply_task_secondary_filters` (Tasks), `_apply_principle_filters` (Principles), `_compute_task_metadata` (Tasks)
+
+**Key files:** `core/services/filtered_context.py` (skeleton), `core/ports/filtered_context_protocols.py` (protocol), `core/ports/query_types.py` (ListContext)
 
 **See:** `PATTERNS.md` → "Filtered List Queries" section
 

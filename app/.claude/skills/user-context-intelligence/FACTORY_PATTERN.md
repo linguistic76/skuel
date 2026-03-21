@@ -189,9 +189,13 @@ context_intelligence_factory = UserContextIntelligenceFactory(
     calendar=calendar_service,
     # Optional: ZPD service (FULL tier only — set to None in CORE tier)
     zpd_service=zpd_service,  # ZPDOperations | None
+    # FilteredContextProvider dict — 11 domain facades for on-demand queries
+    filtered_providers=filtered_providers,  # dict[str, FilteredContextProvider]
 )
 services.context_intelligence = context_intelligence_factory
 ```
+
+The `filtered_providers` dict maps domain names (`"tasks"`, `"goals"`, ..., `"lessons"`, `"ku"`, `"learning_steps"`, `"learning_paths"`, `"exercises"`) to facades that implement `FilteredContextProvider`. Intelligence services access these via `self.filtered_providers["domain"].get_filtered_context(user_uid)` for on-demand, per-domain filtered queries. UserContext is the broad snapshot; `get_filtered_context()` is the zoom lens.
 
 ### In Services Dataclass
 

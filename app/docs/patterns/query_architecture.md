@@ -800,5 +800,30 @@ This is the **primary query architecture documentation**. Start here.
 
 ---
 
-**Last Updated:** March 12, 2026
+## FilteredContextProvider — Per-Domain Query Protocol
+
+All 11 domain facades (6 Activity + 5 Curriculum) implement `get_filtered_context()` returning `Result[ListContext]`, satisfying the `FilteredContextProvider` protocol. This provides the standard interface through which both UI routes and intelligence services access per-domain entity state.
+
+**Architecture:** UserContext is the **map** (broad snapshot from MEGA_QUERY, ~250 fields). `get_filtered_context()` is the **zoom lens** (per-domain filtered view with stats, on-demand).
+
+**Shared skeleton** (`core/services/filtered_context.py`): `build_filtered_context()` enforces the fetch → stats → filter → sort → return pattern. Each domain provides callables for domain-specific stats, filters, and sorting.
+
+**Protocol** (`core/ports/filtered_context_protocols.py`): `FilteredContextProvider` with common params `user_uid`, `status_filter`, `sort_by`. Concrete facades add domain-specific params with defaults (structural subtyping).
+
+**`ListContext` TypedDict** (`core/ports/query_types.py`): `entities` (filtered list), `stats` (dict[str, int | float]), `metadata` (dict[str, Any], optional).
+
+**Intelligence integration:** `UserContextIntelligence.filtered_providers` dict maps 11 domain names to `FilteredContextProvider` facades. Wired in `services_bootstrap.py` via `_create_intelligence_hub()`.
+
+| Key File | Purpose |
+|----------|---------|
+| `core/services/filtered_context.py` | Shared `build_filtered_context()` skeleton |
+| `core/ports/filtered_context_protocols.py` | `FilteredContextProvider` protocol |
+| `core/ports/query_types.py` | `ListContext` TypedDict |
+| `core/services/user/intelligence/core.py` | `self.filtered_providers` dict |
+
+**See:** `docs/patterns/UI_COMPONENT_PATTERNS.md` → "Single-Fetch `get_filtered_context()`" section
+
+---
+
+**Last Updated:** March 21, 2026
 **Status:** Active - Core pattern for all query operations in SKUEL

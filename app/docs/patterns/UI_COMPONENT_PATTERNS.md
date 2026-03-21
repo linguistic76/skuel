@@ -1118,51 +1118,43 @@ async def task_detail_view(request, uid: str) -> Any:
 
 **Before:** Each page load ran 2-4 separate Neo4j queries — a Cypher COUNT for stats, a filtered entity fetch, and (for Tasks) two additional queries for project/assignee dropdown lists. These were parallelized with `asyncio.gather()` but still hit the database multiple times.
 
-### Solution: Single-Fetch `get_filtered_context()`
+### Solution: Single-Fetch `get_filtered_context()` with `FilteredContextProvider` Protocol
 
-Each facade's `get_filtered_context()` now fetches ALL user entities for the domain in **one query** via `get_for_user_filtered(user_uid, "all")`, then computes everything in Python:
+All 11 domain facades (6 Activity + 5 Curriculum) expose `get_filtered_context()` returning `Result[ListContext]`, satisfying the `FilteredContextProvider` protocol. Each facade delegates to a shared skeleton (`build_filtered_context()` in `core/services/filtered_context.py`) with domain-specific callables for stats, filters, and sorting.
 
 ```python
-async def get_filtered_context(
-    self, user_uid, project=None, status_filter="active", sort_by="due_date"
-) -> Result[ListContext]:
-    # 1. Single database query — fetch all user entities
-    all_result = await self.core.get_for_user_filtered(user_uid, "all")
-    if all_result.is_error:
-        return Result.fail(all_result)
-    all_tasks = all_result.value
+# Shared skeleton orchestrates: fetch → stats → filter → sort → return
+async def get_filtered_context(self, user_uid, status_filter="active", sort_by="due_date"):
+    async def fetch_all():
+        return await self.core.get_for_user_filtered(user_uid, "all")
 
-    # 2. Stats from full set (replaces separate Cypher COUNT query)
-    today = date.today()
-    stats = {
-        "total": len(all_tasks),
-        "completed": sum(1 for t in all_tasks if t.status == EntityStatus.COMPLETED),
-        "overdue": sum(1 for t in all_tasks if t.due_date and t.due_date < today
-                       and t.status != EntityStatus.COMPLETED),
-    }
+    def apply_filters(all_tasks):
+        filtered = _apply_status_filter(all_tasks, status_filter)
+        return _apply_task_secondary_filters(filtered, project, assignee, due_filter)
 
-    # 3. Status filter + secondary filters + sort in Python
-    filtered = _apply_status_filter(all_tasks, status_filter)
-    filtered = _apply_task_secondary_filters(filtered, project, assignee, due_filter)
-    sorted_tasks = _apply_task_sort(filtered, sort_by)
-
-    # 4. Tasks additionally returns UI dropdown metadata
-    projects = sorted({t.project for t in all_tasks if t.project})
-    assignees = sorted({getattr(t, "assignee", None) for t in all_tasks} - {None})
-
-    return Result.ok({
-        "entities": sorted_tasks, "stats": stats,
-        "projects": list(projects), "assignees": sorted(assignees),
-    })
+    return await build_filtered_context(
+        fetch_all=fetch_all,
+        compute_stats=_compute_task_stats,
+        apply_filters=apply_filters,
+        apply_sort=_apply_task_sort,
+        sort_by=sort_by,
+        compute_metadata=_compute_task_metadata,  # Tasks only: projects/assignees
+    )
 ```
 
-**`ListContext` TypedDict** (`core/ports/query_types.py`): `entities`, `stats`, and optional `projects`/`assignees` (Tasks only).
+**`FilteredContextProvider` protocol** (`core/ports/filtered_context_protocols.py`): Common params `user_uid`, `status_filter`, `sort_by`. Intelligence services call via protocol; UI routes call concrete classes directly for domain-specific params.
 
-**What stays Python-side:**
-- `_apply_status_filter(entities, status_filter)` — generic active/completed/all (Tasks)
-- `_apply_{domain}_sort(entities, sort_by)` — all 6 domains
-- `_apply_task_secondary_filters(tasks, project, assignee, due_filter)` — Tasks only (project/assignee/date filters)
-- `_apply_principle_filters(principles, category_filter, strength_filter)` — Principles only (category and strength threshold)
+**`ListContext` TypedDict** (`core/ports/query_types.py`): `entities` (filtered list), `stats` (dict[str, int | float]), `metadata` (dict[str, Any], optional — Tasks uses for project/assignee dropdowns).
+
+**Module-level helpers** (Python-side, in each `*_service.py` facade file):
+- `_compute_{domain}_stats(entities)` — stats from full set (all 11 domains)
+- `_apply_{domain}_status_filter(entities, status_filter)` — status filter (Activity domains)
+- `_apply_{domain}_sort(entities, sort_by)` — pure sort logic (all 11 domains)
+- `_apply_task_secondary_filters(tasks, project, assignee, due_filter)` — Tasks only
+- `_apply_principle_filters(principles, category_filter, strength_filter, status_filter)` — Principles only
+- `_compute_task_metadata(all_tasks)` — Tasks only (project/assignee lists for UI dropdowns)
+
+**Intelligence integration:** `UserContextIntelligence.filtered_providers` dict maps domain names to `FilteredContextProvider` facades, enabling on-demand per-domain queries. UserContext is the broad snapshot; `get_filtered_context()` is the zoom lens.
 
 **Tests:** `tests/unit/services/activity/test_activity_query_helpers.py` — 49 tests covering Python-side helpers.
 
