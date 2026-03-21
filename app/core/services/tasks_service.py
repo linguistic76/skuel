@@ -44,7 +44,9 @@ from core.services.tasks import (
     TaskEventHandlerService,
     TasksCoreService,
     TasksIntelligenceService,
+    TasksLearningMetricsService,
     TasksPlanningService,
+    TasksProductivityService,
     TasksProgressService,
     TasksSchedulingService,
 )
@@ -236,6 +238,8 @@ class TasksService(BaseService["TasksOperations", Task]):
     planning: TasksPlanningService
     relationships: UnifiedRelationshipService
     intelligence: TasksIntelligenceService
+    productivity: TasksProductivityService
+    learning_metrics: TasksLearningMetricsService
     event_handler: TaskEventHandlerService
 
     def __init__(
@@ -296,6 +300,19 @@ class TasksService(BaseService["TasksOperations", Task]):
             event_bus=event_bus,
         )
 
+        # Dual-track productivity assessment (ADR-030)
+        self.productivity: TasksProductivityService = TasksProductivityService(
+            backend=backend,
+            event_bus=event_bus,
+        )
+
+        # Task-level learning metrics (uses Task model + TaskRelationships)
+        self.learning_metrics: TasksLearningMetricsService = TasksLearningMetricsService(
+            backend=backend,
+            relationship_service=self.relationships,
+            event_bus=event_bus,
+        )
+
         # Domain-specific sub-services
         self.progress = TasksProgressService(
             backend=backend, analytics_engine=analytics_engine, event_bus=event_bus
@@ -321,8 +338,9 @@ class TasksService(BaseService["TasksOperations", Task]):
         self.ku_generation_service = ku_generation_service
 
         self.logger.info(
-            "TasksService facade initialized with 8 sub-services: "
-            "core, search, progress, scheduling, planning, relationships, intelligence, event_handler"
+            "TasksService facade initialized with 10 sub-services: "
+            "core, search, progress, scheduling, planning, relationships, "
+            "intelligence, productivity, learning_metrics, event_handler"
         )
 
     # ========================================================================
@@ -447,10 +465,10 @@ class TasksService(BaseService["TasksOperations", Task]):
 
     # Intelligence delegations
     async def analyze_task_learning_metrics(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.intelligence.analyze_task_learning_metrics(*args, **kwargs)
+        return await self.learning_metrics.analyze_task_learning_metrics(*args, **kwargs)
 
     async def generate_task_knowledge_insights(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.intelligence.generate_task_knowledge_insights(*args, **kwargs)
+        return await self.learning_metrics.generate_task_knowledge_insights(*args, **kwargs)
 
     async def get_learning_opportunities(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.intelligence.get_learning_opportunities(*args, **kwargs)

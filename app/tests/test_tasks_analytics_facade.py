@@ -1,7 +1,7 @@
 """Integration test for TasksService analytics methods.
 
 January 2026: TasksAnalyticsService removed.
-- Task model analysis methods moved to TasksIntelligenceService
+- Task model analysis methods moved to TasksLearningMetricsService
 - Analytics methods implemented directly in TasksService
 """
 
@@ -44,17 +44,17 @@ def test_analytics_methods_exist():
 
 
 def test_intelligence_methods_exist():
-    """Test 4: Verify Task model analysis methods moved to TasksIntelligenceService."""
-    from core.services.tasks import TasksIntelligenceService
+    """Test 4: Verify Task model analysis methods on TasksLearningMetricsService."""
+    from core.services.tasks import TasksLearningMetricsService
 
-    # Methods moved from TasksAnalyticsService to TasksIntelligenceService
+    # Methods extracted from TasksIntelligenceService to TasksLearningMetricsService
     task_model_methods = [
         "analyze_task_learning_metrics",
         "generate_task_knowledge_insights",
     ]
 
     for method in task_model_methods:
-        assert hasattr(TasksIntelligenceService, method), f"Missing method: {method}"
+        assert hasattr(TasksLearningMetricsService, method), f"Missing method: {method}"
 
 
 def test_method_signatures():
