@@ -165,7 +165,7 @@ CREATE (n:Entity:Goal {uid: $uid, ...})
 
 **Key files:**
 - `/core/models/entity.py` — `Entity` + `UserOwnedEntity` base classes
-- `/core/models/enums/entity_enums.py` — `EntityType` (21 canonical + 3 deprecated), `EntityStatus`
+- `/core/models/enums/entity_enums.py` — `EntityType` (21 values), `EntityStatus`
 
 ---
 
@@ -298,7 +298,7 @@ The educational loop: `Lesson -> Exercise -> ExerciseSubmission -> ExerciseRepor
 
 `ACTIVITY_REPORT` also inherits `UserOwnedEntity` directly — no file fields. It responds to aggregate activity patterns over a time period, not to a specific artifact.
 
-**Deprecated aliases:** `SUBMISSION` → `EXERCISE_SUBMISSION`, `JOURNAL` → `JOURNAL_SUBMISSION`, `SUBMISSION_REPORT` → `EXERCISE_REPORT` (kept in enum for migration compatibility).
+**Removed aliases:** `SUBMISSION` → `EXERCISE_SUBMISSION`, `JOURNAL` → `JOURNAL_SUBMISSION`, `SUBMISSION_REPORT` → `EXERCISE_REPORT` (removed from enum; old string values still parsed via `from_string()`).
 
 **Services split:**
 - `core/services/submissions/` — `ActivityReportService`, `ReviewQueueService`, student work pipeline

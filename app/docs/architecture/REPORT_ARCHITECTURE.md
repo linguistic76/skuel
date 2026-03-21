@@ -47,7 +47,7 @@ Both paths produce report entities. The `EntityType` and `ProcessorType` fields 
 - `ExerciseReport` and `JournalReport` extend `SubmissionReport(UserOwnedEntity)` — report fields only (NOT Submission)
 - `ActivityReport` extends `UserOwnedEntity` directly — no file fields, responds to aggregate activity patterns
 
-**Deprecated aliases:** `SUBMISSION` → `EXERCISE_SUBMISSION`, `JOURNAL` → `JOURNAL_SUBMISSION`, `SUBMISSION_REPORT` → `EXERCISE_REPORT`
+**Removed aliases:** `SUBMISSION` → `EXERCISE_SUBMISSION`, `JOURNAL` → `JOURNAL_SUBMISSION`, `SUBMISSION_REPORT` → `EXERCISE_REPORT` (removed from enum; old string values still parsed via `from_string()`).
 
 ---
 

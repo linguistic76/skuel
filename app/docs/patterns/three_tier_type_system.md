@@ -569,7 +569,7 @@ As of February 2026 (domain-first architecture complete):
 - All 6 Activity domains: Task, Goal, Habit, Event, Choice, Principle (extend `UserOwnedEntity`)
 - All 3 Curriculum domains: LearningStep, LearningPath, Exercise (extend `Curriculum`)
 - Resource domain (extends `Entity`)
-- Submissions: Submission, Journal, SubmissionReport (extend `Submission(UserOwnedEntity)`)
+- Submissions: ExerciseSubmission, JournalSubmission (extend `Submission(UserOwnedEntity)`)
 - Feedback: ActivityReport (extends `UserOwnedEntity` directly — no file fields)
 - LifePath (extends `UserOwnedEntity`)
 - Each domain has a corresponding per-domain DTO (e.g., `TaskDTO`, `GoalDTO`)

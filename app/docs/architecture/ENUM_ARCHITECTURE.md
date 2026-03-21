@@ -62,8 +62,8 @@ EntityType is the type discriminator for every entity in SKUEL. It lives on the 
 |------|---------------|-------------|
 | A | CURATED | Resource |
 | B | CURRICULUM | KU, LearningStep, LearningPath, Exercise |
-| C | USER_CREATED | All 6 Activity types + Submission, Journal, LifePath |
-| D | REPORT | ActivityReport, SubmissionReport |
+| C | USER_CREATED | All 6 Activity types + ExerciseSubmission, JournalSubmission, LifePath, FormSubmission |
+| D | REPORT | ActivityReport, ExerciseReport, JournalReport |
 
 **Key methods:**
 
@@ -71,7 +71,7 @@ EntityType is the type discriminator for every entity in SKUEL. It lives on the 
 |--------|---------|---------|
 | `is_activity()` | bool | Is it one of the 6 user activity domains? |
 | `is_knowledge()` | bool | Is it shared curriculum (KU, Resource)? |
-| `is_content_processing()` | bool | Is it in the processing chain (Journal, Submission, etc.)? |
+| `is_content_processing()` | bool | Is it in the processing chain (ExerciseSubmission, JournalSubmission, etc.)? |
 | `is_user_owned()` | bool | Does it require a user_uid? |
 | `valid_statuses()` | frozenset[EntityStatus] | Which statuses are valid for this type? |
 | `default_status()` | EntityStatus | What status does a new entity get? |
@@ -112,9 +112,9 @@ Activity:
 
 | EntityType | Valid Statuses | Default |
 |------------|---------------|---------|
-| Ku, Resource, SubmissionReport | DRAFT, COMPLETED, ARCHIVED | COMPLETED |
+| Ku, Resource, ExerciseReport, JournalReport | DRAFT, COMPLETED, ARCHIVED | DRAFT |
 | LearningStep, LearningPath, Exercise, Choice | DRAFT, ACTIVE, COMPLETED, ARCHIVED | DRAFT |
-| Journal, Submission | DRAFT, SUBMITTED, QUEUED, PROCESSING, COMPLETED, FAILED, REVISION_REQUESTED, ARCHIVED | DRAFT |
+| ExerciseSubmission, JournalSubmission | DRAFT, SUBMITTED, QUEUED, PROCESSING, COMPLETED, FAILED, REVISION_REQUESTED, ARCHIVED | DRAFT |
 | ActivityReport | COMPLETED (always — created already complete) | COMPLETED |
 | Task | DRAFT, SCHEDULED, ACTIVE, PAUSED, BLOCKED, COMPLETED, CANCELLED, POSTPONED, FAILED | DRAFT |
 | Goal | DRAFT, ACTIVE, PAUSED, COMPLETED, CANCELLED, FAILED, ARCHIVED | DRAFT |
