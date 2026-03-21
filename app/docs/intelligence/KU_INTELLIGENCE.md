@@ -6,13 +6,15 @@
 **Location:** `/core/services/lesson_intelligence_service.py`
 **Service Name:** `lesson.intelligence`
 **Lines:** ~728
-**Updated:** January 2026 (Protocol Compliance & Embeddings Service)
+**Updated:** March 2026 (6-channel substance pipeline, ISP split)
 
 ---
 
 ## Purpose
 
-KuIntelligenceService provides semantic knowledge intelligence by analyzing knowledge graph relationships, identifying cross-domain connections, and tracking knowledge substance. It generates context-aware knowledge recommendations, discovers application opportunities across domains, and measures how knowledge is lived (not just learned) through the Knowledge Substance Philosophy.
+LessonIntelligenceService provides semantic knowledge intelligence by analyzing knowledge graph relationships, identifying cross-domain connections, and tracking knowledge substance. It generates context-aware knowledge recommendations, discovers application opportunities across domains, and measures how knowledge is lived (not just learned) through the Knowledge Substance Philosophy.
+
+**Note:** This file was originally titled "KU_INTELLIGENCE.md" because substance tracking was on Ku nodes. Since the Article→Lesson rename (March 2026), substance tracking lives on Lesson nodes. The service is `LessonIntelligenceService`, not `KuIntelligenceService`.
 
 ---
 

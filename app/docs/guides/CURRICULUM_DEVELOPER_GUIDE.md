@@ -351,6 +351,42 @@ Each level uses some of the same Kus but adds new ones. The beginner lesson migh
 
 ---
 
+## Wiring Activities to Knowledge (Substance Tracking)
+
+Curriculum content becomes *real* when learners apply it through activities. SKUEL tracks this via **substance scoring** — each activity domain connects to knowledge through YAML `connections.*` fields:
+
+```yaml
+# A task that applies what the lesson teaches
+type: Task
+uid: task:practice-perspective-taking
+title: Practice Perspective-Taking Today
+connections:
+  applies_knowledge:
+    - l:sel:understanding-others    # APPLIES_KNOWLEDGE → Lesson
+
+# A principle grounded in the lesson's concepts
+type: Principle
+uid: principle:empathy-first
+name: Empathy Before Judgment
+connections:
+  grounded_in_knowledge:
+    - l:sel:understanding-others    # GROUNDED_IN_KNOWLEDGE → Lesson
+
+# A choice informed by the lesson
+type: Choice
+uid: choice:ask-before-assuming
+title: Ask Before Assuming
+connections:
+  informed_by_knowledge:
+    - l:sel:understanding-others    # INFORMED_BY_KNOWLEDGE → Lesson
+```
+
+These connections feed the substance pipeline: Habits (weight 0.10), Choices (0.07), Principles (0.07), Events (0.05), Tasks (0.05). Total capped at 1.0. A lesson with high substance means learners are *living* the knowledge, not just reading it.
+
+For the complete reference of all connection fields across all 6 activity domains, see the **[YAML Authoring Guide](/docs/guides/YAML_AUTHORING_GUIDE.md)**.
+
+---
+
 ## What Comes Next
 
 This guide covers the foundation: Kus, Lessons, and prerequisite chains. Future guides will cover:
@@ -360,7 +396,7 @@ This guide covers the foundation: Kus, Lessons, and prerequisite chains. Future 
 - **The Askesis Companion** — how the AI tutor uses your curriculum graph to guide learners through their zone of proximal development
 - **Ingestion Workflows** — bulk ingestion, dry-run mode, incremental updates, and vault management
 
-For now, start small. Pick a domain you know well. Define 8-12 Kus. Write 3-5 Lessons that compose them. Connect the Lessons into a chain. Ingest and see what the system builds from your content.
+For now, start small. Pick a domain you know well. Define 8-12 Kus. Write 3-5 Lessons that compose them. Connect the Lessons into a chain. Add supporting activities (tasks, habits, choices, principles) with knowledge connections. Ingest and see what the system builds from your content.
 
 The graph grows one node at a time.
 

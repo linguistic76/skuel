@@ -700,6 +700,51 @@ class ActivityCarrier(KnowledgeCarrier, Protocol):
 
 ---
 
+## Intelligence Protocols (ISP Split — March 2026)
+
+**Location:** `/core/ports/intelligence_protocols.py`
+**Purpose:** Separate shared knowledge intelligence from domain-specific behavioral intelligence.
+
+### KnowledgeIntelligenceOperations (4 methods — shared)
+
+```python
+@runtime_checkable
+class KnowledgeIntelligenceOperations(Protocol):
+    async def get_knowledge_suggestions(self, user_uid: str, entity_uid: str | None = None) -> Result[dict[str, Any]]: ...
+    async def get_knowledge_prerequisites(self, entity_uid: str) -> Result[dict[str, Any]]: ...
+    async def generate_knowledge_from_entities(self, user_uid: str, period_days: int = 30) -> Result[dict[str, Any]]: ...
+    async def get_learning_opportunities(self, user_uid: str) -> Result[dict[str, Any]]: ...
+```
+
+**Implementor:** `ActivityKnowledgeIntelligenceService` (one shared singleton for all 6 Activity Domains)
+
+### DomainIntelligenceOperations (7 methods — per-domain)
+
+```python
+@runtime_checkable
+class DomainIntelligenceOperations(Protocol):
+    async def find_similar_content(self, uid: str, limit: int = 5) -> Result[list[str]]: ...
+    async def search_by_features(self, features: dict[str, Any], limit: int = 25) -> Result[list[str]]: ...
+    async def get_learning_velocity(self, user_uid: str, period_days: int = 90) -> Result[dict[str, Any]]: ...
+    async def get_behavioral_insights(self, user_uid: str, period_days: int = 90) -> Result[dict[str, Any]]: ...
+    async def get_performance_analytics(self, user_uid: str, period_days: int = 30) -> Result[dict[str, Any]]: ...
+    async def get_cross_domain_opportunities(self, user_uid: str, entity_uid: str | None = None) -> Result[dict[str, Any]]: ...
+    async def get_ai_insights(self, user_uid: str, entity_uid: str | None = None, query: str | None = None) -> Result[dict[str, Any]]: ...
+```
+
+**Implementors:** 6 per-domain intelligence services (TasksIntelligenceService, GoalsIntelligenceService, etc.)
+
+### IntelligenceOperations (composed — backward compatibility)
+
+```python
+@runtime_checkable
+class IntelligenceOperations(KnowledgeIntelligenceOperations, DomainIntelligenceOperations, Protocol): ...
+```
+
+**Usage:** Route factories use the composed protocol. Services that only need knowledge intelligence depend on `KnowledgeIntelligenceOperations`.
+
+---
+
 ## Context Awareness Protocols
 
 **Location:** `/core/ports/context_awareness_protocols.py`

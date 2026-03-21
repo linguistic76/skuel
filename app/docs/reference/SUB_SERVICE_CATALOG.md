@@ -171,7 +171,7 @@ result = await rels.link_to_knowledge(task_uid, ku_uid, knowledge_score_required
 **File:** `core/services/knowledge/activity_knowledge_intelligence_service.py`
 **Extends:** `BaseAnalyticsService`
 
-**Responsibility:** Domain-agnostic knowledge intelligence for all 6 Activity Domains (shared singleton)
+**Responsibility:** Domain-agnostic knowledge intelligence for all 6 Activity Domains (shared singleton). Implements `KnowledgeIntelligenceOperations` protocol (4 methods) — the shared half of the ISP split (March 2026).
 
 **Key Methods:**
 - `get_knowledge_suggestions()` - Knowledge suggestions from entity patterns
@@ -185,8 +185,10 @@ result = await rels.link_to_knowledge(task_uid, ku_uid, knowledge_score_required
 - Generating knowledge unit proposals from patterns
 
 **Dependencies:**
-- Entity-level backend (`NeoLabel.ENTITY`)
+- Entity-level backend (`NeoLabel.ENTITY`) — queries across ALL 6 activity domains
 - `GraphIntelligenceService` (graph traversal)
+
+**Wiring:** Created once in `services_bootstrap.py`, injected into all 6 Activity Domain facades as `self.knowledge_intelligence`. NOT a per-domain instance — one shared singleton. Each facade delegates its 4 knowledge intelligence methods to this service.
 
 **Access:** Via any Activity Domain facade — `service.get_knowledge_suggestions(user_uid)`
 

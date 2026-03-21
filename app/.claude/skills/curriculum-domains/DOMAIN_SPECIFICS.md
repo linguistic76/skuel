@@ -26,8 +26,8 @@
 **Factory:** `create_lesson_sub_services()` - Specialized (handles circular core↔intelligence dependency)
 
 **Unique Features:**
-- **Substance tracking** - Measures how knowledge is LIVED (applied via Tasks, Habits, Events, Choices, Principles)
-- **Per-user context** - `calculate_user_substance(lesson_uid, user_uid)` for personalized metrics
+- **Substance tracking** - Measures how knowledge is LIVED across 6 channels: Tasks (0.05), Habits (0.10), Events (0.05), Choices (0.07), Principles (0.07), Journals (0.07 — deferred). All 6 channels wired into UserContext and `calculate_user_substance()`. YAML authoring creates structural edges via `connections.*` fields (e.g., `connections.applies_knowledge`, `connections.informed_by_knowledge`, `connections.grounded_in_knowledge`). See `/docs/guides/YAML_AUTHORING_GUIDE.md`.
+- **Per-user context** - `calculate_user_substance(lesson_uid, user_context)` for personalized metrics
 - **Semantic relationships** - REQUIRES_KNOWLEDGE, ENABLES, HAS_NARROWER, RELATED_TO
 - **Content ingestion** - YAML frontmatter + Markdown body
 - **Non-linear organization** - Any Lesson can organize other Lessons via ORGANIZES (emergent MOC pattern)
