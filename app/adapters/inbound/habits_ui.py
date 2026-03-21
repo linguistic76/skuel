@@ -452,11 +452,11 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
         """Get all habits for user."""
         return await fetch_user_entities(habits_service.get_user_habits, "habits", user_uid, logger)
 
-    async def get_categories() -> Result[list[str]]:
-        """Get unique habit categories."""
-        return Result.ok(
-            ["health", "productivity", "learning", "personal", "fitness", "mindfulness"]
-        )
+    def _get_habit_categories() -> list[str]:
+        """Get habit categories from HabitCategory enum."""
+        from core.models.enums.habit_enums import HabitCategory
+
+        return [c.value for c in HabitCategory if c != HabitCategory.OTHER]
 
     # ========================================================================
     # MAIN DASHBOARD (Standalone Three-View)
@@ -478,7 +478,6 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
         filtered_result = await habits_service.get_filtered_context(
             user_uid, filters.status, filters.sort_by
         )
-        categories_result = await get_categories()
 
         # CHECK FOR ERRORS
         if filtered_result.is_error:
@@ -492,21 +491,10 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
                 request,
             )
 
-        if categories_result.is_error:
-            return await render_dashboard_error_page(
-                "Habits",
-                "Build and maintain daily habits",
-                "Failed to load categories",
-                view,
-                HabitsViewComponents.render_view_tabs,
-                create_habits_page,
-                request,
-            )
-
         # Extract values
         ctx = filtered_result.value
         habits, stats = ctx["entities"], ctx["stats"]
-        categories = categories_result.value
+        categories = ctx.get("metadata", {}).get("categories", [])
 
         # Render the appropriate view content
         if view == "create":
@@ -560,21 +548,17 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
         filtered_result = await habits_service.get_filtered_context(
             user_uid, filters.status, filters.sort_by
         )
-        categories_result = await get_categories()
 
         # Handle errors (return banner directly for HTMX swap)
         if filtered_result.is_error:
             return render_error_banner("Failed to load habits")
-
-        if categories_result.is_error:
-            return render_error_banner("Failed to load categories")
 
         svc_ctx = filtered_result.value
         page_ctx = HabitsPageContext(
             entities=svc_ctx["entities"],
             filters=filters.to_dict(),
             stats=svc_ctx["stats"],
-            categories=categories_result.value,
+            categories=svc_ctx.get("metadata", {}).get("categories", []),
         )
         return HabitsViewComponents.render_list_view(ctx=page_ctx)
 
@@ -582,14 +566,8 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
     async def habits_view_create(request) -> Any:
         """HTMX fragment for create view."""
         require_authenticated_user(request)
-        categories_result = await get_categories()
-
-        # Handle errors
-        if categories_result.is_error:
-            return render_error_banner("Failed to load categories")
-
         return HabitsViewComponents.render_create_view(
-            categories=categories_result.value,
+            categories=_get_habit_categories(),
         )
 
     @rt("/habits/view/calendar")
@@ -653,23 +631,22 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
         """Render list view after successful habit creation."""
         result = await habits_service.get_filtered_context(user_uid)
         if result.is_error:
-            entities, stats = [], {}
+            entities, stats, categories = [], {}, _get_habit_categories()
         else:
             svc_ctx = result.value
             entities, stats = svc_ctx["entities"], svc_ctx["stats"]
-        categories_result = await get_categories()
+            categories = svc_ctx.get("metadata", {}).get("categories", [])
         page_ctx = HabitsPageContext(
             entities=entities,
             filters={},
             stats=stats,
-            categories=categories_result.value if not categories_result.is_error else [],
+            categories=categories,
         )
         return HabitsViewComponents.render_list_view(ctx=page_ctx)
 
     async def render_habit_add_another_view(user_uid: str) -> Any:
         """Render create view for add-another flow."""
-        categories = await get_categories()
-        return HabitsViewComponents.render_create_view(categories=categories)
+        return HabitsViewComponents.render_create_view(categories=_get_habit_categories())
 
     # Register quick-add route via factory
     habits_quick_add_config = QuickAddConfig(

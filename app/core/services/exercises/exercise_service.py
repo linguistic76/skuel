@@ -51,8 +51,10 @@ if TYPE_CHECKING:
 
 def _compute_exercise_stats(all_exercises: list[Any]) -> dict[str, int | float]:
     """Compute pre-filter stats from the full exercise set."""
+    total = len(all_exercises)
     return {
-        "total": len(all_exercises),
+        "total": total,
+        "active": total,
         "personal": sum(
             1 for e in all_exercises if getattr(e, "scope", None) == ExerciseScope.PERSONAL
         ),

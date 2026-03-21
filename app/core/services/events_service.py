@@ -84,8 +84,10 @@ def _get_event_status_value(event: Any) -> str:
 def _compute_event_stats(all_events: list[Any]) -> dict[str, int | float]:
     """Compute pre-filter stats from the full event set."""
     today = date.today()
+    terminal = {"completed", "cancelled", "archived"}
     return {
         "total": len(all_events),
+        "active": sum(1 for e in all_events if _get_event_status_value(e) not in terminal),
         "scheduled": sum(1 for e in all_events if _get_event_status_value(e) == "scheduled"),
         "today": sum(1 for e in all_events if getattr(e, "event_date", None) == today),
     }

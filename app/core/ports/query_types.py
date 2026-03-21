@@ -1124,6 +1124,19 @@ class ContextDashboard(TypedDict, total=False):
     predictions: PredictionsData
 
 
+class BaseStats(TypedDict):
+    """Guaranteed keys every domain's stats dict MUST include.
+
+    All ``_compute_*_stats`` functions return at least ``total`` and ``active``.
+    Domain-specific keys (``overdue``, ``streaks``, ``pending``, etc.) are added
+    alongside these two. Intelligence consumers can rely on ``active`` for
+    generic health checks without knowing domain-specific keys.
+    """
+
+    total: int
+    active: int
+
+
 class ListContext(TypedDict, total=False):
     """
     Typed context returned by service.get_filtered_context() methods.
@@ -1134,10 +1147,11 @@ class ListContext(TypedDict, total=False):
 
     Fields:
         entities: Filtered and sorted entity list
-        stats: Aggregate stats computed BEFORE filtering (total, domain-specific counts).
-            Values are int or float to support both counts and ratios/scores.
+        stats: Aggregate stats computed BEFORE filtering. Every domain includes
+            at least ``total`` and ``active`` (see BaseStats). Domain-specific
+            keys are added alongside these two guaranteed keys.
         metadata: Domain-specific extras (e.g., tasks' project/assignee lists for
-            UI dropdowns, curriculum domain/category breakdowns).
+            UI dropdowns, principle/goal/habit category lists).
 
     Usage:
         ctx = result.value

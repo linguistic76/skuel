@@ -75,9 +75,11 @@ def _get_choice_priority(c: Any) -> str:
 
 def _compute_choice_stats(all_choices: list[Any]) -> dict[str, int | float]:
     """Compute pre-filter stats from the full choice set."""
+    pending = sum(1 for c in all_choices if _get_choice_enum_value(c, "status") == "pending")
     return {
         "total": len(all_choices),
-        "pending": sum(1 for c in all_choices if _get_choice_enum_value(c, "status") == "pending"),
+        "active": pending,
+        "pending": pending,
         "decided": sum(1 for c in all_choices if _get_choice_enum_value(c, "status") == "decided"),
     }
 

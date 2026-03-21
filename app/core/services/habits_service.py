@@ -82,6 +82,13 @@ if TYPE_CHECKING:
     from core.services.user import UserContext
 
 
+def _compute_habit_metadata(_all_habits: list[Any]) -> dict[str, Any]:
+    """Compute habit metadata — categories from HabitCategory enum."""
+    from core.models.enums.habit_enums import HabitCategory
+
+    return {"categories": [c.value for c in HabitCategory if c != HabitCategory.OTHER]}
+
+
 def _compute_habit_stats(all_habits: list[Any]) -> dict[str, int | float]:
     """Compute pre-filter stats from the full habit set."""
     return {
@@ -1380,6 +1387,7 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
             apply_filters=apply_filters,
             apply_sort=_apply_habit_sort,
             sort_by=sort_by,
+            compute_metadata=_compute_habit_metadata,
         )
 
 

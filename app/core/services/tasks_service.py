@@ -132,9 +132,12 @@ class TaskAnalyticsDashboard(TypedDict):
 def _compute_task_stats(all_tasks: list[Any]) -> dict[str, int | float]:
     """Compute pre-filter stats from the full task set."""
     today = date.today()
+    total = len(all_tasks)
+    completed = sum(1 for t in all_tasks if t.status == EntityStatus.COMPLETED)
     return {
-        "total": len(all_tasks),
-        "completed": sum(1 for t in all_tasks if t.status == EntityStatus.COMPLETED),
+        "total": total,
+        "active": total - completed,
+        "completed": completed,
         "overdue": sum(
             1
             for t in all_tasks

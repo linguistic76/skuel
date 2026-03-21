@@ -38,7 +38,8 @@ logger = get_logger(__name__)
 
 def _compute_lp_stats(all_paths: list[Any]) -> dict[str, int | float]:
     """Compute pre-filter stats from the full learning path set."""
-    return {"total": len(all_paths)}
+    total = len(all_paths)
+    return {"total": total, "active": total}
 
 
 def _get_lp_title_lower(path: Any) -> str:

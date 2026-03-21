@@ -80,6 +80,11 @@ _PRINCIPLE_STRENGTH_ORDER: dict[PrincipleStrength, int] = {
 }
 
 
+def _compute_principle_metadata(_all_principles: list[Any]) -> dict[str, Any]:
+    """Compute principle metadata — categories from the PrincipleCategory enum."""
+    return {"categories": [c.value for c in PrincipleCategory]}
+
+
 def _compute_principle_stats(all_principles: list[Any]) -> dict[str, int | float]:
     """Compute pre-filter stats from the full principle set."""
     return {
@@ -979,4 +984,5 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
             apply_filters=apply_filters,
             apply_sort=_apply_principle_sort,
             sort_by=sort_by,
+            compute_metadata=_compute_principle_metadata,
         )

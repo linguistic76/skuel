@@ -528,24 +528,68 @@ class DailyPlanningMixin:
         Uses filtered_providers to query domain stats that intelligence methods
         otherwise have no access to. Stats are pre-filter aggregates (totals
         across all statuses), computed by each domain's get_filtered_context().
+
+        All stats dicts include guaranteed ``total`` and ``active`` keys (BaseStats
+        contract). Domain-specific keys (``overdue``, ``pending``, ``core``, etc.)
+        are used for targeted warnings.
         """
         warnings: list[str] = []
 
+        # --- Single-domain warnings ---
+
         task_stats = await self._query_domain_stats("tasks")
         if task_stats is not None:
-            total = task_stats.get("total", 0)
-            completed = task_stats.get("completed", 0)
-            active = int(total) - int(completed)
+            active = int(task_stats.get("active", 0))
             if active > 30:
                 warnings.append(f"{active} active tasks — consider archiving or splitting")
 
         goal_stats = await self._query_domain_stats("goals")
-        if goal_stats is not None and goal_stats.get("active", 0) == 0:
+        if goal_stats is not None and int(goal_stats.get("active", 0)) == 0:
             warnings.append("No active goals — daily work lacks direction")
 
         habit_stats = await self._query_domain_stats("habits")
-        if habit_stats is not None and habit_stats.get("total", 0) == 0:
+        if habit_stats is not None and int(habit_stats.get("total", 0)) == 0:
             warnings.append("No habits tracked — consider adding consistency anchors")
+
+        event_stats = await self._query_domain_stats("events")
+        if event_stats is not None:
+            today_count = int(event_stats.get("today", 0))
+            if today_count >= 5:
+                warnings.append(f"{today_count} events today — tight schedule, protect focus time")
+
+        choice_stats = await self._query_domain_stats("choices")
+        if choice_stats is not None:
+            pending = int(choice_stats.get("pending", 0))
+            if pending >= 5:
+                warnings.append(
+                    f"{pending} pending choices — decision fatigue risk, prioritize or defer"
+                )
+
+        principle_stats = await self._query_domain_stats("principles")
+        if principle_stats is not None:
+            if (
+                int(principle_stats.get("total", 0)) > 0
+                and int(principle_stats.get("core", 0)) == 0
+            ):
+                warnings.append(
+                    "No core principles — consider strengthening your values foundation"
+                )
+
+        # --- Cross-domain balance warnings ---
+
+        if goal_stats is not None and habit_stats is not None:
+            goals_active = int(goal_stats.get("active", 0))
+            habits_active = int(habit_stats.get("active", 0))
+            if goals_active >= 10 and habits_active == 0:
+                warnings.append(
+                    f"{goals_active} active goals but no habits — missing consistency anchors"
+                )
+
+        if task_stats is not None and goal_stats is not None:
+            tasks_active = int(task_stats.get("active", 0))
+            goals_active = int(goal_stats.get("active", 0))
+            if tasks_active > 20 and goals_active == 0:
+                warnings.append("Many tasks but no goals — work lacks strategic direction")
 
         return warnings
 

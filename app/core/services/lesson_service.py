@@ -71,11 +71,13 @@ def _compute_lesson_stats(all_lessons: list[Any]) -> dict[str, int | float]:
     """Compute pre-filter stats from the full lesson set."""
     from core.models.enums import EntityStatus
 
+    published = sum(
+        1 for ls in all_lessons if getattr(ls, "status", None) == EntityStatus.PUBLISHED
+    )
     return {
         "total": len(all_lessons),
-        "published": sum(
-            1 for ls in all_lessons if getattr(ls, "status", None) == EntityStatus.PUBLISHED
-        ),
+        "active": published,
+        "published": published,
         "draft": sum(1 for ls in all_lessons if getattr(ls, "status", None) == EntityStatus.DRAFT),
     }
 

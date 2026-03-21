@@ -484,20 +484,11 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsService, services: Any 
         """Get all goals for user."""
         return await fetch_user_entities(goals_service.get_user_goals, "goals", user_uid, logger)
 
-    async def get_categories() -> Result[list[str]]:
-        """Get unique goal categories (valid Domain enum values)."""
-        return Result.ok(
-            [
-                "business",
-                "health",
-                "education",
-                "personal",
-                "tech",
-                "creative",
-                "social",
-                "research",
-            ]
-        )
+    def _get_goal_categories() -> list[str]:
+        """Get goal categories from service-defined constant."""
+        from core.services.goals_service import _GOAL_CATEGORIES
+
+        return _GOAL_CATEGORIES
 
     # ========================================================================
     # MAIN DASHBOARD (Standalone Three-View)
@@ -519,7 +510,6 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsService, services: Any 
         filtered_result = await goals_service.get_filtered_context(
             user_uid, filters.status, filters.sort_by
         )
-        categories_result = await get_categories()
 
         # CHECK FOR ERRORS
         if filtered_result.is_error:
@@ -533,21 +523,10 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsService, services: Any 
                 request,
             )
 
-        if categories_result.is_error:
-            return await render_dashboard_error_page(
-                "Goals",
-                "Track and achieve your goals",
-                "Failed to load categories",
-                view,
-                GoalsViewComponents.render_view_tabs,
-                create_goals_page,
-                request,
-            )
-
         # Extract values
         ctx = filtered_result.value
         goals, stats = ctx["entities"], ctx["stats"]
-        categories = categories_result.value
+        categories = ctx.get("metadata", {}).get("categories", [])
 
         # Render the appropriate view content
         if view == "create":
@@ -601,21 +580,17 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsService, services: Any 
         filtered_result = await goals_service.get_filtered_context(
             user_uid, filters.status, filters.sort_by
         )
-        categories_result = await get_categories()
 
         # Handle errors (return banner directly for HTMX swap)
         if filtered_result.is_error:
             return render_error_banner("Failed to load goals")
-
-        if categories_result.is_error:
-            return render_error_banner("Failed to load categories")
 
         svc_ctx = filtered_result.value
         page_ctx = GoalsPageContext(
             entities=svc_ctx["entities"],
             filters=filters.to_dict(),
             stats=svc_ctx["stats"],
-            categories=categories_result.value,
+            categories=svc_ctx.get("metadata", {}).get("categories", []),
         )
         return GoalsViewComponents.render_list_view(ctx=page_ctx)
 
@@ -623,14 +598,8 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsService, services: Any 
     async def goals_view_create(request) -> Any:
         """HTMX fragment for create view."""
         require_authenticated_user(request)
-        categories_result = await get_categories()
-
-        # Handle errors
-        if categories_result.is_error:
-            return render_error_banner("Failed to load categories")
-
         return GoalsViewComponents.render_create_view(
-            categories=categories_result.value,
+            categories=_get_goal_categories(),
         )
 
     @rt("/goals/view/calendar")
@@ -699,8 +668,7 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsService, services: Any 
 
     async def render_goal_add_another_view(user_uid: str) -> Any:
         """Render create view for add-another flow."""
-        categories = await get_categories()
-        return GoalsViewComponents.render_create_view(categories=categories)
+        return GoalsViewComponents.render_create_view(categories=_get_goal_categories())
 
     # Register quick-add route via factory
     goals_quick_add_config = QuickAddConfig(

@@ -90,6 +90,24 @@ def _get_goal_target_date(goal: Any) -> date:
     return date.max
 
 
+# Goal categories — the knowledge categorization subset of Domain enum.
+_GOAL_CATEGORIES: list[str] = [
+    "business",
+    "health",
+    "education",
+    "personal",
+    "tech",
+    "creative",
+    "social",
+    "research",
+]
+
+
+def _compute_goal_metadata(_all_goals: list[Any]) -> dict[str, Any]:
+    """Compute goal metadata — categories for UI dropdowns."""
+    return {"categories": _GOAL_CATEGORIES}
+
+
 def _compute_goal_stats(all_goals: list[Any]) -> dict[str, int | float]:
     """Compute pre-filter stats from the full goal set."""
     return {
@@ -764,6 +782,7 @@ class GoalsService(BaseService[GoalsOperations, Goal]):
             apply_filters=apply_filters,
             apply_sort=_apply_goal_sort,
             sort_by=sort_by,
+            compute_metadata=_compute_goal_metadata,
         )
 
     # Note: Status operations (activate_goal, pause_goal, complete_goal, archive_goal)

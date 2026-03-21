@@ -38,7 +38,8 @@ logger = get_logger(__name__)
 
 def _compute_ls_stats(all_steps: list[Any]) -> dict[str, int | float]:
     """Compute pre-filter stats from the full learning step set."""
-    return {"total": len(all_steps)}
+    total = len(all_steps)
+    return {"total": total, "active": total}
 
 
 def _get_ls_title_lower(step: Any) -> str:

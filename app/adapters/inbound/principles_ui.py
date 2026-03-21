@@ -191,20 +191,9 @@ def create_principles_ui_routes(
     # DATA FETCHING HELPERS
     # ========================================================================
 
-    async def get_categories() -> Result[list[str]]:
-        """Get available principle categories."""
-        return Result.ok(
-            [
-                "spiritual",
-                "ethical",
-                "relational",
-                "personal",
-                "professional",
-                "intellectual",
-                "health",
-                "creative",
-            ]
-        )
+    def _get_principle_categories() -> list[str]:
+        """Get available principle categories from PrincipleCategory enum."""
+        return [c.value for c in PrincipleCategory]
 
     async def _dashboard_error(error_message: str, view: str, request: Any) -> Any:
         """Render a dashboard error page with standard Principles chrome."""
@@ -235,14 +224,8 @@ def create_principles_ui_routes(
 
         # Render the appropriate view content
         if view == "create":
-            categories_result = await get_categories()
-
-            # Check for errors
-            if categories_result.is_error:
-                return await _dashboard_error("Failed to load categories", view, request)
-
             view_content = PrinciplesViewComponents.render_create_view(
-                categories=categories_result.value,
+                categories=_get_principle_categories(),
             )
         elif view == "analytics":
             analytics_result = await principles_service.get_analytics_summary(user_uid)
@@ -264,18 +247,11 @@ def create_principles_ui_routes(
                 return await _dashboard_error("Failed to load principles", view, request)
 
             ctx = filtered_result.value
-            principles, stats = ctx["entities"], ctx["stats"]
-            categories_result = await get_categories()
-
-            # Check categories error
-            if categories_result.is_error:
-                return await _dashboard_error("Failed to load categories", view, request)
-
             page_ctx = PrinciplesPageContext(
-                entities=principles,
+                entities=ctx["entities"],
                 filters=filters.to_dict(),
-                stats=stats,
-                categories=categories_result.value,
+                stats=ctx["stats"],
+                categories=ctx.get("metadata", {}).get("categories", []),
             )
             view_content = PrinciplesViewComponents.render_list_view(ctx=page_ctx)
 
@@ -310,17 +286,11 @@ def create_principles_ui_routes(
             return render_error_banner("Failed to load principles")
 
         svc_ctx = filtered_result.value
-        categories_result = await get_categories()
-
-        # Handle categories error
-        if categories_result.is_error:
-            return render_error_banner("Failed to load categories")
-
         page_ctx = PrinciplesPageContext(
             entities=svc_ctx["entities"],
             filters=filters.to_dict(),
             stats=svc_ctx["stats"],
-            categories=categories_result.value,
+            categories=svc_ctx.get("metadata", {}).get("categories", []),
         )
         return PrinciplesViewComponents.render_list_view(ctx=page_ctx)
 
@@ -328,14 +298,8 @@ def create_principles_ui_routes(
     async def principles_view_create(request) -> Any:
         """HTMX fragment for create view."""
         require_authenticated_user(request)
-        categories_result = await get_categories()
-
-        # Handle errors (return banner directly for HTMX swap)
-        if categories_result.is_error:
-            return render_error_banner("Failed to load categories")
-
         return PrinciplesViewComponents.render_create_view(
-            categories=categories_result.value,
+            categories=_get_principle_categories(),
         )
 
     @rt("/principles/view/analytics")
@@ -410,31 +374,18 @@ def create_principles_ui_routes(
             return render_error_banner("Failed to load principles")
 
         ctx = filtered_result.value
-        principles, stats = ctx["entities"], ctx["stats"]
-        categories_result = await get_categories()
-
-        # Handle categories error
-        if categories_result.is_error:
-            return render_error_banner("Failed to load categories")
-
         page_ctx = PrinciplesPageContext(
-            entities=principles,
+            entities=ctx["entities"],
             filters={"category": "all", "strength": "all", "sort_by": "strength"},
-            stats=stats,
-            categories=categories_result.value,
+            stats=ctx["stats"],
+            categories=ctx.get("metadata", {}).get("categories", []),
         )
         return PrinciplesViewComponents.render_list_view(ctx=page_ctx)
 
     async def render_principle_add_another_view(user_uid: str) -> Any:
         """Render create view for add-another flow."""
-        categories_result = await get_categories()
-
-        # Handle errors
-        if categories_result.is_error:
-            return render_error_banner("Failed to load categories")
-
         return PrinciplesViewComponents.render_create_view(
-            categories=categories_result.value,
+            categories=_get_principle_categories(),
         )
 
     # Register quick-add route via factory
@@ -619,13 +570,7 @@ def create_principles_ui_routes(
         if error:
             return error
 
-        categories_result = await get_categories()
-
-        # Handle categories error
-        if categories_result.is_error:
-            return render_error_banner("Failed to load categories")
-
-        return PrinciplesViewComponents.render_edit_form(principle, categories_result.value)
+        return PrinciplesViewComponents.render_edit_form(principle, _get_principle_categories())
 
     @rt("/principles/{uid}/save", methods=["POST"])
     async def save_principle(request, uid: str) -> Any:
@@ -659,18 +604,11 @@ def create_principles_ui_routes(
             return render_error_banner("Failed to load principles")
 
         ctx = filtered_result.value
-        principles, stats = ctx["entities"], ctx["stats"]
-        categories_result = await get_categories()
-
-        # Handle categories error
-        if categories_result.is_error:
-            return render_error_banner("Failed to load categories")
-
         page_ctx = PrinciplesPageContext(
-            entities=principles,
+            entities=ctx["entities"],
             filters={"category": "all", "strength": "all", "sort_by": "strength"},
-            stats=stats,
-            categories=categories_result.value,
+            stats=ctx["stats"],
+            categories=ctx.get("metadata", {}).get("categories", []),
         )
         return PrinciplesViewComponents.render_list_view(ctx=page_ctx)
 
@@ -789,18 +727,11 @@ def create_principles_ui_routes(
             return render_error_banner("Failed to load principles")
 
         ctx = filtered_result.value
-        principles, stats = ctx["entities"], ctx["stats"]
-        categories_result = await get_categories()
-
-        # Handle categories error
-        if categories_result.is_error:
-            return render_error_banner("Failed to load categories")
-
         page_ctx = PrinciplesPageContext(
-            entities=principles,
+            entities=ctx["entities"],
             filters={"category": "all", "strength": "all", "sort_by": "strength"},
-            stats=stats,
-            categories=categories_result.value,
+            stats=ctx["stats"],
+            categories=ctx.get("metadata", {}).get("categories", []),
         )
         return PrinciplesViewComponents.render_list_view(ctx=page_ctx)
 

@@ -31,11 +31,12 @@ logger = get_logger(__name__)
 
 def _compute_ku_stats(all_kus: list[Any]) -> dict[str, int | float]:
     """Compute pre-filter stats from the full Ku set."""
+    total = len(all_kus)
     namespaces: dict[str, int] = {}
     for ku in all_kus:
         ns = getattr(ku, "namespace", None) or "unclassified"
         namespaces[ns] = namespaces.get(ns, 0) + 1
-    return {"total": len(all_kus), **namespaces}
+    return {"total": total, "active": total, **namespaces}
 
 
 def _apply_ku_namespace_filter(all_kus: list[Any], namespace_filter: str) -> list[Any]:
