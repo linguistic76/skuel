@@ -540,12 +540,14 @@ connections:
 | `parent_goal` | SUBGOAL_OF | Goal | Goal |
 | `sub_goals` | SUBGOAL_OF (incoming) | Goal | Goal |
 | `supporting_habits` | SUPPORTS_GOAL (incoming) | Entity | Goal |
+| `informed_by_knowledge` | INFORMED_BY_KNOWLEDGE | Entity | Choice |
 | `guided_by_principle` | INFORMED_BY_PRINCIPLE | Principle | Choice |
 | `affects_goal` | AFFECTS_GOAL | Goal | Choice |
 | `impacts_habit` | IMPACTS_HABIT | Entity | Choice |
 | `contributes_to_goal` | CONTRIBUTES_TO_GOAL | Goal | Event |
 | `reinforces_habit` | REINFORCES_HABIT | Entity | Event |
 | `executes_task` | EXECUTES_TASK | Task | Event |
+| `grounded_in_knowledge` | GROUNDED_IN_KNOWLEDGE | Entity | Principle |
 | `guides_goal` | GUIDES_GOAL | Goal | Principle |
 | `inspires_habit` | INSPIRES_HABIT | Entity | Principle |
 | `contains_steps` | HAS_STEP | Entity | LP |

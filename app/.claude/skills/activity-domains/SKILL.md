@@ -25,6 +25,20 @@ All 6 follow **identical architecture** - learn one, know all:
 
 Events additionally has integration sub-services (`EventsHabitIntegrationService`, `EventsLearningService`) that bridge it with other Activity types. The **Calendar** cross-cutting system aggregates Events alongside Tasks, Habits, and Goals — Calendar is the scheduling system, Events are the things being scheduled.
 
+## Knowledge Substance Connections
+
+Each Activity Domain connects to knowledge via YAML `connections.*` fields, feeding the substance tracking pipeline:
+
+| Domain | YAML Field | Relationship | Weight |
+|--------|-----------|-------------|--------|
+| Task | `connections.applies_knowledge` | APPLIES_KNOWLEDGE | 0.05 (max 0.25) |
+| Habit | `connections.reinforces_knowledge` | REINFORCES_KNOWLEDGE | 0.10 (max 0.30) |
+| Event | `connections.applies_knowledge` | APPLIES_KNOWLEDGE | 0.05 (max 0.25) |
+| Choice | `connections.informed_by_knowledge` | INFORMED_BY_KNOWLEDGE | 0.07 (max 0.15) |
+| Principle | `connections.grounded_in_knowledge` | GROUNDED_IN_KNOWLEDGE | 0.07 (max 0.15) |
+
+These edges are created at ingestion time from YAML templates. At runtime, domain events (`KnowledgeAppliedInTask`, `KnowledgeBuiltIntoHabit`, etc.) increment substance counters on knowledge nodes. See `/docs/architecture/knowledge_substance_philosophy.md`.
+
 ## Architecture Overview
 
 ```

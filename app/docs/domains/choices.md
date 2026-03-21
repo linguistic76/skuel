@@ -117,7 +117,7 @@ Each option in `options` list:
 
 | Key | Relationship | Target | Description |
 |-----|--------------|--------|-------------|
-| `knowledge` | `INFORMED_BY_KNOWLEDGE` | Ku | Knowledge that informed decision |
+| `knowledge` | `INFORMED_BY_KNOWLEDGE` | Ku | Knowledge that informed decision (YAML: `connections.informed_by_knowledge`) |
 | `principles` | `INFORMED_BY_PRINCIPLE` | Principle | Principles that guided decision |
 | `goals` | `AFFECTS_GOAL` | Goal | Goals affected by choice |
 | `learning_paths` | `OPENS_LEARNING_PATH` | Lp | Learning paths opened by choice |

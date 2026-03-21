@@ -1,0 +1,347 @@
+---
+title: YAML Authoring Guide
+created: 2026-03-21
+updated: 2026-03-21
+status: current
+category: guides
+tags: [yaml, ingestion, authoring, substance, relationships, curriculum, activity-domains]
+---
+
+# YAML Authoring Guide
+
+How to write YAML files that create SKUEL entities and their graph relationships. This guide covers entity structure, the `connections` system, substance tracking, and domain bundles.
+
+---
+
+## Entity Structure
+
+Every YAML file starts with required fields:
+
+```yaml
+version: 1.0
+type: Task              # Entity type: Task, Goal, Habit, Event, Choice, Principle,
+                        #   Lesson, Ku, LearningStep, LearningPath, Edge
+uid: task:my-task-name  # Unique identifier (prefix:slug format)
+title: My Task Title    # Display title
+```
+
+**UID Prefixes:**
+
+| Type | Prefix | Example |
+|------|--------|---------|
+| Ku | `ku:` | `ku:attention:buzzing` |
+| Lesson | `l:` | `l:mindfulness:breath-awareness-basics` |
+| LearningStep | `ls:` | `ls:mindfulness-101:step-1` |
+| LearningPath | `lp:` | `lp:mindfulness-101` |
+| Task | `task:` | `task:log-first-5-sessions` |
+| Goal | `goal:` | `goal:mindfulness-beginner` |
+| Habit | `habit:` | `habit:daily-2min-breath` |
+| Event | `event:` | `event:practice-block-2min` |
+| Choice | `choice:` | `choice:2-minutes-right-now` |
+| Principle | `principle:` | `principle:small-steps` |
+
+See `yaml_templates/_schemas/` for the complete field reference per entity type.
+
+---
+
+## The Connections System
+
+The `connections` block declares graph relationships. Each field maps to a `yaml_field_path` in the relationship registry (`core/models/relationship_registry.py`). The ingestion engine creates Neo4j edges from these declarations.
+
+```yaml
+connections:
+  field_name:
+    - target_uid_1
+    - target_uid_2
+```
+
+**How it works:**
+1. YAML author writes `connections.{field}: [uid1, uid2]`
+2. `preparer.py` flattens the `connections` dict to dotted notation (`connections.field → [uids]`)
+3. `generate_ingestion_relationship_config()` reads the `yaml_field_path` from the registry
+4. `bulk_ingestion.py` generates `MERGE (n)-[:REL_TYPE]->(target)` Cypher
+5. Edge created in Neo4j
+
+---
+
+## Knowledge Connections (Substance Tracking)
+
+The substance tracking pipeline measures how knowledge is LIVED, not just learned. Each activity domain connects to knowledge via a specific relationship type:
+
+| Domain | Connection Field | Relationship | Weight | Max |
+|--------|-----------------|-------------|--------|-----|
+| **Habit** | `reinforces_knowledge` | REINFORCES_KNOWLEDGE | 0.10 | 0.30 |
+| **Choice** | `informed_by_knowledge` | INFORMED_BY_KNOWLEDGE | 0.07 | 0.15 |
+| **Principle** | `grounded_in_knowledge` | GROUNDED_IN_KNOWLEDGE | 0.07 | 0.15 |
+| **Event** | `applies_knowledge` | APPLIES_KNOWLEDGE | 0.05 | 0.25 |
+| **Task** | `applies_knowledge` | APPLIES_KNOWLEDGE | 0.05 | 0.25 |
+| **Journal** | *(deferred)* | — | 0.07 | 0.20 |
+
+**Total possible substance score: 1.0** (6 channels contribute up to 1.30 raw, capped at 1.0).
+
+### Examples
+
+```yaml
+# Task applies knowledge
+type: Task
+uid: task:log-first-5-sessions
+title: Log First 5 Sessions
+connections:
+  applies_knowledge:
+    - l:mindfulness:breath-awareness-basics
+
+# Habit reinforces knowledge (HIGHEST substance weight)
+type: Habit
+uid: habit:daily-2min-breath
+title: Daily 2-Minute Breath
+connections:
+  reinforces_knowledge:
+    - l:mindfulness:breath-awareness-basics
+
+# Choice informed by knowledge
+type: Choice
+uid: choice:2-minutes-right-now
+title: Do Two Minutes Right Now
+connections:
+  informed_by_knowledge:
+    - l:mindfulness:breath-awareness-basics
+
+# Principle grounded in knowledge
+type: Principle
+uid: principle:small-steps
+name: Small Steps Beat Big Bursts
+connections:
+  grounded_in_knowledge:
+    - l:mindfulness:breath-awareness-basics
+    - l:mindfulness:mind-wandering-happens
+
+# Event applies knowledge
+type: Event
+uid: event:practice-block-2min
+title: 2-Minute Practice Block
+connections:
+  applies_knowledge:
+    - l:mindfulness:breath-awareness-basics
+```
+
+**At runtime**, when a user completes a task, creates a habit, makes a choice, etc., domain events (`KnowledgeAppliedInTask`, `KnowledgeBuiltIntoHabit`, `KnowledgeInformedChoice`) increment substance counters on the knowledge node. The YAML connections define the *structural* links; runtime events track *usage* counts.
+
+See: `/docs/architecture/knowledge_substance_philosophy.md`
+
+---
+
+## Cross-Domain Connections
+
+Activities also connect to other activities:
+
+### Task Connections
+
+```yaml
+connections:
+  applies_knowledge: [l:namespace:lesson-slug]       # APPLIES_KNOWLEDGE → Lesson/Ku
+  fulfills_goal: [goal:goal-name]                    # FULFILLS_GOAL → Goal (single)
+  reinforces_habit: [habit:habit-name]               # SUPPORTS_HABIT → Habit (single)
+  depends_on: [task:other-task]                      # DEPENDS_ON → Task
+```
+
+### Goal Connections
+
+```yaml
+connections:
+  requires_knowledge: [l:namespace:lesson-slug]      # REQUIRES_KNOWLEDGE → Lesson/Ku
+  aligned_with_principle: [principle:name]            # GUIDED_BY_PRINCIPLE → Principle
+```
+
+### Habit Connections
+
+```yaml
+connections:
+  reinforces_knowledge: [l:namespace:lesson-slug]    # REINFORCES_KNOWLEDGE → Lesson/Ku
+  supports_goal: [goal:goal-name]                    # SUPPORTS_GOAL → Goal
+  embodies_principle: [principle:name]                # EMBODIES_PRINCIPLE → Principle
+  prerequisite_habits: [habit:other-habit]            # REQUIRES_PREREQUISITE_HABIT → Habit
+```
+
+### Event Connections
+
+```yaml
+connections:
+  applies_knowledge: [l:namespace:lesson-slug]       # APPLIES_KNOWLEDGE → Lesson/Ku
+  contributes_to_goal: [goal:goal-name]              # CONTRIBUTES_TO_GOAL → Goal
+  reinforces_habit: [habit:habit-name]               # REINFORCES_HABIT → Habit
+  executes_task: [task:task-name]                    # EXECUTES_TASK → Task
+```
+
+### Choice Connections
+
+```yaml
+connections:
+  informed_by_knowledge: [l:namespace:lesson-slug]   # INFORMED_BY_KNOWLEDGE → Lesson/Ku
+  guided_by_principle: [principle:name]               # INFORMED_BY_PRINCIPLE → Principle
+  affects_goal: [goal:goal-name]                     # AFFECTS_GOAL → Goal
+  impacts_habit: [habit:habit-name]                  # IMPACTS_HABIT → Habit
+```
+
+### Principle Connections
+
+```yaml
+connections:
+  grounded_in_knowledge: [l:namespace:lesson-slug]   # GROUNDED_IN_KNOWLEDGE → Lesson/Ku
+  guides_goal: [goal:goal-name]                      # GUIDES_GOAL → Goal
+  inspires_habit: [habit:habit-name]                 # INSPIRES_HABIT → Habit
+```
+
+### Curriculum Connections
+
+```yaml
+# Lesson
+connections:
+  requires: [l:namespace:prerequisite]               # REQUIRES_KNOWLEDGE → Lesson
+  enables: [l:namespace:next-lesson]                 # ENABLES_KNOWLEDGE → Lesson
+uses_kus:
+  - ku:namespace:concept                             # USES_KU → Ku
+
+# Learning Path
+connections:
+  contains_steps:                                    # HAS_STEP → LearningStep
+    - ls:path:step-1
+    - ls:path:step-2
+```
+
+### Learning Step Fields (Orchestration Point)
+
+Learning Steps are the bridge between curriculum and activities. They reference activities directly:
+
+```yaml
+type: LearningStep
+uid: ls:mindfulness-101:step-1
+primary_knowledge_uids: [l:mindfulness:breath-awareness-basics]
+trains_ku_uids: [ku:mindfulness:breath]
+principle_uids: [principle:small-steps]              # GUIDED_BY_PRINCIPLE
+choice_uids: [choice:2-minutes-right-now]            # INFORMS_CHOICE
+habit_uids: [habit:daily-2min-breath]                # BUILDS_HABIT
+task_uids: [task:log-first-5-sessions]               # ASSIGNS_TASK
+event_template_uids: [event:practice-block-2min]     # SCHEDULES_EVENT
+```
+
+---
+
+## Edge Files (Evidence Relationships)
+
+Standalone relationship files create edges between existing entities with evidence metadata:
+
+```yaml
+type: Edge
+from: ku:nutrition:caffeine
+to: ku:attention:buzzing
+relationship: EXACERBATED_BY
+evidence: "After coffee I feel more restless."
+confidence: 0.8
+polarity: -1
+temporality: hours
+source: self_observation
+```
+
+**Fields:**
+- `confidence`: 0.0–1.0
+- `polarity`: -1 (negative), 0 (neutral), 1 (positive)
+- `temporality`: minutes, hours, days, chronic
+- `source`: self_observation, research, teacher, clinical
+
+---
+
+## Domain Bundles
+
+A bundle is a complete, curated collection of related content. See `yaml_templates/mindfulness_101/` for a working example.
+
+### Bundle Structure
+
+```
+mindfulness_101/
+  manifest.yaml                          # Import order + entity inventory
+  ku_breath.yaml                         # Atomic knowledge units (first)
+  ku_attention.yaml
+  lesson_breath-awareness-basics.yaml    # Lessons that compose Kus
+  lesson_posture-basics.yaml
+  habit_daily-2min-breath.yaml           # Activity domains (with connections)
+  task_log-first-5-sessions.yaml
+  event_practice-block-2min.yaml
+  goal_mindfulness-beginner.yaml
+  choice_2-minutes-right-now.yaml
+  principle_small-steps.yaml
+  ls_mindfulness-101_step-1.yaml         # Learning Steps (reference all above)
+  ls_mindfulness-101_step-2.yaml
+  lp_mindfulness-101.yaml               # Learning Path (sequences Steps)
+```
+
+### Manifest
+
+```yaml
+name: Mindfulness 101
+description: Complete beginner mindfulness bundle
+version: 1.0
+
+import_order:
+  1_kus: [ku:mindfulness:breath, ku:mindfulness:attention]
+  2_lessons: [l:mindfulness:breath-awareness-basics, l:mindfulness:posture-basics]
+  3_supporting: [habit:daily-2min-breath, task:log-first-5-sessions, ...]
+  4_steps: [ls:mindfulness-101:step-1, ls:mindfulness-101:step-2]
+  5_paths: [lp:mindfulness-101]
+```
+
+**Import order matters:** Kus first (referenced by Lessons), then Lessons (referenced by Activities), then Activities (referenced by Learning Steps), then Steps, then Paths.
+
+### Ingestion
+
+```python
+# Single file
+result = await service.ingest_file(Path("yaml_templates/mindfulness_101/ku_breath.yaml"))
+
+# Full bundle
+result = await service.ingest_directory(Path("yaml_templates/mindfulness_101"))
+
+# Dry run (preview without writing)
+result = await service.ingest_directory(path, dry_run=True)
+```
+
+**API:** `POST /api/ingest/file`, `POST /api/ingest/directory`
+
+---
+
+## Validation
+
+Validation happens via **Pydantic Request models** in the Python code, not via YAML schemas. The `_schemas/` templates document what fields Pydantic expects.
+
+---
+
+## The Complete Picture
+
+```
+YAML Author writes connections.*
+        ↓
+    Ingestion Engine
+        ↓
+    Neo4j Edges (structural)
+        ↓
+    User interacts (completes task, builds habit, makes choice...)
+        ↓
+    Domain Events fire (KnowledgeAppliedInTask, KnowledgeBuiltIntoHabit, ...)
+        ↓
+    Substance counters increment on knowledge node
+        ↓
+    UserContext MEGA-QUERY collects all 6 channels
+        ↓
+    calculate_user_substance() applies weights (Habits 0.10 > Choices 0.07 > Tasks 0.05)
+        ↓
+    Substance score (0.0–1.0): "How much is this knowledge LIVED?"
+```
+
+---
+
+## Related Documentation
+
+- [Knowledge Substance Philosophy](/docs/architecture/knowledge_substance_philosophy.md) — scoring model, decay, life path alignment
+- [Unified Ingestion Guide](/docs/patterns/UNIFIED_INGESTION_GUIDE.md) — full ingestion API
+- [Relationship Registry](/core/models/relationship_registry.py) — source of truth for `yaml_field_path` mappings
+- [Entity Type Architecture](/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md) — all 21 entity types
+- [YAML Templates README](/yaml_templates/README.md) — directory structure and UID formats

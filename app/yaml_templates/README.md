@@ -129,6 +129,72 @@ connections:
     - ls:mindfulness-101:step-2
 ```
 
+## Activity Domain Connections (Substance Tracking)
+
+Activity domains declare knowledge relationships via `connections.*` fields. These create Neo4j edges at ingestion time, feeding the substance tracking pipeline.
+
+### Knowledge Connection Fields
+
+| Domain | Field | Relationship | Substance Weight |
+|--------|-------|-------------|-----------------|
+| Task | `connections.applies_knowledge` | APPLIES_KNOWLEDGE | 0.05/task (max 0.25) |
+| Goal | `connections.requires_knowledge` | REQUIRES_KNOWLEDGE | — (prerequisite, not substance) |
+| Habit | `connections.reinforces_knowledge` | REINFORCES_KNOWLEDGE | 0.10/habit (max 0.30) |
+| Event | `connections.applies_knowledge` | APPLIES_KNOWLEDGE | 0.05/event (max 0.25) |
+| Choice | `connections.informed_by_knowledge` | INFORMED_BY_KNOWLEDGE | 0.07/choice (max 0.15) |
+| Principle | `connections.grounded_in_knowledge` | GROUNDED_IN_KNOWLEDGE | 0.07/principle (max 0.15) |
+
+### Cross-Domain Connection Fields
+
+Activities also connect to other activity domains:
+
+| Domain | Field | Relationship | Target |
+|--------|-------|-------------|--------|
+| Task | `connections.fulfills_goal` | FULFILLS_GOAL | Goal |
+| Task | `connections.reinforces_habit` | SUPPORTS_HABIT | Habit |
+| Goal | `connections.aligned_with_principle` | GUIDED_BY_PRINCIPLE | Principle |
+| Habit | `connections.supports_goal` | SUPPORTS_GOAL | Goal |
+| Habit | `connections.embodies_principle` | EMBODIES_PRINCIPLE | Principle |
+| Event | `connections.contributes_to_goal` | CONTRIBUTES_TO_GOAL | Goal |
+| Choice | `connections.guided_by_principle` | INFORMED_BY_PRINCIPLE | Principle |
+| Choice | `connections.affects_goal` | AFFECTS_GOAL | Goal |
+| Principle | `connections.guides_goal` | GUIDES_GOAL | Goal |
+| Principle | `connections.inspires_habit` | INSPIRES_HABIT | Habit |
+
+### Example: Task with Knowledge Connection
+
+```yaml
+type: Task
+uid: task:log-first-5-sessions
+title: Log First 5 Sessions
+description: Track each breath awareness session in a log
+user_uid: system
+connections:
+  applies_knowledge:
+    - l:mindfulness:breath-awareness-basics
+  fulfills_goal:
+    - goal:mindfulness-beginner
+```
+
+### Example: Principle with Knowledge Connection
+
+```yaml
+type: Principle
+uid: principle:small-steps
+name: Small Steps Beat Big Bursts
+statement: I commit to consistent tiny actions over heroic sprints
+connections:
+  grounded_in_knowledge:
+    - l:mindfulness:breath-awareness-basics
+    - l:mindfulness:mind-wandering-happens
+  guides_goal:
+    - goal:mindfulness-beginner
+  inspires_habit:
+    - habit:daily-2min-breath
+```
+
+**How it works:** The `connections.*` fields map to `yaml_field_path` entries in the relationship registry (`core/models/relationship_registry.py`). The ingestion engine reads these mappings and generates `MERGE` Cypher to create edges. See `_schemas/` for the complete field reference per entity type.
+
 ## Domain Bundles
 
 A domain bundle is a complete, curated collection of related content. See `domains/mindfulness_101/` for a working example with 21 entities.

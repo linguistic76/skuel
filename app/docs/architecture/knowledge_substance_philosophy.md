@@ -112,6 +112,70 @@ Based on substance score:
 
 ---
 
+## YAML Authoring: Substance Relationships
+
+**All 6 substance channels can be declared in YAML** via `connections.*` fields. The ingestion engine reads the relationship registry's `yaml_field_path` and creates Neo4j edges automatically.
+
+### Substance Connection Fields by Domain
+
+| Domain | YAML Field | Relationship | Substance Channel |
+|--------|-----------|-------------|-------------------|
+| **Task** | `connections.applies_knowledge` | `APPLIES_KNOWLEDGE` | Tasks (0.05/task, max 0.25) |
+| **Habit** | `connections.reinforces_knowledge` | `REINFORCES_KNOWLEDGE` | Habits (0.10/habit, max 0.30) |
+| **Event** | `connections.applies_knowledge` | `APPLIES_KNOWLEDGE` | Events (0.05/event, max 0.25) |
+| **Choice** | `connections.informed_by_knowledge` | `INFORMED_BY_KNOWLEDGE` | Choices (0.07/choice, max 0.15) |
+| **Principle** | `connections.grounded_in_knowledge` | `GROUNDED_IN_KNOWLEDGE` | Principles (0.07/principle, max 0.15) |
+| **Journal** | *(deferred)* | — | Journals (0.07/entry, max 0.20) |
+
+### Examples
+
+```yaml
+# Choice — informed by knowledge (creates INFORMED_BY_KNOWLEDGE edge)
+type: Choice
+uid: choice:2-minutes-right-now
+title: Do Two Minutes Right Now
+connections:
+  informed_by_knowledge:
+    - l:mindfulness:breath-awareness-basics
+
+# Principle — grounded in knowledge (creates GROUNDED_IN_KNOWLEDGE edge)
+type: Principle
+uid: principle:small-steps
+name: Small Steps Beat Big Bursts
+connections:
+  grounded_in_knowledge:
+    - l:mindfulness:breath-awareness-basics
+    - l:mindfulness:mind-wandering-happens
+
+# Task — applies knowledge (creates APPLIES_KNOWLEDGE edge)
+type: Task
+uid: task:log-first-5-sessions
+title: Log First 5 Sessions
+connections:
+  applies_knowledge:
+    - l:mindfulness:breath-awareness-basics
+
+# Habit — reinforces knowledge (creates REINFORCES_KNOWLEDGE edge)
+type: Habit
+uid: habit:daily-2min-breath
+title: Daily 2-Minute Breath
+connections:
+  reinforces_knowledge:
+    - l:mindfulness:breath-awareness-basics
+```
+
+### How It Works
+
+1. YAML author writes `connections.{field}: [uid1, uid2]`
+2. `preparer.py` flattens `connections` dict to dotted notation
+3. `generate_ingestion_relationship_config()` reads `yaml_field_path` from the relationship registry
+4. `bulk_ingestion.py` generates `MERGE (n)-[:REL_TYPE]->(target)` Cypher
+5. Edge created in Neo4j — substance tracking is now structural
+
+**See:** `_schemas/` for complete field reference, `mindfulness_101/` for working examples.
+
+---
+
 ## Event-Driven Substance Updates
 
 **All substance changes flow through domain events:**

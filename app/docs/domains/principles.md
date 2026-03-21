@@ -117,7 +117,7 @@ Created via `create_common_sub_services()` factory + domain-specific services in
 
 | Key | Relationship | Target | Description |
 |-----|--------------|--------|-------------|
-| `knowledge` | `GROUNDED_IN_KNOWLEDGE` | Ku | Knowledge that grounds principle |
+| `knowledge` | `GROUNDED_IN_KNOWLEDGE` | Ku | Knowledge that grounds principle (YAML: `connections.grounded_in_knowledge`) |
 | `guided_goals` | `GUIDES_GOAL` | Goal | Goals this principle guides |
 | `guided_choices` | `GUIDES_CHOICE` | Choice | Choices this principle guides |
 

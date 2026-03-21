@@ -150,6 +150,28 @@ user-owned activity entities across all domains (shared entities lack `user_uid`
 
 ## Cross-Domain Relationships
 
+### YAML Ingestion (Structural)
+
+Knowledge relationships declared in YAML `connections.*` fields are created at ingestion time:
+
+```yaml
+# Task applies knowledge (substance weight: 0.05)
+connections:
+  applies_knowledge: [l:mindfulness:breath-awareness-basics]
+
+# Choice informed by knowledge (substance weight: 0.07)
+connections:
+  informed_by_knowledge: [l:mindfulness:breath-awareness-basics]
+
+# Principle grounded in knowledge (substance weight: 0.07)
+connections:
+  grounded_in_knowledge: [l:mindfulness:mind-wandering-happens]
+```
+
+See `yaml_templates/_schemas/` for complete field reference. See `/docs/architecture/knowledge_substance_philosophy.md` for the substance scoring model.
+
+### Runtime (Service API)
+
 All domains connect via `UnifiedRelationshipService`:
 
 ```python
