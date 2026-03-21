@@ -33,16 +33,19 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from core.constants import GraphDepth
 from core.models.entity import Entity
-from core.models.enums import CompletionStatus, Priority
+from core.models.enums import EntityStatus, Priority
 from core.models.enums.neo_labels import NeoLabel
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.intelligence import PatternAnalyzer
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_second_item
+
+if TYPE_CHECKING:
+    from core.ports.domain_protocols import BackendOperations
 
 # =============================================================================
 # HELPER FUNCTIONS (SKUEL012 - no lambdas)
@@ -54,7 +57,9 @@ def _extract_lowercase_title(entity: Any) -> str:
     return entity.title.lower()
 
 
-class ActivityKnowledgeIntelligenceService(BaseAnalyticsService[Any, Entity]):
+class ActivityKnowledgeIntelligenceService(
+    BaseAnalyticsService["BackendOperations[Entity]", Entity]
+):
     """
     Knowledge intelligence for ANY activity domain entity.
 
@@ -62,6 +67,11 @@ class ActivityKnowledgeIntelligenceService(BaseAnalyticsService[Any, Entity]):
     specific to any single activity domain. All 6 activity domains (Tasks,
     Goals, Habits, Events, Choices, Principles) have graph relationships
     to Knowledge Units.
+
+    Uses an Entity-level backend (NeoLabel.ENTITY) so queries like
+    find_by(user_uid=...) return user-owned activity entities across all
+    domains. Shared entities (Lesson, Ku, etc.) lack user_uid and naturally
+    filter out.
 
     NOTE: This service does NOT use AI (LLM/embeddings).
     All methods are pure graph queries + Python calculations.
@@ -105,7 +115,7 @@ class ActivityKnowledgeIntelligenceService(BaseAnalyticsService[Any, Entity]):
             entities = [entity_result.value]
         else:
             entities_result = await self.backend.find_by(
-                user_uid=user_uid, status=CompletionStatus.DONE
+                user_uid=user_uid, status=EntityStatus.COMPLETED
             )
 
             if entities_result.is_error:
@@ -174,16 +184,16 @@ class ActivityKnowledgeIntelligenceService(BaseAnalyticsService[Any, Entity]):
         self.logger.info(f"Generating knowledge units from entities for user {user_uid}")
 
         cutoff_date = datetime.now() - timedelta(days=period_days)
-        entities_result = await self.backend.find_by(user_uid=user_uid, status=CompletionStatus.DONE)
+        entities_result = await self.backend.find_by(
+            user_uid=user_uid, status=EntityStatus.COMPLETED
+        )
 
         if entities_result.is_error:
             return Result.fail(entities_result.expect_error())
 
         entities = entities_result.value
         recent_entities = [
-            entity
-            for entity in entities
-            if entity.completion_date and entity.completion_date >= cutoff_date
+            entity for entity in entities if entity.updated_at and entity.updated_at >= cutoff_date
         ]
 
         # Extract patterns
@@ -365,8 +375,7 @@ class ActivityKnowledgeIntelligenceService(BaseAnalyticsService[Any, Entity]):
     def _generate_documentation_suggestions(self, patterns: list[dict]) -> list[str]:
         """Generate documentation suggestions from patterns."""
         return [
-            f"Document {pattern['name']} workflow and best practices"
-            for pattern in patterns[:5]
+            f"Document {pattern['name']} workflow and best practices" for pattern in patterns[:5]
         ]
 
     def _identify_skill_opportunities(self, entities: list) -> list[dict[str, Any]]:

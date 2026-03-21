@@ -693,10 +693,21 @@ def _create_learning_services(
     # Create activity knowledge intelligence service (March 2026)
     # Shared knowledge intelligence for all 6 activity domains — extracted from
     # TasksIntelligenceService because these methods are domain-agnostic.
+    # Uses Entity-level backend (NeoLabel.ENTITY) so find_by(user_uid=...) queries
+    # across ALL user-owned activity entities (Tasks, Goals, Habits, Events, Choices,
+    # Principles). Shared entities (Lesson, Ku, etc.) lack user_uid so naturally
+    # filter out.
+    from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
+    from core.models.entity import Entity
+
+    activity_entity_backend = UniversalNeo4jBackend[Entity](
+        driver, NeoLabel.ENTITY, Entity, base_label=NeoLabel.ENTITY
+    )
+
     from core.services.knowledge import ActivityKnowledgeIntelligenceService
 
     activity_knowledge_intelligence = ActivityKnowledgeIntelligenceService(
-        backend=knowledge_backend,
+        backend=activity_entity_backend,
         graph_intelligence_service=graph_intelligence,
     )
     logger.info("✅ ActivityKnowledgeIntelligenceService created")
