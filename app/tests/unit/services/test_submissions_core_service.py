@@ -81,8 +81,7 @@ class TestCreateJournalEntry:
         journal = result.value
         assert journal.user_uid == "user_1"
         assert journal.content == "Hello world"
-        # Journal.__post_init__ forces entity_type to JOURNAL (deprecated alias)
-        assert journal.entity_type == EntityType.JOURNAL
+        assert journal.entity_type == EntityType.JOURNAL_SUBMISSION
         assert journal.status == EntityStatus.DRAFT
         backend.create.assert_awaited_once()
 

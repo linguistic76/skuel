@@ -58,6 +58,7 @@ ActivityFilterSpec) for type safety while remaining backward compatible.
 
 from __future__ import annotations
 
+from abc import abstractmethod
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from adapters.persistence.neo4j.query import (
@@ -116,19 +117,22 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
     _user_ownership_relationship: ClassVar[str | None]
 
     @property
+    @abstractmethod
     def entity_label(self) -> str:
         """Entity label - must be provided by composing class."""
-        raise NotImplementedError
+        ...
 
+    @abstractmethod
     def _to_domain_models(
         self, data_list: builtins.list[Any], dto_class: type[DTOProtocol], model_class: type[T]
     ) -> builtins.list[T]:
         """Conversion method - provided by ConversionHelpersMixin."""
-        raise NotImplementedError
+        ...
 
+    @abstractmethod
     def _get_config_value(self, attr_name: str, default: Any = None) -> Any:
         """Config accessor - must be provided by composing class."""
-        raise NotImplementedError
+        ...
 
     # ========================================================================
     # CONFIGURATION VALIDATION

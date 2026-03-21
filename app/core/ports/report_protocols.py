@@ -69,7 +69,7 @@ class SubmissionReportOperations(Protocol):
         content: str,
         metadata: dict[str, Any] | None = None,
     ) -> Result[Any]:
-        """Create a teacher assessment (EntityType.SUBMISSION_REPORT, processor_type=HUMAN).
+        """Create a teacher assessment (EntityType.EXERCISE_REPORT, processor_type=HUMAN).
 
         Verifies teacher-student group membership before creating.
         Auto-shares with student via SHARES_WITH {role: 'student'}.

@@ -6,7 +6,7 @@ Core enums for entity type discrimination, processing lifecycle,
 content origin, and domain classification.
 
 Organized in 5 sections:
-1. Core Identity: EntityType (21 values + 3 deprecated), ContentOrigin (4 tiers)
+1. Core Identity: EntityType (21 values), ContentOrigin (4 tiers)
 2. Processing Lifecycle: EntityStatus (14 values), ProcessorType (4 values)
 3. Domain Classification: Domain, NonKuDomain, DomainIdentifier
 4. Analytics: AnalyticsDomain
@@ -93,12 +93,6 @@ class EntityType(StrEnum):
     EXERCISE_REPORT = "exercise_report"
     JOURNAL_REPORT = "journal_report"
 
-    # Deprecated aliases — use EXERCISE_SUBMISSION, JOURNAL_SUBMISSION, EXERCISE_REPORT, LESSON
-    SUBMISSION = "submission"  # deprecated: use EXERCISE_SUBMISSION
-    JOURNAL = "journal"  # deprecated: use JOURNAL_SUBMISSION
-    SUBMISSION_REPORT = "submission_report"  # deprecated: use EXERCISE_REPORT
-    ARTICLE = "lesson"  # deprecated: use LESSON
-
     # Activity (user-owned)
     TASK = "task"
     GOAL = "goal"
@@ -172,10 +166,6 @@ class EntityType(StrEnum):
             EntityType.EXERCISE_REPORT,
             EntityType.JOURNAL_REPORT,
             EntityType.REVISED_EXERCISE,
-            # Deprecated aliases
-            EntityType.SUBMISSION,
-            EntityType.JOURNAL,
-            EntityType.SUBMISSION_REPORT,
         }
 
     def is_processable(self) -> bool:
@@ -184,9 +174,6 @@ class EntityType(StrEnum):
             EntityType.EXERCISE_SUBMISSION,
             EntityType.JOURNAL_SUBMISSION,
             EntityType.ACTIVITY_REPORT,
-            # Deprecated aliases
-            EntityType.SUBMISSION,
-            EntityType.JOURNAL,
         }
 
     # -------------------------------------------------------------------------
@@ -244,10 +231,6 @@ _ENTITY_TYPE_DISPLAY_NAMES: dict[EntityType, str] = {
     EntityType.FORM_TEMPLATE: "Form Template",
     EntityType.FORM_SUBMISSION: "Form Submission",
     EntityType.LIFE_PATH: "Life Path",
-    # Deprecated aliases
-    EntityType.SUBMISSION: "Submission",
-    EntityType.JOURNAL: "Journal",
-    EntityType.SUBMISSION_REPORT: "Submission Report",
 }
 
 _KNOWLEDGE_TYPES = frozenset({EntityType.LESSON, EntityType.KU})
@@ -261,10 +244,6 @@ _CONTENT_PROCESSING_TYPES = frozenset(
         EntityType.ACTIVITY_REPORT,
         EntityType.EXERCISE_REPORT,
         EntityType.JOURNAL_REPORT,
-        # Deprecated aliases
-        EntityType.SUBMISSION,
-        EntityType.JOURNAL,
-        EntityType.SUBMISSION_REPORT,
     }
 )
 _ACTIVITY_TYPES = frozenset(
@@ -330,15 +309,10 @@ _CONTENT_ORIGIN_BY_TYPE: dict[EntityType, ContentOrigin] = {
     EntityType.JOURNAL_SUBMISSION: ContentOrigin.USER_CREATED,
     EntityType.FORM_SUBMISSION: ContentOrigin.USER_CREATED,
     EntityType.LIFE_PATH: ContentOrigin.USER_CREATED,
-    # Deprecated aliases
-    EntityType.SUBMISSION: ContentOrigin.USER_CREATED,
-    EntityType.JOURNAL: ContentOrigin.USER_CREATED,
     # D — Reports that act on user content
     EntityType.ACTIVITY_REPORT: ContentOrigin.REPORT,
     EntityType.EXERCISE_REPORT: ContentOrigin.REPORT,
     EntityType.JOURNAL_REPORT: ContentOrigin.REPORT,
-    # Deprecated alias
-    EntityType.SUBMISSION_REPORT: ContentOrigin.REPORT,
 }
 
 _ENTITY_TYPE_ALIASES: dict[str, EntityType] = {
@@ -360,13 +334,13 @@ _ENTITY_TYPE_ALIASES: dict[str, EntityType] = {
     "choice": EntityType.CHOICE,
     "principle": EntityType.PRINCIPLE,
     "life_path": EntityType.LIFE_PATH,
-    # Backward-compat aliases (deprecated entity type values)
+    # Old string values → canonical enums (for ingestion/DSL parsing)
     "submission": EntityType.EXERCISE_SUBMISSION,
     "journal": EntityType.JOURNAL_SUBMISSION,
     "submission_report": EntityType.EXERCISE_REPORT,
-    "submission_feedback": EntityType.EXERCISE_REPORT,  # pre-rename compat
-    # Aliases
+    "submission_feedback": EntityType.EXERCISE_REPORT,
     "article": EntityType.LESSON,
+    # Aliases
     "knowledge": EntityType.LESSON,
     "moc": EntityType.LESSON,
     "map_of_content": EntityType.LESSON,
@@ -772,38 +746,6 @@ _VALID_STATUSES_BY_TYPE: dict[EntityType, frozenset[EntityStatus]] = {
             EntityStatus.ARCHIVED,
         }
     ),
-    # Deprecated aliases
-    EntityType.SUBMISSION: frozenset(
-        {
-            EntityStatus.DRAFT,
-            EntityStatus.SUBMITTED,
-            EntityStatus.QUEUED,
-            EntityStatus.PROCESSING,
-            EntityStatus.COMPLETED,
-            EntityStatus.FAILED,
-            EntityStatus.REVISION_REQUESTED,
-            EntityStatus.ARCHIVED,
-        }
-    ),
-    EntityType.JOURNAL: frozenset(
-        {
-            EntityStatus.DRAFT,
-            EntityStatus.SUBMITTED,
-            EntityStatus.QUEUED,
-            EntityStatus.PROCESSING,
-            EntityStatus.COMPLETED,
-            EntityStatus.FAILED,
-            EntityStatus.REVISION_REQUESTED,
-            EntityStatus.ARCHIVED,
-        }
-    ),
-    EntityType.SUBMISSION_REPORT: frozenset(
-        {
-            EntityStatus.DRAFT,
-            EntityStatus.COMPLETED,
-            EntityStatus.ARCHIVED,
-        }
-    ),
     EntityType.TASK: frozenset(
         {
             EntityStatus.DRAFT,
@@ -912,10 +854,6 @@ _DEFAULT_STATUS_BY_TYPE: dict[EntityType, EntityStatus] = {
     EntityType.ACTIVITY_REPORT: EntityStatus.DRAFT,
     EntityType.EXERCISE_REPORT: EntityStatus.DRAFT,
     EntityType.JOURNAL_REPORT: EntityStatus.DRAFT,
-    # Deprecated aliases
-    EntityType.SUBMISSION: EntityStatus.DRAFT,
-    EntityType.JOURNAL: EntityStatus.DRAFT,
-    EntityType.SUBMISSION_REPORT: EntityStatus.DRAFT,
     EntityType.TASK: EntityStatus.DRAFT,
     EntityType.GOAL: EntityStatus.DRAFT,
     EntityType.HABIT: EntityStatus.ACTIVE,

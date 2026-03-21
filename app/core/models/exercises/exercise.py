@@ -12,20 +12,20 @@ Exercise is the shared, reusable instruction template side of SKUEL's core loop:
 
     Exercise (shared template — this file)
         ↓  user submits work against it
-    Submission (user-owned work product — EntityType.SUBMISSION)
+    ExerciseSubmission (user-owned work product — EntityType.EXERCISE_SUBMISSION)
         ↓  FULFILLS_EXERCISE relationship in Neo4j
         ↓  auto-shared with teacher
-    SubmissionReport (teacher's response — EntityType.SUBMISSION_REPORT)
+    ExerciseReport (teacher's response — EntityType.EXERCISE_REPORT)
 
 The Exercise belongs to curriculum (shared, admin/teacher-created).
-The Submission is entirely user-owned the moment it is created.
+The ExerciseSubmission is entirely user-owned the moment it is created.
 
 Terminology
 -----------
 - Exercise = what the teacher/admin creates (instruction template, scope=ASSIGNED)
              or what a user creates for personal AI feedback (scope=PERSONAL)
-- Submission = the user's work product in response to an Exercise
-- SubmissionReport = the teacher's or AI's response to the Submission
+- ExerciseSubmission = the user's work product in response to an Exercise
+- ExerciseReport = the teacher's or AI's response to the ExerciseSubmission
 
 Hierarchy:
     Entity (~29 fields)

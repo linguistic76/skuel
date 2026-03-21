@@ -9,7 +9,7 @@ Route-facing protocols for the Submission stage of SKUEL's core educational loop
                student produces work
 
 Three protocols covering CRUD, processing, and search across
-EntityType.SUBMISSION and EntityType.JOURNAL (both are student work products).
+EntityType.EXERCISE_SUBMISSION and EntityType.JOURNAL_SUBMISSION (both are student work products).
 
 Sharing is cross-domain: see core/ports/sharing_protocols.py (SharingOperations).
 
@@ -167,7 +167,7 @@ class SubmissionOperations(Protocol):
         ...
 
     # ------------------------------------------------------------------
-    # JOURNAL CREATION (EntityType.JOURNAL — specialized submission)
+    # JOURNAL CREATION (EntityType.JOURNAL_SUBMISSION)
     # ------------------------------------------------------------------
 
     async def create_journal_entry(
@@ -190,7 +190,7 @@ class SubmissionOperations(Protocol):
         source_file: str | None = None,
         transcription_uid: str | None = None,
     ) -> Result[Any]:
-        """Create a journal entry (EntityType.JOURNAL). Returns Result[Journal]."""
+        """Create a journal entry (EntityType.JOURNAL_SUBMISSION). Returns Result[JournalSubmission]."""
         ...
 
     async def verify_ownership(self, uid: str, user_uid: str) -> Result[Any]:

@@ -34,6 +34,7 @@ Methods:
 
 from __future__ import annotations
 
+from abc import abstractmethod
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, ClassVar
 
@@ -71,15 +72,17 @@ class RelationshipOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
     _prerequisite_relationships: ClassVar[list[str]]
 
     @property
+    @abstractmethod
     def entity_label(self) -> str:
         """Entity label - must be provided by composing class."""
-        raise NotImplementedError
+        ...
 
+    @abstractmethod
     def _records_to_domain_models(
         self, records: builtins.list[dict[str, Any]], node_key: str = "n"
     ) -> builtins.list[T]:
         """DTO conversion - provided by ConversionHelpersMixin."""
-        raise NotImplementedError
+        ...
 
     def _validate_prerequisites(
         self, entity_uid: str, prerequisite_uids: builtins.list[str]

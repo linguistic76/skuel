@@ -25,6 +25,7 @@ Methods:
 
 from __future__ import annotations
 
+from abc import abstractmethod
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, ClassVar
 
@@ -67,13 +68,15 @@ class ContextOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
     _prerequisite_relationships: ClassVar[list[str]]
 
     @property
+    @abstractmethod
     def entity_label(self) -> str:
         """Entity label - must be provided by composing class."""
-        raise NotImplementedError
+        ...
 
+    @abstractmethod
     async def get(self, uid: str) -> Result[T]:
         """Get entity by UID - provided by CrudOperationsMixin."""
-        raise NotImplementedError
+        ...
 
     # ========================================================================
     # CONTENT OPERATIONS (January 2026 - Unified)

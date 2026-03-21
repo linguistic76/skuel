@@ -30,8 +30,6 @@ _SUBMISSION_REPORT_TYPES = frozenset(
     {
         EntityType.EXERCISE_REPORT,
         EntityType.JOURNAL_REPORT,
-        # Deprecated alias — kept during migration
-        EntityType.SUBMISSION_REPORT,
     }
 )
 

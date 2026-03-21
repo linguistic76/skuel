@@ -278,7 +278,7 @@ class ParsedActivityLine:
         Check if this is a Report activity (file uploads, processing).
 
         Returns:
-            True if EntityType.SUBMISSION is in contexts
+            True if EntityType.EXERCISE_SUBMISSION is in contexts
         """
         return EntityType.EXERCISE_SUBMISSION in self.contexts
 

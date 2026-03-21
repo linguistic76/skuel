@@ -36,7 +36,6 @@ from core.models.report.journal_report import JournalReport
 from core.models.report.submission_report import SubmissionReport
 from core.models.resource.resource import Resource
 from core.models.submissions.exercise_submission import ExerciseSubmission
-from core.models.submissions.journal import Journal
 from core.models.submissions.journal_submission import JournalSubmission
 from core.models.submissions.submission import Submission
 from core.models.task.task import Task
@@ -91,8 +90,4 @@ ENTITY_TYPE_CLASS_MAP: dict[EntityType, type[Entity]] = {
     EntityType.FORM_TEMPLATE: FormTemplate,
     EntityType.FORM_SUBMISSION: FormSubmission,
     EntityType.LIFE_PATH: LifePath,
-    # Deprecated aliases — kept for backward compat during migration
-    EntityType.SUBMISSION: Submission,
-    EntityType.JOURNAL: Journal,
-    EntityType.SUBMISSION_REPORT: SubmissionReport,
 }

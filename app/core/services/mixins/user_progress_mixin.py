@@ -23,6 +23,7 @@ Methods:
 
 from __future__ import annotations
 
+from abc import abstractmethod
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from core.models.protocols import DomainModelProtocol
@@ -58,15 +59,17 @@ class UserProgressMixin[B: BackendOperations, T: DomainModelProtocol]:
     _mastery_threshold: float
 
     @property
+    @abstractmethod
     def entity_label(self) -> str:
         """Entity label - must be provided by composing class."""
-        raise NotImplementedError
+        ...
 
+    @abstractmethod
     def _records_to_domain_models(
         self, records: builtins.list[dict[str, Any]], node_key: str = "n"
     ) -> builtins.list[T]:
         """DTO conversion - provided by ConversionHelpersMixin."""
-        raise NotImplementedError
+        ...
 
     # ========================================================================
     # USER PROGRESS / MASTERY OPERATIONS (January 2026 - Unified)

@@ -133,16 +133,16 @@ class TestNoLegacyEnumValues:
 
     def test_no_legacy_neo_labels(self) -> None:
         """NeoLabel.JOURNAL_PROJECT was migrated to Report — must not exist.
-
-        Note: NeoLabel.JOURNAL is legitimate — it's the domain-specific label
-        for :Entity nodes with entity_type='journal' (content processing domain).
+        NeoLabel.JOURNAL was removed (label removed from DB by migration).
         """
         from core.models.enums.neo_labels import NeoLabel
 
         members = [m.name for m in NeoLabel]
-        # JOURNAL is legitimate (EntityType.JOURNAL maps to NeoLabel.JOURNAL)
         assert "JOURNAL_PROJECT" not in members, (
             "NeoLabel.JOURNAL_PROJECT is legacy — use REPORT_PROJECT"
+        )
+        assert "JOURNAL" not in members, (
+            "NeoLabel.JOURNAL is legacy — label removed from DB, use JOURNAL_SUBMISSION"
         )
 
     def test_no_legacy_curriculum_neo_label(self) -> None:

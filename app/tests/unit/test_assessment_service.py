@@ -227,7 +227,7 @@ class TestGetAssessments:
                     "report": {
                         "uid": "report_123",
                         "user_uid": "user_teacher",
-                        "entity_type": "submission_report",
+                        "entity_type": "exercise_report",
                         "title": "Assessment 1",
                         "subject_uid": "user_student",
                     }

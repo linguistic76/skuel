@@ -18,7 +18,6 @@ from typing import Any, Protocol, runtime_checkable
 
 from core.utils.result_simplified import Result
 
-
 # ============================================================================
 # KNOWLEDGE INTELLIGENCE — shared across all activity domains
 # ============================================================================
@@ -224,7 +223,9 @@ class DomainIntelligenceOperations(Protocol):
 
 
 @runtime_checkable
-class IntelligenceOperations(KnowledgeIntelligenceOperations, DomainIntelligenceOperations, Protocol):
+class IntelligenceOperations(
+    KnowledgeIntelligenceOperations, DomainIntelligenceOperations, Protocol
+):
     """
     Full intelligence operations (composed).
 

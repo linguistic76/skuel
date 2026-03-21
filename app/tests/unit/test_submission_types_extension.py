@@ -73,12 +73,6 @@ class TestKuTypeEnum:
         assert EntityType.JOURNAL_REPORT.is_derived() is True
         assert EntityType.KU.is_derived() is False
 
-    # Deprecated aliases still work
-    def test_deprecated_aliases_still_work(self):
-        assert EntityType.SUBMISSION.is_processable() is True
-        assert EntityType.JOURNAL.is_processable() is True
-        assert EntityType.SUBMISSION_REPORT.is_derived() is True
-
 
 # ============================================================================
 # MODEL TESTS

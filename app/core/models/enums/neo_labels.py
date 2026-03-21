@@ -82,7 +82,6 @@ class NeoLabel(StrEnum):
     SUBMISSION = "Submission"  # Base label for multi-label queries
     EXERCISE_SUBMISSION = "ExerciseSubmission"
     JOURNAL_SUBMISSION = "JournalSubmission"
-    JOURNAL = "Journal"  # Deprecated: use JOURNAL_SUBMISSION
     ACTIVITY_REPORT = "ActivityReport"
     SUBMISSION_REPORT = "SubmissionReport"  # Base label for multi-label queries
     EXERCISE_REPORT = "ExerciseReport"
@@ -264,10 +263,6 @@ def _init_ku_type_mapping() -> None:
             EntityType.ACTIVITY_REPORT: NeoLabel.ACTIVITY_REPORT,
             EntityType.EXERCISE_REPORT: NeoLabel.EXERCISE_REPORT,
             EntityType.JOURNAL_REPORT: NeoLabel.JOURNAL_REPORT,
-            # Deprecated aliases
-            EntityType.SUBMISSION: NeoLabel.SUBMISSION,
-            EntityType.JOURNAL: NeoLabel.JOURNAL,
-            EntityType.SUBMISSION_REPORT: NeoLabel.SUBMISSION_REPORT,
             EntityType.LIFE_PATH: NeoLabel.LIFE_PATH,
         }
     )

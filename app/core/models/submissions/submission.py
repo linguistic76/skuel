@@ -3,7 +3,7 @@ Submission - Content Processing Domain Model (Intermediate Base)
 ===================================================================
 
 Frozen dataclass base for content-processing entities with file/artifact semantics.
-Accepted entity types: SUBMISSION, JOURNAL, SUBMISSION_REPORT.
+Accepted entity types: EXERCISE_SUBMISSION, JOURNAL_SUBMISSION.
 
 Note: ACTIVITY_REPORT (EntityType.ACTIVITY_REPORT) does NOT inherit from Submission.
 ActivityReport responds to aggregate activity patterns (no file fields), and inherits
@@ -11,7 +11,7 @@ from UserOwnedEntity directly.
 
 Role in the Educational Loop
 ------------------------------
-A Submission (EntityType.SUBMISSION) is the user's work product in response
+A Submission (EntityType.EXERCISE_SUBMISSION) is the user's work product in response
 to an Exercise. It is the user-owned half of the core loop:
 
     Exercise (shared template) → user submits → Submission (user-owned)
@@ -21,10 +21,9 @@ to an Exercise. It is the user-owned half of the core loop:
 The Submission is created by and belongs to the student. The teacher receives
 access only via the SHARES_WITH relationship created at submission time.
 
-The three leaf types that share this base:
-    SUBMISSION      → Student's file upload / text submitted against an Exercise
-    JOURNAL         → Voice or text journal entry (user's own reflections)
-    SUBMISSION_REPORT → Teacher's or AI's feedback on a Submission (teacher-owned)
+The two leaf types that share this base:
+    EXERCISE_SUBMISSION → Student's file upload / text submitted against an Exercise
+    JOURNAL_SUBMISSION  → Voice or text journal entry (user's own reflections)
 
 Fields
 -------
@@ -33,8 +32,8 @@ Fields
                   instructions, max_retention
 - Subject (1): subject_uid — who this report is about (student, for feedback)
 
-Leaf subclasses (Journal, SubmissionReport) inherit from Submission and force their
-specific entity_type. SubmissionReport adds 2 extra fields.
+Leaf subclasses (ExerciseSubmission, JournalSubmission) inherit from Submission and
+force their specific entity_type.
 
 See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
@@ -54,13 +53,6 @@ _SUBMISSION_ENTITY_TYPES = frozenset(
     {
         EntityType.EXERCISE_SUBMISSION,
         EntityType.JOURNAL_SUBMISSION,
-        # Reports no longer extend Submission; ExerciseReport/JournalReport extend SubmissionReport
-        # Deprecated aliases — kept during migration
-        EntityType.SUBMISSION,
-        EntityType.JOURNAL,
-        EntityType.SUBMISSION_REPORT,
-        EntityType.EXERCISE_REPORT,
-        EntityType.JOURNAL_REPORT,
     }
 )
 
@@ -70,7 +62,7 @@ class Submission(UserOwnedEntity):
     """
     Immutable domain model for content-processing entities.
 
-    Accepts 3 entity_types: SUBMISSION, JOURNAL, SUBMISSION_REPORT.
+    Accepts 2 entity_types: EXERCISE_SUBMISSION, JOURNAL_SUBMISSION.
     (ACTIVITY_REPORT uses ActivityReport(UserOwnedEntity) — no file fields.)
 
     Inherits common fields from UserOwnedEntity (identity, content, status,
@@ -83,7 +75,7 @@ class Submission(UserOwnedEntity):
     def __post_init__(self) -> None:
         """Validate entity_type is a submission type, then delegate to UserOwnedEntity."""
         if self.entity_type not in _SUBMISSION_ENTITY_TYPES:
-            object.__setattr__(self, "entity_type", EntityType.SUBMISSION)
+            object.__setattr__(self, "entity_type", EntityType.EXERCISE_SUBMISSION)
         super().__post_init__()
 
     # =========================================================================
