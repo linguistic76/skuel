@@ -470,9 +470,6 @@ class TasksService(BaseService["TasksOperations", Task]):
     async def generate_task_knowledge_insights(self, *args: Any, **kwargs: Any) -> Result[Any]:
         return await self.learning_metrics.generate_task_knowledge_insights(*args, **kwargs)
 
-    async def get_learning_opportunities(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.intelligence.get_learning_opportunities(*args, **kwargs)
-
     # ========================================================================
     # EXPLICIT CORE METHODS (custom logic)
     # ========================================================================

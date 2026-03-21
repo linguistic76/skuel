@@ -142,6 +142,7 @@ if TYPE_CHECKING:
     from core.services.habits_service import HabitsService
     from core.services.insight.insight_store import InsightStore
     from core.services.jupyter_neo4j_sync import JupyterNeo4jSync
+    from core.services.knowledge import ActivityKnowledgeIntelligenceService
     from core.services.ku_service import KuService
     from core.services.lesson_service import LessonService
     from core.services.lp_service import LpService
@@ -250,6 +251,9 @@ class Services:
     # ========================================================================
     lesson: "LessonService | None" = None  # LessonService (units for learning)
     ku: "KuService | None" = None  # KuService (atomic knowledge units)
+    activity_knowledge_intelligence: "ActivityKnowledgeIntelligenceService | None" = (
+        None  # Knowledge intelligence for all 6 activity domains (March 2026)
+    )
     # adaptive_sel removed — absorbed into LessonService.adaptive (February 2026)
     cross_domain: "AdaptiveLpCrossDomainService | None" = None
 
@@ -686,6 +690,17 @@ def _create_learning_services(
         event_bus=event_bus,
     )
 
+    # Create activity knowledge intelligence service (March 2026)
+    # Shared knowledge intelligence for all 6 activity domains — extracted from
+    # TasksIntelligenceService because these methods are domain-agnostic.
+    from core.services.knowledge import ActivityKnowledgeIntelligenceService
+
+    activity_knowledge_intelligence = ActivityKnowledgeIntelligenceService(
+        backend=knowledge_backend,
+        graph_intelligence_service=graph_intelligence,
+    )
+    logger.info("✅ ActivityKnowledgeIntelligenceService created")
+
     # Create progress services
     user_progress = UserProgressService(query_executor)
     # Note: unified_progress DELETED (January 2026) - use user_progress or UserContextBuilder
@@ -755,6 +770,7 @@ def _create_learning_services(
         "ku_retrieval": ku_retrieval,
         # NOTE: "askesis" MOVED to compose_services() (January 2026)
         "cross_domain": cross_domain_service,
+        "activity_knowledge_intelligence": activity_knowledge_intelligence,
         "embeddings_service": embeddings_service,  # For intelligence services
         "vector_search_service": vector_search_service,  # For semantic search
         # Components needed for Askesis creation in compose_services()
@@ -2731,6 +2747,7 @@ async def compose_services(
             # Knowledge
             lesson=learning_services["lesson_service"],
             ku=learning_services["atomic_ku_service"],
+            activity_knowledge_intelligence=learning_services["activity_knowledge_intelligence"],
             cross_domain=learning_services["cross_domain"],
             # Content
             content_enrichment=content_enrichment,

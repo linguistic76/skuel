@@ -2,21 +2,24 @@
 Tasks Intelligence Service
 ==========================
 
-Graph-based intelligence features for Tasks domain (NO AI dependencies).
+Task-specific intelligence features (NO AI dependencies).
 
 Created: Original November 2025
 Updated: January 2026 - Migrated to BaseAnalyticsService (ADR-030)
 
 Provides:
-- Knowledge generation from task patterns
-- Learning opportunities discovery
-- Behavioral insights and patterns
-- Performance analytics and optimization
-- Cross-domain intelligence
+- Behavioral insights and patterns (task-specific)
+- Performance analytics and optimization (task-specific)
+- Cross-domain context categorization (task-specific)
+
+Domain-agnostic knowledge intelligence (knowledge suggestions, prerequisites,
+learning opportunities) was extracted to ActivityKnowledgeIntelligenceService
+(March 2026) — those methods work for all 6 activity domains, not just Tasks.
 
 Related sub-services (extracted March 2026):
 - TasksProductivityService: Dual-track productivity assessment (ADR-030)
 - TasksLearningMetricsService: Task-level learning metrics via Task model
+- ActivityKnowledgeIntelligenceService: Knowledge intelligence (all domains)
 
 NOTE: This service does NOT use AI (LLM/embeddings).
 All methods are pure graph queries + Python calculations.
@@ -52,7 +55,6 @@ from core.services.intelligence import (
 )
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
-from core.utils.sort_functions import get_second_item
 
 if TYPE_CHECKING:
     from core.ports.domain_protocols import TasksOperations, TasksRelationshipOperations
@@ -61,11 +63,6 @@ if TYPE_CHECKING:
 # =============================================================================
 # HELPER FUNCTIONS (SKUEL012 - no lambdas)
 # =============================================================================
-
-
-def _extract_lowercase_title(task: Any) -> str:
-    """Extract lowercase title from task for text analysis."""
-    return task.title.lower()
 
 
 def _has_high_priority_focus(tasks: Sequence[Any]) -> bool:
@@ -93,16 +90,15 @@ def _extract_completion_hour(task: Any) -> int | None:
 
 class TasksIntelligenceService(BaseAnalyticsService["TasksOperations", Task]):
     """
-    Tasks intelligence service using shared utilities (graph-based, no AI).
-
-    Uses shared intelligence_queries utilities instead of cross-service dependencies.
+    Task-specific intelligence service (graph-based, no AI).
 
     Provides:
-    - Knowledge generation from task patterns
-    - Learning opportunities discovery
-    - Behavioral insights and patterns
-    - Performance analytics and optimization
-    - Cross-domain intelligence
+    - Behavioral insights and patterns (completion time, procrastination)
+    - Performance analytics and optimization (rates, trends, duration calibration)
+    - Cross-domain context categorization (TaskCrossContext)
+
+    Domain-agnostic knowledge intelligence was extracted to
+    ActivityKnowledgeIntelligenceService (March 2026).
 
     NOTE: This service does NOT use AI (LLM/embeddings).
     All methods are pure graph queries + Python calculations.
@@ -203,8 +199,12 @@ class TasksIntelligenceService(BaseAnalyticsService["TasksOperations", Task]):
         if not task:
             return Result.fail(Errors.not_found(resource="Task", identifier=uid))
 
-        # Get knowledge prerequisites
-        prereq_result = await self.get_knowledge_prerequisites(uid)
+        # Get knowledge prerequisites (inline — shared utility, no cross-service dependency)
+        from core.utils.intelligence_queries import get_knowledge_prerequisites
+
+        prereq_result = await get_knowledge_prerequisites(
+            graph=self.graph_intel, entity_uid=uid, depth=GraphDepth.DEFAULT
+        )
         prerequisites = prereq_result.value if prereq_result.is_ok else {}
 
         # Build insights response
@@ -228,265 +228,6 @@ class TasksIntelligenceService(BaseAnalyticsService["TasksOperations", Task]):
         }
 
         return Result.ok(insights)
-
-    # ========================================================================
-    # KNOWLEDGE INTELLIGENCE - Tasks-specific implementations
-    # ========================================================================
-
-    async def get_knowledge_suggestions(
-        self, user_uid: str, entity_uid: str | None = None
-    ) -> Result[dict[str, Any]]:
-        """
-        Generate knowledge suggestions from task patterns.
-
-        Analyzes:
-        - Frequent task types and patterns
-        - Repeated problem-solving approaches
-        - Skills used across tasks
-        - Knowledge gaps from incomplete tasks
-
-        Returns:
-            Result containing:
-            - task_patterns: List of patterns with knowledge suggestions
-            - learning_opportunities: Identified learning opportunities
-            - knowledge_gaps: Areas where knowledge would help
-        """
-        # Determine scope for logging
-        scope = f"task {entity_uid}" if entity_uid else f"all tasks for user {user_uid}"
-        self.logger.info(f"Generating knowledge suggestions for {scope}")
-
-        # Get tasks based on entity_uid parameter
-        if entity_uid:
-            # Analyze specific task only
-            task_result = await self.backend.get(entity_uid)
-            if task_result.is_error:
-                return Result.fail(task_result.expect_error())
-
-            if not task_result.value:
-                return Result.fail(Errors.not_found(resource="Task", identifier=entity_uid))
-
-            # Single task analysis
-            tasks = [task_result.value]
-        else:
-            # Analyze all completed tasks for user
-            tasks_result = await self.backend.find_by(
-                user_uid=user_uid, status=CompletionStatus.DONE
-            )
-
-            if tasks_result.is_error:
-                return Result.fail(tasks_result.expect_error())
-
-            tasks = tasks_result.value
-
-        # Analyze task patterns
-        patterns = self._analyze_task_patterns(tasks)
-
-        # Generate suggestions from patterns
-        suggestions = [
-            {
-                "pattern": pattern["name"],
-                "knowledge_suggestion": f"Create knowledge unit for {pattern['name']}",
-                "confidence": min(0.5 + (pattern["frequency"] / 20), 0.95),
-                "frequency": pattern["frequency"],
-            }
-            for pattern in patterns
-            if pattern["frequency"] >= 3  # Frequent enough to warrant knowledge unit
-        ]
-
-        # Identify learning opportunities
-        learning_opportunities = self._identify_learning_opportunities(tasks)
-
-        # Identify knowledge gaps
-        knowledge_gaps = self._identify_knowledge_gaps(tasks)
-
-        # Build metadata
-        metadata = {
-            "generated_at": datetime.now().isoformat(),
-            "user_uid": user_uid,
-            "tasks_analyzed": len(tasks),
-        }
-        if entity_uid:
-            metadata["entity_uid"] = entity_uid
-            metadata["scope"] = "single_task"
-        else:
-            metadata["scope"] = "all_user_tasks"
-
-        return Result.ok(
-            {
-                "task_patterns": suggestions,
-                "learning_opportunities": learning_opportunities,
-                "knowledge_gaps": knowledge_gaps,
-                "metadata": metadata,
-            }
-        )
-
-    async def generate_knowledge_from_entities(
-        self, user_uid: str, period_days: int = 30
-    ) -> Result[dict[str, Any]]:
-        """
-        Generate knowledge units from completed tasks.
-
-        Args:
-            user_uid: User identifier
-            period_days: Period to analyze (default 30 days)
-
-        Returns:
-            Result containing:
-            - knowledge_units: Proposed knowledge units
-            - patterns_discovered: Discovered patterns
-            - documentation_suggestions: Documentation recommendations
-        """
-        self.logger.info(f"Generating knowledge units from tasks for user {user_uid}")
-
-        # Get completed tasks in period
-        cutoff_date = datetime.now() - timedelta(days=period_days)
-        tasks_result = await self.backend.find_by(user_uid=user_uid, status=CompletionStatus.DONE)
-
-        if tasks_result.is_error:
-            return Result.fail(tasks_result.expect_error())
-
-        tasks = tasks_result.value
-        # Filter by date
-        recent_tasks = [
-            task for task in tasks if task.completion_date and task.completion_date >= cutoff_date
-        ]
-
-        # Extract patterns
-        patterns = self._analyze_task_patterns(recent_tasks)
-
-        # Generate knowledge units from patterns
-        knowledge_units = [
-            {
-                "title": f"{pattern['name']} Best Practices",
-                "content": f"Knowledge extracted from {pattern['frequency']} {pattern['name']} tasks",
-                "source_tasks": [
-                    t.uid for t in recent_tasks if pattern["name"].lower() in t.title.lower()
-                ],
-                "confidence": min(0.5 + (pattern["frequency"] / 10), 0.95),
-                "type": "best_practice",
-            }
-            for pattern in patterns
-            if pattern["frequency"] >= 2
-        ]
-
-        return Result.ok(
-            {
-                "knowledge_units": knowledge_units,
-                "patterns_discovered": [p["name"] for p in patterns],
-                "documentation_suggestions": self._generate_documentation_suggestions(patterns),
-                "metadata": {
-                    "generated_at": datetime.now().isoformat(),
-                    "user_uid": user_uid,
-                    "period_days": period_days,
-                    "tasks_analyzed": len(recent_tasks),
-                },
-            }
-        )
-
-    async def get_knowledge_prerequisites(self, entity_uid: str) -> Result[dict[str, Any]]:
-        """
-        Analyze knowledge prerequisites for task using graph intelligence.
-
-        Uses shared intelligence utilities.
-
-        Args:
-            entity_uid: Task UID
-
-        Returns:
-            Result containing prerequisite knowledge and learning path
-        """
-        # Use shared utility function (no cross-service dependency)
-        from core.utils.intelligence_queries import get_knowledge_prerequisites
-
-        return await get_knowledge_prerequisites(
-            graph=self.graph_intel, entity_uid=entity_uid, depth=GraphDepth.DEFAULT
-        )
-
-    # ========================================================================
-    # LEARNING INTELLIGENCE - Tasks-specific implementations
-    # ========================================================================
-
-    async def get_learning_opportunities(self, user_uid: str) -> Result[dict[str, Any]]:
-        """
-        Discover learning opportunities from task patterns.
-
-        Analyzes:
-        - Failed or incomplete tasks
-        - Tasks taking longer than expected
-        - Tasks blocked by knowledge gaps
-        - Skills used successfully
-
-        Returns:
-            Result containing:
-            - opportunities: List of learning opportunities
-            - recommended_focus: Suggested focus areas
-            - estimated_impact: Impact assessment
-        """
-        self.logger.info(f"Discovering learning opportunities for user {user_uid}")
-
-        # Get all tasks (completed and in-progress)
-        tasks_result = await self.backend.find_by(user_uid=user_uid)
-
-        if tasks_result.is_error:
-            return Result.fail(tasks_result.expect_error())
-
-        tasks = tasks_result.value
-
-        # Analyze for opportunities
-        opportunities = []
-
-        # 1. Find tasks with knowledge requirements (requires graph intelligence)
-        if self.graph_intel:
-            for task in tasks:
-                context_result = await self.graph_intel.get_entity_context(
-                    task.uid, GraphDepth.NEIGHBORHOOD
-                )
-
-                if context_result.is_ok:
-                    context = context_result.value
-                    knowledge_nodes = [
-                        node
-                        for node in context.nodes
-                        if node.labels and NeoLabel.ENTITY.value in node.labels
-                    ]
-
-                    if knowledge_nodes:
-                        opportunities.append(
-                            {
-                                "type": "knowledge_gap",
-                                "title": f"Learn concepts for: {task.title}",
-                                "task_uid": task.uid,
-                                "required_knowledge": [
-                                    n.properties.get("title", "Unknown") for n in knowledge_nodes
-                                ],
-                                "priority": "high"
-                                if task.priority and Priority(task.priority).to_numeric() >= 3
-                                else "medium",
-                            }
-                        )
-
-        # 2. Identify skill development opportunities
-        skill_opportunities = self._identify_skill_opportunities(tasks)
-        opportunities.extend(skill_opportunities)
-
-        # Determine recommended focus
-        recommended_focus = self._determine_focus_areas(opportunities)
-
-        # Estimate impact
-        impact_assessment = self._estimate_learning_impact(opportunities)
-
-        return Result.ok(
-            {
-                "opportunities": opportunities[:10],  # Top 10 opportunities
-                "recommended_focus": recommended_focus,
-                "estimated_impact": impact_assessment,
-                "metadata": {
-                    "generated_at": datetime.now().isoformat(),
-                    "user_uid": user_uid,
-                    "opportunities_found": len(opportunities),
-                },
-            }
-        )
 
     # ========================================================================
     # BEHAVIORAL INTELLIGENCE - Tasks-specific implementations
@@ -812,95 +553,8 @@ class TasksIntelligenceService(BaseAnalyticsService["TasksOperations", Task]):
         )
 
     # ========================================================================
-    # HELPER METHODS - Internal analysis functions
+    # HELPER METHODS - Task-specific analysis functions
     # ========================================================================
-
-    def _analyze_task_patterns(self, tasks: list) -> list[dict[str, Any]]:
-        """Analyze patterns in task titles and descriptions."""
-        # Uses PatternAnalyzer from shared intelligence utilities (consolidation)
-        return PatternAnalyzer.extract_word_frequencies(
-            [task.title for task in tasks], min_word_length=5, top_n=10
-        )
-
-    def _identify_learning_opportunities(self, tasks: list) -> list[str]:
-        """Identify learning opportunities from task patterns."""
-        # Uses PatternAnalyzer from shared intelligence utilities (consolidation)
-        return PatternAnalyzer.detect_by_keywords(
-            tasks,
-            keyword_sets=[
-                (
-                    ["debug", "fix", "error", "bug", "issue"],
-                    "Error handling patterns from repeated bug fixes",
-                ),
-                (["api", "integration", "connect", "sync"], "API integration best practices"),
-            ],
-            text_extractor=_extract_lowercase_title,
-            min_matches=2,
-        )
-
-    def _identify_knowledge_gaps(self, tasks: list) -> list[str]:
-        """Identify knowledge gaps from task patterns."""
-        # Uses PatternAnalyzer from shared intelligence utilities (consolidation)
-        return PatternAnalyzer.detect_by_indicator_tuples(
-            tasks,
-            indicators=[
-                ("test", "Testing strategies"),
-                ("performance", "Performance optimization"),
-                ("security", "Security best practices"),
-                ("deploy", "Deployment automation"),
-            ],
-            text_extractor=_extract_lowercase_title,
-            min_matches=2,
-        )
-
-    def _generate_documentation_suggestions(self, patterns: list[dict]) -> list[str]:
-        """Generate documentation suggestions from patterns."""
-        return [
-            f"Document {pattern['name']} workflow and best practices"
-            for pattern in patterns[:5]  # Top 5 patterns
-        ]
-
-    def _identify_skill_opportunities(self, tasks: list) -> list[dict[str, Any]]:
-        """Identify skill development opportunities from task titles and domains."""
-        # Uses PatternAnalyzer from shared intelligence utilities (consolidation)
-        return PatternAnalyzer.extract_skill_keywords(
-            tasks,
-            text_extractor=_extract_lowercase_title,
-            skill_keywords=[
-                "python",
-                "javascript",
-                "react",
-                "api",
-                "database",
-                "testing",
-                "deploy",
-            ],
-        )
-
-    def _determine_focus_areas(self, opportunities: list[dict]) -> list[str]:
-        """Determine recommended focus areas."""
-        focus_areas = []
-
-        # Count opportunity types
-        type_counts = {}
-        for opp in opportunities:
-            opp_type = opp.get("type", "general")
-            type_counts[opp_type] = type_counts.get(opp_type, 0) + 1
-
-        # Recommend top 3 focus areas
-        sorted_types = sorted(type_counts.items(), key=get_second_item, reverse=True)
-        for opp_type, count in sorted_types[:3]:
-            focus_areas.append(f"Focus on {opp_type.replace('_', ' ')} ({count} opportunities)")
-
-        return focus_areas
-
-    def _estimate_learning_impact(self, opportunities: list[dict]) -> dict[str, Any]:
-        """Estimate impact of addressing learning opportunities."""
-        return {
-            "potential_time_savings": f"{len(opportunities) * 2} hours per week",
-            "quality_improvement": "Estimated 20-40% improvement",
-            "confidence_boost": "High" if len(opportunities) >= 5 else "Medium",
-        }
 
     def _analyze_completion_patterns(self, tasks: list) -> list[dict[str, Any]]:
         """Analyze task completion patterns."""
