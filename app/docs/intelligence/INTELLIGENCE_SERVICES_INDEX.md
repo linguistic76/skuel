@@ -576,12 +576,13 @@ uv run python -m pytest tests/integration/intelligence/ -k "test_predict_goal_su
 - ✅ GraphContextOrchestrator pattern consistent across all services
 - ✅ Bug fixes applied (success_rate units, is_on_track(), progress guards)
 
-**Knowledge Intelligence Extraction (2026-03-21):**
+**Knowledge Intelligence Extraction + Wiring (2026-03-21):**
 - ✅ `ActivityKnowledgeIntelligenceService` created (`core/services/knowledge/`)
-- Domain-agnostic methods extracted from TasksIntelligenceService: `get_knowledge_suggestions()`, `generate_knowledge_from_entities()`, `get_knowledge_prerequisites()`, `get_learning_opportunities()`
-- These methods serve all 6 activity domains (graph relationships already exist)
+- ✅ Wired into all 6 Activity Domain facades as `self.knowledge_intelligence` (shared singleton)
+- ✅ Each facade delegates 4 methods: `get_knowledge_suggestions()`, `generate_knowledge_from_entities()`, `get_knowledge_prerequisites()`, `get_learning_opportunities()`
+- ✅ Skill vocabulary derived from Ku titles/tags in graph (replaces hardcoded programming keywords)
 - Backend: `UniversalNeo4jBackend[Entity]` with `NeoLabel.ENTITY` — queries user-owned activity entities across all domains
-- Type: `BaseAnalyticsService["BackendOperations[Entity]", Entity]`
+- Type: `BaseAnalyticsService[Any, Entity]`
 
 **Standalone (modular package architecture):**
 - UserContextIntelligence (ADR-021, mixin composition pattern)
@@ -596,7 +597,7 @@ uv run python -m pytest tests/integration/intelligence/ -k "test_predict_goal_su
 - Behavioral insights (completion time, procrastination, peak productivity)
 - Performance analytics (completion rates, trends, duration calibration via ADR-048)
 - Cross-domain context categorization (unique semantic grouping)
-- Knowledge intelligence extracted to shared `ActivityKnowledgeIntelligenceService` (March 2026)
+- Knowledge intelligence extracted to shared `ActivityKnowledgeIntelligenceService` and wired back via `self.knowledge_intelligence` (March 2026)
 
 **Goals:**
 - Progress forecasting with velocity metrics

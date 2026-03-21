@@ -44,7 +44,7 @@ Principles represent core values and guiding beliefs that inform goals, choices,
 
 ## Facade Pattern (February 2026)
 
-`PrinciplesService` uses explicit `async def` delegation methods for clean delegation to **9 specialized sub-services**:
+`PrinciplesService` uses explicit `async def` delegation methods for clean delegation to **10 specialized sub-services**:
 
 ```python
 class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
@@ -55,6 +55,7 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
     reflection: PrinciplesReflectionService
     planning: PrinciplesPlanningService
     intelligence: PrinciplesIntelligenceService
+    knowledge_intelligence: ActivityKnowledgeIntelligenceService  # shared singleton
     event_handler: PrincipleEventHandlerService
 
     # Explicit delegation — MyPy-native, no mixin needed

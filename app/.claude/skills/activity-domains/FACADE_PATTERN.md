@@ -96,17 +96,19 @@ from core.utils.activity_domain_config import create_common_sub_services
 def __init__(self, backend, graph_intelligence_service, event_bus=None):
     super().__init__(backend, "tasks")
 
-    # Create 4 common sub-services via factory
+    # Create 4 common sub-services + pass through knowledge_intelligence singleton
     common = create_common_sub_services(
         domain="tasks",
         backend=backend,
         graph_intel=graph_intelligence_service,
         event_bus=event_bus,
+        knowledge_intelligence=activity_knowledge_intelligence,
     )
     self.core = common.core
     self.search = common.search
     self.relationships = common.relationships
     self.intelligence = common.intelligence
+    self.knowledge_intelligence = common.knowledge_intelligence
 
     # Domain-specific sub-services (manual creation)
     self.progress = TasksProgressService(backend=backend)

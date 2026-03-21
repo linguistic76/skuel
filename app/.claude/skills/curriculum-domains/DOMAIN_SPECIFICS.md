@@ -13,7 +13,7 @@
 | `LessonCoreService` | CRUD operations (extends BaseService) |
 | `LessonSearchService` | Text search, filtering (extends BaseService) |
 | `LessonGraphService` | Graph traversal, prerequisites, hub scores |
-| `LessonApplicationDiscoveryService` | Reverse relationship queries (where is knowledge applied?) |
+| `LessonApplicationDiscoveryService` | Reverse relationship queries via generic `find_activities_connected_to_knowledge()` |
 | `LessonContextService` | Context-first knowledge recommendations (*_for_user methods) |
 | `LessonSemanticService` | Semantic relationship management |
 | `LessonPracticeService` | Event-driven practice tracking |

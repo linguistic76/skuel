@@ -2,7 +2,7 @@
 
 ## Context
 
-Goals is the second domain to receive a dedicated event handler service, following the Tasks proof of concept (`TaskEventHandlerService`). Goals has 9 sub-services — the most of any Activity Domain — and already has event handlers scattered across two sub-services: `GoalsRecommendationService` and `GoalsProgressService`.
+Goals is the second domain to receive a dedicated event handler service, following the Tasks proof of concept (`TaskEventHandlerService`). Goals has 9 sub-services and already has event handlers scattered across two sub-services: `GoalsRecommendationService` and `GoalsProgressService`.
 
 **Template files:**
 - `core/services/tasks/task_event_handler_service.py` (Tasks proof of concept)

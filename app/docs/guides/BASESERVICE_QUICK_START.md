@@ -10,7 +10,7 @@
 
 ## TL;DR - 30 Second Summary
 
-SKUEL uses **BaseService** (7 mixins) + **Facade Pattern** (3-13 sub-services) for all Activity Domains.
+SKUEL uses **BaseService** (7 mixins) + **Facade Pattern** (7-14 sub-services) for all Activity Domains.
 
 **For Production:**
 ```python
@@ -408,12 +408,13 @@ class TasksService(BaseService[TasksOperations, Task]):
     def __init__(self, backend, ...):
         super().__init__(backend, "tasks")
 
-        # Factory creates 4 common sub-services
+        # Factory creates 4 common sub-services + passes through knowledge_intelligence
         common = create_common_sub_services(
             domain="tasks",
             backend=backend,
             graph_intel=graph_intelligence_service,
             event_bus=event_bus,
+            knowledge_intelligence=activity_knowledge_intelligence,
         )
 
         self.core = common.core                # TasksCoreService

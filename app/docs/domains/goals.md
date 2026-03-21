@@ -50,7 +50,7 @@ Goals represent desired outcomes that guide learning and habit formation. They p
 
 ## Facade Pattern (February 2026)
 
-`GoalsService` uses explicit `async def` delegation methods for clean delegation to 8 specialized sub-services:
+`GoalsService` uses explicit `async def` delegation methods for clean delegation to 9 specialized sub-services:
 
 ```python
 class GoalsService(BaseService[GoalsOperations, Goal]):
@@ -58,6 +58,7 @@ class GoalsService(BaseService[GoalsOperations, Goal]):
     search: GoalsSearchService
     scheduling: GoalsSchedulingService
     intelligence: GoalsIntelligenceService
+    knowledge_intelligence: ActivityKnowledgeIntelligenceService  # shared singleton
 
     # Explicit delegation — MyPy-native, no mixin needed
     async def get_goal(self, *args: Any, **kwargs: Any) -> Any:

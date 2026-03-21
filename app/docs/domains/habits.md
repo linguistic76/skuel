@@ -51,7 +51,7 @@ Habits represent recurring behaviors with streak tracking. They form the "system
 
 ## Facade Pattern (February 2026)
 
-`HabitsService` uses explicit `async def` delegation methods for clean delegation to 13 specialized sub-services:
+`HabitsService` uses explicit `async def` delegation methods for clean delegation to 14 specialized sub-services:
 
 ```python
 class HabitsService(BaseService[HabitsOperations, Habit]):
@@ -61,6 +61,7 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
     planning: HabitsPlanningService
     scheduling: HabitsSchedulingService
     intelligence: HabitsIntelligenceService
+    knowledge_intelligence: ActivityKnowledgeIntelligenceService  # shared singleton
 
     # Explicit delegation — MyPy-native, no mixin needed
     async def get_habit(self, *args: Any, **kwargs: Any) -> Any:

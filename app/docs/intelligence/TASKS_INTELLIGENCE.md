@@ -10,7 +10,7 @@
 **Related sub-services (extracted March 2026):**
 - `TasksProductivityService` (`tasks_productivity_service.py`) — dual-track productivity assessment (ADR-030)
 - `TasksLearningMetricsService` (`tasks_learning_metrics_service.py`) — task-level learning metrics via Task model
-- `ActivityKnowledgeIntelligenceService` (`/core/services/knowledge/`) — domain-agnostic knowledge intelligence (suggestions, prerequisites, learning opportunities) extracted from Tasks because these methods work for all 6 activity domains
+- `ActivityKnowledgeIntelligenceService` (`/core/services/knowledge/`) — domain-agnostic knowledge intelligence (suggestions, prerequisites, learning opportunities) extracted from Tasks and wired into all 6 activity domain facades as `self.knowledge_intelligence`
 
 **Related:** `TaskEventHandlerService` (`/core/services/tasks/task_event_handler_service.py`) — fire-and-forget reactive handlers extracted from intelligence; persists `COMPLETION_PATTERN`, `IMBALANCE_DETECTED`, and `PRINCIPLE_ALIGNMENT` insights to InsightStore (March 2026).
 
@@ -24,7 +24,7 @@ TasksIntelligenceService provides task-specific behavioral insights, performance
 
 ## Core Methods
 
-> **Extracted (March 2026):** `get_knowledge_suggestions()`, `generate_knowledge_from_entities()`, `get_knowledge_prerequisites()`, and `get_learning_opportunities()` were moved to `ActivityKnowledgeIntelligenceService` (`/core/services/knowledge/`). These methods are domain-agnostic and now serve all 6 activity domains.
+> **Extracted (March 2026):** `get_knowledge_suggestions()`, `generate_knowledge_from_entities()`, `get_knowledge_prerequisites()`, and `get_learning_opportunities()` were moved to `ActivityKnowledgeIntelligenceService` (`/core/services/knowledge/`) and wired into all 6 activity domain facades. Access via `facade.get_knowledge_suggestions(user_uid)` on any activity service.
 
 ### Method 1: get_behavioral_insights()
 

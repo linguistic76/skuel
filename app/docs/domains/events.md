@@ -57,6 +57,7 @@ class EventsService(BaseService[EventsOperations, Event]):
     relationships: UnifiedRelationshipService
     event_handler: EventsEventHandlerService
     intelligence: EventsIntelligenceService
+    knowledge_intelligence: ActivityKnowledgeIntelligenceService  # shared singleton
 
     # Explicit delegation — MyPy-native, no mixin needed
     async def get_event(self, *args: Any, **kwargs: Any) -> Any:

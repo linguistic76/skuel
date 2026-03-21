@@ -735,9 +735,9 @@ BaseService._get_config_value("search_fields")
 ### Key Architectural Patterns
 
 1. **Mixin Composition** — 7 focused mixins provide 100+ methods to `BaseService`
-2. **Facade Pattern** — 1 facade per domain delegates to 5–11 specialized sub-services
+2. **Facade Pattern** — 1 facade per domain delegates to 7–14 specialized sub-services
 3. **Explicit Delegation** — Facade services have explicit `async def` delegation methods (not dynamic generation)
-4. **Factory Pattern** — `create_common_sub_services()` creates 4 common sub-services from registry
+4. **Factory Pattern** — `create_common_sub_services()` creates 4 sub-services from registry + passes through 1 shared singleton (knowledge_intelligence)
 5. **Configuration Pattern** — `DomainConfig` dataclass is single source of truth
 6. **Event-Driven** — Domain events published for side effects (analytics, achievements, etc.)
 

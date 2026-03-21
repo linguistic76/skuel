@@ -38,7 +38,7 @@ Choices represent decisions with outcome tracking. They connect knowledge, princ
 
 ## Facade Pattern (February 2026)
 
-`ChoicesService` uses explicit `async def` delegation methods for clean delegation to 6 specialized sub-services:
+`ChoicesService` uses explicit `async def` delegation methods for clean delegation to 7 specialized sub-services:
 
 ```python
 class ChoicesService(BaseService[ChoicesOperations, Choice]):
@@ -46,6 +46,7 @@ class ChoicesService(BaseService[ChoicesOperations, Choice]):
     search: ChoicesSearchService
     relationships: UnifiedRelationshipService
     intelligence: ChoicesIntelligenceService
+    knowledge_intelligence: ActivityKnowledgeIntelligenceService  # shared singleton
     learning: ChoicesLearningService
     event_handler: ChoiceEventHandlerService
 

@@ -59,6 +59,7 @@ class TasksService(BaseService[TasksOperations, Task]):
     scheduling: TasksSchedulingService
     relationships: UnifiedRelationshipService
     intelligence: TasksIntelligenceService
+    knowledge_intelligence: ActivityKnowledgeIntelligenceService  # shared singleton
     productivity: TasksProductivityService
     learning_metrics: TasksLearningMetricsService
     event_handler: TaskEventHandlerService

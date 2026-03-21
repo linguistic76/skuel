@@ -564,17 +564,18 @@ self.intelligence = common.intelligence
 
 ## Sub-Service Count by Domain
 
-| Domain | Total Sub-Services | Common (4) | Domain-Specific |
+| Domain | Total Sub-Services | Common (4+1 shared) | Domain-Specific |
 |--------|-------------------|------------|-----------------|
-| Tasks | 9 | 4 | 5 (progress, scheduling, planning, productivity, learning_metrics, event_handler) |
-| Goals | 8 | 4 | 4 (progress, scheduling, learning, event_handler) |
-| Habits | 13 | 4 | 9 (progress, scheduling, planning, learning, completions, events, event_handler, patterns, goal_analytics) |
-| Events | 9 | 4 | 5 (progress, scheduling, learning, habit_integration, event_handler) |
-| Choices | 6 | 4 | 2 (learning, event_handler) |
-| Principles | 9 | 4 | 5 (alignment, learning, reflection, planning, event_handler) |
+| Tasks | 11 | 5 | 6 (progress, scheduling, planning, productivity, learning_metrics, event_handler) |
+| Goals | 9 | 5 | 4 (progress, scheduling, learning, event_handler) |
+| Habits | 14 | 5 | 9 (progress, scheduling, planning, learning, completions, events, event_handler, patterns, goal_analytics) |
+| Events | 10 | 5 | 5 (progress, scheduling, learning, habit_integration, event_handler) |
+| Choices | 7 | 5 | 2 (learning, event_handler) |
+| Principles | 10 | 5 | 5 (alignment, learning, reflection, planning, event_handler) |
 
-**Most Complex:** Habits (13 sub-services)
-**Simplest:** Choices (6 sub-services)
+**Common 5:** core, search, relationships, intelligence (created by factory) + knowledge_intelligence (shared singleton)
+**Most Complex:** Habits (14 sub-services)
+**Simplest:** Choices (7 sub-services)
 
 ---
 
