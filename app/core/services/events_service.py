@@ -41,6 +41,7 @@ from core.services.events import (
     EventsSearchService,
 )
 from core.services.events.events_ai_service import EventsAIService
+from core.services.filtered_context import build_filtered_context
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
 
 # Unified relationship service (replaces EventsRelationshipService)
@@ -78,6 +79,29 @@ def _null_callable() -> None:
 def _get_event_status_value(event: Any) -> str:
     """Get status value (handles both enum and string)."""
     return get_enum_attr_str(event, "status", "scheduled")
+
+
+def _compute_event_stats(all_events: list[Any]) -> dict[str, int | float]:
+    """Compute pre-filter stats from the full event set."""
+    today = date.today()
+    return {
+        "total": len(all_events),
+        "scheduled": sum(1 for e in all_events if _get_event_status_value(e) == "scheduled"),
+        "today": sum(1 for e in all_events if getattr(e, "event_date", None) == today),
+    }
+
+
+def _apply_event_status_filter(all_events: list[Any], status_filter: str) -> list[Any]:
+    """Apply status filter to events."""
+    match status_filter:
+        case "scheduled":
+            return [e for e in all_events if _get_event_status_value(e) == "scheduled"]
+        case "completed":
+            return [e for e in all_events if _get_event_status_value(e) == "completed"]
+        case "cancelled":
+            return [e for e in all_events if _get_event_status_value(e) == "cancelled"]
+        case _:
+            return all_events
 
 
 def _apply_event_sort(events: list[Any], sort_by: str = "start_time") -> list[Any]:
@@ -967,33 +991,18 @@ class EventsService(BaseService["EventsOperations", Event]):
         status_filter: str = "scheduled",
         sort_by: str = "start_time",
     ) -> Result[ListContext]:
-        """Get filtered and sorted events with pre-filter stats in a single query.
+        """Get filtered and sorted events with pre-filter stats in a single query."""
 
-        Fetches ALL user events once, computes stats in Python, then filters and sorts.
-        """
-        all_result = await self.core.get_for_user_filtered(user_uid, "all")
-        if all_result.is_error:
-            return Result.fail(all_result)
-        all_events = all_result.value
+        async def fetch_all() -> Result[list[Any]]:
+            return await self.core.get_for_user_filtered(user_uid, "all")
 
-        # Stats from full set (replaces Cypher COUNT)
-        today = date.today()
-        stats = {
-            "total": len(all_events),
-            "scheduled": sum(1 for e in all_events if _get_event_status_value(e) == "scheduled"),
-            "today": sum(1 for e in all_events if getattr(e, "event_date", None) == today),
-        }
+        def apply_filters(all_events: list[Any]) -> list[Any]:
+            return _apply_event_status_filter(all_events, status_filter)
 
-        # Status filter in Python
-        match status_filter:
-            case "scheduled":
-                filtered = [e for e in all_events if _get_event_status_value(e) == "scheduled"]
-            case "completed":
-                filtered = [e for e in all_events if _get_event_status_value(e) == "completed"]
-            case "cancelled":
-                filtered = [e for e in all_events if _get_event_status_value(e) == "cancelled"]
-            case _:
-                filtered = all_events
-
-        sorted_events = _apply_event_sort(filtered, sort_by)
-        return Result.ok({"entities": sorted_events, "stats": stats})
+        return await build_filtered_context(
+            fetch_all=fetch_all,
+            compute_stats=_compute_event_stats,
+            apply_filters=apply_filters,
+            apply_sort=_apply_event_sort,
+            sort_by=sort_by,
+        )

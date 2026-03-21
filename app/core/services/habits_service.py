@@ -33,6 +33,7 @@ from core.ports.base_protocols import BackendOperations
 from core.ports.domain_protocols import HabitsOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
+from core.services.filtered_context import build_filtered_context
 
 # Import sub-services and mixins
 from core.services.habits import (
@@ -79,6 +80,28 @@ if TYPE_CHECKING:
     from core.ports.search_protocols import HabitsSearchOperations
     from core.services.habits.habits_intelligence_service import HabitsIntelligenceService
     from core.services.user import UserContext
+
+
+def _compute_habit_stats(all_habits: list[Any]) -> dict[str, int | float]:
+    """Compute pre-filter stats from the full habit set."""
+    return {
+        "total": len(all_habits),
+        "active": sum(1 for h in all_habits if h.status == EntityStatus.ACTIVE),
+        "streaks": sum(1 for h in all_habits if getattr(h, "current_streak", 0) > 0),
+    }
+
+
+def _apply_habit_status_filter(all_habits: list[Any], status_filter: str) -> list[Any]:
+    """Apply status filter to habits."""
+    match status_filter:
+        case "active":
+            return [h for h in all_habits if h.status == EntityStatus.ACTIVE]
+        case "paused":
+            return [h for h in all_habits if h.status == EntityStatus.PAUSED]
+        case "completed":
+            return [h for h in all_habits if h.status == EntityStatus.COMPLETED]
+        case _:
+            return all_habits
 
 
 def _apply_habit_sort(habits: list[Any], sort_by: str = "streak") -> list[Any]:
@@ -1343,35 +1366,21 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
         status_filter: str = "active",
         sort_by: str = "streak",
     ) -> Result[ListContext]:
-        """Get filtered and sorted habits with pre-filter stats in a single query.
+        """Get filtered and sorted habits with pre-filter stats in a single query."""
 
-        Fetches ALL user habits once, computes stats in Python, then filters and sorts.
-        """
-        all_result = await self.core.get_for_user_filtered(user_uid, "all")
-        if all_result.is_error:
-            return Result.fail(all_result)
-        all_habits = all_result.value
+        async def fetch_all() -> Result[list[Any]]:
+            return await self.core.get_for_user_filtered(user_uid, "all")
 
-        # Stats from full set (replaces Cypher COUNT)
-        stats = {
-            "total": len(all_habits),
-            "active": sum(1 for h in all_habits if h.status == EntityStatus.ACTIVE),
-            "streaks": sum(1 for h in all_habits if getattr(h, "current_streak", 0) > 0),
-        }
+        def apply_filters(all_habits: list[Any]) -> list[Any]:
+            return _apply_habit_status_filter(all_habits, status_filter)
 
-        # Status filter in Python
-        match status_filter:
-            case "active":
-                filtered = [h for h in all_habits if h.status == EntityStatus.ACTIVE]
-            case "paused":
-                filtered = [h for h in all_habits if h.status == EntityStatus.PAUSED]
-            case "completed":
-                filtered = [h for h in all_habits if h.status == EntityStatus.COMPLETED]
-            case _:
-                filtered = all_habits
-
-        sorted_habits = _apply_habit_sort(filtered, sort_by)
-        return Result.ok({"entities": sorted_habits, "stats": stats})
+        return await build_filtered_context(
+            fetch_all=fetch_all,
+            compute_stats=_compute_habit_stats,
+            apply_filters=apply_filters,
+            apply_sort=_apply_habit_sort,
+            sort_by=sort_by,
+        )
 
 
 # Legacy alias removed - class renamed directly to HabitsService

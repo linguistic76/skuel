@@ -217,7 +217,7 @@ def create_tasks_ui_routes(
         # Get calendar params (for calendar view)
         calendar_params = parse_calendar_params(request)
 
-        # Get data (with error handling) — single query returns entities + stats + projects + assignees
+        # Get data (with error handling) — single query returns entities + stats + metadata
         filtered_result = await tasks_service.get_filtered_context(
             user_uid,
             filters.project or None,
@@ -241,8 +241,8 @@ def create_tasks_ui_routes(
 
         ctx = filtered_result.value
         tasks = ctx["entities"]
-        projects = ctx.get("projects", [])
-        assignees = ctx.get("assignees", [])
+        projects = ctx.get("metadata", {}).get("projects", [])
+        assignees = ctx.get("metadata", {}).get("assignees", [])
 
         # Render the appropriate view content
         if view == "create":
@@ -293,7 +293,7 @@ def create_tasks_ui_routes(
         # Get filter params
         filters = parse_task_filters(request)
 
-        # Get data — single query returns entities + stats + projects + assignees
+        # Get data — single query returns entities + stats + metadata
         filtered_result = await tasks_service.get_filtered_context(
             user_uid,
             filters.project or None,
@@ -311,8 +311,8 @@ def create_tasks_ui_routes(
         page_ctx = TasksPageContext(
             entities=svc_ctx["entities"],
             filters=filters.to_dict(),
-            projects=svc_ctx.get("projects", []),
-            assignees=svc_ctx.get("assignees", []),
+            projects=svc_ctx.get("metadata", {}).get("projects", []),
+            assignees=svc_ctx.get("metadata", {}).get("assignees", []),
         )
         return TasksViewComponents.render_list_view(ctx=page_ctx)
 
@@ -329,7 +329,7 @@ def create_tasks_ui_routes(
 
         ctx = filtered_result.value
         return TasksViewComponents.render_create_view(
-            projects=ctx.get("projects", []),
+            projects=ctx.get("metadata", {}).get("projects", []),
             existing_tasks=ctx["entities"],
         )
 
@@ -405,8 +405,8 @@ def create_tasks_ui_routes(
         page_ctx = TasksPageContext(
             entities=svc_ctx["entities"],
             filters={},
-            projects=svc_ctx.get("projects", []),
-            assignees=svc_ctx.get("assignees", []),
+            projects=svc_ctx.get("metadata", {}).get("projects", []),
+            assignees=svc_ctx.get("metadata", {}).get("assignees", []),
         )
         return TasksViewComponents.render_list_view(ctx=page_ctx)
 
@@ -420,7 +420,7 @@ def create_tasks_ui_routes(
 
         ctx = filtered_result.value
         return TasksViewComponents.render_create_view(
-            projects=ctx.get("projects", []),
+            projects=ctx.get("metadata", {}).get("projects", []),
             existing_tasks=ctx["entities"],
         )
 
@@ -492,7 +492,11 @@ def create_tasks_ui_routes(
         query = request.query_params.get("q", "").lower()
 
         filtered_result = await tasks_service.get_filtered_context(user_uid, status_filter="all")
-        projects = filtered_result.value.get("projects", []) if not filtered_result.is_error else []
+        projects = (
+            filtered_result.value.get("metadata", {}).get("projects", [])
+            if not filtered_result.is_error
+            else []
+        )
 
         if query:
             projects = [p for p in projects if query in p.lower()]
@@ -507,7 +511,9 @@ def create_tasks_ui_routes(
 
         filtered_result = await tasks_service.get_filtered_context(user_uid, status_filter="all")
         assignees = (
-            filtered_result.value.get("assignees", []) if not filtered_result.is_error else []
+            filtered_result.value.get("metadata", {}).get("assignees", [])
+            if not filtered_result.is_error
+            else []
         )
 
         if query:
@@ -534,7 +540,11 @@ def create_tasks_ui_routes(
 
         # Get projects for autocomplete
         filtered_result = await tasks_service.get_filtered_context(user_uid, status_filter="all")
-        projects = filtered_result.value.get("projects", []) if not filtered_result.is_error else []
+        projects = (
+            filtered_result.value.get("metadata", {}).get("projects", [])
+            if not filtered_result.is_error
+            else []
+        )
 
         return TodoistTaskComponents.render_task_edit_modal(task, projects)
 

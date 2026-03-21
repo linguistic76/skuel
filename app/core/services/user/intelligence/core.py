@@ -44,6 +44,7 @@ from core.services.user.intelligence.synergy_intelligence import SynergyIntellig
 from core.services.user.intelligence.temporal_momentum import TemporalMomentumMixin
 
 if TYPE_CHECKING:
+    from core.ports.filtered_context_protocols import FilteredContextProvider
     from core.ports.zpd_protocols import ZPDOperations
     from core.services.analytics_relationship_service import AnalyticsRelationshipService
     from core.services.calendar_service import CalendarService
@@ -138,6 +139,8 @@ class UserContextIntelligence(
         vector_search: Any = None,
         # Optional: ZPD service for curriculum-graph-aware learning step ranking
         zpd_service: ZPDOperations | None = None,
+        # Optional: FilteredContextProvider dict for on-demand domain queries
+        filtered_providers: dict[str, FilteredContextProvider] | None = None,
     ) -> None:
         """
         Initialize with user context and all 13 required relationship services.
@@ -234,6 +237,14 @@ class UserContextIntelligence(
         # scores as the primary ranking signal (fallback: activity-based algorithm).
         # See: core/services/zpd/zpd_service.py, core/ports/zpd_protocols.py
         self.zpd_service = zpd_service
+
+        # Optional: FilteredContextProvider dict for on-demand domain-specific queries.
+        # Maps domain names to facades that implement get_filtered_context().
+        # Enables intelligence methods to drill down into any domain's filtered state
+        # without knowing domain internals. Complements UserContext (broad snapshot)
+        # with per-domain zoom lens capability.
+        # See: core/ports/filtered_context_protocols.py
+        self.filtered_providers: dict[str, FilteredContextProvider] = filtered_providers or {}
 
 
 __all__ = ["UserContextIntelligence"]

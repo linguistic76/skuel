@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from core.services.filtered_context import build_filtered_context
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -22,9 +23,45 @@ if TYPE_CHECKING:
     from adapters.persistence.neo4j.domain_backends import KuBackend
     from core.models.graph_context import GraphContext
     from core.models.ku.ku import Ku
+    from core.ports.query_types import ListContext
     from core.services.ku.ku_intelligence_service import KuIntelligenceService
 
 logger = get_logger(__name__)
+
+
+def _compute_ku_stats(all_kus: list[Any]) -> dict[str, int | float]:
+    """Compute pre-filter stats from the full Ku set."""
+    namespaces: dict[str, int] = {}
+    for ku in all_kus:
+        ns = getattr(ku, "namespace", None) or "unclassified"
+        namespaces[ns] = namespaces.get(ns, 0) + 1
+    return {"total": len(all_kus), **namespaces}
+
+
+def _apply_ku_namespace_filter(all_kus: list[Any], namespace_filter: str) -> list[Any]:
+    """Apply namespace filter to Kus."""
+    if namespace_filter == "all":
+        return all_kus
+    return [k for k in all_kus if getattr(k, "namespace", None) == namespace_filter]
+
+
+def _get_ku_title_lower(ku: Any) -> str:
+    """Sort key: Ku title lowercase (SKUEL012: named function, no lambda)."""
+    return getattr(ku, "title", "").lower()
+
+
+def _get_ku_created_at(ku: Any) -> str:
+    """Sort key: Ku created_at (SKUEL012: named function, no lambda)."""
+    return getattr(ku, "created_at", "")
+
+
+def _apply_ku_sort(kus: list[Any], sort_by: str = "title") -> list[Any]:
+    """Sort Kus by specified field."""
+    if sort_by == "title":
+        return sorted(kus, key=_get_ku_title_lower)
+    elif sort_by == "created_at":
+        return sorted(kus, key=_get_ku_created_at, reverse=True)
+    return sorted(kus, key=_get_ku_title_lower)
 
 
 class KuService:
@@ -148,3 +185,33 @@ class KuService:
                 Errors.system("KuService backend not configured for graph operations")
             )
         return await self.backend.get_lessons_using(ku_uid)
+
+    # =========================================================================
+    # QUERY LAYER (FilteredContextProvider)
+    # =========================================================================
+
+    async def get_filtered_context(
+        self,
+        user_uid: str,
+        status_filter: str = "all",
+        sort_by: str = "title",
+    ) -> Result[ListContext]:
+        """Get filtered and sorted Kus with pre-filter stats."""
+
+        async def fetch_all() -> Result[list[Any]]:
+            result = await self.core.list(limit=500)
+            if result.is_error:
+                return Result.fail(result)
+            entities, _ = result.value
+            return Result.ok(list(entities))
+
+        def apply_filters(all_kus: list[Any]) -> list[Any]:
+            return _apply_ku_namespace_filter(all_kus, status_filter)
+
+        return await build_filtered_context(
+            fetch_all=fetch_all,
+            compute_stats=_compute_ku_stats,
+            apply_filters=apply_filters,
+            apply_sort=_apply_ku_sort,
+            sort_by=sort_by,
+        )

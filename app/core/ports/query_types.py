@@ -1128,25 +1128,27 @@ class ListContext(TypedDict, total=False):
     """
     Typed context returned by service.get_filtered_context() methods.
 
-    Each Activity Domain facade exposes get_filtered_context() which fetches,
-    computes stats, filters, and sorts entities in one call. Routes receive this
-    typed dict and access entities + stats without knowing the internals.
+    Every domain facade (Activity + Curriculum) exposes get_filtered_context()
+    which fetches, computes stats, filters, and sorts entities in one call.
+    All implementations satisfy the FilteredContextProvider protocol.
 
     Fields:
         entities: Filtered and sorted entity list
-        stats: Aggregate stats computed BEFORE filtering (total, domain-specific counts)
-        projects: Distinct project names (Tasks domain only)
-        assignees: Distinct assignee names (Tasks domain only)
+        stats: Aggregate stats computed BEFORE filtering (total, domain-specific counts).
+            Values are int or float to support both counts and ratios/scores.
+        metadata: Domain-specific extras (e.g., tasks' project/assignee lists for
+            UI dropdowns, curriculum domain/category breakdowns).
 
     Usage:
         ctx = result.value
         render_list(ctx["entities"], ctx["stats"])
+
+    See: core/ports/filtered_context_protocols.py
     """
 
     entities: list[Any]
-    stats: dict[str, int]
-    projects: list[str]
-    assignees: list[str]
+    stats: dict[str, int | float]
+    metadata: dict[str, Any]
 
 
 class ContextSummary(TypedDict, total=False):

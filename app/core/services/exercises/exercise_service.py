@@ -17,10 +17,12 @@ creates the FULFILLS_EXERCISE relationship and auto-shares with the teacher.
 Formerly AssignmentService — renamed to Exercise for domain clarity.
 """
 
+from __future__ import annotations
+
 import json
 import os
 from datetime import date, datetime
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from core.models.enums import Domain
 from core.models.enums.entity_enums import EntityType, ProcessorType
@@ -32,6 +34,7 @@ from core.models.relationship_names import RelationshipName
 from core.ports import get_enum_value
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
+from core.services.filtered_context import build_filtered_context
 from core.utils.decorators import with_error_handling
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, FILE_IO_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -41,6 +44,41 @@ from core.utils.uid_generator import UIDGenerator
 logger = get_logger(__name__)
 
 _UNSET: Any = object()  # Sentinel for "argument not provided"
+
+if TYPE_CHECKING:
+    from core.ports.query_types import ListContext
+
+
+def _compute_exercise_stats(all_exercises: list[Any]) -> dict[str, int | float]:
+    """Compute pre-filter stats from the full exercise set."""
+    return {
+        "total": len(all_exercises),
+        "personal": sum(
+            1 for e in all_exercises if getattr(e, "scope", None) == ExerciseScope.PERSONAL
+        ),
+        "assigned": sum(
+            1 for e in all_exercises if getattr(e, "scope", None) == ExerciseScope.ASSIGNED
+        ),
+    }
+
+
+def _get_exercise_title_lower(exercise: Any) -> str:
+    """Sort key: exercise title lowercase (SKUEL012: named function, no lambda)."""
+    return getattr(exercise, "title", "").lower()
+
+
+def _get_exercise_created_at(exercise: Any) -> str:
+    """Sort key: exercise created_at (SKUEL012: named function, no lambda)."""
+    return getattr(exercise, "created_at", "")
+
+
+def _apply_exercise_sort(exercises: list[Any], sort_by: str = "title") -> list[Any]:
+    """Sort exercises by specified field."""
+    if sort_by == "title":
+        return sorted(exercises, key=_get_exercise_title_lower)
+    elif sort_by == "created_at":
+        return sorted(exercises, key=_get_exercise_created_at, reverse=True)
+    return sorted(exercises, key=_get_exercise_title_lower)
 
 
 class ExerciseService(BaseService):
@@ -622,3 +660,37 @@ class ExerciseService(BaseService):
         exercises = [dict(record) for record in (result.value or [])]
         self.logger.info(f"Found {len(exercises)} exercises for curriculum {curriculum_uid}")
         return Result.ok(exercises)
+
+    # ========================================================================
+    # QUERY LAYER (FilteredContextProvider)
+    # ========================================================================
+
+    async def get_filtered_context(
+        self,
+        user_uid: str,
+        status_filter: str = "all",
+        sort_by: str = "title",
+    ) -> Result[ListContext]:
+        """Get filtered and sorted exercises with pre-filter stats."""
+
+        async def fetch_all() -> Result[list[Any]]:
+            return await self.list_user_exercises(user_uid, active_only=False)
+
+        def apply_filters(all_exercises: list[Any]) -> list[Any]:
+            if status_filter == "personal":
+                return [
+                    e for e in all_exercises if getattr(e, "scope", None) == ExerciseScope.PERSONAL
+                ]
+            elif status_filter == "assigned":
+                return [
+                    e for e in all_exercises if getattr(e, "scope", None) == ExerciseScope.ASSIGNED
+                ]
+            return all_exercises
+
+        return await build_filtered_context(
+            fetch_all=fetch_all,
+            compute_stats=_compute_exercise_stats,
+            apply_filters=apply_filters,
+            apply_sort=_apply_exercise_sort,
+            sort_by=sort_by,
+        )

@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from core.services.filtered_context import build_filtered_context
 from core.services.ls.ls_ai_service import LsAIService
 from core.services.ls.ls_progress_service import LsProgressService
 from core.utils.logging import get_logger
@@ -28,10 +29,42 @@ if TYPE_CHECKING:
     import builtins
 
     from core.models.pathways.learning_step import LearningStep
+    from core.ports.query_types import ListContext
     from core.services.ls.ls_intelligence_service import LsIntelligenceService
     from core.utils.result_simplified import Result
 
 logger = get_logger(__name__)
+
+
+def _compute_ls_stats(all_steps: list[Any]) -> dict[str, int | float]:
+    """Compute pre-filter stats from the full learning step set."""
+    return {"total": len(all_steps)}
+
+
+def _get_ls_title_lower(step: Any) -> str:
+    """Sort key: step title lowercase (SKUEL012: named function, no lambda)."""
+    return getattr(step, "title", "").lower()
+
+
+def _get_ls_sequence(step: Any) -> int:
+    """Sort key: step sequence order (SKUEL012: named function, no lambda)."""
+    return getattr(step, "sequence", 0) or 0
+
+
+def _get_ls_created_at(step: Any) -> str:
+    """Sort key: step created_at (SKUEL012: named function, no lambda)."""
+    return getattr(step, "created_at", "")
+
+
+def _apply_ls_sort(steps: list[Any], sort_by: str = "title") -> list[Any]:
+    """Sort learning steps by specified field."""
+    if sort_by == "title":
+        return sorted(steps, key=_get_ls_title_lower)
+    elif sort_by == "sequence":
+        return sorted(steps, key=_get_ls_sequence)
+    elif sort_by == "created_at":
+        return sorted(steps, key=_get_ls_created_at, reverse=True)
+    return sorted(steps, key=_get_ls_title_lower)
 
 
 class LsService:
@@ -299,3 +332,29 @@ class LsService:
             Result containing list of path UIDs
         """
         return await self.relationships.get_related_uids("in_paths", step_uid)
+
+    # =========================================================================
+    # QUERY LAYER (FilteredContextProvider)
+    # =========================================================================
+
+    async def get_filtered_context(
+        self,
+        user_uid: str,
+        status_filter: str = "all",
+        sort_by: str = "title",
+    ) -> Result[ListContext]:
+        """Get filtered and sorted learning steps with pre-filter stats."""
+
+        async def fetch_all() -> Result[list[Any]]:
+            return await self.list_steps(limit=500)
+
+        def apply_filters(all_steps: list[Any]) -> list[Any]:
+            return all_steps  # LS has no status filtering
+
+        return await build_filtered_context(
+            fetch_all=fetch_all,
+            compute_stats=_compute_ls_stats,
+            apply_filters=apply_filters,
+            apply_sort=_apply_ls_sort,
+            sort_by=sort_by,
+        )

@@ -21,6 +21,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from core.constants import GraphDepth, QueryLimit
+from core.ports.query_types import ListContext
 
 if TYPE_CHECKING:
     from core.ports import (
@@ -35,6 +36,7 @@ if TYPE_CHECKING:
 from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
 from core.models.curriculum_dto import CurriculumDTO
 from core.ports.base_protocols import HasUID
+from core.services.filtered_context import build_filtered_context
 
 # Import sub-services
 from core.services.lesson.lesson_ai_service import LessonAIService
@@ -63,6 +65,57 @@ _VALID_SUBSTANCE_TIMESTAMP_FIELDS: frozenset[str] = frozenset(
         "last_choice_informed_date",
     }
 )
+
+
+def _compute_lesson_stats(all_lessons: list[Any]) -> dict[str, int | float]:
+    """Compute pre-filter stats from the full lesson set."""
+    from core.models.enums import EntityStatus
+
+    return {
+        "total": len(all_lessons),
+        "published": sum(
+            1 for ls in all_lessons if getattr(ls, "status", None) == EntityStatus.PUBLISHED
+        ),
+        "draft": sum(1 for ls in all_lessons if getattr(ls, "status", None) == EntityStatus.DRAFT),
+    }
+
+
+def _apply_lesson_status_filter(all_lessons: list[Any], status_filter: str) -> list[Any]:
+    """Apply status filter to lessons."""
+    from core.models.enums import EntityStatus
+
+    match status_filter:
+        case "published":
+            return [
+                ls for ls in all_lessons if getattr(ls, "status", None) == EntityStatus.PUBLISHED
+            ]
+        case "draft":
+            return [ls for ls in all_lessons if getattr(ls, "status", None) == EntityStatus.DRAFT]
+        case "archived":
+            return [
+                ls for ls in all_lessons if getattr(ls, "status", None) == EntityStatus.ARCHIVED
+            ]
+        case _:
+            return all_lessons
+
+
+def _get_lesson_title_lower(lesson: Any) -> str:
+    """Sort key: lesson title lowercase (SKUEL012: named function, no lambda)."""
+    return getattr(lesson, "title", "").lower()
+
+
+def _get_lesson_created_at(lesson: Any) -> str:
+    """Sort key: lesson created_at (SKUEL012: named function, no lambda)."""
+    return getattr(lesson, "created_at", "")
+
+
+def _apply_lesson_sort(lessons: list[Any], sort_by: str = "title") -> list[Any]:
+    """Sort lessons by specified field."""
+    if sort_by == "title":
+        return sorted(lessons, key=_get_lesson_title_lower)
+    elif sort_by == "created_at":
+        return sorted(lessons, key=_get_lesson_created_at, reverse=True)
+    return sorted(lessons, key=_get_lesson_title_lower)
 
 
 class LessonService:
@@ -1300,3 +1353,33 @@ class LessonService:
     async def get_used_kus(self, lesson_uid: str) -> Result[list[dict[str, Any]]]:
         """Get all atomic Kus used by this Lesson."""
         return await self.core.backend.get_used_kus(lesson_uid)  # type: ignore[attr-defined]
+
+    # ========================================================================
+    # QUERY LAYER (FilteredContextProvider)
+    # ========================================================================
+
+    async def get_filtered_context(
+        self,
+        user_uid: str,
+        status_filter: str = "all",
+        sort_by: str = "title",
+    ) -> Result[ListContext]:
+        """Get filtered and sorted lessons with pre-filter stats."""
+
+        async def fetch_all() -> Result[list[Any]]:
+            result = await self.core.list(limit=500)
+            if result.is_error:
+                return Result.fail(result)
+            entities, _ = result.value
+            return Result.ok(list(entities))
+
+        def apply_filters(all_lessons: list[Any]) -> list[Any]:
+            return _apply_lesson_status_filter(all_lessons, status_filter)
+
+        return await build_filtered_context(
+            fetch_all=fetch_all,
+            compute_stats=_compute_lesson_stats,
+            apply_filters=apply_filters,
+            apply_sort=_apply_lesson_sort,
+            sort_by=sort_by,
+        )

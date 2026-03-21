@@ -1568,6 +1568,27 @@ async def _create_intelligence_hub(
     else:
         logger.info("⏭️  ZPDService skipped (intelligence tier: CORE)")
 
+    # ── FilteredContextProvider dict (11 domains with get_filtered_context) ──
+    # Maps domain names to facades that implement FilteredContextProvider protocol.
+    # Intelligence services use this for on-demand, per-domain filtered queries.
+    filtered_providers: dict[str, Any] = {
+        # Activity Domains (6) — facades are the services dict values
+        "tasks": activity_services["tasks"],
+        "goals": activity_services["goals"],
+        "habits": activity_services["habits"],
+        "events": activity_services["events"],
+        "choices": activity_services["choices"],
+        "principles": activity_services["principles"],
+        # Curriculum Domains (4) — facades from learning_services
+        "lessons": learning_services["lesson_service"],
+        "ku": learning_services["atomic_ku_service"],
+        "learning_steps": learning_services["learning_steps"],
+        "learning_paths": learning_services["learning_paths"],
+    }
+    # Exercise is created in compose_services, passed via services container
+    if services.exercises is not None:
+        filtered_providers["exercises"] = services.exercises
+
     # ── UserContextIntelligence factory (13-domain architecture) ────────────
     context_intelligence_factory = UserContextIntelligenceFactory(
         # Activity Domains (6) - All from unified activity_services
@@ -1591,9 +1612,14 @@ async def _create_intelligence_hub(
         vector_search_service=vector_search_service,
         # Optional: ZPD service for curriculum-graph-aware learning step ranking
         zpd_service=zpd_service,
+        # FilteredContextProvider dict for on-demand domain queries
+        filtered_providers=filtered_providers,
     )
     services.context_intelligence = context_intelligence_factory
-    logger.info("✅ UserContextIntelligence factory created (13 domain services + ZPD wired)")
+    logger.info(
+        "✅ UserContextIntelligence factory created (13 domain services + ZPD + %d filtered providers)",
+        len(filtered_providers),
+    )
 
     # Wire intelligence factory to UserService (post-construction wiring)
     user_service.intelligence_factory = context_intelligence_factory

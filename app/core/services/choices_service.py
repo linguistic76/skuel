@@ -27,6 +27,7 @@ from core.services.choices import ChoicesLearningService
 from core.services.choices.choice_event_handler_service import ChoiceEventHandlerService
 from core.services.choices.choices_ai_service import ChoicesAIService
 from core.services.domain_config import create_activity_domain_config
+from core.services.filtered_context import build_filtered_context
 
 # Unified relationship service (replaces ChoicesRelationshipService)
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
@@ -70,6 +71,28 @@ def _get_choice_enum_value(obj: Any, attr: str, default: str = "") -> str:
 def _get_choice_priority(c: Any) -> str:
     """Extract priority string for sort key (SKUEL012: named function, no lambda)."""
     return get_enum_attr_str(c, "priority", "medium")
+
+
+def _compute_choice_stats(all_choices: list[Any]) -> dict[str, int | float]:
+    """Compute pre-filter stats from the full choice set."""
+    return {
+        "total": len(all_choices),
+        "pending": sum(1 for c in all_choices if _get_choice_enum_value(c, "status") == "pending"),
+        "decided": sum(1 for c in all_choices if _get_choice_enum_value(c, "status") == "decided"),
+    }
+
+
+def _apply_choice_status_filter(all_choices: list[Any], status_filter: str) -> list[Any]:
+    """Apply status filter to choices."""
+    match status_filter:
+        case "pending":
+            return [c for c in all_choices if _get_choice_enum_value(c, "status") == "pending"]
+        case "decided":
+            return [c for c in all_choices if _get_choice_enum_value(c, "status") == "decided"]
+        case "implemented":
+            return [c for c in all_choices if _get_choice_enum_value(c, "status") == "implemented"]
+        case _:
+            return all_choices
 
 
 def _apply_choice_sort(choices: list[Any], sort_by: str = "deadline") -> list[Any]:
@@ -528,45 +551,21 @@ class ChoicesService(BaseService["ChoicesOperations", Choice]):
         status_filter: str = "pending",
         sort_by: str = "deadline",
     ) -> Result[ListContext]:
-        """Get filtered and sorted choices with pre-filter stats in a single query.
+        """Get filtered and sorted choices with pre-filter stats in a single query."""
 
-        Fetches ALL user choices once, computes stats in Python, then filters and sorts.
-        """
-        all_result = await self.core.get_for_user_filtered(user_uid, "all")
-        if all_result.is_error:
-            return Result.fail(all_result)
-        all_choices = all_result.value
+        async def fetch_all() -> Result[list[Any]]:
+            return await self.core.get_for_user_filtered(user_uid, "all")
 
-        # Stats from full set (replaces Cypher COUNT)
-        stats = {
-            "total": len(all_choices),
-            "pending": sum(
-                1 for c in all_choices if _get_choice_enum_value(c, "status") == "pending"
-            ),
-            "decided": sum(
-                1 for c in all_choices if _get_choice_enum_value(c, "status") == "decided"
-            ),
-        }
+        def apply_filters(all_choices: list[Any]) -> list[Any]:
+            return _apply_choice_status_filter(all_choices, status_filter)
 
-        # Status filter in Python
-        match status_filter:
-            case "pending":
-                filtered = [
-                    c for c in all_choices if _get_choice_enum_value(c, "status") == "pending"
-                ]
-            case "decided":
-                filtered = [
-                    c for c in all_choices if _get_choice_enum_value(c, "status") == "decided"
-                ]
-            case "implemented":
-                filtered = [
-                    c for c in all_choices if _get_choice_enum_value(c, "status") == "implemented"
-                ]
-            case _:
-                filtered = all_choices
-
-        sorted_choices = _apply_choice_sort(filtered, sort_by)
-        return Result.ok({"entities": sorted_choices, "stats": stats})
+        return await build_filtered_context(
+            fetch_all=fetch_all,
+            compute_stats=_compute_choice_stats,
+            apply_filters=apply_filters,
+            apply_sort=_apply_choice_sort,
+            sort_by=sort_by,
+        )
 
     async def get_analytics_context(self, user_uid: str) -> Result[ChoicesAnalyticsContext]:
         """Build pre-computed analytics context for the choices analytics view.

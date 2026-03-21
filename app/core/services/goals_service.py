@@ -26,6 +26,7 @@ from core.models.goal.goal_dto import GoalDTO
 from core.ports.domain_protocols import GoalsOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
+from core.services.filtered_context import build_filtered_context
 
 # Import sub-services
 from core.services.goals import (
@@ -87,6 +88,34 @@ def _get_goal_target_date(goal: Any) -> date:
         except ValueError:
             pass
     return date.max
+
+
+def _compute_goal_stats(all_goals: list[Any]) -> dict[str, int | float]:
+    """Compute pre-filter stats from the full goal set."""
+    return {
+        "total": len(all_goals),
+        "active": sum(
+            1
+            for g in all_goals
+            if _get_goal_status_str(g) not in ("completed", "cancelled", "archived")
+        ),
+        "completed": sum(1 for g in all_goals if _get_goal_status_str(g) == "completed"),
+    }
+
+
+def _apply_goal_status_filter(all_goals: list[Any], status_filter: str) -> list[Any]:
+    """Apply status filter to goals."""
+    match status_filter:
+        case "active":
+            return [
+                g
+                for g in all_goals
+                if _get_goal_status_str(g) not in ("completed", "cancelled", "archived")
+            ]
+        case "completed":
+            return [g for g in all_goals if _get_goal_status_str(g) == "completed"]
+        case _:
+            return all_goals
 
 
 def _apply_goal_sort(goals: list[Any], sort_by: str = "target_date") -> list[Any]:
@@ -721,41 +750,21 @@ class GoalsService(BaseService[GoalsOperations, Goal]):
         status_filter: str = "active",
         sort_by: str = "target_date",
     ) -> Result[ListContext]:
-        """Get filtered and sorted goals with pre-filter stats in a single query.
+        """Get filtered and sorted goals with pre-filter stats in a single query."""
 
-        Fetches ALL user goals once, computes stats in Python, then filters and sorts.
-        """
-        all_result = await self.core.get_for_user_filtered(user_uid, "all")
-        if all_result.is_error:
-            return Result.fail(all_result)
-        all_goals = all_result.value
+        async def fetch_all() -> Result[list[Any]]:
+            return await self.core.get_for_user_filtered(user_uid, "all")
 
-        # Stats from full set (replaces Cypher COUNT)
-        stats = {
-            "total": len(all_goals),
-            "active": sum(
-                1
-                for g in all_goals
-                if _get_goal_status_str(g) not in ("completed", "cancelled", "archived")
-            ),
-            "completed": sum(1 for g in all_goals if _get_goal_status_str(g) == "completed"),
-        }
+        def apply_filters(all_goals: list[Any]) -> list[Any]:
+            return _apply_goal_status_filter(all_goals, status_filter)
 
-        # Status filter in Python
-        match status_filter:
-            case "active":
-                filtered = [
-                    g
-                    for g in all_goals
-                    if _get_goal_status_str(g) not in ("completed", "cancelled", "archived")
-                ]
-            case "completed":
-                filtered = [g for g in all_goals if _get_goal_status_str(g) == "completed"]
-            case _:
-                filtered = all_goals
-
-        sorted_goals = _apply_goal_sort(filtered, sort_by)
-        return Result.ok({"entities": sorted_goals, "stats": stats})
+        return await build_filtered_context(
+            fetch_all=fetch_all,
+            compute_stats=_compute_goal_stats,
+            apply_filters=apply_filters,
+            apply_sort=_apply_goal_sort,
+            sort_by=sort_by,
+        )
 
     # Note: Status operations (activate_goal, pause_goal, complete_goal, archive_goal)
     # and Search operations (list_goal_categories, get_goals_by_status, search_goals, etc.)

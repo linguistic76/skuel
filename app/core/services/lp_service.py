@@ -18,6 +18,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from core.services.filtered_context import build_filtered_context
 from core.services.lp.lp_ai_service import LpAIService
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -27,11 +28,36 @@ if TYPE_CHECKING:
     from core.models.pathways.learning_path import LearningPath
     from core.models.pathways.learning_step import LearningStep
     from core.ports import EventBusOperations
+    from core.ports.query_types import ListContext
     from core.services.lesson_service import LessonService
     from core.services.ls_service import LsService
     from ui.ui_types import ActivePathData
 
 logger = get_logger(__name__)
+
+
+def _compute_lp_stats(all_paths: list[Any]) -> dict[str, int | float]:
+    """Compute pre-filter stats from the full learning path set."""
+    return {"total": len(all_paths)}
+
+
+def _get_lp_title_lower(path: Any) -> str:
+    """Sort key: path title lowercase (SKUEL012: named function, no lambda)."""
+    return getattr(path, "title", "").lower()
+
+
+def _get_lp_created_at(path: Any) -> str:
+    """Sort key: path created_at (SKUEL012: named function, no lambda)."""
+    return getattr(path, "created_at", "")
+
+
+def _apply_lp_sort(paths: list[Any], sort_by: str = "title") -> list[Any]:
+    """Sort learning paths by specified field."""
+    if sort_by == "title":
+        return sorted(paths, key=_get_lp_title_lower)
+    elif sort_by == "created_at":
+        return sorted(paths, key=_get_lp_created_at, reverse=True)
+    return sorted(paths, key=_get_lp_title_lower)
 
 
 def _difficulty_label(rating: float) -> str:
@@ -582,3 +608,29 @@ class LpService:
         paths = paths[:limit]
 
         return Result.ok(paths)
+
+    # =========================================================================
+    # QUERY LAYER (FilteredContextProvider)
+    # =========================================================================
+
+    async def get_filtered_context(
+        self,
+        user_uid: str,
+        status_filter: str = "all",
+        sort_by: str = "title",
+    ) -> Result[ListContext]:
+        """Get filtered and sorted learning paths with pre-filter stats."""
+
+        async def fetch_all() -> Result[list[Any]]:
+            return await self.list_all_paths(limit=500)
+
+        def apply_filters(all_paths: list[Any]) -> list[Any]:
+            return all_paths  # LP has no status filtering
+
+        return await build_filtered_context(
+            fetch_all=fetch_all,
+            compute_stats=_compute_lp_stats,
+            apply_filters=apply_filters,
+            apply_sort=_apply_lp_sort,
+            sort_by=sort_by,
+        )

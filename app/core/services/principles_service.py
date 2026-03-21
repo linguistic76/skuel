@@ -29,6 +29,7 @@ from core.ports.domain_protocols import (
 )
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
+from core.services.filtered_context import build_filtered_context
 
 # Import sub-services and their types
 from core.services.principles import (
@@ -77,6 +78,15 @@ _PRINCIPLE_STRENGTH_ORDER: dict[PrincipleStrength, int] = {
     PrincipleStrength.DEVELOPING: 2,
     PrincipleStrength.EXPLORING: 1,
 }
+
+
+def _compute_principle_stats(all_principles: list[Any]) -> dict[str, int | float]:
+    """Compute pre-filter stats from the full principle set."""
+    return {
+        "total": len(all_principles),
+        "core": sum(1 for p in all_principles if _get_principle_strength_value(p) >= 5),
+        "active": sum(1 for p in all_principles if getattr(p, "is_active", True)),
+    }
 
 
 def _get_principle_strength_value(p: Any) -> int:
@@ -953,24 +963,20 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
         sort_by: str = "strength",
         status_filter: str = "all",
     ) -> Result[ListContext]:
-        """Get filtered and sorted principles with pre-filter stats in a single query.
+        """Get filtered and sorted principles with pre-filter stats in a single query."""
 
-        Fetches ALL user principles once, computes stats in Python, then filters and sorts.
-        """
-        all_result = await self.core.get_for_user_filtered(user_uid)
-        if all_result.is_error:
-            return Result.fail(all_result)
-        all_principles = all_result.value
+        async def fetch_all() -> Result[list[Any]]:
+            return await self.core.get_for_user_filtered(user_uid)
 
-        # Stats from full set (replaces Cypher COUNT)
-        stats = {
-            "total": len(all_principles),
-            "core": sum(1 for p in all_principles if _get_principle_strength_value(p) >= 5),
-            "active": sum(1 for p in all_principles if getattr(p, "is_active", True)),
-        }
+        def apply_filters(all_principles: list[Any]) -> list[Any]:
+            return _apply_principle_filters(
+                all_principles, category_filter, strength_filter, status_filter
+            )
 
-        filtered = _apply_principle_filters(
-            all_principles, category_filter, strength_filter, status_filter
+        return await build_filtered_context(
+            fetch_all=fetch_all,
+            compute_stats=_compute_principle_stats,
+            apply_filters=apply_filters,
+            apply_sort=_apply_principle_sort,
+            sort_by=sort_by,
         )
-        sorted_principles = _apply_principle_sort(filtered, sort_by)
-        return Result.ok({"entities": sorted_principles, "stats": stats})

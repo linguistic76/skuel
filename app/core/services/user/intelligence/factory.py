@@ -43,6 +43,7 @@ from typing import TYPE_CHECKING, Any
 from core.services.user.intelligence.core import UserContextIntelligence
 
 if TYPE_CHECKING:
+    from core.ports.filtered_context_protocols import FilteredContextProvider
     from core.ports.zpd_protocols import ZPDOperations
     from core.services.analytics_relationship_service import AnalyticsRelationshipService
     from core.services.calendar_service import CalendarService
@@ -115,6 +116,8 @@ class UserContextIntelligenceFactory:
         vector_search_service: Any = None,
         # Optional: ZPD service for curriculum-graph-aware learning step ranking
         zpd_service: ZPDOperations | None = None,
+        # Optional: FilteredContextProvider dict for on-demand domain-specific queries
+        filtered_providers: dict[str, FilteredContextProvider] | None = None,
     ) -> None:
         """
         Initialize factory with all 13 required domain services.
@@ -144,6 +147,8 @@ class UserContextIntelligenceFactory:
             Optional Services:
                 vector_search_service: Neo4jVectorSearchService for semantic/learning-aware search
                 zpd_service: ZPDOperations for curriculum-graph-aware step ranking
+                filtered_providers: Dict mapping domain names to FilteredContextProvider facades.
+                    Enables intelligence services to call get_filtered_context() on any domain.
 
         Raises:
             ValueError: If any required service is None
@@ -197,6 +202,8 @@ class UserContextIntelligenceFactory:
         self._vector_search = vector_search_service
         # Optional: ZPD service for curriculum-graph-aware learning step ranking
         self._zpd_service = zpd_service
+        # Optional: FilteredContextProvider dict for on-demand domain queries
+        self._filtered_providers = filtered_providers or {}
 
     def create(self, context: UserContext) -> UserContextIntelligence:
         """
@@ -231,6 +238,8 @@ class UserContextIntelligenceFactory:
             vector_search=self._vector_search,
             # Optional: ZPD service for curriculum-graph-aware learning step ranking
             zpd_service=self._zpd_service,
+            # Optional: FilteredContextProvider dict for on-demand domain queries
+            filtered_providers=self._filtered_providers,
         )
 
 

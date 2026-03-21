@@ -35,6 +35,7 @@ from core.services.analytics_engine import (
 # Base service
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
+from core.services.filtered_context import build_filtered_context
 
 # Unified relationship service
 from core.services.relationships import UnifiedRelationshipService
@@ -126,6 +127,28 @@ class TaskAnalyticsDashboard(TypedDict):
     insights: InsightsData
     recommendations: list[Any]
     analytics_status: AnalyticsStatus
+
+
+def _compute_task_stats(all_tasks: list[Any]) -> dict[str, int | float]:
+    """Compute pre-filter stats from the full task set."""
+    today = date.today()
+    return {
+        "total": len(all_tasks),
+        "completed": sum(1 for t in all_tasks if t.status == EntityStatus.COMPLETED),
+        "overdue": sum(
+            1
+            for t in all_tasks
+            if t.due_date and t.due_date < today and t.status != EntityStatus.COMPLETED
+        ),
+    }
+
+
+def _compute_task_metadata(all_tasks: list[Any]) -> dict[str, Any]:
+    """Compute task-specific metadata for UI dropdowns."""
+    projects = sorted({t.project for t in all_tasks if t.project})
+    assignees_set = {getattr(t, "assignee", None) for t in all_tasks}
+    assignees_set.discard(None)
+    return {"projects": list(projects), "assignees": sorted(assignees_set)}
 
 
 def _apply_status_filter(entities: list[Any], status_filter: str) -> list[Any]:
@@ -1036,45 +1059,22 @@ class TasksService(BaseService["TasksOperations", Task]):
         status_filter: str = "active",
         sort_by: str = "due_date",
     ) -> Result[ListContext]:
-        """Get filtered and sorted tasks with pre-filter stats in a single query.
+        """Get filtered and sorted tasks with pre-filter stats in a single query."""
 
-        Fetches ALL user tasks once, computes stats in Python, then filters and sorts.
-        Also returns projects/assignees lists for UI dropdowns.
-        """
-        all_result = await self.core.get_for_user_filtered(user_uid, "all")
-        if all_result.is_error:
-            return Result.fail(all_result)
-        all_tasks = all_result.value
+        async def fetch_all() -> Result[list[Any]]:
+            return await self.core.get_for_user_filtered(user_uid, "all")
 
-        # Stats from full set (replaces Cypher COUNT)
-        today = date.today()
-        stats = {
-            "total": len(all_tasks),
-            "completed": sum(1 for t in all_tasks if t.status == EntityStatus.COMPLETED),
-            "overdue": sum(
-                1
-                for t in all_tasks
-                if t.due_date and t.due_date < today and t.status != EntityStatus.COMPLETED
-            ),
-        }
+        def apply_filters(all_tasks: list[Any]) -> list[Any]:
+            filtered = _apply_status_filter(all_tasks, status_filter)
+            return _apply_task_secondary_filters(filtered, project, assignee, due_filter)
 
-        # Status filter in Python
-        filtered = _apply_status_filter(all_tasks, status_filter)
-        filtered = _apply_task_secondary_filters(filtered, project, assignee, due_filter)
-        sorted_tasks = _apply_task_sort(filtered, sort_by)
-
-        # Metadata for UI dropdowns (replaces get_distinct_projects/assignees)
-        projects = sorted({t.project for t in all_tasks if t.project})
-        assignees_set = {getattr(t, "assignee", None) for t in all_tasks}
-        assignees_set.discard(None)
-
-        return Result.ok(
-            {
-                "entities": sorted_tasks,
-                "stats": stats,
-                "projects": list(projects),
-                "assignees": sorted(assignees_set),
-            }
+        return await build_filtered_context(
+            fetch_all=fetch_all,
+            compute_stats=_compute_task_stats,
+            apply_filters=apply_filters,
+            apply_sort=_apply_task_sort,
+            sort_by=sort_by,
+            compute_metadata=_compute_task_metadata,
         )
 
 
