@@ -461,7 +461,7 @@ class ActivityDSLParser:
 ### ActivityEntityConverter
 
 ```python
-from core.services.dsl.activity_converter import ActivityEntityConverter
+from core.services.dsl.activity_entity_converter import ActivityEntityConverter
 from core.models.enums.entity_enums import EntityType
 
 class ActivityEntityConverter:
@@ -670,6 +670,6 @@ def parse_line_with_validation(self, line: str) -> Result[ParsedActivityLine]:
 
 - **Formal Grammar:** `DSL_SPECIFICATION.md`
 - **Usage Examples:** `DSL_USAGE_GUIDE.md`
-- **Parser Implementation:** `/core/services/dsl/activity_parser.py`
-- **Entity Converter:** `/core/services/dsl/activity_converter.py`
+- **Parser Implementation:** `/core/services/dsl/activity_dsl_parser.py`
+- **Entity Converter:** `/core/services/dsl/activity_entity_converter.py` (orchestrator), `/core/services/dsl/activity_domain_converters.py` (activity domains), `/core/services/dsl/specialized_domain_converters.py` (curriculum/meta/finance/lifepath), `/core/services/dsl/dsl_mappings.py` (shared mappings)
 - **EntityType Enum:** `/core/models/enums/entity_enums.py`
