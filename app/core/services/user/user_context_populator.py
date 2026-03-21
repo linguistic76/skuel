@@ -302,6 +302,15 @@ class UserContextPopulator:
         context.habit_knowledge_applied = graph_data.habits.knowledge_applied
         context.habit_prerequisites = graph_data.habits.prerequisites
 
+        # Event relationships
+        context.event_knowledge_applied = graph_data.events.knowledge_applied
+
+        # Choice relationships
+        context.choice_knowledge_informed = graph_data.choices.knowledge_informed
+
+        # Principle relationships
+        context.principle_knowledge_grounded = graph_data.principles.knowledge_grounded
+
         # Knowledge relationships
         context.prerequisite_counts = graph_data.knowledge.prerequisite_counts
         context.ready_to_learn_uids = graph_data.knowledge.ready_to_learn_uids

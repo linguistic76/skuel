@@ -63,10 +63,11 @@ Supporting Domains - tasks, events, habits, journals, choices, principles
 | **Habits** | 0.10 | 0.30 (3 habits) | Lifestyle integration = highest substance |
 | **Journals** | 0.07 | 0.20 (3 reflections) | Metacognition = deep understanding |
 | **Choices** | 0.07 | 0.15 (2 decisions) | Decision-making = practical wisdom |
+| **Principles** | 0.07 | 0.15 (2 principles) | Value embodiment = living by knowledge |
 | **Events** | 0.05 | 0.25 (5 events) | Practice = embodiment |
 | **Tasks** | 0.05 | 0.25 (5 tasks) | Application = real-world use |
 
-**Total possible substance:** 1.0 (100% lifestyle-integrated knowledge)
+**Total possible substance:** 1.0 (capped — 6 channels contribute up to 1.30 raw, min(1.0) applied)
 
 ### Substance Scale
 
@@ -229,16 +230,17 @@ user_substance_score = task_score + habit_score + event_score + journal_score + 
 - **Route:** `/adapters/inbound/lesson_api.py` (`get_lesson_user_context_route`)
 - **Wiring:** `user_service` passed through `services_bootstrap.py` → `LessonService` → `LessonIntelligenceService`
 
-### Future: UserContext Extensions
+### UserContext Knowledge Fields
 
-Currently tracks:
+All 6 activity channels tracked (journals deferred — submissions, not activities):
 - `task_knowledge_applied` - Tasks applying KU
 - `habit_knowledge_applied` - Habits reinforcing KU
-
-Planned additions:
 - `event_knowledge_applied` - Events practicing KU
-- `journal_knowledge_applied` - Journals reflecting on KU
-- `choice_knowledge_applied` - Choices informed by KU
+- `choice_knowledge_informed` - Choices informed by KU
+- `principle_knowledge_grounded` - Principles grounded in KU
+
+Planned addition:
+- `journal_knowledge_applied` - Journals reflecting on KU (requires MEGA_QUERY journal→KU collection)
 
 ---
 

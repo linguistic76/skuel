@@ -305,6 +305,15 @@ class UserContext:
     habit_knowledge_applied: dict[str, list[str]] = field(default_factory=dict)  # habit -> ku_uids
     habit_prerequisites: dict[str, list[str]] = field(default_factory=dict)  # habit -> habit_uids
 
+    # Event knowledge metadata (from [:APPLIES_KNOWLEDGE] relationships)
+    event_knowledge_applied: dict[str, list[str]] = field(default_factory=dict)  # event -> ku_uids
+
+    # Choice knowledge metadata (from [:INFORMS_CHOICE] relationships)
+    choice_knowledge_informed: dict[str, list[str]] = field(default_factory=dict)  # choice -> ku_uids
+
+    # Principle knowledge metadata (from [:GROUNDED_IN_KNOWLEDGE] relationships)
+    principle_knowledge_grounded: dict[str, list[str]] = field(default_factory=dict)  # principle -> ku_uids
+
     # =========================================================================
     # PRINCIPLE AWARENESS - Values and alignment
     # =========================================================================

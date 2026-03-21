@@ -56,6 +56,27 @@ class HabitRelationshipData:
 
 
 @dataclass
+class EventRelationshipData:
+    """Extracted event relationship data from MEGA-QUERY."""
+
+    knowledge_applied: dict[str, list[str]] = field(default_factory=dict)
+
+
+@dataclass
+class ChoiceRelationshipData:
+    """Extracted choice relationship data from MEGA-QUERY."""
+
+    knowledge_informed: dict[str, list[str]] = field(default_factory=dict)
+
+
+@dataclass
+class PrincipleRelationshipData:
+    """Extracted principle relationship data from MEGA-QUERY."""
+
+    knowledge_grounded: dict[str, list[str]] = field(default_factory=dict)
+
+
+@dataclass
 class KnowledgeRelationshipData:
     """Extracted knowledge relationship data from MEGA-QUERY."""
 
@@ -75,6 +96,9 @@ class GraphSourcedData:
     tasks: TaskRelationshipData = field(default_factory=TaskRelationshipData)
     goals: GoalRelationshipData = field(default_factory=GoalRelationshipData)
     habits: HabitRelationshipData = field(default_factory=HabitRelationshipData)
+    events: EventRelationshipData = field(default_factory=EventRelationshipData)
+    choices: ChoiceRelationshipData = field(default_factory=ChoiceRelationshipData)
+    principles: PrincipleRelationshipData = field(default_factory=PrincipleRelationshipData)
     knowledge: KnowledgeRelationshipData = field(default_factory=KnowledgeRelationshipData)
 
 
@@ -158,12 +182,18 @@ class UserContextExtractor:
         tasks_data = self._as_list(entities_data.get("tasks"), "tasks")
         goals_data = self._as_list(entities_data.get("goals"), "goals")
         habits_data = self._as_list(entities_data.get("habits"), "habits")
+        events_data = self._as_list(entities_data.get("events"), "events")
+        choices_data = self._as_list(entities_data.get("choices"), "choices")
+        principles_data = self._as_list(entities_data.get("principles"), "principles")
         knowledge_data = self._as_list(rich_data.get("knowledge"), "knowledge")
 
         return GraphSourcedData(
             tasks=self.extract_task_relationships(tasks_data),
             goals=self.extract_goal_relationships(goals_data, mastered_uids),
             habits=self.extract_habit_relationships(habits_data),
+            events=self.extract_event_relationships(events_data),
+            choices=self.extract_choice_relationships(choices_data),
+            principles=self.extract_principle_relationships(principles_data),
             knowledge=self.extract_knowledge_relationships(knowledge_data, mastered_uids),
         )
 
@@ -337,6 +367,108 @@ class UserContextExtractor:
             knowledge_applied=knowledge_applied,
             prerequisites=prerequisites,
         )
+
+    def extract_event_relationships(
+        self, events_rich: list[dict[str, Any]]
+    ) -> EventRelationshipData:
+        """
+        Extract event relationship data from events_rich[].graph_context.
+
+        Extracts applied knowledge (APPLIES_KNOWLEDGE relationships).
+
+        Args:
+            events_rich: List of event items with graph_context
+                        Shape: [{"entity": {...}, "graph_context": {...}}, ...]
+
+        Returns:
+            EventRelationshipData with knowledge applied mappings
+        """
+        knowledge_applied: dict[str, list[str]] = {}
+
+        for event_item in events_rich:
+            if not event_item:
+                continue
+
+            event_data = event_item.get("entity", {})
+            graph_ctx = event_item.get("graph_context", {})
+            event_uid = event_data.get("uid")
+
+            if not event_uid:
+                continue
+
+            ku_uids = self._uids(graph_ctx.get("applied_knowledge"))
+            if ku_uids:
+                knowledge_applied[event_uid] = ku_uids
+
+        return EventRelationshipData(knowledge_applied=knowledge_applied)
+
+    def extract_choice_relationships(
+        self, choices_rich: list[dict[str, Any]]
+    ) -> ChoiceRelationshipData:
+        """
+        Extract choice relationship data from choices_rich[].graph_context.
+
+        Extracts informing knowledge (INFORMS_CHOICE relationships).
+
+        Args:
+            choices_rich: List of choice items with graph_context
+                         Shape: [{"entity": {...}, "graph_context": {...}}, ...]
+
+        Returns:
+            ChoiceRelationshipData with knowledge informed mappings
+        """
+        knowledge_informed: dict[str, list[str]] = {}
+
+        for choice_item in choices_rich:
+            if not choice_item:
+                continue
+
+            choice_data = choice_item.get("entity", {})
+            graph_ctx = choice_item.get("graph_context", {})
+            choice_uid = choice_data.get("uid")
+
+            if not choice_uid:
+                continue
+
+            ku_uids = self._uids(graph_ctx.get("informing_knowledge"))
+            if ku_uids:
+                knowledge_informed[choice_uid] = ku_uids
+
+        return ChoiceRelationshipData(knowledge_informed=knowledge_informed)
+
+    def extract_principle_relationships(
+        self, principles_rich: list[dict[str, Any]]
+    ) -> PrincipleRelationshipData:
+        """
+        Extract principle relationship data from principles_rich[].graph_context.
+
+        Extracts grounded knowledge (GROUNDED_IN_KNOWLEDGE relationships).
+
+        Args:
+            principles_rich: List of principle items with graph_context
+                            Shape: [{"entity": {...}, "graph_context": {...}}, ...]
+
+        Returns:
+            PrincipleRelationshipData with knowledge grounded mappings
+        """
+        knowledge_grounded: dict[str, list[str]] = {}
+
+        for principle_item in principles_rich:
+            if not principle_item:
+                continue
+
+            principle_data = principle_item.get("entity", {})
+            graph_ctx = principle_item.get("graph_context", {})
+            principle_uid = principle_data.get("uid")
+
+            if not principle_uid:
+                continue
+
+            ku_uids = self._uids(graph_ctx.get("grounded_knowledge"))
+            if ku_uids:
+                knowledge_grounded[principle_uid] = ku_uids
+
+        return PrincipleRelationshipData(knowledge_grounded=knowledge_grounded)
 
     def extract_knowledge_relationships(
         self, knowledge_rich: list[dict[str, Any]], mastered_uids: set[str]

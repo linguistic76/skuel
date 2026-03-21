@@ -372,7 +372,7 @@ HTTP -> FastHTML Route -> Pydantic -> Service -> Domain -> Repository -> Neo4j
 
 **Core Principle:** "Applied knowledge, not pure theory"
 
-SKUEL measures knowledge by how it's LIVED. Substance tracking: Habits (0.10, max 0.30), Journals (0.07, max 0.20), Choices (0.07, max 0.15), Events (0.05, max 0.25), Tasks (0.05, max 0.25).
+SKUEL measures knowledge by how it's LIVED. Substance tracking: Habits (0.10, max 0.30), Journals (0.07, max 0.20), Choices (0.07, max 0.15), Principles (0.07, max 0.15), Events (0.05, max 0.25), Tasks (0.05, max 0.25). Total capped at 1.0.
 
 **See:** `/docs/architecture/knowledge_substance_philosophy.md`
 

@@ -349,6 +349,7 @@ class LessonIntelligenceService(BaseAnalyticsService[LessonOperations, Entity]):
         - Habits: 0.10 per habit (max 0.30) - Lifestyle integration
         - Journals: 0.07 per entry (max 0.20) - Metacognition
         - Choices: 0.07 per choice (max 0.15) - Decision-making
+        - Principles: 0.07 per principle (max 0.15) - Value embodiment
         - Events: 0.05 per event (max 0.25) - Dedicated practice
         - Tasks: 0.05 per task (max 0.25) - Practical application
 
@@ -362,9 +363,8 @@ class LessonIntelligenceService(BaseAnalyticsService[LessonOperations, Entity]):
         self.logger.info(f"Calculating user substance for KU {ku_uid}")
 
         # Extract activity counts from UserContext for this KU
-        # Note: UserContext stores activity_uid -> ku_uids mapping, so we reverse the lookup
-        # Available fields: task_knowledge_applied, habit_knowledge_applied
-        # Event/Journal/Choice knowledge fields not yet in UserContext (can be added later)
+        # UserContext stores activity_uid -> ku_uids mapping, so we reverse the lookup
+        # All 5 channels: task, habit, event, choice (journal deferred — submissions, not activities)
         task_uids = [
             uid for uid, ku_list in user_context.task_knowledge_applied.items() if ku_uid in ku_list
         ]
@@ -373,12 +373,24 @@ class LessonIntelligenceService(BaseAnalyticsService[LessonOperations, Entity]):
             for uid, ku_list in user_context.habit_knowledge_applied.items()
             if ku_uid in ku_list
         ]
-        # Event knowledge not yet tracked in UserContext - placeholder for future
-        event_uids: list[str] = []
-        # Journal knowledge not yet tracked in UserContext - placeholder for future
+        event_uids = [
+            uid
+            for uid, ku_list in user_context.event_knowledge_applied.items()
+            if ku_uid in ku_list
+        ]
+        # Journal knowledge not yet tracked in UserContext — journals are submissions,
+        # not activities, so MEGA_QUERY doesn't collect journal→KU relationships
         journal_uids: list[str] = []
-        # Choice knowledge not yet tracked in UserContext - placeholder for future
-        choice_uids: list[str] = []
+        choice_uids = [
+            uid
+            for uid, ku_list in user_context.choice_knowledge_informed.items()
+            if ku_uid in ku_list
+        ]
+        principle_uids = [
+            uid
+            for uid, ku_list in user_context.principle_knowledge_grounded.items()
+            if ku_uid in ku_list
+        ]
 
         # Calculate substance score with weighting
         task_score = min(0.25, len(task_uids) * 0.05)
@@ -386,8 +398,12 @@ class LessonIntelligenceService(BaseAnalyticsService[LessonOperations, Entity]):
         event_score = min(0.25, len(event_uids) * 0.05)
         journal_score = min(0.20, len(journal_uids) * 0.07)
         choice_score = min(0.15, len(choice_uids) * 0.07)
+        principle_score = min(0.15, len(principle_uids) * 0.07)
 
-        user_substance_score = task_score + habit_score + event_score + journal_score + choice_score
+        user_substance_score = min(
+            1.0,
+            task_score + habit_score + event_score + journal_score + choice_score + principle_score,
+        )
 
         # Get global substance score from KU if available
         global_substance_score = 0.0
@@ -445,6 +461,14 @@ class LessonIntelligenceService(BaseAnalyticsService[LessonOperations, Entity]):
                     "impact": "+0.07 per choice (max +0.15)",
                 }
             )
+        if len(principle_uids) == 0:
+            recommendations.append(
+                {
+                    "type": "principle",
+                    "message": "Ground a principle in this knowledge",
+                    "impact": "+0.07 per principle (max +0.15)",
+                }
+            )
 
         # Determine status message
         if user_substance_score >= 0.8:
@@ -491,6 +515,11 @@ class LessonIntelligenceService(BaseAnalyticsService[LessonOperations, Entity]):
                         "count": len(choice_uids),
                         "uids": choice_uids,
                         "score": round(choice_score, 2),
+                    },
+                    "principles": {
+                        "count": len(principle_uids),
+                        "uids": principle_uids,
+                        "score": round(principle_score, 2),
                     },
                 },
                 "mastery_level": round(mastery_level, 2),
