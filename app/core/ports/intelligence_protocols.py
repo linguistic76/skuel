@@ -4,8 +4,14 @@ Intelligence Service Protocols
 
 Protocol definitions for intelligence services across all domains.
 
-These protocols define the common intelligence capabilities that all
-domain-specific intelligence services should provide.
+Split into focused protocols (March 2026):
+- KnowledgeIntelligenceOperations: Knowledge methods shared across all 6 activity domains.
+  Implemented by ActivityKnowledgeIntelligenceService.
+- DomainIntelligenceOperations: Domain-specific behavioral/performance intelligence.
+  Implemented by per-domain intelligence services (TasksIntelligenceService, etc.).
+- IntelligenceOperations: Composed protocol (both combined) for backward compatibility.
+
+See: /docs/patterns/protocol_architecture.md
 """
 
 from typing import Any, Protocol, runtime_checkable
@@ -13,18 +19,25 @@ from typing import Any, Protocol, runtime_checkable
 from core.utils.result_simplified import Result
 
 
+# ============================================================================
+# KNOWLEDGE INTELLIGENCE — shared across all activity domains
+# ============================================================================
+
+
 @runtime_checkable
-class IntelligenceOperations(Protocol):
+class KnowledgeIntelligenceOperations(Protocol):
     """
-    Protocol for intelligence operations across all domains.
+    Knowledge intelligence operations shared across all 6 activity domains.
 
-    All domain-specific intelligence services (TasksIntelligenceService,
-    HabitsIntelligenceService, etc.) should implement these methods.
+    Implemented by ActivityKnowledgeIntelligenceService — a single service
+    instance wired into every activity facade via self.knowledge_intelligence.
+
+    Methods analyze how activities connect to knowledge: suggestions,
+    prerequisites, knowledge generation from completed entities, and
+    learning opportunity discovery.
+
+    See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
     """
-
-    # ========================================================================
-    # KNOWLEDGE INTELLIGENCE
-    # ========================================================================
 
     async def get_knowledge_suggestions(
         self, user_uid: str, entity_uid: str | None = None
@@ -68,6 +81,36 @@ class IntelligenceOperations(Protocol):
         """
         ...
 
+    async def get_learning_opportunities(self, user_uid: str) -> Result[dict[str, Any]]:
+        """
+        Discover learning opportunities from entity patterns.
+
+        Args:
+            user_uid: User identifier
+
+        Returns:
+            Result containing learning opportunities and recommendations
+        """
+        ...
+
+
+# ============================================================================
+# DOMAIN INTELLIGENCE — domain-specific behavioral/performance
+# ============================================================================
+
+
+@runtime_checkable
+class DomainIntelligenceOperations(Protocol):
+    """
+    Domain-specific intelligence operations.
+
+    Implemented by per-domain intelligence services (TasksIntelligenceService,
+    GoalsIntelligenceService, etc.) for behavioral analysis, performance
+    tracking, content similarity, and AI-powered insights.
+
+    See: /docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md
+    """
+
     async def find_similar_content(self, uid: str, limit: int = 5) -> Result[list[str]]:
         """
         Find knowledge units similar to the given unit.
@@ -98,22 +141,6 @@ class IntelligenceOperations(Protocol):
         """
         ...
 
-    # ========================================================================
-    # LEARNING INTELLIGENCE
-    # ========================================================================
-
-    async def get_learning_opportunities(self, user_uid: str) -> Result[dict[str, Any]]:
-        """
-        Discover learning opportunities from entity patterns.
-
-        Args:
-            user_uid: User identifier
-
-        Returns:
-            Result containing learning opportunities and recommendations
-        """
-        ...
-
     async def get_learning_velocity(
         self, user_uid: str, period_days: int = 90
     ) -> Result[dict[str, Any]]:
@@ -128,10 +155,6 @@ class IntelligenceOperations(Protocol):
             Result containing velocity metrics and trends
         """
         ...
-
-    # ========================================================================
-    # BEHAVIORAL INTELLIGENCE
-    # ========================================================================
 
     async def get_behavioral_insights(
         self, user_uid: str, period_days: int = 90
@@ -148,10 +171,6 @@ class IntelligenceOperations(Protocol):
         """
         ...
 
-    # ========================================================================
-    # PERFORMANCE INTELLIGENCE
-    # ========================================================================
-
     async def get_performance_analytics(
         self, user_uid: str, period_days: int = 30
     ) -> Result[dict[str, Any]]:
@@ -166,10 +185,6 @@ class IntelligenceOperations(Protocol):
             Result containing performance metrics and optimization opportunities
         """
         ...
-
-    # ========================================================================
-    # CROSS-DOMAIN INTELLIGENCE
-    # ========================================================================
 
     async def get_cross_domain_opportunities(
         self, user_uid: str, entity_uid: str | None = None
@@ -186,10 +201,6 @@ class IntelligenceOperations(Protocol):
         """
         ...
 
-    # ========================================================================
-    # AI-POWERED INSIGHTS
-    # ========================================================================
-
     async def get_ai_insights(
         self, user_uid: str, entity_uid: str | None = None, query: str | None = None
     ) -> Result[dict[str, Any]]:
@@ -205,3 +216,26 @@ class IntelligenceOperations(Protocol):
             Result containing AI-generated insights and recommendations
         """
         ...
+
+
+# ============================================================================
+# COMPOSED PROTOCOL — full intelligence operations
+# ============================================================================
+
+
+@runtime_checkable
+class IntelligenceOperations(KnowledgeIntelligenceOperations, DomainIntelligenceOperations, Protocol):
+    """
+    Full intelligence operations (composed).
+
+    Combines KnowledgeIntelligenceOperations (shared across all activity
+    domains) and DomainIntelligenceOperations (domain-specific). Use the
+    focused protocols when only a subset is needed.
+
+    Note: The route factory in adapters/inbound/route_factories/ defines its
+    own local IntelligenceOperations protocol (3 methods: get_with_context,
+    get_performance_analytics, get_domain_insights) — that is separate from
+    this core protocol.
+    """
+
+    ...

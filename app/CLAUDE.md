@@ -343,6 +343,13 @@ UserOperations  <- composed protocol (UserBackend implements this)
     +-- UserActivityOperations (3)  <- UserActivityService
 ```
 
+**IntelligenceOperations Protocol Hierarchy (ISP-compliant):**
+```
+IntelligenceOperations  <- composed protocol
+    +-- KnowledgeIntelligenceOperations (4)  <- ActivityKnowledgeIntelligenceService (shared)
+    +-- DomainIntelligenceOperations (7)     <- Per-domain intelligence services
+```
+
 **See:** `/docs/patterns/protocol_architecture.md`, `/docs/patterns/BACKEND_OPERATIONS_ISP.md`
 
 ## Async/Sync Design Pattern

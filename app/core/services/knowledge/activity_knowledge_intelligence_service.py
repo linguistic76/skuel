@@ -58,6 +58,10 @@ class ActivityKnowledgeIntelligenceService(BaseAnalyticsService[Any, Entity]):
     """
     Knowledge intelligence for ANY activity domain entity.
 
+    Satisfies the KnowledgeIntelligenceOperations protocol (4 methods):
+    get_knowledge_suggestions, generate_knowledge_from_entities,
+    get_knowledge_prerequisites, get_learning_opportunities.
+
     These methods analyze how activities connect to knowledge — they are not
     specific to any single activity domain. All 6 activity domains (Tasks,
     Goals, Habits, Events, Choices, Principles) have graph relationships

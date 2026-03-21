@@ -196,7 +196,11 @@ from .infrastructure_protocols import (
 )
 
 # Intelligence operation protocols
-from .intelligence_protocols import IntelligenceOperations
+from .intelligence_protocols import (
+    DomainIntelligenceOperations,
+    IntelligenceOperations,
+    KnowledgeIntelligenceOperations,
+)
 
 # Query types - TypedDicts for type-safe queries and payloads (January 2026)
 from .query_types import (
@@ -407,8 +411,10 @@ __all__ = [
     "HasUpdatedAt",
     "HasUsage",
     "HasValidate",
-    # ========== INTELLIGENCE PROTOCOLS (1) ==========
+    # ========== INTELLIGENCE PROTOCOLS (3) ==========
+    "DomainIntelligenceOperations",
     "IntelligenceOperations",
+    "KnowledgeIntelligenceOperations",
     # ========== MOCK/STUB ENDPOINT PROTOCOLS (2) ==========
     "IsMockEndpoint",
     "IsStubEndpoint",

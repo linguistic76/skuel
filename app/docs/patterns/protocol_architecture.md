@@ -87,7 +87,7 @@ core/ports/
 ├── graph_protocols.py                 # Graph entity protocols
 ├── group_protocols.py                 # Group & teaching (2 protocols)
 ├── infrastructure_protocols.py        # EventBus, User (3 ISP + 1 composed), Schema, Ingestion, Closeable (9 protocols)
-├── intelligence_protocols.py          # Analytics operations (1 protocol)
+├── intelligence_protocols.py          # Intelligence operations (3 protocols: Knowledge, Domain, Composed)
 ├── query_types.py                     # TypedDicts for type-safe queries
 ├── search_protocols.py                # Search operations (8 protocols)
 ├── service_protocols.py               # Route-facing services (10 protocols)
@@ -104,7 +104,7 @@ core/ports/
 | **Curriculum** | `curriculum_protocols.py` | KU, LS, LP operations (unified hierarchy) | 4 |
 | **Search** | `search_protocols.py` | Search and query operations | 8 |
 | **Infrastructure** | `infrastructure_protocols.py` | EventBus, User (3 ISP + 1 composed), Ingestion | 9 |
-| **Intelligence** | `intelligence_protocols.py` | Analytics and intelligence operations | 1 |
+| **Intelligence** | `intelligence_protocols.py` | Knowledge (shared) + Domain (per-service) + Composed | 3 |
 | **Askesis** | `askesis_protocols.py` | Cross-cutting intelligence + CRUD | 6 |
 | **Submission** | `submission_protocols.py` | Submission CRUD, processing, sharing, search | 4 |
 | **Report** | `report_protocols.py` | Human + AI reports, progress reports, scheduling | 3 |
