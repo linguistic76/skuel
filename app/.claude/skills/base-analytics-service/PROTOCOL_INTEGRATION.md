@@ -1,27 +1,30 @@
-# IntelligenceOperations Protocol & GraphContextOrchestrator
+# Intelligence Protocols & GraphContextOrchestrator
 
 ## Overview
 
-All 10 domain intelligence services implement the `IntelligenceOperations` protocol and use `GraphContextOrchestrator` for unified context retrieval. This enables automatic route generation via `IntelligenceRouteFactory`.
+All 10 domain intelligence services use `GraphContextOrchestrator` for unified context retrieval and implement protocols enabling automatic route generation via `IntelligenceRouteFactory`.
 
 ---
 
-## IntelligenceOperations Protocol
+## Intelligence Protocols (ISP Split — March 2026)
 
 ### Location
 
 ```python
-from core.ports.intelligence_protocols import IntelligenceOperations
+from core.ports.intelligence_protocols import (
+    KnowledgeIntelligenceOperations,   # 4 methods — shared across all activity domains
+    DomainIntelligenceOperations,      # 7 methods — per-domain services
+    IntelligenceOperations,            # Composed (both combined)
+)
 ```
 
-### Protocol Definition
+### KnowledgeIntelligenceOperations (shared)
+
+Implemented by `ActivityKnowledgeIntelligenceService` — a single instance wired into all 6 activity domain facades via `self.knowledge_intelligence`.
 
 ```python
 @runtime_checkable
-class IntelligenceOperations(Protocol):
-    """Protocol for intelligence operations across all domains."""
-
-    # Knowledge Intelligence
+class KnowledgeIntelligenceOperations(Protocol):
     async def get_knowledge_suggestions(
         self, user_uid: str, entity_uid: str | None = None
     ) -> Result[dict[str, Any]]: ...
@@ -34,6 +37,18 @@ class IntelligenceOperations(Protocol):
         self, user_uid: str, period_days: int = 30
     ) -> Result[dict[str, Any]]: ...
 
+    async def get_learning_opportunities(
+        self, user_uid: str
+    ) -> Result[dict[str, Any]]: ...
+```
+
+### DomainIntelligenceOperations (per-domain)
+
+Implemented by per-domain intelligence services (TasksIntelligenceService, GoalsIntelligenceService, etc.).
+
+```python
+@runtime_checkable
+class DomainIntelligenceOperations(Protocol):
     async def find_similar_content(
         self, uid: str, limit: int = 5
     ) -> Result[list[str]]: ...
@@ -42,41 +57,40 @@ class IntelligenceOperations(Protocol):
         self, features: dict[str, Any], limit: int = 25
     ) -> Result[list[str]]: ...
 
-    # Learning Intelligence
-    async def get_learning_opportunities(
-        self, user_uid: str
-    ) -> Result[dict[str, Any]]: ...
-
     async def get_learning_velocity(
         self, user_uid: str, period_days: int = 90
     ) -> Result[dict[str, Any]]: ...
 
-    # Behavioral Intelligence
     async def get_behavioral_insights(
         self, user_uid: str, period_days: int = 90
     ) -> Result[dict[str, Any]]: ...
 
-    # Performance Intelligence
     async def get_performance_analytics(
         self, user_uid: str, period_days: int = 30
     ) -> Result[dict[str, Any]]: ...
 
-    # Cross-Domain Intelligence
     async def get_cross_domain_opportunities(
         self, user_uid: str, entity_uid: str | None = None
     ) -> Result[dict[str, Any]]: ...
 
-    # AI-Powered Insights
     async def get_ai_insights(
         self, user_uid: str, entity_uid: str | None = None, query: str | None = None
     ) -> Result[dict[str, Any]]: ...
 ```
 
+### IntelligenceOperations (composed)
+
+```python
+class IntelligenceOperations(KnowledgeIntelligenceOperations, DomainIntelligenceOperations, Protocol):
+    """Full intelligence operations — backward-compatible union of both."""
+    ...
+```
+
 ---
 
-## Three Standardized Methods
+## Route Factory Protocol (3 Standardized Methods)
 
-Beyond the full protocol, all 10 services implement these three methods for automatic route generation:
+Separate from the core protocols, all 10 services implement this local protocol from `intelligence_route_factory.py` for automatic route generation:
 
 ### 1. `get_with_context(uid, depth=2)`
 

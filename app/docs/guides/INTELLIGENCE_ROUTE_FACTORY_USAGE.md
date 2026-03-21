@@ -87,28 +87,30 @@ The factory automatically creates these intelligence routes:
 
 ## Requirements
 
-### 1. Service Must Implement `IntelligenceOperations` Protocol
+### 1. Service Must Implement Route Factory `IntelligenceOperations` Protocol
+
+Note: This is the route factory's local 3-method protocol (`adapters.inbound.route_factories.IntelligenceOperations`), separate from the core ISP protocols in `core.ports.intelligence_protocols`.
 
 ```python
 from adapters.inbound.route_factories import IntelligenceOperations
 
 class HabitsIntelligenceService:
-    async def get_analytics(
-        self, user_uid: str, params: dict
-    ) -> Result[dict]:
-        # Return analytics data
+    async def get_with_context(
+        self, uid: str, depth: int = 2
+    ) -> Result[tuple[Habit, GraphContext]]:
+        # Return entity with graph neighborhood
         ...
 
-    async def get_context(
-        self, uid: str, context_type: str = "general"
+    async def get_performance_analytics(
+        self, user_uid: str, period_days: int = 30
     ) -> Result[dict]:
-        # Return contextual information
+        # Return user-specific analytics
         ...
 
-    async def analyze_patterns(
-        self, user_uid: str, params: dict
+    async def get_domain_insights(
+        self, uid: str, min_confidence: float = 0.7
     ) -> Result[dict]:
-        # Analyze patterns and trends
+        # Return domain-specific insights
         ...
 
     async def get_recommendations(

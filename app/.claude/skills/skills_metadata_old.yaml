@@ -128,7 +128,7 @@ skills:
     primary_docs:
       - /docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md
       - /docs/patterns/SERVICE_CONSOLIDATION_PATTERNS.md
-    keywords: [analytics, intelligence, graph, IntelligenceOperations]
+    keywords: [analytics, intelligence, graph, KnowledgeIntelligenceOperations, DomainIntelligenceOperations, IntelligenceOperations]
 
   - name: base-ai-service
     description: BaseAIService for AI/LLM features (optional)

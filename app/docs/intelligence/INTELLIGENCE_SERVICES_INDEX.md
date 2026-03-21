@@ -105,11 +105,24 @@ All 10 domain intelligence services correctly extend `BaseAnalyticsService` - th
 
 ---
 
-## IntelligenceOperations Protocol (January 2026)
+## Intelligence Protocols (January 2026, split March 2026)
 
-All 10 domain intelligence services implement the standardized `IntelligenceOperations` protocol, enabling automatic route generation via `IntelligenceRouteFactory`.
+The intelligence protocol layer has two levels:
 
-**Protocol Methods:**
+### Core Protocols (`core/ports/intelligence_protocols.py`)
+
+Split into focused ISP protocols (March 2026):
+
+| Protocol | Methods | Implementor |
+|----------|---------|-------------|
+| `KnowledgeIntelligenceOperations` | 4 — `get_knowledge_suggestions`, `generate_knowledge_from_entities`, `get_knowledge_prerequisites`, `get_learning_opportunities` | `ActivityKnowledgeIntelligenceService` (shared singleton) |
+| `DomainIntelligenceOperations` | 7 — `find_similar_content`, `search_by_features`, `get_learning_velocity`, `get_behavioral_insights`, `get_performance_analytics`, `get_cross_domain_opportunities`, `get_ai_insights` | Per-domain intelligence services |
+| `IntelligenceOperations` | 11 (composed) | Backward-compatible union of both |
+
+### Route Factory Protocol (`adapters/inbound/route_factories/intelligence_route_factory.py`)
+
+All 10 domain intelligence services implement this separate 3-method protocol for automatic route generation via `IntelligenceRouteFactory`:
+
 | Method | Returns | Purpose |
 |--------|---------|---------|
 | `get_with_context(uid, depth=2)` | `Result[tuple[T, GraphContext]]` | Entity with full graph neighborhood |
@@ -584,6 +597,12 @@ uv run python -m pytest tests/integration/intelligence/ -k "test_predict_goal_su
 - Backend: `UniversalNeo4jBackend[Entity]` with `NeoLabel.ENTITY` — queries user-owned activity entities across all domains
 - Type: `BaseAnalyticsService[Any, Entity]`
 
+**Protocol Alignment (2026-03-21):**
+- ✅ Monolithic `IntelligenceOperations` (11 methods) split into ISP protocols
+- ✅ `KnowledgeIntelligenceOperations` (4 methods) — satisfied by `ActivityKnowledgeIntelligenceService`
+- ✅ `DomainIntelligenceOperations` (7 methods) — per-domain intelligence services
+- ✅ `IntelligenceOperations` remains as composed protocol for backward compatibility
+
 **Standalone (modular package architecture):**
 - UserContextIntelligence (ADR-021, mixin composition pattern)
 
@@ -741,3 +760,4 @@ else:
 - **IntelligenceOperations Protocol Rollout** (January 17, 2026): All 10 domain services implement standardized protocol with GraphContextOrchestrator pattern, enabling automatic route generation via IntelligenceRouteFactory
 - **Dual-Track Assessment Pattern** (January 18, 2026 - ADR-030): All 6 Activity Domain intelligence services now support dual-track assessment comparing user self-assessment (vision) with system measurement (action) for perception gap analysis
 - **Complete Substance Data Pipeline** (March 21, 2026): All 6 activity channels (Tasks, Habits, Events, Choices, Principles) now flow real data through UserContext into `calculate_user_substance()`. Principles added as 6th channel (0.07/principle, max 0.15). Total capped at 1.0. Journals deferred (submissions, not activities).
+- **Protocol Alignment** (March 21, 2026): Monolithic `IntelligenceOperations` (11 methods) split into `KnowledgeIntelligenceOperations` (4, shared) + `DomainIntelligenceOperations` (7, per-domain). Composed `IntelligenceOperations` kept for backward compatibility.

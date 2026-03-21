@@ -43,7 +43,7 @@ related: [ADR-025, ADR-027]
 | **Service Protocols** | `/core/ports/service_protocols.py` | Calendar, Viz, System, LifePath, Auth, Orchestration |
 | **Search Protocols** | `/core/ports/search_protocols.py` | Search operations |
 | **Infrastructure Protocols** | `/core/ports/infrastructure_protocols.py` | EventBus, Schema, User (3 ISP sub-protocols + 1 composed), Ingestion, Closeable |
-| **Intelligence Protocols** | `/core/ports/intelligence_protocols.py` | Analytics operations |
+| **Intelligence Protocols** | `/core/ports/intelligence_protocols.py` | Knowledge (shared) + Domain (per-service) + Composed |
 | **Facade Services** | `/core/services/{domain}_service.py` | Concrete classes with explicit delegation methods |
 | **Context Awareness** | `/core/ports/context_awareness_protocols.py` | ISP slices of UserContext — the adoption target for all intelligence services |
 | **Knowledge Carrier** | `/core/models/protocols/knowledge_carrier_protocol.py` | Knowledge integration |

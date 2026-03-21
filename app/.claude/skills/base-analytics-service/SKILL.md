@@ -1,6 +1,6 @@
 ---
 name: base-analytics-service
-description: Expert guide for creating and modifying domain analytics services using BaseAnalyticsService. Use when adding analytics methods, implementing IntelligenceOperations protocol, using GraphContextOrchestrator, or working with the 9 domain intelligence services.
+description: Expert guide for creating and modifying domain analytics services using BaseAnalyticsService. Use when adding analytics methods, implementing KnowledgeIntelligenceOperations/DomainIntelligenceOperations/IntelligenceOperations protocols, using GraphContextOrchestrator, or working with the 9 domain intelligence services.
 allowed-tools: Read, Grep, Glob
 ---
 
@@ -380,13 +380,23 @@ for event_type, handler_name in self._event_handlers.items():
 
 ---
 
-## IntelligenceOperations Protocol
+## Intelligence Protocols
 
-All domain analytics services implement the standardized `IntelligenceOperations` protocol.
+The intelligence protocol layer has two levels:
 
-### Three Standardized Protocol Methods
+### Core Protocols (`core/ports/intelligence_protocols.py`)
 
-All 10 services implement these three methods for automatic route generation:
+Split into focused ISP protocols (March 2026):
+
+| Protocol | Methods | Implementor |
+|----------|---------|-------------|
+| `KnowledgeIntelligenceOperations` | 4 — `get_knowledge_suggestions`, `generate_knowledge_from_entities`, `get_knowledge_prerequisites`, `get_learning_opportunities` | `ActivityKnowledgeIntelligenceService` (shared singleton) |
+| `DomainIntelligenceOperations` | 7 — `find_similar_content`, `search_by_features`, `get_learning_velocity`, `get_behavioral_insights`, `get_performance_analytics`, `get_cross_domain_opportunities`, `get_ai_insights` | Per-domain intelligence services |
+| `IntelligenceOperations` | 11 (composed) | Backward-compatible union of both |
+
+### Route Factory Protocol (3 methods for auto route generation)
+
+All 10 domain services implement this separate protocol from `intelligence_route_factory.py`:
 
 ```python
 async def get_with_context(
@@ -598,7 +608,7 @@ Create `/docs/intelligence/NEW_DOMAIN_INTELLIGENCE.md` following existing format
 |------|---------|
 | `/core/services/base_analytics_service.py` | Base class definition |
 | `/core/services/base_ai_service.py` | AI features (separate - see base-ai-service skill) |
-| `/core/ports/intelligence_protocols.py` | IntelligenceOperations protocol |
+| `/core/ports/intelligence_protocols.py` | KnowledgeIntelligenceOperations + DomainIntelligenceOperations + composed IntelligenceOperations |
 | `/core/services/intelligence/orchestrator.py` | GraphContextOrchestrator |
 | `/core/services/{domain}/{domain}_intelligence_service.py` | Domain implementations |
 | `/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md` | Master documentation |

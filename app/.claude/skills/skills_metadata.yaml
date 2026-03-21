@@ -352,7 +352,7 @@ skills:
       - /docs/patterns/STANDALONE_SERVICE_PATTERN.md
       - /docs/patterns/UNIFIED_RELATIONSHIP_SERVICE.md
       - /docs/patterns/search_service_pattern.md
-    keywords: [analytics, intelligence, graph, IntelligenceOperations]
+    keywords: [analytics, intelligence, graph, KnowledgeIntelligenceOperations, DomainIntelligenceOperations, IntelligenceOperations]
 
   - name: base-ai-service
     description: BaseAIService for AI/LLM features (optional)
