@@ -206,7 +206,7 @@ await lp_service.create_path_from_lessons(user_uid, name, lesson_uids)
 
 | Feature | Lesson | KU | LS | LP |
 |---------|---------|----|----|-----|
-| **Sub-services** | 10 | 2 | 5 | 5 |
+| **Sub-services** | 12 | 2 | 5 | 5 |
 | **Factory** | Specialized | — | Generic | Specialized |
 | **Extends** | Curriculum | Entity | Curriculum | Curriculum |
 | **Complexity** | Highest | Lowest | Low | Medium |

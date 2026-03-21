@@ -81,7 +81,7 @@ subs = create_lp_sub_services(driver=driver, ls_service=ls_service, ...)
 | **Events** | 7 | Generic | Medium |
 | **Choices** | 4 | Generic | Medium |
 | **Principles** | 7 | Generic | Medium |
-| **Lesson** | 10 | Specialized | **High** (semantic, practice, organization, adaptive) |
+| **Lesson** | 12 | Specialized | **High** (semantic, practice, organization, adaptive, application discovery, context) |
 | **KU** | 2 | None | **Lowest** (atomic reference) |
 | **LS** | 4 | Generic | Low (minimal design) |
 | **LP** | 5 | Specialized | Medium (validation, adaptive) |

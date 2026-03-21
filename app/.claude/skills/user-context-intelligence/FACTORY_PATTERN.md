@@ -74,7 +74,7 @@ class UserContextIntelligenceFactory:
         choices: UnifiedRelationshipService,
         principles: UnifiedRelationshipService,
         # Curriculum (3)
-        ku: KuGraphService,
+        lesson: LessonService,
         ls: UnifiedRelationshipService,
         lp: UnifiedRelationshipService,
         # Processing (3)

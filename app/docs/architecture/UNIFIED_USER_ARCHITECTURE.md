@@ -191,7 +191,7 @@ Need user state data?
 │  → UserContext.build_rich() then pass context into service
 │
 ├─ Real-time API endpoint (fresh data)
-│  → ku_service.get_ready_to_learn_for_user(user_uid)
+│  → lesson_service.get_ready_to_learn_for_user(context)
 │
 └─ Cross-domain graph traversal
    → service.relationships.get_related_uids(...)
