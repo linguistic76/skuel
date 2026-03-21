@@ -13,6 +13,8 @@ class TasksService(BaseService[TasksOperations, Task]):
     search: TasksSearchService
     relationships: UnifiedRelationshipService
     intelligence: TasksIntelligenceService
+    productivity: TasksProductivityService
+    learning_metrics: TasksLearningMetricsService
 
     # Explicit delegation methods — one line per delegated method
     async def get_task(self, *args: Any, **kwargs: Any) -> Any:

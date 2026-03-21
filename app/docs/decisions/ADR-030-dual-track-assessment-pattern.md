@@ -36,7 +36,7 @@ This insight was first implemented in LifePath's `WordActionAlignment` and recen
 | **Events** | `assess_engagement_dual_track()` | `EngagementLevel` | Attendance rate, goal support, habit reinforcement |
 | **Choices** | `assess_decision_quality_dual_track()` | `DecisionQualityLevel` | Outcome quality, principle alignment, confidence calibration |
 
-**Note on Tasks:** Tasks uses a custom implementation (not the template) because it assesses USER productivity across all tasks, not a single entity. The template expects `uid → entity lookup`, which doesn't apply for user-level assessments. The custom implementation follows the same DualTrackResult contract with `entity_uid=user_uid` and `entity_type="productivity"`.
+**Note on Tasks:** Tasks uses a custom implementation (not the template) because it assesses USER productivity across all tasks, not a single entity. The template expects `uid → entity lookup`, which doesn't apply for user-level assessments. The custom implementation follows the same DualTrackResult contract with `entity_uid=user_uid` and `entity_type="productivity"`. **March 2026:** Extracted to `TasksProductivityService` (`tasks_productivity_service.py`), accessed via `tasks_service.productivity.assess_productivity_dual_track(...)`.
 
 ### Future Extensions
 
@@ -193,7 +193,7 @@ async def assess_alignment_dual_track(
 | `core/models/enums/activity_enums.py` | Add 5 level enums: ProductivityLevel, ProgressLevel, ConsistencyLevel, EngagementLevel, DecisionQualityLevel |
 | `core/services/base_analytics_service.py` | Add `_dual_track_assessment()` template and helpers |
 | `core/services/principles/principles_intelligence_service.py` | Add `assess_alignment_dual_track()` implementation |
-| `core/services/tasks/tasks_intelligence_service.py` | Add `assess_productivity_dual_track()` implementation |
+| `core/services/tasks/tasks_productivity_service.py` | `assess_productivity_dual_track()` (extracted March 2026) |
 | `core/services/goals/goals_intelligence_service.py` | Add `assess_progress_dual_track()` implementation |
 | `core/services/habits/habits_intelligence_service.py` | Add `assess_consistency_dual_track()` implementation |
 | `core/services/events/events_intelligence_service.py` | Add `assess_engagement_dual_track()` implementation |

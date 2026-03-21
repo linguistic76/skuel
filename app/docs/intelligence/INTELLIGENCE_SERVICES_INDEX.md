@@ -271,7 +271,7 @@ All 6 Activity Domain intelligence services implement dual-track assessment:
 | Service | Method | Level Enum | System Metrics |
 |---------|--------|------------|----------------|
 | **Principles** | `assess_alignment_dual_track()` | `AlignmentLevel` | Goal alignment, choice consistency, habit support, entity count |
-| **Tasks** | `assess_productivity_dual_track()` | `ProductivityLevel` | Completion rate, on-time %, overdue ratio, knowledge linking |
+| **Tasks** | `assess_productivity_dual_track()` | `ProductivityLevel` | Completion rate, on-time %, overdue ratio, knowledge linking | *(`TasksProductivityService`)* |
 | **Goals** | `assess_progress_dual_track()` | `ProgressLevel` | Milestone completion, habit support, on-track %, consistency |
 | **Habits** | `assess_consistency_dual_track()` | `ConsistencyLevel` | Completion rate, streak health, avg streak length, active ratio |
 | **Events** | `assess_engagement_dual_track()` | `EngagementLevel` | Attendance rate, goal support, habit reinforcement, recency |
@@ -298,7 +298,7 @@ class ProductivityLevel(str, Enum):
 
 ```python
 # User provides self-assessment
-result = await tasks_service.intelligence.assess_productivity_dual_track(
+result = await tasks_service.productivity.assess_productivity_dual_track(
     user_uid="user.mike",
     user_productivity_level=ProductivityLevel.HIGHLY_PRODUCTIVE,
     user_evidence="I complete all my tasks on time",

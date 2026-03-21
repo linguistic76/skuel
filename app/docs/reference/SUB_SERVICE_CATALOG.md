@@ -121,13 +121,13 @@ tasks_result = await search.get_tasks_for_goal(goal_uid)
 
 **Example:**
 ```python
-from core.services.tasks import TasksIntelligenceService
+from core.services.tasks import TasksLearningMetricsService
 
-intel = TasksIntelligenceService(
+learning_metrics = TasksLearningMetricsService(
     backend=backend,
-    graph_intelligence_service=graph_intel,
+    relationship_service=rels,
 )
-metrics_result = await intel.analyze_task_learning_metrics(user_uid)
+metrics_result = await learning_metrics.analyze_task_learning_metrics(user_uid)
 ```
 
 ---
@@ -540,7 +540,7 @@ self.intelligence = common.intelligence
 
 | Domain | Total Sub-Services | Common (4) | Domain-Specific |
 |--------|-------------------|------------|-----------------|
-| Tasks | 8 | 4 | 4 (progress, scheduling, planning, event_handler) |
+| Tasks | 10 | 4 | 6 (progress, scheduling, planning, productivity, learning_metrics, event_handler) |
 | Goals | 8 | 4 | 4 (progress, scheduling, learning, event_handler) |
 | Habits | 13 | 4 | 9 (progress, scheduling, planning, learning, completions, events, event_handler, patterns, goal_analytics) |
 | Events | 9 | 4 | 5 (progress, scheduling, learning, habit_integration, event_handler) |
@@ -646,8 +646,8 @@ result = await tasks.scheduling.create_task_with_context(
 ### Pattern: Graph Analytics
 
 ```python
-# TasksIntelligenceService
-metrics_result = await tasks.intelligence.analyze_task_learning_metrics(user_uid)
+# TasksLearningMetricsService
+metrics_result = await tasks.learning_metrics.analyze_task_learning_metrics(user_uid)
 ```
 
 **Pure Cypher analytics:**

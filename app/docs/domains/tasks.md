@@ -38,6 +38,8 @@ Tasks represent work items with dependencies, deadlines, and knowledge requireme
 | Progress Service | `/core/services/tasks/tasks_progress_service.py` |
 | Scheduling Service | `/core/services/tasks/tasks_scheduling_service.py` |
 | Intelligence Service | `/core/services/tasks/tasks_intelligence_service.py` |
+| Productivity Service | `/core/services/tasks/tasks_productivity_service.py` |
+| Learning Metrics Service | `/core/services/tasks/tasks_learning_metrics_service.py` |
 | Event Handler Service | `/core/services/tasks/task_event_handler_service.py` |
 | Facade | `/core/services/tasks_service.py` |
 | Config | `TASKS_CONFIG` in `/core/models/relationship_registry.py` |
@@ -57,6 +59,8 @@ class TasksService(BaseService[TasksOperations, Task]):
     scheduling: TasksSchedulingService
     relationships: UnifiedRelationshipService
     intelligence: TasksIntelligenceService
+    productivity: TasksProductivityService
+    learning_metrics: TasksLearningMetricsService
     event_handler: TaskEventHandlerService
 
     # Explicit delegation — MyPy-native, no mixin needed
@@ -64,10 +68,10 @@ class TasksService(BaseService[TasksOperations, Task]):
         return await self.core.get_task(*args, **kwargs)
 
     async def analyze_task_learning_metrics(self, *args: Any, **kwargs: Any) -> Any:
-        return await self.intelligence.analyze_task_learning_metrics(*args, **kwargs)
+        return await self.learning_metrics.analyze_task_learning_metrics(*args, **kwargs)
 ```
 
-**Note (January 2026)**: TasksAnalyticsService removed. KU analytics methods are now direct in TasksService, Task model analysis moved to TasksIntelligenceService.
+**Note (January 2026)**: TasksAnalyticsService removed. KU analytics methods are now direct in TasksService. **Note (March 2026)**: Task model learning metrics extracted to `TasksLearningMetricsService`, dual-track productivity assessment extracted to `TasksProductivityService`.
 
 ## Event Handler — Insight Persistence (March 2026)
 

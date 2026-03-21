@@ -48,6 +48,8 @@ Services with **both** a root-level facade AND a subfolder of sub-services.
     tasks_scheduling_service.py
     tasks_planning_service.py
     tasks_ai_service.py
+    tasks_productivity_service.py
+    tasks_learning_metrics_service.py
     task_relationships.py   # Relationship config (not a service)
 ```
 
@@ -217,7 +219,7 @@ mixins/
 TasksService (Facade)
 ├─ Inherits: BaseService[TasksOperations, Task]
 ├─ Provides: ~35 explicit async delegation methods
-└─ Composes 8 sub-services:
+└─ Composes 10 sub-services:
     │
     ├─ self.core: TasksCoreService
     │   ├─ Extends: BaseService[TasksOperations, Task]
@@ -252,7 +254,17 @@ TasksService (Facade)
     │
     ├─ self.intelligence: TasksIntelligenceService
     │   ├─ Extends: BaseAnalyticsService[TasksOperations, Task]
-    │   ├─ Responsibility: Pure Cypher analytics
+    │   ├─ Responsibility: Pure Cypher analytics (knowledge, learning, behavioral, performance)
+    │   └─ Methods: get_knowledge_suggestions(), get_behavioral_insights(), get_performance_analytics()
+    │
+    ├─ self.productivity: TasksProductivityService
+    │   ├─ Extends: BaseAnalyticsService[TasksOperations, Task]
+    │   ├─ Responsibility: Dual-track productivity assessment (ADR-030)
+    │   └─ Methods: assess_productivity_dual_track()
+    │
+    ├─ self.learning_metrics: TasksLearningMetricsService
+    │   ├─ Extends: BaseAnalyticsService[TasksOperations, Task]
+    │   ├─ Responsibility: Task-level learning metrics via Task model
     │   └─ Methods: analyze_task_learning_metrics(), generate_task_knowledge_insights()
     │
     └─ self.event_handler: TaskEventHandlerService
@@ -266,8 +278,8 @@ TasksService (Facade)
 ```
 Activity Domain Facades (6 total)
 │
-├─ TasksService      (8 sub-services)
-│   └─ core, search, progress, scheduling, planning, intelligence, event_handler, ai
+├─ TasksService     (10 sub-services)
+│   └─ core, search, progress, scheduling, planning, intelligence, productivity, learning_metrics, event_handler, ai
 │
 ├─ GoalsService      (8 sub-services)
 │   └─ core, search, progress, scheduling, learning, intelligence, event_handler, ai

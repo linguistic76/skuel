@@ -38,7 +38,9 @@ SKUEL separates analytics from AI with two base classes:
 | Domain | Service | Inherits | Key Focus |
 |--------|---------|----------|-----------|
 | **Activity (6)** |
-| Tasks | `TasksIntelligenceService` | `BaseAnalyticsService["TasksOperations", Task]` | Knowledge generation, learning |
+| Tasks | `TasksIntelligenceService` | `BaseAnalyticsService["TasksOperations", Task]` | Knowledge, behavioral, performance |
+| Tasks | `TasksProductivityService` | `BaseAnalyticsService["TasksOperations", Task]` | Dual-track productivity (ADR-030) |
+| Tasks | `TasksLearningMetricsService` | `BaseAnalyticsService["TasksOperations", Task]` | Task-level learning metrics |
 | Goals | `GoalsIntelligenceService` | `BaseAnalyticsService[GoalsOperations, Goal]` | Progress forecasting |
 | Habits | `HabitsIntelligenceService` | `BaseAnalyticsService[HabitsOperations, Habit]` | Streak patterns |
 | Events | `EventsIntelligenceService` | `BaseAnalyticsService["EventsOperations", Event]` | Cross-domain impact |

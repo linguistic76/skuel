@@ -5,7 +5,11 @@
 **Architecture:** Extends `BaseAnalyticsService[TasksOperations, Task]` (NO AI dependencies)
 **Location:** `/core/services/tasks/tasks_intelligence_service.py`
 **Service Name:** `tasks.intelligence`
-**Lines:** ~1459
+**Lines:** ~1049
+
+**Related sub-services (extracted March 2026):**
+- `TasksProductivityService` (`tasks_productivity_service.py`) — dual-track productivity assessment (ADR-030)
+- `TasksLearningMetricsService` (`tasks_learning_metrics_service.py`) — task-level learning metrics via Task model
 
 **Related:** `TaskEventHandlerService` (`/core/services/tasks/task_event_handler_service.py`) — fire-and-forget reactive handlers extracted from intelligence; persists `COMPLETION_PATTERN`, `IMBALANCE_DETECTED`, and `PRINCIPLE_ALIGNMENT` insights to InsightStore (March 2026).
 
@@ -495,6 +499,9 @@ if result.is_ok:
 
 ### Method 8: assess_productivity_dual_track() (ADR-030)
 
+> **Moved (March 2026):** This method now lives in `TasksProductivityService` (`tasks_productivity_service.py`).
+> Access via `tasks_service.productivity.assess_productivity_dual_track(...)`.
+
 **Purpose:** Compare user's self-assessed productivity level with system-measured productivity metrics, generating perception gap analysis and personalized insights.
 
 **Signature:**
@@ -570,7 +577,7 @@ class ProductivityLevel(str, Enum):
 
 **Example:**
 ```python
-result = await tasks_service.intelligence.assess_productivity_dual_track(
+result = await tasks_service.productivity.assess_productivity_dual_track(
     user_uid="user.mike",
     user_productivity_level=ProductivityLevel.HIGHLY_PRODUCTIVE,
     user_evidence="I complete all my tasks on time",

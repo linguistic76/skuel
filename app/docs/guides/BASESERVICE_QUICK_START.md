@@ -238,7 +238,7 @@ priorities_result = await tasks_service.calculate_knowledge_aware_priorities(
 ```
 
 **Behind the scenes:**
-- Delegates to `intelligence.analyze_task_learning_metrics()`
+- Delegates to `learning_metrics.analyze_task_learning_metrics()`
 - Pure Cypher analytics (no AI/LLM dependencies)
 - Cross-domain graph analysis
 
