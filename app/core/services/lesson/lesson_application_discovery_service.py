@@ -44,6 +44,13 @@ class LessonApplicationDiscoveryService:
         self.neo4j = neo4j_adapter
         self.logger = get_logger("skuel.services.lesson.application_discovery")
 
+    async def _verify_ku_exists(self, ku_uid: str) -> Result[None]:
+        """Verify knowledge unit exists, returning NotFound error if not."""
+        ku_result = await self.repo.get(ku_uid)
+        if not ku_result.is_ok or not ku_result.value:
+            return Result.fail(Errors.not_found(f"Knowledge unit {ku_uid} not found"))
+        return Result.ok(None)
+
     # ========================================================================
     # APPLICATION DISCOVERY (Reverse Relationship Queries)
     # ========================================================================
@@ -70,10 +77,9 @@ class LessonApplicationDiscoveryService:
         Returns:
             Result containing list of event UIDs
         """
-        # Verify knowledge unit exists
-        ku_result = await self.repo.get(ku_uid)
-        if not ku_result.is_ok or not ku_result.value:
-            return Result.fail(Errors.not_found(f"Knowledge unit {ku_uid} not found"))
+        verify = await self._verify_ku_exists(ku_uid)
+        if verify.is_error:
+            return verify  # type: ignore[return-value]
 
         # Build query conditions
         conditions = ["ku.uid = $ku_uid", "e.user_uid = $user_uid"]
@@ -138,10 +144,9 @@ class LessonApplicationDiscoveryService:
         Returns:
             Result containing list of habit UIDs
         """
-        # Verify knowledge unit exists
-        ku_result = await self.repo.get(ku_uid)
-        if not ku_result.is_ok or not ku_result.value:
-            return Result.fail(Errors.not_found(f"Knowledge unit {ku_uid} not found"))
+        verify = await self._verify_ku_exists(ku_uid)
+        if verify.is_error:
+            return verify  # type: ignore[return-value]
 
         # Build query conditions
         conditions = ["ku.uid = $ku_uid", "h.user_uid = $user_uid"]
@@ -205,10 +210,9 @@ class LessonApplicationDiscoveryService:
         Returns:
             Result containing list of learning step UIDs
         """
-        # Verify knowledge unit exists
-        ku_result = await self.repo.get(ku_uid)
-        if not ku_result.is_ok or not ku_result.value:
-            return Result.fail(Errors.not_found(f"Knowledge unit {ku_uid} not found"))
+        verify = await self._verify_ku_exists(ku_uid)
+        if verify.is_error:
+            return verify  # type: ignore[return-value]
 
         query = """
         MATCH (ku:Entity {uid: $ku_uid})<-[:CONTAINS_KNOWLEDGE]-(ls:Ls)
@@ -254,10 +258,9 @@ class LessonApplicationDiscoveryService:
         Returns:
             Result containing list of learning path UIDs
         """
-        # Verify knowledge unit exists
-        ku_result = await self.repo.get(ku_uid)
-        if not ku_result.is_ok or not ku_result.value:
-            return Result.fail(Errors.not_found(f"Knowledge unit {ku_uid} not found"))
+        verify = await self._verify_ku_exists(ku_uid)
+        if verify.is_error:
+            return verify  # type: ignore[return-value]
 
         query = """
         MATCH (ku:Entity {uid: $ku_uid})<-[:CONTAINS_KNOWLEDGE]-(ls:Ls)<-[:HAS_STEP]-(lp:Lp)
@@ -306,10 +309,9 @@ class LessonApplicationDiscoveryService:
         Returns:
             Result containing list of task UIDs
         """
-        # Verify knowledge unit exists
-        ku_result = await self.repo.get(ku_uid)
-        if not ku_result.is_ok or not ku_result.value:
-            return Result.fail(Errors.not_found(f"Knowledge unit {ku_uid} not found"))
+        verify = await self._verify_ku_exists(ku_uid)
+        if verify.is_error:
+            return verify  # type: ignore[return-value]
 
         # Build query conditions
         conditions = ["ku.uid = $ku_uid", "t.user_uid = $user_uid"]
@@ -375,10 +377,9 @@ class LessonApplicationDiscoveryService:
         Returns:
             Result containing list of goal UIDs
         """
-        # Verify knowledge unit exists
-        ku_result = await self.repo.get(ku_uid)
-        if not ku_result.is_ok or not ku_result.value:
-            return Result.fail(Errors.not_found(f"Knowledge unit {ku_uid} not found"))
+        verify = await self._verify_ku_exists(ku_uid)
+        if verify.is_error:
+            return verify  # type: ignore[return-value]
 
         # Build query conditions
         conditions = ["ku.uid = $ku_uid", "g.user_uid = $user_uid"]
@@ -444,10 +445,9 @@ class LessonApplicationDiscoveryService:
         Returns:
             Result containing list of choice UIDs
         """
-        # Verify knowledge unit exists
-        ku_result = await self.repo.get(ku_uid)
-        if not ku_result.is_ok or not ku_result.value:
-            return Result.fail(Errors.not_found(f"Knowledge unit {ku_uid} not found"))
+        verify = await self._verify_ku_exists(ku_uid)
+        if verify.is_error:
+            return verify  # type: ignore[return-value]
 
         # Build query conditions
         conditions = ["ku.uid = $ku_uid", "c.user_uid = $user_uid"]
@@ -512,10 +512,9 @@ class LessonApplicationDiscoveryService:
         Returns:
             Result containing list of principle UIDs
         """
-        # Verify knowledge unit exists
-        ku_result = await self.repo.get(ku_uid)
-        if not ku_result.is_ok or not ku_result.value:
-            return Result.fail(Errors.not_found(f"Knowledge unit {ku_uid} not found"))
+        verify = await self._verify_ku_exists(ku_uid)
+        if verify.is_error:
+            return verify  # type: ignore[return-value]
 
         # Build query conditions
         conditions = ["ku.uid = $ku_uid", "p.user_uid = $user_uid"]

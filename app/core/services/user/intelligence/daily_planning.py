@@ -279,7 +279,9 @@ class DailyPlanningMixin:
                                 estimated_time += est_time
             else:
                 # Standard path: Use KU service
-                learning_result = await self.lesson.get_ready_to_learn_for_user(self.context, limit=3)
+                learning_result = await self.lesson.get_ready_to_learn_for_user(
+                    self.context, limit=3
+                )
                 if learning_result.is_ok and learning_result.value:
                     for contextual_ku in learning_result.value:
                         est_time = self.context.estimated_time_to_mastery.get(contextual_ku.uid, 30)

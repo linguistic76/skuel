@@ -281,7 +281,7 @@ def create_lesson_sub_services(
     embeddings_service: Any | None = None,
 ) -> LessonSubServices:
     """
-    Factory function to create all 8 LessonService sub-services.
+    Factory function to create all 11 LessonService sub-services.
 
     Handles the circular dependency: Intelligence must be created
     BEFORE Core (Core depends on intelligence for content analysis).
@@ -295,6 +295,9 @@ def create_lesson_sub_services(
     6. LessonSemanticService (repo, neo4j_adapter, intelligence)
     7. LessonPracticeService (backend, event_bus)
     8. LessonMasteryService (backend, event_bus)
+    9. LessonAdaptiveService (repo, neo4j_adapter)
+    10. LessonApplicationDiscoveryService (repo, neo4j_adapter)
+    11. LessonContextService (repo, neo4j_adapter, user_service)
 
     Args:
         backend: LessonOperations backend - REQUIRED
@@ -310,7 +313,7 @@ def create_lesson_sub_services(
         embeddings_service: Optional HuggingFaceEmbeddingsService for embedding generation (January 2026 - GenAI)
 
     Returns:
-        LessonSubServices dataclass with all 8 sub-services
+        LessonSubServices dataclass with all 11 sub-services
     """
     # Lazy imports to avoid circular dependencies
     from core.services.lesson.lesson_adaptive_service import LessonAdaptiveService

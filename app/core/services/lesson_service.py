@@ -217,9 +217,7 @@ class LessonService:
         return await self.application_discovery.find_choices_informed_by_knowledge(*args, **kwargs)
 
     async def find_principles_embodying_knowledge(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.application_discovery.find_principles_embodying_knowledge(
-            *args, **kwargs
-        )
+        return await self.application_discovery.find_principles_embodying_knowledge(*args, **kwargs)
 
     # Context-first delegations (personalized knowledge recommendations)
     async def get_ready_to_learn_for_user(self, *args: Any, **kwargs: Any) -> Result[Any]:
@@ -410,7 +408,7 @@ class LessonService:
 
         self.logger = get_logger("skuel.services.lesson")
         self.logger.debug(
-            "LessonService initialized via factory (9 sub-services, circular dependency handled)"
+            "LessonService initialized via factory (11 sub-services, circular dependency handled)"
         )
 
     # ========================================================================

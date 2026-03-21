@@ -214,7 +214,9 @@ class LearningIntelligenceMixin:
                 )
 
         # Fallback: Get knowledge ready to learn from KU relationship service
-        ready_result = await self.lesson.get_ready_to_learn_for_user(self.context, limit=max_steps * 2)
+        ready_result = await self.lesson.get_ready_to_learn_for_user(
+            self.context, limit=max_steps * 2
+        )
 
         if ready_result.is_error or not ready_result.value:
             # Fall back to context-based approach

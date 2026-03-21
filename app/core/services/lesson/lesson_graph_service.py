@@ -605,11 +605,6 @@ class LessonGraphService:
                candidate.summary as summary,
                candidate.domain as domain,
                readiness,
-
-               # Check for query errors
-               if results.is_error:
-                   return Result.fail(results.expect_error())
-
                total_prereqs,
                satisfied_prereqs,
                enables_count
@@ -621,8 +616,11 @@ class LessonGraphService:
 
         results = await self.neo4j.execute_query(ready_query, params)
 
+        if results.is_error:
+            return Result.fail(results.expect_error())
+
         recommendations = []
-        for record in results:
+        for record in results.value or []:
             readiness = record.get("readiness", 0.0)
             total_prereqs = record.get("total_prereqs", 0)
             satisfied_prereqs = record.get("satisfied_prereqs", 0)
@@ -872,11 +870,12 @@ class LessonGraphService:
 
         results = await self.neo4j.execute_query(query, {})
 
-        if not results:
-            self.logger.warning("Hub score update returned no results")
-            return Result.ok(None)
+        if results.is_error:
+            self.logger.warning("Hub score update failed")
+            return Result.fail(results.expect_error())
 
-        updated_count = results[0].get("updated_count", 0)
+        records = results.value or []
+        updated_count = records[0].get("updated_count", 0) if records else 0
         self.logger.info(f"Updated hub scores for {updated_count} Knowledge Units")
 
         return Result.ok(None)
@@ -983,4 +982,3 @@ class LessonGraphService:
             return "intermediate"
         else:
             return "advanced"
-
