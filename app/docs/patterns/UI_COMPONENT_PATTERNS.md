@@ -1144,15 +1144,20 @@ async def get_filtered_context(self, user_uid, status_filter="active", sort_by="
 
 **`FilteredContextProvider` protocol** (`core/ports/filtered_context_protocols.py`): Common params `user_uid`, `status_filter`, `sort_by`. Intelligence services call via protocol; UI routes call concrete classes directly for domain-specific params.
 
-**`ListContext` TypedDict** (`core/ports/query_types.py`): `entities` (filtered list), `stats` (dict[str, int | float]), `metadata` (dict[str, Any], optional — Tasks uses for project/assignee dropdowns).
+**`ListContext` TypedDict** (`core/ports/query_types.py`): `entities` (filtered list), `stats` (dict[str, int | float] — guaranteed `total` + `active` per `BaseStats` contract), `metadata` (dict[str, Any], optional).
+
+**Metadata**: Tasks returns `projects`/`assignees`; Principles, Goals, Habits return `categories` (derived from domain enums — `PrincipleCategory`, `_GOAL_CATEGORIES`, `HabitCategory`). UI routes consume via `ctx.get("metadata", {}).get("categories", [])`. Standalone create forms that don't call `get_filtered_context()` import the enum directly.
+
+**Typed accessors** (`core/utils/list_context_helpers.py`): `get_entities(ctx, Task)` → `list[Task]`, `get_stats(ctx)`, `get_metadata(ctx)`.
 
 **Module-level helpers** (Python-side, in each `*_service.py` facade file):
-- `_compute_{domain}_stats(entities)` — stats from full set (all 11 domains)
+- `_compute_{domain}_stats(entities)` — stats from full set (all 11 domains, guaranteed `total` + `active`)
 - `_apply_{domain}_status_filter(entities, status_filter)` — status filter (Activity domains)
 - `_apply_{domain}_sort(entities, sort_by)` — pure sort logic (all 11 domains)
 - `_apply_task_secondary_filters(tasks, project, assignee, due_filter)` — Tasks only
 - `_apply_principle_filters(principles, category_filter, strength_filter, status_filter)` — Principles only
-- `_compute_task_metadata(all_tasks)` — Tasks only (project/assignee lists for UI dropdowns)
+- `_compute_task_metadata(all_tasks)` — Tasks: project/assignee lists
+- `_compute_principle_metadata`, `_compute_goal_metadata`, `_compute_habit_metadata` — categories from enums
 
 **Intelligence integration:** `UserContextIntelligence.filtered_providers` dict maps domain names to `FilteredContextProvider` facades, enabling on-demand per-domain queries. UserContext is the broad snapshot; `get_filtered_context()` is the zoom lens.
 

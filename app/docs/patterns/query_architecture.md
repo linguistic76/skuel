@@ -810,15 +810,22 @@ All 11 domain facades (6 Activity + 5 Curriculum) implement `get_filtered_contex
 
 **Protocol** (`core/ports/filtered_context_protocols.py`): `FilteredContextProvider` with common params `user_uid`, `status_filter`, `sort_by`. Concrete facades add domain-specific params with defaults (structural subtyping).
 
-**`ListContext` TypedDict** (`core/ports/query_types.py`): `entities` (filtered list), `stats` (dict[str, int | float]), `metadata` (dict[str, Any], optional).
+**`ListContext` TypedDict** (`core/ports/query_types.py`): `entities` (filtered list), `stats` (dict[str, int | float] — guaranteed `total` + `active` per `BaseStats` contract), `metadata` (dict[str, Any], optional — Tasks: projects/assignees; Principles/Goals/Habits: categories from enums).
 
-**Intelligence integration:** `UserContextIntelligence.filtered_providers` dict maps 11 domain names to `FilteredContextProvider` facades. Wired in `services_bootstrap.py` via `_create_intelligence_hub()`. Consumed by `DailyPlanningMixin._generate_domain_health_warnings()` which queries tasks/goals/habits stats to surface aggregate health warnings (e.g., ">30 active tasks", "no active goals", "no habits tracked") in the daily plan.
+**`BaseStats` contract**: Every `_compute_*_stats()` function returns at least `total: int` and `active: int`. Domain-specific keys are additional. Enables generic health checks without domain-specific knowledge.
+
+**Typed accessors** (`core/utils/list_context_helpers.py`): `get_entities(ctx, Task)` → `list[Task]`, `get_stats(ctx)`, `get_metadata(ctx)` for type-safe `ListContext` consumption.
+
+**Intelligence integration:** `UserContextIntelligence.filtered_providers` dict maps 11 domain names to `FilteredContextProvider` facades. Wired in `services_bootstrap.py` via `_create_intelligence_hub()`. Consumed by `DailyPlanningMixin._generate_domain_health_warnings()` which queries all 6 Activity domain stats:
+- **Single-domain:** >30 active tasks, no active goals, no habits tracked, 5+ events today, 5+ pending choices, no core principles
+- **Cross-domain:** many goals but no habits (missing consistency anchors), many tasks but no goals (lacks strategic direction)
 
 | Key File | Purpose |
 |----------|---------|
 | `core/services/filtered_context.py` | Shared `build_filtered_context()` skeleton |
 | `core/ports/filtered_context_protocols.py` | `FilteredContextProvider` protocol |
-| `core/ports/query_types.py` | `ListContext` TypedDict |
+| `core/ports/query_types.py` | `ListContext` TypedDict + `BaseStats` contract |
+| `core/utils/list_context_helpers.py` | Typed accessors (`get_entities`, `get_stats`, `get_metadata`) |
 | `core/services/user/intelligence/core.py` | `self.filtered_providers` dict |
 
 **See:** `docs/patterns/UI_COMPONENT_PATTERNS.md` → "Single-Fetch `get_filtered_context()`" section

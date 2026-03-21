@@ -95,7 +95,7 @@ result = await tasks_service.get_scheduling_recommendations(user_uid)
 
 **Solution**: All 11 domain facades (6 Activity + 5 Curriculum) expose `get_filtered_context()` returning `Result[ListContext]`, satisfying the `FilteredContextProvider` protocol. A shared skeleton (`build_filtered_context()`) enforces the pattern; domains provide callables for their stats, filters, and sort logic.
 
-**Two consumers**: UI routes (per-domain filtered list pages) and intelligence services (`DailyPlanningMixin._generate_domain_health_warnings()` queries tasks/goals/habits stats for aggregate health warnings). UserContext is the broad snapshot (MEGA_QUERY); `get_filtered_context()` is the per-domain zoom lens.
+**Two consumers**: UI routes (per-domain filtered list pages) and intelligence services (`DailyPlanningMixin._generate_domain_health_warnings()` queries all 6 Activity domain stats for aggregate health + cross-domain balance warnings). UserContext is the broad snapshot (MEGA_QUERY); `get_filtered_context()` is the per-domain zoom lens.
 
 ```python
 from core.ports.query_types import ListContext  # TypedDict: entities, stats, metadata?
@@ -146,15 +146,22 @@ Each facade calls `build_filtered_context()` with domain-specific callables:
 
 Common params: `user_uid`, `status_filter`, `sort_by`. Concrete facades add domain-specific params with defaults, satisfying structural subtyping. Intelligence services call via the protocol; UI routes call concrete classes directly.
 
-**`ListContext` TypedDict** (`core/ports/query_types.py`): `entities` (filtered list), `stats` (dict[str, int | float]), `metadata` (dict[str, Any], optional — Tasks uses for project/assignee dropdowns).
+**`ListContext` TypedDict** (`core/ports/query_types.py`): `entities` (filtered list), `stats` (dict[str, int | float] — guaranteed `total` + `active` keys per `BaseStats` contract), `metadata` (dict[str, Any], optional).
+
+**`BaseStats` contract** (`core/ports/query_types.py`): Every `_compute_*_stats()` function returns at least `total: int` and `active: int`. Domain-specific keys (`overdue`, `streaks`, `pending`, `core`, etc.) are additional. Intelligence consumers can rely on `active` for generic health checks without knowing domain-specific keys.
+
+**Typed accessors** (`core/utils/list_context_helpers.py`): `get_entities(ctx, Task)` → `list[Task]`, `get_stats(ctx)`, `get_metadata(ctx)` — type-narrowing helpers for `ListContext` consumption.
 
 **Module-level helpers** (Python-side, in each `*_service.py` facade file):
-- `_compute_{domain}_stats(entities)` — stats from full set (all 11 domains)
+- `_compute_{domain}_stats(entities)` — stats from full set (all 11 domains, guaranteed `total` + `active`)
 - `_apply_{domain}_status_filter(entities, status_filter)` — status filter (Activity domains)
 - `_apply_{domain}_sort(entities, sort_by)` — pure sort logic (all 11 domains)
 - `_apply_task_secondary_filters(tasks, project, assignee, due_filter)` — Tasks only
 - `_apply_principle_filters(principles, category_filter, strength_filter, status_filter)` — Principles only
-- `_compute_task_metadata(all_tasks)` — Tasks only (project/assignee lists)
+- `_compute_task_metadata(all_tasks)` — Tasks: project/assignee lists
+- `_compute_principle_metadata(_all)` — Principles: categories from `PrincipleCategory` enum
+- `_compute_goal_metadata(_all)` — Goals: categories from `_GOAL_CATEGORIES` constant
+- `_compute_habit_metadata(_all)` — Habits: categories from `HabitCategory` enum
 
 **Route file convention** (all 6 `*_ui.py` files, module-level not inside factory):
 - **Filters:** All 6 domains use `ActivityFilters` hierarchy from `form_helpers.py`. Goals, Habits, Events, Choices use base `ActivityFilters` + `parse_activity_filters()`. Tasks use `TaskFilters(ActivityFilters)` + `parse_task_filters()`. Principles use `PrincipleFilters(ActivityFilters)` + `parse_principle_filters()`.
@@ -162,6 +169,7 @@ Common params: `user_uid`, `status_filter`, `sort_by`. Concrete facades add doma
 - `parse_{domain}_create_request(form_data) -> {Domain}CreateRequest` — pure form→request parsing (no service calls)
 - `parse_{domain}_update_payload(form) -> dict[str, Any]` — pure form→update dict parsing
 - Static option lists as module-level constants (e.g., Choices: `CHOICE_TYPES`, `DOMAINS`)
+- Categories: Principles, Goals, Habits get categories from `ctx["metadata"]["categories"]` (computed by service from enums); standalone create forms use `_get_{domain}_categories()` helper importing enum directly
 - All string extraction uses `safe_form_string()` from `adapters.inbound.form_helpers` (not raw `.get().strip()`)
 - All enum parsing uses `parse_enum_safe()` from `form_helpers` — prevents 500s from crafted form values
 - Date/time parsing uses `parse_date_safe()`, `parse_time_safe()`, `parse_datetime_safe()` from `form_helpers`

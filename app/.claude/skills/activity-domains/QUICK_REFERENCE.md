@@ -97,12 +97,14 @@ from core.services.relationships import UnifiedRelationshipService
 
 ## Filtered List Query Method
 
-All 11 facades (6 Activity + 5 Curriculum) expose `get_filtered_context()` → `Result[ListContext]`, satisfying the `FilteredContextProvider` protocol. Uses shared `build_filtered_context()` skeleton.
+All 11 facades (6 Activity + 5 Curriculum) expose `get_filtered_context()` → `Result[ListContext]`, satisfying the `FilteredContextProvider` protocol. Uses shared `build_filtered_context()` skeleton. Stats always include `total` + `active` (BaseStats contract).
 
 ```python
 ctx = (await habits_service.get_filtered_context(user_uid)).value
 habits, stats = ctx["entities"], ctx["stats"]
+# stats["total"], stats["active"] — guaranteed on ALL domains
 # Tasks metadata: ctx["metadata"]["projects"], ctx["metadata"]["assignees"]
+# Principles/Goals/Habits metadata: ctx["metadata"]["categories"] — from enums
 ```
 
 | Service | Default sort | Default filter |
@@ -115,9 +117,9 @@ habits, stats = ctx["entities"], ctx["stats"]
 | Principles | `strength` | `all` |
 | Lesson/Ku/LS/LP/Exercise | `title` | `all` |
 
-Module-level helpers (each facade file): `_compute_{domain}_stats`, `_apply_{domain}_status_filter`, `_apply_{domain}_sort` (all 11), plus `_apply_task_secondary_filters` (Tasks), `_apply_principle_filters` (Principles), `_compute_task_metadata` (Tasks)
+Module-level helpers (each facade file): `_compute_{domain}_stats`, `_apply_{domain}_status_filter`, `_apply_{domain}_sort` (all 11), plus `_apply_task_secondary_filters` (Tasks), `_apply_principle_filters` (Principles), `_compute_task_metadata` (Tasks), `_compute_principle_metadata` (Principles), `_compute_goal_metadata` (Goals), `_compute_habit_metadata` (Habits)
 
-**Key files:** `core/services/filtered_context.py` (skeleton), `core/ports/filtered_context_protocols.py` (protocol), `core/ports/query_types.py` (ListContext)
+**Key files:** `core/services/filtered_context.py` (skeleton), `core/ports/filtered_context_protocols.py` (protocol), `core/ports/query_types.py` (ListContext + BaseStats), `core/utils/list_context_helpers.py` (typed accessors)
 
 **See:** `PATTERNS.md` → "Filtered List Queries" section
 

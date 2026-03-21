@@ -274,9 +274,11 @@ Each of these 6 methods:
 - P5 (Learning) delegates to ZPD recommended actions when `context.zpd_assessment` is available
 - Falls back to vector search → KU service chain when ZPD unavailable (CORE tier or empty curriculum)
 - Generates warnings for overload or missed learning
-- Generates **domain health warnings** via `filtered_providers` stats: task backlog (>30 active), no active goals, no habits tracked
+- Generates **domain health warnings** via `filtered_providers` stats — queries all 6 Activity domains:
+  - **Single-domain:** task backlog (>30 active), no active goals, no habits tracked, events overload (5+ today), decision fatigue (5+ pending choices), no core principles
+  - **Cross-domain:** many goals + no habits (missing consistency anchors), many tasks + no goals (lacks strategic direction)
 - `_query_domain_stats(domain)` — queries any domain's aggregate stats via `FilteredContextProvider`
-- `_generate_domain_health_warnings()` — produces actionable warnings from tasks/goals/habits stats
+- `_generate_domain_health_warnings()` — produces actionable warnings from all 6 Activity domain stats (uses guaranteed `total` + `active` keys per BaseStats contract)
 
 ```python
 async def get_ready_to_work_on_today(

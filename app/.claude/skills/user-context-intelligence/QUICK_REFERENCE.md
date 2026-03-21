@@ -122,7 +122,11 @@ result = await self.filtered_providers["tasks"].get_filtered_context(user_uid, s
 # Returns Result[ListContext] with entities, stats (pre-filter aggregates), metadata
 ```
 
-**Consumed by:** `DailyPlanningMixin._generate_domain_health_warnings()` — queries tasks/goals/habits stats to surface aggregate health warnings in the daily plan (e.g., ">30 active tasks", "no active goals", "no habits tracked").
+**Consumed by:** `DailyPlanningMixin._generate_domain_health_warnings()` — queries all 6 Activity domain stats to surface warnings:
+- **Single-domain:** >30 active tasks, no active goals, no habits tracked, 5+ events today, 5+ pending choices, no core principles
+- **Cross-domain:** many goals but no habits (missing consistency anchors), many tasks but no goals (lacks strategic direction)
+
+All stats dicts include guaranteed `total` + `active` keys (`BaseStats` contract in `core/ports/query_types.py`).
 
 **See:** `core/ports/filtered_context_protocols.py`, `core/services/filtered_context.py`
 
