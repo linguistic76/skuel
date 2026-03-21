@@ -379,6 +379,7 @@ The method prioritizes work in this order:
 
 1. **At-risk habits** (maintain streaks - highest priority)
 2. **Today's events** (can't reschedule)
+2.3. **Pending revised exercises** (teacher feedback to address)
 2.5. **Unsubmitted exercises** (teacher assignments — external accountability)
 3. **Overdue and actionable tasks**
 4. **Daily habits** (consistency)
@@ -386,6 +387,11 @@ The method prioritizes work in this order:
 6. **Advancing goals**
 7. **Pending decisions** (high priority only)
 8. **Aligned principles** (for focus)
+
+**Post-priority warnings** (appended to `DailyWorkPlan.warnings`):
+- Capacity/learning warnings (overload, missed learning)
+- **Domain health warnings** via `filtered_providers` stats: task backlog (>30 active), no active goals, no habits tracked
+- Temporal momentum warnings (from `entities_rich` window data)
 
 ### Usage Example
 

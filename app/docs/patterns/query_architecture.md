@@ -812,7 +812,7 @@ All 11 domain facades (6 Activity + 5 Curriculum) implement `get_filtered_contex
 
 **`ListContext` TypedDict** (`core/ports/query_types.py`): `entities` (filtered list), `stats` (dict[str, int | float]), `metadata` (dict[str, Any], optional).
 
-**Intelligence integration:** `UserContextIntelligence.filtered_providers` dict maps 11 domain names to `FilteredContextProvider` facades. Wired in `services_bootstrap.py` via `_create_intelligence_hub()`.
+**Intelligence integration:** `UserContextIntelligence.filtered_providers` dict maps 11 domain names to `FilteredContextProvider` facades. Wired in `services_bootstrap.py` via `_create_intelligence_hub()`. Consumed by `DailyPlanningMixin._generate_domain_health_warnings()` which queries tasks/goals/habits stats to surface aggregate health warnings (e.g., ">30 active tasks", "no active goals", "no habits tracked") in the daily plan.
 
 | Key File | Purpose |
 |----------|---------|

@@ -556,6 +556,12 @@ Priority 7: Principle embodiment (value alignment)
 - Warns when `context.current_workload_score >= 0.75`
 - Stops adding items when capacity reached
 
+**Domain Health Warnings** (via `filtered_providers` stats):
+- Queries aggregate stats from tasks, goals, habits `FilteredContextProvider` facades
+- Warns on: task backlog (>30 active), no active goals, no habits tracked
+- `_query_domain_stats(domain)` — reusable helper for any domain's `ListContext["stats"]`
+- Graceful: skipped when `filtered_providers` is empty or provider query fails
+
 **Example:**
 ```python
 intelligence = factory.create(context)

@@ -119,7 +119,10 @@ from core.models.context_types import (
 ```python
 # On-demand domain query (vs. UserContext broad snapshot)
 result = await self.filtered_providers["tasks"].get_filtered_context(user_uid, status_filter="active")
+# Returns Result[ListContext] with entities, stats (pre-filter aggregates), metadata
 ```
+
+**Consumed by:** `DailyPlanningMixin._generate_domain_health_warnings()` — queries tasks/goals/habits stats to surface aggregate health warnings in the daily plan (e.g., ">30 active tasks", "no active goals", "no habits tracked").
 
 **See:** `core/ports/filtered_context_protocols.py`, `core/services/filtered_context.py`
 

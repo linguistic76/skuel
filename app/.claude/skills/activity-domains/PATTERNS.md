@@ -95,7 +95,7 @@ result = await tasks_service.get_scheduling_recommendations(user_uid)
 
 **Solution**: All 11 domain facades (6 Activity + 5 Curriculum) expose `get_filtered_context()` returning `Result[ListContext]`, satisfying the `FilteredContextProvider` protocol. A shared skeleton (`build_filtered_context()`) enforces the pattern; domains provide callables for their stats, filters, and sort logic.
 
-**Two consumers**: UI routes (per-domain filtered list pages) and intelligence services (on-demand domain-specific queries via `FilteredContextProvider` protocol). UserContext is the broad snapshot (MEGA_QUERY); `get_filtered_context()` is the per-domain zoom lens.
+**Two consumers**: UI routes (per-domain filtered list pages) and intelligence services (`DailyPlanningMixin._generate_domain_health_warnings()` queries tasks/goals/habits stats for aggregate health warnings). UserContext is the broad snapshot (MEGA_QUERY); `get_filtered_context()` is the per-domain zoom lens.
 
 ```python
 from core.ports.query_types import ListContext  # TypedDict: entities, stats, metadata?

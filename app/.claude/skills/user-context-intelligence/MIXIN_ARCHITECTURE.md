@@ -258,6 +258,7 @@ class DailyPlanningMixin:
     principles: Any     # UnifiedRelationshipService
     ku: Any             # KuGraphService
     report: Any         # ReportRelationshipService (exercises now via context.unsubmitted_exercises)
+    filtered_providers: dict[str, FilteredContextProvider]  # Domain stats for health warnings
 ```
 
 **Note:** The 6 domain-specific planning methods this mixin calls (`get_at_risk_habits_for_user`, `get_upcoming_events_for_user`, `get_actionable_tasks_for_user`, `get_advancing_goals_for_user`, `get_pending_decisions_for_user`, `get_aligned_principles_for_user`) are provided by `_domain_planning_mixin.py` via the `UnifiedRelationshipService` MRO — they are not on the `UnifiedRelationshipService` shell itself.
@@ -273,6 +274,9 @@ Each of these 6 methods:
 - P5 (Learning) delegates to ZPD recommended actions when `context.zpd_assessment` is available
 - Falls back to vector search → KU service chain when ZPD unavailable (CORE tier or empty curriculum)
 - Generates warnings for overload or missed learning
+- Generates **domain health warnings** via `filtered_providers` stats: task backlog (>30 active), no active goals, no habits tracked
+- `_query_domain_stats(domain)` — queries any domain's aggregate stats via `FilteredContextProvider`
+- `_generate_domain_health_warnings()` — produces actionable warnings from tasks/goals/habits stats
 
 ```python
 async def get_ready_to_work_on_today(
