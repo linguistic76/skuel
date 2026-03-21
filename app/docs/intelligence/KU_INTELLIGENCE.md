@@ -296,9 +296,10 @@ async def calculate_user_substance(
     "breakdown": {
         "tasks": {"count": 3, "uids": ["task.001", "task.002", "task.003"], "score": 0.15},
         "habits": {"count": 1, "uids": ["habit.daily-python"], "score": 0.10},
-        "events": {"count": 0, "uids": [], "score": 0.00},  # Placeholder
-        "journals": {"count": 0, "uids": [], "score": 0.00},  # Placeholder
-        "choices": {"count": 0, "uids": [], "score": 0.00}  # Placeholder
+        "events": {"count": 2, "uids": ["event.001", "event.002"], "score": 0.10},
+        "journals": {"count": 0, "uids": [], "score": 0.00},
+        "choices": {"count": 1, "uids": ["choice.001"], "score": 0.07},
+        "principles": {"count": 1, "uids": ["principle.001"], "score": 0.07}
     },
     "mastery_level": 0.75,  # From user_context.knowledge_mastery
     "is_ready_to_learn": true,  # From user_context.ready_to_learn_uids
@@ -358,14 +359,15 @@ if result.is_ok:
 The method implements the Knowledge Substance Philosophy with weighted scoring:
 
 ```python
-# Weight per application, capped at max
+# Weight per application, capped at max per channel
 task_score = min(0.25, len(task_uids) * 0.05)
 habit_score = min(0.30, len(habit_uids) * 0.10)
 event_score = min(0.25, len(event_uids) * 0.05)
 journal_score = min(0.20, len(journal_uids) * 0.07)
 choice_score = min(0.15, len(choice_uids) * 0.07)
+principle_score = min(0.15, len(principle_uids) * 0.07)
 
-user_substance_score = task_score + habit_score + event_score + journal_score + choice_score
+user_substance_score = min(1.0, task_score + habit_score + event_score + journal_score + choice_score + principle_score)
 ```
 
 **Status Messages by Score:**
@@ -382,10 +384,13 @@ user_substance_score = task_score + habit_score + event_score + journal_score + 
 **UserContext Fields Used:**
 - `task_knowledge_applied: dict[str, list[str]]` - Maps task UID to KU UIDs
 - `habit_knowledge_applied: dict[str, list[str]]` - Maps habit UID to KU UIDs
+- `event_knowledge_applied: dict[str, list[str]]` - Maps event UID to KU UIDs
+- `choice_knowledge_informed: dict[str, list[str]]` - Maps choice UID to KU UIDs
+- `principle_knowledge_grounded: dict[str, list[str]]` - Maps principle UID to KU UIDs
 - `knowledge_mastery: dict[str, float]` - KU UID to mastery score
 - `ready_to_learn_uids: list[str]` - KUs ready to learn
 
-**Note:** Event/Journal/Choice knowledge tracking fields are placeholders for future UserContext extension.
+**Note:** Journal knowledge tracking is deferred — journals are submissions (not activities), so the MEGA_QUERY doesn't collect journal→KU relationships.
 
 **Dependencies:**
 - UserContext (REQUIRED)

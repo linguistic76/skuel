@@ -740,3 +740,4 @@ else:
 - **Finance Domain Simplification** (January 17, 2026): Finance reverted to standalone bookkeeping domain (no intelligence service)
 - **IntelligenceOperations Protocol Rollout** (January 17, 2026): All 10 domain services implement standardized protocol with GraphContextOrchestrator pattern, enabling automatic route generation via IntelligenceRouteFactory
 - **Dual-Track Assessment Pattern** (January 18, 2026 - ADR-030): All 6 Activity Domain intelligence services now support dual-track assessment comparing user self-assessment (vision) with system measurement (action) for perception gap analysis
+- **Complete Substance Data Pipeline** (March 21, 2026): All 6 activity channels (Tasks, Habits, Events, Choices, Principles) now flow real data through UserContext into `calculate_user_substance()`. Principles added as 6th channel (0.07/principle, max 0.15). Total capped at 1.0. Journals deferred (submissions, not activities).

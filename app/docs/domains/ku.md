@@ -195,6 +195,7 @@ Knowledge substance measures how knowledge is LIVED:
 | Habits | 0.10 | 0.30 |
 | Journals | 0.07 | 0.20 |
 | Choices | 0.07 | 0.15 |
+| Principles | 0.07 | 0.15 |
 | Events | 0.05 | 0.25 |
 | Tasks | 0.05 | 0.25 |
 

@@ -26,7 +26,7 @@
 **Factory:** `create_lesson_sub_services()` - Specialized (handles circular core↔intelligence dependency)
 
 **Unique Features:**
-- **Substance tracking** - Measures how knowledge is LIVED (applied via Tasks, Habits, Events)
+- **Substance tracking** - Measures how knowledge is LIVED (applied via Tasks, Habits, Events, Choices, Principles)
 - **Per-user context** - `calculate_user_substance(lesson_uid, user_uid)` for personalized metrics
 - **Semantic relationships** - REQUIRES_KNOWLEDGE, ENABLES, HAS_NARROWER, RELATED_TO
 - **Content ingestion** - YAML frontmatter + Markdown body

@@ -1,7 +1,7 @@
 ---
 title: Knowledge Substance Philosophy
 created: 2025-10-17
-updated: 2026-02-23
+updated: 2026-03-21
 status: active
 audience: all
 tags: [architecture, knowledge, substance, philosophy, learning, ku-activity-integration]
@@ -177,17 +177,26 @@ Requires authentication. Returns personalized substance data for the current use
 Uses the same weighted scoring, but only counts THIS user's applications:
 
 ```python
-# Extract from UserContext
+# Extract from UserContext (activity_uid -> ku_uids mapping, reversed lookup)
 task_uids = [uid for uid, ku_list in user_context.task_knowledge_applied.items()
              if ku_uid in ku_list]
 habit_uids = [uid for uid, ku_list in user_context.habit_knowledge_applied.items()
               if ku_uid in ku_list]
+event_uids = [uid for uid, ku_list in user_context.event_knowledge_applied.items()
+              if ku_uid in ku_list]
+choice_uids = [uid for uid, ku_list in user_context.choice_knowledge_informed.items()
+               if ku_uid in ku_list]
+principle_uids = [uid for uid, ku_list in user_context.principle_knowledge_grounded.items()
+                  if ku_uid in ku_list]
 
-# Calculate user's substance score
+# Calculate user's substance score (6 channels, capped at 1.0)
 task_score = min(0.25, len(task_uids) * 0.05)
 habit_score = min(0.30, len(habit_uids) * 0.10)
-# ... same weights as global calculation
-user_substance_score = task_score + habit_score + event_score + journal_score + choice_score
+event_score = min(0.25, len(event_uids) * 0.05)
+journal_score = min(0.20, len(journal_uids) * 0.07)  # deferred — journals are submissions
+choice_score = min(0.15, len(choice_uids) * 0.07)
+principle_score = min(0.15, len(principle_uids) * 0.07)
+user_substance_score = min(1.0, task_score + habit_score + event_score + journal_score + choice_score + principle_score)
 ```
 
 ### Response Structure
@@ -201,9 +210,10 @@ user_substance_score = task_score + habit_score + event_score + journal_score + 
     "breakdown": {
         "tasks": {"count": 3, "uids": [...], "score": 0.15},
         "habits": {"count": 1, "uids": [...], "score": 0.10},
-        "events": {"count": 0, "uids": [], "score": 0.00},
+        "events": {"count": 2, "uids": [...], "score": 0.10},
         "journals": {"count": 0, "uids": [], "score": 0.00},
-        "choices": {"count": 0, "uids": [], "score": 0.00}
+        "choices": {"count": 1, "uids": [...], "score": 0.07},
+        "principles": {"count": 1, "uids": [...], "score": 0.07}
     },
     "recommendations": [
         {"type": "journal", "message": "Reflect on this knowledge", "impact": "+0.07"}
@@ -506,6 +516,6 @@ substance_score = min(1.0, sum([
 
 ---
 
-**Last Updated:** February 23, 2026
+**Last Updated:** March 21, 2026
 **Status:** Active - Core philosophy driving substance tracking feature
-**Recent:** KU-Activity Integration Enhancement (per-user substance calculation)
+**Recent:** Complete substance data pipeline — all 6 activity channels (Tasks, Habits, Events, Choices, Principles + Journals deferred) now flow through UserContext into `calculate_user_substance()`
