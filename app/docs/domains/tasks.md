@@ -71,7 +71,7 @@ class TasksService(BaseService[TasksOperations, Task]):
         return await self.learning_metrics.analyze_task_learning_metrics(*args, **kwargs)
 ```
 
-**Note (January 2026)**: TasksAnalyticsService removed. KU analytics methods are now direct in TasksService. **Note (March 2026)**: Task model learning metrics extracted to `TasksLearningMetricsService`, dual-track productivity assessment extracted to `TasksProductivityService`.
+**Note (January 2026)**: TasksAnalyticsService removed. KU analytics methods are now direct in TasksService. **Note (March 2026)**: Task model learning metrics extracted to `TasksLearningMetricsService`, dual-track productivity assessment extracted to `TasksProductivityService`. Domain-agnostic knowledge intelligence (suggestions, prerequisites, learning opportunities) extracted to `ActivityKnowledgeIntelligenceService` (`core/services/knowledge/`) — shared across all 6 activity domains.
 
 ## Event Handler — Insight Persistence (March 2026)
 
@@ -211,14 +211,16 @@ task, context = await tasks_rel.get_entity_with_context("task:123", depth=2)
 
 ## Intelligence Service
 
-`TasksIntelligenceService` provides task analysis and insights:
+`TasksIntelligenceService` provides task-specific behavioral and performance intelligence:
 
 | Method | Description |
 |--------|-------------|
-| `get_task_with_context(uid)` | Task with full graph neighborhood |
-| `generate_knowledge_from_task(uid)` | Generate KU from task content |
-| `get_learning_opportunities(user_uid)` | Learning opportunities from tasks |
+| `get_with_context(uid)` | Task with full graph neighborhood |
 | `get_behavioral_insights(user_uid)` | Task completion patterns analysis |
+| `get_performance_analytics(user_uid)` | Completion rates, trends, duration calibration |
+| `categorize_cross_domain_context(uid, raw)` | Task cross-domain relationship grouping |
+
+**Shared knowledge intelligence** (suggestions, prerequisites, learning opportunities) provided by `ActivityKnowledgeIntelligenceService` (`core/services/knowledge/`) — serves all 6 activity domains.
 
 **See:** [Intelligence Services Index](/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md)
 

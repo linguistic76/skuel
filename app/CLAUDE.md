@@ -581,7 +581,7 @@ Domain-specific relationship Cypher belongs on the domain backend. Cross-domain 
 
 **7 Mixins:** ConversionHelpers, CRUD, Search, Relationships, TimeQuery, UserProgress, Context.
 
-**6 Activity Domains:** Tasks (10 sub-services), Goals (8), Habits (13), Events (9), Choices (6), Principles (9). All use facade pattern with explicit `async def` delegation methods. Factory: `create_common_sub_services()`.
+**6 Activity Domains:** Tasks (9 sub-services), Goals (8), Habits (13), Events (9), Choices (6), Principles (9). All use facade pattern with explicit `async def` delegation methods. Factory: `create_common_sub_services()`. **Shared:** `ActivityKnowledgeIntelligenceService` (`core/services/knowledge/`) provides domain-agnostic knowledge intelligence (suggestions, prerequisites, learning opportunities) for all 6 domains.
 
 **Essential Docs:** `/docs/guides/BASESERVICE_QUICK_START.md`, `/docs/reference/SUB_SERVICE_CATALOG.md`, `/docs/reference/BASESERVICE_METHOD_INDEX.md`, `/docs/architecture/SERVICE_TOPOLOGY.md`
 
@@ -759,6 +759,7 @@ text = build_embedding_text(EntityType.TASK, {"title": "Fix bug", "description":
 | Service composition | `/services_bootstrap.py` |
 | Base service | `/core/services/base_service.py` |
 | Base analytics | `/core/services/base_analytics_service.py` |
+| Knowledge intelligence | `/core/services/knowledge/` |
 | Domain enums | `/core/models/enums/` |
 | Protocols | `/core/ports/` |
 | Generic backend | `/adapters/persistence/neo4j/universal_backend.py` |

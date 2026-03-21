@@ -254,8 +254,9 @@ TasksService (Facade)
     │
     ├─ self.intelligence: TasksIntelligenceService
     │   ├─ Extends: BaseAnalyticsService[TasksOperations, Task]
-    │   ├─ Responsibility: Pure Cypher analytics (knowledge, learning, behavioral, performance)
-    │   └─ Methods: get_knowledge_suggestions(), get_behavioral_insights(), get_performance_analytics()
+    │   ├─ Responsibility: Task-specific analytics (behavioral, performance, cross-domain context)
+    │   ├─ Methods: get_behavioral_insights(), get_performance_analytics(), categorize_cross_domain_context()
+    │   └─ NOTE: Knowledge methods extracted to ActivityKnowledgeIntelligenceService (March 2026)
     │
     ├─ self.productivity: TasksProductivityService
     │   ├─ Extends: BaseAnalyticsService[TasksOperations, Task]
@@ -278,8 +279,10 @@ TasksService (Facade)
 ```
 Activity Domain Facades (6 total)
 │
-├─ TasksService     (10 sub-services)
+├─ TasksService     (9 sub-services)
 │   └─ core, search, progress, scheduling, planning, intelligence, productivity, learning_metrics, event_handler, ai
+│   NOTE: Knowledge intelligence (suggestions, prerequisites, learning opportunities) extracted to
+│         ActivityKnowledgeIntelligenceService (core/services/knowledge/) — shared across all 6 domains
 │
 ├─ GoalsService      (8 sub-services)
 │   └─ core, search, progress, scheduling, learning, intelligence, event_handler, ai

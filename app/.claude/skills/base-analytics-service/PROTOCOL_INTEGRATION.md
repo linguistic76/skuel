@@ -391,15 +391,11 @@ class TasksIntelligenceService(
         })
 
     # =========================================================================
-    # PROTOCOL METHODS (full IntelligenceOperations)
+    # TASK-SPECIFIC PROTOCOL METHODS
     # =========================================================================
-
-    async def get_knowledge_suggestions(
-        self, user_uid: str, entity_uid: str | None = None
-    ) -> Result[dict[str, Any]]:
-        """Generate knowledge suggestions from task patterns."""
-        # Implementation
-        ...
+    # NOTE: Knowledge methods (get_knowledge_suggestions, generate_knowledge_from_entities,
+    # get_knowledge_prerequisites, get_learning_opportunities) extracted to
+    # ActivityKnowledgeIntelligenceService (core/services/knowledge/) — March 2026
 
     async def get_behavioral_insights(
         self, user_uid: str, period_days: int = 90
@@ -408,7 +404,14 @@ class TasksIntelligenceService(
         # Implementation
         ...
 
-    # ... other protocol methods
+    async def get_performance_analytics(
+        self, user_uid: str, period_days: int = 30
+    ) -> Result[dict[str, Any]]:
+        """Completion rates, trends, duration calibration."""
+        # Implementation
+        ...
+
+    # ... other task-specific methods
 ```
 
 ---

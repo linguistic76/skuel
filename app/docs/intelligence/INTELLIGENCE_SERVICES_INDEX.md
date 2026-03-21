@@ -23,8 +23,9 @@ SKUEL's intelligence layer provides graph-based analytics and insights across al
 
 The app functions fully without any LLM dependencies - AI services enhance but are not required.
 
-**Total Intelligence Services:** 13
+**Total Intelligence Services:** 14
 - **Activity Domains:** 6 (Tasks, Goals, Habits, Events, Choices, Principles)
+- **Shared Knowledge:** 1 (ActivityKnowledgeIntelligenceService — serves all 6 activity domains)
 - **Curriculum Domains:** 4 (KU, LS, LP, MOC)
 - **Meta Intelligence:** 1 (UserContext - central intelligence hub)
 - **Cross-Cutting:** 1 (Askesis - life context synthesis)
@@ -399,12 +400,20 @@ from core.services.intelligence import (
 
 | Service | Guide | Lines | Key Focus |
 |---------|-------|-------|-----------|
-| **Tasks** | [TASKS_INTELLIGENCE.md](./TASKS_INTELLIGENCE.md) | ~935 | Knowledge generation, learning opportunities |
+| **Tasks** | [TASKS_INTELLIGENCE.md](./TASKS_INTELLIGENCE.md) | ~560 | Behavioral insights, performance analytics, cross-domain context |
 | **Goals** | [GOALS_INTELLIGENCE.md](./GOALS_INTELLIGENCE.md) | ~1,139 | Progress forecasting, predictive analytics |
 | **Habits** | [HABITS_INTELLIGENCE.md](./HABITS_INTELLIGENCE.md) | ~539 | Streak patterns, habit formation insights |
 | **Events** | [EVENTS_INTELLIGENCE.md](./EVENTS_INTELLIGENCE.md) | ~492 | Cross-domain impact, learning practice tracking |
 | **Choices** | [CHOICES_INTELLIGENCE.md](./CHOICES_INTELLIGENCE.md) | ~679 | Decision support, outcome analysis |
 | **Principles** | [PRINCIPLES_INTELLIGENCE.md](./PRINCIPLES_INTELLIGENCE.md) | ~1,324 | Alignment analysis, conflict detection |
+
+### Shared Knowledge Intelligence (1)
+
+| Service | Location | Lines | Key Focus |
+|---------|----------|-------|-----------|
+| **ActivityKnowledgeIntelligenceService** | `/core/services/knowledge/` | ~310 | Knowledge suggestions, prerequisites, learning opportunities — shared across all 6 activity domains |
+
+Extracted from TasksIntelligenceService (March 2026). These methods are domain-agnostic — they use `PatternAnalyzer` on entity titles and graph traversal via shared utilities. All 6 activity domains have knowledge relationships in Neo4j.
 
 ---
 
@@ -565,6 +574,11 @@ uv run python -m pytest tests/integration/intelligence/ -k "test_predict_goal_su
 - ✅ GraphContextOrchestrator pattern consistent across all services
 - ✅ Bug fixes applied (success_rate units, is_on_track(), progress guards)
 
+**Knowledge Intelligence Extraction (2026-03-21):**
+- ✅ `ActivityKnowledgeIntelligenceService` created (`core/services/knowledge/`)
+- Domain-agnostic methods extracted from TasksIntelligenceService: `get_knowledge_suggestions()`, `generate_knowledge_from_entities()`, `get_knowledge_prerequisites()`, `get_learning_opportunities()`
+- These methods serve all 6 activity domains (graph relationships already exist)
+
 **Standalone (modular package architecture):**
 - UserContextIntelligence (ADR-021, mixin composition pattern)
 
@@ -575,9 +589,10 @@ uv run python -m pytest tests/integration/intelligence/ -k "test_predict_goal_su
 ### Activity Domains
 
 **Tasks:**
-- Knowledge extraction from action
-- Learning opportunity discovery
+- Behavioral insights (completion time, procrastination, peak productivity)
+- Performance analytics (completion rates, trends, duration calibration via ADR-048)
 - Cross-domain context categorization (unique semantic grouping)
+- Knowledge intelligence extracted to shared `ActivityKnowledgeIntelligenceService` (March 2026)
 
 **Goals:**
 - Progress forecasting with velocity metrics

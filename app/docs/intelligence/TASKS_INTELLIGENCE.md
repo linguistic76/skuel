@@ -1,15 +1,16 @@
-# TasksIntelligenceService - Knowledge Generation & Learning Discovery
+# TasksIntelligenceService - Behavioral & Performance Intelligence
 
 ## Overview
 
 **Architecture:** Extends `BaseAnalyticsService[TasksOperations, Task]` (NO AI dependencies)
 **Location:** `/core/services/tasks/tasks_intelligence_service.py`
 **Service Name:** `tasks.intelligence`
-**Lines:** ~1049
+**Lines:** ~560
 
 **Related sub-services (extracted March 2026):**
 - `TasksProductivityService` (`tasks_productivity_service.py`) — dual-track productivity assessment (ADR-030)
 - `TasksLearningMetricsService` (`tasks_learning_metrics_service.py`) — task-level learning metrics via Task model
+- `ActivityKnowledgeIntelligenceService` (`/core/services/knowledge/`) — domain-agnostic knowledge intelligence (suggestions, prerequisites, learning opportunities) extracted from Tasks because these methods work for all 6 activity domains
 
 **Related:** `TaskEventHandlerService` (`/core/services/tasks/task_event_handler_service.py`) — fire-and-forget reactive handlers extracted from intelligence; persists `COMPLETION_PATTERN`, `IMBALANCE_DETECTED`, and `PRINCIPLE_ALIGNMENT` insights to InsightStore (March 2026).
 
@@ -17,254 +18,15 @@
 
 ## Purpose
 
-TasksIntelligenceService transforms task patterns into actionable knowledge and learning opportunities. It analyzes completed tasks to extract best practices, identify skill gaps, discover behavioral patterns, and generate performance insights.
+TasksIntelligenceService provides task-specific behavioral insights, performance analytics, and cross-domain context categorization. Domain-agnostic knowledge intelligence (knowledge suggestions, prerequisites, learning opportunities) was extracted to `ActivityKnowledgeIntelligenceService` (March 2026) — those methods work for all 6 activity domains, not just Tasks.
 
 ---
 
 ## Core Methods
 
-### Method 1: get_knowledge_suggestions()
+> **Extracted (March 2026):** `get_knowledge_suggestions()`, `generate_knowledge_from_entities()`, `get_knowledge_prerequisites()`, and `get_learning_opportunities()` were moved to `ActivityKnowledgeIntelligenceService` (`/core/services/knowledge/`). These methods are domain-agnostic and now serve all 6 activity domains.
 
-**Purpose:** Generate knowledge suggestions from task patterns by analyzing frequent task types, problem-solving approaches, and skills used.
-
-**Signature:**
-```python
-async def get_knowledge_suggestions(
-    self,
-    user_uid: str,
-    entity_uid: str | None = None
-) -> Result[dict[str, Any]]:
-```
-
-**Parameters:**
-- `user_uid` (str) - User identifier
-- `entity_uid` (str, optional) - Specific task UID to analyze (if None, analyzes all completed tasks)
-
-**Returns:**
-```python
-{
-    "task_patterns": [
-        {
-            "pattern": "debugging",
-            "knowledge_suggestion": "Create knowledge unit for debugging",
-            "confidence": 0.85,
-            "frequency": 12
-        }
-    ],
-    "learning_opportunities": [
-        "Error handling patterns from repeated bug fixes",
-        "API integration best practices"
-    ],
-    "knowledge_gaps": [
-        "Testing strategies",
-        "Performance optimization",
-        "Security best practices"
-    ],
-    "metadata": {
-        "generated_at": "2026-01-08T10:00:00",
-        "user_uid": "user.mike",
-        "tasks_analyzed": 45,
-        "scope": "all_user_tasks"
-    }
-}
-```
-
-**Example:**
-```python
-# Analyze all completed tasks
-result = await tasks_service.intelligence.get_knowledge_suggestions(user_uid)
-if result.is_ok:
-    data = result.value
-    for pattern in data["task_patterns"]:
-        print(f"Pattern: {pattern['pattern']} (confidence: {pattern['confidence']})")
-
-# Analyze specific task
-result = await tasks_service.intelligence.get_knowledge_suggestions(
-    user_uid="user.mike",
-    entity_uid="task_001"
-)
-```
-
-**Dependencies:** TasksOperations backend (REQUIRED)
-
----
-
-### Method 2: generate_knowledge_from_entities()
-
-**Purpose:** Generate proposed knowledge units from completed tasks over a specified time period, extracting best practices and documentation suggestions.
-
-**Signature:**
-```python
-async def generate_knowledge_from_entities(
-    self,
-    user_uid: str,
-    period_days: int = 30
-) -> Result[dict[str, Any]]:
-```
-
-**Parameters:**
-- `user_uid` (str) - User identifier
-- `period_days` (int, default=30) - Period to analyze in days
-
-**Returns:**
-```python
-{
-    "knowledge_units": [
-        {
-            "title": "API Integration Best Practices",
-            "content": "Knowledge extracted from 8 api integration tasks",
-            "source_tasks": ["task_001", "task_002", "task_003"],
-            "confidence": 0.8,
-            "type": "best_practice"
-        }
-    ],
-    "patterns_discovered": ["api", "debugging", "testing"],
-    "documentation_suggestions": [
-        "Document api workflow and best practices",
-        "Document debugging workflow and best practices"
-    ],
-    "metadata": {
-        "generated_at": "2026-01-08T10:00:00",
-        "user_uid": "user.mike",
-        "period_days": 30,
-        "tasks_analyzed": 23
-    }
-}
-```
-
-**Example:**
-```python
-# Generate knowledge from last 90 days
-result = await tasks_service.intelligence.generate_knowledge_from_entities(
-    user_uid="user.mike",
-    period_days=90
-)
-
-if result.is_ok:
-    data = result.value
-    for ku in data["knowledge_units"]:
-        print(f"Suggested KU: {ku['title']}")
-        print(f"  Based on {len(ku['source_tasks'])} tasks")
-        print(f"  Confidence: {ku['confidence']}")
-```
-
-**Dependencies:** TasksOperations backend (REQUIRED)
-
----
-
-### Method 3: get_knowledge_prerequisites()
-
-**Purpose:** Analyze knowledge prerequisites for a task using graph intelligence to identify required knowledge units.
-
-**Signature:**
-```python
-async def get_knowledge_prerequisites(
-    self,
-    entity_uid: str
-) -> Result[dict[str, Any]]:
-```
-
-**Parameters:**
-- `entity_uid` (str) - Task UID
-
-**Returns:**
-```python
-{
-    "prerequisites": [
-        {
-            "uid": "ku.python-basics",
-            "title": "Python Basics",
-            "relationship": "REQUIRES_KNOWLEDGE"
-        }
-    ],
-    "learning_path": ["ku.python-basics", "ku.fasthtml-intro"]
-}
-```
-
-**Example:**
-```python
-result = await tasks_service.intelligence.get_knowledge_prerequisites("task_001")
-if result.is_ok:
-    prereqs = result.value["prerequisites"]
-    for prereq in prereqs:
-        print(f"Required knowledge: {prereq['title']}")
-```
-
-**Dependencies:**
-- GraphIntelligenceService (REQUIRED - uses `_require_graph_intelligence()`)
-- Uses shared utility: `core.utils.intelligence_queries.get_knowledge_prerequisites()`
-
----
-
-### Method 4: get_learning_opportunities()
-
-**Purpose:** Discover learning opportunities by analyzing failed tasks, tasks taking longer than expected, tasks blocked by knowledge gaps, and successfully used skills.
-
-**Signature:**
-```python
-async def get_learning_opportunities(
-    self,
-    user_uid: str
-) -> Result[dict[str, Any]]:
-```
-
-**Parameters:**
-- `user_uid` (str) - User identifier
-
-**Returns:**
-```python
-{
-    "opportunities": [
-        {
-            "type": "knowledge_gap",
-            "title": "Learn concepts for: Implement authentication",
-            "task_uid": "task_001",
-            "required_knowledge": ["Security Basics", "OAuth 2.0"],
-            "priority": "high"
-        },
-        {
-            "skill": "python",
-            "suggestion": "Consider deepening knowledge in python",
-            "source": "task_analysis"
-        }
-    ],
-    "recommended_focus": [
-        "Focus on knowledge gap (5 opportunities)",
-        "Focus on skill development (3 opportunities)"
-    ],
-    "estimated_impact": {
-        "potential_time_savings": "10 hours per week",
-        "quality_improvement": "Estimated 20-40% improvement",
-        "confidence_boost": "High"
-    },
-    "metadata": {
-        "generated_at": "2026-01-08T10:00:00",
-        "user_uid": "user.mike",
-        "opportunities_found": 8
-    }
-}
-```
-
-**Example:**
-```python
-result = await tasks_service.intelligence.get_learning_opportunities("user.mike")
-if result.is_ok:
-    data = result.value
-    for opp in data["opportunities"]:
-        print(f"{opp['type']}: {opp.get('title', opp.get('suggestion'))}")
-
-    print("\nRecommended focus:")
-    for focus in data["recommended_focus"]:
-        print(f"  - {focus}")
-```
-
-**Dependencies:**
-- TasksOperations backend (REQUIRED)
-- GraphIntelligenceService (optional - enhanced analysis if available)
-
----
-
-### Method 5: get_behavioral_insights()
+### Method 1: get_behavioral_insights()
 
 **Purpose:** Analyze behavioral patterns from task completion data, including time-of-day patterns, procrastination indicators, and context productivity.
 
@@ -331,7 +93,7 @@ if result.is_ok:
 
 ---
 
-### Method 6: get_performance_analytics()
+### Method 2: get_performance_analytics()
 
 **Purpose:** Analyze task performance metrics including completion rate trends, average completion time, priority distribution, and efficiency patterns.
 
@@ -401,7 +163,7 @@ if result.is_ok:
 
 ---
 
-### Method 7: categorize_cross_domain_context()
+### Method 3: categorize_cross_domain_context()
 
 **Purpose:** Categorize raw graph context into task-specific relationship groups (prerequisites, dependents, required knowledge, applied knowledge, contributing goals).
 
@@ -497,7 +259,7 @@ if result.is_ok:
 
 ---
 
-### Method 8: assess_productivity_dual_track() (ADR-030)
+### Method 4: assess_productivity_dual_track() (ADR-030)
 
 > **Moved (March 2026):** This method now lives in `TasksProductivityService` (`tasks_productivity_service.py`).
 > Access via `tasks_service.productivity.assess_productivity_dual_track(...)`.
@@ -663,21 +425,6 @@ result = await tasks_service.intelligence.get_behavioral_insights(
 ---
 
 ## Domain-Specific Features
-
-### Knowledge Generation
-
-TasksIntelligenceService excels at **extracting knowledge from action**. By analyzing task patterns, it identifies:
-- Recurring problem-solving approaches → best practice KUs
-- Frequent task types → workflow documentation
-- Repeated debugging sessions → troubleshooting guides
-
-### Learning Opportunity Discovery
-
-The service discovers learning opportunities by correlating:
-- Failed tasks → knowledge gaps
-- Slow task completion → skill development areas
-- Successful patterns → skills worth deepening
-- Graph relationships → prerequisite knowledge needs
 
 ### Cross-Domain Context Categorization
 

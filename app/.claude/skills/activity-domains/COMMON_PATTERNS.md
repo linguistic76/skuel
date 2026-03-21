@@ -125,20 +125,23 @@ await service.delete_for_user(uid, user_uid)
 
 ## Intelligence Service Pattern
 
-All domains have intelligence services extending `BaseIntelligenceService`:
+All domains have intelligence services extending `BaseAnalyticsService`:
 
 ```python
-class TasksIntelligenceService(BaseIntelligenceService[TasksOperations, Task]):
+class TasksIntelligenceService(BaseAnalyticsService[TasksOperations, Task]):
     _service_name = "tasks.intelligence"
 
-    async def get_task_with_context(self, uid: str) -> Result[dict]:
+    async def get_with_context(self, uid: str, depth: int = 2) -> Result[tuple]:
         """Get task with full graph neighborhood."""
         ...
 
-    async def get_learning_opportunities(self, user_uid: str) -> Result[list]:
-        """Identify learning opportunities from tasks."""
+    async def get_behavioral_insights(self, user_uid: str) -> Result[dict]:
+        """Task completion patterns analysis."""
         ...
 ```
+
+**Shared knowledge intelligence** (suggestions, prerequisites, learning opportunities) lives in
+`ActivityKnowledgeIntelligenceService` (`core/services/knowledge/`) — serves all 6 activity domains.
 
 ## Cross-Domain Relationships
 
