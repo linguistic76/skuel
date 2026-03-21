@@ -120,6 +120,7 @@ if TYPE_CHECKING:
     from adapters.persistence.neo4j_adapter import Neo4jAdapter
     from core.config.intelligence_tier import IntelligenceTier
     from core.infrastructure.monitoring.prometheus_metrics import PrometheusMetrics
+    from core.ports.filtered_context_protocols import FilteredContextProvider
     from core.ports.service_protocols import LateralRelationshipOperations
     from core.services.adaptive_lp.adaptive_lp_cross_domain_service import (
         AdaptiveLpCrossDomainService,
@@ -1571,7 +1572,7 @@ async def _create_intelligence_hub(
     # ── FilteredContextProvider dict (11 domains with get_filtered_context) ──
     # Maps domain names to facades that implement FilteredContextProvider protocol.
     # Intelligence services use this for on-demand, per-domain filtered queries.
-    filtered_providers: dict[str, Any] = {
+    filtered_providers: dict[str, FilteredContextProvider] = {
         # Activity Domains (6) — facades are the services dict values
         "tasks": activity_services["tasks"],
         "goals": activity_services["goals"],

@@ -30,6 +30,7 @@ if TYPE_CHECKING:
         ContextualKnowledge,
         ContextualTask,
     )
+    from core.ports.filtered_context_protocols import FilteredContextProvider
     from core.services.user.unified_user_context import UserContext
 
 
@@ -65,6 +66,7 @@ class DailyPlanningMixin:
 
     feedback: Any  # ReportRelationshipService
     vector_search: Any = None  # Neo4jVectorSearchService (optional)
+    filtered_providers: dict[str, FilteredContextProvider]
 
     # =========================================================================
     # METHOD 5: Ready to Work on Today - THE FLAGSHIP METHOD
@@ -326,6 +328,11 @@ class DailyPlanningMixin:
         if not learning_uids and self.context.learning_goals:
             warnings_list.append("No learning time scheduled - consider your learning goals")
 
+        # Domain health warnings — aggregate stats from filtered providers
+        if self.filtered_providers:
+            domain_warnings = await self._generate_domain_health_warnings()
+            warnings_list.extend(domain_warnings)
+
         # Temporal momentum signals — enrich warnings from window-activity data
         momentum = self.compute_momentum_signals()
         warnings_list.extend(self._momentum_warnings(momentum))
@@ -492,6 +499,55 @@ class DailyPlanningMixin:
             query_parts.append("daily learning")
 
         return " ".join(query_parts)
+
+    # =========================================================================
+    # Domain Health (FilteredContextProvider stats)
+    # =========================================================================
+
+    async def _query_domain_stats(self, domain: str) -> dict[str, int | float] | None:
+        """Query aggregate stats for a domain via its FilteredContextProvider.
+
+        Returns the stats dict from ListContext["stats"], or None if the domain
+        has no provider or the query fails. Callers should treat None as
+        "stats unavailable" (not "stats are zero").
+        """
+        provider = self.filtered_providers.get(domain)
+        if provider is None:
+            return None
+        result = await provider.get_filtered_context(
+            user_uid=self.context.user_uid,
+            status_filter="all",
+        )
+        if result.is_error:
+            return None
+        return result.value.get("stats")
+
+    async def _generate_domain_health_warnings(self) -> list[str]:
+        """Generate warnings from per-domain aggregate stats.
+
+        Uses filtered_providers to query domain stats that intelligence methods
+        otherwise have no access to. Stats are pre-filter aggregates (totals
+        across all statuses), computed by each domain's get_filtered_context().
+        """
+        warnings: list[str] = []
+
+        task_stats = await self._query_domain_stats("tasks")
+        if task_stats is not None:
+            total = task_stats.get("total", 0)
+            completed = task_stats.get("completed", 0)
+            active = int(total) - int(completed)
+            if active > 30:
+                warnings.append(f"{active} active tasks — consider archiving or splitting")
+
+        goal_stats = await self._query_domain_stats("goals")
+        if goal_stats is not None and goal_stats.get("active", 0) == 0:
+            warnings.append("No active goals — daily work lacks direction")
+
+        habit_stats = await self._query_domain_stats("habits")
+        if habit_stats is not None and habit_stats.get("total", 0) == 0:
+            warnings.append("No habits tracked — consider adding consistency anchors")
+
+        return warnings
 
 
 __all__ = ["DailyPlanningMixin"]

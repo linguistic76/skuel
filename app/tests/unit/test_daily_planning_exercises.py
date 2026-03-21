@@ -101,6 +101,7 @@ class MockDailyPlanningService(TemporalMomentumMixin, DailyPlanningMixin):
         self.lesson = ku
         self.report = report
         self.vector_search = None
+        self.filtered_providers = {}
 
 
 def build_service(
