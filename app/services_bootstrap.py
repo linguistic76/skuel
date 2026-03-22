@@ -2542,12 +2542,10 @@ async def compose_services(
         form_submission_service.sharing_service = unified_sharing_service
 
         # Create Submissions core service (content management: categories, tags, bulk operations)
-        # February 2026: content_enrichment for handle_transcription_completed
         submissions_core_service = SubmissionsCoreService(
             backend=submissions_backend,
             event_bus=event_bus,
             sharing_service=unified_sharing_service,
-            content_enrichment=content_enrichment,
         )
 
         # LIFEPATH SERVICE (Domain #14: The Destination)

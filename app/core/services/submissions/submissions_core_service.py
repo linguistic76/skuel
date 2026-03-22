@@ -6,9 +6,7 @@ Content management operations for submission entities.
 Handles categories, tags, publish/archive workflow, bulk operations,
 and the Exercise → Submission link that drives the core educational loop.
 
-Delegates journal-specific and assessment-specific workflows to sub-services:
-- JournalsCoreService: Journal CRUD, FIFO, transcription handling
-- AssessmentService: Teacher assessment CRUD with authority verification
+Delegates assessment workflows to AssessmentService sub-service.
 
 The Core Educational Loop
 --------------------------
@@ -38,7 +36,6 @@ Service Responsibilities
 - SubmissionsService: File upload and storage
 - SubmissionsProcessingService: Content processing orchestration
 - SubmissionsCoreService: Content management + exercise linking (THIS FILE)
-- JournalsCoreService: Journal CRUD + FIFO + transcription (sub-service)
 - AssessmentService: Teacher assessments (sub-service)
 - SubmissionsSearchService: Read-only queries
 - ExerciseService: Exercise CRUD (in exercises package)
@@ -50,6 +47,8 @@ from datetime import date, datetime
 from typing import Any
 
 from core.events import publish_event
+from core.models.type_hints import FilterParams, Metadata
+from core.ports.sharing_protocols import SharingOperations
 from core.events.submission_events import SubmissionDeleted
 from core.models.entity import Entity
 from core.models.entity_types import SubmissionEntity
@@ -139,7 +138,6 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
     - Tag management
     - Bulk operations
     - Export functionality
-    - Journal CRUD (create_journal_ku, FIFO cleanup)
     - Assessment CRUD (teacher feedback)
 
     NOTE: For file submission, use SubmissionsService.
@@ -163,8 +161,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         self,
         backend: BackendOperations[SubmissionEntity] | None = None,
         event_bus: EventBusOperations | None = None,
-        sharing_service: Any | None = None,
-        content_enrichment: Any | None = None,
+        sharing_service: SharingOperations | None = None,
     ) -> None:
         """
         Initialize submissions core service.
@@ -173,23 +170,13 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
             backend: Backend for submission persistence
             event_bus: Optional event bus for publishing events
             sharing_service: Optional sharing service for access control
-            content_enrichment: Optional ContentEnrichmentService for AI processing
         """
         super().__init__(backend, "SubmissionsCoreService")
         self.event_bus = event_bus
         self.sharing_service = sharing_service
-        self.content_enrichment = content_enrichment
 
         # Sub-services (facade delegation pattern)
         self.assessments = AssessmentService(backend=backend, event_bus=event_bus)
-
-    @property
-    def exercise_service(self) -> Any | None:
-        return self.journals.exercise_service
-
-    @exercise_service.setter
-    def exercise_service(self, value: Any) -> None:
-        self.journals.exercise_service = value
 
     # ========================================================================
     # DOMAIN-SPECIFIC CONTRACT
@@ -277,7 +264,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         Returns:
             Result containing the entity if found, None otherwise
         """
-        filters: dict[str, Any] = {}
+        filters: FilterParams = {}
 
         # Filter by user if provided
         if user_uid:
@@ -318,7 +305,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         Returns:
             Result containing list of submission entities
         """
-        filters: dict[str, Any] = {}
+        filters: FilterParams = {}
 
         if user_uid:
             filters["user_uid"] = user_uid
@@ -364,7 +351,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         """
         from core.models.enums.metadata_enums import Visibility
 
-        filters: dict[str, Any] = {"visibility": Visibility.PUBLIC.value}
+        filters: FilterParams = {"visibility": Visibility.PUBLIC.value}
         if user_uid:
             filters["user_uid"] = user_uid
 
@@ -381,7 +368,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
     # ========================================================================
 
     async def update_submission(
-        self, uid: str, updates: dict[str, Any]
+        self, uid: str, updates: dict[str, Any]  # boundary: nested metadata serialized to JSON before Neo4j write
     ) -> Result[SubmissionEntity]:
         """
         Update an entity.
@@ -578,7 +565,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
             List of submission entities in category
         """
         # Get all entities and filter by metadata.category
-        filters: dict[str, Any] = {}
+        filters: FilterParams = {}
         if user_uid:
             filters["user_uid"] = user_uid
 
@@ -685,7 +672,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
             List of submission entities with the tag
         """
         # Get all entities and filter by metadata.tags
-        filters: dict[str, Any] = {}
+        filters: FilterParams = {}
         if user_uid:
             filters["user_uid"] = user_uid
 
@@ -1088,7 +1075,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         subject_uid: str,
         title: str,
         content: str,
-        metadata: dict[str, Any] | None = None,
+        metadata: Metadata | None = None,
     ) -> Result[SubmissionReport]:
         """Delegate to assessments sub-service."""
         return await self.assessments.create_assessment(
