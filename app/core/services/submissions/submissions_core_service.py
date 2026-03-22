@@ -47,10 +47,7 @@ Service Responsibilities
 
 import json
 from datetime import date, datetime
-from typing import TYPE_CHECKING, Any
-
-if TYPE_CHECKING:
-    from core.events.transcription_events import TranscriptionCompleted
+from typing import Any
 
 from core.events import publish_event
 from core.events.submission_events import SubmissionDeleted

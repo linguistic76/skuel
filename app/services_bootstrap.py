@@ -1091,7 +1091,6 @@ def _wire_event_subscribers(
         SubmissionProcessingStarted,
         SubmissionRevisionRequested,
     )
-    from core.events.transcription_events import TranscriptionCompleted
 
     # ── Context invalidation handlers ───────────────────────────────────────
     # Two handlers: one for events that guarantee user_uid, one for events
@@ -1167,15 +1166,6 @@ def _wire_event_subscribers(
         f"✅ UserService subscribed to {len(activity_context_events)} activity/domain context events"
     )
 
-    # Subscribe to transcription events for automatic journal-type report creation
-    event_bus.subscribe(
-        TranscriptionCompleted,
-        submissions_core_service.handle_transcription_completed,
-    )
-    logger.info(
-        "✅ SubmissionsCoreService subscribed to TranscriptionCompleted "
-        "(automatic journal report creation from voice transcriptions)"
-    )
 
     # Subscribe to SubmissionCreated for exercise linking (ADR-040)
     exercise_handler = functools.partial(
@@ -2672,7 +2662,7 @@ async def compose_services(
             transcription_service=core_services["transcription"],  # Simplified TranscriptionService
             content_enrichment=content_enrichment,  # For LLM formatting
             activity_extractor=activity_extractor,  # DSL entity extraction
-            journal_generator=journal_output_service,  # JournalOutputService
+            journal_output_service=journal_output_service,  # JournalOutputService
             event_bus=event_bus,
         )
 
