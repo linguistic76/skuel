@@ -31,6 +31,8 @@ from adapters.inbound.form_helpers import (
     safe_form_string,
 )
 from adapters.inbound.route_factories import (
+    DashboardUIConfig,
+    DashboardUIFactory,
     QuickAddConfig,
     QuickAddRouteFactory,
     require_owned_entity,
@@ -38,7 +40,6 @@ from adapters.inbound.route_factories import (
 from adapters.inbound.ui_helpers import (
     fetch_user_entities,
     parse_calendar_params,
-    render_dashboard_error_page,
     render_entity_not_found_page,
     render_safe_error_response,
 )
@@ -60,7 +61,6 @@ from ui.page_contexts import EventsPageContext
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.entity_dashboard import SharedUIComponents
 from ui.patterns.error_banner import render_error_banner
-from ui.patterns.page_header import PageHeader
 from ui.patterns.relationships import EntityRelationshipsSection
 from ui.tokens import Container, Spacing
 
@@ -253,180 +253,69 @@ def create_events_ui_routes(_app, rt, events_service: EventsService, services: A
         )
 
     # ========================================================================
-    # MAIN DASHBOARD (Standalone Three-View, Calendar First)
+    # DASHBOARD + VIEW FRAGMENTS (via DashboardUIFactory)
     # ========================================================================
 
-    @rt("/events")
-    async def events_dashboard(request) -> Any:
-        """Main events dashboard with three views (standalone, calendar-first)."""
-        user_uid = require_authenticated_user(request)
+    async def fetch_events_context(user_uid: str, filters: ActivityFilters) -> Any:
+        """Fetch filtered events context from service."""
+        return await events_service.get_filtered_context(user_uid, filters.status, filters.sort_by)
 
-        # Get view parameter (default to calendar for events)
-        view = request.query_params.get("view", "calendar")
-
-        # Parse using helpers
-        filters = parse_filters(request)
-        calendar_params = parse_calendar_params(request)
-
-        # Get data with Result[T]
-        filtered_result = await events_service.get_filtered_context(
-            user_uid, filters.status, filters.sort_by
+    def build_events_page_context(
+        svc_ctx: dict[str, Any], filters: ActivityFilters
+    ) -> Any:
+        """Map service context to EventsPageContext."""
+        return EventsPageContext(
+            entities=svc_ctx["entities"],
+            filters=filters.to_dict(),
+            stats=svc_ctx["stats"],
         )
+
+    async def render_events_create(user_uid: str, svc_ctx: dict[str, Any]) -> Any:
+        """Render events create view."""
         event_types_result = await get_event_types()
+        event_types = [] if event_types_result.is_error else event_types_result.value
+        return EventsViewComponents.render_create_view(event_types=event_types)
 
-        # CHECK FOR ERRORS
-        if filtered_result.is_error:
-            return await render_dashboard_error_page(
-                "Events",
-                "Schedule and track your events",
-                "Failed to load events",
-                view,
-                EventsViewComponents.render_view_tabs,
-                create_events_page,
-                request,
-            )
-
-        if event_types_result.is_error:
-            return await render_dashboard_error_page(
-                "Events",
-                "Schedule and track your events",
-                "Failed to load event types",
-                view,
-                EventsViewComponents.render_view_tabs,
-                create_events_page,
-                request,
-            )
-
-        # Extract values
-        ctx = filtered_result.value
-        events, stats = ctx["entities"], ctx["stats"]
-        event_types = event_types_result.value
-
-        # Render the appropriate view content
-        if view == "list":
-            page_ctx = EventsPageContext(
-                entities=events,
-                filters=filters.to_dict(),
-                stats=stats,
-                view=view,
-            )
-            view_content = EventsViewComponents.render_list_view(ctx=page_ctx)
-        elif view == "create":
-            view_content = EventsViewComponents.render_create_view(
-                event_types=event_types,
-            )
-        else:  # calendar (default for events)
-            all_events_result = await get_all_events(user_uid)
-
-            # Check for errors
-            if all_events_result.is_error:
-                view_content = render_error_banner(
-                    f"Failed to load calendar: {all_events_result.error}"
-                )
-            else:
-                view_content = EventsViewComponents.render_calendar_view(
-                    events=all_events_result.value,
-                    current_date=calendar_params.current_date,
-                    calendar_view=calendar_params.calendar_view,
-                )
-
-        # Build page with tabs + view content
-        page_content = Div(
-            PageHeader("Events", subtitle="Schedule and track your events"),
-            EventsViewComponents.render_view_tabs(active_view=view),
-            Div(view_content, id="view-content", role="tabpanel"),
-            cls=f"{Spacing.PAGE} {Container.WIDE}",
-        )
-
-        return await create_events_page(page_content, request=request)
-
-    # ========================================================================
-    # HTMX VIEW FRAGMENTS
-    # ========================================================================
-
-    @rt("/events/view/calendar")
-    async def events_view_calendar(request) -> Any:
-        """HTMX fragment for calendar view (default for events)."""
-        user_uid = require_authenticated_user(request)
+    async def render_events_calendar(user_uid: str, request: Any) -> Any:
+        """Render events calendar view."""
         calendar_params = parse_calendar_params(request)
-
         events_result = await get_all_events(user_uid)
-
-        # Handle errors
         if events_result.is_error:
             return render_error_banner("Failed to load calendar")
-
         return EventsViewComponents.render_calendar_view(
             events=events_result.value,
             current_date=calendar_params.current_date,
             calendar_view=calendar_params.calendar_view,
         )
 
-    @rt("/events/view/list")
-    async def events_view_list(request) -> Any:
-        """HTMX fragment for list view."""
-        user_uid = require_authenticated_user(request)
-        filters = parse_filters(request)
-
-        filtered_result = await events_service.get_filtered_context(
-            user_uid, filters.status, filters.sort_by
-        )
-
-        # Handle errors
-        if filtered_result.is_error:
-            return render_error_banner("Failed to load events")
-
-        svc_ctx = filtered_result.value
-        page_ctx = EventsPageContext(
-            entities=svc_ctx["entities"],
-            filters=filters.to_dict(),
-            stats=svc_ctx["stats"],
-        )
-        return EventsViewComponents.render_list_view(ctx=page_ctx)
-
-    @rt("/events/view/create")
-    async def events_view_create(request) -> Any:
-        """HTMX fragment for create view."""
-        require_authenticated_user(request)
-        event_types_result = await get_event_types()
-
-        # Handle errors
-        if event_types_result.is_error:
-            return render_error_banner("Failed to load event types")
-
-        return EventsViewComponents.render_create_view(
-            event_types=event_types_result.value,
-        )
-
-    # ========================================================================
-    # LIST FRAGMENT (for filter updates)
-    # ========================================================================
-
-    @rt("/events/list-fragment")
-    async def events_list_fragment(request) -> Any:
-        """Return filtered event list for HTMX updates."""
-        user_uid = require_authenticated_user(request)
-        filters = parse_filters(request)
-
-        filtered_result = await events_service.get_filtered_context(
-            user_uid, filters.status, filters.sort_by
-        )
-
-        # Handle errors
-        if filtered_result.is_error:
-            return render_error_banner("Failed to load events")
-
-        ctx = filtered_result.value
-        events = ctx["entities"]
-
-        # Return just the event items
-        event_items = [EventsViewComponents._render_event_item(event) for event in events]
-
+    def render_events_list_fragment(entities: list[Any]) -> Any:
+        """Render event list fragment for HTMX updates."""
+        items = [EventsViewComponents._render_event_item(event) for event in entities]
         return Div(
-            *event_items if event_items else [EmptyState(title="No events found")],
+            *items if items else [EmptyState(title="No events found")],
             id="event-list",
             cls="space-y-3",
         )
+
+    DashboardUIFactory.register_routes(
+        rt,
+        DashboardUIConfig(
+            domain_name="events",
+            title="Events",
+            subtitle="Schedule and track your events",
+            default_view="calendar",
+            views=("calendar", "list", "create"),
+            parse_filters=parse_filters,
+            fetch_filtered_context=fetch_events_context,
+            render_view_tabs=EventsViewComponents.render_view_tabs,
+            render_list_view=EventsViewComponents.render_list_view,
+            render_create_view=render_events_create,
+            render_third_view=render_events_calendar,
+            build_page_context=build_events_page_context,
+            render_list_fragment=render_events_list_fragment,
+            create_page=create_events_page,
+        ),
+    )
 
     # ========================================================================
     # QUICK ADD (via QuickAddRouteFactory)

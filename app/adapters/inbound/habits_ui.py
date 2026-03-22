@@ -29,11 +29,15 @@ from adapters.inbound.form_helpers import (
     parse_enum_safe,
     safe_form_string,
 )
-from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
+from adapters.inbound.route_factories import (
+    DashboardUIConfig,
+    DashboardUIFactory,
+    QuickAddConfig,
+    QuickAddRouteFactory,
+)
 from adapters.inbound.ui_helpers import (
     fetch_user_entities,
     parse_calendar_params,
-    render_dashboard_error_page,
     render_entity_not_found_page,
 )
 from core.models.enums import Priority, RecurrencePattern
@@ -63,7 +67,6 @@ from ui.patterns.empty_state import EmptyState
 from ui.patterns.entity_dashboard import SharedUIComponents
 from ui.patterns.error_banner import render_error_banner, render_inline_error
 from ui.patterns.form_generator import FormGenerator
-from ui.patterns.page_header import PageHeader
 from ui.patterns.relationships import EntityRelationshipsSection
 from ui.tokens import Container, Spacing
 
@@ -459,164 +462,69 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
         return [c.value for c in HabitCategory if c != HabitCategory.OTHER]
 
     # ========================================================================
-    # MAIN DASHBOARD (Standalone Three-View)
+    # DASHBOARD + VIEW FRAGMENTS (via DashboardUIFactory)
     # ========================================================================
 
-    @rt("/habits")
-    async def habits_dashboard(request) -> Any:
-        """Main habits dashboard with three views (standalone, no drawer)."""
-        user_uid = require_authenticated_user(request)
+    async def fetch_habits_context(user_uid: str, filters: ActivityFilters) -> Any:
+        """Fetch filtered habits context from service."""
+        return await habits_service.get_filtered_context(user_uid, filters.status, filters.sort_by)
 
-        # Get view parameter (default to list)
-        view = request.query_params.get("view", "list")
-
-        # Parse using helpers
-        filters = parse_filters(request)
-        calendar_params = parse_calendar_params(request)
-
-        # Get data with Result[T]
-        filtered_result = await habits_service.get_filtered_context(
-            user_uid, filters.status, filters.sort_by
-        )
-
-        # CHECK FOR ERRORS
-        if filtered_result.is_error:
-            return await render_dashboard_error_page(
-                "Habits",
-                "Build and maintain daily habits",
-                "Failed to load habits",
-                view,
-                HabitsViewComponents.render_view_tabs,
-                create_habits_page,
-                request,
-            )
-
-        # Extract values
-        ctx = filtered_result.value
-        habits, stats = ctx["entities"], ctx["stats"]
-        categories = ctx.get("metadata", {}).get("categories", [])
-
-        # Render the appropriate view content
-        if view == "create":
-            view_content = HabitsViewComponents.render_create_view(
-                categories=categories,
-            )
-        elif view == "calendar":
-            all_habits_result = await get_all_habits(user_uid)
-
-            # Check for errors
-            if all_habits_result.is_error:
-                view_content = render_error_banner(
-                    f"Failed to load calendar: {all_habits_result.error}"
-                )
-            else:
-                view_content = HabitsViewComponents.render_calendar_view(
-                    habits=all_habits_result.value,
-                    current_date=calendar_params.current_date,
-                    calendar_view=calendar_params.calendar_view,
-                )
-        else:  # list (default)
-            page_ctx = HabitsPageContext(
-                entities=habits,
-                filters=filters.to_dict(),
-                stats=stats,
-                categories=categories,
-                view=view,
-            )
-            view_content = HabitsViewComponents.render_list_view(ctx=page_ctx)
-
-        # Build page with tabs + view content
-        page_content = Div(
-            PageHeader("Habits", subtitle="Build and maintain daily habits"),
-            HabitsViewComponents.render_view_tabs(active_view=view),
-            Div(view_content, id="view-content", role="tabpanel"),
-            cls=f"{Spacing.PAGE} {Container.WIDE}",
-        )
-
-        return await create_habits_page(page_content, request=request)
-
-    # ========================================================================
-    # HTMX VIEW FRAGMENTS
-    # ========================================================================
-
-    @rt("/habits/view/list")
-    async def habits_view_list(request) -> Any:
-        """HTMX fragment for list view."""
-        user_uid = require_authenticated_user(request)
-        filters = parse_filters(request)
-
-        filtered_result = await habits_service.get_filtered_context(
-            user_uid, filters.status, filters.sort_by
-        )
-
-        # Handle errors (return banner directly for HTMX swap)
-        if filtered_result.is_error:
-            return render_error_banner("Failed to load habits")
-
-        svc_ctx = filtered_result.value
-        page_ctx = HabitsPageContext(
+    def build_habits_page_context(
+        svc_ctx: dict[str, Any], filters: ActivityFilters
+    ) -> Any:
+        """Map service context to HabitsPageContext."""
+        return HabitsPageContext(
             entities=svc_ctx["entities"],
             filters=filters.to_dict(),
             stats=svc_ctx["stats"],
             categories=svc_ctx.get("metadata", {}).get("categories", []),
         )
-        return HabitsViewComponents.render_list_view(ctx=page_ctx)
 
-    @rt("/habits/view/create")
-    async def habits_view_create(request) -> Any:
-        """HTMX fragment for create view."""
-        require_authenticated_user(request)
-        return HabitsViewComponents.render_create_view(
-            categories=_get_habit_categories(),
-        )
+    async def render_habits_create(user_uid: str, svc_ctx: dict[str, Any]) -> Any:
+        """Render habits create view."""
+        categories = svc_ctx.get("metadata", {}).get("categories", []) or _get_habit_categories()
+        return HabitsViewComponents.render_create_view(categories=categories)
 
-    @rt("/habits/view/calendar")
-    async def habits_view_calendar(request) -> Any:
-        """HTMX fragment for calendar view."""
-        user_uid = require_authenticated_user(request)
+    async def render_habits_calendar(user_uid: str, request: Any) -> Any:
+        """Render habits calendar view."""
         calendar_params = parse_calendar_params(request)
-
         habits_result = await get_all_habits(user_uid)
-
-        # Handle errors
         if habits_result.is_error:
             return render_error_banner("Failed to load calendar")
-
         return HabitsViewComponents.render_calendar_view(
             habits=habits_result.value,
             current_date=calendar_params.current_date,
             calendar_view=calendar_params.calendar_view,
         )
 
-    # ========================================================================
-    # LIST FRAGMENT (for filter updates)
-    # ========================================================================
-
-    @rt("/habits/list-fragment")
-    async def habits_list_fragment(request) -> Any:
-        """Return filtered habit list for HTMX updates."""
-        user_uid = require_authenticated_user(request)
-        filters = parse_filters(request)
-
-        filtered_result = await habits_service.get_filtered_context(
-            user_uid, filters.status, filters.sort_by
-        )
-
-        # Handle errors
-        if filtered_result.is_error:
-            return render_error_banner("Failed to load habits")
-
-        ctx = filtered_result.value
-        habits = ctx["entities"]
-
-        # Return just the habit items
-        habit_items = [HabitsViewComponents._render_habit_item(habit) for habit in habits]
-
+    def render_habits_list_fragment(entities: list[Any]) -> Any:
+        """Render habit list fragment for HTMX updates."""
+        items = [HabitsViewComponents._render_habit_item(habit) for habit in entities]
         return Div(
-            *habit_items if habit_items else [EmptyState(title="No habits found")],
+            *items if items else [EmptyState(title="No habits found")],
             id="habit-list",
             cls="space-y-3",
         )
+
+    DashboardUIFactory.register_routes(
+        rt,
+        DashboardUIConfig(
+            domain_name="habits",
+            title="Habits",
+            subtitle="Build and maintain daily habits",
+            default_view="list",
+            views=("list", "create", "calendar"),
+            parse_filters=parse_filters,
+            fetch_filtered_context=fetch_habits_context,
+            render_view_tabs=HabitsViewComponents.render_view_tabs,
+            render_list_view=HabitsViewComponents.render_list_view,
+            render_create_view=render_habits_create,
+            render_third_view=render_habits_calendar,
+            build_page_context=build_habits_page_context,
+            render_list_fragment=render_habits_list_fragment,
+            create_page=create_habits_page,
+        ),
+    )
 
     # ========================================================================
     # QUICK ADD (via QuickAddRouteFactory)

@@ -27,14 +27,16 @@ from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.form_helpers import parse_enum_safe, parse_principle_filters, safe_form_string
+from adapters.inbound.form_helpers import PrincipleFilters
 from adapters.inbound.route_factories import (
+    DashboardUIConfig,
+    DashboardUIFactory,
     QuickAddConfig,
     QuickAddRouteFactory,
     parse_int_query_param,
     require_owned_entity,
 )
 from adapters.inbound.ui_helpers import (
-    render_dashboard_error_page,
     render_entity_not_found_page,
     render_safe_error_response,
 )
@@ -52,7 +54,6 @@ from ui.layouts.page_types import PageType
 from ui.page_contexts import PrinciplesPageContext
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_error_banner
-from ui.patterns.page_header import PageHeader
 from ui.patterns.relationships import EntityRelationshipsSection
 from ui.principles.layout import create_principles_page
 from ui.principles.views import PrinciplesViewComponents
@@ -195,160 +196,72 @@ def create_principles_ui_routes(
         """Get available principle categories from PrincipleCategory enum."""
         return [c.value for c in PrincipleCategory]
 
-    async def _dashboard_error(error_message: str, view: str, request: Any) -> Any:
-        """Render a dashboard error page with standard Principles chrome."""
-        return await render_dashboard_error_page(
-            "Principles",
-            "Define the values that guide you",
-            error_message,
-            view,
-            PrinciplesViewComponents.render_view_tabs,
-            create_principles_page,
-            request,
-        )
-
     # ========================================================================
-    # MAIN DASHBOARD (Standalone Three-View, List First)
+    # DASHBOARD + VIEW FRAGMENTS (via DashboardUIFactory)
     # ========================================================================
 
-    @rt("/principles")
-    async def principles_dashboard(request) -> Any:
-        """Main principles dashboard with three views (standalone, no drawer)."""
-        user_uid = require_authenticated_user(request)
-
-        # Get view parameter (default to list for principles)
-        view = request.query_params.get("view", "list")
-
-        # Parse filters using helper
-        filters = parse_principle_filters(request)
-
-        # Render the appropriate view content
-        if view == "create":
-            view_content = PrinciplesViewComponents.render_create_view(
-                categories=_get_principle_categories(),
-            )
-        elif view == "analytics":
-            analytics_result = await principles_service.get_analytics_summary(user_uid)
-
-            # Check for errors
-            if analytics_result.is_error:
-                return await _dashboard_error("Failed to load analytics", view, request)
-
-            view_content = PrinciplesViewComponents.render_analytics_view(
-                analytics_data=analytics_result.value,
-            )
-        else:  # list (default for principles)
-            filtered_result = await principles_service.get_filtered_context(
-                user_uid, filters.category, filters.strength, filters.sort_by, filters.status
-            )
-
-            # Check for errors
-            if filtered_result.is_error:
-                return await _dashboard_error("Failed to load principles", view, request)
-
-            ctx = filtered_result.value
-            page_ctx = PrinciplesPageContext(
-                entities=ctx["entities"],
-                filters=filters.to_dict(),
-                stats=ctx["stats"],
-                categories=ctx.get("metadata", {}).get("categories", []),
-            )
-            view_content = PrinciplesViewComponents.render_list_view(ctx=page_ctx)
-
-        # Build page with tabs + view content
-        page_content = Div(
-            PageHeader("Principles", subtitle="Define the values that guide you"),
-            PrinciplesViewComponents.render_view_tabs(active_view=view),
-            Div(view_content, id="view-content", role="tabpanel"),
-            cls=f"{Spacing.PAGE} {Container.WIDE}",
-        )
-
-        return await create_principles_page(page_content, request=request)
-
-    # ========================================================================
-    # HTMX VIEW FRAGMENTS
-    # ========================================================================
-
-    @rt("/principles/view/list")
-    async def principles_view_list(request) -> Any:
-        """HTMX fragment for list view (default for principles)."""
-        user_uid = require_authenticated_user(request)
-
-        # Parse filters using helper
-        filters = parse_principle_filters(request)
-
-        filtered_result = await principles_service.get_filtered_context(
+    async def fetch_principles_context(user_uid: str, filters: PrincipleFilters) -> Any:
+        """Fetch filtered principles context from service."""
+        return await principles_service.get_filtered_context(
             user_uid, filters.category, filters.strength, filters.sort_by, filters.status
         )
 
-        # Handle errors (return banner directly for HTMX swap)
-        if filtered_result.is_error:
-            return render_error_banner("Failed to load principles")
-
-        svc_ctx = filtered_result.value
-        page_ctx = PrinciplesPageContext(
+    def build_principles_page_context(
+        svc_ctx: dict[str, Any], filters: PrincipleFilters
+    ) -> Any:
+        """Map service context to PrinciplesPageContext."""
+        return PrinciplesPageContext(
             entities=svc_ctx["entities"],
             filters=filters.to_dict(),
             stats=svc_ctx["stats"],
             categories=svc_ctx.get("metadata", {}).get("categories", []),
         )
-        return PrinciplesViewComponents.render_list_view(ctx=page_ctx)
 
-    @rt("/principles/view/create")
-    async def principles_view_create(request) -> Any:
-        """HTMX fragment for create view."""
-        require_authenticated_user(request)
+    async def render_principles_create(user_uid: str, svc_ctx: dict[str, Any]) -> Any:
+        """Render principles create view."""
         return PrinciplesViewComponents.render_create_view(
             categories=_get_principle_categories(),
         )
 
-    @rt("/principles/view/analytics")
-    async def principles_view_analytics(request) -> Any:
-        """HTMX fragment for analytics view."""
-        user_uid = require_authenticated_user(request)
+    async def render_principles_analytics(user_uid: str, request: Any) -> Any:
+        """Render principles analytics view."""
         analytics_result = await principles_service.get_analytics_summary(user_uid)
-
-        # Handle errors (return banner directly for HTMX swap)
         if analytics_result.is_error:
             return render_error_banner("Failed to load analytics")
-
         return PrinciplesViewComponents.render_analytics_view(
             analytics_data=analytics_result.value,
         )
 
-    # ========================================================================
-    # LIST FRAGMENT (for filter updates)
-    # ========================================================================
-
-    @rt("/principles/list-fragment")
-    async def principles_list_fragment(request) -> Any:
-        """Return filtered principle list for HTMX updates."""
-        user_uid = require_authenticated_user(request)
-
-        # Parse filters using helper
-        filters = parse_principle_filters(request)
-
-        filtered_result = await principles_service.get_filtered_context(
-            user_uid, filters.category, filters.strength, filters.sort_by, filters.status
-        )
-
-        # Handle errors (return banner directly for HTMX swap)
-        if filtered_result.is_error:
-            return render_error_banner("Failed to load principles")
-
-        ctx = filtered_result.value
-        principles = ctx["entities"]
-
-        # Return just the principle items
-        principle_items = [
-            PrinciplesViewComponents._render_principle_item(principle) for principle in principles
+    def render_principles_list_fragment(entities: list[Any]) -> Any:
+        """Render principle list fragment for HTMX updates."""
+        items = [
+            PrinciplesViewComponents._render_principle_item(principle) for principle in entities
         ]
-
         return Div(
-            *principle_items if principle_items else [EmptyState(title="No principles found")],
+            *items if items else [EmptyState(title="No principles found")],
             id="principle-list",
             cls="space-y-3",
         )
+
+    DashboardUIFactory.register_routes(
+        rt,
+        DashboardUIConfig(
+            domain_name="principles",
+            title="Principles",
+            subtitle="Define the values that guide you",
+            default_view="list",
+            views=("list", "create", "analytics"),
+            parse_filters=parse_principle_filters,
+            fetch_filtered_context=fetch_principles_context,
+            render_view_tabs=PrinciplesViewComponents.render_view_tabs,
+            render_list_view=PrinciplesViewComponents.render_list_view,
+            render_create_view=render_principles_create,
+            render_third_view=render_principles_analytics,
+            build_page_context=build_principles_page_context,
+            render_list_fragment=render_principles_list_fragment,
+            create_page=create_principles_page,
+        ),
+    )
 
     # ========================================================================
     # QUICK ADD (must be BEFORE {uid} routes to avoid path parameter conflict)

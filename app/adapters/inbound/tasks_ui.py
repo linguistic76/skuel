@@ -28,12 +28,15 @@ from starlette.responses import Response
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from adapters.inbound.form_helpers import (
+    TaskFilters,
     parse_date_safe,
     parse_enum_safe,
     parse_task_filters,
     safe_form_string,
 )
 from adapters.inbound.route_factories import (
+    DashboardUIConfig,
+    DashboardUIFactory,
     QuickAddConfig,
     QuickAddRouteFactory,
     require_owned_entity,
@@ -41,7 +44,6 @@ from adapters.inbound.route_factories import (
 )
 from adapters.inbound.ui_helpers import (
     parse_calendar_params,
-    render_dashboard_error_page,
     render_entity_not_found_page,
     render_safe_error_response,
 )
@@ -58,7 +60,6 @@ from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
 from ui.page_contexts import TasksPageContext
 from ui.patterns.error_banner import render_error_banner
-from ui.patterns.page_header import PageHeader
 from ui.patterns.relationships import EntityRelationshipsSection
 from ui.tasks.layout import create_tasks_page
 from ui.tasks.todoist_components import TodoistTaskComponents
@@ -200,25 +201,12 @@ def create_tasks_ui_routes(
     logger.info("Registering three-view task routes (standalone)")
 
     # ========================================================================
-    # MAIN DASHBOARD (Standalone Three-View)
+    # DASHBOARD + VIEW FRAGMENTS (via DashboardUIFactory)
     # ========================================================================
 
-    @rt("/tasks")
-    async def tasks_dashboard(request) -> Any:
-        """Main tasks dashboard with three views (standalone, no drawer)."""
-        user_uid = require_authenticated_user(request)
-
-        # Get view parameter (default to list)
-        view = request.query_params.get("view", "list")
-
-        # Get filter params (for list view)
-        filters = parse_task_filters(request)
-
-        # Get calendar params (for calendar view)
-        calendar_params = parse_calendar_params(request)
-
-        # Get data (with error handling) — single query returns entities + stats + metadata
-        filtered_result = await tasks_service.get_filtered_context(
+    async def fetch_tasks_context(user_uid: str, filters: TaskFilters) -> Any:
+        """Fetch filtered tasks context from service."""
+        return await tasks_service.get_filtered_context(
             user_uid,
             filters.project or None,
             filters.assignee or None,
@@ -227,162 +215,53 @@ def create_tasks_ui_routes(
             filters.sort_by,
         )
 
-        # Check for errors
-        if filtered_result.is_error:
-            return await render_dashboard_error_page(
-                "Tasks",
-                "Manage your daily tasks",
-                "Failed to load tasks",
-                view,
-                TasksViewComponents.render_view_tabs,
-                create_tasks_page,
-                request,
-            )
-
-        ctx = filtered_result.value
-        tasks = ctx["entities"]
-        projects = ctx.get("metadata", {}).get("projects", [])
-        assignees = ctx.get("metadata", {}).get("assignees", [])
-
-        # Render the appropriate view content
-        if view == "create":
-            view_content = TasksViewComponents.render_create_view(
-                projects=projects,
-                existing_tasks=tasks,
-            )
-        elif view == "calendar":
-            # Get all user's tasks (not filtered by status) for calendar
-            all_result = await tasks_service.get_filtered_context(user_uid, status_filter="all")
-            if all_result.is_error:
-                view_content = render_error_banner(f"Unable to load calendar: {all_result.error}")
-            else:
-                view_content = TasksViewComponents.render_calendar_view(
-                    tasks=all_result.value["entities"],
-                    current_date=calendar_params.current_date,
-                    calendar_view=calendar_params.calendar_view,
-                )
-        else:  # list (default)
-            page_ctx = TasksPageContext(
-                entities=tasks,
-                filters=filters.to_dict(),
-                projects=projects,
-                assignees=assignees,
-                view=view,
-            )
-            view_content = TasksViewComponents.render_list_view(ctx=page_ctx)
-
-        # Build page with tabs + view content
-        page_content = Div(
-            PageHeader("Tasks", subtitle="Manage your daily tasks"),
-            TasksViewComponents.render_view_tabs(active_view=view),
-            Div(view_content, id="view-content", role="tabpanel"),
-            cls=f"{Spacing.PAGE} {Container.WIDE}",
-        )
-
-        return await create_tasks_page(page_content, user_uid, request=request)
-
-    # ========================================================================
-    # HTMX VIEW FRAGMENTS
-    # ========================================================================
-
-    @rt("/tasks/view/list")
-    async def tasks_view_list(request) -> Any:
-        """HTMX fragment for list view."""
-        user_uid = require_authenticated_user(request)
-
-        # Get filter params
-        filters = parse_task_filters(request)
-
-        # Get data — single query returns entities + stats + metadata
-        filtered_result = await tasks_service.get_filtered_context(
-            user_uid,
-            filters.project or None,
-            filters.assignee or None,
-            filters.due_filter or None,
-            filters.status,
-            filters.sort_by,
-        )
-
-        # Handle errors
-        if filtered_result.is_error:
-            return render_error_banner("Failed to load tasks")
-
-        svc_ctx = filtered_result.value
-        page_ctx = TasksPageContext(
+    def build_tasks_page_context(svc_ctx: dict[str, Any], filters: TaskFilters) -> Any:
+        """Map service context to TasksPageContext."""
+        return TasksPageContext(
             entities=svc_ctx["entities"],
             filters=filters.to_dict(),
             projects=svc_ctx.get("metadata", {}).get("projects", []),
             assignees=svc_ctx.get("metadata", {}).get("assignees", []),
         )
-        return TasksViewComponents.render_list_view(ctx=page_ctx)
 
-    @rt("/tasks/view/create")
-    async def tasks_view_create(request) -> Any:
-        """HTMX fragment for create view."""
-        user_uid = require_authenticated_user(request)
-
-        filtered_result = await tasks_service.get_filtered_context(user_uid, status_filter="all")
-
-        # Handle errors
-        if filtered_result.is_error:
-            return render_error_banner("Failed to load tasks")
-
-        ctx = filtered_result.value
+    async def render_tasks_create(user_uid: str, svc_ctx: dict[str, Any]) -> Any:
+        """Render tasks create view."""
         return TasksViewComponents.render_create_view(
-            projects=ctx.get("metadata", {}).get("projects", []),
-            existing_tasks=ctx["entities"],
+            projects=svc_ctx.get("metadata", {}).get("projects", []),
+            existing_tasks=svc_ctx["entities"],
         )
 
-    @rt("/tasks/view/calendar")
-    async def tasks_view_calendar(request) -> Any:
-        """HTMX fragment for calendar view with Month/Week/Day sub-views."""
-        user_uid = require_authenticated_user(request)
-
-        # Get calendar params
+    async def render_tasks_calendar(user_uid: str, request: Any) -> Any:
+        """Render tasks calendar view."""
         calendar_params = parse_calendar_params(request)
-
-        # Get all user's tasks for calendar (not filtered by status)
-        filtered_result = await tasks_service.get_filtered_context(user_uid, status_filter="all")
-
-        # Handle errors
-        if filtered_result.is_error:
+        all_result = await tasks_service.get_filtered_context(user_uid, status_filter="all")
+        if all_result.is_error:
             return render_error_banner("Unable to load calendar")
-
         return TasksViewComponents.render_calendar_view(
-            tasks=filtered_result.value["entities"],
+            tasks=all_result.value["entities"],
             current_date=calendar_params.current_date,
             calendar_view=calendar_params.calendar_view,
         )
 
-    # ========================================================================
-    # HTMX FRAGMENTS
-    # ========================================================================
-
-    @rt("/tasks/list-fragment")
-    async def tasks_list_fragment(request) -> Any:
-        """Return filtered task list for HTMX updates."""
-        user_uid = require_authenticated_user(request)
-
-        # Get filter params
-        filters = parse_task_filters(request)
-
-        # Get filtered tasks
-        filtered_result = await tasks_service.get_filtered_context(
-            user_uid,
-            filters.project or None,
-            filters.assignee or None,
-            filters.due_filter or None,
-            filters.status,
-            filters.sort_by,
-        )
-
-        # Handle errors
-        if filtered_result.is_error:
-            return render_error_banner("Failed to load tasks")
-
-        ctx = filtered_result.value
-        tasks = ctx["entities"]
-        return TodoistTaskComponents.render_task_list(tasks)
+    DashboardUIFactory.register_routes(
+        rt,
+        DashboardUIConfig(
+            domain_name="tasks",
+            title="Tasks",
+            subtitle="Manage your daily tasks",
+            default_view="list",
+            views=("list", "create", "calendar"),
+            parse_filters=parse_task_filters,
+            fetch_filtered_context=fetch_tasks_context,
+            render_view_tabs=TasksViewComponents.render_view_tabs,
+            render_list_view=TasksViewComponents.render_list_view,
+            render_create_view=render_tasks_create,
+            render_third_view=render_tasks_calendar,
+            build_page_context=build_tasks_page_context,
+            render_list_fragment=TodoistTaskComponents.render_task_list,
+            create_page=create_tasks_page,
+        ),
+    )
 
     # ========================================================================
     # QUICK ADD (via QuickAddRouteFactory)

@@ -30,11 +30,15 @@ from adapters.inbound.form_helpers import (
     parse_enum_safe,
     safe_form_string,
 )
-from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
+from adapters.inbound.route_factories import (
+    DashboardUIConfig,
+    DashboardUIFactory,
+    QuickAddConfig,
+    QuickAddRouteFactory,
+)
 from adapters.inbound.ui_helpers import (
     fetch_user_entities,
     parse_calendar_params,
-    render_dashboard_error_page,
     render_entity_not_found_page,
 )
 from core.models.enums import Priority
@@ -56,7 +60,6 @@ from ui.patterns.empty_state import EmptyState
 from ui.patterns.entity_dashboard import SharedUIComponents
 from ui.patterns.error_banner import render_error_banner, render_inline_error
 from ui.patterns.form_generator import FormGenerator
-from ui.patterns.page_header import PageHeader
 from ui.patterns.relationships import EntityRelationshipsSection
 from ui.tokens import Container, Spacing
 
@@ -491,164 +494,69 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsService, services: Any 
         return _GOAL_CATEGORIES
 
     # ========================================================================
-    # MAIN DASHBOARD (Standalone Three-View)
+    # DASHBOARD + VIEW FRAGMENTS (via DashboardUIFactory)
     # ========================================================================
 
-    @rt("/goals")
-    async def goals_dashboard(request) -> Any:
-        """Main goals dashboard with three views (standalone, no drawer)."""
-        user_uid = require_authenticated_user(request)
+    async def fetch_goals_context(user_uid: str, filters: ActivityFilters) -> Any:
+        """Fetch filtered goals context from service."""
+        return await goals_service.get_filtered_context(user_uid, filters.status, filters.sort_by)
 
-        # Get view parameter (default to list)
-        view = request.query_params.get("view", "list")
-
-        # Parse using helpers
-        filters = parse_filters(request)
-        calendar_params = parse_calendar_params(request)
-
-        # Get data with Result[T]
-        filtered_result = await goals_service.get_filtered_context(
-            user_uid, filters.status, filters.sort_by
-        )
-
-        # CHECK FOR ERRORS
-        if filtered_result.is_error:
-            return await render_dashboard_error_page(
-                "Goals",
-                "Track and achieve your goals",
-                "Failed to load goals",
-                view,
-                GoalsViewComponents.render_view_tabs,
-                create_goals_page,
-                request,
-            )
-
-        # Extract values
-        ctx = filtered_result.value
-        goals, stats = ctx["entities"], ctx["stats"]
-        categories = ctx.get("metadata", {}).get("categories", [])
-
-        # Render the appropriate view content
-        if view == "create":
-            view_content = GoalsViewComponents.render_create_view(
-                categories=categories,
-            )
-        elif view == "calendar":
-            all_goals_result = await get_all_goals(user_uid)
-
-            # Check for errors
-            if all_goals_result.is_error:
-                view_content = render_error_banner(
-                    f"Failed to load calendar: {all_goals_result.error}"
-                )
-            else:
-                view_content = GoalsViewComponents.render_calendar_view(
-                    goals=all_goals_result.value,
-                    current_date=calendar_params.current_date,
-                    calendar_view=calendar_params.calendar_view,
-                )
-        else:  # list (default)
-            page_ctx = GoalsPageContext(
-                entities=goals,
-                filters=filters.to_dict(),
-                stats=stats,
-                categories=categories,
-                view=view,
-            )
-            view_content = GoalsViewComponents.render_list_view(ctx=page_ctx)
-
-        # Build page with tabs + view content
-        page_content = Div(
-            PageHeader("Goals", subtitle="Track and achieve your goals"),
-            GoalsViewComponents.render_view_tabs(active_view=view),
-            Div(view_content, id="view-content", role="tabpanel"),
-            cls=f"{Spacing.PAGE} {Container.WIDE}",
-        )
-
-        return await create_goals_page(page_content, request=request)
-
-    # ========================================================================
-    # HTMX VIEW FRAGMENTS
-    # ========================================================================
-
-    @rt("/goals/view/list")
-    async def goals_view_list(request) -> Any:
-        """HTMX fragment for list view."""
-        user_uid = require_authenticated_user(request)
-        filters = parse_filters(request)
-
-        filtered_result = await goals_service.get_filtered_context(
-            user_uid, filters.status, filters.sort_by
-        )
-
-        # Handle errors (return banner directly for HTMX swap)
-        if filtered_result.is_error:
-            return render_error_banner("Failed to load goals")
-
-        svc_ctx = filtered_result.value
-        page_ctx = GoalsPageContext(
+    def build_goals_page_context(
+        svc_ctx: dict[str, Any], filters: ActivityFilters
+    ) -> Any:
+        """Map service context to GoalsPageContext."""
+        return GoalsPageContext(
             entities=svc_ctx["entities"],
             filters=filters.to_dict(),
             stats=svc_ctx["stats"],
             categories=svc_ctx.get("metadata", {}).get("categories", []),
         )
-        return GoalsViewComponents.render_list_view(ctx=page_ctx)
 
-    @rt("/goals/view/create")
-    async def goals_view_create(request) -> Any:
-        """HTMX fragment for create view."""
-        require_authenticated_user(request)
-        return GoalsViewComponents.render_create_view(
-            categories=_get_goal_categories(),
-        )
+    async def render_goals_create(user_uid: str, svc_ctx: dict[str, Any]) -> Any:
+        """Render goals create view."""
+        categories = svc_ctx.get("metadata", {}).get("categories", []) or _get_goal_categories()
+        return GoalsViewComponents.render_create_view(categories=categories)
 
-    @rt("/goals/view/calendar")
-    async def goals_view_calendar(request) -> Any:
-        """HTMX fragment for calendar view."""
-        user_uid = require_authenticated_user(request)
+    async def render_goals_calendar(user_uid: str, request: Any) -> Any:
+        """Render goals calendar view."""
         calendar_params = parse_calendar_params(request)
-
         goals_result = await get_all_goals(user_uid)
-
-        # Handle errors
         if goals_result.is_error:
             return render_error_banner("Failed to load calendar")
-
         return GoalsViewComponents.render_calendar_view(
             goals=goals_result.value,
             current_date=calendar_params.current_date,
             calendar_view=calendar_params.calendar_view,
         )
 
-    # ========================================================================
-    # LIST FRAGMENT (for filter updates)
-    # ========================================================================
-
-    @rt("/goals/list-fragment")
-    async def goals_list_fragment(request) -> Any:
-        """Return filtered goal list for HTMX updates."""
-        user_uid = require_authenticated_user(request)
-        filters = parse_filters(request)
-
-        filtered_result = await goals_service.get_filtered_context(
-            user_uid, filters.status, filters.sort_by
-        )
-
-        # Handle errors
-        if filtered_result.is_error:
-            return render_error_banner("Failed to load goals")
-
-        ctx = filtered_result.value
-        goals = ctx["entities"]
-
-        # Return just the goal items
-        goal_items = [GoalsViewComponents._render_goal_item(goal, user_uid) for goal in goals]
-
+    def render_goals_list_fragment(entities: list[Any]) -> Any:
+        """Render goal list fragment for HTMX updates."""
+        items = [GoalsViewComponents._render_goal_item(goal) for goal in entities]
         return Div(
-            *goal_items if goal_items else [EmptyState(title="No goals found")],
+            *items if items else [EmptyState(title="No goals found")],
             id="goal-list",
             cls="space-y-3",
         )
+
+    DashboardUIFactory.register_routes(
+        rt,
+        DashboardUIConfig(
+            domain_name="goals",
+            title="Goals",
+            subtitle="Track and achieve your goals",
+            default_view="list",
+            views=("list", "create", "calendar"),
+            parse_filters=parse_filters,
+            fetch_filtered_context=fetch_goals_context,
+            render_view_tabs=GoalsViewComponents.render_view_tabs,
+            render_list_view=GoalsViewComponents.render_list_view,
+            render_create_view=render_goals_create,
+            render_third_view=render_goals_calendar,
+            build_page_context=build_goals_page_context,
+            render_list_fragment=render_goals_list_fragment,
+            create_page=create_goals_page,
+        ),
+    )
 
     # ========================================================================
     # QUICK ADD (via QuickAddRouteFactory)

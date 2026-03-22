@@ -30,12 +30,13 @@ from adapters.inbound.form_helpers import (
     safe_form_string,
 )
 from adapters.inbound.route_factories import (
+    DashboardUIConfig,
+    DashboardUIFactory,
     QuickAddConfig,
     QuickAddRouteFactory,
     require_owned_entity,
 )
 from adapters.inbound.ui_helpers import (
-    render_dashboard_error_page,
     render_entity_not_found_page,
     render_safe_error_response,
 )
@@ -63,7 +64,6 @@ from ui.modals import Modal, ModalBox
 from ui.page_contexts import ChoicesPageContext
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_error_banner
-from ui.patterns.page_header import PageHeader
 from ui.patterns.relationships import EntityRelationshipsSection
 from ui.tokens import Container, Spacing
 
@@ -182,146 +182,67 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
     logger.info("Registering three-view choice routes (standalone, analytics)")
 
     # ========================================================================
-    # MAIN DASHBOARD (Standalone Three-View, List First)
+    # DASHBOARD + VIEW FRAGMENTS (via DashboardUIFactory)
     # ========================================================================
 
-    @rt("/choices")
-    async def choices_dashboard(request) -> Any:
-        """Main choices dashboard with three views (standalone, no drawer)."""
-        user_uid = require_authenticated_user(request)
+    async def fetch_choices_context(user_uid: str, filters: ActivityFilters) -> Any:
+        """Fetch filtered choices context from service."""
+        return await choices_service.get_filtered_context(user_uid, filters.status, filters.sort_by)
 
-        view = request.query_params.get("view", "list")
-        filters = parse_filters(request)
-
-        filtered_result = await choices_service.get_filtered_context(
-            user_uid, filters.status, filters.sort_by
-        )
-
-        if filtered_result.is_error:
-            return await render_dashboard_error_page(
-                "Choices",
-                "Make and track important decisions",
-                "Failed to load choices",
-                view,
-                ChoicesViewComponents.render_view_tabs,
-                create_choices_page,
-                request,
-            )
-
-        ctx = filtered_result.value
-        choices, stats = ctx["entities"], ctx["stats"]
-
-        if view == "create":
-            view_content = ChoicesViewComponents.render_create_view(
-                choice_types=CHOICE_TYPES,
-                domains=DOMAINS,
-            )
-        elif view == "analytics":
-            analytics_result = await choices_service.get_analytics_context(user_uid)
-
-            if analytics_result.is_error:
-                view_content = render_error_banner(
-                    f"Failed to load analytics: {analytics_result.error}"
-                )
-            else:
-                view_content = ChoicesViewComponents.render_analytics_view(
-                    analytics_data=analytics_result.value,
-                )
-        else:
-            page_ctx = ChoicesPageContext(
-                entities=choices,
-                filters=filters.to_dict(),
-                stats=stats,
-                view=view,
-            )
-            view_content = ChoicesViewComponents.render_list_view(ctx=page_ctx)
-
-        page_content = Div(
-            PageHeader("Choices", subtitle="Make and track important decisions"),
-            ChoicesViewComponents.render_view_tabs(active_view=view),
-            Div(view_content, id="view-content", role="tabpanel"),
-            cls=f"{Spacing.PAGE} {Container.WIDE}",
-        )
-
-        return await create_choices_page(page_content, request=request)
-
-    # ========================================================================
-    # HTMX VIEW FRAGMENTS
-    # ========================================================================
-
-    @rt("/choices/view/list")
-    async def choices_view_list(request) -> Any:
-        """HTMX fragment for list view (default for choices)."""
-        user_uid = require_authenticated_user(request)
-        filters = parse_filters(request)
-
-        filtered_result = await choices_service.get_filtered_context(
-            user_uid, filters.status, filters.sort_by
-        )
-
-        # Handle errors
-        if filtered_result.is_error:
-            return render_error_banner("Failed to load choices")
-
-        svc_ctx = filtered_result.value
-        page_ctx = ChoicesPageContext(
+    def build_choices_page_context(
+        svc_ctx: dict[str, Any], filters: ActivityFilters
+    ) -> Any:
+        """Map service context to ChoicesPageContext."""
+        return ChoicesPageContext(
             entities=svc_ctx["entities"],
             filters=filters.to_dict(),
             stats=svc_ctx["stats"],
         )
-        return ChoicesViewComponents.render_list_view(ctx=page_ctx)
 
-    @rt("/choices/view/create")
-    async def choices_view_create(request) -> Any:
-        """HTMX fragment for create view."""
-        require_authenticated_user(request)
+    async def render_choices_create(user_uid: str, svc_ctx: dict[str, Any]) -> Any:
+        """Render choices create view."""
         return ChoicesViewComponents.render_create_view(
             choice_types=CHOICE_TYPES,
             domains=DOMAINS,
         )
 
-    @rt("/choices/view/analytics")
-    async def choices_view_analytics(request) -> Any:
-        """HTMX fragment for analytics view."""
-        user_uid = require_authenticated_user(request)
+    async def render_choices_analytics(user_uid: str, request: Any) -> Any:
+        """Render choices analytics view."""
         analytics_result = await choices_service.get_analytics_context(user_uid)
-
         if analytics_result.is_error:
             return render_error_banner("Failed to load analytics")
-
         return ChoicesViewComponents.render_analytics_view(
             analytics_data=analytics_result.value,
         )
 
-    # ========================================================================
-    # LIST FRAGMENT (for filter updates)
-    # ========================================================================
-
-    @rt("/choices/list-fragment")
-    async def choices_list_fragment(request) -> Any:
-        """Return filtered choice list for HTMX updates."""
-        user_uid = require_authenticated_user(request)
-        filters = parse_filters(request)
-
-        filtered_result = await choices_service.get_filtered_context(
-            user_uid, filters.status, filters.sort_by
-        )
-
-        # Handle errors
-        if filtered_result.is_error:
-            return render_error_banner("Failed to load choices")
-
-        ctx = filtered_result.value
-        choices = ctx["entities"]
-
-        # Return just the choice items
-        choice_items = [ChoicesViewComponents._render_choice_item(choice) for choice in choices]
-
+    def render_choices_list_fragment(entities: list[Any]) -> Any:
+        """Render choice list fragment for HTMX updates."""
+        items = [ChoicesViewComponents._render_choice_item(choice) for choice in entities]
         return Div(
-            *choice_items if choice_items else [EmptyState(title="No decisions found")],
+            *items if items else [EmptyState(title="No decisions found")],
             id="choice-list",
             cls="space-y-3",
         )
+
+    DashboardUIFactory.register_routes(
+        rt,
+        DashboardUIConfig(
+            domain_name="choices",
+            title="Choices",
+            subtitle="Make and track important decisions",
+            default_view="list",
+            views=("list", "create", "analytics"),
+            parse_filters=parse_filters,
+            fetch_filtered_context=fetch_choices_context,
+            render_view_tabs=ChoicesViewComponents.render_view_tabs,
+            render_list_view=ChoicesViewComponents.render_list_view,
+            render_create_view=render_choices_create,
+            render_third_view=render_choices_analytics,
+            build_page_context=build_choices_page_context,
+            render_list_fragment=render_choices_list_fragment,
+            create_page=create_choices_page,
+        ),
+    )
 
     # ========================================================================
     # QUICK ADD (via QuickAddRouteFactory)

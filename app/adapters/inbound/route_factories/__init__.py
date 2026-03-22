@@ -19,6 +19,10 @@ Factories:
 - IntelligenceRouteFactory: AI/intelligence endpoints (analytics, recommendations)
 """
 
+from adapters.inbound.route_factories.dashboard_ui_factory import (
+    DashboardUIConfig,
+    DashboardUIFactory,
+)
 from adapters.inbound.route_factories.crud_route_factory import (
     CRUDOperations,
     CRUDRouteFactory,
@@ -66,6 +70,9 @@ __all__ = [
     "CRUDOperations",
     "CRUDRouteFactory",
     "CommonQueryRouteFactory",
+    # Dashboard UI factory (March 2026)
+    "DashboardUIConfig",
+    "DashboardUIFactory",
     # Domain route factory (January 2026)
     "CRUDRouteConfig",
     "DomainRouteConfig",
