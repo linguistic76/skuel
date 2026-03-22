@@ -719,7 +719,7 @@ that never closes the loop.
        ↓
 3. Student submits file
    SubmissionsService.submit_file()                 → core/services/submissions/submissions_service.py
-   Creates Entity with entity_type='submission', status SUBMITTED→QUEUED→PROCESSING→COMPLETED
+   Creates Entity with entity_type='exercise_submission', status SUBMITTED→QUEUED→PROCESSING→COMPLETED
    (For journals: standalone domain — JournalOutputService.process_je_input() handles LLM → JeOutput)
        ↓
 4. FULFILLS_EXERCISE relationship created

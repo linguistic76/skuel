@@ -74,7 +74,7 @@ class UnifiedIngestionService:
 
     Orchestrates capabilities from decomposed modules:
     - Auto-detects file format (MD vs YAML)
-    - Routes to appropriate entity type (18 entity types)
+    - Routes to appropriate entity type (21 entity types)
     - Normalizes UIDs to dot notation
     - Uses BulkIngestionEngine for batch performance
     - Creates graph-native relationships

@@ -131,12 +131,14 @@ class EntityIngestionConfig:
 
 # ENTITY_CONFIGS — Ingestion Entity Configuration
 #
-# 13 of 18 entity types are file-ingestible. The following are excluded:
+# 12 of 21 entity types are file-ingestible. The following are excluded:
 #   - EXERCISE: Created via API by teachers, not from content files
 #   - REVISED_EXERCISE: Created via API as part of the feedback loop
 #   - RESOURCE: Created via API with curated metadata
-#   - GROUPS: Created via API for teacher-student management
-#   - JOURNAL: Merged into SUBMISSION (the "journal" alias in TYPE_MAPPING resolves there)
+#   - FORM_TEMPLATE: Created via API by admins
+#   - FORM_SUBMISSION: Created via API by users
+#   - JE_INPUT/JE_OUTPUT: Created via journal pipeline (voice/text → LLM)
+#   - EXERCISE_REPORT/ACTIVITY_REPORT: Created via report generation pipeline
 #
 # Relationship configs are derived from the Relationship Registry via
 # generate_ingestion_relationship_config(). Only entries with yaml_field_path

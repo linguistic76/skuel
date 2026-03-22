@@ -1010,7 +1010,7 @@ class NonKuDomain(StrEnum):
 
 
 # Union type for any domain identifier in SKUEL.
-# EntityType covers all 18 entity types; NonKuDomain covers the 4 non-entity domains.
+# EntityType covers all 21 entity types; NonKuDomain covers the 4 non-entity domains.
 DomainIdentifier = EntityType | NonKuDomain
 
 

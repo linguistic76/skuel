@@ -448,7 +448,7 @@ SKUEL measures knowledge by how it's LIVED. Substance tracking: Habits (0.10, ma
 
 ## Generic Programming Patterns
 
-**Core Principle:** "One generic backend serves all 18 entity types"
+**Core Principle:** "One generic backend serves all 21 entity types"
 
 ```python
 # Generic backend -- T constrained by DomainModelProtocol

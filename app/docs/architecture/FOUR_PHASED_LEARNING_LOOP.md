@@ -18,7 +18,7 @@ codebase either feeds this loop, supports its infrastructure, or should be quest
 Learning is not consuming content. Learning is what happens when knowledge changes how you
 act, decide, and live. SKUEL models this through five phases: **what you can learn** (Lesson),
 **how you practise it** (Exercise), **what you produce** (Submission), **what the
-system says back** (Feedback), and **how the teacher guides revision** (RevisedExercise).
+system says back** (Report), and **how the teacher guides revision** (RevisedExercise).
 Every layer is a frozen Python dataclass. Every connection is a Neo4j graph relationship.
 Every measurement flows from real user behaviour, not self-reported progress.
 
@@ -33,7 +33,7 @@ Every measurement flows from real user behaviour, not self-reported progress.
 ║                                                                          ║
 ║  CURRICULUM TRACK (artifact-based)                                       ║
 ║  ────────────────────────────────────────────────────────────────────    ║
-║  [Lesson] → [Exercise] → [Submission/Journal] → [Feedback]             ║
+║  [Lesson] → [Exercise] → [Submission/Journal] → [Report]               ║
 ║   ↑             ↓              ↑↓                     ↓                  ║
 ║  admin       teacher        student               teacher/AI             ║
 ║  creates     assigns     uploads/revises          assesses               ║
@@ -60,7 +60,7 @@ Every measurement flows from real user behaviour, not self-reported progress.
 
 **The loop has two entry points.** Both close the loop: work is done, the system responds.
 
-| Track | Entry Point | Feedback Entity | Who Responds |
+| Track | Entry Point | Report Entity | Who Responds |
 |-------|------------|-----------------|--------------|
 | **Curriculum** | Student uploads a file against an Exercise | `EXERCISE_REPORT` | Teacher or AI (via Exercise instructions) |
 | **Activity** | User's lived practice over a time window | `ACTIVITY_REPORT` | AI (scheduled or on-demand) or Admin |
@@ -325,15 +325,15 @@ full pipeline from upload to sharing and teacher review queue.
 
 ---
 
-## Phase 4: Feedback — The Response
+## Phase 4: Report — The Response
 
 **What:** The evaluation. Two structurally distinct entities cover the two tracks.
 Both say "here is what your work means."
 
 ### 4a. EXERCISE_REPORT — Response to an Artifact
 
-**What:** Evaluation of a specific `EXERCISE_SUBMISSION` or `JOURNAL_SUBMISSION`. One artifact in, one
-`SubmissionReport` node out. Two sources: teacher writes (`HUMAN`) or AI evaluates
+**What:** Evaluation of a specific `EXERCISE_SUBMISSION`. One artifact in, one
+`ExerciseReport` node out. Two sources: teacher writes (`HUMAN`) or AI evaluates
 via the Exercise's `instructions` field (`LLM`).
 
 **EntityType:** `EntityType.EXERCISE_REPORT`
@@ -451,8 +451,8 @@ is no separate activity query layer. Both `ProgressReportGenerator` and
 
 ## The ProcessorType Discriminator
 
-`ProcessorType` distinguishes who produced a feedback entity — not a separate entity type.
-New feedback sources add `ProcessorType` values; they do not create new EntityTypes.
+`ProcessorType` distinguishes who produced a report entity — not a separate entity type.
+New report sources add `ProcessorType` values; they do not create new EntityTypes.
 
 **See:** [REPORT_ARCHITECTURE.md](/docs/architecture/REPORT_ARCHITECTURE.md#processortype-taxonomy) for the canonical ProcessorType table.
 
