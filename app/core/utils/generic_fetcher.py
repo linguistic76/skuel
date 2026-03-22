@@ -148,7 +148,7 @@ def validate_query_specs(
         errors = validate_query_specs(
             TASK_QUERY_SPECS,
             TaskRelationships,
-            TasksRelationshipService,
+            UnifiedRelationshipService,
         )
         if errors:
             raise ValueError(f"Invalid query specs: {errors}")

@@ -441,7 +441,7 @@ if hasattr(obj, 'created_at'):
 
 ```python
 # ❌ Bad - Lambda function
-TaskPure.get_color = lambda self: self.color if isinstance(self, HasColor) else None
+Task.get_color = lambda self: self.color if isinstance(self, HasColor) else None
 
 # ✅ Good - Named function
 def _get_color(self):
@@ -450,7 +450,7 @@ def _get_color(self):
         return self.color
     return None
 
-TaskPure.get_color = _get_color
+Task.get_color = _get_color
 ```
 
 ### 4. Duck Typing for Backends

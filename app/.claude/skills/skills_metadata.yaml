@@ -118,7 +118,7 @@ skills:
     library_version: "9.1.9"
     primary_docs:
       - /docs/patterns/LATERAL_RELATIONSHIPS_VISUALIZATION.md
-      - /docs/architecture/LATERAL_RELATIONSHIPS_CORE.md
+      - /docs/architecture/RELATIONSHIPS_ARCHITECTURE.md
     related_adrs:
       - ADR-037
     patterns:

@@ -74,45 +74,30 @@ async def query_with_intent(
 
 Each intent has a dedicated Cypher handler in `_build_context_query_for_intent()`.
 
-### 2. Domain RelationshipService Pattern
+### 2. UnifiedRelationshipService Pattern
 
-Each domain's RelationshipService follows this pattern:
+All domains use `UnifiedRelationshipService` for relationship operations:
 
 ```python
-class {Domain}RelationshipService(GenericRelationshipService[...]):
+# UnifiedRelationshipService handles all domain relationship queries
+class UnifiedRelationshipService:
     def __init__(
         self,
-        backend: {Domain}Operations,
+        backend: BackendOperations,
         graph_intel: Any | None = None,
     ) -> None:
-        super().__init__(...)
+        self.backend = backend
         self.graph_intel = graph_intel
 
-    def _context_to_domain_model(self, data: dict | DTO | Model) -> Model:
-        """Convert raw data to domain model for context queries."""
-        ...
-
-    @requires_graph_intelligence("get_{entity}_with_context")
-    async def get_{entity}_with_context(
+    @requires_graph_intelligence("get_entity_with_context")
+    async def get_entity_with_context(
         self, uid: str, depth: int = 2
-    ) -> Result[tuple[{Entity}, GraphContext]]:
+    ) -> Result[tuple[Entity, GraphContext]]:
         """Get entity with full graph context using intent-based traversal."""
         entity = await self._get_entity(uid)
         intent = entity.get_suggested_query_intent()
         context = await self.graph_intel.query_with_intent(uid, intent, depth)
         return Result.ok((entity, context.value))
-
-    @requires_graph_intelligence("get_{entity}_{analysis}_analysis")
-    async def get_{entity}_{analysis}_analysis(self, uid: str) -> Result[dict[str, Any]]:
-        """Domain-specific analysis using intent-based context."""
-        context_result = await self.get_{entity}_with_context(uid)
-        # Extract relevant entities, calculate scores, generate recommendations
-        return Result.ok({
-            "{domain}_score": score,
-            "{domain}_level": level,
-            "related_entities": [...],
-            "recommendations": [...]
-        })
 ```
 
 ### 3. Domain Model Integration
@@ -127,11 +112,11 @@ def get_suggested_query_intent(self) -> QueryIntent:
 
 ### 4. Service Wiring
 
-Each facade service wires `graph_intel` to its RelationshipService:
+Each facade service wires `graph_intel` to the unified relationship service:
 
 ```python
 # In {Domain}Service.__init__():
-self.relationships = {Domain}RelationshipService(
+self.relationships = UnifiedRelationshipService(
     backend=backend, graph_intel=graph_intelligence_service
 )
 ```
@@ -244,28 +229,24 @@ Each domain's analysis method returns a consistent structure:
 | QueryIntent enum | `/core/models/query_types.py` |
 | GraphIntelligenceService | `/core/services/infrastructure/graph_intelligence_service.py` |
 | @requires_graph_intelligence | `/core/utils/decorators.py` |
+| **Relationships** | |
+| UnifiedRelationshipService | `/core/services/infrastructure/unified_relationship_service.py` |
 | **Tasks** | |
-| TasksRelationshipService | `/core/services/tasks/tasks_relationship_service.py` |
 | Task model | `/core/models/task/task.py` |
 | TasksService | `/core/services/tasks_service.py` |
 | **Goals** | |
-| GoalsRelationshipService | `/core/services/goals/goals_relationship_service.py` |
 | Goal model | `/core/models/goal/goal.py` |
 | GoalsService | `/core/services/goals_service.py` |
 | **Principles** | |
-| PrinciplesRelationshipService | `/core/services/principles/principles_relationship_service.py` |
 | Principle model | `/core/models/principle/principle.py` |
 | PrinciplesService | `/core/services/principles_service.py` |
 | **Habits** | |
-| HabitsRelationshipService | `/core/services/habits/habits_relationship_service.py` |
 | Habit model | `/core/models/habit/habit.py` |
 | HabitsService | `/core/services/habits_service.py` |
 | **Choices** | |
-| ChoicesRelationshipService | `/core/services/choices/choices_relationship_service.py` |
 | Choice model | `/core/models/choice/choice.py` |
 | ChoicesService | `/core/services/choices_service.py` |
 | **Events** | |
-| EventsRelationshipService | `/core/services/events/events_relationship_service.py` |
 | Event model | `/core/models/event/event.py` |
 | EventsService | `/core/services/events_service.py` |
 

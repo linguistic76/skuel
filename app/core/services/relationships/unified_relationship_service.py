@@ -3,20 +3,7 @@ Unified Relationship Service - Configuration-Driven Generic Relationship Service
 ==================================================================================
 
 A single generic service that handles ALL domain relationship operations through
-configuration, eliminating ~90% of duplicated code across 14 relationship services.
-
-**The Problem:**
-14 relationship service files with ~11,000 lines of largely duplicated patterns:
-- TasksRelationshipService: 1168 lines
-- GoalsRelationshipService: 1002 lines
-- HabitsRelationshipService: 1523 lines
-- EventsRelationshipService: 1319 lines
-- ChoicesRelationshipService: 1192 lines
-- PrinciplesRelationshipService: 1013 lines
-- (+ 8 more services)
-
-**The Solution:**
-One UnifiedRelationshipService + 14 RelationshipConfig objects = ~1000 lines total.
+configuration. One UnifiedRelationshipService + RelationshipConfig objects per domain.
 
 **What This Service Provides:**
 1. Graph-native relationship queries (get_entity_*, has_entity_*)

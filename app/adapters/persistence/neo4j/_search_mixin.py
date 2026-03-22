@@ -419,7 +419,7 @@ class _SearchMixin[T: DomainModelProtocol]:
 
         See Also:
             - GraphContextNode for field type documentation
-            - TasksRelationshipService.get_task_cross_domain_context() for usage
+            - UnifiedRelationshipService for cross-domain context usage
             - CypherGenerator.build_domain_context_with_paths()
         """
         from adapters.persistence.neo4j.query import build_domain_context_with_paths

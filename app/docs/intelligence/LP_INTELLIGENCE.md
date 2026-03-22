@@ -11,7 +11,7 @@
 
 ## Purpose
 
-LpIntelligenceService is a **facade** coordinating four specialized sub-services for comprehensive learning intelligence. It provides learning state analysis, personalized content recommendations, content metadata extraction, and quality assessment through a unified interface. This service maintains backward compatibility while delegating all operations to focused, specialized sub-services.
+LpIntelligenceService is a **facade** coordinating four specialized sub-services for comprehensive learning intelligence. It provides learning state analysis, personalized content recommendations, content metadata extraction, and quality assessment through a unified interface, delegating all operations to focused, specialized sub-services.
 
 **Architecture Note:** LpIntelligenceService is **standalone** - it is NOT created by the LpService facade. It must be instantiated independently and injected where needed.
 
@@ -777,7 +777,7 @@ result = await lp_intelligence.search_by_content_features(
 - `_require_relationship_service()` - Ensures relationships available (not currently used by LP)
 
 **Standard Attributes:**
-- `self.backend` - Primary backend (optional - backward compatibility)
+- `self.backend` - Primary backend (optional)
 - `self.graph_intel` - GraphIntelligenceService (optional)
 - `self.relationships` - UnifiedRelationshipService (optional)
 - `self.embeddings` - OpenAIEmbeddingsService (optional)

@@ -34,7 +34,7 @@ class LearningIntelligenceMixin:
     """
 
     context: UserContext
-    tasks: Any  # TasksRelationshipService
+    tasks: Any  # UnifiedRelationshipService
     lesson: Any  # LessonService facade
     vector_search: Any = None  # Neo4jVectorSearchService (optional)
     zpd_service: Any = None  # ZPDOperations (optional — see core/ports/zpd_protocols.py)

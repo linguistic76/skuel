@@ -84,7 +84,7 @@ class DomainModelProtocol(Protocol):
         SKUEL uses the frozen dataclass + dynamic default pattern:
 
         @dataclass(frozen=True)
-        class TaskPure:
+        class Task:
             uid: str
             created_at: datetime = None  # type: ignore[assignment]
             updated_at: datetime = None  # type: ignore[assignment]

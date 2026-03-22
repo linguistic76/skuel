@@ -84,7 +84,7 @@ from core.models.enums import Priority, KuStatus
 ### WRONG Imports (Do NOT use)
 ```python
 # WRONG - These files don't exist anymore
-from core.models.task_pure import TaskPure  # ❌
+from core.models.task_pure import TaskPure  # ❌ (TaskPure was renamed to Task)
 from core.models.task_schemas import TaskCreateSchema  # ❌
 ```
 

@@ -53,7 +53,7 @@ def get_filterable_fields[T](entity_class: type[T]) -> list[str]:
         ValueError: If entity_class is not a dataclass
 
     Example:
-        fields = get_filterable_fields(TaskPure)
+        fields = get_filterable_fields(Task)
         # ['uid', 'title', 'priority', 'status', 'due_date', ...]
     """
     if not is_dataclass(entity_class):

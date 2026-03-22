@@ -169,7 +169,7 @@ async def test_create_task_with_context_success(
     task = result.value
     assert task.title == task_request.title
     # Relationship fields (prerequisite_knowledge_uids, etc.) removed from Task model
-    # These are now stored as graph relationships and queried via TasksRelationshipService
+    # These are now stored as graph relationships and queried via UnifiedRelationshipService
 
     # Note: Context invalidation now happens via event-driven architecture
     # TaskCreated events trigger user_service.invalidate_context() in bootstrap
@@ -376,7 +376,7 @@ async def test_create_task_from_learning_step(scheduling_service, mock_backend):
     task = result.value
     assert task.source_learning_step_uid == "ls:python_fundamentals"
     assert task.knowledge_mastery_check is True
-    # applies_knowledge_uids removed - query via TasksRelationshipService.get_task_knowledge()
+    # applies_knowledge_uids removed - query via UnifiedRelationshipService
 
 
 @pytest.mark.asyncio

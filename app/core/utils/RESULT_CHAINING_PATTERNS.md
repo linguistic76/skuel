@@ -83,7 +83,7 @@ async def get_journal_for_date(self, target_date: date) -> Result[Optional[Repor
 
 **Before (if/else)**:
 ```python
-async def get_events_by_day(self, target_date: date, include_all_day: bool = True) -> Result[list[EventPure]]:
+async def get_events_by_day(self, target_date: date, include_all_day: bool = True) -> Result[list[Event]]:
     result = await self.get_events_by_date_range(target_date, target_date + timedelta(days=1))
 
     if result.is_ok and not include_all_day:
@@ -95,7 +95,7 @@ async def get_events_by_day(self, target_date: date, include_all_day: bool = Tru
 
 **After (chaining)**:
 ```python
-async def get_events_by_day(self, target_date: date, include_all_day: bool = True) -> Result[list[EventPure]]:
+async def get_events_by_day(self, target_date: date, include_all_day: bool = True) -> Result[list[Event]]:
     result = await self.get_events_by_date_range(target_date, target_date + timedelta(days=1))
 
     return result.map(

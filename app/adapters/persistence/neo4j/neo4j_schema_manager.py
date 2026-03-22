@@ -60,7 +60,7 @@ class Neo4jSchemaManager:
 
     Usage:
         schema_manager = Neo4jSchemaManager(driver)
-        await schema_manager.sync_indexes(TaskPure, "Task")
+        await schema_manager.sync_indexes(Task, "Task")
         # Creates indexes for all fields with metadata={'index': True}
     """
 
@@ -532,9 +532,9 @@ class Neo4jSchemaManager:
 
         Example:
             model_registry = {
-                'Task': TaskPure,
-                'Event': EventPure,
-                'Habit': HabitPure
+                'Task': Task,
+                'Event': Event,
+                'Habit': Habit
             }
             await schema_manager.sync_all_models(model_registry)
         """

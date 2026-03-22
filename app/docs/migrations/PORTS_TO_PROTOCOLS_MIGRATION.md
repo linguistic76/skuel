@@ -172,7 +172,7 @@ if isinstance(obj, HasCreatedAt):
 
 ```python
 # ❌ BEFORE - Lambda function
-TaskPure.get_color = lambda self: self.color if isinstance(self, HasColor) else None
+Task.get_color = lambda self: self.color if isinstance(self, HasColor) else None
 
 # ✅ AFTER - Named function
 def _get_color(self):
@@ -181,7 +181,7 @@ def _get_color(self):
         return self.color
     return None
 
-TaskPure.get_color = _get_color
+Task.get_color = _get_color
 ```
 
 **Result**: Zero lambdas in production code

@@ -42,7 +42,7 @@ from core.services.goals.goals_ai_service import GoalsAIService
 from core.services.goals_types import GoalFeasibilityAssessment
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
 
-# Unified relationship service (replaces GoalsRelationshipService)
+# Unified relationship service
 from core.services.relationships import UnifiedRelationshipService
 from core.utils.activity_domain_config import create_common_sub_services
 from core.utils.dto_helpers import to_domain_model

@@ -35,7 +35,6 @@ Documentation:
 - Service Topology: /docs/architecture/SERVICE_TOPOLOGY.md
 
 Architecture Notes:
-- ChoicesRelationshipService replaced by UnifiedRelationshipService (December 2025)
 - ChoicesAnalyticsService consolidated into ChoicesIntelligenceService (January 2026)
 - Event handlers extracted from ChoicesIntelligenceService to ChoiceEventHandlerService (March 2026)
 """

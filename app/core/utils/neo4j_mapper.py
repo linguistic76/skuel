@@ -637,13 +637,13 @@ def from_neo4j_node[T](data: Neo4jProperties, entity_class: type[T]) -> T:
 
     Examples:
         # Replaces node_to_pure()
-        task = from_neo4j_node(node_data, TaskPure)
+        task = from_neo4j_node(node_data, Task)
 
         # Replaces report_node_to_pure()
         report = from_neo4j_node(node_data, Report)
 
         # Replaces node_to_pure() for habits
-        habit = from_neo4j_node(node_data, HabitPure)
+        habit = from_neo4j_node(node_data, Habit)
     """
     return _mapper.from_node(data, entity_class)
 
@@ -656,19 +656,17 @@ def from_neo4j_node[T](data: Neo4jProperties, entity_class: type[T]) -> T:
 # In tasks_neo4j_backend.py:
 
 from core.utils.neo4j_mapper import to_neo4j_node, from_neo4j_node
-from core.models.task_pure import TaskPure
+from core.models.task import Task
 
 class Neo4jTasksBackend:
-    async def create_task(self, task: TaskPure) -> TaskPure:
-        # OLD: props = task_to_node(task)
-        props = to_neo4j_node(task) # NEW: Generic mapper
+    async def create_task(self, task: Task) -> Task:
+        props = to_neo4j_node(task)
 
         cypher = "CREATE (t:Task $props) RETURN t"
         records = await self.neo4j.execute_query(cypher, {"props": props})
 
         if records:
-            # OLD: return node_to_pure(dict(records[0]["t"]))
-            return from_neo4j_node(dict(records[0]["t"]), TaskPure) # NEW
+            return from_neo4j_node(dict(records[0]["t"]), Task)
         return task
 
 # In reports backend (generic example):

@@ -118,7 +118,6 @@ return dto_from_dict(
     enum_fields={"domain": Domain},
     datetime_fields=["created_at", "updated_at"],
     list_fields=["tags", "semantic_links"],
-    deprecated_fields=["prerequisites", "enables", "related_to"],
 )  # ✅ Automatically filters embedding
 ```
 

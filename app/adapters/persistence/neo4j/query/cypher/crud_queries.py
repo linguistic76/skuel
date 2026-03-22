@@ -91,13 +91,13 @@ def build_search_query(
     Examples:
         # Simple equality
         query, params = build_search_query(
-            TaskPure,
+            Task,
             {'priority': 'high', 'status': 'in_progress'}
         )
 
         # Comparison operators
         query, params = build_search_query(
-            TaskPure,
+            Task,
             {'due_date__gte': date.today(), 'estimated_hours__lt': 5.0}
         )
     """
@@ -606,7 +606,7 @@ def build_get_by_field_query(
         Tuple of (cypher_query, parameters)
 
     Example:
-        query, params = build_get_by_field_query(TaskPure, 'uid', 'task-123')
+        query, params = build_get_by_field_query(Task, 'uid', 'task-123')
     """
     if not is_dataclass(entity_class):
         raise ValueError(f"Entity class must be a dataclass, got {entity_class}")
@@ -651,7 +651,7 @@ def build_list_query(
 
     Example:
         query, params = build_list_query(
-            TaskPure,
+            Task,
             limit=20,
             order_by='created_at',
             order_desc=True
@@ -701,7 +701,7 @@ def build_count_query(
 
     Example:
         query, params = build_count_query(
-            TaskPure,
+            Task,
             {'priority': 'high', 'status': 'completed'}
         )
     """
@@ -728,7 +728,7 @@ def get_filterable_fields(entity_class: type[T]) -> list[str]:
         List of field names
 
     Example:
-        fields = get_filterable_fields(TaskPure)
+        fields = get_filterable_fields(Task)
         # ['uid', 'title', 'priority', 'status', 'due_date', ...]
     """
     if not is_dataclass(entity_class):

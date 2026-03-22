@@ -47,12 +47,12 @@ class DailyPlanningMixin:
     """
 
     context: UserContext
-    tasks: Any  # TasksRelationshipService
-    habits: Any  # HabitsRelationshipService
-    goals: Any  # GoalsRelationshipService
-    events: Any  # EventsRelationshipService
-    choices: Any  # ChoicesRelationshipService
-    principles: Any  # PrinciplesRelationshipService
+    tasks: Any  # UnifiedRelationshipService
+    habits: Any  # UnifiedRelationshipService
+    goals: Any  # UnifiedRelationshipService
+    events: Any  # UnifiedRelationshipService
+    choices: Any  # UnifiedRelationshipService
+    principles: Any  # UnifiedRelationshipService
     lesson: Any  # LessonService facade
 
     # Stubs for methods provided by TemporalMomentumMixin in the composed class.

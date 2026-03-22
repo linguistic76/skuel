@@ -854,8 +854,8 @@ def search[T](entity_class: type[T], **filters: Any) -> tuple[str, dict[str, Neo
     Shorthand for building search queries.
 
     Example:
-        query, params = search(TaskPure, priority='high', status='in_progress')
-        query, params = search(TaskPure, due_date__gte=date.today())
+        query, params = search(Task, priority='high', status='in_progress')
+        query, params = search(Task, due_date__gte=date.today())
     """
     from .crud_queries import build_search_query
 
@@ -869,7 +869,7 @@ def get_by[T](
     Shorthand for getting by field value.
 
     Example:
-        query, params = get_by(TaskPure, 'uid', 'task-123')
+        query, params = get_by(Task, 'uid', 'task-123')
     """
     from .crud_queries import build_get_by_field_query
 
@@ -883,7 +883,7 @@ def list_entities[T](
     Shorthand for listing entities.
 
     Example:
-        query, params = list_entities(TaskPure, 10, order_by='created_at')
+        query, params = list_entities(Task, 10, order_by='created_at')
     """
     from .crud_queries import build_list_query
 
@@ -895,7 +895,7 @@ def count[T](entity_class: type[T], **filters: Any) -> tuple[str, dict[str, Neo4
     Shorthand for counting entities.
 
     Example:
-        query, params = count(TaskPure, priority='high', status='completed')
+        query, params = count(Task, priority='high', status='completed')
     """
     from .crud_queries import build_count_query
 

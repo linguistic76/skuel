@@ -57,7 +57,7 @@ Usage Examples:
     from adapters.persistence.neo4j.query import build_search_query
 
     query, params = build_search_query(
-        TaskPure,
+        Task,
         {'priority': 'high', 'due_date__gte': date.today()}
     )
 

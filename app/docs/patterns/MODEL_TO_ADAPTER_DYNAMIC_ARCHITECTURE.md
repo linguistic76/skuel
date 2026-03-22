@@ -137,7 +137,7 @@ These violated fail-fast philosophy - driver is REQUIRED at bootstrap.
 
 **The Flow:**
 ```
-TaskPure (add field) → to_neo4j_node() → Neo4j
+Task (add field) → to_neo4j_node() → Neo4j
                      ← from_neo4j_node() ← Neo4j
 ```
 
@@ -158,7 +158,7 @@ def to_neo4j_node(entity: Any) -> dict:
 
 **Proof:**
 ```python
-# Add a NEW field to TaskPure:
+# Add a NEW field to Task:
 @dataclass(frozen=True)
 class Task:
     uid: str
@@ -245,7 +245,7 @@ async def get_tasks_by_priority(self, priority: Priority) -> Result[List[Task]]:
 ```
 
 **Problem:**
-- Adding `estimated_hours` to TaskPure doesn't automatically create `get_tasks_by_estimated_hours()`
+- Adding `estimated_hours` to Task doesn't automatically create `get_tasks_by_estimated_hours()`
 - Queries are manually written in enhanced backends
 
 ### 2. **Neo4j Indexes** (Manual)
@@ -284,7 +284,7 @@ async def link_task_to_goal(self, task_uid: str, goal_uid: str):
 ```python
 async def search_tasks(self, filters: Dict[str, Any]):
     # ❌ Manually build WHERE clauses based on filters
-    # ❌ Add new field to TaskPure → search doesn't include it automatically
+    # ❌ Add new field to Task → search doesn't include it automatically
 ```
 
 ---
@@ -344,14 +344,14 @@ Your architecture is **revolutionary** because:
 
 ```python
 # OLD WAY (before your architecture):
-# Add field to TaskPure → Must update:
+# Add field to Task → Must update:
 # - tasks_neo4j_backend.py (serialization)
 # - tasks_neo4j_backend.py (deserialization)
 # - tasks_neo4j_backend.py (query methods)
 # Total: 3+ files, 50+ lines of code
 
 # YOUR WAY:
-# Add field to TaskPure → Done!
+# Add field to Task → Done!
 # Total: 1 file, 1 line of code
 ```
 
@@ -405,7 +405,7 @@ The **core data flow is 100% dynamic**.
 
 **Before (OLD architecture):**
 ```
-1. Edit TaskPure - add field
+1. Edit Task - add field
 2. Edit tasks_neo4j_backend.py - add serialization
 3. Edit tasks_neo4j_backend.py - add deserialization
 4. Edit tasks_neo4j_backend.py - update query methods
@@ -416,7 +416,7 @@ Time: 2-4 hours
 
 **After (YOUR architecture):**
 ```
-1. Edit TaskPure - add field
+1. Edit Task - add field
 Time: 30 seconds
 
 ✅ Serialization automatic (via introspection)

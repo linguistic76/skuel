@@ -546,9 +546,9 @@ class GoodMixin:
 ```python
 # WRONG - concrete service types in mixin
 class BadMixin:
-    tasks: TasksRelationshipService  # Concrete type
+    tasks: UnifiedRelationshipService  # Concrete type
 
 # CORRECT - use Any with documented expectations
 class GoodMixin:
-    tasks: Any  # TasksRelationshipService (documented)
+    tasks: Any  # UnifiedRelationshipService (documented)
 ```
