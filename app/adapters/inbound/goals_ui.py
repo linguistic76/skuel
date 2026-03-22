@@ -501,9 +501,7 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsService, services: Any 
         """Fetch filtered goals context from service."""
         return await goals_service.get_filtered_context(user_uid, filters.status, filters.sort_by)
 
-    def build_goals_page_context(
-        svc_ctx: dict[str, Any], filters: ActivityFilters
-    ) -> Any:
+    def build_goals_page_context(svc_ctx: dict[str, Any], filters: ActivityFilters) -> Any:
         """Map service context to GoalsPageContext."""
         return GoalsPageContext(
             entities=svc_ctx["entities"],

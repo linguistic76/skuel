@@ -189,9 +189,7 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
         """Fetch filtered choices context from service."""
         return await choices_service.get_filtered_context(user_uid, filters.status, filters.sort_by)
 
-    def build_choices_page_context(
-        svc_ctx: dict[str, Any], filters: ActivityFilters
-    ) -> Any:
+    def build_choices_page_context(svc_ctx: dict[str, Any], filters: ActivityFilters) -> Any:
         """Map service context to ChoicesPageContext."""
         return ChoicesPageContext(
             entities=svc_ctx["entities"],

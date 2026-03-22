@@ -260,9 +260,7 @@ def create_events_ui_routes(_app, rt, events_service: EventsService, services: A
         """Fetch filtered events context from service."""
         return await events_service.get_filtered_context(user_uid, filters.status, filters.sort_by)
 
-    def build_events_page_context(
-        svc_ctx: dict[str, Any], filters: ActivityFilters
-    ) -> Any:
+    def build_events_page_context(svc_ctx: dict[str, Any], filters: ActivityFilters) -> Any:
         """Map service context to EventsPageContext."""
         return EventsPageContext(
             entities=svc_ctx["entities"],

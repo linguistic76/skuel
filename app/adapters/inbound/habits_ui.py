@@ -469,9 +469,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
         """Fetch filtered habits context from service."""
         return await habits_service.get_filtered_context(user_uid, filters.status, filters.sort_by)
 
-    def build_habits_page_context(
-        svc_ctx: dict[str, Any], filters: ActivityFilters
-    ) -> Any:
+    def build_habits_page_context(svc_ctx: dict[str, Any], filters: ActivityFilters) -> Any:
         """Map service context to HabitsPageContext."""
         return HabitsPageContext(
             entities=svc_ctx["entities"],

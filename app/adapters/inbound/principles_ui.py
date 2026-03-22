@@ -206,9 +206,7 @@ def create_principles_ui_routes(
             user_uid, filters.category, filters.strength, filters.sort_by, filters.status
         )
 
-    def build_principles_page_context(
-        svc_ctx: dict[str, Any], filters: PrincipleFilters
-    ) -> Any:
+    def build_principles_page_context(svc_ctx: dict[str, Any], filters: PrincipleFilters) -> Any:
         """Map service context to PrinciplesPageContext."""
         return PrinciplesPageContext(
             entities=svc_ctx["entities"],
