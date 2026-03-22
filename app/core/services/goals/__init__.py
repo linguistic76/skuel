@@ -35,8 +35,7 @@ Documentation:
 - Service Topology: /docs/architecture/SERVICE_TOPOLOGY.md
 
 Architecture Notes:
-- GoalsRelationshipService replaced by UnifiedRelationshipService (December 2025)
-- GoalsGraphNativeService removed, replaced by UnifiedRelationshipService (January 2026 - ADR-029)
+- Uses UnifiedRelationshipService for all relationship operations
 - GoalsRecommendationService replaced by GoalEventHandlerService (March 2026)
 """
 

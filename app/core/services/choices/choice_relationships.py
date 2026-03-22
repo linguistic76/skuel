@@ -14,7 +14,6 @@ from dataclasses import dataclass, field
 from core.services.relationships import UnifiedRelationshipService
 from core.utils.generic_fetcher import fetch_relationships_parallel
 
-
 # Query specifications: (field_name, service_method_name)
 # Defines the mapping between dataclass fields and service query methods
 CHOICE_QUERY_SPECS: list[tuple[str, str]] = [

@@ -46,7 +46,7 @@ def mock_tasks_backend() -> Any:
         "created_at": datetime.now(),
         "updated_at": datetime.now(),
         "tags": [],
-        # Relationship fields removed - now queried via TasksRelationshipService
+        # Relationship fields removed - now queried via UnifiedRelationshipService
     }
 
     # Generic BackendOperations methods (TasksCoreService uses these)

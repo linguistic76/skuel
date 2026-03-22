@@ -112,7 +112,7 @@ class HabitsEventIntegrationService:
         If knowledge UIDs are needed:
         - EventsService can fetch HabitRelationships.fetch(habit_uid) when
           creating the Event from the suggestion template
-        - EventsRelationshipService can link Event→Knowledge after creation
+        - UnifiedRelationshipService can link Event→Knowledge after creation
 
         This maintains graph-native pattern: relationships created in graph after
         both entities exist, not passed as template fields.

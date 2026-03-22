@@ -292,7 +292,7 @@ class SynergyIntelligenceMixin:
             aligned_goals: list[str] = []
 
             # Check which goals align with this principle
-            # (In full implementation, would query PrinciplesRelationshipService)
+            # (In full implementation, would query UnifiedRelationshipService)
             # For now, use learning_goals as proxy
             for goal_uid in self.context.learning_goals:
                 # Assume principles align with learning goals

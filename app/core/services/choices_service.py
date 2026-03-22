@@ -29,7 +29,7 @@ from core.services.choices.choices_ai_service import ChoicesAIService
 from core.services.domain_config import create_activity_domain_config
 from core.services.filtered_context import build_filtered_context
 
-# Unified relationship service (replaces ChoicesRelationshipService)
+# Unified relationship service
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
 from core.services.relationships import UnifiedRelationshipService
 from core.utils.activity_domain_config import CommonSubServices, create_common_sub_services

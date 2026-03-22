@@ -134,7 +134,7 @@ class HabitsLearningService(BaseService[HabitsOperations, Habit]):
 
         To create a habit with knowledge links:
         1. Call HabitsService.create() with the returned template dict
-        2. Call HabitsRelationshipService.link_habit_to_knowledge(habit_uid, knowledge_uid)
+        2. Call UnifiedRelationshipService.link_habit_to_knowledge(habit_uid, knowledge_uid)
 
         Example:
             # Step 1: Generate template
@@ -175,7 +175,7 @@ class HabitsLearningService(BaseService[HabitsOperations, Habit]):
             "frequency": frequency,
             "duration_minutes": 30,
             # GRAPH-NATIVE: Knowledge relationships created via graph, not fields
-            # Use HabitsRelationshipService.link_habit_to_knowledge() after creation
+            # Use UnifiedRelationshipService to link habit to knowledge after creation
             "category": "learning",  # Mark as learning habit
             "tags": ["learning", "study"],
         }

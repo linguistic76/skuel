@@ -2170,11 +2170,11 @@ async def compose_services(
         )
         logger.info("✅ Core services created (with event bus + Deepgram wiring)")
 
-        # GRAPH-NATIVE: Wire analytics engine with TasksRelationshipService
+        # GRAPH-NATIVE: Wire analytics engine with UnifiedRelationshipService
         # tasks_service comes from activity_services (unified Activity Domain creation)
         tasks_service = activity_services["tasks"]
         analytics_engine.relationship_service = tasks_service.relationships
-        logger.info("✅ AnalyticsEngine wired with TasksRelationshipService")
+        logger.info("✅ AnalyticsEngine wired with UnifiedRelationshipService")
 
         # Wire tasks_service into context_service for context-aware operations
         context_service.tasks_service = tasks_service

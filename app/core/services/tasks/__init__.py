@@ -37,8 +37,7 @@ Documentation:
 - Service Topology: /docs/architecture/SERVICE_TOPOLOGY.md
 
 Architecture Notes:
-- TasksRelationshipService replaced by UnifiedRelationshipService (December 2025)
-- TasksGraphNativeService removed, replaced by UnifiedRelationshipService (January 2026 - ADR-029)
+- Uses UnifiedRelationshipService for all relationship operations
 - Intelligence/AI separation: IntelligenceService (analytics) vs AIService (LLM) - ADR-030
 - TasksAnalyticsService removed: analytics now via direct AnalyticsEngine calls (January 2026)
 """

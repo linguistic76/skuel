@@ -14,7 +14,6 @@ from dataclasses import dataclass, field
 from core.services.relationships import UnifiedRelationshipService
 from core.utils.generic_fetcher import fetch_relationships_parallel
 
-
 # Query specifications: (field_name, service_method_name)
 PRINCIPLE_QUERY_SPECS: list[tuple[str, str]] = [
     ("grounded_knowledge_uids", "knowledge"),

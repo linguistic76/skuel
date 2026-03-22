@@ -172,13 +172,7 @@ class SemanticRelationshipLinker[T, DTO]:
         5. Filter results by semantic types
         6. Return structured response
 
-        This single implementation replaces identical code in:
-        - HabitsRelationshipService.get_habit_with_semantic_context()
-        - GoalsRelationshipService.get_goal_with_semantic_context()
-        - TasksRelationshipService.get_task_with_semantic_context()
-        - ChoicesRelationshipService.get_choice_with_semantic_context()
-        - PrinciplesRelationshipService.get_principle_with_semantic_context()
-        - EventsRelationshipService.get_event_with_semantic_context()
+        Generic implementation for all domains via UnifiedRelationshipService.
 
         Args:
             uid: Entity UID,
@@ -195,7 +189,7 @@ class SemanticRelationshipLinker[T, DTO]:
 
         Example:
             ```python
-            # In HabitsRelationshipService.__init__:
+            # Usage example:
             self.semantic_helper = SemanticRelationshipLinker[Habit, HabitDTO](
                 service=self,
                 backend_get_method="get_habit",
@@ -288,13 +282,7 @@ class SemanticRelationshipLinker[T, DTO]:
         2. Call backend create_semantic_relationship
         3. Return structured response with semantic triple
 
-        This single implementation replaces identical code in:
-        - HabitsRelationshipService.create_semantic_skill_relationship()
-        - GoalsRelationshipService.create_semantic_goal_relationship()
-        - TasksRelationshipService.create_semantic_knowledge_relationship()
-        - ChoicesRelationshipService.create_semantic_choice_relationship()
-        - PrinciplesRelationshipService.create_semantic_principle_relationship()
-        - EventsRelationshipService.create_semantic_event_relationship()
+        Generic implementation for all domains via UnifiedRelationshipService.
 
         Args:
             from_uid: Source entity UID,
@@ -314,7 +302,7 @@ class SemanticRelationshipLinker[T, DTO]:
 
         Example:
             ```python
-            # In HabitsRelationshipService:
+            # Usage example:
             async def create_semantic_skill_relationship(
                 self, habit_uid, knowledge_uid, semantic_type, ConfidenceLevel.HIGH, notes=None
             ):
@@ -393,13 +381,7 @@ class SemanticRelationshipLinker[T, DTO]:
         4. Convert each DTO → Domain model
         5. Return list of domain objects
 
-        This single implementation replaces identical code in:
-        - HabitsRelationshipService.find_habits_developing_knowledge()
-        - GoalsRelationshipService.find_goals_requiring_knowledge()
-        - TasksRelationshipService.find_tasks_requiring_knowledge()
-        - ChoicesRelationshipService.find_choices_requiring_knowledge()
-        - PrinciplesRelationshipService.find_principles_requiring_knowledge()
-        - EventsRelationshipService.find_events_requiring_knowledge()
+        Generic implementation for all domains via UnifiedRelationshipService.
 
         Args:
             target_uid: Target entity UID to filter by (usually Knowledge UID),
@@ -412,7 +394,7 @@ class SemanticRelationshipLinker[T, DTO]:
 
         Example:
             ```python
-            # In HabitsRelationshipService:
+            # Usage example:
             async def find_habits_developing_knowledge(
                 self, knowledge_uid, min_ConfidenceLevel.STANDARD
             ):

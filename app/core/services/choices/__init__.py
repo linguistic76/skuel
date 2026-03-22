@@ -35,6 +35,7 @@ Documentation:
 - Service Topology: /docs/architecture/SERVICE_TOPOLOGY.md
 
 Architecture Notes:
+- Uses UnifiedRelationshipService for all relationship operations
 - ChoicesAnalyticsService consolidated into ChoicesIntelligenceService (January 2026)
 - Event handlers extracted from ChoicesIntelligenceService to ChoiceEventHandlerService (March 2026)
 """

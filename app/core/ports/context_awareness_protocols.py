@@ -85,7 +85,7 @@ class TaskAwareness(Protocol):
 
     Example services:
     - TasksProgressService
-    - TasksRelationshipService
+    - UnifiedRelationshipService
     - GoalTaskGenerator (partial)
     """
 
@@ -205,7 +205,7 @@ class GoalAwareness(Protocol):
 
     Example services:
     - GoalsProgressService
-    - GoalsRelationshipService
+    - UnifiedRelationshipService
     - GoalTaskGenerator
     """
 
@@ -251,7 +251,7 @@ class EventAwareness(Protocol):
     - Scheduling recommendations
 
     Example services:
-    - EventsRelationshipService
+    - UnifiedRelationshipService
     - EventsHabitIntegrationService
     - CalendarService
     """
@@ -289,8 +289,7 @@ class PrincipleAwareness(Protocol):
     - Analyzing decision alignment
 
     Example services:
-    - PrinciplesRelationshipService
-    - ChoicesRelationshipService (partial)
+    - UnifiedRelationshipService
     """
 
     # Core identity
@@ -319,7 +318,7 @@ class ChoiceAwareness(Protocol):
     - Checking principle alignment of choices
 
     Example services:
-    - ChoicesRelationshipService
+    - UnifiedRelationshipService
     """
 
     # Core identity

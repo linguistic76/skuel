@@ -39,7 +39,7 @@ Documentation:
 - Service Topology: /docs/architecture/SERVICE_TOPOLOGY.md
 
 Architecture Notes:
-- HabitsRelationshipService replaced by UnifiedRelationshipService (December 2025)
+- Uses UnifiedRelationshipService for all relationship operations
 - HabitAchievementService absorbed into HabitEventHandlerService (March 2026)
 """
 

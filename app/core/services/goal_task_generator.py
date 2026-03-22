@@ -69,8 +69,8 @@ class GoalTaskGenerator:
         Args:
             goals_backend: Backend for goal operations,
             tasks_backend: Backend for task operations,
-            relationship_service: GoalsRelationshipService for fetching goal relationships,
-            tasks_relationship_service: TasksRelationshipService for creating task-knowledge relationships,
+            relationship_service: UnifiedRelationshipService for fetching goal relationships,
+            tasks_relationship_service: UnifiedRelationshipService for creating task-knowledge relationships,
             config: Generation configuration
 
         Note:

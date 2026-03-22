@@ -54,7 +54,6 @@ from .askesis_dto import (
     GuidanceRecommendationDTO,
     IntelligenceInsightsDTO,
 )
-
 from .askesis_request import (
     AskesisAnalyticsRequest,
     AskesisCreateRequest,

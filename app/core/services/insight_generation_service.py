@@ -434,16 +434,16 @@ class InsightGenerationService:
 
         DEFERRED IMPLEMENTATION (Graph-Native):
         ==================================
-        Parameter accepted but unused pending TasksRelationshipService wiring.
+        Parameter accepted but unused pending UnifiedRelationshipService wiring.
 
         Why Deferred:
         - Service already detects 4 other pattern types (time, priority, project, workflow)
         - This is 1 of 5 pattern detection methods - not critical path
-        - Wiring TasksRelationshipService requires bootstrap changes
+        - Wiring UnifiedRelationshipService requires bootstrap changes
         - Better ROI focusing on other refactorings first
 
         Future Implementation (High Value):
-        1. Wire TasksRelationshipService into this service's __init__
+        1. Wire UnifiedRelationshipService into this service's __init__
         2. Fetch TaskRelationships for each task (parallel with asyncio.gather)
         3. Filter tasks where rels.applies_knowledge_uids is not empty
         4. Calculate efficiency: knowledge-tasks vs. all tasks

@@ -145,7 +145,7 @@ class GraphContextNode(TypedDict, total=False):
 
     See Also:
         - core/models/graph/path_aware_types.py for domain-specific typed wrappers
-        - TasksRelationshipService.get_task_cross_domain_context() for usage pattern
+        - UnifiedRelationshipService for cross-domain context usage pattern
     """
 
     # Required graph traversal fields (present in all results)

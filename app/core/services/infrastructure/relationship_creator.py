@@ -136,17 +136,7 @@ class RelationshipCreator[T, DTO]:
         2. Log success/failure
         3. Return Result[bool]
 
-        This single implementation replaces identical code in:
-        - HabitsRelationshipService.link_habit_to_knowledge()
-        - HabitsRelationshipService.link_habit_to_principle()
-        - GoalsRelationshipService.link_goal_to_knowledge()
-        - GoalsRelationshipService.link_goal_to_habit()
-        - TasksRelationshipService.link_task_to_knowledge()
-        - TasksRelationshipService.link_task_to_goal()
-        - EventsRelationshipService.link_event_to_habit()
-        - ChoicesRelationshipService.link_choice_to_knowledge()
-        - PrinciplesRelationshipService.link_principle_to_knowledge()
-        - (30-40+ identical methods across all services)
+        Generic implementation for all domains via UnifiedRelationshipService.
 
         Args:
             backend_method: Name of backend method to call (e.g., "link_habit_to_knowledge"),
@@ -161,7 +151,7 @@ class RelationshipCreator[T, DTO]:
 
         Example:
             ```python
-            # In HabitsRelationshipService.__init__:
+            # Usage example:
             self.relationship_helper = RelationshipCreator[Habit, HabitDTO](
                 service=self,
                 backend_get_method="get_habit",
@@ -233,13 +223,7 @@ class RelationshipCreator[T, DTO]:
         2. Log success/failure
         3. Return Result[bool]
 
-        This single implementation replaces identical code in:
-        - HabitsRelationshipService.create_user_habit_relationship()
-        - GoalsRelationshipService.create_user_goal_relationship()
-        - TasksRelationshipService.create_user_task_relationship()
-        - EventsRelationshipService.create_user_event_relationship()
-        - ChoicesRelationshipService.create_user_choice_relationship()
-        - PrinciplesRelationshipService.create_user_principle_relationship()
+        Generic implementation for all domains via UnifiedRelationshipService.
 
         Args:
             user_uid: User UID,
@@ -253,7 +237,7 @@ class RelationshipCreator[T, DTO]:
 
         Example:
             ```python
-            # In HabitsRelationshipService:
+            # Usage example:
             async def create_user_habit_relationship(
                 self, user_uid: str, habit_uid: str, commitment_level: str = "active"
             ) -> Result[bool]:
@@ -298,13 +282,7 @@ class RelationshipCreator[T, DTO]:
         1. Call backend method to get comprehensive context
         2. Return structured context dict
 
-        This single implementation replaces identical code in:
-        - HabitsRelationshipService.get_habit_cross_domain_context()
-        - GoalsRelationshipService.get_goal_cross_domain_context()
-        - TasksRelationshipService.get_task_cross_domain_context()
-        - EventsRelationshipService.get_event_cross_domain_context()
-        - ChoicesRelationshipService.get_choice_cross_domain_context()
-        - PrinciplesRelationshipService.get_principle_cross_domain_context()
+        Generic implementation for all domains via UnifiedRelationshipService.
 
         Args:
             entity_uid: Entity UID
@@ -317,7 +295,7 @@ class RelationshipCreator[T, DTO]:
 
         Example:
             ```python
-            # In HabitsRelationshipService:
+            # Usage example:
             async def get_habit_cross_domain_context(
                 self, habit_uid: str, depth: int = 2, min_confidence: float = 0.7
             ) -> Result[dict[str, Any]]:

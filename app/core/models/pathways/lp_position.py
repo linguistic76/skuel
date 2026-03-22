@@ -348,7 +348,7 @@ def create_lp_position(
         active_paths: User's active learning paths (LearningPath instances),
         completed_step_uids: Set of completed step UIDs
         readiness_map: Optional map of step UIDs to readiness status.
-                      If None, all steps assumed ready. Use LsRelationshipService.is_ready()
+                      If None, all steps assumed ready. Use LsIntelligenceService.is_ready()
                       at service layer to populate this with real graph data.
 
     Returns:

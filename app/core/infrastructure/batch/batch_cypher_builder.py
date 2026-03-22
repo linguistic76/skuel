@@ -708,7 +708,7 @@ class BatchCypherBuilder:
             ready for backend.create_relationships_batch()
 
         Example:
-            # Before (TasksRelationshipService - 15+ lines)
+            # Before (per-domain relationship service - 15+ lines)
             relationships = []
             if applies_knowledge_uids:
                 relationships.extend(
@@ -770,7 +770,7 @@ class BatchCypherBuilder:
             Flattened list with {"essentiality": value} in properties
 
         Example:
-            # Before (GoalsRelationshipService - 20+ lines)
+            # Before (per-domain relationship service - 20+ lines)
             if essential_habit_uids:
                 relationships.extend(
                     (goal_uid, habit_uid, "REQUIRES_HABIT", {"essentiality": "essential"})

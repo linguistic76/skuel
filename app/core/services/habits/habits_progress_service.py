@@ -58,7 +58,7 @@ class HabitsProgressService:
         Args:
             backend: Protocol-based backend for habit operations (REQUIRED)
             completions_service: HabitsCompletionService for fetching completion records (REQUIRED)
-            relationship_service: HabitsRelationshipService for graph relationships (REQUIRED)
+            relationship_service: UnifiedRelationshipService for graph relationships (REQUIRED)
             event_bus: Event bus for publishing domain events (optional)
 
         Note:

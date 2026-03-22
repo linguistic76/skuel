@@ -6,7 +6,7 @@ Intelligence service for Learning Steps - scoring, readiness, practice calculati
 
 **January 2026 - Unified Architecture:**
 This service follows the Activity Domain pattern, extending BaseIntelligenceService.
-Complex scoring and aggregation methods moved here from LsRelationshipService.
+Complex scoring and aggregation methods consolidated here from the former LsRelationshipService.
 
 Methods:
 - is_ready(): Check if step is ready based on prerequisite completion

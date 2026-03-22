@@ -51,7 +51,7 @@ from core.services.habits.habits_goal_analytics_service import HabitsGoalAnalyti
 from core.services.habits.habits_pattern_service import HabitsPatternService
 from core.services.habits.habits_scheduling_service import DEFAULT_MAX_DAILY_LOAD
 
-# Unified relationship service (replaces HabitsRelationshipService)
+# Unified relationship service
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
 from core.services.relationships import UnifiedRelationshipService
 from core.utils.activity_domain_config import CommonSubServices, create_common_sub_services

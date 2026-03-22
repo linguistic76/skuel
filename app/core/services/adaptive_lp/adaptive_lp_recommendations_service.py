@@ -225,16 +225,16 @@ class AdaptiveLpRecommendationsService:
 
         DEFERRED IMPLEMENTATION (Graph-Native):
         ==================================
-        Parameters accepted but unused pending TasksRelationshipService wiring.
+        Parameters accepted but unused pending UnifiedRelationshipService wiring.
 
         Why Deferred:
         - Service already works via other gap detection strategies (goal-based, pattern-based)
         - This is 1 of 3 gap identification methods - not critical path
-        - Wiring TasksRelationshipService requires bootstrap changes
+        - Wiring UnifiedRelationshipService requires bootstrap changes
         - Better ROI focusing on other refactorings first
 
         Future Implementation:
-        1. Wire TasksRelationshipService into this service's __init__
+        1. Wire UnifiedRelationshipService into this service's __init__
         2. Fetch TaskRelationships for each task
         3. Analyze rels.prerequisite_knowledge_uids for missing prerequisites
         4. Analyze rels.applies_knowledge_uids for foundation gaps

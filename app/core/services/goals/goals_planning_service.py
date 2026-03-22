@@ -2,7 +2,7 @@
 Goals Planning Service - Context-First User Planning Methods
 =============================================================
 
-Extracted from GoalsRelationshipService (December 2025)
+Extracted from the former GoalsRelationshipService. Now uses UnifiedRelationshipService.
 
 **Purpose:** Methods that leverage UserContext to provide personalized,
 filtered, and ranked goal queries for users.
@@ -41,7 +41,6 @@ from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from core.models.context_types import ContextualGoal
-    from core.services.relationships import UnifiedRelationshipService
     from core.services.user.unified_user_context import UserContext
 
 

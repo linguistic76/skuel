@@ -651,7 +651,7 @@ async def lp_relationship_service(services):
     """
     Provide LP relationship service for integration tests.
 
-    Accesses the LpRelationshipService through the LP service facade.
+    Accesses the UnifiedRelationshipService through the LP service facade.
     Used by test_lp_relationships_integration.py.
     """
     return services.lp.relationships

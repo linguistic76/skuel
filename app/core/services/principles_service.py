@@ -40,7 +40,7 @@ from core.services.principles import (
 )
 from core.services.principles.principles_ai_service import PrinciplesAIService
 
-# Unified relationship service (replaces PrinciplesRelationshipService)
+# Unified relationship service
 from core.services.relationships import UnifiedRelationshipService
 from core.utils.activity_domain_config import CommonSubServices, create_common_sub_services
 from core.utils.logging import get_logger

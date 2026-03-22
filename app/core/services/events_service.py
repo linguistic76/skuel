@@ -44,7 +44,7 @@ from core.services.events.events_ai_service import EventsAIService
 from core.services.filtered_context import build_filtered_context
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
 
-# Unified relationship service (replaces EventsRelationshipService)
+# Unified relationship service
 from core.services.relationships import UnifiedRelationshipService
 from core.utils.activity_domain_config import CommonSubServices, create_common_sub_services
 from core.utils.logging import get_logger

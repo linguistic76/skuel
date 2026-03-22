@@ -35,7 +35,7 @@ Documentation:
 - Service Topology: /docs/architecture/SERVICE_TOPOLOGY.md
 
 Architecture Notes:
-- EventsRelationshipService replaced by UnifiedRelationshipService (December 2025)
+- Uses UnifiedRelationshipService for all relationship operations
 """
 
 from core.services.events.events_core_service import EventsCoreService

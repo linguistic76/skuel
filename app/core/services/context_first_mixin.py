@@ -9,7 +9,7 @@ services can use to transform raw entities into contextual entities.
 
 **Integration:**
 ```python
-class TasksRelationshipService(
+class ExampleDomainService(
     ContextFirstMixin,
     GenericRelationshipService[TasksOperations, Task, TaskDTO]
 ):
