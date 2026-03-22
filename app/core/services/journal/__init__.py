@@ -11,6 +11,7 @@ service orchestration.
 See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
 
+from core.services.journal.journal_input_service import JournalInputService
 from core.services.journal.journal_output_service import JournalOutputService
 
-__all__ = ["JournalOutputService"]
+__all__ = ["JournalInputService", "JournalOutputService"]

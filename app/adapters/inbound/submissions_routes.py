@@ -57,7 +57,7 @@ JOURNALS_CONFIG = DomainRouteConfig(
         "report_projects_service": "exercises",
         "user_service": "user_service",
         "journal_generator": "journal_generator",
-        "submissions_core_service": "submissions_core",
+        "journal_input_service": "journal_input",
         "batch_transcription_service": "batch_transcription",
         "batch_processing_service": "batch_processing",
     },

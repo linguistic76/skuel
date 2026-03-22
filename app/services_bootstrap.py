@@ -155,7 +155,7 @@ if TYPE_CHECKING:
     from core.services.report.activity_report_service import ActivityReportService
     from core.services.report.progress_report_generator import ProgressReportGenerator
     from core.services.report.progress_schedule_service import ProgressScheduleService
-    from core.services.journal import JournalOutputService
+    from core.services.journal import JournalInputService, JournalOutputService
     from core.services.report.review_queue_service import ReviewQueueService
     from core.services.tasks_service import TasksService
     from core.services.transcription.batch_processing_service import BatchProcessingService
@@ -277,7 +277,8 @@ class Services:
     form_templates: "FormTemplateOperations | None" = None
     form_submissions: "FormSubmissionOperations | None" = None
 
-    # Journal processing services
+    # Journal services
+    journal_input: "JournalInputService | None" = None
     journal_generator: "JournalOutputService | None" = None
 
     # Batch transcription/processing services (March 2026)
@@ -2606,6 +2607,22 @@ async def compose_services(
         instruction_resolver = InstructionResolver()
         logger.info("✅ InstructionResolver created")
 
+        # Journal input service (CRUD + file upload → JeInput entities)
+        from core.services.journal import JournalInputService
+        from adapters.persistence.neo4j.domain_backends import JournalInputBackend
+        from core.models.journal.je_input import JeInput
+
+        journal_storage = os.getenv("SKUEL_JOURNAL_STORAGE", "/tmp/skuel_journals")
+        journal_input_backend = JournalInputBackend(
+            driver, NeoLabel.JE_INPUT, JeInput, base_label=NeoLabel.ENTITY
+        )
+        journal_input_service = JournalInputService(
+            backend=journal_input_backend,
+            storage_base=journal_storage,
+            event_bus=event_bus,
+        )
+        logger.info(f"✅ JournalInputService created (storage: {journal_storage})")
+
         # Journal output service (LLM processing → JeOutput entities)
         from core.services.journal import JournalOutputService
         from adapters.persistence.neo4j.domain_backends import JournalOutputBackend
@@ -2616,7 +2633,6 @@ async def compose_services(
         )
         journal_output_service = None
         if llm_caller:
-            journal_storage = os.getenv("SKUEL_JOURNAL_STORAGE", "/tmp/skuel_journals")
             journal_output_service = JournalOutputService(
                 llm_caller=llm_caller,
                 instruction_resolver=instruction_resolver,
@@ -2801,6 +2817,7 @@ async def compose_services(
             revised_exercises=revised_exercise_service,  # Five-phase learning loop revisions
             form_templates=form_template_service,  # General-purpose form templates
             form_submissions=form_submission_service,  # User form submissions
+            journal_input=journal_input_service,  # JournalInputService
             journal_generator=journal_output_service,  # JournalOutputService
             # Batch transcription/processing (March 2026)
             batch_transcription=batch_transcription,

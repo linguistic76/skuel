@@ -25,7 +25,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from core.events.journal_events import JeOutputGenerated
-from core.events.utils import publish_event
+from core.events import publish_event
 from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
 from core.models.journal.je_output import JeOutput
 from core.models.journal.je_output_dto import JeOutputDTO

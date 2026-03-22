@@ -1845,6 +1845,30 @@ class JournalInputBackend(UniversalNeo4jBackend["JeInput"]):
             self.logger.error(f"Failed get_ephemeral_je_inputs: {e}")
             return Result.fail(Errors.database(operation="get_ephemeral_je_inputs", message=str(e)))
 
+    async def get_je_inputs_by_date_range(
+        self, user_uid: str, start_date: str, end_date: str
+    ) -> Result[list[dict[str, Any]]]:
+        """Get journal entries for a user within a date range (by created_at)."""
+        query = """
+        MATCH (u:User {uid: $user_uid})-[:OWNS]->(ji:JeInput)
+        WHERE ji.created_at >= $start_date AND ji.created_at <= $end_date
+        RETURN ji
+        ORDER BY ji.created_at DESC
+        """
+        try:
+            async with self.driver.session() as session:
+                result = await session.run(
+                    query,
+                    {"user_uid": user_uid, "start_date": start_date, "end_date": end_date},
+                )
+                records = [record async for record in result]
+                return Result.ok([dict(record["ji"]) for record in records])
+        except NEO4J_EXCEPTIONS as e:
+            self.logger.error(f"Failed get_je_inputs_by_date_range: {e}")
+            return Result.fail(
+                Errors.database(operation="get_je_inputs_by_date_range", message=str(e))
+            )
+
 
 class JournalOutputBackend(UniversalNeo4jBackend["JeOutput"]):
     """

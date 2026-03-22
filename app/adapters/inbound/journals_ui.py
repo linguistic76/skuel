@@ -32,7 +32,6 @@ from starlette.responses import FileResponse
 
 from adapters.inbound.auth import make_service_getter, require_admin, require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
-from adapters.inbound.form_helpers import safe_form_string
 from core.models.enums.entity_enums import ProcessorType
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -77,8 +76,8 @@ def _render_upload_status(
             P(f"Report ID: {report_uid}", cls="mb-0") if report_uid else None,
             P(f"Status: {status}", cls="mb-0"),
             ButtonLink(
-                "View Report",
-                href=f"/submissions/{report_uid}",
+                "Browse Journals",
+                href="/journals/browse",
                 variant=ButtonT.ghost,
                 size=Size.sm,
                 cls="mt-2",
@@ -532,7 +531,7 @@ def create_journals_ui_routes(
     report_projects_service,
     user_service=None,
     journal_generator=None,
-    submissions_core_service=None,
+    journal_input_service=None,
     batch_transcription_service=None,
     batch_processing_service=None,
 ):
@@ -546,8 +545,8 @@ def create_journals_ui_routes(
         processing_service: SubmissionsProcessingService
         report_projects_service: ExerciseService (optional — enables custom instructions)
         user_service: UserService for admin role checks
-        journal_generator: JournalOutputGenerator for cleanup operations
-        submissions_core_service: SubmissionsCoreService (optional — enables auto-title generation)
+        journal_generator: JournalOutputService for LLM processing and cleanup
+        journal_input_service: JournalInputService (optional — CRUD + file upload for JeInput)
         batch_transcription_service: BatchTranscriptionService (optional — batch audio → txt)
         batch_processing_service: BatchProcessingService (optional — batch txt → md)
     """
@@ -647,26 +646,32 @@ def create_journals_ui_routes(
             user_uid = require_authenticated_user(request)
             file_content = await uploaded_file.read()
             filename = uploaded_file.filename or "unknown"
-            exercise_uid = safe_form_string(form.get("exercise_uid"))
 
-            if not submissions_core_service:
+            if not journal_input_service:
                 return _render_upload_status(
                     "error", "Journal upload service unavailable", is_error=True
                 )
 
-            result = await submissions_core_service.submit_journal_file(
+            metadata = {"custom_title": custom_title} if custom_title else None
+
+            result = await journal_input_service.submit_journal_file(
                 file_content=file_content,
-                filename=filename,
+                original_filename=filename,
                 user_uid=user_uid,
-                custom_title=custom_title,
-                exercise_uid=exercise_uid,
+                metadata=metadata,
             )
 
             if result.is_error:
                 return _render_upload_status("error", str(result.error), is_error=True)
 
-            jr = result.value
-            return _render_upload_status(jr.status, jr.message, report_uid=jr.submission_uid)
+            je_input = result.value
+            return _render_upload_status(
+                str(je_input.status.value)
+                if hasattr(je_input.status, "value")
+                else str(je_input.status),
+                f"Journal entry created: {je_input.title}",
+                report_uid=je_input.uid,
+            )
 
         except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Error uploading journal: {e}", exc_info=True)
