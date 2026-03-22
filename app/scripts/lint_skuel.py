@@ -1102,23 +1102,34 @@ class SkuelLinter:
             "event",
             "choice",
             "principle",
-            # Knowledge
-            "article",
+            # Curriculum
+            "lesson",
             "ku",
-            "resource",
-            # Curriculum structure
             "learning_step",
             "learning_path",
             "exercise",
-            # Content
-            "submission",
-            "journal",
+            "revised_exercise",
+            # Forms
+            "form_template",
+            "form_submission",
+            # Curated
+            "resource",
+            # Content processing
+            "exercise_submission",
             "activity_report",
-            "submission_report",
+            "exercise_report",
+            # Journal
+            "je_input",
+            "je_output",
             # Destination
             "life_path",
             # NonKuDomain
             "finance",
+            # Old aliases (catch stale magic strings)
+            "article",
+            "submission",
+            "journal",
+            "submission_report",
         ]
 
         for line_num, line in enumerate(lines, start=1):

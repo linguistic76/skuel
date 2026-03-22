@@ -2,11 +2,11 @@
 Teacher Review Service
 =======================
 
-Manages the teacher review workflow for assigned Ku submissions.
+Manages the teacher review workflow for assigned submissions.
 
 Reuses SHARES_WITH infrastructure. When a student submits an entity against
 an ASSIGNED Exercise, the entity is auto-shared with the teacher.
-The teacher's review queue = Ku shared with them via role="teacher".
+The teacher's review queue = submissions shared with them via role="teacher".
 
 When providing a report or requesting revision, a SUBMISSION_REPORT Entity nodes
 is created and linked to the submission via REPORT_FOR. This makes every
@@ -14,7 +14,7 @@ report round a first-class graph entity — searchable, queryable, and
 supporting revision cycles.
 
 See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
-See: /docs/architecture/SUBMISSION_FEEDBACK_LOOP.md
+See: /docs/architecture/FOUR_PHASED_LEARNING_LOOP.md
 """
 
 from datetime import datetime
@@ -147,7 +147,7 @@ class TeacherReviewService:
         Get all SUBMISSION_REPORT nodes linked to a submission via REPORT_FOR.
 
         Args:
-            submission_uid: The submission Ku UID
+            submission_uid: The submission UID
 
         Returns:
             Result containing list of report items ordered by creation date
@@ -198,12 +198,12 @@ class TeacherReviewService:
         and sets submission status to COMPLETED.
 
         Args:
-            report_uid: Submission Ku UID to provide report for
+            report_uid: Submission UID to provide report for
             teacher_uid: Teacher providing report
             feedback: SubmissionReport text
 
         Returns:
-            Result containing report Ku info
+            Result containing report info
         """
         access_check = await self._verify_teacher_access(report_uid, teacher_uid)
         if access_check.is_error:
@@ -274,11 +274,11 @@ class TeacherReviewService:
 
         records = result.value
         if not records:
-            return Result.fail(Errors.not_found(f"Ku {report_uid} not found"))
+            return Result.fail(Errors.not_found(f"Submission {report_uid} not found"))
 
         student_uid = records[0]["student_uid"] or ""
         logger.info(
-            f"Teacher {teacher_uid} submitted report {report_entity_uid} for Ku {report_uid}"
+            f"Teacher {teacher_uid} submitted report {report_entity_uid} for submission {report_uid}"
         )
 
         await publish_event(
@@ -309,18 +309,18 @@ class TeacherReviewService:
         notes: str,
     ) -> Result[dict[str, Any]]:
         """
-        Request revision for a student Ku.
+        Request revision for a student submission.
 
         Creates a SUBMISSION_REPORT Entity nodes with revision notes, linked via REPORT_FOR.
         Sets submission status to REVISION_REQUESTED.
 
         Args:
-            report_uid: Ku UID needing revision
+            report_uid: Submission UID needing revision
             teacher_uid: Teacher requesting revision
             notes: Revision notes/instructions
 
         Returns:
-            Result containing feedback Ku info
+            Result containing revision info
         """
         access_check = await self._verify_teacher_access(report_uid, teacher_uid)
         if access_check.is_error:
@@ -390,11 +390,11 @@ class TeacherReviewService:
 
         records = result.value
         if not records:
-            return Result.fail(Errors.not_found(f"Ku {report_uid} not found"))
+            return Result.fail(Errors.not_found(f"Submission {report_uid} not found"))
 
         student_uid = records[0]["student_uid"] or ""
         logger.info(
-            f"Teacher {teacher_uid} requested revision {report_entity_uid} for Ku {report_uid}"
+            f"Teacher {teacher_uid} requested revision {report_entity_uid} for submission {report_uid}"
         )
 
         await publish_event(
@@ -425,16 +425,16 @@ class TeacherReviewService:
         teacher_uid: str,
     ) -> Result[dict[str, Any]]:
         """
-        Approve a student Ku (mark as COMPLETED).
+        Approve a student submission (mark as COMPLETED).
 
         Also triggers mastery updates for any curriculum Ku linked via APPLIES_KNOWLEDGE.
 
         Args:
-            report_uid: Ku UID to approve
+            report_uid: Submission UID to approve
             teacher_uid: Teacher approving
 
         Returns:
-            Result containing updated Ku info
+            Result containing updated submission info
         """
         access_check = await self._verify_teacher_access(report_uid, teacher_uid)
         if access_check.is_error:
@@ -467,7 +467,7 @@ class TeacherReviewService:
 
         records = result.value
         if not records:
-            return Result.fail(Errors.not_found(f"Ku {report_uid} not found"))
+            return Result.fail(Errors.not_found(f"Submission {report_uid} not found"))
 
         record = records[0]
         student_uid = record["student_uid"] or ""
@@ -491,9 +491,11 @@ class TeacherReviewService:
                     )
 
             if mastered_count > 0:
-                logger.info(f"Updated mastery for {mastered_count} KUs from Ku {report_uid}")
+                logger.info(
+                    f"Updated mastery for {mastered_count} KUs from submission {report_uid}"
+                )
 
-        logger.info(f"Teacher {teacher_uid} approved Ku {report_uid}")
+        logger.info(f"Teacher {teacher_uid} approved submission {report_uid}")
 
         await publish_event(
             self.event_bus,
@@ -954,7 +956,7 @@ class TeacherReviewService:
         if not result.value:
             return Result.fail(
                 Errors.not_found(
-                    f"Teacher {teacher_uid} does not have review access to Ku {report_uid}"
+                    f"Teacher {teacher_uid} does not have review access to submission {report_uid}"
                 )
             )
 

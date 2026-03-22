@@ -10,7 +10,7 @@ This is infrastructure, not a domain — uses raw Cypher directly (no BaseServic
 Notifications are created by event handlers and consumed by the navbar badge
 and /notifications page.
 
-See: /docs/architecture/SUBMISSION_FEEDBACK_LOOP.md
+See: /docs/architecture/FOUR_PHASED_LEARNING_LOOP.md
 """
 
 from datetime import datetime

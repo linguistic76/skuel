@@ -107,11 +107,11 @@ def detect_entity_type(data: dict[str, Any], file_path: Path) -> EntityType | No
         if non_ku:
             return non_ku
 
-    # Check for MOC flag (markdown convention) — MOC is now ARTICLE
+    # Check for MOC flag (markdown convention) — MOC is now LESSON
     if data.get("moc") is True:
         return EntityType.LESSON
 
-    # Default to ARTICLE for markdown files without explicit type
+    # Default to LESSON for markdown files without explicit type
     if file_path.suffix.lower() == ".md":
         return EntityType.LESSON
 

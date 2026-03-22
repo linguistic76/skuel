@@ -7,7 +7,7 @@ Shows feedback received, revision requests, and other alerts.
 
 Layout: Standard BasePage (no sidebar needed — simple list view).
 
-See: /docs/architecture/SUBMISSION_FEEDBACK_LOOP.md
+See: /docs/architecture/FOUR_PHASED_LEARNING_LOOP.md
 """
 
 from datetime import datetime
