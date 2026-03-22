@@ -45,7 +45,7 @@ These are the **lowest-level SKUEL building blocks** — imported directly in ro
 |--------|---------|
 | `ui.layout` | `Size`, `DivHStacked`, `DivVStacked`, `DivFullySpaced`, `DivCentered`, `Grid`, `Container` |
 | `ui.buttons` | `ButtonT`, `Button` |
-| `ui.cards` | `CardT`, `Card`, `CardBody`, `CardTitle`, `CardActions`, `CardFigure` |
+| `ui.cards` | `CardT` (re-exported from MonsterUI), `Card`, `CardBody`, `CardTitle`, `CardActions`, `CardFigure`, `CardLink` |
 | `ui.forms` | `Input`, `Select`, `Textarea`, `Checkbox`, `Radio`, `Toggle`, `Range`, `LabelInput`, `LabelTextArea`, `LabelSelect`, `LabelCheckbox` |
 | `ui.modals` | `Modal`, `ModalBox`, `ModalAction`, `ModalBackdrop` |
 | `ui.feedback` | `AlertT`, `BadgeT`, `ProgressT`, `LoadingT`, `Alert`, `Badge`, `Loading`, `Progress`, `RadialProgress`, `get_submission_status_badge_class` |
@@ -146,34 +146,44 @@ ButtonLink("Learn More", href="https://example.com", variant="secondary")
 
 Container component for grouping related content.
 
-### Card(*children, padding, **kwargs)
+### Card(*children, variant, cls, **kwargs)
 
-Generic card container.
+Generic card container. `CardT` is re-exported directly from MonsterUI — use MonsterUI's real variants.
 
 **Parameters:**
-- `*children` - Content elements to display in card
-- `padding: str` - Tailwind padding class (default: "p-4")
-- `**kwargs` - Additional attributes (cls, id, etc.)
+- `*children` - Content elements (should include CardBody for proper styling)
+- `variant: CardT` - Style variant (default: `CardT.default`)
+  - `CardT.default` - Standard card
+  - `CardT.primary` - Primary emphasis
+  - `CardT.secondary` - Muted/secondary
+  - `CardT.destructive` - Danger/destructive
+  - `CardT.hover` - Lift + shadow on hover
+- `cls: str` - Additional CSS classes
+- `**kwargs` - Additional attributes (id, etc.)
 
 **Examples:**
 ```python
-from ui.cards import Card
+from ui.cards import Card, CardBody, CardT
 from ui.text import CardTitle
 from fasthtml.common import P
 
-# Simple card
-Card(
+# Default card
+Card(CardBody(
     CardTitle("Task Details"),
     P("Complete the quarterly report by Friday"),
-    padding="p-6",
-)
+))
 
-# With custom styling
-Card(
+# Primary emphasis card
+Card(CardBody(
+    CardTitle("Important"),
+    P("Highlighted content"),
+), variant=CardT.primary)
+
+# Interactive hover card
+Card(CardBody(
     H2("Statistics"),
     P("Total: 42"),
-    cls="border-2 border-primary bg-primary/5",
-)
+), variant=CardT.hover)
 ```
 
 ---
@@ -795,16 +805,19 @@ Interactive relationship visualization components.
 
 ### EntityRelationshipsSection(entity_uid, entity_type)
 
-Complete relationships section with all three views.
+Complete relationships section with all three views. Uses MonsterUI `Accordion` (`multiple=True`) for collapsible sections — each sub-component is an `AccordionItem` with built-in chevron icons and collapse transitions. Relationship Network starts expanded by default.
 
 **Parameters:**
 - `entity_uid: str` - Entity UID
 - `entity_type: str` - Entity type (tasks, goals, etc.)
+- `show_blocking_chain: bool` - Show blocking dependencies (default: True)
+- `show_alternatives: bool` - Show alternatives (default: True)
+- `show_graph: bool` - Show relationship graph (default: True)
 
 **Includes:**
 1. **BlockingChainView** - Vertical flow chart
 2. **AlternativesComparisonGrid** - Side-by-side table
-3. **RelationshipGraphView** - Interactive Vis.js graph
+3. **RelationshipGraphView** - Interactive Vis.js graph (open by default)
 
 ### BlockingChainView(entity_uid, entity_type)
 

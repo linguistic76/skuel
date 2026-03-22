@@ -113,7 +113,7 @@ EntityRelationshipsSection(
 
 **Responsibilities:**
 - Orchestrate 3 sub-components
-- Manage Alpine.js collapsible state
+- MonsterUI Accordion for collapsible state (multiple=True, graph open by default)
 - Provide consistent layout across domains
 - Handle empty states gracefully
 
@@ -129,10 +129,9 @@ def EntityRelationshipsSection(
     """
     Creates unified relationships section with 3 collapsible subsections.
 
-    Each subsection:
-    - Alpine.js state: x-data="{ expanded: false }"
-    - Collapsible animation: x-collapse
-    - HTMX lazy loading: hx-get triggers on expand
+    Uses MonsterUI Accordion (multiple=True) — each subsection is an
+    AccordionItem with built-in chevron icons and collapse transitions.
+    Relationship Network starts open=True by default.
     """
 ```
 
@@ -506,21 +505,20 @@ all_routes.extend(new_domain_factory.create_routes())
 **Why:** Detail pages load instantly without expensive graph queries
 
 **Pattern:**
-```html
-<!-- Section is collapsed by default -->
-<div x-data="{ expanded: false }">
-    <div @click="expanded = !expanded">Click to expand</div>
+```python
+from monsterui.franken import Accordion, AccordionItem
 
-    <!-- Content loads ONLY when expanded -->
-    <div x-show="expanded" x-collapse>
-        <div hx-get="/api/tasks/task_abc/lateral/chain"
-             hx-trigger="intersect once"
-             hx-swap="outerHTML">
-            Loading...
-        </div>
-    </div>
-</div>
+# MonsterUI Accordion handles collapse/expand, chevrons, and transitions
+Accordion(
+    AccordionItem("Blocking Dependencies", BlockingChainView(uid, etype)),
+    AccordionItem("Alternative Approaches", AlternativesComparisonGrid(uid, etype)),
+    AccordionItem("Relationship Network", RelationshipGraphView(uid, etype), open=True),
+    multiple=True,  # Each section toggles independently
+)
 ```
+
+HTMX lazy loading still works inside AccordionItems — child components use
+`hx-get` with `hx-trigger="intersect once"` so data loads only when expanded.
 
 **Benefits:**
 - Zero upfront cost (no graph queries on page load)
