@@ -351,18 +351,7 @@ _ENTITY_TYPE_ALIASES: dict[str, EntityType] = {
     "choice": EntityType.CHOICE,
     "principle": EntityType.PRINCIPLE,
     "life_path": EntityType.LIFE_PATH,
-    # Old string values → canonical enums (for ingestion/DSL parsing)
-    "submission": EntityType.EXERCISE_SUBMISSION,
-    "journal": EntityType.JE_INPUT,
-    "journal_submission": EntityType.JE_INPUT,
-    "journal_report": EntityType.JE_OUTPUT,
-    "submission_report": EntityType.EXERCISE_REPORT,
-    "submission_feedback": EntityType.EXERCISE_REPORT,
-    "article": EntityType.LESSON,
-    # Aliases
-    "knowledge": EntityType.LESSON,
-    "moc": EntityType.LESSON,
-    "map_of_content": EntityType.LESSON,
+    # Shorthand aliases
     "book": EntityType.RESOURCE,
     "film": EntityType.RESOURCE,
     "talk": EntityType.RESOURCE,
@@ -375,9 +364,6 @@ _ENTITY_TYPE_ALIASES: dict[str, EntityType] = {
     "form_template": EntityType.FORM_TEMPLATE,
     "form_submission": EntityType.FORM_SUBMISSION,
     "form": EntityType.FORM_TEMPLATE,
-    "assignment": EntityType.EXERCISE,
-    "feedback": EntityType.EXERCISE_REPORT,
-    "revised_ex": EntityType.REVISED_EXERCISE,
     "lifepath": EntityType.LIFE_PATH,
 }
 

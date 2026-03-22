@@ -47,7 +47,6 @@ from core.services.relationships.path_aware_factory import (
 )
 from core.services.relationships.relationships_container import (
     DomainRelationships,
-    GenericRelationships,
 )
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
 
@@ -58,7 +57,6 @@ __all__ = [
     "DomainRelationships",
     # Extended configuration
     "ExtendedRelationshipConfig",
-    "GenericRelationships",
     "LinkMethodSpec",
     "PATH_AWARE_TYPE_MAP",
     "PathAwareTypeSpec",

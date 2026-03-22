@@ -98,7 +98,6 @@ class ResourceDTO(EntityDTO):
             datetime_fields=["created_at", "updated_at"],
             list_fields=["tags"],
             dict_fields=["metadata"],
-            deprecated_fields=["prerequisites", "enables", "related_to", "name"],
         )
 
     # =========================================================================

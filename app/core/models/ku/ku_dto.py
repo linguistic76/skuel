@@ -73,7 +73,6 @@ class KuDTO(EntityDTO):
             datetime_fields=["created_at", "updated_at"],
             list_fields=["tags", "aliases"],
             dict_fields=["metadata"],
-            deprecated_fields=["prerequisites", "enables", "related_to", "name"],
         )
 
     def update_from(self, updates: dict[str, Any]) -> None:

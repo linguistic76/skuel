@@ -21,14 +21,8 @@ from core.models.enums.entity_enums import EntityType, NonKuDomain
 TYPE_MAPPING: dict[str, EntityType | NonKuDomain] = {
     # Lessons (units for learning)
     "lesson": EntityType.LESSON,
-    "article": EntityType.LESSON,
-    "knowledgeunit": EntityType.LESSON,
-    "knowledge": EntityType.LESSON,
-    # Atomic Ku (knowledge unit — concept, state, principle, substance, practice, value)
+    # Atomic Ku (knowledge unit)
     "ku": EntityType.KU,
-    # Maps of Content (MOC is emergent via ORGANIZES relationships)
-    "moc": EntityType.LESSON,
-    "mapofcontent": EntityType.LESSON,
     # Activity domains
     "task": EntityType.TASK,
     "goal": EntityType.GOAL,
@@ -44,10 +38,9 @@ TYPE_MAPPING: dict[str, EntityType | NonKuDomain] = {
     # Finance
     "expense": NonKuDomain.FINANCE,
     "finance": NonKuDomain.FINANCE,
-    # Content/Processing (journal maps to JE_INPUT since Mar 2026 extraction)
-    "journal": EntityType.JE_INPUT,
-    "exercisesubmission": EntityType.EXERCISE_SUBMISSION,
-    "submission": EntityType.EXERCISE_SUBMISSION,
+    # Content/Processing
+    "je_input": EntityType.JE_INPUT,
+    "exercise_submission": EntityType.EXERCISE_SUBMISSION,
     # Destination
     "lifepath": EntityType.LIFE_PATH,
 }

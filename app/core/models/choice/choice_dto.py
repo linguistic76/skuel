@@ -170,7 +170,6 @@ class ChoiceDTO(UserOwnedDTO):
                 "lessons_learned",
             ],
             dict_fields=["metadata"],
-            deprecated_fields=["prerequisites", "enables", "related_to", "name"],
         )
 
     # =========================================================================

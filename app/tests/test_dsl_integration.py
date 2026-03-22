@@ -315,7 +315,7 @@ Today I want to focus on deep work and learning.
 
 **Habits to maintain:**
 - [ ] Morning meditation @context(habit) @duration(20m) @energy(spiritual,rest) @repeat(daily)
-- [ ] Evening journaling @context(habit,journal) @duration(15m) @repeat(daily)
+- [ ] Evening journaling @context(habit) @duration(15m) @repeat(daily)
 
 **Learning goals:**
 - [ ] Complete Python async chapter @context(task,learning) @ku(ku:tech/python-async) @link(goal:tech/mastery)

@@ -18,19 +18,19 @@ from core.models.enums import (
 )
 
 # Import from three-tier models
-from core.models.event.event import Event as EventPure
+from core.models.event.event import Event
 from core.models.event.event_request import EventType
-from core.models.habit.habit import Habit as HabitPure
-from core.models.task.task import Task as TaskPure
+from core.models.habit.habit import Habit
+from core.models.task.task import Task
 
 # Protocols
 from core.ports.calendar_protocol import CalendarTrackable, TimeWindow, WindowKind
 
 
 class EventAdapter:
-    """Adapter for EventPure to ensure CalendarTrackable compliance"""
+    """Adapter for Event to ensure CalendarTrackable compliance"""
 
-    def __init__(self, event: EventPure) -> None:
+    def __init__(self, event: Event) -> None:
         self._event = event
 
     @property
@@ -54,7 +54,7 @@ class EventAdapter:
 
     def get_priority(self) -> Priority:
         """Convert event priority to general Priority"""
-        # EventPure uses uppercase priority strings
+        # Event uses uppercase priority strings
         priority_map = {
             "LOW": Priority.LOW,
             "MEDIUM": Priority.MEDIUM,
@@ -186,9 +186,9 @@ class EventAdapter:
 
 
 class TaskAdapter:
-    """Adapter for TaskPure - mostly just passes through since TaskPure implements CalendarTrackable"""
+    """Adapter for Task - mostly just passes through since Task implements CalendarTrackable"""
 
-    def __init__(self, task: TaskPure) -> None:
+    def __init__(self, task: Task) -> None:
         self._task = task
 
     def __getattr__(self, name: str) -> Any:
@@ -197,9 +197,9 @@ class TaskAdapter:
 
 
 class HabitAdapter:
-    """Adapter for HabitPure - mostly just passes through since HabitPure implements CalendarTrackable"""
+    """Adapter for Habit - mostly just passes through since Habit implements CalendarTrackable"""
 
-    def __init__(self, habit: HabitPure) -> None:
+    def __init__(self, habit: Habit) -> None:
         self._habit = habit
 
     def __getattr__(self, name: str) -> Any:
@@ -207,7 +207,7 @@ class HabitAdapter:
         return getattr(self._habit, name)
 
 
-def create_adapter(entity: EventPure | TaskPure | HabitPure) -> CalendarTrackable:
+def create_adapter(entity: Event | Task | Habit) -> CalendarTrackable:
     """
     Factory function to create appropriate adapter for an entity.
 
@@ -220,13 +220,13 @@ def create_adapter(entity: EventPure | TaskPure | HabitPure) -> CalendarTrackabl
     Raises:
         ValueError: If entity type is not supported
     """
-    if isinstance(entity, EventPure):
+    if isinstance(entity, Event):
         return cast("CalendarTrackable", EventAdapter(entity))
-    elif isinstance(entity, TaskPure):
-        # TaskPure already implements CalendarTrackable, return as-is
+    elif isinstance(entity, Task):
+        # Task already implements CalendarTrackable, return as-is
         return cast("CalendarTrackable", entity)
-    elif isinstance(entity, HabitPure):
-        # HabitPure already implements CalendarTrackable, return as-is
+    elif isinstance(entity, Habit):
+        # Habit already implements CalendarTrackable, return as-is
         return cast("CalendarTrackable", entity)
     else:
         raise ValueError(f"No adapter available for entity type: {type(entity).__name__}")

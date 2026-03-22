@@ -134,7 +134,6 @@ class LifePathDTO(UserOwnedDTO):
             ],
             list_fields=["tags", "vision_themes"],
             dict_fields=["metadata"],
-            deprecated_fields=["prerequisites", "enables", "related_to", "name"],
         )
 
     # =========================================================================

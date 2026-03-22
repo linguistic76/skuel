@@ -24,29 +24,6 @@ from typing import Any
 from core.ports import EnumLike
 
 
-def filter_deprecated_fields(data: dict, deprecated_fields: list[str]) -> None:
-    """
-    Remove deprecated fields from data dictionary in-place.
-
-    Used during DTO from_dict() to handle backward compatibility with databases
-    that still contain graph-native fields that have been migrated to relationships.
-
-    Args:
-        data: Dictionary to modify
-        deprecated_fields: List of field names to remove
-
-    Example:
-        data = {'uid': '123', 'subtask_uids': ['a', 'b'], 'title': 'Task'}
-        filter_deprecated_fields(data, ['subtask_uids'])
-        # data is now {'uid': '123', 'title': 'Task'}
-
-    Note: This is part of the graph-native migration pattern where relationship
-    lists are removed from DTOs and queried dynamically via relationship services.
-    """
-    for field in deprecated_fields:
-        data.pop(field, None)
-
-
 def parse_datetime_field(data: dict, field_name: str) -> None:
     """
     Parse datetime field in-place if it's a string.
@@ -527,7 +504,6 @@ def dto_from_dict[T](
     time_fields: list[str] | None = None,
     list_fields: list[str] | None = None,
     dict_fields: list[str] | None = None,
-    deprecated_fields: list[str] | None = None,
 ) -> T:
     """
     Generic dictionary to DTO deserialization.
@@ -545,7 +521,6 @@ def dto_from_dict[T](
         time_fields: Fields to parse as time from ISO strings
         list_fields: Fields to ensure are lists (None -> [])
         dict_fields: Fields to ensure are dicts (None -> {})
-        deprecated_fields: Fields to remove (backward compatibility)
 
     Returns:
         DTO instance of type cls
@@ -568,10 +543,6 @@ def dto_from_dict[T](
     """
     from dataclasses import fields as dataclass_fields
     from dataclasses import is_dataclass
-
-    # Filter deprecated fields first
-    if deprecated_fields:
-        filter_deprecated_fields(data, deprecated_fields)
 
     # Parse date/datetime/time strings
     if date_fields:

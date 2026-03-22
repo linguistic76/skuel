@@ -132,7 +132,6 @@ class ExerciseDTO(CurriculumDTO):
                 "context_notes",
             ],
             dict_fields=["metadata"],
-            deprecated_fields=["prerequisites", "enables", "related_to", "name"],
         )
 
     # =========================================================================

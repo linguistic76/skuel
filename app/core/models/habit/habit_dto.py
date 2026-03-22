@@ -234,7 +234,6 @@ class HabitDTO(UserOwnedDTO):
             ],
             list_fields=["tags", "reminder_days"],
             dict_fields=["metadata"],
-            deprecated_fields=["prerequisites", "enables", "related_to", "name"],
         )
 
     # =========================================================================

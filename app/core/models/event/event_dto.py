@@ -207,7 +207,6 @@ class EventDTO(UserOwnedDTO):
             time_fields=["start_time", "end_time"],
             list_fields=["tags", "attendee_emails"],
             dict_fields=["metadata"],
-            deprecated_fields=["prerequisites", "enables", "related_to", "name"],
         )
 
     # =========================================================================

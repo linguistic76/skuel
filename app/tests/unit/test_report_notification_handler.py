@@ -59,7 +59,7 @@ async def test_handle_report_submitted_creates_notification(mock_notification_se
         title="New feedback on your submission",
         message="Your teacher reviewed your submission and left feedback.",
         source_uid="ku_feedback_456",
-        source_type="submission_report",
+        source_type="exercise_report",
     )
 
 
@@ -103,7 +103,7 @@ async def test_handle_submission_approved_creates_notification(mock_notification
         title="Your submission was approved",
         message="Your teacher approved your work on this submission.",
         source_uid="ku_submission_123",
-        source_type="submission",
+        source_type="exercise_submission",
     )
 
 
@@ -165,7 +165,7 @@ async def test_handle_revision_requested_creates_notification(mock_notification_
         title="Revision requested on your submission",
         message="Your teacher has requested changes to your submission.",
         source_uid="ku_feedback_789",
-        source_type="submission_report",
+        source_type="exercise_report",
     )
 
 

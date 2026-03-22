@@ -43,7 +43,7 @@ async def test_create_notification_success(service, mock_driver):
         title="New feedback",
         message="Your teacher provided feedback.",
         source_uid="ku_feedback_xyz",
-        source_type="submission_report",
+        source_type="exercise_report",
     )
 
     assert not result.is_error

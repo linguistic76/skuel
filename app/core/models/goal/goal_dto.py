@@ -216,7 +216,6 @@ class GoalDTO(UserOwnedDTO):
                 "progress_history",
             ],
             dict_fields=["metadata"],
-            deprecated_fields=["prerequisites", "enables", "related_to", "name"],
         )
 
     # =========================================================================

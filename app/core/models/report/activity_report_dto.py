@@ -139,7 +139,6 @@ class ActivityReportDTO(UserOwnedDTO):
             ],
             list_fields=["tags", "domains_covered", "insights_referenced"],
             dict_fields=["metadata"],
-            deprecated_fields=["prerequisites", "enables", "related_to", "name"],
         )
 
     def __eq__(self, other: object) -> bool:

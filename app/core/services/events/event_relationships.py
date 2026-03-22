@@ -8,7 +8,7 @@ Replaces direct field access in Event model methods.
 Graph-Native Migration:
 - Before: Event methods accessed self.practices_knowledge_uids directly
 - After: Event methods receive EventRelationships parameter with relationship data
-- Service layer fetches relationships via EventsRelationshipService
+- Service layer fetches relationships via UnifiedRelationshipService
 
 Philosophy: "Relationships ARE the data structure, not serialized lists"
 """
@@ -19,9 +19,6 @@ from dataclasses import dataclass, field
 
 from core.services.relationships import UnifiedRelationshipService
 from core.utils.generic_fetcher import fetch_relationships_parallel
-
-# Type alias for backward compatibility
-EventsRelationshipService = UnifiedRelationshipService
 
 
 # Query specifications: (field_name, service_method_name)
@@ -91,7 +88,7 @@ class EventRelationships:
     demonstrated_principle_uids: list[str] = field(default_factory=list)
 
     @classmethod
-    async def fetch(cls, event_uid: str, service: EventsRelationshipService) -> EventRelationships:
+    async def fetch(cls, event_uid: str, service: UnifiedRelationshipService) -> EventRelationships:
         """
         Fetch all relationship data from graph in parallel.
 
@@ -100,7 +97,7 @@ class EventRelationships:
 
         Args:
             event_uid: UID of event to fetch relationships for
-            service: EventsRelationshipService instance (provides graph query methods)
+            service: UnifiedRelationshipService instance (provides graph query methods)
 
         Returns:
             EventRelationships instance with all relationship data

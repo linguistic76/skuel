@@ -216,12 +216,6 @@ class TaskDTO(UserOwnedDTO):
                 "knowledge_confidence_scores",
                 "knowledge_inference_metadata",
             ],
-            deprecated_fields=[
-                "prerequisites",
-                "enables",
-                "related_to",
-                "name",
-            ],
         )
 
     # =========================================================================

@@ -14,7 +14,7 @@ import pytest
 
 from adapters.persistence.neo4j.relationship_builders import RelationshipBuilder
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-from core.models.task.task import Task as TaskPure
+from core.models.task.task import Task
 
 if TYPE_CHECKING:
     from unittest.mock import MagicMock
@@ -26,7 +26,7 @@ class TestRelationshipFirstAPI:
 
     async def test_relate_returns_builder(self, mock_driver):
         """Test that relate() returns a RelationshipBuilder instance."""
-        backend = UniversalNeo4jBackend[TaskPure](mock_driver, "Entity", TaskPure)
+        backend = UniversalNeo4jBackend[Task](mock_driver, "Entity", Task)
 
         builder = backend.relate()
 
@@ -35,7 +35,7 @@ class TestRelationshipFirstAPI:
 
     async def test_fluent_relationship_creation_syntax(self, mock_driver):
         """Test that the fluent API syntax matches the expected pattern."""
-        backend = UniversalNeo4jBackend[TaskPure](mock_driver, "Entity", TaskPure)
+        backend = UniversalNeo4jBackend[Task](mock_driver, "Entity", Task)
 
         # Verify the syntax compiles and creates the expected chain
         builder = (
@@ -55,7 +55,7 @@ class TestRelationshipFirstAPI:
 
     async def test_relationship_builder_with_labels(self, mock_driver):
         """Test relationship builder with node label optimization."""
-        backend = UniversalNeo4jBackend[TaskPure](mock_driver, "Entity", TaskPure)
+        backend = UniversalNeo4jBackend[Task](mock_driver, "Entity", Task)
 
         builder = (
             backend.relate()

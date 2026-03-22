@@ -298,17 +298,15 @@ def test_entity_type_detection():
         "Result should be EntityType or NonKuDomain enum"
     )
 
-    # Test 2: Type aliases are normalized
-    data_with_alias = {"type": "knowledge", "title": "Test KU"}
-    result = service.detect_entity_type(data_with_alias, Path("/tmp/test.yaml"))
-    assert result == EntityType.LESSON, (
-        f"Expected EntityType.LESSON (alias normalized), got {result}"
-    )
+    # Test 2: Canonical type names work
+    data_with_lesson = {"type": "lesson", "title": "Test Lesson"}
+    result = service.detect_entity_type(data_with_lesson, Path("/tmp/test.yaml"))
+    assert result == EntityType.LESSON, f"Expected EntityType.LESSON, got {result}"
 
-    # Test 3: MOC flag detection (now maps to KU)
-    data_with_moc_flag = {"moc": True, "title": "Map of Content"}
-    result = service.detect_entity_type(data_with_moc_flag, Path("/tmp/test.md"))
-    assert result == EntityType.LESSON, f"Expected EntityType.LESSON (MOC flag), got {result}"
+    # Test 3: KU type detection
+    data_with_ku = {"type": "ku", "title": "Atomic Knowledge"}
+    result = service.detect_entity_type(data_with_ku, Path("/tmp/test.md"))
+    assert result == EntityType.KU, f"Expected EntityType.KU, got {result}"
 
     # Test 4: Default to KU for markdown without type
     data_no_type = {"title": "Some Knowledge"}
@@ -334,19 +332,14 @@ def test_entity_type_detection():
     result = service.detect_entity_type({"type": "ku"}, Path("/tmp/test.yaml"))
     assert result == EntityType.KU, "KU detection should return EntityType.KU"
 
-    # "knowledgeunit" and "knowledge" still map to LESSON (backward compat for old files)
-    result = service.detect_entity_type({"type": "knowledgeunit"}, Path("/tmp/test.yaml"))
-    assert result == EntityType.LESSON, "knowledgeunit should return EntityType.LESSON"
-
-    result = service.detect_entity_type({"type": "knowledge"}, Path("/tmp/test.yaml"))
-    assert result == EntityType.LESSON, "knowledge should return EntityType.LESSON"
+    # Canonical lesson type
+    result = service.detect_entity_type({"type": "lesson"}, Path("/tmp/test.yaml"))
+    assert result == EntityType.LESSON, "lesson should return EntityType.LESSON"
 
     print("✅ Entity type detection works correctly!")
     print("   - Returns EntityType/NonKuDomain enum (type-safe!)")
-    print("   - Handles aliases (knowledge → LESSON, knowledgeunit → LESSON)")
-    print("   - ku → KU (atomic knowledge unit)")
+    print("   - Canonical types: lesson, ku, task, etc.")
     print("   - Case insensitive")
-    print("   - MOC flag detection works")
     print("   - All entity types are unified peers (January 2026)")
 
 

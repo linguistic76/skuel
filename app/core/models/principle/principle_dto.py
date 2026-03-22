@@ -215,7 +215,6 @@ class PrincipleDTO(UserOwnedDTO):
                 "resolution_strategies",
             ],
             dict_fields=["metadata"],
-            deprecated_fields=["prerequisites", "enables", "related_to", "name"],
         )
 
     # =========================================================================

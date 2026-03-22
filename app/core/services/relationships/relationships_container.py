@@ -218,7 +218,3 @@ class DomainRelationships:
         for field_name in knowledge_fields:
             all_uids.update(self.get_field(field_name))
         return all_uids
-
-
-# Type alias for backwards compatibility
-GenericRelationships = DomainRelationships

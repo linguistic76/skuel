@@ -309,7 +309,7 @@ Today's goals:
 Some notes without @context that should be ignored.
 
 More activities:
-- [ ] Evening journaling @context(habit,journal) @duration(15m)
+- [ ] Evening journaling @context(habit) @duration(15m)
 """
 
         result = parse_journal_text(journal_text)

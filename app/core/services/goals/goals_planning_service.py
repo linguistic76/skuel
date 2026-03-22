@@ -61,16 +61,6 @@ class GoalsPlanningService(BasePlanningService[GoalsOperations, Goal]):
 
     _domain_name = "Goals"
 
-    @property
-    def relationships(self) -> UnifiedRelationshipService | None:
-        """Alias for _relationship_service (backward compatibility)."""
-        return self._relationship_service
-
-    @relationships.setter
-    def relationships(self, value: UnifiedRelationshipService | None) -> None:
-        """Alias setter for _relationship_service (backward compatibility)."""
-        self._relationship_service = value
-
     # ========================================================================
     # CONTEXT-FIRST METHODS (November 25, 2025)
     # ========================================================================
@@ -256,9 +246,13 @@ class GoalsPlanningService(BasePlanningService[GoalsOperations, Goal]):
             # Get requirements via relationship service
             knowledge_uids = []
             habit_uids = []
-            if self.relationships:
-                knowledge_result = await self.relationships.get_related_uids("knowledge", goal_uid)
-                habits_result = await self.relationships.get_related_uids("habits", goal_uid)
+            if self._relationship_service:
+                knowledge_result = await self._relationship_service.get_related_uids(
+                    "knowledge", goal_uid
+                )
+                habits_result = await self._relationship_service.get_related_uids(
+                    "habits", goal_uid
+                )
                 knowledge_uids = knowledge_result.value if knowledge_result.is_ok else []
                 habit_uids = habits_result.value if habits_result.is_ok else []
 
@@ -351,8 +345,10 @@ class GoalsPlanningService(BasePlanningService[GoalsOperations, Goal]):
 
             # Get remaining requirements via relationship service
             knowledge_uids = []
-            if self.relationships:
-                knowledge_result = await self.relationships.get_related_uids("knowledge", goal_uid)
+            if self._relationship_service:
+                knowledge_result = await self._relationship_service.get_related_uids(
+                    "knowledge", goal_uid
+                )
                 knowledge_uids = knowledge_result.value if knowledge_result.is_ok else []
 
             contributing_tasks = context.tasks_by_goal.get(goal_uid, [])

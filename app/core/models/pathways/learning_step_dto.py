@@ -129,7 +129,6 @@ class LearningStepDTO(CurriculumDTO):
                 "supporting_knowledge_uids",
             ],
             dict_fields=["metadata"],
-            deprecated_fields=["prerequisites", "enables", "related_to", "name"],
         )
 
     # =========================================================================

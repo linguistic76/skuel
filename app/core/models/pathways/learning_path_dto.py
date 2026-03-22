@@ -101,7 +101,6 @@ class LearningPathDTO(CurriculumDTO):
                 "checkpoint_week_intervals",
             ],
             dict_fields=["metadata"],
-            deprecated_fields=["prerequisites", "enables", "related_to", "name"],
         )
 
     # =========================================================================

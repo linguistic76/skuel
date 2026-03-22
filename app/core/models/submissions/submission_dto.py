@@ -132,7 +132,6 @@ class SubmissionDTO(UserOwnedDTO):
             ],
             list_fields=["tags"],
             dict_fields=["metadata"],
-            deprecated_fields=["prerequisites", "enables", "related_to", "name"],
         )
 
     # =========================================================================

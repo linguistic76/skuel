@@ -9,9 +9,6 @@ Tier 2 (Transfer): Mutable DTOs for data movement
 Tier 3 (Core): Immutable domain models with business logic
 """
 
-# GuidanceType doesn't exist - use GuidanceMode from shared_enums instead
-from core.models.enums import GuidanceMode as GuidanceType
-
 # Askesis enums (canonical location: core.models.enums.askesis_enums)
 from core.models.enums.askesis_enums import (
     IntegrationSuccess,
@@ -58,10 +55,6 @@ from .askesis_dto import (
     IntelligenceInsightsDTO,
 )
 
-# DomainInteraction and GuidanceRecommendation don't exist as frozen models yet
-# They only exist as DTOs, so we'll import the DTOs and alias them for backward compatibility
-from .askesis_dto import DomainInteractionDTO as DomainInteraction
-from .askesis_dto import GuidanceRecommendationDTO as GuidanceRecommendation
 from .askesis_request import (
     AskesisAnalyticsRequest,
     AskesisCreateRequest,
@@ -108,19 +101,16 @@ __all__ = [
     "ConversationSessionResponse",
     "ConversationSessionUpdateRequest",
     "CrossDomainInsightDTO",
-    "DomainInteraction",
     "DomainInteractionDTO",
     "DomainInteractionRequest",
     "DomainSuggestionDTO",
     "DomainSuggestionRequest",
     "DomainSuggestionResponse",
     "DomainSynergiesAnalyticsDTO",
-    "GuidanceRecommendation",
     "GuidanceRecommendationCreateRequest",
     "GuidanceRecommendationDTO",
     "GuidanceRecommendationResponse",
     "GuidanceRecommendationResponseRequest",
-    "GuidanceType",
     "IntegrationSuccess",
     "IntelligenceInsightsDTO",
     "IntelligenceInsightsResponse",

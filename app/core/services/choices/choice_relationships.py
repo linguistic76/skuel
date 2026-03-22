@@ -14,9 +14,6 @@ from dataclasses import dataclass, field
 from core.services.relationships import UnifiedRelationshipService
 from core.utils.generic_fetcher import fetch_relationships_parallel
 
-# Type alias for backward compatibility
-ChoicesRelationshipService = UnifiedRelationshipService
-
 
 # Query specifications: (field_name, service_method_name)
 # Defines the mapping between dataclass fields and service query methods
@@ -62,7 +59,7 @@ class ChoiceRelationships:
 
     @classmethod
     async def fetch(
-        cls, choice_uid: str, service: ChoicesRelationshipService
+        cls, choice_uid: str, service: UnifiedRelationshipService
     ) -> ChoiceRelationships:
         """Fetch all relationship data from graph in parallel."""
         return await fetch_relationships_parallel(

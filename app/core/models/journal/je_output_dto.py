@@ -98,29 +98,6 @@ class JeOutputDTO(UserOwnedDTO):
             ],
             list_fields=["tags"],
             dict_fields=["metadata"],
-            deprecated_fields=[
-                "prerequisites",
-                "enables",
-                "related_to",
-                "name",
-                # Deprecated SubmissionReport fields (JeOutput no longer extends SubmissionReport)
-                "report_content",
-                "report_generated_at",
-                "subject_uid",
-                "report_file_path",
-                # Deprecated Submission fields
-                "original_filename",
-                "file_path",
-                "file_size",
-                "file_type",
-                "processing_started_at",
-                "processing_completed_at",
-                "processing_error",
-                "processed_content",
-                "processed_file_path",
-                "instructions",
-                "max_retention",
-            ],
         )
 
     # =========================================================================

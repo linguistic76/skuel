@@ -48,14 +48,14 @@ from core.models.event.calendar_models import (
     CalendarOccurrence,
     CalendarView,
 )
-from core.models.event.event import Event as EventPure
+from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
-from core.models.habit.habit import Habit as HabitPure
+from core.models.habit.habit import Habit
 from core.models.habit.habit_dto import HabitDTO
 
 # Facade import for habit occurrence recording (needs track_habit method)
 from core.models.habit.habit_request import TrackHabitRequest
-from core.models.task.task import Task as TaskPure
+from core.models.task.task import Task
 from core.models.task.task_dto import TaskDTO
 from core.ports import get_enum_value
 
@@ -362,7 +362,7 @@ class CalendarService:
                 # Get existing event
                 get_result = await self.events_service.get(source_uid)
                 if get_result.is_ok and get_result.value:
-                    event: EventPure = get_result.value  # Type hint for MyPy protocol inference
+                    event: Event = get_result.value  # Type hint for MyPy protocol inference
                     # Calculate new end time based on original duration
                     start_dt = event.start_datetime()
                     end_dt = event.end_datetime()
@@ -489,7 +489,7 @@ class CalendarService:
 
     async def _fetch_habits(
         self, user_uid: str, start_date: date, end_date: date, include_completed: bool
-    ) -> list[HabitPure]:
+    ) -> list[Habit]:
         """
         Fetch active habits.
 
@@ -501,7 +501,7 @@ class CalendarService:
         Note: Habits don't use date filtering (ongoing practices), but we maintain
         the unified interface signature for consistency.
         """
-        habits: list[HabitPure] = []
+        habits: list[Habit] = []
 
         # Null-safety check
         if not self.habits_service:
@@ -528,7 +528,7 @@ class CalendarService:
     # ITEM CONVERSION
     # ========================================================================
 
-    def _task_to_calendar_item(self, task: TaskPure) -> CalendarItem:
+    def _task_to_calendar_item(self, task: Task) -> CalendarItem:
         """Convert task to calendar item."""
         # Determine start and end time
         if task.scheduled_date:
@@ -570,7 +570,7 @@ class CalendarService:
             },
         )
 
-    def _event_to_calendar_item(self, event: EventPure) -> CalendarItem:
+    def _event_to_calendar_item(self, event: Event) -> CalendarItem:
         """Convert event to calendar item."""
         # Get color dynamically from status enum
         color = event.status.get_color() if event.status else "#3B82F6"
@@ -624,7 +624,7 @@ class CalendarService:
             },
         )
 
-    def _habit_to_calendar_item(self, habit: HabitPure) -> CalendarItem:
+    def _habit_to_calendar_item(self, habit: Habit) -> CalendarItem:
         """Convert habit to calendar item."""
         # Habits show up as recurring items
         now = datetime.now()
@@ -651,7 +651,7 @@ class CalendarService:
         )
 
     def _generate_habit_occurrences(
-        self, habit: HabitPure, start_date: date, end_date: date
+        self, habit: Habit, start_date: date, end_date: date
     ) -> list[CalendarOccurrence]:
         """Generate habit occurrences for date range based on recurrence pattern."""
         occurrences = []
@@ -813,7 +813,7 @@ class CalendarService:
         self.logger.debug(f"Generated {len(occurrences)} occurrences for habit {habit.uid}")
         return occurrences
 
-    def _create_occurrence(self, habit: HabitPure, occurrence_date: date) -> CalendarOccurrence:
+    def _create_occurrence(self, habit: Habit, occurrence_date: date) -> CalendarOccurrence:
         """Create a calendar occurrence for a habit."""
         return CalendarOccurrence(
             calendar_item_uid=habit.uid,
@@ -832,7 +832,7 @@ class CalendarService:
         last_day_of_month = next_month - timedelta(days=1)
         return last_day_of_month.day
 
-    def _format_recurrence_pattern(self, habit: HabitPure) -> str:
+    def _format_recurrence_pattern(self, habit: Habit) -> str:
         """Format recurrence pattern for display."""
         pattern = getattr(habit, "recurrence_pattern", "daily")
         # Extract value if it's an enum, otherwise use as-is (handles both enum and string)

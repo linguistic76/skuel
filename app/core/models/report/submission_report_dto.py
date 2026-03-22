@@ -102,24 +102,6 @@ class SubmissionReportDTO(UserOwnedDTO):
             ],
             list_fields=["tags"],
             dict_fields=["metadata"],
-            deprecated_fields=[
-                "prerequisites",
-                "enables",
-                "related_to",
-                "name",
-                # Deprecated Submission fields (SubmissionReport no longer extends Submission)
-                "original_filename",
-                "file_path",
-                "file_size",
-                "file_type",
-                "processing_started_at",
-                "processing_completed_at",
-                "processing_error",
-                "processed_content",
-                "processed_file_path",
-                "instructions",
-                "max_retention",
-            ],
         )
 
     # =========================================================================

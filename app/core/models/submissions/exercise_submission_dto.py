@@ -55,7 +55,6 @@ class ExerciseSubmissionDTO(SubmissionDTO):
             ],
             list_fields=["tags"],
             dict_fields=["metadata"],
-            deprecated_fields=["prerequisites", "enables", "related_to", "name"],
         )
 
     def __eq__(self, other: object) -> bool:

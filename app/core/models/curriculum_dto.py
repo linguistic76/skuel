@@ -160,7 +160,6 @@ class CurriculumDTO(EntityDTO):
                 "structured_learning_objectives",
             ],
             dict_fields=["metadata"],
-            deprecated_fields=["prerequisites", "enables", "related_to", "name"],
         )
 
     # =========================================================================

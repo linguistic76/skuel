@@ -14,9 +14,6 @@ from dataclasses import dataclass, field
 from core.services.relationships import UnifiedRelationshipService
 from core.utils.generic_fetcher import fetch_relationships_parallel
 
-# Type alias for backward compatibility
-TasksRelationshipService = UnifiedRelationshipService
-
 
 # Query specifications: (field_name, service_method_name)
 # Defines the mapping between dataclass fields and service query methods
@@ -61,7 +58,7 @@ class TaskRelationships:
     serves_life_path_uids: list[str] = field(default_factory=list)
 
     @classmethod
-    async def fetch(cls, task_uid: str, service: TasksRelationshipService) -> TaskRelationships:
+    async def fetch(cls, task_uid: str, service: UnifiedRelationshipService) -> TaskRelationships:
         """Fetch all relationship data from graph in parallel."""
         return await fetch_relationships_parallel(
             uid=task_uid,

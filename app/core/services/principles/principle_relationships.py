@@ -14,9 +14,6 @@ from dataclasses import dataclass, field
 from core.services.relationships import UnifiedRelationshipService
 from core.utils.generic_fetcher import fetch_relationships_parallel
 
-# Type alias for backward compatibility
-PrinciplesRelationshipService = UnifiedRelationshipService
-
 
 # Query specifications: (field_name, service_method_name)
 PRINCIPLE_QUERY_SPECS: list[tuple[str, str]] = [
@@ -57,7 +54,7 @@ class PrincipleRelationships:
 
     @classmethod
     async def fetch(
-        cls, principle_uid: str, service: PrinciplesRelationshipService
+        cls, principle_uid: str, service: UnifiedRelationshipService
     ) -> PrincipleRelationships:
         """Fetch all relationship data from graph in parallel."""
         return await fetch_relationships_parallel(

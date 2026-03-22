@@ -648,8 +648,6 @@ LS_EVENTS = [
     LearningStepCompleted,
 ]
 
-# MOC_EVENTS removed January 2026 - MOC is now KU-based
-MOC_EVENTS: list[type] = []  # Empty list for backward compatibility
 
 PRINCIPLE_EVENTS = [
     PrincipleCreated,
@@ -712,7 +710,6 @@ ALL_EVENTS = (
     + LEARNING_EVENTS
     + KNOWLEDGE_SUBSTANCE_EVENTS
     + LS_EVENTS
-    + MOC_EVENTS
     + PRINCIPLE_EVENTS
     + CHOICE_EVENTS
     + CALENDAR_EVENT_EVENTS

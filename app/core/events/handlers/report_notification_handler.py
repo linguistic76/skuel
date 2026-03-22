@@ -51,7 +51,7 @@ async def handle_report_submitted(
         title="New feedback on your submission",
         message="Your teacher reviewed your submission and left feedback.",
         source_uid=event.report_uid,
-        source_type="submission_report",
+        source_type="exercise_report",
     )
 
     if result.is_error:
@@ -99,7 +99,7 @@ async def handle_submission_approved(
         title="Your submission was approved",
         message=message,
         source_uid=event.submission_uid,
-        source_type="submission",
+        source_type="exercise_submission",
     )
 
     if result.is_error:
@@ -145,7 +145,7 @@ async def handle_revision_requested(
         title="Revision requested on your submission",
         message="Your teacher has requested changes to your submission.",
         source_uid=source_uid,
-        source_type="submission_report",
+        source_type="exercise_report",
     )
 
     if result.is_error:

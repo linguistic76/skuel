@@ -21,8 +21,7 @@ from core.models.choice.choice_option import ChoiceOption
 from core.models.choice.choice_request import ChoiceCreateRequest
 from core.models.entity import Entity
 from core.models.entity_requests import EntityUpdateRequest
-
-# Import domain models (Tier 3 - Core)
+from core.models.event.event import Event
 from core.models.event.event_request import EventCreateRequest, EventUpdateRequest
 from core.models.finance.finance_pure import BudgetPure, ExpensePure
 from core.models.finance.finance_request import (
@@ -31,22 +30,17 @@ from core.models.finance.finance_request import (
     ExpenseCreateRequest,
     ExpenseUpdateRequest,
 )
+from core.models.goal.goal import Goal
 from core.models.goal.goal_request import GoalCreateRequest, GoalUpdateRequest
-from core.models.habit.habit import Habit as Habit
+from core.models.habit.habit import Habit
 from core.models.habit.habit_request import HabitCreateRequest, HabitUpdateRequest
-from core.models.lesson.lesson_request import LessonCreateRequest as KuCreateRequest
+from core.models.ku.ku import Ku
+from core.models.lesson.lesson_request import LessonCreateRequest
 from core.models.principle.principle import Principle
 from core.models.principle.principle_request import PrincipleCreateRequest
+from core.models.task.task import Task
 from core.models.task.task_request import TaskCreateRequest, TaskUpdateRequest
 from core.ports import HasUpdated, HasUpdatedAt, PydanticModel
-
-# Create aliases for Pure models (backward compatibility)
-Task = Entity  # Alias for Entity base type (domain-first model)
-TaskPure = Task
-EventPure = Entity
-HabitPure = Habit
-GoalPure = Entity  # Alias for Entity base type (domain-first model)
-KuPure = Entity  # Knowledge Unit (Entity base type)
 
 # Type variables for generic methods
 T = TypeVar("T")
@@ -274,47 +268,47 @@ class ConversionServiceV2:
     @classmethod
     def task_create_to_pure(
         cls, schema: TaskCreateRequest, uid: str | None = None, **kwargs: Any
-    ) -> TaskPure:
-        """Convert TaskCreateRequest to TaskPure using generic method."""
-        return cls.create_to_pure(schema, TaskPure, uid, **kwargs)
+    ) -> Task:
+        """Convert TaskCreateRequest to Task using generic method."""
+        return cls.create_to_pure(schema, Task, uid, **kwargs)
 
     @classmethod
-    def task_update_to_pure(cls, existing: TaskPure, schema: TaskUpdateRequest) -> TaskPure:
-        """Apply TaskUpdateRequest to existing TaskPure using generic method."""
+    def task_update_to_pure(cls, existing: Task, schema: TaskUpdateRequest) -> Task:
+        """Apply TaskUpdateRequest to existing Task using generic method."""
         return cls.update_to_pure(existing, schema)
 
     # --- Event Conversions --
     @classmethod
     def event_create_to_pure(
         cls, schema: EventCreateRequest, uid: str | None = None, **kwargs: Any
-    ) -> EventPure:
-        """Convert EventCreateRequest to EventPure using generic method."""
-        return cls.create_to_pure(schema, EventPure, uid, **kwargs)
+    ) -> Event:
+        """Convert EventCreateRequest to Event using generic method."""
+        return cls.create_to_pure(schema, Event, uid, **kwargs)
 
     @classmethod
-    def event_update_to_pure(cls, existing: EventPure, schema: EventUpdateRequest) -> EventPure:
-        """Apply EventUpdateRequest to existing EventPure using generic method."""
+    def event_update_to_pure(cls, existing: Event, schema: EventUpdateRequest) -> Event:
+        """Apply EventUpdateRequest to existing Event using generic method."""
         return cls.update_to_pure(existing, schema)
 
     # --- Habit Conversions --
     @classmethod
     def habit_create_to_pure(
         cls, schema: HabitCreateRequest, uid: str | None = None, **kwargs: Any
-    ) -> HabitPure:
-        """Convert HabitCreateRequest to HabitPure using generic method."""
+    ) -> Habit:
+        """Convert HabitCreateRequest to Habit using generic method."""
         # Handle special case for target_days_per_week
         extra_fields = {}
         if schema.target_days_per_week:
-            # Note: HabitPure uses target_days_per_week directly (int, not list of WeekDay)
+            # Note: Habit uses target_days_per_week directly (int, not list of WeekDay)
             extra_fields["target_days_per_week"] = schema.target_days_per_week
 
         # Merge kwargs (includes user_uid) with extra_fields
         extra_fields.update(kwargs)
-        return cls.create_to_pure(schema, HabitPure, uid, **extra_fields)
+        return cls.create_to_pure(schema, Habit, uid, **extra_fields)
 
     @classmethod
-    def habit_update_to_pure(cls, existing: HabitPure, schema: HabitUpdateRequest) -> HabitPure:
-        """Apply HabitUpdateRequest to existing HabitPure using generic method."""
+    def habit_update_to_pure(cls, existing: Habit, schema: HabitUpdateRequest) -> Habit:
+        """Apply HabitUpdateRequest to existing Habit using generic method."""
         # Handle special case for target_days_per_week
         extra_updates = {}
         if schema.target_days_per_week is not None:
@@ -326,13 +320,13 @@ class ConversionServiceV2:
     @classmethod
     def goal_create_to_pure(
         cls, schema: GoalCreateRequest, uid: str | None = None, **kwargs: Any
-    ) -> GoalPure:
-        """Convert GoalCreateRequest to GoalPure using generic method."""
-        return cls.create_to_pure(schema, GoalPure, uid, **kwargs)
+    ) -> Goal:
+        """Convert GoalCreateRequest to Goal using generic method."""
+        return cls.create_to_pure(schema, Goal, uid, **kwargs)
 
     @classmethod
-    def goal_update_to_pure(cls, existing: GoalPure, schema: GoalUpdateRequest) -> GoalPure:
-        """Apply GoalUpdateRequest to existing GoalPure using generic method."""
+    def goal_update_to_pure(cls, existing: Goal, schema: GoalUpdateRequest) -> Goal:
+        """Apply GoalUpdateRequest to existing Goal using generic method."""
         return cls.update_to_pure(existing, schema)
 
     @classmethod
@@ -343,13 +337,13 @@ class ConversionServiceV2:
     # --- Knowledge Unit (Ku) Conversions --
     @classmethod
     def ku_create_to_pure(
-        cls, schema: KuCreateRequest, uid: str | None = None, **kwargs: Any
-    ) -> KuPure:
+        cls, schema: LessonCreateRequest, uid: str | None = None, **kwargs: Any
+    ) -> Ku:
         """Convert CurriculumCreateRequest to Curriculum entity using generic method."""
-        return cls.create_to_pure(schema, KuPure, uid, **kwargs)
+        return cls.create_to_pure(schema, Ku, uid, **kwargs)
 
     @classmethod
-    def ku_update_to_pure(cls, existing: KuPure, schema: EntityUpdateRequest) -> KuPure:
+    def ku_update_to_pure(cls, existing: Ku, schema: EntityUpdateRequest) -> Ku:
         """Apply EntityUpdateRequest to existing Curriculum entity using generic method."""
         return cls.update_to_pure(existing, schema)
 

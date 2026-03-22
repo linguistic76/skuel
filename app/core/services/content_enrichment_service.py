@@ -245,8 +245,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
         - Trending topics (last 30 days) for thematic continuity
         - Recent mood averages for emotional awareness
 
-        Updated February 2026: Queries Entity nodes with entity_type="submission"
-        (Journal→Report merge, assignment→submission rename).
+        Queries Entity nodes with entity_type="exercise_submission".
 
         Args:
             user_uid: User identifier
@@ -259,7 +258,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
 
         // Recent journal-type reports (last 7 days)
         OPTIONAL MATCH (u)-[:OWNS]->(recent:Entity)
-        WHERE recent.entity_type = 'submission'
+        WHERE recent.entity_type = 'exercise_submission'
           AND recent.created_at >= datetime() - duration('P7D')
         WITH u, collect({
             uid: recent.uid,
@@ -282,7 +281,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
 
         // Recent topics (from last 30 days) - journal-type reports
         OPTIONAL MATCH (u)-[:OWNS]->(j:Entity)
-        WHERE j.entity_type = 'submission'
+        WHERE j.entity_type = 'exercise_submission'
           AND j.created_at >= datetime() - duration('P30D')
           AND j.key_topics IS NOT NULL
         WITH u, recent_journals, active_goals,

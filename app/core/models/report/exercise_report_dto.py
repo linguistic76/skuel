@@ -54,24 +54,6 @@ class ExerciseReportDTO(SubmissionReportDTO):
             ],
             list_fields=["tags"],
             dict_fields=["metadata"],
-            deprecated_fields=[
-                "prerequisites",
-                "enables",
-                "related_to",
-                "name",
-                # Deprecated Submission fields
-                "original_filename",
-                "file_path",
-                "file_size",
-                "file_type",
-                "processing_started_at",
-                "processing_completed_at",
-                "processing_error",
-                "processed_content",
-                "processed_file_path",
-                "instructions",
-                "max_retention",
-            ],
         )
 
     def __eq__(self, other: object) -> bool:
