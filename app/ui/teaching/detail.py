@@ -13,6 +13,7 @@ from ui.buttons import Button, ButtonLink, ButtonT
 from ui.cards import Card, CardBody
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
+from ui.patterns.stacked_action_card import StackedActionCard
 from ui.teaching.badges import entity_type_badge, status_badge
 from ui.teaching.types import ClassMember, SubmissionDetail, SubmissionRow
 
@@ -105,33 +106,23 @@ def render_exercise_submission_row(item: SubmissionRow) -> Div:
             size=Size.sm,
         )
 
-    return Card(
-        CardBody(
-            Div(
-                Div(
-                    H4(title, cls="mb-0 font-semibold"),
-                    P(f"by {student_name}", cls="text-sm text-muted-foreground mb-0"),
-                    cls="flex-1",
-                ),
-                Div(
-                    feedback_indicator,
-                    status_badge(item.status),
-                    cls="flex gap-2 items-center",
-                ),
-                cls="flex items-center justify-between gap-4",
-            ),
-            Div(
-                ButtonLink(
-                    "Review",
-                    href=f"/teaching/review/{item.uid}",
-                    variant=ButtonT.primary,
-                    size=Size.sm,
-                ),
-                cls="flex justify-end mt-3",
-            ),
-            cls="p-4",
+    return StackedActionCard(
+        header_left=Div(
+            H4(title, cls="mb-0 font-semibold"),
+            P(f"by {student_name}", cls="text-sm text-muted-foreground mb-0"),
+            cls="flex-1",
         ),
-        cls="bg-background shadow-sm mb-2",
+        header_right=Div(
+            feedback_indicator,
+            status_badge(item.status),
+            cls="flex gap-2 items-center",
+        ),
+        actions=ButtonLink(
+            "Review",
+            href=f"/teaching/review/{item.uid}",
+            variant=ButtonT.primary,
+            size=Size.sm,
+        ),
     )
 
 
@@ -170,34 +161,24 @@ def render_student_submission_row(item: SubmissionRow) -> Div:
             cls="mt-2",
         )
 
-    return Card(
-        CardBody(
-            Div(
-                Div(
-                    H4(title, cls="mb-0 font-semibold"),
-                    exercise_label,
-                    cls="flex-1",
-                ),
-                Div(
-                    feedback_indicator,
-                    status_badge(item.status),
-                    cls="flex gap-2 items-center",
-                ),
-                cls="flex items-center justify-between gap-4",
-            ),
-            Div(
-                ButtonLink(
-                    "Review",
-                    href=f"/teaching/review/{item.uid}",
-                    variant=ButtonT.primary,
-                    size=Size.sm,
-                ),
-                cls="flex justify-end mt-3",
-            ),
-            feedback_toggle,
-            cls="p-4",
+    return StackedActionCard(
+        header_left=Div(
+            H4(title, cls="mb-0 font-semibold"),
+            exercise_label,
+            cls="flex-1",
         ),
-        cls="bg-background shadow-sm mb-2",
+        header_right=Div(
+            feedback_indicator,
+            status_badge(item.status),
+            cls="flex gap-2 items-center",
+        ),
+        actions=ButtonLink(
+            "Review",
+            href=f"/teaching/review/{item.uid}",
+            variant=ButtonT.primary,
+            size=Size.sm,
+        ),
+        extra=feedback_toggle,
     )
 
 
@@ -205,34 +186,24 @@ def render_class_member_row(item: ClassMember) -> Div:
     """Render a member row in the class detail view."""
     pending_variant = BadgeT.warning if item.pending_count > 0 else BadgeT.ghost
 
-    return Card(
-        CardBody(
-            Div(
-                Div(
-                    H4(item.user_name, cls="mb-0 font-semibold"),
-                    P(f"{item.role} · {item.user_uid}", cls="text-xs text-foreground/40 mb-0"),
-                    cls="flex-1",
-                ),
-                Div(
-                    Badge(f"{item.pending_count} pending", variant=pending_variant),
-                    Badge(
-                        f"{item.reviewed_count}/{item.submission_count} reviewed",
-                        variant=BadgeT.ghost,
-                    ),
-                    cls="flex gap-2 items-center",
-                ),
-                cls="flex items-center justify-between gap-4",
-            ),
-            Div(
-                ButtonLink(
-                    "View Submissions",
-                    href=f"/teaching/students/{item.user_uid}",
-                    variant=ButtonT.ghost,
-                    size=Size.sm,
-                ),
-                cls="flex justify-end mt-3",
-            ),
-            cls="p-4",
+    return StackedActionCard(
+        header_left=Div(
+            H4(item.user_name, cls="mb-0 font-semibold"),
+            P(f"{item.role} · {item.user_uid}", cls="text-xs text-foreground/40 mb-0"),
+            cls="flex-1",
         ),
-        cls="bg-background shadow-sm mb-2",
+        header_right=Div(
+            Badge(f"{item.pending_count} pending", variant=pending_variant),
+            Badge(
+                f"{item.reviewed_count}/{item.submission_count} reviewed",
+                variant=BadgeT.ghost,
+            ),
+            cls="flex gap-2 items-center",
+        ),
+        actions=ButtonLink(
+            "View Submissions",
+            href=f"/teaching/students/{item.user_uid}",
+            variant=ButtonT.ghost,
+            size=Size.sm,
+        ),
     )

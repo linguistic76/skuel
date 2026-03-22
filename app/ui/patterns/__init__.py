@@ -9,6 +9,7 @@ from ui.patterns.progress_metric import ProgressMetric
 from ui.patterns.recommendation_card import RecommendationCard
 from ui.patterns.section_header import SectionHeader
 from ui.patterns.setting_toggle import SettingToggle
+from ui.patterns.stacked_action_card import StackedActionCard
 from ui.patterns.stats_grid import StatCard, StatsGrid
 
 __all__ = [
@@ -20,6 +21,7 @@ __all__ = [
     "RecommendationCard",
     "SectionHeader",
     "SettingToggle",
+    "StackedActionCard",
     "StatCard",
     "StatsGrid",
     "render_empty_state_with_error",
