@@ -34,7 +34,8 @@ from core.services.user.unified_user_context import UserContext
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from ui.cards import Card, CardBody
-from ui.feedback import Badge, BadgeT, get_submission_status_badge_class
+from ui.enum_helpers import get_submission_status_badge_class
+from ui.feedback import Badge, BadgeT
 from ui.layout import Size
 from ui.layouts.base_page import BasePage
 from ui.profile.domain_stats_config import (

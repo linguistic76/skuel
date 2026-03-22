@@ -20,6 +20,9 @@ Usage in UI components:
 
 from __future__ import annotations
 
+from enum import Enum
+from typing import TypeVar
+
 from fasthtml.common import Div, Span
 
 from core.models.enums import (
@@ -39,6 +42,23 @@ from core.models.enums.user_enums import UserRole
 from core.models.event.calendar_models import CalendarItemType
 from ui.feedback import Badge, BadgeT
 
+E = TypeVar("E", bound=Enum)
+
+
+def _enum_method(
+    value: str, enum_cls: type[E], method_name: str, fallback: str, *, normalize: bool = True
+) -> str:
+    """Bridge a raw string to an enum method with ValueError fallback.
+
+    The repeated try/except pattern across all bridge functions is unified here.
+    """
+    try:
+        resolved = enum_cls(value.lower().strip() if normalize else value)
+        return getattr(resolved, method_name)()
+    except ValueError:
+        return fallback
+
+
 # ============================================================================
 # BRIDGE FUNCTIONS — str → enum → Tailwind class
 # ============================================================================
@@ -46,58 +66,46 @@ from ui.feedback import Badge, BadgeT
 
 def get_status_badge_class(status: str) -> str:
     """Get Tailwind badge class for any entity status string."""
-    try:
-        return EntityStatus(status.lower().strip()).get_badge_class()
-    except ValueError:
-        return "bg-gray-100 text-gray-600 border-gray-200"
+    return _enum_method(
+        status, EntityStatus, "get_badge_class", "bg-gray-100 text-gray-600 border-gray-200"
+    )
 
 
 def get_status_text_class(status: str) -> str:
     """Get Tailwind text color class for any entity status string."""
-    try:
-        return EntityStatus(status.lower().strip()).get_text_class()
-    except ValueError:
-        return "text-muted-foreground"
+    return _enum_method(status, EntityStatus, "get_text_class", "text-muted-foreground")
 
 
 def get_priority_badge_class(priority: str) -> str:
     """Get Tailwind badge class for a priority level."""
-    try:
-        return Priority(priority.lower().strip()).get_badge_class()
-    except ValueError:
-        return "bg-muted text-muted-foreground border-border"
+    return _enum_method(
+        priority, Priority, "get_badge_class", "bg-muted text-muted-foreground border-border"
+    )
 
 
 def get_priority_text_class(priority: str) -> str:
     """Get Tailwind text color class for a priority level."""
-    try:
-        return Priority(priority.lower().strip()).get_text_class()
-    except ValueError:
-        return "text-muted-foreground"
+    return _enum_method(priority, Priority, "get_text_class", "text-muted-foreground")
 
 
 def get_priority_border_class(priority: str) -> str:
     """Get border-left class for a priority/impact level."""
-    try:
-        return Priority(priority.lower().strip()).get_border_class()
-    except ValueError:
-        return "border-l-border"
+    return _enum_method(priority, Priority, "get_border_class", "border-l-border")
 
 
 def get_priority_dot_class(priority: str) -> str:
     """Get background dot class for a priority/impact level."""
-    try:
-        return Priority(priority.lower().strip()).get_dot_class()
-    except ValueError:
-        return "bg-muted"
+    return _enum_method(priority, Priority, "get_dot_class", "bg-muted")
 
 
 def get_essentiality_badge_class(essentiality: str) -> str:
     """Get Tailwind badge class for a habit essentiality level."""
-    try:
-        return HabitEssentiality(essentiality.lower().strip()).get_badge_class()
-    except ValueError:
-        return "bg-gray-100 text-gray-600 border-gray-200"
+    return _enum_method(
+        essentiality,
+        HabitEssentiality,
+        "get_badge_class",
+        "bg-gray-100 text-gray-600 border-gray-200",
+    )
 
 
 def get_essentiality_styled(essentiality: str) -> tuple[str, str, str]:
@@ -110,26 +118,21 @@ def get_essentiality_styled(essentiality: str) -> tuple[str, str, str]:
 
 def get_health_bg_class(status: str) -> str:
     """Get background/border classes for a domain health status."""
-    try:
-        return HealthStatus(status.lower().strip()).get_bg_class()
-    except ValueError:
-        return "bg-background border-border shadow-sm"
+    return _enum_method(
+        status, HealthStatus, "get_bg_class", "bg-background border-border shadow-sm"
+    )
 
 
 def get_health_dot_class(status: str) -> str:
     """Get dot background class for a domain health status."""
-    try:
-        return HealthStatus(status.lower().strip()).get_dot_class()
-    except ValueError:
-        return "bg-muted-foreground"
+    return _enum_method(status, HealthStatus, "get_dot_class", "bg-muted-foreground")
 
 
 def get_role_badge_class(role: str) -> str:
     """Get Tailwind badge class for a user role."""
-    try:
-        return UserRole(role.lower().strip()).get_badge_class()
-    except ValueError:
-        return "bg-muted text-muted-foreground border-border"
+    return _enum_method(
+        role, UserRole, "get_badge_class", "bg-muted text-muted-foreground border-border"
+    )
 
 
 def get_submission_status_badge_class(status: str) -> str:
@@ -144,74 +147,47 @@ def get_submission_status_badge_class(status: str) -> str:
 
 def get_trend_color(trend: str) -> str:
     """Get Tailwind text color class for a trend direction string."""
-    try:
-        return TrendDirection(trend).get_text_class()
-    except ValueError:
-        return "text-muted-foreground"
+    return _enum_method(trend, TrendDirection, "get_text_class", "text-muted-foreground")
 
 
 def get_trend_icon(trend: str) -> str:
     """Get emoji icon for a trend direction string."""
-    try:
-        return TrendDirection(trend).get_icon()
-    except ValueError:
-        return "→"
+    return _enum_method(trend, TrendDirection, "get_icon", "\u2192")
 
 
 def get_health_color(status: str) -> str:
     """Get base color name for a health status string."""
-    try:
-        return HealthStatus(status).get_color()
-    except ValueError:
-        return "gray"
+    return _enum_method(status, HealthStatus, "get_color", "gray")
 
 
 def get_health_icon(status: str) -> str:
     """Get emoji icon for a health status string."""
-    try:
-        return HealthStatus(status).get_icon()
-    except ValueError:
-        return "❔"
+    return _enum_method(status, HealthStatus, "get_icon", "\u2754")
 
 
 def get_completion_emoji(status: str) -> str:
     """Get emoji for a completion status string."""
-    try:
-        return CompletionStatus(status).get_emoji()
-    except ValueError:
-        return "❓"
+    return _enum_method(status, CompletionStatus, "get_emoji", "\u2753")
 
 
 def get_activity_icon(activity_type: str) -> str:
     """Get emoji icon for an activity type string."""
-    try:
-        return ActivityType(activity_type).get_icon()
-    except ValueError:
-        return "📋"
+    return _enum_method(activity_type, ActivityType, "get_icon", "\U0001f4cb")
 
 
 def get_content_icon(content_type: str) -> str:
     """Get emoji icon for a content type string."""
-    try:
-        return ContentType(content_type).get_icon()
-    except ValueError:
-        return "📄"
+    return _enum_method(content_type, ContentType, "get_icon", "\U0001f4c4")
 
 
 def get_educational_icon(level: str) -> str:
     """Get emoji icon for an educational level string."""
-    try:
-        return EducationalLevel(level).get_icon()
-    except ValueError:
-        return "📚"
+    return _enum_method(level, EducationalLevel, "get_icon", "\U0001f4da")
 
 
 def get_sel_icon(category: str) -> str:
     """Get emoji icon for an SEL category string."""
-    try:
-        return SELCategory(category).get_icon()
-    except ValueError:
-        return "📚"
+    return _enum_method(category, SELCategory, "get_icon", "\U0001f4da")
 
 
 def get_recurrence_label(pattern: str) -> str:
@@ -257,10 +233,7 @@ def get_time_icon(time_of_day: str) -> str:
 
 def get_calendar_icon(item_type: str) -> str:
     """Get emoji icon for a calendar item type."""
-    try:
-        return CalendarItemType(item_type).get_icon()
-    except ValueError:
-        return "📅"
+    return _enum_method(item_type, CalendarItemType, "get_icon", "\U0001f4c5")
 
 
 # ============================================================================

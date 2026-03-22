@@ -342,7 +342,8 @@ from fasthtml.common import H1, H2, H3, P, A, Form, Li, Ul
 # SKUEL MonsterUI wrappers — 8 focused modules (March 2026)
 from ui.buttons import Button, ButtonT
 from ui.cards import Card, CardBody, CardTitle, CardActions, CardT
-from ui.feedback import Alert, AlertT, Badge, BadgeT, Loading, LoadingT, Progress, ProgressT, RadialProgress, get_submission_status_badge_class
+from ui.enum_helpers import get_submission_status_badge_class
+from ui.feedback import Alert, AlertT, Badge, BadgeT, Loading, LoadingT, Progress, ProgressT, RadialProgress
 from ui.forms import Checkbox, Input, LabelCheckbox, LabelInput, LabelSelect, LabelTextArea, Radio, Range, Select, Textarea, Toggle
 from ui.layout import Container, DivCentered, DivFullySpaced, DivHStacked, DivVStacked, Grid, Size
 from ui.modals import Modal, ModalAction, ModalBackdrop, ModalBox

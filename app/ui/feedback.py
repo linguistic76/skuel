@@ -32,22 +32,7 @@ __all__ = [
     "Progress",
     "RadialProgress",
     "StatusBadge",
-    "get_submission_status_badge_class",
 ]
-
-
-def get_submission_status_badge_class(status: str) -> str:
-    """Get badge class for submission/report status.
-
-    Centralised mapping used by submissions_ui, journals_ui, and user_profile_ui.
-    Delegates to EntityStatus enum for the canonical mapping.
-    """
-    from core.models.enums import EntityStatus
-
-    try:
-        return EntityStatus(status.lower().strip()).get_badge_class()
-    except ValueError:
-        return "bg-gray-100 text-gray-600 border-gray-200"
 
 
 class AlertT(StrEnum):

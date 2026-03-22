@@ -10,7 +10,8 @@ from typing import Any
 from fasthtml.common import H4, Div, P
 
 from ui.buttons import ButtonLink, ButtonT
-from ui.feedback import Alert, AlertT, Badge, get_submission_status_badge_class
+from ui.enum_helpers import get_submission_status_badge_class
+from ui.feedback import Alert, AlertT, Badge
 from ui.layout import Size
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.entity_card import EntityCard

@@ -48,7 +48,8 @@ These are the **lowest-level SKUEL building blocks** — imported directly in ro
 | `ui.cards` | `CardT` (re-exported from MonsterUI), `Card`, `CardBody`, `CardTitle`, `CardActions`, `CardFigure`, `CardLink` |
 | `ui.forms` | `Input`, `Select`, `Textarea`, `Checkbox`, `Radio`, `Toggle`, `Range`, `LabelInput`, `LabelTextArea`, `LabelSelect`, `LabelCheckbox` |
 | `ui.modals` | `Modal`, `ModalBox`, `ModalAction`, `ModalBackdrop` |
-| `ui.feedback` | `AlertT`, `BadgeT`, `ProgressT`, `LoadingT`, `Alert`, `Badge`, `Loading`, `Progress`, `RadialProgress`, `get_submission_status_badge_class` |
+| `ui.feedback` | `AlertT`, `BadgeT`, `ProgressT`, `LoadingT`, `Alert`, `Badge`, `Loading`, `Progress`, `RadialProgress` |
+| `ui.enum_helpers` | `get_submission_status_badge_class`, `get_status_badge_class`, `get_priority_badge_class`, ... |
 | `ui.navigation` | `Navbar`, `NavbarStart`, `NavbarCenter`, `NavbarEnd`, `Menu`, `MenuItem`, `Dropdown`, `DropdownTrigger`, `DropdownContent`, `Tabs`, `Tab` |
 | `ui.data` | `Table`, `TableFromDicts`, `TableFromLists`, `TableT`, `Divider`, `DividerSplit`, `DividerT` |
 
@@ -57,7 +58,8 @@ These are the **lowest-level SKUEL building blocks** — imported directly in ro
 from ui.buttons import Button, ButtonT
 from ui.cards import Card, CardBody
 from ui.forms import Input, LabelInput, LabelTextArea, LabelSelect, LabelCheckbox, Select, Textarea
-from ui.feedback import Alert, AlertT, Badge, Progress, ProgressT, get_submission_status_badge_class
+from ui.enum_helpers import get_submission_status_badge_class
+from ui.feedback import Alert, AlertT, Badge, Progress, ProgressT
 from ui.layout import Container, DivHStacked, DivVStacked, Size
 from ui.modals import Modal, ModalAction, ModalBackdrop, ModalBox
 from ui.navigation import Dropdown, DropdownContent, DropdownTrigger, Menu, MenuItem, Navbar
