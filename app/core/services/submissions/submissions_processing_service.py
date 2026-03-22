@@ -53,7 +53,7 @@ class SubmissionsProcessingService:
         content_enrichment=None,
         ku_relationship_service=None,
         activity_extractor=None,
-        journal_generator=None,
+        journal_output_service=None,
         event_bus=None,
     ) -> None:
         """
@@ -65,7 +65,7 @@ class SubmissionsProcessingService:
             content_enrichment: ContentEnrichmentService for LLM formatting
             ku_relationship_service: SubmissionsRelationshipService for graph relationships
             activity_extractor: ActivityExtractorService for DSL-based entity extraction
-            journal_generator: JournalOutputGenerator for je_output file generation
+            journal_output_service: JournalOutputService for je_output creation
             event_bus: Event bus for domain events (optional)
         """
         self.ku_submission_service = ku_submission_service
@@ -73,7 +73,7 @@ class SubmissionsProcessingService:
         self.content_enrichment = content_enrichment
         self.ku_relationship_service = ku_relationship_service
         self.activity_extractor = activity_extractor
-        self.journal_generator = journal_generator
+        self.journal_output_service = journal_output_service
         self.event_bus = event_bus
         self.logger = get_logger("skuel.services.ku_processing")
 
@@ -398,64 +398,38 @@ class SubmissionsProcessingService:
         self, submission: JeInput, content: str, instructions: dict[str, Any] | None
     ) -> None:
         """
-        Process journal submission with enrichment pipeline.
+        Process journal entry via JournalOutputService.
 
-        Pipeline:
-        1. Read enrichment_mode from instructions
-        2. Generate formatted je_output file
-        3. Extract activities if mode is activity_tracking
-        4. Store enrichment_mode and je_output_path in metadata
+        Delegates LLM processing and JeOutput creation to the journal domain service.
+        Activity extraction (DSL) remains here as a shared cross-domain concern.
         """
-        if not self.journal_generator:
+        if not self.journal_output_service:
             self.logger.warning(
-                f"Journal processing requested but generator not configured for {submission.uid}"
+                f"Journal processing requested but JournalOutputService not configured for {submission.uid}"
             )
             return
 
-        # Step 1: Read enrichment mode and custom instructions from instructions dict
         enrichment_mode = instructions.get("enrichment_mode") if instructions else None
         custom_instructions = instructions.get("custom_instructions") if instructions else None
 
-        if custom_instructions:
-            self.logger.info(
-                f"Processing journal submission {submission.uid} with custom instructions"
-            )
-        else:
-            self.logger.info(
-                f"Processing journal submission {submission.uid} (enrichment_mode: {enrichment_mode or 'activity_tracking'})"
-            )
-
-        # Step 2: Generate je_output file
-        output_result = await self.journal_generator.generate(
+        # Delegate to JournalOutputService for LLM + Neo4j persistence
+        result = await self.journal_output_service.process_je_input(
+            je_input_uid=submission.uid,
+            user_uid=submission.user_uid,
             content=content,
-            enrichment_mode=enrichment_mode,
-            report_uid=submission.uid,
+            enrichment_mode=enrichment_mode or "activity_tracking",
             custom_instructions=custom_instructions,
         )
 
-        if output_result.is_error:
-            self.logger.error(f"je_output generation failed: {output_result.error}")
+        if result.is_error:
+            self.logger.error(f"JeOutput creation failed for {submission.uid}: {result.error}")
             return
 
-        je_output_path = output_result.value
-
-        # Step 3: Extract activities if mode is activity_tracking (default)
+        # Activity extraction if mode is activity_tracking (shared concern)
         effective_mode = enrichment_mode or "activity_tracking"
         if effective_mode == "activity_tracking" and self.activity_extractor:
             self.logger.info(f"Extracting activities for {submission.uid}")
             await self._extract_activities(submission, submission.user_uid, instructions)
-
-        # Step 4: Store journal processing metadata
-        current_metadata = submission.metadata or {}
-        current_metadata["enrichment_mode"] = effective_mode
-        current_metadata["je_output_path"] = je_output_path
-
-        await self.ku_submission_service.update_submission(
-            uid=submission.uid,
-            updates={"metadata": current_metadata},
-        )
-
-        self.logger.info(f"Journal processing complete: {submission.uid} - {effective_mode}")
 
     # ========================================================================
     # ACTIVITY EXTRACTION (DSL Integration)

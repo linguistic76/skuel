@@ -120,10 +120,11 @@ class JournalOutputOperations(Protocol):
     Implementation: JournalOutputService
     """
 
-    async def generate_output(
+    async def process_je_input(
         self,
         je_input_uid: str,
         user_uid: str,
+        content: str,
         enrichment_mode: str = "activity_tracking",
         custom_instructions: str | None = None,
     ) -> Result[Any]:

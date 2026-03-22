@@ -1872,6 +1872,42 @@ class JournalOutputBackend(UniversalNeo4jBackend["JeOutput"]):
             self.logger.error(f"Failed get_je_output_for_input: {e}")
             return Result.fail(Errors.database(operation="get_je_output_for_input", message=str(e)))
 
+    async def create_with_transforms(
+        self,
+        properties: dict[str, Any],
+        user_uid: str,
+        je_input_uid: str,
+    ) -> Result[dict[str, Any]]:
+        """Atomically create JeOutput node with OWNS + TRANSFORMS relationships.
+
+        Single Cypher transaction: MATCH User + JeInput, CREATE JeOutput:Entity,
+        CREATE (User)-[:OWNS]->(JeOutput)-[:TRANSFORMS]->(JeInput).
+        """
+        query = f"""
+        MATCH (u:User {{uid: $user_uid}})
+        MATCH (ji:JeInput {{uid: $je_input_uid}})
+        CREATE (jo:{self._create_labels})
+        SET jo = $props
+        CREATE (u)-[:{RelationshipName.OWNS.value}]->(jo)
+        CREATE (jo)-[:{RelationshipName.TRANSFORMS.value}]->(ji)
+        RETURN jo
+        """
+        try:
+            async with self.driver.session() as session:
+                result = await session.run(
+                    query,
+                    {"props": properties, "user_uid": user_uid, "je_input_uid": je_input_uid},
+                )
+                record = await result.single()
+                if not record:
+                    return Result.fail(
+                        Errors.database("create_with_transforms", "User or JeInput not found")
+                    )
+                return Result.ok(dict(record["jo"]))
+        except NEO4J_EXCEPTIONS as e:
+            self.logger.error(f"Failed create_with_transforms: {e}")
+            return Result.fail(Errors.database(operation="create_with_transforms", message=str(e)))
+
 
 __all__ = [
     "ChoicesBackend",

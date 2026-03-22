@@ -155,6 +155,7 @@ if TYPE_CHECKING:
     from core.services.report.activity_report_service import ActivityReportService
     from core.services.report.progress_report_generator import ProgressReportGenerator
     from core.services.report.progress_schedule_service import ProgressScheduleService
+    from core.services.journal import JournalOutputService
     from core.services.report.review_queue_service import ReviewQueueService
     from core.services.tasks_service import TasksService
     from core.services.transcription.batch_processing_service import BatchProcessingService
@@ -277,8 +278,7 @@ class Services:
     form_submissions: "FormSubmissionOperations | None" = None
 
     # Journal processing services
-    # TODO: Replace with JournalOutputService from core/services/journal/
-    journal_generator: Any | None = None
+    journal_generator: "JournalOutputService | None" = None
 
     # Batch transcription/processing services (March 2026)
     batch_transcription: "BatchTranscriptionService | None" = None
@@ -2606,9 +2606,27 @@ async def compose_services(
         instruction_resolver = InstructionResolver()
         logger.info("✅ InstructionResolver created")
 
-        # Journal output generation — JournalOutputGenerator extracted to journal domain
-        # TODO: Replace with JournalOutputService from core/services/journal/
-        journal_generator = None
+        # Journal output service (LLM processing → JeOutput entities)
+        from core.services.journal import JournalOutputService
+        from adapters.persistence.neo4j.domain_backends import JournalOutputBackend
+        from core.models.journal.je_output import JeOutput
+
+        journal_output_backend = JournalOutputBackend(
+            driver, NeoLabel.JE_OUTPUT, JeOutput, base_label=NeoLabel.ENTITY
+        )
+        journal_output_service = None
+        if llm_caller:
+            journal_storage = os.getenv("SKUEL_JOURNAL_STORAGE", "/tmp/skuel_journals")
+            journal_output_service = JournalOutputService(
+                llm_caller=llm_caller,
+                instruction_resolver=instruction_resolver,
+                backend=journal_output_backend,
+                storage_base=journal_storage,
+                event_bus=event_bus,
+            )
+            logger.info(f"✅ JournalOutputService created (storage: {journal_storage})")
+        else:
+            logger.info("⏭️  JournalOutputService skipped (intelligence tier: CORE)")
 
         # Create batch transcription service (Tier 1: audio → txt)
         from core.services.transcription import BatchTranscriptionService
@@ -2623,22 +2641,22 @@ async def compose_services(
         from core.services.transcription import BatchProcessingService
 
         batch_processing = None
-        if journal_generator:
+        if journal_output_service:
             batch_processing = BatchProcessingService(
-                output_generator=journal_generator,
+                output_generator=journal_output_service,
                 instruction_resolver=instruction_resolver,
                 max_concurrent=3,
             )
             logger.info("✅ BatchProcessingService created (Tier 2: txt → md)")
         else:
-            logger.info("⏭️  BatchProcessingService skipped (requires journal_generator)")
+            logger.info("⏭️  BatchProcessingService skipped (requires JournalOutputService)")
 
         submissions_processor = SubmissionsProcessingService(
             ku_submission_service=submissions_service,
             transcription_service=core_services["transcription"],  # Simplified TranscriptionService
             content_enrichment=content_enrichment,  # For LLM formatting
             activity_extractor=activity_extractor,  # DSL entity extraction
-            journal_generator=journal_generator,  # je_output formatting and disk storage
+            journal_generator=journal_output_service,  # JournalOutputService
             event_bus=event_bus,
         )
 
@@ -2783,7 +2801,7 @@ async def compose_services(
             revised_exercises=revised_exercise_service,  # Five-phase learning loop revisions
             form_templates=form_template_service,  # General-purpose form templates
             form_submissions=form_submission_service,  # User form submissions
-            journal_generator=journal_generator,  # je_output formatting and disk storage
+            journal_generator=journal_output_service,  # JournalOutputService
             # Batch transcription/processing (March 2026)
             batch_transcription=batch_transcription,
             batch_processing=batch_processing,
