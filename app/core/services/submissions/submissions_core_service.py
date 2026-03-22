@@ -59,18 +59,12 @@ from core.models.entity_types import SubmissionEntity
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.relationship_names import RelationshipName
 from core.models.report.submission_report import SubmissionReport
-from core.models.journal.je_input import JeInput
 from core.models.submissions.submission_dto import SubmissionDTO
 from core.ports import BackendOperations
 from core.ports.infrastructure_protocols import EventBusOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
 from core.services.submissions.assessment_service import AssessmentService
-from core.services.submissions.journals_core_service import (
-    DEFAULT_JOURNAL_INSTRUCTIONS,
-    JournalsCoreService,
-    JournalUploadResult,
-)
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_report_date
 
@@ -131,10 +125,7 @@ class ReportCategory:
         ]
 
 
-# Re-export for backward compatibility (moved to journals_core_service)
 __all__ = [
-    "DEFAULT_JOURNAL_INSTRUCTIONS",
-    "JournalUploadResult",
     "ReportCategory",
     "SubmissionsCoreService",
 ]
@@ -193,27 +184,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         self.content_enrichment = content_enrichment
 
         # Sub-services (facade delegation pattern)
-        self.journals = JournalsCoreService(
-            backend=backend, event_bus=event_bus, content_enrichment=content_enrichment
-        )
         self.assessments = AssessmentService(backend=backend, event_bus=event_bus)
-
-    # Post-init field proxies — wired in services_bootstrap.py via .journals
-    @property
-    def submissions_service(self) -> Any | None:
-        return self.journals.submissions_service
-
-    @submissions_service.setter
-    def submissions_service(self, value: Any) -> None:
-        self.journals.submissions_service = value
-
-    @property
-    def processing_service(self) -> Any | None:
-        return self.journals.processing_service
-
-    @processing_service.setter
-    def processing_service(self, value: Any) -> None:
-        self.journals.processing_service = value
 
     @property
     def exercise_service(self) -> Any | None:
@@ -1109,106 +1080,6 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
             f"teacher={teacher_uid}"
         )
         return Result.ok(True)
-
-    # ========================================================================
-    # JOURNAL DELEGATION (→ JournalsCoreService)
-    # ========================================================================
-
-    async def _count_journals_for_date(self, user_uid: str, entry_date: date) -> int:
-        """Delegate to journals sub-service."""
-        return await self.journals._count_journals_for_date(user_uid, entry_date)
-
-    async def _enforce_fifo(self, user_uid: str, max_retention: int) -> Result[int]:
-        """Delegate to journals sub-service."""
-        return await self.journals._enforce_fifo(user_uid, max_retention)
-
-    async def generate_journal_title(
-        self, user_uid: str, entry_date: date | None = None
-    ) -> Result[str]:
-        """Delegate to journals sub-service."""
-        return await self.journals.generate_journal_title(user_uid, entry_date)
-
-    async def submit_journal_file(
-        self,
-        file_content: bytes,
-        filename: str,
-        user_uid: str,
-        custom_title: str = "",
-        exercise_uid: str = "",
-    ) -> Result[JournalUploadResult]:
-        """Delegate to journals sub-service."""
-        return await self.journals.submit_journal_file(
-            file_content, filename, user_uid, custom_title, exercise_uid
-        )
-
-    async def create_journal_entry(
-        self,
-        user_uid: str,
-        title: str | None = None,
-        content: str = "",
-        max_retention: int | None = None,
-        entry_date: date | None = None,
-        tags: list[str] | None = None,
-        mood: str | None = None,
-        energy_level: int | None = None,
-        key_topics: list[str] | None = None,
-        action_items: list[str] | None = None,
-        project_uid: str | None = None,
-        metadata: dict[str, Any] | None = None,
-        enforce_fifo: bool = True,
-        source_type: str | None = None,
-        source_file: str | None = None,
-        transcription_uid: str | None = None,
-    ) -> Result[JeInput]:
-        """Delegate to journals sub-service."""
-        return await self.journals.create_journal_entry(
-            user_uid=user_uid,
-            title=title,
-            content=content,
-            max_retention=max_retention,
-            entry_date=entry_date,
-            tags=tags,
-            mood=mood,
-            energy_level=energy_level,
-            key_topics=key_topics,
-            action_items=action_items,
-            project_uid=project_uid,
-            metadata=metadata,
-            enforce_fifo=enforce_fifo,
-            source_type=source_type,
-            source_file=source_file,
-            transcription_uid=transcription_uid,
-        )
-
-    async def get_ephemeral_journals(self, user_uid: str, limit: int = 10) -> Result[list[JeInput]]:
-        """Delegate to journals sub-service."""
-        return await self.journals.get_ephemeral_journals(user_uid, limit)
-
-    async def get_permanent_journals(self, user_uid: str, limit: int = 50) -> Result[list[JeInput]]:
-        """Delegate to journals sub-service."""
-        return await self.journals.get_permanent_journals(user_uid, limit)
-
-    async def get_journals_by_date_range(
-        self,
-        user_uid: str,
-        start_date: date,
-        end_date: date,
-        limit: int = 100,
-    ) -> Result[list[JeInput]]:
-        """Delegate to journals sub-service."""
-        return await self.journals.get_journals_by_date_range(user_uid, start_date, end_date, limit)
-
-    async def make_permanent(self, uid: str) -> Result[SubmissionEntity]:
-        """Delegate to journals sub-service."""
-        return await self.journals.make_permanent(uid)
-
-    async def get_journal_with_insights(self, uid: str) -> Result[JeInput | None]:
-        """Delegate to journals sub-service."""
-        return await self.journals.get_journal_with_insights(uid)
-
-    async def handle_transcription_completed(self, event: "TranscriptionCompleted") -> None:
-        """Delegate to journals sub-service."""
-        await self.journals.handle_transcription_completed(event)
 
     # ========================================================================
     # ASSESSMENT DELEGATION (→ AssessmentService)

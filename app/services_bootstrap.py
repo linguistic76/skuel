@@ -156,7 +156,6 @@ if TYPE_CHECKING:
     from core.services.report.progress_report_generator import ProgressReportGenerator
     from core.services.report.progress_schedule_service import ProgressScheduleService
     from core.services.report.review_queue_service import ReviewQueueService
-    from core.services.submissions.journal_output_generator import JournalOutputGenerator
     from core.services.tasks_service import TasksService
     from core.services.transcription.batch_processing_service import BatchProcessingService
     from core.services.transcription.batch_transcription_service import BatchTranscriptionService
@@ -278,9 +277,8 @@ class Services:
     form_submissions: "FormSubmissionOperations | None" = None
 
     # Journal processing services
-    journal_generator: "JournalOutputGenerator | None" = (
-        None  # JournalOutputGenerator - je_output formatting and disk storage
-    )
+    # TODO: Replace with JournalOutputService from core/services/journal/
+    journal_generator: Any | None = None
 
     # Batch transcription/processing services (March 2026)
     batch_transcription: "BatchTranscriptionService | None" = None
@@ -2608,19 +2606,9 @@ async def compose_services(
         instruction_resolver = InstructionResolver()
         logger.info("✅ InstructionResolver created")
 
-        # Create journal processing services (requires AI for LLM formatting)
+        # Journal output generation — JournalOutputGenerator extracted to journal domain
+        # TODO: Replace with JournalOutputService from core/services/journal/
         journal_generator = None
-        if llm_caller:
-            from core.services.submissions.journal_output_generator import JournalOutputGenerator
-
-            # Get journal storage path from environment (default: /tmp/skuel_journals)
-            journal_storage = os.getenv("SKUEL_JOURNAL_STORAGE", "/tmp/skuel_journals")
-            journal_generator = JournalOutputGenerator(
-                llm_caller=llm_caller, storage_base=journal_storage
-            )
-            logger.info(f"✅ Journal output generator created (storage: {journal_storage})")
-        else:
-            logger.info("⏭️  Journal output generator skipped (intelligence tier: CORE)")
 
         # Create batch transcription service (Tier 1: audio → txt)
         from core.services.transcription import BatchTranscriptionService
@@ -2653,11 +2641,6 @@ async def compose_services(
             journal_generator=journal_generator,  # je_output formatting and disk storage
             event_bus=event_bus,
         )
-
-        # Wire journal upload orchestration deps into journals sub-service
-        submissions_core_service.journals.submissions_service = submissions_service
-        submissions_core_service.journals.processing_service = submissions_processor
-        submissions_core_service.journals.exercise_service = exercise_service
 
         # Create Submissions search service (unified query interface)
         submissions_search_service = SubmissionsSearchService(
