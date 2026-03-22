@@ -29,7 +29,7 @@ All components follow MonsterUI (FrankenUI + Tailwind) conventions and WCAG 2.1 
 | **Feedback** | Alert, Badge, StatusBadge, PriorityBadge, Loading, Progress, RadialProgress | `ui/feedback.py` |
 | **Layout** | DivHStacked, DivVStacked, DivFullySpaced, DivCentered, Grid, Container, Row, Stack, FlexItem, Size | `ui/layout.py` |
 | **Typography** | PageTitle, SectionTitle, CardTitle, Subtitle, BodyText, SmallText, Caption, TruncatedText | `ui/text.py` |
-| **Patterns** | PageHeader, EntityCard, StatsGrid, EmptyState, ErrorBanner, etc. | `ui/patterns/*.py` |
+| **Patterns** | PageHeader, EntityCard, StackedActionCard, StatsGrid, EmptyState, ErrorBanner, etc. | `ui/patterns/*.py` |
 | **Layouts** | BasePage, Navbar, Domain Layouts | `ui/layouts/*.py` |
 
 ---
@@ -576,6 +576,64 @@ config = CardConfig.compact() if is_mobile else CardConfig.default()
 EntityCard(title=task.title, config=config)
 ```
 
+
+---
+
+## StackedActionCard
+
+**Location:** `/ui/patterns/stacked_action_card.py`
+
+Stacked layout card for row-style items with a header row (left title/subtitle | right badges) + right-aligned actions + optional extra content. Used across teaching UI for student cards, submission rows, class cards, and member rows.
+
+### StackedActionCard(header_left, header_right, actions, extra, header_align, cls)
+
+**Parameters:**
+- `header_left: FT` - Title/subtitle block (typically a `Div` with `cls="flex-1"`)
+- `header_right: FT | str` - Badge cluster or status indicators
+- `actions: FT | str` - Action buttons (wrapped in a right-aligned flex row)
+- `extra: FT | str` - Optional content below actions (e.g., HTMX feedback toggle)
+- `header_align: str` - Vertical alignment: `"items-center"` (default) or `"items-start"` (multi-line left)
+- `cls: str` - Card-level CSS classes (default: `"bg-background shadow-sm mb-2"`)
+
+**Examples:**
+```python
+from ui.patterns.stacked_action_card import StackedActionCard
+
+# Simple row card
+StackedActionCard(
+    header_left=Div(
+        H4("Alice Smith", cls="mb-0 font-semibold"),
+        P("student_abc123", cls="text-xs text-foreground/40 mb-0"),
+        cls="flex-1",
+    ),
+    header_right=Div(
+        Badge("3 pending", variant=BadgeT.warning),
+        Badge("5/8 reviewed", variant=BadgeT.ghost),
+        cls="flex gap-2 items-center",
+    ),
+    actions=ButtonLink("View Student", href="/teaching/students/abc123", variant=ButtonT.primary, size=Size.sm),
+)
+
+# With extra content (feedback toggle)
+StackedActionCard(
+    header_left=Div(H4("Essay Draft", cls="mb-0 font-semibold"), cls="flex-1"),
+    header_right=Div(status_badge("pending"), cls="flex gap-2 items-center"),
+    actions=ButtonLink("Review", href="/teaching/review/uid", variant=ButtonT.primary, size=Size.sm),
+    extra=feedback_toggle_div,
+)
+
+# Multi-line left side (use items-start)
+StackedActionCard(
+    header_left=Div(
+        H4("Class Name", cls="mb-0 font-semibold"),
+        P("Optional description", cls="text-sm text-muted-foreground mb-0 mt-1"),
+        cls="flex-1",
+    ),
+    header_right=Div(Badge("12 students", variant=BadgeT.ghost), cls="flex gap-2 items-center"),
+    header_align="items-start",
+    actions=ButtonLink("View Class", href="/teaching/classes/uid", variant=ButtonT.primary, size=Size.sm),
+)
+```
 
 ---
 

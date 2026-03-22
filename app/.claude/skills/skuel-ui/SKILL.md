@@ -232,6 +232,14 @@ EntityCard(
     actions=Div(ButtonLink("View", href="/tasks/123", variant=ButtonT.ghost)),
 )
 
+# StackedActionCard — row-style card: header (left|right) + actions + optional extra
+from ui.patterns.stacked_action_card import StackedActionCard
+StackedActionCard(
+    header_left=Div(H4("Title", cls="mb-0 font-semibold"), P("subtitle", cls="text-xs text-foreground/40 mb-0"), cls="flex-1"),
+    header_right=Div(Badge("3 pending", variant=BadgeT.warning), cls="flex gap-2 items-center"),
+    actions=ButtonLink("View", href="/path", variant=ButtonT.primary, size=Size.sm),
+)
+
 # StatusBadge — delegates to EntityStatus.get_badge_class() for all 14 statuses
 from ui.feedback import StatusBadge
 StatusBadge("active")       # EntityStatus-driven green badge
@@ -1007,7 +1015,7 @@ When building a new SKUEL page or feature, verify:
 | `/ui/layouts/nav_config.py` | `ICON_NAV_ITEMS`, `*_DROPDOWN_ITEMS`, `MAIN_NAV_ITEMS` |
 | `/ui/patterns/sidebar.py` | `SidebarItem`, `SidebarNav`, `SidebarPage` |
 | `/ui/curriculum/` | Curriculum sidebar, layout, landing page |
-| `/ui/patterns/__init__.py` | `PageHeader`, `SectionHeader`, `EmptyState`, `StatCard`, `StatsGrid`, `FormGenerator`, `ProgressMetric`, `RecommendationCard`, `SettingToggle` |
+| `/ui/patterns/__init__.py` | `PageHeader`, `SectionHeader`, `EmptyState`, `EntityCard`, `StackedActionCard`, `StatCard`, `StatsGrid`, `FormGenerator`, `ProgressMetric`, `RecommendationCard`, `SettingToggle` |
 | `/ui/page_contexts.py` | Per-domain TypedDicts (`TasksPageContext`, `GoalsPageContext`, etc.) for route→UI contracts |
 | `/ui/patterns/form_generator.py` | `FormGenerator` — dynamic form generation from Pydantic models |
 | `/ui/tokens.py` | `Container`, `Spacing`, `Card` design tokens |
