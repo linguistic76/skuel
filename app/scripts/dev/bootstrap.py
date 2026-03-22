@@ -553,6 +553,11 @@ async def _wire_all_routes(
 
     create_submissions_routes(app, rt, services, None)
 
+    # -- Journals --
+    from adapters.inbound.journals_routes import create_journals_routes
+
+    create_journals_routes(app, rt, services)
+
     # -- Forms --
     from adapters.inbound.form_templates_routes import create_form_templates_routes
 

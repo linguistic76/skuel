@@ -1010,10 +1010,11 @@ All DomainRouteConfig routes are registered in Section 2 of `_wire_all_routes()`
 12. `/adapters/inbound/askesis_routes.py`
 13. `/adapters/inbound/lesson_reading_routes.py`
 
-**Submissions/Forms (3):**
-14. `/adapters/inbound/submissions_routes.py` (includes Journals via JOURNALS_CONFIG)
-15. `/adapters/inbound/form_templates_routes.py`
-16. `/adapters/inbound/form_submissions_routes.py`
+**Submissions/Forms/Journals (4):**
+14. `/adapters/inbound/submissions_routes.py`
+15. `/adapters/inbound/journals_routes.py` (standalone journal domain)
+16. `/adapters/inbound/form_templates_routes.py`
+17. `/adapters/inbound/form_submissions_routes.py`
 
 **Other Domains (13):**
 17. `/adapters/inbound/finance_routes.py`

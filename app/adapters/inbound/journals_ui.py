@@ -2,11 +2,11 @@
 Journals UI Routes — Personal AI-Processed Journal Entries
 ===========================================================
 
-Journal is a domain entity (EntityType.JE_INPUT).
+Standalone journal UI routes for JeInput + JeOutput entities.
 Users upload files here to be processed by AI using default or custom instructions.
-Registered from submissions_routes.py — journals share /api/submissions/* endpoints.
+Route config in journals_routes.py — primary service is JournalInputService.
 
-Layout: Unified sidebar (Tailwind + Alpine) with 2 nav items.
+Layout: Unified sidebar (Tailwind + Alpine) with 3 nav items.
 Desktop: collapsible sidebar. Mobile: horizontal tabs.
 """
 
@@ -32,7 +32,7 @@ from starlette.responses import FileResponse
 
 from adapters.inbound.auth import make_service_getter, require_admin, require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
-from core.models.enums.entity_enums import ProcessorType
+from core.models.enums.entity_enums import EntityStatus
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from ui.buttons import Button, ButtonLink, ButtonT
@@ -56,7 +56,7 @@ logger = get_logger("skuel.routes.journals.ui")
 def _render_upload_status(
     status: str,
     message: str,
-    report_uid: str | None = None,
+    je_input_uid: str | None = None,
     is_error: bool = False,
 ) -> Any:
     """Render upload status as HTML fragment for HTMX swap."""
@@ -73,7 +73,7 @@ def _render_upload_status(
     return Div(
         Alert(
             H4("Submitted to AI", cls="mb-0"),
-            P(f"Report ID: {report_uid}", cls="mb-0") if report_uid else None,
+            P(f"Entry: {je_input_uid}", cls="mb-0") if je_input_uid else None,
             P(f"Status: {status}", cls="mb-0"),
             ButtonLink(
                 "Browse Journals",
@@ -82,7 +82,7 @@ def _render_upload_status(
                 size=Size.sm,
                 cls="mt-2",
             )
-            if report_uid
+            if je_input_uid
             else None,
             variant=AlertT.success,
         ),
@@ -90,71 +90,64 @@ def _render_upload_status(
     )
 
 
-def _get_report_identifier(report: Any) -> str:
-    """Extract the identifier from report metadata."""
-    metadata = getattr(report, "metadata", None)
-    if isinstance(metadata, dict):
-        identifier = metadata.get("identifier")
-        if identifier:
-            return str(identifier)
-    return getattr(report, "report_type", "unknown")
-
-
-def _render_report_card(report: Any) -> Any:
-    """Render a single report card for the AI reports grid using EntityCard."""
+def _render_journal_card(je_input: Any) -> Any:
+    """Render a single journal entry card for the browse grid using EntityCard."""
     from ui.patterns.entity_card import EntityCard
 
-    file_size_mb = (report.file_size / 1024 / 1024) if getattr(report, "file_size", 0) else 0
-    identifier = _get_report_identifier(report)
+    file_size = getattr(je_input, "file_size", 0) or 0
+    file_size_mb = file_size / 1024 / 1024 if file_size else 0
 
-    # Check if je_output file exists in metadata
-    metadata = getattr(report, "metadata", None)
-    has_je_output = False
-    if isinstance(metadata, dict):
-        je_output_path = metadata.get("je_output_path")
-        has_je_output = bool(je_output_path)
+    status = getattr(je_input, "status", None)
+    status_str = (
+        str(status.value) if isinstance(status, EntityStatus) else str(status) if status else None
+    )
+
+    # Build metadata line
+    meta_parts: list[str] = []
+    original_filename = getattr(je_input, "original_filename", None)
+    if original_filename:
+        meta_parts.append(original_filename)
+    if file_size_mb > 0:
+        meta_parts.append(f"{file_size_mb:.2f} MB")
+    file_type = getattr(je_input, "file_type", None)
+    if file_type:
+        meta_parts.append(file_type)
 
     # Build action buttons
-    action_buttons = [
-        ButtonLink(
-            "View",
-            href=f"/submissions/{report.uid}",
-            variant=ButtonT.ghost,
-            size=Size.sm,
-        ),
-    ]
+    action_buttons: list[Any] = []
 
-    # Add download button for completed reports with je_output
-    if has_je_output and report.status == "completed":
+    # Download button for completed entries (download endpoint handles JeOutput lookup)
+    is_completed = status in (EntityStatus.COMPLETED, "completed")
+    if is_completed:
         action_buttons.append(
             ButtonLink(
                 "Download",
-                href=f"/journals/{report.uid}/download",
+                href=f"/journals/{je_input.uid}/download",
                 variant=ButtonT.primary,
                 size=Size.sm,
             )
         )
 
     return EntityCard(
-        title=report.original_filename,
-        status=str(report.status) if report.status else None,
-        metadata=[f"{identifier} \u2022 {file_size_mb:.2f} MB"],
-        actions=Div(*action_buttons, cls="flex gap-2"),
+        title=je_input.title or "Untitled",
+        status=status_str,
+        metadata=[" \u2022 ".join(meta_parts)] if meta_parts else None,
+        actions=Div(*action_buttons, cls="flex gap-2") if action_buttons else None,
         cls="mb-2",
     )
 
 
-def _render_reports_grid(reports: list[Any]) -> Any:
-    """Render reports grid as HTML fragment for HTMX swap."""
-    if not reports:
+def _render_journals_grid(je_inputs: list[Any]) -> Any:
+    """Render journal entries grid as HTML fragment for HTMX swap."""
+    if not je_inputs:
         return Div(
             EmptyState(title="No journals found"),
-            id="submissions-grid-container",
+            id="journals-grid-container",
         )
 
     return Div(
-        *[_render_report_card(r) for r in reports],
-        id="submissions-grid-container",
+        *[_render_journal_card(ji) for ji in je_inputs],
+        id="journals-grid-container",
     )
 
 
@@ -493,7 +486,7 @@ def _render_filters_section() -> Any:
                 ),
                 **{
                     "hx-get": "/journals/grid",
-                    "hx-target": "#submissions-grid-container",
+                    "hx-target": "#journals-grid-container",
                     "hx-swap": "outerHTML",
                     "hx-trigger": "change from:select",
                 },
@@ -504,11 +497,11 @@ def _render_filters_section() -> Any:
     )
 
 
-def _render_reports_grid_container() -> Any:
-    """Render the HTMX-loading reports grid container."""
+def _render_journals_grid_container() -> Any:
+    """Render the HTMX-loading journals grid container."""
     return Div(
-        P("Loading AI reports...", cls="text-center text-muted-foreground"),
-        id="submissions-grid-container",
+        P("Loading journals...", cls="text-center text-muted-foreground"),
+        id="journals-grid-container",
         cls="mt-4",
         **{
             "hx-get": "/journals/grid",
@@ -526,12 +519,10 @@ def _render_reports_grid_container() -> Any:
 def create_journals_ui_routes(
     _app,
     rt,
-    report_service,
-    processing_service,
-    report_projects_service,
+    journal_input_service,
+    journal_output_service=None,
+    report_projects_service=None,
     user_service=None,
-    journal_generator=None,
-    journal_input_service=None,
     batch_transcription_service=None,
     batch_processing_service=None,
 ):
@@ -541,12 +532,10 @@ def create_journals_ui_routes(
     Args:
         _app: FastHTML application instance
         rt: Router instance
-        report_service: SubmissionsService
-        processing_service: SubmissionsProcessingService
+        journal_input_service: JournalInputService — CRUD + file upload for JeInput
+        journal_output_service: JournalOutputService for LLM processing and cleanup
         report_projects_service: ExerciseService (optional — enables custom instructions)
         user_service: UserService for admin role checks
-        journal_generator: JournalOutputService for LLM processing and cleanup
-        journal_input_service: JournalInputService (optional — CRUD + file upload for JeInput)
         batch_transcription_service: BatchTranscriptionService (optional — batch audio → txt)
         batch_processing_service: BatchProcessingService (optional — batch txt → md)
     """
@@ -606,13 +595,13 @@ def create_journals_ui_routes(
 
     @rt("/journals/browse")
     async def journals_browse_page(request: Request) -> Any:
-        """Browse page: AI-processed reports with filters."""
+        """Browse page: journal entries with filters."""
         require_authenticated_user(request)
 
         content = Div(
             PageHeader("My Journals", subtitle="Browse your AI-processed journal entries"),
             _render_filters_section(),
-            _render_reports_grid_container(),
+            _render_journals_grid_container(),
         )
         return await SidebarPage(
             content=content,
@@ -621,7 +610,7 @@ def create_journals_ui_routes(
             title="Journals",
             subtitle="Your personal journal",
             storage_key="journals-sidebar",
-            page_title="AI Reports",
+            page_title="My Journals",
             request=request,
             active_page="journals",
             title_href="/journals",
@@ -667,10 +656,10 @@ def create_journals_ui_routes(
             je_input = result.value
             return _render_upload_status(
                 str(je_input.status.value)
-                if hasattr(je_input.status, "value")
+                if isinstance(je_input.status, EntityStatus)
                 else str(je_input.status),
                 f"Journal entry created: {je_input.title}",
-                report_uid=je_input.uid,
+                je_input_uid=je_input.uid,
             )
 
         except Exception as e:  # safety-net: HTTP error boundary
@@ -729,42 +718,38 @@ def create_journals_ui_routes(
 
     @rt("/journals/grid")
     async def get_journals_grid(request: Request) -> Any:
-        """HTMX endpoint for loading AI-processed reports grid."""
+        """HTMX endpoint for loading journal entries grid."""
         try:
             user_uid = require_authenticated_user(request)
             status = request.query_params.get("status", "")
 
-            kwargs: dict[str, Any] = {"user_uid": user_uid, "limit": 50}
-            if status:
-                kwargs["status"] = status
-
-            result = await report_service.list_submissions(**kwargs)
+            result = await journal_input_service.list_je_inputs(
+                user_uid=user_uid,
+                status=status or None,
+                limit=50,
+            )
 
             if result.is_error:
                 return Div(
-                    render_inline_error("Failed to load reports"),
-                    id="submissions-grid-container",
+                    render_inline_error("Failed to load journals"),
+                    id="journals-grid-container",
                 )
 
-            reports = result.value or []
-            # Filter to LLM-processed reports
-            ai_reports = [
-                r
-                for r in reports
-                if getattr(r, "processor_type", None) in ("llm", "LLM", ProcessorType.LLM)
-            ]
-            return _render_reports_grid(ai_reports)
+            je_inputs = result.value or []
+            return _render_journals_grid(je_inputs)
 
         except Exception as e:  # safety-net: HTTP error boundary
-            logger.error(f"Error loading AI reports: {e}", exc_info=True)
+            logger.error(f"Error loading journals: {e}", exc_info=True)
             return Div(
                 render_inline_error(f"Error: {e}"),
-                id="submissions-grid-container",
+                id="journals-grid-container",
             )
 
     @rt("/journals/{uid}/download")
     async def download_je_output(request: Request, uid: str) -> Any:
-        """Download formatted je_output file for a journal report.
+        """Download formatted je_output file for a journal entry.
+
+        The uid is a JeInput UID. Looks up the associated JeOutput via TRANSFORMS.
 
         Returns:
             FileResponse with markdown file or error response
@@ -772,44 +757,40 @@ def create_journals_ui_routes(
         try:
             user_uid = require_authenticated_user(request)
 
-            # Fetch the report
-            result = await report_service.get_submission(uid)
+            # Get the JeInput to verify ownership
+            input_result = await journal_input_service.get_je_input(uid)
+            if input_result.is_error or input_result.value is None:
+                logger.warning(f"Journal entry {uid} not found for download")
+                return render_inline_error("Journal entry not found")
 
-            if result.is_error:
-                logger.warning(f"Report {uid} not found for download")
-                return render_inline_error("Report not found")
-
-            report = result.value
-
-            # Verify ownership
-            if report.user_uid != user_uid:
+            je_input = input_result.value
+            if je_input.user_uid != user_uid:
                 logger.warning(
-                    f"User {user_uid} attempted to download report {uid} owned by {report.user_uid}"
+                    f"User {user_uid} attempted to download journal {uid} owned by {je_input.user_uid}"
                 )
-                return render_inline_error("Not authorized to download this report")
+                return render_inline_error("Not authorized to download this journal entry")
 
-            # Check for je_output_path in metadata
-            metadata = getattr(report, "metadata", None)
-            if not isinstance(metadata, dict):
-                logger.warning(f"Report {uid} has no metadata")
-                return render_inline_error("No je_output file available for this report")
+            if not journal_output_service:
+                return render_inline_error("Output service unavailable")
 
-            je_output_path = metadata.get("je_output_path")
-            if not je_output_path:
-                logger.warning(f"Report {uid} has no je_output_path in metadata")
-                return render_inline_error("No je_output file available for this report")
+            # Get the JeOutput for this input via TRANSFORMS relationship
+            output_result = await journal_output_service.get_je_output_for_input(uid)
+            if output_result.is_error or output_result.value is None:
+                logger.warning(f"No je_output found for journal entry {uid}")
+                return render_inline_error("No output file available for this journal entry")
 
-            # Verify file exists
-            je_output_file = Path(je_output_path)
-            if not je_output_file.exists():
-                logger.error(f"je_output file not found at {je_output_path} for report {uid}")
-                return render_inline_error("je_output file not found on disk")
+            je_output = output_result.value
+            if not je_output.output_file_path or not Path(je_output.output_file_path).exists():
+                logger.error(f"je_output file not found on disk for journal entry {uid}")
+                return render_inline_error("Output file not found on disk")
 
-            # Return file for download
-            logger.info(f"Serving je_output download for report {uid}: {je_output_path}")
+            download_name = f"{je_input.original_filename or je_input.title}_output.md"
+            logger.info(
+                f"Serving je_output download for journal {uid}: {je_output.output_file_path}"
+            )
             return FileResponse(
-                path=str(je_output_file),
-                filename=f"{report.original_filename}_output.md",
+                path=je_output.output_file_path,
+                filename=download_name,
                 media_type="text/markdown",
             )
 
@@ -1044,11 +1025,11 @@ def create_journals_ui_routes(
         Returns:
             JSON with cleanup stats: {files_deleted: int, bytes_freed: int}
         """
-        if not journal_generator:
+        if not journal_output_service:
             return Result.fail(
                 Errors.system(
                     message="Journal generator service not available",
-                    service="journal_generator",
+                    service="journal_output_service",
                 )
             )
 
@@ -1076,7 +1057,7 @@ def create_journals_ui_routes(
             f"Admin {current_user.uid} cleaning up je_outputs from {start_date} to {end_date}"
         )
 
-        result = journal_generator.cleanup_date_range(start_dt, end_dt)
+        result = journal_output_service.cleanup_date_range(start_dt, end_dt)
 
         if result.is_error:
             return Result.fail(result.expect_error())

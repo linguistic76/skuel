@@ -139,6 +139,16 @@ Two-tier batch pipeline for processing multiple audio files:
 5. **Transparent Processing:** LLM prompts visible in `/prompts/` directory
 6. **Separation of Concerns:** Journals generate files, Askesis handles discussion
 
+## Search Exclusion — Pedagogical Philosophy
+
+JE_INPUT and JE_OUTPUT are **intentionally excluded** from SKUEL's unified search infrastructure (`SEARCH_FIELD_CONFIG`). This is not a gap — it is a deliberate design decision rooted in SKUEL's pedagogy.
+
+**The journal is the user's private reflective space.** Unlike exercises (teacher-assigned, externally evaluated) or KUs (curated, shared knowledge), journals are self-initiated and self-interpreted. The user — not the system — is the authority on what their journal means. Making journals searchable would shift the locus of interpretation from the user to the system, undermining the pedagogical intent of self-directed learning and self-assessment.
+
+**Journal outputs are waypoints, not destinations.** After the user downloads and reviews their je_output files, they curate and decompose the valuable pieces manually. Those refined pieces are then ingested into Neo4j via `UnifiedIngestionService` — at which point they become searchable as KUs, Lessons, or other entity types. The journal itself remains raw material for the user's own reflective practice.
+
+This design supports SKUEL's core belief that **the ability to assess oneself is a skill worth developing**, and that skill is undermined when the system pre-processes or indexes private reflection on the user's behalf.
+
 ## Migration History
 
 ### March 2026: Journal Domain Extraction
