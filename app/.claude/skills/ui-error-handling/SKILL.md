@@ -411,67 +411,57 @@ def apply_task_sort(tasks: list[Any], sort_by: str = "due_date") -> list[Any]:
 
 ---
 
-### Pattern 4: Orchestrator Helper
+### Pattern 4: FilteredContextProvider (Service Facade)
 
-**Use when:** Combining I/O + multiple computation steps
+**Use when:** Combining I/O + multiple computation steps for list views
+
+All 6 Activity Domain facades implement `get_filtered_context() -> Result[ListContext]`,
+delegating to `build_filtered_context()` in `core/services/filtered_context.py`.
 
 **Example:**
 ```python
-async def get_filtered_tasks(
-    user_uid: str,
-    project: str | None = None,
-    status_filter: str = "active",
-    sort_by: str = "due_date",
-) -> Result[tuple[list[Any], dict[str, int]]]:
-    """
-    Get filtered and sorted tasks for user.
+from core.ports.query_types import ListContext
 
-    Orchestrates: fetch (I/O) → stats → filter → sort.
-    Pure computation delegated to testable helper functions.
+# In the service facade:
+async def get_filtered_context(
+    self, user_uid: str, status_filter: str = "active", sort_by: str = "due_date",
+) -> Result[ListContext]:
+    """Get filtered and sorted tasks with pre-filter stats in a single query."""
 
-    Returns: Result[(tasks, stats)] - stats calculated BEFORE filtering
-    """
-    try:
-        # I/O: Fetch all tasks
-        tasks_result = await get_all_tasks(user_uid)
-        if tasks_result.is_error:
-            logger.warning(f"Failed to fetch tasks for filtering: {tasks_result.error}")
-            return tasks_result  # Propagate error
+    async def fetch_all() -> Result[list[Any]]:
+        return await self.core.get_for_user_filtered(user_uid, "all")
 
-        tasks = tasks_result.value
+    def apply_filters(all_tasks: list[Any]) -> list[Any]:
+        return _apply_task_status_filter(all_tasks, status_filter)
 
-        # Computation: Calculate stats BEFORE filtering (show total count)
-        stats = compute_task_stats(tasks)
+    return await build_filtered_context(
+        fetch_all=fetch_all,
+        compute_stats=compute_task_stats,
+        apply_filters=apply_filters,
+        apply_sort=apply_task_sort,
+        sort_by=sort_by,
+    )
+```
 
-        # Computation: Apply filters
-        filtered_tasks = apply_task_filters(tasks, project, status_filter)
+**In the route:**
+```python
+from core.utils.list_context_helpers import get_entities, get_stats
 
-        # Computation: Apply sort
-        sorted_tasks = apply_task_sort(filtered_tasks, sort_by)
-
-        return Result.ok((sorted_tasks, stats))
-
-    except Exception as e:
-        logger.error(
-            "Error filtering tasks",
-            extra={
-                "user_uid": user_uid,
-                "project": project,
-                "status_filter": status_filter,
-                "error_type": type(e).__name__,
-            },
-        )
-        return Errors.system(f"Failed to filter tasks: {e}")
+result = await tasks_service.get_filtered_context(user_uid, status_filter, sort_by)
+if result.is_error:
+    return render_error_banner(result)
+ctx = result.value
+tasks = get_entities(ctx, Task)   # list[Task]
+stats = get_stats(ctx)            # dict[str, int | float]
 ```
 
 **Key Features:**
-- **Thin orchestrator** (18 lines vs 90 before refactoring)
-- **Single I/O call** (get_all_tasks)
-- **Pure computation delegated** (compute_stats, apply_filters, apply_sort)
-- **Clear flow** (fetch → stats → filter → sort)
-- **Error propagation** (checks .is_error, returns Result[T])
+- **Service owns orchestration** (not route-level helpers)
+- **`ListContext` TypedDict** with `entities`, `stats: dict[str, int | float]`, `metadata`
+- **Type-safe accessors** via `core/utils/list_context_helpers.py`
+- **Pure computation callables** passed to generic `build_filtered_context()`
 
-**Complexity Reduction:** 90 lines → 18 lines (67% reduction)
+See: `core/services/filtered_context.py`, `core/ports/query_types.py:ListContext`
 
 ---
 
@@ -798,62 +788,44 @@ if intel_data.get("alignment") is not None:
 
 ## Real-World Examples
 
-### Example 1: Tasks Dashboard (Complete Pattern)
-**File:** `/adapters/inbound/tasks_ui.py:50-120`
+### Example 1: Tasks Dashboard (FilteredContextProvider Pattern)
+**Files:** `/core/services/tasks_service.py`, `/adapters/inbound/tasks_ui.py`
 
 ```python
-# Typed parameters
-@dataclass
-class TaskFilters:
-    status: str
-    project: str | None
-    sort_by: str
+# Service facade — implements FilteredContextProvider protocol
+# Pure computation helpers are module-level functions passed as callables
+async def get_filtered_context(
+    self, user_uid: str, status_filter: str = "active", sort_by: str = "due_date",
+) -> Result[ListContext]:
+    """Get filtered and sorted tasks with pre-filter stats."""
 
-# Pure computation
-def compute_task_stats(tasks: list[Any]) -> dict[str, int]:
-    return {"total": len(tasks), "completed": ...}
+    async def fetch_all() -> Result[list[Any]]:
+        return await self.core.get_for_user_filtered(user_uid, "all")
 
-def apply_task_filters(tasks: list[Any], ...) -> list[Any]:
-    # ... filtering logic
+    def apply_filters(all_tasks: list[Any]) -> list[Any]:
+        return _apply_task_status_filter(all_tasks, status_filter)
 
-def apply_task_sort(tasks: list[Any], sort_by: str) -> list[Any]:
-    # ... sorting logic
+    return await build_filtered_context(
+        fetch_all=fetch_all,
+        compute_stats=compute_task_stats,
+        apply_filters=apply_filters,
+        apply_sort=apply_task_sort,
+        sort_by=sort_by,
+    )
 
-# I/O helper
-async def get_all_tasks(user_uid: str) -> Result[list[Any]]:
-    try:
-        result = await tasks_service.get_user_tasks(user_uid)
-        if result.is_error:
-            return result
-        return Result.ok(result.value or [])
-    except Exception as e:
-        return Errors.system(f"Failed to fetch tasks: {e}")
+# Route consumes via type-safe accessors
+from core.utils.list_context_helpers import get_entities, get_stats
 
-# Orchestrator
-async def get_filtered_tasks(...) -> Result[tuple[list[Any], dict]]:
-    tasks_result = await get_all_tasks(user_uid)
-    if tasks_result.is_error:
-        return tasks_result
-
-    stats = compute_task_stats(tasks_result.value)
-    filtered = apply_task_filters(tasks_result.value, ...)
-    sorted_tasks = apply_task_sort(filtered, sort_by)
-
-    return Result.ok((sorted_tasks, stats))
-
-# Main route
 @rt("/tasks")
 async def tasks_dashboard(request):
-    filters = parse_task_filters(request)
-    filtered_result = await get_filtered_tasks(...)
+    filtered_result = await tasks_service.get_filtered_context(user_uid, status_filter, sort_by)
 
     if filtered_result.is_error:
-        return BasePage(
-            render_error_banner(f"Failed: {filtered_result.error}"),
-            ...
-        )
+        return BasePage(render_error_banner(f"Failed: {filtered_result.error}"), ...)
 
-    tasks, stats = filtered_result.value
+    ctx = filtered_result.value
+    tasks = get_entities(ctx, Task)   # list[Task]
+    stats = get_stats(ctx)            # dict[str, int | float]
     # ... render views
 ```
 
@@ -1066,36 +1038,32 @@ async def get_filtered_tasks(...) -> Result[tuple[list, dict]]:
 - Hard to modify one aspect without affecting others
 - Single Responsibility Principle violated
 
-**Correct approach:**
+**Correct approach — use `FilteredContextProvider` pattern:**
 ```python
-# ✅ DO THIS - Split into focused functions
+# ✅ DO THIS - Service facade owns orchestration via build_filtered_context()
 
-# Pure computation (no async, no mocks needed)
-def compute_task_stats(tasks: list[Any]) -> dict[str, int]:
+# Pure computation callables (no async, no mocks needed)
+def compute_task_stats(tasks: list[Any]) -> dict[str, int | float]:
     return {"total": len(tasks), "completed": ...}
 
-def apply_task_filters(tasks, project, status):
-    # ... filtering logic
+def apply_task_filters(tasks: list[Any], ...) -> list[Any]:
     return filtered_tasks
 
-def apply_task_sort(tasks, sort_by):
-    # ... sorting logic
+def apply_task_sort(tasks: list[Any], sort_by: str) -> list[Any]:
     return sorted_tasks
 
-# Thin orchestrator (18 lines)
-async def get_filtered_tasks(...) -> Result[tuple[list, dict]]:
-    tasks_result = await get_all_tasks(user_uid)  # I/O
-    if tasks_result.is_error:
-        return tasks_result
-
-    stats = compute_task_stats(tasks_result.value)  # Pure
-    filtered = apply_task_filters(tasks_result.value, ...)  # Pure
-    sorted_tasks = apply_task_sort(filtered, sort_by)  # Pure
-
-    return Result.ok((sorted_tasks, stats))
+# Service facade method — delegates to build_filtered_context()
+async def get_filtered_context(self, user_uid, status_filter, sort_by) -> Result[ListContext]:
+    return await build_filtered_context(
+        fetch_all=lambda: self.core.get_for_user_filtered(user_uid, "all"),
+        compute_stats=compute_task_stats,
+        apply_filters=lambda all: _apply_status_filter(all, status_filter),
+        apply_sort=apply_task_sort,
+        sort_by=sort_by,
+    )
 ```
 
-**Complexity Reduction:** 90 lines → 18 lines (67% reduction)
+See: `core/services/filtered_context.py`, `core/ports/query_types.py:ListContext`
 
 ---
 

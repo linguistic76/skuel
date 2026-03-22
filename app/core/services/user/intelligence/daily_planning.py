@@ -268,14 +268,20 @@ class DailyPlanningMixin:
                 else:
                     # Fallback to standard lesson service
                     estimated_time = await self._add_lesson_items(
-                        learning_uids, contextual_knowledge_list,
-                        estimated_time, available_time, respect_capacity,
+                        learning_uids,
+                        contextual_knowledge_list,
+                        estimated_time,
+                        available_time,
+                        respect_capacity,
                     )
             else:
                 # Standard path: Use lesson service
                 estimated_time = await self._add_lesson_items(
-                    learning_uids, contextual_knowledge_list,
-                    estimated_time, available_time, respect_capacity,
+                    learning_uids,
+                    contextual_knowledge_list,
+                    estimated_time,
+                    available_time,
+                    respect_capacity,
                 )
 
         # =====================================================================
@@ -471,9 +477,7 @@ class DailyPlanningMixin:
         Mutates *learning_uids* and *contextual_knowledge_list* in place.
         Returns the updated *estimated_time*.
         """
-        learning_result = await self.lesson.get_ready_to_learn_for_user(
-            self.context, limit=limit
-        )
+        learning_result = await self.lesson.get_ready_to_learn_for_user(self.context, limit=limit)
         if learning_result.is_ok and learning_result.value:
             for contextual_ku in learning_result.value:
                 est_time = self.context.estimated_time_to_mastery.get(contextual_ku.uid, 30)

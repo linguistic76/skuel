@@ -2,6 +2,10 @@
 
 **Date**: 2026-01-24
 **Status**: ✅ Complete (6/6 domains)
+**Superseded by**: `get_filtered_context() -> Result[ListContext]` pattern (March 2026).
+The god-helper extraction described here was itself replaced by the `FilteredContextProvider`
+protocol and `build_filtered_context()` in `core/services/filtered_context.py`. Stats type
+is now `dict[str, int | float]`. See `core/ports/query_types.py:ListContext`.
 **Related Docs**:
 - `/docs/patterns/UI_COMPONENT_PATTERNS.md` - UI patterns
 - `/docs/patterns/ERROR_HANDLING.md` - Result[T] patterns
