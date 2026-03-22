@@ -70,7 +70,7 @@ else:
 
 ### Method 2: get_practice_summary()
 
-**Purpose:** Get summary of practice opportunities for a learning step. Counts habits, tasks, and events associated with this step via BUILDS_HABIT, ASSIGNS_TASK, and SCHEDULES_EVENT relationships.
+**Purpose:** Get summary of practice opportunities for a learning step. Counts habits, tasks, and events connected to this step's Lessons via HAS_LESSON graph traversal (activity relationships live on Lessons, LS inherits them).
 
 **Signature:**
 ```python
@@ -113,7 +113,7 @@ if result.is_ok:
 **Implementation Notes:**
 - Returns zeros if step has no practice opportunities
 - Uses `count(DISTINCT ...)` to avoid double-counting
-- Three relationship types: BUILDS_HABIT, ASSIGNS_TASK, SCHEDULES_EVENT
+- Three relationship types on Lessons: BUILDS_HABIT, ASSIGNS_TASK, SCHEDULES_EVENT (LS inherits via HAS_LESSON traversal)
 
 ---
 
@@ -217,7 +217,7 @@ if result.is_ok:
 
 **Dependencies:**
 - Neo4j driver (REQUIRED - uses direct Cypher via GraphQueryExecutor)
-- Uses GUIDED_BY_PRINCIPLE and OFFERS_CHOICE relationships
+- Uses GUIDED_BY_PRINCIPLE and INFORMS_CHOICE relationships (on Lessons, inherited by LS via HAS_LESSON graph traversal)
 
 **Implementation Notes:**
 - Principles provide values-based guidance (40% max contribution)
@@ -308,7 +308,7 @@ if result.is_ok:
 
 **Dependencies:**
 - GraphQueryExecutor (REQUIRED - uses `execute_exists()`)
-- Checks GUIDED_BY_PRINCIPLE OR OFFERS_CHOICE relationships
+- Checks GUIDED_BY_PRINCIPLE or INFORMS_CHOICE relationships (on Lessons, inherited by LS via HAS_LESSON graph traversal)
 
 **Implementation Notes:**
 - Uses `execute_exists()` for efficient boolean check
@@ -319,7 +319,7 @@ if result.is_ok:
 
 ### Method 7: has_practice_opportunities()
 
-**Purpose:** Check if learning step has practice opportunities. Checks for any BUILDS_HABIT, ASSIGNS_TASK, or SCHEDULES_EVENT relationships.
+**Purpose:** Check if learning step has practice opportunities. Checks for any BUILDS_HABIT, ASSIGNS_TASK, or SCHEDULES_EVENT relationships on the step's Lessons (via HAS_LESSON traversal).
 
 **Signature:**
 ```python
@@ -350,7 +350,7 @@ if result.is_ok:
 
 **Dependencies:**
 - GraphQueryExecutor (REQUIRED - uses `execute_exists()`)
-- Checks BUILDS_HABIT OR ASSIGNS_TASK OR SCHEDULES_EVENT relationships
+- Checks BUILDS_HABIT, ASSIGNS_TASK, or SCHEDULES_EVENT relationships (on Lessons via HAS_LESSON traversal)
 
 **Implementation Notes:**
 - Uses `execute_exists()` for efficient boolean check
@@ -446,7 +446,7 @@ This reflects Learning Steps' role as **connective tissue** in the curriculum ar
 
 The primary intelligence focus is **practice integration**:
 
-**Three Practice Types:**
+**Three Practice Types (on Lessons, inherited by LS via HAS_LESSON traversal):**
 1. **Habits** (BUILDS_HABIT) - Lifestyle integration
 2. **Tasks** (ASSIGNS_TASK) - Real-world application
 3. **Events** (SCHEDULES_EVENT) - Scheduled practice sessions
@@ -461,12 +461,12 @@ The primary intelligence focus is **practice integration**:
 
 **Two Guidance Dimensions:**
 
-1. **Values-Based (40% max)** - GUIDED_BY_PRINCIPLE relationships
+1. **Values-Based (40% max)** - GUIDED_BY_PRINCIPLE relationships (on Lessons, inherited via HAS_LESSON traversal)
    - Provides ethical/philosophical context
    - Helps learner understand "why" to learn
    - Each principle adds up to 15% (capped at 40%)
 
-2. **Decision-Making (60% max)** - OFFERS_CHOICE relationships
+2. **Decision-Making (60% max)** - INFORMS_CHOICE relationships (on Lessons, inherited via HAS_LESSON traversal)
    - Provides options and alternatives
    - Helps learner explore different approaches
    - Each choice adds up to 20% (capped at 60%)

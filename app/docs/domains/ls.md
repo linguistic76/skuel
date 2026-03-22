@@ -91,11 +91,11 @@ await ls_service.intelligence.is_ready(step_uid, completed_steps)
 | `HAS_STEP` (incoming) | Incoming | Lp | Parent learning path (via `in_paths` key) |
 | `REQUIRES_STEP` | Outgoing | Ls | Prerequisite steps |
 | `REQUIRES_KNOWLEDGE` | Outgoing | Ku | Prerequisite knowledge (`{type: 'prerequisite'}`) |
-| `BUILDS_HABIT` | Outgoing | Habit | Practice via habits |
-| `ASSIGNS_TASK` | Outgoing | Task | Practice via tasks |
-| `SCHEDULES_EVENT` | Outgoing | Event | Practice via events |
-| `GUIDED_BY_PRINCIPLE` | Outgoing | Principle | Values-based guidance |
-| `OFFERS_CHOICE` | Outgoing | Choice | Decision points |
+| `BUILDS_HABIT` | Via Lesson | Habit | Practice via habits (on Lessons, LS inherits via HAS_LESSON traversal) |
+| `ASSIGNS_TASK` | Via Lesson | Task | Practice via tasks (on Lessons, LS inherits via HAS_LESSON traversal) |
+| `SCHEDULES_EVENT` | Via Lesson | Event | Practice via events (on Lessons, LS inherits via HAS_LESSON traversal) |
+| `GUIDED_BY_PRINCIPLE` | Via Lesson | Principle | Values-based guidance (on Lessons, LS inherits via HAS_LESSON traversal) |
+| `INFORMS_CHOICE` | Via Lesson | Choice | Decision points (on Lessons, LS inherits via HAS_LESSON traversal) |
 
 ## Intelligence Methods
 
@@ -108,19 +108,19 @@ LsIntelligenceService provides:
 | `practice_completeness_score(ls_uid)` | `float` | 0.0-1.0 practice score |
 | `calculate_guidance_strength(ls_uid)` | `float` | Principles + Choices alignment |
 | `has_prerequisites(ls_uid)` | `bool` | Has REQUIRES_STEP or REQUIRES_KNOWLEDGE |
-| `has_guidance(ls_uid)` | `bool` | Has GUIDED_BY_PRINCIPLE or OFFERS_CHOICE |
+| `has_guidance(ls_uid)` | `bool` | Has GUIDED_BY_PRINCIPLE or INFORMS_CHOICE (via Lessons) |
 | `has_practice_opportunities(ls_uid)` | `bool` | Has habits, tasks, or events |
 
 ## Cross-Domain: Practice Infrastructure
 
-Learning Steps are where SKUEL's curriculum domain connects to the activity domains.
-The three practice relationships bridge "what to learn" with "how to live it":
+Activity domain relationships (BUILDS_HABIT, ASSIGNS_TASK, SCHEDULES_EVENT, GUIDED_BY_PRINCIPLE, INFORMS_CHOICE) live on **Lessons**, not directly on LS. Learning Steps inherit these connections via `(LS)-[:HAS_LESSON]->(Lesson)` graph traversal. This means practice and guidance coverage is authored at the Lesson level and automatically aggregated at the LS level.
 
 ```
 LS (Learning Step)
- ├── BUILDS_HABIT ──→ Habit    "Practice this daily"
- ├── ASSIGNS_TASK ──→ Task     "Do this concrete thing"
- └── SCHEDULES_EVENT → Event   "Attend this experience"
+ └── HAS_LESSON ──→ Lesson
+                     ├── BUILDS_HABIT ──→ Habit    "Practice this daily"
+                     ├── ASSIGNS_TASK ──→ Task     "Do this concrete thing"
+                     └── SCHEDULES_EVENT → Event   "Attend this experience"
 ```
 
 ### Per-Step Practice Analysis

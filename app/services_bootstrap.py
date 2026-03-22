@@ -1166,7 +1166,6 @@ def _wire_event_subscribers(
         f"✅ UserService subscribed to {len(activity_context_events)} activity/domain context events"
     )
 
-
     # Subscribe to SubmissionCreated for exercise linking (ADR-040)
     exercise_handler = functools.partial(
         handle_exercise_submission,

@@ -108,6 +108,10 @@ A Lesson might reference a Resource via relationships:
 
 But the Resource's actual content lives _outside_ SKUEL. The Lesson's content lives _inside_ SKUEL (as `CurriculumContent`).
 
+### Relationship to Activities
+
+Lessons also wire directly to Activity domains (Habits, Tasks, Events, Goals, Principles, Choices) via YAML fields like `habit_uids`, `task_uids`, etc. This makes each Lesson a self-contained learning unit with built-in practice. See the [Lesson Activity Wiring Guide](/docs/guides/LESSON_ACTIVITY_WIRING.md) for details.
+
 ---
 
 ## When to Use Which

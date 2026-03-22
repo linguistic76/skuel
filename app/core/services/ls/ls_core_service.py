@@ -348,63 +348,71 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
                 title: prereq_ku.title
             }) as prereq_knowledge
 
-            // 4. Guiding principles
-            OPTIONAL MATCH (ls)-[:GUIDED_BY_PRINCIPLE]->(principle:Principle)
-            WITH ls, knowledge_rels, prereq_steps, prereq_knowledge, collect({
+            // 4. Guiding principles (via Lessons)
+            OPTIONAL MATCH (ls)-[:HAS_LESSON]->(l4)-[:GUIDED_BY_PRINCIPLE]->(principle:Principle)
+            WITH ls, knowledge_rels, prereq_steps, prereq_knowledge, collect(DISTINCT {
                 uid: principle.uid,
                 title: principle.title
             }) as principles
 
-            // 5. Offered choices
-            OPTIONAL MATCH (ls)-[:OFFERS_CHOICE]->(choice:Choice)
-            WITH ls, knowledge_rels, prereq_steps, prereq_knowledge, principles, collect({
+            // 5. Informed choices (via Lessons)
+            OPTIONAL MATCH (ls)-[:HAS_LESSON]->(l5)-[:INFORMS_CHOICE]->(choice:Choice)
+            WITH ls, knowledge_rels, prereq_steps, prereq_knowledge, principles, collect(DISTINCT {
                 uid: choice.uid,
                 title: choice.title
             }) as choices
 
-            // 6. Practice opportunities: Habits
-            OPTIONAL MATCH (ls)-[:BUILDS_HABIT]->(habit:Habit)
-            WITH ls, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices, collect({
+            // 6. Practice opportunities: Habits (via Lessons)
+            OPTIONAL MATCH (ls)-[:HAS_LESSON]->(l6)-[:BUILDS_HABIT]->(habit:Habit)
+            WITH ls, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices, collect(DISTINCT {
                 uid: habit.uid,
                 title: habit.title,
                 current_streak: habit.current_streak
             }) as habits
 
-            // 7. Practice opportunities: Tasks
-            OPTIONAL MATCH (ls)-[:ASSIGNS_TASK]->(task:Task)
-            With ls, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices, habits, collect({
+            // 7. Practice opportunities: Tasks (via Lessons)
+            OPTIONAL MATCH (ls)-[:HAS_LESSON]->(l7)-[:ASSIGNS_TASK]->(task:Task)
+            WITH ls, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices, habits, collect(DISTINCT {
                 uid: task.uid,
                 title: task.title,
                 status: task.status
             }) as tasks
 
-            // 8. Practice opportunities: Events
-            OPTIONAL MATCH (ls)-[:SCHEDULES_EVENT]->(event:Event)
-            WITH ls, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices, habits, tasks, collect({
+            // 8. Practice opportunities: Events (via Lessons)
+            OPTIONAL MATCH (ls)-[:HAS_LESSON]->(l8)-[:SCHEDULES_EVENT]->(event:Event)
+            WITH ls, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices, habits, tasks, collect(DISTINCT {
                 uid: event.uid,
                 title: event.title,
                 event_date: event.event_date
             }) as events
 
-            // 9. Learning path context (if part of sequence)
+            // 9. Practice opportunities: Goals (via Lessons)
+            OPTIONAL MATCH (ls)-[:HAS_LESSON]->(l9)-[:SUPPORTS_GOAL]->(goal:Goal)
+            WITH ls, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices, habits, tasks, events, collect(DISTINCT {
+                uid: goal.uid,
+                title: goal.title,
+                status: goal.status
+            }) as goals
+
+            // 10. Learning path context (if part of sequence)
             OPTIONAL MATCH (lp:Entity {entity_type: 'learning_path'})-[r_path:HAS_STEP|CONTAINS_STEP]->(ls)
-            WITH ls, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices, habits, tasks, events, {
+            WITH ls, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices, habits, tasks, events, goals, {
                 uid: lp.uid,
                 name: lp.title,
                 goal: lp.goal,
                 sequence: coalesce(r_path.sequence, 0)
             } as path_context
 
-            // 10. Dependent steps (steps that require this one)
+            // 11. Dependent steps (steps that require this one)
             OPTIONAL MATCH (dependent:Entity {entity_type: 'learning_step'})-[:REQUIRES_STEP]->(ls)
-            WITH ls, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices, habits, tasks, events, path_context, collect({
+            WITH ls, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices, habits, tasks, events, goals, path_context, collect({
                 uid: dependent.uid,
                 title: dependent.title,
                 completed: dependent.completed
             }) as dependent_steps
 
             RETURN ls, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices,
-                   habits, tasks, events, path_context, dependent_steps
+                   habits, tasks, events, goals, path_context, dependent_steps
             """,
             {"uid": step_uid},
         )
@@ -464,11 +472,12 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
                     ],
                     # Learning guidance
                     "guiding_principles": [p for p in record["principles"] if p.get("uid")],
-                    "offered_choices": [c for c in record["choices"] if c.get("uid")],
-                    # Practice opportunities
+                    "informed_choices": [c for c in record["choices"] if c.get("uid")],
+                    # Practice opportunities (all 6 activity domains)
                     "practice_habits": [h for h in record["habits"] if h.get("uid")],
                     "practice_tasks": [t for t in record["tasks"] if t.get("uid")],
                     "practice_events": [e for e in record["events"] if e.get("uid")],
+                    "practice_goals": [g for g in record["goals"] if g.get("uid")],
                     # Path integration
                     "learning_path": record["path_context"]
                     if record["path_context"].get("uid")
@@ -481,7 +490,8 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
                         [h for h in record["habits"] if h.get("uid")]
                     )
                     + len([t for t in record["tasks"] if t.get("uid")])
-                    + len([e for e in record["events"] if e.get("uid")]),
+                    + len([e for e in record["events"] if e.get("uid")])
+                    + len([g for g in record["goals"] if g.get("uid")]),
                     "is_sequenced": bool(record["path_context"].get("uid")),
                     "has_dependents": len([d for d in record["dependent_steps"] if d.get("uid")])
                     > 0,

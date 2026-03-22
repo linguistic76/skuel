@@ -100,15 +100,20 @@ notes: |
 prerequisite_step_uids:
   - ls:example-path:prerequisite-step
 
-# RELATIONSHIP FIELDS (Reference Only - Not Primary Data)
-# -------------------------------------------------------
-# These are shown in learning path YAML, not in individual step files:
-# - primary_knowledge: Main knowledge for this step (shown in path definition)
-# - supporting_knowledge: Supplementary knowledge (shown in path definition)
-# - principles: Guiding principles (shown in path definition)
-# - choices: Available choices (shown in path definition)
-# - habits: Supporting habits (shown in path definition)
-# - tasks: Related tasks (shown in path definition)
+# ACTIVITY DOMAIN INHERITANCE
+# ---------------------------
+# Activity domains (habits, tasks, events, goals, principles, choices) are wired
+# at the Lesson level, NOT on LearningStep. LS inherits activities from its
+# constituent Lessons via graph traversal:
+#   (LS)-[:HAS_LESSON]->(Lesson)-[:BUILDS_HABIT]->(Habit)
+#   (LS)-[:HAS_LESSON]->(Lesson)-[:ASSIGNS_TASK]->(Task)
+#   (LS)-[:HAS_LESSON]->(Lesson)-[:SCHEDULES_EVENT]->(Event)
+#   (LS)-[:HAS_LESSON]->(Lesson)-[:SUPPORTS_GOAL]->(Goal)
+#   (LS)-[:HAS_LESSON]->(Lesson)-[:GUIDED_BY_PRINCIPLE]->(Principle)
+#   (LS)-[:HAS_LESSON]->(Lesson)-[:INFORMS_CHOICE]->(Choice)
+#
+# To wire activities, add them to the Lesson YAML files that this LS references
+# via primary_knowledge_uids. See lesson_template.yaml for field documentation.
 
 # NOTES
 # -----
@@ -119,3 +124,4 @@ prerequisite_step_uids:
 # 5. title and intent are REQUIRED by the LearningStepCreateRequest Pydantic model
 # 6. Progress tracking fields (current_mastery, completed, completed_at) are auto-managed
 # 7. prerequisite_step_uids create a dependency graph for the learning path
+# 8. Activity domain fields belong on Lessons, NOT on LearningStep

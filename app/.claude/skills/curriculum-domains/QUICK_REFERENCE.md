@@ -102,7 +102,7 @@
 | `ASSIGNS_TASK` | outgoing | Task | Practice integration |
 | `SCHEDULES_EVENT` | outgoing | Event | Practice integration |
 | `GUIDED_BY_PRINCIPLE` | outgoing | Principle | Guidance |
-| `OFFERS_CHOICE` | outgoing | Choice | Decision points |
+| `INFORMS_CHOICE` | outgoing | Choice | Decision points |
 
 ### LP Relationships
 | Relationship | Direction | Target | Purpose |

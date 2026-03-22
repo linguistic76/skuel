@@ -133,10 +133,20 @@ def _prepare_core(
     if body is not None and entity_type in (EntityType.LESSON, EntityType.EXERCISE_SUBMISSION):
         entity_data["content"] = body
 
-    # Lesson: normalize USES_KU UIDs
+    # Lesson: normalize USES_KU UIDs and activity domain UIDs
     if entity_type == EntityType.LESSON:
-        if "uses_kus" in entity_data and isinstance(entity_data["uses_kus"], list):
-            entity_data["uses_kus"] = [normalize_uid(uid) for uid in entity_data["uses_kus"]]
+        lesson_uid_fields = [
+            "uses_kus",
+            "habit_uids",
+            "task_uids",
+            "event_template_uids",
+            "goal_uids",
+            "principle_uids",
+            "choice_uids",
+        ]
+        for field in lesson_uid_fields:
+            if field in entity_data and isinstance(entity_data[field], list):
+                entity_data[field] = [normalize_uid(uid) for uid in entity_data[field]]
 
     # Learning Step: normalize relationship fields
     if entity_type == EntityType.LEARNING_STEP:
@@ -154,17 +164,13 @@ def _prepare_core(
                 entity_data.setdefault("primary_knowledge_uids", []).insert(0, normalized)
 
         # Normalize UIDs in all relationship list fields
+        # Activity domain fields removed — now live on Lessons
         uid_list_fields = [
             "primary_knowledge_uids",
             "supporting_knowledge_uids",
             "trains_ku_uids",
             "prerequisite_step_uids",
             "prerequisite_knowledge_uids",
-            "principle_uids",
-            "choice_uids",
-            "habit_uids",
-            "task_uids",
-            "event_template_uids",
             "learning_path_uids",
         ]
         for field in uid_list_fields:

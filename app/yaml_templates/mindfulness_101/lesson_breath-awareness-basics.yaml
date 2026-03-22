@@ -46,6 +46,26 @@ connections:
     - l:mindfulness:posture-basics
     - l:mindfulness:mind-wandering-happens
 
+# Activity domain wiring
+habit_uids:
+  - habit:daily-2min-breath
+
+task_uids:
+  - task:log-first-5-sessions
+
+event_template_uids:
+  - event:practice-block-2min
+
+goal_uids:
+  - goal:mindfulness-beginner
+
+principle_uids:
+  - principle:small-steps
+
+choice_uids:
+  - choice:2-minutes-right-now
+  - choice:2-minutes-before-bed
+
 tags:
   - breath
   - meditation

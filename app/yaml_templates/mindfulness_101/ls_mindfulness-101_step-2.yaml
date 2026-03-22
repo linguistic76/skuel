@@ -30,22 +30,9 @@ prerequisite_step_uids:
 prerequisite_knowledge_uids:
   - l:mindfulness:breath-awareness-basics
 
-# Learning Guidance
-principle_uids:
-  - principle:attention-over-intensity
-
-choice_uids:
-  - choice:label-one-wander
-
-# Practice Integration
-habit_uids:
-  - habit:label-wander-daily
-
-task_uids:
-  - task:reflect-on-first-week
-
-event_template_uids:
-  - event:practice-block-2min
+# Activity domain wiring lives on Lessons, not LS.
+# LS inherits via (LS)-[:HAS_LESSON]->(Lesson)-[:activity_rel]->(Activity).
+# See lesson_mind-wandering-happens.yaml for this step's activities.
 
 # Mastery & Progress
 mastery_threshold: 0.7

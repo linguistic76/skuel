@@ -37,25 +37,10 @@ prerequisite_step_uids:
 prerequisite_knowledge_uids:
   - ku:assumed-knowledge
 
-# Learning Guidance
-principle_uids:
-  - principle:guiding-value-1
-  - principle:guiding-value-2
-
-choice_uids:
-  - choice:option-1
-  - choice:option-2
-
-# Practice Integration
-habit_uids:
-  - habit:practice-habit-1
-
-task_uids:
-  - task:practice-task-1
-  - task:practice-task-2
-
-event_template_uids:
-  - event:calendar-block-template
+# Activity domain wiring lives on Lessons, not LS.
+# LS inherits via (LS)-[:HAS_LESSON]->(Lesson)-[:activity_rel]->(Activity).
+# Add habit_uids, task_uids, event_template_uids, goal_uids, principle_uids,
+# choice_uids to the Lesson YAML files referenced in primary_knowledge_uids.
 
 # Mastery & Progress
 mastery_threshold: 0.7  # 0.0-1.0

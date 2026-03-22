@@ -27,23 +27,9 @@ sequence: 1
 prerequisite_step_uids: []
 prerequisite_knowledge_uids: []  # No prerequisites - true beginner step
 
-# Learning Guidance
-principle_uids:
-  - principle:small-steps
-
-choice_uids:
-  - choice:2-minutes-right-now
-  - choice:2-minutes-before-bed
-
-# Practice Integration
-habit_uids:
-  - habit:daily-2min-breath
-
-task_uids:
-  - task:log-first-5-sessions
-
-event_template_uids:
-  - event:practice-block-2min
+# Activity domain wiring lives on Lessons, not LS.
+# LS inherits via (LS)-[:HAS_LESSON]->(Lesson)-[:activity_rel]->(Activity).
+# See lesson_breath-awareness-basics.yaml for this step's activities.
 
 # Mastery & Progress
 mastery_threshold: 0.7

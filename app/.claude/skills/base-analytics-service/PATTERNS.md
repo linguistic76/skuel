@@ -532,7 +532,7 @@ class LsIntelligenceService(BaseAnalyticsService[BackendOperations[Ls], Ls]):
             ls_uid, "GUIDED_BY_PRINCIPLE", direction="outgoing"
         )
         choices = await self.relationships.get_related_uids(
-            ls_uid, "OFFERS_CHOICE", direction="outgoing"
+            ls_uid, "INFORMS_CHOICE", direction="outgoing"
         )
 
         principle_score = min(1.0, len(principles.value) * 0.2) if principles.is_ok else 0.0

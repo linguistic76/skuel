@@ -112,6 +112,44 @@ connections:
   enables:
     - l:namespace:next-lesson
 
+# ACTIVITY DOMAIN WIRING
+# ----------------------
+# Wire activities directly to the Lesson. Lessons are self-contained learning
+# units with practice integration. LearningSteps inherit activities from their
+# constituent Lessons via graph traversal (LS)-[:HAS_LESSON]->(Lesson)-[:rel]->(Activity).
+#
+# Each field creates a Neo4j relationship from this Lesson to the referenced entity.
+
+# habit_uids: Habits this Lesson builds
+# Graph: (Lesson)-[:BUILDS_HABIT]->(Habit)
+habit_uids:
+  - habit:namespace:habit-slug
+
+# task_uids: Tasks this Lesson assigns
+# Graph: (Lesson)-[:ASSIGNS_TASK]->(Task)
+task_uids:
+  - task:namespace:task-slug
+
+# event_template_uids: Events this Lesson schedules
+# Graph: (Lesson)-[:SCHEDULES_EVENT]->(Event)
+event_template_uids:
+  - event:namespace:event-slug
+
+# goal_uids: Goals this Lesson supports
+# Graph: (Lesson)-[:SUPPORTS_GOAL]->(Goal)
+goal_uids:
+  - goal:namespace:goal-slug
+
+# principle_uids: Principles that guide this Lesson
+# Graph: (Lesson)-[:GUIDED_BY_PRINCIPLE]->(Principle)
+principle_uids:
+  - principle:namespace:principle-slug
+
+# choice_uids: Choices this Lesson informs
+# Graph: (Lesson)-[:INFORMS_CHOICE]->(Choice)
+choice_uids:
+  - choice:namespace:choice-slug
+
 # tags: Descriptive tags for categorization
 # Type: List of strings
 tags:
@@ -132,3 +170,5 @@ tags:
 # 4. uses_kus links to atomic Ku nodes (the concepts this Lesson teaches)
 # 5. Use complexity (basic/medium/advanced) not difficulty for Lessons
 # 6. connections.requires/enables build the Lesson prerequisite graph
+# 7. Activity domain fields (habit_uids, task_uids, etc.) wire practice to this Lesson
+# 8. LS inherits activities from its Lessons -- do NOT duplicate on LearningStep YAML

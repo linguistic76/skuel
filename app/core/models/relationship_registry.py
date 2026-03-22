@@ -1734,6 +1734,57 @@ LESSON_CONFIG = DomainRelationshipConfig(
             "uses_ku",
             yaml_field_path="uses_kus",
         ),
+        # Activity domain wiring: Lesson → Activity entities
+        # Lessons are self-contained learning units with practice integration.
+        # LS inherits activities via (LS)-[:HAS_LESSON]->(Lesson)-[:rel]->(Activity).
+        UnifiedRelationshipDefinition(
+            RelationshipName.BUILDS_HABIT,
+            "Entity",
+            "outgoing",
+            "builds_habits",
+            "practice_habits",
+            yaml_field_path="habit_uids",
+        ),
+        UnifiedRelationshipDefinition(
+            RelationshipName.ASSIGNS_TASK,
+            "Task",
+            "outgoing",
+            "assigned_tasks",
+            "practice_tasks",
+            yaml_field_path="task_uids",
+        ),
+        UnifiedRelationshipDefinition(
+            RelationshipName.SCHEDULES_EVENT,
+            "Event",
+            "outgoing",
+            "scheduled_events",
+            "practice_events",
+            yaml_field_path="event_template_uids",
+        ),
+        UnifiedRelationshipDefinition(
+            RelationshipName.SUPPORTS_GOAL,
+            "Goal",
+            "outgoing",
+            "supports_goals",
+            "practice_goals",
+            yaml_field_path="goal_uids",
+        ),
+        UnifiedRelationshipDefinition(
+            RelationshipName.GUIDED_BY_PRINCIPLE,
+            "Principle",
+            "outgoing",
+            "guiding_principles",
+            "principles",
+            yaml_field_path="principle_uids",
+        ),
+        UnifiedRelationshipDefinition(
+            RelationshipName.INFORMS_CHOICE,
+            "Entity",
+            "outgoing",
+            "informed_choices",
+            "choices",
+            yaml_field_path="choice_uids",
+        ),
     ),
     prerequisite_relationship_names=(RelationshipName.REQUIRES_KNOWLEDGE,),
     enables_relationship_names=(RelationshipName.ENABLES_KNOWLEDGE,),
@@ -1849,47 +1900,8 @@ LS_CONFIG = DomainRelationshipConfig(
             "supporting_knowledge",
             yaml_field_path="supporting_knowledge_uids",
         ),
-        UnifiedRelationshipDefinition(
-            RelationshipName.GUIDED_BY_PRINCIPLE,
-            "Principle",
-            "outgoing",
-            "guiding_principles",
-            "principles",
-            yaml_field_path="principle_uids",
-        ),
-        UnifiedRelationshipDefinition(
-            RelationshipName.INFORMS_CHOICE,
-            "Entity",
-            "outgoing",
-            "informed_choices",
-            "choices",
-            yaml_field_path="choice_uids",
-        ),
-        # Practice patterns
-        UnifiedRelationshipDefinition(
-            RelationshipName.BUILDS_HABIT,
-            "Entity",
-            "outgoing",
-            "builds_habits",
-            "practice_habits",
-            yaml_field_path="habit_uids",
-        ),
-        UnifiedRelationshipDefinition(
-            RelationshipName.ASSIGNS_TASK,
-            "Task",
-            "outgoing",
-            "assigned_tasks",
-            "practice_tasks",
-            yaml_field_path="task_uids",
-        ),
-        UnifiedRelationshipDefinition(
-            RelationshipName.SCHEDULES_EVENT,
-            "Event",
-            "outgoing",
-            "scheduled_events",
-            "practice_events",
-            yaml_field_path="event_template_uids",
-        ),
+        # Activity domain wiring removed from LS — now lives on Lessons.
+        # LS inherits via (LS)-[:HAS_LESSON]->(Lesson)-[:activity_rel]->(Activity).
         # Incoming: Other → Ls (LP is now also :Entity)
         UnifiedRelationshipDefinition(
             RelationshipName.HAS_STEP,

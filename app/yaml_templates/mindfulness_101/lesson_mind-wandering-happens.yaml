@@ -45,6 +45,22 @@ connections:
     - l:mindfulness:breath-awareness-basics
   enables: []
 
+# Activity domain wiring
+habit_uids:
+  - habit:label-wander-daily
+
+task_uids:
+  - task:reflect-on-first-week
+
+event_template_uids:
+  - event:practice-block-2min
+
+principle_uids:
+  - principle:attention-over-intensity
+
+choice_uids:
+  - choice:label-one-wander
+
 tags:
   - attention
   - mindfulness

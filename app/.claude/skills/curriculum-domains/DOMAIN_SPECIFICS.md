@@ -123,7 +123,7 @@ await ku_service.get_lessons(ku_uid)
 - **Event-driven progress** — `LsProgressService` subscribes to `LessonCompleted`, calculates LS progress from completed Lessons, publishes `LearningStepProgressUpdated` / `LearningStepCompleted`
 - **HAS_LESSON relationship** — `(LS)-[:HAS_LESSON]->(Lesson)` connects steps to their lessons. Derived from shared KU references during migration.
 - **Practice integration** - Links to Habits, Tasks, Events via relationships
-- **Guidance relationships** - GUIDED_BY_PRINCIPLE, OFFERS_CHOICE
+- **Guidance relationships** - GUIDED_BY_PRINCIPLE, INFORMS_CHOICE
 - **Prerequisite chains** - REQUIRES_STEP, TRAINS_KU
 
 **Key Methods:**
@@ -146,7 +146,7 @@ await ls_service.intelligence.practice_completeness_score(ls_uid)
 - `REQUIRES_STEP` - Step prerequisites
 - `TRAINS_KU` - Trains atomic knowledge units
 - `BUILDS_HABIT`, `ASSIGNS_TASK`, `SCHEDULES_EVENT` - Practice integration
-- `GUIDED_BY_PRINCIPLE`, `OFFERS_CHOICE` - Guidance
+- `GUIDED_BY_PRINCIPLE`, `INFORMS_CHOICE` - Guidance
 
 ---
 

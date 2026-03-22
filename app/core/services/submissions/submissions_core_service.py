@@ -368,7 +368,9 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
     # ========================================================================
 
     async def update_submission(
-        self, uid: str, updates: dict[str, Any]  # boundary: nested metadata serialized to JSON before Neo4j write
+        self,
+        uid: str,
+        updates: dict[str, Any],  # boundary: nested metadata serialized to JSON before Neo4j write
     ) -> Result[SubmissionEntity]:
         """
         Update an entity.

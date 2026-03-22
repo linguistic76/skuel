@@ -282,15 +282,16 @@ class LsIntelligenceService(
         """
         Get summary of practice opportunities for a learning step.
 
-        Counts habits, tasks, and events associated with this step via
-        BUILDS_HABIT, ASSIGNS_TASK, and SCHEDULES_EVENT relationships.
+        Traverses through Lessons via HAS_LESSON to count all 6 activity
+        domains: habits, tasks, events, goals, principles, choices.
 
         Args:
             ls_uid: UID of the learning step
 
         Returns:
             Result[dict] with structure:
-            {"habits": int, "tasks": int, "events": int, "total": int}
+            {"habits": int, "tasks": int, "events": int,
+             "goals": int, "principles": int, "choices": int, "total": int}
 
         Example:
             result = await intelligence.get_practice_summary("ls:functions")
@@ -303,24 +304,49 @@ class LsIntelligenceService(
 
         def _process_summary(records: list[dict]) -> dict[str, int]:
             if not records:
-                return {"habits": 0, "tasks": 0, "events": 0, "total": 0}
+                return {
+                    "habits": 0,
+                    "tasks": 0,
+                    "events": 0,
+                    "goals": 0,
+                    "principles": 0,
+                    "choices": 0,
+                    "total": 0,
+                }
 
             habits = records[0].get("habits", 0)
             tasks = records[0].get("tasks", 0)
             events = records[0].get("events", 0)
-            total = habits + tasks + events
+            goals = records[0].get("goals", 0)
+            principles = records[0].get("principles", 0)
+            choices = records[0].get("choices", 0)
+            total = habits + tasks + events + goals + principles + choices
 
-            return {"habits": habits, "tasks": tasks, "events": events, "total": total}
+            return {
+                "habits": habits,
+                "tasks": tasks,
+                "events": events,
+                "goals": goals,
+                "principles": principles,
+                "choices": choices,
+                "total": total,
+            }
 
         return await executor_result.value.execute(
             query="""
                 MATCH (ls:Entity {uid: $ls_uid})
-                OPTIONAL MATCH (ls)-[:BUILDS_HABIT]->(h)
-                OPTIONAL MATCH (ls)-[:ASSIGNS_TASK]->(t)
-                OPTIONAL MATCH (ls)-[:SCHEDULES_EVENT]->(e)
+                OPTIONAL MATCH (ls)-[:HAS_LESSON]->(l1)-[:BUILDS_HABIT]->(h)
+                OPTIONAL MATCH (ls)-[:HAS_LESSON]->(l2)-[:ASSIGNS_TASK]->(t)
+                OPTIONAL MATCH (ls)-[:HAS_LESSON]->(l3)-[:SCHEDULES_EVENT]->(e)
+                OPTIONAL MATCH (ls)-[:HAS_LESSON]->(l4)-[:SUPPORTS_GOAL]->(g)
+                OPTIONAL MATCH (ls)-[:HAS_LESSON]->(l5)-[:GUIDED_BY_PRINCIPLE]->(p)
+                OPTIONAL MATCH (ls)-[:HAS_LESSON]->(l6)-[:INFORMS_CHOICE]->(c)
                 RETURN count(DISTINCT h) as habits,
                        count(DISTINCT t) as tasks,
-                       count(DISTINCT e) as events
+                       count(DISTINCT e) as events,
+                       count(DISTINCT g) as goals,
+                       count(DISTINCT p) as principles,
+                       count(DISTINCT c) as choices
             """,
             params={"ls_uid": ls_uid},
             processor=_process_summary,
@@ -332,8 +358,8 @@ class LsIntelligenceService(
         """
         Calculate practice completeness (0.0-1.0).
 
-        Full practice suite (habits + tasks + events) = 1.0
-        Each type contributes 1/3 of the score.
+        Full practice suite (all 6 activity domains) = 1.0.
+        Each domain contributes 1/6 of the score.
 
         Args:
             ls_uid: UID of the learning step
@@ -351,11 +377,10 @@ class LsIntelligenceService(
             return Result.fail(summary_result.expect_error())
 
         summary = summary_result.value
-        has_tasks = 1.0 if summary["tasks"] > 0 else 0.0
-        has_habits = 1.0 if summary["habits"] > 0 else 0.0
-        has_events = 1.0 if summary["events"] > 0 else 0.0
+        domains = ["habits", "tasks", "events", "goals", "principles", "choices"]
+        present = sum(1.0 for d in domains if summary[d] > 0)
 
-        score = (has_tasks + has_habits + has_events) / 3.0
+        score = present / len(domains)
         return Result.ok(score)
 
     # ========================================================================
@@ -408,8 +433,8 @@ class LsIntelligenceService(
         return await executor_result.value.execute(
             query="""
                 MATCH (ls:Entity {uid: $ls_uid})
-                OPTIONAL MATCH (ls)-[:GUIDED_BY_PRINCIPLE]->(p)
-                OPTIONAL MATCH (ls)-[:OFFERS_CHOICE]->(c)
+                OPTIONAL MATCH (ls)-[:HAS_LESSON]->(l1)-[:GUIDED_BY_PRINCIPLE]->(p)
+                OPTIONAL MATCH (ls)-[:HAS_LESSON]->(l2)-[:INFORMS_CHOICE]->(c)
                 RETURN count(DISTINCT p) as principle_count,
                        count(DISTINCT c) as choice_count
             """,
@@ -462,6 +487,8 @@ class LsIntelligenceService(
         """
         Check if learning step has guidance (principles or choices).
 
+        Traverses through Lessons via HAS_LESSON.
+
         Args:
             ls_uid: UID of the learning step
 
@@ -481,7 +508,8 @@ class LsIntelligenceService(
         return await self.executor.execute_exists(
             query="""
                 MATCH (ls:Entity {uid: $ls_uid})
-                WHERE exists((ls)-[:GUIDED_BY_PRINCIPLE]->()) OR exists((ls)-[:OFFERS_CHOICE]->())
+                WHERE exists((ls)-[:HAS_LESSON]->()-[:GUIDED_BY_PRINCIPLE]->())
+                   OR exists((ls)-[:HAS_LESSON]->()-[:INFORMS_CHOICE]->())
                 RETURN ls
             """,
             params={"ls_uid": ls_uid},
@@ -493,10 +521,7 @@ class LsIntelligenceService(
         """
         Check if learning step has practice opportunities.
 
-        Checks for any of:
-        - BUILDS_HABIT relationships
-        - ASSIGNS_TASK relationships
-        - SCHEDULES_EVENT relationships
+        Traverses through Lessons via HAS_LESSON to check all 6 activity domains.
 
         Args:
             ls_uid: UID of the learning step
@@ -520,9 +545,12 @@ class LsIntelligenceService(
         return await self.executor.execute_exists(
             query="""
                 MATCH (ls:Entity {uid: $ls_uid})
-                WHERE exists((ls)-[:BUILDS_HABIT]->())
-                   OR exists((ls)-[:ASSIGNS_TASK]->())
-                   OR exists((ls)-[:SCHEDULES_EVENT]->())
+                WHERE exists((ls)-[:HAS_LESSON]->()-[:BUILDS_HABIT]->())
+                   OR exists((ls)-[:HAS_LESSON]->()-[:ASSIGNS_TASK]->())
+                   OR exists((ls)-[:HAS_LESSON]->()-[:SCHEDULES_EVENT]->())
+                   OR exists((ls)-[:HAS_LESSON]->()-[:SUPPORTS_GOAL]->())
+                   OR exists((ls)-[:HAS_LESSON]->()-[:GUIDED_BY_PRINCIPLE]->())
+                   OR exists((ls)-[:HAS_LESSON]->()-[:INFORMS_CHOICE]->())
                 RETURN ls
             """,
             params={"ls_uid": ls_uid},
