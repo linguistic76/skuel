@@ -22,9 +22,11 @@ from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonT
 from ui.cards import Card
 from ui.curriculum.layout import create_curriculum_page
+from ui.feedback import Badge, BadgeT
 from ui.forms import Input, Label, Select, Textarea
 from ui.layout import Size
 from ui.layouts.navbar import create_navbar_for_request
+from ui.patterns.card_generator import CardGenerator
 from ui.patterns.error_banner import render_error_banner, render_inline_error
 from ui.patterns.page_header import PageHeader
 
@@ -90,71 +92,56 @@ class ExerciseUIComponents:
 
     @staticmethod
     def render_exercise_card(exercise) -> Any:
-        """Single exercise card."""
-        # Truncate instructions for preview
-        instructions_text = exercise.instructions or ""
-        instructions_preview = (
-            instructions_text[:150] + "..." if len(instructions_text) > 150 else instructions_text
+        """Single exercise card using CardGenerator."""
+
+        def render_model_badge(value: str) -> Any:
+            return Badge(value, variant=BadgeT.info)
+
+        def render_context_notes(value: list) -> Any:
+            if not value:
+                return None
+            return Span(
+                f"{len(value)} context notes",
+                cls="text-sm text-muted-foreground",
+            )
+
+        action_buttons = Div(
+            Button(
+                "Edit",
+                hx_get=f"/exercises/{exercise.uid}/edit",
+                hx_target="#main-content",
+                variant=ButtonT.ghost,
+                size=Size.sm,
+            ),
+            Button(
+                "View Instructions",
+                hx_get=f"/exercises/{exercise.uid}/view",
+                hx_target="#main-content",
+                variant=ButtonT.ghost,
+                size=Size.sm,
+            ),
+            Button(
+                "Delete",
+                hx_delete=f"/api/exercises/{exercise.uid}",
+                hx_confirm="Are you sure you want to delete this exercise?",
+                hx_target="closest .card",
+                hx_swap="outerHTML",
+                variant=ButtonT.error,
+                size=Size.sm,
+            ),
+            cls="flex gap-2",
         )
 
-        return Card(
-            Div(
-                # Header
-                Div(
-                    H3(exercise.title, cls="text-lg font-semibold"),
-                    cls="flex justify-between items-start mb-2",
-                ),
-                # Instructions preview
-                P(instructions_preview, cls="text-muted-foreground text-sm mb-3"),
-                # Model badge
-                Span(
-                    f"{exercise.model}",
-                    cls="inline-block px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded mb-3",
-                ),
-                # Context notes count
-                (
-                    Div(
-                        Span(
-                            f"{len(exercise.context_notes)} context notes",
-                            cls="text-sm text-muted-foreground",
-                        ),
-                        cls="mb-3",
-                    )
-                    if exercise.context_notes
-                    else ""
-                ),
-                # Action buttons
-                Div(
-                    Button(
-                        "Edit",
-                        hx_get=f"/exercises/{exercise.uid}/edit",
-                        hx_target="#main-content",
-                        variant=ButtonT.ghost,
-                        size=Size.sm,
-                        cls="mr-2",
-                    ),
-                    Button(
-                        "View Instructions",
-                        hx_get=f"/exercises/{exercise.uid}/view",
-                        hx_target="#main-content",
-                        variant=ButtonT.ghost,
-                        size=Size.sm,
-                        cls="mr-2",
-                    ),
-                    Button(
-                        "Delete",
-                        hx_delete=f"/api/exercises/{exercise.uid}",
-                        hx_confirm="Are you sure you want to delete this exercise?",
-                        hx_target="closest .card",
-                        hx_swap="outerHTML",
-                        variant=ButtonT.error,
-                        size=Size.sm,
-                    ),
-                    cls="flex gap-2",
-                ),
-                cls="p-4",
-            ),
-            cls="mb-4",
+        return CardGenerator.from_dataclass(
+            exercise,
+            display_fields=["instructions", "model", "context_notes"],
+            show_labels=False,
+            field_renderers={
+                "model": render_model_badge,
+                "context_notes": render_context_notes,
+            },
+            actions=action_buttons,
+            card_attrs={"cls": "mb-4 p-4"},
         )
 
     @staticmethod

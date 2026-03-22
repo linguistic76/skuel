@@ -42,6 +42,7 @@ from adapters.inbound.ui_helpers import (
     render_entity_not_found_page,
 )
 from core.models.enums import Priority
+from ui.enum_helpers import get_status_border_class
 from core.models.goal.goal_request import GoalCreateRequest
 from core.services.goals_service import GoalsService
 from core.utils.logging import get_logger
@@ -175,7 +176,7 @@ class GoalUIComponents:
             target_date = getattr(goal, "target_date", "")
 
         # Determine border color based on status
-        border_color = "border-blue-500" if str(status) == "active" else "border-border"
+        border_color = get_status_border_class(str(status))
 
         # Build card content
         card_content = [

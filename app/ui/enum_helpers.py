@@ -76,6 +76,11 @@ def get_status_text_class(status: str) -> str:
     return _enum_method(status, EntityStatus, "get_text_class", "text-muted-foreground")
 
 
+def get_status_border_class(status: str) -> str:
+    """Get Tailwind border-left class for any entity status string."""
+    return _enum_method(status, EntityStatus, "get_border_class", "border-l-border")
+
+
 def get_priority_badge_class(priority: str) -> str:
     """Get Tailwind badge class for a priority level."""
     return _enum_method(

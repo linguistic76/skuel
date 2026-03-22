@@ -25,7 +25,6 @@ from adapters.inbound.auth import make_service_getter, require_admin
 from core.models.finance.finance_request import BudgetCreateRequest, ExpenseCreateRequest
 from core.utils.logging import get_logger
 from ui.buttons import ButtonLink, ButtonT
-from ui.cards import Card
 from ui.finance import create_finance_page
 from ui.finance.section_views import FinanceSectionViews
 from ui.layout import Size
@@ -110,14 +109,7 @@ class FinanceUIComponents:
             ]
         )
 
-        card = CardGenerator.from_dataclass(
-            expense,
-            display_fields=display_fields,
-            field_renderers={"amount": render_amount},
-            card_attrs={"id": f"expense-{uid}", "cls": "border border-border p-4"},
-        )
-
-        buttons = [
+        action_buttons = Div(
             ButtonLink(
                 "View",
                 href=f"/finance/expenses/{uid}",
@@ -130,9 +122,16 @@ class FinanceUIComponents:
                 variant=ButtonT.ghost,
                 size=Size.sm,
             ),
-        ]
+            cls="flex gap-2",
+        )
 
-        return Card(Div(card, Div(*buttons, cls="flex gap-2 mt-3"), cls="p-4"))
+        return CardGenerator.from_dataclass(
+            expense,
+            display_fields=display_fields,
+            field_renderers={"amount": render_amount},
+            actions=action_buttons,
+            card_attrs={"id": f"expense-{uid}", "cls": "border border-border p-4"},
+        )
 
     @staticmethod
     def render_budget_card(budget, compact=False) -> Any:
@@ -156,14 +155,7 @@ class FinanceUIComponents:
             ]
         )
 
-        card = CardGenerator.from_dataclass(
-            budget,
-            display_fields=display_fields,
-            field_renderers={"amount_limit": render_amount_limit},
-            card_attrs={"id": f"budget-{uid}", "cls": "border border-border p-4"},
-        )
-
-        buttons = [
+        action_buttons = Div(
             ButtonLink(
                 "View",
                 href=f"/finance/budgets/{uid}",
@@ -176,9 +168,16 @@ class FinanceUIComponents:
                 variant=ButtonT.ghost,
                 size=Size.sm,
             ),
-        ]
+            cls="flex gap-2",
+        )
 
-        return Card(Div(card, Div(*buttons, cls="flex gap-2 mt-3"), cls="p-4"))
+        return CardGenerator.from_dataclass(
+            budget,
+            display_fields=display_fields,
+            field_renderers={"amount_limit": render_amount_limit},
+            actions=action_buttons,
+            card_attrs={"id": f"budget-{uid}", "cls": "border border-border p-4"},
+        )
 
 
 # ============================================================================

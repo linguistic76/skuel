@@ -14,6 +14,8 @@ from typing import Any
 from fasthtml.common import A as Anchor
 from fasthtml.common import Div, Li, P, Span, Ul
 
+from ui.feedback import Badge, BadgeT
+
 from core.models.ku.ku import Ku
 from core.utils.logging import get_logger
 from ui.patterns.error_banner import render_error_banner
@@ -30,25 +32,15 @@ def _render_ku_row(ku: Ku, pinned_uids: set[str]) -> Any:
     # Truncate description
     desc_text = None
     if ku.description:
-        desc_text = ku.description[:150] + "..." if len(ku.description) > 150 else ku.description
+        desc_text = ku.description[:200] + "..." if len(ku.description) > 200 else ku.description
 
     # Category badges
     badges: list[Any] = []
     if ku.ku_category:
-        badges.append(
-            Span(
-                ku.ku_category,
-                cls="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-muted text-muted-foreground",
-            )
-        )
+        badges.append(Badge(ku.ku_category, variant=BadgeT.neutral))
     if ku.sel_category:
         sel_label = ku.sel_category if isinstance(ku.sel_category, str) else ku.sel_category.value
-        badges.append(
-            Span(
-                sel_label.replace("_", " ").title(),
-                cls="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-primary/10 text-primary",
-            )
-        )
+        badges.append(Badge(sel_label.replace("_", " ").title(), variant=BadgeT.primary))
 
     return Li(
         Div(

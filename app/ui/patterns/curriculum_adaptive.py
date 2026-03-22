@@ -86,7 +86,7 @@ def AdaptiveKUCard(ku: CurriculumEntity, prerequisites_met: bool = True) -> Any:
     else:
         metadata.append(Badge("Prerequisites needed", variant=BadgeT.warning))
 
-    description = ku.summary[:150] + "..." if len(ku.summary) > 150 else ku.summary
+    description = ku.summary[:200] + "..." if len(ku.summary) > 200 else ku.summary
 
     return EntityCard(
         title=ku.title,

@@ -14,7 +14,6 @@ from fasthtml.common import (
     H2,
     H3,
     H4,
-    A,
     Div,
     Header,
     Li,
@@ -34,6 +33,7 @@ from ui.forms import LabelSelect
 from ui.layout import Size
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
+from ui.patterns.card_generator import CardGenerator
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.form_generator import FormGenerator
 from ui.patterns.relationships import EntityRelationshipsSection
@@ -67,32 +67,41 @@ def _difficulty_label(rating: float) -> str:
 
 
 def _render_step_browser_card(step: Any) -> Any:
-    """Render a learning step as a browseable card."""
-    difficulty = _difficulty_label(step.difficulty_rating) if step.difficulty_rating else ""
-    hours_text = f"{step.estimated_hours:.1f}h" if step.estimated_hours else ""
+    """Render a learning step as a browseable card using CardGenerator."""
 
-    badges = []
-    if difficulty:
-        badges.append(Badge(difficulty.title(), variant=BadgeT.primary, size=Size.sm))
-    if hours_text:
-        badges.append(Badge(hours_text, variant=BadgeT.secondary, size=Size.sm))
-    if step.sequence:
-        badges.append(Badge(f"Step {step.sequence}", variant=BadgeT.info, size=Size.sm))
+    def render_difficulty(value: float) -> Any:
+        if not value:
+            return None
+        return Badge(_difficulty_label(value).title(), variant=BadgeT.primary, size=Size.sm)
 
-    return Card(
-        H4(
-            A(
-                step.title or f"Step: {step.uid}",
-                href=f"/ls/{step.uid}",
-                cls="text-primary hover:underline",
-            ),
-            cls="text-lg font-semibold mb-2",
-        ),
-        P(
-            (step.description or step.intent or "")[:150],
-            cls="text-muted-foreground text-sm mb-3",
-        ),
-        Div(*badges, cls="flex flex-wrap gap-2") if badges else None,
+    def render_hours(value: float) -> Any:
+        if not value:
+            return None
+        return Badge(f"{value:.1f}h", variant=BadgeT.secondary, size=Size.sm)
+
+    def render_sequence(value: int) -> Any:
+        if not value:
+            return None
+        return Badge(f"Step {value}", variant=BadgeT.info, size=Size.sm)
+
+    def render_description(value: str) -> Any:
+        # Combine description and intent fallback
+        text = value or getattr(step, "intent", "") or ""
+        if not text:
+            return None
+        return P(text[:200], cls="text-muted-foreground text-sm")
+
+    return CardGenerator.from_dataclass(
+        step,
+        display_fields=["description", "difficulty_rating", "estimated_hours", "sequence"],
+        show_labels=False,
+        title_href=f"/ls/{step.uid}",
+        field_renderers={
+            "description": render_description,
+            "difficulty_rating": render_difficulty,
+            "estimated_hours": render_hours,
+            "sequence": render_sequence,
+        },
     )
 
 
@@ -190,56 +199,54 @@ class PathwaysUIComponents:
 
     @staticmethod
     def render_learning_path_browser_card(path: dict[str, Any]) -> Any:
-        """Create a learning path card for the browse page."""
-        return Card(
-            Div(
-                # Path Header
-                Div(
-                    H3(path["title"], cls="text-lg font-semibold mb-2"),
-                    P(path["description"], cls="text-sm text-muted-foreground mb-3"),
-                    cls="mb-4",
-                ),
-                # Path Info
-                Div(
-                    Div(
-                        Span(f"{path['estimated_hours']}h", cls="text-sm"),
-                        cls="text-muted-foreground mb-2",
-                    ),
-                    Badge(path["difficulty"].title(), variant=BadgeT.primary, cls="mb-3"),
-                    cls="mb-4",
-                ),
-                # Tags
-                Div(
-                    *[
-                        Badge(tag, variant=BadgeT.outline, size=Size.sm, cls="mr-1 mb-1")
-                        for tag in path.get("tags", [])[:3]
-                    ],
-                    cls="mb-4",
-                ),
-                # Action Buttons
-                Div(
-                    ButtonLink(
-                        "View Details",
-                        href=f"/pathways/path/{path['uid']}",
-                        variant=ButtonT.outline,
-                        size=Size.sm,
-                        cls="flex-1",
-                    ),
-                    Button(
-                        "Enroll",
-                        variant=ButtonT.primary,
-                        size=Size.sm,
-                        cls="flex-1",
-                        **{
-                            "hx-post": f"/api/pathways/enroll/{path['uid']}",
-                            "hx-target": "#main-content",
-                        },
-                    ),
-                    cls="flex gap-2",
-                ),
-                cls="p-4",
+        """Create a learning path card for the browse page using CardGenerator."""
+
+        def render_difficulty(value: str) -> Any:
+            return Badge(value.title(), variant=BadgeT.primary)
+
+        def render_hours(value: int) -> Any:
+            return Span(f"{value}h", cls="text-sm text-muted-foreground")
+
+        def render_tags(value: list) -> Any:
+            if not value:
+                return None
+            return Div(
+                *[Badge(tag, variant=BadgeT.outline, size=Size.sm) for tag in value[:3]],
+                cls="flex flex-wrap gap-1",
+            )
+
+        action_buttons = Div(
+            ButtonLink(
+                "View Details",
+                href=f"/pathways/path/{path['uid']}",
+                variant=ButtonT.outline,
+                size=Size.sm,
+                cls="flex-1",
             ),
-            cls="hover:shadow-lg transition-shadow h-full",
+            Button(
+                "Enroll",
+                variant=ButtonT.primary,
+                size=Size.sm,
+                cls="flex-1",
+                **{
+                    "hx-post": f"/api/pathways/enroll/{path['uid']}",
+                    "hx-target": "#main-content",
+                },
+            ),
+            cls="flex gap-2",
+        )
+
+        return CardGenerator.from_dataclass(
+            path,
+            display_fields=["description", "estimated_hours", "difficulty", "tags"],
+            show_labels=False,
+            field_renderers={
+                "difficulty": render_difficulty,
+                "estimated_hours": render_hours,
+                "tags": render_tags,
+            },
+            actions=action_buttons,
+            card_attrs={"cls": "hover:shadow-lg transition-shadow h-full p-4"},
         )
 
     @staticmethod

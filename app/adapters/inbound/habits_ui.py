@@ -19,7 +19,7 @@ __version__ = "2.0"
 from datetime import date, timedelta
 from typing import Any
 
-from fasthtml.common import H1, H2, H3, Div, P, Span
+from fasthtml.common import H1, H2, H3, Div, P
 from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
@@ -49,6 +49,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 from ui.buttons import Button, ButtonT
 from ui.cards import Card, CardBody
+from ui.enum_helpers import get_status_border_class
 from ui.feedback import Badge, BadgeT
 from ui.habits.atomic_achievements import AtomicHabitsBadges
 from ui.habits.atomic_analytics import AtomicHabitsAnalytics
@@ -198,33 +199,6 @@ class HabitUIComponents:
         )
         is_identity_habit = identity is not None and identity != ""
 
-        # Custom renderer for streak field
-        def render_streak(value) -> Any:
-            return Span(
-                f"🔥 {value} day streak" if value > 0 else "⭐ Start your streak",
-                cls="text-sm text-orange-600 font-medium",
-            )
-
-        # Generate card using CardGenerator
-        card = CardGenerator.from_dataclass(
-            habit,
-            display_fields=["name", "description", "category", "recurrence_pattern", "status"],
-            field_renderers={
-                "current_streak": render_streak  # Custom streak indicator renderer
-            },
-            card_attrs={
-                "id": f"habit-{uid}",
-                "cls": f"border-l-4 {'border-blue-500' if str(status) == 'active' else 'border-border'} p-4",
-            },
-        )
-
-        # MVP: Add identity progress bar if identity-based
-        identity_component = None
-        if is_identity_habit:
-            identity_component = AtomicHabitsComponents.render_identity_progress_bar(
-                identity=identity, votes_cast=identity_votes, votes_required=50, size="sm"
-            )
-
         # Action buttons
         buttons = []
         if show_complete_button and str(status) == "active":
@@ -266,14 +240,28 @@ class HabitUIComponents:
             ]
         )
 
-        # Wrap card with identity progress (if applicable) and action buttons
-        return Card(
-            CardBody(
-                card,
-                identity_component if identity_component else None,
-                Div(*buttons, cls="flex gap-2 mt-3"),
+        # Identity progress bar (external to dataclass — appended after card)
+        identity_component = None
+        if is_identity_habit:
+            identity_component = AtomicHabitsComponents.render_identity_progress_bar(
+                identity=identity, votes_cast=identity_votes, votes_required=50, size="sm"
             )
+
+        card = CardGenerator.from_dataclass(
+            habit,
+            display_fields=["name", "description", "category", "recurrence_pattern"],
+            show_labels=False,
+            header_badges=["status"],
+            actions=Div(*buttons, cls="flex gap-2"),
+            card_attrs={
+                "id": f"habit-{uid}",
+                "cls": f"border-l-4 {get_status_border_class(str(status))} p-4",
+            },
         )
+
+        if identity_component:
+            return Div(card, identity_component)
+        return card
 
     @staticmethod
     def render_create_habit_form() -> Any:

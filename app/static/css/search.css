@@ -3,7 +3,6 @@
  * ==================
  *
  * Horizontal filter layout CSS for the search page.
- * Version 3.0 - Horizontal filters above search bar
  */
 
 /* Main container - full width, centered content */
@@ -19,26 +18,11 @@
     padding-bottom: 2rem;
 }
 
-/* Filter bar - primary filters always visible */
-.filter-bar {
+/* Shared panel surface — used by .filter-bar, .context-filters, .search-input-container */
+.panel-surface {
     background: oklch(var(--b1));
     border-radius: 0.5rem;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-/* Context filters - shown based on entity type */
-.context-filters {
-    background: oklch(var(--b1));
-    border-radius: 0.5rem;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-/* Advanced filters panel */
-.advanced-filters {
-    background: oklch(var(--b1));
-    border-radius: 0.5rem;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    border-left: 3px solid oklch(var(--p));
 }
 
 /* Active filter badges */
@@ -62,27 +46,14 @@
     opacity: 1;
 }
 
-/* Search input container */
-.search-input-container {
-    background: oklch(var(--b1));
-    border-radius: 0.5rem;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
 .search-input-container input {
     font-size: 1rem;
 }
 
 /* Filter dropdowns */
 .filter-bar select,
-.context-filters select,
-.advanced-filters select {
+.context-filters select {
     font-size: 0.875rem;
-}
-
-/* Checkbox styling in advanced filters */
-.advanced-filters .checkbox {
-    border-radius: 0.25rem;
 }
 
 /* Results area */
@@ -130,14 +101,9 @@
         min-width: 100% !important;
     }
 
-    .advanced-filters .grid {
-        grid-template-columns: 1fr;
-    }
-
     /* Make dropdowns full width on mobile */
     .filter-bar select,
-    .context-filters select,
-    .advanced-filters select {
+    .context-filters select {
         width: 100%;
     }
 
@@ -170,23 +136,7 @@
     border-color: oklch(var(--p));
 }
 
-/* Section headers in advanced filters */
-.advanced-filters .text-xs.uppercase {
-    color: oklch(var(--bc) / 0.6);
-    letter-spacing: 0.05em;
-}
-
 /* Filter labels */
 .label-text {
     color: oklch(var(--bc) / 0.7);
-}
-
-/* Checkbox rows in advanced filters */
-.advanced-filters label.label {
-    padding: 0.25rem 0;
-}
-
-.advanced-filters label.label:hover {
-    background: oklch(var(--b2));
-    border-radius: 0.25rem;
 }

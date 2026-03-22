@@ -42,14 +42,7 @@ class LessonUIComponents:
             else ["title", "content", "domain", "tags", "complexity"]
         )
 
-        card = CardGenerator.from_dataclass(
-            unit,
-            display_fields=display_fields,
-            field_renderers={},
-            card_attrs={"id": f"lesson-{uid}", "cls": "border-l-4 border-blue-500 p-4"},
-        )
-
-        buttons = [
+        action_buttons = Div(
             Button(
                 "View",
                 variant=ButtonT.outline,
@@ -64,9 +57,15 @@ class LessonUIComponents:
                 hx_get=f"/lesson/{uid}/edit",
                 hx_target="#modal",
             ),
-        ]
+            cls="flex gap-2",
+        )
 
-        return Card(Div(card, Div(*buttons, cls="flex gap-2 mt-3"), cls="p-4"))
+        return CardGenerator.from_dataclass(
+            unit,
+            display_fields=display_fields,
+            actions=action_buttons,
+            card_attrs={"id": f"lesson-{uid}", "cls": "border-l-4 border-blue-500 p-4"},
+        )
 
     @staticmethod
     def render_create_lesson_form() -> Any:

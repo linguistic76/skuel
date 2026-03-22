@@ -167,7 +167,7 @@ def _render_filter_bar() -> str:
     Contains: Type, Nous, Sort dropdowns + Learning Progress and Graph Relationships checkboxes.
     """
     return f"""
-    <div class="filter-bar bg-background rounded-lg shadow-sm p-4 mb-4">
+    <div class="filter-bar panel-surface p-4 mb-4">
         <!-- Dropdowns Row -->
         <div class="flex flex-wrap gap-4 items-end mb-4">
             <!-- Entity Type -->
@@ -323,7 +323,7 @@ def _render_context_filters() -> str:
     """
     return f"""
     <!-- Context Filters (shown based on entity type) -->
-    <div class="context-filters bg-background rounded-lg shadow-sm p-4 mb-4"
+    <div class="context-filters panel-surface p-4 mb-4"
          x-show="showContextFilters"
          x-transition:enter="transition ease-out duration-200"
          x-transition:enter-start="opacity-0 -translate-y-2"
@@ -706,7 +706,7 @@ def _render_search_input() -> str:
 
     return f"""
     <!-- Search Input -->
-    <div class="search-input-container bg-background rounded-lg shadow-sm p-4">
+    <div class="search-input-container panel-surface p-4">
         <div class="relative">
             <span class="absolute inset-y-0 left-3 flex items-center text-foreground/40">
                 <uk-icon icon="search" width="20" height="20" class="h-5 w-5"></uk-icon>
@@ -825,8 +825,8 @@ def _render_result_card(result: dict) -> Any:
 
     # Get domain-specific fields
     description = result.get("description", result.get("content", ""))
-    if description and len(description) > 150:
-        description = description[:150] + "..."
+    if description and len(description) > 200:
+        description = description[:200] + "..."
 
     # Minimal domain badge (no emojis in calm design)
     domain_text = domain.title()

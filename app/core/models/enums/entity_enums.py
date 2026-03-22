@@ -423,6 +423,10 @@ class EntityStatus(StrEnum):
         """Get Tailwind badge classes for status display."""
         return _ENTITY_STATUS_BADGE_CLASSES.get(self, "bg-gray-100 text-gray-600 border-gray-200")
 
+    def get_border_class(self) -> str:
+        """Get Tailwind border-left class for status card borders."""
+        return _ENTITY_STATUS_BORDER_CLASSES.get(self, "border-l-border")
+
     def get_text_class(self) -> str:
         """Get Tailwind text color class for status display."""
         return _ENTITY_STATUS_TEXT_CLASSES.get(self, "text-muted-foreground")
@@ -558,6 +562,23 @@ _ENTITY_STATUS_TEXT_CLASSES: dict[EntityStatus, str] = {
     EntityStatus.BLOCKED: "text-red-600",
     EntityStatus.FAILED: "text-red-600",
     EntityStatus.SCHEDULED: "text-blue-600",
+}
+
+_ENTITY_STATUS_BORDER_CLASSES: dict[EntityStatus, str] = {
+    EntityStatus.ACTIVE: "border-l-green-500",
+    EntityStatus.COMPLETED: "border-l-green-500",
+    EntityStatus.PAUSED: "border-l-yellow-500",
+    EntityStatus.SCHEDULED: "border-l-blue-500",
+    EntityStatus.BLOCKED: "border-l-red-500",
+    EntityStatus.FAILED: "border-l-red-500",
+    EntityStatus.CANCELLED: "border-l-red-500",
+    EntityStatus.DRAFT: "border-l-gray-400",
+    EntityStatus.SUBMITTED: "border-l-yellow-500",
+    EntityStatus.QUEUED: "border-l-yellow-500",
+    EntityStatus.PROCESSING: "border-l-blue-500",
+    EntityStatus.POSTPONED: "border-l-yellow-500",
+    EntityStatus.REVISION_REQUESTED: "border-l-yellow-500",
+    EntityStatus.ARCHIVED: "border-l-gray-400",
 }
 
 _ENTITY_STATUS_SEARCH_SYNONYMS: dict[EntityStatus, tuple[str, ...]] = {

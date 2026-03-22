@@ -1,25 +1,34 @@
 """
-CardGenerator - Dynamic Display Card Generation from Dataclasses
-=================================================================
+CardGenerator - Dynamic Display Card Generation
+=================================================
 
-Generates display cards automatically from dataclass introspection.
+Generates display cards automatically from dataclass or dict introspection.
 
 Following the 100% dynamic architecture vision:
 - Models define structure → UI auto-generates
 - Add field to dataclass → Display auto-updates
 - No manual display composition needed
 
+Supports both detail cards (labeled fields) and list cards
+(compact, unlabeled, with header badges and action slots).
+
 Usage:
-    from core.models.task.task import Task
     from ui.patterns.card_generator import CardGenerator
 
-    # Auto-generate display card from domain model
+    # Detail card from dataclass
     card = CardGenerator.from_dataclass(
         task,
-        display_fields=['title', 'description', 'priority', 'status', 'due_date']
+        display_fields=['title', 'description', 'priority', 'status'],
     )
 
-Version: 1.0.0
+    # List card from dict
+    card = CardGenerator.from_dataclass(
+        path_dict,
+        display_fields=['description', 'difficulty', 'tags'],
+        show_labels=False,
+        title_href='/pathways/123',
+        actions=Div(Button("View"), Button("Enroll")),
+    )
 """
 
 from collections.abc import Callable
@@ -28,19 +37,30 @@ from datetime import date, datetime
 from enum import Enum
 from typing import Any, get_args, get_origin
 
-from fasthtml.common import H3, Div, Li, P, Span, Ul
+from fasthtml.common import H3, A, Div, Li, P, Span, Ul
 
 from core.utils.logging import get_logger
 from ui.cards import Card
 from ui.feedback import Badge, BadgeT
 from ui.forms import Label
+from ui.layout import FlexItem, Row
 
 logger = get_logger("skuel.components.card_generator")
 
 
+class _DictFieldInfo:
+    """Synthetic field info for dict entries, matching dataclass field interface."""
+
+    __slots__ = ("name", "type")
+
+    def __init__(self, name: str, value: Any) -> None:
+        self.name = name
+        self.type = type(value) if value is not None else str
+
+
 class FieldRendererMapper:
     """
-    Maps dataclass field types to display renderers.
+    Maps field types to display renderers.
 
     Uses introspection to determine the appropriate UI rendering
     based on field type and value.
@@ -111,10 +131,7 @@ class FieldRendererMapper:
         """Render enum value as a badge"""
         from ui.enum_helpers import get_status_badge_class
 
-        # Type is known to be Enum, use .value directly (per CLAUDE.md Oct 5 update)
         display = str(value.value)
-
-        # Match on lowercase value/name
         key = str(display).lower().replace(" ", "_")
         badge_cls = get_status_badge_class(key)
 
@@ -148,13 +165,13 @@ class FieldRendererMapper:
     @staticmethod
     def _render_date(value: date) -> Span:
         """Render date in readable format"""
-        formatted = value.strftime("%B %d, %Y")  # e.g., "October 03, 2025"
+        formatted = value.strftime("%B %d, %Y")
         return Span(formatted, cls="text-foreground/80")
 
     @staticmethod
     def _render_datetime(value: datetime) -> Span:
         """Render datetime with time"""
-        formatted = value.strftime("%B %d, %Y at %I:%M %p")  # e.g., "October 03, 2025 at 02:30 PM"
+        formatted = value.strftime("%B %d, %Y at %I:%M %p")
         return Span(formatted, cls="text-foreground/80")
 
     @staticmethod
@@ -171,7 +188,6 @@ class FieldRendererMapper:
         if isinstance(value, int):
             return Span(str(value), cls="text-foreground/80 font-mono")
         else:
-            # Format float to 2 decimal places
             return Span(f"{value:.2f}", cls="text-foreground/80 font-mono")
 
     @staticmethod
@@ -188,35 +204,75 @@ class FieldRendererMapper:
     def _render_string(value: str) -> P:
         """Render string with truncation if too long"""
         if len(value) > 200:
-            # Truncate long strings
             return P(
                 value[:200] + "...",
                 cls="text-foreground/80 text-sm",
-                title=value,  # Full text on hover
+                title=value,
             )
         return P(value, cls="text-foreground/80")
 
     @staticmethod
     def get_field_label(field_name: str) -> str:
-        """
-        Generate user-friendly label from field name.
-
-        Examples:
-        - task_title → Task Title
-        - due_date → Due Date
-        - estimated_hours → Estimated Hours
-        """
+        """Generate user-friendly label from field name."""
         return " ".join(word.capitalize() for word in field_name.split("_"))
+
+
+def _get_value(instance: Any, field_name: str) -> Any:
+    """Get a field value from a dataclass or dict."""
+    if isinstance(instance, dict):
+        return instance.get(field_name)
+    return getattr(instance, field_name)
+
+
+def _build_field_dict(instance: Any) -> dict[str, Any]:
+    """Build field info dict from a dataclass or dict instance."""
+    if isinstance(instance, dict):
+        return {k: _DictFieldInfo(k, v) for k, v in instance.items()}
+    all_fields = fields(instance)
+    return {f.name: f for f in all_fields}
+
+
+def _render_header_badges(
+    instance: Any,
+    badge_field_names: list[str],
+    field_dict: dict[str, Any],
+    field_renderers: dict[str, Callable],
+) -> list[Any]:
+    """Render specified fields as badge elements for the title row."""
+    elements: list[Any] = []
+    for field_name in badge_field_names:
+        if field_name not in field_dict:
+            continue
+        value = _get_value(instance, field_name)
+        if value is None:
+            continue
+        if field_name in field_renderers:
+            rendered = field_renderers[field_name](value)
+        else:
+            field_info = field_dict[field_name]
+            renderer = FieldRendererMapper.get_default_renderer(field_name, field_info.type, value)
+            rendered = renderer(value)
+        if rendered is not None:
+            elements.append(rendered)
+    return elements
+
+
+def _render_title(title_value: str, title_href: str | None) -> Any:
+    """Render title text, optionally as a link."""
+    if title_href:
+        return H3(
+            A(str(title_value), href=title_href, cls="text-primary hover:underline"),
+            cls="text-lg font-semibold mb-2",
+        )
+    return H3(str(title_value), cls="text-lg font-semibold mb-2")
 
 
 class CardGenerator:
     """
-    Dynamic display card generator using dataclass introspection.
+    Dynamic display card generator from dataclass or dict introspection.
 
-    Follows 100% dynamic architecture:
-    - Introspects dataclass fields via fields()
-    - Determines renderers via type annotations
-    - Generates UI components
+    Introspects fields, determines renderers via type, generates UI components.
+    Accepts both dataclass instances and plain dicts.
     """
 
     @staticmethod
@@ -230,44 +286,37 @@ class CardGenerator:
         title_field: str | None = None,
         card_attrs: dict[str, Any] | None = None,
         show_empty_fields: bool = False,
+        show_labels: bool = True,
+        actions: Any = None,
+        header_badges: list[str] | None = None,
+        title_href: str | None = None,
     ) -> Div:
         """
-        Generate display card from dataclass introspection.
+        Generate display card from dataclass or dict introspection.
 
         Args:
-            instance: Dataclass instance to display,
-            display_fields: Only display these fields (None = all),
-            exclude_fields: Exclude these fields (default: uid, created_at, updated_at),
-            field_order: Custom field ordering,
-            field_renderers: Custom renderers for specific fields,
-            field_labels: Custom labels for specific fields,
-            title_field: Field to use as card title (default: 'title' or 'name'),
-            card_attrs: Additional card attributes (cls, id, etc.),
+            instance: Dataclass instance or dict to display
+            display_fields: Only display these fields (None = all)
+            exclude_fields: Exclude these fields (default: uid, created_at, updated_at)
+            field_order: Custom field ordering
+            field_renderers: Custom renderers for specific fields (return None to skip)
+            field_labels: Custom labels for specific fields
+            title_field: Field to use as card title (default: 'title' or 'name')
+            card_attrs: Additional card attributes (cls, id, etc.)
             show_empty_fields: Show fields even if value is None/empty
+            show_labels: When False, render values without Label wrappers (for list cards)
+            actions: Optional action elements appended at card bottom with border separator
+            header_badges: Fields to render as badges beside the title in a flex row
+            title_href: Optional URL to make the title a clickable link
 
         Returns:
             Card component
-
-        Example:
-            def render_priority(v):
-                return Badge(v, variant=BadgeT.warning)
-
-            card = CardGenerator.from_dataclass(
-                task,
-                display_fields=['title', 'description', 'priority', 'status'],
-                field_renderers={
-                    'priority': render_priority
-                }
-            )
         """
-        if not is_dataclass(instance):
-            raise ValueError(f"Instance must be a dataclass, got {type(instance)}")
+        if not is_dataclass(instance) and not isinstance(instance, dict):
+            raise ValueError(f"Instance must be a dataclass or dict, got {type(instance)}")
 
-        logger.info(f"Generating card from {type(instance).__name__}")
-
-        # Get dataclass fields via introspection
-        all_fields = fields(instance)
-        field_dict = {f.name: f for f in all_fields}
+        # Build field dict from dataclass or dict
+        field_dict = _build_field_dict(instance)
 
         # Determine which fields to display
         field_names = list(field_dict.keys())
@@ -285,6 +334,10 @@ class CardGenerator:
         if exclude_fields:
             field_names = [f for f in field_names if f not in exclude_fields]
 
+        # Remove header_badges fields from body rendering
+        if header_badges:
+            field_names = [f for f in field_names if f not in header_badges]
+
         # Apply custom ordering
         if field_order:
             ordered_fields = [f for f in field_order if f in field_names]
@@ -293,20 +346,35 @@ class CardGenerator:
 
         # Determine title field
         if title_field is None:
-            # Auto-detect title field
             if "title" in field_dict:
                 title_field = "title"
             elif "name" in field_dict:
                 title_field = "name"
 
         # Build card components
-        card_components = []
+        card_components: list[Any] = []
 
         # Add title if detected
         if title_field and title_field in field_dict:
-            title_value = getattr(instance, title_field)
+            title_value = _get_value(instance, title_field)
             if title_value:
-                card_components.append(H3(str(title_value), cls="text-lg font-bold mb-4"))
+                title_component = _render_title(str(title_value), title_href)
+                if header_badges:
+                    badge_elements = _render_header_badges(
+                        instance, header_badges, field_dict, field_renderers or {}
+                    )
+                    if badge_elements:
+                        card_components.append(
+                            Row(
+                                FlexItem(title_component, grow=True),
+                                FlexItem(Div(*badge_elements, cls="flex gap-2"), shrink=False),
+                                gap=3,
+                            )
+                        )
+                    else:
+                        card_components.append(title_component)
+                else:
+                    card_components.append(title_component)
                 # Remove title from fields list (already displayed)
                 if title_field in field_names:
                     field_names.remove(title_field)
@@ -317,7 +385,7 @@ class CardGenerator:
 
         for field_name in field_names:
             field_info = field_dict[field_name]
-            value = getattr(instance, field_name)
+            value = _get_value(instance, field_name)
 
             # Skip empty fields if not showing them
             if not show_empty_fields and (
@@ -337,24 +405,31 @@ class CardGenerator:
                 )
 
             # Render field
-            field_component = Div(
-                Label(label, cls="font-semibold text-muted-foreground block mb-1"),
-                renderer(value),
-                cls="mb-3",
-            )
+            rendered_value = renderer(value)
+            if rendered_value is None:
+                continue
+
+            if show_labels:
+                field_component = Div(
+                    Label(label, cls="font-semibold text-muted-foreground block mb-1"),
+                    rendered_value,
+                    cls="mb-3",
+                )
+            else:
+                field_component = Div(rendered_value, cls="mb-2")
 
             card_components.append(field_component)
+
+        # Add actions slot
+        if actions is not None:
+            card_components.append(Div(actions, cls="mt-4 pt-3 border-t border-border"))
 
         # Build card attributes
         attrs = {"cls": "bg-background shadow-md p-6"}
         if card_attrs:
             attrs.update(card_attrs)
 
-        # Return generated card
-        card = Card(*card_components, **attrs)
-
-        logger.info(f"✅ Generated card with {len(card_components)} components")
-        return card
+        return Card(*card_components, **attrs)
 
     @staticmethod
     def from_list(
@@ -364,29 +439,10 @@ class CardGenerator:
         field_renderers: dict[str, Callable] | None = None,
         title_field: str | None = None,
         list_attrs: dict[str, Any] | None = None,
+        show_labels: bool = True,
+        header_badges: list[str] | None = None,
     ) -> Div:
-        """
-        Generate a list of display cards from multiple instances.
-
-        Args:
-            instances: List of dataclass instances,
-            display_fields: Only display these fields,
-            exclude_fields: Exclude these fields,
-            field_renderers: Custom renderers for specific fields,
-            title_field: Field to use as card title,
-            list_attrs: Additional container attributes
-
-        Returns:
-            Div containing multiple cards
-
-        Example:
-            cards = CardGenerator.from_list(
-                tasks,
-                display_fields=['title', 'priority', 'status', 'due_date']
-            )
-        """
-        logger.info(f"Generating card list with {len(instances)} items")
-
+        """Generate a list of display cards from multiple instances."""
         cards = [
             CardGenerator.from_dataclass(
                 instance,
@@ -394,6 +450,8 @@ class CardGenerator:
                 exclude_fields=exclude_fields,
                 field_renderers=field_renderers,
                 title_field=title_field,
+                show_labels=show_labels,
+                header_badges=header_badges,
             )
             for instance in instances
         ]
@@ -408,17 +466,7 @@ class CardGenerator:
     def compact_card(
         instance: Any, display_fields: list[str], title_field: str | None = None
     ) -> Div:
-        """
-        Generate a compact card (minimal styling, fewer details).
-
-        Useful for list views where you want less detail per item.
-
-        Example:
-            card = CardGenerator.compact_card(
-                task,
-                display_fields=['title', 'priority', 'status']
-            )
-        """
+        """Generate a compact card (minimal styling, fewer details)."""
         return CardGenerator.from_dataclass(
             instance,
             display_fields=display_fields,
@@ -430,17 +478,7 @@ class CardGenerator:
 
     @staticmethod
     def detailed_card(instance: Any, exclude_fields: list[str] | None = None) -> Div:
-        """
-        Generate a detailed card (shows all non-excluded fields).
-
-        Useful for detail views where you want complete information.
-
-        Example:
-            card = CardGenerator.detailed_card(
-                task,
-                exclude_fields=['uid', 'created_at']
-            )
-        """
+        """Generate a detailed card (shows all non-excluded fields)."""
         return CardGenerator.from_dataclass(
             instance,
             exclude_fields=exclude_fields,
@@ -449,64 +487,5 @@ class CardGenerator:
         )
 
 
-class CardGeneratorExamples:
-    """
-    Example usage patterns for CardGenerator.
-
-    Demonstrates various use cases and customization options.
-    """
-
-    @staticmethod
-    def basic_card_example(task) -> Any:
-        """Most basic usage - just pass the instance"""
-        return CardGenerator.from_dataclass(task)
-
-    @staticmethod
-    def selective_fields_example(task) -> Any:
-        """Show only specific fields"""
-        return CardGenerator.from_dataclass(
-            task, display_fields=["title", "description", "priority", "status", "due_date"]
-        )
-
-    @staticmethod
-    def custom_renderers_example(task) -> Any:
-        """Override specific field renderers"""
-
-        def render_priority(v) -> Any:
-            bolts = "⚡" * (3 if v.value == "high" else 2 if v.value == "medium" else 1)
-            return Badge(f"{bolts} {v.value}", variant=BadgeT.warning)
-
-        def render_due_date(v) -> Any:
-            return Span(f"📅 {v.strftime('%b %d')}", cls="text-info font-semibold")
-
-        return CardGenerator.from_dataclass(
-            task,
-            display_fields=["title", "priority", "status", "due_date"],
-            field_renderers={"priority": render_priority, "due_date": render_due_date},
-        )
-
-    @staticmethod
-    def list_view_example(tasks) -> Any:
-        """Generate list of compact cards"""
-        return CardGenerator.from_list(
-            tasks, display_fields=["title", "priority", "status", "due_date"]
-        )
-
-    @staticmethod
-    def htmx_card_example(task) -> Any:
-        """Card with HTMX actions"""
-        return CardGenerator.from_dataclass(
-            task,
-            display_fields=["title", "description", "priority", "status"],
-            card_attrs={
-                "id": f"task-{task.uid}",
-                "hx_get": f"/api/tasks/{task.uid}",
-                "hx_trigger": "click",
-                "hx_target": "#detail-panel",
-                "cls": "bg-background shadow-md p-6 cursor-pointer hover:shadow-xl transition-shadow",
-            },
-        )
-
-
 # Export main classes
-__all__ = ["CardGenerator", "CardGeneratorExamples", "FieldRendererMapper"]
+__all__ = ["CardGenerator", "FieldRendererMapper"]
