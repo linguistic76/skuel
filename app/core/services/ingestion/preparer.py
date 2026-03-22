@@ -114,6 +114,15 @@ def _prepare_core(
     for field in ("version", "type", "created_at", "updated_at"):
         entity_data.pop(field, None)
 
+    # Inject entity_type property for Entity-labeled nodes.
+    # The YAML "type" field was just stripped; entity_type must be set as a node
+    # property so queries filtering by n.entity_type find ingested nodes the same
+    # way they find nodes created via the CRUD path (where Entity.entity_type is
+    # serialized automatically). NonKuDomain types (Finance/Expense) don't carry
+    # entity_type — they have no :Entity base label.
+    if isinstance(entity_type, EntityType):
+        entity_data["entity_type"] = entity_type.value
+
     # Handle UID
     if "uid" in entity_data:
         entity_data["uid"] = normalize_uid(entity_data["uid"])
@@ -124,7 +133,7 @@ def _prepare_core(
     if body is not None and entity_type in (EntityType.LESSON, EntityType.EXERCISE_SUBMISSION):
         entity_data["content"] = body
 
-    # Article: normalize USES_KU UIDs
+    # Lesson: normalize USES_KU UIDs
     if entity_type == EntityType.LESSON:
         if "uses_kus" in entity_data and isinstance(entity_data["uses_kus"], list):
             entity_data["uses_kus"] = [normalize_uid(uid) for uid in entity_data["uses_kus"]]

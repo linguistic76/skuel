@@ -2395,31 +2395,65 @@ def get_config_by_label(entity_label: str) -> DomainRelationshipConfig | None:
 # Maps EntityType to registry config key (Neo4j label string).
 # All domain entities are :Entity nodes; virtual config keys kept for lookup.
 ENTITY_TYPE_TO_LABEL: dict[EntityType, str] = {
+    # Curriculum (5)
     EntityType.LESSON: "Lesson",
     EntityType.KU: "Ku",
+    EntityType.LEARNING_STEP: "LearningStep",
+    EntityType.LEARNING_PATH: "LearningPath",
+    EntityType.EXERCISE: "Exercise",
+    # Instruction Templates (2)
+    EntityType.REVISED_EXERCISE: "RevisedExercise",
+    EntityType.RESOURCE: "Resource",
+    # Activity (6)
     EntityType.TASK: "Task",
     EntityType.GOAL: "Goal",
     EntityType.HABIT: "Habit",
     EntityType.EVENT: "Event",
     EntityType.CHOICE: "Choice",
     EntityType.PRINCIPLE: "Principle",
-    EntityType.LEARNING_PATH: "LearningPath",
-    EntityType.LEARNING_STEP: "LearningStep",
-    EntityType.EXERCISE: "Exercise",
+    # Submissions/Reports (3)
+    EntityType.EXERCISE_SUBMISSION: "ExerciseSubmission",
+    EntityType.ACTIVITY_REPORT: "ActivityReport",
+    EntityType.EXERCISE_REPORT: "ExerciseReport",
+    # Journal (2)
+    EntityType.JE_INPUT: "JeInput",
+    EntityType.JE_OUTPUT: "JeOutput",
+    # General-Purpose Forms (2)
+    EntityType.FORM_TEMPLATE: "FormTemplate",
+    EntityType.FORM_SUBMISSION: "FormSubmission",
+    # Destination (1)
+    EntityType.LIFE_PATH: "LifePath",
 }
 
 LABEL_TO_DEFAULT_ENTITY_TYPE: dict[str, EntityType] = {
+    # Curriculum (5)
     "Lesson": EntityType.LESSON,
     "Ku": EntityType.KU,
+    "LearningStep": EntityType.LEARNING_STEP,
+    "LearningPath": EntityType.LEARNING_PATH,
+    "Exercise": EntityType.EXERCISE,
+    # Instruction Templates (2)
+    "RevisedExercise": EntityType.REVISED_EXERCISE,
+    "Resource": EntityType.RESOURCE,
+    # Activity (6)
     "Task": EntityType.TASK,
     "Goal": EntityType.GOAL,
     "Habit": EntityType.HABIT,
     "Event": EntityType.EVENT,
     "Choice": EntityType.CHOICE,
     "Principle": EntityType.PRINCIPLE,
-    "LearningPath": EntityType.LEARNING_PATH,
-    "LearningStep": EntityType.LEARNING_STEP,
-    "Exercise": EntityType.EXERCISE,
+    # Submissions/Reports (3)
+    "ExerciseSubmission": EntityType.EXERCISE_SUBMISSION,
+    "ActivityReport": EntityType.ACTIVITY_REPORT,
+    "ExerciseReport": EntityType.EXERCISE_REPORT,
+    # Journal (2)
+    "JeInput": EntityType.JE_INPUT,
+    "JeOutput": EntityType.JE_OUTPUT,
+    # General-Purpose Forms (2)
+    "FormTemplate": EntityType.FORM_TEMPLATE,
+    "FormSubmission": EntityType.FORM_SUBMISSION,
+    # Destination (1)
+    "LifePath": EntityType.LIFE_PATH,
     # Backward-compat aliases for old label keys
     "Entity": EntityType.LESSON,
     "Lp": EntityType.LEARNING_PATH,

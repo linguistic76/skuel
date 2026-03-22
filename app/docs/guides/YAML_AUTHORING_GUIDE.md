@@ -1,7 +1,7 @@
 ---
 title: YAML Authoring Guide
 created: 2026-03-21
-updated: 2026-03-21
+updated: 2026-03-22
 status: current
 category: guides
 tags: [yaml, ingestion, authoring, substance, relationships, curriculum, activity-domains]
@@ -19,28 +19,47 @@ Every YAML file starts with required fields:
 
 ```yaml
 version: 1.0
-type: Task              # Entity type: Task, Goal, Habit, Event, Choice, Principle,
-                        #   Lesson, Ku, LearningStep, LearningPath, Edge
+type: Task              # Entity type (see table below)
 uid: task:my-task-name  # Unique identifier (prefix:slug format)
 title: My Task Title    # Display title
 ```
 
-**UID Prefixes:**
+### Ingestible Entity Types
 
-| Type | Prefix | Example |
-|------|--------|---------|
-| Ku | `ku:` | `ku:attention:buzzing` |
-| Lesson | `l:` | `l:mindfulness:breath-awareness-basics` |
-| LearningStep | `ls:` | `ls:mindfulness-101:step-1` |
-| LearningPath | `lp:` | `lp:mindfulness-101` |
-| Task | `task:` | `task:log-first-5-sessions` |
-| Goal | `goal:` | `goal:mindfulness-beginner` |
-| Habit | `habit:` | `habit:daily-2min-breath` |
-| Event | `event:` | `event:practice-block-2min` |
-| Choice | `choice:` | `choice:2-minutes-right-now` |
-| Principle | `principle:` | `principle:small-steps` |
+12 of SKUEL's 21 entity types are file-ingestible. The remaining 9 (Exercise, RevisedExercise, Resource, FormTemplate, FormSubmission, JeInput, JeOutput, ExerciseReport, ActivityReport) are created via API or internal pipelines.
+
+| Type Value | Aliases | Prefix | Example UID |
+|------------|---------|--------|-------------|
+| `Ku` | — | `ku:` | `ku:attention:buzzing` |
+| `Lesson` | `Article`, `KnowledgeUnit` | `l:` | `l:mindfulness:breath-awareness-basics` |
+| `LearningStep` | `ls` | `ls:` | `ls:mindfulness-101:step-1` |
+| `LearningPath` | `lp` | `lp:` | `lp:mindfulness-101` |
+| `Task` | — | `task:` | `task:log-first-5-sessions` |
+| `Goal` | — | `goal:` | `goal:mindfulness-beginner` |
+| `Habit` | — | `habit:` | `habit:daily-2min-breath` |
+| `Event` | — | `event:` | `event:practice-block-2min` |
+| `Choice` | — | `choice:` | `choice:2-minutes-right-now` |
+| `Principle` | — | `principle:` | `principle:small-steps` |
+| `ExerciseSubmission` | `Submission` | `es:` | `es:my-work` |
+| `LifePath` | — | `lifepath:` | `lifepath:my-direction` |
+| `Expense` | `Finance` | `expense:` | `expense:books` |
+| `Edge` | — | *(n/a)* | *(standalone relationship file)* |
+
+The `type` value is case-insensitive. Aliases resolve to the canonical type during ingestion.
+
+**UID format:** `prefix:slug` or `prefix:namespace:slug`. Colons are normalized to dots internally (`ku:attention:buzzing` becomes `ku.attention.buzzing` in Neo4j).
+
+**What happens during ingestion:** The `type` field determines which Neo4j labels the node gets (e.g., `type: Task` creates a node with `:Entity:Task` labels) and sets the `entity_type` property on the node (e.g., `entity_type: "task"`). The `type` field itself is not stored — it is translated into labels and properties.
 
 See `yaml_templates/_schemas/` for the complete field reference per entity type.
+
+### Ownership
+
+Activity domains (Task, Goal, Habit, Event, Choice, Principle), ExerciseSubmission, and LifePath are **user-owned** — they require a `user_uid`. If the YAML file omits `user_uid`, the ingestion engine sets it to the default (`SKUEL_DEFAULT_USER_UID` env var, or `user:system`).
+
+Curriculum types (Lesson, Ku, LearningStep, LearningPath) are **shared** — no `user_uid` needed; they are visible to all users.
+
+Expense is **admin-only** and also requires `user_uid`.
 
 ---
 
@@ -317,11 +336,17 @@ Validation happens via **Pydantic Request models** in the Python code, not via Y
 ## The Complete Picture
 
 ```
-YAML Author writes connections.*
+YAML Author writes type + connections.*
         ↓
-    Ingestion Engine
+    detector.py: type → EntityType enum
         ↓
-    Neo4j Edges (structural)
+    preparer.py: strip YAML metadata, inject entity_type property, normalize UIDs
+        ↓
+    config.py: EntityType → Neo4j label + UID prefix
+        ↓
+    BulkIngestionEngine: MERGE (n:Entity:Task {uid: ...}) + SET properties
+        ↓
+    Neo4j Node (with labels + entity_type property) + Edges (from connections.*)
         ↓
     User interacts (completes task, builds habit, makes choice...)
         ↓
@@ -345,3 +370,15 @@ YAML Author writes connections.*
 - [Relationship Registry](/core/models/relationship_registry.py) — source of truth for `yaml_field_path` mappings
 - [Entity Type Architecture](/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md) — all 21 entity types
 - [YAML Templates README](/yaml_templates/README.md) — directory structure and UID formats
+- [Schema Templates](/yaml_templates/_schemas/) — complete field reference per entity type
+
+### Ingestion Pipeline Source Files
+
+| File | Role |
+|------|------|
+| `core/services/ingestion/detector.py` | `TYPE_MAPPING`: YAML `type` string → `EntityType` enum |
+| `core/services/ingestion/config.py` | `ENTITY_CONFIGS`: `EntityType` → Neo4j label, UID prefix, required fields |
+| `core/services/ingestion/preparer.py` | Data preparation: strip YAML metadata, inject `entity_type`, normalize UIDs |
+| `core/services/ingestion/validator.py` | Required field and data validation |
+| `core/ingestion/bulk_ingestion.py` | Cypher generation and Neo4j writes |
+| `core/models/relationship_registry.py` | `yaml_field_path` → relationship type mappings |

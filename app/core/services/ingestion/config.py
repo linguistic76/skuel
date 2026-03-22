@@ -223,12 +223,9 @@ ENTITY_CONFIGS: dict[EntityType | NonKuDomain, EntityIngestionConfig] = {
         requires_user_uid=True,
         base_label=None,  # Expense is not an Entity type
     ),
-    # NOTE: Journal merged into Reports (February 2026).
-    # Journal ingestion creates Entity nodes with entity_type="submission".
-    # Kept as SUBMISSION entry — "journal" alias in TYPE_MAPPING resolves here.
     EntityType.EXERCISE_SUBMISSION: EntityIngestionConfig(
-        entity_label="Report",
-        uid_prefix="report",
+        entity_label="ExerciseSubmission",
+        uid_prefix="es",
         required_fields=("title",),
         requires_user_uid=True,
     ),
