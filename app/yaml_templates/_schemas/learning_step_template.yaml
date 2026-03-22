@@ -27,13 +27,25 @@ title: Example Step Title
 # Example: "Pick one topic, run a single 25-minute block, and log it"
 intent: What the learner should achieve in this step
 
-# primary_knowledge_uids: Lessons this step teaches (creates CONTAINS_KNOWLEDGE edges)
+# primary_knowledge_uids: Core Lessons for this step's teaching content
 # Type: List of Lesson UIDs
 # Pattern: l:namespace:slug
-# Example: [l:study-skills:note-taking-basics]
+# Graph: Creates (LS)-[:CONTAINS_KNOWLEDGE]->(Lesson) edges
+# Activity Inheritance: Activities wired to these Lessons (habit_uids, task_uids, etc.)
+#   are inherited by the LS via graph traversal. This is the key mechanism for
+#   LS practice summaries and completeness scoring.
 # Note: Ingestion field name must be 'primary_knowledge_uids' (not 'knowledge_uid')
 primary_knowledge_uids:
   - l:example:topic
+
+# supporting_knowledge_uids: Supplementary Lessons for enrichment/context
+# Type: List of Lesson UIDs
+# Graph: Creates (LS)-[:REQUIRES_KNOWLEDGE]->(Lesson) edges
+# Activity Inheritance: Activities on these Lessons are NOT inherited by the LS.
+#   Supporting Lessons are reference material — useful for the learner but not
+#   part of the LS practice summary or completeness scoring.
+supporting_knowledge_uids:
+  - l:example:supplementary-topic
 
 # trains_ku_uids: Atomic Kus this step trains (learning objectives)
 # Type: List of Ku UIDs

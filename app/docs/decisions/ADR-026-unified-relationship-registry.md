@@ -283,9 +283,9 @@ TASK_CONFIG = generate_relationship_config(Domain.TASKS)
 # Curriculum Relationships (January 2026 - Phase 2 Consolidation)
 CONTAINS_KNOWLEDGE = "CONTAINS_KNOWLEDGE"  # (ls)-[:CONTAINS_KNOWLEDGE]->(ku)
 REQUIRES_STEP = "REQUIRES_STEP"            # (ls)-[:REQUIRES_STEP]->(ls)
-BUILDS_HABIT = "BUILDS_HABIT"              # (ls)-[:BUILDS_HABIT]->(habit)
-ASSIGNS_TASK = "ASSIGNS_TASK"              # (ls)-[:ASSIGNS_TASK]->(task)
-SCHEDULES_EVENT = "SCHEDULES_EVENT"        # (ls)-[:SCHEDULES_EVENT]->(event)
+BUILDS_HABIT = "BUILDS_HABIT"              # (lesson)-[:BUILDS_HABIT]->(habit)  [moved from LS to Lesson, March 2026]
+ASSIGNS_TASK = "ASSIGNS_TASK"              # (lesson)-[:ASSIGNS_TASK]->(task)  [moved from LS to Lesson, March 2026]
+SCHEDULES_EVENT = "SCHEDULES_EVENT"        # (lesson)-[:SCHEDULES_EVENT]->(event)  [moved from LS to Lesson, March 2026]
 ALIGNED_WITH_GOAL = "ALIGNED_WITH_GOAL"    # (lp)-[:ALIGNED_WITH_GOAL]->(goal)
 HAS_MILESTONE_EVENT = "HAS_MILESTONE_EVENT"# (lp)-[:HAS_MILESTONE_EVENT]->(event)
 CONTAINS_PATH = "CONTAINS_PATH"            # (moc)-[:CONTAINS_PATH]->(lp)

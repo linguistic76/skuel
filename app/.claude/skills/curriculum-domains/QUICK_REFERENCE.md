@@ -95,12 +95,20 @@
 ### LS Relationships
 | Relationship | Direction | Target | Purpose |
 |--------------|-----------|--------|---------|
+| `HAS_LESSON` | outgoing | Lesson | Contains lesson (activity domains inherited via traversal) |
 | `REQUIRES_STEP` | outgoing | LS | Step prerequisites |
 | `TRAINS_KU` | outgoing | KU | Trains atomic knowledge units |
 | `REQUIRES_KNOWLEDGE` | outgoing | Lesson | Knowledge prerequisites |
+
+Activity domain relationships live on **Lessons**, inherited by LS via `(LS)-[:HAS_LESSON]->(Lesson)-[:rel]->`:
+
+### Lesson Activity Relationships
+| Relationship | Direction | Target | Purpose |
+|--------------|-----------|--------|---------|
 | `BUILDS_HABIT` | outgoing | Habit | Practice integration |
 | `ASSIGNS_TASK` | outgoing | Task | Practice integration |
 | `SCHEDULES_EVENT` | outgoing | Event | Practice integration |
+| `SUPPORTS_GOAL` | outgoing | Goal | Goal alignment |
 | `GUIDED_BY_PRINCIPLE` | outgoing | Principle | Guidance |
 | `INFORMS_CHOICE` | outgoing | Choice | Decision points |
 

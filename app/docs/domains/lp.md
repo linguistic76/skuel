@@ -188,7 +188,7 @@ Extracted from `pathways_ui.py` route handlers into `LpService` facade:
 | **Validation** | `get_optimal_path_recommendation(user_uid)` | `Result[Lp]` | Best path for user |
 | **Context** | `get_path_with_context(path_uid)` | `Result[dict]` | Path with graph context |
 | **Analysis** | `analyze_path_knowledge_scope(path_uid)` | `Result[dict]` | Knowledge coverage analysis |
-| **Analysis** | `identify_practice_gaps(path_uid)` | `Result[dict]` | *Future* — needs LS practice relationships (BUILDS_HABIT, ASSIGNS_TASK, SCHEDULES_EVENT) |
+| **Analysis** | `identify_practice_gaps(path_uid)` | `Result[dict]` | *Future* — traverses Lesson practice relationships via `(LS)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(Lesson)-[:activity_rel]->` |
 | **Adaptive** | `find_learning_sequence(goals, user_uid)` | `Result[list]` | Optimal step sequence |
 | **Adaptive** | `get_next_adaptive_step(path_uid, user_uid)` | `Result[Ls]` | Best next step |
 | **Adaptive** | `get_recommended_learning_steps(user_uid)` | `Result[list]` | Daily "what to learn" |
@@ -258,16 +258,22 @@ score = await ls_intelligence.practice_completeness_score("ls:functions")
 await ls_intelligence.has_practice_opportunities("ls:functions")  # → True
 ```
 
-The Cypher that powers this:
+The Cypher that powers this (two-hop traversal through Lessons):
 
 ```cypher
-MATCH (ls:LearningStep {uid: $ls_uid})
-OPTIONAL MATCH (ls)-[:BUILDS_HABIT]->(h)
-OPTIONAL MATCH (ls)-[:ASSIGNS_TASK]->(t)
-OPTIONAL MATCH (ls)-[:SCHEDULES_EVENT]->(e)
+MATCH (ls:Entity {uid: $ls_uid})
+OPTIONAL MATCH (ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l1)-[:BUILDS_HABIT]->(h)
+OPTIONAL MATCH (ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l2)-[:ASSIGNS_TASK]->(t)
+OPTIONAL MATCH (ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l3)-[:SCHEDULES_EVENT]->(e)
+OPTIONAL MATCH (ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l4)-[:SUPPORTS_GOAL]->(g)
+OPTIONAL MATCH (ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l5)-[:GUIDED_BY_PRINCIPLE]->(p)
+OPTIONAL MATCH (ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l6)-[:INFORMS_CHOICE]->(c)
 RETURN count(DISTINCT h) as habits,
        count(DISTINCT t) as tasks,
-       count(DISTINCT e) as events
+       count(DISTINCT e) as events,
+       count(DISTINCT g) as goals,
+       count(DISTINCT p) as principles,
+       count(DISTINCT c) as choices
 ```
 
 ### What's Missing (The Gap Between LS and LP)

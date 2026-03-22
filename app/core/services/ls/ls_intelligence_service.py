@@ -335,12 +335,12 @@ class LsIntelligenceService(
         return await executor_result.value.execute(
             query="""
                 MATCH (ls:Entity {uid: $ls_uid})
-                OPTIONAL MATCH (ls)-[:HAS_LESSON]->(l1)-[:BUILDS_HABIT]->(h)
-                OPTIONAL MATCH (ls)-[:HAS_LESSON]->(l2)-[:ASSIGNS_TASK]->(t)
-                OPTIONAL MATCH (ls)-[:HAS_LESSON]->(l3)-[:SCHEDULES_EVENT]->(e)
-                OPTIONAL MATCH (ls)-[:HAS_LESSON]->(l4)-[:SUPPORTS_GOAL]->(g)
-                OPTIONAL MATCH (ls)-[:HAS_LESSON]->(l5)-[:GUIDED_BY_PRINCIPLE]->(p)
-                OPTIONAL MATCH (ls)-[:HAS_LESSON]->(l6)-[:INFORMS_CHOICE]->(c)
+                OPTIONAL MATCH (ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l1)-[:BUILDS_HABIT]->(h)
+                OPTIONAL MATCH (ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l2)-[:ASSIGNS_TASK]->(t)
+                OPTIONAL MATCH (ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l3)-[:SCHEDULES_EVENT]->(e)
+                OPTIONAL MATCH (ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l4)-[:SUPPORTS_GOAL]->(g)
+                OPTIONAL MATCH (ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l5)-[:GUIDED_BY_PRINCIPLE]->(p)
+                OPTIONAL MATCH (ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l6)-[:INFORMS_CHOICE]->(c)
                 RETURN count(DISTINCT h) as habits,
                        count(DISTINCT t) as tasks,
                        count(DISTINCT e) as events,
@@ -433,8 +433,8 @@ class LsIntelligenceService(
         return await executor_result.value.execute(
             query="""
                 MATCH (ls:Entity {uid: $ls_uid})
-                OPTIONAL MATCH (ls)-[:HAS_LESSON]->(l1)-[:GUIDED_BY_PRINCIPLE]->(p)
-                OPTIONAL MATCH (ls)-[:HAS_LESSON]->(l2)-[:INFORMS_CHOICE]->(c)
+                OPTIONAL MATCH (ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l1)-[:GUIDED_BY_PRINCIPLE]->(p)
+                OPTIONAL MATCH (ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l2)-[:INFORMS_CHOICE]->(c)
                 RETURN count(DISTINCT p) as principle_count,
                        count(DISTINCT c) as choice_count
             """,
@@ -508,8 +508,8 @@ class LsIntelligenceService(
         return await self.executor.execute_exists(
             query="""
                 MATCH (ls:Entity {uid: $ls_uid})
-                WHERE exists((ls)-[:HAS_LESSON]->()-[:GUIDED_BY_PRINCIPLE]->())
-                   OR exists((ls)-[:HAS_LESSON]->()-[:INFORMS_CHOICE]->())
+                WHERE exists((ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->()-[:GUIDED_BY_PRINCIPLE]->())
+                   OR exists((ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->()-[:INFORMS_CHOICE]->())
                 RETURN ls
             """,
             params={"ls_uid": ls_uid},
@@ -545,12 +545,12 @@ class LsIntelligenceService(
         return await self.executor.execute_exists(
             query="""
                 MATCH (ls:Entity {uid: $ls_uid})
-                WHERE exists((ls)-[:HAS_LESSON]->()-[:BUILDS_HABIT]->())
-                   OR exists((ls)-[:HAS_LESSON]->()-[:ASSIGNS_TASK]->())
-                   OR exists((ls)-[:HAS_LESSON]->()-[:SCHEDULES_EVENT]->())
-                   OR exists((ls)-[:HAS_LESSON]->()-[:SUPPORTS_GOAL]->())
-                   OR exists((ls)-[:HAS_LESSON]->()-[:GUIDED_BY_PRINCIPLE]->())
-                   OR exists((ls)-[:HAS_LESSON]->()-[:INFORMS_CHOICE]->())
+                WHERE exists((ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->()-[:BUILDS_HABIT]->())
+                   OR exists((ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->()-[:ASSIGNS_TASK]->())
+                   OR exists((ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->()-[:SCHEDULES_EVENT]->())
+                   OR exists((ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->()-[:SUPPORTS_GOAL]->())
+                   OR exists((ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->()-[:GUIDED_BY_PRINCIPLE]->())
+                   OR exists((ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->()-[:INFORMS_CHOICE]->())
                 RETURN ls
             """,
             params={"ls_uid": ls_uid},

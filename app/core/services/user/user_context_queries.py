@@ -671,7 +671,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      enrolled_path_uids, paths_rich,
      ls, collect(DISTINCT {uid: prereq_step.uid, title: prereq_step.title, completed: prereq_step.completed}) as ls_prereq_steps
 
-OPTIONAL MATCH (ls)-[:BUILDS_HABIT]->(ls_habit:Habit)
+OPTIONAL MATCH (ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(ls_lesson)-[:BUILDS_HABIT]->(ls_habit:Habit)
 WHERE ls IS NOT NULL
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
@@ -685,7 +685,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      ls, ls_prereq_steps,
      collect(DISTINCT {uid: ls_habit.uid, title: ls_habit.title}) as ls_habits
 
-OPTIONAL MATCH (ls)-[:ASSIGNS_TASK]->(ls_task:Task)
+OPTIONAL MATCH (ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(ls_lesson2)-[:ASSIGNS_TASK]->(ls_task:Task)
 WHERE ls IS NOT NULL
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,

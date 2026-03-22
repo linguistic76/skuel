@@ -142,11 +142,13 @@ await ls_service.intelligence.practice_completeness_score(ls_uid)
 ```
 
 **Relationships Used:**
-- `HAS_LESSON` - Step contains lesson (progress tracking)
+- `HAS_LESSON` - Step contains lesson (activity domains inherited via this traversal)
 - `REQUIRES_STEP` - Step prerequisites
 - `TRAINS_KU` - Trains atomic knowledge units
-- `BUILDS_HABIT`, `ASSIGNS_TASK`, `SCHEDULES_EVENT` - Practice integration
-- `GUIDED_BY_PRINCIPLE`, `INFORMS_CHOICE` - Guidance
+- Practice and guidance relationships live on **Lessons**, not LS. LS inherits via `(LS)-[:HAS_LESSON]->(Lesson)-[:rel]->(Activity)`:
+  - `BUILDS_HABIT`, `ASSIGNS_TASK`, `SCHEDULES_EVENT` - Practice integration (on Lesson)
+  - `SUPPORTS_GOAL` - Goal alignment (on Lesson)
+  - `GUIDED_BY_PRINCIPLE`, `INFORMS_CHOICE` - Guidance (on Lesson)
 
 ---
 

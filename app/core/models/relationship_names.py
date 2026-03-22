@@ -265,9 +265,9 @@ class RelationshipName(StrEnum):
     HAS_LESSON = "HAS_LESSON"  # (LS)-[:HAS_LESSON]->(Lesson) — learning step contains lesson
     CONTAINS_KNOWLEDGE = "CONTAINS_KNOWLEDGE"  # (ls)-[:CONTAINS_KNOWLEDGE]->(ku)
     REQUIRES_STEP = "REQUIRES_STEP"  # (ls)-[:REQUIRES_STEP]->(ls) - Step prerequisites
-    BUILDS_HABIT = "BUILDS_HABIT"  # (ls)-[:BUILDS_HABIT]->(habit) - Practice pattern
-    ASSIGNS_TASK = "ASSIGNS_TASK"  # (ls)-[:ASSIGNS_TASK]->(task) - Practice pattern
-    SCHEDULES_EVENT = "SCHEDULES_EVENT"  # (ls)-[:SCHEDULES_EVENT]->(event) - Practice pattern
+    BUILDS_HABIT = "BUILDS_HABIT"  # (lesson)-[:BUILDS_HABIT]->(habit) - Practice pattern (LS inherits via HAS_LESSON)
+    ASSIGNS_TASK = "ASSIGNS_TASK"  # (lesson)-[:ASSIGNS_TASK]->(task) - Practice pattern (LS inherits via HAS_LESSON)
+    SCHEDULES_EVENT = "SCHEDULES_EVENT"  # (lesson)-[:SCHEDULES_EVENT]->(event) - Practice pattern (LS inherits via HAS_LESSON)
 
     # Learning Path (LP) relationships
     ALIGNED_WITH_GOAL = "ALIGNED_WITH_GOAL"  # (lp)-[:ALIGNED_WITH_GOAL]->(goal)

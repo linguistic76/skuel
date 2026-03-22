@@ -227,20 +227,26 @@ connections:
     - ls:path:step-2
 ```
 
-### Learning Step Fields (Orchestration Point)
+### Learning Step Fields
 
-Learning Steps are the bridge between curriculum and activities. They reference activities directly:
+Learning Steps group Lessons into collections within a learning path. They have two types of knowledge references:
+
+- **`primary_knowledge_uids`** — Core teaching content. Creates `CONTAINS_KNOWLEDGE` edges. Activities on these Lessons are inherited by the LS via graph traversal.
+- **`supporting_knowledge_uids`** — Supplementary reference material. Creates `REQUIRES_KNOWLEDGE` edges. Activities on these Lessons are NOT inherited — they're enrichment only.
+
+Activity domain wiring (habits, tasks, events, goals, principles, choices) lives on **Lessons**, not on Learning Steps. See [Lesson Activity Wiring Guide](/docs/guides/LESSON_ACTIVITY_WIRING.md).
 
 ```yaml
 type: LearningStep
 uid: ls:mindfulness-101:step-1
-primary_knowledge_uids: [l:mindfulness:breath-awareness-basics]
+primary_knowledge_uids:                              # Core content (activities inherited)
+  - l:mindfulness:breath-awareness-basics
+supporting_knowledge_uids:                           # Supplementary (activities NOT inherited)
+  - l:mindfulness:posture-basics
 trains_ku_uids: [ku:mindfulness:breath]
-principle_uids: [principle:small-steps]              # GUIDED_BY_PRINCIPLE
-choice_uids: [choice:2-minutes-right-now]            # INFORMS_CHOICE
-habit_uids: [habit:daily-2min-breath]                # BUILDS_HABIT
-task_uids: [task:log-first-5-sessions]               # ASSIGNS_TASK
-event_template_uids: [event:practice-block-2min]     # SCHEDULES_EVENT
+learning_path_uid: lp:mindfulness-101
+sequence: 1
+# Activity fields (habit_uids, task_uids, etc.) belong on the Lesson YAML, not here
 ```
 
 ---

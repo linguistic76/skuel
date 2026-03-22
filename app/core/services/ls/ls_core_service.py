@@ -349,21 +349,21 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
             }) as prereq_knowledge
 
             // 4. Guiding principles (via Lessons)
-            OPTIONAL MATCH (ls)-[:HAS_LESSON]->(l4)-[:GUIDED_BY_PRINCIPLE]->(principle:Principle)
+            OPTIONAL MATCH (ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l4)-[:GUIDED_BY_PRINCIPLE]->(principle:Principle)
             WITH ls, knowledge_rels, prereq_steps, prereq_knowledge, collect(DISTINCT {
                 uid: principle.uid,
                 title: principle.title
             }) as principles
 
             // 5. Informed choices (via Lessons)
-            OPTIONAL MATCH (ls)-[:HAS_LESSON]->(l5)-[:INFORMS_CHOICE]->(choice:Choice)
+            OPTIONAL MATCH (ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l5)-[:INFORMS_CHOICE]->(choice:Choice)
             WITH ls, knowledge_rels, prereq_steps, prereq_knowledge, principles, collect(DISTINCT {
                 uid: choice.uid,
                 title: choice.title
             }) as choices
 
             // 6. Practice opportunities: Habits (via Lessons)
-            OPTIONAL MATCH (ls)-[:HAS_LESSON]->(l6)-[:BUILDS_HABIT]->(habit:Habit)
+            OPTIONAL MATCH (ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l6)-[:BUILDS_HABIT]->(habit:Habit)
             WITH ls, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices, collect(DISTINCT {
                 uid: habit.uid,
                 title: habit.title,
@@ -371,7 +371,7 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
             }) as habits
 
             // 7. Practice opportunities: Tasks (via Lessons)
-            OPTIONAL MATCH (ls)-[:HAS_LESSON]->(l7)-[:ASSIGNS_TASK]->(task:Task)
+            OPTIONAL MATCH (ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l7)-[:ASSIGNS_TASK]->(task:Task)
             WITH ls, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices, habits, collect(DISTINCT {
                 uid: task.uid,
                 title: task.title,
@@ -379,7 +379,7 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
             }) as tasks
 
             // 8. Practice opportunities: Events (via Lessons)
-            OPTIONAL MATCH (ls)-[:HAS_LESSON]->(l8)-[:SCHEDULES_EVENT]->(event:Event)
+            OPTIONAL MATCH (ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l8)-[:SCHEDULES_EVENT]->(event:Event)
             WITH ls, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices, habits, tasks, collect(DISTINCT {
                 uid: event.uid,
                 title: event.title,
@@ -387,7 +387,7 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
             }) as events
 
             // 9. Practice opportunities: Goals (via Lessons)
-            OPTIONAL MATCH (ls)-[:HAS_LESSON]->(l9)-[:SUPPORTS_GOAL]->(goal:Goal)
+            OPTIONAL MATCH (ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l9)-[:SUPPORTS_GOAL]->(goal:Goal)
             WITH ls, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices, habits, tasks, events, collect(DISTINCT {
                 uid: goal.uid,
                 title: goal.title,

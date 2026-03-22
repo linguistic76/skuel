@@ -394,13 +394,13 @@ Not every Lesson needs all 6. Use what fits the content.
 
 ### LearningStep Inherits from Lessons
 
-LearningSteps do NOT have their own activity fields. They inherit activities from their constituent Lessons via graph traversal:
+LearningSteps do NOT have their own activity fields. They inherit activities from their **primary** Lessons via graph traversal:
 
 ```
-(LS)-[:HAS_LESSON]->(Lesson)-[:BUILDS_HABIT]->(Habit)
+(LS)-[:CONTAINS_KNOWLEDGE]->(Lesson)-[:BUILDS_HABIT]->(Habit)
 ```
 
-An LS with 3 Lessons automatically aggregates all their activities.
+An LS with 3 primary Lessons automatically aggregates all their activities. **Supporting Lessons** (`supporting_knowledge_uids`) are enrichment — their activities are NOT inherited by the LS. Wire activity fields to Lessons listed in `primary_knowledge_uids`.
 
 ### Substance Tracking
 

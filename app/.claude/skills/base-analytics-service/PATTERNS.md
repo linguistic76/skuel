@@ -524,53 +524,33 @@ class LsIntelligenceService(BaseAnalyticsService[BackendOperations[Ls], Ls]):
         return Result.ok(ready)
 
     async def calculate_guidance_strength(self, ls_uid: str) -> Result[float]:
-        """Calculate how well this step provides guidance (0.0-1.0)."""
-        self._require_relationship_service("calculate_guidance_strength")
+        """Calculate how well this step provides guidance (0.0-1.0).
 
-        # 40% from principles, 60% from choices
-        principles = await self.relationships.get_related_uids(
-            ls_uid, "GUIDED_BY_PRINCIPLE", direction="outgoing"
-        )
-        choices = await self.relationships.get_related_uids(
-            ls_uid, "INFORMS_CHOICE", direction="outgoing"
-        )
-
-        principle_score = min(1.0, len(principles.value) * 0.2) if principles.is_ok else 0.0
-        choice_score = min(1.0, len(choices.value) * 0.15) if choices.is_ok else 0.0
-
-        # Weighted combination
-        score = (principle_score * 0.4) + (choice_score * 0.6)
-        return Result.ok(score)
+        Note: Guidance relationships (GUIDED_BY_PRINCIPLE, INFORMS_CHOICE)
+        live on Lessons. LS queries traverse via HAS_LESSON.
+        The actual implementation uses Cypher two-hop traversal, not
+        get_related_uids on the LS directly.
+        """
+        # Actual implementation uses Cypher:
+        # MATCH (ls)-[:HAS_LESSON]->(l1)-[:GUIDED_BY_PRINCIPLE]->(p)
+        # MATCH (ls)-[:HAS_LESSON]->(l2)-[:INFORMS_CHOICE]->(c)
+        ...
 
     async def get_practice_summary(self, ls_uid: str) -> Result[dict[str, Any]]:
-        """Get practice opportunities summary."""
-        self._require_relationship_service("get_practice_summary")
+        """Get practice opportunities summary.
 
-        habits = await self.relationships.get_related_uids(
-            ls_uid, "BUILDS_HABIT", direction="outgoing"
-        )
-        tasks = await self.relationships.get_related_uids(
-            ls_uid, "ASSIGNS_TASK", direction="outgoing"
-        )
-        events = await self.relationships.get_related_uids(
-            ls_uid, "SCHEDULES_EVENT", direction="outgoing"
-        )
+        Note: Practice relationships (BUILDS_HABIT, ASSIGNS_TASK, etc.)
+        live on Lessons. LS queries traverse via HAS_LESSON to count
+        all 6 activity domains: habits, tasks, events, goals, principles, choices.
+        """
+        # Actual implementation uses Cypher two-hop traversal:
+        # MATCH (ls)-[:HAS_LESSON]->(l1)-[:BUILDS_HABIT]->(h)
+        # MATCH (ls)-[:HAS_LESSON]->(l2)-[:ASSIGNS_TASK]->(t)
+        # ... etc for all 6 activity domains
+        ...
 
-        return Result.ok({
-            "habits_count": len(habits.value) if habits.is_ok else 0,
-            "tasks_count": len(tasks.value) if tasks.is_ok else 0,
-            "events_count": len(events.value) if events.is_ok else 0,
-            "completeness_score": self._practice_completeness_score(
-                len(habits.value) if habits.is_ok else 0,
-                len(tasks.value) if tasks.is_ok else 0,
-                len(events.value) if events.is_ok else 0,
-            ),
-        })
-
-    def _practice_completeness_score(
-        self, habits: int, tasks: int, events: int
-    ) -> float:
-        """Each type contributes 1/3 to completeness."""
+    def _practice_completeness_score(self, *domain_counts: int) -> float:
+        """Each of 6 activity domains contributes 1/6 to completeness."""
         score = 0.0
         if habits > 0:
             score += 0.333

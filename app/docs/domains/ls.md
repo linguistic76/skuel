@@ -113,7 +113,7 @@ LsIntelligenceService provides:
 
 ## Cross-Domain: Practice Infrastructure
 
-Activity domain relationships (BUILDS_HABIT, ASSIGNS_TASK, SCHEDULES_EVENT, GUIDED_BY_PRINCIPLE, INFORMS_CHOICE) live on **Lessons**, not directly on LS. Learning Steps inherit these connections via `(LS)-[:HAS_LESSON]->(Lesson)` graph traversal. This means practice and guidance coverage is authored at the Lesson level and automatically aggregated at the LS level.
+Activity domain relationships (BUILDS_HABIT, ASSIGNS_TASK, SCHEDULES_EVENT, GUIDED_BY_PRINCIPLE, INFORMS_CHOICE) live on **Lessons**, not directly on LS. Learning Steps inherit these connections via `(LS)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(Lesson)` graph traversal. This means practice and guidance coverage is authored at the Lesson level and automatically aggregated at the LS level.
 
 ```
 LS (Learning Step)
@@ -129,26 +129,32 @@ LS (Learning Step)
 
 | Method | Returns | Description |
 |--------|---------|-------------|
-| `get_practice_summary(ls_uid)` | `dict` | `{"habits": int, "tasks": int, "events": int, "total": int}` |
-| `practice_completeness_score(ls_uid)` | `float` | 0.0-1.0 — each type contributes 1/3 |
-| `has_practice_opportunities(ls_uid)` | `bool` | True if any practice relationship exists |
+| `get_practice_summary(ls_uid)` | `dict` | `{"habits": int, "tasks": int, "events": int, "goals": int, "principles": int, "choices": int, "total": int}` |
+| `practice_completeness_score(ls_uid)` | `float` | 0.0-1.0 — each of 6 activity domains contributes 1/6 |
+| `has_practice_opportunities(ls_uid)` | `bool` | True if any practice relationship exists on constituent Lessons |
 
-These methods query the graph directly:
+These methods traverse through Lessons via HAS_LESSON:
 
 ```cypher
-MATCH (ls:LearningStep {uid: $ls_uid})
-OPTIONAL MATCH (ls)-[:BUILDS_HABIT]->(h)
-OPTIONAL MATCH (ls)-[:ASSIGNS_TASK]->(t)
-OPTIONAL MATCH (ls)-[:SCHEDULES_EVENT]->(e)
+MATCH (ls:Entity {uid: $ls_uid})
+OPTIONAL MATCH (ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l1)-[:BUILDS_HABIT]->(h)
+OPTIONAL MATCH (ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l2)-[:ASSIGNS_TASK]->(t)
+OPTIONAL MATCH (ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l3)-[:SCHEDULES_EVENT]->(e)
+OPTIONAL MATCH (ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l4)-[:SUPPORTS_GOAL]->(g)
+OPTIONAL MATCH (ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l5)-[:GUIDED_BY_PRINCIPLE]->(p)
+OPTIONAL MATCH (ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l6)-[:INFORMS_CHOICE]->(c)
 RETURN count(DISTINCT h) as habits,
        count(DISTINCT t) as tasks,
-       count(DISTINCT e) as events
+       count(DISTINCT e) as events,
+       count(DISTINCT g) as goals,
+       count(DISTINCT p) as principles,
+       count(DISTINCT c) as choices
 ```
 
 ### LP-Level Consumption
 
 These per-step methods are the building blocks for LP-level practice gap analysis.
-When learning paths have content with practice relationships populated,
+When learning paths have content with practice relationships on Lessons,
 `LpIntelligenceService.identify_practice_gaps()` will iterate through path steps
 and aggregate these scores into a path-wide coverage report.
 

@@ -174,19 +174,32 @@ tags:
 When a LearningStep references Lessons via `primary_knowledge_uids`, it automatically inherits all activity wiring through graph traversal:
 
 ```
-(LS)-[:HAS_LESSON]->(Lesson)-[:BUILDS_HABIT]->(Habit)
-(LS)-[:HAS_LESSON]->(Lesson)-[:ASSIGNS_TASK]->(Task)
-(LS)-[:HAS_LESSON]->(Lesson)-[:SCHEDULES_EVENT]->(Event)
-(LS)-[:HAS_LESSON]->(Lesson)-[:SUPPORTS_GOAL]->(Goal)
-(LS)-[:HAS_LESSON]->(Lesson)-[:GUIDED_BY_PRINCIPLE]->(Principle)
-(LS)-[:HAS_LESSON]->(Lesson)-[:INFORMS_CHOICE]->(Choice)
+(LS)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(Lesson)-[:BUILDS_HABIT]->(Habit)
+(LS)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(Lesson)-[:ASSIGNS_TASK]->(Task)
+(LS)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(Lesson)-[:SCHEDULES_EVENT]->(Event)
+(LS)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(Lesson)-[:SUPPORTS_GOAL]->(Goal)
+(LS)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(Lesson)-[:GUIDED_BY_PRINCIPLE]->(Principle)
+(LS)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(Lesson)-[:INFORMS_CHOICE]->(Choice)
 ```
 
 This means:
 
 - **Do NOT** add `habit_uids`, `task_uids`, etc. to LearningStep YAML
-- **DO** add them to the Lesson YAML files that the LS references
-- An LS with 3 Lessons automatically aggregates activities from all 3
+- **DO** add them to the Lesson YAML files that the LS references as primary knowledge
+- An LS with 3 primary Lessons automatically aggregates activities from all 3
+
+### Primary vs Supporting Knowledge
+
+A LearningStep has two types of knowledge references, and they behave differently for activity inheritance:
+
+| Field | Edge Created | Activity Inheritance | Purpose |
+|---|---|---|---|
+| `primary_knowledge_uids` | `CONTAINS_KNOWLEDGE` | **Yes** — activities roll up to LS | Core teaching content for this step |
+| `supporting_knowledge_uids` | `REQUIRES_KNOWLEDGE` | **No** — activities stay on the Lesson | Supplementary reference material |
+
+**Practical implication:** Wire activity fields (`habit_uids`, `task_uids`, etc.) to Lessons listed in `primary_knowledge_uids`. Activities on supporting Lessons exist but won't appear in the LS practice summary or completeness score.
+
+**Example:** In the mindfulness bundle, `breath-awareness-basics` is the primary Lesson for step 1 — it carries the habit, task, and event wiring. `posture-basics` is supporting — it's useful context but has no practice activities.
 
 ### Example LS (no activity fields)
 
@@ -199,10 +212,10 @@ title: Two Minutes Today
 intent: Try one two-minute breath session, note what you notice
 
 primary_knowledge_uids:
-  - l:mindfulness:breath-awareness-basics   # Activities come from this Lesson
+  - l:mindfulness:breath-awareness-basics   # Activities on this Lesson are inherited
 
 supporting_knowledge_uids:
-  - l:mindfulness:posture-basics
+  - l:mindfulness:posture-basics            # Enrichment only — activities NOT inherited
 
 trains_ku_uids:
   - ku:mindfulness:breath
