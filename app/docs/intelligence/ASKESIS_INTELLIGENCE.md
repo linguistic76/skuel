@@ -344,7 +344,7 @@ The 13 domains used in Askesis intelligence:
 - **Processing (3):** Submissions, Journals, Feedback
 - **Temporal Domain (1):** Calendar
 
-> Pre-February 2026: "Processing Domains" were called "Assignments, Journals, Reports". These were renamed in the Reports → Submissions + Feedback migration (February 2026) and the EntityType rename (`AI_FEEDBACK → ACTIVITY_REPORT`, `FEEDBACK_REPORT → SUBMISSION_FEEDBACK`) in March 2026.
+> Pre-February 2026: "Processing Domains" were called "Assignments, Journals, Reports". These were renamed in the Reports → Submissions + Reports migration (February 2026) and the EntityType rename (`AI_FEEDBACK → ACTIVITY_REPORT`, `FEEDBACK_REPORT → EXERCISE_REPORT`) in March 2026.
 
 ---
 

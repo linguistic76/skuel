@@ -178,7 +178,7 @@ class DomainRelationshipConfig:
 |----------|---------|----------------------|-------|
 | **Activity (6)** | Tasks, Goals, Habits, Events, Choices, Principles | ✅ | Config-driven via registry |
 | **Curriculum (3)** | KU, LS, LP | ✅ | `is_shared_content=True`; ordered relationships for hierarchy |
-| **Submissions + Feedback** | Submissions, Journals | ✅ | `SubmissionsBackend` owns SHARES_WITH Cypher |
+| **Submissions + Reports** | Submissions, Journals | ✅ | `SubmissionsBackend` owns SHARES_WITH Cypher |
 | **Life Path** | LifePath | ✅ | ULTIMATE_PATH + SERVES_LIFE_PATH |
 | **Finance** | Finance | ❌ | Standalone bookkeeping — no relationship service |
 

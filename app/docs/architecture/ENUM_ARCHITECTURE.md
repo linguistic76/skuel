@@ -20,7 +20,7 @@ Every enum lives in exactly one file. The `__init__.py` re-exports all public en
 | `askesis_enums.py` | Askesis query complexity and integration | QueryComplexity, IntegrationSuccess |
 | `choice_enums.py` | Decision types | ChoiceType |
 | `principle_enums.py` | Principle classification and alignment | PrincipleCategory, PrincipleSource, PrincipleStrength, AlignmentLevel |
-| `submissions_enums.py` | Submissions + Feedback processing and scheduling | ExerciseScope, FormattingStyle, AnalysisDepth, ScheduleType, ProgressDepth |
+| `submissions_enums.py` | Submissions + Reports processing and scheduling | ExerciseScope, FormattingStyle, AnalysisDepth, ScheduleType, ProgressDepth |
 | `curriculum_enums.py` | Learning path and step types | LpType, StepDifficulty |
 | `lifepath_enums.py` | Vision theme classification | ThemeCategory |
 | `scheduling_enums.py` | Time, recurrence, energy | RecurrencePattern, TimeOfDay, EnergyLevel |
@@ -227,7 +227,7 @@ CompletionStatus has dynamic methods: `counts_as_success()` (DONE and PARTIAL co
 
 AlignmentLevel has `to_score()` / `from_score()` methods for the dual-track assessment pattern, and `get_color()` for UI rendering (green/yellow/red).
 
-**Submissions + Feedback** (`submissions_enums.py`):
+**Submissions + Reports** (`submissions_enums.py`):
 
 | Enum | Values | Purpose |
 |------|--------|---------|

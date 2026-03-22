@@ -431,7 +431,7 @@ principles_rich = entities_rich.get("principles", [])
 | **January 2026** | Stub implementations completed - semantic search, gap analysis, LLM integration, prerequisite ordering |
 | **February 2026** | Route wiring switched to DomainRouteConfig (was bypassed in bootstrap) |
 | **February 2026** | Neo4j driver encapsulated in `AskesisCoreService.build_user_context()` — routes no longer hold a raw driver |
-| **February 2026** | Reports → Submissions + Feedback rename; Processing Domains now: Submissions, Journals, Feedback |
+| **February 2026** | Reports → Submissions + Reports rename; Processing Domains now: Submissions, Journals, Reports |
 | **March 2026** | `_load_askesis_and_context` closure extracted from route layer into `AskesisService.load_askesis_context()` — returns `AskesisContext` dataclass; `user_service` removed from route wiring; `askesis_core_service` wired into `AskesisDeps` |
 | **March 2026** | `entities_rich` unification: `active_task_rich`, `active_goal_rich`, etc. → single `entities_rich` dict; `activity_rich` removed |
 | **March 2026** | `ActivityDataReader` absorbed into `UserContext.build_rich()` — no longer a separate service |
