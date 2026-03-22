@@ -31,11 +31,13 @@ All domain entities use **multi-label architecture**: every entity gets `:Entity
 | Exercises | `Exercise` | `ku_{slug}_{random}` | |
 | **Curated Content — shared content** | | | |
 | Resources | `Resource` | *(no fixed format)* | |
-| **Submissions/Feedback (4)** | | | |
-| Submissions | `Submission` | `ku_{slug}_{random}` | `ku_my-essay_abc123` |
-| Journals | `Journal` | `ku_{slug}_{random}` | |
-| Activity Reports | `ActivityReport` | `ku_{slug}_{random}` | |
-| Submission Report | `SubmissionReport` | `ku_{slug}_{random}` | |
+| **Submissions/Reports (3)** | | | |
+| Exercise Submissions | `ExerciseSubmission` | `es_{slug}_{random}` | `es_my-essay_abc123` |
+| Activity Reports | `ActivityReport` | `ar_{random}` | |
+| Exercise Reports | `ExerciseReport` | `sr_{random}` | |
+| **Journal (2, standalone domain)** | | | |
+| JeInput | `JeInput` | `ji_{slug}_{random}` | `ji_morning-reflection_abc123` |
+| JeOutput | `JeOutput` | `jo_{slug}_{random}` | `jo_morning-reflection_def456` |
 | **Destination** | | | |
 | Life Path | `LifePath` | `lp_{random}` | `lp_abc123` |
 | **Other** | | | |

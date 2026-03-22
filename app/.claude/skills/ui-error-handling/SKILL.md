@@ -1288,7 +1288,7 @@ def test_validate_task_form_data_missing_title():
 - `/adapters/inbound/teaching_ui.py` - Non-activity domain, sidebar pages
 - `/adapters/inbound/study_ui.py` - HTMX fragments with `render_inline_error()` preserving target IDs
 - `/adapters/inbound/submissions_ui.py` - HTMX fragments: category selector, tags manager, shared users
-- `/adapters/inbound/journals_ui.py` - Report loading, download auth, file-not-found errors
+- `/adapters/inbound/journals_ui.py` - Journal loading, download auth, file-not-found errors (standalone domain)
 - `/adapters/inbound/exercises_ui.py` - `render_error_banner()` for dashboard, `render_inline_error()` for edit/view
 - `/adapters/inbound/habits_ui.py` - `render_inline_error()` for completion, patterns, goal analytics
 - `/adapters/inbound/ku_ui.py` - Error state vs empty state distinction
@@ -1337,7 +1337,7 @@ def test_validate_task_form_data_missing_title():
 - ✅ Teaching (`teaching_ui.py`) — 10 error sites, fixed `.is_ok` → `.is_error` bug (SKUEL003)
 - ✅ Study (`study_ui.py`) — `render_inline_error()` for HTMX fragments preserving target IDs
 - ✅ Submissions (`submissions_ui.py`) — `render_inline_error()` for category selector, tags manager, shared users, report loading
-- ✅ Journals (`journals_ui.py`) — `render_inline_error()` for report loading, download auth, file-not-found
+- ✅ Journals (`journals_ui.py`) — `render_inline_error()` for journal loading, download auth, file-not-found
 - ✅ Exercises (`exercises_ui.py`) — `render_error_banner()` for dashboard; `render_inline_error()` for edit/view not-found
 - ✅ Habits (`habits_ui.py`) — `render_inline_error()` for completion, pattern analysis, goal system/velocity/impact
 - ✅ Goals (`goals_ui.py`) — `render_error_banner()` for full-page not-found; `render_inline_error()` for gantt view

@@ -31,7 +31,7 @@ Understanding the loop is the prerequisite for all architectural decisions.
 ║                                                                          ║
 ║  CURRICULUM TRACK (artifact-based)                                       ║
 ║  ────────────────────────────────────────────────────────────────────    ║
-║  [Lesson] → [Exercise] → [Submission/Journal] → [Report]               ║
+║  [Lesson] → [Exercise] → [Submission] → [Report]                       ║
 ║   ↑             ↓              ↑↓                     ↓                  ║
 ║  admin       teacher        student               teacher/AI             ║
 ║  creates     assigns     uploads/revises          assesses               ║
@@ -47,6 +47,12 @@ Understanding the loop is the prerequisite for all architectural decisions.
 ║  [Tasks + Goals + Habits + Events + Choices + Principles]                ║
 ║                    ↓ (over time window)                                   ║
 ║             [Activity Report] ←── AI or Admin                            ║
+║                                                                          ║
+║  JOURNAL TRACK (self-directed, standalone domain)                        ║
+║  ────────────────────────────────────────────────────────────────────    ║
+║  [JeInput] → Deepgram/text → LLM → [JeOutput] → user downloads         ║
+║   user                                             user curates          ║
+║   uploads                                          & decomposes          ║
 ║                                                                          ║
 ╚══════════════════════════════════════════════════════════════════════════╝
 ```
@@ -669,11 +675,12 @@ that never closes the loop.
 | `core/services/revised_exercises/revised_exercise_service.py` | 5 | RevisedExercise CRUD + chain queries |
 | `adapters/inbound/revised_exercises_api.py` | 5 | RevisedExercise API routes (teacher + student-facing) |
 | `core/ports/curriculum_protocols.py` | 5 | `RevisedExerciseOperations` protocol |
-| `core/models/submissions/submission.py` | 3 | Submission base + JOURNAL |
+| `core/models/submissions/submission.py` | 3 | Submission base (ExerciseSubmission) |
 | `core/models/report/submission_report.py` | 4 | SubmissionReport model |
 | `core/models/report/activity_report.py` | 4 | ActivityReport model |
-| `core/services/submissions/submissions_core_service.py` | 3+4 | Facade — delegates journal + assessment to sub-services |
-| `core/services/submissions/journals_core_service.py` | 3 | Journal CRUD, FIFO, upload orchestration, transcription handler |
+| `core/services/submissions/submissions_core_service.py` | 3+4 | Facade — delegates assessment to sub-services |
+| `core/services/journal/journal_input_service.py` | — | Journal CRUD + file upload (standalone domain, not part of learning loop) |
+| `core/services/journal/journal_output_service.py` | — | Journal LLM processing (standalone domain) |
 | `core/services/submissions/assessment_service.py` | 4 | Teacher assessment CRUD, authority verification |
 | `core/services/report/submission_report_service.py` | 4 | AI report generation (via UnifiedLLMCaller) |
 | `core/services/llm_caller.py` | 3+4 | Unified LLM routing (OpenAI/Anthropic by model prefix) |

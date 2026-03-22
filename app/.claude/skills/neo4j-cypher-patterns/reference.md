@@ -219,13 +219,13 @@ MATCH (ls)-[:CONTAINS_KNOWLEDGE]->(a:Lesson)-[:CITES_RESOURCE]->(r:Resource)
 RETURN a.title AS article, r.title AS resource, r.author, r.media_type
 ```
 
-### Content/Processing Relationships
+### Journal Relationships (Standalone Domain)
 
-Transcription, journal processing, and content linking.
+Journal entries use `(JeOutput)-[:TRANSFORMS]->(JeInput)` — not `REPORT_FOR`.
 
 | Relationship | From | To | Purpose |
 |--------------|------|-----|---------|
-| `TRANSCRIBED_FOR` | Transcription | Journal | Transcription created for journal |
+| `TRANSFORMS` | JeOutput | JeInput | LLM-processed output transforms raw input |
 
 ### Authentication Relationships
 
