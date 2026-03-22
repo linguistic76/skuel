@@ -614,7 +614,7 @@ Div(content, cls=Container.WIDE)      # "max-w-7xl mx-auto"
 
 ## Enum Helpers (`ui/enum_helpers.py`)
 
-Bridge layer between UI templates (raw strings) and core enums (which own presentation data). When you need Tailwind class strings for status/priority/role display:
+Bridge layer between UI templates (raw strings) and core enums (which own presentation data). All 22 bridge functions delegate to a single generic `_enum_method()` helper that handles `str → enum → method()` with `ValueError` fallback:
 
 ```python
 from ui.enum_helpers import (
@@ -629,7 +629,14 @@ cls = get_priority_badge_class("critical")   # "bg-red-100 text-red-800 border-r
 cls = get_priority_border_class("high")      # "border-l-red-500"
 ```
 
-Presentation data lives on the enums themselves (`EntityStatus.get_badge_class()`, `Priority.get_badge_class()`). The helper functions handle `str → enum` conversion with safe fallbacks.
+Presentation data lives on the enums themselves (`EntityStatus.get_badge_class()`, `Priority.get_badge_class()`). To add a new bridge function, use the generic helper:
+
+```python
+def get_foo_badge_class(foo: str) -> str:
+    return _enum_method(foo, FooEnum, "get_badge_class", "fallback-classes")
+```
+
+**Canonical location for `get_submission_status_badge_class`:** `ui.enum_helpers` (not `ui.feedback`).
 
 ---
 
