@@ -694,6 +694,10 @@ POST (Create) -> 201, GET/PUT/DELETE -> 200, POST (Action) -> 200
 | StatusRouteFactory | Status changes |
 | CommonQueryRouteFactory | Query patterns |
 | AnalyticsRouteFactory | Analytics |
+| QuickAddRouteFactory | Quick-add form handling (6 domains) |
+| DashboardUIFactory | Dashboard + view fragments + list fragment (6 domains) |
+
+**UI Route Factories** (config + callables pattern): `QuickAddRouteFactory` and `DashboardUIFactory` eliminate UI route boilerplate across all 6 Activity Domains. Each domain provides named callables for domain-specific behavior; the factory handles auth, error handling, view dispatch, and page wrapping. `DashboardUIConfig` (frozen dataclass) captures variation points: filter parsing, service calls, view rendering, context building, and list fragment rendering.
 
 All support `scope=ContentScope.USER_OWNED` (default) or `ContentScope.SHARED` (curriculum, with `require_role=UserRole.ADMIN`).
 
@@ -774,7 +778,7 @@ text = build_embedding_text(EntityType.TASK, {"title": "Fix bug", "description":
 | Event bus | `/core/events/event_bus.py` |
 | Exception types | `/core/utils/exception_types.py` |
 | Error boundary | `/core/utils/error_boundary.py` |
-| Route factories | `/adapters/inbound/route_factories.py` |
+| Route factories | `/adapters/inbound/route_factories/` |
 | Page contexts | `/ui/page_contexts.py` |
 | Deepgram config | `/config/deepgram.toml` |
 | ADRs | `/docs/decisions/` |

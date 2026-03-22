@@ -181,6 +181,11 @@ __all__ = ["create_tasks_routes"]
 
 **What stays in `api_factory`:** Status transitions (runtime closures), Analytics routes, manual domain-specific routes.
 
+**What `ui_factory` registers (inside `create_{domain}_ui_routes`):**
+- `DashboardUIFactory` — main dashboard, view fragments (list/create/calendar or analytics), list-fragment
+- `QuickAddRouteFactory` — quick-add form handler
+- Manual `@rt()` handlers for domain-specific routes (detail views, edit modals, etc.)
+
 ---
 
 ### 1. Standard (API + UI) — For Non-Activity Domains

@@ -333,6 +333,44 @@ def create_tasks_page(content: Any, request: Request | None = None) -> Any:
     )
 ```
 
+### Dashboard Route Factories
+
+All 6 Activity Domains use two UI route factories to eliminate dashboard boilerplate:
+
+**`DashboardUIFactory`** — generates 5 routes per domain from `DashboardUIConfig`:
+- `GET /{domain}` — main dashboard with view switching (list/create/calendar or analytics)
+- `GET /{domain}/view/list` — HTMX list view fragment
+- `GET /{domain}/view/create` — HTMX create view fragment
+- `GET /{domain}/view/{third}` — HTMX third view fragment (calendar or analytics)
+- `GET /{domain}/list-fragment` — HTMX filtered list for filter updates
+
+**`QuickAddRouteFactory`** — generates `POST /{domain}/quick-add` from `QuickAddConfig`.
+
+Both use the same pattern: frozen config dataclass + named callables for domain-specific behavior. The factory handles auth, error handling, view dispatch, and page wrapping. Domain-specific routes (detail views, modals, edit forms) remain as manual `@rt()` handlers in each `_ui.py` file.
+
+```python
+# Each domain's _ui.py defines callables inside create_{domain}_ui_routes()
+# where they capture the service reference in their closure
+DashboardUIFactory.register_routes(rt, DashboardUIConfig(
+    domain_name="choices",
+    title="Choices",
+    subtitle="Make and track important decisions",
+    default_view="list",
+    views=("list", "create", "analytics"),
+    parse_filters=parse_filters,
+    fetch_filtered_context=fetch_choices_context,
+    render_view_tabs=ChoicesViewComponents.render_view_tabs,
+    render_list_view=ChoicesViewComponents.render_list_view,
+    render_create_view=render_choices_create,
+    render_third_view=render_choices_analytics,
+    build_page_context=build_choices_page_context,
+    render_list_fragment=render_choices_list_fragment,
+    create_page=create_choices_page,
+))
+```
+
+See: `/docs/patterns/ROUTE_FACTORIES.md`
+
 ---
 
 ## 3. Navigation
