@@ -90,31 +90,36 @@ class TestGrid:
         result = Grid("item1", "item2", cols=2)
         rendered = str(result)
         assert "grid" in rendered
-        assert "sm:grid-cols-2" in rendered
+        assert "md:grid-cols-2" in rendered
 
     def test_3_col_responsive(self) -> None:
         result = Grid("a", "b", "c", cols=3)
         rendered = str(result)
-        assert "md:grid-cols-3" in rendered
+        assert "lg:grid-cols-3" in rendered
 
     def test_4_col_responsive(self) -> None:
         result = Grid("a", "b", "c", "d", cols=4)
         rendered = str(result)
-        assert "lg:grid-cols-4" in rendered
+        assert "xl:grid-cols-4" in rendered
 
     def test_non_responsive(self) -> None:
         result = Grid("a", "b", cols=3, responsive=False)
         rendered = str(result)
         assert "grid-cols-3" in rendered
-        assert "md:grid-cols-3" not in rendered
 
     def test_custom_gap(self) -> None:
         result = Grid("a", cols=1, gap=8)
         assert "gap-8" in str(result)
 
-    def test_fallback_cols(self) -> None:
+    def test_cols_capped_by_child_count(self) -> None:
+        """MonsterUI caps cols_max by the number of children."""
         result = Grid("a", cols=5, responsive=True)
-        assert "grid-cols-5" in str(result)
+        # 1 child: no point in 5 columns, MonsterUI caps to 1
+        assert "grid-cols-1" in str(result)
+
+    def test_cols_matches_children(self) -> None:
+        result = Grid("a", "b", "c", "d", "e", cols=5, responsive=True)
+        assert "xl:grid-cols-5" in str(result)
 
 
 # ============================================================================

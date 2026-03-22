@@ -17,6 +17,7 @@ from monsterui.franken import (
     Center,
     DivCentered,
     DivFullySpaced,
+    Grid as MGrid,
 )
 
 __all__ = [
@@ -105,37 +106,21 @@ def Grid(
     **kwargs: Any,
 ) -> Any:
     """
-    CSS Grid wrapper with responsive breakpoints.
-
-    SKUEL adapter: translates cols/responsive to Tailwind grid classes.
-    MonsterUI's Grid auto-detects columns from child count; SKUEL needs explicit control.
+    CSS Grid wrapper delegating to MonsterUI's responsive Grid.
 
     Args:
         *c: Grid items
-        cols: Number of columns
+        cols: Maximum number of columns
         gap: Gap size (Tailwind spacing scale)
         cls: Additional CSS classes
-        responsive: If True, adds responsive breakpoints
+        responsive: If True, auto-calculates responsive breakpoints
         **kwargs: Additional HTML attributes
     """
-    classes = ["grid", f"gap-{gap}"]
+    gap_cls = f"gap-{gap} {cls}".strip() if cls else f"gap-{gap}"
 
     if responsive:
-        if cols == 2:
-            classes.append("grid-cols-1 sm:grid-cols-2")
-        elif cols == 3:
-            classes.append("grid-cols-1 sm:grid-cols-2 md:grid-cols-3")
-        elif cols == 4:
-            classes.append("grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4")
-        else:
-            classes.append(f"grid-cols-{cols}")
-    else:
-        classes.append(f"grid-cols-{cols}")
-
-    if cls:
-        classes.append(cls)
-
-    return Div(*c, cls=" ".join(classes), **kwargs)
+        return MGrid(*c, cols_max=cols, cls=gap_cls, **kwargs)
+    return MGrid(*c, cols=cols, cls=gap_cls, **kwargs)
 
 
 def Container(*c: Any, cls: str = "", size: str = "7xl", **kwargs: Any) -> Any:

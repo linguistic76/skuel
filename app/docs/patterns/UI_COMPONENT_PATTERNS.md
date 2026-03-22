@@ -490,15 +490,23 @@ Card(
 
 ### Card Variants
 
+CardT is re-exported from MonsterUI — use MonsterUI's real variants:
+
 ```python
-# Bordered card
-Card(CardBody(...), variant=CardT.bordered)
+# Default card
+Card(CardBody(...), variant=CardT.default)
 
-# Compact card (less padding)
-Card(CardBody(...), variant=CardT.compact)
+# Primary emphasis
+Card(CardBody(...), variant=CardT.primary)
 
-# Side layout (horizontal)
-Card(CardBody(...), variant=CardT.side)
+# Secondary/muted
+Card(CardBody(...), variant=CardT.secondary)
+
+# Destructive/danger
+Card(CardBody(...), variant=CardT.destructive)
+
+# Hover effect (lift + shadow on hover)
+Card(CardBody(...), variant=CardT.hover)
 ```
 
 ---

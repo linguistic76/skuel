@@ -4,11 +4,10 @@ Provides a complete relationships section for entity detail pages across all 9 d
 Combines blocking chain, alternatives grid, and relationship graph in a collapsible layout.
 
 Features:
-- Collapsible sections per relationship type
+- Collapsible sections per relationship type (MonsterUI Accordion)
 - HTMX lazy loading (staggered for performance)
 - Responsive grid (1 col mobile, 2 col desktop)
 - Empty states handled by child components
-- Alpine.js collapsible state management
 
 Usage:
     from ui.patterns.relationships import EntityRelationshipsSection
@@ -20,7 +19,8 @@ Usage:
     )
 """
 
-from fasthtml.common import H2, H3, Div
+from fasthtml.common import H2, Div
+from monsterui.franken import Accordion, AccordionItem
 
 from ui.patterns.relationships.alternatives_grid import AlternativesComparisonGrid
 from ui.patterns.relationships.blocking_chain import BlockingChainView
@@ -60,95 +60,39 @@ def EntityRelationshipsSection(
             show_alternatives=False
         )
     """
-    sections = []
+    items = []
 
-    # Blocking chain (loads immediately)
     if show_blocking_chain:
-        sections.append(
-            Div(
-                **{"x-data": "{ expanded: false }"},
-            )(
-                # Header (clickable)
-                Div(
-                    H3("Blocking Dependencies", cls="text-lg font-semibold"),
-                    Div(
-                        **{
-                            "x-text": "expanded ? '▼' : '▶'",
-                            "x-on:click": "expanded = !expanded",
-                            "class": "cursor-pointer text-2xl select-none hover:text-primary transition-colors",
-                        },
-                    ),
-                    cls="flex items-center justify-between mb-2",
-                ),
-                # Content (collapsible)
-                Div(
-                    **{
-                        "x-show": "expanded",
-                        "x-collapse": True,
-                    },
-                )(BlockingChainView(entity_uid, entity_type)),
+        items.append(
+            AccordionItem(
+                "Blocking Dependencies",
+                BlockingChainView(entity_uid, entity_type),
+                title_cls="text-lg font-semibold flex justify-between items-center w-full",
             )
         )
 
-    # Alternatives (loads after 300ms)
     if show_alternatives:
-        sections.append(
-            Div(
-                **{"x-data": "{ expanded: false }"},
-            )(
-                Div(
-                    H3("Alternative Approaches", cls="text-lg font-semibold"),
-                    Div(
-                        **{
-                            "x-text": "expanded ? '▼' : '▶'",
-                            "x-on:click": "expanded = !expanded",
-                            "class": "cursor-pointer text-2xl select-none hover:text-primary transition-colors",
-                        },
-                    ),
-                    cls="flex items-center justify-between mb-2",
-                ),
-                Div(
-                    **{
-                        "x-show": "expanded",
-                        "x-collapse": True,
-                    },
-                )(AlternativesComparisonGrid(entity_uid, entity_type)),
+        items.append(
+            AccordionItem(
+                "Alternative Approaches",
+                AlternativesComparisonGrid(entity_uid, entity_type),
+                title_cls="text-lg font-semibold flex justify-between items-center w-full",
             )
         )
 
-    # Relationship graph (loads after 600ms, expanded by default)
     if show_graph:
-        sections.append(
-            Div(
-                **{"x-data": "{ expanded: true }"},  # Expanded by default
-            )(
-                Div(
-                    H3("Relationship Network", cls="text-lg font-semibold"),
-                    Div(
-                        **{
-                            "x-text": "expanded ? '▼' : '▶'",
-                            "x-on:click": "expanded = !expanded",
-                            "class": "cursor-pointer text-2xl select-none hover:text-primary transition-colors",
-                        },
-                    ),
-                    cls="flex items-center justify-between mb-2",
-                ),
-                Div(
-                    **{
-                        "x-show": "expanded",
-                        "x-collapse": True,
-                    },
-                )(RelationshipGraphView(entity_uid, entity_type)),
+        items.append(
+            AccordionItem(
+                "Relationship Network",
+                RelationshipGraphView(entity_uid, entity_type),
+                open=True,
+                title_cls="text-lg font-semibold flex justify-between items-center w-full",
             )
         )
 
-    # Return complete section
     return Div(
         H2("Relationships", cls="text-2xl font-bold mb-6"),
-        Div(
-            *sections,
-            cls="space-y-6",  # Vertical stacking with spacing
-        ),
+        Accordion(*items, multiple=True, cls="space-y-6"),
         cls="mt-8 border-t border-border pt-8",
     )
 

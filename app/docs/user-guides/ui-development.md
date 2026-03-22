@@ -119,7 +119,7 @@ Card(
             Button("Add Habit", variant=ButtonT.primary, size=Size.sm),
         ),
     ),
-    variant=CardT.bordered,
+    variant=CardT.default,
 )
 
 # Clickable card (navigates on click)

@@ -9,7 +9,7 @@ from typing import Any
 
 from fasthtml.common import Div, Span
 
-from ui.cards import Card, CardBody, CardT
+from ui.cards import Card, CardBody
 from ui.layout import Grid
 from ui.text import Caption
 
@@ -78,7 +78,7 @@ def StatCard(
         trend_cls = trend_colors.get(trend, "text-muted-foreground")
         content.append(Span(change, cls=f"text-sm {trend_cls} mt-1 block"))
 
-    return Card(CardBody(*content), variant=CardT.compact, **kwargs)
+    return Card(CardBody(*content), **kwargs)
 
 
 def StatsGrid(

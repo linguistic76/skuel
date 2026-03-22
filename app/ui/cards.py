@@ -4,9 +4,9 @@ SKUEL Card Components (MonsterUI)
 
 Card wrappers using MonsterUI's card system.
 Keeps SKUEL's API (Card, CardBody, CardTitle, CardActions, CardFigure, CardLink).
+Re-exports MonsterUI's CardT directly for variant selection.
 """
 
-from enum import StrEnum
 from typing import Any
 
 from fasthtml.common import A
@@ -14,28 +14,10 @@ from monsterui.franken import CardBody as MCardBody
 from monsterui.franken import CardContainer as MCardContainer
 from monsterui.franken import CardFooter as MCardFooter
 from monsterui.franken import CardHeader as MCardHeader
-from monsterui.franken import CardT as MCardT
+from monsterui.franken import CardT
 from monsterui.franken import CardTitle as MCardTitle
 
 __all__ = ["CardT", "Card", "CardBody", "CardTitle", "CardActions", "CardFigure", "CardLink"]
-
-
-class CardT(StrEnum):
-    """Card variant types — maps to MonsterUI CardT."""
-
-    default = "default"
-    bordered = "default"
-    compact = "default"
-    side = "default"
-
-
-# Mapping from SKUEL CardT to MonsterUI CardT
-_CARD_VARIANT_MAP: dict[str, MCardT] = {
-    "default": MCardT.default,
-    "bordered": MCardT.default,
-    "compact": MCardT.default,
-    "side": MCardT.default,
-}
 
 
 def Card(
@@ -50,11 +32,10 @@ def Card(
     Args:
         *c: Card content (should include CardBody for proper styling)
         cls: Additional CSS classes
-        variant: Card style variant
+        variant: Card style variant (default, primary, secondary, destructive, hover)
         **kwargs: Additional HTML attributes
     """
-    mu_variant = _CARD_VARIANT_MAP.get(variant.value, MCardT.default)
-    cls_parts: list[Any] = [mu_variant]
+    cls_parts: list[Any] = [variant]
     if cls:
         cls_parts.append(cls)
 
