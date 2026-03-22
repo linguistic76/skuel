@@ -688,9 +688,9 @@ class LsOperations(CurriculumOperations["LearningStep"], Protocol):
         """
         ...
 
-    async def get_offered_choices(self, uid: str) -> Result[list[str]]:
+    async def get_informed_choices(self, uid: str) -> Result[list[str]]:
         """
-        Get choice UIDs offered in this step.
+        Get choice UIDs informed by this step's Lessons.
 
         Args:
             uid: LS UID

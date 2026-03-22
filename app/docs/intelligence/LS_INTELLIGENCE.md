@@ -113,13 +113,13 @@ if result.is_ok:
 **Implementation Notes:**
 - Returns zeros if step has no practice opportunities
 - Uses `count(DISTINCT ...)` to avoid double-counting
-- Three relationship types on Lessons: BUILDS_HABIT, ASSIGNS_TASK, SCHEDULES_EVENT (LS inherits via HAS_LESSON traversal)
+- Six activity domain relationship types on Lessons: BUILDS_HABIT, ASSIGNS_TASK, SCHEDULES_EVENT, SUPPORTS_GOAL, GUIDED_BY_PRINCIPLE, INFORMS_CHOICE (LS inherits via HAS_LESSON|CONTAINS_KNOWLEDGE traversal)
 
 ---
 
 ### Method 3: practice_completeness_score()
 
-**Purpose:** Calculate practice completeness score (0.0-1.0). Full practice suite (habits + tasks + events) scores 1.0. Each type contributes 1/3 of the score.
+**Purpose:** Calculate practice completeness score (0.0-1.0). Full practice suite (all 6 activity domains) scores 1.0. Each domain contributes 1/6 of the score.
 
 **Signature:**
 ```python
@@ -139,8 +139,9 @@ Result[float]  # Score from 0.0 (no practice) to 1.0 (full practice suite)
 
 **Scoring Formula:**
 ```
-score = (has_tasks + has_habits + has_events) / 3.0
-where each has_* is 1.0 if count > 0, else 0.0
+domains = ["habits", "tasks", "events", "goals", "principles", "choices"]
+present = sum(1.0 for d in domains if summary[d] > 0)
+score = present / 6.0
 ```
 
 **Example:**
@@ -151,12 +152,12 @@ if result.is_ok:
     score = result.value
     print(f"Practice completeness: {score:.0%}")
 
-    if score < 0.33:
+    if score < 0.17:
         print("Low practice integration - consider adding activities")
-    elif score < 0.67:
-        print("Moderate practice - one type missing")
+    elif score < 0.5:
+        print("Moderate practice - several domains missing")
     else:
-        print("Excellent practice coverage across all types")
+        print("Excellent practice coverage across activity domains")
 ```
 
 **Dependencies:**
@@ -166,9 +167,11 @@ if result.is_ok:
 **Implementation Notes:**
 - Binary presence (has/doesn't have) - count doesn't affect score
 - 0.0 = no practice opportunities
-- 0.33 = one type only (tasks OR habits OR events)
-- 0.67 = two types (tasks + habits, etc.)
-- 1.0 = complete practice suite (all three types)
+- 0.17 = one domain only
+- 0.33 = two domains
+- 0.5 = three domains (half coverage)
+- 0.83 = five domains
+- 1.0 = complete practice suite (all six activity domains)
 
 ---
 
@@ -446,16 +449,19 @@ This reflects Learning Steps' role as **connective tissue** in the curriculum ar
 
 The primary intelligence focus is **practice integration**:
 
-**Three Practice Types (on Lessons, inherited by LS via HAS_LESSON traversal):**
-1. **Habits** (BUILDS_HABIT) - Lifestyle integration
-2. **Tasks** (ASSIGNS_TASK) - Real-world application
-3. **Events** (SCHEDULES_EVENT) - Scheduled practice sessions
+**Six Activity Domains (on Lessons, inherited by LS via HAS_LESSON|CONTAINS_KNOWLEDGE traversal):**
+1. **Habits** (BUILDS_HABIT) - Behaviors to repeat
+2. **Tasks** (ASSIGNS_TASK) - Work to complete
+3. **Events** (SCHEDULES_EVENT) - Time to commit
+4. **Goals** (SUPPORTS_GOAL) - Outcomes to pursue
+5. **Principles** (GUIDED_BY_PRINCIPLE) - Values to embody
+6. **Choices** (INFORMS_CHOICE) - Decisions to consider
 
 **Practice Completeness Scoring:**
 - 0.0 = Theory only (no practice)
-- 0.33 = Single practice type (limited integration)
-- 0.67 = Two practice types (good coverage)
-- 1.0 = Complete practice suite (excellent integration)
+- 0.17 = Single domain (limited integration)
+- 0.5 = Three domains (half coverage)
+- 1.0 = All six domains (complete practice suite)
 
 ### Guidance Strength Assessment
 
