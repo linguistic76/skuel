@@ -210,10 +210,13 @@ the AI when generating feedback. This is the bridge between knowledge and evalua
 **What it is:** The student's artifact. An uploaded file (audio, text, image) that is
 processed and then evaluated. Two leaf types share the same base model.
 
-**EntityTypes:** `EntityType.EXERCISE_SUBMISSION` and `EntityType.JOURNAL_SUBMISSION`
-**Models:** `ExerciseSubmission(Submission)` and `JournalSubmission(Submission)` — frozen dataclasses
+**EntityType:** `EntityType.EXERCISE_SUBMISSION`
+**Model:** `ExerciseSubmission(Submission)` — frozen dataclass
 **Base:** `core/models/submissions/submission.py` — `Submission(UserOwnedEntity)`
-**Neo4j labels:** `:Entity:ExerciseSubmission:Submission` or `:Entity:JournalSubmission:Submission`
+**Neo4j labels:** `:Entity:ExerciseSubmission:Submission`
+
+> **Note:** Journals (JE_INPUT/JE_OUTPUT) were extracted to a standalone domain in March 2026.
+> They are no longer submissions. See `core/models/journal/`, `core/services/journal/`.
 
 **Key fields:**
 ```python
@@ -240,7 +243,6 @@ subject_uid: str | None          # UID of the submission being evaluated
 | EntityType | Created by | ProcessorType | Processing |
 |-----------|-----------|---------------|-----------|
 | `EXERCISE_SUBMISSION` | Student uploads | `HUMAN` (then LLM feedback) | Transcription if audio |
-| `JOURNAL_SUBMISSION` | Admin uploads | `LLM` | Auto-processed, AI uses Exercise instructions |
 
 **Processing pipeline (two entry points):**
 ```
@@ -523,7 +525,7 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
 | **Submission** | `SubmissionsService` | `SubmissionOperations` | `SubmissionsBackend` | `submit_file`, `check_access`, share methods |
 | **Submission processing** | `SubmissionsProcessingService` | `SubmissionProcessingOperations` | `SubmissionsBackend` | Processing pipeline |
 | **Submission report** | `SubmissionReportService` + `AssessmentService` | `SubmissionReportOperations` | `SubmissionsBackend` | `generate_report` (via `UnifiedLLMCaller`), `create_assessment` |
-| **Journal orchestration** | `JournalsCoreService` (via `SubmissionsCoreService`) | — | `SubmissionsBackend` | `submit_journal_file`, `create_journal_entry`, FIFO, transcription handler |
+| **Journal output** | `JournalOutputService` | `JournalOutputOperations` | `JournalOutputBackend` | `process_je_input`, `generate_output`, `get_je_output`, `cleanup_date_range` (standalone domain — not under submissions) |
 | **Learning Loop Intelligence** | `LearningLoopEventHandlerService` | — | `SubmissionsBackend` | `handle_submission_created` (iteration tracking), `handle_report_submitted` (feedback turnaround EMA), `handle_submission_approved` (mastery velocity) |
 | **Teacher review** | `TeacherReviewService` | `TeacherReviewOperations` | `QueryExecutor` | **Review actions:** `get_review_queue`, `get_submission_detail`, `get_report_history`, `submit_report`, `request_revision`, `approve_report` · **Exercise view:** `get_exercises_with_submission_counts`, `get_submissions_for_exercise` · **Student view:** `get_students_summary`, `get_student_submissions` · **Dashboard:** `get_dashboard_stats`, `get_teacher_groups_with_stats`, `get_group_detail` |
 | **Activity Report (auto/LLM)** | `ProgressReportGenerator` | `ProgressReportOperations` | `UserContextBuilder` | `generate`, `create_scheduled` |
@@ -653,7 +655,7 @@ that never closes the loop.
 
 **TeacherReviewService tests cover:** access control (`_verify_teacher_access`), review queue filtering, report submission + event publishing, revision requests, approval with mastery updates, dashboard stats, group management, exercise/student views.
 
-**SubmissionsCoreService + JournalsCoreService tests cover:** journal CRUD + FIFO enforcement, retrieve + access checks, update/status workflow, exercise linking (standard + revised exercise paths), tag/category management, bulk operations, delete + export, date range queries, make_permanent regression, submit_journal_file orchestrator (service wiring guards, title resolution, exercise instructions, partial success).
+**SubmissionsCoreService tests cover:** retrieve + access checks, update/status workflow, exercise linking (standard + revised exercise paths), tag/category management, bulk operations, delete + export. (Journal tests were removed — journal is now a standalone domain with `JournalOutputService`.)
 
 ---
 
@@ -711,7 +713,7 @@ that never closes the loop.
 3. Student submits file
    SubmissionsService.submit_file()                 → core/services/submissions/submissions_service.py
    Creates Entity with entity_type='submission', status SUBMITTED→QUEUED→PROCESSING→COMPLETED
-   (For journals: JournalsCoreService.submit_journal_file() orchestrates title → instructions → submit → process, delegated via SubmissionsCoreService)
+   (For journals: standalone domain — JournalOutputService.process_je_input() handles LLM → JeOutput)
        ↓
 4. FULFILLS_EXERCISE relationship created
    Auto-sharing: SHARES_WITH (student → teacher)

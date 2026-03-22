@@ -66,7 +66,7 @@ Infrastructure modules with no root-level facade.
 | `relationships/` | UnifiedRelationshipService + 6 mixin files |
 | `sharing/` | UnifiedSharingService (entity-agnostic sharing) |
 | `search/` | Unified search across all domains |
-| `submissions/` | Student work — CRUD, processing, search, journal output |
+| `submissions/` | Student work — CRUD, processing, search |
 | `report/` | Teacher/AI reports, activity reports, review queue |
 | `output/` | InstructionResolver (unified instruction resolution) |
 | `transcription/` | TranscriptionService + BatchTranscriptionService + BatchProcessingService |
@@ -404,16 +404,9 @@ services_bootstrap.py:  goals.intelligence.habits_service = habits  # sub-servic
 ```
 
 ```
-SubmissionsCoreService.__init__:  self.journals = JournalsCoreService(...)
-                                  self.assessments = AssessmentService(...)
+SubmissionsCoreService.__init__:  self.assessments = AssessmentService(...)
 
-JournalsCoreService.__init__:     self.submissions_service = None
-                                  self.processing_service = None
-                                  self.exercise_service = None
-
-services_bootstrap.py:  submissions_core_service.journals.submissions_service = submissions_service
-                        submissions_core_service.journals.processing_service = submissions_processor
-                        submissions_core_service.journals.exercise_service = exercise_service
+# Journal is now a standalone domain — JournalsCoreService removed from SubmissionsCoreService
 ```
 
 **Rule:** Routes never pass cross-domain services as parameters. Orchestration methods (e.g., `create_with_goal_links`, `submit_journal_file`) use `self.*_service` internally.
@@ -624,7 +617,7 @@ Routes / Application Code
 │   ├─ submissions_search_service.py
 │   ├─ submissions_processing_service.py
 │   ├─ submissions_relationship_service.py
-│   └─ journal_output_generator.py    (je_output formatting via UnifiedLLMCaller)
+│   └─ (journal_output_generator.py removed — journal is now a standalone domain)
 │
 ├─ output/
 │   └─ instruction_resolver.py        (unified instruction resolution)

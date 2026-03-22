@@ -1,32 +1,33 @@
 ---
 title: Journals Domain
 created: 2025-12-04
-updated: 2026-03-16
+updated: 2026-03-22
 status: current
 category: domains
-tags: [journals, content-domain, submissions, multi-modal, ai-processing, lp-integration]
+tags: [journals, standalone-domain, multi-modal, ai-processing]
 ---
 
 # Journals Domain
 
-**Type:** Submission subtype (`EntityType.JOURNAL_SUBMISSION`, extends `Submission`)
-**UID Prefix:** `journal_`
-**Entity Label:** `:Entity:Journal`
-**UI Route:** `/journals` (all authenticated users, registered via `submissions_routes.py`)
-**API Route:** Reuses `/api/submissions/*` endpoints
+**Type:** Standalone domain (NOT under submissions/reports)
+**Entity Types:** `EntityType.JE_INPUT` (`JeInput`), `EntityType.JE_OUTPUT` (`JeOutput`)
+**UID Prefixes:** `ji_` (JeInput), `jo_` (JeOutput)
+**Neo4j Labels:** `:Entity:JeInput`, `:Entity:JeOutput`
+**Models:** `core/models/journal/`
+**Service:** `core/services/journal/journal_output_service.py`
 
-## Domain Architecture (February 2026)
+## Domain Architecture (March 2026)
 
-Journals are a **Submission subtype** — `JournalSubmission(Submission)` in the model hierarchy.
+Journal is a **standalone domain** — `JeInput(UserOwnedEntity)` and `JeOutput(UserOwnedEntity)` in the model hierarchy. Neither inherits from `Submission` or `SubmissionReport`.
 
-| EntityType | ProcessorType | Use Case |
-|------------|---------------|----------|
-| `JOURNAL_SUBMISSION` | `LLM` | User-uploaded AI-processed journal entries |
-| `EXERCISE_SUBMISSION` | `HUMAN` | User file uploads against an Exercise |
+| EntityType | Class | ContentOrigin | Description |
+|------------|-------|---------------|-------------|
+| `JE_INPUT` | `JeInput(UserOwnedEntity)` | `USER_CREATED` | User-uploaded journal entry (voice/text) |
+| `JE_OUTPUT` | `JeOutput(UserOwnedEntity)` | `USER_CREATED` | LLM-transformed journal output |
 
-**Key insight:** Journal is NOT a separate domain. It is `EntityType.JOURNAL_SUBMISSION`, a distinct entity
-type within the Submissions domain. The `/journals/*` UI is a domain-specific entry point;
-route registration, services, and API all live inside submissions.
+**Key insight:** Journal is NOT a submission subtype. It is a standalone domain with its own models in `core/models/journal/` and its own service. The relationship between input and output is `(JeOutput)-[:TRANSFORMS]->(JeInput)` (not `REPORT_FOR`).
+
+**Pipeline:** JE_INPUT(audio) → Deepgram → JE_INPUT(text) → LLM → JE_OUTPUT
 
 ## Multi-Modal Journal Processing
 
@@ -47,475 +48,72 @@ Journals support **three modes** with weighted distribution:
 ## Processing Pipeline
 
 ```
-1. Route handler validates input → calls SubmissionsCoreService.submit_journal_file()
-   ├─ Delegates to JournalsCoreService.submit_journal_file() (sub-service)
-   ├─ Orchestrates the full upload pipeline in the service layer
-   └─ Returns JournalUploadResult (submission_uid, status, processing_succeeded, message)
+1. JeInput created (voice or text upload)
+   ├─ Audio: Deepgram transcription → text stored on JeInput
+   └─ Text: stored directly on JeInput
 
-2. Inside submit_journal_file():
-   a. Resolve title (custom > auto-generated > filename fallback)
-   b. Resolve instructions (Exercise > DEFAULT_JOURNAL_INSTRUCTIONS)
-   c. Submit file → SubmissionsService.submit_file()
-      ├─ entity_type: EntityType.JOURNAL_SUBMISSION
-      └─ processor_type: ProcessorType.LLM
-   d. Auto-trigger AI → SubmissionsProcessingService.process_submission()
-
-3. AI processing pipeline → _process_journal()
+2. LLM processing via JournalOutputService
    ├─ Read enrichment_mode from instructions (activity / articulation / exploration)
-   ├─ JournalOutputGenerator.generate(content, enrichment_mode, journal_uid) → formatted content
+   ├─ JournalOutputService.generate(content, enrichment_mode, input_uid) → formatted content
    │  ├─ activity_formatter.md → structured DSL format
    │  ├─ articulation_formatter.md → verbatim preservation
    │  └─ exploration_formatter.md → question-organized
    ├─ Save je_output file → {SKUEL_JOURNAL_STORAGE}/{YYYY-MM}/journal_{uid}_output.md
    ├─ Extract activities (if enrichment_mode == 'activity_tracking') → DSL activity extractor
-   └─ Store metadata → {enrichment_mode, je_output_path}
+   └─ Create JeOutput entity with TRANSFORMS relationship to JeInput
 
-4. Human decomposition (post-processing)
-   ├─ Download je_output file → /journals/{uid}/download
+3. Human decomposition (post-processing)
+   ├─ Download je_output file
    ├─ Curate and refine content
    ├─ Ingest pieces into Neo4j via UnifiedIngestionService
-   └─ Cleanup je_output files → /api/admin/journals/cleanup
+   └─ Cleanup je_output files
 ```
 
-## je_output Files
+## Graph Relationships
 
-**Purpose:** Decomposable artifacts for human curation (analog coding philosophy)
-
-**Storage:**
-- Location: `SKUEL_JOURNAL_STORAGE` environment variable (default: `/tmp/skuel_journals`)
-- Structure: `{storage}/{YYYY-MM}/report_{uid}_output.md`
-- Format: Markdown with mode-specific formatting
-
-**Lifecycle:**
-1. Generated during AI processing
-2. Downloaded by admin for curation
-3. Cleaned up by admin after decomposition (by date range)
-
-**Design Philosophy:** "Benefits gained via limiting scope—je_output is NOT the final destination, it's a waypoint for human decomposition."
-
-## Three Formatters
-
-### 1. Activity Tracking Formatter
-
-**Purpose:** Extract actionable entities from journal content
-
-**Format:**
-```markdown
-# Activity Journal - [Date]
-
-## Tasks Identified
-- [ ] [task description] @context(task) @priority(high) @when(2026-02-10)
-
-## Habits
-- [ ] [habit description] @context(habit) @frequency(daily)
-
-## Goals
-- [goal description] @context(goal) @target_date(2026-03-01)
-
-## Events
-- [event description] @context(event) @when(2026-02-15)
-
-## Reflections
-[Free-form reflection text]
-
-## Extraction Summary
-✅ Created X Tasks, Y Habits, Z Goals
+```cypher
+// Journal pipeline
+(user:User)-[:OWNS]->(input:Entity:JeInput {entity_type: 'je_input'})
+(user:User)-[:OWNS]->(output:Entity:JeOutput {entity_type: 'je_output'})
+(output)-[:TRANSFORMS]->(input)
 ```
-
-**Behavior:**
-- Preserves all `@context()`, `@priority()`, `@when()` tags EXACTLY
-- Suggests tags for untagged actionable items
-- Triggers `ActivityExtractorService` if weight > threshold (default: 0.2)
-
-### 2. Idea Articulation Formatter
-
-**Purpose:** Clean up verbatim thinking-out-loud transcripts
-
-**Format:**
-```markdown
-# Ideas on [Topic] - [Date]
-
-[Clean paragraphs with original ideas preserved]
-
----
-
-[Natural section break when topic shifts]
-
----
-
-## Key Concepts Mentioned
-- [Concept 1]: [Brief note if helpful]
-```
-
-**Behavior:**
-- **Minimal intervention:** Removes fillers ("um", "uh", "like"), fixes grammar
-- **Preserves original:** Vocabulary choices, sentence structures, idea flow
-- **No entity creation:** Just formatting—human curates later
-
-### 3. Critical Thinking Formatter
-
-**Purpose:** Organize exploratory questioning and alternatives
-
-**Format:**
-```markdown
-# Critical Thinking Session - [Date]
-
-## Core Questions
-
-### 1. [First major question]?
-[User's exploration of this question]
-[Related thoughts, alternatives considered]
-
-### 2. [Second major question]?
-[User's exploration of this question]
-
----
-
-## Tensions & Tradeoffs
-- [Tension 1]: [Description]
-
-## Alternatives Considered
-- [Alternative A]: [Brief description]
-
-## Open Questions
-- [Question still unresolved]
-```
-
-**Behavior:**
-- Extracts explicit and implicit questions
-- Preserves uncertainty and open-endedness
-- No forced conclusions—exploration stays exploratory
 
 ## Service Architecture
 
-### UnifiedLLMCaller (March 2026)
+### JournalOutputService
 
-**Location:** `/core/services/llm_caller.py`
+**Location:** `/core/services/journal/journal_output_service.py`
 
-Routes LLM calls to OpenAI or Anthropic based on model prefix. Replaces direct
-`OpenAIService`/`AnthropicService` injection in `JournalOutputGenerator` and
-`SubmissionReportService`.
-
-```python
-class UnifiedLLMCaller:
-    async def generate(
-        prompt: str,
-        model: str = "gpt-4o-mini",     # gpt* → OpenAI, claude* → Anthropic
-        temperature: float = 0.7,
-        max_tokens: int = 4000,
-        system_prompt: str | None = None,
-    ) -> Result[str]: ...
-```
-
-**Protocol:** `LLMCallerProtocol` — injected into both `JournalOutputGenerator` and `SubmissionReportService`.
-
-### InstructionResolver (March 2026)
-
-**Location:** `/core/services/output/instruction_resolver.py`
-
-Unified instruction resolution with priority chain:
-1. `custom_instructions` — user-provided text, used directly as prompt
-2. `exercise` — Exercise.instructions field with model/temp from Exercise
-3. `enrichment_mode` — maps to prompt registry template
-4. default — `activity_tracking` template
-
-```python
-class InstructionResolver:
-    def resolve(
-        enrichment_mode: str | None = None,
-        custom_instructions: str | None = None,
-        exercise: Exercise | None = None,
-        model: str = "gpt-4o-mini",
-    ) -> Result[OutputInstruction]: ...
-```
-
-**Protocol:** `OutputInstruction` dataclass in `/core/ports/output_generator_protocols.py`
-
-### JournalOutputGenerator
-
-**Location:** `/core/services/submissions/journal_output_generator.py`
-
-```python
-class JournalOutputGenerator:
-    def __init__(self, llm_caller: LLMCallerProtocol, storage_base: str | None = None): ...
-
-    async def generate(
-        content: str,
-        enrichment_mode: str,       # "activity_tracking" | "articulation" | "exploration"
-        report_uid: str,
-        custom_instructions: str | None = None
-    ) -> Result[str]:
-        # Selects formatter based on enrichment_mode
-        # Saves to disk with date subdirectory
-        # Returns file path
-
-    async def generate_output(
-        content: str,
-        instruction: OutputInstruction,
-    ) -> Result[str]:
-        # LLM-only call — no disk I/O
-        # Implements OutputGeneratorOperations protocol
-
-    def cleanup_date_range(
-        start_date: datetime,
-        end_date: datetime
-    ) -> Result[dict[str, int]]:
-        # Deletes je_output files from date range
-        # Returns {files_deleted, bytes_freed}
-```
+Replaces the former `JournalOutputGenerator` (which lived under submissions). Handles LLM-based formatting of journal content.
 
 **Formatter Prompts:**
 - `/core/prompts/templates/journal_activity.md`
 - `/core/prompts/templates/journal_articulation.md`
 - `/core/prompts/templates/journal_exploration.md`
 
-### ActivityExtractorService
+### Batch Transcription Pipeline
 
-**Location:** `/core/services/dsl/activity_extractor.py`
+Two-tier batch pipeline for processing multiple audio files:
 
-```python
-class ActivityExtractorService:
-    async def extract_and_create(
-        content: str,
-        report_uid: str,
-        user_uid: str
-    ) -> Result[ExtractionSummary]:
-        # Parses @context() tags
-        # Creates entities: Tasks, Habits, Goals, Events, etc.
-        # Returns summary: {tasks_created, habits_created, ...}
-```
-
-**Only triggered when:** `weights.activity > threshold` (default: 0.2)
-
-### Batch Transcription Pipeline (March 2026)
-
-Two-tier batch pipeline for processing multiple audio files without Neo4j involvement.
-
-**Tier 1 — BatchTranscriptionService:** `/core/services/transcription/batch_transcription_service.py`
-
-Audio folder → .txt transcripts via Deepgram. Concurrent with semaphore-bounded parallelism.
-
-```python
-class BatchTranscriptionService:
-    async def preview(input_dir, output_dir) -> Result[BatchTranscriptionPreview]: ...
-    async def transcribe_batch(input_dir, output_dir, skip_existing=True) -> Result[BatchTranscriptionResult]: ...
-```
-
-**Tier 2 — BatchProcessingService:** `/core/services/transcription/batch_processing_service.py`
-
-.txt transcripts → .md via LLM using InstructionResolver + OutputGeneratorOperations.
-
-```python
-class BatchProcessingService:
-    async def process_batch(input_dir, output_dir, enrichment_mode, ...) -> Result[BatchProcessingResult]: ...
-    async def transcribe_and_process(audio_dir, output_dir, batch_transcription, ...) -> Result[dict]: ...
-```
-
-**CLI:** `uv run python scripts/batch_transcribe.py --preview|--process|--process-only`
-
-## Routes
-
-### UI Routes
-
-| Route | Purpose |
-|-------|---------|
-| `/journals` | Landing page (redirects to `/journals/submit`) |
-| `/journals/submit` | Upload form with Assignment selector |
-| `/journals/browse` | AI-processed reports grid with filters |
-| `/journals/batch` | Batch operations page (admin-only) — preview, transcribe, process |
-| `/journals/{uid}/download` | Download je_output markdown file |
-
-### API Routes
-
-Journals reuse existing `/api/submissions/*` endpoints:
-
-| Route | Method | Purpose |
-|-------|--------|---------|
-| `/api/submissions/submit` | POST | Submit journal file (with report_type=JOURNAL) |
-| `/api/submissions/{uid}` | GET | Get journal report |
-| `/api/reports` | GET | List reports (filter by processor_type=LLM) |
-| `/api/admin/journals/cleanup` | GET | Cleanup je_output files by date range |
-| `/api/journals/batch-transcribe` | POST | Batch audio → txt (admin-only, preview or run) |
-| `/api/journals/batch-process` | POST | Batch txt → md via LLM (admin-only, process or combined) |
-
-### HTMX Endpoints
-
-| Route | Purpose |
-|-------|---------|
-| `/journals/upload` | File upload with AI processing |
-| `/journals/grid` | Reports grid with status filtering |
-
-## Instruction Modes
-
-Three ways to specify processing instructions:
-
-| Mode | Selector Value | Behavior |
-|------|----------------|----------|
-| **Default** | `__default__` | Uses `DEFAULT_JOURNAL_INSTRUCTIONS` from `submissions_core_service.py` |
-| **Existing project** | `{project_uid}` | Fetches Assignment from Neo4j |
-| **Upload new** | `__upload__` | Uploads `.md` file → creates new Assignment |
-
-**Assignment fields:**
-- `instructions` (text): LLM processing instructions
-- `scope` (PERSONAL/ASSIGNED): Personal AI templates or teacher assignments (ADR-040)
-- `processor_type` (LLM/HUMAN): Processing mode
-- `mode_threshold` (float): Activity extraction threshold (default: 0.2)
-
-## Data Model
-
-```python
-from core.models.submissions.journal_submission import JournalSubmission
-from core.models.enums.entity_enums import EntityType, ProcessorType
-from core.services.submissions.journal_output_generator import JournalOutputGenerator
-
-@dataclass(frozen=True)
-class Report:
-    uid: str                          # report_{random}
-    user_uid: str                     # Owner
-    report_type: ReportType           # JOURNAL
-    processor_type: ProcessorType     # LLM
-    original_filename: str            # Uploaded file name
-    file_size: int                    # File size in bytes
-    status: str                       # submitted, processing, completed, failed
-    metadata: dict[str, Any]          # {identifier, project_uid, journal_weights, je_output_path}
-    content: str                      # Processed content
-    created_at: datetime
-    updated_at: datetime
-
-@dataclass(frozen=True)
-class JournalWeights:
-    activity: float       # 0.0-1.0
-    articulation: float   # 0.0-1.0
-    exploration: float    # 0.0-1.0
-
-    def get_primary_mode(self) -> JournalMode
-    def should_extract_activities(self, threshold: float) -> bool
-```
-
-## Metadata Fields
-
-When a journal is processed, these fields are stored in `report.metadata`:
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `identifier` | `str` | Knowledge Unit link (e.g., "meditation-basics") |
-| `project_uid` | `str` | Assignment UID (or "__default__") |
-| `journal_weights` | `dict` | `{activity: 0.7, articulation: 0.2, exploration: 0.1}` |
-| `je_output_path` | `str` | Full path to generated je_output file |
-| `mode_threshold` | `float` | Threshold used for activity extraction (default: 0.2) |
-
-## User Workflows
-
-### Workflow 1: Submit and Process
-
-```
-1. User → /journals/submit (or via Journals link on /activities)
-2. Select instructions mode (default, or upload custom instruction file)
-3. Optionally enter a custom title (auto-generated if blank: "Journal — {user_id} — {Mar 02, 2026} — #1")
-4. Upload file (audio, text, PDF, images, video)
-5. Route calls SubmissionsCoreService.submit_journal_file() which:
-   - Resolves title and instructions
-   - Submits file via SubmissionsService
-   - Auto-triggers AI processing (transcription, weight inference, je_output, activity extraction)
-   - Returns JournalUploadResult with status
-6. User → /journals/browse ("My Journals") → sees completed entry with download button
-```
-
-### Workflow 2: Download and Curate
-
-```
-1. User → /journals/browse
-2. Click "Download" on completed journal
-3. Receives je_output markdown file
-4. Curate and decompose content:
-   - Extract specific KUs
-   - Refine tasks/habits/goals
-   - Create markdown files for ingestion
-5. Ingest curated pieces via UnifiedIngestionService
-```
-
-### Workflow 3: Batch Transcription (Admin only — March 2026)
-
-```
-1. Admin → /journals/batch (Batch Ops page)
-2. Set input directory (default: data/je_inputs/) and output directory (default: data/je_outputs/)
-3. Click "Preview Files" — lists audio files, sizes, already-transcribed files
-4. Click "Transcribe All" — Tier 1: audio → .txt via Deepgram (concurrent, skip existing)
-5. Optionally select enrichment mode + model
-6. Click "Process Transcripts" — Tier 2: .txt → .md via LLM
-7. Or click "Transcribe + Process" — combined Tier 1 + Tier 2 pipeline
-
-CLI alternative:
-  uv run python scripts/batch_transcribe.py --preview
-  uv run python scripts/batch_transcribe.py                           # transcribe only
-  uv run python scripts/batch_transcribe.py --process --mode activity_tracking  # combined
-  uv run python scripts/batch_transcribe.py --process-only            # process existing .txt
-```
-
-### Workflow 4: Cleanup (Admin only)
-
-```
-1. Admin decides date range to clean (e.g., December 2025)
-2. API call: POST /api/admin/journals/cleanup?start_date=2025-12-01&end_date=2025-12-31
-3. System deletes je_output files from December 2025
-4. Returns: {files_deleted: 45, bytes_freed: 2457600}
-```
+**Tier 1 — BatchTranscriptionService:** Audio folder → .txt transcripts via Deepgram.
+**Tier 2 — BatchProcessingService:** .txt transcripts → .md via LLM.
 
 ## Key Files
 
 | Component | Location |
 |-----------|----------|
 | **Models** | |
-| Domain Model | `/core/models/submissions/journal.py` |
-| DTO | `/core/models/submissions/journal_dto.py` |
-| Base (Submission) | `/core/models/submissions/submission.py` |
-| EntityType | `EntityType.JOURNAL_SUBMISSION` in `/core/models/enums/entity_enums.py` |
+| JeInput Model | `/core/models/journal/je_input.py` |
+| JeOutput Model | `/core/models/journal/je_output.py` |
+| EntityType | `EntityType.JE_INPUT`, `EntityType.JE_OUTPUT` in `/core/models/enums/entity_enums.py` |
 | **Services** | |
-| LLM Caller | `/core/services/llm_caller.py` |
-| Instruction Resolver | `/core/services/output/instruction_resolver.py` |
-| Output Generator | `/core/services/submissions/journal_output_generator.py` |
-| Processing Service | `/core/services/submissions/submissions_processing_service.py` |
-| Core Service (facade) | `/core/services/submissions/submissions_core_service.py` |
-| Journals Sub-Service | `/core/services/submissions/journals_core_service.py` |
+| Output Service | `/core/services/journal/journal_output_service.py` |
 | Batch Transcription (Tier 1) | `/core/services/transcription/batch_transcription_service.py` |
 | Batch Processing (Tier 2) | `/core/services/transcription/batch_processing_service.py` |
-| **Protocols** | |
-| LLM Caller Protocol | `/core/services/llm_caller.py` (`LLMCallerProtocol`) |
-| Output Generator Protocol | `/core/ports/output_generator_protocols.py` |
 | **Prompts** | |
 | Activity Formatter | `/core/prompts/templates/journal_activity.md` |
 | Articulation Formatter | `/core/prompts/templates/journal_articulation.md` |
 | Exploration Formatter | `/core/prompts/templates/journal_exploration.md` |
-| **Routes** | |
-| UI Implementation | `/adapters/inbound/journals_ui.py` |
-| Batch API | `/adapters/inbound/batch_transcription_api.py` |
-| Route Registration | `JOURNALS_CONFIG` in `/adapters/inbound/submissions_routes.py` |
-| **CLI** | |
-| Batch CLI | `/scripts/batch_transcribe.py` |
-
-## Environment Configuration
-
-```bash
-# Journal storage location (default: /tmp/skuel_journals)
-SKUEL_JOURNAL_STORAGE=/path/to/journal/storage
-
-# OpenAI API key (required for LLM processing via UnifiedLLMCaller)
-OPENAI_API_KEY=sk-...
-
-# Deepgram API key (required for audio transcription)
-DEEPGRAM_API_KEY=your-deepgram-key
-
-# Batch transcription default directories
-# data/je_inputs/  — audio files (mp3, wav, m4a, ogg, flac, webm)
-# data/je_outputs/ — transcribed .txt and processed .md files
-```
-
-## Deepgram Configuration
-
-All Deepgram transcription options (model, language, formatting, utterance splits, intelligence features) are controlled via `config/deepgram.toml`. Edit the file and restart the app — no code changes needed.
-
-**See:** [Deepgram Configuration Guide](/docs/configuration/DEEPGRAM_CONFIG.md) for the full option reference.
-**See:** [Audio Transcription Architecture](/docs/architecture/AUDIO_TRANSCRIPTION_ARCHITECTURE.md) for the system design.
 
 ## Design Principles
 
@@ -528,22 +126,29 @@ All Deepgram transcription options (model, language, formatting, utterance split
 
 ## Migration History
 
-### February 2026: Journal → Reports Merge
+### March 2026: Journal Domain Extraction
 
-- **Before:** Journals were separate `:Journal` nodes
-- **After:** Journals are `:Report` nodes with `report_type=JOURNAL`
-- **Reason:** Unified processing pipeline (LLM vs HUMAN) more important than entity type
+- **Before:** Journals were `JournalSubmission(Submission)` and `JournalReport(SubmissionReport)` — subtypes under the submissions/reports hierarchy
+- **After:** Journals are a standalone domain with `JeInput(UserOwnedEntity)` and `JeOutput(UserOwnedEntity)`
+- **Reason:** Journals have a fundamentally different lifecycle (input → transform → output) compared to the exercise submission pipeline (submit → evaluate → report)
+- **Service renamed:** `JournalOutputGenerator` → `JournalOutputService`; `JournalsCoreService` removed (journal delegation removed from SubmissionsCoreService)
+- **Models moved:** `core/models/submissions/` → `core/models/journal/`
+- **Relationship:** `REPORT_FOR` → `TRANSFORMS`
 
-### January 2026: Two-Tier System (Voice/Curated)
+### February 2026: Journal → Reports Merge (superseded)
 
-- Temporary architecture with FIFO cleanup for voice journals
-- Deprecated in February merge
+- Journals were merged into the submission/report hierarchy as `:Report` nodes
+- This was superseded by the March 2026 standalone extraction
+
+## Deepgram Configuration
+
+All Deepgram transcription options are controlled via `config/deepgram.toml`.
+
+**See:** [Deepgram Configuration Guide](/docs/configuration/DEEPGRAM_CONFIG.md)
+**See:** [Audio Transcription Architecture](/docs/architecture/AUDIO_TRANSCRIPTION_ARCHITECTURE.md)
 
 ## See Also
 
-- [Reports Domain](reports.md) - Parent domain for all submissions
+- [Entity Type Architecture](/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md) - JeInput + JeOutput standalone domain section
 - [Activity DSL](/docs/dsl/DSL_SPECIFICATION.md) - `@context()` tag specification
-- [ADR-040: Teacher Assignment Workflow](/docs/decisions/ADR-040-teacher-assignment-workflow.md) - Assignment dual purpose
 - [UnifiedIngestionService](/docs/patterns/UNIFIED_INGESTION_GUIDE.md) - Post-curation ingestion
-- [Deepgram Configuration Guide](/docs/configuration/DEEPGRAM_CONFIG.md) - Transcription option reference
-- [Audio Transcription Architecture](/docs/architecture/AUDIO_TRANSCRIPTION_ARCHITECTURE.md) - Transcription system design

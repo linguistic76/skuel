@@ -38,9 +38,9 @@ SKUEL is a **knowledge-centric productivity platform** where every operation con
 | FormTemplate | Reusable form definition (embeddable in Lessons) | Admin-created, shared |
 | FormSubmission | User response to a FormTemplate | User-owned |
 | ExerciseSubmission | Student-uploaded work against an exercise | User-owned |
-| JournalSubmission | Reflective writing (voice/text) | User-owned |
+| JeInput | Journal entry input (voice/text) | User-owned |
+| JeOutput | Journal entry output (LLM-transformed) | User-owned |
 | ExerciseReport | Assessment tied to a specific submission | User-owned |
-| JournalReport | Assessment of journal content | User-owned |
 | ActivityReport | Feedback about activity patterns over time | User-owned |
 | RevisedExercise | Targeted revision after feedback | Teacher-owned |
 | LifePath | The user's life direction | User-owned |
@@ -109,10 +109,10 @@ Entity (~18 fields: uid, entity_type, title, description, status, tags, ...)
 |   +-- FormSubmission(UserOwnedEntity)          FORM_SUBMISSION (structured JSON)
 |   +-- Submission(UserOwnedEntity) +13 file/processing fields
 |   |   +-- ExerciseSubmission(Submission)        EXERCISE_SUBMISSION
-|   |   +-- JournalSubmission(Submission)         JOURNAL_SUBMISSION
 |   +-- SubmissionReport(UserOwnedEntity) +5 report fields (NOT Submission)
 |   |   +-- ExerciseReport(SubmissionReport)      EXERCISE_REPORT
-|   |   +-- JournalReport(SubmissionReport)       JOURNAL_REPORT
+|   +-- JeInput(UserOwnedEntity)                  JE_INPUT (standalone journal domain)
+|   +-- JeOutput(UserOwnedEntity)                 JE_OUTPUT (standalone journal domain)
 |   +-- RevisedExercise(UserOwnedEntity)          REVISED_EXERCISE
 +-- FormTemplate(Entity) — reusable form definition (shared, embeddable)
 +-- Curriculum(Entity) +21 fields (base class only)
@@ -128,8 +128,9 @@ EntityDTO (~18 fields)
 +-- UserOwnedDTO(EntityDTO) +3 -> TaskDTO, GoalDTO, HabitDTO, EventDTO, ChoiceDTO, PrincipleDTO
 +-- UserOwnedDTO -> ActivityReportDTO              (no file fields)
 +-- UserOwnedDTO -> FormSubmissionDTO              (structured JSON, no file fields)
-+-- UserOwnedDTO -> SubmissionDTO -> ExerciseSubmissionDTO, JournalSubmissionDTO
-+-- UserOwnedDTO -> SubmissionReportDTO -> ExerciseReportDTO, JournalReportDTO  (NOT SubmissionDTO)
++-- UserOwnedDTO -> SubmissionDTO -> ExerciseSubmissionDTO
++-- UserOwnedDTO -> SubmissionReportDTO -> ExerciseReportDTO  (NOT SubmissionDTO)
++-- UserOwnedDTO -> JeInputDTO, JeOutputDTO        (standalone journal domain)
 +-- EntityDTO -> FormTemplateDTO                   (form_schema, instructions)
 +-- CurriculumDTO(EntityDTO) -> LessonDTO, LearningStepDTO, LearningPathDTO, ExerciseDTO
 +-- KuDTO(EntityDTO)
@@ -150,8 +151,9 @@ Every entity node gets two labels: `:Entity` (universal) + type-specific (`:Task
 | `:Task`, `:Goal`, `:Habit`, `:Event`, `:Choice`, `:Principle` |
 | `:Curriculum`, `:Resource`, `:LearningStep`, `:LearningPath` |
 | `:FormTemplate`, `:FormSubmission` |
-| `:Submission`, `:ExerciseSubmission`, `:JournalSubmission` |
-| `:SubmissionReport`, `:ExerciseReport`, `:JournalReport` |
+| `:Submission`, `:ExerciseSubmission` |
+| `:SubmissionReport`, `:ExerciseReport` |
+| `:JeInput`, `:JeOutput` |
 | `:ActivityReport` |
 | `:Exercise` |
 | `:LifePath` |
@@ -284,14 +286,12 @@ FormTemplate extends `Entity` (NOT Curriculum — doesn't need 21 Curriculum fie
 
 ### Submissions, Reports, ActivityReport — Content Processing
 
-The educational loop: `Lesson -> Exercise -> ExerciseSubmission -> ExerciseReport -> RevisedExercise -> ...`. Journals follow a parallel track: `JournalSubmission -> JournalReport`. Activity entity types are equal entry points via `ACTIVITY_REPORT`.
+The educational loop: `Lesson -> Exercise -> ExerciseSubmission -> ExerciseReport -> RevisedExercise -> ...`. Activity entity types are equal entry points via `ACTIVITY_REPORT`.
 
 | EntityType | Inherits | ProcessorType | Description |
 |------------|---------|---------------|-------------|
 | `EXERCISE_SUBMISSION` | `Submission(UserOwnedEntity)` | `HUMAN` or `LLM` | Student work against an Exercise |
-| `JOURNAL_SUBMISSION` | `Submission(UserOwnedEntity)` | `LLM` | AI-processed reflective writing |
 | `EXERCISE_REPORT` | `SubmissionReport(UserOwnedEntity)` | `HUMAN` or `LLM` | Assessment tied to a submission via `subject_uid` |
-| `JOURNAL_REPORT` | `SubmissionReport(UserOwnedEntity)` | `LLM` | Assessment of journal content |
 | `ACTIVITY_REPORT` | `UserOwnedEntity` **directly** | `AUTOMATIC`, `LLM`, or `HUMAN` | Activity-level feedback (no file fields; covers a time window) |
 
 **Key structural note:** `SubmissionReport` extends `UserOwnedEntity` directly — NOT `Submission`. It has 5 report-specific fields (`report_content`, `report_generated_at`, `subject_uid`, `processor_type`, `report_file_path`) but no file/processing fields.
@@ -303,6 +303,22 @@ The educational loop: `Lesson -> Exercise -> ExerciseSubmission -> ExerciseRepor
 **Services split:**
 - `core/services/submissions/` — `ActivityReportService`, `ReviewQueueService`, student work pipeline
 - `core/services/report/` — `SubmissionReportService`, `ProgressReportGenerator`, `ProgressScheduleService`
+
+### JeInput + JeOutput — Standalone Journal Domain
+
+Journal is a **standalone domain**, NOT under submissions/reports. Two entity types: `JeInput` (user's raw journal entry) and `JeOutput` (LLM-transformed output).
+
+| EntityType | Inherits | Description |
+|------------|---------|-------------|
+| `JE_INPUT` | `UserOwnedEntity` directly | Journal entry input (voice/text), UID prefix `ji_` |
+| `JE_OUTPUT` | `UserOwnedEntity` directly | Journal entry output (LLM-transformed), UID prefix `jo_` |
+
+Both extend `UserOwnedEntity` directly (NOT `Submission` or `SubmissionReport`). `JeOutput` has `ContentOrigin.USER_CREATED` (not REPORT). Relationship: `(JeOutput)-[:TRANSFORMS]->(JeInput)`.
+
+**Pipeline:** JE_INPUT(audio) → Deepgram → JE_INPUT(text) → LLM → JE_OUTPUT
+
+**Models:** `core/models/journal/`
+**Service:** `core/services/journal/journal_output_service.py` (`JournalOutputService`)
 
 **See:** `/docs/architecture/REPORT_ARCHITECTURE.md`
 

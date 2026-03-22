@@ -131,10 +131,10 @@ SKUEL separates runtime into two layers. The **Analog layer** (graph structure, 
 | Exercise | Instruction template for practicing curriculum | N/A | Admin-created, shared |
 | RevisedExercise | Targeted revision instructions after feedback | `re_{slug}_{random}` | Teacher-owned |
 | ExerciseSubmission | Student work submitted against an Exercise | `es_{slug}_{random}` | User-owned |
-| JournalSubmission | Reflective writing (voice/text) | N/A | User-owned |
+| JeInput | Journal entry input (voice/text) | `ji_{slug}_{random}` | User-owned |
+| JeOutput | Journal entry output (LLM-transformed) | `jo_{slug}_{random}` | User-owned |
 | ActivityReport | Report about activity patterns over time | `ar_{random}` | User-owned |
 | ExerciseReport | Teacher or AI report on an exercise submission | `sr_{random}` | User-owned |
-| JournalReport | AI report on a journal submission | `sr_{random}` | User-owned |
 | LifePath | The user's life direction | `lp_{random}` | User-owned |
 | Groups | Teacher-student class management | `group_{slug}_{random}` | Teacher-owned |
 | MOC | Non-linear KU navigation | N/A (emergent — any Entity with ORGANIZES) | Emergent |
@@ -155,7 +155,8 @@ Entity types have behavioral traits — not category membership — that determi
 
 - **Activity (6):** Task, Goal, Habit, Event, Choice, Principle — facade pattern with `.core`, `.search`, `.intelligence` sub-services. Created via `create_common_sub_services()`. Events additionally has integration sub-services; **Calendar** cross-cutting system handles scheduling aggregation.
 - **Curriculum (5):** Lesson, Ku, LearningStep, LearningPath, Exercise — `ContentScope.SHARED`, admin creates, all users read.
-- **Submissions/Reports (5):** ExerciseSubmission, JournalSubmission, ExerciseReport, JournalReport, ActivityReport — the learning loop. Services in `core/services/submissions/` + `core/services/report/`.
+- **Submissions/Reports (3):** ExerciseSubmission, ExerciseReport, ActivityReport — the learning loop. Services in `core/services/submissions/` + `core/services/report/`.
+- **Journal (2):** JeInput, JeOutput — standalone journal domain. `JeInput(UserOwnedEntity)`, `JeOutput(UserOwnedEntity)`. Relationship: `(JeOutput)-[:TRANSFORMS]->(JeInput)`. Pipeline: JE_INPUT(audio) -> Deepgram -> JE_INPUT(text) -> LLM -> JE_OUTPUT. Models in `core/models/journal/`, service in `core/services/journal/journal_output_service.py`.
 - **Other:** Finance (admin-only), Resource (curated, not curriculum), Groups (ADR-040), RevisedExercise (teacher-owned hybrid), MOC (emergent via ORGANIZES), LifePath (the destination, alignment score 0.0-1.0).
 
 ### The 5 Cross-Cutting Systems
@@ -214,7 +215,7 @@ UniversalNeo4jBackend[T]  <- ONE instance per domain, NO wrappers
 Entity (~18 fields: uid, entity_type, title, description, status, tags, ...)
 +-- UserOwnedEntity(Entity) +3 fields (user_uid, visibility, priority)
 |   +-- Task, Goal, Habit, Event, Choice, Principle  (Activity)
-|   +-- LifePath, ActivityReport, Submission -> Journal, SubmissionReport
+|   +-- LifePath, ActivityReport, Submission, SubmissionReport, JeInput, JeOutput
 +-- Ku(Entity) -- atomic knowledge unit (namespace, ku_category, aliases, source, sel_category)
 +-- Curriculum(Entity) +21 fields -> Lesson, LearningStep, LearningPath, Exercise
 +-- Resource(Entity) +7 fields (Curated content)
@@ -424,8 +425,8 @@ SKUEL measures knowledge by how it's LIVED. Substance tracking: Habits (0.10, ma
 |------|--------------|---------|-------------|
 | A | `CURATED` | Resource | Admin-curated content |
 | B | `CURRICULUM` | Curriculum, LS, LP | Curriculum structure |
-| C | `USER_CREATED` | Activities, Submission, Journal, Life Path | User-generated |
-| D | `REPORT` | ActivityReport, SubmissionReport | Analysis/reports |
+| C | `USER_CREATED` | Activities, Submission, JeInput, JeOutput, Life Path | User-generated |
+| D | `REPORT` | ActivityReport, ExerciseReport | Analysis/reports |
 
 `ContentScope` controls access, `ContentOrigin` classifies purpose. Derived from `EntityType`.
 

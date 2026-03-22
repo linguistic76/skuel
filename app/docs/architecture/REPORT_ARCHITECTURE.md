@@ -32,20 +32,20 @@ Both paths produce report entities. The `EntityType` and `ProcessorType` fields 
 
 ---
 
-## The Six EntityTypes
+## The EntityTypes
 
 | EntityType | Who Creates | Purpose | ProcessorType |
 |------------|-------------|---------|---------------|
 | `EXERCISE_SUBMISSION` | Student uploads file | Raw student work (audio, text, images) | `HUMAN` |
-| `JOURNAL_SUBMISSION` | Student uploads file | AI-processed reflective writing | `LLM` |
 | `EXERCISE_REPORT` | Teacher **or** AI | Assessment with `subject_uid` pointing to a submission | `HUMAN` (teacher) or `LLM` (AI) |
-| `JOURNAL_REPORT` | AI | Assessment of journal content | `LLM` |
 | `ACTIVITY_REPORT` | System **or** Admin | Activity-level feedback (not tied to artifact) | `AUTOMATIC`, `LLM`, or `HUMAN` |
 
 **Hierarchy:**
-- `ExerciseSubmission` and `JournalSubmission` extend `Submission(UserOwnedEntity)` — file/processing fields
-- `ExerciseReport` and `JournalReport` extend `SubmissionReport(UserOwnedEntity)` — report fields only (NOT Submission)
+- `ExerciseSubmission` extends `Submission(UserOwnedEntity)` — file/processing fields
+- `ExerciseReport` extends `SubmissionReport(UserOwnedEntity)` — report fields only (NOT Submission)
 - `ActivityReport` extends `UserOwnedEntity` directly — no file fields, responds to aggregate activity patterns
+
+**Note:** Journal types (`JE_INPUT`, `JE_OUTPUT`) are now a standalone domain, not part of the submissions/reports hierarchy. See [ENTITY_TYPE_ARCHITECTURE.md](ENTITY_TYPE_ARCHITECTURE.md).
 
 **Removed aliases:** `SUBMISSION` → `EXERCISE_SUBMISSION`, `JOURNAL` → `JOURNAL_SUBMISSION`, `SUBMISSION_REPORT` → `EXERCISE_REPORT` (removed from enum; old string values still parsed via `from_string()`).
 
@@ -135,7 +135,7 @@ Curriculum Work                 Activity Domains
      │                               │
      ▼                               ▼
  EXERCISE_SUBMISSION            (no artifact —
- JOURNAL_SUBMISSION              aggregate over
+     │                            aggregate over
      │                            time window)
      │                               │
      └───────────┬───────────────────┘
@@ -143,13 +143,12 @@ Curriculum Work                 Activity Domains
                  ▼
            [REPORT]
             ├── EXERCISE_REPORT    (response to exercise submission)
-            ├── JOURNAL_REPORT     (response to journal submission)
             └── ACTIVITY_REPORT    (response to activity patterns)
 ```
 
 ---
 
-## Four Report EntityTypes
+## Report EntityTypes
 
 ### 1. `EXERCISE_REPORT` — Response to an Exercise Submission
 
@@ -543,7 +542,7 @@ User annotates report (additive or revision mode)
 | Service | Test File | Tests | Coverage |
 |---------|-----------|-------|----------|
 | `TeacherReviewService` | `tests/unit/services/test_teacher_review_service.py` | 57 | 99% |
-| `SubmissionsCoreService` + `JournalsCoreService` | `tests/unit/services/test_submissions_core_service.py` | 109 | 79% |
+| `SubmissionsCoreService` | `tests/unit/services/test_submissions_core_service.py` | 109 | 79% |
 | `AssessmentService` | `tests/unit/test_assessment_service.py` | 9 | Assessment CRUD |
 
 ---

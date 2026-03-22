@@ -51,8 +51,9 @@ EntityType is the type discriminator for every entity in SKUEL. It lives on the 
 |-------|-------------|-----------|--------------|
 | **Knowledge** (atomic curriculum) | KU, RESOURCE | Admin-created, no user_uid | :Entity:Ku, :Entity:Resource |
 | **Curriculum Structure** | LEARNING_STEP, LEARNING_PATH, EXERCISE | Admin-created, no user_uid | :Entity:LearningStep, :Entity:LearningPath, :Entity:Exercise |
-| **Submissions** | EXERCISE_SUBMISSION, JOURNAL_SUBMISSION | User-owned | :Entity:ExerciseSubmission:Submission, :Entity:JournalSubmission:Submission |
-| **Reports** | EXERCISE_REPORT, JOURNAL_REPORT, ACTIVITY_REPORT | User-owned | :Entity:ExerciseReport:SubmissionReport, :Entity:JournalReport:SubmissionReport, :Entity:ActivityReport |
+| **Submissions** | EXERCISE_SUBMISSION | User-owned | :Entity:ExerciseSubmission:Submission |
+| **Reports** | EXERCISE_REPORT, ACTIVITY_REPORT | User-owned | :Entity:ExerciseReport:SubmissionReport, :Entity:ActivityReport |
+| **Journal** | JE_INPUT, JE_OUTPUT | User-owned | :Entity:JeInput, :Entity:JeOutput |
 | **Activity** (user-owned) | TASK, GOAL, HABIT, EVENT, CHOICE, PRINCIPLE | User-owned | :Entity:Task, :Entity:Goal, etc. |
 | **Destination** | LIFE_PATH | User-owned | :Entity:LifePath |
 
@@ -62,8 +63,8 @@ EntityType is the type discriminator for every entity in SKUEL. It lives on the 
 |------|---------------|-------------|
 | A | CURATED | Resource |
 | B | CURRICULUM | KU, LearningStep, LearningPath, Exercise |
-| C | USER_CREATED | All 6 Activity types + ExerciseSubmission, JournalSubmission, LifePath, FormSubmission |
-| D | REPORT | ActivityReport, ExerciseReport, JournalReport |
+| C | USER_CREATED | All 6 Activity types + ExerciseSubmission, JeInput, JeOutput, LifePath, FormSubmission |
+| D | REPORT | ActivityReport, ExerciseReport |
 
 **Key methods:**
 
@@ -71,7 +72,7 @@ EntityType is the type discriminator for every entity in SKUEL. It lives on the 
 |--------|---------|---------|
 | `is_activity()` | bool | Is it one of the 6 user activity domains? |
 | `is_knowledge()` | bool | Is it shared curriculum (KU, Resource)? |
-| `is_content_processing()` | bool | Is it in the processing chain (ExerciseSubmission, JournalSubmission, etc.)? |
+| `is_content_processing()` | bool | Is it in the processing chain (ExerciseSubmission, JeInput, etc.)? |
 | `is_user_owned()` | bool | Does it require a user_uid? |
 | `valid_statuses()` | frozenset[EntityStatus] | Which statuses are valid for this type? |
 | `default_status()` | EntityStatus | What status does a new entity get? |
@@ -112,9 +113,9 @@ Activity:
 
 | EntityType | Valid Statuses | Default |
 |------------|---------------|---------|
-| Ku, Resource, ExerciseReport, JournalReport | DRAFT, COMPLETED, ARCHIVED | DRAFT |
+| Ku, Resource, ExerciseReport | DRAFT, COMPLETED, ARCHIVED | DRAFT |
 | LearningStep, LearningPath, Exercise, Choice | DRAFT, ACTIVE, COMPLETED, ARCHIVED | DRAFT |
-| ExerciseSubmission, JournalSubmission | DRAFT, SUBMITTED, QUEUED, PROCESSING, COMPLETED, FAILED, REVISION_REQUESTED, ARCHIVED | DRAFT |
+| ExerciseSubmission | DRAFT, SUBMITTED, QUEUED, PROCESSING, COMPLETED, FAILED, REVISION_REQUESTED, ARCHIVED | DRAFT |
 | ActivityReport | COMPLETED (always — created already complete) | COMPLETED |
 | Task | DRAFT, SCHEDULED, ACTIVE, PAUSED, BLOCKED, COMPLETED, CANCELLED, POSTPONED, FAILED | DRAFT |
 | Goal | DRAFT, ACTIVE, PAUSED, COMPLETED, CANCELLED, FAILED, ARCHIVED | DRAFT |

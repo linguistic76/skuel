@@ -41,7 +41,9 @@ Everything in SKUEL is an **Entity** — a frozen Python dataclass stored as a N
 
 **Curriculum** (admin-created, shared): Lesson, Ku, LearningStep, LearningPath, Exercise, Resource
 
-**Submissions & Reports** (the learning loop): ExerciseSubmission, JournalSubmission, ExerciseReport, JournalReport, ActivityReport, RevisedExercise
+**Submissions & Reports** (the learning loop): ExerciseSubmission, ExerciseReport, ActivityReport, RevisedExercise
+
+**Journal** (standalone domain): JeInput, JeOutput
 
 **Other**: FormTemplate, FormSubmission, LifePath
 

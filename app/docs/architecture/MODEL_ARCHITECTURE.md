@@ -69,11 +69,11 @@ Entity (~19 fields: uid, title, entity_type, status, visibility, tags, domain,
 │   ├── Principle ────── + principle_category, principle_source, strength, current_alignment
 │   │
 │   ├── Submission ───── + processor_type, file_path, file_type, processed_content
-│   │   ├── ExerciseSubmission   (forces entity_type=EXERCISE_SUBMISSION)
-│   │   └── JournalSubmission    (forces entity_type=JOURNAL_SUBMISSION)
+│   │   └── ExerciseSubmission   (forces entity_type=EXERCISE_SUBMISSION)
 │   ├── SubmissionReport ── + report_content, subject_uid, report_file_path (NOT Submission)
-│   │   ├── ExerciseReport       (forces entity_type=EXERCISE_REPORT)
-│   │   └── JournalReport        (forces entity_type=JOURNAL_REPORT)
+│   │   └── ExerciseReport       (forces entity_type=EXERCISE_REPORT)
+│   ├── JeInput ──────── (forces entity_type=JE_INPUT, standalone journal domain)
+│   ├── JeOutput ─────── (forces entity_type=JE_OUTPUT, standalone journal domain)
 │   ├── ActivityReport ─── (forces entity_type=ACTIVITY_REPORT, NO file fields)
 │   │
 │   └── LifePath ─────── + alignment_level, vision_statement, alignment_score
@@ -101,7 +101,8 @@ EntityDTO (~18 fields)
 ├── UserOwnedDTO (+user_uid, visibility, priority)
 │   ├── TaskDTO, GoalDTO, HabitDTO, EventDTO, ChoiceDTO, PrincipleDTO
 │   ├── ActivityReportDTO                      (no file fields — activity patterns)
-│   ├── SubmissionDTO → ExerciseSubmissionDTO, JournalSubmissionDTO
+│   ├── SubmissionDTO → ExerciseSubmissionDTO
+│   ├── JeInputDTO, JeOutputDTO               (standalone journal domain)
 │   └── LifePathDTO
 ├── CurriculumDTO (+complexity, learning_level, ...)
 │   ├── KuDTO, LearningStepDTO, LearningPathDTO, ExerciseDTO
@@ -142,8 +143,9 @@ core/models/{domain}/
 | `lesson_content/` | CurriculumContent, ContentChunk, ContentMetadata | Curriculum | Lesson body storage + RAG chunking |
 | `ku/` | Ku + KuDTO | Curriculum | Atomic knowledge units |
 | `resource/` | Resource + ResourceDTO | Shared | Curated content (books, talks) |
-| `submissions/` | Submission, ExerciseSubmission, JournalSubmission + DTOs | Submissions | + submission_requests.py, report_schedule.py |
+| `submissions/` | Submission, ExerciseSubmission + DTOs | Submissions | + submission_requests.py, report_schedule.py |
 | `report/` | ActivityReport + ActivityReportDTO, SubmissionReport + SubmissionReportDTO | Report | ActivityReport: no file fields; SubmissionReport: tied to submission via subject_uid |
+| `journal/` | JeInput, JeOutput + DTOs | Journal | Standalone domain — NOT under submissions |
 | `life_path/` | LifePath + LifePathDTO | Destination | |
 | `group/` | Group + request | Organizational | Teacher-student classes (ADR-040) |
 | `finance/` | Finance + FinanceDTO + requests | Finance | + Invoice, FinanceIntelligence |
@@ -205,7 +207,7 @@ ENTITY_TYPE_CLASS_MAP: dict[EntityType, type[Entity]] = {
 # Type aliases for services that handle subsets
 ActivityEntity = Task | Goal | Habit | Event | Choice | Principle
 CurriculumEntity = Ku | LearningStep | LearningPath | Exercise  # Ku is the atomic leaf
-SubmissionEntity = Submission | ExerciseSubmission | JournalSubmission
+SubmissionEntity = Submission | ExerciseSubmission
 ```
 
 **Note:** `Ku` is a leaf domain class (`Ku(Curriculum)`), not a union type alias. The old union `Ku = Task | Goal | ...` was dissolved when `core/models/ku/` was created as a dedicated directory for atomic knowledge units (February 2026).

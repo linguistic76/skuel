@@ -66,7 +66,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [LS (Learning Step)](domains/ls.md) | Collections of lessons (collection topology) |
 | [LP (Learning Path)](domains/lp.md) | Complete learning sequences (path topology) |
 | [Submissions + Feedback](domains/submissions.md) | Lesson→Exercise→Submission→Report→RevisedExercise learning loop |
-| [Journals](domains/journals.md) | User journals (EntityType.JOURNAL_SUBMISSION, AI-processed) |
+| [Journals](domains/journals.md) | Standalone journal domain (JE_INPUT → JE_OUTPUT, AI-processed) |
 | Groups | Teacher-student class management (ADR-040) — doc pending |
 | [MOC (Map of Content)](domains/moc.md) | Non-linear navigation (graph topology via ORGANIZES) |
 | [LifePath](domains/lifepath.md) | "Am I living my life path?" |

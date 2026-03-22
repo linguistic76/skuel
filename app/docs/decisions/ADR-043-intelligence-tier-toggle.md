@@ -30,7 +30,7 @@ All in `services_bootstrap.py`:
 
 1. **Embeddings** (`_create_learning_services`): `HuggingFaceEmbeddingsService` + `Neo4jVectorSearchService` — skipped in CORE
 2. **LLM** (`compose_services`): `LLMService` — skipped in CORE
-3. **OpenAI** (`compose_services`): `OpenAIService`, `SubmissionReportService`, `JournalOutputGenerator` — skipped in CORE
+3. **OpenAI** (`compose_services`): `OpenAIService`, `SubmissionReportService`, `JournalOutputService` — skipped in CORE
 
 ### Downstream (No Changes Needed)
 
