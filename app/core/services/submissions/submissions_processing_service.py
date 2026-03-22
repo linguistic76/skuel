@@ -30,7 +30,7 @@ from core.events.submission_events import (
 from core.models.entity import Entity
 from core.models.entity_types import SubmissionEntity
 from core.models.enums.entity_enums import EntityStatus, EntityType
-from core.models.submissions.journal_submission import JournalSubmission
+from core.models.journal.je_input import JeInput
 from core.models.submissions.submission import Submission
 from core.services.submissions.submissions_service import SubmissionsService
 from core.utils.exception_types import LLM_EXCEPTIONS, NEO4J_EXCEPTIONS
@@ -317,7 +317,7 @@ class SubmissionsProcessingService:
         updated_submission = update_result.value
 
         # Check if journal processing is needed
-        is_journal = submission.entity_type == EntityType.JOURNAL_SUBMISSION
+        is_journal = submission.entity_type == EntityType.JE_INPUT
 
         if is_journal:
             await self._process_journal(updated_submission, transcript_text, instructions)
@@ -371,7 +371,7 @@ class SubmissionsProcessingService:
         updated_submission = update_result.value
 
         # Check if journal processing is needed
-        is_journal = submission.entity_type == EntityType.JOURNAL_SUBMISSION
+        is_journal = submission.entity_type == EntityType.JE_INPUT
 
         if is_journal:
             await self._process_journal(updated_submission, text_content, instructions)
@@ -395,7 +395,7 @@ class SubmissionsProcessingService:
     # ========================================================================
 
     async def _process_journal(
-        self, submission: JournalSubmission, content: str, instructions: dict[str, Any] | None
+        self, submission: JeInput, content: str, instructions: dict[str, Any] | None
     ) -> None:
         """
         Process journal submission with enrichment pipeline.

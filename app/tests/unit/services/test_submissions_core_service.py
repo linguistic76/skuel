@@ -81,7 +81,7 @@ class TestCreateJournalEntry:
         journal = result.value
         assert journal.user_uid == "user_1"
         assert journal.content == "Hello world"
-        assert journal.entity_type == EntityType.JOURNAL_SUBMISSION
+        assert journal.entity_type == EntityType.JE_INPUT
         assert journal.status == EntityStatus.DRAFT
         backend.create.assert_awaited_once()
 
@@ -1584,7 +1584,7 @@ class TestGetJournalWithInsights:
     @pytest.mark.asyncio
     async def test_success(self):
         backend = _make_backend()
-        entity = _make_entity(entity_type=EntityType.JOURNAL_SUBMISSION)
+        entity = _make_entity(entity_type=EntityType.JE_INPUT)
         backend.get = AsyncMock(return_value=Result.ok(entity))
         service = _make_service(backend=backend)
 

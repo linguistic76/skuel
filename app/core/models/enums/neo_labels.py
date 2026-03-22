@@ -81,11 +81,13 @@ class NeoLabel(StrEnum):
     # Content Processing — user submissions and reports
     SUBMISSION = "Submission"  # Base label for multi-label queries
     EXERCISE_SUBMISSION = "ExerciseSubmission"
-    JOURNAL_SUBMISSION = "JournalSubmission"
     ACTIVITY_REPORT = "ActivityReport"
     SUBMISSION_REPORT = "SubmissionReport"  # Base label for multi-label queries
     EXERCISE_REPORT = "ExerciseReport"
-    JOURNAL_REPORT = "JournalReport"
+
+    # Journal (standalone — NOT submission, NOT report)
+    JE_INPUT = "JeInput"  # Raw journal entry (audio or text)
+    JE_OUTPUT = "JeOutput"  # LLM-processed transformation
 
     # Instruction Templates (2)
     EXERCISE = "Exercise"  # Domain label for :Entity nodes with entity_type="exercise"
@@ -259,10 +261,10 @@ def _init_ku_type_mapping() -> None:
             EntityType.FORM_TEMPLATE: NeoLabel.FORM_TEMPLATE,
             EntityType.FORM_SUBMISSION: NeoLabel.FORM_SUBMISSION,
             EntityType.EXERCISE_SUBMISSION: NeoLabel.EXERCISE_SUBMISSION,
-            EntityType.JOURNAL_SUBMISSION: NeoLabel.JOURNAL_SUBMISSION,
+            EntityType.JE_INPUT: NeoLabel.JE_INPUT,
+            EntityType.JE_OUTPUT: NeoLabel.JE_OUTPUT,
             EntityType.ACTIVITY_REPORT: NeoLabel.ACTIVITY_REPORT,
             EntityType.EXERCISE_REPORT: NeoLabel.EXERCISE_REPORT,
-            EntityType.JOURNAL_REPORT: NeoLabel.JOURNAL_REPORT,
             EntityType.LIFE_PATH: NeoLabel.LIFE_PATH,
         }
     )

@@ -590,12 +590,18 @@ class Neo4jSchemaManager:
         Drop indexes that reference labels no longer in use.
 
         Stale indexes:
-        - ai_report_uid_idx (label AiReport — reports use ExerciseReport/JournalReport/SubmissionReport)
+        - ai_report_uid_idx (label AiReport — reports use ExerciseReport/JeOutput/SubmissionReport)
         - lpstep_embedding_idx (label LpStep — current label is LearningStep)
+        - journal_submission_* (label JournalSubmission — renamed to JeInput)
+        - journal_report_* (label JournalReport — renamed to JeOutput)
         """
         stale_indexes = [
             "ai_report_uid_idx",
             "lpstep_embedding_idx",
+            "journal_submission_uid_idx",
+            "journal_submission_user_uid_idx",
+            "journal_report_uid_idx",
+            "journal_report_user_uid_idx",
         ]
         results: dict[str, Any] = {"dropped": [], "failed": []}
 
@@ -664,9 +670,9 @@ class Neo4jSchemaManager:
             ("resource_uid_idx", "Resource"),
             ("submission_uid_idx", "Submission"),
             ("exercise_submission_uid_idx", "ExerciseSubmission"),
-            ("journal_submission_uid_idx", "JournalSubmission"),
+            ("je_input_uid_idx", "JeInput"),
             ("exercise_report_uid_idx", "ExerciseReport"),
-            ("journal_report_uid_idx", "JournalReport"),
+            ("je_output_uid_idx", "JeOutput"),
             ("activity_report_uid_idx", "ActivityReport"),
             ("form_template_uid_idx", "FormTemplate"),
             ("form_submission_uid_idx", "FormSubmission"),
@@ -684,9 +690,9 @@ class Neo4jSchemaManager:
             ("choice_user_uid_idx", "Choice"),
             ("principle_user_uid_idx", "Principle"),
             ("exercise_submission_user_uid_idx", "ExerciseSubmission"),
-            ("journal_submission_user_uid_idx", "JournalSubmission"),
+            ("je_input_user_uid_idx", "JeInput"),
             ("exercise_report_user_uid_idx", "ExerciseReport"),
-            ("journal_report_user_uid_idx", "JournalReport"),
+            ("je_output_user_uid_idx", "JeOutput"),
             ("activity_report_user_uid_idx", "ActivityReport"),
             ("form_submission_user_uid_idx", "FormSubmission"),
             ("revised_exercise_user_uid_idx", "RevisedExercise"),

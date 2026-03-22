@@ -1,16 +1,14 @@
 """
-SubmissionReportDTO - Submission Report DTO (Tier 2 - Transfer)
-================================================================
+JeInputDTO - Journal Entry Input DTO (Tier 2 - Transfer)
+==========================================================
 
-Extends UserOwnedDTO with 5 report-specific fields matching the
-SubmissionReport frozen dataclass (Tier 3).
+Extends UserOwnedDTO with 12 je_input-specific fields for file storage
+and processing tracking.
 
 Hierarchy:
     EntityDTO (~18 common fields)
     └── UserOwnedDTO(EntityDTO) +3 fields
-        └── SubmissionReportDTO(UserOwnedDTO) +5 fields
-            ├── ExerciseReportDTO(SubmissionReportDTO) +0 fields
-            └── JeOutputDTO (in core/models/journal/je_output_dto.py) +0 fields
+        └── JeInputDTO(UserOwnedDTO) +12 fields
 
 See: /docs/patterns/three_tier_type_system.md
 """
@@ -31,48 +29,65 @@ from core.ports import get_enum_value
 
 
 @dataclass
-class SubmissionReportDTO(UserOwnedDTO):
+class JeInputDTO(UserOwnedDTO):
     """
-    Mutable DTO for submission reports.
+    Mutable DTO for journal entry inputs (EntityType.JE_INPUT).
 
-    Extends UserOwnedDTO with 5 report-specific fields:
-    - report_content: str | None — the report text
-    - report_generated_at: datetime | None — when report was generated
-    - subject_uid: str | None — who/what this report is about
-    - processor_type: ProcessorType | None — HUMAN/LLM/AUTOMATIC
-    - report_file_path: str | None — generated output file path
+    Extends UserOwnedDTO with file and processing fields.
+    Journal-specific metadata (mood, energy_level, entry_date) lives
+    in the metadata dict, not as first-class fields.
     """
 
     # =========================================================================
-    # REPORT-SPECIFIC FIELDS
+    # FILE
     # =========================================================================
-    report_content: str | None = None
-    report_generated_at: datetime | None = None
-    subject_uid: str | None = None
+    original_filename: str | None = None
+    file_path: str | None = None
+    file_size: int | None = None
+    file_type: str | None = None
+
+    # =========================================================================
+    # PROCESSING
+    # =========================================================================
     processor_type: ProcessorType | None = None
-    report_file_path: str | None = None
+    processing_started_at: datetime | None = None
+    processing_completed_at: datetime | None = None
+    processing_error: str | None = None
+    processed_content: str | None = None
+    processed_file_path: str | None = None
+    instructions: str | None = None
+    max_retention: int | None = None
 
     # =========================================================================
     # SERIALIZATION
     # =========================================================================
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary, including report-specific fields."""
+        """Convert to dictionary, including je_input-specific fields."""
         from core.models.dto_helpers import convert_datetimes_to_iso
 
         data = super().to_dict()
 
         data.update(
             {
-                "report_content": self.report_content,
-                "report_generated_at": self.report_generated_at,
-                "subject_uid": self.subject_uid,
+                # File
+                "original_filename": self.original_filename,
+                "file_path": self.file_path,
+                "file_size": self.file_size,
+                "file_type": self.file_type,
+                # Processing
                 "processor_type": get_enum_value(self.processor_type),
-                "report_file_path": self.report_file_path,
+                "processing_started_at": self.processing_started_at,
+                "processing_completed_at": self.processing_completed_at,
+                "processing_error": self.processing_error,
+                "processed_content": self.processed_content,
+                "processed_file_path": self.processed_file_path,
+                "instructions": self.instructions,
+                "max_retention": self.max_retention,
             }
         )
 
-        convert_datetimes_to_iso(data, ["report_generated_at"])
+        convert_datetimes_to_iso(data, ["processing_started_at", "processing_completed_at"])
 
         return data
 
@@ -81,8 +96,8 @@ class SubmissionReportDTO(UserOwnedDTO):
     # =========================================================================
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> SubmissionReportDTO:
-        """Create SubmissionReportDTO from dictionary (from database)."""
+    def from_dict(cls, data: dict[str, Any]) -> JeInputDTO:
+        """Create JeInputDTO from dictionary (from database)."""
         from core.models.dto_helpers import dto_from_dict
 
         return dto_from_dict(
@@ -98,28 +113,12 @@ class SubmissionReportDTO(UserOwnedDTO):
             datetime_fields=[
                 "created_at",
                 "updated_at",
-                "report_generated_at",
+                "processing_started_at",
+                "processing_completed_at",
             ],
             list_fields=["tags"],
             dict_fields=["metadata"],
-            deprecated_fields=[
-                "prerequisites",
-                "enables",
-                "related_to",
-                "name",
-                # Deprecated Submission fields (SubmissionReport no longer extends Submission)
-                "original_filename",
-                "file_path",
-                "file_size",
-                "file_type",
-                "processing_started_at",
-                "processing_completed_at",
-                "processing_error",
-                "processed_content",
-                "processed_file_path",
-                "instructions",
-                "max_retention",
-            ],
+            deprecated_fields=["prerequisites", "enables", "related_to", "name"],
         )
 
     # =========================================================================
@@ -147,12 +146,19 @@ class SubmissionReportDTO(UserOwnedDTO):
                 # UserOwnedDTO fields
                 "priority",
                 "visibility",
-                # Report-specific fields
-                "report_content",
-                "report_generated_at",
-                "subject_uid",
+                # JeInput-specific fields
+                "original_filename",
+                "file_path",
+                "file_size",
+                "file_type",
                 "processor_type",
-                "report_file_path",
+                "processing_started_at",
+                "processing_completed_at",
+                "processing_error",
+                "processed_content",
+                "processed_file_path",
+                "instructions",
+                "max_retention",
             },
             enum_mappings={
                 "entity_type": EntityType,
@@ -165,6 +171,6 @@ class SubmissionReportDTO(UserOwnedDTO):
 
     def __eq__(self, other: object) -> bool:
         """Equality based on UID."""
-        if not isinstance(other, SubmissionReportDTO):
+        if not isinstance(other, JeInputDTO):
             return False
         return self.uid == other.uid

@@ -2611,7 +2611,7 @@ async def compose_services(
         # Create journal processing services (requires AI for LLM formatting)
         journal_generator = None
         if llm_caller:
-            from core.services.submissions import JournalOutputGenerator
+            from core.services.submissions.journal_output_generator import JournalOutputGenerator
 
             # Get journal storage path from environment (default: /tmp/skuel_journals)
             journal_storage = os.getenv("SKUEL_JOURNAL_STORAGE", "/tmp/skuel_journals")

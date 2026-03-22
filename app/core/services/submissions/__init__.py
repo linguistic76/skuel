@@ -9,25 +9,24 @@ Sub-services for the Submission stage of SKUEL's educational loop:
                student produces work
 
 Architecture: Content/Processing Domain (not Activity Domain)
-- Handles file upload, processing pipelines, content management, and journals
-- EntityType.EXERCISE_SUBMISSION + EntityType.JOURNAL_SUBMISSION (both are student work products)
+- Handles file upload, processing pipelines, content management
+- EntityType.EXERCISE_SUBMISSION (student work products)
+- Journal domain (JE_INPUT/JE_OUTPUT) extracted to core.services.journal
 
 Sub-services:
 - SubmissionsService: File upload and storage
 - SubmissionsProcessingService: Processing orchestration (audio, text, PDF)
-- SubmissionsCoreService: Content management facade (delegates journal + assessment)
-  - JournalsCoreService: Journal CRUD, FIFO, upload orchestration, transcription
+- SubmissionsCoreService: Content management facade (delegates assessment)
   - AssessmentService: Teacher assessment CRUD, authority verification
 - SubmissionsSearchService: Query and search operations
 - SubmissionsRelationshipService: Graph relationship creation
 
 Sharing lives in core.services.sharing (cross-domain).
 Report services live in core.services.report.
+Journal services live in core.services.journal.
 """
 
 from core.services.submissions.assessment_service import AssessmentService
-from core.services.submissions.journal_output_generator import JournalOutputGenerator
-from core.services.submissions.journals_core_service import JournalsCoreService
 
 # Learning loop intelligence (event-driven insights)
 from core.services.submissions.learning_loop_event_handler_service import (
@@ -47,8 +46,6 @@ from core.services.submissions.submissions_service import SubmissionsService
 
 __all__ = [
     "AssessmentService",
-    "JournalOutputGenerator",
-    "JournalsCoreService",
     "LearningLoopEventHandlerService",
     "SubmissionAIInsights",
     "SubmissionProcessingContext",

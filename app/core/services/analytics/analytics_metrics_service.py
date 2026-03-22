@@ -1105,9 +1105,9 @@ class AnalyticsMetricsService:
         start_datetime = datetime.combine(start_date, datetime.min.time())
         end_datetime = datetime.combine(end_date, datetime.max.time())
 
-        # Updated January 2026: Query :Journal nodes directly (domain separation)
+        # Updated March 2026: Query :JeInput nodes (JournalSubmission → JeInput rename)
         cypher = """
-        MATCH (j:Journal {user_uid: $user_uid})
+        MATCH (j:JeInput {user_uid: $user_uid})
         WHERE j.created_at >= datetime($start_datetime)
           AND j.created_at <= datetime($end_datetime)
         RETURN j.uid as uid,

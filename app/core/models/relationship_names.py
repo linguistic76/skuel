@@ -332,6 +332,12 @@ class RelationshipName(StrEnum):
     REPORT_FOR = "REPORT_FOR"  # (Entity)-[:REPORT_FOR]->(Entity) - Report targets submission
 
     # =========================================================================
+    # JOURNAL RELATIONSHIPS
+    # Journal entry pipeline: JE_INPUT → LLM → JE_OUTPUT
+    # =========================================================================
+    TRANSFORMS = "TRANSFORMS"  # (JeOutput)-[:TRANSFORMS]->(JeInput) - Output derived from input
+
+    # =========================================================================
     # EVIDENCE RELATIONSHIPS
     # Observable connections between knowledge units
     # =========================================================================

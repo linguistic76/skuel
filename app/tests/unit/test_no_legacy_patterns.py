@@ -142,7 +142,13 @@ class TestNoLegacyEnumValues:
             "NeoLabel.JOURNAL_PROJECT is legacy — use REPORT_PROJECT"
         )
         assert "JOURNAL" not in members, (
-            "NeoLabel.JOURNAL is legacy — label removed from DB, use JOURNAL_SUBMISSION"
+            "NeoLabel.JOURNAL is legacy — label removed from DB, use JE_INPUT"
+        )
+        assert "JOURNAL_SUBMISSION" not in members, (
+            "NeoLabel.JOURNAL_SUBMISSION is legacy — renamed to JE_INPUT"
+        )
+        assert "JOURNAL_REPORT" not in members, (
+            "NeoLabel.JOURNAL_REPORT is legacy — renamed to JE_OUTPUT"
         )
 
     def test_no_legacy_curriculum_neo_label(self) -> None:

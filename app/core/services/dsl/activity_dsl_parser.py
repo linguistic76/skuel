@@ -65,7 +65,7 @@ from core.utils.result_simplified import Errors, Result
 _DSL_CONTEXT_ALIASES: dict[str, EntityType | NonKuDomain] = {
     "learningstep": EntityType.LEARNING_STEP,
     "learningpath": EntityType.LEARNING_PATH,
-    "journal": EntityType.JOURNAL_SUBMISSION,
+    "journal": EntityType.JE_INPUT,
     "life_path": EntityType.LIFE_PATH,
 }
 

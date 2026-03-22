@@ -305,7 +305,7 @@ class AdminStatsService:
             WITH tasks_created, count(h) AS habits_active
             OPTIONAL MATCH (g:Goal)
             WITH tasks_created, habits_active, count(g) AS goals_active
-            OPTIONAL MATCH (j:JournalSubmission)
+            OPTIONAL MATCH (j:JeInput)
             RETURN tasks_created, habits_active, goals_active,
                    count(j) AS journals_submitted
             """

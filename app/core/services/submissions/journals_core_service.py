@@ -11,9 +11,9 @@ Handles:
 - FIFO cleanup for ephemeral voice journals
 - Transcription-completed event handling (audio → journal entity)
 
-Journals are SUBMISSION entities with entity_type=JOURNAL_SUBMISSION and
-journal-specific fields in metadata: entry_date, mood, energy_level,
-key_topics, action_items, source_type, source_file, transcription_uid.
+Journals are entities with entity_type=JE_INPUT and journal-specific fields
+in metadata: entry_date, mood, energy_level, key_topics, action_items,
+source_type, source_file, transcription_uid.
 """
 
 from dataclasses import dataclass
@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 from core.models.entity_types import SubmissionEntity
 from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
 from core.models.relationship_names import RelationshipName
-from core.models.submissions.journal_submission import JournalSubmission
+from core.models.journal.je_input import JeInput
 from core.ports import BackendOperations
 from core.ports.infrastructure_protocols import EventBusOperations
 from core.utils.decorators import with_error_handling
@@ -126,7 +126,7 @@ class JournalsCoreService:
             entry_date.year, entry_date.month, entry_date.day, 23, 59, 59, tzinfo=UTC
         )
         query = f"""
-            MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(j:Entity {{entity_type: 'journal_submission'}})
+            MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(j:Entity {{entity_type: 'je_input'}})
             WHERE j.created_at >= $day_start AND j.created_at <= $day_end
             RETURN count(j) AS total
         """
@@ -147,9 +147,7 @@ class JournalsCoreService:
         """
         resolved_date = entry_date or date.today()
         existing_count = await self._count_journals_for_date(user_uid, resolved_date)
-        return Result.ok(
-            JournalSubmission.generate_title(user_uid, resolved_date, order=existing_count + 1)
-        )
+        return Result.ok(JeInput.generate_title(user_uid, resolved_date, order=existing_count + 1))
 
     async def submit_journal_file(
         self,
@@ -201,7 +199,7 @@ class JournalsCoreService:
             file_content=file_content,
             original_filename=filename,
             user_uid=user_uid,
-            entity_type=EntityType.JOURNAL_SUBMISSION,
+            entity_type=EntityType.JE_INPUT,
             processor_type=ProcessorType.LLM,
             title=title,
             metadata=metadata,
@@ -266,11 +264,11 @@ class JournalsCoreService:
         source_type: str | None = None,
         source_file: str | None = None,
         transcription_uid: str | None = None,
-    ) -> Result[JournalSubmission]:
+    ) -> Result[JeInput]:
         """
         Create a journal submission entity.
 
-        Journals are submission entities with entity_type=JOURNAL_SUBMISSION. max_retention controls
+        Journals are submission entities with entity_type=JE_INPUT. max_retention controls
         FIFO cleanup: when set (e.g., 3), oldest journals are deleted to
         maintain the limit. When None, journals are permanent.
 
@@ -319,10 +317,10 @@ class JournalsCoreService:
         if transcription_uid:
             journal_metadata["transcription_uid"] = transcription_uid
 
-        journal = JournalSubmission(
+        journal = JeInput(
             uid=uid,
             title=title,
-            entity_type=EntityType.JOURNAL_SUBMISSION,
+            entity_type=EntityType.JE_INPUT,
             user_uid=user_uid,
             status=EntityStatus.DRAFT,
             content=content,
@@ -344,13 +342,11 @@ class JournalsCoreService:
         return Result.ok(journal)
 
     @with_error_handling("get_ephemeral_journals", error_type="database")
-    async def get_ephemeral_journals(
-        self, user_uid: str, limit: int = 10
-    ) -> Result[list[JournalSubmission]]:
+    async def get_ephemeral_journals(self, user_uid: str, limit: int = 10) -> Result[list[JeInput]]:
         """Get journals with FIFO retention (max_retention is set) for a user."""
         result = await self.backend.find_by(
             user_uid=user_uid,
-            entity_type=EntityType.JOURNAL_SUBMISSION.value,
+            entity_type=EntityType.JE_INPUT.value,
         )
         if result.is_error:
             return Result.fail(result.expect_error())
@@ -360,13 +356,11 @@ class JournalsCoreService:
         return Result.ok(journals[:limit])
 
     @with_error_handling("get_permanent_journals", error_type="database")
-    async def get_permanent_journals(
-        self, user_uid: str, limit: int = 50
-    ) -> Result[list[JournalSubmission]]:
+    async def get_permanent_journals(self, user_uid: str, limit: int = 50) -> Result[list[JeInput]]:
         """Get permanent journals (no FIFO retention) for a user."""
         result = await self.backend.find_by(
             user_uid=user_uid,
-            entity_type=EntityType.JOURNAL_SUBMISSION.value,
+            entity_type=EntityType.JE_INPUT.value,
         )
         if result.is_error:
             return Result.fail(result.expect_error())
@@ -382,7 +376,7 @@ class JournalsCoreService:
         start_date: date,
         end_date: date,
         limit: int = 100,
-    ) -> Result[list[JournalSubmission]]:
+    ) -> Result[list[JeInput]]:
         """
         Get journal submission entities within a date range.
 
@@ -397,7 +391,7 @@ class JournalsCoreService:
         """
         result = await self.backend.find_by(
             user_uid=user_uid,
-            entity_type=EntityType.JOURNAL_SUBMISSION.value,
+            entity_type=EntityType.JE_INPUT.value,
         )
         if result.is_error:
             return Result.fail(result.expect_error())
@@ -450,7 +444,7 @@ class JournalsCoreService:
 
         return Result.ok(updated)
 
-    async def get_journal_with_insights(self, uid: str) -> Result[JournalSubmission | None]:
+    async def get_journal_with_insights(self, uid: str) -> Result[JeInput | None]:
         """
         Get a journal submission with its extracted insights.
 
@@ -465,7 +459,7 @@ class JournalsCoreService:
             return Result.fail(result.expect_error())
 
         submission = result.value
-        if not submission or submission.entity_type != EntityType.JOURNAL_SUBMISSION:
+        if not submission or submission.entity_type != EntityType.JE_INPUT:
             return Result.ok(None)
 
         return Result.ok(submission)
@@ -485,7 +479,7 @@ class JournalsCoreService:
         """
         result = await self.backend.find_by(
             user_uid=user_uid,
-            entity_type=EntityType.JOURNAL_SUBMISSION.value,
+            entity_type=EntityType.JE_INPUT.value,
         )
 
         if result.is_error:
@@ -521,7 +515,7 @@ class JournalsCoreService:
         Pipeline:
         1. Try AI processing via ContentEnrichmentService (if available)
         2. Fall back to raw transcript if AI fails
-        3. Create submission with entity_type=JOURNAL_SUBMISSION and journal metadata via create_journal_entry()
+        3. Create submission with entity_type=JE_INPUT and journal metadata via create_journal_entry()
         4. Triggers FIFO cleanup for VOICE journals
 
         Args:

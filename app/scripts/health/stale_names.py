@@ -49,8 +49,15 @@ RENAMED: dict[str, str] = {
     "EntityType.FEEDBACK_REPORT": "EntityType.EXERCISE_REPORT",
     # Submission/Report hierarchy refactoring (Mar 2026)
     "EntityType.SUBMISSION": "EntityType.EXERCISE_SUBMISSION",
-    "EntityType.JOURNAL": "EntityType.JOURNAL_SUBMISSION",
+    "EntityType.JOURNAL": "EntityType.JE_INPUT",
     "EntityType.SUBMISSION_REPORT": "EntityType.EXERCISE_REPORT",
+    # Journal domain extraction (Mar 2026)
+    "EntityType.JOURNAL_SUBMISSION": "EntityType.JE_INPUT",
+    "EntityType.JOURNAL_REPORT": "EntityType.JE_OUTPUT",
+    "JournalSubmission": "JeInput",
+    "JournalReport": "JeOutput (or ExerciseReport if not journal)",
+    "JournalSubmissionDTO": "JeInputDTO",
+    "JournalReportDTO": "JeOutputDTO",
     # Class renames (Feb–Mar 2026)
     "AiFeedback": "ActivityReport",
     "KuTaskCreateRequest": "TaskCreateRequest",

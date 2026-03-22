@@ -1,16 +1,14 @@
 """
-SubmissionReportDTO - Submission Report DTO (Tier 2 - Transfer)
-================================================================
+JeOutputDTO - Journal Entry Output DTO (Tier 2 - Transfer)
+============================================================
 
-Extends UserOwnedDTO with 5 report-specific fields matching the
-SubmissionReport frozen dataclass (Tier 3).
+Extends UserOwnedDTO with 6 je_output-specific fields for the
+LLM-processed transformation.
 
 Hierarchy:
     EntityDTO (~18 common fields)
     └── UserOwnedDTO(EntityDTO) +3 fields
-        └── SubmissionReportDTO(UserOwnedDTO) +5 fields
-            ├── ExerciseReportDTO(SubmissionReportDTO) +0 fields
-            └── JeOutputDTO (in core/models/journal/je_output_dto.py) +0 fields
+        └── JeOutputDTO(UserOwnedDTO) +6 fields
 
 See: /docs/patterns/three_tier_type_system.md
 """
@@ -31,48 +29,46 @@ from core.ports import get_enum_value
 
 
 @dataclass
-class SubmissionReportDTO(UserOwnedDTO):
+class JeOutputDTO(UserOwnedDTO):
     """
-    Mutable DTO for submission reports.
+    Mutable DTO for journal entry outputs (EntityType.JE_OUTPUT).
 
-    Extends UserOwnedDTO with 5 report-specific fields:
-    - report_content: str | None — the report text
-    - report_generated_at: datetime | None — when report was generated
-    - subject_uid: str | None — who/what this report is about
-    - processor_type: ProcessorType | None — HUMAN/LLM/AUTOMATIC
-    - report_file_path: str | None — generated output file path
+    Extends UserOwnedDTO with output-specific fields.
+    Not a report — a transformation of the user's raw content.
     """
 
     # =========================================================================
-    # REPORT-SPECIFIC FIELDS
+    # OUTPUT-SPECIFIC FIELDS
     # =========================================================================
-    report_content: str | None = None
-    report_generated_at: datetime | None = None
-    subject_uid: str | None = None
+    output_content: str | None = None
+    output_generated_at: datetime | None = None
+    source_je_input_uid: str | None = None
+    enrichment_mode: str | None = None
+    output_file_path: str | None = None
     processor_type: ProcessorType | None = None
-    report_file_path: str | None = None
 
     # =========================================================================
     # SERIALIZATION
     # =========================================================================
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary, including report-specific fields."""
+        """Convert to dictionary, including je_output-specific fields."""
         from core.models.dto_helpers import convert_datetimes_to_iso
 
         data = super().to_dict()
 
         data.update(
             {
-                "report_content": self.report_content,
-                "report_generated_at": self.report_generated_at,
-                "subject_uid": self.subject_uid,
+                "output_content": self.output_content,
+                "output_generated_at": self.output_generated_at,
+                "source_je_input_uid": self.source_je_input_uid,
+                "enrichment_mode": self.enrichment_mode,
+                "output_file_path": self.output_file_path,
                 "processor_type": get_enum_value(self.processor_type),
-                "report_file_path": self.report_file_path,
             }
         )
 
-        convert_datetimes_to_iso(data, ["report_generated_at"])
+        convert_datetimes_to_iso(data, ["output_generated_at"])
 
         return data
 
@@ -81,8 +77,8 @@ class SubmissionReportDTO(UserOwnedDTO):
     # =========================================================================
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> SubmissionReportDTO:
-        """Create SubmissionReportDTO from dictionary (from database)."""
+    def from_dict(cls, data: dict[str, Any]) -> JeOutputDTO:
+        """Create JeOutputDTO from dictionary (from database)."""
         from core.models.dto_helpers import dto_from_dict
 
         return dto_from_dict(
@@ -98,7 +94,7 @@ class SubmissionReportDTO(UserOwnedDTO):
             datetime_fields=[
                 "created_at",
                 "updated_at",
-                "report_generated_at",
+                "output_generated_at",
             ],
             list_fields=["tags"],
             dict_fields=["metadata"],
@@ -107,7 +103,12 @@ class SubmissionReportDTO(UserOwnedDTO):
                 "enables",
                 "related_to",
                 "name",
-                # Deprecated Submission fields (SubmissionReport no longer extends Submission)
+                # Deprecated SubmissionReport fields (JeOutput no longer extends SubmissionReport)
+                "report_content",
+                "report_generated_at",
+                "subject_uid",
+                "report_file_path",
+                # Deprecated Submission fields
                 "original_filename",
                 "file_path",
                 "file_size",
@@ -147,12 +148,13 @@ class SubmissionReportDTO(UserOwnedDTO):
                 # UserOwnedDTO fields
                 "priority",
                 "visibility",
-                # Report-specific fields
-                "report_content",
-                "report_generated_at",
-                "subject_uid",
+                # JeOutput-specific fields
+                "output_content",
+                "output_generated_at",
+                "source_je_input_uid",
+                "enrichment_mode",
+                "output_file_path",
                 "processor_type",
-                "report_file_path",
             },
             enum_mappings={
                 "entity_type": EntityType,
@@ -165,6 +167,6 @@ class SubmissionReportDTO(UserOwnedDTO):
 
     def __eq__(self, other: object) -> bool:
         """Equality based on UID."""
-        if not isinstance(other, SubmissionReportDTO):
+        if not isinstance(other, JeOutputDTO):
             return False
         return self.uid == other.uid

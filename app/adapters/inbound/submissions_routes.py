@@ -10,7 +10,7 @@ Standard factories (via DomainRouteConfig):
 
 Extension factories (manual):
 - create_submissions_sharing_api_routes: Share, unshare, visibility, portfolio
-- journals UI: /journals/* user journaling interface (EntityType.JOURNAL_SUBMISSION)
+- journals UI: /journals/* user journaling interface (EntityType.JE_INPUT)
 
 See: /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
 """
@@ -235,7 +235,7 @@ def create_submissions_routes(
         routes.extend(assessment_routes or [])
         logger.info("Exercise report assessment routes registered")
 
-    # Extension: journals UI routes (EntityType.JOURNAL_SUBMISSION)
+    # Extension: journals UI routes (EntityType.JE_INPUT)
     if getattr(services, "submissions_processor", None):
         journal_routes = register_domain_routes(app, rt, services, JOURNALS_CONFIG)
         routes.extend(journal_routes or [])

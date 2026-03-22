@@ -3,7 +3,7 @@ Submission - Content Processing Domain Model (Intermediate Base)
 ===================================================================
 
 Frozen dataclass base for content-processing entities with file/artifact semantics.
-Accepted entity types: EXERCISE_SUBMISSION, JOURNAL_SUBMISSION.
+Accepted entity type: EXERCISE_SUBMISSION.
 
 Note: ACTIVITY_REPORT (EntityType.ACTIVITY_REPORT) does NOT inherit from Submission.
 ActivityReport responds to aggregate activity patterns (no file fields), and inherits
@@ -21,9 +21,11 @@ to an Exercise. It is the user-owned half of the core loop:
 The Submission is created by and belongs to the student. The teacher receives
 access only via the SHARES_WITH relationship created at submission time.
 
-The two leaf types that share this base:
+The one leaf type that uses this base:
     EXERCISE_SUBMISSION → Student's file upload / text submitted against an Exercise
-    JOURNAL_SUBMISSION  → Voice or text journal entry (user's own reflections)
+
+Note: JOURNAL_SUBMISSION was extracted to standalone JeInput(UserOwnedEntity)
+in the Journal domain (core/models/journal/).
 
 Fields
 -------
@@ -32,8 +34,7 @@ Fields
                   instructions, max_retention
 - Subject (1): subject_uid — who this report is about (student, for feedback)
 
-Leaf subclasses (ExerciseSubmission, JournalSubmission) inherit from Submission and
-force their specific entity_type.
+Leaf subclass ExerciseSubmission inherits from Submission and forces its entity_type.
 
 See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
@@ -52,7 +53,6 @@ from core.models.user_owned_entity import UserOwnedEntity
 _SUBMISSION_ENTITY_TYPES = frozenset(
     {
         EntityType.EXERCISE_SUBMISSION,
-        EntityType.JOURNAL_SUBMISSION,
     }
 )
 
@@ -62,8 +62,9 @@ class Submission(UserOwnedEntity):
     """
     Immutable domain model for content-processing entities.
 
-    Accepts 2 entity_types: EXERCISE_SUBMISSION, JOURNAL_SUBMISSION.
-    (ACTIVITY_REPORT uses ActivityReport(UserOwnedEntity) — no file fields.)
+    Accepts 1 entity_type: EXERCISE_SUBMISSION.
+    (ACTIVITY_REPORT uses ActivityReport(UserOwnedEntity) — no file fields.
+    JE_INPUT uses JeInput(UserOwnedEntity) — standalone journal domain.)
 
     Inherits common fields from UserOwnedEntity (identity, content, status,
     sharing, meta, embedding, user_uid, priority).

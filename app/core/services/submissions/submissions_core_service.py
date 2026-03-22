@@ -26,10 +26,10 @@ The Exercise is a shared curriculum template. The moment a user creates
 a Submission against it, the Submission is exclusively their own work product —
 user-owned, privately scoped by default.
 
-Four Entity Types
+Entity Types
 --------------------------
     EXERCISE_SUBMISSION → Student's work submitted against an Exercise (user-owned)
-    JOURNAL_SUBMISSION  → Voice/text journal entries with metadata (user-owned)
+    JE_INPUT            → Voice/text journal entries with metadata (extracted to journal domain)
     ACTIVITY_REPORT     → System-generated progress reports (user-owned)
     EXERCISE_REPORT     → Teacher feedback on a Submission (teacher-owned)
 
@@ -59,7 +59,7 @@ from core.models.entity_types import SubmissionEntity
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.relationship_names import RelationshipName
 from core.models.report.submission_report import SubmissionReport
-from core.models.submissions.journal_submission import JournalSubmission
+from core.models.journal.je_input import JeInput
 from core.models.submissions.submission_dto import SubmissionDTO
 from core.ports import BackendOperations
 from core.ports.infrastructure_protocols import EventBusOperations
@@ -1159,7 +1159,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         source_type: str | None = None,
         source_file: str | None = None,
         transcription_uid: str | None = None,
-    ) -> Result[JournalSubmission]:
+    ) -> Result[JeInput]:
         """Delegate to journals sub-service."""
         return await self.journals.create_journal_entry(
             user_uid=user_uid,
@@ -1180,15 +1180,11 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
             transcription_uid=transcription_uid,
         )
 
-    async def get_ephemeral_journals(
-        self, user_uid: str, limit: int = 10
-    ) -> Result[list[JournalSubmission]]:
+    async def get_ephemeral_journals(self, user_uid: str, limit: int = 10) -> Result[list[JeInput]]:
         """Delegate to journals sub-service."""
         return await self.journals.get_ephemeral_journals(user_uid, limit)
 
-    async def get_permanent_journals(
-        self, user_uid: str, limit: int = 50
-    ) -> Result[list[JournalSubmission]]:
+    async def get_permanent_journals(self, user_uid: str, limit: int = 50) -> Result[list[JeInput]]:
         """Delegate to journals sub-service."""
         return await self.journals.get_permanent_journals(user_uid, limit)
 
@@ -1198,7 +1194,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         start_date: date,
         end_date: date,
         limit: int = 100,
-    ) -> Result[list[JournalSubmission]]:
+    ) -> Result[list[JeInput]]:
         """Delegate to journals sub-service."""
         return await self.journals.get_journals_by_date_range(user_uid, start_date, end_date, limit)
 
@@ -1206,7 +1202,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         """Delegate to journals sub-service."""
         return await self.journals.make_permanent(uid)
 
-    async def get_journal_with_insights(self, uid: str) -> Result[JournalSubmission | None]:
+    async def get_journal_with_insights(self, uid: str) -> Result[JeInput | None]:
         """Delegate to journals sub-service."""
         return await self.journals.get_journal_with_insights(uid)
 

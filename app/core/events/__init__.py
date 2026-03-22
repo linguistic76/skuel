@@ -71,8 +71,7 @@ References:
 """
 
 # Base classes and protocols
-# NOTE: Journal events DELETED (February 2026) — journals use submission events
-# Journal operations fire SubmissionCreated/SubmissionDeleted with entity_type="journal_submission"
+# Journal events extracted to core/events/journal_events.py (March 2026)
 # Knowledge substance events (tracking real-world application)
 from core.events.base import BaseEvent, DomainEvent, EventMetadata
 
@@ -142,6 +141,15 @@ from core.events.form_events import (
     FormTemplateCreated,
     FormTemplateDeleted,
     FormTemplateUpdated,
+)
+
+# Journal events (JE_INPUT/JE_OUTPUT domain)
+from core.events.journal_events import (
+    JeInputCreated,
+    JeInputDeleted,
+    JeInputProcessingCompleted,
+    JeInputProcessingStarted,
+    JeOutputGenerated,
 )
 
 # Goal events
@@ -296,6 +304,10 @@ __all__ = [
     "GoalAchieved",
     # Goals
     "GoalCreated",
+    # Journal events (JE_INPUT/JE_OUTPUT)
+    "JeInputCreated",
+    "JeInputDeleted",
+    "JeOutputGenerated",
     "GoalMilestoneReached",
     "GoalProgressUpdated",
     "HabitCompleted",
@@ -305,7 +317,7 @@ __all__ = [
     "HabitMissed",
     "HabitStreakBroken",
     "HabitStreakMilestone",
-    # NOTE: Journal events removed (February 2026) - Journal merged into Reports
+    # Journal (JE_INPUT/JE_OUTPUT domain — extracted March 2026)
     # Knowledge substance events
     "KnowledgeAppliedInTask",
     "KnowledgeBulkAppliedInTask",
@@ -471,7 +483,10 @@ EVENT_REGISTRY: dict[str, type[BaseEvent]] = {
     "expense.updated": ExpenseUpdated,
     "expense.deleted": ExpenseDeleted,
     "expense.paid": ExpensePaid,
-    # NOTE: Journal events removed (February 2026) - Journal merged into Reports
+    # Journal events (JE_INPUT/JE_OUTPUT domain)
+    "journal.input_created": JeInputCreated,
+    "journal.input_deleted": JeInputDeleted,
+    "journal.output_generated": JeOutputGenerated,
     # Transcriptions
     "transcription.created": TranscriptionCreated,
     "transcription.completed": TranscriptionCompleted,
@@ -673,7 +688,11 @@ FINANCE_EVENTS = [
     ExpensePaid,
 ]
 
-JOURNAL_EVENTS: list = []  # Removed (February 2026) — Journal merged into Reports
+JOURNAL_EVENTS = [
+    JeInputCreated,
+    JeInputDeleted,
+    JeOutputGenerated,
+]
 
 TRANSCRIPTION_EVENTS = [
     TranscriptionCreated,

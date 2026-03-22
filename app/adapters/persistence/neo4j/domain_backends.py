@@ -60,6 +60,8 @@ if TYPE_CHECKING:
     from core.models.exercises.revised_exercise import RevisedExercise  # noqa: F401
     from core.models.forms.form_submission import FormSubmission
     from core.models.forms.form_template import FormTemplate  # noqa: F401
+    from core.models.journal.je_input import JeInput
+    from core.models.journal.je_output import JeOutput
 
 
 class HabitsBackend(UniversalNeo4jBackend[Habit]):
@@ -1796,6 +1798,81 @@ class FormSubmissionBackend(UniversalNeo4jBackend["FormSubmission"]):
         return Result.ok([dict(record["fs"]) for record in (result.value or [])])
 
 
+class JournalInputBackend(UniversalNeo4jBackend["JeInput"]):
+    """
+    Domain backend for JeInput entities (journal entry inputs).
+
+    Standalone journal backend — NOT part of SubmissionsBackend.
+    Uses NeoLabel.JE_INPUT with base_label=NeoLabel.ENTITY.
+    """
+
+    async def count_je_inputs_for_date(self, user_uid: str, entry_date: str) -> Result[int]:
+        """Count journal entries for a user on a specific date."""
+        query = """
+        MATCH (u:User {uid: $user_uid})-[:OWNS]->(ji:JeInput)
+        WHERE ji.metadata IS NOT NULL
+          AND ji.metadata CONTAINS $date_str
+        RETURN count(ji) AS count
+        """
+        try:
+            async with self.driver.session() as session:
+                result = await session.run(query, {"user_uid": user_uid, "date_str": entry_date})
+                record = await result.single()
+                return Result.ok(record["count"] if record else 0)
+        except NEO4J_EXCEPTIONS as e:
+            self.logger.error(f"Failed count_je_inputs_for_date: {e}")
+            return Result.fail(
+                Errors.database(operation="count_je_inputs_for_date", message=str(e))
+            )
+
+    async def get_ephemeral_je_inputs(
+        self, user_uid: str, limit: int = 100
+    ) -> Result[list[dict[str, Any]]]:
+        """Get journal entries with FIFO cleanup enabled (max_retention is not null)."""
+        query = """
+        MATCH (u:User {uid: $user_uid})-[:OWNS]->(ji:JeInput)
+        WHERE ji.max_retention IS NOT NULL
+        RETURN ji
+        ORDER BY ji.created_at DESC
+        LIMIT $limit
+        """
+        try:
+            async with self.driver.session() as session:
+                result = await session.run(query, {"user_uid": user_uid, "limit": limit})
+                records = [record async for record in result]
+                return Result.ok([dict(record["ji"]) for record in records])
+        except NEO4J_EXCEPTIONS as e:
+            self.logger.error(f"Failed get_ephemeral_je_inputs: {e}")
+            return Result.fail(Errors.database(operation="get_ephemeral_je_inputs", message=str(e)))
+
+
+class JournalOutputBackend(UniversalNeo4jBackend["JeOutput"]):
+    """
+    Domain backend for JeOutput entities (journal entry outputs).
+
+    Standalone journal backend — NOT part of SubmissionReport infrastructure.
+    Uses NeoLabel.JE_OUTPUT with base_label=NeoLabel.ENTITY.
+    """
+
+    async def get_je_output_for_input(self, je_input_uid: str) -> Result[dict[str, Any] | None]:
+        """Get the je_output that transforms a specific je_input."""
+        query = """
+        MATCH (jo:JeOutput)-[:TRANSFORMS]->(ji:JeInput {uid: $je_input_uid})
+        RETURN jo
+        LIMIT 1
+        """
+        try:
+            async with self.driver.session() as session:
+                result = await session.run(query, {"je_input_uid": je_input_uid})
+                record = await result.single()
+                if not record:
+                    return Result.ok(None)
+                return Result.ok(dict(record["jo"]))
+        except NEO4J_EXCEPTIONS as e:
+            self.logger.error(f"Failed get_je_output_for_input: {e}")
+            return Result.fail(Errors.database(operation="get_je_output_for_input", message=str(e)))
+
+
 __all__ = [
     "ChoicesBackend",
     "EventsBackend",
@@ -1804,6 +1881,8 @@ __all__ = [
     "FormTemplateBackend",
     "GoalsBackend",
     "HabitsBackend",
+    "JournalInputBackend",
+    "JournalOutputBackend",
     "LessonBackend",
     "KuBackend",
     "LpBackend",

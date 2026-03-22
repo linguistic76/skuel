@@ -1,1 +1,1 @@
-"""Submissions domain models — ExerciseSubmission, JournalSubmission (student work products)."""
+"""Submissions domain models — ExerciseSubmission (student work products)."""

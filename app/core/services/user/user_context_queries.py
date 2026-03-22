@@ -869,7 +869,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      active_moc_uids, moc_metadata,
      latest_ar, active_insights_raw,
      count(CASE WHEN sub.entity_type = 'exercise_submission' THEN 1 END) AS total_submission_count,
-     count(CASE WHEN sub.entity_type = 'journal_submission' THEN 1 END) AS total_journal_count,
+     count(CASE WHEN sub.entity_type = 'je_input' THEN 1 END) AS total_journal_count,
      count(CASE WHEN sub.created_at >= datetime($window_start) THEN 1 END) AS submissions_in_window,
      max(sub.created_at) AS last_submission_date,
      collect(sub.uid) AS all_submission_uids

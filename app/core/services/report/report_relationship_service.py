@@ -81,7 +81,7 @@ class ReportRelationshipService:
                 "user_uid": user_uid,
                 "submission_types": [
                     EntityType.EXERCISE_SUBMISSION.value,
-                    EntityType.JOURNAL_SUBMISSION.value,
+                    EntityType.JE_INPUT.value,
                 ],
             },
         )
@@ -170,7 +170,7 @@ class ReportRelationshipService:
                 "user_uid": user_uid,
                 "submission_types": [
                     EntityType.EXERCISE_SUBMISSION.value,
-                    EntityType.JOURNAL_SUBMISSION.value,
+                    EntityType.JE_INPUT.value,
                 ],
             },
         )

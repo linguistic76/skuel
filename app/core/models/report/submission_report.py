@@ -8,9 +8,11 @@ Extends UserOwnedEntity directly (NOT Submission — reports don't have file fie
 Report-specific fields: report_content, report_generated_at, subject_uid,
 processor_type, report_file_path.
 
-Leaf subclasses:
+Leaf subclass:
     ExerciseReport(SubmissionReport)  → EXERCISE_REPORT — report on exercise submission
-    JournalReport(SubmissionReport)   → JOURNAL_REPORT — report on journal submission
+
+Note: JOURNAL_REPORT was extracted to standalone JeOutput(UserOwnedEntity)
+in the Journal domain (core/models/journal/).
 
 See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
@@ -29,7 +31,6 @@ from core.models.user_owned_entity import UserOwnedEntity
 _SUBMISSION_REPORT_TYPES = frozenset(
     {
         EntityType.EXERCISE_REPORT,
-        EntityType.JOURNAL_REPORT,
     }
 )
 

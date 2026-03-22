@@ -39,8 +39,8 @@ class EntityType(StrEnum):
         FORM_TEMPLATE        → General-purpose form definition (admin-created)
         GOAL                 → Knowledge about where you're heading
         HABIT                → Knowledge about what you practice
-        JOURNAL_REPORT       → AI-generated report on a journal submission
-        JOURNAL_SUBMISSION   → Voice or text journal entry (user's own reflections)
+        JE_INPUT             → Raw journal entry (audio or text, user-initiated)
+        JE_OUTPUT            → LLM-processed transformation of a je_input
         KU                   → Atomic knowledge unit (concept, state, principle)
         LEARNING_PATH        → Ordered sequence of steps
         LESSON               → A unit for learning
@@ -57,9 +57,9 @@ class EntityType(StrEnum):
     Content origin tiers (see ContentOrigin):
         A  CURATED      → RESOURCE
         B  CURRICULUM   → LESSON, KU, LEARNING_STEP, LEARNING_PATH, EXERCISE, REVISED_EXERCISE
-        C  USER_CREATED → Activities (6), EXERCISE_SUBMISSION, JOURNAL_SUBMISSION, LIFE_PATH,
+        C  USER_CREATED → Activities (6), EXERCISE_SUBMISSION, JE_INPUT, JE_OUTPUT, LIFE_PATH,
                           FORM_SUBMISSION
-        D  REPORT       → ACTIVITY_REPORT, EXERCISE_REPORT, JOURNAL_REPORT
+        D  REPORT       → ACTIVITY_REPORT, EXERCISE_REPORT
 
     Ownership rules:
         Curriculum (Lesson, KU, LS, LP, Exercise) + Resource + FormTemplate: user_uid = None (shared content, admin-created)
@@ -88,10 +88,12 @@ class EntityType(StrEnum):
 
     # Content processing (user-owned, derivation chain)
     EXERCISE_SUBMISSION = "exercise_submission"
-    JOURNAL_SUBMISSION = "journal_submission"
     ACTIVITY_REPORT = "activity_report"
     EXERCISE_REPORT = "exercise_report"
-    JOURNAL_REPORT = "journal_report"
+
+    # Journal (standalone, user-owned — NOT submission, NOT report)
+    JE_INPUT = "je_input"  # Raw journal entry: audio or text
+    JE_OUTPUT = "je_output"  # LLM-processed transformation of a je_input
 
     # Activity (user-owned)
     TASK = "task"
@@ -133,8 +135,12 @@ class EntityType(StrEnum):
         return self == EntityType.LIFE_PATH
 
     def is_content_processing(self) -> bool:
-        """Check if this is in the content processing chain."""
+        """Check if this is in the content processing chain (submissions + reports)."""
         return self in _CONTENT_PROCESSING_TYPES
+
+    def is_journal(self) -> bool:
+        """Check if this is a journal entity type (JE_INPUT or JE_OUTPUT)."""
+        return self in _JOURNAL_TYPES
 
     def content_origin(self) -> ContentOrigin:
         """Return the content origin tier (A-D) for this EntityType."""
@@ -157,22 +163,29 @@ class EntityType(StrEnum):
     # -------------------------------------------------------------------------
 
     def is_derived(self) -> bool:
-        """Check if this EntityType is derived from another Entity (has parent)."""
+        """Check if this EntityType is derived from another Entity (has parent).
+
+        Note: JE_INPUT is NOT derived (self-initiated, no prompt triggers it).
+        JE_OUTPUT IS derived (transforms a JE_INPUT).
+        """
         return self in {
             EntityType.EXERCISE_SUBMISSION,
-            EntityType.JOURNAL_SUBMISSION,
+            EntityType.JE_OUTPUT,
             EntityType.FORM_SUBMISSION,
             EntityType.ACTIVITY_REPORT,
             EntityType.EXERCISE_REPORT,
-            EntityType.JOURNAL_REPORT,
             EntityType.REVISED_EXERCISE,
         }
 
     def is_processable(self) -> bool:
-        """Check if this EntityType goes through a processing pipeline."""
+        """Check if this EntityType goes through a processing pipeline.
+
+        JE_INPUT is processable (Deepgram transcription + LLM formatting).
+        JE_OUTPUT is NOT (it is the output of processing).
+        """
         return self in {
             EntityType.EXERCISE_SUBMISSION,
-            EntityType.JOURNAL_SUBMISSION,
+            EntityType.JE_INPUT,
             EntityType.ACTIVITY_REPORT,
         }
 
@@ -216,10 +229,10 @@ _ENTITY_TYPE_DISPLAY_NAMES: dict[EntityType, str] = {
     EntityType.LEARNING_STEP: "Learning Step",
     EntityType.LEARNING_PATH: "Learning Path",
     EntityType.EXERCISE_SUBMISSION: "Exercise Submission",
-    EntityType.JOURNAL_SUBMISSION: "Journal",
     EntityType.ACTIVITY_REPORT: "Activity Report",
     EntityType.EXERCISE_REPORT: "Exercise Report",
-    EntityType.JOURNAL_REPORT: "Journal Report",
+    EntityType.JE_INPUT: "Journal Entry",
+    EntityType.JE_OUTPUT: "Journal Output",
     EntityType.TASK: "Task",
     EntityType.GOAL: "Goal",
     EntityType.HABIT: "Habit",
@@ -240,10 +253,14 @@ _CURRICULUM_STRUCTURE_TYPES = frozenset(
 _CONTENT_PROCESSING_TYPES = frozenset(
     {
         EntityType.EXERCISE_SUBMISSION,
-        EntityType.JOURNAL_SUBMISSION,
         EntityType.ACTIVITY_REPORT,
         EntityType.EXERCISE_REPORT,
-        EntityType.JOURNAL_REPORT,
+    }
+)
+_JOURNAL_TYPES = frozenset(
+    {
+        EntityType.JE_INPUT,
+        EntityType.JE_OUTPUT,
     }
 )
 _ACTIVITY_TYPES = frozenset(
@@ -306,13 +323,13 @@ _CONTENT_ORIGIN_BY_TYPE: dict[EntityType, ContentOrigin] = {
     EntityType.CHOICE: ContentOrigin.USER_CREATED,
     EntityType.PRINCIPLE: ContentOrigin.USER_CREATED,
     EntityType.EXERCISE_SUBMISSION: ContentOrigin.USER_CREATED,
-    EntityType.JOURNAL_SUBMISSION: ContentOrigin.USER_CREATED,
+    EntityType.JE_INPUT: ContentOrigin.USER_CREATED,
+    EntityType.JE_OUTPUT: ContentOrigin.USER_CREATED,  # Transformation, not interpretation
     EntityType.FORM_SUBMISSION: ContentOrigin.USER_CREATED,
     EntityType.LIFE_PATH: ContentOrigin.USER_CREATED,
     # D — Reports that act on user content
     EntityType.ACTIVITY_REPORT: ContentOrigin.REPORT,
     EntityType.EXERCISE_REPORT: ContentOrigin.REPORT,
-    EntityType.JOURNAL_REPORT: ContentOrigin.REPORT,
 }
 
 _ENTITY_TYPE_ALIASES: dict[str, EntityType] = {
@@ -323,10 +340,10 @@ _ENTITY_TYPE_ALIASES: dict[str, EntityType] = {
     "learning_step": EntityType.LEARNING_STEP,
     "learning_path": EntityType.LEARNING_PATH,
     "exercise_submission": EntityType.EXERCISE_SUBMISSION,
-    "journal_submission": EntityType.JOURNAL_SUBMISSION,
+    "je_input": EntityType.JE_INPUT,
+    "je_output": EntityType.JE_OUTPUT,
     "activity_report": EntityType.ACTIVITY_REPORT,
     "exercise_report": EntityType.EXERCISE_REPORT,
-    "journal_report": EntityType.JOURNAL_REPORT,
     "task": EntityType.TASK,
     "goal": EntityType.GOAL,
     "habit": EntityType.HABIT,
@@ -336,7 +353,9 @@ _ENTITY_TYPE_ALIASES: dict[str, EntityType] = {
     "life_path": EntityType.LIFE_PATH,
     # Old string values → canonical enums (for ingestion/DSL parsing)
     "submission": EntityType.EXERCISE_SUBMISSION,
-    "journal": EntityType.JOURNAL_SUBMISSION,
+    "journal": EntityType.JE_INPUT,
+    "journal_submission": EntityType.JE_INPUT,
+    "journal_report": EntityType.JE_OUTPUT,
     "submission_report": EntityType.EXERCISE_REPORT,
     "submission_feedback": EntityType.EXERCISE_REPORT,
     "article": EntityType.LESSON,
@@ -711,7 +730,7 @@ _VALID_STATUSES_BY_TYPE: dict[EntityType, frozenset[EntityStatus]] = {
             EntityStatus.ARCHIVED,
         }
     ),
-    EntityType.JOURNAL_SUBMISSION: frozenset(
+    EntityType.JE_INPUT: frozenset(
         {
             EntityStatus.DRAFT,
             EntityStatus.SUBMITTED,
@@ -719,7 +738,6 @@ _VALID_STATUSES_BY_TYPE: dict[EntityType, frozenset[EntityStatus]] = {
             EntityStatus.PROCESSING,
             EntityStatus.COMPLETED,
             EntityStatus.FAILED,
-            EntityStatus.REVISION_REQUESTED,
             EntityStatus.ARCHIVED,
         }
     ),
@@ -739,7 +757,7 @@ _VALID_STATUSES_BY_TYPE: dict[EntityType, frozenset[EntityStatus]] = {
             EntityStatus.ARCHIVED,
         }
     ),
-    EntityType.JOURNAL_REPORT: frozenset(
+    EntityType.JE_OUTPUT: frozenset(
         {
             EntityStatus.DRAFT,
             EntityStatus.COMPLETED,
@@ -850,10 +868,10 @@ _DEFAULT_STATUS_BY_TYPE: dict[EntityType, EntityStatus] = {
     EntityType.EXERCISE: EntityStatus.DRAFT,
     EntityType.REVISED_EXERCISE: EntityStatus.DRAFT,
     EntityType.EXERCISE_SUBMISSION: EntityStatus.DRAFT,
-    EntityType.JOURNAL_SUBMISSION: EntityStatus.DRAFT,
+    EntityType.JE_INPUT: EntityStatus.DRAFT,
+    EntityType.JE_OUTPUT: EntityStatus.DRAFT,
     EntityType.ACTIVITY_REPORT: EntityStatus.DRAFT,
     EntityType.EXERCISE_REPORT: EntityStatus.DRAFT,
-    EntityType.JOURNAL_REPORT: EntityStatus.DRAFT,
     EntityType.TASK: EntityStatus.DRAFT,
     EntityType.GOAL: EntityStatus.DRAFT,
     EntityType.HABIT: EntityStatus.ACTIVE,

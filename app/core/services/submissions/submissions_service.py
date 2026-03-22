@@ -43,7 +43,7 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
     Service for file submission and submission management.
 
     Handles file upload, storage, and submission record creation for
-    user-owned submission types (EXERCISE_SUBMISSION, JOURNAL_SUBMISSION, ACTIVITY_REPORT).
+    user-owned submission types (EXERCISE_SUBMISSION, JE_INPUT, ACTIVITY_REPORT).
     """
 
     # =========================================================================

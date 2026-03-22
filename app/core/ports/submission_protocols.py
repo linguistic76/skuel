@@ -4,18 +4,19 @@ Submission Protocols
 
 Route-facing protocols for the Submission stage of SKUEL's core educational loop:
 
-    Ku → Exercise → Submission → Feedback
+    Lesson → Exercise → Submission → Report
                          ↑
                student produces work
 
-Three protocols covering CRUD, processing, and search across
-EntityType.EXERCISE_SUBMISSION and EntityType.JOURNAL_SUBMISSION (both are student work products).
+Three protocols covering CRUD, processing, and search for
+EntityType.EXERCISE_SUBMISSION (student work products).
 
+Journal domain (JE_INPUT/JE_OUTPUT) extracted to core/ports/journal_protocols.py.
 Sharing is cross-domain: see core/ports/sharing_protocols.py (SharingOperations).
 
 Protocol Responsibilities
 --------------------------
-    SubmissionOperations         — CRUD, file management, journal creation, content management
+    SubmissionOperations         — CRUD, file management, content management
     SubmissionProcessingOperations — Processing pipeline (transcription, LLM enrichment)
     SubmissionSearchOperations   — Cross-type search and statistics
 
@@ -33,11 +34,12 @@ from core.utils.result_simplified import Result
 
 @runtime_checkable
 class SubmissionOperations(Protocol):
-    """CRUD, file management, journal creation, and content management.
+    """CRUD, file management, and content management for exercise submissions.
 
     Merges the former ReportsSubmissionOperations (CRUD/files) with the
-    submission-side of the former ReportsContentOperations (tags, categories,
-    journals). Assessment methods belong to SubmissionReportOperations.
+    submission-side of the former ReportsContentOperations (tags, categories).
+    Assessment methods belong to SubmissionReportOperations.
+    Journal operations extracted to JournalInputOperations in journal_protocols.py.
 
     Route consumers: submissions_api.py (primary), submissions_sharing_api.py
     Implementation: SubmissionsService (CRUD/files) + SubmissionsCoreService (content)
@@ -164,33 +166,6 @@ class SubmissionOperations(Protocol):
 
     async def bulk_delete(self, uids: list[str], soft_delete: bool = True) -> Result[int]:
         """Bulk delete submissions. Returns Result[int] (count deleted)."""
-        ...
-
-    # ------------------------------------------------------------------
-    # JOURNAL CREATION (EntityType.JOURNAL_SUBMISSION)
-    # ------------------------------------------------------------------
-
-    async def create_journal_entry(
-        self,
-        user_uid: str,
-        title: str,
-        content: str,
-        journal_type: Any = ...,
-        journal_category: str | None = None,
-        entry_date: date | None = None,
-        tags: list[str] | None = None,
-        mood: str | None = None,
-        energy_level: int | None = None,
-        key_topics: list[str] | None = None,
-        action_items: list[str] | None = None,
-        project_uid: str | None = None,
-        metadata: dict[str, Any] | None = None,
-        enforce_fifo: bool = True,
-        source_type: str | None = None,
-        source_file: str | None = None,
-        transcription_uid: str | None = None,
-    ) -> Result[Any]:
-        """Create a journal entry (EntityType.JOURNAL_SUBMISSION). Returns Result[JournalSubmission]."""
         ...
 
     async def verify_ownership(self, uid: str, user_uid: str) -> Result[Any]:

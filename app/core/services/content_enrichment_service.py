@@ -25,7 +25,7 @@ from core.events import publish_event
 from core.models.entity import Entity
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.relationship_names import RelationshipName
-from core.models.submissions.journal_submission import JournalSubmission
+from core.models.journal.je_input import JeInput
 from core.models.submissions.submission import Submission
 from core.models.submissions.submission_dto import SubmissionDTO
 from core.ports import BackendOperations, BaseUpdatePayload
@@ -663,7 +663,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
 
     @with_error_handling("create_journal_relationships", error_type="database")
     async def _create_journal_relationships(
-        self, journal: JournalSubmission, context: SubmissionProcessingContext | None
+        self, journal: JeInput, context: SubmissionProcessingContext | None
     ) -> Result[dict[str, int]]:
         """
         Create graph relationships connecting journal to context.
@@ -730,7 +730,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
         return records[0]["count"] if records else 0
 
     async def _create_thematic_relationships(
-        self, journal: JournalSubmission, recent_topics: list[str]
+        self, journal: JeInput, recent_topics: list[str]
     ) -> int:
         """Create RELATED_TO relationships for journal reports sharing topics."""
 
@@ -772,7 +772,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
         return records[0]["count"] if records else 0
 
     async def _create_goal_relationships(
-        self, journal: JournalSubmission, active_goals: list[dict[str, str]]
+        self, journal: JeInput, active_goals: list[dict[str, str]]
     ) -> int:
         """Create SUPPORTS_GOAL relationships for mentioned goals."""
         # Extract goal mentions from journal content

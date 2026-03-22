@@ -31,12 +31,12 @@ from core.models.pathways.learning_path import LearningPath
 from core.models.pathways.learning_step import LearningStep
 from core.models.principle.principle import Principle
 from core.models.report.activity_report import ActivityReport
+from core.models.journal.je_input import JeInput
+from core.models.journal.je_output import JeOutput
 from core.models.report.exercise_report import ExerciseReport
-from core.models.report.journal_report import JournalReport
 from core.models.report.submission_report import SubmissionReport
 from core.models.resource.resource import Resource
 from core.models.submissions.exercise_submission import ExerciseSubmission
-from core.models.submissions.journal_submission import JournalSubmission
 from core.models.submissions.submission import Submission
 from core.models.task.task import Task
 
@@ -57,10 +57,13 @@ CurriculumEntity = Lesson | LearningStep | LearningPath | Exercise
 KuEntity = Ku
 
 # Submission entities — carry file_path, processed_content, file_type, etc.
-SubmissionEntity = Submission | ExerciseSubmission | JournalSubmission
+SubmissionEntity = Submission | ExerciseSubmission
 
 # Report entities — report output (no file fields, report-specific fields)
-ReportEntity = ActivityReport | SubmissionReport | ExerciseReport | JournalReport
+ReportEntity = ActivityReport | SubmissionReport | ExerciseReport
+
+# Journal entities — standalone domain (NOT submission, NOT report)
+JournalEntity = JeInput | JeOutput
 
 # =============================================================================
 # TYPE CLASS MAP — dispatcher for entity deserialization
@@ -83,10 +86,10 @@ ENTITY_TYPE_CLASS_MAP: dict[EntityType, type[Entity]] = {
     EntityType.EXERCISE: Exercise,
     EntityType.REVISED_EXERCISE: RevisedExercise,
     EntityType.EXERCISE_SUBMISSION: ExerciseSubmission,
-    EntityType.JOURNAL_SUBMISSION: JournalSubmission,
+    EntityType.JE_INPUT: JeInput,
+    EntityType.JE_OUTPUT: JeOutput,
     EntityType.ACTIVITY_REPORT: ActivityReport,
     EntityType.EXERCISE_REPORT: ExerciseReport,
-    EntityType.JOURNAL_REPORT: JournalReport,
     EntityType.FORM_TEMPLATE: FormTemplate,
     EntityType.FORM_SUBMISSION: FormSubmission,
     EntityType.LIFE_PATH: LifePath,

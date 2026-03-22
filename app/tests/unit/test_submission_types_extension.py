@@ -29,8 +29,11 @@ class TestKuTypeEnum:
     def test_exercise_report_enum_exists(self):
         assert EntityType.EXERCISE_REPORT.value == "exercise_report"
 
-    def test_journal_report_enum_exists(self):
-        assert EntityType.JOURNAL_REPORT.value == "journal_report"
+    def test_je_input_enum_exists(self):
+        assert EntityType.JE_INPUT.value == "je_input"
+
+    def test_je_output_enum_exists(self):
+        assert EntityType.JE_OUTPUT.value == "je_output"
 
     def test_activity_report_display_name(self):
         assert EntityType.ACTIVITY_REPORT.get_display_name() == "Activity Report"
@@ -44,8 +47,11 @@ class TestKuTypeEnum:
     def test_exercise_report_not_processable(self):
         assert EntityType.EXERCISE_REPORT.is_processable() is False
 
-    def test_journal_report_not_processable(self):
-        assert EntityType.JOURNAL_REPORT.is_processable() is False
+    def test_je_input_is_processable(self):
+        assert EntityType.JE_INPUT.is_processable() is True
+
+    def test_je_output_not_processable(self):
+        assert EntityType.JE_OUTPUT.is_processable() is False
 
     def test_curriculum_not_processable(self):
         assert EntityType.KU.is_processable() is False
@@ -53,8 +59,11 @@ class TestKuTypeEnum:
     def test_exercise_submission_is_processable(self):
         assert EntityType.EXERCISE_SUBMISSION.is_processable() is True
 
-    def test_journal_submission_is_processable(self):
-        assert EntityType.JOURNAL_SUBMISSION.is_processable() is True
+    def test_je_input_display_name(self):
+        assert EntityType.JE_INPUT.get_display_name() == "Journal Entry"
+
+    def test_je_output_display_name(self):
+        assert EntityType.JE_OUTPUT.get_display_name() == "Journal Output"
 
     def test_curriculum_not_user_owned(self):
         assert EntityType.KU.is_user_owned() is False
@@ -67,10 +76,10 @@ class TestKuTypeEnum:
 
     def test_is_derived(self):
         assert EntityType.EXERCISE_SUBMISSION.is_derived() is True
-        assert EntityType.JOURNAL_SUBMISSION.is_derived() is True
+        assert EntityType.JE_INPUT.is_derived() is False  # Self-initiated, not derived
+        assert EntityType.JE_OUTPUT.is_derived() is True  # Derived from JeInput
         assert EntityType.ACTIVITY_REPORT.is_derived() is True
         assert EntityType.EXERCISE_REPORT.is_derived() is True
-        assert EntityType.JOURNAL_REPORT.is_derived() is True
         assert EntityType.KU.is_derived() is False
 
 

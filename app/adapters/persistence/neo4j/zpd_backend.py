@@ -36,7 +36,7 @@ _ZONE_QUERY = """
 // Returns per-source lists for compound evidence tracking.
 MATCH (u:User {uid: $user_uid})
 OPTIONAL MATCH (u)-[:OWNS]->(t:Entity {entity_type: 'task'})-[:APPLIES_KNOWLEDGE]->(ku_t:Entity)
-OPTIONAL MATCH (u)-[:OWNS]->(j:Entity {entity_type: 'journal_submission'})-[:APPLIES_KNOWLEDGE]->(ku_j:Entity)
+OPTIONAL MATCH (u)-[:OWNS]->(j:Entity {entity_type: 'je_input'})-[:APPLIES_KNOWLEDGE]->(ku_j:Entity)
 OPTIONAL MATCH (u)-[:OWNS]->(h:Entity {entity_type: 'habit'})-[:REINFORCES_KNOWLEDGE]->(ku_h:Entity)
 WITH u,
      [uid IN collect(DISTINCT ku_t.uid) WHERE uid IS NOT NULL] AS task_engaged_uids,
@@ -141,7 +141,7 @@ WHERE ku_t.uid IN $ku_uids
 WITH u, collect(DISTINCT ku_t.uid) AS task_engaged_uids
 
 // Journal engagement
-OPTIONAL MATCH (u)-[:OWNS]->(j:Entity {entity_type: 'journal_submission'})-[:APPLIES_KNOWLEDGE]->(ku_j:Entity)
+OPTIONAL MATCH (u)-[:OWNS]->(j:Entity {entity_type: 'je_input'})-[:APPLIES_KNOWLEDGE]->(ku_j:Entity)
 WHERE ku_j.uid IN $ku_uids
 WITH u, task_engaged_uids, collect(DISTINCT ku_j.uid) AS journal_engaged_uids
 
