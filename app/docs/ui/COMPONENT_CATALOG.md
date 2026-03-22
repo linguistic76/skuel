@@ -507,11 +507,72 @@ PageHeader(
 
 ---
 
+## CardGenerator
+
+**Location:** `/ui/patterns/card_generator.py`
+
+Dynamic display card generation from dataclass or dict introspection. The primary tool for building both detail cards (labeled fields) and list cards (compact, unlabeled, with header badges and action slots). Accepts dataclasses and plain dicts.
+
+### CardGenerator.from_dataclass(instance, ...)
+
+**Key Parameters:**
+- `instance: Any` - Dataclass instance or dict
+- `display_fields: list[str] | None` - Only show these fields (None = all)
+- `exclude_fields: list[str] | None` - Skip these fields (default: uid, created_at, updated_at)
+- `field_renderers: dict[str, Callable] | None` - Custom renderers per field (return None to skip)
+- `field_labels: dict[str, str] | None` - Custom labels per field
+- `title_field: str | None` - Field for card title (auto-detects 'title' or 'name')
+- `show_labels: bool = True` - When False, omit Label wrappers (list card style)
+- `actions: Any = None` - Action slot at card bottom with border-t separator
+- `header_badges: list[str] | None` - Fields rendered as badges beside title in flex row
+- `title_href: str | None` - Makes title a clickable link
+- `card_attrs: dict | None` - Extra card attributes (cls, id, etc.)
+
+**Examples:**
+```python
+from ui.patterns.card_generator import CardGenerator
+
+# Detail card (labeled fields — admin/detail views)
+CardGenerator.from_dataclass(
+    expense,
+    display_fields=["amount", "description", "category", "vendor", "status"],
+    field_renderers={"amount": render_amount},
+    actions=Div(ButtonLink("View"), ButtonLink("Edit"), cls="flex gap-2"),
+)
+
+# List card (compact — no labels, header badges, actions)
+CardGenerator.from_dataclass(
+    exercise,
+    display_fields=["instructions", "model", "context_notes"],
+    show_labels=False,
+    field_renderers={"model": render_model_badge, "context_notes": render_notes},
+    actions=Div(Button("Edit"), Button("Delete"), cls="flex gap-2"),
+)
+
+# Dict support + linked title
+CardGenerator.from_dataclass(
+    path_dict,
+    display_fields=["description", "difficulty", "tags"],
+    show_labels=False,
+    title_href=f"/pathways/path/{path_dict['uid']}",
+    actions=Div(ButtonLink("View Details"), Button("Enroll"), cls="flex gap-2"),
+)
+```
+
+**Convenience Methods:**
+- `CardGenerator.from_list(instances, ...)` - Multiple cards in a `space-y-4` container
+- `CardGenerator.compact_card(instance, display_fields)` - Minimal styling variant
+- `CardGenerator.detailed_card(instance)` - Shows all fields including empty ones
+
+**Adopted in:** exercises_ui, lesson_ui, habits_ui, finance_ui (x2), pathways_ui (x2).
+
+---
+
 ## EntityCard
 
 **Location:** `/ui/patterns/entity_card.py`
 
-Universal card for displaying domain entities with variant support. Adopted in `submissions/cards.py` and `journals_ui.py`, replacing manual Card/CardBody composition.
+Semantic card for displaying domain entities with variant support. Used in activity domain list views (goals, habits, events, choices, principles) and submissions/journals where fields are manually composed. For dataclass/dict-driven cards, prefer CardGenerator.
 
 ### EntityCard(title, description, status, priority, metadata, actions, config, **kwargs)
 
@@ -1275,24 +1336,27 @@ All components follow WCAG 2.1 Level AA standards:
 
 # Migration Guide
 
-## From Custom Cards to EntityCard
+## From Custom Cards to CardGenerator
 
-**Before:**
+**Before (hand-authored):**
 ```python
 Card(
-    Div(title, status_badge),
-    P(description),
-    cls="border-l-4 border-primary",
+    Div(H3(title), cls="flex justify-between"),
+    P(instructions_preview, cls="text-muted-foreground text-sm"),
+    Badge(model, variant=BadgeT.info),
+    Div(Button("Edit"), Button("Delete"), cls="flex gap-2"),
+    cls="p-4",
 )
 ```
 
-**After:**
+**After (CardGenerator):**
 ```python
-EntityCard(
-    title=title,
-    description=description,
-    status=status,
-    config=CardConfig.default(),
+CardGenerator.from_dataclass(
+    exercise,
+    display_fields=["instructions", "model"],
+    show_labels=False,
+    field_renderers={"model": render_model_badge},
+    actions=Div(Button("Edit"), Button("Delete"), cls="flex gap-2"),
 )
 ```
 
@@ -1338,6 +1402,7 @@ Quick alphabetical index:
 **Patterns & Layouts:**
 - **BasePage** - `/ui/layouts/base_page.py`
 - **Breadcrumbs** - `/ui/patterns/breadcrumbs.py`
+- **CardGenerator** - `/ui/patterns/card_generator.py`
 - **EmptyState** - `/ui/patterns/empty_state.py`
 - **EntityCard** - `/ui/patterns/entity_card.py`
 - **ErrorBanner** - `/ui/patterns/error_banner.py`

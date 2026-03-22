@@ -222,7 +222,19 @@ StatsGrid([
     StatItem(label="Overdue", value="3", trend="-2"),
 ])
 
-# EntityCard — universal entity display (replaces manual Card/CardBody)
+# CardGenerator — dynamic card from dataclass or dict (primary card tool)
+from ui.patterns.card_generator import CardGenerator
+CardGenerator.from_dataclass(
+    entity,
+    display_fields=["description", "model", "status"],
+    show_labels=False,                              # list card style (no Label wrappers)
+    header_badges=["status"],                       # badges beside title
+    title_href=f"/detail/{entity.uid}",             # linked title
+    field_renderers={"model": render_model_badge},  # custom per-field
+    actions=Div(Button("Edit"), Button("Delete"), cls="flex gap-2"),
+)
+
+# EntityCard — semantic entity display (activity domain list views)
 from ui.patterns.entity_card import EntityCard, CardConfig
 EntityCard(
     title="Complete quarterly report",

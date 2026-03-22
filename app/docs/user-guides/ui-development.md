@@ -434,12 +434,45 @@ PageHeader(
 )
 ```
 
-### EntityCard — Universal Entity Display
+### CardGenerator — Dynamic Card from Dataclass/Dict
 
-The standard way to show any domain entity in a list or grid.
+The primary tool for generating cards from dataclass instances or dicts. Supports both detail cards (labeled fields) and list cards (compact, unlabeled).
 
 ```python
-from ui.patterns.entity_card import EntityCard, CardConfig, CardVariant
+from ui.patterns.card_generator import CardGenerator
+
+# List card — no labels, compact, with actions
+CardGenerator.from_dataclass(
+    exercise,
+    display_fields=["instructions", "model", "context_notes"],
+    show_labels=False,
+    field_renderers={"model": render_model_badge},
+    actions=Div(Button("Edit"), Button("Delete"), cls="flex gap-2"),
+)
+
+# Detail card — labeled fields (default)
+CardGenerator.from_dataclass(
+    expense,
+    display_fields=["amount", "description", "category", "status"],
+    actions=Div(ButtonLink("View"), ButtonLink("Edit"), cls="flex gap-2"),
+)
+
+# Dict support + linked title + header badges
+CardGenerator.from_dataclass(
+    path_dict,
+    display_fields=["description", "difficulty"],
+    show_labels=False,
+    title_href=f"/pathways/{path_dict['uid']}",
+    header_badges=["status"],
+)
+```
+
+### EntityCard — Semantic Entity Display
+
+For activity domain list views where fields are manually composed (not auto-introspected).
+
+```python
+from ui.patterns.entity_card import EntityCard, CardConfig
 
 # Default — full layout with description, metadata, actions
 EntityCard(
@@ -449,23 +482,10 @@ EntityCard(
     priority="high",
     metadata=["Due: Mar 15", "Project: Finance"],
     actions=Button("View", variant=ButtonT.ghost, size=Size.sm),
-    href="/tasks/task_quarterly_abc",
 )
 
 # Compact — title and badges only, for dense lists
-EntityCard(
-    title="Daily standup",
-    status="active",
-    config=CardConfig.compact(),
-)
-
-# Highlighted — emphasized with border and background
-EntityCard(
-    title="Urgent: Server migration",
-    status="blocked",
-    priority="critical",
-    config=CardConfig.highlighted(),
-)
+EntityCard(title="Daily standup", status="active", config=CardConfig.compact())
 ```
 
 ### StatsGrid — Dashboard Metrics
@@ -619,12 +639,14 @@ Bridge layer between UI templates (raw strings) and core enums (which own presen
 ```python
 from ui.enum_helpers import (
     get_status_badge_class,
+    get_status_border_class,
     get_priority_badge_class,
     get_priority_border_class,
     get_submission_status_badge_class,
 )
 
 cls = get_status_badge_class("active")       # "bg-green-100 text-green-800 border-green-200"
+cls = get_status_border_class("active")      # "border-l-green-500"
 cls = get_priority_badge_class("critical")   # "bg-red-100 text-red-800 border-red-200"
 cls = get_priority_border_class("high")      # "border-l-red-500"
 ```
