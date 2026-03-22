@@ -96,7 +96,7 @@ Always available (no LLM dependency). Wired as `journal_input` in Services.
 **Location:** `/core/services/journal/journal_output_service.py`
 **Protocol:** `JournalOutputOperations` in `/core/ports/journal_protocols.py`
 
-LLM processing pipeline: JeInput(text) → InstructionResolver → LLM → file on disk → JeOutput in Neo4j. Conditional on `INTELLIGENCE_TIER=full` (requires LLM). Wired as `journal_generator` in Services.
+LLM processing pipeline: JeInput(text) → InstructionResolver → LLM → file on disk → JeOutput in Neo4j. Conditional on `INTELLIGENCE_TIER=full` (requires LLM). Wired as `journal_output_service` in `SubmissionsProcessingService` and as `journal_generator` in `Services` dataclass.
 
 **Formatter Prompts:**
 - `/core/prompts/templates/journal_activity.md`

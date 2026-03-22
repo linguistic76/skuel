@@ -197,8 +197,8 @@ class TranscriptionFailed(BaseEvent):
 Downstream services subscribe:
 
 ```python
-# Journal service subscribes to transcription events
-event_bus.subscribe(TranscriptionCompleted, journal_service.handle_transcription_completed)
+# Example: downstream service subscribes to transcription events
+event_bus.subscribe(TranscriptionCompleted, downstream_service.on_transcription_completed)
 ```
 
 ---
