@@ -240,9 +240,7 @@ class LpService:
             domain=domain,
         )
 
-    async def get_learning_paths_batch(
-        self, uids: list[str]
-    ) -> Result[list[LearningPath | None]]:
+    async def get_learning_paths_batch(self, uids: list[str]) -> Result[list[LearningPath | None]]:
         """Get multiple learning paths in one query."""
         return await self.core.get_learning_paths_batch(uids)
 
@@ -250,9 +248,7 @@ class LpService:
         """Get a learning path by UID."""
         return await self.core.get_learning_path(uid)
 
-    async def list_user_paths(
-        self, user_uid: str, limit: int = 100
-    ) -> Result[list[LearningPath]]:
+    async def list_user_paths(self, user_uid: str, limit: int = 100) -> Result[list[LearningPath]]:
         """List learning paths for a user."""
         return await self.core.list_user_paths(user_uid, limit)
 
@@ -284,9 +280,7 @@ class LpService:
         """Validate prerequisites for a learning path."""
         return await self.intelligence.validate_path_prerequisites(path_uid)
 
-    async def identify_path_blockers(
-        self, path_uid: str, user_uid: str
-    ) -> Result[dict[str, Any]]:
+    async def identify_path_blockers(self, path_uid: str, user_uid: str) -> Result[dict[str, Any]]:
         """Identify blockers in a learning path."""
         return await self.intelligence.identify_path_blockers(path_uid, user_uid)
 

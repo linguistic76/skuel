@@ -95,7 +95,7 @@ if TYPE_CHECKING:
     from core.models.habit.habit import Habit
     from core.models.principle.principle import Principle
     from core.models.task.task import Task
-    from core.models.type_hints import EntityUID, Metadata
+    from core.models.type_hints import EntityUID, FilterParams, Metadata, Neo4jProperties
     from core.utils.result_simplified import Result
 
 
@@ -185,7 +185,7 @@ class TasksOperations(BackendOperations["Task"], GraphRelationshipOperations, Pr
         self,
         user_uid: str,
         relationship_type: str | None = None,
-        filters: dict[str, Any] | None = None,
+        filters: FilterParams | None = None,
         limit: int = 100,
         offset: int = 0,
         sort_by: str | None = None,
@@ -247,12 +247,12 @@ class TasksOperations(BackendOperations["Task"], GraphRelationshipOperations, Pr
     # LEARNING LOOP METHODS (ADR-048)
     # ========================================================================
 
-    async def get_user_learning_state(self, user_uid: str) -> Result[dict[str, Any]]:
+    async def get_user_learning_state(self, user_uid: str) -> Result[Neo4jProperties]:
         """Get learning state properties from User node."""
         ...
 
     async def update_user_learning_state(
-        self, user_uid: str, properties: dict[str, Any]
+        self, user_uid: str, properties: Neo4jProperties
     ) -> Result[bool]:
         """Update learning state properties on User node."""
         ...
@@ -354,7 +354,7 @@ class HabitsOperations(BackendOperations["Habit"], GraphRelationshipOperations, 
         """Create a new habit and return its ID. Returns Result[str]."""
         ...
 
-    async def update_habit(self, habit_id: str, data: dict[str, Any]) -> Result[bool]:
+    async def update_habit(self, habit_id: str, data: Metadata) -> Result[bool]:
         """Update habit details. Returns Result[bool]."""
         ...
 
@@ -421,11 +421,11 @@ class FinancesOperations(BackendOperations["ExpensePure"], Protocol):
     Returns Result[T] for all operations to match UniversalNeo4jBackend implementation.
     """
 
-    async def create_transaction(self, data: dict[str, Any]) -> Result[str]:
+    async def create_transaction(self, data: Metadata) -> Result[str]:
         """Create a financial transaction. Returns Result[str]."""
         ...
 
-    async def update_transaction(self, transaction_id: str, data: dict[str, Any]) -> Result[bool]:
+    async def update_transaction(self, transaction_id: str, data: Metadata) -> Result[bool]:
         """Update a transaction. Returns Result[bool]."""
         ...
 
@@ -451,7 +451,7 @@ class FinancesOperations(BackendOperations["ExpensePure"], Protocol):
     # BUDGET MANAGEMENT METHODS
     # ========================================================================
 
-    async def create_budget(self, data: dict[str, Any]) -> Result[str]:
+    async def create_budget(self, data: Metadata) -> Result[str]:
         """Create a new budget. Returns Result[str] (budget UID)."""
         ...
 
@@ -586,7 +586,7 @@ class FinancesOperations(BackendOperations["ExpensePure"], Protocol):
         ...
 
     async def reconcile_expense(
-        self, expense_uid: str, reconciliation_data: dict[str, Any]
+        self, expense_uid: str, reconciliation_data: Metadata
     ) -> Result[bool]:
         """Reconcile expense with bank statement."""
         ...
@@ -650,11 +650,11 @@ class GoalsOperations(BackendOperations["Goal"], GraphRelationshipOperations, Pr
     Returns Result[T] for all operations to match UniversalNeo4jBackend implementation.
     """
 
-    async def create_goal(self, data: dict[str, Any]) -> Result[str]:
+    async def create_goal(self, data: Metadata) -> Result[str]:
         """Create a new goal and return its ID. Returns Result[str]."""
         ...
 
-    async def update_goal(self, goal_id: str, data: dict[str, Any]) -> Result[bool]:
+    async def update_goal(self, goal_id: str, data: Metadata) -> Result[bool]:
         """Update an existing goal. Returns Result[bool]."""
         ...
 
@@ -662,7 +662,7 @@ class GoalsOperations(BackendOperations["Goal"], GraphRelationshipOperations, Pr
         """DETACH DELETE a goal. Returns Result[bool]."""
         ...
 
-    async def add_milestone(self, goal_id: str, milestone: dict[str, Any]) -> Result[bool]:
+    async def add_milestone(self, goal_id: str, milestone: Metadata) -> Result[bool]:
         """Add a milestone to a goal. Returns Result[bool]."""
         ...
 
@@ -723,11 +723,11 @@ class ChoicesOperations(BackendOperations["Choice"], GraphRelationshipOperations
     Returns Result[T] for all operations to match UniversalNeo4jBackend implementation.
     """
 
-    async def create_choice(self, data: dict[str, Any]) -> Result[str]:
+    async def create_choice(self, data: Metadata) -> Result[str]:
         """Create a new choice and return its ID. Returns Result[str]."""
         ...
 
-    async def update_choice(self, choice_id: str, data: dict[str, Any]) -> Result[bool]:
+    async def update_choice(self, choice_id: str, data: Metadata) -> Result[bool]:
         """Update an existing choice. Returns Result[bool]."""
         ...
 
@@ -735,7 +735,7 @@ class ChoicesOperations(BackendOperations["Choice"], GraphRelationshipOperations
         """DETACH DELETE a choice. Returns Result[bool]."""
         ...
 
-    async def resolve_choice(self, choice_id: str, resolution: dict[str, Any]) -> Result[bool]:
+    async def resolve_choice(self, choice_id: str, resolution: Metadata) -> Result[bool]:
         """Mark a choice as resolved with outcome data. Returns Result[bool]."""
         ...
 
@@ -744,7 +744,7 @@ class ChoicesOperations(BackendOperations["Choice"], GraphRelationshipOperations
         ...
 
     async def find_choices(
-        self, filters: dict[str, Any] | None = None, limit: int = 100
+        self, filters: FilterParams | None = None, limit: int = 100
     ) -> Result[list[Choice]]:
         """Find choices with filters and limit."""
         ...
@@ -753,7 +753,7 @@ class ChoicesOperations(BackendOperations["Choice"], GraphRelationshipOperations
         """Get all choices for a user."""
         ...
 
-    async def count_choices(self, filters: dict[str, Any] | None = None) -> Result[int]:
+    async def count_choices(self, filters: FilterParams | None = None) -> Result[int]:
         """Count choices matching filters. Returns Result[int]."""
         ...
 
@@ -875,7 +875,7 @@ class BaseRelationshipOperations(Protocol):
         uid: str,
         depth: int = 2,
         min_confidence: float = 0.7,
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[GraphContextResult]:
         """
         Get cross-domain relationship context for an entity.
 
@@ -911,7 +911,7 @@ class TasksRelationshipOperations(BaseRelationshipOperations, Protocol):
 
     async def get_task_cross_domain_context(
         self, task_uid: str, depth: int = 2
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[GraphContextResult]:
         """
         Get cross-domain context for a task with configurable graph traversal depth.
 
@@ -925,7 +925,7 @@ class TasksRelationshipOperations(BaseRelationshipOperations, Protocol):
         """Get knowledge UIDs applied by this task."""
         ...
 
-    async def get_task_dependencies(self, task_uid: str) -> Result[dict[str, Any]]:
+    async def get_task_dependencies(self, task_uid: str) -> Result[GraphContextResult]:
         """Get task dependency information."""
         ...
 
@@ -945,7 +945,7 @@ class HabitsRelationshipOperations(BaseRelationshipOperations, Protocol):
 
     async def get_habit_cross_domain_context(
         self, habit_uid: str, depth: int = 2, min_confidence: float = 0.7
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[GraphContextResult]:
         """
         Get cross-domain context for a habit with configurable graph traversal depth.
 
@@ -981,7 +981,7 @@ class EventsRelationshipOperations(BaseRelationshipOperations, Protocol):
 
     async def get_event_cross_domain_context(
         self, event_uid: str, depth: int = 2
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[GraphContextResult]:
         """
         Get cross-domain context for an event with configurable graph traversal depth.
 
@@ -1016,7 +1016,7 @@ class GoalsRelationshipOperations(BaseRelationshipOperations, Protocol):
 
     async def get_goal_cross_domain_context(
         self, goal_uid: str, depth: int = 2, min_confidence: float = 0.7
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[GraphContextResult]:
         """
         Get cross-domain context for a goal with configurable graph traversal depth.
 
@@ -1050,7 +1050,7 @@ class PrinciplesRelationshipOperations(BaseRelationshipOperations, Protocol):
 
     async def get_principle_cross_domain_context(
         self, principle_uid: str, depth: int = 2
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[GraphContextResult]:
         """
         Get cross-domain context for a principle with configurable graph traversal depth.
 
@@ -1079,7 +1079,7 @@ class ChoicesRelationshipOperations(BaseRelationshipOperations, Protocol):
 
     async def get_choice_cross_domain_context(
         self, choice_uid: str, depth: int = 2, min_confidence: float = 0.7
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[GraphContextResult]:
         """
         Get cross-domain context for a choice with configurable graph traversal depth.
 

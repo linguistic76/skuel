@@ -530,9 +530,7 @@ class TasksService(BaseService["TasksOperations", Task]):
             learning_path_uid, _user_context
         )
 
-    async def get_next_learning_task(
-        self, user_context: UserContext
-    ) -> Result[Task | None]:
+    async def get_next_learning_task(self, user_context: UserContext) -> Result[Task | None]:
         return await self.scheduling.get_next_learning_task(user_context)
 
     async def suggest_learning_aligned_tasks(
@@ -581,9 +579,7 @@ class TasksService(BaseService["TasksOperations", Task]):
     async def analyze_task_learning_context(
         self, entity_uid: str, depth: int = 2, min_confidence: float = 0.7
     ) -> Result[dict[str, Any]]:
-        return await self.relationships.get_cross_domain_context(
-            entity_uid, depth, min_confidence
-        )
+        return await self.relationships.get_cross_domain_context(entity_uid, depth, min_confidence)
 
     async def get_task_with_semantic_context(
         self,

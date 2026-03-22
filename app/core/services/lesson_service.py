@@ -339,9 +339,7 @@ class LessonService:
     ) -> Result[list[str]]:
         return await self.application_discovery.find_learning_steps_containing(ku_uid, limit)
 
-    async def find_learning_paths_teaching(
-        self, ku_uid: str, limit: int = 10
-    ) -> Result[list[str]]:
+    async def find_learning_paths_teaching(self, ku_uid: str, limit: int = 10) -> Result[list[str]]:
         return await self.application_discovery.find_learning_paths_teaching(ku_uid, limit)
 
     async def find_tasks_applying_knowledge(
@@ -433,9 +431,7 @@ class LessonService:
         )
 
     # Organization delegations (with None guard — organization service is optional)
-    async def organize(
-        self, parent_uid: str, child_uid: str, order: int = 0
-    ) -> Result[bool]:
+    async def organize(self, parent_uid: str, child_uid: str, order: int = 0) -> Result[bool]:
         if self.organization is None:
             return Result.fail(Errors.system("Organization service not available", "organize"))
         return await self.organization.organize(parent_uid, child_uid, order)

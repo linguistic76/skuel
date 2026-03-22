@@ -46,6 +46,7 @@ if TYPE_CHECKING:
     from core.models.enums import Priority
     from core.models.protocols.domain_model_protocol import DomainModelProtocol
     from core.models.relationship_names import RelationshipName
+    from core.models.type_hints import FilterParams, Neo4jProperties
     from core.utils.result_simplified import Result as ResultType
     # Note: Result protocol defined at line 866 is for duck-typing Result-like objects
     # ResultType is the actual Result[T] class used in type annotations
@@ -386,7 +387,7 @@ class GraphRelationshipOperations(Protocol):
         relationship_type: RelationshipName,
         direction: Direction = "outgoing",
         limit: int = 100,
-        properties: dict[str, Any] | None = None,
+        properties: Neo4jProperties | None = None,
     ) -> ResultType[builtins.list[str]]:
         """Get UIDs of related entities via specific relationship type.
 
@@ -407,7 +408,7 @@ class GraphRelationshipOperations(Protocol):
         uid: str,
         relationship_type: RelationshipName,
         direction: Direction = "outgoing",
-        properties: dict[str, Any] | None = None,
+        properties: Neo4jProperties | None = None,
     ) -> ResultType[int]:
         """Count related entities via specific relationship type.
 
@@ -467,7 +468,7 @@ class CrudOperations[T: "DomainModelProtocol"](Protocol):
         """Get multiple entities by UIDs in a single batched query."""
         ...
 
-    async def update(self, uid: str, updates: dict[str, Any]) -> ResultType[T]:
+    async def update(self, uid: str, updates: Neo4jProperties) -> ResultType[T]:
         """Update an existing entity."""
         ...
 
@@ -479,7 +480,7 @@ class CrudOperations[T: "DomainModelProtocol"](Protocol):
         self,
         limit: int = 100,
         offset: int = 0,
-        filters: dict[str, Any] | None = None,
+        filters: FilterParams | None = None,
         sort_by: str | None = None,
         sort_order: str = "asc",
     ) -> ResultType[tuple[builtins.list[T], int]]:
@@ -511,7 +512,7 @@ class EntitySearchOperations[T: "DomainModelProtocol"](Protocol):
         self,
         user_uid: str,
         relationship_type: str | None = None,
-        filters: dict[str, Any] | None = None,
+        filters: FilterParams | None = None,
         limit: int = 100,
         offset: int = 0,
         sort_by: str | None = None,
@@ -548,7 +549,7 @@ class RelationshipCrudOperations(Protocol):
         from_uid: str,
         to_uid: str,
         relationship_type: RelationshipName,
-        properties: dict[str, Any] | None = None,
+        properties: Neo4jProperties | None = None,
     ) -> ResultType[bool]:
         """
         Add a relationship between two entities.
@@ -577,7 +578,7 @@ class RelationshipCrudOperations(Protocol):
         ...
 
     async def create_relationships_batch(
-        self, relationships: builtins.list[tuple[str, str, str, dict[str, Any] | None]]
+        self, relationships: builtins.list[tuple[str, str, str, Neo4jProperties | None]]
     ) -> ResultType[int]:
         """Create multiple relationships in a single transaction."""
         ...
@@ -615,14 +616,14 @@ class RelationshipMetadataOperations(Protocol):
         from_uid: str,
         to_uid: str,
         relationship_type: RelationshipName,
-        properties: dict[str, Any],
+        properties: Neo4jProperties,
     ) -> ResultType[bool]:
         """Update specific properties on a relationship edge."""
         ...
 
     async def get_relationships_batch(
         self, relationships: builtins.list[tuple[str, str, str]]
-    ) -> ResultType[builtins.list[dict[str, Any]]]:
+    ) -> ResultType[builtins.list[RelationshipMetadata]]:
         """Get metadata for multiple relationships in a single query."""
         ...
 
@@ -641,7 +642,7 @@ class RelationshipQueryOperations(Protocol):
         uid: str,
         relationship_type: RelationshipName,
         direction: Direction = "outgoing",
-        properties: dict[str, Any] | None = None,
+        properties: Neo4jProperties | None = None,
     ) -> ResultType[int]:
         """Count related entities via relationship pattern."""
         ...
@@ -652,7 +653,7 @@ class RelationshipQueryOperations(Protocol):
         relationship_type: RelationshipName,
         direction: Direction = "outgoing",
         limit: int = 100,
-        properties: dict[str, Any] | None = None,
+        properties: Neo4jProperties | None = None,
     ) -> ResultType[builtins.list[str]]:
         """Get UIDs of related entities via graph edge traversal."""
         ...
@@ -856,7 +857,7 @@ class SupportsRelatedSearch(Protocol):
 class SupportsSearchWithFilters(Protocol):
     """Protocol for search backends that support advanced filtering."""
 
-    async def search_with_filters(self, query: str, filters: dict[str, Any], **options: Any) -> Any:
+    async def search_with_filters(self, query: str, filters: FilterParams, **options: Any) -> Any:
         """Search with advanced filters."""
         ...
 

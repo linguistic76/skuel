@@ -235,9 +235,7 @@ class GoalsService(BaseService[GoalsOperations, Goal]):
     async def archive_goal(self, uid: str, reason: str = "Archived") -> Result[bool]:
         return await self.core.archive_goal(uid, reason)
 
-    async def create_goal(
-        self, goal_request: GoalCreateRequest, user_uid: str
-    ) -> Result[Goal]:
+    async def create_goal(self, goal_request: GoalCreateRequest, user_uid: str) -> Result[Goal]:
         return await self.core.create_goal(goal_request, user_uid)
 
     # Progress delegations
@@ -261,15 +259,15 @@ class GoalsService(BaseService[GoalsOperations, Goal]):
     ) -> Result[dict[str, Any]]:
         return await self.progress.update_goal_progress(uid, progress_value, notes, update_date)
 
-    async def get_goal_progress(
-        self, uid: str, period: str = "month"
-    ) -> Result[dict[str, Any]]:
+    async def get_goal_progress(self, uid: str, period: str = "month") -> Result[dict[str, Any]]:
         return await self.progress.get_goal_progress(uid, period)
 
     async def create_goal_milestone(
         self, uid: str, milestone_title: str, target_date: str, description: str = ""
     ) -> Result[bool]:
-        return await self.progress.create_goal_milestone(uid, milestone_title, target_date, description)
+        return await self.progress.create_goal_milestone(
+            uid, milestone_title, target_date, description
+        )
 
     async def get_goal_milestones(self, uid: str) -> Result[list[dict[str, Any]]]:
         return await self.progress.get_goal_milestones(uid)
@@ -302,23 +300,17 @@ class GoalsService(BaseService[GoalsOperations, Goal]):
     ) -> Result[GoalLearningProgress]:
         return await self.learning.track_goal_learning_progress(goal_uid, learning_position)
 
-    async def get_goals_needing_habits(
-        self, user_context: UserContext
-    ) -> Result[list[Goal]]:
+    async def get_goals_needing_habits(self, user_context: UserContext) -> Result[list[Goal]]:
         return await self.learning.get_goals_needing_habits(user_context)
 
-    async def get_goals_blocked_by_knowledge(
-        self, user_context: UserContext
-    ) -> Result[list[Goal]]:
+    async def get_goals_blocked_by_knowledge(self, user_context: UserContext) -> Result[list[Goal]]:
         return await self.learning.get_goals_blocked_by_knowledge(user_context)
 
     # Relationship delegations
     async def get_goal_cross_domain_context(
         self, entity_uid: str, depth: int = 2, min_confidence: float = 0.7
     ) -> Result[dict[str, Any]]:
-        return await self.relationships.get_cross_domain_context(
-            entity_uid, depth, min_confidence
-        )
+        return await self.relationships.get_cross_domain_context(entity_uid, depth, min_confidence)
 
     async def get_goal_with_semantic_context(
         self,
@@ -383,9 +375,7 @@ class GoalsService(BaseService[GoalsOperations, Goal]):
     ) -> Result[list[Goal]]:
         return await self.search.get_overdue(user_uid, limit)
 
-    async def get_goals_by_domain(
-        self, domain: Domain, limit: int = 100
-    ) -> Result[list[Goal]]:
+    async def get_goals_by_domain(self, domain: Domain, limit: int = 100) -> Result[list[Goal]]:
         return await self.search.get_by_domain(domain, limit)
 
     async def get_prioritized_goals(
@@ -422,9 +412,7 @@ class GoalsService(BaseService[GoalsOperations, Goal]):
     ) -> Result[AchievabilityResult]:
         return await self.scheduling.assess_goal_achievability(goal_uid, user_context)
 
-    async def get_schedule_aware_next_goal(
-        self, user_context: UserContext
-    ) -> Result[Goal | None]:
+    async def get_schedule_aware_next_goal(self, user_context: UserContext) -> Result[Goal | None]:
         return await self.scheduling.get_schedule_aware_next_goal(user_context)
 
     async def optimize_goal_sequencing(
@@ -432,9 +420,7 @@ class GoalsService(BaseService[GoalsOperations, Goal]):
     ) -> Result[list[GoalSequenceItem]]:
         return await self.scheduling.optimize_goal_sequencing(user_uid, goal_uids)
 
-    async def get_goal_load_by_timeframe(
-        self, user_uid: str
-    ) -> Result[dict[str, Any]]:
+    async def get_goal_load_by_timeframe(self, user_uid: str) -> Result[dict[str, Any]]:
         return await self.scheduling.get_goal_load_by_timeframe(user_uid)
 
     async def create_goal_with_scheduling_context(

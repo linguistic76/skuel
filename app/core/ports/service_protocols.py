@@ -23,6 +23,7 @@ from datetime import date, datetime
 from typing import Any, Literal, Protocol, runtime_checkable
 
 from core.models.relationship_names import RelationshipName
+from core.models.type_hints import Neo4jProperties
 from core.ports.context_awareness_protocols import FullAwareness
 from core.utils.result_simplified import Result
 
@@ -526,7 +527,7 @@ class LateralRelationshipOperations(Protocol):
         source_uid: str,
         target_uid: str,
         relationship_type: RelationshipName,
-        metadata: dict[str, Any] | None = None,
+        metadata: Neo4jProperties | None = None,
         validate: bool = True,
         auto_inverse: bool = True,
         user_uid: str | None = None,
