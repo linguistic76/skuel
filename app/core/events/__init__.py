@@ -143,15 +143,6 @@ from core.events.form_events import (
     FormTemplateUpdated,
 )
 
-# Journal events (JE_INPUT/JE_OUTPUT domain)
-from core.events.journal_events import (
-    JeInputCreated,
-    JeInputDeleted,
-    JeInputProcessingCompleted,
-    JeInputProcessingStarted,
-    JeOutputGenerated,
-)
-
 # Goal events
 from core.events.goal_events import (
     GoalAbandoned,
@@ -169,6 +160,15 @@ from core.events.habit_events import (
     HabitMissed,
     HabitStreakBroken,
     HabitStreakMilestone,
+)
+
+# Journal events (JE_INPUT/JE_OUTPUT domain)
+from core.events.journal_events import (
+    JeInputCreated,
+    JeInputDeleted,
+    JeInputProcessingCompleted,
+    JeInputProcessingStarted,
+    JeOutputGenerated,
 )
 
 # Learning events
@@ -307,6 +307,8 @@ __all__ = [
     # Journal events (JE_INPUT/JE_OUTPUT)
     "JeInputCreated",
     "JeInputDeleted",
+    "JeInputProcessingCompleted",
+    "JeInputProcessingStarted",
     "JeOutputGenerated",
     "GoalMilestoneReached",
     "GoalProgressUpdated",

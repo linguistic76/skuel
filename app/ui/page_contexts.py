@@ -49,7 +49,7 @@ class GoalsPageContext(TypedDict):
     """Goals list view context."""
 
     entities: list[Goal]
-    stats: dict[str, int]
+    stats: dict[str, int | float]
     filters: dict[str, Any]
     categories: NotRequired[list[str]]
     view: NotRequired[str]
@@ -59,7 +59,7 @@ class HabitsPageContext(TypedDict):
     """Habits list view context."""
 
     entities: list[Habit]
-    stats: dict[str, int]
+    stats: dict[str, int | float]
     filters: dict[str, Any]
     categories: NotRequired[list[str]]
     view: NotRequired[str]
@@ -69,7 +69,7 @@ class EventsPageContext(TypedDict):
     """Events list view context."""
 
     entities: list[Event]
-    stats: dict[str, int]
+    stats: dict[str, int | float]
     filters: dict[str, Any]
     view: NotRequired[str]
 
@@ -78,7 +78,7 @@ class ChoicesPageContext(TypedDict):
     """Choices list view context."""
 
     entities: list[Choice]
-    stats: dict[str, int]
+    stats: dict[str, int | float]
     filters: dict[str, Any]
     view: NotRequired[str]
 
@@ -87,7 +87,7 @@ class PrinciplesPageContext(TypedDict):
     """Principles list view context."""
 
     entities: list[Principle]
-    stats: dict[str, int]
+    stats: dict[str, int | float]
     filters: dict[str, Any]
     categories: NotRequired[list[str]]
     view: NotRequired[str]

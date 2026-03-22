@@ -105,7 +105,7 @@ def create_goals_api_routes(
     @boundary_handler(success_status=201)
     async def create_goal_milestone_route(
         request: Request, user_uid: str, entity: Any
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[bool]:
         """Create a milestone for a goal (requires ownership)."""
         body = await request.json()
         try:

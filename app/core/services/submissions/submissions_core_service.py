@@ -47,8 +47,6 @@ from datetime import date, datetime
 from typing import Any
 
 from core.events import publish_event
-from core.models.type_hints import FilterParams, Metadata
-from core.ports.sharing_protocols import SharingOperations
 from core.events.submission_events import SubmissionDeleted
 from core.models.entity import Entity
 from core.models.entity_types import SubmissionEntity
@@ -56,8 +54,10 @@ from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.relationship_names import RelationshipName
 from core.models.report.submission_report import SubmissionReport
 from core.models.submissions.submission_dto import SubmissionDTO
+from core.models.type_hints import FilterParams, Metadata
 from core.ports import BackendOperations
 from core.ports.infrastructure_protocols import EventBusOperations
+from core.ports.sharing_protocols import SharingOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
 from core.services.submissions.assessment_service import AssessmentService

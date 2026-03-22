@@ -142,6 +142,7 @@ if TYPE_CHECKING:
     from core.services.goals_service import GoalsService
     from core.services.habits_service import HabitsService
     from core.services.insight.insight_store import InsightStore
+    from core.services.journal import JournalInputService, JournalOutputService
     from core.services.jupyter_neo4j_sync import JupyterNeo4jSync
     from core.services.knowledge import ActivityKnowledgeIntelligenceService
     from core.services.ku_service import KuService
@@ -155,7 +156,6 @@ if TYPE_CHECKING:
     from core.services.report.activity_report_service import ActivityReportService
     from core.services.report.progress_report_generator import ProgressReportGenerator
     from core.services.report.progress_schedule_service import ProgressScheduleService
-    from core.services.journal import JournalInputService, JournalOutputService
     from core.services.report.review_queue_service import ReviewQueueService
     from core.services.tasks_service import TasksService
     from core.services.transcription.batch_processing_service import BatchProcessingService
@@ -2595,9 +2595,9 @@ async def compose_services(
         logger.info("✅ InstructionResolver created")
 
         # Journal input service (CRUD + file upload → JeInput entities)
-        from core.services.journal import JournalInputService
         from adapters.persistence.neo4j.domain_backends import JournalInputBackend
         from core.models.journal.je_input import JeInput
+        from core.services.journal import JournalInputService
 
         journal_storage = os.getenv("SKUEL_JOURNAL_STORAGE", "/tmp/skuel_journals")
         journal_input_backend = JournalInputBackend(
@@ -2611,9 +2611,9 @@ async def compose_services(
         logger.info(f"✅ JournalInputService created (storage: {journal_storage})")
 
         # Journal output service (LLM processing → JeOutput entities)
-        from core.services.journal import JournalOutputService
         from adapters.persistence.neo4j.domain_backends import JournalOutputBackend
         from core.models.journal.je_output import JeOutput
+        from core.services.journal import JournalOutputService
 
         journal_output_backend = JournalOutputBackend(
             driver, NeoLabel.JE_OUTPUT, JeOutput, base_label=NeoLabel.ENTITY

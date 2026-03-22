@@ -24,6 +24,8 @@ from core.models.forms.form_submission import FormSubmission
 from core.models.forms.form_template import FormTemplate
 from core.models.goal.goal import Goal
 from core.models.habit.habit import Habit
+from core.models.journal.je_input import JeInput
+from core.models.journal.je_output import JeOutput
 from core.models.ku.ku import Ku
 from core.models.lesson.lesson import Lesson
 from core.models.life_path.life_path import LifePath
@@ -31,8 +33,6 @@ from core.models.pathways.learning_path import LearningPath
 from core.models.pathways.learning_step import LearningStep
 from core.models.principle.principle import Principle
 from core.models.report.activity_report import ActivityReport
-from core.models.journal.je_input import JeInput
-from core.models.journal.je_output import JeOutput
 from core.models.report.exercise_report import ExerciseReport
 from core.models.report.submission_report import SubmissionReport
 from core.models.resource.resource import Resource

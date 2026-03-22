@@ -20,14 +20,12 @@ Usage::
 
 from __future__ import annotations
 
-from typing import Any, TypeVar
+from typing import Any
 
 from core.ports.query_types import ListContext
 
-T = TypeVar("T")
 
-
-def get_entities(ctx: ListContext, _entity_type: type[T]) -> list[T]:
+def get_entities[T](ctx: ListContext, _entity_type: type[T]) -> list[T]:
     """Return entities from *ctx*, narrowed to *_entity_type* for MyPy."""
     return ctx.get("entities", [])  # type: ignore[return-value]
 

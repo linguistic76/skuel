@@ -19,13 +19,12 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 
 from __future__ import annotations
 
-import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from core.events.journal_events import JeOutputGenerated
 from core.events import publish_event
+from core.events.journal_events import JeOutputGenerated
 from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
 from core.models.journal.je_output import JeOutput
 from core.models.journal.je_output_dto import JeOutputDTO
@@ -133,7 +132,7 @@ class JournalOutputService:
 
         # 3. Save to disk
         uid = UIDGenerator.generate_random_uid("jo")
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
         file_path = self._build_output_path(uid, now)
 
         try:
@@ -284,9 +283,9 @@ class JournalOutputService:
             if not month_dir.is_dir():
                 continue
             for file_path in month_dir.iterdir():
-                if not file_path.is_file() or not file_path.suffix == ".md":
+                if not file_path.is_file() or file_path.suffix != ".md":
                     continue
-                mtime = datetime.fromtimestamp(file_path.stat().st_mtime, tz=timezone.utc)
+                mtime = datetime.fromtimestamp(file_path.stat().st_mtime, tz=UTC)
                 if start_date <= mtime <= end_date:
                     size = file_path.stat().st_size
                     file_path.unlink()
