@@ -1,6 +1,6 @@
 # Type Safety Architecture Overview
 
-*Last updated: 2026-02-28*
+*Last updated: 2026-03-22*
 
 SKUEL treats type safety as infrastructure — not ceremony. Types are enforced at every
 layer, from HTTP boundaries through to database writes. The goal is that a type error from
@@ -135,6 +135,12 @@ async def find_by_filters(filters: FilterParams) -> list[Entity]: ...
 from adapters.inbound.fasthtml_types import RouteDecorator, FastHTMLApp, Request, RouteList
 # FastHTML has no type stubs; these Protocols capture what SKUEL actually calls
 ```
+
+**Protocol layer adoption (Phase 3 — March 2026):** All protocol method signatures in
+`base_protocols.py`, `domain_protocols.py`, and `service_protocols.py` now use typed aliases
+(`Neo4jProperties`, `FilterParams`, `Metadata`, `RelationshipMetadata`, `GraphContextResult`)
+instead of `dict[str, Any]`. Only genuine boundary types (Neo4j driver params, FastHTML elements,
+error metadata) retain `Any`.
 
 **See:** `docs/patterns/ANY_USAGE_POLICY.md` (complete policy with quick-reference table)
 

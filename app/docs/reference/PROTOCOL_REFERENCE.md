@@ -355,7 +355,7 @@ class TasksOperations(Protocol):
         """Create task - returns Result[Task]."""
         ...
 
-    async def update_task(self, uid: str, updates: dict[str, Any]) -> Result[Task]:
+    async def update_task(self, uid: str, updates: dict) -> Result[Task]:
         """Update task - returns Result[Task]."""
         ...
 

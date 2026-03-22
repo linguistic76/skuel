@@ -191,6 +191,23 @@ T = TypeVar("T")
 ResultList = Result[list[T]]
 ```
 
+**SKUEL-specific type aliases** (from `core/models/type_hints.py`):
+
+```python
+from core.models.type_hints import Neo4jProperties, FilterParams, Neo4jValue, Metadata
+
+# Neo4j node property dicts — use instead of dict[str, Any]
+type Neo4jValue = str | int | float | bool | list[str | int | float] | None | datetime
+type Neo4jProperties = dict[str, Neo4jValue]
+
+# Search/filter parameters — use instead of dict[str, Any]
+type FilterValue = str | int | float | bool | list[str | int | float] | None
+type FilterParams = dict[str, FilterValue]
+
+# Dynamic request data — use only for truly dynamic data
+type Metadata = dict[str, Any]  # boundary: use specific types above when possible
+```
+
 ## Literal Types
 
 ```python

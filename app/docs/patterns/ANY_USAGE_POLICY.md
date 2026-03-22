@@ -1,6 +1,6 @@
 # Any Usage Policy
 
-*Last updated: 2026-02-28*
+*Last updated: 2026-03-22*
 
 SKUEL treats `Any` as a last resort, not a default. Every use of `Any` must belong to one
 of the three categories below. Unlabelled `Any` annotations are technical debt and should
@@ -86,6 +86,20 @@ sorter: EntityFilter[Task]   # = Callable[[Task], bool]
 scorer: Scorer[Goal]         # = Callable[[Goal], Score]
 validator: Validator[Habit]  # = Callable[[Habit], list[str]]
 ```
+
+---
+
+### Protocol Layer Adoption (Phase 3 — March 2026)
+
+All protocol files (`base_protocols.py`, `domain_protocols.py`, `service_protocols.py`) now use
+typed aliases instead of `dict[str, Any]`:
+
+- `CrudOperations.update()` → `updates: Neo4jProperties`
+- `CrudOperations.list()`, `EntitySearchOperations.get_user_entities()` → `filters: FilterParams`
+- `RelationshipCrudOperations`, `RelationshipQueryOperations` → `properties: Neo4jProperties`
+- `RelationshipMetadataOperations.get_relationships_batch()` → returns `list[RelationshipMetadata]`
+- Domain CRUD params (`create_goal`, `update_habit`, etc.) → `Metadata`
+- Cross-domain context returns → `GraphContextResult`
 
 ---
 
