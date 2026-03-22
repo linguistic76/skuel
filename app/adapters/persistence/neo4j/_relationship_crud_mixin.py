@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.protocols import DomainModelProtocol
 from core.models.relationship_names import RelationshipName
+from core.models.type_hints import FilterParams
 from core.utils.error_boundary import safe_backend_operation
 from core.utils.result_simplified import Errors, Result
 
@@ -46,7 +47,7 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         logger: logging.Logger
         label: str
         entity_class: type[T]
-        default_filters: dict[str, Any]
+        default_filters: FilterParams
     """
 
     if TYPE_CHECKING:
@@ -54,7 +55,7 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         logger: logging.Logger
         label: str
         entity_class: type[T]
-        default_filters: dict[str, Any]
+        default_filters: FilterParams
 
     # ============================================================================
     # GRAPH-NATIVE RELATIONSHIP API (October 26, 2025)

@@ -21,6 +21,7 @@ from enum import Enum
 from typing import Any, get_origin, get_type_hints
 
 from core.models.enums.neo_labels import NeoLabel
+from core.models.type_hints import Neo4jValue
 from core.utils.logging import get_logger
 
 from ._types import T
@@ -66,7 +67,7 @@ def convert_value_for_neo4j(value: Any) -> Any:
 
 def build_search_query(
     entity_class: type[T], filters: dict[str, Any], label: str | None = None
-) -> tuple[str, dict[str, Any]]:
+) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Auto-generate search query based on model fields.
 
@@ -107,7 +108,7 @@ def build_search_query(
     field_names = {f.name for f in fields(entity_class)}
 
     where_clauses = []
-    params = {}
+    params: dict[str, Neo4jValue] = {}
 
     for filter_key, filter_value in filters.items():
         # Parse operator from filter key (e.g., "due_date__gte" -> "due_date", "gte")
@@ -191,7 +192,7 @@ def build_text_search_query(
     limit: int = 50,
     order_by: str = "created_at",
     order_desc: bool = True,
-) -> tuple[str, dict[str, Any]]:
+) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build text search query across multiple fields with OR semantics.
 
@@ -274,7 +275,7 @@ def build_relationship_traversal_query(
     target_label: str,
     direction: str = "outgoing",
     limit: int = 100,
-) -> tuple[str, dict[str, Any]]:
+) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build single-query relationship traversal returning full target entities.
 
@@ -339,7 +340,7 @@ def build_graph_aware_search_query(
     limit: int = 50,
     order_by: str = "created_at",
     order_desc: bool = True,
-) -> tuple[str, dict[str, Any]]:
+) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build graph-aware search: text search + relationship traversal in ONE query.
 
@@ -458,7 +459,7 @@ def build_array_contains_query(
     limit: int = 50,
     order_by: str | None = "created_at",
     order_desc: bool = True,
-) -> tuple[str, dict[str, Any]]:
+) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build query to find entities where array field contains a value.
 
@@ -518,7 +519,7 @@ def build_array_any_match_query(
     limit: int = 50,
     order_by: str | None = "created_at",
     order_desc: bool = True,
-) -> tuple[str, dict[str, Any]]:
+) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build query to find entities matching any/all values in array field.
 
@@ -585,12 +586,13 @@ def build_array_any_match_query(
         LIMIT $limit
         """
 
-    return cypher, {"values": values, "limit": limit}
+    result_values: list[str | int | float] = list(values)
+    return cypher, {"values": result_values, "limit": limit}
 
 
 def build_get_by_field_query(
     entity_class: type[T], field_name: str, field_value: Any, label: str | None = None
-) -> tuple[str, dict[str, Any]]:
+) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Generate query to get entities by a specific field value.
 
@@ -632,7 +634,7 @@ def build_list_query(
     skip: int = 0,
     order_by: str | None = None,
     order_desc: bool = False,
-) -> tuple[str, dict[str, Any]]:
+) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Generate query to list entities with pagination and sorting.
 
@@ -685,7 +687,7 @@ def build_list_query(
 
 def build_count_query(
     entity_class: type[T], filters: dict[str, Any] | None = None, label: str | None = None
-) -> tuple[str, dict[str, Any]]:
+) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Generate query to count entities with optional filters.
 
@@ -749,7 +751,7 @@ def build_distinct_values_query(
     label: str,
     field: str,
     user_uid: str | None = None,
-) -> tuple[str, dict[str, Any]]:
+) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build query to get distinct values from a field.
 
@@ -773,7 +775,7 @@ def build_distinct_values_query(
     _validate_label(label)
     _validate_identifier(field)
 
-    params: dict[str, Any] = {}
+    params: dict[str, Neo4jValue] = {}
 
     if user_uid:
         query = f"""
@@ -798,7 +800,7 @@ def build_hierarchy_query(
     label: str,
     uid: str,
     relationship_types: list[str] | None = None,
-) -> tuple[str, dict[str, Any]]:
+) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build query for hierarchical structure (parents and children).
 
@@ -853,7 +855,7 @@ def build_prerequisite_traversal_query(
     relationship_types: list[str],
     depth: int = 3,
     direction: str = "outgoing",
-) -> tuple[str, dict[str, Any]]:
+) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build query for prerequisite chain traversal.
 
@@ -909,7 +911,7 @@ def build_user_progress_query(
     user_uid: str,
     entity_uid: str,
     mastery_threshold: float = 0.8,
-) -> tuple[str, dict[str, Any]]:
+) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build query for user progress/mastery data.
 
@@ -952,7 +954,7 @@ def build_user_curriculum_query(
     label: str,
     user_uid: str,
     include_completed: bool = False,
-) -> tuple[str, dict[str, Any]]:
+) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build query for user's curriculum/learning entities.
 

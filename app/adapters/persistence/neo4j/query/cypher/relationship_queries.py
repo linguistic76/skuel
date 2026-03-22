@@ -18,13 +18,15 @@ Methods:
 
 from typing import Any
 
+from core.models.type_hints import Neo4jValue
+
 
 def build_relationship_count(
     uid: str,
     relationship_type: str,
     direction: str = "outgoing",
-    properties: dict[str, Any] | None = None,
-) -> tuple[str, dict[str, Any]]:
+    properties: dict[str, Neo4jValue] | None = None,
+) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Generate Cypher query to count related entities via graph relationships.
 
@@ -68,7 +70,7 @@ def build_relationship_count(
 
     # Build WHERE clause for property filtering
     where_clauses = []
-    params: dict[str, Any] = {"uid": uid}
+    params: dict[str, Neo4jValue] = {"uid": uid}
 
     if properties:
         for key, value in properties.items():
@@ -94,8 +96,8 @@ def build_relationship_uids_query(
     relationship_type: str,
     direction: str = "outgoing",
     limit: int = 100,
-    properties: dict[str, Any] | None = None,
-) -> tuple[str, dict[str, Any]]:
+    properties: dict[str, Neo4jValue] | None = None,
+) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Generate Cypher query to get UIDs of related entities via graph relationships.
 
@@ -140,7 +142,7 @@ def build_relationship_uids_query(
 
     # Build WHERE clause for property filtering
     where_clauses = []
-    params: dict[str, Any] = {"uid": uid, "limit": limit}
+    params: dict[str, Neo4jValue] = {"uid": uid, "limit": limit}
 
     if properties:
         for key, value in properties.items():
@@ -164,7 +166,7 @@ def build_relationship_uids_query(
 
 def build_multi_relationship_count(
     uid: str, relationship_types: list[str], direction: str = "outgoing"
-) -> tuple[str, dict[str, Any]]:
+) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Generate Cypher query to count relationships across multiple types.
 
@@ -212,7 +214,8 @@ def build_multi_relationship_count(
     RETURN count(r) as count
     """
 
-    params: dict[str, Any] = {"uid": uid, "relationship_types": relationship_types}
+    rel_types: list[str | int | float] = list(relationship_types)
+    params: dict[str, Neo4jValue] = {"uid": uid, "relationship_types": rel_types}
 
     return cypher.strip(), params
 
@@ -432,7 +435,7 @@ def build_metadata_aware_path_query(
     min_confidence: float = 0.7,
     depth: int = 10,
     limit: int = 5,
-) -> tuple[str, dict[str, Any]]:
+) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Generate Cypher query for metadata-aware learning paths.
 
@@ -516,7 +519,7 @@ def build_metadata_aware_path_query(
     """
 
     # Build parameters
-    params: dict[str, Any] = {
+    params: dict[str, Neo4jValue] = {
         "target_uid": target_uid,
         "min_confidence": min_confidence,
         "limit": limit,

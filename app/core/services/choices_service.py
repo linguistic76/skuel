@@ -44,13 +44,20 @@ from core.utils.sort_functions import (
 from core.utils.type_converters import get_enum_attr_str
 
 if TYPE_CHECKING:
+    from datetime import date
+
     from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
     from core.models.choice.choice_request import ChoiceCreateRequest
     from core.models.entity_requests import EntityUpdateRequest
+    from core.models.enums import Domain, Priority
+    from core.models.graph_context import GraphContext
+    from core.models.pathways.lp_position import LpPosition
     from core.ports.infrastructure_protocols import EventBusOperations
     from core.ports.query_types import ListContext
     from core.ports.search_protocols import ChoicesSearchOperations
     from core.services.choices.choices_intelligence_service import ChoicesIntelligenceService
+    from core.services.choices.choices_types import ChoiceImpactAnalysis, DecisionIntelligence
+    from core.services.user import UserContext
 
 
 class ChoicesAnalyticsContext(TypedDict):
@@ -151,87 +158,159 @@ class ChoicesService(BaseService["ChoicesOperations", Choice]):
     # ========================================================================
 
     # Core CRUD delegations
-    async def get_choice(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.core.get_choice(*args, **kwargs)
+    async def get_choice(self, choice_uid: str) -> Result[Choice]:
+        return await self.core.get_choice(choice_uid)
 
-    async def get_user_choices(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.core.get_user_choices(*args, **kwargs)
+    async def get_user_choices(self, user_uid: str) -> Result[list[Choice]]:
+        return await self.core.get_user_choices(user_uid)
 
-    async def get_user_items_in_range(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.core.get_user_items_in_range(*args, **kwargs)
+    async def get_user_items_in_range(
+        self,
+        user_uid: str,
+        start_date: date,
+        end_date: date,
+        include_completed: bool = False,
+    ) -> Result[list[Choice]]:
+        return await self.core.get_user_items_in_range(
+            user_uid, start_date, end_date, include_completed
+        )
 
     # Learning delegations
-    async def create_choice_with_learning_guidance(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.learning.create_choice_with_learning_guidance(*args, **kwargs)
+    async def create_choice_with_learning_guidance(
+        self,
+        choice_request: ChoiceCreateRequest,
+        user_uid: str,
+        learning_position: LpPosition | None = None,
+    ) -> Result[Choice]:
+        return await self.learning.create_choice_with_learning_guidance(
+            choice_request, user_uid, learning_position
+        )
 
-    async def get_learning_informed_guidance(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.learning.get_learning_informed_guidance(*args, **kwargs)
+    async def get_learning_informed_guidance(
+        self,
+        choice_description: str,
+        learning_position: LpPosition,
+        choice_options: list[str] | None = None,
+    ) -> Result[dict[str, Any]]:
+        return await self.learning.get_learning_informed_guidance(
+            choice_description, learning_position, choice_options
+        )
 
-    async def track_choice_learning_outcomes(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.learning.track_choice_learning_outcomes(*args, **kwargs)
+    async def track_choice_learning_outcomes(
+        self,
+        choice_uid: str,
+        learning_position: LpPosition,
+        _outcome_data: dict[str, Any] | None = None,
+    ) -> Result[dict[str, Any]]:
+        return await self.learning.track_choice_learning_outcomes(
+            choice_uid, learning_position, _outcome_data
+        )
 
-    async def suggest_learning_aligned_choices(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.learning.suggest_learning_aligned_choices(*args, **kwargs)
+    async def suggest_learning_aligned_choices(
+        self,
+        learning_position: LpPosition,
+        choice_domain: Domain | None = None,
+        urgency_level: Priority | None = None,
+    ) -> Result[list[dict[str, Any]]]:
+        return await self.learning.suggest_learning_aligned_choices(
+            learning_position, choice_domain, urgency_level
+        )
 
     # Relationship delegations
-    async def get_choice_cross_domain_context(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.relationships.get_cross_domain_context(*args, **kwargs)
+    async def get_choice_cross_domain_context(
+        self,
+        entity_uid: str,
+        depth: int = 2,
+        min_confidence: float = 0.7,
+    ) -> Result[dict[str, Any]]:
+        return await self.relationships.get_cross_domain_context(entity_uid, depth, min_confidence)
 
-    async def get_choice_with_semantic_context(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.relationships.get_with_semantic_context(*args, **kwargs)
+    async def get_choice_with_semantic_context(
+        self,
+        uid: str,
+        min_confidence: float = 0.8,
+        semantic_types: list[SemanticRelationshipType] | None = None,
+    ) -> Result[dict[str, Any]]:
+        return await self.relationships.get_with_semantic_context(
+            uid, min_confidence, semantic_types
+        )
 
     # Intelligence delegations
-    async def get_choice_with_context(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.intelligence.get_choice_with_context(*args, **kwargs)
+    async def get_choice_with_context(
+        self, uid: str, depth: int = 2
+    ) -> Result[tuple[Choice, GraphContext]]:
+        return await self.intelligence.get_choice_with_context(uid, depth)
 
-    async def get_decision_intelligence(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.intelligence.get_decision_intelligence(*args, **kwargs)
+    async def get_decision_intelligence(
+        self, choice_uid: str, min_confidence: float = 0.7, depth: int = 2
+    ) -> Result[DecisionIntelligence]:
+        return await self.intelligence.get_decision_intelligence(choice_uid, min_confidence, depth)
 
-    async def analyze_choice_impact(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.intelligence.analyze_choice_impact(*args, **kwargs)
+    async def analyze_choice_impact(
+        self, choice_uid: str, depth: int = 2, min_confidence: float = 0.7
+    ) -> Result[ChoiceImpactAnalysis]:
+        return await self.intelligence.analyze_choice_impact(choice_uid, depth, min_confidence)
 
-    async def get_decision_patterns(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.intelligence.get_decision_patterns(*args, **kwargs)
+    async def get_decision_patterns(self, user_uid: str, days: int = 90) -> Result[dict[str, Any]]:
+        return await self.intelligence.get_decision_patterns(user_uid, days)
 
-    async def get_choice_quality_correlations(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.intelligence.get_choice_quality_correlations(*args, **kwargs)
+    async def get_choice_quality_correlations(
+        self, user_uid: str, days: int = 90
+    ) -> Result[dict[str, Any]]:
+        return await self.intelligence.get_choice_quality_correlations(user_uid, days)
 
-    async def get_domain_decision_patterns(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.intelligence.get_domain_decision_patterns(*args, **kwargs)
+    async def get_domain_decision_patterns(
+        self, user_uid: str, days: int = 90
+    ) -> Result[dict[str, Any]]:
+        return await self.intelligence.get_domain_decision_patterns(user_uid, days)
 
     # Search delegations
-    async def search_choices(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.search.search(*args, **kwargs)
+    async def search_choices(
+        self, query: str, limit: int = 50, user_uid: str | None = None
+    ) -> Result[list[Choice]]:
+        return await self.search.search(query, limit, user_uid)  # type: ignore[return-value]
 
-    async def get_choices_by_status(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.search.get_by_status(*args, **kwargs)
+    async def get_choices_by_status(
+        self, status: str, limit: int = 100, user_uid: str | None = None
+    ) -> Result[list[Choice]]:
+        return await self.search.get_by_status(status, limit, user_uid)  # type: ignore[return-value]
 
-    async def get_choices_by_domain(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.search.get_by_domain(*args, **kwargs)
+    async def get_choices_by_domain(self, domain: Any, limit: int = 100) -> Result[list[Choice]]:
+        return await self.search.get_by_domain(domain, limit)  # type: ignore[return-value]
 
-    async def get_pending_choices(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.search.get_pending(*args, **kwargs)
+    async def get_pending_choices(self, user_uid: str, limit: int = 100) -> Result[list[Choice]]:
+        return await self.search.get_pending(user_uid, limit)  # type: ignore[return-value]
 
-    async def get_choices_due_soon(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.search.get_due_soon(*args, **kwargs)
+    async def get_choices_due_soon(
+        self, days_ahead: int = 7, user_uid: str | None = None, limit: int = 100
+    ) -> Result[list[Choice]]:
+        return await self.search.get_due_soon(days_ahead, user_uid, limit)  # type: ignore[return-value]
 
-    async def get_overdue_choices(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.search.get_overdue(*args, **kwargs)
+    async def get_overdue_choices(
+        self, user_uid: str | None = None, limit: int = 100
+    ) -> Result[list[Choice]]:
+        return await self.search.get_overdue(user_uid, limit)  # type: ignore[return-value]
 
-    async def get_choices_by_urgency(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.search.get_by_urgency(*args, **kwargs)
+    async def get_choices_by_urgency(
+        self, urgency: str, user_uid: str | None = None, limit: int = 100
+    ) -> Result[list[Choice]]:
+        return await self.search.get_by_urgency(urgency, user_uid, limit)  # type: ignore[return-value]
 
-    async def get_choices_needing_decision(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.search.get_needing_decision(*args, **kwargs)
+    async def get_choices_needing_decision(
+        self, user_uid: str, deadline_days: int = 7
+    ) -> Result[list[Choice]]:
+        return await self.search.get_needing_decision(user_uid, deadline_days)  # type: ignore[return-value]
 
-    async def get_prioritized_choices(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.search.get_prioritized(*args, **kwargs)
+    async def get_prioritized_choices(
+        self, user_context: UserContext, limit: int = 10
+    ) -> Result[list[Choice]]:
+        return await self.search.get_prioritized(user_context, limit)  # type: ignore[return-value]
 
-    async def list_choice_categories(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.search.list_user_categories(*args, **kwargs)
+    async def list_choice_categories(self, user_uid: str) -> Result[list[str]]:
+        return await self.search.list_user_categories(user_uid)
 
-    async def list_all_choice_categories(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.search.list_all_categories(*args, **kwargs)
+    async def list_all_choice_categories(self) -> Result[list[str]]:
+        return await self.search.list_all_categories()
 
     def __init__(
         self,

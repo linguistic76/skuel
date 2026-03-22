@@ -32,6 +32,7 @@ from typing import TYPE_CHECKING, Any
 from adapters.persistence.neo4j.relationship_builders import RelationshipBuilder
 from core.models.protocols import DomainModelProtocol
 from core.models.relationship_names import RelationshipName
+from core.models.type_hints import FilterParams
 from core.utils.error_boundary import safe_backend_operation
 from core.utils.neo4j_mapper import from_neo4j_node
 from core.utils.result_simplified import Errors, Result
@@ -55,7 +56,7 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
         logger: logging.Logger
         label: str
         entity_class: type[T]
-        default_filters: dict[str, Any]
+        default_filters: FilterParams
         _default_filter_clause: method
         _default_filter_params: method
         _build_direction_pattern: provided by _RelationshipCrudMixin via MRO
@@ -66,11 +67,11 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
         logger: logging.Logger
         label: str
         entity_class: type[T]
-        default_filters: dict[str, Any]
+        default_filters: FilterParams
 
         def _default_filter_clause(self, node_var: str = "n") -> str: ...
 
-        def _default_filter_params(self) -> dict[str, Any]: ...
+        def _default_filter_params(self) -> FilterParams: ...
 
         def _build_direction_pattern(
             self,

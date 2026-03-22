@@ -15,7 +15,9 @@ Methods:
 - build_semantic_filter_query: Filter nodes by semantic relationship presence
 """
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
+
+from core.models.type_hints import Neo4jValue
 
 if TYPE_CHECKING:
     from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
@@ -26,7 +28,7 @@ def build_semantic_context(
     semantic_types: list["SemanticRelationshipType"],
     depth: int = 2,
     min_confidence: float = 0.0,
-) -> tuple[str, dict[str, Any]]:
+) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build pure Cypher query for semantic knowledge context.
 
@@ -68,7 +70,7 @@ def build_semantic_context(
         }}) as semantic_context
     """
 
-    parameters = {"uid": node_uid, "min_confidence": min_confidence}
+    parameters: dict[str, Neo4jValue] = {"uid": node_uid, "min_confidence": min_confidence}
 
     return cypher, parameters
 
@@ -80,7 +82,7 @@ def build_domain_context_with_paths(
     depth: int = 2,
     min_confidence: float = 0.0,
     bidirectional: bool = False,
-) -> tuple[str, dict[str, Any]]:
+) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build query for cross-domain context with path-aware intelligence.
 
@@ -138,7 +140,7 @@ def build_domain_context_with_paths(
         }}) as domain_context
     """
 
-    parameters = {"uid": node_uid, "min_confidence": min_confidence}
+    parameters: dict[str, Neo4jValue] = {"uid": node_uid, "min_confidence": min_confidence}
 
     return cypher, parameters
 
@@ -149,7 +151,7 @@ def build_prerequisite_chain(
     depth: int = 3,
     min_confidence: float = 0.7,
     min_strength: float = 0.0,
-) -> tuple[str, dict[str, Any]]:
+) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build pure Cypher query for prerequisite chain.
 
@@ -189,7 +191,7 @@ def build_prerequisite_chain(
     ORDER BY depth ASC
     """
 
-    parameters = {
+    parameters: dict[str, Neo4jValue] = {
         "uid": node_uid,
         "min_confidence": min_confidence,
         "min_strength": min_strength,
@@ -202,7 +204,7 @@ def build_semantic_traversal(
     end_uid: str,
     semantic_types: list["SemanticRelationshipType"],
     max_depth: int = 5,
-) -> tuple[str, dict[str, Any]]:
+) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build pure Cypher query for semantic path finding.
 
@@ -240,7 +242,7 @@ def build_semantic_traversal(
         length(path) as path_length
     """
 
-    parameters = {"start_uid": start_uid, "end_uid": end_uid}
+    parameters: dict[str, Neo4jValue] = {"start_uid": start_uid, "end_uid": end_uid}
 
     return cypher, parameters
 
@@ -250,7 +252,7 @@ def build_hierarchical_context(
     parent_types: list["SemanticRelationshipType"],
     child_types: list["SemanticRelationshipType"],
     depth: int = 2,
-) -> tuple[str, dict[str, Any]]:
+) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build pure Cypher query for hierarchical context.
 
@@ -297,7 +299,7 @@ def build_hierarchical_context(
         size(parents) + size(children) as total_related
     """
 
-    parameters = {"uid": node_uid}
+    parameters: dict[str, Neo4jValue] = {"uid": node_uid}
     return cypher, parameters
 
 
@@ -306,7 +308,7 @@ def build_cross_domain_bridges(
     domain_b: str,
     semantic_types: list["SemanticRelationshipType"],
     limit: int = 10,
-) -> tuple[str, dict[str, Any]]:
+) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build pure Cypher query for cross-domain knowledge bridges.
 
@@ -343,7 +345,7 @@ def build_cross_domain_bridges(
     LIMIT $limit
     """
 
-    parameters = {"domain_a": domain_a, "domain_b": domain_b, "limit": limit}
+    parameters: dict[str, Neo4jValue] = {"domain_a": domain_a, "domain_b": domain_b, "limit": limit}
 
     return cypher, parameters
 
@@ -354,7 +356,7 @@ def build_semantic_filter_query(
     min_confidence: float = 0.8,
     direction: str = "outgoing",
     limit: int = 50,
-) -> tuple[str, dict[str, Any]]:
+) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build pure Cypher query to find nodes with semantic relationships.
 
@@ -395,6 +397,6 @@ def build_semantic_filter_query(
     LIMIT $limit
     """
 
-    parameters = {"min_confidence": min_confidence, "limit": limit}
+    parameters: dict[str, Neo4jValue] = {"min_confidence": min_confidence, "limit": limit}
 
     return cypher, parameters

@@ -26,6 +26,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from core.models.protocols import DomainModelProtocol
+from core.models.type_hints import FilterParams
 from core.utils.error_boundary import safe_backend_operation
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.neo4j_mapper import from_neo4j_node, to_neo4j_node
@@ -50,7 +51,7 @@ class _CrudMixin[T: DomainModelProtocol]:
         logger: logging.Logger
         entity_class: type[T]
         label: str
-        default_filters: dict[str, Any]
+        default_filters: FilterParams
         _create_labels: str
         query_builder: UnifiedQueryBuilder
         prometheus_metrics: PrometheusMetrics | None
@@ -67,7 +68,7 @@ class _CrudMixin[T: DomainModelProtocol]:
         logger: logging.Logger
         entity_class: type[T]
         label: str
-        default_filters: dict[str, Any]
+        default_filters: FilterParams
         _create_labels: str
         query_builder: UnifiedQueryBuilder
         prometheus_metrics: PrometheusMetrics | None
@@ -78,7 +79,7 @@ class _CrudMixin[T: DomainModelProtocol]:
 
         def _default_filter_clause(self, node_var: str = "n") -> str: ...
 
-        def _default_filter_params(self) -> dict[str, Any]: ...
+        def _default_filter_params(self) -> FilterParams: ...
 
         def _inject_default_filters(
             self,

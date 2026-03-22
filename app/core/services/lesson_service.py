@@ -24,10 +24,19 @@ from core.constants import GraphDepth, QueryLimit
 from core.ports.query_types import ListContext
 
 if TYPE_CHECKING:
+    from core.infrastructure.relationships.semantic_relationships import SemanticTriple
+    from core.models.context_types import ContextualKnowledge
+    from core.models.enums.learning_enums import SELCategory
+    from core.models.lesson.lesson import Lesson
+    from core.models.pathways.learning_progress import LearningJourney
     from core.ports import (
         EventBusOperations,
         LessonOperations,
         QueryBuilderOperations,
+    )
+    from core.services.lesson.lesson_organization_service import (
+        KuNavigation,
+        OrganizationView,
     )
     from core.services.user import UserContext
 
@@ -147,215 +156,341 @@ class LessonService:
     # ========================================================================
 
     # Core CRUD delegations
-    async def create(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.core.create(*args, **kwargs)
+    async def create(
+        self,
+        title: str,
+        body: str,
+        summary: str = "",
+        tags: list[str] | None = None,
+        **metadata: Any,
+    ) -> Result[CurriculumDTO]:
+        return await self.core.create(title, body, summary, tags, **metadata)
 
-    async def get(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.core.get(*args, **kwargs)
+    async def get(self, uid: str) -> Result["Lesson"]:
+        return await self.core.get(uid)
 
-    async def update(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.core.update(*args, **kwargs)
+    async def update(self, uid: str, **updates: Any) -> Result[CurriculumDTO]:
+        return await self.core.update(uid, **updates)
 
-    async def delete(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.core.delete(*args, **kwargs)
+    async def delete(self, uid: str) -> Result[bool]:
+        return await self.core.delete(uid)
 
-    async def publish(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.core.publish(*args, **kwargs)
+    async def publish(self, uid: str) -> Result[CurriculumDTO]:
+        return await self.core.publish(uid)
 
-    async def archive(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.core.archive(*args, **kwargs)
+    async def archive(self, uid: str) -> Result[CurriculumDTO]:
+        return await self.core.archive(uid)
 
-    async def get_user_mastery(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.core.get_user_mastery(*args, **kwargs)
+    async def get_user_mastery(self, user_uid: str, ku_uid: str) -> Result[float]:
+        return await self.core.get_user_mastery(user_uid, ku_uid)
 
     async def get_all_user_knowledge_status(self, user_uid: str) -> Result[list[dict[str, Any]]]:
         """Get all knowledge entities with per-user VIEWED/BOOKMARKED/MASTERED status."""
         return await self.mastery.get_all_user_knowledge_status(user_uid)
 
-    async def get_chunks(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.core.get_chunks(*args, **kwargs)
+    async def get_chunks(self, uid: str, chunk_type: Any = None) -> Result[list[Any]]:
+        return await self.core.get_chunks(uid, chunk_type)
 
-    async def analyze_content(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.core.analyze_content(*args, **kwargs)
+    async def analyze_content(self, uid: str) -> Result[dict[str, Any]]:
+        return await self.core.analyze_content(uid)
 
-    async def get_with_template(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.core.get(*args, **kwargs)
+    async def get_with_template(self, uid: str) -> Result["Lesson"]:
+        return await self.core.get(uid)
 
-    async def get_with_content(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.core.get_with_content(*args, **kwargs)
+    async def get_with_content(self, uid: str) -> Result[tuple["Lesson", str]]:
+        return await self.core.get_with_content(uid)
 
     # Search delegations (using search_service attribute)
-    async def search_by_title_template(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.search_service.search_by_title_template(*args, **kwargs)
+    async def search_by_title_template(
+        self, search_term: str, limit: int = 25
+    ) -> Result[list[CurriculumDTO]]:
+        return await self.search_service.search_by_title_template(search_term, limit)
 
-    async def search_with_user_context(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.search_service.search_with_user_context(*args, **kwargs)
+    async def search_with_user_context(
+        self, query: str, user_context: dict[str, Any] | None = None, limit: int = 25
+    ) -> Result[list[CurriculumDTO]]:
+        return await self.search_service.search_with_user_context(query, user_context, limit)
 
-    async def find_similar_content(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.search_service.find_similar_content(*args, **kwargs)
+    async def find_similar_content(
+        self, uid: str, limit: int = 5, prefer_vector_search: bool = True
+    ) -> Result[list[CurriculumDTO]]:
+        return await self.search_service.find_similar_content(uid, limit, prefer_vector_search)
 
-    async def search_by_tags(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.search_service.search_by_tags(*args, **kwargs)
+    async def search_by_tags(
+        self, tags: list[str], match_all: bool = False, limit: int = 25
+    ) -> Result[list[CurriculumDTO]]:
+        return await self.search_service.search_by_tags(tags, match_all, limit)
 
-    async def search_by_facets(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.search_service.search_by_facets(*args, **kwargs)
+    async def search_by_facets(
+        self,
+        tags: list[str] | None = None,
+        domain: str | None = None,
+        complexity: str | None = None,
+        status: str | None = None,
+        limit: int = 25,
+    ) -> Result[list[CurriculumDTO]]:
+        return await self.search_service.search_by_facets(tags, domain, complexity, status, limit)
 
-    async def search_chunks_with_facets(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.search_service.search_chunks_with_facets(*args, **kwargs)
+    async def search_chunks_with_facets(
+        self, query: str, facets: dict[str, Any] | None = None, limit: int = 20
+    ) -> Result[list[dict[str, Any]]]:
+        return await self.search_service.search_chunks_with_facets(query, facets, limit)
 
-    async def search_chunks(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.search_service.search_chunks(*args, **kwargs)
+    async def search_chunks(
+        self, query: str, knowledge_uids: list[str] | None = None, limit: int = 20
+    ) -> Result[list[dict[str, Any]]]:
+        return await self.search_service.search_chunks(query, knowledge_uids, limit)
 
-    async def search_by_features(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.search_service.search_by_features(*args, **kwargs)
+    async def search_by_features(
+        self, features: dict[str, Any], limit: int = 25
+    ) -> Result[list[CurriculumDTO]]:
+        return await self.search_service.search_by_features(features, limit)
 
-    async def search_with_semantic_intent(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.search_service.search_with_semantic_intent(*args, **kwargs)
+    async def search_with_semantic_intent(
+        self,
+        query: str,
+        intent: str | None = None,
+        _context: dict[str, Any] | None = None,
+        limit: int = 25,
+    ) -> Result[list[CurriculumDTO]]:
+        return await self.search_service.search_with_semantic_intent(query, intent, _context, limit)
 
-    async def get_content_chunks(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.search_service.get_content_chunks(*args, **kwargs)
+    async def get_content_chunks(
+        self, uid: str, chunk_type: str | None = None
+    ) -> Result[list[dict[str, Any]]]:
+        return await self.search_service.get_content_chunks(uid, chunk_type)
 
     # Graph delegations
-    async def find_prerequisites(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.graph.find_prerequisites(*args, **kwargs)
+    async def find_prerequisites(
+        self,
+        uid: str,
+        depth: int = 3,
+        _include_optional: bool = False,
+        min_confidence: float = 0.7,
+    ) -> Result[list[CurriculumDTO]]:
+        return await self.graph.find_prerequisites(uid, depth, _include_optional, min_confidence)
 
-    async def find_next_steps(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.graph.find_next_steps(*args, **kwargs)
+    async def find_next_steps(self, uid: str, limit: int = 10) -> Result[list[CurriculumDTO]]:
+        return await self.graph.find_next_steps(uid, limit)
 
-    async def get_lesson_with_context(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.graph.get_lesson_with_context(*args, **kwargs)
+    async def get_lesson_with_context(self, uid: str, depth: int = 2) -> Result[dict[str, Any]]:
+        return await self.graph.get_lesson_with_context(uid, depth)
 
-    async def link_prerequisite(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.graph.link_prerequisite(*args, **kwargs)
+    async def link_prerequisite(
+        self, unit_uid: str, prerequisite_uid: str, is_mandatory: bool = True
+    ) -> Result[bool]:
+        return await self.graph.link_prerequisite(unit_uid, prerequisite_uid, is_mandatory)
 
-    async def link_parent_child(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.graph.link_parent_child(*args, **kwargs)
+    async def link_parent_child(self, parent_uid: str, child_uid: str) -> Result[bool]:
+        return await self.graph.link_parent_child(parent_uid, child_uid)
 
-    async def get_prerequisite_chain(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.graph.get_prerequisite_chain(*args, **kwargs)
+    async def get_prerequisite_chain(
+        self, uid: str, user_uid: str | None = None
+    ) -> Result[dict[str, Any]]:
+        return await self.graph.get_prerequisite_chain(uid, user_uid)
 
-    async def analyze_knowledge_gaps(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.graph.analyze_knowledge_gaps(*args, **kwargs)
+    async def analyze_knowledge_gaps(
+        self, target_uid: str, user_uid: str
+    ) -> Result[dict[str, Any]]:
+        return await self.graph.analyze_knowledge_gaps(target_uid, user_uid)
 
-    async def get_learning_recommendations(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.graph.get_learning_recommendations(*args, **kwargs)
+    async def get_learning_recommendations(
+        self, user_uid: str, domain: str | None = None, limit: int = 5
+    ) -> Result[list[dict[str, Any]]]:
+        return await self.graph.get_learning_recommendations(user_uid, domain, limit)
 
-    async def find_time_aware_learning_path(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.graph.find_time_aware_learning_path(*args, **kwargs)
+    async def find_time_aware_learning_path(
+        self,
+        target_uid: str,
+        user_time_budget: int,
+        max_complexity: str = "advanced",
+        min_confidence: float = 0.7,
+        limit: int = 5,
+    ) -> Result[list[dict[str, Any]]]:
+        return await self.graph.find_time_aware_learning_path(
+            target_uid, user_time_budget, max_complexity, min_confidence, limit
+        )
 
-    async def update_hub_scores(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.graph.update_hub_scores(*args, **kwargs)
+    async def update_hub_scores(self) -> Result[None]:
+        return await self.graph.update_hub_scores()
 
-    async def get_foundational_knowledge(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.graph.get_foundational_knowledge(*args, **kwargs)
+    async def get_foundational_knowledge(
+        self, domain: str | None = None, min_hub_score: int = 10, limit: int = 20
+    ) -> Result[list[CurriculumDTO]]:
+        return await self.graph.get_foundational_knowledge(domain, min_hub_score, limit)
 
     # Application discovery delegations (reverse relationship queries)
-    async def find_events_applying_knowledge(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.application_discovery.find_events_applying_knowledge(*args, **kwargs)
+    async def find_events_applying_knowledge(
+        self, ku_uid: str, user_uid: str, upcoming_only: bool = True
+    ) -> Result[list[str]]:
+        return await self.application_discovery.find_events_applying_knowledge(
+            ku_uid, user_uid, upcoming_only
+        )
 
-    async def find_habits_reinforcing_knowledge(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.application_discovery.find_habits_reinforcing_knowledge(*args, **kwargs)
+    async def find_habits_reinforcing_knowledge(
+        self, ku_uid: str, user_uid: str, only_active: bool = True
+    ) -> Result[list[str]]:
+        return await self.application_discovery.find_habits_reinforcing_knowledge(
+            ku_uid, user_uid, only_active
+        )
 
-    async def find_learning_steps_containing(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.application_discovery.find_learning_steps_containing(*args, **kwargs)
+    async def find_learning_steps_containing(
+        self, ku_uid: str, limit: int = 10
+    ) -> Result[list[str]]:
+        return await self.application_discovery.find_learning_steps_containing(ku_uid, limit)
 
-    async def find_learning_paths_teaching(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.application_discovery.find_learning_paths_teaching(*args, **kwargs)
+    async def find_learning_paths_teaching(
+        self, ku_uid: str, limit: int = 10
+    ) -> Result[list[str]]:
+        return await self.application_discovery.find_learning_paths_teaching(ku_uid, limit)
 
-    async def find_tasks_applying_knowledge(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.application_discovery.find_tasks_applying_knowledge(*args, **kwargs)
+    async def find_tasks_applying_knowledge(
+        self, ku_uid: str, user_uid: str, status_filter: str | None = None
+    ) -> Result[list[str]]:
+        return await self.application_discovery.find_tasks_applying_knowledge(
+            ku_uid, user_uid, status_filter
+        )
 
-    async def find_goals_requiring_knowledge(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.application_discovery.find_goals_requiring_knowledge(*args, **kwargs)
+    async def find_goals_requiring_knowledge(
+        self, ku_uid: str, user_uid: str, status_filter: str | None = None
+    ) -> Result[list[str]]:
+        return await self.application_discovery.find_goals_requiring_knowledge(
+            ku_uid, user_uid, status_filter
+        )
 
-    async def find_choices_informed_by_knowledge(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.application_discovery.find_choices_informed_by_knowledge(*args, **kwargs)
+    async def find_choices_informed_by_knowledge(
+        self, ku_uid: str, user_uid: str, pending_only: bool = False
+    ) -> Result[list[str]]:
+        return await self.application_discovery.find_choices_informed_by_knowledge(
+            ku_uid, user_uid, pending_only
+        )
 
-    async def find_principles_embodying_knowledge(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.application_discovery.find_principles_embodying_knowledge(*args, **kwargs)
+    async def find_principles_embodying_knowledge(
+        self, ku_uid: str, user_uid: str, only_active: bool = True
+    ) -> Result[list[str]]:
+        return await self.application_discovery.find_principles_embodying_knowledge(
+            ku_uid, user_uid, only_active
+        )
 
     # Context-first delegations (personalized knowledge recommendations)
-    async def get_ready_to_learn_for_user(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.context_service.get_ready_to_learn_for_user(*args, **kwargs)
+    async def get_ready_to_learn_for_user(
+        self,
+        context: "UserContext",
+        domain: str | None = None,
+        limit: int = 10,
+    ) -> Result[list["ContextualKnowledge"]]:
+        return await self.context_service.get_ready_to_learn_for_user(context, domain, limit)
 
-    async def get_learning_gaps_for_user(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.context_service.get_learning_gaps_for_user(*args, **kwargs)
+    async def get_learning_gaps_for_user(
+        self,
+        context: "UserContext",
+        goal_uid: str | None = None,
+        limit: int = 10,
+    ) -> Result[list["ContextualKnowledge"]]:
+        return await self.context_service.get_learning_gaps_for_user(context, goal_uid, limit)
 
-    async def get_lessons_to_reinforce_for_user(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.context_service.get_lessons_to_reinforce_for_user(*args, **kwargs)
+    async def get_lessons_to_reinforce_for_user(
+        self,
+        context: "UserContext",
+        mastery_threshold: float = 0.7,
+        limit: int = 10,
+    ) -> Result[list["ContextualKnowledge"]]:
+        return await self.context_service.get_lessons_to_reinforce_for_user(
+            context, mastery_threshold, limit
+        )
 
     # Semantic delegations
-    async def create_with_semantic_relationships(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.semantic.create_with_semantic_relationships(*args, **kwargs)
+    async def create_with_semantic_relationships(
+        self, ku_data: dict[str, Any], relationships: list["SemanticTriple"]
+    ) -> Result[CurriculumDTO]:
+        return await self.semantic.create_with_semantic_relationships(ku_data, relationships)
 
-    async def get_semantic_neighborhood(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.semantic.get_semantic_neighborhood(*args, **kwargs)
+    async def get_semantic_neighborhood(
+        self,
+        uid: str,
+        depth: int = 2,
+        semantic_types: list[SemanticRelationshipType] | None = None,
+        min_confidence: float = 0.0,
+    ) -> Result[dict[str, Any]]:
+        return await self.semantic.get_semantic_neighborhood(
+            uid, depth, semantic_types, min_confidence
+        )
 
     # Adaptive curriculum delegations
-    async def get_personalized_curriculum(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.adaptive.get_personalized_curriculum(*args, **kwargs)
+    async def get_personalized_curriculum(
+        self, user_uid: str, sel_category: "SELCategory", limit: int = 10
+    ) -> Result[list["Lesson"]]:
+        return await self.adaptive.get_personalized_curriculum(user_uid, sel_category, limit)
 
-    async def get_sel_journey(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.adaptive.get_sel_journey(*args, **kwargs)
+    async def get_sel_journey(self, user_uid: str) -> Result["LearningJourney"]:
+        return await self.adaptive.get_sel_journey(user_uid)
 
-    async def track_curriculum_completion(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.adaptive.track_curriculum_completion(*args, **kwargs)
+    async def track_curriculum_completion(
+        self, user_uid: str, ku_uid: str, completion_time_minutes: int = 30
+    ) -> Result[None]:
+        return await self.adaptive.track_curriculum_completion(
+            user_uid, ku_uid, completion_time_minutes
+        )
 
     # Organization delegations (with None guard — organization service is optional)
-    async def organize(self, *args: Any, **kwargs: Any) -> Result[Any]:
+    async def organize(
+        self, parent_uid: str, child_uid: str, order: int = 0
+    ) -> Result[bool]:
         if self.organization is None:
             return Result.fail(Errors.system("Organization service not available", "organize"))
-        return await self.organization.organize(*args, **kwargs)
+        return await self.organization.organize(parent_uid, child_uid, order)
 
-    async def unorganize(self, *args: Any, **kwargs: Any) -> Result[Any]:
+    async def unorganize(self, parent_uid: str, child_uid: str) -> Result[bool]:
         if self.organization is None:
             return Result.fail(Errors.system("Organization service not available", "unorganize"))
-        return await self.organization.unorganize(*args, **kwargs)
+        return await self.organization.unorganize(parent_uid, child_uid)
 
-    async def reorder(self, *args: Any, **kwargs: Any) -> Result[Any]:
+    async def reorder(self, parent_uid: str, child_uid: str, new_order: int) -> Result[bool]:
         if self.organization is None:
             return Result.fail(Errors.system("Organization service not available", "reorder"))
-        return await self.organization.reorder(*args, **kwargs)
+        return await self.organization.reorder(parent_uid, child_uid, new_order)
 
-    async def is_organizer(self, *args: Any, **kwargs: Any) -> Result[Any]:
+    async def is_organizer(self, ku_uid: str) -> Result[bool]:
         if self.organization is None:
             return Result.fail(Errors.system("Organization service not available", "is_organizer"))
-        return await self.organization.is_organizer(*args, **kwargs)
+        return await self.organization.is_organizer(ku_uid)
 
-    async def get_organization_view(self, *args: Any, **kwargs: Any) -> Result[Any]:
+    async def get_organization_view(
+        self, ku_uid: str, max_depth: int = 3
+    ) -> Result["OrganizationView"]:
         if self.organization is None:
             return Result.fail(
                 Errors.system("Organization service not available", "get_organization_view")
             )
-        return await self.organization.get_organization_view(*args, **kwargs)
+        return await self.organization.get_organization_view(ku_uid, max_depth)
 
-    async def get_navigation(self, *args: Any, **kwargs: Any) -> Result[Any]:
+    async def get_navigation(self, ku_uid: str) -> Result["KuNavigation"]:
         if self.organization is None:
             return Result.fail(
                 Errors.system("Organization service not available", "get_navigation")
             )
-        return await self.organization.get_navigation(*args, **kwargs)
+        return await self.organization.get_navigation(ku_uid)
 
-    async def find_organizers(self, *args: Any, **kwargs: Any) -> Result[Any]:
+    async def find_organizers(self, ku_uid: str) -> Result[list[dict[str, Any]]]:
         if self.organization is None:
             return Result.fail(
                 Errors.system("Organization service not available", "find_organizers")
             )
-        return await self.organization.find_organizers(*args, **kwargs)
+        return await self.organization.find_organizers(ku_uid)
 
-    async def list_root_organizers(self, *args: Any, **kwargs: Any) -> Result[Any]:
+    async def list_root_organizers(self, limit: int = 50) -> Result[list[dict[str, Any]]]:
         if self.organization is None:
             return Result.fail(
                 Errors.system("Organization service not available", "list_root_organizers")
             )
-        return await self.organization.list_root_organizers(*args, **kwargs)
+        return await self.organization.list_root_organizers(limit)
 
-    async def get_organized_children(self, *args: Any, **kwargs: Any) -> Result[Any]:
+    async def get_organized_children(self, ku_uid: str) -> Result[list[dict[str, Any]]]:
         if self.organization is None:
             return Result.fail(
                 Errors.system("Organization service not available", "get_organized_children")
             )
-        return await self.organization.get_organized_children(*args, **kwargs)
+        return await self.organization.get_organized_children(ku_uid)
 
     def __init__(
         self,

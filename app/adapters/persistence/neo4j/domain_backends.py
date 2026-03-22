@@ -53,6 +53,7 @@ from core.models.principle.principle import Principle
 from core.models.relationship_names import RelationshipName
 from core.models.submissions.submission import Submission
 from core.models.task.task import Task
+from core.models.type_hints import Neo4jProperties
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.result_simplified import Errors, Result
 
@@ -60,8 +61,8 @@ if TYPE_CHECKING:
     from core.models.exercises.revised_exercise import RevisedExercise  # noqa: F401
     from core.models.forms.form_submission import FormSubmission
     from core.models.forms.form_template import FormTemplate  # noqa: F401
-    from core.models.journal.je_input import JeInput
-    from core.models.journal.je_output import JeOutput
+    from core.models.journal.je_input import JeInput  # noqa: F401
+    from core.models.journal.je_output import JeOutput  # noqa: F401
 
 
 class HabitsBackend(UniversalNeo4jBackend[Habit]):
@@ -845,7 +846,7 @@ class LessonBackend(UniversalNeo4jBackend[Lesson]):
             self.logger.error(f"Failed link_to_ku {lesson_uid} -> {ku_uid}: {e}")
             return Result.fail(Errors.database(operation="link_to_ku", message=str(e)))
 
-    async def get_used_kus(self, lesson_uid: str) -> Result[list[dict[str, Any]]]:
+    async def get_used_kus(self, lesson_uid: str) -> Result[list[Neo4jProperties]]:
         """Get all atomic Kus used by a Lesson via USES_KU."""
         query = """
         MATCH (lesson:Entity {uid: $lesson_uid})-[:USES_KU]->(ku:Entity)
@@ -896,7 +897,7 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
 
     async def get_first_submission_for_exercise(
         self, user_uid: str, exercise_uid: str
-    ) -> Result[dict[str, Any] | None]:
+    ) -> Result[Neo4jProperties | None]:
         """Get earliest submission's uid + created_at for a user+exercise pair."""
         query = """
         MATCH (u:User {uid: $user_uid})-[:OWNS]->(s:Entity)-[:FULFILLS_EXERCISE]->(e:Entity {uid: $exercise_uid})
@@ -940,7 +941,7 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
                 Errors.database(operation="get_exercise_for_submission", message=str(e))
             )
 
-    async def get_teacher_feedback_state(self, teacher_uid: str) -> Result[dict[str, Any]]:
+    async def get_teacher_feedback_state(self, teacher_uid: str) -> Result[Neo4jProperties]:
         """Read feedback EMA state from User node for turnaround calibration."""
         query = """
         MATCH (u:User {uid: $teacher_uid})
@@ -962,7 +963,7 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
             )
 
     async def update_teacher_feedback_state(
-        self, teacher_uid: str, properties: dict[str, Any]
+        self, teacher_uid: str, properties: Neo4jProperties
     ) -> Result[bool]:
         """Write feedback EMA state to User node."""
         query = """
@@ -993,7 +994,7 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
     - get_lessons_using(ku_uid) — Lessons that USES_KU this Ku
     """
 
-    async def get_lessons_using(self, ku_uid: str) -> Result[list[dict[str, Any]]]:
+    async def get_lessons_using(self, ku_uid: str) -> Result[list[Neo4jProperties]]:
         """Get all Lessons that use this atomic Ku via USES_KU."""
         query = """
         MATCH (lesson:Entity)-[:USES_KU]->(ku:Entity {uid: $ku_uid})
@@ -1044,7 +1045,7 @@ class LsBackend(UniversalNeo4jBackend[LearningStep]):
 
     async def get_lesson_completion_progress(
         self, ls_uid: str, user_uid: str
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[Neo4jProperties]:
         """
         Return total and completed Lesson counts for LS progress calculation.
 
@@ -1117,7 +1118,7 @@ class LpBackend(UniversalNeo4jBackend[LearningPath]):
         records = result.value or []
         return Result.ok([record["lp_uid"] for record in records])
 
-    async def get_ku_mastery_progress(self, lp_uid: str, user_uid: str) -> Result[dict[str, Any]]:
+    async def get_ku_mastery_progress(self, lp_uid: str, user_uid: str) -> Result[Neo4jProperties]:
         """
         Return total and mastered KU counts for a user's progress in a learning path.
 
@@ -1259,7 +1260,7 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
 
     async def get_exercise_for_submission(
         self, submission_uid: str
-    ) -> Result[dict[str, Any] | None]:
+    ) -> Result[Neo4jProperties | None]:
         """Get the exercise that a submission fulfills via FULFILLS_EXERCISE relationship.
 
         Args:
@@ -1395,7 +1396,7 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
         role: str,
         share_version: str,
         shared_at: str,
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[Neo4jProperties]]:
         """Create SHARES_WITH relationship from recipient to entity."""
         result = await self.execute_query(
             """
@@ -1423,7 +1424,7 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
         self,
         entity_uid: str,
         recipient_uid: str,
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[Neo4jProperties]]:
         """Delete SHARES_WITH relationship between recipient and entity."""
         result = await self.execute_query(
             """
@@ -1442,7 +1443,7 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
         entity_uid: str,
         owner_uid: str,
         visibility: str,
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[Neo4jProperties]]:
         """Set visibility property on an owned entity."""
         result = await self.execute_query(
             """
@@ -1466,7 +1467,7 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
         self,
         entity_uid: str,
         user_uid: str,
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[Neo4jProperties]]:
         """Query ownership, visibility, and share relationships for access check."""
         result = await self.execute_query(
             """
@@ -1488,7 +1489,7 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
     async def query_shareable_status(
         self,
         entity_uid: str,
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[Neo4jProperties]]:
         """Query status and entity_type for shareability check."""
         result = await self.execute_query(
             """
@@ -1504,7 +1505,7 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
     async def query_ownership_and_status(
         self,
         entity_uid: str,
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[Neo4jProperties]]:
         """Query ownership and status for combined ownership + shareable check."""
         result = await self.execute_query(
             """
@@ -1522,7 +1523,7 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
     async def query_shared_with_users(
         self,
         entity_uid: str,
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[Neo4jProperties]]:
         """Get users an entity is shared with."""
         result = await self.execute_query(
             """
@@ -1544,7 +1545,7 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
         self,
         user_uid: str,
         limit: int,
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[Neo4jProperties]]:
         """Get entities shared with a user via direct SHARES_WITH."""
         result = await self.execute_query(
             """
@@ -1568,7 +1569,7 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
         group_uid: str,
         share_version: str,
         shared_at: str,
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[Neo4jProperties]]:
         """Create SHARED_WITH_GROUP relationship from entity to group."""
         result = await self.execute_query(
             """
@@ -1594,7 +1595,7 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
         self,
         entity_uid: str,
         group_uid: str,
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[Neo4jProperties]]:
         """Delete SHARED_WITH_GROUP relationship."""
         result = await self.execute_query(
             """
@@ -1611,7 +1612,7 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
     async def query_groups_shared_with(
         self,
         entity_uid: str,
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[Neo4jProperties]]:
         """Get groups an entity is shared with."""
         result = await self.execute_query(
             """
@@ -1632,7 +1633,7 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
         self,
         user_uid: str,
         limit: int,
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[Neo4jProperties]]:
         """Get entities shared with a user through group membership."""
         result = await self.execute_query(
             """
@@ -1827,7 +1828,7 @@ class JournalInputBackend(UniversalNeo4jBackend["JeInput"]):
 
     async def get_ephemeral_je_inputs(
         self, user_uid: str, limit: int = 100
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[Neo4jProperties]]:
         """Get journal entries with FIFO cleanup enabled (max_retention is not null)."""
         query = """
         MATCH (u:User {uid: $user_uid})-[:OWNS]->(ji:JeInput)
@@ -1847,7 +1848,7 @@ class JournalInputBackend(UniversalNeo4jBackend["JeInput"]):
 
     async def get_je_inputs_by_date_range(
         self, user_uid: str, start_date: str, end_date: str
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[Neo4jProperties]]:
         """Get journal entries for a user within a date range (by created_at)."""
         query = """
         MATCH (u:User {uid: $user_uid})-[:OWNS]->(ji:JeInput)
@@ -1878,7 +1879,7 @@ class JournalOutputBackend(UniversalNeo4jBackend["JeOutput"]):
     Uses NeoLabel.JE_OUTPUT with base_label=NeoLabel.ENTITY.
     """
 
-    async def get_je_output_for_input(self, je_input_uid: str) -> Result[dict[str, Any] | None]:
+    async def get_je_output_for_input(self, je_input_uid: str) -> Result[Neo4jProperties | None]:
         """Get the je_output that transforms a specific je_input."""
         query = """
         MATCH (jo:JeOutput)-[:TRANSFORMS]->(ji:JeInput {uid: $je_input_uid})
@@ -1898,10 +1899,10 @@ class JournalOutputBackend(UniversalNeo4jBackend["JeOutput"]):
 
     async def create_with_transforms(
         self,
-        properties: dict[str, Any],
+        properties: Neo4jProperties,
         user_uid: str,
         je_input_uid: str,
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[Neo4jProperties]:
         """Atomically create JeOutput node with OWNS + TRANSFORMS relationships.
 
         Single Cypher transaction: MATCH User + JeInput, CREATE JeOutput:Entity,

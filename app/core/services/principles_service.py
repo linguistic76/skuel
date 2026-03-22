@@ -49,10 +49,20 @@ from core.utils.sort_functions import get_created_at_attr, get_title_or_name_low
 from core.utils.type_converters import normalize_enum_str
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+    from datetime import date
+
+    from core.models.context_types import ContextualPrinciple, PracticeOpportunity
+    from core.models.enums.principle_enums import AlignmentLevel
+    from core.models.graph_context import GraphContext
+    from core.models.pathways.lp_position import LpPosition
+    from core.models.principle.principle_types import PrincipleDecision
+    from core.models.principle.reflection import PrincipleReflection
     from core.ports.query_types import ListContext
     from core.ports.search_protocols import PrinciplesSearchOperations
     from core.services.principles.principles_alignment_service import (
         AlignmentAssessment,
+        MotivationalProfile,
     )
     from core.services.principles.principles_event_handler_service import (
         PrincipleEventHandlerService,
@@ -60,6 +70,11 @@ if TYPE_CHECKING:
     from core.services.principles.principles_intelligence_service import (
         PrinciplesIntelligenceService,
     )
+    from core.services.principles.principles_reflection_service import (
+        AlignmentTrend,
+        CrossDomainInsight,
+    )
+    from core.services.user import UserContext
 
 
 # NOTE: AlignmentAssessment and MotivationalProfile are now imported from
@@ -211,123 +226,236 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
     # ========================================================================
 
     # Core CRUD delegations
-    async def get_principle(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.core.get_principle(*args, **kwargs)
+    async def get_principle(self, principle_uid: str) -> Result[Principle]:
+        return await self.core.get_principle(principle_uid)
 
-    async def get_user_principles(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.core.get_user_principles(*args, **kwargs)
+    async def get_user_principles(self, user_uid: str) -> Result[list[Principle]]:
+        return await self.core.get_user_principles(user_uid)
 
-    async def get_user_items_in_range(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.core.get_user_items_in_range(*args, **kwargs)
+    async def get_user_items_in_range(
+        self, user_uid: str, start_date: date, end_date: date, include_completed: bool = False
+    ) -> Result[list[Principle]]:
+        return await self.core.get_user_items_in_range(
+            user_uid, start_date, end_date, include_completed
+        )
 
     # Alignment delegations
-    async def assess_goal_alignment(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.alignment.assess_goal_alignment(*args, **kwargs)
+    async def assess_goal_alignment(
+        self, goal_uid: str, user_uid: str
+    ) -> Result[AlignmentAssessment]:
+        return await self.alignment.assess_goal_alignment(goal_uid, user_uid)
 
-    async def assess_habit_alignment(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.alignment.assess_habit_alignment(*args, **kwargs)
+    async def assess_habit_alignment(
+        self, habit_uid: str, user_uid: str
+    ) -> Result[AlignmentAssessment]:
+        return await self.alignment.assess_habit_alignment(habit_uid, user_uid)
 
-    async def get_motivational_profile(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.alignment.get_motivational_profile(*args, **kwargs)
+    async def get_motivational_profile(self, user_uid: str) -> Result[MotivationalProfile]:
+        return await self.alignment.get_motivational_profile(user_uid)
 
-    async def make_principle_based_decision(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.alignment.make_principle_based_decision(*args, **kwargs)
+    async def make_principle_based_decision(
+        self, user_uid: str, decision_description: str, options: list[str], context: str = ""
+    ) -> Result[PrincipleDecision]:
+        return await self.alignment.make_principle_based_decision(
+            user_uid, decision_description, options, context
+        )
 
     # Learning delegations
     async def frame_principle_practice_with_learning(
-        self, *args: Any, **kwargs: Any
-    ) -> Result[Any]:
-        return await self.learning.frame_principle_practice_with_learning(*args, **kwargs)
+        self, principle_uid: str, learning_position: LpPosition
+    ) -> Result[dict[str, Any]]:
+        return await self.learning.frame_principle_practice_with_learning(
+            principle_uid, learning_position
+        )
 
-    async def assess_principle_learning_alignment(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.learning.assess_principle_learning_alignment(*args, **kwargs)
+    async def assess_principle_learning_alignment(
+        self, principle_uid: str, learning_position: LpPosition
+    ) -> Result[dict[str, Any]]:
+        return await self.learning.assess_principle_learning_alignment(
+            principle_uid, learning_position
+        )
 
-    async def suggest_learning_supported_principles(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.learning.suggest_learning_supported_principles(*args, **kwargs)
+    async def suggest_learning_supported_principles(
+        self, learning_position: LpPosition, principle_category_filter: str | None = None
+    ) -> Result[list[dict[str, Any]]]:
+        return await self.learning.suggest_learning_supported_principles(
+            learning_position, principle_category_filter
+        )
 
-    async def track_principle_learning_development(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.learning.track_principle_learning_development(*args, **kwargs)
+    async def track_principle_learning_development(
+        self,
+        principle_uid: str,
+        learning_position: LpPosition,
+        _practice_history: list[dict[str, Any]] | None = None,
+    ) -> Result[dict[str, Any]]:
+        return await self.learning.track_principle_learning_development(
+            principle_uid, learning_position, _practice_history
+        )
 
     # Relationship delegations
-    async def get_principle_cross_domain_context(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.relationships.get_cross_domain_context(*args, **kwargs)
+    async def get_principle_cross_domain_context(
+        self,
+        entity_uid: str,
+        depth: int = 2,
+        min_confidence: float = 0.7,
+    ) -> Result[dict[str, Any]]:
+        return await self.relationships.get_cross_domain_context(entity_uid, depth, min_confidence)
 
     # Intelligence delegations
-    async def get_principle_with_context(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.intelligence.get_principle_with_context(*args, **kwargs)
+    async def get_principle_with_context(
+        self, uid: str, depth: int = 2
+    ) -> Result[tuple[Principle, GraphContext]]:
+        return await self.intelligence.get_principle_with_context(uid, depth)
 
-    async def assess_principle_alignment(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.intelligence.assess_principle_alignment(*args, **kwargs)
+    async def assess_principle_alignment(
+        self, principle_uid: str, min_confidence: float = 0.7
+    ) -> Result[dict[str, Any]]:
+        return await self.intelligence.assess_principle_alignment(principle_uid, min_confidence)
 
-    async def get_principle_adherence_trends(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.intelligence.get_principle_adherence_trends(*args, **kwargs)
+    async def get_principle_adherence_trends(
+        self, principle_uid: str, days: int = 90
+    ) -> Result[dict[str, Any]]:
+        return await self.intelligence.get_principle_adherence_trends(principle_uid, days)
 
-    async def get_principle_conflict_analysis(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.intelligence.get_principle_conflict_analysis(*args, **kwargs)
+    async def get_principle_conflict_analysis(self, user_uid: str) -> Result[dict[str, Any]]:
+        return await self.intelligence.get_principle_conflict_analysis(user_uid)
 
     # Search delegations
-    async def list_principle_categories(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.search.list_user_categories(*args, **kwargs)
+    async def list_principle_categories(self, user_uid: str) -> Result[list[str]]:
+        return await self.search.list_user_categories(user_uid)
 
-    async def list_all_principle_categories(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.search.list_all_categories(*args, **kwargs)
+    async def list_all_principle_categories(self) -> Result[list[str]]:
+        return await self.search.list_all_categories()
 
-    async def get_related_principles(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.search.get_related_principles(*args, **kwargs)
+    async def get_related_principles(
+        self, principle_uid: str, limit: int = 10
+    ) -> Result[list[Principle]]:
+        return await self.search.get_related_principles(principle_uid, limit)  # type: ignore[return-value]
 
-    async def get_principles_by_status(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.search.get_by_status(*args, **kwargs)
+    async def get_principles_by_status(
+        self, status: str, limit: int = 100, user_uid: str | None = None
+    ) -> Result[list[Principle]]:
+        return await self.search.get_by_status(status, limit, user_uid)  # type: ignore[return-value]
 
-    async def get_principles_by_strength(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.search.get_by_strength(*args, **kwargs)
+    async def get_principles_by_strength(
+        self, strength: PrincipleStrength, limit: int = 100
+    ) -> Result[list[Principle]]:
+        return await self.search.get_by_strength(strength, limit)  # type: ignore[return-value]
 
-    async def get_principles_by_category(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.search.get_by_category(*args, **kwargs)
+    async def get_principles_by_category(
+        self, category: PrincipleCategory | str, user_uid: str | None = None, limit: int = 100
+    ) -> Result[list[Principle]]:
+        return await self.search.get_by_category(category, user_uid, limit)  # type: ignore[return-value]
 
-    async def get_principles_needing_review(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.search.get_needing_review(*args, **kwargs)
+    async def get_principles_needing_review(
+        self, days_threshold: int = 90, limit: int = 20
+    ) -> Result[list[Principle]]:
+        return await self.search.get_needing_review(days_threshold, limit)  # type: ignore[return-value]
 
-    async def get_principles_for_goal(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.search.get_for_goal(*args, **kwargs)
+    async def get_principles_for_goal(
+        self, goal_uid: str, limit: int = 10
+    ) -> Result[list[Principle]]:
+        return await self.search.get_for_goal(goal_uid, limit)  # type: ignore[return-value]
 
-    async def get_principles_for_choice(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.search.get_for_choice(*args, **kwargs)
+    async def get_principles_for_choice(
+        self, choice_uid: str, limit: int = 10
+    ) -> Result[list[Principle]]:
+        return await self.search.get_for_choice(choice_uid, limit)  # type: ignore[return-value]
 
     # Reflection delegations
-    async def save_reflection(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.reflection.save_reflection(*args, **kwargs)
+    async def save_reflection(
+        self,
+        principle_uid: str,
+        user_uid: str,
+        alignment_level: AlignmentLevel,
+        evidence: str,
+        reflection_notes: str | None = None,
+        trigger_type: str | None = None,
+        trigger_uid: str | None = None,
+        trigger_context: str | None = None,
+        conflicting_principle_uids: Sequence[str] | None = None,
+    ) -> Result[PrincipleReflection]:
+        return await self.reflection.save_reflection(
+            principle_uid,
+            user_uid,
+            alignment_level,
+            evidence,
+            reflection_notes,
+            trigger_type,
+            trigger_uid,
+            trigger_context,
+            conflicting_principle_uids,
+        )
 
-    async def get_reflections_for_principle(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.reflection.get_reflections_for_principle(*args, **kwargs)
+    async def get_reflections_for_principle(
+        self,
+        principle_uid: str,
+        user_uid: str,
+        limit: int = 50,
+    ) -> Result[list[PrincipleReflection]]:
+        return await self.reflection.get_reflections_for_principle(principle_uid, user_uid, limit)
 
-    async def get_recent_reflections(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.reflection.get_recent_reflections(*args, **kwargs)
+    async def get_recent_reflections(
+        self,
+        user_uid: str,
+        days: int = 7,
+        limit: int = 20,
+    ) -> Result[list[PrincipleReflection]]:
+        return await self.reflection.get_recent_reflections(user_uid, days, limit)
 
-    async def get_alignment_trend(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.reflection.calculate_alignment_trend(*args, **kwargs)
+    async def get_alignment_trend(
+        self,
+        principle_uid: str,
+        user_uid: str,
+        days: int = 30,
+    ) -> Result[AlignmentTrend]:
+        return await self.reflection.calculate_alignment_trend(principle_uid, user_uid, days)
 
-    async def get_cross_domain_insights(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.reflection.get_cross_domain_insights(*args, **kwargs)
+    async def get_cross_domain_insights(
+        self,
+        principle_uid: str,
+        user_uid: str,
+    ) -> Result[list[CrossDomainInsight]]:
+        return await self.reflection.get_cross_domain_insights(principle_uid, user_uid)
 
-    async def get_reflection_frequency(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.reflection.get_reflection_frequency(*args, **kwargs)
+    async def get_reflection_frequency(
+        self,
+        user_uid: str,
+        days: int = 30,
+    ) -> Result[dict[str, Any]]:
+        return await self.reflection.get_reflection_frequency(user_uid, days)
 
-    async def get_conflict_analysis(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.reflection.get_conflict_analysis(*args, **kwargs)
+    async def get_conflict_analysis(
+        self,
+        principle_uid: str,
+        user_uid: str,
+    ) -> Result[dict[str, Any]]:
+        return await self.reflection.get_conflict_analysis(principle_uid, user_uid)
 
     # Planning delegations
     async def get_principles_needing_attention_for_user(
-        self, *args: Any, **kwargs: Any
-    ) -> Result[Any]:
-        return await self.planning.get_principles_needing_attention_for_user(*args, **kwargs)
+        self,
+        context: UserContext,
+        limit: int = 5,
+    ) -> Result[list[ContextualPrinciple]]:
+        return await self.planning.get_principles_needing_attention_for_user(context, limit)
 
-    async def get_contextual_principles_for_user(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.planning.get_contextual_principles_for_user(*args, **kwargs)
+    async def get_contextual_principles_for_user(
+        self,
+        context: UserContext,
+        limit: int = 3,
+    ) -> Result[list[ContextualPrinciple]]:
+        return await self.planning.get_contextual_principles_for_user(context, limit)
 
     async def get_principle_practice_opportunities_for_user(
-        self, *args: Any, **kwargs: Any
-    ) -> Result[Any]:
-        return await self.planning.get_principle_practice_opportunities_for_user(*args, **kwargs)
+        self,
+        context: UserContext,
+        principle_uid: str | None = None,
+        limit: int = 5,
+    ) -> Result[list[PracticeOpportunity]]:
+        return await self.planning.get_principle_practice_opportunities_for_user(
+            context, principle_uid, limit
+        )
 
     def __init__(
         self,

@@ -29,6 +29,8 @@ Convenience Functions:
 
 from typing import Any, TypeVar
 
+from core.models.type_hints import Neo4jValue
+
 T = TypeVar("T")
 
 
@@ -38,13 +40,13 @@ T = TypeVar("T")
 
 
 def build_hybrid_knowledge_search(
-    property_filters: dict[str, Any],
+    property_filters: dict[str, Neo4jValue],
     graph_patterns: dict[str, str],
     user_uid: str,
     limit: int = 20,
     offset: int = 0,
     query_text: str | None = None,
-) -> tuple[str, dict[str, Any]]:
+) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build optimized hybrid query combining property filters and graph patterns.
 
@@ -70,7 +72,7 @@ def build_hybrid_knowledge_search(
         - Overall: O(log n) + O(filtered_edges) vs O(all_edges)
     """
     cypher_parts = ["MATCH (ku:Entity)"]
-    params: dict[str, Any] = {
+    params: dict[str, Neo4jValue] = {
         "user_uid": user_uid,
         "limit": limit,
         "offset": offset,
@@ -124,7 +126,7 @@ def build_optimized_ready_to_learn(
     level: str | None = None,
     limit: int = 10,
     min_confidence: float = 0.7,
-) -> tuple[str, dict[str, Any]]:
+) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build optimized 'ready to learn' query demonstrating hybrid pattern.
 
@@ -144,7 +146,7 @@ def build_optimized_ready_to_learn(
     Returns:
         Tuple of (cypher_query, parameters)
     """
-    params: dict[str, Any] = {
+    params: dict[str, Neo4jValue] = {
         "user_uid": user_uid,
         "limit": limit,
         "min_confidence": min_confidence,
@@ -206,7 +208,7 @@ def build_goal_aligned_hybrid(
     learning_level: str | None = None,
     only_active_goals: bool = True,
     limit: int = 10,
-) -> tuple[str, dict[str, Any]]:
+) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build hybrid query for goal-aligned knowledge with property filters.
 
@@ -224,7 +226,7 @@ def build_goal_aligned_hybrid(
     Returns:
         Tuple of (cypher_query, parameters)
     """
-    params: dict[str, Any] = {
+    params: dict[str, Neo4jValue] = {
         "user_uid": user_uid,
         "limit": limit,
     }
@@ -288,10 +290,10 @@ def build_registry_validated_query(
     relationship_type: str,
     source_uid: str | None = None,
     target_uid: str | None = None,
-    properties: dict[str, Any] | None = None,
+    properties: dict[str, Neo4jValue] | None = None,
     return_properties: list[str] | None = None,
     limit: int = 100,
-) -> tuple[str, dict[str, Any]]:
+) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build a Cypher query with RelationshipRegistry validation.
 
@@ -351,7 +353,7 @@ def build_registry_validated_query(
 
     # Build WHERE clauses
     where_clauses = []
-    params: dict[str, Any] = {"limit": limit}
+    params: dict[str, Neo4jValue] = {"limit": limit}
 
     if source_uid:
         where_clauses.append("source.uid = $source_uid")
@@ -411,7 +413,7 @@ def build_impact_chain_query(
     end_label: str,
     max_depth: int = 4,
     relationship_filter: list[str] | None = None,
-) -> tuple[str, dict[str, Any]]:
+) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build query to trace impact chains between domains.
 
@@ -506,7 +508,7 @@ def build_impact_chain_query(
     LIMIT 20
     """
 
-    params = {"start_uid": start_uid}
+    params: dict[str, Neo4jValue] = {"start_uid": start_uid}
     return cypher.strip(), params
 
 
@@ -514,7 +516,7 @@ def build_bidirectional_impact_query(
     entity_uid: str,
     entity_label: str,
     max_depth: int = 2,
-) -> tuple[str, dict[str, Any]]:
+) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build query to find all entities impacted BY and impacting an entity.
 
@@ -591,7 +593,7 @@ def build_bidirectional_impact_query(
         size([e in upstream_entities WHERE e.uid IS NOT NULL]) as upstream_count
     """
 
-    params = {"entity_uid": entity_uid}
+    params: dict[str, Neo4jValue] = {"entity_uid": entity_uid}
     return cypher.strip(), params
 
 
@@ -607,7 +609,7 @@ def build_weighted_path_query(
     weight_property: str = "confidence",
     max_depth: int = 5,
     weight_mode: str = "multiply",
-) -> tuple[str, dict[str, Any]]:
+) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build query for weighted path finding with normalized edge weights.
 
@@ -679,7 +681,7 @@ def build_weighted_path_query(
     LIMIT 10
     """
 
-    params = {"start_uid": start_uid, "end_uid": end_uid}
+    params: dict[str, Neo4jValue] = {"start_uid": start_uid, "end_uid": end_uid}
     return cypher.strip(), params
 
 
@@ -689,7 +691,7 @@ def build_normalized_centrality_query(
     weight_property: str = "confidence",
     min_weight: float = 0.0,
     limit: int = 20,
-) -> tuple[str, dict[str, Any]]:
+) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build query for weighted degree centrality with normalized scores.
 
@@ -770,7 +772,7 @@ def build_normalized_centrality_query(
     LIMIT $limit
     """
 
-    params = {"min_weight": min_weight, "limit": limit}
+    params: dict[str, Neo4jValue] = {"min_weight": min_weight, "limit": limit}
     return cypher.strip(), params
 
 
@@ -778,7 +780,7 @@ def build_relationship_weight_stats_query(
     source_label: str,
     relationship_type: str,
     weight_properties: list[str] | None = None,
-) -> tuple[str, dict[str, Any]]:
+) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build query to analyze weight distribution for a relationship type.
 
@@ -838,7 +840,7 @@ def build_relationship_weight_stats_query(
         ] as property_stats
     """
 
-    params: dict[str, Any] = {}
+    params: dict[str, Neo4jValue] = {}
     return cypher.strip(), params
 
 
@@ -847,7 +849,7 @@ def build_relationship_weight_stats_query(
 # ============================================================================
 
 
-def search[T](entity_class: type[T], **filters: Any) -> tuple[str, dict[str, Any]]:
+def search[T](entity_class: type[T], **filters: Any) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Shorthand for building search queries.
 
@@ -860,7 +862,9 @@ def search[T](entity_class: type[T], **filters: Any) -> tuple[str, dict[str, Any
     return build_search_query(entity_class, filters)
 
 
-def get_by[T](entity_class: type[T], field_name: str, value: Any) -> tuple[str, dict[str, Any]]:
+def get_by[T](
+    entity_class: type[T], field_name: str, value: Any
+) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Shorthand for getting by field value.
 
@@ -874,7 +878,7 @@ def get_by[T](entity_class: type[T], field_name: str, value: Any) -> tuple[str, 
 
 def list_entities[T](
     entity_class: type[T], limit: int = 100, order_by: str | None = None
-) -> tuple[str, dict[str, Any]]:
+) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Shorthand for listing entities.
 
@@ -886,7 +890,7 @@ def list_entities[T](
     return build_list_query(entity_class, limit=limit, order_by=order_by)
 
 
-def count[T](entity_class: type[T], **filters: Any) -> tuple[str, dict[str, Any]]:
+def count[T](entity_class: type[T], **filters: Any) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Shorthand for counting entities.
 

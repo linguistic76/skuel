@@ -26,6 +26,7 @@ from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
 from core.models.protocols import DomainModelProtocol
+from core.models.type_hints import FilterParams
 from core.utils.error_boundary import safe_backend_operation
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.neo4j_mapper import from_neo4j_node
@@ -53,7 +54,7 @@ class _SearchMixin[T: DomainModelProtocol]:
         logger: logging.Logger
         entity_class: type[T]
         label: str
-        default_filters: dict[str, Any]
+        default_filters: FilterParams
         query_builder: UnifiedQueryBuilder
         prometheus_metrics: PrometheusMetrics | None
         _default_filter_clause: method
@@ -69,13 +70,13 @@ class _SearchMixin[T: DomainModelProtocol]:
         logger: logging.Logger
         entity_class: type[T]
         label: str
-        default_filters: dict[str, Any]
+        default_filters: FilterParams
         query_builder: UnifiedQueryBuilder
         prometheus_metrics: PrometheusMetrics | None
 
         def _default_filter_clause(self, node_var: str = "n") -> str: ...
 
-        def _default_filter_params(self) -> dict[str, Any]: ...
+        def _default_filter_params(self) -> FilterParams: ...
 
         def _inject_default_filters(
             self,
@@ -109,7 +110,7 @@ class _SearchMixin[T: DomainModelProtocol]:
         start_date: date | str | None,
         end_date: date | str | None,
         date_field: str = "occurred_at",
-        additional_filters: dict[str, Any] | None = None,
+        additional_filters: FilterParams | None = None,
         limit: int = 100,
     ) -> Result[builtins.list[T]]:
         """Find any entity within a date range."""

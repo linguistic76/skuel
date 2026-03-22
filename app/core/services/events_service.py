@@ -62,6 +62,8 @@ if TYPE_CHECKING:
         RecurringInstancesRequest,
         RemoveAttendeeRequest,
     )
+    from core.models.graph_context import GraphContext
+    from core.models.pathways.lp_position import LpPosition
     from core.ports.domain_protocols import EventsOperations
     from core.ports.infrastructure_protocols import EventBusOperations
     from core.ports.query_types import ListContext
@@ -197,20 +199,27 @@ class EventsService(BaseService["EventsOperations", Event]):
     # ========================================================================
 
     # Core CRUD delegations
-    async def get_event(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.core.get_event(*args, **kwargs)
+    async def get_event(self, event_uid: str) -> Result[Event]:
+        return await self.core.get_event(event_uid)
 
-    async def get_user_events(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.core.get_user_events(*args, **kwargs)
+    async def get_user_events(self, user_uid: str) -> Result[list[Event]]:
+        return await self.core.get_user_events(user_uid)
 
-    async def find_events(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.core.find_events(*args, **kwargs)
+    async def find_events(
+        self,
+        filters: dict[str, Any] | None = None,
+        limit: int = 100,
+        offset: int = 0,
+        order_by: str | None = None,
+        order_desc: bool = False,
+    ) -> Result[list[Event]]:
+        return await self.core.find_events(filters, limit, offset, order_by, order_desc)
 
-    async def count_events(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.core.count_events(*args, **kwargs)
+    async def count_events(self, filters: dict[str, Any] | None = None) -> Result[int]:
+        return await self.core.count_events(filters)
 
-    async def update(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.core.update(*args, **kwargs)
+    async def update(self, uid: str, updates: dict[str, Any]) -> Result[Event]:
+        return await self.core.update(uid, updates)
 
     async def get_user_items_in_range(
         self,
@@ -218,7 +227,7 @@ class EventsService(BaseService["EventsOperations", Event]):
         start_date: date,
         end_date: date,
         include_completed: bool = False,
-    ) -> Any:
+    ) -> Result[list[Event]]:
         return await self.core.get_user_items_in_range(
             user_uid=user_uid,
             start_date=start_date,
@@ -227,140 +236,309 @@ class EventsService(BaseService["EventsOperations", Event]):
         )
 
     # Habit integration delegations
-    async def get_events_for_habit(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.habits.get_events_for_habit(*args, **kwargs)
+    async def get_events_for_habit(
+        self, habit_uid: str, user_context: UserContext, days_ahead: int = 7
+    ) -> Result[list[Event]]:
+        return await self.habits.get_events_for_habit(habit_uid, user_context, days_ahead)
 
-    async def get_habit_reinforcement_events(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.habits.get_habit_reinforcement_events(*args, **kwargs)
+    async def get_habit_reinforcement_events(
+        self, user_context: UserContext, days_ahead: int = 7
+    ) -> Result[dict[str, list[Event]]]:
+        return await self.habits.get_habit_reinforcement_events(user_context, days_ahead)
 
-    async def get_at_risk_habit_events(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.habits.get_at_risk_habit_events(*args, **kwargs)
+    async def get_at_risk_habit_events(
+        self, user_context: UserContext, risk_threshold_days: int = 3
+    ) -> Result[list[Event]]:
+        return await self.habits.get_at_risk_habit_events(user_context, risk_threshold_days)
 
-    async def complete_event_with_quality(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.habits.complete_event_with_quality(*args, **kwargs)
+    async def complete_event_with_quality(
+        self,
+        event_uid: str,
+        user_context: UserContext,
+        quality_score: int = 4,
+        completion_date: date | None = None,
+    ) -> Result[Event]:
+        return await self.habits.complete_event_with_quality(
+            event_uid, user_context, quality_score, completion_date
+        )
 
-    async def miss_habit_event(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.habits.miss_habit_event(*args, **kwargs)
+    async def miss_habit_event(
+        self, event_uid: str, user_context: UserContext, reason: str | None = None
+    ) -> Result[Event]:
+        return await self.habits.miss_habit_event(event_uid, user_context, reason)
 
-    async def create_recurring_events_for_habit(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.habits.create_recurring_events_for_habit(*args, **kwargs)
+    async def create_recurring_events_for_habit(
+        self,
+        habit_uid: str,
+        user_context: UserContext,
+        pattern: RecurrencePattern,
+        duration_minutes: int = 30,
+        days_to_create: int = 30,
+        title: str | None = None,
+    ) -> Result[list[Event]]:
+        return await self.habits.create_recurring_events_for_habit(
+            habit_uid, user_context, pattern, duration_minutes, days_to_create, title
+        )
 
-    async def get_next_habit_events(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.habits.get_next_habit_events(*args, **kwargs)
+    async def get_next_habit_events(
+        self, user_context: UserContext
+    ) -> Result[dict[str, Event | None]]:
+        return await self.habits.get_next_habit_events(user_context)
 
     # Learning integration delegations
-    async def get_learning_events(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.learning.get_learning_events(*args, **kwargs)
+    async def get_learning_events(self, user_uid: str, days_ahead: int = 7) -> Result[list[Event]]:
+        return await self.learning.get_learning_events(user_uid, days_ahead)
 
-    async def get_events_for_knowledge(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.learning.get_events_for_knowledge(*args, **kwargs)
+    async def get_events_for_knowledge(
+        self, knowledge_uid: str, user_uid: str, days_ahead: int = 30
+    ) -> Result[list[Event]]:
+        return await self.learning.get_events_for_knowledge(knowledge_uid, user_uid, days_ahead)
 
-    async def get_events_for_learning_path(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.learning.get_events_for_learning_path(*args, **kwargs)
+    async def get_events_for_learning_path(
+        self, learning_path_uid: str, user_uid: str
+    ) -> Result[list[Event]]:
+        return await self.learning.get_events_for_learning_path(learning_path_uid, user_uid)
 
-    async def create_study_session(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.learning.create_study_session(*args, **kwargs)
+    async def create_study_session(
+        self,
+        user_uid: str,
+        knowledge_uids: list[str],
+        event_date: date,
+        duration_minutes: int = 60,
+        title: str | None = None,
+        learning_path_uid: str | None = None,
+    ) -> Result[Event]:
+        return await self.learning.create_study_session(
+            user_uid, knowledge_uids, event_date, duration_minutes, title, learning_path_uid
+        )
 
-    async def suggest_spaced_repetition_events(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.learning.suggest_spaced_repetition_events(*args, **kwargs)
+    async def suggest_spaced_repetition_events(
+        self,
+        _user_uid: str,
+        knowledge_uid: str,
+        mastery_level: float = 0.5,
+        days_to_schedule: int = 30,
+    ) -> Result[list[dict[str, Any]]]:
+        return await self.learning.suggest_spaced_repetition_events(
+            _user_uid, knowledge_uid, mastery_level, days_to_schedule
+        )
 
-    async def create_learning_path_schedule(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.learning.create_learning_path_schedule(*args, **kwargs)
+    async def create_learning_path_schedule(
+        self,
+        user_uid: str,
+        learning_path_uid: str,
+        _learning_position: LpPosition,
+        study_hours_per_week: int = 5,
+    ) -> Result[list[Event]]:
+        return await self.learning.create_learning_path_schedule(
+            user_uid, learning_path_uid, _learning_position, study_hours_per_week
+        )
 
-    async def get_knowledge_reinforcement_stats(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.learning.get_knowledge_reinforcement_stats(*args, **kwargs)
+    async def get_knowledge_reinforcement_stats(
+        self, user_uid: str, knowledge_uid: str, days_back: int = 30
+    ) -> Result[dict[str, Any]]:
+        return await self.learning.get_knowledge_reinforcement_stats(
+            user_uid, knowledge_uid, days_back
+        )
 
     # Search delegations
-    async def search_events(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.search.search(*args, **kwargs)
+    async def search_events(
+        self, query: str, limit: int = 50, user_uid: str | None = None
+    ) -> Result[list[Event]]:
+        return await self.search.search(query, limit, user_uid)
 
-    async def get_calendar_events(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.search.get_calendar_events(*args, **kwargs)
+    async def get_calendar_events(
+        self,
+        user_uid: str,
+        start_date: date | None = None,
+        end_date: date | None = None,
+        limit: int = 100,
+    ) -> Result[list[Event]]:
+        return await self.search.get_calendar_events(user_uid, start_date, end_date, limit)
 
-    async def get_event_history(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.search.get_history(*args, **kwargs)
+    async def get_event_history(
+        self, user_uid: str, days_back: int = 90, limit: int = 100
+    ) -> Result[list[Event]]:
+        return await self.search.get_history(user_uid, days_back, limit)
 
-    async def get_events_due_soon(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.search.get_due_soon(*args, **kwargs)
+    async def get_events_due_soon(
+        self, days_ahead: int = 7, user_uid: str | None = None, limit: int = 100
+    ) -> Result[list[Event]]:
+        return await self.search.get_due_soon(days_ahead, user_uid, limit)
 
-    async def get_overdue_events(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.search.get_overdue(*args, **kwargs)
+    async def get_overdue_events(
+        self, user_uid: str | None = None, limit: int = 100
+    ) -> Result[list[Event]]:
+        return await self.search.get_overdue(user_uid, limit)
 
-    async def get_events_by_status(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.search.get_by_status(*args, **kwargs)
+    async def get_events_by_status(
+        self, status: str, limit: int = 100, user_uid: str | None = None
+    ) -> Result[list[Event]]:
+        return await self.search.get_by_status(status, limit, user_uid)
 
-    async def get_events_in_range(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.search.get_in_range(*args, **kwargs)
+    async def get_events_in_range(
+        self,
+        start_date: date,
+        end_date: date,
+        user_uid: str | None = None,
+        limit: int = 100,
+    ) -> Result[list[Event]]:
+        return await self.search.get_in_range(start_date, end_date, user_uid, limit)
 
-    async def get_prioritized_events(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.search.get_prioritized(*args, **kwargs)
+    async def get_prioritized_events(
+        self, user_context: UserContext, limit: int = 10
+    ) -> Result[list[Event]]:
+        return await self.search.get_prioritized(user_context, limit)
 
     # Relationship delegations
-    async def get_event_cross_domain_context(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.relationships.get_cross_domain_context(*args, **kwargs)
+    async def get_event_cross_domain_context(
+        self, entity_uid: str, depth: int = 2, min_confidence: float = 0.7
+    ) -> Result[dict[str, Any]]:
+        return await self.relationships.get_cross_domain_context(entity_uid, depth, min_confidence)
 
-    async def get_event_with_semantic_context(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.relationships.get_with_semantic_context(*args, **kwargs)
+    async def get_event_with_semantic_context(
+        self,
+        uid: str,
+        min_confidence: float = 0.8,
+        semantic_types: list[SemanticRelationshipType] | None = None,
+    ) -> Result[dict[str, Any]]:
+        return await self.relationships.get_with_semantic_context(
+            uid, min_confidence, semantic_types
+        )
 
-    async def analyze_event_impact(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.relationships.get_completion_impact(*args, **kwargs)
+    async def analyze_event_impact(self, uid: str) -> Result[dict[str, Any]]:
+        return await self.relationships.get_completion_impact(uid)
 
     # Intelligence delegations
-    async def get_event_with_context(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.intelligence.get_event_with_context(*args, **kwargs)
+    async def get_event_with_context(
+        self, uid: str, depth: int = 2
+    ) -> Result[tuple[Event, GraphContext]]:
+        return await self.intelligence.get_event_with_context(uid, depth)
 
-    async def analyze_event_performance(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.intelligence.analyze_event_performance(*args, **kwargs)
+    async def analyze_event_performance(self, uid: str) -> Result[dict[str, Any]]:
+        return await self.intelligence.analyze_event_performance(uid)
 
-    async def get_event_goal_support(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.intelligence.get_event_goal_support(*args, **kwargs)
+    async def get_event_goal_support(self, uid: str, depth: int = 2) -> Result[dict[str, Any]]:
+        return await self.intelligence.get_event_goal_support(uid, depth)
 
-    async def get_event_knowledge_reinforcement(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.intelligence.get_event_knowledge_reinforcement(*args, **kwargs)
+    async def get_event_knowledge_reinforcement(
+        self, uid: str, depth: int = 2
+    ) -> Result[dict[str, Any]]:
+        return await self.intelligence.get_event_knowledge_reinforcement(uid, depth)
 
-    async def analyze_upcoming_events(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.intelligence.analyze_upcoming_events(*args, **kwargs)
+    async def analyze_upcoming_events(
+        self, user_uid: str, days_ahead: int = 7
+    ) -> Result[dict[str, Any]]:
+        return await self.intelligence.analyze_upcoming_events(user_uid, days_ahead)
 
     # Progress delegations
-    async def complete_event_with_cascade(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.progress.complete_event_with_cascade(*args, **kwargs)
+    async def complete_event_with_cascade(
+        self,
+        event_uid: str,
+        user_context: UserContext,
+        quality_score: int | None = None,
+        notes: str | None = None,
+    ) -> Result[Event]:
+        return await self.progress.complete_event_with_cascade(
+            event_uid, user_context, quality_score, notes
+        )
 
-    async def get_attendance_rate(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.progress.get_attendance_rate(*args, **kwargs)
+    async def get_attendance_rate(
+        self, user_uid: str, period_days: int = 30
+    ) -> Result[dict[str, Any]]:
+        return await self.progress.get_attendance_rate(user_uid, period_days)
 
-    async def get_quality_trends(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.progress.get_quality_trends(*args, **kwargs)
+    async def get_quality_trends(
+        self, user_uid: str, period_days: int = 30
+    ) -> Result[dict[str, Any]]:
+        return await self.progress.get_quality_trends(user_uid, period_days)
 
-    async def get_goal_contribution_metrics(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.progress.get_goal_contribution_metrics(*args, **kwargs)
+    async def get_goal_contribution_metrics(
+        self, user_uid: str, period_days: int = 30
+    ) -> Result[dict[str, Any]]:
+        return await self.progress.get_goal_contribution_metrics(user_uid, period_days)
 
-    async def get_weekly_summary(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.progress.get_weekly_summary(*args, **kwargs)
+    async def get_weekly_summary(
+        self, user_uid: str, weeks_back: int = 4
+    ) -> Result[dict[str, Any]]:
+        return await self.progress.get_weekly_summary(user_uid, weeks_back)
 
-    async def get_habit_event_stats(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.progress.get_habit_event_stats(*args, **kwargs)
+    async def get_habit_event_stats(
+        self, user_uid: str, period_days: int = 30
+    ) -> Result[dict[str, Any]]:
+        return await self.progress.get_habit_event_stats(user_uid, period_days)
 
     # Scheduling delegations
-    async def schedule_event_smart(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.scheduling.schedule_event_smart(*args, **kwargs)
+    async def schedule_event_smart(
+        self,
+        event_data: EventCreateRequest,
+        user_context: UserContext,
+        avoid_conflicts: bool = True,
+    ) -> Result[Event]:
+        return await self.scheduling.schedule_event_smart(event_data, user_context, avoid_conflicts)
 
-    async def suggest_time_slots(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.scheduling.suggest_time_slots(*args, **kwargs)
+    async def suggest_time_slots(
+        self,
+        user_uid: str,
+        target_date: date,
+        duration_minutes: int = 60,
+        preferred_hours: tuple[int, int] = (9, 18),
+    ) -> Result[list[dict[str, Any]]]:
+        return await self.scheduling.suggest_time_slots(
+            user_uid, target_date, duration_minutes, preferred_hours
+        )
 
-    async def find_next_available_slot(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.scheduling.find_next_available_slot(*args, **kwargs)
+    async def find_next_available_slot(
+        self,
+        user_uid: str,
+        duration_minutes: int = 60,
+        preferred_hours: tuple[int, int] = (9, 18),
+        days_to_search: int = 7,
+    ) -> Result[dict[str, Any] | None]:
+        return await self.scheduling.find_next_available_slot(
+            user_uid, duration_minutes, preferred_hours, days_to_search
+        )
 
-    async def optimize_recurring_schedule(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.scheduling.optimize_recurring_schedule(*args, **kwargs)
+    async def optimize_recurring_schedule(
+        self,
+        user_uid: str,
+        pattern: RecurrencePattern,
+        preferred_time: time | None = None,
+        days_to_schedule: int = 30,
+    ) -> Result[list[date]]:
+        return await self.scheduling.optimize_recurring_schedule(
+            user_uid, pattern, preferred_time, days_to_schedule
+        )
 
-    async def create_recurring_events(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.scheduling.create_recurring_events(*args, **kwargs)
+    async def create_recurring_events(
+        self,
+        user_uid: str,
+        title: str,
+        pattern: RecurrencePattern,
+        duration_minutes: int = 60,
+        preferred_time: time | None = None,
+        days_to_create: int = 30,
+        reinforces_habit_uid: str | None = None,
+    ) -> Result[list[Event]]:
+        return await self.scheduling.create_recurring_events(
+            user_uid,
+            title,
+            pattern,
+            duration_minutes,
+            preferred_time,
+            days_to_create,
+            reinforces_habit_uid,
+        )
 
-    async def get_busy_times(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.scheduling.get_busy_times(*args, **kwargs)
+    async def get_busy_times(
+        self, user_uid: str, start_date: date, end_date: date
+    ) -> Result[dict[str, list[dict[str, str]]]]:
+        return await self.scheduling.get_busy_times(user_uid, start_date, end_date)
 
-    async def get_calendar_density(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.scheduling.get_calendar_density(*args, **kwargs)
+    async def get_calendar_density(
+        self, user_uid: str, days_ahead: int = 14
+    ) -> Result[dict[str, Any]]:
+        return await self.scheduling.get_calendar_density(user_uid, days_ahead)
 
     def __init__(
         self,

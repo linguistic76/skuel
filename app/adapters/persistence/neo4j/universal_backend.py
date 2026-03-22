@@ -121,6 +121,7 @@ from adapters.persistence.neo4j.query import UnifiedQueryBuilder
 from core.models.enums.neo_labels import NeoLabel
 from core.models.protocols import DomainModelProtocol
 from core.models.query_types import QueryIntent
+from core.models.type_hints import FilterParams
 from core.utils.error_boundary import safe_backend_operation
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -255,7 +256,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol](  # type: ignore[misc]  # Mi
         *,
         validate_label: bool = True,
         prometheus_metrics: Any | None = None,
-        default_filters: dict[str, Any] | None = None,
+        default_filters: FilterParams | None = None,
         base_label: str | NeoLabel | None = None,
     ) -> None:
         """
@@ -380,7 +381,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol](  # type: ignore[misc]  # Mi
             return ""
         return " AND ".join(f"{node_var}.{k} = $_df_{k}" for k in self.default_filters)
 
-    def _default_filter_params(self) -> dict[str, Any]:
+    def _default_filter_params(self) -> FilterParams:
         """Return default_filters as query params with ``_df_`` prefix."""
         return {f"_df_{k}": v for k, v in self.default_filters.items()}
 

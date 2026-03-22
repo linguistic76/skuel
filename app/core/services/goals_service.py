@@ -21,6 +21,7 @@ from datetime import date
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums import EntityStatus, Priority
+from core.models.enums.goal_enums import GoalTimeframe, GoalType
 from core.models.goal.goal import Goal
 from core.models.goal.goal_dto import GoalDTO
 from core.ports.domain_protocols import GoalsOperations
@@ -57,10 +58,20 @@ from core.utils.type_converters import get_enum_attr_str
 
 if TYPE_CHECKING:
     from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
+    from core.models.enums import Domain
     from core.models.goal.goal_request import GoalCreateRequest
+    from core.models.graph_context import GraphContext
+    from core.models.pathways.lp_position import LpPosition
     from core.ports.infrastructure_protocols import EventBusOperations
     from core.ports.query_types import ListContext
     from core.ports.search_protocols import GoalsSearchOperations
+    from core.services.goals.goals_scheduling_service import (
+        AchievabilityResult,
+        GoalCapacityResult,
+        GoalSequenceItem,
+        TimelineSuggestion,
+    )
+    from core.services.goals_types import GoalLearningProgress
     from core.services.insight.insight_store import InsightStore
     from core.services.user import UserContext
 
@@ -195,146 +206,253 @@ class GoalsService(BaseService[GoalsOperations, Goal]):
     # ========================================================================
 
     # Core CRUD delegations
-    async def get_goal(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.core.get_goal(*args, **kwargs)
+    async def get_goal(self, goal_uid: str) -> Result[Goal]:
+        return await self.core.get_goal(goal_uid)
 
-    async def get_user_goals(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.core.get_user_goals(*args, **kwargs)
+    async def get_user_goals(self, user_uid: str) -> Result[list[Goal]]:
+        return await self.core.get_user_goals(user_uid)
 
-    async def get_user_items_in_range(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.core.get_user_items_in_range(*args, **kwargs)
+    async def get_user_items_in_range(
+        self, user_uid: str, start_date: date, end_date: date, include_completed: bool = False
+    ) -> Result[list[Goal]]:
+        return await self.core.get_user_items_in_range(
+            user_uid, start_date, end_date, include_completed
+        )
 
-    async def activate_goal(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.core.activate_goal(*args, **kwargs)
+    async def activate_goal(self, uid: str) -> Result[bool]:
+        return await self.core.activate_goal(uid)
 
-    async def pause_goal(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.core.pause_goal(*args, **kwargs)
+    async def pause_goal(
+        self, uid: str, reason: str = "Paused", until_date: str | None = None
+    ) -> Result[bool]:
+        return await self.core.pause_goal(uid, reason, until_date)
 
-    async def complete_goal(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.core.complete_goal(*args, **kwargs)
+    async def complete_goal(
+        self, uid: str, completion_notes: str = "", completion_date: str | None = None
+    ) -> Result[bool]:
+        return await self.core.complete_goal(uid, completion_notes, completion_date)
 
-    async def archive_goal(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.core.archive_goal(*args, **kwargs)
+    async def archive_goal(self, uid: str, reason: str = "Archived") -> Result[bool]:
+        return await self.core.archive_goal(uid, reason)
 
-    async def create_goal(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.core.create_goal(*args, **kwargs)
+    async def create_goal(
+        self, goal_request: GoalCreateRequest, user_uid: str
+    ) -> Result[Goal]:
+        return await self.core.create_goal(goal_request, user_uid)
 
     # Progress delegations
-    async def calculate_goal_progress_with_context(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.progress.calculate_goal_progress_with_context(*args, **kwargs)
+    async def calculate_goal_progress_with_context(
+        self, goal_uid: str, user_context: UserContext
+    ) -> Result[dict[str, Any]]:
+        return await self.progress.calculate_goal_progress_with_context(goal_uid, user_context)
 
-    async def complete_milestone(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.progress.complete_milestone(*args, **kwargs)
+    async def complete_milestone(
+        self, goal_uid: str, milestone_index: int, user_context: UserContext
+    ) -> Result[Goal]:
+        return await self.progress.complete_milestone(goal_uid, milestone_index, user_context)
 
-    async def update_goal_from_habit_progress(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.progress.update_goal_from_habit_progress(*args, **kwargs)
+    async def update_goal_from_habit_progress(
+        self, goal_uid: str, habit_uid: str, new_streak: int
+    ) -> Result[Goal]:
+        return await self.progress.update_goal_from_habit_progress(goal_uid, habit_uid, new_streak)
 
-    async def update_goal_progress(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.progress.update_goal_progress(*args, **kwargs)
+    async def update_goal_progress(
+        self, uid: str, progress_value: float, notes: str = "", update_date: str | None = None
+    ) -> Result[dict[str, Any]]:
+        return await self.progress.update_goal_progress(uid, progress_value, notes, update_date)
 
-    async def get_goal_progress(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.progress.get_goal_progress(*args, **kwargs)
+    async def get_goal_progress(
+        self, uid: str, period: str = "month"
+    ) -> Result[dict[str, Any]]:
+        return await self.progress.get_goal_progress(uid, period)
 
-    async def create_goal_milestone(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.progress.create_goal_milestone(*args, **kwargs)
+    async def create_goal_milestone(
+        self, uid: str, milestone_title: str, target_date: str, description: str = ""
+    ) -> Result[bool]:
+        return await self.progress.create_goal_milestone(uid, milestone_title, target_date, description)
 
-    async def get_goal_milestones(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.progress.get_goal_milestones(*args, **kwargs)
+    async def get_goal_milestones(self, uid: str) -> Result[list[dict[str, Any]]]:
+        return await self.progress.get_goal_milestones(uid)
 
     # Learning delegations
-    async def create_goal_with_learning_integration(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.learning.create_goal_with_learning_integration(*args, **kwargs)
+    async def create_goal_with_learning_integration(
+        self, goal_request: GoalCreateRequest, learning_position: LpPosition | None = None
+    ) -> Result[Goal]:
+        return await self.learning.create_goal_with_learning_integration(
+            goal_request, learning_position
+        )
 
-    async def assess_goal_learning_alignment(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.learning.assess_goal_learning_alignment(*args, **kwargs)
+    async def assess_goal_learning_alignment(
+        self, goal_uid: str, learning_position: LpPosition
+    ) -> Result[dict[str, Any]]:
+        return await self.learning.assess_goal_learning_alignment(goal_uid, learning_position)
 
-    async def suggest_learning_aligned_goals(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.learning.suggest_learning_aligned_goals(*args, **kwargs)
+    async def suggest_learning_aligned_goals(
+        self, learning_position: LpPosition, goal_domain: Domain | None = None
+    ) -> Result[list[dict[str, Any]]]:
+        return await self.learning.suggest_learning_aligned_goals(learning_position, goal_domain)
 
-    async def get_learning_supporting_goals(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.learning.get_learning_supporting_goals(*args, **kwargs)
+    async def get_learning_supporting_goals(
+        self, user_uid: str, learning_position: LpPosition
+    ) -> Result[list[Goal]]:
+        return await self.learning.get_learning_supporting_goals(user_uid, learning_position)
 
-    async def track_goal_learning_progress(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.learning.track_goal_learning_progress(*args, **kwargs)
+    async def track_goal_learning_progress(
+        self, goal_uid: str, learning_position: LpPosition
+    ) -> Result[GoalLearningProgress]:
+        return await self.learning.track_goal_learning_progress(goal_uid, learning_position)
 
-    async def get_goals_needing_habits(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.learning.get_goals_needing_habits(*args, **kwargs)
+    async def get_goals_needing_habits(
+        self, user_context: UserContext
+    ) -> Result[list[Goal]]:
+        return await self.learning.get_goals_needing_habits(user_context)
 
-    async def get_goals_blocked_by_knowledge(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.learning.get_goals_blocked_by_knowledge(*args, **kwargs)
+    async def get_goals_blocked_by_knowledge(
+        self, user_context: UserContext
+    ) -> Result[list[Goal]]:
+        return await self.learning.get_goals_blocked_by_knowledge(user_context)
 
     # Relationship delegations
-    async def get_goal_cross_domain_context(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.relationships.get_cross_domain_context(*args, **kwargs)
+    async def get_goal_cross_domain_context(
+        self, entity_uid: str, depth: int = 2, min_confidence: float = 0.7
+    ) -> Result[dict[str, Any]]:
+        return await self.relationships.get_cross_domain_context(
+            entity_uid, depth, min_confidence
+        )
 
-    async def get_goal_with_semantic_context(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.relationships.get_with_semantic_context(*args, **kwargs)
+    async def get_goal_with_semantic_context(
+        self,
+        uid: str,
+        min_confidence: float = 0.8,
+        semantic_types: list[SemanticRelationshipType] | None = None,
+    ) -> Result[dict[str, Any]]:
+        return await self.relationships.get_with_semantic_context(
+            uid, min_confidence, semantic_types
+        )
 
     # Intelligence delegations
-    async def get_goal_with_context(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.intelligence.get_goal_with_context(*args, **kwargs)
+    async def get_goal_with_context(
+        self, uid: str, depth: int = 2
+    ) -> Result[tuple[Goal, GraphContext]]:
+        return await self.intelligence.get_goal_with_context(uid, depth)
 
-    async def get_goal_progress_dashboard(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.intelligence.get_goal_progress_dashboard(*args, **kwargs)
+    async def get_goal_progress_dashboard(
+        self, uid: str, min_confidence: float = 0.7
+    ) -> Result[dict[str, Any]]:
+        return await self.intelligence.get_goal_progress_dashboard(uid, min_confidence)
 
-    async def get_goal_completion_forecast(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.intelligence.get_goal_completion_forecast(*args, **kwargs)
+    async def get_goal_completion_forecast(
+        self, uid: str, depth: int = 2, min_confidence: float = 0.7
+    ) -> Result[dict[str, Any]]:
+        return await self.intelligence.get_goal_completion_forecast(uid, depth, min_confidence)
 
-    async def get_goal_learning_requirements(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.intelligence.get_goal_learning_requirements(*args, **kwargs)
+    async def get_goal_learning_requirements(
+        self, uid: str, depth: int = 2, min_confidence: float = 0.7
+    ) -> Result[dict[str, Any]]:
+        return await self.intelligence.get_goal_learning_requirements(uid, depth, min_confidence)
 
     # Search delegations
-    async def list_goal_categories(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.search.list_user_categories(*args, **kwargs)
+    async def list_goal_categories(self, user_uid: str) -> Result[list[str]]:
+        return await self.search.list_user_categories(user_uid)
 
-    async def list_all_goal_categories(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.search.list_all_categories(*args, **kwargs)
+    async def list_all_goal_categories(self) -> Result[list[str]]:
+        return await self.search.list_all_categories()
 
-    async def get_goals_by_category(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.search.get_by_category(*args, **kwargs)
+    async def get_goals_by_category(
+        self, category: str, user_uid: str | None = None, limit: int = 100
+    ) -> Result[list[Goal]]:
+        return await self.search.get_by_category(category, user_uid, limit)
 
-    async def get_goals_by_status(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.search.get_by_status(*args, **kwargs)
+    async def get_goals_by_status(
+        self, status: str, limit: int = 100, user_uid: str | None = None
+    ) -> Result[list[Goal]]:
+        return await self.search.get_by_status(status, limit, user_uid)
 
-    async def search_goals(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.search.search(*args, **kwargs)
+    async def search_goals(
+        self, query: str, limit: int = 50, user_uid: str | None = None
+    ) -> Result[list[Goal]]:
+        return await self.search.search(query, limit, user_uid)
 
-    async def get_goals_due_soon(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.search.get_due_soon(*args, **kwargs)
+    async def get_goals_due_soon(
+        self, days_ahead: int = 7, user_uid: str | None = None, limit: int = 100
+    ) -> Result[list[Goal]]:
+        return await self.search.get_due_soon(days_ahead, user_uid, limit)
 
-    async def get_overdue_goals(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.search.get_overdue(*args, **kwargs)
+    async def get_overdue_goals(
+        self, user_uid: str | None = None, limit: int = 100
+    ) -> Result[list[Goal]]:
+        return await self.search.get_overdue(user_uid, limit)
 
-    async def get_goals_by_domain(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.search.get_by_domain(*args, **kwargs)
+    async def get_goals_by_domain(
+        self, domain: Domain, limit: int = 100
+    ) -> Result[list[Goal]]:
+        return await self.search.get_by_domain(domain, limit)
 
-    async def get_prioritized_goals(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.search.get_prioritized(*args, **kwargs)
+    async def get_prioritized_goals(
+        self, user_context: UserContext, limit: int = 10
+    ) -> Result[list[Goal]]:
+        return await self.search.get_prioritized(user_context, limit)
 
     # Scheduling delegations
-    async def check_goal_capacity(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.scheduling.check_goal_capacity(*args, **kwargs)
+    async def check_goal_capacity(
+        self,
+        user_uid: str,
+        proposed_type: GoalType = GoalType.OUTCOME,
+        proposed_timeframe: GoalTimeframe = GoalTimeframe.QUARTERLY,
+        proposed_priority: Priority = Priority.MEDIUM,
+        max_active_goals: int = 5,
+    ) -> Result[GoalCapacityResult]:
+        return await self.scheduling.check_goal_capacity(
+            user_uid, proposed_type, proposed_timeframe, proposed_priority, max_active_goals
+        )
 
-    async def suggest_goal_timeline(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.scheduling.suggest_goal_timeline(*args, **kwargs)
+    async def suggest_goal_timeline(
+        self,
+        user_uid: str,
+        goal_type: GoalType,
+        timeframe: GoalTimeframe,
+        complexity_factors: list[str] | None = None,
+    ) -> Result[TimelineSuggestion]:
+        return await self.scheduling.suggest_goal_timeline(
+            user_uid, goal_type, timeframe, complexity_factors
+        )
 
-    async def assess_goal_achievability(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.scheduling.assess_goal_achievability(*args, **kwargs)
+    async def assess_goal_achievability(
+        self, goal_uid: str, user_context: UserContext
+    ) -> Result[AchievabilityResult]:
+        return await self.scheduling.assess_goal_achievability(goal_uid, user_context)
 
-    async def get_schedule_aware_next_goal(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.scheduling.get_schedule_aware_next_goal(*args, **kwargs)
+    async def get_schedule_aware_next_goal(
+        self, user_context: UserContext
+    ) -> Result[Goal | None]:
+        return await self.scheduling.get_schedule_aware_next_goal(user_context)
 
-    async def optimize_goal_sequencing(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.scheduling.optimize_goal_sequencing(*args, **kwargs)
+    async def optimize_goal_sequencing(
+        self, user_uid: str, goal_uids: list[str]
+    ) -> Result[list[GoalSequenceItem]]:
+        return await self.scheduling.optimize_goal_sequencing(user_uid, goal_uids)
 
-    async def get_goal_load_by_timeframe(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.scheduling.get_goal_load_by_timeframe(*args, **kwargs)
+    async def get_goal_load_by_timeframe(
+        self, user_uid: str
+    ) -> Result[dict[str, Any]]:
+        return await self.scheduling.get_goal_load_by_timeframe(user_uid)
 
-    async def create_goal_with_scheduling_context(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.scheduling.create_goal_with_context(*args, **kwargs)
+    async def create_goal_with_scheduling_context(
+        self, goal_data: GoalCreateRequest, user_context: UserContext, check_capacity: bool = True
+    ) -> Result[Goal]:
+        return await self.scheduling.create_goal_with_context(
+            goal_data, user_context, check_capacity
+        )
 
-    async def create_goal_with_learning_scheduling(self, *args: Any, **kwargs: Any) -> Result[Any]:
-        return await self.scheduling.create_goal_with_learning_context(*args, **kwargs)
+    async def create_goal_with_learning_scheduling(
+        self,
+        goal_data: GoalCreateRequest,
+        learning_position: LpPosition | None,
+        user_context: UserContext,
+    ) -> Result[Goal]:
+        return await self.scheduling.create_goal_with_learning_context(
+            goal_data, learning_position, user_context
+        )
 
     def __init__(
         self,

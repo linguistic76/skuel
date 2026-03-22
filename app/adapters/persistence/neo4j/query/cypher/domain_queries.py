@@ -13,7 +13,9 @@ These methods wrap the semantic queries with domain-specific defaults.
 """
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
+
+from core.models.type_hints import Neo4jValue
 
 if TYPE_CHECKING:
     from datetime import date
@@ -37,7 +39,7 @@ def build_simple_prerequisite_chain(
     min_strength: float = 0.0,
     as_of_date: datetime | None = None,
     include_deprecated: bool = False,
-) -> tuple[str, dict[str, Any]]:
+) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build query for simple prerequisite chains (domain-agnostic, non-semantic).
 
@@ -109,7 +111,7 @@ def build_unmastered_prerequisite_chain(
     relationship_type: str = "REQUIRES_KNOWLEDGE",
     mastery_relationship: str = "MASTERED_BY",
     depth: int = 3,
-) -> tuple[str, dict[str, Any]]:
+) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build query for prerequisites not yet mastered by user.
 
@@ -143,7 +145,7 @@ def build_multi_domain_context(
     depth: int = 3,
     bidirectional: bool = True,
     include_relationships: bool = True,
-) -> tuple[str, dict[str, Any]]:
+) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build query for multi-domain neighborhood traversal.
 
@@ -193,7 +195,7 @@ def build_multi_domain_context(
 
 def build_knowledge_prerequisites(
     ku_uid: str, user_uid: str | None = None, depth: int = 3, include_optional: bool = False
-) -> tuple[str, dict[str, Any]]:
+) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build query for knowledge unit prerequisites (domain-specific convenience).
 
@@ -231,7 +233,7 @@ def build_task_dependencies(
     direction: str = "prerequisites",
     depth: int = 2,
     include_all_levels: bool = False,
-) -> tuple[str, dict[str, Any]]:
+) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build query for task dependency chains.
 
@@ -275,7 +277,7 @@ def build_goal_dependencies(
     direction: str = "prerequisites",
     depth: int = 3,
     include_subgoals: bool = True,
-) -> tuple[str, dict[str, Any]]:
+) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build query for goal dependency chains.
 
@@ -333,7 +335,7 @@ def build_habit_dependencies(
     direction: str = "prerequisites",
     depth: int = 2,
     include_all_levels: bool = False,
-) -> tuple[str, dict[str, Any]]:
+) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build query for habit dependency chains.
 
@@ -394,7 +396,7 @@ def build_event_dependencies(
     direction: str = "prerequisites",
     depth: int = 2,
     include_all_levels: bool = False,
-) -> tuple[str, dict[str, Any]]:
+) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build query for event dependency chains.
 
@@ -454,7 +456,7 @@ def build_principle_dependencies(
     user_uid: str | None = None,
     depth: int = 3,
     include_optional: bool = False,
-) -> tuple[str, dict[str, Any]]:
+) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build query for principle dependency chains.
 
@@ -492,7 +494,7 @@ def build_choice_dependencies(
     direction: str = "prerequisites",
     depth: int = 2,
     include_all_levels: bool = False,
-) -> tuple[str, dict[str, Any]]:
+) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build query for choice dependency chains.
 
@@ -557,7 +559,7 @@ def build_entity_with_context(
     relationships: list["RelationshipSpec"],
     confidence_param: str | None = "min_confidence",
     default_confidence: float = 0.7,
-) -> tuple[str, dict[str, Any]]:
+) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build query for fetching an entity with its full graph neighborhood context.
 
@@ -646,7 +648,7 @@ def build_entity_with_context(
     parts.append(f"RETURN {', '.join(return_vars)}")
 
     cypher = "\n".join(parts)
-    parameters: dict[str, Any] = {}
+    parameters: dict[str, Neo4jValue] = {}
 
     if any(rel.get("use_confidence", False) for rel in relationships):
         parameters[confidence_param or "min_confidence"] = default_confidence
@@ -662,7 +664,7 @@ def build_task_with_context(
     include_habit: bool = True,
     _include_related: bool = True,
     _related_limit: int = 5,
-) -> tuple[str, dict[str, Any]]:
+) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build query for Task entity with full graph context.
 
@@ -771,7 +773,7 @@ def build_goal_with_context(
     include_knowledge: bool = True,
     include_principles: bool = True,
     include_milestones: bool = True,
-) -> tuple[str, dict[str, Any]]:
+) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build query for Goal entity with full graph context.
 
@@ -880,7 +882,7 @@ def build_ku_with_context(
     include_applied_in_tasks: bool = True,
     include_reinforced_by_habits: bool = True,
     include_supports_goals: bool = True,
-) -> tuple[str, dict[str, Any]]:
+) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build query for KU entity with full graph context.
 
@@ -976,7 +978,7 @@ def build_habit_with_context(
     include_goals: bool = True,
     include_prerequisite_habits: bool = True,
     include_reinforcing_habits: bool = True,
-) -> tuple[str, dict[str, Any]]:
+) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build query for Habit entity with full graph context.
 
@@ -1060,7 +1062,7 @@ def build_event_with_context(
     include_practiced_habits: bool = True,
     include_celebrated_goals: bool = True,
     include_conflicting_events: bool = True,
-) -> tuple[str, dict[str, Any]]:
+) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build query for Event entity with full graph context.
 
@@ -1157,7 +1159,7 @@ def build_choice_with_context(
     include_inspired_choices: bool = True,
     include_implementing_tasks: bool = True,
     include_guiding_principles: bool = True,
-) -> tuple[str, dict[str, Any]]:
+) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build query for Choice entity with full graph context.
 
@@ -1267,7 +1269,7 @@ def build_principle_with_context(
     include_supporting_principles: bool = True,
     include_conflicting_principles: bool = True,
     include_aligned_tasks: bool = True,
-) -> tuple[str, dict[str, Any]]:
+) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build query for Principle entity with full graph context.
 
@@ -1393,7 +1395,7 @@ def build_user_activity_query(
     end_date: "date | None" = None,
     exclude_statuses: list[str] | None = None,
     limit: int = 100,
-) -> tuple[str, dict[str, Any]]:
+) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build query for user's activity items with common filters.
 
@@ -1456,7 +1458,7 @@ def build_user_activity_query(
     """
 
     # Build parameters
-    params: dict[str, Any] = {"user_uid": user_uid, "limit": limit}
+    params: dict[str, Neo4jValue] = {"user_uid": user_uid, "limit": limit}
 
     if date_field and start_date and end_date:
         params["start_date"] = start_date.isoformat()
@@ -1481,7 +1483,7 @@ def build_due_soon_query(
     user_uid: str | None = None,
     limit: int = 100,
     secondary_sort_field: str | None = None,
-) -> tuple[str, dict[str, Any]]:
+) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build query for entities due within N days.
 
@@ -1540,7 +1542,7 @@ def build_due_soon_query(
     LIMIT $limit
     """
 
-    params: dict[str, Any] = {
+    params: dict[str, Neo4jValue] = {
         "today": today.isoformat(),
         "end_date": end_date.isoformat(),
         "limit": limit,
@@ -1561,7 +1563,7 @@ def build_overdue_query(
     user_uid: str | None = None,
     limit: int = 100,
     secondary_sort_field: str | None = None,
-) -> tuple[str, dict[str, Any]]:
+) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build query for entities past their due date.
 
@@ -1617,7 +1619,7 @@ def build_overdue_query(
     LIMIT $limit
     """
 
-    params: dict[str, Any] = {
+    params: dict[str, Neo4jValue] = {
         "today": today.isoformat(),
         "limit": limit,
     }
