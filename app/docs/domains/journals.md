@@ -14,7 +14,7 @@ tags: [journals, standalone-domain, multi-modal, ai-processing]
 **UID Prefixes:** `ji_` (JeInput), `jo_` (JeOutput)
 **Neo4j Labels:** `:Entity:JeInput`, `:Entity:JeOutput`
 **Models:** `core/models/journal/`
-**Service:** `core/services/journal/journal_output_service.py`
+**Services:** `core/services/journal/` (JournalInputService + JournalOutputService)
 
 ## Domain Architecture (March 2026)
 
@@ -80,11 +80,23 @@ Journals support **three modes** with weighted distribution:
 
 ## Service Architecture
 
+### JournalInputService
+
+**Location:** `/core/services/journal/journal_input_service.py`
+**Protocol:** `JournalInputOperations` in `/core/ports/journal_protocols.py`
+
+Standalone facade for JeInput CRUD and file upload. Handles text entries and file uploads (audio/text), saves files to `{SKUEL_JOURNAL_STORAGE}/{YYYY-MM}/je_input_{uid}.{ext}`, auto-generates sequential titles, and publishes `JeInputCreated`/`JeInputDeleted` events.
+
+**8 methods:** `create_journal_entry()`, `submit_journal_file()`, `get_je_input()`, `list_je_inputs()`, `get_je_inputs_by_date_range()`, `make_permanent()`, `delete_je_input()`, `generate_journal_title()`
+
+Always available (no LLM dependency). Wired as `journal_input` in Services.
+
 ### JournalOutputService
 
 **Location:** `/core/services/journal/journal_output_service.py`
+**Protocol:** `JournalOutputOperations` in `/core/ports/journal_protocols.py`
 
-Replaces the former `JournalOutputGenerator` (which lived under submissions). Handles LLM-based formatting of journal content.
+LLM processing pipeline: JeInput(text) → InstructionResolver → LLM → file on disk → JeOutput in Neo4j. Conditional on `INTELLIGENCE_TIER=full` (requires LLM). Wired as `journal_generator` in Services.
 
 **Formatter Prompts:**
 - `/core/prompts/templates/journal_activity.md`
@@ -107,7 +119,10 @@ Two-tier batch pipeline for processing multiple audio files:
 | JeOutput Model | `/core/models/journal/je_output.py` |
 | EntityType | `EntityType.JE_INPUT`, `EntityType.JE_OUTPUT` in `/core/models/enums/entity_enums.py` |
 | **Services** | |
+| Input Service | `/core/services/journal/journal_input_service.py` |
 | Output Service | `/core/services/journal/journal_output_service.py` |
+| Protocols | `/core/ports/journal_protocols.py` |
+| Events | `/core/events/journal_events.py` |
 | Batch Transcription (Tier 1) | `/core/services/transcription/batch_transcription_service.py` |
 | Batch Processing (Tier 2) | `/core/services/transcription/batch_processing_service.py` |
 | **Prompts** | |
@@ -132,6 +147,7 @@ Two-tier batch pipeline for processing multiple audio files:
 - **After:** Journals are a standalone domain with `JeInput(UserOwnedEntity)` and `JeOutput(UserOwnedEntity)`
 - **Reason:** Journals have a fundamentally different lifecycle (input → transform → output) compared to the exercise submission pipeline (submit → evaluate → report)
 - **Service renamed:** `JournalOutputGenerator` → `JournalOutputService`; `JournalsCoreService` removed (journal delegation removed from SubmissionsCoreService)
+- **JournalInputService** built to implement `JournalInputOperations` protocol — CRUD + file upload for JeInput entities, replacing broken `submissions_core_service.submit_journal_file()` call path
 - **Models moved:** `core/models/submissions/` → `core/models/journal/`
 - **Relationship:** `REPORT_FOR` → `TRANSFORMS`
 

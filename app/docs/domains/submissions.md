@@ -60,8 +60,7 @@ Reports is the primary user-facing interface for all content submissions and sys
 | **Service Package** | `/core/services/submissions/ + core/services/report/` |
 | Submission Service | `submissions_service.py` |
 | Processing Service | `submissions_processing_service.py` |
-| Core Service | `submissions_core_service.py` (facade — delegates journal + assessment to sub-services) |
-| Journals Sub-Service | `journals_core_service.py` (journal CRUD, FIFO, transcription, upload orchestration) |
+| Core Service | `submissions_core_service.py` (facade — delegates assessment to sub-services) |
 | Assessment Sub-Service | `assessment_service.py` (teacher assessment CRUD, authority verification) |
 | Search Service | `submissions_search_service.py` |
 | Relationship Service | `submissions_relationship_service.py` |
@@ -137,7 +136,7 @@ Students see assessments at `/submissions/reports`.
 | Service | Test File | Tests | Notes |
 |---------|-----------|-------|-------|
 | `TeacherReviewService` | `tests/unit/services/test_teacher_review_service.py` | 57 | 99% coverage — access control, review queue, report/revision/approval flows, dashboard stats, groups |
-| `SubmissionsCoreService` + `JournalsCoreService` | `tests/unit/services/test_submissions_core_service.py` | 109 | 79% coverage — journal CRUD, FIFO, exercise linking, tags, bulk ops, delete, export, submit_journal_file orchestrator |
+| `SubmissionsCoreService` | `tests/unit/services/test_submissions_core_service.py` | 109 | 79% coverage — exercise linking, tags, bulk ops, delete, export (journal ops moved to JournalInputService) |
 | `AssessmentService` | `tests/unit/test_assessment_service.py` | 9 | Assessment CRUD: create, authority check, relationships, metadata |
 
 ## See Also

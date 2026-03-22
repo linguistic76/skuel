@@ -358,10 +358,10 @@ class DomainMetrics:
 Add tracking where the action occurs:
 
 ```python
-# In JournalsCoreService
+# In JournalInputService
 from core.infrastructure.monitoring import PrometheusMetrics
 
-class JournalsCoreService:
+class JournalInputService:
     def __init__(
         self,
         backend: BackendOperations[Journal],
@@ -443,7 +443,7 @@ async def test_journal_creation_increments_metric():
     prometheus_metrics = PrometheusMetrics()
     cache = MetricsCache(prometheus_metrics, enabled=True)
 
-    service = JournalsCoreService(
+    service = JournalInputService(
         backend=mock_backend,
         prometheus_metrics=prometheus_metrics,
     )

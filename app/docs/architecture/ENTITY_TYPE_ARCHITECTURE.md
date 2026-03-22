@@ -318,7 +318,7 @@ Both extend `UserOwnedEntity` directly (NOT `Submission` or `SubmissionReport`).
 **Pipeline:** JE_INPUT(audio) → Deepgram → JE_INPUT(text) → LLM → JE_OUTPUT
 
 **Models:** `core/models/journal/`
-**Service:** `core/services/journal/journal_output_service.py` (`JournalOutputService`)
+**Services:** `JournalInputService` (CRUD + file upload), `JournalOutputService` (LLM processing) in `core/services/journal/`
 
 **See:** `/docs/architecture/REPORT_ARCHITECTURE.md`
 

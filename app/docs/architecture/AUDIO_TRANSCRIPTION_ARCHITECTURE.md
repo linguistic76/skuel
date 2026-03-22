@@ -139,7 +139,7 @@ TranscriptionResult stored in Neo4j
 TranscriptionCompleted event published
        |
        v
-JournalsCoreService creates journal report (via SubmissionsCoreService delegation)
+JournalOutputService processes transcribed text into JeOutput (standalone journal domain)
 ```
 
 **TranscriptionProcessOptions** (Pydantic model) provides per-call overrides via the REST API:

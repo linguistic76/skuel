@@ -406,10 +406,10 @@ services_bootstrap.py:  goals.intelligence.habits_service = habits  # sub-servic
 ```
 SubmissionsCoreService.__init__:  self.assessments = AssessmentService(...)
 
-# Journal is now a standalone domain — JournalsCoreService removed from SubmissionsCoreService
+# Journal is a standalone domain with JournalInputService (CRUD) + JournalOutputService (LLM)
 ```
 
-**Rule:** Routes never pass cross-domain services as parameters. Orchestration methods (e.g., `create_with_goal_links`, `submit_journal_file`) use `self.*_service` internally.
+**Rule:** Routes never pass cross-domain services as parameters. Orchestration methods (e.g., `create_with_goal_links`) use `self.*_service` internally.
 
 ---
 
@@ -617,7 +617,10 @@ Routes / Application Code
 │   ├─ submissions_search_service.py
 │   ├─ submissions_processing_service.py
 │   ├─ submissions_relationship_service.py
-│   └─ (journal_output_generator.py removed — journal is now a standalone domain)
+│
+├─ journal/
+│   ├─ journal_input_service.py     (JeInput CRUD + file upload — JournalInputOperations)
+│   └─ journal_output_service.py    (LLM processing → JeOutput — JournalOutputOperations)
 │
 ├─ output/
 │   └─ instruction_resolver.py        (unified instruction resolution)
