@@ -13,7 +13,7 @@ related_docs:
 
 # API Validation Patterns
 
-*Created: 2026-01-24 | Updated: 2026-03-18*
+*Created: 2026-01-24 | Updated: 2026-03-23*
 
 ## Quick Start
 
@@ -46,7 +46,7 @@ SKUEL validates all external input at API boundaries to prevent 500 errors from 
 
 **Pattern:** Lightweight helper functions that return `Result[T]`
 
-**All shared helpers live in** `adapters/inbound/route_factories/route_helpers.py` and are re-exported from `adapters.inbound.route_factories`.
+**Query param helpers live in** `adapters/inbound/route_factories/route_helpers.py` (re-exported from `adapters.inbound.route_factories`). **Body parsing helpers** (`parse_json_body`, `parse_form_body`) live in `adapters/inbound/form_helpers.py`.
 
 **Example:**
 ```python
@@ -555,6 +555,14 @@ core/models/habit/habit_request.py    # ContextualHabitCompletionRequest
 core/models/auth/auth_request.py      # RegistrationRequest, LoginRequest, ResetPasswordRequest
 ```
 
+**Standalone request files** (domains without a directory):
+```
+core/models/lifepath_request.py       # CaptureVisionRequest, DesignateLifePathRequest
+core/models/insight_request.py        # BulkInsightUidsRequest, SnoozeInsightRequest
+core/models/user_pins_request.py      # PinEntityRequest, ReorderPinsRequest
+core/models/entity_requests.py        # SmartDismissRequest, bulk ops, cross-domain models
+```
+
 **Note:** Auth request models validate HTML form data (not JSON bodies), but follow the same Pydantic pattern. Form data is extracted with `safe_form_string()` then passed to the model constructor.
 
 ### Route Files
@@ -922,6 +930,25 @@ def test_task_completion_request_defaults():
 
 **Groups API** (`adapters/inbound/groups_api.py`):
 - Uses `parse_json_body()` for create, update, add_member, remove_member routes
+
+**Finance API** (`adapters/inbound/finance_api.py`):
+- Uses `parse_json_body()` for receipt attachment, invoice creation, bulk categorize
+- Request models: `AttachReceiptRequest`, `BulkCategorizeExpensesRequest` in `core/models/finance/finance_request.py`
+
+**Insights API** (`adapters/inbound/insights_api.py`):
+- Uses `parse_json_body()` for bulk dismiss/action, smart dismiss, snooze
+- Request models: `BulkInsightUidsRequest`, `SnoozeInsightRequest` in `core/models/insight_request.py`
+
+**LifePath API** (`adapters/inbound/lifepath_api.py`):
+- Uses `parse_json_body()` for vision capture, life path designation
+- Request models: `CaptureVisionRequest`, `DesignateLifePathRequest` in `core/models/lifepath_request.py`
+
+**Submissions API** (`adapters/inbound/submissions_api.py`):
+- Uses `parse_json_body()` for categorize, tags, bulk ops (6 content management routes)
+
+**User Pins API** (`adapters/inbound/user_pins_api.py`):
+- Uses `parse_json_body()` for pin and reorder operations
+- Request models: `PinEntityRequest`, `ReorderPinsRequest` in `core/models/user_pins_request.py`
 
 **Search Routes** (`adapters/inbound/search_routes.py`):
 - Uses `split_csv()` for entity_types and tags parsing

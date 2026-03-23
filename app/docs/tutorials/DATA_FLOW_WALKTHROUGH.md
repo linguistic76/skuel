@@ -51,23 +51,25 @@ crud_factory = CRUDRouteFactory(
 crud_factory.register_routes(app, rt)
 ```
 
-### 1.2 FastHTML Auto-Validation
+### 1.2 Request Parsing via `parse_json_body()`
 
 ```python
-# FastHTML automatically:
-# 1. Parses JSON body
-# 2. Validates against TaskCreateRequest schema
-# 3. Returns 422 if validation fails
-# 4. Passes validated object to handler
+# parse_json_body() handles:
+# 1. Parses JSON body from request
+# 2. Validates against TaskCreateRequest schema via Pydantic
+# 3. Returns Result.fail() with validation error on failure
+# 4. Returns Result.ok(model) on success
+
+from adapters.inbound.form_helpers import parse_json_body
 
 @rt("/api/tasks/create", methods=["POST"])
 @boundary_handler(success_status=201)
-async def create_task(
-    request: Request,
-    body: TaskCreateRequest,  # ← FastHTML auto-parses & validates
-) -> Result[Any]:
+async def create_task(request: Request) -> Result[Any]:
     user_uid = require_authenticated_user(request)
-    return await tasks_service.create_task(body, user_uid)
+    parsed = await parse_json_body(request, TaskCreateRequest)
+    if parsed.is_error:
+        return parsed  # type: ignore[return-value]
+    return await tasks_service.create_task(parsed.value, user_uid)
 ```
 
 ### 1.3 Pydantic Validation (Tier 1)
