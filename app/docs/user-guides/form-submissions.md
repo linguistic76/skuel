@@ -168,8 +168,8 @@ Users can delete their own submissions from the detail page. The delete is owner
 | POST | `/api/form-templates/create` | Create a new FormTemplate |
 | GET | `/api/form-templates/get?uid=` | Get a FormTemplate by UID |
 | GET | `/api/form-templates/list` | List all FormTemplates |
-| PUT | `/api/form-templates/update?uid=` | Update a FormTemplate |
-| DELETE | `/api/form-templates/delete?uid=` | Delete a FormTemplate |
+| POST | `/api/form-templates/update?uid=` | Update a FormTemplate |
+| POST | `/api/form-templates/delete?uid=` | Delete a FormTemplate |
 | POST | `/api/form-templates/link-lesson` | Link FormTemplate to Lesson |
 | POST | `/api/form-templates/unlink-lesson` | Unlink FormTemplate from Lesson |
 
