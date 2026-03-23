@@ -1103,32 +1103,27 @@ class RevisedExerciseOperations(Protocol):
     RevisedExercise is a UserOwnedEntity (teacher-owned, student-targeted)
     that provides targeted revision instructions after SubmissionReport.
 
-    Route consumer: revised_exercises_api.py
+    CRUD: Inherited from CrudOperationsMixin via BaseService (create, get, update, delete, list).
+    Domain-specific: list_for_student, get_revision_chain.
+
+    Route consumer: revised_exercises_api.py (CRUDRouteFactory + domain-specific routes)
     Implementation: RevisedExerciseService
     """
 
-    async def create_revised_exercise(
-        self,
-        teacher_uid: str,
-        original_exercise_uid: str,
-        report_uid: str,
-        student_uid: str,
-        instructions: str,
-        title: str | None = None,
-        model: str = "claude-sonnet-4-6",
-        context_notes: list[str] | None = None,
-        feedback_points_addressed: list[str] | None = None,
-        revision_rationale: str | None = None,
-    ) -> Result[Any]:
-        """Create a RevisedExercise. Returns Result[RevisedExercise]."""
+    async def create(self, entity: Any) -> Result[Any]:
+        """Create a RevisedExercise with authority verification and relationships."""
         ...
 
-    async def get_revised_exercise(self, uid: str) -> Result[Any]:
-        """Get revised exercise by UID. Returns Result[RevisedExercise]."""
+    async def get(self, uid: str) -> Result[Any]:
+        """Get revised exercise by UID."""
         ...
 
-    async def list_for_teacher(self, teacher_uid: str) -> Result[list[Any]]:
-        """List revised exercises owned by a teacher."""
+    async def update(self, uid: str, updates: dict[str, Any]) -> Result[Any]:
+        """Update a revised exercise."""
+        ...
+
+    async def delete(self, uid: str, cascade: bool = False) -> Result[bool]:
+        """Delete a revised exercise with cascade."""
         ...
 
     async def list_for_student(
@@ -1144,23 +1139,6 @@ class RevisedExerciseOperations(Protocol):
 
     async def get_revision_chain(self, exercise_uid: str) -> Result[list[dict[str, Any]]]:
         """Get all revisions in the chain for an original exercise."""
-        ...
-
-    async def update_revised_exercise(
-        self,
-        uid: str,
-        instructions: str | None = None,
-        title: str | None = None,
-        model: str | None = None,
-        context_notes: list[str] | None = None,
-        feedback_points_addressed: list[str] | None = None,
-        revision_rationale: str | None = None,
-    ) -> Result[Any]:
-        """Update a revised exercise."""
-        ...
-
-    async def delete_revised_exercise(self, uid: str) -> Result[bool]:
-        """Delete a revised exercise."""
         ...
 
 

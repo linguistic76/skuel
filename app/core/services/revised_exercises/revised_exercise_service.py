@@ -12,11 +12,17 @@ A teacher creates a RevisedExercise after reviewing SubmissionReport, providing
 targeted instructions for the student to address specific gaps. The student
 submits against the RevisedExercise via FULFILLS_EXERCISE (same relationship
 as regular Exercise submissions).
+
+Implements CRUDOperations via BaseService inheritance (CrudOperationsMixin).
+Overrides create/delete to add authority checks, relationships, events, and cascade.
 """
 
+import dataclasses
 from datetime import datetime
 from typing import Any, ClassVar
 
+from core.events import RevisedExerciseEmbeddingRequested, publish_event
+from core.events.submission_events import RevisedExerciseCreated
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.neo_labels import NeoLabel
 from core.models.exercises.revised_exercise import RevisedExercise
@@ -25,10 +31,10 @@ from core.models.relationship_names import RelationshipName
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
 from core.utils.decorators import with_error_handling
+from core.utils.embedding_text_builder import build_embedding_text
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
-from core.utils.uid_generator import UIDGenerator
 
 logger = get_logger(__name__)
 
@@ -39,6 +45,12 @@ class RevisedExerciseService(BaseService):
 
     RevisedExercises are teacher-owned but student-targeted. They are stored
     as :Entity:RevisedExercise nodes with entity_type='revised_exercise'.
+
+    Inherits CRUDOperations from CrudOperationsMixin (via BaseService):
+    create, get, update, delete, list, get_for_user, update_for_user, delete_for_user.
+
+    Overrides create/delete to add authority verification, graph relationships,
+    auto-sharing, and domain events.
     """
 
     _config = DomainConfig(
@@ -82,7 +94,148 @@ class RevisedExerciseService(BaseService):
         return "Entity"
 
     # ========================================================================
-    # CREATE
+    # CRUD OVERRIDES (authority checks, relationships, events)
+    # ========================================================================
+
+    async def create(self, entity: RevisedExercise) -> Result[RevisedExercise]:
+        """
+        Create a new RevisedExercise with authority verification and relationships.
+
+        Creates the entity plus three relationships:
+        - OWNS (teacher → revised_exercise)
+        - RESPONDS_TO_REPORT (revised_exercise → report)
+        - REVISES_EXERCISE (revised_exercise → original exercise)
+
+        Also auto-shares with the student and publishes domain events.
+
+        Access control: Verifies the teacher has SHARES_WITH {role:'teacher'}
+        on the submission linked to the report, and the student_uid owns
+        that submission.
+        """
+        teacher_uid = entity.user_uid
+
+        # Verify teacher has review authority over this report/student
+        auth_result = await self._verify_teacher_authority(
+            teacher_uid, entity.report_uid, entity.student_uid
+        )
+        if auth_result.is_error:
+            return Result.fail(auth_result.expect_error())
+
+        # Determine revision number from existing chain
+        chain_result = await self.backend.get_revision_chain(entity.original_exercise_uid)
+        revision_number = 1
+        if chain_result.is_ok and chain_result.value:
+            revision_number = len(chain_result.value) + 1
+
+        # Enrich entity with computed revision_number and default title
+        display_title = entity.title or f"Revision {revision_number}"
+        enriched = dataclasses.replace(
+            entity,
+            revision_number=revision_number,
+            title=display_title,
+        )
+
+        result = await self.backend.create(enriched)
+        if result.is_error:
+            self.logger.error(f"Failed to create revised exercise: {result.error}")
+            return result
+
+        uid = enriched.uid
+
+        # Create OWNS relationship (teacher → revised_exercise)
+        owns_result = await self.backend.execute_query(
+            f"""
+            MATCH (u:User {{uid: $teacher_uid}})
+            MATCH (re:Entity {{uid: $re_uid}})
+            MERGE (u)-[:{RelationshipName.OWNS.value}]->(re)
+            RETURN true as success
+            """,
+            {"teacher_uid": teacher_uid, "re_uid": uid},
+        )
+        if owns_result.is_error:
+            self.logger.warning(f"Failed to create OWNS relationship: {owns_result.error}")
+
+        # Create RESPONDS_TO_REPORT relationship
+        feedback_result = await self.backend.link_to_report(uid, enriched.report_uid)
+        if feedback_result.is_error:
+            self.logger.warning(f"Failed to create RESPONDS_TO_REPORT: {feedback_result.error}")
+
+        # Create REVISES_EXERCISE relationship
+        exercise_result = await self.backend.link_to_exercise(
+            uid, enriched.original_exercise_uid
+        )
+        if exercise_result.is_error:
+            self.logger.warning(f"Failed to create REVISES_EXERCISE: {exercise_result.error}")
+
+        # Auto-share with student so it appears in their "Shared With Me" inbox.
+        # Same pattern as assignment auto-sharing (ADR-040).
+        share_result = await self.backend.execute_query(
+            f"""
+            MATCH (student:User {{uid: $student_uid}})
+            MATCH (re:Entity {{uid: $re_uid}})
+            MERGE (student)-[r:{RelationshipName.SHARES_WITH.value}]->(re)
+            ON CREATE SET r.shared_at = $shared_at, r.role = 'student'
+            SET re.visibility = 'shared'
+            RETURN true as success
+            """,
+            {
+                "student_uid": enriched.student_uid,
+                "re_uid": uid,
+                "shared_at": datetime.now().isoformat(),
+            },
+        )
+        if share_result.is_error:
+            self.logger.warning(f"Failed to auto-share with student: {share_result.error}")
+
+        self.logger.info(
+            f"RevisedExercise created: {uid} (revision {revision_number} "
+            f"of {enriched.original_exercise_uid} for {enriched.student_uid})"
+        )
+
+        # Publish event for downstream coordination (notifications, dashboard)
+        await publish_event(
+            self.event_bus,
+            RevisedExerciseCreated(
+                revised_exercise_uid=uid,
+                teacher_uid=teacher_uid,
+                student_uid=enriched.student_uid,
+                original_exercise_uid=enriched.original_exercise_uid,
+                report_uid=enriched.report_uid,
+                revision_number=revision_number,
+                occurred_at=datetime.now(),
+            ),
+            self.logger,
+        )
+
+        # Publish embedding request (background worker generates async)
+        embedding_text = build_embedding_text(EntityType.REVISED_EXERCISE, enriched)
+        if embedding_text:
+            now = datetime.now()
+            await publish_event(
+                self.event_bus,
+                RevisedExerciseEmbeddingRequested(
+                    entity_uid=uid,
+                    entity_type="revised_exercise",
+                    embedding_text=embedding_text,
+                    user_uid=teacher_uid,
+                    requested_at=now,
+                    occurred_at=now,
+                ),
+                self.logger,
+            )
+
+        return Result.ok(enriched)
+
+    async def delete(self, uid: str, cascade: bool = False) -> Result[bool]:
+        """Delete a RevisedExercise with cascade to remove all relationships."""
+        result = await super().delete(uid, cascade=True)
+        if result.is_error:
+            return result
+        self.logger.info(f"RevisedExercise deleted: {uid}")
+        return result
+
+    # ========================================================================
+    # INTERNAL HELPERS
     # ========================================================================
 
     @with_error_handling("verify_teacher_authority", error_type="database")
@@ -127,210 +280,9 @@ class RevisedExerciseService(BaseService):
             )
         return Result.ok(True)
 
-    @with_error_handling("create_revised_exercise", error_type="database")
-    async def create_revised_exercise(
-        self,
-        teacher_uid: str,
-        original_exercise_uid: str,
-        report_uid: str,
-        student_uid: str,
-        instructions: str,
-        title: str | None = None,
-        model: str = "claude-sonnet-4-6",
-        context_notes: list[str] | None = None,
-        feedback_points_addressed: list[str] | None = None,
-        revision_rationale: str | None = None,
-    ) -> Result[RevisedExercise]:
-        """
-        Create a new RevisedExercise.
-
-        Creates the entity plus three relationships:
-        - OWNS (teacher → revised_exercise)
-        - RESPONDS_TO_REPORT (revised_exercise → feedback)
-        - REVISES_EXERCISE (revised_exercise → original exercise)
-
-        Access control: Verifies the teacher has SHARES_WITH {role:'teacher'}
-        on the submission linked to the feedback, and the student_uid owns
-        that submission.
-
-        Args:
-            teacher_uid: Teacher who creates this revision
-            original_exercise_uid: UID of the original Exercise
-            report_uid: UID of the SubmissionReport this addresses
-            student_uid: UID of the student this targets
-            instructions: Revision instructions
-            title: Display title (auto-generated if not provided)
-            model: LLM model to use
-            context_notes: Optional reference materials
-            feedback_points_addressed: Specific feedback points targeted
-            revision_rationale: Why this revision was created
-
-        Returns:
-            Result[RevisedExercise] - The created revised exercise
-        """
-        # Verify teacher has review authority over this feedback/student
-        auth_result = await self._verify_teacher_authority(teacher_uid, report_uid, student_uid)
-        if auth_result.is_error:
-            return Result.fail(auth_result.expect_error())
-
-        # Determine revision number from existing chain
-        chain_result = await self.backend.get_revision_chain(original_exercise_uid)
-        revision_number = 1
-        if chain_result.is_ok and chain_result.value:
-            revision_number = len(chain_result.value) + 1
-
-        display_title = title or f"Revision {revision_number}"
-        uid = UIDGenerator.generate_uid("re", display_title)
-
-        revised_exercise = RevisedExercise(
-            uid=uid,
-            entity_type=EntityType.REVISED_EXERCISE,
-            title=display_title,
-            user_uid=teacher_uid,
-            revision_number=revision_number,
-            original_exercise_uid=original_exercise_uid,
-            report_uid=report_uid,
-            student_uid=student_uid,
-            instructions=instructions,
-            model=model,
-            context_notes=tuple(context_notes) if context_notes else (),
-            feedback_points_addressed=(
-                tuple(feedback_points_addressed) if feedback_points_addressed else ()
-            ),
-            revision_rationale=revision_rationale,
-        )
-
-        result = await self.backend.create(revised_exercise)
-        if result.is_error:
-            self.logger.error(f"Failed to create revised exercise: {result.error}")
-            return result
-
-        # Create OWNS relationship (teacher → revised_exercise)
-        owns_result = await self.backend.execute_query(
-            f"""
-            MATCH (u:User {{uid: $teacher_uid}})
-            MATCH (re:Entity {{uid: $re_uid}})
-            MERGE (u)-[:{RelationshipName.OWNS.value}]->(re)
-            RETURN true as success
-            """,
-            {"teacher_uid": teacher_uid, "re_uid": uid},
-        )
-        if owns_result.is_error:
-            self.logger.warning(f"Failed to create OWNS relationship: {owns_result.error}")
-
-        # Create RESPONDS_TO_REPORT relationship
-        feedback_result = await self.backend.link_to_report(uid, report_uid)
-        if feedback_result.is_error:
-            self.logger.warning(f"Failed to create RESPONDS_TO_REPORT: {feedback_result.error}")
-
-        # Create REVISES_EXERCISE relationship
-        exercise_result = await self.backend.link_to_exercise(uid, original_exercise_uid)
-        if exercise_result.is_error:
-            self.logger.warning(f"Failed to create REVISES_EXERCISE: {exercise_result.error}")
-
-        # Auto-share with student so it appears in their "Shared With Me" inbox.
-        # Same pattern as assignment auto-sharing (ADR-040).
-        share_result = await self.backend.execute_query(
-            f"""
-            MATCH (student:User {{uid: $student_uid}})
-            MATCH (re:Entity {{uid: $re_uid}})
-            MERGE (student)-[r:{RelationshipName.SHARES_WITH.value}]->(re)
-            ON CREATE SET r.shared_at = $shared_at, r.role = 'student'
-            SET re.visibility = 'shared'
-            RETURN true as success
-            """,
-            {
-                "student_uid": student_uid,
-                "re_uid": uid,
-                "shared_at": datetime.now().isoformat(),
-            },
-        )
-        if share_result.is_error:
-            self.logger.warning(f"Failed to auto-share with student: {share_result.error}")
-
-        self.logger.info(
-            f"RevisedExercise created: {uid} (revision {revision_number} "
-            f"of {original_exercise_uid} for {student_uid})"
-        )
-
-        # Publish event for downstream coordination (notifications, dashboard)
-        from core.events import publish_event
-        from core.events.submission_events import RevisedExerciseCreated
-
-        await publish_event(
-            self.event_bus,
-            RevisedExerciseCreated(
-                revised_exercise_uid=uid,
-                teacher_uid=teacher_uid,
-                student_uid=student_uid,
-                original_exercise_uid=original_exercise_uid,
-                report_uid=report_uid,
-                revision_number=revision_number,
-                occurred_at=datetime.now(),
-            ),
-            self.logger,
-        )
-
-        # Publish embedding request (background worker generates async)
-        from core.utils.embedding_text_builder import build_embedding_text
-
-        embedding_text = build_embedding_text(EntityType.REVISED_EXERCISE, revised_exercise)
-        if embedding_text:
-            from core.events import RevisedExerciseEmbeddingRequested
-
-            now = datetime.now()
-            await publish_event(
-                self.event_bus,
-                RevisedExerciseEmbeddingRequested(
-                    entity_uid=uid,
-                    entity_type="revised_exercise",
-                    embedding_text=embedding_text,
-                    user_uid=teacher_uid,
-                    requested_at=now,
-                    occurred_at=now,
-                ),
-                self.logger,
-            )
-
-        return Result.ok(revised_exercise)
-
     # ========================================================================
-    # READ
+    # DOMAIN-SPECIFIC QUERIES (not part of CRUDOperations)
     # ========================================================================
-
-    @with_error_handling("get_revised_exercise", error_type="database")
-    async def get_revised_exercise(self, uid: str) -> Result[RevisedExercise]:
-        """Get a specific RevisedExercise by UID."""
-        result = await self.backend.get(uid)
-        if result.is_error:
-            return result
-        if result.value is None:
-            return Result.fail(Errors.not_found(resource="RevisedExercise", identifier=uid))
-        return Result.ok(result.value)
-
-    @with_error_handling("list_for_teacher", error_type="database")
-    async def list_for_teacher(self, teacher_uid: str) -> Result[list[RevisedExercise]]:
-        """List all revised exercises owned by a teacher."""
-        result = await self.backend.execute_query(
-            f"""
-            MATCH (u:User {{uid: $teacher_uid}})-[:{RelationshipName.OWNS.value}]->(re:RevisedExercise)
-            RETURN re
-            ORDER BY re.created_at DESC
-            """,
-            {"teacher_uid": teacher_uid},
-        )
-        if result.is_error:
-            return Result.fail(result.expect_error())
-
-        exercises = []
-        for record in result.value or []:
-            props = record["re"]
-            try:
-                exercises.append(RevisedExercise(**props))
-            except DATA_CONVERSION_EXCEPTIONS as exc:
-                self.logger.warning(f"Failed to deserialize revised exercise: {exc}")
-
-        return Result.ok(exercises)
 
     @with_error_handling("list_for_student", error_type="database")
     async def list_for_student(
@@ -377,62 +329,3 @@ class RevisedExerciseService(BaseService):
     async def get_revision_chain(self, exercise_uid: str) -> Result[list[dict[str, Any]]]:
         """Get all revisions in the chain for an original exercise."""
         return await self.backend.get_revision_chain(exercise_uid)
-
-    # ========================================================================
-    # UPDATE
-    # ========================================================================
-
-    @with_error_handling("update_revised_exercise", error_type="database")
-    async def update_revised_exercise(
-        self,
-        uid: str,
-        instructions: str | None = None,
-        title: str | None = None,
-        model: str | None = None,
-        context_notes: list[str] | None = None,
-        feedback_points_addressed: list[str] | None = None,
-        revision_rationale: str | None = None,
-    ) -> Result[RevisedExercise]:
-        """Update a RevisedExercise. Only provided fields will be updated."""
-        get_result = await self.backend.get(uid)
-        if get_result.is_error:
-            return get_result
-        if not get_result.value:
-            return Result.fail(Errors.not_found(resource="RevisedExercise", identifier=uid))
-
-        updates: dict[str, Any] = {}
-        if title is not None:
-            updates["title"] = title
-        if instructions is not None:
-            updates["instructions"] = instructions
-        if model is not None:
-            updates["model"] = model
-        if context_notes is not None:
-            updates["context_notes"] = context_notes
-        if feedback_points_addressed is not None:
-            updates["feedback_points_addressed"] = feedback_points_addressed
-        if revision_rationale is not None:
-            updates["revision_rationale"] = revision_rationale
-
-        updates["updated_at"] = datetime.now().isoformat()
-
-        result = await self.backend.update(uid, updates)
-        if result.is_error:
-            self.logger.error(f"Failed to update revised exercise {uid}: {result.error}")
-            return result
-
-        self.logger.info(f"RevisedExercise updated: {uid}")
-        return result
-
-    # ========================================================================
-    # DELETE
-    # ========================================================================
-
-    @with_error_handling("delete_revised_exercise", error_type="database")
-    async def delete_revised_exercise(self, uid: str) -> Result[bool]:
-        """Delete a RevisedExercise."""
-        result = await self.backend.delete(uid)
-        if result.is_error:
-            return result
-        self.logger.info(f"RevisedExercise deleted: {uid}")
-        return Result.ok(True)

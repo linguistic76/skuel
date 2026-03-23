@@ -17,6 +17,7 @@ from fasthtml.common import Request
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.auth.roles import UserRole, make_service_getter, require_role
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.form_helpers import parse_json_body
 from core.models.group.group_request import (
     GroupCreateRequest,
     GroupMemberRequest,
@@ -67,8 +68,10 @@ def create_groups_api_routes(
     @boundary_handler(success_status=201)
     async def create_group(request: Request, current_user: Any) -> Result[Any]:
         """Create a new group. TEACHER+ required."""
-        body = await request.json()
-        req = GroupCreateRequest(**body)
+        result = await parse_json_body(request, GroupCreateRequest)
+        if result.is_error:
+            return result
+        req = result.value
 
         return await group_service.create_group(
             teacher_uid=current_user.uid,
@@ -105,8 +108,10 @@ def create_groups_api_routes(
         if ownership_result.is_error:
             return ownership_result
 
-        body = await request.json()
-        req = GroupUpdateRequest(**body)
+        result = await parse_json_body(request, GroupUpdateRequest)
+        if result.is_error:
+            return result
+        req = result.value
 
         return await group_service.update_group(
             uid=uid,
@@ -162,8 +167,10 @@ def create_groups_api_routes(
         if ownership_result.is_error:
             return ownership_result
 
-        body = await request.json()
-        req = GroupMemberRequest(**body)
+        result = await parse_json_body(request, GroupMemberRequest)
+        if result.is_error:
+            return result
+        req = result.value
 
         return await group_service.add_member(
             group_uid=uid,
@@ -180,8 +187,10 @@ def create_groups_api_routes(
         if ownership_result.is_error:
             return ownership_result
 
-        body = await request.json()
-        req = GroupMemberRequest(**body)
+        result = await parse_json_body(request, GroupMemberRequest)
+        if result.is_error:
+            return result
+        req = result.value
 
         return await group_service.remove_member(
             group_uid=uid,
@@ -195,5 +204,5 @@ def create_groups_api_routes(
         require_authenticated_user(request)
         return await group_service.get_members(uid)
 
-    logger.info("✅ Groups API routes registered")
+    logger.info("Groups API routes registered")
     return []

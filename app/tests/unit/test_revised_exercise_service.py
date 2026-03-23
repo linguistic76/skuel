@@ -1,7 +1,7 @@
 """Tests for RevisedExerciseService access control.
 
 Verifies that:
-- create_revised_exercise checks teacher authority via SHARES_WITH graph path
+- create() checks teacher authority via SHARES_WITH graph path
 - list_for_student scopes results to requesting teacher when teacher_uid provided
 """
 
@@ -9,8 +9,27 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+from core.models.enums.entity_enums import EntityType
+from core.models.exercises.revised_exercise import RevisedExercise
 from core.services.revised_exercises.revised_exercise_service import RevisedExerciseService
 from core.utils.result_simplified import Result
+
+
+def _make_entity(**overrides: object) -> RevisedExercise:
+    """Create a minimal RevisedExercise for testing."""
+    defaults = {
+        "uid": "re_test_abc",
+        "entity_type": EntityType.REVISED_EXERCISE,
+        "title": "Revision 1",
+        "user_uid": "user_teacher",
+        "revision_number": 0,
+        "original_exercise_uid": "ex_123",
+        "report_uid": "fb_123",
+        "student_uid": "user_student",
+        "instructions": "Please revise section 2",
+    }
+    defaults.update(overrides)
+    return RevisedExercise(**defaults)
 
 
 @pytest.fixture
@@ -78,7 +97,7 @@ class TestVerifyTeacherAuthority:
 
 
 class TestCreateRevisedExerciseAccessControl:
-    """Test that create_revised_exercise enforces authority check."""
+    """Test that create() enforces authority check."""
 
     @pytest.mark.asyncio
     async def test_blocks_creation_without_authority(self, service, mock_backend):
@@ -86,13 +105,8 @@ class TestCreateRevisedExerciseAccessControl:
         # Authority check returns empty (no matching graph path)
         mock_backend.execute_query.return_value = Result.ok([])
 
-        result = await service.create_revised_exercise(
-            teacher_uid="user_teacher",
-            original_exercise_uid="ex_123",
-            report_uid="fb_123",
-            student_uid="user_student",
-            instructions="Please revise section 2",
-        )
+        entity = _make_entity()
+        result = await service.create(entity)
 
         assert result.is_error
         error = result.expect_error()
@@ -114,16 +128,11 @@ class TestCreateRevisedExerciseAccessControl:
         ]
         mock_backend.get_revision_chain.return_value = Result.ok([])
         mock_backend.create.return_value = Result.ok(AsyncMock(uid="re_test_abc"))
-        mock_backend.link_to_feedback = AsyncMock(return_value=Result.ok(True))
+        mock_backend.link_to_report = AsyncMock(return_value=Result.ok(True))
         mock_backend.link_to_exercise = AsyncMock(return_value=Result.ok(True))
 
-        result = await service.create_revised_exercise(
-            teacher_uid="user_teacher",
-            original_exercise_uid="ex_123",
-            report_uid="fb_123",
-            student_uid="user_student",
-            instructions="Please revise section 2",
-        )
+        entity = _make_entity()
+        result = await service.create(entity)
 
         assert not result.is_error
         mock_backend.create.assert_called_once()
@@ -138,16 +147,11 @@ class TestCreateRevisedExerciseAccessControl:
         ]
         mock_backend.get_revision_chain.return_value = Result.ok([])
         mock_backend.create.return_value = Result.ok(AsyncMock(uid="re_test_abc"))
-        mock_backend.link_to_feedback = AsyncMock(return_value=Result.ok(True))
+        mock_backend.link_to_report = AsyncMock(return_value=Result.ok(True))
         mock_backend.link_to_exercise = AsyncMock(return_value=Result.ok(True))
 
-        await service.create_revised_exercise(
-            teacher_uid="user_teacher",
-            original_exercise_uid="ex_123",
-            report_uid="fb_123",
-            student_uid="user_student",
-            instructions="Please revise section 2",
-        )
+        entity = _make_entity()
+        await service.create(entity)
 
         # Third execute_query call is the SHARES_WITH auto-share
         assert mock_backend.execute_query.call_count == 3
