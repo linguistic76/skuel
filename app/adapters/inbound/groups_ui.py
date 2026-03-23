@@ -37,12 +37,12 @@ def create_groups_ui_routes(
         """Groups management page."""
         user_uid = require_authenticated_user(request)
 
-        # Get groups where user is owner
-        teacher_groups = await group_service.list_teacher_groups(user_uid)
+        # Get groups where user is owner (list returns (entities, count) tuple)
+        teacher_groups = await group_service.list(user_uid=user_uid)
         # Get groups where user is member
         member_groups = await group_service.get_user_groups(user_uid)
 
-        teacher_list = teacher_groups.value if teacher_groups.is_ok else []
+        teacher_list = teacher_groups.value[0] if teacher_groups.is_ok else []
         member_list = member_groups.value if member_groups.is_ok else []
 
         return Div(

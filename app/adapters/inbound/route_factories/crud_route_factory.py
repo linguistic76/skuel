@@ -180,6 +180,7 @@ class CRUDRouteFactory[T]:
         search_handler: Callable | None = None,
         scope: ContentScope = ContentScope.USER_OWNED,
         require_role: UserRole | None = None,
+        role_gates_reads: bool = True,
         user_service_getter: Callable | None = None,
         entity_converter: Callable[[BaseModel, str, str], Any] | None = None,
         allow_dict_fallback: bool = False,
@@ -210,10 +211,15 @@ class CRUDRouteFactory[T]:
                   (shared content can be read publicly, but only authenticated
                   users can create new content).
 
-                  This is orthogonal to require_role. When require_role is set,
-                  scope is ignored as role-based access controls everything.
-            require_role: Required role for all routes (e.g., UserRole.ADMIN for admin-only domains).
-                         When set, bypasses scope - role controls all access.
+                  Scope and require_role are orthogonal: scope controls ownership
+                  verification, require_role controls authorization.
+            require_role: Required role for mutation routes (create, update, delete).
+                         When role_gates_reads=True (default), also gates read routes.
+            role_gates_reads: When True (default), require_role applies to ALL routes.
+                            When False, require_role only applies to mutations
+                            (create/update/delete) — get/list/search are open to
+                            any authenticated user. Use for domains like Groups
+                            where teachers mutate but students can read.
             user_service_getter: Function returning UserService (required when require_role is set)
             entity_converter: Custom converter function (schema, uid, user_uid) -> entity.
                             If not provided, uses ConversionServiceV2 with dynamic method lookup.
@@ -237,6 +243,7 @@ class CRUDRouteFactory[T]:
         # Convert ContentScope enum to boolean for internal use
         self.verify_ownership = scope == ContentScope.USER_OWNED
         self.require_role = require_role
+        self.role_gates_reads = role_gates_reads
         self.user_service_getter = user_service_getter
         self.entity_converter = entity_converter
         self.allow_dict_fallback = allow_dict_fallback
@@ -246,13 +253,10 @@ class CRUDRouteFactory[T]:
         if require_role and not user_service_getter:
             raise ValueError("user_service_getter is required when require_role is set")
 
-        # When role-restricted, ownership verification is bypassed (role overrides scope)
-        if require_role:
-            self.verify_ownership = False
-
         logger.info(
             f"CRUDRouteFactory initialized for {domain_name} "
             f"(scope={scope.value}, role={require_role.value if require_role else 'None'}, "
+            f"role_gates_reads={role_gates_reads}, "
             f"instrumentation={'enabled' if prometheus_metrics else 'disabled'})"
         )
 
@@ -437,12 +441,13 @@ class CRUDRouteFactory[T]:
 
         async def get(request, uid: str) -> Result[T | None]:
             """Get entity by UID (query param) with ownership verification"""
-            # Role check (returns Result.fail on authorization failure)
-            role_check = await check_required_role(
-                request, factory.require_role, factory.user_service_getter, factory.domain
-            )
-            if role_check.is_error:
-                return cast("Result[T | None]", role_check)
+            # Role check — skipped when role_gates_reads=False
+            if factory.role_gates_reads:
+                role_check = await check_required_role(
+                    request, factory.require_role, factory.user_service_getter, factory.domain
+                )
+                if role_check.is_error:
+                    return cast("Result[T | None]", role_check)
 
             if verify_ownership:
                 # Require authentication and verify ownership
@@ -599,12 +604,13 @@ class CRUDRouteFactory[T]:
             order_desc: bool = False,
         ) -> Result[list[T]]:
             """List entities with pagination and user filtering"""
-            # Role check (returns Result.fail on authorization failure)
-            role_check = await check_required_role(
-                request, factory.require_role, factory.user_service_getter, factory.domain
-            )
-            if role_check.is_error:
-                return cast("Result[list[T]]", role_check)
+            # Role check — skipped when role_gates_reads=False
+            if factory.role_gates_reads:
+                role_check = await check_required_role(
+                    request, factory.require_role, factory.user_service_getter, factory.domain
+                )
+                if role_check.is_error:
+                    return cast("Result[list[T]]", role_check)
 
             # FastHTML extracts query params via type hints
 
@@ -656,12 +662,13 @@ class CRUDRouteFactory[T]:
 
         async def search(request, query: str, limit: int = 50, offset: int = 0) -> Result[list[T]]:
             """Search entities"""
-            # Role check (returns Result.fail on authorization failure)
-            role_check = await check_required_role(
-                request, factory.require_role, factory.user_service_getter, factory.domain
-            )
-            if role_check.is_error:
-                return cast("Result[list[T]]", role_check)
+            # Role check — skipped when role_gates_reads=False
+            if factory.role_gates_reads:
+                role_check = await check_required_role(
+                    request, factory.require_role, factory.user_service_getter, factory.domain
+                )
+                if role_check.is_error:
+                    return cast("Result[list[T]]", role_check)
 
             # FastHTML extracts query params via type hints
 

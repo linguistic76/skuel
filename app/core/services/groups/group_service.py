@@ -7,7 +7,8 @@ CRUD operations and membership management for Groups.
 Groups mediate ALL teacher-student relationships. A teacher creates a group,
 adds students, and assigns work to the group. No direct TEACHES relationship.
 
-TEACHER role required for group creation.
+CRUD via CRUDRouteFactory (TEACHER role for mutations, any-auth for reads).
+Membership operations stay manual in groups_api.py.
 
 See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
 """
@@ -17,7 +18,7 @@ from datetime import datetime
 from typing import Any
 
 from core.events.base import BaseEvent
-from core.models.group.group import Group, GroupDTO, create_group
+from core.models.group.group import Group, GroupDTO
 from core.models.relationship_names import RelationshipName
 from core.ports.base_protocols import BackendOperations
 from core.ports.infrastructure_protocols import EventBusOperations
@@ -27,7 +28,6 @@ from core.utils.decorators import with_error_handling
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
-from core.utils.uid_generator import UIDGenerator
 
 logger = get_logger(__name__)
 
@@ -37,6 +37,8 @@ class GroupService(BaseService):
     CRUD + membership service for groups.
 
     Groups are the ONE PATH for teacher-student class management.
+    CRUD methods override BaseService to add OWNS relationship creation,
+    ownership verification via owner_uid, and member-based read access.
     """
 
     _config = DomainConfig(
@@ -70,40 +72,45 @@ class GroupService(BaseService):
         return "Group"
 
     # ========================================================================
-    # CREATE
+    # OWNERSHIP VERIFICATION (Group uses owner_uid, not user_uid)
+    # ========================================================================
+
+    async def verify_ownership(self, uid: str, user_uid: str) -> Result[Group]:
+        """Override: Group uses owner_uid instead of Entity.user_uid."""
+        result = await self.get(uid)
+        if result.is_error:
+            return result
+        entity = result.value
+        if not entity:
+            return Result.fail(Errors.not_found(f"Group {uid} not found"))
+        if entity.owner_uid != user_uid:
+            return Result.fail(Errors.not_found(f"Group {uid} not found"))
+        return Result.ok(entity)
+
+    async def get_for_user(self, uid: str, user_uid: str) -> Result[Group]:
+        """Owner OR member can view a group."""
+        result = await self.get(uid)
+        if result.is_error or not result.value:
+            return Result.fail(Errors.not_found(f"Group {uid} not found"))
+        group = result.value
+        # Owner can always view
+        if group.owner_uid == user_uid:
+            return Result.ok(group)
+        # Check member access
+        members_result = await self.get_members(uid)
+        if members_result.is_ok:
+            if any(m["user_uid"] == user_uid for m in (members_result.value or [])):
+                return Result.ok(group)
+        return Result.fail(Errors.not_found(f"Group {uid} not found"))
+
+    # ========================================================================
+    # CRUD OVERRIDES
     # ========================================================================
 
     @with_error_handling("create_group", error_type="database")
-    async def create_group(
-        self,
-        teacher_uid: str,
-        name: str,
-        description: str | None = None,
-        max_members: int | None = None,
-    ) -> Result[Group]:
-        """
-        Create a new group. TEACHER role required (enforced at route level).
-
-        Args:
-            teacher_uid: Teacher who owns this group
-            name: Display name (e.g., "Physics 101 - Spring 2026")
-            description: Optional description
-            max_members: Optional member cap
-
-        Returns:
-            Result[Group] - The created group
-        """
-        uid = UIDGenerator.generate_uid("group")
-
-        group = create_group(
-            uid=uid,
-            name=name,
-            owner_uid=teacher_uid,
-            description=description,
-            max_members=max_members,
-        )
-
-        result = await self.backend.create(group)
+    async def create(self, entity: Group) -> Result[Group]:
+        """Create a group with OWNS relationship and event publishing."""
+        result = await self.backend.create(entity)
         if result.is_error:
             self.logger.error(f"Failed to create group: {result.error}")
             return result
@@ -116,7 +123,7 @@ class GroupService(BaseService):
             MERGE (teacher)-[:OWNS]->(group)
             RETURN true as success
             """,
-            {"teacher_uid": teacher_uid, "group_uid": uid},
+            {"teacher_uid": entity.owner_uid, "group_uid": entity.uid},
         )
         if owns_result.is_error:
             self.logger.warning(f"Failed to create OWNS relationship: {owns_result.error}")
@@ -127,39 +134,31 @@ class GroupService(BaseService):
             await _publish_event(
                 self.event_bus,
                 GroupCreated(
-                    group_uid=uid,
-                    teacher_uid=teacher_uid,
-                    group_name=name,
+                    group_uid=entity.uid,
+                    teacher_uid=entity.owner_uid,
+                    group_name=entity.name,
                     occurred_at=datetime.now(),
                 ),
                 self.logger,
             )
 
-        self.logger.info(f"Group created: {uid} - {name} (owner: {teacher_uid})")
-        return Result.ok(group)
+        self.logger.info(
+            f"Group created: {entity.uid} - {entity.name} (owner: {entity.owner_uid})"
+        )
+        return Result.ok(entity)
 
-    # ========================================================================
-    # READ
-    # ========================================================================
-
-    @with_error_handling("get_group", error_type="database")
-    async def get_group(self, uid: str) -> Result[Group | None]:
-        """Get a specific group by UID."""
-        result = await self.backend.get(uid)
+    @with_error_handling("delete_group", error_type="database")
+    async def delete(self, uid: str, cascade: bool = False) -> Result[bool]:
+        """Delete a group and all its relationships."""
+        result = await self.backend.delete(uid, cascade=True)
         if result.is_error:
             return result
-        return Result.ok(result.value)
+        self.logger.info(f"Group deleted: {uid}")
+        return Result.ok(True)
 
-    @with_error_handling("list_teacher_groups", error_type="database")
-    async def list_teacher_groups(self, teacher_uid: str) -> Result[list[Group]]:
-        """List all groups owned by a teacher."""
-        result = await self.backend.find_by(owner_uid=teacher_uid)
-        if result.is_error:
-            return result
-
-        groups = result.value or []
-        self.logger.info(f"Found {len(groups)} groups for teacher {teacher_uid}")
-        return Result.ok(groups)
+    # ========================================================================
+    # DOMAIN-SPECIFIC: READ
+    # ========================================================================
 
     @with_error_handling("get_user_groups", error_type="database")
     async def get_user_groups(self, user_uid: str) -> Result[list[Group]]:
@@ -197,62 +196,7 @@ class GroupService(BaseService):
         return Result.ok(groups)
 
     # ========================================================================
-    # UPDATE
-    # ========================================================================
-
-    @with_error_handling("update_group", error_type="database")
-    async def update_group(
-        self,
-        uid: str,
-        name: str | None = None,
-        description: str | None = None,
-        max_members: int | None = None,
-        is_active: bool | None = None,
-    ) -> Result[Group]:
-        """
-        Update a group. Only provided fields will be updated.
-        """
-        get_result = await self.backend.get(uid)
-        if get_result.is_error:
-            return get_result
-        if not get_result.value:
-            return Result.fail(Errors.not_found(resource="Group", identifier=uid))
-
-        updates: dict[str, Any] = {}
-        if name is not None:
-            updates["name"] = name
-        if description is not None:
-            updates["description"] = description
-        if max_members is not None:
-            updates["max_members"] = max_members
-        if is_active is not None:
-            updates["is_active"] = is_active
-
-        updates["updated_at"] = datetime.now().isoformat()
-
-        result = await self.backend.update(uid, updates)
-        if result.is_error:
-            self.logger.error(f"Failed to update group {uid}: {result.error}")
-            return result
-
-        self.logger.info(f"Group updated: {uid}")
-        return result
-
-    # ========================================================================
-    # DELETE
-    # ========================================================================
-
-    @with_error_handling("delete_group", error_type="database")
-    async def delete_group(self, uid: str) -> Result[bool]:
-        """Delete a group and all its relationships."""
-        result = await self.backend.delete(uid, cascade=True)
-        if result.is_error:
-            return result
-        self.logger.info(f"Group deleted: {uid}")
-        return Result.ok(True)
-
-    # ========================================================================
-    # MEMBERSHIP
+    # DOMAIN-SPECIFIC: MEMBERSHIP
     # ========================================================================
 
     @with_error_handling("add_member", error_type="database")

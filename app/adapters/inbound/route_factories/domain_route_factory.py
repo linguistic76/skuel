@@ -46,6 +46,8 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
+from core.models.enums import ContentScope
+from core.models.enums.user_enums import UserRole
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -71,8 +73,9 @@ class CRUDRouteConfig:
     uid_prefix: str
     prometheus_metrics_attr: str | None = None
     # Non-activity domain support (defaults match Activity Domain behavior)
-    scope: str | None = None  # ContentScope value; None = USER_OWNED default
-    require_role: str | None = None  # UserRole value; None = no role requirement
+    scope: ContentScope = ContentScope.USER_OWNED
+    require_role: UserRole | None = None
+    role_gates_reads: bool = True  # When False, get/list skip role check (e.g., Groups)
     user_service_attr: str | None = None  # Services container attr for user_service_getter
 
 
@@ -173,7 +176,6 @@ def register_domain_routes(
     from adapters.inbound.route_factories.crud_route_factory import CRUDRouteFactory
     from adapters.inbound.route_factories.intelligence_route_factory import IntelligenceRouteFactory
     from adapters.inbound.route_factories.query_route_factory import CommonQueryRouteFactory
-    from core.models.enums import ContentScope
 
     logger = get_logger(f"skuel.routes.{config.domain_name}")
 
@@ -210,29 +212,17 @@ def register_domain_routes(
             if config.crud.prometheus_metrics_attr
             else None
         )
-        # Resolve scope (default USER_OWNED for backward compatibility)
-        crud_scope = (
-            ContentScope(config.crud.scope)
-            if config.crud.scope
-            else ContentScope.USER_OWNED
-        )
-        # Resolve require_role
-        crud_require_role = None
+        # Build user_service_getter closure if role-gated
         crud_user_service_getter = None
-        if config.crud.require_role:
-            from core.models.enums import UserRole
+        if config.crud.require_role and config.crud.user_service_attr:
+            _user_svc = getattr(services, config.crud.user_service_attr, None)
 
-            crud_require_role = UserRole(config.crud.require_role)
-            # Build user_service_getter from container attr
-            if config.crud.user_service_attr:
-                _user_svc = getattr(services, config.crud.user_service_attr, None)
+            def _make_getter(svc: Any) -> Callable:
+                def getter() -> Any:
+                    return svc
+                return getter
 
-                def _make_getter(svc: Any) -> Callable:
-                    def getter() -> Any:
-                        return svc
-                    return getter
-
-                crud_user_service_getter = _make_getter(_user_svc)
+            crud_user_service_getter = _make_getter(_user_svc)
 
         CRUDRouteFactory(
             service=primary_service,
@@ -240,8 +230,9 @@ def register_domain_routes(
             create_schema=config.crud.create_schema,
             update_schema=config.crud.update_schema,
             uid_prefix=config.crud.uid_prefix,
-            scope=crud_scope,
-            require_role=crud_require_role,
+            scope=config.crud.scope,
+            require_role=config.crud.require_role,
+            role_gates_reads=config.crud.role_gates_reads,
             user_service_getter=crud_user_service_getter,
             prometheus_metrics=prometheus_metrics,
         ).register_routes(app, rt)

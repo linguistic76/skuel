@@ -37,6 +37,8 @@ from core.models.exercises.revised_exercise import RevisedExercise
 from core.models.exercises.revised_exercise_request import RevisedExerciseCreateRequest
 from core.models.forms.form_template import FormTemplate
 from core.models.forms.form_template_request import FormTemplateCreateRequest
+from core.models.group.group import Group
+from core.models.group.group_request import GroupCreateRequest
 from core.models.ku.ku import Ku
 from core.models.lesson.lesson_request import LessonCreateRequest
 from core.models.principle.principle import Principle
@@ -482,6 +484,19 @@ class ConversionServiceV2:
     ) -> RevisedExercise:
         """Convert RevisedExerciseCreateRequest to RevisedExercise using generic method."""
         return cls.create_to_pure(schema, RevisedExercise, uid, **kwargs)
+
+    # --- Group Conversions --
+    @classmethod
+    def group_create_to_pure(
+        cls, schema: GroupCreateRequest, uid: str | None = None, **kwargs: Any
+    ) -> Group:
+        """Convert GroupCreateRequest to Group using generic method.
+
+        Maps user_uid (from CRUDRouteFactory) to owner_uid (Group field name).
+        """
+        if "user_uid" in kwargs:
+            kwargs["owner_uid"] = kwargs.pop("user_uid")
+        return cls.create_to_pure(schema, Group, uid, **kwargs)
 
     # ========================================================================
     # VIEW CONVERSIONS (Keep specific for now due to view complexity)

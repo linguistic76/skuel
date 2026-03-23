@@ -13,6 +13,8 @@ from adapters.inbound.route_factories import (
     DomainRouteConfig,
     register_domain_routes,
 )
+from core.models.enums import ContentScope
+from core.models.enums.user_enums import UserRole
 from core.models.exercises.revised_exercise_request import (
     RevisedExerciseCreateRequest,
     RevisedExerciseUpdateRequest,
@@ -30,8 +32,8 @@ REVISED_EXERCISES_CONFIG = DomainRouteConfig(
         create_schema=RevisedExerciseCreateRequest,
         update_schema=RevisedExerciseUpdateRequest,
         uid_prefix="re",
-        scope="user_owned",
-        require_role="teacher",
+        scope=ContentScope.USER_OWNED,
+        require_role=UserRole.TEACHER,
         user_service_attr="user_service",
     ),
 )

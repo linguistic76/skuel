@@ -135,11 +135,13 @@ When sub-configs are present, `register_domain_routes()` executes in this order:
 
 ### Recent Updates
 
-**2026-03-23: Non-Activity Domain CRUDRouteConfig**
-- Added `scope`, `require_role`, `user_service_attr` fields to `CRUDRouteConfig`
-- FormTemplate and RevisedExercise migrated to CRUDRouteFactory
-- Services override inherited CRUD methods for domain-specific logic (events, authority checks)
-- Groups excluded (mixed authorization model doesn't fit the factory)
+**2026-03-23: CRUDRouteConfig enum types + Groups migration**
+- `scope` and `require_role` now use `ContentScope`/`UserRole` enums (not strings)
+- Added `role_gates_reads: bool = True` — when False, role only gates mutations
+- Removed "role overrides scope" — role and ownership verification are now orthogonal
+- FormTemplate, RevisedExercise, and Groups all use CRUDRouteFactory
+- Groups uses `role_gates_reads=False`: TEACHER gates mutations, reads open to any authenticated user
+- Services override inherited CRUD methods for domain-specific logic (events, authority checks, ownership)
 
 
 **2026-02-03: UI Factory Signature Standardization**

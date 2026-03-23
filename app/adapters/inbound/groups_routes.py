@@ -3,13 +3,22 @@ Groups Routes - Clean Architecture Factory
 ============================================
 
 Wires Group API and UI routes using DomainRouteConfig.
+CRUD via CRUDRouteFactory (TEACHER for mutations, any-auth for reads).
+Membership operations stay manual in groups_api.py.
 
 See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
 """
 
 from adapters.inbound.groups_api import create_groups_api_routes
 from adapters.inbound.groups_ui import create_groups_ui_routes
-from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
+from adapters.inbound.route_factories import (
+    CRUDRouteConfig,
+    DomainRouteConfig,
+    register_domain_routes,
+)
+from core.models.enums import ContentScope
+from core.models.enums.user_enums import UserRole
+from core.models.group.group_request import GroupCreateRequest, GroupUpdateRequest
 
 GROUPS_CONFIG = DomainRouteConfig(
     domain_name="groups",
@@ -19,6 +28,15 @@ GROUPS_CONFIG = DomainRouteConfig(
     api_related_services={
         "user_service": "user_service",
     },
+    crud=CRUDRouteConfig(
+        create_schema=GroupCreateRequest,
+        update_schema=GroupUpdateRequest,
+        uid_prefix="group",
+        scope=ContentScope.USER_OWNED,
+        require_role=UserRole.TEACHER,
+        role_gates_reads=False,
+        user_service_attr="user_service",
+    ),
 )
 
 

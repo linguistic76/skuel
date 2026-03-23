@@ -12,6 +12,8 @@ from adapters.inbound.route_factories import (
     DomainRouteConfig,
     register_domain_routes,
 )
+from core.models.enums import ContentScope
+from core.models.enums.user_enums import UserRole
 from core.models.forms.form_template_request import (
     FormTemplateCreateRequest,
     FormTemplateUpdateRequest,
@@ -29,8 +31,8 @@ FORM_TEMPLATES_CONFIG = DomainRouteConfig(
         create_schema=FormTemplateCreateRequest,
         update_schema=FormTemplateUpdateRequest,
         uid_prefix="ft",
-        scope="shared",
-        require_role="admin",
+        scope=ContentScope.SHARED,
+        require_role=UserRole.ADMIN,
         user_service_attr="user_service",
     ),
 )
