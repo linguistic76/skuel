@@ -1,6 +1,6 @@
 ---
 title: Route Factory Pattern
-updated: '2026-02-02'
+updated: '2026-03-23'
 category: patterns
 related_skills:
 - fasthtml
@@ -8,7 +8,9 @@ related_docs: []
 ---
 # Route Factory Pattern
 
-*Last updated: 2026-01-24*
+*Last updated: 2026-03-23*
+
+**March 2026 Update:** Added OwnershipRouteFactory for domain-specific ownership-verified routes (14 routes across 6 Activity Domains). Standardized service getters on `make_service_getter()`.
 
 **January 2026 Update:** Replaced `verify_ownership` boolean parameter with explicit `ContentScope` enum for type-safe ownership patterns.
 ## Related Skills
@@ -31,6 +33,7 @@ SKUEL uses **route factories** to eliminate boilerplate in API route definitions
 | **AnalyticsRouteFactory** | Analytics endpoints | domain-specific analytics |
 | **IntelligenceRouteFactory** | Intelligence endpoints | context, analytics, insights |
 | **QuickAddRouteFactory** | Quick-add form handling | POST /{domain}/quick-add |
+| **OwnershipRouteFactory** | Ownership-verified domain routes | domain-specific GET/POST with ownership checks |
 | **DashboardUIFactory** | Dashboard + view fragments | GET /{domain}, view/list, view/create, view/{third}, list-fragment |
 
 ## CRUDRouteFactory
@@ -207,6 +210,88 @@ Example: `POST /api/goals/pause?uid=goal.daily-exercise`
 | `request_builder` | Callable | None | Function to build typed request object |
 | `validate` | Callable | None | Optional validation function |
 | `success_status` | int | 200 | HTTP status on success |
+
+## OwnershipRouteFactory
+
+Generates ownership-verified routes for domain-specific operations that don't fit CRUD, Status, or Query patterns. Follows the same architecture as StatusRouteFactory.
+
+### Usage
+
+```python
+from adapters.inbound.route_factories import OwnershipRouteFactory, OwnershipRoute
+
+ownership_factory = OwnershipRouteFactory(
+    service=habits_service,
+    domain_name="habits",
+    routes=[
+        # GET passthrough: service.get_habit_streak(entity_uid)
+        OwnershipRoute(
+            path="/api/habits/streak",
+            method_name="get_habit_streak",
+        ),
+        # GET with typed query params: service.get_habit_progress(entity_uid, period="month")
+        OwnershipRoute(
+            path="/api/habits/progress",
+            method_name="get_habit_progress",
+            query_params={"period": "month"},
+        ),
+        # POST with Pydantic model: parse_json_body -> service.track_habit(model)
+        OwnershipRoute(
+            path="/api/habits/track",
+            method_name="track_habit",
+            request_schema=TrackHabitRequest,
+            schema_extra_uid_field="habit_uid",
+        ),
+    ],
+)
+ownership_factory.register_routes(app, rt)
+```
+
+### Three Call Patterns
+
+| Pattern | Config | Generated Call |
+|---------|--------|----------------|
+| GET passthrough | `request_schema=None` | `service.method(entity_uid)` |
+| GET with params | `query_params={"period": "month", "limit": 20}` | `service.method(entity_uid, period=..., limit=...)` |
+| POST with model | `request_schema=X, schema_extra_uid_field="habit_uid"` | `parse_json_body` -> `service.method(model)` |
+
+Query param types are inferred from defaults: `int` defaults produce `int` values, `bool` defaults produce `bool`, everything else stays `str`.
+
+### OwnershipRoute Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `path` | str | required | Route path (e.g., "/api/habits/track") |
+| `method_name` | str | required | Service method to call (supports dotted paths like "intelligence.analyze") |
+| `request_schema` | type[BaseModel] | None | Pydantic model for POST body |
+| `schema_extra_uid_field` | str | None | Field to inject entity UID into (e.g., "habit_uid") |
+| `methods` | list[str] | None | HTTP methods (auto: POST if schema, GET otherwise) |
+| `query_params` | dict[str, Any] | None | Query param defaults for GET routes |
+| `include_user_uid` | bool | False | Pass user_uid as kwarg to service method |
+| `success_status` | int | 200 | HTTP status on success |
+| `uid_param` | str | None | Override factory-level uid_param for this route |
+
+### Factory Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `service` | OwnershipOperations | required | Service implementing verify_ownership |
+| `domain_name` | str | required | Domain name (e.g., "habits") |
+| `routes` | list[OwnershipRoute] | required | Route configurations |
+| `scope` | ContentScope | USER_OWNED | Content ownership model |
+| `uid_param` | str | "uid" | Default query parameter name for entity UID |
+
+### Adoption
+
+14 routes across all 6 Activity Domains:
+- **Habits:** track, untrack, streak, progress
+- **Tasks:** impact, practice-opportunities
+- **Goals:** milestones GET, habits GET
+- **Events:** status update, attendees GET
+- **Principles:** expressions GET, alignment-history, links GET, related
+- **Choices:** impact analysis, predict quality
+
+Routes with custom logic (UIDGenerator, multi-step orchestration, raw body construction) remain manual.
 
 ## Security: Content Scope
 
@@ -497,15 +582,16 @@ Example from Habits domain:
 ## When to Use Factories vs Manual Routes
 
 **Use Factories:**
-- Standard CRUD operations
-- Status change patterns (activate, pause, complete, archive)
-- Common query patterns (by-status, by-category)
+- Standard CRUD operations → CRUDRouteFactory
+- Status change patterns → StatusRouteFactory
+- Common query patterns → CommonQueryRouteFactory
+- Ownership-verified GET/POST with simple service calls → OwnershipRouteFactory
 
 **Use Manual Routes:**
-- Domain-specific business logic
-- Complex parameter handling
-- Non-standard response formats
-- Multi-entity operations
+- Custom body construction (field remapping, non-standard field names)
+- Multi-step orchestration (calling multiple services)
+- Extra parameters beyond entity UID (e.g., `option_uid`, `habit_uid`)
+- UIDGenerator or ConversionService calls in the route handler
 
 ## Key Files
 
@@ -513,6 +599,7 @@ Example from Habits domain:
 |------|---------|
 | `/adapters/inbound/route_factories/crud_route_factory.py` | CRUDRouteFactory |
 | `/adapters/inbound/route_factories/status_route_factory.py` | StatusRouteFactory |
+| `/adapters/inbound/route_factories/ownership_route_factory.py` | OwnershipRouteFactory |
 | `/adapters/inbound/route_factories/query_route_factory.py` | CommonQueryRouteFactory |
 | `/adapters/inbound/route_factories/analytics_route_factory.py` | AnalyticsRouteFactory |
 | `/adapters/inbound/route_factories/intelligence_route_factory.py` | IntelligenceRouteFactory |

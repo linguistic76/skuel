@@ -692,6 +692,7 @@ POST (Create) -> 201, GET/PUT/DELETE -> 200, POST (Action) -> 200
 |---------|---------|
 | CRUDRouteFactory | Standard CRUD |
 | StatusRouteFactory | Status changes |
+| OwnershipRouteFactory | Ownership-verified domain routes (GET/POST with ownership checks) |
 | CommonQueryRouteFactory | Query patterns |
 | AnalyticsRouteFactory | Analytics |
 | QuickAddRouteFactory | Quick-add form handling (6 domains) |

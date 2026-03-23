@@ -179,7 +179,7 @@ __all__ = ["create_tasks_routes"]
 - `CommonQueryRouteFactory` — filter by status, domain, goal, habit
 - `IntelligenceRouteFactory` — context, recommendations
 
-**What stays in `api_factory`:** Status transitions (runtime closures), Analytics routes, manual domain-specific routes.
+**What stays in `api_factory`:** `OwnershipRouteFactory` (domain-specific ownership routes), `StatusRouteFactory` (transitions), `AnalyticsRouteFactory`, and manual routes with custom logic.
 
 **What `ui_factory` registers (inside `create_{domain}_ui_routes`):**
 - `DashboardUIFactory` — main dashboard, view fragments (list/create/calendar or analytics), list-fragment
