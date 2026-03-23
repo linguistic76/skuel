@@ -23,7 +23,7 @@ For implementation guidance, see:
 
 **Impact:** Reduces route file complexity from ~80 lines to ~15 lines per domain (83% reduction).
 
-**Adoption:** Currently used by 41 of 46 route files (89%). Non-adopters: ai_routes.py, graphql_routes.py, metrics_routes.py, pwa_routes.py, curriculum_hub_routes.py.
+**Adoption:** Currently used by 42 of 46 route files (91%). Non-adopters: graphql_routes.py, metrics_routes.py, pwa_routes.py, curriculum_hub_routes.py. ai_routes.py uses its own config-driven pattern (AIRouteSpec).
 
 ## The Pattern
 
@@ -1066,16 +1066,14 @@ All DomainRouteConfig routes are registered in Section 2 of `_wire_all_routes()`
 - `/adapters/inbound/study_routes.py`
 - `/adapters/inbound/curriculum_hub_routes.py`
 
-### Justified Exceptions (3 files)
+### Justified Exceptions (2 files)
 
-Files with legitimate complexity warranting custom patterns:
+Files with legitimate complexity or minimal overhead warranting custom patterns:
 
-**Complex/Specialized (2):**
-- `ai_routes.py` - AI service integration
 - `graphql_routes.py` - Needs full `services` container for cross-domain GraphQL context (signature normalized)
-
-**Minimal Overhead (1):**
 - `metrics_routes.py` - Single endpoint, minimal overhead
+
+**Note:** `ai_routes.py` was refactored (2026-03-23) to use its own config-driven pattern (`AIRouteSpec` dataclass + signature template factories), reducing 36 hand-written closures to a declarative spec list. Not DomainRouteConfig, but achieves the same goal of configuration over code.
 
 ## Common Patterns and Conventions
 
@@ -1294,7 +1292,7 @@ Zero runtime overhead - routes are registered once at application startup.
 - ✅ hierarchy_routes.py, lateral_routes.py (loop-pattern, multi-service via kwargs)
 - graphql_routes.py: signature normalized only (needs full services container)
 
-**Summary:** 41 of 46 route files use DomainRouteConfig (89% adoption). 5 non-adopters: ai_routes.py, graphql_routes.py, metrics_routes.py, pwa_routes.py, curriculum_hub_routes.py. Bootstrap no longer wraps DomainRouteConfig routes in `if services.X:` guards — the soft-fail in `register_domain_routes()` handles missing services.
+**Summary:** 42 of 46 route files use DomainRouteConfig or equivalent config-driven patterns (91% adoption). 4 non-adopters: graphql_routes.py, metrics_routes.py, pwa_routes.py, curriculum_hub_routes.py. ai_routes.py was refactored (2026-03-23) to use AIRouteSpec config-driven generation. Bootstrap no longer wraps DomainRouteConfig routes in `if services.X:` guards — the soft-fail in `register_domain_routes()` handles missing services.
 
 **Key Achievements:**
 - All 4 patterns proven: Standard, API-only, UI-only, Multi-factory
