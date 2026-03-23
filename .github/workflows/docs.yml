@@ -4,18 +4,18 @@ on:
   push:
     branches: [ main, develop ]
     paths:
-      - 'docs/**'
-      - '.claude/skills/**'
-      - 'scripts/docs_*.py'
-      - 'scripts/skills_validator.py'
+      - 'app/docs/**'
+      - 'app/.claude/skills/**'
+      - 'app/scripts/docs_*.py'
+      - 'app/scripts/skills_validator.py'
       - '.github/workflows/docs.yml'
   pull_request:
     branches: [ main, develop ]
     paths:
-      - 'docs/**'
-      - '.claude/skills/**'
-      - 'scripts/docs_*.py'
-      - 'scripts/skills_validator.py'
+      - 'app/docs/**'
+      - 'app/.claude/skills/**'
+      - 'app/scripts/docs_*.py'
+      - 'app/scripts/skills_validator.py'
       - '.github/workflows/docs.yml'
   workflow_dispatch:  # Allow manual triggering
 
@@ -42,15 +42,17 @@ jobs:
         id: cached-uv-dependencies
         uses: actions/cache@v4
         with:
-          path: .venv
+          path: app/.venv
           key: venv-${{ runner.os }}-${{ hashFiles('**/uv.lock') }}
 
       - name: Install dependencies
         if: steps.cached-uv-dependencies.outputs.cache-hit != 'true'
+        working-directory: app
         run: uv sync --no-root
 
       - name: Check documentation freshness (critical only)
         id: freshness
+        working-directory: app
         run: |
           echo "Running documentation freshness check..."
           uv run python scripts/docs_freshness.py --critical-only || echo "freshness_failed=true" >> $GITHUB_OUTPUT
@@ -58,6 +60,7 @@ jobs:
 
       - name: Validate skills metadata
         id: skills
+        working-directory: app
         run: |
           echo "Running skills metadata validation..."
           uv run python scripts/skills_validator.py || echo "skills_failed=true" >> $GITHUB_OUTPUT
@@ -65,6 +68,7 @@ jobs:
 
       - name: Check for broken documentation links (optional)
         id: broken_links
+        working-directory: app
         run: |
           echo "Checking for broken links..."
           # Count missing references in freshness output
@@ -79,6 +83,7 @@ jobs:
 
       - name: Generate review schedule
         id: review
+        working-directory: app
         run: |
           echo "Generating documentation review schedule..."
           OVERDUE=$(uv run python scripts/docs_review_scheduler.py --json | python -c "import sys, json; data = json.load(sys.stdin); print(data.get('overdue_docs', 0))")
@@ -152,9 +157,11 @@ jobs:
         uses: astral-sh/setup-uv@v6
 
       - name: Install dependencies
+        working-directory: app
         run: uv sync --no-root
 
       - name: Generate documentation metrics
+        working-directory: app
         run: |
           echo "# Documentation Metrics" > docs_metrics.md
           echo "" >> docs_metrics.md
@@ -210,5 +217,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: documentation-metrics
-          path: docs_metrics.md
+          path: app/docs_metrics.md
           retention-days: 90

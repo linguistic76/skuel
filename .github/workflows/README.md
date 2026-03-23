@@ -12,10 +12,10 @@ This directory contains CI/CD workflows for SKUEL.
 - Manual dispatch (workflow_dispatch)
 
 **Only runs when documentation-related files change**:
-- `docs/**`
-- `.claude/skills/**`
-- `scripts/docs_*.py`
-- `scripts/skills_validator.py`
+- `app/docs/**`
+- `app/.claude/skills/**`
+- `app/scripts/docs_*.py`
+- `app/scripts/skills_validator.py`
 - `.github/workflows/docs.yml`
 
 ### Jobs
