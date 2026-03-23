@@ -332,7 +332,7 @@ crud=CRUDRouteConfig(
 
 **Service requirements:** The service must implement `create()`, `get()`, `update()`, `delete()`, `list()` (inherited from `BaseService`). For `scope=USER_OWNED`, also needs `get_for_user()`, `update_for_user()`, `delete_for_user()` (inherited from `CrudOperationsMixin`). Override these when the domain model uses a different ownership field (e.g., Group uses `owner_uid` instead of `user_uid`).
 
-**ConversionServiceV2:** Add a `{entity}_create_to_pure()` method (auto-discovered by naming convention: `GroupCreateRequest` → `group_create_to_pure`).
+**ConversionServiceV2:** Add a `{entity}_create_to_pure()` method (auto-discovered by naming convention: `GroupCreateRequest` → `group_create_to_pure`). Updates use the dict-based pattern in CRUDRouteFactory (`model_dump(exclude_unset=True)`) — no converter needed.
 
 ---
 

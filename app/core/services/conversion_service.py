@@ -19,52 +19,34 @@ from typing import Any, Protocol, TypeVar, runtime_checkable
 from core.models.choice.choice import Choice
 from core.models.choice.choice_option import ChoiceOption
 from core.models.choice.choice_request import ChoiceCreateRequest
-from core.models.entity_requests import EntityUpdateRequest
 from core.models.event.event import Event
-from core.models.event.event_request import EventCreateRequest, EventUpdateRequest
+from core.models.event.event_request import EventCreateRequest
 from core.models.exercises.revised_exercise import RevisedExercise
-from core.models.exercises.revised_exercise_request import (
-    RevisedExerciseCreateRequest,
-    RevisedExerciseUpdateRequest,
-)
+from core.models.exercises.revised_exercise_request import RevisedExerciseCreateRequest
 from core.models.finance.finance_pure import BudgetPure, ExpensePure
 from core.models.finance.finance_request import (
     BudgetCreateRequest,
-    BudgetUpdateRequest,
     ExpenseCreateRequest,
-    ExpenseUpdateRequest,
 )
 from core.models.forms.form_template import FormTemplate
-from core.models.forms.form_template_request import (
-    FormTemplateCreateRequest,
-    FormTemplateUpdateRequest,
-)
+from core.models.forms.form_template_request import FormTemplateCreateRequest
 from core.models.goal.goal import Goal
-from core.models.goal.goal_request import GoalCreateRequest, GoalUpdateRequest
+from core.models.goal.goal_request import GoalCreateRequest
 from core.models.group.group import Group
-from core.models.group.group_request import GroupCreateRequest, GroupUpdateRequest
+from core.models.group.group_request import GroupCreateRequest
 from core.models.habit.habit import Habit
-from core.models.habit.habit_request import HabitCreateRequest, HabitUpdateRequest
+from core.models.habit.habit_request import HabitCreateRequest
 from core.models.ku.ku import Ku
 from core.models.lesson.lesson_request import LessonCreateRequest
 from core.models.principle.principle import Principle
 from core.models.principle.principle_request import PrincipleCreateRequest
 from core.models.task.task import Task
-from core.models.task.task_request import TaskCreateRequest, TaskUpdateRequest
-from core.ports import HasUpdated, HasUpdatedAt, PydanticModel
+from core.models.task.task_request import TaskCreateRequest
+from core.ports import PydanticModel
 
 # Type variables for generic methods
 T = TypeVar("T")
-S = TypeVar("S")
 U = TypeVar("U")
-V = TypeVar("V")
-
-
-@runtime_checkable
-class HasModelCopy(Protocol):
-    """Protocol for models with model_copy method (Pydantic models)"""
-
-    def model_copy(self, update: dict[str, Any]) -> Any: ...
 
 
 @runtime_checkable
@@ -151,63 +133,6 @@ class ConversionServiceV2:
         return pure_class(**schema_data)
 
     @classmethod
-    def update_to_pure(cls, existing: T, schema: U, **extra_updates: Any) -> T:
-        """
-        Generic method to apply update schema to existing pure model.
-
-        Args:
-            existing: The existing pure model,
-            schema: The update schema with new values
-            **extra_updates: Additional updates to apply
-
-        Returns:
-            Updated copy of the pure model
-        """
-        updates = {}
-
-        # Extract updates from schema
-        if isinstance(schema, PydanticModel):
-            # Pydantic model - get non-None values
-            schema_dict = schema.model_dump(exclude_none=True)
-            updates.update(schema_dict)
-        elif isinstance(schema, dict):
-            # Dict
-            updates.update({k: v for k, v in schema.items() if v is not None})
-        else:
-            # Regular object - use dict comprehension
-            updates.update(
-                {
-                    key: value
-                    for key, value in schema.__dict__.items()
-                    if not key.startswith("_") and value is not None
-                }
-            )
-
-        # Add standard update fields
-        if isinstance(existing, HasUpdated):
-            updates["updated"] = datetime.now()
-        elif isinstance(existing, HasUpdatedAt):
-            updates["updated_at"] = datetime.now()
-
-        # Add extra updates
-        updates.update(extra_updates)
-
-        # Apply updates based on model type
-        if isinstance(existing, HasModelCopy):
-            # Pydantic model with model_copy
-            return existing.model_copy(update=updates)
-        elif is_dataclass(existing):
-            # Dataclass - create new instance with updates
-            from dataclasses import replace
-
-            return replace(existing, **updates)
-        else:
-            # Fallback - try to create new instance
-            existing_data = existing.__dict__.copy()
-            existing_data.update(updates)
-            return type(existing)(**existing_data)
-
-    @classmethod
     def pure_to_dict(
         cls, pure_model: T, exclude_none: bool = True, exclude_fields: set[str] | None = None
     ) -> dict[str, Any]:
@@ -283,11 +208,6 @@ class ConversionServiceV2:
         """Convert TaskCreateRequest to Task using generic method."""
         return cls.create_to_pure(schema, Task, uid, **kwargs)
 
-    @classmethod
-    def task_update_to_pure(cls, existing: Task, schema: TaskUpdateRequest) -> Task:
-        """Apply TaskUpdateRequest to existing Task using generic method."""
-        return cls.update_to_pure(existing, schema)
-
     # --- Event Conversions --
     @classmethod
     def event_create_to_pure(
@@ -295,11 +215,6 @@ class ConversionServiceV2:
     ) -> Event:
         """Convert EventCreateRequest to Event using generic method."""
         return cls.create_to_pure(schema, Event, uid, **kwargs)
-
-    @classmethod
-    def event_update_to_pure(cls, existing: Event, schema: EventUpdateRequest) -> Event:
-        """Apply EventUpdateRequest to existing Event using generic method."""
-        return cls.update_to_pure(existing, schema)
 
     # --- Habit Conversions --
     @classmethod
@@ -317,16 +232,6 @@ class ConversionServiceV2:
         extra_fields.update(kwargs)
         return cls.create_to_pure(schema, Habit, uid, **extra_fields)
 
-    @classmethod
-    def habit_update_to_pure(cls, existing: Habit, schema: HabitUpdateRequest) -> Habit:
-        """Apply HabitUpdateRequest to existing Habit using generic method."""
-        # Handle special case for target_days_per_week
-        extra_updates = {}
-        if schema.target_days_per_week is not None:
-            extra_updates["target_days_per_week"] = schema.target_days_per_week
-
-        return cls.update_to_pure(existing, schema, **extra_updates)
-
     # --- Goal Conversions --
     @classmethod
     def goal_create_to_pure(
@@ -335,16 +240,6 @@ class ConversionServiceV2:
         """Convert GoalCreateRequest to Goal using generic method."""
         return cls.create_to_pure(schema, Goal, uid, **kwargs)
 
-    @classmethod
-    def goal_update_to_pure(cls, existing: Goal, schema: GoalUpdateRequest) -> Goal:
-        """Apply GoalUpdateRequest to existing Goal using generic method."""
-        return cls.update_to_pure(existing, schema)
-
-    @classmethod
-    def goal_update_to_dto(cls, schema: GoalUpdateRequest) -> dict:
-        """Convert GoalUpdateRequest to dict for updating DTO."""
-        return schema.model_dump(exclude_none=True)
-
     # --- Knowledge Unit (Ku) Conversions --
     @classmethod
     def ku_create_to_pure(
@@ -352,11 +247,6 @@ class ConversionServiceV2:
     ) -> Ku:
         """Convert CurriculumCreateRequest to Curriculum entity using generic method."""
         return cls.create_to_pure(schema, Ku, uid, **kwargs)
-
-    @classmethod
-    def ku_update_to_pure(cls, existing: Ku, schema: EntityUpdateRequest) -> Ku:
-        """Apply EntityUpdateRequest to existing Curriculum entity using generic method."""
-        return cls.update_to_pure(existing, schema)
 
     # --- Finance Conversions (three-tier migrated) --
     @classmethod
@@ -367,23 +257,11 @@ class ConversionServiceV2:
         return cls.create_to_pure(schema, ExpensePure, uid, **kwargs)
 
     @classmethod
-    def expense_update_to_pure(
-        cls, existing: ExpensePure, schema: ExpenseUpdateRequest
-    ) -> ExpensePure:
-        """Apply ExpenseUpdateRequest to existing ExpensePure using generic method."""
-        return cls.update_to_pure(existing, schema)
-
-    @classmethod
     def budget_create_to_pure(
         cls, schema: BudgetCreateRequest, uid: str | None = None, **kwargs: Any
     ) -> BudgetPure:
         """Convert BudgetCreateRequest to BudgetPure using generic method."""
         return cls.create_to_pure(schema, BudgetPure, uid, **kwargs)
-
-    @classmethod
-    def budget_update_to_pure(cls, existing: BudgetPure, schema: BudgetUpdateRequest) -> BudgetPure:
-        """Apply BudgetUpdateRequest to existing BudgetPure using generic method."""
-        return cls.update_to_pure(existing, schema)
 
     # NOTE: Journal conversions REMOVED (February 2026) - Journal merged into Reports
     # NOTE: Transcription conversions REMOVED (February 2026) - Three-tier models deleted
@@ -406,22 +284,6 @@ class ConversionServiceV2:
         # Merge kwargs (includes user_uid) with extra_fields
         extra_fields.update(kwargs)
         return cls.create_to_pure(schema, Principle, uid, **extra_fields)
-
-    @classmethod
-    def principle_update_to_pure(
-        cls, existing: Principle, schema: EntityUpdateRequest
-    ) -> Principle:
-        """Apply EntityUpdateRequest to existing Principle entity using generic method."""
-        # Convert list fields to tuples for immutable model
-        extra_updates = {}
-        if schema.key_behaviors is not None:
-            extra_updates["key_behaviors"] = tuple(schema.key_behaviors)
-        if schema.decision_criteria is not None:
-            extra_updates["decision_criteria"] = tuple(schema.decision_criteria)
-        if schema.tags is not None:
-            extra_updates["tags"] = tuple(schema.tags)
-
-        return cls.update_to_pure(existing, schema, **extra_updates)
 
     # --- Choice Conversions --
     @classmethod
@@ -461,20 +323,6 @@ class ConversionServiceV2:
         extra_fields.update(kwargs)
         return cls.create_to_pure(schema, Choice, uid, **extra_fields)
 
-    @classmethod
-    def choice_update_to_pure(cls, existing: Choice, schema: EntityUpdateRequest) -> Choice:
-        """Apply ChoiceUpdateRequest to existing Choice using generic method."""
-        # Convert list fields to tuples for immutable model
-        extra_updates = {}
-        if schema.decision_criteria is not None:
-            extra_updates["decision_criteria"] = tuple(schema.decision_criteria)
-        if schema.constraints is not None:
-            extra_updates["constraints"] = tuple(schema.constraints)
-        if schema.stakeholders is not None:
-            extra_updates["stakeholders"] = tuple(schema.stakeholders)
-
-        return cls.update_to_pure(existing, schema, **extra_updates)
-
     # --- FormTemplate Conversions --
     @classmethod
     def formtemplate_create_to_pure(
@@ -483,13 +331,6 @@ class ConversionServiceV2:
         """Convert FormTemplateCreateRequest to FormTemplate using generic method."""
         return cls.create_to_pure(schema, FormTemplate, uid, **kwargs)
 
-    @classmethod
-    def formtemplate_update_to_pure(
-        cls, existing: FormTemplate, schema: FormTemplateUpdateRequest
-    ) -> FormTemplate:
-        """Apply FormTemplateUpdateRequest to existing FormTemplate using generic method."""
-        return cls.update_to_pure(existing, schema)
-
     # --- RevisedExercise Conversions --
     @classmethod
     def revisedexercise_create_to_pure(
@@ -497,13 +338,6 @@ class ConversionServiceV2:
     ) -> RevisedExercise:
         """Convert RevisedExerciseCreateRequest to RevisedExercise using generic method."""
         return cls.create_to_pure(schema, RevisedExercise, uid, **kwargs)
-
-    @classmethod
-    def revisedexercise_update_to_pure(
-        cls, existing: RevisedExercise, schema: RevisedExerciseUpdateRequest
-    ) -> RevisedExercise:
-        """Apply RevisedExerciseUpdateRequest to existing RevisedExercise using generic method."""
-        return cls.update_to_pure(existing, schema)
 
     # --- Group Conversions --
     @classmethod
@@ -517,45 +351,6 @@ class ConversionServiceV2:
         if "user_uid" in kwargs:
             kwargs["owner_uid"] = kwargs.pop("user_uid")
         return cls.create_to_pure(schema, Group, uid, **kwargs)
-
-    @classmethod
-    def group_update_to_pure(cls, existing: Group, schema: GroupUpdateRequest) -> Group:
-        """Apply GroupUpdateRequest to existing Group using generic method."""
-        return cls.update_to_pure(existing, schema)
-
-    # ========================================================================
-    # VIEW CONVERSIONS (Keep specific for now due to view complexity)
-    # ========================================================================
-
-    # NOTE: View conversions removed - three-tier architecture complete.
-    # If views are needed, they should be handled by the domain-specific converters.
-    # This forces usage of the proper three-tier pattern instead of legacy approaches.
-
-    # ========================================================================
-    # BACKWARD COMPATIBILITY ALIASES
-    # ========================================================================
-
-    # Create aliases for backward compatibility
-    def task_update_to_dict(self, schema):
-        return self.pure_to_dict(schema, exclude_none=True)
-
-    def event_update_to_dict(self, schema):
-        return self.pure_to_dict(schema, exclude_none=True)
-
-    def habit_update_to_dict(self, schema):
-        return self.pure_to_dict(schema, exclude_none=True)
-
-    def goal_update_to_dict(self, schema):
-        return self.pure_to_dict(schema, exclude_none=True)
-
-    def expense_update_to_dict(self, schema):
-        return self.pure_to_dict(schema, exclude_none=True)
-
-    def budget_update_to_dict(self, schema):
-        return self.pure_to_dict(schema, exclude_none=True)
-
-    def principle_update_to_dict(self, schema):
-        return self.pure_to_dict(schema, exclude_none=True)
 
     # ========================================================================
     # PRINCIPLE EXTENDED FEATURES (Conversion layer complete - service stubs remain)
