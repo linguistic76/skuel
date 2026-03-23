@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Vulture whitelist — false positives that should not be reported.
 

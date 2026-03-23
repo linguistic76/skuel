@@ -21,7 +21,6 @@ Usage in UI components:
 from __future__ import annotations
 
 from enum import Enum
-from typing import TypeVar
 
 from fasthtml.common import Div, Span
 
@@ -42,10 +41,8 @@ from core.models.enums.user_enums import UserRole
 from core.models.event.calendar_models import CalendarItemType
 from ui.feedback import Badge, BadgeT
 
-E = TypeVar("E", bound=Enum)
 
-
-def _enum_method(
+def _enum_method[E: Enum](
     value: str, enum_cls: type[E], method_name: str, fallback: str, *, normalize: bool = True
 ) -> str:
     """Bridge a raw string to an enum method with ValueError fallback.

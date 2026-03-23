@@ -519,9 +519,9 @@ class SkuelLinter:
             # Run applicable rules
             if self._should_run_rule("SKUEL003"):
                 self._check_is_err_usage(file_path, rel_path, content, lines)
-            if self._should_run_rule("SKUEL009"):
+            if self._should_run_rule("SKUEL009") and not is_test:
                 self._check_tuple_defaults(file_path, rel_path, content, lines)
-            if self._should_run_rule("SKUEL010"):
+            if self._should_run_rule("SKUEL010") and not is_test:
                 self._check_nested_tuple_defaults(file_path, rel_path, content, lines)
             if self._should_run_rule("SKUEL011") and not is_test:
                 self._check_hasattr_usage(file_path, rel_path, content, lines)

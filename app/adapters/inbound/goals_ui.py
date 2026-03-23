@@ -42,13 +42,13 @@ from adapters.inbound.ui_helpers import (
     render_entity_not_found_page,
 )
 from core.models.enums import Priority
-from ui.enum_helpers import get_status_border_class
 from core.models.goal.goal_request import GoalCreateRequest
 from core.services.goals_service import GoalsService
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 from ui.buttons import Button, ButtonT
 from ui.cards import Card
+from ui.enum_helpers import get_status_border_class
 from ui.feedback import Badge, BadgeT, Progress
 from ui.goals.layout import create_goals_page
 from ui.goals.views import GoalsViewComponents

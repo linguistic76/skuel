@@ -20,8 +20,8 @@ from core.utils.logging import get_logger
 from ui.curriculum.landing import CurriculumLandingView
 from ui.curriculum.layout import create_curriculum_page
 from ui.layouts.base_page import BasePage
-from ui.patterns.empty_state import EmptyState
 from ui.patterns.card_generator import CardGenerator
+from ui.patterns.empty_state import EmptyState
 from ui.patterns.page_header import PageHeader
 from ui.patterns.stats_grid import StatItem
 

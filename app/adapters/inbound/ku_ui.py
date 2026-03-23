@@ -12,12 +12,11 @@ KuService is the primary service (not LessonService).
 from typing import Any
 
 from fasthtml.common import A as Anchor
-from fasthtml.common import Div, Li, P, Span, Ul
-
-from ui.feedback import Badge, BadgeT
+from fasthtml.common import Div, Li, P, Ul
 
 from core.models.ku.ku import Ku
 from core.utils.logging import get_logger
+from ui.feedback import Badge, BadgeT
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.pin_button import PinButton
 from ui.patterns.sidebar import SidebarItem, SidebarLink, SidebarPage

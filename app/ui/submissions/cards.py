@@ -13,8 +13,8 @@ from ui.buttons import ButtonLink, ButtonT
 from ui.enum_helpers import get_submission_status_badge_class
 from ui.feedback import Alert, AlertT, Badge
 from ui.layout import Size
-from ui.patterns.empty_state import EmptyState
 from ui.patterns.card_generator import CardGenerator
+from ui.patterns.empty_state import EmptyState
 
 _get_status_badge_class = get_submission_status_badge_class
 

@@ -32,8 +32,8 @@ from ui.patterns.activity_views_base import (
     ActivityListFilters,
     ActivityViewTabs,
 )
-from ui.patterns.empty_state import EmptyState
 from ui.patterns.card_generator import CardGenerator
+from ui.patterns.empty_state import EmptyState
 from ui.patterns.stats_grid import StatItem, StatsGrid
 
 

@@ -13,12 +13,15 @@ from fasthtml.common import H3, Div, Form, Li, NotStr, P, Span, Ul
 
 from core.models.insight.persisted_insight import PersistedInsight
 from ui.buttons import Button, ButtonLink, ButtonT
-from ui.cards import Card, CardBody
 from ui.feedback import Alert, AlertT, Badge, BadgeT
-from ui.layout import FlexItem, Row, Size
+from ui.layout import Row, Size
 from ui.modals import ModalBox
 from ui.patterns.card_generator import CardGenerator
-from ui.text import CardTitle, SmallText, TruncatedText
+from ui.text import SmallText, TruncatedText
+
+
+def _render_description(desc: str) -> Any:
+    return TruncatedText(desc, lines=3, cls="text-sm text-muted-foreground mt-2 block")
 
 
 def InsightCard(insight: PersistedInsight) -> Div:
@@ -140,9 +143,7 @@ def InsightCard(insight: PersistedInsight) -> Div:
         {"title": insight.title, "description": insight.description or ""},
         display_fields=["description"],
         field_renderers={
-            "description": lambda desc: TruncatedText(
-                desc, lines=3, cls="text-sm text-muted-foreground mt-2 block"
-            ),
+            "description": _render_description,
         },
         header_badges=[impact_badge, domain_badge, confidence_badge],
         show_labels=False,

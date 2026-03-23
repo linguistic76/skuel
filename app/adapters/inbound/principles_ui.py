@@ -26,8 +26,12 @@ from fasthtml.common import H1, H3, Div, P
 from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
-from adapters.inbound.form_helpers import parse_enum_safe, parse_principle_filters, safe_form_string
-from adapters.inbound.form_helpers import PrincipleFilters
+from adapters.inbound.form_helpers import (
+    PrincipleFilters,
+    parse_enum_safe,
+    parse_principle_filters,
+    safe_form_string,
+)
 from adapters.inbound.route_factories import (
     DashboardUIConfig,
     DashboardUIFactory,

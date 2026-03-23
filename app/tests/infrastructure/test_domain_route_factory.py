@@ -10,7 +10,6 @@ Tests for Domain Route Factory — Config-Driven Registration
   E. Integration round-trips (2)
 """
 
-from dataclasses import fields as dc_fields
 from typing import Any
 from unittest.mock import MagicMock, patch
 

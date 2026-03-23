@@ -917,7 +917,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         teacher_uid = records[0]["teacher_uid"]
         exercise_title = records[0].get("exercise_title") or ""
 
-        if exercise_entity_type == "revised_exercise":
+        if exercise_entity_type == EntityType.REVISED_EXERCISE.value:
             # RevisedExercise path: always "assigned", targets a specific student
             re_student_uid = records[0]["student_uid"]
 

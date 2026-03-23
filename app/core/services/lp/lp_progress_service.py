@@ -199,8 +199,8 @@ class LpProgressService:
             self.logger.debug(f"No KUs found for learning path {lp_uid}")
             return
 
-        total_kus = progress_data.get("total_kus", 0)
-        mastered_kus = progress_data.get("mastered_kus", 0)
+        total_kus = int(progress_data.get("total_kus", 0))  # type: ignore[arg-type]
+        mastered_kus = int(progress_data.get("mastered_kus", 0))  # type: ignore[arg-type]
 
         # Calculate old and new progress
         # Note: We need to get the user's current LP progress from storage

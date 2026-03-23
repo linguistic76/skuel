@@ -17,8 +17,7 @@ from fasthtml.common import Div
 from starlette.requests import Request
 
 from adapters.inbound.boundary import boundary_handler
-from adapters.inbound.form_helpers import parse_json_body
-from adapters.inbound.form_helpers import safe_form_string
+from adapters.inbound.form_helpers import parse_json_body, safe_form_string
 from core.models.entity_requests import CalendarQuickCreateRequest
 from core.utils.result_simplified import Errors, Result
 from ui.calendar.components import calendar_item_to_dict
