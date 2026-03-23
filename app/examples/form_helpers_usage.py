@@ -1,11 +1,18 @@
 """
-Example: Type-Safe Form Data Extraction with safe_form_string
+Example: Type-Safe Form Data Extraction
 
-This demonstrates how to safely extract form data in FastHTML routes
-without triggering MyPy union-attr errors.
+Demonstrates two approaches:
+1. Individual field helpers (safe_form_string, safe_form_int, etc.)
+2. Structured body helpers (parse_json_body, parse_form_body)
 """
 
-from adapters.inbound.form_helpers import safe_form_bool, safe_form_int, safe_form_string
+from adapters.inbound.form_helpers import (
+    parse_form_body,
+    parse_json_body,
+    safe_form_bool,
+    safe_form_int,
+    safe_form_string,
+)
 
 
 # ❌ BEFORE: Unsafe pattern (MyPy error, type fragility)
@@ -55,3 +62,45 @@ async def login_handler(request):
 
     # Proceed with authentication...
     return {"success": True}
+
+
+# ============================================================================
+# STRUCTURED BODY HELPERS — parse_json_body / parse_form_body
+# ============================================================================
+# Use these when a route accepts a structured Pydantic model rather than
+# a handful of individual fields.
+
+
+# ✅ parse_json_body — JSON POST body → Pydantic model → Result[T]
+async def json_body_example(request):
+    """Replaces the try/except ValidationError boilerplate."""
+    from core.models.teaching.teaching_request import SubmitReportRequest
+
+    result = await parse_json_body(request, SubmitReportRequest)
+    if result.is_error:
+        return result  # 422 with validation details
+    req = result.value
+    return {"feedback": req.feedback}
+
+
+# ✅ parse_json_body with extra — merging entity UID from ownership decorator
+async def json_body_with_extra_example(request, entity):
+    """Use `extra=` to inject fields not in the request body."""
+    from core.models.habit.habit_request import TrackHabitRequest
+
+    result = await parse_json_body(request, TrackHabitRequest, extra={"habit_uid": entity.uid})
+    if result.is_error:
+        return result
+    return {"tracked": True}
+
+
+# ✅ parse_form_body — HTML form data → Pydantic model → Result[T]
+async def form_body_example(request):
+    """Replaces manual (body.get("field") or "").strip() + enum try/except chains."""
+    from core.models.teaching.teaching_request import CreateTeachingExerciseRequest
+
+    result = await parse_form_body(request, CreateTeachingExerciseRequest)
+    if result.is_error:
+        return result  # 422 with validation details
+    req = result.value
+    return {"name": req.name, "scope": req.scope.value}

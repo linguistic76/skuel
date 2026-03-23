@@ -1,6 +1,6 @@
 ---
 title: API Validation Patterns
-updated: 2026-03-18
+updated: 2026-03-23
 category: patterns
 related_skills:
 - pydantic
@@ -130,25 +130,27 @@ class ContextualTaskCompletionRequest(BaseModel):
 
 **Usage in Routes:**
 ```python
-from pydantic import ValidationError
+from adapters.inbound.form_helpers import parse_json_body
 
 @rt("/api/context/task/complete", methods=["POST"])
 @boundary_handler(success_status=200)
 async def complete_task(request: Request, task_uid: str) -> Result[Any]:
     """Complete task with context awareness."""
-    try:
-        body = await request.json()
-        req = ContextualTaskCompletionRequest(**body)
-    except ValidationError as e:
-        return Result.fail(Errors.validation(str(e), field="body"))
-    except Exception:
-        return Result.fail(Errors.validation(message="Invalid JSON body", field="body"))
+    result = await parse_json_body(request, ContextualTaskCompletionRequest)
+    if result.is_error:
+        return result  # type: ignore[return-value]
+    req = result.value
 
     return await service.complete_task_with_context(
         task_uid=task_uid,
         completion_context=req.context,  # Type-safe access
         reflection_notes=req.reflection,
     )
+```
+
+**With extra fields** (e.g., entity UID from `@require_ownership_query`):
+```python
+result = await parse_json_body(request, TrackHabitRequest, extra={"habit_uid": entity.uid})
 ```
 
 **Benefits:**
@@ -158,6 +160,7 @@ async def complete_task(request: Request, task_uid: str) -> Result[Any]:
 - ✅ Self-documenting (model shows expected structure)
 - ✅ Clear validation errors with field-level details
 - ✅ Consistent error handling via `Result.fail()`
+- ✅ No boilerplate — `parse_json_body()` handles JSON parsing + ValidationError → Result conversion
 
 ---
 
@@ -207,6 +210,59 @@ async def search_results(request: Request, query: str = "", status: str | None =
 - ✅ Testable independently of HTTP layer
 
 **Real-world usage:** `SearchRequest.from_form_params()` in `core/models/search_request.py` — handles 25+ form parameters for the search page.
+
+---
+
+### Form Data Bodies: `parse_form_body()` Helper
+
+**Use Case:** POST form data (not JSON) that should be validated as a structured Pydantic model. Replaces manual `(body.get("field") or "").strip()` + enum try/except + required-field checks.
+
+**Helper:** `parse_form_body()` from `adapters/inbound/form_helpers.py` — converts form fields to a dict (stripping strings, converting empty strings to `None`), then validates via Pydantic.
+
+**Example Request Model:**
+```python
+# core/models/teaching/teaching_request.py
+class CreateTeachingExerciseRequest(BaseModel):
+    name: str = Field(..., min_length=1)
+    instructions: str = Field(..., min_length=1)
+    scope: ExerciseScope = ExerciseScope.PERSONAL
+    group_uid: str | None = None
+    due_date: date | None = None
+    processor_type: ProcessorType = ProcessorType.LLM
+
+    @model_validator(mode="after")
+    def assigned_scope_requires_group(self) -> "CreateTeachingExerciseRequest":
+        if self.scope == ExerciseScope.ASSIGNED and not self.group_uid:
+            raise ValueError("group_uid is required for assigned exercises")
+        return self
+```
+
+**Usage in Routes:**
+```python
+from adapters.inbound.form_helpers import parse_form_body
+
+@rt("/api/teaching/exercises", methods=["POST"])
+@boundary_handler(success_status=201)
+async def create_exercise(request: Request) -> Result[Any]:
+    parsed = await parse_form_body(request, CreateTeachingExerciseRequest)
+    if parsed.is_error:
+        return parsed  # type: ignore[return-value]
+    req = parsed.value
+
+    return await service.create_exercise(name=req.name, scope=req.scope, ...)
+```
+
+**Benefits:**
+- ✅ Replaces 20-30 lines of imperative form parsing with 3 lines
+- ✅ Required fields, enum coercion, cross-field validation all in the model
+- ✅ Empty strings → `None` for optional fields (HTML form quirk handled automatically)
+- ✅ Same Result[T] error flow as `parse_json_body()`
+
+**When to use `parse_form_body()` vs `safe_form_string()`:**
+- `parse_form_body()` — structured form data with multiple fields, validation rules, enum parsing
+- `safe_form_string()` — individual field extraction in UI routes where Pydantic is overkill
+
+**Real-world usage:** `teaching_api.py` — `CreateTeachingExerciseRequest` and `UpdateTeachingExerciseRequest`.
 
 ---
 
@@ -431,7 +487,8 @@ The error surfaces as a 422 field error on `__root__` (model level), caught by `
 | **Query Params (GET)** | Silent helpers (`parse_*_query_param`) | 200 (default) | Booleans, dates, CSV lists, pagination |
 | **Required Params (GET)** | Strict helpers (`parse_*_param_strict`) | 400 | Required dates, bounded integers |
 | **HTML Form Params (GET)** | `Model.from_form_params()` classmethod | 400 | Many checkbox/enum/optional string params needing coercion |
-| **JSON Bodies (POST/PUT)** | Pydantic models | 422 | Structured data, complex validation |
+| **JSON Bodies (POST/PUT)** | `parse_json_body(request, Model)` | 422 | Structured data, complex validation |
+| **Form Data Bodies (POST)** | `parse_form_body(request, Model)` | 422 | Structured form data with validation |
 | **Path Params** | Avoid (SKUEL uses query params) | N/A | Not used in SKUEL API routes |
 
 **SKUEL Preference:** Query parameters over path parameters for all routes. See [ROUTE_NAMING_CONVENTION.md](ROUTE_NAMING_CONVENTION.md).
@@ -457,8 +514,10 @@ class TaskCompletionRequest(BaseModel):  # Validates structure
 # Route parses JSON → constructs model → calls service
 @rt("/api/context/task/complete", methods=["POST"])
 async def complete_task(request: Request) -> Result[Any]:
-    body = await request.json()
-    req = TaskCompletionRequest(**body)  # Pydantic validates here
+    result = await parse_json_body(request, TaskCompletionRequest)
+    if result.is_error:
+        return result
+    req = result.value
     return await service.complete_task_with_context(
         completion_context=req.context,  # Type-safe access
         reflection_notes=req.reflection,
@@ -721,19 +780,16 @@ async def complete_task(request: Request, task_uid: str) -> Result[Any]:
     # Wrong types → silent data loss
 ```
 
-**After (Pydantic):**
+**After (parse_json_body helper):**
 ```python
-from pydantic import ValidationError
+from adapters.inbound.form_helpers import parse_json_body
 
 @rt("/api/context/task/complete", methods=["POST"])
 async def complete_task(request: Request, task_uid: str) -> Result[Any]:
-    try:
-        body = await request.json()
-        req = TaskCompletionRequest(**body)
-    except ValidationError as e:
-        return Result.fail(Errors.validation(str(e), field="body"))
-    except Exception:
-        return Result.fail(Errors.validation(message="Invalid JSON body", field="body"))
+    result = await parse_json_body(request, TaskCompletionRequest)
+    if result.is_error:
+        return result  # type: ignore[return-value]
+    req = result.value
 
     return await service.complete_task_with_context(
         task_uid=task_uid,
@@ -745,19 +801,29 @@ async def complete_task(request: Request, task_uid: str) -> Result[Any]:
 **For ownership-verified routes** (entity UID comes from `@require_ownership_query`):
 ```python
 async def track_habit_route(request: Request, entity: Any, ...) -> Result[Any]:
-    try:
-        body = await request.json()
-        req = TrackHabitRequest(**{**body, "habit_uid": entity.uid})
-    except ValidationError as e:
-        return Result.fail(Errors.validation(str(e), field="body"))
-    ...
+    result = await parse_json_body(request, TrackHabitRequest, extra={"habit_uid": entity.uid})
+    if result.is_error:
+        return result  # type: ignore[return-value]
+    return await habits_service.track_habit(result.value)
+```
+
+**For form data** (replace manual `(body.get("field") or "").strip()` patterns):
+```python
+from adapters.inbound.form_helpers import parse_form_body
+
+async def create_exercise(request: Request) -> Result[Any]:
+    parsed = await parse_form_body(request, CreateTeachingExerciseRequest)
+    if parsed.is_error:
+        return parsed  # type: ignore[return-value]
+    req = parsed.value
+    return await service.create_exercise(name=req.name, ...)
 ```
 
 **Steps:**
 1. Create Pydantic model in `core/models/{domain}/{domain}_request.py`
-2. Parse JSON and construct model with `try/except ValidationError`
+2. Use `parse_json_body()` or `parse_form_body()` — handles parsing + ValidationError → Result
 3. Access fields via `req.field` instead of `body["field"]`
-4. Remove manual validation code (required checks, type coercion)
+4. Remove manual validation code (required checks, type coercion, enum try/except)
 
 ---
 
@@ -813,7 +879,18 @@ def test_task_completion_request_defaults():
 
 ---
 
-## Shared Query Param Helpers
+## Shared Helpers
+
+### Request Body Helpers
+
+**Location:** `adapters/inbound/form_helpers.py`
+
+| Helper | Returns | Use Case |
+|--------|---------|----------|
+| `parse_json_body(request, schema, extra=None)` | `Result[T]` | JSON body → Pydantic model with Result[T] wrapping |
+| `parse_form_body(request, schema)` | `Result[T]` | Form data → Pydantic model (empty strings → None) |
+
+### Query Param Helpers
 
 **Location:** `adapters/inbound/route_factories/route_helpers.py`
 **Tests:** `tests/unit/adapters/test_route_helpers.py`
@@ -834,10 +911,14 @@ def test_task_completion_request_defaults():
 
 ## Reference Implementations
 
-**Context-Aware API** (`adapters/inbound/context_aware_api.py`):
-- Uses `parse_bool_query_param()` from shared helpers
-- `validate_time_window()` - Enum validation (domain-specific)
-- 2 GET routes using helpers, 3 POST routes using Pydantic models
+**Teaching API** (`adapters/inbound/teaching_api.py`):
+- Uses `parse_json_body()` for JSON POST routes (submit feedback, request revision)
+- Uses `parse_form_body()` for form POST routes (create/update exercise)
+- `CreateTeachingExerciseRequest` — demonstrates enum coercion, cross-field validation, date parsing in a single Pydantic model
+
+**Activity Domain APIs** (habits, events, goals, choices):
+- Use `parse_json_body()` with `extra=` param for ownership-verified routes
+- Example: `parse_json_body(request, TrackHabitRequest, extra={"habit_uid": entity.uid})`
 
 **Search Routes** (`adapters/inbound/search_routes.py`):
 - Uses `split_csv()` for entity_types and tags parsing
@@ -875,4 +956,6 @@ def test_task_completion_request_defaults():
 - ❌ Silent failures (accepting bad data without error)
 - ❌ Returning 500 for validation errors
 - ❌ Repeated validation logic in every route
+- ❌ Manual `try: req = Model(**body) except ValidationError` — use `parse_json_body()` instead
+- ❌ Manual `(body.get("field") or "").strip()` + `if not field:` chains — use `parse_form_body()` instead
 - ❌ Manual `validate_*_form_data()` functions that duplicate constraints already on the Pydantic model (two sources of truth — and they diverge)

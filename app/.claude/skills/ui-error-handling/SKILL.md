@@ -134,10 +134,15 @@ Separate I/O from computation:
 
 All 6 activity domain UI files extract form parsing into module-level pure functions under a `# Form Parsing Helpers` section. These have no service calls and no request access. Shared primitives live in `adapters/inbound/form_helpers.py`:
 
+**Individual field helpers** (for UI routes with simple forms):
 - `safe_form_string()`, `safe_form_int()`, `safe_form_bool()` — type-safe extraction from `str | UploadFile | None`
 - `parse_enum_safe(enum_class, value, default)` — replaces try/except ValueError pattern
 - `parse_date_safe()`, `parse_time_safe()`, `parse_datetime_safe()` — ISO string → typed value or None
 - `ActivityFilters` + `parse_activity_filters()` — shared 2-field filter dataclass for Goals, Habits, Events, Choices
+
+**Structured body helpers** (for API routes with Pydantic models):
+- `parse_json_body(request, schema, extra=None)` → `Result[T]` — parses JSON body into a Pydantic model. Handles both JSON parse errors and ValidationError, converting to `Result.fail()`. Use `extra=` to merge additional fields (e.g., entity UID from ownership decorator).
+- `parse_form_body(request, schema)` → `Result[T]` — parses form data into a Pydantic model. Empty strings become `None` (handles HTML form quirk). Use when form data has enough fields to warrant a Pydantic model with validators.
 
 ```python
 # adapters/inbound/tasks_ui.py — module level, before route factory

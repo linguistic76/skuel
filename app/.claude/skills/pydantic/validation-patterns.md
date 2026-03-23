@@ -393,6 +393,28 @@ except ValidationError as e:
     # ]
 ```
 
+### Route-Level Parsing (Result[T] Integration)
+
+In API routes, use `parse_json_body()` or `parse_form_body()` to convert Pydantic `ValidationError` into `Result.fail()` automatically — no manual try/except needed:
+
+```python
+from adapters.inbound.form_helpers import parse_json_body, parse_form_body
+
+# JSON body → Pydantic model → Result[T]
+result = await parse_json_body(request, TaskCreateRequest)
+if result.is_error:
+    return result  # type: ignore[return-value]
+req = result.value
+
+# Form data → Pydantic model → Result[T] (empty strings → None)
+result = await parse_form_body(request, CreateTeachingExerciseRequest)
+
+# With extra fields merged before validation
+result = await parse_json_body(request, TrackHabitRequest, extra={"habit_uid": entity.uid})
+```
+
+See: `/docs/patterns/API_VALIDATION_PATTERNS.md`
+
 ## Testing Validators
 
 ```python

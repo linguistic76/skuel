@@ -138,14 +138,19 @@ class ReportService:
 
 ### Layer 3: Routes (System Boundary)
 ```python
+from adapters.inbound.form_helpers import parse_json_body
+
 # Routes use @boundary_handler to convert Results
 @rt("/api/journals")
 @boundary_handler(success_status=201)
 async def create_journal_route(request):
-    data = await request.json()
+    # parse_json_body handles JSON parsing + ValidationError → Result
+    parsed = await parse_json_body(request, JournalCreateRequest)
+    if parsed.is_error:
+        return parsed  # 422 with validation details
 
     # Service returns Result
-    result = await journal_service.create_journal(data)
+    result = await journal_service.create_journal(parsed.value)
 
     # boundary_handler automatically converts:
     # - Result.ok() → (json_body, success_status)

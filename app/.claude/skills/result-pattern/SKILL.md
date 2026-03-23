@@ -260,6 +260,29 @@ async def get_task(request, uid: str):
     return await task_service.get(uid)  # Result[Task] → response
 ```
 
+### Request Body Parsing → Result[T]
+
+Use `parse_json_body()` and `parse_form_body()` to convert Pydantic `ValidationError` into `Result.fail()` at the boundary — no manual try/except needed:
+
+```python
+from adapters.inbound.form_helpers import parse_json_body, parse_form_body
+
+@rt("/api/goals/milestones", methods=["POST"])
+@boundary_handler(success_status=201)
+async def create_milestone(request: Request, entity: Any) -> Result[Any]:
+    result = await parse_json_body(request, MilestoneCreateRequest)
+    if result.is_error:
+        return result  # type: ignore[return-value]  → 422 with validation details
+    req = result.value
+    return await goals_service.create_milestone(entity.uid, req.title, req.target_date)
+
+# With extra fields (e.g., entity UID from ownership decorator)
+result = await parse_json_body(request, TrackHabitRequest, extra={"habit_uid": entity.uid})
+
+# Form data (empty strings → None, then validated by Pydantic)
+result = await parse_form_body(request, CreateTeachingExerciseRequest)
+```
+
 ### HTTP Status Code Mapping
 
 | ErrorCategory | HTTP Status | Response Type |
