@@ -22,6 +22,11 @@ from core.models.choice.choice_request import ChoiceCreateRequest
 from core.models.entity_requests import EntityUpdateRequest
 from core.models.event.event import Event
 from core.models.event.event_request import EventCreateRequest, EventUpdateRequest
+from core.models.exercises.revised_exercise import RevisedExercise
+from core.models.exercises.revised_exercise_request import (
+    RevisedExerciseCreateRequest,
+    RevisedExerciseUpdateRequest,
+)
 from core.models.finance.finance_pure import BudgetPure, ExpensePure
 from core.models.finance.finance_request import (
     BudgetCreateRequest,
@@ -29,16 +34,17 @@ from core.models.finance.finance_request import (
     ExpenseCreateRequest,
     ExpenseUpdateRequest,
 )
+from core.models.forms.form_template import FormTemplate
+from core.models.forms.form_template_request import (
+    FormTemplateCreateRequest,
+    FormTemplateUpdateRequest,
+)
 from core.models.goal.goal import Goal
 from core.models.goal.goal_request import GoalCreateRequest, GoalUpdateRequest
+from core.models.group.group import Group
+from core.models.group.group_request import GroupCreateRequest, GroupUpdateRequest
 from core.models.habit.habit import Habit
 from core.models.habit.habit_request import HabitCreateRequest, HabitUpdateRequest
-from core.models.exercises.revised_exercise import RevisedExercise
-from core.models.exercises.revised_exercise_request import RevisedExerciseCreateRequest
-from core.models.forms.form_template import FormTemplate
-from core.models.forms.form_template_request import FormTemplateCreateRequest
-from core.models.group.group import Group
-from core.models.group.group_request import GroupCreateRequest
 from core.models.ku.ku import Ku
 from core.models.lesson.lesson_request import LessonCreateRequest
 from core.models.principle.principle import Principle
@@ -477,6 +483,13 @@ class ConversionServiceV2:
         """Convert FormTemplateCreateRequest to FormTemplate using generic method."""
         return cls.create_to_pure(schema, FormTemplate, uid, **kwargs)
 
+    @classmethod
+    def formtemplate_update_to_pure(
+        cls, existing: FormTemplate, schema: FormTemplateUpdateRequest
+    ) -> FormTemplate:
+        """Apply FormTemplateUpdateRequest to existing FormTemplate using generic method."""
+        return cls.update_to_pure(existing, schema)
+
     # --- RevisedExercise Conversions --
     @classmethod
     def revisedexercise_create_to_pure(
@@ -484,6 +497,13 @@ class ConversionServiceV2:
     ) -> RevisedExercise:
         """Convert RevisedExerciseCreateRequest to RevisedExercise using generic method."""
         return cls.create_to_pure(schema, RevisedExercise, uid, **kwargs)
+
+    @classmethod
+    def revisedexercise_update_to_pure(
+        cls, existing: RevisedExercise, schema: RevisedExerciseUpdateRequest
+    ) -> RevisedExercise:
+        """Apply RevisedExerciseUpdateRequest to existing RevisedExercise using generic method."""
+        return cls.update_to_pure(existing, schema)
 
     # --- Group Conversions --
     @classmethod
@@ -497,6 +517,11 @@ class ConversionServiceV2:
         if "user_uid" in kwargs:
             kwargs["owner_uid"] = kwargs.pop("user_uid")
         return cls.create_to_pure(schema, Group, uid, **kwargs)
+
+    @classmethod
+    def group_update_to_pure(cls, existing: Group, schema: GroupUpdateRequest) -> Group:
+        """Apply GroupUpdateRequest to existing Group using generic method."""
+        return cls.update_to_pure(existing, schema)
 
     # ========================================================================
     # VIEW CONVERSIONS (Keep specific for now due to view complexity)
