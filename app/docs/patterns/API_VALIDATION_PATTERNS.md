@@ -920,6 +920,9 @@ def test_task_completion_request_defaults():
 - Use `parse_json_body()` with `extra=` param for ownership-verified routes
 - Example: `parse_json_body(request, TrackHabitRequest, extra={"habit_uid": entity.uid})`
 
+**Groups API** (`adapters/inbound/groups_api.py`):
+- Uses `parse_json_body()` for create, update, add_member, remove_member routes
+
 **Search Routes** (`adapters/inbound/search_routes.py`):
 - Uses `split_csv()` for entity_types and tags parsing
 - Uses `SearchRequest.from_form_params()` — model-level classmethod handles 25+ form params

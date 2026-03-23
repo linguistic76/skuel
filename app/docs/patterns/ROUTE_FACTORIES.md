@@ -70,11 +70,11 @@ crud_factory.register_routes(app, rt)
 
 | Method | Path | Operation |
 |--------|------|-----------|
-| POST | `/api/{domain}` | Create |
+| POST | `/api/{domain}/create` | Create |
 | GET | `/api/{domain}/get?uid=...` | Get (with ownership check) |
-| PUT | `/api/{domain}/update?uid=...` | Update (with ownership check) |
-| DELETE | `/api/{domain}/delete?uid=...` | Delete (with ownership check) |
-| GET | `/api/{domain}` | List (filtered by user) |
+| POST | `/api/{domain}/update?uid=...` | Update (with ownership check) |
+| POST | `/api/{domain}/delete?uid=...` | Delete (with ownership check) |
+| GET | `/api/{domain}/list` | List (filtered by user) |
 
 **Note:** SKUEL uses query parameters (`?uid=...`) instead of path parameters (`/{uid}`) for API routes, following FastHTML's "query parameters preferred" pattern.
 

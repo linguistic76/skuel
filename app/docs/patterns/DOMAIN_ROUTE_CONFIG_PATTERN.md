@@ -70,6 +70,10 @@ class CRUDRouteConfig:
     update_schema: type              # e.g., TaskUpdateRequest
     uid_prefix: str                  # e.g., "task"
     prometheus_metrics_attr: str | None = None  # Container attr name
+    # Non-activity domain support (defaults match Activity Domain behavior)
+    scope: str | None = None         # ContentScope value; None = USER_OWNED default
+    require_role: str | None = None  # UserRole value; None = no role requirement
+    user_service_attr: str | None = None  # Services container attr for user_service_getter
 
 @dataclass(frozen=True)
 class QueryRouteConfig:
@@ -127,9 +131,16 @@ When sub-configs are present, `register_domain_routes()` executes in this order:
 - Factories with static params declared once in config
 - Manual routes and dynamic factories remain flexible
 
-**Adoption:** All 6 Activity Domains migrated (2026-02-05)
+**Adoption:** All 6 Activity Domains + FormTemplate (`scope="shared"`, `require_role="admin"`) + RevisedExercise (`scope="user_owned"`, `require_role="teacher"`) migrated.
 
 ### Recent Updates
+
+**2026-03-23: Non-Activity Domain CRUDRouteConfig**
+- Added `scope`, `require_role`, `user_service_attr` fields to `CRUDRouteConfig`
+- FormTemplate and RevisedExercise migrated to CRUDRouteFactory
+- Services override inherited CRUD methods for domain-specific logic (events, authority checks)
+- Groups excluded (mixed authorization model doesn't fit the factory)
+
 
 **2026-02-03: UI Factory Signature Standardization**
 - All UI factories now accept standard `services: Any = None` parameter

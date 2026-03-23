@@ -402,16 +402,18 @@ revision cycle explicitly rather than implicitly.
 services.revised_exercises              # RevisedExerciseService
 ```
 
-**API routes (teacher):** `POST /api/revised-exercises/create`, `GET /api/revised-exercises/get`,
-`GET /api/revised-exercises/list`, `GET /api/revised-exercises/for-student`,
-`GET /api/revised-exercises/chain`, `POST /api/revised-exercises/update`,
-`POST /api/revised-exercises/delete`.
+**API routes (teacher, CRUDRouteFactory):** `POST /api/revised-exercises/create`,
+`GET /api/revised-exercises/get?uid=`, `GET /api/revised-exercises/list`,
+`POST /api/revised-exercises/update?uid=`, `POST /api/revised-exercises/delete?uid=`.
+**API routes (teacher, domain-specific):** `GET /api/revised-exercises/for-student?student_uid=`,
+`GET /api/revised-exercises/chain?exercise_uid=`.
 **API routes (student):** `GET /api/revised-exercises/my-revisions` (list targeting current user),
 `GET /api/revised-exercises/view?uid=` (view if student or owning teacher).
 **Event:** `RevisedExerciseCreated` (`revised_exercise.created`) — published on creation.
 
-**Access control:** `create_revised_exercise` verifies the teacher has `SHARES_WITH {role:'teacher'}`
-on the submission linked to the feedback, and the `student_uid` owns that submission.
+**Access control:** `create()` (overrides `CrudOperationsMixin.create`) verifies the teacher has
+`SHARES_WITH {role:'teacher'}` on the submission linked to the report, and the `student_uid`
+owns that submission.
 
 **Student discovery:** On creation, a `SHARES_WITH {role: 'student'}` relationship is auto-created
 from the student to the RevisedExercise (same pattern as ADR-040 assignment auto-sharing). This means:
