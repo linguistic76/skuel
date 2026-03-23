@@ -701,57 +701,61 @@ def create_insights_routes(app, rt, services, _sync_service=None):
 - Pattern: DomainRouteConfig + manual extension (not all-or-nothing)
 - History routes are domain-specific (not covered by standard CRUD)
 
-### Example 8: Complex Multi-Service (Pathways with LS Routes)
+### Example 8: Multi-Domain Composition (Pathways + Learning Steps)
 
-**File:** `/adapters/inbound/pathways_routes.py`
+**Files:** `/adapters/inbound/pathways_routes.py` + `/adapters/inbound/learning_steps_routes.py`
 
 ```python
-# Configuration for main LP routes
+# pathways_routes.py — LP config with CRUDRouteConfig + IntelligenceRouteConfig
 PATHWAYS_CONFIG = DomainRouteConfig(
     domain_name="pathways",
-    primary_service_attr="lp",  # services.lp
+    primary_service_attr="lp",
     api_factory=create_pathways_api_routes,
     ui_factory=create_pathways_ui_routes,
-    api_related_services={
-        "user_service": "user_service",
-        "user_progress": "user_progress",
-    },
-    ui_related_services={
-        "user_progress": "user_progress",
-        "ls_service": "ls",
-    },
+    api_related_services={"user_service": "user_service", "user_progress": "user_progress"},
+    ui_related_services={"user_progress": "user_progress", "ls_service": "ls"},
+    crud=CRUDRouteConfig(
+        create_schema=LearningPathCreateRequest,
+        update_schema=EntityUpdateRequest,
+        uid_prefix="lp",
+        scope=ContentScope.SHARED,
+        require_role=UserRole.ADMIN,
+        user_service_attr="user_service",
+    ),
+    intelligence=IntelligenceRouteConfig(scope=ContentScope.SHARED),
 )
 
-
 def create_pathways_routes(app, rt, services, _sync_service=None):
-    """
-    Wire pathways API and UI routes using configuration-driven registration.
-
-    Handles two distinct concerns:
-    1. LP (Learning Path) routes - via DomainRouteConfig
-    2. LS (Learning Steps) routes - separate optional registration
-    """
-
-    # Register main LP routes via DomainRouteConfig (soft-fail if service missing)
     routes = register_domain_routes(app, rt, services, PATHWAYS_CONFIG)
-
-    # Handle LS routes separately (optional - skipped if ls service missing)
-    if services and services.ls:
-        ls_routes = create_learning_steps_api_routes(
-            app, rt, services.ls, user_service=getattr(services, "user_service", None)
-        )
-        logger.info(f"  Learning Steps (LS) API routes registered: {len(ls_routes)} endpoints")
-        routes.extend(ls_routes)
-
+    # LS routes via its own DomainRouteConfig (soft-fail if ls service missing)
+    routes.extend(register_domain_routes(app, rt, services, LS_CONFIG))
     return routes
 ```
 
+```python
+# learning_steps_routes.py — standalone LS config
+LS_CONFIG = DomainRouteConfig(
+    domain_name="learning-steps",
+    primary_service_attr="ls",
+    api_factory=create_learning_steps_api_routes,
+    api_related_services={"user_service": "user_service"},
+    crud=CRUDRouteConfig(
+        create_schema=LearningStepCreateRequest,
+        update_schema=KuStepUpdateRequest,
+        uid_prefix="ls",
+        scope=ContentScope.SHARED,
+        require_role=UserRole.ADMIN,
+        user_service_attr="user_service",
+    ),
+    intelligence=IntelligenceRouteConfig(scope=ContentScope.SHARED),
+)
+```
+
 **Key features:**
-- Shows how to handle multiple related services (LP + LS) in one route file
-- Uses DomainRouteConfig for main LP routes with `ui_related_services` for UI factory injection
-- Adds custom logic for optional LS routes registration
-- Demonstrates extending the pattern for complex domain hierarchies
-- Soft-fail pattern for optional services (ls may be None)
+- Each domain has its own `DomainRouteConfig` with `CRUDRouteConfig` + `IntelligenceRouteConfig`
+- LS config lives in a separate file, imported by `pathways_routes.py`
+- Both use `register_domain_routes()` — soft-fail if primary service is missing
+- Demonstrates Curriculum domain pattern: `SHARED` scope + `ADMIN` role + `SHARED` intelligence
 
 ### Example 9: Self-Contained Facade with Complex UI (LifePath)
 

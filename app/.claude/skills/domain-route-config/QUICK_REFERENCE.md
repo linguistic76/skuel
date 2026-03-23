@@ -222,7 +222,17 @@ def create_{domain}_routes(app, rt, services, _sync_service=None):
 __all__ = ["create_{domain}_routes"]
 ```
 
-**Exemplars:** `groups_routes.py` (role_gates_reads=False), `form_templates_routes.py` (SHARED+ADMIN), `revised_exercises_routes.py` (USER_OWNED+TEACHER)
+**Exemplars:** `groups_routes.py` (role_gates_reads=False), `form_templates_routes.py` (SHARED+ADMIN), `revised_exercises_routes.py` (USER_OWNED+TEACHER), `lesson_routes.py` (SHARED+ADMIN+Intelligence), `exercises_routes.py` (USER_OWNED+TEACHER), `pathways_routes.py` (SHARED+ADMIN+Intelligence), `learning_steps_routes.py` (SHARED+ADMIN+Intelligence)
+
+**Adding Intelligence routes:** For Curriculum domains, add `IntelligenceRouteConfig` with `scope=ContentScope.SHARED`:
+
+```python
+from adapters.inbound.route_factories import IntelligenceRouteConfig
+
+# In DomainRouteConfig:
+    crud=CRUDRouteConfig(...),
+    intelligence=IntelligenceRouteConfig(scope=ContentScope.SHARED),
+```
 
 ---
 

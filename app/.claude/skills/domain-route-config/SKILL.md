@@ -8,7 +8,7 @@ allowed-tools: Read, Grep, Glob
 
 > "Configuration over code for route registration"
 
-DomainRouteConfig eliminates boilerplate in `*_routes.py` files by replacing ~80 lines of manual service extraction, validation, and wiring with a ~15-line declarative config. Used by 39 of 41 route files (95% adoption). Five proven pattern variants cover every route registration scenario in SKUEL. All DomainRouteConfig routes are registered without `if services.X:` guards in `_wire_all_routes()` — `register_domain_routes()` handles missing services via soft-fail.
+DomainRouteConfig eliminates boilerplate in `*_routes.py` files by replacing ~80 lines of manual service extraction, validation, and wiring with a ~15-line declarative config. Used by 41 of 46 route files (89% adoption). Five proven pattern variants cover every route registration scenario in SKUEL. All DomainRouteConfig routes are registered without `if services.X:` guards in `_wire_all_routes()` — `register_domain_routes()` handles missing services via soft-fail.
 
 ---
 
@@ -188,9 +188,9 @@ __all__ = ["create_tasks_routes"]
 
 ---
 
-### 1. Standard (API + UI) — For Non-Activity Domains
+### 1. Standard (API + UI) — For Non-Activity Domains Without CRUD
 
-**When to use:** Any domain with both API endpoints and UI pages that is NOT an Activity Domain and does NOT use CRUDRouteFactory (e.g., KU, Askesis). The Activity Domain pattern (above) is preferred for Tasks/Goals/Habits/Events/Choices/Principles. For non-activity domains with CRUDRouteFactory, see Pattern 5 below.
+**When to use:** Any domain with both API endpoints and UI pages that is NOT an Activity Domain and does NOT use CRUDRouteFactory (e.g., KU, Askesis). For Activity Domains, use Pattern 0. For non-activity domains with CRUDRouteFactory, use Pattern 5.
 
 **Exemplar:** `adapters/inbound/ku_routes.py`
 
@@ -288,7 +288,7 @@ The manual block follows the same service-null-guard pattern that `register_doma
 
 ### 5. Config-Driven CRUDRouteConfig — Role-Gated Non-Activity Domains
 
-**When to use:** Non-activity domains that need CRUDRouteFactory with role-based access control. The `crud` field on `DomainRouteConfig` auto-registers create/get/list/update/delete routes before `api_factory` runs. The API factory then only needs domain-specific routes.
+**When to use:** Non-activity domains that need CRUDRouteFactory with role-based access control. The `crud` field on `DomainRouteConfig` auto-registers create/get/list/update/delete routes before `api_factory` runs. The `intelligence` field auto-registers context/analytics/insights routes. The API factory then only needs domain-specific routes.
 
 **CRUDRouteConfig fields:**
 
@@ -302,17 +302,23 @@ The manual block follows the same service-null-guard pattern that `register_doma
 | `role_gates_reads` | `bool` | `True` | When False, get/list skip role check |
 | `user_service_attr` | `str \| None` | `None` | Services container attr for role checks |
 
-**Three proven configurations:**
+**IntelligenceRouteConfig fields:**
+
+| Field | Type | Default | Purpose |
+|-------|------|---------|---------|
+| `scope` | `ContentScope` | `USER_OWNED` | Ownership model for intelligence routes. Use `SHARED` for Curriculum domains. |
+
+**Three proven CRUDRouteConfig configurations:**
 
 ```python
-# Admin-only shared content (FormTemplate)
+# Admin-only shared content (Lesson, LP, LS, FormTemplate)
 crud=CRUDRouteConfig(
     scope=ContentScope.SHARED,
     require_role=UserRole.ADMIN,
     user_service_attr="user_service",
 )
 
-# Teacher-only user-owned (RevisedExercise)
+# Teacher-only user-owned (Exercises, RevisedExercise)
 crud=CRUDRouteConfig(
     scope=ContentScope.USER_OWNED,
     require_role=UserRole.TEACHER,
@@ -328,7 +334,18 @@ crud=CRUDRouteConfig(
 )
 ```
 
-**Exemplar:** `adapters/inbound/groups_routes.py`
+**Exemplars:** `groups_routes.py`, `lesson_routes.py`, `exercises_routes.py`, `pathways_routes.py`, `learning_steps_routes.py`, `form_templates_routes.py`, `revised_exercises_routes.py`
+
+**Combining CRUD + Intelligence:** Curriculum domains typically pair both:
+
+```python
+crud=CRUDRouteConfig(
+    scope=ContentScope.SHARED,
+    require_role=UserRole.ADMIN,
+    user_service_attr="user_service",
+),
+intelligence=IntelligenceRouteConfig(scope=ContentScope.SHARED),
+```
 
 **Service requirements:** The service must implement `create()`, `get()`, `update()`, `delete()`, `list()` (inherited from `BaseService`). For `scope=USER_OWNED`, also needs `get_for_user()`, `update_for_user()`, `delete_for_user()` (inherited from `CrudOperationsMixin`). Override these when the domain model uses a different ownership field (e.g., Group uses `owner_uid` instead of `user_uid`).
 

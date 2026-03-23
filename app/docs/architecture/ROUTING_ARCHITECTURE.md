@@ -394,14 +394,15 @@ RETURN t
 
 **Impact:** Reduces route file complexity from ~80 lines to ~15 lines per domain (83% reduction).
 
-**Adoption:** 39 of 41 route files (95%). All DomainRouteConfig routes are registered without `if services.X:` guards in `_wire_all_routes()` — `register_domain_routes()` handles missing services via soft-fail.
+**Adoption:** 41 of 46 route files (89%). All DomainRouteConfig routes are registered without `if services.X:` guards in `_wire_all_routes()` — `register_domain_routes()` handles missing services via soft-fail.
 
-**Two variants of the config pattern:**
+**Three tiers of the config pattern:**
 
 | Pattern | Factory | Used By |
 |---------|---------|---------|
-| `create_activity_domain_route_config()` | Includes CRUD + Query + Intelligence factories in config | All 6 Activity Domains |
-| `DomainRouteConfig(...)` | API + UI factories only; CRUD etc. remain in api_factory | Other domains (Learning, Knowledge, Context, Askesis, etc.) |
+| `create_activity_domain_route_config()` | CRUD + Query + Intelligence factories in config | All 6 Activity Domains |
+| `DomainRouteConfig(crud=CRUDRouteConfig(...))` | CRUD (+ optional Intelligence) in config; domain-specific in api_factory | Lesson, Exercises, LP, LS, Groups, RevisedExercise, FormTemplate |
+| `DomainRouteConfig(...)` | API + UI factories only; no config-driven factories | KU, Askesis, Context, Search, etc. |
 
 ### Pattern Structure (Activity Domains — current)
 
