@@ -17,15 +17,16 @@ Factories:
 - StatusRouteFactory: Status change operations (activate, pause, complete, archive)
 - CommonQueryRouteFactory: Common query patterns (by user, by status, by category)
 - IntelligenceRouteFactory: AI/intelligence endpoints (analytics, recommendations)
+- OwnershipRouteFactory: Ownership-verified domain-specific routes
 """
 
-from adapters.inbound.route_factories.dashboard_ui_factory import (
-    DashboardUIConfig,
-    DashboardUIFactory,
-)
 from adapters.inbound.route_factories.crud_route_factory import (
     CRUDOperations,
     CRUDRouteFactory,
+)
+from adapters.inbound.route_factories.dashboard_ui_factory import (
+    DashboardUIConfig,
+    DashboardUIFactory,
 )
 from adapters.inbound.route_factories.domain_route_factory import (
     CRUDRouteConfig,
@@ -38,6 +39,11 @@ from adapters.inbound.route_factories.domain_route_factory import (
 from adapters.inbound.route_factories.intelligence_route_factory import (
     IntelligenceOperations,
     IntelligenceRouteFactory,
+)
+from adapters.inbound.route_factories.ownership_route_factory import (
+    OwnershipOperations,
+    OwnershipRoute,
+    OwnershipRouteFactory,
 )
 from adapters.inbound.route_factories.query_route_factory import CommonQueryRouteFactory
 from adapters.inbound.route_factories.quick_add_factory import (
@@ -82,6 +88,10 @@ __all__ = [
     "register_domain_routes",
     "IntelligenceOperations",
     "IntelligenceRouteFactory",
+    # Ownership route factory (March 2026)
+    "OwnershipOperations",
+    "OwnershipRoute",
+    "OwnershipRouteFactory",
     # Quick-add form factory (January 2026)
     "QuickAddConfig",
     "QuickAddRouteFactory",

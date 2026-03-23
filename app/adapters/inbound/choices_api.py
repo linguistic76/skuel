@@ -14,13 +14,17 @@ from typing import Any
 
 from fasthtml.common import Request
 
-from adapters.inbound.auth import require_ownership_query
+from adapters.inbound.auth import make_service_getter, require_ownership_query
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.form_helpers import parse_json_body
-from adapters.inbound.route_factories import parse_int_query_param
+from adapters.inbound.route_factories import (
+    OwnershipRoute,
+    OwnershipRouteFactory,
+    parse_int_query_param,
+)
 from core.models.choice.choice_request import ChoiceDecisionRequest
 from core.services.choices_service import ChoicesService
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import Result
 
 
 def create_choices_api_routes(
@@ -42,9 +46,30 @@ def create_choices_api_routes(
         **_kwargs: Absorbs related services passed by register_domain_routes
     """
 
-    # Service getter for ownership decorator (SKUEL012: named function, not lambda)
-    def get_choice_service():
-        return choice_service
+    # Service getter for manual ownership routes (SKUEL012: named function, not lambda)
+    get_choice_service = make_service_getter(choice_service)
+
+    # ========================================================================
+    # OWNERSHIP ROUTES (Factory-Generated)
+    # ========================================================================
+
+    ownership_factory = OwnershipRouteFactory(
+        service=choice_service,
+        domain_name="choices",
+        uid_param="choice_uid",
+        routes=[
+            OwnershipRoute(
+                path="/api/choices/intelligence/impact",
+                method_name="intelligence.analyze_choice_impact",
+            ),
+            OwnershipRoute(
+                path="/api/choices/intelligence/predict-quality",
+                method_name="intelligence.predict_decision_quality",
+                include_user_uid=True,
+            ),
+        ],
+    )
+    ownership_factory.register_routes(app, rt)
 
     # ========================================================================
     # DOMAIN-SPECIFIC ROUTES (Manual)
@@ -166,24 +191,6 @@ def create_choices_api_routes(
     # ========================================================================
     # These expose advanced intelligence methods not covered by IntelligenceRouteFactory
 
-    @rt("/api/choices/intelligence/impact")
-    @require_ownership_query(get_choice_service, uid_param="choice_uid")
-    @boundary_handler()
-    async def analyze_choice_impact_route(
-        request: Request, user_uid: str, entity: Any
-    ) -> Result[Any]:
-        """
-        Analyze cross-domain impact of a decision.
-
-        Query params:
-            choice_uid: UID of choice to analyze (ownership verified)
-
-        Returns:
-            ChoiceImpactAnalysis with affected domains, relationships, and impact scores
-        """
-        result: Result[Any] = await choice_service.intelligence.analyze_choice_impact(entity.uid)
-        return result
-
     @rt("/api/choices/intelligence/quality-correlations")
     @boundary_handler()
     async def get_quality_correlations_route(request: Request, user_uid: str) -> Result[Any]:
@@ -199,30 +206,6 @@ def create_choices_api_routes(
         """
         result: Result[Any] = await choice_service.intelligence.get_choice_quality_correlations(
             user_uid
-        )
-        return result
-
-    @rt("/api/choices/intelligence/predict-quality")
-    @require_ownership_query(get_choice_service, uid_param="choice_uid")
-    @boundary_handler()
-    async def predict_decision_quality_route(
-        request: Request, user_uid: str, entity: Any
-    ) -> Result[Any]:
-        """
-        Predict quality of pending decision.
-
-        Uses historical patterns to estimate likely outcome quality
-        before making the decision.
-
-        Query params:
-            choice_uid: UID of pending choice (ownership verified)
-
-        Returns:
-            DecisionQualityPrediction with estimated quality score,
-            confidence, and contributing factors
-        """
-        result: Result[Any] = await choice_service.intelligence.predict_decision_quality(
-            entity.uid, user_uid
         )
         return result
 

@@ -12,11 +12,18 @@ runtime closures or domain-specific handler logic:
 from typing import Any
 
 from fasthtml.common import Request
+from pydantic import ValidationError
 
-from adapters.inbound.auth import require_authenticated_user, require_ownership_query
+from adapters.inbound.auth import (
+    make_service_getter,
+    require_authenticated_user,
+    require_ownership_query,
+)
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.form_helpers import parse_json_body
 from adapters.inbound.route_factories import (
+    OwnershipRoute,
+    OwnershipRouteFactory,
     StatusRouteFactory,
     StatusTransition,
     parse_int_query_param,
@@ -51,9 +58,8 @@ def create_goals_api_routes(
         **_kwargs: Absorbs related services passed by register_domain_routes
     """
 
-    # Service getter for ownership decorator (SKUEL012: named function, not lambda)
-    def get_goals_service():
-        return goals_service
+    # Service getter for manual ownership routes (SKUEL012: named function, not lambda)
+    get_goals_service = make_service_getter(goals_service)
 
     # ========================================================================
     # DOMAIN-SPECIFIC ROUTES (Manual)
@@ -116,14 +122,27 @@ def create_goals_api_routes(
             entity.uid, req.title, req.target_date, req.description or ""
         )
 
-    @rt("/api/goals/milestones", methods=["GET"])
-    @require_ownership_query(get_goals_service)
-    @boundary_handler()
-    async def get_goal_milestones_route(
-        request: Request, user_uid: str, entity: Any
-    ) -> Result[list[dict[str, Any]]]:
-        """Get milestones for a goal (requires ownership)."""
-        return await goals_service.get_goal_milestones(entity.uid)
+    # ========================================================================
+    # OWNERSHIP ROUTES (Factory-Generated)
+    # ========================================================================
+
+    ownership_factory = OwnershipRouteFactory(
+        service=goals_service,
+        domain_name="goals",
+        routes=[
+            OwnershipRoute(
+                path="/api/goals/milestones",
+                method_name="get_goal_milestones",
+                methods=["GET"],
+            ),
+            OwnershipRoute(
+                path="/api/goals/habits",
+                method_name="get_goal_habits",
+                methods=["GET"],
+            ),
+        ],
+    )
+    ownership_factory.register_routes(app, rt)
 
     # Goal Habits Integration
     # -----------------------
@@ -142,15 +161,6 @@ def create_goals_api_routes(
         req = result.value
 
         return await goals_service.link_goal_to_habit(entity.uid, req.habit_uid, req.weight)
-
-    @rt("/api/goals/habits", methods=["GET"])
-    @require_ownership_query(get_goals_service)
-    @boundary_handler()
-    async def get_goal_habits_route(
-        request: Request, user_uid: str, entity: Any
-    ) -> Result[list[str]]:
-        """Get habits linked to a goal (requires ownership)."""
-        return await goals_service.get_goal_habits(entity.uid)
 
     @rt("/api/goals/habits/unlink", methods=["DELETE"])
     @require_ownership_query(get_goals_service)

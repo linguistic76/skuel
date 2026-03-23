@@ -5,19 +5,25 @@ Habits API - Status, Analytics, and Domain-Specific Routes
 CRUD, Query, and Intelligence factories are now registered via config in
 habits_routes.py.  This file contains only factories and routes that require
 runtime closures or domain-specific handler logic:
+- OwnershipRouteFactory (track, untrack, streak, progress)
 - StatusRouteFactory (pause/resume/archive with request_builder closures)
 - AnalyticsRouteFactory (custom async handlers)
-- Manual domain routes (track, reminders, categories, search)
+- Manual domain routes (reminders, categories, search)
 """
 
 from typing import Any
 
 from fasthtml.common import Request
 
-from adapters.inbound.auth import require_authenticated_user, require_ownership_query
+from adapters.inbound.auth import (
+    make_service_getter,
+    require_authenticated_user,
+    require_ownership_query,
+)
 from adapters.inbound.boundary import boundary_handler
-from adapters.inbound.form_helpers import parse_json_body
 from adapters.inbound.route_factories import (
+    OwnershipRoute,
+    OwnershipRouteFactory,
     StatusRouteFactory,
     StatusTransition,
     parse_int_query_param,
@@ -34,7 +40,7 @@ from core.models.habit.habit_request import (
     UntrackHabitRequest,
 )
 from core.services.habits_service import HabitsService
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import Result
 
 # ============================================================================
 # REQUEST BUILDERS (SKUEL012 compliance - no lambda expressions)
@@ -82,56 +88,42 @@ def create_habits_api_routes(
         **_kwargs: Absorbs related services passed by register_domain_routes
     """
 
-    # Service getter for ownership decorator (SKUEL012: named function, not lambda)
-    def get_habits_service():
-        return habits_service
+    # Service getter for manual ownership routes (SKUEL012: named function, not lambda)
+    get_habits_service = make_service_getter(habits_service)
 
     # ========================================================================
-    # DOMAIN-SPECIFIC ROUTES (Manual)
+    # OWNERSHIP ROUTES (Factory-Generated)
     # ========================================================================
-    # SECURITY: All UID-based routes verify user owns the habit before operating
+    # SECURITY: All routes verify user owns the habit before operating
 
-    # Habit Tracking Operations
-    # -------------------------
-
-    @rt("/api/habits/track")
-    @require_ownership_query(get_habits_service)
-    @boundary_handler()
-    async def track_habit_route(request: Request, user_uid: str, entity: Any) -> Result[Any]:
-        """Track a habit completion (requires ownership)."""
-        result = await parse_json_body(request, TrackHabitRequest, extra={"habit_uid": entity.uid})
-        if result.is_error:
-            return result  # type: ignore[return-value]
-        return await habits_service.track_habit(result.value)
-
-    @rt("/api/habits/untrack")
-    @require_ownership_query(get_habits_service)
-    @boundary_handler()
-    async def untrack_habit_route(request: Request, user_uid: str, entity: Any) -> Result[Any]:
-        """Remove a habit tracking entry (requires ownership)."""
-        result = await parse_json_body(
-            request, UntrackHabitRequest, extra={"habit_uid": entity.uid}
-        )
-        if result.is_error:
-            return result  # type: ignore[return-value]
-        return await habits_service.untrack_habit(result.value)
-
-    @rt("/api/habits/streak")
-    @require_ownership_query(get_habits_service)
-    @boundary_handler()
-    async def get_habit_streak_route(request: Request, user_uid: str, entity: Any) -> Result[Any]:
-        """Get current streak for a habit (requires ownership)."""
-        return await habits_service.get_habit_streak(entity.uid)
-
-    @rt("/api/habits/progress")
-    @require_ownership_query(get_habits_service)
-    @boundary_handler()
-    async def get_habit_progress_route(request: Request, user_uid: str, entity: Any) -> Result[Any]:
-        """Get progress statistics for a habit (requires ownership)."""
-        params = dict(request.query_params)
-        period = params.get("period", "month")  # week, month, year
-
-        return await habits_service.get_habit_progress(entity.uid, period)
+    ownership_factory = OwnershipRouteFactory(
+        service=habits_service,
+        domain_name="habits",
+        routes=[
+            OwnershipRoute(
+                path="/api/habits/track",
+                method_name="track_habit",
+                request_schema=TrackHabitRequest,
+                schema_extra_uid_field="habit_uid",
+            ),
+            OwnershipRoute(
+                path="/api/habits/untrack",
+                method_name="untrack_habit",
+                request_schema=UntrackHabitRequest,
+                schema_extra_uid_field="habit_uid",
+            ),
+            OwnershipRoute(
+                path="/api/habits/streak",
+                method_name="get_habit_streak",
+            ),
+            OwnershipRoute(
+                path="/api/habits/progress",
+                method_name="get_habit_progress",
+                query_params={"period": "month"},
+            ),
+        ],
+    )
+    ownership_factory.register_routes(app, rt)
 
     # ========================================================================
     # STATUS ROUTES (Factory-Generated)

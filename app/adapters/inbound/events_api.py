@@ -14,10 +14,15 @@ from typing import Any
 
 from fasthtml.common import Request
 
-from adapters.inbound.auth import require_authenticated_user, require_ownership_query
+from adapters.inbound.auth import (
+    make_service_getter,
+    require_authenticated_user,
+    require_ownership_query,
+)
 from adapters.inbound.boundary import boundary_handler
-from adapters.inbound.form_helpers import parse_json_body
 from adapters.inbound.route_factories import (
+    OwnershipRoute,
+    OwnershipRouteFactory,
     StatusRouteFactory,
     StatusTransition,
     parse_int_query_param,
@@ -33,7 +38,7 @@ from core.models.event.event_request import (
     RemoveAttendeeRequest,
 )
 from core.services.events_service import EventsService
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import Result
 
 
 def create_events_api_routes(
@@ -55,31 +60,36 @@ def create_events_api_routes(
         **_kwargs: Absorbs related services passed by register_domain_routes
     """
 
-    # Service getter for ownership decorator (SKUEL012: named function, not lambda)
-    def get_events_service():
-        return events_service
+    # Service getter for manual ownership routes (SKUEL012: named function, not lambda)
+    get_events_service = make_service_getter(events_service)
 
     # ========================================================================
     # DOMAIN-SPECIFIC ROUTES (Manual)
     # ========================================================================
     # SECURITY: All UID-based routes verify user owns the event before operating
 
-    # Event Status Operations
-    # -----------------------
+    # ========================================================================
+    # OWNERSHIP ROUTES (Factory-Generated)
+    # ========================================================================
 
-    @rt("/api/events/status")
-    @require_ownership_query(get_events_service)
-    @boundary_handler()
-    async def update_event_status_route(
-        request: Request, user_uid: str, entity: Any
-    ) -> Result[Any]:
-        """Update event status (requires ownership)."""
-        result = await parse_json_body(
-            request, EventStatusUpdateRequest, extra={"event_uid": entity.uid}
-        )
-        if result.is_error:
-            return result  # type: ignore[return-value]
-        return await events_service.update_event_status(result.value)
+    ownership_factory = OwnershipRouteFactory(
+        service=events_service,
+        domain_name="events",
+        routes=[
+            OwnershipRoute(
+                path="/api/events/status",
+                method_name="update_event_status",
+                request_schema=EventStatusUpdateRequest,
+                schema_extra_uid_field="event_uid",
+            ),
+            OwnershipRoute(
+                path="/api/events/attendees",
+                method_name="get_event_attendees",
+                methods=["GET"],
+            ),
+        ],
+    )
+    ownership_factory.register_routes(app, rt)
 
     # ========================================================================
     # STATUS ROUTES (Factory-Generated)
@@ -255,14 +265,5 @@ def create_events_api_routes(
                 user_uid=attendee_uid,
             )
         )
-
-    @rt("/api/events/attendees", methods=["GET"])
-    @require_ownership_query(get_events_service)
-    @boundary_handler()
-    async def get_event_attendees_route(
-        request: Request, user_uid: str, entity: Any
-    ) -> Result[Any]:
-        """Get event attendees (requires ownership)."""
-        return await events_service.get_event_attendees(entity.uid)
 
     return []  # Routes registered via @rt() decorators (no objects returned)
