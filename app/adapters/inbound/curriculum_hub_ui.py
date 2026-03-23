@@ -146,7 +146,7 @@ def create_curriculum_hub_ui_routes(
 
 
 def _entity_list(items: list[Any], domain_slug: str, empty_msg: str) -> Div:
-    """Render a list of curriculum entities using EntityCard."""
+    """Render a list of curriculum entities using CardGenerator."""
     if not items:
         return EmptyState(title=empty_msg)
 

@@ -91,7 +91,7 @@ def _render_upload_status(
 
 
 def _render_journal_card(je_input: Any) -> Any:
-    """Render a single journal entry card for the browse grid using EntityCard."""
+    """Render a single journal entry card for the browse grid using CardGenerator."""
     from ui.patterns.card_generator import CardGenerator
 
     file_size = getattr(je_input, "file_size", 0) or 0

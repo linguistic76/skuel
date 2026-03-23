@@ -63,13 +63,13 @@ Badge("Learning Level", variant="default")
        A(...button...)
    ))
 
-   # AFTER: EntityCard with custom progress (~30 lines)
-   EntityCard(
-       title=category_title,
-       description=category.get_description(),
+   # AFTER: CardGenerator with custom progress (~30 lines)
+   CardGenerator.from_dataclass(
+       {"title": category_title, "description": category.get_description()},
+       display_fields=["description"],
+       show_labels=False,
        metadata=["X mastered", "Y in progress"],
        actions=ButtonLink("Continue Learning →"),
-       config=CardConfig.default(),
    )
    # + custom progress bar below
    ```
@@ -84,13 +84,13 @@ Badge("Learning Level", variant="default")
        A(...button...)
    ))
 
-   # AFTER: EntityCard (~20 lines)
-   EntityCard(
-       title=ku.title,
-       description=ku.content[:150],
+   # AFTER: CardGenerator (~20 lines)
+   CardGenerator.from_dataclass(
+       {"title": ku.title, "description": ku.content[:150]},
+       display_fields=["description"],
+       show_labels=False,
        metadata=[time, difficulty, level, prerequisites],
        actions=ButtonLink("Start Learning →"),
-       config=CardConfig.default(),
    )
    ```
 
@@ -385,7 +385,7 @@ $ uv run python -c "from adapters.inbound.sel_routes import create_sel_routes; p
 
 | File | Lines Changed | Type | Description |
 |------|---------------|------|-------------|
-| `adapters/inbound/sel_components.py` | ~90 | Refactor | Migrated to EntityCard pattern |
+| `adapters/inbound/sel_components.py` | ~90 | Refactor | Migrated to CardGenerator pattern |
 | `adapters/inbound/sel_routes.py` | ~350 | Refactor + Features | BasePage + HTMX + tracking |
 | `core/services/adaptive_sel_service.py` | +80 | Features | Added tracking methods |
 | `ui/primitives/button.py` | +1 param | Enhancement | Added `full_width` parameter |
@@ -426,7 +426,7 @@ $ uv run python -c "from adapters.inbound.sel_routes import create_sel_routes; p
 All criteria met ✅:
 
 - [x] SEL pages use BasePage with auto-navbar
-- [x] All components use standard primitives (EntityCard, Badge, ButtonLink)
+- [x] All components use standard primitives (CardGenerator, Badge, ButtonLink)
 - [x] HTMX loads personalized curriculum dynamically
 - [x] Breadcrumbs show navigation path
 - [x] Interaction tracking writes to Neo4j
@@ -469,7 +469,7 @@ If issues are discovered, rollback is straightforward:
 
 ### What Went Well
 - **Incremental approach:** 5 phases allowed testing at each step
-- **Component abstraction:** EntityCard worked perfectly for SEL cards
+- **Component abstraction:** CardGenerator worked perfectly for SEL cards
 - **HTMX integration:** Minimal JavaScript, maximum benefit
 - **Type safety:** Result[T] caught errors early
 - **Testing:** 14 tests gave confidence throughout
@@ -493,7 +493,7 @@ If issues are discovered, rollback is straightforward:
 - [SEL Adaptive Curriculum](../features/SEL_ADAPTIVE_CURRICULUM.md) - Complete feature docs
 
 **Patterns:**
-- [UI Component Patterns](../patterns/UI_COMPONENT_PATTERNS.md) - EntityCard usage
+- [UI Component Patterns](../patterns/UI_COMPONENT_PATTERNS.md) - CardGenerator usage
 - [HTMX Accessibility Patterns](../patterns/HTMX_ACCESSIBILITY_PATTERNS.md) - ARIA announcements
 
 **Architecture:**

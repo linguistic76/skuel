@@ -164,7 +164,7 @@ async def sel_category(request: Request) -> Any:
 ### Component Stack
 
 **Standard UI Primitives (Migrated 2026-02-03):**
-- `EntityCard` - KU display with metadata
+- `CardGenerator` - KU display with metadata
 - `Badge` - Learning level, prerequisites status
 - `ButtonLink` - "Start Learning" actions
 - `PageHeader` - Page titles with subtitles
@@ -174,21 +174,22 @@ async def sel_category(request: Request) -> Any:
 
 **Legacy Components (Replaced):**
 - ~~Custom Badge function~~ → `ui/feedback.py` (StatusBadge, PriorityBadge)
-- ~~Manual card layout~~ → `EntityCard` pattern
+- ~~Manual card layout~~ → `CardGenerator` pattern
 - ~~Manual navbar creation~~ → `BasePage` wrapper
 
 ### SEL Component Examples
 
-#### SELCategoryCard (with EntityCard)
+#### SELCategoryCard (with CardGenerator)
 
 ```python
 def SELCategoryCard(category: SELCategory, progress: SELCategoryProgress) -> Any:
     """SEL category card showing progress."""
     category_title = f"{get_sel_icon(category.value)} {category.value.replace('_', ' ').title()}"
 
-    card = EntityCard(
-        title=category_title,
-        description=category.get_description(),
+    card = CardGenerator.from_dataclass(
+        {"title": category_title, "description": category.get_description()},
+        display_fields=["description"],
+        show_labels=False,
         metadata=[
             f"{progress.lessons_mastered} mastered",
             f"{progress.lessons_in_progress} in progress",
@@ -196,11 +197,10 @@ def SELCategoryCard(category: SELCategory, progress: SELCategoryProgress) -> Any
         ],
         actions=ButtonLink(
             "Continue Learning →",
-            href=f"/sel/{category.value.replace('_', '-')}",
-            variant="primary",
-            full_width=True,
+            href=f"/lessons?sel={category.value}",
+            variant=ButtonT.primary,
+            cls="w-full",
         ),
-        config=CardConfig.default(),
     )
 
     # Custom progress bar
@@ -212,7 +212,7 @@ def SELCategoryCard(category: SELCategory, progress: SELCategoryProgress) -> Any
     return Div(card, progress_section, cls="mb-4")
 ```
 
-#### AdaptiveKUCard (with EntityCard)
+#### AdaptiveKUCard (with CardGenerator)
 
 ```python
 def AdaptiveKUCard(ku: Ku, prerequisites_met: bool = True) -> Any:
@@ -220,22 +220,22 @@ def AdaptiveKUCard(ku: Ku, prerequisites_met: bool = True) -> Any:
     metadata = [
         f"⏱ {ku.estimated_time_minutes} min",
         f"🎯 {ku.difficulty_rating:.1f}/1.0 difficulty",
-        Badge(ku.learning_level.value.title(), variant="default"),
+        Badge(ku.learning_level.value.title(), variant=BadgeT.neutral),
         Badge("✓ Prerequisites met" if prerequisites_met else "Prerequisites needed",
-              variant="success" if prerequisites_met else "warning"),
+              variant=BadgeT.success if prerequisites_met else BadgeT.warning),
     ]
 
-    return EntityCard(
-        title=ku.title,
-        description=ku.content[:150] + "...",
+    return CardGenerator.from_dataclass(
+        {"title": ku.title, "description": ku.content[:150] + "..."},
+        display_fields=["description"],
+        show_labels=False,
         metadata=metadata,
         actions=ButtonLink(
             "Start Learning →",
-            href=f"/knowledge/{ku.uid}",
-            variant="primary",
-            full_width=True,
+            href=f"/ku/{ku.uid}",
+            variant=ButtonT.primary,
+            cls="w-full",
         ),
-        config=CardConfig.default(),
     )
 ```
 
@@ -423,7 +423,7 @@ uv run pytest tests/test_ku_search_service.py -v
 ## Migration History
 
 **2026-02-03: UX Modernization Complete**
-- ✅ Component migration to EntityCard pattern
+- ✅ Component migration to CardGenerator pattern
 - ✅ BasePage integration with breadcrumbs
 - ✅ HTMX dynamic loading
 - ✅ Interaction tracking in Neo4j
@@ -460,7 +460,7 @@ See: `/docs/migrations/SEL_UX_MODERNIZATION_2026-02-03.md`
 ## Related Documentation
 
 **Patterns:**
-- [UI Component Patterns](../patterns/UI_COMPONENT_PATTERNS.md) - EntityCard, BasePage
+- [UI Component Patterns](../patterns/UI_COMPONENT_PATTERNS.md) - CardGenerator, BasePage
 - [HTMX Accessibility Patterns](../patterns/HTMX_ACCESSIBILITY_PATTERNS.md) - ARIA announcements
 - [Curriculum Grouping](../architecture/CURRICULUM_GROUPING_PATTERNS.md) - KU/LS/LP
 

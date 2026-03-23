@@ -30,7 +30,7 @@ def get_submission_identifier(submission: Any) -> str:
 
 
 def render_submission_card(submission: Any, is_pinned: bool = False) -> Any:
-    """Render a single submission card using EntityCard."""
+    """Render a single submission card using CardGenerator."""
     from ui.patterns.pin_button import PinButton
 
     file_size_mb = (submission.file_size / 1024 / 1024) if submission.file_size else 0

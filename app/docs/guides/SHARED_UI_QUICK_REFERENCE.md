@@ -23,7 +23,7 @@ dashboard = SharedUIComponents.render_entity_dashboard(
     title="🎯 Your Dashboard",
     stats={'total': {'label': 'Total', 'value': 42, 'color': 'blue'}},
     entities=your_entities,
-    entity_renderer=lambda e: YourEntityCard(e),
+    entity_renderer=lambda e: CardGenerator.from_dataclass(e, display_fields=["description"], show_labels=False),
     quick_actions=[{'label': '➕ New', 'href': '/create', 'variant': 'primary'}]
 )
 ```
@@ -161,13 +161,13 @@ stats = {'total': {'label': 'Total', 'value': 42, 'color': 'blue'}}
 ### ❌ Wrong: Missing lambda
 
 ```python
-entity_renderer=EntityCard  # Won't work
+entity_renderer=CardGenerator  # Won't work
 ```
 
 ### ✅ Correct: Use lambda or function
 
 ```python
-entity_renderer=lambda e: EntityCard(e)
+entity_renderer=lambda e: CardGenerator.from_dataclass(e, display_fields=["description"], show_labels=False)
 ```
 
 ### ❌ Wrong: Mixing href and hx_get
