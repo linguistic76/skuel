@@ -251,46 +251,6 @@ def get_request_context() -> dict[str, str]:
 
 
 # ============================================================================
-# MIDDLEWARE
-# ============================================================================
-
-
-class RequestIDMiddleware:
-    """FastHTML middleware to inject request IDs for log correlation"""
-
-    def __init__(self, app) -> None:
-        self.app = app
-
-    async def __call__(self, scope, receive, send) -> None:
-        if scope["type"] == "http":
-            # Generate unique request ID
-            request_id = generate_request_id()
-
-            # Set in context for this request
-            token = request_id_context.set(request_id)
-
-            # Add to response headers for debugging
-            async def send_wrapper(message) -> None:
-                if message["type"] == "http.response.start":
-                    headers = list(message.get("headers", []))
-                    headers.append([b"x-request-id", request_id.encode()])
-                    message["headers"] = headers
-                await send(message)
-
-            try:
-                (await self.app(scope, receive, send_wrapper),)
-            finally:
-                request_id_context.reset(token)
-        else:
-            await self.app(scope, receive, send)
-
-
-def log_middleware_factory(app: Any) -> Any:
-    """Create logging middleware for FastHTML applications"""
-    return RequestIDMiddleware(app)
-
-
-# ============================================================================
 # LOGGING HELPERS
 # ============================================================================
 
@@ -489,7 +449,6 @@ def dump_request_context(request: Any) -> dict[str, Any]:
 __all__ = [
     "PerformanceContext",
     "PerformanceLogger",
-    "RequestIDMiddleware",
     "create_route_logger",
     "dump_request_context",
     "generate_request_id",
@@ -497,7 +456,6 @@ __all__ = [
     "get_logger",
     "get_request_context",
     "log_error_with_context",
-    "log_middleware_factory",
     "log_route_entry",
     "log_route_exit",
     "log_service_operation",

@@ -27,7 +27,8 @@ from fasthtml.common import StaticFiles, fast_app
 
 from core.config import UnifiedConfig
 from core.ports.infrastructure_protocols import EventBusOperations
-from core.utils.logging import RequestIDMiddleware, get_logger
+from adapters.inbound.middleware import RequestIDMiddleware
+from core.utils.logging import get_logger
 from services_bootstrap import Services, compose_services
 from ui.theme import chartjs_headers, monster_headers
 

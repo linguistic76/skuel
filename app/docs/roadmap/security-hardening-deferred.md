@@ -258,7 +258,7 @@ app over the internet.
 
 ### A. ASGI middleware (all headers except CSP)
 
-Follow the `RequestIDMiddleware` pattern in `core/utils/logging.py:259`. Create
+Follow the `RequestIDMiddleware` pattern in `adapters/inbound/middleware.py`. Create
 `SecurityHeadersMiddleware` as an ASGI middleware that injects headers on every response.
 
 Register in `scripts/dev/bootstrap.py:424` alongside existing middleware.
