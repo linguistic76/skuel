@@ -94,7 +94,7 @@ class KuService:
                 "cross-domain queries for curriculum domains."
             )
 
-        from core.utils.curriculum_domain_config import (
+        from core.services.curriculum_domain_config import (
             CurriculumCommonSubServices,
             create_curriculum_sub_services,
         )

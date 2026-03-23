@@ -217,7 +217,7 @@ class TasksIntelligenceService(BaseIntelligenceService[TasksOperations, Task]):
 
 ## Facade Factory Extraction (Companion Work)
 
-As part of this consolidation, created `core/utils/activity_domain_config.py` with:
+As part of this consolidation, created `core/services/activity_domain_config.py` with:
 
 1. **`ActivityDomainConfig`** - Dataclass holding domain configuration
 2. **`ACTIVITY_DOMAIN_CONFIGS`** - Registry of all 6 domain configurations
@@ -390,7 +390,7 @@ Created comprehensive intelligence service documentation (January 2026):
 | `core/services/base_analytics_service.py` | Base class for graph analytics (NO AI deps) |
 | `core/services/base_ai_service.py` | Base class for AI features (optional) |
 | `core/services/base_intelligence_service.py` | **DELETED** - replaced by above two classes |
-| `core/utils/activity_domain_config.py` | Domain registry + factory |
+| `core/services/activity_domain_config.py` | Domain registry + factory |
 | `core/services/{domain}/{domain}_intelligence_service.py` | Migrated services (extend BaseAnalyticsService) |
 
 ---

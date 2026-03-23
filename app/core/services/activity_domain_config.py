@@ -11,7 +11,7 @@ Each domain has:
 - relationship_config: UnifiedRelationshipService config
 
 Usage:
-    from core.utils.activity_domain_config import ACTIVITY_DOMAIN_CONFIGS, create_common_sub_services
+    from core.services.activity_domain_config import ACTIVITY_DOMAIN_CONFIGS, create_common_sub_services
 
     # In facade __init__:
     common = create_common_sub_services(

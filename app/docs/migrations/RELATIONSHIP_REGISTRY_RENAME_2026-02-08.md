@@ -146,8 +146,8 @@ all_configs = LABEL_CONFIGS
 
 **Core (14 files):**
 - `core/models/relationship_registry.py` - Constant definitions, registries, functions
-- `core/utils/activity_domain_config.py` - 6 imports + 6 references
-- `core/utils/curriculum_domain_config.py` - 3 imports + 5 references
+- `core/services/activity_domain_config.py` - 6 imports + 6 references
+- `core/services/curriculum_domain_config.py` - 3 imports + 5 references
 - `core/services/relationships/__init__.py` - Docstring example
 - `core/services/relationships/*.py` - All relationship service files
 - `core/services/*_service.py` - Docstring references

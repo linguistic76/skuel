@@ -172,7 +172,7 @@ class LpService:
             )
 
         # Create all sub-services via factory (January 2026 - Architecture Consistency)
-        from core.utils.curriculum_domain_config import create_lp_sub_services
+        from core.services.curriculum_domain_config import create_lp_sub_services
 
         subs = create_lp_sub_services(
             backend=backend,

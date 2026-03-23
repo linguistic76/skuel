@@ -566,10 +566,10 @@ Activity domains use `create_common_sub_services()` with standard signatures. So
 
 ### The Solution
 
-Domain-specific factory functions in `/core/utils/curriculum_domain_config.py`:
+Domain-specific factory functions in `/core/services/curriculum_domain_config.py`:
 
 ```python
-from core.utils.curriculum_domain_config import (
+from core.services.curriculum_domain_config import (
     create_lesson_sub_services,
     create_lp_sub_services,
     LessonSubServices,
@@ -581,7 +581,7 @@ from core.utils.curriculum_domain_config import (
 
 ```python
 # In LessonService.__init__
-from core.utils.curriculum_domain_config import create_lesson_sub_services
+from core.services.curriculum_domain_config import create_lesson_sub_services
 
 subs = create_lesson_sub_services(
     backend=repo,
@@ -618,7 +618,7 @@ KU and LS both use `create_curriculum_sub_services()` for 4 standard sub-service
 
 ```python
 # In KuService.__init__ (and LsService.__init__)
-from core.utils.curriculum_domain_config import create_curriculum_sub_services
+from core.services.curriculum_domain_config import create_curriculum_sub_services
 
 common = create_curriculum_sub_services(
     domain="ku",  # or "ls"
@@ -636,7 +636,7 @@ self.intelligence = common.intelligence
 
 ```python
 # In LpService.__init__
-from core.utils.curriculum_domain_config import create_lp_sub_services
+from core.services.curriculum_domain_config import create_lp_sub_services
 
 subs = create_lp_sub_services(
     driver=driver,
@@ -718,7 +718,7 @@ class LpSubServices:
 | Explicit Delegation | `/core/services/tasks_service.py` | Explicit `async def` methods on facade class (no import needed) |
 | Relationship Registry | `/core/models/relationship_registry.py` | `from core.models.relationship_registry import generate_graph_enrichment` |
 | Post-Query Processors | `/adapters/persistence/neo4j/query/cypher/post_processors.py` | `from adapters.persistence.neo4j.query.cypher.post_processors import apply_processor, PROCESSOR_REGISTRY` |
-| Lesson/LP Factories | `/core/utils/curriculum_domain_config.py` | `from core.utils.curriculum_domain_config import create_lesson_sub_services, create_lp_sub_services` |
+| Lesson/LP Factories | `/core/services/curriculum_domain_config.py` | `from core.services.curriculum_domain_config import create_lesson_sub_services, create_lp_sub_services` |
 
 ---
 

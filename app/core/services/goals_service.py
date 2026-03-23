@@ -44,7 +44,7 @@ from core.services.infrastructure.graph_intelligence_service import GraphIntelli
 
 # Unified relationship service
 from core.services.relationships import UnifiedRelationshipService
-from core.utils.activity_domain_config import create_common_sub_services
+from core.services.activity_domain_config import create_common_sub_services
 from core.utils.dto_helpers import to_domain_model
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result

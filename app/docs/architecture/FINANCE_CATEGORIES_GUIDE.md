@@ -128,7 +128,7 @@ SKUEL (Main Category)
 ### 1. Loading Categories
 
 ```python
-from core.utils.finance_categories import load_finance_categories
+from core.services.finance.finance_categories import load_finance_categories
 
 # Load complete hierarchy
 categories = load_finance_categories()
@@ -155,7 +155,7 @@ for sub in personal_subs:
 ### 2. Category Lookup
 
 ```python
-from core.utils.finance_categories import get_category
+from core.services.finance.finance_categories import get_category
 
 # Get category by code
 food_cat = get_category('food')
@@ -173,7 +173,7 @@ print(f"{personal.name}: {personal.description}")
 ### 3. Smart Categorization (Tag Matching)
 
 ```python
-from core.utils.finance_categories import suggest_category
+from core.services.finance.finance_categories import suggest_category
 
 # Suggest category based on expense description
 description = "Whole Foods groceries $52.34"
@@ -193,7 +193,7 @@ print(f"Suggested category: {suggested}")
 ### 4. Validation
 
 ```python
-from core.utils.finance_categories import validate_category
+from core.services.finance.finance_categories import validate_category
 
 # Validate category code
 is_valid = validate_category('food')
@@ -544,7 +544,7 @@ subcategories:
 ## Related Documentation
 
 - **FinanceService:** `/core/services/finance_service.py`
-- **Categories Loader:** `/core/utils/finance_categories.py`
+- **Categories Loader:** `/core/services/finance/finance_categories.py`
 - **Config File:** `/data/config/finance_categories.yaml`
 
 ---

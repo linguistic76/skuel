@@ -48,9 +48,9 @@
 ### Factory Functions
 | Domain | Factory | Location |
 |--------|---------|----------|
-| **Lesson** | `create_lesson_sub_services()` | `core/utils/curriculum_domain_config.py` |
-| **LS** | `create_curriculum_sub_services()` | `core/utils/curriculum_domain_config.py` |
-| **LP** | `create_lp_sub_services()` | `core/utils/curriculum_domain_config.py` |
+| **Lesson** | `create_lesson_sub_services()` | `core/services/curriculum_domain_config.py` |
+| **LS** | `create_curriculum_sub_services()` | `core/services/curriculum_domain_config.py` |
+| **LP** | `create_lp_sub_services()` | `core/services/curriculum_domain_config.py` |
 
 ### Routes
 | Domain | Route file |
@@ -139,7 +139,7 @@ from core.models.pathways.learning_path_dto import LearningPathDTO
 from core.utils.result_simplified import Result
 
 # Factory functions
-from core.utils.curriculum_domain_config import (
+from core.services.curriculum_domain_config import (
     create_lesson_sub_services,
     create_curriculum_sub_services,
     create_lp_sub_services,

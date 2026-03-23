@@ -58,7 +58,7 @@ from core.services.finance import (
 )
 from core.services.finance.finance_invoice_service import FinanceInvoiceService
 from core.services.finance_types import CategoryInfo, CategorySuggestion
-from core.utils.finance_categories import (
+from core.services.finance.finance_categories import (
     CategoryHierarchy,
     get_category,
     load_finance_categories,

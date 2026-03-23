@@ -538,7 +538,7 @@ result = await core.create_task(request, user_uid)
 **Use factory** inside facade `__init__` to create common sub-services:
 
 ```python
-from core.utils.activity_domain_config import create_common_sub_services
+from core.services.activity_domain_config import create_common_sub_services
 
 common = create_common_sub_services(
     domain="tasks",
@@ -694,4 +694,4 @@ metrics_result = await tasks.learning_metrics.analyze_task_learning_metrics(user
 - [Quick Start Guide](/docs/guides/BASESERVICE_QUICK_START.md) - New developer onboarding
 - [BaseService Implementation](/core/services/base_service.py) - Source code
 - [Example Facade Service](/core/services/tasks_service.py) - Explicit delegation pattern
-- [Activity Domain Config](/core/utils/activity_domain_config.py) - Factory pattern
+- [Activity Domain Config](/core/services/activity_domain_config.py) - Factory pattern

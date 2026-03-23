@@ -54,7 +54,7 @@ from core.services.habits.habits_scheduling_service import DEFAULT_MAX_DAILY_LOA
 # Unified relationship service
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
 from core.services.relationships import UnifiedRelationshipService
-from core.utils.activity_domain_config import CommonSubServices, create_common_sub_services
+from core.services.activity_domain_config import CommonSubServices, create_common_sub_services
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result

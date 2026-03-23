@@ -52,7 +52,7 @@ from core.services.tasks import (
     TasksSchedulingService,
 )
 from core.services.tasks.tasks_ai_service import TasksAIService
-from core.utils.activity_domain_config import create_common_sub_services
+from core.services.activity_domain_config import create_common_sub_services
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result

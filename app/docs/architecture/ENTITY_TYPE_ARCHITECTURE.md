@@ -205,7 +205,7 @@ Events additionally has integration sub-services (`EventsHabitIntegrationService
 +-- .intelligence  -> {Domain}IntelligenceService (Analytics — NO AI)
 ```
 
-Common sub-services created via `create_common_sub_services()` factory (`core/utils/activity_domain_config.py`). Domain-specific sub-services (e.g., `PlanningService`, `SchedulingService`) added after.
+Common sub-services created via `create_common_sub_services()` factory (`core/services/activity_domain_config.py`). Domain-specific sub-services (e.g., `PlanningService`, `SchedulingService`) added after.
 
 **Access model**: `ContentScope.USER_OWNED` — user creates, only owner sees via `(User)-[:OWNS]->(Entity)`.
 

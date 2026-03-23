@@ -68,9 +68,9 @@ Factory / Manual             <- Creates sub-services
 
 | Domain | Factory | Location |
 |--------|---------|----------|
-| **Lesson** | `create_lesson_sub_services()` | `core/utils/curriculum_domain_config.py` |
-| **LS** | `create_curriculum_sub_services()` | `core/utils/curriculum_domain_config.py` |
-| **LP** | `create_lp_sub_services()` | `core/utils/curriculum_domain_config.py` |
+| **Lesson** | `create_lesson_sub_services()` | `core/services/curriculum_domain_config.py` |
+| **LS** | `create_curriculum_sub_services()` | `core/services/curriculum_domain_config.py` |
+| **LP** | `create_lp_sub_services()` | `core/services/curriculum_domain_config.py` |
 
 ## Model Locations
 
@@ -109,7 +109,7 @@ await lesson_service.find_organizers(lesson_uid)  # Multiple parents possible
 
 ### Create with factory (LS example)
 ```python
-from core.utils.curriculum_domain_config import create_curriculum_sub_services
+from core.services.curriculum_domain_config import create_curriculum_sub_services
 
 common = create_curriculum_sub_services(
     domain="ls",

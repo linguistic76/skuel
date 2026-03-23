@@ -11,7 +11,7 @@ Each domain has:
 - relationship_config: DomainRelationshipConfig from registry (direct reference)
 
 Usage:
-    from core.utils.curriculum_domain_config import (
+    from core.services.curriculum_domain_config import (
         CURRICULUM_DOMAIN_CONFIGS,
         create_curriculum_sub_services,
     )

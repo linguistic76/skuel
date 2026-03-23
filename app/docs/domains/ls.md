@@ -69,7 +69,7 @@ await ls_service.intelligence.is_ready(step_uid, completed_steps)
 | Model | `/core/models/ls/ls.py` |
 | DTO | `/core/models/ls/ls_dto.py` |
 | Relationship Config | `LS_CONFIG` in `/core/models/relationship_registry.py` |
-| Factory | `/core/utils/curriculum_domain_config.py` |
+| Factory | `/core/services/curriculum_domain_config.py` |
 
 ## Model Fields
 

@@ -21,7 +21,7 @@ import yaml
 
 from core.utils.logging import get_logger
 
-logger = get_logger("skuel.utils.finance_categories")
+logger = get_logger("skuel.services.finance.categories")
 
 
 @dataclass(frozen=True)
@@ -83,9 +83,9 @@ class FinanceCategoriesLoader:
     @property
     def config_path(self) -> Path:
         """Get path to finance_categories.yaml."""
-        # From /core/utils/finance_categories.py
+        # From /core/services/finance/finance_categories.py
         # Navigate to /data/config/finance_categories.yaml
-        return Path(__file__).parent.parent.parent / "data" / "config" / "finance_categories.yaml"
+        return Path(__file__).parent.parent.parent.parent / "data" / "config" / "finance_categories.yaml"
 
     def _load_categories(self) -> None:
         """Load categories from YAML file."""
@@ -296,7 +296,7 @@ def load_finance_categories() -> CategoryHierarchy:
         CategoryHierarchy with all loaded categories,
 
     Example:
-        from core.utils.finance_categories import load_finance_categories
+        from core.services.finance.finance_categories import load_finance_categories
 
         categories = load_finance_categories()
 

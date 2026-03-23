@@ -32,7 +32,7 @@ from core.services.filtered_context import build_filtered_context
 # Unified relationship service
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
 from core.services.relationships import UnifiedRelationshipService
-from core.utils.activity_domain_config import CommonSubServices, create_common_sub_services
+from core.services.activity_domain_config import CommonSubServices, create_common_sub_services
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 from core.utils.sort_functions import (

@@ -29,7 +29,7 @@ class TestKuServiceConstruction:
         with pytest.raises(ValueError, match="graph_intel is REQUIRED"):
             KuService(backend=MagicMock(), graph_intel=None)
 
-    @patch("core.utils.curriculum_domain_config.create_curriculum_sub_services")
+    @patch("core.services.curriculum_domain_config.create_curriculum_sub_services")
     def test_creates_4_sub_services(self, mock_factory):
         from core.services.ku_service import KuService
 
@@ -62,7 +62,7 @@ class TestKuServiceConstruction:
 class TestKuServiceDelegation:
     """Verify CRUD/search delegation works correctly."""
 
-    @patch("core.utils.curriculum_domain_config.create_curriculum_sub_services")
+    @patch("core.services.curriculum_domain_config.create_curriculum_sub_services")
     def _make_service(self, mock_factory):
         from core.services.ku_service import KuService
 
@@ -126,7 +126,7 @@ class TestKuServiceDelegation:
 class TestKuServiceIntelligenceDelegation:
     """Verify intelligence delegation works correctly."""
 
-    @patch("core.utils.curriculum_domain_config.create_curriculum_sub_services")
+    @patch("core.services.curriculum_domain_config.create_curriculum_sub_services")
     def _make_service(self, mock_factory):
         from core.services.ku_service import KuService
 

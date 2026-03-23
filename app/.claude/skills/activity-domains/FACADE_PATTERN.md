@@ -91,7 +91,7 @@ def create_tasks_api_routes(
 ## Factory Pattern
 
 ```python
-from core.utils.activity_domain_config import create_common_sub_services
+from core.services.activity_domain_config import create_common_sub_services
 
 def __init__(self, backend, graph_intelligence_service, event_bus=None):
     super().__init__(backend, "tasks")

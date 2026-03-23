@@ -42,7 +42,7 @@ from core.services.principles.principles_ai_service import PrinciplesAIService
 
 # Unified relationship service
 from core.services.relationships import UnifiedRelationshipService
-from core.utils.activity_domain_config import CommonSubServices, create_common_sub_services
+from core.services.activity_domain_config import CommonSubServices, create_common_sub_services
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_created_at_attr, get_title_or_name_lower

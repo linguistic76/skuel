@@ -71,7 +71,7 @@ self.relationships = UnifiedRelationshipService(
 LsService uses `create_curriculum_sub_services()` factory since all its services have standard signatures:
 
 ```python
-from core.utils.curriculum_domain_config import create_curriculum_sub_services
+from core.services.curriculum_domain_config import create_curriculum_sub_services
 
 common = create_curriculum_sub_services(
     domain="ls",
@@ -161,7 +161,7 @@ class MocIntelligenceService(BaseAnalyticsService[...]):
 
 | File | Change |
 |------|--------|
-| `/core/utils/curriculum_domain_config.py` | NEW: Factory module |
+| `/core/services/curriculum_domain_config.py` | NEW: Factory module |
 | `/core/services/moc/moc_intelligence_service.py` | NEW: MOC intelligence |
 | `/core/services/ls_service.py` | Use factory, require `graph_intel` |
 | `/core/services/lp_service.py` | Add `intelligence_service` param, require `graph_intel` |

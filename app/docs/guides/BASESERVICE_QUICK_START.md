@@ -402,7 +402,7 @@ if result.is_ok:
 When implementing a new facade, use the factory:
 
 ```python
-from core.utils.activity_domain_config import create_common_sub_services
+from core.services.activity_domain_config import create_common_sub_services
 
 class TasksService(BaseService[TasksOperations, Task]):
     def __init__(self, backend, ...):

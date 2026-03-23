@@ -20,7 +20,7 @@ The 6 Activity Domains (Tasks, Goals, Habits, Events, Choices, Principles) use a
 
 ```python
 # Uses create_common_sub_services() for ALL activity domains
-from core.utils.activity_domain_config import create_common_sub_services
+from core.services.activity_domain_config import create_common_sub_services
 
 common = create_common_sub_services(
     domain="tasks",
@@ -45,15 +45,15 @@ self.intelligence = common.intelligence
 
 ```python
 # Lesson - Specialized factory (handles circular core<->intelligence dependency)
-from core.utils.curriculum_domain_config import create_lesson_sub_services
+from core.services.curriculum_domain_config import create_lesson_sub_services
 subs = create_lesson_sub_services(backend=repo, graph_intel=graph_intel, ...)
 
 # LS - Generic factory (simple 4-service pattern)
-from core.utils.curriculum_domain_config import create_curriculum_sub_services
+from core.services.curriculum_domain_config import create_curriculum_sub_services
 common = create_curriculum_sub_services(domain="ls", backend=ls_backend, ...)
 
 # LP - Specialized factory (requires cross-domain LsService dependency)
-from core.utils.curriculum_domain_config import create_lp_sub_services
+from core.services.curriculum_domain_config import create_lp_sub_services
 subs = create_lp_sub_services(driver=driver, ls_service=ls_service, ...)
 ```
 
