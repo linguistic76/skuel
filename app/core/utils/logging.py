@@ -79,7 +79,6 @@ class SKUELLogConfig:
         "skuel.finance": logging.INFO,
         "skuel.neo4j": logging.INFO,
         "skuel.routes": logging.INFO,
-        "uvicorn": logging.WARNING,
         "fasthtml": logging.WARNING,
         "neo4j.notifications": logging.ERROR,
         "neo4j.bolt": logging.WARNING,
