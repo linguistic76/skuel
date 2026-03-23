@@ -13,6 +13,7 @@ This provides:
 - GET /graphql - Simple FastHTML playground (authenticated)
 """
 
+import json
 from typing import Any
 
 from fasthtml.common import (
@@ -30,7 +31,7 @@ from fasthtml.common import (
 from adapters.inbound.auth.session import require_authenticated_user
 from adapters.inbound.fasthtml_types import RouteList
 from core.utils.logging import get_logger
-from routes.graphql import create_graphql_context, create_graphql_schema
+from routes.graphql import GraphQLContext, create_graphql_context, create_graphql_schema
 from services_bootstrap import Services
 from ui.buttons import Button, ButtonT
 
@@ -53,6 +54,18 @@ def create_graphql_routes(
     """
     schema = create_graphql_schema()
     search_router = services.search_router
+
+    def _build_graphql_context(request: Any) -> GraphQLContext:
+        """Authenticate request and create GraphQL execution context."""
+        user_uid = require_authenticated_user(request)
+        return create_graphql_context(services, search_router, user_uid=user_uid)
+
+    def _format_graphql_response(result: Any) -> dict[str, Any]:
+        """Build standard GraphQL response dict from execution result."""
+        response_data: dict[str, Any] = {"data": result.data}
+        if result.errors:
+            response_data["errors"] = [{"message": str(error)} for error in result.errors]
+        return response_data
 
     @rt("/graphql")
     async def graphql_handler(request) -> Any:
@@ -129,18 +142,10 @@ def create_graphql_routes(
             )
 
         # POST request - execute GraphQL query and return JSON
-        # Get request body
         body = await request.json()
+        context = _build_graphql_context(request)
+        logger.info(f"GraphQL request from authenticated user: {context.user_uid}")
 
-        # AUTHENTICATION: Require authenticated user (January 2026 hardening)
-        user_uid = require_authenticated_user(request)
-
-        logger.info(f"GraphQL request from authenticated user: {user_uid}")
-
-        # Create authenticated context with search router
-        context = create_graphql_context(services, search_router, user_uid=user_uid)
-
-        # Execute query
         result = await schema.execute(
             query=body.get("query", ""),
             variable_values=body.get("variables"),
@@ -148,12 +153,7 @@ def create_graphql_routes(
             operation_name=body.get("operationName"),
         )
 
-        # Return result as dict - FastHTML will serialize to JSON
-        response_data = {"data": result.data}
-        if result.errors:
-            response_data["errors"] = [{"message": str(error)} for error in result.errors]
-
-        return response_data
+        return _format_graphql_response(result)
 
     @rt("/graphql/execute")
     async def graphql_execute(request) -> Div:
@@ -169,8 +169,6 @@ def create_graphql_routes(
 
         # Parse variables JSON
         try:
-            import json
-
             variables = json.loads(variables_str) if variables_str else {}
         except json.JSONDecodeError:
             return Div(
@@ -178,22 +176,9 @@ def create_graphql_routes(
                 cls="p-4 bg-red-50 rounded",
             )
 
-        # AUTHENTICATION: Require authenticated user (January 2026 hardening)
-        user_uid = require_authenticated_user(request)
-
-        # Create authenticated context with search router
-        context = create_graphql_context(services, search_router, user_uid=user_uid)
-
-        # Execute query
+        context = _build_graphql_context(request)
         result = await schema.execute(query=query, variable_values=variables, context_value=context)
-
-        # Format result
-        response_data = {"data": result.data}
-        if result.errors:
-            response_data["errors"] = [{"message": str(error)} for error in result.errors]
-
-        # Return formatted JSON in a Pre element
-        import json
+        response_data = _format_graphql_response(result)
 
         formatted_json = json.dumps(response_data, indent=2)
 
