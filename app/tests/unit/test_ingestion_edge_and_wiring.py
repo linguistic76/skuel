@@ -284,7 +284,13 @@ class TestLsFieldWiring:
         """Activity domain wiring moved from LS to Lessons (via HAS_LESSON)."""
         config = generate_ingestion_relationship_config(EntityType.LEARNING_STEP)
         assert config is not None
-        for field in ("principle_uids", "choice_uids", "habit_uids", "task_uids", "event_template_uids"):
+        for field in (
+            "principle_uids",
+            "choice_uids",
+            "habit_uids",
+            "task_uids",
+            "event_template_uids",
+        ):
             assert field not in config
 
     def test_total_field_count(self):
