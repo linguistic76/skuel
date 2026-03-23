@@ -65,15 +65,11 @@ def create_pathways_api_routes(
     async def get_current_step_route(request: Request, path_uid: str) -> Result[Any]:
         """Get the current (first incomplete) step in a learning path."""
 
-        found = require_found(
+        return require_found(
             await learning_service.get_current_step(path_uid),
             "Ls",
             f"incomplete step in path {path_uid}",
         )
-        if found.is_error:
-            return found
-
-        return Result.ok(found.value)
 
     # Progress Tracking
     # -----------------

@@ -49,7 +49,7 @@ def create_calendar_api_routes(
         )
 
         if result.is_error:
-            return Result.fail(result.error)
+            return Result.fail(result)
         return Result.ok({"item": calendar_item_to_dict(result.value)})
 
     @rt("/api/v2/calendar/items/{item_id}")

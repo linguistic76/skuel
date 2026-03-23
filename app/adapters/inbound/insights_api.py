@@ -226,15 +226,7 @@ def create_insights_api_routes(
         """
         user_uid = require_authenticated_user(request)
 
-        # Get stats
-        result = await insight_store.get_insight_stats(user_uid)
-
-        if result.is_error:
-            logger.error(f"Failed to retrieve insight stats: {result.error}")
-            return Result.fail(result)
-
-        result_typed: Result[Any] = result
-        return result_typed
+        return await insight_store.get_insight_stats(user_uid)
 
     # ========================================
     # Chart Visualization Endpoints

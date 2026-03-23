@@ -118,69 +118,50 @@ def create_finance_api_routes(
             offset=pagination.offset,
         )
 
-        if result.is_ok:
-            expenses, total_count = result.value
-            return Result.ok(
-                {
-                    "expenses": expenses,
-                    "start_date": start_date.isoformat(),
-                    "end_date": end_date.isoformat(),
-                    "count": total_count,
-                }
-            )
-        else:
-            error = result.error
-            return Result.fail(
-                Errors.system(
-                    message=error.user_message or error.message if error else "Unknown error"
-                )
-            )
+        if result.is_error:
+            return Result.fail(result)
+        expenses, total_count = result.value
+        return Result.ok(
+            {
+                "expenses": expenses,
+                "start_date": start_date.isoformat(),
+                "end_date": end_date.isoformat(),
+                "count": total_count,
+            }
+        )
 
     @rt("/api/expenses/search")
     @require_admin(get_user_service)
     @boundary_handler()
     async def search_expenses_route(request, current_user) -> Result[Any]:
         """Search expenses with text query (admin only)"""
-        try:
-            params = dict(request.query_params)
+        params = dict(request.query_params)
 
-            # Required parameter
-            query = params.get("query", "").strip()
-            if not query:
-                return Result.fail(Errors.validation("Query parameter is required", field="query"))
+        # Required parameter
+        query = params.get("query", "").strip()
+        if not query:
+            return Result.fail(Errors.validation("Query parameter is required", field="query"))
 
-            # Optional parameters
-            pagination = parse_pagination_params(params, default_limit=50, max_limit=100)
-            limit = pagination.limit
-            offset = pagination.offset
+        # Optional parameters
+        pagination = parse_pagination_params(params, default_limit=50, max_limit=100)
+        limit = pagination.limit
+        offset = pagination.offset
 
-            # Call service (admin sees all)
-            result = await finance_service.search_expenses(
-                user_uid=current_user.uid, query=query, limit=limit, offset=offset
-            )
+        # Call service (admin sees all)
+        result = await finance_service.search_expenses(
+            user_uid=current_user.uid, query=query, limit=limit, offset=offset
+        )
 
-            if result.is_ok:
-                expenses = result.value
-                return Result.ok(
-                    {
-                        "expenses": expenses,
-                        "query": query,
-                        "count": len(expenses) if expenses else 0,
-                    }
-                )
-            else:
-                error = result.error
-                return Result.fail(
-                    Errors.system(
-                        message=error.user_message or error.message if error else "Unknown error"
-                    )
-                )
-
-        except Exception as e:  # safety-net: API boundary
-            logger.error(f"Error in search expenses route: {e}")
-            return Result.fail(
-                Errors.system(message=f"Failed to search expenses: {e!s}", exception=e)
-            )
+        if result.is_error:
+            return Result.fail(result)
+        expenses = result.value
+        return Result.ok(
+            {
+                "expenses": expenses,
+                "query": query,
+                "count": len(expenses) if expenses else 0,
+            }
+        )
 
     # ========================================================================
     # EXPENSE STATUS OPERATIONS (Admin-Only)
@@ -196,14 +177,7 @@ def create_finance_api_routes(
 
         if result.is_ok:
             logger.info(f"Expense cleared via API by admin: {uid}")
-            return Result.ok(result.value)
-        else:
-            error = result.error
-            return Result.fail(
-                Errors.system(
-                    message=error.user_message or error.message if error else "Unknown error"
-                )
-            )
+        return result
 
     @rt("/api/expenses/reconcile")
     @require_admin(get_user_service)
@@ -214,14 +188,7 @@ def create_finance_api_routes(
 
         if result.is_ok:
             logger.info(f"Expense reconciled via API by admin: {uid}")
-            return Result.ok(result.value)
-        else:
-            error = result.error
-            return Result.fail(
-                Errors.system(
-                    message=error.user_message or error.message if error else "Unknown error"
-                )
-            )
+        return result
 
     @rt("/api/expenses/receipt")
     @require_admin(get_user_service)
@@ -238,14 +205,7 @@ def create_finance_api_routes(
 
         if result.is_ok:
             logger.info(f"Receipt attached to expense via API by admin: {uid}")
-            return Result.ok(result.value)
-        else:
-            error = result.error
-            return Result.fail(
-                Errors.system(
-                    message=error.user_message or error.message if error else "Unknown error"
-                )
-            )
+        return result
 
     # ========================================================================
     # BUDGET CRUD ROUTES (Factory-Generated, Admin-Only)
@@ -274,40 +234,21 @@ def create_finance_api_routes(
         """Get active budgets (admin only)"""
         result = await finance_service.get_active_budgets()
 
-        if result.is_ok:
-            budgets = result.value
-            return Result.ok({"budgets": budgets, "count": len(budgets) if budgets else 0})
-        else:
-            error = result.error
-            return Result.fail(
-                Errors.system(
-                    message=error.user_message or error.message if error else "Unknown error"
-                )
-            )
+        if result.is_error:
+            return Result.fail(result)
+        budgets = result.value
+        return Result.ok({"budgets": budgets, "count": len(budgets) if budgets else 0})
 
     @rt("/api/budgets/recalculate")
     @require_admin(get_user_service)
     @boundary_handler()
     async def recalculate_budget_route(request, current_user, uid: str) -> Result[Any]:
         """Recalculate budget spending from expenses (admin only)."""
-        try:
-            result = await finance_service.recalculate_budget(uid)
+        result = await finance_service.recalculate_budget(uid)
 
-            if result.is_ok:
-                logger.info(f"Budget recalculated via API by admin: {uid}")
-                return Result.ok(result.value)
-            else:
-                error = result.error
-                error_msg = error.user_message or error.message if error else "Unknown error"
-                if "not found" in error_msg.lower():
-                    return Result.fail(Errors.not_found(resource="Budget", identifier=uid))
-                return Result.fail(Errors.system(message=error_msg))
-
-        except Exception as e:  # safety-net: API boundary
-            logger.error(f"Error in recalculate budget route: {e}")
-            return Result.fail(
-                Errors.system(message=f"Failed to recalculate budget: {e!s}", exception=e)
-            )
+        if result.is_ok:
+            logger.info(f"Budget recalculated via API by admin: {uid}")
+        return result
 
     # ========================================================================
     # ANALYTICS API ROUTES (Factory-Generated, Admin-Only)
@@ -524,26 +465,20 @@ def create_finance_api_routes(
             req.expense_uids, category_enum, req.subcategory
         )
 
-        if result.is_ok:
-            expenses = result.value
-            logger.info(
-                f"Bulk categorized {len(expenses) if expenses else 0} expenses to {req.category} by admin"
-            )
-            return Result.ok(
-                {
-                    "expenses": expenses,
-                    "updated_count": len(expenses) if expenses else 0,
-                    "category": req.category,
-                    "subcategory": req.subcategory,
-                }
-            )
-        else:
-            error = result.error
-            return Result.fail(
-                Errors.system(
-                    message=error.user_message or error.message if error else "Unknown error"
-                )
-            )
+        if result.is_error:
+            return Result.fail(result)
+        expenses = result.value
+        logger.info(
+            f"Bulk categorized {len(expenses) if expenses else 0} expenses to {req.category} by admin"
+        )
+        return Result.ok(
+            {
+                "expenses": expenses,
+                "updated_count": len(expenses) if expenses else 0,
+                "category": req.category,
+                "subcategory": req.subcategory,
+            }
+        )
 
     logger.info("Finance API routes registered")
     return []

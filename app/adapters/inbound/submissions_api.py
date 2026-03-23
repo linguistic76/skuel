@@ -657,12 +657,7 @@ def create_submissions_api_routes(
         if not user_uid:
             return Result.fail(Errors.validation("user_uid is required", field="user_uid"))
 
-        result = await submission_service.get_submission_statistics(user_uid)
-
-        if result.is_error:
-            return Result.fail(result)
-
-        return Result.ok(result.value)
+        return await submission_service.get_submission_statistics(user_uid)
 
     # ========================================================================
     # CONTENT MANAGEMENT ROUTES
