@@ -1680,8 +1680,8 @@ LESSON_CONFIG = DomainRelationshipConfig(
             RelationshipName.REQUIRES_KNOWLEDGE,
             "Goal",
             "incoming",
-            "supports_goals",
-            "supports_goals",
+            "required_by_goals",
+            "required_by_goals",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.INFORMED_BY_KNOWLEDGE,

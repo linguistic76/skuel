@@ -273,36 +273,6 @@ class TestLsFieldWiring:
         assert "supporting_knowledge_uids" in config
         assert config["supporting_knowledge_uids"]["rel_type"] == "REQUIRES_KNOWLEDGE"
 
-    def test_principle_uids(self):
-        config = generate_ingestion_relationship_config(EntityType.LEARNING_STEP)
-        assert config is not None
-        assert "principle_uids" in config
-        assert config["principle_uids"]["rel_type"] == "GUIDED_BY_PRINCIPLE"
-
-    def test_choice_uids(self):
-        config = generate_ingestion_relationship_config(EntityType.LEARNING_STEP)
-        assert config is not None
-        assert "choice_uids" in config
-        assert config["choice_uids"]["rel_type"] == "INFORMS_CHOICE"
-
-    def test_habit_uids(self):
-        config = generate_ingestion_relationship_config(EntityType.LEARNING_STEP)
-        assert config is not None
-        assert "habit_uids" in config
-        assert config["habit_uids"]["rel_type"] == "BUILDS_HABIT"
-
-    def test_task_uids(self):
-        config = generate_ingestion_relationship_config(EntityType.LEARNING_STEP)
-        assert config is not None
-        assert "task_uids" in config
-        assert config["task_uids"]["rel_type"] == "ASSIGNS_TASK"
-
-    def test_event_template_uids(self):
-        config = generate_ingestion_relationship_config(EntityType.LEARNING_STEP)
-        assert config is not None
-        assert "event_template_uids" in config
-        assert config["event_template_uids"]["rel_type"] == "SCHEDULES_EVENT"
-
     def test_learning_path_uids(self):
         config = generate_ingestion_relationship_config(EntityType.LEARNING_STEP)
         assert config is not None
@@ -310,11 +280,18 @@ class TestLsFieldWiring:
         assert config["learning_path_uids"]["rel_type"] == "HAS_STEP"
         assert config["learning_path_uids"]["direction"] == "incoming"
 
-    def test_total_field_count(self):
-        """LS should have at least 11 relationship fields wired."""
+    def test_activity_wiring_removed(self):
+        """Activity domain wiring moved from LS to Lessons (via HAS_LESSON)."""
         config = generate_ingestion_relationship_config(EntityType.LEARNING_STEP)
         assert config is not None
-        assert len(config) >= 11
+        for field in ("principle_uids", "choice_uids", "habit_uids", "task_uids", "event_template_uids"):
+            assert field not in config
+
+    def test_total_field_count(self):
+        """LS should have 6 relationship fields wired (knowledge + steps + paths)."""
+        config = generate_ingestion_relationship_config(EntityType.LEARNING_STEP)
+        assert config is not None
+        assert len(config) == 6
 
 
 # ============================================================================
@@ -364,13 +341,11 @@ class TestLsPreparerNormalization:
             "type": "ls",
             "title": "Step 1",
             "trains_ku_uids": ["ku:concept-a", "ku:concept-b"],
-            "principle_uids": ["principle:honesty"],
-            "task_uids": ["task:practice-1"],
+            "primary_knowledge_uids": ["ku:concept-c"],
         }
         result = prepare_entity_data(EntityType.LEARNING_STEP, data, None, Path("step1.yaml"))
         assert result["trains_ku_uids"] == ["ku.concept-a", "ku.concept-b"]
-        assert result["principle_uids"] == ["principle.honesty"]
-        assert result["task_uids"] == ["task.practice-1"]
+        assert result["primary_knowledge_uids"] == ["ku.concept-c"]
 
 
 # ============================================================================

@@ -50,7 +50,17 @@ async def skuel_app():
     This creates a single app instance with all services initialized.
     Using session scope ensures session middleware works correctly.
     """
-    from scripts.dev.bootstrap import bootstrap_skuel
+    import importlib.util
+    import sys
+    from pathlib import Path
+
+    bootstrap_path = Path(__file__).parent.parent / "scripts" / "dev" / "bootstrap.py"
+    spec = importlib.util.spec_from_file_location("scripts.dev.bootstrap", bootstrap_path)
+    assert spec and spec.loader
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules["scripts.dev.bootstrap"] = mod
+    spec.loader.exec_module(mod)
+    bootstrap_skuel = mod.bootstrap_skuel
 
     container = await bootstrap_skuel()
 

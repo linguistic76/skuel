@@ -151,7 +151,7 @@ class LessonGraphService:
             f"Finding prerequisites for {uid}: depth={depth}, min_confidence={min_confidence}"
         )
 
-        results = await self.neo4j.execute_query(query, params)
+        results = await self._execute_query(query, params, "get_prerequisites")
 
         # Check for query errors
         if results.is_error:
@@ -614,7 +614,7 @@ class LessonGraphService:
 
         params = {"user_uid": user_uid, "domain": domain, "limit": limit}
 
-        results = await self.neo4j.execute_query(ready_query, params)
+        results = await self._execute_query(ready_query, params, "get_learning_recommendations")
 
         if results.is_error:
             return Result.fail(results.expect_error())
@@ -752,7 +752,7 @@ class LessonGraphService:
         )
 
         # Execute query
-        results = await self.neo4j.execute_query(query, params)
+        results = await self._execute_query(query, params, "find_learning_paths")
 
         # Check for query errors
         if results.is_error:
@@ -868,7 +868,7 @@ class LessonGraphService:
 
         self.logger.info("Computing hub scores for all Knowledge Units...")
 
-        results = await self.neo4j.execute_query(query, {})
+        results = await self._execute_query(query, {}, "update_hub_scores")
 
         if results.is_error:
             self.logger.warning("Hub score update failed")
@@ -948,7 +948,7 @@ class LessonGraphService:
             f"min_hub_score={min_hub_score}, limit={limit}"
         )
 
-        results = await self.neo4j.execute_query(query, params)
+        results = await self._execute_query(query, params, "get_foundational_knowledge")
 
         # Check for query errors
         if results.is_error:

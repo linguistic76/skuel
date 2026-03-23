@@ -862,18 +862,15 @@ class TestUserContextBuilder:
         """
         Verify builder handles user with no domain entities gracefully.
         """
-        from core.models.user.user import User
-
         # Create user with no tasks/habits/goals
-        test_user_uid = "user:empty_context"
-        test_user = User(
-            uid=test_user_uid,
-            title="Empty User",
+        user_result = await user_service.create_user(
+            username="empty_context",
             email="empty@test.com",
+            display_name="Empty User",
         )
-
-        user_result = await user_service.create_user(test_user)
         assert user_result.is_ok
+        test_user = user_result.value
+        test_user_uid = test_user.uid
 
         # Build context for user with no entities
         builder = user_service.context_builder

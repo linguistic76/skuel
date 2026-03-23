@@ -231,13 +231,13 @@ class TestCurriculumDomains:
         assert config.is_shared_content is True
         assert config.ownership_relationship is None
 
-    def test_ls_has_practice_patterns(self):
-        """Verify LS config has practice pattern relationships."""
+    def test_ls_has_knowledge_relationships(self):
+        """Verify LS config has knowledge and step relationships (activity wiring moved to Lessons)."""
         config = get_config_by_label("Ls")
         rel_names = {r.relationship for r in config.relationships}
-        assert RelationshipName.BUILDS_HABIT in rel_names
-        assert RelationshipName.ASSIGNS_TASK in rel_names
-        assert RelationshipName.SCHEDULES_EVENT in rel_names
+        assert RelationshipName.CONTAINS_KNOWLEDGE in rel_names
+        assert RelationshipName.TRAINS_KU in rel_names
+        assert RelationshipName.REQUIRES_STEP in rel_names
 
     def test_lp_has_milestone_relationship(self):
         """Verify LP config has milestone event relationship."""
