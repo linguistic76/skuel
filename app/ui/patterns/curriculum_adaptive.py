@@ -21,7 +21,7 @@ from core.models.pathways.learning_progress import CurriculumProgress, LearningJ
 from ui.buttons import ButtonLink, ButtonT
 from ui.enum_helpers import get_sel_icon
 from ui.feedback import Alert, AlertT, Badge, BadgeT, Progress
-from ui.patterns.entity_card import CardConfig, EntityCard
+from ui.patterns.card_generator import CardGenerator
 
 
 def SELCategoryCard(category: SELCategory, progress: CurriculumProgress) -> Any:
@@ -34,11 +34,10 @@ def SELCategoryCard(category: SELCategory, progress: CurriculumProgress) -> Any:
         f"{progress.lessons_available} available",
     ]
 
-    card = EntityCard(
-        title=category_title,
-        description=category.get_description(),
-        status=None,
-        priority=None,
+    card = CardGenerator.from_dataclass(
+        {"title": category_title, "description": category.get_description()},
+        display_fields=["description"],
+        show_labels=False,
         metadata=metadata,
         actions=ButtonLink(
             "Continue Learning →",
@@ -46,7 +45,6 @@ def SELCategoryCard(category: SELCategory, progress: CurriculumProgress) -> Any:
             variant=ButtonT.primary,
             cls="w-full",
         ),
-        config=CardConfig.default(),
     )
 
     progress_section = Div(
@@ -88,11 +86,10 @@ def AdaptiveKUCard(ku: CurriculumEntity, prerequisites_met: bool = True) -> Any:
 
     description = ku.summary[:200] + "..." if len(ku.summary) > 200 else ku.summary
 
-    return EntityCard(
-        title=ku.title,
-        description=description,
-        status=None,
-        priority=None,
+    return CardGenerator.from_dataclass(
+        {"title": ku.title, "description": description},
+        display_fields=["description"],
+        show_labels=False,
         metadata=metadata,
         actions=ButtonLink(
             "Start Learning →",
@@ -100,7 +97,6 @@ def AdaptiveKUCard(ku: CurriculumEntity, prerequisites_met: bool = True) -> Any:
             variant=ButtonT.primary,
             cls="w-full",
         ),
-        config=CardConfig.default(),
     )
 
 

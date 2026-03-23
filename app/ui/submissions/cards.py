@@ -14,7 +14,7 @@ from ui.enum_helpers import get_submission_status_badge_class
 from ui.feedback import Alert, AlertT, Badge
 from ui.layout import Size
 from ui.patterns.empty_state import EmptyState
-from ui.patterns.entity_card import EntityCard
+from ui.patterns.card_generator import CardGenerator
 
 _get_status_badge_class = get_submission_status_badge_class
 
@@ -47,12 +47,18 @@ def render_submission_card(submission: Any, is_pinned: bool = False) -> Any:
         cls="flex gap-2",
     )
 
-    return EntityCard(
-        title=submission.original_filename,
-        status=str(submission.status) if submission.status else None,
+    from ui.feedback import StatusBadge
+
+    return CardGenerator.from_dataclass(
+        {"title": submission.original_filename},
+        display_fields=[],
+        header_badges=[
+            StatusBadge(str(submission.status)) if submission.status else None,
+        ],
+        show_labels=False,
         metadata=[f"{identifier} \u2022 {file_size_mb:.2f} MB"],
         actions=actions,
-        cls="mb-2",
+        card_attrs={"cls": "mb-2"},
     )
 
 

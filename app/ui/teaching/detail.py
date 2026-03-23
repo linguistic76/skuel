@@ -13,7 +13,7 @@ from ui.buttons import Button, ButtonLink, ButtonT
 from ui.cards import Card, CardBody
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
-from ui.patterns.stacked_action_card import StackedActionCard
+from ui.patterns.card_generator import CardGenerator
 from ui.teaching.badges import entity_type_badge, status_badge
 from ui.teaching.types import ClassMember, SubmissionDetail, SubmissionRow
 
@@ -98,31 +98,27 @@ def render_exercise_submission_row(item: SubmissionRow) -> Div:
     title = item.title or item.original_filename or "Untitled"
     student_name = item.student_name or item.student_uid or "Unknown"
 
-    feedback_indicator: Any = ""
+    feedback_badge: Any = None
     if item.feedback_count > 0:
-        feedback_indicator = Badge(
+        feedback_badge = Badge(
             f"{item.feedback_count} feedback",
             variant=BadgeT.info,
             size=Size.sm,
         )
 
-    return StackedActionCard(
-        header_left=Div(
-            H4(title, cls="mb-0 font-semibold"),
-            P(f"by {student_name}", cls="text-sm text-muted-foreground mb-0"),
-            cls="flex-1",
-        ),
-        header_right=Div(
-            feedback_indicator,
-            status_badge(item.status),
-            cls="flex gap-2 items-center",
-        ),
+    return CardGenerator.from_dataclass(
+        {"title": title},
+        display_fields=[],
+        subtitle=f"by {student_name}",
+        header_badges=[feedback_badge, status_badge(item.status)],
+        show_labels=False,
         actions=ButtonLink(
             "Review",
             href=f"/teaching/review/{item.uid}",
             variant=ButtonT.primary,
             size=Size.sm,
         ),
+        card_attrs={"cls": "bg-background shadow-sm mb-2"},
     )
 
 
@@ -130,21 +126,21 @@ def render_student_submission_row(item: SubmissionRow) -> Div:
     """Render a submission row in the student-detail view with feedback toggle."""
     title = item.title or item.original_filename or "Untitled"
 
-    exercise_label: Any = ""
+    exercise_subtitle: Any = None
     if item.exercise_title:
-        exercise_label = Span(
+        exercise_subtitle = Span(
             f"Exercise: {item.exercise_title}", cls="text-xs text-muted-foreground"
         )
 
-    feedback_indicator: Any = ""
+    feedback_badge: Any = None
     if item.feedback_count > 0:
-        feedback_indicator = Badge(
+        feedback_badge = Badge(
             f"{item.feedback_count} feedback",
             variant=BadgeT.info,
             size=Size.sm,
         )
 
-    feedback_toggle: Any = ""
+    feedback_toggle: Any = None
     if item.feedback_count > 0:
         feedback_toggle = Div(
             Button(
@@ -161,17 +157,12 @@ def render_student_submission_row(item: SubmissionRow) -> Div:
             cls="mt-2",
         )
 
-    return StackedActionCard(
-        header_left=Div(
-            H4(title, cls="mb-0 font-semibold"),
-            exercise_label,
-            cls="flex-1",
-        ),
-        header_right=Div(
-            feedback_indicator,
-            status_badge(item.status),
-            cls="flex gap-2 items-center",
-        ),
+    return CardGenerator.from_dataclass(
+        {"title": title},
+        display_fields=[],
+        subtitle=exercise_subtitle,
+        header_badges=[feedback_badge, status_badge(item.status)],
+        show_labels=False,
         actions=ButtonLink(
             "Review",
             href=f"/teaching/review/{item.uid}",
@@ -179,6 +170,7 @@ def render_student_submission_row(item: SubmissionRow) -> Div:
             size=Size.sm,
         ),
         extra=feedback_toggle,
+        card_attrs={"cls": "bg-background shadow-sm mb-2"},
     )
 
 
@@ -186,24 +178,20 @@ def render_class_member_row(item: ClassMember) -> Div:
     """Render a member row in the class detail view."""
     pending_variant = BadgeT.warning if item.pending_count > 0 else BadgeT.ghost
 
-    return StackedActionCard(
-        header_left=Div(
-            H4(item.user_name, cls="mb-0 font-semibold"),
-            P(f"{item.role} · {item.user_uid}", cls="text-xs text-foreground/40 mb-0"),
-            cls="flex-1",
-        ),
-        header_right=Div(
+    return CardGenerator.from_dataclass(
+        {"title": item.user_name},
+        display_fields=[],
+        subtitle=P(f"{item.role} · {item.user_uid}", cls="text-xs text-foreground/40 mb-0"),
+        header_badges=[
             Badge(f"{item.pending_count} pending", variant=pending_variant),
-            Badge(
-                f"{item.reviewed_count}/{item.submission_count} reviewed",
-                variant=BadgeT.ghost,
-            ),
-            cls="flex gap-2 items-center",
-        ),
+            Badge(f"{item.reviewed_count}/{item.submission_count} reviewed", variant=BadgeT.ghost),
+        ],
+        show_labels=False,
         actions=ButtonLink(
             "View Submissions",
             href=f"/teaching/students/{item.user_uid}",
             variant=ButtonT.ghost,
             size=Size.sm,
         ),
+        card_attrs={"cls": "bg-background shadow-sm mb-2"},
     )

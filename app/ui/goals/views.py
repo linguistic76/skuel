@@ -35,7 +35,7 @@ from ui.patterns.activity_views_base import (
     render_activity_calendar,
 )
 from ui.patterns.empty_state import EmptyState
-from ui.patterns.entity_card import EntityCard
+from ui.patterns.card_generator import CardGenerator
 from ui.patterns.stats_grid import StatItem, StatsGrid
 
 
@@ -162,14 +162,26 @@ class GoalsViewComponents:
             cls="flex gap-2",
         )
 
-        return EntityCard(
-            title=goal.title,
-            description=goal.description or "",
-            status=str(goal.status) if goal.status else None,
-            priority=str(goal.priority) if goal.priority else None,
+        from ui.enum_helpers import get_priority_border_class
+        from ui.feedback import PriorityBadge, StatusBadge
+
+        priority_str = str(goal.priority) if goal.priority else None
+        border_cls = get_priority_border_class(priority_str) if priority_str else ""
+
+        return CardGenerator.from_dataclass(
+            {"title": goal.title, "description": goal.description or ""},
+            display_fields=["description"],
+            header_badges=[
+                StatusBadge(str(goal.status)) if goal.status else None,
+                PriorityBadge(priority_str) if priority_str else None,
+            ],
+            show_labels=False,
             metadata=metadata,
             actions=actions,
-            id=f"goal-{uid}",
+            card_attrs={
+                "id": f"goal-{uid}",
+                "cls": f"border-l-4 {border_cls}" if border_cls else "",
+            },
         )
 
     # ========================================================================

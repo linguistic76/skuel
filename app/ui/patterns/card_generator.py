@@ -9,8 +9,10 @@ Following the 100% dynamic architecture vision:
 - Add field to dataclass → Display auto-updates
 - No manual display composition needed
 
-Supports both detail cards (labeled fields) and list cards
-(compact, unlabeled, with header badges and action slots).
+THE single card component for all SKUEL UI contexts.
+
+Supports detail cards (labeled fields), list cards (compact, unlabeled),
+teaching rows (subtitle + badges + extra), and insight cards.
 
 Usage:
     from ui.patterns.card_generator import CardGenerator
@@ -21,13 +23,24 @@ Usage:
         display_fields=['title', 'description', 'priority', 'status'],
     )
 
-    # List card from dict
+    # List card with badges and metadata
     card = CardGenerator.from_dataclass(
-        path_dict,
-        display_fields=['description', 'difficulty', 'tags'],
+        {"title": goal.title, "description": goal.description},
+        display_fields=["description"],
         show_labels=False,
-        title_href='/pathways/123',
-        actions=Div(Button("View"), Button("Enroll")),
+        header_badges=[StatusBadge("active"), PriorityBadge("high")],
+        metadata=[progress_component, "Due: 2026-04-01"],
+        actions=Div(Button("View"), Button("Edit")),
+    )
+
+    # Teaching row card
+    card = CardGenerator.from_dataclass(
+        item,
+        display_fields=[],
+        subtitle="by Student Name",
+        header_badges=[feedback_badge, status_badge],
+        actions=ButtonLink("Review", href="/review/123"),
+        extra=feedback_toggle,
     )
 """
 
@@ -40,10 +53,11 @@ from typing import Any, get_args, get_origin
 from fasthtml.common import H3, A, Div, Li, P, Span, Ul
 
 from core.utils.logging import get_logger
-from ui.cards import Card
+from ui.cards import Card, CardBody
 from ui.feedback import Badge, BadgeT
 from ui.forms import Label
 from ui.layout import FlexItem, Row
+from ui.text import SmallText
 
 logger = get_logger("skuel.components.card_generator")
 
@@ -234,13 +248,27 @@ def _build_field_dict(instance: Any) -> dict[str, Any]:
 
 def _render_header_badges(
     instance: Any,
-    badge_field_names: list[str],
+    badge_field_names: list[str | Any],
     field_dict: dict[str, Any],
     field_renderers: dict[str, Callable],
 ) -> list[Any]:
-    """Render specified fields as badge elements for the title row."""
+    """Render specified fields as badge elements for the title row.
+
+    Items can be:
+    - str: introspect from dataclass field (existing behavior)
+    - None: skipped silently (enables conditional badges)
+    - Any other FT component: passed through directly
+    """
     elements: list[Any] = []
-    for field_name in badge_field_names:
+    for item in badge_field_names:
+        if item is None:
+            continue
+        if not isinstance(item, str):
+            # Pre-rendered FT component — pass through
+            elements.append(item)
+            continue
+        # String item — introspect from dataclass field
+        field_name = item
         if field_name not in field_dict:
             continue
         value = _get_value(instance, field_name)
@@ -288,8 +316,11 @@ class CardGenerator:
         show_empty_fields: bool = False,
         show_labels: bool = True,
         actions: Any = None,
-        header_badges: list[str] | None = None,
+        header_badges: list[str | Any] | None = None,
         title_href: str | None = None,
+        subtitle: str | Any | None = None,
+        metadata: list[Any] | None = None,
+        extra: Any | None = None,
     ) -> Div:
         """
         Generate display card from dataclass or dict introspection.
@@ -306,8 +337,14 @@ class CardGenerator:
             show_empty_fields: Show fields even if value is None/empty
             show_labels: When False, render values without Label wrappers (for list cards)
             actions: Optional action elements appended at card bottom with border separator
-            header_badges: Fields to render as badges beside the title in a flex row
+            header_badges: Fields or pre-rendered FT components for badges beside the title.
+                String items are introspected from dataclass; non-string items pass through;
+                None items are skipped silently (enables conditional badges).
             title_href: Optional URL to make the title a clickable link
+            subtitle: Text or FT component below the title (before badges row)
+            metadata: Pre-composed flex row after body fields, before actions.
+                Strings are wrapped in SmallText(); FT components pass through.
+            extra: Content appended after the actions slot, no wrapper.
 
         Returns:
             Card component
@@ -359,6 +396,17 @@ class CardGenerator:
             title_value = _get_value(instance, title_field)
             if title_value:
                 title_component = _render_title(str(title_value), title_href)
+
+                # Add subtitle below title if provided
+                if subtitle is not None:
+                    if isinstance(subtitle, str):
+                        subtitle_component = P(subtitle, cls="text-sm text-muted-foreground")
+                    else:
+                        subtitle_component = subtitle
+                    title_block = Div(title_component, subtitle_component)
+                else:
+                    title_block = title_component
+
                 if header_badges:
                     badge_elements = _render_header_badges(
                         instance, header_badges, field_dict, field_renderers or {}
@@ -366,15 +414,15 @@ class CardGenerator:
                     if badge_elements:
                         card_components.append(
                             Row(
-                                FlexItem(title_component, grow=True),
+                                FlexItem(title_block, grow=True),
                                 FlexItem(Div(*badge_elements, cls="flex gap-2"), shrink=False),
                                 gap=3,
                             )
                         )
                     else:
-                        card_components.append(title_component)
+                        card_components.append(title_block)
                 else:
-                    card_components.append(title_component)
+                    card_components.append(title_block)
                 # Remove title from fields list (already displayed)
                 if title_field in field_names:
                     field_names.remove(title_field)
@@ -420,16 +468,25 @@ class CardGenerator:
 
             card_components.append(field_component)
 
+        # Add metadata row
+        if metadata:
+            meta_items = [SmallText(m) if isinstance(m, str) else m for m in metadata]
+            card_components.append(Div(*meta_items, cls="flex flex-wrap gap-3 mt-3"))
+
         # Add actions slot
         if actions is not None:
             card_components.append(Div(actions, cls="mt-4 pt-3 border-t border-border"))
 
+        # Add extra content (raw append, no wrapper)
+        if extra is not None:
+            card_components.append(extra)
+
         # Build card attributes
-        attrs = {"cls": "bg-background shadow-md p-6"}
+        attrs: dict[str, Any] = {}
         if card_attrs:
             attrs.update(card_attrs)
 
-        return Card(*card_components, **attrs)
+        return Card(CardBody(*card_components), **attrs)
 
     @staticmethod
     def from_list(
@@ -440,7 +497,10 @@ class CardGenerator:
         title_field: str | None = None,
         list_attrs: dict[str, Any] | None = None,
         show_labels: bool = True,
-        header_badges: list[str] | None = None,
+        header_badges: list[str | Any] | None = None,
+        subtitle: str | Any | None = None,
+        metadata: list[Any] | None = None,
+        extra: Any | None = None,
     ) -> Div:
         """Generate a list of display cards from multiple instances."""
         cards = [
@@ -452,6 +512,9 @@ class CardGenerator:
                 title_field=title_field,
                 show_labels=show_labels,
                 header_badges=header_badges,
+                subtitle=subtitle,
+                metadata=metadata,
+                extra=extra,
             )
             for instance in instances
         ]
@@ -464,15 +527,21 @@ class CardGenerator:
 
     @staticmethod
     def compact_card(
-        instance: Any, display_fields: list[str], title_field: str | None = None
+        instance: Any,
+        display_fields: list[str],
+        title_field: str | None = None,
+        subtitle: str | Any | None = None,
+        metadata: list[Any] | None = None,
     ) -> Div:
         """Generate a compact card (minimal styling, fewer details)."""
         return CardGenerator.from_dataclass(
             instance,
             display_fields=display_fields,
             title_field=title_field,
+            subtitle=subtitle,
+            metadata=metadata,
             card_attrs={
-                "cls": "bg-background border border-border p-3 hover:shadow-md transition-shadow"
+                "cls": "bg-background border border-border hover:shadow-md transition-shadow"
             },
         )
 
@@ -483,7 +552,7 @@ class CardGenerator:
             instance,
             exclude_fields=exclude_fields,
             show_empty_fields=True,
-            card_attrs={"cls": "bg-background shadow-xl p-8"},
+            card_attrs={"cls": "bg-background shadow-xl"},
         )
 
 

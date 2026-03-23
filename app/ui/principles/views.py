@@ -33,7 +33,7 @@ from ui.patterns.activity_views_base import (
     ActivityViewTabs,
 )
 from ui.patterns.empty_state import EmptyState
-from ui.patterns.entity_card import EntityCard
+from ui.patterns.card_generator import CardGenerator
 from ui.patterns.stats_grid import StatItem, StatsGrid
 
 
@@ -235,12 +235,13 @@ class PrinciplesViewComponents:
         )
         actions = Div(*action_buttons, cls="flex gap-2")
 
-        return EntityCard(
-            title=title,
-            description=description or "",
-            metadata=metadata,
+        return CardGenerator.from_dataclass(
+            {"title": title, "description": description or ""},
+            display_fields=["description"],
+            show_labels=False,
+            metadata=[m for m in metadata if m],
             actions=actions,
-            id=f"principle-{uid}",
+            card_attrs={"id": f"principle-{uid}"},
         )
 
     # ========================================================================

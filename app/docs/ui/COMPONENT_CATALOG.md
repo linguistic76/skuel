@@ -29,7 +29,7 @@ All components follow MonsterUI (FrankenUI + Tailwind) conventions and WCAG 2.1 
 | **Feedback** | Alert, Badge, StatusBadge, PriorityBadge, Loading, Progress, RadialProgress | `ui/feedback.py` |
 | **Layout** | DivHStacked, DivVStacked, DivFullySpaced, DivCentered, Grid, Container, Row, Stack, FlexItem, Size | `ui/layout.py` |
 | **Typography** | PageTitle, SectionTitle, CardTitle, Subtitle, BodyText, SmallText, Caption, TruncatedText | `ui/text.py` |
-| **Patterns** | PageHeader, EntityCard, StackedActionCard, StatsGrid, EmptyState, ErrorBanner, etc. | `ui/patterns/*.py` |
+| **Patterns** | PageHeader, CardGenerator, StatsGrid, EmptyState, ErrorBanner, etc. | `ui/patterns/*.py` |
 | **Layouts** | BasePage, Navbar, Domain Layouts | `ui/layouts/*.py` |
 
 ---
@@ -568,133 +568,72 @@ CardGenerator.from_dataclass(
 
 ---
 
-## EntityCard
+## CardGenerator (continued) — List Cards, Teaching Rows, Insight Cards
 
-**Location:** `/ui/patterns/entity_card.py`
+CardGenerator handles all card use cases via its unified parameter set. Here are additional patterns beyond the detail-card examples above.
 
-Semantic card for displaying domain entities with variant support. Used in activity domain list views (goals, habits, events, choices, principles) and submissions/journals where fields are manually composed. For dataclass/dict-driven cards, prefer CardGenerator.
+### Activity Domain List Cards
 
-### EntityCard(title, description, status, priority, metadata, actions, config, **kwargs)
+Pass a dict with extracted fields. Use `header_badges` for pre-rendered status/priority badges. Use `metadata` for pre-composed metadata rows.
 
-Generic entity card supporting three display variants.
-
-**Parameters:**
-- `title: str` - Entity title
-- `description: str` - Optional description
-- `status: str | None` - Status (active, completed, etc.)
-- `priority: str | None` - Priority (critical, high, medium, low)
-- `metadata: list[str] | None` - Metadata items
-- `actions: Any` - Optional action buttons
-- `href: str | None` - Optional link URL
-- `config: CardConfig | None` - Variant configuration (NEW!)
-- `**kwargs` - Additional attributes
-
-### CardVariant (Enum)
-
-Display variants:
-- `DEFAULT` - Full layout (description, metadata, actions)
-- `COMPACT` - Title + badges only
-- `HIGHLIGHTED` - Full layout + border + background
-
-### CardConfig (Dataclass)
-
-Configuration for variants:
-
-**Factory Methods:**
-- `CardConfig.default()` - Standard card (main lists)
-- `CardConfig.compact()` - Condensed card (sidebars, mobile)
-- `CardConfig.highlighted()` - Emphasized card (pinned items)
-
-**Examples:**
 ```python
-from ui.patterns.entity_card import EntityCard, CardConfig, CardVariant
+from ui.patterns.card_generator import CardGenerator
+from ui.feedback import StatusBadge, PriorityBadge
 
-# Default card (full layout)
-EntityCard(
-    title="Complete quarterly report",
-    description="Draft and finalize Q4 report",
-    status="in_progress",
-    priority="high",
-    metadata=["Due: Dec 15", "Project: Q4"],
+CardGenerator.from_dataclass(
+    {"title": goal.title, "description": goal.description or ""},
+    display_fields=["description"],
+    header_badges=[
+        StatusBadge(str(goal.status)) if goal.status else None,
+        PriorityBadge(str(goal.priority)) if goal.priority else None,
+    ],
+    show_labels=False,
+    metadata=[progress_component, f"Due: {target_date}"],
+    actions=actions,
+    card_attrs={"id": f"goal-{uid}", "cls": f"border-l-4 {border_cls}"},
 )
-
-# Compact card (sidebar)
-EntityCard(
-    title="Complete quarterly report",
-    status="in_progress",
-    priority="high",
-    config=CardConfig.compact(),  # Hides description & metadata
-)
-
-# Highlighted card (pinned item)
-EntityCard(
-    title="URGENT: Board meeting prep",
-    description="Prepare materials",
-    priority="critical",
-    config=CardConfig.highlighted(),  # Adds border + background
-)
-
-# Responsive
-config = CardConfig.compact() if is_mobile else CardConfig.default()
-EntityCard(title=task.title, config=config)
 ```
 
+### Teaching Row Cards (subtitle + badges + extra)
 
----
+Use `subtitle` for text below the title, `header_badges` for badge clusters, `extra` for content after actions.
 
-## StackedActionCard
-
-**Location:** `/ui/patterns/stacked_action_card.py`
-
-Stacked layout card for row-style items with a header row (left title/subtitle | right badges) + right-aligned actions + optional extra content. Used across teaching UI for student cards, submission rows, class cards, and member rows.
-
-### StackedActionCard(header_left, header_right, actions, extra, header_align, cls)
-
-**Parameters:**
-- `header_left: FT` - Title/subtitle block (typically a `Div` with `cls="flex-1"`)
-- `header_right: FT | str` - Badge cluster or status indicators
-- `actions: FT | str` - Action buttons (wrapped in a right-aligned flex row)
-- `extra: FT | str` - Optional content below actions (e.g., HTMX feedback toggle)
-- `header_align: str` - Vertical alignment: `"items-center"` (default) or `"items-start"` (multi-line left)
-- `cls: str` - Card-level CSS classes (default: `"bg-background shadow-sm mb-2"`)
-
-**Examples:**
 ```python
-from ui.patterns.stacked_action_card import StackedActionCard
-
-# Simple row card
-StackedActionCard(
-    header_left=Div(
-        H4("Alice Smith", cls="mb-0 font-semibold"),
-        P("student_abc123", cls="text-xs text-foreground/40 mb-0"),
-        cls="flex-1",
-    ),
-    header_right=Div(
-        Badge("3 pending", variant=BadgeT.warning),
-        Badge("5/8 reviewed", variant=BadgeT.ghost),
-        cls="flex gap-2 items-center",
-    ),
-    actions=ButtonLink("View Student", href="/teaching/students/abc123", variant=ButtonT.primary, size=Size.sm),
-)
-
-# With extra content (feedback toggle)
-StackedActionCard(
-    header_left=Div(H4("Essay Draft", cls="mb-0 font-semibold"), cls="flex-1"),
-    header_right=Div(status_badge("pending"), cls="flex gap-2 items-center"),
+CardGenerator.from_dataclass(
+    {"title": "Essay Draft"},
+    display_fields=[],
+    subtitle="by Student Name",
+    header_badges=[feedback_badge, status_badge("pending")],
+    show_labels=False,
     actions=ButtonLink("Review", href="/teaching/review/uid", variant=ButtonT.primary, size=Size.sm),
     extra=feedback_toggle_div,
+    card_attrs={"cls": "bg-background shadow-sm mb-2"},
 )
+```
 
-# Multi-line left side (use items-start)
-StackedActionCard(
-    header_left=Div(
-        H4("Class Name", cls="mb-0 font-semibold"),
-        P("Optional description", cls="text-sm text-muted-foreground mb-0 mt-1"),
-        cls="flex-1",
-    ),
-    header_right=Div(Badge("12 students", variant=BadgeT.ghost), cls="flex gap-2 items-center"),
-    header_align="items-start",
-    actions=ButtonLink("View Class", href="/teaching/classes/uid", variant=ButtonT.primary, size=Size.sm),
+### Header Badges — Mixed Types
+
+`header_badges` accepts strings (introspected from dataclass), pre-rendered FT components (pass-through), and `None` (skipped). This enables conditional badges.
+
+```python
+header_badges=[
+    Badge("3 pending", variant=BadgeT.warning),  # FT component — pass-through
+    None if item.is_active else Badge("Inactive"),  # Conditional — None skipped
+    "status",  # String — introspected from dataclass field
+]
+```
+
+### Curriculum Link Cards
+
+Use `title_href` for clickable titles and `metadata` for UID display.
+
+```python
+CardGenerator.from_dataclass(
+    {"title": lesson.title, "description": lesson.description},
+    display_fields=["description"],
+    show_labels=False,
+    metadata=[lesson.uid],
+    title_href=f"/lessons/{lesson.uid}",
 )
 ```
 
@@ -1217,9 +1156,10 @@ Form(
 Entity list with empty state:
 
 ```python
-from ui.patterns.entity_card import EntityCard, CardConfig
+from ui.patterns.card_generator import CardGenerator
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.page_header import PageHeader
+from ui.feedback import StatusBadge, PriorityBadge
 
 content = Div(
     PageHeader(
@@ -1228,12 +1168,11 @@ content = Div(
     ),
     # List or empty state
     Div(
-        *[EntityCard(
-            title=task.title,
-            description=task.description,
-            status=task.status,
-            priority=task.priority,
-            config=CardConfig.default(),
+        *[CardGenerator.from_dataclass(
+            {"title": task.title, "description": task.description},
+            display_fields=["description"],
+            header_badges=[StatusBadge(task.status), PriorityBadge(task.priority)],
+            show_labels=False,
         ) for task in tasks],
         cls="space-y-3",
     ) if tasks else EmptyState(
@@ -1252,7 +1191,8 @@ Stats grid + recent items:
 ```python
 from ui.patterns.stats_grid import StatsGrid, StatCard
 from ui.patterns.section_header import SectionHeader
-from ui.patterns.entity_card import EntityCard, CardConfig
+from ui.patterns.card_generator import CardGenerator
+from ui.feedback import StatusBadge, PriorityBadge
 
 Div(
     # Stats section
@@ -1270,11 +1210,9 @@ Div(
         actions=ButtonLink("View All", href="/tasks"),
     ),
     Div(
-        *[EntityCard(
-            title=task.title,
-            status=task.status,
-            priority=task.priority,
-            config=CardConfig.compact(),  # Compact for dashboard
+        *[CardGenerator.compact_card(
+            {"title": task.title},
+            display_fields=[],
         ) for task in recent_tasks[:5]],
         cls="space-y-2",
     ),
@@ -1404,7 +1342,6 @@ Quick alphabetical index:
 - **Breadcrumbs** - `/ui/patterns/breadcrumbs.py`
 - **CardGenerator** - `/ui/patterns/card_generator.py`
 - **EmptyState** - `/ui/patterns/empty_state.py`
-- **EntityCard** - `/ui/patterns/entity_card.py`
 - **ErrorBanner** - `/ui/patterns/error_banner.py`
 - **Navbar (layout)** - `/ui/layouts/navbar.py`
 - **PageHeader** - `/ui/patterns/page_header.py`

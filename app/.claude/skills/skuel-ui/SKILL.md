@@ -199,7 +199,7 @@ def TaskCard(title: str, desc: str, stat: str, prio: str, uid: str): ...
 ```python
 from ui.patterns import PageHeader, SectionHeader, EmptyState, StatsGrid, StatCard
 from ui.patterns.stats_grid import StatItem
-from ui.patterns import ProgressMetric, RecommendationCard, SettingToggle
+from ui.patterns import ProgressMetric, SettingToggle
 
 # Empty state — primary list view with CTA
 EmptyState(
@@ -222,34 +222,41 @@ StatsGrid([
     StatItem(label="Overdue", value="3", trend="-2"),
 ])
 
-# CardGenerator — dynamic card from dataclass or dict (primary card tool)
+# CardGenerator — THE single card component for all SKUEL UI contexts
 from ui.patterns.card_generator import CardGenerator
+from ui.feedback import StatusBadge, PriorityBadge
+
+# Detail card from dataclass
 CardGenerator.from_dataclass(
     entity,
     display_fields=["description", "model", "status"],
     show_labels=False,                              # list card style (no Label wrappers)
-    header_badges=["status"],                       # badges beside title
+    header_badges=["status"],                       # badges beside title (string = introspect)
     title_href=f"/detail/{entity.uid}",             # linked title
     field_renderers={"model": render_model_badge},  # custom per-field
     actions=Div(Button("Edit"), Button("Delete"), cls="flex gap-2"),
 )
 
-# EntityCard — semantic entity display (activity domain list views)
-from ui.patterns.entity_card import EntityCard, CardConfig
-EntityCard(
-    title="Complete quarterly report",
-    status="in_progress",
-    priority="high",
+# Activity domain list card (dict with pre-rendered badges)
+CardGenerator.from_dataclass(
+    {"title": goal.title, "description": goal.description or ""},
+    display_fields=["description"],
+    header_badges=[StatusBadge("in_progress"), PriorityBadge("high")],
+    show_labels=False,
     metadata=["Due: Dec 15", "Project: Q4"],
     actions=Div(ButtonLink("View", href="/tasks/123", variant=ButtonT.ghost)),
 )
 
-# StackedActionCard — row-style card: header (left|right) + actions + optional extra
-from ui.patterns.stacked_action_card import StackedActionCard
-StackedActionCard(
-    header_left=Div(H4("Title", cls="mb-0 font-semibold"), P("subtitle", cls="text-xs text-foreground/40 mb-0"), cls="flex-1"),
-    header_right=Div(Badge("3 pending", variant=BadgeT.warning), cls="flex gap-2 items-center"),
+# Teaching row card (subtitle + badges + extra)
+CardGenerator.from_dataclass(
+    {"title": "Essay Draft"},
+    display_fields=[],
+    subtitle="by Student Name",
+    header_badges=[Badge("3 pending", variant=BadgeT.warning)],
+    show_labels=False,
     actions=ButtonLink("View", href="/path", variant=ButtonT.primary, size=Size.sm),
+    extra=feedback_toggle,
+    card_attrs={"cls": "bg-background shadow-sm mb-2"},
 )
 
 # StatusBadge — delegates to EntityStatus.get_badge_class() for all 14 statuses
@@ -1027,7 +1034,7 @@ When building a new SKUEL page or feature, verify:
 | `/ui/layouts/nav_config.py` | `ICON_NAV_ITEMS`, `*_DROPDOWN_ITEMS`, `MAIN_NAV_ITEMS` |
 | `/ui/patterns/sidebar.py` | `SidebarItem`, `SidebarNav`, `SidebarPage` |
 | `/ui/curriculum/` | Curriculum sidebar, layout, landing page |
-| `/ui/patterns/__init__.py` | `PageHeader`, `SectionHeader`, `EmptyState`, `EntityCard`, `StackedActionCard`, `StatCard`, `StatsGrid`, `FormGenerator`, `ProgressMetric`, `RecommendationCard`, `SettingToggle` |
+| `/ui/patterns/__init__.py` | `PageHeader`, `SectionHeader`, `EmptyState`, `CardGenerator`, `StatCard`, `StatsGrid`, `FormGenerator`, `ProgressMetric`, `SettingToggle` |
 | `/ui/page_contexts.py` | Per-domain TypedDicts (`TasksPageContext`, `GoalsPageContext`, etc.) for route→UI contracts |
 | `/ui/patterns/form_generator.py` | `FormGenerator` — dynamic form generation from Pydantic models |
 | `/ui/tokens.py` | `Container`, `Spacing`, `Card` design tokens |

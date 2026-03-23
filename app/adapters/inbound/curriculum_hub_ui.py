@@ -21,7 +21,7 @@ from ui.curriculum.landing import CurriculumLandingView
 from ui.curriculum.layout import create_curriculum_page
 from ui.layouts.base_page import BasePage
 from ui.patterns.empty_state import EmptyState
-from ui.patterns.entity_card import EntityCard
+from ui.patterns.card_generator import CardGenerator
 from ui.patterns.page_header import PageHeader
 from ui.patterns.stats_grid import StatItem
 
@@ -161,11 +161,12 @@ def _entity_list(items: list[Any], domain_slug: str, empty_msg: str) -> Div:
         href = detail_pattern.format(uid=uid) if detail_pattern and uid else None
 
         rows.append(
-            EntityCard(
-                title=title,
-                description=description,
+            CardGenerator.from_dataclass(
+                {"title": title, "description": description},
+                display_fields=["description"],
+                show_labels=False,
                 metadata=[uid] if uid else None,
-                href=href,
+                title_href=href,
             )
         )
     return Div(*rows, cls="space-y-3")

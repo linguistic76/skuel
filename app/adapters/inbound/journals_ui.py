@@ -92,7 +92,7 @@ def _render_upload_status(
 
 def _render_journal_card(je_input: Any) -> Any:
     """Render a single journal entry card for the browse grid using EntityCard."""
-    from ui.patterns.entity_card import EntityCard
+    from ui.patterns.card_generator import CardGenerator
 
     file_size = getattr(je_input, "file_size", 0) or 0
     file_size_mb = file_size / 1024 / 1024 if file_size else 0
@@ -128,12 +128,18 @@ def _render_journal_card(je_input: Any) -> Any:
             )
         )
 
-    return EntityCard(
-        title=je_input.title or "Untitled",
-        status=status_str,
+    from ui.feedback import StatusBadge
+
+    return CardGenerator.from_dataclass(
+        {"title": je_input.title or "Untitled"},
+        display_fields=[],
+        header_badges=[
+            StatusBadge(status_str) if status_str else None,
+        ],
+        show_labels=False,
         metadata=[" \u2022 ".join(meta_parts)] if meta_parts else None,
         actions=Div(*action_buttons, cls="flex gap-2") if action_buttons else None,
-        cls="mb-2",
+        card_attrs={"cls": "mb-2"},
     )
 
 

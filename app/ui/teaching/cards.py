@@ -7,13 +7,13 @@ Dashboard, stat, and summary card components for teaching views.
 
 from typing import Any
 
-from fasthtml.common import H3, H4, Div, P
+from fasthtml.common import H3, Div, P
 
 from ui.buttons import ButtonLink, ButtonT
 from ui.cards import Card
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
-from ui.patterns.stacked_action_card import StackedActionCard
+from ui.patterns.card_generator import CardGenerator
 from ui.teaching.badges import entity_type_badge, status_badge
 from ui.teaching.types import (
     ClassSummary,
@@ -93,54 +93,48 @@ def render_queue_item(item: QueueItem) -> Div:
     if item.project_name:
         subtitle_parts.append(f"for {item.project_name}")
 
-    feedback_indicator: Any = ""
+    feedback_badge: Any = None
     if item.feedback_count > 0:
-        feedback_indicator = Badge(
+        feedback_badge = Badge(
             f"{item.feedback_count} feedback",
             variant=BadgeT.info,
             size=Size.sm,
         )
 
-    return StackedActionCard(
-        header_left=Div(
-            H4(title, cls="mb-0 font-semibold"),
-            P(" · ".join(subtitle_parts), cls="text-sm text-muted-foreground mb-0"),
-            cls="flex-1",
-        ),
-        header_right=Div(
-            feedback_indicator,
+    return CardGenerator.from_dataclass(
+        {"title": title},
+        display_fields=[],
+        subtitle=" · ".join(subtitle_parts),
+        header_badges=[
+            feedback_badge,
             entity_type_badge(item.entity_type),
             status_badge(item.status),
-            cls="flex gap-2 items-center",
-        ),
+        ],
+        show_labels=False,
         actions=ButtonLink(
             "Review",
             href=f"/teaching/review/{item.ku_uid}",
             variant=ButtonT.primary,
             size=Size.sm,
         ),
+        card_attrs={"cls": "bg-background shadow-sm mb-2"},
     )
 
 
 def render_exercise_summary_card(item: ExerciseSummary) -> Div:
     """Render an exercise card with submission counts and a link."""
-    scope_badge = Badge(item.scope, variant=BadgeT.outline, size=Size.sm) if item.scope else ""
+    scope_badge = Badge(item.scope, variant=BadgeT.outline, size=Size.sm) if item.scope else None
     pending_variant = BadgeT.warning if item.pending_count > 0 else BadgeT.ghost
 
-    return StackedActionCard(
-        header_left=Div(
-            H4(item.title, cls="mb-0 font-semibold"),
-            Div(scope_badge, cls="mt-1") if item.scope else "",
-            cls="flex-1",
-        ),
-        header_right=Div(
+    return CardGenerator.from_dataclass(
+        {"title": item.title},
+        display_fields=[],
+        subtitle=scope_badge,
+        header_badges=[
             Badge(f"{item.pending_count} pending", variant=pending_variant),
-            Badge(
-                f"{item.reviewed_count}/{item.total_count} reviewed",
-                variant=BadgeT.ghost,
-            ),
-            cls="flex gap-2 items-center",
-        ),
+            Badge(f"{item.reviewed_count}/{item.total_count} reviewed", variant=BadgeT.ghost),
+        ],
+        show_labels=False,
         actions=Div(
             ButtonLink(
                 "Edit",
@@ -156,6 +150,7 @@ def render_exercise_summary_card(item: ExerciseSummary) -> Div:
             ),
             cls="flex gap-2",
         ),
+        card_attrs={"cls": "bg-background shadow-sm mb-2"},
     )
 
 
@@ -163,26 +158,22 @@ def render_student_summary_card(item: StudentSummary) -> Div:
     """Render a student card with submission counts and a link."""
     pending_variant = BadgeT.warning if item.pending_count > 0 else BadgeT.ghost
 
-    return StackedActionCard(
-        header_left=Div(
-            H4(item.student_name, cls="mb-0 font-semibold"),
-            P(item.student_uid, cls="text-xs text-foreground/40 mb-0"),
-            cls="flex-1",
-        ),
-        header_right=Div(
+    return CardGenerator.from_dataclass(
+        {"title": item.student_name},
+        display_fields=[],
+        subtitle=P(item.student_uid, cls="text-xs text-foreground/40 mb-0"),
+        header_badges=[
             Badge(f"{item.pending_count} pending", variant=pending_variant),
-            Badge(
-                f"{item.reviewed_count}/{item.submission_count} reviewed",
-                variant=BadgeT.ghost,
-            ),
-            cls="flex gap-2 items-center",
-        ),
+            Badge(f"{item.reviewed_count}/{item.submission_count} reviewed", variant=BadgeT.ghost),
+        ],
+        show_labels=False,
         actions=ButtonLink(
             "View Student",
             href=f"/teaching/students/{item.student_uid}",
             variant=ButtonT.primary,
             size=Size.sm,
         ),
+        card_attrs={"cls": "bg-background shadow-sm mb-2"},
     )
 
 
@@ -190,32 +181,28 @@ def render_class_card(item: ClassSummary) -> Div:
     """Render a class (group) card with member/exercise/pending counts."""
     pending_variant = BadgeT.warning if item.pending_count > 0 else BadgeT.ghost
     active_badge: Any = (
-        "" if item.is_active else Badge("Inactive", variant=BadgeT.ghost, size=Size.sm)
+        None if item.is_active else Badge("Inactive", variant=BadgeT.ghost, size=Size.sm)
     )
 
-    return StackedActionCard(
-        header_left=Div(
-            Div(
-                H4(item.name, cls="mb-0 font-semibold"),
-                active_badge,
-                cls="flex items-center gap-2",
-            ),
-            P(item.description, cls="text-sm text-muted-foreground mb-0 mt-1")
-            if item.description
-            else "",
-            cls="flex-1",
-        ),
-        header_right=Div(
+    subtitle_text = item.description if item.description else None
+
+    return CardGenerator.from_dataclass(
+        {"title": item.name},
+        display_fields=[],
+        title_field="title",
+        subtitle=subtitle_text,
+        header_badges=[
+            active_badge,
             Badge(f"{item.pending_count} pending", variant=pending_variant),
             Badge(f"{item.member_count} students", variant=BadgeT.ghost),
             Badge(f"{item.exercise_count} exercises", variant=BadgeT.ghost),
-            cls="flex gap-2 items-center flex-wrap",
-        ),
-        header_align="items-start",
+        ],
+        show_labels=False,
         actions=ButtonLink(
             "View Class",
             href=f"/teaching/classes/{item.uid}",
             variant=ButtonT.primary,
             size=Size.sm,
         ),
+        card_attrs={"cls": "bg-background shadow-sm mb-2"},
     )

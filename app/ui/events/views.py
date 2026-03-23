@@ -35,7 +35,7 @@ from ui.patterns.activity_views_base import (
     render_activity_calendar,
 )
 from ui.patterns.empty_state import EmptyState
-from ui.patterns.entity_card import EntityCard
+from ui.patterns.card_generator import CardGenerator
 from ui.patterns.stats_grid import StatItem, StatsGrid
 
 
@@ -174,13 +174,18 @@ class EventsViewComponents:
             cls="flex gap-2",
         )
 
-        return EntityCard(
-            title=event.title,
-            description=event.description or "",
-            status=event_type_str.title(),
+        from ui.feedback import StatusBadge
+
+        return CardGenerator.from_dataclass(
+            {"title": event.title, "description": event.description or ""},
+            display_fields=["description"],
+            header_badges=[
+                StatusBadge(event_type_str.title()),
+            ],
+            show_labels=False,
             metadata=metadata,
             actions=actions,
-            id=f"event-{uid}",
+            card_attrs={"id": f"event-{uid}"},
         )
 
     # ========================================================================

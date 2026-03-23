@@ -39,7 +39,7 @@ Every page is a Python function that returns HTML. There is no JSX, no template 
 ```
 Layouts   → BasePage, SidebarPage, DashboardLayout
               ↓ compose
-Patterns  → PageHeader, EntityCard, StatsGrid, EmptyState, FormGenerator
+Patterns  → PageHeader, CardGenerator, StatsGrid, EmptyState, FormGenerator
               ↓ compose
 Components → Button, Card, Badge, Input, Select, Alert, Modal, Row, Stack
 ```
@@ -240,7 +240,7 @@ Row(
 
 # Responsive grid
 Grid(
-    *[EntityCard(...) for e in entities],
+    *[CardGenerator.from_dataclass(e, display_fields=["description"], show_labels=False) for e in entities],
     cols=3,        # 1 col mobile, 2 tablet, 3 desktop
     gap=4,
 )
@@ -467,25 +467,33 @@ CardGenerator.from_dataclass(
 )
 ```
 
-### EntityCard — Semantic Entity Display
+### CardGenerator — List Cards with Badges
 
-For activity domain list views where fields are manually composed (not auto-introspected).
+For activity domain list views where fields are manually composed as dicts.
 
 ```python
-from ui.patterns.entity_card import EntityCard, CardConfig
+from ui.patterns.card_generator import CardGenerator
+from ui.feedback import StatusBadge, PriorityBadge
 
-# Default — full layout with description, metadata, actions
-EntityCard(
-    title="Complete quarterly report",
-    description="Summarize Q1 results and present to stakeholders",
-    status="active",
-    priority="high",
+# List card with badges, metadata, and actions
+CardGenerator.from_dataclass(
+    {"title": "Complete quarterly report", "description": "Summarize Q1 results"},
+    display_fields=["description"],
+    header_badges=[StatusBadge("active"), PriorityBadge("high")],
+    show_labels=False,
     metadata=["Due: Mar 15", "Project: Finance"],
     actions=Button("View", variant=ButtonT.ghost, size=Size.sm),
 )
 
-# Compact — title and badges only, for dense lists
-EntityCard(title="Daily standup", status="active", config=CardConfig.compact())
+# Teaching row card with subtitle
+CardGenerator.from_dataclass(
+    {"title": "Daily standup"},
+    display_fields=[],
+    subtitle="by Student Name",
+    header_badges=[Badge("pending", variant=BadgeT.warning)],
+    show_labels=False,
+    card_attrs={"cls": "bg-background shadow-sm mb-2"},
+)
 ```
 
 ### StatsGrid — Dashboard Metrics
@@ -783,7 +791,7 @@ from ui.buttons import Button, ButtonLink, ButtonT
 from ui.layout import Grid, Stack, Size
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
-from ui.patterns.entity_card import EntityCard, CardConfig
+from ui.patterns.card_generator import CardGenerator
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.page_header import PageHeader
@@ -823,11 +831,12 @@ def create_example_routes(app, rt, services):
                        actions=Button("New Item", variant=ButtonT.primary)),
             StatsGrid(stats),
             SectionTitle("All Items"),
-            Grid(*[EntityCard(title=e.title, description=e.description,
-                              status=e.status, priority=e.priority,
-                              href=f"/example/detail?uid={e.uid}",
-                              config=CardConfig.default()) for e in entities],
-                 cols=3),
+            Grid(*[CardGenerator.from_dataclass(
+                    {"title": e.title, "description": e.description},
+                    display_fields=["description"],
+                    show_labels=False,
+                    title_href=f"/example/detail?uid={e.uid}",
+                 ) for e in entities], cols=3),
             gap=6,
         )
 
@@ -842,7 +851,7 @@ def create_example_routes(app, rt, services):
 1. **Authenticate** — `require_authenticated_user(request)` or `@require_admin`
 2. **Load data** — Call service, get `Result[T]`
 3. **Handle errors** — Check `result.is_error`, show `render_error_banner()`
-4. **Build content** — Compose components: `PageHeader` + `StatsGrid` + `Grid(EntityCard...)` + etc.
+4. **Build content** — Compose components: `PageHeader` + `StatsGrid` + `Grid(CardGenerator...)` + etc.
 5. **Wrap in BasePage** — Set title, page type, active page for navbar highlighting
 
 ---
@@ -898,7 +907,7 @@ ui/choices/   — ChoiceComparisonView, views
 ui/principles/ — PrincipleStrengthView, views
 ```
 
-These compose the same core components (EntityCard, StatsGrid, etc.) with domain-specific data. The pattern:
+These compose the same core components (CardGenerator, StatsGrid, etc.) with domain-specific data. The pattern:
 
 ```python
 # ui/tasks/views.py
@@ -908,7 +917,7 @@ class TasksViewComponents:
         return Stack(
             PageHeader("Tasks", actions=...),
             StatsGrid(stats),
-            Grid(*[EntityCard(...) for t in tasks], cols=2),
+            Grid(*[CardGenerator.from_dataclass(t, display_fields=["description"], show_labels=False) for t in tasks], cols=2),
         )
 
     @staticmethod

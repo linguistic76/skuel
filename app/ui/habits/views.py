@@ -35,7 +35,7 @@ from ui.patterns.activity_views_base import (
     render_activity_calendar,
 )
 from ui.patterns.empty_state import EmptyState
-from ui.patterns.entity_card import EntityCard
+from ui.patterns.card_generator import CardGenerator
 from ui.patterns.stats_grid import StatItem, StatsGrid
 
 
@@ -176,13 +176,18 @@ class HabitsViewComponents:
             cls="flex gap-2",
         )
 
-        return EntityCard(
-            title=habit.title,
-            description=habit.description or "",
-            status=str(habit.status) if habit.status else None,
+        from ui.feedback import StatusBadge
+
+        return CardGenerator.from_dataclass(
+            {"title": habit.title, "description": habit.description or ""},
+            display_fields=["description"],
+            header_badges=[
+                StatusBadge(str(habit.status)) if habit.status else None,
+            ],
+            show_labels=False,
             metadata=metadata,
             actions=actions,
-            id=f"habit-{uid}",
+            card_attrs={"id": f"habit-{uid}"},
         )
 
     # ========================================================================
