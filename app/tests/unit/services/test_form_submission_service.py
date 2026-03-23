@@ -52,7 +52,7 @@ class TestSubmitForm:
     async def test_submit_success(self):
         template = _make_template()
         template_service = MagicMock()
-        template_service.get_form_template = AsyncMock(return_value=Result.ok(template))
+        template_service.get = AsyncMock(return_value=Result.ok(template))
 
         submission = _make_submission()
         backend = MagicMock()
@@ -81,7 +81,7 @@ class TestSubmitForm:
     @pytest.mark.asyncio
     async def test_submit_template_not_found(self):
         template_service = MagicMock()
-        template_service.get_form_template = AsyncMock(
+        template_service.get = AsyncMock(
             return_value=Result.fail(Errors.not_found(resource="FormTemplate", identifier="ft_x"))
         )
         service = _make_service(template_service=template_service)
@@ -99,7 +99,7 @@ class TestSubmitForm:
         """Submission rejected when required field is missing."""
         template = _make_template()
         template_service = MagicMock()
-        template_service.get_form_template = AsyncMock(return_value=Result.ok(template))
+        template_service.get = AsyncMock(return_value=Result.ok(template))
 
         service = _make_service(template_service=template_service)
 
@@ -117,7 +117,7 @@ class TestSubmitForm:
         """Submission rejected when select value not in options."""
         template = _make_template()
         template_service = MagicMock()
-        template_service.get_form_template = AsyncMock(return_value=Result.ok(template))
+        template_service.get = AsyncMock(return_value=Result.ok(template))
 
         service = _make_service(template_service=template_service)
 
@@ -135,7 +135,7 @@ class TestSubmitForm:
         """Submission rejected when unknown fields are included."""
         template = _make_template()
         template_service = MagicMock()
-        template_service.get_form_template = AsyncMock(return_value=Result.ok(template))
+        template_service.get = AsyncMock(return_value=Result.ok(template))
 
         service = _make_service(template_service=template_service)
 
@@ -152,7 +152,7 @@ class TestSubmitForm:
     async def test_submit_publishes_event(self):
         template = _make_template()
         template_service = MagicMock()
-        template_service.get_form_template = AsyncMock(return_value=Result.ok(template))
+        template_service.get = AsyncMock(return_value=Result.ok(template))
 
         submission = _make_submission()
         backend = MagicMock()
@@ -183,7 +183,7 @@ class TestSubmitForm:
     async def test_submit_with_custom_title(self):
         template = _make_template()
         template_service = MagicMock()
-        template_service.get_form_template = AsyncMock(return_value=Result.ok(template))
+        template_service.get = AsyncMock(return_value=Result.ok(template))
 
         submission = _make_submission(title="My Custom Title")
         backend = MagicMock()
@@ -206,7 +206,7 @@ class TestSubmitForm:
         """Verify template_schema_hash is a 64-char hex string on the submission."""
         template = _make_template()
         template_service = MagicMock()
-        template_service.get_form_template = AsyncMock(return_value=Result.ok(template))
+        template_service.get = AsyncMock(return_value=Result.ok(template))
 
         # Return the submission passed to create_with_relationships
         async def capture_create(sub, _user_uid, _ft_uid):
@@ -233,7 +233,7 @@ class TestSubmitForm:
         """When create_with_relationships fails, submit_form returns the error."""
         template = _make_template()
         template_service = MagicMock()
-        template_service.get_form_template = AsyncMock(return_value=Result.ok(template))
+        template_service.get = AsyncMock(return_value=Result.ok(template))
 
         backend = MagicMock()
         backend.create_with_relationships = AsyncMock(

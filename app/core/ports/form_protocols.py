@@ -68,39 +68,29 @@ class FormSubmissionBackendOperations(BackendOperations["FormSubmission"], Proto
 
 
 class FormTemplateOperations(Protocol):
-    """Form template operations for admin CRUD and lesson embedding.
+    """Form template operations — CRUDOperations + lesson embedding.
 
-    Route consumer: form_templates_api.py
-    Implementation: FormTemplateService
+    Route consumer: form_templates_api.py, CRUDRouteFactory
+    Implementation: FormTemplateService (extends BaseService)
     """
 
-    async def create_form_template(
+    async def create(self, entity: Any) -> Result[Any]: ...
+
+    async def get(self, uid: str) -> Result[Any]: ...
+
+    async def update(self, uid: str, updates: dict[str, Any]) -> Result[Any]: ...
+
+    async def delete(self, uid: str, cascade: bool = False) -> Result[bool]: ...
+
+    async def list(
         self,
-        title: str,
-        form_schema: list[dict[str, Any]],
-        description: str | None = None,
-        instructions: str | None = None,
-        tags: list[str] | None = None,
+        limit: int = 100,
+        offset: int = 0,
+        order_by: str | None = None,
+        order_desc: bool = False,
+        user_uid: str | None = None,
+        **kwargs: Any,
     ) -> Result[Any]: ...
-
-    async def get_form_template(self, uid: str) -> Result[Any]: ...
-
-    async def list_form_templates(self, limit: int = 50) -> Result[list[Any]]: ...
-
-    async def update_form_template(
-        self,
-        uid: str,
-        title: str | None = None,
-        description: str | None = None,
-        instructions: str | None = None,
-        form_schema: list[dict[str, Any]] | None = None,
-        tags: list[str] | None = None,
-        status: str | None = None,
-    ) -> Result[Any]: ...
-
-    async def delete_form_template(self, uid: str) -> Result[bool]:
-        """Delete a FormTemplate. Fails if submissions exist (data integrity guard)."""
-        ...
 
     async def link_to_lesson(self, form_template_uid: str, lesson_uid: str) -> Result[bool]: ...
 

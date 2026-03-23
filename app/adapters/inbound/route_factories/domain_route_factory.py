@@ -60,6 +60,9 @@ if TYPE_CHECKING:
 class CRUDRouteConfig:
     """Static parameters for CRUDRouteFactory.
 
+    Supports non-activity domains via scope/require_role/user_service_attr.
+    Activity Domains use the defaults (USER_OWNED, no role requirement).
+
     See: /docs/patterns/ROUTE_FACTORIES.md
     """
 
@@ -67,6 +70,10 @@ class CRUDRouteConfig:
     update_schema: type
     uid_prefix: str
     prometheus_metrics_attr: str | None = None
+    # Non-activity domain support (defaults match Activity Domain behavior)
+    scope: str | None = None  # ContentScope value; None = USER_OWNED default
+    require_role: str | None = None  # UserRole value; None = no role requirement
+    user_service_attr: str | None = None  # Services container attr for user_service_getter
 
 
 @dataclass(frozen=True)
@@ -203,13 +210,39 @@ def register_domain_routes(
             if config.crud.prometheus_metrics_attr
             else None
         )
+        # Resolve scope (default USER_OWNED for backward compatibility)
+        crud_scope = (
+            ContentScope(config.crud.scope)
+            if config.crud.scope
+            else ContentScope.USER_OWNED
+        )
+        # Resolve require_role
+        crud_require_role = None
+        crud_user_service_getter = None
+        if config.crud.require_role:
+            from core.models.enums import UserRole
+
+            crud_require_role = UserRole(config.crud.require_role)
+            # Build user_service_getter from container attr
+            if config.crud.user_service_attr:
+                _user_svc = getattr(services, config.crud.user_service_attr, None)
+
+                def _make_getter(svc: Any) -> Callable:
+                    def getter() -> Any:
+                        return svc
+                    return getter
+
+                crud_user_service_getter = _make_getter(_user_svc)
+
         CRUDRouteFactory(
             service=primary_service,
             domain_name=config.domain_name,
             create_schema=config.crud.create_schema,
             update_schema=config.crud.update_schema,
             uid_prefix=config.crud.uid_prefix,
-            scope=ContentScope.USER_OWNED,
+            scope=crud_scope,
+            require_role=crud_require_role,
+            user_service_getter=crud_user_service_getter,
             prometheus_metrics=prometheus_metrics,
         ).register_routes(app, rt)
 

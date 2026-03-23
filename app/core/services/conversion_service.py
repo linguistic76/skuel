@@ -33,6 +33,10 @@ from core.models.goal.goal import Goal
 from core.models.goal.goal_request import GoalCreateRequest, GoalUpdateRequest
 from core.models.habit.habit import Habit
 from core.models.habit.habit_request import HabitCreateRequest, HabitUpdateRequest
+from core.models.exercises.revised_exercise import RevisedExercise
+from core.models.exercises.revised_exercise_request import RevisedExerciseCreateRequest
+from core.models.forms.form_template import FormTemplate
+from core.models.forms.form_template_request import FormTemplateCreateRequest
 from core.models.ku.ku import Ku
 from core.models.lesson.lesson_request import LessonCreateRequest
 from core.models.principle.principle import Principle
@@ -462,6 +466,22 @@ class ConversionServiceV2:
             extra_updates["stakeholders"] = tuple(schema.stakeholders)
 
         return cls.update_to_pure(existing, schema, **extra_updates)
+
+    # --- FormTemplate Conversions --
+    @classmethod
+    def formtemplate_create_to_pure(
+        cls, schema: FormTemplateCreateRequest, uid: str | None = None, **kwargs: Any
+    ) -> FormTemplate:
+        """Convert FormTemplateCreateRequest to FormTemplate using generic method."""
+        return cls.create_to_pure(schema, FormTemplate, uid, **kwargs)
+
+    # --- RevisedExercise Conversions --
+    @classmethod
+    def revisedexercise_create_to_pure(
+        cls, schema: RevisedExerciseCreateRequest, uid: str | None = None, **kwargs: Any
+    ) -> RevisedExercise:
+        """Convert RevisedExerciseCreateRequest to RevisedExercise using generic method."""
+        return cls.create_to_pure(schema, RevisedExercise, uid, **kwargs)
 
     # ========================================================================
     # VIEW CONVERSIONS (Keep specific for now due to view complexity)

@@ -26,63 +26,56 @@ def _make_service(backend=None, event_bus=None):
     return FormTemplateService(backend=backend, event_bus=event_bus)
 
 
-class TestCreateFormTemplate:
+class TestCreate:
     @pytest.mark.asyncio
     async def test_create_success(self):
+        template = _make_template()
         backend = MagicMock()
-        backend.create = AsyncMock(return_value=Result.ok(None))
+        backend.create = AsyncMock(return_value=Result.ok(template))
         event_bus = MagicMock()
         event_bus.publish_async = AsyncMock()
         service = _make_service(backend=backend, event_bus=event_bus)
 
-        result = await service.create_form_template(
-            title="Feedback",
-            form_schema=[{"name": "q1", "type": "text", "label": "Q1"}],
-        )
+        result = await service.create(template)
 
         assert result.is_ok
-        assert result.value.title == "Feedback"
+        assert result.value.title == "Feedback Form"
         assert result.value.entity_type == EntityType.FORM_TEMPLATE
-        assert result.value.uid.startswith("ft_")
         backend.create.assert_awaited_once()
         event_bus.publish_async.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_create_backend_failure(self):
+        template = _make_template()
         backend = MagicMock()
         backend.create = AsyncMock(
             return_value=Result.fail(Errors.database(operation="create", message="DB error"))
         )
         service = _make_service(backend=backend)
 
-        result = await service.create_form_template(
-            title="Test",
-            form_schema=[{"name": "q1", "type": "text", "label": "Q1"}],
-        )
+        result = await service.create(template)
 
         assert result.is_error
 
     @pytest.mark.asyncio
     async def test_create_publishes_event(self):
+        template = _make_template()
         backend = MagicMock()
-        backend.create = AsyncMock(return_value=Result.ok(None))
+        backend.create = AsyncMock(return_value=Result.ok(template))
         event_bus = MagicMock()
         event_bus.publish_async = AsyncMock()
         service = _make_service(backend=backend, event_bus=event_bus)
 
-        await service.create_form_template(
-            title="Event Test",
-            form_schema=[{"name": "q1", "type": "text", "label": "Q1"}],
-        )
+        await service.create(template)
 
         event_bus.publish_async.assert_awaited_once()
         event = event_bus.publish_async.call_args[0][0]
         assert event.event_type == "form_template.created"
-        assert event.title == "Event Test"
+        assert event.title == "Feedback Form"
         assert event.field_count == 1
 
 
-class TestGetFormTemplate:
+class TestGet:
     @pytest.mark.asyncio
     async def test_get_success(self):
         template = _make_template()
@@ -90,7 +83,7 @@ class TestGetFormTemplate:
         backend.get = AsyncMock(return_value=Result.ok(template))
         service = _make_service(backend=backend)
 
-        result = await service.get_form_template("ft_test_123")
+        result = await service.get("ft_test_123")
 
         assert result.is_ok
         assert result.value.uid == "ft_test_123"
@@ -101,23 +94,23 @@ class TestGetFormTemplate:
         backend.get = AsyncMock(return_value=Result.ok(None))
         service = _make_service(backend=backend)
 
-        result = await service.get_form_template("ft_nonexistent")
+        result = await service.get("ft_nonexistent")
 
         assert result.is_error
 
 
-class TestUpdateFormTemplate:
+class TestUpdate:
     @pytest.mark.asyncio
     async def test_update_success(self):
         template = _make_template(title="Updated Title")
         backend = MagicMock()
-        backend.update = AsyncMock(return_value=Result.ok(None))
+        backend.update = AsyncMock(return_value=Result.ok(template))
         backend.get = AsyncMock(return_value=Result.ok(template))
         event_bus = MagicMock()
         event_bus.publish_async = AsyncMock()
         service = _make_service(backend=backend, event_bus=event_bus)
 
-        result = await service.update_form_template(uid="ft_test_123", title="Updated Title")
+        result = await service.update(uid="ft_test_123", updates={"title": "Updated Title"})
 
         assert result.is_ok
         backend.update.assert_awaited_once()
@@ -125,30 +118,31 @@ class TestUpdateFormTemplate:
 
     @pytest.mark.asyncio
     async def test_update_no_changes(self):
-        """No-op update returns the existing template without writing."""
+        """Empty updates dict still goes through mixin (validates existence)."""
         template = _make_template()
         backend = MagicMock()
         backend.get = AsyncMock(return_value=Result.ok(template))
-        backend.update = AsyncMock()
+        backend.update = AsyncMock(return_value=Result.ok(template))
         service = _make_service(backend=backend)
 
-        result = await service.update_form_template(uid="ft_test_123")
+        result = await service.update(uid="ft_test_123", updates={})
 
         assert result.is_ok
-        backend.update.assert_not_awaited()
 
 
-class TestDeleteFormTemplate:
+class TestDelete:
     @pytest.mark.asyncio
     async def test_delete_success_no_submissions(self):
+        template = _make_template()
         backend = MagicMock()
         backend.execute_query = AsyncMock(return_value=Result.ok([{"count": 0}]))
+        backend.get = AsyncMock(return_value=Result.ok(template))
         backend.delete = AsyncMock(return_value=Result.ok(True))
         event_bus = MagicMock()
         event_bus.publish_async = AsyncMock()
         service = _make_service(backend=backend, event_bus=event_bus)
 
-        result = await service.delete_form_template("ft_test_123")
+        result = await service.delete("ft_test_123")
 
         assert result.is_ok
         backend.delete.assert_awaited_once()
@@ -162,7 +156,7 @@ class TestDeleteFormTemplate:
         backend.delete = AsyncMock()
         service = _make_service(backend=backend)
 
-        result = await service.delete_form_template("ft_test_123")
+        result = await service.delete("ft_test_123")
 
         assert result.is_error
         assert "3 existing submission" in str(result.error)
@@ -170,14 +164,16 @@ class TestDeleteFormTemplate:
 
     @pytest.mark.asyncio
     async def test_delete_publishes_event(self):
+        template = _make_template()
         backend = MagicMock()
         backend.execute_query = AsyncMock(return_value=Result.ok([{"count": 0}]))
+        backend.get = AsyncMock(return_value=Result.ok(template))
         backend.delete = AsyncMock(return_value=Result.ok(True))
         event_bus = MagicMock()
         event_bus.publish_async = AsyncMock()
         service = _make_service(backend=backend, event_bus=event_bus)
 
-        await service.delete_form_template("ft_test_123")
+        await service.delete("ft_test_123")
 
         event = event_bus.publish_async.call_args[0][0]
         assert event.event_type == "form_template.deleted"

@@ -2,8 +2,11 @@
 FormTemplate Service
 ====================
 
-CRUD + article linking for admin-created form templates.
+CRUD + lesson linking for admin-created form templates.
 FormTemplates are shared content (no user_uid).
+
+Implements CRUDOperations via BaseService inheritance (CrudOperationsMixin).
+Overrides create/update/delete to add event publishing and deletion guards.
 """
 
 from datetime import datetime
@@ -15,7 +18,6 @@ from core.events.form_events import (
     FormTemplateDeleted,
     FormTemplateUpdated,
 )
-from core.models.enums.entity_enums import EntityType
 from core.models.forms.form_template import FormTemplate
 from core.models.forms.form_template_dto import FormTemplateDTO
 from core.models.relationship_names import RelationshipName
@@ -25,7 +27,6 @@ from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
-from core.utils.uid_generator import UIDGenerator
 
 logger = get_logger(__name__)
 
@@ -36,6 +37,11 @@ class FormTemplateService(BaseService[FormTemplateBackendOperations, FormTemplat
 
     FormTemplates are shared content created by admins. They define form_schema
     (field specs) that get rendered as inline forms in Lessons.
+
+    Inherits CRUDOperations from CrudOperationsMixin (via BaseService):
+    create, get, update, delete, list, get_for_user, update_for_user, delete_for_user.
+
+    Overrides create/update/delete to add domain events and deletion guards.
     """
 
     _config = DomainConfig(
@@ -57,103 +63,35 @@ class FormTemplateService(BaseService[FormTemplateBackendOperations, FormTemplat
         logger.info("FormTemplateService initialized")
 
     # ========================================================================
-    # CREATE
+    # CRUD OVERRIDES (event publishing + deletion guard)
     # ========================================================================
 
-    async def create_form_template(
-        self,
-        title: str,
-        form_schema: list[dict[str, Any]],
-        description: str | None = None,
-        instructions: str | None = None,
-        tags: list[str] | None = None,
-    ) -> Result[FormTemplate]:
-        """Create a new FormTemplate."""
-        uid = UIDGenerator.generate_uid("ft", title)
-
-        form_template = FormTemplate(
-            uid=uid,
-            title=title,
-            entity_type=EntityType.FORM_TEMPLATE,
-            description=description,
-            form_schema=tuple(form_schema),
-            instructions=instructions,
-            tags=tuple(tags) if tags else (),
-        )
-
-        result = await self.backend.create(form_template)
+    async def create(self, entity: FormTemplate) -> Result[FormTemplate]:
+        """Create a new FormTemplate with event publishing."""
+        result = await super().create(entity)
         if result.is_error:
             self.logger.error(f"Failed to create form template: {result.error}")
             return result
 
+        schema_len = len(entity.form_schema) if entity.form_schema else 0
         await publish_event(
             self.event_bus,
             FormTemplateCreated(
-                template_uid=uid,
-                title=title,
-                field_count=len(form_schema),
+                template_uid=entity.uid,
+                title=entity.title,
+                field_count=schema_len,
                 occurred_at=datetime.now(),
             ),
             self.logger,
         )
 
-        return Result.ok(form_template)
+        return result
 
-    # ========================================================================
-    # READ
-    # ========================================================================
-
-    async def get_form_template(self, uid: str) -> Result[FormTemplate]:
-        """Get a FormTemplate by UID."""
-        result: Result[FormTemplate | None] = await self.backend.get(uid)
+    async def update(self, uid: str, updates: dict[str, Any]) -> Result[FormTemplate]:
+        """Update a FormTemplate with event publishing."""
+        result = await super().update(uid, updates)
         if result.is_error:
-            return Result.fail(result.expect_error())
-        if result.value is None:
-            return Result.fail(Errors.not_found(resource="FormTemplate", identifier=uid))
-        return Result.ok(result.value)
-
-    async def list_form_templates(self, limit: int = 50) -> Result[list[FormTemplate]]:
-        """List all form templates."""
-        result = await self.backend.list(limit=limit)
-        if result.is_error:
-            return Result.fail(result.expect_error())
-        return Result.ok(result.value or [])
-
-    # ========================================================================
-    # UPDATE
-    # ========================================================================
-
-    async def update_form_template(
-        self,
-        uid: str,
-        title: str | None = None,
-        description: str | None = None,
-        instructions: str | None = None,
-        form_schema: list[dict[str, Any]] | None = None,
-        tags: list[str] | None = None,
-        status: str | None = None,
-    ) -> Result[FormTemplate]:
-        """Update a FormTemplate."""
-        updates: dict[str, Any] = {}
-        if title is not None:
-            updates["title"] = title
-        if description is not None:
-            updates["description"] = description
-        if instructions is not None:
-            updates["instructions"] = instructions
-        if form_schema is not None:
-            updates["form_schema"] = form_schema
-        if tags is not None:
-            updates["tags"] = tags
-        if status is not None:
-            updates["status"] = status
-
-        if not updates:
-            return await self.get_form_template(uid)
-
-        result = await self.backend.update(uid, updates)
-        if result.is_error:
-            return Result.fail(result.expect_error())
+            return result
 
         await publish_event(
             self.event_bus,
@@ -164,20 +102,16 @@ class FormTemplateService(BaseService[FormTemplateBackendOperations, FormTemplat
             self.logger,
         )
 
-        return await self.get_form_template(uid)
+        return result
 
-    # ========================================================================
-    # DELETE
-    # ========================================================================
-
-    async def delete_form_template(self, uid: str) -> Result[bool]:
+    async def delete(self, uid: str, cascade: bool = False) -> Result[bool]:
         """
         Delete a FormTemplate.
 
         Guard: Cannot delete if submissions exist (RESPONDS_TO_FORM relationships).
         Admins must delete submissions first, ensuring data integrity.
+        Always cascades to remove EMBEDS_FORM relationships.
         """
-        # Check for existing submissions
         submission_count = await self._get_submission_count(uid)
         if submission_count > 0:
             return Result.fail(
@@ -190,7 +124,6 @@ class FormTemplateService(BaseService[FormTemplateBackendOperations, FormTemplat
                 )
             )
 
-        # cascade=True to remove EMBEDS_FORM relationships
         result = await self.backend.delete(uid, cascade=True)
         if result.is_error:
             return Result.fail(result.expect_error())
@@ -206,6 +139,10 @@ class FormTemplateService(BaseService[FormTemplateBackendOperations, FormTemplat
 
         return Result.ok(True)
 
+    # ========================================================================
+    # INTERNAL HELPERS
+    # ========================================================================
+
     async def _get_submission_count(self, template_uid: str) -> int:
         """Count submissions linked to a template via RESPONDS_TO_FORM."""
         result = await self.backend.execute_query(
@@ -220,7 +157,7 @@ class FormTemplateService(BaseService[FormTemplateBackendOperations, FormTemplat
         return result.value[0].get("count", 0)
 
     # ========================================================================
-    # ARTICLE LINKING
+    # LESSON LINKING (domain-specific, not part of CRUDOperations)
     # ========================================================================
 
     async def link_to_lesson(self, form_template_uid: str, lesson_uid: str) -> Result[bool]:

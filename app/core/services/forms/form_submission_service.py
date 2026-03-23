@@ -155,7 +155,7 @@ class FormSubmissionService(BaseService[FormSubmissionBackendOperations, FormSub
     async def _get_template(self, form_template_uid: str) -> Result[FormTemplate]:
         """Fetch a FormTemplate, delegating to template service or falling back to backend."""
         if self.form_template_service:
-            return await self.form_template_service.get_form_template(form_template_uid)
+            return await self.form_template_service.get(form_template_uid)
 
         # Fallback: query backend directly (when template service not wired)
 
