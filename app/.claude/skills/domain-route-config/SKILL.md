@@ -8,7 +8,7 @@ allowed-tools: Read, Grep, Glob
 
 > "Configuration over code for route registration"
 
-DomainRouteConfig eliminates boilerplate in `*_routes.py` files by replacing ~80 lines of manual service extraction, validation, and wiring with a ~15-line declarative config. Used by 38 of 41 route files (93% adoption). Five proven pattern variants cover every route registration scenario in SKUEL. All DomainRouteConfig routes are registered without `if services.X:` guards in `_wire_all_routes()` — `register_domain_routes()` handles missing services via soft-fail.
+DomainRouteConfig eliminates boilerplate in `*_routes.py` files by replacing ~80 lines of manual service extraction, validation, and wiring with a ~15-line declarative config. Used by 39 of 41 route files (95% adoption). Five proven pattern variants cover every route registration scenario in SKUEL. All DomainRouteConfig routes are registered without `if services.X:` guards in `_wire_all_routes()` — `register_domain_routes()` handles missing services via soft-fail.
 
 ---
 
@@ -190,7 +190,7 @@ __all__ = ["create_tasks_routes"]
 
 ### 1. Standard (API + UI) — For Non-Activity Domains
 
-**When to use:** Any domain with both API endpoints and UI pages that is NOT an Activity Domain (e.g., KU, Groups, Askesis). The Activity Domain pattern (above) is preferred for Tasks/Goals/Habits/Events/Choices/Principles.
+**When to use:** Any domain with both API endpoints and UI pages that is NOT an Activity Domain and does NOT use CRUDRouteFactory (e.g., KU, Askesis). The Activity Domain pattern (above) is preferred for Tasks/Goals/Habits/Events/Choices/Principles. For non-activity domains with CRUDRouteFactory, see Pattern 5 below.
 
 **Exemplar:** `adapters/inbound/ku_routes.py`
 
@@ -283,6 +283,56 @@ def create_insights_routes(app, rt, services, _sync_service=None):
 ```
 
 The manual block follows the same service-null-guard pattern that `register_domain_routes()` uses internally: check `services` and the specific service before calling the factory.
+
+---
+
+### 5. Config-Driven CRUDRouteConfig — Role-Gated Non-Activity Domains
+
+**When to use:** Non-activity domains that need CRUDRouteFactory with role-based access control. The `crud` field on `DomainRouteConfig` auto-registers create/get/list/update/delete routes before `api_factory` runs. The API factory then only needs domain-specific routes.
+
+**CRUDRouteConfig fields:**
+
+| Field | Type | Default | Purpose |
+|-------|------|---------|---------|
+| `create_schema` | `type` | required | Pydantic model for create validation |
+| `update_schema` | `type` | required | Pydantic model for update validation |
+| `uid_prefix` | `str` | required | UID prefix (e.g., `"ft"`, `"group"`) |
+| `scope` | `ContentScope` | `USER_OWNED` | Ownership model |
+| `require_role` | `UserRole \| None` | `None` | Role gate for mutations (and reads if `role_gates_reads=True`) |
+| `role_gates_reads` | `bool` | `True` | When False, get/list skip role check |
+| `user_service_attr` | `str \| None` | `None` | Services container attr for role checks |
+
+**Three proven configurations:**
+
+```python
+# Admin-only shared content (FormTemplate)
+crud=CRUDRouteConfig(
+    scope=ContentScope.SHARED,
+    require_role=UserRole.ADMIN,
+    user_service_attr="user_service",
+)
+
+# Teacher-only user-owned (RevisedExercise)
+crud=CRUDRouteConfig(
+    scope=ContentScope.USER_OWNED,
+    require_role=UserRole.TEACHER,
+    user_service_attr="user_service",
+)
+
+# Teacher mutations, any-auth reads (Groups)
+crud=CRUDRouteConfig(
+    scope=ContentScope.USER_OWNED,
+    require_role=UserRole.TEACHER,
+    role_gates_reads=False,          # Students can GET groups
+    user_service_attr="user_service",
+)
+```
+
+**Exemplar:** `adapters/inbound/groups_routes.py`
+
+**Service requirements:** The service must implement `create()`, `get()`, `update()`, `delete()`, `list()` (inherited from `BaseService`). For `scope=USER_OWNED`, also needs `get_for_user()`, `update_for_user()`, `delete_for_user()` (inherited from `CrudOperationsMixin`). Override these when the domain model uses a different ownership field (e.g., Group uses `owner_uid` instead of `user_uid`).
+
+**ConversionServiceV2:** Add a `{entity}_create_to_pure()` method (auto-discovered by naming convention: `GroupCreateRequest` → `group_create_to_pure`).
 
 ---
 

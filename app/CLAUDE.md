@@ -699,7 +699,7 @@ POST (Create) -> 201, GET/PUT/DELETE -> 200, POST (Action) -> 200
 
 **UI Route Factories** (config + callables pattern): `QuickAddRouteFactory` and `DashboardUIFactory` eliminate UI route boilerplate across all 6 Activity Domains. Each domain provides named callables for domain-specific behavior; the factory handles auth, error handling, view dispatch, and page wrapping. `DashboardUIConfig` (frozen dataclass) captures variation points: filter parsing, service calls, view rendering, context building, and list fragment rendering.
 
-All support `scope=ContentScope.USER_OWNED` (default) or `ContentScope.SHARED` (curriculum, with `require_role=UserRole.ADMIN`).
+All support `scope=ContentScope.USER_OWNED` (default) or `ContentScope.SHARED` (curriculum, with `require_role=UserRole.ADMIN`). `role_gates_reads=False` allows role-gated mutations with open reads (Groups pattern). Scope and role are orthogonal — both ownership verification and role checks apply independently.
 
 **See:** `/docs/patterns/ROUTE_FACTORIES.md`
 
@@ -725,7 +725,7 @@ def create_tasks_routes(app, rt, services, _sync_service=None):
     return register_domain_routes(app, rt, services, TASKS_CONFIG)
 ```
 
-**Adoption:** 38 of 41 route files. **Patterns proven:** Standard, API-only, UI-only, Multi-factory, Config-Driven.
+**Adoption:** 39 of 41 route files. **Patterns proven:** Standard, API-only, UI-only, Multi-factory, Config-Driven.
 
 **See:** `/docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md`
 

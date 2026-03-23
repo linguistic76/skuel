@@ -181,6 +181,51 @@ __all__ = ["create_{domain}_routes"]
 
 ---
 
+## Template 5: Config-Driven CRUDRouteConfig — Role-Gated Domains
+
+For non-activity domains with CRUDRouteFactory. CRUD routes auto-generated, API factory handles domain-specific routes only.
+
+```python
+from adapters.inbound.{domain}_api import create_{domain}_api_routes
+from adapters.inbound.{domain}_ui import create_{domain}_ui_routes
+from adapters.inbound.route_factories import (
+    CRUDRouteConfig,
+    DomainRouteConfig,
+    register_domain_routes,
+)
+from core.models.enums import ContentScope
+from core.models.enums.user_enums import UserRole
+from core.models.{domain}.{domain}_request import {Domain}CreateRequest, {Domain}UpdateRequest
+
+{DOMAIN}_CONFIG = DomainRouteConfig(
+    domain_name="{domain}",
+    primary_service_attr="{domain}_service",
+    api_factory=create_{domain}_api_routes,
+    ui_factory=create_{domain}_ui_routes,
+    api_related_services={"user_service": "user_service"},
+    crud=CRUDRouteConfig(
+        create_schema={Domain}CreateRequest,
+        update_schema={Domain}UpdateRequest,
+        uid_prefix="{prefix}",
+        scope=ContentScope.USER_OWNED,
+        require_role=UserRole.TEACHER,
+        role_gates_reads=False,  # True = role gates all; False = role gates mutations only
+        user_service_attr="user_service",
+    ),
+)
+
+
+def create_{domain}_routes(app, rt, services, _sync_service=None):
+    return register_domain_routes(app, rt, services, {DOMAIN}_CONFIG)
+
+
+__all__ = ["create_{domain}_routes"]
+```
+
+**Exemplars:** `groups_routes.py` (role_gates_reads=False), `form_templates_routes.py` (SHARED+ADMIN), `revised_exercises_routes.py` (USER_OWNED+TEACHER)
+
+---
+
 ## Service Mapping Syntax
 
 ```python

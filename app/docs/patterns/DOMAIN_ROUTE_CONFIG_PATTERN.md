@@ -71,8 +71,9 @@ class CRUDRouteConfig:
     uid_prefix: str                  # e.g., "task"
     prometheus_metrics_attr: str | None = None  # Container attr name
     # Non-activity domain support (defaults match Activity Domain behavior)
-    scope: str | None = None         # ContentScope value; None = USER_OWNED default
-    require_role: str | None = None  # UserRole value; None = no role requirement
+    scope: ContentScope = ContentScope.USER_OWNED
+    require_role: UserRole | None = None
+    role_gates_reads: bool = True    # When False, get/list skip role check
     user_service_attr: str | None = None  # Services container attr for user_service_getter
 
 @dataclass(frozen=True)
@@ -131,7 +132,7 @@ When sub-configs are present, `register_domain_routes()` executes in this order:
 - Factories with static params declared once in config
 - Manual routes and dynamic factories remain flexible
 
-**Adoption:** All 6 Activity Domains + FormTemplate (`scope="shared"`, `require_role="admin"`) + RevisedExercise (`scope="user_owned"`, `require_role="teacher"`) migrated.
+**Adoption:** All 6 Activity Domains + FormTemplate (`scope=ContentScope.SHARED`, `require_role=UserRole.ADMIN`) + RevisedExercise (`scope=ContentScope.USER_OWNED`, `require_role=UserRole.TEACHER`) + Groups (`require_role=UserRole.TEACHER`, `role_gates_reads=False`) migrated.
 
 ### Recent Updates
 
