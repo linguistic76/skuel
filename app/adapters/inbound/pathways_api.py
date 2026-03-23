@@ -1,12 +1,10 @@
 """
-Pathways API Routes - Migrated to CRUDRouteFactory
-===================================================
+Pathways API - Domain-Specific Routes
+=======================================
 
-Structured pathway browsing, progress tracking, and recommendations.
-
-This file uses:
-- CRUDRouteFactory for standard CRUD routes (create, get, update, delete, list)
-- Manual routes for domain-specific operations (progress, steps, recommendations)
+CRUD and Intelligence routes are config-driven via CRUDRouteConfig
+in pathways_routes.py. This file contains only domain-specific manual routes
+(progress tracking, steps, recommendations).
 """
 
 __version__ = "4.0"
@@ -18,12 +16,7 @@ from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
-from adapters.inbound.route_factories import CRUDRouteFactory, IntelligenceRouteFactory
-from core.models.entity_requests import EntityUpdateRequest
-from core.models.enums import ContentScope
-from core.models.enums.user_enums import UserRole
 from core.models.pathways.pathways_request import (
-    LearningPathCreateRequest,
     LearningPathProgressRequest,
 )
 from core.services.lp_service import LpService
@@ -52,48 +45,6 @@ def create_pathways_api_routes(
         learning_service: LpService instance
         user_service: User service for admin role verification
     """
-
-    def user_service_getter():
-        return user_service
-
-    # ========================================================================
-    # STANDARD CRUD ROUTES (Factory-Generated, Admin-Gated Writes)
-    # ========================================================================
-
-    crud_factory = CRUDRouteFactory(
-        service=learning_service,
-        domain_name="pathways",
-        create_schema=LearningPathCreateRequest,
-        update_schema=EntityUpdateRequest,
-        uid_prefix="lp",
-        scope=ContentScope.SHARED,
-        require_role=UserRole.ADMIN,
-        user_service_getter=user_service_getter,
-    )
-
-    # Register all standard CRUD routes:
-    # - POST /api/pathways (create)
-    # - GET /api/pathways/{uid} (get)
-    # - PUT /api/pathways/{uid} (update)
-    # - DELETE /api/pathways/{uid} (delete)
-    # - GET /api/pathways (list with pagination)
-    crud_factory.register_routes(app, rt)
-
-    # ========================================================================
-    # INTELLIGENCE ROUTES (Factory-Generated)
-    # ========================================================================
-
-    intelligence_factory = IntelligenceRouteFactory(
-        intelligence_service=learning_service.intelligence,
-        domain_name="pathways",
-        scope=ContentScope.SHARED,  # Curriculum content is shared
-    )
-
-    # Register intelligence routes:
-    # - GET /api/pathways/context?uid=...&depth=2 (entity with graph context)
-    # - GET /api/pathways/analytics?period_days=30 (user performance analytics)
-    # - GET /api/pathways/insights?uid=... (domain-specific insights)
-    intelligence_factory.register_routes(app, rt)
 
     # ========================================================================
     # DOMAIN-SPECIFIC ROUTES (Manual)

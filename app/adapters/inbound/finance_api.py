@@ -24,7 +24,7 @@ from adapters.inbound.route_factories import (
 )
 from adapters.inbound.route_factories.analytics_route_factory import AnalyticsRouteFactory
 from adapters.inbound.route_factories.crud_route_factory import CRUDRouteFactory
-from core.models.enums import UserRole
+from core.models.enums import ContentScope, UserRole
 from core.models.finance.finance_request import (
     BudgetCreateRequest as BudgetCreateSchema,
 )
@@ -78,7 +78,8 @@ def create_finance_api_routes(
         create_schema=ExpenseCreateSchema,
         update_schema=ExpenseUpdateSchema,
         uid_prefix="expense",
-        require_role=UserRole.ADMIN,  # Role-based access (overrides scope)
+        scope=ContentScope.SHARED,
+        require_role=UserRole.ADMIN,
         user_service_getter=get_user_service,
     )
     expense_factory.register_routes(app, rt)
@@ -254,7 +255,8 @@ def create_finance_api_routes(
         create_schema=BudgetCreateSchema,
         update_schema=BudgetUpdateSchema,
         uid_prefix="budget",
-        require_role=UserRole.ADMIN,  # Role-based access (overrides scope)
+        scope=ContentScope.SHARED,
+        require_role=UserRole.ADMIN,
         user_service_getter=get_user_service,
     )
     budget_factory.register_routes(app, rt)

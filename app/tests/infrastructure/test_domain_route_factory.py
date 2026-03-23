@@ -95,12 +95,12 @@ def test_query_route_config_frozen_and_defaults():
         cfg2.supports_goal_filter = False  # type: ignore[misc]
 
 
-def test_intelligence_route_config_frozen_sentinel():
-    """IntelligenceRouteConfig is a frozen sentinel with no fields."""
+def test_intelligence_route_config_defaults():
+    """IntelligenceRouteConfig defaults to USER_OWNED scope."""
+    from core.models.enums import ContentScope
+
     cfg = IntelligenceRouteConfig()
-    # No user-defined fields — only the implicit ones from frozen dataclass
-    user_fields = [f for f in dc_fields(cfg)]
-    assert len(user_fields) == 0
+    assert cfg.scope == ContentScope.USER_OWNED
 
     with pytest.raises(AttributeError):
         cfg.anything = 1  # type: ignore[attr-defined]

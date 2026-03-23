@@ -23,7 +23,7 @@ For implementation guidance, see:
 
 **Impact:** Reduces route file complexity from ~80 lines to ~15 lines per domain (83% reduction).
 
-**Adoption:** Currently used by 38 of 41 route files (93%), with 3 files remaining as justified exceptions.
+**Adoption:** Currently used by 41 of 46 route files (89%). Non-adopters: ai_routes.py, graphql_routes.py, metrics_routes.py, pwa_routes.py, curriculum_hub_routes.py.
 
 ## The Pattern
 
@@ -1290,7 +1290,7 @@ Zero runtime overhead - routes are registered once at application startup.
 - ✅ hierarchy_routes.py, lateral_routes.py (loop-pattern, multi-service via kwargs)
 - graphql_routes.py: signature normalized only (needs full services container)
 
-**Summary:** 38 of 41 route files use DomainRouteConfig (93% adoption). 3 justified exceptions: ai_routes.py, graphql_routes.py, metrics_routes.py. Bootstrap no longer wraps DomainRouteConfig routes in `if services.X:` guards — the soft-fail in `register_domain_routes()` handles missing services.
+**Summary:** 41 of 46 route files use DomainRouteConfig (89% adoption). 5 non-adopters: ai_routes.py, graphql_routes.py, metrics_routes.py, pwa_routes.py, curriculum_hub_routes.py. Bootstrap no longer wraps DomainRouteConfig routes in `if services.X:` guards — the soft-fail in `register_domain_routes()` handles missing services.
 
 **Key Achievements:**
 - All 4 patterns proven: Standard, API-only, UI-only, Multi-factory

@@ -1,10 +1,10 @@
 """
-Exercises API - Factory Pattern Routes
-=========================================
+Exercises API - Domain-Specific Routes
+========================================
 
-Provides:
-- Standard CRUD operations via CRUDRouteFactory
-- Domain-specific report generation (manual route)
+CRUD routes are config-driven via CRUDRouteConfig in exercises_routes.py.
+This file contains only domain-specific manual routes (report generation,
+curriculum linking).
 """
 
 from typing import Any, cast
@@ -14,13 +14,8 @@ from fasthtml.common import Request
 from adapters.inbound.auth import make_service_getter, require_authenticated_user, require_teacher
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.form_helpers import parse_json_body
-from adapters.inbound.route_factories import CRUDRouteFactory
-from core.models.enums import ContentScope
-from core.models.enums.user_enums import UserRole
 from core.models.exercises.exercise_request import (
-    ExerciseCreateRequest,
     ExerciseKnowledgeRequest,
-    ExerciseUpdateRequest,
     ReportGenerateRequest,
 )
 from core.utils.logging import get_logger
@@ -50,29 +45,6 @@ def create_exercises_api_routes(
     """
 
     get_user_service = make_service_getter(user_service)
-
-    # ========================================================================
-    # STANDARD CRUD ROUTES (Factory-Generated)
-    # ========================================================================
-
-    crud_factory = CRUDRouteFactory(
-        service=exercises_service,
-        domain_name="exercises",
-        create_schema=ExerciseCreateRequest,
-        update_schema=ExerciseUpdateRequest,
-        uid_prefix="exercise",
-        scope=ContentScope.USER_OWNED,
-        require_role=UserRole.TEACHER,
-        user_service_getter=get_user_service,
-    )
-
-    # Register all standard CRUD routes:
-    # - POST /api/exercises/create (create)
-    # - GET /api/exercises/get?uid=... (get)
-    # - POST /api/exercises/update?uid=.. (update)
-    # - POST /api/exercises/delete?uid=.. (delete)
-    # - GET /api/exercises/list (list with pagination)
-    crud_factory.register_routes(app, rt)
 
     # ========================================================================
     # DOMAIN-SPECIFIC ROUTES (Manual)

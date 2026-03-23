@@ -92,16 +92,15 @@ class QueryRouteConfig:
 
 @dataclass(frozen=True)
 class IntelligenceRouteConfig:
-    """Sentinel — presence means "register intelligence routes".
+    """Configuration for IntelligenceRouteFactory.
 
-    All Activity Domains use identical parameters:
-      intelligence_service = primary_service.intelligence
-      ownership_service    = primary_service
-      scope                = USER_OWNED
-    There is nothing to configure.
+    Activity Domains use the default (USER_OWNED).
+    Curriculum Domains (Lesson, LP, LS) use SHARED.
 
     See: /docs/patterns/ROUTE_FACTORIES.md
     """
+
+    scope: ContentScope = ContentScope.USER_OWNED
 
 
 # ============================================================================
@@ -254,7 +253,7 @@ def register_domain_routes(
             intelligence_service=primary_service.intelligence,
             domain_name=config.domain_name,
             ownership_service=primary_service,
-            scope=ContentScope.USER_OWNED,
+            scope=config.intelligence.scope,
         ).register_routes(app, rt)
 
     # 4. Wire API routes (Status, Analytics, manual routes)

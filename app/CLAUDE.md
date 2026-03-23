@@ -725,7 +725,7 @@ def create_tasks_routes(app, rt, services, _sync_service=None):
     return register_domain_routes(app, rt, services, TASKS_CONFIG)
 ```
 
-**Adoption:** 39 of 41 route files. **Patterns proven:** Standard, API-only, UI-only, Multi-factory, Config-Driven.
+**Adoption:** 41 of 46 route files. **Patterns proven:** Standard, API-only, UI-only, Multi-factory, Config-Driven.
 
 **See:** `/docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md`
 

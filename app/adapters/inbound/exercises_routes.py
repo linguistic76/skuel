@@ -10,7 +10,14 @@ Formerly assignments_routes.py — renamed per of Ku hierarchy refactoring.
 
 from adapters.inbound.exercises_api import create_exercises_api_routes
 from adapters.inbound.exercises_ui import create_exercises_ui_routes
-from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
+from adapters.inbound.route_factories import (
+    CRUDRouteConfig,
+    DomainRouteConfig,
+    register_domain_routes,
+)
+from core.models.enums import ContentScope
+from core.models.enums.user_enums import UserRole
+from core.models.exercises.exercise_request import ExerciseCreateRequest, ExerciseUpdateRequest
 
 EXERCISES_CONFIG = DomainRouteConfig(
     domain_name="exercises",
@@ -26,6 +33,14 @@ EXERCISES_CONFIG = DomainRouteConfig(
         "transcript_service": "content_enrichment",
         "user_service": "user_service",
     },
+    crud=CRUDRouteConfig(
+        create_schema=ExerciseCreateRequest,
+        update_schema=ExerciseUpdateRequest,
+        uid_prefix="exercise",
+        scope=ContentScope.USER_OWNED,
+        require_role=UserRole.TEACHER,
+        user_service_attr="user_service",
+    ),
 )
 
 

@@ -9,7 +9,16 @@ Version: 4.0 (Renamed from Article to Lesson)
 
 from adapters.inbound.lesson_api import create_lesson_api_routes
 from adapters.inbound.lesson_ui import create_lesson_ui_routes
-from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
+from adapters.inbound.route_factories import (
+    CRUDRouteConfig,
+    DomainRouteConfig,
+    IntelligenceRouteConfig,
+    register_domain_routes,
+)
+from core.models.entity_requests import EntityUpdateRequest
+from core.models.enums import ContentScope
+from core.models.enums.user_enums import UserRole
+from core.models.lesson.lesson_request import LessonCreateRequest
 
 LESSON_CONFIG = DomainRouteConfig(
     domain_name="lesson",
@@ -19,6 +28,15 @@ LESSON_CONFIG = DomainRouteConfig(
     api_related_services={
         "user_service": "user_service",
     },
+    crud=CRUDRouteConfig(
+        create_schema=LessonCreateRequest,
+        update_schema=EntityUpdateRequest,
+        uid_prefix="l",
+        scope=ContentScope.SHARED,
+        require_role=UserRole.ADMIN,
+        user_service_attr="user_service",
+    ),
+    intelligence=IntelligenceRouteConfig(scope=ContentScope.SHARED),
 )
 
 

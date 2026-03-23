@@ -1,15 +1,10 @@
 """
-Lesson API - Migrated to CRUDRouteFactory
-===========================================
+Lesson API - Domain-Specific Routes
+=====================================
 
-Sixth migration in CRUD API rollout.
-
-Before: 327 lines of manual route definitions
-After: ~270 lines
-
-This file uses:
-- CRUDRouteFactory for standard CRUD routes (create, get, update, delete, list)
-- Manual routes for domain-specific operations (relationships, content, search, organization, analytics)
+CRUD and Intelligence routes are config-driven via CRUDRouteConfig
+in lesson_routes.py. This file contains only domain-specific manual routes
+(relationships, content, search, organization, analytics).
 """
 
 from typing import Any
@@ -20,17 +15,12 @@ from adapters.inbound.auth import require_admin, require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.form_helpers import parse_json_body
 from adapters.inbound.route_factories import (
-    CRUDRouteFactory,
-    IntelligenceRouteFactory,
     parse_int_query_param,
 )
 from adapters.inbound.route_factories.analytics_route_factory import AnalyticsRouteFactory
-from core.models.entity_requests import AddTagsRequest, EntityUpdateRequest, RemoveTagsRequest
-from core.models.enums import ContentScope
-from core.models.enums.user_enums import UserRole
+from core.models.entity_requests import AddTagsRequest, RemoveTagsRequest
 from core.models.lesson.lesson_request import (
     LessonContentUpdateRequest,
-    LessonCreateRequest,
     LessonRelationshipCreateRequest,
 )
 from core.services.lesson_service import LessonService
@@ -56,45 +46,6 @@ def create_lesson_api_routes(
 
     def user_service_getter():
         return user_service
-
-    # ========================================================================
-    # STANDARD CRUD ROUTES (Factory-Generated, Admin-Gated Writes)
-    # ========================================================================
-
-    crud_factory = CRUDRouteFactory(
-        service=lesson_service,
-        domain_name="lesson",
-        create_schema=LessonCreateRequest,
-        update_schema=EntityUpdateRequest,
-        uid_prefix="l",
-        scope=ContentScope.SHARED,
-        require_role=UserRole.ADMIN,
-        user_service_getter=user_service_getter,
-    )
-
-    # Register all standard CRUD routes:
-    # - POST /api/lesson (create)
-    # - GET /api/lesson/{uid} (get)
-    # - PUT /api/lesson/{uid} (update)
-    # - DELETE /api/lesson/{uid} (delete)
-    # - GET /api/lesson (list with pagination)
-    crud_factory.register_routes(app, rt)
-
-    # ========================================================================
-    # INTELLIGENCE ROUTES (Factory-Generated)
-    # ========================================================================
-
-    intelligence_factory = IntelligenceRouteFactory(
-        intelligence_service=lesson_service.intelligence,
-        domain_name="lesson",
-        scope=ContentScope.SHARED,  # Curriculum content is shared
-    )
-
-    # Register intelligence routes:
-    # - GET /api/lesson/context?uid=...&depth=2 (entity with graph context)
-    # - GET /api/lesson/analytics?period_days=30 (user performance analytics)
-    # - GET /api/lesson/insights?uid=... (domain-specific insights)
-    intelligence_factory.register_routes(app, rt)
 
     # ========================================================================
     # DOMAIN-SPECIFIC ROUTES (Manual)

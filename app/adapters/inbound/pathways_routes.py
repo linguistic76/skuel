@@ -11,10 +11,19 @@ This file handles:
 Version: 3.0 (Renamed from learning_routes.py)
 """
 
-from adapters.inbound.learning_steps_api import create_learning_steps_api_routes
+from adapters.inbound.learning_steps_routes import LS_CONFIG
 from adapters.inbound.pathways_api import create_pathways_api_routes
 from adapters.inbound.pathways_ui import create_pathways_ui_routes
-from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
+from adapters.inbound.route_factories import (
+    CRUDRouteConfig,
+    DomainRouteConfig,
+    IntelligenceRouteConfig,
+    register_domain_routes,
+)
+from core.models.entity_requests import EntityUpdateRequest
+from core.models.enums import ContentScope
+from core.models.enums.user_enums import UserRole
+from core.models.pathways.pathways_request import LearningPathCreateRequest
 from core.utils.logging import get_logger
 
 logger = get_logger("skuel.routes.pathways")
@@ -34,6 +43,15 @@ PATHWAYS_CONFIG = DomainRouteConfig(
         "user_progress": "user_progress",
         "ls_service": "ls",
     },
+    crud=CRUDRouteConfig(
+        create_schema=LearningPathCreateRequest,
+        update_schema=EntityUpdateRequest,
+        uid_prefix="lp",
+        scope=ContentScope.SHARED,
+        require_role=UserRole.ADMIN,
+        user_service_attr="user_service",
+    ),
+    intelligence=IntelligenceRouteConfig(scope=ContentScope.SHARED),
 )
 
 
@@ -58,13 +76,8 @@ def create_pathways_routes(app, rt, services, _sync_service=None):
     # Register main LP routes via DomainRouteConfig (soft-fail if service missing)
     routes = register_domain_routes(app, rt, services, PATHWAYS_CONFIG)
 
-    # Handle LS routes separately (optional - skipped if learning_steps service missing)
-    if services and services.ls:
-        ls_routes = create_learning_steps_api_routes(
-            app, rt, services.ls, user_service=getattr(services, "user_service", None)
-        )
-        logger.info(f"  Learning Steps (LS) API routes registered: {len(ls_routes)} endpoints")
-        routes.extend(ls_routes)
+    # Handle LS routes separately (soft-fail if ls service missing)
+    routes.extend(register_domain_routes(app, rt, services, LS_CONFIG))
 
     return routes
 
