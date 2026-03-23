@@ -27,7 +27,7 @@ class BaseService:
         # Step 1: Call domain-specific validation hook
         validation = self._validate_create(entity)
         if validation:
-            return Result.fail(validation.expect_error())
+            return Result.fail(validation)
 
         # Step 2: Proceed with creation
         return await self.backend.create(entity)
@@ -143,19 +143,18 @@ def _validate_update(self, current: Task, updates: dict) -> Result[None] | None:
 
 ### 5. **Type-Safe Error Propagation**
 
-The hooks use the `.expect_error()` pattern we implemented in Fix #3:
+The hooks use the `Result.fail(result)` pattern for cross-type propagation:
 
 ```python
 async def create(self, entity: T) -> Result[T]:
     validation = self._validate_create(entity)
     if validation:
-        # Type-safe: Result[None] → Result[T] with same error
-        return Result.fail(validation.expect_error())
+        return Result.fail(validation)  # Result[None] → Result[T]
 
     return await self.backend.create(entity)
 ```
 
-This ensures type safety while allowing validation errors to propagate correctly.
+`Result.fail()` accepts another `Result` directly — it extracts the error internally.
 
 ## Hook Method Signatures
 

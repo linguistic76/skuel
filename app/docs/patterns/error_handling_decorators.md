@@ -121,7 +121,7 @@ async def search(self, query: str) -> Result[list[Task]]:
     # Main logic - exceptions are caught by decorator
     result = await self.backend.execute_query(...)
     if result.is_error:
-        return Result.fail(result.expect_error())
+        return Result.fail(result)
 
     return Result.ok(entities)
 ```
@@ -224,7 +224,7 @@ async def create_task(self, task_request: TaskCreateRequest) -> Result[Task]:
 
     inference_result = await self._enhance_with_knowledge_inference(dto)
     if inference_result.is_error:
-        return Result.fail(inference_result.expect_error())  # Fail fast!
+        return Result.fail(inference_result)  # Fail fast!
     if inference_result.value:
         dto = inference_result.value
 

@@ -472,7 +472,7 @@ async def get_goal_progress_dashboard(self, uid: str) -> Result[dict]:
     # 1. Fetch entity
     entity_result = await self.backend.get(uid)
     if entity_result.is_error:
-        return Result.fail(entity_result.expect_error())
+        return Result.fail(entity_result)
     entity = entity_result.value
 
     # 2. Get context
@@ -486,7 +486,7 @@ async def get_goal_progress_dashboard(self, uid: str) -> Result[dict]:
         ...
     )
     if context_result.is_error:
-        return Result.fail(context_result.expect_error())
+        return Result.fail(context_result)
 
     # 3. Extract and calculate
     analysis = context_result.value

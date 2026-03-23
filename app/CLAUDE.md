@@ -389,6 +389,9 @@ SKUEL measures knowledge by how it's LIVED. Substance tracking: Habits (0.10, ma
 **Core Principle:** "Use `Result[T]` internally, convert to HTTP at boundaries"
 
 - Use `.is_error` (not `.is_err`) for failure checks
+- Use `Result.fail(result)` to propagate errors across type boundaries (not `Result.fail(result.expect_error())`)
+- Use `.expect_error()` only when you need to _read_ the error (logging, branching on category)
+- Use `require_found(result, resource, uid)` for the fetch + not-found guard pattern in routes
 - Use `Errors` factory for creating errors
 - Six error types: Validation, NotFound, Database, Integration, Business, System
 - **Narrow exceptions:** Use specific types from `core/utils/exception_types.py` (`NEO4J_EXCEPTIONS`, `LLM_EXCEPTIONS`, `DATA_CONVERSION_EXCEPTIONS`, etc.) instead of bare `except Exception`. Annotate intentional broad catches with `# intentional-broad:`, `# safety-net:`, or `# skuel-lint: disable=SKUEL017` (SKUEL017). ✅ Zero violations — persistence layer uses `NEO4J_EXCEPTIONS`, API/UI boundaries use `# safety-net:` annotations.
@@ -779,6 +782,7 @@ text = build_embedding_text(EntityType.TASK, {"title": "Fix bug", "description":
 | Event bus | `/core/events/event_bus.py` |
 | Exception types | `/core/utils/exception_types.py` |
 | Error boundary | `/core/utils/error_boundary.py` |
+| Result helpers | `/adapters/inbound/result_helpers.py` (`require_found`) |
 | Route factories | `/adapters/inbound/route_factories/` |
 | Page contexts | `/ui/page_contexts.py` |
 | Deepgram config | `/config/deepgram.toml` |

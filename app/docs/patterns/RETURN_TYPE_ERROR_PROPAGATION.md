@@ -20,7 +20,7 @@ For implementation guidance, see:
 
 ## Core Principle
 
-**"Use `.expect_error()` to propagate errors across Result[T] type boundaries"**
+**"Use `Result.fail(result)` to propagate errors across Result[T] type boundaries"**
 
 ## The Problem
 
@@ -75,16 +75,12 @@ async def create_path(...) -> Result[Lp]:
 `Result.fail()` accepts another Result object directly for clean error propagation:
 
 ```python
-# ✅ PREFERRED - Pass the Result directly (cleanest)
+# ✅ PREFERRED - Pass the Result directly
 if result.is_error:
     return Result.fail(result)
-
-# ✅ ALSO CORRECT - Explicit extraction (equivalent)
-if result.is_error:
-    return Result.fail(result.expect_error())
 ```
 
-The first form is preferred as it's more concise. Both produce identical behavior.
+`Result.fail()` internally calls `.expect_error()` to extract the `ErrorContext`, so you never need to call `.expect_error()` for propagation. Reserve `.expect_error()` for when you need to _read_ the error (e.g., logging, branching on category).
 
 ### Fixed Examples
 
@@ -103,17 +99,7 @@ async def create(self, entity: T) -> Result[T]:
 async def create(self, entity: T) -> Result[T]:
     validation = self._validate_create(entity)
     if validation:
-        # Validation failed: Result[None] → Result[T] with same error
-        return Result.fail(validation.expect_error())
-```
-
-**Same pattern for `update()` at line 407:**
-```python
-async def update(self, uid: str, updates: dict[str, Any]) -> Result[T]:
-    validation = self._validate_update(current_result.value, updates)
-    if validation:
-        # Validation failed: Result[None] → Result[T] with same error
-        return Result.fail(validation.expect_error())
+        return Result.fail(validation)  # Result[None] → Result[T]
 ```
 
 #### Fix 2: UserProgressService Helper Error
@@ -131,8 +117,7 @@ async def calculate_readiness_for_knowledge(...) -> Result[float]:
 async def calculate_readiness_for_knowledge(...) -> Result[float]:
     profile_result = await self.build_user_knowledge_profile(user_uid)
     if profile_result.is_error:
-        # Error building profile: Result[UserKnowledgeProfile] → Result[float]
-        return Result.fail(profile_result.expect_error())
+        return Result.fail(profile_result)  # Result[Profile] → Result[float]
 ```
 
 #### Fix 3: LpCoreService Persistence Error
@@ -150,39 +135,29 @@ async def create_path(...) -> Result[Lp]:
 async def create_path(...) -> Result[Lp]:
     persist_result = await self._persist_path(path, user_uid)
     if persist_result.is_error:
-        # Persistence failed: Result[bool] → Result[Lp] with same error
-        return Result.fail(persist_result.expect_error())
+        return Result.fail(persist_result)  # Result[bool] → Result[Lp]
 ```
 
-## Why `.expect_error()` Works
+## Why `Result.fail(result)` Works
 
-The `.expect_error()` method:
-1. **Returns `ErrorContext`** (not `ErrorContext | None`) - eliminates MyPy union errors
-2. **Raises `ValueError`** if called on Ok result (defensive programming)
-3. **Type-safe** - MyPy knows the return type is `ErrorContext`
-4. **Semantic** - Explicitly states "I expect this to be an error"
+`Result.fail()` accepts three argument types:
+- `ErrorContext` — direct error
+- `str` — creates a SYSTEM error
+- `Result[Any]` — extracts the error via `.expect_error()` internally
 
-**Implementation**: `/core/utils/result_simplified.py:181-206`
+This means `Result.fail(result)` does the `.expect_error()` extraction for you. The method is still available for cases where you need to _read_ the error:
 
 ```python
-class Result[T]:
-    def expect_error(self) -> ErrorContext:
-        """
-        Extract error from failed Result - type-safe error propagation.
+# Reading error details (logging, branching)
+if result.is_error:
+    error = result.expect_error()  # Type: ErrorContext (guaranteed)
+    logger.error(f"Failed: {error.message}")
+    match error.category:
+        case ErrorCategory.NOT_FOUND: ...
 
-        Returns:
-            ErrorContext (not Optional!) - guaranteed non-None
-
-        Raises:
-            ValueError: If result is Ok (misuse detection)
-        """
-        if self.is_ok:
-            raise ValueError("Called expect_error() on Ok result")
-
-        if self.error is None:
-            raise ValueError("Result is error but error is None (corrupted state)")
-
-        return self.error  # Type: ErrorContext (not Optional!)
+# Propagating errors — just pass the Result directly
+if result.is_error:
+    return Result.fail(result)  # ✅ Preferred
 ```
 
 ## Pattern Recognition
@@ -228,7 +203,7 @@ if list_result.is_error:
 entities, total = list_result.value  # Properly unpacked
 ```
 
-## Anti-Pattern to Avoid
+## Anti-Patterns to Avoid
 
 ```python
 # ❌ WRONG - Using assert for type narrowing
@@ -236,9 +211,13 @@ if result.is_error:
     assert result.error is not None  # MyPy doesn't narrow types!
     return Result.fail(result.error)  # Still Optional[ErrorContext] to MyPy
 
-# ✅ CORRECT - Use .expect_error()
+# ❌ VERBOSE - Redundant .expect_error() for propagation
 if result.is_error:
-    return Result.fail(result.expect_error())  # Returns ErrorContext (not Optional!)
+    return Result.fail(result.expect_error())  # Works but unnecessary
+
+# ✅ CORRECT - Pass the Result directly
+if result.is_error:
+    return Result.fail(result)  # Clean, concise, type-safe
 ```
 
 ## Benefits Achieved

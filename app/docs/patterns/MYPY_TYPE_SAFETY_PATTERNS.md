@@ -468,7 +468,7 @@ async def categorize_route(request, report_uid: str) -> Result[Any]:
 
     # Check for errors
     if report_result.is_error:
-        return Result.fail(report_result.expect_error())
+        return Result.fail(report_result)
 
     # Extract value
     report = report_result.value
@@ -497,7 +497,7 @@ async def categorize_route(request, report_uid: str) -> Result[Any]:
 
     # Check for errors
     if report_result.is_error:
-        return Result.fail(report_result.expect_error())
+        return Result.fail(report_result)
 
     # Extract value
     report = report_result.value
@@ -553,14 +553,11 @@ async def choice_detail_view(request, uid: str):
 async def api_route(uid: str) -> Result[Any]:
     result = await service.get_entity(uid)
 
-    if result.is_error:
-        return Result.fail(result.expect_error())
+    found = require_found(result, "Entity", uid)
+    if found.is_error:
+        return found
 
-    entity = result.value
-
-    # Guard: Check None before accessing attributes
-    if entity is None:
-        return Result.fail(Errors.not_found(resource="Entity"))
+    entity = found.value
 
     # Now safe to access entity.attribute
     return await service.process(entity.attribute)

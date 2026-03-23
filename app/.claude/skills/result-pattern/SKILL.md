@@ -27,7 +27,8 @@ result = Result.fail(error)  # ErrorContext, str, or another Result
 if result.is_ok:
     data = result.value
 if result.is_error:  # NOT .is_err (deprecated)
-    error = result.expect_error()  # Type-safe: ErrorContext (guaranteed)
+    return Result.fail(result)  # Propagate error (preferred)
+    # Or access error details: error = result.expect_error()
 ```
 
 ### Key Methods
@@ -185,18 +186,22 @@ async def get_user_tasks(self, user_uid: str) -> Result[list[Task]]:
     return Result.ok(tasks)
 ```
 
-### Pattern 3: Type-Safe Error Access
+### Pattern 3: Cross-Type Error Propagation
 
 ```python
 async def complex_operation(self) -> Result[Output]:
-    result = await some_operation()
+    result = await some_operation()  # Returns Result[Input]
     if result.is_error:
-        # .expect_error() guarantees ErrorContext (not Optional)
-        error = result.expect_error()
-        # MyPy knows error is ErrorContext - no assertion needed
-        return Result.fail(error)
+        return Result.fail(result)  # Result[Input] → Result[Output]
 
     return Result.ok(transform(result.value))
+```
+
+Use `.expect_error()` only when you need to _read_ the error (logging, branching):
+```python
+if result.is_error:
+    error = result.expect_error()  # Type: ErrorContext (guaranteed)
+    logger.error(f"Failed: {error.message}")
 ```
 
 ### Pattern 4: Batch Operations
@@ -259,6 +264,24 @@ async def create_task(request):
 async def get_task(request, uid: str):
     return await task_service.get(uid)  # Result[Task] → response
 ```
+
+### require_found() — Fetch + Not-Found Guard
+
+For detail routes that fetch an entity and need to 404 if missing:
+
+```python
+from adapters.inbound.result_helpers import require_found
+
+@rt("/api/submissions/get")
+@boundary_handler()
+async def get_submission(request: Request, uid: str) -> Result[Any]:
+    found = require_found(await service.get(uid), "Submission", uid)
+    if found.is_error:
+        return found
+    return Result.ok(entity_to_response(found.value))
+```
+
+Combines `is_error` check + `value is None` check into one call.
 
 ### Request Body Parsing → Result[T]
 
@@ -508,7 +531,8 @@ async def test_success_case():
 |------|---------|
 | `/core/utils/result_simplified.py` | Result[T] type definition |
 | `/core/utils/errors_simplified.py` | ErrorContext, Errors factory |
-| `/adapters/inbound/boundary.py` + `/adapters/inbound/boundary.py` | @boundary_handler decorator |
+| `/adapters/inbound/boundary.py` | @boundary_handler decorator |
+| `/adapters/inbound/result_helpers.py` | `require_found()` — fetch + not-found in one call |
 | `/docs/patterns/ERROR_HANDLING.md` | Full documentation |
 
 ## Related Skills

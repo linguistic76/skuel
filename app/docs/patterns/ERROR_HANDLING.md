@@ -417,14 +417,14 @@ async def _get_intelligence_data(context: UserContext) -> Result[dict[str, Any]]
     # Factory is REQUIRED (bootstrap dependency) - no graceful degradation
     intelligence = services.context_intelligence.create(context)
 
-    # Methods return Result[T] - propagate errors via expect_error()
+    # Methods return Result[T] - propagate errors
     plan_result = await intelligence.get_ready_to_work_on_today()
     if plan_result.is_error:
-        return plan_result.expect_error()
+        return Result.fail(plan_result)
 
     alignment_result = await intelligence.calculate_life_path_alignment()
     if alignment_result.is_error:
-        return alignment_result.expect_error()
+        return Result.fail(alignment_result)
 
     return Result.ok({
         "daily_plan": plan_result.value,
@@ -877,11 +877,11 @@ async def _get_intelligence_data(
         # Methods return Result[T] - check for runtime errors
         plan_result = await intelligence.get_ready_to_work_on_today()
         if plan_result.is_error:
-            return Result.fail(plan_result.expect_error())
+            return Result.fail(plan_result)
 
         alignment_result = await intelligence.calculate_life_path_alignment()
         if alignment_result.is_error:
-            return Result.fail(alignment_result.expect_error())
+            return Result.fail(alignment_result)
 
         return Result.ok({
             "daily_plan": plan_result.value,

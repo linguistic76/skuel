@@ -76,9 +76,9 @@ async def get_task(self, uid: str) -> Result[Task]:
     ...
     return Result.ok(task)
 
-# Check errors with .is_error (NOT .is_err)
+# Propagate errors with Result.fail(result)
 if result.is_error:
-    return result.expect_error()
+    return Result.fail(result)
 ```
 
 ### Three-Tier Type System
