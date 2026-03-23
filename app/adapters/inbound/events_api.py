@@ -13,10 +13,10 @@ runtime closures or domain-specific handler logic:
 from typing import Any
 
 from fasthtml.common import Request
-from pydantic import ValidationError
 
 from adapters.inbound.auth import require_authenticated_user, require_ownership_query
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.form_helpers import parse_json_body
 from adapters.inbound.route_factories import (
     StatusRouteFactory,
     StatusTransition,
@@ -74,12 +74,12 @@ def create_events_api_routes(
         request: Request, user_uid: str, entity: Any
     ) -> Result[Any]:
         """Update event status (requires ownership)."""
-        body = await request.json()
-        try:
-            req = EventStatusUpdateRequest(**{**body, "event_uid": entity.uid})
-        except ValidationError as e:
-            return Result.fail(Errors.validation(str(e), field="body"))
-        return await events_service.update_event_status(req)
+        result = await parse_json_body(
+            request, EventStatusUpdateRequest, extra={"event_uid": entity.uid}
+        )
+        if result.is_error:
+            return result  # type: ignore[return-value]
+        return await events_service.update_event_status(result.value)
 
     # ========================================================================
     # STATUS ROUTES (Factory-Generated)

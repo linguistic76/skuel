@@ -10,10 +10,10 @@ Provides:
 from typing import Any, cast
 
 from fasthtml.common import Request
-from pydantic import ValidationError
 
 from adapters.inbound.auth import make_service_getter, require_authenticated_user, require_teacher
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.form_helpers import parse_json_body
 from adapters.inbound.route_factories import CRUDRouteFactory
 from core.models.enums import ContentScope
 from core.models.enums.user_enums import UserRole
@@ -177,11 +177,10 @@ def create_exercises_api_routes(
         - 200: Relationship created
         - 404: Exercise or curriculum KU not found
         """
-        body = await request.json()
-        try:
-            req = ExerciseKnowledgeRequest(**body)
-        except ValidationError as e:
-            return Result.fail(Errors.validation(str(e), field="body"))
+        result = await parse_json_body(request, ExerciseKnowledgeRequest)
+        if result.is_error:
+            return result  # type: ignore[return-value]
+        req = result.value
 
         return cast(
             "Result[Any]",
@@ -203,11 +202,10 @@ def create_exercises_api_routes(
         - 200: Relationship removed
         - 404: Relationship not found
         """
-        body = await request.json()
-        try:
-            req = ExerciseKnowledgeRequest(**body)
-        except ValidationError as e:
-            return Result.fail(Errors.validation(str(e), field="body"))
+        result = await parse_json_body(request, ExerciseKnowledgeRequest)
+        if result.is_error:
+            return result  # type: ignore[return-value]
+        req = result.value
 
         return cast(
             "Result[Any]",

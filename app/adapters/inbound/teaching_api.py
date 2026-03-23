@@ -18,20 +18,20 @@ See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import Request
-from pydantic import ValidationError
 
 from adapters.inbound.auth.roles import UserRole, make_service_getter, require_role
 from adapters.inbound.boundary import boundary_handler
-from adapters.inbound.route_factories import parse_date_param_strict
-from core.models.enums.entity_enums import ProcessorType
-from core.models.enums.submissions_enums import ExerciseScope
-from core.models.teaching.teaching_request import RequestRevisionRequest, SubmitReportRequest
+from adapters.inbound.form_helpers import parse_form_body, parse_json_body
+from core.models.teaching.teaching_request import (
+    CreateTeachingExerciseRequest,
+    RequestRevisionRequest,
+    SubmitReportRequest,
+    UpdateTeachingExerciseRequest,
+)
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from datetime import date
-
     from core.ports import TeacherReviewOperations
 
 logger = get_logger(__name__)
@@ -72,16 +72,14 @@ def create_teaching_api_routes(
     @boundary_handler()
     async def submit_feedback(request: Request, uid: str, current_user: Any) -> Result[Any]:
         """Submit feedback for a student report."""
-        body = await request.json()
-        try:
-            req = SubmitReportRequest(**body)
-        except ValidationError as e:
-            return Result.fail(Errors.validation(str(e), field="body"))
+        result = await parse_json_body(request, SubmitReportRequest)
+        if result.is_error:
+            return result  # type: ignore[return-value]
 
         return await teacher_review_service.submit_report(
             report_uid=uid,
             teacher_uid=current_user.uid,
-            feedback=req.feedback,
+            feedback=result.value.feedback,
         )
 
     @rt("/api/teaching/review/{uid}/revision", methods=["POST"])
@@ -89,16 +87,14 @@ def create_teaching_api_routes(
     @boundary_handler()
     async def request_revision(request: Request, uid: str, current_user: Any) -> Result[Any]:
         """Request revision for a student report."""
-        body = await request.json()
-        try:
-            req = RequestRevisionRequest(**body)
-        except ValidationError as e:
-            return Result.fail(Errors.validation(str(e), field="body"))
+        result = await parse_json_body(request, RequestRevisionRequest)
+        if result.is_error:
+            return result  # type: ignore[return-value]
 
         return await teacher_review_service.request_revision(
             report_uid=uid,
             teacher_uid=current_user.uid,
-            notes=req.notes,
+            notes=result.value.notes,
         )
 
     @rt("/api/teaching/review/{uid}/approve", methods=["POST"])
@@ -202,54 +198,21 @@ def create_teaching_api_routes(
                 )
             )
 
-        body = await request.form()
-        name = (body.get("name") or "").strip()
-        instructions = (body.get("instructions") or "").strip()
-
-        if not name:
-            return Result.fail(Errors.validation("name is required", field="name"))
-        if not instructions:
-            return Result.fail(Errors.validation("instructions is required", field="instructions"))
-
-        scope_str = body.get("scope") or "personal"
-        try:
-            scope = ExerciseScope(scope_str)
-        except ValueError:
-            return Result.fail(Errors.validation(f"Invalid scope: {scope_str}", field="scope"))
-
-        group_uid = body.get("group_uid") or None
-        if scope == ExerciseScope.ASSIGNED and not group_uid:
-            return Result.fail(
-                Errors.validation("group_uid is required for assigned exercises", field="group_uid")
-            )
-
-        due_date: date | None = None
-        due_date_str = body.get("due_date") or ""
-        if due_date_str:
-            due_date_result = parse_date_param_strict(due_date_str, "due_date")
-            if due_date_result.is_error:
-                return due_date_result
-            due_date = due_date_result.value
-
-        processor_type_str = body.get("processor_type") or "llm"
-        try:
-            processor_type = ProcessorType(processor_type_str)
-        except ValueError:
-            processor_type = ProcessorType.LLM
-
-        context_notes_raw = body.get("context_notes") or ""
-        context_notes = [n.strip() for n in context_notes_raw.splitlines() if n.strip()]
+        parsed = await parse_form_body(request, CreateTeachingExerciseRequest)
+        if parsed.is_error:
+            return parsed  # type: ignore[return-value]
+        req = parsed.value
 
         result = await exercises_service.create_exercise(
             user_uid=current_user.uid,
-            name=name,
-            instructions=instructions,
-            model=body.get("model") or "claude-sonnet-4-6",
-            scope=scope,
-            group_uid=group_uid,
-            due_date=due_date,
-            processor_type=processor_type,
-            context_notes=context_notes,
+            name=req.name,
+            instructions=req.instructions,
+            model=req.model,
+            scope=req.scope,
+            group_uid=req.group_uid,
+            due_date=req.due_date,
+            processor_type=req.processor_type,
+            context_notes=req.parsed_context_notes,
         )
         if result.is_error:
             return result  # type: ignore[no-any-return]
@@ -269,23 +232,17 @@ def create_teaching_api_routes(
                 )
             )
 
-        body = await request.form()
-
-        name = (body.get("name") or "").strip() or None
-        instructions = (body.get("instructions") or "").strip() or None
-        model = body.get("model") or None
-
-        context_notes: list[str] | None = None
-        context_notes_raw = body.get("context_notes")
-        if context_notes_raw is not None:
-            context_notes = [n.strip() for n in context_notes_raw.splitlines() if n.strip()]
+        parsed = await parse_form_body(request, UpdateTeachingExerciseRequest)
+        if parsed.is_error:
+            return parsed  # type: ignore[return-value]
+        req = parsed.value
 
         result = await exercises_service.update_exercise(
             uid=uid,
-            name=name,
-            instructions=instructions,
-            model=model,
-            context_notes=context_notes,
+            name=req.name,
+            instructions=req.instructions,
+            model=req.model,
+            context_notes=req.parsed_context_notes,
         )
         if result.is_error:
             return result  # type: ignore[no-any-return]

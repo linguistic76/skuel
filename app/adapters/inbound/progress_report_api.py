@@ -40,11 +40,11 @@ if TYPE_CHECKING:
     from core.ports.submission_protocols import SubmissionOperations
     from core.services.user.user_context_builder import UserContextBuilder
 
-from pydantic import ValidationError
 from starlette.requests import Request
 
 from adapters.inbound.auth import make_service_getter, require_admin, require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.form_helpers import parse_json_body
 from adapters.inbound.route_factories import parse_int_query_param, split_csv
 from core.models.entity_converters import entity_to_response
 from core.models.entity_requests import (
@@ -286,11 +286,10 @@ def create_progress_report_api_routes(
             SECURITY: Requires ADMIN role. See ADR-042.
             """
             admin_uid = current_user.uid
-            body = await request.json()
-            try:
-                req = ActivityFeedbackSubmitRequest(**body)
-            except ValidationError as e:
-                return Result.fail(Errors.validation(str(e), field="body"))
+            parsed = await parse_json_body(request, ActivityFeedbackSubmitRequest)
+            if parsed.is_error:
+                return parsed  # type: ignore[return-value]
+            req = parsed.value
 
             result = await activity_report.submit_report(
                 admin_uid=admin_uid,
@@ -348,11 +347,10 @@ def create_progress_report_api_routes(
                 user_revision: Replacement text (required for revision mode)
             """
             user_uid = require_authenticated_user(request)
-            body = await request.json()
-            try:
-                req = AnnotationSaveRequest(**body)
-            except ValidationError as e:
-                return Result.fail(Errors.validation(str(e), field="body"))
+            parsed = await parse_json_body(request, AnnotationSaveRequest)
+            if parsed.is_error:
+                return parsed  # type: ignore[return-value]
+            req = parsed.value
 
             result = await activity_report.annotate(
                 uid=req.uid,
@@ -424,11 +422,10 @@ def create_progress_report_api_routes(
         async def request_activity_review(request: Request) -> Result[Any]:
             """User requests an activity review from an admin."""
             user_uid = require_authenticated_user(request)
-            body = await request.json()
-            try:
-                req = ActivityReviewRequest(**body)
-            except ValidationError as e:
-                return Result.fail(Errors.validation(str(e), field="body"))
+            parsed = await parse_json_body(request, ActivityReviewRequest)
+            if parsed.is_error:
+                return parsed  # type: ignore[return-value]
+            req = parsed.value
 
             result = await review_queue.request_review(
                 user_uid=user_uid,

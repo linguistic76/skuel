@@ -19,9 +19,9 @@ __version__ = "2.0"  # Updated to use LsService directly
 from typing import Any
 
 from fasthtml.common import Request
-from pydantic import ValidationError
 
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.form_helpers import parse_json_body
 from adapters.inbound.route_factories import CRUDRouteFactory, IntelligenceRouteFactory
 from core.models.entity_requests import EntityUpdateRequest as KuStepUpdateRequest
 from core.models.enums import ContentScope
@@ -29,7 +29,7 @@ from core.models.enums.user_enums import UserRole
 from core.models.pathways.pathways_request import LearningStepCreateRequest, LearningStepPathRequest
 from core.services.ls_service import LsService
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import Result
 
 logger = get_logger("skuel.routes.learning_steps.api")
 
@@ -103,25 +103,23 @@ def create_learning_steps_api_routes(
     @boundary_handler()
     async def attach_step_to_path_route(request: Request, step_uid: str) -> Result[Any]:
         """Attach a learning step to a learning path."""
-        body = await request.json()
-        try:
-            req = LearningStepPathRequest(**body)
-        except ValidationError as e:
-            return Result.fail(Errors.validation(str(e), field="body"))
+        result = await parse_json_body(request, LearningStepPathRequest)
+        if result.is_error:
+            return result  # type: ignore[return-value]
 
-        return await ls_service.attach_step_to_path(step_uid, req.path_uid, req.sequence)
+        return await ls_service.attach_step_to_path(
+            step_uid, result.value.path_uid, result.value.sequence
+        )
 
     @rt("/api/learning-steps/detach-from-path", methods=["POST"])
     @boundary_handler()
     async def detach_step_from_path_route(request: Request, step_uid: str) -> Result[Any]:
         """Detach a learning step from a learning path."""
-        body = await request.json()
-        try:
-            req = LearningStepPathRequest(**body)
-        except ValidationError as e:
-            return Result.fail(Errors.validation(str(e), field="body"))
+        result = await parse_json_body(request, LearningStepPathRequest)
+        if result.is_error:
+            return result  # type: ignore[return-value]
 
-        return await ls_service.detach_step_from_path(step_uid, req.path_uid)
+        return await ls_service.detach_step_from_path(step_uid, result.value.path_uid)
 
     # Step Prerequisites
     # ------------------

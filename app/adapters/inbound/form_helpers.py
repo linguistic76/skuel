@@ -13,7 +13,11 @@ from datetime import date, datetime, time
 from enum import Enum
 from typing import Any
 
+from pydantic import BaseModel, ValidationError
 from starlette.datastructures import UploadFile
+from starlette.requests import Request
+
+from core.utils.result_simplified import Errors, Result
 
 
 def safe_form_string(value: str | UploadFile | None, default: str = "") -> str:
@@ -126,6 +130,92 @@ def parse_datetime_safe(value: str | None) -> datetime | None:
         return datetime.fromisoformat(value)
     except ValueError:
         return None
+
+
+# ============================================================================
+# Request Body Parsing — JSON and Form Data → Pydantic Model
+# ============================================================================
+
+
+async def parse_json_body[T: BaseModel](
+    request: Request,
+    schema: type[T],
+    extra: dict[str, Any] | None = None,
+) -> Result[T]:
+    """Parse JSON request body into a Pydantic model, returning Result[T].
+
+    Replaces the repeated try/except ValidationError pattern across API routes.
+
+    Args:
+        request: Starlette/FastHTML request
+        schema: Pydantic model class to validate against
+        extra: Optional extra fields to merge into body before validation
+               (e.g., ``{"habit_uid": entity.uid}``)
+
+    Returns:
+        Result.ok(model) on success, Result.fail(validation error) on failure
+
+    Example::
+
+        result = await parse_json_body(request, SubmitReportRequest)
+        if result.is_error:
+            return result
+        req = result.value
+    """
+    try:
+        body = await request.json()
+    except Exception:  # safety-net: JSON parsing boundary
+        return Result.fail(Errors.validation("Invalid JSON body"))
+
+    if extra:
+        body = {**body, **extra}
+
+    try:
+        return Result.ok(schema.model_validate(body))
+    except ValidationError as e:
+        return Result.fail(Errors.validation(str(e), field="body"))
+
+
+async def parse_form_body[T: BaseModel](
+    request: Request,
+    schema: type[T],
+) -> Result[T]:
+    """Parse form data into a Pydantic model, returning Result[T].
+
+    Converts form fields to a dict (stripping strings, passing UploadFile through)
+    then validates via Pydantic. Empty strings become None so optional fields work
+    naturally.
+
+    Args:
+        request: Starlette/FastHTML request
+        schema: Pydantic model class to validate against
+
+    Returns:
+        Result.ok(model) on success, Result.fail(validation error) on failure
+
+    Example::
+
+        result = await parse_form_body(request, CreateTeachingExerciseRequest)
+        if result.is_error:
+            return result
+        req = result.value
+    """
+    form = await request.form()
+    data: dict[str, Any] = {}
+    for key in form:
+        value = form[key]
+        if isinstance(value, UploadFile):
+            data[key] = value
+        elif isinstance(value, str):
+            stripped = value.strip()
+            data[key] = stripped if stripped else None
+        else:
+            data[key] = value
+
+    try:
+        return Result.ok(schema.model_validate(data))
+    except ValidationError as e:
+        return Result.fail(Errors.validation(str(e), field="body"))
 
 
 # ============================================================================

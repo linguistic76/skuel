@@ -33,7 +33,6 @@ if TYPE_CHECKING:
         SubmissionSearchOperations,
     )
 
-from pydantic import ValidationError
 from starlette.background import BackgroundTask
 from starlette.datastructures import UploadFile
 from starlette.requests import Request
@@ -41,6 +40,7 @@ from starlette.responses import FileResponse
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.form_helpers import parse_json_body
 from adapters.inbound.route_factories import split_csv
 from core.models.entity_converters import entity_to_response
 from core.models.entity_requests import (
@@ -313,15 +313,10 @@ def create_submissions_api_routes(
         """
         user_uid = require_authenticated_user(request)
 
-        try:
-            body = await request.json()
-        except Exception:  # safety-net: JSON parsing boundary
-            return Result.fail(Errors.validation("Invalid JSON body"))
-
-        try:
-            req = FormSubmitRequest(**body)
-        except ValidationError as e:
-            return Result.fail(Errors.validation(str(e), field="body"))
+        parsed = await parse_json_body(request, FormSubmitRequest)
+        if parsed.is_error:
+            return parsed  # type: ignore[return-value]
+        req = parsed.value
 
         if not req.form_data:
             return Result.fail(

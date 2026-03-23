@@ -13,10 +13,10 @@ __version__ = "2.0"
 from typing import Any
 
 from fasthtml.common import Request
-from pydantic import ValidationError
 
 from adapters.inbound.auth import require_ownership_query
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.form_helpers import parse_json_body
 from adapters.inbound.route_factories import parse_int_query_param
 from core.models.choice.choice_request import ChoiceDecisionRequest
 from core.services.choices_service import ChoicesService
@@ -58,11 +58,10 @@ def create_choices_api_routes(
     @boundary_handler(success_status=200)
     async def make_decision_route(request: Request, user_uid: str, entity: Any) -> Result[Any]:
         """Make a decision on a choice (requires ownership)."""
-        body = await request.json()
-        try:
-            req = ChoiceDecisionRequest(**body)
-        except ValidationError as e:
-            return Result.fail(Errors.validation(str(e), field="body"))
+        result = await parse_json_body(request, ChoiceDecisionRequest)
+        if result.is_error:
+            return result  # type: ignore[return-value]
+        req = result.value
 
         return await choice_service.make_decision(
             choice_uid=entity.uid,

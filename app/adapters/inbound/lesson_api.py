@@ -15,10 +15,10 @@ This file uses:
 from typing import Any
 
 from fasthtml.common import Request
-from pydantic import ValidationError
 
 from adapters.inbound.auth import require_admin, require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.form_helpers import parse_json_body
 from adapters.inbound.route_factories import (
     CRUDRouteFactory,
     IntelligenceRouteFactory,
@@ -110,11 +110,10 @@ def create_lesson_api_routes(
         request: Request, current_user: Any, uid: str
     ) -> Result[Any]:
         """Create a relationship between lessons. Requires ADMIN role."""
-        body = await request.json()
-        try:
-            req = LessonRelationshipCreateRequest(**body)
-        except ValidationError as e:
-            return Result.fail(Errors.validation(str(e), field="body"))
+        result = await parse_json_body(request, LessonRelationshipCreateRequest)
+        if result.is_error:
+            return result  # type: ignore[return-value]
+        req = result.value
 
         return await lesson_service.create_lesson_relationship(
             uid, req.target_uid, req.type, req.strength, req.description
@@ -152,26 +151,24 @@ def create_lesson_api_routes(
         request: Request, current_user: Any, uid: str
     ) -> Result[Any]:
         """Update lesson content. Requires ADMIN role."""
-        body = await request.json()
-        try:
-            req = LessonContentUpdateRequest(**body)
-        except ValidationError as e:
-            return Result.fail(Errors.validation(str(e), field="body"))
+        result = await parse_json_body(request, LessonContentUpdateRequest)
+        if result.is_error:
+            return result  # type: ignore[return-value]
 
-        return await lesson_service.update_lesson_content(uid, req.content, req.title)
+        return await lesson_service.update_lesson_content(
+            uid, result.value.content, result.value.title
+        )
 
     @rt("/api/lesson/tags", methods=["POST"])
     @require_admin(user_service_getter)
     @boundary_handler()
     async def add_lesson_tags_route(request: Request, current_user: Any, uid: str) -> Result[Any]:
         """Add tags to a lesson. Requires ADMIN role."""
-        body = await request.json()
-        try:
-            req = AddTagsRequest(**body)
-        except ValidationError as e:
-            return Result.fail(Errors.validation(str(e), field="body"))
+        result = await parse_json_body(request, AddTagsRequest)
+        if result.is_error:
+            return result  # type: ignore[return-value]
 
-        return await lesson_service.add_lesson_tags(uid, req.tags)
+        return await lesson_service.add_lesson_tags(uid, result.value.tags)
 
     @rt("/api/lesson/tags", methods=["DELETE"])
     @require_admin(user_service_getter)
@@ -180,13 +177,11 @@ def create_lesson_api_routes(
         request: Request, current_user: Any, uid: str
     ) -> Result[Any]:
         """Remove tags from a lesson. Requires ADMIN role."""
-        body = await request.json()
-        try:
-            req = RemoveTagsRequest(**body)
-        except ValidationError as e:
-            return Result.fail(Errors.validation(str(e), field="body"))
+        result = await parse_json_body(request, RemoveTagsRequest)
+        if result.is_error:
+            return result  # type: ignore[return-value]
 
-        return await lesson_service.remove_lesson_tags(uid, req.tags)
+        return await lesson_service.remove_lesson_tags(uid, result.value.tags)
 
     # Lesson Search and Discovery
     # ----------------------------

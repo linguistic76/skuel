@@ -12,10 +12,10 @@ runtime closures or domain-specific handler logic:
 from typing import Any
 
 from fasthtml.common import Request
-from pydantic import ValidationError
 
 from adapters.inbound.auth import require_authenticated_user, require_ownership_query
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.form_helpers import parse_json_body
 from adapters.inbound.route_factories import (
     StatusRouteFactory,
     StatusTransition,
@@ -107,11 +107,10 @@ def create_goals_api_routes(
         request: Request, user_uid: str, entity: Any
     ) -> Result[bool]:
         """Create a milestone for a goal (requires ownership)."""
-        body = await request.json()
-        try:
-            req = MilestoneCreateRequest(**body)
-        except ValidationError as e:
-            return Result.fail(Errors.validation(str(e), field="body"))
+        result = await parse_json_body(request, MilestoneCreateRequest)
+        if result.is_error:
+            return result  # type: ignore[return-value]
+        req = result.value
 
         return await goals_service.create_goal_milestone(
             entity.uid, req.title, req.target_date, req.description or ""
@@ -137,11 +136,10 @@ def create_goals_api_routes(
         request: Request, user_uid: str, entity: Any
     ) -> Result[bool]:
         """Link a habit to a goal (requires ownership)."""
-        body = await request.json()
-        try:
-            req = GoalHabitLinkRequest(**body)
-        except ValidationError as e:
-            return Result.fail(Errors.validation(str(e), field="body"))
+        result = await parse_json_body(request, GoalHabitLinkRequest)
+        if result.is_error:
+            return result  # type: ignore[return-value]
+        req = result.value
 
         return await goals_service.link_goal_to_habit(entity.uid, req.habit_uid, req.weight)
 

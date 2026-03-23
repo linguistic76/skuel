@@ -18,13 +18,13 @@ Routes follow SKUEL's established patterns:
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import Request
-from pydantic import ValidationError
 
 from adapters.inbound.auth import make_service_getter, require_admin
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.form_helpers import parse_json_body
 from adapters.inbound.route_factories import parse_int_query_param
 from core.models.lesson.lesson_request import LessonOrganizeRequest, LessonReorderRequest
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from core.ports import LessonOperations
@@ -76,11 +76,10 @@ def create_lesson_organization_api_routes(
     @boundary_handler(success_status=201)
     async def organize_route(request, current_user) -> Result[dict[str, Any]]:
         """Organize a Ku under another Ku (create ORGANIZES relationship)."""
-        body = await request.json()
-        try:
-            req = LessonOrganizeRequest(**body)
-        except ValidationError as e:
-            return Result.fail(Errors.validation(str(e), field="body"))
+        parsed = await parse_json_body(request, LessonOrganizeRequest)
+        if parsed.is_error:
+            return parsed  # type: ignore[return-value]
+        req = parsed.value
 
         result = await ku_service.organize(req.parent_uid, req.child_uid, req.order)
         if result.is_error:
@@ -94,11 +93,10 @@ def create_lesson_organization_api_routes(
     @boundary_handler()
     async def unorganize_route(request, current_user) -> Result[dict[str, Any]]:
         """Remove organization relationship between Kus."""
-        body = await request.json()
-        try:
-            req = LessonOrganizeRequest(**body)
-        except ValidationError as e:
-            return Result.fail(Errors.validation(str(e), field="body"))
+        parsed = await parse_json_body(request, LessonOrganizeRequest)
+        if parsed.is_error:
+            return parsed  # type: ignore[return-value]
+        req = parsed.value
 
         result = await ku_service.unorganize(req.parent_uid, req.child_uid)
         if result.is_error:
@@ -110,11 +108,10 @@ def create_lesson_organization_api_routes(
     @boundary_handler()
     async def reorder_route(request, current_user) -> Result[dict[str, Any]]:
         """Change the order of a child Ku within its parent."""
-        body = await request.json()
-        try:
-            req = LessonReorderRequest(**body)
-        except ValidationError as e:
-            return Result.fail(Errors.validation(str(e), field="body"))
+        parsed = await parse_json_body(request, LessonReorderRequest)
+        if parsed.is_error:
+            return parsed  # type: ignore[return-value]
+        req = parsed.value
 
         result = await ku_service.reorder(req.parent_uid, req.child_uid, req.new_order)
         if result.is_error:

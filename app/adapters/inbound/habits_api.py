@@ -13,10 +13,10 @@ runtime closures or domain-specific handler logic:
 from typing import Any
 
 from fasthtml.common import Request
-from pydantic import ValidationError
 
 from adapters.inbound.auth import require_authenticated_user, require_ownership_query
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.form_helpers import parse_json_body
 from adapters.inbound.route_factories import (
     StatusRouteFactory,
     StatusTransition,
@@ -99,24 +99,22 @@ def create_habits_api_routes(
     @boundary_handler()
     async def track_habit_route(request: Request, user_uid: str, entity: Any) -> Result[Any]:
         """Track a habit completion (requires ownership)."""
-        body = await request.json()
-        try:
-            req = TrackHabitRequest(**{**body, "habit_uid": entity.uid})
-        except ValidationError as e:
-            return Result.fail(Errors.validation(str(e), field="body"))
-        return await habits_service.track_habit(req)
+        result = await parse_json_body(request, TrackHabitRequest, extra={"habit_uid": entity.uid})
+        if result.is_error:
+            return result  # type: ignore[return-value]
+        return await habits_service.track_habit(result.value)
 
     @rt("/api/habits/untrack")
     @require_ownership_query(get_habits_service)
     @boundary_handler()
     async def untrack_habit_route(request: Request, user_uid: str, entity: Any) -> Result[Any]:
         """Remove a habit tracking entry (requires ownership)."""
-        body = await request.json()
-        try:
-            req = UntrackHabitRequest(**{**body, "habit_uid": entity.uid})
-        except ValidationError as e:
-            return Result.fail(Errors.validation(str(e), field="body"))
-        return await habits_service.untrack_habit(req)
+        result = await parse_json_body(
+            request, UntrackHabitRequest, extra={"habit_uid": entity.uid}
+        )
+        if result.is_error:
+            return result  # type: ignore[return-value]
+        return await habits_service.untrack_habit(result.value)
 
     @rt("/api/habits/streak")
     @require_ownership_query(get_habits_service)
