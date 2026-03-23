@@ -50,23 +50,23 @@ async def main() -> None:
     # Configure uvicorn server with lifespan support
     config = container.config
 
+    # reload=False here: Uvicorn requires an import string for reload mode,
+    # but we pass an already-bootstrapped app instance. For hot-reload, use:
+    #   uv run uvicorn main:app --reload
     uvicorn_config = uvicorn.Config(
         container.app,
         host=args.host,
         port=args.port,
-        reload=config.application.debug,
+        reload=False,
         log_level=(config.application.log_level or "info").lower(),
         access_log=config.application.debug,  # Enable in dev for route debugging
         lifespan="on",  # Enable lifespan for proper startup/shutdown
     )
 
     server = uvicorn.Server(uvicorn_config)
-    # Let Uvicorn handle signal management - no manual handlers needed
 
     logger.info(f"🌟 SKUEL starting on http://{args.host}:{args.port}")
     logger.info("📋 Architecture: Composition Root (no service registry globals)")
-    if config.application.debug:
-        logger.info("🔁 Uvicorn reload enabled (development mode)")
 
     # Run server - lifespan will handle cleanup
     await server.serve()
