@@ -35,6 +35,47 @@ from ui.timeline.components import (
 logger = get_logger(__name__)
 
 
+def _parse_timeline_dates(
+    start_date: str | None, end_date: str | None
+) -> Result[tuple[date | None, date | None]]:
+    """Parse and validate start/end date parameters for timeline routes."""
+    start_date_parsed = None
+    if start_date:
+        try:
+            start_date_parsed = date.fromisoformat(start_date)
+        except ValueError:
+            return Result.fail(
+                Errors.validation(
+                    message="Invalid start_date format. Use YYYY-MM-DD.",
+                    field="start_date",
+                    value=start_date,
+                )
+            )
+
+    end_date_parsed = None
+    if end_date:
+        try:
+            end_date_parsed = date.fromisoformat(end_date)
+        except ValueError:
+            return Result.fail(
+                Errors.validation(
+                    message="Invalid end_date format. Use YYYY-MM-DD.",
+                    field="end_date",
+                    value=end_date,
+                )
+            )
+
+    if start_date_parsed and end_date_parsed and start_date_parsed > end_date_parsed:
+        return Result.fail(
+            Errors.validation(
+                message=f"start_date ({start_date}) cannot be after end_date ({end_date})",
+                field="start_date",
+            )
+        )
+
+    return Result.ok((start_date_parsed, end_date_parsed))
+
+
 def create_timeline_api_routes(_app, rt, tasks_service: Any):
     """Create timeline routes for both REST API and web interface."""
 
@@ -50,19 +91,6 @@ def create_timeline_api_routes(_app, rt, tasks_service: Any):
     ) -> Response:
         """
         REST API endpoint for Markwhen timeline export.
-
-        Query Parameters:
-        - start_date: ISO date string (YYYY-MM-DD) for filtering start
-        - end_date: ISO date string (YYYY-MM-DD) for filtering end
-        - project: Project ID to filter by
-        - status: Comma-separated list of statuses to include
-        - include_completed: Whether to include completed tasks (default: true)
-        - format: Export format (currently only 'markwhen' supported)
-
-        Returns:
-        - 200: Markwhen timeline content (text/plain) with file download headers
-        - 400: Invalid parameters or export failure
-        - 500: Server error
 
         Note: This route does NOT use @boundary_handler because it needs custom
         Content-Disposition headers for file downloads.
@@ -80,42 +108,20 @@ def create_timeline_api_routes(_app, rt, tasks_service: Any):
                 },
             )
 
-            # Parse date parameters
-            start_date_parsed = None
-            if start_date:
-                try:
-                    start_date_parsed = date.fromisoformat(start_date)
-                except ValueError:
-                    return Response(
-                        content=f"Invalid start_date format. Use YYYY-MM-DD. Got: {start_date}",
-                        status_code=400,
-                        media_type="text/plain",
-                    )
-
-            end_date_parsed = None
-            if end_date:
-                try:
-                    end_date_parsed = date.fromisoformat(end_date)
-                except ValueError:
-                    return Response(
-                        content=f"Invalid end_date format. Use YYYY-MM-DD. Got: {end_date}",
-                        status_code=400,
-                        media_type="text/plain",
-                    )
-
-            # Validate date range
-            if start_date_parsed and end_date_parsed and start_date_parsed > end_date_parsed:
+            # Parse and validate dates
+            dates_result = _parse_timeline_dates(start_date, end_date)
+            if dates_result.is_error:
                 return Response(
-                    content=f"start_date ({start_date}) cannot be after end_date ({end_date})",
+                    content=str(dates_result.error),
                     status_code=400,
                     media_type="text/plain",
                 )
+            start_date_parsed, end_date_parsed = dates_result.value
 
             # Parse status filter
             status_filter = None
             if status:
                 status_filter = split_csv(status)
-                # Validate status values
                 valid_statuses = {s.value for s in EntityStatus}
                 invalid_statuses = [s for s in status_filter if s not in valid_statuses]
                 if invalid_statuses:
@@ -133,7 +139,7 @@ def create_timeline_api_routes(_app, rt, tasks_service: Any):
                     media_type="text/plain",
                 )
 
-            # Get tasks service and export timeline
+            # Export timeline
             if tasks_service is None:
                 raise RuntimeError(
                     "TasksService must be explicitly injected for timeline functionality"
@@ -207,32 +213,12 @@ def create_timeline_api_routes(_app, rt, tasks_service: Any):
         """
         require_authenticated_user(request)
         try:
-            # Use same parameter parsing as main endpoint
-            start_date_parsed = None
-            if start_date:
-                try:
-                    start_date_parsed = date.fromisoformat(start_date)
-                except ValueError:
-                    return Result.fail(
-                        Errors.validation(
-                            message="Invalid start_date format. Use YYYY-MM-DD.",
-                            field="start_date",
-                            value=start_date,
-                        )
-                    )
+            # Parse dates using shared helper
+            dates_result = _parse_timeline_dates(start_date, end_date)
+            if dates_result.is_error:
+                return Result.fail(dates_result)
 
-            end_date_parsed = None
-            if end_date:
-                try:
-                    end_date_parsed = date.fromisoformat(end_date)
-                except ValueError:
-                    return Result.fail(
-                        Errors.validation(
-                            message="Invalid end_date format. Use YYYY-MM-DD.",
-                            field="end_date",
-                            value=end_date,
-                        )
-                    )
+            start_date_parsed, end_date_parsed = dates_result.value
 
             status_filter = None
             if status:

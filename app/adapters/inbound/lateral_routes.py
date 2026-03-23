@@ -7,8 +7,8 @@ Registers lateral relationship routes for all 9 hierarchical domains:
 - Curriculum Domains (3): KU, LS, LP
 
 Each domain gets a full set of lateral relationship endpoints via LateralRouteFactory.
-Domain-specific routes (habit stacking, event conflicts, KU enables) are registered
-separately using the core LateralRelationshipService directly.
+Domain-specific routes (habit stacking, event conflicts, KU enables) use shared
+helpers to eliminate per-domain boilerplate.
 
 See: /docs/architecture/LATERAL_RELATIONSHIPS_CORE.md
 """
@@ -28,62 +28,125 @@ from core.utils.result_simplified import Result
 
 logger = get_logger(__name__)
 
+# Domain configs: (domain, entity_name, service_attr or None for curriculum)
+_LATERAL_DOMAINS: list[tuple[str, str, str | None]] = [
+    ("tasks", "Task", "tasks"),
+    ("goals", "Goal", "goals"),
+    ("habits", "Habit", "habits"),
+    ("events", "Event", "events"),
+    ("choices", "Choice", "choices"),
+    ("principles", "Principle", "principles"),
+    ("ku", "Knowledge Unit", None),
+    ("ls", "Learning Step", None),
+    ("lp", "Learning Path", None),
+]
+
+
+# ============================================================================
+# Shared helpers for domain-specific lateral routes
+# ============================================================================
+
+
+async def _create_relationship(
+    request: Request,
+    lateral_service: Any,
+    uid: str,
+    target_uid: str,
+    relationship_type: RelationshipName,
+    domain: str,
+    metadata: dict[str, Any],
+    message: str,
+    response_extra: dict[str, Any],
+    domain_service: Any | None = None,
+) -> Result[dict[str, Any]]:
+    """Create a domain-specific lateral relationship with auth and ownership."""
+    user_uid = require_authenticated_user(request)
+    full_metadata: dict[str, Any] = {**metadata, "domain": domain}
+
+    create_kwargs: dict[str, Any] = {
+        "source_uid": uid,
+        "target_uid": target_uid,
+        "relationship_type": relationship_type,
+        "metadata": full_metadata,
+    }
+    if domain_service:
+        full_metadata["created_by"] = user_uid
+        create_kwargs["user_uid"] = user_uid
+        create_kwargs["domain_service"] = domain_service
+
+    result = await lateral_service.create_lateral_relationship(**create_kwargs)
+    if result.is_error:
+        return Result.fail(result)
+    return Result.ok({"message": message, **response_extra})
+
+
+async def _get_relationships(
+    request: Request,
+    lateral_service: Any,
+    uid: str,
+    relationship_type: RelationshipName,
+    direction: str,
+    response_key: str,
+    domain_service: Any | None = None,
+) -> Result[dict[str, Any]]:
+    """Get domain-specific lateral relationships with auth and ownership."""
+    user_uid = require_authenticated_user(request)
+
+    get_kwargs: dict[str, Any] = {
+        "entity_uid": uid,
+        "relationship_types": [relationship_type],
+        "direction": direction,
+    }
+    if domain_service:
+        get_kwargs["user_uid"] = user_uid
+        get_kwargs["domain_service"] = domain_service
+
+    result = await lateral_service.get_lateral_relationships(**get_kwargs)
+    if result.is_error:
+        return Result.fail(result)
+    return Result.ok({response_key: result.value, "count": len(result.value)})
+
+
+# ============================================================================
+# API Factory
+# ============================================================================
+
 
 def create_lateral_api_routes(
     app: FastHTMLApp, rt: RouteDecorator, lateral_service: Any, **kwargs: Any
 ) -> RouteList:
-    """
-    Register lateral relationship routes for all 9 domains.
-
-    Args:
-        app: FastHTML app instance
-        rt: FastHTML route decorator
-        lateral_service: Core LateralRelationshipService
-        **kwargs: Domain services (tasks, goals, habits, events, choices, principles)
-    """
+    """Register lateral relationship routes for all 9 domains."""
     all_routes: RouteList = []
 
-    tasks_service = kwargs.get("tasks")
-    goals_service = kwargs.get("goals")
-    habits_service = kwargs.get("habits")
-    events_service = kwargs.get("events")
-    choices_service = kwargs.get("choices")
-    principles_service = kwargs.get("principles")
+    # Resolve domain services from kwargs
+    domain_services: dict[str, Any] = {
+        attr: kwargs.get(attr) for _, _, attr in _LATERAL_DOMAINS if attr
+    }
+
+    # Register standard lateral routes for all 9 domains
+    for domain, entity_name, service_attr in _LATERAL_DOMAINS:
+        domain_service = domain_services.get(service_attr) if service_attr else None
+        factory = LateralRouteFactory(
+            domain=domain,
+            lateral_service=lateral_service,
+            entity_name=entity_name,
+            domain_service=domain_service,
+        )
+        all_routes.extend(factory.register_routes(app, rt))
+
+    logger.info("Standard lateral routes registered for all 9 domains")
 
     # ========================================================================
-    # ACTIVITY DOMAINS (6) — pass domain_service for ownership verification
+    # Domain-specific routes
     # ========================================================================
 
-    # Tasks lateral routes
-    tasks_factory = LateralRouteFactory(
-        domain="tasks",
-        lateral_service=lateral_service,
-        entity_name="Task",
-        domain_service=tasks_service,
-    )
-    all_routes.extend(tasks_factory.register_routes(app, rt))
-    logger.info("Tasks lateral routes registered")
+    habits_service = domain_services.get("habits")
+    events_service = domain_services.get("events")
+    choices_service = domain_services.get("choices")
+    principles_service = domain_services.get("principles")
 
-    # Goals lateral routes
-    goals_factory = LateralRouteFactory(
-        domain="goals",
-        lateral_service=lateral_service,
-        entity_name="Goal",
-        domain_service=goals_service,
-    )
-    all_routes.extend(goals_factory.register_routes(app, rt))
-    logger.info("Goals lateral routes registered")
+    # --- Habits: Stacking ---
 
-    # Habits lateral routes
-    habits_factory = LateralRouteFactory(
-        domain="habits",
-        lateral_service=lateral_service,
-        entity_name="Habit",
-        domain_service=habits_service,
-    )
-    all_routes.extend(habits_factory.register_routes(app, rt))
-
-    # Habits-specific: Habit stacking
     @rt("/api/habits/{uid}/lateral/stacks", methods=["POST"])
     @boundary_handler(success_status=201)
     async def create_habit_stack(
@@ -94,71 +157,37 @@ def create_lateral_api_routes(
         strength: float = 0.8,
     ) -> Result[dict[str, Any]]:
         """Create STACKS_WITH relationship for habit chaining."""
-        user_uid = require_authenticated_user(request)
-
-        result = await lateral_service.create_lateral_relationship(
-            source_uid=uid,
-            target_uid=target_uid,
-            relationship_type=RelationshipName.STACKS_WITH,
-            metadata={
-                "trigger": trigger,
-                "strength": strength,
-                "domain": "habits",
-                "created_by": user_uid,
-            },
-            user_uid=user_uid,
+        return await _create_relationship(
+            request,
+            lateral_service,
+            uid,
+            target_uid,
+            RelationshipName.STACKS_WITH,
+            "habits",
+            {"trigger": trigger, "strength": strength},
+            "Habit stacking relationship created",
+            {"first_habit_uid": uid, "second_habit_uid": target_uid, "trigger": trigger},
             domain_service=habits_service,
-        )
-
-        if result.is_error:
-            return Result.fail(result)
-
-        return Result.ok(
-            {
-                "message": "Habit stacking relationship created",
-                "first_habit_uid": uid,
-                "second_habit_uid": target_uid,
-                "trigger": trigger,
-            }
         )
 
     @rt("/api/habits/{uid}/lateral/stack", methods=["GET"])
     @boundary_handler()
     async def get_habit_stack(request: Request, uid: str) -> Result[dict[str, Any]]:
         """Get all habits in the stacking chain."""
-        user_uid = require_authenticated_user(request)
-
-        result = await lateral_service.get_lateral_relationships(
-            entity_uid=uid,
-            relationship_types=[RelationshipName.STACKS_WITH],
-            direction="both",
-            user_uid=user_uid,
+        return await _get_relationships(
+            request,
+            lateral_service,
+            uid,
+            RelationshipName.STACKS_WITH,
+            "both",
+            "stack",
             domain_service=habits_service,
         )
 
-        if result.is_error:
-            return Result.fail(result)
-
-        return Result.ok(
-            {
-                "stack": result.value,
-                "count": len(result.value),
-            }
-        )
-
     all_routes.extend([create_habit_stack, get_habit_stack])
-    logger.info("Habits lateral routes registered (including habit stacking)")
 
-    # Events lateral routes
-    events_factory = LateralRouteFactory(
-        domain="events",
-        lateral_service=lateral_service,
-        entity_name="Event",
-        domain_service=events_service,
-    )
-    all_routes.extend(events_factory.register_routes(app, rt))
+    # --- Events: Scheduling Conflicts ---
 
-    # Events-specific: Scheduling conflicts
     @rt("/api/events/{uid}/lateral/conflicts", methods=["POST"])
     @boundary_handler(success_status=201)
     async def create_event_conflict(
@@ -169,71 +198,37 @@ def create_lateral_api_routes(
         severity: str = "hard",
     ) -> Result[dict[str, Any]]:
         """Create CONFLICTS_WITH relationship for scheduling conflicts."""
-        user_uid = require_authenticated_user(request)
-
-        result = await lateral_service.create_lateral_relationship(
-            source_uid=uid,
-            target_uid=target_uid,
-            relationship_type=RelationshipName.CONFLICTS_WITH,
-            metadata={
-                "conflict_type": conflict_type,
-                "severity": severity,
-                "domain": "events",
-                "created_by": user_uid,
-            },
-            user_uid=user_uid,
+        return await _create_relationship(
+            request,
+            lateral_service,
+            uid,
+            target_uid,
+            RelationshipName.CONFLICTS_WITH,
+            "events",
+            {"conflict_type": conflict_type, "severity": severity},
+            "Event conflict relationship created",
+            {"event_a_uid": uid, "event_b_uid": target_uid, "conflict_type": conflict_type},
             domain_service=events_service,
-        )
-
-        if result.is_error:
-            return Result.fail(result)
-
-        return Result.ok(
-            {
-                "message": "Event conflict relationship created",
-                "event_a_uid": uid,
-                "event_b_uid": target_uid,
-                "conflict_type": conflict_type,
-            }
         )
 
     @rt("/api/events/{uid}/lateral/conflicts", methods=["GET"])
     @boundary_handler()
     async def get_event_conflicts(request: Request, uid: str) -> Result[dict[str, Any]]:
         """Get events that conflict with this event."""
-        user_uid = require_authenticated_user(request)
-
-        result = await lateral_service.get_lateral_relationships(
-            entity_uid=uid,
-            relationship_types=[RelationshipName.CONFLICTS_WITH],
-            direction="both",
-            user_uid=user_uid,
+        return await _get_relationships(
+            request,
+            lateral_service,
+            uid,
+            RelationshipName.CONFLICTS_WITH,
+            "both",
+            "conflicts",
             domain_service=events_service,
         )
 
-        if result.is_error:
-            return Result.fail(result)
-
-        return Result.ok(
-            {
-                "conflicts": result.value,
-                "count": len(result.value),
-            }
-        )
-
     all_routes.extend([create_event_conflict, get_event_conflicts])
-    logger.info("Events lateral routes registered (including scheduling conflicts)")
 
-    # Choices lateral routes
-    choices_factory = LateralRouteFactory(
-        domain="choices",
-        lateral_service=lateral_service,
-        entity_name="Choice",
-        domain_service=choices_service,
-    )
-    all_routes.extend(choices_factory.register_routes(app, rt))
+    # --- Choices: Value Conflicts ---
 
-    # Choices-specific: Value conflicts
     @rt("/api/choices/{uid}/lateral/conflicts", methods=["POST"])
     @boundary_handler(success_status=201)
     async def create_choice_conflict(
@@ -244,71 +239,37 @@ def create_lateral_api_routes(
         severity: str = "moderate",
     ) -> Result[dict[str, Any]]:
         """Create CONFLICTS_WITH relationship for incompatible choices."""
-        user_uid = require_authenticated_user(request)
-
-        result = await lateral_service.create_lateral_relationship(
-            source_uid=uid,
-            target_uid=target_uid,
-            relationship_type=RelationshipName.CONFLICTS_WITH,
-            metadata={
-                "conflict_type": conflict_type,
-                "severity": severity,
-                "domain": "choices",
-                "created_by": user_uid,
-            },
-            user_uid=user_uid,
+        return await _create_relationship(
+            request,
+            lateral_service,
+            uid,
+            target_uid,
+            RelationshipName.CONFLICTS_WITH,
+            "choices",
+            {"conflict_type": conflict_type, "severity": severity},
+            "Choice conflict relationship created",
+            {"choice_a_uid": uid, "choice_b_uid": target_uid, "conflict_type": conflict_type},
             domain_service=choices_service,
-        )
-
-        if result.is_error:
-            return Result.fail(result)
-
-        return Result.ok(
-            {
-                "message": "Choice conflict relationship created",
-                "choice_a_uid": uid,
-                "choice_b_uid": target_uid,
-                "conflict_type": conflict_type,
-            }
         )
 
     @rt("/api/choices/{uid}/lateral/conflicts", methods=["GET"])
     @boundary_handler()
     async def get_choice_conflicts(request: Request, uid: str) -> Result[dict[str, Any]]:
         """Get choices that conflict with this choice."""
-        user_uid = require_authenticated_user(request)
-
-        result = await lateral_service.get_lateral_relationships(
-            entity_uid=uid,
-            relationship_types=[RelationshipName.CONFLICTS_WITH],
-            direction="both",
-            user_uid=user_uid,
+        return await _get_relationships(
+            request,
+            lateral_service,
+            uid,
+            RelationshipName.CONFLICTS_WITH,
+            "both",
+            "conflicts",
             domain_service=choices_service,
         )
 
-        if result.is_error:
-            return Result.fail(result)
-
-        return Result.ok(
-            {
-                "conflicts": result.value,
-                "count": len(result.value),
-            }
-        )
-
     all_routes.extend([create_choice_conflict, get_choice_conflicts])
-    logger.info("Choices lateral routes registered (including value conflicts)")
 
-    # Principles lateral routes
-    principles_factory = LateralRouteFactory(
-        domain="principles",
-        lateral_service=lateral_service,
-        entity_name="Principle",
-        domain_service=principles_service,
-    )
-    all_routes.extend(principles_factory.register_routes(app, rt))
+    # --- Principles: Value Tensions ---
 
-    # Principles-specific: Value tensions
     @rt("/api/principles/{uid}/lateral/conflicts", methods=["POST"])
     @boundary_handler(success_status=201)
     async def create_principle_conflict(
@@ -320,75 +281,41 @@ def create_lateral_api_routes(
         severity: str = "moderate",
     ) -> Result[dict[str, Any]]:
         """Create CONFLICTS_WITH relationship for contradictory principles."""
-        user_uid = require_authenticated_user(request)
-
-        result = await lateral_service.create_lateral_relationship(
-            source_uid=uid,
-            target_uid=target_uid,
-            relationship_type=RelationshipName.CONFLICTS_WITH,
-            metadata={
+        return await _create_relationship(
+            request,
+            lateral_service,
+            uid,
+            target_uid,
+            RelationshipName.CONFLICTS_WITH,
+            "principles",
+            {
                 "conflict_type": conflict_type,
                 "tension_description": tension_description,
                 "severity": severity,
-                "domain": "principles",
-                "created_by": user_uid,
             },
-            user_uid=user_uid,
+            "Principle conflict relationship created",
+            {"principle_a_uid": uid, "principle_b_uid": target_uid, "conflict_type": conflict_type},
             domain_service=principles_service,
-        )
-
-        if result.is_error:
-            return Result.fail(result)
-
-        return Result.ok(
-            {
-                "message": "Principle conflict relationship created",
-                "principle_a_uid": uid,
-                "principle_b_uid": target_uid,
-                "conflict_type": conflict_type,
-            }
         )
 
     @rt("/api/principles/{uid}/lateral/conflicts", methods=["GET"])
     @boundary_handler()
     async def get_principle_conflicts(request: Request, uid: str) -> Result[dict[str, Any]]:
         """Get principles that conflict with this principle (value tensions)."""
-        user_uid = require_authenticated_user(request)
-
-        result = await lateral_service.get_lateral_relationships(
-            entity_uid=uid,
-            relationship_types=[RelationshipName.CONFLICTS_WITH],
-            direction="both",
-            user_uid=user_uid,
+        return await _get_relationships(
+            request,
+            lateral_service,
+            uid,
+            RelationshipName.CONFLICTS_WITH,
+            "both",
+            "conflicts",
             domain_service=principles_service,
         )
 
-        if result.is_error:
-            return Result.fail(result)
-
-        return Result.ok(
-            {
-                "conflicts": result.value,
-                "count": len(result.value),
-            }
-        )
-
     all_routes.extend([create_principle_conflict, get_principle_conflicts])
-    logger.info("Principles lateral routes registered (including value tensions)")
 
-    # ========================================================================
-    # CURRICULUM DOMAINS (3) — no ownership (shared content)
-    # ========================================================================
+    # --- KU: ENABLES Relationships ---
 
-    # KU lateral routes
-    ku_factory = LateralRouteFactory(
-        domain="ku",
-        lateral_service=lateral_service,
-        entity_name="Knowledge Unit",
-    )
-    all_routes.extend(ku_factory.register_routes(app, rt))
-
-    # KU-specific: ENABLES relationship
     @rt("/api/lesson/{uid}/lateral/enables", methods=["POST"])
     @boundary_handler(success_status=201)
     async def create_entity_enables(
@@ -399,99 +326,53 @@ def create_lateral_api_routes(
         topic_domain: str | None = None,
     ) -> Result[dict[str, Any]]:
         """Create LATERAL_ENABLES relationship (learning A unlocks B)."""
-        require_authenticated_user(request)
-
-        result = await lateral_service.create_lateral_relationship(
-            source_uid=uid,
-            target_uid=target_uid,
-            relationship_type=RelationshipName.LATERAL_ENABLES,
-            metadata={
-                "confidence": confidence,
-                "topic_domain": topic_domain,
-                "domain": "ku",
-            },
-        )
-
-        if result.is_error:
-            return Result.fail(result)
-
-        return Result.ok(
-            {
-                "message": "KU enables relationship created",
-                "enabler_uid": uid,
-                "enabled_uid": target_uid,
-            }
+        return await _create_relationship(
+            request,
+            lateral_service,
+            uid,
+            target_uid,
+            RelationshipName.LATERAL_ENABLES,
+            "ku",
+            {"confidence": confidence, "topic_domain": topic_domain},
+            "KU enables relationship created",
+            {"enabler_uid": uid, "enabled_uid": target_uid},
         )
 
     @rt("/api/lesson/{uid}/lateral/enables", methods=["GET"])
     @boundary_handler()
     async def get_entity_enables(request: Request, uid: str) -> Result[dict[str, Any]]:
         """Get knowledge units that this KU enables."""
-        require_authenticated_user(request)
-
-        result = await lateral_service.get_lateral_relationships(
-            entity_uid=uid,
-            relationship_types=[RelationshipName.LATERAL_ENABLES],
-            direction="outgoing",
-        )
-
-        if result.is_error:
-            return Result.fail(result)
-
-        return Result.ok(
-            {
-                "enables": result.value,
-                "count": len(result.value),
-            }
+        return await _get_relationships(
+            request,
+            lateral_service,
+            uid,
+            RelationshipName.LATERAL_ENABLES,
+            "outgoing",
+            "enables",
         )
 
     @rt("/api/lesson/{uid}/lateral/enabled-by", methods=["GET"])
     @boundary_handler()
     async def get_entity_enabled_by(request: Request, uid: str) -> Result[dict[str, Any]]:
         """Get knowledge units that enable this KU."""
-        require_authenticated_user(request)
-
-        result = await lateral_service.get_lateral_relationships(
-            entity_uid=uid,
-            relationship_types=[RelationshipName.LATERAL_ENABLED_BY],
-            direction="incoming",
-        )
-
-        if result.is_error:
-            return Result.fail(result)
-
-        return Result.ok(
-            {
-                "enabled_by": result.value,
-                "count": len(result.value),
-            }
+        return await _get_relationships(
+            request,
+            lateral_service,
+            uid,
+            RelationshipName.LATERAL_ENABLED_BY,
+            "incoming",
+            "enabled_by",
         )
 
     all_routes.extend([create_entity_enables, get_entity_enables, get_entity_enabled_by])
-    logger.info("KU lateral routes registered (including ENABLES relationships)")
-
-    # LS lateral routes
-    ls_factory = LateralRouteFactory(
-        domain="ls",
-        lateral_service=lateral_service,
-        entity_name="Learning Step",
-    )
-    all_routes.extend(ls_factory.register_routes(app, rt))
-    logger.info("LS lateral routes registered")
-
-    # LP lateral routes
-    lp_factory = LateralRouteFactory(
-        domain="lp",
-        lateral_service=lateral_service,
-        entity_name="Learning Path",
-    )
-    all_routes.extend(lp_factory.register_routes(app, rt))
-    logger.info("LP lateral routes registered")
 
     logger.info(f"Lateral relationship routes registered: {len(all_routes)} total routes")
-
     return all_routes
 
+
+# ============================================================================
+# DomainRouteConfig wiring
+# ============================================================================
 
 LATERAL_CONFIG = DomainRouteConfig(
     domain_name="lateral",

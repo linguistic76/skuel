@@ -320,7 +320,9 @@ class OwnershipRouteFactory:
                     return result  # type: ignore[return-value]
 
                 if config.include_user_uid:
-                    return cast("Result[Any]", await service_method(result.value, user_uid=user_uid))
+                    return cast(
+                        "Result[Any]", await service_method(result.value, user_uid=user_uid)
+                    )
                 return cast("Result[Any]", await service_method(result.value))
 
             # GET pattern — type inferred from default value
