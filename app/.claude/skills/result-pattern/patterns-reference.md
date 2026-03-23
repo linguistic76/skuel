@@ -108,17 +108,12 @@ class TasksSearchService(BaseService[BackendOperations[Task], Task]):
                 )
             )
 
-        result = await self.backend.text_search(
+        return await self.backend.text_search(
             query=query,
             fields=["title", "description"],
             user_uid=user_uid,
             limit=limit
         )
-
-        if result.is_error:
-            return result
-
-        return Result.ok(result.value)
 
     async def get_by_status(
         self, status: ActivityStatus, user_uid: str

@@ -67,10 +67,8 @@ learning_intelligence = LearningIntelligenceService(
 ```python
 # Services return Result[T] internally
 async def get_knowledge_unit(self, uid: str) -> Result[KnowledgeUnit]:
-    result = await self.backend.get_knowledge_unit(uid)
-    if result.is_error:
-        return result
-    return Result.ok(result.value)
+    # require_found handles error check + None check + type narrowing
+    return require_found(await self.backend.get(uid), "KnowledgeUnit", uid)
 
 # Routes use @boundary_handler for HTTP conversion
 @rt("/api/ku/get")

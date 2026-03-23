@@ -164,13 +164,8 @@ async def create_task(self, request: TaskCreateRequest,
             )
         )
 
-    # Backend call
-    result = await self.backend.create(task)
-    if result.is_error:
-        return result  # Propagate error as-is
-
-    # Success
-    return Result.ok(result.value)
+    # Backend call — return directly, no re-wrapping needed
+    return await self.backend.create(task)
 ```
 
 ### Pattern 2: Error Propagation

@@ -269,12 +269,8 @@ class TasksService:
         # 2. Call backend via protocol interface
         result = await self.backend.create(dto)
 
-        # 3. Handle backend result
-        if result.is_error:
-            return result  # Propagate error
-
-        # 4. Return success
-        return Result.ok(result.value)
+        # 3. Propagate result — @boundary_handler converts to HTTP
+        return result
 ```
 
 #### Step 5: Backend Layer (universal_backend.py)

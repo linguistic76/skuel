@@ -218,6 +218,24 @@ if result.is_error:
 # ✅ CORRECT - Pass the Result directly
 if result.is_error:
     return Result.fail(result)  # Clean, concise, type-safe
+
+# ❌ WRONG - Redundant re-wrapping when no transformation needed
+result = await self.backend.operation(uid)
+if result.is_error:
+    return result
+return Result.ok(result.value)  # Just return result directly
+
+# ❌ WRONG - Re-wrapping error as Errors.system() at route boundary (loses original category)
+if result.is_error:
+    error = result.error
+    return Result.fail(Errors.system(message=error.message))  # NOT_FOUND becomes SYSTEM/500!
+
+# ✅ CORRECT - Let @boundary_handler map error categories to HTTP status codes
+if result.is_error:
+    return Result.fail(result)  # Original category preserved (NOT_FOUND → 404, etc.)
+
+# ✅ CORRECT - Use require_found() for get + null-check pattern
+return require_found(await self.backend.get(uid), "Entity", uid)
 ```
 
 ## Benefits Achieved

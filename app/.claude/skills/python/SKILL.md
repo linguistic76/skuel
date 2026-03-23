@@ -166,12 +166,8 @@ class TasksService:
         self.backend = backend  # Depends on protocol
 
     async def get(self, uid: str) -> Result[Task]:
-        result = await self.backend.get(uid)
-        if result.is_error:
-            return result
-        if result.value is None:
-            return Errors.not_found("Task", uid)
-        return Result.ok(result.value)
+        # require_found handles error check + None→404 + type narrowing
+        return require_found(await self.backend.get(uid), "Task", uid)
 ```
 
 ### ISP-Compliant Protocols

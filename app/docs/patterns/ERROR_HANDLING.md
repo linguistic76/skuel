@@ -278,6 +278,10 @@ async def backend_method(self):
 # Manual conversion when needed
 response = result_to_response(result)  # → (body, status_code)
 exception = result_to_exception(result)  # → Exception (rarely needed)
+
+# Fetch + null-check guard (/adapters/inbound/result_helpers.py)
+from adapters.inbound.result_helpers import require_found
+return require_found(await service.get(uid), "Entity", uid)  # error check + None→404
 ```
 
 ### 3. Error Factory Methods

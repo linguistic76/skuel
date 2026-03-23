@@ -63,23 +63,10 @@ class NewService:
         Returns:
             Result[SomeThing]: Success with entity or failure with error
         """
-        try:
-            result = await self.backend.operation(uid)
-
-            if result.is_error:
-                return result
-
-            return Result.ok(result.value)
-
-        except Exception as e:
-            self.logger.error(f"Operation failed: {e}")
-            return Result.fail(
-                Errors.system(
-                    message="Operation failed",
-                    exception=e,
-                    operation="do_something"
-                )
-            )
+        result = await self.backend.operation(uid)
+        if result.is_error:
+            return result
+        return result  # Pass through when no transformation needed
 ```
 
 ## Key Patterns
@@ -106,13 +93,14 @@ if not backend:
 ### 3. Result[T] Error Handling
 ```python
 async def do_something(self) -> Result[SomeThing]:
-    try:
-        result = await self.backend.operation()
-        if result.is_error:
-            return result  # Propagate backend error
-        return Result.ok(result.value)
-    except Exception as e:
-        return Result.fail(Errors.system(message="...", exception=e))
+    result = await self.backend.operation()
+    if result.is_error:
+        return result  # Propagate backend error
+    return result  # Pass through — no re-wrapping needed
+
+# Only use Result.ok(result.value) when narrowing types:
+async def get(self, uid: str) -> Result[SomeThing]:
+    return require_found(await self.backend.get(uid), "SomeThing", uid)
 ```
 
 **Benefits:**
