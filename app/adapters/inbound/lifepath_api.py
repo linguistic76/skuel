@@ -19,6 +19,8 @@ from starlette.requests import Request
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.form_helpers import parse_json_body
+from core.models.lifepath_request import CaptureVisionRequest, DesignateLifePathRequest
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -64,24 +66,16 @@ def create_lifepath_api_routes(
         """Capture vision and get recommendations (JSON API)."""
         user_uid = require_authenticated_user(request)
 
-        body = await request.json()
-        vision_statement = body.get("vision_statement", "").strip()
-
-        if not vision_statement or len(vision_statement) < 10:
-            return Result.fail(
-                Errors.validation(
-                    "Vision statement must be at least 10 characters",
-                    field="vision_statement",
-                    value=vision_statement,
-                )
-            )
+        parsed = await parse_json_body(request, CaptureVisionRequest)
+        if parsed.is_error:
+            return parsed  # type: ignore[return-value]
 
         if not lifepath_service:
             return Result.fail(
                 Errors.system("LifePath service unavailable", operation="capture_vision")
             )
 
-        return await lifepath_service.capture_and_recommend(user_uid, vision_statement)
+        return await lifepath_service.capture_and_recommend(user_uid, parsed.value.vision_statement)
 
     @rt("/api/lifepath/designate", methods=["POST"])
     @boundary_handler()
@@ -89,18 +83,14 @@ def create_lifepath_api_routes(
         """Designate an LP as life path (JSON API)."""
         user_uid = require_authenticated_user(request)
 
-        body = await request.json()
-        life_path_uid = body.get("life_path_uid", "").strip()
-
-        if not life_path_uid:
-            return Result.fail(
-                Errors.validation("life_path_uid is required", field="life_path_uid", value="")
-            )
+        parsed = await parse_json_body(request, DesignateLifePathRequest)
+        if parsed.is_error:
+            return parsed  # type: ignore[return-value]
 
         if not lifepath_service:
             return Result.fail(Errors.system("LifePath service unavailable", operation="designate"))
 
-        return await lifepath_service.designate_and_calculate(user_uid, life_path_uid)
+        return await lifepath_service.designate_and_calculate(user_uid, parsed.value.life_path_uid)
 
     @rt("/api/lifepath/alignment")
     @boundary_handler()

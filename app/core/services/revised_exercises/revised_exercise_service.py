@@ -161,9 +161,7 @@ class RevisedExerciseService(BaseService):
             self.logger.warning(f"Failed to create RESPONDS_TO_REPORT: {feedback_result.error}")
 
         # Create REVISES_EXERCISE relationship
-        exercise_result = await self.backend.link_to_exercise(
-            uid, enriched.original_exercise_uid
-        )
+        exercise_result = await self.backend.link_to_exercise(uid, enriched.original_exercise_uid)
         if exercise_result.is_error:
             self.logger.warning(f"Failed to create REVISES_EXERCISE: {exercise_result.error}")
 

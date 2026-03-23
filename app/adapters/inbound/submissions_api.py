@@ -689,8 +689,10 @@ def create_submissions_api_routes(
             JSON body:
             - category: Category string
             """
-            body = await request.json()
-            req = CategorizeEntityRequest.model_validate(body)
+            parsed = await parse_json_body(request, CategorizeEntityRequest)
+            if parsed.is_error:
+                return parsed  # type: ignore[return-value]
+            req = parsed.value
 
             ownership_result = await _get_owned_submission(submission_uid, user_uid)
             if ownership_result.is_error:
@@ -715,8 +717,10 @@ def create_submissions_api_routes(
             JSON body:
             - tags: List of tag strings
             """
-            body = await request.json()
-            req = AddTagsRequest.model_validate(body)
+            parsed = await parse_json_body(request, AddTagsRequest)
+            if parsed.is_error:
+                return parsed  # type: ignore[return-value]
+            req = parsed.value
 
             ownership_result = await _get_owned_submission(submission_uid, user_uid)
             if ownership_result.is_error:
@@ -739,8 +743,10 @@ def create_submissions_api_routes(
             JSON body:
             - tags: List of tag strings to remove
             """
-            body = await request.json()
-            req = RemoveTagsRequest.model_validate(body)
+            parsed = await parse_json_body(request, RemoveTagsRequest)
+            if parsed.is_error:
+                return parsed  # type: ignore[return-value]
+            req = parsed.value
 
             ownership_result = await _get_owned_submission(submission_uid, user_uid)
             if ownership_result.is_error:
@@ -815,8 +821,10 @@ def create_submissions_api_routes(
             - entity_uids: List of submission UIDs
             - category: Category string
             """
-            body = await request.json()
-            req = BulkCategorizeRequest.model_validate(body)
+            parsed = await parse_json_body(request, BulkCategorizeRequest)
+            if parsed.is_error:
+                return parsed  # type: ignore[return-value]
+            req = parsed.value
 
             ownership_result = await _validate_owned_submissions(req.entity_uids, user_uid)
             if ownership_result.is_error:
@@ -839,8 +847,10 @@ def create_submissions_api_routes(
             - entity_uids: List of submission UIDs
             - tags: List of tag strings
             """
-            body = await request.json()
-            req = BulkTagRequest.model_validate(body)
+            parsed = await parse_json_body(request, BulkTagRequest)
+            if parsed.is_error:
+                return parsed  # type: ignore[return-value]
+            req = parsed.value
 
             ownership_result = await _validate_owned_submissions(req.entity_uids, user_uid)
             if ownership_result.is_error:
@@ -861,8 +871,10 @@ def create_submissions_api_routes(
             - entity_uids: List of submission UIDs
             - soft_delete: Boolean (default True)
             """
-            body = await request.json()
-            req = BulkDeleteRequest.model_validate(body)
+            parsed = await parse_json_body(request, BulkDeleteRequest)
+            if parsed.is_error:
+                return parsed  # type: ignore[return-value]
+            req = parsed.value
 
             ownership_result = await _validate_owned_submissions(req.entity_uids, user_uid)
             if ownership_result.is_error:

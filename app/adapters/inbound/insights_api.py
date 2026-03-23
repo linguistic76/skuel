@@ -9,14 +9,15 @@ API routes for managing event-driven insights (dismiss, mark as actioned).
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import Request
-from pydantic import ValidationError
 
 if TYPE_CHECKING:
     from core.services.insight.insight_store import InsightStore
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.form_helpers import parse_json_body
 from core.models.entity_requests import SmartDismissRequest
+from core.models.insight_request import BulkInsightUidsRequest, SnoozeInsightRequest
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from ui.insights.insight_card import DismissedInsightMessage
@@ -138,17 +139,11 @@ def create_insights_api_routes(
         """Bulk dismiss multiple insights."""
         user_uid = require_authenticated_user(request)
 
-        try:
-            body = await request.json()
-            uids = body.get("uids", [])
-        except Exception as e:  # safety-net: JSON parsing boundary
-            logger.error(f"Failed to parse bulk dismiss request: {e}")
-            return Result.fail(Errors.validation(f"Invalid request body: {e}"))
+        parsed = await parse_json_body(request, BulkInsightUidsRequest)
+        if parsed.is_error:
+            return parsed  # type: ignore[return-value]
 
-        if not uids:
-            return Result.fail(Errors.validation("No insight UIDs provided"))
-
-        return await insight_store.bulk_dismiss(uids, user_uid)
+        return await insight_store.bulk_dismiss(parsed.value.uids, user_uid)
 
     @rt("/api/insights/bulk/action", methods=["POST"])
     @boundary_handler(success_status=200)
@@ -156,17 +151,11 @@ def create_insights_api_routes(
         """Bulk mark insights as actioned."""
         user_uid = require_authenticated_user(request)
 
-        try:
-            body = await request.json()
-            uids = body.get("uids", [])
-        except Exception as e:  # safety-net: JSON parsing boundary
-            logger.error(f"Failed to parse bulk action request: {e}")
-            return Result.fail(Errors.validation(f"Invalid request body: {e}"))
+        parsed = await parse_json_body(request, BulkInsightUidsRequest)
+        if parsed.is_error:
+            return parsed  # type: ignore[return-value]
 
-        if not uids:
-            return Result.fail(Errors.validation("No insight UIDs provided"))
-
-        return await insight_store.bulk_mark_actioned(uids, user_uid)
+        return await insight_store.bulk_mark_actioned(parsed.value.uids, user_uid)
 
     @rt("/api/insights/bulk/smart-dismiss", methods=["POST"])
     @boundary_handler(success_status=200)
@@ -174,14 +163,10 @@ def create_insights_api_routes(
         """Smart bulk dismiss — dismiss all insights matching a filter."""
         user_uid = require_authenticated_user(request)
 
-        try:
-            body = await request.json()
-            req = SmartDismissRequest(**body)
-        except ValidationError as e:
-            return Result.fail(Errors.validation(str(e), field="body"))
-        except Exception as e:  # safety-net: JSON parsing boundary
-            logger.error(f"Failed to parse smart dismiss request: {e}")
-            return Result.fail(Errors.validation(f"Invalid request body: {e}"))
+        parsed = await parse_json_body(request, SmartDismissRequest)
+        if parsed.is_error:
+            return parsed  # type: ignore[return-value]
+        req = parsed.value
 
         return await insight_store.smart_dismiss(user_uid, req.filter_type, req.filter_value)
 
@@ -353,16 +338,10 @@ def create_insights_api_routes(
         user_uid = require_authenticated_user(request)
 
         # Parse request body
-        try:
-            body = await request.json()
-            days = body.get("days", 1)
-        except Exception as e:  # safety-net: JSON parsing boundary
-            logger.error(f"Failed to parse snooze request: {e}")
-            return Result.fail(Errors.validation(f"Invalid request body: {e}"))
-
-        # Validate days
-        if not isinstance(days, int) or days < 1 or days > 30:
-            return Result.fail(Errors.validation("Days must be an integer between 1 and 30"))
+        parsed = await parse_json_body(request, SnoozeInsightRequest)
+        if parsed.is_error:
+            return parsed  # type: ignore[return-value]
+        days = parsed.value.days
 
         # Snooze the insight (mark as dismissed with snooze metadata)
         # For now, we'll just dismiss it - a full implementation would add snooze_until_date

@@ -142,9 +142,7 @@ class GroupService(BaseService):
                 self.logger,
             )
 
-        self.logger.info(
-            f"Group created: {entity.uid} - {entity.name} (owner: {entity.owner_uid})"
-        )
+        self.logger.info(f"Group created: {entity.uid} - {entity.name} (owner: {entity.owner_uid})")
         return Result.ok(entity)
 
     @with_error_handling("delete_group", error_type="database")

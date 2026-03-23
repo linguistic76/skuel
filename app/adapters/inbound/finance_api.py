@@ -17,6 +17,7 @@ if TYPE_CHECKING:
 # Pydantic schemas for boundary
 from adapters.inbound.auth import make_service_getter, require_admin
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.form_helpers import parse_json_body
 from adapters.inbound.route_factories import (
     parse_date_param_strict,
     parse_int_query_param,
@@ -227,12 +228,13 @@ def create_finance_api_routes(
     @boundary_handler()
     async def attach_receipt_route(request, current_user, uid: str) -> Result[Any]:
         """Attach receipt to expense (admin only)."""
-        body = await request.json()
-        receipt_url = body.get("receipt_url")
-        if not receipt_url:
-            return Result.fail(Errors.validation("receipt_url is required"))
+        from core.models.finance.finance_request import AttachReceiptRequest
 
-        result = await finance_service.attach_receipt(uid, receipt_url)
+        parsed = await parse_json_body(request, AttachReceiptRequest)
+        if parsed.is_error:
+            return parsed  # type: ignore[return-value]
+
+        result = await finance_service.attach_receipt(uid, parsed.value.receipt_url)
 
         if result.is_ok:
             logger.info(f"Receipt attached to expense via API by admin: {uid}")
@@ -424,12 +426,10 @@ def create_finance_api_routes(
             invoice_dto_to_pure,
         )
 
-        body = await request.json()
-
-        try:
-            invoice_request = InvoiceCreateRequest(**body)
-        except Exception as e:  # safety-net: JSON parsing boundary
-            return Result.fail(Errors.validation(f"Invalid invoice data: {e}"))
+        parsed = await parse_json_body(request, InvoiceCreateRequest)
+        if parsed.is_error:
+            return parsed  # type: ignore[return-value]
+        invoice_request = parsed.value
 
         # Convert request to domain model
         dto = invoice_create_request_to_dto(invoice_request, current_user.uid)
@@ -509,33 +509,32 @@ def create_finance_api_routes(
     @boundary_handler()
     async def bulk_categorize_expenses_route(request, current_user) -> Result[Any]:
         """Bulk categorize multiple expenses (admin only)"""
-        body = await request.json()
-
-        expense_uids = body.get("expense_uids", [])
-        category = body.get("category")
-        subcategory = body.get("subcategory")
-
-        if not expense_uids or not category:
-            return Result.fail(Errors.validation("expense_uids and category are required"))
-
         from core.models.finance.finance_pure import ExpenseCategory
+        from core.models.finance.finance_request import BulkCategorizeExpensesRequest
 
-        category_enum = ExpenseCategory(category)
+        parsed = await parse_json_body(request, BulkCategorizeExpensesRequest)
+        if parsed.is_error:
+            return parsed  # type: ignore[return-value]
+        req = parsed.value
+
+        category_enum = ExpenseCategory(req.category)
 
         # Call service
-        result = await finance_service.bulk_categorize(expense_uids, category_enum, subcategory)
+        result = await finance_service.bulk_categorize(
+            req.expense_uids, category_enum, req.subcategory
+        )
 
         if result.is_ok:
             expenses = result.value
             logger.info(
-                f"Bulk categorized {len(expenses) if expenses else 0} expenses to {category} by admin"
+                f"Bulk categorized {len(expenses) if expenses else 0} expenses to {req.category} by admin"
             )
             return Result.ok(
                 {
                     "expenses": expenses,
                     "updated_count": len(expenses) if expenses else 0,
-                    "category": category,
-                    "subcategory": subcategory,
+                    "category": req.category,
+                    "subcategory": req.subcategory,
                 }
             )
         else:

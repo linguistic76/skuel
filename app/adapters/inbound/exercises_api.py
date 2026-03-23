@@ -88,11 +88,10 @@ def create_exercises_api_routes(
         user_uid = require_authenticated_user(request)
 
         # Parse request body
-        try:
-            body = await request.json()
-            report_request = ReportGenerateRequest(**body)
-        except Exception as e:  # safety-net: JSON parsing boundary
-            return Result.fail(Errors.validation(f"Invalid request body: {e}", field="body"))
+        parsed = await parse_json_body(request, ReportGenerateRequest)
+        if parsed.is_error:
+            return parsed  # type: ignore[return-value]
+        report_request = parsed.value
 
         # Get entry and exercise
         entry_result = await transcript_service.get(report_request.entry_uid)

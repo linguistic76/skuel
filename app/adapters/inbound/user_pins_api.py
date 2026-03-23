@@ -17,6 +17,8 @@ from starlette.requests import Request
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.form_helpers import parse_json_body
+from core.models.user_pins_request import PinEntityRequest, ReorderPinsRequest
 from core.services.user_relationship_service import UserRelationshipService
 from core.utils.result_simplified import Errors, Result
 
@@ -56,20 +58,19 @@ def create_user_pins_routes(
         Returns:
         - Updated pin button HTML (for HTMX) or JSON (for API)
         """
+        from adapters.inbound.form_helpers import parse_form_body
+
         user_uid = require_authenticated_user(request)
 
         # Try JSON first, then form data (HTMX sends form data)
-        try:
-            body = await request.json()
-            entity_uid = body.get("entity_uid")
-        except (
-            Exception
-        ):  # intentional-broad: request.json() can raise various errors depending on content-type
-            form = await request.form()
-            entity_uid = form.get("entity_uid")
-
-        if not entity_uid:
-            return Result.fail(Errors.validation("entity_uid required"))
+        json_result = await parse_json_body(request, PinEntityRequest)
+        if json_result.is_error:
+            form_result = await parse_form_body(request, PinEntityRequest)
+            if form_result.is_error:
+                return Result.fail(Errors.validation("entity_uid required"))
+            entity_uid = form_result.value.entity_uid
+        else:
+            entity_uid = json_result.value.entity_uid
 
         result = await user_relationship_service.pin_entity(user_uid, entity_uid)
 
@@ -117,12 +118,12 @@ def create_user_pins_routes(
         """
         user_uid = require_authenticated_user(request)
 
-        body = await request.json()
-        ordered_uids = body.get("ordered_entity_uids", [])
+        parsed = await parse_json_body(request, ReorderPinsRequest)
+        if parsed.is_error:
+            return parsed  # type: ignore[return-value]
 
-        if not ordered_uids:
-            return Result.fail(Errors.validation("ordered_entity_uids required"))
-
-        return await user_relationship_service.reorder_pins(user_uid, ordered_uids)
+        return await user_relationship_service.reorder_pins(
+            user_uid, parsed.value.ordered_entity_uids
+        )
 
     return [get_pinned_entities, pin_entity, unpin_entity, reorder_pins]

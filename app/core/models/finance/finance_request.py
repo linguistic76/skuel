@@ -329,6 +329,20 @@ class BudgetFilterRequest(BaseModel):
 # ============================================================================
 
 
+class AttachReceiptRequest(BaseModel):
+    """Request to attach a receipt URL to an expense."""
+
+    receipt_url: str = Field(..., min_length=1, description="Receipt URL")
+
+
+class BulkCategorizeExpensesRequest(BaseModel):
+    """Request to bulk categorize expenses."""
+
+    expense_uids: list[str] = Field(..., min_length=1, description="Expense UIDs to categorize")
+    category: ExpenseCategoryLiteral = Field(..., description="Category to assign")
+    subcategory: str | None = Field(default=None, max_length=50, description="Optional subcategory")
+
+
 class ExpenseReportRequest(BaseModel):
     """Request model for expense reports"""
 

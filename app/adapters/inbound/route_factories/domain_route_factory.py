@@ -219,6 +219,7 @@ def register_domain_routes(
             def _make_getter(svc: Any) -> Callable:
                 def getter() -> Any:
                     return svc
+
                 return getter
 
             crud_user_service_getter = _make_getter(_user_svc)
