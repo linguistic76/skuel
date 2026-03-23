@@ -16,6 +16,7 @@ from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.result_helpers import require_found
 from core.models.pathways.pathways_request import (
     LearningPathProgressRequest,
 )
@@ -64,17 +65,15 @@ def create_pathways_api_routes(
     async def get_current_step_route(request: Request, path_uid: str) -> Result[Any]:
         """Get the current (first incomplete) step in a learning path."""
 
-        result = await learning_service.get_current_step(path_uid)
-        if result.is_error:
-            return result
+        found = require_found(
+            await learning_service.get_current_step(path_uid),
+            "Ls",
+            f"incomplete step in path {path_uid}",
+        )
+        if found.is_error:
+            return found
 
-        current_step = result.value
-        if not current_step:
-            return Result.fail(
-                Errors.not_found(resource="Ls", identifier=f"incomplete step in path {path_uid}")
-            )
-
-        return Result.ok(current_step)
+        return Result.ok(found.value)
 
     # Progress Tracking
     # -----------------
@@ -93,15 +92,15 @@ def create_pathways_api_routes(
         progress_req = LearningPathProgressRequest.model_validate(body)
 
         # Resolve step to knowledge UIDs
-        step_result = await learning_service.get_step(progress_req.step_uid)
-        if step_result.is_error:
-            return step_result
+        step_found = require_found(
+            await learning_service.get_step(progress_req.step_uid),
+            "LearningStep",
+            progress_req.step_uid,
+        )
+        if step_found.is_error:
+            return step_found
 
-        step = step_result.value
-        if not step:
-            return Result.fail(
-                Errors.not_found(resource="LearningStep", identifier=progress_req.step_uid)
-            )
+        step = step_found.value
 
         ku_uids = list(step.primary_knowledge_uids) + list(step.supporting_knowledge_uids)
         if not ku_uids:

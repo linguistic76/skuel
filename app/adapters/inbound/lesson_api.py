@@ -252,7 +252,7 @@ def create_lesson_api_routes(
 
         context_result = await lesson_service.user_service.get_user_context(user_uid)
         if context_result.is_error:
-            return Result.fail(context_result.expect_error())
+            return Result.fail(context_result)
 
         user_context = context_result.value
         return await lesson_service.get_user_lesson_context(uid, user_context)

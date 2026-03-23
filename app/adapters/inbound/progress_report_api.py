@@ -109,7 +109,7 @@ def create_progress_report_api_routes(
         )
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         return Result.ok(
             {
@@ -132,7 +132,7 @@ def create_progress_report_api_routes(
         )
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         reports = result.value or []
         return Result.ok(
@@ -167,7 +167,7 @@ def create_progress_report_api_routes(
             )
 
             if result.is_error:
-                return Result.fail(result.expect_error())
+                return Result.fail(result)
 
             return Result.ok(
                 {
@@ -184,7 +184,7 @@ def create_progress_report_api_routes(
 
             result = await schedule_service.get_user_schedule(user_uid)
             if result.is_error:
-                return Result.fail(result.expect_error())
+                return Result.fail(result)
 
             return Result.ok({"schedule": result.value})
 
@@ -200,7 +200,7 @@ def create_progress_report_api_routes(
             result = await schedule_service.update_schedule(uid, updates)
 
             if result.is_error:
-                return Result.fail(result.expect_error())
+                return Result.fail(result)
 
             return Result.ok(
                 {
@@ -217,7 +217,7 @@ def create_progress_report_api_routes(
 
             result = await schedule_service.deactivate_schedule(uid)
             if result.is_error:
-                return Result.fail(result.expect_error())
+                return Result.fail(result)
 
             return Result.ok({"message": "Schedule deactivated"})
 
@@ -262,7 +262,7 @@ def create_progress_report_api_routes(
 
             ctx_result = await context_builder.build_rich(subject_uid, window=time_period)
             if ctx_result.is_error:
-                return Result.fail(ctx_result.expect_error())
+                return Result.fail(ctx_result)
 
             result = await activity_report.create_snapshot(
                 context=ctx_result.value,
@@ -271,7 +271,7 @@ def create_progress_report_api_routes(
                 admin_uid=current_user.uid,
             )
             if result.is_error:
-                return Result.fail(result.expect_error())
+                return Result.fail(result)
 
             return Result.ok({"snapshot": result.value})
 
@@ -300,7 +300,7 @@ def create_progress_report_api_routes(
                 snapshot_context=req.snapshot_context,
             )
             if result.is_error:
-                return Result.fail(result.expect_error())
+                return Result.fail(result)
 
             return Result.ok(
                 {
@@ -325,7 +325,7 @@ def create_progress_report_api_routes(
                 limit=limit,
             )
             if result.is_error:
-                return Result.fail(result.expect_error())
+                return Result.fail(result)
 
             feedbacks = result.value or []
             return Result.ok(
@@ -360,7 +360,7 @@ def create_progress_report_api_routes(
                 user_revision=req.user_revision,
             )
             if result.is_error:
-                return Result.fail(result.expect_error())
+                return Result.fail(result)
 
             return Result.ok({"annotation": result.value, "message": "Annotation saved"})
 
@@ -375,7 +375,7 @@ def create_progress_report_api_routes(
 
             result = await activity_report.get_annotation(uid=uid, user_uid=user_uid)
             if result.is_error:
-                return Result.fail(result.expect_error())
+                return Result.fail(result)
 
             return Result.ok({"annotation": result.value})
 
@@ -400,7 +400,7 @@ def create_progress_report_api_routes(
             user_uid = require_authenticated_user(request)
             result = await activity_report.get_privacy_summary(user_uid=user_uid)
             if result.is_error:
-                return Result.fail(result.expect_error())
+                return Result.fail(result)
             return Result.ok({"privacy_summary": result.value})
 
         routes.extend(
@@ -434,7 +434,7 @@ def create_progress_report_api_routes(
                 message=req.message,
             )
             if result.is_error:
-                return Result.fail(result.expect_error())
+                return Result.fail(result)
 
             return Result.ok(
                 {
@@ -455,7 +455,7 @@ def create_progress_report_api_routes(
                 limit=limit,
             )
             if result.is_error:
-                return Result.fail(result.expect_error())
+                return Result.fail(result)
 
             return Result.ok({"queue": result.value, "count": len(result.value or [])})
 

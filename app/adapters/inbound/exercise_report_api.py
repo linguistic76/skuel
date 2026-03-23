@@ -68,7 +68,7 @@ def create_exercise_report_api_routes(
         )
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         return Result.ok(
             {
@@ -90,7 +90,7 @@ def create_exercise_report_api_routes(
         )
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         reports = result.value or []
         return Result.ok(
@@ -113,7 +113,7 @@ def create_exercise_report_api_routes(
         )
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         reports = result.value or []
         return Result.ok(

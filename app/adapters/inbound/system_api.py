@@ -93,7 +93,7 @@ def create_system_api_routes(
         """
         result = await system_service.get_health_status()
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         health_data = result.value
         response = {
@@ -174,7 +174,7 @@ def create_system_api_routes(
         """
         result = await system_service.get_health_status()
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         health_data = result.value
         response = {
@@ -457,7 +457,7 @@ def create_system_api_routes(
         """
         result = await system_service.validate_health_checkers()
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         validation_data = result.value
 
@@ -590,7 +590,7 @@ def create_system_api_routes(
         """
         result = await system_service.check_alerts()
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         alerts_data = result.value
 

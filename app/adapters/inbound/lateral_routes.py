@@ -111,7 +111,7 @@ def create_lateral_api_routes(
         )
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         return Result.ok(
             {
@@ -137,7 +137,7 @@ def create_lateral_api_routes(
         )
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         return Result.ok(
             {
@@ -186,7 +186,7 @@ def create_lateral_api_routes(
         )
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         return Result.ok(
             {
@@ -212,7 +212,7 @@ def create_lateral_api_routes(
         )
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         return Result.ok(
             {
@@ -261,7 +261,7 @@ def create_lateral_api_routes(
         )
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         return Result.ok(
             {
@@ -287,7 +287,7 @@ def create_lateral_api_routes(
         )
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         return Result.ok(
             {
@@ -338,7 +338,7 @@ def create_lateral_api_routes(
         )
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         return Result.ok(
             {
@@ -364,7 +364,7 @@ def create_lateral_api_routes(
         )
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         return Result.ok(
             {
@@ -413,7 +413,7 @@ def create_lateral_api_routes(
         )
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         return Result.ok(
             {
@@ -436,7 +436,7 @@ def create_lateral_api_routes(
         )
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         return Result.ok(
             {
@@ -458,7 +458,7 @@ def create_lateral_api_routes(
         )
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         return Result.ok(
             {

@@ -170,7 +170,7 @@ def create_ingestion_api_routes(
             if result.is_ok:
                 return Result.ok({"success": True, **result.value})
             else:
-                return Result.fail(result.expect_error())
+                return Result.fail(result)
 
         except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"File ingestion failed: {e}")
@@ -231,7 +231,7 @@ def create_ingestion_api_routes(
                     }
                 )
             else:
-                return Result.fail(result.expect_error())
+                return Result.fail(result)
 
         except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Directory ingestion failed: {e}")
@@ -290,7 +290,7 @@ def create_ingestion_api_routes(
                     }
                 )
             else:
-                return Result.fail(result.expect_error())
+                return Result.fail(result)
 
         except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Vault ingestion failed: {e}")
@@ -352,7 +352,7 @@ def create_ingestion_api_routes(
                     }
                 )
             else:
-                return Result.fail(result.expect_error())
+                return Result.fail(result)
 
         except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Bundle ingestion failed: {e}")
@@ -422,7 +422,7 @@ def create_ingestion_api_routes(
             )
 
             if result.is_error:
-                return Result.fail(result.expect_error())
+                return Result.fail(result)
 
             # Return appropriate component based on mode
             if dry_run:

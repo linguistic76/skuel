@@ -101,7 +101,7 @@ def create_lesson_reading_api_routes(
         require_authenticated_user(request)
         result = await ku_service.get_navigation(uid)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         nav = result.value
         return Result.ok(
             {

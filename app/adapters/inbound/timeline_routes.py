@@ -286,7 +286,7 @@ def create_timeline_api_routes(_app, rt, tasks_service: Any):
                 )
             else:
                 # Propagate the error from export_to_markwhen
-                return Result.fail(result.expect_error())
+                return Result.fail(result)
 
         except Exception as e:  # safety-net: HTTP error boundary
             logger.error("Timeline preview error", error=str(e))

@@ -29,6 +29,7 @@ from starlette.requests import Request
 
 from adapters.inbound.auth import make_service_getter, require_admin
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.result_helpers import require_found
 from core.models.entity_requests import ChangeUserRoleRequest
 from core.models.enums import UserRole
 from core.utils.logging import get_logger
@@ -145,15 +146,11 @@ def create_admin_api_routes(
         Returns:
             JSON object with full user details
         """
-        result = await user_service.get_user(uid)
+        found = require_found(await user_service.get_user(uid), "User", uid)
+        if found.is_error:
+            return found
 
-        if result.is_error:
-            return result
-
-        if not result.value:
-            return Result.fail(Errors.not_found(resource="User", identifier=uid))
-
-        user = result.value
+        user = found.value
         return Result.ok(
             {
                 "uid": user.uid,

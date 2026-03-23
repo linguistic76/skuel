@@ -71,7 +71,7 @@ def create_insights_api_routes(
 
         if result.is_error:
             logger.warning(f"Failed to dismiss insight {uid}: {result.error}")
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         logger.info(
             f"Insight dismissed: {uid} by {user_uid}" + (f" (notes: {notes[:50]})" if notes else "")
@@ -110,7 +110,7 @@ def create_insights_api_routes(
 
         if result.is_error:
             logger.warning(f"Failed to mark insight actioned {uid}: {result.error}")
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         logger.info(
             f"Insight marked as actioned: {uid} by {user_uid}"
@@ -198,7 +198,7 @@ def create_insights_api_routes(
 
         if result.is_error:
             logger.error(f"Failed to retrieve active insights: {result.error}")
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         insights = result.value
 
@@ -231,7 +231,7 @@ def create_insights_api_routes(
 
         if result.is_error:
             logger.error(f"Failed to retrieve insight stats: {result.error}")
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         result_typed: Result[Any] = result
         return result_typed
@@ -291,7 +291,7 @@ def create_insights_api_routes(
 
         if result.is_error:
             logger.error(f"Failed to retrieve insight details for {uid}: {result.error}")
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         insight = result.value
 
@@ -349,7 +349,7 @@ def create_insights_api_routes(
 
         if result.is_error:
             logger.warning(f"Failed to snooze insight {uid}: {result.error}")
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         logger.info(f"Insight snoozed for {days} days: {uid} by {user_uid}")
 

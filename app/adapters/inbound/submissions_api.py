@@ -41,6 +41,7 @@ from starlette.responses import FileResponse
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.form_helpers import parse_json_body
+from adapters.inbound.result_helpers import require_found
 from adapters.inbound.route_factories import split_csv
 from core.models.entity_converters import entity_to_response
 from core.models.entity_requests import (
@@ -114,7 +115,7 @@ def create_submissions_api_routes(
         """Load a submission and verify it belongs to the requesting user."""
         submission_result = await submission_service.get_submission(submission_uid)
         if submission_result.is_error:
-            return Result.fail(submission_result.expect_error())
+            return Result.fail(submission_result)
 
         submission = submission_result.value
         if submission is None or submission.user_uid != user_uid:
@@ -259,7 +260,7 @@ def create_submissions_api_routes(
         )
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         submission = result.value
 
@@ -331,7 +332,7 @@ def create_submissions_api_routes(
         )
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         return Result.ok(
             {
@@ -397,7 +398,7 @@ def create_submissions_api_routes(
         )
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         reports = result.value
 
@@ -426,16 +427,11 @@ def create_submissions_api_routes(
         Returns:
         - Report details
         """
-        result = await submission_service.get_submission(uid)
+        found = require_found(await submission_service.get_submission(uid), "Submission", uid)
+        if found.is_error:
+            return found
 
-        if result.is_error:
-            return Result.fail(result.expect_error())
-
-        submission = result.value
-        if not submission:
-            return Result.fail(Errors.not_found(resource="Submission", identifier=uid))
-
-        return Result.ok(entity_to_response(submission))
+        return Result.ok(entity_to_response(found.value))
 
     # ========================================================================
     # GET REPORT PROCESSED CONTENT
@@ -454,11 +450,11 @@ def create_submissions_api_routes(
         - Processed content (transcript text)
         """
         # Get submission
-        submission_result = await submission_service.get_submission(uid)
-        if submission_result.is_error or not submission_result.value:
-            return Result.fail(Errors.not_found(resource="Submission", identifier=uid))
+        found = require_found(await submission_service.get_submission(uid), "Submission", uid)
+        if found.is_error:
+            return found
 
-        submission = submission_result.value
+        submission = found.value
 
         # If not completed, return pending status
         if not submission.is_completed:
@@ -512,7 +508,7 @@ def create_submissions_api_routes(
         result = await processing_service.process_submission(uid, instructions)
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         submission = result.value
 
@@ -664,7 +660,7 @@ def create_submissions_api_routes(
         result = await submission_service.get_submission_statistics(user_uid)
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         return Result.ok(result.value)
 
@@ -696,7 +692,7 @@ def create_submissions_api_routes(
 
             ownership_result = await _get_owned_submission(submission_uid, user_uid)
             if ownership_result.is_error:
-                return Result.fail(ownership_result.expect_error())
+                return Result.fail(ownership_result)
 
             return await submissions_core_service.categorize_submission(
                 uid=submission_uid, category=req.category
@@ -724,7 +720,7 @@ def create_submissions_api_routes(
 
             ownership_result = await _get_owned_submission(submission_uid, user_uid)
             if ownership_result.is_error:
-                return Result.fail(ownership_result.expect_error())
+                return Result.fail(ownership_result)
 
             return await submissions_core_service.add_tags(uid=submission_uid, tags=req.tags)
 
@@ -750,7 +746,7 @@ def create_submissions_api_routes(
 
             ownership_result = await _get_owned_submission(submission_uid, user_uid)
             if ownership_result.is_error:
-                return Result.fail(ownership_result.expect_error())
+                return Result.fail(ownership_result)
 
             return await submissions_core_service.remove_tags(uid=submission_uid, tags=req.tags)
 
@@ -768,7 +764,7 @@ def create_submissions_api_routes(
             """
             ownership_result = await _get_owned_submission(submission_uid, user_uid)
             if ownership_result.is_error:
-                return Result.fail(ownership_result.expect_error())
+                return Result.fail(ownership_result)
 
             return await submissions_core_service.publish_submission(uid=submission_uid)
 
@@ -786,7 +782,7 @@ def create_submissions_api_routes(
             """
             ownership_result = await _get_owned_submission(submission_uid, user_uid)
             if ownership_result.is_error:
-                return Result.fail(ownership_result.expect_error())
+                return Result.fail(ownership_result)
 
             return await submissions_core_service.archive_submission(uid=submission_uid)
 
@@ -804,7 +800,7 @@ def create_submissions_api_routes(
             """
             ownership_result = await _get_owned_submission(submission_uid, user_uid)
             if ownership_result.is_error:
-                return Result.fail(ownership_result.expect_error())
+                return Result.fail(ownership_result)
 
             return await submissions_core_service.mark_as_draft(uid=submission_uid)
 
@@ -828,7 +824,7 @@ def create_submissions_api_routes(
 
             ownership_result = await _validate_owned_submissions(req.entity_uids, user_uid)
             if ownership_result.is_error:
-                return Result.fail(ownership_result.expect_error())
+                return Result.fail(ownership_result)
 
             return await submissions_core_service.bulk_categorize(
                 uids=req.entity_uids, category=req.category
@@ -854,7 +850,7 @@ def create_submissions_api_routes(
 
             ownership_result = await _validate_owned_submissions(req.entity_uids, user_uid)
             if ownership_result.is_error:
-                return Result.fail(ownership_result.expect_error())
+                return Result.fail(ownership_result)
 
             return await submissions_core_service.bulk_tag(uids=req.entity_uids, tags=req.tags)
 
@@ -878,7 +874,7 @@ def create_submissions_api_routes(
 
             ownership_result = await _validate_owned_submissions(req.entity_uids, user_uid)
             if ownership_result.is_error:
-                return Result.fail(ownership_result.expect_error())
+                return Result.fail(ownership_result)
 
             return await submissions_core_service.bulk_delete(
                 uids=req.entity_uids, soft_delete=req.soft_delete
@@ -944,7 +940,7 @@ def create_submissions_api_routes(
 
             result = await teacher_review_service.get_report_history(uid)
             if result.is_error:
-                return Result.fail(result.expect_error())
+                return Result.fail(result)
 
             reports = result.value or []
             return Result.ok(

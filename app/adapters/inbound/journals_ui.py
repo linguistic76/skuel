@@ -1066,7 +1066,7 @@ def create_journals_ui_routes(
         result = journal_output_service.cleanup_date_range(start_dt, end_dt)
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         stats = result.value
         logger.info(

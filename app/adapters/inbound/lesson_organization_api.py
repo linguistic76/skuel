@@ -55,7 +55,7 @@ def create_lesson_organization_api_routes(
         """Check if a Ku has organized children."""
         result = await ku_service.is_organizer(uid)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         return Result.ok({"ku_uid": uid, "is_organizer": result.value})
 
     @rt("/api/lesson/{uid}/organization")
@@ -64,7 +64,7 @@ def create_lesson_organization_api_routes(
         """Get a Ku with its organized children hierarchy."""
         result = await ku_service.get_organization_view(uid)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         return Result.ok(result.value.to_dict() if result.value else None)
 
     # ========================================================================
@@ -83,7 +83,7 @@ def create_lesson_organization_api_routes(
 
         result = await ku_service.organize(req.parent_uid, req.child_uid, req.order)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         return Result.ok(
             {"success": result.value, "parent_uid": req.parent_uid, "child_uid": req.child_uid}
         )
@@ -100,7 +100,7 @@ def create_lesson_organization_api_routes(
 
         result = await ku_service.unorganize(req.parent_uid, req.child_uid)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         return Result.ok({"success": result.value})
 
     @rt("/api/lesson/reorder", methods=["POST"])
@@ -115,7 +115,7 @@ def create_lesson_organization_api_routes(
 
         result = await ku_service.reorder(req.parent_uid, req.child_uid, req.new_order)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         return Result.ok({"success": result.value})
 
     # ========================================================================

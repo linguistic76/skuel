@@ -116,7 +116,7 @@ def create_exercises_api_routes(
 
         if report_result.is_error:
             logger.error(f"Failed to generate report: {report_result.error}")
-            return Result.fail(report_result.expect_error())
+            return Result.fail(report_result)
 
         report_entity = report_result.value
 

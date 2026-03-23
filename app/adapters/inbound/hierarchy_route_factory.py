@@ -205,7 +205,7 @@ class HierarchyRouteFactory:
         # Create new relationship (includes cycle check in service)
         create_result = await create_rel_fn(new_parent_uid, uid)
         if create_result.is_error:
-            return Result.fail(create_result.expect_error())
+            return Result.fail(create_result)
 
         return Result.ok(True)
 

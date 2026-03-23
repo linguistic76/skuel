@@ -161,7 +161,7 @@ def create_tasks_api_routes(
 
         context_result = await user_service.get_user_context(user_uid)
         if context_result.is_error:
-            return Result.fail(context_result.expect_error())
+            return Result.fail(context_result)
 
         params = dict(request.query_params)
         include_transitive = params.get("include_transitive", "false").lower() in (

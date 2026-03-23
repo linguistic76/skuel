@@ -192,7 +192,7 @@ def create_askesis_api_routes(
 
         ctx_result = await askesis_service.load_askesis_context(askesis_uid)
         if ctx_result.is_error:
-            return Result.fail(ctx_result.expect_error())
+            return Result.fail(ctx_result)
 
         # Get next best action recommendation
         recommendation_result = await askesis_service.get_next_best_action(
@@ -200,7 +200,7 @@ def create_askesis_api_routes(
         )
 
         if recommendation_result.is_error:
-            return Result.fail(recommendation_result.expect_error())
+            return Result.fail(recommendation_result)
 
         return Result.ok({"guidance": recommendation_result.value})
 
@@ -219,7 +219,7 @@ def create_askesis_api_routes(
 
         ctx_result = await askesis_service.load_askesis_context(askesis_uid)
         if ctx_result.is_error:
-            return Result.fail(ctx_result.expect_error())
+            return Result.fail(ctx_result)
 
         user_context = ctx_result.value.user_context
 
@@ -227,13 +227,13 @@ def create_askesis_api_routes(
         analysis_result = await askesis_service.analyze_user_state(user_context)
 
         if analysis_result.is_error:
-            return Result.fail(analysis_result.expect_error())
+            return Result.fail(analysis_result)
 
         # Identify patterns
         patterns_result = await askesis_service.identify_patterns(user_context)
 
         if patterns_result.is_error:
-            return Result.fail(patterns_result.expect_error())
+            return Result.fail(patterns_result)
 
         return Result.ok({"analysis": analysis_result.value, "patterns": patterns_result.value})
 
@@ -255,13 +255,13 @@ def create_askesis_api_routes(
 
         ctx_result = await askesis_service.load_askesis_context(askesis_uid)
         if ctx_result.is_error:
-            return Result.fail(ctx_result.expect_error())
+            return Result.fail(ctx_result)
 
         # Optimize workflow across domains
         optimization_result = await askesis_service.optimize_workflow(ctx_result.value.user_context)
 
         if optimization_result.is_error:
-            return Result.fail(optimization_result.expect_error())
+            return Result.fail(optimization_result)
 
         return Result.ok({"integrations": optimization_result.value})
 
@@ -284,7 +284,7 @@ def create_askesis_api_routes(
 
         ctx_result = await askesis_service.load_askesis_context(askesis_uid)
         if ctx_result.is_error:
-            return Result.fail(ctx_result.expect_error())
+            return Result.fail(ctx_result)
 
         ctx = ctx_result.value
 
@@ -351,7 +351,7 @@ def create_askesis_api_routes(
         answer_result = await askesis_service.answer_user_question(user_uid, query)
 
         if answer_result.is_error:
-            return Result.fail(answer_result.expect_error())
+            return Result.fail(answer_result)
 
         # Extract entities from the answer
         entities = answer_result.value.get("entities_extracted", {})
@@ -389,7 +389,7 @@ def create_askesis_api_routes(
         result = await askesis_core_service.record_conversation(askesis_uid)
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         askesis = result.value
 
@@ -457,7 +457,7 @@ def create_askesis_api_routes(
 
         ctx_result = await askesis_service.load_askesis_context(askesis_uid)
         if ctx_result.is_error:
-            return Result.fail(ctx_result.expect_error())
+            return Result.fail(ctx_result)
 
         ctx = ctx_result.value
 
@@ -469,7 +469,7 @@ def create_askesis_api_routes(
         )
 
         if plan_result.is_error:
-            return Result.fail(plan_result.expect_error())
+            return Result.fail(plan_result)
 
         plan = plan_result.value
 
@@ -535,7 +535,7 @@ def create_askesis_api_routes(
 
         ctx_result = await askesis_service.load_askesis_context(askesis_uid)
         if ctx_result.is_error:
-            return Result.fail(ctx_result.expect_error())
+            return Result.fail(ctx_result)
 
         ctx = ctx_result.value
 
@@ -548,7 +548,7 @@ def create_askesis_api_routes(
         )
 
         if steps_result.is_error:
-            return Result.fail(steps_result.expect_error())
+            return Result.fail(steps_result)
 
         steps = steps_result.value
 
@@ -592,7 +592,7 @@ def create_askesis_api_routes(
 
         ctx_result = await askesis_service.load_askesis_context(askesis_uid)
         if ctx_result.is_error:
-            return Result.fail(ctx_result.expect_error())
+            return Result.fail(ctx_result)
 
         ctx = ctx_result.value
 
@@ -600,7 +600,7 @@ def create_askesis_api_routes(
         path_result = await askesis_service.get_learning_path_critical_path(ctx.user_context)
 
         if path_result.is_error:
-            return Result.fail(path_result.expect_error())
+            return Result.fail(path_result)
 
         critical_path = path_result.value
 
@@ -630,7 +630,7 @@ def create_askesis_api_routes(
 
         ctx_result = await askesis_service.load_askesis_context(askesis_uid)
         if ctx_result.is_error:
-            return Result.fail(ctx_result.expect_error())
+            return Result.fail(ctx_result)
 
         ctx = ctx_result.value
 
@@ -638,7 +638,7 @@ def create_askesis_api_routes(
         order_result = await askesis_service.get_unblocking_priority_order(ctx.user_context)
 
         if order_result.is_error:
-            return Result.fail(order_result.expect_error())
+            return Result.fail(order_result)
 
         unblocking_order = order_result.value
 
@@ -688,7 +688,7 @@ def create_askesis_api_routes(
 
         ctx_result = await askesis_service.load_askesis_context(askesis_uid)
         if ctx_result.is_error:
-            return Result.fail(ctx_result.expect_error())
+            return Result.fail(ctx_result)
 
         ctx = ctx_result.value
 
@@ -700,7 +700,7 @@ def create_askesis_api_routes(
         )
 
         if synergies_result.is_error:
-            return Result.fail(synergies_result.expect_error())
+            return Result.fail(synergies_result)
 
         synergies = synergies_result.value
 
@@ -758,7 +758,7 @@ def create_askesis_api_routes(
 
         ctx_result = await askesis_service.load_askesis_context(askesis_uid)
         if ctx_result.is_error:
-            return Result.fail(ctx_result.expect_error())
+            return Result.fail(ctx_result)
 
         ctx = ctx_result.value
 
@@ -768,7 +768,7 @@ def create_askesis_api_routes(
         )
 
         if alignment_result.is_error:
-            return Result.fail(alignment_result.expect_error())
+            return Result.fail(alignment_result)
 
         alignment = alignment_result.value
 
@@ -842,7 +842,7 @@ def create_askesis_api_routes(
 
         ctx_result = await askesis_service.load_askesis_context(askesis_uid)
         if ctx_result.is_error:
-            return Result.fail(ctx_result.expect_error())
+            return Result.fail(ctx_result)
 
         ctx = ctx_result.value
 
@@ -855,7 +855,7 @@ def create_askesis_api_routes(
         )
 
         if recommendations_result.is_error:
-            return Result.fail(recommendations_result.expect_error())
+            return Result.fail(recommendations_result)
 
         recommendations = recommendations_result.value
 

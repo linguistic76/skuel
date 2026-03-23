@@ -79,7 +79,7 @@ def create_batch_transcription_api_routes(
             logger.info(f"Admin {current_user.uid} previewing batch transcription: {input_dir}")
             preview_result = await batch_transcription_service.preview(input_dir, output_dir)
             if preview_result.is_error:
-                return Result.fail(preview_result.expect_error())
+                return Result.fail(preview_result)
 
             preview = preview_result.value
             return Result.ok(
@@ -104,7 +104,7 @@ def create_batch_transcription_api_routes(
         )
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         batch = result.value
         return Result.ok(
@@ -184,7 +184,7 @@ def create_batch_transcription_api_routes(
             )
 
             if result.is_error:
-                return Result.fail(result.expect_error())
+                return Result.fail(result)
 
             return Result.ok(result.value)
 
@@ -205,7 +205,7 @@ def create_batch_transcription_api_routes(
         )
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         batch = result.value
         return Result.ok(
