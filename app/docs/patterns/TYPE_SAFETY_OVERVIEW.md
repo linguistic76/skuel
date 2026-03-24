@@ -221,7 +221,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from neo4j import AsyncDriver                    # Zero runtime cost
     from core.ports import TasksOperations           # Protocol for IDE
-    from services_bootstrap import Services          # Concrete for wiring
+    from services_bootstrap import Services              # Concrete for wiring
 
 class MyMixin:
     if TYPE_CHECKING:

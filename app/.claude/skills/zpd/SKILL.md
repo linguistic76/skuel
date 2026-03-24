@@ -293,7 +293,7 @@ When modifying ZPD, verify:
 4. **Behavioral readiness defaults to 0.5** when intelligence services unavailable
 5. **All three action types generated** — unblock, learn, reinforce
 6. **ZPDAssessment is frozen** — immutable snapshot, no mutations after creation
-7. **Event handler wired** — ZPD snapshot events subscribed in `_create_intelligence_hub()` in `services_bootstrap.py`
+7. **Event handler wired** — ZPD snapshot events subscribed in `_create_intelligence_hub()` in `services_bootstrap/_intelligence_hub.py`
 8. **Protocol compliance** — `ZPDOperations` and `ZPDBackendOperations` both `@runtime_checkable`
 
 ---

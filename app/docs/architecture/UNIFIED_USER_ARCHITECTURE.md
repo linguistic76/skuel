@@ -242,7 +242,7 @@ class UserContextBuilder:
         """Rich context — UIDs + entities + graph neighbourhoods. Requires user_service wired."""
 ```
 
-**`user_service` wiring:** `build()` and `build_rich()` resolve the `User` internally via `_resolve_user()`, which requires `user_service` to be set. `UserService.__init__` wires `user_service=self` automatically. For standalone builders (e.g. `services_bootstrap.py`), pass `UserContextBuilder(executor, user_service=user_service)` at construction.
+**`user_service` wiring:** `build()` and `build_rich()` resolve the `User` internally via `_resolve_user()`, which requires `user_service` to be set. `UserService.__init__` wires `user_service=self` automatically. For standalone builders (e.g. `services_bootstrap/compose.py`), pass `UserContextBuilder(executor, user_service=user_service)` at construction.
 
 **Queries:**
 ```python

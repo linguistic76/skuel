@@ -97,7 +97,7 @@ These four patterns appear everywhere. Learn them early:
 | Find a protocol/interface | `core/ports/` |
 | Find UI components | `ui/` (Python functions that return HTML) |
 | Find static assets | `static/` |
-| Find how services wire together | `services_bootstrap.py` |
+| Find how services wire together | `services_bootstrap/` |
 | Run commands | `./dev help` |
 
 ---

@@ -90,7 +90,7 @@ External World (HTTP/Files)
 **`UniversalNeo4jBackend` is the hexagonal boundary.** Neo4j-specific code (Cypher strings, `AsyncDriver` calls, label conventions) lives at and below this boundary. Service mixins above it use graph vocabulary (`depth`, `traverse`, `graph_enrichment_patterns`) because SKUEL's domain model is inherently a graph — this is intentional, not leaky. Neo4j is a committed architectural choice, not a swappable adapter. See: [ADR-044](../decisions/ADR-044-neo4j-committed-architectural-choice.md).
 
 **Key files:**
-- `services_bootstrap.py` — wires all backends + services
+- `services_bootstrap/` — wires all backends + services
 - `core/ports/` — all protocol interfaces (10 files)
 - `adapters/persistence/neo4j/universal_backend.py` — generic backend (6-mixin shell, ~527 lines)
 

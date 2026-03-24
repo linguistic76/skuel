@@ -7,7 +7,7 @@ Each item has a clear trigger condition and implementation guide.
 
 ## 2A: Placeholder activity service params in `_create_learning_services()`
 
-**File:** `services_bootstrap.py` lines 601–604
+**File:** `services_bootstrap/_learning_services.py`
 **Params:** `_tasks_service`, `_habits_service`, `_goals_service`, `_events_service`
 
 **Purpose when implemented:** Cross-wire learning services with activity domain facades so that:

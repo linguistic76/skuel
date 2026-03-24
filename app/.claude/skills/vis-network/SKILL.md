@@ -2015,7 +2015,7 @@ Link(rel="stylesheet", href="/static/vendor/vis-network/vis-network.min.css"),
 |-------|-----|
 | **Routes not registered** | Add `LateralRouteFactory` to domain routes file. |
 | **Domain name mismatch** | Check `domain_name` parameter matches route URL (lowercase plural). |
-| **Service not initialized** | Verify `services.lateral_relationships` exists in `services_bootstrap.py`. |
+| **Service not initialized** | Verify `services.lateral_relationships` exists in `services_bootstrap/_container.py`. |
 
 **Debug Steps:**
 

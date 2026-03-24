@@ -816,7 +816,7 @@ All 11 domain facades (6 Activity + 5 Curriculum) implement `get_filtered_contex
 
 **Typed accessors** (`core/utils/list_context_helpers.py`): `get_entities(ctx, Task)` → `list[Task]`, `get_stats(ctx)`, `get_metadata(ctx)` for type-safe `ListContext` consumption.
 
-**Intelligence integration:** `UserContextIntelligence.filtered_providers` dict maps 11 domain names to `FilteredContextProvider` facades. Wired in `services_bootstrap.py` via `_create_intelligence_hub()`. Consumed by `DailyPlanningMixin._generate_domain_health_warnings()` which queries all 6 Activity domain stats:
+**Intelligence integration:** `UserContextIntelligence.filtered_providers` dict maps 11 domain names to `FilteredContextProvider` facades. Wired in `services_bootstrap/_intelligence_hub.py` via `_create_intelligence_hub()`. Consumed by `DailyPlanningMixin._generate_domain_health_warnings()` which queries all 6 Activity domain stats:
 - **Single-domain:** >30 active tasks, no active goals, no habits tracked, 5+ events today, 5+ pending choices, no core principles
 - **Cross-domain:** many goals but no habits (missing consistency anchors), many tasks but no goals (lacks strategic direction)
 

@@ -132,13 +132,13 @@ class TasksService(BaseService[...]):
 
 ## Cross-Domain Dependencies
 
-When a facade needs another domain's service (circular at construction time), use post-wiring in `services_bootstrap.py`:
+When a facade needs another domain's service (circular at construction time), use post-wiring in `services_bootstrap/compose.py`:
 
 ```python
 # In __init__ — declare as None
 self.goals_service: Any = None
 
-# In services_bootstrap.py — post-wire after all services exist
+# In services_bootstrap/compose.py — post-wire after all services exist
 activity_services["habits"].goals_service = activity_services["goals"]
 ```
 
@@ -149,7 +149,7 @@ Orchestration methods use `self.goals_service` — routes never pass cross-domai
 All sub-services share ONE domain-specific backend instance (no wrappers). Activity Domains use `domain_backends.py` subclasses, which add domain-specific relationship Cypher on top of `UniversalNeo4jBackend`:
 
 ```python
-# In services_bootstrap.py
+# In services_bootstrap/_backends.py
 from adapters.persistence.neo4j.domain_backends import TasksBackend
 
 tasks_backend = TasksBackend(

@@ -63,7 +63,7 @@ nav = result.value  # KuNavigation(prev_uid, prev_title, next_uid, next_title)
 LP requires LsService injected at construction — the only cross-domain service dependency in the curriculum stack:
 
 ```python
-# In services_bootstrap.py (order matters!)
+# In services_bootstrap/_learning_services.py (order matters!)
 ls_service = LsService(driver, graph_intel, event_bus)
 lp_service = LpService(driver, ls_service, graph_intel, event_bus)  # <- ls_service required
 ```

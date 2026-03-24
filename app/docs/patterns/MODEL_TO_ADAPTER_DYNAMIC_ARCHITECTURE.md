@@ -21,7 +21,7 @@ The architecture is **100% dynamic** for model-to-adapter connections. The intro
 
 `universal_backend.py` grew to 4,214 lines and was decomposed into a shell + 5 focused mixin files, mirroring the `BaseService` mixin decomposition done in January 2026.
 
-**Result:** The same `UniversalNeo4jBackend[T]` API — unchanged for all 25+ callers in `services_bootstrap.py`. Only the internal file layout changed.
+**Result:** The same `UniversalNeo4jBackend[T]` API — unchanged for all 25+ callers in `services_bootstrap/`. Only the internal file layout changed.
 
 ```
 adapters/persistence/neo4j/

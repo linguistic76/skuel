@@ -106,9 +106,9 @@ async def create_prerequisite_relationship(
 
 ## Step 4: Add to Services Bootstrap ✅ COMPLETE
 
-**Status:** All 8 domain lateral services successfully bootstrapped in `/services_bootstrap.py`
+**Status:** All 8 domain lateral services successfully bootstrapped in `/services_bootstrap/compose.py`
 
-Services created (line ~1249):
+Services created:
 ```python
 # Core lateral relationship service (domain-agnostic)
 lateral_service = LateralRelationshipService(driver)
@@ -125,7 +125,7 @@ ls_lateral = LsLateralService(driver=driver, ls_service=learning_services["learn
 lp_lateral = LpLateralService(driver=driver, lp_service=learning_services["learning_paths"])
 ```
 
-Services container (line ~2148):
+Services container:
 ```python
 services = Services(
     # ... other services ...
@@ -375,7 +375,7 @@ class HabitsLateralService:
 - [ ] Copy goals_lateral_service.py to your domain
 - [ ] Find & replace domain names
 - [ ] Add domain-specific methods (if needed)
-- [ ] Import in services_bootstrap.py
+- [ ] Import in services_bootstrap/compose.py
 - [ ] Create lateral service instance
 - [ ] Add to Services container
 - [ ] Write basic test

@@ -76,7 +76,7 @@ INTELLIGENCE_TIER=core
 INTELLIGENCE_TIER=full
 ```
 
-Three gating points in `services_bootstrap.py` check `IntelligenceTier.from_env()`. When `core`, the AI services are never created. All downstream code receives `None` and handles it through the None-propagation pattern.
+Three gating points in `services_bootstrap/compose.py` check `IntelligenceTier.from_env()`. When `core`, the AI services are never created. All downstream code receives `None` and handles it through the None-propagation pattern.
 
 **See:** [Graceful Degradation Architecture](/docs/architecture/GRACEFUL_DEGRADATION_ARCHITECTURE.md) for implementation details — the three gating points, None-propagation pattern, event-driven embedding architecture, and search fallback behavior.
 
@@ -109,7 +109,7 @@ When switching from Digital back to Analog, nothing is lost. Existing embeddings
 | File | Role |
 |------|------|
 | `core/config/intelligence_tier.py` | `IntelligenceTier` enum — the toggle |
-| `services_bootstrap.py` | Three gating points for AI service creation |
+| `services_bootstrap/compose.py` | Three gating points for AI service creation |
 | `adapters/inbound/ai_guard.py` | Route-level guards for AI endpoints |
 | `core/services/base_analytics_service.py` | Analog intelligence base (no AI deps) |
 | `core/services/base_ai_service.py` | Digital intelligence base (requires LLM + embeddings) |

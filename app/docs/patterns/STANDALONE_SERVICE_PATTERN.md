@@ -153,7 +153,7 @@ async def process(self, uid: str) -> Result[Transcription]:
 Even standalone services use `BackendOperations[T]`:
 
 ```python
-# In services_bootstrap.py
+# In services_bootstrap/compose.py
 transcription_backend = UniversalNeo4jBackend[Transcription](
     driver, "Transcription", Transcription
 )
@@ -247,7 +247,7 @@ Standard pattern for processing services:
 ## Bootstrap Wiring
 
 ```python
-# In services_bootstrap.py
+# In services_bootstrap/compose.py
 from core.config.deepgram_config import load_deepgram_config
 
 # 1. Load config and create external adapter

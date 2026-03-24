@@ -764,7 +764,7 @@ class TasksService:
 - Embeddings via `HuggingFaceEmbeddingsService` (`BAAI/bge-large-en-v1.5`, 1024d) + vector search via `Neo4jVectorSearchService`
 
 ```python
-# File: /services_bootstrap.py
+# File: /services_bootstrap/compose.py
 
 async def compose_services(neo4j_adapter, event_bus=None, config=None, ...) -> Result[Services]:
     """

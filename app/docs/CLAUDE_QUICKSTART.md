@@ -48,7 +48,7 @@ Activity (6)             Curriculum (5)      Content/Processing    Other
 | Domain enums | `/core/models/enums/` (EntityType, NonKuDomain, EntityStatus, Priority) |
 | Relationship configs | `/core/models/relationship_registry.py` |
 | MEGA-QUERY | `/core/services/user/user_context_queries.py` |
-| Service bootstrap | `/services_bootstrap.py` |
+| Service bootstrap | `/services_bootstrap/` |
 
 ---
 

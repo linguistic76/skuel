@@ -957,10 +957,10 @@ TASKS_CONFIG = DomainRouteConfig(
 
 **How services container is populated:**
 
-The `services` parameter comes from `/services_bootstrap.py`:
+The `services` parameter comes from `/services_bootstrap/`:
 
 ```python
-# services_bootstrap.py creates the container
+# services_bootstrap/compose.py creates the container
 services.tasks = TasksService(...)
 services.goals = GoalsService(...)
 services.habits = HabitsService(...)
@@ -1123,7 +1123,7 @@ WARNING - Tasks routes registered without tasks service
 **Cause:** Primary service is None (not available in services container)
 
 **Fix:**
-1. Check `services_bootstrap.py` - is the service being created?
+1. Check `services_bootstrap/compose.py` - is the service being created?
 2. Verify `primary_service_attr` matches the attribute name on the container
 3. Check bootstrap order - is the service created before route registration?
 
@@ -1307,7 +1307,7 @@ Zero runtime overhead - routes are registered once at application startup.
 ### Documentation
 
 - **Route Factories:** `/docs/patterns/ROUTE_FACTORIES.md` - Endpoint-level factories
-- **Service Bootstrap:** `/services_bootstrap.py` - Container creation
+- **Service Bootstrap:** `/services_bootstrap/` - Container creation
 - **Clean Architecture:** `/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md` - Layer separation
 - **Migration Summaries:**
   - `/docs/migrations/DOMAIN_ROUTE_CONFIG_MIGRATION_2026-01-24.md` - Phase 2 migration (6 files)

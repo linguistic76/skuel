@@ -302,7 +302,7 @@ user_substance_score = min(1.0, task_score + habit_score + event_score + journal
 - **Service:** `LessonIntelligenceService.calculate_user_substance(lesson_uid, user_context)`
 - **Facade:** `LessonService.get_user_lesson_context(lesson_uid, user_context)`
 - **Route:** `/adapters/inbound/lesson_api.py` (`get_lesson_user_context_route`)
-- **Wiring:** `user_service` passed through `services_bootstrap.py` → `LessonService` → `LessonIntelligenceService`
+- **Wiring:** `user_service` passed through `services_bootstrap/compose.py` → `LessonService` → `LessonIntelligenceService`
 
 ### UserContext Knowledge Fields
 
@@ -430,7 +430,7 @@ Div(
 | **Decay Algorithm** | `/core/models/lesson/lesson.py` | Exponential decay, spaced repetition |
 | **Domain Events** | `/core/events/ku_events.py` | 5 substance events |
 | **Event Listeners** | `/core/services/lesson_service.py` | Atomic substance updates |
-| **Event Wiring** | `/services_bootstrap.py` | Subscribe KuService to events |
+| **Event Wiring** | `/services_bootstrap/_event_wiring.py` | Subscribe KuService to events |
 | **Dashboard UI** | `/ui/substance_dashboard.py` | Substance visualization (Lesson-level) |
 | **Life Path Fields** | `/core/services/user/unified_user_context.py` | Life alignment tracking |
 

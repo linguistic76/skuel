@@ -167,7 +167,7 @@ class ZPDOperations(Protocol):
 1. `adapters/persistence/neo4j/zpd_backend.py` — `ZPDBackend` (Cypher queries)
 2. `core/services/zpd/zpd_service.py` — `ZPDService` (business logic)
 3. `core/ports/zpd_protocols.py` — `ZPDBackendOperations` + `ZPDOperations` protocols
-4. `services_bootstrap.py` — `services.zpd_service: ZPDOperations | None` (FULL tier only)
+4. `services_bootstrap/compose.py` — `services.zpd_service: ZPDOperations | None` (FULL tier only)
 5. `UserContextIntelligence.get_optimal_next_learning_steps()` — calls `ZPDService` when not `None`
 6. `AskesisService.analyze_user_state()` — reads `ZPDAssessment` in state snapshot
 
@@ -238,7 +238,7 @@ ZPDService generates three types of recommended actions:
 ZPD snapshots are persisted via `ZPDSnapshotBackend` on pedagogically significant events.
 A single `:ZPDHistory` node per user stores the latest snapshot state (MVP — no history array yet).
 
-**Triggers** (wired via `ZPDSnapshotHandler` in `services_bootstrap.py`):
+**Triggers** (wired via `ZPDSnapshotHandler` in `services_bootstrap/_event_wiring.py`):
 - `SubmissionApproved` — student work validated
 - `ReportSubmitted` — teacher feedback delivered
 - `KnowledgeMastered` — KU mastery confirmed

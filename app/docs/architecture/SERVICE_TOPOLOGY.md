@@ -154,7 +154,7 @@ from core.services.analytics_engine import AnalyticsEngine
 
 ### Service Bootstrap
 
-All services are composed in `/services_bootstrap.py`. This file:
+All services are composed in `/services_bootstrap/`. This package:
 - Imports all facades and utilities
 - Creates dependency graph
 - Instantiates services with proper dependencies
@@ -385,14 +385,14 @@ UnifiedRelationshipService ← Depends on: relationship_config (TASKS_CONFIG)
 
 ### Cross-Domain Post-Wiring (Circular Dependencies)
 
-When a facade needs another domain's service, declare `None` in `__init__` and post-wire in `services_bootstrap.py`:
+When a facade needs another domain's service, declare `None` in `__init__` and post-wire in `services_bootstrap/compose.py`:
 
 ```
 HabitsService.__init__:  self.goals_service = None
                          self.goal_analytics.goals_service = None
 
-services_bootstrap.py:   habits.goals_service = goals       # facade-level
-                         habits.goal_analytics.goals_service = goals  # sub-service-level
+services_bootstrap/compose.py:  habits.goals_service = goals       # facade-level
+                                habits.goal_analytics.goals_service = goals  # sub-service-level
 ```
 
 ```
@@ -400,7 +400,7 @@ services_bootstrap.py:   habits.goals_service = goals       # facade-level
 ```
 GoalsIntelligenceService.__init__:  self.habits_service = None
 
-services_bootstrap.py:  goals.intelligence.habits_service = habits  # sub-service-level
+services_bootstrap/compose.py:  goals.intelligence.habits_service = habits  # sub-service-level
 ```
 
 ```
@@ -538,7 +538,7 @@ Routes / Application Code
     │
     ▼
 ┌──────────────────────────────────────────────────────────┐
-│ services_bootstrap.py  (Services dataclass)              │
+│ services_bootstrap/  (Services dataclass)                 │
 │                                                           │
 │  services.tasks    = TasksService(...)                   │
 │  services.goals    = GoalsService(...)                    │

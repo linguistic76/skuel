@@ -148,10 +148,10 @@ from core.services.curriculum_domain_config import (
 
 ## Bootstrap Location
 
-Services wired in: `services_bootstrap.py`
+Services wired in: `services_bootstrap/_learning_services.py`
 
 ```python
-async def compose_services(neo4j_adapter, event_bus=None) -> Result[Services]:
+# In _create_learning_services():
     # Curriculum services use factories
     lesson_service = LessonService(lesson_backend, graph_intel, event_bus)
     ku_service = KuService(ku_backend, event_bus)

@@ -127,18 +127,19 @@ Module-level helpers (each facade file): `_compute_{domain}_stats`, `_apply_{dom
 
 ## Bootstrap Location
 
-All services wired in: `services_bootstrap.py`
+All services wired in: `services_bootstrap/`
 
 ```python
-# compose_services() calls _create_activity_services() for all 6 domains:
+# compose_services() in services_bootstrap/compose.py calls
+# _create_activity_services() in services_bootstrap/_activity_services.py:
 activity_services = _create_activity_services(
     tasks_backend=tasks_backend, events_backend=events_backend,
     habits_backend=habits_backend, goals_backend=goals_backend,
     choices_backend=choices_backend, principles_backend=principles_backend,
     # ... shared deps: graph_intelligence, event_bus, insight_store
 )
-# AI wired separately by _wire_ai_services() (when LLM available)
-# Event subscriptions wired by _wire_event_subscribers()
+# AI wired separately by _wire_ai_services() in services_bootstrap/_ai_wiring.py
+# Event subscriptions wired by _wire_event_subscribers() in services_bootstrap/_event_wiring.py
 ```
 
 ## Documentation

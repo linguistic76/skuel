@@ -179,7 +179,7 @@ class HabitsBackend(UniversalNeo4jBackend["Habit"]):
     async def get_user_habits(self, user_uid: str) -> Result[list[Habit]]: ...
 ```
 
-`HabitsBackend` and `GoalsBackend` are drop-in replacements with the same constructor signature — only the instantiation in `services_bootstrap.py` changes.
+`HabitsBackend` and `GoalsBackend` are drop-in replacements with the same constructor signature — only the instantiation in `services_bootstrap/compose.py` changes.
 
 **See:** `adapters/persistence/neo4j/domain_backends.py`
 
@@ -274,7 +274,7 @@ SKUEL achieved **full type safety** across the entire codebase through systemati
 > **Note:** The facade protocols created in this phase were superseded in February 2026 by explicit delegation methods. Facade services now use concrete class type hints in routes instead of protocol types. See "Facade Services — Explicit Delegation" section.
 
 ### Phase 2: Services Container (12 fields updated)
-Updated `Services` dataclass in `services_bootstrap.py`:
+Updated `Services` dataclass in `services_bootstrap/_container.py`:
 
 ```python
 @dataclass

@@ -163,7 +163,7 @@ class UserContextIntelligenceFactory:
 
 ## Bootstrap Wiring
 
-### In services_bootstrap.py
+### In services_bootstrap/_intelligence_hub.py
 
 Factory creation, ZPD wiring, and Askesis creation are handled by `_create_intelligence_hub()` — called near the end of `compose_services()`:
 

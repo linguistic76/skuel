@@ -101,7 +101,7 @@ Migration script: `scripts/migrations/add_has_lesson_relationship_2026_03.cypher
 
 ## Bootstrap Wiring
 
-All subscriptions are wired in `services_bootstrap.py`:
+All subscriptions are wired in `services_bootstrap/_event_wiring.py`:
 
 ```python
 # KU mastery → LP progress (direct KU-level tracking)

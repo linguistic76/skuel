@@ -264,7 +264,7 @@ api_related_services={
 
 | Symptom | Cause | Fix |
 |---------|-------|-----|
-| Warning: `not found on services container` | `container_attr` doesn't match actual attribute on `services` (stale after rename) | Check `services_bootstrap.py` for the real attr name |
+| Warning: `not found on services container` | `container_attr` doesn't match actual attribute on `services` (stale after rename) | Check `services_bootstrap/_container.py` for the real attr name |
 | `TypeError: 'NoneType' object is not callable` | `api_factory=None` without null guard in `register_domain_routes` | Null guard must exist at `domain_route_factory.py` line ~97 |
 | `TypeError: unsupported operand type(s) for +: 'NoneType' and 'list'` | Factory returns `None` instead of `[]` | Add `return []` at end of factory |
 | `TypeError: missing required keyword argument` | Factory param not in `api_related_services` | Add the mapping to `api_related_services` |

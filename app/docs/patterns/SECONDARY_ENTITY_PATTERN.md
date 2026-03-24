@@ -169,7 +169,7 @@ HabitCompletionBulk          # Batch completion
 Secondary entity backends are created alongside primary backends:
 
 ```python
-# services_bootstrap.py
+# services_bootstrap/compose.py
 
 # Primary backend
 principle_backend = UniversalNeo4jBackend[Principle](

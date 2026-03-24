@@ -85,7 +85,7 @@ Requires `HF_API_TOKEN` (for embeddings) and optionally `OPENAI_API_KEY` (for LL
 The bootstrap creates AI services conditionally. When `INTELLIGENCE_TIER=core`, they remain `None`. Downstream code checks before using:
 
 ```python
-# Bootstrap (services_bootstrap.py)
+# Bootstrap (services_bootstrap/compose.py)
 embeddings_service = None
 if tier.ai_enabled:
     from core.services.embeddings_service import HuggingFaceEmbeddingsService
@@ -138,7 +138,7 @@ When AI is disabled, no events are published and no worker exists. The entity is
 
 ## Three Gating Points
 
-All in `services_bootstrap.py`:
+All in `services_bootstrap/compose.py`:
 
 | Gate | What It Controls | Core Behavior |
 |------|-----------------|---------------|
@@ -175,7 +175,7 @@ Switching from FULL → CORE:
 | File | Purpose |
 |------|---------|
 | `core/config/intelligence_tier.py` | `IntelligenceTier` enum, `from_env()` |
-| `services_bootstrap.py` | 3 gating points |
+| `services_bootstrap/compose.py` | 3 gating points |
 | `adapters/inbound/ai_guard.py` | Route-level guard (`is_ai_available()`) |
 | `.env` | `INTELLIGENCE_TIER=core\|full` |
 | `core/services/background/embedding_worker.py` | Only starts when embeddings service exists |

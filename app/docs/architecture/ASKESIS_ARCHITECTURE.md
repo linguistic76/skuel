@@ -186,7 +186,7 @@ Askesis is fundamentally different:
 Askesis is created in `compose_services()` AFTER the intelligence factory, via `create_askesis_service()` — **only when `INTELLIGENCE_TIER=full`** (March 2026):
 
 ```python
-# /services_bootstrap.py (PHASE 4)
+# /services_bootstrap/compose.py (PHASE 4)
 from core.services.askesis_factory import create_askesis_service
 
 if tier.ai_enabled:

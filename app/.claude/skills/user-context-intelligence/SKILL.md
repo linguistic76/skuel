@@ -129,7 +129,7 @@ priority_score = readiness_score × (0.7 + 0.3 × behavioral_readiness)
 
 **Wiring ZPD in bootstrap:**
 
-ZPD creation and factory wiring are handled by `_create_intelligence_hub()` in `services_bootstrap.py`:
+ZPD creation and factory wiring are handled by `_create_intelligence_hub()` in `services_bootstrap/_intelligence_hub.py`:
 
 ```python
 # Inside _create_intelligence_hub():
@@ -284,7 +284,7 @@ This is by design. The slot reservation ensures future implementation is a fill-
 
 ### UserContextIntelligenceFactory
 
-Created by `_create_intelligence_hub()` in `services_bootstrap.py` (called near the end of `compose_services()`):
+Created by `_create_intelligence_hub()` in `services_bootstrap/_intelligence_hub.py` (called near the end of `compose_services()`):
 
 ```python
 # Inside _create_intelligence_hub():

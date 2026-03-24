@@ -391,7 +391,7 @@ class JournalInputService:
 Ensure `PrometheusMetrics` is passed to your service:
 
 ```python
-# In services_bootstrap.py
+# In services_bootstrap/compose.py
 
 prometheus_metrics = PrometheusMetrics()
 

@@ -772,7 +772,7 @@ text = build_embedding_text(EntityType.TASK, {"title": "Fix bug", "description":
 
 | Purpose | Location |
 |---------|----------|
-| Service composition | `/services_bootstrap.py` |
+| Service composition | `/services_bootstrap/` (package: `compose.py` orchestration, `_container.py` Services dataclass) |
 | Base service | `/core/services/base_service.py` |
 | Base analytics | `/core/services/base_analytics_service.py` |
 | Knowledge intelligence | `/core/services/knowledge/` |

@@ -29,7 +29,7 @@ if isinstance(obj, EnumLike):
 ## Composition Root Pattern
 
 ```python
-# Single point of service wiring in services_bootstrap.py
+# Single point of service wiring in services_bootstrap/compose.py
 async def compose_services(neo4j_adapter, event_bus=None) -> Result[Services]:
     # All service creation happens here - no factory pattern
     tasks_service = TasksService(tasks_backend)
@@ -124,4 +124,4 @@ if not knowledge_service:
 - `/docs/patterns/three_tier_type_system.md` - Full type system documentation
 - `/docs/patterns/ERROR_HANDLING.md` - Error handling patterns
 - `/docs/patterns/protocol_architecture.md` - Protocol architecture
-- `/services_bootstrap.py` - Composition root implementation
+- `/services_bootstrap/compose.py` - Composition root implementation
