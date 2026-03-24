@@ -172,6 +172,8 @@ ExpenseCategory
     └── ...
 ```
 
+`ExpenseCategory.get_icon()` returns emoji for each category (PERSONAL: "👤", TWO222: "🏠", SKUEL: "📚").
+
 See [Finance Categories Guide](../architecture/FINANCE_CATEGORIES_GUIDE.md) for complete subcategory list.
 
 ## Budget Model (BudgetPure)

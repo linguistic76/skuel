@@ -28,7 +28,7 @@ Every enum lives in exactly one file. The `__init__.py` re-exports all public en
 | `metadata_enums.py` | Relationships, search, system config | RelationshipType (48 values), Intent, Visibility, SystemConstants |
 | `user_enums.py` | User roles and health scoring | UserRole, ContextHealthScore |
 | `ku_enums.py` | Ku domain classification | KuCategory |
-| `finance_enums.py` | Finance domain | ExpenseStatus, PaymentMethod, ExpenseCategory, BudgetPeriod |
+| `finance_enums.py` | Finance domain | ExpenseStatus, PaymentMethod, ExpenseCategory (`get_icon()`), BudgetPeriod |
 | `transcription_enums.py` | Transcription processing | TranscriptionStatus |
 | `neo_labels.py` | Neo4j node labels | NeoLabel (32 labels) |
 

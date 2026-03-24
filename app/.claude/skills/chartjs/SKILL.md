@@ -153,33 +153,28 @@ Alpine.data('chartVis', function(dataUrl, chartType) {
 
 ## Color Schemes
 
-SKUEL uses consistent colors across all visualizations:
+SKUEL centralizes all visualization colors in `ui/palette.py`:
 
 ```python
-# From VisualizationService
-COLORS = {
-    "primary": "#3B82F6",   # Blue
-    "success": "#10B981",   # Green
-    "warning": "#F59E0B",   # Amber
-    "danger": "#EF4444",    # Red
-    "info": "#6366F1",      # Indigo
-    "neutral": "#6B7280",   # Gray
-}
+from ui.palette import SemanticColor
 
-PRIORITY_COLORS = {
-    Priority.CRITICAL: "#EF4444",
-    Priority.HIGH: "#F59E0B",
-    Priority.MEDIUM: "#3B82F6",
-    Priority.LOW: "#10B981",
-}
+# Semantic chart colors (for color cycling, datasets)
+SemanticColor.PRIMARY   # "#3B82F6" (Blue)
+SemanticColor.SUCCESS   # "#10B981" (Green)
+SemanticColor.WARNING   # "#F59E0B" (Amber)
+SemanticColor.DANGER    # "#EF4444" (Red)
+SemanticColor.INFO      # "#6366F1" (Indigo)
+SemanticColor.NEUTRAL   # "#6B7280" (Gray)
+SemanticColor.ALL       # List of all 6 for color cycling
+```
 
-STATUS_COLORS = {
-    ActivityStatus.COMPLETED: "#10B981",
-    ActivityStatus.IN_PROGRESS: "#3B82F6",
-    ActivityStatus.BLOCKED: "#EF4444",
-    ActivityStatus.DRAFT: "#6B7280",
-    ActivityStatus.CANCELLED: "#9CA3AF",
-}
+For Priority and Status colors, use the enum methods directly:
+
+```python
+from core.models.enums import Priority, EntityStatus
+
+Priority.CRITICAL.get_color()      # "#DC2626"
+EntityStatus.COMPLETED.get_color() # "#10B981"
 ```
 
 ## FastHTML Integration Pattern

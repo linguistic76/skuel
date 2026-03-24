@@ -504,7 +504,7 @@ type Scorer[T] = Callable[[T], Score]
 
 **Page Contexts:** Per-domain TypedDicts in `/ui/page_contexts.py` define route→UI contracts with typed entities (`list[Task]`, etc.) and `total=True` for required fields. `render_list_view(ctx)` is the only signature — no dual-path. NOT in `core/ports/` — page contexts are UI concerns.
 
-**Key Files:** `/ui/layouts/base_page.py`, `/ui/layouts/navbar.py`, `/ui/patterns/sidebar.py`, `/ui/patterns/` (PageHeader, form_generator, card_generator, etc.), `/ui/page_contexts.py`
+**Key Files:** `/ui/layouts/base_page.py`, `/ui/layouts/navbar.py`, `/ui/patterns/sidebar.py`, `/ui/patterns/` (PageHeader, form_generator, card_generator, etc.), `/ui/page_contexts.py`, `/ui/tokens.py` (spacing/layout), `/ui/palette.py` (centralized hex colors for visualization), `/ui/visualization/` (Chart.js/Vis.js/Gantt presentation adapters)
 
 **See:** `/docs/patterns/UI_COMPONENT_PATTERNS.md`, `/docs/ui/COMPONENT_CATALOG.md`
 

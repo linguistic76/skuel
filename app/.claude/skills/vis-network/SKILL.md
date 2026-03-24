@@ -720,21 +720,16 @@ SKUEL uses consistent colors across all domains for relationship types:
 
 **Implementation:**
 
-```javascript
-// In API layer (lateral_route_factory.py)
-RELATIONSHIP_COLORS = {
-    "BLOCKS": "#ef4444",
-    "BLOCKED_BY": "#fca5a5",
-    "PREREQUISITE_FOR": "#f59e0b",
-    "DEPENDS_ON": "#fbbf24",
-    "ALTERNATIVE_TO": "#3b82f6",
-    "COMPLEMENTARY_TO": "#10b981",
-    "SIBLING": "#8b5cf6",
-    "RELATED_TO": "#6b7280",
-}
+```python
+# Centralized in ui/palette.py
+from ui.palette import RelationshipColor
 
-# Apply color to edge
-edge["color"] = {"color": RELATIONSHIP_COLORS.get(edge_type, "#6b7280")}
+# Get color for a relationship type
+color = RelationshipColor.for_type("BLOCKS")      # "#EF4444" (Red)
+color = RelationshipColor.for_type("SIBLING")      # "#8B5CF6" (Purple)
+
+# Used in lateral_relationship_service.py:
+edge["color"] = {"color": RelationshipColor.for_type(rel_type)}
 ```
 
 ---
