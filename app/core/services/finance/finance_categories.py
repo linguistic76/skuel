@@ -85,7 +85,12 @@ class FinanceCategoriesLoader:
         """Get path to finance_categories.yaml."""
         # From /core/services/finance/finance_categories.py
         # Navigate to /data/config/finance_categories.yaml
-        return Path(__file__).parent.parent.parent.parent / "data" / "config" / "finance_categories.yaml"
+        return (
+            Path(__file__).parent.parent.parent.parent
+            / "data"
+            / "config"
+            / "finance_categories.yaml"
+        )
 
     def _load_categories(self) -> None:
         """Load categories from YAML file."""

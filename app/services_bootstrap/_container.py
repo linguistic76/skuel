@@ -1,0 +1,379 @@
+"""Services container — type-safe dataclass holding all wired services."""
+
+from dataclasses import dataclass, fields
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from neo4j import AsyncDriver
+
+    from adapters.persistence.neo4j_adapter import Neo4jAdapter
+    from core.config.intelligence_tier import IntelligenceTier
+    from core.infrastructure.monitoring.prometheus_metrics import PrometheusMetrics
+    from core.ports.service_protocols import LateralRelationshipOperations
+    from core.services.adaptive_lp.adaptive_lp_cross_domain_service import (
+        AdaptiveLpCrossDomainService,
+    )
+    from core.services.admin_stats_service import AdminStatsService
+    from core.services.analytics_service import AnalyticsService
+    from core.services.askesis_ai_service import AskesisAIService
+    from core.services.background.embedding_worker import EmbeddingBackgroundWorker
+    from core.services.background.progress_report_worker import ProgressReportWorker
+    from core.services.calendar_optimization_service import CalendarOptimizationService
+
+    # Facade services — concrete class IS the contract (no parallel protocol needed)
+    from core.services.choices_service import ChoicesService
+    from core.services.content_enrichment_service import ContentEnrichmentService
+    from core.services.context_aware_ai_service import ContextAwareAIService
+    from core.services.cross_domain_queries import CrossDomainQueries
+    from core.services.embeddings_service import HuggingFaceEmbeddingsService
+    from core.services.events_service import EventsService
+    from core.services.goals_service import GoalsService
+    from core.services.habits_service import HabitsService
+    from core.services.insight.insight_store import InsightStore
+    from core.services.journal import JournalInputService, JournalOutputService
+    from core.services.jupyter_neo4j_sync import JupyterNeo4jSync
+    from core.services.knowledge import ActivityKnowledgeIntelligenceService
+    from core.services.ku_service import KuService
+    from core.services.lesson_service import LessonService
+    from core.services.lp_service import LpService
+    from core.services.ls_service import LsService
+    from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
+    from core.services.notifications.notification_service import NotificationService
+    from core.services.performance_optimization_service import PerformanceOptimizationService
+    from core.services.principles_service import PrinciplesService
+    from core.services.report.activity_report_service import ActivityReportService
+    from core.services.report.progress_report_generator import ProgressReportGenerator
+    from core.services.report.progress_schedule_service import ProgressScheduleService
+    from core.services.report.review_queue_service import ReviewQueueService
+    from core.services.tasks_service import TasksService
+    from core.services.transcription.batch_processing_service import BatchProcessingService
+    from core.services.transcription.batch_transcription_service import BatchTranscriptionService
+    from core.services.transcription.transcription_service import TranscriptionService
+    from core.services.user.intelligence.factory import (
+        UserContextIntelligenceFactory,
+    )
+    from core.services.user_progress_service import UserProgressService
+    from core.services.user_relationship_service import UserRelationshipService
+    from core.services.user_service import UserService
+
+from core.ports import (
+    AskesisCoreOperations,
+    AskesisOperations,
+    AsyncCloseable,
+    CalendarServiceOperations,
+    Closeable,
+    CrossDomainAnalyticsOperations,
+    EventBusOperations,
+    ExerciseOperations,
+    FinancesOperations,
+    FormSubmissionOperations,
+    FormTemplateOperations,
+    GoalTaskGeneratorOperations,
+    GraphAuthOperations,
+    GroupOperations,
+    HabitEventSchedulerOperations,
+    IngestionOperations,
+    IntelligenceOperations,
+    LifePathOperations,
+    QueryExecutor,
+    RevisedExerciseOperations,
+    SearchOperations,
+    SharingOperations,
+    SubmissionOperations,
+    SubmissionProcessingOperations,
+    SubmissionReportOperations,
+    SubmissionSearchOperations,
+    SystemServiceOperations,
+    TeacherReviewOperations,
+    UserContextOperations,
+    VisualizationOperations,
+    ZPDOperations,
+)
+from core.utils.logging import get_logger
+
+logger = get_logger("skuel.bootstrap")
+
+
+@dataclass
+class Services:
+    """
+    Type-safe service container with protocol-based dependencies.
+
+    This replaces the complex DIContainer with a plain dataclass.
+    Services are created once during bootstrap and stored here.
+    All route-required services are included with proper protocol types.
+    """
+
+    # ========================================================================
+    # ACTIVITY DOMAINS (6) - All use facade pattern with embedded intelligence
+    # Created by _create_activity_services(), access intelligence via .intelligence
+    # Concrete types: facade service IS the contract — no parallel protocol needed.
+    # ========================================================================
+    tasks: "TasksService | None" = None
+    goals: "GoalsService | None" = None
+    habits: "HabitsService | None" = None
+    events: "EventsService | None" = None
+    choices: "ChoicesService | None" = None
+    principles: "PrinciplesService | None" = None
+
+    # ========================================================================
+    # FINANCE (1) - NOT an Activity Domain (standalone facade)
+    # ========================================================================
+    finance: FinancesOperations | None = None
+
+    # ========================================================================
+    # CURRICULUM DOMAINS (3) - KU, LS, LP
+    # ========================================================================
+    lesson: "LessonService | None" = None  # LessonService (units for learning)
+    ku: "KuService | None" = None  # KuService (atomic knowledge units)
+    activity_knowledge_intelligence: "ActivityKnowledgeIntelligenceService | None" = (
+        None  # Knowledge intelligence for all 6 activity domains (March 2026)
+    )
+    # adaptive_sel removed — absorbed into LessonService.adaptive (February 2026)
+    cross_domain: "AdaptiveLpCrossDomainService | None" = None
+
+    # Content services
+    content_enrichment: "ContentEnrichmentService | None" = None
+    transcription: "TranscriptionService | None" = None
+
+    # Report services (LLM-based processing)
+    submission_report: SubmissionReportOperations | None = (
+        None  # SubmissionReportService - LLM report on submission content
+    )
+    exercises: ExerciseOperations | None = (
+        None  # ExerciseService - Reusable LLM instruction templates
+    )
+    revised_exercises: RevisedExerciseOperations | None = (
+        None  # RevisedExerciseService - Five-phase learning loop revision cycle
+    )
+
+    # General-purpose forms (March 2026)
+    form_templates: "FormTemplateOperations | None" = None
+    form_submissions: "FormSubmissionOperations | None" = None
+
+    # Journal services
+    journal_input: "JournalInputService | None" = None
+    journal_generator: "JournalOutputService | None" = None
+
+    # Batch transcription/processing services (March 2026)
+    batch_transcription: "BatchTranscriptionService | None" = None
+    batch_processing: "BatchProcessingService | None" = None
+
+    # Submission pipeline services
+    submissions: SubmissionOperations | None = (
+        None  # SubmissionsService - File upload and submission content management
+    )
+    submissions_core: SubmissionOperations | None = (
+        None  # SubmissionsCoreService - Content management (categories, tags, bulk operations)
+    )
+    sharing: SharingOperations | None = (
+        None  # UnifiedSharingService - Cross-domain sharing and visibility control
+    )
+    submissions_processor: SubmissionProcessingOperations | None = (
+        None  # SubmissionsProcessingService - Orchestrates processing (LLM enrichment, transcription)
+    )
+
+    # Submission search service (unified query interface)
+    submissions_search: SubmissionSearchOperations | None = (
+        None  # SubmissionsSearchService - Query all submission types (journals, essays, projects, etc.)
+    )
+
+    # ========================================================================
+    # GROUP & TEACHING (ADR-040) - Teacher assignment workflow
+    # ========================================================================
+    group_service: GroupOperations | None = None  # GroupService - CRUD + membership for groups
+    teacher_review: TeacherReviewOperations | None = (
+        None  # TeacherReviewService - review queue + feedback
+    )
+    notification_service: "NotificationService | None" = (
+        None  # NotificationService - in-app notifications
+    )
+
+    # System services
+    # Note: sync field REMOVED (January 2026) - use unified_ingestion instead
+    # Note: events moved to Activity Domains section above
+    calendar: CalendarServiceOperations | None = (
+        None  # CalendarService - unified calendar aggregation
+    )
+    system_service: SystemServiceOperations | None = (
+        None  # SystemService - health checks and system monitoring
+    )
+    admin_stats: "AdminStatsService | None" = (
+        None  # AdminStatsService - cross-domain admin dashboard statistics
+    )
+    visualization: VisualizationOperations | None = (
+        None  # VisualizationService - Chart.js/Vis.js/Gantt adapters
+    )
+
+    # User management (fundamental)
+    user_service: "UserService | None" = None  # Facade — concrete type per CLAUDE.md
+    user_relationships: "UserRelationshipService | None" = None
+    graph_auth: GraphAuthOperations | None = None  # GraphAuthService - graph-native authentication
+    context_service: UserContextOperations | None = (
+        None  # UserContextService - context-aware intelligence (NEW: 2025-11-18)
+    )
+    context_intelligence: "UserContextIntelligenceFactory | None" = None
+
+    # Consolidated Learning Services (V4)
+    user_progress: "UserProgressService | None" = None
+    # Note: unified_progress DELETED (January 2026) - use user_progress or UserContextBuilder
+    lp: "LpService | None" = None  # LpService - All path management
+    ls: "LsService | None" = (
+        None  # LsService - Dedicated learning step management (NEW: October 24, 2025)
+    )
+    learning_intelligence: IntelligenceOperations | None = (
+        None  # LpIntelligenceService - analysis and recommendations
+    )
+    # ZPD service — Zone of Proximal Development (March 2026)
+    # Created when INTELLIGENCE_TIER=FULL. None when CORE or curriculum graph < 3 KUs.
+    # See: core/services/zpd/zpd_service.py, docs/roadmap/zpd-service-deferred.md
+    zpd_service: ZPDOperations | None = None
+
+    askesis: AskesisOperations | None = (
+        None  # AskesisService - Unified retrieval chatbot (requires OPENAI_API_KEY)
+    )
+    askesis_core: AskesisCoreOperations | None = (
+        None  # AskesisCoreService - CRUD operations for Askesis AI assistant instances
+    )
+
+    # Infrastructure adapters
+    graph_adapter: "Neo4jAdapter | None" = None
+    event_bus: EventBusOperations | None = None
+    prometheus_metrics: "PrometheusMetrics | None" = None
+
+    # Event-driven intelligence
+    insight_store: "InsightStore | None" = None
+
+    # Note: choices moved to Activity Domains section above
+
+    # Unified Ingestion Service (ADR-014: Merged MD + YAML ingestion)
+    unified_ingestion: IngestionOperations | None = (
+        None  # UnifiedIngestionService - handles both MD and YAML for all entity types
+    )
+
+    # The Destination - LifePath (Domain #14)
+    # "Everything flows toward the life path"
+    # Vision capture + alignment measurement + recommendations
+    lifepath: LifePathOperations | None = (
+        None  # LifePathService - Vision→Action bridge (January 2026)
+    )
+
+    # Analytics services (meta-service, not a domain)
+    analytics: "AnalyticsService | None" = None
+    cross_domain_analytics: CrossDomainAnalyticsOperations | None = (
+        None  # CrossDomainAnalyticsService - Event-driven analytics
+    )
+
+    # Search infrastructure (One Path Forward, January 2026)
+    search_router: SearchOperations | None = None  # SearchRouter - THE path for all search
+
+    # Orchestration services
+    # Note: principles moved to Activity Domains section above
+    goal_task_generator: GoalTaskGeneratorOperations | None = (
+        None  # GoalTaskGenerator - Auto-generate tasks from goals
+    )
+    habit_event_scheduler: HabitEventSchedulerOperations | None = (
+        None  # HabitEventScheduler - Auto-schedule events from habits
+    )
+
+    # Advanced services
+    calendar_optimization: "CalendarOptimizationService | None" = None
+    jupyter_sync: "JupyterNeo4jSync | None" = None
+    performance_optimization: "PerformanceOptimizationService | None" = None
+
+    # Cross-cutting AI services (require LLM/embeddings - ADR-030: Two-Tier Intelligence Design)
+    askesis_ai: "AskesisAIService | None" = None
+    context_aware_ai: "ContextAwareAIService | None" = None
+
+    # Infrastructure - Neo4j driver and query executor
+    neo4j_driver: "AsyncDriver | None" = None
+    query_executor: "QueryExecutor | None" = None
+
+    # Embedding + vector search services (March 2026 - HuggingFace)
+    embeddings_service: "HuggingFaceEmbeddingsService | None" = None
+    vector_search_service: "Neo4jVectorSearchService | None" = None
+
+    # Background workers (January 2026)
+    embedding_worker: "EmbeddingBackgroundWorker | None" = None
+    progress_report_worker: "ProgressReportWorker | None" = None
+
+    # Progress report generation (February 2026)
+    progress_report_generator: "ProgressReportGenerator | None" = None
+    progress_schedule: "ProgressScheduleService | None" = None
+
+    # Activity report + review queue (March 2026 refactor: ActivityReviewService split)
+    activity_report: "ActivityReportService | None" = None
+    review_queue: "ReviewQueueService | None" = None
+
+    # ========================================================================
+    # LATERAL RELATIONSHIP SERVICES (January 2026) - Core Graph Architecture
+    # ========================================================================
+    lateral: "LateralRelationshipOperations | None" = None
+
+    # Cross-domain graph queries (multi-hop: Tasks↔KU, Habits↔Goals, Events↔KU, Finance↔Goals)
+    cross_domain_queries: "CrossDomainQueries | None" = None
+
+    # Intelligence tier (ADR-043: CORE = analytics only, FULL = analytics + AI)
+    intelligence_tier: "IntelligenceTier | None" = None
+
+    # Services are ready when constructed - no lifecycle needed
+
+    async def cleanup(self) -> None:
+        """Clean up all async resources (idempotent — safe to call multiple times)"""
+        logger.info("Cleaning up service container...")
+
+        # Close database connection with detailed logging
+        if self.graph_adapter:
+            adapter = self.graph_adapter
+            self.graph_adapter = None  # Clear first to prevent double-close
+            try:
+                logger.info("Closing graph adapter...")
+                if isinstance(adapter, AsyncCloseable):
+                    await adapter.close()
+                elif isinstance(adapter, Closeable):
+                    adapter.close()
+                logger.info("Graph adapter closed")
+            except (
+                Exception
+            ) as e:  # safety-net: service bootstrap must report initialization failures
+                logger.warning(f"Error closing graph adapter: {e}")
+
+        # Close event bus with detailed logging
+        if self.event_bus:
+            bus = self.event_bus
+            self.event_bus = None  # Clear first to prevent double-close
+            try:
+                logger.info("Closing event bus...")
+                if isinstance(bus, AsyncCloseable):
+                    await bus.close()
+                elif isinstance(bus, Closeable):
+                    bus.close()
+                logger.info("Event bus closed")
+            except (
+                Exception
+            ) as e:  # safety-net: service bootstrap must report initialization failures
+                logger.warning(f"Error closing event bus: {e}")
+
+        # Auto-close all remaining closeable fields (no hardcoded list)
+        already_handled = {"graph_adapter", "event_bus"}
+        for f in fields(self):
+            if f.name in already_handled:
+                continue
+            service = getattr(self, f.name)
+            if service is None:
+                continue
+            try:
+                if isinstance(service, AsyncCloseable):
+                    logger.info(f"Closing {f.name}...")
+                    await service.close()
+                    logger.info(f"{f.name} closed")
+                elif isinstance(service, Closeable):
+                    logger.info(f"Closing {f.name}...")
+                    service.close()
+                    logger.info(f"{f.name} closed")
+            except (
+                Exception
+            ) as e:  # safety-net: service bootstrap must report initialization failures
+                logger.warning(f"Error closing {f.name}: {e}")
+
+        logger.info("✅ Service container cleanup complete")
