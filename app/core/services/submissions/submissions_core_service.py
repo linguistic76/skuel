@@ -42,7 +42,6 @@ Service Responsibilities
 - SubmissionReportService: AI report generation
 """
 
-import json
 from datetime import date, datetime
 from typing import Any
 
@@ -405,11 +404,6 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         filtered_updates = {
             field: value for field, value in updates.items() if field in allowed_fields
         }
-
-        # Serialize metadata to JSON string for Neo4j storage
-        # Neo4j cannot store nested dicts/maps as property values
-        if "metadata" in filtered_updates and isinstance(filtered_updates["metadata"], dict):
-            filtered_updates["metadata"] = json.dumps(filtered_updates["metadata"])
 
         # Always update updated_at
         filtered_updates["updated_at"] = datetime.now()

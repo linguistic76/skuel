@@ -34,10 +34,15 @@ from core.models.insight.persisted_insight import (
 )
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
+from core.utils.neo4j_mapper import deserialize_json_fields
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from core.ports import QueryExecutor
+
+
+# Fields stored as JSON strings in Neo4j (dicts/lists that Neo4j can't store natively)
+_INSIGHT_JSON_FIELDS = ("related_entities", "recommended_actions", "supporting_data")
 
 
 class InsightStore:
@@ -90,7 +95,8 @@ class InsightStore:
             import json
 
             query = """
-            // Create the Insight node
+            // Create the Insight node — JSON fields serialized via json.dumps()
+            // because this is custom Cypher (not routed through UniversalNeo4jBackend)
             CREATE (i:Insight {
                 uid: $uid,
                 user_uid: $user_uid,
@@ -195,8 +201,6 @@ class InsightStore:
             Result with the insight or not-found error
         """
         try:
-            import json
-
             query = """
             MATCH (i:Insight {uid: $uid})
             RETURN i
@@ -216,16 +220,7 @@ class InsightStore:
 
             node = result.value[0]["i"]
             insight_data = dict(node) if not isinstance(node, dict) else node
-
-            # Parse JSON fields
-            if isinstance(insight_data.get("related_entities"), str):
-                insight_data["related_entities"] = json.loads(insight_data["related_entities"])
-            if isinstance(insight_data.get("recommended_actions"), str):
-                insight_data["recommended_actions"] = json.loads(
-                    insight_data["recommended_actions"]
-                )
-            if isinstance(insight_data.get("supporting_data"), str):
-                insight_data["supporting_data"] = json.loads(insight_data["supporting_data"])
+            deserialize_json_fields(insight_data, *_INSIGHT_JSON_FIELDS)
 
             return Result.ok(PersistedInsight.from_dict(insight_data))
 
@@ -264,8 +259,6 @@ class InsightStore:
             Result with list of active insights, sorted by priority
         """
         try:
-            import json
-
             domain_filter = "AND i.domain = $domain" if domain else ""
 
             query = f"""
@@ -309,17 +302,7 @@ class InsightStore:
             for record in result.value:
                 node = record["i"]
                 insight_data = dict(node) if not isinstance(node, dict) else node
-
-                # Parse JSON fields
-                if isinstance(insight_data.get("related_entities"), str):
-                    insight_data["related_entities"] = json.loads(insight_data["related_entities"])
-                if isinstance(insight_data.get("recommended_actions"), str):
-                    insight_data["recommended_actions"] = json.loads(
-                        insight_data["recommended_actions"]
-                    )
-                if isinstance(insight_data.get("supporting_data"), str):
-                    insight_data["supporting_data"] = json.loads(insight_data["supporting_data"])
-
+                deserialize_json_fields(insight_data, *_INSIGHT_JSON_FIELDS)
                 insights.append(PersistedInsight.from_dict(insight_data))
 
             self.logger.debug(f"Retrieved {len(insights)} active insights for user {user_uid}")
@@ -360,8 +343,6 @@ class InsightStore:
             Result with list of insights about this entity
         """
         try:
-            import json
-
             dismissed_filter = "" if include_dismissed else "AND i.dismissed = false"
 
             query = f"""
@@ -393,17 +374,7 @@ class InsightStore:
             for record in result.value:
                 node = record["i"]
                 insight_data = dict(node) if not isinstance(node, dict) else node
-
-                # Parse JSON fields
-                if isinstance(insight_data.get("related_entities"), str):
-                    insight_data["related_entities"] = json.loads(insight_data["related_entities"])
-                if isinstance(insight_data.get("recommended_actions"), str):
-                    insight_data["recommended_actions"] = json.loads(
-                        insight_data["recommended_actions"]
-                    )
-                if isinstance(insight_data.get("supporting_data"), str):
-                    insight_data["supporting_data"] = json.loads(insight_data["supporting_data"])
-
+                deserialize_json_fields(insight_data, *_INSIGHT_JSON_FIELDS)
                 insights.append(PersistedInsight.from_dict(insight_data))
 
             return Result.ok(insights)

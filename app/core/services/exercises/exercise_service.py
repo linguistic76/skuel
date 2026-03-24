@@ -19,7 +19,6 @@ Formerly AssignmentService — renamed to Exercise for domain clarity.
 
 from __future__ import annotations
 
-import json
 import os
 from datetime import date, datetime
 from typing import TYPE_CHECKING, Any, ClassVar
@@ -287,10 +286,9 @@ class ExerciseService(BaseService):
         if domain is not None:
             updates["domain"] = get_enum_value(domain)
         if metadata is not None:
-            updates["metadata"] = json.dumps(metadata)
+            updates["metadata"] = metadata
         if form_schema is not _UNSET:
-            # None clears the schema, list sets it (serialized as JSON for Neo4j)
-            updates["form_schema"] = json.dumps(form_schema) if form_schema else None
+            updates["form_schema"] = form_schema if form_schema else None
 
         updates["updated_at"] = datetime.now().isoformat()
 

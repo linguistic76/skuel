@@ -1130,16 +1130,11 @@ class AnalyticsMetricsService:
                 logger.warning(f"Failed to query journal assignments: {result.error}")
                 return []
 
-            import json
+            from core.utils.neo4j_mapper import parse_neo4j_json
 
             journals = []
             for record in result.value:
-                metadata = record["metadata"]
-                if isinstance(metadata, str):
-                    try:
-                        metadata = json.loads(metadata)
-                    except json.JSONDecodeError:
-                        metadata = {}
+                metadata = parse_neo4j_json(record["metadata"], default={})
 
                 journals.append(
                     {

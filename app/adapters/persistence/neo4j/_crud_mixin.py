@@ -340,6 +340,11 @@ class _CrudMixin[T: DomainModelProtocol]:
         for k in self.default_filters:
             updates.pop(k, None)
 
+        # Serialize complex types for Neo4j (dicts → JSON strings, enums → values, etc.)
+        # This matches what to_neo4j_node() does for create(), closing the SoC gap
+        # where services previously had to manually json.dumps() before calling update().
+        updates = to_neo4j_node(updates)
+
         df_clause = self._default_filter_clause()
         where_line = f"WHERE {df_clause}" if df_clause else ""
 

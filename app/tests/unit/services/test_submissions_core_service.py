@@ -1,6 +1,5 @@
 """Tests for SubmissionsCoreService."""
 
-import json
 from datetime import UTC, date, datetime
 from unittest.mock import AsyncMock, MagicMock
 
@@ -298,7 +297,8 @@ class TestUpdateSubmission:
         assert "title" in update_dict
 
     @pytest.mark.asyncio
-    async def test_metadata_serialized_to_json(self):
+    async def test_metadata_passed_as_dict(self):
+        """Backend.update() now auto-serializes complex types for Neo4j."""
         backend = _make_backend()
         backend.update = AsyncMock(return_value=Result.ok(_make_entity()))
         service = _make_service(backend=backend)
@@ -307,9 +307,8 @@ class TestUpdateSubmission:
 
         call_args = backend.update.call_args
         update_dict = call_args.args[1]
-        assert isinstance(update_dict["metadata"], str)
-        parsed = json.loads(update_dict["metadata"])
-        assert parsed["key"] == "val"
+        assert isinstance(update_dict["metadata"], dict)
+        assert update_dict["metadata"]["key"] == "val"
 
     @pytest.mark.asyncio
     async def test_updated_at_always_set(self):
@@ -401,7 +400,7 @@ class TestArchiveSubmission:
         call_args = backend.update.call_args
         update_dict = call_args.args[1]
         # metadata should be JSON-serialized and contain both old and new keys
-        meta = json.loads(update_dict["metadata"])
+        meta = update_dict["metadata"]
         assert meta["archived"] is True
         assert meta["category"] == "daily"
         assert meta["extra"] == "keep"
@@ -734,7 +733,7 @@ class TestAddRemoveTags:
         assert result.is_ok
         call_args = backend.update.call_args
         update_dict = call_args.args[1]
-        meta = json.loads(update_dict["metadata"])
+        meta = update_dict["metadata"]
         assert "existing" in meta["tags"]
         assert "new_tag" in meta["tags"]
 
@@ -751,7 +750,7 @@ class TestAddRemoveTags:
         assert result.is_ok
         call_args = backend.update.call_args
         update_dict = call_args.args[1]
-        meta = json.loads(update_dict["metadata"])
+        meta = update_dict["metadata"]
         # alpha should appear only once
         assert meta["tags"].count("alpha") == 1
         assert "beta" in meta["tags"]
@@ -769,7 +768,7 @@ class TestAddRemoveTags:
         assert result.is_ok
         call_args = backend.update.call_args
         update_dict = call_args.args[1]
-        meta = json.loads(update_dict["metadata"])
+        meta = update_dict["metadata"]
         assert "keep" in meta["tags"]
         assert "remove_me" not in meta["tags"]
 

@@ -16,7 +16,6 @@ The power comes from Neo4j context awareness:
 Renamed from ContentEnrichmentService to ContentEnrichmentService
 """
 
-from contextlib import suppress
 from dataclasses import asdict
 from datetime import date, datetime
 from typing import Any
@@ -37,6 +36,7 @@ from core.services.submissions.submission_processing_types import (
 )
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
+from core.utils.neo4j_mapper import parse_neo4j_json
 from core.utils.result_simplified import Errors, Result
 
 
@@ -326,20 +326,10 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
         context_data = record["context"]
 
         # Process recent journals
-        import json
-
         recent_journals_list = []
         for j in context_data.get("recent_entries", []):
             if j and j.get("uid"):
-                # Parse key_topics from JSON string if needed
-                key_topics = []
-                if j.get("key_topics"):
-                    with suppress(json.JSONDecodeError, TypeError):
-                        key_topics = (
-                            json.loads(j["key_topics"])
-                            if isinstance(j["key_topics"], str)
-                            else j["key_topics"]
-                        )
+                key_topics = parse_neo4j_json(j.get("key_topics"), default=[])
 
                 recent_journals_list.append(
                     {
@@ -369,15 +359,9 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
 
         all_topics = []
         for topics_json in context_data.get("all_topics_json", []):
-            if topics_json:
-                try:
-                    topics = (
-                        json.loads(topics_json) if isinstance(topics_json, str) else topics_json
-                    )
-                    if isinstance(topics, list):
-                        all_topics.extend(topics)
-                except (json.JSONDecodeError, TypeError):
-                    pass
+            topics = parse_neo4j_json(topics_json, default=[])
+            if isinstance(topics, list):
+                all_topics.extend(topics)
 
         # Get top 10 trending topics
         topic_counts = Counter(all_topics)
@@ -506,16 +490,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
         journals = []
         for record in result.value or []:
             # Parse key_topics from JSON string or list
-            import json
-
-            key_topics = []
-            if record["key_topics"]:
-                with suppress(json.JSONDecodeError):
-                    key_topics = (
-                        json.loads(record["key_topics"])
-                        if isinstance(record["key_topics"], str)
-                        else record["key_topics"]
-                    )
+            key_topics = parse_neo4j_json(record["key_topics"], default=[])
 
             journals.append(
                 {
@@ -577,7 +552,6 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
         Returns:
             List of unique topics sorted by frequency
         """
-        import json
         from collections import Counter
         from datetime import timedelta
 
@@ -600,17 +574,9 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
         # Aggregate all topics
         all_topics = []
         for record in result.value or []:
-            if record["key_topics"]:
-                try:
-                    topics = (
-                        json.loads(record["key_topics"])
-                        if isinstance(record["key_topics"], str)
-                        else record["key_topics"]
-                    )
-                    if isinstance(topics, list):
-                        all_topics.extend(topics)
-                except json.JSONDecodeError:
-                    pass
+            topics = parse_neo4j_json(record["key_topics"], default=[])
+            if isinstance(topics, list):
+                all_topics.extend(topics)
 
         # Count frequency and return top 10
         topic_counts = Counter(all_topics)

@@ -19,7 +19,6 @@ Responsibilities:
 
 from __future__ import annotations
 
-import json
 import math
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, ClassVar
@@ -37,6 +36,7 @@ from core.models.relationship_names import RelationshipName
 from core.utils.decorators import with_error_handling
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
+from core.utils.neo4j_mapper import parse_neo4j_json
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -197,11 +197,9 @@ class HabitEventHandlerService:
 
             # 2. Update completion hour histogram
             hour = event.occurred_at.hour
-            hours_json = getattr(habit, "completion_hours_json", None) or "{}"
-            try:
-                hours_hist: dict[str, int] = json.loads(hours_json)
-            except (json.JSONDecodeError, TypeError):
-                hours_hist = {}
+            hours_hist: dict[str, int] = parse_neo4j_json(
+                getattr(habit, "completion_hours_json", None), default={}
+            )
 
             hour_key = str(hour)
             hours_hist[hour_key] = hours_hist.get(hour_key, 0) + 1
@@ -225,7 +223,7 @@ class HabitEventHandlerService:
             await self.backend.update(
                 event.habit_uid,
                 {
-                    "completion_hours_json": json.dumps(hours_hist),
+                    "completion_hours_json": hours_hist,
                     "learned_preferred_hour": preferred_hour,
                     "learned_on_time_rate": round(new_on_time_rate, 4),
                     "learned_completion_count": new_count,

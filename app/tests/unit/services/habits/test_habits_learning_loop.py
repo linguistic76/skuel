@@ -108,7 +108,7 @@ class TestLearnFromCompletion:
         update_call = backend.update.call_args[0]
         assert update_call[0] == "habit_test_abc"
         props = update_call[1]
-        hours_hist = json.loads(props["completion_hours_json"])
+        hours_hist = props["completion_hours_json"]
         assert hours_hist["14"] == 1
         assert props["learned_preferred_hour"] == 14
 
@@ -140,7 +140,7 @@ class TestLearnFromCompletion:
         await service.handle_habit_completed(event2)
 
         props = backend.update.call_args[0][1]
-        hours_hist = json.loads(props["completion_hours_json"])
+        hours_hist = props["completion_hours_json"]
         assert hours_hist["8"] == 2
         assert props["learned_preferred_hour"] == 8
 

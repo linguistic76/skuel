@@ -423,10 +423,6 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
         Returns:
             Result containing updated Ku
         """
-        if "metadata" in updates and isinstance(updates["metadata"], dict):
-            updates = dict(updates)
-            updates["metadata"] = json.dumps(updates["metadata"])
-
         result = await self.backend.update(uid, updates)
 
         if result.is_ok:

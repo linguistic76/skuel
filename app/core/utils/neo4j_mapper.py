@@ -17,6 +17,7 @@ Key Features:
 import inspect
 import json
 import types
+from contextlib import suppress
 from dataclasses import MISSING, fields, is_dataclass
 from datetime import date, datetime
 from enum import Enum
@@ -606,6 +607,61 @@ class Neo4jGenericMapper:
 # ============================================================================
 
 _mapper = Neo4jGenericMapper()
+
+
+def parse_neo4j_json(value: Any, default: Any = None) -> Any:
+    """Parse a JSON-encoded value from a Neo4j node property.
+
+    Neo4j cannot store nested structures (dicts, lists of dicts), so they
+    are stored as JSON strings.  This helper transparently handles the
+    round-trip: if *value* is a JSON string it is parsed; if it is already
+    a native Python type it is returned as-is; ``None`` / empty string
+    returns *default*.
+
+    Use this when consuming raw Cypher query results (custom queries that
+    bypass ``from_neo4j_node``).
+
+    Args:
+        value: Raw value from a Neo4j record.
+        default: Fallback when *value* is ``None``, empty, or unparseable.
+
+    Returns:
+        Parsed Python object, the original value, or *default*.
+    """
+    if value is None:
+        return default
+    if not isinstance(value, str):
+        return value
+    if not value:
+        return default
+    try:
+        return json.loads(value)
+    except (json.JSONDecodeError, ValueError):
+        return default
+
+
+def deserialize_json_fields(data: dict[str, Any], *fields: str) -> dict[str, Any]:
+    """Deserialize JSON-string fields **in place** on a Neo4j result dict.
+
+    For services that run custom Cypher and get back raw node property
+    dicts, this replaces the repetitive pattern::
+
+        if isinstance(d.get("f"), str):
+            d["f"] = json.loads(d["f"])
+
+    Args:
+        data: Mutable dict of node properties (modified in place).
+        *fields: Names of fields that may be JSON-encoded strings.
+
+    Returns:
+        The same *data* dict (for chaining convenience).
+    """
+    for field in fields:
+        val = data.get(field)
+        if isinstance(val, str) and val:
+            with suppress(json.JSONDecodeError, ValueError):
+                data[field] = json.loads(val)
+    return data
 
 
 def to_neo4j_node(entity: Any) -> dict[str, Any]:
