@@ -382,303 +382,63 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
 
     # ========================================================================
     # HIERARCHICAL RELATIONSHIPS (2026-01-30 - Universal Hierarchical Pattern)
+    # Delegated to HabitsBackend via _HierarchyMixin (2026-03-24)
     # ========================================================================
 
     @with_error_handling("get_subhabits", error_type="database", uid_param="parent_uid")
     async def get_subhabits(self, parent_uid: str, depth: int = 1) -> Result[list[Habit]]:
-        """
-        Get all subhabits of a parent habit.
-
-        Args:
-            parent_uid: Parent habit UID
-            depth: How many levels deep (1=direct children, 2=children+grandchildren, etc.)
-
-        Returns:
-            Result containing list of subhabits ordered by created_at
-
-        Example:
-            # Get direct children
-            subhabits = await service.get_subhabits("habit_abc123")
-
-            # Get all descendants
-            all_subhabits = await service.get_subhabits("habit_abc123", depth=99)
-        """
-        query = f"""
-        MATCH (parent:Habit {{uid: $parent_uid}})
-        MATCH (parent)-[:{RelationshipName.HAS_SUBHABIT.value}*1..{depth}]->(subhabit:Habit)
-        RETURN subhabit
-        ORDER BY subhabit.created_at
-        """
-
-        result = await self.backend.execute_query(query, {"parent_uid": parent_uid})
-
+        """Get all subhabits of a parent habit at the given depth."""
+        result = await self.backend.get_children_raw(parent_uid, depth)
         if result.is_error:
-            return Result.fail(result.expect_error())
-        if not result.value:
-            return Result.ok([])
-
-        # Convert to Habit models
-        habits = []
-        for record in result.value:
-            habit_data = record["subhabit"]
-            habit = self._to_domain_model(habit_data, HabitDTO, Habit)
-            habits.append(habit)
-
-        return Result.ok(habits)
+            return Result.fail(result)
+        return Result.ok([self._to_domain_model(data, HabitDTO, Habit) for data in result.value])
 
     @with_error_handling("get_parent_habit", error_type="database", uid_param="subhabit_uid")
     async def get_parent_habit(self, subhabit_uid: str) -> Result[Habit | None]:
-        """
-        Get immediate parent of a subhabit (if any).
-
-        Args:
-            subhabit_uid: Subhabit UID
-
-        Returns:
-            Result containing parent Habit or None if root-level habit
-        """
-        query = f"""
-        MATCH (subhabit:Habit {{uid: $subhabit_uid}})
-        MATCH (parent:Habit)-[:{RelationshipName.HAS_SUBHABIT.value}]->(subhabit)
-        RETURN parent
-        LIMIT 1
-        """
-
-        result = await self.backend.execute_query(query, {"subhabit_uid": subhabit_uid})
-
+        """Get immediate parent of a subhabit (if any)."""
+        result = await self.backend.get_parent_raw(subhabit_uid)
         if result.is_error:
-            return Result.fail(result.expect_error())
-        if not result.value:
+            return Result.fail(result)
+        if result.value is None:
             return Result.ok(None)
-
-        parent_data = result.value[0]["parent"]
-        parent = self._to_domain_model(parent_data, HabitDTO, Habit)
-        return Result.ok(parent)
+        return Result.ok(self._to_domain_model(result.value, HabitDTO, Habit))
 
     @with_error_handling("get_habit_hierarchy", error_type="database", uid_param="habit_uid")
     async def get_habit_hierarchy(self, habit_uid: str) -> Result[dict[str, Any]]:
-        """
-        Get full hierarchy context: ancestors, siblings, children.
-
-        Args:
-            habit_uid: Habit UID to get context for
-
-        Returns:
-            Result containing hierarchy dict with keys:
-            - ancestors: list[Habit] (root to immediate parent)
-            - current: Habit
-            - siblings: list[Habit] (other children of same parent)
-            - children: list[Habit] (immediate children)
-            - depth: int (how deep in hierarchy, 0=root)
-
-        Example:
-            hierarchy = await service.get_habit_hierarchy("habit_xyz789")
-            # {
-            # "ancestors": [root_habit, parent_habit],
-            # "current": habit_xyz789,
-            # "siblings": [sibling1, sibling2],
-            # "children": [child1, child2],
-            # "depth": 2
-            # }
-        """
-        # Get ancestors
-        ancestors_query = f"""
-        MATCH path = (root:Habit)-[:{RelationshipName.HAS_SUBHABIT.value}*]->(current:Habit {{uid: $habit_uid}})
-        WHERE NOT EXISTS((root)<-[:{RelationshipName.HAS_SUBHABIT.value}]-())
-        RETURN nodes(path) as ancestors
-        """
-
-        # Get siblings
-        siblings_query = f"""
-        MATCH (current:Habit {{uid: $habit_uid}})
-        OPTIONAL MATCH (parent:Habit)-[:{RelationshipName.HAS_SUBHABIT.value}]->(current)
-        OPTIONAL MATCH (parent)-[:{RelationshipName.HAS_SUBHABIT.value}]->(sibling:Habit)
-        WHERE sibling.uid <> $habit_uid
-        RETURN collect(sibling) as siblings
-        """
-
-        # Get children
-        children_query = f"""
-        MATCH (current:Habit {{uid: $habit_uid}})
-        OPTIONAL MATCH (current)-[:{RelationshipName.HAS_SUBHABIT.value}]->(child:Habit)
-        RETURN collect(child) as children
-        """
-
-        # Execute all queries
+        """Get full hierarchy context: ancestors, current, siblings, children, depth."""
         current_result = await self.backend.get(habit_uid)
         if current_result.is_error:
             return Result.fail(current_result)
-
         current_habit = self._to_domain_model(current_result.value, HabitDTO, Habit)
 
-        ancestors_result = await self.backend.execute_query(
-            ancestors_query, {"habit_uid": habit_uid}
-        )
-        siblings_result = await self.backend.execute_query(siblings_query, {"habit_uid": habit_uid})
-        children_result = await self.backend.execute_query(children_query, {"habit_uid": habit_uid})
+        hierarchy_result = await self.backend.get_hierarchy_raw(habit_uid)
+        if hierarchy_result.is_error:
+            return Result.fail(hierarchy_result)
 
-        # Process ancestors
-        ancestors = []
-        if (
-            not ancestors_result.is_error
-            and ancestors_result.value
-            and ancestors_result.value[0]["ancestors"]
-        ):
-            for node in ancestors_result.value[0]["ancestors"][:-1]:  # Exclude current
-                habit_data = node
-                ancestors.append(self._to_domain_model(habit_data, HabitDTO, Habit))
-
-        # Process siblings
-        siblings = []
-        if (
-            not siblings_result.is_error
-            and siblings_result.value
-            and siblings_result.value[0]["siblings"]
-        ):
-            for node in siblings_result.value[0]["siblings"]:
-                if node:  # Skip None values
-                    habit_data = node
-                    siblings.append(self._to_domain_model(habit_data, HabitDTO, Habit))
-
-        # Process children
-        children = []
-        if (
-            not children_result.is_error
-            and children_result.value
-            and children_result.value[0]["children"]
-        ):
-            for node in children_result.value[0]["children"]:
-                if node:  # Skip None values
-                    habit_data = node
-                    children.append(self._to_domain_model(habit_data, HabitDTO, Habit))
-
+        raw = hierarchy_result.value
         return Result.ok(
             {
-                "ancestors": ancestors,
+                "ancestors": [self._to_domain_model(n, HabitDTO, Habit) for n in raw["ancestors"]],
                 "current": current_habit,
-                "siblings": siblings,
-                "children": children,
-                "depth": len(ancestors),
+                "siblings": [self._to_domain_model(n, HabitDTO, Habit) for n in raw["siblings"]],
+                "children": [self._to_domain_model(n, HabitDTO, Habit) for n in raw["children"]],
+                "depth": len(raw["ancestors"]),
             }
         )
 
-    @with_error_handling("create_subhabit_relationship", error_type="database")
     async def create_subhabit_relationship(
         self, parent_uid: str, subhabit_uid: str, progress_weight: float = 1.0
     ) -> Result[bool]:
-        """
-        Create bidirectional parent-child relationship.
-
-        Args:
-            parent_uid: Parent habit UID
-            subhabit_uid: Subhabit UID
-            progress_weight: How much this subhabit contributes to parent progress (default: 1.0)
-
-        Returns:
-            Result indicating success
-
-        Note:
-            Creates both HAS_SUBHABIT (parent→child) and SUBHABIT_OF (child→parent)
-            for efficient bidirectional queries.
-        """
-        # Validate no cycle (can't make parent a child of its descendant)
-        cycle_check = await self._would_create_cycle(parent_uid, subhabit_uid)
-        if cycle_check:
-            return Result.fail(
-                Errors.validation(
-                    f"Cannot create subhabit relationship: would create cycle "
-                    f"({subhabit_uid} is ancestor of {parent_uid})"
-                )
-            )
-
-        query = f"""
-        MATCH (parent:Habit {{uid: $parent_uid}})
-        MATCH (subhabit:Habit {{uid: $subhabit_uid}})
-
-        CREATE (parent)-[:{RelationshipName.HAS_SUBHABIT.value} {{
-            progress_weight: $weight,
-            created_at: datetime()
-        }}]->(subhabit)
-
-        CREATE (subhabit)-[:{RelationshipName.SUBHABIT_OF.value} {{
-            created_at: datetime()
-        }}]->(parent)
-
-        RETURN true as success
-        """
-
-        result = await self.backend.execute_query(
-            query,
-            {"parent_uid": parent_uid, "subhabit_uid": subhabit_uid, "weight": progress_weight},
+        """Create bidirectional HAS_SUBHABIT/SUBHABIT_OF relationship with cycle detection."""
+        return await self.backend.create_hierarchy_relationship(
+            parent_uid, subhabit_uid, {"progress_weight": progress_weight}
         )
 
-        if result.is_error:
-            return Result.fail(
-                Errors.database(
-                    operation="create", message="Failed to create subhabit relationship"
-                )
-            )
-        if result.value:
-            self.logger.info(
-                f"Created subhabit relationship: {parent_uid} -> {subhabit_uid} (weight: {progress_weight})"
-            )
-            return Result.ok(True)
-
-        return Result.fail(
-            Errors.database(operation="create", message="Failed to create subhabit relationship")
-        )
-
-    @with_error_handling("remove_subhabit_relationship", error_type="database")
     async def remove_subhabit_relationship(
         self, parent_uid: str, subhabit_uid: str
     ) -> Result[bool]:
-        """
-        Remove bidirectional parent-child relationship.
-
-        Args:
-            parent_uid: Parent habit UID
-            subhabit_uid: Subhabit UID
-
-        Returns:
-            Result containing True if relationships were deleted
-        """
-        query = f"""
-        MATCH (parent:Habit {{uid: $parent_uid}})-[r1:{RelationshipName.HAS_SUBHABIT.value}]->(subhabit:Habit {{uid: $subhabit_uid}})
-        MATCH (subhabit)-[r2:{RelationshipName.SUBHABIT_OF.value}]->(parent)
-        DELETE r1, r2
-        RETURN count(r1) + count(r2) as deleted_count
-        """
-
-        result = await self.backend.execute_query(
-            query, {"parent_uid": parent_uid, "subhabit_uid": subhabit_uid}
-        )
-
-        if not result.is_error and result.value:
-            deleted = result.value[0]["deleted_count"]
-            if deleted > 0:
-                self.logger.info(f"Removed subhabit relationship: {parent_uid} -> {subhabit_uid}")
-                return Result.ok(True)
-
-        return Result.ok(False)
-
-    async def _would_create_cycle(self, parent_uid: str, child_uid: str) -> bool:
-        """Check if adding parent->child relationship would create a cycle."""
-        query = f"""
-        MATCH (child:Habit {{uid: $child_uid}})
-        MATCH path = (child)-[:{RelationshipName.HAS_SUBHABIT.value}*]->(parent:Habit {{uid: $parent_uid}})
-        RETURN count(path) > 0 as would_create_cycle
-        """
-
-        result = await self.backend.execute_query(
-            query, {"parent_uid": parent_uid, "child_uid": child_uid}
-        )
-
-        if result.is_error:
-            return False
-        if result.value:
-            return result.value[0]["would_create_cycle"]
-
-        return False
+        """Remove bidirectional HAS_SUBHABIT/SUBHABIT_OF relationship."""
+        return await self.backend.remove_hierarchy_relationship(parent_uid, subhabit_uid)
 
     # ========================================================================
     # QUERY LAYER — Cypher-level filtering for get_filtered_context
@@ -686,24 +446,7 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
 
     async def get_stats_for_user(self, user_uid: str) -> Result[dict[str, int]]:
         """Count habit stats via Cypher COUNT — no entity deserialization."""
-        query = """
-        MATCH (n:Entity {user_uid: $user_uid, entity_type: 'habit'})
-        RETURN
-            count(n) AS total,
-            count(CASE WHEN n.status = 'active' THEN 1 END) AS active,
-            count(CASE WHEN n.current_streak > 0 THEN 1 END) AS streaks
-        """
-        result = await self.backend.execute_query(query, {"user_uid": user_uid})
-        if result.is_error:
-            return Result.fail(result)
-        record = result.value[0] if result.value else {}
-        return Result.ok(
-            {
-                "total": record.get("total", 0),
-                "active": record.get("active", 0),
-                "streaks": record.get("streaks", 0),
-            }
-        )
+        return await self.backend.get_stats_for_user(user_uid)
 
     async def get_for_user_filtered(
         self, user_uid: str, status_filter: str = "active"

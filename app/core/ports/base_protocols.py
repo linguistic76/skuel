@@ -792,6 +792,58 @@ class BackendOperations[T: "DomainModelProtocol"](
 
 
 # ============================================================================
+# Hierarchy Operations Protocol (sub-entity parent-child relationships)
+# ============================================================================
+
+
+@runtime_checkable
+class HierarchyOperations(Protocol):
+    """Protocol for backends that support sub-entity hierarchy operations.
+
+    Provides generic parent-child hierarchy management (get children, get parent,
+    get full hierarchy, create/remove bidirectional relationships, cycle detection).
+
+    Implemented by ``_HierarchyMixin`` on domain backends. All methods return raw
+    dicts — the service layer converts to typed domain models.
+
+    See: /docs/patterns/MODEL_TO_ADAPTER_DYNAMIC_ARCHITECTURE.md
+    """
+
+    async def get_children_raw(
+        self, parent_uid: str, depth: int = 1
+    ) -> ResultType[builtins.list[dict[str, Any]]]:
+        """Get child nodes as raw dicts at the given traversal depth."""
+        ...
+
+    async def get_parent_raw(self, child_uid: str) -> ResultType[dict[str, Any] | None]:
+        """Get immediate parent node as a raw dict, or None if root-level."""
+        ...
+
+    async def get_hierarchy_raw(self, entity_uid: str) -> ResultType[dict[str, Any]]:
+        """Get full hierarchy context: ancestors, siblings, children as raw dicts."""
+        ...
+
+    async def create_hierarchy_relationship(
+        self,
+        parent_uid: str,
+        child_uid: str,
+        forward_props: dict[str, Any] | None = None,
+    ) -> ResultType[bool]:
+        """Create bidirectional parent-child relationship with cycle detection."""
+        ...
+
+    async def remove_hierarchy_relationship(
+        self, parent_uid: str, child_uid: str
+    ) -> ResultType[bool]:
+        """Remove bidirectional parent-child relationship."""
+        ...
+
+    async def would_create_cycle(self, parent_uid: str, child_uid: str) -> ResultType[bool]:
+        """Check if adding parent→child would create a cycle."""
+        ...
+
+
+# ============================================================================
 # Capability Check Protocols (for runtime isinstance checks)
 # These are @runtime_checkable for duck-typing capability detection
 # ============================================================================

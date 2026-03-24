@@ -38,6 +38,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from adapters.persistence.neo4j._hierarchy_mixin import HierarchyConfig, _HierarchyMixin
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.choice.choice import Choice
 from core.models.entity import Entity
@@ -65,20 +66,28 @@ if TYPE_CHECKING:
     from core.models.journal.je_output import JeOutput  # noqa: F401
 
 
-class HabitsBackend(UniversalNeo4jBackend[Habit]):
+class HabitsBackend(_HierarchyMixin, UniversalNeo4jBackend[Habit]):
     """
     Domain backend for Habit entities.
 
-    Extends UniversalNeo4jBackend[Habit] with explicit implementations of
-    HabitsOperations methods that fail via __getattr__:
+    Extends UniversalNeo4jBackend[Habit] with:
+    - _HierarchyMixin: subhabit hierarchy (get children/parent/hierarchy, create/remove, cycle detection)
     - get_habit(uid)          → not matched by get_*_by_uid pattern
     - list_by_user(uid, limit) → not matched by list_*s pattern
     - get_user_habits(uid)    → not matched by any __getattr__ pattern
     - archive_habit(uid)      → status transition (not just delete)
+    - get_stats_for_user(uid) → habit count stats (total/active/streaks)
     - link_habit_to_knowledge → Cypher MERGE
     - link_habit_to_principle → Cypher MERGE
     - create_user_habit_relationship → wraps create_user_relationship()
     """
+
+    _hierarchy_config = HierarchyConfig(
+        forward_rel=RelationshipName.HAS_SUBHABIT.value,
+        inverse_rel=RelationshipName.SUBHABIT_OF.value,
+        node_label="Habit",
+        domain_name="subhabit",
+    )
 
     async def get_habit(self, habit_id: str) -> Result[Habit]:
         """Get habit by ID. Returns error if not found (contrast with get() → None)."""
@@ -114,6 +123,27 @@ class HabitsBackend(UniversalNeo4jBackend[Habit]):
         """Create User→Habit OWNS relationship in the graph."""
         rel_result: Result[bool] = await self.create_user_relationship(user_uid, habit_uid)
         return rel_result.is_ok
+
+    async def get_stats_for_user(self, user_uid: str) -> Result[dict[str, int]]:
+        """Count habit stats: total, active, streaks."""
+        query = """
+        MATCH (n:Entity {user_uid: $user_uid, entity_type: 'habit'})
+        RETURN
+            count(n) AS total,
+            count(CASE WHEN n.status = 'active' THEN 1 END) AS active,
+            count(CASE WHEN n.current_streak > 0 THEN 1 END) AS streaks
+        """
+        result = await self.execute_query(query, {"user_uid": user_uid})
+        if result.is_error:
+            return Result.fail(result)
+        record = result.value[0] if result.value else {}
+        return Result.ok(
+            {
+                "total": record.get("total", 0),
+                "active": record.get("active", 0),
+                "streaks": record.get("streaks", 0),
+            }
+        )
 
     async def link_habit_to_knowledge(self, habit_uid: str, knowledge_uid: str) -> bool:
         """
@@ -162,21 +192,29 @@ class HabitsBackend(UniversalNeo4jBackend[Habit]):
             return False
 
 
-class GoalsBackend(UniversalNeo4jBackend[Goal]):
+class GoalsBackend(_HierarchyMixin, UniversalNeo4jBackend[Goal]):
     """
     Domain backend for Goal entities.
 
-    Extends UniversalNeo4jBackend[Goal] with explicit implementations of
-    GoalsOperations methods that fail via __getattr__:
+    Extends UniversalNeo4jBackend[Goal] with:
+    - _HierarchyMixin: subgoal hierarchy (get children/parent/hierarchy, create/remove, cycle detection)
     - get_goal(uid)          → not matched by get_*_by_uid pattern
     - list_by_user(uid, limit) → not matched by list_*s pattern
     - get_user_goals(uid)    → delegates to list_by_user()
     - add_milestone(...)     → graph MERGE operation
+    - get_stats_for_user(uid) → goal count stats (total/active/completed)
     - link_goal_to_habit    → Cypher MERGE
     - link_goal_to_knowledge → Cypher MERGE
     - link_goal_to_principle → Cypher MERGE
     - create_user_goal_relationship → wraps create_user_relationship()
     """
+
+    _hierarchy_config = HierarchyConfig(
+        forward_rel=RelationshipName.HAS_SUBGOAL.value,
+        inverse_rel=RelationshipName.SUBGOAL_OF.value,
+        node_label="Entity",
+        domain_name="subgoal",
+    )
 
     async def get_goal(self, goal_id: str) -> Result[Goal]:
         """Get goal by ID. Returns error if not found (contrast with get() → None)."""
@@ -233,6 +271,27 @@ class GoalsBackend(UniversalNeo4jBackend[Goal]):
         """Create User→Goal OWNS relationship in the graph."""
         rel_result: Result[bool] = await self.create_user_relationship(user_uid, goal_uid)
         return rel_result
+
+    async def get_stats_for_user(self, user_uid: str) -> Result[dict[str, int]]:
+        """Count goal stats: total, active, completed."""
+        query = """
+        MATCH (n:Entity {user_uid: $user_uid, entity_type: 'goal'})
+        RETURN
+            count(n) AS total,
+            count(CASE WHEN n.status = 'active' THEN 1 END) AS active,
+            count(CASE WHEN n.status = 'completed' THEN 1 END) AS completed
+        """
+        result = await self.execute_query(query, {"user_uid": user_uid})
+        if result.is_error:
+            return Result.fail(result)
+        record = result.value[0] if result.value else {}
+        return Result.ok(
+            {
+                "total": record.get("total", 0),
+                "active": record.get("active", 0),
+                "completed": record.get("completed", 0),
+            }
+        )
 
     async def link_goal_to_habit(self, goal_uid: str, habit_uid: str) -> Result[bool]:
         """
@@ -302,16 +361,26 @@ class GoalsBackend(UniversalNeo4jBackend[Goal]):
             return Result.fail(Errors.database(operation="link_goal_to_principle", message=str(e)))
 
 
-class TasksBackend(UniversalNeo4jBackend[Task]):
+class TasksBackend(_HierarchyMixin, UniversalNeo4jBackend[Task]):
     """
     Domain backend for Task entities.
 
-    Extends UniversalNeo4jBackend[Task] with explicit implementations of
-    TasksOperations methods that require domain-specific Cypher:
+    Extends UniversalNeo4jBackend[Task] with:
+    - _HierarchyMixin: subtask hierarchy (get children/parent/hierarchy, create/remove, cycle detection)
     - get_task(uid)              → wraps get() with NotFound check
     - link_task_to_knowledge(…)  → Cypher MERGE REQUIRES_KNOWLEDGE
     - link_task_to_goal(…)       → Cypher MERGE CONTRIBUTES_TO_GOAL
+    - get_stats_for_user(…)      → task count stats (total/completed/overdue)
+    - auto_complete_parent_if_ready(…) → auto-complete parent when all subtasks done
+    - calculate_parent_progress(…) → weighted subtask completion percentage
     """
+
+    _hierarchy_config = HierarchyConfig(
+        forward_rel=RelationshipName.HAS_SUBTASK.value,
+        inverse_rel=RelationshipName.SUBTASK_OF.value,
+        node_label="Entity",
+        domain_name="subtask",
+    )
 
     async def get_task(self, task_id: str) -> Result[Task]:
         """Get task by ID. Returns error if not found (contrast with get() → None)."""
@@ -442,6 +511,131 @@ class TasksBackend(UniversalNeo4jBackend[Task]):
             return Result.fail(
                 Errors.database(operation="update_user_learning_state", message=str(e))
             )
+
+    # ========================================================================
+    # HIERARCHY EXTENSIONS (Task-specific)
+    # ========================================================================
+
+    async def get_stats_for_user(self, user_uid: str) -> Result[dict[str, int]]:
+        """Count task stats via Cypher COUNT — no entity deserialization."""
+        query = """
+        MATCH (n:Entity {user_uid: $user_uid, entity_type: 'task'})
+        RETURN
+            count(n) AS total,
+            count(CASE WHEN n.status = 'completed' THEN 1 END) AS completed,
+            count(CASE WHEN n.due_date IS NOT NULL
+                       AND n.due_date < date()
+                       AND n.status <> 'completed'
+                  THEN 1 END) AS overdue
+        """
+        result = await self.execute_query(query, {"user_uid": user_uid})
+        if result.is_error:
+            return Result.fail(result)
+        record = result.value[0] if result.value else {}
+        return Result.ok(
+            {
+                "total": record.get("total", 0),
+                "completed": record.get("completed", 0),
+                "overdue": record.get("overdue", 0),
+            }
+        )
+
+    async def auto_complete_parent_if_ready(self, completed_task_uid: str) -> Result[list[str]]:
+        """Auto-complete parent task if all its subtasks are completed.
+
+        Returns list of parent UIDs that were auto-completed (0 or 1 element).
+        The service layer handles recursive grandparent checking.
+        """
+        query = f"""
+        MATCH (completed:Entity {{uid: $task_uid}})
+        MATCH (parent:Entity)-[:{RelationshipName.HAS_SUBTASK.value}]->(completed)
+
+        // Get all subtasks of this parent
+        MATCH (parent)-[:{RelationshipName.HAS_SUBTASK.value}]->(sibling:Entity)
+
+        // Check if all siblings are complete
+        WITH parent,
+             count(sibling) as total_subtasks,
+             count(CASE WHEN sibling.status = 'completed' THEN 1 END) as completed_subtasks
+
+        WHERE total_subtasks = completed_subtasks
+          AND parent.status <> 'completed'  // Don't update if already complete
+
+        // Auto-complete parent
+        SET parent.status = 'completed',
+            parent.completed_at = datetime(),
+            parent.auto_completed = true
+
+        RETURN parent.uid as parent_uid
+        """
+
+        result = await self.execute_query(query, {"task_uid": completed_task_uid})
+
+        if result.is_error:
+            return Result.fail(result)
+
+        parent_uids = []
+        if result.value:
+            for record in result.value:
+                parent_uids.append(record["parent_uid"])
+                self.logger.info(
+                    f"Auto-completed parent task: {record['parent_uid']} (all subtasks complete)"
+                )
+        return Result.ok(parent_uids)
+
+    async def calculate_parent_progress(self, parent_uid: str) -> Result[dict[str, Any]]:
+        """Calculate parent task progress based on weighted subtask completion."""
+        query = f"""
+        MATCH (parent:Entity {{uid: $parent_uid}})
+        MATCH (parent)-[r:{RelationshipName.HAS_SUBTASK.value}]->(child:Entity)
+
+        WITH parent,
+             count(child) as total_subtasks,
+             count(CASE WHEN child.status = 'completed' THEN 1 END) as completed_subtasks,
+             sum(r.progress_weight) as total_weight,
+             sum(
+               CASE WHEN child.status = 'completed'
+               THEN r.progress_weight
+               ELSE 0
+               END
+             ) as completed_weight
+
+        RETURN
+          total_subtasks,
+          completed_subtasks,
+          total_weight,
+          completed_weight,
+          CASE WHEN total_weight > 0
+            THEN (completed_weight / total_weight) * 100.0
+            ELSE 0.0
+          END as progress_percentage
+        """
+
+        result = await self.execute_query(query, {"parent_uid": parent_uid})
+
+        if result.is_error:
+            return Result.fail(result)
+        if not result.value:
+            return Result.ok(
+                {
+                    "total_weight": 0.0,
+                    "completed_weight": 0.0,
+                    "progress_percentage": 0.0,
+                    "total_subtasks": 0,
+                    "completed_subtasks": 0,
+                }
+            )
+
+        record = result.value[0]
+        return Result.ok(
+            {
+                "total_weight": record["total_weight"] or 0.0,
+                "completed_weight": record["completed_weight"] or 0.0,
+                "progress_percentage": record["progress_percentage"] or 0.0,
+                "total_subtasks": record["total_subtasks"],
+                "completed_subtasks": record["completed_subtasks"],
+            }
+        )
 
 
 class EventsBackend(UniversalNeo4jBackend[Event]):

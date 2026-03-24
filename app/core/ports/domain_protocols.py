@@ -78,6 +78,7 @@ from core.models.relationship_names import RelationshipName
 from core.ports.base_protocols import (
     BackendOperations,
     GraphRelationshipOperations,
+    HierarchyOperations,
 )
 from core.ports.query_types import (
     GraphContextResult,
@@ -100,7 +101,9 @@ if TYPE_CHECKING:
 
 
 @runtime_checkable
-class TasksOperations(BackendOperations["Task"], GraphRelationshipOperations, Protocol):
+class TasksOperations(
+    BackendOperations["Task"], GraphRelationshipOperations, HierarchyOperations, Protocol
+):
     """Core task management operations. Uses Task domain model (EntityType.TASK).
 
     **Two Entry Point Patterns (by design):**
@@ -257,6 +260,24 @@ class TasksOperations(BackendOperations["Task"], GraphRelationshipOperations, Pr
         """Update learning state properties on User node."""
         ...
 
+    # ========================================================================
+    # HIERARCHY EXTENSIONS (Task-specific, beyond generic HierarchyOperations)
+    # ========================================================================
+
+    async def get_stats_for_user(self, user_uid: str) -> Result[dict[str, int]]:
+        """Count task stats: total, completed, overdue."""
+        ...
+
+    async def auto_complete_parent_if_ready(
+        self, completed_task_uid: str
+    ) -> Result[builtins.list[str]]:
+        """Auto-complete parent task if all subtasks are completed."""
+        ...
+
+    async def calculate_parent_progress(self, parent_uid: str) -> Result[dict[str, Any]]:
+        """Calculate weighted subtask completion percentage."""
+        ...
+
 
 @runtime_checkable
 class EventsOperations(BackendOperations["Event"], GraphRelationshipOperations, Protocol):
@@ -336,7 +357,9 @@ class EventsOperations(BackendOperations["Event"], GraphRelationshipOperations, 
 
 
 @runtime_checkable
-class HabitsOperations(BackendOperations["Habit"], GraphRelationshipOperations, Protocol):
+class HabitsOperations(
+    BackendOperations["Habit"], GraphRelationshipOperations, HierarchyOperations, Protocol
+):
     """Core habit tracking operations.
 
     Inherits base CRUD operations from BackendOperations:
@@ -404,6 +427,10 @@ class HabitsOperations(BackendOperations["Habit"], GraphRelationshipOperations, 
         ...
 
     # NOTE: get_related_uids() and count_related() inherited from GraphRelationshipOperations
+
+    async def get_stats_for_user(self, user_uid: str) -> Result[dict[str, int]]:
+        """Count habit stats: total, active, streaks."""
+        ...
 
 
 @runtime_checkable
@@ -632,7 +659,9 @@ class FinancesOperations(BackendOperations["ExpensePure"], Protocol):
 
 
 @runtime_checkable
-class GoalsOperations(BackendOperations["Goal"], GraphRelationshipOperations, Protocol):
+class GoalsOperations(
+    BackendOperations["Goal"], GraphRelationshipOperations, HierarchyOperations, Protocol
+):
     """Core goal management operations.
 
     Inherits base CRUD operations from BackendOperations:
@@ -698,6 +727,10 @@ class GoalsOperations(BackendOperations["Goal"], GraphRelationshipOperations, Pr
         ...
 
     # NOTE: get_related_uids() and count_related() inherited from GraphRelationshipOperations
+
+    async def get_stats_for_user(self, user_uid: str) -> Result[dict[str, int]]:
+        """Count goal stats: total, active, completed."""
+        ...
 
 
 # NOTE: JournalsOperations REMOVED (February 2026) - Journal merged into Reports
