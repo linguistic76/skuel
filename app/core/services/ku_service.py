@@ -16,8 +16,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from core.services.filtered_context import build_filtered_context
+from core.utils.list_helpers import SortConfig, apply_entity_sort
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+from core.utils.sort_functions import get_created_at_attr, get_title_lower
 
 if TYPE_CHECKING:
     from adapters.persistence.neo4j.domain_backends import KuBackend
@@ -46,23 +48,15 @@ def _apply_ku_namespace_filter(all_kus: list[Any], namespace_filter: str) -> lis
     return [k for k in all_kus if getattr(k, "namespace", None) == namespace_filter]
 
 
-def _get_ku_title_lower(ku: Any) -> str:
-    """Sort key: Ku title lowercase (SKUEL012: named function, no lambda)."""
-    return getattr(ku, "title", "").lower()
+_KU_SORT_CONFIG: SortConfig = {
+    "title": (get_title_lower, False),
+    "created_at": (get_created_at_attr, True),
+}
 
 
-def _get_ku_created_at(ku: Any) -> str:
-    """Sort key: Ku created_at (SKUEL012: named function, no lambda)."""
-    return getattr(ku, "created_at", "")
-
-
-def _apply_ku_sort(kus: list[Any], sort_by: str = "title") -> list[Any]:
-    """Sort Kus by specified field."""
-    if sort_by == "title":
-        return sorted(kus, key=_get_ku_title_lower)
-    elif sort_by == "created_at":
-        return sorted(kus, key=_get_ku_created_at, reverse=True)
-    return sorted(kus, key=_get_ku_title_lower)
+def _apply_ku_sort_cfg(kus: list[Any], sort_by: str) -> list[Any]:
+    """Sort Kus using declarative config."""
+    return apply_entity_sort(kus, sort_by, _KU_SORT_CONFIG, "title")
 
 
 class KuService:
@@ -213,6 +207,6 @@ class KuService:
             fetch_all=fetch_all,
             compute_stats=_compute_ku_stats,
             apply_filters=apply_filters,
-            apply_sort=_apply_ku_sort,
+            apply_sort=_apply_ku_sort_cfg,
             sort_by=sort_by,
         )

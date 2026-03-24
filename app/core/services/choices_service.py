@@ -20,6 +20,7 @@ from core.models.choice.choice import Choice
 from core.models.choice.choice_dto import ChoiceDTO
 from core.models.enums import EntityStatus
 from core.ports.domain_protocols import ChoicesOperations
+from core.services.activity_domain_config import CommonSubServices, create_common_sub_services
 from core.services.base_service import BaseService
 
 # Import sub-services
@@ -32,7 +33,7 @@ from core.services.filtered_context import build_filtered_context
 # Unified relationship service
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
 from core.services.relationships import UnifiedRelationshipService
-from core.services.activity_domain_config import CommonSubServices, create_common_sub_services
+from core.utils.list_helpers import FilterConfig, SortConfig, apply_entity_filter, apply_entity_sort
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 from core.utils.sort_functions import (
@@ -91,29 +92,40 @@ def _compute_choice_stats(all_choices: list[Any]) -> dict[str, int | float]:
     }
 
 
-def _apply_choice_status_filter(all_choices: list[Any], status_filter: str) -> list[Any]:
-    """Apply status filter to choices."""
-    match status_filter:
-        case "pending":
-            return [c for c in all_choices if _get_choice_enum_value(c, "status") == "pending"]
-        case "decided":
-            return [c for c in all_choices if _get_choice_enum_value(c, "status") == "decided"]
-        case "implemented":
-            return [c for c in all_choices if _get_choice_enum_value(c, "status") == "implemented"]
-        case _:
-            return all_choices
+def _is_choice_pending(c: Any) -> bool:
+    """Filter predicate: choice is pending."""
+    return _get_choice_enum_value(c, "status") == "pending"
+
+
+def _is_choice_decided(c: Any) -> bool:
+    """Filter predicate: choice is decided."""
+    return _get_choice_enum_value(c, "status") == "decided"
+
+
+def _is_choice_implemented(c: Any) -> bool:
+    """Filter predicate: choice is implemented."""
+    return _get_choice_enum_value(c, "status") == "implemented"
+
+
+_CHOICE_FILTER_CONFIG: FilterConfig = {
+    "pending": _is_choice_pending,
+    "decided": _is_choice_decided,
+    "implemented": _is_choice_implemented,
+}
+
+_CHOICE_SORT_CONFIG: SortConfig = {
+    "deadline": (get_decision_deadline, False),
+    "priority": (
+        make_priority_string_getter(PRIORITY_STRING_SORT_ORDER, _get_choice_priority),
+        False,
+    ),
+    "created_at": (get_created_at_attr, True),
+}
 
 
 def _apply_choice_sort(choices: list[Any], sort_by: str = "deadline") -> list[Any]:
-    """Sort choices by specified field."""
-    if sort_by == "deadline":
-        return sorted(choices, key=get_decision_deadline)
-    elif sort_by == "priority":
-        sort_key = make_priority_string_getter(PRIORITY_STRING_SORT_ORDER, _get_choice_priority)
-        return sorted(choices, key=sort_key)
-    elif sort_by == "created_at":
-        return sorted(choices, key=get_created_at_attr, reverse=True)
-    return sorted(choices, key=get_decision_deadline)
+    """Sort choices using declarative config."""
+    return apply_entity_sort(choices, sort_by, _CHOICE_SORT_CONFIG, "deadline")
 
 
 class ChoicesService(BaseService["ChoicesOperations", Choice]):
@@ -638,7 +650,7 @@ class ChoicesService(BaseService["ChoicesOperations", Choice]):
             return await self.core.get_for_user_filtered(user_uid, "all")
 
         def apply_filters(all_choices: list[Any]) -> list[Any]:
-            return _apply_choice_status_filter(all_choices, status_filter)
+            return apply_entity_filter(all_choices, status_filter, _CHOICE_FILTER_CONFIG)
 
         return await build_filtered_context(
             fetch_all=fetch_all,

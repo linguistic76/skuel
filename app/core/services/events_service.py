@@ -26,6 +26,7 @@ from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
 from core.ports import get_enum_attr_str, get_enum_value
 from core.ports.query_types import EventUpdatePayload
+from core.services.activity_domain_config import CommonSubServices, create_common_sub_services
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 
@@ -46,7 +47,13 @@ from core.services.infrastructure.graph_intelligence_service import GraphIntelli
 
 # Unified relationship service
 from core.services.relationships import UnifiedRelationshipService
-from core.services.activity_domain_config import CommonSubServices, create_common_sub_services
+from core.utils.list_helpers import (
+    FilterConfig,
+    SortConfig,
+    apply_entity_filter,
+    apply_entity_sort,
+    get_event_sort_datetime,
+)
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_created_at_attr, get_title_lower
@@ -95,52 +102,37 @@ def _compute_event_stats(all_events: list[Any]) -> dict[str, int | float]:
     }
 
 
-def _apply_event_status_filter(all_events: list[Any], status_filter: str) -> list[Any]:
-    """Apply status filter to events."""
-    match status_filter:
-        case "scheduled":
-            return [e for e in all_events if _get_event_status_value(e) == "scheduled"]
-        case "completed":
-            return [e for e in all_events if _get_event_status_value(e) == "completed"]
-        case "cancelled":
-            return [e for e in all_events if _get_event_status_value(e) == "cancelled"]
-        case _:
-            return all_events
+def _is_event_scheduled(e: Any) -> bool:
+    """Filter predicate: event is scheduled."""
+    return _get_event_status_value(e) == "scheduled"
+
+
+def _is_event_completed(e: Any) -> bool:
+    """Filter predicate: event is completed."""
+    return _get_event_status_value(e) == "completed"
+
+
+def _is_event_cancelled(e: Any) -> bool:
+    """Filter predicate: event is cancelled."""
+    return _get_event_status_value(e) == "cancelled"
+
+
+_EVENT_FILTER_CONFIG: FilterConfig = {
+    "scheduled": _is_event_scheduled,
+    "completed": _is_event_completed,
+    "cancelled": _is_event_cancelled,
+}
+
+_EVENT_SORT_CONFIG: SortConfig = {
+    "start_time": (get_event_sort_datetime, False),
+    "title": (get_title_lower, False),
+    "created_at": (get_created_at_attr, True),
+}
 
 
 def _apply_event_sort(events: list[Any], sort_by: str = "start_time") -> list[Any]:
-    """Sort events by specified field."""
-
-    def get_sort_datetime(event: Any) -> datetime:
-        event_date = getattr(event, "event_date", None) or date.today()
-        if not isinstance(event_date, date) and getattr(event_date, "year", None) is not None:
-            event_date = date(event_date.year, event_date.month, event_date.day)
-        start_time_val = getattr(event, "start_time", None)
-        if start_time_val is None:
-            return datetime.combine(event_date, time(0, 0))
-        if (
-            not isinstance(start_time_val, time)
-            and getattr(start_time_val, "hour", None) is not None
-        ):
-            start_time_val = time(
-                start_time_val.hour,
-                start_time_val.minute,
-                getattr(start_time_val, "second", 0) or 0,
-            )
-        elif isinstance(start_time_val, str):
-            try:
-                start_time_val = datetime.strptime(start_time_val, "%H:%M:%S").time()
-            except ValueError:
-                start_time_val = time(0, 0)
-        return datetime.combine(event_date, start_time_val)
-
-    if sort_by == "start_time":
-        return sorted(events, key=get_sort_datetime)
-    elif sort_by == "title":
-        return sorted(events, key=get_title_lower)
-    elif sort_by == "created_at":
-        return sorted(events, key=get_created_at_attr, reverse=True)
-    return sorted(events, key=get_sort_datetime)
+    """Sort events using declarative config."""
+    return apply_entity_sort(events, sort_by, _EVENT_SORT_CONFIG, "start_time")
 
 
 class EventsService(BaseService["EventsOperations", Event]):
@@ -921,7 +913,6 @@ class EventsService(BaseService["EventsOperations", Event]):
         Returns:
             Result with success status
         """
-        from datetime import datetime
 
         properties = {"participation_type": request.role} if request.role != "scheduled" else None
         result = await self.relationships.create_user_relationship(
@@ -963,7 +954,6 @@ class EventsService(BaseService["EventsOperations", Event]):
         Returns:
             Result with success status
         """
-        from datetime import datetime
 
         # Get event title before removal for notification
         event_title = "Event"
@@ -1116,7 +1106,6 @@ class EventsService(BaseService["EventsOperations", Event]):
         event = self._to_domain_model(create_result.value, EventDTO, Event)
 
         # Publish CalendarEventCreated event (event-driven architecture)
-        from datetime import datetime
 
         from core.events import CalendarEventCreated, publish_event
 
@@ -1177,7 +1166,7 @@ class EventsService(BaseService["EventsOperations", Event]):
             return await self.core.get_for_user_filtered(user_uid, "all")
 
         def apply_filters(all_events: list[Any]) -> list[Any]:
-            return _apply_event_status_filter(all_events, status_filter)
+            return apply_entity_filter(all_events, status_filter, _EVENT_FILTER_CONFIG)
 
         return await build_filtered_context(
             fetch_all=fetch_all,

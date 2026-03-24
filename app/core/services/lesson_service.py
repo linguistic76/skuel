@@ -51,10 +51,11 @@ from core.services.filtered_context import build_filtered_context
 from core.services.lesson.lesson_ai_service import LessonAIService
 from core.utils.decorators import with_error_handling
 from core.utils.error_boundary import safe_event_handler
+from core.utils.list_helpers import FilterConfig, SortConfig, apply_entity_filter, apply_entity_sort
 from core.utils.logging import get_logger
 from core.utils.metrics import get_metrics_summary
 from core.utils.result_simplified import Errors, Result
-from core.utils.sort_functions import get_second_item
+from core.utils.sort_functions import get_created_at_attr, get_second_item, get_title_lower
 
 # Allowlists for substance metric Cypher interpolation (prevents injection)
 _VALID_SUBSTANCE_METRICS: frozenset[str] = frozenset(
@@ -91,42 +92,42 @@ def _compute_lesson_stats(all_lessons: list[Any]) -> dict[str, int | float]:
     }
 
 
-def _apply_lesson_status_filter(all_lessons: list[Any], status_filter: str) -> list[Any]:
-    """Apply status filter to lessons."""
+def _is_lesson_published(lesson: Any) -> bool:
+    """Filter predicate: lesson has PUBLISHED status."""
     from core.models.enums import EntityStatus
 
-    match status_filter:
-        case "published":
-            return [
-                ls for ls in all_lessons if getattr(ls, "status", None) == EntityStatus.PUBLISHED
-            ]
-        case "draft":
-            return [ls for ls in all_lessons if getattr(ls, "status", None) == EntityStatus.DRAFT]
-        case "archived":
-            return [
-                ls for ls in all_lessons if getattr(ls, "status", None) == EntityStatus.ARCHIVED
-            ]
-        case _:
-            return all_lessons
+    return getattr(lesson, "status", None) == EntityStatus.PUBLISHED
 
 
-def _get_lesson_title_lower(lesson: Any) -> str:
-    """Sort key: lesson title lowercase (SKUEL012: named function, no lambda)."""
-    return getattr(lesson, "title", "").lower()
+def _is_lesson_draft(lesson: Any) -> bool:
+    """Filter predicate: lesson has DRAFT status."""
+    from core.models.enums import EntityStatus
+
+    return getattr(lesson, "status", None) == EntityStatus.DRAFT
 
 
-def _get_lesson_created_at(lesson: Any) -> str:
-    """Sort key: lesson created_at (SKUEL012: named function, no lambda)."""
-    return getattr(lesson, "created_at", "")
+def _is_lesson_archived(lesson: Any) -> bool:
+    """Filter predicate: lesson has ARCHIVED status."""
+    from core.models.enums import EntityStatus
+
+    return getattr(lesson, "status", None) == EntityStatus.ARCHIVED
 
 
-def _apply_lesson_sort(lessons: list[Any], sort_by: str = "title") -> list[Any]:
-    """Sort lessons by specified field."""
-    if sort_by == "title":
-        return sorted(lessons, key=_get_lesson_title_lower)
-    elif sort_by == "created_at":
-        return sorted(lessons, key=_get_lesson_created_at, reverse=True)
-    return sorted(lessons, key=_get_lesson_title_lower)
+_LESSON_FILTER_CONFIG: FilterConfig = {
+    "published": _is_lesson_published,
+    "draft": _is_lesson_draft,
+    "archived": _is_lesson_archived,
+}
+
+_LESSON_SORT_CONFIG: SortConfig = {
+    "title": (get_title_lower, False),
+    "created_at": (get_created_at_attr, True),
+}
+
+
+def _apply_lesson_sort(lessons: list[Any], sort_by: str) -> list[Any]:
+    """Sort lessons using declarative config."""
+    return apply_entity_sort(lessons, sort_by, _LESSON_SORT_CONFIG, "title")
 
 
 class LessonService:
@@ -1507,7 +1508,7 @@ class LessonService:
             return Result.ok(list(entities))
 
         def apply_filters(all_lessons: list[Any]) -> list[Any]:
-            return _apply_lesson_status_filter(all_lessons, status_filter)
+            return apply_entity_filter(all_lessons, status_filter, _LESSON_FILTER_CONFIG)
 
         return await build_filtered_context(
             fetch_all=fetch_all,

@@ -23,7 +23,9 @@ from typing import TYPE_CHECKING, Any
 from core.services.filtered_context import build_filtered_context
 from core.services.ls.ls_ai_service import LsAIService
 from core.services.ls.ls_progress_service import LsProgressService
+from core.utils.list_helpers import SortConfig, apply_entity_sort, get_sequence_attr
 from core.utils.logging import get_logger
+from core.utils.sort_functions import get_created_at_attr, get_title_lower
 
 if TYPE_CHECKING:
     import builtins
@@ -42,30 +44,16 @@ def _compute_ls_stats(all_steps: list[Any]) -> dict[str, int | float]:
     return {"total": total, "active": total}
 
 
-def _get_ls_title_lower(step: Any) -> str:
-    """Sort key: step title lowercase (SKUEL012: named function, no lambda)."""
-    return getattr(step, "title", "").lower()
+_LS_SORT_CONFIG: SortConfig = {
+    "title": (get_title_lower, False),
+    "sequence": (get_sequence_attr, False),
+    "created_at": (get_created_at_attr, True),
+}
 
 
-def _get_ls_sequence(step: Any) -> int:
-    """Sort key: step sequence order (SKUEL012: named function, no lambda)."""
-    return getattr(step, "sequence", 0) or 0
-
-
-def _get_ls_created_at(step: Any) -> str:
-    """Sort key: step created_at (SKUEL012: named function, no lambda)."""
-    return getattr(step, "created_at", "")
-
-
-def _apply_ls_sort(steps: list[Any], sort_by: str = "title") -> list[Any]:
-    """Sort learning steps by specified field."""
-    if sort_by == "title":
-        return sorted(steps, key=_get_ls_title_lower)
-    elif sort_by == "sequence":
-        return sorted(steps, key=_get_ls_sequence)
-    elif sort_by == "created_at":
-        return sorted(steps, key=_get_ls_created_at, reverse=True)
-    return sorted(steps, key=_get_ls_title_lower)
+def _apply_ls_sort(steps: list[Any], sort_by: str) -> list[Any]:
+    """Sort learning steps using declarative config."""
+    return apply_entity_sort(steps, sort_by, _LS_SORT_CONFIG, "title")
 
 
 class LsService:

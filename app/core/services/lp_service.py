@@ -20,9 +20,10 @@ from typing import TYPE_CHECKING, Any
 
 from core.services.filtered_context import build_filtered_context
 from core.services.lp.lp_ai_service import LpAIService
+from core.utils.list_helpers import SortConfig, apply_entity_sort
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
-from core.utils.sort_functions import make_attribute_sort_key
+from core.utils.sort_functions import get_created_at_attr, get_title_lower, make_attribute_sort_key
 
 if TYPE_CHECKING:
     from core.models.enums.entity_enums import Domain
@@ -43,23 +44,15 @@ def _compute_lp_stats(all_paths: list[Any]) -> dict[str, int | float]:
     return {"total": total, "active": total}
 
 
-def _get_lp_title_lower(path: Any) -> str:
-    """Sort key: path title lowercase (SKUEL012: named function, no lambda)."""
-    return getattr(path, "title", "").lower()
+_LP_SORT_CONFIG: SortConfig = {
+    "title": (get_title_lower, False),
+    "created_at": (get_created_at_attr, True),
+}
 
 
-def _get_lp_created_at(path: Any) -> str:
-    """Sort key: path created_at (SKUEL012: named function, no lambda)."""
-    return getattr(path, "created_at", "")
-
-
-def _apply_lp_sort(paths: list[Any], sort_by: str = "title") -> list[Any]:
-    """Sort learning paths by specified field."""
-    if sort_by == "title":
-        return sorted(paths, key=_get_lp_title_lower)
-    elif sort_by == "created_at":
-        return sorted(paths, key=_get_lp_created_at, reverse=True)
-    return sorted(paths, key=_get_lp_title_lower)
+def _apply_lp_sort(paths: list[Any], sort_by: str) -> list[Any]:
+    """Sort learning paths using declarative config."""
+    return apply_entity_sort(paths, sort_by, _LP_SORT_CONFIG, "title")
 
 
 def _difficulty_label(rating: float) -> str:

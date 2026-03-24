@@ -27,6 +27,7 @@ from core.ports.domain_protocols import (
     HabitsOperations,
     PrinciplesOperations,
 )
+from core.services.activity_domain_config import CommonSubServices, create_common_sub_services
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.filtered_context import build_filtered_context
@@ -42,7 +43,7 @@ from core.services.principles.principles_ai_service import PrinciplesAIService
 
 # Unified relationship service
 from core.services.relationships import UnifiedRelationshipService
-from core.services.activity_domain_config import CommonSubServices, create_common_sub_services
+from core.utils.list_helpers import SortConfig, apply_entity_sort
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_created_at_attr, get_title_or_name_lower
@@ -169,15 +170,16 @@ def _by_strength(p: Any) -> int:
     return _get_principle_strength_value(p)
 
 
+_PRINCIPLE_SORT_CONFIG: SortConfig = {
+    "strength": (_by_strength, True),
+    "title": (get_title_or_name_lower, False),
+    "created_at": (get_created_at_attr, True),
+}
+
+
 def _apply_principle_sort(principles: list[Any], sort_by: str = "strength") -> list[Any]:
-    """Sort principles by specified field."""
-    if sort_by == "strength":
-        return sorted(principles, key=_by_strength, reverse=True)
-    elif sort_by == "title":
-        return sorted(principles, key=get_title_or_name_lower)
-    elif sort_by == "created_at":
-        return sorted(principles, key=get_created_at_attr, reverse=True)
-    return sorted(principles, key=_by_strength, reverse=True)
+    """Sort principles using declarative config."""
+    return apply_entity_sort(principles, sort_by, _PRINCIPLE_SORT_CONFIG, "strength")
 
 
 class PrinciplesService(BaseService[PrinciplesOperations, Principle]):

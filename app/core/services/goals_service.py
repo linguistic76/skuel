@@ -25,6 +25,7 @@ from core.models.enums.goal_enums import GoalTimeframe, GoalType
 from core.models.goal.goal import Goal
 from core.models.goal.goal_dto import GoalDTO
 from core.ports.domain_protocols import GoalsOperations
+from core.services.activity_domain_config import create_common_sub_services
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.filtered_context import build_filtered_context
@@ -44,8 +45,8 @@ from core.services.infrastructure.graph_intelligence_service import GraphIntelli
 
 # Unified relationship service
 from core.services.relationships import UnifiedRelationshipService
-from core.services.activity_domain_config import create_common_sub_services
 from core.utils.dto_helpers import to_domain_model
+from core.utils.list_helpers import FilterConfig, SortConfig, apply_entity_filter, apply_entity_sort
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import (
@@ -132,33 +133,35 @@ def _compute_goal_stats(all_goals: list[Any]) -> dict[str, int | float]:
     }
 
 
-def _apply_goal_status_filter(all_goals: list[Any], status_filter: str) -> list[Any]:
-    """Apply status filter to goals."""
-    match status_filter:
-        case "active":
-            return [
-                g
-                for g in all_goals
-                if _get_goal_status_str(g) not in ("completed", "cancelled", "archived")
-            ]
-        case "completed":
-            return [g for g in all_goals if _get_goal_status_str(g) == "completed"]
-        case _:
-            return all_goals
+def _is_goal_active(g: Any) -> bool:
+    """Filter predicate: goal is not in a terminal state."""
+    return _get_goal_status_str(g) not in ("completed", "cancelled", "archived")
+
+
+def _is_goal_completed(g: Any) -> bool:
+    """Filter predicate: goal is completed."""
+    return _get_goal_status_str(g) == "completed"
+
+
+_GOAL_FILTER_CONFIG: FilterConfig = {
+    "active": _is_goal_active,
+    "completed": _is_goal_completed,
+}
+
+_GOAL_SORT_CONFIG: SortConfig = {
+    "target_date": (_get_goal_target_date, False),
+    "priority": (
+        make_priority_string_getter(PRIORITY_STRING_SORT_ORDER, _get_goal_priority_str),
+        False,
+    ),
+    "progress": (get_current_value, True),
+    "created_at": (get_created_at_attr, True),
+}
 
 
 def _apply_goal_sort(goals: list[Any], sort_by: str = "target_date") -> list[Any]:
-    """Sort goals by specified field."""
-    if sort_by == "target_date":
-        return sorted(goals, key=_get_goal_target_date)
-    elif sort_by == "priority":
-        sort_key = make_priority_string_getter(PRIORITY_STRING_SORT_ORDER, _get_goal_priority_str)
-        return sorted(goals, key=sort_key)
-    elif sort_by == "progress":
-        return sorted(goals, key=get_current_value, reverse=True)
-    elif sort_by == "created_at":
-        return sorted(goals, key=get_created_at_attr, reverse=True)
-    return sorted(goals, key=_get_goal_target_date)
+    """Sort goals using declarative config."""
+    return apply_entity_sort(goals, sort_by, _GOAL_SORT_CONFIG, "target_date")
 
 
 class GoalsService(BaseService[GoalsOperations, Goal]):
@@ -878,7 +881,7 @@ class GoalsService(BaseService[GoalsOperations, Goal]):
             return await self.core.get_for_user_filtered(user_uid, "all")
 
         def apply_filters(all_goals: list[Any]) -> list[Any]:
-            return _apply_goal_status_filter(all_goals, status_filter)
+            return apply_entity_filter(all_goals, status_filter, _GOAL_FILTER_CONFIG)
 
         return await build_filtered_context(
             fetch_all=fetch_all,

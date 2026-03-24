@@ -26,6 +26,7 @@ if TYPE_CHECKING:
 from core.models.enums import EntityStatus
 from core.models.task.task import Task
 from core.models.task.task_dto import TaskDTO
+from core.services.activity_domain_config import create_common_sub_services
 
 # Analytics engine
 from core.services.analytics_engine import (
@@ -52,8 +53,8 @@ from core.services.tasks import (
     TasksSchedulingService,
 )
 from core.services.tasks.tasks_ai_service import TasksAIService
-from core.services.activity_domain_config import create_common_sub_services
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
+from core.utils.list_helpers import FilterConfig, SortConfig, apply_entity_filter, apply_entity_sort
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 from core.utils.sort_functions import (
@@ -156,15 +157,20 @@ def _compute_task_metadata(all_tasks: list[Any]) -> dict[str, Any]:
     return {"projects": list(projects), "assignees": sorted(assignees_set)}
 
 
-def _apply_status_filter(entities: list[Any], status_filter: str) -> list[Any]:
-    """Apply status filter in Python (replaces Cypher-level filtering)."""
-    match status_filter:
-        case "active":
-            return [e for e in entities if e.status != EntityStatus.COMPLETED]
-        case "completed":
-            return [e for e in entities if e.status == EntityStatus.COMPLETED]
-        case _:
-            return entities
+def _is_task_not_completed(e: Any) -> bool:
+    """Filter predicate: task is not completed."""
+    return e.status != EntityStatus.COMPLETED
+
+
+def _is_task_completed(e: Any) -> bool:
+    """Filter predicate: task is completed."""
+    return e.status == EntityStatus.COMPLETED
+
+
+_TASK_FILTER_CONFIG: FilterConfig = {
+    "active": _is_task_not_completed,
+    "completed": _is_task_completed,
+}
 
 
 def _apply_task_secondary_filters(
@@ -203,18 +209,17 @@ def _apply_task_secondary_filters(
     return tasks
 
 
+_TASK_SORT_CONFIG: SortConfig = {
+    "due_date": (get_task_due_date_sort_key, False),
+    "priority": (make_priority_order_getter(PRIORITY_SORT_ORDER), False),
+    "created_at": (get_created_at_attr, True),
+    "project": (get_project_and_title, False),
+}
+
+
 def _apply_task_sort(tasks: list[Any], sort_by: str = "due_date") -> list[Any]:
-    """Sort tasks by specified field."""
-    if sort_by == "due_date":
-        return sorted(tasks, key=get_task_due_date_sort_key)
-    elif sort_by == "priority":
-        priority_sort_key = make_priority_order_getter(PRIORITY_SORT_ORDER)
-        return sorted(tasks, key=priority_sort_key)
-    elif sort_by == "created_at":
-        return sorted(tasks, key=get_created_at_attr, reverse=True)
-    elif sort_by == "project":
-        return sorted(tasks, key=get_project_and_title)
-    return sorted(tasks, key=get_task_due_date_sort_key)
+    """Sort tasks using declarative config."""
+    return apply_entity_sort(tasks, sort_by, _TASK_SORT_CONFIG, "due_date")
 
 
 class TasksService(BaseService["TasksOperations", Task]):
@@ -1144,7 +1149,7 @@ class TasksService(BaseService["TasksOperations", Task]):
             return await self.core.get_for_user_filtered(user_uid, "all")
 
         def apply_filters(all_tasks: list[Any]) -> list[Any]:
-            filtered = _apply_status_filter(all_tasks, status_filter)
+            filtered = apply_entity_filter(all_tasks, status_filter, _TASK_FILTER_CONFIG)
             return _apply_task_secondary_filters(filtered, project, assignee, due_filter)
 
         return await build_filtered_context(

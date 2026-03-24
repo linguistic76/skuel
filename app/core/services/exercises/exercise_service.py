@@ -37,8 +37,10 @@ from core.services.domain_config import DomainConfig
 from core.services.filtered_context import build_filtered_context
 from core.utils.decorators import with_error_handling
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, FILE_IO_EXCEPTIONS
+from core.utils.list_helpers import SortConfig, apply_entity_sort
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+from core.utils.sort_functions import get_created_at_attr, get_title_lower
 from core.utils.uid_generator import UIDGenerator
 
 logger = get_logger(__name__)
@@ -64,23 +66,15 @@ def _compute_exercise_stats(all_exercises: list[Any]) -> dict[str, int | float]:
     }
 
 
-def _get_exercise_title_lower(exercise: Any) -> str:
-    """Sort key: exercise title lowercase (SKUEL012: named function, no lambda)."""
-    return getattr(exercise, "title", "").lower()
+_EXERCISE_SORT_CONFIG: SortConfig = {
+    "title": (get_title_lower, False),
+    "created_at": (get_created_at_attr, True),
+}
 
 
-def _get_exercise_created_at(exercise: Any) -> str:
-    """Sort key: exercise created_at (SKUEL012: named function, no lambda)."""
-    return getattr(exercise, "created_at", "")
-
-
-def _apply_exercise_sort(exercises: list[Any], sort_by: str = "title") -> list[Any]:
-    """Sort exercises by specified field."""
-    if sort_by == "title":
-        return sorted(exercises, key=_get_exercise_title_lower)
-    elif sort_by == "created_at":
-        return sorted(exercises, key=_get_exercise_created_at, reverse=True)
-    return sorted(exercises, key=_get_exercise_title_lower)
+def _apply_exercise_sort(exercises: list[Any], sort_by: str) -> list[Any]:
+    """Sort exercises using declarative config."""
+    return apply_entity_sort(exercises, sort_by, _EXERCISE_SORT_CONFIG, "title")
 
 
 class ExerciseService(BaseService):

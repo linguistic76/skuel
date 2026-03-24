@@ -32,6 +32,7 @@ from core.models.habit.habit import Habit
 from core.models.habit.habit_dto import HabitDTO
 from core.ports.base_protocols import BackendOperations
 from core.ports.domain_protocols import HabitsOperations
+from core.services.activity_domain_config import CommonSubServices, create_common_sub_services
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.filtered_context import build_filtered_context
@@ -54,8 +55,8 @@ from core.services.habits.habits_scheduling_service import DEFAULT_MAX_DAILY_LOA
 # Unified relationship service
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
 from core.services.relationships import UnifiedRelationshipService
-from core.services.activity_domain_config import CommonSubServices, create_common_sub_services
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
+from core.utils.list_helpers import FilterConfig, SortConfig, apply_entity_filter, apply_entity_sort
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import (
@@ -103,30 +104,38 @@ def _compute_habit_stats(all_habits: list[Any]) -> dict[str, int | float]:
     }
 
 
-def _apply_habit_status_filter(all_habits: list[Any], status_filter: str) -> list[Any]:
-    """Apply status filter to habits."""
-    match status_filter:
-        case "active":
-            return [h for h in all_habits if h.status == EntityStatus.ACTIVE]
-        case "paused":
-            return [h for h in all_habits if h.status == EntityStatus.PAUSED]
-        case "completed":
-            return [h for h in all_habits if h.status == EntityStatus.COMPLETED]
-        case _:
-            return all_habits
+def _is_habit_active(h: Any) -> bool:
+    """Filter predicate: habit is active."""
+    return h.status == EntityStatus.ACTIVE
+
+
+def _is_habit_paused(h: Any) -> bool:
+    """Filter predicate: habit is paused."""
+    return h.status == EntityStatus.PAUSED
+
+
+def _is_habit_completed(h: Any) -> bool:
+    """Filter predicate: habit is completed."""
+    return h.status == EntityStatus.COMPLETED
+
+
+_HABIT_FILTER_CONFIG: FilterConfig = {
+    "active": _is_habit_active,
+    "paused": _is_habit_paused,
+    "completed": _is_habit_completed,
+}
+
+_HABIT_SORT_CONFIG: SortConfig = {
+    "streak": (get_current_streak, True),
+    "name": (get_name_lower, False),
+    "created_at": (get_created_at_attr, True),
+    "frequency": (get_recurrence_pattern, False),
+}
 
 
 def _apply_habit_sort(habits: list[Any], sort_by: str = "streak") -> list[Any]:
-    """Sort habits by specified field."""
-    if sort_by == "streak":
-        return sorted(habits, key=get_current_streak, reverse=True)
-    elif sort_by == "name":
-        return sorted(habits, key=get_name_lower)
-    elif sort_by == "created_at":
-        return sorted(habits, key=get_created_at_attr, reverse=True)
-    elif sort_by == "frequency":
-        return sorted(habits, key=get_recurrence_pattern)
-    return sorted(habits, key=get_current_streak, reverse=True)
+    """Sort habits using declarative config."""
+    return apply_entity_sort(habits, sort_by, _HABIT_SORT_CONFIG, "streak")
 
 
 class HabitsService(BaseService[HabitsOperations, Habit]):
@@ -1515,7 +1524,7 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
             return await self.core.get_for_user_filtered(user_uid, "all")
 
         def apply_filters(all_habits: list[Any]) -> list[Any]:
-            return _apply_habit_status_filter(all_habits, status_filter)
+            return apply_entity_filter(all_habits, status_filter, _HABIT_FILTER_CONFIG)
 
         return await build_filtered_context(
             fetch_all=fetch_all,
