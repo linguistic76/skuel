@@ -58,6 +58,46 @@ nav = result.value  # KuNavigation(prev_uid, prev_title, next_uid, next_title)
 
 ---
 
+## Pattern: LS Knowledge Relationship CRUD (Backend-Delegated)
+
+Knowledge relationships (CONTAINS_KNOWLEDGE) are managed via `LsBackend` — services delegate, no inline Cypher:
+
+```python
+# Backend (LsBackend) — owns the Cypher
+await backend.add_knowledge(ls_uid, ku_uid, "primary")
+await backend.remove_knowledge(ls_uid, ku_uid)
+knowledge = await backend.list_knowledge(ls_uid, knowledge_type="primary")
+summary = await backend.get_knowledge_summary(ls_uid)  # {primary_count, supporting_count, ...}
+
+# Service (LsCoreService) — validates + delegates
+async def add_knowledge_relationship(self, ls_uid, ku_uid, knowledge_type="primary"):
+    if knowledge_type not in ("primary", "supporting"):
+        return Result.fail(Errors.validation(...))
+    return await self.backend.add_knowledge(ls_uid, ku_uid, knowledge_type)
+```
+
+---
+
+## Pattern: LP Step Management (Backend-Delegated)
+
+Step relationships (HAS_STEP) are managed via `LpBackend` — services delegate:
+
+```python
+# Backend (LpBackend) — owns the Cypher
+steps = await backend.get_steps_raw(path_uid, depth=1)      # raw dicts
+parent = await backend.get_parent_path_raw(step_uid)         # raw dict or None
+await backend.add_step_to_path(path_uid, step_uid, sequence=0)
+await backend.remove_step_from_path(path_uid, step_uid)      # auto-reorders remaining
+await backend.reorder_steps(path_uid, ["ls:step2", "ls:step1"])
+
+# Service (LpCoreService) — validates + converts to domain models
+async def get_steps(self, path_uid, depth=1):
+    result = await self.backend.get_steps_raw(path_uid, depth)
+    return Result.ok([from_neo4j_node(data, LearningStep) for data in result.value])
+```
+
+---
+
 ## Pattern: Cross-Domain LP → LS Dependency
 
 LP requires LsService injected at construction — the only cross-domain service dependency in the curriculum stack:

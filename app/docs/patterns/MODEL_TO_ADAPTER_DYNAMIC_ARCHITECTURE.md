@@ -1,6 +1,6 @@
 ---
 title: Model-to-Adapter Dynamic Architecture
-updated: 2026-02-28
+updated: 2026-03-24
 category: patterns
 related_skills: []
 related_docs:
@@ -8,7 +8,7 @@ related_docs:
 ---
 
 # Model-to-Adapter Dynamic Architecture
-**Date:** October 3, 2025 (Updated: March 1, 2026)
+**Date:** October 3, 2025 (Updated: March 24, 2026)
 **Status:** 100% Dynamic - All domains use domain backend subclasses or UniversalNeo4jBackend[T]
 
 ## Executive Summary
@@ -32,8 +32,11 @@ adapters/persistence/neo4j/
     _relationship_crud_mixin.py   # RelationshipCrud + validation helpers
     _user_entity_mixin.py         # Generic user-entity ops (5 methods)
     _traversal_mixin.py           # GraphTraversalOperations
-    domain_backends.py            # 10 domain subclasses: TasksBackend, EventsBackend, GoalsBackend, HabitsBackend,
-                                  #   ChoicesBackend, PrinciplesBackend, KuBackend, SubmissionsBackend, LpBackend, ExerciseBackend
+    _hierarchy_mixin.py           # HierarchyConfig + _HierarchyMixin (6 hierarchy methods for Activity Domains)
+    domain_backends.py            # 15 domain subclasses: TasksBackend, EventsBackend, GoalsBackend, HabitsBackend,
+                                  #   ChoicesBackend, PrinciplesBackend, LessonBackend, KuBackend, LsBackend,
+                                  #   LpBackend, ExerciseBackend, SubmissionsBackend, SharingBackend,
+                                  #   RevisedExerciseBackend, FormTemplateBackend, FormSubmissionBackend
 ```
 
 **Class declaration:**
@@ -79,6 +82,39 @@ Four new domain backends added to `domain_backends.py`:
 **4-layer consistency achieved across all domains:**
 ```
 *Operations protocol → *Backend subclass → *Service facade → sub-services
+```
+
+### March 24, 2026 Update: Hierarchy Mixin + Curriculum Relationship CRUD
+
+**`_HierarchyMixin`** added to `_hierarchy_mixin.py` — generic parent-child hierarchy operations shared by all 6 Activity Domain backends. Parameterized via `HierarchyConfig` frozen dataclass (relationship names, node labels, optional entity_type filter).
+
+**6 mixin methods:** `get_children_raw`, `get_parent_raw`, `get_hierarchy_raw`, `create_hierarchy_relationship` (with cycle detection), `remove_hierarchy_relationship`, `would_create_cycle`.
+
+**Activity backends updated (6):** All extend `_HierarchyMixin`. Each sets a `_hierarchy_config` class attribute. `get_stats_for_user()` moved from services to backends. ~790 lines of inline Cypher removed from 5 core services.
+
+| Backend | Hierarchy Config |
+|---------|-----------------|
+| `TasksBackend` | HAS_SUBTASK / SUBTASK_OF, Entity |
+| `GoalsBackend` | HAS_SUBGOAL / SUBGOAL_OF, Entity |
+| `HabitsBackend` | HAS_SUBHABIT / SUBHABIT_OF, Habit |
+| `EventsBackend` | HAS_SUBEVENT / SUBEVENT_OF, Entity |
+| `PrinciplesBackend` | HAS_SUBPRINCIPLE / SUBPRINCIPLE_OF, Principle |
+| `ChoicesBackend` | HAS_SUBCHOICE / SUBCHOICE_OF, Entity (node_filter: entity_type='choice') |
+
+**Curriculum backends extended:**
+
+| Backend | Methods Added |
+|---------|-------------|
+| `LsBackend` | 4 CONTAINS_KNOWLEDGE methods: `add_knowledge`, `remove_knowledge`, `list_knowledge`, `get_knowledge_summary` |
+| `LpBackend` | 5 HAS_STEP methods: `get_steps_raw`, `get_parent_path_raw`, `add_step_to_path`, `remove_step_from_path`, `reorder_steps` |
+
+**Protocols updated:** `EventsOperations`, `ChoicesOperations`, `PrinciplesOperations` now extend `HierarchyOperations`. `LsOperations` and `LpOperations` gained method signatures for the new backend methods.
+
+**File layout:**
+```
+adapters/persistence/neo4j/
+    _hierarchy_mixin.py           # HierarchyConfig + _HierarchyMixin (6 generic methods)
+    domain_backends.py            # 15 domain subclasses (6 Activity + 4 Curriculum + 5 Other)
 ```
 
 ---

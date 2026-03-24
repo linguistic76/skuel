@@ -117,13 +117,18 @@ Cross-domain aggregation stays in services — not raw persistence:
 
 ## Complete Backend Registry (Post-Migration)
 
-**Activity Domains (6):**
-- `TasksBackend`, `EventsBackend`, `GoalsBackend`, `HabitsBackend`, `ChoicesBackend`, `PrinciplesBackend`
+**Activity Domains (6) — all extend `_HierarchyMixin` (March 24, 2026):**
+- `TasksBackend` — hierarchy + `get_stats_for_user` + `auto_complete_parent_if_ready` + `calculate_parent_progress`
+- `GoalsBackend` — hierarchy + `get_stats_for_user`
+- `HabitsBackend` — hierarchy + `get_stats_for_user`
+- `EventsBackend` — hierarchy + `get_stats_for_user`
+- `PrinciplesBackend` — hierarchy + `get_stats_for_user`
+- `ChoicesBackend` — hierarchy + `get_stats_for_user`
 
 **Curriculum Domains (4):**
 - `KuBackend` — ORGANIZES graph
-- `LsBackend` — excluded (only `execute_exists()` analytics calls, no raw persistence)
-- `LpBackend` — mastery progress queries
+- `LsBackend` — CONTAINS_KNOWLEDGE CRUD (4 methods) + lesson progress tracking (March 24, 2026)
+- `LpBackend` — HAS_STEP management (5 methods) + mastery progress queries (March 24, 2026)
 - `ExerciseBackend` — curriculum link methods
 
 **Content/Submissions (1):**

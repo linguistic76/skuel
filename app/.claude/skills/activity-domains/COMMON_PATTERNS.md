@@ -86,6 +86,42 @@ class TasksViewComponents:
     def render_detail_view(task, context): ...
 ```
 
+## Hierarchy Delegation Pattern
+
+All 6 Activity Domain backends extend `_HierarchyMixin` with a per-domain `HierarchyConfig`. Core services delegate hierarchy operations to the backend — **no inline Cypher in services**.
+
+```python
+# Backend (domain_backends.py) — owns the Cypher via _HierarchyMixin
+class TasksBackend(_HierarchyMixin, UniversalNeo4jBackend[Task]):
+    _hierarchy_config = HierarchyConfig(
+        forward_rel="HAS_SUBTASK", inverse_rel="SUBTASK_OF",
+        node_label="Entity", domain_name="subtask",
+    )
+
+# Service (tasks_core_service.py) — thin delegation + model conversion
+async def get_subtasks(self, parent_uid: str, depth: int = 1) -> Result[list[Task]]:
+    result = await self.backend.get_children_raw(parent_uid, depth)
+    if result.is_error:
+        return Result.fail(result)
+    return Result.ok([self._to_domain_model(data, TaskDTO, Task) for data in result.value])
+
+async def create_subtask_relationship(self, parent_uid, subtask_uid, progress_weight=1.0):
+    return await self.backend.create_hierarchy_relationship(
+        parent_uid, subtask_uid, {"progress_weight": progress_weight}
+    )
+
+async def get_stats_for_user(self, user_uid: str) -> Result[dict[str, int]]:
+    return await self.backend.get_stats_for_user(user_uid)
+```
+
+**Mixin methods** (return raw dicts — services convert to domain models):
+- `get_children_raw(parent_uid, depth)` → list of child node dicts
+- `get_parent_raw(child_uid)` → parent node dict or None
+- `get_hierarchy_raw(entity_uid)` → `{ancestors, siblings, children}` dicts
+- `create_hierarchy_relationship(parent_uid, child_uid, forward_props)` → with cycle detection
+- `remove_hierarchy_relationship(parent_uid, child_uid)`
+- `would_create_cycle(parent_uid, child_uid)`
+
 ## Search Service Pattern
 
 All search services implement `DomainSearchOperations[T]`:
