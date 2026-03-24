@@ -1,54 +1,71 @@
 ---
 title: Domain-Specific Hooks Pattern
-updated: 2026-01-17
+updated: 2026-03-24
 category: patterns
 related_skills: []
 related_docs: []
 ---
 
 # Domain-Specific Hooks Pattern
-**Date**: 2026-01-17
+**Date**: 2026-01-17 (post-lifecycle hooks: 2026-03-24)
 **Status**: ✅ Active Pattern
 
 ## Overview
 
-Domain-specific hooks in `BaseService` implement the **Template Method Pattern** - a design pattern where a base class defines the algorithm structure while allowing subclasses to customize specific steps.
+Domain-specific hooks in `CrudOperationsMixin` implement the **Template Method Pattern** - a design pattern where a base class defines the algorithm structure while allowing subclasses to customize specific steps.
 
-**Location**: `core/services/base_service.py` (lines 268-322)
+SKUEL provides **two hook categories**:
+1. **Pre-operation hooks** (sync): `_validate_create`, `_validate_update` — run before the backend operation
+2. **Post-lifecycle hooks** (async): `_post_create`, `_post_update`, `_post_delete` — run after the backend operation (e.g., event publishing)
+
+**Location**: `core/services/mixins/crud_operations_mixin.py`
 
 ## The Pattern
 
 ### Core Concept
 
 ```python
-class BaseService:
+class CrudOperationsMixin:
     # Generic CRUD operation (template method)
     async def create(self, entity: T) -> Result[T]:
-        # Step 1: Call domain-specific validation hook
+        # Step 1: Call pre-operation validation hook (sync)
         validation = self._validate_create(entity)
         if validation:
             return Result.fail(validation)
 
         # Step 2: Proceed with creation
-        return await self.backend.create(entity)
+        result = await self.backend.create(entity)
 
-    # Hook method (default implementation)
+        # Step 3: Call post-lifecycle hook (async)
+        await self._post_create(entity, result)
+        return result
+
+    # Pre-operation hook (sync, default no-op)
     def _validate_create(self, entity: T) -> Result[None] | None:
-        """Override in subclasses to add domain-specific validation."""
-        return None  # No validation = valid
+        """Override to add domain-specific validation."""
+        return None
+
+    # Post-lifecycle hook (async, default no-op)
+    async def _post_create(self, entity: T, result: Result[T]) -> None:
+        """Override to publish events, etc."""
 ```
 
 ### Template Method Pattern
 
-**Template Method**: `BaseService.create()` and `BaseService.update()`
-- Define the algorithm structure (validation → operation)
+**Template Methods**: `create()`, `update()`, `delete()`
+- Define the algorithm structure (validate → operate → post-hook)
 - Call hook methods at specific points
 - Handle result propagation and error conversion
 
-**Hook Methods**: `_validate_create()` and `_validate_update()`
-- Provide default implementation (no-op, everything valid)
-- Subclasses override to add domain-specific business rules
+**Pre-Operation Hooks** (sync): `_validate_create()` and `_validate_update()`
+- Run BEFORE the backend operation
 - Return `None` if valid, `Result.fail()` if invalid
+- Use for business rule enforcement
+
+**Post-Lifecycle Hooks** (async): `_post_create()`, `_post_update()`, `_post_delete()`
+- Run AFTER the backend operation (regardless of success/failure)
+- Receive the operation result — check `result.is_ok` before acting
+- Use for event publishing, notifications, cache invalidation
 
 ## Role and Responsibilities
 
@@ -76,19 +93,23 @@ class TasksCoreService(BaseService[TasksOperations, Task]):
 
 ### 2. **Pre-Operation Validation**
 
-Hooks run **before** the backend operation, preventing invalid data from reaching the database.
+Validation hooks run **before** the backend operation, preventing invalid data from reaching the database.
 
 **Flow**:
 ```
 User calls service.create(entity)
     ↓
-BaseService.create() called
+CrudOperationsMixin.create() called
     ↓
-_validate_create(entity) called (HOOK)
+_validate_create(entity) called (PRE-HOOK, sync)
     ↓ (if validation fails)
     Return Result.fail(error) immediately
     ↓ (if validation passes)
     backend.create(entity) called
+    ↓
+_post_create(entity, result) called (POST-HOOK, async)
+    ↓
+Return result
 ```
 
 ### 3. **State Transition Validation**
@@ -197,6 +218,80 @@ async def create(self, entity: T) -> Result[T]:
 - Status-dependent validation (e.g., "cannot edit completed tasks")
 - Update authorization (e.g., "only owner can modify")
 
+## Post-Lifecycle Hooks (March 2026)
+
+Post-lifecycle hooks run **after** the backend operation. They receive the operation result so implementations can check success before acting.
+
+### `_post_create(entity: T, result: Result[T]) -> None`
+
+**Purpose**: Post-creation behavior (event publishing, notifications)
+
+**Parameters**:
+- `entity`: The entity that was created
+- `result`: The Result from `backend.create()` — check `result.is_ok` before acting
+
+**When Called**: After `backend.create()` in `CrudOperationsMixin.create()`
+
+### `_post_update(uid: str, old_entity: T, updates: dict, result: Result[T]) -> None`
+
+**Purpose**: Post-update behavior (event publishing with old/new state comparison)
+
+**Parameters**:
+- `uid`: Entity UID that was updated
+- `old_entity`: Entity state BEFORE the update
+- `updates`: Dictionary of fields that were updated
+- `result`: The Result from `backend.update()`
+
+**When Called**: After `backend.update()` in `CrudOperationsMixin.update()`
+
+### `_post_delete(uid: str, old_entity: T, result: Result[bool]) -> None`
+
+**Purpose**: Post-deletion behavior (event publishing with deleted entity data)
+
+**Parameters**:
+- `uid`: Entity UID that was deleted
+- `old_entity`: Entity state BEFORE deletion (for event data)
+- `result`: The Result from `backend.delete()`
+
+**When Called**: After `backend.delete()` in `CrudOperationsMixin.delete()`
+
+### Example: Event Publishing via Post-Hooks
+
+```python
+class FormTemplateService(BaseService[FormTemplateBackendOperations, FormTemplate]):
+    """Uses post-hooks for event publishing instead of overriding CRUD methods."""
+
+    async def _post_create(self, entity: FormTemplate, result: Result[FormTemplate]) -> None:
+        if result.is_error:
+            return
+        await publish_event(
+            self.event_bus,
+            FormTemplateCreated(template_uid=entity.uid, ...),
+            self.logger,
+        )
+
+    async def _post_update(
+        self, uid: str, old_entity: FormTemplate, updates: dict, result: Result[FormTemplate]
+    ) -> None:
+        if result.is_error:
+            return
+        await publish_event(
+            self.event_bus,
+            FormTemplateUpdated(template_uid=uid, ...),
+            self.logger,
+        )
+```
+
+### When to Use Hooks vs. Overrides
+
+| Approach | Use When |
+|----------|----------|
+| `_validate_*` hooks | Pre-operation validation (business rules) |
+| `_post_*` hooks | Post-operation side effects (events, notifications) |
+| Method override | Pre-operation guards (e.g., deletion guard that blocks the operation) |
+
+**Example of method override (not a hook)**: FormTemplateService overrides `delete()` because it needs a submission guard that runs BEFORE the delete, not after.
+
 ## Current Usage in SKUEL
 
 ### Active Implementation
@@ -227,11 +322,16 @@ async def create(self, entity: T) -> Result[T]:
 - `_validate_create()`: Category validation
 - `_validate_update()`: Strength bounds checking
 
+**FormTemplateService** (`/core/services/forms/form_template_service.py`)
+- `_post_create()`: Publishes `FormTemplateCreated` event
+- `_post_update()`: Publishes `FormTemplateUpdated` event
+- `delete()` override: Pre-delete submission guard + `FormTemplateDeleted` event
+
 **Note**: Finance is a standalone bookkeeping domain and does NOT use BaseService hooks (January 2026 simplification). It implements validation directly in FinanceCoreService.
 
 ### Other Services
 
-**Current State**: Most services use the default implementation (no custom validation)
+**Current State**: Most services use the default implementation (no custom validation or post-hooks)
 
 **Why**: Generic validations are handled by:
 1. **Pydantic models** at the API boundary (type/format validation)
@@ -267,13 +367,27 @@ def _validate_create(self, entity: T) -> Result[None] | None:
     # ❌ WRONG - Don't modify entity in validation
     entity.status = "pending"
 
-    # ❌ WRONG - Don't perform side effects
+    # ❌ WRONG - Don't perform side effects (use _post_create instead)
     await self.send_notification(entity)
 
     # ✅ CORRECT - Only validate
     if entity.amount <= 0:
         return Result.fail(Errors.validation("Amount must be positive"))
     return None
+```
+
+**Post-hook anti-pattern** (Don't do this):
+```python
+async def _post_create(self, entity: T, result: Result[T]) -> None:
+    # ❌ WRONG - Don't override the CRUD method just to add events
+    #    Use _post_create instead of overriding create()
+
+    # ❌ WRONG - Don't use _post_delete for pre-delete guards
+    #    Override delete() directly for guards that must block deletion
+
+    # ✅ CORRECT - Check result before acting
+    if result.is_ok:
+        await publish_event(self.event_bus, MyEvent(...), self.logger)
 ```
 
 ### 4. **Template Method Pattern Benefits**
@@ -436,16 +550,17 @@ def _validate_create(self, entity: T) -> Result[None] | None:  # noqa: ARG002
 ## Related Patterns
 
 - **Template Method Pattern**: Design pattern where algorithm structure is defined in base class
-- **Return Type Error Propagation**: Uses `.expect_error()` for type-safe error handling
+- **Result Error Propagation**: Uses `Result.fail(result)` for cross-type error propagation
 - **Result[T] Pattern**: All validation returns Result[None] or None
 - **Error Factories**: Uses `Errors.validation()` for structured errors
+- **Event-Driven Architecture**: `/docs/patterns/event_driven_architecture.md`
 
 ## References
 
-- Base Service Implementation: `/core/services/base_service.py:268-322`
-- Tasks Service Example: `/core/services/tasks/tasks_core_service.py:99-158`
-- Goals Service Example: `/core/services/goals/goals_core_service.py:123-175`
-- Return Type Pattern: `/docs/patterns/RETURN_TYPE_ERROR_PROPAGATION.md`
+- CrudOperationsMixin: `/core/services/mixins/crud_operations_mixin.py`
+- Base Service: `/core/services/base_service.py`
+- Tasks Service Example: `/core/services/tasks/tasks_core_service.py`
+- FormTemplate Post-Hook Example: `/core/services/forms/form_template_service.py`
 - Error Handling: `/docs/patterns/error_handling.md` (SKUEL standard)
 
 ## Philosophy

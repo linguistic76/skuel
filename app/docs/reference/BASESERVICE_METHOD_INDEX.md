@@ -47,6 +47,13 @@ These methods are available on **all services that extend BaseService**.
 | `update()` | ✅ |
 | `update_for_user()` | ✅ |
 | `verify_ownership()` | ✅ |
+| `_validate_create()` | 🔒 (hook — sync, pre-create validation) |
+| `_validate_update()` | 🔒 (hook — sync, pre-update validation) |
+| `_post_create()` | 🔒 (hook — async, post-create, e.g. event publishing) |
+| `_post_update()` | 🔒 (hook — async, post-update, e.g. event publishing) |
+| `_post_delete()` | 🔒 (hook — async, post-delete, e.g. event publishing) |
+
+**See:** `/docs/patterns/DOMAIN_SPECIFIC_HOOKS.md` for hook usage patterns.
 
 ---
 

@@ -472,7 +472,7 @@ await backend.get_revision_chain(exercise_uid)             # All revisions order
 enables student notification and learning loop progression tracking.
 
 **Access control:**
-- **Create:** `create()` (overrides `CrudOperationsMixin.create`) verifies the teacher has
+- **Create:** `create()` (overrides `CrudOperationsMixin.create`; for pre-operation guards, prefer `_validate_create` hook or `_post_create` hook for events — see `/docs/patterns/DOMAIN_SPECIFIC_HOOKS.md`) verifies the teacher has
   `SHARES_WITH {role:'teacher'}` on the submission linked to the report, and the `student_uid`
   owns that submission. Graph path checked:
   `(Teacher)-[:SHARES_WITH]->(Submission)<-[:REPORT_FOR]-(Report)` +

@@ -32,17 +32,21 @@ These sub-services exist across **all 6 Activity Domains** (Tasks, Goals, Habits
 **Responsibility:** CRUD operations and event publishing
 
 **Key Methods:**
-- `create()` - Create new entity
+- `create()` - Create new entity (calls `_post_create` hook)
 - `get()` - Get by UID
-- `update()` - Update entity
-- `delete()` - Delete entity
+- `update()` - Update entity (calls `_post_update` hook)
+- `delete()` - Delete entity (calls `_post_delete` hook)
 - `list()` - List with filters
 - `get_user_{entities}()` - Get all entities for user
+
+**Hooks (override in subclass):**
+- `_validate_create()` / `_validate_update()` — sync, pre-operation validation
+- `_post_create()` / `_post_update()` / `_post_delete()` — async, post-operation (event publishing)
 
 **When to use:**
 - Creating, reading, updating, or deleting entities
 - Basic queries without complex graph traversal
-- Publishing domain events after state changes
+- Publishing domain events after state changes (via post-hooks)
 
 **Dependencies:**
 - `backend: {Domain}Operations` (e.g., `TasksOperations`, `GoalsOperations`)

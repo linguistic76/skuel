@@ -37,7 +37,7 @@ SKUEL's service layer has **3 levels**:
 ```
 1. BaseService (7 mixins)          ← Foundation layer
    ├─ ConversionHelpersMixin        ← DTO conversion
-   ├─ CrudOperationsMixin           ← CRUD + ownership
+   ├─ CrudOperationsMixin           ← CRUD + ownership + lifecycle hooks
    ├─ SearchOperationsMixin         ← Search/filtering
    ├─ RelationshipOperationsMixin   ← Graph relationships
    ├─ TimeQueryMixin                ← Date-based queries
