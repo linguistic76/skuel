@@ -177,23 +177,40 @@ These violated fail-fast philosophy - driver is REQUIRED at bootstrap.
 
 **The Flow:**
 ```
-Task (add field) → to_neo4j_node() → Neo4j
-                     ← from_neo4j_node() ← Neo4j
+create: Task (add field) → to_neo4j_node() → Neo4j
+update: dict of changes  → to_neo4j_node() → Neo4j  (March 2026)
+read:                      ← from_neo4j_node() ← Neo4j
 ```
+
+Both `create()` and `update()` in `_CrudMixin` route through `to_neo4j_node()`, so services pass native Python types (dicts, enums, dates) and the mapper handles all Neo4j serialization (dicts → JSON strings, enums → values, dates → ISO strings). Services never call `json.dumps()` before `backend.update()`.
 
 **How it works:**
 ```python
 # In core/utils/neo4j_mapper.py
 
 def to_neo4j_node(entity: Any) -> dict:
-    """Uses Python introspection to serialize ANY dataclass"""
-    for field in fields(entity):  # ← Automatically discovers new fields
-        value = getattr(entity, field.name)
-        if isinstance(value, Enum):
-            node_data[field.name] = value.value  # ← Auto-handles enums
-        elif isinstance(value, date):
-            node_data[field.name] = value.isoformat()  # ← Auto-converts dates
-        # ... etc
+    """Uses Python introspection to serialize ANY dataclass or dict."""
+    # For dataclasses: iterates fields(entity)
+    # For dicts: iterates key/value pairs (used by update())
+    # Both paths apply the same serialization rules:
+    if isinstance(value, Enum):
+        node_data[field.name] = value.value  # ← Auto-handles enums
+    elif isinstance(value, date):
+        node_data[field.name] = value.isoformat()  # ← Auto-converts dates
+    elif isinstance(value, dict):
+        node_data[field.name] = json.dumps(value)  # ← Neo4j can't store nested dicts
+    # ... etc
+```
+
+**For custom Cypher** (services that bypass `UniversalNeo4jBackend`), two utilities handle the read side:
+```python
+from core.utils.neo4j_mapper import parse_neo4j_json, deserialize_json_fields
+
+# Single value — parse a JSON-encoded Neo4j property
+topics = parse_neo4j_json(record["key_topics"], default=[])
+
+# Multiple fields — deserialize several JSON fields in a dict
+deserialize_json_fields(insight_data, "related_entities", "recommended_actions", "supporting_data")
 ```
 
 **Proof:**
@@ -354,7 +371,7 @@ async def search_tasks(self, filters: Dict[str, Any]):
 │                    │  │                       │
 │ - fields(entity)   │  │ - create(entity)      │
 │ - get_type_hints() │  │ - get(uid)            │
-│ - isinstance()     │  │ - update(entity)      │
+│ - isinstance()     │  │ - update(uid, dict)   │
 │                    │  │ - delete(uid)         │
 │                    │  │ - list()              │
 └─────────┬──────────┘  └──────────┬────────────┘

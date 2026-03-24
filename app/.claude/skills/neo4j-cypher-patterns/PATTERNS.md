@@ -302,6 +302,44 @@ WHERE task IS NOT NULL
 | Multi-type | Match any of several rels | `[:A\|B\|C]` | Fast (multiple rel indexes) |
 | OPTIONAL MATCH | Nullable relationships | `OPTIONAL MATCH` | No cost for missing rels |
 | Relationship props | Metadata filtering | `WHERE r.prop >= x` | Post-match filter — no index |
+| JSON properties | Nested data in Neo4j | `to_neo4j_node()` / `parse_neo4j_json()` | N/A (Python layer) |
+
+---
+
+## Pattern 8: JSON Property Handling (Neo4j Limitation)
+
+**Problem**: Neo4j properties cannot store nested structures (dicts, lists of dicts). These must be stored as JSON strings and parsed on read.
+
+**Context**: `InsightStore` storing `related_entities` (list), `supporting_data` (dict); `ContentEnrichmentService` reading `key_topics` (list) from raw Cypher results.
+
+**The Standard Path (UniversalNeo4jBackend)**:
+```python
+# WRITE: Both create() and update() auto-serialize via to_neo4j_node()
+# Services pass native Python types — NO json.dumps() needed
+await self.backend.update(uid, {
+    "metadata": {"key": "val"},        # dict → json.dumps() by mapper
+    "form_schema": [{"type": "text"}], # list of dicts → json.dumps() by mapper
+    "priority": Priority.HIGH,         # enum → .value by mapper
+})
+
+# READ: from_neo4j_node() auto-deserializes using type hints
+entity = from_neo4j_node(record["n"], Task)  # JSON strings → dicts/lists based on type hints
+```
+
+**Custom Cypher Path** (services that bypass UniversalNeo4jBackend):
+```python
+from core.utils.neo4j_mapper import parse_neo4j_json, deserialize_json_fields
+
+# Single value — handles str, native types, None, and parse failures
+topics = parse_neo4j_json(record["key_topics"], default=[])
+metadata = parse_neo4j_json(record["metadata"], default={})
+
+# Multiple fields in a dict — modifies in place
+insight_data = dict(node)
+deserialize_json_fields(insight_data, "related_entities", "recommended_actions", "supporting_data")
+```
+
+**Key rule**: Services deal with native Python types. JSON serialization/deserialization is an adapter concern handled by the Neo4j mapper layer.
 
 ---
 
@@ -314,6 +352,7 @@ WHERE task IS NOT NULL
 5. **UNWIND** for batch operations — one query for N entities
 6. **No APOC in domain services** (SKUEL001) — pure Cypher only
 7. **No inline Cypher in services** — domain-specific Cypher belongs in domain backends (`domain_backends.py`). Services call `self.backend.method_name()`, never `self.backend.execute_query(cypher, params)`.
+8. **No json.dumps() in services** — `backend.update()` and `backend.create()` auto-serialize complex types via `to_neo4j_node()`. For custom Cypher reads, use `parse_neo4j_json()` / `deserialize_json_fields()`.
 
 ## Where Does Cypher Live?
 
@@ -323,6 +362,7 @@ WHERE task IS NOT NULL
 | Domain-specific relationships | Domain backend in `domain_backends.py` | `LessonBackend.mark_mastered()`, `SubmissionsBackend.link_to_exercise()` |
 | Cross-domain aggregation | Service files (exception to the rule) | `user_context_queries.py` MEGA-QUERY |
 | Generic hierarchy | `_HierarchyMixin` (shared by 6 Activity backends) | `get_children_raw()`, `create_hierarchy_relationship()` |
+| JSON property utilities | `core/utils/neo4j_mapper.py` | `parse_neo4j_json()`, `deserialize_json_fields()` |
 
 **17 domain backends** in `domain_backends.py`: TasksBackend, GoalsBackend, HabitsBackend, EventsBackend, PrinciplesBackend, ChoicesBackend, LessonBackend, KuBackend, LsBackend, LpBackend, ExerciseBackend, RevisedExerciseBackend, SubmissionsBackend, FormTemplateBackend, FormSubmissionBackend, GroupBackend, NotificationBackend.
 

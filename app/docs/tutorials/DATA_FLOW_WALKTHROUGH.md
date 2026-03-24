@@ -731,8 +731,11 @@ task_dto.status = EntityStatus.COMPLETED
 task_dto.completion_date = date.today()
 task_dto.updated_at = datetime.now()
 
-# Persist changes
-await backend.update(uid, task_dto.to_dict())
+# Persist changes — pass native Python types, backend auto-serializes
+await backend.update(uid, {"status": "completed", "metadata": {"reason": "done"}})
+# ↑ The dict is auto-serialized via to_neo4j_node() in _CrudMixin.update()
+#   dicts → JSON strings, enums → values, dates → ISO strings
+#   Services never call json.dumps() before backend.update().
 ```
 
 If we used frozen domain models directly, we'd have to create a new instance for every field change.
