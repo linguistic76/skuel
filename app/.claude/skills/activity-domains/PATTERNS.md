@@ -154,14 +154,20 @@ Common params: `user_uid`, `status_filter`, `sort_by`. Concrete facades add doma
 
 **Module-level helpers** (Python-side, in each `*_service.py` facade file):
 - `_compute_{domain}_stats(entities)` — stats from full set (all 11 domains, guaranteed `total` + `active`)
-- `_apply_{domain}_status_filter(entities, status_filter)` — status filter (Activity domains)
-- `_apply_{domain}_sort(entities, sort_by)` — pure sort logic (all 11 domains)
+- `_{DOMAIN}_FILTER_CONFIG: FilterConfig` — declarative filter predicate dict (7 domains; Principles uses multi-dimensional `_apply_principle_filters` instead; KU uses namespace filter; LS/LP have no filtering)
+- `_{DOMAIN}_SORT_CONFIG: SortConfig` — declarative sort key dict (all 11 domains)
+- `_apply_{domain}_sort(entities, sort_by)` — thin wrapper calling `apply_entity_sort()` with the domain's `SortConfig`
 - `_apply_task_secondary_filters(tasks, project, assignee, due_filter)` — Tasks only
-- `_apply_principle_filters(principles, category_filter, strength_filter, status_filter)` — Principles only
+- `_apply_principle_filters(principles, category_filter, strength_filter, status_filter)` — Principles only (multi-dimensional)
 - `_compute_task_metadata(all_tasks)` — Tasks: project/assignee lists
 - `_compute_principle_metadata(_all)` — Principles: categories from `PrincipleCategory` enum
 - `_compute_goal_metadata(_all)` — Goals: categories from `_GOAL_CATEGORIES` constant
 - `_compute_habit_metadata(_all)` — Habits: categories from `HabitCategory` enum
+
+**Shared generics** (`core/utils/list_helpers.py`):
+- `apply_entity_sort(entities, sort_by, config, default)` — config-driven sort
+- `apply_entity_filter(entities, filter_value, config)` — config-driven filter
+- `SortConfig`, `FilterConfig` — type aliases for declarative config dicts
 
 **Route file convention** (all 6 `*_ui.py` files, module-level not inside factory):
 - **Filters:** All 6 domains use `ActivityFilters` hierarchy from `form_helpers.py`. Goals, Habits, Events, Choices use base `ActivityFilters` + `parse_activity_filters()`. Tasks use `TaskFilters(ActivityFilters)` + `parse_task_filters()`. Principles use `PrincipleFilters(ActivityFilters)` + `parse_principle_filters()`.

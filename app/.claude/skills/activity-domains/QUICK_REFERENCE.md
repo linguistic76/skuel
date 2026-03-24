@@ -117,7 +117,7 @@ habits, stats = ctx["entities"], ctx["stats"]
 | Principles | `strength` | `all` |
 | Lesson/Ku/LS/LP/Exercise | `title` | `all` |
 
-Module-level helpers (each facade file): `_compute_{domain}_stats`, `_apply_{domain}_status_filter`, `_apply_{domain}_sort` (all 11), plus `_apply_task_secondary_filters` (Tasks), `_apply_principle_filters` (Principles), `_compute_task_metadata` (Tasks), `_compute_principle_metadata` (Principles), `_compute_goal_metadata` (Goals), `_compute_habit_metadata` (Habits)
+Module-level helpers (each facade file): `_compute_{domain}_stats` (all 11), `_{DOMAIN}_SORT_CONFIG` + `_apply_{domain}_sort` (all 11, config-driven via `apply_entity_sort`), `_{DOMAIN}_FILTER_CONFIG` (7 domains, config-driven via `apply_entity_filter`), plus `_apply_task_secondary_filters` (Tasks), `_apply_principle_filters` (Principles multi-dimensional), `_compute_*_metadata` (Tasks/Principles/Goals/Habits). Generics in `core/utils/list_helpers.py`.
 
 **Key files:** `core/services/filtered_context.py` (skeleton), `core/ports/filtered_context_protocols.py` (protocol), `core/ports/query_types.py` (ListContext + BaseStats), `core/utils/list_context_helpers.py` (typed accessors)
 

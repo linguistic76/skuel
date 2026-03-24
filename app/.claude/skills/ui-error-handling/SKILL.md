@@ -437,13 +437,13 @@ async def get_filtered_context(
         return await self.core.get_for_user_filtered(user_uid, "all")
 
     def apply_filters(all_tasks: list[Any]) -> list[Any]:
-        return _apply_task_status_filter(all_tasks, status_filter)
+        return apply_entity_filter(all_tasks, status_filter, _TASK_FILTER_CONFIG)
 
     return await build_filtered_context(
         fetch_all=fetch_all,
-        compute_stats=compute_task_stats,
+        compute_stats=_compute_task_stats,
         apply_filters=apply_filters,
-        apply_sort=apply_task_sort,
+        apply_sort=_apply_task_sort,  # delegates to apply_entity_sort() with _TASK_SORT_CONFIG
         sort_by=sort_by,
     )
 ```
@@ -808,13 +808,13 @@ async def get_filtered_context(
         return await self.core.get_for_user_filtered(user_uid, "all")
 
     def apply_filters(all_tasks: list[Any]) -> list[Any]:
-        return _apply_task_status_filter(all_tasks, status_filter)
+        return apply_entity_filter(all_tasks, status_filter, _TASK_FILTER_CONFIG)
 
     return await build_filtered_context(
         fetch_all=fetch_all,
-        compute_stats=compute_task_stats,
+        compute_stats=_compute_task_stats,
         apply_filters=apply_filters,
-        apply_sort=apply_task_sort,
+        apply_sort=_apply_task_sort,  # delegates to apply_entity_sort() with _TASK_SORT_CONFIG
         sort_by=sort_by,
     )
 

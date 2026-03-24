@@ -1133,19 +1133,20 @@ All 11 domain facades (6 Activity + 5 Curriculum) expose `get_filtered_context()
 
 ```python
 # Shared skeleton orchestrates: fetch → stats → filter → sort → return
+# Sort/filter logic is config-driven via declarative dicts (core/utils/list_helpers.py)
 async def get_filtered_context(self, user_uid, status_filter="active", sort_by="due_date"):
     async def fetch_all():
         return await self.core.get_for_user_filtered(user_uid, "all")
 
     def apply_filters(all_tasks):
-        filtered = _apply_status_filter(all_tasks, status_filter)
+        filtered = apply_entity_filter(all_tasks, status_filter, _TASK_FILTER_CONFIG)
         return _apply_task_secondary_filters(filtered, project, assignee, due_filter)
 
     return await build_filtered_context(
         fetch_all=fetch_all,
         compute_stats=_compute_task_stats,
         apply_filters=apply_filters,
-        apply_sort=_apply_task_sort,
+        apply_sort=_apply_task_sort,  # delegates to apply_entity_sort() with _TASK_SORT_CONFIG
         sort_by=sort_by,
         compute_metadata=_compute_task_metadata,  # Tasks only: projects/assignees
     )
@@ -1161,12 +1162,15 @@ async def get_filtered_context(self, user_uid, status_filter="active", sort_by="
 
 **Module-level helpers** (Python-side, in each `*_service.py` facade file):
 - `_compute_{domain}_stats(entities)` — stats from full set (all 11 domains, guaranteed `total` + `active`)
-- `_apply_{domain}_status_filter(entities, status_filter)` — status filter (Activity domains)
-- `_apply_{domain}_sort(entities, sort_by)` — pure sort logic (all 11 domains)
+- `_{DOMAIN}_SORT_CONFIG: SortConfig` — declarative sort key dict (all 11 domains), consumed by `apply_entity_sort()`
+- `_{DOMAIN}_FILTER_CONFIG: FilterConfig` — declarative filter predicate dict (7 domains), consumed by `apply_entity_filter()`
+- `_apply_{domain}_sort(entities, sort_by)` — thin wrapper delegating to `apply_entity_sort()` with domain config
 - `_apply_task_secondary_filters(tasks, project, assignee, due_filter)` — Tasks only
-- `_apply_principle_filters(principles, category_filter, strength_filter, status_filter)` — Principles only
+- `_apply_principle_filters(principles, category_filter, strength_filter, status_filter)` — Principles only (multi-dimensional)
 - `_compute_task_metadata(all_tasks)` — Tasks: project/assignee lists
 - `_compute_principle_metadata`, `_compute_goal_metadata`, `_compute_habit_metadata` — categories from enums
+
+**Shared generics** (`core/utils/list_helpers.py`): `apply_entity_sort()`, `apply_entity_filter()`, `SortConfig`, `FilterConfig` type aliases, `get_event_sort_datetime()`, `get_sequence_attr()`.
 
 **Intelligence integration:** `UserContextIntelligence.filtered_providers` dict maps domain names to `FilteredContextProvider` facades, enabling on-demand per-domain queries. UserContext is the broad snapshot; `get_filtered_context()` is the zoom lens.
 
