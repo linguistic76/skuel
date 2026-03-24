@@ -1024,12 +1024,8 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
                     self._to_domain_model(n, ChoiceDTO, Choice) for n in raw["ancestors"]
                 ],
                 "current": current_choice,
-                "siblings": [
-                    self._to_domain_model(n, ChoiceDTO, Choice) for n in raw["siblings"]
-                ],
-                "children": [
-                    self._to_domain_model(n, ChoiceDTO, Choice) for n in raw["children"]
-                ],
+                "siblings": [self._to_domain_model(n, ChoiceDTO, Choice) for n in raw["siblings"]],
+                "children": [self._to_domain_model(n, ChoiceDTO, Choice) for n in raw["children"]],
                 "depth": len(raw["ancestors"]),
             }
         )

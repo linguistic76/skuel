@@ -135,7 +135,7 @@ class TestDelete:
     async def test_delete_success_no_submissions(self):
         template = _make_template()
         backend = MagicMock()
-        backend.execute_query = AsyncMock(return_value=Result.ok([{"count": 0}]))
+        backend.count_submissions = AsyncMock(return_value=Result.ok(0))
         backend.get = AsyncMock(return_value=Result.ok(template))
         backend.delete = AsyncMock(return_value=Result.ok(True))
         event_bus = MagicMock()
@@ -152,7 +152,7 @@ class TestDelete:
     async def test_delete_blocked_by_submissions(self):
         """Cannot delete a template that has submissions."""
         backend = MagicMock()
-        backend.execute_query = AsyncMock(return_value=Result.ok([{"count": 3}]))
+        backend.count_submissions = AsyncMock(return_value=Result.ok(3))
         backend.delete = AsyncMock()
         service = _make_service(backend=backend)
 
@@ -166,7 +166,7 @@ class TestDelete:
     async def test_delete_publishes_event(self):
         template = _make_template()
         backend = MagicMock()
-        backend.execute_query = AsyncMock(return_value=Result.ok([{"count": 0}]))
+        backend.count_submissions = AsyncMock(return_value=Result.ok(0))
         backend.get = AsyncMock(return_value=Result.ok(template))
         backend.delete = AsyncMock(return_value=Result.ok(True))
         event_bus = MagicMock()

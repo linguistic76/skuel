@@ -446,48 +446,41 @@ class TestProcessExerciseSubmission:
     @pytest.mark.asyncio
     async def test_standard_linking_and_auto_share(self):
         backend = _make_backend()
-        # Sequence of execute_query calls:
-        # 1. Query exercise info
-        # 2. Check group membership
-        # 3. Get student uid for title gen
-        # 4. Count prior submissions
-        # 5. Set title
-        # 6. Create FULFILLS_EXERCISE
-        # 7. Auto-share with teacher
-        backend.execute_query = AsyncMock(
-            side_effect=[
-                Result.ok(
-                    [
-                        {
-                            "exercise_entity_type": "exercise",
-                            "scope": "assigned",
-                            "teacher_uid": "teacher_1",
-                            "student_uid": None,
-                            "exercise_title": "Write Essay",
-                            "group_uid": "grp_1",
-                        }
-                    ]
-                ),
-                Result.ok([{"student_uid": "user_1", "member_of_group": "grp_1"}]),
-                Result.ok([{"student_uid": "user_1"}]),
-                Result.ok([{"prior_count": 0}]),
-                Result.ok([]),
-                Result.ok([{"success": True}]),
-                Result.ok([{"success": True}]),
-            ]
+        backend.get_exercise_context = AsyncMock(
+            return_value=Result.ok(
+                [
+                    {
+                        "exercise_entity_type": "exercise",
+                        "scope": "assigned",
+                        "teacher_uid": "teacher_1",
+                        "student_uid": None,
+                        "exercise_title": "Write Essay",
+                        "group_uid": "grp_1",
+                    }
+                ]
+            )
         )
+        backend.verify_student_group_membership = AsyncMock(
+            return_value=Result.ok([{"student_uid": "user_1", "member_of_group": "grp_1"}])
+        )
+        backend.get_submission_owner = AsyncMock(
+            return_value=Result.ok([{"student_uid": "user_1"}])
+        )
+        backend.count_submissions_for_exercise = AsyncMock(return_value=Result.ok(0))
+        backend.update = AsyncMock(return_value=Result.ok(True))
+        backend.link_to_exercise = AsyncMock(return_value=Result.ok([{"success": True}]))
+        backend.auto_share_with_teacher = AsyncMock(return_value=Result.ok([{"success": True}]))
         service = _make_service(backend=backend)
 
         result = await service.process_exercise_submission("sub_1", "ex_1")
 
         assert result.is_ok
         assert result.value is True
-        assert backend.execute_query.await_count == 7
 
     @pytest.mark.asyncio
     async def test_not_assigned_scope_returns_false(self):
         backend = _make_backend()
-        backend.execute_query = AsyncMock(
+        backend.get_exercise_context = AsyncMock(
             return_value=Result.ok(
                 [
                     {
@@ -511,7 +504,7 @@ class TestProcessExerciseSubmission:
     @pytest.mark.asyncio
     async def test_exercise_not_found(self):
         backend = _make_backend()
-        backend.execute_query = AsyncMock(return_value=Result.ok([]))
+        backend.get_exercise_context = AsyncMock(return_value=Result.ok([]))
         service = _make_service(backend=backend)
 
         result = await service.process_exercise_submission("sub_1", "ex_missing")
@@ -522,7 +515,7 @@ class TestProcessExerciseSubmission:
     @pytest.mark.asyncio
     async def test_query_failure_returns_false(self):
         backend = _make_backend()
-        backend.execute_query = AsyncMock(
+        backend.get_exercise_context = AsyncMock(
             return_value=Result.fail(Errors.database("query", "timeout"))
         )
         service = _make_service(backend=backend)
@@ -535,35 +528,27 @@ class TestProcessExerciseSubmission:
     @pytest.mark.asyncio
     async def test_revised_exercise_path(self):
         backend = _make_backend()
-        backend.execute_query = AsyncMock(
-            side_effect=[
-                # 1. Query exercise
-                Result.ok(
-                    [
-                        {
-                            "exercise_entity_type": "revised_exercise",
-                            "scope": None,
-                            "teacher_uid": "teacher_1",
-                            "student_uid": "user_1",
-                            "exercise_title": "Revision",
-                            "group_uid": None,
-                        }
-                    ]
-                ),
-                # 2. Check submitter identity
-                Result.ok([{"student_uid": "user_1"}]),
-                # 3. Get student uid for title gen
-                Result.ok([{"student_uid": "user_1"}]),
-                # 4. Count prior submissions
-                Result.ok([{"prior_count": 0}]),
-                # 5. Set title
-                Result.ok([]),
-                # 6. FULFILLS_EXERCISE
-                Result.ok([{"success": True}]),
-                # 7. Auto-share
-                Result.ok([{"success": True}]),
-            ]
+        backend.get_exercise_context = AsyncMock(
+            return_value=Result.ok(
+                [
+                    {
+                        "exercise_entity_type": "revised_exercise",
+                        "scope": None,
+                        "teacher_uid": "teacher_1",
+                        "student_uid": "user_1",
+                        "exercise_title": "Revision",
+                        "group_uid": None,
+                    }
+                ]
+            )
         )
+        backend.get_submission_owner = AsyncMock(
+            return_value=Result.ok([{"student_uid": "user_1"}])
+        )
+        backend.count_submissions_for_exercise = AsyncMock(return_value=Result.ok(0))
+        backend.update = AsyncMock(return_value=Result.ok(True))
+        backend.link_to_exercise = AsyncMock(return_value=Result.ok([{"success": True}]))
+        backend.auto_share_with_teacher = AsyncMock(return_value=Result.ok([{"success": True}]))
         service = _make_service(backend=backend)
 
         result = await service.process_exercise_submission("sub_1", "re_1")
@@ -574,23 +559,23 @@ class TestProcessExerciseSubmission:
     @pytest.mark.asyncio
     async def test_wrong_student_for_revised_exercise(self):
         backend = _make_backend()
-        backend.execute_query = AsyncMock(
-            side_effect=[
-                Result.ok(
-                    [
-                        {
-                            "exercise_entity_type": "revised_exercise",
-                            "scope": None,
-                            "teacher_uid": "teacher_1",
-                            "student_uid": "user_2",
-                            "exercise_title": "Revision",
-                            "group_uid": None,
-                        }
-                    ]
-                ),
-                # Submitter is user_1, but exercise targets user_2
-                Result.ok([{"student_uid": "user_1"}]),
-            ]
+        backend.get_exercise_context = AsyncMock(
+            return_value=Result.ok(
+                [
+                    {
+                        "exercise_entity_type": "revised_exercise",
+                        "scope": None,
+                        "teacher_uid": "teacher_1",
+                        "student_uid": "user_2",
+                        "exercise_title": "Revision",
+                        "group_uid": None,
+                    }
+                ]
+            )
+        )
+        # Submitter is user_1, but exercise targets user_2
+        backend.get_submission_owner = AsyncMock(
+            return_value=Result.ok([{"student_uid": "user_1"}])
         )
         service = _make_service(backend=backend)
 
@@ -602,23 +587,23 @@ class TestProcessExerciseSubmission:
     @pytest.mark.asyncio
     async def test_not_in_group(self):
         backend = _make_backend()
-        backend.execute_query = AsyncMock(
-            side_effect=[
-                Result.ok(
-                    [
-                        {
-                            "exercise_entity_type": "exercise",
-                            "scope": "assigned",
-                            "teacher_uid": "teacher_1",
-                            "student_uid": None,
-                            "exercise_title": "Essay",
-                            "group_uid": "grp_1",
-                        }
-                    ]
-                ),
-                # Student not in group
-                Result.ok([{"student_uid": "user_1", "member_of_group": None}]),
-            ]
+        backend.get_exercise_context = AsyncMock(
+            return_value=Result.ok(
+                [
+                    {
+                        "exercise_entity_type": "exercise",
+                        "scope": "assigned",
+                        "teacher_uid": "teacher_1",
+                        "student_uid": None,
+                        "exercise_title": "Essay",
+                        "group_uid": "grp_1",
+                    }
+                ]
+            )
+        )
+        # Student not in group
+        backend.verify_student_group_membership = AsyncMock(
+            return_value=Result.ok([{"student_uid": "user_1", "member_of_group": None}])
         )
         service = _make_service(backend=backend)
 
@@ -631,73 +616,62 @@ class TestProcessExerciseSubmission:
     async def test_auto_title_generated(self):
         """When exercise has a title, submission gets an auto-generated title."""
         backend = _make_backend()
-        backend.execute_query = AsyncMock(
-            side_effect=[
-                Result.ok(
-                    [
-                        {
-                            "exercise_entity_type": "exercise",
-                            "scope": "assigned",
-                            "teacher_uid": "teacher_1",
-                            "student_uid": None,
-                            "exercise_title": "Write Essay",
-                            "group_uid": None,
-                        }
-                    ]
-                ),
-                # No group check needed (group_uid is None)
-                # Get student uid for title
-                Result.ok([{"student_uid": "user_1"}]),
-                # Prior count
-                Result.ok([{"prior_count": 0}]),
-                # Set title
-                Result.ok([]),
-                # FULFILLS_EXERCISE
-                Result.ok([{"success": True}]),
-                # Auto-share
-                Result.ok([{"success": True}]),
-            ]
+        backend.get_exercise_context = AsyncMock(
+            return_value=Result.ok(
+                [
+                    {
+                        "exercise_entity_type": "exercise",
+                        "scope": "assigned",
+                        "teacher_uid": "teacher_1",
+                        "student_uid": None,
+                        "exercise_title": "Write Essay",
+                        "group_uid": None,
+                    }
+                ]
+            )
         )
+        backend.get_submission_owner = AsyncMock(
+            return_value=Result.ok([{"student_uid": "user_1"}])
+        )
+        backend.count_submissions_for_exercise = AsyncMock(return_value=Result.ok(0))
+        backend.update = AsyncMock(return_value=Result.ok(True))
+        backend.link_to_exercise = AsyncMock(return_value=Result.ok([{"success": True}]))
+        backend.auto_share_with_teacher = AsyncMock(return_value=Result.ok([{"success": True}]))
         service = _make_service(backend=backend)
 
         result = await service.process_exercise_submission("sub_1", "ex_1")
 
         assert result.is_ok
         assert result.value is True
-        # Title update query should have been executed
-        assert backend.execute_query.await_count >= 4
+        # Title update should have been called
+        backend.update.assert_awaited()
 
     @pytest.mark.asyncio
     async def test_no_title_when_exercise_title_empty(self):
         """When exercise has no title, no title update is attempted."""
         backend = _make_backend()
-        backend.execute_query = AsyncMock(
-            side_effect=[
-                Result.ok(
-                    [
-                        {
-                            "exercise_entity_type": "exercise",
-                            "scope": "assigned",
-                            "teacher_uid": "teacher_1",
-                            "student_uid": None,
-                            "exercise_title": "",
-                            "group_uid": None,
-                        }
-                    ]
-                ),
-                # FULFILLS_EXERCISE
-                Result.ok([{"success": True}]),
-                # Auto-share
-                Result.ok([{"success": True}]),
-            ]
+        backend.get_exercise_context = AsyncMock(
+            return_value=Result.ok(
+                [
+                    {
+                        "exercise_entity_type": "exercise",
+                        "scope": "assigned",
+                        "teacher_uid": "teacher_1",
+                        "student_uid": None,
+                        "exercise_title": "",
+                        "group_uid": None,
+                    }
+                ]
+            )
         )
+        backend.link_to_exercise = AsyncMock(return_value=Result.ok([{"success": True}]))
+        backend.auto_share_with_teacher = AsyncMock(return_value=Result.ok([{"success": True}]))
         service = _make_service(backend=backend)
 
         result = await service.process_exercise_submission("sub_1", "ex_1")
 
         assert result.is_ok
-        # Only 3 queries (no title generation queries)
-        assert backend.execute_query.await_count == 3
+        assert result.value is True
 
 
 # ===========================================================================

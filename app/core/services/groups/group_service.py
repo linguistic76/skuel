@@ -116,15 +116,7 @@ class GroupService(BaseService):
             return result
 
         # Create OWNS relationship from teacher to group
-        owns_result = await self.backend.execute_query(
-            """
-            MATCH (teacher:User {uid: $teacher_uid})
-            MATCH (group:Group {uid: $group_uid})
-            MERGE (teacher)-[:OWNS]->(group)
-            RETURN true as success
-            """,
-            {"teacher_uid": entity.owner_uid, "group_uid": entity.uid},
-        )
+        owns_result = await self.backend.create_owns_relationship(entity.owner_uid, entity.uid)
         if owns_result.is_error:
             self.logger.warning(f"Failed to create OWNS relationship: {owns_result.error}")
 
@@ -169,22 +161,13 @@ class GroupService(BaseService):
         Returns:
             Result containing list of groups
         """
-        result = await self.backend.execute_query(
-            f"""
-            MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.MEMBER_OF}]->(group:Group)
-            WHERE group.is_active = true
-            RETURN group
-            ORDER BY group.created_at DESC
-            """,
-            {"user_uid": user_uid},
-        )
+        result = await self.backend.get_user_groups(user_uid)
 
         if result.is_error:
             return Result.fail(result.expect_error())
 
         groups = []
-        for record in result.value or []:
-            props = record["group"]
+        for props in result.value or []:
             try:
                 group = Group(**props)
                 groups.append(group)
@@ -234,21 +217,11 @@ class GroupService(BaseService):
                     )
                 )
 
-        result = await self.backend.execute_query(
-            f"""
-            MATCH (user:User {{uid: $user_uid}})
-            MATCH (group:Group {{uid: $group_uid}})
-            MERGE (user)-[r:{RelationshipName.MEMBER_OF}]->(group)
-            SET r.joined_at = datetime($joined_at),
-                r.role = $role
-            RETURN true as success
-            """,
-            {
-                "user_uid": user_uid,
-                "group_uid": group_uid,
-                "joined_at": datetime.now().isoformat(),
-                "role": role,
-            },
+        result = await self.backend.add_member(
+            group_uid=group_uid,
+            user_uid=user_uid,
+            joined_at=datetime.now().isoformat(),
+            role=role,
         )
 
         if result.is_error:
@@ -293,14 +266,7 @@ class GroupService(BaseService):
         Returns:
             Result[bool]: Success if removed
         """
-        result = await self.backend.execute_query(
-            f"""
-            MATCH (user:User {{uid: $user_uid}})-[r:{RelationshipName.MEMBER_OF}]->(group:Group {{uid: $group_uid}})
-            DELETE r
-            RETURN count(r) as deleted_count
-            """,
-            {"user_uid": user_uid, "group_uid": group_uid},
-        )
+        result = await self.backend.remove_member(group_uid=group_uid, user_uid=user_uid)
 
         if result.is_error:
             return Result.fail(result.expect_error())
@@ -341,17 +307,7 @@ class GroupService(BaseService):
         Returns:
             Result containing list of member dicts
         """
-        result = await self.backend.execute_query(
-            f"""
-            MATCH (user:User)-[r:{RelationshipName.MEMBER_OF}]->(group:Group {{uid: $group_uid}})
-            RETURN user.uid as user_uid,
-                   user.name as user_name,
-                   r.role as role,
-                   r.joined_at as joined_at
-            ORDER BY r.joined_at
-            """,
-            {"group_uid": group_uid},
-        )
+        result = await self.backend.get_members(group_uid)
 
         if result.is_error:
             return Result.fail(result.expect_error())
@@ -374,20 +330,7 @@ class GroupService(BaseService):
 
     async def _get_member_count(self, group_uid: str) -> Result[int]:
         """Get current member count for a group."""
-        result = await self.backend.execute_query(
-            f"""
-            MATCH (user:User)-[:{RelationshipName.MEMBER_OF}]->(group:Group {{uid: $group_uid}})
-            RETURN count(user) as member_count
-            """,
-            {"group_uid": group_uid},
-        )
-
-        if result.is_error:
-            return Result.fail(result.expect_error())
-
-        records = result.value or []
-        count = records[0]["member_count"] if records else 0
-        return Result.ok(count)
+        return await self.backend.get_member_count(group_uid)
 
 
 async def _publish_event(

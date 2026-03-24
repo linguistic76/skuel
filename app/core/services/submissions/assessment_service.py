@@ -21,7 +21,6 @@ from core.events.submission_events import AssessmentCreated
 from core.models.entity import Entity
 from core.models.entity_types import SubmissionEntity
 from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
-from core.models.relationship_names import RelationshipName
 from core.models.report.submission_report import SubmissionReport
 from core.models.submissions.submission_dto import SubmissionDTO
 from core.ports import BackendOperations
@@ -85,15 +84,7 @@ class AssessmentService:
         from core.models.enums.metadata_enums import Visibility
 
         # Verify teacher has authority over student (share an active group)
-        authority_result = await self.backend.execute_query(
-            f"""
-            MATCH (teacher:User {{uid: $teacher_uid}})-[:{RelationshipName.OWNS.value}]->(g:Group)
-                  <-[:{RelationshipName.MEMBER_OF.value}]-(student:User {{uid: $subject_uid}})
-            WHERE g.is_active = true
-            RETURN g.uid AS group_uid LIMIT 1
-            """,
-            {"teacher_uid": teacher_uid, "subject_uid": subject_uid},
-        )
+        authority_result = await self.backend.verify_teacher_authority(teacher_uid, subject_uid)
 
         if authority_result.is_error:
             self.logger.error(
@@ -132,15 +123,7 @@ class AssessmentService:
             return Result.fail(result.expect_error())
 
         # Create ASSESSMENT_OF relationship
-        assess_result = await self.backend.execute_query(
-            f"""
-            MATCH (assessment:Entity {{uid: $assessment_uid}})
-            MATCH (u:User {{uid: $subject_uid}})
-            MERGE (assessment)-[:{RelationshipName.ASSESSMENT_OF.value}]->(u)
-            RETURN true AS success
-            """,
-            {"assessment_uid": uid, "subject_uid": subject_uid},
-        )
+        assess_result = await self.backend.create_assessment_relationship(uid, subject_uid)
 
         if assess_result.is_error:
             self.logger.error(f"Failed to create ASSESSMENT_OF relationship: {assess_result.error}")
@@ -153,20 +136,8 @@ class AssessmentService:
             )
 
         # Auto-share with student
-        share_result = await self.backend.execute_query(
-            """
-            MATCH (student:User {uid: $subject_uid})
-            MATCH (assessment:Entity {uid: $assessment_uid})
-            MERGE (student)-[rel:{RelationshipName.SHARES_WITH.value}]->(assessment)
-            SET rel.shared_at = datetime($now),
-                rel.role = 'student'
-            RETURN true AS success
-            """,
-            {
-                "subject_uid": subject_uid,
-                "assessment_uid": uid,
-                "now": datetime.now().isoformat(),
-            },
+        share_result = await self.backend.auto_share_assessment_with_student(
+            subject_uid, uid, datetime.now().isoformat()
         )
 
         if share_result.is_error:
@@ -205,16 +176,7 @@ class AssessmentService:
         Returns:
             Result containing list of EXERCISE_REPORT entities
         """
-        result = await self.backend.execute_query(
-            f"""
-            MATCH (report:Entity)-[:{RelationshipName.ASSESSMENT_OF.value}]->(u:User {{uid: $student_uid}})
-            WHERE report.entity_type = 'exercise_report'
-            RETURN report
-            ORDER BY report.created_at DESC
-            LIMIT $limit
-            """,
-            {"student_uid": student_uid, "limit": limit},
-        )
+        result = await self.backend.get_assessments_for_student_raw(student_uid, limit)
 
         if result.is_error:
             return Result.fail(result.expect_error())

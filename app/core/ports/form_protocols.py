@@ -38,6 +38,8 @@ class FormTemplateBackendOperations(BackendOperations["FormTemplate"], Protocol)
 
     async def get_forms_for_lesson(self, lesson_uid: str) -> Result[list[dict[str, Any]]]: ...
 
+    async def count_submissions(self, template_uid: str) -> Result[int]: ...
+
 
 class FormSubmissionBackendOperations(BackendOperations["FormSubmission"], Protocol):
     """Backend operations for FormSubmission — base CRUD + domain-specific methods.
@@ -60,6 +62,8 @@ class FormSubmissionBackendOperations(BackendOperations["FormSubmission"], Proto
     async def get_submissions_for_template(
         self, form_template_uid: str
     ) -> Result[list[dict[str, Any]]]: ...
+
+    async def find_admin_user_uid(self, admin_role: str) -> Result[str | None]: ...
 
 
 # ========================================================================

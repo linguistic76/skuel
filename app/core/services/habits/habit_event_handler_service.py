@@ -584,19 +584,7 @@ class HabitEventHandlerService:
         Returns:
             Result containing list of badge dicts with details
         """
-        query = f"""
-        MATCH (user:User {{uid: $user_uid}})-[r:{RelationshipName.EARNED_BADGE.value}]->(badge:Achievement)
-        RETURN badge.badge_id as badge_id,
-               badge.name as badge_name,
-               badge.description as description,
-               badge.tier as tier,
-               r.earned_at as earned_at,
-               r.streak_length as streak_length,
-               r.habit_uid as habit_uid
-        ORDER BY r.earned_at DESC
-        """
-
-        result = await self.backend.execute_query(query, {"user_uid": user_uid})
+        result = await self.backend.get_user_badges(user_uid)
         if result.is_error:
             return result
 
@@ -625,16 +613,7 @@ class HabitEventHandlerService:
         Returns:
             Result containing list of badge dicts
         """
-        query = f"""
-        MATCH (habit:Habit {{uid: $habit_uid}})-[:{RelationshipName.UNLOCKED_ACHIEVEMENT.value}]->(badge:Achievement)
-        RETURN badge.badge_id as badge_id,
-               badge.name as badge_name,
-               badge.description as description,
-               badge.tier as tier
-        ORDER BY badge.tier
-        """
-
-        result = await self.backend.execute_query(query, {"habit_uid": habit_uid})
+        result = await self.backend.get_habit_badges(habit_uid)
         if result.is_error:
             return result
 
@@ -658,28 +637,11 @@ class HabitEventHandlerService:
         self, user_uid: str, habit_uid: str, badge_id: str
     ) -> bool:
         """Check if user has already earned this badge for this habit."""
-        query = f"""
-        MATCH (user:User {{uid: $user_uid}})-[r:{RelationshipName.EARNED_BADGE.value}]->(badge:Achievement {{badge_id: $badge_id}})
-        WHERE r.habit_uid = $habit_uid
-        RETURN count(r) > 0 as already_earned
-        """
-
-        result = await self.backend.execute_query(
-            query,
-            {
-                "user_uid": user_uid,
-                "habit_uid": habit_uid,
-                "badge_id": badge_id,
-            },
-        )
+        result = await self.backend.check_badge_already_earned(user_uid, habit_uid, badge_id)
         if result.is_error:
             self.logger.error(f"Failed to check badge: {result.error}")
             return False
-
-        if not result.value:
-            return False
-
-        return result.value[0].get("already_earned", False)
+        return result.value
 
     async def _award_badge(
         self,
@@ -690,46 +652,13 @@ class HabitEventHandlerService:
         occurred_at: datetime,
     ) -> Result[bool]:
         """Create achievement record and link to user."""
-        query = f"""
-        // Get or create achievement badge
-        MERGE (badge:Achievement {{badge_id: $badge_id}})
-        ON CREATE SET
-            badge.name = $badge_name,
-            badge.description = $badge_description,
-            badge.tier = $badge_tier,
-            badge.created_at = datetime()
-
-        // Get user and habit
-        WITH badge
-        MATCH (user:User {{uid: $user_uid}})
-        MATCH (habit:Habit {{uid: $habit_uid}})
-
-        // Create EARNED_BADGE relationship
-        CREATE (user)-[r:{RelationshipName.EARNED_BADGE.value} {{
-            earned_at: datetime($occurred_at),
-            streak_length: $streak_length,
-            habit_uid: $habit_uid
-        }}]->(badge)
-
-        // Also link achievement to the habit for context
-        MERGE (habit)-[:{RelationshipName.UNLOCKED_ACHIEVEMENT.value}]->(badge)
-
-        RETURN badge.badge_id as badge_id
-        """
-        result = await self.backend.execute_query(
-            query,
-            {
-                "user_uid": user_uid,
-                "habit_uid": habit_uid,
-                "badge_id": badge_info["badge_id"],
-                "badge_name": badge_info["name"],
-                "badge_description": badge_info["description"],
-                "badge_tier": badge_info["tier"],
-                "streak_length": streak_length,
-                "occurred_at": occurred_at.isoformat(),
-            },
+        return await self.backend.award_badge(
+            user_uid=user_uid,
+            habit_uid=habit_uid,
+            badge_id=badge_info["badge_id"],
+            badge_name=badge_info["name"],
+            badge_description=badge_info["description"],
+            badge_tier=badge_info["tier"],
+            streak_length=streak_length,
+            occurred_at=occurred_at.isoformat(),
         )
-        if result.is_error:
-            return Result.fail(result.expect_error())
-
-        return Result.ok(True)

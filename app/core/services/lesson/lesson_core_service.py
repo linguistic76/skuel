@@ -391,67 +391,7 @@ class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], Entit
                 print(f"Prerequisites: {len(context['prerequisites'])}")
                 print(f"Mastered by: {context['mastery_count']} users")
         """
-        # Build graph-native query - fetches everything in ONE round-trip
-        query = """
-        MATCH (ku:Entity {uid: $uid})
-
-        // Fetch prerequisites (1-hop incoming REQUIRES_KNOWLEDGE)
-        OPTIONAL MATCH (ku)-[r1:REQUIRES_KNOWLEDGE]->(prereq:Entity)
-        WHERE coalesce(r1.confidence, 1.0) >= $min_confidence
-        WITH ku, collect(DISTINCT {
-            uid: prereq.uid,
-            title: prereq.title,
-            confidence: coalesce(r1.confidence, 1.0)
-        }) as prerequisites
-
-        // Fetch dependents (who needs this KU - outgoing REQUIRES_KNOWLEDGE)
-        OPTIONAL MATCH (dependent:Entity)-[r2:REQUIRES_KNOWLEDGE]->(ku)
-        WHERE coalesce(r2.confidence, 1.0) >= $min_confidence
-        WITH ku, prerequisites, collect(DISTINCT {
-            uid: dependent.uid,
-            title: dependent.title,
-            confidence: coalesce(r2.confidence, 1.0)
-        }) as dependents
-
-        // Fetch related knowledge (lateral connections)
-        OPTIONAL MATCH (ku)-[r3:RELATED_TO|EXTENDS_PATTERN|DEEPENS_UNDERSTANDING]-(related:Entity)
-        WHERE coalesce(r3.confidence, 1.0) >= $min_confidence * 0.85
-        WITH ku, prerequisites, dependents, collect(DISTINCT {
-            uid: related.uid,
-            title: related.title,
-            confidence: coalesce(r3.confidence, 1.0),
-            relationship_type: type(r3)
-        }) as related
-
-        // Fetch mastery statistics (how many users mastered this)
-        OPTIONAL MATCH (ku)<-[:MASTERED]-(user:User)
-        WITH ku, prerequisites, dependents, related, count(DISTINCT user) as mastery_count
-
-        // Fetch similar knowledge (shared neighbors - Jaccard similarity)
-        OPTIONAL MATCH (ku)-[]-(shared)-[]-(similar:Entity)
-        WHERE similar <> ku
-        WITH ku, prerequisites, dependents, related, mastery_count,
-             similar, count(DISTINCT shared) as shared_count
-
-        // Collect all similar nodes, then filter by shared_count
-        WITH ku, prerequisites, dependents, related, mastery_count,
-             collect(DISTINCT {
-                 uid: similar.uid,
-                 title: similar.title,
-                 shared_neighbors: shared_count
-             }) as all_similar
-
-        // Filter to nodes with 2+ shared connections and take top 5
-        WITH ku, prerequisites, dependents, related, mastery_count,
-             [s IN all_similar WHERE s.shared_neighbors >= 2][0..5] as similar_knowledge
-
-        RETURN ku, prerequisites, dependents, related, mastery_count, similar_knowledge
-        """
-
-        params = {"uid": uid, "min_confidence": min_confidence}
-
-        # Execute single query via protocol-compliant backend
-        result = await self.backend.execute_query(query, params)
+        result = await self.backend.get_with_context_raw(uid, min_confidence)
         if result.is_error:
             return Result.fail(result.expect_error())
 
@@ -737,14 +677,7 @@ class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], Entit
             if result.is_ok:
                 mastery = result.value  # 0.85
         """
-        # Query graph for mastery relationship
-        query = """
-        MATCH (user:User {uid: $user_uid})-[r:MASTERED]->(ku:Entity {uid: $ku_uid})
-        RETURN r.level as mastery
-        """
-        params = {"user_uid": user_uid, "ku_uid": ku_uid}
-
-        result = await self.backend.execute_query(query, params)
+        result = await self.backend.get_user_mastery(user_uid, ku_uid)
 
         if result.is_error:
             return Result.fail(result.expect_error())
@@ -790,13 +723,7 @@ class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], Entit
 
         See: /docs/patterns/UNIVERSAL_HIERARCHICAL_PATTERN.md
         """
-        query = f"""
-        MATCH (parent:Entity {{uid: $parent_uid}})-[r:ORGANIZES*1..{depth}]->(child:Entity)
-        RETURN child, r
-        ORDER BY r[0].order ASC
-        """
-
-        result = await self.backend.execute_query(query, {"parent_uid": parent_uid})
+        result = await self.backend.get_organized_children_deep(parent_uid, depth)
         if result.is_error:
             return Result.fail(result.expect_error())
 
@@ -829,13 +756,7 @@ class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], Entit
 
         See: /docs/patterns/UNIVERSAL_HIERARCHICAL_PATTERN.md
         """
-        query = """
-        MATCH (parent:Entity)-[:ORGANIZES]->(child:Entity {uid: $entity_uid})
-        RETURN parent
-        ORDER BY parent.title
-        """
-
-        result = await self.backend.execute_query(query, {"entity_uid": entity_uid})
+        result = await self.backend.get_parent_organizers_raw(entity_uid)
         if result.is_error:
             return Result.fail(result.expect_error())
 
@@ -864,61 +785,25 @@ class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], Entit
 
         See: /docs/patterns/UNIVERSAL_HIERARCHICAL_PATTERN.md
         """
-        # Get ancestors
-        ancestors_query = """
-        MATCH path = (ancestor:Entity)-[:ORGANIZES*]->(ku:Entity {uid: $entity_uid})
-        RETURN ancestor, length(path) as depth
-        ORDER BY depth DESC
-        """
+        raw_result = await self.backend.get_hierarchy_raw(entity_uid)
+        if raw_result.is_error:
+            return Result.fail(raw_result)
 
-        # Get children
-        children_query = """
-        MATCH (ku:Entity {uid: $entity_uid})-[:ORGANIZES]->(child:Entity)
-        RETURN child
-        ORDER BY child.title
-        """
-
-        # Get siblings (entities with same parents)
-        siblings_query = """
-        MATCH (parent:Entity)-[:ORGANIZES]->(sibling:Entity)
-        WHERE (parent)-[:ORGANIZES]->(:Entity {uid: $entity_uid})
-        AND sibling.uid <> $entity_uid
-        RETURN DISTINCT sibling
-        ORDER BY sibling.title
-        """
-
-        # Execute queries
-        ancestors_result = await self.backend.execute_query(
-            ancestors_query, {"entity_uid": entity_uid}
-        )
-        children_result = await self.backend.execute_query(
-            children_query, {"entity_uid": entity_uid}
-        )
-        siblings_result = await self.backend.execute_query(
-            siblings_query, {"entity_uid": entity_uid}
-        )
-
-        if ancestors_result.is_error:
-            return Result.fail(ancestors_result.expect_error())
-        if children_result.is_error:
-            return Result.fail(children_result.expect_error())
-        if siblings_result.is_error:
-            return Result.fail(siblings_result.expect_error())
+        raw = raw_result.value
 
         hierarchy = {
             "ancestors": [
                 {"uid": r["ancestor"]["uid"], "title": r["ancestor"]["title"], "level": r["depth"]}
-                for r in ancestors_result.value
+                for r in raw["ancestors"]
             ],
             "children": [
-                {"uid": r["child"]["uid"], "title": r["child"]["title"]}
-                for r in children_result.value
+                {"uid": r["child"]["uid"], "title": r["child"]["title"]} for r in raw["children"]
             ],
             "siblings": [
                 {"uid": r["sibling"]["uid"], "title": r["sibling"]["title"]}
-                for r in siblings_result.value
+                for r in raw["siblings"]
             ],
-            "depth": len(ancestors_result.value),
+            "depth": len(raw["ancestors"]),
         }
 
         self.logger.info(
@@ -970,14 +855,7 @@ class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], Entit
             )
 
         # Check for cycle prevention
-        cycle_query = """
-        MATCH path = (child:Entity {uid: $child_uid})-[:ORGANIZES*]->(parent:Entity {uid: $parent_uid})
-        RETURN length(path) as cycle_length
-        LIMIT 1
-        """
-        cycle_result = await self.backend.execute_query(
-            cycle_query, {"parent_uid": parent_uid, "child_uid": child_uid}
-        )
+        cycle_result = await self.backend.check_organizes_cycle(parent_uid, child_uid)
         if cycle_result.is_error:
             return Result.fail(cycle_result.expect_error())
 
@@ -990,26 +868,7 @@ class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], Entit
             )
 
         # Create ORGANIZES relationship
-        query = """
-        MATCH (parent:Entity {uid: $parent_uid})
-        MATCH (child:Entity {uid: $child_uid})
-        MERGE (parent)-[r:ORGANIZES]->(child)
-        SET r.order = $order,
-            r.importance = $importance,
-            r.created_at = COALESCE(r.created_at, datetime()),
-            r.updated_at = datetime()
-        RETURN r
-        """
-
-        result = await self.backend.execute_query(
-            query,
-            {
-                "parent_uid": parent_uid,
-                "child_uid": child_uid,
-                "order": order,
-                "importance": importance,
-            },
-        )
+        result = await self.backend.create_organizes(parent_uid, child_uid, order, importance)
         if result.is_error:
             return Result.fail(result.expect_error())
 
@@ -1048,15 +907,7 @@ class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], Entit
 
         See: /docs/patterns/UNIVERSAL_HIERARCHICAL_PATTERN.md
         """
-        query = """
-        MATCH (parent:Entity {uid: $parent_uid})-[r:ORGANIZES]->(child:Entity {uid: $child_uid})
-        DELETE r
-        RETURN count(r) as deleted
-        """
-
-        result = await self.backend.execute_query(
-            query, {"parent_uid": parent_uid, "child_uid": child_uid}
-        )
+        result = await self.backend.delete_organizes(parent_uid, child_uid)
         if result.is_error:
             return Result.fail(result.expect_error())
 

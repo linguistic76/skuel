@@ -154,20 +154,8 @@ class KuIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", "Ku"])
 
     @with_error_handling("get_usage_summary", error_type="database", uid_param="ku_uid")
     async def get_usage_summary(self, ku_uid: str) -> Result[dict[str, int]]:
-        """Count lessons (USES_KU), learning steps (TRAINS_KU), and organized children (ORGANIZES).
-
-        Single Cypher query for efficiency.
-        """
-        query = """
-            MATCH (ku:Entity:Ku {uid: $ku_uid})
-            OPTIONAL MATCH (lesson:Entity)-[:USES_KU]->(ku)
-            OPTIONAL MATCH (ls:Entity)-[:TRAINS_KU]->(ku)
-            OPTIONAL MATCH (ku)-[:ORGANIZES]->(child:Entity)
-            RETURN count(DISTINCT lesson) as lessons,
-                   count(DISTINCT ls) as learning_steps,
-                   count(DISTINCT child) as organized_children
-        """
-        result = await self.backend.execute_query(query, {"ku_uid": ku_uid})
+        """Count lessons (USES_KU), learning steps (TRAINS_KU), and organized children (ORGANIZES)."""
+        result = await self.backend.get_usage_summary(ku_uid)
         if result.is_error:
             return Result.fail(result.expect_error())
 
@@ -187,11 +175,7 @@ class KuIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", "Ku"])
     @with_error_handling("is_trained", error_type="database", uid_param="ku_uid")
     async def is_trained(self, ku_uid: str) -> Result[bool]:
         """Check if any Learning Step trains this Ku via TRAINS_KU."""
-        query = """
-            MATCH (ls:Entity)-[:TRAINS_KU]->(ku:Entity:Ku {uid: $ku_uid})
-            RETURN count(ls) > 0 as trained
-        """
-        result = await self.backend.execute_query(query, {"ku_uid": ku_uid})
+        result = await self.backend.is_trained(ku_uid)
         if result.is_error:
             return Result.fail(result.expect_error())
 
@@ -201,11 +185,7 @@ class KuIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", "Ku"])
     @with_error_handling("is_organized", error_type="database", uid_param="ku_uid")
     async def is_organized(self, ku_uid: str) -> Result[bool]:
         """Check if this Ku has ORGANIZES children (acts as MOC)."""
-        query = """
-            MATCH (ku:Entity:Ku {uid: $ku_uid})-[:ORGANIZES]->(child:Entity)
-            RETURN count(child) > 0 as organized
-        """
-        result = await self.backend.execute_query(query, {"ku_uid": ku_uid})
+        result = await self.backend.is_organized(ku_uid)
         if result.is_error:
             return Result.fail(result.expect_error())
 
@@ -215,11 +195,7 @@ class KuIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", "Ku"])
     @with_error_handling("get_organization_depth", error_type="database", uid_param="ku_uid")
     async def get_organization_depth(self, ku_uid: str) -> Result[int]:
         """Get depth of the ORGANIZES tree below this Ku."""
-        query = """
-            MATCH path = (ku:Entity:Ku {uid: $ku_uid})-[:ORGANIZES*]->(descendant:Entity)
-            RETURN max(length(path)) as max_depth
-        """
-        result = await self.backend.execute_query(query, {"ku_uid": ku_uid})
+        result = await self.backend.get_organization_depth(ku_uid)
         if result.is_error:
             return Result.fail(result.expect_error())
 

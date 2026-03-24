@@ -711,10 +711,11 @@ async def compose_services(
         logger.info("✅ Form services created (FormTemplate + FormSubmission)")
 
         # Create group service (ADR-040: Teacher Assignment Workflow)
+        from adapters.persistence.neo4j.domain_backends import GroupBackend
         from core.models.group.group import Group
         from core.services.groups import GroupService
 
-        group_backend = UniversalNeo4jBackend[Group](
+        group_backend = GroupBackend(
             driver=driver,
             label=NeoLabel.GROUP,
             entity_class=Group,
@@ -735,9 +736,11 @@ async def compose_services(
         logger.info("✅ TeacherReviewService created (ADR-040)")
 
         # Create notification service
+        from adapters.persistence.neo4j.domain_backends import NotificationBackend
         from core.services.notifications.notification_service import NotificationService
 
-        notification_service = NotificationService(executor=query_executor)
+        notification_backend = NotificationBackend(executor=query_executor)
+        notification_service = NotificationService(executor=notification_backend)
         logger.info("✅ NotificationService created")
 
         # Seed default transcript exercise (idempotent create/update)

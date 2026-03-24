@@ -118,7 +118,6 @@ class EventsCoreService(BaseService["EventsOperations", Event]):
         Returns:
             None if valid, Result.fail() with validation error if invalid
         """
-        from core.utils.result_simplified import Errors
 
         # Business Rule: Event duration sanity check
         # Catches data entry errors and suggests better patterns
@@ -159,7 +158,6 @@ class EventsCoreService(BaseService["EventsOperations", Event]):
         Returns:
             None if valid, Result.fail() with validation error if invalid
         """
-        from core.utils.result_simplified import Errors
 
         # Business Rule 1: Past event immutability (with notes exception)
         # Past events are historical records, but allow adding notes retrospectively

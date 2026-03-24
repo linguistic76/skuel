@@ -199,9 +199,9 @@ class TestExerciseServiceCurriculumLinking:
 
     @pytest.mark.anyio
     async def test_get_exercises_for_curriculum_success(self):
-        """get_exercises_for_curriculum should return exercises requiring this KU."""
+        """get_exercises_for_curriculum should delegate to backend.get_exercises_for_curriculum."""
         service, backend = self._make_service()
-        backend.execute_query.return_value = Result.ok(
+        backend.get_exercises_for_curriculum.return_value = Result.ok(
             [
                 {
                     "uid": "ex_essay_123",
@@ -218,12 +218,13 @@ class TestExerciseServiceCurriculumLinking:
         assert result.is_ok
         assert len(result.value) == 1
         assert result.value[0]["uid"] == "ex_essay_123"
+        backend.get_exercises_for_curriculum.assert_called_once_with("ku_python_abc")
 
     @pytest.mark.anyio
     async def test_get_exercises_for_curriculum_empty(self):
         """get_exercises_for_curriculum should return empty list when no exercises link."""
         service, backend = self._make_service()
-        backend.execute_query.return_value = Result.ok([])
+        backend.get_exercises_for_curriculum.return_value = Result.ok([])
 
         result = await service.get_exercises_for_curriculum("ku_unused_abc")
 

@@ -368,7 +368,7 @@ class TestShareSubmission:
         submission = _make_submission()
         backend = MagicMock()
         backend.get = AsyncMock(return_value=Result.ok(submission))
-        backend.execute_query = AsyncMock(return_value=Result.ok([{"uid": "admin_user"}]))
+        backend.find_admin_user_uid = AsyncMock(return_value=Result.ok("admin_user"))
 
         sharing_service = MagicMock()
         sharing_service.share = AsyncMock(return_value=Result.ok(True))

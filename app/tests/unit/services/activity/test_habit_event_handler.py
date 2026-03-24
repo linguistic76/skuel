@@ -39,6 +39,10 @@ def mock_backend() -> Mock:
     backend.get = AsyncMock(return_value=Result.ok(None))
     backend.update = AsyncMock(return_value=Result.ok({}))
     backend.execute_query = AsyncMock(return_value=Result.ok([]))
+    backend.get_user_badges = AsyncMock(return_value=Result.ok([]))
+    backend.get_habit_badges = AsyncMock(return_value=Result.ok([]))
+    backend.check_badge_already_earned = AsyncMock(return_value=Result.ok(False))
+    backend.award_badge = AsyncMock(return_value=Result.ok(True))
     return backend
 
 
@@ -451,11 +455,8 @@ class TestHandleHabitStreakMilestone:
         self, service: HabitEventHandlerService, mock_backend: Mock
     ):
         """Badge is awarded for a valid milestone streak."""
-        # _check_badge_already_earned returns False
-        mock_backend.execute_query.side_effect = [
-            Result.ok([{"already_earned": False}]),  # check query
-            Result.ok([{"badge_id": "habit_week_warrior"}]),  # award query
-        ]
+        mock_backend.check_badge_already_earned.return_value = Result.ok(False)
+        mock_backend.award_badge.return_value = Result.ok(True)
 
         event = HabitStreakMilestone(
             habit_uid="habit_test_abc",
@@ -467,8 +468,8 @@ class TestHandleHabitStreakMilestone:
 
         await service.handle_habit_streak_milestone(event)
 
-        # Two execute_query calls: check + award
-        assert mock_backend.execute_query.call_count == 2
+        mock_backend.check_badge_already_earned.assert_called_once()
+        mock_backend.award_badge.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_non_milestone_ignored(
@@ -485,14 +486,15 @@ class TestHandleHabitStreakMilestone:
 
         await service.handle_habit_streak_milestone(event)
 
-        mock_backend.execute_query.assert_not_called()
+        mock_backend.check_badge_already_earned.assert_not_called()
+        mock_backend.award_badge.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_duplicate_badge_prevented(
         self, service: HabitEventHandlerService, mock_backend: Mock
     ):
         """Already-earned badge is not awarded again."""
-        mock_backend.execute_query.return_value = Result.ok([{"already_earned": True}])
+        mock_backend.check_badge_already_earned.return_value = Result.ok(True)
 
         event = HabitStreakMilestone(
             habit_uid="habit_test_abc",
@@ -504,8 +506,8 @@ class TestHandleHabitStreakMilestone:
 
         await service.handle_habit_streak_milestone(event)
 
-        # Only the check query, no award query
-        assert mock_backend.execute_query.call_count == 1
+        mock_backend.check_badge_already_earned.assert_called_once()
+        mock_backend.award_badge.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_fire_and_forget_contract(
@@ -514,7 +516,7 @@ class TestHandleHabitStreakMilestone:
         """Exceptions are logged, never propagated."""
         from neo4j.exceptions import ServiceUnavailable
 
-        mock_backend.execute_query.side_effect = ServiceUnavailable("connection lost")
+        mock_backend.check_badge_already_earned.side_effect = ServiceUnavailable("connection lost")
 
         event = HabitStreakMilestone(
             habit_uid="habit_test_abc",

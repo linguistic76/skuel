@@ -35,7 +35,10 @@ def _make_entity(**overrides: object) -> RevisedExercise:
 @pytest.fixture
 def mock_backend():
     backend = AsyncMock()
-    backend.execute_query = AsyncMock()
+    backend.verify_teacher_authority = AsyncMock()
+    backend.create_owns_relationship = AsyncMock()
+    backend.auto_share_with_student = AsyncMock()
+    backend.list_for_student = AsyncMock()
     backend.create = AsyncMock()
     backend.get_revision_chain = AsyncMock(return_value=Result.ok([]))
     return backend
@@ -52,7 +55,7 @@ class TestVerifyTeacherAuthority:
     @pytest.mark.asyncio
     async def test_rejects_when_no_authority(self, service, mock_backend):
         """Teacher without SHARES_WITH on submission gets rejected."""
-        mock_backend.execute_query.return_value = Result.ok([])
+        mock_backend.verify_teacher_authority.return_value = Result.ok([])
 
         result = await service._verify_teacher_authority(
             teacher_uid="user_teacher",
@@ -67,7 +70,9 @@ class TestVerifyTeacherAuthority:
     @pytest.mark.asyncio
     async def test_accepts_when_authority_exists(self, service, mock_backend):
         """Teacher with SHARES_WITH on submission is accepted."""
-        mock_backend.execute_query.return_value = Result.ok([{"submission_uid": "sub_123"}])
+        mock_backend.verify_teacher_authority.return_value = Result.ok(
+            [{"submission_uid": "sub_123"}]
+        )
 
         result = await service._verify_teacher_authority(
             teacher_uid="user_teacher",
@@ -83,8 +88,8 @@ class TestVerifyTeacherAuthority:
         """Database errors propagate correctly."""
         from core.utils.result_simplified import Errors
 
-        mock_backend.execute_query.return_value = Result.fail(
-            Errors.database("execute_query", "connection failed")
+        mock_backend.verify_teacher_authority.return_value = Result.fail(
+            Errors.database("verify_teacher_authority", "connection failed")
         )
 
         result = await service._verify_teacher_authority(
@@ -103,7 +108,7 @@ class TestCreateRevisedExerciseAccessControl:
     async def test_blocks_creation_without_authority(self, service, mock_backend):
         """Creation fails when teacher lacks review authority."""
         # Authority check returns empty (no matching graph path)
-        mock_backend.execute_query.return_value = Result.ok([])
+        mock_backend.verify_teacher_authority.return_value = Result.ok([])
 
         entity = _make_entity()
         result = await service.create(entity)
@@ -117,15 +122,11 @@ class TestCreateRevisedExerciseAccessControl:
     @pytest.mark.asyncio
     async def test_allows_creation_with_authority(self, service, mock_backend):
         """Creation proceeds when teacher has review authority."""
-        # execute_query calls:
-        #   1. authority check
-        #   2. OWNS relationship
-        #   3. SHARES_WITH auto-share to student
-        mock_backend.execute_query.side_effect = [
-            Result.ok([{"submission_uid": "sub_123"}]),  # authority check
-            Result.ok(True),  # OWNS relationship
-            Result.ok(True),  # SHARES_WITH auto-share
-        ]
+        mock_backend.verify_teacher_authority.return_value = Result.ok(
+            [{"submission_uid": "sub_123"}]
+        )
+        mock_backend.create_owns_relationship.return_value = Result.ok(True)
+        mock_backend.auto_share_with_student.return_value = Result.ok(True)
         mock_backend.get_revision_chain.return_value = Result.ok([])
         mock_backend.create.return_value = Result.ok(AsyncMock(uid="re_test_abc"))
         mock_backend.link_to_report = AsyncMock(return_value=Result.ok(True))
@@ -140,11 +141,11 @@ class TestCreateRevisedExerciseAccessControl:
     @pytest.mark.asyncio
     async def test_auto_shares_with_student(self, service, mock_backend):
         """RevisedExercise is auto-shared with the student via SHARES_WITH."""
-        mock_backend.execute_query.side_effect = [
-            Result.ok([{"submission_uid": "sub_123"}]),  # authority check
-            Result.ok(True),  # OWNS relationship
-            Result.ok(True),  # SHARES_WITH auto-share
-        ]
+        mock_backend.verify_teacher_authority.return_value = Result.ok(
+            [{"submission_uid": "sub_123"}]
+        )
+        mock_backend.create_owns_relationship.return_value = Result.ok(True)
+        mock_backend.auto_share_with_student.return_value = Result.ok(True)
         mock_backend.get_revision_chain.return_value = Result.ok([])
         mock_backend.create.return_value = Result.ok(AsyncMock(uid="re_test_abc"))
         mock_backend.link_to_report = AsyncMock(return_value=Result.ok(True))
@@ -153,13 +154,10 @@ class TestCreateRevisedExerciseAccessControl:
         entity = _make_entity()
         await service.create(entity)
 
-        # Third execute_query call is the SHARES_WITH auto-share
-        assert mock_backend.execute_query.call_count == 3
-        share_query = mock_backend.execute_query.call_args_list[2][0][0]
-        share_params = mock_backend.execute_query.call_args_list[2][0][1]
-        assert "SHARES_WITH" in share_query
-        assert "visibility" in share_query
-        assert share_params["student_uid"] == "user_student"
+        # Verify auto_share_with_student was called with correct student_uid
+        mock_backend.auto_share_with_student.assert_called_once()
+        call_args = mock_backend.auto_share_with_student.call_args[0]
+        assert call_args[0] == "user_student"  # student_uid
 
 
 class TestListForStudentScoping:
@@ -167,24 +165,18 @@ class TestListForStudentScoping:
 
     @pytest.mark.asyncio
     async def test_unscoped_query_without_teacher_uid(self, service, mock_backend):
-        """Without teacher_uid, queries all revisions for student."""
-        mock_backend.execute_query.return_value = Result.ok([])
+        """Without teacher_uid, delegates to backend.list_for_student without teacher."""
+        mock_backend.list_for_student.return_value = Result.ok([])
 
         await service.list_for_student("user_student")
 
-        query = mock_backend.execute_query.call_args[0][0]
-        assert "teacher_uid" not in mock_backend.execute_query.call_args[0][1]
-        assert "OWNS" not in query
+        mock_backend.list_for_student.assert_called_once_with("user_student", None)
 
     @pytest.mark.asyncio
     async def test_scoped_query_with_teacher_uid(self, service, mock_backend):
-        """With teacher_uid, query includes OWNS from teacher."""
-        mock_backend.execute_query.return_value = Result.ok([])
+        """With teacher_uid, delegates to backend.list_for_student with teacher scoping."""
+        mock_backend.list_for_student.return_value = Result.ok([])
 
         await service.list_for_student("user_student", teacher_uid="user_teacher")
 
-        query = mock_backend.execute_query.call_args[0][0]
-        params = mock_backend.execute_query.call_args[0][1]
-        assert "OWNS" in query
-        assert params["teacher_uid"] == "user_teacher"
-        assert params["student_uid"] == "user_student"
+        mock_backend.list_for_student.assert_called_once_with("user_student", "user_teacher")

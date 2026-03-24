@@ -50,12 +50,7 @@ class KuSearchService(BaseService[BackendOperations[Ku], Ku]):
         Returns:
             Result containing list of Ku dicts
         """
-        query = """
-        MATCH (ku:Entity:Ku {namespace: $namespace})
-        RETURN ku
-        ORDER BY ku.title ASC
-        """
-        result = await self.backend.execute_query(query, {"namespace": namespace})
+        result = await self.backend.get_by_namespace(namespace)
         if result.is_error:
             return Result.fail(result.expect_error())
 
@@ -70,13 +65,7 @@ class KuSearchService(BaseService[BackendOperations[Ku], Ku]):
         Returns:
             Result containing list of matching Ku dicts
         """
-        query = """
-        MATCH (ku:Entity:Ku)
-        WHERE any(a IN ku.aliases WHERE toLower(a) CONTAINS toLower($alias))
-        RETURN ku
-        ORDER BY ku.title ASC
-        """
-        result = await self.backend.execute_query(query, {"alias": alias})
+        result = await self.backend.search_by_alias(alias)
         if result.is_error:
             return Result.fail(result.expect_error())
 

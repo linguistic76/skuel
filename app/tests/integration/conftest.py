@@ -479,16 +479,18 @@ async def services(neo4j_driver):
             """Forward all other calls to backend."""
             return getattr(self.backend, name)
 
+    # Create backends with test wrappers
+    from adapters.persistence.neo4j.domain_backends import LessonBackend
     from core.models.choice.choice import Choice
     from core.models.enums.neo_labels import NeoLabel
     from core.models.event.event import Event
     from core.models.goal.goal import Goal
+    from core.models.lesson.lesson import Lesson as LessonModel
     from core.models.principle.principle import Principle
     from core.models.task.task import Task
 
-    # Create backends with test wrappers
-    raw_ku_backend = UniversalNeo4jBackend[EntityDTO](
-        neo4j_driver, NeoLabel.KU, EntityDTO, base_label=NeoLabel.ENTITY
+    raw_ku_backend = LessonBackend(
+        neo4j_driver, NeoLabel.LESSON, LessonModel, base_label=NeoLabel.ENTITY
     )
     ku_backend = TestBackendWrapper(raw_ku_backend, EntityDTO)
 

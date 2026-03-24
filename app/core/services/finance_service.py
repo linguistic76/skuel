@@ -56,8 +56,6 @@ from core.services.finance import (
     FinanceCoreService,
     FinanceReportingService,
 )
-from core.services.finance.finance_invoice_service import FinanceInvoiceService
-from core.services.finance_types import CategoryInfo, CategorySuggestion
 from core.services.finance.finance_categories import (
     CategoryHierarchy,
     get_category,
@@ -65,6 +63,8 @@ from core.services.finance.finance_categories import (
     suggest_category,
     validate_category,
 )
+from core.services.finance.finance_invoice_service import FinanceInvoiceService
+from core.services.finance_types import CategoryInfo, CategorySuggestion
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 

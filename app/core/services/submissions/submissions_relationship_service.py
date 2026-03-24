@@ -123,26 +123,7 @@ class SubmissionsRelationshipService:
         if not user_uid:
             return 0  # CURRICULUM entities don't have temporal chains per user
 
-        cypher = """
-        MATCH (new:Entity {uid: $ku_uid})
-        MATCH (prev:Entity {user_uid: $user_uid, entity_type: $entity_type})
-        WHERE prev.uid <> $ku_uid
-          AND prev.created_at <= new.created_at
-        WITH new, prev
-        ORDER BY prev.created_at DESC
-        LIMIT 1
-        MERGE (new)-[r:FOLLOWS]->(prev)
-        RETURN count(r) as count
-        """
-
-        result = await self.backend.execute_query(
-            cypher,
-            {
-                "ku_uid": ku_uid,
-                "user_uid": user_uid,
-                "entity_type": entity_type,
-            },
-        )
+        result = await self.backend.create_temporal_relationship(ku_uid, user_uid, entity_type)
         if result.is_error:
             return 0
         records = result.value or []
@@ -172,28 +153,8 @@ class SubmissionsRelationshipService:
         if not themes or not user_uid:
             return 0
 
-        cypher = """
-        MATCH (new:Entity {uid: $ku_uid})
-        MATCH (other:Entity {user_uid: $user_uid})
-        WHERE other.uid <> $ku_uid
-          AND other.metadata IS NOT NULL
-        WITH new, other, other.metadata.themes as other_themes
-        WHERE other_themes IS NOT NULL
-          AND any(topic IN $themes WHERE topic IN other_themes)
-        WITH new, other
-        LIMIT 5
-        MERGE (new)-[r:RELATED_TO {shared_topics: $shared_topics_str}]->(other)
-        RETURN count(r) as count
-        """
-
-        result = await self.backend.execute_query(
-            cypher,
-            {
-                "ku_uid": ku_uid,
-                "user_uid": user_uid,
-                "themes": themes,
-                "shared_topics_str": ", ".join(themes[:3]),
-            },
+        result = await self.backend.create_thematic_relationships(
+            ku_uid, user_uid, themes, ", ".join(themes[:3])
         )
         if result.is_error:
             return 0
@@ -267,13 +228,7 @@ class SubmissionsRelationshipService:
         Returns:
             Result containing list of related submission UIDs
         """
-        cypher = """
-        MATCH (a:Entity {uid: $ku_uid})-[:RELATED_TO]->(related:Entity)
-        RETURN related.uid as uid
-        ORDER BY related.uid
-        """
-
-        result = await self.backend.execute_query(cypher, {"ku_uid": ku_uid})
+        result = await self.backend.get_related_submission_uids(ku_uid)
         if result.is_error:
             return Result.fail(result.expect_error())
 
@@ -315,17 +270,7 @@ class SubmissionsRelationshipService:
         Returns:
             Result containing dict with relationship counts
         """
-        cypher = """
-        MATCH (a:Entity {uid: $ku_uid})
-        OPTIONAL MATCH (a)-[:RELATED_TO]->(related)
-        OPTIONAL MATCH (a)-[:SUPPORTS_GOAL]->(goal)
-        OPTIONAL MATCH (a)-[:FOLLOWS]->(prev)
-        RETURN count(DISTINCT related) as related_count,
-               count(DISTINCT goal) as goal_count,
-               count(DISTINCT prev) as follows_count
-        """
-
-        result = await self.backend.execute_query(cypher, {"ku_uid": ku_uid})
+        result = await self.backend.get_submission_relationship_summary(ku_uid)
         if result.is_error:
             return Result.fail(result.expect_error())
 

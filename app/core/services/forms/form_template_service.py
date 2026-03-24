@@ -20,7 +20,6 @@ from core.events.form_events import (
 )
 from core.models.forms.form_template import FormTemplate
 from core.models.forms.form_template_dto import FormTemplateDTO
-from core.models.relationship_names import RelationshipName
 from core.ports.form_protocols import FormTemplateBackendOperations
 from core.ports.infrastructure_protocols import EventBusOperations
 from core.services.base_service import BaseService
@@ -145,16 +144,10 @@ class FormTemplateService(BaseService[FormTemplateBackendOperations, FormTemplat
 
     async def _get_submission_count(self, template_uid: str) -> int:
         """Count submissions linked to a template via RESPONDS_TO_FORM."""
-        result = await self.backend.execute_query(
-            f"""
-            MATCH (fs:Entity)-[:{RelationshipName.RESPONDS_TO_FORM.value}]->(ft:Entity {{uid: $uid}})
-            RETURN count(fs) as count
-            """,
-            {"uid": template_uid},
-        )
-        if result.is_error or not result.value:
+        result = await self.backend.count_submissions(template_uid)
+        if result.is_error:
             return 0
-        return result.value[0].get("count", 0)
+        return result.value
 
     # ========================================================================
     # LESSON LINKING (domain-specific, not part of CRUDOperations)

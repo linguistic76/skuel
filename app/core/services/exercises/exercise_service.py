@@ -195,29 +195,13 @@ class ExerciseService(BaseService):
             return result
 
         # Create OWNS relationship (user → exercise)
-        owns_result = await self.backend.execute_query(
-            f"""
-            MATCH (u:User {{uid: $user_uid}})
-            MATCH (e:Entity {{uid: $exercise_uid}})
-            MERGE (u)-[:{RelationshipName.OWNS.value}]->(e)
-            RETURN true as success
-            """,
-            {"user_uid": user_uid, "exercise_uid": uid},
-        )
+        owns_result = await self.backend.create_owns_relationship(user_uid, uid)
         if owns_result.is_error:
             self.logger.warning(f"Failed to create OWNS relationship: {owns_result.error}")
 
         # Create FOR_GROUP relationship for ASSIGNED scope
         if scope == ExerciseScope.ASSIGNED and group_uid:
-            rel_result = await self.backend.execute_query(
-                f"""
-                MATCH (exercise:Entity {{uid: $exercise_uid, entity_type: 'exercise'}})
-                MATCH (group:Group {{uid: $group_uid}})
-                MERGE (exercise)-[:{RelationshipName.FOR_GROUP}]->(group)
-                RETURN true as success
-                """,
-                {"exercise_uid": uid, "group_uid": group_uid},
-            )
+            rel_result = await self.backend.create_for_group_relationship(uid, group_uid)
             if rel_result.is_error:
                 self.logger.warning(f"Failed to create FOR_GROUP relationship: {rel_result.error}")
             else:
@@ -245,14 +229,7 @@ class ExerciseService(BaseService):
         self, user_uid: str, active_only: bool = True
     ) -> Result[list[Exercise]]:
         """List personal exercises owned by a user via OWNS relationship."""
-        result = await self.backend.execute_query(
-            f"""
-            MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(e:Exercise)
-            RETURN e
-            ORDER BY e.created_at DESC
-            """,
-            {"user_uid": user_uid},
-        )
+        result = await self.backend.get_user_exercises(user_uid)
 
         if result.is_error:
             return Result.fail(result.expect_error())
@@ -361,16 +338,7 @@ class ExerciseService(BaseService):
         Returns:
             Result containing list of assigned exercises
         """
-        result = await self.backend.execute_query(
-            f"""
-            MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.MEMBER_OF}]->(group:Group)
-            MATCH (exercise:Entity {{entity_type: 'exercise'}})-[:{RelationshipName.FOR_GROUP}]->(group)
-            WHERE exercise.scope = 'assigned'
-            RETURN exercise
-            ORDER BY exercise.due_date ASC, exercise.created_at DESC
-            """,
-            {"user_uid": user_uid},
-        )
+        result = await self.backend.get_student_exercises(user_uid)
 
         if result.is_error:
             return Result.fail(result.expect_error())
@@ -395,17 +363,7 @@ class ExerciseService(BaseService):
 
         Returns exercise properties enriched with has_submission flag and group_name.
         """
-        result = await self.backend.execute_query(
-            f"""
-            MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.MEMBER_OF}]->(group:Group)
-            MATCH (exercise:Entity {{entity_type: 'exercise'}})-[:{RelationshipName.FOR_GROUP}]->(group)
-            WHERE exercise.scope = 'assigned'
-            OPTIONAL MATCH (user)-[:{RelationshipName.OWNS}]->(sub:Entity)-[:{RelationshipName.FULFILLS_EXERCISE}]->(exercise)
-            RETURN exercise, sub IS NOT NULL AS has_submission, group.title AS group_name
-            ORDER BY exercise.due_date ASC, exercise.created_at DESC
-            """,
-            {"user_uid": user_uid},
-        )
+        result = await self.backend.get_student_exercises_with_status(user_uid)
 
         if result.is_error:
             return Result.fail(result.expect_error())
@@ -634,21 +592,7 @@ class ExerciseService(BaseService):
         Returns:
             Result containing list of exercise summaries
         """
-        result = await self.backend.execute_query(
-            f"""
-            MATCH (exercise:Entity {{entity_type: 'exercise'}})
-                  -[:{RelationshipName.REQUIRES_KNOWLEDGE}]->
-                  (curriculum:Entity {{uid: $curriculum_uid}})
-            RETURN exercise.uid as uid,
-                   exercise.title as title,
-                   exercise.scope as scope,
-                   exercise.due_date as due_date,
-                   exercise.status as status,
-                   exercise.form_schema as form_schema
-            ORDER BY exercise.created_at DESC
-            """,
-            {"curriculum_uid": curriculum_uid},
-        )
+        result = await self.backend.get_exercises_for_curriculum(curriculum_uid)
 
         if result.is_error:
             return Result.fail(result.expect_error())

@@ -105,9 +105,10 @@ class TestKuIntelligenceDomainInsights:
         backend = _make_backend()
         ku = _make_ku(namespace="body", ku_category="substance", aliases=("coffee", "java"))
         backend.get.return_value = Result.ok(ku)
-        backend.execute_query.return_value = Result.ok(
+        backend.get_usage_summary.return_value = Result.ok(
             [{"lessons": 3, "learning_steps": 1, "organized_children": 0}]
         )
+        backend.get_organization_depth.return_value = Result.ok([{"max_depth": 2}])
         service = KuIntelligenceService(backend=backend)
 
         result = await service.get_domain_insights("ku_test_abc123")
@@ -136,7 +137,7 @@ class TestKuIntelligenceUsageSummary:
     @pytest.mark.asyncio
     async def test_returns_counts(self):
         backend = _make_backend()
-        backend.execute_query.return_value = Result.ok(
+        backend.get_usage_summary.return_value = Result.ok(
             [{"lessons": 5, "learning_steps": 2, "organized_children": 3}]
         )
         service = KuIntelligenceService(backend=backend)
@@ -153,7 +154,7 @@ class TestKuIntelligenceUsageSummary:
     @pytest.mark.asyncio
     async def test_returns_zeros_for_no_records(self):
         backend = _make_backend()
-        backend.execute_query.return_value = Result.ok([])
+        backend.get_usage_summary.return_value = Result.ok([])
         service = KuIntelligenceService(backend=backend)
 
         result = await service.get_usage_summary("ku_test_abc123")
@@ -168,7 +169,7 @@ class TestKuIntelligenceIsTrained:
     @pytest.mark.asyncio
     async def test_true_when_trained(self):
         backend = _make_backend()
-        backend.execute_query.return_value = Result.ok([{"trained": True}])
+        backend.is_trained.return_value = Result.ok([{"trained": True}])
         service = KuIntelligenceService(backend=backend)
 
         result = await service.is_trained("ku_test_abc123")
@@ -179,7 +180,7 @@ class TestKuIntelligenceIsTrained:
     @pytest.mark.asyncio
     async def test_false_when_not_trained(self):
         backend = _make_backend()
-        backend.execute_query.return_value = Result.ok([{"trained": False}])
+        backend.is_trained.return_value = Result.ok([{"trained": False}])
         service = KuIntelligenceService(backend=backend)
 
         result = await service.is_trained("ku_test_abc123")
@@ -194,7 +195,7 @@ class TestKuIntelligenceIsOrganized:
     @pytest.mark.asyncio
     async def test_true_when_has_children(self):
         backend = _make_backend()
-        backend.execute_query.return_value = Result.ok([{"organized": True}])
+        backend.is_organized.return_value = Result.ok([{"organized": True}])
         service = KuIntelligenceService(backend=backend)
 
         result = await service.is_organized("ku_test_abc123")
@@ -205,7 +206,7 @@ class TestKuIntelligenceIsOrganized:
     @pytest.mark.asyncio
     async def test_false_when_no_children(self):
         backend = _make_backend()
-        backend.execute_query.return_value = Result.ok([{"organized": False}])
+        backend.is_organized.return_value = Result.ok([{"organized": False}])
         service = KuIntelligenceService(backend=backend)
 
         result = await service.is_organized("ku_test_abc123")
@@ -220,7 +221,7 @@ class TestKuIntelligenceOrganizationDepth:
     @pytest.mark.asyncio
     async def test_returns_depth(self):
         backend = _make_backend()
-        backend.execute_query.return_value = Result.ok([{"max_depth": 3}])
+        backend.get_organization_depth.return_value = Result.ok([{"max_depth": 3}])
         service = KuIntelligenceService(backend=backend)
 
         result = await service.get_organization_depth("ku_test_abc123")
@@ -231,7 +232,7 @@ class TestKuIntelligenceOrganizationDepth:
     @pytest.mark.asyncio
     async def test_returns_zero_for_leaf(self):
         backend = _make_backend()
-        backend.execute_query.return_value = Result.ok([{"max_depth": None}])
+        backend.get_organization_depth.return_value = Result.ok([{"max_depth": None}])
         service = KuIntelligenceService(backend=backend)
 
         result = await service.get_organization_depth("ku_test_abc123")

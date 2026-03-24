@@ -143,15 +143,7 @@ class RevisedExerciseService(BaseService):
         uid = enriched.uid
 
         # Create OWNS relationship (teacher → revised_exercise)
-        owns_result = await self.backend.execute_query(
-            f"""
-            MATCH (u:User {{uid: $teacher_uid}})
-            MATCH (re:Entity {{uid: $re_uid}})
-            MERGE (u)-[:{RelationshipName.OWNS.value}]->(re)
-            RETURN true as success
-            """,
-            {"teacher_uid": teacher_uid, "re_uid": uid},
-        )
+        owns_result = await self.backend.create_owns_relationship(teacher_uid, uid)
         if owns_result.is_error:
             self.logger.warning(f"Failed to create OWNS relationship: {owns_result.error}")
 
@@ -167,20 +159,8 @@ class RevisedExerciseService(BaseService):
 
         # Auto-share with student so it appears in their "Shared With Me" inbox.
         # Same pattern as assignment auto-sharing (ADR-040).
-        share_result = await self.backend.execute_query(
-            f"""
-            MATCH (student:User {{uid: $student_uid}})
-            MATCH (re:Entity {{uid: $re_uid}})
-            MERGE (student)-[r:{RelationshipName.SHARES_WITH.value}]->(re)
-            ON CREATE SET r.shared_at = $shared_at, r.role = 'student'
-            SET re.visibility = 'shared'
-            RETURN true as success
-            """,
-            {
-                "student_uid": enriched.student_uid,
-                "re_uid": uid,
-                "shared_at": datetime.now().isoformat(),
-            },
+        share_result = await self.backend.auto_share_with_student(
+            enriched.student_uid, uid, datetime.now().isoformat()
         )
         if share_result.is_error:
             self.logger.warning(f"Failed to auto-share with student: {share_result.error}")
@@ -250,19 +230,7 @@ class RevisedExerciseService(BaseService):
         - (Teacher)-[:SHARES_WITH {role:'teacher'}]->(Submission)
         - (Student)-[:OWNS]->(Submission)
         """
-        result = await self.backend.execute_query(
-            """
-            MATCH (fb:Entity {uid: $report_uid})-[:REPORT_FOR]->(submission:Entity)
-            MATCH (teacher:User {uid: $teacher_uid})-[:SHARES_WITH {role: 'teacher'}]->(submission)
-            MATCH (student:User {uid: $student_uid})-[:OWNS]->(submission)
-            RETURN submission.uid AS submission_uid
-            """,
-            {
-                "report_uid": report_uid,
-                "teacher_uid": teacher_uid,
-                "student_uid": student_uid,
-            },
-        )
+        result = await self.backend.verify_teacher_authority(teacher_uid, report_uid, student_uid)
         if result.is_error:
             return Result.fail(result.expect_error())
 
@@ -294,22 +262,7 @@ class RevisedExerciseService(BaseService):
                 Used by teacher-facing routes to prevent cross-teacher leakage.
                 Omitted for student-facing routes (students see all their own revisions).
         """
-        if teacher_uid:
-            query = f"""
-            MATCH (u:User {{uid: $teacher_uid}})-[:{RelationshipName.OWNS.value}]->(re:RevisedExercise {{student_uid: $student_uid}})
-            RETURN re
-            ORDER BY re.created_at DESC
-            """
-            params = {"student_uid": student_uid, "teacher_uid": teacher_uid}
-        else:
-            query = """
-            MATCH (re:RevisedExercise {student_uid: $student_uid})
-            RETURN re
-            ORDER BY re.created_at DESC
-            """
-            params = {"student_uid": student_uid}
-
-        result = await self.backend.execute_query(query, params)
+        result = await self.backend.list_for_student(student_uid, teacher_uid)
         if result.is_error:
             return Result.fail(result.expect_error())
 

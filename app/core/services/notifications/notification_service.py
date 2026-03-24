@@ -6,7 +6,7 @@ Lightweight service for in-app notifications stored as :Notification nodes in Ne
 
 Graph pattern: (User)-[:HAS_NOTIFICATION]->(Notification)
 
-This is infrastructure, not a domain — uses raw Cypher directly (no BaseService).
+This is infrastructure, not a domain — uses NotificationBackend for all Cypher.
 Notifications are created by event handlers and consumed by the navbar badge
 and /notifications page.
 
@@ -14,14 +14,11 @@ See: /docs/architecture/FOUR_PHASED_LEARNING_LOOP.md
 """
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
-
-if TYPE_CHECKING:
-    from core.ports import QueryExecutor
 
 logger = get_logger("skuel.services.notifications")
 
@@ -29,8 +26,8 @@ logger = get_logger("skuel.services.notifications")
 class NotificationService:
     """CRUD operations for Notification nodes in Neo4j."""
 
-    def __init__(self, executor: "QueryExecutor") -> None:
-        self.executor = executor
+    def __init__(self, executor: Any) -> None:
+        self.backend = executor
 
     async def create_notification(
         self,
@@ -58,25 +55,7 @@ class NotificationService:
         uid = UIDGenerator.generate_uid("notif")
         now = datetime.now().isoformat()
 
-        query = """
-        MATCH (u:User {uid: $user_uid})
-        CREATE (n:Notification {
-            uid: $uid,
-            user_uid: $user_uid,
-            notification_type: $notification_type,
-            title: $title,
-            message: $message,
-            source_uid: $source_uid,
-            source_type: $source_type,
-            read: false,
-            created_at: datetime($now)
-        })
-        CREATE (u)-[:HAS_NOTIFICATION]->(n)
-        RETURN n.uid as uid
-        """
-
-        result = await self.executor.execute_query(
-            query,
+        result = await self.backend.create_notification(
             {
                 "user_uid": user_uid,
                 "uid": uid,
@@ -107,12 +86,7 @@ class NotificationService:
         Returns:
             Result containing unread count
         """
-        query = """
-        MATCH (u:User {uid: $user_uid})-[:HAS_NOTIFICATION]->(n:Notification {read: false})
-        RETURN count(n) as count
-        """
-
-        result = await self.executor.execute_query(query, {"user_uid": user_uid})
+        result = await self.backend.get_unread_count(user_uid)
         if result.is_error:
             return Result.fail(result.expect_error())
 
@@ -137,24 +111,7 @@ class NotificationService:
         Returns:
             Result containing list of notification dicts
         """
-        read_filter = "" if include_read else "AND n.read = false"
-
-        query = f"""
-        MATCH (u:User {{uid: $user_uid}})-[:HAS_NOTIFICATION]->(n:Notification)
-        WHERE n.user_uid = $user_uid {read_filter}
-        RETURN n.uid as uid,
-               n.notification_type as notification_type,
-               n.title as title,
-               n.message as message,
-               n.source_uid as source_uid,
-               n.source_type as source_type,
-               n.read as read,
-               n.created_at as created_at
-        ORDER BY n.read ASC, n.created_at DESC
-        LIMIT $limit
-        """
-
-        result = await self.executor.execute_query(query, {"user_uid": user_uid, "limit": limit})
+        result = await self.backend.get_notifications(user_uid, limit, include_read)
         if result.is_error:
             return Result.fail(result.expect_error())
 
@@ -185,15 +142,7 @@ class NotificationService:
         Returns:
             Result containing success boolean
         """
-        query = """
-        MATCH (u:User {uid: $user_uid})-[:HAS_NOTIFICATION]->(n:Notification {uid: $notification_uid})
-        SET n.read = true
-        RETURN n.uid as uid
-        """
-
-        result = await self.executor.execute_query(
-            query, {"user_uid": user_uid, "notification_uid": notification_uid}
-        )
+        result = await self.backend.mark_read(notification_uid, user_uid)
         if result.is_error:
             return Result.fail(result.expect_error())
 
@@ -212,13 +161,7 @@ class NotificationService:
         Returns:
             Result containing count of notifications marked as read
         """
-        query = """
-        MATCH (u:User {uid: $user_uid})-[:HAS_NOTIFICATION]->(n:Notification {read: false})
-        SET n.read = true
-        RETURN count(n) as count
-        """
-
-        result = await self.executor.execute_query(query, {"user_uid": user_uid})
+        result = await self.backend.mark_all_read(user_uid)
         if result.is_error:
             return Result.fail(result.expect_error())
 

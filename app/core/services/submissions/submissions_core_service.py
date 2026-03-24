@@ -889,21 +889,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
             Result[bool]: True if exercise processing was applied
         """
         # Check if the exercise is ASSIGNED scope and get group info
-        # Accepts both Exercise and RevisedExercise entity types
-        exercise_result = await self.backend.execute_query(
-            f"""
-            MATCH (exercise:Entity {{uid: $exercise_uid}})
-            WHERE exercise.entity_type IN ['exercise', 'revised_exercise']
-            OPTIONAL MATCH (exercise)-[:{RelationshipName.FOR_GROUP.value}]->(g:Group)
-            RETURN exercise.entity_type as exercise_entity_type,
-                   exercise.scope as scope,
-                   exercise.user_uid as teacher_uid,
-                   exercise.student_uid as student_uid,
-                   exercise.title as exercise_title,
-                   g.uid as group_uid
-            """,
-            {"exercise_uid": exercise_uid},
-        )
+        exercise_result = await self.backend.get_exercise_context(exercise_uid)
 
         if exercise_result.is_error:
             self.logger.error(f"Error querying exercise: {exercise_result.error}")
@@ -922,13 +908,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
             re_student_uid = records[0]["student_uid"]
 
             # Verify submitting student matches the targeted student
-            submitter_result = await self.backend.execute_query(
-                f"""
-                MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(submission:Entity {{uid: $submission_uid}})
-                RETURN student.uid as student_uid
-                """,
-                {"submission_uid": submission_uid},
-            )
+            submitter_result = await self.backend.get_submission_owner(submission_uid)
             if submitter_result.is_error:
                 self.logger.error(f"Error querying submitter: {submitter_result.error}")
                 return Result.ok(False)
@@ -955,13 +935,8 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
 
             # Verify student is a member of the target group (if group exists)
             if group_uid:
-                student_result = await self.backend.execute_query(
-                    f"""
-                    MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(submission:Entity {{uid: $submission_uid}})
-                    OPTIONAL MATCH (student)-[:{RelationshipName.MEMBER_OF.value}]->(g:Group {{uid: $group_uid}})
-                    RETURN student.uid as student_uid, g.uid as member_of_group
-                    """,
-                    {"submission_uid": submission_uid, "group_uid": group_uid},
+                student_result = await self.backend.verify_student_group_membership(
+                    submission_uid, group_uid
                 )
 
                 if student_result.is_error:
@@ -979,30 +954,19 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
 
         # 0. Auto-generate canonical title from exercise
         if exercise_title:
-            student_uid_result = await self.backend.execute_query(
-                f"""
-                MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(submission:Entity {{uid: $submission_uid}})
-                RETURN student.uid as student_uid
-                """,
-                {"submission_uid": submission_uid},
-            )
+            student_uid_result = await self.backend.get_submission_owner(submission_uid)
             if not student_uid_result.is_error:
                 student_uid_records = student_uid_result.value or []
                 if student_uid_records:
                     submitter_uid = student_uid_records[0]["student_uid"]
 
                     # Count prior submissions already linked to this exercise by this student
-                    prior_count_result = await self.backend.execute_query(
-                        f"""
-                        MATCH (student:User {{uid: $student_uid}})-[:{RelationshipName.OWNS.value}]->(s:Entity)
-                            -[:{RelationshipName.FULFILLS_EXERCISE.value}]->(e:Entity {{uid: $exercise_uid}})
-                        RETURN count(s) AS prior_count
-                        """,
-                        {"student_uid": submitter_uid, "exercise_uid": exercise_uid},
+                    prior_count_result = await self.backend.count_submissions_for_exercise(
+                        submitter_uid, exercise_uid
                     )
                     prior_count = 0
-                    if not prior_count_result.is_error and prior_count_result.value:
-                        prior_count = int(prior_count_result.value[0]["prior_count"])
+                    if not prior_count_result.is_error:
+                        prior_count = prior_count_result.value
 
                     from core.models.submissions.submission import Submission
 
@@ -1012,50 +976,21 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
                         revision_number=prior_count + 1,
                         revision_date=date.today(),
                     )
-                    await self.backend.execute_query(
-                        """
-                        MATCH (s:Entity {uid: $submission_uid})
-                        SET s.title = $new_title, s.updated_at = $now
-                        """,
-                        {
-                            "submission_uid": submission_uid,
-                            "new_title": new_title,
-                            "now": datetime.now().isoformat(),
-                        },
+                    await self.backend.update(
+                        submission_uid,
+                        {"title": new_title, "updated_at": datetime.now().isoformat()},
                     )
                     self.logger.info(f"Updated submission title to: {new_title}")
 
         # 1. Create FULFILLS_EXERCISE relationship
-        # Accepts both Exercise and RevisedExercise entity types
-        fulfills_result = await self.backend.execute_query(
-            f"""
-            MATCH (submission:Entity {{uid: $submission_uid}})
-            MATCH (exercise:Entity {{uid: $exercise_uid}})
-            WHERE exercise.entity_type IN ['exercise', 'revised_exercise']
-            MERGE (submission)-[:{RelationshipName.FULFILLS_EXERCISE}]->(exercise)
-            RETURN true as success
-            """,
-            {"submission_uid": submission_uid, "exercise_uid": exercise_uid},
-        )
+        fulfills_result = await self.backend.link_to_exercise(submission_uid, exercise_uid)
 
         if fulfills_result.is_error:
             self.logger.warning(f"Failed to create FULFILLS_EXERCISE: {fulfills_result.error}")
 
         # 2. Auto-share with teacher
-        share_result = await self.backend.execute_query(
-            f"""
-            MATCH (teacher:User {{uid: $teacher_uid}})
-            MATCH (submission:Entity {{uid: $submission_uid}})
-            MERGE (teacher)-[r:{RelationshipName.SHARES_WITH.value}]->(submission)
-            SET r.shared_at = datetime($now),
-                r.role = 'teacher'
-            RETURN true as success
-            """,
-            {
-                "teacher_uid": teacher_uid,
-                "submission_uid": submission_uid,
-                "now": datetime.now().isoformat(),
-            },
+        share_result = await self.backend.auto_share_with_teacher(
+            teacher_uid, submission_uid, datetime.now().isoformat()
         )
 
         if share_result.is_error:

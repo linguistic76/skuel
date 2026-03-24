@@ -14,7 +14,7 @@ Responsibilities:
 - Support pedagogical search filters
 
 Architecture:
-- Uses direct Cypher queries via Neo4j driver
+- Delegates Cypher to LessonBackend
 - Stores relationship properties for time tracking
 """
 
@@ -83,13 +83,6 @@ class LessonMasteryService:
         backend: "BackendOperations[Any] | None" = None,
         event_bus=None,
     ) -> None:
-        """
-        Initialize KU interaction service.
-
-        Args:
-            backend: BackendOperations for Cypher queries (REQUIRED)
-            event_bus: Optional event bus for publishing events
-        """
         self.backend = backend
         self.event_bus = event_bus
         self.logger = get_logger("skuel.services.lesson.mastery")
@@ -104,46 +97,12 @@ class LessonMasteryService:
         Record that a user viewed a knowledge unit.
 
         Creates or updates VIEWED relationship with timestamps and counts.
-        This is called when a user views a nous topic or KU detail page.
-
-        Args:
-            user_uid: User's UID
-            ku_uid: Knowledge unit's UID
-            time_spent_seconds: Time spent on this view (optional)
-
-        Returns:
-            Result[bool]: True if recorded successfully
         """
         if not self.backend:
             return Result.fail(Errors.database("record_view", "Backend not available"))
 
         now = datetime.now(UTC).isoformat()
-
-        query = """
-        MATCH (u:User {uid: $user_uid})
-        MATCH (ku:Entity {uid: $ku_uid})
-        MERGE (u)-[r:VIEWED]->(ku)
-        ON CREATE SET
-            r.first_viewed_at = datetime($now),
-            r.last_viewed_at = datetime($now),
-            r.view_count = 1,
-            r.time_spent_seconds = $time_spent
-        ON MATCH SET
-            r.last_viewed_at = datetime($now),
-            r.view_count = COALESCE(r.view_count, 0) + 1,
-            r.time_spent_seconds = COALESCE(r.time_spent_seconds, 0) + $time_spent
-        RETURN r.view_count as view_count
-        """
-
-        result = await self.backend.execute_query(
-            query,
-            {
-                "user_uid": user_uid,
-                "ku_uid": ku_uid,
-                "now": now,
-                "time_spent": time_spent_seconds,
-            },
-        )
+        result = await self.backend.record_view(user_uid, ku_uid, now, time_spent_seconds)
 
         if result.is_error:
             return Result.fail(result.expect_error())
@@ -165,51 +124,18 @@ class LessonMasteryService:
         user_uid: str,
         ku_uid: str,
     ) -> Result[bool]:
-        """
-        Mark a knowledge unit as in-progress for a user.
-
-        Creates IN_PROGRESS relationship. User should have VIEWED first,
-        but this will work regardless.
-
-        Args:
-            user_uid: User's UID
-            ku_uid: Knowledge unit's UID
-
-        Returns:
-            Result[bool]: True if marked successfully
-        """
+        """Mark a knowledge unit as in-progress for a user."""
         if not self.backend:
             return Result.fail(Errors.database("mark_in_progress", "Backend not available"))
 
         now = datetime.now(UTC).isoformat()
-
-        query = """
-        MATCH (u:User {uid: $user_uid})
-        MATCH (ku:Entity {uid: $ku_uid})
-        MERGE (u)-[r:IN_PROGRESS]->(ku)
-        ON CREATE SET
-            r.started_at = datetime($now),
-            r.last_activity_at = datetime($now),
-            r.progress_score = 0.0
-        ON MATCH SET
-            r.last_activity_at = datetime($now)
-        RETURN true as success
-        """
-
-        result = await self.backend.execute_query(
-            query,
-            {"user_uid": user_uid, "ku_uid": ku_uid, "now": now},
-        )
+        result = await self.backend.mark_in_progress(user_uid, ku_uid, now)
 
         if result.is_error:
             return Result.fail(result.expect_error())
 
         if result.value:
-            self.logger.debug(
-                "Marked in progress",
-                user_uid=user_uid,
-                ku_uid=ku_uid,
-            )
+            self.logger.debug("Marked in progress", user_uid=user_uid, ku_uid=ku_uid)
             return Result.ok(True)
         else:
             return Result.fail(Errors.not_found("User or KU", f"{user_uid} / {ku_uid}"))
@@ -224,42 +150,11 @@ class LessonMasteryService:
 
         Checks for MASTERED, IN_PROGRESS, and VIEWED relationships in that order
         to determine the highest state achieved.
-
-        Args:
-            user_uid: User's UID
-            ku_uid: Knowledge unit's UID
-
-        Returns:
-            Result[UserKuProgress]: User's progress on this KU
         """
         if not self.backend:
             return Result.fail(Errors.database("get_learning_state", "Backend not available"))
 
-        query = """
-        MATCH (ku:Entity {uid: $ku_uid})
-        OPTIONAL MATCH (u:User {uid: $user_uid})-[v:VIEWED]->(ku)
-        OPTIONAL MATCH (u:User {uid: $user_uid})-[p:IN_PROGRESS]->(ku)
-        OPTIONAL MATCH (u:User {uid: $user_uid})-[m:MASTERED]->(ku)
-        OPTIONAL MATCH (u:User {uid: $user_uid})-[mr:MARKED_AS_READ]->(ku)
-        OPTIONAL MATCH (u:User {uid: $user_uid})-[bk:BOOKMARKED]->(ku)
-        RETURN
-            v IS NOT NULL as has_viewed,
-            p IS NOT NULL as has_in_progress,
-            m IS NOT NULL as has_mastered,
-            mr IS NOT NULL as has_marked_as_read,
-            bk IS NOT NULL as has_bookmarked,
-            v.first_viewed_at as first_viewed_at,
-            v.last_viewed_at as last_viewed_at,
-            v.view_count as view_count,
-            v.time_spent_seconds as time_spent_seconds,
-            p.started_at as started_at,
-            m.mastered_at as mastered_at
-        """
-
-        result = await self.backend.execute_query(
-            query,
-            {"user_uid": user_uid, "ku_uid": ku_uid},
-        )
+        result = await self.backend.get_learning_state_raw(user_uid, ku_uid)
 
         if result.is_error:
             return Result.fail(result.expect_error())
@@ -316,18 +211,7 @@ class LessonMasteryService:
         user_uid: str,
         ku_uids: list[str],
     ) -> Result[dict[str, LearningState]]:
-        """
-        Get learning states for multiple KUs in one query.
-
-        Optimized for search results - returns just the state, not full progress.
-
-        Args:
-            user_uid: User's UID
-            ku_uids: List of KU UIDs to check
-
-        Returns:
-            Result[dict[str, LearningState]]: Map of ku_uid -> LearningState
-        """
+        """Get learning states for multiple KUs in one query."""
         if not self.backend:
             return Result.fail(
                 Errors.database("get_learning_states_batch", "Backend not available")
@@ -336,23 +220,7 @@ class LessonMasteryService:
         if not ku_uids:
             return Result.ok({})
 
-        query = """
-        UNWIND $ku_uids as ku_uid
-        MATCH (ku:Entity {uid: ku_uid})
-        OPTIONAL MATCH (u:User {uid: $user_uid})-[v:VIEWED]->(ku)
-        OPTIONAL MATCH (u:User {uid: $user_uid})-[p:IN_PROGRESS]->(ku)
-        OPTIONAL MATCH (u:User {uid: $user_uid})-[m:MASTERED]->(ku)
-        RETURN
-            ku.uid as ku_uid,
-            v IS NOT NULL as has_viewed,
-            p IS NOT NULL as has_in_progress,
-            m IS NOT NULL as has_mastered
-        """
-
-        result = await self.backend.execute_query(
-            query,
-            {"user_uid": user_uid, "ku_uids": ku_uids},
-        )
+        result = await self.backend.get_learning_states_batch_raw(user_uid, ku_uids)
 
         if result.is_error:
             return Result.fail(result.expect_error())
@@ -380,31 +248,11 @@ class LessonMasteryService:
         user_uid: str,
         ku_uid: str,
     ) -> Result[None]:
-        """
-        Mark a KU as read by the user.
-
-        Creates a MARKED_AS_READ relationship to track KUs the user has finished reading.
-        This is a lighter-weight alternative to MASTERED for simple reading completion.
-
-        Args:
-            user_uid: User's unique identifier
-            ku_uid: Knowledge unit identifier
-
-        Returns:
-            Result[None]: Success or database error
-        """
+        """Mark a KU as read by the user."""
         if not self.backend:
             return Result.fail(Errors.system("Backend required", service="LessonMasteryService"))
 
-        query = """
-        MATCH (user:User {uid: $user_uid})
-        MATCH (ku:Entity {uid: $ku_uid})
-        MERGE (user)-[r:MARKED_AS_READ]->(ku)
-        ON CREATE SET r.marked_at = datetime()
-        RETURN r
-        """
-
-        result = await self.backend.execute_query(query, {"user_uid": user_uid, "ku_uid": ku_uid})
+        result = await self.backend.mark_as_read(user_uid, ku_uid)
 
         if result.is_error:
             return Result.fail(result.expect_error())
@@ -417,30 +265,12 @@ class LessonMasteryService:
         user_uid: str,
         ku_uid: str,
     ) -> Result[bool]:
-        """
-        Toggle bookmark state for a KU.
-
-        Creates BOOKMARKED relationship if not exists, removes if exists.
-
-        Args:
-            user_uid: User's unique identifier
-            ku_uid: Knowledge unit identifier
-
-        Returns:
-            Result[bool]: True if bookmarked, False if unbookmarked
-        """
+        """Toggle bookmark state for a KU."""
         if not self.backend:
             return Result.fail(Errors.system("Backend required", service="LessonMasteryService"))
 
         # Check if bookmark exists
-        check_query = """
-        MATCH (user:User {uid: $user_uid})-[r:BOOKMARKED]->(ku:Entity {uid: $ku_uid})
-        RETURN r IS NOT NULL as is_bookmarked
-        """
-
-        check_result = await self.backend.execute_query(
-            check_query, {"user_uid": user_uid, "ku_uid": ku_uid}
-        )
+        check_result = await self.backend.check_bookmark(user_uid, ku_uid)
 
         if check_result.is_error:
             return Result.fail(check_result.expect_error())
@@ -448,29 +278,13 @@ class LessonMasteryService:
         is_bookmarked = check_result.value[0]["is_bookmarked"] if check_result.value else False
 
         if is_bookmarked:
-            # Remove bookmark
-            delete_query = """
-            MATCH (user:User {uid: $user_uid})-[r:BOOKMARKED]->(ku:Entity {uid: $ku_uid})
-            DELETE r
-            """
-            del_result = await self.backend.execute_query(
-                delete_query, {"user_uid": user_uid, "ku_uid": ku_uid}
-            )
+            del_result = await self.backend.delete_bookmark(user_uid, ku_uid)
             if del_result.is_error:
                 return Result.fail(del_result.expect_error())
             self.logger.info(f"Removed bookmark: {user_uid} -> {ku_uid}")
             return Result.ok(False)
         else:
-            # Add bookmark
-            create_query = """
-            MATCH (user:User {uid: $user_uid})
-            MATCH (ku:Entity {uid: $ku_uid})
-            MERGE (user)-[r:BOOKMARKED]->(ku)
-            ON CREATE SET r.bookmarked_at = datetime()
-            """
-            create_result = await self.backend.execute_query(
-                create_query, {"user_uid": user_uid, "ku_uid": ku_uid}
-            )
+            create_result = await self.backend.create_bookmark(user_uid, ku_uid)
             if create_result.is_error:
                 return Result.fail(create_result.expect_error())
             self.logger.info(f"Added bookmark: {user_uid} -> {ku_uid}")
@@ -493,54 +307,12 @@ class LessonMasteryService:
         Two callers in the educational loop:
         - TeacherReviewService.approve_report(): score=0.8, method="ku_approval"
         - SubmissionReportService._update_mastery_for_linked_ku(): score=0.6, method="activity_report"
-          (used for PERSONAL scope exercises where no teacher approval step exists)
-
-        Args:
-            user_uid: User's unique identifier
-            ku_uid: Knowledge unit identifier
-            mastery_score: Mastery confidence score (0.0-1.0, default 0.8)
-            method: How mastery was achieved (e.g., "ku_approval", "activity_report")
-
-        Returns:
-            Result[bool]: True if mastered successfully
         """
         if not self.backend:
             return Result.fail(Errors.system("Backend required", service="LessonMasteryService"))
 
         now = datetime.now(UTC).isoformat()
-
-        query = """
-        MATCH (user:User {uid: $user_uid})
-        MATCH (ku:Entity {uid: $ku_uid})
-        MERGE (user)-[r:MASTERED]->(ku)
-        ON CREATE SET
-            r.mastered_at = datetime($now),
-            r.mastery_score = $mastery_score,
-            r.confidence = $mastery_score,
-            r.method = $method
-        ON MATCH SET
-            r.mastery_score = CASE
-                WHEN $mastery_score > r.mastery_score THEN $mastery_score
-                ELSE r.mastery_score
-            END,
-            r.confidence = CASE
-                WHEN $mastery_score > coalesce(r.confidence, 0) THEN $mastery_score
-                ELSE r.confidence
-            END,
-            r.method = $method
-        RETURN r.mastery_score as mastery_score
-        """
-
-        result = await self.backend.execute_query(
-            query,
-            {
-                "user_uid": user_uid,
-                "ku_uid": ku_uid,
-                "now": now,
-                "mastery_score": mastery_score,
-                "method": method,
-            },
-        )
+        result = await self.backend.mark_mastered(user_uid, ku_uid, now, mastery_score, method)
 
         if result.is_error:
             return Result.fail(result.expect_error())
@@ -573,10 +345,6 @@ class LessonMasteryService:
         """
         Detect Lesson completion when a KU is mastered.
 
-        For each Lesson that uses the newly mastered KU (via USES_KU),
-        check if ALL KUs in that Lesson are now mastered by the user.
-        If so, publish LessonCompleted.
-
         Best-effort: errors are logged but not raised to prevent
         KU mastery from failing if lesson detection fails.
         """
@@ -585,22 +353,7 @@ class LessonMasteryService:
                 self.logger.warning("No backend available for KU→Lesson completion detection")
                 return
 
-            query = """
-            MATCH (lesson:Entity {entity_type: 'lesson'})-[:USES_KU]->(ku:Entity {uid: $ku_uid})
-            WITH lesson
-            MATCH (lesson)-[:USES_KU]->(all_ku:Entity)
-            WITH lesson, collect(DISTINCT all_ku.uid) as all_ku_uids, count(DISTINCT all_ku) as total
-            OPTIONAL MATCH (user:User {uid: $user_uid})-[:MASTERED]->(mastered_ku:Entity)
-            WHERE mastered_ku.uid IN all_ku_uids
-            WITH lesson, total, count(DISTINCT mastered_ku) as mastered_count, all_ku_uids
-            WHERE mastered_count = total
-            RETURN lesson.uid as lesson_uid, lesson.title as lesson_title, all_ku_uids
-            """
-
-            result = await self.backend.execute_query(
-                query,
-                {"ku_uid": event.ku_uid, "user_uid": event.user_uid},
-            )
+            result = await self.backend.detect_lesson_completion(event.ku_uid, event.user_uid)
 
             if result.is_error:
                 self.logger.error(f"Failed to check lesson completion: {result.error}")
@@ -629,25 +382,11 @@ class LessonMasteryService:
         self,
         user_uid: str,
     ) -> Result[list[str]]:
-        """
-        Get list of bookmarked KU UIDs for user.
-
-        Args:
-            user_uid: User's unique identifier
-
-        Returns:
-            Result[list[str]]: List of bookmarked KU UIDs
-        """
+        """Get list of bookmarked KU UIDs for user."""
         if not self.backend:
             return Result.fail(Errors.system("Backend required", service="LessonMasteryService"))
 
-        query = """
-        MATCH (user:User {uid: $user_uid})-[r:BOOKMARKED]->(ku:Entity)
-        RETURN ku.uid as ku_uid
-        ORDER BY r.bookmarked_at DESC
-        """
-
-        result = await self.backend.execute_query(query, {"user_uid": user_uid})
+        result = await self.backend.get_bookmarked_kus(user_uid)
 
         if result.is_error:
             return Result.fail(result.expect_error())
@@ -658,33 +397,11 @@ class LessonMasteryService:
         return Result.ok(ku_uids)
 
     async def get_all_user_knowledge_status(self, user_uid: str) -> Result[list[dict[str, Any]]]:
-        """Get all knowledge entities with per-user VIEWED/BOOKMARKED/MASTERED status.
-
-        Used by the knowledge discovery UI to show user's interaction history.
-
-        Args:
-            user_uid: User UID
-
-        Returns:
-            Result containing list of dicts with keys:
-                uid, title, domain, viewed, bookmarked, mastered
-        """
+        """Get all knowledge entities with per-user VIEWED/BOOKMARKED/MASTERED status."""
         if not self.backend:
             return Result.fail(Errors.system("Backend required", service="LessonMasteryService"))
 
-        query = """
-        MATCH (ku:Entity)
-        OPTIONAL MATCH (u:User {uid: $user_uid})-[v:VIEWED]->(ku)
-        OPTIONAL MATCH (u2:User {uid: $user_uid})-[b:BOOKMARKED]->(ku)
-        OPTIONAL MATCH (u3:User {uid: $user_uid})-[m:MASTERED]->(ku)
-        RETURN ku.uid AS uid, ku.title AS title, ku.domain AS domain,
-               v IS NOT NULL AS viewed,
-               b IS NOT NULL AS bookmarked,
-               m IS NOT NULL AS mastered
-        ORDER BY ku.title ASC, ku.uid ASC
-        """
-
-        result = await self.backend.execute_query(query, {"user_uid": user_uid})
+        result = await self.backend.get_all_user_knowledge_status(user_uid)
 
         if result.is_error:
             return Result.fail(result.expect_error())

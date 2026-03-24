@@ -223,15 +223,9 @@ class FormSubmissionService(BaseService[FormSubmissionBackendOperations, FormSub
             self.logger.warning("share_with_admin called but no sharing_service configured")
             return
 
-        admin_result = await self.backend.execute_query(
-            """
-            MATCH (u:User) WHERE u.role = $admin_role
-            RETURN u.uid as uid LIMIT 1
-            """,
-            {"admin_role": UserRole.ADMIN.value},
-        )
+        admin_result = await self.backend.find_admin_user_uid(UserRole.ADMIN.value)
         if admin_result.is_ok and admin_result.value:
-            admin_uid = admin_result.value[0]["uid"]
+            admin_uid = admin_result.value
             result = await self.sharing_service.share(
                 entity_uid=submission_uid,
                 owner_uid=user_uid,

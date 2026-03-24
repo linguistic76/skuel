@@ -21,7 +21,6 @@ from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.habit.habit import Habit
 from core.models.habit.habit_dto import HabitDTO
 from core.models.habit.habit_request import HabitCreateRequest
-from core.models.relationship_names import RelationshipName
 from core.ports import get_enum_value
 from core.ports.domain_protocols import HabitsOperations
 from core.services.base_service import BaseService
@@ -102,7 +101,6 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
             None if valid, Result.fail() with validation error if invalid
         """
         from core.models.enums import RecurrencePattern
-        from core.utils.result_simplified import Errors
 
         # Business Rule: Frequency consistency
         # Daily habit with target > 7 days/week is logically impossible
@@ -137,7 +135,6 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
         """
         from core.models.enums import RecurrencePattern
         from core.models.enums.entity_enums import EntityStatus
-        from core.utils.result_simplified import Errors
 
         # Business Rule 1: Streak preservation on archive
         # Users invest effort building streaks - prevent accidental destruction
