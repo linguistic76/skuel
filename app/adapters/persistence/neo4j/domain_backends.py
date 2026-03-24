@@ -638,19 +638,27 @@ class TasksBackend(_HierarchyMixin, UniversalNeo4jBackend[Task]):
         )
 
 
-class EventsBackend(UniversalNeo4jBackend[Event]):
+class EventsBackend(_HierarchyMixin, UniversalNeo4jBackend[Event]):
     """
     Domain backend for Event entities.
 
-    Extends UniversalNeo4jBackend[Event] with explicit implementations of
-    EventsOperations methods that require domain-specific Cypher:
+    Extends UniversalNeo4jBackend[Event] with:
+    - _HierarchyMixin: subevent hierarchy (get children/parent/hierarchy, create/remove, cycle detection)
     - get_event(uid)             → wraps get() with NotFound check
     - list_by_user(uid, limit)   → wraps get_user_entities(), extracts list
     - get_user_events(uid)       → alias for list_by_user()
+    - get_stats_for_user(uid)    → event count stats (total/scheduled/today)
     - link_event_to_goal(…)      → Cypher MERGE SUPPORTS_GOAL
     - link_event_to_habit(…)     → Cypher MERGE REINFORCES_HABIT
     - link_event_to_knowledge(…) → Cypher MERGE REINFORCES_KNOWLEDGE (batch)
     """
+
+    _hierarchy_config = HierarchyConfig(
+        forward_rel=RelationshipName.HAS_SUBEVENT.value,
+        inverse_rel=RelationshipName.SUBEVENT_OF.value,
+        node_label="Entity",
+        domain_name="subevent",
+    )
 
     async def get_event(self, event_id: str) -> Result[Event]:
         """Get event by ID. Returns error if not found (contrast with get() → None)."""
@@ -674,6 +682,33 @@ class EventsBackend(UniversalNeo4jBackend[Event]):
     async def get_user_events(self, user_uid: str) -> Result[list[Event]]:
         """Get all events for a user. Alias for list_by_user."""
         return await self.list_by_user(user_uid)
+
+    async def get_stats_for_user(self, user_uid: str) -> Result[dict[str, int]]:
+        """Count event stats: total, scheduled, today."""
+        from datetime import date
+
+        query = """
+        MATCH (n:Entity {user_uid: $user_uid, entity_type: 'event'})
+        RETURN
+            count(n) AS total,
+            count(CASE WHEN n.status = 'scheduled' THEN 1 END) AS scheduled,
+            count(CASE WHEN n.start_time IS NOT NULL
+                       AND substring(toString(n.start_time), 0, 10) = $today
+                  THEN 1 END) AS today
+        """
+        result = await self.execute_query(
+            query, {"user_uid": user_uid, "today": date.today().isoformat()}
+        )
+        if result.is_error:
+            return Result.fail(result)
+        record = result.value[0] if result.value else {}
+        return Result.ok(
+            {
+                "total": record.get("total", 0),
+                "scheduled": record.get("scheduled", 0),
+                "today": record.get("today", 0),
+            }
+        )
 
     async def link_event_to_goal(
         self, event_uid: str, goal_uid: str, contribution_weight: float = 1.0
@@ -761,17 +796,26 @@ class EventsBackend(UniversalNeo4jBackend[Event]):
             return Result.fail(Errors.database(operation="link_event_to_knowledge", message=str(e)))
 
 
-class ChoicesBackend(UniversalNeo4jBackend[Choice]):
+class ChoicesBackend(_HierarchyMixin, UniversalNeo4jBackend[Choice]):
     """
     Domain backend for Choice entities.
 
-    Extends UniversalNeo4jBackend[Choice] with explicit implementations of
-    ChoicesOperations methods that don't resolve via __getattr__:
+    Extends UniversalNeo4jBackend[Choice] with:
+    - _HierarchyMixin: subchoice hierarchy (get children/parent/hierarchy, create/remove, cycle detection)
     - get_choice(uid)                      → wraps get() with NotFound check
     - list_by_user(uid, limit)             → wraps get_user_entities(), extracts list
     - get_user_choices(uid)                → alias for list_by_user()
+    - get_stats_for_user(uid)              → choice count stats (total/pending/decided)
     - create_user_choice_relationship(...) → wraps create_user_relationship()
     """
+
+    _hierarchy_config = HierarchyConfig(
+        forward_rel=RelationshipName.HAS_SUBCHOICE.value,
+        inverse_rel=RelationshipName.SUBCHOICE_OF.value,
+        node_label="Entity",
+        domain_name="subchoice",
+        node_filter=", entity_type: 'choice'",
+    )
 
     async def get_choice(self, choice_id: str) -> Result[Choice]:
         """Get choice by ID. Returns error if not found (contrast with get() → None)."""
@@ -796,22 +840,51 @@ class ChoicesBackend(UniversalNeo4jBackend[Choice]):
         """Get all choices for a user. Alias for list_by_user."""
         return await self.list_by_user(user_uid)
 
+    async def get_stats_for_user(self, user_uid: str) -> Result[dict[str, int]]:
+        """Count choice stats: total, pending, decided."""
+        query = """
+        MATCH (n:Entity {user_uid: $user_uid, entity_type: 'choice'})
+        RETURN
+            count(n) AS total,
+            count(CASE WHEN n.status = 'pending' THEN 1 END) AS pending,
+            count(CASE WHEN n.status = 'decided' THEN 1 END) AS decided
+        """
+        result = await self.execute_query(query, {"user_uid": user_uid})
+        if result.is_error:
+            return Result.fail(result)
+        record = result.value[0] if result.value else {}
+        return Result.ok(
+            {
+                "total": record.get("total", 0),
+                "pending": record.get("pending", 0),
+                "decided": record.get("decided", 0),
+            }
+        )
+
     async def create_user_choice_relationship(self, user_uid: str, choice_uid: str) -> Result[bool]:
         """Create User→Choice OWNS relationship in the graph."""
         return await self.create_user_relationship(user_uid, choice_uid)
 
 
-class PrinciplesBackend(UniversalNeo4jBackend[Principle]):
+class PrinciplesBackend(_HierarchyMixin, UniversalNeo4jBackend[Principle]):
     """
     Domain backend for Principle entities.
 
-    Extends UniversalNeo4jBackend[Principle] with explicit implementations of
-    PrinciplesOperations methods that don't resolve via __getattr__:
+    Extends UniversalNeo4jBackend[Principle] with:
+    - _HierarchyMixin: subprinciple hierarchy (get children/parent/hierarchy, create/remove, cycle detection)
     - get_principle(uid)                        → wraps get() with NotFound check
     - list_by_user(uid, limit)                  → wraps get_user_entities(), extracts list
     - get_user_principles(uid)                  → alias for list_by_user()
+    - get_stats_for_user(uid)                   → principle count stats (total/core/active)
     - create_user_principle_relationship(...)   → wraps create_user_relationship()
     """
+
+    _hierarchy_config = HierarchyConfig(
+        forward_rel=RelationshipName.HAS_SUBPRINCIPLE.value,
+        inverse_rel=RelationshipName.SUBPRINCIPLE_OF.value,
+        node_label="Principle",
+        domain_name="subprinciple",
+    )
 
     async def get_principle(self, principle_uid: str) -> Result[Principle]:
         """Get principle by ID. Returns error if not found (contrast with get() → None)."""
@@ -835,6 +908,27 @@ class PrinciplesBackend(UniversalNeo4jBackend[Principle]):
     async def get_user_principles(self, user_uid: str) -> Result[list[Principle]]:
         """Get all principles for a user. Alias for list_by_user."""
         return await self.list_by_user(user_uid)
+
+    async def get_stats_for_user(self, user_uid: str) -> Result[dict[str, int]]:
+        """Count principle stats: total, core, active."""
+        query = """
+        MATCH (n:Entity {user_uid: $user_uid, entity_type: 'principle'})
+        RETURN
+            count(n) AS total,
+            count(CASE WHEN n.strength = 'core' THEN 1 END) AS core,
+            count(CASE WHEN n.is_active = true THEN 1 END) AS active
+        """
+        result = await self.execute_query(query, {"user_uid": user_uid})
+        if result.is_error:
+            return Result.fail(result)
+        record = result.value[0] if result.value else {}
+        return Result.ok(
+            {
+                "total": record.get("total", 0),
+                "core": record.get("core", 0),
+                "active": record.get("active", 0),
+            }
+        )
 
     async def create_user_principle_relationship(
         self, user_uid: str, principle_uid: str
@@ -1210,9 +1304,135 @@ class LsBackend(UniversalNeo4jBackend[LearningStep]):
     """
     Domain backend for LearningStep entities.
 
-    Extends UniversalNeo4jBackend[LearningStep] with LS-specific graph queries
-    for lesson completion progress tracking.
+    Extends UniversalNeo4jBackend[LearningStep] with:
+    - Knowledge relationship CRUD (CONTAINS_KNOWLEDGE edges)
+    - Lesson completion progress tracking
     """
+
+    # ========================================================================
+    # KNOWLEDGE RELATIONSHIP CRUD (CONTAINS_KNOWLEDGE edges)
+    # ========================================================================
+
+    async def add_knowledge(
+        self, ls_uid: str, ku_uid: str, knowledge_type: str = "primary"
+    ) -> Result[bool]:
+        """MERGE CONTAINS_KNOWLEDGE relationship between LS and KU."""
+        query = """
+        MATCH (ls:Entity {uid: $ls_uid})
+        MATCH (ku:Entity {uid: $ku_uid})
+        MERGE (ls)-[r:CONTAINS_KNOWLEDGE]->(ku)
+        SET r.type = $knowledge_type,
+            r.created_at = COALESCE(r.created_at, datetime()),
+            r.updated_at = datetime()
+        RETURN r
+        """
+        result = await self.execute_query(
+            query, {"ls_uid": ls_uid, "ku_uid": ku_uid, "knowledge_type": knowledge_type}
+        )
+        if result.is_error:
+            return Result.fail(result)
+        success = len(result.value or []) > 0
+        if success:
+            self.logger.info(
+                f"Created CONTAINS_KNOWLEDGE: {ls_uid} -> {ku_uid} (type={knowledge_type})"
+            )
+        return Result.ok(success)
+
+    async def remove_knowledge(self, ls_uid: str, ku_uid: str) -> Result[bool]:
+        """DELETE CONTAINS_KNOWLEDGE relationship between LS and KU."""
+        query = """
+        MATCH (ls:Entity {uid: $ls_uid})-[r:CONTAINS_KNOWLEDGE]->(ku:Entity {uid: $ku_uid})
+        DELETE r
+        RETURN count(r) as deleted
+        """
+        result = await self.execute_query(query, {"ls_uid": ls_uid, "ku_uid": ku_uid})
+        if result.is_error:
+            return Result.fail(result)
+        records = result.value or []
+        deleted = records[0]["deleted"] if records else 0
+        success = deleted > 0
+        if success:
+            self.logger.info(f"Removed CONTAINS_KNOWLEDGE: {ls_uid} -> {ku_uid}")
+        return Result.ok(success)
+
+    async def list_knowledge(
+        self, ls_uid: str, knowledge_type: str | None = None
+    ) -> Result[list[dict[str, Any]]]:
+        """List CONTAINS_KNOWLEDGE relationships, optionally filtered by type."""
+        if knowledge_type:
+            query = """
+            MATCH (ls:Entity {uid: $ls_uid})-[r:CONTAINS_KNOWLEDGE {type: $knowledge_type}]->(ku:Entity)
+            RETURN ku.uid as uid, ku.title as title, ku.domain as domain,
+                   r.type as type, r.created_at as created_at
+            ORDER BY r.created_at, ku.title
+            """
+            params: dict[str, Any] = {"ls_uid": ls_uid, "knowledge_type": knowledge_type}
+        else:
+            query = """
+            MATCH (ls:Entity {uid: $ls_uid})-[r:CONTAINS_KNOWLEDGE]->(ku:Entity)
+            RETURN ku.uid as uid, ku.title as title, ku.domain as domain,
+                   r.type as type, r.created_at as created_at
+            ORDER BY r.type, r.created_at, ku.title
+            """
+            params = {"ls_uid": ls_uid}
+
+        result = await self.execute_query(query, params)
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(
+            [
+                {
+                    "uid": r["uid"],
+                    "title": r["title"],
+                    "domain": r["domain"],
+                    "type": r["type"],
+                    "created_at": r["created_at"],
+                }
+                for r in result.value or []
+            ]
+        )
+
+    async def get_knowledge_summary(self, ls_uid: str) -> Result[dict[str, Any]]:
+        """Aggregate counts and UIDs of primary vs supporting knowledge."""
+        query = """
+        MATCH (ls:Entity {uid: $ls_uid})
+        OPTIONAL MATCH (ls)-[r:CONTAINS_KNOWLEDGE]->(ku:Entity)
+        WITH ls, r, ku
+        RETURN
+            count(CASE WHEN r.type = 'primary' THEN 1 END) as primary_count,
+            count(CASE WHEN r.type = 'supporting' THEN 1 END) as supporting_count,
+            count(r) as total_count,
+            collect(CASE WHEN r.type = 'primary' THEN ku.uid END) as primary_uids,
+            collect(CASE WHEN r.type = 'supporting' THEN ku.uid END) as supporting_uids
+        """
+        result = await self.execute_query(query, {"ls_uid": ls_uid})
+        if result.is_error:
+            return Result.fail(result)
+        records = result.value or []
+        if not records:
+            return Result.ok(
+                {
+                    "primary_count": 0,
+                    "supporting_count": 0,
+                    "total_count": 0,
+                    "primary_uids": [],
+                    "supporting_uids": [],
+                }
+            )
+        record = records[0]
+        return Result.ok(
+            {
+                "primary_count": record["primary_count"],
+                "supporting_count": record["supporting_count"],
+                "total_count": record["total_count"],
+                "primary_uids": [uid for uid in record["primary_uids"] if uid],
+                "supporting_uids": [uid for uid in record["supporting_uids"] if uid],
+            }
+        )
+
+    # ========================================================================
+    # LESSON PROGRESS TRACKING
+    # ========================================================================
 
     async def get_steps_containing_lesson(self, lesson_uid: str) -> Result[list[str]]:
         """
@@ -1283,12 +1503,121 @@ class LpBackend(UniversalNeo4jBackend[LearningPath]):
     """
     Domain backend for LearningPath entities.
 
-    Extends UniversalNeo4jBackend[LearningPath] with LP-specific graph queries
-    that were previously executed via a raw QueryExecutor in LpProgressService.
-
-    Methods expose typed interfaces for KU mastery progress calculations,
-    keeping all LP-specific Cypher in the persistence layer.
+    Extends UniversalNeo4jBackend[LearningPath] with:
+    - Step management CRUD (HAS_STEP edges)
+    - KU mastery progress tracking
     """
+
+    # ========================================================================
+    # STEP MANAGEMENT (HAS_STEP edges)
+    # ========================================================================
+
+    async def get_steps_raw(self, path_uid: str, depth: int = 1) -> Result[list[dict[str, Any]]]:
+        """Get ordered steps in a learning path as raw dicts."""
+        query = f"""
+        MATCH (lp:Entity {{uid: $path_uid}})-[r:HAS_STEP*1..{depth}]->(ls:Entity {{entity_type: 'learning_step'}})
+        RETURN ls, r[0].sequence as sequence
+        ORDER BY sequence
+        """
+        result = await self.execute_query(query, {"path_uid": path_uid})
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok([record["ls"] for record in (result.value or [])])
+
+    async def get_parent_path_raw(self, step_uid: str) -> Result[dict[str, Any] | None]:
+        """Get parent learning path for a step as raw dict, or None."""
+        query = """
+        MATCH (lp:Entity {entity_type: 'learning_path'})-[:HAS_STEP]->(ls:Entity {uid: $step_uid})
+        RETURN lp
+        LIMIT 1
+        """
+        result = await self.execute_query(query, {"step_uid": step_uid})
+        if result.is_error:
+            return Result.fail(result)
+        if not result.value:
+            return Result.ok(None)
+        return Result.ok(result.value[0]["lp"])
+
+    async def add_step_to_path(
+        self, path_uid: str, step_uid: str, sequence: int, order: int = 0
+    ) -> Result[bool]:
+        """Create HAS_STEP relationship between path and step."""
+        query = """
+        MATCH (lp:Entity {uid: $path_uid})
+        MATCH (ls:Entity {uid: $step_uid})
+        CREATE (lp)-[:HAS_STEP {
+            sequence: $sequence,
+            order: $order,
+            created_at: datetime()
+        }]->(ls)
+        RETURN true as success
+        """
+        result = await self.execute_query(
+            query,
+            {"path_uid": path_uid, "step_uid": step_uid, "sequence": sequence, "order": order},
+        )
+        if result.is_error:
+            return Result.fail(result)
+        if result.value:
+            self.logger.info(f"Added step {step_uid} to path {path_uid} at sequence {sequence}")
+            return Result.ok(True)
+        return Result.fail(
+            Errors.database(operation="add_step_to_path", message="Failed to add step to path")
+        )
+
+    async def remove_step_from_path(self, path_uid: str, step_uid: str) -> Result[bool]:
+        """Remove HAS_STEP relationship and reorder remaining steps."""
+        # Delete the relationship
+        delete_query = """
+        MATCH (lp:Entity {uid: $path_uid})-[r:HAS_STEP]->(ls:Entity {uid: $step_uid})
+        DELETE r
+        RETURN count(r) as deleted_count
+        """
+        result = await self.execute_query(
+            delete_query, {"path_uid": path_uid, "step_uid": step_uid}
+        )
+        if result.is_error:
+            return Result.fail(result)
+        if not result.value or result.value[0]["deleted_count"] == 0:
+            return Result.ok(False)
+
+        # Reorder remaining steps to close gaps
+        reorder_query = """
+        MATCH (lp:Entity {uid: $path_uid})-[r:HAS_STEP]->(ls:Entity {entity_type: 'learning_step'})
+        WITH ls, r
+        ORDER BY r.sequence
+        WITH collect(ls) as steps
+        UNWIND range(0, size(steps)-1) as idx
+        MATCH (lp:Entity {uid: $path_uid})-[r:HAS_STEP]->(steps[idx])
+        SET r.sequence = idx
+        RETURN count(r) as updated
+        """
+        await self.execute_query(reorder_query, {"path_uid": path_uid})
+        self.logger.info(f"Removed step {step_uid} from path {path_uid} and reordered")
+        return Result.ok(True)
+
+    async def reorder_steps(self, path_uid: str, step_uids: list[str]) -> Result[bool]:
+        """Batch reorder all steps in a path."""
+        query = """
+        MATCH (lp:Entity {uid: $path_uid})
+        WITH lp
+        UNWIND range(0, size($step_uids)-1) as idx
+        MATCH (lp)-[r:HAS_STEP]->(ls:Entity {uid: $step_uids[idx]})
+        SET r.sequence = idx
+        RETURN count(r) as updated
+        """
+        result = await self.execute_query(query, {"path_uid": path_uid, "step_uids": step_uids})
+        if result.is_error:
+            return Result.fail(result)
+        updated = result.value[0]["updated"] if result.value else 0
+        success = updated == len(step_uids)
+        if success:
+            self.logger.info(f"Reordered {updated} steps in path {path_uid}")
+        return Result.ok(success)
+
+    # ========================================================================
+    # KU MASTERY PROGRESS TRACKING
+    # ========================================================================
 
     async def get_paths_containing_ku(self, ku_uid: str) -> Result[list[str]]:
         """

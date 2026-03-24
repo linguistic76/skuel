@@ -31,7 +31,6 @@ from core.models.enums import EntityStatus
 from core.models.enums.entity_enums import EntityType
 from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
-from core.models.relationship_names import RelationshipName
 from core.ports import get_enum_value
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
@@ -469,188 +468,51 @@ class EventsCoreService(BaseService["EventsOperations", Event]):
         return result
 
     # ========================================================================
-    # HIERARCHICAL RELATIONSHIPS (2026-01-30 - Universal Hierarchical Pattern)
+    # HIERARCHICAL RELATIONSHIPS (2026-01-30 - Flat UID, Rich Structure)
+    # Delegated to EventsBackend via _HierarchyMixin (2026-03-24)
     # ========================================================================
 
     @with_error_handling("get_subevents", error_type="database", uid_param="parent_uid")
     async def get_subevents(self, parent_uid: str, depth: int = 1) -> Result[list[Event]]:
-        """
-        Get all subevents of a parent event.
-
-        Args:
-            parent_uid: Parent event UID
-            depth: How many levels deep (1=direct children, 2=children+grandchildren, etc.)
-
-        Returns:
-            Result containing list of subevents ordered by created_at
-
-        Example:
-            # Get direct children
-            subevents = await service.get_subevents("event_abc123")
-
-            # Get all descendants
-            all_subevents = await service.get_subevents("event_abc123", depth=99)
-        """
-        query = f"""
-        MATCH (parent:Entity {{uid: $parent_uid}})
-        MATCH (parent)-[:{RelationshipName.HAS_SUBEVENT.value}*1..{depth}]->(subevent:Entity)
-        RETURN subevent
-        ORDER BY subevent.created_at
-        """
-
-        result = await self.backend.execute_query(query, {"parent_uid": parent_uid})
-
+        """Get all subevents of a parent event at the given depth."""
+        result = await self.backend.get_children_raw(parent_uid, depth)
         if result.is_error:
-            return Result.fail(result.expect_error())
-        if not result.value:
-            return Result.ok([])
-
-        # Convert to domain models
-        events = []
-        for record in result.value:
-            event_data = record["subevent"]
-            event = self._to_domain_model(event_data, EventDTO, Event)
-            events.append(event)
-
-        return Result.ok(events)
+            return Result.fail(result)
+        return Result.ok([self._to_domain_model(data, EventDTO, Event) for data in result.value])
 
     @with_error_handling("get_parent_event", error_type="database", uid_param="subevent_uid")
     async def get_parent_event(self, subevent_uid: str) -> Result[Event | None]:
-        """
-        Get immediate parent of a subevent (if any).
-
-        Args:
-            subevent_uid: Subevent UID
-
-        Returns:
-            Result containing parent Ku or None if root-level event
-        """
-        query = f"""
-        MATCH (subevent:Entity {{uid: $subevent_uid}})
-        MATCH (parent:Entity)-[:{RelationshipName.HAS_SUBEVENT.value}]->(subevent)
-        RETURN parent
-        LIMIT 1
-        """
-
-        result = await self.backend.execute_query(query, {"subevent_uid": subevent_uid})
-
+        """Get immediate parent of a subevent (if any)."""
+        result = await self.backend.get_parent_raw(subevent_uid)
         if result.is_error:
-            return Result.fail(result.expect_error())
-        if not result.value:
+            return Result.fail(result)
+        if result.value is None:
             return Result.ok(None)
-
-        parent_data = result.value[0]["parent"]
-        parent = self._to_domain_model(parent_data, EventDTO, Event)
-        return Result.ok(parent)
+        return Result.ok(self._to_domain_model(result.value, EventDTO, Event))
 
     @with_error_handling("get_event_hierarchy", error_type="database", uid_param="event_uid")
     async def get_event_hierarchy(self, event_uid: str) -> Result[dict[str, Any]]:
-        """
-        Get full hierarchy context: ancestors, siblings, children.
-
-        Args:
-            event_uid: Event UID to get context for
-
-        Returns:
-            Result containing hierarchy dict with keys:
-            - ancestors: list[Event] (root to immediate parent)
-            - current: Event
-            - siblings: list[Event] (other children of same parent)
-            - children: list[Event] (immediate children)
-            - depth: int (how deep in hierarchy, 0=root)
-
-        Example:
-            hierarchy = await service.get_event_hierarchy("event_xyz789")
-            # {
-            # "ancestors": [root_event, parent_event],
-            # "current": event_xyz789,
-            # "siblings": [sibling1, sibling2],
-            # "children": [child1, child2],
-            # "depth": 2
-            # }
-        """
-        # Get ancestors
-        ancestors_query = f"""
-        MATCH path = (root:Entity)-[:{RelationshipName.HAS_SUBEVENT.value}*]->(current:Entity {{uid: $event_uid}})
-        WHERE NOT EXISTS((root)<-[:{RelationshipName.HAS_SUBEVENT.value}]-())
-        RETURN nodes(path) as ancestors
-        """
-
-        # Get siblings
-        siblings_query = f"""
-        MATCH (current:Entity {{uid: $event_uid}})
-        OPTIONAL MATCH (parent:Entity)-[:{RelationshipName.HAS_SUBEVENT.value}]->(current)
-        OPTIONAL MATCH (parent)-[:{RelationshipName.HAS_SUBEVENT.value}]->(sibling:Entity)
-        WHERE sibling.uid <> $event_uid
-        RETURN collect(sibling) as siblings
-        """
-
-        # Get children
-        children_query = f"""
-        MATCH (current:Entity {{uid: $event_uid}})
-        OPTIONAL MATCH (current)-[:{RelationshipName.HAS_SUBEVENT.value}]->(child:Entity)
-        RETURN collect(child) as children
-        """
-
-        # Execute all queries
+        """Get full hierarchy context: ancestors, current, siblings, children, depth."""
         current_result = await self.backend.get(event_uid)
         if current_result.is_error:
             return Result.fail(current_result)
-
         current_event = self._to_domain_model(current_result.value, EventDTO, Event)
 
-        ancestors_result = await self.backend.execute_query(
-            ancestors_query, {"event_uid": event_uid}
-        )
-        siblings_result = await self.backend.execute_query(siblings_query, {"event_uid": event_uid})
-        children_result = await self.backend.execute_query(children_query, {"event_uid": event_uid})
+        hierarchy_result = await self.backend.get_hierarchy_raw(event_uid)
+        if hierarchy_result.is_error:
+            return Result.fail(hierarchy_result)
 
-        # Process ancestors
-        ancestors = []
-        if (
-            not ancestors_result.is_error
-            and ancestors_result.value
-            and ancestors_result.value[0]["ancestors"]
-        ):
-            for node in ancestors_result.value[0]["ancestors"][:-1]:  # Exclude current
-                event_data = node
-                ancestors.append(self._to_domain_model(event_data, EventDTO, Event))
-
-        # Process siblings
-        siblings = []
-        if (
-            not siblings_result.is_error
-            and siblings_result.value
-            and siblings_result.value[0]["siblings"]
-        ):
-            for node in siblings_result.value[0]["siblings"]:
-                if node:  # Skip None values
-                    event_data = node
-                    siblings.append(self._to_domain_model(event_data, EventDTO, Event))
-
-        # Process children
-        children = []
-        if (
-            not children_result.is_error
-            and children_result.value
-            and children_result.value[0]["children"]
-        ):
-            for node in children_result.value[0]["children"]:
-                if node:  # Skip None values
-                    event_data = node
-                    children.append(self._to_domain_model(event_data, EventDTO, Event))
-
+        raw = hierarchy_result.value
         return Result.ok(
             {
-                "ancestors": ancestors,
+                "ancestors": [self._to_domain_model(n, EventDTO, Event) for n in raw["ancestors"]],
                 "current": current_event,
-                "siblings": siblings,
-                "children": children,
-                "depth": len(ancestors),
+                "siblings": [self._to_domain_model(n, EventDTO, Event) for n in raw["siblings"]],
+                "children": [self._to_domain_model(n, EventDTO, Event) for n in raw["children"]],
+                "depth": len(raw["ancestors"]),
             }
         )
 
-    @with_error_handling("create_subevent_relationship", error_type="database")
     async def create_subevent_relationship(
         self,
         parent_uid: str,
@@ -658,126 +520,19 @@ class EventsCoreService(BaseService["EventsOperations", Event]):
         order: int = 0,
         time_offset_minutes: int | None = None,
     ) -> Result[bool]:
-        """
-        Create bidirectional parent-child relationship.
-
-        Args:
-            parent_uid: Parent event UID
-            subevent_uid: Subevent UID
-            order: Display order for subevents (default: 0)
-            time_offset_minutes: Minutes from parent start time (optional)
-
-        Returns:
-            Result indicating success
-
-        Note:
-            Creates both HAS_SUBEVENT (parent→child) and SUBEVENT_OF (child→parent)
-            for efficient bidirectional queries.
-        """
-        # Validate no cycle (can't make parent a child of its descendant)
-        cycle_check = await self._would_create_cycle(parent_uid, subevent_uid)
-        if cycle_check:
-            return Result.fail(
-                Errors.validation(
-                    f"Cannot create subevent relationship: would create cycle "
-                    f"({subevent_uid} is ancestor of {parent_uid})"
-                )
-            )
-
-        # Build relationship properties
-        rel_props = {"order": order}
+        """Create bidirectional HAS_SUBEVENT/SUBEVENT_OF relationship with cycle detection."""
+        forward_props: dict[str, Any] = {"order": order}
         if time_offset_minutes is not None:
-            rel_props["time_offset_minutes"] = time_offset_minutes
-
-        # Build property assignments for Cypher
-        prop_assignments = ", ".join([f"{k}: ${k}" for k in rel_props])
-
-        query = f"""
-        MATCH (parent:Entity {{uid: $parent_uid}})
-        MATCH (subevent:Entity {{uid: $subevent_uid}})
-
-        CREATE (parent)-[:{RelationshipName.HAS_SUBEVENT.value} {{
-            {prop_assignments},
-            created_at: datetime()
-        }}]->(subevent)
-
-        CREATE (subevent)-[:{RelationshipName.SUBEVENT_OF.value} {{
-            created_at: datetime()
-        }}]->(parent)
-
-        RETURN true as success
-        """
-
-        params = {"parent_uid": parent_uid, "subevent_uid": subevent_uid, **rel_props}
-        result = await self.backend.execute_query(query, params)
-
-        if result.is_error:
-            return Result.fail(
-                Errors.database(
-                    operation="create", message="Failed to create subevent relationship"
-                )
-            )
-        if result.value:
-            self.logger.info(
-                f"Created subevent relationship: {parent_uid} -> {subevent_uid} (order: {order})"
-            )
-            return Result.ok(True)
-
-        return Result.fail(
-            Errors.database(operation="create", message="Failed to create subevent relationship")
+            forward_props["time_offset_minutes"] = time_offset_minutes
+        return await self.backend.create_hierarchy_relationship(
+            parent_uid, subevent_uid, forward_props
         )
 
-    @with_error_handling("remove_subevent_relationship", error_type="database")
     async def remove_subevent_relationship(
         self, parent_uid: str, subevent_uid: str
     ) -> Result[bool]:
-        """
-        Remove bidirectional parent-child relationship.
-
-        Args:
-            parent_uid: Parent event UID
-            subevent_uid: Subevent UID
-
-        Returns:
-            Result containing True if relationships were deleted
-        """
-        query = f"""
-        MATCH (parent:Entity {{uid: $parent_uid}})-[r1:{RelationshipName.HAS_SUBEVENT.value}]->(subevent:Entity {{uid: $subevent_uid}})
-        MATCH (subevent)-[r2:{RelationshipName.SUBEVENT_OF.value}]->(parent)
-        DELETE r1, r2
-        RETURN count(r1) + count(r2) as deleted_count
-        """
-
-        result = await self.backend.execute_query(
-            query, {"parent_uid": parent_uid, "subevent_uid": subevent_uid}
-        )
-
-        if not result.is_error and result.value:
-            deleted = result.value[0]["deleted_count"]
-            if deleted > 0:
-                self.logger.info(f"Removed subevent relationship: {parent_uid} -> {subevent_uid}")
-                return Result.ok(True)
-
-        return Result.ok(False)
-
-    async def _would_create_cycle(self, parent_uid: str, child_uid: str) -> bool:
-        """Check if adding parent->child relationship would create a cycle."""
-        query = f"""
-        MATCH (child:Entity {{uid: $child_uid}})
-        MATCH path = (child)-[:{RelationshipName.HAS_SUBEVENT.value}*]->(parent:Entity {{uid: $parent_uid}})
-        RETURN count(path) > 0 as would_create_cycle
-        """
-
-        result = await self.backend.execute_query(
-            query, {"parent_uid": parent_uid, "child_uid": child_uid}
-        )
-
-        if result.is_error:
-            return False
-        if result.value:
-            return result.value[0]["would_create_cycle"]
-
-        return False
+        """Remove bidirectional HAS_SUBEVENT/SUBEVENT_OF relationship."""
+        return await self.backend.remove_hierarchy_relationship(parent_uid, subevent_uid)
 
     # ========================================================================
     # QUERY LAYER — Cypher-level filtering for get_filtered_context
@@ -785,28 +540,7 @@ class EventsCoreService(BaseService["EventsOperations", Event]):
 
     async def get_stats_for_user(self, user_uid: str) -> Result[dict[str, int]]:
         """Count event stats via Cypher COUNT — no entity deserialization."""
-        query = """
-        MATCH (n:Entity {user_uid: $user_uid, entity_type: 'event'})
-        RETURN
-            count(n) AS total,
-            count(CASE WHEN n.status = 'scheduled' THEN 1 END) AS scheduled,
-            count(CASE WHEN n.start_time IS NOT NULL
-                       AND substring(toString(n.start_time), 0, 10) = $today
-                  THEN 1 END) AS today
-        """
-        result = await self.backend.execute_query(
-            query, {"user_uid": user_uid, "today": date.today().isoformat()}
-        )
-        if result.is_error:
-            return Result.fail(result)
-        record = result.value[0] if result.value else {}
-        return Result.ok(
-            {
-                "total": record.get("total", 0),
-                "scheduled": record.get("scheduled", 0),
-                "today": record.get("today", 0),
-            }
-        )
+        return await self.backend.get_stats_for_user(user_uid)
 
     async def get_for_user_filtered(
         self, user_uid: str, status_filter: str = "scheduled"

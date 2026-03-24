@@ -983,192 +983,57 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
         return Result.ok(choice)
 
     # ========================================================================
-    # HIERARCHICAL RELATIONSHIPS (2026-01-30 - Universal Hierarchical Pattern)
+    # HIERARCHICAL RELATIONSHIPS (2026-01-30 - Flat UID, Rich Structure)
+    # Delegated to ChoicesBackend via _HierarchyMixin (2026-03-24)
     # ========================================================================
 
     @with_error_handling("get_subchoices", error_type="database", uid_param="parent_uid")
     async def get_subchoices(self, parent_uid: str, depth: int = 1) -> Result[list[Choice]]:
-        """
-        Get all subchoices of a parent choice.
-
-        Args:
-            parent_uid: Parent choice UID
-            depth: How many levels deep (1=direct children, 2=children+grandchildren, etc.)
-
-        Returns:
-            Result containing list of subchoices ordered by created_at
-
-        Example:
-            # Get direct children
-            subchoices = await service.get_subchoices("choice_abc123")
-
-            # Get all descendants
-            all_subchoices = await service.get_subchoices("choice_abc123", depth=99)
-        """
-        query = f"""
-        MATCH (parent:Entity {{uid: $parent_uid, entity_type: 'choice'}})
-        MATCH (parent)-[:{RelationshipName.HAS_SUBCHOICE.value}*1..{depth}]->(subchoice:Entity {{entity_type: 'choice'}})
-        RETURN subchoice
-        ORDER BY subchoice.created_at
-        """
-
-        result = await self.backend.execute_query(query, {"parent_uid": parent_uid})
-
+        """Get all subchoices of a parent choice at the given depth."""
+        result = await self.backend.get_children_raw(parent_uid, depth)
         if result.is_error:
-            return Result.fail(result.expect_error())
-        if not result.value:
-            return Result.ok([])
-
-        # Convert to Choice models
-        choices = []
-        for record in result.value:
-            choice_data = record["subchoice"]
-            choice = self._to_domain_model(choice_data, ChoiceDTO, Choice)
-            choices.append(choice)
-
-        return Result.ok(choices)
+            return Result.fail(result)
+        return Result.ok([self._to_domain_model(data, ChoiceDTO, Choice) for data in result.value])
 
     @with_error_handling("get_parent_choice", error_type="database", uid_param="subchoice_uid")
     async def get_parent_choice(self, subchoice_uid: str) -> Result[Choice | None]:
-        """
-        Get immediate parent of a subchoice (if any).
-
-        Args:
-            subchoice_uid: Subchoice UID
-
-        Returns:
-            Result containing parent Choice or None if root-level choice
-        """
-        query = f"""
-        MATCH (subchoice:Entity {{uid: $subchoice_uid, entity_type: 'choice'}})
-        MATCH (parent:Entity {{entity_type: 'choice'}})-[:{RelationshipName.HAS_SUBCHOICE.value}]->(subchoice)
-        RETURN parent
-        LIMIT 1
-        """
-
-        result = await self.backend.execute_query(query, {"subchoice_uid": subchoice_uid})
-
+        """Get immediate parent of a subchoice (if any)."""
+        result = await self.backend.get_parent_raw(subchoice_uid)
         if result.is_error:
-            return Result.fail(result.expect_error())
-        if not result.value:
+            return Result.fail(result)
+        if result.value is None:
             return Result.ok(None)
-
-        parent_data = result.value[0]["parent"]
-        parent = self._to_domain_model(parent_data, ChoiceDTO, Choice)
-        return Result.ok(parent)
+        return Result.ok(self._to_domain_model(result.value, ChoiceDTO, Choice))
 
     @with_error_handling("get_choice_hierarchy", error_type="database", uid_param="choice_uid")
     async def get_choice_hierarchy(self, choice_uid: str) -> Result[dict[str, Any]]:
-        """
-        Get full hierarchy context: ancestors, siblings, children.
-
-        Args:
-            choice_uid: Choice UID to get context for
-
-        Returns:
-            Result containing hierarchy dict with keys:
-            - ancestors: list[Choice] (root to immediate parent)
-            - current: Choice
-            - siblings: list[Choice] (other children of same parent)
-            - children: list[Choice] (immediate children)
-            - depth: int (how deep in hierarchy, 0=root)
-
-        Example:
-            hierarchy = await service.get_choice_hierarchy("choice_xyz789")
-            # {
-            # "ancestors": [root_choice, parent_choice],
-            # "current": choice_xyz789,
-            # "siblings": [sibling1, sibling2],
-            # "children": [child1, child2],
-            # "depth": 2
-            # }
-        """
-        # Get ancestors
-        ancestors_query = f"""
-        MATCH path = (root:Entity {{entity_type: 'choice'}})-[:{RelationshipName.HAS_SUBCHOICE.value}*]->(current:Entity {{uid: $choice_uid, entity_type: 'choice'}})
-        WHERE NOT EXISTS((root)<-[:{RelationshipName.HAS_SUBCHOICE.value}]-())
-        RETURN nodes(path) as ancestors
-        """
-
-        # Get siblings
-        siblings_query = f"""
-        MATCH (current:Entity {{uid: $choice_uid, entity_type: 'choice'}})
-        OPTIONAL MATCH (parent:Entity {{entity_type: 'choice'}})-[:{RelationshipName.HAS_SUBCHOICE.value}]->(current)
-        OPTIONAL MATCH (parent)-[:{RelationshipName.HAS_SUBCHOICE.value}]->(sibling:Entity {{entity_type: 'choice'}})
-        WHERE sibling.uid <> $choice_uid
-        RETURN collect(sibling) as siblings
-        """
-
-        # Get children
-        children_query = f"""
-        MATCH (current:Entity {{uid: $choice_uid, entity_type: 'choice'}})
-        OPTIONAL MATCH (current)-[:{RelationshipName.HAS_SUBCHOICE.value}]->(child:Entity {{entity_type: 'choice'}})
-        RETURN collect(child) as children
-        """
-
-        # Execute all queries
+        """Get full hierarchy context: ancestors, current, siblings, children, depth."""
         current_result = await self.backend.get(choice_uid)
         if current_result.is_error:
             return Result.fail(current_result)
-
         current_choice = self._to_domain_model(current_result.value, ChoiceDTO, Choice)
 
-        ancestors_result = await self.backend.execute_query(
-            ancestors_query, {"choice_uid": choice_uid}
-        )
-        siblings_result = await self.backend.execute_query(
-            siblings_query, {"choice_uid": choice_uid}
-        )
-        children_result = await self.backend.execute_query(
-            children_query, {"choice_uid": choice_uid}
-        )
+        hierarchy_result = await self.backend.get_hierarchy_raw(choice_uid)
+        if hierarchy_result.is_error:
+            return Result.fail(hierarchy_result)
 
-        # Process ancestors
-        ancestors = []
-        if (
-            not ancestors_result.is_error
-            and ancestors_result.value
-            and ancestors_result.value[0]["ancestors"]
-        ):
-            for node in ancestors_result.value[0]["ancestors"][:-1]:  # Exclude current
-                choice_data = node
-                ancestors.append(self._to_domain_model(choice_data, ChoiceDTO, Choice))
-
-        # Process siblings
-        siblings = []
-        if (
-            not siblings_result.is_error
-            and siblings_result.value
-            and siblings_result.value[0]["siblings"]
-        ):
-            for node in siblings_result.value[0]["siblings"]:
-                if node:  # Skip None values
-                    choice_data = node
-                    siblings.append(self._to_domain_model(choice_data, ChoiceDTO, Choice))
-
-        # Process children
-        children = []
-        if (
-            not children_result.is_error
-            and children_result.value
-            and children_result.value[0]["children"]
-        ):
-            for node in children_result.value[0]["children"]:
-                if node:  # Skip None values
-                    choice_data = node
-                    children.append(self._to_domain_model(choice_data, ChoiceDTO, Choice))
-
+        raw = hierarchy_result.value
         return Result.ok(
             {
-                "ancestors": ancestors,
+                "ancestors": [
+                    self._to_domain_model(n, ChoiceDTO, Choice) for n in raw["ancestors"]
+                ],
                 "current": current_choice,
-                "siblings": siblings,
-                "children": children,
-                "depth": len(ancestors),
+                "siblings": [
+                    self._to_domain_model(n, ChoiceDTO, Choice) for n in raw["siblings"]
+                ],
+                "children": [
+                    self._to_domain_model(n, ChoiceDTO, Choice) for n in raw["children"]
+                ],
+                "depth": len(raw["ancestors"]),
             }
         )
 
-    @with_error_handling("create_subchoice_relationship", error_type="database")
     async def create_subchoice_relationship(
         self,
         parent_uid: str,
@@ -1176,127 +1041,19 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
         order: int = 0,
         depends_on_outcome: str | None = None,
     ) -> Result[bool]:
-        """
-        Create bidirectional parent-child relationship.
-
-        Args:
-            parent_uid: Parent choice UID
-            subchoice_uid: Subchoice UID
-            order: Display order for subchoices (default: 0)
-            depends_on_outcome: Outcome value that triggers this subchoice (optional)
-
-        Returns:
-            Result indicating success
-
-        Note:
-            Creates both HAS_SUBCHOICE (parent→child) and SUBCHOICE_OF (child→parent)
-            for efficient bidirectional queries. Supports conditional decision trees via
-            depends_on_outcome property.
-        """
-        # Validate no cycle (can't make parent a child of its descendant)
-        cycle_check = await self._would_create_cycle(parent_uid, subchoice_uid)
-        if cycle_check:
-            return Result.fail(
-                Errors.validation(
-                    f"Cannot create subchoice relationship: would create cycle "
-                    f"({subchoice_uid} is ancestor of {parent_uid})"
-                )
-            )
-
-        # Build relationship properties
-        rel_props = {"order": order}
+        """Create bidirectional HAS_SUBCHOICE/SUBCHOICE_OF relationship with cycle detection."""
+        forward_props: dict[str, Any] = {"order": order}
         if depends_on_outcome is not None:
-            rel_props["depends_on_outcome"] = depends_on_outcome
-
-        # Build property assignments for Cypher
-        prop_assignments = ", ".join([f"{k}: ${k}" for k in rel_props])
-
-        query = f"""
-        MATCH (parent:Entity {{uid: $parent_uid, entity_type: 'choice'}})
-        MATCH (subchoice:Entity {{uid: $subchoice_uid, entity_type: 'choice'}})
-
-        CREATE (parent)-[:{RelationshipName.HAS_SUBCHOICE.value} {{
-            {prop_assignments},
-            created_at: datetime()
-        }}]->(subchoice)
-
-        CREATE (subchoice)-[:{RelationshipName.SUBCHOICE_OF.value} {{
-            created_at: datetime()
-        }}]->(parent)
-
-        RETURN true as success
-        """
-
-        params = {"parent_uid": parent_uid, "subchoice_uid": subchoice_uid, **rel_props}
-        result = await self.backend.execute_query(query, params)
-
-        if result.is_error:
-            return Result.fail(
-                Errors.database(
-                    operation="create", message="Failed to create subchoice relationship"
-                )
-            )
-        if result.value:
-            self.logger.info(
-                f"Created subchoice relationship: {parent_uid} -> {subchoice_uid} (order: {order})"
-            )
-            return Result.ok(True)
-
-        return Result.fail(
-            Errors.database(operation="create", message="Failed to create subchoice relationship")
+            forward_props["depends_on_outcome"] = depends_on_outcome
+        return await self.backend.create_hierarchy_relationship(
+            parent_uid, subchoice_uid, forward_props
         )
 
-    @with_error_handling("remove_subchoice_relationship", error_type="database")
     async def remove_subchoice_relationship(
         self, parent_uid: str, subchoice_uid: str
     ) -> Result[bool]:
-        """
-        Remove bidirectional parent-child relationship.
-
-        Args:
-            parent_uid: Parent choice UID
-            subchoice_uid: Subchoice UID
-
-        Returns:
-            Result containing True if relationships were deleted
-        """
-        query = f"""
-        MATCH (parent:Entity {{uid: $parent_uid, entity_type: 'choice'}})-[r1:{RelationshipName.HAS_SUBCHOICE.value}]->(subchoice:Entity {{uid: $subchoice_uid, entity_type: 'choice'}})
-        MATCH (subchoice)-[r2:{RelationshipName.SUBCHOICE_OF.value}]->(parent)
-        DELETE r1, r2
-        RETURN count(r1) + count(r2) as deleted_count
-        """
-
-        result = await self.backend.execute_query(
-            query, {"parent_uid": parent_uid, "subchoice_uid": subchoice_uid}
-        )
-
-        if not result.is_error and result.value:
-            deleted = result.value[0]["deleted_count"]
-            if deleted > 0:
-                self.logger.info(f"Removed subchoice relationship: {parent_uid} -> {subchoice_uid}")
-                return Result.ok(True)
-
-        return Result.ok(False)
-
-    async def _would_create_cycle(self, parent_uid: str, child_uid: str) -> bool:
-        """Check if adding parent->child relationship would create a cycle."""
-        query = f"""
-        MATCH (child:Entity {{uid: $child_uid, entity_type: 'choice'}})
-        MATCH path = (child)-[:{RelationshipName.HAS_SUBCHOICE.value}*]->(parent:Entity {{uid: $parent_uid, entity_type: 'choice'}})
-        RETURN count(path) > 0 as would_create_cycle
-        """
-
-        result = await self.backend.execute_query(
-            query, {"parent_uid": parent_uid, "child_uid": child_uid}
-        )
-
-        if result.is_error:
-            return False
-        if result.value:
-            return result.value[0]["would_create_cycle"]
-
-        return False
+        """Remove bidirectional HAS_SUBCHOICE/SUBCHOICE_OF relationship."""
+        return await self.backend.remove_hierarchy_relationship(parent_uid, subchoice_uid)
 
     # ========================================================================
     # QUERY LAYER — Cypher-level filtering for get_filtered_context
@@ -1304,24 +1061,7 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
 
     async def get_stats_for_user(self, user_uid: str) -> Result[dict[str, int]]:
         """Count choice stats via Cypher COUNT — no entity deserialization."""
-        query = """
-        MATCH (n:Entity {user_uid: $user_uid, entity_type: 'choice'})
-        RETURN
-            count(n) AS total,
-            count(CASE WHEN n.status = 'pending' THEN 1 END) AS pending,
-            count(CASE WHEN n.status = 'decided' THEN 1 END) AS decided
-        """
-        result = await self.backend.execute_query(query, {"user_uid": user_uid})
-        if result.is_error:
-            return Result.fail(result)
-        record = result.value[0] if result.value else {}
-        return Result.ok(
-            {
-                "total": record.get("total", 0),
-                "pending": record.get("pending", 0),
-                "decided": record.get("decided", 0),
-            }
-        )
+        return await self.backend.get_stats_for_user(user_uid)
 
     async def get_for_user_filtered(
         self, user_uid: str, status_filter: str = "pending"

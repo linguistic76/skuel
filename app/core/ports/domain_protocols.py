@@ -280,7 +280,9 @@ class TasksOperations(
 
 
 @runtime_checkable
-class EventsOperations(BackendOperations["Event"], GraphRelationshipOperations, Protocol):
+class EventsOperations(
+    BackendOperations["Event"], GraphRelationshipOperations, HierarchyOperations, Protocol
+):
     """Core event management operations.
 
     Inherits base CRUD operations from BackendOperations:
@@ -354,6 +356,10 @@ class EventsOperations(BackendOperations["Event"], GraphRelationshipOperations, 
         ...
 
     # NOTE: get_related_uids() and count_related() inherited from GraphRelationshipOperations
+
+    async def get_stats_for_user(self, user_uid: str) -> Result[dict[str, int]]:
+        """Count event stats: total, scheduled, today."""
+        ...
 
 
 @runtime_checkable
@@ -738,7 +744,9 @@ class GoalsOperations(
 
 
 @runtime_checkable
-class ChoicesOperations(BackendOperations["Choice"], GraphRelationshipOperations, Protocol):
+class ChoicesOperations(
+    BackendOperations["Choice"], GraphRelationshipOperations, HierarchyOperations, Protocol
+):
     """Core choice management operations.
 
     Inherits base CRUD operations from BackendOperations:
@@ -815,9 +823,15 @@ class ChoicesOperations(BackendOperations["Choice"], GraphRelationshipOperations
 
     # NOTE: get_related_uids() and count_related() inherited from GraphRelationshipOperations
 
+    async def get_stats_for_user(self, user_uid: str) -> Result[dict[str, int]]:
+        """Count choice stats: total, pending, decided."""
+        ...
+
 
 @runtime_checkable
-class PrinciplesOperations(BackendOperations["Principle"], GraphRelationshipOperations, Protocol):
+class PrinciplesOperations(
+    BackendOperations["Principle"], GraphRelationshipOperations, HierarchyOperations, Protocol
+):
     """Core principle management operations. Uses Principle domain model (EntityType.PRINCIPLE).
 
     Inherits base CRUD operations from BackendOperations:
@@ -884,6 +898,10 @@ class PrinciplesOperations(BackendOperations["Principle"], GraphRelationshipOper
         ...
 
     # NOTE: get_related_uids() and count_related() inherited from GraphRelationshipOperations
+
+    async def get_stats_for_user(self, user_uid: str) -> Result[dict[str, int]]:
+        """Count principle stats: total, core, active."""
+        ...
 
 
 # ============================================================================

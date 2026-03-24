@@ -579,6 +579,30 @@ class LsOperations(CurriculumOperations["LearningStep"], Protocol):
         ...
 
     # =========================================================================
+    # KNOWLEDGE RELATIONSHIP CRUD (CONTAINS_KNOWLEDGE edges)
+    # =========================================================================
+
+    async def add_knowledge(
+        self, ls_uid: str, ku_uid: str, knowledge_type: str = "primary"
+    ) -> Result[bool]:
+        """MERGE CONTAINS_KNOWLEDGE relationship between LS and KU."""
+        ...
+
+    async def remove_knowledge(self, ls_uid: str, ku_uid: str) -> Result[bool]:
+        """DELETE CONTAINS_KNOWLEDGE relationship between LS and KU."""
+        ...
+
+    async def list_knowledge(
+        self, ls_uid: str, knowledge_type: str | None = None
+    ) -> Result[list[dict[str, Any]]]:
+        """List CONTAINS_KNOWLEDGE relationships, optionally filtered by type."""
+        ...
+
+    async def get_knowledge_summary(self, ls_uid: str) -> Result[dict[str, Any]]:
+        """Aggregate counts and UIDs of primary vs supporting knowledge."""
+        ...
+
+    # =========================================================================
     # PRACTICE INTEGRATION
     # =========================================================================
 
@@ -793,6 +817,32 @@ class LpOperations(CurriculumOperations["LearningPath"], Protocol):
         Returns:
             Result[list[LearningPath]]: Paths with progress but not completed
         """
+        ...
+
+    # =========================================================================
+    # STEP MANAGEMENT (HAS_STEP edges)
+    # =========================================================================
+
+    async def get_steps_raw(self, path_uid: str, depth: int = 1) -> Result[list[dict[str, Any]]]:
+        """Get ordered steps as raw dicts."""
+        ...
+
+    async def get_parent_path_raw(self, step_uid: str) -> Result[dict[str, Any] | None]:
+        """Get parent learning path as raw dict, or None."""
+        ...
+
+    async def add_step_to_path(
+        self, path_uid: str, step_uid: str, sequence: int, order: int = 0
+    ) -> Result[bool]:
+        """Create HAS_STEP relationship between path and step."""
+        ...
+
+    async def remove_step_from_path(self, path_uid: str, step_uid: str) -> Result[bool]:
+        """Remove HAS_STEP relationship and reorder remaining steps."""
+        ...
+
+    async def reorder_steps(self, path_uid: str, step_uids: list[str]) -> Result[bool]:
+        """Batch reorder all steps in a path."""
         ...
 
     # =========================================================================

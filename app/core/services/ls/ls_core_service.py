@@ -800,6 +800,7 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
 
     # ========================================================================
     # KNOWLEDGE RELATIONSHIP METHODS (Universal Hierarchical Pattern - 2026-01-30)
+    # Delegated to LsBackend (2026-03-24)
     # ========================================================================
 
     @track_query_metrics("ls_add_knowledge")
@@ -807,38 +808,7 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
     async def add_knowledge_relationship(
         self, ls_uid: str, ku_uid: str, knowledge_type: str = "primary"
     ) -> Result[bool]:
-        """
-        Create CONTAINS_KNOWLEDGE relationship between LS and KU.
-
-        Universal Hierarchical Pattern: Stores knowledge references as graph
-        relationships instead of properties. Supports rich metadata.
-
-        Args:
-            ls_uid: Learning Step UID
-            ku_uid: Knowledge Unit UID
-            knowledge_type: "primary" (core learning) or "supporting" (optional)
-
-        Returns:
-            Result[bool] - True if created successfully
-
-        Example:
-            # Add primary knowledge
-            await ls_service.add_knowledge_relationship(
-                ls_uid="ls:abc123",
-                ku_uid="ku_python-basics_xyz789",
-                knowledge_type="primary"
-            )
-
-            # Add supporting knowledge
-            await ls_service.add_knowledge_relationship(
-                ls_uid="ls:abc123",
-                ku_uid="ku_advanced-topics_def456",
-                knowledge_type="supporting"
-            )
-
-        See: /docs/patterns/UNIVERSAL_HIERARCHICAL_PATTERN.md
-        """
-        # Validate knowledge_type
+        """Create CONTAINS_KNOWLEDGE relationship between LS and KU."""
         if knowledge_type not in ("primary", "supporting"):
             return Result.fail(
                 Errors.validation(
@@ -846,73 +816,14 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
                     field="knowledge_type",
                 )
             )
-
-        query = """
-        MATCH (ls:Entity {uid: $ls_uid})
-        MATCH (ku:Entity {uid: $ku_uid})
-        MERGE (ls)-[r:CONTAINS_KNOWLEDGE]->(ku)
-        SET r.type = $knowledge_type,
-            r.created_at = COALESCE(r.created_at, datetime()),
-            r.updated_at = datetime()
-        RETURN r
-        """
-
-        result = await self.backend.execute_query(
-            query, {"ls_uid": ls_uid, "ku_uid": ku_uid, "knowledge_type": knowledge_type}
-        )
-
-        if result.is_error:
-            return Result.fail(result.expect_error())
-
-        success = len(result.value or []) > 0
-        if success:
-            self.logger.info(
-                f"Created CONTAINS_KNOWLEDGE: {ls_uid} -> {ku_uid} (type={knowledge_type})"
-            )
-        else:
-            self.logger.warning(f"Failed to create CONTAINS_KNOWLEDGE: {ls_uid} -> {ku_uid}")
-
-        return Result.ok(success)
+        return await self.backend.add_knowledge(ls_uid, ku_uid, knowledge_type)
 
     @track_query_metrics("ls_get_knowledge")
     @with_error_handling("get_contained_knowledge", error_type="database")
     async def get_contained_knowledge(
         self, ls_uid: str, knowledge_type: str | None = None
     ) -> Result[list[dict]]:
-        """
-        Get KUs contained in this Learning Step via CONTAINS_KNOWLEDGE relationships.
-
-        Universal Hierarchical Pattern: Queries graph relationships instead of
-        reading properties. Returns KU data with type metadata.
-
-        Args:
-            ls_uid: Learning Step UID
-            knowledge_type: Filter by "primary" or "supporting" (None = all)
-
-        Returns:
-            Result containing list of KU dicts with metadata:
-            - uid: KU UID
-            - title: KU title
-            - type: "primary" or "supporting"
-            - domain: KU domain
-            - created_at: When relationship was created
-
-        Example:
-            # Get all knowledge
-            result = await ls_service.get_contained_knowledge("ls:abc123")
-            # Returns: [
-            # {"uid": "ku_python_xyz", "title": "Python Basics", "type": "primary"},
-            # {"uid": "ku_advanced_def", "title": "Advanced", "type": "supporting"}
-            # ]
-
-            # Get only primary knowledge
-            result = await ls_service.get_contained_knowledge(
-                "ls:abc123",
-                knowledge_type="primary"
-            )
-
-        See: /docs/patterns/UNIVERSAL_HIERARCHICAL_PATTERN.md
-        """
+        """Get KUs contained in this LS via CONTAINS_KNOWLEDGE relationships."""
         if knowledge_type and knowledge_type not in ("primary", "supporting"):
             return Result.fail(
                 Errors.validation(
@@ -920,170 +831,36 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
                     field="knowledge_type",
                 )
             )
-
-        # Build query based on filter
-        if knowledge_type:
-            query = """
-            MATCH (ls:Entity {uid: $ls_uid})-[r:CONTAINS_KNOWLEDGE {type: $knowledge_type}]->(ku:Entity)
-            RETURN ku.uid as uid,
-                   ku.title as title,
-                   ku.domain as domain,
-                   r.type as type,
-                   r.created_at as created_at
-            ORDER BY r.created_at, ku.title
-            """
-            params = {"ls_uid": ls_uid, "knowledge_type": knowledge_type}
-        else:
-            query = """
-            MATCH (ls:Entity {uid: $ls_uid})-[r:CONTAINS_KNOWLEDGE]->(ku:Entity)
-            RETURN ku.uid as uid,
-                   ku.title as title,
-                   ku.domain as domain,
-                   r.type as type,
-                   r.created_at as created_at
-            ORDER BY r.type, r.created_at, ku.title
-            """
-            params = {"ls_uid": ls_uid}
-
-        result = await self.backend.execute_query(query, params)
-
+        result = await self.backend.list_knowledge(ls_uid, knowledge_type)
         if result.is_error:
-            return Result.fail(result.expect_error())
-
-        knowledge = [
-            {
-                "uid": record["uid"],
-                "title": record["title"],
-                "domain": record["domain"],
-                "type": record["type"],
-                "created_at": record["created_at"],
-            }
-            for record in result.value or []
-        ]
-
+            return Result.fail(result)
         self.logger.info(
-            f"Found {len(knowledge)} KUs for LS {ls_uid} (type={knowledge_type or 'all'})"
+            f"Found {len(result.value)} KUs for LS {ls_uid} (type={knowledge_type or 'all'})"
         )
-
-        return Result.ok(knowledge)
+        return result
 
     @track_query_metrics("ls_remove_knowledge")
     @with_error_handling("remove_knowledge_relationship", error_type="database")
     async def remove_knowledge_relationship(self, ls_uid: str, ku_uid: str) -> Result[bool]:
-        """
-        Remove CONTAINS_KNOWLEDGE relationship between LS and KU.
-
-        Universal Hierarchical Pattern: Removes the graph edge while preserving
-        both the LS and Entity nodes.
-
-        Args:
-            ls_uid: Learning Step UID
-            ku_uid: Knowledge Unit UID
-
-        Returns:
-            Result[bool] - True if removed successfully
-
-        Example:
-            await ls_service.remove_knowledge_relationship(
-                ls_uid="ls:abc123",
-                ku_uid="ku_python_xyz789"
-            )
-
-        See: /docs/patterns/UNIVERSAL_HIERARCHICAL_PATTERN.md
-        """
-        query = """
-        MATCH (ls:Entity {uid: $ls_uid})-[r:CONTAINS_KNOWLEDGE]->(ku:Entity {uid: $ku_uid})
-        DELETE r
-        RETURN count(r) as deleted
-        """
-
-        result = await self.backend.execute_query(query, {"ls_uid": ls_uid, "ku_uid": ku_uid})
-
+        """Remove CONTAINS_KNOWLEDGE relationship between LS and KU."""
+        result = await self.backend.remove_knowledge(ls_uid, ku_uid)
         if result.is_error:
-            return Result.fail(result.expect_error())
-
-        records = result.value or []
-        deleted = records[0]["deleted"] if records else 0
-        success = deleted > 0
-
-        if success:
-            self.logger.info(f"Removed CONTAINS_KNOWLEDGE: {ls_uid} -> {ku_uid}")
-        else:
+            return Result.fail(result)
+        if not result.value:
             self.logger.warning(f"No CONTAINS_KNOWLEDGE relationship found: {ls_uid} -> {ku_uid}")
-
-        return Result.ok(success)
+        return result
 
     @track_query_metrics("ls_get_knowledge_summary")
     @with_error_handling("get_knowledge_summary", error_type="database")
     async def get_knowledge_summary(self, ls_uid: str) -> Result[dict]:
-        """
-        Get summary of knowledge relationships for a Learning Step.
-
-        Returns counts and lists of both primary and supporting knowledge.
-
-        Args:
-            ls_uid: Learning Step UID
-
-        Returns:
-            Result containing dict with:
-            - primary_count: Number of primary KUs
-            - supporting_count: Number of supporting KUs
-            - total_count: Total KUs
-            - primary_uids: List of primary KU UIDs
-            - supporting_uids: List of supporting KU UIDs
-
-        Example:
-            result = await ls_service.get_knowledge_summary("ls:abc123")
-            # Returns: {
-            # "primary_count": 2,
-            # "supporting_count": 1,
-            # "total_count": 3,
-            # "primary_uids": ["ku_python_xyz", "ku_basics_abc"],
-            # "supporting_uids": ["ku_advanced_def"]
-            # }
-        """
-        query = """
-        MATCH (ls:Entity {uid: $ls_uid})
-        OPTIONAL MATCH (ls)-[r:CONTAINS_KNOWLEDGE]->(ku:Entity)
-        WITH ls, r, ku
-        RETURN
-            count(CASE WHEN r.type = 'primary' THEN 1 END) as primary_count,
-            count(CASE WHEN r.type = 'supporting' THEN 1 END) as supporting_count,
-            count(r) as total_count,
-            collect(CASE WHEN r.type = 'primary' THEN ku.uid END) as primary_uids,
-            collect(CASE WHEN r.type = 'supporting' THEN ku.uid END) as supporting_uids
-        """
-
-        result = await self.backend.execute_query(query, {"ls_uid": ls_uid})
-
+        """Get summary of knowledge relationships (primary/supporting counts and UIDs)."""
+        result = await self.backend.get_knowledge_summary(ls_uid)
         if result.is_error:
-            return Result.fail(result.expect_error())
-
-        records = result.value or []
-        if not records:
-            return Result.ok(
-                {
-                    "primary_count": 0,
-                    "supporting_count": 0,
-                    "total_count": 0,
-                    "primary_uids": [],
-                    "supporting_uids": [],
-                }
-            )
-
-        record = records[0]
-        summary = {
-            "primary_count": record["primary_count"],
-            "supporting_count": record["supporting_count"],
-            "total_count": record["total_count"],
-            "primary_uids": [uid for uid in record["primary_uids"] if uid],
-            "supporting_uids": [uid for uid in record["supporting_uids"] if uid],
-        }
-
+            return Result.fail(result)
+        summary = result.value
         self.logger.info(
             f"Knowledge summary for {ls_uid}: "
             f"{summary['primary_count']} primary, "
             f"{summary['supporting_count']} supporting"
         )
-
-        return Result.ok(summary)
+        return result
