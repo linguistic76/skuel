@@ -17,7 +17,7 @@ Date: 2025-10-16
 """
 
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date
 from typing import Any
 
 from core.events.base import BaseEvent
@@ -39,7 +39,6 @@ class CalendarEventCreated(BaseEvent):
     title: str
     event_date: date
     calendar_event_type: str
-    occurred_at: datetime
     metadata: dict[str, Any] | None = None
 
     @property
@@ -61,7 +60,6 @@ class CalendarEventUpdated(BaseEvent):
     event_uid: str
     user_uid: str
     updated_fields: dict[str, Any]
-    occurred_at: datetime
     metadata: dict[str, Any] | None = None
 
     @property
@@ -84,7 +82,6 @@ class CalendarEventCompleted(BaseEvent):
     user_uid: str
     completion_date: date
     quality_score: int | None
-    occurred_at: datetime
     metadata: dict[str, Any] | None = None
 
     @property
@@ -106,7 +103,6 @@ class CalendarEventDeleted(BaseEvent):
     event_uid: str
     user_uid: str
     title: str
-    occurred_at: datetime
     metadata: dict[str, Any] | None = None
 
     @property
@@ -129,7 +125,6 @@ class CalendarEventRescheduled(BaseEvent):
     user_uid: str
     old_date: date
     new_date: date
-    occurred_at: datetime
     metadata: dict[str, Any] | None = None
 
     @property
@@ -152,7 +147,6 @@ class EventAttendeeAdded(BaseEvent):
     attendee_uid: str
     added_by_uid: str
     role: str
-    occurred_at: datetime
     metadata: dict[str, Any] | None = None
 
     @property
@@ -174,7 +168,6 @@ class EventAttendeeRemoved(BaseEvent):
     event_title: str
     attendee_uid: str
     removed_by_uid: str
-    occurred_at: datetime
     metadata: dict[str, Any] | None = None
 
     @property

@@ -157,7 +157,6 @@ class SubmissionsProcessingService:
                     entity_type=submission.entity_type.value,
                     has_processed_content=True,
                     processing_duration_seconds=duration,
-                    occurred_at=datetime.now(),
                 ),
                 self.logger,
             )
@@ -211,7 +210,6 @@ class SubmissionsProcessingService:
                 submission_uid=submission.uid,
                 user_uid=submission.user_uid,
                 error_message=error_message,
-                occurred_at=datetime.now(),
             ),
             self.logger,
         )
@@ -232,7 +230,6 @@ class SubmissionsProcessingService:
                 submission_uid=submission.uid,
                 user_uid=submission.user_uid,
                 processor_type=processor_type,
-                occurred_at=datetime.now(),
             ),
             self.logger,
         )

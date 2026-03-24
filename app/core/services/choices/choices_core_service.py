@@ -255,7 +255,6 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
             choice_description=choice.description or choice.title,
             domain=choice.domain.value,
             urgency=choice.priority or "medium",
-            occurred_at=datetime.now(),
         )
         await publish_event(self.event_bus, event, self.logger)
 
@@ -267,7 +266,6 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
                 knowledge_uids=tuple(choice_request.informed_by_knowledge_uids),
                 choice_uid=choice.uid,
                 user_uid=choice.user_uid,
-                occurred_at=datetime.now(),
                 choice_title=choice.title,
             )
             await publish_event(self.event_bus, knowledge_event, self.logger)
@@ -285,7 +283,6 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
                 embedding_text=embedding_text,
                 user_uid=choice.user_uid,
                 requested_at=now,
-                occurred_at=now,
             )
             await publish_event(self.event_bus, embedding_event, self.logger)
 
@@ -422,7 +419,6 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
                 choice_uid=choice.uid,
                 user_uid=choice.user_uid,
                 updated_fields=updated_fields,
-                occurred_at=datetime.now(),
             )
             await publish_event(self.event_bus, event, self.logger)
 
@@ -457,7 +453,6 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
             choice_uid=choice_uid,
             user_uid=user_uid,
             choice_description=choice_description or choice_uid,
-            occurred_at=datetime.now(),
         )
         await publish_event(self.event_bus, event, self.logger)
 
@@ -511,7 +506,6 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
             user_uid=choice.user_uid,
             outcome_quality=outcome_quality,
             lessons_learned=evaluation.actual_outcome if evaluation.lessons_learned else None,
-            occurred_at=datetime.now(),
         )
         await publish_event(self.event_bus, event, self.logger)
 
@@ -560,7 +554,6 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
             user_uid=choice.user_uid,
             selected_option=selected_option_uid,
             confidence=confidence,
-            occurred_at=datetime.now(),
             metadata={"rationale": decision_rationale} if decision_rationale else None,
         )
         await publish_event(self.event_bus, event, self.logger)
@@ -741,7 +734,6 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
             choice_uid=choice.uid,
             user_uid=choice.user_uid,
             updated_fields={"options": f"Added option: {title}"},
-            occurred_at=datetime.now(),
         )
         await publish_event(self.event_bus, event, self.logger)
 
@@ -871,7 +863,6 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
             choice_uid=choice.uid,
             user_uid=choice.user_uid,
             updated_fields={"options": f"Updated option: {option_uid}"},
-            occurred_at=datetime.now(),
         )
         await publish_event(self.event_bus, event, self.logger)
 
@@ -975,7 +966,6 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
             choice_uid=choice.uid,
             user_uid=choice.user_uid,
             updated_fields={"options": f"Removed option: {option_uid}"},
-            occurred_at=datetime.now(),
         )
         await publish_event(self.event_bus, event, self.logger)
 

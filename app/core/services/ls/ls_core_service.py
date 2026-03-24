@@ -25,7 +25,6 @@ Part of LsService decomposition (October 24, 2025)
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 from core.events import publish_event
@@ -209,7 +208,6 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
         event = LearningStepCreated(
             ls_uid=step.uid,
             title=step.title,
-            occurred_at=datetime.now(UTC),
             intent=step.intent,
             linked_lp_uid=path_uid,
             linked_ku_uids=step.primary_knowledge_uids + step.supporting_knowledge_uids,
@@ -620,7 +618,6 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
         # Publish event
         event = LearningStepUpdated(
             ls_uid=step_uid,
-            occurred_at=datetime.now(UTC),
             updated_fields=tuple(updates.keys()),
             linked_lp_uid=updated_step.learning_path_uid,
         )
@@ -683,7 +680,6 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
         # Publish event
         event = LearningStepDeleted(
             ls_uid=step_uid,
-            occurred_at=datetime.now(UTC),
             linked_lp_uid=linked_lp_uid,
             had_ku_links=had_ku_links,
         )

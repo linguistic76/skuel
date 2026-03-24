@@ -15,7 +15,6 @@ FormSubmission events:
 """
 
 from dataclasses import dataclass
-from datetime import datetime
 from typing import Any
 
 from core.events.base import BaseEvent
@@ -33,7 +32,6 @@ class FormTemplateCreated(BaseEvent):
     template_uid: str
     title: str
     field_count: int
-    occurred_at: datetime
     metadata: dict[str, Any] | None = None
 
     @property
@@ -51,7 +49,6 @@ class FormTemplateUpdated(BaseEvent):
     """
 
     template_uid: str
-    occurred_at: datetime
     metadata: dict[str, Any] | None = None
 
     @property
@@ -69,7 +66,6 @@ class FormTemplateDeleted(BaseEvent):
     """
 
     template_uid: str
-    occurred_at: datetime
     metadata: dict[str, Any] | None = None
 
     @property
@@ -91,7 +87,6 @@ class FormSubmitted(BaseEvent):
     submission_uid: str
     user_uid: str
     template_uid: str
-    occurred_at: datetime
     metadata: dict[str, Any] | None = None
 
     @property
@@ -110,7 +105,6 @@ class FormSubmissionDeleted(BaseEvent):
 
     submission_uid: str
     user_uid: str
-    occurred_at: datetime
     metadata: dict[str, Any] | None = None
 
     @property

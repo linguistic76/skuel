@@ -18,7 +18,6 @@ Subscribers:
 """
 
 from dataclasses import dataclass
-from datetime import datetime
 
 from core.events.base import BaseEvent
 
@@ -43,7 +42,6 @@ class KnowledgeMastered(BaseEvent):
 
     ku_uid: str
     user_uid: str
-    occurred_at: datetime
 
     # Mastery metrics
     mastery_score: float  # 0.0 to 1.0
@@ -73,7 +71,6 @@ class LessonCompleted(BaseEvent):
 
     lesson_uid: str
     user_uid: str
-    occurred_at: datetime
     lesson_title: str | None = None
     linked_ku_uids: tuple[str, ...] = ()
 
@@ -94,7 +91,6 @@ class LearningStepProgressUpdated(BaseEvent):
 
     ls_uid: str
     user_uid: str
-    occurred_at: datetime
     old_progress: float  # 0.0 to 1.0
     new_progress: float  # 0.0 to 1.0
     lessons_completed: int
@@ -124,7 +120,6 @@ class KnowledgeCreated(BaseEvent):
     ku_uid: str
     title: str
     domain: str | None
-    occurred_at: datetime
 
     # Creation context
     created_by_user: str | None = (None,)
@@ -153,7 +148,6 @@ class LearningPathStarted(BaseEvent):
 
     path_uid: str
     user_uid: str
-    occurred_at: datetime
 
     # Path details
     path_title: str
@@ -181,7 +175,6 @@ class LearningPathCompleted(BaseEvent):
 
     path_uid: str
     user_uid: str
-    occurred_at: datetime
 
     # Completion metrics
     actual_duration_hours: int | None = (None,)
@@ -209,7 +202,6 @@ class LearningPathProgressUpdated(BaseEvent):
 
     path_uid: str
     user_uid: str
-    occurred_at: datetime
 
     # Progress tracking
     old_progress: float  # 0.0 to 1.0
@@ -245,7 +237,6 @@ class PrerequisitesAnalyzed(BaseEvent):
     """
 
     ku_uid: str
-    occurred_at: datetime
 
     # Analysis results
     prerequisite_uids: list[str]
@@ -270,7 +261,6 @@ class LearningRecommendationGenerated(BaseEvent):
     """
 
     user_uid: str
-    occurred_at: datetime
 
     # Recommendations
     recommended_ku_uids: list[str]
@@ -300,7 +290,6 @@ async def mark_mastered(self, ku_uid: str, user_uid: str, score: float) -> Resul
         event = KnowledgeMastered(
             ku_uid=ku_uid,
             user_uid=user_uid,
-            occurred_at=datetime.now(),
             mastery_score=score
         )
         await self.event_bus.publish_async(event)
@@ -326,7 +315,6 @@ async def start_path(self, path_uid: str, user_uid: str) -> Result[None]:
         event = LearningPathStarted(
             path_uid=path_uid,
             user_uid=user_uid,
-            occurred_at=datetime.now(),
             path_title=path.title,
             estimated_duration_hours=path.estimated_hours,
             total_kus=len(path.ku_uids)
@@ -354,7 +342,6 @@ async def complete_path(self, path_uid: str, user_uid: str) -> Result[None]:
         event = LearningPathCompleted(
             path_uid=path_uid,
             user_uid=user_uid,
-            occurred_at=datetime.now(),
             actual_duration_hours=progress.total_hours,
             estimated_duration_hours=progress.estimated_hours,
             completed_ahead_of_schedule=progress.total_hours < progress.estimated_hours if progress.estimated_hours else False,
@@ -377,7 +364,6 @@ async def analyze_prerequisites(self, ku_uid: str) -> Result[list[str]]:
     if self.event_bus:
         event = PrerequisitesAnalyzed(
             ku_uid=ku_uid,
-            occurred_at=datetime.now(),
             prerequisite_uids=prerequisites,
             analysis_method="semantic"
         )
@@ -468,7 +454,6 @@ async def handle_knowledge_mastered(self, event: KnowledgeMastered) -> None:
     if recommendations and self.event_bus:
         rec_event = LearningRecommendationGenerated(
             user_uid=event.user_uid,
-            occurred_at=datetime.now(),
             recommended_ku_uids=[ku.uid for ku in recommendations],
             recommendation_reason="next_in_sequence"
         )

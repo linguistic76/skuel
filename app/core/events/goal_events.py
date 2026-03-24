@@ -43,7 +43,6 @@ class GoalCreated(BaseEvent):
     title: str
     domain: str | None
     target_date: datetime | None
-    occurred_at: datetime
 
     # Goal type context
     is_milestone: bool = False
@@ -70,7 +69,6 @@ class GoalAchieved(BaseEvent):
 
     goal_uid: str
     user_uid: str
-    occurred_at: datetime
 
     # Performance metrics
     actual_duration_days: int | None = None
@@ -101,7 +99,6 @@ class GoalProgressUpdated(BaseEvent):
     user_uid: str
     old_progress: float  # 0.0 to 1.0
     new_progress: float  # 0.0 to 1.0
-    occurred_at: datetime
 
     # Context for what caused the progress update
     triggered_by_task_completion: bool = False
@@ -136,7 +133,6 @@ class GoalAbandoned(BaseEvent):
 
     goal_uid: str
     user_uid: str
-    occurred_at: datetime
 
     # Context for abandonment
     reason: str | None = None  # "no_longer_relevant", "too_difficult", "changed_priorities"
@@ -166,7 +162,6 @@ class GoalRecommendationsGenerated(BaseEvent):
 
     goal_uid: str
     user_uid: str
-    occurred_at: datetime
 
     # Recommendation data
     recommendations: list[
@@ -202,7 +197,6 @@ class GoalMilestoneReached(BaseEvent):
     goal_uid: str
     user_uid: str
     milestone_percentage: float  # e.g., 0.25, 0.5, 0.75
-    occurred_at: datetime
 
     @property
     def event_type(self) -> str:
@@ -228,7 +222,6 @@ async def create_goal(self, goal: Goal) -> Result[Goal]:
             title=goal.title,
             domain=goal.domain.value if goal.domain else None,
             target_date=goal.target_date,
-            occurred_at=datetime.now()
         )
         await self.event_bus.publish_async(event)
 
@@ -247,7 +240,6 @@ async def mark_achieved(self, uid: str) -> Result[Goal]:
         event = GoalAchieved(
             goal_uid=goal.uid,
             user_uid=goal.user_uid,
-            occurred_at=datetime.now(),
             actual_duration_days=actual_days,
             planned_duration_days=planned_days,
             completed_ahead_of_schedule=actual_days and planned_days and actual_days < planned_days
@@ -275,7 +267,6 @@ async def update_progress(self, uid: str, new_progress: float) -> Result[Goal]:
             user_uid=result.value.user_uid,
             old_progress=old_progress,
             new_progress=new_progress,
-            occurred_at=datetime.now(),
             triggered_by_manual_update=True
         )
         await self.event_bus.publish_async(event)

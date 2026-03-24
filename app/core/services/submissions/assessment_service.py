@@ -155,7 +155,6 @@ class AssessmentService:
             submission_uid=uid,
             teacher_uid=teacher_uid,
             subject_uid=subject_uid,
-            occurred_at=datetime.now(),
         )
         await publish_event(self.event_bus, event, self.logger)
 

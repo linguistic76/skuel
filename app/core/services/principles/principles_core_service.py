@@ -281,7 +281,6 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
             principle_label=label,
             category=category.value,
             strength=strength.value,
-            occurred_at=datetime.now(),
         )
         await publish_event(self.event_bus, event, logger)
 
@@ -298,7 +297,6 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
                 embedding_text=embedding_text,
                 user_uid=user_uid,
                 requested_at=now,
-                occurred_at=now,
             )
             await publish_event(self.event_bus, embedding_event, logger)
 
@@ -349,7 +347,6 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
             principle_uid=principle_uid,
             user_uid=updated_principle.user_uid,
             updated_fields=updates,
-            occurred_at=datetime.now(),
         )
         await publish_event(self.event_bus, event, logger)
 
@@ -362,7 +359,6 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
                 new_strength=updated_principle.strength.value
                 if updated_principle.strength
                 else "unknown",
-                occurred_at=datetime.now(),
             )
             await publish_event(self.event_bus, strength_event, logger)
 
@@ -596,7 +592,6 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
                 principle_uid=uid,
                 user_uid=principle.user_uid,
                 principle_label=principle.title,
-                occurred_at=datetime.now(),
             )
             await publish_event(self.event_bus, event, self.logger)
 

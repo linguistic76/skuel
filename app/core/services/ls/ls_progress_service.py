@@ -14,7 +14,6 @@ Event Chain:
     → LpProgressService.handle_step_completed
 """
 
-from datetime import datetime
 from typing import TYPE_CHECKING
 
 from core.events import publish_event
@@ -147,7 +146,6 @@ class LsProgressService:
         progress_event = LearningStepProgressUpdated(
             ls_uid=ls_uid,
             user_uid=user_uid,
-            occurred_at=datetime.now(),
             old_progress=old_progress,
             new_progress=new_progress,
             lessons_completed=completed_lessons,
@@ -160,7 +158,6 @@ class LsProgressService:
             completed_event = LearningStepCompleted(
                 ls_uid=ls_uid,
                 user_uid=user_uid,
-                occurred_at=datetime.now(),
                 completion_score=1.0,
             )
             await publish_event(self.event_bus, completed_event, self.logger)

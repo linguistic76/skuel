@@ -8,7 +8,6 @@ See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
 """
 
 from dataclasses import dataclass
-from datetime import datetime
 from typing import Any
 
 from core.events.base import BaseEvent
@@ -26,7 +25,6 @@ class GroupCreated(BaseEvent):
     group_uid: str
     teacher_uid: str
     group_name: str
-    occurred_at: datetime
     metadata: dict[str, Any] | None = None
 
     @property
@@ -47,7 +45,6 @@ class GroupMemberAdded(BaseEvent):
     group_uid: str
     user_uid: str
     role: str
-    occurred_at: datetime
     metadata: dict[str, Any] | None = None
 
     @property
@@ -67,7 +64,6 @@ class GroupMemberRemoved(BaseEvent):
 
     group_uid: str
     user_uid: str
-    occurred_at: datetime
     metadata: dict[str, Any] | None = None
 
     @property

@@ -170,7 +170,6 @@ class EventsProgressService(BaseService["EventsOperations", Event]):
             user_uid=user_context.user_uid,
             completion_date=event.event_date,
             quality_score=quality_score,
-            occurred_at=datetime.now(),
         )
         await publish_event(self.event_bus, domain_event, self.logger)
 

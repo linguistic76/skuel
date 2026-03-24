@@ -107,7 +107,6 @@ class ProgressScheduleService:
 
     async def update_schedule(self, uid: str, updates: dict[str, Any]) -> Result[ReportSchedule]:
         """Update a schedule's configuration."""
-        updates["updated_at"] = datetime.now()
         result = await self.backend.update(uid, updates)
         if result.is_error:
             return Result.fail(result.expect_error())
@@ -119,7 +118,7 @@ class ProgressScheduleService:
 
     async def deactivate_schedule(self, uid: str) -> Result[bool]:
         """Deactivate a schedule (soft delete)."""
-        result = await self.backend.update(uid, {"is_active": False, "updated_at": datetime.now()})
+        result = await self.backend.update(uid, {"is_active": False})
         if result.is_error:
             return Result.fail(result.expect_error())
 

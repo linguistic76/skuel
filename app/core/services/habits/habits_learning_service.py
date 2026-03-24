@@ -12,7 +12,6 @@ Responsibilities:
 - Habit-learning integration
 """
 
-from datetime import datetime
 from typing import Any
 
 from core.events import HabitCreated, publish_event
@@ -225,7 +224,6 @@ class HabitsLearningService(BaseService[HabitsOperations, Habit]):
                 title=habit.title,
                 frequency=habit.recurrence_pattern or "daily",
                 domain=None,  # Habit model doesn't have domain field
-                occurred_at=datetime.now(),
             )
             await publish_event(self.event_bus, event, self.logger)
 
@@ -237,7 +235,6 @@ class HabitsLearningService(BaseService[HabitsOperations, Habit]):
                     knowledge_uids=tuple(habit_request.linked_knowledge_uids),
                     habit_uid=habit.uid,
                     user_uid=habit.user_uid,
-                    occurred_at=datetime.now(),
                     habit_title=habit.title,
                     frequency=habit.recurrence_pattern,
                 )

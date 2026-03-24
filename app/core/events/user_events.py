@@ -15,7 +15,6 @@ Subscribers:
 """
 
 from dataclasses import dataclass
-from datetime import datetime
 
 from core.events.base import BaseEvent
 
@@ -43,7 +42,6 @@ class UserContextInvalidated(BaseEvent):
     """
 
     user_uid: str
-    occurred_at: datetime
 
     # What triggered the invalidation
     reason: str  # "task_completed", "goal_achieved", "habit_completed", etc.
@@ -72,7 +70,6 @@ class UserPreferencesChanged(BaseEvent):
     """
 
     user_uid: str
-    occurred_at: datetime
 
     # Which preference fields changed
     changed_fields: list[str]
@@ -103,7 +100,6 @@ class UserActivityRecorded(BaseEvent):
     """
 
     user_uid: str
-    occurred_at: datetime
 
     # Activity details
     activity_type: str  # "viewed_page", "completed_action", "searched", etc.
@@ -138,7 +134,7 @@ async def invalidate_context(
     if self.event_bus:
         event = UserContextInvalidated(
             user_uid=user_uid,
-            occurred_at=datetime.now(),
+
             reason=reason,
             affected_contexts=affected_contexts or ["askesis", "search", "recommendations"]
         )
@@ -161,7 +157,7 @@ async def update_preferences(
 
         event = UserPreferencesChanged(
             user_uid=user_uid,
-            occurred_at=datetime.now(),
+
             changed_fields=changed_fields,
             notification_preferences_changed="notification_preferences" in changed_fields,
             theme_preferences_changed="theme" in changed_fields,
@@ -186,7 +182,6 @@ async def complete_task(self, uid: str) -> Result[Task]:
         task_event = TaskCompleted(
             task_uid=task.uid,
             user_uid=task.user_uid,
-            occurred_at=datetime.now()
         )
         await self.event_bus.publish_async(task_event)
 

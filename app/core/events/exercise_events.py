@@ -10,7 +10,6 @@ See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
 """
 
 from dataclasses import dataclass
-from datetime import datetime
 from typing import Any
 
 from core.events.base import BaseEvent
@@ -30,7 +29,6 @@ class ExerciseCreated(BaseEvent):
     teacher_uid: str
     group_uid: str
     exercise_name: str
-    occurred_at: datetime
     due_date: str | None = None  # ISO format date string
     metadata: dict[str, Any] | None = None
 
@@ -53,7 +51,6 @@ class ExerciseSubmitted(BaseEvent):
     exercise_uid: str
     student_uid: str
     teacher_uid: str
-    occurred_at: datetime
     metadata: dict[str, Any] | None = None
 
     @property

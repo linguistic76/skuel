@@ -224,7 +224,6 @@ class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], Entit
             ku_uid=uid,
             title=title.strip(),
             domain=metadata.get("domain"),
-            occurred_at=datetime.now(UTC),
             created_by_user=metadata.get("created_by_user"),
             created_from_template=metadata.get("created_from_template", False),
         )
@@ -248,7 +247,6 @@ class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], Entit
                 embedding_text=embedding_text,
                 user_uid=metadata.get("created_by_user", "user:system"),
                 requested_at=now,
-                occurred_at=now,
             )
             await publish_event(self.event_bus, embedding_event, self.logger)
 
@@ -295,7 +293,6 @@ class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], Entit
                             chunk_uids=chunk_uids,
                             chunk_texts=chunk_texts,
                             requested_at=now,
-                            occurred_at=now,
                             user_uid=metadata.get("created_by_user"),
                         )
                         await publish_event(self.event_bus, embedding_event, self.logger)

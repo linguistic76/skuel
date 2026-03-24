@@ -15,7 +15,6 @@ Date: 2026-02-16
 """
 
 from dataclasses import dataclass
-from datetime import datetime
 from typing import Any
 
 from core.events.base import BaseEvent
@@ -35,7 +34,6 @@ class SubmissionCreated(BaseEvent):
     submission_uid: str
     user_uid: str
     entity_type: str  # EntityType enum value
-    occurred_at: datetime
     # File fields - optional (journals don't have files)
     processor_type: str | None = None  # ProcessorType enum value
     file_size: int | None = None
@@ -64,7 +62,6 @@ class SubmissionProcessingStarted(BaseEvent):
     submission_uid: str
     user_uid: str
     processor_type: str
-    occurred_at: datetime
     metadata: dict[str, Any] | None = None
 
     @property
@@ -88,7 +85,6 @@ class SubmissionProcessingCompleted(BaseEvent):
     entity_type: str
     has_processed_content: bool
     processing_duration_seconds: float | None
-    occurred_at: datetime
     metadata: dict[str, Any] | None = None
 
     @property
@@ -110,7 +106,6 @@ class SubmissionProcessingFailed(BaseEvent):
     submission_uid: str
     user_uid: str
     error_message: str
-    occurred_at: datetime
     metadata: dict[str, Any] | None = None
 
     @property
@@ -132,7 +127,6 @@ class SubmissionDeleted(BaseEvent):
     submission_uid: str
     user_uid: str
     entity_type: str
-    occurred_at: datetime
     metadata: dict[str, Any] | None = None
 
     @property
@@ -164,7 +158,6 @@ class ReportSubmitted(BaseEvent):
     teacher_uid: str
     student_uid: str
     report_uid: str
-    occurred_at: datetime
     metadata: dict[str, Any] | None = None
 
     @property
@@ -194,7 +187,6 @@ class SubmissionApproved(BaseEvent):
     submission_uid: str
     teacher_uid: str
     student_uid: str
-    occurred_at: datetime
     mastered_ku_count: int = 0
     metadata: dict[str, Any] | None = None
 
@@ -216,7 +208,6 @@ class AssessmentCreated(BaseEvent):
     submission_uid: str
     teacher_uid: str
     subject_uid: str
-    occurred_at: datetime
     metadata: dict[str, Any] | None = None
 
     @property
@@ -241,7 +232,6 @@ class ActivitySnapshotAccessed(BaseEvent):
     subject_uid: str  # User whose activity data was accessed
     admin_uid: str  # Admin who accessed the data
     time_period: str  # Time window reviewed (e.g. "7d")
-    occurred_at: datetime
 
     @property
     def event_type(self) -> str:
@@ -263,7 +253,6 @@ class SubmissionRevisionRequested(BaseEvent):
     submission_uid: str
     teacher_uid: str
     student_uid: str
-    occurred_at: datetime
     revision_notes: str | None = None
     metadata: dict[str, Any] | None = None
 
@@ -288,7 +277,6 @@ class RevisedExerciseCreated(BaseEvent):
     original_exercise_uid: str
     report_uid: str
     revision_number: int
-    occurred_at: datetime
     metadata: dict[str, Any] | None = None
 
     @property

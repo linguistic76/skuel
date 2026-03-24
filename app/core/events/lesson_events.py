@@ -23,7 +23,6 @@ Subscribers:
 """
 
 from dataclasses import dataclass
-from datetime import datetime
 
 from core.events.base import BaseEvent
 
@@ -52,7 +51,6 @@ class KnowledgeAppliedInTask(BaseEvent):
     knowledge_uid: str
     task_uid: str
     user_uid: str
-    occurred_at: datetime
 
     # Optional context
     task_title: str | None = None
@@ -82,7 +80,6 @@ class KnowledgePracticedInEvent(BaseEvent):
     knowledge_uid: str
     event_uid: str
     user_uid: str
-    occurred_at: datetime
 
     # Optional context
     event_title: str | None = (None,)
@@ -116,7 +113,6 @@ class KnowledgePracticed(BaseEvent):
 
     ku_uid: str
     user_uid: str
-    occurred_at: datetime
 
     # Context information
     practice_context: str  # "event_completion", "study_session", etc.
@@ -150,7 +146,6 @@ class KnowledgeBuiltIntoHabit(BaseEvent):
     knowledge_uid: str
     habit_uid: str
     user_uid: str
-    occurred_at: datetime
 
     # Optional context
     habit_title: str | None = None
@@ -183,7 +178,6 @@ class KnowledgeInformedChoice(BaseEvent):
     knowledge_uid: str
     choice_uid: str
     user_uid: str
-    occurred_at: datetime
 
     # Optional context
     choice_title: str | None = None
@@ -218,7 +212,6 @@ class KnowledgeBulkAppliedInTask(BaseEvent):
     knowledge_uids: tuple[str, ...]
     task_uid: str
     user_uid: str
-    occurred_at: datetime
 
     # Optional context
     task_title: str | None = None
@@ -251,7 +244,6 @@ class KnowledgeBulkBuiltIntoHabit(BaseEvent):
     knowledge_uids: tuple[str, ...]
     habit_uid: str
     user_uid: str
-    occurred_at: datetime
 
     # Optional context
     habit_title: str | None = None
@@ -284,7 +276,6 @@ class KnowledgeBulkInformedChoice(BaseEvent):
     knowledge_uids: tuple[str, ...]
     choice_uid: str
     user_uid: str
-    occurred_at: datetime
 
     # Optional context
     choice_title: str | None = None
@@ -317,7 +308,6 @@ async def create_task(self, task: Task) -> Result[Task]:
                 knowledge_uid=knowledge_uid,
                 task_uid=task.uid,
                 user_uid=task.user_uid,
-                occurred_at=datetime.now(),
                 task_title=task.title,
                 task_priority=task.priority or "medium"
             )
@@ -337,7 +327,6 @@ async def create_habit(self, habit: Habit) -> Result[Habit]:
                 knowledge_uid=knowledge_uid,
                 habit_uid=habit.uid,
                 user_uid=habit.user_uid,
-                occurred_at=datetime.now(),
                 habit_title=habit.title,
                 frequency=habit.frequency.value
             )

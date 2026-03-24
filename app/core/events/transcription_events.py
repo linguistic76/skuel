@@ -13,7 +13,6 @@ This replaces direct coupling between TranscriptionService and SubmissionsCoreSe
 """
 
 from dataclasses import dataclass
-from datetime import datetime
 
 from core.events.base import BaseEvent
 
@@ -36,7 +35,6 @@ class TranscriptionCompleted(BaseEvent):
     confidence_score: float
     duration_seconds: float
     word_count: int
-    occurred_at: datetime
 
     @property
     def event_type(self) -> str:
@@ -57,7 +55,6 @@ class TranscriptionFailed(BaseEvent):
     user_uid: str
     error_message: str
     audio_file_path: str
-    occurred_at: datetime
 
     @property
     def event_type(self) -> str:
@@ -76,7 +73,6 @@ class TranscriptionCreated(BaseEvent):
     transcription_uid: str
     user_uid: str
     audio_file_path: str
-    occurred_at: datetime
 
     @property
     def event_type(self) -> str:

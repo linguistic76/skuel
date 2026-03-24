@@ -209,7 +209,6 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
             file_type=file_type,
             original_filename=original_filename,
             fulfills_exercise_uid=fulfills_exercise_uid,
-            occurred_at=datetime.now(),
             metadata=metadata,
         )
         await publish_event(self.event_bus, event, self.logger)
@@ -268,7 +267,6 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
             entity_type=EntityType.EXERCISE_SUBMISSION.value,
             processor_type=ProcessorType.AUTOMATIC.value,
             fulfills_exercise_uid=exercise_uid,
-            occurred_at=datetime.now(),
             metadata={"submission_mode": "form"},
         )
         await publish_event(self.event_bus, event, self.logger)

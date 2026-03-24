@@ -253,7 +253,6 @@ class FinanceCoreService:
                 amount=expense.amount,
                 category=expense.category.value,
                 expense_date=expense.expense_date,
-                occurred_at=datetime.now(),
             )
             await publish_event(self.event_bus, event, self.logger)
 
@@ -312,7 +311,6 @@ class FinanceCoreService:
                     user_uid=expense.user_uid,
                     amount=expense.amount,
                     payment_date=updates.get("paid_at", expense.expense_date),
-                    occurred_at=datetime.now(),
                 )
                 await publish_event(self.event_bus, paid_event, self.logger)
 
@@ -322,7 +320,6 @@ class FinanceCoreService:
                     expense_uid=expense.uid,
                     user_uid=expense.user_uid,
                     updated_fields=updates,
-                    occurred_at=datetime.now(),
                 )
                 await publish_event(self.event_bus, updated_event, self.logger)
 
@@ -358,7 +355,6 @@ class FinanceCoreService:
                 user_uid=expense.user_uid,
                 amount=expense.amount,
                 description=expense.description,
-                occurred_at=datetime.now(),
             )
             await publish_event(self.event_bus, event, self.logger)
 

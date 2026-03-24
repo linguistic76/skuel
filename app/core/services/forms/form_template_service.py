@@ -10,7 +10,6 @@ Uses _post_create/_post_update hooks for event publishing.
 Overrides delete for pre-delete submission guard.
 """
 
-from datetime import datetime
 from typing import Any
 
 from core.events import publish_event
@@ -80,7 +79,6 @@ class FormTemplateService(BaseService[FormTemplateBackendOperations, FormTemplat
                 template_uid=entity.uid,
                 title=entity.title,
                 field_count=schema_len,
-                occurred_at=datetime.now(),
             ),
             self.logger,
         )
@@ -100,7 +98,6 @@ class FormTemplateService(BaseService[FormTemplateBackendOperations, FormTemplat
             self.event_bus,
             FormTemplateUpdated(
                 template_uid=uid,
-                occurred_at=datetime.now(),
             ),
             self.logger,
         )
@@ -136,7 +133,6 @@ class FormTemplateService(BaseService[FormTemplateBackendOperations, FormTemplat
             self.event_bus,
             FormTemplateDeleted(
                 template_uid=uid,
-                occurred_at=datetime.now(),
             ),
             self.logger,
         )

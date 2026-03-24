@@ -185,7 +185,6 @@ class PrinciplesAlignmentService:
                 entity_type="goal",
                 user_uid=user_uid,
                 alignment_score=score,
-                occurred_at=datetime.now(),
             )
             await publish_event(self.event_bus, event, self.logger)
 
@@ -284,7 +283,6 @@ class PrinciplesAlignmentService:
                 entity_type="habit",
                 user_uid=user_uid,
                 alignment_score=score,
-                occurred_at=datetime.now(),
             )
             await publish_event(self.event_bus, event, self.logger)
 
@@ -411,7 +409,6 @@ class PrinciplesAlignmentService:
             entity_type="principle",
             user_uid=user_uid,
             alignment_score=system_score,
-            occurred_at=datetime.now(),
         )
         await publish_event(self.event_bus, event, self.logger)
 

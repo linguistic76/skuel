@@ -32,7 +32,6 @@ class EmbeddingRequested(BaseEvent):
     embedding_text: str
     user_uid: str
     requested_at: datetime
-    occurred_at: datetime
 
     @property
     def event_type(self) -> str:

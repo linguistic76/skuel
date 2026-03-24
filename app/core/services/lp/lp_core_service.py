@@ -263,7 +263,6 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
         event = LearningPathStarted(
             path_uid=path_uid,
             user_uid=user_uid,
-            occurred_at=datetime.now(),
             path_title=title,
             estimated_duration_hours=int(path.estimated_hours) if path.estimated_hours else None,
             total_kus=len(steps),

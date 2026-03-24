@@ -13,7 +13,7 @@ Design Principles:
 """
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Protocol
 
@@ -64,7 +64,7 @@ class BaseEvent(ABC):
     All concrete events should inherit from this class.
     """
 
-    occurred_at: datetime
+    occurred_at: datetime = field(default_factory=datetime.now, kw_only=True)
 
     @property
     @abstractmethod
@@ -185,20 +185,18 @@ class TaskCompleted(BaseEvent):
 
     task_uid: str
     user_uid: str
-    occurred_at: datetime
     completion_time_seconds: int | None = None
 
     @property
     def event_type(self) -> str:
         return "task.completed"
 
-# Publishing:
-event = TaskCompleted(
-    task_uid="task-123",
-    user_uid="user-456",
-    occurred_at=datetime.now()
-)
+# Publishing (occurred_at auto-set to datetime.now()):
+event = TaskCompleted(task_uid="task-123", user_uid="user-456")
 await event_bus.publish_async(event)
+
+# Or with explicit timestamp:
+event = TaskCompleted(task_uid="task-123", user_uid="user-456", occurred_at=specific_time)
 
 # Subscribing:
 async def handle_task_completed(event: TaskCompleted) -> None:

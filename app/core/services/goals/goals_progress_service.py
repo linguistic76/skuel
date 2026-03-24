@@ -436,7 +436,6 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             goal_uid=goal_uid,
             user_uid=user_context.user_uid,
             milestone_percentage=milestone_percentage,
-            occurred_at=datetime.now(),
         )
         await publish_event(self.event_bus, milestone_event, self.logger)
 
@@ -445,7 +444,6 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             achieved_event = GoalAchieved(
                 goal_uid=goal_uid,
                 user_uid=user_context.user_uid,
-                occurred_at=datetime.now(),
                 actual_duration_days=(date.today() - goal.created_at.date()).days
                 if goal.created_at
                 else None,
@@ -534,7 +532,6 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             progress_event = GoalProgressUpdated(
                 goal_uid=goal_uid,
                 user_uid=goal.user_uid,
-                occurred_at=datetime.now(),
                 old_progress=goal.progress_percentage,
                 new_progress=new_progress,
             )
@@ -545,7 +542,6 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
                 achieved_event = GoalAchieved(
                     goal_uid=goal_uid,
                     user_uid=goal.user_uid,
-                    occurred_at=datetime.now(),
                     actual_duration_days=(date.today() - goal.created_at.date()).days
                     if goal.created_at
                     else None,
@@ -822,7 +818,6 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         event = GoalProgressUpdated(
             goal_uid=uid,
             user_uid=goal.user_uid,
-            occurred_at=datetime.now(),
             old_progress=old_progress,
             new_progress=progress_value,
             triggered_by_manual_update=True,
@@ -1153,7 +1148,6 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         progress_event = GoalProgressUpdated(
             goal_uid=goal_uid,
             user_uid=user_uid,
-            occurred_at=datetime.now(),
             old_progress=old_progress,
             new_progress=new_progress,
             triggered_by_manual_update=False,  # Triggered by task completion
@@ -1165,7 +1159,6 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             achieved_event = GoalAchieved(
                 goal_uid=goal_uid,
                 user_uid=user_uid,
-                occurred_at=datetime.now(),
             )
             await publish_event(self.event_bus, achieved_event, self.logger)
             self.logger.info(f"🎉 Goal {goal_uid} achieved!")
@@ -1340,7 +1333,6 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         progress_event = GoalProgressUpdated(
             goal_uid=goal_uid,
             user_uid=user_uid,
-            occurred_at=datetime.now(),
             old_progress=old_progress,
             new_progress=new_progress,
             triggered_by_habit_completion=True,  # Triggered by habit completion
@@ -1353,7 +1345,6 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             achieved_event = GoalAchieved(
                 goal_uid=goal_uid,
                 user_uid=user_uid,
-                occurred_at=datetime.now(),
             )
             await publish_event(self.event_bus, achieved_event, self.logger)
             self.logger.info(f"🎉 Goal {goal_uid} achieved!")

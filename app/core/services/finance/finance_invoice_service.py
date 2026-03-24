@@ -22,7 +22,6 @@ No ownership verification needed - admin sees all finance data.
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from adapters.outbound.invoice_renderer import render_invoice_pdf
@@ -171,9 +170,6 @@ class FinanceInvoiceService:
 
         if existing_result.value is None:
             return Result.fail(Errors.not_found("Invoice", uid))
-
-        # Add updated_at timestamp
-        updates["updated_at"] = datetime.now().isoformat()
 
         self.logger.info(f"Updating invoice {uid}")
 

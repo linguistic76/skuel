@@ -129,7 +129,6 @@ class GroupService(BaseService):
                     group_uid=entity.uid,
                     teacher_uid=entity.owner_uid,
                     group_name=entity.name,
-                    occurred_at=datetime.now(),
                 ),
                 self.logger,
             )
@@ -240,7 +239,6 @@ class GroupService(BaseService):
                     group_uid=group_uid,
                     user_uid=user_uid,
                     role=role,
-                    occurred_at=datetime.now(),
                 ),
                 self.logger,
             )
@@ -286,7 +284,6 @@ class GroupService(BaseService):
                 GroupMemberRemoved(
                     group_uid=group_uid,
                     user_uid=user_uid,
-                    occurred_at=datetime.now(),
                 ),
                 self.logger,
             )

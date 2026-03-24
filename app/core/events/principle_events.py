@@ -15,7 +15,6 @@ Date: 2025-10-16
 """
 
 from dataclasses import dataclass
-from datetime import datetime
 from typing import Any
 
 from core.events.base import BaseEvent
@@ -37,7 +36,6 @@ class PrincipleCreated(BaseEvent):
     principle_label: str
     category: str
     strength: str
-    occurred_at: datetime
     metadata: dict[str, Any] | None = None
 
     @property
@@ -59,7 +57,6 @@ class PrincipleUpdated(BaseEvent):
     principle_uid: str
     user_uid: str
     updated_fields: dict[str, Any]
-    occurred_at: datetime
     metadata: dict[str, Any] | None = None
 
     @property
@@ -81,7 +78,6 @@ class PrincipleDeleted(BaseEvent):
     principle_uid: str
     user_uid: str
     principle_label: str
-    occurred_at: datetime
     metadata: dict[str, Any] | None = None
 
     @property
@@ -104,7 +100,6 @@ class PrincipleStrengthChanged(BaseEvent):
     user_uid: str
     old_strength: str
     new_strength: str
-    occurred_at: datetime
     metadata: dict[str, Any] | None = None
 
     @property
@@ -128,7 +123,6 @@ class PrincipleAlignmentAssessed(BaseEvent):
     entity_type: str  # "goal" or "habit"
     user_uid: str
     alignment_score: float
-    occurred_at: datetime
     metadata: dict[str, Any] | None = None
 
     @property
@@ -153,7 +147,6 @@ class PrincipleReflectionRecorded(BaseEvent):
     user_uid: str
     alignment_level: str  # AlignmentLevel.value
     evidence: str
-    occurred_at: datetime
     trigger_type: str | None = None  # "goal", "habit", "event", "choice", "manual"
     trigger_uid: str | None = None
     reflection_quality_score: float = 0.0
@@ -184,7 +177,6 @@ class PrincipleConflictRevealed(BaseEvent):
     principle_uid: str
     conflicting_principle_uid: str
     user_uid: str
-    occurred_at: datetime
     conflict_context: str | None = None  # Description of the conflict
     metadata: dict[str, Any] | None = None
 

@@ -10,7 +10,6 @@ Pipeline: JE_INPUT(audio) → Deepgram → JE_INPUT(text) → LLM → JE_OUTPUT
 """
 
 from dataclasses import dataclass
-from datetime import datetime
 from typing import Any
 
 from core.events.base import BaseEvent
@@ -28,7 +27,6 @@ class JeInputCreated(BaseEvent):
 
     je_input_uid: str
     user_uid: str
-    occurred_at: datetime
     file_type: str | None = None  # MIME type
     file_size: int | None = None
     original_filename: str | None = None
@@ -46,7 +44,6 @@ class JeInputProcessingStarted(BaseEvent):
     je_input_uid: str
     user_uid: str
     processor_type: str
-    occurred_at: datetime
     metadata: dict[str, Any] | None = None
 
     @property
@@ -62,7 +59,6 @@ class JeInputProcessingCompleted(BaseEvent):
     user_uid: str
     has_processed_content: bool
     processing_duration_seconds: float | None
-    occurred_at: datetime
     metadata: dict[str, Any] | None = None
 
     @property
@@ -82,7 +78,6 @@ class JeOutputGenerated(BaseEvent):
     je_input_uid: str
     user_uid: str
     enrichment_mode: str
-    occurred_at: datetime
     output_file_path: str | None = None
     metadata: dict[str, Any] | None = None
 
@@ -97,7 +92,6 @@ class JeInputDeleted(BaseEvent):
 
     je_input_uid: str
     user_uid: str
-    occurred_at: datetime
     metadata: dict[str, Any] | None = None
 
     @property

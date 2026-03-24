@@ -328,7 +328,6 @@ class LessonMasteryService:
             event = KnowledgeMastered(
                 ku_uid=ku_uid,
                 user_uid=user_uid,
-                occurred_at=datetime.now(UTC),
                 mastery_score=record["mastery_score"],
             )
             await publish_event(self.event_bus, event, self.logger)
@@ -363,7 +362,6 @@ class LessonMasteryService:
                 lesson_event = LessonCompleted(
                     lesson_uid=record["lesson_uid"],
                     user_uid=event.user_uid,
-                    occurred_at=datetime.now(UTC),
                     lesson_title=record.get("lesson_title"),
                     linked_ku_uids=tuple(record.get("all_ku_uids", [])),
                 )

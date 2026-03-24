@@ -180,7 +180,6 @@ class RevisedExerciseService(BaseService):
                 original_exercise_uid=enriched.original_exercise_uid,
                 report_uid=enriched.report_uid,
                 revision_number=revision_number,
-                occurred_at=datetime.now(),
             ),
             self.logger,
         )
@@ -188,7 +187,6 @@ class RevisedExerciseService(BaseService):
         # Publish embedding request (background worker generates async)
         embedding_text = build_embedding_text(EntityType.REVISED_EXERCISE, enriched)
         if embedding_text:
-            now = datetime.now()
             await publish_event(
                 self.event_bus,
                 RevisedExerciseEmbeddingRequested(
@@ -196,8 +194,7 @@ class RevisedExerciseService(BaseService):
                     entity_type="revised_exercise",
                     embedding_text=embedding_text,
                     user_uid=teacher_uid,
-                    requested_at=now,
-                    occurred_at=now,
+                    requested_at=datetime.now(),
                 ),
                 self.logger,
             )

@@ -305,7 +305,6 @@ class TasksCoreService(BaseService["TasksOperations", Task]):
             priority=task.priority or "medium",
             # NOTE: Task domain not stored - could infer from related goal/knowledge
             domain=None,
-            occurred_at=datetime.now(),
         )
         await publish_event(self.event_bus, event, self.logger)
 
@@ -317,7 +316,6 @@ class TasksCoreService(BaseService["TasksOperations", Task]):
                 knowledge_uids=tuple(task_request.applies_knowledge_uids),
                 task_uid=task.uid,
                 user_uid=task.user_uid,
-                occurred_at=datetime.now(),
                 task_title=task.title,
                 task_priority=task.priority or "medium",
             )
@@ -329,14 +327,12 @@ class TasksCoreService(BaseService["TasksOperations", Task]):
         if embedding_text:
             from core.events import TaskEmbeddingRequested
 
-            now = datetime.now()
             embedding_event = TaskEmbeddingRequested(
                 entity_uid=task.uid,
                 entity_type="task",
                 embedding_text=embedding_text,
                 user_uid=task.user_uid,
-                requested_at=now,
-                occurred_at=now,
+                requested_at=datetime.now(),
             )
             await publish_event(self.event_bus, embedding_event, self.logger)
 
@@ -455,7 +451,6 @@ class TasksCoreService(BaseService["TasksOperations", Task]):
         event = TaskUpdated(
             task_uid=task.uid,
             user_uid=task.user_uid,
-            occurred_at=datetime.now(),
             updated_fields=list(updates.keys()),
         )
         await publish_event(self.event_bus, event, self.logger)
@@ -472,7 +467,6 @@ class TasksCoreService(BaseService["TasksOperations", Task]):
                 escalated_to_urgent=(
                     Priority(task.priority).to_numeric() == 4 if task.priority else False
                 ),  # CRITICAL = 4
-                occurred_at=datetime.now(),
             )
             await publish_event(self.event_bus, priority_event, self.logger)
 
@@ -506,7 +500,6 @@ class TasksCoreService(BaseService["TasksOperations", Task]):
             event = TasksBulkCompleted(
                 task_uids=task_uids[:completed_count],
                 user_uid=user_uid,
-                occurred_at=datetime.now(),
             )
             await publish_event(self.event_bus, event, self.logger)
 
@@ -543,7 +536,7 @@ class TasksCoreService(BaseService["TasksOperations", Task]):
 
         # Publish TaskDeleted event if deletion succeeded
         if result.is_ok:
-            event = TaskDeleted(task_uid=task_uid, user_uid=user_uid, occurred_at=datetime.now())
+            event = TaskDeleted(task_uid=task_uid, user_uid=user_uid)
             await publish_event(self.event_bus, event, self.logger)
 
         return result

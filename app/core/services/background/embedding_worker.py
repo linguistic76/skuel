@@ -447,7 +447,6 @@ class EmbeddingBackgroundWorker:
                                 success_count=len(req.chunk_uids),
                                 failed_count=0,
                                 completed_at=now,
-                                occurred_at=now,
                             ),
                             self.logger,
                         )

@@ -330,7 +330,6 @@ class EventsCoreService(BaseService["EventsOperations", Event]):
                 calendar_event_type=get_enum_value(event.event_type)
                 if event.event_type
                 else "meeting",
-                occurred_at=datetime.now(),
             )
             await publish_event(self.event_bus, domain_event, self.logger)
 
@@ -347,7 +346,6 @@ class EventsCoreService(BaseService["EventsOperations", Event]):
                     embedding_text=embedding_text,
                     user_uid=event.user_uid,
                     requested_at=now,
-                    occurred_at=now,
                 )
                 await publish_event(self.event_bus, embedding_event, self.logger)
 
@@ -398,7 +396,6 @@ class EventsCoreService(BaseService["EventsOperations", Event]):
                     user_uid=event.user_uid,
                     completion_date=event.event_date,
                     quality_score=updates.get("quality_score"),
-                    occurred_at=datetime.now(),
                 )
                 await publish_event(self.event_bus, domain_event, self.logger)
 
@@ -413,7 +410,6 @@ class EventsCoreService(BaseService["EventsOperations", Event]):
                     user_uid=event.user_uid,
                     old_date=old_event_date,
                     new_date=updates["event_date"],
-                    occurred_at=datetime.now(),
                 )
                 await publish_event(self.event_bus, domain_event, self.logger)
 
@@ -423,7 +419,6 @@ class EventsCoreService(BaseService["EventsOperations", Event]):
                     event_uid=event.uid,
                     user_uid=event.user_uid,
                     updated_fields=updates,
-                    occurred_at=datetime.now(),
                 )
                 await publish_event(self.event_bus, domain_event, self.logger)
 
@@ -459,7 +454,6 @@ class EventsCoreService(BaseService["EventsOperations", Event]):
                 event_uid=uid,
                 user_uid=event.user_uid,
                 title=event.title,
-                occurred_at=datetime.now(),
             )
             await publish_event(self.event_bus, domain_event, self.logger)
 

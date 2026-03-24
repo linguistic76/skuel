@@ -259,7 +259,6 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
                 domain=get_enum_value(habit.habit_category)
                 if habit.habit_category
                 else None,  # Habit uses 'habit_category', not 'domain'
-                occurred_at=datetime.now(),
             )
             await publish_event(self.event_bus, event, self.logger)
 
@@ -319,7 +318,6 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
             if habit.recurrence_pattern
             else "daily",
             domain=get_enum_value(habit.habit_category) if habit.habit_category else None,
-            occurred_at=datetime.now(),
         )
         await publish_event(self.event_bus, event, self.logger)
 
@@ -329,14 +327,12 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
         if embedding_text:
             from core.events import HabitEmbeddingRequested
 
-            now = datetime.now()
             embedding_event = HabitEmbeddingRequested(
                 entity_uid=habit.uid,
                 entity_type="habit",
                 embedding_text=embedding_text,
                 user_uid=habit.user_uid,
-                requested_at=now,
-                occurred_at=now,
+                requested_at=datetime.now(),
             )
             await publish_event(self.event_bus, embedding_event, self.logger)
 

@@ -133,7 +133,6 @@ class TranscriptionService(EntityTimestampMixin):
             transcription_uid=transcription.uid,
             user_uid=user_uid,
             audio_file_path=request.audio_file_path,
-            occurred_at=datetime.now(),
         )
         await publish_event(self.event_bus, event, self.logger)
 
@@ -333,7 +332,6 @@ class TranscriptionService(EntityTimestampMixin):
                 confidence_score=deepgram_result.confidence_score,
                 duration_seconds=deepgram_result.duration_seconds,
                 word_count=deepgram_result.word_count,
-                occurred_at=datetime.now(),
             )
             await publish_event(self.event_bus, event, self.logger)
 
@@ -457,7 +455,6 @@ class TranscriptionService(EntityTimestampMixin):
             user_uid=user_uid,
             error_message=error_message,
             audio_file_path=audio_path,
-            occurred_at=datetime.now(),
         )
         await publish_event(self.event_bus, event, self.logger)
 

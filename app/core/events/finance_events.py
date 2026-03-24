@@ -15,7 +15,7 @@ Date: 2025-10-16
 """
 
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date
 from typing import Any
 
 from core.events.base import BaseEvent
@@ -39,7 +39,6 @@ class ExpenseCreated(BaseEvent):
     amount: float
     category: str
     expense_date: date
-    occurred_at: datetime
     metadata: dict[str, Any] | None = None
 
     @property
@@ -61,7 +60,6 @@ class ExpenseUpdated(BaseEvent):
     expense_uid: str
     user_uid: str
     updated_fields: dict[str, Any]
-    occurred_at: datetime
     metadata: dict[str, Any] | None = None
 
     @property
@@ -84,7 +82,6 @@ class ExpenseDeleted(BaseEvent):
     user_uid: str
     description: str
     amount: float
-    occurred_at: datetime
     metadata: dict[str, Any] | None = None
 
     @property
@@ -107,7 +104,6 @@ class ExpensePaid(BaseEvent):
     user_uid: str
     amount: float
     payment_date: date
-    occurred_at: datetime
     metadata: dict[str, Any] | None = None
 
     @property

@@ -32,7 +32,6 @@ and learning path integration.
 
 from __future__ import annotations
 
-from datetime import datetime
 from operator import itemgetter
 from typing import TYPE_CHECKING, Any
 
@@ -380,7 +379,6 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
             title=habit.title,
             frequency=habit.recurrence_pattern if habit.recurrence_pattern else "daily",
             domain=None,
-            occurred_at=datetime.now(),
         )
         await publish_event(self.event_bus, event, self.logger)
 
@@ -447,7 +445,6 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
                 title=habit.title,
                 frequency=habit.recurrence_pattern if habit.recurrence_pattern else "daily",
                 domain=None,
-                occurred_at=datetime.now(),
             )
             await publish_event(self.event_bus, event, self.logger)
 
@@ -842,7 +839,6 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
             title=habit.title,
             frequency=frequency.value,
             domain=None,
-            occurred_at=datetime.now(),
         )
         await publish_event(self.event_bus, event, self.logger)
 

@@ -187,7 +187,6 @@ class HabitsCompletionService:
             event = HabitCompletionBulk(
                 habit_uids=tuple(c.habit_uid for c in completions),
                 user_uid=user_uid,
-                occurred_at=now,
                 new_streak_records=tuple(new_streak_records),
                 milestones_reached=tuple(milestones_reached),
             )
@@ -292,7 +291,6 @@ class HabitsCompletionService:
             "best_streak": max(new_streak, habit.best_streak),
             "total_completions": habit.total_completions + 1,
             "last_completed": completion.completed_at,
-            "updated_at": datetime.now(),
         }
 
         # Update identity votes if applicable
@@ -350,7 +348,6 @@ class HabitsCompletionService:
                     user_uid=user_uid,
                     streak_length=new_streak,
                     milestone_name=milestone_name,
-                    occurred_at=datetime.now(),
                 )
                 await publish_event(self.event_bus, event, self.logger)
 

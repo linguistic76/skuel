@@ -145,7 +145,6 @@ class FormSubmissionService(BaseService[FormSubmissionBackendOperations, FormSub
                 submission_uid=uid,
                 user_uid=user_uid,
                 template_uid=form_template_uid,
-                occurred_at=datetime.now(),
             ),
             self.logger,
         )
@@ -280,7 +279,6 @@ class FormSubmissionService(BaseService[FormSubmissionBackendOperations, FormSub
             FormSubmissionDeleted(
                 submission_uid=uid,
                 user_uid=user_uid,
-                occurred_at=datetime.now(),
             ),
             self.logger,
         )

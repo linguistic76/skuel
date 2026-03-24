@@ -278,7 +278,6 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
                 title=goal.title,
                 domain=get_enum_value(goal.domain) if goal.domain else None,
                 target_date=goal.target_date,
-                occurred_at=datetime.now(),
             )
             await publish_event(self.event_bus, event, self.logger)
 
@@ -333,7 +332,6 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
             title=goal.title,
             domain=get_enum_value(goal.domain) if goal.domain else None,
             target_date=goal.target_date,
-            occurred_at=datetime.now(),
         )
         await publish_event(self.event_bus, event, self.logger)
 
@@ -343,14 +341,12 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
         if embedding_text:
             from core.events import GoalEmbeddingRequested
 
-            now = datetime.now()
             embedding_event = GoalEmbeddingRequested(
                 entity_uid=goal.uid,
                 entity_type="goal",
                 embedding_text=embedding_text,
                 user_uid=goal.user_uid,
-                requested_at=now,
-                occurred_at=now,
+                requested_at=datetime.now(),
             )
             await publish_event(self.event_bus, embedding_event, self.logger)
 
@@ -444,7 +440,6 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
                     user_uid=goal.user_uid,
                     old_progress=old_progress,
                     new_progress=new_progress,
-                    occurred_at=datetime.now(),
                     triggered_by_manual_update=True,
                 )
                 await publish_event(self.event_bus, event, self.logger)
@@ -467,7 +462,6 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
                         goal_uid=goal.uid,
                         user_uid=goal.user_uid,
                         actual_duration_days=actual_duration_days,
-                        occurred_at=datetime.now(),
                     )
                     await publish_event(self.event_bus, achieved_event, self.logger)
 
@@ -509,7 +503,6 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
             event = GoalAbandoned(
                 goal_uid=uid,
                 user_uid=goal.user_uid,
-                occurred_at=datetime.now(),
                 progress_at_abandonment=progress_at_abandonment,
                 days_active=days_active,
             )
@@ -680,7 +673,6 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
             event = GoalAchieved(
                 goal_uid=goal.uid,
                 user_uid=goal.user_uid,
-                occurred_at=datetime.now(),
                 actual_duration_days=actual_days,
                 planned_duration_days=planned_days,
                 completed_ahead_of_schedule=ahead_of_schedule,

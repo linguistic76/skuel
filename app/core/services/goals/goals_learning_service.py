@@ -12,7 +12,6 @@ Responsibilities:
 - Identify goals needing habits or blocked by knowledge
 """
 
-from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from core.events import GoalCreated, publish_event
@@ -136,7 +135,6 @@ class GoalsLearningService(BaseService[GoalsOperations, Goal]):
                 title=goal.title,
                 domain=goal.domain.value,
                 target_date=goal.target_date,
-                occurred_at=datetime.now(),
             )
             await publish_event(self.event_bus, event, self.logger)
 

@@ -43,7 +43,6 @@ class HabitCreated(BaseEvent):
     title: str
     frequency: str  # "daily", "weekly", etc.
     domain: str | None
-    occurred_at: datetime
 
     # Habit type context
     is_goal_related: bool = False
@@ -70,7 +69,6 @@ class HabitCompleted(BaseEvent):
 
     habit_uid: str
     user_uid: str
-    occurred_at: datetime
 
     # Streak context
     current_streak: int = 0
@@ -100,7 +98,6 @@ class HabitStreakBroken(BaseEvent):
 
     habit_uid: str
     user_uid: str
-    occurred_at: datetime
 
     # Streak information
     streak_length: int  # How long the streak was
@@ -130,7 +127,6 @@ class HabitMissed(BaseEvent):
 
     habit_uid: str
     user_uid: str
-    occurred_at: datetime
 
     # Scheduled vs actual
     scheduled_date: datetime
@@ -164,7 +160,6 @@ class HabitStreakMilestone(BaseEvent):
     habit_uid: str
     user_uid: str
     streak_length: int
-    occurred_at: datetime
 
     # Milestone type
     milestone_name: str  # "one_week", "one_month", "one_hundred", "one_year"
@@ -191,7 +186,6 @@ class AchievementEarned(BaseEvent):
     badge_name: str
     badge_tier: str  # "bronze", "silver", "gold", "platinum"
     streak_length: int
-    occurred_at: datetime
 
     @property
     def event_type(self) -> str:
@@ -227,7 +221,6 @@ class HabitCompletionBulk(BaseEvent):
 
     habit_uids: tuple[str, ...]
     user_uid: str
-    occurred_at: datetime
 
     # Aggregate streak information
     new_streak_records: tuple[str, ...] = ()  # UIDs of habits with new records
@@ -261,7 +254,6 @@ async def create_habit(self, habit: Habit) -> Result[Habit]:
             title=habit.title,
             frequency=habit.frequency.value,
             domain=habit.domain.value if habit.domain else None,
-            occurred_at=datetime.now()
         )
         await self.event_bus.publish_async(event)
 
@@ -289,7 +281,6 @@ async def log_completion(self, habit_uid: str) -> Result[HabitCompletion]:
         event = HabitCompleted(
             habit_uid=habit_uid,
             user_uid=habit.user_uid,
-            occurred_at=datetime.now(),
             current_streak=new_streak,
             is_new_streak_record=is_new_record
         )
@@ -302,7 +293,6 @@ async def log_completion(self, habit_uid: str) -> Result[HabitCompletion]:
                 habit_uid=habit_uid,
                 user_uid=habit.user_uid,
                 streak_length=new_streak,
-                occurred_at=datetime.now(),
                 milestone_name=milestone_names[new_streak]
             )
             await self.event_bus.publish_async(milestone_event)
@@ -320,7 +310,6 @@ async def check_missed_habits(self, user_uid: str) -> Result[list[str]]:
             event = HabitMissed(
                 habit_uid=habit.uid,
                 user_uid=habit.user_uid,
-                occurred_at=datetime.now(),
                 scheduled_date=habit.last_scheduled_date,
                 days_overdue=(datetime.now() - habit.last_scheduled_date).days
             )
@@ -347,7 +336,6 @@ async def break_streak(self, habit_uid: str) -> Result[None]:
         event = HabitStreakBroken(
             habit_uid=habit_uid,
             user_uid=habit.user_uid,
-            occurred_at=datetime.now(),
             streak_length=streak_length,
             last_completion_date=habit.last_completion_date
         )

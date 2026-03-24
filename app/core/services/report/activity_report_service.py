@@ -112,7 +112,6 @@ class ActivityReportService:
             subject_uid=subject_uid,
             admin_uid=admin_uid,
             time_period=time_period,
-            occurred_at=datetime.now(),
         )
         await publish_event(self.event_bus, event, logger)
         activity = context.entities_rich

@@ -20,7 +20,6 @@ Responsibilities:
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from core.events import publish_event
@@ -147,7 +146,6 @@ class GoalEventHandlerService:
                     recommendation_event = GoalRecommendationsGenerated(
                         goal_uid=event.goal_uid,
                         user_uid=event.user_uid,
-                        occurred_at=datetime.now(),
                         recommendations=recommendations,
                         triggered_by_achievement=True,
                     )

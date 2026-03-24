@@ -322,7 +322,6 @@ class EventsLearningService(BaseService["EventsOperations", Event]):
             title=event.title,
             event_date=event.event_date,
             calendar_event_type=get_enum_value(event.event_type),
-            occurred_at=datetime.now(),
         )
         await publish_event(self.event_bus, event_obj, self.logger)
 
@@ -467,7 +466,6 @@ class EventsLearningService(BaseService["EventsOperations", Event]):
                 title=event.title,
                 event_date=event.event_date,
                 calendar_event_type=get_enum_value(event.event_type),
-                occurred_at=datetime.now(),
             )
             await publish_event(self.event_bus, event_obj, self.logger)
 

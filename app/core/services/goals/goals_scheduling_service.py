@@ -495,7 +495,6 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Goal]):
             target_date=datetime.combine(goal.target_date, datetime.min.time())
             if goal.target_date
             else None,
-            occurred_at=datetime.now(),
             is_milestone=goal.goal_type == GoalType.MILESTONE,
             parent_goal_uid=goal.parent_goal_uid,
         )
@@ -567,7 +566,6 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Goal]):
                 target_date=datetime.combine(goal.target_date, datetime.min.time())
                 if goal.target_date
                 else None,
-                occurred_at=datetime.now(),
                 is_milestone=goal.goal_type == GoalType.MILESTONE,
                 parent_goal_uid=goal.parent_goal_uid,
             )

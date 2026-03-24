@@ -180,13 +180,10 @@ class UserActivityService:
             # Publish UserActivityRecorded event (eventual consistency - do NOT rollback on failure)
             # Activity update is source of truth; events are notifications
             try:
-                from datetime import datetime
-
                 from core.events import UserActivityRecorded
 
                 event = UserActivityRecorded(
                     user_uid=user_uid,
-                    occurred_at=datetime.now(),
                     activity_type=f"{activity_type}.{action}",
                     activity_context={
                         "entity_uid": entity_uid,

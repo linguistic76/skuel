@@ -15,7 +15,6 @@ Date: 2025-10-16
 """
 
 from dataclasses import dataclass
-from datetime import datetime
 from typing import Any
 
 from core.events.base import BaseEvent
@@ -37,7 +36,6 @@ class ChoiceCreated(BaseEvent):
     choice_description: str
     domain: str
     urgency: str
-    occurred_at: datetime
     metadata: dict[str, Any] | None = None
 
     @property
@@ -59,7 +57,6 @@ class ChoiceUpdated(BaseEvent):
     choice_uid: str
     user_uid: str
     updated_fields: dict[str, Any]
-    occurred_at: datetime
     metadata: dict[str, Any] | None = None
 
     @property
@@ -81,7 +78,6 @@ class ChoiceDeleted(BaseEvent):
     choice_uid: str
     user_uid: str
     choice_description: str
-    occurred_at: datetime
     metadata: dict[str, Any] | None = None
 
     @property
@@ -104,7 +100,6 @@ class ChoiceMade(BaseEvent):
     user_uid: str
     selected_option: str
     confidence: float
-    occurred_at: datetime
     metadata: dict[str, Any] | None = None
 
     @property
@@ -127,7 +122,6 @@ class ChoiceOutcomeRecorded(BaseEvent):
     user_uid: str
     outcome_quality: float
     lessons_learned: str | None
-    occurred_at: datetime
     metadata: dict[str, Any] | None = None
 
     @property

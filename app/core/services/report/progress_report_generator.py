@@ -220,7 +220,6 @@ class ProgressReportGenerator:
                 user_uid=user_uid,
                 entity_type=EntityType.ACTIVITY_REPORT.value,
                 processor_type=processor_type.value,
-                occurred_at=datetime.now(),
             )
             await publish_event(self.event_bus, event, logger)
 

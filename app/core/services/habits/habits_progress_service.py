@@ -351,7 +351,6 @@ class HabitsProgressService:
         completed_event = HabitCompleted(
             habit_uid=habit_uid,
             user_uid=user_context.user_uid,
-            occurred_at=datetime.now(),
             current_streak=new_streak,
             is_new_streak_record=(new_streak == habit.best_streak),
             completed_late=(completion_date < date.today()),
@@ -363,7 +362,6 @@ class HabitsProgressService:
             broken_event = HabitStreakBroken(
                 habit_uid=habit_uid,
                 user_uid=user_context.user_uid,
-                occurred_at=datetime.now(),
                 streak_length=habit.current_streak,
                 last_completion_date=habit.last_completed if habit.last_completed else None,
                 days_since_last_completion=days_since,
@@ -377,7 +375,6 @@ class HabitsProgressService:
                 habit_uid=habit_uid,
                 user_uid=user_context.user_uid,
                 streak_length=new_streak,
-                occurred_at=datetime.now(),
                 milestone_name=milestone_values[new_streak],
             )
             await publish_event(self.event_bus, milestone_event, self.logger)

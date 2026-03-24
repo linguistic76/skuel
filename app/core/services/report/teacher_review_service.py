@@ -288,7 +288,6 @@ class TeacherReviewService:
                 teacher_uid=teacher_uid,
                 student_uid=student_uid,
                 report_uid=report_entity_uid,
-                occurred_at=datetime.now(),
             ),
             logger,
         )
@@ -403,7 +402,6 @@ class TeacherReviewService:
                 submission_uid=report_uid,
                 teacher_uid=teacher_uid,
                 student_uid=student_uid,
-                occurred_at=datetime.now(),
                 revision_notes=notes,
                 metadata={"report_uid": report_entity_uid},
             ),
@@ -503,7 +501,6 @@ class TeacherReviewService:
                 submission_uid=report_uid,
                 teacher_uid=teacher_uid,
                 student_uid=student_uid,
-                occurred_at=datetime.now(),
                 mastered_ku_count=mastered_count,
             ),
             logger,

@@ -20,7 +20,6 @@ Formerly AssignmentService — renamed to Exercise for domain clarity.
 from __future__ import annotations
 
 import os
-from datetime import date, datetime
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from core.models.enums import Domain
@@ -47,6 +46,8 @@ logger = get_logger(__name__)
 _UNSET: Any = object()  # Sentinel for "argument not provided"
 
 if TYPE_CHECKING:
+    from datetime import date
+
     from core.ports.query_types import ListContext
 
 
@@ -290,8 +291,6 @@ class ExerciseService(BaseService):
         if form_schema is not _UNSET:
             updates["form_schema"] = form_schema if form_schema else None
 
-        updates["updated_at"] = datetime.now().isoformat()
-
         result = await self.backend.update(uid, updates)
         if result.is_error:
             self.logger.error(f"Failed to update exercise {uid}: {result.error}")
@@ -504,7 +503,6 @@ class ExerciseService(BaseService):
         """Soft-delete by archiving exercise."""
         updates: dict[str, Any] = {
             "status": "archived",
-            "updated_at": datetime.now().isoformat(),
         }
         return await self.backend.update(uid, updates)
 

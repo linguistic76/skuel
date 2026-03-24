@@ -181,7 +181,6 @@ class JournalOutputService:
                     je_input_uid=je_input_uid,
                     user_uid=user_uid,
                     enrichment_mode=effective_mode,
-                    occurred_at=now,
                     output_file_path=str(file_path),
                 ),
                 logger,

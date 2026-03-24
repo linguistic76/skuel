@@ -405,9 +405,6 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
             field: value for field, value in updates.items() if field in allowed_fields
         }
 
-        # Always update updated_at
-        filtered_updates["updated_at"] = datetime.now()
-
         # Perform update
         result = await self.backend.update(uid, filtered_updates)
 
@@ -456,7 +453,6 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
                 submission_uid=uid,
                 user_uid=submission.user_uid if isinstance(submission, UserOwnedEntity) else None,
                 entity_type=submission.entity_type.value,
-                occurred_at=datetime.now(),
             )
             await publish_event(self.event_bus, event, self.logger)
             self.logger.debug(f"Published SubmissionDeleted event for {uid}")
@@ -972,7 +968,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
                     )
                     await self.backend.update(
                         submission_uid,
-                        {"title": new_title, "updated_at": datetime.now().isoformat()},
+                        {"title": new_title},
                     )
                     self.logger.info(f"Updated submission title to: {new_title}")
 

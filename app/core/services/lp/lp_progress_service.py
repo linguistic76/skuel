@@ -11,7 +11,6 @@ Responsibilities:
 - Milestone management
 """
 
-from datetime import datetime
 from typing import TYPE_CHECKING
 
 from core.events import LearningPathCompleted, LearningPathProgressUpdated, publish_event
@@ -225,7 +224,6 @@ class LpProgressService:
         progress_event = LearningPathProgressUpdated(
             path_uid=lp_uid,
             user_uid=user_uid,
-            occurred_at=datetime.now(),
             old_progress=old_progress_percentage / 100.0,  # Convert to 0.0-1.0
             new_progress=new_progress_percentage / 100.0,  # Convert to 0.0-1.0
             kus_completed=mastered_kus,
@@ -240,7 +238,6 @@ class LpProgressService:
             completed_event = LearningPathCompleted(
                 path_uid=lp_uid,
                 user_uid=user_uid,
-                occurred_at=datetime.now(),
                 kus_mastered=mastered_kus,
                 average_mastery_score=1.0,  # Would calculate from actual mastery scores
             )

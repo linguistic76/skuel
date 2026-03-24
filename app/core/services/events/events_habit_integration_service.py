@@ -16,7 +16,7 @@ habit-related lifecycle.
 """
 
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from typing import TYPE_CHECKING, Any
 
 from core.events import publish_event
@@ -469,7 +469,6 @@ class EventsHabitIntegrationService:
             user_uid=user_context.user_uid,
             completion_date=completion_date or date.today(),
             quality_score=quality_score,
-            occurred_at=datetime.now(),
         )
         await publish_event(self.event_bus, event_obj, self.logger)
 
@@ -516,7 +515,6 @@ class EventsHabitIntegrationService:
             event_uid=event_uid,
             user_uid=user_context.user_uid,
             updated_fields={"status": "cancelled", "notes": updates["notes"]},
-            occurred_at=datetime.now(),
         )
         await publish_event(self.event_bus, event_obj, self.logger)
 
@@ -599,7 +597,6 @@ class EventsHabitIntegrationService:
                 title=event.title,
                 event_date=event.event_date,
                 calendar_event_type=get_enum_value(event.event_type),
-                occurred_at=datetime.now(),
             )
             await publish_event(self.event_bus, event_obj, self.logger)
 

@@ -18,7 +18,7 @@ Usage:
 
 Publishing:
     from core.events import TaskCompleted
-    event = TaskCompleted(task_uid="...", user_uid="...", occurred_at=datetime.now())
+    event = TaskCompleted(task_uid="...", user_uid="...")
     await event_bus.publish_async(event)
 
 Subscribing:
@@ -538,7 +538,7 @@ async def publish_event(event_bus, event: BaseEvent, logger=None) -> bool:
     Example:
         from core.events import publish_event, TaskCompleted
 
-        event = TaskCompleted(task_uid="...", user_uid="...", occurred_at=datetime.now())
+        event = TaskCompleted(task_uid="...", user_uid="...")
         await publish_event(self.event_bus, event, self.logger)
     """
     if event_bus:
@@ -732,7 +732,6 @@ Quick Reference - Common Patterns
     event = TaskCompleted(
         task_uid="task-123",
         user_uid="user-456",
-        occurred_at=datetime.now()
     )
     await event_bus.publish_async(event)
 

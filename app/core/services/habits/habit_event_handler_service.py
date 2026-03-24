@@ -554,7 +554,6 @@ class HabitEventHandlerService:
                     badge_name=badge_info["name"],
                     badge_tier=badge_info["tier"],
                     streak_length=streak_length,
-                    occurred_at=datetime.now(),
                 )
                 await publish_event(self.event_bus, achievement_event, self.logger)
 

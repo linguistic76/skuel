@@ -25,7 +25,6 @@ Subscribers:
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime
 
 from core.events.base import BaseEvent
 
@@ -46,7 +45,6 @@ class LearningStepCreated(BaseEvent):
 
     ls_uid: str
     title: str
-    occurred_at: datetime
 
     # Step context
     intent: str | None = None
@@ -70,7 +68,6 @@ class LearningStepUpdated(BaseEvent):
     """
 
     ls_uid: str
-    occurred_at: datetime
 
     # Update context
     updated_fields: tuple[str, ...] = field(default_factory=tuple)
@@ -92,7 +89,6 @@ class LearningStepDeleted(BaseEvent):
     """
 
     ls_uid: str
-    occurred_at: datetime
 
     # Deletion context
     linked_lp_uid: str | None = None
@@ -116,7 +112,6 @@ class LearningStepCompleted(BaseEvent):
 
     ls_uid: str
     user_uid: str
-    occurred_at: datetime
 
     # Completion context
     linked_lp_uid: str | None = None
@@ -160,7 +155,6 @@ async def create_step(self, data: LsCreateRequest) -> Result[Ls]:
         event = LearningStepCreated(
             ls_uid=step.uid,
             title=step.title,
-            occurred_at=datetime.now(),
             intent=step.intent,
             linked_lp_uid=step.lp_uid,
             sequence_order=step.sequence_order,

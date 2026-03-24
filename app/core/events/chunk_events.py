@@ -32,7 +32,6 @@ class ChunkEmbeddingRequested(BaseEvent):
     chunk_uids: tuple[str, ...]  # ["ku.python:chunk:0", ...]
     chunk_texts: tuple[str, ...]  # Context window for each chunk
     requested_at: datetime
-    occurred_at: datetime
     user_uid: str | None = None
 
     @property
@@ -53,7 +52,6 @@ class ChunkEmbeddingsCompleted(BaseEvent):
     success_count: int
     failed_count: int
     completed_at: datetime
-    occurred_at: datetime
 
     @property
     def event_type(self) -> str:

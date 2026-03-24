@@ -19,7 +19,6 @@ Subscribers:
 """
 
 from dataclasses import dataclass
-from datetime import datetime
 
 from core.events.base import BaseEvent
 
@@ -43,7 +42,6 @@ class TaskCreated(BaseEvent):
     title: str
     priority: str
     domain: str | None
-    occurred_at: datetime
 
     @property
     def event_type(self) -> str:
@@ -67,7 +65,6 @@ class TaskCompleted(BaseEvent):
 
     task_uid: str
     user_uid: str
-    occurred_at: datetime
 
     # Optional context for analytics
     completion_time_seconds: int | None = None
@@ -91,7 +88,6 @@ class TaskUpdated(BaseEvent):
     task_uid: str
     user_uid: str
     updated_fields: list[str]
-    occurred_at: datetime
 
     # Include old/new values for significant fields
     priority_changed: bool = False
@@ -114,7 +110,6 @@ class TaskDeleted(BaseEvent):
 
     task_uid: str
     user_uid: str
-    occurred_at: datetime
 
     # Context for why deleted
     reason: str | None = None  # "completed_elsewhere", "no_longer_needed", etc.
@@ -143,7 +138,6 @@ class TaskPriorityChanged(BaseEvent):
     user_uid: str
     old_priority: str
     new_priority: str
-    occurred_at: datetime
 
     # Was this an escalation to urgent?
     escalated_to_urgent: bool = False
@@ -173,7 +167,6 @@ class TasksBulkCompleted(BaseEvent):
 
     task_uids: list[str]
     user_uid: str
-    occurred_at: datetime
     count: int = 0  # Number of tasks completed
 
     def __post_init__(self) -> None:
@@ -204,7 +197,6 @@ async def create_task(self, task: Task) -> Result[Task]:
             title=task.title,
             priority=task.priority or "medium",
             domain=task.domain.value if task.domain else None,
-            occurred_at=datetime.now()
         )
         await self.event_bus.publish_async(event)
         self.logger.info(f"Published {event.event_type} for {task.uid}")
@@ -224,7 +216,6 @@ async def complete_task(self, uid: str) -> Result[Task]:
         event = TaskCompleted(
             task_uid=task.uid,
             user_uid=task.user_uid,
-            occurred_at=datetime.now(),
             completion_time_seconds=int(completion_time),
             was_overdue=task.due_date and task.due_date < datetime.now()
         )

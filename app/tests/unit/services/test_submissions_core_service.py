@@ -311,19 +311,6 @@ class TestUpdateSubmission:
         assert update_dict["metadata"]["key"] == "val"
 
     @pytest.mark.asyncio
-    async def test_updated_at_always_set(self):
-        backend = _make_backend()
-        backend.update = AsyncMock(return_value=Result.ok(_make_entity()))
-        service = _make_service(backend=backend)
-
-        await service.update_submission("sub_123", {"title": "T"})
-
-        call_args = backend.update.call_args
-        update_dict = call_args.args[1]
-        assert "updated_at" in update_dict
-        assert isinstance(update_dict["updated_at"], datetime)
-
-    @pytest.mark.asyncio
     async def test_not_found(self):
         backend = _make_backend()
         backend.update = AsyncMock(return_value=Result.ok(None))

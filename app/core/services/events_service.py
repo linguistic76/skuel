@@ -16,7 +16,7 @@ Sub-Services:
 
 from __future__ import annotations
 
-from datetime import date, datetime, time
+from datetime import date, time
 from typing import TYPE_CHECKING, Any
 
 from core.events import publish_event
@@ -935,7 +935,6 @@ class EventsService(BaseService["EventsOperations", Event]):
                 attendee_uid=request.user_uid,
                 added_by_uid=request.user_uid,  # Could be enhanced with current_user
                 role=request.role,
-                occurred_at=datetime.now(),
             )
             await publish_event(self.event_bus, notification_event, self.logger)
 
@@ -974,7 +973,6 @@ class EventsService(BaseService["EventsOperations", Event]):
                 event_title=event_title,
                 attendee_uid=request.user_uid,
                 removed_by_uid=request.user_uid,  # Could be enhanced with current_user
-                occurred_at=datetime.now(),
             )
             await publish_event(self.event_bus, notification_event, self.logger)
 
@@ -1115,7 +1113,6 @@ class EventsService(BaseService["EventsOperations", Event]):
             title=event.title,
             event_date=event.event_date,
             calendar_event_type=get_enum_value(event.event_type),
-            occurred_at=datetime.now(),
         )
         await publish_event(self.event_bus, event_obj, self.logger)
 
@@ -1128,7 +1125,6 @@ class EventsService(BaseService["EventsOperations", Event]):
                     knowledge_uid=knowledge_uid,
                     event_uid=event.uid,
                     user_uid=user_context.user_uid,
-                    occurred_at=datetime.now(),
                     event_title=event.title,
                     duration_minutes=event.duration_minutes,
                 )

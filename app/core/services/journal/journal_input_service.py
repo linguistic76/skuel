@@ -110,7 +110,6 @@ class JournalInputService:
                 JeInputCreated(
                     je_input_uid=uid,
                     user_uid=user_uid,
-                    occurred_at=now,
                     metadata=metadata,
                 ),
                 logger,
@@ -196,7 +195,6 @@ class JournalInputService:
                 JeInputCreated(
                     je_input_uid=uid,
                     user_uid=user_uid,
-                    occurred_at=now,
                     file_type=file_type,
                     file_size=len(file_content),
                     original_filename=original_filename,
@@ -312,14 +310,12 @@ class JournalInputService:
         if delete_result.is_error:
             return Result.fail(delete_result.expect_error())
 
-        now = datetime.now(tz=UTC)
         if self.event_bus:
             await publish_event(
                 self.event_bus,
                 JeInputDeleted(
                     je_input_uid=uid,
                     user_uid=user_uid,
-                    occurred_at=now,
                 ),
                 logger,
             )

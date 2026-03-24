@@ -446,7 +446,6 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
         event = TaskCompleted(
             task_uid=task_uid,
             user_uid=user_context.user_uid,
-            occurred_at=datetime.now(),
             completion_time_seconds=actual_minutes * 60 if actual_minutes else None,
             was_overdue=task.due_date and task.due_date < date.today() if task.due_date else False,
         )
@@ -510,7 +509,6 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
             event = TaskCompleted(
                 task_uid=task_uid,
                 user_uid=user_uid,
-                occurred_at=datetime.now(),
                 completion_time_seconds=duration_minutes * 60,
                 was_overdue=was_overdue,
             )
