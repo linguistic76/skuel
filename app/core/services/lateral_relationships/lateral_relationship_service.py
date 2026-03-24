@@ -986,18 +986,8 @@ class LateralRelationshipService:
             all_types = [rt.value for rt in RelationshipName if rt.is_lateral_relationship()]
             type_filter = "|".join(all_types)
 
-        # Color mapping for relationship types
-        def get_relationship_color(rel_type: str) -> str:
-            """Map relationship type to color."""
-            color_map = {
-                RelationshipName.BLOCKS.value: "#EF4444",  # Red
-                RelationshipName.PREREQUISITE_FOR.value: "#F59E0B",  # Orange
-                RelationshipName.ALTERNATIVE_TO.value: "#3B82F6",  # Blue
-                RelationshipName.COMPLEMENTARY_TO.value: "#10B981",  # Green
-                RelationshipName.RELATED_TO.value: "#6B7280",  # Gray
-                RelationshipName.SIBLING.value: "#8B5CF6",  # Purple
-            }
-            return color_map.get(rel_type, "#6B7280")
+        # Color mapping for relationship types (centralized in ui/palette.py)
+        from ui.palette import RelationshipColor
 
         # Query graph with depth limit
         result = await self.executor.execute_query(
@@ -1086,7 +1076,7 @@ class LateralRelationshipService:
                     "to": rel["to"],
                     "label": rel_type.lower().replace("_", " "),
                     "arrows": "to",
-                    "color": {"color": get_relationship_color(rel_type)},
+                    "color": {"color": RelationshipColor.for_type(rel_type)},
                     "relationship_type": rel_type,
                 }
                 # Avoid duplicates

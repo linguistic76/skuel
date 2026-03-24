@@ -588,7 +588,7 @@ async def compose_services(
         from core.services.admin_stats_service import AdminStatsService
 
         # Create visualization service (Chart.js/Vis.js/Gantt adapters)
-        from core.services.visualization_service import VisualizationService
+        from ui.visualization import VisualizationService
 
         visualization_service = VisualizationService(
             tasks_service=activity_services["tasks"],

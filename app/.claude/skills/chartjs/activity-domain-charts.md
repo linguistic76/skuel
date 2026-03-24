@@ -526,4 +526,4 @@ def domain_dashboard(user_uid: str):
 - [SKILL.md](SKILL.md) - Main Chart.js guide
 - [chart-types-reference.md](chart-types-reference.md) - Chart type catalog
 - [fasthtml-patterns.md](fasthtml-patterns.md) - Python integration
-- `/core/services/visualization_service.py` - Data transformation
+- `/ui/visualization/visualization_service.py` - Data transformation

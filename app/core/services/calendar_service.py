@@ -69,6 +69,7 @@ from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.neo4j_temporal import convert_neo4j_date, convert_neo4j_time
 from core.utils.result_simplified import Errors, Result
+from ui.palette import CalendarFallback, SemanticColor
 
 logger = get_logger("skuel.services.calendar")
 
@@ -549,7 +550,7 @@ class CalendarService:
         elif task.priority:
             color = Priority(task.priority).get_color()
         else:
-            color = "#3B82F6"  # Default blue
+            color = CalendarFallback.DEFAULT
 
         return CalendarItem(
             uid=f"task-{task.uid}",
@@ -573,7 +574,7 @@ class CalendarService:
     def _event_to_calendar_item(self, event: Event) -> CalendarItem:
         """Convert event to calendar item."""
         # Get color dynamically from status enum
-        color = event.status.get_color() if event.status else "#3B82F6"
+        color = event.status.get_color() if event.status else CalendarFallback.DEFAULT
 
         # Convert Neo4j temporal types to Python types
         start_time_val = convert_neo4j_time(event.start_time)
@@ -638,7 +639,7 @@ class CalendarService:
             start_time=now,
             end_time=now + timedelta(minutes=30),  # Default 30 min for habits
             all_day=False,
-            color="#8B5CF6",  # Purple for habits (could be status-based in future)
+            color=CalendarFallback.HABIT,
             icon=CalendarItemType.HABIT.get_icon(),
             priority=1,
             is_recurring=getattr(habit, "recurrence_pattern", "daily") != "none",
@@ -898,7 +899,7 @@ class CalendarService:
                 start_time=datetime.combine(today, datetime.min.time().replace(hour=10)),
                 end_time=datetime.combine(today, datetime.min.time().replace(hour=11)),
                 all_day=False,
-                color="#3B82F6",
+                color=SemanticColor.PRIMARY,
                 icon="📋",
                 priority=2,
                 tags=["development", "calendar"],
@@ -913,7 +914,7 @@ class CalendarService:
                 start_time=datetime.combine(today, datetime.min.time().replace(hour=15)),
                 end_time=datetime.combine(today, datetime.min.time().replace(hour=16)),
                 all_day=False,
-                color="#F59E0B",
+                color=SemanticColor.WARNING,
                 icon="📋",
                 priority=1,
                 tags=["feature", "events"],
@@ -936,7 +937,7 @@ class CalendarService:
                 start_time=datetime.combine(today, datetime.min.time().replace(hour=9)),
                 end_time=datetime.combine(today, datetime.min.time().replace(hour=9, minute=30)),
                 all_day=False,
-                color="#10B981",
+                color=SemanticColor.SUCCESS,
                 icon="📅",
                 priority=1,
                 category="meeting",
@@ -955,7 +956,7 @@ class CalendarService:
                 start_time=datetime.combine(today, datetime.min.time().replace(hour=14)),
                 end_time=datetime.combine(today, datetime.min.time().replace(hour=15)),
                 all_day=False,
-                color="#8B5CF6",
+                color=CalendarFallback.HABIT,
                 icon="📅",
                 priority=2,
                 category="meeting",

@@ -11,8 +11,6 @@ from types import SimpleNamespace
 
 from core.models.enums import Priority
 from ui.calendar.converters import (
-    EVENT_TYPE_COLORS,
-    FREQUENCY_COLORS,
     _make_calendar_uid,
     _normalize_priority,
     event_to_calendar_item,
@@ -21,6 +19,7 @@ from ui.calendar.converters import (
     habit_to_calendar_items,
     task_to_calendar_item,
 )
+from ui.palette import EventTypeColor, FrequencyColor
 
 # ============================================================================
 # _normalize_priority
@@ -227,7 +226,7 @@ class TestEventToCalendarItem:
         item = event_to_calendar_item(event)
         assert item.source_uid == "event_test_1"
         assert item.all_day is False
-        assert item.color == EVENT_TYPE_COLORS["meeting"]
+        assert item.color == EventTypeColor.MEETING
 
     def test_unknown_event_type(self) -> None:
         event = SimpleNamespace(
@@ -269,7 +268,7 @@ class TestHabitToCalendarItems:
         # Should generate one item per day of the month
         assert len(items) == 31  # March has 31 days
         assert all(i.source_uid == "habit_test_1" for i in items)
-        assert items[0].color == FREQUENCY_COLORS["daily"]
+        assert items[0].color == FrequencyColor.DAILY
 
     def test_weekly_frequency(self) -> None:
         habit = SimpleNamespace(
@@ -286,7 +285,7 @@ class TestHabitToCalendarItems:
         items = habit_to_calendar_items(habit, current)
         # Mondays in March 2026: 2, 9, 16, 23, 30
         assert len(items) == 5
-        assert items[0].color == FREQUENCY_COLORS["weekly"]
+        assert items[0].color == FrequencyColor.WEEKLY
 
     def test_monthly_frequency(self) -> None:
         habit = SimpleNamespace(

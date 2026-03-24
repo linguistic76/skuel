@@ -35,6 +35,7 @@ from core.models.enums import EntityStatus, Priority
 from core.models.event.calendar_models import CalendarData, CalendarItem, CalendarItemType
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+from ui.palette import SemanticColor
 
 logger = get_logger(__name__)
 
@@ -165,31 +166,6 @@ class VisualizationService:
         self.goals_service = goals_service
         self.calendar_service = calendar_service
 
-    # Color schemes for consistent styling
-    COLORS: ClassVar[dict[str, str]] = {
-        "primary": "#3B82F6",  # Blue
-        "success": "#10B981",  # Green
-        "warning": "#F59E0B",  # Amber
-        "danger": "#EF4444",  # Red
-        "info": "#6366F1",  # Indigo
-        "neutral": "#6B7280",  # Gray
-    }
-
-    PRIORITY_COLORS: ClassVar[dict[Priority, str]] = {
-        Priority.CRITICAL: "#EF4444",
-        Priority.HIGH: "#F59E0B",
-        Priority.MEDIUM: "#3B82F6",
-        Priority.LOW: "#10B981",
-    }
-
-    STATUS_COLORS: ClassVar[dict[EntityStatus, str]] = {
-        EntityStatus.COMPLETED: "#10B981",
-        EntityStatus.ACTIVE: "#3B82F6",
-        EntityStatus.BLOCKED: "#EF4444",
-        EntityStatus.DRAFT: "#6B7280",
-        EntityStatus.CANCELLED: "#9CA3AF",
-    }
-
     ITEM_TYPE_GROUPS: ClassVar[dict[CalendarItemType, str]] = {
         CalendarItemType.TASK_WORK: "tasks",
         CalendarItemType.TASK_DEADLINE: "deadlines",
@@ -238,10 +214,10 @@ class VisualizationService:
                     ChartDataset(
                         label="Completion Rate (%)",
                         data=rates,
-                        backgroundColor=self.COLORS["success"]
+                        backgroundColor=SemanticColor.SUCCESS
                         if chart_type == "bar"
                         else "transparent",
-                        borderColor=self.COLORS["success"],
+                        borderColor=SemanticColor.SUCCESS,
                         fill=chart_type == "line",
                     ),
                 ],
@@ -289,14 +265,7 @@ class VisualizationService:
         values = list(data.values())
 
         # Generate colors for each segment
-        color_cycle = [
-            self.COLORS["primary"],
-            self.COLORS["success"],
-            self.COLORS["warning"],
-            self.COLORS["danger"],
-            self.COLORS["info"],
-            self.COLORS["neutral"],
-        ]
+        color_cycle = SemanticColor.ALL
         colors = [color_cycle[i % len(color_cycle)] for i in range(len(labels))]
 
         config = ChartConfig(
@@ -349,7 +318,7 @@ class VisualizationService:
             return Result.fail(Errors.validation("Series cannot be empty"))
 
         datasets = []
-        color_cycle = list(self.COLORS.values())
+        color_cycle = SemanticColor.ALL
 
         for i, s in enumerate(series):
             color = s.get("color", color_cycle[i % len(color_cycle)])
@@ -407,14 +376,14 @@ class VisualizationService:
                     ChartDataset(
                         label="Current Streak",
                         data=current_data,
-                        backgroundColor=self.COLORS["success"],
-                        borderColor=self.COLORS["success"],
+                        backgroundColor=SemanticColor.SUCCESS,
+                        borderColor=SemanticColor.SUCCESS,
                     ),
                     ChartDataset(
                         label="Best Streak",
                         data=best_data,
-                        backgroundColor=self.COLORS["info"],
-                        borderColor=self.COLORS["info"],
+                        backgroundColor=SemanticColor.INFO,
+                        borderColor=SemanticColor.INFO,
                     ),
                 ],
             ),

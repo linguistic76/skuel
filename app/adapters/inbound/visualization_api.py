@@ -15,7 +15,7 @@ Security:
 - Prevents IDOR vulnerability where user_uid param could expose other users' data
 
 Architecture:
-    - Service: /core/services/visualization_service.py
+    - Service: /ui/visualization/visualization_service.py
     - Components: /components/visualization_components.py
     - Alpine.js: /static/js/skuel.js
 """

@@ -28,6 +28,7 @@ from core.models.event.calendar_models import CalendarItem, CalendarItemType
 from core.ports import get_enum_value
 from core.ports.calendar_protocol import CalendarTrackable, WindowKind
 from core.utils.neo4j_temporal import convert_neo4j_date, convert_neo4j_time
+from ui.palette import EventTypeColor, FrequencyColor
 
 # =============================================================================
 # SHARED HELPERS
@@ -90,24 +91,7 @@ def _make_calendar_uid(prefix: str, entity_uid: str, suffix: str | None = None) 
     return f"{prefix}-{entity_uid}"
 
 
-# =============================================================================
-# EVENT TYPE COLORS
-# =============================================================================
-
-EVENT_TYPE_COLORS = {
-    "meeting": "#3b82f6",  # Blue
-    "deadline": "#ef4444",  # Red
-    "personal": "#22c55e",  # Green
-    "work": "#f97316",  # Orange
-    "social": "#8b5cf6",  # Purple
-    "learning": "#06b6d4",  # Cyan
-}
-
-FREQUENCY_COLORS = {
-    "daily": "#22c55e",  # Green
-    "weekly": "#3b82f6",  # Blue
-    "monthly": "#8b5cf6",  # Purple
-}
+# Event type and frequency colors are centralized in ui/palette.py
 
 
 # =============================================================================
@@ -252,7 +236,7 @@ def event_to_calendar_item(event: Any) -> CalendarItem:
         end_time=end_dt,
         all_day=False,
         description=getattr(event, "description", "") or "",
-        color=EVENT_TYPE_COLORS.get(event_type, "#3b82f6"),
+        color=EventTypeColor.for_type(event_type),
         icon="📅",
         priority=str(getattr(event, "priority", "medium")),
         tags=getattr(event, "tags", []) or [],
@@ -321,7 +305,7 @@ def habit_to_calendar_items(habit: Any, current_date: date) -> list[CalendarItem
                     end_time=end_dt,
                     all_day=False,
                     description=getattr(habit, "description", "") or "",
-                    color=FREQUENCY_COLORS.get(frequency, "#22c55e"),
+                    color=FrequencyColor.for_type(frequency),
                     icon="🔄",
                     priority="medium",
                     tags=list(habit.tags) if getattr(habit, "tags", None) else [],
@@ -441,6 +425,4 @@ __all__ = [
     "trackable_to_calendar_items",
     "entities_to_calendar_items",
     "get_priority_calendar_color",
-    "EVENT_TYPE_COLORS",
-    "FREQUENCY_COLORS",
 ]

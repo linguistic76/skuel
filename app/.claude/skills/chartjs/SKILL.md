@@ -72,7 +72,7 @@ def habit_dashboard():
 | File | Purpose |
 |------|---------|
 | `/static/js/skuel.js` | `chartVis()` Alpine component (lines 514-571) |
-| `/core/services/visualization_service.py` | Data transformation to Chart.js JSON |
+| `/ui/visualization/visualization_service.py` | Data transformation to Chart.js JSON |
 | `/ui/goals/visualization.py` | FastHTML component wrappers |
 | `/adapters/inbound/visualization_routes.py` | API endpoints returning Chart.js configs |
 | `/static/vendor/chart.js/` | Chart.js library (local vendor) |
@@ -284,12 +284,12 @@ options = {"responsive": True, "maintainAspectRatio": False}
 ### 5. Consistent Colors
 
 ```python
-# GOOD: Use VisualizationService colors
-from core.services.visualization_service import VisualizationService
-colors = VisualizationService.COLORS
+# GOOD: Use centralized palette colors
+from ui.palette import SemanticColor
+colors = SemanticColor.ALL
 
 # AVOID: Hardcoding colors
-backgroundColor = "#ff0000"  # Use COLORS["danger"] instead
+backgroundColor = "#ff0000"  # Use SemanticColor.DANGER instead
 ```
 
 ## Anti-Patterns
@@ -361,5 +361,5 @@ SKUEL also includes:
 
 ## See Also
 
-- `/core/services/visualization_service.py` - VisualizationService source
+- `/ui/visualization/visualization_service.py` - VisualizationService source
 - Chart.js Docs: https://www.chartjs.org/docs/

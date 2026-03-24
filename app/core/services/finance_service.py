@@ -926,14 +926,18 @@ class FinanceService:
                 }
 
                 total_all = sum(category_totals.values())
-                category_icons = {"PERSONAL": "👤", "2222": "🏠", "SKUEL": "📚"}
+                from core.models.enums.finance_enums import ExpenseCategory
                 from core.utils.sort_functions import get_negative_second_item
 
                 for cat, amount in sorted(category_totals.items(), key=get_negative_second_item):
+                    try:
+                        icon = ExpenseCategory(cat.lower()).get_icon()
+                    except ValueError:
+                        icon = "📁"
                     category_breakdown.append(
                         {
                             "name": cat,
-                            "icon": category_icons.get(cat, "📁"),
+                            "icon": icon,
                             "amount": amount,
                             "percentage": (amount / total_all * 100) if total_all > 0 else 0,
                         }
