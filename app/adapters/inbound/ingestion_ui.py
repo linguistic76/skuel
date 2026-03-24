@@ -14,7 +14,7 @@ from fasthtml.common import Div, Form, NotStr, P, Pre
 from starlette.requests import Request
 
 from adapters.inbound.auth import make_service_getter, require_admin
-from core.config.settings import get_vault_config
+from core.config.settings import get_settings
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonT
 from ui.cards import Card, CardBody
@@ -27,7 +27,7 @@ logger = get_logger("skuel.routes.ingestion_ui")
 
 def _get_default_vault_path() -> str:
     """Get default ingestion path from configuration."""
-    return str(get_vault_config().ingestion_path)
+    return str(get_settings().vault.ingestion_path)
 
 
 def create_ingestion_ui_routes(

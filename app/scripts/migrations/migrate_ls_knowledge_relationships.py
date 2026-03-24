@@ -17,7 +17,9 @@ See: /docs/migrations/UNIVERSAL_HIERARCHICAL_IMPLEMENTATION_2026-01-30.md
 """
 
 import asyncio
+
 from neo4j import AsyncGraphDatabase
+
 from core.utils.logging import get_logger
 
 logger = get_logger("skuel.migrations.ls_knowledge")
@@ -88,7 +90,7 @@ async def migrate_ls_knowledge(driver, dry_run: bool = True):
                 SET r.type = 'primary', r.created_at = datetime()
                 """,
                 ls_uid=ls_uid,
-                ku_uid=ku_uid
+                ku_uid=ku_uid,
             )
 
         # Create supporting relationships
@@ -101,7 +103,7 @@ async def migrate_ls_knowledge(driver, dry_run: bool = True):
                 SET r.type = 'supporting', r.created_at = datetime()
                 """,
                 ls_uid=ls_uid,
-                ku_uid=ku_uid
+                ku_uid=ku_uid,
             )
 
         # Remove properties
@@ -111,11 +113,13 @@ async def migrate_ls_knowledge(driver, dry_run: bool = True):
             REMOVE ls.primary_knowledge_uids, ls.supporting_knowledge_uids
             SET ls.migrated_at = datetime()
             """,
-            ls_uid=ls_uid
+            ls_uid=ls_uid,
         )
 
         migrated += 1
-        logger.info(f"  ✅ {ls_uid}: {len(primary_uids)} primary, {len(supporting_uids)} supporting")
+        logger.info(
+            f"  ✅ {ls_uid}: {len(primary_uids)} primary, {len(supporting_uids)} supporting"
+        )
 
     logger.info(f"✅ Migrated {migrated} LS nodes")
     return migrated
@@ -149,7 +153,9 @@ async def verify_migration(driver):
     logger.info("Verification Results:")
     logger.info(f"  Remaining properties: {remaining}")
     logger.info(f"  LS nodes with relationships: {rels_record.get('ls_count', 0)}")
-    logger.info(f"  Total CONTAINS_KNOWLEDGE relationships: {rels_record.get('relationship_count', 0)}")
+    logger.info(
+        f"  Total CONTAINS_KNOWLEDGE relationships: {rels_record.get('relationship_count', 0)}"
+    )
     logger.info(f"  Distinct KUs referenced: {rels_record.get('ku_count', 0)}")
 
     return remaining == 0
@@ -157,7 +163,7 @@ async def verify_migration(driver):
 
 async def main(dry_run: bool = True):
     """Execute migration."""
-    from core.config import neo4j_uri, neo4j_username, neo4j_password
+    from core.config import get_settings
 
     logger.info("=" * 80)
     logger.info("LS Knowledge Relationship Migration")
@@ -165,9 +171,10 @@ async def main(dry_run: bool = True):
     logger.info(f"Mode: {'DRY RUN' if dry_run else 'EXECUTE'}")
     logger.info("")
 
+    db = get_settings().database
     driver = AsyncGraphDatabase.driver(
-        neo4j_uri(),
-        auth=(neo4j_username(), neo4j_password())
+        db.neo4j_uri,
+        auth=(db.neo4j_username, db.neo4j_password),
     )
 
     try:

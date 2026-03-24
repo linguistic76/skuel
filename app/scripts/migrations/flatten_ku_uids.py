@@ -16,9 +16,11 @@ See: /docs/migrations/UNIVERSAL_HIERARCHICAL_IMPLEMENTATION_2026-01-30.md
 
 import asyncio
 import uuid
+
 from neo4j import AsyncGraphDatabase
-from core.utils.uid_generator import UIDGenerator
+
 from core.utils.logging import get_logger
+from core.utils.uid_generator import UIDGenerator
 
 logger = get_logger("skuel.migrations.flatten_ku_uids")
 
@@ -62,18 +64,14 @@ async def flatten_ku_uid(driver, old_uid: str, new_uid: str):
     RETURN ku.uid as new_uid
     """
 
-    result = await driver.execute_query(
-        query,
-        old_uid=old_uid,
-        new_uid=new_uid
-    )
+    result = await driver.execute_query(query, old_uid=old_uid, new_uid=new_uid)
 
     return result.records[0]["new_uid"] if result.records else None
 
 
 async def main(dry_run: bool = True):
     """Execute migration."""
-    from core.config import neo4j_uri, neo4j_username, neo4j_password
+    from core.config import get_settings
 
     logger.info("=" * 80)
     logger.info("KU UID Flattening Migration")
@@ -81,9 +79,10 @@ async def main(dry_run: bool = True):
     logger.info(f"Mode: {'DRY RUN' if dry_run else 'EXECUTE'}")
     logger.info("")
 
+    db = get_settings().database
     driver = AsyncGraphDatabase.driver(
-        neo4j_uri(),
-        auth=(neo4j_username(), neo4j_password())
+        db.neo4j_uri,
+        auth=(db.neo4j_username, db.neo4j_password),
     )
 
     try:
@@ -111,12 +110,9 @@ async def main(dry_run: bool = True):
             new_uid = await generate_new_uid(title, existing_uids)
             existing_uids.add(new_uid)
 
-            migration_plan.append({
-                "old_uid": old_uid,
-                "new_uid": new_uid,
-                "title": title,
-                "depth": depth
-            })
+            migration_plan.append(
+                {"old_uid": old_uid, "new_uid": new_uid, "title": title, "depth": depth}
+            )
 
             logger.info(f"  {old_uid} → {new_uid} (depth: {depth})")
 

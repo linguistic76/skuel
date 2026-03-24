@@ -19,7 +19,7 @@ import traceback
 import uvicorn
 from dotenv import load_dotenv
 
-from core.config.settings import get_api_config
+from core.config.settings import get_settings
 from core.utils.logging import get_logger
 from scripts.dev.bootstrap import bootstrap_skuel
 
@@ -34,7 +34,7 @@ logger = get_logger("skuel.main")
 async def main() -> None:
     """Clean main function using composition root pattern."""
     # Get API config for CLI defaults (same cached instance as container.config)
-    api_config = get_api_config()
+    api_config = get_settings().api
 
     parser = argparse.ArgumentParser(description="SKUEL Application")
     parser.add_argument("--port", type=int, default=api_config.port, help="Port to run on")

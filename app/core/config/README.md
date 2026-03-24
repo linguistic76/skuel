@@ -14,10 +14,10 @@ Python application runtime settings, credentials, and environment configuration.
 ## Usage
 
 ```python
-from core.config import get_settings, get_database_config
+from core.config import get_settings
 
 settings = get_settings()
-db_config = get_database_config()
+db_config = settings.database
 ```
 
 ## Credential Setup
