@@ -6,7 +6,8 @@ CRUD + lesson linking for admin-created form templates.
 FormTemplates are shared content (no user_uid).
 
 Implements CRUDOperations via BaseService inheritance (CrudOperationsMixin).
-Overrides create/update/delete to add event publishing and deletion guards.
+Uses _post_create/_post_update hooks for event publishing.
+Overrides delete for pre-delete submission guard.
 """
 
 from datetime import datetime
@@ -40,7 +41,8 @@ class FormTemplateService(BaseService[FormTemplateBackendOperations, FormTemplat
     Inherits CRUDOperations from CrudOperationsMixin (via BaseService):
     create, get, update, delete, list, get_for_user, update_for_user, delete_for_user.
 
-    Overrides create/update/delete to add domain events and deletion guards.
+    Uses _post_create/_post_update hooks for event publishing.
+    Overrides delete for pre-delete submission guard.
     """
 
     _config = DomainConfig(
@@ -62,15 +64,14 @@ class FormTemplateService(BaseService[FormTemplateBackendOperations, FormTemplat
         logger.info("FormTemplateService initialized")
 
     # ========================================================================
-    # CRUD OVERRIDES (event publishing + deletion guard)
+    # LIFECYCLE HOOKS (event publishing)
     # ========================================================================
 
-    async def create(self, entity: FormTemplate) -> Result[FormTemplate]:
-        """Create a new FormTemplate with event publishing."""
-        result = await super().create(entity)
+    async def _post_create(self, entity: FormTemplate, result: Result[FormTemplate]) -> None:
+        """Publish FormTemplateCreated event after successful creation."""
         if result.is_error:
             self.logger.error(f"Failed to create form template: {result.error}")
-            return result
+            return
 
         schema_len = len(entity.form_schema) if entity.form_schema else 0
         await publish_event(
@@ -84,13 +85,16 @@ class FormTemplateService(BaseService[FormTemplateBackendOperations, FormTemplat
             self.logger,
         )
 
-        return result
-
-    async def update(self, uid: str, updates: dict[str, Any]) -> Result[FormTemplate]:
-        """Update a FormTemplate with event publishing."""
-        result = await super().update(uid, updates)
+    async def _post_update(
+        self,
+        uid: str,
+        old_entity: FormTemplate,
+        updates: dict[str, Any],
+        result: Result[FormTemplate],
+    ) -> None:
+        """Publish FormTemplateUpdated event after successful update."""
         if result.is_error:
-            return result
+            return
 
         await publish_event(
             self.event_bus,
@@ -101,8 +105,6 @@ class FormTemplateService(BaseService[FormTemplateBackendOperations, FormTemplat
             self.logger,
         )
 
-        return result
-
     async def delete(self, uid: str, cascade: bool = False) -> Result[bool]:
         """
         Delete a FormTemplate.
@@ -110,6 +112,9 @@ class FormTemplateService(BaseService[FormTemplateBackendOperations, FormTemplat
         Guard: Cannot delete if submissions exist (RESPONDS_TO_FORM relationships).
         Admins must delete submissions first, ensuring data integrity.
         Always cascades to remove EMBEDS_FORM relationships.
+
+        Note: Uses override (not _post_delete hook) because the submission guard
+        must run BEFORE the delete, not after.
         """
         submission_count = await self._get_submission_count(uid)
         if submission_count > 0:
@@ -125,7 +130,7 @@ class FormTemplateService(BaseService[FormTemplateBackendOperations, FormTemplat
 
         result = await self.backend.delete(uid, cascade=True)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         await publish_event(
             self.event_bus,

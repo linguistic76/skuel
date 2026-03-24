@@ -158,11 +158,16 @@ class TranscriptionService(EntityTimestampMixin):
         Returns the transcription if owned, otherwise NotFound error.
         Returns "not found" (not "access denied") to prevent UID enumeration.
 
-        See: CrudOperationsMixin.verify_ownership for the canonical pattern.
+        Pattern: mirrors CrudOperationsMixin.verify_ownership.
         """
+        if not uid:
+            return Result.fail(Errors.validation(message="UID is required", field="uid"))
+        if not user_uid:
+            return Result.fail(Errors.validation(message="user_uid is required", field="user_uid"))
+
         result = await self.get(uid)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         if not result.value:
             return Result.fail(Errors.not_found("Transcription", uid))
         if result.value.user_uid != user_uid:

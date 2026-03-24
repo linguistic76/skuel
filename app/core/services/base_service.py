@@ -58,6 +58,8 @@ ConversionHelpersMixin:
 CrudOperationsMixin:
     create, get, update, delete, list,
     verify_ownership, get_for_user, update_for_user, delete_for_user
+    Hooks: _validate_create, _validate_update (sync, pre-op)
+           _post_create, _post_update, _post_delete (async, post-op)
 
 SearchOperationsMixin:
     search, get_by_relationship, search_connected_to, search_by_tags,

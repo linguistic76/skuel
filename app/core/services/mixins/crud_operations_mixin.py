@@ -9,25 +9,20 @@ REQUIRES (Mixin Dependencies):
 
 PROVIDES (Methods for All Service Layers):
     Core CRUD:
-        - create: Create a new entity
+        - create: Create a new entity (calls _post_create hook)
         - get: Get entity by UID
-        - update: Update entity (accepts BaseUpdatePayload or dict[str, Any])
-        - delete: Delete entity
+        - update: Update entity (calls _post_update hook)
+        - delete: Delete entity (calls _post_delete hook)
         - list: List entities with pagination
 
-    Ownership-Verified CRUD (multi-tenant security):
-        - verify_ownership: Verify entity belongs to user
-        - get_for_user: Get entity only if owned by user
-        - update_for_user: Update entity only if owned by user
-        - delete_for_user: Delete entity only if owned by user
+    Validation Hooks (sync, override in subclass):
+        - _validate_create: Pre-create validation
+        - _validate_update: Pre-update validation
 
-Methods:
-    Core CRUD:
-        - create: Create a new entity
-        - get: Get entity by UID
-        - update: Update entity (accepts BaseUpdatePayload or dict[str, Any])
-        - delete: Delete entity
-        - list: List entities with pagination
+    Post-Lifecycle Hooks (async, override in subclass):
+        - _post_create: Called after create (e.g., event publishing)
+        - _post_update: Called after update (e.g., event publishing)
+        - _post_delete: Called after delete (e.g., event publishing)
 
     Ownership-Verified CRUD (multi-tenant security):
         - verify_ownership: Verify entity belongs to user
@@ -91,6 +86,27 @@ class CrudOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         return None
 
     # ========================================================================
+    # POST-LIFECYCLE HOOKS (March 2026)
+    # ========================================================================
+    #
+    # Override these async hooks to add post-operation behavior (e.g., event
+    # publishing) without reimplementing the full CRUD method. Hooks receive
+    # the operation result so implementations can check result.is_ok before
+    # acting.
+    # ========================================================================
+
+    async def _post_create(self, entity: T, result: Result[T]) -> None:
+        """Hook called after create. Override to publish events, etc."""
+
+    async def _post_update(
+        self, uid: str, old_entity: T, updates: dict[str, Any], result: Result[T]
+    ) -> None:
+        """Hook called after update. Override to publish events, etc."""
+
+    async def _post_delete(self, uid: str, old_entity: T, result: Result[bool]) -> None:
+        """Hook called after delete. Override to publish events, etc."""
+
+    # ========================================================================
     # CORE CRUD OPERATIONS
     # ========================================================================
 
@@ -99,10 +115,11 @@ class CrudOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         # Call domain-specific validation hook
         validation = self._validate_create(entity)
         if validation:
-            # Validation failed: Result[None] → Result[T] with same error
-            return Result.fail(validation.expect_error())
+            return Result.fail(validation)
 
-        return await self.backend.create(entity)
+        result = await self.backend.create(entity)
+        await self._post_create(entity, result)
+        return result
 
     async def get(self, uid: str) -> Result[T]:
         """
@@ -148,15 +165,18 @@ class CrudOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         # Get current entity and validate update
         current_result = await self.get(uid)
         if current_result.is_error:
-            return Result.fail(current_result.expect_error())
+            return Result.fail(current_result)
+
+        old_entity = current_result.value
 
         # Call domain-specific validation hook
-        validation = self._validate_update(current_result.value, updates)
+        validation = self._validate_update(old_entity, updates)
         if validation:
-            # Validation failed: Result[None] → Result[T] with same error
-            return Result.fail(validation.expect_error())
+            return Result.fail(validation)
 
-        return await self.backend.update(uid, updates)
+        result = await self.backend.update(uid, updates)
+        await self._post_update(uid, old_entity, updates, result)
+        return result
 
     async def delete(self, uid: str, cascade: bool = False) -> Result[bool]:
         """Delete entity."""
@@ -166,9 +186,12 @@ class CrudOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         # Check existence first
         exists_result = await self.get(uid)
         if exists_result.is_error:
-            return Result.fail(exists_result.expect_error())
+            return Result.fail(exists_result)
 
-        return await self.backend.delete(uid, cascade=cascade)
+        old_entity = exists_result.value
+        result = await self.backend.delete(uid, cascade=cascade)
+        await self._post_delete(uid, old_entity, result)
+        return result
 
     # ========================================================================
     # OWNERSHIP-VERIFIED CRUD OPERATIONS (December 2025)
@@ -280,7 +303,7 @@ class CrudOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         # Call domain-specific validation hook
         validation = self._validate_update(ownership_result.value, updates)
         if validation:
-            return Result.fail(validation.expect_error())
+            return Result.fail(validation)
 
         # Perform the update
         return await self.backend.update(uid, updates)
@@ -306,8 +329,7 @@ class CrudOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         # First verify ownership
         ownership_result = await self.verify_ownership(uid, user_uid)
         if ownership_result.is_error:
-            # Convert Result[T] error to Result[bool] error
-            return Result.fail(ownership_result.expect_error())
+            return Result.fail(ownership_result)
 
         # Perform the delete
         return await self.backend.delete(uid, cascade=cascade)
