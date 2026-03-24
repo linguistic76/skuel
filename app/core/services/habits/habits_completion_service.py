@@ -21,6 +21,7 @@ from core.models.habit.completion import HabitCompletion
 from core.models.habit.completion_dto import HabitCompletionDTO
 from core.models.habit.habit import Habit
 from core.models.habit.habit_dto import HabitDTO
+from core.utils.completion_exporter import export_completions_csv, export_completions_json
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -670,57 +671,9 @@ class HabitsCompletionService:
             )
 
     def _export_csv(self, completions: list[HabitCompletion]) -> Result[str]:
-        """Export completions as CSV."""
-        import csv
-        from io import StringIO
-
-        output = StringIO()
-        writer = csv.writer(output)
-
-        # Write header
-        writer.writerow(
-            [
-                "Completion ID",
-                "Habit ID",
-                "Completed At",
-                "Quality",
-                "Duration (min)",
-                "Notes",
-                "Created At",
-            ]
-        )
-
-        # Write rows
-        for c in completions:
-            writer.writerow(
-                [
-                    c.uid,
-                    c.habit_uid,
-                    c.completed_at.isoformat(),
-                    c.quality or "",
-                    c.duration_actual or "",
-                    c.notes or "",
-                    c.created_at.isoformat(),
-                ]
-            )
-
-        return Result.ok(output.getvalue())
+        """Export completions as CSV. Delegates to presentation layer."""
+        return Result.ok(export_completions_csv(completions))
 
     def _export_json(self, completions: list[HabitCompletion]) -> Result[str]:
-        """Export completions as JSON."""
-        import json
-
-        data = [
-            {
-                "uid": c.uid,
-                "habit_uid": c.habit_uid,
-                "completed_at": c.completed_at.isoformat(),
-                "quality": c.quality,
-                "duration_actual": c.duration_actual,
-                "notes": c.notes,
-                "created_at": c.created_at.isoformat(),
-            }
-            for c in completions
-        ]
-
-        return Result.ok(json.dumps(data, indent=2))
+        """Export completions as JSON. Delegates to presentation layer."""
+        return Result.ok(export_completions_json(completions))
