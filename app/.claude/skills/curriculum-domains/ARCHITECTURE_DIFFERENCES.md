@@ -109,15 +109,11 @@ self.relationships = UnifiedRelationshipService(backend, LESSON_CONFIG, graph_in
 
 **Direct Driver for Complex Queries:**
 ```python
-# When UnifiedRelationshipService doesn't fit
-async def get_semantic_neighborhood(self, lesson_uid: str) -> Result[dict]:
-    query = """
-    MATCH (a:Lesson {uid: $uid})-[r]-(related)
-    WHERE type(r) IN ['REQUIRES_KNOWLEDGE', 'ENABLES', 'HAS_NARROWER', 'RELATED_TO']
-    RETURN related.uid, type(r), labels(related)
-    """
-    result = await self.backend.driver.execute_query(query, {"uid": lesson_uid})
-    return Result.ok(self._parse_neighborhood(result.records))
+# Domain-specific Cypher lives in domain backends, not services
+# LessonBackend.get_with_context_raw() fetches full graph neighborhood:
+result = await self.backend.get_with_context_raw(uid, min_confidence)
+# KuBackend.get_usage_summary() counts lessons, learning steps, children:
+result = await self.backend.get_usage_summary(ku_uid)
 ```
 
 ## BaseService Usage

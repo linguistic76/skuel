@@ -120,22 +120,34 @@ Cross-domain aggregation stays in services — not raw persistence:
 **Activity Domains (6) — all extend `_HierarchyMixin` (March 24, 2026):**
 - `TasksBackend` — hierarchy + `get_stats_for_user` + `auto_complete_parent_if_ready` + `calculate_parent_progress`
 - `GoalsBackend` — hierarchy + `get_stats_for_user`
-- `HabitsBackend` — hierarchy + `get_stats_for_user`
+- `HabitsBackend` — hierarchy + `get_stats_for_user` + badge/achievement ops (4 methods)
 - `EventsBackend` — hierarchy + `get_stats_for_user`
 - `PrinciplesBackend` — hierarchy + `get_stats_for_user`
 - `ChoicesBackend` — hierarchy + `get_stats_for_user`
 
-**Curriculum Domains (4):**
-- `KuBackend` — ORGANIZES graph
-- `LsBackend` — CONTAINS_KNOWLEDGE CRUD (4 methods) + lesson progress tracking (March 24, 2026)
-- `LpBackend` — HAS_STEP management (5 methods) + mastery progress queries (March 24, 2026)
-- `ExerciseBackend` — curriculum link methods
+**Curriculum Domains (5):**
+- `KuBackend` — ORGANIZES graph + usage summary + namespace/alias search (6 methods)
+- `LessonBackend` — ORGANIZES hierarchy + user progress (VIEWED/IN_PROGRESS/MASTERED/BOOKMARKED, 18 methods) + graph context
+- `LsBackend` — CONTAINS_KNOWLEDGE CRUD (4 methods) + lesson progress tracking
+- `LpBackend` — HAS_STEP management (5 methods) + mastery progress queries
+- `ExerciseBackend` — curriculum links + OWNS/FOR_GROUP + student exercise queries (6 methods)
 
-**Content/Submissions (1):**
-- `SubmissionsBackend` — SHARES_WITH access control
+**Submissions/Reports (1):**
+- `SubmissionsBackend` — SHARES_WITH access control + exercise submission processing + temporal/thematic relationships + assessment ops (14 methods)
+
+**Exercises (1):**
+- `RevisedExerciseBackend` — teacher authority verification + auto-share + student listing (4 methods)
+
+**Forms (2):**
+- `FormTemplateBackend` — submission count for deletion guard
+- `FormSubmissionBackend` — admin user lookup for auto-sharing
+
+**Groups/Notifications (2, new March 24, 2026):**
+- `GroupBackend` — OWNS/MEMBER_OF CRUD (6 methods)
+- `NotificationBackend` — HAS_NOTIFICATION CRUD (5 methods)
 
 **Supporting (uses UniversalNeo4jBackend[T] directly):**
-- `HabitCompletion`, `Transcription`, `PrincipleReflection`, `UserProgress`, `Askesis`, `ActivityReport`, `ExpensePure`, `InvoicePure`
+- `SharingBackend`, `HabitCompletion`, `Transcription`, `PrincipleReflection`, `UserProgress`, `Askesis`, `ActivityReport`, `ExpensePure`, `InvoicePure`
 
 ## Commits
 
@@ -144,3 +156,6 @@ Cross-domain aggregation stays in services — not raw persistence:
 | `c726434` | Phase 1: KuBackend |
 | `0acb7c1` | Phase 2: SubmissionsBackend |
 | `5a31b5e` | Phases 3+4: LpBackend + ExerciseBackend + docstring |
+| `ad0a5dcb` | Phase 0-1: _HierarchyMixin + Tasks hierarchy |
+| `a9470fa2` | Phases 2-4: Remaining hierarchy + curriculum CRUD |
+| `35ad08e9` | Phase 5: Remaining 12 services + GroupBackend + NotificationBackend |

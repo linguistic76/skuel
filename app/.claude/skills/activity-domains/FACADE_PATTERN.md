@@ -146,7 +146,7 @@ Orchestration methods use `self.goals_service` — routes never pass cross-domai
 
 ## Backend Sharing
 
-All sub-services share ONE domain-specific backend instance (no wrappers). Activity Domains use `domain_backends.py` subclasses, which add domain-specific relationship Cypher on top of `UniversalNeo4jBackend`:
+All sub-services share ONE domain-specific backend instance (no wrappers). Activity Domains use `domain_backends.py` subclasses, which add domain-specific relationship Cypher on top of `UniversalNeo4jBackend`. **All Cypher lives in backends — services delegate, never execute inline Cypher.**
 
 ```python
 # In services_bootstrap/_backends.py
@@ -163,3 +163,5 @@ self.search = TasksSearchService(backend=tasks_backend)
 ```
 
 `base_label=NeoLabel.ENTITY` is required for all Activity Domains — it's what makes Neo4j create `(n:Entity:Task)` multi-label nodes, enabling universal Entity queries to work.
+
+Each Activity Domain backend extends `_HierarchyMixin` for parent-child ops (HAS_SUBTASK, HAS_SUBGOAL, etc.) plus domain-specific methods like `get_stats_for_user()`. HabitsBackend additionally has badge/achievement methods.

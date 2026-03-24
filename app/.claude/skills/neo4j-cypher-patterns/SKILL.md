@@ -154,16 +154,22 @@ SKUEL has two query builders for domain services (SKUEL001: no APOC in domain se
 
 **SKUEL001 linter rule:** APOC is scoped to `apoc.meta.*` (schema introspection only). Domain services use pure Cypher — never APOC in `core/services/`.
 
-### Two-Layer Architecture
+### Three-Layer Architecture
 
 ```
-Layer 1: Backend (Generic CRUD)
-├── UniversalNeo4jBackend uses UnifiedQueryBuilder
-└── Powers ALL 15+ domain entity types with generic operations
+Layer 1: UniversalNeo4jBackend (Generic CRUD)
+├── Uses UnifiedQueryBuilder for generic operations
+└── Powers ALL 21 entity types with CRUD, search, relationships
 
-Layer 2: Services (Semantic Queries)
-├── Domain services use direct driver.execute_query() + CypherGenerator
-└── Specialized business logic queries
+Layer 2: Domain Backends (Domain-Specific Cypher)
+├── 17 typed subclasses in domain_backends.py
+├── Domain-specific relationship Cypher (ORGANIZES, SHARES_WITH, FULFILLS_EXERCISE, etc.)
+└── Rule: If a Cypher query uses domain-specific relationships, it belongs here
+
+Layer 3: Services (Business Logic + Cross-Domain Aggregation)
+├── Delegate to backend methods, NOT execute_query()
+├── Cross-domain aggregation stays here (UserContext MEGA-QUERY, analytics)
+└── Orchestration, events, validation — no inline Cypher
 ```
 
 ## Filter Operators

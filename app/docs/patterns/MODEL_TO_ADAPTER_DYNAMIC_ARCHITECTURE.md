@@ -110,11 +110,15 @@ Four new domain backends added to `domain_backends.py`:
 
 **Protocols updated:** `EventsOperations`, `ChoicesOperations`, `PrinciplesOperations` now extend `HierarchyOperations`. `LsOperations` and `LpOperations` gained method signatures for the new backend methods.
 
+**March 24, 2026 Update: Remaining 12 Services Migrated**
+
+Phase 5 completed the backend delegation refactor — ~46 inline Cypher queries from 12 service files moved to domain backends. Two new backends created: `GroupBackend` (6 OWNS/MEMBER_OF methods) and `NotificationBackend` (5 HAS_NOTIFICATION methods). All existing backends extended: `LessonBackend` (+18 user progress/graph context methods), `KuBackend` (+6 usage/search methods), `SubmissionsBackend` (+14 exercise processing/relationship/assessment methods), `ExerciseBackend` (+6 methods), `RevisedExerciseBackend` (+4 methods), `HabitsBackend` (+4 badge methods), `FormTemplateBackend` (+1), `FormSubmissionBackend` (+1).
+
 **File layout:**
 ```
 adapters/persistence/neo4j/
     _hierarchy_mixin.py           # HierarchyConfig + _HierarchyMixin (6 generic methods)
-    domain_backends.py            # 15 domain subclasses (6 Activity + 4 Curriculum + 5 Other)
+    domain_backends.py            # 17 domain subclasses (6 Activity + 5 Curriculum + 6 Other)
 ```
 
 ---

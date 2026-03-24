@@ -313,5 +313,17 @@ WHERE task IS NOT NULL
 4. **coalesce(prop, default)** for nullable relationship/node properties
 5. **UNWIND** for batch operations — one query for N entities
 6. **No APOC in domain services** (SKUEL001) — pure Cypher only
+7. **No inline Cypher in services** — domain-specific Cypher belongs in domain backends (`domain_backends.py`). Services call `self.backend.method_name()`, never `self.backend.execute_query(cypher, params)`.
+
+## Where Does Cypher Live?
+
+| Cypher Type | Location | Example |
+|-------------|----------|---------|
+| Generic CRUD | `UniversalNeo4jBackend` (via mixins) | `create()`, `get()`, `update()`, `delete()` |
+| Domain-specific relationships | Domain backend in `domain_backends.py` | `LessonBackend.mark_mastered()`, `SubmissionsBackend.link_to_exercise()` |
+| Cross-domain aggregation | Service files (exception to the rule) | `user_context_queries.py` MEGA-QUERY |
+| Generic hierarchy | `_HierarchyMixin` (shared by 6 Activity backends) | `get_children_raw()`, `create_hierarchy_relationship()` |
+
+**17 domain backends** in `domain_backends.py`: TasksBackend, GoalsBackend, HabitsBackend, EventsBackend, PrinciplesBackend, ChoicesBackend, LessonBackend, KuBackend, LsBackend, LpBackend, ExerciseBackend, RevisedExerciseBackend, SubmissionsBackend, FormTemplateBackend, FormSubmissionBackend, GroupBackend, NotificationBackend.
 
 **See Also**: [SKILL.md](SKILL.md) for foundational concepts and RelationshipName enum reference.
