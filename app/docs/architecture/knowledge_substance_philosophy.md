@@ -194,7 +194,6 @@ class TasksService:
                 knowledge_uid=knowledge_uid,
                 task_uid=task.uid,
                 user_uid=task.user_uid,
-                occurred_at=datetime.now()
             )
             await self.event_bus.publish_async(event)
 
@@ -523,7 +522,6 @@ event = KnowledgeAppliedInTask(
     knowledge_uid="ku.python.type_hints",
     task_uid="task.123",
     user_uid="user.mike",
-    occurred_at=datetime.now()
 )
 ```
 

@@ -1,6 +1,6 @@
 ---
 title: Secondary Entity Pattern
-updated: 2026-01-19
+updated: 2026-03-24
 category: patterns
 related_skills: []
 related_docs:
@@ -210,6 +210,24 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
 ```
 
 Access via facade: `principles_service.reflection.save_reflection(...)`
+
+---
+
+## Presentation Delegation
+
+Secondary entity services should NOT contain file format logic (CSV writers, JSON serializers, etc.). Delegate export formatting to pure functions in `core/utils/`:
+
+```python
+# core/utils/completion_exporter.py — pure functions, no domain logic
+from core.utils.completion_exporter import export_completions_csv, export_completions_json
+
+# Service delegates formatting, keeps orchestration
+class HabitsCompletionService:
+    def _export_csv(self, completions: list[HabitCompletion]) -> Result[str]:
+        return Result.ok(export_completions_csv(completions))
+```
+
+The service owns **what** to export (fetching, filtering, date ranges). The exporter owns **how** to format it (StringIO, csv.writer, json.dumps).
 
 ---
 

@@ -376,7 +376,7 @@ handler = LearningLoopEventHandlerService(backend=submissions_backend, insight_s
 
 **Domains:** Habits only
 **File:** `habits_completion_service.py`
-**Extends:** `BaseService[HabitsOperations, Habit]`
+**Extends:** Standalone (does NOT extend BaseService — secondary entity pattern)
 
 **Responsibility:** Habit completion tracking and streak management
 
@@ -384,11 +384,13 @@ handler = LearningLoopEventHandlerService(backend=submissions_backend, insight_s
 - `record_completion()` - Log habit completion
 - `get_completion_history()` - Historical completions
 - `calculate_streak()` - Current streak length
+- `export_completion_history()` - Export as CSV/JSON (delegates formatting to `core/utils/completion_exporter.py`)
 
 **When to use:**
 - Recording daily habit completions
 - Querying completion history
 - Calculating streaks
+- Exporting completion data
 
 ---
 

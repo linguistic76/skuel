@@ -37,6 +37,7 @@ Habits represent recurring behaviors with streak tracking. They form the "system
 | Core Service | `/core/services/habits/habits_core_service.py` |
 | Search Service | `/core/services/habits/habit_search_service.py` |
 | Completion Service | `/core/services/habits/habits_completion_service.py` |
+| Completion Exporter | `/core/utils/completion_exporter.py` |
 | Progress Service | `/core/services/habits/habits_progress_service.py` |
 | Planning Service | `/core/services/habits/habits_planning_service.py` |
 | Scheduling Service | `/core/services/habits/habits_scheduling_service.py` |

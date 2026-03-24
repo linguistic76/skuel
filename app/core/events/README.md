@@ -7,21 +7,18 @@
 
 ### Event Structure
 
-All events follow this pattern:
+All events extend `BaseEvent` (frozen dataclass). `occurred_at` is auto-set to `datetime.now()` via `kw_only` default — callers never need to pass it:
 
 ```python
 from dataclasses import dataclass
-from datetime import datetime
+from core.events.base import BaseEvent
 
-@dataclass
-class TaskCompleted:
+@dataclass(frozen=True)
+class TaskCompleted(BaseEvent):
     """Published when a task is marked complete."""
     # Core identifiers
     task_uid: str
     user_uid: str
-
-    # Event metadata
-    completed_at: datetime
 
     # Optional context
     completion_time_seconds: int | None = None
@@ -29,6 +26,8 @@ class TaskCompleted:
     @property
     def event_type(self) -> str:
         return "task.completed"
+
+# occurred_at is inherited from BaseEvent with default_factory=datetime.now
 ```
 
 ### Publishing Events
@@ -44,7 +43,6 @@ if self.event_bus:
     event = TaskCompleted(
         task_uid=task.uid,
         user_uid=task.user_uid,
-        completed_at=datetime.now()
     )
     await self.event_bus.publish_async(event)
     self.logger.debug(f"Published {event.event_type} for {task.uid}")
@@ -173,7 +171,6 @@ async def complete_task(self, uid: str) -> Result[Task]:
         event = TaskCompleted(
             task_uid=uid,
             user_uid=result.value.user_uid,
-            completed_at=datetime.now()
         )
         await self.event_bus.publish_async(event)
         self.logger.debug(f"Published TaskCompleted event for task {uid}")

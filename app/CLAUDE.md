@@ -551,6 +551,8 @@ All 9 domains deployed (Tasks, Goals, Habits, Events, Choices, Principles, KU, L
 
 **Event Naming:** `{domain}.{action}` (e.g., `task.completed`, `goal.achieved`)
 
+**Auto-timestamp:** `BaseEvent.occurred_at` defaults to `datetime.now()` via `kw_only` field — never pass it manually. Override only for tests or event replay.
+
 ```python
 from core.events.utils import publish_event
 await publish_event(self.event_bus, TaskCompleted(task_uid=uid, user_uid=user_uid), self.logger)

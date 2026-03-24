@@ -588,7 +588,6 @@ class PrincipleReflectionRecorded(BaseEvent):
     user_uid: str
     alignment_level: str
     evidence: str
-    occurred_at: datetime
     trigger_type: str | None = None
     trigger_uid: str | None = None
     reflection_quality_score: float = 0.0
@@ -602,7 +601,6 @@ class PrincipleConflictRevealed(BaseEvent):
     principle_uid: str
     conflicting_principle_uid: str
     user_uid: str
-    occurred_at: datetime
     conflict_context: str | None = None
 ```
 

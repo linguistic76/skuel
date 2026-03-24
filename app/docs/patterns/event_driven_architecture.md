@@ -1,6 +1,6 @@
 ---
 title: Event-Driven Architecture
-updated: 2026-01-19
+updated: 2026-03-25
 category: patterns
 related_skills:
 - python
@@ -82,7 +82,6 @@ class TasksService:
             event = TaskCompleted(
                 task_uid=uid,
                 user_uid=result.value.user_uid,
-                completed_at=datetime.now()
             )
             await self.event_bus.publish_async(event)
 
@@ -96,6 +95,12 @@ class UserService:
 # Bootstrap wires them together
 event_bus.subscribe(TaskCompleted, user_service.handle_task_completed)
 ```
+
+---
+
+## Auto-Timestamping
+
+`BaseEvent.occurred_at` uses `field(default_factory=datetime.now, kw_only=True)` — every event is automatically timestamped at construction. Do NOT pass `occurred_at=datetime.now()` manually. Override only in tests or event replay scenarios.
 
 ---
 
@@ -233,7 +238,6 @@ for habit_uid in habit_uids:
 event = HabitCompletionBulk(
     habit_uids=tuple(habit_uids),
     user_uid=user_uid,
-    occurred_at=datetime.now(),
 )
 await event_bus.publish_async(event)
 ```
