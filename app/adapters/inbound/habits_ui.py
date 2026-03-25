@@ -611,7 +611,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
             logger.error(f"Failed to create habit: {result.error}")
             return Div(
                 Card(
-                    H2("Error Creating Habit", cls="text-xl font-bold text-red-600 mb-4"),
+                    H2("Error Creating Habit", cls="text-xl font-bold text-error mb-4"),
                     P(f"Failed to create habit: {result.error}", cls="text-muted-foreground mb-4"),
                     Button(
                         "Try Again",
@@ -1047,7 +1047,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
         if ownership_result.is_error:
             return Card(
                 CardBody(
-                    H2("Error", cls="text-xl font-bold text-red-600 mb-4"),
+                    H2("Error", cls="text-xl font-bold text-error mb-4"),
                     P("Habit not found", cls="text-muted-foreground"),
                     Button(
                         "Close",
@@ -1078,7 +1078,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
             logger.error(f"Failed to update habit: {result.error}")
             return Card(
                 CardBody(
-                    H2("Error", cls="text-xl font-bold text-red-600 mb-4"),
+                    H2("Error", cls="text-xl font-bold text-error mb-4"),
                     P(f"Failed to save: {result.error}", cls="text-muted-foreground"),
                     Button(
                         "Close",
@@ -1105,7 +1105,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
         if result.is_error:
             return Card(
                 CardBody(
-                    H2("Error", cls="text-xl font-bold text-red-600 mb-4"),
+                    H2("Error", cls="text-xl font-bold text-error mb-4"),
                     P(f"Could not load habit: {result.error}", cls="text-muted-foreground"),
                     Button(
                         "Close",

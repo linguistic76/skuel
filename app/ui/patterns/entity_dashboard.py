@@ -203,13 +203,13 @@ class SharedUIComponents:
             return Div()  # Empty div if no stats
 
         color_classes = {
-            "blue": "text-blue-600",
-            "green": "text-green-600",
+            "blue": "text-info",
+            "green": "text-success",
             "orange": "text-orange-600",
             "purple": "text-purple-600",
-            "red": "text-red-600",
+            "red": "text-error",
             "gray": "text-muted-foreground",
-            "yellow": "text-yellow-600",
+            "yellow": "text-warning",
             "indigo": "text-indigo-600",
         }
 

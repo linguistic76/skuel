@@ -13,7 +13,6 @@ from datetime import date, timedelta
 from typing import Any
 
 from fasthtml.common import (
-    H1,
     H2,
     H3,
     H4,
@@ -37,6 +36,8 @@ from ui.feedback import Alert, AlertT
 from ui.forms import Input, Select
 from ui.layouts.navbar import create_navbar_for_request
 from ui.patterns.empty_state import EmptyState
+from ui.patterns.error_banner import render_inline_error
+from ui.patterns.page_header import PageHeader
 from ui.patterns.stats_grid import StatCard, StatItem, StatsGrid
 
 logger = get_logger("skuel.routes.analytics.ui")
@@ -57,12 +58,9 @@ class AnalyticsUIComponents:
 
         return Div(
             navbar,
-            H1("Analytics Dashboard", cls="text-2xl font-bold mb-6"),
-            P(
-                "Generate statistical analytics for any domain. "
-                "Pure metrics - completion rates, totals, distributions. "
-                "No AI recommendations, just transparent data.",
-                cls="text-muted-foreground mb-6",
+            PageHeader(
+                "Analytics Dashboard",
+                subtitle="Generate statistical analytics for any domain. Pure metrics — no AI recommendations, just transparent data.",
             ),
             # Analytics generator form
             Card(
@@ -412,8 +410,7 @@ class AnalyticsUIComponents:
         score_percentage = int(alignment_score * 100)
 
         return Div(
-            # Header
-            H1(f"Life Path: {life_path_title}", cls="text-3xl font-bold mb-6"),
+            PageHeader(f"Life Path: {life_path_title}"),
             # Alignment Score Card
             StatCard(label="Alignment Score", value=f"{score_percentage}%", color=score_color),
             # Knowledge Breakdown
@@ -528,9 +525,7 @@ class AnalyticsUIComponents:
         cross_layer_insights = summary_data.get("cross_layer_insights", {})
 
         return Div(
-            # Header
-            H1("Weekly Life Summary", cls="text-3xl font-bold mb-2"),
-            P(f"{start_date} to {end_date}", cls="text-muted-foreground mb-6"),
+            PageHeader("Weekly Life Summary", subtitle=f"{start_date} to {end_date}"),
             # Overall Activity Score
             StatCard(label="Overall Activity", value=str(int(total_activity)), color="primary"),
             # Summary Text
@@ -723,10 +718,10 @@ def create_analytics_ui_routes(app, rt, analytics_service):
                 )
             # Add more period handling...
             else:
-                return Div(P("Invalid period selection", cls="text-error"))
+                return render_inline_error("Invalid period selection")
 
             if result.is_error:
-                return Div(P(f"Error generating analytics: {result.error}", cls="text-error"))
+                return render_inline_error(f"Error generating analytics: {result.error}")
 
             report = result.value
 
@@ -734,7 +729,7 @@ def create_analytics_ui_routes(app, rt, analytics_service):
 
         except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Error viewing analytics: {e}")
-            return Div(P(f"Error: {e}", cls="text-error"))
+            return render_inline_error(f"Error: {e}")
 
     @app.get("/ui/analytics/{uid}/markdown")
     async def view_markdown(_request, _uid: str) -> Any:
@@ -757,14 +752,14 @@ def create_analytics_ui_routes(app, rt, analytics_service):
             result = await analytics_service.calculate_life_path_alignment(user_uid)
 
             if result.is_error:
-                return Div(P(f"Error: {result.expect_error().message}", cls="text-error p-4"))
+                return render_inline_error(f"Error: {result.expect_error().message}")
 
             # Render dashboard
             return AnalyticsUIComponents.render_life_path_alignment_dashboard(result.value)
 
         except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Error rendering Life Path alignment: {e}")
-            return Div(P(f"Error: {e}", cls="text-error p-4"))
+            return render_inline_error(f"Error: {e}")
 
     # ========================================================================
     # CROSS-LAYER LIFE SUMMARY UI
@@ -782,7 +777,7 @@ def create_analytics_ui_routes(app, rt, analytics_service):
                 try:
                     start_date = date.fromisoformat(start_date_str)
                 except ValueError:
-                    return Div(P("Invalid date format. Use YYYY-MM-DD.", cls="text-error p-4"))
+                    return render_inline_error("Invalid date format. Use YYYY-MM-DD.")
 
                 result = await analytics_service.generate_weekly_life_summary(
                     user_uid, week_start=start_date
@@ -792,14 +787,14 @@ def create_analytics_ui_routes(app, rt, analytics_service):
                 result = await analytics_service.generate_weekly_life_summary(user_uid)
 
             if result.is_error:
-                return Div(P(f"Error: {result.expect_error().message}", cls="text-error p-4"))
+                return render_inline_error(f"Error: {result.expect_error().message}")
 
             # Render summary
             return AnalyticsUIComponents.render_weekly_life_summary(result.value)
 
         except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Error rendering weekly life summary: {e}")
-            return Div(P(f"Error: {e}", cls="text-error p-4"))
+            return render_inline_error(f"Error: {e}")
 
     logger.info("Analytics UI routes registered (including Life Path + cross-layer)")
 

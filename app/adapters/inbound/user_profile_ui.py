@@ -114,11 +114,10 @@ async def error_page(
     Returns:
         Error page with consistent styling
     """
-    from fasthtml.common import H1, P
+    from ui.patterns.error_banner import render_error_banner
 
     content = Div(
-        H1(f"Error {status_code}", cls="text-3xl font-bold text-error mb-4"),
-        P(message, cls="text-lg text-muted-foreground"),
+        render_error_banner(f"Error {status_code}", technical_details=message),
         cls="flex flex-col items-center justify-center min-h-[400px] p-8",
     )
 

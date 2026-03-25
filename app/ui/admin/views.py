@@ -796,9 +796,9 @@ class AdminSystemComponents:
     }
 
     STATUS_TEXT_COLORS: ClassVar[dict[str, str]] = {
-        "healthy": "text-green-600",
-        "warning": "text-yellow-600",
-        "critical": "text-red-600",
+        "healthy": "text-success",
+        "warning": "text-warning",
+        "critical": "text-error",
         "unknown": "text-muted-foreground",
     }
 

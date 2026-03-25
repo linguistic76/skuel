@@ -20,19 +20,12 @@ from datetime import date, datetime, timedelta
 from typing import Any
 
 from fasthtml.common import (
-    H1,
     H2,
-    Body,
     Container,
     Div,
-    Head,
-    Html,
-    Link,
-    Meta,
     P,
     Script,
     Span,
-    Title,
 )
 from monsterui.franken import UkIcon
 from starlette.requests import Request
@@ -53,7 +46,9 @@ from ui.calendar.components import (
 )
 from ui.feedback import Alert, AlertT, Badge, BadgeT
 from ui.layout import Size
-from ui.layouts.navbar import create_navbar_for_request
+from ui.layouts.base_page import BasePage
+from ui.layouts.page_types import PageType
+from ui.patterns.page_header import PageHeader
 
 logger = get_logger("skuel.routes.calendar")
 
@@ -63,28 +58,18 @@ logger = get_logger("skuel.routes.calendar")
 # ============================================================================
 
 
-def _wrap_calendar_page(navbar: Any, content: Any, title: str = "Calendar") -> Any:
-    """Wrap calendar content in complete HTML document.
+async def _wrap_calendar_page(request: Any, content: Any, title: str = "Calendar") -> Any:
+    """Wrap calendar content in BasePage for consistent document structure.
 
-    This ensures proper document structure for navigation to work correctly.
+    Uses BasePage to get shared head (PWA, service worker, etc.) plus calendar CSS.
     """
-    return Html(
-        Head(
-            Meta(charset="UTF-8"),
-            Meta(name="viewport", content="width=device-width, initial-scale=1.0"),
-            Title(f"{title} - SKUEL"),
-            Link(rel="stylesheet", href="/static/css/output.css"),
-            Link(rel="stylesheet", href="/static/css/calendar.css"),
-            Script(src="https://unpkg.com/htmx.org@1.9.6/dist/htmx.min.js"),
-            Script(src="/static/vendor/alpinejs/alpine.3.14.8.min.js", defer=True),
-            Script(src="/static/js/skuel.js"),
-        ),
-        Body(
-            navbar,
-            content,
-            cls="bg-background min-h-screen",
-            **{"x-data": "calendarPage()"},
-        ),
+    return await BasePage(
+        content=Div(content, **{"x-data": "calendarPage()"}),
+        title=title,
+        page_type=PageType.CUSTOM,
+        request=request,
+        active_page="events",
+        extra_css=["/static/css/calendar.css"],
     )
 
 
@@ -356,15 +341,14 @@ def create_calendar_ui_routes(_app, rt, calendar_service):
 
         calendar_data = result.value
         month_name = cal.month_name[month]
-        navbar = await create_navbar_for_request(request, active_page="events")
 
-        return _wrap_calendar_page(
-            navbar,
+        return await _wrap_calendar_page(
+            request,
             Div(
                 Container(
                     # Header with navigation
                     Div(
-                        H1(f"{month_name} {year}", cls="text-3xl font-bold mb-4"),
+                        PageHeader(f"{month_name} {year}"),
                         create_view_switcher("month", first_day),
                         # Month navigation - using links instead of JavaScript
                         Div(
@@ -433,18 +417,14 @@ def create_calendar_ui_routes(_app, rt, calendar_service):
 
         calendar_data = result.value
         week_start = calendar_data.start_date
-        navbar = await create_navbar_for_request(request, active_page="events")
 
-        return _wrap_calendar_page(
-            navbar,
+        return await _wrap_calendar_page(
+            request,
             Div(
                 Container(
                     # Header
                     Div(
-                        H1(
-                            f"Week of {week_start.strftime('%B %d, %Y')}",
-                            cls="text-3xl font-bold mb-4",
-                        ),
+                        PageHeader(f"Week of {week_start.strftime('%B %d, %Y')}"),
                         create_view_switcher("week", week_start),
                         # Week navigation - using links instead of JavaScript
                         Div(
@@ -503,18 +483,14 @@ def create_calendar_ui_routes(_app, rt, calendar_service):
             return error_response(result.error)
 
         calendar_data = result.value
-        navbar = await create_navbar_for_request(request, active_page="events")
 
-        return _wrap_calendar_page(
-            navbar,
+        return await _wrap_calendar_page(
+            request,
             Div(
                 Container(
                     # Header
                     Div(
-                        H1(
-                            target_date.strftime("%A, %B %d, %Y"),
-                            cls="text-3xl font-bold mb-4",
-                        ),
+                        PageHeader(target_date.strftime("%A, %B %d, %Y")),
                         create_view_switcher("day", target_date),
                         # Day navigation - using links instead of JavaScript
                         Div(

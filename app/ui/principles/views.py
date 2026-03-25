@@ -188,7 +188,7 @@ class PrinciplesViewComponents:
             "personal": "text-green-600",
             "professional": "text-orange-600",
             "intellectual": "text-cyan-600",
-            "health": "text-red-600",
+            "health": "text-error",
             "creative": "text-yellow-600",
         }
         category_color = category_colors.get(category_str, "text-muted-foreground")
@@ -803,8 +803,8 @@ class PrinciplesViewComponents:
         trigger_dist = getattr(trend, "trigger_distribution", {})
 
         trend_styles = {
-            "improving": ("text-green-600", "↑ Improving"),
-            "declining": ("text-red-600", "↓ Declining"),
+            "improving": ("text-success", "↑ Improving"),
+            "declining": ("text-error", "↓ Declining"),
             "stable": ("text-muted-foreground", "→ Stable"),
         }
         trend_cls, trend_text = trend_styles.get(

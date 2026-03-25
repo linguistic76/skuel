@@ -248,12 +248,12 @@ class AtomicHabitsAnalytics:
 
         def _strength_color(strength: float) -> str:
             if strength >= 0.8:
-                return "text-green-600"
+                return "text-success"
             if strength >= 0.6:
-                return "text-blue-600"
+                return "text-info"
             if strength >= 0.4:
-                return "text-yellow-600"
-            return "text-red-600"
+                return "text-warning"
+            return "text-error"
 
         def _comparison_cell_render(k: str, v: object) -> Td:
             styles = {
@@ -533,7 +533,7 @@ class AtomicHabitsAnalytics:
             user_val = benchmark.user
             community_val = benchmark.community
             percentile = benchmark.percentile
-            comparison = "text-green-600" if user_val > community_val else "text-red-600"
+            comparison = "text-success" if user_val > community_val else "text-error"
             comparison_icon = "📈" if user_val > community_val else "📉"
 
             body_data.append(

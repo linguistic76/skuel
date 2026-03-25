@@ -425,13 +425,13 @@ class AtomicHabitsAnimations:
 
         # Color based on value
         if percentage >= 90:
-            color = "bg-green-500"
+            color = "bg-success"
         elif percentage >= 70:
-            color = "bg-blue-500"
+            color = "bg-info"
         elif percentage >= 50:
-            color = "bg-yellow-500"
+            color = "bg-warning"
         else:
-            color = "bg-red-500"
+            color = "bg-error"
 
         glow_class = "meter-animated" if show_glow else "meter-fill"
 
@@ -524,7 +524,7 @@ class AtomicHabitsAnimations:
 
         return Div(
             Span("🔥", cls=f"{size} streak-flame"),
-            P(f"{streak_days} days", cls="text-sm font-bold text-orange-600 mt-2"),
+            P(f"{streak_days} days", cls="text-sm font-bold text-warning mt-2"),
             cls="flex flex-col items-center",
         )
 
@@ -550,7 +550,7 @@ class AtomicHabitsAnimations:
                 Div(
                     Div(
                         Span(f"{velocity:.0f}", cls="text-xs font-bold text-white"),
-                        cls="bg-blue-600 chart-bar w-full flex items-end justify-center pb-1",
+                        cls="bg-primary chart-bar w-full flex items-end justify-center pb-1",
                         style=f"height: {bar_height}%; animation-delay: {delay}s;",
                     ),
                     P(label, cls="text-xs text-muted-foreground mt-2 text-center"),

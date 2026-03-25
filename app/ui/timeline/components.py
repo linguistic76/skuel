@@ -23,6 +23,7 @@ from ui.buttons import Button, ButtonT
 from ui.feedback import Loading, LoadingT
 from ui.forms import Input, Label, Select
 from ui.layout import Size
+from ui.patterns.page_header import PageHeader
 
 
 def render_timeline_viewer_page(
@@ -97,11 +98,7 @@ def _render_header() -> Div:
     """Render the page header."""
     return Div(
         Div(
-            H1("Timeline", style="margin: 0; color: #1e293b;"),
-            P(
-                "Interactive schedule visualization",
-                style="margin: 0.5rem 0 0 0; color: #64748b; font-size: 0.9rem;",
-            ),
+            PageHeader("Timeline", subtitle="Interactive schedule visualization"),
             cls="container",
         ),
         cls="header",

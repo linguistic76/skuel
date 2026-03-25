@@ -49,7 +49,7 @@ from core.utils.result_simplified import Result
 from ui.buttons import Button, ButtonT
 from ui.cards import Card
 from ui.enum_helpers import get_status_border_class
-from ui.feedback import Badge, BadgeT, Progress
+from ui.feedback import Alert, AlertT, Badge, BadgeT, Progress
 from ui.goals.layout import create_goals_page
 from ui.goals.views import GoalsViewComponents
 from ui.habits.atomic_components import AtomicHabitsComponents
@@ -644,14 +644,18 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsService, services: Any 
                 ),
                 # Main explanation
                 Div(
-                    P(
-                        explanation
-                        or (
-                            goal.explain_existence()
-                            if callable(getattr(goal, "explain_existence", None))
-                            else "No explanation available"
+                    Alert(
+                        P(
+                            explanation
+                            or (
+                                goal.explain_existence()
+                                if callable(getattr(goal, "explain_existence", None))
+                                else "No explanation available"
+                            ),
+                            cls="text-lg italic",
                         ),
-                        cls="text-lg text-foreground italic mb-4 p-4 bg-blue-50 border-l-4 border-blue-500 rounded",
+                        variant=AlertT.info,
+                        cls="mb-4",
                     ),
                     cls="mb-6",
                 ),
@@ -681,7 +685,7 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsService, services: Any 
                                 ),
                                 cls="mb-2",
                             ),
-                            cls="p-4 bg-green-50 border-l-4 border-green-500 rounded",
+                            cls="p-4 bg-success/10 border-l-4 border-success rounded",
                         ),
                         cls="mb-6",
                     )
@@ -716,7 +720,7 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsService, services: Any 
                                     ),
                                     cls="mb-2",
                                 ),
-                                cls="p-3 bg-purple-50 border-l-4 border-purple-500 rounded mb-3",
+                                cls="p-3 bg-secondary/10 border-l-4 border-secondary rounded mb-3",
                             )
                             for g in guidances
                         ],

@@ -22,7 +22,7 @@ from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonT
 from ui.cards import Card
 from ui.curriculum.layout import create_curriculum_page
-from ui.feedback import Badge, BadgeT
+from ui.feedback import Alert, AlertT, Badge, BadgeT
 from ui.forms import Input, Label, Select, Textarea
 from ui.layout import Size
 from ui.layouts.navbar import create_navbar_for_request
@@ -318,17 +318,15 @@ class ExerciseUIComponents:
             # Knowledge Foundation — Ku origin of this exercise
             knowledge_section,
             # Transparency notice
-            Card(
-                Div(
-                    H3("Full Transparency", cls="text-lg font-semibold mb-3"),
-                    P(
-                        "Below you can see exactly what gets sent to the "
-                        "LLM when you request feedback. "
-                        "No hidden prompts, no black boxes.",
-                        cls="text-muted-foreground",
-                    ),
-                    cls="bg-blue-50 p-4 rounded mb-4",
-                )
+            Alert(
+                H3("Full Transparency", cls="text-lg font-semibold mb-3"),
+                P(
+                    "Below you can see exactly what gets sent to the "
+                    "LLM when you request feedback. "
+                    "No hidden prompts, no black boxes.",
+                ),
+                variant=AlertT.info,
+                cls="mb-4",
             ),
             # Instructions
             Card(

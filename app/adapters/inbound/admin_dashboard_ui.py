@@ -25,7 +25,7 @@ Date: 2025-12-07
 
 from typing import Any
 
-from fasthtml.common import H1, H2, H3, A, Div, P, Span
+from fasthtml.common import H2, H3, A, Div, P, Span
 
 from adapters.inbound.auth import make_service_getter, require_admin
 from core.utils.logging import get_logger
@@ -41,6 +41,7 @@ from ui.buttons import Button, ButtonLink, ButtonT
 from ui.cards import Card
 from ui.layout import Size
 from ui.patterns.error_banner import render_error_banner
+from ui.patterns.page_header import PageHeader
 
 logger = get_logger("skuel.routes.admin.ui")
 
@@ -82,15 +83,7 @@ def create_admin_dashboard_routes(_app, rt, services):
         )
 
         content = Div(
-            # Page header
-            Div(
-                H1("Admin Dashboard", cls="text-3xl font-bold"),
-                P(
-                    "System overview and management",
-                    cls="text-muted-foreground mt-1",
-                ),
-                cls="mb-8",
-            ),
+            PageHeader("Admin Dashboard", subtitle="System overview and management"),
             # Quick links
             Div(
                 H2("Quick Actions", cls="text-xl font-semibold mb-4"),
@@ -235,12 +228,7 @@ def create_admin_dashboard_routes(_app, rt, services):
         )
 
         content = Div(
-            # Page header
-            Div(
-                H1("User Management", cls="text-3xl font-bold"),
-                P(subtitle, cls="text-muted-foreground mt-1"),
-                cls="mb-6",
-            ),
+            PageHeader("User Management", subtitle=subtitle),
             # Stats
             stats_content,
             # Filters
@@ -393,15 +381,13 @@ def create_admin_dashboard_routes(_app, rt, services):
                 size=Size.sm,
                 cls="mb-4",
             ),
-            # Page header
-            Div(
-                H1(user_data.display_name or user_data.username, cls="text-3xl font-bold"),
-                Div(
+            PageHeader(
+                user_data.display_name or user_data.username,
+                actions=Div(
                     AdminUIComponents.render_role_badge(user_data.role),
                     AdminUIComponents.render_status_badge(user_data.is_active),
-                    cls="flex gap-2 mt-2",
+                    cls="flex gap-2",
                 ),
-                cls="mb-6",
             ),
             # User details card
             Card(
@@ -540,15 +526,7 @@ def create_admin_dashboard_routes(_app, rt, services):
         }
 
         content = Div(
-            # Page header
-            Div(
-                H1("Analytics", cls="text-3xl font-bold"),
-                P(
-                    "Platform usage and user statistics",
-                    cls="text-muted-foreground mt-1",
-                ),
-                cls="mb-8",
-            ),
+            PageHeader("Analytics", subtitle="Platform usage and user statistics"),
             # Analytics dashboard
             AdminAnalyticsComponents.render_analytics_dashboard(analytics_data),
         )
@@ -601,15 +579,7 @@ def create_admin_dashboard_routes(_app, rt, services):
             }
 
         content = Div(
-            # Page header
-            Div(
-                H1("System Health", cls="text-3xl font-bold"),
-                P(
-                    "Monitor system components and services",
-                    cls="text-muted-foreground mt-1",
-                ),
-                cls="mb-8",
-            ),
+            PageHeader("System Health", subtitle="Monitor system components and services"),
             # Health dashboard
             AdminSystemComponents.render_health_dashboard(health_data),
             # Refresh button
@@ -659,15 +629,7 @@ def create_admin_dashboard_routes(_app, rt, services):
         user_progress = user_progress_result.value if not user_progress_error else []
 
         content = Div(
-            # Page header
-            Div(
-                H1("Learning Dashboard", cls="text-3xl font-bold"),
-                P(
-                    "Track knowledge unit progression across all users",
-                    cls="text-muted-foreground mt-1",
-                ),
-                cls="mb-8",
-            ),
+            PageHeader("Learning Dashboard", subtitle="Track knowledge unit progression across all users"),
             # System-wide KU metrics
             Card(
                 H2("Knowledge Unit Overview", cls="text-xl font-semibold mb-4"),
@@ -740,14 +702,7 @@ def create_admin_dashboard_routes(_app, rt, services):
                 size=Size.sm,
                 cls="mb-4",
             ),
-            # Page header
-            Div(
-                H1(
-                    f"{user.display_name or user.title} — KU Progress",
-                    cls="text-3xl font-bold",
-                ),
-                cls="mb-6",
-            ),
+            PageHeader(f"{user.display_name or user.title} — KU Progress"),
             # Summary stats
             Card(
                 H2("Progress Summary", cls="text-xl font-semibold mb-4"),

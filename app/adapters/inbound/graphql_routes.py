@@ -172,8 +172,8 @@ def create_graphql_routes(
             variables = json.loads(variables_str) if variables_str else {}
         except json.JSONDecodeError:
             return Div(
-                Pre("Invalid JSON in variables field", cls="text-red-600"),
-                cls="p-4 bg-red-50 rounded",
+                Pre("Invalid JSON in variables field", cls="text-error"),
+                cls="p-4 bg-error/10 rounded",
             )
 
         context = _build_graphql_context(request)
@@ -183,9 +183,9 @@ def create_graphql_routes(
         formatted_json = json.dumps(response_data, indent=2)
 
         if result.errors:
-            return Div(Pre(formatted_json, cls="text-red-600"), cls="p-4 bg-red-50 rounded")
+            return Div(Pre(formatted_json, cls="text-error"), cls="p-4 bg-error/10 rounded")
         else:
-            return Div(Pre(formatted_json, cls="text-green-600"), cls="p-4 bg-green-50 rounded")
+            return Div(Pre(formatted_json, cls="text-success"), cls="p-4 bg-success/10 rounded")
 
     logger.info("GraphQL routes registered:")
     logger.info("  - GET  /graphql         -> FastHTML playground")

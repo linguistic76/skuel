@@ -20,7 +20,7 @@ Philosophy:
 
 from typing import Any
 
-from fasthtml.common import H1, H2, H3, Div, Form, P, Span
+from fasthtml.common import H2, H3, Div, Form, P, Span
 from starlette.requests import Request
 from starlette.responses import RedirectResponse
 
@@ -33,6 +33,8 @@ from ui.feedback import Badge, BadgeT, Progress
 from ui.forms import Label, Textarea
 from ui.layout import Size
 from ui.patterns.empty_state import EmptyState
+from ui.patterns.error_banner import render_error_banner
+from ui.patterns.page_header import PageHeader
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 from ui.tokens import Container
 
@@ -114,10 +116,9 @@ def create_lifepath_ui_routes(
             existing_vision = designation_result.value.vision_statement
 
         content = Div(
-            H1("Express Your Vision", cls="text-3xl font-bold mb-6"),
-            P(
-                "What do you want to become? Express your life vision in your own words.",
-                cls="text-lg text-muted-foreground mb-8",
+            PageHeader(
+                "Express Your Vision",
+                subtitle="What do you want to become? Express your life vision in your own words.",
             ),
             Card(
                 Div(
@@ -249,8 +250,10 @@ def create_lifepath_ui_routes(
 def _service_unavailable_page():
     """Return page when LifePath service is not available."""
     return Div(
-        H1("Service Unavailable", cls="text-2xl font-bold text-red-600"),
-        P("The LifePath service is not available. Please try again later."),
+        render_error_banner(
+            "Service Unavailable",
+            technical_details="The LifePath service is not available. Please try again later.",
+        ),
         cls="container mx-auto px-4 py-8",
     )
 
@@ -258,8 +261,7 @@ def _service_unavailable_page():
 def _error_page(message: str):
     """Return error page."""
     return Div(
-        H1("Error", cls="text-2xl font-bold text-red-600"),
-        P(message, cls="text-muted-foreground mt-2"),
+        render_error_banner("Error", technical_details=message),
         ButtonLink("Go back", href="/lifepath", variant=ButtonT.primary, cls="mt-4"),
         cls="container mx-auto px-4 py-8",
     )
@@ -269,10 +271,9 @@ def _build_dashboard_content(status: dict, user_uid: str) -> Any:
     """Build the main dashboard content."""
     if not status.get("has_vision"):
         return Div(
-            H1("Welcome to Your Life Path", cls="text-3xl font-bold mb-6"),
-            P(
-                "You haven't expressed your vision yet. Start by telling us what you want to become.",
-                cls="text-lg text-muted-foreground mb-8",
+            PageHeader(
+                "Welcome to Your Life Path",
+                subtitle="You haven't expressed your vision yet. Start by telling us what you want to become.",
             ),
             ButtonLink(
                 "Express Your Vision",
@@ -289,7 +290,7 @@ def _build_dashboard_content(status: dict, user_uid: str) -> Any:
     alignment_level = alignment.get("alignment_level", "unknown")
 
     return Div(
-        H1("Your Life Path", cls="text-3xl font-bold mb-6"),
+        PageHeader("Your Life Path"),
         # Vision summary
         Card(
             Div(
@@ -393,7 +394,7 @@ def _build_recommendations_page(data: dict, user_uid: str) -> Any:
     ]
 
     return Div(
-        H1("Choose Your Life Path", cls="text-3xl font-bold mb-4"),
+        PageHeader("Choose Your Life Path"),
         P(f'Your vision: "{vision.get("statement", "")}"', cls="text-muted-foreground italic mb-2"),
         P(
             f"Themes extracted: {', '.join(vision.get('themes', []))}",
@@ -423,11 +424,11 @@ def _build_alignment_dashboard(status: dict, user_uid: str) -> Any:
     dimension_cards = []
     for dim_name, score in dimensions.items():
         color = (
-            "text-green-600"
+            "text-success"
             if score >= 0.7
-            else "text-yellow-600"
+            else "text-warning"
             if score >= 0.4
-            else "text-red-600"
+            else "text-error"
         )
         dimension_cards.append(
             Div(
@@ -451,7 +452,7 @@ def _build_alignment_dashboard(status: dict, user_uid: str) -> Any:
     ]
 
     return Div(
-        H1("Life Path Alignment", cls="text-3xl font-bold mb-6"),
+        PageHeader("Life Path Alignment"),
         # Overall score
         Card(
             Div(

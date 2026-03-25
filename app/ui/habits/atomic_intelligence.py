@@ -242,18 +242,18 @@ class AtomicHabitsIntelligence:
                                 Td("🔴 ESSENTIAL", cls="font-medium"),
                                 Td(str(breakdown.get("essential", 0)), cls="text-center font-bold"),
                                 Td(
-                                    Span("✅ Defined", cls="text-green-600")
+                                    Span("✅ Defined", cls="text-success")
                                     if breakdown.get("essential", 0) > 0
-                                    else Span("❌ Missing", cls="text-red-600")
+                                    else Span("❌ Missing", cls="text-error")
                                 ),
                             ),
                             Tr(
                                 Td("🟠 CRITICAL", cls="font-medium"),
                                 Td(str(breakdown.get("critical", 0)), cls="text-center font-bold"),
                                 Td(
-                                    Span("✅ Defined", cls="text-green-600")
+                                    Span("✅ Defined", cls="text-success")
                                     if breakdown.get("critical", 0) > 0
-                                    else Span("⚠️ Consider adding", cls="text-yellow-600")
+                                    else Span("⚠️ Consider adding", cls="text-warning")
                                 ),
                             ),
                             Tr(
