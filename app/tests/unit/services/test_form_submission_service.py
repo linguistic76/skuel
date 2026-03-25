@@ -39,11 +39,12 @@ def _make_submission(**kwargs):
 
 def _make_service(backend=None, event_bus=None, sharing_service=None, template_service=None):
     backend = backend or MagicMock()
+    template_service = template_service or MagicMock()
     return FormSubmissionService(
         backend=backend,
+        form_template_service=template_service,
         event_bus=event_bus,
         sharing_service=sharing_service,
-        form_template_service=template_service,
     )
 
 
@@ -399,40 +400,3 @@ class TestShareSubmission:
 
         # Should still succeed but log warning
         assert result.is_ok
-
-
-class TestFallbackTemplateResolution:
-    """Test _get_template fallback when form_template_service is not wired."""
-
-    @pytest.mark.asyncio
-    async def test_fallback_to_backend_query(self):
-        """When template_service is None, service queries backend directly."""
-        submission = _make_submission(form_data={"q1": "answer"})
-        backend = MagicMock()
-        # First call: template lookup; create_with_relationships for atomic create
-        backend.execute_query = AsyncMock(
-            return_value=Result.ok(
-                [
-                    {
-                        "ft": {
-                            "uid": "ft_test_123",
-                            "title": "Test",
-                            "entity_type": "form_template",
-                            "form_schema": '[{"name": "q1", "type": "text", "label": "Q1"}]',
-                        }
-                    }
-                ]
-            ),
-        )
-        backend.create_with_relationships = AsyncMock(return_value=Result.ok(submission))
-
-        service = _make_service(backend=backend)  # no template_service
-
-        result = await service.submit_form(
-            user_uid="user_1",
-            form_template_uid="ft_test_123",
-            form_data={"q1": "answer"},
-        )
-
-        assert result.is_ok
-        backend.create_with_relationships.assert_awaited_once()

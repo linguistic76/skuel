@@ -724,6 +724,50 @@ class LsOperations(CurriculumOperations["LearningStep"], Protocol):
         """
         ...
 
+    # =========================================================================
+    # CORE CRUD QUERIES (backend-level Cypher)
+    # =========================================================================
+
+    async def create_step_node(
+        self,
+        params: dict[str, Any],
+        has_primary_knowledge: bool = False,
+        has_supporting_knowledge: bool = False,
+        path_uid: str | None = None,
+    ) -> Result[list[dict[str, Any]]]:
+        """Create step node with conditional knowledge and path relationships."""
+        ...
+
+    async def get_step_with_knowledge(self, uid: str) -> Result[list[dict[str, Any]]]:
+        """Get step node with CONTAINS_KNOWLEDGE relationships."""
+        ...
+
+    async def get_step_with_context(self, uid: str) -> Result[list[dict[str, Any]]]:
+        """Get step with comprehensive 11-part graph context in a single query."""
+        ...
+
+    async def update_step_fields(
+        self, uid: str, set_clauses: list[str], params: dict[str, Any]
+    ) -> Result[list[dict[str, Any]]]:
+        """Update step fields and return step with knowledge relationships."""
+        ...
+
+    async def delete_step_node(self, uid: str) -> Result[list[dict[str, Any]]]:
+        """DETACH DELETE a step node and return deletion count."""
+        ...
+
+    async def list_steps_raw(
+        self,
+        path_uid: str | None,
+        limit: int,
+        offset: int,
+        order_field: str,
+        order_direction: str,
+        user_uid: str | None = None,
+    ) -> Result[list[dict[str, Any]]]:
+        """List step nodes with knowledge relationships, pagination, and optional filters."""
+        ...
+
 
 @runtime_checkable
 class LpOperations(CurriculumOperations["LearningPath"], Protocol):

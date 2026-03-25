@@ -22,7 +22,6 @@ from core.models.enums.goal_enums import MeasurementType
 from core.models.goal.goal import Goal
 from core.models.goal.goal_dto import GoalDTO
 from core.models.graph_context import GraphContext
-from core.models.relationship_names import RelationshipName
 from core.ports.domain_protocols import GoalsOperations
 from core.ports.query_types import GoalUpdatePayload
 from core.services.base_service import BaseService
@@ -1010,24 +1009,15 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
                 f"Querying for goals linked to task {event.task_uid}, user {event.user_uid}"
             )
 
-            query = f"""
-            MATCH (goal:Entity {{entity_type: 'goal'}})-[:{RelationshipName.SUPPORTS_GOAL.value}]->(task:Entity {{uid: $task_uid, entity_type: 'task'}})
-            WHERE goal.user_uid = $user_uid
-            RETURN goal.uid as goal_uid
-            """
-
-            result = await self.backend.execute_query(
-                query, {"task_uid": event.task_uid, "user_uid": event.user_uid}
-            )
+            result = await self.backend.find_linked_goals_for_task(event.task_uid, event.user_uid)
             if result.is_error:
                 self.logger.error(
                     f"Failed to query goals for task {event.task_uid}: {result.error}"
                 )
                 return
 
-            records = result.value or []
-            self.logger.debug(f"Found {len(records)} linked goals: {records}")
-            goal_uids = [record["goal_uid"] for record in records]
+            goal_uids = result.value or []
+            self.logger.debug(f"Found {len(goal_uids)} linked goals: {goal_uids}")
 
             if not goal_uids:
                 self.logger.debug(f"Task {event.task_uid} is not linked to any goals")
@@ -1076,30 +1066,13 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             return
 
         # Query all tasks linked to this goal and count completed
-        query = f"""
-        MATCH (goal:Entity {{uid: $goal_uid, entity_type: 'goal'}})-[:{RelationshipName.SUPPORTS_GOAL.value}]->(task:Entity {{entity_type: 'task'}})
-        WHERE task.user_uid = $user_uid
-        WITH count(task) as total_tasks
-        MATCH (goal:Entity {{uid: $goal_uid, entity_type: 'goal'}})-[:{RelationshipName.SUPPORTS_GOAL.value}]->(completed:Entity {{entity_type: 'task'}})
-        WHERE completed.user_uid = $user_uid
-          AND completed.status = 'completed'
-        RETURN total_tasks, count(completed) as completed_tasks
-        """
-
-        result = await self.backend.execute_query(
-            query, {"goal_uid": goal_uid, "user_uid": user_uid}
-        )
+        result = await self.backend.count_linked_tasks(goal_uid, user_uid)
         if result.is_error:
             self.logger.error(f"Failed to query tasks for goal {goal_uid}: {result.error}")
             return
 
-        if not result.value:
-            self.logger.warning(f"No task data found for goal {goal_uid}")
-            return
-
-        record = result.value[0]
-        total_tasks = record.get("total_tasks", 0)
-        completed_tasks = record.get("completed_tasks", 0)
+        total_tasks = result.value.get("total_tasks", 0)
+        completed_tasks = result.value.get("completed_tasks", 0)
 
         if total_tasks == 0:
             self.logger.debug(f"Goal {goal_uid} has no linked tasks")
@@ -1190,24 +1163,15 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
                 f"Querying for goals linked to habit {event.habit_uid}, user {event.user_uid}"
             )
 
-            query = f"""
-            MATCH (goal:Entity {{entity_type: 'goal'}})-[:{RelationshipName.SUPPORTS_GOAL.value}]->(habit:Entity {{uid: $habit_uid, entity_type: 'habit'}})
-            WHERE goal.user_uid = $user_uid
-            RETURN goal.uid as goal_uid
-            """
-
-            result = await self.backend.execute_query(
-                query, {"habit_uid": event.habit_uid, "user_uid": event.user_uid}
-            )
+            result = await self.backend.find_linked_goals_for_habit(event.habit_uid, event.user_uid)
             if result.is_error:
                 self.logger.error(
                     f"Failed to query goals for habit {event.habit_uid}: {result.error}"
                 )
                 return
 
-            records = result.value or []
-            self.logger.debug(f"Found {len(records)} linked goals: {records}")
-            goal_uids = [record["goal_uid"] for record in records]
+            goal_uids = result.value or []
+            self.logger.debug(f"Found {len(goal_uids)} linked goals: {goal_uids}")
 
             if not goal_uids:
                 self.logger.debug(f"No goals linked to habit {event.habit_uid}")
@@ -1263,28 +1227,17 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             return
 
         # Query all habits linked to this goal and their average streak
-        query = f"""
-        MATCH (goal:Entity {{uid: $goal_uid, entity_type: 'goal'}})-[:{RelationshipName.SUPPORTS_GOAL.value}]->(habit:Entity {{entity_type: 'habit'}})
-        WHERE habit.user_uid = $user_uid
-        WITH count(habit) as total_habits
-        MATCH (goal:Entity {{uid: $goal_uid, entity_type: 'goal'}})-[:{RelationshipName.SUPPORTS_GOAL.value}]->(habit:Entity {{entity_type: 'habit'}})
-        WHERE habit.user_uid = $user_uid
-        RETURN total_habits, avg(COALESCE(habit.current_streak, 0)) as avg_streak
-        """
-
-        result = await self.backend.execute_query(
-            query, {"goal_uid": goal_uid, "user_uid": user_uid}
-        )
+        result = await self.backend.count_linked_habits_avg_streak(goal_uid, user_uid)
         if result.is_error:
             self.logger.error(f"Failed to query habits for goal {goal_uid}: {result.error}")
             return
 
-        if not result.value or result.value[0].get("total_habits", 0) == 0:
+        total_habits = result.value.get("total_habits", 0)
+        avg_streak = result.value.get("avg_streak", 0)
+
+        if total_habits == 0:
             self.logger.debug(f"No habits found for goal {goal_uid}")
             return
-
-        total_habits = result.value[0].get("total_habits", 0)
-        avg_streak = result.value[0].get("avg_streak", 0)
 
         # Calculate progress based on goal type
         old_progress = goal.progress_percentage or 0.0

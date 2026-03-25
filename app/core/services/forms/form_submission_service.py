@@ -50,16 +50,16 @@ class FormSubmissionService(BaseService[FormSubmissionBackendOperations, FormSub
     def __init__(
         self,
         backend: FormSubmissionBackendOperations,
+        form_template_service: FormTemplateOperations,
         event_bus: EventBusOperations | None = None,
         sharing_service: SharingOperations | None = None,
-        form_template_service: FormTemplateOperations | None = None,
     ) -> None:
-        """Initialize with backend, optional event bus, sharing, and template service."""
+        """Initialize with backend and required template service."""
         super().__init__(backend, "form_submissions")
         self.backend = backend
+        self.form_template_service = form_template_service
         self.event_bus = event_bus
         self.sharing_service = sharing_service
-        self.form_template_service = form_template_service
         self.logger = logger
         logger.info("FormSubmissionService initialized")
 
@@ -152,33 +152,8 @@ class FormSubmissionService(BaseService[FormSubmissionBackendOperations, FormSub
         return Result.ok(submission)
 
     async def _get_template(self, form_template_uid: str) -> Result[FormTemplate]:
-        """Fetch a FormTemplate, delegating to template service or falling back to backend."""
-        if self.form_template_service:
-            return await self.form_template_service.get(form_template_uid)
-
-        # Fallback: query backend directly (when template service not wired)
-
-        result = await self.backend.execute_query(
-            """
-            MATCH (ft:Entity {uid: $ft_uid, entity_type: 'form_template'})
-            RETURN ft
-            """,
-            {"ft_uid": form_template_uid},
-        )
-        if result.is_error:
-            return Result.fail(Errors.database(operation="get_template", message=str(result.error)))
-        records = result.value or []
-        if not records:
-            return Result.fail(
-                Errors.not_found(resource="FormTemplate", identifier=form_template_uid)
-            )
-
-        # Reconstruct FormTemplate from Neo4j node properties
-        from core.models.forms.form_template_dto import FormTemplateDTO
-
-        props = dict(records[0]["ft"])
-        dto = FormTemplateDTO.from_dict(props)
-        return Result.ok(FormTemplate._from_dto(dto))
+        """Fetch a FormTemplate via the template service."""
+        return await self.form_template_service.get(form_template_uid)
 
     async def _share_on_submit(
         self,

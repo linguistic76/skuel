@@ -92,6 +92,7 @@ def _create_learning_services(
         repo=knowledge_backend,
         content_repo=content_adapter,  # Neo4jContentAdapter implements ContentOperations protocol
         neo4j_adapter=neo4j_adapter,
+        ku_backend=atomic_ku_backend,
         chunking_service=chunking_service,
         graph_intelligence_service=graph_intelligence,
         query_builder=unified_query_builder,  # QueryBuilder is now REQUIRED

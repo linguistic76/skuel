@@ -499,9 +499,9 @@ async def services(neo4j_driver):
     )
     tasks_backend = TestBackendWrapper(raw_tasks_backend, Task)
 
-    raw_goals_backend = UniversalNeo4jBackend[Goal](
-        neo4j_driver, NeoLabel.GOAL, Goal, base_label=NeoLabel.ENTITY
-    )
+    from adapters.persistence.neo4j.domain_backends import GoalsBackend
+
+    raw_goals_backend = GoalsBackend(neo4j_driver, NeoLabel.GOAL, Goal, base_label=NeoLabel.ENTITY)
     goals_backend = TestBackendWrapper(raw_goals_backend, Goal)
 
     raw_events_backend = UniversalNeo4jBackend[Event](
@@ -509,7 +509,9 @@ async def services(neo4j_driver):
     )
     events_backend = TestBackendWrapper(raw_events_backend, Event)
 
-    raw_ls_backend = UniversalNeo4jBackend[Entity](
+    from adapters.persistence.neo4j.domain_backends import LsBackend
+
+    raw_ls_backend = LsBackend(
         neo4j_driver, NeoLabel.LEARNING_STEP, Entity, base_label=NeoLabel.ENTITY
     )
     ls_backend = TestBackendWrapper(raw_ls_backend, Entity)

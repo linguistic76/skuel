@@ -738,6 +738,24 @@ class GoalsOperations(
         """Count goal stats: total, active, completed."""
         ...
 
+    async def find_linked_goals_for_task(self, task_uid: str, user_uid: str) -> Result[list[str]]:
+        """Find goal UIDs linked to a task via SUPPORTS_GOAL."""
+        ...
+
+    async def count_linked_tasks(self, goal_uid: str, user_uid: str) -> Result[dict[str, int]]:
+        """Count total and completed tasks linked to a goal."""
+        ...
+
+    async def find_linked_goals_for_habit(self, habit_uid: str, user_uid: str) -> Result[list[str]]:
+        """Find goal UIDs linked to a habit via SUPPORTS_GOAL."""
+        ...
+
+    async def count_linked_habits_avg_streak(
+        self, goal_uid: str, user_uid: str
+    ) -> Result[dict[str, Any]]:
+        """Count habits linked to a goal and compute their average streak."""
+        ...
+
 
 # NOTE: JournalsOperations REMOVED (February 2026) - Journal merged into Reports
 # Use SubmissionsCoreService for journal CRUD (report_type=JOURNAL)

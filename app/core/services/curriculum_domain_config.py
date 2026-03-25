@@ -279,6 +279,7 @@ def create_lesson_sub_services(
     user_service: Any | None = None,
     vector_search_service: Any | None = None,
     embeddings_service: Any | None = None,
+    ku_backend: Any | None = None,
 ) -> LessonSubServices:
     """
     Factory function to create all 11 LessonService sub-services.

@@ -494,6 +494,7 @@ class LessonService:
         repo: "LessonOperations",
         content_repo: "Any | None" = None,  # Was ContentOperations (deleted January 2026)
         neo4j_adapter: "Any | None" = None,
+        ku_backend: "Any | None" = None,
         chunking_service: "Any | None" = None,
         graph_intelligence_service: "Any | None" = None,
         query_builder: "QueryBuilderOperations | None" = None,
@@ -518,7 +519,8 @@ class LessonService:
         Args:
             repo: LessonOperations backend - REQUIRED
             content_repo: Content storage backend (optional)
-            neo4j_adapter: Neo4j adapter for graph operations (optional)
+            neo4j_adapter: Neo4j adapter for sub-service graph operations (optional)
+            ku_backend: KuBackend for substance metric operations (REQUIRED)
             chunking_service: Chunking service for RAG (optional)
             graph_intelligence_service: GraphIntelligenceService - REQUIRED for cross-domain queries
             query_builder: QueryBuilder service for optimized queries (optional)
@@ -582,7 +584,7 @@ class LessonService:
         self.content_repo = content_repo
         self.chunking_service = chunking_service
         self.graph_intel = graph_intelligence_service
-        self.neo4j_adapter = neo4j_adapter
+        self.ku_backend = ku_backend
         self.user_service = user_service
 
         # Organization service (ORGANIZES relationships — any Ku can organize others)
@@ -1141,29 +1143,22 @@ class LessonService:
             self.logger.error(f"Invalid substance timestamp field rejected: {timestamp_field}")
             return
 
+        if not self.ku_backend:
+            self.logger.error("ku_backend not wired — cannot batch increment substance metrics")
+            return
+
         timestamp_str = timestamp.isoformat() if isinstance(timestamp, datetime) else str(timestamp)
 
-        # Batch atomic increment query using UNWIND
-        query = f"""
-        UNWIND $ku_uids AS ku_uid
-        MATCH (ku:Entity {{uid: ku_uid}})
-        SET ku.{metric} = COALESCE(ku.{metric}, 0) + 1,
-            ku.{timestamp_field} = datetime($timestamp),
-            ku._substance_cache_timestamp = NULL
-        RETURN count(ku) as updated_count
-        """
-
-        params = {"ku_uids": list(ku_uids), "timestamp": timestamp_str}
-
-        if self.neo4j_adapter:
-            result = await self.neo4j_adapter.execute_query(query, params)
-            if result and len(result) > 0:
-                updated_count = result[0].get("updated_count", 0)
-                self.logger.debug(f"Batch substance metric updated: {updated_count} KUs.{metric}")
-        else:
-            self.logger.warning(
-                "Neo4j adapter not available - cannot batch increment substance metrics"
-            )
+        result = await self.ku_backend.batch_increment_substance(
+            ku_uids=list(ku_uids),
+            metric=metric,
+            timestamp_field=timestamp_field,
+            timestamp_str=timestamp_str,
+        )
+        if result.is_error:
+            self.logger.error(f"Failed batch substance increment: {result.error}")
+            return
+        self.logger.debug(f"Batch substance metric updated: {result.value} KUs.{metric}")
 
     async def increment_substance_metric(
         self, ku_uid: str, metric: str, timestamp_field: str, timestamp
@@ -1195,30 +1190,23 @@ class LessonService:
             self.logger.error(f"Invalid substance timestamp field rejected: {timestamp_field}")
             return
 
+        if not self.ku_backend:
+            self.logger.error("ku_backend not wired — cannot increment substance metric")
+            return
+
         # Convert datetime to ISO string if needed
         timestamp_str = timestamp.isoformat() if isinstance(timestamp, datetime) else str(timestamp)
 
-        # Atomic increment query
-        query = f"""
-        MATCH (ku:Entity {{uid: $ku_uid}})
-        SET ku.{metric} = COALESCE(ku.{metric}, 0) + 1,
-            ku.{timestamp_field} = datetime($timestamp),
-            ku._substance_cache_timestamp = NULL
-        RETURN ku.{metric} as new_count
-        """
-
-        params = {"ku_uid": ku_uid, "timestamp": timestamp_str}
-
-        # Execute via neo4j_adapter if available
-        if self.neo4j_adapter:
-            result = await self.neo4j_adapter.execute_query(query, params)
-            if result and len(result) > 0:
-                new_count = result[0].get("new_count", 0)
-                self.logger.debug(f"Substance metric updated: {ku_uid}.{metric} = {new_count}")
-        else:
-            self.logger.warning(
-                f"Neo4j adapter not available - cannot increment substance metric for {ku_uid}"
-            )
+        result = await self.ku_backend.increment_substance(
+            ku_uid=ku_uid,
+            metric=metric,
+            timestamp_field=timestamp_field,
+            timestamp_str=timestamp_str,
+        )
+        if result.is_error:
+            self.logger.error(f"Failed substance increment for {ku_uid}: {result.error}")
+            return
+        self.logger.debug(f"Substance metric updated: {ku_uid}.{metric} = {result.value}")
 
     # ========================================================================
     # ADDITIONAL API METHODS - Required by knowledge_api.py

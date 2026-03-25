@@ -20,7 +20,7 @@ Part of LsService decomposition (October 24, 2025)
 - Extends BaseService[BackendOperations[Ls], Ls] for unified infrastructure
 - Uses specialized Cypher queries for knowledge relationships
 - Class attributes match unified domain conventions
-- Uses self.backend.execute_query() for graph-native operations
+- Uses LsBackend methods for graph-native operations
 """
 
 from __future__ import annotations
@@ -46,19 +46,19 @@ from core.utils.result_simplified import Errors, Result
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from core.ports import BackendOperations
+    from core.ports.curriculum_protocols import LsOperations
 
 logger = get_logger(__name__)
 
 
-class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]):
+class LsCoreService(BaseService["LsOperations", LearningStep]):
     """
     Core CRUD operations for learning steps.
 
     **Architecture (January 2026 Unified):**
     Extends BaseService[BackendOperations[Ls], Ls] for unified infrastructure.
     Uses specialized Cypher queries for knowledge relationships via
-    self.backend.execute_query() (protocol-compliant).
+    LsBackend named methods (protocol-compliant).
 
     This service owns:
     - Step creation and persistence to Neo4j
@@ -88,7 +88,7 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
         """Entity label for Neo4j queries."""
         return "Entity"
 
-    def __init__(self, backend: BackendOperations[LearningStep], event_bus: Any = None) -> None:
+    def __init__(self, backend: LsOperations, event_bus: Any = None) -> None:
         """
         Initialize core step service.
 
@@ -118,58 +118,6 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
         Returns:
             Result containing created Ls
         """
-        # GRAPH-NATIVE: Create step node with scalar properties only
-        # Relationships (knowledge, prerequisites, etc.) stored as edges
-        query = """
-        CREATE (s:Entity {
-            uid: $uid,
-            entity_type: 'learning_step',
-            title: $title,
-            intent: $intent,
-            description: $description,
-            learning_path_uid: $learning_path_uid,
-            sequence: $sequence,
-            mastery_threshold: $mastery_threshold,
-            current_mastery: $current_mastery,
-            estimated_hours: $estimated_hours,
-            step_difficulty: $step_difficulty,
-            status: $status,
-            completed: $completed,
-            domain: $domain
-        })
-        """
-
-        # Create relationships for primary knowledge units
-        if step.primary_knowledge_uids:
-            query += """
-            WITH s
-            UNWIND $primary_knowledge_uids AS ku_uid
-            MATCH (ku:Entity {uid: ku_uid})
-            CREATE (s)-[:CONTAINS_KNOWLEDGE {type: 'primary'}]->(ku)
-            """
-
-        # Create relationships for supporting knowledge units
-        if step.supporting_knowledge_uids:
-            query += """
-            WITH s
-            UNWIND $supporting_knowledge_uids AS ku_uid
-            MATCH (ku:Entity {uid: ku_uid})
-            CREATE (s)-[:CONTAINS_KNOWLEDGE {type: 'supporting'}]->(ku)
-            """
-
-        # Optionally link to path
-        if path_uid:
-            query += """
-            WITH s
-            MATCH (p:Entity {uid: $path_uid})
-            CREATE (p)-[:HAS_STEP {sequence: $sequence}]->(s)
-            """
-
-        query += """
-        WITH s
-        RETURN s
-        """
-
         # Build params with proper enum value extraction
         params: dict[str, Any] = {
             "uid": step.uid,
@@ -190,7 +138,12 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
             "path_uid": path_uid,
         }
 
-        result = await self.backend.execute_query(query, params)
+        result = await self.backend.create_step_node(
+            params,
+            has_primary_knowledge=bool(step.primary_knowledge_uids),
+            has_supporting_knowledge=bool(step.supporting_knowledge_uids),
+            path_uid=path_uid,
+        )
 
         if result.is_error:
             return Result.fail(
@@ -231,14 +184,7 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
             Result containing Ls or None if not found
         """
         # GRAPH-NATIVE: Query node + knowledge relationships
-        result = await self.backend.execute_query(
-            """
-            MATCH (s:Entity {uid: $uid})
-            OPTIONAL MATCH (s)-[r:CONTAINS_KNOWLEDGE]->(ku:Entity)
-            RETURN s, collect({uid: ku.uid, type: r.type}) as knowledge_rels
-            """,
-            {"uid": step_uid},
-        )
+        result = await self.backend.get_step_with_knowledge(step_uid)
 
         if result.is_error:
             return Result.fail(result)
@@ -317,103 +263,8 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
         """
         # Note: depth and min_confidence are accepted for API compatibility
         # but this implementation uses a fixed specialized query
-        step_uid = uid  # Alias for backward compatibility in query
-        query_result = await self.backend.execute_query(
-            """
-            MATCH (ls:Entity {uid: $uid})
-
-            // 1. Primary and supporting knowledge
-            OPTIONAL MATCH (ls)-[r_ku:CONTAINS_KNOWLEDGE]->(ku:Entity)
-            WITH ls, collect({
-                uid: ku.uid,
-                title: ku.title,
-                type: r_ku.type,
-                confidence: coalesce(r_ku.confidence, 1.0)
-            }) as knowledge_rels
-
-            // 2. Prerequisite steps
-            OPTIONAL MATCH (ls)-[:REQUIRES_STEP]->(prereq_step:Entity {entity_type: 'learning_step'})
-            WITH ls, knowledge_rels, collect({
-                uid: prereq_step.uid,
-                title: prereq_step.title,
-                completed: prereq_step.completed
-            }) as prereq_steps
-
-            // 3. Prerequisite knowledge (separate from content knowledge)
-            OPTIONAL MATCH (ls)-[:REQUIRES_KNOWLEDGE {type: 'prerequisite'}]->(prereq_ku:Entity)
-            WITH ls, knowledge_rels, prereq_steps, collect({
-                uid: prereq_ku.uid,
-                title: prereq_ku.title
-            }) as prereq_knowledge
-
-            // 4. Guiding principles (via Lessons)
-            OPTIONAL MATCH (ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l4)-[:GUIDED_BY_PRINCIPLE]->(principle:Principle)
-            WITH ls, knowledge_rels, prereq_steps, prereq_knowledge, collect(DISTINCT {
-                uid: principle.uid,
-                title: principle.title
-            }) as principles
-
-            // 5. Informed choices (via Lessons)
-            OPTIONAL MATCH (ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l5)-[:INFORMS_CHOICE]->(choice:Choice)
-            WITH ls, knowledge_rels, prereq_steps, prereq_knowledge, principles, collect(DISTINCT {
-                uid: choice.uid,
-                title: choice.title
-            }) as choices
-
-            // 6. Practice opportunities: Habits (via Lessons)
-            OPTIONAL MATCH (ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l6)-[:BUILDS_HABIT]->(habit:Habit)
-            WITH ls, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices, collect(DISTINCT {
-                uid: habit.uid,
-                title: habit.title,
-                current_streak: habit.current_streak
-            }) as habits
-
-            // 7. Practice opportunities: Tasks (via Lessons)
-            OPTIONAL MATCH (ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l7)-[:ASSIGNS_TASK]->(task:Task)
-            WITH ls, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices, habits, collect(DISTINCT {
-                uid: task.uid,
-                title: task.title,
-                status: task.status
-            }) as tasks
-
-            // 8. Practice opportunities: Events (via Lessons)
-            OPTIONAL MATCH (ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l8)-[:SCHEDULES_EVENT]->(event:Event)
-            WITH ls, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices, habits, tasks, collect(DISTINCT {
-                uid: event.uid,
-                title: event.title,
-                event_date: event.event_date
-            }) as events
-
-            // 9. Practice opportunities: Goals (via Lessons)
-            OPTIONAL MATCH (ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l9)-[:SUPPORTS_GOAL]->(goal:Goal)
-            WITH ls, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices, habits, tasks, events, collect(DISTINCT {
-                uid: goal.uid,
-                title: goal.title,
-                status: goal.status
-            }) as goals
-
-            // 10. Learning path context (if part of sequence)
-            OPTIONAL MATCH (lp:Entity {entity_type: 'learning_path'})-[r_path:HAS_STEP|CONTAINS_STEP]->(ls)
-            WITH ls, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices, habits, tasks, events, goals, {
-                uid: lp.uid,
-                name: lp.title,
-                goal: lp.goal,
-                sequence: coalesce(r_path.sequence, 0)
-            } as path_context
-
-            // 11. Dependent steps (steps that require this one)
-            OPTIONAL MATCH (dependent:Entity {entity_type: 'learning_step'})-[:REQUIRES_STEP]->(ls)
-            WITH ls, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices, habits, tasks, events, goals, path_context, collect({
-                uid: dependent.uid,
-                title: dependent.title,
-                completed: dependent.completed
-            }) as dependent_steps
-
-            RETURN ls, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices,
-                   habits, tasks, events, goals, path_context, dependent_steps
-            """,
-            {"uid": step_uid},
-        )
+        step_uid = uid
+        query_result = await self.backend.get_step_with_context(step_uid)
 
         if query_result.is_error:
             return Result.fail(query_result)
@@ -556,16 +407,7 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
                 return Result.fail(Errors.not_found(resource="learning_step", identifier=step_uid))
             return Result.ok(get_result.value)
 
-        # GRAPH-NATIVE: Query includes knowledge relationships
-        query = f"""
-        MATCH (s:Entity {{uid: $uid}})
-        SET {", ".join(set_clauses)}
-        WITH s
-        OPTIONAL MATCH (s)-[r:CONTAINS_KNOWLEDGE]->(ku:Entity)
-        RETURN s, collect({{uid: ku.uid, type: r.type}}) as knowledge_rels
-        """
-
-        result = await self.backend.execute_query(query, params)
+        result = await self.backend.update_step_fields(step_uid, set_clauses, params)
 
         if result.is_error:
             return Result.fail(
@@ -649,14 +491,7 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
         linked_lp_uid = step.learning_path_uid
 
         # Delete step and its relationships
-        result = await self.backend.execute_query(
-            """
-            MATCH (s:Entity {uid: $uid})
-            DETACH DELETE s
-            RETURN count(s) as deleted_count
-            """,
-            {"uid": step_uid},
-        )
+        result = await self.backend.delete_step_node(step_uid)
 
         if result.is_error:
             return Result.fail(
@@ -711,48 +546,17 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
         Returns:
             Result containing list of Ls
         """
-        # Build dynamic ORDER BY clause
         order_field = f"s.{order_by}" if order_by else "s.sequence"
         order_direction = "DESC" if order_desc else "ASC"
 
-        # Build WHERE clause for optional user_uid filtering
-        where_clause = ""
-        if user_uid:
-            where_clause = "WHERE s.user_uid = $user_uid "
-
-        # GRAPH-NATIVE: Include knowledge relationships in query
-        if path_uid:
-            # Get steps for specific path
-            query = f"""
-            MATCH (p:Entity {{uid: $path_uid}})-[:HAS_STEP]->(s:Entity {{entity_type: 'learning_step'}})
-            {where_clause}
-            OPTIONAL MATCH (s)-[r:CONTAINS_KNOWLEDGE]->(ku:Entity)
-            WITH s, collect({{uid: ku.uid, type: r.type}}) as knowledge_rels
-            RETURN s, knowledge_rels
-            ORDER BY {order_field} {order_direction}
-            SKIP $offset
-            LIMIT $limit
-            """
-            params: dict[str, Any] = {"path_uid": path_uid, "limit": limit, "offset": offset}
-        else:
-            # Get all steps
-            query = f"""
-            MATCH (s:Entity {{entity_type: 'learning_step'}})
-            {where_clause}
-            OPTIONAL MATCH (s)-[r:CONTAINS_KNOWLEDGE]->(ku:Entity)
-            WITH s, collect({{uid: ku.uid, type: r.type}}) as knowledge_rels
-            RETURN s, knowledge_rels
-            ORDER BY {order_field} {order_direction}
-            SKIP $offset
-            LIMIT $limit
-            """
-            params = {"limit": limit, "offset": offset}
-
-        # Add user_uid to params if filtering by user
-        if user_uid:
-            params["user_uid"] = user_uid
-
-        result = await self.backend.execute_query(query, params)
+        result = await self.backend.list_steps_raw(
+            path_uid=path_uid,
+            limit=limit,
+            offset=offset,
+            order_field=order_field,
+            order_direction=order_direction,
+            user_uid=user_uid,
+        )
 
         if result.is_error:
             return Result.fail(result)
