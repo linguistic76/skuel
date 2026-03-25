@@ -228,51 +228,14 @@ class LessonAIService(BaseAIService[LessonOperations, Lesson]):
 
         query_embedding = query_embedding_result.value
 
-        # Build vector search query
-        cypher = """
-        CALL db.index.vector.queryNodes(
-            'contentchunk_embedding_idx',
-            $limit * 2,
-            $query_embedding
-        ) YIELD node AS chunk, score
-        WHERE score >= $threshold
-        """
-
-        # Add optional filters
-        if chunk_types:
-            cypher += " AND chunk.chunk_type IN $chunk_types"
-        if ku_uid:
-            cypher += """
-            AND EXISTS {
-                MATCH (chunk)<-[:HAS_CHUNK]-(content:Content {uid: $ku_uid})
-            }
-            """
-
-        # Get parent KU information
-        cypher += """
-        MATCH (chunk)<-[:HAS_CHUNK]-(content:Content)<-[:HAS_CONTENT]-(ku:Entity)
-        RETURN
-            chunk.uid as chunk_uid,
-            chunk.chunk_type as chunk_type,
-            chunk.text as text,
-            chunk.context_window as context_window,
-            score as similarity_score,
-            ku.uid as parent_entity_uid,
-            ku.title as parent_ku_title
-        ORDER BY score DESC
-        LIMIT $limit
-        """
-
-        params = {
-            "query_embedding": query_embedding,
-            "limit": limit,
-            "threshold": similarity_threshold,
-            "chunk_types": chunk_types,
-            "ku_uid": ku_uid,
-        }
-
-        # Execute query via protocol-compliant backend
-        result = await self.backend.execute_query(cypher, params)
+        # Execute vector search via backend
+        result = await self.backend.semantic_search_chunks(
+            query_embedding=query_embedding,
+            limit=limit,
+            threshold=similarity_threshold,
+            chunk_types=chunk_types,
+            ku_uid=ku_uid,
+        )
         if result.is_error:
             return result
 

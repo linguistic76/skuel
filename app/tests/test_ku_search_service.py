@@ -377,12 +377,14 @@ class TestSimilaritySearch:
                 "domain": "tech",
             },
         }
-        service.backend.execute_query = AsyncMock(return_value=Result.ok([similar_record]))
+        service.backend.find_similar_by_keywords = AsyncMock(
+            return_value=Result.ok([similar_record])
+        )
 
         result = await service.find_similar_content("ku.test.1", limit=5)
 
         assert result.is_ok
-        service.backend.execute_query.assert_called_once()
+        service.backend.find_similar_by_keywords.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_search_by_features_without_intelligence(self):
@@ -506,14 +508,12 @@ class TestFacadeDelegation:
         repo = MagicMock()
         content_repo = MagicMock()
         query_builder = AsyncMock()
-        neo4j_adapter = MagicMock()
         graph_intel = MagicMock()  # Required by fail-fast architecture (ADR-030)
 
         service = LessonService(
             repo=repo,
             content_repo=content_repo,
             query_builder=query_builder,
-            neo4j_adapter=neo4j_adapter,
             graph_intelligence_service=graph_intel,
         )
 

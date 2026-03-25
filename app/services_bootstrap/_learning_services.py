@@ -14,7 +14,6 @@ logger = get_logger("skuel.bootstrap")
 
 def _create_learning_services(
     driver: Any,
-    neo4j_adapter: Any,
     progress_backend: Any,
     knowledge_backend: Any,
     atomic_ku_backend: Any,  # KuBackend for atomic Ku entities
@@ -91,7 +90,6 @@ def _create_learning_services(
     ku_service = LessonService(
         repo=knowledge_backend,
         content_repo=content_adapter,  # Neo4jContentAdapter implements ContentOperations protocol
-        neo4j_adapter=neo4j_adapter,
         ku_backend=atomic_ku_backend,
         chunking_service=chunking_service,
         graph_intelligence_service=graph_intelligence,

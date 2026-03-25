@@ -40,7 +40,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.ports import BackendOperations
+    from core.ports import LessonOperations
 
 logger = get_logger("skuel.services.lesson.adaptive")
 
@@ -58,13 +58,13 @@ class LessonAdaptiveService:
 
     def __init__(
         self,
-        ku_backend: "BackendOperations[Lesson]",
+        backend: "LessonOperations",
         user_service=None,
     ) -> None:
-        if not ku_backend:
-            raise ValueError("ku_backend is required")
+        if not backend:
+            raise ValueError("backend is required")
 
-        self.ku_backend = ku_backend
+        self.backend = backend
         self.user_service = user_service
         self.logger = logger
 
@@ -93,7 +93,7 @@ class LessonAdaptiveService:
             user_intel = self._create_default_intelligence(user_uid)
 
         # 2. Query KUs for this SEL category
-        all_kus_result = await self.ku_backend.find_by(sel_category=sel_category.value)
+        all_kus_result = await self.backend.find_by(sel_category=sel_category.value)
         if all_kus_result.is_error:
             return Result.fail(all_kus_result)
         all_kus = all_kus_result.value or []
@@ -129,7 +129,7 @@ class LessonAdaptiveService:
     ) -> bool:
         """Check if user has mastered all prerequisites for this KU."""
         try:
-            prereq_result = await self.ku_backend.get_related_uids(
+            prereq_result = await self.backend.get_related_uids(
                 ku.uid, RelationshipName.REQUIRES_KNOWLEDGE, "outgoing"
             )
             if prereq_result.is_error:
@@ -229,7 +229,7 @@ class LessonAdaptiveService:
     async def _count_enables(self, ku: Lesson) -> int:
         """Count how many KUs this one enables."""
         try:
-            enables_result = await self.ku_backend.get_related_uids(
+            enables_result = await self.backend.get_related_uids(
                 ku.uid, RelationshipName.ENABLES_KNOWLEDGE, "outgoing"
             )
             enables_uids = enables_result.value if enables_result.is_ok else []
@@ -240,7 +240,7 @@ class LessonAdaptiveService:
     async def _count_prerequisites(self, ku: Lesson) -> int:
         """Count how many prerequisites this KU has."""
         try:
-            prereq_result = await self.ku_backend.get_related_uids(
+            prereq_result = await self.backend.get_related_uids(
                 ku.uid, RelationshipName.REQUIRES_KNOWLEDGE, "outgoing"
             )
             prereq_uids = prereq_result.value if prereq_result.is_ok else []
@@ -277,7 +277,7 @@ class LessonAdaptiveService:
     ) -> CurriculumProgress:
         """Calculate progress in one SEL category."""
         try:
-            all_kus_result = await self.ku_backend.find_by(sel_category=category.value)
+            all_kus_result = await self.backend.find_by(sel_category=category.value)
             if all_kus_result.is_error:
                 all_kus = []
             else:
@@ -316,25 +316,9 @@ class LessonAdaptiveService:
     ) -> Result[None]:
         """Track when user completes a KU — creates/updates MASTERED relationship."""
         try:
-            query = """
-            MATCH (u:User {uid: $user_uid}), (k:Entity {uid: $ku_uid})
-            MERGE (u)-[m:MASTERED]->(k)
-            ON CREATE SET
-                m.mastery_level = 'introduced',
-                m.created_at = datetime(),
-                m.time_to_mastery_hours = $completion_time_minutes / 60.0,
-                m.source = 'curriculum'
-            ON MATCH SET
-                m.mastery_level = 'proficient',
-                m.updated_at = datetime()
-            RETURN m
-            """
-            params = {
-                "user_uid": user_uid,
-                "ku_uid": ku_uid,
-                "completion_time_minutes": completion_time_minutes,
-            }
-            result = await self.ku_backend.execute_query(query, params)
+            result = await self.backend.track_mastery_completion(
+                user_uid, ku_uid, completion_time_minutes
+            )
             if result.is_error:
                 return Result.fail(result)
             self.logger.info(f"Tracked curriculum completion: {user_uid} -> {ku_uid}")
@@ -420,26 +404,7 @@ class LessonAdaptiveService:
     async def _query_user_masteries(self, user_uid: str) -> dict[str, Mastery]:
         """Query user's MASTERED relationships from graph."""
         try:
-            query = """
-            MATCH (u:User {uid: $user_uid})-[m:MASTERED]->(k:Entity)
-            RETURN
-                k.uid as ku_uid,
-                m.mastery_level as mastery_level,
-                m.confidence_score as confidence_score,
-                m.mastery_score as mastery_score,
-                m.learning_velocity as learning_velocity,
-                m.time_to_mastery_hours as time_to_mastery_hours,
-                m.review_frequency_days as review_frequency_days,
-                m.mastery_evidence as mastery_evidence,
-                m.last_reviewed as last_reviewed,
-                m.last_practiced as last_practiced,
-                m.learning_path_context as learning_path_context,
-                m.difficulty_experienced as difficulty_experienced,
-                m.preferred_learning_method as preferred_learning_method,
-                m.created_at as created_at,
-                m.updated_at as updated_at
-            """
-            query_result = await self.ku_backend.execute_query(query, {"user_uid": user_uid})
+            query_result = await self.backend.query_user_masteries(user_uid)
             if query_result.is_error:
                 return {}
             records = query_result.value or []
@@ -523,12 +488,7 @@ class LessonAdaptiveService:
     async def _query_active_learning_paths(self, user_uid: str) -> list[LearningPath]:
         """Query user's active learning paths."""
         try:
-            query = """
-            MATCH (u:User {uid: $user_uid})-[:ENROLLED_IN]->(lp:Lp)
-            WHERE lp.status = 'active' OR lp.status = 'in_progress'
-            RETURN lp
-            """
-            query_result = await self.ku_backend.execute_query(query, {"user_uid": user_uid})
+            query_result = await self.backend.query_active_learning_paths(user_uid)
             if query_result.is_error:
                 return []
 
@@ -552,11 +512,7 @@ class LessonAdaptiveService:
     async def _query_completed_learning_paths(self, user_uid: str) -> list[str]:
         """Query UIDs of completed learning paths."""
         try:
-            query = """
-            MATCH (u:User {uid: $user_uid})-[:COMPLETED]->(lp:Lp)
-            RETURN lp.uid as lp_uid
-            """
-            query_result = await self.ku_backend.execute_query(query, {"user_uid": user_uid})
+            query_result = await self.backend.query_completed_learning_paths(user_uid)
             if query_result.is_error:
                 return []
 
@@ -611,12 +567,7 @@ class LessonAdaptiveService:
     async def _load_learning_preferences(self, user_uid: str) -> LearningPreference | None:
         """Load user's learning preferences if available."""
         try:
-            query = """
-            MATCH (u:User {uid: $user_uid})-[:HAS_PREFERENCE]->(pref:LearningPreference)
-            RETURN pref
-            LIMIT 1
-            """
-            result = await self.ku_backend.execute_query(query, {"user_uid": user_uid})
+            result = await self.backend.query_learning_preferences(user_uid)
 
             if result.is_error or not result.value:
                 return None

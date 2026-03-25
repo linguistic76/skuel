@@ -479,7 +479,6 @@ async def compose_services(
         # Create learning services (graph_intelligence already created above)
         learning_services = _create_learning_services(
             driver=driver,
-            neo4j_adapter=neo4j_adapter,
             progress_backend=progress_backend,
             knowledge_backend=knowledge_backend,
             atomic_ku_backend=ku_backend,

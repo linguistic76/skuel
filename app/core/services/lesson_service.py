@@ -493,7 +493,6 @@ class LessonService:
         self,
         repo: "LessonOperations",
         content_repo: "Any | None" = None,  # Was ContentOperations (deleted January 2026)
-        neo4j_adapter: "Any | None" = None,
         ku_backend: "Any | None" = None,
         chunking_service: "Any | None" = None,
         graph_intelligence_service: "Any | None" = None,
@@ -519,7 +518,6 @@ class LessonService:
         Args:
             repo: LessonOperations backend - REQUIRED
             content_repo: Content storage backend (optional)
-            neo4j_adapter: Neo4j adapter for sub-service graph operations (optional)
             ku_backend: KuBackend for substance metric operations (REQUIRED)
             chunking_service: Chunking service for RAG (optional)
             graph_intelligence_service: GraphIntelligenceService - REQUIRED for cross-domain queries
@@ -551,7 +549,6 @@ class LessonService:
         subs = create_lesson_sub_services(
             backend=repo,
             content_repo=content_repo,
-            neo4j_adapter=neo4j_adapter,
             chunking_service=chunking_service,
             graph_intelligence_service=graph_intelligence_service,
             query_builder=query_builder,

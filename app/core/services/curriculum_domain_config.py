@@ -270,7 +270,6 @@ class LpSubServices:
 def create_lesson_sub_services(
     backend: "LessonOperations",
     content_repo: Any | None,
-    neo4j_adapter: Any | None,
     chunking_service: Any | None,
     graph_intelligence_service: Any,
     query_builder: "QueryBuilderOperations | None",
@@ -292,18 +291,17 @@ def create_lesson_sub_services(
     2. LessonIntelligenceService (backend, graph_intel, relationships, embeddings, llm)
     3. LessonCoreService (repo, content_repo, intelligence, chunking, event_bus)
     4. LessonSearchService (backend, content_repo, intelligence, query_builder, vector_search, embeddings)
-    5. LessonGraphService (repo, neo4j_adapter, graph_intel)
-    6. LessonSemanticService (repo, neo4j_adapter, intelligence)
+    5. LessonGraphService (repo, graph_intel)
+    6. LessonSemanticService (repo, intelligence)
     7. LessonPracticeService (backend, event_bus)
     8. LessonMasteryService (backend, event_bus)
-    9. LessonAdaptiveService (repo, neo4j_adapter)
-    10. LessonApplicationDiscoveryService (repo, neo4j_adapter)
-    11. LessonContextService (repo, neo4j_adapter, user_service)
+    9. LessonAdaptiveService (backend, user_service)
+    10. LessonApplicationDiscoveryService (repo)
+    11. LessonContextService (repo)
 
     Args:
         backend: LessonOperations backend - REQUIRED
         content_repo: Content storage backend (optional)
-        neo4j_adapter: Neo4j adapter for graph operations (optional)
         chunking_service: Chunking service for RAG (optional)
         graph_intelligence_service: GraphIntelligenceService - REQUIRED
         query_builder: QueryBuilder service for optimized queries (optional)
@@ -368,14 +366,12 @@ def create_lesson_sub_services(
     # Step 5: Create graph
     graph = LessonGraphService(
         repo=backend,
-        neo4j_adapter=neo4j_adapter,
         graph_intel=graph_intelligence_service,
     )
 
     # Step 6: Create semantic
     semantic = LessonSemanticService(
         repo=backend,
-        neo4j_adapter=neo4j_adapter,
         intelligence=intelligence,
     )
 
@@ -386,19 +382,13 @@ def create_lesson_sub_services(
     mastery = LessonMasteryService(backend=backend, event_bus=event_bus)
 
     # Step 9: Create adaptive curriculum service
-    adaptive = LessonAdaptiveService(ku_backend=backend, user_service=user_service)
+    adaptive = LessonAdaptiveService(backend=backend, user_service=user_service)
 
     # Step 10: Create application discovery (reverse relationship queries)
-    application_discovery = LessonApplicationDiscoveryService(
-        repo=backend,
-        neo4j_adapter=neo4j_adapter,
-    )
+    application_discovery = LessonApplicationDiscoveryService(repo=backend)
 
     # Step 11: Create context service (context-first knowledge recommendations)
-    context_service = LessonContextService(
-        repo=backend,
-        neo4j_adapter=neo4j_adapter,
-    )
+    context_service = LessonContextService(repo=backend)
 
     return LessonSubServices(
         core=core,

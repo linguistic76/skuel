@@ -1704,6 +1704,684 @@ class LessonBackend(UniversalNeo4jBackend[Lesson]):
         """
         return await self.execute_query(query, {"parent_uid": parent_uid, "child_uid": child_uid})
 
+    # ========================================================================
+    # PHASE 1: PRACTICE + AI SERVICE QUERIES
+    # ========================================================================
+
+    async def find_kus_practiced_by_event(self, event_uid: str) -> Result[list[Neo4jProperties]]:
+        """Find KU UIDs practiced by a completed event via PRACTICES relationship."""
+        query = """
+        MATCH (event:Event {uid: $event_uid})-[:PRACTICES]->(ku:Entity)
+        RETURN DISTINCT ku.uid as ku_uid
+        """
+        return await self.execute_query(query, {"event_uid": event_uid})
+
+    async def increment_practice_count(
+        self, ku_uid: str, occurred_at: str
+    ) -> Result[list[Neo4jProperties]]:
+        """Increment practice count and update last_practiced_date on a KU."""
+        query = """
+        MATCH (ku:Entity {uid: $ku_uid})
+        SET ku.times_practiced_in_events = COALESCE(ku.times_practiced_in_events, 0) + 1,
+            ku.last_practiced_date = datetime($occurred_at)
+        RETURN ku.times_practiced_in_events as new_count
+        """
+        return await self.execute_query(query, {"ku_uid": ku_uid, "occurred_at": occurred_at})
+
+    async def semantic_search_chunks(
+        self,
+        query_embedding: list[float],
+        limit: int,
+        threshold: float,
+        chunk_types: list[str] | None = None,
+        ku_uid: str | None = None,
+    ) -> Result[list[Neo4jProperties]]:
+        """Vector search across ContentChunk nodes for precise RAG retrieval."""
+        cypher = """
+        CALL db.index.vector.queryNodes(
+            'contentchunk_embedding_idx',
+            $limit * 2,
+            $query_embedding
+        ) YIELD node AS chunk, score
+        WHERE score >= $threshold
+        """
+        if chunk_types:
+            cypher += " AND chunk.chunk_type IN $chunk_types"
+        if ku_uid:
+            cypher += """
+            AND EXISTS {
+                MATCH (chunk)<-[:HAS_CHUNK]-(content:Content {uid: $ku_uid})
+            }
+            """
+        cypher += """
+        MATCH (chunk)<-[:HAS_CHUNK]-(content:Content)<-[:HAS_CONTENT]-(ku:Entity)
+        RETURN
+            chunk.uid as chunk_uid,
+            chunk.chunk_type as chunk_type,
+            chunk.text as text,
+            chunk.context_window as context_window,
+            score as similarity_score,
+            ku.uid as parent_entity_uid,
+            ku.title as parent_ku_title
+        ORDER BY score DESC
+        LIMIT $limit
+        """
+        params: dict[str, Any] = {
+            "query_embedding": query_embedding,
+            "limit": limit,
+            "threshold": threshold,
+            "chunk_types": chunk_types,
+            "ku_uid": ku_uid,
+        }
+        return await self.execute_query(cypher, params)
+
+    # ========================================================================
+    # PHASE 2: SEARCH SERVICE QUERIES
+    # ========================================================================
+
+    async def find_similar_by_keywords(self, uid: str, limit: int) -> Result[list[Neo4jProperties]]:
+        """Find similar entities using keyword matching and structural similarity."""
+        query = """
+        MATCH (source:Entity {uid: $uid})
+        MATCH (similar:Entity)
+        WHERE similar.uid <> source.uid
+
+        // Calculate similarity based on:
+        // 1. Shared tags
+        WITH source, similar,
+             size([t IN source.tags WHERE t IN similar.tags]) as shared_tags
+
+        // 2. Same domain
+        WITH source, similar, shared_tags,
+             CASE WHEN source.domain = similar.domain THEN 2 ELSE 0 END as domain_match
+
+        // 3. Keyword overlap (simple text similarity)
+        WITH source, similar, shared_tags, domain_match,
+             size([word IN split(toLower(source.title), ' ')
+                   WHERE toLower(similar.title) CONTAINS word]) as title_overlap
+
+        // Combine scores
+        WITH similar,
+             (shared_tags * 3 + domain_match + title_overlap) as similarity_score
+        WHERE similarity_score > 0
+
+        RETURN similar
+        ORDER BY similarity_score DESC
+        LIMIT $limit
+        """
+        return await self.execute_query(query, {"uid": uid, "limit": limit})
+
+    async def search_by_keywords(
+        self, query_text: str, limit: int
+    ) -> Result[list[Neo4jProperties]]:
+        """Keyword-based search using CONTAINS on title/summary/tags."""
+        query = """
+        MATCH (ku:Entity)
+        WHERE toLower(ku.title) CONTAINS toLower($query_text)
+           OR toLower(ku.summary) CONTAINS toLower($query_text)
+           OR any(tag IN ku.tags WHERE toLower(tag) CONTAINS toLower($query_text))
+        RETURN ku
+        ORDER BY ku.updated_at DESC
+        LIMIT $limit
+        """
+        return await self.execute_query(query, {"query_text": query_text, "limit": limit})
+
+    # ========================================================================
+    # PHASE 3: APPLICATION DISCOVERY SERVICE QUERIES
+    # ========================================================================
+
+    async def find_connected_activities(
+        self,
+        ku_uid: str,
+        user_uid: str,
+        node_label: str,
+        rel_types: list[str],
+        filters: dict[str, Any] | None = None,
+        order_by: str = "created_at",
+        limit: int = 10,
+        reverse_direction: bool = False,
+    ) -> Result[list[Neo4jProperties]]:
+        """Find activity entities connected to a KU via graph relationships."""
+        rel_pattern = "|".join(rel_types)
+        if reverse_direction:
+            match_clause = f"MATCH (n:{node_label})-[:{rel_pattern}]<-(ku:Entity)"
+        else:
+            match_clause = f"MATCH (n:{node_label})-[:{rel_pattern}]->(ku:Entity)"
+
+        conditions = ["ku.uid = $ku_uid", "n.user_uid = $user_uid"]
+        params: dict[str, Any] = {"ku_uid": ku_uid, "user_uid": user_uid}
+
+        if filters:
+            for condition_fragment, filter_params in filters.items():
+                conditions.append(condition_fragment)
+                params.update(filter_params)
+
+        where_clause = " AND ".join(conditions)
+
+        query = f"""
+        {match_clause}
+        WHERE {where_clause}
+        RETURN n.uid as entity_uid
+        ORDER BY n.{order_by} DESC
+        LIMIT {limit}
+        """
+        return await self.execute_query(query, params)
+
+    async def find_learning_steps_containing_ku(
+        self, ku_uid: str, limit: int = 10
+    ) -> Result[list[Neo4jProperties]]:
+        """Find learning steps that contain/teach a KU via CONTAINS_KNOWLEDGE."""
+        query = """
+        MATCH (ku:Entity {uid: $ku_uid})<-[:CONTAINS_KNOWLEDGE]-(ls:Ls)
+        RETURN ls.uid as step_uid
+        ORDER BY ls.sequence_number ASC
+        LIMIT $limit
+        """
+        return await self.execute_query(query, {"ku_uid": ku_uid, "limit": limit})
+
+    async def find_learning_paths_teaching_ku(
+        self, ku_uid: str, limit: int = 10
+    ) -> Result[list[Neo4jProperties]]:
+        """Find learning paths that teach a KU via LS chain."""
+        query = """
+        MATCH (ku:Entity {uid: $ku_uid})<-[:CONTAINS_KNOWLEDGE]-(ls:Ls)<-[:HAS_STEP]-(lp:Lp)
+        RETURN DISTINCT lp.uid as path_uid
+        ORDER BY lp.created_at DESC
+        LIMIT $limit
+        """
+        return await self.execute_query(query, {"ku_uid": ku_uid, "limit": limit})
+
+    # ========================================================================
+    # PHASE 4: CONTEXT SERVICE QUERIES
+    # ========================================================================
+
+    async def find_ready_to_learn(
+        self, mastered_uids: list[str], domain: str | None, limit: int
+    ) -> Result[list[Neo4jProperties]]:
+        """Find KUs the user is ready to learn (prerequisites >= 70% met)."""
+        query = """
+        MATCH (ku:Entity)
+        WHERE NOT ku.uid IN $mastered_uids
+          AND ($domain IS NULL OR ku.domain = $domain)
+
+        // Count prerequisites and how many user has mastered
+        OPTIONAL MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Entity)
+        WITH ku,
+             collect(prereq.uid) as prereq_uids,
+             count(prereq) as total_prereqs
+
+        // Calculate readiness based on prerequisites
+        WITH ku, prereq_uids, total_prereqs,
+             size([p IN prereq_uids WHERE p IN $mastered_uids]) as satisfied_prereqs
+
+        WITH ku, prereq_uids, total_prereqs, satisfied_prereqs,
+             CASE
+               WHEN total_prereqs = 0 THEN 1.0
+               ELSE toFloat(satisfied_prereqs) / total_prereqs
+             END as readiness
+
+        // Filter for ready-to-learn (>= 70% prerequisites met)
+        WHERE readiness >= 0.7
+
+        // Get what this enables (dependents)
+        OPTIONAL MATCH (ku)<-[:REQUIRES_KNOWLEDGE]-(dependent:Entity)
+
+        RETURN ku.uid as uid,
+               ku.title as title,
+               ku.domain as domain,
+               ku.summary as summary,
+               readiness,
+               total_prereqs,
+               satisfied_prereqs,
+               prereq_uids,
+               count(dependent) as dependent_count
+        ORDER BY readiness DESC, dependent_count DESC
+        LIMIT $limit
+        """
+        return await self.execute_query(
+            query, {"mastered_uids": mastered_uids, "domain": domain, "limit": limit}
+        )
+
+    async def find_learning_gaps(
+        self, goal_uids: list[str], mastered_uids: list[str], limit: int
+    ) -> Result[list[Neo4jProperties]]:
+        """Find KUs required by goals but not mastered."""
+        query = """
+        MATCH (goal:Goal)-[:REQUIRES_KNOWLEDGE]->(ku:Entity)
+        WHERE goal.uid IN $goal_uids
+          AND NOT ku.uid IN $mastered_uids
+
+        // Count how many goals need this knowledge
+        WITH ku, count(DISTINCT goal) as goals_blocked,
+             collect(DISTINCT goal.uid) as blocking_goal_uids
+
+        // Get prerequisite info
+        OPTIONAL MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Entity)
+        WITH ku, goals_blocked, blocking_goal_uids,
+             count(prereq) as prereq_count,
+             collect(prereq.uid) as prereq_uids
+
+        // Calculate how many prereqs are satisfied
+        WITH ku, goals_blocked, blocking_goal_uids, prereq_count, prereq_uids,
+             size([p IN prereq_uids WHERE p IN $mastered_uids]) as satisfied_prereqs
+
+        RETURN ku.uid as uid,
+               ku.title as title,
+               ku.domain as domain,
+               goals_blocked,
+               blocking_goal_uids,
+               prereq_count,
+               satisfied_prereqs,
+               CASE
+                 WHEN prereq_count = 0 THEN 1.0
+                 ELSE toFloat(satisfied_prereqs) / prereq_count
+               END as readiness
+        ORDER BY goals_blocked DESC, readiness DESC
+        LIMIT $limit
+        """
+        return await self.execute_query(
+            query, {"goal_uids": goal_uids, "mastered_uids": mastered_uids, "limit": limit}
+        )
+
+    async def find_reinforcement_candidates(
+        self, uids: list[str], active_goal_uids: list[str]
+    ) -> Result[list[Neo4jProperties]]:
+        """Get KU details + goal relevance for reinforcement candidates."""
+        query = """
+        UNWIND $uids as uid
+        MATCH (ku:Entity {uid: uid})
+
+        // Check if this knowledge is used by active goals
+        OPTIONAL MATCH (goal:Goal)-[:REQUIRES_KNOWLEDGE]->(ku)
+        WHERE goal.uid IN $active_goal_uids
+
+        WITH ku, count(goal) as goal_relevance
+
+        // Check what depends on this knowledge
+        OPTIONAL MATCH (ku)<-[:REQUIRES_KNOWLEDGE]-(dependent:Entity)
+
+        RETURN ku.uid as uid,
+               ku.title as title,
+               ku.domain as domain,
+               goal_relevance,
+               count(dependent) as dependent_count
+        """
+        return await self.execute_query(query, {"uids": uids, "active_goal_uids": active_goal_uids})
+
+    # ========================================================================
+    # PHASE 5: SEMANTIC SERVICE QUERIES
+    # ========================================================================
+
+    async def create_semantic_relationship(
+        self, cypher: str, params: dict[str, Any]
+    ) -> Result[list[Neo4jProperties]]:
+        """Execute a SemanticTriple.to_cypher_merge() query."""
+        return await self.execute_query(cypher, params)
+
+    async def query_semantic_neighborhood(
+        self, uid: str, semantic_types: list[Any] | None, depth: int, min_confidence: float
+    ) -> Result[list[Neo4jProperties]]:
+        """Query semantic neighborhood using build_semantic_context helper."""
+        from adapters.persistence.neo4j.query import build_semantic_context
+
+        query, params = build_semantic_context(
+            node_uid=uid,
+            semantic_types=semantic_types,
+            depth=depth,
+            min_confidence=min_confidence,
+        )
+        return await self.execute_query(query, params)
+
+    async def delete_semantic_relationship(
+        self, rel_name: str, subject_uid: str, object_uid: str
+    ) -> Result[list[Neo4jProperties]]:
+        """Delete a semantic relationship between two entities."""
+        query = f"""
+        MATCH (s:Entity {{uid: $subject_uid}})
+              -[r:{rel_name}]->
+              (o:Entity {{uid: $object_uid}})
+        DETACH DELETE r
+        RETURN count(r) as deleted
+        """
+        return await self.execute_query(
+            query, {"subject_uid": subject_uid, "object_uid": object_uid}
+        )
+
+    async def query_relationships_by_type(
+        self, uid: str, rel_name: str, direction: str
+    ) -> Result[list[Neo4jProperties]]:
+        """Find relationships by type and direction for an entity."""
+        if direction == "outgoing":
+            pattern = f"(source)-[r:{rel_name}]->(target)"
+        elif direction == "incoming":
+            pattern = f"(source)<-[r:{rel_name}]-(target)"
+        else:  # both
+            pattern = f"(source)-[r:{rel_name}]-(target)"
+
+        query = f"""
+        MATCH {pattern}
+        WHERE source.uid = $uid
+        RETURN target, r,
+               startNode(r).uid as subject_uid,
+               endNode(r).uid as object_uid
+        """
+        return await self.execute_query(query, {"uid": uid})
+
+    async def discover_semantic_bridges(
+        self, uid: str, target_domain: str | None, limit: int
+    ) -> Result[list[Neo4jProperties]]:
+        """Discover cross-domain semantic bridges via shared concepts."""
+        query = """
+        MATCH (source:Entity {uid: $uid})
+        MATCH (source)-[r1]->(shared)
+        MATCH (target:Entity)-[r2]->(shared)
+        WHERE source.domain <> target.domain
+        AND ($target_domain IS NULL OR target.domain = $target_domain)
+        AND type(r1) = type(r2)
+        RETURN DISTINCT target,
+               type(r1) as bridge_type,
+               shared.uid as shared_concept,
+               r1.confidence + r2.confidence as combined_confidence
+        ORDER BY combined_confidence DESC
+        LIMIT $limit
+        """
+        return await self.execute_query(
+            query, {"uid": uid, "target_domain": target_domain, "limit": limit}
+        )
+
+    async def infer_transitive_relationships(
+        self, uid: str, limit: int
+    ) -> Result[list[Neo4jProperties]]:
+        """Infer potential relationships via transitive closure A->B->C => A->C."""
+        query = """
+        MATCH (source:Entity {uid: $uid})-[r1]->(intermediate)
+              -[r2]->(target:Entity)
+        WHERE NOT (source)-[]->(target)
+        AND type(r1) = type(r2)
+        RETURN DISTINCT target,
+               type(r1) as inferred_type,
+               intermediate.uid as via_uid,
+               (r1.confidence * r2.confidence) as confidence
+        ORDER BY confidence DESC
+        LIMIT $limit
+        """
+        return await self.execute_query(query, {"uid": uid, "limit": limit})
+
+    # ========================================================================
+    # PHASE 6A: GRAPH SERVICE QUERIES
+    # ========================================================================
+
+    async def link_prerequisite(
+        self, unit_uid: str, prereq_uid: str, is_mandatory: bool
+    ) -> Result[list[Neo4jProperties]]:
+        """Create REQUIRES_KNOWLEDGE relationship between two entities."""
+        query = """
+        MATCH (unit:Entity {uid: $unit_uid})
+        MATCH (prereq:Entity {uid: $prereq_uid})
+        MERGE (unit)-[r:REQUIRES_KNOWLEDGE]->(prereq)
+        SET r.is_mandatory = $is_mandatory
+        SET r.created_at = datetime()
+        RETURN r
+        """
+        return await self.execute_query(
+            query, {"unit_uid": unit_uid, "prereq_uid": prereq_uid, "is_mandatory": is_mandatory}
+        )
+
+    async def link_parent_child(
+        self, parent_uid: str, child_uid: str
+    ) -> Result[list[Neo4jProperties]]:
+        """Create HAS_NARROWER hierarchy relationship."""
+        query = """
+        MATCH (parent:Entity {uid: $parent_uid})
+        MATCH (child:Entity {uid: $child_uid})
+        MERGE (parent)-[r:HAS_NARROWER]->(child)
+        SET r.created_at = datetime()
+        RETURN r
+        """
+        return await self.execute_query(query, {"parent_uid": parent_uid, "child_uid": child_uid})
+
+    async def query_user_mastery_for_prereqs(
+        self, user_uid: str, prereq_uids: list[str]
+    ) -> Result[list[Neo4jProperties]]:
+        """Query user MASTERED + IN_PROGRESS state for prerequisite KUs."""
+        query = """
+        MATCH (u:User {uid: $user_uid})
+        OPTIONAL MATCH (u)-[m:MASTERED]->(k:Entity)
+        WHERE k.uid IN $prereq_uids
+        RETURN k.uid as ku_uid,
+               m.mastery_score as score,
+               m.confidence_level as confidence,
+               m.last_practiced as last_practiced
+        UNION
+        MATCH (u:User {uid: $user_uid})
+        OPTIONAL MATCH (u)-[ip:IN_PROGRESS]->(k:Entity)
+        WHERE k.uid IN $prereq_uids
+        RETURN k.uid as ku_uid,
+               ip.progress as score,
+               coalesce(ip.difficulty_rating, 0.5) as confidence,
+               ip.last_accessed as last_practiced
+        """
+        return await self.execute_query(query, {"user_uid": user_uid, "prereq_uids": prereq_uids})
+
+    async def find_learning_recommendations(
+        self, user_uid: str, domain: str | None, limit: int
+    ) -> Result[list[Neo4jProperties]]:
+        """Find KUs user is ready to learn based on mastery and prerequisites."""
+        query = """
+        // Get user's mastered knowledge
+        MATCH (u:User {uid: $user_uid})-[:MASTERED]->(mastered:Entity)
+        WITH u, collect(mastered.uid) as mastered_uids
+
+        // Find knowledge units not yet mastered
+        MATCH (candidate:Entity)
+        WHERE NOT candidate.uid IN mastered_uids
+          AND ($domain IS NULL OR candidate.domain = $domain)
+
+        // Count prerequisites and how many are satisfied
+        OPTIONAL MATCH (candidate)-[:REQUIRES_KNOWLEDGE]->(prereq:Entity)
+        WITH candidate, mastered_uids,
+             count(prereq) as total_prereqs,
+             sum(CASE WHEN prereq.uid IN mastered_uids THEN 1 ELSE 0 END) as satisfied_prereqs
+
+        // Calculate readiness score
+        WITH candidate,
+             total_prereqs,
+             satisfied_prereqs,
+             CASE
+               WHEN total_prereqs = 0 THEN 1.0
+               ELSE toFloat(satisfied_prereqs) / total_prereqs
+             END as readiness
+
+        // Only recommend if readiness >= 0.7 (most prereqs done)
+        WHERE readiness >= 0.7
+
+        // Get next steps info (what this enables)
+        OPTIONAL MATCH (candidate)<-[:REQUIRES_KNOWLEDGE]-(enables:Entity)
+        WITH candidate, readiness, total_prereqs, satisfied_prereqs,
+             count(enables) as enables_count
+
+        RETURN candidate.uid as uid,
+               candidate.title as title,
+               candidate.summary as summary,
+               candidate.domain as domain,
+               readiness,
+               total_prereqs,
+               satisfied_prereqs,
+               enables_count
+        ORDER BY readiness DESC, enables_count DESC
+        LIMIT $limit
+        """
+        return await self.execute_query(
+            query, {"user_uid": user_uid, "domain": domain, "limit": limit}
+        )
+
+    async def compute_hub_scores(self) -> Result[list[Neo4jProperties]]:
+        """Compute and cache degree centrality hub scores on all Entity nodes."""
+        query = """
+        MATCH (ku:Entity)-[r]-(neighbor)
+        WITH ku, count(r) as degree_centrality
+        SET ku.hub_score = degree_centrality
+        RETURN count(ku) as updated_count
+        """
+        return await self.execute_query(query, {})
+
+    async def query_foundational_knowledge(
+        self, domain: str | None, min_hub_score: int, limit: int
+    ) -> Result[list[Neo4jProperties]]:
+        """Query high-hub-score KUs (foundational concepts)."""
+        where_clauses = [f"ku.hub_score >= {min_hub_score}"]
+        if domain:
+            where_clauses.append("ku.domain = $domain")
+        where_clause = " AND ".join(where_clauses)
+
+        query = f"""
+        MATCH (ku:Entity)
+        WHERE {where_clause}
+        RETURN ku
+        ORDER BY ku.hub_score DESC
+        LIMIT $limit
+        """
+        params: dict[str, Any] = {"limit": limit}
+        if domain:
+            params["domain"] = domain
+        return await self.execute_query(query, params)
+
+    async def find_prerequisite_chain(
+        self, uid: str, depth: int, min_confidence: float
+    ) -> Result[list[Neo4jProperties]]:
+        """Find prerequisite chain using CypherGenerator helper."""
+        from adapters.persistence.neo4j.query import build_simple_prerequisite_chain
+        from core.models.relationship_names import RelationshipName
+
+        query, params = build_simple_prerequisite_chain(
+            node_uid=uid,
+            node_label="Entity",
+            relationship_type=RelationshipName.REQUIRES_KNOWLEDGE.value,
+            depth=depth,
+            order="DESC",
+            include_leaf_only=True,
+            min_confidence=min_confidence,
+        )
+        return await self.execute_query(query, params)
+
+    async def find_next_steps(self, uid: str, limit: int) -> Result[list[Neo4jProperties]]:
+        """Find KUs that have this one as a prerequisite (incoming REQUIRES_KNOWLEDGE)."""
+        from adapters.persistence.neo4j.query import build_relationship_traversal_query
+        from core.models.relationship_names import RelationshipName
+
+        query, params = build_relationship_traversal_query(
+            source_uid=uid,
+            relationship_type=RelationshipName.REQUIRES_KNOWLEDGE.value,
+            target_label="Entity",
+            direction="incoming",
+            limit=limit,
+        )
+        return await self.execute_query(query, params)
+
+    async def find_time_aware_paths(
+        self,
+        target_uid: str,
+        user_time_budget: int,
+        max_complexity: str,
+        min_confidence: float,
+        depth: int,
+        limit: int,
+    ) -> Result[list[Neo4jProperties]]:
+        """Build metadata-aware learning paths respecting user constraints."""
+        from adapters.persistence.neo4j.query import build_metadata_aware_path_query
+        from core.models.relationship_names import RelationshipName
+
+        query, params = build_metadata_aware_path_query(
+            target_uid=target_uid,
+            node_label="Entity",
+            relationship_type=RelationshipName.REQUIRES_KNOWLEDGE.value,
+            user_time_budget=user_time_budget,
+            max_complexity_level=max_complexity,
+            min_confidence=min_confidence,
+            depth=depth,
+            limit=limit,
+        )
+        return await self.execute_query(query, params)
+
+    # ========================================================================
+    # PHASE 6B: ADAPTIVE SERVICE QUERIES
+    # ========================================================================
+
+    async def track_mastery_completion(
+        self, user_uid: str, ku_uid: str, completion_time_minutes: int
+    ) -> Result[list[Neo4jProperties]]:
+        """Create/update MASTERED relationship when user completes a KU."""
+        query = """
+        MATCH (u:User {uid: $user_uid}), (k:Entity {uid: $ku_uid})
+        MERGE (u)-[m:MASTERED]->(k)
+        ON CREATE SET
+            m.mastery_level = 'introduced',
+            m.created_at = datetime(),
+            m.time_to_mastery_hours = $completion_time_minutes / 60.0,
+            m.source = 'curriculum'
+        ON MATCH SET
+            m.mastery_level = 'proficient',
+            m.updated_at = datetime()
+        RETURN m
+        """
+        return await self.execute_query(
+            query,
+            {
+                "user_uid": user_uid,
+                "ku_uid": ku_uid,
+                "completion_time_minutes": completion_time_minutes,
+            },
+        )
+
+    async def query_user_masteries(self, user_uid: str) -> Result[list[Neo4jProperties]]:
+        """Query all MASTERED relationships with full metadata for a user."""
+        query = """
+        MATCH (u:User {uid: $user_uid})-[m:MASTERED]->(k:Entity)
+        RETURN
+            k.uid as ku_uid,
+            m.mastery_level as mastery_level,
+            m.confidence_score as confidence_score,
+            m.mastery_score as mastery_score,
+            m.learning_velocity as learning_velocity,
+            m.time_to_mastery_hours as time_to_mastery_hours,
+            m.review_frequency_days as review_frequency_days,
+            m.mastery_evidence as mastery_evidence,
+            m.last_reviewed as last_reviewed,
+            m.last_practiced as last_practiced,
+            m.learning_path_context as learning_path_context,
+            m.difficulty_experienced as difficulty_experienced,
+            m.preferred_learning_method as preferred_learning_method,
+            m.created_at as created_at,
+            m.updated_at as updated_at
+        """
+        return await self.execute_query(query, {"user_uid": user_uid})
+
+    async def query_active_learning_paths(self, user_uid: str) -> Result[list[Neo4jProperties]]:
+        """Query user's active/in-progress learning paths."""
+        query = """
+        MATCH (u:User {uid: $user_uid})-[:ENROLLED_IN]->(lp:Lp)
+        WHERE lp.status = 'active' OR lp.status = 'in_progress'
+        RETURN lp
+        """
+        return await self.execute_query(query, {"user_uid": user_uid})
+
+    async def query_completed_learning_paths(self, user_uid: str) -> Result[list[Neo4jProperties]]:
+        """Query UIDs of completed learning paths for a user."""
+        query = """
+        MATCH (u:User {uid: $user_uid})-[:COMPLETED]->(lp:Lp)
+        RETURN lp.uid as lp_uid
+        """
+        return await self.execute_query(query, {"user_uid": user_uid})
+
+    async def query_learning_preferences(self, user_uid: str) -> Result[list[Neo4jProperties]]:
+        """Query user's learning preferences node."""
+        query = """
+        MATCH (u:User {uid: $user_uid})-[:HAS_PREFERENCE]->(pref:LearningPreference)
+        RETURN pref
+        LIMIT 1
+        """
+        return await self.execute_query(query, {"user_uid": user_uid})
+
 
 class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
     """

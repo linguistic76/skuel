@@ -11,7 +11,7 @@ Responsibilities:
 """
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from core.events import publish_event
 from core.events.calendar_event_events import CalendarEventCompleted
@@ -20,7 +20,7 @@ from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
-    from core.ports import BackendOperations
+    from core.ports import LessonOperations
 
 
 class LessonPracticeService:
@@ -39,14 +39,14 @@ class LessonPracticeService:
 
     def __init__(
         self,
-        backend: "BackendOperations[Any] | None" = None,
+        backend: "LessonOperations | None" = None,
         event_bus=None,
     ) -> None:
         """
         Initialize knowledge practice service.
 
         Args:
-            backend: BackendOperations for Cypher queries
+            backend: LessonOperations for backend queries
             event_bus: Optional event bus for publishing events
         """
         self.backend = backend
@@ -90,12 +90,7 @@ class LessonPracticeService:
 
             # Query Neo4j to find KUs that this event practices
             # Pattern: (Event)-[:PRACTICES]->(KnowledgeUnit)
-            query = """
-            MATCH (event:Event {uid: $event_uid})-[:PRACTICES]->(ku:Entity)
-            RETURN DISTINCT ku.uid as ku_uid
-            """
-
-            result = await self.backend.execute_query(query, {"event_uid": event.event_uid})
+            result = await self.backend.find_kus_practiced_by_event(event.event_uid)
 
             if result.is_error:
                 self.logger.error(
@@ -155,16 +150,7 @@ class LessonPracticeService:
 
         # Update KU practice fields directly in Neo4j
         # This is more efficient than fetching, modifying, and saving back
-        query = """
-        MATCH (ku:Entity {uid: $ku_uid})
-        SET ku.times_practiced_in_events = COALESCE(ku.times_practiced_in_events, 0) + 1,
-            ku.last_practiced_date = datetime($occurred_at)
-        RETURN ku.times_practiced_in_events as new_count
-        """
-
-        result = await self.backend.execute_query(
-            query, {"ku_uid": ku_uid, "occurred_at": occurred_at.isoformat()}
-        )
+        result = await self.backend.increment_practice_count(ku_uid, occurred_at.isoformat())
 
         if result.is_error:
             self.logger.warning(f"Failed to update KU {ku_uid} practice count: {result.error}")

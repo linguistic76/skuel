@@ -14,14 +14,11 @@ Handles all semantic relationship operations for knowledge units.
 
 **Dependencies:**
 - LessonOperations (backend protocol)
-- Neo4jAdapter (graph operations)
-- CypherGenerator (semantic query building)
 - SemanticRelationshipType (relationship types)
 """
 
 from typing import Any
 
-from adapters.persistence.neo4j.query import build_semantic_context
 from core.infrastructure.relationships.semantic_relationships import (
     RelationshipMetadata,
     SemanticRelationshipType,
@@ -38,23 +35,19 @@ class LessonSemanticService:
     Semantic relationship management for knowledge units.
     """
 
-    def __init__(self, repo=None, neo4j_adapter=None, intelligence=None) -> None:
+    def __init__(self, repo=None, intelligence=None) -> None:
         """
         Initialize semantic service with required dependencies.
 
         Args:
-            repo: LessonOperations backend,
-            neo4j_adapter: Neo4j adapter for graph operations,
+            repo: LessonOperations backend
             intelligence: Optional intelligence service for relationship inference
         """
         # Fail-fast validation (CLAUDE.md: no graceful degradation)
         if not repo:
             raise ValueError("KU repository is required")
-        if not neo4j_adapter:
-            raise ValueError("Neo4j adapter is required for semantic operations")
 
         self.repo = repo
-        self.neo4j = neo4j_adapter
         self.intelligence = intelligence
 
         self.logger = get_logger("skuel.services.lesson.semantic")
@@ -128,7 +121,7 @@ class LessonSemanticService:
         query = triple.to_cypher_merge()
         params = triple.to_cypher_params()
 
-        await self.neo4j.execute_query(query, params)
+        await self.repo.create_semantic_relationship(query, params)
 
         self.logger.debug(f"Created semantic relationship: {triple}")
         return Result.ok(True)
@@ -165,16 +158,10 @@ class LessonSemanticService:
         if not source_result.is_ok or not source_result.value:
             return Result.fail(Errors.not_found(f"Knowledge unit {uid} not found"))
 
-        # Build semantic context query
-        query, params = build_semantic_context(
-            node_uid=uid,
-            semantic_types=semantic_types,
-            depth=depth,
-            min_confidence=min_confidence,
+        # Execute query via backend
+        results = await self.repo.query_semantic_neighborhood(
+            uid, semantic_types, depth, min_confidence
         )
-
-        # Execute query
-        results = await self.neo4j.execute_query(query, params)
 
         # Check for query errors
         if results.is_error:
@@ -305,20 +292,12 @@ class LessonSemanticService:
         # Build relationship name for Neo4j
         rel_name = predicate.to_neo4j_name()
 
-        # Delete relationship query
-        query = f"""
-        MATCH (s:Entity {{uid: $subject_uid}})
-              -[r:{rel_name}]->
-              (o:Entity {{uid: $object_uid}})
-        DETACH DELETE r
-        RETURN count(r) as deleted
-        """
+        results = await self.repo.delete_semantic_relationship(rel_name, subject_uid, object_uid)
 
-        params = {"subject_uid": subject_uid, "object_uid": object_uid}
+        if results.is_error:
+            return Result.fail(results)
 
-        results = await self.neo4j.execute_query(query, params)
-
-        deleted_count = results[0].get("deleted", 0) if results else 0
+        deleted_count = results.value[0].get("deleted", 0) if results.value else 0
 
         if deleted_count > 0:
             self.logger.info(
@@ -354,25 +333,7 @@ class LessonSemanticService:
 
         rel_name = predicate.to_neo4j_name()
 
-        # Build query based on direction
-        if direction == "outgoing":
-            pattern = f"(source)-[r:{rel_name}]->(target)"
-        elif direction == "incoming":
-            pattern = f"(source)<-[r:{rel_name}]-(target)"
-        else:  # both
-            pattern = f"(source)-[r:{rel_name}]-(target)"
-
-        query = f"""
-        MATCH {pattern}
-        WHERE source.uid = $uid
-        RETURN target, r,
-               startNode(r).uid as subject_uid,
-               endNode(r).uid as object_uid
-        """
-
-        params = {"uid": uid}
-
-        results = await self.neo4j.execute_query(query, params)
+        results = await self.repo.query_relationships_by_type(uid, rel_name, direction)
 
         # Check for query errors
         if results.is_error:
@@ -428,26 +389,7 @@ class LessonSemanticService:
         if not source_result.is_ok or not source_result.value:
             return Result.fail(Errors.not_found(f"Knowledge unit {uid} not found"))
 
-        # Query for cross-domain bridges
-        # Look for shared semantic relationships
-        query = """
-        MATCH (source:Entity {uid: $uid})
-        MATCH (source)-[r1]->(shared)
-        MATCH (target:Entity)-[r2]->(shared)
-        WHERE source.domain <> target.domain
-        AND ($target_domain IS NULL OR target.domain = $target_domain)
-        AND type(r1) = type(r2)
-        RETURN DISTINCT target,
-               type(r1) as bridge_type,
-               shared.uid as shared_concept,
-               r1.confidence + r2.confidence as combined_confidence
-        ORDER BY combined_confidence DESC
-        LIMIT $limit
-        """
-
-        params = {"uid": uid, "target_domain": target_domain, "limit": max_results}
-
-        results = await self.neo4j.execute_query(query, params)
+        results = await self.repo.discover_semantic_bridges(uid, target_domain, max_results)
 
         # Check for query errors
         if results.is_error:
@@ -494,24 +436,7 @@ class LessonSemanticService:
         if not source_result.is_ok or not source_result.value:
             return Result.fail(Errors.not_found(f"Knowledge unit {uid} not found"))
 
-        # Transitive closure: if A->B and B->C, infer A->C
-        # This is a simple pattern - could be enhanced with ML
-        query = """
-        MATCH (source:Entity {uid: $uid})-[r1]->(intermediate)
-              -[r2]->(target:Entity)
-        WHERE NOT (source)-[]->(target)
-        AND type(r1) = type(r2)
-        RETURN DISTINCT target,
-               type(r1) as inferred_type,
-               intermediate.uid as via_uid,
-               (r1.confidence * r2.confidence) as confidence
-        ORDER BY confidence DESC
-        LIMIT $limit
-        """
-
-        params = {"uid": uid, "limit": max_inferences}
-
-        results = await self.neo4j.execute_query(query, params)
+        results = await self.repo.infer_transitive_relationships(uid, max_inferences)
 
         # Check for query errors
         if results.is_error:

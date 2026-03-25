@@ -40,35 +40,26 @@ class TestKuSemanticServiceInitialization:
     def test_initialization_with_all_dependencies(self):
         """Test successful initialization with all dependencies."""
         repo = MagicMock()
-        neo4j = MagicMock()
         intelligence = MagicMock()
 
-        service = LessonSemanticService(repo=repo, neo4j_adapter=neo4j, intelligence=intelligence)
+        service = LessonSemanticService(repo=repo, intelligence=intelligence)
 
         assert service.repo == repo
-        assert service.neo4j == neo4j
         assert service.intelligence == intelligence
 
     def test_initialization_without_optional_intelligence(self):
         """Test initialization works without optional intelligence service."""
         repo = MagicMock()
-        neo4j = MagicMock()
 
-        service = LessonSemanticService(repo=repo, neo4j_adapter=neo4j)
+        service = LessonSemanticService(repo=repo)
 
         assert service.repo == repo
-        assert service.neo4j == neo4j
         assert service.intelligence is None
 
     def test_initialization_fails_without_repo(self):
         """Test that initialization fails without required repo."""
         with pytest.raises(ValueError, match="KU repository is required"):
-            LessonSemanticService(repo=None, neo4j_adapter=MagicMock())
-
-    def test_initialization_fails_without_neo4j(self):
-        """Test that initialization fails without required Neo4j adapter."""
-        with pytest.raises(ValueError, match="Neo4j adapter is required"):
-            LessonSemanticService(repo=MagicMock(), neo4j_adapter=None)
+            LessonSemanticService(repo=None)
 
 
 class TestCreateWithSemanticRelationships:
@@ -78,8 +69,7 @@ class TestCreateWithSemanticRelationships:
     def service(self) -> LessonSemanticService:
         """Create service with mocked dependencies."""
         repo = MagicMock()
-        neo4j = MagicMock()
-        return LessonSemanticService(repo=repo, neo4j_adapter=neo4j)
+        return LessonSemanticService(repo=repo)
 
     @pytest.mark.asyncio
     async def test_create_with_relationships_success(self, service):
@@ -90,8 +80,8 @@ class TestCreateWithSemanticRelationships:
         # Mock repo.get to return refreshed KU
         service.repo.get = AsyncMock(return_value=Result.ok(make_ku_dto("ku.new.1", "New Unit")))
 
-        # Mock Neo4j execute_query
-        service.neo4j.execute_query = AsyncMock(return_value=[])
+        # Mock backend method
+        service.repo.create_semantic_relationship = AsyncMock(return_value=Result.ok([]))
 
         # Create relationships
         metadata = RelationshipMetadata(confidence=0.9)
@@ -112,7 +102,7 @@ class TestCreateWithSemanticRelationships:
 
         assert result.is_ok
         assert result.value.uid == "ku.new.1"
-        service.neo4j.execute_query.assert_called()
+        service.repo.create_semantic_relationship.assert_called()
 
     @pytest.mark.asyncio
     async def test_create_fails_when_ku_creation_fails(self, service):
@@ -137,8 +127,7 @@ class TestSemanticNeighborhood:
     def service(self) -> LessonSemanticService:
         """Create service with mocked dependencies."""
         repo = MagicMock()
-        neo4j = MagicMock()
-        return LessonSemanticService(repo=repo, neo4j_adapter=neo4j)
+        return LessonSemanticService(repo=repo)
 
     @pytest.mark.asyncio
     async def test_get_semantic_neighborhood_unit_not_found(self, service):
@@ -157,8 +146,8 @@ class TestSemanticNeighborhood:
             side_effect=lambda uid: Result.ok(make_ku_dto(uid, f"Unit {uid}"))
         )
 
-        # Mock Neo4j query returns neighbors - wrapped in Result.ok()
-        service.neo4j.execute_query = AsyncMock(
+        # Mock backend method returns neighbors - wrapped in Result.ok()
+        service.repo.query_semantic_neighborhood = AsyncMock(
             return_value=Result.ok(
                 [
                     {
@@ -204,7 +193,7 @@ class TestSemanticNeighborhood:
         service.repo.get = AsyncMock(return_value=Result.ok(make_ku_dto("ku.test.1", "Test")))
 
         # Wrap in Result.ok() - service expects Result[list]
-        service.neo4j.execute_query = AsyncMock(return_value=Result.ok([]))
+        service.repo.query_semantic_neighborhood = AsyncMock(return_value=Result.ok([]))
 
         semantic_types = [
             SemanticRelationshipType.REQUIRES_THEORETICAL_UNDERSTANDING,
@@ -226,8 +215,7 @@ class TestRelationshipManagement:
     def service(self) -> LessonSemanticService:
         """Create service with mocked dependencies."""
         repo = MagicMock()
-        neo4j = MagicMock()
-        return LessonSemanticService(repo=repo, neo4j_adapter=neo4j)
+        return LessonSemanticService(repo=repo)
 
     @pytest.mark.asyncio
     async def test_add_semantic_relationship_success(self, service):
@@ -235,8 +223,8 @@ class TestRelationshipManagement:
         # Mock both units exist
         service.repo.get = AsyncMock(return_value=Result.ok(make_ku_dto()))
 
-        # Mock Neo4j execute_query
-        service.neo4j.execute_query = AsyncMock(return_value=[])
+        # Mock backend method
+        service.repo.create_semantic_relationship = AsyncMock(return_value=Result.ok([]))
 
         result = await service.add_semantic_relationship(
             subject_uid="ku.test.1",
@@ -249,7 +237,7 @@ class TestRelationshipManagement:
 
         assert result.is_ok
         assert result.value is True
-        service.neo4j.execute_query.assert_called_once()
+        service.repo.create_semantic_relationship.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_add_semantic_relationship_subject_not_found(self, service):
@@ -267,8 +255,10 @@ class TestRelationshipManagement:
     @pytest.mark.asyncio
     async def test_remove_semantic_relationship_success(self, service):
         """Test successful semantic relationship removal."""
-        # Mock Neo4j delete returns count
-        service.neo4j.execute_query = AsyncMock(return_value=[{"deleted": 1}])
+        # Mock backend delete returns count
+        service.repo.delete_semantic_relationship = AsyncMock(
+            return_value=Result.ok([{"deleted": 1}])
+        )
 
         result = await service.remove_semantic_relationship(
             subject_uid="ku.test.1",
@@ -282,8 +272,10 @@ class TestRelationshipManagement:
     @pytest.mark.asyncio
     async def test_remove_semantic_relationship_not_found(self, service):
         """Test remove relationship fails when relationship doesn't exist."""
-        # Mock Neo4j delete returns 0 deleted
-        service.neo4j.execute_query = AsyncMock(return_value=[{"deleted": 0}])
+        # Mock backend delete returns 0 deleted
+        service.repo.delete_semantic_relationship = AsyncMock(
+            return_value=Result.ok([{"deleted": 0}])
+        )
 
         result = await service.remove_semantic_relationship(
             subject_uid="ku.test.1",
@@ -298,8 +290,7 @@ class TestRelationshipManagement:
         """Test getting outgoing relationships by type."""
         service.repo.get = AsyncMock(return_value=Result.ok(make_ku_dto("ku.test.1", "Test")))
 
-        # Fix: execute_query returns Result.ok([...]), not bare list
-        service.neo4j.execute_query = AsyncMock(
+        service.repo.query_relationships_by_type = AsyncMock(
             return_value=Result.ok(
                 [
                     {
@@ -327,8 +318,7 @@ class TestRelationshipManagement:
         """Test getting incoming relationships by type."""
         service.repo.get = AsyncMock(return_value=Result.ok(make_ku_dto("ku.test.1", "Test")))
 
-        # Fix: execute_query returns Result.ok([...]), not bare list
-        service.neo4j.execute_query = AsyncMock(return_value=Result.ok([]))
+        service.repo.query_relationships_by_type = AsyncMock(return_value=Result.ok([]))
 
         result = await service.get_relationships_by_type(
             uid="ku.test.1",
@@ -347,16 +337,14 @@ class TestRelationshipDiscovery:
     def service(self) -> LessonSemanticService:
         """Create service with mocked dependencies."""
         repo = MagicMock()
-        neo4j = MagicMock()
-        return LessonSemanticService(repo=repo, neo4j_adapter=neo4j)
+        return LessonSemanticService(repo=repo)
 
     @pytest.mark.asyncio
     async def test_discover_semantic_bridges_success(self, service):
         """Test successful cross-domain bridge discovery."""
         service.repo.get = AsyncMock(return_value=Result.ok(make_ku_dto("ku.test.1", "Test")))
 
-        # Fix: execute_query returns Result.ok([...]), not bare list
-        service.neo4j.execute_query = AsyncMock(
+        service.repo.discover_semantic_bridges = AsyncMock(
             return_value=Result.ok(
                 [
                     {
@@ -387,25 +375,22 @@ class TestRelationshipDiscovery:
         """Test bridge discovery with target domain filter."""
         service.repo.get = AsyncMock(return_value=Result.ok(make_ku_dto("ku.test.1", "Test")))
 
-        # Fix: execute_query returns Result.ok([...]), not bare list
-        service.neo4j.execute_query = AsyncMock(return_value=Result.ok([]))
+        service.repo.discover_semantic_bridges = AsyncMock(return_value=Result.ok([]))
 
         result = await service.discover_semantic_bridges(
             uid="ku.test.1", target_domain="business", max_results=5
         )
 
         assert result.is_ok
-        # Verify Neo4j was called with domain parameter
-        call_args = service.neo4j.execute_query.call_args
-        assert call_args[0][1]["target_domain"] == "business"
+        # Verify backend was called with domain parameter
+        service.repo.discover_semantic_bridges.assert_called_once_with("ku.test.1", "business", 5)
 
     @pytest.mark.asyncio
     async def test_infer_relationships_success(self, service):
         """Test successful relationship inference."""
         service.repo.get = AsyncMock(return_value=Result.ok(make_ku_dto("ku.test.1", "Test")))
 
-        # Fix: execute_query returns Result.ok([...]), not bare list
-        service.neo4j.execute_query = AsyncMock(
+        service.repo.infer_transitive_relationships = AsyncMock(
             return_value=Result.ok(
                 [
                     {
@@ -434,9 +419,8 @@ class TestRelationshipDiscovery:
         """Test that inference respects minimum confidence threshold."""
         service.repo.get = AsyncMock(return_value=Result.ok(make_ku_dto("ku.test.1", "Test")))
 
-        # Fix: execute_query returns Result.ok([...]), not bare list
         # Return inference with low confidence
-        service.neo4j.execute_query = AsyncMock(
+        service.repo.infer_transitive_relationships = AsyncMock(
             return_value=Result.ok(
                 [
                     {
@@ -468,14 +452,12 @@ class TestFacadeDelegation:
         # Create facade with mocked dependencies
         repo = MagicMock()
         content_repo = MagicMock()
-        neo4j = MagicMock()
         query_builder = MagicMock()  # Required for LessonSearchService
         graph_intel = MagicMock()
 
         service = LessonService(
             repo=repo,
             content_repo=content_repo,
-            neo4j_adapter=neo4j,
             query_builder=query_builder,
             graph_intelligence_service=graph_intel,
         )

@@ -480,6 +480,221 @@ class LessonOperations(CurriculumOperations["Lesson"], Protocol):
         """Get direct children of a Lesson organized by ORGANIZES relationship."""
         ...
 
+    # =========================================================================
+    # PRACTICE + AI (Phase 1)
+    # =========================================================================
+
+    async def find_kus_practiced_by_event(self, event_uid: str) -> Result[list[dict[str, Any]]]:
+        """Find KU UIDs practiced by a completed event via PRACTICES relationship."""
+        ...
+
+    async def increment_practice_count(
+        self, ku_uid: str, occurred_at: str
+    ) -> Result[list[dict[str, Any]]]:
+        """Increment practice count and update last_practiced_date on a KU."""
+        ...
+
+    async def semantic_search_chunks(
+        self,
+        query_embedding: list[float],
+        limit: int,
+        threshold: float,
+        chunk_types: list[str] | None = None,
+        ku_uid: str | None = None,
+    ) -> Result[list[dict[str, Any]]]:
+        """Vector search across ContentChunk nodes for precise RAG retrieval."""
+        ...
+
+    # =========================================================================
+    # SEARCH (Phase 2)
+    # =========================================================================
+
+    async def find_similar_by_keywords(self, uid: str, limit: int) -> Result[list[dict[str, Any]]]:
+        """Find similar entities using keyword matching and structural similarity."""
+        ...
+
+    async def search_by_keywords(self, query_text: str, limit: int) -> Result[list[dict[str, Any]]]:
+        """Keyword-based search using CONTAINS on title/summary/tags."""
+        ...
+
+    # =========================================================================
+    # APPLICATION DISCOVERY (Phase 3)
+    # =========================================================================
+
+    async def find_connected_activities(
+        self,
+        ku_uid: str,
+        user_uid: str,
+        node_label: str,
+        rel_types: list[str],
+        filters: dict[str, Any] | None = None,
+        order_by: str = "created_at",
+        limit: int = 10,
+        reverse_direction: bool = False,
+    ) -> Result[list[dict[str, Any]]]:
+        """Find activity entities connected to a KU via graph relationships."""
+        ...
+
+    async def find_learning_steps_containing_ku(
+        self, ku_uid: str, limit: int = 10
+    ) -> Result[list[dict[str, Any]]]:
+        """Find learning steps that contain/teach a KU via CONTAINS_KNOWLEDGE."""
+        ...
+
+    async def find_learning_paths_teaching_ku(
+        self, ku_uid: str, limit: int = 10
+    ) -> Result[list[dict[str, Any]]]:
+        """Find learning paths that teach a KU via LS chain."""
+        ...
+
+    # =========================================================================
+    # CONTEXT (Phase 4)
+    # =========================================================================
+
+    async def find_ready_to_learn(
+        self, mastered_uids: list[str], domain: str | None, limit: int
+    ) -> Result[list[dict[str, Any]]]:
+        """Find KUs the user is ready to learn (prerequisites >= 70% met)."""
+        ...
+
+    async def find_learning_gaps(
+        self, goal_uids: list[str], mastered_uids: list[str], limit: int
+    ) -> Result[list[dict[str, Any]]]:
+        """Find KUs required by goals but not mastered."""
+        ...
+
+    async def find_reinforcement_candidates(
+        self, uids: list[str], active_goal_uids: list[str]
+    ) -> Result[list[dict[str, Any]]]:
+        """Get KU details + goal relevance for reinforcement candidates."""
+        ...
+
+    # =========================================================================
+    # SEMANTIC (Phase 5)
+    # =========================================================================
+
+    async def create_semantic_relationship(
+        self, cypher: str, params: dict[str, Any]
+    ) -> Result[list[dict[str, Any]]]:
+        """Execute a SemanticTriple.to_cypher_merge() query."""
+        ...
+
+    async def query_semantic_neighborhood(
+        self, uid: str, semantic_types: list[Any] | None, depth: int, min_confidence: float
+    ) -> Result[list[dict[str, Any]]]:
+        """Query semantic neighborhood using build_semantic_context helper."""
+        ...
+
+    async def delete_semantic_relationship(
+        self, rel_name: str, subject_uid: str, object_uid: str
+    ) -> Result[list[dict[str, Any]]]:
+        """Delete a semantic relationship between two entities."""
+        ...
+
+    async def query_relationships_by_type(
+        self, uid: str, rel_name: str, direction: str
+    ) -> Result[list[dict[str, Any]]]:
+        """Find relationships by type and direction for an entity."""
+        ...
+
+    async def discover_semantic_bridges(
+        self, uid: str, target_domain: str | None, limit: int
+    ) -> Result[list[dict[str, Any]]]:
+        """Discover cross-domain semantic bridges via shared concepts."""
+        ...
+
+    async def infer_transitive_relationships(
+        self, uid: str, limit: int
+    ) -> Result[list[dict[str, Any]]]:
+        """Infer potential relationships via transitive closure."""
+        ...
+
+    # =========================================================================
+    # GRAPH (Phase 6A)
+    # =========================================================================
+
+    async def link_prerequisite(
+        self, unit_uid: str, prereq_uid: str, is_mandatory: bool
+    ) -> Result[list[dict[str, Any]]]:
+        """Create REQUIRES_KNOWLEDGE relationship between two entities."""
+        ...
+
+    async def link_parent_child(
+        self, parent_uid: str, child_uid: str
+    ) -> Result[list[dict[str, Any]]]:
+        """Create HAS_NARROWER hierarchy relationship."""
+        ...
+
+    async def query_user_mastery_for_prereqs(
+        self, user_uid: str, prereq_uids: list[str]
+    ) -> Result[list[dict[str, Any]]]:
+        """Query user MASTERED + IN_PROGRESS state for prerequisite KUs."""
+        ...
+
+    async def find_learning_recommendations(
+        self, user_uid: str, domain: str | None, limit: int
+    ) -> Result[list[dict[str, Any]]]:
+        """Find KUs user is ready to learn based on mastery and prerequisites."""
+        ...
+
+    async def compute_hub_scores(self) -> Result[list[dict[str, Any]]]:
+        """Compute and cache degree centrality hub scores on all Entity nodes."""
+        ...
+
+    async def query_foundational_knowledge(
+        self, domain: str | None, min_hub_score: int, limit: int
+    ) -> Result[list[dict[str, Any]]]:
+        """Query high-hub-score KUs (foundational concepts)."""
+        ...
+
+    async def find_prerequisite_chain(
+        self, uid: str, depth: int, min_confidence: float
+    ) -> Result[list[dict[str, Any]]]:
+        """Find prerequisite chain using CypherGenerator helper."""
+        ...
+
+    async def find_next_steps(self, uid: str, limit: int) -> Result[list[dict[str, Any]]]:
+        """Find KUs that have this one as a prerequisite."""
+        ...
+
+    async def find_time_aware_paths(
+        self,
+        target_uid: str,
+        user_time_budget: int,
+        max_complexity: str,
+        min_confidence: float,
+        depth: int,
+        limit: int,
+    ) -> Result[list[dict[str, Any]]]:
+        """Build metadata-aware learning paths respecting user constraints."""
+        ...
+
+    # =========================================================================
+    # ADAPTIVE (Phase 6B)
+    # =========================================================================
+
+    async def track_mastery_completion(
+        self, user_uid: str, ku_uid: str, completion_time_minutes: int
+    ) -> Result[list[dict[str, Any]]]:
+        """Create/update MASTERED relationship when user completes a KU."""
+        ...
+
+    async def query_user_masteries(self, user_uid: str) -> Result[list[dict[str, Any]]]:
+        """Query all MASTERED relationships with full metadata for a user."""
+        ...
+
+    async def query_active_learning_paths(self, user_uid: str) -> Result[list[dict[str, Any]]]:
+        """Query user's active/in-progress learning paths."""
+        ...
+
+    async def query_completed_learning_paths(self, user_uid: str) -> Result[list[dict[str, Any]]]:
+        """Query UIDs of completed learning paths for a user."""
+        ...
+
+    async def query_learning_preferences(self, user_uid: str) -> Result[list[dict[str, Any]]]:
+        """Query user's learning preferences node."""
+        ...
+
 
 @runtime_checkable
 class LsOperations(CurriculumOperations["LearningStep"], Protocol):

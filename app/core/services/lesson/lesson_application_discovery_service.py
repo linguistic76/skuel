@@ -30,21 +30,17 @@ class LessonApplicationDiscoveryService:
     graph relationships from activity domains back to knowledge units.
     """
 
-    def __init__(self, repo: Any = None, neo4j_adapter: Any = None) -> None:
+    def __init__(self, repo: Any = None) -> None:
         """
-        Initialize with backend and Neo4j adapter.
+        Initialize with backend.
 
         Args:
             repo: LessonOperations backend
-            neo4j_adapter: Neo4j adapter for graph operations
         """
         if not repo:
             raise ValueError("KU repository is required")
-        if not neo4j_adapter:
-            raise ValueError("Neo4j adapter is required for application discovery")
 
         self.repo = repo
-        self.neo4j = neo4j_adapter
         self.logger = get_logger("skuel.services.lesson.application_discovery")
 
     async def _verify_ku_exists(self, ku_uid: str) -> Result[None]:
@@ -95,38 +91,21 @@ class LessonApplicationDiscoveryService:
         if verify.is_error:
             return verify  # type: ignore[return-value]
 
-        # Build relationship pattern
-        rel_pattern = "|".join(relationship_types)
-        if reverse_direction:
-            match_clause = f"MATCH (n:{node_label})-[:{rel_pattern}]<-(ku:Entity)"
-        else:
-            match_clause = f"MATCH (n:{node_label})-[:{rel_pattern}]->(ku:Entity)"
-
-        # Build conditions
-        conditions = ["ku.uid = $ku_uid", "n.user_uid = $user_uid"]
-        params: dict[str, Any] = {"ku_uid": ku_uid, "user_uid": user_uid}
-
-        if filters:
-            for condition_fragment, filter_params in filters.items():
-                conditions.append(condition_fragment)
-                params.update(filter_params)
-
-        where_clause = " AND ".join(conditions)
-
-        query = f"""
-        {match_clause}
-        WHERE {where_clause}
-        RETURN n.uid as entity_uid
-        ORDER BY n.{order_by} DESC
-        LIMIT {limit}
-        """
-
         self.logger.debug(
             f"Finding {node_label} entities connected to knowledge {ku_uid} "
-            f"via {rel_pattern} (user={user_uid})"
+            f"via {'|'.join(relationship_types)} (user={user_uid})"
         )
 
-        results = await self.neo4j.execute_query(query, params)
+        results = await self.repo.find_connected_activities(
+            ku_uid=ku_uid,
+            user_uid=user_uid,
+            node_label=node_label,
+            rel_types=relationship_types,
+            filters=filters,
+            order_by=order_by,
+            limit=limit,
+            reverse_direction=reverse_direction,
+        )
 
         if results.is_error:
             return Result.fail(results)
@@ -261,18 +240,9 @@ class LessonApplicationDiscoveryService:
         if verify.is_error:
             return verify  # type: ignore[return-value]
 
-        query = """
-        MATCH (ku:Entity {uid: $ku_uid})<-[:CONTAINS_KNOWLEDGE]-(ls:Ls)
-        RETURN ls.uid as step_uid
-        ORDER BY ls.sequence_number ASC
-        LIMIT $limit
-        """
-
-        params = {"ku_uid": ku_uid, "limit": limit}
-
         self.logger.debug(f"Finding learning steps containing knowledge {ku_uid} (limit={limit})")
 
-        results = await self.neo4j.execute_query(query, params)
+        results = await self.repo.find_learning_steps_containing_ku(ku_uid, limit)
 
         if results.is_error:
             return Result.fail(results)
@@ -293,18 +263,9 @@ class LessonApplicationDiscoveryService:
         if verify.is_error:
             return verify  # type: ignore[return-value]
 
-        query = """
-        MATCH (ku:Entity {uid: $ku_uid})<-[:CONTAINS_KNOWLEDGE]-(ls:Ls)<-[:HAS_STEP]-(lp:Lp)
-        RETURN DISTINCT lp.uid as path_uid
-        ORDER BY lp.created_at DESC
-        LIMIT $limit
-        """
-
-        params = {"ku_uid": ku_uid, "limit": limit}
-
         self.logger.debug(f"Finding learning paths teaching knowledge {ku_uid} (limit={limit})")
 
-        results = await self.neo4j.execute_query(query, params)
+        results = await self.repo.find_learning_paths_teaching_ku(ku_uid, limit)
 
         if results.is_error:
             return Result.fail(results)

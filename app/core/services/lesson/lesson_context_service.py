@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import Result
 from core.utils.sort_functions import get_priority_score
 
 if TYPE_CHECKING:
@@ -30,49 +30,18 @@ class LessonContextService:
     "Filter by readiness, rank by relevance, enrich with insights"
     """
 
-    def __init__(self, repo: Any = None, neo4j_adapter: Any = None) -> None:
+    def __init__(self, repo: Any = None) -> None:
         """
-        Initialize with backend and Neo4j adapter.
+        Initialize with backend.
 
         Args:
             repo: LessonOperations backend
-            neo4j_adapter: Neo4j adapter for graph operations
         """
         if not repo:
             raise ValueError("KU repository is required")
-        if not neo4j_adapter:
-            raise ValueError("Neo4j adapter is required for context service")
 
         self.repo = repo
-        self.neo4j = neo4j_adapter
         self.logger = get_logger("skuel.services.lesson.context")
-
-    async def _execute_query(
-        self, query: str, params: dict[str, Any], operation: str = "execute_query"
-    ) -> Result[list[Any]]:
-        """
-        Execute a Cypher query and return a Result.
-
-        The neo4j_adapter.execute_query() returns a raw list. This helper
-        wraps it to return a Result for consistent error handling.
-
-        Args:
-            query: Cypher query string
-            params: Query parameters
-            operation: Operation name for error messages
-
-        Returns:
-            Result containing the query results or an error
-        """
-        from core.utils.exception_types import NEO4J_EXCEPTIONS
-
-        try:
-            results = await self.neo4j.execute_query(query, params)
-            return Result.ok(results if results is not None else [])
-        except NEO4J_EXCEPTIONS as e:
-            return Result.fail(Errors.database(operation=operation, message=str(e)))
-        except Exception as e:  # safety-net: catch unexpected errors
-            return Result.fail(Errors.database(operation=operation, message=str(e)))
 
     # ========================================================================
     # CONTEXT-FIRST METHODS
@@ -106,55 +75,7 @@ class LessonContextService:
         # Get mastered knowledge UIDs from context
         mastered_uids = list(context.knowledge_mastery.keys())
 
-        # Query for knowledge units where user hasn't mastered
-        # and prerequisites are mostly met
-        query = """
-        MATCH (ku:Entity)
-        WHERE NOT ku.uid IN $mastered_uids
-          AND ($domain IS NULL OR ku.domain = $domain)
-
-        // Count prerequisites and how many user has mastered
-        OPTIONAL MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Entity)
-        WITH ku,
-             collect(prereq.uid) as prereq_uids,
-             count(prereq) as total_prereqs
-
-        // Calculate readiness based on prerequisites
-        WITH ku, prereq_uids, total_prereqs,
-             size([p IN prereq_uids WHERE p IN $mastered_uids]) as satisfied_prereqs
-
-        WITH ku, prereq_uids, total_prereqs, satisfied_prereqs,
-             CASE
-               WHEN total_prereqs = 0 THEN 1.0
-               ELSE toFloat(satisfied_prereqs) / total_prereqs
-             END as readiness
-
-        // Filter for ready-to-learn (>= 70% prerequisites met)
-        WHERE readiness >= 0.7
-
-        // Get what this enables (dependents)
-        OPTIONAL MATCH (ku)<-[:REQUIRES_KNOWLEDGE]-(dependent:Entity)
-
-        RETURN ku.uid as uid,
-               ku.title as title,
-               ku.domain as domain,
-               ku.summary as summary,
-               readiness,
-               total_prereqs,
-               satisfied_prereqs,
-               prereq_uids,
-               count(dependent) as dependent_count
-        ORDER BY readiness DESC, dependent_count DESC
-        LIMIT $limit
-        """
-
-        params = {
-            "mastered_uids": mastered_uids,
-            "domain": domain,
-            "limit": limit,
-        }
-
-        results = await self._execute_query(query, params, "get_ready_to_learn_for_user")
+        results = await self.repo.find_ready_to_learn(mastered_uids, domain, limit)
 
         if results.is_error:
             return Result.fail(results)
@@ -225,48 +146,7 @@ class LessonContextService:
         # Get mastered knowledge UIDs from context
         mastered_uids = list(context.knowledge_mastery.keys())
 
-        # Query for knowledge required by goals but not mastered
-        query = """
-        MATCH (goal:Goal)-[:REQUIRES_KNOWLEDGE]->(ku:Entity)
-        WHERE goal.uid IN $goal_uids
-          AND NOT ku.uid IN $mastered_uids
-
-        // Count how many goals need this knowledge
-        WITH ku, count(DISTINCT goal) as goals_blocked,
-             collect(DISTINCT goal.uid) as blocking_goal_uids
-
-        // Get prerequisite info
-        OPTIONAL MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Entity)
-        WITH ku, goals_blocked, blocking_goal_uids,
-             count(prereq) as prereq_count,
-             collect(prereq.uid) as prereq_uids
-
-        // Calculate how many prereqs are satisfied
-        WITH ku, goals_blocked, blocking_goal_uids, prereq_count, prereq_uids,
-             size([p IN prereq_uids WHERE p IN $mastered_uids]) as satisfied_prereqs
-
-        RETURN ku.uid as uid,
-               ku.title as title,
-               ku.domain as domain,
-               goals_blocked,
-               blocking_goal_uids,
-               prereq_count,
-               satisfied_prereqs,
-               CASE
-                 WHEN prereq_count = 0 THEN 1.0
-                 ELSE toFloat(satisfied_prereqs) / prereq_count
-               END as readiness
-        ORDER BY goals_blocked DESC, readiness DESC
-        LIMIT $limit
-        """
-
-        params = {
-            "goal_uids": target_goals,
-            "mastered_uids": mastered_uids,
-            "limit": limit,
-        }
-
-        results = await self.neo4j.execute_query(query, params)
+        results = await self.repo.find_learning_gaps(target_goals, mastered_uids, limit)
 
         if results.is_error:
             return Result.fail(results)
@@ -351,32 +231,9 @@ class LessonContextService:
         # Query for details on these knowledge units
         uid_list = [uid for uid, _ in needs_reinforcement[: limit * 2]]  # Fetch extra for filtering
 
-        query = """
-        UNWIND $uids as uid
-        MATCH (ku:Entity {uid: uid})
-
-        // Check if this knowledge is used by active goals
-        OPTIONAL MATCH (goal:Goal)-[:REQUIRES_KNOWLEDGE]->(ku)
-        WHERE goal.uid IN $active_goal_uids
-
-        WITH ku, count(goal) as goal_relevance
-
-        // Check what depends on this knowledge
-        OPTIONAL MATCH (ku)<-[:REQUIRES_KNOWLEDGE]-(dependent:Entity)
-
-        RETURN ku.uid as uid,
-               ku.title as title,
-               ku.domain as domain,
-               goal_relevance,
-               count(dependent) as dependent_count
-        """
-
-        params = {
-            "uids": uid_list,
-            "active_goal_uids": list(context.active_goal_uids),
-        }
-
-        results = await self.neo4j.execute_query(query, params)
+        results = await self.repo.find_reinforcement_candidates(
+            uid_list, list(context.active_goal_uids)
+        )
 
         if results.is_error:
             return Result.fail(results)

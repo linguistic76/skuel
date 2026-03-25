@@ -35,7 +35,6 @@ from core.ports import LessonOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import create_curriculum_domain_config
 from core.utils.decorators import with_error_handling
-from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.metrics import track_query_metrics
 from core.utils.result_simplified import Errors, Result
@@ -478,56 +477,19 @@ class LessonSearchService(BaseService[LessonOperations, Entity]):
 
         This is the graph-semantic foundation layer - always available.
         """
-        query = """
-        MATCH (source:Entity {uid: $uid})
-        MATCH (similar:Entity)
-        WHERE similar.uid <> source.uid
+        result = await self.backend.find_similar_by_keywords(uid, limit)
 
-        // Calculate similarity based on:
-        // 1. Shared tags
-        WITH source, similar,
-             size([t IN source.tags WHERE t IN similar.tags]) as shared_tags
+        if result.is_error:
+            return Result.fail(result)
 
-        // 2. Same domain
-        WITH source, similar, shared_tags,
-             CASE WHEN source.domain = similar.domain THEN 2 ELSE 0 END as domain_match
+        records = result.value
+        if not records:
+            return Result.ok([])
 
-        // 3. Keyword overlap (simple text similarity)
-        WITH source, similar, shared_tags, domain_match,
-             size([word IN split(toLower(source.title), ' ')
-                   WHERE toLower(similar.title) CONTAINS word]) as title_overlap
-
-        // Combine scores
-        WITH similar,
-             (shared_tags * 3 + domain_match + title_overlap) as similarity_score
-        WHERE similarity_score > 0
-
-        RETURN similar
-        ORDER BY similarity_score DESC
-        LIMIT $limit
-        """
-
-        try:
-            result = await self.backend.execute_query(query, {"uid": uid, "limit": limit})
-
-            if result.is_error:
-                return Result.fail(result)
-
-            records = result.value
-            if not records:
-                return Result.ok([])
-
-            # Convert to DTOs
-            dtos = [self._node_dict_to_dto(dict(record["similar"])) for record in records]
-            self.logger.debug(f"Keyword search found {len(dtos)} similar units for {uid}")
-            return Result.ok(dtos)
-
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Keyword search failed: {e}")
-            return Result.fail(Errors.database(operation="keyword_search", message=str(e)))
-        except Exception as e:  # safety-net: catch unexpected errors
-            self.logger.error(f"Keyword search failed: {e}")
-            return Result.fail(Errors.database(operation="keyword_search", message=str(e)))
+        # Convert to DTOs
+        dtos = [self._node_dict_to_dto(dict(record["similar"])) for record in records]
+        self.logger.debug(f"Keyword search found {len(dtos)} similar units for {uid}")
+        return Result.ok(dtos)
 
     @with_error_handling("search_by_features", error_type="database")
     async def search_by_features(
@@ -718,38 +680,18 @@ class LessonSearchService(BaseService[LessonOperations, Entity]):
 
         This is the graph-semantic foundation - always available.
         """
-        query = """
-        MATCH (ku:Entity)
-        WHERE toLower(ku.title) CONTAINS toLower($query_text)
-           OR toLower(ku.summary) CONTAINS toLower($query_text)
-           OR any(tag IN ku.tags WHERE toLower(tag) CONTAINS toLower($query_text))
-        RETURN ku
-        ORDER BY ku.updated_at DESC
-        LIMIT $limit
-        """
+        result = await self.backend.search_by_keywords(query_text, limit)
 
-        try:
-            result = await self.backend.execute_query(
-                query, {"query_text": query_text, "limit": limit}
-            )
+        if result.is_error:
+            return Result.fail(result)
 
-            if result.is_error:
-                return Result.fail(result)
+        records = result.value
+        if not records:
+            return Result.ok([])
 
-            records = result.value
-            if not records:
-                return Result.ok([])
-
-            dtos = [self._node_dict_to_dto(dict(record["ku"])) for record in records]
-            self.logger.debug(f"Keyword search found {len(dtos)} results for '{query_text}'")
-            return Result.ok(dtos)
-
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Keyword search failed: {e}")
-            return Result.fail(Errors.database(operation="keyword_search", message=str(e)))
-        except Exception as e:  # safety-net: catch unexpected errors
-            self.logger.error(f"Keyword search failed: {e}")
-            return Result.fail(Errors.database(operation="keyword_search", message=str(e)))
+        dtos = [self._node_dict_to_dto(dict(record["ku"])) for record in records]
+        self.logger.debug(f"Keyword search found {len(dtos)} results for '{query_text}'")
+        return Result.ok(dtos)
 
     # =========================================================================
     # HELPER METHODS
