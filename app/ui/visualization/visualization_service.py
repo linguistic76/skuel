@@ -156,10 +156,10 @@ class VisualizationService:
 
     def __init__(
         self,
-        tasks_service: Any = None,
-        habits_service: Any = None,
-        goals_service: Any = None,
-        calendar_service: Any = None,
+        tasks_service: Any,
+        habits_service: Any,
+        goals_service: Any,
+        calendar_service: Any,
     ) -> None:
         self.tasks_service = tasks_service
         self.habits_service = habits_service
@@ -674,8 +674,7 @@ class VisualizationService:
         """
         Get task completion data formatted for Chart.js.
 
-        Returns formatted Chart.js config. Falls back to demo data
-        when tasks_service is unavailable.
+        Returns formatted Chart.js config.
         """
         from datetime import date, timedelta
 
@@ -699,12 +698,6 @@ class VisualizationService:
                     value=period,
                 )
             )
-
-        if not self.tasks_service:
-            completed = [3, 5, 4, 6, 4, 7, 5]
-            total = [5, 6, 5, 7, 6, 8, 6]
-            labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-            return self.format_completion_chart(completed, total, labels)
 
         # Get task data from service
         result = await self.tasks_service.get_user_items_in_range(
@@ -756,21 +749,9 @@ class VisualizationService:
         """
         Get task priority distribution formatted for Chart.js.
 
-        Falls back to demo data when tasks_service is unavailable.
+        Returns formatted Chart.js config.
         """
         from enum import Enum
-
-        if not self.tasks_service:
-            demo_distribution = {
-                "critical": 2,
-                "high": 5,
-                "medium": 12,
-                "low": 8,
-                "none": 3,
-            }
-            return self.format_distribution_chart(
-                demo_distribution, "Task Priority Distribution", "doughnut"
-            )
 
         distribution: dict[str, int] = {}
 
@@ -790,13 +771,7 @@ class VisualizationService:
                 distribution[key] = distribution.get(key, 0) + 1
 
         if not distribution:
-            distribution = {
-                "critical": 2,
-                "high": 5,
-                "medium": 12,
-                "low": 8,
-                "none": 3,
-            }
+            return Result.fail(Errors.not_found("No active tasks found for priority distribution"))
 
         return self.format_distribution_chart(
             distribution, "Task Priority Distribution", "doughnut"
@@ -809,18 +784,8 @@ class VisualizationService:
         """
         Get habit streak data formatted for Chart.js.
 
-        Falls back to demo data when habits_service is unavailable.
+        Returns formatted Chart.js config.
         """
-        demo_streaks = [
-            {"name": "Morning Meditation", "current": 14, "best": 21},
-            {"name": "Exercise", "current": 7, "best": 30},
-            {"name": "Reading", "current": 45, "best": 45},
-            {"name": "Journaling", "current": 3, "best": 15},
-        ]
-
-        if not self.habits_service:
-            return self.format_streak_chart(demo_streaks)
-
         result = await self.habits_service.search.get_by_status(
             user_uid=user_uid,
             status="active",
@@ -840,7 +805,7 @@ class VisualizationService:
             streaks.append(streak)
 
         if not streaks:
-            streaks = demo_streaks
+            return Result.fail(Errors.not_found("No active habits found for streak chart"))
 
         return self.format_streak_chart(streaks)
 
@@ -852,22 +817,10 @@ class VisualizationService:
         """
         Get task status distribution formatted for Chart.js.
 
-        Falls back to demo data when tasks_service is unavailable.
+        Returns formatted Chart.js config.
         """
         from datetime import date, timedelta
         from enum import Enum
-
-        demo_distribution = {
-            "done": 25,
-            "in_progress": 8,
-            "draft": 5,
-            "blocked": 2,
-        }
-
-        if not self.tasks_service:
-            return self.format_distribution_chart(
-                demo_distribution, "Task Status Distribution", "pie"
-            )
 
         distribution: dict[str, int] = {}
 
@@ -890,7 +843,7 @@ class VisualizationService:
                 distribution[key] = distribution.get(key, 0) + 1
 
         if not distribution:
-            distribution = demo_distribution
+            return Result.fail(Errors.not_found("No tasks found for status distribution"))
 
         return self.format_distribution_chart(distribution, "Task Status Distribution", "pie")
 
@@ -901,39 +854,7 @@ class VisualizationService:
         end_date: date,
         group_by: str = "type",
     ) -> Result[dict[str, Any]]:
-        """
-        Get calendar timeline data formatted for Vis.js.
-
-        Falls back to demo data when calendar_service is unavailable.
-        """
-        today = date.today()
-
-        if not self.calendar_service:
-            demo_data: dict[str, Any] = {
-                "items": [
-                    {
-                        "id": "demo-1",
-                        "content": "Project Planning",
-                        "start": today.isoformat(),
-                        "end": (today + timedelta(days=2)).isoformat(),
-                        "group": "tasks",
-                    },
-                    {
-                        "id": "demo-2",
-                        "content": "Team Meeting",
-                        "start": (today + timedelta(days=1)).isoformat(),
-                        "group": "events",
-                        "type": "point",
-                    },
-                ],
-                "groups": [
-                    {"id": "tasks", "content": "Tasks"},
-                    {"id": "events", "content": "Events"},
-                ],
-                "options": {"showCurrentTime": True},
-            }
-            return Result.ok(demo_data)
-
+        """Get calendar timeline data formatted for Vis.js."""
         result = await self.calendar_service.get_calendar_view(
             user_uid=user_uid,
             start_date=start_date,
@@ -950,30 +871,8 @@ class VisualizationService:
         user_uid: str,
         project: str | None = None,
     ) -> Result[dict[str, Any]]:
-        """
-        Get tasks-only timeline data formatted for Vis.js.
-
-        Falls back to demo data when tasks_service is unavailable.
-        """
+        """Get tasks-only timeline data formatted for Vis.js."""
         today = date.today()
-
-        if not self.tasks_service:
-            demo_data: dict[str, Any] = {
-                "items": [
-                    {
-                        "id": "task-1_work",
-                        "content": "Complete Report",
-                        "start": today.isoformat() + "T09:00:00",
-                        "end": today.isoformat() + "T11:00:00",
-                        "group": "tasks",
-                    },
-                ],
-                "groups": [
-                    {"id": "tasks", "content": "Tasks"},
-                    {"id": "deadlines", "content": "Deadlines"},
-                ],
-            }
-            return Result.ok(demo_data)
 
         result = await self.tasks_service.get_user_items_in_range(
             user_uid=user_uid,
@@ -997,44 +896,8 @@ class VisualizationService:
         user_uid: str,
         project: str | None = None,
     ) -> Result[dict[str, Any]]:
-        """
-        Get tasks Gantt data formatted for Frappe Gantt.
-
-        Falls back to demo data when tasks_service is unavailable.
-        """
+        """Get tasks Gantt data formatted for Frappe Gantt."""
         today = date.today()
-
-        if not self.tasks_service:
-            demo_data: dict[str, Any] = {
-                "tasks": [
-                    {
-                        "id": "task-1",
-                        "name": "Research Phase",
-                        "start": today.isoformat(),
-                        "end": (today + timedelta(days=5)).isoformat(),
-                        "progress": 80,
-                        "dependencies": "",
-                    },
-                    {
-                        "id": "task-2",
-                        "name": "Design Phase",
-                        "start": (today + timedelta(days=5)).isoformat(),
-                        "end": (today + timedelta(days=12)).isoformat(),
-                        "progress": 20,
-                        "dependencies": "task-1",
-                    },
-                    {
-                        "id": "task-3",
-                        "name": "Implementation",
-                        "start": (today + timedelta(days=12)).isoformat(),
-                        "end": (today + timedelta(days=25)).isoformat(),
-                        "progress": 0,
-                        "dependencies": "task-2",
-                    },
-                ],
-                "options": {"view_mode": "Week"},
-            }
-            return Result.ok(demo_data)
 
         result = await self.tasks_service.get_user_items_in_range(
             user_uid=user_uid,
@@ -1070,29 +933,7 @@ class VisualizationService:
         user_uid: str,
         goal_uid: str,
     ) -> Result[dict[str, Any]]:
-        """
-        Get goal with tasks as Gantt data formatted for Frappe Gantt.
-
-        Falls back to demo data when goals_service is unavailable.
-        """
-        today = date.today()
-
-        if not self.goals_service:
-            demo_data: dict[str, Any] = {
-                "tasks": [
-                    {
-                        "id": goal_uid,
-                        "name": "Goal: Complete Project",
-                        "start": today.isoformat(),
-                        "end": (today + timedelta(days=30)).isoformat(),
-                        "progress": 40,
-                        "custom_class": "goal-bar",
-                    },
-                ],
-                "options": {"view_mode": "Month"},
-            }
-            return Result.ok(demo_data)
-
+        """Get goal with tasks as Gantt data formatted for Frappe Gantt."""
         goal_result = await self.goals_service.get_for_user(goal_uid, user_uid)
 
         if goal_result.is_error:

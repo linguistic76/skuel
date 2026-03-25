@@ -141,13 +141,22 @@ class InsightGenerationService:
     4. Score and curate generated knowledge for quality
     """
 
-    def __init__(self, ku_service=None, tasks_service=None, analytics_engine=None) -> None:
+    def __init__(
+        self,
+        ku_service: Any = None,
+        tasks_service: Any = None,
+        analytics_engine: Any = None,
+    ) -> None:
         """
         Initialize the knowledge generation service.
 
+        All dependencies are optional at construction time because this service
+        is created early in bootstrap before domain services exist. Dependencies
+        are wired later via TasksService injection.
+
         Args:
-            ku_service: For creating new knowledge units,
-            tasks_service: For accessing task completion data,
+            ku_service: For creating new knowledge units
+            tasks_service: For accessing task completion data
             analytics_engine: For advanced pattern analysis
         """
         self.ku_service = ku_service
@@ -227,7 +236,8 @@ class InsightGenerationService:
     async def _get_completed_tasks_since(self, user_uid: str, since_date: datetime) -> list[Task]:
         """Get completed tasks for a user since a specific date."""
         if not self.tasks_service:
-            return []
+            msg = "tasks_service is required for task analysis but was not injected"
+            raise RuntimeError(msg)
 
         try:
             user_tasks_result = await self.tasks_service.get_user_tasks(user_uid)

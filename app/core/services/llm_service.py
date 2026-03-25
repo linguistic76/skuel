@@ -16,7 +16,6 @@ from enum import StrEnum
 from typing import Any
 
 from core.config import get_openai_key
-from core.errors import ConfigurationError
 from core.ports.base_protocols import EnumLike
 from core.utils.exception_types import ANTHROPIC_EXCEPTIONS, OPENAI_EXCEPTIONS
 
@@ -83,38 +82,26 @@ class LLMService:
             logger.info("Using mock LLM provider")
 
     def _init_openai(self) -> None:
-        """Initialize OpenAI client."""
-        try:
-            from openai import AsyncOpenAI
+        """Initialize OpenAI client. Fails fast if openai is not installed."""
+        from openai import AsyncOpenAI
 
-            # Use provided key or get from centralized config
-            api_key = self.config.api_key
-            if not api_key:
-                try:
-                    api_key = get_openai_key()
-                except ConfigurationError:
-                    # For LLM service, we'll raise since OpenAI is required when selected
-                    raise
+        # Use provided key or get from centralized config
+        api_key = self.config.api_key
+        if not api_key:
+            api_key = get_openai_key()
 
-            # Create modern OpenAI client (v1.x+)
-            self.client = AsyncOpenAI(api_key=api_key)
-            logger.info("OpenAI LLM provider initialized (modern API v1.x+)")
-        except ImportError:
-            logger.warning("OpenAI library not installed, falling back to mock")
-            self.config.provider = LLMProvider.MOCK
+        # Create modern OpenAI client (v1.x+)
+        self.client = AsyncOpenAI(api_key=api_key)
+        logger.info("OpenAI LLM provider initialized (modern API v1.x+)")
 
     def _init_anthropic(self) -> None:
-        """Initialize Anthropic client."""
-        try:
-            import anthropic
+        """Initialize Anthropic client. Fails fast if anthropic is not installed."""
+        import anthropic
 
-            self.client = anthropic.Anthropic(
-                api_key=self.config.api_key or os.getenv("ANTHROPIC_API_KEY")
-            )
-            logger.info("Anthropic LLM provider initialized")
-        except ImportError:
-            logger.warning("Anthropic library not installed, falling back to mock")
-            self.config.provider = LLMProvider.MOCK
+        self.client = anthropic.Anthropic(
+            api_key=self.config.api_key or os.getenv("ANTHROPIC_API_KEY")
+        )
+        logger.info("Anthropic LLM provider initialized")
 
     def _init_local(self) -> None:
         """Initialize local model (e.g., Ollama)."""

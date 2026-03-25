@@ -69,7 +69,7 @@ from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.neo4j_temporal import convert_neo4j_date, convert_neo4j_time
 from core.utils.result_simplified import Errors, Result
-from ui.palette import CalendarFallback, SemanticColor
+from ui.palette import CalendarFallback
 
 logger = get_logger("skuel.services.calendar")
 
@@ -99,34 +99,25 @@ class CalendarService:
 
     def __init__(
         self,
-        tasks_service: TasksOperations | None = None,
-        events_service: EventsOperations | None = None,
-        habits_service: HabitsService | None = None,
+        tasks_service: TasksOperations,
+        events_service: EventsOperations,
+        habits_service: HabitsService,
     ) -> None:
         """
-        Initialize with domain services.
+        Initialize with required domain services.
 
-        PARTIAL INITIALIZATION SUPPORTED (Meta-Service Pattern):
-        CalendarService is a meta-service that aggregates from multiple domains.
-        Unlike domain services, it intentionally supports partial initialization
-        any or all services may be None. Methods gracefully return empty results
-        for missing domains rather than failing.
-
-        This design allows:
-        - Flexible deployment where not all domains are available
-        - Gradual feature rollout
-        - Testing individual domain integrations
+        All three domain services are required — fail-fast if any is missing.
 
         Args:
-            tasks_service: Service for task operations (optional)
-            events_service: Service for event operations (optional)
-            habits_service: Service for habit operations (optional)
+            tasks_service: Service for task operations
+            events_service: Service for event operations
+            habits_service: Service for habit operations
         """
         self.tasks_service = tasks_service
         self.events_service = events_service
         self.habits_service = habits_service
         self.logger = logger
-        logger.debug("CalendarService initialized (meta-service, partial initialization OK)")
+        logger.debug("CalendarService initialized")
 
     # ========================================================================
     # MAIN PUBLIC INTERFACE
@@ -162,28 +153,23 @@ class CalendarService:
         items = []
 
         # Fetch tasks using unified API (Cypher-level filtering)
-        if self.tasks_service:
-            task_items = await self._fetch_tasks(user_uid, start_date, end_date, include_completed)
-            items.extend(task_items)
+        task_items = await self._fetch_tasks(user_uid, start_date, end_date, include_completed)
+        items.extend(task_items)
 
         # Fetch events using unified API (Cypher-level filtering)
-        if self.events_service:
-            event_items = await self._fetch_events(
-                user_uid, start_date, end_date, include_completed
-            )
-            items.extend(event_items)
+        event_items = await self._fetch_events(user_uid, start_date, end_date, include_completed)
+        items.extend(event_items)
 
         # Fetch habits using unified API (status filtering only)
         habit_occurrences = {}
-        if self.habits_service:
-            habits = await self._fetch_habits(user_uid, start_date, end_date, include_completed)
-            for habit in habits:
-                # Add habit as calendar item
-                items.append(self._habit_to_calendar_item(habit))
-                # Generate occurrences for the date range
-                occurrences = self._generate_habit_occurrences(habit, start_date, end_date)
-                if occurrences:
-                    habit_occurrences[habit.uid] = occurrences
+        habits = await self._fetch_habits(user_uid, start_date, end_date, include_completed)
+        for habit in habits:
+            # Add habit as calendar item
+            items.append(self._habit_to_calendar_item(habit))
+            # Generate occurrences for the date range
+            occurrences = self._generate_habit_occurrences(habit, start_date, end_date)
+            if occurrences:
+                habit_occurrences[habit.uid] = occurrences
 
         # Build calendar data
         calendar_data = CalendarData(
@@ -208,42 +194,24 @@ class CalendarService:
         Returns:
             Result with CalendarItem or None if not found
         """
-        # Handle demo items specially - return them directly
-        if item_uid.startswith("demo-"):
-            demo_items = []
-            if EntityType.TASK.value in item_uid:
-                demo_items = self._create_demo_tasks()
-            elif EntityType.EVENT.value in item_uid:
-                demo_items = self._create_demo_events()
-
-            # Find matching demo item
-            for item in demo_items:
-                if item.uid == item_uid:
-                    return Result.ok(item)
-
-            return Result.ok(None)
-
         # Parse item type from UID prefix
         if item_uid.startswith("task-"):
             source_uid = item_uid[5:]  # Remove "task-" prefix
-            if self.tasks_service:
-                result = await self.tasks_service.get(source_uid)
-                if result.is_ok and result.value:
-                    return Result.ok(self._task_to_calendar_item(result.value))
+            result = await self.tasks_service.get(source_uid)
+            if result.is_ok and result.value:
+                return Result.ok(self._task_to_calendar_item(result.value))
 
         elif item_uid.startswith("event-"):
             source_uid = item_uid[6:]  # Remove "event-" prefix
-            if self.events_service:
-                result = await self.events_service.get(source_uid)
-                if result.is_ok and result.value:
-                    return Result.ok(self._event_to_calendar_item(result.value))
+            result = await self.events_service.get(source_uid)
+            if result.is_ok and result.value:
+                return Result.ok(self._event_to_calendar_item(result.value))
 
         elif item_uid.startswith("habit-"):
             source_uid = item_uid[6:]  # Remove "habit-" prefix
-            if self.habits_service:
-                result = await self.habits_service.get(source_uid)
-                if result.is_ok and result.value:
-                    return Result.ok(self._habit_to_calendar_item(result.value))
+            result = await self.habits_service.get(source_uid)
+            if result.is_ok and result.value:
+                return Result.ok(self._habit_to_calendar_item(result.value))
 
         return Result.ok(None)
 
@@ -266,7 +234,7 @@ class CalendarService:
         duration = kwargs.get("duration", 60)  # Default 60 minutes
         end_time = start_time + timedelta(minutes=duration)
 
-        if item_type == EntityType.TASK.value and self.tasks_service:
+        if item_type == EntityType.TASK.value:
             # Create task
             task_dto = TaskDTO(
                 uid="",  # Will be generated
@@ -284,7 +252,7 @@ class CalendarService:
             # Type boundary: Extract error from Result[Task] for Result[CalendarItem]
             return Result.fail(result)
 
-        elif item_type == EntityType.EVENT.value and self.events_service:
+        elif item_type == EntityType.EVENT.value:
             # Create event
             event_dto = EventDTO(
                 uid="",  # Will be generated
@@ -302,7 +270,7 @@ class CalendarService:
             # Type boundary: Extract error from Result[Event] for Result[CalendarItem]
             return Result.fail(result)
 
-        elif item_type == EntityType.HABIT.value and self.habits_service:
+        elif item_type == EntityType.HABIT.value:
             # Create habit
             habit_dto = HabitDTO(
                 uid="",  # Will be generated
@@ -335,64 +303,55 @@ class CalendarService:
         # Parse item type and update accordingly
         if item_uid.startswith("task-"):
             source_uid = item_uid[5:]
-            if self.tasks_service:
-                # Get existing task
-                get_result = await self.tasks_service.get(source_uid)
-                if get_result.is_ok and get_result.value:
-                    task = get_result.value
-                    # Update scheduled time
-                    updated_dto = TaskDTO(
-                        uid=task.uid,
-                        user_uid=task.user_uid,
-                        title=task.title,
-                        description=task.description,
-                        scheduled_date=new_start.date(),
-                        due_date=task.due_date,
-                        status=task.status,
-                        priority=task.priority,
-                    )
-                    result = await self.tasks_service.update(source_uid, updated_dto)
-                    if result.is_ok:
-                        return Result.ok(self._task_to_calendar_item(result.value))
-                    # Type boundary: Extract error from Result[Task] for Result[CalendarItem]
-                    return Result.fail(result)
+            get_result = await self.tasks_service.get(source_uid)
+            if get_result.is_ok and get_result.value:
+                task = get_result.value
+                updated_dto = TaskDTO(
+                    uid=task.uid,
+                    user_uid=task.user_uid,
+                    title=task.title,
+                    description=task.description,
+                    scheduled_date=new_start.date(),
+                    due_date=task.due_date,
+                    status=task.status,
+                    priority=task.priority,
+                )
+                result = await self.tasks_service.update(source_uid, updated_dto)
+                if result.is_ok:
+                    return Result.ok(self._task_to_calendar_item(result.value))
+                return Result.fail(result)
 
         elif item_uid.startswith("event-"):
             source_uid = item_uid[6:]
-            if self.events_service:
-                # Get existing event
-                get_result = await self.events_service.get(source_uid)
-                if get_result.is_ok and get_result.value:
-                    event: Event = get_result.value  # Type hint for MyPy protocol inference
-                    # Calculate new end time based on original duration
-                    start_dt = event.start_datetime()
-                    end_dt = event.end_datetime()
-                    if start_dt is None or end_dt is None:
-                        return Result.fail(
-                            Errors.validation(
-                                message="Event is missing start or end datetime",
-                                field="datetime",
-                                value=source_uid,
-                            )
+            get_result = await self.events_service.get(source_uid)
+            if get_result.is_ok and get_result.value:
+                event: Event = get_result.value  # Type hint for MyPy protocol inference
+                start_dt = event.start_datetime()
+                end_dt = event.end_datetime()
+                if start_dt is None or end_dt is None:
+                    return Result.fail(
+                        Errors.validation(
+                            message="Event is missing start or end datetime",
+                            field="datetime",
+                            value=source_uid,
                         )
-                    duration = end_dt - start_dt
-                    new_end = new_start + duration
-                    # Update event time
-                    updated_dto = EventDTO(
-                        uid=event.uid,
-                        user_uid=event.user_uid,
-                        title=event.title,
-                        description=event.description,
-                        event_date=new_start.date(),
-                        start_time=new_start.time(),
-                        end_time=new_end.time(),
-                        status=event.status,
                     )
-                    result = await self.events_service.update(source_uid, updated_dto)
-                    if result.is_ok:
-                        return Result.ok(self._event_to_calendar_item(result.value))
-                    # Type boundary: Extract error from Result[Event] for Result[CalendarItem]
-                    return Result.fail(result)
+                duration = end_dt - start_dt
+                new_end = new_start + duration
+                updated_dto = EventDTO(
+                    uid=event.uid,
+                    user_uid=event.user_uid,
+                    title=event.title,
+                    description=event.description,
+                    event_date=new_start.date(),
+                    start_time=new_start.time(),
+                    end_time=new_end.time(),
+                    status=event.status,
+                )
+                result = await self.events_service.update(source_uid, updated_dto)
+                if result.is_ok:
+                    return Result.ok(self._event_to_calendar_item(result.value))
+                return Result.fail(result)
 
         return Result.fail(Errors.not_found(f"Item not found: {item_uid}"))
 
@@ -413,16 +372,10 @@ class CalendarService:
         """
         items: list[CalendarItem] = []
 
-        # Null-safety check
-        if not self.tasks_service:
-            logger.warning("Calendar: tasks_service is None - cannot fetch tasks")
-            return items
-
         try:
             logger.info(
                 f"Calendar: Fetching tasks for user={user_uid}, range={start_date} to {end_date}"
             )
-            # Use unified API for Cypher-level filtering
             result = await self.tasks_service.get_user_items_in_range(
                 user_uid=user_uid,
                 start_date=start_date,
@@ -430,17 +383,10 @@ class CalendarService:
                 include_completed=include_completed,
             )
 
-            logger.info(f"Calendar: Task query result is_ok={result.is_ok}")
             if result.is_ok:
-                tasks = result.value  # List[Task] - already filtered by Cypher
+                tasks = result.value
                 logger.info(f"Calendar: Found {len(tasks)} tasks in date range")
-                # Convert all tasks to calendar items (no in-memory filtering needed)
                 items = [self._task_to_calendar_item(task) for task in tasks]
-
-                # Add demo data if database is empty
-                if not tasks and date.today() >= start_date and date.today() <= end_date:
-                    logger.info("Database empty - showing demo tasks")
-                    items.extend(self._create_demo_tasks())
 
         except NEO4J_EXCEPTIONS as e:
             logger.warning(f"Failed to fetch tasks: {e}")
@@ -460,12 +406,7 @@ class CalendarService:
         """
         items: list[CalendarItem] = []
 
-        # Null-safety check
-        if not self.events_service:
-            return items
-
         try:
-            # Use unified API for Cypher-level filtering
             result = await self.events_service.get_user_items_in_range(
                 user_uid=user_uid,
                 start_date=start_date,
@@ -474,14 +415,8 @@ class CalendarService:
             )
 
             if result.is_ok:
-                events = result.value  # List[Event] - already filtered by Cypher
-                # Convert all events to calendar items (no in-memory filtering needed)
+                events = result.value
                 items = [self._event_to_calendar_item(event) for event in events]
-
-                # Add demo data if database is empty
-                if not events and date.today() >= start_date and date.today() <= end_date:
-                    logger.info("Database empty - showing demo events")
-                    items.extend(self._create_demo_events())
 
         except NEO4J_EXCEPTIONS as e:
             logger.warning(f"Failed to fetch events: {e}")
@@ -503,10 +438,6 @@ class CalendarService:
         the unified interface signature for consistency.
         """
         habits: list[Habit] = []
-
-        # Null-safety check
-        if not self.habits_service:
-            return habits
 
         try:
             # Use unified API for Cypher-level status filtering
@@ -870,107 +801,9 @@ class CalendarService:
         Delegates to habits_service.record_occurrence. Returns a not-found
         error when habits_service is unavailable.
         """
-        if not self.habits_service:
-            return Result.fail(Errors.not_found("Habits service not available"))
-
         request = TrackHabitRequest(
             habit_uid=habit_uid,
             completion_date=on_date,
             notes=notes,
         )
         return await self.habits_service.track_habit(request)
-
-    # ========================================================================
-    # DEMO DATA (for empty database)
-    # ========================================================================
-
-    def _create_demo_tasks(self) -> list[CalendarItem]:
-        """Create demo tasks when database is empty."""
-        today = date.today()
-        datetime.now()
-
-        return [
-            CalendarItem(
-                uid="demo-task-1",
-                source_uid="demo-task-1",
-                title="Review calendar implementation",
-                description="Check calendar vs events consolidation",
-                item_type=CalendarItemType.TASK_WORK,
-                start_time=datetime.combine(today, datetime.min.time().replace(hour=10)),
-                end_time=datetime.combine(today, datetime.min.time().replace(hour=11)),
-                all_day=False,
-                color=SemanticColor.PRIMARY,
-                icon="📋",
-                priority=2,
-                tags=["development", "calendar"],
-                metadata={"status": "pending", "priority": "high", "demo": True},
-            ),
-            CalendarItem(
-                uid="demo-task-2",
-                source_uid="demo-task-2",
-                title="Add multi-attendee support",
-                description="Implement attendee management for events",
-                item_type=CalendarItemType.TASK_WORK,
-                start_time=datetime.combine(today, datetime.min.time().replace(hour=15)),
-                end_time=datetime.combine(today, datetime.min.time().replace(hour=16)),
-                all_day=False,
-                color=SemanticColor.WARNING,
-                icon="📋",
-                priority=1,
-                tags=["feature", "events"],
-                metadata={"status": "pending", "priority": "medium", "demo": True},
-            ),
-        ]
-
-    def _create_demo_events(self) -> list[CalendarItem]:
-        """Create demo events when database is empty."""
-        today = date.today()
-        datetime.now()
-
-        return [
-            CalendarItem(
-                uid="demo-event-1",
-                source_uid="demo-event-1",
-                title="Team Standup",
-                description="Daily team sync meeting",
-                item_type=CalendarItemType.EVENT,
-                start_time=datetime.combine(today, datetime.min.time().replace(hour=9)),
-                end_time=datetime.combine(today, datetime.min.time().replace(hour=9, minute=30)),
-                all_day=False,
-                color=SemanticColor.SUCCESS,
-                icon="📅",
-                priority=1,
-                category="meeting",
-                tags=["team", "recurring"],
-                attendee_emails=("team@skuel.com",),
-                location="Conference Room A",
-                is_online=False,
-                metadata={"status": "scheduled", "demo": True},
-            ),
-            CalendarItem(
-                uid="demo-event-2",
-                source_uid="demo-event-2",
-                title="Project Review",
-                description="Review clean architecture implementation",
-                item_type=CalendarItemType.EVENT,
-                start_time=datetime.combine(today, datetime.min.time().replace(hour=14)),
-                end_time=datetime.combine(today, datetime.min.time().replace(hour=15)),
-                all_day=False,
-                color=CalendarFallback.HABIT,
-                icon="📅",
-                priority=2,
-                category="meeting",
-                tags=["project", "review"],
-                attendee_emails=("alice@skuel.com", "bob@skuel.com", "charlie@skuel.com"),
-                max_attendees=5,
-                location="",
-                is_online=True,
-                metadata={
-                    "status": "scheduled",
-                    "demo": True,
-                    "attendee_count": 3,
-                    "has_capacity": True,
-                    "meeting_url": "https://meet.example.com/project-review",
-                },
-            ),
-        ]

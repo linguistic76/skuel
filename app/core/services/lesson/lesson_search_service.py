@@ -679,9 +679,9 @@ class LessonSearchService(BaseService[LessonOperations, Entity]):
         Search Knowledge Units by natural language query using vector search.
 
         ARCHITECTURE:
-        - Uses vector embeddings for semantic similarity
-        - Falls back to keyword search if vector search unavailable
-        - Both approaches are semantic - just different implementations
+        - FULL tier: Uses vector embeddings for semantic similarity (fails fast on error)
+        - CORE tier: Keyword search when vector search not configured
+        - No silent fallback: if vector search is available but fails, error propagates
 
         Args:
             query_text: Natural language search query
@@ -694,24 +694,22 @@ class LessonSearchService(BaseService[LessonOperations, Entity]):
         if not query_text or not query_text.strip():
             return Result.fail(Errors.validation("Search query is required", field="query_text"))
 
-        # Try semantic search with vector embeddings
+        # Vector search path (FULL tier — vector_search + embeddings available)
         if self.vector_search and self.embeddings:
             semantic_result = await self.vector_search.find_similar_by_text(
                 label="Entity", text=query_text, limit=limit, min_score=min_score
             )
 
-            if semantic_result.is_ok:
-                similar_nodes = semantic_result.value
-                dtos = [self._node_dict_to_dto(node["node"]) for node in similar_nodes]
-                self.logger.debug(f"Semantic search found {len(dtos)} results for '{query_text}'")
-                return Result.ok(dtos)
-            else:
-                self.logger.warning(
-                    f"Semantic search failed: {semantic_result.expect_error()}, falling back to keyword search"
-                )
+            if semantic_result.is_error:
+                return Result.fail(semantic_result)
 
-        # Fallback: Keyword search
-        self.logger.info(f"Using keyword search fallback for '{query_text}'")
+            similar_nodes = semantic_result.value
+            dtos = [self._node_dict_to_dto(node["node"]) for node in similar_nodes]
+            self.logger.debug(f"Semantic search found {len(dtos)} results for '{query_text}'")
+            return Result.ok(dtos)
+
+        # Keyword search path (CORE tier — no vector search available)
+        self.logger.debug(f"Using keyword search for '{query_text}' (CORE tier)")
         return await self._search_by_keywords(query_text, limit)
 
     async def _search_by_keywords(self, query_text: str, limit: int) -> Result[list[CurriculumDTO]]:

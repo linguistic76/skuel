@@ -17,7 +17,6 @@ from core.models.relationship_names import RelationshipName
 from core.services.lesson.lesson_graph_service import LessonGraphService
 from core.services.lesson.lesson_semantic_service import LessonSemanticService
 from core.services.relationships import UnifiedRelationshipService
-from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.generic_fetcher import fetch_relationships_parallel
 from core.utils.result_simplified import Result
 
@@ -237,166 +236,124 @@ class KuRelationships:
 
 async def _get_prerequisites(graph_service: LessonGraphService, ku_uid: str) -> Result:
     """Get prerequisite knowledge units (REQUIRES relationship)."""
-    try:
-        return await graph_service.find_prerequisites(ku_uid, depth=1)
-    except (*NEO4J_EXCEPTIONS, TypeError, AttributeError) as e:
-        from core.utils.logging import get_logger
-
-        logger = get_logger(__name__)
-        logger.warning(f"Failed to get prerequisites for {ku_uid}: {e}")
-        return Result.ok([])
+    return await graph_service.find_prerequisites(ku_uid, depth=1)
 
 
 async def _get_enables(graph_service: LessonGraphService, ku_uid: str) -> Result:
     """Get knowledge units this KU enables (ENABLES relationship)."""
-    try:
-        return await graph_service.find_next_steps(ku_uid, limit=100)
-    except (*NEO4J_EXCEPTIONS, TypeError, AttributeError) as e:
-        from core.utils.logging import get_logger
-
-        logger = get_logger(__name__)
-        logger.warning(f"Failed to get enables for {ku_uid}: {e}")
-        return Result.ok([])
+    return await graph_service.find_next_steps(ku_uid, limit=100)
 
 
 async def _get_related_knowledge(graph_service: LessonGraphService, ku_uid: str) -> Result:
     """Get related knowledge units (RELATED_TO relationship)."""
-    try:
-        query = """
-            MATCH (ku:Entity {uid: $ku_uid})-[:RELATED_TO]-(related:Entity)
-            RETURN related.uid as uid
-            LIMIT 50
-        """
-        params = {"ku_uid": ku_uid}
-        results = await graph_service.neo4j.execute_query(query, params)
-        uids = [record["uid"] for record in results]
-        return Result.ok(uids)
-    except (*NEO4J_EXCEPTIONS, TypeError, AttributeError) as e:
-        from core.utils.logging import get_logger
-
-        logger = get_logger(__name__)
-        logger.warning(f"Failed to get related knowledge for {ku_uid}: {e}")
-        return Result.ok([])
+    query = """
+        MATCH (ku:Entity {uid: $ku_uid})-[:RELATED_TO]-(related:Entity)
+        RETURN related.uid as uid
+        LIMIT 50
+    """
+    params = {"ku_uid": ku_uid}
+    result = await graph_service.neo4j.execute_query(query, params)
+    if isinstance(result, Result) and result.is_error:
+        return Result.fail(result)
+    records = result.value if isinstance(result, Result) else result
+    uids = [record["uid"] for record in records]
+    return Result.ok(uids)
 
 
 async def _get_broader_concepts(graph_service: LessonGraphService, ku_uid: str) -> Result:
     """Get broader concepts (HAS_BROADER relationship)."""
-    try:
-        query = """
-            MATCH (ku:Entity {uid: $ku_uid})-[:HAS_BROADER]->(broader:Entity)
-            RETURN broader.uid as uid
-            LIMIT 20
-        """
-        params = {"ku_uid": ku_uid}
-        results = await graph_service.neo4j.execute_query(query, params)
-        uids = [record["uid"] for record in results]
-        return Result.ok(uids)
-    except (*NEO4J_EXCEPTIONS, TypeError, AttributeError) as e:
-        from core.utils.logging import get_logger
-
-        logger = get_logger(__name__)
-        logger.warning(f"Failed to get broader concepts for {ku_uid}: {e}")
-        return Result.ok([])
+    query = """
+        MATCH (ku:Entity {uid: $ku_uid})-[:HAS_BROADER]->(broader:Entity)
+        RETURN broader.uid as uid
+        LIMIT 20
+    """
+    params = {"ku_uid": ku_uid}
+    result = await graph_service.neo4j.execute_query(query, params)
+    if isinstance(result, Result) and result.is_error:
+        return Result.fail(result)
+    records = result.value if isinstance(result, Result) else result
+    uids = [record["uid"] for record in records]
+    return Result.ok(uids)
 
 
 async def _get_narrower_concepts(graph_service: LessonGraphService, ku_uid: str) -> Result:
     """Get narrower concepts (HAS_NARROWER relationship)."""
-    try:
-        query = """
-            MATCH (ku:Entity {uid: $ku_uid})-[:HAS_NARROWER]->(narrower:Entity)
-            RETURN narrower.uid as uid
-            LIMIT 50
-        """
-        params = {"ku_uid": ku_uid}
-        results = await graph_service.neo4j.execute_query(query, params)
-        uids = [record["uid"] for record in results]
-        return Result.ok(uids)
-    except (*NEO4J_EXCEPTIONS, TypeError, AttributeError) as e:
-        from core.utils.logging import get_logger
-
-        logger = get_logger(__name__)
-        logger.warning(f"Failed to get narrower concepts for {ku_uid}: {e}")
-        return Result.ok([])
+    query = """
+        MATCH (ku:Entity {uid: $ku_uid})-[:HAS_NARROWER]->(narrower:Entity)
+        RETURN narrower.uid as uid
+        LIMIT 50
+    """
+    params = {"ku_uid": ku_uid}
+    result = await graph_service.neo4j.execute_query(query, params)
+    if isinstance(result, Result) and result.is_error:
+        return Result.fail(result)
+    records = result.value if isinstance(result, Result) else result
+    uids = [record["uid"] for record in records]
+    return Result.ok(uids)
 
 
 async def _get_learning_paths(graph_service: LessonGraphService, ku_uid: str) -> Result:
     """Get learning paths containing this KU."""
-    try:
-        query = """
-            MATCH (lp:Lp)-[:CONTAINS_KNOWLEDGE|INCLUDES_KNOWLEDGE]->(ku:Entity {uid: $ku_uid})
-            RETURN lp.uid as uid
-            LIMIT 50
-        """
-        params = {"ku_uid": ku_uid}
-        results = await graph_service.neo4j.execute_query(query, params)
-        uids = [record["uid"] for record in results]
-        return Result.ok(uids)
-    except (*NEO4J_EXCEPTIONS, TypeError, AttributeError) as e:
-        from core.utils.logging import get_logger
-
-        logger = get_logger(__name__)
-        logger.warning(f"Failed to get learning paths for {ku_uid}: {e}")
-        return Result.ok([])
+    query = """
+        MATCH (lp:Lp)-[:CONTAINS_KNOWLEDGE|INCLUDES_KNOWLEDGE]->(ku:Entity {uid: $ku_uid})
+        RETURN lp.uid as uid
+        LIMIT 50
+    """
+    params = {"ku_uid": ku_uid}
+    result = await graph_service.neo4j.execute_query(query, params)
+    if isinstance(result, Result) and result.is_error:
+        return Result.fail(result)
+    records = result.value if isinstance(result, Result) else result
+    uids = [record["uid"] for record in records]
+    return Result.ok(uids)
 
 
 async def _get_applying_tasks(graph_service: LessonGraphService, ku_uid: str) -> Result:
     """Get tasks applying this knowledge."""
-    try:
-        query = """
-            MATCH (task:Task)-[:APPLIES_KNOWLEDGE]->(ku:Entity {uid: $ku_uid})
-            RETURN task.uid as uid
-            LIMIT 100
-        """
-        params = {"ku_uid": ku_uid}
-        results = await graph_service.neo4j.execute_query(query, params)
-        uids = [record["uid"] for record in results]
-        return Result.ok(uids)
-    except (*NEO4J_EXCEPTIONS, TypeError, AttributeError) as e:
-        from core.utils.logging import get_logger
-
-        logger = get_logger(__name__)
-        logger.warning(f"Failed to get applying tasks for {ku_uid}: {e}")
-        return Result.ok([])
+    query = """
+        MATCH (task:Task)-[:APPLIES_KNOWLEDGE]->(ku:Entity {uid: $ku_uid})
+        RETURN task.uid as uid
+        LIMIT 100
+    """
+    params = {"ku_uid": ku_uid}
+    result = await graph_service.neo4j.execute_query(query, params)
+    if isinstance(result, Result) and result.is_error:
+        return Result.fail(result)
+    records = result.value if isinstance(result, Result) else result
+    uids = [record["uid"] for record in records]
+    return Result.ok(uids)
 
 
 async def _get_practicing_events(graph_service: LessonGraphService, ku_uid: str) -> Result:
     """Get events practicing this knowledge."""
-    try:
-        query = """
-            MATCH (event:Event)-[:PRACTICES_KNOWLEDGE]->(ku:Entity {uid: $ku_uid})
-            RETURN event.uid as uid
-            LIMIT 100
-        """
-        params = {"ku_uid": ku_uid}
-        results = await graph_service.neo4j.execute_query(query, params)
-        uids = [record["uid"] for record in results]
-        return Result.ok(uids)
-    except (*NEO4J_EXCEPTIONS, TypeError, AttributeError) as e:
-        from core.utils.logging import get_logger
-
-        logger = get_logger(__name__)
-        logger.warning(f"Failed to get practicing events for {ku_uid}: {e}")
-        return Result.ok([])
+    query = """
+        MATCH (event:Event)-[:PRACTICES_KNOWLEDGE]->(ku:Entity {uid: $ku_uid})
+        RETURN event.uid as uid
+        LIMIT 100
+    """
+    params = {"ku_uid": ku_uid}
+    result = await graph_service.neo4j.execute_query(query, params)
+    if isinstance(result, Result) and result.is_error:
+        return Result.fail(result)
+    records = result.value if isinstance(result, Result) else result
+    uids = [record["uid"] for record in records]
+    return Result.ok(uids)
 
 
 async def _get_reinforcing_habits(graph_service: LessonGraphService, ku_uid: str) -> Result:
     """Get habits reinforcing this knowledge."""
-    try:
-        query = """
-            MATCH (habit:Habit)-[:APPLIES_KNOWLEDGE|REINFORCES_KNOWLEDGE]->(ku:Entity {uid: $ku_uid})
-            RETURN habit.uid as uid
-            LIMIT 100
-        """
-        params = {"ku_uid": ku_uid}
-        results = await graph_service.neo4j.execute_query(query, params)
-        uids = [record["uid"] for record in results]
-        return Result.ok(uids)
-    except (*NEO4J_EXCEPTIONS, TypeError, AttributeError) as e:
-        from core.utils.logging import get_logger
-
-        logger = get_logger(__name__)
-        logger.warning(f"Failed to get reinforcing habits for {ku_uid}: {e}")
-        return Result.ok([])
+    query = """
+        MATCH (habit:Habit)-[:APPLIES_KNOWLEDGE|REINFORCES_KNOWLEDGE]->(ku:Entity {uid: $ku_uid})
+        RETURN habit.uid as uid
+        LIMIT 100
+    """
+    params = {"ku_uid": ku_uid}
+    result = await graph_service.neo4j.execute_query(query, params)
+    if isinstance(result, Result) and result.is_error:
+        return Result.fail(result)
+    records = result.value if isinstance(result, Result) else result
+    uids = [record["uid"] for record in records]
+    return Result.ok(uids)
 
 
 def _extract_uids(result: Result) -> list[str]:

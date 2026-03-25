@@ -484,7 +484,7 @@ type Scorer[T] = Callable[[T], Score]
 
 **Core Principle:** "All dependencies are REQUIRED - no graceful degradation"
 
-**Required at bootstrap:** Neo4j, OpenAI, Deepgram. **Only 2 valid `None` cases:** True circular dependencies, unimplemented features (explicit TODOs). **Exception:** `CalendarService` is an aggregation meta-service with optional dependencies.
+**Required at bootstrap:** Neo4j, OpenAI, Deepgram. **Only 2 valid `None` cases:** True circular dependencies, unimplemented features (explicit TODOs).
 
 ## UI Component Pattern
 

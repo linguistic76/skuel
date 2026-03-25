@@ -167,6 +167,22 @@ Two more services migrated to domain backends — zero inline Cypher remains in 
 
 **Fail-fast cleanup:** `executor: QueryExecutor` replaced with `backend: LateralRelationshipBackendOperations`.
 
+### March 25, 2026 Update: Broader Fail-Fast Sweep (Phase 6)
+
+Eliminated optional-dep fallback patterns across 7 files, enforcing One Path Forward:
+
+| File | Pattern Removed | Fix |
+|------|----------------|-----|
+| `ku/ku_relationships.py` | Caught errors, returned `Result.ok([])` | Removed try/except, errors propagate via `Result.fail()` |
+| `lesson/lesson_search_service.py` | Semantic search fail → silent keyword fallback | Error propagates when FULL tier; keyword used only when CORE tier |
+| `visualization_service.py` | Optional deps + demo/mock data | All 4 service deps required, demo data deleted |
+| `calendar_service.py` | Optional deps + `if self.X_service:` guards + demo data | All 3 deps required, null guards + demo methods deleted |
+| `insight_generation_service.py` | `if not self.tasks_service: return []` | `RuntimeError` if tasks_service missing |
+| `llm_service.py` | `ImportError → mock provider` fallback | `ImportError` propagates — if provider selected, library must be installed |
+| `instruction_resolver.py` | Unknown mode → silent default | `Errors.validation()` on unknown enrichment mode |
+
+Also removed CalendarService exception from CLAUDE.md's fail-fast dependency philosophy.
+
 ---
 
 ## January 2026 Update: Wrapper Classes Removed

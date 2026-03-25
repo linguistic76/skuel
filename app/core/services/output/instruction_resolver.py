@@ -107,8 +107,14 @@ class InstructionResolver:
         template_id = _MODE_TEMPLATE_MAP.get(mode)
 
         if not template_id:
-            logger.warning(f"Unknown enrichment mode '{mode}', falling back to activity_tracking")
-            template_id = _MODE_TEMPLATE_MAP[DEFAULT_ENRICHMENT_MODE]
+            valid_modes = ", ".join(sorted(_MODE_TEMPLATE_MAP.keys()))
+            return Result.fail(
+                Errors.validation(
+                    f"Unknown enrichment mode '{mode}'. Valid modes: {valid_modes}",
+                    field="enrichment_mode",
+                    value=mode,
+                )
+            )
 
         # Render template with {content} placeholder
         # PROMPT_REGISTRY.render() replaces kwargs — we pass content="{content}"
