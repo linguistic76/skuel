@@ -21,7 +21,7 @@ All 111 return-value errors have been resolved through progressive fixes:
 2. **Final 4 errors fixed** (December 2, 2025):
    - `curriculum_base_service.py:397` - Fixed fallback to unwrap Result before returning
    - `ku_service.py:225` - Fixed return type annotation to `Result[list[Any]]`
-   - `ku_service.py:288` - Fixed error propagation with `Result.fail(result.expect_error())`
+   - `ku_service.py:288` - Fixed error propagation with `Result.fail(result)` (verbose `.expect_error()` form migrated codebase-wide 2026-03-25)
    - `ku_service.py:661` - Fixed return type annotation to `Result[list[Any]]`
 
 ---

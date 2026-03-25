@@ -211,7 +211,7 @@ if result.is_error:
     assert result.error is not None  # MyPy doesn't narrow types!
     return Result.fail(result.error)  # Still Optional[ErrorContext] to MyPy
 
-# ❌ VERBOSE - Redundant .expect_error() for propagation
+# ❌ VERBOSE - Redundant .expect_error() for propagation (migrated 2026-03-25, 834 sites)
 if result.is_error:
     return Result.fail(result.expect_error())  # Works but unnecessary
 
@@ -279,4 +279,4 @@ $ uv run mypy core/services/lp/lp_core_service.py
 - Result implementation: `/core/utils/result_simplified.py:181-206`
 - Error handling docs: `/home/mike/0bsidian/skuel/docs/patterns/error_handling.md`
 - SKUEL linter: `/scripts/lint_skuel_patterns.py`
-- CLAUDE.md section: "Type-Safe Error Access with .expect_error()"
+- CLAUDE.md section: "Error Handling"
