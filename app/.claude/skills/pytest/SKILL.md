@@ -313,12 +313,12 @@ The core learning-loop services have dedicated unit tests using the `_make_servi
 
 | Service | Test File | Tests | Pattern |
 |---------|-----------|-------|---------|
-| `TeacherReviewService` | `tests/unit/services/test_teacher_review_service.py` | 57 | Raw `QueryExecutor` mock (`execute_query = AsyncMock()` with `side_effect=[...]` for multi-step mutations) |
+| `TeacherReviewService` | `tests/unit/services/test_teacher_review_service.py` | 57 | 3 backend mocks (`_make_submissions_backend()`, `_make_exercise_backend()`, `_make_group_backend()`) with per-method `AsyncMock` return values |
 | `SubmissionsCoreService` | `tests/unit/services/test_submissions_core_service.py` | 109 | Full `BackendOperations` mock (`get`, `create`, `update`, `delete`, `find_by`, `list`, `execute_query`) + orchestrator service mocks |
 | `SubmissionsCoreService` (assessments) | `tests/unit/test_assessment_service.py` | 7 | Same backend mock pattern |
 
 **Key mocking patterns in these tests:**
-- `executor.execute_query.side_effect = [Result.ok([...]), Result.ok([...])]` for sequential queries
+- Backend method mocks: `backend.method_name = AsyncMock(return_value=Result.ok([...]))` for per-method return values
 - Event verification: `event_bus.publish_async.assert_awaited_once()` + check event type/fields
 - Access control: `_verify_teacher_access` returns `Result.fail(Errors.not_found(...))` — 404, not 403
 - `_make_entity(**overrides)` helper using `MagicMock()` with attribute assignment (avoids frozen dataclass construction)

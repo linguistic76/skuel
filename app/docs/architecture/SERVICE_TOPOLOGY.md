@@ -633,9 +633,9 @@ Routes / Application Code
 │
 └─ report/
     ├─ submission_report_service.py   (entry point — uses UnifiedLLMCaller)
-    ├─ activity_report_service.py     (CRUD for ActivityReport)
+    ├─ activity_report_service.py     (CRUD for ActivityReport — delegates to ActivityReportBackend)
     ├─ review_queue_service.py        (ReviewRequest node management)
-    ├─ teacher_review_service.py
+    ├─ teacher_review_service.py      (delegates to SubmissionsBackend, ExerciseBackend, GroupBackend)
     ├─ progress_report_generator.py   (LLM → processed_content)
     └─ progress_schedule_service.py
 ```

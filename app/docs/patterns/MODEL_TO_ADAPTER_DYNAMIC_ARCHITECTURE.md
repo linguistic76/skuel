@@ -33,10 +33,11 @@ adapters/persistence/neo4j/
     _user_entity_mixin.py         # Generic user-entity ops (5 methods)
     _traversal_mixin.py           # GraphTraversalOperations
     _hierarchy_mixin.py           # HierarchyConfig + _HierarchyMixin (6 hierarchy methods for Activity Domains)
-    domain_backends.py            # 15 domain subclasses: TasksBackend, EventsBackend, GoalsBackend, HabitsBackend,
+    domain_backends.py            # 18 domain subclasses: TasksBackend, EventsBackend, GoalsBackend, HabitsBackend,
                                   #   ChoicesBackend, PrinciplesBackend, LessonBackend, KuBackend, LsBackend,
                                   #   LpBackend, ExerciseBackend, SubmissionsBackend, SharingBackend,
-                                  #   RevisedExerciseBackend, FormTemplateBackend, FormSubmissionBackend
+                                  #   RevisedExerciseBackend, FormTemplateBackend, FormSubmissionBackend,
+                                  #   ActivityReportBackend, GroupBackend
 ```
 
 **Class declaration:**
@@ -120,8 +121,33 @@ Phase 5 completed the backend delegation refactor — ~46 inline Cypher queries 
 ```
 adapters/persistence/neo4j/
     _hierarchy_mixin.py           # HierarchyConfig + _HierarchyMixin (6 generic methods)
-    domain_backends.py            # 17 domain subclasses (6 Activity + 5 Curriculum + 6 Other)
+    domain_backends.py            # 18 domain subclasses (6 Activity + 5 Curriculum + 7 Other)
 ```
+
+### March 25, 2026 Update: Report + Teacher Review Services Migrated (Phase 4)
+
+Two more services migrated to domain backends — zero inline Cypher remains in either service.
+
+**New backend:** `ActivityReportBackend` (6 methods):
+| Method | What It Does |
+|--------|-------------|
+| `get_history` | Query ActivityReports by subject_uid |
+| `annotate` | Save annotation/revision on owned ActivityReport |
+| `get_annotation` | Get annotation state for owned ActivityReport |
+| `get_admin_snapshots` | Privacy audit: admin-written reports received by user |
+| `get_shares_granted` | Privacy audit: SHARES_WITH access to user's entities |
+| `get_report_schedule` | Privacy audit: active report schedule |
+
+**Existing backends extended:**
+| Backend | Methods Added |
+|---------|-------------|
+| `SubmissionsBackend` | +10 teacher review methods: `get_review_queue`, `get_report_history`, `create_report_node`, `approve_and_get_linked_kus`, `get_submissions_for_exercise_review`, `get_students_summary`, `get_student_submissions_for_teacher`, `get_submission_detail_for_teacher`, `get_dashboard_stats`, `verify_teacher_access` |
+| `ExerciseBackend` | +1: `get_exercises_with_submission_counts` |
+| `GroupBackend` | +2: `get_teacher_groups_with_stats`, `get_group_detail` |
+
+**Fail-fast cleanup:**
+- `ActivityReportService`: `executor` dependency removed, `event_bus` made required
+- `TeacherReviewService`: `executor` replaced with 3 required typed backends (`SubmissionsBackend`, `ExerciseBackend`, `GroupBackend`), `event_bus` made required
 
 ---
 

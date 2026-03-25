@@ -269,7 +269,7 @@ Only `COMPLETED` entities can be shared (prevents sharing incomplete/failed work
 | `SubmissionsService` | `SubmissionOperations` | File upload, storage, submission record creation |
 | `SubmissionsProcessingService` | `SubmissionProcessingOperations` | Routes files to processors, manages status transitions |
 | `UnifiedSharingService` | `SharingOperations` | Visibility control, SHARES_WITH + SHARED_WITH_GROUP management |
-| `TeacherReviewService` | `TeacherReviewOperations` | Review queue, human feedback, revision requests, approval |
+| `TeacherReviewService` | `TeacherReviewOperations` | Review queue, human feedback, revision requests, approval (delegates to `SubmissionsBackend`, `ExerciseBackend`, `GroupBackend`) |
 
 **Report producers:**
 
@@ -302,9 +302,11 @@ The first three stages are **leaf domains** — each owns its own Neo4j nodes an
 ```
 *Operations protocol → *Backend subclass → *Service facade → sub-services
 
-KuBackend          ← owns ORGANIZES, KU curriculum queries
-ExerciseBackend    ← owns curriculum linking Cypher
-SubmissionsBackend ← owns SHARES_WITH, access control Cypher
+KuBackend               ← owns ORGANIZES, KU curriculum queries
+ExerciseBackend         ← owns curriculum linking Cypher + teacher exercise stats
+SubmissionsBackend      ← owns SHARES_WITH, access control, teacher review Cypher
+GroupBackend            ← owns MEMBER_OF, teacher group stats
+ActivityReportBackend   ← owns ActivityReport persistence + privacy audit queries
 ```
 
 Reports split into two structurally different positions:
@@ -330,16 +332,16 @@ Tasks + Goals + Habits + Events + Choices + Principles
 ACTIVITY_REPORT node
 ```
 
-`ProgressReportGenerator` accepts a `UserContextBuilder` (primary data source) alongside a `QueryExecutor` (annotation lookup only). The primary data comes from `context_builder.build_rich(user_uid, window=...)` — MEGA_QUERY extended with six activity-window CALL{} blocks. Per SKUEL's architecture rule: **domain-specific Cypher belongs on the domain backend; cross-domain aggregation stays in services.** `ProgressReportGenerator` is the cross-domain aggregation service — it sits above the domain backends by design.
+`ProgressReportGenerator` accepts a `UserContextBuilder` (primary data source). The primary data comes from `context_builder.build_rich(user_uid, window=...)` — MEGA_QUERY extended with six activity-window CALL{} blocks. Per SKUEL's architecture rule: **domain-specific Cypher belongs on the domain backend; cross-domain aggregation stays in services.** `ProgressReportGenerator` is the cross-domain aggregation service — it sits above the domain backends by design.
 
-This is why it does not have a `ReportBackend` with domain-specific Cypher methods. The `build_rich()` result (`context.entities_rich`, `context.knowledge_units_rich`, `context.enrolled_paths_rich`, `context.active_learning_steps_rich`) gives the full cross-domain picture in a single Neo4j round-trip.
+`ActivityReportBackend` owns the ActivityReport entity's persistence and privacy audit queries (get_history, annotate, get_annotation, get_admin_snapshots, get_shares_granted, get_report_schedule). `ProgressReportGenerator` is the cross-domain *aggregation* layer that builds report *content* — the backend handles *storage*. The `build_rich()` result (`context.entities_rich`, `context.knowledge_units_rich`, `context.enrolled_paths_rich`, `context.active_learning_steps_rich`) gives the full cross-domain picture in a single Neo4j round-trip.
 
 ### Summary
 
 | Report Mode | Structural Position | Why |
 |-------------|--------------------|----|
 | `SUBMISSION_REPORT` | Leaf domain — fits 4-layer pattern | One artifact in, one node out; single-domain scope |
-| `ACTIVITY_REPORT` | Cross-domain aggregator — sits above domain backends | Reads from 6 Activity Domain backends; no single domain owns it |
+| `ACTIVITY_REPORT` | Cross-domain aggregator + `ActivityReportBackend` | Content reads from 6 Activity Domain backends; persistence via `ActivityReportBackend` |
 
 The learning loop does not end at a leaf domain — it fans back out across the user's entire lived activity. That is what makes `ACTIVITY_REPORT` architecturally distinct from the other three stages of the loop.
 
@@ -533,7 +535,7 @@ User annotates report (additive or revision mode)
     → Feedback loop closes: activity → report → annotation → next report
 ```
 
-**Key constraint:** `ProgressReportGenerator` is a cross-domain aggregator — it sits above domain backends by design. It does not have a `ReportBackend` with domain-specific Cypher. The `build_rich()` result provides the full cross-domain picture in a single query.
+**Key constraint:** `ProgressReportGenerator` is a cross-domain aggregator — it sits above domain backends by design. `ActivityReportBackend` handles entity persistence and privacy audit queries; `ProgressReportGenerator` handles cross-domain content aggregation. The `build_rich()` result provides the full cross-domain picture in a single query.
 
 ---
 
