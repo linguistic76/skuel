@@ -19,7 +19,7 @@ from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from core.ports import BackendOperations, QueryExecutor
+    from adapters.persistence.neo4j.domain_backends import ActivityReportBackend
     from core.ports.infrastructure_protocols import EventBusOperations
     from core.services.user.unified_user_context import UserContext
     from core.services.user.user_context_builder import UserContextBuilder
@@ -49,14 +49,12 @@ class ActivityReportService:
 
     def __init__(
         self,
-        backend: "BackendOperations[ActivityReport]",
+        backend: "ActivityReportBackend",
         context_builder: "UserContextBuilder",
-        executor: "QueryExecutor",
-        event_bus: "EventBusOperations | None" = None,
+        event_bus: "EventBusOperations",
     ) -> None:
         self.backend = backend
         self.context_builder = context_builder
-        self.executor = executor
         self.event_bus = event_bus
 
     async def persist(self, report: ActivityReport) -> Result[ActivityReport]:
@@ -366,43 +364,19 @@ class ActivityReportService:
         Returns:
             Result[list[ActivityReport]]
         """
-        try:
-            query_result = await self.executor.execute_query(
-                """
-                MATCH (n:Entity {entity_type: 'activity_report', subject_uid: $subject_uid})
-                RETURN n
-                ORDER BY n.created_at DESC
-                LIMIT $limit
-                """,
-                {"subject_uid": subject_uid, "limit": limit},
-            )
+        query_result = await self.backend.get_history(subject_uid, limit)
+        if query_result.is_error:
+            return Result.fail(query_result)
 
-            if query_result.is_error:
-                return Result.fail(query_result)
+        records = query_result.value or []
+        feedbacks = []
+        for record in records:
+            node = record.get("n") if isinstance(record, dict) else record
+            if node:
+                props = dict(node) if not isinstance(node, dict) else node
+                feedbacks.append(ActivityReport._from_dict(props))  # type: ignore[attr-defined]
 
-            records = query_result.value or []
-            feedbacks = []
-            for record in records:
-                node = record.get("n") if isinstance(record, dict) else record
-                if node:
-                    props = dict(node) if not isinstance(node, dict) else node
-                    feedbacks.append(ActivityReport._from_dict(props))  # type: ignore[attr-defined]
-
-            return Result.ok(feedbacks)
-
-        except NEO4J_EXCEPTIONS as e:
-            logger.error(f"Database error getting activity reviews for {subject_uid}: {e}")
-            return Result.fail(
-                Errors.database(
-                    operation="get_history", message=f"Failed to retrieve activity reviews: {e}"
-                )
-            )
-        except DATA_CONVERSION_EXCEPTIONS as e:
-            logger.error(f"Data conversion error getting activity reviews for {subject_uid}: {e}")
-            return Result.fail(Errors.system(f"Failed to retrieve activity reviews: {e}"))
-        except Exception as e:  # safety-net: catch unexpected errors
-            logger.error(f"Unexpected error getting activity reviews for {subject_uid}: {e}")
-            return Result.fail(Errors.system(f"Failed to retrieve activity reviews: {e}"))
+        return Result.ok(feedbacks)
 
     async def annotate(
         self,
@@ -450,51 +424,31 @@ class ActivityReportService:
                     field="user_revision",
                 )
             )
-        try:
-            now = datetime.now().isoformat()
-            result = await self.executor.execute_query(
-                """
-                MATCH (n:Entity {uid: $uid, user_uid: $user_uid, entity_type: 'activity_report'})
-                SET n.annotation_mode = $annotation_mode,
-                    n.annotation_updated_at = datetime($now),
-                    n.user_annotation = $user_annotation,
-                    n.user_revision = $user_revision
-                RETURN n.uid AS uid, n.annotation_mode AS annotation_mode,
-                       n.user_annotation AS user_annotation, n.user_revision AS user_revision
-                """,
-                {
-                    "uid": uid,
-                    "user_uid": user_uid,
-                    "annotation_mode": annotation_mode,
-                    "now": now,
-                    "user_annotation": user_annotation,
-                    "user_revision": user_revision,
-                },
-            )
-            if result.is_error:
-                return Result.fail(result)
-            records = result.value or []
-            if not records:
-                return Result.fail(
-                    Errors.not_found(f"ActivityReport {uid} not found or not owned by {user_uid}")
-                )
-            record = records[0] if isinstance(records[0], dict) else dict(records[0])
-            return Result.ok(
-                {
-                    "uid": record.get("uid"),
-                    "annotation_mode": record.get("annotation_mode"),
-                    "user_annotation": record.get("user_annotation"),
-                    "user_revision": record.get("user_revision"),
-                }
-            )
-        except NEO4J_EXCEPTIONS as e:
-            logger.error(f"Database error annotating ActivityReport {uid}: {e}")
+        now = datetime.now().isoformat()
+        result = await self.backend.annotate(
+            uid=uid,
+            user_uid=user_uid,
+            annotation_mode=annotation_mode,
+            now=now,
+            user_annotation=user_annotation,
+            user_revision=user_revision,
+        )
+        if result.is_error:
+            return Result.fail(result)
+        records = result.value or []
+        if not records:
             return Result.fail(
-                Errors.database(operation="annotate", message=f"Failed to save annotation: {e}")
+                Errors.not_found(f"ActivityReport {uid} not found or not owned by {user_uid}")
             )
-        except Exception as e:  # safety-net: catch unexpected errors
-            logger.error(f"Unexpected error annotating ActivityReport {uid}: {e}")
-            return Result.fail(Errors.system(f"Failed to save annotation: {e}"))
+        record = records[0] if isinstance(records[0], dict) else dict(records[0])
+        return Result.ok(
+            {
+                "uid": record.get("uid"),
+                "annotation_mode": record.get("annotation_mode"),
+                "user_annotation": record.get("user_annotation"),
+                "user_revision": record.get("user_revision"),
+            }
+        )
 
     async def get_annotation(self, uid: str, user_uid: str) -> Result[dict[str, Any]]:
         """
@@ -507,46 +461,27 @@ class ActivityReportService:
         Returns:
             Result[dict] — current annotation fields (may all be None if not yet annotated)
         """
-        try:
-            result = await self.executor.execute_query(
-                """
-                MATCH (n:Entity {uid: $uid, user_uid: $user_uid, entity_type: 'activity_report'})
-                RETURN n.uid AS uid, n.annotation_mode AS annotation_mode,
-                       n.user_annotation AS user_annotation, n.user_revision AS user_revision,
-                       n.annotation_updated_at AS annotation_updated_at
-                """,
-                {"uid": uid, "user_uid": user_uid},
-            )
-            if result.is_error:
-                return Result.fail(result)
-            records = result.value or []
-            if not records:
-                return Result.fail(
-                    Errors.not_found(f"ActivityReport {uid} not found or not owned by {user_uid}")
-                )
-            record = records[0] if isinstance(records[0], dict) else dict(records[0])
-            annotation_updated_at = record.get("annotation_updated_at")
-            return Result.ok(
-                {
-                    "uid": record.get("uid"),
-                    "annotation_mode": record.get("annotation_mode"),
-                    "user_annotation": record.get("user_annotation"),
-                    "user_revision": record.get("user_revision"),
-                    "annotation_updated_at": (
-                        str(annotation_updated_at) if annotation_updated_at else None
-                    ),
-                }
-            )
-        except NEO4J_EXCEPTIONS as e:
-            logger.error(f"Database error getting annotation for ActivityReport {uid}: {e}")
+        result = await self.backend.get_annotation(uid, user_uid)
+        if result.is_error:
+            return Result.fail(result)
+        records = result.value or []
+        if not records:
             return Result.fail(
-                Errors.database(
-                    operation="get_annotation", message=f"Failed to retrieve annotation: {e}"
-                )
+                Errors.not_found(f"ActivityReport {uid} not found or not owned by {user_uid}")
             )
-        except Exception as e:  # safety-net: catch unexpected errors
-            logger.error(f"Unexpected error getting annotation for ActivityReport {uid}: {e}")
-            return Result.fail(Errors.system(f"Failed to retrieve annotation: {e}"))
+        record = records[0] if isinstance(records[0], dict) else dict(records[0])
+        annotation_updated_at = record.get("annotation_updated_at")
+        return Result.ok(
+            {
+                "uid": record.get("uid"),
+                "annotation_mode": record.get("annotation_mode"),
+                "user_annotation": record.get("user_annotation"),
+                "user_revision": record.get("user_revision"),
+                "annotation_updated_at": (
+                    str(annotation_updated_at) if annotation_updated_at else None
+                ),
+            }
+        )
 
     async def get_privacy_summary(self, user_uid: str) -> Result[dict[str, Any]]:
         """
@@ -569,113 +504,64 @@ class ActivityReportService:
             Result[dict] — privacy summary with admin_snapshots, shares_granted,
                            and report_schedule sections
         """
-        try:
-            # 1. Admin-written ActivityReports received by this user
-            admin_snapshots_result = await self.executor.execute_query(
-                """
-                MATCH (n:Entity {entity_type: 'activity_report', subject_uid: $user_uid})
-                WHERE n.processor_type = 'human'
-                RETURN n.created_at AS accessed_at,
-                       n.user_uid AS admin_uid,
-                       n.time_period AS time_period
-                ORDER BY n.created_at DESC
-                LIMIT 50
-                """,
-                {"user_uid": user_uid},
-            )
-            admin_snapshots: list[dict[str, Any]] = []
-            if admin_snapshots_result.is_ok:
-                for record in admin_snapshots_result.value or []:
-                    admin_snapshots.append(
-                        {
-                            "accessed_at": (
-                                str(record.get("accessed_at"))
-                                if record.get("accessed_at")
-                                else None
-                            ),
-                            "admin_uid": record.get("admin_uid", ""),
-                            "time_period": record.get("time_period", ""),
-                        }
-                    )
-
-            # 2. Users with active SHARES_WITH access to this user's entities
-            shares_result = await self.executor.execute_query(
-                """
-                MATCH (accessor:User)-[sw:SHARES_WITH]->(e:Entity {user_uid: $user_uid})
-                RETURN accessor.uid AS accessor_uid,
-                       e.uid AS entity_uid,
-                       e.title AS entity_title,
-                       sw.role AS role,
-                       sw.shared_at AS shared_at
-                ORDER BY sw.shared_at DESC
-                LIMIT 100
-                """,
-                {"user_uid": user_uid},
-            )
-            shares_granted: list[dict[str, Any]] = []
-            if shares_result.is_ok:
-                for record in shares_result.value or []:
-                    shares_granted.append(
-                        {
-                            "accessor_uid": record.get("accessor_uid", ""),
-                            "entity_uid": record.get("entity_uid", ""),
-                            "entity_title": record.get("entity_title", ""),
-                            "role": record.get("role", ""),
-                            "shared_at": (
-                                str(record.get("shared_at")) if record.get("shared_at") else None
-                            ),
-                        }
-                    )
-
-            # 3. Active report schedule + last generated report
-            schedule_result = await self.executor.execute_query(
-                """
-                MATCH (u:User {uid: $user_uid})-[:HAS_SCHEDULE]->(s:ReportSchedule)
-                WHERE s.is_active = true
-                RETURN s.schedule_type AS schedule_type,
-                       s.day_of_week AS day_of_week,
-                       s.next_due_at AS next_due_at,
-                       s.last_generated_at AS last_generated_at
-                LIMIT 1
-                """,
-                {"user_uid": user_uid},
-            )
-            report_schedule: dict[str, Any] = {"active": False}
-            if schedule_result.is_ok and schedule_result.value:
-                record = schedule_result.value[0]
-                report_schedule = {
-                    "active": True,
-                    "schedule_type": record.get("schedule_type", ""),
-                    "day_of_week": record.get("day_of_week"),
-                    "next_due_at": (
-                        str(record.get("next_due_at")) if record.get("next_due_at") else None
-                    ),
-                    "last_generated_at": (
-                        str(record.get("last_generated_at"))
-                        if record.get("last_generated_at")
-                        else None
-                    ),
-                }
-
-            return Result.ok(
-                {
-                    "user_uid": user_uid,
-                    "admin_snapshots": admin_snapshots,
-                    "admin_snapshot_count": len(admin_snapshots),
-                    "shares_granted": shares_granted,
-                    "shares_granted_count": len(shares_granted),
-                    "report_schedule": report_schedule,
-                }
-            )
-
-        except NEO4J_EXCEPTIONS as e:
-            logger.error(f"Database error getting privacy summary for {user_uid}: {e}")
-            return Result.fail(
-                Errors.database(
-                    operation="get_privacy_summary",
-                    message=f"Failed to retrieve privacy summary: {e}",
+        # 1. Admin-written ActivityReports received by this user
+        admin_snapshots_result = await self.backend.get_admin_snapshots(user_uid)
+        admin_snapshots: list[dict[str, Any]] = []
+        if admin_snapshots_result.is_ok:
+            for record in admin_snapshots_result.value or []:
+                admin_snapshots.append(
+                    {
+                        "accessed_at": (
+                            str(record.get("accessed_at")) if record.get("accessed_at") else None
+                        ),
+                        "admin_uid": record.get("admin_uid", ""),
+                        "time_period": record.get("time_period", ""),
+                    }
                 )
-            )
-        except Exception as e:  # safety-net: catch unexpected errors
-            logger.error(f"Unexpected error getting privacy summary for {user_uid}: {e}")
-            return Result.fail(Errors.system(f"Failed to retrieve privacy summary: {e}"))
+
+        # 2. Users with active SHARES_WITH access to this user's entities
+        shares_result = await self.backend.get_shares_granted(user_uid)
+        shares_granted: list[dict[str, Any]] = []
+        if shares_result.is_ok:
+            for record in shares_result.value or []:
+                shares_granted.append(
+                    {
+                        "accessor_uid": record.get("accessor_uid", ""),
+                        "entity_uid": record.get("entity_uid", ""),
+                        "entity_title": record.get("entity_title", ""),
+                        "role": record.get("role", ""),
+                        "shared_at": (
+                            str(record.get("shared_at")) if record.get("shared_at") else None
+                        ),
+                    }
+                )
+
+        # 3. Active report schedule + last generated report
+        schedule_result = await self.backend.get_report_schedule(user_uid)
+        report_schedule: dict[str, Any] = {"active": False}
+        if schedule_result.is_ok and schedule_result.value:
+            record = schedule_result.value[0]
+            report_schedule = {
+                "active": True,
+                "schedule_type": record.get("schedule_type", ""),
+                "day_of_week": record.get("day_of_week"),
+                "next_due_at": (
+                    str(record.get("next_due_at")) if record.get("next_due_at") else None
+                ),
+                "last_generated_at": (
+                    str(record.get("last_generated_at"))
+                    if record.get("last_generated_at")
+                    else None
+                ),
+            }
+
+        return Result.ok(
+            {
+                "user_uid": user_uid,
+                "admin_snapshots": admin_snapshots,
+                "admin_snapshot_count": len(admin_snapshots),
+                "shares_granted": shares_granted,
+                "shares_granted_count": len(shares_granted),
+                "report_schedule": report_schedule,
+            }
+        )

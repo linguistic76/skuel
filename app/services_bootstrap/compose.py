@@ -729,7 +729,9 @@ async def compose_services(
         from core.services.report.teacher_review_service import TeacherReviewService
 
         teacher_review_service = TeacherReviewService(
-            executor=query_executor,
+            submissions_backend=submissions_backend,
+            exercise_backend=exercise_backend,
+            group_backend=group_backend,
             ku_interaction_service=learning_services["lesson_service"].mastery,
             event_bus=event_bus,
         )
@@ -931,7 +933,7 @@ async def compose_services(
         activity_report_service = ActivityReportService(
             backend=activity_report_backend,
             context_builder=context_builder,
-            executor=query_executor,
+            event_bus=event_bus,
         )
         review_queue_service = ReviewQueueService(executor=query_executor)
         logger.info("✅ ActivityReportService + ReviewQueueService created")

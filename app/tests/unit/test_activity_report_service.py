@@ -16,17 +16,23 @@ from core.utils.result_simplified import Result
 
 
 @pytest.fixture
-def mock_executor():
-    executor = MagicMock()
-    executor.execute_query = AsyncMock(return_value=Result.ok([]))
-    return executor
-
-
-@pytest.fixture
 def mock_backend():
     backend = MagicMock()
     backend.create = AsyncMock()
+    backend.get_history = AsyncMock(return_value=Result.ok([]))
+    backend.annotate = AsyncMock(return_value=Result.ok([]))
+    backend.get_annotation = AsyncMock(return_value=Result.ok([]))
+    backend.get_admin_snapshots = AsyncMock(return_value=Result.ok([]))
+    backend.get_shares_granted = AsyncMock(return_value=Result.ok([]))
+    backend.get_report_schedule = AsyncMock(return_value=Result.ok([]))
     return backend
+
+
+@pytest.fixture
+def mock_event_bus():
+    bus = MagicMock()
+    bus.publish_async = AsyncMock()
+    return bus
 
 
 def _make_context(activity_rich: dict | None = None) -> UserContext:
@@ -44,11 +50,11 @@ def mock_context_builder():
 
 
 @pytest.fixture
-def service(mock_executor, mock_backend, mock_context_builder):
+def service(mock_backend, mock_context_builder, mock_event_bus):
     return ActivityReportService(
         backend=mock_backend,
         context_builder=mock_context_builder,
-        executor=mock_executor,
+        event_bus=mock_event_bus,
     )
 
 

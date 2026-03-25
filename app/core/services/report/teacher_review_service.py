@@ -27,13 +27,17 @@ from core.events.submission_events import (
     SubmissionRevisionRequested,
 )
 from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
-from core.models.relationship_names import RelationshipName
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
 
 if TYPE_CHECKING:
-    from core.ports import QueryExecutor
+    from adapters.persistence.neo4j.domain_backends import (
+        ExerciseBackend,
+        GroupBackend,
+        SubmissionsBackend,
+    )
+    from core.ports.infrastructure_protocols import EventBusOperations
 
 logger = get_logger("skuel.services.teacher_review")
 
@@ -43,19 +47,25 @@ class TeacherReviewService:
 
     def __init__(
         self,
-        executor: "QueryExecutor",
-        ku_interaction_service: Any | None = None,
-        event_bus: Any | None = None,
+        submissions_backend: "SubmissionsBackend",
+        exercise_backend: "ExerciseBackend",
+        group_backend: "GroupBackend",
+        ku_interaction_service: Any,
+        event_bus: "EventBusOperations",
     ) -> None:
         """
         Initialize the teacher review service.
 
         Args:
-            executor: Query executor for database operations
-            ku_interaction_service: Optional KU interaction service for mastery updates
-            event_bus: Optional event bus for publishing review events
+            submissions_backend: Backend for submission queries
+            exercise_backend: Backend for exercise queries
+            group_backend: Backend for group queries
+            ku_interaction_service: KU interaction service for mastery updates
+            event_bus: Event bus for publishing review events
         """
-        self.executor = executor
+        self.submissions_backend = submissions_backend
+        self.exercise_backend = exercise_backend
+        self.group_backend = group_backend
         self.ku_interaction_service = ku_interaction_service
         self.event_bus = event_bus
 
@@ -80,42 +90,9 @@ class TeacherReviewService:
         Returns:
             Result containing list of review items
         """
-        where_clauses = []
-        params: dict[str, Any] = {"teacher_uid": teacher_uid}
-
-        if status_filter:
-            where_clauses.append("report.status = $status_filter")
-            params["status_filter"] = status_filter
-
-        if entity_type_filter:
-            where_clauses.append("report.entity_type = $entity_type_filter")
-            params["entity_type_filter"] = entity_type_filter
-
-        where_clause = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
-
-        query = f"""
-        MATCH (teacher:User {{uid: $teacher_uid}})-[r:{RelationshipName.SHARES_WITH.value} {{role: 'teacher'}}]->(ku:Entity:Submission)
-        {where_clause}
-        OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(ku)
-        OPTIONAL MATCH (ku)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(project:Entity:Exercise)
-        OPTIONAL MATCH (fb:Entity:SubmissionReport)-[:{RelationshipName.REPORT_FOR.value}]->(ku)
-        WITH ku, student, project, r, count(fb) as feedback_count
-        RETURN ku.uid as ku_uid,
-               ku.title as title,
-               ku.status as status,
-               ku.entity_type as entity_type,
-               ku.created_at as submitted_at,
-               student.uid as student_uid,
-               student.name as student_name,
-               project.uid as project_uid,
-               project.name as project_name,
-               project.due_date as due_date,
-               r.shared_at as shared_at,
-               feedback_count
-        ORDER BY ku.created_at DESC
-        """
-
-        result = await self.executor.execute_query(query, params)
+        result = await self.submissions_backend.get_review_queue(
+            teacher_uid, status_filter, entity_type_filter
+        )
         if result.is_error:
             return Result.fail(result)
 
@@ -152,20 +129,7 @@ class TeacherReviewService:
         Returns:
             Result containing list of report items ordered by creation date
         """
-        query = f"""
-        MATCH (fb:Entity:SubmissionReport)-[:{RelationshipName.REPORT_FOR.value}]->(submission:Entity:Submission {{uid: $submission_uid}})
-        OPTIONAL MATCH (teacher:User)-[:{RelationshipName.OWNS.value}]->(fb)
-        RETURN fb.uid as uid,
-               fb.title as title,
-               fb.content as content,
-               fb.status as status,
-               fb.created_at as created_at,
-               teacher.uid as teacher_uid,
-               teacher.name as teacher_name
-        ORDER BY fb.created_at ASC
-        """
-
-        result = await self.executor.execute_query(query, {"submission_uid": submission_uid})
+        result = await self.submissions_backend.get_report_history(submission_uid)
         if result.is_error:
             return Result.fail(result)
 
@@ -212,51 +176,7 @@ class TeacherReviewService:
         report_entity_uid = UIDGenerator.generate_uid("sr")
         now = datetime.now().isoformat()
 
-        # Create SUBMISSION_REPORT node, link via REPORT_FOR, share with student,
-        # and update submission status — all in one transaction
-        query = f"""
-        MATCH (submission:Entity {{uid: $report_uid}})
-        OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(submission)
-
-        // Update submission with denormalized report content
-        SET submission.report_content = $feedback,
-            submission.report_generated_at = datetime($now),
-            submission.status = $completed_status,
-            submission.updated_at = datetime($now)
-
-        // Create SUBMISSION_REPORT Entity nodes
-        CREATE (fb:Entity {{
-            uid: $report_entity_uid,
-            title: $title,
-            entity_type: $entity_type,
-            user_uid: $teacher_uid,
-            status: $completed_status,
-            processor_type: $processor_type,
-            content: $feedback,
-            created_by: $teacher_uid,
-            created_at: datetime($now),
-            updated_at: datetime($now)
-        }})
-
-        // Teacher owns the report
-        WITH submission, student, fb
-        MATCH (teacher:User {{uid: $teacher_uid}})
-        CREATE (teacher)-[:{RelationshipName.OWNS.value}]->(fb)
-        CREATE (fb)-[:{RelationshipName.REPORT_FOR.value}]->(submission)
-
-        // Share report with student (if student exists)
-        WITH submission, student, fb
-        WHERE student IS NOT NULL
-        CREATE (student)-[:{RelationshipName.SHARES_WITH.value} {{shared_at: datetime($now), role: 'student'}}]->(fb)
-
-        RETURN submission.uid as uid,
-               submission.status as status,
-               student.uid as student_uid,
-               fb.uid as report_entity_uid
-        """
-
-        result = await self.executor.execute_query(
-            query,
+        result = await self.submissions_backend.create_report_node(
             {
                 "report_uid": report_uid,
                 "report_entity_uid": report_entity_uid,
@@ -264,10 +184,11 @@ class TeacherReviewService:
                 "feedback": feedback,
                 "title": f"Feedback: {report_uid[:30]}",
                 "entity_type": EntityType.EXERCISE_REPORT.value,
+                "submission_status": EntityStatus.COMPLETED.value,
                 "completed_status": EntityStatus.COMPLETED.value,
                 "processor_type": ProcessorType.HUMAN.value,
                 "now": now,
-            },
+            }
         )
         if result.is_error:
             return Result.fail(result)
@@ -328,61 +249,19 @@ class TeacherReviewService:
         report_entity_uid = UIDGenerator.generate_uid("sr")
         now = datetime.now().isoformat()
 
-        query = f"""
-        MATCH (submission:Entity {{uid: $report_uid}})
-        OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(submission)
-
-        // Update submission with revision status
-        SET submission.report_content = $notes,
-            submission.report_generated_at = datetime($now),
-            submission.status = $revision_status,
-            submission.updated_at = datetime($now)
-
-        // Create SUBMISSION_REPORT Entity nodes for revision request
-        CREATE (fb:Entity {{
-            uid: $report_entity_uid,
-            title: $title,
-            entity_type: $entity_type,
-            user_uid: $teacher_uid,
-            status: $completed_status,
-            processor_type: $processor_type,
-            content: $notes,
-            created_by: $teacher_uid,
-            created_at: datetime($now),
-            updated_at: datetime($now)
-        }})
-
-        // Teacher owns the report
-        WITH submission, student, fb
-        MATCH (teacher:User {{uid: $teacher_uid}})
-        CREATE (teacher)-[:{RelationshipName.OWNS.value}]->(fb)
-        CREATE (fb)-[:{RelationshipName.REPORT_FOR.value}]->(submission)
-
-        // Share report with student (if student exists)
-        WITH submission, student, fb
-        WHERE student IS NOT NULL
-        CREATE (student)-[:{RelationshipName.SHARES_WITH.value} {{shared_at: datetime($now), role: 'student'}}]->(fb)
-
-        RETURN submission.uid as uid,
-               submission.status as status,
-               student.uid as student_uid,
-               fb.uid as report_entity_uid
-        """
-
-        result = await self.executor.execute_query(
-            query,
+        result = await self.submissions_backend.create_report_node(
             {
                 "report_uid": report_uid,
                 "report_entity_uid": report_entity_uid,
                 "teacher_uid": teacher_uid,
-                "notes": notes,
+                "feedback": notes,
                 "title": f"Revision request: {report_uid[:30]}",
                 "entity_type": EntityType.EXERCISE_REPORT.value,
-                "revision_status": EntityStatus.REVISION_REQUESTED.value,
+                "submission_status": EntityStatus.REVISION_REQUESTED.value,
                 "completed_status": EntityStatus.COMPLETED.value,
                 "processor_type": ProcessorType.HUMAN.value,
                 "now": now,
-            },
+            }
         )
         if result.is_error:
             return Result.fail(result)
@@ -438,27 +317,9 @@ class TeacherReviewService:
         if access_check.is_error:
             return Result.fail(access_check)
 
-        query = f"""
-        MATCH (ku:Entity {{uid: $report_uid}})
-        SET ku.status = $status,
-            ku.updated_at = datetime($now)
-        WITH ku
-        OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(ku)
-        OPTIONAL MATCH (ku)-[:{RelationshipName.APPLIES_KNOWLEDGE.value}]->(curriculum:Entity:Ku)
-        RETURN ku.uid as uid,
-               ku.status as status,
-               student.uid as student_uid,
-               collect(curriculum.uid) as linked_ku_uids
-        """
-
         now = datetime.now().isoformat()
-        result = await self.executor.execute_query(
-            query,
-            {
-                "report_uid": report_uid,
-                "now": now,
-                "status": EntityStatus.COMPLETED.value,
-            },
+        result = await self.submissions_backend.approve_and_get_linked_kus(
+            report_uid, now, EntityStatus.COMPLETED.value
         )
         if result.is_error:
             return Result.fail(result)
@@ -469,7 +330,10 @@ class TeacherReviewService:
 
         record = records[0]
         student_uid = record["student_uid"] or ""
-        linked_ku_uids = [uid for uid in (record["linked_ku_uids"] or []) if uid]
+        raw_ku_uids = record["linked_ku_uids"]
+        linked_ku_uids: list[str] = (
+            [str(uid) for uid in raw_ku_uids if uid] if isinstance(raw_ku_uids, list) else []
+        )
 
         # Update mastery for linked curriculum entities
         mastered_count = 0
@@ -529,19 +393,7 @@ class TeacherReviewService:
             Result containing list of exercise dicts with uid, title, scope,
             created_at, total_count, reviewed_count, pending_count
         """
-        query = f"""
-        MATCH (user:User {{uid: $teacher_uid}})-[:{RelationshipName.OWNS.value}]->(exercise:Entity:Exercise)
-        OPTIONAL MATCH (s:Entity:Submission)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(exercise)
-        WITH exercise, count(s) AS total_count,
-             count(CASE WHEN s.status = 'completed' THEN 1 END) AS reviewed_count
-        RETURN exercise.uid AS uid, exercise.title AS title,
-               exercise.scope AS scope, exercise.created_at AS created_at,
-               total_count, reviewed_count,
-               total_count - reviewed_count AS pending_count
-        ORDER BY exercise.created_at DESC
-        """
-
-        result = await self.executor.execute_query(query, {"teacher_uid": teacher_uid})
+        result = await self.exercise_backend.get_exercises_with_submission_counts(teacher_uid)
         if result.is_error:
             return Result.fail(result)
 
@@ -574,19 +426,7 @@ class TeacherReviewService:
             Result containing list of submission dicts with student info
             and feedback count
         """
-        query = f"""
-        MATCH (s:Entity:Submission)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(e:Entity:Exercise {{uid: $exercise_uid}})
-        OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(s)
-        OPTIONAL MATCH (fb:Entity:SubmissionReport)-[:{RelationshipName.REPORT_FOR.value}]->(s)
-        WITH s, student, count(fb) AS feedback_count
-        RETURN s.uid AS uid, s.title AS title,
-               s.original_filename AS original_filename, s.status AS status,
-               s.created_at AS created_at, student.uid AS student_uid,
-               student.name AS student_name, feedback_count
-        ORDER BY s.created_at DESC
-        """
-
-        result = await self.executor.execute_query(query, {"exercise_uid": exercise_uid})
+        result = await self.submissions_backend.get_submissions_for_exercise_review(exercise_uid)
         if result.is_error:
             return Result.fail(result)
 
@@ -620,19 +460,7 @@ class TeacherReviewService:
             Result containing list of student dicts with submission_count,
             reviewed_count, pending_count, ordered by pending descending
         """
-        query = f"""
-        MATCH (teacher:User {{uid: $teacher_uid}})-[:{RelationshipName.SHARES_WITH.value} {{role: 'teacher'}}]->(ku:Entity:Submission)
-        OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(ku)
-        WITH student, count(ku) AS submission_count,
-             count(CASE WHEN ku.status = 'completed' THEN 1 END) AS reviewed_count
-        WHERE student IS NOT NULL
-        RETURN student.uid AS student_uid, student.name AS student_name,
-               submission_count, reviewed_count,
-               submission_count - reviewed_count AS pending_count
-        ORDER BY pending_count DESC, submission_count DESC
-        """
-
-        result = await self.executor.execute_query(query, {"teacher_uid": teacher_uid})
+        result = await self.submissions_backend.get_students_summary(teacher_uid)
         if result.is_error:
             return Result.fail(result)
 
@@ -665,21 +493,8 @@ class TeacherReviewService:
             Result containing list of submission dicts with exercise context
             and feedback count
         """
-        query = f"""
-        MATCH (teacher:User {{uid: $teacher_uid}})-[:{RelationshipName.SHARES_WITH.value} {{role: 'teacher'}}]->(ku:Entity:Submission)
-        MATCH (student:User {{uid: $student_uid}})-[:{RelationshipName.OWNS.value}]->(ku)
-        OPTIONAL MATCH (fb:Entity:SubmissionReport)-[:{RelationshipName.REPORT_FOR.value}]->(ku)
-        OPTIONAL MATCH (ku)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex:Entity:Exercise)
-        WITH ku, count(fb) AS feedback_count, ex
-        RETURN ku.uid AS uid, ku.title AS title,
-               ku.original_filename AS original_filename, ku.status AS status,
-               ku.created_at AS created_at,
-               feedback_count, ex.uid AS exercise_uid, ex.title AS exercise_title
-        ORDER BY ku.created_at DESC
-        """
-
-        result = await self.executor.execute_query(
-            query, {"teacher_uid": teacher_uid, "student_uid": student_uid}
+        result = await self.submissions_backend.get_student_submissions_for_teacher(
+            teacher_uid, student_uid
         )
         if result.is_error:
             return Result.fail(result)
@@ -718,27 +533,8 @@ class TeacherReviewService:
         Returns:
             Result containing submission detail dict
         """
-        query = f"""
-        MATCH (teacher:User {{uid: $teacher_uid}})-[:{RelationshipName.SHARES_WITH.value} {{role: 'teacher'}}]->(s:Entity:Submission {{uid: $submission_uid}})
-        OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(s)
-        OPTIONAL MATCH (s)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex:Entity:Exercise)
-        RETURN s.uid AS uid,
-               s.title AS title,
-               s.content AS content,
-               s.processed_content AS processed_content,
-               s.original_filename AS original_filename,
-               s.entity_type AS entity_type,
-               s.status AS status,
-               s.created_at AS created_at,
-               student.uid AS student_uid,
-               student.name AS student_name,
-               ex.uid AS exercise_uid,
-               ex.title AS exercise_title,
-               ex.instructions AS exercise_instructions
-        """
-
-        result = await self.executor.execute_query(
-            query, {"submission_uid": submission_uid, "teacher_uid": teacher_uid}
+        result = await self.submissions_backend.get_submission_detail_for_teacher(
+            submission_uid, teacher_uid
         )
         if result.is_error:
             return Result.fail(result)
@@ -786,21 +582,7 @@ class TeacherReviewService:
         Returns:
             Result containing stats dict
         """
-        query = f"""
-        MATCH (teacher:User {{uid: $teacher_uid}})
-        OPTIONAL MATCH (teacher)-[:{RelationshipName.SHARES_WITH.value} {{role: 'teacher'}}]->(ku:Entity:Submission)
-        OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(ku)
-        OPTIONAL MATCH (teacher)-[:{RelationshipName.OWNS.value}]->(ex:Entity:Exercise)
-        OPTIONAL MATCH (teacher)-[:{RelationshipName.OWNS.value}]->(g:Group)
-        RETURN
-          count(CASE WHEN ku.status IN ['submitted', 'active', 'revision_requested'] THEN 1 END) AS pending_count,
-          count(DISTINCT ku) AS total_submissions,
-          count(DISTINCT student) AS total_students,
-          count(DISTINCT ex) AS total_exercises,
-          count(DISTINCT g) AS total_groups
-        """
-
-        result = await self.executor.execute_query(query, {"teacher_uid": teacher_uid})
+        result = await self.submissions_backend.get_dashboard_stats(teacher_uid)
         if result.is_error:
             return Result.fail(result)
 
@@ -840,23 +622,7 @@ class TeacherReviewService:
         Returns:
             Result containing list of group stat dicts
         """
-        query = f"""
-        MATCH (teacher:User {{uid: $teacher_uid}})-[:{RelationshipName.OWNS.value}]->(g:Group)
-        OPTIONAL MATCH (member:User)-[:{RelationshipName.MEMBER_OF.value}]->(g)
-        OPTIONAL MATCH (ex:Entity:Exercise)-[:{RelationshipName.FOR_GROUP.value}]->(g)
-        OPTIONAL MATCH (sub:Entity:Submission)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex)
-          WHERE sub.status NOT IN ['completed', 'archived']
-        RETURN g.uid AS uid,
-               g.name AS name,
-               g.description AS description,
-               g.is_active AS is_active,
-               count(DISTINCT member) AS member_count,
-               count(DISTINCT ex) AS exercise_count,
-               count(DISTINCT sub) AS pending_count
-        ORDER BY g.created_at DESC
-        """
-
-        result = await self.executor.execute_query(query, {"teacher_uid": teacher_uid})
+        result = await self.group_backend.get_teacher_groups_with_stats(teacher_uid)
         if result.is_error:
             return Result.fail(result)
 
@@ -892,24 +658,7 @@ class TeacherReviewService:
         Returns:
             Result containing list of member dicts with progress stats
         """
-        query = f"""
-        MATCH (teacher:User {{uid: $teacher_uid}})-[:{RelationshipName.OWNS.value}]->(g:Group {{uid: $group_uid}})
-        MATCH (member:User)-[r:{RelationshipName.MEMBER_OF.value}]->(g)
-        OPTIONAL MATCH (teacher)-[:{RelationshipName.SHARES_WITH.value} {{role: 'teacher'}}]->(sub:Entity:Submission)
-          WHERE (member)-[:{RelationshipName.OWNS.value}]->(sub)
-        RETURN member.uid AS user_uid,
-               member.name AS user_name,
-               r.role AS role,
-               r.joined_at AS joined_at,
-               count(sub) AS submission_count,
-               count(CASE WHEN sub.status = 'completed' THEN 1 END) AS reviewed_count,
-               count(CASE WHEN sub.status IN ['submitted', 'active', 'revision_requested'] THEN 1 END) AS pending_count
-        ORDER BY r.joined_at
-        """
-
-        result = await self.executor.execute_query(
-            query, {"group_uid": group_uid, "teacher_uid": teacher_uid}
-        )
+        result = await self.group_backend.get_group_detail(group_uid, teacher_uid)
         if result.is_error:
             return Result.fail(result)
 
@@ -938,15 +687,7 @@ class TeacherReviewService:
         teacher_uid: str,
     ) -> Result[bool]:
         """Verify teacher has SHARES_WITH access to the entity."""
-        query = f"""
-        MATCH (teacher:User {{uid: $teacher_uid}})-[r:{RelationshipName.SHARES_WITH.value} {{role: 'teacher'}}]->(ku:Entity {{uid: $report_uid}})
-        RETURN true as has_access
-        """
-
-        result = await self.executor.execute_query(
-            query,
-            {"teacher_uid": teacher_uid, "report_uid": report_uid},
-        )
+        result = await self.submissions_backend.verify_teacher_access(report_uid, teacher_uid)
         if result.is_error:
             return Result.fail(result)
 

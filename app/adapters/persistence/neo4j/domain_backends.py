@@ -52,6 +52,7 @@ from core.models.pathways.learning_path import LearningPath
 from core.models.pathways.learning_step import LearningStep
 from core.models.principle.principle import Principle
 from core.models.relationship_names import RelationshipName
+from core.models.report.activity_report import ActivityReport
 from core.models.submissions.submission import Submission
 from core.models.task.task import Task
 from core.models.type_hints import Neo4jProperties
@@ -2034,6 +2035,236 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
         """
         return await self.execute_query(query, {"student_uid": student_uid, "limit": limit})
 
+    # ========================================================================
+    # TEACHER REVIEW OPERATIONS (migrated from TeacherReviewService)
+    # ========================================================================
+
+    async def get_review_queue(
+        self,
+        teacher_uid: str,
+        status_filter: str | None = None,
+        entity_type_filter: str | None = None,
+    ) -> Result[list[Neo4jProperties]]:
+        """Get teacher's pending review queue (submissions shared via role='teacher')."""
+        where_clauses = []
+        params: dict[str, Any] = {"teacher_uid": teacher_uid}
+
+        if status_filter:
+            where_clauses.append("report.status = $status_filter")
+            params["status_filter"] = status_filter
+
+        if entity_type_filter:
+            where_clauses.append("report.entity_type = $entity_type_filter")
+            params["entity_type_filter"] = entity_type_filter
+
+        where_clause = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
+
+        query = f"""
+        MATCH (teacher:User {{uid: $teacher_uid}})-[r:{RelationshipName.SHARES_WITH.value} {{role: 'teacher'}}]->(ku:Entity:Submission)
+        {where_clause}
+        OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(ku)
+        OPTIONAL MATCH (ku)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(project:Entity:Exercise)
+        OPTIONAL MATCH (fb:Entity:SubmissionReport)-[:{RelationshipName.REPORT_FOR.value}]->(ku)
+        WITH ku, student, project, r, count(fb) as feedback_count
+        RETURN ku.uid as ku_uid,
+               ku.title as title,
+               ku.status as status,
+               ku.entity_type as entity_type,
+               ku.created_at as submitted_at,
+               student.uid as student_uid,
+               student.name as student_name,
+               project.uid as project_uid,
+               project.name as project_name,
+               project.due_date as due_date,
+               r.shared_at as shared_at,
+               feedback_count
+        ORDER BY ku.created_at DESC
+        """
+        return await self.execute_query(query, params)
+
+    async def get_report_history(self, submission_uid: str) -> Result[list[Neo4jProperties]]:
+        """Get all SUBMISSION_REPORT nodes linked to a submission via REPORT_FOR."""
+        query = f"""
+        MATCH (fb:Entity:SubmissionReport)-[:{RelationshipName.REPORT_FOR.value}]->(submission:Entity:Submission {{uid: $submission_uid}})
+        OPTIONAL MATCH (teacher:User)-[:{RelationshipName.OWNS.value}]->(fb)
+        RETURN fb.uid as uid,
+               fb.title as title,
+               fb.content as content,
+               fb.status as status,
+               fb.created_at as created_at,
+               teacher.uid as teacher_uid,
+               teacher.name as teacher_name
+        ORDER BY fb.created_at ASC
+        """
+        return await self.execute_query(query, {"submission_uid": submission_uid})
+
+    async def create_report_node(self, params: dict[str, Any]) -> Result[list[Neo4jProperties]]:
+        """Create SUBMISSION_REPORT node, link via REPORT_FOR, share with student, update submission."""
+        query = f"""
+        MATCH (submission:Entity {{uid: $report_uid}})
+        OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(submission)
+
+        SET submission.report_content = $feedback,
+            submission.report_generated_at = datetime($now),
+            submission.status = $submission_status,
+            submission.updated_at = datetime($now)
+
+        CREATE (fb:Entity {{
+            uid: $report_entity_uid,
+            title: $title,
+            entity_type: $entity_type,
+            user_uid: $teacher_uid,
+            status: $completed_status,
+            processor_type: $processor_type,
+            content: $feedback,
+            created_by: $teacher_uid,
+            created_at: datetime($now),
+            updated_at: datetime($now)
+        }})
+
+        WITH submission, student, fb
+        MATCH (teacher:User {{uid: $teacher_uid}})
+        CREATE (teacher)-[:{RelationshipName.OWNS.value}]->(fb)
+        CREATE (fb)-[:{RelationshipName.REPORT_FOR.value}]->(submission)
+
+        WITH submission, student, fb
+        WHERE student IS NOT NULL
+        CREATE (student)-[:{RelationshipName.SHARES_WITH.value} {{shared_at: datetime($now), role: 'student'}}]->(fb)
+
+        RETURN submission.uid as uid,
+               submission.status as status,
+               student.uid as student_uid,
+               fb.uid as report_entity_uid
+        """
+        return await self.execute_query(query, params)
+
+    async def approve_and_get_linked_kus(
+        self, report_uid: str, now: str, status: str
+    ) -> Result[list[Neo4jProperties]]:
+        """Approve submission: set status and return linked KU UIDs for mastery."""
+        query = f"""
+        MATCH (ku:Entity {{uid: $report_uid}})
+        SET ku.status = $status,
+            ku.updated_at = datetime($now)
+        WITH ku
+        OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(ku)
+        OPTIONAL MATCH (ku)-[:{RelationshipName.APPLIES_KNOWLEDGE.value}]->(curriculum:Entity:Ku)
+        RETURN ku.uid as uid,
+               ku.status as status,
+               student.uid as student_uid,
+               collect(curriculum.uid) as linked_ku_uids
+        """
+        return await self.execute_query(
+            query, {"report_uid": report_uid, "now": now, "status": status}
+        )
+
+    async def get_submissions_for_exercise_review(
+        self, exercise_uid: str
+    ) -> Result[list[Neo4jProperties]]:
+        """Get all submissions against a specific exercise (teacher review view)."""
+        query = f"""
+        MATCH (s:Entity:Submission)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(e:Entity:Exercise {{uid: $exercise_uid}})
+        OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(s)
+        OPTIONAL MATCH (fb:Entity:SubmissionReport)-[:{RelationshipName.REPORT_FOR.value}]->(s)
+        WITH s, student, count(fb) AS feedback_count
+        RETURN s.uid AS uid, s.title AS title,
+               s.original_filename AS original_filename, s.status AS status,
+               s.created_at AS created_at, student.uid AS student_uid,
+               student.name AS student_name, feedback_count
+        ORDER BY s.created_at DESC
+        """
+        return await self.execute_query(query, {"exercise_uid": exercise_uid})
+
+    async def get_students_summary(self, teacher_uid: str) -> Result[list[Neo4jProperties]]:
+        """Get students who shared work with teacher, with counts."""
+        query = f"""
+        MATCH (teacher:User {{uid: $teacher_uid}})-[:{RelationshipName.SHARES_WITH.value} {{role: 'teacher'}}]->(ku:Entity:Submission)
+        OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(ku)
+        WITH student, count(ku) AS submission_count,
+             count(CASE WHEN ku.status = 'completed' THEN 1 END) AS reviewed_count
+        WHERE student IS NOT NULL
+        RETURN student.uid AS student_uid, student.name AS student_name,
+               submission_count, reviewed_count,
+               submission_count - reviewed_count AS pending_count
+        ORDER BY pending_count DESC, submission_count DESC
+        """
+        return await self.execute_query(query, {"teacher_uid": teacher_uid})
+
+    async def get_student_submissions_for_teacher(
+        self, teacher_uid: str, student_uid: str
+    ) -> Result[list[Neo4jProperties]]:
+        """Get submissions from a student that were shared with this teacher."""
+        query = f"""
+        MATCH (teacher:User {{uid: $teacher_uid}})-[:{RelationshipName.SHARES_WITH.value} {{role: 'teacher'}}]->(ku:Entity:Submission)
+        MATCH (student:User {{uid: $student_uid}})-[:{RelationshipName.OWNS.value}]->(ku)
+        OPTIONAL MATCH (fb:Entity:SubmissionReport)-[:{RelationshipName.REPORT_FOR.value}]->(ku)
+        OPTIONAL MATCH (ku)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex:Entity:Exercise)
+        WITH ku, count(fb) AS feedback_count, ex
+        RETURN ku.uid AS uid, ku.title AS title,
+               ku.original_filename AS original_filename, ku.status AS status,
+               ku.created_at AS created_at,
+               feedback_count, ex.uid AS exercise_uid, ex.title AS exercise_title
+        ORDER BY ku.created_at DESC
+        """
+        return await self.execute_query(
+            query, {"teacher_uid": teacher_uid, "student_uid": student_uid}
+        )
+
+    async def get_submission_detail_for_teacher(
+        self, submission_uid: str, teacher_uid: str
+    ) -> Result[list[Neo4jProperties]]:
+        """Get full submission detail for teacher review (access-checked via SHARES_WITH)."""
+        query = f"""
+        MATCH (teacher:User {{uid: $teacher_uid}})-[:{RelationshipName.SHARES_WITH.value} {{role: 'teacher'}}]->(s:Entity:Submission {{uid: $submission_uid}})
+        OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(s)
+        OPTIONAL MATCH (s)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex:Entity:Exercise)
+        RETURN s.uid AS uid,
+               s.title AS title,
+               s.content AS content,
+               s.processed_content AS processed_content,
+               s.original_filename AS original_filename,
+               s.entity_type AS entity_type,
+               s.status AS status,
+               s.created_at AS created_at,
+               student.uid AS student_uid,
+               student.name AS student_name,
+               ex.uid AS exercise_uid,
+               ex.title AS exercise_title,
+               ex.instructions AS exercise_instructions
+        """
+        return await self.execute_query(
+            query, {"submission_uid": submission_uid, "teacher_uid": teacher_uid}
+        )
+
+    async def get_dashboard_stats(self, teacher_uid: str) -> Result[list[Neo4jProperties]]:
+        """Get at-a-glance stats for the teacher dashboard."""
+        query = f"""
+        MATCH (teacher:User {{uid: $teacher_uid}})
+        OPTIONAL MATCH (teacher)-[:{RelationshipName.SHARES_WITH.value} {{role: 'teacher'}}]->(ku:Entity:Submission)
+        OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(ku)
+        OPTIONAL MATCH (teacher)-[:{RelationshipName.OWNS.value}]->(ex:Entity:Exercise)
+        OPTIONAL MATCH (teacher)-[:{RelationshipName.OWNS.value}]->(g:Group)
+        RETURN
+          count(CASE WHEN ku.status IN ['submitted', 'active', 'revision_requested'] THEN 1 END) AS pending_count,
+          count(DISTINCT ku) AS total_submissions,
+          count(DISTINCT student) AS total_students,
+          count(DISTINCT ex) AS total_exercises,
+          count(DISTINCT g) AS total_groups
+        """
+        return await self.execute_query(query, {"teacher_uid": teacher_uid})
+
+    async def verify_teacher_access(
+        self, report_uid: str, teacher_uid: str
+    ) -> Result[list[Neo4jProperties]]:
+        """Verify teacher has SHARES_WITH access to the entity."""
+        query = f"""
+        MATCH (teacher:User {{uid: $teacher_uid}})-[r:{RelationshipName.SHARES_WITH.value} {{role: 'teacher'}}]->(ku:Entity {{uid: $report_uid}})
+        RETURN true as has_access
+        """
+        return await self.execute_query(
+            query, {"teacher_uid": teacher_uid, "report_uid": report_uid}
+        )
+
 
 class KuBackend(UniversalNeo4jBackend[Ku]):
     """Domain backend for atomic Knowledge Unit entities.
@@ -3038,6 +3269,27 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
             return Result.ok(None)
         return Result.ok(dict(records[0]))
 
+    # ========================================================================
+    # TEACHER REVIEW OPERATIONS (migrated from TeacherReviewService)
+    # ========================================================================
+
+    async def get_exercises_with_submission_counts(
+        self, teacher_uid: str
+    ) -> Result[list[Neo4jProperties]]:
+        """Get teacher's exercises with submission and reviewed counts."""
+        query = f"""
+        MATCH (user:User {{uid: $teacher_uid}})-[:{RelationshipName.OWNS.value}]->(exercise:Entity:Exercise)
+        OPTIONAL MATCH (s:Entity:Submission)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(exercise)
+        WITH exercise, count(s) AS total_count,
+             count(CASE WHEN s.status = 'completed' THEN 1 END) AS reviewed_count
+        RETURN exercise.uid AS uid, exercise.title AS title,
+               exercise.scope AS scope, exercise.created_at AS created_at,
+               total_count, reviewed_count,
+               total_count - reviewed_count AS pending_count
+        ORDER BY exercise.created_at DESC
+        """
+        return await self.execute_query(query, {"teacher_uid": teacher_uid})
+
 
 class RevisedExerciseBackend(UniversalNeo4jBackend["RevisedExercise"]):
     """
@@ -3952,6 +4204,165 @@ class GroupBackend(UniversalNeo4jBackend["Group"]):
         records = result.value or []
         count = records[0]["member_count"] if records else 0
         return Result.ok(count)
+
+    # ========================================================================
+    # TEACHER REVIEW OPERATIONS (migrated from TeacherReviewService)
+    # ========================================================================
+
+    async def get_teacher_groups_with_stats(
+        self, teacher_uid: str
+    ) -> Result[list[Neo4jProperties]]:
+        """Get teacher's groups with member, exercise, and pending submission counts."""
+        query = f"""
+        MATCH (teacher:User {{uid: $teacher_uid}})-[:{RelationshipName.OWNS.value}]->(g:Group)
+        OPTIONAL MATCH (member:User)-[:{RelationshipName.MEMBER_OF.value}]->(g)
+        OPTIONAL MATCH (ex:Entity:Exercise)-[:{RelationshipName.FOR_GROUP.value}]->(g)
+        OPTIONAL MATCH (sub:Entity:Submission)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex)
+          WHERE sub.status NOT IN ['completed', 'archived']
+        RETURN g.uid AS uid,
+               g.name AS name,
+               g.description AS description,
+               g.is_active AS is_active,
+               count(DISTINCT member) AS member_count,
+               count(DISTINCT ex) AS exercise_count,
+               count(DISTINCT sub) AS pending_count
+        ORDER BY g.created_at DESC
+        """
+        return await self.execute_query(query, {"teacher_uid": teacher_uid})
+
+    async def get_group_detail(
+        self, group_uid: str, teacher_uid: str
+    ) -> Result[list[Neo4jProperties]]:
+        """Get members of a teacher's group with their submission progress."""
+        query = f"""
+        MATCH (teacher:User {{uid: $teacher_uid}})-[:{RelationshipName.OWNS.value}]->(g:Group {{uid: $group_uid}})
+        MATCH (member:User)-[r:{RelationshipName.MEMBER_OF.value}]->(g)
+        OPTIONAL MATCH (teacher)-[:{RelationshipName.SHARES_WITH.value} {{role: 'teacher'}}]->(sub:Entity:Submission)
+          WHERE (member)-[:{RelationshipName.OWNS.value}]->(sub)
+        RETURN member.uid AS user_uid,
+               member.name AS user_name,
+               r.role AS role,
+               r.joined_at AS joined_at,
+               count(sub) AS submission_count,
+               count(CASE WHEN sub.status = 'completed' THEN 1 END) AS reviewed_count,
+               count(CASE WHEN sub.status IN ['submitted', 'active', 'revision_requested'] THEN 1 END) AS pending_count
+        ORDER BY r.joined_at
+        """
+        return await self.execute_query(query, {"group_uid": group_uid, "teacher_uid": teacher_uid})
+
+
+class ActivityReportBackend(UniversalNeo4jBackend[ActivityReport]):
+    """
+    Domain backend for ActivityReport entities.
+
+    Moves inline Cypher from ActivityReportService into named backend methods.
+    Methods: get_history, annotate, get_annotation, get_admin_snapshots,
+    get_shares_granted, get_report_schedule.
+    """
+
+    async def get_history(self, subject_uid: str, limit: int = 20) -> Result[list[Neo4jProperties]]:
+        """Get ActivityReport entities where subject_uid matches the user."""
+        return await self.execute_query(
+            """
+            MATCH (n:Entity {entity_type: 'activity_report', subject_uid: $subject_uid})
+            RETURN n
+            ORDER BY n.created_at DESC
+            LIMIT $limit
+            """,
+            {"subject_uid": subject_uid, "limit": limit},
+        )
+
+    async def annotate(
+        self,
+        uid: str,
+        user_uid: str,
+        annotation_mode: str,
+        now: str,
+        user_annotation: str | None = None,
+        user_revision: str | None = None,
+    ) -> Result[list[Neo4jProperties]]:
+        """Save annotation or revision to an owned ActivityReport."""
+        return await self.execute_query(
+            """
+            MATCH (n:Entity {uid: $uid, user_uid: $user_uid, entity_type: 'activity_report'})
+            SET n.annotation_mode = $annotation_mode,
+                n.annotation_updated_at = datetime($now),
+                n.user_annotation = $user_annotation,
+                n.user_revision = $user_revision
+            RETURN n.uid AS uid, n.annotation_mode AS annotation_mode,
+                   n.user_annotation AS user_annotation, n.user_revision AS user_revision
+            """,
+            {
+                "uid": uid,
+                "user_uid": user_uid,
+                "annotation_mode": annotation_mode,
+                "now": now,
+                "user_annotation": user_annotation,
+                "user_revision": user_revision,
+            },
+        )
+
+    async def get_annotation(self, uid: str, user_uid: str) -> Result[list[Neo4jProperties]]:
+        """Get current annotation state for an owned ActivityReport."""
+        return await self.execute_query(
+            """
+            MATCH (n:Entity {uid: $uid, user_uid: $user_uid, entity_type: 'activity_report'})
+            RETURN n.uid AS uid, n.annotation_mode AS annotation_mode,
+                   n.user_annotation AS user_annotation, n.user_revision AS user_revision,
+                   n.annotation_updated_at AS annotation_updated_at
+            """,
+            {"uid": uid, "user_uid": user_uid},
+        )
+
+    async def get_admin_snapshots(
+        self, user_uid: str, limit: int = 50
+    ) -> Result[list[Neo4jProperties]]:
+        """Get admin-written ActivityReports received by this user (privacy audit)."""
+        return await self.execute_query(
+            """
+            MATCH (n:Entity {entity_type: 'activity_report', subject_uid: $user_uid})
+            WHERE n.processor_type = 'human'
+            RETURN n.created_at AS accessed_at,
+                   n.user_uid AS admin_uid,
+                   n.time_period AS time_period
+            ORDER BY n.created_at DESC
+            LIMIT $limit
+            """,
+            {"user_uid": user_uid, "limit": limit},
+        )
+
+    async def get_shares_granted(
+        self, user_uid: str, limit: int = 100
+    ) -> Result[list[Neo4jProperties]]:
+        """Get users with active SHARES_WITH access to this user's entities."""
+        return await self.execute_query(
+            f"""
+            MATCH (accessor:User)-[sw:{RelationshipName.SHARES_WITH.value}]->(e:Entity {{user_uid: $user_uid}})
+            RETURN accessor.uid AS accessor_uid,
+                   e.uid AS entity_uid,
+                   e.title AS entity_title,
+                   sw.role AS role,
+                   sw.shared_at AS shared_at
+            ORDER BY sw.shared_at DESC
+            LIMIT $limit
+            """,
+            {"user_uid": user_uid, "limit": limit},
+        )
+
+    async def get_report_schedule(self, user_uid: str) -> Result[list[Neo4jProperties]]:
+        """Get active report schedule for user (privacy audit)."""
+        return await self.execute_query(
+            """
+            MATCH (u:User {uid: $user_uid})-[:HAS_SCHEDULE]->(s:ReportSchedule)
+            WHERE s.is_active = true
+            RETURN s.schedule_type AS schedule_type,
+                   s.day_of_week AS day_of_week,
+                   s.next_due_at AS next_due_at,
+                   s.last_generated_at AS last_generated_at
+            LIMIT 1
+            """,
+            {"user_uid": user_uid},
+        )
 
 
 class NotificationBackend:

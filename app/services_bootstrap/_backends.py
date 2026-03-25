@@ -143,9 +143,10 @@ def create_all_backends(
     submissions_backend = SubmissionsBackend(
         driver, NeoLabel.ENTITY, Submission, prometheus_metrics=prometheus_metrics
     )
+    from adapters.persistence.neo4j.domain_backends import ActivityReportBackend
     from core.models.report.activity_report import ActivityReport
 
-    activity_report_backend = UniversalNeo4jBackend[ActivityReport](
+    activity_report_backend = ActivityReportBackend(
         driver,
         NeoLabel.ACTIVITY_REPORT,
         ActivityReport,
