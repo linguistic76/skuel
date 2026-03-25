@@ -42,12 +42,11 @@ class TasksLateralService:
 
     def __init__(
         self,
-        driver: Any,
+        lateral_service: LateralRelationshipService,
         tasks_service: Any,  # TasksOperations protocol
     ) -> None:
-        self.driver = driver
+        self.lateral_service = lateral_service
         self.tasks_service = tasks_service
-        self.lateral_service = LateralRelationshipService(driver)
 ```
 
 ---
@@ -110,8 +109,9 @@ async def create_prerequisite_relationship(
 
 Services created:
 ```python
-# Core lateral relationship service (domain-agnostic)
-lateral_service = LateralRelationshipService(driver)
+# Core lateral relationship backend + service (domain-agnostic)
+lateral_backend = LateralRelationshipBackend(executor=driver)
+lateral_service = LateralRelationshipService(backend=lateral_backend)
 
 # Domain-specific lateral services (8 total)
 tasks_lateral = TasksLateralService(driver=driver, tasks_service=activity_services["tasks"])
@@ -198,10 +198,9 @@ from core.utils.result_simplified import Errors, Result
 class HabitsLateralService:
     """Domain-specific service for Habit lateral relationships."""
 
-    def __init__(self, driver: Any, habits_service: Any) -> None:
-        self.driver = driver
+    def __init__(self, lateral_service: LateralRelationshipService, habits_service: Any) -> None:
+        self.lateral_service = lateral_service
         self.habits_service = habits_service
-        self.lateral_service = LateralRelationshipService(driver)
 
     async def create_stacking_relationship(
         self,
