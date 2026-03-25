@@ -285,9 +285,9 @@ Only `COMPLETED` entities can be shared (prevents sharing incomplete/failed work
 
 | Service | Protocol | Responsibility |
 |---------|----------|---------------|
-| `ReportRelationshipService` | `ReportRelationshipOperations` | Pending submissions, report summary, learning loop chain traversal |
+| `ReportRelationshipService` | `ReportRelationshipOperations` | Pending submissions, report summary, learning loop chain traversal (delegates Cypher to `SubmissionsBackend`) |
 
-Methods: `get_pending_submissions()`, `get_unsubmitted_exercises()`, `get_report_summary()`, `get_learning_loop_chain(exercise_uid)`, `get_submission_chain(submission_uid)`. Used by `UserContextIntelligenceFactory`.
+Methods: `get_pending_submissions()`, `get_unsubmitted_exercises()`, `get_report_summary()`, `get_learning_loop_chain(exercise_uid)`, `get_submission_chain(submission_uid)`. All 5 methods delegate to named `SubmissionsBackend` methods (zero inline Cypher). Used by `UserContextIntelligenceFactory`.
 
 **Protocols:** `core/ports/report_protocols.py`
 

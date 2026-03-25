@@ -123,17 +123,17 @@ Cross-domain aggregation stays in services — not raw persistence:
 - `HabitsBackend` — hierarchy + `get_stats_for_user` + badge/achievement ops (4 methods)
 - `EventsBackend` — hierarchy + `get_stats_for_user`
 - `PrinciplesBackend` — hierarchy + `get_stats_for_user`
-- `ChoicesBackend` — hierarchy + `get_stats_for_user`
+- `ChoicesBackend` — hierarchy + `get_stats_for_user` + behavioral signals (5 methods: principle adherence, conflicts, life path contribution, satisfaction correlation, conflict count)
 
 **Curriculum Domains (5):**
-- `KuBackend` — ORGANIZES graph + usage summary + namespace/alias search (6 methods)
+- `KuBackend` — ORGANIZES graph + usage summary + namespace/alias search + relationship queries (13 methods: +7 for related/broader/narrower/learning-path/task/event/habit UIDs)
 - `LessonBackend` — ORGANIZES hierarchy + user progress (VIEWED/IN_PROGRESS/MASTERED/BOOKMARKED, 18 methods) + graph context
 - `LsBackend` — CONTAINS_KNOWLEDGE CRUD (4 methods) + lesson progress tracking
 - `LpBackend` — HAS_STEP management (5 methods) + mastery progress queries
 - `ExerciseBackend` — curriculum links + OWNS/FOR_GROUP + student exercise queries (6 methods)
 
 **Submissions/Reports (1):**
-- `SubmissionsBackend` — SHARES_WITH access control + exercise submission processing + temporal/thematic relationships + assessment ops (14 methods)
+- `SubmissionsBackend` — SHARES_WITH access control + exercise submission processing + temporal/thematic relationships + assessment ops + report relationship queries (20 methods: +6 for pending submissions, unsubmitted exercises, report summary, learning loop chain, submission chain, supported goals)
 
 **Exercises (1):**
 - `RevisedExerciseBackend` — teacher authority verification + auto-share + student listing (4 methods)
@@ -159,3 +159,9 @@ Cross-domain aggregation stays in services — not raw persistence:
 | `ad0a5dcb` | Phase 0-1: _HierarchyMixin + Tasks hierarchy |
 | `a9470fa2` | Phases 2-4: Remaining hierarchy + curriculum CRUD |
 | `35ad08e9` | Phase 5: Remaining 12 services + GroupBackend + NotificationBackend |
+| `e7be457b` | Phases 1-3: Inline Cypher migration (Goals, FormSubmission, Ku, LS) |
+| `17d0b1c5` | Phase 4: ActivityReport, TeacherReview, ExerciseBackend, GroupBackend |
+| `a1c264af` | Phase 5: LateralRelationshipBackend (14 methods) |
+| `84b2b9db` | Phase 6: Fail-fast sweep — eliminate optional-dep fallback patterns |
+| `a918c7d2` | Phase 7: Lesson domain (8 services, 31 LessonBackend methods) |
+| `053bbaa9` | Phase 8: Harden 3 methods + migrate 17 queries from Choices/Report/KU/Submissions |

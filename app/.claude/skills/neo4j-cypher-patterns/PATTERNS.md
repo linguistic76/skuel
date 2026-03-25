@@ -353,6 +353,7 @@ deserialize_json_fields(insight_data, "related_entities", "recommended_actions",
 6. **No APOC in domain services** (SKUEL001) — pure Cypher only
 7. **No inline Cypher in services** — domain-specific Cypher belongs in domain backends (`domain_backends.py`). Services call `self.backend.method_name()`, never `self.backend.execute_query(cypher, params)`.
 8. **No json.dumps() in services** — `backend.update()` and `backend.create()` auto-serialize complex types via `to_neo4j_node()`. For custom Cypher reads, use `parse_neo4j_json()` / `deserialize_json_fields()`.
+9. **Validate interpolated identifiers** — Neo4j Cypher cannot parameterize relationship types or labels, so f-string interpolation is unavoidable for those. Use `_validate_rel_name()` (rejects non-`[A-Z0-9_]`), `NeoLabel` enum typing for labels, and `_ALLOWED_ORDER_BY` whitelist for `ORDER BY` fields. Never accept raw user strings for these positions.
 
 ## Where Does Cypher Live?
 
@@ -360,7 +361,9 @@ deserialize_json_fields(insight_data, "related_entities", "recommended_actions",
 |-------------|----------|---------|
 | Generic CRUD | `UniversalNeo4jBackend` (via mixins) | `create()`, `get()`, `update()`, `delete()` |
 | Domain-specific relationships | Domain backend in `domain_backends.py` | `LessonBackend.mark_mastered()`, `SubmissionsBackend.link_to_exercise()` |
-| Cross-domain aggregation | Service files (exception to the rule) | `user_context_queries.py` MEGA-QUERY |
+| Cross-domain aggregation | Service files (exception — uses `QueryExecutor`) | `user_context_queries.py` MEGA-QUERY |
+| Vector/fulltext index calls | `neo4j_vector_search_service.py` (infrastructure) | `db.index.vector.queryNodes()` |
+| Query generation | `query_optimizer.py`, `query_template_registry.py` | Builds Cypher by design |
 | Generic hierarchy | `_HierarchyMixin` (shared by 6 Activity backends) | `get_children_raw()`, `create_hierarchy_relationship()` |
 | JSON property utilities | `core/utils/neo4j_mapper.py` | `parse_neo4j_json()`, `deserialize_json_fields()` |
 

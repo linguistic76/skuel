@@ -232,7 +232,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol](
 | `_user_entity_mixin.py` | Generic user-entity ops | `create_user_relationship`, `get_user_entities`*, `count_user_entities`*, `update_relationship_access`, `delete_user_relationship` |
 | `_traversal_mixin.py` | `GraphTraversalOperations` | `add_relationship`, `get_relationships`, `traverse`, `find_path` |
 
-\* **Security hardened (March 2026):** Methods marked with `*` validate interpolated field names via `validate_field_name()` from `core/utils/validation_helpers.py` to prevent Cypher injection. Invalid field names are rejected with a logged warning and safe fallback values.
+\* **Security hardened (March 2026):** Methods marked with `*` validate interpolated field names via `validate_field_name()` from `core/utils/validation_helpers.py` to prevent Cypher injection. Invalid field names are rejected with a logged warning and safe fallback values. Domain backends additionally use `_validate_rel_name()` (rejects non-`[A-Z0-9_]` characters in relationship names) and `_ALLOWED_ORDER_BY` (whitelist for ORDER BY fields) to prevent injection in domain-specific Cypher queries.
 | `universal_backend.py` (shell) | Coordination | `__init__`, `_track_db_metrics`, `_default_filter_*`, `_inject_default_filters`, `get_with_graph_context`, `__getattr__` |
 
 **Cross-mixin dependencies** are declared via `TYPE_CHECKING` stubs (zero runtime cost):
