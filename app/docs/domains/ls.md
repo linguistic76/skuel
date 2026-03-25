@@ -66,6 +66,7 @@ await ls_service.intelligence.is_ready(step_uid, completed_steps)
 | Core Service | `/core/services/ls/ls_core_service.py` |
 | Search Service | `/core/services/ls/ls_search_service.py` |
 | Intelligence Service | `/core/services/ls/ls_intelligence_service.py` |
+| Backend | `LsBackend` in `/adapters/persistence/neo4j/domain_backends.py` |
 | Model | `/core/models/ls/ls.py` |
 | DTO | `/core/models/ls/ls_dto.py` |
 | Relationship Config | `LS_CONFIG` in `/core/models/relationship_registry.py` |

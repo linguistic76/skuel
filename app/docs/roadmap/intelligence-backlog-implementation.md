@@ -107,7 +107,7 @@ returns a list of KU UIDs) but then short-circuits to `Result.ok(None)`.
    ORDER BY t.priority DESC
    LIMIT 1
    ```
-   Use `self.backend.execute_query()` for this raw Cypher (it's a cross-domain query).
+   Add this as a named method on the domain backend (e.g., `GoalsBackend.find_task_for_knowledge()`). Domain-specific Cypher belongs on the backend, not inline in the service.
 
 4. Deserialize the result with `self._context_to_domain_model()` and return as
    `Result.ok(task_model)`.
@@ -204,7 +204,7 @@ specifically the `created_at` and `score` properties that are set when
    RETURN r.score as score, r.created_at as created_at
    ORDER BY r.created_at DESC
    ```
-   Use `self.backend.execute_query()`.
+   Add as a named backend method (e.g., `LifePathBackend.get_alignment_trend()`). Services call `self.backend.method_name()` — never inline Cypher.
 
 2. **Bin by time window.** Partition results into `7d`, `30d`, and `90d` buckets:
    ```python

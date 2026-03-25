@@ -279,7 +279,7 @@ def get_user_uid(self) -> UserUID:
 async def search_tasks(self, query: str) -> Result[list[Task]]:
     """
     Uses UnifiedQueryBuilder to construct a Cypher query,
-    executes it via backend.driver.execute_query(), then
+    delegates to backend.search_tasks(), then
     converts records to Task objects using from_dict().
     """
 ```

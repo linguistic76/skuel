@@ -8,6 +8,8 @@ related_docs: []
 # Insight Action Tracking Pattern
 
 **Status**: ✅ Implemented (January 2026)
+
+> **Migration Note (March 2026):** The code examples below show inline Cypher in `InsightStore` service methods. Per the evolved architecture, domain-specific Cypher should be migrated to a dedicated `InsightBackend`. Services call `self.backend.method_name()` — never inline Cypher via `execute_query()`. See CLAUDE.md "100% Dynamic Backend Pattern".
 **Feature**: Phase 4, Task 17
 **Files**: 6 files modified
 
