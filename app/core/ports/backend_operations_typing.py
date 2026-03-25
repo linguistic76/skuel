@@ -79,10 +79,13 @@ Real Examples from SKUEL Services
 
 QueryExecutor — the most common focused protocol:
 
-    # Used by: LessonOrganizationService, CrossDomainQueries, LateralRelationshipService,
+    # Used by: LessonOrganizationService, CrossDomainQueries,
     #          UserContextQueryExecutor, UserStatsAggregator, ReportSharingService,
-    #          TeacherReviewService, ProgressReportGenerator, Neo4jVectorSearchService,
+    #          ProgressReportGenerator, Neo4jVectorSearchService,
     #          HuggingFaceEmbeddingsService, UserProgressService
+    #
+    # Note: LateralRelationshipService and TeacherReviewService migrated to
+    # typed backends (LateralRelationshipBackend, SubmissionsBackend, etc.)
 
     from typing import TYPE_CHECKING
 
@@ -90,19 +93,19 @@ QueryExecutor — the most common focused protocol:
         from core.ports import QueryExecutor
         from core.utils.result_simplified import Result
 
-    class LateralRelationshipService:
+    class ExampleService:
         def __init__(self, executor: "QueryExecutor") -> None:
             self.executor = executor
 
-        async def get_blocking_chain(self, uid: str) -> "Result[list[dict]]":
+        async def get_data(self, uid: str) -> "Result[list[dict]]":
             return await self.executor.execute_query(
-                "MATCH (e {uid: $uid})-[:BLOCKS*1..5]->(b) RETURN b",
+                "MATCH (e {uid: $uid}) RETURN e",
                 {"uid": uid},
             )
 
     # In bootstrap.py, satisfied by any backend or a standalone executor:
-    # lateral_service = LateralRelationshipService(executor=tasks_backend)
-    # lateral_service = LateralRelationshipService(executor=neo4j_query_executor)
+    # service = ExampleService(executor=tasks_backend)
+    # service = ExampleService(executor=neo4j_query_executor)
 
 
 CrudOperations[T] — minimal CRUD dependency:

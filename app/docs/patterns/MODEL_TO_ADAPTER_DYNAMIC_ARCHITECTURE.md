@@ -33,11 +33,11 @@ adapters/persistence/neo4j/
     _user_entity_mixin.py         # Generic user-entity ops (5 methods)
     _traversal_mixin.py           # GraphTraversalOperations
     _hierarchy_mixin.py           # HierarchyConfig + _HierarchyMixin (6 hierarchy methods for Activity Domains)
-    domain_backends.py            # 18 domain subclasses: TasksBackend, EventsBackend, GoalsBackend, HabitsBackend,
+    domain_backends.py            # 19 domain subclasses: TasksBackend, EventsBackend, GoalsBackend, HabitsBackend,
                                   #   ChoicesBackend, PrinciplesBackend, LessonBackend, KuBackend, LsBackend,
                                   #   LpBackend, ExerciseBackend, SubmissionsBackend, SharingBackend,
                                   #   RevisedExerciseBackend, FormTemplateBackend, FormSubmissionBackend,
-                                  #   ActivityReportBackend, GroupBackend
+                                  #   ActivityReportBackend, LateralRelationshipBackend, GroupBackend
 ```
 
 **Class declaration:**
@@ -121,7 +121,7 @@ Phase 5 completed the backend delegation refactor — ~46 inline Cypher queries 
 ```
 adapters/persistence/neo4j/
     _hierarchy_mixin.py           # HierarchyConfig + _HierarchyMixin (6 generic methods)
-    domain_backends.py            # 18 domain subclasses (6 Activity + 5 Curriculum + 7 Other)
+    domain_backends.py            # 19 domain subclasses (6 Activity + 5 Curriculum + 8 Other)
 ```
 
 ### March 25, 2026 Update: Report + Teacher Review Services Migrated (Phase 4)
@@ -148,6 +148,24 @@ Two more services migrated to domain backends — zero inline Cypher remains in 
 **Fail-fast cleanup:**
 - `ActivityReportService`: `executor` dependency removed, `event_bus` made required
 - `TeacherReviewService`: `executor` replaced with 3 required typed backends (`SubmissionsBackend`, `ExerciseBackend`, `GroupBackend`), `event_bus` made required
+
+### March 25, 2026 Update: Lateral Relationship Service Migrated (Phase 5)
+
+14 inline Cypher queries migrated from `LateralRelationshipService` to a new `LateralRelationshipBackend`.
+
+**New backend:** `LateralRelationshipBackend` (14 methods):
+
+| Category | Methods |
+|----------|---------|
+| **CRUD (4)** | `create_relationship`, `delete_relationship`, `create_inverse`, `delete_inverse` |
+| **Query (6)** | `get_relationships`, `get_siblings`, `get_cousins`, `get_blocking_chain`, `get_alternatives_comparison`, `get_relationship_graph` |
+| **Validation (4)** | `check_entities_exist`, `check_same_parent`, `check_same_depth`, `check_no_cycles` |
+
+**Architecture:** Standalone backend with `executor` (like `NotificationBackend`), not `UniversalNeo4jBackend[T]` — operates on relationships across entity types, not CRUD on a single type.
+
+**Protocol:** `LateralRelationshipBackendOperations` in `service_protocols.py`.
+
+**Fail-fast cleanup:** `executor: QueryExecutor` replaced with `backend: LateralRelationshipBackendOperations`.
 
 ---
 

@@ -19,27 +19,29 @@ from core.utils.result_simplified import Result
 
 
 @pytest.fixture
-def mock_driver():
-    """Mock Neo4j driver."""
-    driver = MagicMock()
-    driver.execute_query = AsyncMock()
-    return driver
+def mock_backend():
+    """Mock LateralRelationshipBackend."""
+    backend = MagicMock()
+    backend.get_blocking_chain = AsyncMock()
+    backend.get_alternatives_comparison = AsyncMock()
+    backend.get_relationship_graph = AsyncMock()
+    return backend
 
 
 @pytest.fixture
-def lateral_service(mock_driver):
-    """LateralRelationshipService instance with mocked driver."""
-    return LateralRelationshipService(executor=mock_driver)
+def lateral_service(mock_backend):
+    """LateralRelationshipService instance with mocked backend."""
+    return LateralRelationshipService(backend=mock_backend)
 
 
 class TestGetBlockingChain:
     """Tests for get_blocking_chain method."""
 
     @pytest.mark.asyncio
-    async def test_empty_chain(self, lateral_service, mock_driver):
+    async def test_empty_chain(self, lateral_service, mock_backend):
         """Test entity with no blockers returns empty chain."""
         # Mock: No blockers found
-        mock_driver.execute_query.return_value = Result.ok([])
+        mock_backend.get_blocking_chain.return_value = Result.ok([])
 
         result = await lateral_service.get_blocking_chain("task_xyz")
 
@@ -50,7 +52,7 @@ class TestGetBlockingChain:
         assert result.value["critical_path"] == ["task_xyz"]
 
     @pytest.mark.asyncio
-    async def test_single_level_chain(self, lateral_service, mock_driver):
+    async def test_single_level_chain(self, lateral_service, mock_backend):
         """Test entity with one blocker (depth 1)."""
         # Mock: One blocker at depth 1
         mock_record = {
@@ -61,7 +63,7 @@ class TestGetBlockingChain:
             "depth": 1,
             "blocks_count": 1,
         }
-        mock_driver.execute_query.return_value = Result.ok([mock_record])
+        mock_backend.get_blocking_chain.return_value = Result.ok([mock_record])
 
         result = await lateral_service.get_blocking_chain("task_deploy")
 
@@ -76,7 +78,7 @@ class TestGetBlockingChain:
         assert "task_deploy" in data["critical_path"]
 
     @pytest.mark.asyncio
-    async def test_multi_level_chain(self, lateral_service, mock_driver):
+    async def test_multi_level_chain(self, lateral_service, mock_backend):
         """Test entity with multiple blocking levels (depth 3)."""
         # Mock: Three levels of blockers
         mock_records = [
@@ -105,7 +107,7 @@ class TestGetBlockingChain:
                 "blocks_count": 1,
             },
         ]
-        mock_driver.execute_query.return_value = Result.ok(mock_records)
+        mock_backend.get_blocking_chain.return_value = Result.ok(mock_records)
 
         result = await lateral_service.get_blocking_chain("task_d")
 
@@ -124,9 +126,9 @@ class TestGetAlternativesWithComparison:
     """Tests for get_alternatives_with_comparison method."""
 
     @pytest.mark.asyncio
-    async def test_no_alternatives(self, lateral_service, mock_driver):
+    async def test_no_alternatives(self, lateral_service, mock_backend):
         """Test entity with no alternatives returns empty list."""
-        mock_driver.execute_query.return_value = Result.ok([])
+        mock_backend.get_alternatives_comparison.return_value = Result.ok([])
 
         result = await lateral_service.get_alternatives_with_comparison("goal_a")
 
@@ -134,7 +136,7 @@ class TestGetAlternativesWithComparison:
         assert result.value == []
 
     @pytest.mark.asyncio
-    async def test_single_alternative_with_comparison(self, lateral_service, mock_driver):
+    async def test_single_alternative_with_comparison(self, lateral_service, mock_backend):
         """Test entity with one alternative including comparison data."""
         mock_record = {
             "uid": "goal_b",
@@ -155,7 +157,7 @@ class TestGetAlternativesWithComparison:
                 "timeframe": "3 years",
             },
         }
-        mock_driver.execute_query.return_value = Result.ok([mock_record])
+        mock_backend.get_alternatives_comparison.return_value = Result.ok([mock_record])
 
         result = await lateral_service.get_alternatives_with_comparison("goal_a")
 
@@ -170,7 +172,7 @@ class TestGetAlternativesWithComparison:
         assert alt["metadata"]["tradeoffs"] == "Higher risk, more freedom"
 
     @pytest.mark.asyncio
-    async def test_multiple_alternatives(self, lateral_service, mock_driver):
+    async def test_multiple_alternatives(self, lateral_service, mock_backend):
         """Test entity with multiple alternatives."""
         mock_records = [
             {
@@ -204,7 +206,7 @@ class TestGetAlternativesWithComparison:
                 "rel_properties": {"timeframe": "1 year"},
             },
         ]
-        mock_driver.execute_query.return_value = Result.ok(mock_records)
+        mock_backend.get_alternatives_comparison.return_value = Result.ok(mock_records)
 
         result = await lateral_service.get_alternatives_with_comparison("goal_a")
 
@@ -217,9 +219,9 @@ class TestGetRelationshipGraph:
     """Tests for get_relationship_graph method."""
 
     @pytest.mark.asyncio
-    async def test_isolated_entity(self, lateral_service, mock_driver):
+    async def test_isolated_entity(self, lateral_service, mock_backend):
         """Test entity with no relationships returns single node."""
-        mock_driver.execute_query.return_value = Result.ok([])
+        mock_backend.get_relationship_graph.return_value = Result.ok([])
 
         result = await lateral_service.get_relationship_graph("task_xyz", depth=2)
 
@@ -231,7 +233,7 @@ class TestGetRelationshipGraph:
         assert len(graph["edges"]) == 0
 
     @pytest.mark.asyncio
-    async def test_simple_graph(self, lateral_service, mock_driver):
+    async def test_simple_graph(self, lateral_service, mock_backend):
         """Test entity with one related entity (2 nodes, 1 edge)."""
         mock_record = {
             "center_uid": "task_a",
@@ -245,7 +247,7 @@ class TestGetRelationshipGraph:
             "relationships": [{"type": "BLOCKS", "from": "task_b", "to": "task_a"}],
             "depth_level": 1,
         }
-        mock_driver.execute_query.return_value = Result.ok([mock_record])
+        mock_backend.get_relationship_graph.return_value = Result.ok([mock_record])
 
         result = await lateral_service.get_relationship_graph("task_a", depth=2)
 
@@ -265,7 +267,7 @@ class TestGetRelationshipGraph:
         assert edge["color"]["color"] == "#EF4444"
 
     @pytest.mark.asyncio
-    async def test_complex_graph(self, lateral_service, mock_driver):
+    async def test_complex_graph(self, lateral_service, mock_backend):
         """Test entity with multiple relationships and types."""
         mock_records = [
             {
@@ -293,7 +295,7 @@ class TestGetRelationshipGraph:
                 "depth_level": 1,
             },
         ]
-        mock_driver.execute_query.return_value = Result.ok(mock_records)
+        mock_backend.get_relationship_graph.return_value = Result.ok(mock_records)
 
         result = await lateral_service.get_relationship_graph("goal_a", depth=2)
 

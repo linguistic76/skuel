@@ -542,11 +542,13 @@ async def compose_services(
         # Enables explicit modeling of sibling, cousin, dependency, and semantic relationships
         # across all 8 hierarchical domains (Tasks, Goals, Habits, Events, Choices, Principles, KU, LS, LP)
 
+        from adapters.persistence.neo4j.domain_backends import LateralRelationshipBackend
         from core.services.lateral_relationships import LateralRelationshipService
 
-        # Create core lateral relationship service (domain-agnostic)
+        # Create backend + service for lateral relationships (domain-agnostic)
         # Ownership verification happens at route level via domain_service param
-        lateral_service = LateralRelationshipService(driver)
+        lateral_backend = LateralRelationshipBackend(executor=driver)
+        lateral_service = LateralRelationshipService(backend=lateral_backend)
         logger.info("✅ LateralRelationshipService created (9 domains, ownership at route level)")
 
         # Create Askesis core service (CRUD operations for AI assistant instances)

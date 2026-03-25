@@ -283,7 +283,7 @@ The original February 2026 decomposition created a single `_relationship_mixin.p
 | `/adapters/persistence/neo4j/_relationship_crud_mixin.py` | Relationship CRUD + validation helpers |
 | `/adapters/persistence/neo4j/_user_entity_mixin.py` | Generic user-entity relationship ops (5 methods) |
 | `/adapters/persistence/neo4j/_traversal_mixin.py` | `GraphTraversalOperations` implementation |
-| `/adapters/persistence/neo4j/domain_backends.py` | 18 domain subclasses: TasksBackend, EventsBackend, GoalsBackend, HabitsBackend, ChoicesBackend, PrinciplesBackend, LessonBackend, KuBackend, LsBackend, LpBackend, ExerciseBackend, SubmissionsBackend, SharingBackend, RevisedExerciseBackend, FormTemplateBackend, FormSubmissionBackend, ActivityReportBackend, GroupBackend |
+| `/adapters/persistence/neo4j/domain_backends.py` | 19 domain subclasses: TasksBackend, EventsBackend, GoalsBackend, HabitsBackend, ChoicesBackend, PrinciplesBackend, LessonBackend, KuBackend, LsBackend, LpBackend, ExerciseBackend, SubmissionsBackend, SharingBackend, RevisedExerciseBackend, FormTemplateBackend, FormSubmissionBackend, ActivityReportBackend, LateralRelationshipBackend, GroupBackend |
 | `/core/services/base_service.py` | BaseService using BackendOperations |
 | `/core/ports/domain_protocols.py` | Domain-specific protocols |
 

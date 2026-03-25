@@ -16,6 +16,7 @@ Protocols:
 - GoalTaskGeneratorOperations — Goal→Task generation
 - HabitEventSchedulerOperations — Habit→Event scheduling
 - LateralRelationshipOperations — Lateral relationship CRUD + graph queries
+- LateralRelationshipBackendOperations — Backend-level Cypher for lateral relationships
 """
 
 from collections.abc import Callable
@@ -568,3 +569,85 @@ class LateralRelationshipOperations(Protocol):
         depth: int = 2,
         relationship_types: list[RelationshipName] | None = None,
     ) -> Result[dict[str, Any]]: ...
+
+
+@runtime_checkable
+class LateralRelationshipBackendOperations(Protocol):
+    """Backend-level protocol for lateral relationship Cypher queries.
+
+    Implementation: LateralRelationshipBackend in domain_backends.py.
+    Consumer: LateralRelationshipService.
+    """
+
+    async def create_relationship(
+        self,
+        source_uid: str,
+        target_uid: str,
+        relationship_type: str,
+        metadata: dict[str, Any],
+    ) -> Result[list[dict[str, Any]]]: ...
+
+    async def delete_relationship(
+        self,
+        source_uid: str,
+        target_uid: str,
+        relationship_type: str,
+    ) -> Result[list[dict[str, Any]]]: ...
+
+    async def create_inverse(
+        self,
+        source_uid: str,
+        target_uid: str,
+        relationship_type: str,
+        metadata: dict[str, Any],
+    ) -> Result[list[dict[str, Any]]]: ...
+
+    async def delete_inverse(
+        self,
+        source_uid: str,
+        target_uid: str,
+        relationship_type: str,
+    ) -> Result[list[dict[str, Any]]]: ...
+
+    async def get_relationships(
+        self,
+        entity_uid: str,
+        type_filter: str,
+        pattern: str,
+    ) -> Result[list[dict[str, Any]]]: ...
+
+    async def get_siblings(self, entity_uid: str) -> Result[list[dict[str, Any]]]: ...
+
+    async def get_cousins(self, entity_uid: str) -> Result[list[dict[str, Any]]]: ...
+
+    async def get_blocking_chain(self, entity_uid: str) -> Result[list[dict[str, Any]]]: ...
+
+    async def get_alternatives_comparison(
+        self, entity_uid: str
+    ) -> Result[list[dict[str, Any]]]: ...
+
+    async def get_relationship_graph(
+        self,
+        entity_uid: str,
+        type_filter: str,
+        depth: int,
+    ) -> Result[list[dict[str, Any]]]: ...
+
+    async def check_entities_exist(
+        self, source_uid: str, target_uid: str
+    ) -> Result[list[dict[str, Any]]]: ...
+
+    async def check_same_parent(
+        self, source_uid: str, target_uid: str
+    ) -> Result[list[dict[str, Any]]]: ...
+
+    async def check_same_depth(
+        self, source_uid: str, target_uid: str
+    ) -> Result[list[dict[str, Any]]]: ...
+
+    async def check_no_cycles(
+        self,
+        source_uid: str,
+        target_uid: str,
+        relationship_type: str,
+    ) -> Result[list[dict[str, Any]]]: ...

@@ -4365,6 +4365,317 @@ class ActivityReportBackend(UniversalNeo4jBackend[ActivityReport]):
         )
 
 
+class LateralRelationshipBackend:
+    """
+    Backend for lateral relationship Cypher queries.
+
+    Lateral relationships are cross-entity-type graph operations (BLOCKS, PREREQUISITE_FOR,
+    ALTERNATIVE_TO, COMPLEMENTARY_TO, SIBLING, RELATED_TO). This backend encapsulates all
+    Cypher queries, keeping LateralRelationshipService free of inline queries.
+
+    Similar to NotificationBackend — uses raw Cypher via executor rather than
+    UniversalNeo4jBackend, since it manages relationships between arbitrary entity
+    types rather than CRUD on a single entity type.
+
+    See: /docs/architecture/RELATIONSHIPS_ARCHITECTURE.md
+    """
+
+    def __init__(self, executor: Any) -> None:
+        self.executor = executor
+
+    # ========================================================================
+    # CRUD Methods (4)
+    # ========================================================================
+
+    async def create_relationship(
+        self,
+        source_uid: str,
+        target_uid: str,
+        relationship_type: str,
+        metadata: dict[str, Any],
+    ) -> Result[list[Neo4jProperties]]:
+        """Create a lateral relationship between two entities."""
+        return await self.executor.execute_query(
+            f"""
+            MATCH (source {{uid: $source_uid}})
+            MATCH (target {{uid: $target_uid}})
+            CREATE (source)-[r:{relationship_type} $metadata]->(target)
+            RETURN r
+            """,
+            {
+                "source_uid": source_uid,
+                "target_uid": target_uid,
+                "metadata": metadata,
+            },
+        )
+
+    async def delete_relationship(
+        self,
+        source_uid: str,
+        target_uid: str,
+        relationship_type: str,
+    ) -> Result[list[Neo4jProperties]]:
+        """Delete a lateral relationship. Returns deleted_count."""
+        return await self.executor.execute_query(
+            f"""
+            MATCH (source {{uid: $source_uid}})-[r:{relationship_type}]->(target {{uid: $target_uid}})
+            DELETE r
+            RETURN count(r) as deleted_count
+            """,
+            {"source_uid": source_uid, "target_uid": target_uid},
+        )
+
+    async def create_inverse(
+        self,
+        source_uid: str,
+        target_uid: str,
+        relationship_type: str,
+        metadata: dict[str, Any],
+    ) -> Result[list[Neo4jProperties]]:
+        """Create inverse relationship for asymmetric types."""
+        return await self.executor.execute_query(
+            f"""
+            MATCH (source {{uid: $source_uid}})
+            MATCH (target {{uid: $target_uid}})
+            CREATE (source)-[r:{relationship_type} $metadata]->(target)
+            """,
+            {
+                "source_uid": source_uid,
+                "target_uid": target_uid,
+                "metadata": metadata,
+            },
+        )
+
+    async def delete_inverse(
+        self,
+        source_uid: str,
+        target_uid: str,
+        relationship_type: str,
+    ) -> Result[list[Neo4jProperties]]:
+        """Delete inverse relationship for asymmetric types."""
+        return await self.executor.execute_query(
+            f"""
+            MATCH (source {{uid: $source_uid}})-[r:{relationship_type}]->(target {{uid: $target_uid}})
+            DELETE r
+            """,
+            {"source_uid": source_uid, "target_uid": target_uid},
+        )
+
+    # ========================================================================
+    # Query Methods (6)
+    # ========================================================================
+
+    async def get_relationships(
+        self,
+        entity_uid: str,
+        type_filter: str,
+        pattern: str,
+    ) -> Result[list[Neo4jProperties]]:
+        """Get lateral relationships for an entity.
+
+        Args:
+            entity_uid: Entity UID
+            type_filter: Pipe-separated relationship types (e.g. "BLOCKS|PREREQUISITE_FOR")
+            pattern: Direction pattern — one of "outgoing", "incoming", "both"
+        """
+        if pattern == "outgoing":
+            match_pattern = f"(entity)-[r:{type_filter}]->(related)"
+        elif pattern == "incoming":
+            match_pattern = f"(entity)<-[r:{type_filter}]-(related)"
+        else:
+            match_pattern = f"(entity)-[r:{type_filter}]-(related)"
+
+        return await self.executor.execute_query(
+            f"""
+            MATCH {match_pattern}
+            WHERE entity.uid = $entity_uid
+            RETURN
+                type(r) as relationship_type,
+                related.uid as related_uid,
+                related.title as related_title,
+                properties(r) as metadata,
+                CASE
+                    WHEN startNode(r) = entity THEN 'outgoing'
+                    ELSE 'incoming'
+                END as direction
+            ORDER BY relationship_type, related_title
+            """,
+            {"entity_uid": entity_uid},
+        )
+
+    async def get_siblings(self, entity_uid: str) -> Result[list[Neo4jProperties]]:
+        """Get sibling entities derived from hierarchy (same parent)."""
+        return await self.executor.execute_query(
+            """
+            MATCH (parent)-[r]->(sibling)
+            WHERE (parent)-[]->(entity {uid: $entity_uid})
+            AND sibling.uid != $entity_uid
+            AND type(r) IN ['SUBGOAL', 'SUBHABIT', 'SUBEVENT', 'SUBPRINCIPLE',
+                             'SUBCHOICE', 'CONTAINS_STEP', 'ORGANIZES']
+            RETURN
+                sibling.uid as sibling_uid,
+                sibling.title as sibling_title,
+                type(r) as hierarchy_type,
+                r.order as order
+            ORDER BY r.order, sibling.title
+            """,
+            {"entity_uid": entity_uid},
+        )
+
+    async def get_cousins(self, entity_uid: str) -> Result[list[Neo4jProperties]]:
+        """Get first-cousin entities (same grandparent, different parent)."""
+        return await self.executor.execute_query(
+            """
+            MATCH (grandparent)-[]->(parent1)-[]->(entity {uid: $entity_uid})
+            MATCH (grandparent)-[]->(parent2)-[]->(cousin)
+            WHERE parent1 != parent2
+            AND cousin.uid != $entity_uid
+            AND NOT (parent1)-[]->(cousin) // Not a sibling
+            RETURN
+                cousin.uid as cousin_uid,
+                cousin.title as cousin_title,
+                grandparent.uid as shared_ancestor_uid,
+                grandparent.title as shared_ancestor_title
+            ORDER BY cousin.title
+            """,
+            {"entity_uid": entity_uid},
+        )
+
+    async def get_blocking_chain(self, entity_uid: str) -> Result[list[Neo4jProperties]]:
+        """Get transitive blocking chain with depth levels."""
+        return await self.executor.execute_query(
+            """
+            MATCH path = (blocker)-[:BLOCKS*1..10]->(entity {uid: $uid})
+            WITH blocker, path, length(path) as depth
+            RETURN
+                blocker.uid as uid,
+                blocker.title as title,
+                blocker.status as status,
+                labels(blocker)[0] as entity_type,
+                depth,
+                size((blocker)-[:BLOCKS]->()) as blocks_count
+            ORDER BY depth DESC
+            """,
+            {"uid": entity_uid},
+        )
+
+    async def get_alternatives_comparison(self, entity_uid: str) -> Result[list[Neo4jProperties]]:
+        """Get alternative entities with side-by-side comparison data."""
+        return await self.executor.execute_query(
+            """
+            MATCH (entity {uid: $uid})-[r:ALTERNATIVE_TO]-(alternative)
+            RETURN
+                alternative.uid as uid,
+                alternative.title as title,
+                alternative.description as description,
+                alternative.status as status,
+                alternative.priority as priority,
+                labels(alternative)[0] as entity_type,
+                r.comparison_criteria as comparison_criteria,
+                r.tradeoffs as tradeoffs,
+                r.timeframe as timeframe,
+                r.difficulty as difficulty,
+                r.resources as resources,
+                properties(alternative) as all_properties,
+                properties(r) as rel_properties
+            """,
+            {"uid": entity_uid},
+        )
+
+    async def get_relationship_graph(
+        self,
+        entity_uid: str,
+        type_filter: str,
+        depth: int,
+    ) -> Result[list[Neo4jProperties]]:
+        """Get relationship graph in Vis.js Network format."""
+        return await self.executor.execute_query(
+            f"""
+            MATCH path = (center {{uid: $uid}})-[r:{type_filter}*1..{depth}]-(related)
+            WITH center, r, related, length(path) as depth_level
+            RETURN DISTINCT
+                center.uid as center_uid,
+                center.title as center_title,
+                labels(center)[0] as center_type,
+                center.status as center_status,
+                related.uid as related_uid,
+                related.title as related_title,
+                labels(related)[0] as related_type,
+                related.status as related_status,
+                [rel in r | {{
+                    type: type(rel),
+                    from: startNode(rel).uid,
+                    to: endNode(rel).uid
+                }}] as relationships,
+                depth_level
+            """,
+            {"uid": entity_uid},
+        )
+
+    # ========================================================================
+    # Validation Methods (4)
+    # ========================================================================
+
+    async def check_entities_exist(
+        self, source_uid: str, target_uid: str
+    ) -> Result[list[Neo4jProperties]]:
+        """Verify both entities exist in the graph."""
+        return await self.executor.execute_query(
+            """
+            MATCH (source {uid: $source_uid})
+            MATCH (target {uid: $target_uid})
+            RETURN count(source) as source_count, count(target) as target_count
+            """,
+            {"source_uid": source_uid, "target_uid": target_uid},
+        )
+
+    async def check_same_parent(
+        self, source_uid: str, target_uid: str
+    ) -> Result[list[Neo4jProperties]]:
+        """Verify entities share the same parent."""
+        return await self.executor.execute_query(
+            """
+            MATCH (parent)-[]->(source {uid: $source_uid})
+            MATCH (parent)-[]->(target {uid: $target_uid})
+            RETURN count(parent) as shared_parent_count
+            """,
+            {"source_uid": source_uid, "target_uid": target_uid},
+        )
+
+    async def check_same_depth(
+        self, source_uid: str, target_uid: str
+    ) -> Result[list[Neo4jProperties]]:
+        """Verify entities are at the same hierarchical depth."""
+        return await self.executor.execute_query(
+            """
+            MATCH path1 = (root)-[*]->(source {uid: $source_uid})
+            WHERE NOT ()-[]->(root)
+            WITH length(path1) as source_depth
+            MATCH path2 = (root2)-[*]->(target {uid: $target_uid})
+            WHERE NOT ()-[]->(root2)
+            WITH source_depth, length(path2) as target_depth
+            RETURN source_depth, target_depth
+            LIMIT 1
+            """,
+            {"source_uid": source_uid, "target_uid": target_uid},
+        )
+
+    async def check_no_cycles(
+        self,
+        source_uid: str,
+        target_uid: str,
+        relationship_type: str,
+    ) -> Result[list[Neo4jProperties]]:
+        """Check that creating this relationship won't create a circular dependency."""
+        return await self.executor.execute_query(
+            f"""
+            MATCH (target {{uid: $target_uid}})-[:{relationship_type}*1..10]->(source {{uid: $source_uid}})
+            RETURN count(*) as cycle_count
+            """,
+            {"source_uid": source_uid, "target_uid": target_uid},
+        )
+
+
 class NotificationBackend:
     """
     Backend for Notification nodes in Neo4j.
@@ -4455,6 +4766,7 @@ class NotificationBackend:
 
 
 __all__ = [
+    "ActivityReportBackend",
     "ChoicesBackend",
     "EventsBackend",
     "ExerciseBackend",
@@ -4465,6 +4777,7 @@ __all__ = [
     "HabitsBackend",
     "JournalInputBackend",
     "JournalOutputBackend",
+    "LateralRelationshipBackend",
     "LessonBackend",
     "KuBackend",
     "LpBackend",
