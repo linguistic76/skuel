@@ -23,7 +23,7 @@
 | `LessonAiService` | AI-powered Lesson operations |
 | `lesson_relationship_filters` | Relationship filtering utilities |
 
-**Factory:** `create_lesson_sub_services()` - Specialized (handles circular core↔intelligence dependency)
+**Factory:** `create_lesson_sub_services()` - Specialized (handles circular core↔intelligence dependency). All sub-services receive `LessonBackend` (as `repo` or `backend`) — no `neo4j_adapter` dependency. All Cypher lives on `LessonBackend` (31 domain-specific methods).
 
 **Unique Features:**
 - **Substance tracking** - Measures how knowledge is LIVED across 6 channels: Tasks (0.05), Habits (0.10), Events (0.05), Choices (0.07), Principles (0.07), Journals (0.07 — deferred). All 6 channels wired into UserContext and `calculate_user_substance()`. YAML authoring creates structural edges via `connections.*` fields (e.g., `connections.applies_knowledge`, `connections.informed_by_knowledge`, `connections.grounded_in_knowledge`). See `/docs/guides/YAML_AUTHORING_GUIDE.md`.

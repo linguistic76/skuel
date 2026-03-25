@@ -586,7 +586,6 @@ from core.services.curriculum_domain_config import create_lesson_sub_services
 subs = create_lesson_sub_services(
     backend=repo,
     content_repo=content_repo,
-    neo4j_adapter=neo4j_adapter,
     chunking_service=chunking_service,
     graph_intelligence_service=graph_intelligence_service,
     query_builder=query_builder,

@@ -167,6 +167,35 @@ Two more services migrated to domain backends — zero inline Cypher remains in 
 
 **Fail-fast cleanup:** `executor: QueryExecutor` replaced with `backend: LateralRelationshipBackendOperations`.
 
+### March 25, 2026 Update: Lesson Domain Cypher Migration (Phase 7)
+
+The largest single migration — 35 inline Cypher queries from 8 lesson service files moved to 31 named `LessonBackend` methods. The `neo4j_adapter` dependency was removed from 5 services entirely.
+
+**LessonBackend extended (+31 methods):**
+
+| Category | Methods | Source Service |
+|----------|---------|----------------|
+| **Practice + AI (3)** | `find_kus_practiced_by_event`, `increment_practice_count`, `semantic_search_chunks` | practice, ai |
+| **Search (2)** | `find_similar_by_keywords`, `search_by_keywords` | search |
+| **Application Discovery (3)** | `find_connected_activities`, `find_learning_steps_containing_ku`, `find_learning_paths_teaching_ku` | application_discovery |
+| **Context (3)** | `find_ready_to_learn`, `find_learning_gaps`, `find_reinforcement_candidates` | context |
+| **Semantic (6)** | `create_semantic_relationship`, `query_semantic_neighborhood`, `delete_semantic_relationship`, `query_relationships_by_type`, `discover_semantic_bridges`, `infer_transitive_relationships` | semantic |
+| **Graph (9)** | `link_prerequisite`, `link_parent_child`, `query_user_mastery_for_prereqs`, `find_learning_recommendations`, `compute_hub_scores`, `query_foundational_knowledge`, `find_prerequisite_chain`, `find_next_steps`, `find_time_aware_paths` | graph |
+| **Adaptive (5)** | `track_mastery_completion`, `query_user_masteries`, `query_active_learning_paths`, `query_completed_learning_paths`, `query_learning_preferences` | adaptive |
+
+**Protocol:** 31 new methods added to `LessonOperations` in `curriculum_protocols.py`.
+
+**neo4j_adapter eliminated from:**
+- `LessonGraphService` — `__init__(repo, graph_intel)` (was `repo, neo4j_adapter, graph_intel`)
+- `LessonSemanticService` — `__init__(repo, intelligence)` (was `repo, neo4j_adapter, intelligence`)
+- `LessonApplicationDiscoveryService` — `__init__(repo)` (was `repo, neo4j_adapter`)
+- `LessonContextService` — `__init__(repo)` (was `repo, neo4j_adapter`)
+- `LessonAdaptiveService` — `__init__(backend, user_service)` (was `ku_backend, user_service`)
+
+**Factory:** `create_lesson_sub_services()` no longer accepts `neo4j_adapter` parameter.
+
+**Bootstrap:** `_create_learning_services()` no longer accepts or passes `neo4j_adapter`.
+
 ### March 25, 2026 Update: Broader Fail-Fast Sweep (Phase 6)
 
 Eliminated optional-dep fallback patterns across 7 files, enforcing One Path Forward:
