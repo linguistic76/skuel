@@ -246,13 +246,7 @@ class SubmissionsRelationshipService:
         Returns:
             Result containing list of supported goal UIDs
         """
-        cypher = """
-        MATCH (a:Entity {uid: $ku_uid})-[:SUPPORTS_GOAL]->(goal:Goal)
-        RETURN goal.uid as uid
-        ORDER BY goal.uid
-        """
-
-        result = await self.backend.execute_query(cypher, {"ku_uid": ku_uid})
+        result = await self.backend.get_supported_goal_uids(ku_uid)
         if result.is_error:
             return Result.fail(result)
 

@@ -36,12 +36,13 @@ See: /docs/patterns/OWNERSHIP_VERIFICATION.md
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from adapters.persistence.neo4j._hierarchy_mixin import HierarchyConfig, _HierarchyMixin
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.choice.choice import Choice
 from core.models.entity import Entity
+from core.models.enums.neo_labels import NeoLabel
 from core.models.event.event import Event
 from core.models.exercises.exercise import Exercise
 from core.models.goal.goal import Goal
@@ -58,6 +59,31 @@ from core.models.task.task import Task
 from core.models.type_hints import Neo4jProperties
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.result_simplified import Errors, Result
+
+# Allowed property names for ORDER BY clauses (prevents Cypher injection)
+_ALLOWED_ORDER_BY = frozenset(
+    {
+        "created_at",
+        "updated_at",
+        "title",
+        "status",
+        "priority",
+        "start_time",
+        "due_date",
+        "completed_at",
+        "name",
+        "target_date",
+        "strength",
+    }
+)
+
+
+def _validate_rel_name(rel_name: str) -> None:
+    """Validate a relationship name contains only safe characters (A-Z, 0-9, _)."""
+    if not rel_name or not all(c in "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_" for c in rel_name):
+        msg = f"Invalid relationship name: {rel_name!r}"
+        raise ValueError(msg)
+
 
 if TYPE_CHECKING:
     from core.models.exercises.revised_exercise import RevisedExercise  # noqa: F401
@@ -1041,6 +1067,116 @@ class ChoicesBackend(_HierarchyMixin, UniversalNeo4jBackend[Choice]):
         """Create User→Choice OWNS relationship in the graph."""
         return await self.create_user_relationship(user_uid, choice_uid)
 
+    async def get_principle_adherence_data(
+        self, user_uid: str, period_days: int
+    ) -> Result[list[Neo4jProperties]]:
+        """Get choices with principle alignment data for adherence analysis."""
+        query = f"""
+        MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(c:Entity {{entity_type: 'choice'}})
+        WHERE c.created_at >= datetime() - duration({{days: $period_days}})
+
+        OPTIONAL MATCH (c)-[:{RelationshipName.ALIGNED_WITH_PRINCIPLE.value}]->(p:Entity {{entity_type: 'principle'}})
+
+        WITH c,
+             collect(DISTINCT p.uid) AS principle_uids,
+             CASE WHEN count(p) > 0 THEN 1 ELSE 0 END AS is_aligned
+
+        RETURN
+            count(c) AS total_choices,
+            sum(is_aligned) AS aligned_count,
+            collect({{
+                choice_uid: c.uid,
+                principles: principle_uids,
+                satisfaction: c.satisfaction_score
+            }}) AS choice_details
+        """
+        return await self.execute_query(query, {"user_uid": user_uid, "period_days": period_days})
+
+    async def get_choice_principle_conflicts(
+        self, choice_uid: str, user_uid: str
+    ) -> Result[list[Neo4jProperties]]:
+        """Get principle alignment and conflicts for a choice."""
+        query = f"""
+        MATCH (c:Entity {{uid: $choice_uid, entity_type: 'choice'}})
+
+        // Get aligned principles
+        OPTIONAL MATCH (c)-[:{RelationshipName.ALIGNED_WITH_PRINCIPLE.value}]->(aligned:Entity {{entity_type: 'principle'}})
+
+        // Get any conflicting principles
+        OPTIONAL MATCH (c)-[:{RelationshipName.CONFLICTS_WITH_PRINCIPLE.value}]->(conflicting:Entity {{entity_type: 'principle'}})
+
+        // Get user's core principles for comparison
+        OPTIONAL MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(core:Entity {{entity_type: 'principle'}})
+        WHERE core.strength IN ['CORE', 'STRONG']
+
+        RETURN
+            c.uid AS choice_uid,
+            c.title AS choice_title,
+            c.impact_level AS impact_level,
+            collect(DISTINCT aligned.uid) AS aligned_uids,
+            collect(DISTINCT {{
+                uid: conflicting.uid,
+                name: conflicting.name
+            }}) AS conflicts,
+            collect(DISTINCT core.uid) AS core_principle_uids
+        """
+        return await self.execute_query(query, {"choice_uid": choice_uid, "user_uid": user_uid})
+
+    async def get_life_path_contribution(
+        self, choice_uid: str, user_uid: str
+    ) -> Result[list[Neo4jProperties]]:
+        """Get life path contribution data for a choice via principles."""
+        query = f"""
+        MATCH (c:Entity {{uid: $choice_uid, entity_type: 'choice'}})
+
+        // Get user's life path
+        OPTIONAL MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.ULTIMATE_PATH.value}]->(lp:Entity {{entity_type: 'learning_path'}})
+
+        // Direct contribution (if any)
+        OPTIONAL MATCH (c)-[direct:{RelationshipName.SERVES_LIFE_PATH.value}]->(lp)
+
+        // Principle-mediated contribution
+        OPTIONAL MATCH (c)-[:{RelationshipName.ALIGNED_WITH_PRINCIPLE.value}]->(p:Entity {{entity_type: 'principle'}})
+                       -[pserve:{RelationshipName.SERVES_LIFE_PATH.value}]->(lp)
+
+        RETURN
+            lp.uid AS life_path_uid,
+            lp.title AS life_path_title,
+            direct.contribution_score AS direct_score,
+            collect(DISTINCT {{
+                uid: p.uid,
+                name: p.name,
+                contribution: pserve.contribution_score
+            }}) AS principle_contributions
+        """
+        return await self.execute_query(query, {"choice_uid": choice_uid, "user_uid": user_uid})
+
+    async def get_historical_satisfaction_correlation(
+        self, user_uid: str
+    ) -> Result[list[Neo4jProperties]]:
+        """Get satisfaction scores for aligned vs unaligned choices."""
+        query = f"""
+        MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(c:Entity {{entity_type: 'choice'}})
+        WHERE c.satisfaction_score IS NOT NULL
+        OPTIONAL MATCH (c)-[:{RelationshipName.ALIGNED_WITH_PRINCIPLE.value}]->(p:Entity {{entity_type: 'principle'}})
+        WITH c, count(p) AS principle_count
+        RETURN
+            avg(CASE WHEN principle_count > 0 THEN c.satisfaction_score ELSE null END) AS aligned_avg,
+            avg(CASE WHEN principle_count = 0 THEN c.satisfaction_score ELSE null END) AS unaligned_avg,
+            count(c) AS total_choices
+        """
+        return await self.execute_query(query, {"user_uid": user_uid})
+
+    async def get_recent_conflict_count(self, user_uid: str) -> Result[list[Neo4jProperties]]:
+        """Count recent choices (30 days) with unresolved principle conflicts."""
+        query = f"""
+        MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(c:Entity {{entity_type: 'choice'}})
+        WHERE c.created_at >= datetime() - duration({{days: 30}})
+        MATCH (c)-[:{RelationshipName.CONFLICTS_WITH_PRINCIPLE.value}]->(:Entity {{entity_type: 'principle'}})
+        RETURN count(DISTINCT c) AS conflict_count
+        """
+        return await self.execute_query(query, {"user_uid": user_uid})
+
 
 class PrinciplesBackend(_HierarchyMixin, UniversalNeo4jBackend[Principle]):
     """
@@ -1834,22 +1970,34 @@ class LessonBackend(UniversalNeo4jBackend[Lesson]):
         self,
         ku_uid: str,
         user_uid: str,
-        node_label: str,
-        rel_types: list[str],
+        node_label: NeoLabel,
+        rel_types: list[RelationshipName | str],
         filters: dict[str, Any] | None = None,
         order_by: str = "created_at",
         limit: int = 10,
         reverse_direction: bool = False,
     ) -> Result[list[Neo4jProperties]]:
         """Find activity entities connected to a KU via graph relationships."""
-        rel_pattern = "|".join(rel_types)
+        # Validate order_by against whitelist (prevents Cypher injection)
+        if order_by not in _ALLOWED_ORDER_BY:
+            return Errors.validation(f"Invalid order_by field: {order_by!r}")
+
+        # Validate relationship types (enum .value or pre-validated strings)
+        rel_values = [r.value if isinstance(r, RelationshipName) else r for r in rel_types]
+        for rv in rel_values:
+            _validate_rel_name(rv)
+
+        # NeoLabel is a StrEnum — .value is safe for interpolation
+        label = node_label.value if isinstance(node_label, NeoLabel) else str(node_label)
+
+        rel_pattern = "|".join(rel_values)
         if reverse_direction:
-            match_clause = f"MATCH (n:{node_label})-[:{rel_pattern}]<-(ku:Entity)"
+            match_clause = f"MATCH (n:{label})-[:{rel_pattern}]<-(ku:Entity)"
         else:
-            match_clause = f"MATCH (n:{node_label})-[:{rel_pattern}]->(ku:Entity)"
+            match_clause = f"MATCH (n:{label})-[:{rel_pattern}]->(ku:Entity)"
 
         conditions = ["ku.uid = $ku_uid", "n.user_uid = $user_uid"]
-        params: dict[str, Any] = {"ku_uid": ku_uid, "user_uid": user_uid}
+        params: dict[str, Any] = {"ku_uid": ku_uid, "user_uid": user_uid, "limit": limit}
 
         if filters:
             for condition_fragment, filter_params in filters.items():
@@ -1863,7 +2011,7 @@ class LessonBackend(UniversalNeo4jBackend[Lesson]):
         WHERE {where_clause}
         RETURN n.uid as entity_uid
         ORDER BY n.{order_by} DESC
-        LIMIT {limit}
+        LIMIT $limit
         """
         return await self.execute_query(query, params)
 
@@ -2036,6 +2184,7 @@ class LessonBackend(UniversalNeo4jBackend[Lesson]):
         self, rel_name: str, subject_uid: str, object_uid: str
     ) -> Result[list[Neo4jProperties]]:
         """Delete a semantic relationship between two entities."""
+        _validate_rel_name(rel_name)
         query = f"""
         MATCH (s:Entity {{uid: $subject_uid}})
               -[r:{rel_name}]->
@@ -2048,9 +2197,13 @@ class LessonBackend(UniversalNeo4jBackend[Lesson]):
         )
 
     async def query_relationships_by_type(
-        self, uid: str, rel_name: str, direction: str
+        self,
+        uid: str,
+        rel_name: str,
+        direction: Literal["outgoing", "incoming", "both"] = "both",
     ) -> Result[list[Neo4jProperties]]:
         """Find relationships by type and direction for an entity."""
+        _validate_rel_name(rel_name)
         if direction == "outgoing":
             pattern = f"(source)-[r:{rel_name}]->(target)"
         elif direction == "incoming":
@@ -2636,6 +2789,15 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
         """
         return await self.execute_query(query, {"ku_uid": ku_uid})
 
+    async def get_supported_goal_uids(self, ku_uid: str) -> Result[list[Neo4jProperties]]:
+        """Get UIDs of goals supported by a submission via SUPPORTS_GOAL."""
+        query = """
+        MATCH (a:Entity {uid: $ku_uid})-[:SUPPORTS_GOAL]->(goal:Goal)
+        RETURN goal.uid as uid
+        ORDER BY goal.uid
+        """
+        return await self.execute_query(query, {"ku_uid": ku_uid})
+
     async def get_submission_relationship_summary(
         self, ku_uid: str
     ) -> Result[list[Neo4jProperties]]:
@@ -2943,6 +3105,96 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
             query, {"teacher_uid": teacher_uid, "report_uid": report_uid}
         )
 
+    # ========================================================================
+    # REPORT RELATIONSHIP QUERIES (migrated from ReportRelationshipService)
+    # ========================================================================
+
+    async def get_pending_submissions_raw(
+        self, user_uid: str, submission_types: list[str]
+    ) -> Result[list[Neo4jProperties]]:
+        """Get submissions without a REPORT_FOR relationship."""
+        query = f"""
+        MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(submission:Entity)
+        WHERE submission.entity_type IN $submission_types
+          AND NOT ()-[:{RelationshipName.REPORT_FOR.value}]->(submission)
+        RETURN submission.uid AS uid
+        ORDER BY submission.created_at DESC
+        LIMIT 20
+        """
+        return await self.execute_query(
+            query, {"user_uid": user_uid, "submission_types": submission_types}
+        )
+
+    async def get_unsubmitted_exercises_raw(
+        self, user_uid: str, limit: int
+    ) -> Result[list[Neo4jProperties]]:
+        """Get exercises assigned via group with no submission yet."""
+        query = f"""
+        MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.MEMBER_OF.value}]->(group:Group)
+        MATCH (exercise:Entity {{entity_type: 'exercise', scope: 'assigned'}})-[:{RelationshipName.FOR_GROUP.value}]->(group)
+        WHERE NOT (:Entity {{user_uid: $user_uid}})-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(exercise)
+        RETURN exercise.uid AS uid,
+               exercise.title AS title,
+               exercise.due_date AS due_date
+        ORDER BY exercise.due_date ASC
+        LIMIT $limit
+        """
+        return await self.execute_query(query, {"user_uid": user_uid, "limit": limit})
+
+    async def get_report_summary_raw(
+        self, user_uid: str, submission_types: list[str]
+    ) -> Result[list[Neo4jProperties]]:
+        """Get report completion counts for a user's submissions."""
+        query = f"""
+        MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(submission:Entity)
+        WHERE submission.entity_type IN $submission_types
+        OPTIONAL MATCH (fb:Entity)-[:{RelationshipName.REPORT_FOR.value}]->(submission)
+        WITH submission, count(fb) AS report_count
+        RETURN
+            count(submission) AS total_submissions,
+            count(CASE WHEN report_count > 0 THEN 1 END) AS with_report,
+            count(CASE WHEN report_count = 0 THEN 1 END) AS without_report,
+            sum(report_count) AS total_reports
+        """
+        return await self.execute_query(
+            query, {"user_uid": user_uid, "submission_types": submission_types}
+        )
+
+    async def get_learning_loop_chain_raw(self, exercise_uid: str) -> Result[list[Neo4jProperties]]:
+        """Traverse full learning loop chain from an exercise."""
+        query = f"""
+        MATCH (ex:Entity {{uid: $exercise_uid}})
+        WHERE ex.entity_type IN ['exercise', 'revised_exercise']
+        OPTIONAL MATCH (sub:Entity)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex)
+          WHERE sub.entity_type = 'exercise_submission'
+        OPTIONAL MATCH (fb:Entity)-[:{RelationshipName.REPORT_FOR.value}]->(sub)
+          WHERE fb.entity_type = 'exercise_report'
+        OPTIONAL MATCH (re:Entity)-[:{RelationshipName.RESPONDS_TO_REPORT.value}]->(fb)
+          WHERE re.entity_type = 'revised_exercise'
+        RETURN ex {{.uid, .title, .entity_type, .status, .created_at}} AS exercise,
+               collect(DISTINCT sub {{.uid, .title, .status, .created_at, .user_uid}}) AS submissions,
+               collect(DISTINCT fb {{.uid, .title, .processor_type, .created_at}}) AS feedback,
+               collect(DISTINCT re {{.uid, .title, .revision_number, .created_at}}) AS revised_exercises
+        """
+        return await self.execute_query(query, {"exercise_uid": exercise_uid})
+
+    async def get_submission_chain_raw(self, submission_uid: str) -> Result[list[Neo4jProperties]]:
+        """Traverse learning loop chain from a specific submission."""
+        query = f"""
+        MATCH (sub:Entity {{uid: $submission_uid, entity_type: 'exercise_submission'}})
+        OPTIONAL MATCH (sub)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex:Entity)
+          WHERE ex.entity_type IN ['exercise', 'revised_exercise']
+        OPTIONAL MATCH (fb:Entity)-[:{RelationshipName.REPORT_FOR.value}]->(sub)
+          WHERE fb.entity_type = 'exercise_report'
+        OPTIONAL MATCH (re:Entity)-[:{RelationshipName.RESPONDS_TO_REPORT.value}]->(fb)
+          WHERE re.entity_type = 'revised_exercise'
+        RETURN sub {{.uid, .title, .status, .created_at, .user_uid}} AS submission,
+               ex {{.uid, .title, .entity_type, .status}} AS exercise,
+               collect(DISTINCT fb {{.uid, .title, .processor_type, .created_at}}) AS feedback,
+               collect(DISTINCT re {{.uid, .title, .revision_number, .student_uid, .created_at}}) AS revised_exercises
+        """
+        return await self.execute_query(query, {"submission_uid": submission_uid})
+
 
 class KuBackend(UniversalNeo4jBackend[Ku]):
     """Domain backend for atomic Knowledge Unit entities.
@@ -3070,6 +3322,73 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
             return Result.fail(result)
         records = result.value or []
         return Result.ok(records[0]["new_count"] if records else 0)
+
+    # ========================================================================
+    # KU RELATIONSHIP QUERIES (migrated from ku_relationships.py helpers)
+    # ========================================================================
+
+    async def get_related_knowledge_uids(self, ku_uid: str) -> Result[list[Neo4jProperties]]:
+        """Get related knowledge units (RELATED_TO relationship)."""
+        query = """
+        MATCH (ku:Entity {uid: $ku_uid})-[:RELATED_TO]-(related:Entity)
+        RETURN related.uid as uid
+        LIMIT 50
+        """
+        return await self.execute_query(query, {"ku_uid": ku_uid})
+
+    async def get_broader_concept_uids(self, ku_uid: str) -> Result[list[Neo4jProperties]]:
+        """Get broader concepts (HAS_BROADER relationship)."""
+        query = """
+        MATCH (ku:Entity {uid: $ku_uid})-[:HAS_BROADER]->(broader:Entity)
+        RETURN broader.uid as uid
+        LIMIT 20
+        """
+        return await self.execute_query(query, {"ku_uid": ku_uid})
+
+    async def get_narrower_concept_uids(self, ku_uid: str) -> Result[list[Neo4jProperties]]:
+        """Get narrower concepts (HAS_NARROWER relationship)."""
+        query = """
+        MATCH (ku:Entity {uid: $ku_uid})-[:HAS_NARROWER]->(narrower:Entity)
+        RETURN narrower.uid as uid
+        LIMIT 50
+        """
+        return await self.execute_query(query, {"ku_uid": ku_uid})
+
+    async def get_learning_path_uids(self, ku_uid: str) -> Result[list[Neo4jProperties]]:
+        """Get learning paths containing this KU."""
+        query = """
+        MATCH (lp:Lp)-[:CONTAINS_KNOWLEDGE|INCLUDES_KNOWLEDGE]->(ku:Entity {uid: $ku_uid})
+        RETURN lp.uid as uid
+        LIMIT 50
+        """
+        return await self.execute_query(query, {"ku_uid": ku_uid})
+
+    async def get_applying_task_uids(self, ku_uid: str) -> Result[list[Neo4jProperties]]:
+        """Get tasks applying this knowledge."""
+        query = """
+        MATCH (task:Task)-[:APPLIES_KNOWLEDGE]->(ku:Entity {uid: $ku_uid})
+        RETURN task.uid as uid
+        LIMIT 100
+        """
+        return await self.execute_query(query, {"ku_uid": ku_uid})
+
+    async def get_practicing_event_uids(self, ku_uid: str) -> Result[list[Neo4jProperties]]:
+        """Get events practicing this knowledge."""
+        query = """
+        MATCH (event:Event)-[:PRACTICES_KNOWLEDGE]->(ku:Entity {uid: $ku_uid})
+        RETURN event.uid as uid
+        LIMIT 100
+        """
+        return await self.execute_query(query, {"ku_uid": ku_uid})
+
+    async def get_reinforcing_habit_uids(self, ku_uid: str) -> Result[list[Neo4jProperties]]:
+        """Get habits reinforcing this knowledge."""
+        query = """
+        MATCH (habit:Habit)-[:APPLIES_KNOWLEDGE|REINFORCES_KNOWLEDGE]->(ku:Entity {uid: $ku_uid})
+        RETURN habit.uid as uid
+        LIMIT 100
+        """
+        return await self.execute_query(query, {"ku_uid": ku_uid})
 
 
 class LsBackend(UniversalNeo4jBackend[LearningStep]):

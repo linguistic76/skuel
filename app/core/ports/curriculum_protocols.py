@@ -78,17 +78,19 @@ See Also
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Literal, Protocol, runtime_checkable
 
 from .base_protocols import BackendOperations, GraphRelationshipOperations
 
 if TYPE_CHECKING:
     from datetime import date
 
+    from core.models.enums.neo_labels import NeoLabel
     from core.models.exercises.exercise import Exercise
     from core.models.lesson.lesson import Lesson
     from core.models.pathways.learning_path import LearningPath
     from core.models.pathways.learning_step import LearningStep
+    from core.models.relationship_names import RelationshipName
     from core.utils.result_simplified import Result
 
 
@@ -525,8 +527,8 @@ class LessonOperations(CurriculumOperations["Lesson"], Protocol):
         self,
         ku_uid: str,
         user_uid: str,
-        node_label: str,
-        rel_types: list[str],
+        node_label: NeoLabel,
+        rel_types: list[RelationshipName | str],
         filters: dict[str, Any] | None = None,
         order_by: str = "created_at",
         limit: int = 10,
@@ -592,7 +594,10 @@ class LessonOperations(CurriculumOperations["Lesson"], Protocol):
         ...
 
     async def query_relationships_by_type(
-        self, uid: str, rel_name: str, direction: str
+        self,
+        uid: str,
+        rel_name: str,
+        direction: Literal["outgoing", "incoming", "both"] = "both",
     ) -> Result[list[dict[str, Any]]]:
         """Find relationships by type and direction for an entity."""
         ...

@@ -629,7 +629,9 @@ def create_admin_dashboard_routes(_app, rt, services):
         user_progress = user_progress_result.value if not user_progress_error else []
 
         content = Div(
-            PageHeader("Learning Dashboard", subtitle="Track knowledge unit progression across all users"),
+            PageHeader(
+                "Learning Dashboard", subtitle="Track knowledge unit progression across all users"
+            ),
             # System-wide KU metrics
             Card(
                 H2("Knowledge Unit Overview", cls="text-xl font-semibold mb-4"),

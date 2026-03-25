@@ -16,6 +16,7 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 
 from typing import Any
 
+from core.models.enums.neo_labels import NeoLabel
 from core.models.relationship_names import RelationshipName
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
@@ -61,7 +62,7 @@ class LessonApplicationDiscoveryService:
         self,
         ku_uid: str,
         user_uid: str,
-        node_label: str,
+        node_label: NeoLabel,
         relationship_types: list[str],
         filters: dict[str, Any] | None = None,
         order_by: str = "created_at",
@@ -131,7 +132,7 @@ class LessonApplicationDiscoveryService:
         return await self.find_activities_connected_to_knowledge(
             ku_uid=ku_uid,
             user_uid=user_uid,
-            node_label="Event",
+            node_label=NeoLabel.EVENT,
             relationship_types=[
                 RelationshipName.APPLIES_KNOWLEDGE.value,
                 RelationshipName.REINFORCES_KNOWLEDGE.value,
@@ -150,7 +151,7 @@ class LessonApplicationDiscoveryService:
         return await self.find_activities_connected_to_knowledge(
             ku_uid=ku_uid,
             user_uid=user_uid,
-            node_label="Habit",
+            node_label=NeoLabel.HABIT,
             relationship_types=[RelationshipName.REINFORCES_KNOWLEDGE.value],
             filters=filters,
             order_by="created_at",
@@ -166,7 +167,7 @@ class LessonApplicationDiscoveryService:
         return await self.find_activities_connected_to_knowledge(
             ku_uid=ku_uid,
             user_uid=user_uid,
-            node_label="Task",
+            node_label=NeoLabel.TASK,
             relationship_types=[RelationshipName.APPLIES_KNOWLEDGE.value],
             filters=filters,
             order_by="due_date",
@@ -182,7 +183,7 @@ class LessonApplicationDiscoveryService:
         return await self.find_activities_connected_to_knowledge(
             ku_uid=ku_uid,
             user_uid=user_uid,
-            node_label="Goal",
+            node_label=NeoLabel.GOAL,
             relationship_types=[RelationshipName.REQUIRES_KNOWLEDGE.value],
             filters=filters,
             order_by="target_date",
@@ -198,7 +199,7 @@ class LessonApplicationDiscoveryService:
         return await self.find_activities_connected_to_knowledge(
             ku_uid=ku_uid,
             user_uid=user_uid,
-            node_label="Choice",
+            node_label=NeoLabel.CHOICE,
             relationship_types=["INFORMS_CHOICE"],
             filters=filters,
             order_by="created_at",
@@ -215,7 +216,7 @@ class LessonApplicationDiscoveryService:
         return await self.find_activities_connected_to_knowledge(
             ku_uid=ku_uid,
             user_uid=user_uid,
-            node_label="Principle",
+            node_label=NeoLabel.PRINCIPLE,
             relationship_types=[RelationshipName.REINFORCES_KNOWLEDGE.value],
             filters=filters,
             order_by="strength",

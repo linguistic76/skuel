@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from core.models.relationship_names import RelationshipName
 from core.services.lesson.lesson_graph_service import LessonGraphService
@@ -19,6 +19,9 @@ from core.services.lesson.lesson_semantic_service import LessonSemanticService
 from core.services.relationships import UnifiedRelationshipService
 from core.utils.generic_fetcher import fetch_relationships_parallel
 from core.utils.result_simplified import Result
+
+if TYPE_CHECKING:
+    from adapters.persistence.neo4j.domain_backends import KuBackend
 
 # Type alias for consistency with other domains
 KuRelationshipService = UnifiedRelationshipService
@@ -46,7 +49,7 @@ class KuRelationships:
     Hybrid Design: Simple UID lists + Optional rich semantic context.
 
     Two fetch paths:
-    - fetch() — via LessonGraphService (supports semantic context)
+    - fetch() — via LessonGraphService + KuBackend (supports semantic context)
     - fetch_via_unified() — via UnifiedRelationshipService (consistent pattern)
     """
 
@@ -73,19 +76,27 @@ class KuRelationships:
         graph_service: LessonGraphService,
         semantic_service: LessonSemanticService | None = None,
         include_semantic_context: bool = False,
+        ku_backend: KuBackend | None = None,
     ) -> KuRelationships:
-        """Fetch all relationship data from graph in parallel via LessonGraphService."""
+        """Fetch all relationship data from graph in parallel.
+
+        Uses LessonGraphService for prerequisite/enables queries, and
+        KuBackend for direct relationship queries (related, broader, narrower, etc.).
+        Falls back to LessonGraphService.repo.execute_query if ku_backend not provided.
+        """
+        backend = ku_backend or graph_service.repo
+
         # Execute all relationship queries in parallel
         results = await asyncio.gather(
             _get_prerequisites(graph_service, ku_uid),
             _get_enables(graph_service, ku_uid),
-            _get_related_knowledge(graph_service, ku_uid),
-            _get_broader_concepts(graph_service, ku_uid),
-            _get_narrower_concepts(graph_service, ku_uid),
-            _get_learning_paths(graph_service, ku_uid),
-            _get_applying_tasks(graph_service, ku_uid),
-            _get_practicing_events(graph_service, ku_uid),
-            _get_reinforcing_habits(graph_service, ku_uid),
+            _get_uids_from_backend(backend, "get_related_knowledge_uids", ku_uid),
+            _get_uids_from_backend(backend, "get_broader_concept_uids", ku_uid),
+            _get_uids_from_backend(backend, "get_narrower_concept_uids", ku_uid),
+            _get_uids_from_backend(backend, "get_learning_path_uids", ku_uid),
+            _get_uids_from_backend(backend, "get_applying_task_uids", ku_uid),
+            _get_uids_from_backend(backend, "get_practicing_event_uids", ku_uid),
+            _get_uids_from_backend(backend, "get_reinforcing_habit_uids", ku_uid),
         )
 
         # Optional: Fetch rich semantic context
@@ -244,115 +255,16 @@ async def _get_enables(graph_service: LessonGraphService, ku_uid: str) -> Result
     return await graph_service.find_next_steps(ku_uid, limit=100)
 
 
-async def _get_related_knowledge(graph_service: LessonGraphService, ku_uid: str) -> Result:
-    """Get related knowledge units (RELATED_TO relationship)."""
-    query = """
-        MATCH (ku:Entity {uid: $ku_uid})-[:RELATED_TO]-(related:Entity)
-        RETURN related.uid as uid
-        LIMIT 50
-    """
-    params = {"ku_uid": ku_uid}
-    result = await graph_service.repo.execute_query(query, params)
+async def _get_uids_from_backend(backend: Any, method_name: str, ku_uid: str) -> Result:
+    """Call a named backend method and extract UIDs from the result."""
+    method = getattr(backend, method_name, None)
+    if method is None:
+        return Result.ok([])
+    result = await method(ku_uid)
     if isinstance(result, Result) and result.is_error:
         return Result.fail(result)
     records = result.value if isinstance(result, Result) else result
-    uids = [record["uid"] for record in records]
-    return Result.ok(uids)
-
-
-async def _get_broader_concepts(graph_service: LessonGraphService, ku_uid: str) -> Result:
-    """Get broader concepts (HAS_BROADER relationship)."""
-    query = """
-        MATCH (ku:Entity {uid: $ku_uid})-[:HAS_BROADER]->(broader:Entity)
-        RETURN broader.uid as uid
-        LIMIT 20
-    """
-    params = {"ku_uid": ku_uid}
-    result = await graph_service.repo.execute_query(query, params)
-    if isinstance(result, Result) and result.is_error:
-        return Result.fail(result)
-    records = result.value if isinstance(result, Result) else result
-    uids = [record["uid"] for record in records]
-    return Result.ok(uids)
-
-
-async def _get_narrower_concepts(graph_service: LessonGraphService, ku_uid: str) -> Result:
-    """Get narrower concepts (HAS_NARROWER relationship)."""
-    query = """
-        MATCH (ku:Entity {uid: $ku_uid})-[:HAS_NARROWER]->(narrower:Entity)
-        RETURN narrower.uid as uid
-        LIMIT 50
-    """
-    params = {"ku_uid": ku_uid}
-    result = await graph_service.repo.execute_query(query, params)
-    if isinstance(result, Result) and result.is_error:
-        return Result.fail(result)
-    records = result.value if isinstance(result, Result) else result
-    uids = [record["uid"] for record in records]
-    return Result.ok(uids)
-
-
-async def _get_learning_paths(graph_service: LessonGraphService, ku_uid: str) -> Result:
-    """Get learning paths containing this KU."""
-    query = """
-        MATCH (lp:Lp)-[:CONTAINS_KNOWLEDGE|INCLUDES_KNOWLEDGE]->(ku:Entity {uid: $ku_uid})
-        RETURN lp.uid as uid
-        LIMIT 50
-    """
-    params = {"ku_uid": ku_uid}
-    result = await graph_service.repo.execute_query(query, params)
-    if isinstance(result, Result) and result.is_error:
-        return Result.fail(result)
-    records = result.value if isinstance(result, Result) else result
-    uids = [record["uid"] for record in records]
-    return Result.ok(uids)
-
-
-async def _get_applying_tasks(graph_service: LessonGraphService, ku_uid: str) -> Result:
-    """Get tasks applying this knowledge."""
-    query = """
-        MATCH (task:Task)-[:APPLIES_KNOWLEDGE]->(ku:Entity {uid: $ku_uid})
-        RETURN task.uid as uid
-        LIMIT 100
-    """
-    params = {"ku_uid": ku_uid}
-    result = await graph_service.repo.execute_query(query, params)
-    if isinstance(result, Result) and result.is_error:
-        return Result.fail(result)
-    records = result.value if isinstance(result, Result) else result
-    uids = [record["uid"] for record in records]
-    return Result.ok(uids)
-
-
-async def _get_practicing_events(graph_service: LessonGraphService, ku_uid: str) -> Result:
-    """Get events practicing this knowledge."""
-    query = """
-        MATCH (event:Event)-[:PRACTICES_KNOWLEDGE]->(ku:Entity {uid: $ku_uid})
-        RETURN event.uid as uid
-        LIMIT 100
-    """
-    params = {"ku_uid": ku_uid}
-    result = await graph_service.repo.execute_query(query, params)
-    if isinstance(result, Result) and result.is_error:
-        return Result.fail(result)
-    records = result.value if isinstance(result, Result) else result
-    uids = [record["uid"] for record in records]
-    return Result.ok(uids)
-
-
-async def _get_reinforcing_habits(graph_service: LessonGraphService, ku_uid: str) -> Result:
-    """Get habits reinforcing this knowledge."""
-    query = """
-        MATCH (habit:Habit)-[:APPLIES_KNOWLEDGE|REINFORCES_KNOWLEDGE]->(ku:Entity {uid: $ku_uid})
-        RETURN habit.uid as uid
-        LIMIT 100
-    """
-    params = {"ku_uid": ku_uid}
-    result = await graph_service.repo.execute_query(query, params)
-    if isinstance(result, Result) and result.is_error:
-        return Result.fail(result)
-    records = result.value if isinstance(result, Result) else result
-    uids = [record["uid"] for record in records]
+    uids = [record["uid"] for record in (records or [])]
     return Result.ok(uids)
 
 

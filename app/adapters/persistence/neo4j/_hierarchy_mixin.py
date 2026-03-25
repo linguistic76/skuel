@@ -181,9 +181,7 @@ class _HierarchyMixin:
             and siblings_result.value
             and siblings_result.value[0]["siblings"]
         ):
-            siblings.extend(
-                node for node in siblings_result.value[0]["siblings"] if node
-            )
+            siblings.extend(node for node in siblings_result.value[0]["siblings"] if node)
 
         # Process children
         children: list[dict[str, Any]] = []
@@ -192,9 +190,7 @@ class _HierarchyMixin:
             and children_result.value
             and children_result.value[0]["children"]
         ):
-            children.extend(
-                node for node in children_result.value[0]["children"] if node
-            )
+            children.extend(node for node in children_result.value[0]["children"] if node)
 
         return Result.ok(
             {

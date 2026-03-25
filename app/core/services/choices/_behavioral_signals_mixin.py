@@ -283,31 +283,7 @@ class _BehavioralSignalsMixin:
         """
         from core.utils.sort_functions import get_aligned_count
 
-        # Query for choices with principle alignment in the period
-        query = f"""
-        MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(c:Entity {{entity_type: 'choice'}})
-        WHERE c.created_at >= datetime() - duration({{days: $period_days}})
-
-        OPTIONAL MATCH (c)-[:{RelationshipName.ALIGNED_WITH_PRINCIPLE.value}]->(p:Entity {{entity_type: 'principle'}})
-
-        WITH c,
-             collect(DISTINCT p.uid) AS principle_uids,
-             CASE WHEN count(p) > 0 THEN 1 ELSE 0 END AS is_aligned
-
-        RETURN
-            count(c) AS total_choices,
-            sum(is_aligned) AS aligned_count,
-            collect({{
-                choice_uid: c.uid,
-                principles: principle_uids,
-                satisfaction: c.satisfaction_score
-            }}) AS choice_details
-        """
-
-        result = await self.backend.execute_query(
-            query,
-            {"user_uid": user_uid, "period_days": period_days},
-        )
+        result = await self.backend.get_principle_adherence_data(user_uid, period_days)
 
         if result.is_error:
             return Result.fail(result)
@@ -431,36 +407,7 @@ class _BehavioralSignalsMixin:
             - unaligned_warning: bool (True if important choice lacks principle alignment)
             - mitigation_strategies: list of resolution approaches
         """
-        # Query for choice and its principle relationships
-        query = f"""
-        MATCH (c:Entity {{uid: $choice_uid, entity_type: 'choice'}})
-
-        // Get aligned principles
-        OPTIONAL MATCH (c)-[:{RelationshipName.ALIGNED_WITH_PRINCIPLE.value}]->(aligned:Entity {{entity_type: 'principle'}})
-
-        // Get any conflicting principles
-        OPTIONAL MATCH (c)-[:{RelationshipName.CONFLICTS_WITH_PRINCIPLE.value}]->(conflicting:Entity {{entity_type: 'principle'}})
-
-        // Get user's core principles for comparison
-        OPTIONAL MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(core:Entity {{entity_type: 'principle'}})
-        WHERE core.strength IN ['CORE', 'STRONG']
-
-        RETURN
-            c.uid AS choice_uid,
-            c.title AS choice_title,
-            c.impact_level AS impact_level,
-            collect(DISTINCT aligned.uid) AS aligned_uids,
-            collect(DISTINCT {{
-                uid: conflicting.uid,
-                name: conflicting.name
-            }}) AS conflicts,
-            collect(DISTINCT core.uid) AS core_principle_uids
-        """
-
-        result = await self.backend.execute_query(
-            query,
-            {"choice_uid": choice_uid, "user_uid": user_uid},
-        )
+        result = await self.backend.get_choice_principle_conflicts(choice_uid, user_uid)
 
         if result.is_error:
             return Result.fail(result)
@@ -574,22 +521,7 @@ class _BehavioralSignalsMixin:
         knowledge_factor = 0.0 if knowledge_count == 0 else min(0.25, knowledge_count * 0.08)
 
         # Factor 3: Historical correlation (25% weight)
-        # Query past decisions with similar patterns
-        historical_query = f"""
-        MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(c:Entity {{entity_type: 'choice'}})
-        WHERE c.satisfaction_score IS NOT NULL
-        OPTIONAL MATCH (c)-[:{RelationshipName.ALIGNED_WITH_PRINCIPLE.value}]->(p:Entity {{entity_type: 'principle'}})
-        WITH c, count(p) AS principle_count
-        RETURN
-            avg(CASE WHEN principle_count > 0 THEN c.satisfaction_score ELSE null END) AS aligned_avg,
-            avg(CASE WHEN principle_count = 0 THEN c.satisfaction_score ELSE null END) AS unaligned_avg,
-            count(c) AS total_choices
-        """
-
-        hist_result = await self.backend.execute_query(
-            historical_query,
-            {"user_uid": user_uid},
-        )
+        hist_result = await self.backend.get_historical_satisfaction_correlation(user_uid)
 
         historical_factor = 0.125  # Default neutral
         historical_correlation = 0.0
@@ -692,35 +624,7 @@ class _BehavioralSignalsMixin:
             - life_path_uid: str | None
             - life_path_title: str | None
         """
-        # Query for life path contribution via principles
-        query = f"""
-        MATCH (c:Entity {{uid: $choice_uid, entity_type: 'choice'}})
-
-        // Get user's life path
-        OPTIONAL MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.ULTIMATE_PATH.value}]->(lp:Entity {{entity_type: 'learning_path'}})
-
-        // Direct contribution (if any)
-        OPTIONAL MATCH (c)-[direct:{RelationshipName.SERVES_LIFE_PATH.value}]->(lp)
-
-        // Principle-mediated contribution
-        OPTIONAL MATCH (c)-[:{RelationshipName.ALIGNED_WITH_PRINCIPLE.value}]->(p:Entity {{entity_type: 'principle'}})
-                       -[pserve:{RelationshipName.SERVES_LIFE_PATH.value}]->(lp)
-
-        RETURN
-            lp.uid AS life_path_uid,
-            lp.title AS life_path_title,
-            direct.contribution_score AS direct_score,
-            collect(DISTINCT {{
-                uid: p.uid,
-                name: p.name,
-                contribution: pserve.contribution_score
-            }}) AS principle_contributions
-        """
-
-        result = await self.backend.execute_query(
-            query,
-            {"choice_uid": choice_uid, "user_uid": user_uid},
-        )
+        result = await self.backend.get_life_path_contribution(choice_uid, user_uid)
 
         if result.is_error:
             return Result.fail(result)
@@ -834,14 +738,7 @@ class _BehavioralSignalsMixin:
         ) = await self._calculate_system_decision_quality_for_dual_track(user_uid, period_days=30)
 
         # Active conflicts (principle tensions signal)
-        # Count recent choices with unresolved principle conflicts
-        conflict_query = f"""
-        MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(c:Entity {{entity_type: 'choice'}})
-        WHERE c.created_at >= datetime() - duration({{days: 30}})
-        MATCH (c)-[:{RelationshipName.CONFLICTS_WITH_PRINCIPLE.value}]->(:Entity {{entity_type: 'principle'}})
-        RETURN count(DISTINCT c) AS conflict_count
-        """
-        conflict_result = await self.backend.execute_query(conflict_query, {"user_uid": user_uid})
+        conflict_result = await self.backend.get_recent_conflict_count(user_uid)
         active_conflict_count = 0
         if conflict_result.is_ok and conflict_result.value:
             active_conflict_count = conflict_result.value[0].get("conflict_count", 0)

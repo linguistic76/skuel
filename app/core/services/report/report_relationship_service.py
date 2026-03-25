@@ -2,7 +2,7 @@
 Report Relationship Service
 =============================
 
-Pure-Cypher Level 1 queries against REPORT_FOR relationships.
+Graph queries against REPORT_FOR relationships — delegates Cypher to SubmissionsBackend.
 
 Answers intelligence questions about the Report stage of the learning loop:
 - Which of the user's submissions are still awaiting a report?
@@ -21,12 +21,11 @@ See: /docs/architecture/REPORT_ARCHITECTURE.md
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums.entity_enums import EntityType
-from core.models.relationship_names import RelationshipName
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.ports import BackendOperations
+    from adapters.persistence.neo4j.domain_backends import SubmissionsBackend
 
 
 class ReportRelationshipService:
@@ -34,7 +33,7 @@ class ReportRelationshipService:
     Pure-Cypher relationship queries for the Report stage of the learning loop.
 
     Provides the intelligence layer with graph-level questions about REPORT_FOR
-    relationships — no LLM, no AI. Just graph queries.
+    relationships — no LLM, no AI. Just graph queries delegated to SubmissionsBackend.
 
     Used by UserContextIntelligence to answer:
     - "Does this user have submissions that haven't been reviewed yet?"
@@ -43,7 +42,12 @@ class ReportRelationshipService:
     See: /docs/architecture/REPORT_ARCHITECTURE.md
     """
 
-    def __init__(self, backend: "BackendOperations[Any]") -> None:
+    _SUBMISSION_TYPES = [
+        EntityType.EXERCISE_SUBMISSION.value,
+        EntityType.JE_INPUT.value,
+    ]
+
+    def __init__(self, backend: "SubmissionsBackend") -> None:
         self.backend = backend
         self.logger = get_logger("skuel.services.report_relationship")
 
@@ -66,25 +70,7 @@ class ReportRelationshipService:
         Returns:
             Result containing list of submission UIDs awaiting report (most recent first)
         """
-        cypher = f"""
-        MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(submission:Entity)
-        WHERE submission.entity_type IN $submission_types
-          AND NOT ()-[:{RelationshipName.REPORT_FOR.value}]->(submission)
-        RETURN submission.uid AS uid
-        ORDER BY submission.created_at DESC
-        LIMIT 20
-        """
-
-        result = await self.backend.execute_query(
-            cypher,
-            {
-                "user_uid": user_uid,
-                "submission_types": [
-                    EntityType.EXERCISE_SUBMISSION.value,
-                    EntityType.JE_INPUT.value,
-                ],
-            },
-        )
+        result = await self.backend.get_pending_submissions_raw(user_uid, self._SUBMISSION_TYPES)
         if result.is_error:
             return Result.fail(result)
 
@@ -107,20 +93,7 @@ class ReportRelationshipService:
         Returns:
             Result containing list of dicts with: uid, title, due_date (ISO string or None)
         """
-        cypher = f"""
-        MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.MEMBER_OF.value}]->(group:Group)
-        MATCH (exercise:Entity {{entity_type: 'exercise', scope: 'assigned'}})-[:{RelationshipName.FOR_GROUP.value}]->(group)
-        WHERE NOT (:Entity {{user_uid: $user_uid}})-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(exercise)
-        RETURN exercise.uid AS uid,
-               exercise.title AS title,
-               exercise.due_date AS due_date
-        ORDER BY exercise.due_date ASC
-        LIMIT $limit
-        """
-        result = await self.backend.execute_query(
-            cypher,
-            {"user_uid": user_uid, "limit": limit},
-        )
+        result = await self.backend.get_unsubmitted_exercises_raw(user_uid, limit)
         if result.is_error:
             return Result.fail(result)
         return Result.ok(
@@ -152,28 +125,7 @@ class ReportRelationshipService:
                 - without_report: Count that have no REPORT_FOR
                 - total_reports: Total count of report entities received
         """
-        cypher = f"""
-        MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(submission:Entity)
-        WHERE submission.entity_type IN $submission_types
-        OPTIONAL MATCH (fb:Entity)-[:{RelationshipName.REPORT_FOR.value}]->(submission)
-        WITH submission, count(fb) AS report_count
-        RETURN
-            count(submission) AS total_submissions,
-            count(CASE WHEN report_count > 0 THEN 1 END) AS with_report,
-            count(CASE WHEN report_count = 0 THEN 1 END) AS without_report,
-            sum(report_count) AS total_reports
-        """
-
-        result = await self.backend.execute_query(
-            cypher,
-            {
-                "user_uid": user_uid,
-                "submission_types": [
-                    EntityType.EXERCISE_SUBMISSION.value,
-                    EntityType.JE_INPUT.value,
-                ],
-            },
-        )
+        result = await self.backend.get_report_summary_raw(user_uid, self._SUBMISSION_TYPES)
         if result.is_error:
             return Result.fail(result)
 
@@ -220,21 +172,7 @@ class ReportRelationshipService:
         Returns:
             Result[dict] with keys: exercise, submissions, feedback, revised_exercises
         """
-        cypher = f"""
-        MATCH (ex:Entity {{uid: $exercise_uid}})
-        WHERE ex.entity_type IN ['exercise', 'revised_exercise']
-        OPTIONAL MATCH (sub:Entity)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex)
-          WHERE sub.entity_type = 'exercise_submission'
-        OPTIONAL MATCH (fb:Entity)-[:{RelationshipName.REPORT_FOR.value}]->(sub)
-          WHERE fb.entity_type = 'exercise_report'
-        OPTIONAL MATCH (re:Entity)-[:{RelationshipName.RESPONDS_TO_REPORT.value}]->(fb)
-          WHERE re.entity_type = 'revised_exercise'
-        RETURN ex {{.uid, .title, .entity_type, .status, .created_at}} AS exercise,
-               collect(DISTINCT sub {{.uid, .title, .status, .created_at, .user_uid}}) AS submissions,
-               collect(DISTINCT fb {{.uid, .title, .processor_type, .created_at}}) AS feedback,
-               collect(DISTINCT re {{.uid, .title, .revision_number, .created_at}}) AS revised_exercises
-        """
-        result = await self.backend.execute_query(cypher, {"exercise_uid": exercise_uid})
+        result = await self.backend.get_learning_loop_chain_raw(exercise_uid)
         if result.is_error:
             return Result.fail(result)
 
@@ -271,20 +209,7 @@ class ReportRelationshipService:
         Returns:
             Result[dict] with keys: submission, exercise, feedback, revised_exercises
         """
-        cypher = f"""
-        MATCH (sub:Entity {{uid: $submission_uid, entity_type: 'exercise_submission'}})
-        OPTIONAL MATCH (sub)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex:Entity)
-          WHERE ex.entity_type IN ['exercise', 'revised_exercise']
-        OPTIONAL MATCH (fb:Entity)-[:{RelationshipName.REPORT_FOR.value}]->(sub)
-          WHERE fb.entity_type = 'exercise_report'
-        OPTIONAL MATCH (re:Entity)-[:{RelationshipName.RESPONDS_TO_REPORT.value}]->(fb)
-          WHERE re.entity_type = 'revised_exercise'
-        RETURN sub {{.uid, .title, .status, .created_at, .user_uid}} AS submission,
-               ex {{.uid, .title, .entity_type, .status}} AS exercise,
-               collect(DISTINCT fb {{.uid, .title, .processor_type, .created_at}}) AS feedback,
-               collect(DISTINCT re {{.uid, .title, .revision_number, .student_uid, .created_at}}) AS revised_exercises
-        """
-        result = await self.backend.execute_query(cypher, {"submission_uid": submission_uid})
+        result = await self.backend.get_submission_chain_raw(submission_uid)
         if result.is_error:
             return Result.fail(result)
 

@@ -30,12 +30,12 @@ from adapters.persistence.neo4j.domain_backends import LessonBackend
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.events.calendar_event_events import CalendarEventCompleted
 from core.events.lesson_events import KnowledgePracticed
+from core.models.curriculum import Curriculum
 from core.models.enums import (
     Domain,
     EntityStatus,
     SELCategory,
 )
-from core.models.curriculum import Curriculum
 from core.models.enums.neo_labels import NeoLabel
 from core.models.event.event import Event
 from core.models.lesson.lesson import Lesson

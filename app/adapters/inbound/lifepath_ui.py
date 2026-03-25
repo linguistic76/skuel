@@ -423,13 +423,7 @@ def _build_alignment_dashboard(status: dict, user_uid: str) -> Any:
 
     dimension_cards = []
     for dim_name, score in dimensions.items():
-        color = (
-            "text-success"
-            if score >= 0.7
-            else "text-warning"
-            if score >= 0.4
-            else "text-error"
-        )
+        color = "text-success" if score >= 0.7 else "text-warning" if score >= 0.4 else "text-error"
         dimension_cards.append(
             Div(
                 Div(

@@ -28,11 +28,11 @@ import pytest_asyncio
 from adapters.infrastructure.event_bus import InMemoryEventBus
 from adapters.persistence.neo4j.domain_backends import GoalsBackend
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-from core.models.enums.neo_labels import NeoLabel
 from core.events import GoalAchieved, GoalProgressUpdated
 from core.events.task_events import TaskCompleted
 from core.models.enums import Domain, EntityStatus, Priority
 from core.models.enums.goal_enums import GoalType, MeasurementType
+from core.models.enums.neo_labels import NeoLabel
 from core.models.goal.goal import Goal
 from core.models.task.task import Task as Task
 from core.services.goals.goals_progress_service import GoalsProgressService
@@ -58,9 +58,7 @@ class TestTaskGoalEventFlow:
     @pytest_asyncio.fixture
     async def goals_backend(self, neo4j_driver, clean_neo4j):
         """Create goals backend with clean database."""
-        return GoalsBackend(
-            neo4j_driver, NeoLabel.GOAL, Goal, base_label=NeoLabel.ENTITY
-        )
+        return GoalsBackend(neo4j_driver, NeoLabel.GOAL, Goal, base_label=NeoLabel.ENTITY)
 
     @pytest_asyncio.fixture
     async def tasks_service(self, tasks_backend, event_bus):
