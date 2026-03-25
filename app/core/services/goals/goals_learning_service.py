@@ -226,7 +226,7 @@ class GoalsLearningService(BaseService[GoalsOperations, Goal]):
         # Get the goal
         goal_result = await self.backend.get_goal(goal_uid)
         if goal_result.is_error:
-            return Result.fail(goal_result.expect_error())
+            return Result.fail(goal_result)
 
         goal = to_domain_model(goal_result.value, GoalDTO, Goal)
 

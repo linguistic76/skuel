@@ -357,7 +357,7 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
 
         result = await self.backend.execute_query(query, {"user_uid": user_uid, "limit": limit})
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         return Result.ok(
             [
@@ -408,7 +408,7 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
         )
 
         if reports_result.is_error:
-            return Result.fail(reports_result.expect_error())
+            return Result.fail(reports_result)
 
         reports = reports_result.value
 

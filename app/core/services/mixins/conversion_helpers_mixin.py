@@ -232,7 +232,7 @@ class ConversionHelpersMixin[B: BackendOperations, T: DomainModelProtocol]:
         """
         create_result = await self.backend.create(data)
         if create_result.is_error:
-            return Result.fail(create_result.expect_error())
+            return Result.fail(create_result)
 
         model = self._to_domain_model(create_result.value, dto_class, model_class)
         return Result.ok(model)

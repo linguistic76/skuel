@@ -49,7 +49,7 @@ class HabitsPatternService:
         # Ownership verification
         habit_result = await self.habits_core.verify_ownership(habit_uid, user_uid)
         if habit_result.is_error:
-            return Result.fail(habit_result.expect_error())
+            return Result.fail(habit_result)
 
         habit = habit_result.value
         analysis = habit.get_atomic_habits_analysis()

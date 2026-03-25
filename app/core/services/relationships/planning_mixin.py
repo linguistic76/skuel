@@ -107,7 +107,7 @@ class PlanningMixin:
         )
 
         if list_result.is_error:
-            return Result.fail(list_result.expect_error())
+            return Result.fail(list_result)
 
         # list() returns tuple[list[T], int]
         entities, _ = list_result.value

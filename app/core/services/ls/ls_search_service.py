@@ -142,7 +142,7 @@ class LsSearchService(BaseService["BackendOperations[LearningStep]", LearningSte
 
         result = await self.backend.execute_query(cypher, {"path_uid": path_uid, "limit": limit})
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         steps = [from_neo4j_node(record["ls"], LearningStep) for record in result.value]
 
@@ -171,7 +171,7 @@ class LsSearchService(BaseService["BackendOperations[LearningStep]", LearningSte
 
         result = await self.backend.execute_query(cypher, {"limit": limit})
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         steps = [from_neo4j_node(record["ls"], LearningStep) for record in result.value]
 
@@ -208,7 +208,7 @@ class LsSearchService(BaseService["BackendOperations[LearningStep]", LearningSte
 
         result = await self.backend.execute_query(cypher, {"ku_uid": ku_uid, "limit": limit})
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         steps = [from_neo4j_node(record["ls"], LearningStep) for record in result.value]
 
@@ -265,7 +265,7 @@ class LsSearchService(BaseService["BackendOperations[LearningStep]", LearningSte
 
         result = await self.backend.execute_query(cypher, {"user_uid": user_uid, "limit": limit})
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         steps = [from_neo4j_node(record["ls"], LearningStep) for record in result.value]
 
@@ -334,7 +334,7 @@ class LsSearchService(BaseService["BackendOperations[LearningStep]", LearningSte
             result = await self.search(parsed.text_query, limit=limit)
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         return Result.ok((result.value, parsed))
 

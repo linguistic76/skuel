@@ -118,7 +118,7 @@ class JournalOutputService:
             custom_instructions=custom_instructions,
         )
         if instruction_result.is_error:
-            return Result.fail(instruction_result.expect_error())
+            return Result.fail(instruction_result)
 
         instruction = instruction_result.value
 
@@ -126,7 +126,7 @@ class JournalOutputService:
         llm_result = await self.generate_output(content, instruction)
         if llm_result.is_error:
             logger.error(f"LLM generation failed for {je_input_uid}: {llm_result.error}")
-            return Result.fail(llm_result.expect_error())
+            return Result.fail(llm_result)
 
         output_text = llm_result.value
 
@@ -167,7 +167,7 @@ class JournalOutputService:
         )
         if create_result.is_error:
             logger.error(f"Failed to create JeOutput in Neo4j: {create_result.error}")
-            return Result.fail(create_result.expect_error())
+            return Result.fail(create_result)
 
         # Build domain model from Neo4j result
         je_output = JeOutput.from_dto(JeOutputDTO.from_dict(create_result.value))
@@ -197,7 +197,7 @@ class JournalOutputService:
         """Get a journal entry output by UID."""
         result = await self.backend.get(uid)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         if result.value is None:
             return Result.ok(None)
         return Result.ok(JeOutput.from_dto(JeOutputDTO.from_dict(result.value)))
@@ -206,7 +206,7 @@ class JournalOutputService:
         """Get the je_output associated with a je_input via TRANSFORMS relationship."""
         result = await self.backend.get_je_output_for_input(je_input_uid)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         if result.value is None:
             return Result.ok(None)
         return Result.ok(JeOutput.from_dto(JeOutputDTO.from_dict(result.value)))
@@ -220,7 +220,7 @@ class JournalOutputService:
         """List journal entry outputs for a user."""
         result = await self.backend.get_user_entities(user_uid=user_uid, limit=limit, offset=offset)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         return Result.ok(
             [JeOutput.from_dto(JeOutputDTO.from_dict(record)) for record in (result.value or [])]
         )
@@ -229,7 +229,7 @@ class JournalOutputService:
         """Get the content of a je_output file from disk."""
         result = await self.get_je_output(uid)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         je_output = result.value
         if not je_output or not je_output.output_file_path:
             return Result.ok(None)
@@ -247,7 +247,7 @@ class JournalOutputService:
         """Get the file path of a je_output for download."""
         result = await self.get_je_output(uid)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         je_output = result.value
         if not je_output or not je_output.output_file_path:
             return Result.ok(None)

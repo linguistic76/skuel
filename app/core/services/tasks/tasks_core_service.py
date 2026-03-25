@@ -196,7 +196,7 @@ class TasksCoreService(BaseService["TasksOperations", Task]):
 
         inference_result = await self.ku_inference_service.enhance_task_dto_with_inference(dto)
         if inference_result.is_error:
-            return Result.fail(inference_result.expect_error())
+            return Result.fail(inference_result)
 
         enhanced_dto = inference_result.value
         self.logger.debug(
@@ -252,7 +252,7 @@ class TasksCoreService(BaseService["TasksOperations", Task]):
         # Apply automatic knowledge inference (fail-fast if configured)
         inference_result = await self._enhance_with_knowledge_inference(dto)
         if inference_result.is_error:
-            return Result.fail(inference_result.expect_error())
+            return Result.fail(inference_result)
         if inference_result.value:
             dto = inference_result.value
 
@@ -382,7 +382,7 @@ class TasksCoreService(BaseService["TasksOperations", Task]):
         """
         result = await self.backend.get_user_entities(user_uid)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         # Unpack tuple (entities, total_count) from get_user_entities
         entities, _total = result.value
@@ -408,7 +408,7 @@ class TasksCoreService(BaseService["TasksOperations", Task]):
         """
         result = await self.list(limit=limit, filters=filters)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         # list() returns (items, total_count) tuple
         items, _ = result.value
         return Result.ok(items)

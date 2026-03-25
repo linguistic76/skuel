@@ -182,7 +182,7 @@ class LpSearchService(BaseService["BackendOperations[LearningPath]", LearningPat
 
         result = await self.backend.execute_query(cypher, {"goal_uid": goal_uid, "limit": limit})
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         paths = [from_neo4j_node(record["lp"], LearningPath) for record in result.value]
 
@@ -222,7 +222,7 @@ class LpSearchService(BaseService["BackendOperations[LearningPath]", LearningPat
 
         result = await self.backend.execute_query(cypher, {"ku_uid": ku_uid, "limit": limit})
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         paths = [from_neo4j_node(record["lp"], LearningPath) for record in result.value]
 
@@ -246,14 +246,14 @@ class LpSearchService(BaseService["BackendOperations[LearningPath]", LearningPat
         # Get the path first
         path_result = await self.get(uid)
         if path_result.is_error:
-            return Result.fail(path_result.expect_error())
+            return Result.fail(path_result)
 
         # Get steps via backend
         backend_method = getattr(self.backend, "get_steps", None)
         if backend_method:
             steps_result = await backend_method(uid, limit)
             if steps_result.is_error:
-                return Result.fail(steps_result.expect_error())
+                return Result.fail(steps_result)
             return Result.ok((path_result.value, steps_result.value))
 
         # Fallback - return empty steps
@@ -307,7 +307,7 @@ class LpSearchService(BaseService["BackendOperations[LearningPath]", LearningPat
 
         result = await self.backend.execute_query(cypher, {"user_uid": user_uid, "limit": limit})
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         paths = [from_neo4j_node(record["lp"], LearningPath) for record in result.value]
 
@@ -378,7 +378,7 @@ class LpSearchService(BaseService["BackendOperations[LearningPath]", LearningPat
             result = await self.search(parsed.text_query, limit=limit)
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         return Result.ok((result.value, parsed))
 

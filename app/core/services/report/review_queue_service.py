@@ -92,7 +92,7 @@ class ReviewQueueService:
             )
 
             if result.is_error:
-                return Result.fail(result.expect_error())
+                return Result.fail(result)
 
             logger.info(f"Review request created: {request_uid} for {user_uid}")
             return Result.ok({"uid": request_uid, "status": "pending", "user_uid": user_uid})
@@ -137,7 +137,7 @@ class ReviewQueueService:
             )
 
             if result.is_error:
-                return Result.fail(result.expect_error())
+                return Result.fail(result)
 
             return Result.ok(result.value or [])
 

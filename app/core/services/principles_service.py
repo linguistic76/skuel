@@ -801,7 +801,7 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
         # Get current principle
         principle_result = await self.core.backend.get(principle_uid)
         if principle_result.is_error:
-            return Result.fail(principle_result.expect_error())
+            return Result.fail(principle_result)
 
         principle_data = principle_result.value
         if isinstance(principle_data, Principle):
@@ -838,7 +838,7 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
         """
         principle_result = await self.core.backend.get(principle_uid)
         if principle_result.is_error:
-            return Result.fail(principle_result.expect_error())
+            return Result.fail(principle_result)
 
         principle_data = principle_result.value
         if isinstance(principle_data, Principle):
@@ -887,7 +887,7 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
 
         principle_result = await self.core.backend.get(principle_uid)
         if principle_result.is_error:
-            return Result.fail(principle_result.expect_error())
+            return Result.fail(principle_result)
 
         principle_data = principle_result.value
         if isinstance(principle_data, Principle):
@@ -979,7 +979,7 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
             config_key, principle_uid, target_uid, properties
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         self.logger.info(
             "Created %s link from principle %s to %s", link_type, principle_uid, target_uid
@@ -1030,7 +1030,7 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
                 )
             uids_result = await self.relationships.get_related_uids(config_key, principle_uid)
             if uids_result.is_error:
-                return Result.fail(uids_result.expect_error())
+                return Result.fail(uids_result)
             return Result.ok(
                 [{"target_uid": uid, "link_type": link_type} for uid in uids_result.value]
             )

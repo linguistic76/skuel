@@ -86,7 +86,7 @@ class ReportRelationshipService:
             },
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         return Result.ok([r["uid"] for r in (result.value or []) if r["uid"]])
 
@@ -122,7 +122,7 @@ class ReportRelationshipService:
             {"user_uid": user_uid, "limit": limit},
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         return Result.ok(
             [
                 {
@@ -175,7 +175,7 @@ class ReportRelationshipService:
             },
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         records = result.value or []
         if not records:
@@ -236,7 +236,7 @@ class ReportRelationshipService:
         """
         result = await self.backend.execute_query(cypher, {"exercise_uid": exercise_uid})
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         records = result.value or []
         if not records or records[0].get("exercise") is None:
@@ -286,7 +286,7 @@ class ReportRelationshipService:
         """
         result = await self.backend.execute_query(cypher, {"submission_uid": submission_uid})
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         records = result.value or []
         if not records or records[0].get("submission") is None:

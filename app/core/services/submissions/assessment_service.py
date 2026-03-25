@@ -120,7 +120,7 @@ class AssessmentService:
 
         result = await self.backend.create(assessment)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         # Create ASSESSMENT_OF relationship
         assess_result = await self.backend.create_assessment_relationship(uid, subject_uid)
@@ -178,7 +178,7 @@ class AssessmentService:
         result = await self.backend.get_assessments_for_student_raw(student_uid, limit)
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         reports = []
         for record in result.value or []:
@@ -206,7 +206,7 @@ class AssessmentService:
             entity_type=EntityType.EXERCISE_REPORT.value,
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         reports = result.value or []
         reports.sort(key=_get_created_at_key, reverse=True)

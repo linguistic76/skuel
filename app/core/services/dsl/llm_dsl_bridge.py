@@ -266,7 +266,7 @@ class LLMDSLBridgeService:
         response = await self._call_llm(prompt)
 
         if response.is_error:
-            return Result.fail(response.expect_error())
+            return Result.fail(response)
 
         llm_output = response.value
 

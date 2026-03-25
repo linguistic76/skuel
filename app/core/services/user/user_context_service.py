@@ -122,7 +122,7 @@ class UserContextService:
         # Build context - builder owns user resolution (Option A architecture)
         context_result = await self.context_builder.build(user_uid)
         if context_result.is_error:
-            return Result.fail(context_result.expect_error())
+            return Result.fail(context_result)
 
         context = context_result.value
 
@@ -225,7 +225,7 @@ class UserContextService:
         # Build context - builder owns user resolution (Option A architecture)
         context_result = await self.context_builder.build(user_uid)
         if context_result.is_error:
-            return Result.fail(context_result.expect_error())
+            return Result.fail(context_result)
 
         context = context_result.value
 
@@ -333,7 +333,7 @@ class UserContextService:
         """
         context_result = await self.context_builder.build(user_uid)
         if context_result.is_error:
-            return Result.fail(context_result.expect_error())
+            return Result.fail(context_result)
 
         context = context_result.value
 
@@ -367,7 +367,7 @@ class UserContextService:
         """
         context_result = await self.context_builder.build(user_uid)
         if context_result.is_error:
-            return Result.fail(context_result.expect_error())
+            return Result.fail(context_result)
 
         context = context_result.value
 
@@ -398,7 +398,7 @@ class UserContextService:
         )
 
         if dashboard_result.is_error:
-            return Result.fail(dashboard_result.expect_error())
+            return Result.fail(dashboard_result)
 
         dashboard: ContextDashboard = dashboard_result.value
 
@@ -487,7 +487,7 @@ class UserContextService:
         # Get task to ensure it exists
         task_result = await self.tasks_service.get(task_uid)
         if task_result.is_error:
-            return Result.fail(task_result.expect_error())
+            return Result.fail(task_result)
 
         task = task_result.value
         if not task:
@@ -506,7 +506,7 @@ class UserContextService:
         # Complete the task (basic completion)
         complete_result = await self.tasks_service.complete_task(task_uid)
         if complete_result.is_error:
-            return Result.fail(complete_result.expect_error())
+            return Result.fail(complete_result)
 
         # TODO(deferred): Record context-aware completion data
         # - Update knowledge application tracking
@@ -527,7 +527,7 @@ class UserContextService:
         # Fetch updated task to return
         updated_task_result = await self.tasks_service.get(task_uid)
         if updated_task_result.is_error:
-            return Result.fail(updated_task_result.expect_error())
+            return Result.fail(updated_task_result)
 
         if updated_task_result.value is None:
             return Result.fail(Errors.not_found(resource="Task", identifier=task_uid))
@@ -581,7 +581,7 @@ class UserContextService:
             )
         goal_result = await goal_backend.get_goal(goal_uid)
         if goal_result.is_error:
-            return Result.fail(goal_result.expect_error())
+            return Result.fail(goal_result)
 
         goal = goal_result.value
         if not goal:
@@ -594,7 +594,7 @@ class UserContextService:
         # Build user context - builder owns user resolution (Option A architecture)
         context_result = await self.context_builder.build(user_uid)
         if context_result.is_error:
-            return Result.fail(context_result.expect_error())
+            return Result.fail(context_result)
 
         context = context_result.value
 
@@ -606,7 +606,7 @@ class UserContextService:
         )
 
         if tasks_result.is_error:
-            return Result.fail(tasks_result.expect_error())
+            return Result.fail(tasks_result)
 
         # Convert TaskDTOs to Task domain models
         task_dtos = tasks_result.value
@@ -674,7 +674,7 @@ class UserContextService:
         # Get habit to find user
         habit_result = await self.habits_service.get(habit_uid)
         if habit_result.is_error:
-            return Result.fail(habit_result.expect_error())
+            return Result.fail(habit_result)
 
         habit = habit_result.value
         if not habit:
@@ -699,7 +699,7 @@ class UserContextService:
         )
 
         if complete_result.is_error:
-            return Result.fail(complete_result.expect_error())
+            return Result.fail(complete_result)
 
         logger.info(
             f"Habit {habit_uid} completed with context",

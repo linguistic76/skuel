@@ -154,7 +154,7 @@ class ChoicesIntelligenceService(
         # Get all choices for user
         choices_result = await self.backend.find_by(user_uid=user_uid)
         if choices_result.is_error:
-            return Result.fail(choices_result.expect_error())
+            return Result.fail(choices_result)
 
         all_items = choices_result.value or []
         choices = [c for c in all_items if isinstance(c, Choice)]

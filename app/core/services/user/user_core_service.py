@@ -242,7 +242,7 @@ class UserCoreService:
         # Get current user
         user_result = await self.get_user(user_uid)
         if user_result.is_error:
-            return Result.fail(user_result.expect_error())
+            return Result.fail(user_result)
 
         if not user_result.value:
             return Result.fail(Errors.not_found(resource="User", identifier=user_uid))
@@ -312,7 +312,7 @@ class UserCoreService:
         # Get current user
         user_result = await self.get_user(user_uid)
         if user_result.is_error:
-            return Result.fail(user_result.expect_error())
+            return Result.fail(user_result)
 
         if not user_result.value:
             return Result.fail(Errors.not_found(resource="User", identifier=user_uid))
@@ -369,7 +369,7 @@ class UserCoreService:
         result = await self.repo.find_by(**filters)
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         users = result.value or []
 
@@ -403,7 +403,7 @@ class UserCoreService:
         # Get current user
         user_result = await self.get_user(user_uid)
         if user_result.is_error:
-            return Result.fail(user_result.expect_error())
+            return Result.fail(user_result)
 
         if not user_result.value:
             return Result.fail(Errors.not_found(resource="User", identifier=user_uid))
@@ -445,7 +445,7 @@ class UserCoreService:
         # Get current user
         user_result = await self.get_user(user_uid)
         if user_result.is_error:
-            return Result.fail(user_result.expect_error())
+            return Result.fail(user_result)
 
         if not user_result.value:
             return Result.fail(Errors.not_found(resource="User", identifier=user_uid))
@@ -497,7 +497,7 @@ class UserCoreService:
 
         if user_result.is_error:
             logger.warning(f"Authentication failed - error getting user: {username}")
-            return Result.fail(user_result.expect_error())
+            return Result.fail(user_result)
 
         if not user_result.value:
             logger.warning(f"Authentication failed - user not found: {username}")

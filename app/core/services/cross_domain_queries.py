@@ -97,7 +97,7 @@ class CrossDomainQueries:
                     direct_cypher, {"task_uid": task_uid}
                 )
                 if direct_result.is_error:
-                    return Result.fail(direct_result.expect_error())
+                    return Result.fail(direct_result)
 
                 records = direct_result.value
                 if not records:
@@ -164,7 +164,7 @@ class CrossDomainQueries:
 
                 result = await self.executor.execute_query(cypher, {"task_uid": task_uid})
                 if result.is_error:
-                    return Result.fail(result.expect_error())
+                    return Result.fail(result)
 
                 records = result.value or []
 
@@ -240,7 +240,7 @@ class CrossDomainQueries:
 
         result = await self.executor.execute_query(cypher, params)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         records = result.value or []
 
@@ -281,7 +281,7 @@ class CrossDomainQueries:
 
         result = await self.executor.execute_query(cypher, {"habit_uid": habit_uid})
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         records = result.value or []
 
@@ -329,7 +329,7 @@ class CrossDomainQueries:
 
         result = await self.executor.execute_query(cypher, {"goal_uid": goal_uid})
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         records = result.value or []
 
@@ -370,7 +370,7 @@ class CrossDomainQueries:
 
         result = await self.executor.execute_query(cypher, {"event_uid": event_uid})
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         records = result.value or []
 
@@ -422,7 +422,7 @@ class CrossDomainQueries:
 
         result = await self.executor.execute_query(cypher, params)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         records = result.value or []
 
@@ -461,7 +461,7 @@ class CrossDomainQueries:
 
         result = await self.executor.execute_query(cypher, {"budget_uid": budget_uid})
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         records = result.value or []
 
@@ -501,7 +501,7 @@ class CrossDomainQueries:
 
         result = await self.executor.execute_query(cypher, {"goal_uid": goal_uid})
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         records = result.value or []
         record = records[0] if records else {"budgets": [], "expenses": []}
@@ -554,7 +554,7 @@ class CrossDomainQueries:
 
         result = await self.executor.execute_query(cypher, {"task_uid": task_uid})
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         records = result.value or []
 
@@ -601,7 +601,7 @@ class CrossDomainQueries:
 
         result = await self.executor.execute_query(cypher, params)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         records = result.value or []
 
@@ -669,7 +669,7 @@ class CrossDomainQueries:
             cypher, {"goal_uid": goal_uid, "user_uid": user_uid}
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         records = result.value or []
 

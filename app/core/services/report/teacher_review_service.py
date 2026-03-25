@@ -117,7 +117,7 @@ class TeacherReviewService:
 
         result = await self.executor.execute_query(query, params)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         items = [
             {
@@ -167,7 +167,7 @@ class TeacherReviewService:
 
         result = await self.executor.execute_query(query, {"submission_uid": submission_uid})
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         items = [
             {
@@ -207,7 +207,7 @@ class TeacherReviewService:
         """
         access_check = await self._verify_teacher_access(report_uid, teacher_uid)
         if access_check.is_error:
-            return Result.fail(access_check.expect_error())
+            return Result.fail(access_check)
 
         report_entity_uid = UIDGenerator.generate_uid("sr")
         now = datetime.now().isoformat()
@@ -270,7 +270,7 @@ class TeacherReviewService:
             },
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         records = result.value
         if not records:
@@ -323,7 +323,7 @@ class TeacherReviewService:
         """
         access_check = await self._verify_teacher_access(report_uid, teacher_uid)
         if access_check.is_error:
-            return Result.fail(access_check.expect_error())
+            return Result.fail(access_check)
 
         report_entity_uid = UIDGenerator.generate_uid("sr")
         now = datetime.now().isoformat()
@@ -385,7 +385,7 @@ class TeacherReviewService:
             },
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         records = result.value
         if not records:
@@ -436,7 +436,7 @@ class TeacherReviewService:
         """
         access_check = await self._verify_teacher_access(report_uid, teacher_uid)
         if access_check.is_error:
-            return Result.fail(access_check.expect_error())
+            return Result.fail(access_check)
 
         query = f"""
         MATCH (ku:Entity {{uid: $report_uid}})
@@ -461,7 +461,7 @@ class TeacherReviewService:
             },
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         records = result.value
         if not records:
@@ -543,7 +543,7 @@ class TeacherReviewService:
 
         result = await self.executor.execute_query(query, {"teacher_uid": teacher_uid})
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         items = [
             {
@@ -588,7 +588,7 @@ class TeacherReviewService:
 
         result = await self.executor.execute_query(query, {"exercise_uid": exercise_uid})
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         items = [
             {
@@ -634,7 +634,7 @@ class TeacherReviewService:
 
         result = await self.executor.execute_query(query, {"teacher_uid": teacher_uid})
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         items = [
             {
@@ -682,7 +682,7 @@ class TeacherReviewService:
             query, {"teacher_uid": teacher_uid, "student_uid": student_uid}
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         items = [
             {
@@ -741,7 +741,7 @@ class TeacherReviewService:
             query, {"submission_uid": submission_uid, "teacher_uid": teacher_uid}
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         records = result.value
         if not records:
@@ -802,7 +802,7 @@ class TeacherReviewService:
 
         result = await self.executor.execute_query(query, {"teacher_uid": teacher_uid})
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         records = result.value
         if not records:
@@ -858,7 +858,7 @@ class TeacherReviewService:
 
         result = await self.executor.execute_query(query, {"teacher_uid": teacher_uid})
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         items = [
             {
@@ -911,7 +911,7 @@ class TeacherReviewService:
             query, {"group_uid": group_uid, "teacher_uid": teacher_uid}
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         items = [
             {
@@ -948,7 +948,7 @@ class TeacherReviewService:
             {"teacher_uid": teacher_uid, "report_uid": report_uid},
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         if not result.value:
             return Result.fail(

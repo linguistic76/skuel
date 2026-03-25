@@ -69,7 +69,7 @@ class TasksLearningMetricsService(BaseAnalyticsService["TasksOperations", Task])
         # Get tasks from backend
         tasks_result = await self.backend.list(limit=QueryLimit.SMALL)
         if tasks_result.is_error:
-            return Result.fail(tasks_result.expect_error())
+            return Result.fail(tasks_result)
 
         tasks, _ = tasks_result.value
         opportunities = []
@@ -121,7 +121,7 @@ class TasksLearningMetricsService(BaseAnalyticsService["TasksOperations", Task])
         # Get all tasks to analyze knowledge patterns
         tasks_result = await self.backend.list(limit=QueryLimit.COMPREHENSIVE)
         if tasks_result.is_error:
-            return Result.fail(tasks_result.expect_error())
+            return Result.fail(tasks_result)
 
         all_tasks, _ = tasks_result.value
 

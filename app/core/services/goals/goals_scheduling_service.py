@@ -274,7 +274,7 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Goal]):
         # Get user's goals
         result = await self.backend.find_by(user_uid=user_uid)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         goals = result.value or []
         active_goals = [g for g in goals if g.status == EntityStatus.ACTIVE]
@@ -432,7 +432,7 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Goal]):
                 proposed_priority=goal_data.priority,
             )
             if capacity_result.is_error:
-                return Result.fail(capacity_result.expect_error())
+                return Result.fail(capacity_result)
 
             capacity = capacity_result.value
             if not capacity.can_add_goal:
@@ -482,7 +482,7 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Goal]):
 
         create_result = await self.backend.create_goal(request_dict)
         if create_result.is_error:
-            return Result.fail(create_result.expect_error())
+            return Result.fail(create_result)
 
         goal = self._to_domain_model(create_result.value, GoalDTO, Goal)
 
@@ -535,7 +535,7 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Goal]):
             proposed_priority=goal_data.priority,
         )
         if capacity_result.is_error:
-            return Result.fail(capacity_result.expect_error())
+            return Result.fail(capacity_result)
 
         if not capacity_result.value.can_add_goal:
             return Result.fail(
@@ -726,7 +726,7 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Goal]):
         # Get the goal
         goal_result = await self.backend.get_goal(goal_uid)
         if goal_result.is_error:
-            return Result.fail(goal_result.expect_error())
+            return Result.fail(goal_result)
         if not goal_result.value:
             return Result.fail(Errors.not_found(resource="Goal", identifier=goal_uid))
 
@@ -846,7 +846,7 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Goal]):
         # Get active goals
         result = await self.backend.find_by(user_uid=user_context.user_uid)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         goals = result.value or []
         active_goals = [g for g in goals if g.status == EntityStatus.ACTIVE]
@@ -1043,7 +1043,7 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Goal]):
         """
         result = await self.backend.find_by(user_uid=user_uid)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         goals = result.value or []
         active_goals = [g for g in goals if g.status == EntityStatus.ACTIVE]

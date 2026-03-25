@@ -94,7 +94,7 @@ class AskesisCoreService:
         result = await self.backend.find_by(user_uid=user_uid, limit=1)
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         instances = result.value
         if instances:
@@ -115,7 +115,7 @@ class AskesisCoreService:
 
         create_result = await self.backend.create(dto)
         if create_result.is_error:
-            return Result.fail(create_result.expect_error())
+            return Result.fail(create_result)
 
         self.logger.info(f"Created Askesis instance {askesis_uid} for user {user_uid}")
         return Result.ok(create_result.value)
@@ -141,7 +141,7 @@ class AskesisCoreService:
         # Check if user already has an instance
         existing_result = await self.backend.find_by(user_uid=user_uid, limit=1)
         if existing_result.is_error:
-            return Result.fail(existing_result.expect_error())
+            return Result.fail(existing_result)
 
         if existing_result.value:
             return Result.fail(
@@ -166,7 +166,7 @@ class AskesisCoreService:
 
         result = await self.backend.create(dto)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         self.logger.info(f"Created Askesis instance {askesis_uid} for user {user_uid}")
         return Result.ok(result.value)
@@ -184,7 +184,7 @@ class AskesisCoreService:
         result = await self.backend.get(askesis_uid)
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         if not result.value:
             return Result.fail(
@@ -248,7 +248,7 @@ class AskesisCoreService:
         # Update in backend (convert DTO to dict, filtering empty collections for Neo4j)
         update_result = await self.backend.update(askesis_uid, _dto_to_dict_filtered(dto))
         if update_result.is_error:
-            return Result.fail(update_result.expect_error())
+            return Result.fail(update_result)
 
         self.logger.info(f"Updated Askesis instance {askesis_uid}")
         return Result.ok(update_result.value)
@@ -265,7 +265,7 @@ class AskesisCoreService:
         """
         result = await self.backend.delete(askesis_uid)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         self.logger.info(f"Deleted Askesis instance {askesis_uid}")
         return Result.ok(True)
@@ -286,7 +286,7 @@ class AskesisCoreService:
         result = await self.backend.find_by(user_uid=user_uid, limit=10)
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         return Result.ok(result.value)
 
@@ -317,6 +317,6 @@ class AskesisCoreService:
         # Update in backend (convert DTO to dict, filtering empty collections for Neo4j)
         update_result = await self.backend.update(askesis_uid, _dto_to_dict_filtered(dto))
         if update_result.is_error:
-            return Result.fail(update_result.expect_error())
+            return Result.fail(update_result)
 
         return Result.ok(update_result.value)

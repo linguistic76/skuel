@@ -1333,7 +1333,7 @@ class UserContextQueryExecutor:
 
         result = await self.executor.execute_query(MEGA_QUERY, params)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         records = result.value or []
         record = records[0] if records else None
@@ -1356,7 +1356,7 @@ class UserContextQueryExecutor:
         """
         result = await self.executor.execute_query(query, {"user_uid": user_uid})
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         records = result.value or []
         if not records:
             return Result.ok([])
@@ -1380,7 +1380,7 @@ class UserContextQueryExecutor:
 
         result = await self.executor.execute_query(CONSOLIDATED_QUERY, params)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         records = result.value or []
         record = records[0] if records else None

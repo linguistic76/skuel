@@ -119,7 +119,7 @@ class UserProgressMixin[B: BackendOperations, T: DomainModelProtocol]:
         result = await self.backend.execute_query(query, params)
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         records = result.value
         if not records:
@@ -205,7 +205,7 @@ class UserProgressMixin[B: BackendOperations, T: DomainModelProtocol]:
         )
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         self.logger.info(f"Updated mastery for {user_uid} on {entity_uid}: {mastery_level:.2f}")
         return Result.ok(True)
@@ -251,7 +251,7 @@ class UserProgressMixin[B: BackendOperations, T: DomainModelProtocol]:
 
         result = await self.backend.execute_query(query, params)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         entities = self._records_to_domain_models(result.value)
         self.logger.debug(f"Found {len(entities)} {self.entity_label} entities for user {user_uid}")

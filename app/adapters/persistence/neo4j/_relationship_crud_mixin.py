@@ -315,7 +315,7 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         # Step 2: Get node labels from database (needed for target validation)
         labels_result = await self._get_node_labels(from_uid, to_uid)
         if labels_result.is_error:
-            return Result.fail(labels_result.expect_error())  # Nodes don't exist
+            return Result.fail(labels_result)  # Nodes don't exist
 
         source_labels: builtins.list[str]
         target_labels: builtins.list[str]
@@ -628,7 +628,7 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
             rel_var="r",
         )
         if pattern_result.is_error:
-            return Result.fail(pattern_result.expect_error())
+            return Result.fail(pattern_result)
         pattern = pattern_result.value
 
         # Build WHERE clause for property filtering

@@ -178,7 +178,7 @@ class LessonSemanticService:
 
         # Check for query errors
         if results.is_error:
-            return Result.fail(results.expect_error())
+            return Result.fail(results)
 
         # Process results into neighborhood structure
         neighbors = []
@@ -376,7 +376,7 @@ class LessonSemanticService:
 
         # Check for query errors
         if results.is_error:
-            return Result.fail(results.expect_error())
+            return Result.fail(results)
 
         relationships = []
         for record in results.value:
@@ -451,7 +451,7 @@ class LessonSemanticService:
 
         # Check for query errors
         if results.is_error:
-            return Result.fail(results.expect_error())
+            return Result.fail(results)
 
         bridges = []
         for record in results.value:
@@ -515,7 +515,7 @@ class LessonSemanticService:
 
         # Check for query errors
         if results.is_error:
-            return Result.fail(results.expect_error())
+            return Result.fail(results)
 
         inferences = []
         for record in results.value:

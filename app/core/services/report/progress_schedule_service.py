@@ -76,7 +76,7 @@ class ProgressScheduleService:
 
         result = await self.backend.create(schedule)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         # Create HAS_SCHEDULE relationship
         rel_result = await self.backend.execute_query(
@@ -97,7 +97,7 @@ class ProgressScheduleService:
         """Get the user's active entity schedule (one per user)."""
         result = await self.backend.find_by(user_uid=user_uid, is_active=True)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         schedules = result.value or []
         if not schedules:
@@ -109,7 +109,7 @@ class ProgressScheduleService:
         """Update a schedule's configuration."""
         result = await self.backend.update(uid, updates)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         if not result.value:
             return Result.fail(Errors.not_found("resource", f"Schedule {uid} not found"))
@@ -120,7 +120,7 @@ class ProgressScheduleService:
         """Deactivate a schedule (soft delete)."""
         result = await self.backend.update(uid, {"is_active": False})
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         return Result.ok(True)
 
@@ -148,7 +148,7 @@ class ProgressScheduleService:
                 {"min_interval_hours": ReportTimePeriod.MIN_AUTO_REPORT_INTERVAL_HOURS},
             )
             if result.is_error:
-                return Result.fail(result.expect_error())
+                return Result.fail(result)
 
             schedules = []
             for record in result.value or []:
@@ -181,7 +181,7 @@ class ProgressScheduleService:
         """
         get_result = await self.backend.get(uid)
         if get_result.is_error:
-            return Result.fail(get_result.expect_error())
+            return Result.fail(get_result)
 
         schedule = get_result.value
         if not schedule:

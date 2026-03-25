@@ -134,7 +134,7 @@ class HabitsCompletionService:
         # Update habit statistics (fail-fast: stats must succeed)
         stats_result = await self._update_habit_stats(habit_uid, completion)
         if stats_result.is_error:
-            return Result.fail(stats_result.expect_error())
+            return Result.fail(stats_result)
 
         self.logger.info(f"✅ Recorded completion {completion_uid}")
         return Result.ok(completion)
@@ -237,7 +237,7 @@ class HabitsCompletionService:
         # Store completion
         create_result = await self.completions_backend.create(completion_dto)
         if create_result.is_error:
-            return Result.fail(create_result.expect_error())
+            return Result.fail(create_result)
 
         completion = HabitCompletion.from_dto(completion_dto)
 
@@ -274,7 +274,7 @@ class HabitsCompletionService:
         # Get current habit
         habit_result = await self.habits_backend.get(habit_uid)
         if habit_result.is_error:
-            return Result.fail(habit_result.expect_error())
+            return Result.fail(habit_result)
 
         # Backend returns Result[Habit | None] - trust the type system
         habit = habit_result.value
@@ -299,7 +299,7 @@ class HabitsCompletionService:
 
         update_result = await self.habits_backend.update(habit_uid, updates)
         if update_result.is_error:
-            return Result.fail(update_result.expect_error())
+            return Result.fail(update_result)
 
         self.logger.debug(f"Updated habit {habit_uid} stats: streak={new_streak}")
         return Result.ok(None)
@@ -461,7 +461,7 @@ class HabitsCompletionService:
         """
         today_result = await self.get_today_completions(user_uid)
         if today_result.is_error:
-            return Result.fail(today_result.expect_error())
+            return Result.fail(today_result)
 
         return Result.ok(len(today_result.value))
 
@@ -479,7 +479,7 @@ class HabitsCompletionService:
         )
 
         if completions_result.is_error:
-            return Result.fail(completions_result.expect_error())
+            return Result.fail(completions_result)
 
         completions = completions_result.value
 

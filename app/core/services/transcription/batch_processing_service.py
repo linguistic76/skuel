@@ -134,7 +134,7 @@ class BatchProcessingService:
             max_tokens=max_tokens,
         )
         if instruction_result.is_error:
-            return Result.fail(instruction_result.expect_error())
+            return Result.fail(instruction_result)
 
         instruction = instruction_result.value
 
@@ -268,7 +268,7 @@ class BatchProcessingService:
         )
 
         if transcription_result.is_error:
-            return Result.fail(transcription_result.expect_error())
+            return Result.fail(transcription_result)
 
         tier1 = transcription_result.value
 
@@ -285,7 +285,7 @@ class BatchProcessingService:
         )
 
         if processing_result.is_error:
-            return Result.fail(processing_result.expect_error())
+            return Result.fail(processing_result)
 
         tier2 = processing_result.value
 

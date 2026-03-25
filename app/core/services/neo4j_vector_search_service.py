@@ -154,7 +154,7 @@ class Neo4jVectorSearchService:
         # Generate embedding
         embedding_result = await self.embeddings.create_embedding(text)
         if embedding_result.is_error:
-            return Result.fail(embedding_result.expect_error())
+            return Result.fail(embedding_result)
 
         embedding = embedding_result.value
 

@@ -129,7 +129,7 @@ class LessonApplicationDiscoveryService:
         results = await self.neo4j.execute_query(query, params)
 
         if results.is_error:
-            return Result.fail(results.expect_error())
+            return Result.fail(results)
 
         entity_uids = [record["entity_uid"] for record in results.value if record.get("entity_uid")]
 
@@ -275,7 +275,7 @@ class LessonApplicationDiscoveryService:
         results = await self.neo4j.execute_query(query, params)
 
         if results.is_error:
-            return Result.fail(results.expect_error())
+            return Result.fail(results)
 
         step_uids = [record["step_uid"] for record in results.value if record.get("step_uid")]
 
@@ -307,7 +307,7 @@ class LessonApplicationDiscoveryService:
         results = await self.neo4j.execute_query(query, params)
 
         if results.is_error:
-            return Result.fail(results.expect_error())
+            return Result.fail(results)
 
         path_uids = [record["path_uid"] for record in results.value if record.get("path_uid")]
 

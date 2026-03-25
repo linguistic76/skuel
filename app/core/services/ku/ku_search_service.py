@@ -52,7 +52,7 @@ class KuSearchService(BaseService[BackendOperations[Ku], Ku]):
         """
         result = await self.backend.get_by_namespace(namespace)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         return Result.ok([record["ku"] for record in (result.value or [])])
 
@@ -67,6 +67,6 @@ class KuSearchService(BaseService[BackendOperations[Ku], Ku]):
         """
         result = await self.backend.search_by_alias(alias)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         return Result.ok([record["ku"] for record in (result.value or [])])

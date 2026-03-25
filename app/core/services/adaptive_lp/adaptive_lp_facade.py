@@ -116,7 +116,7 @@ class AdaptiveLpFacade:
 
         user_context_result = await self.user_service.get_user_context(user_uid)
         if user_context_result.is_error:
-            return Result.fail(user_context_result.expect_error())
+            return Result.fail(user_context_result)
         user_context = user_context_result.value
 
         return await self.core_service.generate_goal_driven_learning_path(
@@ -155,19 +155,19 @@ class AdaptiveLpFacade:
 
         user_context_result = await self.user_service.get_user_context(user_uid)
         if user_context_result.is_error:
-            return Result.fail(user_context_result.expect_error())
+            return Result.fail(user_context_result)
         user_context = user_context_result.value
 
         # Get knowledge state from UserContext (no re-query)
         knowledge_state_result = await self.core_service.analyze_user_knowledge_state(user_context)
         if knowledge_state_result.is_error:
-            return Result.fail(knowledge_state_result.expect_error())
+            return Result.fail(knowledge_state_result)
         knowledge_state = knowledge_state_result.value
 
         # Get learning style from core service (real implementation)
         learning_style_result = await self.core_service.detect_learning_style(user_uid)
         if learning_style_result.is_error:
-            return Result.fail(learning_style_result.expect_error())
+            return Result.fail(learning_style_result)
         learning_style = learning_style_result.value
 
         return await self.recommendations_service.generate_adaptive_recommendations(
@@ -207,13 +207,13 @@ class AdaptiveLpFacade:
 
         user_context_result = await self.user_service.get_user_context(user_uid)
         if user_context_result.is_error:
-            return Result.fail(user_context_result.expect_error())
+            return Result.fail(user_context_result)
         user_context = user_context_result.value
 
         # Get knowledge state from UserContext (no re-query)
         knowledge_state_result = await self.core_service.analyze_user_knowledge_state(user_context)
         if knowledge_state_result.is_error:
-            return Result.fail(knowledge_state_result.expect_error())
+            return Result.fail(knowledge_state_result)
         knowledge_state = knowledge_state_result.value
 
         return await self.cross_domain_service.discover_cross_domain_opportunities(
@@ -250,19 +250,19 @@ class AdaptiveLpFacade:
 
         user_context_result = await self.user_service.get_user_context(user_uid)
         if user_context_result.is_error:
-            return Result.fail(user_context_result.expect_error())
+            return Result.fail(user_context_result)
         user_context = user_context_result.value
 
         # Get knowledge state from UserContext (no re-query)
         knowledge_state_result = await self.core_service.analyze_user_knowledge_state(user_context)
         if knowledge_state_result.is_error:
-            return Result.fail(knowledge_state_result.expect_error())
+            return Result.fail(knowledge_state_result)
         knowledge_state = knowledge_state_result.value
 
         # Get learning style from core service (real implementation)
         learning_style_result = await self.core_service.detect_learning_style(user_uid)
         if learning_style_result.is_error:
-            return Result.fail(learning_style_result.expect_error())
+            return Result.fail(learning_style_result)
         learning_style = learning_style_result.value
 
         return await self.suggestions_service.generate_personalized_application_suggestions(

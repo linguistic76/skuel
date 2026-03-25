@@ -204,7 +204,7 @@ class UserProgressService:
             {"user_uid": user_uid},
         )
         if user_result.is_error:
-            return Result.fail(user_result.expect_error())
+            return Result.fail(user_result)
 
         user_records = user_result.value or []
         user_record = user_records[0] if user_records else None
@@ -287,7 +287,7 @@ class UserProgressService:
             profile_result = await self.build_user_knowledge_profile(user_uid)
             if profile_result.is_error:
                 # Error building profile: Result[UserKnowledgeProfile] → Result[float]
-                return Result.fail(profile_result.expect_error())
+                return Result.fail(profile_result)
             profile = profile_result.value
 
         # Already mastered? Low readiness (they've moved past it)
@@ -316,7 +316,7 @@ class UserProgressService:
             {"target_uid": knowledge_uid},
         )
         if prereq_result.is_error:
-            return Result.fail(prereq_result.expect_error())
+            return Result.fail(prereq_result)
 
         prereq_records = prereq_result.value or []
         record = prereq_records[0] if prereq_records else None
@@ -750,7 +750,7 @@ class UserProgressService:
 
         result = await self.executor.execute_query(query, {"user_uid": user_uid, "domain": domain})
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         topics = [record["topic"] for record in (result.value or [])]
 

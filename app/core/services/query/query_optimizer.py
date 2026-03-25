@@ -51,14 +51,14 @@ class QueryOptimizer:
             # Get current schema
             schema_result = await self.schema_service.get_schema_context()
             if schema_result.is_error:
-                return Result.fail(schema_result.expect_error())
+                return Result.fail(schema_result)
 
             schema = schema_result.value
 
             # Validate the request
             validation_result = self._validate_request(request, schema)
             if validation_result.is_error:
-                return Result.fail(validation_result.expect_error())
+                return Result.fail(validation_result)
 
             # Generate multiple query plans
             plans = await self._generate_query_plans(request, schema)

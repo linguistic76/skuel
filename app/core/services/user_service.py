@@ -161,7 +161,7 @@ class UserService:
         # Get user first
         user_result = await self.get_user(user_uid)
         if user_result.is_error:
-            return Result.fail(user_result.expect_error())
+            return Result.fail(user_result)
 
         if not user_result.value:
             return Result.fail(Errors.not_found(resource="User", identifier=user_uid))
@@ -224,7 +224,7 @@ class UserService:
         # Verify admin has permission
         admin_result = await self.get_user(admin_user_uid)
         if admin_result.is_error:
-            return Result.fail(admin_result.expect_error())
+            return Result.fail(admin_result)
 
         if not admin_result.value:
             return Result.fail(Errors.not_found(resource="Admin user", identifier=admin_user_uid))
@@ -272,7 +272,7 @@ class UserService:
         # Verify admin has permission
         admin_result = await self.get_user(admin_user_uid)
         if admin_result.is_error:
-            return Result.fail(admin_result.expect_error())
+            return Result.fail(admin_result)
 
         if not admin_result.value:
             return Result.fail(Errors.not_found(resource="Admin user", identifier=admin_user_uid))
@@ -306,7 +306,7 @@ class UserService:
         # Verify admin has permission
         admin_result = await self.get_user(admin_user_uid)
         if admin_result.is_error:
-            return Result.fail(admin_result.expect_error())
+            return Result.fail(admin_result)
 
         if not admin_result.value:
             return Result.fail(Errors.not_found(resource="Admin user", identifier=admin_user_uid))
@@ -348,7 +348,7 @@ class UserService:
         # Verify admin has permission
         admin_result = await self.get_user(admin_user_uid)
         if admin_result.is_error:
-            return Result.fail(admin_result.expect_error())
+            return Result.fail(admin_result)
 
         if not admin_result.value:
             return Result.fail(Errors.not_found(resource="Admin user", identifier=admin_user_uid))
@@ -690,7 +690,7 @@ class UserService:
         # Build user context
         context_result = await self.get_user_context(user_uid)
         if context_result.is_error:
-            return Result.fail(context_result.expect_error())
+            return Result.fail(context_result)
 
         context = context_result.value
 
@@ -744,7 +744,7 @@ class UserService:
         # Build user context
         context_result = await self.get_user_context(user_uid)
         if context_result.is_error:
-            return Result.fail(context_result.expect_error())
+            return Result.fail(context_result)
 
         context = context_result.value
 

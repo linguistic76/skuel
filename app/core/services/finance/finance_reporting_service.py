@@ -80,7 +80,7 @@ class FinanceReportingService:
         result = await self.backend.find_expenses_by_date_range(start=from_date, end=to_date)
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         # Service-layer filtering: filter by user_uid
         all_expenses = result.value
@@ -150,7 +150,7 @@ class FinanceReportingService:
             # Protocol-compliant call
             result = await self.backend.find_expenses_by_date_range(start=from_date, end=to_date)
             if result.is_error:
-                return Result.fail(result.expect_error())
+                return Result.fail(result)
 
             # Service-layer filtering: filter by user_uid
             all_expenses = result.value
@@ -159,7 +159,7 @@ class FinanceReportingService:
             # Get all expenses for user
             result = await self.backend.find_by(user_uid=user_uid)
             if result.is_error:
-                return Result.fail(result.expect_error())
+                return Result.fail(result)
             expenses = result.value
 
         # Group expenses
@@ -220,7 +220,7 @@ class FinanceReportingService:
         result = await self.backend.find_by(user_uid=user_uid, tax_deductible=True)
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         expenses = result.value
 
@@ -257,7 +257,7 @@ class FinanceReportingService:
         result = await self.backend.find_expenses_by_category(category)
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         expenses = result.value
 

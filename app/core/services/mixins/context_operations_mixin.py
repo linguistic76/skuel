@@ -101,7 +101,7 @@ class ContextOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
 
         entity_result = await self.get(uid)
         if entity_result.is_error:
-            return Result.fail(entity_result.expect_error())
+            return Result.fail(entity_result)
 
         entity = entity_result.value
         if entity is None:
@@ -174,7 +174,7 @@ class ContextOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
 
         result = await self.backend.execute_query(query, params)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         records = result.value
         if not records or len(records) == 0:
@@ -239,7 +239,7 @@ class ContextOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
             query, {"uid": uid, "depth": depth, "min_confidence": min_confidence}
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         records = result.value
         if not records or len(records) == 0:

@@ -120,7 +120,7 @@ class EventsLearningService(BaseService["EventsOperations", Event]):
             query, {"knowledge_uid": knowledge_uid, "user_uid": user_uid}
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         events = [from_neo4j_node(record["e"], Event) for record in result.value]
         return Result.ok(events)
@@ -159,7 +159,7 @@ class EventsLearningService(BaseService["EventsOperations", Event]):
 
         result = await self.backend.list(filters=filters)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         # Unpack tuple: backend.list() returns (events, total_count)
         events, _ = result.value
@@ -205,7 +205,7 @@ class EventsLearningService(BaseService["EventsOperations", Event]):
             # Fallback: return all events (caller can filter if needed)
             result = await self.backend.list(filters=filters)
             if result.is_error:
-                return Result.fail(result.expect_error())
+                return Result.fail(result)
             events, _ = result.value
             return Result.ok(events)
 
@@ -235,7 +235,7 @@ class EventsLearningService(BaseService["EventsOperations", Event]):
 
         result = await self.backend.list(filters=filters)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         # Unpack tuple: backend.list() returns (events, total_count)
         events, _ = result.value

@@ -84,7 +84,7 @@ class HabitsGoalAnalyticsService:
 
         goal_result = await self.goals_service.get_goal(goal_uid)
         if goal_result.is_error:
-            return Result.fail(goal_result.expect_error())
+            return Result.fail(goal_result)
 
         goal: Goal = goal_result.value
         if goal is None:
@@ -111,7 +111,7 @@ class HabitsGoalAnalyticsService:
         """Diagnose a goal's habit system health."""
         fetch_result = await self._fetch_goal_with_habits(goal_uid)
         if fetch_result.is_error:
-            return Result.fail(fetch_result.expect_error())
+            return Result.fail(fetch_result)
 
         goal, habits = fetch_result.value
 
@@ -149,7 +149,7 @@ class HabitsGoalAnalyticsService:
         """Track habit completion velocity toward a goal."""
         fetch_result = await self._fetch_goal_with_habits(goal_uid)
         if fetch_result.is_error:
-            return Result.fail(fetch_result.expect_error())
+            return Result.fail(fetch_result)
 
         goal, habits = fetch_result.value
 
@@ -209,7 +209,7 @@ class HabitsGoalAnalyticsService:
 
         fetch_result = await self._fetch_goal_with_habits(goal_uid)
         if fetch_result.is_error:
-            return Result.fail(fetch_result.expect_error())
+            return Result.fail(fetch_result)
 
         goal, habits = fetch_result.value
 

@@ -255,7 +255,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
         if self.backend:
             persist_result = await self._persist_path(path, steps, user_uid)
             if persist_result.is_error:
-                return Result.fail(persist_result.expect_error())
+                return Result.fail(persist_result)
 
         # Publish LearningPathStarted event
         from core.events import LearningPathStarted
@@ -620,7 +620,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
         """
         path_result = await self.get_learning_path(path_uid)
         if path_result.is_error:
-            return Result.fail(path_result.expect_error())
+            return Result.fail(path_result)
 
         if not path_result.value:
             return Result.fail(Errors.not_found(resource="learning_path", identifier=path_uid))
@@ -644,7 +644,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
         """
         steps_result = await self.get_path_steps(path_uid)
         if steps_result.is_error:
-            return Result.fail(steps_result.expect_error())
+            return Result.fail(steps_result)
 
         steps = steps_result.value
         if not steps:
@@ -668,7 +668,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
         # First verify path exists
         get_result = await self.get_learning_path(path_uid)
         if get_result.is_error:
-            return Result.fail(get_result.expect_error())
+            return Result.fail(get_result)
 
         if not get_result.value:
             return Result.fail(Errors.not_found(resource="learning_path", identifier=path_uid))

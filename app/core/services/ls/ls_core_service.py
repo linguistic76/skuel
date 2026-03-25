@@ -241,7 +241,7 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
         )
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         records = result.value or []
         if not records:
@@ -416,7 +416,7 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
         )
 
         if query_result.is_error:
-            return Result.fail(query_result.expect_error())
+            return Result.fail(query_result)
 
         records = query_result.value or []
         if not records:
@@ -755,7 +755,7 @@ class LsCoreService(BaseService["BackendOperations[LearningStep]", LearningStep]
         result = await self.backend.execute_query(query, params)
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         steps = []
         for record in result.value or []:

@@ -93,7 +93,7 @@ class KuIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", "Ku"])
         """Get overall Ku statistics (shared content, not user-specific)."""
         ku_result = await self.backend.find_by()
         if ku_result.is_error:
-            return Result.fail(ku_result.expect_error())
+            return Result.fail(ku_result)
 
         all_kus = ku_result.value or []
         total = len(all_kus)
@@ -123,7 +123,7 @@ class KuIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", "Ku"])
         """Get domain-specific insights for a Ku."""
         ku_result = await self.backend.get(uid)
         if ku_result.is_error:
-            return Result.fail(ku_result.expect_error())
+            return Result.fail(ku_result)
 
         ku = ku_result.value
         if not ku:
@@ -157,7 +157,7 @@ class KuIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", "Ku"])
         """Count lessons (USES_KU), learning steps (TRAINS_KU), and organized children (ORGANIZES)."""
         result = await self.backend.get_usage_summary(ku_uid)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         records = result.value or []
         if not records:
@@ -177,7 +177,7 @@ class KuIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", "Ku"])
         """Check if any Learning Step trains this Ku via TRAINS_KU."""
         result = await self.backend.is_trained(ku_uid)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         records = result.value or []
         return Result.ok(records[0].get("trained", False) if records else False)
@@ -187,7 +187,7 @@ class KuIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", "Ku"])
         """Check if this Ku has ORGANIZES children (acts as MOC)."""
         result = await self.backend.is_organized(ku_uid)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         records = result.value or []
         return Result.ok(records[0].get("organized", False) if records else False)
@@ -197,7 +197,7 @@ class KuIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", "Ku"])
         """Get depth of the ORGANIZES tree below this Ku."""
         result = await self.backend.get_organization_depth(ku_uid)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         records = result.value or []
         if not records or records[0].get("max_depth") is None:

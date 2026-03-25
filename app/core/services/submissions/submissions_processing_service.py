@@ -101,7 +101,7 @@ class SubmissionsProcessingService:
         submission_result = await self.ku_submission_service.get_submission(ku_uid)
 
         if submission_result.is_error:
-            return Result.fail(submission_result.expect_error())
+            return Result.fail(submission_result)
 
         submission = submission_result.value
         if not submission:
@@ -164,7 +164,7 @@ class SubmissionsProcessingService:
             # Get updated entity
             updated_result = await self.ku_submission_service.get_submission(ku_uid)
             if updated_result.is_error:
-                return Result.fail(updated_result.expect_error())
+                return Result.fail(updated_result)
             if not updated_result.value:
                 return Result.fail(Errors.not_found("Submission", ku_uid))
             return Result.ok(updated_result.value)
@@ -353,7 +353,7 @@ class SubmissionsProcessingService:
         file_content_result = await self.ku_submission_service.get_file_content(submission.uid)
 
         if file_content_result.is_error:
-            return Result.fail(file_content_result.expect_error())
+            return Result.fail(file_content_result)
 
         text_content = file_content_result.value.decode("utf-8")
 

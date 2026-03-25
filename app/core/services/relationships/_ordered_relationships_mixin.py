@@ -108,7 +108,7 @@ class OrderedRelationshipsMixin:
         result = await self.backend.execute_query(query, params)
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         return Result.ok([str(record["uid"]) for record in result.value if record.get("uid")])
 
@@ -191,7 +191,7 @@ class OrderedRelationshipsMixin:
         result = await self.backend.execute_query(query, params)
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         return Result.ok(
             [
@@ -275,7 +275,7 @@ class OrderedRelationshipsMixin:
         result = await self.backend.execute_query(query, params)
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         updated = sum(record.get("updated_count", 0) for record in result.value)
 
@@ -349,7 +349,7 @@ class OrderedRelationshipsMixin:
         result = await self.backend.execute_query(query, params)
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         records = result.value or []
         success = records[0].get("success", False) if records else False
@@ -475,7 +475,7 @@ class OrderedRelationshipsMixin:
             result = await self.backend.execute_query(query, params)
 
             if result.is_error:
-                return Result.fail(result.expect_error())
+                return Result.fail(result)
 
             return Result.ok(
                 [
@@ -528,7 +528,7 @@ class OrderedRelationshipsMixin:
             result = await self.backend.execute_query(query, params)
 
             if result.is_error:
-                return Result.fail(result.expect_error())
+                return Result.fail(result)
 
             return Result.ok(
                 [
@@ -578,7 +578,7 @@ class OrderedRelationshipsMixin:
             result = await self.backend.execute_query(query, params)
 
             if result.is_error:
-                return Result.fail(result.expect_error())
+                return Result.fail(result)
 
             # For 3+ levels, return flat results (nested structure requires more complex handling)
             return Result.ok(

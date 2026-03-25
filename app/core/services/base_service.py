@@ -615,7 +615,7 @@ class BaseService[B: BackendOperations, T: DomainModelProtocol](
         if allowed_transitions:
             current_result = await self.get(uid)
             if current_result.is_error:
-                return Result.fail(current_result.expect_error())
+                return Result.fail(current_result)
 
             current_status = getattr(current_result.value, "status", None)
             if current_status and current_status != new_status:

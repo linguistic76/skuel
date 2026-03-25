@@ -328,7 +328,7 @@ class ChoicesLearningService(BaseService["ChoicesOperations", Choice]):
         # Get the choice
         choice_result = await self.backend.get(choice_uid)
         if choice_result.is_error:
-            return Result.fail(choice_result.expect_error())
+            return Result.fail(choice_result)
 
         choice = self._to_domain_model(choice_result.value, ChoiceDTO, Choice)
 

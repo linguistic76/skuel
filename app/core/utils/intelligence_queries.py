@@ -70,7 +70,7 @@ async def get_knowledge_prerequisites(
     context_result = await graph.get_entity_context(entity_uid, depth=depth)
 
     if context_result.is_error:
-        return Result.fail(context_result.expect_error())
+        return Result.fail(context_result)
 
     # Extract prerequisites from graph context
     context = context_result.value
@@ -140,7 +140,7 @@ async def get_learning_state(
         result = await graph.executor.execute_query(query, params)
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         if not result.value:
             return Result.ok(
@@ -235,7 +235,7 @@ async def analyze_knowledge_patterns(
         result = await graph.executor.execute_query(query, params)
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         if not result.value:
             return Result.ok(
@@ -312,7 +312,7 @@ async def get_entity_neighborhood(
     context_result = await graph.get_entity_context(entity_uid, depth=depth)
 
     if context_result.is_error:
-        return Result.fail(context_result.expect_error())
+        return Result.fail(context_result)
 
     context = context_result.value
 
@@ -409,7 +409,7 @@ async def find_cross_domain_connections(
         result = await graph.executor.execute_query(query, params)
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         if not result.value:
             return Result.ok({"connections": [], "connection_types": [], "strength_scores": {}})

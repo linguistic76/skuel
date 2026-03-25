@@ -301,7 +301,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             # Fallback: Query Neo4j directly
             goal_result = await self.backend.get_goal(goal_uid)
             if goal_result.is_error:
-                return Result.fail(goal_result.expect_error())
+                return Result.fail(goal_result)
             goal = to_domain_model(goal_result.value, GoalDTO, Goal)
             self.logger.debug(f"Goal {goal_uid} fetched from Neo4j (not in rich context)")
         else:
@@ -380,7 +380,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         """
         goal_result = await self.backend.get_goal(goal_uid)
         if goal_result.is_error:
-            return Result.fail(goal_result.expect_error())
+            return Result.fail(goal_result)
 
         goal = to_domain_model(goal_result.value, GoalDTO, Goal)
 
@@ -420,7 +420,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
 
         update_result = await self.backend.update_goal(goal_uid, updates)
         if update_result.is_error:
-            return Result.fail(update_result.expect_error())
+            return Result.fail(update_result)
 
         # Context invalidation happens via GoalMilestoneReached/GoalAchieved events (event-driven architecture)
         # Event handlers in bootstrap will call user_service.invalidate_context()
@@ -475,7 +475,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         """
         goal_result = await self.backend.get_goal(goal_uid)
         if goal_result.is_error:
-            return Result.fail(goal_result.expect_error())
+            return Result.fail(goal_result)
 
         goal = to_domain_model(goal_result.value, GoalDTO, Goal)
 
@@ -520,7 +520,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
 
             update_result = await self.backend.update_goal(goal_uid, updates)
             if update_result.is_error:
-                return Result.fail(update_result.expect_error())
+                return Result.fail(update_result)
 
             updated_goal = to_domain_model(update_result.value, GoalDTO, Goal)
 
@@ -785,7 +785,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         # Get current goal
         goal_result = await self.backend.get_goal(uid)
         if goal_result.is_error:
-            return Result.fail(goal_result.expect_error())
+            return Result.fail(goal_result)
 
         goal_dto = goal_result.value
         if not goal_dto:
@@ -812,7 +812,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
 
         update_result = await self.backend.update_goal(uid, updates)
         if update_result.is_error:
-            return Result.fail(update_result.expect_error())
+            return Result.fail(update_result)
 
         # Publish GoalProgressUpdated event
         event = GoalProgressUpdated(
@@ -848,7 +848,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         # Get goal (as DTO to access metadata)
         goal_result = await self.backend.get_goal(uid)
         if goal_result.is_error:
-            return Result.fail(goal_result.expect_error())
+            return Result.fail(goal_result)
 
         goal_dto = goal_result.value
         if not goal_dto:
@@ -913,7 +913,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         # Get current goal
         goal_result = await self.backend.get_goal(uid)
         if goal_result.is_error:
-            return Result.fail(goal_result.expect_error())
+            return Result.fail(goal_result)
 
         goal = to_domain_model(goal_result.value, GoalDTO, Goal)
 
@@ -937,7 +937,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         update_result = await self.backend.update_goal(uid, updates)
 
         if update_result.is_error:
-            return Result.fail(update_result.expect_error())
+            return Result.fail(update_result)
 
         self.logger.info(f"Created milestone '{milestone_title}' for goal {uid}")
         return Result.ok(True)
@@ -955,7 +955,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         # Get goal
         goal_result = await self.backend.get_goal(uid)
         if goal_result.is_error:
-            return Result.fail(goal_result.expect_error())
+            return Result.fail(goal_result)
 
         goal = to_domain_model(goal_result.value, GoalDTO, Goal)
 

@@ -63,7 +63,7 @@ class AdminStatsService:
         )
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         defaults: dict[str, int] = {
             "total_kus": 0,
@@ -111,7 +111,7 @@ class AdminStatsService:
         )
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         return Result.ok([dict(r) for r in (result.value or [])])
 
     async def get_user_ku_detail(self, user_uid: str) -> Result[dict[str, Any]]:
@@ -155,7 +155,7 @@ class AdminStatsService:
         )
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         detail: dict[str, Any] = {
             "viewed": [],
@@ -265,7 +265,7 @@ class AdminStatsService:
         )
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         defaults: dict[str, int] = {
             "tasks_total": 0,
@@ -312,7 +312,7 @@ class AdminStatsService:
         )
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         defaults: dict[str, int] = {
             "tasks_created": 0,
@@ -343,7 +343,7 @@ class AdminStatsService:
         )
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         stats: dict[str, int] = {
             "total": 0,
@@ -420,5 +420,5 @@ class AdminStatsService:
         )
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         return Result.ok([dict(r) for r in (result.value or [])])

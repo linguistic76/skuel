@@ -342,7 +342,7 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
         )
 
         if uids_result.is_error:
-            return Result.fail(uids_result.expect_error())
+            return Result.fail(uids_result)
 
         choice_uids = uids_result.value
 
@@ -375,7 +375,7 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
         # Get existing choice
         existing_result = await self.get_choice(choice_uid)
         if existing_result.is_error:
-            return Result.fail(existing_result.expect_error())
+            return Result.fail(existing_result)
 
         existing = existing_result.value
         if not existing:
@@ -476,7 +476,7 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
         # Get existing choice
         existing_result = await self.get_choice(choice_uid)
         if existing_result.is_error:
-            return Result.fail(existing_result.expect_error())
+            return Result.fail(existing_result)
 
         existing = existing_result.value
         if not existing:
@@ -671,7 +671,7 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
         # Get existing choice
         existing_result = await self.get_choice(choice_uid)
         if existing_result.is_error:
-            return Result.fail(existing_result.expect_error())
+            return Result.fail(existing_result)
 
         existing = existing_result.value
         if not existing or not isinstance(existing, Choice):
@@ -725,7 +725,7 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
         # Update in backend
         update_result = await self.backend.update(choice_uid, dto.to_dict())
         if update_result.is_error:
-            return Result.fail(update_result.expect_error())
+            return Result.fail(update_result)
 
         choice = self._to_domain_model(update_result.value, ChoiceDTO, Choice)
 
@@ -781,7 +781,7 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
         # Get existing choice
         existing_result = await self.get_choice(choice_uid)
         if existing_result.is_error:
-            return Result.fail(existing_result.expect_error())
+            return Result.fail(existing_result)
 
         existing = existing_result.value
         if not existing or not isinstance(existing, Choice):
@@ -854,7 +854,7 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
         # Update in backend
         update_result = await self.backend.update(choice_uid, dto.to_dict())
         if update_result.is_error:
-            return Result.fail(update_result.expect_error())
+            return Result.fail(update_result)
 
         choice = self._to_domain_model(update_result.value, ChoiceDTO, Choice)
 
@@ -893,7 +893,7 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
         # Get existing choice
         existing_result = await self.get_choice(choice_uid)
         if existing_result.is_error:
-            return Result.fail(existing_result.expect_error())
+            return Result.fail(existing_result)
 
         existing = existing_result.value
         if not existing or not isinstance(existing, Choice):
@@ -957,7 +957,7 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
         # Update in backend
         update_result = await self.backend.update(choice_uid, dto.to_dict())
         if update_result.is_error:
-            return Result.fail(update_result.expect_error())
+            return Result.fail(update_result)
 
         choice = self._to_domain_model(update_result.value, ChoiceDTO, Choice)
 

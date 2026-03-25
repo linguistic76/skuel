@@ -109,7 +109,7 @@ class TasksAIService(BaseAIService["TasksOperations", Task]):
         # Get the source task
         task_result = await self.backend.get(task_uid)
         if task_result.is_error:
-            return Result.fail(task_result.expect_error())
+            return Result.fail(task_result)
 
         task = task_result.value
         if not task:
@@ -120,7 +120,7 @@ class TasksAIService(BaseAIService["TasksOperations", Task]):
         # TODO(blocked:embeddings): Use vector similarity or limit query instead of fetching all tasks
         all_tasks_result = await self.backend.find_by(user_uid=task.user_uid)
         if all_tasks_result.is_error:
-            return Result.fail(all_tasks_result.expect_error())
+            return Result.fail(all_tasks_result)
 
         all_tasks = all_tasks_result.value or []
         candidates = [
@@ -157,7 +157,7 @@ class TasksAIService(BaseAIService["TasksOperations", Task]):
         # Get the task
         task_result = await self.backend.get(task_uid)
         if task_result.is_error:
-            return Result.fail(task_result.expect_error())
+            return Result.fail(task_result)
 
         task = task_result.value
         if not task:
@@ -174,7 +174,7 @@ Return only the subtask titles, one per line. Be specific and actionable."""
         # Use base class LLM generation
         insight_result = await self._generate_insight(prompt, max_tokens=300)
         if insight_result.is_error:
-            return Result.fail(insight_result.expect_error())
+            return Result.fail(insight_result)
 
         # Parse response into subtask list
         response = insight_result.value
@@ -202,7 +202,7 @@ Return only the subtask titles, one per line. Be specific and actionable."""
         # Get the task
         task_result = await self.backend.get(task_uid)
         if task_result.is_error:
-            return Result.fail(task_result.expect_error())
+            return Result.fail(task_result)
 
         task = task_result.value
         if not task:
@@ -244,7 +244,7 @@ Keep it under 100 words."""
         # Get the task
         task_result = await self.backend.get(task_uid)
         if task_result.is_error:
-            return Result.fail(task_result.expect_error())
+            return Result.fail(task_result)
 
         task = task_result.value
         if not task:
@@ -267,7 +267,7 @@ REASONING: [brief explanation, 1-2 sentences]"""
 
         insight_result = await self._generate_insight(prompt, context=context, max_tokens=150)
         if insight_result.is_error:
-            return Result.fail(insight_result.expect_error())
+            return Result.fail(insight_result)
 
         # Parse response
         response = insight_result.value

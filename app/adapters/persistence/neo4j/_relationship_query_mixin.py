@@ -134,7 +134,7 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
             target_label=self.label,
         )
         if pattern_result.is_error:
-            return Result.fail(pattern_result.expect_error())
+            return Result.fail(pattern_result)
         pattern = pattern_result.value
 
         df_clause = self._default_filter_clause()
@@ -260,7 +260,7 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
             rel_var="r",
         )
         if pattern_result.is_error:
-            return Result.fail(pattern_result.expect_error())
+            return Result.fail(pattern_result)
         pattern = pattern_result.value
 
         # Build WHERE clause for property filtering
@@ -531,7 +531,7 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
         props_result = await self.get_relationship_metadata(from_uid, to_uid, relationship_type)
 
         if not props_result.is_ok:
-            return Result.fail(props_result.expect_error())
+            return Result.fail(props_result)
 
         if props_result.value is None:
             return Result.ok(None)
@@ -704,7 +704,7 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
         """
         result = await self.get_related_entities(uid, "CHILD_OF", direction="outgoing", limit=1)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         entities = result.value
         return Result.ok(entities[0] if entities else None)

@@ -111,14 +111,14 @@ class FinanceBudgetService:
         # Create budget (returns UID)
         create_result = await self.backend.create_budget(budget_dict)
         if create_result.is_error:
-            return Result.fail(create_result.expect_error())
+            return Result.fail(create_result)
 
         budget_uid = create_result.value
 
         # Retrieve created budget
         get_result = await self.backend.get_budget(budget_uid)
         if get_result.is_error:
-            return Result.fail(get_result.expect_error())
+            return Result.fail(get_result)
 
         created = get_result.value
         if not created:
@@ -213,7 +213,7 @@ class FinanceBudgetService:
         # Get budget
         result = await self.get_budget(budget_uid)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         budget = result.value
 

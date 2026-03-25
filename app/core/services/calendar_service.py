@@ -282,7 +282,7 @@ class CalendarService:
             if result.is_ok:
                 return Result.ok(self._task_to_calendar_item(result.value))
             # Type boundary: Extract error from Result[Task] for Result[CalendarItem]
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         elif item_type == EntityType.EVENT.value and self.events_service:
             # Create event
@@ -300,7 +300,7 @@ class CalendarService:
             if result.is_ok:
                 return Result.ok(self._event_to_calendar_item(result.value))
             # Type boundary: Extract error from Result[Event] for Result[CalendarItem]
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         elif item_type == EntityType.HABIT.value and self.habits_service:
             # Create habit
@@ -316,7 +316,7 @@ class CalendarService:
             if result.is_ok:
                 return Result.ok(self._habit_to_calendar_item(result.value))
             # Type boundary: Extract error from Result[Habit] for Result[CalendarItem]
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         return Result.fail(Errors.validation(f"Unknown item type: {item_type}", field="item_type"))
 
@@ -355,7 +355,7 @@ class CalendarService:
                     if result.is_ok:
                         return Result.ok(self._task_to_calendar_item(result.value))
                     # Type boundary: Extract error from Result[Task] for Result[CalendarItem]
-                    return Result.fail(result.expect_error())
+                    return Result.fail(result)
 
         elif item_uid.startswith("event-"):
             source_uid = item_uid[6:]
@@ -392,7 +392,7 @@ class CalendarService:
                     if result.is_ok:
                         return Result.ok(self._event_to_calendar_item(result.value))
                     # Type boundary: Extract error from Result[Event] for Result[CalendarItem]
-                    return Result.fail(result.expect_error())
+                    return Result.fail(result)
 
         return Result.fail(Errors.not_found(f"Item not found: {item_uid}"))
 

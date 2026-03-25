@@ -110,7 +110,7 @@ class LessonOrganizationService:
         """Get a Ku with its organized children hierarchy."""
         ku_result = await self.ku_service.get(ku_uid)
         if ku_result.is_error:
-            return Result.fail(ku_result.expect_error())
+            return Result.fail(ku_result)
 
         ku = ku_result.value
         if not ku:
@@ -184,13 +184,13 @@ class LessonOrganizationService:
         """Organize a Ku under another Ku (create ORGANIZES relationship)."""
         parent_result = await self.ku_service.get(parent_uid)
         if parent_result.is_error:
-            return Result.fail(parent_result.expect_error())
+            return Result.fail(parent_result)
         if not parent_result.value:
             return Result.fail(Errors.not_found(resource="Ku (parent)", identifier=parent_uid))
 
         child_result = await self.ku_service.get(child_uid)
         if child_result.is_error:
-            return Result.fail(child_result.expect_error())
+            return Result.fail(child_result)
         if not child_result.value:
             return Result.fail(Errors.not_found(resource="Ku (child)", identifier=child_uid))
 
@@ -216,7 +216,7 @@ class LessonOrganizationService:
         """
         organizers_result = await self.backend.find_organizers(ku_uid)
         if organizers_result.is_error:
-            return Result.fail(organizers_result.expect_error())
+            return Result.fail(organizers_result)
 
         if not organizers_result.value:
             return Result.ok(KuNavigation())
@@ -224,7 +224,7 @@ class LessonOrganizationService:
         moc_uid = organizers_result.value[0].get("uid")
         moc_view_result = await self.ku_service.get_organization_view(moc_uid, max_depth=1)
         if moc_view_result.is_error:
-            return Result.fail(moc_view_result.expect_error())
+            return Result.fail(moc_view_result)
 
         children = moc_view_result.value.children
 

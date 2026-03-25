@@ -235,13 +235,13 @@ class AskesisService:
         """
         askesis_result = await self.askesis_core_service.get_askesis(askesis_uid)
         if askesis_result.is_error:
-            return Result.fail(askesis_result.expect_error())
+            return Result.fail(askesis_result)
 
         askesis = askesis_result.value
 
         context_result = await self.user_service.get_rich_unified_context(askesis.user_uid)
         if context_result.is_error:
-            return Result.fail(context_result.expect_error())
+            return Result.fail(context_result)
 
         return Result.ok(
             AskesisContext(

@@ -242,7 +242,7 @@ class ChoicesSearchService(BaseService["ChoicesOperations", Choice]):
             cypher_query, {"user_uid": user_uid, "limit": limit}
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         # Convert to Choice
         choices = []
@@ -337,7 +337,7 @@ class ChoicesSearchService(BaseService["ChoicesOperations", Choice]):
             cypher_query, {"user_uid": user_uid, "end_date": end_date.isoformat()}
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         # Convert to Choice
         choices = []
@@ -382,7 +382,7 @@ class ChoicesSearchService(BaseService["ChoicesOperations", Choice]):
             {"principle_uid": principle_uid, "min_confidence": min_confidence},
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         # Convert to Choice
         choices = []
@@ -433,7 +433,7 @@ class ChoicesSearchService(BaseService["ChoicesOperations", Choice]):
             },
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         # Convert to Choice
         choices = []
@@ -536,13 +536,13 @@ class ChoicesSearchService(BaseService["ChoicesOperations", Choice]):
             # Use filtered search via backend
             result = await self.backend.find_by(limit=limit, **filters)
             if result.is_error:
-                return Result.fail(result.expect_error())
+                return Result.fail(result)
             choices = self._to_domain_models(result.value, ChoiceDTO, Choice)
         else:
             # Fall back to text search using cleaned query
             result = await self.search(parsed.text_query, limit=limit)
             if result.is_error:
-                return Result.fail(result.expect_error())
+                return Result.fail(result)
             choices = result.value
 
         # Filter by user ownership if provided

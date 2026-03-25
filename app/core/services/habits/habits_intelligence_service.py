@@ -168,7 +168,7 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
         # Get all habits for user
         habits_result = await self.backend.find_by(user_uid=user_uid)
         if habits_result.is_error:
-            return Result.fail(habits_result.expect_error())
+            return Result.fail(habits_result)
 
         habits = habits_result.value or []
 
@@ -1015,7 +1015,7 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
         result = await self.backend.execute_query(query, {"user_uid": user_uid})
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         reinforced_ku_uids: list[str] = []
         reinforcement_strength: dict[str, float] = {}

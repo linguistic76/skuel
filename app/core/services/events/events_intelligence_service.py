@@ -136,7 +136,7 @@ class EventsIntelligenceService(BaseAnalyticsService["EventsOperations", Event])
         # Get events for user within period
         events_result = await self.backend.find_by(user_uid=user_uid)
         if events_result.is_error:
-            return Result.fail(events_result.expect_error())
+            return Result.fail(events_result)
 
         all_events = events_result.value or []
 
@@ -262,7 +262,7 @@ class EventsIntelligenceService(BaseAnalyticsService["EventsOperations", Event])
         # Get event with context
         context_result = await self.get_event_with_context(uid, GraphDepth.NEIGHBORHOOD)
         if context_result.is_error:
-            return Result.fail(context_result.expect_error())  # P3: Type-safe error propagation
+            return Result.fail(context_result)  # P3: Type-safe error propagation
 
         event, context = context_result.value
 
@@ -303,7 +303,7 @@ class EventsIntelligenceService(BaseAnalyticsService["EventsOperations", Event])
         """
         context_result = await self.get_event_with_context(uid, depth)
         if context_result.is_error:
-            return Result.fail(context_result.expect_error())  # P3: Type-safe error propagation
+            return Result.fail(context_result)  # P3: Type-safe error propagation
 
         event, context = context_result.value
 
@@ -347,7 +347,7 @@ class EventsIntelligenceService(BaseAnalyticsService["EventsOperations", Event])
         """
         context_result = await self.get_event_with_context(uid, depth)
         if context_result.is_error:
-            return Result.fail(context_result.expect_error())  # P3: Type-safe error propagation
+            return Result.fail(context_result)  # P3: Type-safe error propagation
 
         event, context = context_result.value
 
@@ -406,7 +406,7 @@ class EventsIntelligenceService(BaseAnalyticsService["EventsOperations", Event])
 
         result = await self.backend.list(filters=filters)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         # Unpack tuple: backend.list() returns (events, total_count)
         events, _ = result.value

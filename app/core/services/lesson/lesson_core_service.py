@@ -390,7 +390,7 @@ class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], Entit
         """
         result = await self.backend.get_with_context_raw(uid, min_confidence)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         if not result.value:
             return Result.fail(Errors.not_found(resource="Lesson", identifier=uid))
@@ -639,7 +639,7 @@ class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], Entit
         # Get the knowledge unit
         result = await self.get(uid)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         dto = result.value
 
@@ -677,7 +677,7 @@ class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], Entit
         result = await self.backend.get_user_mastery(user_uid, ku_uid)
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         records = result.value
         if records and len(records) > 0:
@@ -722,7 +722,7 @@ class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], Entit
         """
         result = await self.backend.get_organized_children_deep(parent_uid, depth)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         from core.utils.neo4j_mapper import from_neo4j_node
 
@@ -755,7 +755,7 @@ class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], Entit
         """
         result = await self.backend.get_parent_organizers_raw(entity_uid)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         from core.utils.neo4j_mapper import from_neo4j_node
 
@@ -854,7 +854,7 @@ class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], Entit
         # Check for cycle prevention
         cycle_result = await self.backend.check_organizes_cycle(parent_uid, child_uid)
         if cycle_result.is_error:
-            return Result.fail(cycle_result.expect_error())
+            return Result.fail(cycle_result)
 
         if cycle_result.value:
             return Result.fail(
@@ -867,7 +867,7 @@ class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], Entit
         # Create ORGANIZES relationship
         result = await self.backend.create_organizes(parent_uid, child_uid, order, importance)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         success = len(result.value) > 0
         if success:
@@ -906,7 +906,7 @@ class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], Entit
         """
         result = await self.backend.delete_organizes(parent_uid, child_uid)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         deleted = result.value[0]["deleted"] if result.value else 0
         success = deleted > 0

@@ -157,7 +157,7 @@ class LessonContextService:
         results = await self._execute_query(query, params, "get_ready_to_learn_for_user")
 
         if results.is_error:
-            return Result.fail(results.expect_error())
+            return Result.fail(results)
 
         # Convert to ContextualKnowledge objects
         contextual_kus: list[ContextualKnowledge] = []
@@ -269,7 +269,7 @@ class LessonContextService:
         results = await self.neo4j.execute_query(query, params)
 
         if results.is_error:
-            return Result.fail(results.expect_error())
+            return Result.fail(results)
 
         # Convert to ContextualKnowledge objects
         contextual_kus: list[ContextualKnowledge] = []
@@ -379,7 +379,7 @@ class LessonContextService:
         results = await self.neo4j.execute_query(query, params)
 
         if results.is_error:
-            return Result.fail(results.expect_error())
+            return Result.fail(results)
 
         # Build a lookup for query results
         ku_data = {}

@@ -61,7 +61,7 @@ class LpAIService(BaseAIService[LpOperations, LearningPath]):
         """Find semantically similar learning paths using embeddings."""
         lp_result = await self.backend.get(lp_uid)
         if lp_result.is_error:
-            return Result.fail(lp_result.expect_error())
+            return Result.fail(lp_result)
 
         lp = lp_result.value
         if not lp:
@@ -75,7 +75,7 @@ class LpAIService(BaseAIService[LpOperations, LearningPath]):
 
         all_paths_result = await self.backend.list(limit=100)
         if all_paths_result.is_error:
-            return Result.fail(all_paths_result.expect_error())
+            return Result.fail(all_paths_result)
 
         all_paths: list[LearningPath] = all_paths_result.value or []
         candidates = [
@@ -91,7 +91,7 @@ class LpAIService(BaseAIService[LpOperations, LearningPath]):
         """Generate an AI-powered overview of a learning path."""
         lp_result = await self.backend.get(lp_uid)
         if lp_result.is_error:
-            return Result.fail(lp_result.expect_error())
+            return Result.fail(lp_result)
 
         lp = lp_result.value
         if not lp:
@@ -120,7 +120,7 @@ Format each section with its label."""
 
         insight_result = await self._generate_insight(prompt, context=context, max_tokens=400)
         if insight_result.is_error:
-            return Result.fail(insight_result.expect_error())
+            return Result.fail(insight_result)
 
         response = insight_result.value
         overview: dict[str, Any] = {
@@ -148,7 +148,7 @@ Format each section with its label."""
         """Suggest a strategy for completing a learning path."""
         lp_result = await self.backend.get(lp_uid)
         if lp_result.is_error:
-            return Result.fail(lp_result.expect_error())
+            return Result.fail(lp_result)
 
         lp = lp_result.value
         if not lp:
@@ -173,7 +173,7 @@ Format each as KEY: [response]"""
 
         insight_result = await self._generate_insight(prompt, context=context, max_tokens=350)
         if insight_result.is_error:
-            return Result.fail(insight_result.expect_error())
+            return Result.fail(insight_result)
 
         response = insight_result.value
         strategy: dict[str, Any] = {
@@ -201,7 +201,7 @@ Format each as KEY: [response]"""
         """Generate AI-written insight about a learning path."""
         lp_result = await self.backend.get(lp_uid)
         if lp_result.is_error:
-            return Result.fail(lp_result.expect_error())
+            return Result.fail(lp_result)
 
         lp = lp_result.value
         if not lp:

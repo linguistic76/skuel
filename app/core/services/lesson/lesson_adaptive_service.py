@@ -95,7 +95,7 @@ class LessonAdaptiveService:
         # 2. Query KUs for this SEL category
         all_kus_result = await self.ku_backend.find_by(sel_category=sel_category.value)
         if all_kus_result.is_error:
-            return Result.fail(all_kus_result.expect_error())
+            return Result.fail(all_kus_result)
         all_kus = all_kus_result.value or []
 
         # 3. Filter by readiness
@@ -336,7 +336,7 @@ class LessonAdaptiveService:
             }
             result = await self.ku_backend.execute_query(query, params)
             if result.is_error:
-                return Result.fail(result.expect_error())
+                return Result.fail(result)
             self.logger.info(f"Tracked curriculum completion: {user_uid} -> {ku_uid}")
             return Result.ok(None)
         except NEO4J_EXCEPTIONS as e:

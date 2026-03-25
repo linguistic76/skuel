@@ -530,7 +530,7 @@ class ActivityExtractorService:
         parse_result = self.parser.parse_journal(content, source_file=report.uid)
 
         if parse_result.is_error:
-            return Result.fail(parse_result.expect_error())
+            return Result.fail(parse_result)
 
         parsed = parse_result.value
         extraction.activities_found = parsed.activity_lines_found
@@ -784,7 +784,7 @@ class ActivityExtractorService:
         # Convert to TaskCreateRequest
         convert_result = activity_to_task_request(activity)
         if convert_result.is_error:
-            return Result.fail(convert_result.expect_error())
+            return Result.fail(convert_result)
 
         request = convert_result.value
 
@@ -792,7 +792,7 @@ class ActivityExtractorService:
         create_result = await self.tasks_service.create_task(request, user_uid)
 
         if create_result.is_error:
-            return Result.fail(create_result.expect_error())
+            return Result.fail(create_result)
 
         task = create_result.value
         self.logger.debug(f"Created task: {task.uid} - '{task.title}'")
@@ -811,7 +811,7 @@ class ActivityExtractorService:
         # Convert to habit dict
         convert_result = activity_to_habit_dict(activity)
         if convert_result.is_error:
-            return Result.fail(convert_result.expect_error())
+            return Result.fail(convert_result)
 
         habit_dict = convert_result.value
 
@@ -830,7 +830,7 @@ class ActivityExtractorService:
             )
 
         if create_result.is_error:
-            return Result.fail(create_result.expect_error())
+            return Result.fail(create_result)
 
         habit = create_result.value
         # Extract UID using Protocol or dict access
@@ -863,7 +863,7 @@ class ActivityExtractorService:
         # Convert to goal dict
         convert_result = activity_to_goal_dict(activity)
         if convert_result.is_error:
-            return Result.fail(convert_result.expect_error())
+            return Result.fail(convert_result)
 
         goal_dict = convert_result.value
 
@@ -881,7 +881,7 @@ class ActivityExtractorService:
             )
 
         if create_result.is_error:
-            return Result.fail(create_result.expect_error())
+            return Result.fail(create_result)
 
         goal = create_result.value
         # Extract UID using Protocol or dict access
@@ -916,7 +916,7 @@ class ActivityExtractorService:
         # Convert to event dict
         convert_result = activity_to_event_dict(activity)
         if convert_result.is_error:
-            return Result.fail(convert_result.expect_error())
+            return Result.fail(convert_result)
 
         event_dict = convert_result.value
 
@@ -934,7 +934,7 @@ class ActivityExtractorService:
             )
 
         if create_result.is_error:
-            return Result.fail(create_result.expect_error())
+            return Result.fail(create_result)
 
         event = create_result.value
         # Extract UID using Protocol or dict access
@@ -969,7 +969,7 @@ class ActivityExtractorService:
         # Convert to principle dict
         convert_result = activity_to_principle_dict(activity)
         if convert_result.is_error:
-            return Result.fail(convert_result.expect_error())
+            return Result.fail(convert_result)
 
         principle_dict = convert_result.value
 
@@ -988,7 +988,7 @@ class ActivityExtractorService:
             )
 
         if create_result.is_error:
-            return Result.fail(create_result.expect_error())
+            return Result.fail(create_result)
 
         principle = create_result.value
         principle_uid = principle.uid if getattr(principle, "uid", None) else principle.get("uid")
@@ -1008,7 +1008,7 @@ class ActivityExtractorService:
         # Convert to choice dict
         convert_result = activity_to_choice_dict(activity)
         if convert_result.is_error:
-            return Result.fail(convert_result.expect_error())
+            return Result.fail(convert_result)
 
         choice_dict = convert_result.value
 
@@ -1027,7 +1027,7 @@ class ActivityExtractorService:
             )
 
         if create_result.is_error:
-            return Result.fail(create_result.expect_error())
+            return Result.fail(create_result)
 
         choice = create_result.value
         choice_uid = choice.uid if getattr(choice, "uid", None) else choice.get("uid")
@@ -1047,7 +1047,7 @@ class ActivityExtractorService:
         # Convert to finance dict
         convert_result = activity_to_finance_dict(activity)
         if convert_result.is_error:
-            return Result.fail(convert_result.expect_error())
+            return Result.fail(convert_result)
 
         finance_dict = convert_result.value
 
@@ -1066,7 +1066,7 @@ class ActivityExtractorService:
             )
 
         if create_result.is_error:
-            return Result.fail(create_result.expect_error())
+            return Result.fail(create_result)
 
         expense = create_result.value
         expense_uid = expense.uid if getattr(expense, "uid", None) else expense.get("uid")
@@ -1087,7 +1087,7 @@ class ActivityExtractorService:
         """
         convert_result = activity_to_ku_dict(activity)
         if convert_result.is_error:
-            return Result.fail(convert_result.expect_error())
+            return Result.fail(convert_result)
 
         ku_dict = convert_result.value
 
@@ -1105,7 +1105,7 @@ class ActivityExtractorService:
             )
 
         if create_result.is_error:
-            return Result.fail(create_result.expect_error())
+            return Result.fail(create_result)
 
         ku = create_result.value
         ku_uid = ku.uid if getattr(ku, "uid", None) else ku.get("uid")
@@ -1122,7 +1122,7 @@ class ActivityExtractorService:
         """
         convert_result = activity_to_ls_dict(activity)
         if convert_result.is_error:
-            return Result.fail(convert_result.expect_error())
+            return Result.fail(convert_result)
 
         ls_dict = convert_result.value
 
@@ -1140,7 +1140,7 @@ class ActivityExtractorService:
             )
 
         if create_result.is_error:
-            return Result.fail(create_result.expect_error())
+            return Result.fail(create_result)
 
         ls = create_result.value
         ls_uid = ls.uid if getattr(ls, "uid", None) else ls.get("uid")
@@ -1157,7 +1157,7 @@ class ActivityExtractorService:
         """
         convert_result = activity_to_lp_dict(activity)
         if convert_result.is_error:
-            return Result.fail(convert_result.expect_error())
+            return Result.fail(convert_result)
 
         lp_dict = convert_result.value
 
@@ -1175,7 +1175,7 @@ class ActivityExtractorService:
             )
 
         if create_result.is_error:
-            return Result.fail(create_result.expect_error())
+            return Result.fail(create_result)
 
         lp = create_result.value
         lp_uid = lp.uid if getattr(lp, "uid", None) else lp.get("uid")
@@ -1202,7 +1202,7 @@ class ActivityExtractorService:
         """
         convert_result = activity_to_report_dict(activity)
         if convert_result.is_error:
-            return Result.fail(convert_result.expect_error())
+            return Result.fail(convert_result)
 
         report_dict = convert_result.value
 
@@ -1220,7 +1220,7 @@ class ActivityExtractorService:
             )
 
         if create_result.is_error:
-            return Result.fail(create_result.expect_error())
+            return Result.fail(create_result)
 
         new_report = create_result.value
         new_report_uid = (
@@ -1244,7 +1244,7 @@ class ActivityExtractorService:
         """
         convert_result = activity_to_analytics_dict(activity)
         if convert_result.is_error:
-            return Result.fail(convert_result.expect_error())
+            return Result.fail(convert_result)
 
         analytics_dict = convert_result.value
 
@@ -1262,7 +1262,7 @@ class ActivityExtractorService:
             )
 
         if create_result.is_error:
-            return Result.fail(create_result.expect_error())
+            return Result.fail(create_result)
 
         analytics = create_result.value
         analytics_uid = (
@@ -1287,7 +1287,7 @@ class ActivityExtractorService:
         """
         convert_result = activity_to_calendar_dict(activity)
         if convert_result.is_error:
-            return Result.fail(convert_result.expect_error())
+            return Result.fail(convert_result)
 
         calendar_dict = convert_result.value
 
@@ -1305,7 +1305,7 @@ class ActivityExtractorService:
             )
 
         if create_result.is_error:
-            return Result.fail(create_result.expect_error())
+            return Result.fail(create_result)
 
         calendar_item = create_result.value
         calendar_uid = (
@@ -1334,7 +1334,7 @@ class ActivityExtractorService:
         """
         convert_result = activity_to_lifepath_dict(activity)
         if convert_result.is_error:
-            return Result.fail(convert_result.expect_error())
+            return Result.fail(convert_result)
 
         lifepath_dict = convert_result.value
 
@@ -1354,7 +1354,7 @@ class ActivityExtractorService:
             )
 
         if create_result.is_error:
-            return Result.fail(create_result.expect_error())
+            return Result.fail(create_result)
 
         lifepath = create_result.value
         lifepath_uid = (

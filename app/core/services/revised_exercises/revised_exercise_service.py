@@ -119,7 +119,7 @@ class RevisedExerciseService(BaseService):
             teacher_uid, entity.report_uid, entity.student_uid
         )
         if auth_result.is_error:
-            return Result.fail(auth_result.expect_error())
+            return Result.fail(auth_result)
 
         # Determine revision number from existing chain
         chain_result = await self.backend.get_revision_chain(entity.original_exercise_uid)
@@ -229,7 +229,7 @@ class RevisedExerciseService(BaseService):
         """
         result = await self.backend.verify_teacher_authority(teacher_uid, report_uid, student_uid)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         records = result.value or []
         if not records:
@@ -261,7 +261,7 @@ class RevisedExerciseService(BaseService):
         """
         result = await self.backend.list_for_student(student_uid, teacher_uid)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         exercises = []
         for record in result.value or []:

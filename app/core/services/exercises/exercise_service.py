@@ -232,7 +232,7 @@ class ExerciseService(BaseService):
         result = await self.backend.get_user_exercises(user_uid)
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         exercises = []
         for record in result.value or []:
@@ -338,7 +338,7 @@ class ExerciseService(BaseService):
         result = await self.backend.get_student_exercises(user_uid)
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         exercises = []
         for record in result.value or []:
@@ -363,7 +363,7 @@ class ExerciseService(BaseService):
         result = await self.backend.get_student_exercises_with_status(user_uid)
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         exercises = []
         for record in result.value or []:
@@ -591,7 +591,7 @@ class ExerciseService(BaseService):
         result = await self.backend.get_exercises_for_curriculum(curriculum_uid)
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         exercises = [dict(record) for record in (result.value or [])]
         self.logger.info(f"Found {len(exercises)} exercises for curriculum {curriculum_uid}")

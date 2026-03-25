@@ -112,7 +112,7 @@ class LifePathMixin:
         result = await self.backend.execute_query(query, params)
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         records = result.value or []
         success = records[0].get("success", False) if records else False
@@ -192,7 +192,7 @@ class LifePathMixin:
         result = await self.backend.execute_query(query, params)
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         contributors = [
             {
@@ -369,7 +369,7 @@ class LifePathMixin:
         result = await self.backend.execute_query(query, params)
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         records = result.value or []
         success = records[0].get("success", False) if records else False
@@ -408,7 +408,7 @@ class LifePathMixin:
         result = await self.backend.execute_query(query, params)
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         records = result.value or []
         deleted = records[0].get("deleted", False) if records else False

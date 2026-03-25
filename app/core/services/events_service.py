@@ -705,7 +705,7 @@ class EventsService(BaseService["EventsOperations", Event]):
         # Fetch events by UIDs using batch get
         events_result = await self.backend.get_many(event_uids)
         if events_result.is_error:
-            return Result.fail(events_result.expect_error())
+            return Result.fail(events_result)
 
         # Filter to events owned by this user (exclude None from get_many results)
         user_events = [e for e in events_result.value if e is not None and e.user_uid == user_uid]
@@ -771,7 +771,7 @@ class EventsService(BaseService["EventsOperations", Event]):
             # Get current event to merge metadata
             event_result = await self.core.get(request.event_uid)
             if event_result.is_error:
-                return Result.fail(event_result.expect_error())
+                return Result.fail(event_result)
             if event_result.value is None:
                 return Result.fail(Errors.not_found(resource="Event", identifier=request.event_uid))
             current_metadata = event_result.value.metadata or {}
@@ -858,7 +858,7 @@ class EventsService(BaseService["EventsOperations", Event]):
         # Get the event to check
         event_result = await self.core.get(request.event_uid)
         if event_result.is_error:
-            return Result.fail(event_result.expect_error())
+            return Result.fail(event_result)
 
         event = event_result.value
         if not event:
@@ -874,7 +874,7 @@ class EventsService(BaseService["EventsOperations", Event]):
             event_date=event.event_date.isoformat(),
         )
         if same_day_result.is_error:
-            return Result.fail(same_day_result.expect_error())
+            return Result.fail(same_day_result)
 
         # Find overlapping events using the model's overlaps_with method
         conflicting_uids = [
@@ -1002,7 +1002,7 @@ class EventsService(BaseService["EventsOperations", Event]):
         # Get the template event
         event_result = await self.get_event(request.event_uid)
         if event_result.is_error:
-            return Result.fail(event_result.expect_error())
+            return Result.fail(event_result)
 
         event = event_result.value
         if not event:

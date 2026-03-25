@@ -60,7 +60,7 @@ class PrinciplesAIService(BaseAIService[PrinciplesOperations, Entity]):
         """Find semantically similar principles using embeddings."""
         principle_result = await self.backend.get(principle_uid)
         if principle_result.is_error:
-            return Result.fail(principle_result.expect_error())
+            return Result.fail(principle_result)
 
         principle = principle_result.value
         if not principle:
@@ -72,7 +72,7 @@ class PrinciplesAIService(BaseAIService[PrinciplesOperations, Entity]):
 
         all_principles_result = await self.backend.find_by(user_uid=principle.user_uid)
         if all_principles_result.is_error:
-            return Result.fail(all_principles_result.expect_error())
+            return Result.fail(all_principles_result)
 
         all_principles = all_principles_result.value or []
         candidates = [
@@ -90,7 +90,7 @@ class PrinciplesAIService(BaseAIService[PrinciplesOperations, Entity]):
         """Generate deeper understanding of a principle."""
         principle_result = await self.backend.get(principle_uid)
         if principle_result.is_error:
-            return Result.fail(principle_result.expect_error())
+            return Result.fail(principle_result)
 
         principle = principle_result.value
         if not principle:
@@ -119,7 +119,7 @@ Format each as KEY: [response]"""
 
         insight_result = await self._generate_insight(prompt, context=context, max_tokens=400)
         if insight_result.is_error:
-            return Result.fail(insight_result.expect_error())
+            return Result.fail(insight_result)
 
         response = insight_result.value
         deepening: dict[str, Any] = {
@@ -149,7 +149,7 @@ Format each as KEY: [response]"""
         """Suggest practices to embody a principle more fully."""
         principle_result = await self.backend.get(principle_uid)
         if principle_result.is_error:
-            return Result.fail(principle_result.expect_error())
+            return Result.fail(principle_result)
 
         principle = principle_result.value
         if not principle:
@@ -179,7 +179,7 @@ WHEN: [when/where to apply it]"""
 
         insight_result = await self._generate_insight(prompt, context=context, max_tokens=350)
         if insight_result.is_error:
-            return Result.fail(insight_result.expect_error())
+            return Result.fail(insight_result)
 
         response = insight_result.value
         practices = []
@@ -207,7 +207,7 @@ WHEN: [when/where to apply it]"""
         """Generate AI-written insight about a principle."""
         principle_result = await self.backend.get(principle_uid)
         if principle_result.is_error:
-            return Result.fail(principle_result.expect_error())
+            return Result.fail(principle_result)
 
         principle = principle_result.value
         if not principle:

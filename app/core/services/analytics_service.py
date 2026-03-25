@@ -336,7 +336,7 @@ class AnalyticsService:
             user_uid, analytics_domain, period_start, period_end
         )
         if metrics_result.is_error:
-            return Result.fail(metrics_result.expect_error())
+            return Result.fail(metrics_result)
         metrics = metrics_result.value
 
         # Generate markdown content

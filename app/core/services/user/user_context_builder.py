@@ -122,7 +122,7 @@ class UserContextBuilder:
 
         user_result = await self.user_service.get_user(user_uid)
         if user_result.is_error:
-            return Result.fail(user_result.expect_error())
+            return Result.fail(user_result)
 
         user = user_result.value
         if not user:
@@ -183,7 +183,7 @@ class UserContextBuilder:
         """
         user_result = await self._resolve_user(user_uid, "build")
         if user_result.is_error:
-            return Result.fail(user_result.expect_error())
+            return Result.fail(user_result)
         return await self.build_user_context(user_uid, user_result.value)
 
     async def build_rich(
@@ -224,7 +224,7 @@ class UserContextBuilder:
         """
         user_result = await self._resolve_user(user_uid, "build_rich")
         if user_result.is_error:
-            return Result.fail(user_result.expect_error())
+            return Result.fail(user_result)
         return await self.build_rich_user_context(
             user_uid, user_result.value, min_confidence, window=window
         )
@@ -271,7 +271,7 @@ class UserContextBuilder:
         # Execute consolidated query
         query_result = await self._query_executor.execute_consolidated_query(user_uid)
         if query_result.is_error:
-            return Result.fail(query_result.expect_error())
+            return Result.fail(query_result)
 
         # Populate context from query results
         self._populator.populate_from_consolidated_data(context, query_result.value)
@@ -360,7 +360,7 @@ class UserContextBuilder:
             user_uid, min_confidence, window_start=window_start, window_end=window_end
         )
         if mega_result.is_error:
-            return Result.fail(mega_result.expect_error())
+            return Result.fail(mega_result)
 
         mega_data = mega_result.value
 

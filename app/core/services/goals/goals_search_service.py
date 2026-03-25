@@ -453,7 +453,7 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
 
         result = await self.backend.execute_query(cypher_query, {"uid": goal_uid, "limit": limit})
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         # Convert to Goals
         goals = []
@@ -567,13 +567,13 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
             # Use filtered search via backend
             result = await self.backend.find_by(limit=limit, **filters)
             if result.is_error:
-                return Result.fail(result.expect_error())
+                return Result.fail(result)
             goals = self._to_domain_models(result.value, GoalDTO, Goal)
         else:
             # Fall back to text search using cleaned query
             result = await self.search(parsed.text_query, limit=limit)
             if result.is_error:
-                return Result.fail(result.expect_error())
+                return Result.fail(result)
             goals = result.value
 
         # Filter by user ownership if provided

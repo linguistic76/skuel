@@ -437,7 +437,7 @@ class LpService:
 
         paths_result = await self.list_user_paths(user_uid)
         if paths_result.is_error:
-            return Result.fail(paths_result.expect_error())
+            return Result.fail(paths_result)
 
         paths = paths_result.value or []
         active_paths, total_hours = self.calculate_path_progress(paths)
@@ -477,7 +477,7 @@ class LpService:
         """Fetch and filter learning paths by difficulty, domain, and duration."""
         paths_result = await self.list_all_paths(limit=limit)
         if paths_result.is_error:
-            return Result.fail(paths_result.expect_error())
+            return Result.fail(paths_result)
 
         paths = [_path_to_display_dict(p) for p in (paths_result.value or [])]
 

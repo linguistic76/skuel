@@ -475,7 +475,7 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
         """
         submission_result = await self.get_submission(uid)
         if submission_result.is_error:
-            return Result.fail(submission_result.expect_error())
+            return Result.fail(submission_result)
 
         submission = submission_result.value
         if not submission:
@@ -524,7 +524,7 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
         submission_result = await self.get_submission(ku_uid)
 
         if submission_result.is_error:
-            return Result.fail(submission_result.expect_error())
+            return Result.fail(submission_result)
 
         submission = submission_result.value
         if not submission:
@@ -562,7 +562,7 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
         submission_result = await self.get_submission(ku_uid)
 
         if submission_result.is_error:
-            return Result.fail(submission_result.expect_error())
+            return Result.fail(submission_result)
 
         submission = submission_result.value
         if not submission:
@@ -609,7 +609,7 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
         """
         total_result = await self.count_submissions(user_uid)
         if total_result.is_error:
-            return Result.fail(total_result.expect_error())
+            return Result.fail(total_result)
 
         statistics: dict[str, Any] = {"total": total_result.value, "by_type": {}, "by_status": {}}
 

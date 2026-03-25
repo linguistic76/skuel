@@ -637,17 +637,17 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
         # 1. Ownership verification
         ownership_result = await self.core.verify_ownership(habit_uid, user_uid)
         if ownership_result.is_error:
-            return Result.fail(ownership_result.expect_error())
+            return Result.fail(ownership_result)
 
         # 2. Record completion — handles ALL streak/identity logic
         completion_result = await self.completions.record_completion(habit_uid, user_uid)
         if completion_result.is_error:
-            return Result.fail(completion_result.expect_error())
+            return Result.fail(completion_result)
 
         # 3. Get updated habit
         habit_result = await self.core.get_habit(habit_uid)
         if habit_result.is_error:
-            return Result.fail(habit_result.expect_error())
+            return Result.fail(habit_result)
         updated_habit = habit_result.value
 
         # 4. Calculate goal impacts
@@ -746,7 +746,7 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
         # Get habit to find user_uid
         habit_result = await self.core.get_habit(request.habit_uid)
         if habit_result.is_error:
-            return Result.fail(habit_result.expect_error())
+            return Result.fail(habit_result)
 
         habit = habit_result.value
         if not habit:
@@ -783,7 +783,7 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
             request.habit_uid, start_date=target_date, end_date=target_date
         )
         if completions_result.is_error:
-            return Result.fail(completions_result.expect_error())
+            return Result.fail(completions_result)
 
         completions = completions_result.value
         if not completions:
@@ -813,7 +813,7 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
         # Get habit for streak data
         habit_result = await self.core.get_habit(habit_uid)
         if habit_result.is_error:
-            return Result.fail(habit_result.expect_error())
+            return Result.fail(habit_result)
 
         habit = habit_result.value
         if not habit:
@@ -868,7 +868,7 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
         )
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         completions = result.value or []
 
@@ -920,7 +920,7 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
         )
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         completions = result.value or []
 
@@ -1036,7 +1036,7 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
         # Verify habit exists
         habit_result = await self.core.get(request.habit_uid)
         if habit_result.is_error:
-            return Result.fail(habit_result.expect_error())
+            return Result.fail(habit_result)
 
         # Update habit with reminder config
         updates = {
@@ -1046,7 +1046,7 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
         }
         update_result = await self.core.update(request.habit_uid, updates)
         if update_result.is_error:
-            return Result.fail(update_result.expect_error())
+            return Result.fail(update_result)
 
         self.logger.info(
             f"Set reminder for habit {request.habit_uid}: {request.reminder_time} on {request.days}"
@@ -1075,7 +1075,7 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
         """
         habit_result = await self.core.get(habit_uid)
         if habit_result.is_error:
-            return Result.fail(habit_result.expect_error())
+            return Result.fail(habit_result)
 
         habit = habit_result.value
 
@@ -1108,7 +1108,7 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
         # Verify habit exists
         habit_result = await self.core.get(request.habit_uid)
         if habit_result.is_error:
-            return Result.fail(habit_result.expect_error())
+            return Result.fail(habit_result)
 
         # Clear reminder config
         updates = {
@@ -1118,7 +1118,7 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
         }
         update_result = await self.core.update(request.habit_uid, updates)
         if update_result.is_error:
-            return Result.fail(update_result.expect_error())
+            return Result.fail(update_result)
 
         self.logger.info(f"Deleted reminder for habit {request.habit_uid}")
         return Result.ok(True)
@@ -1188,7 +1188,7 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
         # Get performance analytics which includes trend-relevant data
         analytics_result = await self.intelligence.get_performance_analytics(user_uid, days)
         if analytics_result.is_error:
-            return Result.fail(analytics_result.expect_error())
+            return Result.fail(analytics_result)
 
         analytics = analytics_result.value
 

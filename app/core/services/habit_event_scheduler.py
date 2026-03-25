@@ -152,7 +152,7 @@ class HabitEventScheduler:
         # Get the habit
         habit_result = await self.habits_backend.get_habit(habit_uid)
         if habit_result.is_error:
-            return Result.fail(habit_result.expect_error())
+            return Result.fail(habit_result)
 
         habit = to_domain_model(habit_result.value, HabitDTO, Habit)
 

@@ -106,7 +106,7 @@ class ActivityKnowledgeIntelligenceService(BaseAnalyticsService[Any, Entity]):
         if entity_uid:
             entity_result = await self.backend.get(entity_uid)
             if entity_result.is_error:
-                return Result.fail(entity_result.expect_error())
+                return Result.fail(entity_result)
 
             if not entity_result.value:
                 return Result.fail(Errors.not_found(resource="Entity", identifier=entity_uid))
@@ -118,7 +118,7 @@ class ActivityKnowledgeIntelligenceService(BaseAnalyticsService[Any, Entity]):
             )
 
             if entities_result.is_error:
-                return Result.fail(entities_result.expect_error())
+                return Result.fail(entities_result)
 
             entities = entities_result.value
 
@@ -188,7 +188,7 @@ class ActivityKnowledgeIntelligenceService(BaseAnalyticsService[Any, Entity]):
         )
 
         if entities_result.is_error:
-            return Result.fail(entities_result.expect_error())
+            return Result.fail(entities_result)
 
         entities = entities_result.value
         recent_entities = [
@@ -270,7 +270,7 @@ class ActivityKnowledgeIntelligenceService(BaseAnalyticsService[Any, Entity]):
         entities_result = await self.backend.find_by(user_uid=user_uid)
 
         if entities_result.is_error:
-            return Result.fail(entities_result.expect_error())
+            return Result.fail(entities_result)
 
         entities = entities_result.value
 

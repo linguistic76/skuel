@@ -198,14 +198,14 @@ class InsightGenerationService:
         # Analyze patterns in completed tasks
         patterns_result = await self.analyze_task_completion_patterns(completed_tasks)
         if patterns_result.is_error:
-            return Result.fail(patterns_result.expect_error())
+            return Result.fail(patterns_result)
 
         patterns = patterns_result.value
 
         # Generate insights from patterns
         insights_result = await self.generate_insights_from_patterns(patterns)
         if insights_result.is_error:
-            return Result.fail(insights_result.expect_error())
+            return Result.fail(insights_result)
 
         insights = insights_result.value
 

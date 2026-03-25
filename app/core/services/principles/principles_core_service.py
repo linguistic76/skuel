@@ -322,7 +322,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
         # Get existing principle to detect changes
         existing_result = await self.get_principle(principle_uid)
         if existing_result.is_error:
-            return Result.fail(existing_result.expect_error())
+            return Result.fail(existing_result)
 
         existing = existing_result.value
         if not existing:
@@ -408,7 +408,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
         )
 
         if uids_result.is_error:
-            return Result.fail(uids_result.expect_error())
+            return Result.fail(uids_result)
 
         principle_uids = uids_result.value
 
@@ -450,7 +450,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
         )
 
         if uids_result.is_error:
-            return Result.fail(uids_result.expect_error())
+            return Result.fail(uids_result)
 
         principle_uids = uids_result.value
 
@@ -546,7 +546,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
 
         # Check for query errors
         if results.is_error:
-            return Result.fail(results.expect_error())
+            return Result.fail(results)
 
         # Convert to domain models
         principles = []
@@ -575,7 +575,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
         # Get principle details before deletion for event publishing
         principle_result = await self.get_principle(uid)
         if principle_result.is_error:
-            return Result.fail(principle_result.expect_error())
+            return Result.fail(principle_result)
 
         principle = principle_result.value
         if not principle:
@@ -631,7 +631,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
         """Get full hierarchy context: ancestors, current, siblings, children, depth."""
         current_result = await self.backend.get(principle_uid)
         if current_result.is_error:
-            return Result.fail(current_result.expect_error())
+            return Result.fail(current_result)
         current_principle = self._to_domain_model(current_result.value, PrincipleDTO, Principle)
 
         hierarchy_result = await self.backend.get_hierarchy_raw(principle_uid)

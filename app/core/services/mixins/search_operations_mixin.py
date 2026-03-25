@@ -214,7 +214,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
 
         result = await self.backend.execute_query(cypher_query, params)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         # Convert to domain models
         entities = self._to_domain_models(result.value, self._dto_class, self._model_class)
@@ -263,7 +263,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
 
         result = await self.backend.execute_query(cypher_query, params)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         # Convert to domain models
         entities = self._to_domain_models(result.value, self._dto_class, self._model_class)
@@ -330,7 +330,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
 
         result = await self.backend.execute_query(cypher_query, params)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         # Convert to domain models
         entities = self._to_domain_models(result.value, self._dto_class, self._model_class)
@@ -394,7 +394,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
 
         result = await self.backend.execute_query(cypher_query, params)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         # Convert to domain models
         entities = self._to_domain_models(result.value, dto_class, model_class)
@@ -447,7 +447,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
 
         result = await self.backend.execute_query(cypher_query, params)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         # Convert to domain models
         entities = self._to_domain_models(result.value, self._dto_class, self._model_class)
@@ -578,7 +578,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         # Execute query
         result = await self.backend.execute_query(cypher_query, params)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         # Convert results to dict format with _graph_context
         results = []
@@ -642,7 +642,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
 
         result = await self.backend.find_by(**filters)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         entities = self._to_domain_models(result.value, self._dto_class, self._model_class)
 
@@ -671,7 +671,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         domain_value = get_enum_value(domain)
         result = await self.backend.find_by(domain=domain_value, limit=limit)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         entities = self._to_domain_models(result.value, self._dto_class, self._model_class)
 
@@ -709,7 +709,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
 
         result = await self.backend.find_by(**filters)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         entities = self._to_domain_models(result.value, self._dto_class, self._model_class)
 
@@ -739,7 +739,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
 
         result = await self.backend.execute_query(query, params)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         categories = [record["value"] for record in result.value if record.get("value")]
 
@@ -768,7 +768,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
 
         result = await self.backend.execute_query(query, params)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         categories = [record["value"] for record in result.value if record.get("value")]
 

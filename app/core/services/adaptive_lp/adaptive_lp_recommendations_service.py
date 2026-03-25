@@ -87,7 +87,7 @@ class AdaptiveLpRecommendationsService:
         # Identify knowledge gaps
         gaps_result = await self._identify_comprehensive_knowledge_gaps(user_uid, knowledge_state)
         if gaps_result.is_error:
-            return Result.fail(gaps_result.expect_error())
+            return Result.fail(gaps_result)
 
         knowledge_gaps = gaps_result.value
 

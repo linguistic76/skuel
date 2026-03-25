@@ -230,7 +230,7 @@ class EventsCoreService(BaseService["EventsOperations", Event]):
         # Use find_by with user_uid filter (UniversalNeo4jBackend pattern)
         result = await self.backend.find_by(user_uid=user_uid)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         # find_by returns domain models directly (no DTO conversion needed)
         return result
@@ -260,7 +260,7 @@ class EventsCoreService(BaseService["EventsOperations", Event]):
         result = await self.backend.list(filters=filters or {}, limit=limit, offset=offset)
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         # Unpack tuple: backend.list() returns (events, total_count)
         events_data, _ = result.value
@@ -292,7 +292,7 @@ class EventsCoreService(BaseService["EventsOperations", Event]):
         """
         count_result = await self.backend.count(**(filters or {}))
         if count_result.is_error:
-            return Result.fail(count_result.expect_error())
+            return Result.fail(count_result)
         return Result.ok(count_result.value)
 
     # get_user_items_in_range() is now inherited from BaseService
@@ -441,7 +441,7 @@ class EventsCoreService(BaseService["EventsOperations", Event]):
         # Get event details before deletion for event publishing
         event_result = await self.get(uid)
         if event_result.is_error:
-            return Result.fail(event_result.expect_error())
+            return Result.fail(event_result)
 
         event = event_result.value
 

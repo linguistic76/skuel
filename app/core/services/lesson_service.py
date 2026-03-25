@@ -664,7 +664,7 @@ class LessonService:
 
         if result.is_error:
             self.logger.error(f"Failed to list knowledge units: {result.error}")
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         # Unpack tuple: backend.list() returns (kus, total_count)
         kus_data, _ = result.value
@@ -840,7 +840,7 @@ class LessonService:
         # First get current tags
         ku_result = await self.core.get(uid)
         if ku_result.is_error:
-            return Result.fail(ku_result.expect_error())
+            return Result.fail(ku_result)
 
         ku = ku_result.value
         if not ku:
@@ -866,7 +866,7 @@ class LessonService:
         # First get current tags
         ku_result = await self.core.get(uid)
         if ku_result.is_error:
-            return Result.fail(ku_result.expect_error())
+            return Result.fail(ku_result)
 
         ku = ku_result.value
         if not ku:
@@ -1256,7 +1256,7 @@ class LessonService:
         )
 
         if neighborhood_result.is_error:
-            return Result.fail(neighborhood_result.expect_error())
+            return Result.fail(neighborhood_result)
 
         # Extract related UIDs from neighborhood
         neighborhood = neighborhood_result.value
@@ -1342,7 +1342,7 @@ class LessonService:
         result = await self.repo.list(QueryLimit.COMPREHENSIVE)
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         kus, _ = result.value
         categories = set()
@@ -1375,7 +1375,7 @@ class LessonService:
         result = await self.repo.list(QueryLimit.COMPREHENSIVE)
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         kus, _ = result.value
         tag_counts: dict[str, int] = {}
@@ -1406,7 +1406,7 @@ class LessonService:
         # Get the knowledge unit
         ku_result = await self.core.get(uid)
         if ku_result.is_error:
-            return Result.fail(ku_result.expect_error())
+            return Result.fail(ku_result)
 
         ku = ku_result.value
         if not ku:

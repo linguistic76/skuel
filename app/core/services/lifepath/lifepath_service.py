@@ -139,7 +139,7 @@ class LifePathService:
         # Step 1: Capture and extract themes
         vision_result = await self.vision.capture_vision(user_uid, vision_statement)
         if vision_result.is_error:
-            return Result.fail(vision_result.expect_error())
+            return Result.fail(vision_result)
 
         vision = vision_result.value
 
@@ -198,7 +198,7 @@ class LifePathService:
         # Step 1: Designate the life path
         designation_result = await self.core.designate_life_path(user_uid, life_path_uid)
         if designation_result.is_error:
-            return Result.fail(designation_result.expect_error())
+            return Result.fail(designation_result)
 
         designation = designation_result.value
 
@@ -256,7 +256,7 @@ class LifePathService:
         # Get designation
         designation_result = await self.core.get_designation(user_uid)
         if designation_result.is_error:
-            return Result.fail(designation_result.expect_error())
+            return Result.fail(designation_result)
 
         designation = designation_result.value
 
@@ -335,7 +335,7 @@ class LifePathService:
         """
         ctx_result = await self._build_context(user_uid)
         if ctx_result.is_error:
-            return Result.fail(ctx_result.expect_error())
+            return Result.fail(ctx_result)
 
         return await self.alignment.calculate_alignment(ctx_result.value)
 
@@ -380,7 +380,7 @@ class LifePathService:
         # Get user's vision themes
         designation_result = await self.core.get_designation(user_uid)
         if designation_result.is_error:
-            return Result.fail(designation_result.expect_error())
+            return Result.fail(designation_result)
 
         designation = designation_result.value
         if not designation or not designation.vision_themes:

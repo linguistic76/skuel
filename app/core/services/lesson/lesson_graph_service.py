@@ -155,7 +155,7 @@ class LessonGraphService:
 
         # Check for query errors
         if results.is_error:
-            return Result.fail(results.expect_error())
+            return Result.fail(results)
 
         # Convert to DTOs
         prerequisites = []
@@ -374,7 +374,7 @@ class LessonGraphService:
         # Get prerequisites with depth
         prereq_result = await self.find_prerequisites(uid, GraphDepth.DIRECT)
         if not prereq_result.is_ok:
-            return Result.fail(prereq_result.expect_error())
+            return Result.fail(prereq_result)
 
         prerequisites = prereq_result.value
 
@@ -617,7 +617,7 @@ class LessonGraphService:
         results = await self._execute_query(ready_query, params, "get_learning_recommendations")
 
         if results.is_error:
-            return Result.fail(results.expect_error())
+            return Result.fail(results)
 
         recommendations = []
         for record in results.value or []:
@@ -756,7 +756,7 @@ class LessonGraphService:
 
         # Check for query errors
         if results.is_error:
-            return Result.fail(results.expect_error())
+            return Result.fail(results)
 
         # Convert results to structured paths
         paths = []
@@ -872,7 +872,7 @@ class LessonGraphService:
 
         if results.is_error:
             self.logger.warning("Hub score update failed")
-            return Result.fail(results.expect_error())
+            return Result.fail(results)
 
         records = results.value or []
         updated_count = records[0].get("updated_count", 0) if records else 0
@@ -952,7 +952,7 @@ class LessonGraphService:
 
         # Check for query errors
         if results.is_error:
-            return Result.fail(results.expect_error())
+            return Result.fail(results)
 
         # Convert to DTOs
         foundational_kus = []

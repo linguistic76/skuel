@@ -91,7 +91,7 @@ class UnifiedSharingService:
             shared_at=datetime.now().isoformat(),
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         if not result.value:
             return Result.fail(
                 Errors.not_found(f"User {recipient_uid} or Entity {entity_uid} not found")
@@ -121,7 +121,7 @@ class UnifiedSharingService:
             recipient_uid=recipient_uid,
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         records = result.value or []
         deleted_count = records[0]["deleted_count"] if records else 0
         if deleted_count == 0:
@@ -163,7 +163,7 @@ class UnifiedSharingService:
             visibility=visibility.value,
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         if not result.value:
             return Result.fail(
                 Errors.not_found(f"Entity {entity_uid} not found or not owned by {owner_uid}")
@@ -194,7 +194,7 @@ class UnifiedSharingService:
             user_uid=user_uid,
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         records = result.value or []
         if not records:
             return Result.fail(Errors.not_found(resource="Entity", identifier=entity_uid))
@@ -230,7 +230,7 @@ class UnifiedSharingService:
         """
         result = await self.backend.query_shareable_status(entity_uid=entity_uid)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         records = result.value or []
         if not records:
             return Result.fail(Errors.not_found(resource="Entity", identifier=entity_uid))
@@ -250,7 +250,7 @@ class UnifiedSharingService:
         """Get list of users an entity is shared with."""
         result = await self.backend.query_shared_with_users(entity_uid=entity_uid)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         return Result.ok(result.value or [])
 
     async def get_shared_with_me(
@@ -261,7 +261,7 @@ class UnifiedSharingService:
         """Get entities shared with a specific user."""
         result = await self.backend.query_shared_with_me(user_uid=user_uid, limit=limit)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         entities = [SubmissionDTO.from_dict(record["ku"]) for record in (result.value or [])]
         return Result.ok(entities)
 
@@ -288,7 +288,7 @@ class UnifiedSharingService:
             shared_at=datetime.now().isoformat(),
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         if not result.value:
             return Result.fail(
                 Errors.not_found(f"Entity {entity_uid} or Group {group_uid} not found")
@@ -314,7 +314,7 @@ class UnifiedSharingService:
             group_uid=group_uid,
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         records = result.value or []
         deleted_count = records[0]["deleted_count"] if records else 0
         if deleted_count == 0:
@@ -333,7 +333,7 @@ class UnifiedSharingService:
         """Get groups an entity is shared with."""
         result = await self.backend.query_groups_shared_with(entity_uid=entity_uid)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         return Result.ok(result.value or [])
 
     async def get_shared_with_me_via_groups(
@@ -344,7 +344,7 @@ class UnifiedSharingService:
         """Get entities shared with a user through group membership."""
         result = await self.backend.query_shared_with_me_via_groups(user_uid=user_uid, limit=limit)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         records = result.value or []
         entities = [
             {
@@ -376,7 +376,7 @@ class UnifiedSharingService:
         """
         result = await self.backend.query_ownership_and_status(entity_uid=entity_uid)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         records = result.value or []
         if not records:
             return Result.fail(Errors.not_found(resource="Entity", identifier=entity_uid))

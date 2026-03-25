@@ -279,7 +279,7 @@ class FinanceCoreService:
         # Get current expense for validation and event tracking
         current_result = await self.get(uid)
         if current_result.is_error:
-            return Result.fail(current_result.expect_error())
+            return Result.fail(current_result)
 
         current = current_result.value
         if not current:
@@ -342,7 +342,7 @@ class FinanceCoreService:
         # Get expense details before deletion for event publishing
         expense_result = await self.get(uid)
         if expense_result.is_error:
-            return Result.fail(expense_result.expect_error())
+            return Result.fail(expense_result)
 
         # Delete via backend
         result = await self.backend.delete(uid, cascade=cascade)

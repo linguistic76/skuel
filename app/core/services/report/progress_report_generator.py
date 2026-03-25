@@ -117,7 +117,7 @@ class ProgressReportGenerator:
         # within MIN_REPORT_COOLDOWN_MINUTES. Prevents rapid-fire LLM calls.
         cooldown_result = await self._check_cooldown(user_uid)
         if cooldown_result.is_error:
-            return Result.fail(cooldown_result.expect_error())
+            return Result.fail(cooldown_result)
 
         days = ReportTimePeriod.DAYS.get(time_period, ReportTimePeriod.DEFAULT_DAYS)
         end_date = datetime.now()
@@ -212,7 +212,7 @@ class ProgressReportGenerator:
 
             create_result = await self.activity_report_service.persist(report)
             if create_result.is_error:
-                return Result.fail(create_result.expect_error())
+                return Result.fail(create_result)
 
             # 6. Publish event
             event = SubmissionCreated(

@@ -195,7 +195,7 @@ class LearningAlignmentBridge[T, DTO, Request]:
         if self._prerequisite_validator:
             validation_result = self._prerequisite_validator(request, context)
             if validation_result.is_error:
-                return Result.fail(validation_result.expect_error())
+                return Result.fail(validation_result)
 
         # Step 1: Create entity via backend (delegate to service's existing creation logic)
         # NOTE: We rely on the service to have a standard create method that accepts the request
@@ -322,7 +322,7 @@ class LearningAlignmentBridge[T, DTO, Request]:
                 self.logger.warning(
                     f"Batch creation failed at index {i}/{len(requests)}: {result.error}"
                 )
-                return Result.fail(result.expect_error())
+                return Result.fail(result)
 
             created_entities.append(result.value)
 

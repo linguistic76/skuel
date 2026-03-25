@@ -261,7 +261,7 @@ class RelationshipOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
 
         result = await self.backend.execute_query(query, params)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         entities = self._records_to_domain_models(result.value)
         self.logger.debug(f"Found {len(entities)} prerequisites for {uid}")
@@ -304,7 +304,7 @@ class RelationshipOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
 
         result = await self.backend.execute_query(query, params)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         entities = self._records_to_domain_models(result.value)
         self.logger.debug(f"Found {len(entities)} entities enabled by {uid}")
@@ -340,7 +340,7 @@ class RelationshipOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         # Validate
         validation = self._validate_prerequisites(entity_uid, [prerequisite_uid])
         if validation:
-            return Result.fail(validation.expect_error())
+            return Result.fail(validation)
 
         # Use first prerequisite relationship type
         rel_type = self._prerequisite_relationships[0]
@@ -385,7 +385,7 @@ class RelationshipOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
 
         result = await self.backend.execute_query(query, params)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         records = result.value
         if not records:

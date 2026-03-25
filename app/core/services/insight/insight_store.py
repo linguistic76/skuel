@@ -839,7 +839,7 @@ class InsightStore:
 
         result = await self.get_active_insights(user_uid=user_uid, limit=200)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         insights = result.value
 
@@ -898,7 +898,7 @@ class InsightStore:
         """
         result = await self.get_active_insights(user_uid=user_uid, limit=200)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         insights = result.value
 
@@ -954,7 +954,7 @@ class InsightStore:
 
         result = await self.get_active_insights(user_uid=user_uid, limit=200)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         insights = result.value
 
@@ -1004,7 +1004,7 @@ class InsightStore:
 
         result = await self.get_active_insights(user_uid=user_uid, limit=200)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         insights = result.value
 
@@ -1059,7 +1059,7 @@ class InsightStore:
         """
         stats_result = await self.get_insight_stats(user_uid)
         if stats_result.is_error:
-            return Result.fail(stats_result.expect_error())
+            return Result.fail(stats_result)
 
         stats = stats_result.value
         action_rate = stats.get("action_rate", 0) * 100

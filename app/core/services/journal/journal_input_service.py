@@ -72,7 +72,7 @@ class JournalInputService:
         # Generate sequential title
         title_result = await self.generate_journal_title(user_uid, effective_date)
         if title_result.is_error:
-            return Result.fail(title_result.expect_error())
+            return Result.fail(title_result)
 
         uid = UIDGenerator.generate_random_uid("ji")
 
@@ -100,7 +100,7 @@ class JournalInputService:
         create_result = await self.backend.create(entity)
         if create_result.is_error:
             logger.error(f"Failed to create JeInput: {create_result.error}")
-            return Result.fail(create_result.expect_error())
+            return Result.fail(create_result)
 
         je_input = create_result.value
 
@@ -138,7 +138,7 @@ class JournalInputService:
         # Generate sequential title
         title_result = await self.generate_journal_title(user_uid, effective_date)
         if title_result.is_error:
-            return Result.fail(title_result.expect_error())
+            return Result.fail(title_result)
 
         uid = UIDGenerator.generate_random_uid("ji")
 
@@ -185,7 +185,7 @@ class JournalInputService:
             # Clean up file on failure
             file_path.unlink(missing_ok=True)
             logger.error(f"Failed to create JeInput: {create_result.error}")
-            return Result.fail(create_result.expect_error())
+            return Result.fail(create_result)
 
         je_input = create_result.value
 
@@ -235,7 +235,7 @@ class JournalInputService:
             sort_order="desc",
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         entities, _total = result.value
         return Result.ok(entities)
@@ -253,7 +253,7 @@ class JournalInputService:
             end_date=end_date.isoformat(),
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         return Result.ok(
             [JeInput.from_dto(JeInputDTO.from_dict(record)) for record in result.value]
@@ -268,7 +268,7 @@ class JournalInputService:
         # Verify ownership
         get_result = await self.backend.get(uid)
         if get_result.is_error:
-            return Result.fail(get_result.expect_error())
+            return Result.fail(get_result)
         if get_result.value is None:
             return Result.fail(Errors.not_found(resource="JeInput", identifier=uid))
 
@@ -278,7 +278,7 @@ class JournalInputService:
 
         update_result = await self.backend.update(uid, {"max_retention": None})
         if update_result.is_error:
-            return Result.fail(update_result.expect_error())
+            return Result.fail(update_result)
 
         logger.info(f"JeInput made permanent: {uid}")
         return Result.ok(True)
@@ -288,7 +288,7 @@ class JournalInputService:
         # Verify ownership
         get_result = await self.backend.get(uid)
         if get_result.is_error:
-            return Result.fail(get_result.expect_error())
+            return Result.fail(get_result)
         if get_result.value is None:
             return Result.fail(Errors.not_found(resource="JeInput", identifier=uid))
 
@@ -308,7 +308,7 @@ class JournalInputService:
         # Delete Neo4j node
         delete_result = await self.backend.delete(uid, cascade=True)
         if delete_result.is_error:
-            return Result.fail(delete_result.expect_error())
+            return Result.fail(delete_result)
 
         if self.event_bus:
             await publish_event(
@@ -337,7 +337,7 @@ class JournalInputService:
             user_uid=user_uid, entry_date=effective_date.isoformat()
         )
         if count_result.is_error:
-            return Result.fail(count_result.expect_error())
+            return Result.fail(count_result)
 
         order = count_result.value + 1
         return Result.ok(JeInput.generate_title(user_uid, effective_date, order))

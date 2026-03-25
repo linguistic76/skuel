@@ -132,7 +132,7 @@ class SubmissionReportService:
 
             if llm_result.is_error:
                 self.logger.error(f"AI service error: {llm_result.error}")
-                return Result.fail(llm_result.expect_error())
+                return Result.fail(llm_result)
 
             feedback_text = llm_result.value
             self.logger.info(f"Report generated: {len(feedback_text)} chars")

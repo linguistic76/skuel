@@ -193,7 +193,7 @@ class TasksSchedulingService(BaseService["TasksOperations", Task]):
         # Create task in backend
         create_result = await self.backend.create(dto.to_dict())
         if create_result.is_error:
-            return Result.fail(create_result.expect_error())
+            return Result.fail(create_result)
 
         task = self._to_domain_model(create_result.value, TaskDTO, Task)
 
@@ -470,7 +470,7 @@ class TasksSchedulingService(BaseService["TasksOperations", Task]):
         # Create via backend
         create_result = await self.backend.create(task_dto.to_dict())
         if create_result.is_error:
-            return Result.fail(create_result.expect_error())
+            return Result.fail(create_result)
 
         task = self._to_domain_model(create_result.value, TaskDTO, Task)
 

@@ -104,7 +104,7 @@ class IntelligenceMixin:
         )
 
         if raw_result.is_error:
-            return Result.fail(raw_result.expect_error())
+            return Result.fail(raw_result)
 
         raw_context = raw_result.value
 
@@ -182,7 +182,7 @@ class IntelligenceMixin:
 
         entity_result = await get_method(uid)
         if entity_result.is_error:
-            return Result.fail(entity_result.expect_error())
+            return Result.fail(entity_result)
 
         if not entity_result.value:
             return Result.fail(Errors.not_found(f"{self.config.entity_label} {uid} not found"))
@@ -205,7 +205,7 @@ class IntelligenceMixin:
         )
 
         if graph_context_result.is_error:
-            return Result.fail(graph_context_result.expect_error())
+            return Result.fail(graph_context_result)
 
         self.logger.info(
             f"Retrieved {self.config.entity_label} {uid} with graph context: "
@@ -242,7 +242,7 @@ class IntelligenceMixin:
             )
         entity_result = await get_method(uid)
         if entity_result.is_error:
-            return Result.fail(entity_result.expect_error())
+            return Result.fail(entity_result)
 
         if not entity_result.value:
             return Result.fail(Errors.not_found(f"{self.config.entity_label} {uid} not found"))

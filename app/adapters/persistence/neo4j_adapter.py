@@ -447,7 +447,7 @@ class Neo4jAdapter:
             if validate:
                 validation_result = await self.validate_query(query, strict_mode=False)
                 if validation_result.is_error:
-                    return Result.fail(validation_result.expect_error())
+                    return Result.fail(validation_result)
 
                 validation = validation_result.value
                 if not validation.is_valid:

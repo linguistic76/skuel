@@ -171,7 +171,7 @@ class LifePathVisionService:
             themes_result = self._extract_themes_keywords(vision_statement)
 
         if themes_result.is_error:
-            return Result.fail(themes_result.expect_error())
+            return Result.fail(themes_result)
 
         themes = themes_result.value
         processing_time = int((time.time() - start_time) * 1000)
@@ -337,7 +337,7 @@ Focus on actionable aspirations, not generic words."""
         search_result = await self.lp_service.search.search(query=search_query, limit=limit * 2)
 
         if search_result.is_error:
-            return Result.fail(search_result.expect_error())
+            return Result.fail(search_result)
 
         lps = search_result.value
         recommendations = []

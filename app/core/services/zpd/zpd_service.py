@@ -118,7 +118,7 @@ class ZPDService:
         # Graph traversal: current zone + proximal zone + readiness data
         graph_result = await self._backend.get_zone_data(user_uid)
         if graph_result.is_error:
-            return Result.fail(graph_result.expect_error())
+            return Result.fail(graph_result)
 
         (
             current_zone,
@@ -187,7 +187,7 @@ class ZPDService:
         """
         assessment_result = await self.assess_zone(user_uid)
         if assessment_result.is_error:
-            return Result.fail(assessment_result.expect_error())
+            return Result.fail(assessment_result)
         assessment = assessment_result.value
         return Result.ok(assessment.top_proximal_ku_uids())
 
@@ -213,7 +213,7 @@ class ZPDService:
 
         engagement_result = await self._backend.get_targeted_ku_engagement(user_uid, ku_uids)
         if engagement_result.is_error:
-            return Result.fail(engagement_result.expect_error())
+            return Result.fail(engagement_result)
 
         task_engaged, journal_engaged, habit_engaged, submission_data = engagement_result.value
 
@@ -249,7 +249,7 @@ class ZPDService:
         """
         assessment_result = await self.assess_zone(user_uid)
         if assessment_result.is_error:
-            return Result.fail(assessment_result.expect_error())
+            return Result.fail(assessment_result)
         score = assessment_result.value.readiness_scores.get(ku_uid, 0.0)
         return Result.ok(score)
 

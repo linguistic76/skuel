@@ -61,7 +61,7 @@ class LsAIService(BaseAIService[LsOperations, LearningStep]):
         """Find semantically similar learning steps using embeddings."""
         ls_result = await self.backend.get(ls_uid)
         if ls_result.is_error:
-            return Result.fail(ls_result.expect_error())
+            return Result.fail(ls_result)
 
         ls = ls_result.value
         if not ls:
@@ -75,7 +75,7 @@ class LsAIService(BaseAIService[LsOperations, LearningStep]):
 
         all_steps_result = await self.backend.list(limit=200)
         if all_steps_result.is_error:
-            return Result.fail(all_steps_result.expect_error())
+            return Result.fail(all_steps_result)
 
         all_steps: list[LearningStep] = all_steps_result.value or []
         candidates = [
@@ -93,7 +93,7 @@ class LsAIService(BaseAIService[LsOperations, LearningStep]):
         """Generate an AI-powered explanation of a learning step."""
         ls_result = await self.backend.get(ls_uid)
         if ls_result.is_error:
-            return Result.fail(ls_result.expect_error())
+            return Result.fail(ls_result)
 
         ls = ls_result.value
         if not ls:
@@ -129,7 +129,7 @@ Focus on:
         """Suggest practice activities for a learning step."""
         ls_result = await self.backend.get(ls_uid)
         if ls_result.is_error:
-            return Result.fail(ls_result.expect_error())
+            return Result.fail(ls_result)
 
         ls = ls_result.value
         if not ls:
@@ -155,7 +155,7 @@ DESCRIPTION: [what to do]"""
 
         insight_result = await self._generate_insight(prompt, context=context, max_tokens=350)
         if insight_result.is_error:
-            return Result.fail(insight_result.expect_error())
+            return Result.fail(insight_result)
 
         response = insight_result.value
         activities = []
@@ -183,7 +183,7 @@ DESCRIPTION: [what to do]"""
         """Generate AI-written insight about a learning step."""
         ls_result = await self.backend.get(ls_uid)
         if ls_result.is_error:
-            return Result.fail(ls_result.expect_error())
+            return Result.fail(ls_result)
 
         ls = ls_result.value
         if not ls:

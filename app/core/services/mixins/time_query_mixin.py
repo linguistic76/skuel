@@ -144,7 +144,7 @@ class TimeQueryMixin[B: BackendOperations, T: DomainModelProtocol]:
 
         # Handle query errors
         if results.is_error:
-            return Result.fail(results.expect_error())
+            return Result.fail(results)
 
         # Convert to domain models using existing helper
         items = self._to_domain_models(results.value, dto_class, model_class)
@@ -290,7 +290,7 @@ class TimeQueryMixin[B: BackendOperations, T: DomainModelProtocol]:
 
         result = await self.backend.execute_query(query, params)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         # Convert to domain models
         items = self._to_domain_models(result.value, self._dto_class, self._model_class)
@@ -361,7 +361,7 @@ class TimeQueryMixin[B: BackendOperations, T: DomainModelProtocol]:
 
         result = await self.backend.execute_query(query, params)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         # Convert to domain models
         items = self._to_domain_models(result.value, self._dto_class, self._model_class)

@@ -113,7 +113,7 @@ class TasksPlanningService(BasePlanningService["TasksOperations", Task]):
             query, {"knowledge_uid": knowledge_uid, "user_uid": user_uid, "limit": limit}
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         tasks = [from_neo4j_node(record["t"], Task) for record in result.value]
         return Result.ok(tasks)

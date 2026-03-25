@@ -211,7 +211,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         result = await self.backend.get(uid)
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         submission = result.value
         if not submission:
@@ -242,7 +242,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         # Check access
         access_result = await self.sharing_service.check_access(uid, user_uid)
         if access_result.is_error:
-            return Result.fail(access_result.expect_error())
+            return Result.fail(access_result)
 
         if not access_result.value:
             return Result.fail(Errors.not_found("resource", f"Submission {uid} not found"))
@@ -272,7 +272,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         result = await self.backend.find_by(**filters)
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         submissions = result.value
         if not submissions:
@@ -322,7 +322,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
             return Result.ok([])
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         submissions = result.value or []
         # Sort by created_at descending
@@ -356,7 +356,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
 
         result = await self.backend.find_by(limit=limit, **filters)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         submissions = result.value or []
         submissions.sort(key=get_report_date, reverse=True)
@@ -409,7 +409,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         result = await self.backend.update(uid, filtered_updates)
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         updated = result.value
         if not updated:
@@ -434,7 +434,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         # Get submission for event data before deletion
         get_result = await self.backend.get(uid)
         if get_result.is_error:
-            return Result.fail(get_result.expect_error())
+            return Result.fail(get_result)
 
         submission = get_result.value
         if not submission:
@@ -444,7 +444,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         delete_result = await self.backend.delete(uid)
 
         if delete_result.is_error:
-            return Result.fail(delete_result.expect_error())
+            return Result.fail(delete_result)
 
         if delete_result.value:
             from core.models.user_owned_entity import UserOwnedEntity
@@ -473,7 +473,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         # Get current entity
         get_result = await self.backend.get(uid)
         if get_result.is_error:
-            return Result.fail(get_result.expect_error())
+            return Result.fail(get_result)
 
         submission = get_result.value
         if not submission:
@@ -497,7 +497,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         result = await self.backend.update(uid, {"status": status.value})
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         updated = result.value
         if not updated:
@@ -530,7 +530,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         # Get current submission to preserve metadata
         get_result = await self.backend.get(uid)
         if get_result.is_error:
-            return Result.fail(get_result.expect_error())
+            return Result.fail(get_result)
 
         submission = get_result.value
         if not submission:
@@ -577,7 +577,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
             return Result.ok([])
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         reports = result.value or []
         # Filter by category in metadata
@@ -604,7 +604,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         """
         get_result = await self.backend.get(uid)
         if get_result.is_error:
-            return Result.fail(get_result.expect_error())
+            return Result.fail(get_result)
 
         submission = get_result.value
         if not submission:
@@ -633,7 +633,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         """
         get_result = await self.backend.get(uid)
         if get_result.is_error:
-            return Result.fail(get_result.expect_error())
+            return Result.fail(get_result)
 
         submission = get_result.value
         if not submission:
@@ -684,7 +684,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
             return Result.ok([])
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         reports = result.value or []
         # Filter by tag in metadata
@@ -824,7 +824,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         """
         get_result = await self.backend.get(uid)
         if get_result.is_error:
-            return Result.fail(get_result.expect_error())
+            return Result.fail(get_result)
 
         submission = get_result.value
         if not submission:

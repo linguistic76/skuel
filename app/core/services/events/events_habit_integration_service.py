@@ -301,7 +301,7 @@ class EventsHabitIntegrationService:
 
         result = await self.backend.list(filters=filters)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         # Unpack tuple: backend.list() returns (events, total_count)
         events_list, _ = result.value
@@ -350,7 +350,7 @@ class EventsHabitIntegrationService:
 
         result = await self.backend.list(filters=filters)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         # Unpack tuple: backend.list() returns (events, total_count)
         events, _ = result.value
@@ -407,7 +407,7 @@ class EventsHabitIntegrationService:
 
         result = await self.backend.list(filters=filters)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         # Unpack tuple: backend.list() returns (events, total_count)
         events_list, _ = result.value
@@ -443,7 +443,7 @@ class EventsHabitIntegrationService:
         # Get the event
         result = await self.backend.get(event_uid)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         if not result.value:
             return Result.fail(Errors.not_found(resource="Event", identifier=event_uid))
@@ -459,7 +459,7 @@ class EventsHabitIntegrationService:
 
         update_result = await self.backend.update(event_uid, updates)
         if update_result.is_error:
-            return Result.fail(update_result.expect_error())
+            return Result.fail(update_result)
 
         # Publish CalendarEventCompleted event (event-driven architecture)
         from core.events import CalendarEventCompleted
@@ -483,7 +483,7 @@ class EventsHabitIntegrationService:
         # Fetch and return updated event
         updated_result = await self.backend.get(event_uid)
         if updated_result.is_error:
-            return Result.fail(updated_result.expect_error())
+            return Result.fail(updated_result)
 
         updated_event = to_domain_model(updated_result.value, EventDTO, Event)
         return Result.ok(updated_event)
@@ -506,7 +506,7 @@ class EventsHabitIntegrationService:
 
         result = await self.backend.update(event_uid, updates)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         # Publish CalendarEventUpdated event (event-driven architecture)
         from core.events import CalendarEventUpdated
@@ -523,7 +523,7 @@ class EventsHabitIntegrationService:
         # Fetch and return updated event
         updated_result = await self.backend.get(event_uid)
         if updated_result.is_error:
-            return Result.fail(updated_result.expect_error())
+            return Result.fail(updated_result)
 
         updated_event = to_domain_model(updated_result.value, EventDTO, Event)
         return Result.ok(updated_event)
@@ -646,7 +646,7 @@ class EventsHabitIntegrationService:
 
         result = await self.backend.list(filters=filters)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         # Unpack tuple: backend.list() returns (events, total_count)
         events, _ = result.value

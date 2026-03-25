@@ -138,7 +138,7 @@ class LessonIntelligenceService(BaseAnalyticsService[LessonOperations, Entity]):
         # Get KU first
         ku_result = await self.backend.get(uid)
         if ku_result.is_error:
-            return Result.fail(ku_result.expect_error())
+            return Result.fail(ku_result)
 
         ku = ku_result.value
         if not ku:
@@ -241,7 +241,7 @@ class LessonIntelligenceService(BaseAnalyticsService[LessonOperations, Entity]):
         context_result = await self.graph_intel.get_entity_context(entity_uid, GraphDepth.DEFAULT)
 
         if context_result.is_error:
-            return Result.fail(context_result.expect_error())
+            return Result.fail(context_result)
 
         context = context_result.value
 

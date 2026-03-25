@@ -59,7 +59,7 @@ class EventsAIService(BaseAIService["EventsOperations", Event]):
         """Find semantically similar events using embeddings."""
         event_result = await self.backend.get(event_uid)
         if event_result.is_error:
-            return Result.fail(event_result.expect_error())
+            return Result.fail(event_result)
 
         event = event_result.value
         if not event:
@@ -71,7 +71,7 @@ class EventsAIService(BaseAIService["EventsOperations", Event]):
 
         all_events_result = await self.backend.find_by(user_uid=event.user_uid)
         if all_events_result.is_error:
-            return Result.fail(all_events_result.expect_error())
+            return Result.fail(all_events_result)
 
         all_events = all_events_result.value or []
         candidates = [
@@ -89,7 +89,7 @@ class EventsAIService(BaseAIService["EventsOperations", Event]):
         """Generate AI-suggested preparation checklist for an event."""
         event_result = await self.backend.get(event_uid)
         if event_result.is_error:
-            return Result.fail(event_result.expect_error())
+            return Result.fail(event_result)
 
         event = event_result.value
         if not event:
@@ -111,7 +111,7 @@ Return only the checklist items, one per line. Be specific and practical."""
 
         insight_result = await self._generate_insight(prompt, context=context, max_tokens=250)
         if insight_result.is_error:
-            return Result.fail(insight_result.expect_error())
+            return Result.fail(insight_result)
 
         response = insight_result.value
         items = [
@@ -126,7 +126,7 @@ Return only the checklist items, one per line. Be specific and practical."""
         """Generate AI-written insight about an event."""
         event_result = await self.backend.get(event_uid)
         if event_result.is_error:
-            return Result.fail(event_result.expect_error())
+            return Result.fail(event_result)
 
         event = event_result.value
         if not event:
@@ -153,7 +153,7 @@ Keep it under 100 words."""
         """Generate reflection prompts for after an event."""
         event_result = await self.backend.get(event_uid)
         if event_result.is_error:
-            return Result.fail(event_result.expect_error())
+            return Result.fail(event_result)
 
         event = event_result.value
         if not event:
@@ -176,7 +176,7 @@ Format: One prompt per line, phrased as a question."""
 
         insight_result = await self._generate_insight(prompt, context=context, max_tokens=200)
         if insight_result.is_error:
-            return Result.fail(insight_result.expect_error())
+            return Result.fail(insight_result)
 
         response = insight_result.value
         prompts = [

@@ -885,7 +885,7 @@ async def ingest_bundle(
 
         manifest_result = parse_yaml_fn(manifest_path)
         if manifest_result.is_error:
-            return Result.fail(manifest_result.expect_error())
+            return Result.fail(manifest_result)
 
         manifest = manifest_result.value
         bundle_name = manifest.get("bundle_name", bundle_path.name)

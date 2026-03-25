@@ -230,7 +230,7 @@ class EventsSchedulingService(BaseService["EventsOperations", Event]):
         # Create event
         create_result = await self.backend.create(dto.to_dict())
         if create_result.is_error:
-            return Result.fail(create_result.expect_error())
+            return Result.fail(create_result)
 
         event = self._to_domain_model(create_result.value, EventDTO, Event)
 
@@ -478,7 +478,7 @@ class EventsSchedulingService(BaseService["EventsOperations", Event]):
             days_to_schedule=days_to_create,
         )
         if dates_result.is_error:
-            return Result.fail(dates_result.expect_error())
+            return Result.fail(dates_result)
 
         recommended_dates = dates_result.value
 
@@ -541,7 +541,7 @@ class EventsSchedulingService(BaseService["EventsOperations", Event]):
             event_date__lte=end_date.isoformat(),
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         events = result.value or []
 
@@ -591,7 +591,7 @@ class EventsSchedulingService(BaseService["EventsOperations", Event]):
             event_date__lte=end_date.isoformat(),
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         events = [e for e in (result.value or []) if e.status != EntityStatus.CANCELLED.value]
 

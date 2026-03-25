@@ -115,7 +115,7 @@ class LessonAIService(BaseAIService[LessonOperations, Lesson]):
         """
         lesson_result = await self.backend.get(lesson_uid)
         if lesson_result.is_error:
-            return Result.fail(lesson_result.expect_error())
+            return Result.fail(lesson_result)
 
         lesson = lesson_result.value
         if not lesson:
@@ -130,7 +130,7 @@ class LessonAIService(BaseAIService[LessonOperations, Lesson]):
         # Get all lessons in the same domain for comparison
         all_lessons_result = await self.backend.find_by(domain=lesson.domain)
         if all_lessons_result.is_error:
-            return Result.fail(all_lessons_result.expect_error())
+            return Result.fail(all_lessons_result)
 
         all_lessons = all_lessons_result.value or []
         candidates = [(a.uid, f"{a.title} {a.summary}") for a in all_lessons if a.uid != lesson_uid]
@@ -164,7 +164,7 @@ class LessonAIService(BaseAIService[LessonOperations, Lesson]):
             kus_result = await self.backend.list(limit=500)  # Reasonable limit
 
         if kus_result.is_error:
-            return Result.fail(kus_result.expect_error())
+            return Result.fail(kus_result)
 
         kus = kus_result.value or []
         if not kus:
@@ -224,7 +224,7 @@ class LessonAIService(BaseAIService[LessonOperations, Lesson]):
         # Generate query embedding
         query_embedding_result = await self.embeddings.create_embedding(query)
         if query_embedding_result.is_error:
-            return Result.fail(query_embedding_result.expect_error())
+            return Result.fail(query_embedding_result)
 
         query_embedding = query_embedding_result.value
 
@@ -304,7 +304,7 @@ class LessonAIService(BaseAIService[LessonOperations, Lesson]):
         """
         ku_result = await self.backend.get(ku_uid)
         if ku_result.is_error:
-            return Result.fail(ku_result.expect_error())
+            return Result.fail(ku_result)
 
         ku = ku_result.value
         if not ku:
@@ -349,7 +349,7 @@ Be concise and educational."""
         """
         ku_result = await self.backend.get(ku_uid)
         if ku_result.is_error:
-            return Result.fail(ku_result.expect_error())
+            return Result.fail(ku_result)
 
         ku = ku_result.value
         if not ku:
@@ -401,7 +401,7 @@ Keep the explanation under 200 words. Make it engaging and memorable."""
         """
         ku_result = await self.backend.get(ku_uid)
         if ku_result.is_error:
-            return Result.fail(ku_result.expect_error())
+            return Result.fail(ku_result)
 
         ku = ku_result.value
         if not ku:
@@ -429,7 +429,7 @@ NEXT: [topic name] - [why it follows naturally]"""
 
         insight_result = await self._generate_insight(prompt, context=context, max_tokens=400)
         if insight_result.is_error:
-            return Result.fail(insight_result.expect_error())
+            return Result.fail(insight_result)
 
         response = insight_result.value
         sequence: dict[str, Any] = {
@@ -481,7 +481,7 @@ NEXT: [topic name] - [why it follows naturally]"""
         """
         ku_result = await self.backend.get(ku_uid)
         if ku_result.is_error:
-            return Result.fail(ku_result.expect_error())
+            return Result.fail(ku_result)
 
         ku = ku_result.value
         if not ku:
@@ -511,7 +511,7 @@ REAL_WORLD: [scenario description]"""
 
         insight_result = await self._generate_insight(prompt, context=context, max_tokens=450)
         if insight_result.is_error:
-            return Result.fail(insight_result.expect_error())
+            return Result.fail(insight_result)
 
         response = insight_result.value
         applications: dict[str, Any] = {

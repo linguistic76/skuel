@@ -203,7 +203,7 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
             user_uid=user_uid, updated_at__gte=cutoff.isoformat()
         )
         if goals_result.is_error:
-            return Result.fail(goals_result.expect_error())
+            return Result.fail(goals_result)
 
         goals = goals_result.value or []
 
@@ -697,7 +697,7 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
         # Get goal
         goal_result = await self.backend.get(goal_uid)
         if goal_result.is_error:
-            return Result.fail(goal_result.expect_error())
+            return Result.fail(goal_result)
         if not goal_result.value:
             return Result.fail(Errors.not_found(resource="Goal", identifier=goal_uid))
         goal = goal_result.value
@@ -791,7 +791,7 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
 
         goal_result = await self.backend.get(goal_uid)
         if goal_result.is_error:
-            return Result.fail(goal_result.expect_error())
+            return Result.fail(goal_result)
         if not goal_result.value:
             return Result.fail(Errors.not_found(resource="Goal", identifier=goal_uid))
 
@@ -861,7 +861,7 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
         prediction_result = await self.predict_goal_success(goal_uid=goal_uid)
 
         if prediction_result.is_error:
-            return Result.fail(prediction_result.expect_error())
+            return Result.fail(prediction_result)
 
         prediction = prediction_result.value
 
@@ -901,7 +901,7 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
         # Get goal
         goal_result = await self.backend.get(goal_uid)
         if goal_result.is_error:
-            return Result.fail(goal_result.expect_error())
+            return Result.fail(goal_result)
         if not goal_result.value:
             return Result.fail(Errors.not_found(resource="Goal", identifier=goal_uid))
         goal = goal_result.value

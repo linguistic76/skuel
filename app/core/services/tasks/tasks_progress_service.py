@@ -337,7 +337,7 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
             # Fallback: Query Neo4j directly
             task_result = await self.backend.get(task_uid)
             if task_result.is_error:
-                return Result.fail(task_result.expect_error())
+                return Result.fail(task_result)
             task = self._to_domain_model(task_result.value, TaskDTO, Task)
             self.logger.debug(f"Task {task_uid} fetched from Neo4j (not in rich context)")
         else:
@@ -399,7 +399,7 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
 
         update_result = await self.backend.update(task_uid, updates)
         if update_result.is_error:
-            return Result.fail(update_result.expect_error())
+            return Result.fail(update_result)
 
         # CASCADE EFFECTS
 
@@ -543,7 +543,7 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
         """
         task_result = await self.backend.get(task_uid)
         if task_result.is_error:
-            return Result.fail(task_result.expect_error())
+            return Result.fail(task_result)
 
         # GRAPH-NATIVE: Fetch prerequisite relationships from graph
         prereq_knowledge_result = await self.backend.get_related_uids(
@@ -604,7 +604,7 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
         """
         prereq_result = await self.check_prerequisites(task_uid, user_context)
         if prereq_result.is_error:
-            return Result.fail(prereq_result.expect_error())
+            return Result.fail(prereq_result)
 
         if prereq_result.value["can_start"]:
             # Unblock the task
@@ -612,7 +612,7 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
                 task_uid, {"status": EntityStatus.SCHEDULED.value}
             )
             if update_result.is_error:
-                return Result.fail(update_result.expect_error())
+                return Result.fail(update_result)
 
             unblocked_task = self._to_domain_model(update_result.value, TaskDTO, Task)
 

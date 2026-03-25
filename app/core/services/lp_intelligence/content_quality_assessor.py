@@ -91,7 +91,7 @@ class ContentQualityAssessor:
 
         # Return error if metadata extraction failed
         if metadata_result.is_error:
-            return Result.fail(metadata_result.expect_error())
+            return Result.fail(metadata_result)
 
         metadata = metadata_result.value
 
@@ -144,7 +144,7 @@ class ContentQualityAssessor:
 
         # Return error if metadata extraction failed
         if ref_metadata_result.is_error:
-            return Result.fail(ref_metadata_result.expect_error())
+            return Result.fail(ref_metadata_result)
 
         ref_metadata = ref_metadata_result.value
 

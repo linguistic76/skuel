@@ -225,7 +225,7 @@ class QueryValidator:
         # First validate
         validation_result = await self.validate_only(cypher)
         if validation_result.is_error:
-            return Result.fail(validation_result.expect_error())
+            return Result.fail(validation_result)
 
         validation = validation_result.value
         if not validation.is_valid:

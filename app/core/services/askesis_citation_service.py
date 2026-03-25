@@ -338,7 +338,7 @@ class AskesisCitationService:
         )
 
         if bundle_result.is_error:
-            return Result.fail(bundle_result.expect_error())
+            return Result.fail(bundle_result)
 
         bundle = bundle_result.value
 
@@ -389,7 +389,7 @@ class AskesisCitationService:
         )
 
         if bundle_result.is_error:
-            return Result.fail(bundle_result.expect_error())
+            return Result.fail(bundle_result)
 
         bundle = bundle_result.value
 

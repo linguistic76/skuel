@@ -179,7 +179,7 @@ class JupyterNeo4jSync:
             # Check for conflicts
             conflict_check = await self._check_for_conflicts(uid, new_hash)
             if conflict_check.is_error:
-                return Result.fail(conflict_check.expect_error())
+                return Result.fail(conflict_check)
 
             # Update Neo4j (current schema)
             update_query = """
@@ -463,7 +463,7 @@ class JupyterNeo4jSync:
 
         result = await self.executor.execute_query(query, {"uid": uid})
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         records = result.value or []
         record = records[0] if records else None

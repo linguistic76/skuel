@@ -329,7 +329,7 @@ class ActivityReportService:
 
             create_result = await self.persist(feedback)
             if create_result.is_error:
-                return Result.fail(create_result.expect_error())
+                return Result.fail(create_result)
 
             logger.info(f"Activity review created: {feedback.uid} by {admin_uid} for {subject_uid}")
             return Result.ok(feedback)
@@ -378,7 +378,7 @@ class ActivityReportService:
             )
 
             if query_result.is_error:
-                return Result.fail(query_result.expect_error())
+                return Result.fail(query_result)
 
             records = query_result.value or []
             feedbacks = []
@@ -472,7 +472,7 @@ class ActivityReportService:
                 },
             )
             if result.is_error:
-                return Result.fail(result.expect_error())
+                return Result.fail(result)
             records = result.value or []
             if not records:
                 return Result.fail(
@@ -518,7 +518,7 @@ class ActivityReportService:
                 {"uid": uid, "user_uid": user_uid},
             )
             if result.is_error:
-                return Result.fail(result.expect_error())
+                return Result.fail(result)
             records = result.value or []
             if not records:
                 return Result.fail(

@@ -554,7 +554,7 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
         if habit is None:
             habit_result = await self.backend.get_habit(habit_uid)
             if habit_result.is_error:
-                return Result.fail(habit_result.expect_error())
+                return Result.fail(habit_result)
             if not habit_result.value:
                 return Result.fail(Errors.not_found(resource="Habit", identifier=habit_uid))
             habit = to_domain_model(habit_result.value, HabitDTO, Habit)

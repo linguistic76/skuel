@@ -418,7 +418,7 @@ class GraphAuthService:
             # First do the fast validation
             uid_result = await self.validate_session_uid(session_token)
             if uid_result.is_error:
-                return Result.fail(uid_result.expect_error())
+                return Result.fail(uid_result)
 
             user_uid = uid_result.value
             if not user_uid:
@@ -427,7 +427,7 @@ class GraphAuthService:
             # Fetch full user (only when explicitly needed)
             user_result = await self.user_backend.get_user_by_uid(user_uid)
             if user_result.is_error:
-                return Result.fail(user_result.expect_error())
+                return Result.fail(user_result)
 
             return Result.ok(user_result.value)
 

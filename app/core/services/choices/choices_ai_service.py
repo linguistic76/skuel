@@ -59,7 +59,7 @@ class ChoicesAIService(BaseAIService["ChoicesOperations", Choice]):
         """Find semantically similar past choices using embeddings."""
         choice_result = await self.backend.get(choice_uid)
         if choice_result.is_error:
-            return Result.fail(choice_result.expect_error())
+            return Result.fail(choice_result)
 
         choice = choice_result.value
         if not choice:
@@ -71,7 +71,7 @@ class ChoicesAIService(BaseAIService["ChoicesOperations", Choice]):
 
         all_choices_result = await self.backend.find_by(user_uid=choice.user_uid)
         if all_choices_result.is_error:
-            return Result.fail(all_choices_result.expect_error())
+            return Result.fail(all_choices_result)
 
         all_choices = all_choices_result.value or []
         candidates = [
@@ -87,7 +87,7 @@ class ChoicesAIService(BaseAIService["ChoicesOperations", Choice]):
         """Suggest a decision-making framework for this choice."""
         choice_result = await self.backend.get(choice_uid)
         if choice_result.is_error:
-            return Result.fail(choice_result.expect_error())
+            return Result.fail(choice_result)
 
         choice = choice_result.value
         if not choice or not isinstance(choice, Choice):
@@ -119,7 +119,7 @@ CONSIDERATION: [factor 2]"""
 
         insight_result = await self._generate_insight(prompt, context=context, max_tokens=350)
         if insight_result.is_error:
-            return Result.fail(insight_result.expect_error())
+            return Result.fail(insight_result)
 
         response = insight_result.value
         framework: dict[str, Any] = {
@@ -149,7 +149,7 @@ CONSIDERATION: [factor 2]"""
         """Generate alternative options for a choice."""
         choice_result = await self.backend.get(choice_uid)
         if choice_result.is_error:
-            return Result.fail(choice_result.expect_error())
+            return Result.fail(choice_result)
 
         choice = choice_result.value
         if not choice or not isinstance(choice, Choice):
@@ -177,7 +177,7 @@ TRADEOFF: [key downside or consideration]"""
 
         insight_result = await self._generate_insight(prompt, context=context, max_tokens=350)
         if insight_result.is_error:
-            return Result.fail(insight_result.expect_error())
+            return Result.fail(insight_result)
 
         response = insight_result.value
         alternatives = []
@@ -205,7 +205,7 @@ TRADEOFF: [key downside or consideration]"""
         """Generate AI-written insight about a choice."""
         choice_result = await self.backend.get(choice_uid)
         if choice_result.is_error:
-            return Result.fail(choice_result.expect_error())
+            return Result.fail(choice_result)
 
         choice = choice_result.value
         if not choice:

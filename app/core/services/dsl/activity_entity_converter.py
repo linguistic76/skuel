@@ -393,7 +393,7 @@ class ActivityEntityConverter:
         conversion_result = self.convert(activity, target_type)
 
         if conversion_result.is_error:
-            return Result.fail(conversion_result.expect_error())
+            return Result.fail(conversion_result)
 
         # Wrap in TypedConversionResult
         typed_result = TypedConversionResult(

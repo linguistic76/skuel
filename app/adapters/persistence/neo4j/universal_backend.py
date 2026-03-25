@@ -448,7 +448,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol](  # type: ignore[misc]  # Mi
         # Get entity first
         entity_result = await self.get(uid)
         if entity_result.is_error:
-            return Result.fail(entity_result.expect_error())
+            return Result.fail(entity_result)
 
         entity = entity_result.value
         if not entity:

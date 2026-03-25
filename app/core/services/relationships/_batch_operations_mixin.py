@@ -95,7 +95,7 @@ class BatchOperationsMixin:
         result = await self.backend.execute_query(query, params)
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         # Transform to dict
         return Result.ok(
@@ -156,7 +156,7 @@ class BatchOperationsMixin:
         result = await self.backend.execute_query(query, params)
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         return Result.ok(
             {str(record["entity_uid"]): record.get("count", 0) for record in result.value}
@@ -224,7 +224,7 @@ class BatchOperationsMixin:
         result = await self.backend.execute_query(query, params)
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         # Build mapping, filtering out None values from collect()
         return Result.ok(

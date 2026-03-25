@@ -149,7 +149,7 @@ class LsIntelligenceService(
         # LS is shared content - get overall stats
         ls_result = await self.backend.find_by()
         if ls_result.is_error:
-            return Result.fail(ls_result.expect_error())
+            return Result.fail(ls_result)
 
         all_steps = ls_result.value or []
         total_steps = len(all_steps)
@@ -185,7 +185,7 @@ class LsIntelligenceService(
         # Get learning step
         ls_result = await self.backend.get(uid)
         if ls_result.is_error:
-            return Result.fail(ls_result.expect_error())
+            return Result.fail(ls_result)
 
         ls = ls_result.value
         if not ls:
@@ -374,7 +374,7 @@ class LsIntelligenceService(
         """
         summary_result = await self.get_practice_summary(ls_uid)
         if summary_result.is_error:
-            return Result.fail(summary_result.expect_error())
+            return Result.fail(summary_result)
 
         summary = summary_result.value
         domains = ["habits", "tasks", "events", "goals", "principles", "choices"]

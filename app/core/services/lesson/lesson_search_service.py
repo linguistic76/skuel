@@ -213,7 +213,7 @@ class LessonSearchService(BaseService[LessonOperations, Entity]):
         # Delegate to inherited search method
         result = await self.search(search_term, limit=limit)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         # Convert Curriculum models to CurriculumDTOs for API compatibility
         dtos = self._convert_to_dtos(result.value)
@@ -247,7 +247,7 @@ class LessonSearchService(BaseService[LessonOperations, Entity]):
         # Use inherited search_by_tags from BaseService
         result = await super().search_by_tags(tags, match_all=match_all, limit=limit)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         # Convert to DTOs
         dtos = self._convert_to_dtos(result.value)
@@ -297,11 +297,11 @@ class LessonSearchService(BaseService[LessonOperations, Entity]):
         else:
             list_result = await self.backend.list(limit=limit)
             if list_result.is_error:
-                return Result.fail(list_result.expect_error())
+                return Result.fail(list_result)
             result = Result.ok(list_result.value[0])  # Unpack (entities, count) tuple
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         # Filter by tags if provided (post-filter for array matching)
         entities = result.value
@@ -560,7 +560,7 @@ class LessonSearchService(BaseService[LessonOperations, Entity]):
         result = await self.intelligence.search_by_features(features=features, limit=limit)
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         unit_uids = result.value
 
@@ -608,7 +608,7 @@ class LessonSearchService(BaseService[LessonOperations, Entity]):
         # Use inherited search method
         result = await self.search(query, limit=limit * 2)  # Get more for ranking
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         # Convert to DTOs
         dtos = self._convert_to_dtos(result.value[:limit])
@@ -656,7 +656,7 @@ class LessonSearchService(BaseService[LessonOperations, Entity]):
         # Execute search
         result = await self.search(query, limit=limit)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         # Convert to DTOs
         dtos = self._convert_to_dtos(result.value)

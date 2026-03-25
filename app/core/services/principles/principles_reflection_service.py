@@ -181,7 +181,7 @@ class PrinciplesReflectionService:
         # Persist to Neo4j
         create_result = await self.backend.create(dto.to_dict())
         if create_result.is_error:
-            return Result.fail(create_result.expect_error())
+            return Result.fail(create_result)
 
         reflection_uid = dto.uid
 
@@ -324,7 +324,7 @@ class PrinciplesReflectionService:
 
         result = await self.backend.execute_query(query, params)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         reflections = []
         for record in result.value:
@@ -372,7 +372,7 @@ class PrinciplesReflectionService:
 
         result = await self.backend.execute_query(query, params)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         reflections = []
         for record in result.value:
@@ -428,7 +428,7 @@ class PrinciplesReflectionService:
 
         result = await self.backend.execute_query(query, params)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         records = result.value
         if not records:
@@ -543,7 +543,7 @@ class PrinciplesReflectionService:
 
         result = await self.backend.execute_query(query, params)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         insights = []
         for record in result.value:
@@ -611,7 +611,7 @@ class PrinciplesReflectionService:
 
         result = await self.backend.execute_query(query, params)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         if not result.value:
             return Result.ok(
@@ -685,7 +685,7 @@ class PrinciplesReflectionService:
 
         result = await self.backend.execute_query(query, params)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         if not result.value:
             return Result.ok(

@@ -484,7 +484,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
         # Get goal details before deletion for event publishing
         goal_result = await self.get(uid)
         if goal_result.is_error:
-            return Result.fail(goal_result.expect_error())
+            return Result.fail(goal_result)
 
         goal = goal_result.value
 
@@ -526,7 +526,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
         """
         updates: GoalUpdatePayload = {"status": EntityStatus.ACTIVE.value}
         result = await self.update(uid, updates)
-        return Result.ok(True) if result.is_ok else Result.fail(result.expect_error())
+        return Result.ok(True) if result.is_ok else Result.fail(result)
 
     async def pause_goal(
         self, uid: str, reason: str = "Paused", until_date: str | None = None
@@ -556,7 +556,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
             goal.metadata.update(metadata_updates)
             await self.update(uid, {"metadata": goal.metadata})
 
-        return Result.ok(True) if result.is_ok else Result.fail(result.expect_error())
+        return Result.ok(True) if result.is_ok else Result.fail(result)
 
     async def complete_goal(
         self, uid: str, completion_notes: str = "", completion_date: str | None = None
@@ -589,7 +589,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
                 updates["metadata"] = goal.metadata
 
         result = await self.update(uid, updates)
-        return Result.ok(True) if result.is_ok else Result.fail(result.expect_error())
+        return Result.ok(True) if result.is_ok else Result.fail(result)
 
     async def archive_goal(self, uid: str, reason: str = "Archived") -> Result[bool]:
         """
@@ -613,7 +613,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
             updates["metadata"] = goal.metadata
 
         result = await self.update(uid, updates)
-        return Result.ok(True) if result.is_ok else Result.fail(result.expect_error())
+        return Result.ok(True) if result.is_ok else Result.fail(result)
 
     # ========================================================================
     # QUERY AND TIME-BASED OPERATIONS — Delegated to GoalsSearchService
@@ -645,7 +645,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
         # Get current goal to calculate metrics
         goal_result = await self.get(uid)
         if goal_result.is_error:
-            return Result.fail(goal_result.expect_error())
+            return Result.fail(goal_result)
 
         current_goal = goal_result.value
 

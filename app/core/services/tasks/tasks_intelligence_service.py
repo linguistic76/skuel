@@ -193,7 +193,7 @@ class TasksIntelligenceService(BaseAnalyticsService["TasksOperations", Task]):
         # Get task
         task_result = await self.backend.get(uid)
         if task_result.is_error:
-            return Result.fail(task_result.expect_error())
+            return Result.fail(task_result)
 
         task = task_result.value
         if not task:
@@ -258,7 +258,7 @@ class TasksIntelligenceService(BaseAnalyticsService["TasksOperations", Task]):
         tasks_result = await self.backend.find_by(user_uid=user_uid, status=CompletionStatus.DONE)
 
         if tasks_result.is_error:
-            return Result.fail(tasks_result.expect_error())
+            return Result.fail(tasks_result)
 
         tasks = tasks_result.value
         recent_tasks = [
@@ -319,7 +319,7 @@ class TasksIntelligenceService(BaseAnalyticsService["TasksOperations", Task]):
         tasks_result = await self.backend.find_by(user_uid=user_uid)
 
         if tasks_result.is_error:
-            return Result.fail(tasks_result.expect_error())
+            return Result.fail(tasks_result)
 
         all_tasks = tasks_result.value
         period_tasks = [task for task in all_tasks if task.created_at >= cutoff_date]

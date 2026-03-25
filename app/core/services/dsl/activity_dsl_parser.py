@@ -631,7 +631,7 @@ class ActivityDSLParser:
             # Parse contexts to EntityType/NonKuDomain (type-safe)
             contexts_result = self._parse_contexts(tags["context"])
             if contexts_result.is_error:
-                return Result.fail(contexts_result.expect_error())
+                return Result.fail(contexts_result)
 
             contexts = contexts_result.value
 

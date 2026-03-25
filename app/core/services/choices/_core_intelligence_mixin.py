@@ -180,7 +180,7 @@ class _CoreIntelligenceMixin:
         # Get choice
         choice_result = await self.backend.get(choice_uid)
         if choice_result.is_error:
-            return Result.fail(choice_result.expect_error())
+            return Result.fail(choice_result)
 
         if not choice_result.value:
             return Result.fail(Errors.not_found(resource="Choice", identifier=choice_uid))
@@ -201,7 +201,7 @@ class _CoreIntelligenceMixin:
             choice_uid, depth=depth, min_confidence=min_confidence
         )
         if context_result.is_error:
-            return Result.fail(context_result.expect_error())
+            return Result.fail(context_result)
 
         context_dict = context_result.value
 
@@ -411,7 +411,7 @@ class _CoreIntelligenceMixin:
         # Get choice
         choice_result = await self.backend.get(choice_uid)
         if choice_result.is_error:
-            return Result.fail(choice_result.expect_error())
+            return Result.fail(choice_result)
 
         if not choice_result.value:
             return Result.fail(Errors.not_found(resource="Choice", identifier=choice_uid))
@@ -431,7 +431,7 @@ class _CoreIntelligenceMixin:
             choice_uid, depth=depth, min_confidence=min_confidence
         )
         if context_result.is_error:
-            return Result.fail(context_result.expect_error())
+            return Result.fail(context_result)
 
         context_dict = context_result.value
 

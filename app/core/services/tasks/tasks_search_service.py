@@ -136,7 +136,7 @@ class TasksSearchService(BaseService["TasksOperations", Task]):
             knowledge_uid, RelationshipName.APPLIES_KNOWLEDGE, direction="incoming"
         )
         if task_uids_result.is_error:
-            return Result.fail(task_uids_result.expect_error())
+            return Result.fail(task_uids_result)
 
         task_uids = task_uids_result.value
 
@@ -172,7 +172,7 @@ class TasksSearchService(BaseService["TasksOperations", Task]):
         # Get user's tasks
         tasks_result = await self.backend.get_user_entities(user_uid)
         if tasks_result.is_error:
-            return Result.fail(tasks_result.expect_error())
+            return Result.fail(tasks_result)
 
         # Unpack tuple (entities, total_count) from get_user_entities
         entities, _total = tasks_result.value
@@ -230,7 +230,7 @@ class TasksSearchService(BaseService["TasksOperations", Task]):
         # Get all user's tasks
         tasks_result = await self.backend.get_user_entities(user_context.user_uid)
         if tasks_result.is_error:
-            return Result.fail(tasks_result.expect_error())
+            return Result.fail(tasks_result)
 
         # Unpack tuple (entities, total_count) from get_user_entities
         entities, _total = tasks_result.value
@@ -269,7 +269,7 @@ class TasksSearchService(BaseService["TasksOperations", Task]):
         # Get user's tasks
         tasks_result = await self.backend.get_user_entities(user_uid)
         if tasks_result.is_error:
-            return Result.fail(tasks_result.expect_error())
+            return Result.fail(tasks_result)
 
         # Unpack tuple (entities, total_count) from get_user_entities
         entities, _total = tasks_result.value
@@ -329,7 +329,7 @@ class TasksSearchService(BaseService["TasksOperations", Task]):
         # Get all tasks
         all_tasks_result = await self.backend.list(QueryLimit.COMPREHENSIVE)
         if all_tasks_result.is_error:
-            return Result.fail(all_tasks_result.expect_error())
+            return Result.fail(all_tasks_result)
 
         # Unpack tuple: backend.list() returns (tasks, total_count)
         tasks_data, _ = all_tasks_result.value
@@ -355,7 +355,7 @@ class TasksSearchService(BaseService["TasksOperations", Task]):
         # Get all tasks
         all_tasks_result = await self.backend.list(QueryLimit.COMPREHENSIVE)
         if all_tasks_result.is_error:
-            return Result.fail(all_tasks_result.expect_error())
+            return Result.fail(all_tasks_result)
 
         # Unpack tuple: backend.list() returns (tasks, total_count)
         tasks_data, _ = all_tasks_result.value
@@ -402,7 +402,7 @@ class TasksSearchService(BaseService["TasksOperations", Task]):
 
         result = await self.backend.execute_query(query, {"user_uid": user_uid, "limit": limit})
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         # Convert Neo4j records to domain models
         tasks = []
@@ -437,7 +437,7 @@ class TasksSearchService(BaseService["TasksOperations", Task]):
             knowledge_uid, RelationshipName.REQUIRES_KNOWLEDGE, direction="incoming"
         )
         if task_uids_result.is_error:
-            return Result.fail(task_uids_result.expect_error())
+            return Result.fail(task_uids_result)
 
         task_uids = task_uids_result.value
 
@@ -521,13 +521,13 @@ class TasksSearchService(BaseService["TasksOperations", Task]):
             # Use filtered search via backend
             result = await self.backend.find_by(limit=limit, **filters)
             if result.is_error:
-                return Result.fail(result.expect_error())
+                return Result.fail(result)
             tasks = self._to_domain_models(result.value, TaskDTO, Task)
         else:
             # Fall back to text search using cleaned query
             result = await self.search(parsed.text_query, limit=limit)
             if result.is_error:
-                return Result.fail(result.expect_error())
+                return Result.fail(result)
             tasks = result.value
 
         # Filter by user ownership if provided

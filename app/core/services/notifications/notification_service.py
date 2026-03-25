@@ -68,7 +68,7 @@ class NotificationService:
             },
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         if not result.value:
             return Result.fail(Errors.not_found(f"User {user_uid} not found"))
@@ -88,7 +88,7 @@ class NotificationService:
         """
         result = await self.backend.get_unread_count(user_uid)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         records = result.value
         count = records[0]["count"] if records else 0
@@ -113,7 +113,7 @@ class NotificationService:
         """
         result = await self.backend.get_notifications(user_uid, limit, include_read)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         items = [
             {
@@ -144,7 +144,7 @@ class NotificationService:
         """
         result = await self.backend.mark_read(notification_uid, user_uid)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         if not result.value:
             return Result.fail(Errors.not_found(f"Notification {notification_uid} not found"))
@@ -163,7 +163,7 @@ class NotificationService:
         """
         result = await self.backend.mark_all_read(user_uid)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         records = result.value
         count = records[0]["count"] if records else 0

@@ -162,7 +162,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
         # Get all principles for user
         principles_result = await self.backend.find_by(user_uid=user_uid)
         if principles_result.is_error:
-            return Result.fail(principles_result.expect_error())
+            return Result.fail(principles_result)
 
         all_principles = principles_result.value or []
         principles: list[Principle] = [p for p in all_principles if isinstance(p, Principle)]
@@ -651,7 +651,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
         # Step 1: Get principle
         principle_result = await self.backend.get(principle_uid)
         if principle_result.is_error:
-            return Result.fail(principle_result.expect_error())  # P3: Type-safe error propagation
+            return Result.fail(principle_result)  # P3: Type-safe error propagation
 
         principle = principle_result.value
 
@@ -671,7 +671,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
 
         context_result = await self.relationships.get_cross_domain_context(principle_uid)
         if context_result.is_error:
-            return Result.fail(context_result.expect_error())
+            return Result.fail(context_result)
 
         context_dict = context_result.value
 
@@ -732,7 +732,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
         # Get user's principles
         principles_result = await self.backend.find_by(user_uid=user_uid)
         if principles_result.is_error:
-            return Result.fail(principles_result.expect_error())  # P3: Type-safe error propagation
+            return Result.fail(principles_result)  # P3: Type-safe error propagation
 
         principles: list[Principle] = [
             p for p in (principles_result.value or []) if isinstance(p, Principle)
@@ -1263,7 +1263,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
         )
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         if not result.value:
             return Result.ok(

@@ -230,7 +230,7 @@ class SubmissionsRelationshipService:
         """
         result = await self.backend.get_related_submission_uids(ku_uid)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         return Result.ok([r["uid"] for r in (result.value or []) if r["uid"]])
 
@@ -254,7 +254,7 @@ class SubmissionsRelationshipService:
 
         result = await self.backend.execute_query(cypher, {"ku_uid": ku_uid})
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         return Result.ok([r["uid"] for r in (result.value or []) if r["uid"]])
 
@@ -272,7 +272,7 @@ class SubmissionsRelationshipService:
         """
         result = await self.backend.get_submission_relationship_summary(ku_uid)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         records = result.value or []
         if not records:

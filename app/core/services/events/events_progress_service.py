@@ -141,7 +141,7 @@ class EventsProgressService(BaseService["EventsOperations", Event]):
         if event is None:
             event_result = await self.backend.get(event_uid)
             if event_result.is_error:
-                return Result.fail(event_result.expect_error())
+                return Result.fail(event_result)
             if not event_result.value:
                 return Result.fail(Errors.not_found(resource="Event", identifier=event_uid))
             event = self._to_domain_model(event_result.value, EventDTO, Event)
@@ -162,7 +162,7 @@ class EventsProgressService(BaseService["EventsOperations", Event]):
         # Update event
         update_result = await self.backend.update(event_uid, updates)
         if update_result.is_error:
-            return Result.fail(update_result.expect_error())
+            return Result.fail(update_result)
 
         # Publish CalendarEventCompleted event
         domain_event = CalendarEventCompleted(
@@ -213,7 +213,7 @@ class EventsProgressService(BaseService["EventsOperations", Event]):
             event_date__lte=today.isoformat(),
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         events = result.value or []
 
@@ -273,7 +273,7 @@ class EventsProgressService(BaseService["EventsOperations", Event]):
             status=EntityStatus.COMPLETED.value,
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         events = result.value or []
 
@@ -347,7 +347,7 @@ class EventsProgressService(BaseService["EventsOperations", Event]):
             status=EntityStatus.COMPLETED.value,
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         events = result.value or []
 
@@ -398,7 +398,7 @@ class EventsProgressService(BaseService["EventsOperations", Event]):
             event_date__gte=start_date.isoformat(),
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         events = result.value or []
 
@@ -455,7 +455,7 @@ class EventsProgressService(BaseService["EventsOperations", Event]):
             event_date__gte=start_date.isoformat(),
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         events = result.value or []
 

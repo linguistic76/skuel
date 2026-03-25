@@ -91,7 +91,7 @@ class FormSubmissionService(BaseService[FormSubmissionBackendOperations, FormSub
         # Fetch full template for validation (not just existence check)
         template_result = await self._get_template(form_template_uid)
         if template_result.is_error:
-            return Result.fail(template_result.expect_error())
+            return Result.fail(template_result)
         template = template_result.value
 
         # Validate form_data against template schema
@@ -243,7 +243,7 @@ class FormSubmissionService(BaseService[FormSubmissionBackendOperations, FormSub
         """Get a FormSubmission by UID, verifying ownership."""
         result: Result[FormSubmission | None] = await self.backend.get(uid)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         if result.value is None:
             return Result.fail(Errors.not_found(resource="FormSubmission", identifier=uid))
         # Ownership check — return 404 (not 403) per SKUEL pattern
@@ -266,12 +266,12 @@ class FormSubmissionService(BaseService[FormSubmissionBackendOperations, FormSub
         # Verify ownership first
         get_result = await self.get_submission(uid, user_uid)
         if get_result.is_error:
-            return Result.fail(get_result.expect_error())
+            return Result.fail(get_result)
 
         # cascade=True to remove OWNS + RESPONDS_TO_FORM relationships
         result = await self.backend.delete(uid, cascade=True)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         # Publish event
         await publish_event(
@@ -301,7 +301,7 @@ class FormSubmissionService(BaseService[FormSubmissionBackendOperations, FormSub
         # Verify ownership
         get_result = await self.get_submission(uid, user_uid)
         if get_result.is_error:
-            return Result.fail(get_result.expect_error())
+            return Result.fail(get_result)
 
         await self._share_on_submit(uid, user_uid, group_uid, recipient_uids, share_with_admin)
         return Result.ok(True)

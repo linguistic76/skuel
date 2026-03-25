@@ -94,7 +94,7 @@ class HabitsBackend(_HierarchyMixin, UniversalNeo4jBackend[Habit]):
         """Get habit by ID. Returns error if not found (contrast with get() → None)."""
         get_result: Result[Habit | None] = await self.get(habit_id)
         if get_result.is_error:
-            return Result.fail(get_result.expect_error())
+            return Result.fail(get_result)
         if not get_result.value:
             return Result.fail(Errors.not_found(resource="Habit", identifier=habit_id))
         return Result.ok(get_result.value)
@@ -105,7 +105,7 @@ class HabitsBackend(_HierarchyMixin, UniversalNeo4jBackend[Habit]):
             user_uid, limit=limit
         )
         if page_result.is_error:
-            return Result.fail(page_result.expect_error())
+            return Result.fail(page_result)
         habits, _ = page_result.value
         return Result.ok(habits)
 
@@ -117,7 +117,7 @@ class HabitsBackend(_HierarchyMixin, UniversalNeo4jBackend[Habit]):
         """Archive a habit by transitioning its status to 'archived'."""
         update_result: Result[Habit] = await self.update(habit_id, {"status": "archived"})
         if update_result.is_error:
-            return Result.fail(update_result.expect_error())
+            return Result.fail(update_result)
         return Result.ok(True)
 
     async def create_user_habit_relationship(self, user_uid: str, habit_uid: str) -> bool:
@@ -271,7 +271,7 @@ class HabitsBackend(_HierarchyMixin, UniversalNeo4jBackend[Habit]):
             },
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         return Result.ok(True)
 
     async def link_habit_to_principle(self, habit_uid: str, principle_uid: str) -> bool:
@@ -326,7 +326,7 @@ class GoalsBackend(_HierarchyMixin, UniversalNeo4jBackend[Goal]):
         """Get goal by ID. Returns error if not found (contrast with get() → None)."""
         get_result: Result[Goal | None] = await self.get(goal_id)
         if get_result.is_error:
-            return Result.fail(get_result.expect_error())
+            return Result.fail(get_result)
         if not get_result.value:
             return Result.fail(Errors.not_found(resource="Goal", identifier=goal_id))
         return Result.ok(get_result.value)
@@ -341,7 +341,7 @@ class GoalsBackend(_HierarchyMixin, UniversalNeo4jBackend[Goal]):
             user_uid, limit=limit
         )
         if page_result.is_error:
-            return Result.fail(page_result.expect_error())
+            return Result.fail(page_result)
         goals, _ = page_result.value
         return Result.ok(goals)
 
@@ -492,7 +492,7 @@ class TasksBackend(_HierarchyMixin, UniversalNeo4jBackend[Task]):
         """Get task by ID. Returns error if not found (contrast with get() → None)."""
         get_result: Result[Task | None] = await self.get(task_id)
         if get_result.is_error:
-            return Result.fail(get_result.expect_error())
+            return Result.fail(get_result)
         if not get_result.value:
             return Result.fail(Errors.not_found(resource="Task", identifier=task_id))
         return Result.ok(get_result.value)
@@ -770,7 +770,7 @@ class EventsBackend(_HierarchyMixin, UniversalNeo4jBackend[Event]):
         """Get event by ID. Returns error if not found (contrast with get() → None)."""
         get_result: Result[Event | None] = await self.get(event_id)
         if get_result.is_error:
-            return Result.fail(get_result.expect_error())
+            return Result.fail(get_result)
         if not get_result.value:
             return Result.fail(Errors.not_found(resource="Event", identifier=event_id))
         return Result.ok(get_result.value)
@@ -781,7 +781,7 @@ class EventsBackend(_HierarchyMixin, UniversalNeo4jBackend[Event]):
             user_uid, limit=limit
         )
         if page_result.is_error:
-            return Result.fail(page_result.expect_error())
+            return Result.fail(page_result)
         events, _ = page_result.value
         return Result.ok(events)
 
@@ -927,7 +927,7 @@ class ChoicesBackend(_HierarchyMixin, UniversalNeo4jBackend[Choice]):
         """Get choice by ID. Returns error if not found (contrast with get() → None)."""
         get_result: Result[Choice | None] = await self.get(choice_id)
         if get_result.is_error:
-            return Result.fail(get_result.expect_error())
+            return Result.fail(get_result)
         if not get_result.value:
             return Result.fail(Errors.not_found(resource="Choice", identifier=choice_id))
         return Result.ok(get_result.value)
@@ -938,7 +938,7 @@ class ChoicesBackend(_HierarchyMixin, UniversalNeo4jBackend[Choice]):
             user_uid, limit=limit
         )
         if page_result.is_error:
-            return Result.fail(page_result.expect_error())
+            return Result.fail(page_result)
         choices, _ = page_result.value
         return Result.ok(choices)
 
@@ -996,7 +996,7 @@ class PrinciplesBackend(_HierarchyMixin, UniversalNeo4jBackend[Principle]):
         """Get principle by ID. Returns error if not found (contrast with get() → None)."""
         get_result: Result[Principle | None] = await self.get(principle_uid)
         if get_result.is_error:
-            return Result.fail(get_result.expect_error())
+            return Result.fail(get_result)
         if not get_result.value:
             return Result.fail(Errors.not_found(resource="Principle", identifier=principle_uid))
         return Result.ok(get_result.value)
@@ -1007,7 +1007,7 @@ class PrinciplesBackend(_HierarchyMixin, UniversalNeo4jBackend[Principle]):
             user_uid, limit=limit
         )
         if page_result.is_error:
-            return Result.fail(page_result.expect_error())
+            return Result.fail(page_result)
         principles, _ = page_result.value
         return Result.ok(principles)
 
@@ -2200,7 +2200,7 @@ class LsBackend(UniversalNeo4jBackend[LearningStep]):
         """
         result = await self.execute_query(query, {"lesson_uid": lesson_uid})
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         records = result.value or []
         return Result.ok([record["ls_uid"] for record in records])
 
@@ -2234,7 +2234,7 @@ class LsBackend(UniversalNeo4jBackend[LearningStep]):
         """
         result = await self.execute_query(query, {"ls_uid": ls_uid, "user_uid": user_uid})
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         if not result.value:
             return Result.ok({"total_lessons": 0, "completed_lessons": 0})
         record = result.value[0]
@@ -2384,7 +2384,7 @@ class LpBackend(UniversalNeo4jBackend[LearningPath]):
         """
         result = await self.execute_query(query, {"ku_uid": ku_uid})
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         records = result.value or []
         return Result.ok([record["lp_uid"] for record in records])
 
@@ -2413,7 +2413,7 @@ class LpBackend(UniversalNeo4jBackend[LearningPath]):
         """
         result = await self.execute_query(query, {"lp_uid": lp_uid, "user_uid": user_uid})
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         records = result.value or []
         if not records:
             return Result.ok({})
@@ -2463,7 +2463,7 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
             {"exercise_uid": exercise_uid, "curriculum_uid": curriculum_uid},
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         records = result.value or []
         if not records:
             return Result.fail(
@@ -2496,7 +2496,7 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
             {"exercise_uid": exercise_uid, "curriculum_uid": curriculum_uid},
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         records = result.value or []
         if not records:
             return Result.fail(
@@ -2532,7 +2532,7 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
             {"exercise_uid": exercise_uid},
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         return Result.ok([dict(record) for record in (result.value or [])])
 
     async def create_owns_relationship(
@@ -2689,7 +2689,7 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
             {"uid": submission_uid},
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         records = result.value or []
         if not records:
             return Result.ok(None)
@@ -2724,7 +2724,7 @@ class RevisedExerciseBackend(UniversalNeo4jBackend["RevisedExercise"]):
             {"re_uid": re_uid, "report_uid": report_uid},
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         records = result.value or []
         if not records:
             return Result.fail(
@@ -2748,7 +2748,7 @@ class RevisedExerciseBackend(UniversalNeo4jBackend["RevisedExercise"]):
             {"re_uid": re_uid, "exercise_uid": exercise_uid},
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         records = result.value or []
         if not records:
             return Result.fail(
@@ -2896,7 +2896,7 @@ class RevisedExerciseBackend(UniversalNeo4jBackend["RevisedExercise"]):
             {"exercise_uid": exercise_uid},
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         return Result.ok([dict(record) for record in (result.value or [])])
 
 
@@ -2946,7 +2946,7 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
             },
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         return Result.ok(result.value or [])
 
     async def delete_share(
@@ -2964,7 +2964,7 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
             {"recipient_uid": recipient_uid, "entity_uid": entity_uid},
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         return Result.ok(result.value or [])
 
     async def update_visibility(
@@ -2989,7 +2989,7 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
             },
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         return Result.ok(result.value or [])
 
     async def query_access(
@@ -3012,7 +3012,7 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
             {"entity_uid": entity_uid, "user_uid": user_uid},
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         return Result.ok(result.value or [])
 
     async def query_shareable_status(
@@ -3028,7 +3028,7 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
             {"entity_uid": entity_uid},
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         return Result.ok(result.value or [])
 
     async def query_ownership_and_status(
@@ -3046,7 +3046,7 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
             {"entity_uid": entity_uid},
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         return Result.ok(result.value or [])
 
     async def query_shared_with_users(
@@ -3067,7 +3067,7 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
             {"entity_uid": entity_uid},
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         return Result.ok(result.value or [])
 
     async def query_shared_with_me(
@@ -3089,7 +3089,7 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
             {"user_uid": user_uid, "limit": limit},
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         return Result.ok(result.value or [])
 
     async def create_group_share(
@@ -3117,7 +3117,7 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
             },
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         return Result.ok(result.value or [])
 
     async def delete_group_share(
@@ -3135,7 +3135,7 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
             {"entity_uid": entity_uid, "group_uid": group_uid},
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         return Result.ok(result.value or [])
 
     async def query_groups_shared_with(
@@ -3155,7 +3155,7 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
             {"entity_uid": entity_uid},
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         return Result.ok(result.value or [])
 
     async def query_shared_with_me_via_groups(
@@ -3180,7 +3180,7 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
             {"user_uid": user_uid, "limit": limit},
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         return Result.ok(result.value or [])
 
 
@@ -3219,7 +3219,7 @@ class FormTemplateBackend(UniversalNeo4jBackend["FormTemplate"]):
             {"lesson_uid": lesson_uid},
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         return Result.ok([dict(record["ft"]) for record in (result.value or [])])
 
     async def link_to_lesson(self, form_template_uid: str, lesson_uid: str) -> Result[bool]:
@@ -3236,7 +3236,7 @@ class FormTemplateBackend(UniversalNeo4jBackend["FormTemplate"]):
             {"lesson_uid": lesson_uid, "ft_uid": form_template_uid},
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         records = result.value or []
         if not records:
             return Result.fail(
@@ -3260,7 +3260,7 @@ class FormTemplateBackend(UniversalNeo4jBackend["FormTemplate"]):
             {"lesson_uid": lesson_uid, "ft_uid": form_template_uid},
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         return Result.ok(True)
 
 
@@ -3284,7 +3284,7 @@ class FormSubmissionBackend(UniversalNeo4jBackend["FormSubmission"]):
             {"admin_role": admin_role},
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         if not result.value:
             return Result.ok(None)
         return Result.ok(result.value[0]["uid"])
@@ -3304,7 +3304,7 @@ class FormSubmissionBackend(UniversalNeo4jBackend["FormSubmission"]):
             {"ft_uid": form_template_uid},
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         return Result.ok([dict(record["fs"]) for record in (result.value or [])])
 
     async def create_with_relationships(
@@ -3334,7 +3334,7 @@ class FormSubmissionBackend(UniversalNeo4jBackend["FormSubmission"]):
             {"props": node_data, "user_uid": user_uid, "ft_uid": form_template_uid},
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         records = result.value or []
         if not records:
             return Result.fail(
@@ -3354,7 +3354,7 @@ class FormSubmissionBackend(UniversalNeo4jBackend["FormSubmission"]):
             {"user_uid": user_uid, "limit": limit},
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         return Result.ok([dict(record["fs"]) for record in (result.value or [])])
 
 
@@ -3518,7 +3518,7 @@ class GroupBackend(UniversalNeo4jBackend["Group"]):
             {"teacher_uid": teacher_uid, "group_uid": group_uid},
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         return Result.ok(True)
 
     async def get_user_groups(self, user_uid: str) -> Result[list[Neo4jProperties]]:
@@ -3533,7 +3533,7 @@ class GroupBackend(UniversalNeo4jBackend["Group"]):
             {"user_uid": user_uid},
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         return Result.ok([dict(record["group"]) for record in (result.value or [])])
 
     async def add_member(
@@ -3561,7 +3561,7 @@ class GroupBackend(UniversalNeo4jBackend["Group"]):
             },
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         return Result.ok(result.value or [])
 
     async def remove_member(self, group_uid: str, user_uid: str) -> Result[list[Neo4jProperties]]:
@@ -3575,7 +3575,7 @@ class GroupBackend(UniversalNeo4jBackend["Group"]):
             {"user_uid": user_uid, "group_uid": group_uid},
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         return Result.ok(result.value or [])
 
     async def get_members(self, group_uid: str) -> Result[list[Neo4jProperties]]:
@@ -3592,7 +3592,7 @@ class GroupBackend(UniversalNeo4jBackend["Group"]):
             {"group_uid": group_uid},
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         return Result.ok(result.value or [])
 
     async def get_member_count(self, group_uid: str) -> Result[int]:
@@ -3605,7 +3605,7 @@ class GroupBackend(UniversalNeo4jBackend["Group"]):
             {"group_uid": group_uid},
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
         records = result.value or []
         count = records[0]["member_count"] if records else 0
         return Result.ok(count)

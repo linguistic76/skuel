@@ -101,7 +101,7 @@ class HabitsAIService(BaseAIService[HabitsOperations, Habit]):
         """
         habit_result = await self.backend.get(habit_uid)
         if habit_result.is_error:
-            return Result.fail(habit_result.expect_error())
+            return Result.fail(habit_result)
 
         habit = habit_result.value
         if not habit:
@@ -115,7 +115,7 @@ class HabitsAIService(BaseAIService[HabitsOperations, Habit]):
 
         all_habits_result = await self.backend.find_by(user_uid=habit.user_uid)
         if all_habits_result.is_error:
-            return Result.fail(all_habits_result.expect_error())
+            return Result.fail(all_habits_result)
 
         all_habits = all_habits_result.value or []
         candidates = [
@@ -147,7 +147,7 @@ class HabitsAIService(BaseAIService[HabitsOperations, Habit]):
         """
         habit_result = await self.backend.get(habit_uid)
         if habit_result.is_error:
-            return Result.fail(habit_result.expect_error())
+            return Result.fail(habit_result)
 
         habit = habit_result.value
         if not habit:
@@ -196,7 +196,7 @@ Keep it under 100 words. Be warm but not over-the-top."""
         """
         habit_result = await self.backend.get(habit_uid)
         if habit_result.is_error:
-            return Result.fail(habit_result.expect_error())
+            return Result.fail(habit_result)
 
         habit = habit_result.value
         if not habit:
@@ -227,7 +227,7 @@ WHY: [brief explanation]"""
 
         insight_result = await self._generate_insight(prompt, context=context, max_tokens=350)
         if insight_result.is_error:
-            return Result.fail(insight_result.expect_error())
+            return Result.fail(insight_result)
 
         response = insight_result.value
         stacks = []
@@ -275,7 +275,7 @@ WHY: [brief explanation]"""
         """
         habit_result = await self.backend.get(habit_uid)
         if habit_result.is_error:
-            return Result.fail(habit_result.expect_error())
+            return Result.fail(habit_result)
 
         habit = habit_result.value
         if not habit:
@@ -308,7 +308,7 @@ OVERALL_TIP: [one key insight for this habit]"""
 
         insight_result = await self._generate_insight(prompt, context=context, max_tokens=450)
         if insight_result.is_error:
-            return Result.fail(insight_result.expect_error())
+            return Result.fail(insight_result)
 
         response = insight_result.value
         optimization: dict[str, Any] = {
@@ -361,7 +361,7 @@ OVERALL_TIP: [one key insight for this habit]"""
         """
         habit_result = await self.backend.get(habit_uid)
         if habit_result.is_error:
-            return Result.fail(habit_result.expect_error())
+            return Result.fail(habit_result)
 
         habit = habit_result.value
         if not habit:
@@ -392,7 +392,7 @@ MANTRA: [short motivational phrase]"""
 
         insight_result = await self._generate_insight(prompt, context=context, max_tokens=300)
         if insight_result.is_error:
-            return Result.fail(insight_result.expect_error())
+            return Result.fail(insight_result)
 
         response = insight_result.value
         identity: dict[str, Any] = {

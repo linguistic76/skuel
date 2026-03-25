@@ -277,7 +277,7 @@ class EventsSearchService(BaseService["EventsOperations", Event]):
 
         result = await self.backend.execute_query(cypher_query, params)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         # Convert to Events using inherited helper
         events = self._to_domain_models([record["e"] for record in result.value], EventDTO, Event)
@@ -322,7 +322,7 @@ class EventsSearchService(BaseService["EventsOperations", Event]):
 
         result = await self.backend.execute_query(cypher_query, params)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         # Convert to Events using inherited helper
         events = self._to_domain_models([record["e"] for record in result.value], EventDTO, Event)
@@ -377,7 +377,7 @@ class EventsSearchService(BaseService["EventsOperations", Event]):
         # First get the target event
         event_result = await self.backend.get(event_uid)
         if event_result.is_error:
-            return Result.fail(event_result.expect_error())
+            return Result.fail(event_result)
 
         event = self._to_domain_model(event_result.value, EventDTO, Event)
 
@@ -403,7 +403,7 @@ class EventsSearchService(BaseService["EventsOperations", Event]):
             },
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         # Convert and check for time overlap
         conflicts = []
@@ -527,7 +527,7 @@ class EventsSearchService(BaseService["EventsOperations", Event]):
             },
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         # Convert to Events
         events = []
@@ -697,12 +697,12 @@ class EventsSearchService(BaseService["EventsOperations", Event]):
                 # For past events, fetch all and filter to completed
                 result = await self.get_in_range(start_date, end_date, user_uid, limit)
                 if result.is_error:
-                    return Result.fail(result.expect_error())
+                    return Result.fail(result)
                 events = [e for e in result.value if e.status == EntityStatus.COMPLETED]
             else:
                 result = await self.get_in_range(start_date, end_date, user_uid, limit)
                 if result.is_error:
-                    return Result.fail(result.expect_error())
+                    return Result.fail(result)
                 events = result.value
         else:
             # No date range - use filters or text search
@@ -720,12 +720,12 @@ class EventsSearchService(BaseService["EventsOperations", Event]):
             if filters:
                 result = await self.backend.find_by(limit=limit, **filters)
                 if result.is_error:
-                    return Result.fail(result.expect_error())
+                    return Result.fail(result)
                 events = self._to_domain_models(result.value, EventDTO, Event)
             else:
                 result = await self.search(parsed.text_query, limit=limit)
                 if result.is_error:
-                    return Result.fail(result.expect_error())
+                    return Result.fail(result)
                 events = result.value
 
             # Filter by user ownership if provided

@@ -356,12 +356,12 @@ class UnifiedIngestionService:
         if file_format == "markdown":
             parse_result = parse_markdown(file_path, self.max_file_size_bytes)
             if parse_result.is_error:
-                return Result.fail(parse_result.expect_error())
+                return Result.fail(parse_result)
             data, body = parse_result.value
         else:  # yaml
             parse_result = parse_yaml(file_path, self.max_file_size_bytes)
             if parse_result.is_error:
-                return Result.fail(parse_result.expect_error())
+                return Result.fail(parse_result)
             data = parse_result.value
             body = None
 
@@ -369,7 +369,7 @@ class UnifiedIngestionService:
         if is_edge_type(data):
             validation = validate_edge_data(data)
             if validation.is_error:
-                return Result.fail(validation.expect_error())
+                return Result.fail(validation)
             prepared = prepare_edge_data(data, file_path)
             return await self.ingest_edge(prepared)
 
@@ -387,7 +387,7 @@ class UnifiedIngestionService:
         # Validate required fields before preparation (early fail-fast)
         validation_result = validate_required_fields(entity_type, data, file_path)
         if validation_result.is_error:
-            return Result.fail(validation_result.expect_error())
+            return Result.fail(validation_result)
 
         # Prepare entity data (async path generates embeddings if service available)
         entity_data = await prepare_entity_data_async(
@@ -402,7 +402,7 @@ class UnifiedIngestionService:
         # Validate entity data after preparation (ensures auto-generated fields present)
         validation_result = validate_entity_data(entity_type, entity_data, file_path)
         if validation_result.is_error:
-            return Result.fail(validation_result.expect_error())
+            return Result.fail(validation_result)
 
         # For Lesson: pop content before Neo4j storage — content lives on :Content node, not :Entity node
         ku_content_body = ""
@@ -422,7 +422,7 @@ class UnifiedIngestionService:
         )
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         stats = result.value
         self.logger.info(f"Ingested {entity_type.value}: {entity_data['uid']}")

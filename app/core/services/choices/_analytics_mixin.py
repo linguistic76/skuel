@@ -255,7 +255,7 @@ class _AnalyticsMixin:
         )
 
         if choices_result.is_error:
-            return Result.fail(choices_result.expect_error())
+            return Result.fail(choices_result)
 
         choices = choices_result.value
 
@@ -374,7 +374,7 @@ class _AnalyticsMixin:
         )
 
         if choices_result.is_error:
-            return Result.fail(choices_result.expect_error())
+            return Result.fail(choices_result)
 
         choices = choices_result.value
 
@@ -442,7 +442,7 @@ class _AnalyticsMixin:
         )
 
         if choices_result.is_error:
-            return Result.fail(choices_result.expect_error())
+            return Result.fail(choices_result)
 
         choices = choices_result.value
 

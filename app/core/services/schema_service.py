@@ -408,7 +408,7 @@ class Neo4jSchemaService:
         # Get counts for each label using pure Cypher
         labels_result = await self._get_node_labels()
         if labels_result.is_error:
-            return Result.fail(labels_result.expect_error())
+            return Result.fail(labels_result)
 
         stats: dict[str, Any] = {"labels": {}, "relationshipTypes": {}}
 
@@ -422,7 +422,7 @@ class Neo4jSchemaService:
         # Get relationship type counts
         rel_types_result = await self._get_relationship_types()
         if rel_types_result.is_error:
-            return Result.fail(rel_types_result.expect_error())
+            return Result.fail(rel_types_result)
 
         for rel_type in rel_types_result.value:
             count_query = f"MATCH ()-[r:`{rel_type}`]->() RETURN count(r) as count"
@@ -533,7 +533,7 @@ class Neo4jSchemaService:
         # Get schema context
         context_result = await self.get_schema_context()
         if context_result.is_error:
-            return Result.fail(context_result.expect_error())
+            return Result.fail(context_result)
 
         # Get stats
         stats_result = await self.get_schema_stats()

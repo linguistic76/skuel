@@ -187,7 +187,7 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
         # Get user's active habits
         result = await self.backend.list_by_user(user_uid=user_uid, limit=100)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         habits = result.value or []
         active_habits = [h for h in habits if h.status.value == "active"]
@@ -324,7 +324,7 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
                 proposed_duration=habit_data.duration_minutes,
             )
             if capacity_result.is_error:
-                return Result.fail(capacity_result.expect_error())
+                return Result.fail(capacity_result)
 
             capacity = capacity_result.value
             if not capacity["can_add_habit"]:
@@ -368,7 +368,7 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
 
         create_result = await self.backend.create_habit(request_dict)
         if create_result.is_error:
-            return Result.fail(create_result.expect_error())
+            return Result.fail(create_result)
 
         habit = self._to_domain_model(create_result.value, HabitDTO, Habit)
 
@@ -416,7 +416,7 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
             proposed_duration=habit_data.duration_minutes,
         )
         if capacity_result.is_error:
-            return Result.fail(capacity_result.expect_error())
+            return Result.fail(capacity_result)
 
         if not capacity_result.value["can_add_habit"]:
             return Result.fail(
@@ -480,7 +480,7 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
         # Get user's habits in same category
         result = await self.backend.list_by_user(user_uid=user_uid, limit=100)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         habits = result.value or []
         category_habits = [h for h in habits if h.category == category]
@@ -564,7 +564,7 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
         # Get the habit
         habit_result = await self.backend.get_habit(habit_uid)
         if habit_result.is_error:
-            return Result.fail(habit_result.expect_error())
+            return Result.fail(habit_result)
         if not habit_result.value:
             return Result.fail(Errors.not_found(resource="Habit", identifier=habit_uid))
 
@@ -686,7 +686,7 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
         # Get user's established habits
         result = await self.backend.list_by_user(user_uid=user_uid, limit=100)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         habits = result.value or []
 
@@ -799,7 +799,7 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
             proposed_duration=duration_minutes,
         )
         if capacity_result.is_error:
-            return Result.fail(capacity_result.expect_error())
+            return Result.fail(capacity_result)
 
         if not capacity_result.value["can_add_habit"]:
             return Result.fail(
@@ -828,7 +828,7 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
 
         create_result = await self.backend.create_habit(habit_dict)
         if create_result.is_error:
-            return Result.fail(create_result.expect_error())
+            return Result.fail(create_result)
 
         habit = self._to_domain_model(create_result.value, HabitDTO, Habit)
 
@@ -870,7 +870,7 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
         """
         result = await self.backend.list_by_user(user_uid=user_uid, limit=100)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         habits = result.value or []
         active_habits = [h for h in habits if h.status.value == "active"]

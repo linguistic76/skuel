@@ -101,7 +101,7 @@ class GoalsAIService(BaseAIService[GoalsOperations, Goal]):
         """
         goal_result = await self.backend.get(goal_uid)
         if goal_result.is_error:
-            return Result.fail(goal_result.expect_error())
+            return Result.fail(goal_result)
 
         goal = goal_result.value
         if not goal:
@@ -115,7 +115,7 @@ class GoalsAIService(BaseAIService[GoalsOperations, Goal]):
 
         all_goals_result = await self.backend.find_by(user_uid=goal.user_uid)
         if all_goals_result.is_error:
-            return Result.fail(all_goals_result.expect_error())
+            return Result.fail(all_goals_result)
 
         all_goals = all_goals_result.value or []
         candidates = [
@@ -150,7 +150,7 @@ class GoalsAIService(BaseAIService[GoalsOperations, Goal]):
         """
         goal_result = await self.backend.get(goal_uid)
         if goal_result.is_error:
-            return Result.fail(goal_result.expect_error())
+            return Result.fail(goal_result)
 
         goal = goal_result.value
         if not goal:
@@ -175,7 +175,7 @@ Order from earliest to latest achievement."""
 
         insight_result = await self._generate_insight(prompt, max_tokens=500)
         if insight_result.is_error:
-            return Result.fail(insight_result.expect_error())
+            return Result.fail(insight_result)
 
         response = insight_result.value
         milestones = []
@@ -215,7 +215,7 @@ Order from earliest to latest achievement."""
         """
         goal_result = await self.backend.get(goal_uid)
         if goal_result.is_error:
-            return Result.fail(goal_result.expect_error())
+            return Result.fail(goal_result)
 
         goal = goal_result.value
         if not goal:
@@ -257,7 +257,7 @@ Keep it under 150 words."""
         """
         goal_result = await self.backend.get(goal_uid)
         if goal_result.is_error:
-            return Result.fail(goal_result.expect_error())
+            return Result.fail(goal_result)
 
         goal = goal_result.value
         if not goal:
@@ -284,7 +284,7 @@ REFINED_GOAL: [A SMART-improved version of the goal title]"""
 
         insight_result = await self._generate_insight(prompt, context=context, max_tokens=400)
         if insight_result.is_error:
-            return Result.fail(insight_result.expect_error())
+            return Result.fail(insight_result)
 
         response = insight_result.value
         analysis: dict[str, Any] = {
@@ -328,7 +328,7 @@ REFINED_GOAL: [A SMART-improved version of the goal title]"""
         """
         goal_result = await self.backend.get(goal_uid)
         if goal_result.is_error:
-            return Result.fail(goal_result.expect_error())
+            return Result.fail(goal_result)
 
         goal = goal_result.value
         if not goal:
@@ -356,7 +356,7 @@ KNOWLEDGE: [knowledge/skill area]"""
 
         insight_result = await self._generate_insight(prompt, context=context, max_tokens=400)
         if insight_result.is_error:
-            return Result.fail(insight_result.expect_error())
+            return Result.fail(insight_result)
 
         response = insight_result.value
         strategy: dict[str, Any] = {

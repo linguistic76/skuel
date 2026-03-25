@@ -310,7 +310,7 @@ class _BehavioralSignalsMixin:
         )
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         if not result.value:
             return Result.ok(
@@ -463,7 +463,7 @@ class _BehavioralSignalsMixin:
         )
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         if not result.value:
             return Result.fail(Errors.not_found(resource="Choice", identifier=choice_uid))
@@ -551,7 +551,7 @@ class _BehavioralSignalsMixin:
         # Get choice
         choice_result = await self.backend.get(choice_uid)
         if choice_result.is_error:
-            return Result.fail(choice_result.expect_error())
+            return Result.fail(choice_result)
 
         choice = choice_result.value
         if not choice or not isinstance(choice, Choice):
@@ -723,7 +723,7 @@ class _BehavioralSignalsMixin:
         )
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         if not result.value:
             return Result.ok(

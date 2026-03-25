@@ -275,7 +275,7 @@ class _UserEntityMixin[T: DomainModelProtocol]:
                 # Get total count for pagination
                 count_result = await self.count_user_entities(user_uid, relationship_type, filters)
                 if count_result.is_error:
-                    return Result.fail(count_result.expect_error())
+                    return Result.fail(count_result)
 
                 total_count = count_result.value
 

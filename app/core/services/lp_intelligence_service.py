@@ -231,7 +231,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
 
         lp_result = await self.backend.find_by()
         if lp_result.is_error:
-            return Result.fail(lp_result.expect_error())
+            return Result.fail(lp_result)
 
         all_paths = lp_result.value or []
         total_paths = len(all_paths)
@@ -275,7 +275,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
         # Get learning path
         lp_result = await self.backend.get(uid)
         if lp_result.is_error:
-            return Result.fail(lp_result.expect_error())
+            return Result.fail(lp_result)
 
         lp = lp_result.value
         if not lp:
@@ -924,7 +924,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
             query, {"start_uid": start_uid, "goal_uid": goal_uid}
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         records = result.value or []
         record = records[0] if records else None
@@ -1014,7 +1014,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
             query, {"current_uid": current_step_uid, "user_uid": user_uid}
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         records = result.value or []
         record = records[0] if records else None

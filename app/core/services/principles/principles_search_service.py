@@ -105,7 +105,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
             filters["user_uid"] = user_uid
         result = await self.backend.find_by(**filters)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         principles = self._to_domain_models(result.value, PrincipleDTO, Principle)
 
@@ -147,7 +147,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
 
         result = await self.backend.find_by(category=category_value, limit=limit)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         principles = self._to_domain_models(result.value, PrincipleDTO, Principle)
 
@@ -179,7 +179,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
         # Get user's active principles
         result = await self.backend.find_by(user_uid=user_context.user_uid, is_active=True)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         principles = self._to_domain_models(result.value, PrincipleDTO, Principle)
 
@@ -290,7 +290,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
 
         result = await self.backend.execute_query(cypher_query, params)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         # Convert to Principles
         principles = []
@@ -343,7 +343,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
 
         result = await self.backend.execute_query(cypher_query, params)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         # Convert to Principles
         principles = []
@@ -378,7 +378,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
         strength_value = get_enum_value(strength)
         result = await self.backend.find_by(strength=strength_value, limit=limit)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         principles = self._to_domain_models(result.value, PrincipleDTO, Principle)
 
@@ -404,7 +404,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
         category_value = get_enum_value(category) if not isinstance(category, str) else category
         result = await self.backend.find_by(category=category_value, limit=limit)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         principles = self._to_domain_models(result.value, PrincipleDTO, Principle)
 
@@ -430,7 +430,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
             direction="outgoing",
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         self.logger.debug(f"Found {len(result.value)} goals guided by principle {principle_uid}")
         return result
@@ -454,7 +454,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
             direction="outgoing",
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         self.logger.debug(f"Found {len(result.value)} habits inspired by principle {principle_uid}")
         return result
@@ -515,7 +515,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
         """
         result = await self.backend.find_by(user_uid=user_uid, is_active=True, limit=limit)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         principles = self._to_domain_models(result.value, PrincipleDTO, Principle)
 
@@ -560,7 +560,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
             {"cutoff_date": review_cutoff.isoformat(), "limit": limit},
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         # Convert to Principles
         principles = []
@@ -628,7 +628,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
         # Fallback: find principles with same category
         principle_result = await self.backend.get(principle_uid)
         if principle_result.is_error:
-            return Result.fail(principle_result.expect_error())
+            return Result.fail(principle_result)
 
         if not principle_result.value:
             return Result.ok([])
@@ -656,7 +656,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
             {"category": category_value, "uid": principle_uid, "limit": limit},
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         # Convert to Principles
         principles = []
@@ -773,13 +773,13 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
             # Use filtered search via backend
             result = await self.backend.find_by(limit=limit, **filters)
             if result.is_error:
-                return Result.fail(result.expect_error())
+                return Result.fail(result)
             principles = self._to_domain_models(result.value, PrincipleDTO, Principle)
         else:
             # Fall back to text search using cleaned query
             result = await self.search(parsed.text_query, limit=limit)
             if result.is_error:
-                return Result.fail(result.expect_error())
+                return Result.fail(result)
             principles = result.value
 
         # Filter by user ownership if provided

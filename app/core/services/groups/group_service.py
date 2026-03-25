@@ -163,7 +163,7 @@ class GroupService(BaseService):
         result = await self.backend.get_user_groups(user_uid)
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         groups = []
         for props in result.value or []:
@@ -224,7 +224,7 @@ class GroupService(BaseService):
         )
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         records = result.value or []
         if not records:
@@ -267,7 +267,7 @@ class GroupService(BaseService):
         result = await self.backend.remove_member(group_uid=group_uid, user_uid=user_uid)
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         records = result.value or []
         deleted_count = records[0]["deleted_count"] if records else 0
@@ -307,7 +307,7 @@ class GroupService(BaseService):
         result = await self.backend.get_members(group_uid)
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         members = [
             {

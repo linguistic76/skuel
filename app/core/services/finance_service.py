@@ -595,7 +595,7 @@ class FinanceService:
         result = await self.backend.find_by(**filters, limit=limit)
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         expenses = result.value
         # Count total (may need backend support for accurate count)
@@ -629,7 +629,7 @@ class FinanceService:
             result = await self.core.list_expenses(limit=1000, offset=0)
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         expenses, _ = result.value
 
@@ -712,7 +712,7 @@ class FinanceService:
         status_result = await self.budget.calculate_budget_status(budget_uid)
 
         if status_result.is_error:
-            return Result.fail(status_result.expect_error())
+            return Result.fail(status_result)
 
         status = status_result.value
 

@@ -112,7 +112,7 @@ def parse_markdown(
         # Check file size before reading to prevent OOM
         size_check = check_file_size(file_path, max_file_size_bytes)
         if size_check.is_error:
-            return Result.fail(size_check.expect_error())
+            return Result.fail(size_check)
 
         content = file_path.read_text(encoding="utf-8")
 
@@ -163,7 +163,7 @@ def parse_yaml(
         # Check file size before reading to prevent OOM
         size_check = check_file_size(file_path, max_file_size_bytes)
         if size_check.is_error:
-            return Result.fail(size_check.expect_error())
+            return Result.fail(size_check)
 
         content = file_path.read_text(encoding="utf-8")
         data = yaml.safe_load(content)

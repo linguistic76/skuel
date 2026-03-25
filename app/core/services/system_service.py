@@ -196,7 +196,7 @@ class SystemService:
         """
         result = await self.get_health_status()
         if not result.is_ok:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         health_data = result.value
         components = health_data.get("components", {})

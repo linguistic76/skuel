@@ -867,7 +867,7 @@ class TasksService(BaseService["TasksOperations", Task]):
         """
         tasks_result = await self.core.get_user_tasks(user_uid)
         if tasks_result.is_error:
-            return Result.fail(tasks_result.expect_error())
+            return Result.fail(tasks_result)
 
         return await self.analytics_engine.analyze_learning_patterns(
             tasks_result.value, timeframe_days
@@ -892,7 +892,7 @@ class TasksService(BaseService["TasksOperations", Task]):
 
         tasks_result = await self.core.get_user_tasks(user_uid)
         if tasks_result.is_error:
-            return Result.fail(tasks_result.expect_error())
+            return Result.fail(tasks_result)
 
         all_tasks = tasks_result.value
 
@@ -955,7 +955,7 @@ class TasksService(BaseService["TasksOperations", Task]):
 
         tasks_result = await self.core.get_user_tasks(user_uid)
         if tasks_result.is_error:
-            return Result.fail(tasks_result.expect_error())
+            return Result.fail(tasks_result)
 
         cutoff_date = date.today() - timedelta(days=timeframe_days)
         completed_tasks = [
@@ -990,7 +990,7 @@ class TasksService(BaseService["TasksOperations", Task]):
 
         tasks_result = await self.core.get_user_tasks(user_uid)
         if tasks_result.is_error:
-            return Result.fail(tasks_result.expect_error())
+            return Result.fail(tasks_result)
 
         all_tasks = tasks_result.value
 
@@ -1083,7 +1083,7 @@ class TasksService(BaseService["TasksOperations", Task]):
             )
 
             if knowledge_result.is_error:
-                return Result.fail(knowledge_result.expect_error())
+                return Result.fail(knowledge_result)
 
             generated_knowledge = knowledge_result.value
 

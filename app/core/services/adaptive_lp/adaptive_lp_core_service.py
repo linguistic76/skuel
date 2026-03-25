@@ -135,19 +135,19 @@ class AdaptiveLpCoreService:
         else:
             style_result = await self.detect_learning_style(user_uid)
             if style_result.is_error:
-                return Result.fail(style_result.expect_error())
+                return Result.fail(style_result)
             learning_style = style_result.value
 
         # Analyze current knowledge state from UserContext (no re-query)
         knowledge_state_result = await self.analyze_user_knowledge_state(context)
         if knowledge_state_result.is_error:
-            return Result.fail(knowledge_state_result.expect_error())
+            return Result.fail(knowledge_state_result)
         knowledge_state = knowledge_state_result.value
 
         # Identify knowledge gaps for goal
         gaps_result = await self._identify_goal_knowledge_gaps(goal, knowledge_state)
         if gaps_result.is_error:
-            return Result.fail(gaps_result.expect_error())
+            return Result.fail(gaps_result)
 
         gaps = gaps_result.value
 
@@ -156,7 +156,7 @@ class AdaptiveLpCoreService:
             goal, gaps, learning_style, knowledge_state
         )
         if sequence_result.is_error:
-            return Result.fail(sequence_result.expect_error())
+            return Result.fail(sequence_result)
 
         knowledge_steps = sequence_result.value
 

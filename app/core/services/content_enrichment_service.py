@@ -210,7 +210,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
         transcription_result = await self.transcription_service.transcribe_file(audio_file_path)
 
         if transcription_result.is_error:
-            return Result.fail(transcription_result.expect_error())
+            return Result.fail(transcription_result)
 
         raw_transcript = transcription_result.value.get("text") or transcription_result.value.get(
             "transcript"
@@ -306,7 +306,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
         query_result = await self.backend.execute_query(cypher, {"user_uid": user_uid})
 
         if query_result.is_error:
-            return Result.fail(query_result.expect_error())
+            return Result.fail(query_result)
 
         records = query_result.value or []
         if not records:
@@ -885,7 +885,7 @@ Preserve the author's voice and authenticity while improving readability.
         )
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         return Result.ok({"uid": uid, "name": name, "char_count": len(content)})
 
@@ -901,7 +901,7 @@ Preserve the author's voice and authenticity while improving readability.
         result = await self.backend.execute_query(query)
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         instruction_sets = [
             {"uid": record["uid"], "name": record["name"], "char_count": record["char_count"]}
@@ -1404,7 +1404,7 @@ Return ONLY Markdown in this structure:
         )
 
         if insights_result.is_error:
-            return Result.fail(insights_result.expect_error())
+            return Result.fail(insights_result)
 
         insights = insights_result.value
 
@@ -1458,7 +1458,7 @@ Return ONLY Markdown in this structure:
         result = await self.backend.find_by(**filters, limit=1000)
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         reports = result.value or []
 

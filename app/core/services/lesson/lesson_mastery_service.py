@@ -105,7 +105,7 @@ class LessonMasteryService:
         result = await self.backend.record_view(user_uid, ku_uid, now, time_spent_seconds)
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         if result.value:
             record = result.value[0]
@@ -132,7 +132,7 @@ class LessonMasteryService:
         result = await self.backend.mark_in_progress(user_uid, ku_uid, now)
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         if result.value:
             self.logger.debug("Marked in progress", user_uid=user_uid, ku_uid=ku_uid)
@@ -157,7 +157,7 @@ class LessonMasteryService:
         result = await self.backend.get_learning_state_raw(user_uid, ku_uid)
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         if not result.value:
             return Result.fail(Errors.not_found("KU", ku_uid))
@@ -223,7 +223,7 @@ class LessonMasteryService:
         result = await self.backend.get_learning_states_batch_raw(user_uid, ku_uids)
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         states = {}
         for record in result.value or []:
@@ -255,7 +255,7 @@ class LessonMasteryService:
         result = await self.backend.mark_as_read(user_uid, ku_uid)
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         self.logger.info(f"Marked KU as read: {user_uid} -> {ku_uid}")
         return Result.ok(None)
@@ -273,20 +273,20 @@ class LessonMasteryService:
         check_result = await self.backend.check_bookmark(user_uid, ku_uid)
 
         if check_result.is_error:
-            return Result.fail(check_result.expect_error())
+            return Result.fail(check_result)
 
         is_bookmarked = check_result.value[0]["is_bookmarked"] if check_result.value else False
 
         if is_bookmarked:
             del_result = await self.backend.delete_bookmark(user_uid, ku_uid)
             if del_result.is_error:
-                return Result.fail(del_result.expect_error())
+                return Result.fail(del_result)
             self.logger.info(f"Removed bookmark: {user_uid} -> {ku_uid}")
             return Result.ok(False)
         else:
             create_result = await self.backend.create_bookmark(user_uid, ku_uid)
             if create_result.is_error:
-                return Result.fail(create_result.expect_error())
+                return Result.fail(create_result)
             self.logger.info(f"Added bookmark: {user_uid} -> {ku_uid}")
             return Result.ok(True)
 
@@ -315,7 +315,7 @@ class LessonMasteryService:
         result = await self.backend.mark_mastered(user_uid, ku_uid, now, mastery_score, method)
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         if result.value:
             record = result.value[0]
@@ -387,7 +387,7 @@ class LessonMasteryService:
         result = await self.backend.get_bookmarked_kus(user_uid)
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         ku_uids = [record["ku_uid"] for record in (result.value or []) if record.get("ku_uid")]
 
@@ -402,7 +402,7 @@ class LessonMasteryService:
         result = await self.backend.get_all_user_knowledge_status(user_uid)
 
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         records = [dict(r) for r in (result.value or [])]
         self.logger.debug(f"Retrieved knowledge status for {len(records)} entities for {user_uid}")

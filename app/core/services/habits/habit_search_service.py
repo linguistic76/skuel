@@ -169,7 +169,7 @@ class HabitSearchService(BaseService[HabitsOperations, Habit]):
             },
         )
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         # Convert to domain models
         habits = []
@@ -291,7 +291,7 @@ class HabitSearchService(BaseService[HabitsOperations, Habit]):
         filters = {"user_uid": user_uid} if user_uid else {}
         result = await self.backend.find_by(limit=limit * 5, **filters)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         habits = self._to_domain_models(result.value, HabitDTO, Habit)
 
@@ -347,7 +347,7 @@ class HabitSearchService(BaseService[HabitsOperations, Habit]):
         filters = {"user_uid": user_uid} if user_uid else {}
         result = await self.backend.find_by(limit=limit * 2, **filters)  # Fetch extra for filtering
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         habits = self._to_domain_models(result.value, HabitDTO, Habit)
 
@@ -434,7 +434,7 @@ class HabitSearchService(BaseService[HabitsOperations, Habit]):
         # Get all habits
         result = await self.backend.find_by(limit=limit * 2)
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         habits = self._to_domain_models(result.value, HabitDTO, Habit)
 
@@ -585,7 +585,7 @@ class HabitSearchService(BaseService[HabitsOperations, Habit]):
         Shared logic for get_user_due_today and get_all_due_today.
         """
         if result.is_error:
-            return Result.fail(result.expect_error())
+            return Result.fail(result)
 
         habits = self._to_domain_models(result.value, HabitDTO, Habit)
         today = date.today()
@@ -733,13 +733,13 @@ class HabitSearchService(BaseService[HabitsOperations, Habit]):
             # Use filtered search via backend
             result = await self.backend.find_by(limit=limit, **filters)
             if result.is_error:
-                return Result.fail(result.expect_error())
+                return Result.fail(result)
             habits = self._to_domain_models(result.value, HabitDTO, Habit)
         else:
             # Fall back to text search using cleaned query
             result = await self.search(parsed.text_query, limit=limit)
             if result.is_error:
-                return Result.fail(result.expect_error())
+                return Result.fail(result)
             habits = result.value
 
         # Filter by user ownership if provided

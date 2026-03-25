@@ -862,19 +862,18 @@ result = (some_operation()
     .log_if_error("Failed to process user data")
 )
 
-# Type-safe error access (NEW - recommended pattern)
+# Clean error propagation (recommended)
 if result.is_error:
-    error = result.expect_error()  # Type: ErrorContext (not Optional!)
-    return Result.fail(error)
+    return Result.fail(result)  # Accepts Result[Any], extracts error internally
 
-# Type-safe value access (NEW - explicit expectation)
+# Type-safe value access (explicit expectation)
 user = await get_user(uid)
 if user.is_ok:
     return user.expect("User must exist")  # Raises if somehow Err
 
-# Pattern matching by category
+# Use expect_error() when you need to READ the error (logging, branching)
 if result.is_error:
-    error = result.expect_error()  # No assertion needed
+    error = result.expect_error()  # Type: ErrorContext (not Optional!)
     match error.category:
         case ErrorCategory.VALIDATION:
             return Response(400, error.user_message)
@@ -885,8 +884,4 @@ if result.is_error:
             return Response(503, "Service temporarily unavailable")
         case _:
             return Response(500, "Internal server error")
-
-# Old pattern (still works, but verbose)
-if result.is_error:
-    return Result.fail(result)
 """
