@@ -3433,7 +3433,7 @@ class LsBackend(UniversalNeo4jBackend[LearningStep]):
         return await self.execute_query(query, {"uid": uid})
 
     async def update_step_fields(
-        self, uid: str, set_clauses: list[str], params: dict[str, Any]
+        self, _uid: str, set_clauses: list[str], params: dict[str, Any]
     ) -> Result[list[dict[str, Any]]]:
         """Update step fields and return step with knowledge relationships."""
         query = f"""

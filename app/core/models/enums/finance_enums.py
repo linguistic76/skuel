@@ -46,12 +46,12 @@ class ExpenseCategory(Enum):
 
     def get_icon(self) -> str:
         """Get emoji icon for this expense category."""
-        _ICONS: dict[ExpenseCategory, str] = {
+        icons: dict[ExpenseCategory, str] = {
             ExpenseCategory.PERSONAL: "👤",
             ExpenseCategory.TWO222: "🏠",
             ExpenseCategory.SKUEL: "📚",
         }
-        return _ICONS.get(self, "📁")
+        return icons.get(self, "📁")
 
 
 class RecurrencePattern(Enum):

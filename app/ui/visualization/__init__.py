@@ -9,10 +9,10 @@ from ui.visualization.visualization_service import (
     ChartDataset,
     GanttData,
     GanttTask,
-    VisualizationService,
     VisTimelineData,
     VisTimelineGroup,
     VisTimelineItem,
+    VisualizationService,
 )
 
 __all__ = [
