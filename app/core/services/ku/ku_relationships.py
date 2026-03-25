@@ -252,7 +252,7 @@ async def _get_related_knowledge(graph_service: LessonGraphService, ku_uid: str)
         LIMIT 50
     """
     params = {"ku_uid": ku_uid}
-    result = await graph_service.neo4j.execute_query(query, params)
+    result = await graph_service.repo.execute_query(query, params)
     if isinstance(result, Result) and result.is_error:
         return Result.fail(result)
     records = result.value if isinstance(result, Result) else result
@@ -268,7 +268,7 @@ async def _get_broader_concepts(graph_service: LessonGraphService, ku_uid: str) 
         LIMIT 20
     """
     params = {"ku_uid": ku_uid}
-    result = await graph_service.neo4j.execute_query(query, params)
+    result = await graph_service.repo.execute_query(query, params)
     if isinstance(result, Result) and result.is_error:
         return Result.fail(result)
     records = result.value if isinstance(result, Result) else result
@@ -284,7 +284,7 @@ async def _get_narrower_concepts(graph_service: LessonGraphService, ku_uid: str)
         LIMIT 50
     """
     params = {"ku_uid": ku_uid}
-    result = await graph_service.neo4j.execute_query(query, params)
+    result = await graph_service.repo.execute_query(query, params)
     if isinstance(result, Result) and result.is_error:
         return Result.fail(result)
     records = result.value if isinstance(result, Result) else result
@@ -300,7 +300,7 @@ async def _get_learning_paths(graph_service: LessonGraphService, ku_uid: str) ->
         LIMIT 50
     """
     params = {"ku_uid": ku_uid}
-    result = await graph_service.neo4j.execute_query(query, params)
+    result = await graph_service.repo.execute_query(query, params)
     if isinstance(result, Result) and result.is_error:
         return Result.fail(result)
     records = result.value if isinstance(result, Result) else result
@@ -316,7 +316,7 @@ async def _get_applying_tasks(graph_service: LessonGraphService, ku_uid: str) ->
         LIMIT 100
     """
     params = {"ku_uid": ku_uid}
-    result = await graph_service.neo4j.execute_query(query, params)
+    result = await graph_service.repo.execute_query(query, params)
     if isinstance(result, Result) and result.is_error:
         return Result.fail(result)
     records = result.value if isinstance(result, Result) else result
@@ -332,7 +332,7 @@ async def _get_practicing_events(graph_service: LessonGraphService, ku_uid: str)
         LIMIT 100
     """
     params = {"ku_uid": ku_uid}
-    result = await graph_service.neo4j.execute_query(query, params)
+    result = await graph_service.repo.execute_query(query, params)
     if isinstance(result, Result) and result.is_error:
         return Result.fail(result)
     records = result.value if isinstance(result, Result) else result
@@ -348,7 +348,7 @@ async def _get_reinforcing_habits(graph_service: LessonGraphService, ku_uid: str
         LIMIT 100
     """
     params = {"ku_uid": ku_uid}
-    result = await graph_service.neo4j.execute_query(query, params)
+    result = await graph_service.repo.execute_query(query, params)
     if isinstance(result, Result) and result.is_error:
         return Result.fail(result)
     records = result.value if isinstance(result, Result) else result

@@ -52,13 +52,11 @@ class TestYAMLRoundTrip:
         # Create mock dependencies (required by fail-fast pattern)
         mock_content_repo = AsyncMock()
         mock_query_builder = MagicMock()
-        mock_neo4j_adapter = MagicMock()  # Required for graph operations
         mock_graph_intelligence = MagicMock()  # Required by fail-fast architecture
         ku_service = LessonService(
             repo=ku_backend,
             content_repo=mock_content_repo,
             query_builder=mock_query_builder,
-            neo4j_adapter=mock_neo4j_adapter,
             graph_intelligence_service=mock_graph_intelligence,  # Required for cross-domain queries
         )
 

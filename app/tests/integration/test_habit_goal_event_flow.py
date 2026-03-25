@@ -26,7 +26,9 @@ import pytest
 import pytest_asyncio
 
 from adapters.infrastructure.event_bus import InMemoryEventBus
+from adapters.persistence.neo4j.domain_backends import GoalsBackend
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
+from core.models.enums.neo_labels import NeoLabel
 from core.events import GoalAchieved, GoalProgressUpdated
 from core.events.habit_events import HabitCompleted
 from core.models.enums import Domain, EntityStatus
@@ -56,8 +58,8 @@ class TestHabitGoalEventFlow:
     @pytest_asyncio.fixture
     async def goals_backend(self, neo4j_driver, clean_neo4j):
         """Create goals backend with clean database."""
-        return UniversalNeo4jBackend[Goal](
-            neo4j_driver, "Entity", Goal, default_filters={"entity_type": "goal"}
+        return GoalsBackend(
+            neo4j_driver, NeoLabel.GOAL, Goal, base_label=NeoLabel.ENTITY
         )
 
     @pytest_asyncio.fixture

@@ -26,16 +26,19 @@ import pytest
 import pytest_asyncio
 
 from adapters.infrastructure.event_bus import InMemoryEventBus
+from adapters.persistence.neo4j.domain_backends import LessonBackend
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.events.calendar_event_events import CalendarEventCompleted
 from core.events.lesson_events import KnowledgePracticed
-from core.models.curriculum import Curriculum
 from core.models.enums import (
     Domain,
     EntityStatus,
     SELCategory,
 )
+from core.models.curriculum import Curriculum
+from core.models.enums.neo_labels import NeoLabel
 from core.models.event.event import Event
+from core.models.lesson.lesson import Lesson
 from core.services.lesson.lesson_practice_service import LessonPracticeService
 
 
@@ -50,8 +53,8 @@ class TestEventKuPracticeFlow:
 
     @pytest_asyncio.fixture
     async def ku_backend(self, neo4j_driver, clean_neo4j):
-        """Create KU backend with clean database."""
-        return UniversalNeo4jBackend[Curriculum](neo4j_driver, "Entity", Curriculum)
+        """Create Lesson backend with clean database."""
+        return LessonBackend(neo4j_driver, NeoLabel.LESSON, Lesson, base_label=NeoLabel.ENTITY)
 
     @pytest_asyncio.fixture
     async def event_backend(self, neo4j_driver, clean_neo4j):
