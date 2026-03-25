@@ -14,21 +14,24 @@
 - [ ] Using semantic colors (`bg-base-100`, `text-base-content`, `btn-primary`)?
 - [ ] No hardcoded hex/rgb except brand colors or data visualization?
 - [ ] No raw Tailwind colors (`bg-blue-600`, `text-gray-900`, `bg-white`)?
+- [ ] Error/success/warning text uses `text-error`/`text-success`/`text-warning` (not `text-red-600`/`text-green-600`/`text-yellow-600`)?
 - [ ] All interactive elements use semantic colors (not hardcoded)?
 
 **Quick Test:**
 ```bash
 # Find hardcoded colors
-grep -r "bg-white\|text-gray-\|bg-gray-" adapters/inbound/ ui/
+grep -r "bg-white\|text-gray-\|bg-gray-\|text-red-\|text-green-\|text-yellow-" adapters/inbound/ ui/
 ```
 
 **Fix:**
 ```python
 # BAD
 Div(cls="bg-white text-gray-900")
+P("Error!", cls="text-red-600")
 
 # GOOD
 Div(cls="bg-base-100 text-base-content")
+P("Error!", cls="text-error")
 ```
 
 **See:** [ui-css/SKILL.md](ui-css/SKILL.md#critical-avoid-hardcoded-colors)
@@ -270,7 +273,7 @@ Run these before committing:
 ```bash
 # Hardcoded colors
 echo "=== Hardcoded Colors ==="
-grep -r "bg-white\|text-gray-\|bg-gray-\|bg-blue-\|bg-red-" adapters/inbound/ ui/ | grep -v chart
+grep -r "bg-white\|text-gray-\|bg-gray-\|text-red-[0-9]\|text-green-[0-9]\|text-yellow-[0-9]\|bg-red-\|bg-blue-50" adapters/inbound/ ui/ | grep -v chart
 
 # Custom container widths
 echo "=== Custom Containers ==="
@@ -301,9 +304,9 @@ echo
 errors=0
 
 # Check 1: Hardcoded colors
-if grep -rq "bg-white\|text-gray-[0-9]\|bg-gray-[0-9]" adapters/inbound/ ui/ 2>/dev/null; then
-    echo "❌ Found hardcoded colors (use MonsterUI semantic colors)"
-    grep -rn "bg-white\|text-gray-[0-9]\|bg-gray-[0-9]" adapters/inbound/ ui/ | head -5
+if grep -rq "bg-white\|text-gray-[0-9]\|bg-gray-[0-9]\|text-red-[0-9]\|text-green-[0-9]\|text-yellow-[0-9]" adapters/inbound/ ui/ 2>/dev/null; then
+    echo "❌ Found hardcoded colors (use semantic: text-error, text-success, text-warning)"
+    grep -rn "bg-white\|text-gray-[0-9]\|bg-gray-[0-9]\|text-red-[0-9]\|text-green-[0-9]\|text-yellow-[0-9]" adapters/inbound/ ui/ | head -5
     errors=$((errors+1))
 else
     echo "✅ No hardcoded colors"
@@ -354,6 +357,12 @@ chmod +x .claude/scripts/ux-check.sh
 | Button | `Button(variant=ButtonT.primary)` | `bg-blue-600` |
 | Background | `bg-base-100` | `bg-white` |
 | Text | `text-base-content` | `text-gray-900` |
+| Error text | `text-error` | `text-red-600` |
+| Success text | `text-success` | `text-green-600` |
+| Warning text | `text-warning` | `text-yellow-600` |
+| Info box | `Alert(variant=AlertT.info)` | `bg-blue-50 border-l-4` |
+| Error page | `render_error_banner(msg)` | `H1("Error", cls="text-error")` |
+| Page header | `PageHeader(title, subtitle)` | `H1(...) + P(...)` |
 | Container | `Container.STANDARD` | `max-w-6xl` |
 | Section spacing | `Spacing.SECTION` | `space-y-8` |
 | Page padding | `Spacing.PAGE` | `p-4 sm:p-6 lg:p-8` |

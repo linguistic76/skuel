@@ -1,6 +1,6 @@
 # SKUEL UI Component Catalog
 
-**Last Updated:** 2026-03-19
+**Last Updated:** 2026-03-25
 **Status:** Complete — MonsterUI consolidated (primitives layer removed)
 
 ---
@@ -466,7 +466,7 @@ Composed components built from primitives for common UI patterns.
 
 **Location:** `/ui/patterns/page_header.py`
 
-Consistent header for all pages with title and optional actions. Adopted across all 6 Activity Domain dashboards (Tasks, Goals, Habits, Events, Choices, Principles), Study hub, and Curriculum hub.
+Consistent header for all pages with title and optional actions. Adopted across all 6 Activity Domain dashboards (Tasks, Goals, Habits, Events, Choices, Principles), Study hub, Curriculum hub, Admin dashboard (7 pages), Analytics, Calendar (3 views), LifePath (5 pages), and Timeline.
 
 ### PageHeader(title, subtitle, actions, breadcrumbs, **kwargs)
 

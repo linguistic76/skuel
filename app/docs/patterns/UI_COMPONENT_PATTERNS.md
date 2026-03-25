@@ -1,6 +1,6 @@
 ---
 title: UI Component Patterns
-updated: '2026-03-19'
+updated: '2026-03-25'
 category: patterns
 related_skills:
   - accessibility-guide
@@ -304,7 +304,7 @@ Card.PADDING        # "p-6"
 
 ### Page Header & Section Header
 
-Adopted across all 6 Activity Domain dashboards, Study hub, and Curriculum hub — every `SidebarPage` content area starts with a `PageHeader`.
+Adopted across all 6 Activity Domain dashboards, Study hub, Curriculum hub, Admin dashboard, Analytics, Calendar, LifePath, and Timeline. Every `SidebarPage` content area starts with a `PageHeader`.
 
 ```python
 from ui.patterns import PageHeader, SectionHeader
@@ -1053,6 +1053,10 @@ async def tasks_view_list(request) -> Any:
 | Admin | ✅ Complete | Per-section warning banners via `tuple[data, bool]` helpers |
 | Insights | ✅ Complete | Error state with load-more pagination |
 | Finance | ✅ Complete | Typed context methods with `Result[TypedDict]` |
+| Analytics | ✅ Complete | 8 error sites → `render_inline_error()`, PageHeader adopted |
+| LifePath | ✅ Complete | `_error_page`/`_service_unavailable_page` → `render_error_banner`, PageHeader adopted |
+| Calendar | ✅ Complete | Custom `Html(Head, Body)` wrapper → `BasePage`, PageHeader adopted |
+| GraphQL | ✅ Complete | `text-red-600` → `text-error`, `bg-red-50` → `bg-error/10` |
 
 **Shared Helpers** (`/adapters/inbound/ui_helpers.py`):
 - `render_dashboard_error_page(title, subtitle, error_message, view, render_view_tabs, page_creator, request)` — Standard error page for dashboard routes with tabs/nav preserved (all 6 Activity domains). Domains with multiple calls (e.g., Principles) wrap this in a local `_dashboard_error()` helper to DRY the static args.
