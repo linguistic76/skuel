@@ -1030,6 +1030,14 @@ class EventsService(BaseService["EventsOperations", Event]):
 
         created_events: list[Event] = []
         base_date = event.event_date
+        if base_date is None:
+            return Result.fail(
+                Errors.validation(
+                    message="Event has no date set",
+                    field="event_date",
+                    value=None,
+                )
+            )
 
         for i in range(1, request.count + 1):
             new_date = base_date + timedelta(days=interval_days * i)

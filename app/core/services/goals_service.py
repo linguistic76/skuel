@@ -356,35 +356,35 @@ class GoalsService(BaseService[GoalsOperations, Goal]):
     async def get_goals_by_category(
         self, category: str, user_uid: str | None = None, limit: int = 100
     ) -> Result[list[Goal]]:
-        return await self.search.get_by_category(category, user_uid, limit)
+        return await self.search.get_by_category(category, user_uid, limit)  # type: ignore[call-arg, return-value]
 
     async def get_goals_by_status(
         self, status: str, limit: int = 100, user_uid: str | None = None
     ) -> Result[list[Goal]]:
-        return await self.search.get_by_status(status, limit, user_uid)
+        return await self.search.get_by_status(status, limit, user_uid)  # type: ignore[return-value]
 
     async def search_goals(
         self, query: str, limit: int = 50, user_uid: str | None = None
     ) -> Result[list[Goal]]:
-        return await self.search.search(query, limit, user_uid)
+        return await self.search.search(query, limit, user_uid)  # type: ignore[return-value]
 
     async def get_goals_due_soon(
         self, days_ahead: int = 7, user_uid: str | None = None, limit: int = 100
     ) -> Result[list[Goal]]:
-        return await self.search.get_due_soon(days_ahead, user_uid, limit)
+        return await self.search.get_due_soon(days_ahead, user_uid, limit)  # type: ignore[return-value]
 
     async def get_overdue_goals(
         self, user_uid: str | None = None, limit: int = 100
     ) -> Result[list[Goal]]:
-        return await self.search.get_overdue(user_uid, limit)
+        return await self.search.get_overdue(user_uid, limit)  # type: ignore[return-value]
 
     async def get_goals_by_domain(self, domain: Domain, limit: int = 100) -> Result[list[Goal]]:
-        return await self.search.get_by_domain(domain, limit)
+        return await self.search.get_by_domain(domain, limit)  # type: ignore[return-value]
 
     async def get_prioritized_goals(
         self, user_context: UserContext, limit: int = 10
     ) -> Result[list[Goal]]:
-        return await self.search.get_prioritized(user_context, limit)
+        return await self.search.get_prioritized(user_context, limit)  # type: ignore[return-value]
 
     # Scheduling delegations
     async def check_goal_capacity(

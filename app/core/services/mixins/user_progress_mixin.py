@@ -264,4 +264,4 @@ class UserProgressMixin[B: BackendOperations, T: DomainModelProtocol]:
 if TYPE_CHECKING:
     from core.ports.base_service_interface import UserProgressOperations
 
-    _protocol_check: type[UserProgressOperations[Any]] = UserProgressMixin  # type: ignore[type-arg]
+    _protocol_check: type[UserProgressOperations[Any]] = UserProgressMixin  # type: ignore[type-arg, type-abstract]

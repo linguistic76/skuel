@@ -408,4 +408,4 @@ class RelationshipOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
 if TYPE_CHECKING:
     from core.ports.base_service_interface import RelationshipOperations
 
-    _protocol_check: type[RelationshipOperations[Any]] = RelationshipOperationsMixin  # type: ignore[type-arg]
+    _protocol_check: type[RelationshipOperations[Any]] = RelationshipOperationsMixin  # type: ignore[type-arg, type-abstract]

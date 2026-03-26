@@ -347,4 +347,4 @@ class ContextOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
 if TYPE_CHECKING:
     from core.ports.base_service_interface import ContextOperations
 
-    _protocol_check: type[ContextOperations[Any]] = ContextOperationsMixin  # type: ignore[type-arg]
+    _protocol_check: type[ContextOperations[Any]] = ContextOperationsMixin  # type: ignore[type-arg, type-abstract]

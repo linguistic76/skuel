@@ -84,7 +84,7 @@ class AssessmentService:
         from core.models.enums.metadata_enums import Visibility
 
         # Verify teacher has authority over student (share an active group)
-        authority_result = await self.backend.verify_teacher_authority(teacher_uid, subject_uid)
+        authority_result = await self.backend.verify_teacher_authority(teacher_uid, subject_uid)  # type: ignore[attr-defined]
 
         if authority_result.is_error:
             self.logger.error(
@@ -123,7 +123,7 @@ class AssessmentService:
             return Result.fail(result)
 
         # Create ASSESSMENT_OF relationship
-        assess_result = await self.backend.create_assessment_relationship(uid, subject_uid)
+        assess_result = await self.backend.create_assessment_relationship(uid, subject_uid)  # type: ignore[attr-defined]
 
         if assess_result.is_error:
             self.logger.error(f"Failed to create ASSESSMENT_OF relationship: {assess_result.error}")
@@ -136,7 +136,7 @@ class AssessmentService:
             )
 
         # Auto-share with student
-        share_result = await self.backend.auto_share_assessment_with_student(
+        share_result = await self.backend.auto_share_assessment_with_student(  # type: ignore[attr-defined]
             subject_uid, uid, datetime.now().isoformat()
         )
 
@@ -175,7 +175,7 @@ class AssessmentService:
         Returns:
             Result containing list of EXERCISE_REPORT entities
         """
-        result = await self.backend.get_assessments_for_student_raw(student_uid, limit)
+        result = await self.backend.get_assessments_for_student_raw(student_uid, limit)  # type: ignore[attr-defined]
 
         if result.is_error:
             return Result.fail(result)

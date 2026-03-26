@@ -123,7 +123,7 @@ class SubmissionsRelationshipService:
         if not user_uid:
             return 0  # CURRICULUM entities don't have temporal chains per user
 
-        result = await self.backend.create_temporal_relationship(ku_uid, user_uid, entity_type)
+        result = await self.backend.create_temporal_relationship(ku_uid, user_uid, entity_type)  # type: ignore[attr-defined]
         if result.is_error:
             return 0
         records = result.value or []
@@ -153,7 +153,7 @@ class SubmissionsRelationshipService:
         if not themes or not user_uid:
             return 0
 
-        result = await self.backend.create_thematic_relationships(
+        result = await self.backend.create_thematic_relationships(  # type: ignore[attr-defined]
             ku_uid, user_uid, themes, ", ".join(themes[:3])
         )
         if result.is_error:
@@ -228,7 +228,7 @@ class SubmissionsRelationshipService:
         Returns:
             Result containing list of related submission UIDs
         """
-        result = await self.backend.get_related_submission_uids(ku_uid)
+        result = await self.backend.get_related_submission_uids(ku_uid)  # type: ignore[attr-defined]
         if result.is_error:
             return Result.fail(result)
 
@@ -246,7 +246,7 @@ class SubmissionsRelationshipService:
         Returns:
             Result containing list of supported goal UIDs
         """
-        result = await self.backend.get_supported_goal_uids(ku_uid)
+        result = await self.backend.get_supported_goal_uids(ku_uid)  # type: ignore[attr-defined]
         if result.is_error:
             return Result.fail(result)
 
@@ -264,7 +264,7 @@ class SubmissionsRelationshipService:
         Returns:
             Result containing dict with relationship counts
         """
-        result = await self.backend.get_submission_relationship_summary(ku_uid)
+        result = await self.backend.get_submission_relationship_summary(ku_uid)  # type: ignore[attr-defined]
         if result.is_error:
             return Result.fail(result)
 

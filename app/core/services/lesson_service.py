@@ -80,23 +80,24 @@ _VALID_SUBSTANCE_TIMESTAMP_FIELDS: frozenset[str] = frozenset(
 def _compute_lesson_stats(all_lessons: list[Any]) -> dict[str, int | float]:
     """Compute pre-filter stats from the full lesson set."""
     from core.models.enums import EntityStatus
+    from core.models.enums.learning_enums import KnowledgeStatus
 
     published = sum(
-        1 for ls in all_lessons if getattr(ls, "status", None) == EntityStatus.PUBLISHED
+        bool(getattr(ls, "status", None) == KnowledgeStatus.PUBLISHED) for ls in all_lessons
     )
     return {
         "total": len(all_lessons),
         "active": published,
         "published": published,
-        "draft": sum(1 for ls in all_lessons if getattr(ls, "status", None) == EntityStatus.DRAFT),
+        "draft": sum(bool(getattr(ls, "status", None) == EntityStatus.DRAFT) for ls in all_lessons),
     }
 
 
 def _is_lesson_published(lesson: Any) -> bool:
     """Filter predicate: lesson has PUBLISHED status."""
-    from core.models.enums import EntityStatus
+    from core.models.enums.learning_enums import KnowledgeStatus
 
-    return getattr(lesson, "status", None) == EntityStatus.PUBLISHED
+    return getattr(lesson, "status", None) == KnowledgeStatus.PUBLISHED
 
 
 def _is_lesson_draft(lesson: Any) -> bool:

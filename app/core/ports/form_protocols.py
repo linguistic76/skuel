@@ -17,6 +17,8 @@ from core.ports.base_protocols import BackendOperations
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
+    import builtins
+
     from core.models.forms.form_submission import FormSubmission
     from core.models.forms.form_template import FormTemplate  # noqa: F401
 
@@ -100,7 +102,7 @@ class FormTemplateOperations(Protocol):
 
     async def unlink_from_lesson(self, form_template_uid: str, lesson_uid: str) -> Result[bool]: ...
 
-    async def get_for_lesson(self, lesson_uid: str) -> Result[list[dict[str, Any]]]: ...
+    async def get_for_lesson(self, lesson_uid: str) -> Result[builtins.list[dict[str, Any]]]: ...
 
 
 class FormSubmissionOperations(Protocol):

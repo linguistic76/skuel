@@ -308,7 +308,7 @@ class HabitEventHandlerService:
             await self.backend.update(
                 event.habit_uid,
                 {
-                    "completion_hours_json": hours_hist,
+                    "completion_hours_json": hours_hist,  # type: ignore[dict-item]
                     "learned_preferred_hour": preferred_hour,
                     "learned_on_time_rate": round(new_on_time_rate, 4),
                     "learned_completion_count": new_count,

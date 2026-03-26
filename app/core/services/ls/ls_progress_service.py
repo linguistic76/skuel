@@ -124,8 +124,8 @@ class LsProgressService:
             return
 
         progress_data = result.value or {}
-        total_lessons = progress_data.get("total_lessons", 0)
-        completed_lessons = progress_data.get("completed_lessons", 0)
+        total_lessons = int(progress_data.get("total_lessons", 0))
+        completed_lessons = int(progress_data.get("completed_lessons", 0))
 
         if total_lessons == 0:
             self.logger.debug(f"No lessons found for learning step {ls_uid}")

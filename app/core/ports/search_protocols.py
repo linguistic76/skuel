@@ -438,8 +438,10 @@ class HabitsSearchOperations(DomainSearchOperations["Habit"], Protocol):
         """Get all habits due today (admin use)."""
         ...
 
-    async def get_by_category(self, category: str, limit: int = 100) -> Result[list["Habit"]]:
-        """Get habits by category."""
+    async def get_by_category(
+        self, category: str, user_uid: str | None = None, limit: int = 100
+    ) -> Result[list["Habit"]]:
+        """Get habits by category, optionally filtered by user."""
         ...
 
     async def list_user_categories(self, user_uid: str) -> Result[list[str]]:

@@ -840,8 +840,8 @@ class TasksService(BaseService["TasksOperations", Task]):
             "learning_impact_score": task.calculate_learning_impact(),
             "is_knowledge_bridge": task.is_knowledge_bridge(),
             "validates_mastery": task.validates_knowledge_mastery(),
-            "enhancement_summary": task.get_knowledge_enhancement_summary(),
-            "all_knowledge_connections": task.get_all_knowledge_connections(),
+            "enhancement_summary": task.get_knowledge_enhancement_summary(),  # type: ignore[attr-defined]
+            "all_knowledge_connections": task.get_all_knowledge_connections(),  # type: ignore[attr-defined]
             "combined_knowledge_uids": task.get_combined_knowledge_uids(),
         }
 

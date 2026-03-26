@@ -21,6 +21,7 @@ from core.models.habit.completion import HabitCompletion
 from core.models.habit.completion_dto import HabitCompletionDTO
 from core.models.habit.habit import Habit
 from core.models.habit.habit_dto import HabitDTO
+from core.ports.domain_protocols import HabitsOperations
 from core.utils.completion_exporter import export_completions_csv, export_completions_json
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
@@ -560,7 +561,7 @@ class HabitsCompletionService:
 
         # Fetch persisted badges to get earned_at dates
         earned_badge_ids: set[str] = set()
-        if hasattr(self.habits_backend, "get_user_badges"):
+        if isinstance(self.habits_backend, HabitsOperations):
             badges_result = await self.habits_backend.get_user_badges(user_uid)
             if badges_result.is_ok:
                 for badge_record in badges_result.value:

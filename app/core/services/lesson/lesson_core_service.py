@@ -388,7 +388,7 @@ class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], Entit
                 print(f"Prerequisites: {len(context['prerequisites'])}")
                 print(f"Mastered by: {context['mastery_count']} users")
         """
-        result = await self.backend.get_with_context_raw(uid, min_confidence)
+        result = await self.backend.get_with_context_raw(uid, min_confidence)  # type: ignore[attr-defined]
         if result.is_error:
             return Result.fail(result)
 
@@ -674,7 +674,7 @@ class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], Entit
             if result.is_ok:
                 mastery = result.value  # 0.85
         """
-        result = await self.backend.get_user_mastery(user_uid, ku_uid)
+        result = await self.backend.get_user_mastery(user_uid, ku_uid)  # type: ignore[attr-defined]
 
         if result.is_error:
             return Result.fail(result)
@@ -720,7 +720,7 @@ class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], Entit
 
         See: /docs/patterns/UNIVERSAL_HIERARCHICAL_PATTERN.md
         """
-        result = await self.backend.get_organized_children_deep(parent_uid, depth)
+        result = await self.backend.get_organized_children_deep(parent_uid, depth)  # type: ignore[attr-defined]
         if result.is_error:
             return Result.fail(result)
 
@@ -753,7 +753,7 @@ class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], Entit
 
         See: /docs/patterns/UNIVERSAL_HIERARCHICAL_PATTERN.md
         """
-        result = await self.backend.get_parent_organizers_raw(entity_uid)
+        result = await self.backend.get_parent_organizers_raw(entity_uid)  # type: ignore[attr-defined]
         if result.is_error:
             return Result.fail(result)
 
@@ -782,7 +782,7 @@ class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], Entit
 
         See: /docs/patterns/UNIVERSAL_HIERARCHICAL_PATTERN.md
         """
-        raw_result = await self.backend.get_hierarchy_raw(entity_uid)
+        raw_result = await self.backend.get_hierarchy_raw(entity_uid)  # type: ignore[attr-defined]
         if raw_result.is_error:
             return Result.fail(raw_result)
 
@@ -852,7 +852,7 @@ class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], Entit
             )
 
         # Check for cycle prevention
-        cycle_result = await self.backend.check_organizes_cycle(parent_uid, child_uid)
+        cycle_result = await self.backend.check_organizes_cycle(parent_uid, child_uid)  # type: ignore[attr-defined]
         if cycle_result.is_error:
             return Result.fail(cycle_result)
 
@@ -865,7 +865,7 @@ class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], Entit
             )
 
         # Create ORGANIZES relationship
-        result = await self.backend.create_organizes(parent_uid, child_uid, order, importance)
+        result = await self.backend.create_organizes(parent_uid, child_uid, order, importance)  # type: ignore[attr-defined]
         if result.is_error:
             return Result.fail(result)
 
@@ -904,7 +904,7 @@ class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], Entit
 
         See: /docs/patterns/UNIVERSAL_HIERARCHICAL_PATTERN.md
         """
-        result = await self.backend.delete_organizes(parent_uid, child_uid)
+        result = await self.backend.delete_organizes(parent_uid, child_uid)  # type: ignore[attr-defined]
         if result.is_error:
             return Result.fail(result)
 

@@ -788,7 +788,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
     @with_error_handling("get_steps", error_type="database", uid_param="path_uid")
     async def get_steps(self, path_uid: str, depth: int = 1) -> Result[list[LearningStep]]:
         """Get all steps in a learning path ordered by sequence."""
-        result = await self.backend.get_steps_raw(path_uid, depth)
+        result = await self.backend.get_steps_raw(path_uid, depth)  # type: ignore[attr-defined]
         if result.is_error:
             return Result.fail(result)
         return Result.ok([from_neo4j_node(data, LearningStep) for data in result.value])
@@ -796,7 +796,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
     @with_error_handling("get_parent_path", error_type="database", uid_param="step_uid")
     async def get_parent_path(self, step_uid: str) -> Result[LearningPath | None]:
         """Get the learning path containing this step (first match)."""
-        result = await self.backend.get_parent_path_raw(step_uid)
+        result = await self.backend.get_parent_path_raw(step_uid)  # type: ignore[attr-defined]
         if result.is_error:
             return Result.fail(result)
         if result.value is None:
@@ -858,17 +858,17 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
         if not step_check.value:
             return Result.fail(Errors.not_found(f"Learning step not found: {step_uid}"))
 
-        return await self.backend.add_step_to_path(path_uid, step_uid, sequence, order)
+        return await self.backend.add_step_to_path(path_uid, step_uid, sequence, order)  # type: ignore[attr-defined]
 
     @with_error_handling("remove_step_from_path", error_type="database")
     async def remove_step_from_path(self, path_uid: str, step_uid: str) -> Result[bool]:
         """Remove a step from a path and reorder remaining steps."""
-        return await self.backend.remove_step_from_path(path_uid, step_uid)
+        return await self.backend.remove_step_from_path(path_uid, step_uid)  # type: ignore[attr-defined]
 
     @with_error_handling("reorder_steps", error_type="database")
     async def reorder_steps(self, path_uid: str, step_uids: list[str]) -> Result[bool]:
         """Batch reorder all steps in a learning path."""
-        return await self.backend.reorder_steps(path_uid, step_uids)
+        return await self.backend.reorder_steps(path_uid, step_uids)  # type: ignore[attr-defined]
 
     # ============================================================================
     # PRIVATE HELPERS

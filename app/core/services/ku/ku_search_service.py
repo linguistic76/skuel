@@ -50,7 +50,7 @@ class KuSearchService(BaseService[BackendOperations[Ku], Ku]):
         Returns:
             Result containing list of Ku dicts
         """
-        result = await self.backend.get_by_namespace(namespace)
+        result = await self.backend.get_by_namespace(namespace)  # type: ignore[attr-defined]
         if result.is_error:
             return Result.fail(result)
 
@@ -65,7 +65,7 @@ class KuSearchService(BaseService[BackendOperations[Ku], Ku]):
         Returns:
             Result containing list of matching Ku dicts
         """
-        result = await self.backend.search_by_alias(alias)
+        result = await self.backend.search_by_alias(alias)  # type: ignore[attr-defined]
         if result.is_error:
             return Result.fail(result)
 

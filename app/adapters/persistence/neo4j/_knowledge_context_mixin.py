@@ -162,7 +162,7 @@ class _KnowledgeContextMixin:
 
         # Validate order_by against whitelist (prevents Cypher injection)
         if order_by not in _ALLOWED_ORDER_BY:
-            return Errors.validation(f"Invalid order_by field: {order_by!r}")
+            return Result.fail(Errors.validation(f"Invalid order_by field: {order_by!r}"))
 
         # Validate relationship types (enum .value or pre-validated strings)
         rel_values = [r.value if isinstance(r, RelNameEnum) else r for r in rel_types]

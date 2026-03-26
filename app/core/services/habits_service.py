@@ -257,8 +257,10 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
     async def list_all_habit_categories(self) -> Result[list[str]]:
         return await self.search.list_all_categories()
 
-    async def get_habits_by_category(self, category: str, limit: int = 100) -> Result[list[Habit]]:
-        return await self.search.get_by_category(category, limit)
+    async def get_habits_by_category(
+        self, category: str, user_uid: str | None = None, limit: int = 100
+    ) -> Result[list[Habit]]:
+        return await self.search.get_by_category(category, user_uid=user_uid, limit=limit)
 
     async def get_habits_due_today(self, user_uid: str) -> Result[list[Habit]]:
         return await self.search.get_user_due_today(user_uid)

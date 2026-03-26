@@ -247,8 +247,10 @@ class LearningLoopEventHandlerService:
                 return
 
             state = state_result.value
-            ema_hours = state.get("feedback_ema_hours") or LearningLoop.DEFAULT_FEEDBACK_HOURS
-            sample_count = state.get("feedback_sample_count") or 0
+            ema_hours = float(
+                state.get("feedback_ema_hours") or LearningLoop.DEFAULT_FEEDBACK_HOURS
+            )
+            sample_count = int(state.get("feedback_sample_count") or 0)
 
             # EMA update
             alpha = LearningLoop.EMA_ALPHA_FEEDBACK
@@ -350,9 +352,13 @@ class LearningLoopEventHandlerService:
                 return
 
             if isinstance(first_created, str):
-                first_created = datetime.fromisoformat(first_created)
+                first_created_dt = datetime.fromisoformat(first_created)
+            elif isinstance(first_created, datetime):
+                first_created_dt = first_created
+            else:
+                return
 
-            hours = (event.occurred_at - first_created).total_seconds() / 3600.0
+            hours = (event.occurred_at - first_created_dt).total_seconds() / 3600.0
             velocity = _classify_mastery_velocity(iterations, hours)
 
             self.logger.info(

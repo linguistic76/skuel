@@ -324,8 +324,8 @@ class TaskEventHandlerService:
             return
 
         state = state_result.value
-        old_ratio = state.get("task_duration_ratio") or LearningLoop.DEFAULT_DURATION_RATIO
-        old_count = state.get("task_completion_count") or 0
+        old_ratio = float(state.get("task_duration_ratio") or LearningLoop.DEFAULT_DURATION_RATIO)
+        old_count = int(state.get("task_completion_count") or 0)
 
         # 4. EMA update
         alpha = LearningLoop.EMA_ALPHA_TASK_DURATION

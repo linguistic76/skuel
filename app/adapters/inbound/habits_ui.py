@@ -1009,7 +1009,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
 
         # Filter by category if not "all"
         if category != "all":
-            filtered_habits = [h for h in all_habits if h.category.value == category]
+            filtered_habits = [h for h in all_habits if h.category == category]
         else:
             filtered_habits = all_habits
 

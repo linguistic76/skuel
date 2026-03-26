@@ -65,6 +65,7 @@ from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
+    from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
     from core.models.exercises.revised_exercise import RevisedExercise  # noqa: F401
     from core.models.forms.form_submission import FormSubmission
     from core.models.forms.form_template import FormTemplate  # noqa: F401
@@ -364,7 +365,7 @@ class HabitsBackend(_HierarchyMixin, UniversalNeo4jBackend[Habit]):
         """
         result = await self.execute_query(query, {"user_uid": user_uid})
         if result.is_error:
-            return result
+            return Result.fail(result)
         if not result.value:
             return Result.ok(
                 {
@@ -4108,7 +4109,7 @@ class LateralRelationshipBackend:
     See: /docs/architecture/RELATIONSHIPS_ARCHITECTURE.md
     """
 
-    def __init__(self, executor: Any) -> None:
+    def __init__(self, executor: Neo4jQueryExecutor) -> None:
         self.executor = executor
 
     # ========================================================================
@@ -4415,7 +4416,7 @@ class NotificationBackend:
     Graph pattern: (User)-[:HAS_NOTIFICATION]->(Notification)
     """
 
-    def __init__(self, executor: Any) -> None:
+    def __init__(self, executor: Neo4jQueryExecutor) -> None:
         self.executor = executor
 
     async def create_notification(

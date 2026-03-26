@@ -74,7 +74,7 @@ class ReportRelationshipService:
         if result.is_error:
             return Result.fail(result)
 
-        return Result.ok([r["uid"] for r in (result.value or []) if r["uid"]])
+        return Result.ok([str(r["uid"]) for r in (result.value or []) if r["uid"]])
 
     async def get_unsubmitted_exercises(
         self, user_uid: str, limit: int = 5
@@ -99,8 +99,8 @@ class ReportRelationshipService:
         return Result.ok(
             [
                 {
-                    "uid": r["uid"],
-                    "title": r["title"] or "Untitled Exercise",
+                    "uid": str(r["uid"]),
+                    "title": str(r["title"]) if r["title"] else "Untitled Exercise",
                     "due_date": str(r["due_date"]) if r["due_date"] else None,
                 }
                 for r in (result.value or [])
@@ -143,10 +143,10 @@ class ReportRelationshipService:
         record = records[0]
         return Result.ok(
             {
-                "total_submissions": record["total_submissions"],
-                "with_report": record["with_report"],
-                "without_report": record["without_report"],
-                "total_reports": record["total_reports"],
+                "total_submissions": int(record["total_submissions"] or 0),
+                "with_report": int(record["with_report"] or 0),
+                "without_report": int(record["without_report"] or 0),
+                "total_reports": int(record["total_reports"] or 0),
             }
         )
 
@@ -181,14 +181,15 @@ class ReportRelationshipService:
             return Result.fail(Errors.not_found(resource="Exercise", identifier=exercise_uid))
 
         record = records[0]
+        submissions = list(record.get("submissions") or [])  # type: ignore[arg-type]
+        feedback = list(record.get("feedback") or [])  # type: ignore[arg-type]
+        revised = list(record.get("revised_exercises") or [])  # type: ignore[arg-type]
         return Result.ok(
             {
-                "exercise": dict(record["exercise"]) if record["exercise"] else {},
-                "submissions": [dict(s) for s in record.get("submissions", []) if s.get("uid")],
-                "feedback": [dict(f) for f in record.get("feedback", []) if f.get("uid")],
-                "revised_exercises": [
-                    dict(r) for r in record.get("revised_exercises", []) if r.get("uid")
-                ],
+                "exercise": dict(record["exercise"]) if record["exercise"] else {},  # type: ignore[arg-type]
+                "submissions": [dict(s) for s in submissions if s.get("uid")],  # type: ignore[union-attr]
+                "feedback": [dict(f) for f in feedback if f.get("uid")],  # type: ignore[union-attr]
+                "revised_exercises": [dict(r) for r in revised if r.get("uid")],  # type: ignore[union-attr]
             }
         )
 
@@ -218,14 +219,14 @@ class ReportRelationshipService:
             return Result.fail(Errors.not_found(resource="Submission", identifier=submission_uid))
 
         record = records[0]
+        feedback = list(record.get("feedback") or [])  # type: ignore[arg-type]
+        revised = list(record.get("revised_exercises") or [])  # type: ignore[arg-type]
         return Result.ok(
             {
-                "submission": dict(record["submission"]) if record["submission"] else {},
-                "exercise": dict(record["exercise"]) if record.get("exercise") else None,
-                "feedback": [dict(f) for f in record.get("feedback", []) if f.get("uid")],
-                "revised_exercises": [
-                    dict(r) for r in record.get("revised_exercises", []) if r.get("uid")
-                ],
+                "submission": dict(record["submission"]) if record["submission"] else {},  # type: ignore[arg-type]
+                "exercise": dict(record["exercise"]) if record.get("exercise") else None,  # type: ignore[arg-type]
+                "feedback": [dict(f) for f in feedback if f.get("uid")],  # type: ignore[union-attr]
+                "revised_exercises": [dict(r) for r in revised if r.get("uid")],  # type: ignore[union-attr]
             }
         )
 

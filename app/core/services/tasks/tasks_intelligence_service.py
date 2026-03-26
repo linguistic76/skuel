@@ -357,7 +357,7 @@ class TasksIntelligenceService(BaseAnalyticsService["TasksOperations", Task]):
         if state_result.is_ok:
             state = state_result.value
             ratio = state.get("task_duration_ratio")
-            count = state.get("task_completion_count") or 0
+            count = int(state.get("task_completion_count") or 0)
             learning_state = {
                 "learned_duration_ratio": ratio,
                 "learning_sample_count": count,

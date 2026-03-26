@@ -599,8 +599,12 @@ class AtomicHabitsBadges:
         identity = user_data.get("identity", {})
 
         max_streak = streaks.get("current_max_streak", 0)
-        total_completions = completions.get("total_completions", 0)
-        high_quality_count = quality.get("high_quality_count", 0)
+        _total_completions = completions.get(
+            "total_completions", 0
+        )  # Placeholder — completion badges not yet defined
+        _high_quality_count = quality.get(
+            "high_quality_count", 0
+        )  # Placeholder — quality badges not yet defined
         total_identity_votes = identity.get("total_identity_votes", 0)
 
         # Cross-domain data (not from completion service — populated by future callers)

@@ -102,7 +102,7 @@ class LessonMasteryService:
             return Result.fail(Errors.database("record_view", "Backend not available"))
 
         now = datetime.now(UTC).isoformat()
-        result = await self.backend.record_view(user_uid, ku_uid, now, time_spent_seconds)
+        result = await self.backend.record_view(user_uid, ku_uid, now, time_spent_seconds)  # type: ignore[attr-defined]
 
         if result.is_error:
             return Result.fail(result)
@@ -129,7 +129,7 @@ class LessonMasteryService:
             return Result.fail(Errors.database("mark_in_progress", "Backend not available"))
 
         now = datetime.now(UTC).isoformat()
-        result = await self.backend.mark_in_progress(user_uid, ku_uid, now)
+        result = await self.backend.mark_in_progress(user_uid, ku_uid, now)  # type: ignore[attr-defined]
 
         if result.is_error:
             return Result.fail(result)
@@ -154,7 +154,7 @@ class LessonMasteryService:
         if not self.backend:
             return Result.fail(Errors.database("get_learning_state", "Backend not available"))
 
-        result = await self.backend.get_learning_state_raw(user_uid, ku_uid)
+        result = await self.backend.get_learning_state_raw(user_uid, ku_uid)  # type: ignore[attr-defined]
 
         if result.is_error:
             return Result.fail(result)
@@ -220,7 +220,7 @@ class LessonMasteryService:
         if not ku_uids:
             return Result.ok({})
 
-        result = await self.backend.get_learning_states_batch_raw(user_uid, ku_uids)
+        result = await self.backend.get_learning_states_batch_raw(user_uid, ku_uids)  # type: ignore[attr-defined]
 
         if result.is_error:
             return Result.fail(result)
@@ -252,7 +252,7 @@ class LessonMasteryService:
         if not self.backend:
             return Result.fail(Errors.system("Backend required", service="LessonMasteryService"))
 
-        result = await self.backend.mark_as_read(user_uid, ku_uid)
+        result = await self.backend.mark_as_read(user_uid, ku_uid)  # type: ignore[attr-defined]
 
         if result.is_error:
             return Result.fail(result)
@@ -270,7 +270,7 @@ class LessonMasteryService:
             return Result.fail(Errors.system("Backend required", service="LessonMasteryService"))
 
         # Check if bookmark exists
-        check_result = await self.backend.check_bookmark(user_uid, ku_uid)
+        check_result = await self.backend.check_bookmark(user_uid, ku_uid)  # type: ignore[attr-defined]
 
         if check_result.is_error:
             return Result.fail(check_result)
@@ -278,13 +278,13 @@ class LessonMasteryService:
         is_bookmarked = check_result.value[0]["is_bookmarked"] if check_result.value else False
 
         if is_bookmarked:
-            del_result = await self.backend.delete_bookmark(user_uid, ku_uid)
+            del_result = await self.backend.delete_bookmark(user_uid, ku_uid)  # type: ignore[attr-defined]
             if del_result.is_error:
                 return Result.fail(del_result)
             self.logger.info(f"Removed bookmark: {user_uid} -> {ku_uid}")
             return Result.ok(False)
         else:
-            create_result = await self.backend.create_bookmark(user_uid, ku_uid)
+            create_result = await self.backend.create_bookmark(user_uid, ku_uid)  # type: ignore[attr-defined]
             if create_result.is_error:
                 return Result.fail(create_result)
             self.logger.info(f"Added bookmark: {user_uid} -> {ku_uid}")
@@ -312,7 +312,7 @@ class LessonMasteryService:
             return Result.fail(Errors.system("Backend required", service="LessonMasteryService"))
 
         now = datetime.now(UTC).isoformat()
-        result = await self.backend.mark_mastered(user_uid, ku_uid, now, mastery_score, method)
+        result = await self.backend.mark_mastered(user_uid, ku_uid, now, mastery_score, method)  # type: ignore[attr-defined]
 
         if result.is_error:
             return Result.fail(result)
@@ -352,7 +352,7 @@ class LessonMasteryService:
                 self.logger.warning("No backend available for KU→Lesson completion detection")
                 return
 
-            result = await self.backend.detect_lesson_completion(event.ku_uid, event.user_uid)
+            result = await self.backend.detect_lesson_completion(event.ku_uid, event.user_uid)  # type: ignore[attr-defined]
 
             if result.is_error:
                 self.logger.error(f"Failed to check lesson completion: {result.error}")
@@ -384,7 +384,7 @@ class LessonMasteryService:
         if not self.backend:
             return Result.fail(Errors.system("Backend required", service="LessonMasteryService"))
 
-        result = await self.backend.get_bookmarked_kus(user_uid)
+        result = await self.backend.get_bookmarked_kus(user_uid)  # type: ignore[attr-defined]
 
         if result.is_error:
             return Result.fail(result)
@@ -399,7 +399,7 @@ class LessonMasteryService:
         if not self.backend:
             return Result.fail(Errors.system("Backend required", service="LessonMasteryService"))
 
-        result = await self.backend.get_all_user_knowledge_status(user_uid)
+        result = await self.backend.get_all_user_knowledge_status(user_uid)  # type: ignore[attr-defined]
 
         if result.is_error:
             return Result.fail(result)
